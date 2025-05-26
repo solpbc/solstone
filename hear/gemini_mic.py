@@ -324,9 +324,14 @@ class AudioRecorder:
             logging.info(f"Found {len(mic_segments)} microphone and {len(sys_segments)} system segments.")
 
     def save_results(self, timestamp, ogg_bytes, response_text):
-        ogg_filepath = os.path.join(self.save_dir, f"audio_{timestamp}.ogg")
-        json_filepath = os.path.join(self.save_dir, f"audio_{timestamp}.json")
-        
+        """Save the audio and transcription using date-based directories."""
+        date_part, time_part = timestamp.split("_", 1)
+        day_dir = os.path.join(self.save_dir, date_part)
+        os.makedirs(day_dir, exist_ok=True)
+
+        ogg_filepath = os.path.join(day_dir, f"{time_part}_audio.ogg")
+        json_filepath = os.path.join(day_dir, f"{time_part}_audio.json")
+
         with open(ogg_filepath, "wb") as f:
             f.write(ogg_bytes)
         with open(json_filepath, "w") as f:
