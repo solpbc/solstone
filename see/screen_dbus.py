@@ -32,6 +32,15 @@ async def get_idle_time_ms(bus):
     idle_time = await idle_monitor.call_get_idletime()
     return idle_time
 
+async def _idle_time_ms_async():
+    """Return the current idle time of the desktop in milliseconds."""
+    bus = await MessageBus(bus_type=BusType.SESSION).connect()
+    return await get_idle_time_ms(bus)
+
+def idle_time_ms():
+    """Synchronous wrapper around ``_idle_time_ms_async``."""
+    return asyncio.run(_idle_time_ms_async())
+
 def get_monitor_geometries():
     # Get the default display. If it is None, try opening one from the environment.
     display = Gdk.Display.get_default()

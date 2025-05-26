@@ -12,10 +12,13 @@ Dependencies are defined in `pyproject.toml`. You will also need system packages
 
 ## Usage
 
-The package exposes a `screen-watch` command that periodically captures the screen, detects changes and optionally queries Gemini for a description:
+The package exposes a `screen-watch` command that captures the current screen
+state, compares it with the last run and optionally queries Gemini for a
+description. Previous screenshots and the last run timestamp are stored under
+`~/.cache/sunstone/see`:
 
 ```bash
-screen-watch <interval> <output-directory> [--verbose] [--min PIXELS] [-g]
+screen-watch <output-directory> [--verbose] [--min PIXELS] [-g]
 ```
 
 Set the `GOOGLE_API_KEY` environment variable before invoking Gemini functionality.
