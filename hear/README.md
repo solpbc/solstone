@@ -18,4 +18,4 @@ After setting the `GOOGLE_API_KEY` environment variable you can run the `gemini-
 gemini-mic <save-directory> [-d] [-t SECONDS]
 ```
 
-Use `-d` to enable debug mode and `-t` to adjust the speech processing interval.
+Use `-d` to enable debug mode and `-t` to adjust the speech processing interval. Crash tracebacks are logged to standard error by default.

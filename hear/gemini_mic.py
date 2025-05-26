@@ -1,6 +1,7 @@
 import os
 import sys
 import io
+import faulthandler
 import numpy as np
 import soundcard as sc
 import soundfile as sf
@@ -373,6 +374,9 @@ def main():
     # Create save directory if needed
     if args.save_dir and not os.path.exists(args.save_dir):
         os.makedirs(args.save_dir)
+
+    # Enable faulthandler to help diagnose crashes
+    faulthandler.enable()
     
     # 4. Create the recorder
     recorder = AudioRecorder(
