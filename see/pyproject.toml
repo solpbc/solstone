@@ -1,0 +1,19 @@
+[project]
+name = "sunstone-see"
+version = "0.1.0"
+description = "Screenshot capture and difference detection with optional Gemini integration."
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = [
+    "python-dotenv",
+    "google-generativeai",
+    "Pillow",
+    "numpy",
+    "opencv-python",
+    "scikit-image",
+    "dbus-next",
+    "PyGObject",
+]
+
+[project.scripts]
+screen-watch = "see.screen_watch:main"

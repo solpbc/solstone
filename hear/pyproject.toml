@@ -1,0 +1,20 @@
+[project]
+name = "sunstone-hear"
+version = "0.1.0"
+description = "Audio capture and Gemini-based transcription utilities."
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = [
+    "python-dotenv",
+    "google-generativeai",
+    "soundcard",
+    "soundfile",
+    "silero-vad",
+    "noisereduce",
+    "pyaec",
+    "scipy",
+    "numpy",
+]
+
+[project.scripts]
+gemini-mic = "hear.gemini_mic:main"
