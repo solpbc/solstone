@@ -94,13 +94,20 @@ def process_once(output_dir, min_threshold, use_gemini):
                 draw = ImageDraw.Draw(annotated)
                 draw.rectangle(((x_min, y_min), (x_max, y_max)), outline="red", width=3)
                 timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-                filename = os.path.join(output_dir, f"monitor_{idx}_{timestamp}_diff.png")
-                annotated.save(filename)
-                log(f"[Monitor {idx}] Saved annotated diff image: {filename}", force=True)
+                date_part, time_part = timestamp.split("_", 1)
+                day_dir = os.path.join(output_dir, date_part)
+                os.makedirs(day_dir, exist_ok=True)
+                base = os.path.join(day_dir, f"{time_part}_monitor_{idx}_diff")
+                img_filename = base + ".png"
+                annotated.save(img_filename)
+                log(
+                    f"[Monitor {idx}] Saved annotated diff image: {img_filename}",
+                    force=True,
+                )
                 if use_gemini:
                     result = gemini_look.gemini_describe_region(pil_img, largest_box)
                     if result:
-                        json_filename = os.path.splitext(filename)[0] + ".json"
+                        json_filename = base + ".json"
                         with open(json_filename, "w") as jf:
                             json.dump(result, jf, indent=2)
                         log(
