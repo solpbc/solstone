@@ -49,6 +49,20 @@ class AudioRecorder:
         self.aec = Aec(self.frame_size, self.filter_length, SAMPLE_RATE, True)
         self.timer_interval = timer_interval
 
+        # Load prompt text
+        self.prompt_text = None
+        try:
+            script_dir = os.path.dirname(os.path.abspath(__file__))
+            prompt_file_path = os.path.join(script_dir, "gemini_mic.txt")
+            with open(prompt_file_path, "r") as f:
+                self.prompt_text = f.read().strip()
+            if not self.prompt_text:
+                logging.error(f"Prompt file '{prompt_file_path}' is empty.")
+                # self.prompt_text remains None or could be set to a default
+        except FileNotFoundError:
+            logging.error(f"Prompt file not found: {prompt_file_path}")
+            # self.prompt_text remains None
+
     def enhance_voice(self, audio):
         if len(audio) == 0:
             return audio
@@ -110,49 +124,55 @@ class AudioRecorder:
             logging.info(f"No audio data found in {label} buffer.")
             return [], np.array([], dtype=np.float32)
 
-        speech_segments = get_speech_timestamps(
-            buffer_data, self.model,
-            sampling_rate=SAMPLE_RATE,
-            return_seconds=True,
-            speech_pad_ms=70,
-            min_silence_duration_ms=100,
-            min_speech_duration_ms=200,
-            threshold=0.3
-        )
-        buffer_seconds = len(buffer_data) / SAMPLE_RATE
-        logging.info(f"Detected {len(speech_segments)} speech segments in {label} of {buffer_seconds:.1f} seconds.")
-        if self.debug:
-            debug_filename = f"test_{label}.ogg"
-            debug_data = self.create_ogg_bytes([{"data": buffer_data}])
-            with open(debug_filename, "wb") as f:
-                f.write(debug_data)
-            logging.debug(f"Saved debug file: {debug_filename}")
+        try:
+            speech_segments = get_speech_timestamps(
+                buffer_data, self.model,
+                sampling_rate=SAMPLE_RATE,
+                return_seconds=True,
+                speech_pad_ms=70,
+                min_silence_duration_ms=100,
+                min_speech_duration_ms=200,
+                threshold=0.3
+            )
+            buffer_seconds = len(buffer_data) / SAMPLE_RATE
+            logging.info(f"Detected {len(speech_segments)} speech segments in {label} of {buffer_seconds:.1f} seconds.")
+            if self.debug:
+                debug_filename = f"test_{label}.ogg"
+                debug_data = self.create_ogg_bytes([{"data": buffer_data}])
+                with open(debug_filename, "wb") as f:
+                    f.write(debug_data)
+                logging.debug(f"Saved debug file: {debug_filename}")
 
-        segments = []
-        total_duration = len(buffer_data) / SAMPLE_RATE
-        unprocessed_data = np.array([], dtype=np.float32)
+            segments = []
+            total_duration = len(buffer_data) / SAMPLE_RATE
+            unprocessed_data = np.array([], dtype=np.float32)
 
-        for i, seg in enumerate(speech_segments):
-            if i == len(speech_segments) - 1 and total_duration - seg['end'] < 1:
+            for i, seg in enumerate(speech_segments):
+                if i == len(speech_segments) - 1 and total_duration - seg['end'] < 1:
+                    start_idx = int(seg['start'] * SAMPLE_RATE)
+                    unprocessed_data = buffer_data[start_idx:]
+                    logging.debug(f"Unprocessed segment at end of {label} buffer of length {len(unprocessed_data)/SAMPLE_RATE:.1f} seconds.")
+                    break
                 start_idx = int(seg['start'] * SAMPLE_RATE)
-                unprocessed_data = buffer_data[start_idx:]
-                logging.debug(f"Unprocessed segment at end of {label} buffer of length {len(unprocessed_data)/SAMPLE_RATE:.1f} seconds.")
-                break
-            start_idx = int(seg['start'] * SAMPLE_RATE)
-            end_idx = int(seg['end'] * SAMPLE_RATE)
-            seg_data = buffer_data[start_idx:end_idx]
-            segments.append({
-                "offset": seg['start'],
-                "data": seg_data
-            })
-        return segments, unprocessed_data
+                end_idx = int(seg['end'] * SAMPLE_RATE)
+                seg_data = buffer_data[start_idx:end_idx]
+                segments.append({
+                    "offset": seg['start'],
+                    "data": seg_data
+                })
+            return segments, unprocessed_data
+        except Exception as e:
+            logging.error(f"Error in detect_speech for {label}: {e}")
+            # Reset state by returning empty results
+            return [], np.array([], dtype=np.float32)
 
     def transcribe(self, ogg_bytes):
         size_mb = len(ogg_bytes) / (1024 * 1024)
         logging.info(f"Transcribing chunk: {size_mb:.2f}MB")
         
-        with open("gemini_mic.txt", "r") as f:
-            prompt_text = f.read().strip()
+        if not self.prompt_text:
+            logging.error("Prompt text not loaded. Cannot transcribe.")
+            return ""
             
         try:
             response = self.client.models.generate_content(
@@ -165,7 +185,7 @@ class AudioRecorder:
                     temperature=0.3,
                     max_output_tokens=8192,
                     response_mime_type="application/json",
-                    system_instruction=prompt_text
+                    system_instruction=self.prompt_text
                 )
             )
             return response.text
@@ -391,6 +411,11 @@ def main():
         api_key=API_KEY
     )
     
+    if recorder.prompt_text is None:
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        prompt_file_path = os.path.join(script_dir, "gemini_mic.txt")
+        sys.exit(f"Error: Prompt file '{prompt_file_path}' not found or is empty. Please create it and add a system prompt.")
+
     # 5. Detect devices or exit
     if not recorder.detect():
         sys.exit("No suitable audio devices found.")
