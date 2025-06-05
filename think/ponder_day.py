@@ -116,6 +116,11 @@ def main() -> None:
     result, usage_metadata = send_markdown(markdown, prompt, api_key, model)
     print(f"Usage: {usage_metadata}")
     
+    # Check if we got a valid response
+    if result is None:
+        print("Error: No text content in response")
+        return
+    
     # Create output filename and save result
     prompt_basename = os.path.splitext(os.path.basename(args.prompt))[0]
     output_filename = f"{prompt_basename}_{model}.md"
