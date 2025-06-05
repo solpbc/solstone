@@ -188,7 +188,7 @@ class AudioRecorder:
                     system_instruction=self.prompt_text
                 )
             )
-            return response.text
+            return json.loads(response.text)
         except Exception as e:
             logging.error(f"Error during transcription: {e}")
             return ""
@@ -371,7 +371,7 @@ class AudioRecorder:
                     self.process_segments_and_transcribe(segments_all)
             logging.info(f"Found {len(mic_segments)} microphone and {len(sys_segments)} system segments.")
 
-    def save_results(self, timestamp, ogg_bytes, response_text):
+    def save_results(self, timestamp, ogg_bytes, response_json):
         """Save the audio and transcription using date-based directories."""
         date_part, time_part = timestamp.split("_", 1)
         day_dir = os.path.join(self.save_dir, date_part)
@@ -383,8 +383,8 @@ class AudioRecorder:
         with open(ogg_filepath, "wb") as f:
             f.write(ogg_bytes)
         with open(json_filepath, "w") as f:
-            json.dump({"text": response_text}, f)
-        logging.info(f"Saved to {ogg_filepath}: {response_text}")
+            json.dump({"text": response_json}, f)
+        logging.info(f"Saved to {ogg_filepath}: {json.dumps(response_json)}")
 
     def start(self):
         threads = [

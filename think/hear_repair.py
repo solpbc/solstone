@@ -45,7 +45,7 @@ def transcribe_file(client, prompt_text, ogg_path):
                 system_instruction=prompt_text,
             ),
         )
-        return response.text
+        return json.loads(response.text)
     except Exception as e:
         logging.error(f"Error during transcription: {e}")
         return ""
