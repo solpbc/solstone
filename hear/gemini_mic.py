@@ -314,7 +314,11 @@ class AudioRecorder:
         # Write to an in-memory OGG buffer
         buf = io.BytesIO()
         # Ensure C-contiguous array and correct shape for sf.write
-        audio_data = np.ascontiguousarray(chunk_int16.reshape(-1, CHANNELS)).copy()
+        audio_data = np.ascontiguousarray(chunk_int16.reshape(-1, CHANNELS))
+        logging.debug(f"Attempting sf.write. audio_data shape: {audio_data.shape}, dtype: {audio_data.dtype}, "
+                  f"min: {np.min(audio_data) if audio_data.size > 0 else 'N/A'}, "
+                  f"max: {np.max(audio_data) if audio_data.size > 0 else 'N/A'}, "
+                  f"is_contiguous: {audio_data.flags.c_contiguous}")
         try:
             sf.write(buf, audio_data, SAMPLE_RATE, format='OGG', subtype='VORBIS')
         except Exception as e:
