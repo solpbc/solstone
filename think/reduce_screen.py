@@ -63,7 +63,7 @@ def group_entries(entries):
     for e in entries:
         interval_minute = e["timestamp"].minute - (e["timestamp"].minute % 5)
         start = e["timestamp"].replace(minute=interval_minute, second=0, microsecond=0)
-        key = (e["monitor"], start)
+        key = start  # Remove monitor from key to group all monitors together
         groups.setdefault(key, []).append(e)
     return groups
 
@@ -77,7 +77,7 @@ def load_prompt(path):
         sys.exit(1)
 
 
-def call_gemini(markdown, prompt, api_key):
+def call_gemini(markdown, prompt, api_key, debug=False):
     client = genai.Client(api_key=api_key)
     done = threading.Event()
 
@@ -88,6 +88,13 @@ def call_gemini(markdown, prompt, api_key):
             elapsed += 5
             if not done.is_set():
                 print(f"... {elapsed}s elapsed")
+
+    if debug:
+        print(f"\n=== DEBUG: Prompt to Gemini ===")
+        print(f"System instruction: {prompt}")
+        print(f"\n=== DEBUG: Content to Gemini ===")
+        print(markdown)
+        print(f"\n=== DEBUG: End of input ===\n")
 
     t = threading.Thread(target=progress, daemon=True)
     t.start()
@@ -101,14 +108,20 @@ def call_gemini(markdown, prompt, api_key):
                 system_instruction=prompt,
             ),
         )
+        
+        if debug:
+            print(f"\n=== DEBUG: Response from Gemini ===")
+            print(response.text)
+            print(f"\n=== DEBUG: End of response ===\n")
+            
         return response.text, response.usage_metadata
     finally:
         done.set()
         t.join()
 
 
-def process_group(monitor, start, files, prompt, api_key, force, day_dir, token_tracker):
-    out_name = f"{start.strftime('%H%M%S')}_monitor_{monitor}.md"
+def process_group(start, files, prompt, api_key, force, day_dir, token_tracker, debug=False):
+    out_name = f"{start.strftime('%H%M%S')}_screen.md"
     out_path = os.path.join(day_dir, out_name)
     if os.path.exists(out_path) and not force:
         print(f"Skipping existing {out_name}")
@@ -116,20 +129,35 @@ def process_group(monitor, start, files, prompt, api_key, force, day_dir, token_
 
     lines = []
     end = start + timedelta(minutes=5)
-    lines.append(f"## Monitor {monitor} {start.strftime('%H:%M')} - {end.strftime('%H:%M')}")
+    lines.append(f"## Screen Activity {start.strftime('%H:%M')} - {end.strftime('%H:%M')}")
     lines.append("")
+    
+    # Group files by monitor for organized display
+    monitor_files = {}
     for e in files:
-        with open(e["path"], "r", encoding="utf-8") as f:
-            content = f.read().strip()
-        lines.append(f"### {e['timestamp'].strftime('%H:%M:%S')}")
-        lines.append("```json")
-        lines.append(content)
-        lines.append("```")
+        monitor_files.setdefault(e["monitor"], []).append(e)
+    
+    # Process each monitor in order
+    for monitor in sorted(monitor_files.keys()):
+        monitor_entries = sorted(monitor_files[monitor], key=lambda x: x["timestamp"])
+        lines.append(f"### Monitor {monitor}")
         lines.append("")
+        
+        for e in monitor_entries:
+            with open(e["path"], "r", encoding="utf-8") as f:
+                content = f.read().strip()
+            lines.append(f"#### {e['timestamp'].strftime('%H:%M:%S')}")
+            lines.append("```json")
+            lines.append(content)
+            lines.append("```")
+            lines.append("")
+    
     markdown = "\n".join(lines)
-    print(f"Processing monitor {monitor} starting {start.strftime('%H:%M')} ({len(files)} files)")
+    monitor_count = len(monitor_files)
+    file_count = len(files)
+    print(f"Processing screen activity starting {start.strftime('%H:%M')} ({monitor_count} monitors, {file_count} files)")
     try:
-        result, usage_metadata = call_gemini(markdown, prompt, api_key)
+        result, usage_metadata = call_gemini(markdown, prompt, api_key, debug)
         token_tracker.add_usage(usage_metadata)
         
         # Calculate compression for this file
@@ -149,10 +177,11 @@ def process_group(monitor, start, files, prompt, api_key, force, day_dir, token_
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Summarize per-monitor JSON files in 5 minute chunks using Gemini")
+    parser = argparse.ArgumentParser(description="Summarize all monitor JSON files in 5 minute chunks using Gemini")
     parser.add_argument("folder", help="Day directory containing *_monitor_*_diff.json files")
     parser.add_argument("-p", "--prompt", default=DEFAULT_PROMPT_PATH, help="Prompt file")
     parser.add_argument("--force", action="store_true", help="Overwrite existing markdown files")
+    parser.add_argument("-d", "--debug", action="store_true", help="Print prompt and response from Gemini")
     args = parser.parse_args()
 
     day_dir = args.folder
@@ -174,8 +203,8 @@ def main():
 
     token_tracker = TokenTracker()
 
-    for (monitor, start), files in sorted(groups.items(), key=lambda x: (x[0][0], x[0][1])):
-        process_group(monitor, start, files, prompt, api_key, args.force, day_dir, token_tracker)
+    for start, files in sorted(groups.items()):
+        process_group(start, files, prompt, api_key, args.force, day_dir, token_tracker, args.debug)
 
     token_tracker.print_summary()
 
