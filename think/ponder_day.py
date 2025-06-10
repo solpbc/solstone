@@ -16,7 +16,7 @@ from think.cluster_day import cluster_day
 DEFAULT_PROMPT_PATH = os.path.join(os.path.dirname(__file__), "ponder_day.txt")
 
 FLASH_MODEL = "gemini-2.5-flash-preview-05-20"
-PRO_MODEL = "gemini-2.5-pro-preview-05-06"
+PRO_MODEL = "gemini-2.5-pro-preview-06-05"
 
 
 def count_tokens(markdown: str, prompt: str, api_key: str, model: str) -> None:
@@ -114,7 +114,12 @@ def main() -> None:
         return
 
     result, usage_metadata = send_markdown(markdown, prompt, api_key, model)
-    print(f"Usage: {usage_metadata}")
+    
+    # Extract and display only the essential token counts
+    prompt_tokens = getattr(usage_metadata, 'prompt_token_count', 0)
+    thoughts_tokens = getattr(usage_metadata, 'thoughts_token_count', 0)
+    candidates_tokens = getattr(usage_metadata, 'candidates_token_count', 0)
+    print(f"Usage: prompt={prompt_tokens} thoughts={thoughts_tokens} candidates={candidates_tokens}")
     
     # Check if we got a valid response
     if result is None:
