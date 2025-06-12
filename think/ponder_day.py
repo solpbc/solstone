@@ -50,7 +50,10 @@ def send_markdown(markdown: str, prompt: str, api_key: str, model: str) -> tuple
             contents=[markdown],
             config=types.GenerateContentConfig(
                 temperature=0.3,
-                max_output_tokens=8192,
+                max_output_tokens=8192*4,
+                thinking_config=types.ThinkingConfig(
+                    thinking_budget=8192*2,
+                ),
                 system_instruction=prompt,
             ),
         )
@@ -86,6 +89,11 @@ def main() -> None:
         action="store_true",
         help="Count tokens only and exit",
     )
+    parser.add_argument(
+        "--force",
+        action="store_true",
+        help="Overwrite output file if it already exists",
+    )
     args = parser.parse_args()
 
     markdown, file_count = cluster_day(args.folder)
@@ -113,6 +121,20 @@ def main() -> None:
         count_tokens(markdown, prompt, api_key, model)
         return
 
+    # Create output filename and check if either model version exists before API call
+    prompt_basename = os.path.splitext(os.path.basename(args.prompt))[0]
+    flash_output = os.path.join(args.folder, f"{prompt_basename}_{FLASH_MODEL}.md")
+    pro_output = os.path.join(args.folder, f"{prompt_basename}_{PRO_MODEL}.md")
+    
+    # Check if either output file exists and handle accordingly
+    if (os.path.exists(flash_output) or os.path.exists(pro_output)) and not args.force:
+        existing_file = flash_output if os.path.exists(flash_output) else pro_output
+        print(f"Output file already exists: {existing_file}")
+        return
+
+    output_filename = f"{prompt_basename}_{model}.md"
+    output_path = os.path.join(args.folder, output_filename)
+
     result, usage_metadata = send_markdown(markdown, prompt, api_key, model)
     
     # Extract and display only the essential token counts
@@ -125,11 +147,6 @@ def main() -> None:
     if result is None:
         print("Error: No text content in response")
         return
-    
-    # Create output filename and save result
-    prompt_basename = os.path.splitext(os.path.basename(args.prompt))[0]
-    output_filename = f"{prompt_basename}_{model}.md"
-    output_path = os.path.join(args.folder, output_filename)
     
     os.makedirs(args.folder, exist_ok=True)
     
