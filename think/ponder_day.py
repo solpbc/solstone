@@ -3,6 +3,7 @@ import os
 import sys
 import threading
 import time
+import json
 
 # Add parent directory to path for module discovery
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -29,7 +30,7 @@ def count_tokens(markdown: str, prompt: str, api_key: str, model: str) -> None:
     print(f"Token count: {total_tokens}")
 
 
-def send_markdown(markdown: str, prompt: str, api_key: str, model: str) -> tuple[str, object]:
+def send_markdown(markdown: str, prompt: str, api_key: str, model: str, is_json_mode: bool) -> tuple[str, object]:
     client = genai.Client(api_key=api_key)
 
     done = threading.Event()
@@ -45,17 +46,21 @@ def send_markdown(markdown: str, prompt: str, api_key: str, model: str) -> tuple
     t = threading.Thread(target=progress, daemon=True)
     t.start()
     try:
+        gen_config_args = {
+            "temperature": 0.3,
+            "max_output_tokens": 8192*2,
+            "thinking_config": types.ThinkingConfig(
+                thinking_budget=8192*2,
+            ),
+            "system_instruction": prompt,
+        }
+        if is_json_mode:
+            gen_config_args["response_mime_type"] = "application/json"
+
         response = client.models.generate_content(
             model=model,
             contents=[markdown],
-            config=types.GenerateContentConfig(
-                temperature=0.3,
-                max_output_tokens=8192*4,
-                thinking_config=types.ThinkingConfig(
-                    thinking_budget=8192*2,
-                ),
-                system_instruction=prompt,
-            ),
+            config=types.GenerateContentConfig(**gen_config_args),
         )
         return response.text, response.usage_metadata
     finally:
@@ -109,6 +114,9 @@ def main() -> None:
     except FileNotFoundError:
         parser.error(f"Prompt file not found: {args.prompt}")
 
+    is_json_mode = "```json" in prompt
+    output_extension = ".json" if is_json_mode else ".md"
+
     model = PRO_MODEL if args.pro else FLASH_MODEL
     day = os.path.basename(os.path.normpath(args.folder))
     size_kb = len(markdown.encode("utf-8")) / 1024
@@ -121,21 +129,18 @@ def main() -> None:
         count_tokens(markdown, prompt, api_key, model)
         return
 
-    # Create output filename and check if either model version exists before API call
     prompt_basename = os.path.splitext(os.path.basename(args.prompt))[0]
-    flash_output = os.path.join(args.folder, f"{prompt_basename}_{FLASH_MODEL}.md")
-    pro_output = os.path.join(args.folder, f"{prompt_basename}_{PRO_MODEL}.md")
     
-    # Check if either output file exists and handle accordingly
-    if (os.path.exists(flash_output) or os.path.exists(pro_output)) and not args.force:
-        existing_file = flash_output if os.path.exists(flash_output) else pro_output
-        print(f"Output file already exists: {existing_file}")
-        return
-
-    output_filename = f"{prompt_basename}_{model}.md"
+    # Determine the specific output path for this run
+    output_filename = f"{prompt_basename}{output_extension}"
     output_path = os.path.join(args.folder, output_filename)
 
-    result, usage_metadata = send_markdown(markdown, prompt, api_key, model)
+    if not args.force:
+        if os.path.exists(output_path):
+            print(f"Output file already exists: {output_path}. Use --force to overwrite.")
+            return
+
+    result, usage_metadata = send_markdown(markdown, prompt, api_key, model, is_json_mode)
     
     # Extract and display only the essential token counts
     prompt_tokens = getattr(usage_metadata, 'prompt_token_count', 0)
@@ -147,6 +152,13 @@ def main() -> None:
     if result is None:
         print("Error: No text content in response")
         return
+
+    if is_json_mode:
+        try:
+            json.loads(result)
+        except json.JSONDecodeError as e:
+            print(f"Error: Result is not valid JSON. Details: {e}: {result[:100]}")
+            return
     
     os.makedirs(args.folder, exist_ok=True)
     

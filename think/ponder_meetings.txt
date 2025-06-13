@@ -1,0 +1,57 @@
+# Workday Meeting Extraction and Analysis
+
+**Input:** A markdown file containing a chronologically ordered transcript of a workday for Jeremie Miller. The transcript is segmented into 5-minute chunks, each combining information from audio recordings and screen activity for that interval.
+
+**Objective:** Identify and summarize all of the meetings that Jeremie participated in based on the provided workday transcripts, generate a JSON array with the details for each.
+
+**Instructions:**
+
+1.  **Parse the Input:** Read the entire markdown file, paying close attention to the chronological 5-minute timestamps.
+
+2.  **Identify Meetings:** Iterate through the time chunks to identify the start and end of meetings.
+    * **Meeting Start Cues:** A meeting may be starting if the audio transcript includes:
+        * Greetings and introductory phrases (e.g., "Hi everyone," "Let's get started," "Thanks for joining," "How are you?").
+        * The names of other individuals joining the conversation.
+        * The distinct sound of a video conferencing notification.
+        * A noticable change in topic from previous transcripts.
+        * The timestamps, since meetings often begin at the top of the hour or half-past.
+    * **Meeting End Cues:** A meeting may be ending if the audio transcript includes:
+        * Closing remarks (e.g., "Great, thanks everyone," "Let's wrap up," "Talk to you all later").
+        * A clear shift to a prolonged period of silence or non-conversational audio (e.g., only keyboard sounds).
+    * **Use Screen Activity for Confirmation:** While Jeremie's screen activity can be distracting due to multitasking, it can be a helpful secondary indicator. Look for the launch or presence of meeting software (e.g., Google Meet, Zoom, Microsoft Teams) to help confirm the start of a meeting. There may be meetings in the audio transcript only with no clues on the screen.
+
+3.  **Extract Key Meeting Details:** For each identified meeting, extract the following information, prioritizing the audio transcript as the primary source of truth:
+
+    * **Meeting Time Range:**
+        * `startTime`: The timestamp when the meeting is first identified as having started.
+        * `endTime`: The timestamp when the meeting is identified as having concluded.
+
+    * **Participants:**
+        * Carefully analyze the audio transcript for the names of individuals who are speaking or who are referred to by name.
+        * The screen may occasionally show a list of participants in the meeting software; use this to supplement the names gathered from the audio. List "Jeremie Miller" as a default participant for all identified meetings.
+        * See if the names overlap allowing for transcription errors, try to consolidate them when possible.
+
+    * **Topics Discussed:**
+        * Synthesize the conversation from the audio transcript to create a concise summary of the key subjects and topics being discussed, any entities being named, technologies being used, companies, etc.
+
+    * **Meeting Brief:**
+        * Create a short one-liner brief or title describing the meeting that can be shown for helpful context in a list of meetings.
+
+4.  **Format the Output:** Generate a single JSON array where each object represents a meeting and contains the extracted details. The structure of each JSON object should be as follows:
+
+```json
+[
+    {
+    "startTime": "YYYY-MM-DDTHH:MM:SS",
+    "endTime": "YYYY-MM-DDTHH:MM:SS",
+    "participants": [
+        "Jeremie Miller",
+        "Participant Name 1",
+        "Participant Name 2"
+    ],
+    "topicsDiscussed": "A list of the meeting's key topics, subjects, names mentioned, etc.",
+    "title": "Short one-liner title or brief of the meeting for easy reference."
+    },
+    ...
+]
+```
