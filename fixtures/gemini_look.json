@@ -1,0 +1,8 @@
+{
+  "app": "Team Chat App",
+  "app_title": "Anna Koval, Leo Maxwell, Nina Patel (DM) - DataSystems - Team Chat App",
+  "visual_description": "The screenshot shows a Team Chat App conversation. On the left is the main conversation window with messages from Leo Maxwell, Nina Patel, and Alex. On the right is a 'Thread' window with replies to Alex's message. The messages contain text, emojis, and timestamps. Below the main conversation is a message input field with formatting options and an area where users can type a message. The 'Thread' window shows replies from Alex and Leo Maxwell, along with a reply input field.",
+  "full_ocr": "Thread\nAlex 2 minutes ago\nsounds like leo wants Synapse-link with Omni-net\n1 reply\nLeo Maxwell 1 minute ago\nI do want that. Productivity > privacy\nReply...\nAlso send to the group\nAa",
+  "meeting_status": "No meeting is currently active",
+  "activity_category": "Communication"
+}
