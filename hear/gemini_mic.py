@@ -1,35 +1,44 @@
-import os
-import sys
-import io
+import argparse
+import datetime
 import faulthandler
+import io
+import json
+import logging
+import os
+import subprocess
+import sys
+import threading
+import time
+from queue import Queue
+from typing import List, Tuple
+
 import numpy as np
 import soundcard as sc
 import soundfile as sf
-from silero_vad import load_silero_vad, get_speech_timestamps
+from audio_detect import audio_detect
 from dotenv import load_dotenv
 from google import genai
 from google.genai import types
-import threading
-import datetime
-import json
 from noisereduce import reduce_noise
-import time
-from queue import Queue
 from pyaec import Aec
-from scipy.fft import rfft, irfft
-import subprocess
-import argparse
-import logging
-from audio_detect import audio_detect
-from typing import List, Tuple
+from scipy.fft import irfft, rfft
+from silero_vad import get_speech_timestamps, load_silero_vad
 
 # Constants
 CHUNK_DURATION = 5
 SAMPLE_RATE = 16000
 CHANNELS = 1
 
+
 class AudioRecorder:
-    def __init__(self, save_dir=None, debug=False, timer_interval=60, api_key=None):
+    def __init__(
+        self,
+        save_dir=None,
+        debug=False,
+        timer_interval=60,
+        api_key=None,
+        entities_path=None,
+    ):
         self.save_dir = save_dir or os.getcwd()
         self.model = load_silero_vad()
         self.client = genai.Client(api_key=api_key)
@@ -37,12 +46,12 @@ class AudioRecorder:
         self.sys_queue = Queue()
         self._running = True
         self.debug = debug
-        
+
         # Voice enhancement parameters
         self.min_freq = 300
         self.max_freq = 3400
         self.boost_factor = 2
-        
+
         # PyAEC parameters
         self.frame_size = int(0.02 * SAMPLE_RATE)
         self.filter_length = int(SAMPLE_RATE * 0.2)
@@ -63,6 +72,14 @@ class AudioRecorder:
             logging.error(f"Prompt file not found: {prompt_file_path}")
             # self.prompt_text remains None
 
+        self.entities_text = None
+        if entities_path:
+            try:
+                with open(entities_path, "r") as ef:
+                    self.entities_text = ef.read().strip()
+            except FileNotFoundError:
+                logging.error(f"Entities file not found: {entities_path}")
+
     def enhance_voice(self, audio):
         if len(audio) == 0:
             return audio
@@ -76,17 +93,17 @@ class AudioRecorder:
 
         # Compute the FFT
         X = rfft(audio)
-        freqs = np.fft.rfftfreq(len(audio), d=1/SAMPLE_RATE)
-        
+        freqs = np.fft.rfftfreq(len(audio), d=1 / SAMPLE_RATE)
+
         # Define vocal range mask
         vocal_mask = (freqs >= self.min_freq) & (freqs <= self.max_freq)
-        
+
         # Apply boost to the vocal range frequencies
         X[vocal_mask] *= self.boost_factor
-        
+
         # Reconstruct the time-domain signal via inverse FFT
         enhanced = irfft(X)
-        
+
         # Return the enhanced audio as float32 in the same range as input
         return enhanced.astype(np.float32)
 
@@ -126,16 +143,19 @@ class AudioRecorder:
 
         try:
             speech_segments = get_speech_timestamps(
-                buffer_data, self.model,
+                buffer_data,
+                self.model,
                 sampling_rate=SAMPLE_RATE,
                 return_seconds=True,
                 speech_pad_ms=70,
                 min_silence_duration_ms=100,
                 min_speech_duration_ms=200,
-                threshold=0.3
+                threshold=0.3,
             )
             buffer_seconds = len(buffer_data) / SAMPLE_RATE
-            logging.info(f"Detected {len(speech_segments)} speech segments in {label} of {buffer_seconds:.1f} seconds.")
+            logging.info(
+                f"Detected {len(speech_segments)} speech segments in {label} of {buffer_seconds:.1f} seconds."
+            )
             if self.debug:
                 debug_filename = f"test_{label}.flac"
                 debug_data = self.create_flac_bytes([{"data": buffer_data}])
@@ -148,18 +168,17 @@ class AudioRecorder:
             unprocessed_data = np.array([], dtype=np.float32)
 
             for i, seg in enumerate(speech_segments):
-                if i == len(speech_segments) - 1 and total_duration - seg['end'] < 1:
-                    start_idx = int(seg['start'] * SAMPLE_RATE)
+                if i == len(speech_segments) - 1 and total_duration - seg["end"] < 1:
+                    start_idx = int(seg["start"] * SAMPLE_RATE)
                     unprocessed_data = buffer_data[start_idx:]
-                    logging.debug(f"Unprocessed segment at end of {label} buffer of length {len(unprocessed_data)/SAMPLE_RATE:.1f} seconds.")
+                    logging.debug(
+                        f"Unprocessed segment at end of {label} buffer of length {len(unprocessed_data)/SAMPLE_RATE:.1f} seconds."
+                    )
                     break
-                start_idx = int(seg['start'] * SAMPLE_RATE)
-                end_idx = int(seg['end'] * SAMPLE_RATE)
+                start_idx = int(seg["start"] * SAMPLE_RATE)
+                end_idx = int(seg["end"] * SAMPLE_RATE)
                 seg_data = buffer_data[start_idx:end_idx]
-                segments.append({
-                    "offset": seg['start'],
-                    "data": seg_data
-                })
+                segments.append({"offset": seg["start"], "data": seg_data})
             return segments, unprocessed_data
         except Exception as e:
             logging.error(f"Error in detect_speech for {label}: {e}")
@@ -169,24 +188,30 @@ class AudioRecorder:
     def transcribe(self, flac_bytes):
         size_mb = len(flac_bytes) / (1024 * 1024)
         logging.info(f"Transcribing chunk: {size_mb:.2f}MB")
-        
+
         if not self.prompt_text:
             logging.error("Prompt text not loaded. Cannot transcribe.")
             return ""
-            
+
         try:
+            user_prompt = "Process the provided audio now and output your professional accurate transcription in the specified JSON format."
+            if self.entities_text:
+                user_prompt += (
+                    " Here's an incomplete list of entity names you might encounter, they can be useful to help disambiguate some terms: "
+                    + self.entities_text
+                )
             response = self.client.models.generate_content(
-                model="gemini-2.5-flash-preview-05-20",#"gemini-2.0-flash",
+                model="gemini-2.5-flash-preview-05-20",  # "gemini-2.0-flash",
                 contents=[
-                    "Process the provided audio now and output your professional accurate transcription in the specified JSON format.",
-                    types.Part.from_bytes(data=flac_bytes, mime_type="audio/flac")
+                    user_prompt,
+                    types.Part.from_bytes(data=flac_bytes, mime_type="audio/flac"),
                 ],
                 config=types.GenerateContentConfig(
                     temperature=0.3,
                     max_output_tokens=8192,
                     response_mime_type="application/json",
-                    system_instruction=self.prompt_text
-                )
+                    system_instruction=self.prompt_text,
+                ),
             )
             return json.loads(response.text)
         except Exception as e:
@@ -197,15 +222,15 @@ class AudioRecorder:
         if len(audio_buffer) == 0:
             return 0
         return np.sqrt(np.mean(np.square(audio_buffer)))
-    
+
     def normalize_audio(self, audio, target_rms):
         if len(audio) == 0 or target_rms == 0:
             return audio
-            
+
         current_rms = self.calculate_rms(audio)
         if current_rms == 0:
             return audio
-            
+
         gain_factor = target_rms / current_rms
         return audio * gain_factor
 
@@ -213,16 +238,16 @@ class AudioRecorder:
         # Check if system is muted via pulseaudio
         try:
             result = subprocess.run(
-                ["pactl", "get-sink-mute", "@DEFAULT_SINK@"], 
-                capture_output=True, 
-                text=True, 
-                check=True
+                ["pactl", "get-sink-mute", "@DEFAULT_SINK@"],
+                capture_output=True,
+                text=True,
+                check=True,
             )
             pactl_muted = "Mute: yes" in result.stdout
         except subprocess.SubprocessError as e:
             logging.error(f"Error checking system mute status: {e}")
             pactl_muted = False
-        
+
         # Check if audio buffer is silent
         silent = False
         if audio_buffer is not None and len(audio_buffer) > 0:
@@ -230,7 +255,7 @@ class AudioRecorder:
             silent = rms < 0.0001
             if silent:
                 logging.info(f"System audio silent (RMS: {rms:.6f})")
-        
+
         return pactl_muted or silent
 
     def get_buffer(self, queue):
@@ -250,7 +275,9 @@ class AudioRecorder:
             logging.info("Missing audio data in one or both buffers.")
             return mic_buffer
 
-        logging.info(f"Echo cancelling mic seconds {len(mic_buffer)/SAMPLE_RATE:.4f} sys seconds {len(sys_buffer)/SAMPLE_RATE:.4f}")        
+        logging.info(
+            f"Echo cancelling mic seconds {len(mic_buffer)/SAMPLE_RATE:.4f} sys seconds {len(sys_buffer)/SAMPLE_RATE:.4f}"
+        )
 
         # Convert float32 arrays to int16 (required by PyAEC)
         mic_int16 = (mic_buffer * 32767).astype(np.int16)
@@ -263,9 +290,9 @@ class AudioRecorder:
         # Process complete frames
         for i in range(0, min_length, self.frame_size):
             # Get the frame (could be partial at the end)
-            mic_frame = mic_int16[i:i+self.frame_size]
-            sys_frame = sys_int16[i:i+self.frame_size]
-            
+            mic_frame = mic_int16[i : i + self.frame_size]
+            sys_frame = sys_int16[i : i + self.frame_size]
+
             # If we have a partial frame at the end
             if min(len(mic_frame), len(sys_frame)) < self.frame_size:
                 # Just append the raw partial frame
@@ -276,7 +303,7 @@ class AudioRecorder:
                 processed_chunks.append(processed_frame)
 
         processed_mic = np.concatenate(processed_chunks).astype(np.float32) / 32767.0
-        
+
         # Only enhance/normalize if we're doing echo cancellation
         processed_mic = self.enhance_voice(processed_mic)
         sys_rms = self.calculate_rms(sys_buffer)
@@ -284,7 +311,7 @@ class AudioRecorder:
         logging.info(f"System RMS: {sys_rms:.6f} Microphone RMS: {mic_rms:.6f}")
         # if sys_rms > mic_rms and mic_rms > 0.01:
         #     processed_mic = self.normalize_audio(processed_mic, sys_rms)
-        
+
         return processed_mic
 
     def create_flac_bytes(self, segments: list) -> bytes:
@@ -296,33 +323,39 @@ class AudioRecorder:
                 combined_data_list.append(data)
 
         if not combined_data_list:
-            logging.warning("No valid audio data in segments to create FLAC. Returning empty bytes.")
+            logging.warning(
+                "No valid audio data in segments to create FLAC. Returning empty bytes."
+            )
             return b""
-        
+
         combined = np.concatenate(combined_data_list)
 
-        if combined.size == 0: # Minimal check for empty array after concatenation
+        if combined.size == 0:  # Minimal check for empty array after concatenation
             logging.warning("Concatenated audio data is empty. Returning empty bytes.")
             return b""
 
         # Minimal fix for NaN/Inf before clipping and conversion
-        combined = np.nan_to_num(combined, nan=0.0, posinf=1.0, neginf=-1.0) 
+        combined = np.nan_to_num(combined, nan=0.0, posinf=1.0, neginf=-1.0)
 
         # Convert to int16 format
         chunk_int16 = (np.clip(combined, -1.0, 1.0) * 32767).astype(np.int16)
-        
+
         # Write to an in-memory FLAC buffer
         buf = io.BytesIO()
         # Ensure C-contiguous array and correct shape for sf.write
         audio_data = np.ascontiguousarray(chunk_int16.reshape(-1, CHANNELS))
-        logging.debug(f"Attempting sf.write. audio_data shape: {audio_data.shape}, dtype: {audio_data.dtype}, "
-                  f"min: {np.min(audio_data) if audio_data.size > 0 else 'N/A'}, "
-                  f"max: {np.max(audio_data) if audio_data.size > 0 else 'N/A'}, "
-                  f"is_contiguous: {audio_data.flags.c_contiguous}")
+        logging.debug(
+            f"Attempting sf.write. audio_data shape: {audio_data.shape}, dtype: {audio_data.dtype}, "
+            f"min: {np.min(audio_data) if audio_data.size > 0 else 'N/A'}, "
+            f"max: {np.max(audio_data) if audio_data.size > 0 else 'N/A'}, "
+            f"is_contiguous: {audio_data.flags.c_contiguous}"
+        )
         try:
-            sf.write(buf, audio_data, SAMPLE_RATE, format='FLAC')
+            sf.write(buf, audio_data, SAMPLE_RATE, format="FLAC")
         except Exception as e:
-            logging.error(f"Error during sf.write: {e}. Audio data shape: {audio_data.shape}, dtype: {audio_data.dtype}")
+            logging.error(
+                f"Error during sf.write: {e}. Audio data shape: {audio_data.shape}, dtype: {audio_data.dtype}"
+            )
             return b""
         return buf.getvalue()
 
@@ -369,7 +402,9 @@ class AudioRecorder:
                 if segments_all:
                     segments_all.sort(key=lambda seg: seg["offset"])  # weave together in time
                     self.process_segments_and_transcribe(segments_all)
-            logging.info(f"Found {len(mic_segments)} microphone and {len(sys_segments)} system segments.")
+            logging.info(
+                f"Found {len(mic_segments)} microphone and {len(sys_segments)} system segments."
+            )
 
     def save_results(self, timestamp, flac_bytes, response_json):
         """Save the audio and transcription using date-based directories."""
@@ -388,13 +423,21 @@ class AudioRecorder:
 
     def start(self):
         threads = [
-            threading.Thread(target=self.record_device, args=(self.mic_device, self.mic_queue, "mic"), daemon=True),
-            threading.Thread(target=self.record_device, args=(self.sys_device, self.sys_queue, "sys"), daemon=True),
-            threading.Thread(target=self.speech_processing_timer, daemon=True)
+            threading.Thread(
+                target=self.record_device,
+                args=(self.mic_device, self.mic_queue, "mic"),
+                daemon=True,
+            ),
+            threading.Thread(
+                target=self.record_device,
+                args=(self.sys_device, self.sys_queue, "sys"),
+                daemon=True,
+            ),
+            threading.Thread(target=self.speech_processing_timer, daemon=True),
         ]
         for thread in threads:
             thread.start()
-        
+
         try:
             while True:
                 time.sleep(1)
@@ -405,51 +448,69 @@ class AudioRecorder:
             self._running = False
             logging.error(f"Error during recording: {e}")
 
+
 def main():
     # 1. Load environment
     load_dotenv()
 
     # 2. Parse CLI arguments
     parser = argparse.ArgumentParser(description="Record audio and transcribe using Gemini API.")
-    parser.add_argument("save_dir", nargs="?", default=None, help="Directory to save audio and transcriptions.")
-    parser.add_argument("-d", "--debug", action="store_true", help="Enable debug mode (save audio buffers).")
-    parser.add_argument("-t", "--timer_interval", type=int, default=60, help="Timer interval in seconds.")
+    parser.add_argument(
+        "save_dir", nargs="?", default=None, help="Directory to save audio and transcriptions."
+    )
+    parser.add_argument(
+        "-d", "--debug", action="store_true", help="Enable debug mode (save audio buffers)."
+    )
+    parser.add_argument(
+        "-t", "--timer_interval", type=int, default=60, help="Timer interval in seconds."
+    )
+    parser.add_argument(
+        "-e",
+        "--entities",
+        type=str,
+        default=None,
+        help="Path to a text file listing entity names for disambiguation.",
+    )
     args = parser.parse_args()
-    
+
     # Set up logging
     logging.basicConfig(level=logging.DEBUG if args.debug else logging.INFO)
-    
+
     # 3. Validate environment variables (API_KEY)
     API_KEY = os.getenv("GOOGLE_API_KEY")
     if not API_KEY:
         sys.exit("Error: GOOGLE_API_KEY not found in environment. Please set it in your .env file.")
-    
+
     # Create save directory if needed
     if args.save_dir and not os.path.exists(args.save_dir):
         os.makedirs(args.save_dir)
 
     # Enable faulthandler to help diagnose crashes
     faulthandler.enable()
-    
+
     # 4. Create the recorder
     recorder = AudioRecorder(
         save_dir=args.save_dir,
         debug=args.debug,
         timer_interval=args.timer_interval,
-        api_key=API_KEY
+        api_key=API_KEY,
+        entities_path=args.entities,
     )
-    
+
     if recorder.prompt_text is None:
         script_dir = os.path.dirname(os.path.abspath(__file__))
         prompt_file_path = os.path.join(script_dir, "gemini_mic.txt")
-        sys.exit(f"Error: Prompt file '{prompt_file_path}' not found or is empty. Please create it and add a system prompt.")
+        sys.exit(
+            f"Error: Prompt file '{prompt_file_path}' not found or is empty. Please create it and add a system prompt."
+        )
 
     # 5. Detect devices or exit
     if not recorder.detect():
         sys.exit("No suitable audio devices found.")
-    
+
     # 6. Start recording
     recorder.start()
+
 
 if __name__ == "__main__":
     main()
