@@ -76,6 +76,7 @@ reduce-screen = "think.reduce_screen:main"
 repair-audio-json = "think.repair_audio_json:main"
 see-repair = "think.see_repair:main"
 hear-repair = "think.hear_repair:main"
+entity-review = "dream.entity_review:main"
 
 [project.urls]
 Homepage = "https://github.com/yourusername/sunstone"
@@ -84,12 +85,13 @@ Documentation = "https://github.com/yourusername/sunstone/blob/main/README.md"
 "Bug Tracker" = "https://github.com/yourusername/sunstone/issues"
 
 [tool.setuptools.packages.find]
-include = ["hear*", "see*", "think*"]
+include = ["hear*", "see*", "think*", "dream*"]
 
 [tool.setuptools.package-data]
 hear = ["*.txt"]
 see = ["*.txt"]
 think = ["*.txt"]
+dream = ["entity_review/index.html"]
 
 # Development tools configuration
 [tool.black]

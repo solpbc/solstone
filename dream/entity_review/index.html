@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<title>Entity Review</title>
+<style>
+body { font-family: sans-serif; margin: 1em; }
+#types button { margin-right: 0.5em; }
+ul { list-style: none; padding-left: 0; }
+</style>
+</head>
+<body>
+<h1>Entity Review</h1>
+<div id="types"></div>
+<ul id="entities"></ul>
+<script>
+let data = {};
+fetch('api/data').then(r => r.json()).then(d => {
+  data = d;
+  const typesDiv = document.getElementById('types');
+  Object.keys(data).forEach(type => {
+    const btn = document.createElement('button');
+    btn.textContent = type;
+    btn.onclick = () => showType(type);
+    typesDiv.appendChild(btn);
+  });
+  const first = Object.keys(data)[0];
+  if (first) showType(first);
+});
+function showType(type) {
+  const list = document.getElementById('entities');
+  list.innerHTML = '';
+  const items = data[type] || [];
+  items.sort((a, b) => b.dates.length - a.dates.length);
+  items.forEach(item => {
+    const li = document.createElement('li');
+    li.textContent = `${item.name} (${item.dates.length}) - ${item.desc}`;
+    list.appendChild(li);
+  });
+}
+</script>
+</body>
+</html>
