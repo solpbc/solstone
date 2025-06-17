@@ -1,4 +1,5 @@
 import argparse
+import glob
 import os
 import re
 from datetime import datetime, timedelta
@@ -31,9 +32,9 @@ def gather_files(day: datetime, day_dirs: Dict[str, str]) -> List[str]:
         dir_path = day_dirs.get(key)
         if not dir_path:
             continue
-        kg_path = os.path.join(dir_path, "ponder_kg.md")
-        if os.path.isfile(kg_path):
-            files.append(kg_path)
+        kg_pattern = os.path.join(dir_path, "ponder_kg*.md")
+        kg_files = glob.glob(kg_pattern)
+        files.extend(kg_files)
     return files
 
 
@@ -49,6 +50,12 @@ def process_day(day_str: str, day_dirs: Dict[str, str], force: bool) -> None:
         print(f"No ponder_kg.md files for {day_str}")
         return
 
+    print(f"Processing {day_str}:")
+    print(f"  Found {len(files)} ponder_kg files from 8-day window")
+    for file in files:
+        print(f"    {os.path.basename(file)}")
+    
+    print(f"  Clustering and merging content...")
     markdown = cluster_glob(files)
 
     load_dotenv()
@@ -60,6 +67,7 @@ def process_day(day_str: str, day_dirs: Dict[str, str], force: bool) -> None:
     with open(PROMPT_PATH, "r", encoding="utf-8") as f:
         prompt = f.read().strip()
 
+    print(f"  Sending to Gemini for entity extraction...")
     result, _ = send_to_gemini(markdown, prompt, api_key, PRO_MODEL, False)
     if not result:
         print(f"Gemini returned no result for {day_str}")

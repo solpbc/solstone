@@ -30,7 +30,7 @@ Follow these steps to build the master list:
     * Present the final, prioritized list as a bulleted list.
     * Each item must follow the exact format: `* [Type]: [Canonical Name] - [Synthesized Short Description]`
     * Ensure there are no duplicate entities in the final output.
-    * Capture as many as you can, fill your output.
+    * Capture AS MANY AS YOU CAN, fill your output!
 
 **Example Output Format:**
 
