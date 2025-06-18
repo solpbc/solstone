@@ -2,13 +2,30 @@ import argparse
 import json
 import os
 import re
+from datetime import datetime
 from functools import partial
 from http.server import HTTPServer, SimpleHTTPRequestHandler
 from typing import Any, Dict, List, Optional
 
 DATE_RE = re.compile(r"\d{8}")
 ITEM_RE = re.compile(r"^\s*[-*]\s*(.*)")
-BOLD_RE = re.compile(r"\*\*(.*?)\*\*")
+
+
+def format_date(date_str: str) -> str:
+    """Convert YYYYMMDD to 'Wednesday April 2nd' format"""
+    try:
+        date_obj = datetime.strptime(date_str, "%Y%m%d")
+        day = date_obj.day
+
+        # Add ordinal suffix
+        if 10 <= day % 100 <= 20:
+            suffix = "th"
+        else:
+            suffix = {1: "st", 2: "nd", 3: "rd"}.get(day % 10, "th")
+
+        return date_obj.strftime(f"%A %B {day}{suffix}")
+    except ValueError:
+        return date_str  # Return original if parsing fails
 
 
 def find_day_dirs(parent: str) -> Dict[str, str]:
@@ -21,35 +38,60 @@ def find_day_dirs(parent: str) -> Dict[str, str]:
     return days
 
 
-def parse_entities(path: str) -> List[tuple[str, str, str]]:
+def parse_entities(path: str) -> tuple[List[tuple[str, str, str]], int, int]:
     items: List[tuple[str, str, str]] = []
+    bullet_count = 0
+    skipped_count = 0
+    valid_types = {"Person", "Company", "Project", "Tool"}
+
     file_path = os.path.join(path, "entities.md")
     if not os.path.isfile(file_path):
-        return items
+        return items, bullet_count, skipped_count
+
     with open(file_path, "r", encoding="utf-8") as f:
         for line in f:
-            m = ITEM_RE.match(line)
-            if not m:
+            # Remove all bold formatting first
+            line = line.replace("**", "").strip()
+            if not line:
                 continue
-            text = BOLD_RE.sub(r"\1", m.group(1)).strip()
+
+            # Only process lines that start with "*" bullet
+            if not line.startswith("*"):
+                continue
+
+            bullet_count += 1
+
+            # Remove the bullet and get the text
+            text = line[1:].strip()
+
             if ":" not in text:
+                skipped_count += 1
                 continue
             etype, rest = text.split(":", 1)
             etype = etype.strip()
+
+            # Skip if entity type is not in valid types
+            if etype not in valid_types:
+                skipped_count += 1
+                continue
+
             rest = rest.strip()
             if " - " in rest:
                 name, desc = rest.split(" - ", 1)
             else:
                 name, desc = rest, ""
             items.append((etype, name.strip(), desc.strip()))
-    return items
+
+    return items, bullet_count, skipped_count
 
 
 def build_index(parent: str) -> Dict[str, Dict[str, dict]]:
     days = find_day_dirs(parent)
     index: Dict[str, Dict[str, dict]] = {}
     for day, path in days.items():
-        for etype, name, desc in parse_entities(path):
+        entities, bullet_count, skipped_count = parse_entities(path)
+        print(f"Day {day}: {bullet_count} bullet lines found, {skipped_count} skipped")
+        for etype, name, desc in entities:
             type_map = index.setdefault(etype, {})
             entry = type_map.setdefault(name, {"dates": [], "descriptions": {}})
             if day not in entry["dates"]:
@@ -77,11 +119,17 @@ class EntityHandler(SimpleHTTPRequestHandler):
                 data[etype] = []
                 for name, info in names.items():
                     desc = info["descriptions"].get(info["dates"][0], "")
+                    # Format dates and descriptions with friendly dates
+                    formatted_descriptions = {}
+                    for date, desc_text in info["descriptions"].items():
+                        formatted_descriptions[format_date(date)] = desc_text
+
                     data[etype].append(
                         {
                             "name": name,
-                            "dates": sorted(info["dates"]),
+                            "dates": [format_date(date) for date in sorted(info["dates"])],
                             "desc": desc,
+                            "descriptions": formatted_descriptions,
                         }
                     )
             self.send_response(200)
