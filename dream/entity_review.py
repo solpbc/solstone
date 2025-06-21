@@ -111,8 +111,19 @@ def build_index(parent: str) -> Dict[str, Dict[str, dict]]:
     return index
 
 
+def log_entity_operation(log_dir: str, operation: str, day: str, etype: str, name: str, new_name: Optional[str] = None) -> None:
+    """Log entity operations to entity_review.log"""
+    log_path = os.path.join(log_dir, "entity_review.log")
+    timestamp = datetime.now().isoformat()
+    
+    log_entry = f"{timestamp} {operation} {day} {etype}: {name}\n"
+    
+    with open(log_path, "a", encoding="utf-8") as f:
+        f.write(log_entry)
+
+
 def modify_entity_file(
-    parent: str, day: str, etype: str, name: str, new_name: Optional[str] = None
+    parent: str, day: str, etype: str, name: str, new_name: Optional[str] = None, operation: str = "remove"
 ) -> None:
     """Remove or rename an entity entry in a day's ``entities.md`` file."""
 
@@ -149,6 +160,9 @@ def modify_entity_file(
 
     with open(file_path, "w", encoding="utf-8") as f:
         f.writelines(lines)
+    
+    # Log the operation
+    log_entity_operation(parent, operation, day, etype, name, new_name)
 
 
 class EntityHandler(SimpleHTTPRequestHandler):
@@ -165,7 +179,13 @@ class EntityHandler(SimpleHTTPRequestHandler):
         super().__init__(*args, directory=directory, **kwargs)
 
     def reload_index(self) -> None:
-        self.index = build_index(self.root)
+        print(f"Reloading index from {self.root}")
+        old_count = sum(len(names) for names in self.index.values())
+        new_index = build_index(self.root)
+        self.index.clear()
+        self.index.update(new_index)
+        new_count = sum(len(names) for names in self.index.values())
+        print(f"Index reloaded: {old_count} -> {new_count} total entities")
 
     def do_GET(self) -> None:
         if self.path == "/api/data":
@@ -225,7 +245,7 @@ class EntityHandler(SimpleHTTPRequestHandler):
 
         try:
             for day in days:
-                modify_entity_file(self.root, day, etype, name, new_name)
+                modify_entity_file(self.root, day, etype, name, new_name, action)
             self.reload_index()
         except Exception as e:
             self.send_response(400)

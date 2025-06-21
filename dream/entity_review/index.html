@@ -106,6 +106,13 @@ tr:hover { background: #f8f9fa; }
 .modal-header h3 { 
   margin: 0; 
   color: #333; 
+  cursor: pointer;
+  border-radius: 4px;
+  padding: 4px;
+  transition: background-color 0.2s;
+}
+.modal-header h3:hover {
+  background: #f0f0f0;
 }
 .modal-body {
   max-height: calc(70vh - 80px);
@@ -204,21 +211,22 @@ function showType(type) {
       <td class="name">${item.name}</td>
       <td class="desc">${item.desc}</td>
     `;
-    const nameTd = tr.querySelector('.name');
-    nameTd.ondblclick = () => editName(tr, item);
     tbody.appendChild(tr);
   });
 }
 
-function editName(tr, item) {
-  const nameTd = tr.querySelector('.name');
+function editName(nameElement, item) {
   const original = item.name;
-  nameTd.innerHTML = '';
+  nameElement.innerHTML = '';
+  nameElement.onclick = null;
+  
   const input = document.createElement('input');
   input.type = 'text';
   input.value = original;
-  input.style.width = '150px';
-  nameTd.appendChild(input);
+  input.style.width = '200px';
+  input.style.border = '1px solid #ddd';
+  input.style.padding = '4px';
+  nameElement.appendChild(input);
 
   const actions = document.createElement('span');
   actions.style.marginLeft = '8px';
@@ -228,34 +236,49 @@ function editName(tr, item) {
     <span style="cursor:pointer;color:#555;margin-left:6px;">&#128465;</span>
   `;
   const [ok, cancel, del] = actions.children;
-  nameTd.appendChild(actions);
+  nameElement.appendChild(actions);
 
   const reset = () => {
-    nameTd.innerHTML = original;
+    nameElement.innerHTML = original;
+    nameElement.onclick = () => editName(nameElement, item);
   };
 
   ok.onclick = () => {
     const newName = input.value.trim();
     if (!newName || newName === original) { reset(); return; }
-    tr.style.opacity = '0.5';
+    
+    nameElement.style.opacity = '0.5';
+    
     fetch('api/rename', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ type: activeType, name: original, new_name: newName, days: item.raw_dates })
-    }).then(() => reloadData());
+    }).then(() => {
+      document.getElementById('entityModal').style.display = 'none';
+      reloadData();
+    });
   };
 
   cancel.onclick = reset;
 
   del.onclick = () => {
     if (!confirm(`Delete ${original}?`)) return;
-    tr.style.opacity = '0.5';
+    
+    nameElement.style.opacity = '0.5';
+    
     fetch('api/remove', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ type: activeType, name: original, days: item.raw_dates })
-    }).then(() => reloadData());
+    }).then(() => {
+      document.getElementById('entityModal').style.display = 'none';
+      reloadData();
+    });
   };
+
+  // Focus and select the input text
+  input.focus();
+  input.select();
 }
 
 function showEntityDetails(name) {
@@ -267,7 +290,7 @@ function showEntityDetails(name) {
   
   let html = `
     <div class="modal-header">
-      <h3>${name}</h3>
+      <h3 id="modalEntityName">${name}</h3>
     </div>
     <div class="modal-body">`;
   
@@ -283,6 +306,12 @@ function showEntityDetails(name) {
   html += '</div>';
   
   content.innerHTML = html;
+  
+  // Add click handler for editing name in modal
+  document.getElementById('modalEntityName').onclick = () => {
+    editName(document.getElementById('modalEntityName'), item);
+  };
+  
   modal.style.display = 'block';
 }
 
