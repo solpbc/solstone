@@ -173,7 +173,7 @@ def main() -> None:
     print(f"Results saved to: {output_path}")
 
     crumb_builder = (
-        CrumbBuilder("think.ponder_day")
+        CrumbBuilder()
         .add_file(args.prompt)
         .add_glob(os.path.join(args.folder, "*_audio.json"))
         .add_glob(os.path.join(args.folder, "*_screen.md"))
