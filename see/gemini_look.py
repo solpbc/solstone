@@ -77,7 +77,7 @@ def gemini_describe_region(image, box, models=None, entities=None):
     models_to_try = (
         models
         if models is not None
-        else ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-2.0-flash-lite"]
+        else ["gemini-2.5-flash-lite-preview-06-17", "gemini-2.5-flash", "gemini-2.0-flash", "gemini-2.0-flash-lite"]
     )
 
     for model_name in models_to_try:
@@ -99,4 +99,5 @@ def gemini_describe_region(image, box, models=None, entities=None):
             if model_name == models_to_try[-1]:  # If it's the last model in the list
                 return None  # All retries failed
             # Otherwise, loop will continue to the next model
+            print(f"Retrying with next model: {models_to_try[models_to_try.index(model_name) + 1]}")
     return None
