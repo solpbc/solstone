@@ -5,10 +5,11 @@ import logging
 import time
 from pathlib import Path
 
+import gemini_look
 from dotenv import load_dotenv
 from PIL import Image
 
-import gemini_look
+from think.crumbs import CrumbBuilder
 
 
 class Describer:
@@ -31,12 +32,12 @@ class Describer:
                 logging.info(f"Skipping {box_path}: already processed")
                 continue
             files.append((img_path, box_path, json_path))
-        
+
         if files:
             logging.info(f"Found {len(files)} files to process")
         else:
             logging.info("No new files found to process")
-        
+
         return files
 
     def describe(self, img_path: Path, box_path: Path) -> dict | None:
@@ -58,6 +59,12 @@ class Describer:
                     if result:
                         json_path.write_text(json.dumps(result, indent=2))
                         logging.info(f"Described {img_path} -> {json_path}")
+                        crumb_builder = CrumbBuilder().add_file(img_path).add_file(box_path)
+                        if self.entities:
+                            crumb_builder.add_file(self.entities)
+                        crumb_builder.add_model("gemini-2.5-flash")
+                        crumb_path = crumb_builder.commit(str(json_path))
+                        logging.info(f"Crumb saved to {crumb_path}")
                         self.processed.add(json_path.name)
                 except Exception as e:
                     logging.error(f"Failed to describe {img_path}: {e}")

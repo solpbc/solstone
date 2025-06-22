@@ -1,28 +1,29 @@
 import argparse
-import os
-import time
 import json
-from PIL import Image
-import numpy as np
+import os
 import sys
+import time
+
+import numpy as np
+from PIL import Image
+
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from see import gemini_look
+from think.crumbs import CrumbBuilder
 
 
-import numpy as np
-from PIL import Image
-
-def detect_red_box(im: Image.Image,
-                   *,                       # keyword‑only for clarity
-                   min_length: int = 100,    # shortest expected side
-                   border: int = 3,         # thickness used when drawing
-                  ) -> tuple[int, int, int, int]:
+def detect_red_box(
+    im: Image.Image,
+    *,  # keyword‑only for clarity
+    min_length: int = 100,  # shortest expected side
+    border: int = 3,  # thickness used when drawing
+) -> tuple[int, int, int, int]:
     a = np.asarray(im)
     red = (a[..., 0] > 250) & (a[..., 1] < 5) & (a[..., 2] < 5)
 
     # Count red pixels per column / row
-    col_hits = red.sum(0)                 # shape (W,)
-    row_hits = red.sum(1)                 # shape (H,)
+    col_hits = red.sum(0)  # shape (W,)
+    row_hits = red.sum(1)  # shape (H,)
 
     # Columns/rows that plausibly belong to a straight border side
     cols = np.where(col_hits >= min_length)[0]
@@ -43,6 +44,7 @@ def detect_red_box(im: Image.Image,
 
     return [int(y_min), int(x_min), int(y_max), int(x_max)]
 
+
 def find_missing(day_dir):
     if not os.path.isdir(day_dir):
         raise FileNotFoundError(f"Day directory not found: {day_dir}")
@@ -53,7 +55,7 @@ def find_missing(day_dir):
             # Check for existing box JSON (from screen_watch) and result JSON
             box_json_path = os.path.join(day_dir, base + "_box.json")
             result_json_path = os.path.join(day_dir, base + ".json")
-            
+
             # Process if box JSON or result JSON doesn't exist
             if not os.path.exists(box_json_path) or not os.path.exists(result_json_path):
                 png_path = os.path.join(day_dir, name)
@@ -71,7 +73,7 @@ def process_files(files, delay, models=None):
         except (OSError, Exception) as e:
             print(f"Could not open {png_path} (corrupted/truncated image): {e}")
             continue
-        
+
         # Check if box JSON exists and use it, otherwise detect red box
         if os.path.exists(box_json_path):
             try:
@@ -84,7 +86,7 @@ def process_files(files, delay, models=None):
                 box_coords = None
         else:
             box_coords = None
-        
+
         # If no box coords from JSON, detect red box
         if not box_coords:
             try:
@@ -97,17 +99,23 @@ def process_files(files, delay, models=None):
             except (ValueError, OSError) as e:
                 print(f"Could not detect red box in {png_path}: {e}")
                 continue
-        
+
         # Only call Gemini API if result JSON doesn't exist
         if os.path.exists(result_json_path):
             print(f"Result JSON already exists: {result_json_path}")
             continue
-            
+
         result = gemini_look.gemini_describe_region(image, {"box_2d": box_coords}, models)
         if result:
             with open(result_json_path, "w") as f:
                 json.dump(result, f, indent=2)
             print(f"Saved {result_json_path}")
+            model_name = models[0] if models else "gemini-2.5-flash"
+            crumb_builder = (
+                CrumbBuilder().add_file(png_path).add_file(box_json_path).add_model(model_name)
+            )
+            crumb_path = crumb_builder.commit(result_json_path)
+            print(f"Crumb saved to: {crumb_path}")
         else:
             print(f"Gemini returned no result for {png_path}")
         time.sleep(delay)
@@ -116,8 +124,12 @@ def process_files(files, delay, models=None):
 def main():
     parser = argparse.ArgumentParser(description="Repair missing Gemini JSON for screenshot diffs")
     parser.add_argument("day_dir", help="Day directory path containing screenshot files")
-    parser.add_argument("--wait", type=float, default=0, help="Seconds to wait between API calls (default: 0)")
-    parser.add_argument("-p", "--pro", action="store_true", help="Use pro models instead of default models")
+    parser.add_argument(
+        "--wait", type=float, default=0, help="Seconds to wait between API calls (default: 0)"
+    )
+    parser.add_argument(
+        "-p", "--pro", action="store_true", help="Use pro models instead of default models"
+    )
     args = parser.parse_args()
 
     try:

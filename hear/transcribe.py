@@ -11,6 +11,8 @@ from dotenv import load_dotenv
 from google import genai
 from google.genai import types
 
+from think.crumbs import CrumbBuilder
+
 # Constants
 MODEL = "gemini-2.5-flash"
 
@@ -25,6 +27,7 @@ class Transcriber:
     ):
         self.watch_dir = watch_dir
         self.client = genai.Client(api_key=api_key)
+        self.prompt_path = prompt_path
         self.prompt_text = prompt_path.read_text().strip()
         self.poll_interval = poll_interval
         self.processed: set[str] = set()
@@ -32,7 +35,7 @@ class Transcriber:
     def transcribe_file(self, flac_path: Path) -> dict:
         flac_bytes = flac_path.read_bytes()
         user_prompt = "Process the provided audio now and output your professional accurate transcription in the specified JSON format."
-        
+
         # Check for entities.md in the day directory
         day_dir = flac_path.parent
         entities_file = day_dir / "entities.md"
@@ -42,7 +45,7 @@ class Transcriber:
                 " Here's an incomplete list of entity names you might encounter, they can be useful to help disambiguate some terms: "
                 + entities_text
             )
-            
+
         response = self.client.models.generate_content(
             model=MODEL,
             contents=[
@@ -65,9 +68,7 @@ class Transcriber:
             logging.info(f"No directory for today: {today_dir}")
             return []
         return [
-            p
-            for p in today_dir.rglob("*_audio.flac")
-            if p.stem + ".json" not in self.processed
+            p for p in today_dir.rglob("*_audio.flac") if p.stem + ".json" not in self.processed
         ]
 
     def start(self):
@@ -81,6 +82,14 @@ class Transcriber:
                     result = self.transcribe_file(flac_path)
                     json_path.write_text(json.dumps({"text": result}))
                     logging.info(f"Transcribed {flac_path} -> {json_path}")
+                    crumb_builder = (
+                        CrumbBuilder()
+                        .add_file(self.prompt_path)
+                        .add_file(flac_path)
+                        .add_model(MODEL)
+                    )
+                    crumb_path = crumb_builder.commit(str(json_path))
+                    logging.info(f"Crumb saved to {crumb_path}")
                     self.processed.add(json_path.name)
                 except Exception as e:
                     logging.error(f"Failed to transcribe {flac_path}: {e}")

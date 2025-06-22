@@ -1,12 +1,14 @@
 import argparse
-import os
-import time
 import json
 import logging
+import os
+import time
+
 from dotenv import load_dotenv
 from google import genai
 from google.genai import types
 
+from think.crumbs import CrumbBuilder
 
 PROMPT_PATH = os.path.join(os.path.dirname(__file__), "..", "hear", "transcribe.txt")
 
@@ -31,17 +33,17 @@ def find_missing(day_dir):
 def transcribe_file(client, prompt_text, audio_path, model="gemini-2.5-flash"):
     with open(audio_path, "rb") as f:
         audio_bytes = f.read()
-    
+
     # Determine MIME type based on file extension
-    if audio_path.endswith('.ogg'):
+    if audio_path.endswith(".ogg"):
         mime_type = "audio/ogg"
         format_name = "OGG"
-    elif audio_path.endswith('.flac'):
+    elif audio_path.endswith(".flac"):
         mime_type = "audio/flac"
         format_name = "FLAC"
     else:
         raise ValueError(f"Unsupported audio format: {audio_path}")
-    
+
     size_mb = len(audio_bytes) / (1024 * 1024)
     logging.info(f"Transcribing {audio_path} ({format_name}, {size_mb:.2f}MB)")
     try:
@@ -71,6 +73,11 @@ def process_files(files, delay, client, prompt_text, model="gemini-2.5-flash"):
             with open(json_path, "w") as f:
                 json.dump(result, f)
             print(f"Saved {json_path}")
+            crumb_builder = (
+                CrumbBuilder().add_file(PROMPT_PATH).add_file(audio_path).add_model(model)
+            )
+            crumb_path = crumb_builder.commit(json_path)
+            print(f"Crumb saved to: {crumb_path}")
         else:
             print(f"Gemini returned no result for {audio_path}")
         time.sleep(delay)
@@ -79,8 +86,12 @@ def process_files(files, delay, client, prompt_text, model="gemini-2.5-flash"):
 def main():
     parser = argparse.ArgumentParser(description="Repair missing Gemini JSON for audio files")
     parser.add_argument("day_dir", help="Day directory path containing audio files")
-    parser.add_argument("--wait", type=float, default=0, help="Seconds to wait between API calls (default: 0)")
-    parser.add_argument("-p", "--pro", action="store_true", help="Use gemini-2.5-pro instead of flash model")
+    parser.add_argument(
+        "--wait", type=float, default=0, help="Seconds to wait between API calls (default: 0)"
+    )
+    parser.add_argument(
+        "-p", "--pro", action="store_true", help="Use gemini-2.5-pro instead of flash model"
+    )
     args = parser.parse_args()
 
     try:

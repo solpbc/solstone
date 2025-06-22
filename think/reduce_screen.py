@@ -10,6 +10,8 @@ from dotenv import load_dotenv
 from google import genai
 from google.genai import types
 
+from think.crumbs import CrumbBuilder
+
 DEFAULT_PROMPT_PATH = os.path.join(os.path.dirname(__file__), "reduce_screen.txt")
 FLASH_MODEL = "gemini-2.5-flash"
 
@@ -18,20 +20,20 @@ class TokenTracker:
     def __init__(self):
         self.total_prompt_tokens = 0
         self.total_candidates_tokens = 0
-    
+
     def add_usage(self, usage_metadata):
-        prompt_tokens = getattr(usage_metadata, 'prompt_token_count', None) or 0
-        candidates_tokens = getattr(usage_metadata, 'candidates_token_count', None) or 0
+        prompt_tokens = getattr(usage_metadata, "prompt_token_count", None) or 0
+        candidates_tokens = getattr(usage_metadata, "candidates_token_count", None) or 0
         self.total_prompt_tokens += prompt_tokens
         self.total_candidates_tokens += candidates_tokens
-    
+
     def get_compression_percent(self):
         if self.total_prompt_tokens == 0:
             return 0.0
         return (1 - self.total_candidates_tokens / self.total_prompt_tokens) * 100
-    
+
     def print_summary(self):
-        print(f"\n=== Summary ===")
+        print("\n=== Summary ===")
         print(f"Total tokens in: {self.total_prompt_tokens}")
         print(f"Total tokens out: {self.total_candidates_tokens}")
         print(f"Total compression: {self.get_compression_percent():.2f}%")
@@ -49,11 +51,13 @@ def parse_monitor_files(day_dir):
             ts = datetime.strptime(time_part, "%H%M%S")
         except ValueError:
             continue
-        entries.append({
-            "timestamp": ts,
-            "monitor": int(mon),
-            "path": os.path.join(day_dir, name),
-        })
+        entries.append(
+            {
+                "timestamp": ts,
+                "monitor": int(mon),
+                "path": os.path.join(day_dir, name),
+            }
+        )
     entries.sort(key=lambda e: e["timestamp"])
     return entries
 
@@ -90,11 +94,11 @@ def call_gemini(markdown, prompt, api_key, debug=False):
                 print(f"... {elapsed}s elapsed")
 
     if debug:
-        print(f"\n=== DEBUG: Prompt to Gemini ===")
+        print("\n=== DEBUG: Prompt to Gemini ===")
         print(f"System instruction: {prompt}")
-        print(f"\n=== DEBUG: Content to Gemini ===")
+        print("\n=== DEBUG: Content to Gemini ===")
         print(markdown)
-        print(f"\n=== DEBUG: End of input ===\n")
+        print("\n=== DEBUG: End of input ===\n")
 
     t = threading.Thread(target=progress, daemon=True)
     t.start()
@@ -104,23 +108,25 @@ def call_gemini(markdown, prompt, api_key, debug=False):
             contents=[markdown],
             config=types.GenerateContentConfig(
                 temperature=0.3,
-                max_output_tokens=1024*8,
+                max_output_tokens=1024 * 8,
                 system_instruction=prompt,
             ),
         )
-        
+
         if debug:
-            print(f"\n=== DEBUG: Response from Gemini ===")
+            print("\n=== DEBUG: Response from Gemini ===")
             print(response.text)
-            print(f"\n=== DEBUG: End of response ===\n")
-            
+            print("\n=== DEBUG: End of response ===\n")
+
         return response.text, response.usage_metadata
     finally:
         done.set()
         t.join()
 
 
-def process_group(start, files, prompt, api_key, force, day_dir, token_tracker, debug=False):
+def process_group(
+    start, files, prompt, prompt_path, api_key, force, day_dir, token_tracker, debug=False
+):
     out_name = f"{start.strftime('%H%M%S')}_screen.md"
     out_path = os.path.join(day_dir, out_name)
     if os.path.exists(out_path) and not force:
@@ -131,18 +137,18 @@ def process_group(start, files, prompt, api_key, force, day_dir, token_tracker, 
     end = start + timedelta(minutes=5)
     lines.append(f"## Screen Activity {start.strftime('%H:%M')} - {end.strftime('%H:%M')}")
     lines.append("")
-    
+
     # Group files by monitor for organized display
     monitor_files = {}
     for e in files:
         monitor_files.setdefault(e["monitor"], []).append(e)
-    
+
     # Process each monitor in order
     for monitor in sorted(monitor_files.keys()):
         monitor_entries = sorted(monitor_files[monitor], key=lambda x: x["timestamp"])
         lines.append(f"### Monitor {monitor}")
         lines.append("")
-        
+
         for e in monitor_entries:
             with open(e["path"], "r", encoding="utf-8") as f:
                 content = f.read().strip()
@@ -151,20 +157,22 @@ def process_group(start, files, prompt, api_key, force, day_dir, token_tracker, 
             lines.append(content)
             lines.append("```")
             lines.append("")
-    
+
     markdown = "\n".join(lines)
     monitor_count = len(monitor_files)
     file_count = len(files)
-    print(f"Processing screen activity starting {start.strftime('%H:%M')} ({monitor_count} monitors, {file_count} files)")
+    print(
+        f"Processing screen activity starting {start.strftime('%H:%M')} ({monitor_count} monitors, {file_count} files)"
+    )
     try:
         result, usage_metadata = call_gemini(markdown, prompt, api_key, debug)
         token_tracker.add_usage(usage_metadata)
-        
+
         # Calculate compression for this file
         prompt_tokens = usage_metadata.prompt_token_count
         candidates_tokens = usage_metadata.candidates_token_count
         compression = (1 - candidates_tokens / prompt_tokens) * 100 if prompt_tokens > 0 else 0
-        
+
         print(f"Tokens: ({prompt_tokens}) -> ({candidates_tokens}) compression: {compression:.2f}%")
     except Exception as e:
         print(f"Gemini call failed: {e}", file=sys.stderr)
@@ -175,13 +183,26 @@ def process_group(start, files, prompt, api_key, force, day_dir, token_tracker, 
         f.write(result)
     print(f"Saved {out_path}")
 
+    crumb_builder = (
+        CrumbBuilder()
+        .add_file(prompt_path)
+        .add_files([e["path"] for e in files])
+        .add_model(FLASH_MODEL)
+    )
+    crumb_path = crumb_builder.commit(out_path)
+    print(f"Crumb saved to: {crumb_path}")
+
 
 def main():
-    parser = argparse.ArgumentParser(description="Summarize all monitor JSON files in 5 minute chunks using Gemini")
+    parser = argparse.ArgumentParser(
+        description="Summarize all monitor JSON files in 5 minute chunks using Gemini"
+    )
     parser.add_argument("folder", help="Day directory containing *_monitor_*_diff.json files")
     parser.add_argument("-p", "--prompt", default=DEFAULT_PROMPT_PATH, help="Prompt file")
     parser.add_argument("--force", action="store_true", help="Overwrite existing markdown files")
-    parser.add_argument("-d", "--debug", action="store_true", help="Print prompt and response from Gemini")
+    parser.add_argument(
+        "-d", "--debug", action="store_true", help="Print prompt and response from Gemini"
+    )
     args = parser.parse_args()
 
     day_dir = args.folder
@@ -205,7 +226,17 @@ def main():
     token_tracker = TokenTracker()
 
     for start, files in sorted(groups.items()):
-        process_group(start, files, prompt, api_key, args.force, day_dir, token_tracker, args.debug)
+        process_group(
+            start,
+            files,
+            prompt,
+            args.prompt,
+            api_key,
+            args.force,
+            day_dir,
+            token_tracker,
+            args.debug,
+        )
 
     token_tracker.print_summary()
 

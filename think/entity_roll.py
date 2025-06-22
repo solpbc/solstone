@@ -8,6 +8,7 @@ from typing import Dict, List
 from dotenv import load_dotenv
 
 from think.cluster_glob import PRO_MODEL, cluster_glob, send_to_gemini
+from think.crumbs import CrumbBuilder
 
 DATE_RE = re.compile(r"\d{8}")
 PROMPT_PATH = os.path.join(os.path.dirname(__file__), "entity_roll.txt")
@@ -54,8 +55,8 @@ def process_day(day_str: str, day_dirs: Dict[str, str], force: bool) -> None:
     print(f"  Found {len(files)} ponder_kg files from 8-day window")
     for file in files:
         print(f"    {os.path.basename(file)}")
-    
-    print(f"  Clustering and merging content...")
+
+    print("  Clustering and merging content...")
     markdown = cluster_glob(files)
 
     load_dotenv()
@@ -67,7 +68,7 @@ def process_day(day_str: str, day_dirs: Dict[str, str], force: bool) -> None:
     with open(PROMPT_PATH, "r", encoding="utf-8") as f:
         prompt = f.read().strip()
 
-    print(f"  Sending to Gemini for entity extraction...")
+    print("  Sending to Gemini for entity extraction...")
     result, _ = send_to_gemini(markdown, prompt, api_key, PRO_MODEL, False)
     if not result:
         print(f"Gemini returned no result for {day_str}")
@@ -76,6 +77,10 @@ def process_day(day_str: str, day_dirs: Dict[str, str], force: bool) -> None:
     with open(out_path, "w", encoding="utf-8") as f:
         f.write(result)
     print(f"Wrote {out_path}")
+
+    crumb_builder = CrumbBuilder().add_file(PROMPT_PATH).add_files(files).add_model(PRO_MODEL)
+    crumb_path = crumb_builder.commit(out_path)
+    print(f"Crumb saved to: {crumb_path}")
 
 
 def main() -> None:
