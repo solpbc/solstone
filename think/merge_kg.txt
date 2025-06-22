@@ -25,7 +25,7 @@ Follow these steps to build the master list:
 3.  **Prioritize and Rank:** Not all entities are equally important. You must identify the most significant ones to include in the final list.
     * **Calculate Frequency:** Determine the importance of an entity by noticing how many different days it appears on. An entity mentioned across many days is more significant than one mentioned only once.
     * **Filter the List:** Return all entities that are mentioned more than once. The final list should fully capture all of the prominent people, companies, tools and topics discussed and used over the entire period.
-    * **Prioritize Types:** Try to capture more Person and Company entities, only the most unique Tool and Company entities are important.
+    * **Prioritize Types:** Try to capture more Person and Project entities, only the most unique Tool and Company entities are important.
 
 4.  **Format the Final Output:**
     * Present the final, prioritized list as a bulleted list.
