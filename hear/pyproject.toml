@@ -17,5 +17,5 @@ dependencies = [
 ]
 
 [project.scripts]
-gemini-mic = "hear.gemini_mic:main"
+gemini-mic = "hear.capture:main"
 gemini-transcribe = "hear.transcribe:main"

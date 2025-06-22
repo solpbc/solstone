@@ -87,7 +87,7 @@ def main():
         "-p",
         "--prompt",
         type=Path,
-        default=Path(__file__).with_name("gemini_mic.txt"),
+        default=Path(__file__).with_name("transcribe.txt"),
         help="Path to the system prompt text",
     )
     parser.add_argument(

@@ -8,7 +8,7 @@ from google import genai
 from google.genai import types
 
 
-PROMPT_PATH = os.path.join(os.path.dirname(__file__), "..", "hear", "gemini_mic.txt")
+PROMPT_PATH = os.path.join(os.path.dirname(__file__), "..", "hear", "transcribe.txt")
 
 
 def find_missing(day_dir):
