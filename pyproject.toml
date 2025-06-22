@@ -69,6 +69,7 @@ gemini-transcribe = "hear.transcribe:main"
 
 # Visual utilities  
 screen-watch = "see.screen_watch:main"
+screen-describe = "see.describe:main"
 
 # Analysis utilities
 ponder-day = "think.ponder_day:main"

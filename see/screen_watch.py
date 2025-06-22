@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 import argparse
-import os
-import time
 import datetime
 import json
+import os
 import sys
+import time
+
 from PIL import Image, ImageDraw
-from screen_dbus import screen_snap, idle_time_ms
 from screen_compare import compare_images
-import gemini_look
+from screen_dbus import idle_time_ms, screen_snap
 
 GLOBAL_VERBOSE = False
 
@@ -56,7 +56,7 @@ def save_cache(images):
         f.write(str(time.time()))
 
 
-def process_once(output_dir, min_threshold, use_gemini):
+def process_once(output_dir, min_threshold):
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
 
@@ -104,16 +104,13 @@ def process_once(output_dir, min_threshold, use_gemini):
                     f"[Monitor {idx}] Saved annotated diff image: {img_filename}",
                     force=True,
                 )
-                if use_gemini:
-                    result = gemini_look.gemini_describe_region(pil_img, largest_box)
-                    if result:
-                        json_filename = base + ".json"
-                        with open(json_filename, "w") as jf:
-                            json.dump(result, jf, indent=2)
-                        log(
-                            f"[Monitor {idx}] Saved Gemini JSON result: {json_filename}",
-                            force=True,
-                        )
+                box_filename = base + "_box.json"
+                with open(box_filename, "w") as bf:
+                    json.dump(largest_box, bf)
+                log(
+                    f"[Monitor {idx}] Saved bounding box JSON: {box_filename}",
+                    force=True,
+                )
                 prev_images[idx] = pil_img
             else:
                 log(
@@ -134,22 +131,11 @@ def main():
     parser.add_argument(
         "--min", type=int, default=400, help="Minimum size threshold for a bounding box (pixels)"
     )
-    parser.add_argument(
-        "-g", "--gemini", action="store_true", help="Call Gemini API when differences are detected"
-    )
     args = parser.parse_args()
     global GLOBAL_VERBOSE
     GLOBAL_VERBOSE = args.verbose
 
-    if args.gemini:
-        try:
-            gemini_look.initialize()
-            log("Gemini API client initialized successfully", force=True)
-        except Exception as e:
-            log(f"Failed to initialize Gemini API: {str(e)}", force=True)
-            sys.exit(1)
-
-    process_once(args.directory, args.min, args.gemini)
+    process_once(args.directory, args.min)
 
 
 if __name__ == "__main__":
