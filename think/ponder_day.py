@@ -1,9 +1,9 @@
 import argparse
+import json
 import os
 import sys
 import threading
 import time
-import json
 
 # Add parent directory to path for module discovery
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -13,6 +13,7 @@ from google import genai
 from google.genai import types
 
 from think.cluster_day import cluster_day
+from think.crumbs import CrumbBuilder
 
 DEFAULT_PROMPT_PATH = os.path.join(os.path.dirname(__file__), "ponder_day.txt")
 
@@ -30,7 +31,9 @@ def count_tokens(markdown: str, prompt: str, api_key: str, model: str) -> None:
     print(f"Token count: {total_tokens}")
 
 
-def send_markdown(markdown: str, prompt: str, api_key: str, model: str, is_json_mode: bool) -> tuple[str, object]:
+def send_markdown(
+    markdown: str, prompt: str, api_key: str, model: str, is_json_mode: bool
+) -> tuple[str, object]:
     client = genai.Client(api_key=api_key)
 
     done = threading.Event()
@@ -48,9 +51,9 @@ def send_markdown(markdown: str, prompt: str, api_key: str, model: str, is_json_
     try:
         gen_config_args = {
             "temperature": 0.3,
-            "max_output_tokens": 8192*2,
+            "max_output_tokens": 8192 * 2,
             "thinking_config": types.ThinkingConfig(
-                thinking_budget=8192*2,
+                thinking_budget=8192 * 2,
             ),
             "system_instruction": prompt,
         }
@@ -120,7 +123,7 @@ def main() -> None:
     model = PRO_MODEL if args.pro else FLASH_MODEL
     day = os.path.basename(os.path.normpath(args.folder))
     size_kb = len(markdown.encode("utf-8")) / 1024
-    
+
     print(
         f"Prompt: {args.prompt} | Model: {model} | Day: {day} | Files: {file_count} | Size: {size_kb:.1f}KB"
     )
@@ -130,7 +133,7 @@ def main() -> None:
         return
 
     prompt_basename = os.path.splitext(os.path.basename(args.prompt))[0]
-    
+
     # Determine the specific output path for this run
     output_filename = f"{prompt_basename}{output_extension}"
     output_path = os.path.join(args.folder, output_filename)
@@ -141,13 +144,15 @@ def main() -> None:
             return
 
     result, usage_metadata = send_markdown(markdown, prompt, api_key, model, is_json_mode)
-    
+
     # Extract and display only the essential token counts
-    prompt_tokens = getattr(usage_metadata, 'prompt_token_count', 0)
-    thoughts_tokens = getattr(usage_metadata, 'thoughts_token_count', 0)
-    candidates_tokens = getattr(usage_metadata, 'candidates_token_count', 0)
-    print(f"Usage: prompt={prompt_tokens} thoughts={thoughts_tokens} candidates={candidates_tokens}")
-    
+    prompt_tokens = getattr(usage_metadata, "prompt_token_count", 0)
+    thoughts_tokens = getattr(usage_metadata, "thoughts_token_count", 0)
+    candidates_tokens = getattr(usage_metadata, "candidates_token_count", 0)
+    print(
+        f"Usage: prompt={prompt_tokens} thoughts={thoughts_tokens} candidates={candidates_tokens}"
+    )
+
     # Check if we got a valid response
     if result is None:
         print("Error: No text content in response")
@@ -159,13 +164,23 @@ def main() -> None:
         except json.JSONDecodeError as e:
             print(f"Error: Result is not valid JSON. Details: {e}: {result[:100]}")
             return
-    
+
     os.makedirs(args.folder, exist_ok=True)
-    
+
     with open(output_path, "w") as f:
         f.write(result)
-    
+
     print(f"Results saved to: {output_path}")
+
+    crumb_builder = (
+        CrumbBuilder("think.ponder_day")
+        .add_file(args.prompt)
+        .add_glob(os.path.join(args.folder, "*_audio.json"))
+        .add_glob(os.path.join(args.folder, "*_screen.md"))
+        .add_model(model)
+    )
+    crumb_path = crumb_builder.commit(output_path)
+    print(f"Crumb saved to: {crumb_path}")
 
 
 if __name__ == "__main__":
