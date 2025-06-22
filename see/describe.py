@@ -57,12 +57,12 @@ class Describer:
                 try:
                     result = self.describe(img_path, box_path)
                     if result:
-                        json_path.write_text(json.dumps(result, indent=2))
+                        json_path.write_text(json.dumps(result["result"], indent=2))
                         logging.info(f"Described {img_path} -> {json_path}")
                         crumb_builder = CrumbBuilder().add_file(img_path).add_file(box_path)
                         if self.entities:
                             crumb_builder.add_file(self.entities)
-                        crumb_builder.add_model("gemini-2.5-flash")
+                        crumb_builder.add_model(result["model_used"])
                         crumb_path = crumb_builder.commit(str(json_path))
                         logging.info(f"Crumb saved to {crumb_path}")
                         self.processed.add(json_path.name)

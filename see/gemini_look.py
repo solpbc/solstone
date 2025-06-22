@@ -95,7 +95,7 @@ def gemini_describe_region(image, box, models=None, entities=None):
             if not response.text:
                 print(f"Bad response from Gemini API with model {model_name}: {repr(response)}")
             print(response.text)
-            return json.loads(response.text)
+            return {"result": json.loads(response.text), "model_used": model_name}
         except Exception as e:
             print(f"Error from Gemini API with model {model_name}: {e}")
             if model_name == models_to_try[-1]:  # If it's the last model in the list

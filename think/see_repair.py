@@ -108,11 +108,10 @@ def process_files(files, delay, models=None):
         result = gemini_look.gemini_describe_region(image, {"box_2d": box_coords}, models)
         if result:
             with open(result_json_path, "w") as f:
-                json.dump(result, f, indent=2)
+                json.dump(result["result"], f, indent=2)
             print(f"Saved {result_json_path}")
-            model_name = models[0] if models else "gemini-2.5-flash"
             crumb_builder = (
-                CrumbBuilder().add_file(png_path).add_file(box_json_path).add_model(model_name)
+                CrumbBuilder().add_file(png_path).add_file(box_json_path).add_model(result["model_used"])
             )
             crumb_path = crumb_builder.commit(result_json_path)
             print(f"Crumb saved to: {crumb_path}")
