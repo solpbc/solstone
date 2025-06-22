@@ -6,6 +6,11 @@ from functools import partial
 from http.server import HTTPServer, SimpleHTTPRequestHandler
 from typing import Any, Dict, List, Optional
 
+from dotenv import load_dotenv
+from google import genai
+from google.genai import types
+
+from think.cluster_glob import PRO_MODEL
 from think.indexer import get_entities, parse_entity_line
 
 
@@ -90,6 +95,60 @@ def modify_entity_file(
     log_entity_operation(parent, operation, day, etype, name, new_name)
 
 
+def update_master_entry(parent: str, etype: str, name: str, desc: str) -> None:
+    """Add or update an entry in the master entities.md file."""
+    file_path = os.path.join(parent, "entities.md")
+    lines: List[str] = []
+    if os.path.isfile(file_path):
+        with open(file_path, "r", encoding="utf-8") as f:
+            lines = f.readlines()
+
+    found = False
+    for idx, line in enumerate(lines):
+        parsed = parse_entity_line(line)
+        if not parsed:
+            continue
+        t, n, _ = parsed
+        if t == etype and n == name:
+            newline = "\n" if line.endswith("\n") else ""
+            lines[idx] = f"* {etype}: {name} - {desc}" + newline
+            found = True
+            break
+
+    if not found:
+        if lines and not lines[-1].endswith("\n"):
+            lines[-1] += "\n"
+        lines.append(f"* {etype}: {name} - {desc}\n")
+
+    with open(file_path, "w", encoding="utf-8") as f:
+        f.writelines(lines)
+
+
+def generate_master_summary(info: Dict[str, Any], api_key: str) -> str:
+    """Merge entity descriptions into a single summary via Gemini."""
+    descs = list(info.get("descriptions", {}).values())
+    if not descs and info.get("primary"):
+        descs.append(info["primary"])
+
+    joined = "\n".join(f"- {d}" for d in descs if d)
+    prompt = (
+        "Merge the following entity descriptions into one concise summary about "
+        "the same length as each individual line. Only return the summary."
+    )
+
+    client = genai.Client(api_key=api_key)
+    response = client.models.generate_content(
+        model=PRO_MODEL,
+        contents=[joined],
+        config=types.GenerateContentConfig(
+            temperature=0.3,
+            max_output_tokens=256,
+            system_instruction=prompt,
+        ),
+    )
+    return response.text.strip()
+
+
 class EntityHandler(SimpleHTTPRequestHandler):
     def __init__(
         self,
@@ -153,6 +212,34 @@ class EntityHandler(SimpleHTTPRequestHandler):
             self.wfile.write(b"Invalid JSON")
             return
 
+        if self.path == "/api/master_generate":
+            etype = payload.get("type")
+            name = payload.get("name")
+            info = self.index.get(etype, {}).get(name)
+            load_dotenv()
+            api_key = os.getenv("GOOGLE_API_KEY")
+            if not api_key or info is None:
+                self.send_response(400)
+                self.end_headers()
+                return
+
+            desc = generate_master_summary(info, api_key)
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(json.dumps({"desc": desc}).encode("utf-8"))
+            return
+        elif self.path == "/api/master_update":
+            etype = payload.get("type")
+            name = payload.get("name")
+            desc = payload.get("desc", "")
+            update_master_entry(self.root, etype, name, desc)
+            self.reload_index()
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(json.dumps({"status": "ok"}).encode("utf-8"))
+            return
         action = None
         if self.path == "/api/remove":
             action = "remove"

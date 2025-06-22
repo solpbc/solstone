@@ -166,6 +166,7 @@ tr:hover { background: #f8f9fa; }
 <script>
 let data = {};
 let activeType = null;
+let currentItem = null;
 
 function reloadData() {
   const currentType = activeType;
@@ -289,15 +290,64 @@ function editName(nameElement, item) {
   input.select();
 }
 
+function showMasterEditor(item, text) {
+  const content = document.getElementById('modalContent');
+  const html = `
+    <div class="modal-header">
+      <span id="modalStar" style="cursor:pointer;margin-right:8px;color:gold">&#9733;</span>
+      <h3 id="modalEntityName">${item.name}</h3>
+    </div>
+    <div class="modal-body">
+      <textarea id="masterDesc" style="width:100%;height:150px;">${text}</textarea>
+      <div style="text-align:right;margin-top:10px;">
+        <button id="saveMasterBtn">Save</button>
+      </div>
+    </div>`;
+  content.innerHTML = html;
+  document.getElementById('saveMasterBtn').onclick = () => {
+    const desc = document.getElementById('masterDesc').value.trim();
+    fetch('api/master_update', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type: activeType, name: item.name, desc })
+    }).then(() => {
+      document.getElementById('entityModal').style.display = 'none';
+      reloadData();
+    });
+  };
+  document.getElementById('modalEntityName').onclick = () => {
+    editName(document.getElementById('modalEntityName'), item);
+  };
+}
+
+function handleStarClick(item) {
+  if (item.master) {
+    showMasterEditor(item, item.desc);
+  } else {
+    fetch('api/master_generate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type: activeType, name: item.name })
+    }).then(r => r.json()).then(res => {
+      if (document.getElementById('entityModal').style.display === 'block') {
+        showMasterEditor(item, res.desc);
+      }
+    });
+  }
+}
+
 function showEntityDetails(name) {
   const item = data[activeType].find(item => item.name === name);
   if (!item) return;
+  currentItem = item;
   
   const modal = document.getElementById('entityModal');
   const content = document.getElementById('modalContent');
-  
+
+  const star = item.master ? '&#9733;' : '&#9734;';
   let html = `
     <div class="modal-header">
+      <span id="modalStar" style="cursor:pointer;margin-right:8px;color:gold">${star}</span>
       <h3 id="modalEntityName">${name}</h3>
     </div>
     <div class="modal-body">`;
@@ -312,14 +362,16 @@ function showEntityDetails(name) {
     `;
   });
   html += '</div>';
-  
+
   content.innerHTML = html;
-  
-  // Add click handler for editing name in modal
+  // Add click handlers for editing and master
   document.getElementById('modalEntityName').onclick = () => {
     editName(document.getElementById('modalEntityName'), item);
   };
-  
+  document.getElementById('modalStar').onclick = () => {
+    handleStarClick(item);
+  };
+
   modal.style.display = 'block';
 }
 
