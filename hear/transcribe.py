@@ -10,6 +10,9 @@ from dotenv import load_dotenv
 from google import genai
 from google.genai import types
 
+# Constants
+MODEL = "gemini-2.5-flash"
+
 
 class Transcriber:
     def __init__(
@@ -38,7 +41,7 @@ class Transcriber:
                 + self.entities_text
             )
         response = self.client.models.generate_content(
-            model="gemini-2.5-flash-preview-05-20",
+            model=MODEL,
             contents=[
                 user_prompt,
                 types.Part.from_bytes(data=flac_bytes, mime_type="audio/flac"),

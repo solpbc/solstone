@@ -11,7 +11,7 @@ from google import genai
 from google.genai import types
 
 DEFAULT_PROMPT_PATH = os.path.join(os.path.dirname(__file__), "reduce_screen.txt")
-FLASH_MODEL = "gemini-2.5-flash-preview-05-20"
+FLASH_MODEL = "gemini-2.5-flash"
 
 
 class TokenTracker:

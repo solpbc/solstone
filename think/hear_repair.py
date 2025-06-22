@@ -28,7 +28,7 @@ def find_missing(day_dir):
     return missing
 
 
-def transcribe_file(client, prompt_text, audio_path, model="gemini-2.5-flash-preview-05-20"):
+def transcribe_file(client, prompt_text, audio_path, model="gemini-2.5-flash"):
     with open(audio_path, "rb") as f:
         audio_bytes = f.read()
     
@@ -64,7 +64,7 @@ def transcribe_file(client, prompt_text, audio_path, model="gemini-2.5-flash-pre
         return ""
 
 
-def process_files(files, delay, client, prompt_text, model="gemini-2.5-flash-preview-05-20"):
+def process_files(files, delay, client, prompt_text, model="gemini-2.5-flash"):
     for audio_path, json_path in files:
         result = transcribe_file(client, prompt_text, audio_path, model)
         if result:
@@ -80,7 +80,7 @@ def main():
     parser = argparse.ArgumentParser(description="Repair missing Gemini JSON for audio files")
     parser.add_argument("day_dir", help="Day directory path containing audio files")
     parser.add_argument("--wait", type=float, default=0, help="Seconds to wait between API calls (default: 0)")
-    parser.add_argument("-p", "--pro", action="store_true", help="Use gemini-2.5-pro-preview-06-05 instead of flash model")
+    parser.add_argument("-p", "--pro", action="store_true", help="Use gemini-2.5-pro instead of flash model")
     args = parser.parse_args()
 
     try:
@@ -105,7 +105,7 @@ def main():
     with open(PROMPT_PATH, "r") as f:
         prompt_text = f.read().strip()
 
-    model = "gemini-2.5-pro-preview-06-05" if args.pro else "gemini-2.5-flash-preview-05-20"
+    model = "gemini-2.5-pro" if args.pro else "gemini-2.5-flash"
 
     logging.basicConfig(level=logging.INFO)
     process_files(missing, args.wait, client, prompt_text, model)

@@ -82,7 +82,7 @@ def main():
 
     print(f"Found {len(missing)} missing JSON files.")
 
-    models = ["gemini-2.5-pro-preview-06-05", "gemini-2.5-flash-preview-05-20"] if args.pro else None
+    models = ["gemini-2.5-pro", "gemini-2.5-flash"] if args.pro else None
     process_files(missing, args.wait, models)
 
 

@@ -16,8 +16,8 @@ from think.cluster_day import cluster_day
 
 DEFAULT_PROMPT_PATH = os.path.join(os.path.dirname(__file__), "ponder_day.txt")
 
-FLASH_MODEL = "gemini-2.5-flash-preview-05-20"
-PRO_MODEL = "gemini-2.5-pro-preview-06-05"
+FLASH_MODEL = "gemini-2.5-flash"
+PRO_MODEL = "gemini-2.5-pro"
 
 
 def count_tokens(markdown: str, prompt: str, api_key: str, model: str) -> None:

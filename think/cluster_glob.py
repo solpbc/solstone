@@ -13,7 +13,7 @@ from dotenv import load_dotenv
 from google import genai
 from google.genai import types
 
-PRO_MODEL = "gemini-2.5-pro-preview-06-05"
+PRO_MODEL = "gemini-2.5-pro"
 
 
 def extract_date_from_filename(filename: str) -> Optional[datetime]:

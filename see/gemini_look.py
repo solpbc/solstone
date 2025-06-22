@@ -77,7 +77,7 @@ def gemini_describe_region(image, box, models=None, entities=None):
     models_to_try = (
         models
         if models is not None
-        else ["gemini-2.5-flash-preview-05-20", "gemini-2.0-flash", "gemini-2.0-flash-lite"]
+        else ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-2.0-flash-lite"]
     )
 
     for model_name in models_to_try:
