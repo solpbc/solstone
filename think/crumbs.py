@@ -6,7 +6,7 @@ import glob
 import json
 import os
 import sys
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, Iterable, List
 
@@ -46,11 +46,12 @@ class CrumbBuilder:
         crumb = {
             "generator": self.generator,
             "output": output,
-            "generated_at": datetime.now(datetime.timezone.utc).isoformat(),
+            "generated_at": datetime.now(timezone.utc).isoformat(),
             "dependencies": self._deps,
         }
 
-        os.makedirs(os.path.dirname(crumb_path), exist_ok=True)
+        directory = os.path.dirname(crumb_path) or "."
+        os.makedirs(directory, exist_ok=True)
         with open(crumb_path, "w", encoding="utf-8") as f:
             json.dump(crumb, f, indent=2)
         return crumb_path
