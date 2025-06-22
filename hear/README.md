@@ -12,10 +12,11 @@ All Python dependencies are declared in `pyproject.toml`. System packages for so
 
 ## Usage
 
-After setting the `GOOGLE_API_KEY` environment variable you can run the `gemini-mic` command which will capture audio and store transcriptions:
+After setting the `GOOGLE_API_KEY` environment variable you can run the `gemini-mic` command to capture audio and `gemini-transcribe` to convert the recordings to text:
 
 ```bash
 gemini-mic <save-directory> [-d] [-t SECONDS]
+gemini-transcribe <save-directory>
 ```
 
 Use `-d` to enable debug mode and `-t` to adjust the speech processing interval. Crash tracebacks are logged to standard error by default.

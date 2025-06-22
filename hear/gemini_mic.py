@@ -2,7 +2,6 @@ import argparse
 import datetime
 import faulthandler
 import io
-import json
 import logging
 import os
 import subprocess
@@ -10,15 +9,12 @@ import sys
 import threading
 import time
 from queue import Queue
-from typing import List, Tuple
 
 import numpy as np
 import soundcard as sc
 import soundfile as sf
 from audio_detect import audio_detect
 from dotenv import load_dotenv
-from google import genai
-from google.genai import types
 from noisereduce import reduce_noise
 from pyaec import Aec
 from scipy.fft import irfft, rfft
@@ -36,12 +32,9 @@ class AudioRecorder:
         save_dir=None,
         debug=False,
         timer_interval=60,
-        api_key=None,
-        entities_path=None,
     ):
         self.save_dir = save_dir or os.getcwd()
         self.model = load_silero_vad()
-        self.client = genai.Client(api_key=api_key)
         self.mic_queue = Queue()
         self.sys_queue = Queue()
         self._running = True
@@ -57,28 +50,6 @@ class AudioRecorder:
         self.filter_length = int(SAMPLE_RATE * 0.2)
         self.aec = Aec(self.frame_size, self.filter_length, SAMPLE_RATE, True)
         self.timer_interval = timer_interval
-
-        # Load prompt text
-        self.prompt_text = None
-        try:
-            script_dir = os.path.dirname(os.path.abspath(__file__))
-            prompt_file_path = os.path.join(script_dir, "gemini_mic.txt")
-            with open(prompt_file_path, "r") as f:
-                self.prompt_text = f.read().strip()
-            if not self.prompt_text:
-                logging.error(f"Prompt file '{prompt_file_path}' is empty.")
-                # self.prompt_text remains None or could be set to a default
-        except FileNotFoundError:
-            logging.error(f"Prompt file not found: {prompt_file_path}")
-            # self.prompt_text remains None
-
-        self.entities_text = None
-        if entities_path:
-            try:
-                with open(entities_path, "r") as ef:
-                    self.entities_text = ef.read().strip()
-            except FileNotFoundError:
-                logging.error(f"Entities file not found: {entities_path}")
 
     def enhance_voice(self, audio):
         if len(audio) == 0:
@@ -184,39 +155,6 @@ class AudioRecorder:
             logging.error(f"Error in detect_speech for {label}: {e}")
             # Reset state by returning empty results
             return [], np.array([], dtype=np.float32)
-
-    def transcribe(self, flac_bytes):
-        size_mb = len(flac_bytes) / (1024 * 1024)
-        logging.info(f"Transcribing chunk: {size_mb:.2f}MB")
-
-        if not self.prompt_text:
-            logging.error("Prompt text not loaded. Cannot transcribe.")
-            return ""
-
-        try:
-            user_prompt = "Process the provided audio now and output your professional accurate transcription in the specified JSON format."
-            if self.entities_text:
-                user_prompt += (
-                    " Here's an incomplete list of entity names you might encounter, they can be useful to help disambiguate some terms: "
-                    + self.entities_text
-                )
-            response = self.client.models.generate_content(
-                model="gemini-2.5-flash-preview-05-20",  # "gemini-2.0-flash",
-                contents=[
-                    user_prompt,
-                    types.Part.from_bytes(data=flac_bytes, mime_type="audio/flac"),
-                ],
-                config=types.GenerateContentConfig(
-                    temperature=0.3,
-                    max_output_tokens=8192,
-                    response_mime_type="application/json",
-                    system_instruction=self.prompt_text,
-                ),
-            )
-            return json.loads(response.text)
-        except Exception as e:
-            logging.error(f"Error during transcription: {e}")
-            return ""
 
     def calculate_rms(self, audio_buffer):
         if len(audio_buffer) == 0:
@@ -359,7 +297,7 @@ class AudioRecorder:
             return b""
         return buf.getvalue()
 
-    def process_segments_and_transcribe(self, segments, suffix=None):
+    def process_segments_and_save(self, segments, suffix=None):
         if not segments:
             return
         total_seconds = sum([len(seg["data"]) / SAMPLE_RATE for seg in segments])
@@ -367,11 +305,10 @@ class AudioRecorder:
             logging.info(f"Skipping processing of {total_seconds:.1f} seconds of audio.")
             return
         flac_bytes = self.create_flac_bytes(segments)
-        transcription = self.transcribe(flac_bytes)
         timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
         if suffix:
             timestamp += suffix
-        self.save_results(timestamp, flac_bytes, transcription)
+        self.save_flac(timestamp, flac_bytes)
 
     def process_buffer(self, buffer, new_data, label):
         merged = np.concatenate((buffer, new_data)) if buffer.size > 0 else new_data
@@ -393,33 +330,29 @@ class AudioRecorder:
 
             if system_muted:
                 mic_segments, mic_stash = self.process_buffer(mic_stash, mic_new, "mic")
-                self.process_segments_and_transcribe(mic_segments, suffix="_mic")
-                self.process_segments_and_transcribe(sys_segments, suffix="_sys")
+                self.process_segments_and_save(mic_segments, suffix="_mic")
+                self.process_segments_and_save(sys_segments, suffix="_sys")
             else:
                 mic_processed = self.apply_echo_cancellation(mic_new, sys_new)
                 mic_segments, mic_stash = self.process_buffer(mic_stash, mic_processed, "mic")
                 segments_all = mic_segments + sys_segments
                 if segments_all:
                     segments_all.sort(key=lambda seg: seg["offset"])  # weave together in time
-                    self.process_segments_and_transcribe(segments_all)
+                    self.process_segments_and_save(segments_all)
             logging.info(
                 f"Found {len(mic_segments)} microphone and {len(sys_segments)} system segments."
             )
 
-    def save_results(self, timestamp, flac_bytes, response_json):
-        """Save the audio and transcription using date-based directories."""
+    def save_flac(self, timestamp, flac_bytes):
+        """Save the audio to a dated directory."""
         date_part, time_part = timestamp.split("_", 1)
         day_dir = os.path.join(self.save_dir, date_part)
         os.makedirs(day_dir, exist_ok=True)
 
         flac_filepath = os.path.join(day_dir, f"{time_part}_audio.flac")
-        json_filepath = os.path.join(day_dir, f"{time_part}_audio.json")
-
         with open(flac_filepath, "wb") as f:
             f.write(flac_bytes)
-        with open(json_filepath, "w") as f:
-            json.dump({"text": response_json}, f)
-        logging.info(f"Saved to {flac_filepath}: {json.dumps(response_json)}")
+        logging.info(f"Saved audio to {flac_filepath}")
 
     def start(self):
         threads = [
@@ -454,9 +387,9 @@ def main():
     load_dotenv()
 
     # 2. Parse CLI arguments
-    parser = argparse.ArgumentParser(description="Record audio and transcribe using Gemini API.")
+    parser = argparse.ArgumentParser(description="Record audio and save FLAC files.")
     parser.add_argument(
-        "save_dir", nargs="?", default=None, help="Directory to save audio and transcriptions."
+        "save_dir", nargs="?", default=None, help="Directory to save audio recordings."
     )
     parser.add_argument(
         "-d", "--debug", action="store_true", help="Enable debug mode (save audio buffers)."
@@ -464,22 +397,10 @@ def main():
     parser.add_argument(
         "-t", "--timer_interval", type=int, default=60, help="Timer interval in seconds."
     )
-    parser.add_argument(
-        "-e",
-        "--entities",
-        type=str,
-        default=None,
-        help="Path to a text file listing entity names for disambiguation.",
-    )
     args = parser.parse_args()
 
     # Set up logging
     logging.basicConfig(level=logging.DEBUG if args.debug else logging.INFO)
-
-    # 3. Validate environment variables (API_KEY)
-    API_KEY = os.getenv("GOOGLE_API_KEY")
-    if not API_KEY:
-        sys.exit("Error: GOOGLE_API_KEY not found in environment. Please set it in your .env file.")
 
     # Create save directory if needed
     if args.save_dir and not os.path.exists(args.save_dir):
@@ -493,16 +414,7 @@ def main():
         save_dir=args.save_dir,
         debug=args.debug,
         timer_interval=args.timer_interval,
-        api_key=API_KEY,
-        entities_path=args.entities,
     )
-
-    if recorder.prompt_text is None:
-        script_dir = os.path.dirname(os.path.abspath(__file__))
-        prompt_file_path = os.path.join(script_dir, "gemini_mic.txt")
-        sys.exit(
-            f"Error: Prompt file '{prompt_file_path}' not found or is empty. Please create it and add a system prompt."
-        )
 
     # 5. Detect devices or exit
     if not recorder.detect():

@@ -65,6 +65,7 @@ dev = [
 [project.scripts]
 # Audio utilities
 gemini-mic = "hear.gemini_mic:main"
+gemini-transcribe = "hear.transcribe:main"
 
 # Visual utilities  
 screen-watch = "see.screen_watch:main"
