@@ -1,14 +1,12 @@
 import argparse
 import json
 import os
-import re
 from datetime import datetime
 from functools import partial
 from http.server import HTTPServer, SimpleHTTPRequestHandler
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
-DATE_RE = re.compile(r"\d{8}")
-ITEM_RE = re.compile(r"^\s*[-*]\s*(.*)")
+from think.indexer import get_entities, parse_entity_line
 
 
 def format_date(date_str: str) -> str:
@@ -28,102 +26,26 @@ def format_date(date_str: str) -> str:
         return date_str  # Return original if parsing fails
 
 
-def find_day_dirs(parent: str) -> Dict[str, str]:
-    days = {}
-    for name in os.listdir(parent):
-        if DATE_RE.fullmatch(name):
-            path = os.path.join(parent, name)
-            if os.path.isdir(path):
-                days[name] = path
-    return days
-
-
-def parse_entity_line(line: str) -> Optional[Tuple[str, str, str]]:
-    """Parse a single bullet line from ``entities.md``.
-
-    Returns a tuple of (type, name, description) or ``None`` if the line does not
-    represent an entity in the expected format.
-    """
-
-    cleaned = line.replace("**", "")
-    match = ITEM_RE.match(cleaned)
-    if not match:
-        return None
-
-    text = match.group(1).strip()
-    if ":" not in text:
-        return None
-
-    etype, rest = text.split(":", 1)
-    rest = rest.strip()
-    if " - " in rest:
-        name, desc = rest.split(" - ", 1)
-    else:
-        name, desc = rest, ""
-
-    return etype.strip(), name.strip(), desc.strip()
-
-
-def parse_entities(path: str) -> tuple[List[tuple[str, str, str]], int, int]:
-    items: List[tuple[str, str, str]] = []
-    bullet_count = 0
-    skipped_count = 0
-    valid_types = {"Person", "Company", "Project", "Tool"}
-
-    file_path = os.path.join(path, "entities.md")
-    if not os.path.isfile(file_path):
-        return items, bullet_count, skipped_count
-
-    with open(file_path, "r", encoding="utf-8") as f:
-        for line in f:
-            if not ITEM_RE.match(line.replace("**", "")):
-                continue
-            bullet_count += 1
-
-            parsed = parse_entity_line(line)
-            if not parsed:
-                skipped_count += 1
-                continue
-
-            etype, name, desc = parsed
-            if etype not in valid_types:
-                skipped_count += 1
-                continue
-
-            items.append((etype, name, desc))
-
-    return items, bullet_count, skipped_count
-
-
-def build_index(parent: str) -> Dict[str, Dict[str, dict]]:
-    days = find_day_dirs(parent)
-    index: Dict[str, Dict[str, dict]] = {}
-    for day, path in days.items():
-        entities, bullet_count, skipped_count = parse_entities(path)
-        print(f"Day {day}: {bullet_count} bullet lines found, {skipped_count} skipped")
-        for etype, name, desc in entities:
-            type_map = index.setdefault(etype, {})
-            entry = type_map.setdefault(name, {"dates": [], "descriptions": {}})
-            if day not in entry["dates"]:
-                entry["dates"].append(day)
-            if desc:
-                entry["descriptions"][day] = desc
-    return index
-
-
-def log_entity_operation(log_dir: str, operation: str, day: str, etype: str, name: str, new_name: Optional[str] = None) -> None:
+def log_entity_operation(
+    log_dir: str, operation: str, day: str, etype: str, name: str, new_name: Optional[str] = None
+) -> None:
     """Log entity operations to entity_review.log"""
     log_path = os.path.join(log_dir, "entity_review.log")
     timestamp = datetime.now().isoformat()
-    
+
     log_entry = f"{timestamp} {operation} {day} {etype}: {name}\n"
-    
+
     with open(log_path, "a", encoding="utf-8") as f:
         f.write(log_entry)
 
 
 def modify_entity_file(
-    parent: str, day: str, etype: str, name: str, new_name: Optional[str] = None, operation: str = "remove"
+    parent: str,
+    day: str,
+    etype: str,
+    name: str,
+    new_name: Optional[str] = None,
+    operation: str = "remove",
 ) -> None:
     """Remove or rename an entity entry in a day's ``entities.md`` file."""
 
@@ -160,7 +82,7 @@ def modify_entity_file(
 
     with open(file_path, "w", encoding="utf-8") as f:
         f.writelines(lines)
-    
+
     # Log the operation
     log_entity_operation(parent, operation, day, etype, name, new_name)
 
@@ -181,7 +103,7 @@ class EntityHandler(SimpleHTTPRequestHandler):
     def reload_index(self) -> None:
         print(f"Reloading index from {self.root}")
         old_count = sum(len(names) for names in self.index.values())
-        new_index = build_index(self.root)
+        new_index = get_entities(self.root)
         self.index.clear()
         self.index.update(new_index)
         new_count = sum(len(names) for names in self.index.values())
@@ -266,7 +188,7 @@ def main() -> None:
     parser.add_argument("--port", type=int, default=8000, help="Port to serve on")
     args = parser.parse_args()
 
-    index = build_index(args.parent)
+    index = get_entities(args.parent)
 
     directory = os.path.join(os.path.dirname(__file__), "entity_review")
     handler = partial(EntityHandler, index=index, directory=directory, root=args.parent)
