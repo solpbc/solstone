@@ -102,6 +102,8 @@ tr:hover { background: #f8f9fa; }
   border-bottom: 1px solid #e0e0e0;
   background: white;
   border-radius: 8px 8px 0 0;
+  display: flex;
+  align-items: center;
 }
 .modal-header h3 { 
   margin: 0; 
@@ -110,9 +112,15 @@ tr:hover { background: #f8f9fa; }
   border-radius: 4px;
   padding: 4px;
   transition: background-color 0.2s;
+  display: inline-block;
+  vertical-align: middle;
 }
 .modal-header h3:hover {
   background: #f0f0f0;
+}
+.modal-header #modalStar {
+  vertical-align: middle;
+  line-height: 1;
 }
 .modal-body {
   max-height: calc(70vh - 80px);
@@ -324,14 +332,32 @@ function handleStarClick(item) {
   if (item.master) {
     showMasterEditor(item, item.desc);
   } else {
+    const starEl = document.getElementById('modalStar');
+    const originalHtml = starEl.innerHTML;
+    starEl.innerHTML = '⟳';
+    starEl.style.cursor = 'default';
+    starEl.onclick = null;
+    
     fetch('api/master_generate', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ type: activeType, name: item.name })
     }).then(r => r.json()).then(res => {
+      if (res.error) {
+        alert('Error generating summary: ' + res.error);
+        starEl.innerHTML = originalHtml;
+        starEl.style.cursor = 'pointer';
+        starEl.onclick = () => handleStarClick(item);
+        return;
+      }
       if (document.getElementById('entityModal').style.display === 'block') {
         showMasterEditor(item, res.desc);
       }
+    }).catch(err => {
+      alert('Network error: ' + err.message);
+      starEl.innerHTML = originalHtml;
+      starEl.style.cursor = 'pointer';
+      starEl.onclick = () => handleStarClick(item);
     });
   }
 }

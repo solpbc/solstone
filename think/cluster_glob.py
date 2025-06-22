@@ -14,6 +14,7 @@ from google import genai
 from google.genai import types
 
 PRO_MODEL = "gemini-2.5-pro"
+FLASH_MODEL = "gemini-2.5-flash"
 
 
 def extract_date_from_filename(filename: str) -> Optional[datetime]:

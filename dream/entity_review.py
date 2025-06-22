@@ -10,7 +10,7 @@ from dotenv import load_dotenv
 from google import genai
 from google.genai import types
 
-from think.cluster_glob import PRO_MODEL
+from think.cluster_glob import PRO_MODEL, FLASH_MODEL
 from think.indexer import get_entities, parse_entity_line
 
 
@@ -133,21 +133,20 @@ def generate_master_summary(info: Dict[str, Any], api_key: str) -> str:
     joined = "\n".join(f"- {d}" for d in descs if d)
     prompt = (
         "Merge the following entity descriptions into one concise summary about "
-        "the same length as each individual line. Only return the summary."
+        "the same length as any individual line. Only return the final merged summary text."
     )
 
     client = genai.Client(api_key=api_key)
     response = client.models.generate_content(
-        model=PRO_MODEL,
+        model=FLASH_MODEL,
         contents=[joined],
         config=types.GenerateContentConfig(
             temperature=0.3,
-            max_output_tokens=256,
+            max_output_tokens=4096,
             system_instruction=prompt,
         ),
     )
-    return response.text.strip()
-
+    return response.text
 
 class EntityHandler(SimpleHTTPRequestHandler):
     def __init__(
@@ -223,11 +222,18 @@ class EntityHandler(SimpleHTTPRequestHandler):
                 self.end_headers()
                 return
 
-            desc = generate_master_summary(info, api_key)
-            self.send_response(200)
-            self.send_header("Content-Type", "application/json")
-            self.end_headers()
-            self.wfile.write(json.dumps({"desc": desc}).encode("utf-8"))
+            try:
+                desc = generate_master_summary(info, api_key)
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(json.dumps({"desc": desc}).encode("utf-8"))
+            except Exception as e:
+                self.send_response(500)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(json.dumps({"error": f"Failed to generate summary: {str(e)}"}).encode("utf-8"))
+                print(f"Error generating summary for {etype}: {name} - {e}")
             return
         elif self.path == "/api/master_update":
             etype = payload.get("type")
