@@ -1,0 +1,23 @@
+{
+  "generator": "think.ponder_day",
+  "output": "20250610/ponder_day.md",
+  "generated_at": "2025-06-10T12:00:01Z",
+  "args": {"--pro": true},
+  "dependencies": [
+    {
+      "type": "file",
+      "path": "think/ponder_day.txt",
+      "mtime": 1717999380
+    },
+    {
+      "type": "glob",
+      "pattern": "20250610/*_monitor_*_diff.json",
+      "files": {
+        "20250610/102000_monitor_1_diff.json": 1717999056,
+        "20250610/102000_monitor_2_diff.json": 1717999057
+      }
+    },
+    {"type": "model", "name": "gemini-2.5-pro-preview-06-05"},
+    {"type": "code", "path": "think/ponder_day.py", "commit": "abc123d"}
+  ]
+}
