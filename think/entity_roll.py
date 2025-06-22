@@ -10,7 +10,7 @@ from dotenv import load_dotenv
 from think.cluster_glob import PRO_MODEL, cluster_glob, send_to_gemini
 
 DATE_RE = re.compile(r"\d{8}")
-PROMPT_PATH = os.path.join(os.path.dirname(__file__), "merge_kg.txt")
+PROMPT_PATH = os.path.join(os.path.dirname(__file__), "entity_roll.txt")
 
 
 def find_day_dirs(parent: str) -> Dict[str, str]:
