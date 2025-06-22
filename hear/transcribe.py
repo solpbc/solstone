@@ -4,6 +4,7 @@ import json
 import logging
 import os
 import time
+from datetime import datetime
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -20,26 +21,28 @@ class Transcriber:
         watch_dir: Path,
         api_key: str,
         prompt_path: Path,
-        entities_path: Path | None = None,
         poll_interval: int = 5,
     ):
         self.watch_dir = watch_dir
         self.client = genai.Client(api_key=api_key)
         self.prompt_text = prompt_path.read_text().strip()
-        self.entities_text = None
-        if entities_path and entities_path.exists():
-            self.entities_text = entities_path.read_text().strip()
         self.poll_interval = poll_interval
         self.processed: set[str] = set()
 
     def transcribe_file(self, flac_path: Path) -> dict:
         flac_bytes = flac_path.read_bytes()
         user_prompt = "Process the provided audio now and output your professional accurate transcription in the specified JSON format."
-        if self.entities_text:
+        
+        # Check for entities.md in the day directory
+        day_dir = flac_path.parent
+        entities_file = day_dir / "entities.md"
+        if entities_file.exists():
+            entities_text = entities_file.read_text().strip()
             user_prompt += (
                 " Here's an incomplete list of entity names you might encounter, they can be useful to help disambiguate some terms: "
-                + self.entities_text
+                + entities_text
             )
+            
         response = self.client.models.generate_content(
             model=MODEL,
             contents=[
@@ -56,9 +59,14 @@ class Transcriber:
         return json.loads(response.text)
 
     def scan(self) -> list[Path]:
+        today = datetime.now().strftime("%Y%m%d")
+        today_dir = self.watch_dir / today
+        if not today_dir.exists():
+            logging.info(f"No directory for today: {today_dir}")
+            return []
         return [
             p
-            for p in self.watch_dir.rglob("*_audio.flac")
+            for p in today_dir.rglob("*_audio.flac")
             if p.stem + ".json" not in self.processed
         ]
 
@@ -90,9 +98,6 @@ def main():
         default=Path(__file__).with_name("transcribe.txt"),
         help="Path to the system prompt text",
     )
-    parser.add_argument(
-        "-e", "--entities", type=Path, default=None, help="Optional entity names file"
-    )
     parser.add_argument("-i", "--interval", type=int, default=5, help="Polling interval in seconds")
     args = parser.parse_args()
 
@@ -103,7 +108,7 @@ def main():
     logging.basicConfig(level=logging.INFO)
     faulthandler.enable()
 
-    transcriber = Transcriber(args.watch_dir, api_key, args.prompt, args.entities, args.interval)
+    transcriber = Transcriber(args.watch_dir, api_key, args.prompt, args.interval)
     transcriber.start()
 
 
