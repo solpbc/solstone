@@ -1,6 +1,6 @@
 # sunstone-see
 
-Utilities for capturing and analyzing screenshots on Linux desktops. The module provides helpers for taking screenshots via DBus, comparing sequential images, and describing regions of interest using the Gemini API.
+Utilities for capturing and analysing screenshots on Linux desktops. The package provides helpers for taking screenshots via DBus, comparing sequential images, and describing regions of interest using the Gemini API.
 
 ## Installation
 
@@ -12,7 +12,7 @@ Dependencies are defined in `pyproject.toml`. You will also need system packages
 
 ## Usage
 
-The package exposes two commands:
+The package exposes two commands driven by the `scan.py` and `describe.py` modules:
 
 - `screen-watch` captures the current screen state and compares it with the last
   run. When differences are found an annotated image and a `_box.json` file are
@@ -20,11 +20,12 @@ The package exposes two commands:
   are stored under `~/.cache/sunstone/see`.
 
 - `screen-describe` monitors a directory for these `_box.json` files and uses
-  Gemini to produce a JSON description for each diff image.
+  Gemini to produce a JSON description for each diff image. Optional flags allow
+  specifying an entities file, the polling interval and verbose logging.
 
 ```bash
 screen-watch <output-directory> [--verbose] [--min PIXELS]
-screen-describe <day-directory>
+screen-describe <day-directory> [-e ENTITIES] [-i SECONDS] [-v]
 ```
 
 Set the `GOOGLE_API_KEY` environment variable before running `screen-describe`.

@@ -6,11 +6,24 @@ A comprehensive collection of multimodal AI utilities for workplace audio, visua
 ## Features
 
 - **See** 👁️ - Screenshot capture and visual comparison with the `screen-watch` command
-- **Hear** 👂 - Audio processing and voice activity detection with the `mic-watch` command  
+- **Hear** 👂 - Audio recording and transcription with the `gemini-mic` command
 - **Think** 🧠 - Data analysis and AI-powered insights with the `ponder-day` command
+- **Dream** 🌐 - Web interfaces for reviewing entities and meetings
 
 ## Quick Start
 
 ```bash
 pip install -e .
 ```
+
+Wrapper scripts `hear.sh` and `see.sh` run the audio and visual capture services
+in continuous loops.
+
+## Documentation
+
+Each package has its own README with detailed usage information:
+
+- [hear/README.md](hear/README.md)
+- [see/README.md](see/README.md)
+- [think/README.md](think/README.md)
+- [dream/README.md](dream/README.md)
