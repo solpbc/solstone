@@ -10,7 +10,10 @@ from PIL import Image, ImageDraw
 from screen_compare import compare_images
 from screen_dbus import idle_time_ms, screen_snap
 
+from think.border_detect import detect_border
+
 GLOBAL_VERBOSE = False
+BLUE_BORDER = (0, 0, 255)
 
 
 def log(message, force=False):
@@ -56,6 +59,18 @@ def save_cache(images):
         f.write(str(time.time()))
 
 
+def censor_border(img: Image.Image) -> Image.Image:
+    """Black out the region inside a detected blue border."""
+    try:
+        y_min, x_min, y_max, x_max = detect_border(img, BLUE_BORDER)
+    except Exception:
+        return img
+    censored = img.copy()
+    draw = ImageDraw.Draw(censored)
+    draw.rectangle(((x_min, y_min), (x_max, y_max)), fill="black")
+    return censored
+
+
 def process_once(output_dir, min_threshold):
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
@@ -74,12 +89,13 @@ def process_once(output_dir, min_threshold):
         return
 
     for idx, pil_img in enumerate(monitor_images, start=1):
+        censored_img = censor_border(pil_img)
         prev_img = prev_images.get(idx)
-        if not prev_img or prev_img.size != pil_img.size:
-            prev_images[idx] = pil_img
+        if not prev_img or prev_img.size != censored_img.size:
+            prev_images[idx] = censored_img
             continue
 
-        boxes = compare_images(prev_img, pil_img)
+        boxes = compare_images(prev_img, censored_img)
         if boxes:
             largest_box = max(
                 boxes,
@@ -90,7 +106,7 @@ def process_once(output_dir, min_threshold):
             box_height = y_max - y_min
             if box_width > min_threshold and box_height > min_threshold:
                 log(f"[Monitor {idx}] Detected significant difference: {largest_box}")
-                annotated = pil_img.copy()
+                annotated = censored_img.copy()
                 draw = ImageDraw.Draw(annotated)
                 draw.rectangle(((x_min, y_min), (x_max, y_max)), outline="red", width=3)
                 timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -111,7 +127,7 @@ def process_once(output_dir, min_threshold):
                     f"[Monitor {idx}] Saved bounding box JSON: {box_filename}",
                     force=True,
                 )
-                prev_images[idx] = pil_img
+                prev_images[idx] = censored_img
             else:
                 log(
                     f"[Monitor {idx}] Difference detected but largest box {box_width}x{box_height} is < {min_threshold}."

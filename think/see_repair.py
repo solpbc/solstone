@@ -4,45 +4,13 @@ import os
 import sys
 import time
 
-import numpy as np
 from PIL import Image
+
+from think.border_detect import detect_border
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from see import gemini_look
 from think.crumbs import CrumbBuilder
-
-
-def detect_red_box(
-    im: Image.Image,
-    *,  # keyword‑only for clarity
-    min_length: int = 100,  # shortest expected side
-    border: int = 3,  # thickness used when drawing
-) -> tuple[int, int, int, int]:
-    a = np.asarray(im)
-    red = (a[..., 0] > 250) & (a[..., 1] < 5) & (a[..., 2] < 5)
-
-    # Count red pixels per column / row
-    col_hits = red.sum(0)  # shape (W,)
-    row_hits = red.sum(1)  # shape (H,)
-
-    # Columns/rows that plausibly belong to a straight border side
-    cols = np.where(col_hits >= min_length)[0]
-    rows = np.where(row_hits >= min_length)[0]
-    if cols.size == 0 or rows.size == 0:
-        raise ValueError("No red box detected")
-
-    # Compress contiguous runs (e.g. the 3‑pixel‑thick border)
-    def first_last(groups, thickness):
-        groups = np.split(groups, np.where(np.diff(groups) != 1)[0] + 1)
-        groups = [g for g in groups if g.size >= thickness]
-        if not groups:
-            raise ValueError("Red border not thick enough")
-        return groups[0][0], groups[-1][-1]
-
-    x_min, x_max = first_last(cols, border)
-    y_min, y_max = first_last(rows, border)
-
-    return [int(y_min), int(x_min), int(y_max), int(x_max)]
 
 
 def find_missing(day_dir):
@@ -90,7 +58,7 @@ def process_files(files, delay, models=None):
         # If no box coords from JSON, detect red box
         if not box_coords:
             try:
-                box_coords = detect_red_box(image)
+                box_coords = detect_border(image, (255, 0, 0))
                 # Save the detected box for future use
                 box_data = {"box_2d": box_coords}
                 with open(box_json_path, "w") as f:
@@ -111,7 +79,10 @@ def process_files(files, delay, models=None):
                 json.dump(result["result"], f, indent=2)
             print(f"Saved {result_json_path}")
             crumb_builder = (
-                CrumbBuilder().add_file(png_path).add_file(box_json_path).add_model(result["model_used"])
+                CrumbBuilder()
+                .add_file(png_path)
+                .add_file(box_json_path)
+                .add_model(result["model_used"])
             )
             crumb_path = crumb_builder.commit(result_json_path)
             print(f"Crumb saved to: {crumb_path}")
