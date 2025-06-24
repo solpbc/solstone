@@ -397,10 +397,17 @@ def main():
     parser.add_argument(
         "-t", "--timer_interval", type=int, default=60, help="Timer interval in seconds."
     )
+    parser.add_argument("-v", "--verbose", action="store_true", help="Enable verbose output")
     args = parser.parse_args()
 
     # Set up logging
-    logging.basicConfig(level=logging.DEBUG if args.debug else logging.INFO)
+    if args.debug:
+        log_level = logging.DEBUG
+    elif args.verbose:
+        log_level = logging.INFO
+    else:
+        log_level = logging.WARNING
+    logging.basicConfig(level=log_level)
 
     # Create save directory if needed
     if args.journal and not os.path.exists(args.journal):
