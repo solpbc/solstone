@@ -81,6 +81,7 @@ see-repair = "think.see_repair:main"
 hear-repair = "think.hear_repair:main"
 entity-review = "dream.entity_review:main"
 meeting-calendar = "dream.meeting_calendar:main"
+journal-stats = "think.journal_stats:main"
 
 [project.urls]
 Homepage = "https://github.com/yourusername/sunstone"

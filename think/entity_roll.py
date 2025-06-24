@@ -14,12 +14,12 @@ DATE_RE = re.compile(r"\d{8}")
 PROMPT_PATH = os.path.join(os.path.dirname(__file__), "entity_roll.txt")
 
 
-def find_day_dirs(parent: str) -> Dict[str, str]:
+def find_day_dirs(journal: str) -> Dict[str, str]:
     """Return mapping of YYYYMMDD string to full path."""
     days = {}
-    for name in os.listdir(parent):
+    for name in os.listdir(journal):
         if DATE_RE.fullmatch(name):
-            path = os.path.join(parent, name)
+            path = os.path.join(journal, name)
             if os.path.isdir(path):
                 days[name] = path
     return days
@@ -87,14 +87,14 @@ def main() -> None:
     parser = argparse.ArgumentParser(
         description="Merge ponder_kg files from a rolling 8-day window and generate entities.md"
     )
-    parser.add_argument("parent", help="Directory containing YYYYMMDD folders")
+    parser.add_argument("journal", help="Journal directory containing YYYYMMDD folders")
     parser.add_argument("--force", action="store_true", help="Overwrite existing files")
     args = parser.parse_args()
 
-    if not os.path.isdir(args.parent):
-        parser.error(f"Parent directory not found: {args.parent}")
+    if not os.path.isdir(args.journal):
+        parser.error(f"Journal directory not found: {args.journal}")
 
-    day_dirs = find_day_dirs(args.parent)
+    day_dirs = find_day_dirs(args.journal)
     if not day_dirs:
         parser.error("No YYYYMMDD directories found")
 

@@ -77,9 +77,9 @@ def censor_border(img: Image.Image) -> Image.Image:
     return censored
 
 
-def process_once(output_dir, min_threshold):
-    if not os.path.exists(output_dir):
-        os.makedirs(output_dir)
+def process_once(journal, min_threshold):
+    if not os.path.exists(journal):
+        os.makedirs(journal)
 
     prev_images, last_ts = load_cache()
 
@@ -117,7 +117,7 @@ def process_once(output_dir, min_threshold):
                 draw.rectangle(((x_min, y_min), (x_max, y_max)), outline="red", width=3)
                 timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
                 date_part, time_part = timestamp.split("_", 1)
-                day_dir = os.path.join(output_dir, date_part)
+                day_dir = os.path.join(journal, date_part)
                 os.makedirs(day_dir, exist_ok=True)
                 base = os.path.join(day_dir, f"{time_part}_monitor_{idx}_diff")
                 img_filename = base + ".png"
@@ -148,7 +148,7 @@ def main():
     parser = argparse.ArgumentParser(
         description="Capture screenshots once and compare with cached versions."
     )
-    parser.add_argument("directory", type=str, help="Directory to save screenshots")
+    parser.add_argument("journal", type=str, help="Journal directory to store screenshots")
     parser.add_argument("--verbose", action="store_true", help="Enable verbose output")
     parser.add_argument(
         "--min", type=int, default=400, help="Minimum size threshold for a bounding box (pixels)"
@@ -157,7 +157,7 @@ def main():
     global GLOBAL_VERBOSE
     GLOBAL_VERBOSE = args.verbose
 
-    process_once(args.directory, args.min)
+    process_once(args.journal, args.min)
 
 
 if __name__ == "__main__":

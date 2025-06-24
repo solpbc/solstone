@@ -1,4 +1,5 @@
 import argparse
+import datetime
 import faulthandler
 import json
 import logging
@@ -17,8 +18,10 @@ from think.crumbs import CrumbBuilder
 
 
 class Describer:
-    def __init__(self, watch_dir: Path, entities: Optional[Path] = None):
-        self.watch_dir = watch_dir
+    def __init__(self, journal_dir: Path, entities: Path):
+        """Watch the journal and describe new screenshot diffs for the current day."""
+        self.journal_dir = journal_dir
+        self.watch_dir: Optional[Path] = None
         self.entities = entities
         self.processed: set[str] = set()
         self.observer: Optional[Observer] = None
@@ -31,9 +34,7 @@ class Describer:
             raise RuntimeError("Gemini API returned no result")
         json_path.write_text(json.dumps(result["result"], indent=2))
         logging.info(f"Described {img_path} -> {json_path}")
-        crumb_builder = CrumbBuilder().add_file(img_path).add_file(box_path)
-        if self.entities:
-            crumb_builder.add_file(self.entities)
+        crumb_builder = CrumbBuilder().add_file(img_path).add_file(box_path).add_file(self.entities)
         crumb_builder.add_model(result["model_used"])
         crumb_path = crumb_builder.commit(str(json_path))
         logging.info(f"Crumb saved to {crumb_path}")
@@ -59,9 +60,7 @@ class Describer:
         logging.info(f"Processing {img_path} with box {box_path}")
         box = json.loads(box_path.read_text())
         with Image.open(img_path) as im:
-            return gemini_look.gemini_describe_region(
-                im, box, entities=str(self.entities) if self.entities else None
-            )
+            return gemini_look.gemini_describe_region(im, box, entities=str(self.entities))
 
     def start(self):
         handler = PatternMatchingEventHandler(patterns=["*_diff_box.json"], ignore_directories=True)
@@ -80,24 +79,41 @@ class Describer:
 
         handler.on_created = on_created
 
-        self.observer = Observer()
-        self.observer.schedule(handler, str(self.watch_dir), recursive=True)
-        self.observer.start()
+        self.observer = None
+        current_day: Optional[str] = None
         try:
             while True:
-                time.sleep(1)  # Short sleep for responsiveness
+                today_str = datetime.datetime.now().strftime("%Y%m%d")
+                day_dir = self.journal_dir / today_str
+                if day_dir.exists() and (current_day != today_str):
+                    if self.observer:
+                        self.observer.stop()
+                        self.observer.join()
+                    self.observer = Observer()
+                    self.observer.schedule(handler, str(day_dir), recursive=True)
+                    self.observer.start()
+                    self.watch_dir = day_dir
+                    self.processed.clear()
+                    current_day = today_str
+                    logging.info(f"Watching {day_dir}")
+                time.sleep(1)
         except KeyboardInterrupt:
             pass
         finally:
-            self.observer.stop()
-            self.observer.join()
+            if self.observer:
+                self.observer.stop()
+                self.observer.join()
             self.executor.shutdown(wait=True)
 
 
 def main() -> None:
     load_dotenv()
     parser = argparse.ArgumentParser(description="Describe screenshot diffs using Gemini")
-    parser.add_argument("watch_dir", type=Path, help="Directory containing screenshot diffs")
+    parser.add_argument(
+        "journal",
+        type=Path,
+        help="Journal directory containing daily screenshot folders",
+    )
     parser.add_argument("-e", "--entities", type=Path, default=None, help="Optional entities file")
     parser.add_argument("-v", "--verbose", action="store_true", help="Enable verbose output")
     args = parser.parse_args()
@@ -107,7 +123,11 @@ def main() -> None:
 
     gemini_look.initialize()
 
-    describer = Describer(args.watch_dir, args.entities)
+    ent_path = args.entities or args.journal / "entities.md"
+    if not ent_path.is_file():
+        parser.error(f"entities file not found: {ent_path}")
+
+    describer = Describer(args.journal, ent_path)
     describer.start()
 
 

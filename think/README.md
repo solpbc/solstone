@@ -1,6 +1,6 @@
 # sunstone-think
 
-Post-processing utilities for clustering, summarising and repairing captured data. The tools leverage the Gemini API to analyse transcriptions and screenshots.
+Post-processing utilities for clustering, summarising and repairing captured data. The tools leverage the Gemini API to analyse transcriptions and screenshots. All commands work with a **journal** directory that holds daily folders in `YYYYMMDD` format.
 
 ## Installation
 
@@ -27,7 +27,7 @@ cluster-day <day-folder>
 reduce-screen <day-folder>
 see-repair <day-folder>
 hear-repair <day-folder>
-entity-roll <parent-folder>
+entity-roll <journal>
 cluster-glob <pattern>
 ```
 

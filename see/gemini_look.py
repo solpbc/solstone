@@ -62,29 +62,28 @@ def gemini_describe_region(image, box, models=None, entities=None):
     cropped = im_with_box.crop((native_x_min, native_y_min, native_x_max, native_y_max))
 
     prompt = "Here is the latest screenshot with the cropped region of interest, please return the complete JSON as instructed."
-    if entities:
-        try:
-            with open(entities, "r") as ef:
-                entities_text = ef.read().strip()
-            if entities_text:
-                prompt += (
-                    " Here's an incomplete list of entity names you might encounter, they can be useful to help disambiguate some terms: "
-                    + entities_text
-                )
-        except FileNotFoundError:
-            print(f"Entities file not found: {entities}")
+    if not entities or not os.path.isfile(entities):
+        raise FileNotFoundError(f"entities file not found: {entities}")
+    with open(entities, "r", encoding="utf-8") as ef:
+        entities_text = ef.read().strip()
+    contents = [entities_text, prompt, im_with_box, cropped]
 
     models_to_try = (
         models
         if models is not None
-        else ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-2.5-flash-lite-preview-06-17","gemini-2.0-flash-lite"]
+        else [
+            "gemini-2.5-flash",
+            "gemini-2.0-flash",
+            "gemini-2.5-flash-lite-preview-06-17",
+            "gemini-2.0-flash-lite",
+        ]
     )
 
     for model_name in models_to_try:
         try:
             response = _gemini_client.models.generate_content(
                 model=model_name,
-                contents=[prompt, im_with_box, cropped],
+                contents=contents,
                 config=types.GenerateContentConfig(
                     temperature=0.5,
                     max_output_tokens=8192 * 4,
