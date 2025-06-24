@@ -29,11 +29,11 @@ CHANNELS = 1
 class AudioRecorder:
     def __init__(
         self,
-        save_dir=None,
+        journal=None,
         debug=False,
         timer_interval=60,
     ):
-        self.save_dir = save_dir or os.getcwd()
+        self.save_dir = journal or os.getcwd()
         self.model = load_silero_vad()
         self.mic_queue = Queue()
         self.sys_queue = Queue()
@@ -389,7 +389,7 @@ def main():
     # 2. Parse CLI arguments
     parser = argparse.ArgumentParser(description="Record audio and save FLAC files.")
     parser.add_argument(
-        "save_dir", nargs="?", default=None, help="Directory to save audio recordings."
+        "journal", nargs="?", default=None, help="Journal directory to store audio recordings"
     )
     parser.add_argument(
         "-d", "--debug", action="store_true", help="Enable debug mode (save audio buffers)."
@@ -403,15 +403,15 @@ def main():
     logging.basicConfig(level=logging.DEBUG if args.debug else logging.INFO)
 
     # Create save directory if needed
-    if args.save_dir and not os.path.exists(args.save_dir):
-        os.makedirs(args.save_dir)
+    if args.journal and not os.path.exists(args.journal):
+        os.makedirs(args.journal)
 
     # Enable faulthandler to help diagnose crashes
     faulthandler.enable()
 
     # 4. Create the recorder
     recorder = AudioRecorder(
-        save_dir=args.save_dir,
+        journal=args.journal,
         debug=args.debug,
         timer_interval=args.timer_interval,
     )

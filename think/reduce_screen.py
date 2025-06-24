@@ -197,7 +197,7 @@ def main():
     parser = argparse.ArgumentParser(
         description="Summarize all monitor JSON files in 5 minute chunks using Gemini"
     )
-    parser.add_argument("folder", help="Day directory containing *_monitor_*_diff.json files")
+    parser.add_argument("day_dir", help="Day directory containing *_monitor_*_diff.json files")
     parser.add_argument("-p", "--prompt", default=DEFAULT_PROMPT_PATH, help="Prompt file")
     parser.add_argument("--force", action="store_true", help="Overwrite existing markdown files")
     parser.add_argument(
@@ -205,7 +205,7 @@ def main():
     )
     args = parser.parse_args()
 
-    day_dir = args.folder
+    day_dir = args.day_dir
     if not os.path.isdir(day_dir):
         parser.error(f"Folder not found: {day_dir}")
     print(f"Processing folder: {day_dir}")

@@ -76,8 +76,8 @@ def main() -> None:
         description="Send a day's clustered Markdown to Gemini for analysis."
     )
     parser.add_argument(
-        "folder",
-        help="Directory containing the day's folder",
+        "day",
+        help="Path to the journal day folder",
     )
     parser.add_argument(
         "-f",
@@ -104,7 +104,7 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    markdown, file_count = cluster_day(args.folder)
+    markdown, file_count = cluster_day(args.day)
 
     load_dotenv()
     api_key = os.getenv("GOOGLE_API_KEY")
@@ -121,7 +121,7 @@ def main() -> None:
     output_extension = ".json" if is_json_mode else ".md"
 
     model = PRO_MODEL if args.pro else FLASH_MODEL
-    day = os.path.basename(os.path.normpath(args.folder))
+    day = os.path.basename(os.path.normpath(args.day))
     size_kb = len(markdown.encode("utf-8")) / 1024
 
     print(
@@ -136,7 +136,7 @@ def main() -> None:
 
     # Determine the specific output path for this run
     output_filename = f"{prompt_basename}{output_extension}"
-    output_path = os.path.join(args.folder, output_filename)
+    output_path = os.path.join(args.day, output_filename)
 
     if not args.force:
         if os.path.exists(output_path):
@@ -165,7 +165,7 @@ def main() -> None:
             print(f"Error: Result is not valid JSON. Details: {e}: {result[:100]}")
             return
 
-    os.makedirs(args.folder, exist_ok=True)
+    os.makedirs(args.day, exist_ok=True)
 
     with open(output_path, "w") as f:
         f.write(result)
@@ -175,8 +175,8 @@ def main() -> None:
     crumb_builder = (
         CrumbBuilder()
         .add_file(args.prompt)
-        .add_glob(os.path.join(args.folder, "*_audio.json"))
-        .add_glob(os.path.join(args.folder, "*_screen.md"))
+        .add_glob(os.path.join(args.day, "*_audio.json"))
+        .add_glob(os.path.join(args.day, "*_screen.md"))
         .add_model(model)
     )
     crumb_path = crumb_builder.commit(output_path)

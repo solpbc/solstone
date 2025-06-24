@@ -1,6 +1,6 @@
 # sunstone-see
 
-Utilities for capturing and analysing screenshots on Linux desktops. The package provides helpers for taking screenshots via DBus, comparing sequential images, and describing regions of interest using the Gemini API.
+Utilities for capturing and analysing screenshots on Linux desktops. The package provides helpers for taking screenshots via DBus, comparing sequential images, and describing regions of interest using the Gemini API. Screenshots are organised under a **journal** directory containing daily folders.
 
 ## Installation
 
@@ -24,7 +24,7 @@ The package exposes two commands driven by the `scan.py` and `describe.py` modul
   specifying an entities file, the polling interval and verbose logging.
 
 ```bash
-screen-watch <output-directory> [--verbose] [--min PIXELS]
+screen-watch <journal> [--verbose] [--min PIXELS]
 screen-describe <day-directory> [-e ENTITIES] [-i SECONDS] [-v]
 ```
 

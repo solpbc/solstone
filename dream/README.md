@@ -1,6 +1,6 @@
 # sunstone-dream
 
-Exploratory tools that present captured data in a web browser. These utilities serve simple HTML interfaces for reviewing daily summaries.
+Exploratory tools that present captured data in a web browser. These utilities serve simple HTML interfaces for reviewing daily summaries. They read from a **journal** directory of daily folders.
 
 ## Installation
 
@@ -16,8 +16,8 @@ Two commands are provided:
 - `meeting-calendar` generates a calendar view of meetings pulled from daily folders.
 
 ```bash
-entity-review <parent-folder> [--port PORT]
-meeting-calendar <parent-folder> [--port PORT]
+entity-review <journal> [--port PORT]
+meeting-calendar <journal> [--port PORT]
 ```
 
 Open the printed URL in your browser to explore the results.

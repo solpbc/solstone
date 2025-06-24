@@ -17,8 +17,8 @@ from think.crumbs import CrumbBuilder
 
 
 class Describer:
-    def __init__(self, watch_dir: Path, poll_interval: int = 5, entities: Optional[Path] = None):
-        self.watch_dir = watch_dir
+    def __init__(self, day_dir: Path, poll_interval: int = 5, entities: Optional[Path] = None):
+        self.watch_dir = day_dir
         self.poll_interval = poll_interval
         self.entities = entities
         self.processed: set[str] = set()
@@ -96,7 +96,7 @@ class Describer:
 def main() -> None:
     load_dotenv()
     parser = argparse.ArgumentParser(description="Describe screenshot diffs using Gemini")
-    parser.add_argument("watch_dir", type=Path, help="Directory containing screenshot diffs")
+    parser.add_argument("day_dir", type=Path, help="Day directory containing screenshot diffs")
     parser.add_argument("-e", "--entities", type=Path, default=None, help="Optional entities file")
     parser.add_argument("-i", "--interval", type=int, default=5, help="Polling interval in seconds")
     parser.add_argument("-v", "--verbose", action="store_true", help="Enable verbose output")
@@ -107,7 +107,7 @@ def main() -> None:
 
     gemini_look.initialize()
 
-    describer = Describer(args.watch_dir, args.interval, args.entities)
+    describer = Describer(args.day_dir, args.interval, args.entities)
     describer.start()
 
 
