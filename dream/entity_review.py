@@ -10,7 +10,7 @@ from dotenv import load_dotenv
 from google import genai
 from google.genai import types
 
-from think.cluster_glob import PRO_MODEL, FLASH_MODEL
+from think.cluster_glob import FLASH_MODEL, PRO_MODEL
 from think.indexer import get_entities, parse_entity_line
 
 
@@ -56,7 +56,7 @@ def modify_entity_in_file(
     require_match: bool = True,
 ) -> bool:
     """Remove or rename an entity entry in an entities.md file.
-    
+
     Returns True if a match was found and modified, False otherwise.
     """
     if not os.path.isfile(file_path):
@@ -80,7 +80,7 @@ def modify_entity_in_file(
         if require_match:
             raise ValueError(f"No match found for '{etype}: {name}' in {file_path}")
         return False
-    
+
     if len(matches) > 1:
         raise ValueError(f"Multiple matches found for '{etype}: {name}' in {file_path}")
 
@@ -96,12 +96,12 @@ def modify_entity_in_file(
 
     with open(file_path, "w", encoding="utf-8") as f:
         f.writelines(lines)
-    
+
     return True
 
 
 def modify_entity_file(
-    parent: str,
+    journal: str,
     day: str,
     etype: str,
     name: str,
@@ -109,19 +109,19 @@ def modify_entity_file(
     operation: str = "remove",
 ) -> None:
     """Remove or rename an entity entry in a day's ``entities.md`` file."""
-    file_path = os.path.join(parent, day, "entities.md")
+    file_path = os.path.join(journal, day, "entities.md")
     modify_entity_in_file(file_path, etype, name, new_name, operation, require_match=True)
-    
+
     # Log the operation
-    log_entity_operation(parent, operation, day, etype, name, new_name)
+    log_entity_operation(journal, operation, day, etype, name, new_name)
 
 
-def update_master_entry(parent: str, etype: str, name: str, desc: str) -> None:
+def update_master_entry(journal: str, etype: str, name: str, desc: str) -> None:
     """Add or update an entry in the master entities.md file."""
     # Sanitize description to prevent newlines that would break formatting
-    desc = desc.replace('\n', ' ').replace('\r', ' ').strip()
-    
-    file_path = os.path.join(parent, "entities.md")
+    desc = desc.replace("\n", " ").replace("\r", " ").strip()
+
+    file_path = os.path.join(journal, "entities.md")
     lines: List[str] = []
     if os.path.isfile(file_path):
         with open(file_path, "r", encoding="utf-8") as f:
@@ -171,6 +171,7 @@ def generate_master_summary(info: Dict[str, Any], api_key: str) -> str:
         ),
     )
     return response.text
+
 
 class EntityHandler(SimpleHTTPRequestHandler):
     def __init__(
@@ -256,7 +257,9 @@ class EntityHandler(SimpleHTTPRequestHandler):
                 self.send_response(500)
                 self.send_header("Content-Type", "application/json")
                 self.end_headers()
-                self.wfile.write(json.dumps({"error": f"Failed to generate summary: {str(e)}"}).encode("utf-8"))
+                self.wfile.write(
+                    json.dumps({"error": f"Failed to generate summary: {str(e)}"}).encode("utf-8")
+                )
                 print(f"Error generating summary for {etype}: {name} - {e}")
             return
         elif self.path == "/api/master_update":
@@ -264,7 +267,7 @@ class EntityHandler(SimpleHTTPRequestHandler):
             name = payload.get("name")
             desc = payload.get("desc", "")
             # Sanitize description to prevent newlines that would break formatting
-            desc = desc.replace('\n', ' ').replace('\r', ' ').strip()
+            desc = desc.replace("\n", " ").replace("\r", " ").strip()
             update_master_entry(self.root, etype, name, desc)
             self.reload_index()
             self.send_response(200)
@@ -290,12 +293,14 @@ class EntityHandler(SimpleHTTPRequestHandler):
         try:
             for day in days:
                 modify_entity_file(self.root, day, etype, name, new_name, action)
-            
+
             # If renaming, also update the master entities.md file
             if action == "rename" and new_name:
                 master_file_path = os.path.join(self.root, "entities.md")
-                modify_entity_in_file(master_file_path, etype, name, new_name, "rename", require_match=False)
-            
+                modify_entity_in_file(
+                    master_file_path, etype, name, new_name, "rename", require_match=False
+                )
+
             self.reload_index()
         except Exception as e:
             self.send_response(400)
@@ -312,14 +317,14 @@ class EntityHandler(SimpleHTTPRequestHandler):
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Review entities from daily folders")
-    parser.add_argument("parent", help="Directory containing YYYYMMDD folders")
+    parser.add_argument("journal", help="Journal directory containing YYYYMMDD folders")
     parser.add_argument("--port", type=int, default=8000, help="Port to serve on")
     args = parser.parse_args()
 
-    index = get_entities(args.parent)
+    index = get_entities(args.journal)
 
     directory = os.path.join(os.path.dirname(__file__), "entity_review")
-    handler = partial(EntityHandler, index=index, directory=directory, root=args.parent)
+    handler = partial(EntityHandler, index=index, directory=directory, root=args.journal)
     httpd = HTTPServer(("", args.port), handler)
     print(f"Serving on http://localhost:{args.port}")
     httpd.serve_forever()

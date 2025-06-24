@@ -2,6 +2,7 @@
 Navigate Work Intelligently
 
 A comprehensive collection of multimodal AI utilities for workplace audio, visual, and cognitive processing.
+Captured files are organised under a **journal** directory containing daily `YYYYMMDD` folders.
 
 ## Features
 

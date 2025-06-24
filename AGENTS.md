@@ -18,6 +18,11 @@ pip install -e .
 
 Refer to the project README for a feature overview.
 
+## Terminology
+
+The directory containing all dated folders is called the **journal**.  A single
+`YYYYMMDD` folder inside the journal is referred to as a **day**.
+
 ## Development guidelines
 
 - Use **Python 3.9+** and keep code formatted with `black` (line length 100) and

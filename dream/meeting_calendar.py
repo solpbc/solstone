@@ -10,11 +10,11 @@ from typing import Any, Dict, List
 DATE_RE = re.compile(r"\d{8}")
 
 
-def find_day_dirs(parent: str) -> Dict[str, str]:
+def find_day_dirs(journal: str) -> Dict[str, str]:
     days = {}
-    for name in os.listdir(parent):
+    for name in os.listdir(journal):
         if DATE_RE.fullmatch(name):
-            path = os.path.join(parent, name)
+            path = os.path.join(journal, name)
             if os.path.isdir(path):
                 days[name] = path
     return days
@@ -34,9 +34,9 @@ def load_meetings(path: str) -> List[Dict[str, Any]]:
     return []
 
 
-def build_index(parent: str) -> Dict[str, List[Dict[str, Any]]]:
+def build_index(journal: str) -> Dict[str, List[Dict[str, Any]]]:
     index: Dict[str, List[Dict[str, Any]]] = {}
-    for day, path in find_day_dirs(parent).items():
+    for day, path in find_day_dirs(journal).items():
         meetings = load_meetings(path)
         if meetings:
             index[day] = meetings
@@ -70,14 +70,14 @@ class MeetingHandler(SimpleHTTPRequestHandler):
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Review meetings from daily folders")
-    parser.add_argument("parent", help="Directory containing YYYYMMDD folders")
+    parser.add_argument("journal", help="Journal directory containing YYYYMMDD folders")
     parser.add_argument("--port", type=int, default=8000, help="Port to serve on")
     args = parser.parse_args()
 
-    index = build_index(args.parent)
+    index = build_index(args.journal)
 
     directory = os.path.join(os.path.dirname(__file__), "meeting_calendar")
-    handler = partial(MeetingHandler, index=index, directory=directory, root=args.parent)
+    handler = partial(MeetingHandler, index=index, directory=directory, root=args.journal)
     httpd = HTTPServer(("", args.port), handler)
     print(f"Serving on http://localhost:{args.port}")
     httpd.serve_forever()

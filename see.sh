@@ -3,20 +3,20 @@
 # Run screen_watch and describe.py in parallel with restart loops
 
 if [ $# -lt 2 ]; then
-  echo "Usage: $0 <interval_seconds> <output_dir> [args...]" >&2
+  echo "Usage: $0 <interval_seconds> <journal_dir> [args...]" >&2
   exit 1
 fi
 
 INTERVAL=$1
 shift
-OUT_DIR=$1
+JOURNAL_DIR=$1
 shift
 
 # designed to run in a loop based on given interval
 run_scan() {
   while true; do
     start_ts=$(date +%Y%m%d_%H%M%S)
-    python3 "$(dirname "$0")/see/scan.py" "$OUT_DIR" --min 250 "$@"
+    python3 "$(dirname "$0")/see/scan.py" "$JOURNAL_DIR" --min 250 "$@"
     sleep "$INTERVAL"
   done
 }
@@ -25,7 +25,7 @@ run_describe() {
   while true; do
     start_ts=$(date +%Y%m%d_%H%M%S)
     echo "Starting describe.py at $start_ts"
-    python3 "$(dirname "$0")/see/describe.py" "$OUT_DIR" "$@"
+    python3 "$(dirname "$0")/see/describe.py" "$JOURNAL_DIR" "$@"
     echo "describe.py exited, restarting in 1 second..."
     sleep 1
   done

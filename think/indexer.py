@@ -9,11 +9,11 @@ DATE_RE = re.compile(r"\d{8}")
 ITEM_RE = re.compile(r"^\s*[-*]\s*(.*)")
 
 
-def find_day_dirs(parent: str) -> Dict[str, str]:
+def find_day_dirs(journal: str) -> Dict[str, str]:
     days = {}
-    for name in os.listdir(parent):
+    for name in os.listdir(journal):
         if DATE_RE.fullmatch(name):
-            path = os.path.join(parent, name)
+            path = os.path.join(journal, name)
             if os.path.isdir(path):
                 days[name] = path
     return days
@@ -62,8 +62,8 @@ def parse_entities(path: str) -> List[Tuple[str, str, str]]:
     return items
 
 
-def load_cache(parent: str) -> Dict[str, dict]:
-    cache_path = os.path.join(parent, "indexer.json")
+def load_cache(journal: str) -> Dict[str, dict]:
+    cache_path = os.path.join(journal, "indexer.json")
     if os.path.isfile(cache_path):
         try:
             with open(cache_path, "r", encoding="utf-8") as f:
@@ -73,8 +73,8 @@ def load_cache(parent: str) -> Dict[str, dict]:
     return {}
 
 
-def save_cache(parent: str, cache: Dict[str, dict]) -> None:
-    cache_path = os.path.join(parent, "indexer.json")
+def save_cache(journal: str, cache: Dict[str, dict]) -> None:
+    cache_path = os.path.join(journal, "indexer.json")
     with open(cache_path, "w", encoding="utf-8") as f:
         json.dump(cache, f, indent=2)
 
@@ -110,21 +110,21 @@ def build_index(cache: Dict[str, dict]) -> Dict[str, Dict[str, dict]]:
     return index
 
 
-def get_entities(parent: str) -> Dict[str, Dict[str, dict]]:
-    cache = load_cache(parent)
-    days = find_day_dirs(parent)
+def get_entities(journal: str) -> Dict[str, Dict[str, dict]]:
+    cache = load_cache(journal)
+    days = find_day_dirs(journal)
     changed = False
 
     # handle master file in parent directory
-    master_path = os.path.join(parent, "entities.md")
+    master_path = os.path.join(journal, "entities.md")
     if os.path.isfile(master_path):
         mtime = int(os.path.getmtime(master_path))
         info = cache.get(MASTER_KEY)
         if info is None or info.get("mtime") != mtime:
             cache[MASTER_KEY] = {
-                "file": os.path.relpath(master_path, parent),
+                "file": os.path.relpath(master_path, journal),
                 "mtime": mtime,
-                "entries": parse_entities(parent),
+                "entries": parse_entities(journal),
                 "master": True,
             }
             changed = True
@@ -153,13 +153,13 @@ def get_entities(parent: str) -> Dict[str, Dict[str, dict]]:
         if day_info is None or day_info.get("mtime") != mtime:
             entries = parse_entities(path)
             cache[day] = {
-                "file": os.path.relpath(md_path, parent),
+                "file": os.path.relpath(md_path, journal),
                 "mtime": mtime,
                 "entries": entries,
             }
             changed = True
 
     if changed:
-        save_cache(parent, cache)
+        save_cache(journal, cache)
 
     return build_index(cache)

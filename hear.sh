@@ -17,12 +17,12 @@ run_capture() {
 
 # Function to run transcribe.py in a restart loop
 run_transcribe() {
-  # Extract the save directory from arguments (first positional arg)
-  save_dir="${1:-$(pwd)}"
+  # Extract the journal directory from arguments (first positional arg)
+  journal_dir="${1:-$(pwd)}"
   while true; do
     start_ts=$(date +%Y%m%d_%H%M%S)
     echo "Starting transcribe.py at $start_ts"
-    python3 "$(dirname "$0")/hear/transcribe.py" "$save_dir"
+    python3 "$(dirname "$0")/hear/transcribe.py" "$journal_dir"
     echo "transcribe.py exited, restarting in 1 second..."
     sleep 1
   done

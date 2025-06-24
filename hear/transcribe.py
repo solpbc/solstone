@@ -20,13 +20,13 @@ MODEL = "gemini-2.5-flash"
 class Transcriber:
     def __init__(
         self,
-        watch_dir: Path,
+        journal: Path,
         api_key: str,
         prompt_path: Path,
         entities_path: Path,
         poll_interval: int = 5,
     ):
-        self.watch_dir = watch_dir
+        self.watch_dir = journal
         self.client = genai.Client(api_key=api_key)
         self.prompt_path = prompt_path
         self.prompt_text = prompt_path.read_text().strip()
@@ -95,7 +95,7 @@ class Transcriber:
 def main():
     load_dotenv()
     parser = argparse.ArgumentParser(description="Transcribe FLAC files using Gemini")
-    parser.add_argument("watch_dir", type=Path, help="Directory containing FLAC files")
+    parser.add_argument("journal", type=Path, help="Journal directory containing FLAC files")
     parser.add_argument(
         "-p",
         "--prompt",
@@ -119,11 +119,11 @@ def main():
     logging.basicConfig(level=logging.INFO)
     faulthandler.enable()
 
-    ent_path = args.entities or args.watch_dir / "entities.md"
+    ent_path = args.entities or args.journal / "entities.md"
     if not ent_path.is_file():
         parser.error(f"entities file not found: {ent_path}")
 
-    transcriber = Transcriber(args.watch_dir, api_key, args.prompt, ent_path, args.interval)
+    transcriber = Transcriber(args.journal, api_key, args.prompt, ent_path, args.interval)
     transcriber.start()
 
 
