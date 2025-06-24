@@ -17,9 +17,8 @@ from think.crumbs import CrumbBuilder
 
 
 class Describer:
-    def __init__(self, watch_dir: Path, poll_interval: int = 5, entities: Optional[Path] = None):
+    def __init__(self, watch_dir: Path, entities: Optional[Path] = None):
         self.watch_dir = watch_dir
-        self.poll_interval = poll_interval
         self.entities = entities
         self.processed: set[str] = set()
         self.observer: Optional[Observer] = None
@@ -65,16 +64,18 @@ class Describer:
             )
 
     def start(self):
-        handler = PatternMatchingEventHandler("*_diff.png", ignore_directories=True)
+        handler = PatternMatchingEventHandler(patterns=["*_diff_box.json"], ignore_directories=True)
 
         def on_created(event):
-            img_path = Path(event.src_path)
-            prefix = img_path.stem
-            box_path = img_path.with_name(prefix + "_box.json")
-            json_path = img_path.with_name(prefix + ".json")
-            if not box_path.exists():
-                logging.info(f"Skipping {img_path}: missing box {box_path}")
+            box_path = Path(event.src_path)
+            prefix = box_path.stem.replace("_box", "")
+            img_path = box_path.with_name(prefix + ".png")
+            json_path = box_path.with_name(prefix + ".json")
+            
+            if not img_path.exists():
+                logging.warning(f"Skipping {box_path}: missing image {img_path}")
                 return
+            
             self.executor.submit(self._process, img_path, box_path, json_path)
 
         handler.on_created = on_created
@@ -84,7 +85,7 @@ class Describer:
         self.observer.start()
         try:
             while True:
-                time.sleep(self.poll_interval)
+                time.sleep(1)  # Short sleep for responsiveness
         except KeyboardInterrupt:
             pass
         finally:
@@ -98,7 +99,6 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Describe screenshot diffs using Gemini")
     parser.add_argument("watch_dir", type=Path, help="Directory containing screenshot diffs")
     parser.add_argument("-e", "--entities", type=Path, default=None, help="Optional entities file")
-    parser.add_argument("-i", "--interval", type=int, default=5, help="Polling interval in seconds")
     parser.add_argument("-v", "--verbose", action="store_true", help="Enable verbose output")
     args = parser.parse_args()
 
@@ -107,7 +107,7 @@ def main() -> None:
 
     gemini_look.initialize()
 
-    describer = Describer(args.watch_dir, args.interval, args.entities)
+    describer = Describer(args.watch_dir, args.entities)
     describer.start()
 
 
