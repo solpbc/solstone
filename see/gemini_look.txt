@@ -15,7 +15,7 @@ Respond with structured JSON containing the following information:
   "visual_description": "<Detailed description of all visual elements and UI components visible in the zoomed-in region>",
   "user_input_text": "<Text content from any visible active user input areas like text fields, editors, command lines, chat inputs, or search boxes>",
   "full_ocr": "<Complete text extraction from the cropped image, preserving some formatting where possible, ignoring repeated sequences or characters>",
-  "meeting_state": "<Is there any visual indication that a meeting is active, who's in it and what's their status>",
+  "meeting_state": "<Is there any visual indication that a meeting is active, who's in it and what's their status, call out who's speaking if visible>",
   "activity_category": "<Category of activity being performed>"
 }
 ```
@@ -26,7 +26,7 @@ Respond with structured JSON containing the following information:
 - **visual_description**: Fully describe all of the visual elements, ideal for someone that is vision impaired
 - **user_input_text**: Focus specifically on identifying any interactive input areas where users can type or enter text. Look for text cursors, active text fields, command prompts, search boxes, chat input boxes, text areas, form fields, or any area showing user-entered text. Extract only the text content that appears to be user-generated input, not static UI labels or system-generated text or greyed out background filler text, leave blank if none found
 - **full_ocr**: Include the important text visible ONLY in the highlighted region cropped image, maintaining paragraph structure and light formatting, but ignore and omit repeated or repeating text or newlines (only include single newlines for formatting)
-- **meeting_state**: Indicate if there's an active meeting/call visible and what platform the meeting is happening through if recognizable, accurately include a comma delimeted list of participants if the names are available along with their status in parenthesis if they are muted, active, presenting or speaking based on any clues you can see 
+- **meeting_state**: Indicate if there's an active meeting/call visible and what platform the meeting is happening through if recognizable, accurately include a comma delimeted list of participants if the names are available along with their status in parenthesis if they are muted, active, presenting or especially if they are speaking based on any clues/hints you can see 
 - **activity_category**: Categorize the user's activity based on visual cues (e.g., gaming, coding, emailing, drafting, researching, configuring, reading, etc)
 
 Ensure your JSON is properly formatted and all fields are completed. Be careful to not create repeating text, catch yourself if you're repeating the same thing multiple times!
