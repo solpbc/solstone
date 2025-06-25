@@ -112,18 +112,15 @@ def process_once(journal, min_threshold):
             box_height = y_max - y_min
             if box_width > min_threshold and box_height > min_threshold:
                 log(f"[Monitor {idx}] Detected significant difference: {largest_box}")
-                annotated = censored_img.copy()
-                draw = ImageDraw.Draw(annotated)
-                draw.rectangle(((x_min, y_min), (x_max, y_max)), outline="red", width=3)
                 timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
                 date_part, time_part = timestamp.split("_", 1)
                 day_dir = os.path.join(journal, date_part)
                 os.makedirs(day_dir, exist_ok=True)
                 base = os.path.join(day_dir, f"{time_part}_monitor_{idx}_diff")
                 img_filename = base + ".png"
-                annotated.save(img_filename)
+                censored_img.save(img_filename)
                 log(
-                    f"[Monitor {idx}] Saved annotated diff image: {img_filename}",
+                    f"[Monitor {idx}] Saved diff image: {img_filename}",
                     force=True,
                 )
                 box_filename = base + "_box.json"

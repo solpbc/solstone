@@ -70,11 +70,11 @@ class Describer:
             prefix = box_path.stem.replace("_box", "")
             img_path = box_path.with_name(prefix + ".png")
             json_path = box_path.with_name(prefix + ".json")
-            
+
             if not img_path.exists():
                 logging.warning(f"Skipping {box_path}: missing image {img_path}")
                 return
-            
+
             self.executor.submit(self._process, img_path, box_path, json_path)
 
         handler.on_created = on_created

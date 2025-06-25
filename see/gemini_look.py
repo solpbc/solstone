@@ -51,14 +51,12 @@ def gemini_describe_region(image, box, models=None, entities=None):
     if _gemini_client is None:
         initialize()
 
-    # Draw bounding box on a copy of the image
-    im_with_box = image.copy()
     native_y_min, native_x_min, native_y_max, native_x_max = box["box_2d"]
+    im_with_box = image.copy()
     draw = ImageDraw.Draw(im_with_box)
     draw.rectangle(
-        ((native_x_min, native_y_min), (native_x_max, native_y_max)), outline="red", width=5
+        ((native_x_min, native_y_min), (native_x_max, native_y_max)), outline="red", width=3
     )
-
     cropped = im_with_box.crop((native_x_min, native_y_min, native_x_max, native_y_max))
 
     prompt = "Here is the latest screenshot with the cropped region of interest, please return the complete JSON as instructed."
