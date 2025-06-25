@@ -13,8 +13,8 @@ from queue import Queue
 import numpy as np
 import soundcard as sc
 import soundfile as sf
-from audio_detect import audio_detect
 from dotenv import load_dotenv
+from input_detect import input_detect
 from noisereduce import reduce_noise
 from pyaec import Aec
 from scipy.fft import irfft, rfft
@@ -79,7 +79,7 @@ class AudioRecorder:
         return enhanced.astype(np.float32)
 
     def detect(self):
-        mic, loopback = audio_detect()
+        mic, loopback = input_detect()
         if mic is None or loopback is None:
             logging.error(f"Detection failed: mic {mic} sys {loopback}")
             return False

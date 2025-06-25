@@ -1,8 +1,10 @@
-import soundcard as sc
-import numpy as np
 import threading
 
-def audio_detect(duration=0.2, sample_rate=44100):
+import numpy as np
+import soundcard as sc
+
+
+def input_detect(duration=0.2, sample_rate=44100):
     t = np.linspace(0, duration, int(sample_rate * duration), endpoint=False)
     tone = 0.5 * np.sin(2 * np.pi * 18000 * t)  # ultrasonic
 
@@ -15,7 +17,7 @@ def audio_detect(duration=0.2, sample_rate=44100):
 
     results = {}
     barrier = threading.Barrier(len(devices) + 1)
-    
+
     def record_mic(mic, results):
         barrier.wait()
         try:
@@ -56,7 +58,8 @@ def audio_detect(duration=0.2, sample_rate=44100):
                 loopback_detected = mic
     return mic_detected, loopback_detected
 
-if __name__ == '__main__':
-    mic, loopback = audio_detect()
+
+if __name__ == "__main__":
+    mic, loopback = input_detect()
     print("Microphone detection:", mic.name if mic else "None")
     print("Loopback detection:", loopback.name if loopback else "None")

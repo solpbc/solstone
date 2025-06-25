@@ -1,9 +1,9 @@
 """Audio recording and transcription helpers."""
 
 from .capture import AudioRecorder
-from .audio_detect import audio_detect
+from .input_detect import input_detect
 
 __all__ = [
     "AudioRecorder",
-    "audio_detect",
+    "input_detect",
 ]
