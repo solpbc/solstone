@@ -28,6 +28,7 @@ class Transcriber:
         api_key: str,
         prompt_path: Path,
         entities_path: Path,
+        voice_sample: Optional[Path] = None,
     ):
         self.journal_dir = journal_dir
         self.watch_dir: Optional[Path] = None
@@ -35,6 +36,14 @@ class Transcriber:
         self.prompt_path = prompt_path
         self.prompt_text = prompt_path.read_text().strip()
         self.entities_path = entities_path
+        self.voice_sample_path = voice_sample or journal_dir / "voice_sample.flac"
+        self.voice_sample_bytes: Optional[bytes] = None
+        if self.voice_sample_path.is_file():
+            try:
+                self.voice_sample_bytes = self.voice_sample_path.read_bytes()
+                logging.info(f"Loaded voice sample from {self.voice_sample_path}")
+            except Exception as e:  # pragma: no cover - best effort
+                logging.warning(f"Failed to load voice sample: {e}")
         self.processed: set[str] = set()
         self.observer: Optional[Observer] = None
         self.executor = ThreadPoolExecutor()
@@ -44,13 +53,10 @@ class Transcriber:
         result = self.transcribe_file(flac_path)
         json_path.write_text(json.dumps({"text": result}, indent=2))
         logging.info(f"Transcribed {flac_path} -> {json_path}")
-        crumb_builder = (
-            CrumbBuilder()
-            .add_file(self.prompt_path)
-            .add_file(self.entities_path)
-            .add_file(flac_path)
-            .add_model(MODEL)
-        )
+        crumb_builder = CrumbBuilder().add_file(self.prompt_path).add_file(self.entities_path)
+        if self.voice_sample_bytes:
+            crumb_builder = crumb_builder.add_file(self.voice_sample_path)
+        crumb_builder = crumb_builder.add_file(flac_path).add_model(MODEL)
         crumb_path = crumb_builder.commit(str(json_path))
         logging.info(f"Crumb saved to {crumb_path}")
 
@@ -70,16 +76,22 @@ class Transcriber:
                 else:
                     logging.error(f"Failed to transcribe {flac_path}: {e}")
         self.processed.add(json_path.name)
+
     def transcribe_file(self, flac_path: Path) -> dict:
         logging.info(f"Processing {flac_path}")
         flac_bytes = flac_path.read_bytes()
         user_prompt = "Process the provided audio now and output your professional accurate transcription in the specified JSON format."
         entities_text = self.entities_path.read_text().strip()
-        contents = [
-            entities_text,
-            user_prompt,
-            types.Part.from_bytes(data=flac_bytes, mime_type="audio/flac"),
-        ]
+        contents = [entities_text]
+        if self.voice_sample_bytes:
+            contents.append(
+                "Here's a voice sample for Jeremie, if you are confident you hear him speaking when you are transcribing then tag his section with his name as the speaker."
+            )
+            contents.append(
+                types.Part.from_bytes(data=self.voice_sample_bytes, mime_type="audio/flac")
+            )
+        contents.append(user_prompt)
+        contents.append(types.Part.from_bytes(data=flac_bytes, mime_type="audio/flac"))
 
         response = self.client.models.generate_content(
             model=MODEL,
@@ -101,7 +113,7 @@ class Transcriber:
         def on_created(event):
             flac_path = Path(event.src_path)
             json_path = flac_path.with_suffix(".json")
-            
+
             logging.info(f"New audio file detected: {flac_path}")
             self.executor.submit(self._process, flac_path, json_path)
 
@@ -137,7 +149,9 @@ class Transcriber:
 def main():
     load_dotenv()
     parser = argparse.ArgumentParser(description="Transcribe FLAC files using Gemini")
-    parser.add_argument("journal", type=Path, help="Journal directory containing daily audio folders")
+    parser.add_argument(
+        "journal", type=Path, help="Journal directory containing daily audio folders"
+    )
     parser.add_argument(
         "-p",
         "--prompt",

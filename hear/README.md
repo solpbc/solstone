@@ -20,6 +20,6 @@ gemini-transcribe <journal> [-p PROMPT] [-i SECONDS]
 ```
 
 Use `-d` to enable debug mode and `-t` to adjust the speech processing interval.
-The `gemini-transcribe` command accepts `-p` to specify a prompt file and `-i`
-to control the polling interval. Crash tracebacks are logged to standard error
-by default.
+The `gemini-transcribe` command accepts `-p` to specify a prompt file and `-i` to
+control the polling interval. Crash
+tracebacks are logged to standard error by default.
