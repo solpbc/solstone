@@ -203,13 +203,18 @@ class Transcriber:
             raw_path.unlink(missing_ok=True)
             return None
 
+        logging.info(
+            f"Processed {raw_path}: {len(segments)} segments, "
+            f"total duration {total_seconds:.2f}s, mic ranges: {len(mic_trimmed)}"
+        )
+        audio_path = raw_path.with_name(raw_path.name.replace("_raw.flac", "_audio.flac"))
+        
         if len(mic_trimmed) > 0:
             self._save_flac_metadata(audio_path, mic_trimmed)
 
         left_int16 = (np.clip(combined_audio, -1.0, 1.0) * 32767).astype(np.int16)
         buf = io.BytesIO()
         sf.write(buf, left_int16, SAMPLE_RATE, format="FLAC")
-        audio_path = raw_path.with_name(raw_path.name.replace("_raw.flac", "_audio.flac"))
         audio_path.write_bytes(buf.getvalue())
         logging.info(f"Saved processed audio to {audio_path}")
         return audio_path
