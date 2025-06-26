@@ -142,11 +142,13 @@ class Transcriber:
         segments, self.merged_stash = self.detect_speech("mix", merged)
 
         if not segments:
+            logging.info(f"No speech segments detected, removing {raw_path}")
             raw_path.unlink(missing_ok=True)
             return None
 
         total_seconds = sum(len(seg["data"]) / SAMPLE_RATE for seg in segments)
         if total_seconds < MIN_SPEECH_SECONDS:
+            logging.info(f"Total speech duration {total_seconds:.2f}s < {MIN_SPEECH_SECONDS}s, removing {raw_path}")
             raw_path.unlink(missing_ok=True)
             return None
 
@@ -158,6 +160,7 @@ class Transcriber:
             ]
         )
         if combined_audio.size == 0:
+            logging.info(f"No valid audio data after combining segments, removing {raw_path}")
             raw_path.unlink(missing_ok=True)
             return None
 
