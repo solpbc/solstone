@@ -83,6 +83,7 @@ entity-review = "dream.entity_review:main"
 meeting-calendar = "dream.meeting_calendar:main"
 journal-stats = "think.journal_stats:main"
 dream-extract = "dream.extract:main"
+process-day = "think.process_day:main"
 
 [project.urls]
 Homepage = "https://github.com/yourusername/sunstone"
