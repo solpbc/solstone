@@ -1,8 +1,8 @@
-### **Prompt for Master Knowledge Graph Generation for Disambiguation**
+### **Prompt for Top Entities Knowledge Graph Generation for Disambiguation**
 
 **Objective:**
 
-Your task is to process a collection of daily knowledge graphs, each generated from potentially error-prone transcriptions, and create a list that will the most helpful for disambiguation. From this collection, you will create a single, consolidated, and authoritative master list of the most important entities. The final output should be a clean, deduplicated list formatted as specified below.
+Your task is to process a collection of daily knowledge graphs, each generated from potentially error-prone transcriptions, and create a list that will the most helpful for disambiguation. From this collection, you will create a single, consolidated, and authoritative top list of the most important entities. The final output should be a clean, deduplicated list formatted as specified below.
 
 **Input:**
 
@@ -10,7 +10,7 @@ You will be given a series of knowledge graphs, each representing a single day. 
 
 **Instructions:**
 
-Follow these steps to build the master list:
+Follow these steps to build the top list:
 
 1.  **Aggregate Entities:** Begin by considering a comprehensive list of every entity from every daily knowledge graph provided.
     * **Important Entities:** Since this list is primarily for disambiguation, focus only on Person, Project, Company, and Tool entity types. Capturing all of the Company and Person entities is important.
@@ -18,7 +18,7 @@ Follow these steps to build the master list:
 
 2.  **Normalize and Deduplicate Entities (Entity Resolution):** This is the most critical step. Your goal is to identify and merge duplicate entries into a single, canonical record that can be a reference for transcription accuracy.
     * **Group by Similarity:** Group proper named entities that appear to be the same. Use fuzzy string matching, phonetic similarity, and contextual clues to identify potential duplicates (e.g., "Jeremie Miller," "Jeremy Miller," and "Jer" mentioned in a software context might be the same person).
-    * **Establish a Canonical Name:** For each group of duplicate entities, determine the most common or most likely correct spelling for the name. This will be the authoritative name in the master list.
+    * **Establish a Canonical Name:** For each group of duplicate entities, determine the most common or most likely correct spelling for the name. This will be the authoritative name in the top list.
     * **Include Nickname:** Optionally, if the entity has a nickname then include that in parenthesis after their name, but ONLY if the nickname is *different* than any part of the name.
     * **Synthesize Descriptions:** Combine the descriptions from all occurrences of an entity into a single, concise one-sentence summary. If descriptions conflict, prioritize the most frequently occurring or most detailed information. The final description should capture the bare essence of the entity's role or nature across all mentions.
 

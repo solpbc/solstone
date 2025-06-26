@@ -191,8 +191,8 @@ let data = {};
 let activeType = null;
 let currentItem = null;
 
-// Track ongoing master generations
-let generatingMasters = new Set();
+// Track ongoing top generations
+let generatingTops = new Set();
 
 function reloadData() {
   const currentType = activeType;
@@ -233,7 +233,7 @@ function showType(type) {
 
   items.forEach(item => {
     const tr = document.createElement('tr');
-    const count = item.master ? `<span style="color:gold" title="${item.dates.length} entries">&#9733;</span>` : item.dates.length;
+    const count = item.top ? `<span style="color:gold" title="${item.dates.length} entries">&#9733;</span>` : item.dates.length;
     tr.innerHTML = `
       <td class="count" onclick="handleCountClick(event, '${item.name}')">${count}</td>
       <td class="name">${item.name}</td>
@@ -293,7 +293,7 @@ function editName(nameElement, item) {
   input.select();
 }
 
-function showMasterEditor(item, text) {
+function showTopEditor(item, text) {
   const content = document.getElementById('modalContent');
   const html = `
     <div class="modal-header">
@@ -302,22 +302,22 @@ function showMasterEditor(item, text) {
       <span id="modalDelete" style="cursor:pointer;color:#555;margin-left:8px;" title="Delete entity">&#128465;</span>
     </div>
     <div class="modal-body">
-      <textarea id="masterDesc" style="width:100%;height:150px;">${text}</textarea>
+      <textarea id="topDesc" style="width:100%;height:150px;">${text}</textarea>
       <div style="text-align:right;margin-top:10px;">
         <button id="regenerateBtn" style="margin-right:10px;">Regenerate</button>
-        <button id="saveMasterBtn">Save</button>
+        <button id="saveTopBtn">Save</button>
       </div>
     </div>`;
   content.innerHTML = html;
   document.getElementById('regenerateBtn').onclick = () => {
     const btn = document.getElementById('regenerateBtn');
-    const textarea = document.getElementById('masterDesc');
+    const textarea = document.getElementById('topDesc');
     const originalText = btn.textContent;
     
     btn.textContent = 'Regenerating...';
     btn.disabled = true;
     
-    fetch('api/master_generate', {
+    fetch('api/top_generate', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ type: activeType, name: item.name })
@@ -335,9 +335,9 @@ function showMasterEditor(item, text) {
       btn.disabled = false;
     });
   };
-  document.getElementById('saveMasterBtn').onclick = () => {
-    const desc = document.getElementById('masterDesc').value.trim();
-    fetch('api/master_update', {
+  document.getElementById('saveTopBtn').onclick = () => {
+    const desc = document.getElementById('topDesc').value.trim();
+    fetch('api/top_update', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ type: activeType, name: item.name, desc })
@@ -365,14 +365,14 @@ function showMasterEditor(item, text) {
 }
 
 function handleStarClick(item) {
-  if (item.master) {
-    showMasterEditor(item, item.desc);
+  if (item.top) {
+    showTopEditor(item, item.desc);
   } else {
     const starEl = document.getElementById('modalStar');
     starEl.style.cursor = 'wait';
     starEl.onclick = null;
     
-    fetch('api/master_generate', {
+    fetch('api/top_generate', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ type: activeType, name: item.name })
@@ -384,7 +384,7 @@ function handleStarClick(item) {
         return;
       }
       if (document.getElementById('entityModal').style.display === 'block') {
-        showMasterEditor(item, res.desc);
+        showTopEditor(item, res.desc);
       }
     }).catch(err => {
       alert('Network error: ' + err.message);
@@ -402,7 +402,7 @@ function showEntityDetails(name) {
   const modal = document.getElementById('entityModal');
   const content = document.getElementById('modalContent');
 
-  const star = item.master ? '&#9733;' : '&#9734;';
+  const star = item.top ? '&#9733;' : '&#9734;';
   let html = `
     <div class="modal-header">
       <span id="modalStar" style="cursor:pointer;margin-right:8px;color:gold">${star}</span>
@@ -423,7 +423,7 @@ function showEntityDetails(name) {
   html += '</div>';
 
   content.innerHTML = html;
-  // Add click handlers for editing and master
+  // Add click handlers for editing and top entry
   document.getElementById('modalEntityName').onclick = () => {
     editName(document.getElementById('modalEntityName'), item);
   };
@@ -459,24 +459,24 @@ window.onclick = function(event) {
   }
 };
 
-// Handle count click with control-click support for background master generation
+// Handle count click with control-click support for background top generation
 function handleCountClick(event, name) {
   if (event.ctrlKey || event.metaKey || event.altKey) {
-    // Control-click: generate master in background
+    // Control-click: generate top entry in background
     const item = data[activeType].find(item => item.name === name);
-    if (!item || item.master || generatingMasters.has(name)) return;
+    if (!item || item.top || generatingTops.has(name)) return;
     
     // Mark as generating and update UI
-    generatingMasters.add(name);
+    generatingTops.add(name);
     const countCell = event.target;
     const originalContent = countCell.innerHTML;
     countCell.innerHTML = '<span style="color:#888">⏳</span>';
     countCell.style.opacity = '0.7';
     
-    // Generate master description in parallel - don't await, let it run independently
+    // Generate top description in parallel - don't await, let it run independently
     (async () => {
       try {
-        const generateResponse = await fetch('api/master_generate', {
+        const generateResponse = await fetch('api/top_generate', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ type: activeType, name: name })
@@ -485,16 +485,16 @@ function handleCountClick(event, name) {
         const res = await generateResponse.json();
         
         if (res.error) {
-          console.error('Error generating master for', name, ':', res.error);
+          console.error('Error generating top entry for', name, ':', res.error);
           // Restore original state
           countCell.innerHTML = originalContent;
           countCell.style.opacity = '1';
-          generatingMasters.delete(name);
+          generatingTops.delete(name);
           return;
         }
         
         // Auto-submit the generated description
-        await fetch('api/master_update', {
+        await fetch('api/top_update', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ type: activeType, name: name, desc: res.desc })
@@ -503,7 +503,7 @@ function handleCountClick(event, name) {
         // Success - update UI
         countCell.innerHTML = '<span style="color:gold">&#9733;</span>';
         countCell.style.opacity = '1';
-        generatingMasters.delete(name);
+        generatingTops.delete(name);
         reloadData();
         
       } catch (err) {
@@ -511,7 +511,7 @@ function handleCountClick(event, name) {
         // Restore original state
         countCell.innerHTML = originalContent;
         countCell.style.opacity = '1';
-        generatingMasters.delete(name);
+        generatingTops.delete(name);
       }
     })();
   } else {
