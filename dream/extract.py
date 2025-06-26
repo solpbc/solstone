@@ -12,7 +12,7 @@ from PIL import Image
 
 from see.screen_compare import compare_images
 
-MIN_THRESHOLD = 400
+MIN_THRESHOLD = 250
 TIME_RE = re.compile(r"\d{8}_\d{6}")
 
 
@@ -56,7 +56,7 @@ def split_audio(path: str, out_dir: str, start: dt.datetime) -> None:
                 continue
             ts = start + timedelta(seconds=idx * 60)
             time_part = ts.strftime("%H%M%S")
-            dest = os.path.join(out_dir, f"{time_part}_raw.flac")
+            dest = os.path.join(out_dir, f"{time_part}_extract_raw.flac")
             os.replace(os.path.join(tmpdir, name), dest)
 
 
@@ -93,9 +93,9 @@ def process_video(path: str, out_dir: str, start: dt.datetime, sample_s: float) 
                 if width > MIN_THRESHOLD and height > MIN_THRESHOLD:
                     ts = start + timedelta(seconds=frame_idx / fps)
                     time_part = ts.strftime("%H%M%S")
-                    img_path = os.path.join(out_dir, f"{time_part}_extract.png")
+                    img_path = os.path.join(out_dir, f"{time_part}_extract_diff.png")
                     img.save(img_path)
-                    with open(os.path.join(out_dir, f"{time_part}_diff_box.json"), "w") as f:
+                    with open(os.path.join(out_dir, f"{time_part}_extract_diff_box.json"), "w") as f:
                         json.dump(largest, f)
         prev_img = img
         frame_idx += interval
