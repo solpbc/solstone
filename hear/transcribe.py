@@ -174,20 +174,17 @@ class Transcriber:
         logging.info(f"Saved processed audio to {audio_path}")
         return audio_path
 
-    def _handle_raw(self, raw_path: Path) -> None:
-        audio_path = self._convert_raw(raw_path)
-        if not audio_path:
-            return
+    def _transcribe_and_save(self, audio_path: Path) -> bool:
+        """Transcribe an audio file and save the result. Returns True on success."""
         json_path = audio_path.with_suffix(".json")
-        if json_path.exists() or json_path.name in self.processed:
-            self.processed.add(json_path.name)
-            return
         attempts = 0
         while attempts < 2:
             try:
                 result = self._transcribe_file(audio_path)
                 json_path.write_text(json.dumps({"text": result}, indent=2))
                 logging.info(f"Transcribed {audio_path} -> {json_path}")
+
+                # Create crumb
                 crumb_builder = (
                     CrumbBuilder().add_file(self.prompt_path).add_file(self.entities_path)
                 )
@@ -196,14 +193,27 @@ class Transcriber:
                 crumb_builder = crumb_builder.add_file(audio_path).add_model(MODEL)
                 crumb_path = crumb_builder.commit(str(json_path))
                 logging.info(f"Crumb saved to {crumb_path}")
-                break
+                return True
             except Exception as e:
                 attempts += 1
                 if attempts < 2:
                     logging.warning(f"Retrying {audio_path} due to error: {e}")
                 else:
                     logging.error(f"Failed to transcribe {audio_path}: {e}")
-        self.processed.add(json_path.name)
+                    return False
+        return False
+
+    def _handle_raw(self, raw_path: Path) -> None:
+        audio_path = self._convert_raw(raw_path)
+        if not audio_path:
+            return
+        json_path = audio_path.with_suffix(".json")
+        if json_path.exists() or json_path.name in self.processed:
+            self.processed.add(json_path.name)
+            return
+
+        if self._transcribe_and_save(audio_path):
+            self.processed.add(json_path.name)
 
     def _transcribe_file(self, flac_path: Path) -> dict:
         logging.info(f"Processing {flac_path}")
@@ -234,6 +244,45 @@ class Transcriber:
         result = json.loads(response.text)
         logging.info(f"Transcription result: {json.dumps(result, indent=2)}")
         return result
+
+    def repair_day(self, date_str: str):
+        """Repair incomplete processing for a specific day."""
+        day_dir = self.journal_dir / date_str
+        if not day_dir.exists():
+            logging.error(f"Day directory {day_dir} does not exist")
+            return
+
+        logging.info(f"Repairing day {date_str} in {day_dir}")
+
+        # Find unprocessed _raw.flac files (missing corresponding _audio.flac)
+        raw_files = list(day_dir.glob("*_raw.flac"))
+        unprocessed_raw = []
+        for raw_path in raw_files:
+            audio_path = raw_path.with_name(raw_path.name.replace("_raw.flac", "_audio.flac"))
+            if not audio_path.exists():
+                unprocessed_raw.append(raw_path)
+
+        logging.info(f"Found {len(unprocessed_raw)} unprocessed raw files")
+
+        # Process raw files sequentially
+        for raw_path in unprocessed_raw:
+            logging.info(f"Processing raw file: {raw_path}")
+            self._handle_raw(raw_path)
+
+        # Find _audio.flac files missing corresponding .json
+        audio_files = list(day_dir.glob("*_audio.flac"))
+        missing_json = []
+        for audio_path in audio_files:
+            json_path = audio_path.with_suffix(".json")
+            if not json_path.exists():
+                missing_json.append(audio_path)
+
+        logging.info(f"Found {len(missing_json)} audio files missing transcription")
+
+        # Transcribe missing files sequentially
+        for audio_path in missing_json:
+            logging.info(f"Transcribing audio file: {audio_path}")
+            self._transcribe_and_save(audio_path)
 
     def start(self):
         handler = PatternMatchingEventHandler(patterns=["*_raw.flac"], ignore_directories=True)
@@ -292,6 +341,11 @@ def main():
         help="Path to top entities file (defaults to <journal>/entities.md)",
     )
     parser.add_argument("-v", "--verbose", action="store_true", help="Enable verbose output")
+    parser.add_argument(
+        "--repair",
+        type=str,
+        help="Repair mode: process incomplete files for specified day (YYYYMMDD format)",
+    )
     args = parser.parse_args()
 
     api_key = os.getenv("GOOGLE_API_KEY")
@@ -306,7 +360,23 @@ def main():
         parser.error(f"entities file not found: {ent_path}")
 
     transcriber = Transcriber(args.journal, api_key, args.prompt, ent_path)
-    transcriber.start()
+
+    if args.repair:
+        # Validate date format
+        try:
+            datetime.datetime.strptime(args.repair, "%Y%m%d")
+        except ValueError:
+            parser.error(f"Invalid date format: {args.repair}. Use YYYYMMDD format.")
+        transcriber.repair_day(args.repair)
+    else:
+        transcriber.start()
+
+
+if __name__ == "__main__":
+    main()
+        transcriber.repair_day(args.repair)
+    else:
+        transcriber.start()
 
 
 if __name__ == "__main__":
