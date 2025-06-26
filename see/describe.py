@@ -62,6 +62,41 @@ class Describer:
         with Image.open(img_path) as im:
             return gemini_look.gemini_describe_region(im, box, entities=str(self.entities))
 
+    def repair_day(self, date_str: str):
+        """Repair incomplete processing for a specific day."""
+        day_dir = self.journal_dir / date_str
+        if not day_dir.exists():
+            logging.error(f"Day directory {day_dir} does not exist")
+            return
+
+        logging.info(f"Repairing day {date_str} in {day_dir}")
+
+        # Find _diff_box.json files missing corresponding description .json
+        box_files = list(day_dir.glob("*_diff_box.json"))
+        missing_descriptions = []
+
+        for box_path in box_files:
+            prefix = box_path.stem.replace("_box", "")
+            img_path = box_path.with_name(prefix + ".png")
+            json_path = box_path.with_name(prefix + ".json")
+
+            if not img_path.exists():
+                logging.warning(f"Skipping {box_path}: missing image {img_path}")
+                continue
+
+            if not json_path.exists():
+                missing_descriptions.append((img_path, box_path, json_path))
+
+        logging.info(f"Found {len(missing_descriptions)} images missing descriptions")
+
+        # Process missing descriptions sequentially
+        for img_path, box_path, json_path in missing_descriptions:
+            try:
+                logging.info(f"Describing image: {img_path}")
+                self._process_once(img_path, box_path, json_path)
+            except Exception as e:
+                logging.error(f"Failed to describe {img_path}: {e}")
+
     def start(self):
         handler = PatternMatchingEventHandler(patterns=["*_diff_box.json"], ignore_directories=True)
 
@@ -116,6 +151,11 @@ def main() -> None:
     )
     parser.add_argument("-e", "--entities", type=Path, default=None, help="Optional entities file")
     parser.add_argument("-v", "--verbose", action="store_true", help="Enable verbose output")
+    parser.add_argument(
+        "--repair",
+        type=str,
+        help="Repair mode: process incomplete files for specified day (YYYYMMDD format)",
+    )
     args = parser.parse_args()
 
     logging.basicConfig(level=logging.INFO if args.verbose else logging.WARNING)
@@ -128,7 +168,16 @@ def main() -> None:
         parser.error(f"entities file not found: {ent_path}")
 
     describer = Describer(args.journal, ent_path)
-    describer.start()
+
+    if args.repair:
+        # Validate date format
+        try:
+            datetime.datetime.strptime(args.repair, "%Y%m%d")
+        except ValueError:
+            parser.error(f"Invalid date format: {args.repair}. Use YYYYMMDD format.")
+        describer.repair_day(args.repair)
+    else:
+        describer.start()
 
 
 if __name__ == "__main__":
