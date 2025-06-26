@@ -3,7 +3,7 @@ import os
 import re
 from typing import Dict, List, Optional, Tuple
 
-MASTER_KEY = "__master__"
+TOP_KEY = "__top__"
 
 DATE_RE = re.compile(r"\d{8}")
 ITEM_RE = re.compile(r"^\s*[-*]\s*(.*)")
@@ -82,14 +82,14 @@ def save_cache(journal: str, cache: Dict[str, dict]) -> None:
 def build_index(cache: Dict[str, dict]) -> Dict[str, Dict[str, dict]]:
     index: Dict[str, Dict[str, dict]] = {}
     for key, info in cache.items():
-        is_master = info.get("master", False)
+        is_top = info.get("top", False)
         for etype, name, desc in info.get("entries", []):
             type_map = index.setdefault(etype, {})
-            entry = type_map.setdefault(name, {"dates": [], "descriptions": {}, "master": False})
-            if is_master:
-                entry["master"] = True
+            entry = type_map.setdefault(name, {"dates": [], "descriptions": {}, "top": False})
+            if is_top:
+                entry["top"] = True
                 if desc:
-                    entry["master_desc"] = desc
+                    entry["top_desc"] = desc
             else:
                 if key not in entry["dates"]:
                     entry["dates"].append(key)
@@ -98,14 +98,14 @@ def build_index(cache: Dict[str, dict]) -> Dict[str, Dict[str, dict]]:
 
     for type_map in index.values():
         for info in type_map.values():
-            if info.get("master"):
-                info["primary"] = info.get("master_desc", "")
+            if info.get("top"):
+                info["primary"] = info.get("top_desc", "")
             elif info["descriptions"]:
                 latest = max(info["descriptions"].keys())
                 info["primary"] = info["descriptions"].get(latest, "")
             else:
                 info["primary"] = ""
-            info.pop("master_desc", None)
+            info.pop("top_desc", None)
 
     return index
 
@@ -115,26 +115,26 @@ def get_entities(journal: str) -> Dict[str, Dict[str, dict]]:
     days = find_day_dirs(journal)
     changed = False
 
-    # handle master file in parent directory
-    master_path = os.path.join(journal, "entities.md")
-    if os.path.isfile(master_path):
-        mtime = int(os.path.getmtime(master_path))
-        info = cache.get(MASTER_KEY)
+    # handle top entities file in parent directory
+    top_path = os.path.join(journal, "entities.md")
+    if os.path.isfile(top_path):
+        mtime = int(os.path.getmtime(top_path))
+        info = cache.get(TOP_KEY)
         if info is None or info.get("mtime") != mtime:
-            cache[MASTER_KEY] = {
-                "file": os.path.relpath(master_path, journal),
+            cache[TOP_KEY] = {
+                "file": os.path.relpath(top_path, journal),
                 "mtime": mtime,
                 "entries": parse_entities(journal),
-                "master": True,
+                "top": True,
             }
             changed = True
-    elif MASTER_KEY in cache:
-        del cache[MASTER_KEY]
+    elif TOP_KEY in cache:
+        del cache[TOP_KEY]
         changed = True
 
-    # remove days no longer present (ignore master key)
+    # remove days no longer present (ignore top key)
     for day in list(cache.keys()):
-        if day == MASTER_KEY:
+        if day == TOP_KEY:
             continue
         if day not in days:
             del cache[day]

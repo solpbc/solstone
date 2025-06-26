@@ -148,7 +148,9 @@ class Transcriber:
 
         total_seconds = sum(len(seg["data"]) / SAMPLE_RATE for seg in segments)
         if total_seconds < MIN_SPEECH_SECONDS:
-            logging.info(f"Total speech duration {total_seconds:.2f}s < {MIN_SPEECH_SECONDS}s, removing {raw_path}")
+            logging.info(
+                f"Total speech duration {total_seconds:.2f}s < {MIN_SPEECH_SECONDS}s, removing {raw_path}"
+            )
             raw_path.unlink(missing_ok=True)
             return None
 
@@ -287,7 +289,7 @@ def main():
         "-e",
         "--entities",
         type=Path,
-        help="Path to master entities file (defaults to <journal>/entities.md)",
+        help="Path to top entities file (defaults to <journal>/entities.md)",
     )
     parser.add_argument("-v", "--verbose", action="store_true", help="Enable verbose output")
     args = parser.parse_args()

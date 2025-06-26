@@ -116,8 +116,8 @@ def modify_entity_file(
     log_entity_operation(journal, operation, day, etype, name, new_name)
 
 
-def update_master_entry(journal: str, etype: str, name: str, desc: str) -> None:
-    """Add or update an entry in the master entities.md file."""
+def update_top_entry(journal: str, etype: str, name: str, desc: str) -> None:
+    """Add or update an entry in the top entities.md file."""
     # Sanitize description to prevent newlines that would break formatting
     desc = desc.replace("\n", " ").replace("\r", " ").strip()
 
@@ -148,7 +148,7 @@ def update_master_entry(journal: str, etype: str, name: str, desc: str) -> None:
         f.writelines(lines)
 
 
-def generate_master_summary(info: Dict[str, Any], api_key: str) -> str:
+def generate_top_summary(info: Dict[str, Any], api_key: str) -> str:
     """Merge entity descriptions into a single summary via Gemini."""
     descs = list(info.get("descriptions", {}).values())
     if not descs and info.get("primary"):
@@ -212,7 +212,7 @@ class EntityHandler(SimpleHTTPRequestHandler):
                             "dates": [format_date(date) for date in sorted(info.get("dates", []))],
                             "raw_dates": sorted(info.get("dates", [])),
                             "desc": primary,
-                            "master": info.get("master", False),
+                            "top": info.get("top", False),
                             "descriptions": formatted_descriptions,
                         }
                     )
@@ -236,7 +236,7 @@ class EntityHandler(SimpleHTTPRequestHandler):
             self.wfile.write(b"Invalid JSON")
             return
 
-        if self.path == "/api/master_generate":
+        if self.path == "/api/top_generate":
             etype = payload.get("type")
             name = payload.get("name")
             info = self.index.get(etype, {}).get(name)
@@ -248,7 +248,7 @@ class EntityHandler(SimpleHTTPRequestHandler):
                 return
 
             try:
-                desc = generate_master_summary(info, api_key)
+                desc = generate_top_summary(info, api_key)
                 self.send_response(200)
                 self.send_header("Content-Type", "application/json")
                 self.end_headers()
@@ -262,13 +262,13 @@ class EntityHandler(SimpleHTTPRequestHandler):
                 )
                 print(f"Error generating summary for {etype}: {name} - {e}")
             return
-        elif self.path == "/api/master_update":
+        elif self.path == "/api/top_update":
             etype = payload.get("type")
             name = payload.get("name")
             desc = payload.get("desc", "")
             # Sanitize description to prevent newlines that would break formatting
             desc = desc.replace("\n", " ").replace("\r", " ").strip()
-            update_master_entry(self.root, etype, name, desc)
+            update_top_entry(self.root, etype, name, desc)
             self.reload_index()
             self.send_response(200)
             self.send_header("Content-Type", "application/json")
@@ -294,11 +294,11 @@ class EntityHandler(SimpleHTTPRequestHandler):
             for day in days:
                 modify_entity_file(self.root, day, etype, name, new_name, action)
 
-            # If renaming, also update the master entities.md file
+            # If renaming, also update the top entities.md file
             if action == "rename" and new_name:
-                master_file_path = os.path.join(self.root, "entities.md")
+                top_file_path = os.path.join(self.root, "entities.md")
                 modify_entity_in_file(
-                    master_file_path, etype, name, new_name, "rename", require_match=False
+                    top_file_path, etype, name, new_name, "rename", require_match=False
                 )
 
             self.reload_index()
