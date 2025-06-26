@@ -66,7 +66,6 @@ class Transcriber:
         journal_dir: Path,
         api_key: str,
         prompt_path: Path,
-        entities_path: Path,
         voice_sample: Optional[Path] = None,
     ):
         self.journal_dir = journal_dir
@@ -74,7 +73,7 @@ class Transcriber:
         self.client = genai.Client(api_key=api_key)
         self.prompt_path = prompt_path
         self.prompt_text = prompt_path.read_text().strip()
-        self.entities_path = entities_path
+        self.entities_path = journal_dir / "entities.md"
         self.voice_sample_path = voice_sample or journal_dir / "voice_sample.flac"
         self.voice_sample_bytes: Optional[bytes] = None
         if self.voice_sample_path.is_file():
@@ -334,12 +333,6 @@ def main():
         default=Path(__file__).with_name("transcribe.txt"),
         help="Path to the system prompt text",
     )
-    parser.add_argument(
-        "-e",
-        "--entities",
-        type=Path,
-        help="Path to top entities file (defaults to <journal>/entities.md)",
-    )
     parser.add_argument("-v", "--verbose", action="store_true", help="Enable verbose output")
     parser.add_argument(
         "--repair",
@@ -355,11 +348,11 @@ def main():
     logging.basicConfig(level=logging.INFO if args.verbose else logging.WARNING)
     faulthandler.enable()
 
-    ent_path = args.entities or args.journal / "entities.md"
+    ent_path = args.journal / "entities.md"
     if not ent_path.is_file():
         parser.error(f"entities file not found: {ent_path}")
 
-    transcriber = Transcriber(args.journal, api_key, args.prompt, ent_path)
+    transcriber = Transcriber(args.journal, api_key, args.prompt)
 
     if args.repair:
         # Validate date format

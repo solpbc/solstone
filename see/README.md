@@ -20,13 +20,13 @@ The package exposes two commands driven by the `scan.py` and `describe.py` modul
   are stored under `~/.cache/sunstone/see`.
 
  - `screen-describe` watches the journal's current day folder for these `_box.json`
-   files and uses Gemini to produce a JSON description for each diff image. The
-   region is highlighted with a red box before calling Gemini. Optional flags
-   allow specifying an entities file, the polling interval and verbose logging.
+  files and uses Gemini to produce a JSON description for each diff image. The
+  region is highlighted with a red box before calling Gemini. Optional flags
+  control the polling interval and verbose logging.
 
 ```bash
 screen-watch <journal> [--verbose] [--min PIXELS]
-screen-describe <journal> [-e ENTITIES] [-i SECONDS] [-v]
+screen-describe <journal> [-i SECONDS] [-v]
 ```
 
 Set the `GOOGLE_API_KEY` environment variable before running `screen-describe`.

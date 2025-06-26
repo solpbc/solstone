@@ -18,11 +18,11 @@ from think.crumbs import CrumbBuilder
 
 
 class Describer:
-    def __init__(self, journal_dir: Path, entities: Path):
+    def __init__(self, journal_dir: Path):
         """Watch the journal and describe new screenshot diffs for the current day."""
         self.journal_dir = journal_dir
         self.watch_dir: Optional[Path] = None
-        self.entities = entities
+        self.entities = journal_dir / "entities.md"
         self.processed: set[str] = set()
         self.observer: Optional[Observer] = None
         self.executor = ThreadPoolExecutor()
@@ -149,7 +149,6 @@ def main() -> None:
         type=Path,
         help="Journal directory containing daily screenshot folders",
     )
-    parser.add_argument("-e", "--entities", type=Path, default=None, help="Optional entities file")
     parser.add_argument("-v", "--verbose", action="store_true", help="Enable verbose output")
     parser.add_argument(
         "--repair",
@@ -163,11 +162,11 @@ def main() -> None:
 
     gemini_look.initialize()
 
-    ent_path = args.entities or args.journal / "entities.md"
+    ent_path = args.journal / "entities.md"
     if not ent_path.is_file():
         parser.error(f"entities file not found: {ent_path}")
 
-    describer = Describer(args.journal, ent_path)
+    describer = Describer(args.journal)
 
     if args.repair:
         # Validate date format
