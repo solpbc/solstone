@@ -20,12 +20,44 @@ from watchdog.events import PatternMatchingEventHandler
 from watchdog.observers import Observer
 
 from think.crumbs import CrumbBuilder
-from merge_best import merge_best
 
 # Constants
 MODEL = "gemini-2.5-pro"
 SAMPLE_RATE = 16000
 MIN_SPEECH_SECONDS = 1.0
+
+
+def merge_streams(
+    sys_data: np.ndarray,
+    mic_data: np.ndarray,
+    sample_rate: int,
+    window_ms: int = 50,
+    threshold: float = 0.005,
+) -> np.ndarray:
+    """Mix system and microphone audio while avoiding feedback."""
+
+    length = min(len(sys_data), len(mic_data))
+    if length == 0:
+        return np.array([], dtype=np.float32)
+
+    sys_data = sys_data[:length]
+    mic_data = mic_data[:length]
+    window_samples = max(1, int(sample_rate * window_ms / 1000))
+    output = np.zeros(length, dtype=np.float32)
+
+    for start in range(0, length, window_samples):
+        end = min(length, start + window_samples)
+        sys_win = sys_data[start:end]
+        mic_win = mic_data[start:end]
+        sys_rms = float(np.sqrt(np.mean(sys_win**2))) if len(sys_win) else 0.0
+        mic_rms = float(np.sqrt(np.mean(mic_win**2))) if len(mic_win) else 0.0
+
+        if sys_rms > threshold and mic_rms > threshold:
+            output[start:end] = sys_win
+        else:
+            output[start:end] = sys_win + mic_win
+
+    return output
 
 
 class Transcriber:
@@ -94,38 +126,7 @@ class Transcriber:
             logging.error(f"Error in detect_speech for {label}: {e}")
             return [], np.array([], dtype=np.float32)
 
-    def create_flac_bytes(self, left_data: np.ndarray) -> bytes:
-        if left_data is None or left_data.size == 0:
-            return b""
-        left_int16 = (np.clip(left_data, -1.0, 1.0) * 32767).astype(np.int16)
-        buf = io.BytesIO()
-        sf.write(buf, left_int16, SAMPLE_RATE, format="FLAC")
-        return buf.getvalue()
-
-    def process_segments_and_save(self, segments, output_path: Path) -> float:
-        if not segments:
-            return 0.0
-        total_seconds = sum([len(seg["data"]) / SAMPLE_RATE for seg in segments])
-        if total_seconds < MIN_SPEECH_SECONDS:
-            return 0.0
-        combined_data_list = []
-        for seg in segments:
-            data = seg.get("data")
-            if isinstance(data, np.ndarray) and data.size > 0:
-                combined_data_list.append(data)
-        if not combined_data_list:
-            return 0.0
-        combined_audio = np.concatenate(combined_data_list)
-        flac_bytes = self.create_flac_bytes(combined_audio)
-        output_path.write_bytes(flac_bytes)
-        logging.info(f"Saved processed audio to {output_path}")
-        return total_seconds
-
-    def process_buffer(self, buffer: np.ndarray, new_data: np.ndarray, label: str):
-        merged = np.concatenate((buffer, new_data)) if buffer.size > 0 else new_data
-        return self.detect_speech(label, merged)
-
-    def process_raw_file(self, raw_path: Path) -> Path | None:
+    def _convert_raw(self, raw_path: Path) -> Path | None:
         data, sr = sf.read(raw_path, dtype="float32")
         if sr != SAMPLE_RATE:
             logging.warning(f"Unexpected sample rate {sr} in {raw_path}")
@@ -135,29 +136,41 @@ class Transcriber:
         else:
             mic_new = data[:, 0]
             sys_new = data[:, 1]
-            merged = merge_best(sys_new, mic_new, SAMPLE_RATE)
+            merged = merge_streams(sys_new, mic_new, SAMPLE_RATE)
 
-        segments, self.merged_stash = self.process_buffer(self.merged_stash, merged, "mix")
+        merged = np.concatenate((self.merged_stash, merged))
+        segments, self.merged_stash = self.detect_speech("mix", merged)
+
+        if not segments:
+            raw_path.unlink(missing_ok=True)
+            return None
+
+        total_seconds = sum(len(seg["data"]) / SAMPLE_RATE for seg in segments)
+        if total_seconds < MIN_SPEECH_SECONDS:
+            raw_path.unlink(missing_ok=True)
+            return None
+
+        combined_audio = np.concatenate(
+            [
+                seg["data"]
+                for seg in segments
+                if isinstance(seg.get("data"), np.ndarray) and seg["data"].size > 0
+            ]
+        )
+        if combined_audio.size == 0:
+            raw_path.unlink(missing_ok=True)
+            return None
+
+        left_int16 = (np.clip(combined_audio, -1.0, 1.0) * 32767).astype(np.int16)
+        buf = io.BytesIO()
+        sf.write(buf, left_int16, SAMPLE_RATE, format="FLAC")
         audio_path = raw_path.with_name(raw_path.name.replace("_raw.flac", "_audio.flac"))
-        seconds = self.process_segments_and_save(segments, audio_path)
-        if seconds > 0:
-            return audio_path
-        raw_path.unlink(missing_ok=True)
-        return None
+        audio_path.write_bytes(buf.getvalue())
+        logging.info(f"Saved processed audio to {audio_path}")
+        return audio_path
 
-    def _process_once(self, audio_path: Path, json_path: Path) -> None:
-        result = self.transcribe_file(audio_path)
-        json_path.write_text(json.dumps({"text": result}, indent=2))
-        logging.info(f"Transcribed {audio_path} -> {json_path}")
-        crumb_builder = CrumbBuilder().add_file(self.prompt_path).add_file(self.entities_path)
-        if self.voice_sample_bytes:
-            crumb_builder = crumb_builder.add_file(self.voice_sample_path)
-        crumb_builder = crumb_builder.add_file(audio_path).add_model(MODEL)
-        crumb_path = crumb_builder.commit(str(json_path))
-        logging.info(f"Crumb saved to {crumb_path}")
-
-    def _process(self, raw_path: Path) -> None:
-        audio_path = self.process_raw_file(raw_path)
+    def _handle_raw(self, raw_path: Path) -> None:
+        audio_path = self._convert_raw(raw_path)
         if not audio_path:
             return
         json_path = audio_path.with_suffix(".json")
@@ -167,7 +180,17 @@ class Transcriber:
         attempts = 0
         while attempts < 2:
             try:
-                self._process_once(audio_path, json_path)
+                result = self._transcribe_file(audio_path)
+                json_path.write_text(json.dumps({"text": result}, indent=2))
+                logging.info(f"Transcribed {audio_path} -> {json_path}")
+                crumb_builder = (
+                    CrumbBuilder().add_file(self.prompt_path).add_file(self.entities_path)
+                )
+                if self.voice_sample_bytes:
+                    crumb_builder = crumb_builder.add_file(self.voice_sample_path)
+                crumb_builder = crumb_builder.add_file(audio_path).add_model(MODEL)
+                crumb_path = crumb_builder.commit(str(json_path))
+                logging.info(f"Crumb saved to {crumb_path}")
                 break
             except Exception as e:
                 attempts += 1
@@ -177,7 +200,7 @@ class Transcriber:
                     logging.error(f"Failed to transcribe {audio_path}: {e}")
         self.processed.add(json_path.name)
 
-    def transcribe_file(self, flac_path: Path) -> dict:
+    def _transcribe_file(self, flac_path: Path) -> dict:
         logging.info(f"Processing {flac_path}")
         flac_bytes = flac_path.read_bytes()
         user_prompt = "Process the provided audio now and output your professional accurate transcription in the specified JSON format."
@@ -213,7 +236,7 @@ class Transcriber:
         def on_created(event):
             raw_path = Path(event.src_path)
             logging.info(f"New raw audio file detected: {raw_path}")
-            self.executor.submit(self._process, raw_path)
+            self.executor.submit(self._handle_raw, raw_path)
 
         handler.on_created = on_created
 
