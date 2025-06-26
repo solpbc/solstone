@@ -20,8 +20,7 @@ from watchdog.events import PatternMatchingEventHandler
 from watchdog.observers import Observer
 
 from think.crumbs import CrumbBuilder
-
-from .merge_best import merge_best
+from merge_best import merge_best
 
 # Constants
 MODEL = "gemini-2.5-pro"

@@ -5,19 +5,10 @@ def merge_best(
     sys_data: np.ndarray,
     mic_data: np.ndarray,
     sample_rate: int,
-    window_ms: int = 10,
-    threshold: float = 0.0005,
-    hold_ms: int = 200,
+    window_ms: int = 50,
+    threshold: float = 0.005,
 ) -> np.ndarray:
-    """Select between system and microphone audio using simple gating.
-
-    The system channel is preferred. When its RMS level drops below ``threshold``
-    and the microphone level rises above the threshold the function switches to
-    the microphone channel. The reverse happens when the microphone becomes
-    quiet and the system is active again. The ``hold_ms`` parameter prevents
-    rapid flapping by keeping the current channel active for at least that
-    duration after a switch.
-    """
+    """Mix system and microphone audio, muting mic when both exceed threshold to avoid feedback."""
 
     length = min(len(sys_data), len(mic_data))
     if length == 0:
@@ -27,10 +18,7 @@ def merge_best(
     mic_data = mic_data[:length]
 
     window_samples = max(1, int(sample_rate * window_ms / 1000))
-    hold_frames = max(1, int(hold_ms / window_ms))
 
-    active = 0  # 0 -> sys, 1 -> mic
-    hold = 0
     output = np.zeros(length, dtype=np.float32)
 
     for start in range(0, length, window_samples):
@@ -40,16 +28,16 @@ def merge_best(
         sys_rms = float(np.sqrt(np.mean(sys_win**2))) if len(sys_win) else 0.0
         mic_rms = float(np.sqrt(np.mean(mic_win**2))) if len(mic_win) else 0.0
 
-        if hold == 0:
-            if active == 0 and sys_rms < threshold and mic_rms > threshold:
-                active = 1
-                hold = hold_frames
-            elif active == 1 and mic_rms < threshold and sys_rms > threshold:
-                active = 0
-                hold = hold_frames
+        if sys_rms > threshold and mic_rms > threshold:
+            # Both channels active - mute mic to avoid interference
+            output[start:end] = sys_win
+            mic_muted = True
+        else:
+            # Mix both channels together
+            output[start:end] = sys_win + mic_win
+            mic_muted = False
 
-        output[start:end] = mic_win if active else sys_win
-        if hold > 0:
-            hold -= 1
+        print(f"sys_rms: {sys_rms:.4f}, mic_rms: {mic_rms:.4f}, "
+              f"mic_muted: {mic_muted}")
 
     return output
