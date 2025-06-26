@@ -8,7 +8,7 @@ import os
 import time
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
-from typing import Optional
+from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 import soundfile as sf
@@ -33,17 +33,24 @@ def merge_streams(
     sample_rate: int,
     window_ms: int = 50,
     threshold: float = 0.005,
-) -> np.ndarray:
-    """Mix system and microphone audio while avoiding feedback."""
+) -> tuple[np.ndarray, list[tuple[float, float]]]:
+    """Mix system and microphone audio while avoiding feedback.
+
+    Returns a tuple with the merged audio and a list of time ranges (in seconds)
+    where the microphone contained significant audio based on ``threshold``.
+    """
 
     length = min(len(sys_data), len(mic_data))
     if length == 0:
-        return np.array([], dtype=np.float32)
+        return np.array([], dtype=np.float32), []
 
     sys_data = sys_data[:length]
     mic_data = mic_data[:length]
     window_samples = max(1, int(sample_rate * window_ms / 1000))
     output = np.zeros(length, dtype=np.float32)
+    mic_ranges: list[tuple[float, float]] = []
+    in_range = False
+    range_start = 0
 
     for start in range(0, length, window_samples):
         end = min(length, start + window_samples)
@@ -52,12 +59,23 @@ def merge_streams(
         sys_rms = float(np.sqrt(np.mean(sys_win**2))) if len(sys_win) else 0.0
         mic_rms = float(np.sqrt(np.mean(mic_win**2))) if len(mic_win) else 0.0
 
+        if mic_rms > threshold:
+            if not in_range:
+                in_range = True
+                range_start = start
+        elif in_range:
+            in_range = False
+            mic_ranges.append((range_start / sample_rate, start / sample_rate))
+
         if sys_rms > threshold and mic_rms > threshold:
             output[start:end] = sys_win
         else:
             output[start:end] = sys_win + mic_win
 
-    return output
+    if in_range:
+        mic_ranges.append((range_start / sample_rate, length / sample_rate))
+
+    return output, mic_ranges
 
 
 class Transcriber:
@@ -84,12 +102,24 @@ class Transcriber:
                 logging.warning(f"Failed to load voice sample: {e}")
         self.model = load_silero_vad()
         self.merged_stash = np.array([], dtype=np.float32)
+        self.mic_ranges: Dict[Path, List[Tuple[float, float]]] = {}
         self.processed: set[str] = set()
         self.observer: Optional[Observer] = None
         self.executor = ThreadPoolExecutor()
         self.attempts: dict[str, int] = {}
 
-    def detect_speech(self, label: str, buffer_data: np.ndarray):
+    def detect_speech(
+        self,
+        label: str,
+        buffer_data: np.ndarray,
+        mic_ranges: Optional[List[Tuple[float, float]]] = None,
+    ):
+        """Return voiced segments and leftover buffer data.
+
+        ``mic_ranges`` specifies time ranges within ``buffer_data`` that contain
+        microphone input. Segments overlapping these ranges are tagged with
+        ``"mic": True``.
+        """
         if buffer_data is None or len(buffer_data) == 0:
             logging.info(f"No audio data found in {label} buffer.")
             return [], np.array([], dtype=np.float32)
@@ -106,7 +136,10 @@ class Transcriber:
             )
             buffer_seconds = len(buffer_data) / SAMPLE_RATE
             logging.info(
-                f"Detected {len(speech_segments)} speech segments in {label} of {buffer_seconds:.1f} seconds."
+                "Detected %d speech segments in %s of %.1f seconds",
+                len(speech_segments),
+                label,
+                buffer_seconds,
             )
             segments = []
             total_duration = len(buffer_data) / SAMPLE_RATE
@@ -119,7 +152,13 @@ class Transcriber:
                 start_idx = int(seg["start"] * SAMPLE_RATE)
                 end_idx = int(seg["end"] * SAMPLE_RATE)
                 seg_data = buffer_data[start_idx:end_idx]
-                segments.append({"offset": seg["start"], "data": seg_data})
+                in_mic = False
+                if mic_ranges:
+                    for m_start, m_end in mic_ranges:
+                        if m_end > seg["start"] and m_start < seg["end"]:
+                            in_mic = True
+                            break
+                segments.append({"offset": seg["start"], "data": seg_data, "mic": in_mic})
             return segments, unprocessed_data
         except Exception as e:
             logging.error(f"Error in detect_speech for {label}: {e}")
@@ -130,15 +169,27 @@ class Transcriber:
         if sr != SAMPLE_RATE:
             logging.warning(f"Unexpected sample rate {sr} in {raw_path}")
 
+        mic_ranges: List[Tuple[float, float]] = []
         if data.ndim == 1:
             merged = data
         else:
             mic_new = data[:, 0]
             sys_new = data[:, 1]
-            merged = merge_streams(sys_new, mic_new, SAMPLE_RATE)
+            merged, mic_ranges = merge_streams(sys_new, mic_new, SAMPLE_RATE)
+
+        offset_seconds = len(self.merged_stash) / SAMPLE_RATE
+        adjusted_ranges = [(s + offset_seconds, e + offset_seconds) for s, e in mic_ranges]
 
         merged = np.concatenate((self.merged_stash, merged))
-        segments, self.merged_stash = self.detect_speech("mix", merged)
+        segments, self.merged_stash = self.detect_speech("mix", merged, adjusted_ranges)
+
+        mic_trimmed: List[Tuple[float, float]] = []
+        current_time = 0.0
+        for seg in segments:
+            seg_dur = len(seg["data"]) / SAMPLE_RATE
+            if seg.get("mic"):
+                mic_trimmed.append((current_time, current_time + seg_dur))
+            current_time += seg_dur
 
         if not segments:
             logging.info(f"No speech segments detected, removing {raw_path}")
@@ -148,7 +199,10 @@ class Transcriber:
         total_seconds = sum(len(seg["data"]) / SAMPLE_RATE for seg in segments)
         if total_seconds < MIN_SPEECH_SECONDS:
             logging.info(
-                f"Total speech duration {total_seconds:.2f}s < {MIN_SPEECH_SECONDS}s, removing {raw_path}"
+                "Total speech duration %.2fs < %.2fs, removing %s",
+                total_seconds,
+                MIN_SPEECH_SECONDS,
+                raw_path,
             )
             raw_path.unlink(missing_ok=True)
             return None
@@ -171,6 +225,8 @@ class Transcriber:
         audio_path = raw_path.with_name(raw_path.name.replace("_raw.flac", "_audio.flac"))
         audio_path.write_bytes(buf.getvalue())
         logging.info(f"Saved processed audio to {audio_path}")
+        if mic_trimmed:
+            self.mic_ranges[audio_path] = mic_trimmed
         return audio_path
 
     def _transcribe_and_save(self, audio_path: Path) -> bool:
@@ -217,17 +273,35 @@ class Transcriber:
     def _transcribe_file(self, flac_path: Path) -> dict:
         logging.info(f"Processing {flac_path}")
         flac_bytes = flac_path.read_bytes()
-        user_prompt = "Process the provided audio now and output your professional accurate transcription in the specified JSON format."
+        user_prompt = (
+            "Process the provided audio now and output your professional "
+            "accurate transcription in the specified JSON format."
+        )
         entities_text = self.entities_path.read_text().strip()
         contents = [entities_text]
         if self.voice_sample_bytes:
             contents.append(
-                "Here's a voice sample for Jeremie to help identify him if he is speaking, but you must be VERY confident that the voice you hear matches him (there's often many other speakers, and some sound like him), then only if you are absolutely sure you can tag his sections with his name as the speaker."
+                "Here's a voice sample for Jeremie to help identify him if he is speaking. "
+                "Only tag his sections with his name if you're absolutely sure the voice matches, "
+                "since there may be many similar speakers."
             )
             contents.append(
-                types.Part.from_bytes(data=self.voice_sample_bytes, mime_type="audio/flac")
+                types.Part.from_bytes(
+                    data=self.voice_sample_bytes,
+                    mime_type="audio/flac",
+                )
             )
         contents.append(user_prompt)
+        mic_times = self.mic_ranges.pop(flac_path, None)
+        if mic_times:
+            formatted = ", ".join(
+                f"{time.strftime('%M:%S', time.gmtime(s))}-"
+                f"{time.strftime('%M:%S', time.gmtime(e))}"
+                for s, e in mic_times
+            )
+            contents.append(
+                "The microphone on the local machine was active at these times: " f"{formatted}."
+            )
         contents.append(types.Part.from_bytes(data=flac_bytes, mime_type="audio/flac"))
 
         response = self.client.models.generate_content(
@@ -363,6 +437,7 @@ def main():
         transcriber.repair_day(args.repair)
     else:
         transcriber.start()
+
 
 if __name__ == "__main__":
     main()
