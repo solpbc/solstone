@@ -84,7 +84,6 @@ class Transcriber:
         journal_dir: Path,
         api_key: str,
         prompt_path: Path,
-        voice_sample: Optional[Path] = None,
     ):
         self.journal_dir = journal_dir
         self.watch_dir: Optional[Path] = None
@@ -92,17 +91,8 @@ class Transcriber:
         self.prompt_path = prompt_path
         self.prompt_text = prompt_path.read_text().strip()
         self.entities_path = journal_dir / "entities.md"
-        self.voice_sample_path = voice_sample or journal_dir / "voice_sample.flac"
-        self.voice_sample_bytes: Optional[bytes] = None
-        if self.voice_sample_path.is_file():
-            try:
-                self.voice_sample_bytes = self.voice_sample_path.read_bytes()
-                logging.info(f"Loaded voice sample from {self.voice_sample_path}")
-            except Exception as e:  # pragma: no cover - best effort
-                logging.warning(f"Failed to load voice sample: {e}")
         self.model = load_silero_vad()
         self.merged_stash = np.array([], dtype=np.float32)
-        self.mic_ranges: Dict[Path, List[Tuple[float, float]]] = {}
         self.processed: set[str] = set()
         self.observer: Optional[Observer] = None
         self.executor = ThreadPoolExecutor()
@@ -114,12 +104,6 @@ class Transcriber:
         buffer_data: np.ndarray,
         mic_ranges: Optional[List[Tuple[float, float]]] = None,
     ):
-        """Return voiced segments and leftover buffer data.
-
-        ``mic_ranges`` specifies time ranges within ``buffer_data`` that contain
-        microphone input. Segments overlapping these ranges are tagged with
-        ``"mic": True``.
-        """
         if buffer_data is None or len(buffer_data) == 0:
             logging.info(f"No audio data found in {label} buffer.")
             return [], np.array([], dtype=np.float32)
@@ -219,14 +203,15 @@ class Transcriber:
             raw_path.unlink(missing_ok=True)
             return None
 
+        if len(mic_trimmed) > 0:
+            self._save_flac_metadata(audio_path, mic_trimmed)
+
         left_int16 = (np.clip(combined_audio, -1.0, 1.0) * 32767).astype(np.int16)
         buf = io.BytesIO()
         sf.write(buf, left_int16, SAMPLE_RATE, format="FLAC")
         audio_path = raw_path.with_name(raw_path.name.replace("_raw.flac", "_audio.flac"))
         audio_path.write_bytes(buf.getvalue())
         logging.info(f"Saved processed audio to {audio_path}")
-        if mic_trimmed:
-            self.mic_ranges[audio_path] = mic_trimmed
         return audio_path
 
     def _transcribe_and_save(self, audio_path: Path) -> bool:
@@ -243,8 +228,6 @@ class Transcriber:
                 crumb_builder = (
                     CrumbBuilder().add_file(self.prompt_path).add_file(self.entities_path)
                 )
-                if self.voice_sample_bytes:
-                    crumb_builder = crumb_builder.add_file(self.voice_sample_path)
                 crumb_builder = crumb_builder.add_file(audio_path).add_model(MODEL)
                 crumb_path = crumb_builder.commit(str(json_path))
                 logging.info(f"Crumb saved to {crumb_path}")
@@ -279,29 +262,21 @@ class Transcriber:
         )
         entities_text = self.entities_path.read_text().strip()
         contents = [entities_text]
-        if self.voice_sample_bytes:
-            contents.append(
-                "Here's a voice sample for Jeremie to help identify him if he is speaking. "
-                "Only tag his sections with his name if you're absolutely sure the voice matches, "
-                "since there may be many similar speakers."
-            )
-            contents.append(
-                types.Part.from_bytes(
-                    data=self.voice_sample_bytes,
-                    mime_type="audio/flac",
-                )
-            )
-        contents.append(user_prompt)
-        mic_times = self.mic_ranges.pop(flac_path, None)
-        if mic_times:
+        
+        # Load mic times to include timing information
+        mic_times = self._load_flac_metadata(flac_path)
+        if len(mic_times) > 0:
             formatted = ", ".join(
                 f"{time.strftime('%M:%S', time.gmtime(s))}-"
                 f"{time.strftime('%M:%S', time.gmtime(e))}"
                 for s, e in mic_times
             )
             contents.append(
-                "The microphone on the local machine was active at these times: " f"{formatted}."
+                f"The microphone was active during the following times in the recording, if there is only one speaker in these segments then it is probably Jeremie talking: {formatted}."
             )
+            logging.info(f"Using microphone times: {formatted}")
+        
+        contents.append(user_prompt)
         contents.append(types.Part.from_bytes(data=flac_bytes, mime_type="audio/flac"))
 
         response = self.client.models.generate_content(
@@ -392,6 +367,23 @@ class Transcriber:
                 self.observer.stop()
                 self.observer.join()
             self.executor.shutdown(wait=True)
+
+    def _save_flac_metadata(self, audio_path: Path, mic_ranges: List[Tuple[float, float]]) -> None:
+        meta_path = audio_path.with_name(audio_path.name.replace("_audio.flac", "_meta.json"))
+        metadata = {"mic_at": mic_ranges}
+        meta_path.write_text(json.dumps(metadata, indent=2))
+        logging.info(f"Saved microphone metadata to {meta_path}")
+
+    def _load_flac_metadata(self, audio_path: Path) -> List[Tuple[float, float]]:
+        meta_path = audio_path.with_name(audio_path.name.replace("_audio.flac", "_meta.json"))
+        if not meta_path.exists():
+            return []
+        try:
+            metadata = json.loads(meta_path.read_text())
+            return metadata.get("mic_at", [])
+        except Exception as e:
+            logging.warning(f"Failed to load microphone metadata from {meta_path}: {e}")
+            return []
 
 
 def main():

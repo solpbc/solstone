@@ -6,7 +6,6 @@ This document describes the layout of a **journal** directory where all audio, s
 
 - `entities.md` – top list of entities gathered across days. Used by several tools.
 - `indexer.json` – cache file created by `dream.entity_review` to speed up indexing.
-- `voice_sample.flac` – optional reference voice sample loaded by `gemini-transcribe`.
 - `entity_review.log` – operations performed in the web UI are appended here.
 - `YYYYMMDD/` – individual day folders described below.
 
