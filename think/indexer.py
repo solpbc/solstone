@@ -79,7 +79,7 @@ def save_cache(journal: str, cache: Dict[str, dict]) -> None:
         json.dump(cache, f, indent=2)
 
 
-def build_index(cache: Dict[str, dict]) -> Dict[str, Dict[str, dict]]:
+def build_entities(cache: Dict[str, dict]) -> Dict[str, Dict[str, dict]]:
     index: Dict[str, Dict[str, dict]] = {}
     for key, info in cache.items():
         is_top = info.get("top", False)
@@ -110,8 +110,7 @@ def build_index(cache: Dict[str, dict]) -> Dict[str, Dict[str, dict]]:
     return index
 
 
-def get_entities(journal: str) -> Dict[str, Dict[str, dict]]:
-    cache = load_cache(journal)
+def scan_entities(journal: str, cache) -> Dict[str, Dict[str, dict]]:
     days = find_day_dirs(journal)
     changed = False
 
@@ -159,7 +158,11 @@ def get_entities(journal: str) -> Dict[str, Dict[str, dict]]:
             }
             changed = True
 
-    if changed:
+    return changed
+
+def get_entities(journal: str) -> Dict[str, Dict[str, dict]]:
+    cache = load_cache(journal)
+    if scan_entities(journal, cache):
         save_cache(journal, cache)
 
-    return build_index(cache)
+    return build_entities(cache)

@@ -36,8 +36,10 @@ Follow these guidelines:
 
 5. Processing:
    - Go through the transcript sequentially, identifying speakers and their statements.
+   - Ignore any background hums, noise, or high pitched sounds, focus on the speaking and speakers.
    - Group consecutive statements by the same speaker into a single text string.
    - Only start a new JSON object when there's a change in speaker or long delay between the last statement.
+   - Don't include JSON objects if there were only noises and no words spoken, if there's no "text" transcription value then omit that entry.
    - Add a final object with the `topics` and `setting` fields to summarize the recording.
 
 Here are two examples of correct output format:
