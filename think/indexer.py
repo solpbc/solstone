@@ -3,11 +3,61 @@ import os
 import re
 from typing import Dict, List, Optional, Tuple
 
-from chromadb import PersistentClient
-from chromadb.utils import embedding_functions
+import nltk
+import numpy as np
+from sentence_transformers import SentenceTransformer
+from sklearn.metrics.pairwise import cosine_similarity
+from usearch.index import Index
 
 TOP_KEY = "__top__"
-CHROMA_DIR = "chroma"
+INDEX_DIR = "index"
+EMBED_MODEL_NAME = "all-MiniLM-L6-v2"
+_EMBEDDER = SentenceTransformer(EMBED_MODEL_NAME)
+_EMBED_DIM = _EMBEDDER.get_sentence_embedding_dimension()
+
+
+class SemanticChunker:
+    """Chunk text based on semantic similarity between sentence groups."""
+
+    def __init__(self, model_name: str = EMBED_MODEL_NAME) -> None:
+        nltk.download("punkt", quiet=True)
+        self.model = SentenceTransformer(model_name)
+
+    def chunk_by_semantic_similarity(self, text: str, threshold: float = 0.7) -> List[str]:
+        sentences = nltk.sent_tokenize(text)
+
+        sentence_groups = []
+        for i, _ in enumerate(sentences):
+            context = sentences[max(0, i - 1) : min(len(sentences), i + 2)]
+            sentence_groups.append(" ".join(context))
+
+        if not sentence_groups:
+            return []
+
+        embeddings = self.model.encode(sentence_groups)
+
+        distances: List[float] = []
+        for i in range(len(embeddings) - 1):
+            similarity = cosine_similarity([embeddings[i]], [embeddings[i + 1]])[0][0]
+            distances.append(1 - similarity)
+
+        breakpoints = [0]
+        if distances:
+            breakpoint_percentile = np.percentile(distances, 95)
+            for i, dist in enumerate(distances):
+                if dist > breakpoint_percentile:
+                    breakpoints.append(i + 1)
+        breakpoints.append(len(sentences))
+
+        chunks = []
+        for i in range(len(breakpoints) - 1):
+            chunk = " ".join(sentences[breakpoints[i] : breakpoints[i + 1]])
+            chunks.append(chunk)
+
+        return chunks
+
+
+_CHUNKER = SemanticChunker(EMBED_MODEL_NAME)
 
 DATE_RE = re.compile(r"\d{8}")
 ITEM_RE = re.compile(r"^\s*[-*]\s*(.*)")
@@ -173,13 +223,25 @@ def get_entities(journal: str) -> Dict[str, Dict[str, dict]]:
     return build_entities(cache)
 
 
-def get_ponder_collection(journal: str):
-    """Return the Chroma collection for ponder files."""
-    db_path = os.path.join(journal, CHROMA_DIR)
+def get_ponder_index(journal: str) -> Tuple[Index, dict, str, str]:
+    """Return the USearch index and metadata for ponder files."""
+    db_path = os.path.join(journal, INDEX_DIR)
     os.makedirs(db_path, exist_ok=True)
-    embed = embedding_functions.SentenceTransformerEmbeddingFunction(model_name="all-MiniLM-L6-v2")
-    client = PersistentClient(path=db_path)
-    return client.get_or_create_collection("ponders", embedding_function=embed)
+    index_path = os.path.join(db_path, "ponders.usearch")
+    meta_path = os.path.join(db_path, "ponders_meta.json")
+
+    if os.path.isfile(index_path):
+        index = Index.restore(index_path, view=False)
+    else:
+        index = Index(ndim=_EMBED_DIM, metric="cos", dtype="f32")
+
+    if os.path.isfile(meta_path):
+        with open(meta_path, "r", encoding="utf-8") as f:
+            meta = json.load(f)
+    else:
+        meta = {"paths": {}, "info": {}, "next_id": 1}
+
+    return index, meta, index_path, meta_path
 
 
 def find_ponder_files(journal: str) -> Dict[str, str]:
@@ -194,46 +256,88 @@ def find_ponder_files(journal: str) -> Dict[str, str]:
 
 
 def scan_ponders(journal: str, cache: Dict[str, dict]) -> bool:
-    """Index ponder markdown files into Chroma if they changed."""
-    collection = get_ponder_collection(journal)
+    """Index ponder markdown files into USearch in semantic chunks if they changed."""
+    index, meta, index_path, meta_path = get_ponder_index(journal)
     p_cache = cache.setdefault("ponders", {})
     files = find_ponder_files(journal)
     changed = False
+
+    next_id = meta.get("next_id", 1)
+    path_map = meta.setdefault("paths", {})
+    info_map = meta.setdefault("info", {})
 
     for rel, path in files.items():
         mtime = int(os.path.getmtime(path))
         if p_cache.get(rel) != mtime:
             with open(path, "r", encoding="utf-8") as f:
                 text = f.read()
-            day = os.path.basename(os.path.dirname(path))
-            collection.upsert(
-                documents=[text],
-                ids=[rel],
-                metadatas=[{"day": day, "ponder": os.path.basename(path)}],
-            )
+
+            # remove old entries for this file
+            keys = path_map.get(rel, [])
+            for k in keys:
+                index.remove(k)
+                info_map.pop(str(k), None)
+
+            chunks = _CHUNKER.chunk_by_semantic_similarity(text)
+            embeddings = _EMBEDDER.encode(chunks)
+            keys = []
+            for i, emb in enumerate(embeddings):
+                key = next_id
+                next_id += 1
+                index.add(key, emb)
+                info_map[str(key)] = {
+                    "rel": rel,
+                    "day": os.path.basename(os.path.dirname(path)),
+                    "ponder": os.path.basename(path),
+                    "chunk": i,
+                    "text": chunks[i],
+                }
+                keys.append(key)
+            path_map[rel] = keys
             p_cache[rel] = mtime
             changed = True
 
     for rel in list(p_cache.keys()):
         if rel not in files:
-            collection.delete(ids=[rel])
+            keys = path_map.pop(rel, [])
+            for k in keys:
+                index.remove(k)
+                info_map.pop(str(k), None)
             del p_cache[rel]
             changed = True
+
+    meta["next_id"] = next_id
+    if changed:
+        index.save(index_path)
+        with open(meta_path, "w", encoding="utf-8") as f:
+            json.dump(meta, f, indent=2)
 
     return changed
 
 
 def search_ponders(journal: str, query: str, n_results: int = 5) -> List[Dict[str, str]]:
-    """Search the ponder collection and return results."""
-    collection = get_ponder_collection(journal)
-    res = collection.query(query_texts=[query], n_results=n_results)
-    ids = res.get("ids", [[]])[0]
-    docs = res.get("documents", [[]])[0]
-    metas = res.get("metadatas", [[]])[0]
-    dists = res.get("distances", [[]])[0]
+    """Search the ponder chunk index and return results."""
+    index, meta, _, _ = get_ponder_index(journal)
+    embedding = _EMBEDDER.encode(query)
+    matches = index.search(embedding, n_results)
+    info_map = meta.get("info", {})
     results = []
-    for i, doc, meta, dist in zip(ids, docs, metas, dists):
-        results.append({"id": i, "text": doc, "metadata": meta, "distance": dist})
+    for key, dist in zip(matches.keys, matches.distances):
+        entry = info_map.get(str(int(key)))
+        if not entry:
+            continue
+        results.append(
+            {
+                "id": entry["rel"],
+                "text": entry.get("text", ""),
+                "metadata": {
+                    "day": entry["day"],
+                    "ponder": entry["ponder"],
+                    "chunk": entry.get("chunk", 0),
+                },
+                "distance": float(dist),
+            }
+        )
     return results
 
 
