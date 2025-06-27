@@ -105,15 +105,17 @@ class Transcriber:
         self.executor = ThreadPoolExecutor()
         self.attempts: dict[str, int] = {}
 
-    def _calculate_mic_overlap(self, seg_start: float, seg_end: float, mic_ranges: List[Tuple[float, float]]) -> float:
+    def _calculate_mic_overlap(
+        self, seg_start: float, seg_end: float, mic_ranges: List[Tuple[float, float]]
+    ) -> float:
         """Calculate what percentage of a segment overlaps with mic ranges."""
         if not mic_ranges:
             return 0.0
-        
+
         seg_duration = seg_end - seg_start
         if seg_duration <= 0:
             return 0.0
-        
+
         overlap_duration = 0.0
         for mic_start, mic_end in mic_ranges:
             # Calculate overlap between segment and this mic range
@@ -121,7 +123,7 @@ class Transcriber:
             overlap_end = min(seg_end, mic_end)
             if overlap_start < overlap_end:
                 overlap_duration += overlap_end - overlap_start
-        
+
         return overlap_duration / seg_duration
 
     def detect_speech(
@@ -162,11 +164,13 @@ class Transcriber:
                 start_idx = int(seg["start"] * SAMPLE_RATE)
                 end_idx = int(seg["end"] * SAMPLE_RATE)
                 seg_data = buffer_data[start_idx:end_idx]
-                
+
                 # Calculate mic overlap percentage and tag if > 80%
-                mic_overlap = self._calculate_mic_overlap(seg["start"], seg["end"], mic_ranges or [])
+                mic_overlap = self._calculate_mic_overlap(
+                    seg["start"], seg["end"], mic_ranges or []
+                )
                 in_mic = mic_overlap > 0.8
-                
+
                 segments.append({"offset": seg["start"], "data": seg_data, "mic": in_mic})
             return segments, unprocessed_data
         except Exception as e:
@@ -175,7 +179,7 @@ class Transcriber:
             # This prevents file deletion when there's a processing error
             raise
 
-    def _convert_raw(self, raw_path: Path) -> Path | None:
+    def _process_raw(self, raw_path: Path) -> List[Dict[str, object]] | None:
         try:
             data, sr = sf.read(raw_path, dtype="float32")
             if sr != SAMPLE_RATE:
@@ -191,29 +195,9 @@ class Transcriber:
 
             offset_seconds = len(self.merged_stash) / SAMPLE_RATE
             adjusted_ranges = [(s + offset_seconds, e + offset_seconds) for s, e in mic_ranges]
-            logging.info(f"mic ranges original: {mic_ranges}, adjusted to {adjusted_ranges}")
 
             merged = np.concatenate((self.merged_stash, merged))
             segments, self.merged_stash = self.detect_speech("mix", merged, adjusted_ranges)
-
-            mic_trimmed: List[Tuple[float, float]] = []
-            current_time = 0.0
-            mic_start = None
-            
-            for seg in segments:
-                seg_dur = len(seg["data"]) / SAMPLE_RATE
-                if seg.get("mic"):
-                    if mic_start is None:
-                        mic_start = current_time
-                else:
-                    if mic_start is not None:
-                        mic_trimmed.append((mic_start, current_time))
-                        mic_start = None
-                current_time += seg_dur
-            
-            # Handle case where last segment was mic
-            if mic_start is not None:
-                mic_trimmed.append((mic_start, current_time))
 
             if not segments:
                 logging.info(f"No speech segments detected, removing {raw_path}")
@@ -231,102 +215,83 @@ class Transcriber:
                 raw_path.unlink(missing_ok=True)
                 return None
 
-            combined_audio = np.concatenate(
-                [
-                    seg["data"]
-                    for seg in segments
-                    if isinstance(seg.get("data"), np.ndarray) and seg["data"].size > 0
-                ]
-            )
-            if combined_audio.size == 0:
-                logging.info(f"No valid audio data after combining segments, removing {raw_path}")
-                raw_path.unlink(missing_ok=True)
-                return None
+            day = raw_path.parent.name
+            time_part = raw_path.stem.replace("_raw", "")
+            end_dt = datetime.datetime.strptime(f"{day}_{time_part}", "%Y%m%d_%H%M%S")
+            file_duration = len(data) / SAMPLE_RATE
+            base_dt = end_dt - datetime.timedelta(seconds=file_duration + offset_seconds)
 
-            logging.info(
-                f"Processed {raw_path}: {len(segments)} segments, "
-                f"total duration {total_seconds:.2f}s, mic ranges: {len(mic_trimmed)}"
-            )
-            audio_path = raw_path.with_name(raw_path.name.replace("_raw.flac", "_audio.flac"))
-            
-            if len(mic_trimmed) > 0:
-                self._save_flac_metadata(audio_path, mic_trimmed)
+            processed: List[Dict[str, object]] = []
+            for seg in segments:
+                start_dt = base_dt + datetime.timedelta(seconds=seg["offset"])
+                start_str = start_dt.strftime("%H:%M:%S")
+                audio_int16 = (np.clip(seg["data"], -1.0, 1.0) * 32767).astype(np.int16)
+                buf = io.BytesIO()
+                sf.write(buf, audio_int16, SAMPLE_RATE, format="FLAC")
+                processed.append(
+                    {
+                        "start": start_str,
+                        "source": "mic" if seg.get("mic") else "sys",
+                        "bytes": buf.getvalue(),
+                    }
+                )
 
-            left_int16 = (np.clip(combined_audio, -1.0, 1.0) * 32767).astype(np.int16)
-            buf = io.BytesIO()
-            sf.write(buf, left_int16, SAMPLE_RATE, format="FLAC")
-            audio_path.write_bytes(buf.getvalue())
-            logging.info(f"Saved processed audio to {audio_path}")
-            return audio_path
+            logging.info(f"Processed {raw_path}: {len(processed)} segments")
+            return processed
         except Exception as e:
             logging.error(f"Error processing {raw_path}: {e}")
-            # Don't delete the file on processing errors - preserve the data
             return None
 
-    def _transcribe_and_save(self, audio_path: Path) -> bool:
-        """Transcribe an audio file and save the result. Returns True on success."""
-        json_path = audio_path.with_suffix(".json")
+    def _transcribe_segments(self, raw_path: Path, segments: List[Dict[str, object]]) -> bool:
+        json_path = raw_path.with_name(raw_path.name.replace("_raw.flac", "_audio.json"))
         attempts = 0
         while attempts < 2:
             try:
-                result = self._transcribe_file(audio_path)
+                result = self._transcribe(segments)
                 json_path.write_text(json.dumps({"text": result}, indent=2))
-                logging.info(f"Transcribed {audio_path} -> {json_path}")
+                logging.info(f"Transcribed {raw_path} -> {json_path}")
 
-                # Create crumb
                 crumb_builder = (
                     CrumbBuilder().add_file(self.prompt_path).add_file(self.entities_path)
                 )
-                crumb_builder = crumb_builder.add_file(audio_path).add_model(MODEL)
+                crumb_builder = crumb_builder.add_file(raw_path).add_model(MODEL)
                 crumb_path = crumb_builder.commit(str(json_path))
                 logging.info(f"Crumb saved to {crumb_path}")
                 return True
             except Exception as e:
                 attempts += 1
                 if attempts < 2:
-                    logging.warning(f"Retrying {audio_path} due to error: {e}")
+                    logging.warning(f"Retrying {raw_path} due to error: {e}")
                 else:
-                    logging.error(f"Failed to transcribe {audio_path}: {e}")
+                    logging.error(f"Failed to transcribe {raw_path}: {e}")
                     return False
         return False
 
     def _handle_raw(self, raw_path: Path) -> None:
-        audio_path = self._convert_raw(raw_path)
-        if not audio_path:
+        segments = self._process_raw(raw_path)
+        if segments is None:
             return
-        json_path = audio_path.with_suffix(".json")
+        json_path = raw_path.with_name(raw_path.name.replace("_raw.flac", "_audio.json"))
         if json_path.exists() or json_path.name in self.processed:
             self.processed.add(json_path.name)
             return
 
-        if self._transcribe_and_save(audio_path):
+        if self._transcribe_segments(raw_path, segments):
             self.processed.add(json_path.name)
 
-    def _transcribe_file(self, flac_path: Path) -> dict:
-        logging.info(f"Processing {flac_path}")
-        flac_bytes = flac_path.read_bytes()
+    def _transcribe(self, segments: List[Dict[str, object]]) -> dict:
         user_prompt = (
             "Process the provided audio now and output your professional "
             "accurate transcription in the specified JSON format."
         )
         entities_text = self.entities_path.read_text().strip()
-        contents = [entities_text]
-        
-        # Load mic times to include timing information
-        mic_times = self._load_flac_metadata(flac_path)
-        if len(mic_times) > 0:
-            formatted = ", ".join(
-                f"{time.strftime('%M:%S', time.gmtime(s))}-"
-                f"{time.strftime('%M:%S', time.gmtime(e))}"
-                for s, e in mic_times
-            )
+        contents = [entities_text, user_prompt]
+
+        for seg in segments:
             contents.append(
-                f"The microphone was active during the following times in the recording, if there is only one speaker in these segments then it is probably Jeremie talking: {formatted}."
+                f"This clip starts at {seg['start']} and the source is '{seg['source']}'."
             )
-            logging.info(f"Using microphone times: {formatted}")
-        
-        contents.append(user_prompt)
-        contents.append(types.Part.from_bytes(data=flac_bytes, mime_type="audio/flac"))
+            contents.append(types.Part.from_bytes(data=seg["bytes"], mime_type="audio/flac"))
 
         response = self.client.models.generate_content(
             model=MODEL,
@@ -351,35 +316,18 @@ class Transcriber:
 
         logging.info(f"Repairing day {date_str} in {day_dir}")
 
-        # Find unprocessed _raw.flac files (missing corresponding _audio.flac)
         raw_files = list(day_dir.glob("*_raw.flac"))
-        unprocessed_raw = []
+        missing = []
         for raw_path in raw_files:
-            audio_path = raw_path.with_name(raw_path.name.replace("_raw.flac", "_audio.flac"))
-            if not audio_path.exists():
-                unprocessed_raw.append(raw_path)
+            json_path = raw_path.with_name(raw_path.name.replace("_raw.flac", "_audio.json"))
+            if not json_path.exists():
+                missing.append(raw_path)
 
-        logging.info(f"Found {len(unprocessed_raw)} unprocessed raw files")
+        logging.info(f"Found {len(missing)} raw files missing transcripts")
 
-        # Process raw files sequentially
-        for raw_path in unprocessed_raw:
+        for raw_path in missing:
             logging.info(f"Processing raw file: {raw_path}")
             self._handle_raw(raw_path)
-
-        # Find _audio.flac files missing corresponding .json
-        audio_files = list(day_dir.glob("*_audio.flac"))
-        missing_json = []
-        for audio_path in audio_files:
-            json_path = audio_path.with_suffix(".json")
-            if not json_path.exists():
-                missing_json.append(audio_path)
-
-        logging.info(f"Found {len(missing_json)} audio files missing transcription")
-
-        # Transcribe missing files sequentially
-        for audio_path in missing_json:
-            logging.info(f"Transcribing audio file: {audio_path}")
-            self._transcribe_and_save(audio_path)
 
     def start(self):
         handler = PatternMatchingEventHandler(patterns=["*_raw.flac"], ignore_directories=True)
@@ -416,23 +364,6 @@ class Transcriber:
                 self.observer.stop()
                 self.observer.join()
             self.executor.shutdown(wait=True)
-
-    def _save_flac_metadata(self, audio_path: Path, mic_ranges: List[Tuple[float, float]]) -> None:
-        meta_path = audio_path.with_name(audio_path.name.replace("_audio.flac", "_audio_meta.json"))
-        metadata = {"mic_at": mic_ranges}
-        meta_path.write_text(json.dumps(metadata, indent=2))
-        logging.info(f"Saved microphone metadata to {meta_path}")
-
-    def _load_flac_metadata(self, audio_path: Path) -> List[Tuple[float, float]]:
-        meta_path = audio_path.with_name(audio_path.name.replace("_audio.flac", "_audio_meta.json"))
-        if not meta_path.exists():
-            return []
-        try:
-            metadata = json.loads(meta_path.read_text())
-            return metadata.get("mic_at", [])
-        except Exception as e:
-            logging.warning(f"Failed to load microphone metadata from {meta_path}: {e}")
-            return []
 
 
 def main():

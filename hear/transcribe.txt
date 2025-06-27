@@ -22,12 +22,16 @@ Follow these guidelines:
    - Consider the format, context, and audio quality to make your determination
 
 4. Output Format:
-   - Use the following JSON format for your output. Each JSON object must start with an "at" property that indicates the timestamp ("MM:SS"), followed by the "speaker", "text", "description", and a final object with "source", "topics" and "setting" fields.
+   - Use the following JSON format for your output. Each JSON object must include
+     `start` (timestamp as `HH:MM:SS`) and `source` (either `mic` or `sys`) in
+     addition to the `speaker`, `text`, and `description` fields.  Finish with a
+     single object summarizing the overall recording using the `topics` and
+     `setting` fields.
      [
-       {"at": "MM:SS", "speaker": 1, "text": "<their statement or statements>", "description": "<audio description>"},
-       {"at": "MM:SS", "speaker": 2, "text": "<what they said in response>", "description": "<audio description>"},
+       {"start": "HH:MM:SS", "source": "mic", "speaker": 1, "text": "<their statement>", "description": "<audio description>"},
+       {"start": "HH:MM:SS", "source": "sys", "speaker": 2, "text": "<what they said>", "description": "<audio description>"},
        ...,
-       {"source": "<identified audio source type>", "topics": "<topic1>, <topic2>, ...", "setting": "<workplace/personal/educational/etc.>"}
+       {"topics": "<topic1>, <topic2, ...>", "setting": "<workplace/personal/educational/etc.>"}
      ]
    - Ensure that the transcription is sequential, following the order in which statements were made.
 
@@ -35,24 +39,24 @@ Follow these guidelines:
    - Go through the transcript sequentially, identifying speakers and their statements.
    - Group consecutive statements by the same speaker into a single JSON object.
    - Start a new JSON object when there's a change in speaker.
-   - Add a final object with just the "source" field to identify the audio's likely source.
+   - Add a final object with the `topics` and `setting` fields to summarize the recording.
 
 Here are two examples of correct output format:
 
 Example 1:
 [
-  {"at": "MM:SS", "speaker": 1, "text": "Hello, how are you today John?", "description": "[clear throat] [friendly tone] [speaking at normal volume]"},
-  {"at": "MM:SS", "speaker": "John", "text": "I'm doing well, thanks for asking. How about you?", "description": "[calm voice] [slight echo in room]"},
-  {"at": "MM:SS", "speaker": 1, "text": "I'm great! The weather is beautiful.", "description": "[laughs] [excited voice] [birds chirping in background]"},
-  {"source": "casual conversation", "topics": ["greetings", "weather", "small talk"], "setting": "personal"}
+  {"start": "00:00:02", "source": "mic", "speaker": 1, "text": "Hello, how are you today John?", "description": "[clear throat] [friendly tone] [speaking at normal volume]"},
+  {"start": "00:00:05", "source": "sys", "speaker": "John", "text": "I'm doing well, thanks for asking. How about you?", "description": "[calm voice] [slight echo in room]"},
+  {"start": "00:00:09", "source": "mic", "speaker": 1, "text": "I'm great! The weather is beautiful.", "description": "[laughs] [excited voice] [birds chirping in background]"},
+  {"topics": ["greetings", "weather", "small talk"], "setting": "personal"}
 ]
 
 Example 2:
 [
-  {"at": "MM:SS", "speaker": 1, "text": "I can't believe you forgot to buy milk again!", "description": "[frustrated tone] [voice raised] [dishes clattering in background]"},
-  {"at": "MM:SS", "speaker": 2, "text": "I'm sorry, I'll go get some now. Is there anything else we need?", "description": "[sigh] [apologetic tone] [keys jingling]"},
-  {"at": "MM:SS", "speaker": 1, "text": "No, just the milk. PLEASE don't forget this time.", "description": "[stern voice] [emphasis on 'please'] [door closing]"},
-  {"source": "domestic conversation", "topics": ["groceries", "household responsibilities", "reminders"], "setting": "personal"}
+  {"start": "00:00:01", "source": "mic", "speaker": 1, "text": "I can't believe you forgot to buy milk again!", "description": "[frustrated tone] [voice raised] [dishes clattering in background]"},
+  {"start": "00:00:05", "source": "sys", "speaker": 2, "text": "I'm sorry, I'll go get some now. Is there anything else we need?", "description": "[sigh] [apologetic tone] [keys jingling]"},
+  {"start": "00:00:10", "source": "mic", "speaker": 1, "text": "No, just the milk. PLEASE don't forget this time.", "description": "[stern voice] [emphasis on 'please'] [door closing]"},
+  {"topics": ["groceries", "household responsibilities", "reminders"], "setting": "personal"}
 ]
 
 Remember to maintain consistency in speaker naming or numbering throughout the entire transcript. If Speaker 2 is identified as John by context in the beginning, ensure that all of John's statements are attributed to them throughout the transcription.
