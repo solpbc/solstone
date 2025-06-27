@@ -51,7 +51,10 @@ dependencies = [
     "dbus-next",
     "PyGObject",
     "watchdog",
-    "chromadb",
+    "usearch",
+    "sentence-transformers",
+    "nltk",
+    "scikit-learn",
 ]
 
 [project.optional-dependencies]
