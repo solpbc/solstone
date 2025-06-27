@@ -51,6 +51,7 @@ def merge_streams(
     mic_ranges: list[tuple[float, float]] = []
     in_range = False
     range_start = 0
+    consecutive_mic_windows = 0
 
     for start in range(0, length, window_samples):
         end = min(length, start + window_samples)
@@ -59,21 +60,27 @@ def merge_streams(
         sys_rms = float(np.sqrt(np.mean(sys_win**2))) if len(sys_win) else 0.0
         mic_rms = float(np.sqrt(np.mean(mic_win**2))) if len(mic_win) else 0.0
 
-        if mic_rms > threshold:
-            if not in_range:
-                in_range = True
-                range_start = start
-        elif in_range:
-            in_range = False
-            mic_ranges.append((range_start / sample_rate, start / sample_rate))
-
         if sys_rms > threshold and mic_rms > threshold:
             output[start:end] = sys_win
+            consecutive_mic_windows = 0
+            if in_range:
+                in_range = False
+                mic_ranges.append((range_start / sample_rate, start / sample_rate))
         else:
             output[start:end] = sys_win + mic_win
+            if sys_rms < threshold and mic_rms > threshold:
+                consecutive_mic_windows += 1
+                if consecutive_mic_windows >= 2 and not in_range:
+                    in_range = True
+                    range_start = start - window_samples  # Start from previous window
+            else:
+                consecutive_mic_windows = 0
 
     if in_range:
         mic_ranges.append((range_start / sample_rate, length / sample_rate))
+
+    # Filter out mic ranges shorter than 1 second
+    mic_ranges = [(start, end) for start, end in mic_ranges if end - start >= 1.0]
 
     return output, mic_ranges
 
@@ -97,6 +104,25 @@ class Transcriber:
         self.observer: Optional[Observer] = None
         self.executor = ThreadPoolExecutor()
         self.attempts: dict[str, int] = {}
+
+    def _calculate_mic_overlap(self, seg_start: float, seg_end: float, mic_ranges: List[Tuple[float, float]]) -> float:
+        """Calculate what percentage of a segment overlaps with mic ranges."""
+        if not mic_ranges:
+            return 0.0
+        
+        seg_duration = seg_end - seg_start
+        if seg_duration <= 0:
+            return 0.0
+        
+        overlap_duration = 0.0
+        for mic_start, mic_end in mic_ranges:
+            # Calculate overlap between segment and this mic range
+            overlap_start = max(seg_start, mic_start)
+            overlap_end = min(seg_end, mic_end)
+            if overlap_start < overlap_end:
+                overlap_duration += overlap_end - overlap_start
+        
+        return overlap_duration / seg_duration
 
     def detect_speech(
         self,
@@ -136,88 +162,106 @@ class Transcriber:
                 start_idx = int(seg["start"] * SAMPLE_RATE)
                 end_idx = int(seg["end"] * SAMPLE_RATE)
                 seg_data = buffer_data[start_idx:end_idx]
-                in_mic = False
-                if mic_ranges:
-                    for m_start, m_end in mic_ranges:
-                        if m_end > seg["start"] and m_start < seg["end"]:
-                            in_mic = True
-                            break
+                
+                # Calculate mic overlap percentage and tag if > 80%
+                mic_overlap = self._calculate_mic_overlap(seg["start"], seg["end"], mic_ranges or [])
+                in_mic = mic_overlap > 0.8
+                
                 segments.append({"offset": seg["start"], "data": seg_data, "mic": in_mic})
             return segments, unprocessed_data
         except Exception as e:
             logging.error(f"Error in detect_speech for {label}: {e}")
-            return [], np.array([], dtype=np.float32)
+            # Re-raise the exception instead of returning empty results
+            # This prevents file deletion when there's a processing error
+            raise
 
     def _convert_raw(self, raw_path: Path) -> Path | None:
-        data, sr = sf.read(raw_path, dtype="float32")
-        if sr != SAMPLE_RATE:
-            logging.warning(f"Unexpected sample rate {sr} in {raw_path}")
+        try:
+            data, sr = sf.read(raw_path, dtype="float32")
+            if sr != SAMPLE_RATE:
+                logging.warning(f"Unexpected sample rate {sr} in {raw_path}")
 
-        mic_ranges: List[Tuple[float, float]] = []
-        if data.ndim == 1:
-            merged = data
-        else:
-            mic_new = data[:, 0]
-            sys_new = data[:, 1]
-            merged, mic_ranges = merge_streams(sys_new, mic_new, SAMPLE_RATE)
+            mic_ranges: List[Tuple[float, float]] = []
+            if data.ndim == 1:
+                merged = data
+            else:
+                mic_new = data[:, 0]
+                sys_new = data[:, 1]
+                merged, mic_ranges = merge_streams(sys_new, mic_new, SAMPLE_RATE)
 
-        offset_seconds = len(self.merged_stash) / SAMPLE_RATE
-        adjusted_ranges = [(s + offset_seconds, e + offset_seconds) for s, e in mic_ranges]
+            offset_seconds = len(self.merged_stash) / SAMPLE_RATE
+            adjusted_ranges = [(s + offset_seconds, e + offset_seconds) for s, e in mic_ranges]
+            logging.info(f"mic ranges original: {mic_ranges}, adjusted to {adjusted_ranges}")
 
-        merged = np.concatenate((self.merged_stash, merged))
-        segments, self.merged_stash = self.detect_speech("mix", merged, adjusted_ranges)
+            merged = np.concatenate((self.merged_stash, merged))
+            segments, self.merged_stash = self.detect_speech("mix", merged, adjusted_ranges)
 
-        mic_trimmed: List[Tuple[float, float]] = []
-        current_time = 0.0
-        for seg in segments:
-            seg_dur = len(seg["data"]) / SAMPLE_RATE
-            if seg.get("mic"):
-                mic_trimmed.append((current_time, current_time + seg_dur))
-            current_time += seg_dur
+            mic_trimmed: List[Tuple[float, float]] = []
+            current_time = 0.0
+            mic_start = None
+            
+            for seg in segments:
+                seg_dur = len(seg["data"]) / SAMPLE_RATE
+                if seg.get("mic"):
+                    if mic_start is None:
+                        mic_start = current_time
+                else:
+                    if mic_start is not None:
+                        mic_trimmed.append((mic_start, current_time))
+                        mic_start = None
+                current_time += seg_dur
+            
+            # Handle case where last segment was mic
+            if mic_start is not None:
+                mic_trimmed.append((mic_start, current_time))
 
-        if not segments:
-            logging.info(f"No speech segments detected, removing {raw_path}")
-            raw_path.unlink(missing_ok=True)
-            return None
+            if not segments:
+                logging.info(f"No speech segments detected, removing {raw_path}")
+                raw_path.unlink(missing_ok=True)
+                return None
 
-        total_seconds = sum(len(seg["data"]) / SAMPLE_RATE for seg in segments)
-        if total_seconds < MIN_SPEECH_SECONDS:
-            logging.info(
-                "Total speech duration %.2fs < %.2fs, removing %s",
-                total_seconds,
-                MIN_SPEECH_SECONDS,
-                raw_path,
+            total_seconds = sum(len(seg["data"]) / SAMPLE_RATE for seg in segments)
+            if total_seconds < MIN_SPEECH_SECONDS:
+                logging.info(
+                    "Total speech duration %.2fs < %.2fs, removing %s",
+                    total_seconds,
+                    MIN_SPEECH_SECONDS,
+                    raw_path,
+                )
+                raw_path.unlink(missing_ok=True)
+                return None
+
+            combined_audio = np.concatenate(
+                [
+                    seg["data"]
+                    for seg in segments
+                    if isinstance(seg.get("data"), np.ndarray) and seg["data"].size > 0
+                ]
             )
-            raw_path.unlink(missing_ok=True)
+            if combined_audio.size == 0:
+                logging.info(f"No valid audio data after combining segments, removing {raw_path}")
+                raw_path.unlink(missing_ok=True)
+                return None
+
+            logging.info(
+                f"Processed {raw_path}: {len(segments)} segments, "
+                f"total duration {total_seconds:.2f}s, mic ranges: {len(mic_trimmed)}"
+            )
+            audio_path = raw_path.with_name(raw_path.name.replace("_raw.flac", "_audio.flac"))
+            
+            if len(mic_trimmed) > 0:
+                self._save_flac_metadata(audio_path, mic_trimmed)
+
+            left_int16 = (np.clip(combined_audio, -1.0, 1.0) * 32767).astype(np.int16)
+            buf = io.BytesIO()
+            sf.write(buf, left_int16, SAMPLE_RATE, format="FLAC")
+            audio_path.write_bytes(buf.getvalue())
+            logging.info(f"Saved processed audio to {audio_path}")
+            return audio_path
+        except Exception as e:
+            logging.error(f"Error processing {raw_path}: {e}")
+            # Don't delete the file on processing errors - preserve the data
             return None
-
-        combined_audio = np.concatenate(
-            [
-                seg["data"]
-                for seg in segments
-                if isinstance(seg.get("data"), np.ndarray) and seg["data"].size > 0
-            ]
-        )
-        if combined_audio.size == 0:
-            logging.info(f"No valid audio data after combining segments, removing {raw_path}")
-            raw_path.unlink(missing_ok=True)
-            return None
-
-        logging.info(
-            f"Processed {raw_path}: {len(segments)} segments, "
-            f"total duration {total_seconds:.2f}s, mic ranges: {len(mic_trimmed)}"
-        )
-        audio_path = raw_path.with_name(raw_path.name.replace("_raw.flac", "_audio.flac"))
-        
-        if len(mic_trimmed) > 0:
-            self._save_flac_metadata(audio_path, mic_trimmed)
-
-        left_int16 = (np.clip(combined_audio, -1.0, 1.0) * 32767).astype(np.int16)
-        buf = io.BytesIO()
-        sf.write(buf, left_int16, SAMPLE_RATE, format="FLAC")
-        audio_path.write_bytes(buf.getvalue())
-        logging.info(f"Saved processed audio to {audio_path}")
-        return audio_path
 
     def _transcribe_and_save(self, audio_path: Path) -> bool:
         """Transcribe an audio file and save the result. Returns True on success."""
@@ -374,13 +418,13 @@ class Transcriber:
             self.executor.shutdown(wait=True)
 
     def _save_flac_metadata(self, audio_path: Path, mic_ranges: List[Tuple[float, float]]) -> None:
-        meta_path = audio_path.with_name(audio_path.name.replace("_audio.flac", "_meta.json"))
+        meta_path = audio_path.with_name(audio_path.name.replace("_audio.flac", "_audio_meta.json"))
         metadata = {"mic_at": mic_ranges}
         meta_path.write_text(json.dumps(metadata, indent=2))
         logging.info(f"Saved microphone metadata to {meta_path}")
 
     def _load_flac_metadata(self, audio_path: Path) -> List[Tuple[float, float]]:
-        meta_path = audio_path.with_name(audio_path.name.replace("_audio.flac", "_meta.json"))
+        meta_path = audio_path.with_name(audio_path.name.replace("_audio.flac", "_audio_meta.json"))
         if not meta_path.exists():
             return []
         try:
