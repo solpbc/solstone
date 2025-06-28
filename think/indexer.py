@@ -261,13 +261,18 @@ def scan_ponders(journal: str, cache: Dict[str, dict]) -> bool:
     index, meta, index_path, meta_path = get_ponder_index(journal)
     p_cache = cache.setdefault("ponders", {})
     files = find_ponder_files(journal)
+    total = len(files)
+    if total:
+        print(f"\nIndexing {total} ponder files...")
     changed = False
 
     next_id = meta.get("next_id", 1)
     path_map = meta.setdefault("paths", {})
     info_map = meta.setdefault("info", {})
 
-    for rel, path in files.items():
+    for idx, (rel, path) in enumerate(files.items(), 1):
+        if total:
+            print(f"[{idx}/{total}] {rel}")
         mtime = int(os.path.getmtime(path))
         if p_cache.get(rel) != mtime:
             with open(path, "r", encoding="utf-8") as f:
@@ -280,6 +285,7 @@ def scan_ponders(journal: str, cache: Dict[str, dict]) -> bool:
                 info_map.pop(str(k), None)
 
             chunks = _CHUNKER.chunk_by_semantic_similarity(text)
+            print(f"  chunked into {len(chunks)} segments")
             embeddings = _EMBEDDER.encode(chunks)
             keys = []
             for i, emb in enumerate(embeddings):
@@ -309,6 +315,7 @@ def scan_ponders(journal: str, cache: Dict[str, dict]) -> bool:
 
     meta["next_id"] = next_id
     if changed:
+        print("Saving updated index...")
         index.save(index_path)
         with open(meta_path, "w", encoding="utf-8") as f:
             json.dump(meta, f, indent=2)
