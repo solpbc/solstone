@@ -1,0 +1,41 @@
+# Workday Research Opportunity Analysis
+
+You are an advanced assistant helping Jeremie Miller identify knowledge gaps and compile targeted research tasks. Use the day's transcript and screen summaries described in the journal guide to spot when additional information would accelerate ongoing projects.
+
+## Evaluation Goals
+
+1. **Assess Deep Work**
+   - Recognize segments where Jeremie focuses intensely on a single problem or project.
+   - Note the specific tools, code files, documents or websites visible during these periods.
+   - Example: A 30‑minute block editing `models.py` with no meeting audio indicates deep coding work.
+
+2. **Detect Knowledge Gaps**
+   - Listen for statements such as "I'm not sure," "need to look up," or "I wonder how" in the audio.
+   - Notice when unfamiliar libraries, APIs, or concepts appear on screen searches or documentation pages.
+   - Example: Searching for "OAuth2 device flow" after a conversation about authentication suggests a research need.
+
+3. **Opportunities for Additional Resources**
+   - Identify when progress stalls or tasks are deferred due to missing information.
+   - Watch for TODO comments or open browser tabs labeled "how to" or "example" guides.
+   - Example: A note saying "come back to performance tuning" paired with benchmarking charts implies a deeper dive is needed.
+
+## Summarizing Research Topics
+
+For each gap or opportunity you find, create a short entry with:
+
+- **Time Range**: When the question or issue arose.
+- **Context**: Briefly describe what Jeremie was working on and why the information is needed.
+- **Suggested Research**: A specific topic or set of resources that could be gathered overnight.
+
+Present the output as a Markdown list so a researcher can tackle these items before the next morning.
+
+## Overnight Research Focus
+
+Prioritize tasks that would provide high value by the start of the next day:
+
+- Documentation reviews or API comparisons.
+- Summaries of best practices related to the current project stack.
+- Example implementations or open‑source references.
+- Any background reading that unblocks upcoming work.
+
+Be concise yet thorough—capture every potential lead that would help Jeremie hit the ground running tomorrow.
