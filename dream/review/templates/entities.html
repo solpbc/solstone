@@ -1,0 +1,523 @@
+{% extends 'base.html' %}
+{% set title = 'Entity Review' %}
+{% set active = 'entities' %}
+{% block head %}
+<style>
+html::before {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  border: 3px solid #00f;
+  outline: 1px solid #000;
+  pointer-events: none;
+  z-index: 9999;
+}
+body {
+  font-family: sans-serif;
+  margin: 0;
+}
+.container { max-width: 1200px; margin: 0 auto; padding: 1em; }
+h1 { margin-bottom: 1em; }
+
+/* Tab styling */
+.tabs { border-bottom: 2px solid #e0e0e0; margin-bottom: 1em; }
+.tab { 
+  display: inline-block; 
+  padding: 12px 24px; 
+  background: #f5f5f5; 
+  border: 1px solid #ddd;
+  border-bottom: none;
+  cursor: pointer;
+  margin-right: 4px;
+  border-radius: 4px 4px 0 0;
+  transition: background-color 0.2s;
+}
+.tab:hover { background: #e8e8e8; }
+.tab.active { 
+  background: white; 
+  border-bottom: 2px solid white; 
+  margin-bottom: -2px;
+  font-weight: bold;
+}
+
+/* Table styling */
+table { 
+  width: 100%; 
+  border-collapse: collapse; 
+  background: white;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+th, td { 
+  padding: 12px; 
+  text-align: left; 
+  border-bottom: 1px solid #e0e0e0; 
+}
+th { 
+  background: #f8f9fa; 
+  font-weight: 600;
+  color: #333;
+}
+tr:hover { background: #f8f9fa; }
+.count { 
+  text-align: center; 
+  font-weight: bold; 
+  color: #007bff;
+  width: 80px;
+  cursor: pointer;
+}
+.count:hover { 
+  background: #e3f2fd; 
+  border-radius: 4px;
+}
+.name { font-weight: 500; width: 200px; }
+.desc { color: #666; }
+
+/* Modal styling */
+.modal {
+  display: none;
+  position: fixed;
+  z-index: 1000;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0,0,0,0.5);
+}
+.modal-content {
+  background-color: white;
+  margin: 10% auto;
+  border-radius: 8px;
+  width: 90%;
+  max-width: 1000px;
+  max-height: 70vh;
+  position: relative;
+  box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+  overflow: hidden;
+}
+.close {
+  color: #aaa;
+  float: right;
+  font-size: 28px;
+  font-weight: bold;
+  cursor: pointer;
+  line-height: 1;
+  position: absolute;
+  top: 15px;
+  right: 20px;
+  background: white;
+  z-index: 3;
+}
+.close:hover { color: #000; }
+.modal-header {
+  padding: 20px 40px 15px 20px;
+  border-bottom: 1px solid #e0e0e0;
+  background: white;
+  border-radius: 8px 8px 0 0;
+  display: flex;
+  align-items: center;
+}
+.modal-header h3 { 
+  margin: 0; 
+  color: #333; 
+  cursor: pointer;
+  border-radius: 4px;
+  padding: 4px;
+  transition: background-color 0.2s;
+  display: inline-block;
+  vertical-align: middle;
+}
+.modal-header h3:hover {
+  background: #f0f0f0;
+}
+.modal-header #modalStar {
+  vertical-align: middle;
+  line-height: 1;
+}
+.modal-body {
+  max-height: calc(70vh - 80px);
+  overflow-y: auto;
+  padding: 20px;
+}
+.date-entry {
+  margin-bottom: 12px;
+  padding: 8px;
+  border-left: 3px solid #007bff;
+  background: #f8f9fa;
+}
+.date-entry:first-child {
+  margin-top: 0;
+}
+.date-label {
+  font-weight: bold;
+  color: #007bff;
+  margin-bottom: 4px;
+}
+.date-desc {
+  color: #666;
+  font-style: italic;
+}
+</style>
+{% endblock %}
+{% block body %}
+<div class="container">
+  <h1>Entity Review</h1>
+  <div class="tabs" id="tabs"></div>
+  <table id="entityTable">
+    <thead>
+      <tr>
+        <th class="count">Count</th>
+        <th class="name">Name</th>
+        <th class="desc">Description</th>
+      </tr>
+    </thead>
+    <tbody id="entities"></tbody>
+  </table>
+</div>
+
+<!-- Modal -->
+<div id="entityModal" class="modal">
+  <div class="modal-content">
+    <span class="close">&times;</span>
+    <div id="modalContent"></div>
+  </div>
+</div>
+
+<script>
+let data = {};
+let activeType = null;
+let currentItem = null;
+
+// Track ongoing top generations
+let generatingTops = new Set();
+
+function reloadData() {
+  const currentType = activeType;
+  fetch('api/data').then(r => r.json()).then(d => {
+    data = d;
+    const tabsDiv = document.getElementById('tabs');
+    tabsDiv.innerHTML = '';
+    Object.keys(data).forEach(type => {
+      const tab = document.createElement('div');
+      tab.className = 'tab';
+      const count = data[type] ? data[type].length : 0;
+      tab.textContent = `${type} (${count})`;
+      tab.onclick = () => showType(type);
+      tabsDiv.appendChild(tab);
+    });
+    const first = Object.keys(data)[0];
+    if (currentType && data[currentType]) {
+      showType(currentType);
+    } else if (first) {
+      showType(first);
+    }
+  });
+}
+
+reloadData();
+
+function showType(type) {
+  // Update active tab
+  document.querySelectorAll('.tab').forEach(tab => {
+    tab.classList.toggle('active', tab.textContent.startsWith(type));
+  });
+  
+  activeType = type;
+  const tbody = document.getElementById('entities');
+  tbody.innerHTML = '';
+  const items = data[type] || [];
+  items.sort((a, b) => b.dates.length - a.dates.length);
+
+  items.forEach(item => {
+    const tr = document.createElement('tr');
+    const count = item.top ? `<span style="color:gold" title="${item.dates.length} entries">&#9733;</span>` : item.dates.length;
+    tr.innerHTML = `
+      <td class="count" onclick="handleCountClick(event, '${item.name}')">${count}</td>
+      <td class="name">${item.name}</td>
+      <td class="desc">${item.desc}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+function editName(nameElement, item) {
+  const original = item.name;
+  nameElement.innerHTML = '';
+  nameElement.onclick = null;
+  
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.value = original;
+  input.style.width = '200px';
+  input.style.border = '1px solid #ddd';
+  input.style.padding = '4px';
+  nameElement.appendChild(input);
+
+  const reset = () => {
+    nameElement.innerHTML = original;
+    nameElement.onclick = () => editName(nameElement, item);
+  };
+
+  const save = () => {
+    const newName = input.value.trim();
+    if (!newName || newName === original) { reset(); return; }
+    
+    nameElement.style.opacity = '0.5';
+    
+    fetch('api/rename', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type: activeType, name: original, new_name: newName, days: item.raw_dates })
+    }).then(() => {
+      document.getElementById('entityModal').style.display = 'none';
+      reloadData();
+    });
+  };
+
+  // Handle keyboard events
+  input.onkeydown = (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      save();
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      reset();
+    }
+  };
+
+  // Focus and select the input text
+  input.focus();
+  input.select();
+}
+
+function showTopEditor(item, text) {
+  const content = document.getElementById('modalContent');
+  const html = `
+    <div class="modal-header">
+      <span id="modalStar" style="cursor:pointer;margin-right:8px;color:gold">&#9733;</span>
+      <h3 id="modalEntityName">${item.name}</h3>
+      <span id="modalDelete" style="cursor:pointer;color:#555;margin-left:8px;" title="Delete entity">&#128465;</span>
+    </div>
+    <div class="modal-body">
+      <textarea id="topDesc" style="width:100%;height:150px;">${text}</textarea>
+      <div style="text-align:right;margin-top:10px;">
+        <button id="regenerateBtn" style="margin-right:10px;">Regenerate</button>
+        <button id="saveTopBtn">Save</button>
+      </div>
+    </div>`;
+  content.innerHTML = html;
+  document.getElementById('regenerateBtn').onclick = () => {
+    const btn = document.getElementById('regenerateBtn');
+    const textarea = document.getElementById('topDesc');
+    const originalText = btn.textContent;
+    
+    btn.textContent = 'Regenerating...';
+    btn.disabled = true;
+    
+    fetch('api/top_generate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type: activeType, name: item.name })
+    }).then(r => r.json()).then(res => {
+      if (res.error) {
+        alert('Error regenerating description: ' + res.error);
+      } else {
+        textarea.value = res.desc;
+      }
+      btn.textContent = originalText;
+      btn.disabled = false;
+    }).catch(err => {
+      alert('Network error: ' + err.message);
+      btn.textContent = originalText;
+      btn.disabled = false;
+    });
+  };
+  document.getElementById('saveTopBtn').onclick = () => {
+    const desc = document.getElementById('topDesc').value.trim();
+    fetch('api/top_update', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type: activeType, name: item.name, desc })
+    }).then(() => {
+      document.getElementById('entityModal').style.display = 'none';
+      reloadData();
+    });
+  };
+  document.getElementById('modalEntityName').onclick = () => {
+    editName(document.getElementById('modalEntityName'), item);
+  };
+  document.getElementById('modalDelete').onclick = () => {
+    if (!confirm(`Delete ${item.name}?`)) return;
+    
+    document.getElementById('entityModal').style.display = 'none';
+    
+    fetch('api/remove', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type: activeType, name: item.name, days: item.raw_dates })
+    }).then(() => {
+      reloadData();
+    });
+  };
+}
+
+function handleStarClick(item) {
+  if (item.top) {
+    showTopEditor(item, item.desc);
+  } else {
+    const starEl = document.getElementById('modalStar');
+    starEl.style.cursor = 'wait';
+    starEl.onclick = null;
+    
+    fetch('api/top_generate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type: activeType, name: item.name })
+    }).then(r => r.json()).then(res => {
+      if (res.error) {
+        alert('Error generating summary: ' + res.error);
+        starEl.style.cursor = 'pointer';
+        starEl.onclick = () => handleStarClick(item);
+        return;
+      }
+      if (document.getElementById('entityModal').style.display === 'block') {
+        showTopEditor(item, res.desc);
+      }
+    }).catch(err => {
+      alert('Network error: ' + err.message);
+      starEl.style.cursor = 'pointer';
+      starEl.onclick = () => handleStarClick(item);
+    });
+  }
+}
+
+function showEntityDetails(name) {
+  const item = data[activeType].find(item => item.name === name);
+  if (!item) return;
+  currentItem = item;
+  
+  const modal = document.getElementById('entityModal');
+  const content = document.getElementById('modalContent');
+
+  const star = item.top ? '&#9733;' : '&#9734;';
+  let html = `
+    <div class="modal-header">
+      <span id="modalStar" style="cursor:pointer;margin-right:8px;color:gold">${star}</span>
+      <h3 id="modalEntityName">${name}</h3>
+      <span id="modalDelete" style="cursor:pointer;color:#555;margin-left:8px;" title="Delete entity">&#128465;</span>
+    </div>
+    <div class="modal-body">`;
+  
+  item.dates.forEach(date => {
+    const desc = item.descriptions && item.descriptions[date] ? item.descriptions[date] : 'No description';
+    html += `
+      <div class="date-entry">
+        <div class="date-label">${date}</div>
+        <div class="date-desc">${desc}</div>
+      </div>
+    `;
+  });
+  html += '</div>';
+
+  content.innerHTML = html;
+  // Add click handlers for editing and top entry
+  document.getElementById('modalEntityName').onclick = () => {
+    editName(document.getElementById('modalEntityName'), item);
+  };
+  document.getElementById('modalStar').onclick = () => {
+    handleStarClick(item);
+  };
+  document.getElementById('modalDelete').onclick = () => {
+    if (!confirm(`Delete ${name}?`)) return;
+    
+    modal.style.display = 'none';
+    
+    fetch('api/remove', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type: activeType, name: name, days: item.raw_dates })
+    }).then(() => {
+      reloadData();
+    });
+  };
+
+  modal.style.display = 'block';
+}
+
+// Modal close functionality
+document.querySelector('.close').onclick = function() {
+  document.getElementById('entityModal').style.display = 'none';
+};
+
+window.onclick = function(event) {
+  const modal = document.getElementById('entityModal');
+  if (event.target == modal) {
+    modal.style.display = 'none';
+  }
+};
+
+// Handle count click with control-click support for background top generation
+function handleCountClick(event, name) {
+  if (event.ctrlKey || event.metaKey || event.altKey) {
+    // Control-click: generate top entry in background
+    const item = data[activeType].find(item => item.name === name);
+    if (!item || item.top || generatingTops.has(name)) return;
+    
+    // Mark as generating and update UI
+    generatingTops.add(name);
+    const countCell = event.target;
+    const originalContent = countCell.innerHTML;
+    countCell.innerHTML = '<span style="color:#888">⏳</span>';
+    countCell.style.opacity = '0.7';
+    
+    // Generate top description in parallel - don't await, let it run independently
+    (async () => {
+      try {
+        const generateResponse = await fetch('api/top_generate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ type: activeType, name: name })
+        });
+        
+        const res = await generateResponse.json();
+        
+        if (res.error) {
+          console.error('Error generating top entry for', name, ':', res.error);
+          // Restore original state
+          countCell.innerHTML = originalContent;
+          countCell.style.opacity = '1';
+          generatingTops.delete(name);
+          return;
+        }
+        
+        // Auto-submit the generated description
+        await fetch('api/top_update', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ type: activeType, name: name, desc: res.desc })
+        });
+        
+        // Success - update UI
+        countCell.innerHTML = '<span style="color:gold">&#9733;</span>';
+        countCell.style.opacity = '1';
+        generatingTops.delete(name);
+        reloadData();
+        
+      } catch (err) {
+        console.error('Network error for', name, ':', err);
+        // Restore original state
+        countCell.innerHTML = originalContent;
+        countCell.style.opacity = '1';
+        generatingTops.delete(name);
+      }
+    })();
+  } else {
+    // Normal click: show details
+    showEntityDetails(name);
+  }
+}
+</script>
+{% endblock %}
+

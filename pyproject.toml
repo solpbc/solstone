@@ -32,6 +32,7 @@ dependencies = [
     # Core dependencies
     "python-dotenv",
     "google-genai",
+    "Flask",
     
     # Audio processing dependencies
     "soundcard",
@@ -102,7 +103,12 @@ include = ["hear*", "see*", "think*", "dream*"]
 hear = ["*.txt"]
 see = ["*.txt"]
 think = ["*.txt"]
-dream = ["entity_review/index.html", "meeting_calendar/index.html"]
+dream = [
+    "entity_review/index.html",
+    "meeting_calendar/index.html",
+    "review/templates/*.html",
+    "review/static/*",
+]
 
 # Development tools configuration
 [tool.black]
