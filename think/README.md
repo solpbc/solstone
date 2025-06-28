@@ -21,6 +21,7 @@ The package exposes several commands:
 - `entity-roll` collects entities across days and writes a rollup file.
 - `cluster-glob` summarises multiple folders matching a pattern.
 - `process-day` runs the above tools for a single day folder.
+- `ponder-mcp` exposes search capabilities over MCP.
 
 ```bash
 ponder-day <day-folder> [-f PROMPT] [-p MODEL]
@@ -31,6 +32,7 @@ hear-repair <day-folder>
 entity-roll <journal>
 cluster-glob <pattern>
 process-day --journal <journal> [--day YYYYMMDD] [--force]
+ponder-mcp <journal> [--transport stdio|sse|streamable-http]
 ```
 
 Set `GOOGLE_API_KEY` before running any command that contacts Gemini.
