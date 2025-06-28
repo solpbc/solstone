@@ -21,6 +21,7 @@ class SemanticChunker:
 
     def __init__(self, model_name: str = EMBED_MODEL_NAME) -> None:
         nltk.download("punkt", quiet=True)
+        nltk.download("punkt_tab", quiet=True)
         self.model = SentenceTransformer(model_name)
 
     def chunk_by_semantic_similarity(self, text: str, threshold: float = 0.7) -> List[str]:
