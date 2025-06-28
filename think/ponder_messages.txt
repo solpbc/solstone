@@ -1,0 +1,45 @@
+# Workday Messaging and Email Analysis
+
+**Input:** A markdown file containing a chronologically ordered transcript of a workday for Jeremie Miller. The transcript is segmented into 5-minute chunks, each combining audio and screen activity for that interval.
+
+**Objective:** Identify every instance where messaging or email applications are used, determine who Jeremie is communicating with, summarize any visible message content, and record the 5-minute time block when it occurs.
+
+**Instructions:**
+
+1. **Scan Each Time Block**
+   - Read the transcript sequentially, one 5-minute segment at a time.
+   - Pay close attention to screen descriptions that show messaging or email windows (Gmail, Outlook, Apple Mail, Slack, Google Chat, Teams, SMS, etc.).
+   - Note audio cues mentioning sending, reading, or replying to messages.
+
+2. **Identify the Application and Contacts**
+   - Determine which messaging or email app is in use.
+   - Capture the names of contacts or channels if visible on screen or mentioned in the audio. If the correspondent is not clear, mark them as "Unknown".
+
+3. **Capture Message Actions**
+   - Distinguish whether Jeremie is reading, composing, or replying.
+   - If multiple messages are exchanged within the same time block, capture them individually.
+
+4. **Summarize Visible Content**
+   - When message text is shown on screen, provide a concise summary of what was read or written.
+   - If only partial content is visible, summarise the portion that can be seen and note that it is incomplete.
+
+5. **Record the Time Block**
+   - Use the timestamp at the start of each 5-minute segment as the `timeBlock` for any messaging activity found within that chunk.
+   - If the interaction spans multiple blocks, list each block where it remains visible or active.
+
+6. **Output Format**
+   - Produce a Markdown list or table with the following fields for each messaging interaction:
+     * `timeBlock` – the 5-minute window (e.g., `09:00-09:05`).
+     * `app` – the messaging or email application used.
+     * `contacts` – people or channels involved.
+     * `action` – reading, composing, replying, or sending.
+     * `summary` – short recap of visible message contents, or `content not visible`.
+   - List the interactions in chronological order.
+
+**Key Considerations:**
+- Include email exchanges (inbox review, reading, replying, composing new emails) as well as Slack or other chat threads.
+- Brief notifications or popups may be noted, but focus on sustained interactions where message content is visible or Jeremie is clearly engaged.
+- Be thorough yet avoid duplication—only include an interaction once per time block unless distinct messages are exchanged.
+- The user often multitasks, so messaging windows may appear while other work continues; capture them whenever they are visible.
+
+The final report should help quickly see who Jeremie communicated with, via which apps, and what topics were discussed throughout the day.
