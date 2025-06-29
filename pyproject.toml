@@ -38,8 +38,10 @@ dependencies = [
     
     # Audio processing dependencies
     "soundcard",
-    "soundfile", 
+    "soundfile",
     "silero-vad",
+    "deepfilternet",
+    "librosa",
     "noisereduce",
     "pyaec",
     "scipy",
