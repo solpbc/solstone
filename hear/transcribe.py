@@ -10,11 +10,11 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
+import google.generativeai as genai
 import numpy as np
 import soundfile as sf
 from dotenv import load_dotenv
-from google import genai
-from google.genai import types
+from google.generativeai import types
 from silero_vad import get_speech_timestamps, load_silero_vad
 from watchdog.events import PatternMatchingEventHandler
 from watchdog.observers import Observer
@@ -320,7 +320,7 @@ class Transcriber:
         repair_files.extend(day_dir.glob("*_raw.flac"))
         repair_files.extend(day_dir.glob("*_audio.flac"))
         repair_files.extend(day_dir.glob("*_audio.ogg"))
-        
+
         missing = []
         for audio_path in repair_files:
             # Generate JSON path: change extension to .json and replace _raw with _audio

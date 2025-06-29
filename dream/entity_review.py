@@ -6,9 +6,9 @@ from functools import partial
 from http.server import HTTPServer, SimpleHTTPRequestHandler
 from typing import Any, Dict, List, Optional
 
+import google.generativeai as genai
 from dotenv import load_dotenv
-from google import genai
-from google.genai import types
+from google.generativeai import types
 
 from think.cluster_glob import FLASH_MODEL, PRO_MODEL
 from think.indexer import get_entities, parse_entity_line

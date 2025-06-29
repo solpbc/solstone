@@ -6,9 +6,9 @@ import threading
 import time
 from datetime import datetime, timedelta
 
+import google.generativeai as genai
 from dotenv import load_dotenv
-from google import genai
-from google.genai import types
+from google.generativeai import types
 
 from think.crumbs import CrumbBuilder
 

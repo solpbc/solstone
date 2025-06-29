@@ -8,9 +8,9 @@ import time
 # Add parent directory to path for module discovery
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+import google.generativeai as genai
 from dotenv import load_dotenv
-from google import genai
-from google.genai import types
+from google.generativeai import types
 
 from think.cluster_day import cluster_day
 from think.crumbs import CrumbBuilder

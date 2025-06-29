@@ -30,7 +30,7 @@ Screen capture utilities produce per monitor diff files:
 -Post‑processing commands may generate additional analysis files:
 
 - `day.md` or `day.json` – high level summary of the day.
-- `kg.md` – knowledge graph / network summary.
+- `knowledge_graph.md` – knowledge graph / network summary.
 - `meetings.json` – meeting list used by the calendar web UI.
 - `entities.md` – daily entity rollup produced by `entity-roll`.
 
