@@ -33,6 +33,7 @@ dependencies = [
     "python-dotenv",
     "google-genai",
     "mcp",
+
     "Flask",
     
     # Audio processing dependencies
