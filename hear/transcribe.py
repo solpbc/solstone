@@ -13,7 +13,9 @@ from typing import Dict, List, Optional, Tuple
 import librosa
 import numpy as np
 import soundfile as sf
-from deepfilternet import DFModel, DFStreamer
+import torch
+from df.enhance import init_df, enhance
+from df.io import resample
 from dotenv import load_dotenv
 from google import genai
 from google.genai import types
@@ -29,15 +31,22 @@ SAMPLE_RATE = 16000
 MIN_SPEECH_SECONDS = 1.0
 
 # DeepFilterNet denoiser setup
-denoise_model = DFModel.from_pretrained("dns64")
-streamer = DFStreamer(denoise_model)
+DF_SR = 48_000
+model, df_state, _ = init_df(post_filter=True)  # loads DeepFilterNet3 with post-filter
 
 
 def denoise(audio_16k: np.ndarray, sr: int = SAMPLE_RATE) -> np.ndarray:
-    """Apply DeepFilterNet and return denoised PCM at the original rate."""
-    audio_48k = librosa.resample(audio_16k, orig_sr=sr, target_sr=48000)
-    clean_48k = streamer.process(audio_48k)
-    return librosa.resample(clean_48k, orig_sr=48000, target_sr=sr)
+    """Return denoised PCM, preserving the caller's sample-rate."""
+    # (1) resample to model rate
+    audio_48k = torch.tensor(resample(
+        torch.tensor(audio_16k).unsqueeze(0),  # [C=1, T]
+        sr, DF_SR, method="sinc_fast"
+    ))
+    # (2) run the model (pad=True compensates model latency)
+    enhanced_48k = enhance(model, df_state, audio_48k, pad=True)
+    # (3) back to numpy & original SR
+    enhanced = resample(enhanced_48k, DF_SR, sr).squeeze(0).numpy()
+    return enhanced
 
 
 def merge_streams(
@@ -202,7 +211,7 @@ class Transcriber:
     def _process_raw(self, raw_path: Path) -> List[Dict[str, object]] | None:
         try:
             data, sr = sf.read(raw_path, dtype="float32")
-            streamer.reset_state()
+            # Remove the streamer reset call as enhance() is stateless
             if sr != SAMPLE_RATE:
                 logging.warning(f"Unexpected sample rate {sr} in {raw_path}")
 
