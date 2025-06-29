@@ -9,9 +9,9 @@ import time
 from datetime import datetime
 from typing import List, Optional, Tuple
 
-import google.generativeai as genai
 from dotenv import load_dotenv
-from google.generativeai import types
+from google import genai
+from google.genai import types
 
 PRO_MODEL = "gemini-2.5-pro"
 FLASH_MODEL = "gemini-2.5-flash"

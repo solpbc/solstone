@@ -6,7 +6,7 @@ readme = "README.md"
 requires-python = ">=3.9"
 dependencies = [
     "python-dotenv",
-    "google-generativeai",
+    "google-genai",
     "Pillow",
     "numpy",
     "opencv-python",

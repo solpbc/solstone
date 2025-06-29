@@ -10,11 +10,11 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
-import google.generativeai as genai
 import numpy as np
 import soundfile as sf
 from dotenv import load_dotenv
-from google.generativeai import types
+from google import genai
+from google.genai import types
 from silero_vad import get_speech_timestamps, load_silero_vad
 from watchdog.events import PatternMatchingEventHandler
 from watchdog.observers import Observer

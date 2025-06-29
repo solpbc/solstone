@@ -1,9 +1,9 @@
 import json
 import os
 
-import google.generativeai as genai
 from dotenv import load_dotenv
-from google.generativeai import types
+from google import genai
+from google.genai import types
 from PIL import ImageDraw
 
 # Module-level globals to store the client and system instruction

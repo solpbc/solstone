@@ -31,7 +31,7 @@ keywords = ["audio", "transcription", "screenshot", "multimodal", "ai", "gemini"
 dependencies = [
     # Core dependencies
     "python-dotenv",
-    "google-generativeai",
+    "google-genai",
     "Flask",
     
     # Audio processing dependencies
