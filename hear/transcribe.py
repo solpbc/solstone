@@ -13,9 +13,7 @@ from typing import Dict, List, Optional, Tuple
 import librosa
 import numpy as np
 import soundfile as sf
-import torch
-from df.enhance import init_df, enhance
-from df.io import resample
+from df.enhance import enhance, init_df
 from dotenv import load_dotenv
 from google import genai
 from google.genai import types
@@ -37,15 +35,16 @@ model, df_state, _ = init_df(post_filter=True)  # loads DeepFilterNet3 with post
 
 def denoise(audio_16k: np.ndarray, sr: int = SAMPLE_RATE) -> np.ndarray:
     """Return denoised PCM, preserving the caller's sample-rate."""
-    # (1) resample to model rate
-    audio_48k = torch.tensor(resample(
-        torch.tensor(audio_16k).unsqueeze(0),  # [C=1, T]
-        sr, DF_SR, method="sinc_fast"
-    ))
+    import torch
+
+    # (1) resample to model rate using librosa
+    audio_48k_np = librosa.resample(audio_16k, orig_sr=sr, target_sr=DF_SR)
+    audio_48k = torch.from_numpy(audio_48k_np).unsqueeze(0)  # [C=1, T]
     # (2) run the model (pad=True compensates model latency)
     enhanced_48k = enhance(model, df_state, audio_48k, pad=True)
-    # (3) back to numpy & original SR
-    enhanced = resample(enhanced_48k, DF_SR, sr).squeeze(0).numpy()
+    # (3) back to numpy & original SR using librosa
+    enhanced_48k_np = enhanced_48k.squeeze(0).numpy()
+    enhanced = librosa.resample(enhanced_48k_np, orig_sr=DF_SR, target_sr=sr)
     return enhanced
 
 
