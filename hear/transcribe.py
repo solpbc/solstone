@@ -46,6 +46,13 @@ def merge_streams(
 
     sys_data = sys_data[:length]
     mic_data = mic_data[:length]
+
+    # If the system channel contains only silence, skip merging and
+    # treat the entire segment as microphone audio.
+    sys_rms_full = float(np.sqrt(np.mean(sys_data**2))) if len(sys_data) else 0.0
+    if np.isclose(sys_rms_full, 0.0):
+        mic_range = (0.0, length / sample_rate)
+        return mic_data, [mic_range]
     window_samples = max(1, int(sample_rate * window_ms / 1000))
     output = np.zeros(length, dtype=np.float32)
     mic_ranges: list[tuple[float, float]] = []
@@ -320,7 +327,7 @@ class Transcriber:
         repair_files.extend(day_dir.glob("*_raw.flac"))
         repair_files.extend(day_dir.glob("*_audio.flac"))
         repair_files.extend(day_dir.glob("*_audio.ogg"))
-        
+
         missing = []
         for audio_path in repair_files:
             # Generate JSON path: change extension to .json and replace _raw with _audio
