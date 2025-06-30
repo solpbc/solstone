@@ -202,6 +202,15 @@ class Transcriber:
             # This prevents file deletion when there's a processing error
             raise
 
+    def _trash_file(self, raw_path: Path) -> None:
+        """Move the given file to a trash directory inside its day folder."""
+        trash_dir = raw_path.parent / "trash"
+        try:
+            trash_dir.mkdir(exist_ok=True)
+            raw_path.rename(trash_dir / raw_path.name)
+        except Exception as e:
+            logging.error(f"Failed to move {raw_path} to trash: {e}")
+
     def _process_raw(self, raw_path: Path) -> List[Dict[str, object]] | None:
         try:
             data, sr = sf.read(raw_path, dtype="float32")
@@ -230,19 +239,19 @@ class Transcriber:
             segments, self.merged_stash = self.detect_speech("mix", merged, adjusted_ranges)
 
             if not segments:
-                logging.info(f"No speech segments detected, removing {raw_path}")
-                raw_path.unlink(missing_ok=True)
+                logging.info(f"No speech segments detected, moving {raw_path} to trash")
+                self._trash_file(raw_path)
                 return None
 
             total_seconds = sum(len(seg["data"]) / SAMPLE_RATE for seg in segments)
             if total_seconds < MIN_SPEECH_SECONDS:
                 logging.info(
-                    "Total speech duration %.2fs < %.2fs, removing %s",
+                    "Total speech duration %.2fs < %.2fs, moving %s to trash",
                     total_seconds,
                     MIN_SPEECH_SECONDS,
                     raw_path,
                 )
-                raw_path.unlink(missing_ok=True)
+                self._trash_file(raw_path)
                 return None
 
             day = raw_path.parent.name
