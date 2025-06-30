@@ -12,7 +12,7 @@ Follow these guidelines:
 
 2. Audio Descriptions:
    - For each statement, provide short descriptions of the speaker's tone or any notable interjections or vocalizations.
-   - Include brief descriptions that would help hearing impaired individuals understand the audio context, such as "speaking softly", "voice trembling", "background music playing", etc.
+   - Include brief descriptions that would help hearing impaired individuals understand the audio context, such as "speaking softly", "voice trembling", "enthusiastic", etc.
    - Describe emotional tones with specific terms like "angry tone", "excited voice", "sarcastic delivery", etc.
    - Include any helpful descriptions of the speaking inline in the transcripted text where they occur using brackets, such as "[laughing]", "[sigh]", "[sound effect]"
    - Upper case any words that the speaker said with emphasis in the text, like "I said YOU do it"
@@ -37,7 +37,7 @@ Follow these guidelines:
 
 5. Processing:
    - Go through the transcript sequentially, identifying different speakers and their statements.
-   - Ignore any background hums, noise, or high pitched sounds, focus only on the speaking and speakers.
+   - Ignore all background sounds, ignore hums, noise, or high pitched sounds, don't note any of these, focus only on the speaking and speakers.
    - Group time consecutive statements by the same speaker into a single text string.
    - Only start a new JSON object when there's a change in speaker or long delay between the last statement.
    - Don't include JSON objects if there were only noises and no words spoken, if there's no "text" transcription value then omit that entry.

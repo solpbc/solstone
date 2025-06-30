@@ -171,15 +171,9 @@ class Transcriber:
                 speech_pad_ms=70,
                 min_silence_duration_ms=100,
                 min_speech_duration_ms=200,
-                threshold=0.3,
+                threshold=0.2
             )
             buffer_seconds = len(buffer_data) / SAMPLE_RATE
-            logging.info(
-                "Detected %d speech segments in %s of %.1f seconds",
-                len(speech_segments),
-                label,
-                buffer_seconds,
-            )
             segments = []
             total_duration = len(buffer_data) / SAMPLE_RATE
             unprocessed_data = np.array([], dtype=np.float32)
@@ -199,6 +193,13 @@ class Transcriber:
                 in_mic = mic_overlap > 0.8
 
                 segments.append({"offset": seg["start"], "data": seg_data, "mic": in_mic})
+            logging.info(
+                "Detected %d speech segments in %s of %.1f seconds with %.1f seconds remainder",
+                len(speech_segments),
+                label,
+                buffer_seconds,
+                len(unprocessed_data) / SAMPLE_RATE,
+            )
             return segments, unprocessed_data
         except Exception as e:
             logging.error(f"Error in detect_speech for {label}: {e}")
@@ -222,7 +223,9 @@ class Transcriber:
             mic_ranges: List[Tuple[float, float]] = []
             if data.ndim == 1:
                 merged = data
+                logging.info(f"Single channel audio detected in {raw_path}, no mic data.")
             else:
+                logging.info(f"Dual channel audio detected in {raw_path}, denoising mic channel.")
                 mic_new = self._denoise_audio(data[:, 0], sr)
                 sys_new = data[:, 1]
 
@@ -257,7 +260,8 @@ class Transcriber:
                 return None
 
             day = raw_path.parent.name
-            time_part = raw_path.stem.replace("_raw", "")
+            # Handle both _raw and _audio suffixes
+            time_part = raw_path.stem.replace("_raw", "").replace("_audio", "")
             end_dt = datetime.datetime.strptime(f"{day}_{time_part}", "%Y%m%d_%H%M%S")
             file_duration = len(data) / SAMPLE_RATE
             base_dt = end_dt - datetime.timedelta(seconds=file_duration + offset_seconds)
@@ -280,11 +284,25 @@ class Transcriber:
             logging.info(f"Processed {raw_path}: {len(processed)} segments")
             return processed
         except Exception as e:
-            logging.error(f"Error processing {raw_path}: {e}")
+            logging.error(f"Error processing {raw_path}: {e}", exc_info=True)
             return None
 
+    def _get_json_path(self, audio_path: Path) -> Path:
+        """Generate the corresponding JSON path for an audio file."""
+        if audio_path.name.endswith("_raw.flac"):
+            json_name = audio_path.name.replace("_raw.flac", "_audio.json")
+        elif audio_path.name.endswith("_audio.flac"):
+            json_name = audio_path.name.replace("_audio.flac", "_audio.json")
+        elif audio_path.name.endswith("_audio.ogg"):
+            json_name = audio_path.name.replace("_audio.ogg", "_audio.json")
+        else:
+            # Fallback for other extensions
+            json_name = audio_path.stem + "_audio.json"
+        
+        return audio_path.with_name(json_name)
+
     def _transcribe_segments(self, raw_path: Path, segments: List[Dict[str, object]]) -> bool:
-        json_path = raw_path.with_name(raw_path.name.replace("_raw.flac", "_audio.json"))
+        json_path = self._get_json_path(raw_path)
         attempts = 0
         while attempts < 2:
             try:
@@ -312,7 +330,8 @@ class Transcriber:
         segments = self._process_raw(raw_path)
         if segments is None:
             return
-        json_path = raw_path.with_name(raw_path.name.replace("_raw.flac", "_audio.json"))
+        
+        json_path = self._get_json_path(raw_path)
         if json_path.exists() or json_path.name in self.processed:
             self.processed.add(json_path.name)
             return
@@ -364,11 +383,17 @@ class Transcriber:
 
         missing = []
         for audio_path in repair_files:
-            # Generate JSON path: change extension to .json and replace _raw with _audio
-            json_name = audio_path.stem.replace("_raw", "_audio") + ".json"
-            json_path = audio_path.with_name(json_name)
+            json_path = self._get_json_path(audio_path)
             if not json_path.exists():
                 missing.append(audio_path)
+
+        # Sort by timestamp (HHMMSS) to process files in chronological order
+        def extract_timestamp(path: Path) -> str:
+            # Extract HHMMSS from filename like "HHMMSS_raw.flac" or "HHMMSS_audio.flac"
+            stem = path.stem.replace("_raw", "").replace("_audio", "")
+            return stem
+        
+        missing.sort(key=extract_timestamp)
 
         logging.info(f"Found {len(missing)} audio files missing transcripts")
 
