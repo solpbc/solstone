@@ -15,7 +15,7 @@ from dotenv import load_dotenv
 from input_detect import input_detect
 
 # Constants
-SAMPLE_RATE = 16000
+SAMPLE_RATE = 48000
 CHANNELS = 1
 SYS_DELAY_MS = 100  # System audio delay in milliseconds to align with microphone
 

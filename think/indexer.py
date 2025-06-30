@@ -1,3 +1,4 @@
+import glob
 import json
 import os
 import re
@@ -21,6 +22,11 @@ def split_sentences(text: str) -> List[str]:
 
 DATE_RE = re.compile(r"\d{8}")
 ITEM_RE = re.compile(r"^\s*[-*]\s*(.*)")
+
+PROMPT_DIR = os.path.join(os.path.dirname(__file__), "ponder")
+PROMPT_BASENAMES = [
+    os.path.splitext(os.path.basename(p))[0] for p in glob.glob(os.path.join(PROMPT_DIR, "*.txt"))
+]
 
 
 def find_day_dirs(journal: str) -> Dict[str, str]:
@@ -207,7 +213,8 @@ def find_ponder_files(journal: str) -> Dict[str, str]:
     files: Dict[str, str] = {}
     for day, day_path in find_day_dirs(journal).items():
         for name in os.listdir(day_path):
-            if name.startswith("ponder_") and name.endswith(".md"):
+            base, ext = os.path.splitext(name)
+            if ext in {".md", ".json"} and base in PROMPT_BASENAMES:
                 rel = os.path.join(day, name)
                 files[rel] = os.path.join(day_path, name)
     return files

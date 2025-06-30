@@ -6,13 +6,13 @@
 
 ```json
 {
-  "generator": "think/ponder_day.pl",          // module or command that produced the file
-  "output": "20250524/ponder_day.md",       // path to the generated artifact
+  "generator": "think/ponder.pl",          // module or command that produced the file
+  "output": "20250524/day.md",       // path to the generated artifact
   "generated_at": "2025-05-24T12:00:01Z",   // ISO 8601 timestamp of generation
   "dependencies": [                          // list of inputs relied upon
     {
       "type": "file",                        // a single file dependency
-      "path": "think/ponder_day.txt",
+      "path": "think/ponder/day.txt",
       "mtime": 1716543210                    // modification time (epoch seconds)
     },
     {
@@ -45,4 +45,4 @@ Each tool writes a `.crumbs` file next to its output after generation. Future ut
 
 ## Fixture
 
-An example crumb file can be found at `fixtures/ponder_day.crumbs`.
+An example crumb file can be found at `fixtures/ponder.crumbs`.

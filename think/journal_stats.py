@@ -1,4 +1,5 @@
 import argparse
+import glob
 import os
 import re
 from collections import Counter
@@ -14,6 +15,11 @@ DIFF_PNG_RE = re.compile(r"^(\d{6})_monitor_\d+_diff\.png$")
 BOX_JSON_RE = re.compile(r"^(\d{6})_monitor_\d+_diff_box\.json$")
 DESC_JSON_RE = re.compile(r"^(\d{6})_monitor_\d+_diff\.json$")
 SCREEN_MD_RE = re.compile(r"^(\d{6})_screen\.md$")
+
+PROMPT_DIR = os.path.join(os.path.dirname(__file__), "ponder")
+PROMPT_BASENAMES = [
+    os.path.splitext(os.path.basename(p))[0] for p in glob.glob(os.path.join(PROMPT_DIR, "*.txt"))
+]
 
 
 class JournalStats:
@@ -62,8 +68,12 @@ class JournalStats:
                 stats["screen_md"] += 1
             elif name == "entities.md":
                 stats_bool["entities"] = True
-            elif name.startswith("ponder_day"):
-                stats_bool["ponder"] = True
+            else:
+                base, ext = os.path.splitext(name)
+                if ext in {".md", ".json"} and base in PROMPT_BASENAMES:
+                    stats_bool["ponder"] = True
+                elif name.startswith("ponder_day") or name in {"day.md", "day.json"}:
+                    stats_bool["ponder"] = True
 
         stats["entities"] = int(stats_bool["entities"])
         stats["ponder"] = int(stats_bool["ponder"])

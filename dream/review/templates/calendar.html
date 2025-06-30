@@ -1,0 +1,316 @@
+{% extends 'base.html' %}
+{% set title = 'Meeting Calendar' %}
+{% set active = 'calendar' %}
+{% block head %}
+<style>
+html::before {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  border: 3px solid #00f;
+  outline: 1px solid #000;
+  pointer-events: none;
+  z-index: 9999;
+}
+body {
+  font-family: sans-serif;
+  margin: 0;
+}
+.container { max-width: 1000px; margin: 0 auto; padding: 1em; }
+h1 { margin-bottom: 0.5em; }
+#controls { display: flex; align-items: center; margin-bottom: 1em; }
+#controls button { background:#007bff; color:white; border:none; padding:6px 12px; margin:0 6px; border-radius:4px; cursor:pointer; }
+#controls span { font-size:1.2em; font-weight:bold; }
+#calendar { width:100%; border-collapse:collapse; }
+#calendar th, #calendar td { width:14.28%; border:1px solid #e0e0e0; vertical-align:top; height:80px; padding:4px; }
+#calendar th { background:#f8f9fa; }
+.day-number { font-weight:bold; }
+.count { margin-top:4px; font-size:0.9em; color:#007bff; cursor:pointer; }
+.modal { display:none; position:fixed; z-index:1000; left:0; top:0; width:100%; height:100%; background-color:rgba(0,0,0,0.5); }
+.modal-content { 
+  background:white; 
+  margin:5% auto; 
+  border-radius:8px; 
+  width:90%; 
+  max-width:2000px; 
+  max-height:80vh;
+  position:relative;
+  box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+  overflow:hidden;
+}
+.close { 
+  color:#aaa;
+  float:right; 
+  font-size:28px; 
+  font-weight:bold;
+  cursor:pointer; 
+  line-height:1;
+  position:absolute;
+  top:15px;
+  right:20px;
+  background:white;
+  z-index:3;
+}
+.close:hover { color:#000; }
+.modal-header {
+  padding:20px 40px 15px 20px;
+  border-bottom:1px solid #e0e0e0;
+  background:white;
+  border-radius:8px 8px 0 0;
+}
+.modal-header h3 { margin:0; color:#333; }
+.modal-body {
+  max-height:calc(80vh - 80px);
+  overflow-y:auto;
+  padding:20px;
+}
+.meeting { 
+  margin-bottom:20px; 
+  padding:15px;
+  border:1px solid #e0e0e0;
+  border-radius:6px;
+  background:#fafafa;
+}
+.meeting h3 { margin:0 0 8px 0; color:#007bff; }
+.meeting p { margin:0 0 6px 0; }
+.meeting-meta {
+  font-size:0.9em;
+  color:#666;
+  margin-bottom:8px;
+}
+.meeting-meta strong { color:#333; }
+</style>
+{% endblock %}
+{% block body %}
+<div class="container">
+  <h1>Meeting Calendar</h1>
+  <div id="controls">
+    <button id="prevMonth">&#8592;</button>
+    <span id="monthLabel"></span>
+    <button id="nextMonth">&#8594;</button>
+  </div>
+  <table id="calendar">
+    <thead>
+      <tr><th>Sun</th><th>Mon</th><th>Tue</th><th>Wed</th><th>Thu</th><th>Fri</th><th>Sat</th></tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+</div>
+
+<div id="meetingModal" class="modal" aria-hidden="true" role="dialog" aria-labelledby="modalTitle">
+  <div class="modal-content">
+    <span class="close" tabindex="0" aria-label="Close modal">&times;</span>
+    <div id="modalContent"></div>
+  </div>
+</div>
+
+<script>
+let meetings = {};
+let months = [];
+let currentIndex = 0;
+
+function loadData() {
+  fetch('api/meetings')
+    .then(r => {
+      if (!r.ok) throw new Error('Failed to fetch meetings');
+      return r.json();
+    })
+    .then(d => {
+      meetings = d || {};
+      months = Array.from(new Set(Object.keys(meetings).map(d => d.slice(0,6)))).sort();
+      if(!months.length) {
+        const now = new Date();
+        months = [generateYearMonth(now.getFullYear(), now.getMonth())];
+      }
+      currentIndex = months.length - 1;
+      showMonth(months[currentIndex]);
+    })
+    .catch(err => {
+      console.error('Error loading meetings:', err);
+      const now = new Date();
+      months = [generateYearMonth(now.getFullYear(), now.getMonth())];
+      currentIndex = 0;
+      showMonth(months[currentIndex]);
+    });
+}
+
+function createMeetingButton(dateStr, count, day) {
+  const div = document.createElement('div');
+  div.className = 'count';
+  div.textContent = `${count} meeting${count > 1 ? 's' : ''}`;
+  div.onclick = () => openDay(dateStr);
+  div.setAttribute('role', 'button');
+  div.setAttribute('tabindex', '0');
+  div.setAttribute('aria-label', `${count} meeting${count > 1 ? 's' : ''} on day ${day}`);
+  div.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      openDay(dateStr);
+    }
+  });
+  return div;
+}
+
+function showMonth(ym) {
+  const year = parseInt(ym.slice(0,4));
+  const month = parseInt(ym.slice(4)) - 1;
+  const first = new Date(year, month, 1);
+  document.getElementById('monthLabel').textContent = first.toLocaleString('default',{month:'long', year:'numeric'});
+  const tbody = document.querySelector('#calendar tbody');
+  tbody.innerHTML='';
+  const startDay = first.getDay();
+  const daysInMonth = new Date(year, month+1, 0).getDate();
+  let row = document.createElement('tr');
+  
+  // Empty cells for days before month starts
+  for(let i=0; i<startDay; i++){ 
+    row.appendChild(document.createElement('td')); 
+  }
+  
+  // Days of the month
+  for(let day=1; day<=daysInMonth; day++){
+    if((startDay+day-1)%7===0 && day!==1){ 
+      tbody.appendChild(row); 
+      row=document.createElement('tr'); 
+    }
+    const td = document.createElement('td');
+    const dateStr = ym + String(day).padStart(2,'0');
+    const count = (meetings[dateStr] || []).length;
+    
+    td.innerHTML = `<div class='day-number'>${day}</div>`;
+    if(count){
+      td.appendChild(createMeetingButton(dateStr, count, day));
+    }
+    row.appendChild(td);
+  }
+  
+  // Fill remaining cells in last row
+  while(row.children.length<7){ 
+    row.appendChild(document.createElement('td')); 
+  }
+  tbody.appendChild(row);
+}
+
+function openDay(dateStr){
+  const list = meetings[dateStr] || [];
+  if(!list.length) return;
+  const modal = document.getElementById('meetingModal');
+  const content = document.getElementById('modalContent');
+  
+  // Format date for header
+  const year = parseInt(dateStr.slice(0,4));
+  const month = parseInt(dateStr.slice(4,6)) - 1;
+  const day = parseInt(dateStr.slice(6,8));
+  const date = new Date(year, month, day);
+  const formattedDate = date.toLocaleDateString('en-US', { 
+    weekday: 'long', 
+    year: 'numeric', 
+    month: 'long', 
+    day: 'numeric' 
+  });
+  
+  let html = `
+    <div class="modal-header">
+      <h3>${formattedDate}</h3>
+    </div>
+    <div class="modal-body">`;
+  
+  list.forEach(m => {
+    const title = escapeHtml(m.title || 'Meeting');
+    const topics = m.topicsDiscussed ? escapeHtml(m.topicsDiscussed) : '';
+    const slides = m.slidesPresented && m.slidesDescription ? escapeHtml(m.slidesDescription) : '';
+    
+    html += `<div class='meeting'><h3>${title}</h3>`;
+    
+    // Add meeting metadata
+    html += `<div class="meeting-meta">`;
+    if(m.startTime) {
+      // format start time rounded to 5 minutes
+      let dt = new Date(m.startTime);
+      let rm = Math.round(dt.getMinutes()/5)*5;
+      dt.setMinutes(rm);
+      let hr = dt.getHours()%12||12;
+      let mi = String(dt.getMinutes()).padStart(2,'0');
+      let ap = dt.getHours()>=12?'pm':'am';
+      let timeStr = `Start: ${hr}:${mi}${ap}`;
+      if(m.endTime) {
+        let startTime = new Date(m.startTime);
+        let endTime = new Date(m.endTime);
+        let dur = Math.round((endTime - startTime) / (1000 * 60) / 5) * 5; // duration in minutes, rounded to 5
+        let h = Math.floor(dur/60), mm = dur%60;
+        timeStr += `, ${h?`${h}h${mm?` ${mm}m`:''}`:`${mm}m`}`;
+      }
+      html += `<strong>${timeStr}</strong>`;
+    }
+    html += `</div>`;
+    
+    if(topics){ html += `<p>${topics}</p>`; }
+    if(slides){ html += `<p><em>${slides}</em></p>`; }
+    html += `</div>`;
+  });
+  html += '</div>';
+  
+  content.innerHTML = html;
+  modal.style.display='block';
+  modal.setAttribute('aria-hidden', 'false');
+  document.querySelector('.close').focus();
+}
+
+function escapeHtml(text) {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+
+function hideModal() {
+  const modal = document.getElementById('meetingModal');
+  modal.style.display = 'none';
+  modal.setAttribute('aria-hidden', 'true');
+}
+
+function generateYearMonth(year, month) {
+  return year + String(month + 1).padStart(2, '0');
+}
+
+function navigateMonth(direction) {
+  const newIndex = currentIndex + direction;
+  
+  if (newIndex >= 0 && newIndex < months.length) {
+    currentIndex = newIndex;
+    showMonth(months[currentIndex]);
+    return;
+  }
+  
+  // Generate new month if at boundaries
+  const isNext = direction > 0;
+  const referenceYm = months[isNext ? months.length - 1 : 0];
+  const year = parseInt(referenceYm.slice(0,4));
+  const month = parseInt(referenceYm.slice(4)) - 1;
+  const newDate = new Date(year, month + direction, 1);
+  const newYm = generateYearMonth(newDate.getFullYear(), newDate.getMonth());
+  
+  if (isNext) {
+    months.push(newYm);
+    currentIndex = months.length - 1;
+  } else {
+    months.unshift(newYm);
+    currentIndex = 0;
+  }
+  showMonth(months[currentIndex]);
+}
+
+// Event listeners
+document.querySelector('.close').onclick = hideModal;
+window.onclick = e => e.target === document.getElementById('meetingModal') && hideModal();
+document.addEventListener('keydown', e => e.key === 'Escape' && document.getElementById('meetingModal').style.display === 'block' && hideModal());
+
+document.getElementById('prevMonth').onclick = () => navigateMonth(-1);
+document.getElementById('nextMonth').onclick = () => navigateMonth(1);
+
+loadData();
+</script>
+{% endblock %}
+

@@ -33,11 +33,14 @@ dependencies = [
     "python-dotenv",
     "google-genai",
     "mcp",
+    "Flask",
     
     # Audio processing dependencies
     "soundcard",
-    "soundfile", 
+    "soundfile",
     "silero-vad",
+    "deepfilternet",
+    "librosa",
     "noisereduce",
     "pyaec",
     "scipy",
@@ -78,7 +81,7 @@ screen-watch = "see.scan:main"
 screen-describe = "see.describe:main"
 
 # Analysis utilities
-ponder-day = "think.ponder_day:main"
+ponder-day = "think.ponder:main"
 cluster-day = "think.cluster_day:main"
 reduce-screen = "think.reduce_screen:main"
 repair-audio-json = "think.repair_audio_json:main"
@@ -104,7 +107,12 @@ include = ["hear*", "see*", "think*", "dream*"]
 hear = ["*.txt"]
 see = ["*.txt"]
 think = ["*.txt"]
-dream = ["entity_review/index.html", "meeting_calendar/index.html"]
+dream = [
+    "entity_review/index.html",
+    "meeting_calendar/index.html",
+    "review/templates/*.html",
+    "review/static/*",
+]
 
 # Development tools configuration
 [tool.black]

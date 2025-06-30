@@ -33,9 +33,9 @@ def gather_files(day: datetime, day_dirs: Dict[str, str]) -> List[str]:
         dir_path = day_dirs.get(key)
         if not dir_path:
             continue
-        kg_pattern = os.path.join(dir_path, "ponder_kg*.md")
-        kg_files = glob.glob(kg_pattern)
-        files.extend(kg_files)
+        graph_pattern = os.path.join(dir_path, "knowledge_graph*.md")
+        graph_files = glob.glob(graph_pattern)
+        files.extend(graph_files)
     return files
 
 
@@ -48,11 +48,11 @@ def process_day(day_str: str, day_dirs: Dict[str, str], force: bool) -> None:
     day = datetime.strptime(day_str, "%Y%m%d")
     files = gather_files(day, day_dirs)
     if not files:
-        print(f"No ponder_kg.md files for {day_str}")
+        print(f"No knowledge_graph.md files for {day_str}")
         return
 
     print(f"Processing {day_str}:")
-    print(f"  Found {len(files)} ponder_kg files from 8-day window")
+    print(f"  Found {len(files)} knowledge_graph files from 8-day window")
     for file in files:
         print(f"    {os.path.basename(file)}")
 
@@ -85,7 +85,7 @@ def process_day(day_str: str, day_dirs: Dict[str, str], force: bool) -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Merge ponder_kg files from a rolling 8-day window and generate entities.md"
+        description="Merge knowledge_graph files from a rolling 8-day window and generate entities.md"
     )
     parser.add_argument("journal", help="Journal directory containing YYYYMMDD folders")
     parser.add_argument("--force", action="store_true", help="Overwrite existing files")

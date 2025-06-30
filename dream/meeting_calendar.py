@@ -21,7 +21,7 @@ def find_day_dirs(journal: str) -> Dict[str, str]:
 
 
 def load_meetings(path: str) -> List[Dict[str, Any]]:
-    file_path = os.path.join(path, "ponder_meetings.json")
+    file_path = os.path.join(path, "meetings.json")
     if not os.path.isfile(file_path):
         return []
     try:

@@ -10,8 +10,10 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
+import librosa
 import numpy as np
 import soundfile as sf
+from df.enhance import enhance, init_df
 from dotenv import load_dotenv
 from google import genai
 from google.genai import types
@@ -25,6 +27,20 @@ from think.crumbs import CrumbBuilder
 MODEL = "gemini-2.5-flash"
 SAMPLE_RATE = 16000
 MIN_SPEECH_SECONDS = 1.0
+
+# DeepFilterNet denoiser setup
+DF_SR = 48_000
+model, df_state, _ = init_df(post_filter=True)  # loads DeepFilterNet3 with post-filter
+
+
+def denoise(audio: np.ndarray, sr: int) -> np.ndarray:
+    """Return 16 kHz PCM after DeepFilterNet denoising."""
+    import torch
+
+    audio_48k = librosa.resample(audio, orig_sr=sr, target_sr=DF_SR)
+    enhanced = enhance(model, df_state, torch.from_numpy(audio_48k).unsqueeze(0), pad=True)
+    enhanced_np = enhanced.squeeze(0).numpy()
+    return librosa.resample(enhanced_np, orig_sr=DF_SR, target_sr=SAMPLE_RATE)
 
 
 def merge_streams(
@@ -46,6 +62,13 @@ def merge_streams(
 
     sys_data = sys_data[:length]
     mic_data = mic_data[:length]
+
+    # If the system channel contains only silence, skip merging and
+    # treat the entire segment as microphone audio.
+    sys_rms_full = float(np.sqrt(np.mean(sys_data**2))) if len(sys_data) else 0.0
+    if np.isclose(sys_rms_full, 0.0):
+        mic_range = (0.0, length / sample_rate)
+        return mic_data, [mic_range]
     window_samples = max(1, int(sample_rate * window_ms / 1000))
     output = np.zeros(length, dtype=np.float32)
     mic_ranges: list[tuple[float, float]] = []
@@ -182,8 +205,15 @@ class Transcriber:
     def _process_raw(self, raw_path: Path) -> List[Dict[str, object]] | None:
         try:
             data, sr = sf.read(raw_path, dtype="float32")
-            if sr != SAMPLE_RATE:
-                logging.warning(f"Unexpected sample rate {sr} in {raw_path}")
+            if sr not in (SAMPLE_RATE, DF_SR):
+                raise ValueError(f"Unsupported sample rate {sr} in {raw_path}")
+
+            if data.ndim == 1:
+                data = denoise(data, sr)
+            else:
+                data[:, 0] = denoise(data[:, 0], sr)
+                data[:, 1] = denoise(data[:, 1], sr)
+            sr = SAMPLE_RATE
 
             mic_ranges: List[Tuple[float, float]] = []
             if data.ndim == 1:
@@ -320,7 +350,7 @@ class Transcriber:
         repair_files.extend(day_dir.glob("*_raw.flac"))
         repair_files.extend(day_dir.glob("*_audio.flac"))
         repair_files.extend(day_dir.glob("*_audio.ogg"))
-        
+
         missing = []
         for audio_path in repair_files:
             # Generate JSON path: change extension to .json and replace _raw with _audio

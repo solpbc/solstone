@@ -15,7 +15,11 @@ from google.genai import types
 from think.cluster_day import cluster_day
 from think.crumbs import CrumbBuilder
 
-DEFAULT_PROMPT_PATH = os.path.join(os.path.dirname(__file__), "ponder_day.txt")
+DEFAULT_PROMPT_PATH = os.path.join(
+    os.path.dirname(__file__),
+    "ponder",
+    "day.txt",
+)
 
 FLASH_MODEL = "gemini-2.5-flash"
 PRO_MODEL = "gemini-2.5-pro"
