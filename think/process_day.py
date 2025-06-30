@@ -14,9 +14,13 @@ def run_command(cmd: list[str]) -> None:
         sys.exit(result.returncode)
 
 
-def build_commands(journal: str, day: str, force: bool) -> list[list[str]]:
+def build_commands(journal: str, day: str, force: bool, repair: bool) -> list[list[str]]:
     day_dir = os.path.join(journal, day)
     commands: list[list[str]] = []
+
+    if repair:
+        commands.append(["gemini-transcribe", journal, "--repair", day])
+        commands.append(["screen-describe", journal, "--repair", day])
 
     reduce_cmd = ["reduce-screen", day_dir]
     if force:
@@ -47,6 +51,16 @@ def parse_args() -> argparse.Namespace:
         help="Day folder in YYYYMMDD format (defaults to yesterday)",
     )
     parser.add_argument("--force", action="store_true", help="Overwrite existing files")
+    parser.add_argument(
+        "--repair",
+        action="store_true",
+        help="Run hear and see repair routines before processing",
+    )
+    parser.add_argument(
+        "--rebuild",
+        action="store_true",
+        help="Remove existing outputs before running repairs (implies --repair)",
+    )
     return parser.parse_args()
 
 
@@ -61,7 +75,19 @@ def main() -> None:
         print(f"Day folder not found: {day_dir}")
         sys.exit(1)
 
-    commands = build_commands(args.journal, day, args.force)
+    repair = args.repair or args.rebuild
+    if args.rebuild:
+        for pattern in ("*_audio.json", "*_monitor_*_diff.json"):
+            for path in glob.glob(os.path.join(day_dir, pattern)):
+                try:
+                    os.remove(path)
+                except OSError:
+                    pass
+                crumb = path + ".crumb"
+                if os.path.exists(crumb):
+                    os.remove(crumb)
+
+    commands = build_commands(args.journal, day, args.force, repair)
     for cmd in commands:
         run_command(cmd)
 

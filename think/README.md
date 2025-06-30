@@ -31,7 +31,7 @@ see-repair <day-folder>
 hear-repair <day-folder>
 entity-roll <journal>
 cluster-glob <pattern>
-process-day --journal <journal> [--day YYYYMMDD] [--force]
+process-day --journal <journal> [--day YYYYMMDD] [--force] [--repair] [--rebuild]
 ponder-mcp <journal> [--transport stdio|sse|streamable-http]
 ```
 
@@ -49,7 +49,7 @@ Description=Process sunstone journal
 
 [Service]
 Type=oneshot
-ExecStart=/usr/local/bin/process-day --journal /path/to/journal
+ExecStart=/usr/local/bin/process-day --journal /path/to/journal --repair
 
 [Install]
 WantedBy=multi-user.target
