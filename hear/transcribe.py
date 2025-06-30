@@ -11,7 +11,6 @@ from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
 import librosa
-import noisereduce as nr
 import numpy as np
 import soundfile as sf
 from dotenv import load_dotenv
@@ -29,15 +28,37 @@ SAMPLE_RATE = 16000
 MIN_SPEECH_SECONDS = 1.0
 
 
+_DF_MODEL = None
+_DF_STATE = None
+_DF_SR = None
+
+
 def denoise_audio(audio_data: np.ndarray, sample_rate: int) -> np.ndarray:
-    """Apply noise reduction optimized for voice."""
-    reduced_noise = nr.reduce_noise(
-        y=audio_data,
-        sr=sample_rate,
-        stationary=True,  # Good for consistent background noise
-        prop_decrease=1,  # How much to reduce noise (0-1)
-    )
-    return reduced_noise
+    """Denoise audio using DeepFilterNet."""
+
+    global _DF_MODEL, _DF_STATE, _DF_SR
+
+    if _DF_MODEL is None:
+        from df.enhance import init_df
+
+        _DF_MODEL, _DF_STATE, *_ = init_df()
+        _DF_SR = _DF_STATE.sr()
+
+    import torch
+    from df.enhance import enhance
+    from df.io import resample as df_resample
+
+    audio_tensor = torch.from_numpy(audio_data).unsqueeze(0)
+    if sample_rate != _DF_SR:
+        audio_tensor = df_resample(audio_tensor, sample_rate, _DF_SR)
+
+    with torch.no_grad():
+        clean = enhance(_DF_MODEL, _DF_STATE, audio_tensor)[0]
+
+    if sample_rate != _DF_SR:
+        clean = df_resample(clean.unsqueeze(0), _DF_SR, sample_rate)[0]
+
+    return clean.cpu().numpy()
 
 
 def merge_streams(
