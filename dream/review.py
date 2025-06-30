@@ -6,7 +6,7 @@ import argparse
 import os
 from typing import Any, Dict, List
 
-from flask import Flask, jsonify, render_template, request
+from flask import Flask, jsonify, redirect, render_template, request, session, url_for
 
 from dream.entity_review import (
     format_date,
@@ -23,6 +23,8 @@ app = Flask(
     template_folder=os.path.join(os.path.dirname(__file__), "review", "templates"),
     static_folder=os.path.join(os.path.dirname(__file__), "review", "static"),
 )
+app.secret_key = os.getenv("DREAM_SECRET", "sunstone-secret")
+app.config["PASSWORD"] = ""
 
 journal_root = ""
 entities_index: Dict[str, Dict[str, dict]] = {}
@@ -32,6 +34,31 @@ meetings_index: Dict[str, List[Dict[str, Any]]] = {}
 def reload_entities() -> None:
     global entities_index
     entities_index = get_entities(journal_root)
+
+
+@app.before_request
+def require_login() -> Any:
+    if request.endpoint in {"login", "static"}:
+        return None
+    if not session.get("logged_in"):
+        return redirect(url_for("login"))
+
+
+@app.route("/login", methods=["GET", "POST"])
+def login() -> Any:
+    error = None
+    if request.method == "POST":
+        if request.form.get("password") == app.config.get("PASSWORD"):
+            session["logged_in"] = True
+            return redirect(url_for("home"))
+        error = "Invalid password"
+    return render_template("login.html", error=error)
+
+
+@app.route("/logout")
+def logout() -> Any:
+    session.pop("logged_in", None)
+    return redirect(url_for("login"))
 
 
 @app.route("/")
@@ -128,12 +155,21 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Combined review web service")
     parser.add_argument("journal", help="Journal directory containing YYYYMMDD folders")
     parser.add_argument("--port", type=int, default=8000, help="Port to serve on")
+    parser.add_argument(
+        "--password",
+        help="Password required for login (can also set DREAM_PASSWORD)",
+        default=os.getenv("DREAM_PASSWORD"),
+    )
     args = parser.parse_args()
 
     global journal_root, meetings_index
     journal_root = args.journal
+    app.config["PASSWORD"] = args.password
     reload_entities()
     meetings_index = build_index(journal_root)
+
+    if not app.config["PASSWORD"]:
+        raise ValueError("Password must be provided via --password or DREAM_PASSWORD")
 
     app.run(host="0.0.0.0", port=args.port)
 

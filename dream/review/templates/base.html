@@ -11,6 +11,7 @@
     <a href="{{ url_for('home') }}" class="{% if active=='home' %}current{% endif %}">🏠</a>
     <a href="{{ url_for('calendar') }}" class="{% if active=='calendar' %}current{% endif %}">📅</a>
     <a href="{{ url_for('entities') }}" class="{% if active=='entities' %}current{% endif %}">📑</a>
+    <a href="{{ url_for('logout') }}" title="Logout">🔒</a>
   </div>
   {% block body %}{% endblock %}
 </body>
