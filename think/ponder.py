@@ -139,7 +139,7 @@ def main() -> None:
     prompt_basename = os.path.splitext(os.path.basename(args.prompt))[0]
 
     # Determine the specific output path for this run
-    output_filename = f"{prompt_basename}{output_extension}"
+    output_filename = f"ponder_{prompt_basename}{output_extension}"
     output_path = os.path.join(args.day, output_filename)
 
     if not args.force:
