@@ -255,12 +255,26 @@ class Transcriber:
             segments, self.merged_stash = self.detect_speech("mix", merged, adjusted_ranges)
 
             if not segments:
+                # Don't trash if there's unfinished speech in the stash
+                if len(self.merged_stash) > 0:
+                    logging.info(f"No complete segments but {len(self.merged_stash)/SAMPLE_RATE:.1f}s in stash, keeping {raw_path}")
+                    return None
                 logging.info(f"No speech segments detected, moving {raw_path} to trash")
                 self._trash_file(raw_path)
                 return None
 
             total_seconds = sum(len(seg["data"]) / SAMPLE_RATE for seg in segments)
             if total_seconds < MIN_SPEECH_SECONDS:
+                # Don't trash if there's unfinished speech in the stash
+                if len(self.merged_stash) > 0:
+                    logging.info(
+                        "Total speech duration %.2fs < %.2fs but %.1fs in stash, keeping %s",
+                        total_seconds,
+                        MIN_SPEECH_SECONDS,
+                        len(self.merged_stash) / SAMPLE_RATE,
+                        raw_path,
+                    )
+                    return None
                 logging.info(
                     "Total speech duration %.2fs < %.2fs, moving %s to trash",
                     total_seconds,
