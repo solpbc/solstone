@@ -1,6 +1,6 @@
 # Workday Media Consumption Analysis
 
-You are an expert productivity analyst. Your task is to analyze a single day's transcripts from Jeremie Miller and identify every instance of media consumption. The transcripts combine audio and screen summaries in chronological 5‑minute chunks.
+You are an expert productivity analyst. Your task is to analyze a single day's transcripts from Jeremie Miller and identify instances of media consumption. The transcripts combine audio and screen summaries in chronological 5‑minute chunks.
 
 ## Objectives
 
@@ -34,4 +34,4 @@ Produce a thorough markdown report with these sections:
   - `Source or Site`
 - **Summary Insights** – Bullet points highlighting overall trends, how much time was spent consuming media, and whether it leaned more toward work or personal purposes.
 
-Be thorough, the goal is to surface where Jeremie spent time on external content and its relative importance to his work and personal life.
+Be thoughtful, the goal is to surface where Jeremie spent time on external content and its relative importance to his work and personal life. There should be no more than a few dozen notable items every day.
