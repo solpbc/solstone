@@ -12,6 +12,7 @@ from queue import Queue
 import numpy as np
 import soundfile as sf
 from dotenv import load_dotenv
+
 from hear.input_detect import input_detect
 
 # Constants
@@ -29,8 +30,9 @@ class AudioRecorder:
         timer_interval=60,
     ):
         self.save_dir = journal or os.getcwd()
-        self.mic_queue = Queue()
-        self.sys_queue = Queue()
+        # Queue holds tuples of (mic_chunk, sys_chunk) to keep the two streams
+        # aligned as they were recorded.
+        self.audio_queue = Queue()
         self._running = True
         self.debug = debug
         self.timer_interval = timer_interval
@@ -48,15 +50,26 @@ class AudioRecorder:
 
     def record_both(self):
         try:
-            with self.mic_device.recorder(samplerate=SAMPLE_RATE, channels=[-1], blocksize=BLOCK_SIZE) as mic_rec, self.sys_device.recorder(samplerate=SAMPLE_RATE, channels=[-1], blocksize=BLOCK_SIZE) as sys_rec:
+            with (
+                self.mic_device.recorder(
+                    samplerate=SAMPLE_RATE, channels=[-1], blocksize=BLOCK_SIZE
+                ) as mic_rec,
+                self.sys_device.recorder(
+                    samplerate=SAMPLE_RATE, channels=[-1], blocksize=BLOCK_SIZE
+                ) as sys_rec,
+            ):
                 while self._running:
                     try:
                         mic_chunk = mic_rec.record(numframes=BLOCK_SIZE)
                         sys_chunk = sys_rec.record(numframes=BLOCK_SIZE)
-                        if mic_chunk is not None and mic_chunk.size > 0:
-                            self.mic_queue.put(mic_chunk)
-                        if sys_chunk is not None and sys_chunk.size > 0:
-                            self.sys_queue.put(sys_chunk)
+
+                        if mic_chunk is None or mic_chunk.size == 0:
+                            logging.warning("Captured empty microphone buffer")
+                        if sys_chunk is None or sys_chunk.size == 0:
+                            logging.warning("Captured empty system buffer")
+
+                        # Store both chunks together so they remain aligned
+                        self.audio_queue.put((mic_chunk, sys_chunk))
                     except Exception as e:
                         logging.error(f"Error recording audio: {e}")
                         if not self._running:
@@ -67,21 +80,41 @@ class AudioRecorder:
             if self._running:
                 logging.error(f"Recording thread crashed: {e}")
 
-    def get_buffer(self, queue):
-        buffer = np.array([], dtype=np.float32)
-        while not queue.empty():
-            chunk = queue.get()
-            if chunk.ndim > 1:
-                chunk_mono = np.mean(chunk, axis=1).flatten()
+    def get_buffers(self) -> tuple[np.ndarray, np.ndarray]:
+        """Return concatenated system and microphone data from the queue."""
+        mic_buffer = np.array([], dtype=np.float32)
+        sys_buffer = np.array([], dtype=np.float32)
+
+        while not self.audio_queue.empty():
+            mic_chunk, sys_chunk = self.audio_queue.get()
+
+            if mic_chunk is None or mic_chunk.size == 0:
+                logging.warning("Queue contained empty microphone chunk")
             else:
-                chunk_mono = chunk.flatten()
-            buffer = np.concatenate((buffer, chunk_mono))
+                if mic_chunk.ndim > 1:
+                    mic_chunk = np.mean(mic_chunk, axis=1).flatten()
+                else:
+                    mic_chunk = mic_chunk.flatten()
+                mic_buffer = np.concatenate((mic_buffer, mic_chunk))
 
-        # Clean up any NaN/Inf values
-        if buffer.size > 0:
-            buffer = np.nan_to_num(buffer, nan=0.0, posinf=1e10, neginf=-1e10)
+            if sys_chunk is None or sys_chunk.size == 0:
+                logging.warning("Queue contained empty system chunk")
+            else:
+                if sys_chunk.ndim > 1:
+                    sys_chunk = np.mean(sys_chunk, axis=1).flatten()
+                else:
+                    sys_chunk = sys_chunk.flatten()
+                sys_buffer = np.concatenate((sys_buffer, sys_chunk))
 
-        return buffer
+        if mic_buffer.size > 0:
+            mic_buffer = np.nan_to_num(mic_buffer, nan=0.0, posinf=1e10, neginf=-1e10)
+        if sys_buffer.size > 0:
+            sys_buffer = np.nan_to_num(sys_buffer, nan=0.0, posinf=1e10, neginf=-1e10)
+
+        if mic_buffer.size == 0 and sys_buffer.size == 0:
+            logging.warning("No valid audio data retrieved from queue")
+
+        return sys_buffer, mic_buffer
 
     def create_flac_bytes(self, left_data: np.ndarray, right_data: np.ndarray = None) -> bytes:
         """Create FLAC bytes from audio data. If right_data is provided, creates stereo output with right channel delay alignment."""
@@ -128,9 +161,9 @@ class AudioRecorder:
     def speech_processing_timer(self):
         while self._running:
             time.sleep(self.timer_interval)
-            sys_data = self.get_buffer(self.sys_queue)
-            mic_data = self.get_buffer(self.mic_queue)
+            sys_data, mic_data = self.get_buffers()
             if sys_data.size == 0 and mic_data.size == 0:
+                logging.warning("Timer fired with no audio data")
                 continue
             raw_bytes = self.create_flac_bytes(mic_data, sys_data)
             self.save_flac(raw_bytes, suffix="raw")
