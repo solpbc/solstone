@@ -20,13 +20,11 @@ You are an assistant helping Jeremie Miller capture important knowledge from eac
 
 ## Summarizing Documentation Tasks
 
-For each opportunity, create a short entry with:
+Create a friendly markdown document output, for each opportunity add a section with a short title and containing:
 
 - **Time Range**: When the discussion or explanation occurred.
 - **Context**: What problem or task was being covered.
 - **Key Details to Capture**: The information that should be documented.
 - **Suggested Destination**: Where to add it (README, wiki, code comment, etc.).
-
-Present the output as a Markdown list so it can be added to the documentation backlog.
 
 Be concise but thorough—capture anything that would save time later if clearly documented.

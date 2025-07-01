@@ -21,7 +21,7 @@ You are a diligent assistant tasked with reviewing a full day's transcript for J
 
 ## Output Format
 
-Produce a concise Markdown list capturing each follow-up with:
+Produce a concise Markdown list capturing each follow-up with the following fields in individual blocks with a short title:
 
 - **Time Block** – starting timestamp of the 5-minute segment.
 - **Context** – short description of the discussion or screen activity.

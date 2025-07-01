@@ -21,14 +21,13 @@ You are an organized assistant tasked with analyzing a single day's transcript f
 
 ## Output Format
 
-Produce a Markdown table with the following columns:
-- `Time Block` – starting timestamp of the 5‑minute segment.
-- `File` – name or brief description.
-- `Action` – opened, edited, sent, received, downloaded, etc.
-- `Location` – filesystem path or service (Dropbox, email, chat, etc.).
-- `Context` – associated project or task.
-- `Work/Personal` – classify the nature of the content.
+Produce a friendly markdown document with chronological individual sections with a short title and each containing these items:
 
-List each interaction in chronological order. If the same item appears in multiple blocks, either repeat the entry or indicate the range involved.
+- Time Block(s) – starting timestamp of the 5‑minute segment(s).
+- File – name or brief description.
+- Actions – opened, edited, sent, received, downloaded, etc.
+- Location – filesystem path or service (Dropbox, email, chat, etc.).
+- Context – associated project or task.
+- Work/Personal – classify the nature of the content.
 
 Focus on the top few dozen most notable files total. Conclude with a short bullet list summarizing the most important files that shaped the day's work.

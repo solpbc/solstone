@@ -30,7 +30,7 @@
    - If the interaction spans multiple blocks, list each block where it remains visible or active.
 
 6. **Output Format**
-   - Produce a nicely formatted Markdown document with the following information for each messaging interaction:
+   - Produce a nicely formatted Markdown document with the following information for each messaging interaction in its own section with a short title:
      * Time Block – the 5-minute window (e.g., `09:00-09:05`).
      * App – the messaging or email application used.
      * Contacts – people or channels involved.
