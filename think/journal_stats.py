@@ -2,6 +2,7 @@ import argparse
 import glob
 import os
 import re
+import sys
 from collections import Counter
 from datetime import timedelta
 from typing import Dict
@@ -142,6 +143,67 @@ class JournalStats:
                 bar = "#" * int(val * scale)
                 print(f"{d} | {bar} {val}")
 
+    def to_markdown(self) -> str:
+        """Return a markdown summary of the collected statistics."""
+        lines = ["# Journal Summary", ""]
+        day_count = len(self.days)
+        lines.append(f"Days scanned: {day_count}")
+        lines.append("")
+        lines.append("## Totals")
+        lines.append("")
+        lines.append(
+            f"- Total audio files: {self.totals.get('audio_flac', 0)}"
+            f" | Transcripts: {self.totals.get('audio_json', 0)}"
+        )
+        missing = self.totals.get("audio_flac", 0) - self.totals.get("audio_json", 0)
+        if missing > 0:
+            lines.append(f"  - Missing transcripts: {missing}")
+        total_dur = timedelta(seconds=int(self.total_audio_sec))
+        lines.append(f"- Total audio duration: {total_dur}")
+        lines.append(
+            f"- Total audio size: {self.total_audio_bytes / (1024 * 1024):.2f} MB"
+            f" | Image size: {self.total_image_bytes / (1024 * 1024):.2f} MB"
+        )
+        lines.append(
+            f"- Screenshot diffs: {self.totals.get('diff_png', 0)}"
+            f" | Descriptions: {self.totals.get('desc_json', 0)}"
+        )
+        missing_desc = self.totals.get("diff_png", 0) - self.totals.get("desc_json", 0)
+        if missing_desc > 0:
+            lines.append(f"  - Missing descriptions: {missing_desc}")
+        lines.append(
+            f"- Screen summaries: {self.totals.get('screen_md', 0)}"
+            f" | Days with entities.md: {self.totals.get('entities', 0)}"
+        )
+        lines.append(f"- Days with ponder results: {self.totals.get('ponder', 0)}")
+
+        if day_count:
+            lines.append("")
+            lines.append("## Hours of audio per day")
+            for day, data in sorted(self.days.items()):
+                sec = data.get("audio_seconds", 0.0)
+                if sec:
+                    lines.append(f"- {day}: {sec / 3600:.2f}h")
+
+        if self.days:
+            lines.append("")
+            lines.append("## Recent activity (last 30 days)")
+            days_sorted = sorted(self.days.keys())[-30:]
+            max_val = max(self.days[d]["activity"] for d in days_sorted)
+            scale = 40 / max_val if max_val else 1
+            for d in days_sorted:
+                val = self.days[d]["activity"]
+                bar = "#" * int(val * scale)
+                lines.append(f"- {d} | {bar} {val}")
+
+        return "\n".join(lines)
+
+    def save_markdown(self, journal: str) -> None:
+        """Write the markdown summary to ``summary.md`` in ``journal``."""
+        path = os.path.join(journal, "summary.md")
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(self.to_markdown() + "\n")
+
 
 def main() -> None:
     parser = argparse.ArgumentParser(
@@ -156,6 +218,10 @@ def main() -> None:
     js = JournalStats()
     js.scan(args.journal)
     js.report()
+    try:
+        js.save_markdown(args.journal)
+    except Exception as e:
+        print(f"Error writing summary: {e}", file=sys.stderr)
 
 
 if __name__ == "__main__":
