@@ -1,15 +1,20 @@
 {% extends 'base.html' %}
-{% set title = 'Dream Review' %}
+{% set title = 'Journal Summary' %}
 {% set active = 'home' %}
 {% block head %}
 <style>
 body { font-family: sans-serif; margin: 0; }
-.container { max-width: 1000px; margin: 0 auto; padding: 1em; }
+.container { max-width: 800px; margin: 0 auto; padding: 1em; font-family: sans-serif; }
+.markdown h1 { font-size: 1.8em; margin-top: 1em; }
+.markdown h2 { font-size: 1.4em; margin-top: 1em; }
+.markdown p { line-height: 1.4; }
 </style>
 {% endblock %}
 {% block body %}
 <div class="container">
-  <h1>Dream Review</h1>
-  <p>This page will provide a summary of your journal data.</p>
+  <h1>Journal Summary</h1>
+  <div class="markdown">
+    {{ summary_html|safe }}
+  </div>
 </div>
 {% endblock %}

@@ -63,7 +63,17 @@ def logout() -> Any:
 
 @app.route("/")
 def home() -> str:
-    return render_template("home.html", active="home")
+    summary_path = os.path.join(journal_root, "summary.md")
+    summary_html = ""
+    if os.path.isfile(summary_path):
+        try:
+            import markdown  # type: ignore
+
+            with open(summary_path, "r", encoding="utf-8") as f:
+                summary_html = markdown.markdown(f.read())
+        except Exception:
+            summary_html = "<p>Error loading summary.</p>"
+    return render_template("home.html", active="home", summary_html=summary_html)
 
 
 @app.route("/entities")
