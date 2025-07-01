@@ -183,7 +183,7 @@ let generatingTops = new Set();
 
 function reloadData() {
   const currentType = activeType;
-  fetch('api/data').then(r => r.json()).then(d => {
+  fetch('{{ url_for('entities_data') }}').then(r => r.json()).then(d => {
     data = d;
     const tabsDiv = document.getElementById('tabs');
     tabsDiv.innerHTML = '';
@@ -254,7 +254,7 @@ function editName(nameElement, item) {
     
     nameElement.style.opacity = '0.5';
     
-    fetch('api/rename', {
+    fetch('{{ url_for('entities') }}/api/rename', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ type: activeType, name: original, new_name: newName, days: item.raw_dates })
@@ -304,7 +304,7 @@ function showTopEditor(item, text) {
     btn.textContent = 'Regenerating...';
     btn.disabled = true;
     
-    fetch('api/top_generate', {
+    fetch('{{ url_for('entities') }}/api/top_generate', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ type: activeType, name: item.name })
@@ -324,7 +324,7 @@ function showTopEditor(item, text) {
   };
   document.getElementById('saveTopBtn').onclick = () => {
     const desc = document.getElementById('topDesc').value.trim();
-    fetch('api/top_update', {
+    fetch('{{ url_for('entities') }}/api/top_update', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ type: activeType, name: item.name, desc })
@@ -341,7 +341,7 @@ function showTopEditor(item, text) {
     
     document.getElementById('entityModal').style.display = 'none';
     
-    fetch('api/remove', {
+    fetch('{{ url_for('entities') }}/api/remove', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ type: activeType, name: item.name, days: item.raw_dates })
@@ -359,7 +359,7 @@ function handleStarClick(item) {
     starEl.style.cursor = 'wait';
     starEl.onclick = null;
     
-    fetch('api/top_generate', {
+    fetch('{{ url_for('entities') }}/api/top_generate', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ type: activeType, name: item.name })
@@ -422,7 +422,7 @@ function showEntityDetails(name) {
     
     modal.style.display = 'none';
     
-    fetch('api/remove', {
+    fetch('{{ url_for('entities') }}/api/remove', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ type: activeType, name: name, days: item.raw_dates })
@@ -463,7 +463,7 @@ function handleCountClick(event, name) {
     // Generate top description in parallel - don't await, let it run independently
     (async () => {
       try {
-        const generateResponse = await fetch('api/top_generate', {
+        const generateResponse = await fetch('{{ url_for('entities') }}/api/top_generate', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ type: activeType, name: name })
@@ -481,7 +481,7 @@ function handleCountClick(event, name) {
         }
         
         // Auto-submit the generated description
-        await fetch('api/top_update', {
+        await fetch('{{ url_for('entities') }}/api/top_update', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ type: activeType, name: name, desc: res.desc })

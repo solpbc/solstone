@@ -101,7 +101,7 @@ let months = [];
 let currentIndex = 0;
 
 function loadData() {
-  fetch('api/meetings')
+  fetch('{{ url_for('calendar_meetings') }}')
     .then(r => {
       if (!r.ok) throw new Error('Failed to fetch meetings');
       return r.json();
