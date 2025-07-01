@@ -73,7 +73,7 @@ class JournalStats:
             else:
                 base, ext = os.path.splitext(name)
                 if ext in {".md", ".json"} and (
-                    base in PONDER_BASENAMES or name in {"day.md", "day.json"}
+                    base in PONDER_BASENAMES
                 ):
                     stats_bool["ponder"] = True
                 elif name.startswith("ponder_"):
