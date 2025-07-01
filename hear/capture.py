@@ -1,17 +1,20 @@
 import argparse
+import asyncio
 import datetime
 import faulthandler
+import gc
 import io
 import logging
 import os
 import sys
 import threading
 import time
-import gc
 from queue import Queue
+from typing import Optional, Set
 
 import numpy as np
 import soundfile as sf
+import websockets
 from dotenv import load_dotenv
 
 from hear.input_detect import input_detect
@@ -27,6 +30,7 @@ class AudioRecorder:
         journal=None,
         debug=False,
         timer_interval=60,
+        websocket_port=None,
     ):
         self.save_dir = journal or os.getcwd()
         # Queue now holds stereo chunks (mic=left, sys=right)
@@ -34,6 +38,9 @@ class AudioRecorder:
         self._running = True
         self.debug = debug
         self.timer_interval = timer_interval
+        self.websocket_port = websocket_port
+        self.ws_loop: Optional[asyncio.AbstractEventLoop] = None
+        self.ws_clients: Set[websockets.WebSocketServerProtocol] = set()
 
     def detect(self):
         mic, loopback = input_detect()
@@ -95,7 +102,7 @@ class AudioRecorder:
             if stereo_chunk is None or stereo_chunk.size == 0:
                 logging.warning("Queue contained empty chunk")
                 continue
-                
+
             # Clean the data
             stereo_chunk = np.nan_to_num(stereo_chunk, nan=0.0, posinf=1e10, neginf=-1e10)
             stereo_buffer = np.vstack((stereo_buffer, stereo_chunk))
@@ -125,17 +132,39 @@ class AudioRecorder:
 
         return buf.getvalue()
 
+    async def _ws_handler(self, websocket):
+        self.ws_clients.add(websocket)
+        try:
+            await websocket.wait_closed()
+        finally:
+            self.ws_clients.remove(websocket)
+
+    def websocket_server(self):
+        self.ws_loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(self.ws_loop)
+        server = websockets.serve(self._ws_handler, "0.0.0.0", self.websocket_port)
+        self.ws_loop.run_until_complete(server)
+        self.ws_loop.run_forever()
+
+    def broadcast_audio(self, stereo_data: np.ndarray):
+        if not (self.ws_loop and self.ws_clients and stereo_data.size > 0):
+            return
+        audio_bytes = stereo_data.astype(np.float32).tobytes()
+        for ws in list(self.ws_clients):
+            asyncio.run_coroutine_threadsafe(ws.send(audio_bytes), self.ws_loop)
+
     def speech_processing_timer(self):
         accumulated_data = np.array([], dtype=np.float32).reshape(0, 2)
         last_save_time = time.time()
-        
+
         while self._running:
             time.sleep(1)
             stereo_data = self.get_buffers()
-            
+
             if stereo_data.size > 0:
                 accumulated_data = np.vstack((accumulated_data, stereo_data))
-            
+            self.broadcast_audio(stereo_data)
+
             current_time = time.time()
             if current_time - last_save_time >= self.timer_interval:
                 if accumulated_data.size == 0:
@@ -164,6 +193,8 @@ class AudioRecorder:
             threading.Thread(target=self.record_both, daemon=True),
             threading.Thread(target=self.speech_processing_timer, daemon=True),
         ]
+        if self.websocket_port:
+            threads.append(threading.Thread(target=self.websocket_server, daemon=True))
         for thread in threads:
             thread.start()
 
@@ -193,6 +224,9 @@ def main():
     parser.add_argument(
         "-t", "--timer_interval", type=int, default=60, help="Timer interval in seconds."
     )
+    parser.add_argument(
+        "--ws-port", type=int, default=None, help="Start websocket server on this port"
+    )
     parser.add_argument("-v", "--verbose", action="store_true", help="Enable verbose output")
     args = parser.parse_args()
 
@@ -217,6 +251,7 @@ def main():
         journal=args.journal,
         debug=args.debug,
         timer_interval=args.timer_interval,
+        websocket_port=args.ws_port,
     )
 
     # 5. Detect devices or exit
@@ -225,6 +260,7 @@ def main():
 
     # 6. Start recording
     recorder.start()
+
 
 if __name__ == "__main__":
     main()
