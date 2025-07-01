@@ -46,6 +46,7 @@ dependencies = [
     "pyaec",
     "scipy",
     "numpy",
+    "websockets",
     
     # Image processing dependencies
     "Pillow",

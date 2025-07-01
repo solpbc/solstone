@@ -16,6 +16,7 @@ dependencies = [
     "pyaec",
     "scipy",
     "numpy",
+    "websockets",
 ]
 
 [project.scripts]

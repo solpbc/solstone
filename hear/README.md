@@ -70,3 +70,17 @@ and processes each as follows:
 
 Transcriptions are retried once on failure, and a `--repair` mode can process a
 previous day to ensure no recordings are missed.
+
+### WebSocket Streaming
+
+Running `gemini-mic` with `--ws-port` starts a WebSocket server broadcasting the
+new stereo chunk every second. Each message is a binary frame containing
+little-endian `float32` samples interleaved as stereo pairs (`mic`, `system`)
+at 16 kHz. The chunk size corresponds to the audio collected during that
+one-second interval.
+
+You can load the bytes in Python with:
+
+```python
+samples = np.frombuffer(msg, dtype=np.float32).reshape(-1, 2)
+```
