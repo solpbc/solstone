@@ -15,7 +15,7 @@ h1 { margin-bottom: 0.5em; }
 #calendar { width:100%; border-collapse:collapse; }
 #calendar th, #calendar td { width:14.28%; border:1px solid #e0e0e0; vertical-align:top; height:80px; padding:4px; }
 #calendar th { background:#f8f9fa; }
-.day-number { font-weight:bold; }
+.day-number{font-weight:bold;text-decoration:none;color:inherit;}
 .count { margin-top:4px; font-size:0.9em; color:#007bff; cursor:pointer; }
 .modal { display:none; position:fixed; z-index:1000; left:0; top:0; width:100%; height:100%; background-color:rgba(0,0,0,0.5); }
 .modal-content { 
@@ -97,6 +97,7 @@ h1 { margin-bottom: 0.5em; }
 
 <script>
 let meetings = {};
+const dayBase = '{{ url_for('calendar_day', day='') }}';
 let months = [];
 let currentIndex = 0;
 
@@ -168,7 +169,7 @@ function showMonth(ym) {
     const dateStr = ym + String(day).padStart(2,'0');
     const count = (meetings[dateStr] || []).length;
     
-    td.innerHTML = `<div class='day-number'>${day}</div>`;
+    td.innerHTML = `<a class='day-number' href='${dayBase}${dateStr}'>${day}</a>`;
     if(count){
       td.appendChild(createMeetingButton(dateStr, count, day));
     }

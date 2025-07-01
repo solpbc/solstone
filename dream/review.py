@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import os
+import re
 from typing import Any, Dict, List
 
 from flask import Flask, jsonify, redirect, render_template, request, session, url_for
@@ -84,6 +85,34 @@ def entities() -> str:
 @app.route("/calendar")
 def calendar() -> str:
     return render_template("calendar.html", active="calendar")
+
+
+@app.route("/calendar/<day>")
+def calendar_day(day: str) -> str:
+    if not re.fullmatch(r"\d{8}", day):
+        return "", 404
+    day_dir = os.path.join(journal_root, day)
+    if not os.path.isdir(day_dir):
+        return "", 404
+    files = []
+    for name in sorted(os.listdir(day_dir)):
+        if name.startswith("ponder_") and name.endswith(".md"):
+            path = os.path.join(day_dir, name)
+            try:
+                with open(path, "r", encoding="utf-8") as f:
+                    text = f.read()
+            except Exception:
+                continue
+            try:
+                import markdown  # type: ignore
+
+                html = markdown.markdown(text)
+            except Exception:
+                html = "<p>Error loading file.</p>"
+            label = name[7:-3].replace("_", " ").title()
+            files.append({"label": label, "html": html})
+    title = format_date(day)
+    return render_template("day.html", active="calendar", title=title, files=files)
 
 
 @app.route("/entities/api/data")

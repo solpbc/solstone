@@ -1,0 +1,35 @@
+{% extends 'base.html' %}
+{% set active = 'calendar' %}
+{% block head %}
+<style>
+body{font-family:sans-serif;margin:0;}
+.container{max-width:800px;margin:0 auto;padding:1em;}
+.tabs{border-bottom:2px solid #e0e0e0;margin-bottom:1em;}
+.tab{display:inline-block;padding:8px 12px;margin-right:4px;background:#f5f5f5;border:1px solid #ddd;border-bottom:none;cursor:pointer;border-radius:4px 4px 0 0;}
+.tab.active{background:white;font-weight:bold;}
+.content{border:1px solid #ddd;padding:1em;}
+</style>
+{% endblock %}
+{% block body %}
+<div class="container">
+  <h1>{{ title }}</h1>
+  <div class="tabs">
+    {% for file in files %}
+    <div class="tab{% if loop.first %} active{% endif %}" data-target="tab{{ loop.index0 }}">{{ file.label }}</div>
+    {% endfor %}
+  </div>
+  {% for file in files %}
+  <div class="content" id="tab{{ loop.index0 }}" style="{% if not loop.first %}display:none{% endif %}">
+    <div class="markdown">{{ file.html|safe }}</div>
+  </div>
+  {% endfor %}
+</div>
+<script>
+document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>{
+  document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
+  document.querySelectorAll('.content').forEach(c=>c.style.display='none');
+  t.classList.add('active');
+  document.getElementById(t.dataset.target).style.display='block';
+});
+</script>
+{% endblock %}
