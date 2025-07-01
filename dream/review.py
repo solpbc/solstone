@@ -112,7 +112,22 @@ def calendar_day(day: str) -> str:
             label = name[7:-3].replace("_", " ").title()
             files.append({"label": label, "html": html})
     title = format_date(day)
-    return render_template("day.html", active="calendar", title=title, files=files)
+    days = sorted(d for d in os.listdir(journal_root) if re.fullmatch(r"\d{8}", d))
+    prev_day = next_day = None
+    if day in days:
+        idx = days.index(day)
+        if idx > 0:
+            prev_day = days[idx - 1]
+        if idx < len(days) - 1:
+            next_day = days[idx + 1]
+    return render_template(
+        "day.html",
+        active="calendar",
+        title=title,
+        files=files,
+        prev_day=prev_day,
+        next_day=next_day,
+    )
 
 
 @app.route("/entities/api/data")

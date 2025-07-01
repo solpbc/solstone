@@ -12,7 +12,15 @@ body{font-family:sans-serif;margin:0;}
 {% endblock %}
 {% block body %}
 <div class="container">
-  <h1>{{ title }}</h1>
+  <h1>
+    {% if prev_day %}
+    <a href="{{ url_for('calendar_day', day=prev_day) }}" aria-label="Previous day" style="text-decoration:none">&#9664;</a>
+    {% endif %}
+    {{ title }}
+    {% if next_day %}
+    <a href="{{ url_for('calendar_day', day=next_day) }}" aria-label="Next day" style="text-decoration:none">&#9654;</a>
+    {% endif %}
+  </h1>
   <div class="tabs">
     {% for file in files %}
     <div class="tab{% if loop.first %} active{% endif %}" data-target="tab{{ loop.index0 }}">{{ file.label }}</div>
