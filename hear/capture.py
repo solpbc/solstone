@@ -12,7 +12,7 @@ from queue import Queue
 import numpy as np
 import soundfile as sf
 from dotenv import load_dotenv
-from input_detect import input_detect
+from hear.input_detect import input_detect
 
 # Constants
 SAMPLE_RATE = 48000

@@ -2,8 +2,8 @@ import threading
 
 import numpy as np
 import soundcard as sc
-from input_detect import input_detect
 from scipy.signal import correlate
+from hear.input_detect import input_detect
 
 
 def input_delay(mic_device, system_device, duration=0.2, sample_rate=44100):
