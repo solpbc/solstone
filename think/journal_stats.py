@@ -21,6 +21,7 @@ PROMPT_DIR = os.path.join(os.path.dirname(__file__), "ponder")
 PROMPT_BASENAMES = [
     os.path.splitext(os.path.basename(p))[0] for p in glob.glob(os.path.join(PROMPT_DIR, "*.txt"))
 ]
+PONDER_BASENAMES = [f"ponder_{b}" for b in PROMPT_BASENAMES]
 
 
 class JournalStats:
@@ -71,9 +72,11 @@ class JournalStats:
                 stats_bool["entities"] = True
             else:
                 base, ext = os.path.splitext(name)
-                if ext in {".md", ".json"} and base in PROMPT_BASENAMES:
+                if ext in {".md", ".json"} and (
+                    base in PONDER_BASENAMES or name in {"day.md", "day.json"}
+                ):
                     stats_bool["ponder"] = True
-                elif name.startswith("ponder_day") or name in {"day.md", "day.json"}:
+                elif name.startswith("ponder_"):
                     stats_bool["ponder"] = True
 
         stats["entities"] = int(stats_bool["entities"])

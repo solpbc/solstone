@@ -27,6 +27,7 @@ PROMPT_DIR = os.path.join(os.path.dirname(__file__), "ponder")
 PROMPT_BASENAMES = [
     os.path.splitext(os.path.basename(p))[0] for p in glob.glob(os.path.join(PROMPT_DIR, "*.txt"))
 ]
+PONDER_BASENAMES = [f"ponder_{b}" for b in PROMPT_BASENAMES]
 
 
 def find_day_dirs(journal: str) -> Dict[str, str]:
@@ -214,7 +215,7 @@ def find_ponder_files(journal: str) -> Dict[str, str]:
     for day, day_path in find_day_dirs(journal).items():
         for name in os.listdir(day_path):
             base, ext = os.path.splitext(name)
-            if ext in {".md", ".json"} and base in PROMPT_BASENAMES:
+            if ext in {".md", ".json"} and base in PONDER_BASENAMES:
                 rel = os.path.join(day, name)
                 files[rel] = os.path.join(day_path, name)
     return files

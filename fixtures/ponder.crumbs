@@ -1,6 +1,6 @@
 {
     "generator": "think.ponder",
-    "output": "20250610/day.md",
+    "output": "20250610/ponder_day.md",
     "generated_at": "2025-06-10T12:00:01Z",
     "dependencies": [
         {"type": "file", "path": "think/ponder/day.txt", "mtime": 1717999380},

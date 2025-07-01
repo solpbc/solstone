@@ -29,12 +29,12 @@ Screen capture utilities produce per monitor diff files:
 
 -Post‑processing commands may generate additional analysis files:
 
-- `day.md` or `day.json` – high level summary of the day.
-- `knowledge_graph.md` – knowledge graph / network summary.
-- `meetings.json` – meeting list used by the calendar web UI.
+- `ponder_day.md` or `ponder_day.json` – high level summary of the day.
+- `ponder_knowledge_graph.md` – knowledge graph / network summary.
+- `ponder_meetings.json` – meeting list used by the calendar web UI.
 - `entities.md` – daily entity rollup produced by `entity-roll`.
 
 ### Crumbs
 
-Most generated files are accompanied by a `.crumb` file capturing dependencies and model information. See `CRUMBS.md` for the format. Example: `20250610/day.md.crumb`.
+Most generated files are accompanied by a `.crumb` file capturing dependencies and model information. See `CRUMBS.md` for the format. Example: `20250610/ponder_day.md.crumb`.
 

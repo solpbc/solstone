@@ -11,7 +11,7 @@ def test_scan_day(tmp_path):
     (day / "123456_monitor_1_diff.json").write_text("{}")
     (day / "123456_screen.md").write_text("hi")
     (day / "entities.md").write_text("")
-    (day / "day.md").write_text("")
+    (day / "ponder_day.md").write_text("")
     js = stats_mod.JournalStats()
     js.scan_day("20240101", str(day))
     assert js.days["20240101"]["audio_flac"] == 1
