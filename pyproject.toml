@@ -73,10 +73,12 @@ dev = [
 # Audio utilities
 gemini-mic = "hear.capture:main"
 gemini-transcribe = "hear.transcribe:main"
+gemini-hear = "hear.runner:main"
 
 # Visual utilities  
 screen-watch = "see.scan:main"
 screen-describe = "see.describe:main"
+gemini-see = "see.runner:main"
 
 # Analysis utilities
 ponder-day = "think.ponder:main"

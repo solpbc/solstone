@@ -51,8 +51,8 @@ The screenshot utilities depend on GNOME DBus and GObject; these run on Linux.
 - `cluster-day <folder>` – build a markdown report from audio and screen files.
 - `reduce-screen <folder>` – summarise screen diff JSON files.
 
-Wrapper scripts `hear.sh` and `see.sh` repeatedly invoke the corresponding tools
-for continuous monitoring.
+Commands `gemini-hear` and `gemini-see` run the audio and visual capture loops
+continuously by wrapping the lower-level tools.
 
 ## Contributing
 
