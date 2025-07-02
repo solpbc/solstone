@@ -15,82 +15,18 @@ import numpy as np
 import soundfile as sf
 from dotenv import load_dotenv
 from google import genai
-from google.genai import types
-from silero_vad import get_speech_timestamps, load_silero_vad
+from silero_vad import load_silero_vad
 from watchdog.events import PatternMatchingEventHandler
 from watchdog.observers import Observer
 
 from think.crumbs import CrumbBuilder
 
+from .audio_utils import SAMPLE_RATE, detect_speech, merge_streams, resample_audio
+from .gemini import transcribe_segments
+
 # Constants
 MODEL = "gemini-2.5-flash"
-SAMPLE_RATE = 16000
 MIN_SPEECH_SECONDS = 1.0
-
-
-def merge_streams(
-    sys_data: np.ndarray,
-    mic_data: np.ndarray,
-    sample_rate: int,
-    window_ms: int = 50,
-    threshold: float = 0.005,
-) -> tuple[np.ndarray, list[tuple[float, float]]]:
-    """Mix system and microphone audio while avoiding feedback.
-
-    Returns a tuple with the merged audio and a list of time ranges (in seconds)
-    where the microphone contained significant audio based on ``threshold``.
-    """
-
-    length = min(len(sys_data), len(mic_data))
-    if length == 0:
-        return np.array([], dtype=np.float32), []
-
-    sys_data = sys_data[:length]
-    mic_data = mic_data[:length]
-
-    # If the system channel contains only silence, skip merging and
-    # treat the entire segment as microphone audio.
-    sys_rms_full = float(np.sqrt(np.mean(sys_data**2))) if len(sys_data) else 0.0
-    if np.isclose(sys_rms_full, 0.0):
-        mic_range = (0.0, length / sample_rate)
-        return mic_data, [mic_range]
-    window_samples = max(1, int(sample_rate * window_ms / 1000))
-    output = np.zeros(length, dtype=np.float32)
-    mic_ranges: list[tuple[float, float]] = []
-    in_range = False
-    range_start = 0
-    consecutive_mic_windows = 0
-
-    for start in range(0, length, window_samples):
-        end = min(length, start + window_samples)
-        sys_win = sys_data[start:end]
-        mic_win = mic_data[start:end]
-        sys_rms = float(np.sqrt(np.mean(sys_win**2))) if len(sys_win) else 0.0
-        mic_rms = float(np.sqrt(np.mean(mic_win**2))) if len(mic_win) else 0.0
-
-        if sys_rms > threshold and mic_rms > threshold:
-            output[start:end] = sys_win
-            consecutive_mic_windows = 0
-            if in_range:
-                in_range = False
-                mic_ranges.append((range_start / sample_rate, start / sample_rate))
-        else:
-            output[start:end] = sys_win + mic_win
-            if sys_rms < threshold and mic_rms > threshold:
-                consecutive_mic_windows += 1
-                if consecutive_mic_windows >= 2 and not in_range:
-                    in_range = True
-                    range_start = start - window_samples  # Start from previous window
-            else:
-                consecutive_mic_windows = 0
-
-    if in_range:
-        mic_ranges.append((range_start / sample_rate, length / sample_rate))
-
-    # Filter out mic ranges shorter than 1 second
-    mic_ranges = [(start, end) for start, end in mic_ranges if end - start >= 1.0]
-
-    return output, mic_ranges
 
 
 class Transcriber:
@@ -117,108 +53,6 @@ class Transcriber:
         self._df_model, self._df_state, *_ = init_df(post_filter=True)
         self._df_sr = self._df_state.sr()
 
-    def _resample_audio(
-        self, audio_data: np.ndarray, in_sr: int, out_sr: int, denoise: bool = False
-    ) -> np.ndarray:
-        """Resample audio and optionally denoise using DeepFilterNet."""
-        import torch
-        from df.enhance import enhance
-        from df.io import resample as df_resample
-
-        audio_tensor = torch.from_numpy(audio_data).unsqueeze(0)
-
-        # Apply denoising if requested
-        if denoise:
-            if in_sr != self._df_sr:
-                # Resample to DeepFilterNet sample rate for denoising
-                audio_tensor = df_resample(audio_tensor, in_sr, self._df_sr, method="kaiser_best")
-                in_sr = self._df_sr
-            with torch.no_grad():
-                audio_tensor = enhance(self._df_model, self._df_state, audio_tensor)[0]
-
-        # Resample to target output sample rate if needed
-        if in_sr != out_sr:
-            audio_tensor = df_resample(
-                audio_tensor.unsqueeze(0), in_sr, out_sr, method="kaiser_best"
-            )
-
-        return audio_tensor.squeeze().cpu().numpy()
-
-    def _calculate_mic_overlap(
-        self, seg_start: float, seg_end: float, mic_ranges: List[Tuple[float, float]]
-    ) -> float:
-        """Calculate what percentage of a segment overlaps with mic ranges."""
-        if not mic_ranges:
-            return 0.0
-
-        seg_duration = seg_end - seg_start
-        if seg_duration <= 0:
-            return 0.0
-
-        overlap_duration = 0.0
-        for mic_start, mic_end in mic_ranges:
-            # Calculate overlap between segment and this mic range
-            overlap_start = max(seg_start, mic_start)
-            overlap_end = min(seg_end, mic_end)
-            if overlap_start < overlap_end:
-                overlap_duration += overlap_end - overlap_start
-
-        return overlap_duration / seg_duration
-
-    def detect_speech(
-        self,
-        label: str,
-        buffer_data: np.ndarray,
-        mic_ranges: Optional[List[Tuple[float, float]]] = None,
-    ):
-        if buffer_data is None or len(buffer_data) == 0:
-            logging.info(f"No audio data found in {label} buffer.")
-            return [], np.array([], dtype=np.float32)
-        try:
-            speech_segments = get_speech_timestamps(
-                buffer_data,
-                self.model,
-                sampling_rate=SAMPLE_RATE,
-                return_seconds=True,
-                speech_pad_ms=70,
-                min_silence_duration_ms=100,
-                min_speech_duration_ms=200,
-                threshold=0.2,
-            )
-            buffer_seconds = len(buffer_data) / SAMPLE_RATE
-            segments = []
-            total_duration = len(buffer_data) / SAMPLE_RATE
-            unprocessed_data = np.array([], dtype=np.float32)
-            for i, seg in enumerate(speech_segments):
-                if i == len(speech_segments) - 1 and total_duration - seg["end"] < 1:
-                    start_idx = int(seg["start"] * SAMPLE_RATE)
-                    unprocessed_data = buffer_data[start_idx:]
-                    break
-                start_idx = int(seg["start"] * SAMPLE_RATE)
-                end_idx = int(seg["end"] * SAMPLE_RATE)
-                seg_data = buffer_data[start_idx:end_idx]
-
-                # Calculate mic overlap percentage and tag if > 80%
-                mic_overlap = self._calculate_mic_overlap(
-                    seg["start"], seg["end"], mic_ranges or []
-                )
-                in_mic = mic_overlap > 0.8
-
-                segments.append({"offset": seg["start"], "data": seg_data, "mic": in_mic})
-            logging.info(
-                "Detected %d speech segments in %s of %.1f seconds with %.1f seconds remainder",
-                len(speech_segments),
-                label,
-                buffer_seconds,
-                len(unprocessed_data) / SAMPLE_RATE,
-            )
-            return segments, unprocessed_data
-        except Exception as e:
-            logging.error(f"Error in detect_speech for {label}: {e}")
-            # Re-raise the exception instead of returning empty results
-            # This prevents file deletion when there's a processing error
-            raise
-
     def _trash_file(self, raw_path: Path) -> None:
         """Move the given file to a trash directory inside its day folder."""
         trash_dir = raw_path.parent / "trash"
@@ -234,14 +68,26 @@ class Transcriber:
 
             mic_ranges: List[Tuple[float, float]] = []
             if data.ndim == 1:
-                merged = self._resample_audio(data, sr, SAMPLE_RATE)
+                merged = resample_audio(
+                    data, sr, SAMPLE_RATE, self._df_model, self._df_state, self._df_sr
+                )
                 logging.info(f"Single channel audio detected in {raw_path} {sr}, no mic data.")
             else:
                 logging.info(
                     f"Dual channel audio detected in {raw_path} {sr}, denoising mic channel."
                 )
-                mic_new = self._resample_audio(data[:, 0], sr, SAMPLE_RATE, denoise=True)
-                sys_new = self._resample_audio(data[:, 1], sr, SAMPLE_RATE)
+                mic_new = resample_audio(
+                    data[:, 0],
+                    sr,
+                    SAMPLE_RATE,
+                    self._df_model,
+                    self._df_state,
+                    self._df_sr,
+                    denoise=True,
+                )
+                sys_new = resample_audio(
+                    data[:, 1], sr, SAMPLE_RATE, self._df_model, self._df_state, self._df_sr
+                )
 
                 # when testing, save denoised mic audio for validation
                 sf.write("./mic_denoise.flac", mic_new, SAMPLE_RATE)
@@ -252,12 +98,14 @@ class Transcriber:
             adjusted_ranges = [(s + offset_seconds, e + offset_seconds) for s, e in mic_ranges]
 
             merged = np.concatenate((self.merged_stash, merged))
-            segments, self.merged_stash = self.detect_speech("mix", merged, adjusted_ranges)
+            segments, self.merged_stash = detect_speech(self.model, "mix", merged, adjusted_ranges)
 
             if not segments:
                 # Don't trash if there's unfinished speech in the stash
                 if len(self.merged_stash) > 0:
-                    logging.info(f"No complete segments but {len(self.merged_stash)/SAMPLE_RATE:.1f}s in stash, keeping {raw_path}")
+                    logging.info(
+                        f"No complete segments but {len(self.merged_stash)/SAMPLE_RATE:.1f}s in stash, keeping {raw_path}"
+                    )
                     return None
                 logging.info(f"No speech segments detected, moving {raw_path} to trash")
                 self._trash_file(raw_path)
@@ -331,7 +179,10 @@ class Transcriber:
         attempts = 0
         while attempts < 2:
             try:
-                result = self._transcribe(segments)
+                entities_text = self.entities_path.read_text().strip()
+                result = transcribe_segments(
+                    self.client, MODEL, self.prompt_text, entities_text, segments
+                )
                 json_path.write_text(json.dumps({"text": result}, indent=2))
                 logging.info(f"Transcribed {raw_path} -> {json_path}")
 
@@ -363,34 +214,6 @@ class Transcriber:
 
         if self._transcribe_segments(raw_path, segments):
             self.processed.add(json_path.name)
-
-    def _transcribe(self, segments: List[Dict[str, object]]) -> dict:
-        user_prompt = (
-            "Process the provided audio clips and output your professional "
-            "accurate transcription in the specified JSON format, each clip may contain one or more speakers."
-        )
-        entities_text = self.entities_path.read_text().strip()
-        contents = [entities_text, user_prompt]
-
-        for seg in segments:
-            contents.append(
-                f"This clip starts at {seg['start']} and the source is '{seg['source']}':"
-            )
-            contents.append(types.Part.from_bytes(data=seg["bytes"], mime_type="audio/flac"))
-
-        response = self.client.models.generate_content(
-            model=MODEL,
-            contents=contents,
-            config=types.GenerateContentConfig(
-                temperature=0.1,
-                max_output_tokens=8192 * 2,
-                response_mime_type="application/json",
-                system_instruction=self.prompt_text,
-            ),
-        )
-        result = json.loads(response.text)
-        logging.info(f"Transcription result: {json.dumps(result, indent=2)}")
-        return result
 
     def repair_day(self, date_str: str):
         """Repair incomplete processing for a specific day."""
