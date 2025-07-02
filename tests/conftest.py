@@ -157,6 +157,32 @@ def add_module_stubs(monkeypatch):
 
         sf_mod.write = write
         sys.modules["soundfile"] = sf_mod
+    if "websockets" not in sys.modules:
+        ws_mod = types.ModuleType("websockets")
+
+        class DummyWS:
+            async def send(self, data):
+                return None
+
+            async def wait_closed(self):
+                return None
+
+        async def serve(handler, host, port):
+            class Server:
+                def __init__(self):
+                    self.ws = DummyWS()
+
+                async def __aenter__(self):
+                    return self
+
+                async def __aexit__(self, exc_type, exc, tb):
+                    return False
+
+            return Server()
+
+        ws_mod.WebSocketServerProtocol = DummyWS
+        ws_mod.serve = serve
+        sys.modules["websockets"] = ws_mod
     for name in ["librosa", "noisereduce", "silero_vad", "watchdog.events", "watchdog.observers"]:
         if name not in sys.modules:
             sys.modules[name] = types.ModuleType(name)
