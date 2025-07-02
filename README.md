@@ -18,8 +18,10 @@ Captured files are organised under a **journal** directory containing daily `YYY
 pip install -e .
 ```
 
-Wrapper scripts `hear.sh` and `see.sh` run the audio and visual capture services
-in continuous loops.
+Use `gemini-hear` together with `gemini-see` to run the audio and visual capture services
+in continuous loops. `gemini-hear` wraps `gemini-mic` and `gemini-transcribe`,
+while `gemini-see` wraps `screen-watch` and `screen-describe` so both sides keep
+running until interrupted.
 
 ## Documentation
 
