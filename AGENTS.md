@@ -32,6 +32,9 @@ The directory containing all dated folders is called the **journal**.  A single
 - Avoid committing large binary artifacts or API keys.
 - Prompt text files in `hear/`, `see/` and `think/` provide system instructions
   for Gemini. Modify them only when a task explicitly requires it.
+- Use absolute imports from the package root (for example,
+  `from hear.audio_utils import SAMPLE_RATE`) rather than wrapping imports in
+  `try`/`except` blocks.
 
 ## Environment notes
 

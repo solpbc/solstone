@@ -71,14 +71,14 @@ def main() -> None:
     day = args.day
     if day is None:
         day = (datetime.now() - timedelta(days=1)).strftime("%Y%m%d")
-    
+
     # Handle case where day might be a full path
     if os.path.isdir(day):
         day_dir = day
         day = os.path.basename(day_dir)
     else:
         day_dir = os.path.join(args.journal, day)
-    
+
     if not os.path.isdir(day_dir):
         print(f"Day folder not found: {day_dir}")
         sys.exit(1)

@@ -41,9 +41,8 @@ dependencies = [
     "soundfile",
     "silero-vad",
     "deepfilternet",
+    "torch",
     "librosa",
-    "noisereduce",
-    "pyaec",
     "scipy",
     "numpy",
     "websockets",
@@ -57,10 +56,7 @@ dependencies = [
     "dbus-next",
     "PyGObject",
     "watchdog",
-    "usearch",
-    "sentence-transformers",
     "nltk",
-    "scikit-learn",
 ]
 
 [project.optional-dependencies]
@@ -86,7 +82,6 @@ screen-describe = "see.describe:main"
 ponder-day = "think.ponder:main"
 cluster-day = "think.cluster_day:main"
 reduce-screen = "think.reduce_screen:main"
-repair-audio-json = "think.repair_audio_json:main"
 see-repair = "think.see_repair:main"
 hear-repair = "think.hear_repair:main"
 entity-review = "dream.entity_review:main"

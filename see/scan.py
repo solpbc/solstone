@@ -7,9 +7,9 @@ import sys
 import time
 
 from PIL import Image, ImageDraw
+
 from see.screen_compare import compare_images
 from see.screen_dbus import idle_time_ms, screen_snap
-
 from think.border_detect import detect_border
 
 GLOBAL_VERBOSE = False

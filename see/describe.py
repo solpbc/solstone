@@ -8,12 +8,12 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Optional
 
-from see import gemini_look
 from dotenv import load_dotenv
 from PIL import Image
 from watchdog.events import PatternMatchingEventHandler
 from watchdog.observers import Observer
 
+from see import gemini_look
 from think.crumbs import CrumbBuilder
 
 

@@ -3,6 +3,7 @@ import threading
 import numpy as np
 import soundcard as sc
 from scipy.signal import correlate
+
 from hear.input_detect import input_detect
 
 
