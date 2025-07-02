@@ -6,31 +6,30 @@ import logging
 import os
 import time
 from pathlib import Path
+from typing import Dict, List
 
 import numpy as np
 import soundfile as sf
 import websockets
 from dotenv import load_dotenv
+from faster_whisper import WhisperModel
 from google import genai
 from silero_vad import load_silero_vad
+
 from hear.audio_utils import SAMPLE_RATE, detect_speech
-from typing import Dict, List
 
 MODEL = "gemini-2.5-flash-lite-preview-06-17"
 
 from google.genai import types
 
-USER_PROMPT = (
-    "Please transcribe any spoken words or utterances you hear in this audio clip, accuracy is important."
-)
+USER_PROMPT = "Please transcribe any spoken words or utterances you hear in this audio clip, accuracy is important."
 
-def transcribe_light(
-    client, model: str, audio_bytes: bytes
-) -> str:
+
+def transcribe_light(client, model: str, audio_bytes: bytes) -> str:
 
     parts = [
         types.Part.from_text(text=USER_PROMPT),
-        types.Part.from_bytes(data=audio_bytes, mime_type="audio/flac")
+        types.Part.from_bytes(data=audio_bytes, mime_type="audio/flac"),
     ]
 
     contents = [types.Content(role="user", parts=parts)]
@@ -51,6 +50,22 @@ def transcribe_light(
     return result
 
 
+whisper_model = None
+
+
+def transcribe_whisper(audio_bytes: bytes) -> str:
+    """Transcribe using faster-whisper."""
+    global whisper_model
+    if whisper_model is None:
+        whisper_model = WhisperModel("tiny", device="cpu", compute_type="int8")
+
+    with io.BytesIO(audio_bytes) as buf:
+        segments, _ = whisper_model.transcribe(buf, language="en", task="transcribe")
+        text = " ".join(segment.text for segment in segments).strip()
+    logging.info("Whisper result: %s", text)
+    return text
+
+
 async def live_loop(ws_url: str, client) -> None:
     vad = load_silero_vad()
     stash = np.array([], dtype=np.float32)
@@ -67,12 +82,13 @@ async def live_loop(ws_url: str, client) -> None:
                 buf = io.BytesIO()
                 sf.write(buf, audio_int16, SAMPLE_RATE, format="FLAC")
                 try:
-                    result = transcribe_light(
+                    g_text = transcribe_light(
                         client,
                         MODEL,
                         buf.getvalue(),
                     )
-                    print(result)
+                    w_text = transcribe_whisper(buf.getvalue())
+                    print(f"G: {g_text}\nW: {w_text}")
                 except Exception as e:
                     logging.error("Transcription error: %s", e)
             processed_seconds += (len(mono) - len(stash)) / SAMPLE_RATE
@@ -94,6 +110,7 @@ def main() -> None:
     client = genai.Client(api_key=api_key)
 
     asyncio.run(live_loop(args.ws_url, client))
+
 
 if __name__ == "__main__":
     main()
