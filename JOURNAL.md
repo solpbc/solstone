@@ -31,7 +31,7 @@ Screen capture utilities produce per monitor diff files:
 
 - `ponder_day.md` – high level summary of the day.
 - `ponder_knowledge_graph.md` – knowledge graph / network summary.
-- `ponder_meetings.json` – meeting list used by the calendar web UI.
+- `ponder_meetings.md` – meeting list used by the calendar web UI.
 - `entities.md` – daily entity rollup produced by `entity-roll`.
 
 ### Crumbs

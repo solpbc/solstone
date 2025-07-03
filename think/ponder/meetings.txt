@@ -2,7 +2,7 @@
 
 **Input:** A markdown file containing a chronologically ordered transcript of a workday for Jeremie Miller. The transcript is segmented into 5-minute chunks, each combining information from audio recordings and screen activity for that interval.
 
-**Objective:** Identify and summarize all of the meetings that Jeremie participated in based on the provided workday transcripts, generate a JSON array with the details for each.
+**Objective:** Identify and summarize all of the meetings that Jeremie participated in based on the provided workday transcripts, generate a nicely formatted Markdown document with the details for each.
 
 **Instructions:**
 
@@ -43,23 +43,12 @@
         * `slidesDescription`: If slides were presented, provide a short summary of the slide content, topics covered, or presentation themes visible on screen. Omit if no slides were presented.
         * Look for screen activity showing presentation software (PowerPoint, Google Slides, Keynote, etc.), slide transitions, or structured presentation content being displayed within the meeting window, etc.
 
-4.  **Format the Output:** Generate a single JSON array where each object represents a meeting and contains the extracted details. The structure of each JSON object should be as follows:
+4.  **Format the Output:** Produce a friendly Markdown document listing each meeting in chronological order. For every meeting create a short titled section containing:
+    * **Start Time** – when the meeting began.
+    * **End Time** – when the meeting concluded.
+    * **Participants** – list of names involved.
+    * **Topics Discussed** – concise summary of key subjects and entities mentioned.
+    * **Slides Presented** – yes/no indicator.
+    * **Slides Description** – short description if slides were shown.
 
-```json
-[
-    {
-    "startTime": "YYYY-MM-DDTHH:MM:SS",
-    "endTime": "YYYY-MM-DDTHH:MM:SS",
-    "participants": [
-        "Jeremie Miller",
-        "Participant Name 1",
-        "Participant Name 2"
-    ],
-    "topicsDiscussed": "A list of the meeting's key topics, subjects, names mentioned, etc.",
-    "title": "Short one-liner title or brief of the meeting for easy reference.",
-    "slidesPresented": true/false,
-    "slidesDescription": "Optional, short summary of slide content, topics, or themes if slides were presented"
-    },
-    ...
-]
-```
+   Conclude with a brief bullet list summarizing the overall meeting activity for the day.
