@@ -148,22 +148,60 @@ def generate_top_summary(info: Dict[str, Any], api_key: str) -> str:
     return response.text
 
 
+def _combine(day: str, time_str: str) -> str:
+    """Return ISO timestamp string for ``day`` + ``time_str``."""
+
+    return f"{day[:4]}-{day[4:6]}-{day[6:]}T{time_str}"
+
+
 def build_index(journal: str) -> Dict[str, List[Dict[str, Any]]]:
     """Create a mapping of YYYYMMDD folders to meeting lists."""
+
     index: Dict[str, List[Dict[str, Any]]] = {}
     for name in os.listdir(journal):
-        if DATE_RE.fullmatch(name):
-            path = os.path.join(journal, name)
-            if not os.path.isdir(path):
-                continue
-            file_path = os.path.join(path, "ponder_meetings.json")
-            if not os.path.isfile(file_path):
-                continue
-            try:
-                with open(file_path, "r", encoding="utf-8") as f:
-                    data = json.load(f)
-                if isinstance(data, list):
-                    index[name] = data
-            except Exception:
-                continue
+        if not DATE_RE.fullmatch(name):
+            continue
+        path = os.path.join(journal, name)
+        if not os.path.isdir(path):
+            continue
+
+        file_path = os.path.join(path, "ponder_meetings.json")
+        if not os.path.isfile(file_path):
+            continue
+
+        meetings: List[Dict[str, Any]] = []
+        try:
+            with open(file_path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            if isinstance(data, dict):
+                for occ in data.get("occurrences", []):
+                    if occ.get("type") != "meeting":
+                        continue
+                    m: Dict[str, Any] = {
+                        "title": occ.get("title", ""),
+                        "summary": occ.get("summary", ""),
+                        "participants": occ.get("participants", []),
+                    }
+                    if occ.get("start"):
+                        m["startTime"] = _combine(name, occ["start"])
+                    if occ.get("end"):
+                        m["endTime"] = _combine(name, occ["end"])
+                    details = occ.get("details")
+                    if isinstance(details, dict):
+                        for key in [
+                            "topicsDiscussed",
+                            "slidesPresented",
+                            "slidesDescription",
+                        ]:
+                            if key in details:
+                                m[key] = details[key]
+                    meetings.append(m)
+            elif isinstance(data, list):
+                meetings = data
+        except Exception:
+            continue
+
+        if meetings:
+            index[name] = meetings
+
     return index
