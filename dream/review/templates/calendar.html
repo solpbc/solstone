@@ -97,12 +97,12 @@ h1 { margin-bottom: 0.5em; }
 
 <script>
 let meetings = {};
-const dayBase = '{{ url_for('calendar_day', day='') }}';
+const dayBase = '{{ url_for('review.calendar_day', day='') }}';
 let months = [];
 let currentIndex = 0;
 
 function loadData() {
-  fetch('{{ url_for('calendar_meetings') }}')
+  fetch('{{ url_for('review.calendar_meetings') }}')
     .then(r => {
       if (!r.ok) throw new Error('Failed to fetch meetings');
       return r.json();

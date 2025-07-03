@@ -6,6 +6,7 @@ from typing import Any, Dict, List
 
 from flask import (
     Blueprint,
+    current_app,
     jsonify,
     redirect,
     render_template,
@@ -52,7 +53,7 @@ def require_login() -> Any:
 def login() -> Any:
     error = None
     if request.method == "POST":
-        if request.form.get("password") == bp.app.config.get("PASSWORD"):
+        if request.form.get("password") == current_app.config.get("PASSWORD"):
             session["logged_in"] = True
             return redirect(url_for("review.home"))
         error = "Invalid password"
@@ -136,7 +137,7 @@ def calendar_day(day: str) -> str:
 @bp.route("/entities/api/data")
 def entities_data() -> Any:
     data: Dict[str, List[Dict[str, object]]] = {}
-    for etype, names in entities_index.items():
+    for etype, names in state.entities_index.items():
         data[etype] = []
         for name, info in names.items():
             formatted_descriptions = {
@@ -160,7 +161,7 @@ def api_top_generate() -> Any:
     payload = request.get_json(force=True)
     etype = payload.get("type")
     name = payload.get("name")
-    info = entities_index.get(etype, {}).get(name)
+    info = state.entities_index.get(etype, {}).get(name)
     api_key = os.getenv("GOOGLE_API_KEY")
     if not api_key or info is None:
         return ("", 400)
@@ -205,4 +206,4 @@ def api_modify_entity() -> Any:
 
 @bp.route("/calendar/api/meetings")
 def calendar_meetings() -> Any:
-    return jsonify(meetings_index)
+    return jsonify(state.meetings_index)
