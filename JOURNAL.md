@@ -5,7 +5,7 @@ This document describes the layout of a **journal** directory where all audio, s
 ## Top level files
 
 - `entities.md` – top list of entities gathered across days. Used by several tools.
-- `indexer.json` – cache file created by `dream.review` to speed up indexing.
+- `indexer.json` – cache file created by the `dream` web app to speed up indexing.
 - `entity_review.log` – operations performed in the web UI are appended here.
 - `YYYYMMDD/` – individual day folders described below.
 

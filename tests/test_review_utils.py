@@ -4,13 +4,13 @@ from pathlib import Path
 
 
 def test_format_date():
-    review = importlib.import_module("dream.review")
+    review = importlib.import_module("dream")
     assert "2024" not in review.format_date("20240102")
     assert review.format_date("bad") == "bad"
 
 
 def test_modify_and_update(tmp_path):
-    review = importlib.import_module("dream.review")
+    review = importlib.import_module("dream")
     md = tmp_path / "entities.md"
     md.write_text("* Person: Jane - desc\n")
     review.modify_entity_in_file(str(md), "Person", "Jane", operation="remove")
@@ -24,7 +24,7 @@ def test_modify_and_update(tmp_path):
 
 
 def test_build_index_occurrence_format(tmp_path):
-    review = importlib.import_module("dream.review")
+    review = importlib.import_module("dream")
     day = tmp_path / "20240101"
     day.mkdir()
     data = {
@@ -47,7 +47,7 @@ def test_build_index_occurrence_format(tmp_path):
 
 
 def test_build_index_old_format(tmp_path):
-    review = importlib.import_module("dream.review")
+    review = importlib.import_module("dream")
     day = tmp_path / "20240102"
     day.mkdir()
     meetings = [{"title": "Old", "startTime": "2024-01-02T10:00:00"}]

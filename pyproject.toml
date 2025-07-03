@@ -87,7 +87,7 @@ cluster-day = "think.cluster_day:main"
 reduce-screen = "think.reduce_screen:main"
 see-repair = "think.see_repair:main"
 hear-repair = "think.hear_repair:main"
-dream-review = "dream.review:main"
+dream-review = "dream:main"
 entity-roll = "think.entity_roll:main"
 journal-stats = "think.journal_stats:main"
 dream-extract = "dream.extract:main"
@@ -108,8 +108,8 @@ hear = ["*.txt"]
 see = ["*.txt"]
 think = ["*.txt"]
 dream = [
-    "review/templates/*.html",
-    "review/static/*",
+    "templates/*.html",
+    "static/*",
 ]
 
 # Development tools configuration
