@@ -38,3 +38,41 @@ Screen capture utilities produce per monitor diff files:
 
 Most generated files are accompanied by a `.crumb` file capturing dependencies and model information. See `CRUMBS.md` for the format. Example: `20250610/ponder_day.md.crumb`.
 
+## Occurrence JSON
+
+Several `think/ponder` prompts extract time based events from the day's
+transcripts—meetings, messages, follow ups, file activity and more.  To index
+these consistently the results can be normalised into an **occurrence** container
+stored as `occurrences.json` inside each day folder.
+
+```json
+{
+  "day": "YYYYMMDD",
+  "occurrences": [
+    {
+      "kind": "meeting",
+      "start": "2025-06-10T09:00:00",
+      "end": "2025-06-10T09:30:00",
+      "title": "Team stand-up",
+      "summary": "Status update with the engineering team",
+      "work": true,
+      "participants": ["Jeremie Miller", "Alice", "Bob"],
+      "details": {"source": "ponder_meetings"}
+    }
+  ]
+}
+```
+
+### Common fields
+
+- **kind** – type of occurrence such as `meeting`, `message`, `file`,
+  `followup`, `documentation`, `research` or `media`.
+- **start** and **end** – ISO timestamps or the start of the 5‑minute block.
+- **title** and **summary** – short text for display and search.
+- **work** – boolean work vs. personal classification when known.
+- **participants** – optional list of people or entities involved.
+- **details** – free-form object for prompt specific fields.
+
+Each `ponder_*` tool can map its findings into this structure allowing the
+indexer to collect and search occurrences across all days.
+
