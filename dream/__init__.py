@@ -9,7 +9,7 @@ import types
 
 from flask import Flask
 
-from . import routes, state
+from . import state
 from .utils import (
     build_index,
     format_date,
@@ -18,6 +18,10 @@ from .utils import (
     modify_entity_in_file,
     update_top_entry,
 )
+from .views import calendar as calendar_view
+from .views import entities as entities_view
+from .views import home as home_view
+from .views import register_views
 
 
 def create_app(journal: str = "", password: str = "") -> Flask:
@@ -29,11 +33,11 @@ def create_app(journal: str = "", password: str = "") -> Flask:
     )
     app.secret_key = os.getenv("DREAM_SECRET", "sunstone-secret")
     app.config["PASSWORD"] = password
-    app.register_blueprint(routes.bp)
+    register_views(app)
 
     if journal:
         state.journal_root = journal
-        routes.reload_entities()
+        entities.reload_entities()
         state.meetings_index = build_index(journal)
     return app
 
@@ -42,19 +46,19 @@ def create_app(journal: str = "", password: str = "") -> Flask:
 app = create_app()
 
 # Re-export commonly used callables
-reload_entities = routes.reload_entities
+reload_entities = entities_view.reload_entities
 
-home = routes.home
-entities = routes.entities
-calendar = routes.calendar
-calendar_day = routes.calendar_day
-entities_data = routes.entities_data
-api_top_generate = routes.api_top_generate
-api_top_update = routes.api_top_update
-api_modify_entity = routes.api_modify_entity
-calendar_meetings = routes.calendar_meetings
-login = routes.login
-logout = routes.logout
+home = home_view.home
+entities = entities_view.entities
+calendar = calendar_view.calendar_page
+calendar_day = calendar_view.calendar_day
+entities_data = entities_view.entities_data
+api_top_generate = entities_view.api_top_generate
+api_top_update = entities_view.api_top_update
+api_modify_entity = entities_view.api_modify_entity
+calendar_meetings = calendar_view.calendar_meetings
+login = home_view.login
+logout = home_view.logout
 
 __all__ = [
     "app",
