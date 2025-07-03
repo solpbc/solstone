@@ -1,4 +1,5 @@
 import importlib
+import json
 from pathlib import Path
 
 
@@ -20,3 +21,36 @@ def test_modify_and_update(tmp_path):
     review.update_top_entry(str(tmp_path), "Person", "J", "info")
     top_path = tmp_path / "entities.md"
     assert top_path.read_text()
+
+
+def test_build_index_occurrence_format(tmp_path):
+    review = importlib.import_module("dream.review")
+    day = tmp_path / "20240101"
+    day.mkdir()
+    data = {
+        "day": "20240101",
+        "occurrences": [
+            {
+                "type": "meeting",
+                "start": "09:00:00",
+                "end": "09:30:00",
+                "title": "Standup",
+                "summary": "Daily sync",
+                "details": {"topicsDiscussed": "progress"},
+            }
+        ],
+    }
+    (day / "ponder_meetings.json").write_text(json.dumps(data))
+    index = review.build_index(str(tmp_path))
+    assert index["20240101"][0]["title"] == "Standup"
+    assert index["20240101"][0]["startTime"].endswith("T09:00:00")
+
+
+def test_build_index_old_format(tmp_path):
+    review = importlib.import_module("dream.review")
+    day = tmp_path / "20240102"
+    day.mkdir()
+    meetings = [{"title": "Old", "startTime": "2024-01-02T10:00:00"}]
+    (day / "ponder_meetings.json").write_text(json.dumps(meetings))
+    index = review.build_index(str(tmp_path))
+    assert index["20240102"][0]["title"] == "Old"
