@@ -1,0 +1,16 @@
+# Occurrence JSON Conversion
+
+You are given a Markdown summary that was generated from a day's transcripts. Extract every distinct event it describes and convert them into the **occurrence** JSON format defined in `JOURNAL.md`.
+
+Use these fields for each occurrence:
+- `type` – meeting, message, file, followup, documentation, research, media, etc.
+- `source` – the name of the summary file being processed.
+- `start` and `end` – HH:MM:SS timestamps.
+- `title` – short description of the event.
+- `summary` – one sentence recap.
+- `work` – `true` for work related, `false` for personal.
+- `participants` – names of people or entities involved if known.
+- `details` – any additional type specific information.
+
+Return only a **JSON array** containing the occurrences. Do not wrap it in any additional object or text.
+Capture as much specific information as possible and include any extra fields that clarify the occurrence inside `details`. Output only valid JSON with no extra commentary.

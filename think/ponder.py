@@ -35,9 +35,7 @@ def count_tokens(markdown: str, prompt: str, api_key: str, model: str) -> None:
     print(f"Token count: {total_tokens}")
 
 
-def send_markdown(
-    markdown: str, prompt: str, api_key: str, model: str, is_json_mode: bool
-) -> tuple[str, object]:
+def send_markdown(markdown: str, prompt: str, api_key: str, model: str) -> tuple[str, object]:
     client = genai.Client(api_key=api_key)
 
     done = threading.Event()
@@ -61,8 +59,6 @@ def send_markdown(
             ),
             "system_instruction": prompt,
         }
-        if is_json_mode:
-            gen_config_args["response_mime_type"] = "application/json"
 
         response = client.models.generate_content(
             model=model,
@@ -121,8 +117,7 @@ def main() -> None:
     except FileNotFoundError:
         parser.error(f"Prompt file not found: {args.prompt}")
 
-    is_json_mode = "```json" in prompt
-    output_extension = ".json" if is_json_mode else ".md"
+    output_extension = ".md"
 
     model = PRO_MODEL if args.pro else FLASH_MODEL
     day = os.path.basename(os.path.normpath(args.day))
@@ -147,7 +142,7 @@ def main() -> None:
             print(f"Output file already exists: {output_path}. Use --force to overwrite.")
             return
 
-    result, usage_metadata = send_markdown(markdown, prompt, api_key, model, is_json_mode)
+    result, usage_metadata = send_markdown(markdown, prompt, api_key, model)
 
     # Extract and display only the essential token counts
     prompt_tokens = getattr(usage_metadata, "prompt_token_count", 0)
@@ -161,13 +156,6 @@ def main() -> None:
     if result is None:
         print("Error: No text content in response")
         return
-
-    if is_json_mode:
-        try:
-            json.loads(result)
-        except json.JSONDecodeError as e:
-            print(f"Error: Result is not valid JSON. Details: {e}: {result[:100]}")
-            return
 
     os.makedirs(args.day, exist_ok=True)
 
@@ -185,6 +173,47 @@ def main() -> None:
     )
     crumb_path = crumb_builder.commit(output_path)
     print(f"Crumb saved to: {crumb_path}")
+
+    # Create a corresponding occurrence JSON from the markdown summary
+    occ_prompt_path = os.path.join(os.path.dirname(__file__), "ponder", "ponder_occurrence.txt")
+    try:
+        with open(occ_prompt_path, "r") as f:
+            occ_prompt = f.read().strip().replace("DAY", day)
+    except FileNotFoundError:
+        print(f"Occurrence prompt not found: {occ_prompt_path}")
+        return
+
+    occ_output_path = os.path.join(args.day, f"ponder_{prompt_basename}.json")
+    if not args.force and os.path.exists(occ_output_path):
+        print(f"Output file already exists: {occ_output_path}. Use --force to overwrite.")
+        return
+
+    occ_result, occ_usage = send_markdown(result, occ_prompt, api_key, model)
+
+    try:
+        occurrences = json.loads(occ_result)
+    except json.JSONDecodeError as e:
+        print(f"Error: Occurrence result is not valid JSON. Details: {e}: {occ_result[:100]}")
+        return
+
+    if not isinstance(occurrences, list):
+        print(f"Error: Occurrence result did not return an array: {occ_result[:100]}")
+        return
+
+    full_occurrence_obj = {"day": day, "occurrences": occurrences}
+
+    occ_result = json.dumps(full_occurrence_obj, indent=2)
+
+    with open(occ_output_path, "w") as f:
+        f.write(occ_result)
+
+    print(f"Results saved to: {occ_output_path}")
+
+    occ_crumb_builder = (
+        CrumbBuilder().add_file(occ_prompt_path).add_file(output_path).add_model(model)
+    )
+    occ_crumb_path = occ_crumb_builder.commit(occ_output_path)
+    print(f"Crumb saved to: {occ_crumb_path}")
 
 
 if __name__ == "__main__":
