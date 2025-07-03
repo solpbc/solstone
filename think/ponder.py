@@ -55,7 +55,7 @@ def send_markdown(markdown: str, prompt: str, api_key: str, model: str) -> tuple
             "temperature": 0.3,
             "max_output_tokens": 8192 * 6,
             "thinking_config": types.ThinkingConfig(
-                thinking_budget=8192 * 4,
+                thinking_budget=8192 * 3,
             ),
             "system_instruction": prompt,
         }
