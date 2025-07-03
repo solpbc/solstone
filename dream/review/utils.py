@@ -8,7 +8,7 @@ from google import genai
 from google.genai import types
 
 from think.cluster_glob import FLASH_MODEL
-from think.indexer import parse_entity_line
+from think.entities import parse_entity_line
 
 DATE_RE = re.compile(r"\d{8}")
 

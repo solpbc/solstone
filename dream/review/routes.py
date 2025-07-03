@@ -14,7 +14,7 @@ from flask import (
     url_for,
 )
 
-from think.indexer import get_entities
+from think.entities import get_entities
 
 from . import state
 from .utils import (

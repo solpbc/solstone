@@ -4,7 +4,7 @@ from pathlib import Path
 
 
 def test_parse_entity_line():
-    indexer = importlib.import_module("think.indexer")
+    indexer = importlib.import_module("think.entities")
     line = "* Person: John Doe - desc"
     etype, name, desc = indexer.parse_entity_line(line)
     assert etype == "Person" and name == "John Doe" and desc == "desc"
@@ -12,7 +12,7 @@ def test_parse_entity_line():
 
 
 def test_parse_entities(tmp_path):
-    indexer = importlib.import_module("think.indexer")
+    indexer = importlib.import_module("think.entities")
     md = tmp_path / "entities.md"
     md.write_text("* Person: Jane - info\n")
     result = indexer.parse_entities(str(tmp_path))
@@ -20,7 +20,7 @@ def test_parse_entities(tmp_path):
 
 
 def test_build_entities_and_cache(tmp_path):
-    indexer = importlib.import_module("think.indexer")
+    indexer = importlib.import_module("think.entities")
     cache = {
         "20240101": {
             "entries": [("Person", "Jane", "info")],
@@ -36,7 +36,7 @@ def test_build_entities_and_cache(tmp_path):
 
 
 def test_get_entities(tmp_path):
-    indexer = importlib.import_module("think.indexer")
+    indexer = importlib.import_module("think.entities")
     day = tmp_path / "20240101"
     day.mkdir()
     (day / "entities.md").write_text("* Person: Jane\n")
