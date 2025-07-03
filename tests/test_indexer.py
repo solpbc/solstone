@@ -42,3 +42,29 @@ def test_get_entities(tmp_path):
     (day / "entities.md").write_text("* Person: Jane\n")
     result = indexer.get_entities(str(tmp_path))
     assert "Person" in result and "Jane" in result["Person"]
+
+
+def test_occurrence_index(tmp_path):
+    mod = importlib.import_module("think.indexer")
+    journal = tmp_path
+    day = journal / "20240101"
+    day.mkdir()
+    data = {
+        "day": "20240101",
+        "occurrences": [
+            {
+                "type": "meeting",
+                "source": "ponder_meetings.md",
+                "start": "09:00:00",
+                "end": "09:30:00",
+                "title": "Standup",
+                "summary": "Daily sync",
+                "details": "progress",
+            }
+        ],
+    }
+    (day / "ponder_meetings.json").write_text(json.dumps(data))
+    cache: dict = {}
+    mod.scan_occurrences(str(journal), cache, verbose=True)
+    results = mod.search_occurrences(str(journal), "Standup")
+    assert results and results[0]["metadata"]["day"] == "20240101"
