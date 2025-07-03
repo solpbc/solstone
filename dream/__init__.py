@@ -22,6 +22,7 @@ from .views import calendar as calendar_view
 from .views import entities as entities_view
 from .views import home as home_view
 from .views import register_views
+from .views import search as search_view
 
 
 def create_app(journal: str = "", password: str = "") -> Flask:
@@ -52,6 +53,7 @@ home = home_view.home
 entities = entities_view.entities
 calendar = calendar_view.calendar_page
 calendar_day = calendar_view.calendar_day
+search_page = search_view.search_page
 entities_data = entities_view.entities_data
 api_top_generate = entities_view.api_top_generate
 api_top_update = entities_view.api_top_update
@@ -67,6 +69,7 @@ __all__ = [
     "entities",
     "calendar",
     "calendar_day",
+    "search_page",
     "entities_data",
     "api_top_generate",
     "api_top_update",
