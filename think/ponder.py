@@ -71,6 +71,37 @@ def send_markdown(markdown: str, prompt: str, api_key: str, model: str) -> tuple
         t.join()
 
 
+def send_occurrence(markdown: str, prompt: str, api_key: str, model: str) -> object:
+    """Send markdown to generate occurrence data and return parsed JSON."""
+    client = genai.Client(api_key=api_key)
+
+    gen_config_args = {
+        "temperature": 0.3,
+        "max_output_tokens": 8192 * 6,
+        "thinking_config": types.ThinkingConfig(
+            thinking_budget=8192 * 3,
+        ),
+        "response_mime_type": "application/json",
+        "system_instruction": prompt,
+    }
+
+    response = client.models.generate_content(
+        model=model,
+        contents=[markdown],
+        config=types.GenerateContentConfig(**gen_config_args),
+    )
+    
+    try:
+        occurrences = json.loads(response.text)
+    except json.JSONDecodeError as e:
+        raise ValueError(f"Invalid JSON response: {e}: {response.text[:100]}")
+    
+    if not isinstance(occurrences, list):
+        raise ValueError(f"Response is not an array: {response.text[:100]}")
+        
+    return occurrences
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(
         description="Send a day's clustered Markdown to Gemini for analysis."
@@ -137,45 +168,53 @@ def main() -> None:
     output_filename = f"ponder_{prompt_basename}{output_extension}"
     output_path = os.path.join(args.day, output_filename)
 
-    if not args.force:
-        if os.path.exists(output_path):
-            print(f"Output file already exists: {output_path}. Use --force to overwrite.")
-            return
+    # Check if markdown file already exists
+    md_exists = os.path.exists(output_path) and os.path.getsize(output_path) > 0
+    
+    if md_exists and not args.force:
+        print(f"Markdown file already exists: {output_path}. Loading existing content.")
+        with open(output_path, "r") as f:
+            result = f.read()
+        usage_metadata = None
+    elif md_exists and args.force:
+        print(f"Markdown file exists but --force specified. Regenerating.")
+        result, usage_metadata = send_markdown(markdown, prompt, api_key, model)
+    else:
+        result, usage_metadata = send_markdown(markdown, prompt, api_key, model)
 
-    result, usage_metadata = send_markdown(markdown, prompt, api_key, model)
-
-    # Extract and display only the essential token counts
-    prompt_tokens = getattr(usage_metadata, "prompt_token_count", 0)
-    thoughts_tokens = getattr(usage_metadata, "thoughts_token_count", 0)
-    candidates_tokens = getattr(usage_metadata, "candidates_token_count", 0)
-    print(
-        f"Usage: prompt={prompt_tokens} thoughts={thoughts_tokens} candidates={candidates_tokens}"
-    )
+    # Extract and display only the essential token counts if we have usage data
+    if usage_metadata is not None:
+        prompt_tokens = getattr(usage_metadata, "prompt_token_count", 0)
+        thoughts_tokens = getattr(usage_metadata, "thoughts_token_count", 0)
+        candidates_tokens = getattr(usage_metadata, "candidates_token_count", 0)
+        print(
+            f"Usage: prompt={prompt_tokens} thoughts={thoughts_tokens} candidates={candidates_tokens}"
+        )
 
     # Check if we got a valid response
     if result is None:
         print("Error: No text content in response")
         return
 
-    os.makedirs(args.day, exist_ok=True)
+    # Only write markdown if it was newly generated
+    if not md_exists or args.force:
+        os.makedirs(args.day, exist_ok=True)
+        with open(output_path, "w") as f:
+            f.write(result)
+        print(f"Results saved to: {output_path}")
 
-    with open(output_path, "w") as f:
-        f.write(result)
-
-    print(f"Results saved to: {output_path}")
-
-    crumb_builder = (
-        CrumbBuilder()
-        .add_file(args.prompt)
-        .add_glob(os.path.join(args.day, "*_audio.json"))
-        .add_glob(os.path.join(args.day, "*_screen.md"))
-        .add_model(model)
-    )
-    crumb_path = crumb_builder.commit(output_path)
-    print(f"Crumb saved to: {crumb_path}")
+        crumb_builder = (
+            CrumbBuilder()
+            .add_file(args.prompt)
+            .add_glob(os.path.join(args.day, "*_audio.json"))
+            .add_glob(os.path.join(args.day, "*_screen.md"))
+            .add_model(model)
+        )
+        crumb_path = crumb_builder.commit(output_path)
+        print(f"Crumb saved to: {crumb_path}")
 
     # Create a corresponding occurrence JSON from the markdown summary
-    occ_prompt_path = os.path.join(os.path.dirname(__file__), "ponder", "ponder_occurrence.txt")
+    occ_prompt_path = os.path.join(os.path.dirname(__file__), "ponder.txt")
     try:
         with open(occ_prompt_path, "r") as f:
             occ_prompt = f.read().strip().replace("DAY", day)
@@ -184,20 +223,18 @@ def main() -> None:
         return
 
     occ_output_path = os.path.join(args.day, f"ponder_{prompt_basename}.json")
-    if not args.force and os.path.exists(occ_output_path):
-        print(f"Output file already exists: {occ_output_path}. Use --force to overwrite.")
+    json_exists = os.path.exists(occ_output_path) and os.path.getsize(occ_output_path) > 0
+    
+    if json_exists and not args.force:
+        print(f"JSON file already exists: {occ_output_path}. Use --force to overwrite.")
         return
-
-    occ_result, occ_usage = send_markdown(result, occ_prompt, api_key, model)
+    elif json_exists and args.force:
+        print(f"JSON file exists but --force specified. Regenerating.")
 
     try:
-        occurrences = json.loads(occ_result)
-    except json.JSONDecodeError as e:
-        print(f"Error: Occurrence result is not valid JSON. Details: {e}: {occ_result[:100]}")
-        return
-
-    if not isinstance(occurrences, list):
-        print(f"Error: Occurrence result did not return an array: {occ_result[:100]}")
+        occurrences = send_occurrence(result, occ_prompt, api_key, model)
+    except ValueError as e:
+        print(f"Error: {e}")
         return
 
     full_occurrence_obj = {"day": day, "occurrences": occurrences}
@@ -214,7 +251,6 @@ def main() -> None:
     )
     occ_crumb_path = occ_crumb_builder.commit(occ_output_path)
     print(f"Crumb saved to: {occ_crumb_path}")
-
 
 if __name__ == "__main__":
     main()

@@ -72,7 +72,7 @@ stored as `occurrences.json` inside each day folder.
 - **title** and **summary** – short text for display and search.
 - **work** – boolean, work vs. personal classification when known.
 - **participants** – optional list of people or entities involved.
-- **details** – free-form object for prompt specific fields.
+- **details** – free-form string of other occurrence specific information.
 
 Each `ponder_*` tool can map its findings into this structure allowing the
 indexer to collect and search occurrences across all days.
