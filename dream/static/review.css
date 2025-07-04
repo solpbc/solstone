@@ -33,3 +33,17 @@ html::before {
   background: #eee;
   border-radius: 4px;
 }
+
+@media (max-width: 600px) {
+  .nav-icons {
+    position: static;
+    flex-direction: row;
+    justify-content: space-around;
+    width: 100%;
+    padding: 8px 0;
+    background: white;
+  }
+  html::before {
+    display: none;
+  }
+}
