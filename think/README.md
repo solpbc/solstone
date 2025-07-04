@@ -21,7 +21,7 @@ The package exposes several commands:
 - `entity-roll` collects entities across days and writes a rollup file.
 - `cluster-glob` summarises multiple folders matching a pattern.
 - `process-day` runs the above tools for a single day folder.
-- `ponder-mcp` exposes search capabilities over MCP.
+- `ponder-mcp` exposes search capabilities over MCP for both ponder text and structured occurrences.
 
 ```bash
 ponder-day <day-folder> [-f PROMPT] [-p MODEL]
