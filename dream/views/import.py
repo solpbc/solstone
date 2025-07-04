@@ -10,7 +10,7 @@ from google import genai
 from google.genai import types
 from werkzeug.utils import secure_filename
 
-from think.cluster_glob import FLASH_MODEL
+FLASH_MODEL = "gemini-2.5-flash"
 
 bp = Blueprint("import_view", __name__, template_folder="../templates")
 

@@ -105,7 +105,7 @@ def _groups_to_markdown(groups: Dict[datetime, List[Dict[str, str]]]) -> str:
     return "\n".join(lines)
 
 
-def cluster_day(day_dir: str) -> Tuple[str, int]:
+def cluster(day_dir: str) -> Tuple[str, int]:
     """Return Markdown summary for one day's JSON files and the number processed."""
 
     entries = _load_entries(day_dir, True, "summary")
@@ -161,7 +161,7 @@ def main():
         print("Error: Folder name must be in YYYYMMDD format (e.g., 20250524).", file=sys.stderr)
         sys.exit(1)
 
-    markdown, _ = cluster_day(args.day_dir)
+    markdown, _ = cluster(args.day_dir)
     print(markdown)
 
 
