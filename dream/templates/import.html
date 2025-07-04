@@ -1,0 +1,53 @@
+{% extends 'base.html' %}
+{% set title = 'Import' %}
+{% set active = 'import' %}
+{% block head %}
+<style>
+body { font-family: sans-serif; margin:0; }
+.container { max-width:600px; margin:0 auto; padding:1em; }
+#dropArea { border:2px dashed #999; padding:2em; text-align:center; margin-bottom:1em; cursor:pointer; }
+#dropArea.dragover { background:#eef; border-color:#333; }
+textarea { width:100%; min-height:150px; }
+button { margin-top:1em; padding:6px 12px; }
+.modal { display:none; position:fixed; z-index:1000; left:0; top:0; width:100%; height:100%; background:rgba(0,0,0,0.5); }
+.modal-content { background:white; margin:5% auto; padding:1em; border-radius:8px; max-width:400px; position:relative; }
+.close { position:absolute; top:10px; right:15px; cursor:pointer; font-size:24px; }
+</style>
+{% endblock %}
+{% block body %}
+<div class="container">
+  <form id="importForm">
+    <div id="dropArea">
+      <p>Drag file here or click to select</p>
+      <input id="fileInput" type="file" style="display:none" />
+      <div id="fileLabel"></div>
+    </div>
+    <textarea id="freeText" placeholder="Optional text"></textarea>
+    <button type="submit">Submit</button>
+  </form>
+</div>
+
+<div id="resultModal" class="modal">
+  <div class="modal-content">
+    <span class="close">&times;</span>
+    <pre id="resultContent"></pre>
+  </div>
+</div>
+
+<script>
+const dropArea = document.getElementById('dropArea');
+const fileInput = document.getElementById('fileInput');
+const fileLabel = document.getElementById('fileLabel');
+let currentFile = null;
+
+dropArea.onclick = () => fileInput.click();
+['dragenter','dragover'].forEach(ev=>dropArea.addEventListener(ev,e=>{e.preventDefault();dropArea.classList.add('dragover');}));
+['dragleave','drop'].forEach(ev=>dropArea.addEventListener(ev,e=>{e.preventDefault();dropArea.classList.remove('dragover');if(ev==='drop'){}}));
+dropArea.addEventListener('drop',e=>{const f=e.dataTransfer.files[0];if(f){currentFile=f;fileLabel.textContent=f.name;}});
+fileInput.onchange=e=>{currentFile=e.target.files[0];if(currentFile)fileLabel.textContent=currentFile.name;};
+document.getElementById('importForm').onsubmit=e=>{e.preventDefault();const fd=new FormData();if(currentFile)fd.append('file',currentFile);fd.append('text',document.getElementById('freeText').value);fetch('{{ url_for('import_view.import_process') }}',{method:'POST',body:fd}).then(r=>r.json()).then(showResult);};
+function showResult(res){document.getElementById('resultContent').textContent=JSON.stringify(res,null,2);document.getElementById('resultModal').style.display='block';}
+document.querySelector('.close').onclick=()=>{document.getElementById('resultModal').style.display='none';};
+window.onclick=e=>{if(e.target==document.getElementById('resultModal'))document.getElementById('resultModal').style.display='none';};
+</script>
+{% endblock %}

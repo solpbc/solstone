@@ -18,11 +18,15 @@ from .utils import (
     modify_entity_in_file,
     update_top_entry,
 )
+from importlib import import_module
+
 from .views import calendar as calendar_view
 from .views import entities as entities_view
 from .views import home as home_view
 from .views import register_views
 from .views import search as search_view
+
+import_page_view = import_module(".import", "dream.views")
 
 
 def create_app(journal: str = "", password: str = "") -> Flask:
@@ -54,6 +58,7 @@ entities = entities_view.entities
 calendar = calendar_view.calendar_page
 calendar_day = calendar_view.calendar_day
 search_page = search_view.search_page
+import_page = import_page_view.import_page
 entities_data = entities_view.entities_data
 api_top_generate = entities_view.api_top_generate
 api_top_update = entities_view.api_top_update
@@ -70,6 +75,7 @@ __all__ = [
     "calendar",
     "calendar_day",
     "search_page",
+    "import_page",
     "entities_data",
     "api_top_generate",
     "api_top_update",
