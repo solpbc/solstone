@@ -4,117 +4,140 @@ import re
 import sys
 from collections import defaultdict
 from datetime import datetime, timedelta
-from typing import Optional, Tuple
+from typing import Dict, List, Optional, Tuple
+
+TIME_RE = r"(\d{6})"
+AUDIO_PATTERN = re.compile(rf"^{TIME_RE}_audio\.json$")
+SCREEN_SUMMARY_PATTERN = re.compile(rf"^{TIME_RE}_screen\.md$")
+SCREEN_DIFF_PATTERN = re.compile(rf"^{TIME_RE}_monitor_(\d+)_diff\.json$")
 
 
-def cluster_day(day_dir: str) -> Tuple[str, int]:
-    """Return Markdown summary for one day's JSON files and the number processed.
-
-    ``day_dir`` must point directly at the ``YYYYMMDD`` folder.
-    """
-
-    # Determine which directory actually holds the day's files.
+def _date_str(day_dir: str) -> str:
     base = os.path.basename(os.path.normpath(day_dir))
-    if re.fullmatch(r"\d{8}", base):
-        date_str = base
-    else:
+    if not re.fullmatch(r"\d{8}", base):
         raise ValueError("day_dir must end with YYYYMMDD")
+    return base
 
-    # Patterns for the two file types we care about
-    audio_pattern = re.compile(r"^(\d{6})_audio\.json$")
-    screen_pattern = re.compile(r"^(\d{6})_screen\.md$")
 
-    all_files_data = []
-
-    # Process all files in the directory
+def _load_entries(day_dir: str, audio: bool, screen_mode: str) -> List[Dict[str, str]]:
+    date_str = _date_str(day_dir)
+    entries: List[Dict[str, str]] = []
     for filename in os.listdir(day_dir):
-        audio_match = audio_pattern.match(filename)
-        screen_match = screen_pattern.match(filename)
+        match = None
+        prefix = None
+        monitor: Optional[str] = None
 
-        if audio_match:
-            time_part = audio_match.group(1)
+        if audio and (match := AUDIO_PATTERN.match(filename)):
+            time_part = match.group(1)
             prefix = "audio"
-            is_json = True
-        elif screen_match:
-            time_part = screen_match.group(1)
+        elif screen_mode == "summary" and (match := SCREEN_SUMMARY_PATTERN.match(filename)):
+            time_part = match.group(1)
             prefix = "screen"
-            is_json = False
+        elif screen_mode == "raw" and (match := SCREEN_DIFF_PATTERN.match(filename)):
+            time_part = match.group(1)
+            monitor = match.group(2)
+            prefix = "monitor"
         else:
-            continue  # Skip files that don't match our patterns
+            continue
 
+        timestamp = datetime.strptime(date_str + time_part, "%Y%m%d%H%M%S")
+        path = os.path.join(day_dir, filename)
         try:
-            year = int(date_str[0:4])
-            month = int(date_str[4:6])
-            day = int(date_str[6:8])
-            hour = int(time_part[0:2])
-            minute = int(time_part[2:4])
-            second = int(time_part[4:6])
-            timestamp = datetime(year, month, day, hour, minute, second)
-            full_path = os.path.join(day_dir, filename)
+            with open(path, "r", encoding="utf-8") as f:
+                content = f.read()
+        except Exception as e:  # pragma: no cover - warning only
+            print(f"Warning: Could not read file {filename}: {e}", file=sys.stderr)
+            continue
 
-            try:
-                with open(full_path, "r", encoding="utf-8") as f:
-                    content = f.read()
-            except Exception as e:
-                print(f"Warning: Could not read file {filename}: {e}", file=sys.stderr)
-                continue
+        entries.append(
+            {
+                "timestamp": timestamp,
+                "prefix": prefix,
+                "content": content,
+                "monitor": monitor,
+            }
+        )
 
-            all_files_data.append(
-                {
-                    "filepath": full_path,
-                    "basename": filename,
-                    "timestamp": timestamp,
-                    "prefix": prefix,
-                    "content": content,
-                    "is_json": is_json,
-                }
-            )
-        except ValueError:
-            print(
-                f"Warning: Could not parse time from filename {filename}. Skipping.",
-                file=sys.stderr,
-            )
+    entries.sort(key=lambda e: e["timestamp"])
+    return entries
 
-    # Sort all files by timestamp
-    all_files_data.sort(key=lambda x: x["timestamp"])
 
-    # Group files into 5-minute intervals
-    grouped_files = defaultdict(list)
-    for file_data in all_files_data:
-        ts = file_data["timestamp"]
-        interval_minute = ts.minute - (ts.minute % 5)
-        interval_start_time = ts.replace(minute=interval_minute, second=0, microsecond=0)
-        grouped_files[interval_start_time].append(file_data)
+def _group_entries(entries: List[Dict[str, str]]) -> Dict[datetime, List[Dict[str, str]]]:
+    grouped: Dict[datetime, List[Dict[str, str]]] = defaultdict(list)
+    for e in entries:
+        ts = e["timestamp"]
+        interval = ts.replace(minute=ts.minute - (ts.minute % 5), second=0, microsecond=0)
+        grouped[interval].append(e)
+    return grouped
 
-    lines = []
-    sorted_interval_keys = sorted(grouped_files.keys())
 
-    if not sorted_interval_keys:
-        return f"No audio or screen files found for date {date_str} in {day_dir}.", 0
-
-    for interval_start in sorted_interval_keys:
+def _groups_to_markdown(groups: Dict[datetime, List[Dict[str, str]]]) -> str:
+    lines: List[str] = []
+    for interval_start in sorted(groups.keys()):
         interval_end = interval_start + timedelta(minutes=5)
         lines.append(
             f"## {interval_start.strftime('%Y-%m-%d %H:%M')} - {interval_end.strftime('%H:%M')}"
         )
         lines.append("")
 
-        files_in_group = grouped_files[interval_start]
-        for file_data in files_in_group:
-            if file_data["prefix"] == "screen":
-                lines.append(f"### Screen Activity Summary")
+        for entry in groups[interval_start]:
+            if entry["prefix"] == "audio":
+                lines.append("### Audio Transcript")
+                lines.append("```json")
+                lines.append(entry["content"].strip())
+                lines.append("```")
+                lines.append("")
+            elif entry["prefix"] == "screen":
+                lines.append("### Screen Activity Summary")
                 lines.append('"""')
-                lines.append(file_data["content"].strip())
+                lines.append(entry["content"].strip())
                 lines.append('"""')
                 lines.append("")
-            else:
-                lines.append(f"### Audio Transcript")
+            elif entry["prefix"] == "monitor":
+                lines.append(
+                    f"### Monitor {entry['monitor']} {entry['timestamp'].strftime('%H:%M:%S')}"
+                )
                 lines.append("```json")
-                lines.append(file_data["content"].strip())
+                lines.append(entry["content"].strip())
                 lines.append("```")
                 lines.append("")
 
-    return "\n".join(lines), len(all_files_data)
+    return "\n".join(lines)
+
+
+def cluster_day(day_dir: str) -> Tuple[str, int]:
+    """Return Markdown summary for one day's JSON files and the number processed."""
+
+    entries = _load_entries(day_dir, True, "summary")
+    if not entries:
+        date_str = _date_str(day_dir)
+        return f"No audio or screen files found for date {date_str} in {day_dir}.", 0
+
+    groups = _group_entries(entries)
+    markdown = _groups_to_markdown(groups)
+    return markdown, len(entries)
+
+
+def cluster_range(
+    day_dir: str,
+    start: str,
+    end: str,
+    audio: bool = True,
+    screen: str = "summary",
+) -> str:
+    """Return markdown for ``day_dir`` limited to ``start``-``end`` (HHMMSS)."""
+
+    if screen not in {"summary", "raw"}:
+        raise ValueError("screen must be 'summary' or 'raw'")
+
+    date_str = _date_str(day_dir)
+    start_dt = datetime.strptime(date_str + start, "%Y%m%d%H%M%S")
+    end_dt = datetime.strptime(date_str + end, "%Y%m%d%H%M%S")
+
+    entries = _load_entries(day_dir, audio, screen)
+    entries = [e for e in entries if start_dt <= e["timestamp"] < end_dt]
+    groups = _group_entries(entries)
+    return _groups_to_markdown(groups)
 
 
 def main():
