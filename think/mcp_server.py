@@ -1,5 +1,6 @@
 import argparse
 
+from dotenv import load_dotenv
 from mcp.server import FastMCP
 
 from .indexer import (
@@ -38,7 +39,6 @@ def create_server(journal: str) -> FastMCP:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Run MCP server for journal search")
-    parser.add_argument("journal", help="Path to the journal directory")
     parser.add_argument(
         "--transport",
         choices=["stdio", "sse", "streamable-http"],
@@ -47,7 +47,12 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    server = create_server(args.journal)
+    load_dotenv()
+    journal = os.getenv("JOURNAL_PATH")
+    if not journal:
+        parser.error("JOURNAL_PATH not set")
+
+    server = create_server(journal)
     server.run(args.transport)
 
 

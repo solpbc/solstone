@@ -6,7 +6,9 @@ import argparse
 import os
 import sys
 import types
+from importlib import import_module
 
+from dotenv import load_dotenv
 from flask import Flask
 
 from . import state
@@ -18,8 +20,6 @@ from .utils import (
     modify_entity_in_file,
     update_top_entry,
 )
-from importlib import import_module
-
 from .views import calendar as calendar_view
 from .views import entities as entities_view
 from .views import home as home_view
@@ -127,7 +127,6 @@ sys.modules[__name__].__class__ = _Module
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Combined review web service")
-    parser.add_argument("journal", help="Journal directory containing YYYYMMDD folders")
     parser.add_argument("--port", type=int, default=8000, help="Port to serve on")
     parser.add_argument(
         "--password",
@@ -136,7 +135,12 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    app = create_app(args.journal, args.password)
+    load_dotenv()
+    journal = os.getenv("JOURNAL_PATH")
+    if not journal:
+        raise SystemExit("JOURNAL_PATH not set")
+
+    app = create_app(journal, args.password)
     if not app.config["PASSWORD"]:
         raise ValueError("Password must be provided via --password or DREAM_PASSWORD")
 

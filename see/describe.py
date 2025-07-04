@@ -144,11 +144,6 @@ class Describer:
 def main() -> None:
     load_dotenv()
     parser = argparse.ArgumentParser(description="Describe screenshot diffs using Gemini")
-    parser.add_argument(
-        "journal",
-        type=Path,
-        help="Journal directory containing daily screenshot folders",
-    )
     parser.add_argument("-v", "--verbose", action="store_true", help="Enable verbose output")
     parser.add_argument(
         "--repair",
@@ -157,16 +152,20 @@ def main() -> None:
     )
     args = parser.parse_args()
 
+    journal = Path(os.getenv("JOURNAL_PATH", ""))
+    if not journal.is_dir():
+        parser.error("JOURNAL_PATH not set or invalid")
+
     logging.basicConfig(level=logging.INFO if args.verbose else logging.WARNING)
     faulthandler.enable()
 
     gemini_look.initialize()
 
-    ent_path = args.journal / "entities.md"
+    ent_path = journal / "entities.md"
     if not ent_path.is_file():
         parser.error(f"entities file not found: {ent_path}")
 
-    describer = Describer(args.journal)
+    describer = Describer(journal)
 
     if args.repair:
         # Validate date format

@@ -86,12 +86,15 @@ def _run_describe(journal: str, extra_args: list[str]) -> None:
 
 
 def main() -> None:
-    if len(sys.argv) < 3:
-        print("Usage: gemini-see <interval_seconds> <journal_dir> [args...]", file=sys.stderr)
+    if len(sys.argv) < 2:
+        print("Usage: gemini-see <interval_seconds> [args...]", file=sys.stderr)
         sys.exit(1)
     interval = int(sys.argv[1])
-    journal = sys.argv[2]
-    extra_args = sys.argv[3:]
+    extra_args = sys.argv[2:]
+
+    journal = os.getenv("JOURNAL_PATH")
+    if not journal:
+        sys.exit("JOURNAL_PATH not set")
 
     signal.signal(signal.SIGINT, _signal_handler)
     signal.signal(signal.SIGTERM, _signal_handler)

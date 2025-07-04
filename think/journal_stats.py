@@ -8,6 +8,7 @@ from datetime import timedelta
 from typing import Dict
 
 import soundfile as sf
+from dotenv import load_dotenv
 
 DATE_RE = re.compile(r"\d{8}")
 FLAC_RE = re.compile(r"^(\d{6})_audio\.flac$")
@@ -210,17 +211,18 @@ def main() -> None:
     parser = argparse.ArgumentParser(
         description="Scan a sunstone journal and print overall statistics"
     )
-    parser.add_argument("journal", help="Path to the journal directory")
     args = parser.parse_args()
 
-    if not os.path.isdir(args.journal):
-        parser.error(f"Directory not found: {args.journal}")
+    load_dotenv()
+    journal = os.getenv("JOURNAL_PATH")
+    if not journal or not os.path.isdir(journal):
+        parser.error("JOURNAL_PATH not set or invalid")
 
     js = JournalStats()
-    js.scan(args.journal)
+    js.scan(journal)
     js.report()
     try:
-        js.save_markdown(args.journal)
+        js.save_markdown(journal)
     except Exception as e:
         print(f"Error writing summary: {e}", file=sys.stderr)
 

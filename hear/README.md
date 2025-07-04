@@ -12,11 +12,11 @@ All Python dependencies are declared in `pyproject.toml`. System packages for so
 
 ## Usage
 
-After setting the `GOOGLE_API_KEY` environment variable you can run the `gemini-mic` command to capture audio and `gemini-transcribe` to convert the recordings to text.  Both commands expect a **journal** directory that holds `YYYYMMDD` subfolders.  The paths for a single day are called **days**.  These commands correspond to the `capture.py` and `transcribe.py` modules respectively:
+After setting the `GOOGLE_API_KEY` environment variable you can run the `gemini-mic` command to capture audio and `gemini-transcribe` to convert the recordings to text.  The journal location is taken from the `JOURNAL_PATH` environment variable.  The paths for a single day are called **days**.  These commands correspond to the `capture.py` and `transcribe.py` modules respectively:
 
 ```bash
-gemini-mic <journal> [-d] [-t SECONDS]
-gemini-transcribe <journal> [-p PROMPT] [-i SECONDS]
+gemini-mic [-d] [-t SECONDS]
+gemini-transcribe [-p PROMPT] [-i SECONDS]
 ```
 
 Use `-d` to enable debug mode and `-t` to adjust the speech processing interval.

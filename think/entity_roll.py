@@ -214,14 +214,15 @@ def main() -> None:
     parser = argparse.ArgumentParser(
         description="Merge ponder_knowledge_graph files from a rolling 8-day window and generate entities.md"
     )
-    parser.add_argument("journal", help="Journal directory containing YYYYMMDD folders")
     parser.add_argument("--force", action="store_true", help="Overwrite existing files")
     args = parser.parse_args()
 
-    if not os.path.isdir(args.journal):
-        parser.error(f"Journal directory not found: {args.journal}")
+    load_dotenv()
+    journal = os.getenv("JOURNAL_PATH")
+    if not journal or not os.path.isdir(journal):
+        parser.error("JOURNAL_PATH not set or invalid")
 
-    day_dirs = find_day_dirs(args.journal)
+    day_dirs = find_day_dirs(journal)
     if not day_dirs:
         parser.error("No YYYYMMDD directories found")
 

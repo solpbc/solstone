@@ -8,6 +8,7 @@ import sqlite3
 from typing import Dict, List, Tuple
 
 import nltk
+from dotenv import load_dotenv
 
 from .entities import find_day_dirs, load_cache, save_cache, scan_entities
 
@@ -274,7 +275,6 @@ def main() -> None:
     import argparse
 
     parser = argparse.ArgumentParser(description="Index ponder markdown and occurrence files")
-    parser.add_argument("journal", help="Path to the journal directory")
     parser.add_argument(
         "--rescan",
         action="store_true",
@@ -282,13 +282,18 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    cache = load_cache(args.journal)
+    load_dotenv()
+    journal = os.getenv("JOURNAL_PATH")
+    if not journal:
+        parser.error("JOURNAL_PATH not set")
+
+    cache = load_cache(journal)
     if args.rescan:
-        changed = scan_entities(args.journal, cache)
-        changed |= scan_ponders(args.journal, cache, verbose=True)
-        changed |= scan_occurrences(args.journal, cache, verbose=True)
+        changed = scan_entities(journal, cache)
+        changed |= scan_ponders(journal, cache, verbose=True)
+        changed |= scan_occurrences(journal, cache, verbose=True)
         if changed:
-            save_cache(args.journal, cache)
+            save_cache(journal, cache)
 
     while True:
         try:
@@ -297,7 +302,7 @@ def main() -> None:
             break
         if not query:
             break
-        results = search_ponders(args.journal, query, 5)
+        results = search_ponders(journal, query, 5)
         for idx, r in enumerate(results, 1):
             meta = r.get("metadata", {})
             snippet = r["text"]

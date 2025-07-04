@@ -25,8 +25,8 @@ The package exposes two commands driven by the `scan.py` and `describe.py` modul
   control the polling interval and verbose logging.
 
 ```bash
-screen-watch <journal> [--verbose] [--min PIXELS]
-screen-describe <journal> [-i SECONDS] [-v]
+screen-watch [--verbose] [--min PIXELS]
+screen-describe [-i SECONDS] [-v]
 ```
 
 Set the `GOOGLE_API_KEY` environment variable before running `screen-describe`.

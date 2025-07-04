@@ -28,9 +28,9 @@ cluster <day-folder>
 reduce-screen <day-folder>
 see-repair <day-folder>
 hear-repair <day-folder>
-entity-roll <journal>
-process-day --journal <journal> [--day YYYYMMDD] [--force] [--repair] [--rebuild]
-ponder-mcp <journal> [--transport stdio|sse|streamable-http]
+entity-roll
+process-day [--day YYYYMMDD] [--force] [--repair] [--rebuild]
+ponder-mcp [--transport stdio|sse|streamable-http]
 ```
 
 Set `GOOGLE_API_KEY` before running any command that contacts Gemini.
@@ -47,7 +47,7 @@ Description=Process sunstone journal
 
 [Service]
 Type=oneshot
-ExecStart=/usr/local/bin/process-day --journal /path/to/journal --repair
+ExecStart=/usr/local/bin/process-day --repair
 
 [Install]
 WantedBy=multi-user.target

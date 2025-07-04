@@ -219,9 +219,6 @@ def main():
     # 2. Parse CLI arguments
     parser = argparse.ArgumentParser(description="Record audio and save FLAC files.")
     parser.add_argument(
-        "journal", nargs="?", default=None, help="Journal directory to store audio recordings"
-    )
-    parser.add_argument(
         "-d", "--debug", action="store_true", help="Enable debug mode (save audio buffers)."
     )
     parser.add_argument(
@@ -243,15 +240,18 @@ def main():
     logging.basicConfig(level=log_level)
 
     # Create save directory if needed
-    if args.journal and not os.path.exists(args.journal):
-        os.makedirs(args.journal)
+    journal = os.getenv("JOURNAL_PATH")
+    if not journal:
+        parser.error("JOURNAL_PATH not set")
+    if not os.path.exists(journal):
+        os.makedirs(journal)
 
     # Enable faulthandler to help diagnose crashes
     faulthandler.enable()
 
     # 4. Create the recorder
     recorder = AudioRecorder(
-        journal=args.journal,
+        journal=journal,
         debug=args.debug,
         timer_interval=args.timer_interval,
         websocket_port=args.ws_port,
