@@ -1,5 +1,5 @@
 from .border_detect import detect_border
-from .cluster_day import cluster_day, cluster_range
+from .cluster import cluster, cluster_range
 from .entities import get_entities
 from .reduce_screen import reduce_day
 

@@ -7,7 +7,7 @@ from typing import Any, Dict, List, Optional
 from google import genai
 from google.genai import types
 
-from think.cluster_glob import FLASH_MODEL
+FLASH_MODEL = "gemini-2.5-flash"
 from think.entities import parse_entity_line
 
 DATE_RE = re.compile(r"\d{8}")

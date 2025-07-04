@@ -2,13 +2,140 @@ import argparse
 import glob
 import os
 import re
+import sys
+import threading
+import time
 from datetime import datetime, timedelta
-from typing import Dict, List
+from typing import Dict, List, Optional, Tuple
 
 from dotenv import load_dotenv
+from google import genai
+from google.genai import types
 
-from think.cluster_glob import PRO_MODEL, cluster_glob, send_to_gemini
 from think.crumbs import CrumbBuilder
+
+PRO_MODEL = "gemini-2.5-pro"
+
+
+def extract_date_from_filename(filename: str) -> Optional[datetime]:
+    """Extract date from filename containing YYYYMMDD pattern."""
+    date_match = re.search(r"(\d{8})", filename)
+    if not date_match:
+        return None
+
+    date_str = date_match.group(1)
+    try:
+        year = int(date_str[0:4])
+        month = int(date_str[4:6])
+        day = int(date_str[6:8])
+        return datetime(year, month, day)
+    except ValueError:
+        return None
+
+
+def format_friendly_date(dt: datetime) -> str:
+    """Convert datetime to friendly format like 'Monday May 1st, 2025'."""
+    day_name = dt.strftime("%A")
+    month_name = dt.strftime("%B")
+    day_num = dt.day
+    year = dt.year
+
+    if 10 <= day_num % 100 <= 20:
+        suffix = "th"
+    else:
+        suffix = {1: "st", 2: "nd", 3: "rd"}.get(day_num % 10, "th")
+
+    return f"{day_name} {month_name} {day_num}{suffix}, {year}"
+
+
+def cluster_glob(filepaths: List[str]) -> str:
+    """Generate markdown from files with friendly date headers."""
+    if not filepaths:
+        return "No files provided"
+
+    file_data: List[Tuple[datetime, str, str]] = []
+
+    for filepath in filepaths:
+        if not os.path.isfile(filepath):
+            print(f"Warning: File not found {filepath}. Skipping.", file=sys.stderr)
+            continue
+
+        date = extract_date_from_filename(filepath)
+        if date is None:
+            print(
+                f"Warning: Could not extract date from filename {filepath}. Skipping.",
+                file=sys.stderr,
+            )
+            continue
+
+        try:
+            with open(filepath, "r", encoding="utf-8") as f:
+                content = f.read()
+            file_data.append((date, filepath, content))
+        except Exception as e:
+            print(f"Warning: Could not read file {filepath}: {e}", file=sys.stderr)
+            continue
+
+    if not file_data:
+        return "No valid files with extractable dates found"
+
+    file_data.sort(key=lambda x: x[0])
+
+    lines = []
+    for date, filepath, content in file_data:
+        friendly_date = format_friendly_date(date)
+        lines.append(f"# {friendly_date}")
+        lines.append("")
+        lines.append(content.strip())
+        lines.append("")
+
+    return "\n".join(lines)
+
+
+def send_to_gemini(
+    markdown_content: str, prompt_text: str, api_key: str, model_name: str, is_json_mode: bool
+) -> tuple[Optional[str], Optional[object]]:
+    """Send markdown content and a prompt to Gemini API."""
+    client = genai.Client(api_key=api_key)
+
+    done = threading.Event()
+
+    def progress():
+        elapsed = 0
+        while not done.is_set():
+            time.sleep(5)
+            elapsed += 5
+            if not done.is_set():
+                print(f"... {elapsed}s elapsed", file=sys.stderr)
+
+    t = threading.Thread(target=progress, daemon=True)
+    t.start()
+    try:
+        generation_config_args = {
+            "temperature": 0.3,
+            "max_output_tokens": 8192 * 2,
+            "thinking_config": types.ThinkingConfig(
+                thinking_budget=8192 * 2,
+            ),
+            "system_instruction": prompt_text,
+        }
+        if is_json_mode:
+            generation_config_args["response_mime_type"] = "application/json"
+
+        response = client.models.generate_content(
+            model=model_name,
+            contents=[markdown_content],
+            config=types.GenerateContentConfig(**generation_config_args),
+        )
+        return response.text, response.usage_metadata
+
+    except Exception as e:
+        print(f"Error during Gemini API call: {e}", file=sys.stderr)
+        return None, None
+    finally:
+        done.set()
+        t.join()
+
 
 DATE_RE = re.compile(r"\d{8}")
 PROMPT_PATH = os.path.join(os.path.dirname(__file__), "entity_roll.txt")

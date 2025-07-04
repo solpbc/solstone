@@ -15,22 +15,20 @@ All dependencies are listed in `pyproject.toml`.
 The package exposes several commands:
 
 - `ponder-day` builds a Markdown summary of a day's recordings using a Gemini prompt.
-- `cluster-day` groups audio and screen JSON files into report sections.
+- `cluster` groups audio and screen JSON files into report sections.
 - `reduce-screen` condenses screenshot diff descriptions into shorter text.
 - `see-repair` and `hear-repair` fix partial outputs from the visual and audio tools.
 - `entity-roll` collects entities across days and writes a rollup file.
-- `cluster-glob` summarises multiple folders matching a pattern.
 - `process-day` runs the above tools for a single day folder.
 - `ponder-mcp` exposes search capabilities over MCP for both ponder text and structured occurrences.
 
 ```bash
 ponder-day <day-folder> [-f PROMPT] [-p MODEL]
-cluster-day <day-folder>
+cluster <day-folder>
 reduce-screen <day-folder>
 see-repair <day-folder>
 hear-repair <day-folder>
 entity-roll <journal>
-cluster-glob <pattern>
 process-day --journal <journal> [--day YYYYMMDD] [--force] [--repair] [--rebuild]
 ponder-mcp <journal> [--transport stdio|sse|streamable-http]
 ```

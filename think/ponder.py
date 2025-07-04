@@ -12,7 +12,7 @@ from dotenv import load_dotenv
 from google import genai
 from google.genai import types
 
-from think.cluster_day import cluster_day
+from think.cluster import cluster
 from think.crumbs import CrumbBuilder
 
 DEFAULT_PROMPT_PATH = os.path.join(
@@ -90,15 +90,15 @@ def send_occurrence(markdown: str, prompt: str, api_key: str, model: str) -> obj
         contents=[markdown],
         config=types.GenerateContentConfig(**gen_config_args),
     )
-    
+
     try:
         occurrences = json.loads(response.text)
     except json.JSONDecodeError as e:
         raise ValueError(f"Invalid JSON response: {e}: {response.text[:100]}")
-    
+
     if not isinstance(occurrences, list):
         raise ValueError(f"Response is not an array: {response.text[:100]}")
-        
+
     return occurrences
 
 
@@ -135,7 +135,7 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    markdown, file_count = cluster_day(args.day)
+    markdown, file_count = cluster(args.day)
 
     load_dotenv()
     api_key = os.getenv("GOOGLE_API_KEY")
@@ -170,7 +170,7 @@ def main() -> None:
 
     # Check if markdown file already exists
     md_exists = os.path.exists(output_path) and os.path.getsize(output_path) > 0
-    
+
     if md_exists and not args.force:
         print(f"Markdown file already exists: {output_path}. Loading existing content.")
         with open(output_path, "r") as f:
@@ -224,7 +224,7 @@ def main() -> None:
 
     occ_output_path = os.path.join(args.day, f"ponder_{prompt_basename}.json")
     json_exists = os.path.exists(occ_output_path) and os.path.getsize(occ_output_path) > 0
-    
+
     if json_exists and not args.force:
         print(f"JSON file already exists: {occ_output_path}. Use --force to overwrite.")
         return
@@ -251,6 +251,7 @@ def main() -> None:
     )
     occ_crumb_path = occ_crumb_builder.commit(occ_output_path)
     print(f"Crumb saved to: {occ_crumb_path}")
+
 
 if __name__ == "__main__":
     main()

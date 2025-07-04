@@ -8,4 +8,4 @@ def test_public_functions(tmp_path):
     (day / "entities.md").write_text("* Person: Jane\n")
     res = think.get_entities(str(tmp_path))
     assert "Person" in res
-    assert hasattr(think, "cluster_day")
+    assert hasattr(think, "cluster")
