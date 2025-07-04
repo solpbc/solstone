@@ -193,6 +193,90 @@ def process_group(
     print(f"Crumb saved to: {crumb_path}")
 
 
+def _normalize_time(value: datetime | None) -> datetime | None:
+    if value is None:
+        return None
+    return datetime.combine(datetime.min, value.time())
+
+
+def _ensure_described(day_dir: str, start: datetime | None, end: datetime | None) -> None:
+    pattern = re.compile(r"^(\d{6})_monitor_\d+_diff_box\.json$")
+    for name in os.listdir(day_dir):
+        m = pattern.match(name)
+        if not m:
+            continue
+        ts = datetime.strptime(m.group(1), "%H%M%S")
+        if start and ts < start:
+            continue
+        if end and ts >= end:
+            continue
+        json_path = os.path.join(day_dir, name.replace("_box.json", ".json"))
+        if not os.path.exists(json_path):
+            raise RuntimeError(f"Missing description JSON for {name}")
+
+
+def reduce_day(
+    day_dir: str,
+    prompt_path: str = DEFAULT_PROMPT_PATH,
+    *,
+    force: bool = False,
+    debug: bool = False,
+    start: datetime | None = None,
+    end: datetime | None = None,
+) -> None:
+    """Process monitor diffs under *day_dir* between ``start`` and ``end``.
+
+    When ``start``/``end`` are ``None`` all available 5 minute groups are processed.
+    The function mirrors the behaviour of the ``reduce-screen`` CLI and is exposed
+    so that other modules can opportunistically reduce recent captures.
+    """
+
+    if not os.path.isdir(day_dir):
+        print(f"Folder not found: {day_dir}")
+        return
+
+    start = _normalize_time(start)
+    end = _normalize_time(end)
+
+    print(f"Processing folder: {day_dir}")
+    _ensure_described(day_dir, start, end)
+
+    entries = parse_monitor_files(day_dir)
+    if not entries:
+        print("No monitor diff JSON files found")
+        return
+
+    groups = group_entries(entries)
+
+    load_dotenv()
+    api_key = os.getenv("GOOGLE_API_KEY")
+    if not api_key:
+        print("GOOGLE_API_KEY not set in environment", file=sys.stderr)
+        return
+
+    prompt = load_prompt(prompt_path)
+    token_tracker = TokenTracker()
+
+    for group_start, files in sorted(groups.items()):
+        if start and group_start < start:
+            continue
+        if end and group_start >= end:
+            continue
+        process_group(
+            group_start,
+            files,
+            prompt,
+            prompt_path,
+            api_key,
+            force,
+            day_dir,
+            token_tracker,
+            debug,
+        )
+
+    token_tracker.print_summary()
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Summarize all monitor JSON files in 5 minute chunks using Gemini"
@@ -203,42 +287,24 @@ def main():
     parser.add_argument(
         "-d", "--debug", action="store_true", help="Print prompt and response from Gemini"
     )
+    parser.add_argument("--start", help="Start time HH:MM for partial processing")
+    parser.add_argument("--end", help="End time HH:MM for partial processing")
     args = parser.parse_args()
 
-    day_dir = args.day_dir
-    if not os.path.isdir(day_dir):
-        parser.error(f"Folder not found: {day_dir}")
-    print(f"Processing folder: {day_dir}")
+    if not os.path.isdir(args.day_dir):
+        parser.error(f"Folder not found: {args.day_dir}")
 
-    entries = parse_monitor_files(day_dir)
-    if not entries:
-        parser.error("No monitor diff JSON files found")
+    start = datetime.strptime(args.start, "%H:%M") if args.start else None
+    end = datetime.strptime(args.end, "%H:%M") if args.end else None
 
-    groups = group_entries(entries)
-
-    load_dotenv()
-    api_key = os.getenv("GOOGLE_API_KEY")
-    if not api_key:
-        parser.error("GOOGLE_API_KEY not set in environment")
-
-    prompt = load_prompt(args.prompt)
-
-    token_tracker = TokenTracker()
-
-    for start, files in sorted(groups.items()):
-        process_group(
-            start,
-            files,
-            prompt,
-            args.prompt,
-            api_key,
-            args.force,
-            day_dir,
-            token_tracker,
-            args.debug,
-        )
-
-    token_tracker.print_summary()
+    reduce_day(
+        args.day_dir,
+        args.prompt,
+        force=args.force,
+        debug=args.debug,
+        start=start,
+        end=end,
+    )
 
 
 if __name__ == "__main__":
