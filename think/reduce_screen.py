@@ -11,9 +11,9 @@ from google import genai
 from google.genai import types
 
 from think.crumbs import CrumbBuilder
+from think.models import GEMINI_FLASH
 
 DEFAULT_PROMPT_PATH = os.path.join(os.path.dirname(__file__), "reduce_screen.txt")
-FLASH_MODEL = "gemini-2.5-flash"
 
 
 class TokenTracker:
@@ -104,7 +104,7 @@ def call_gemini(markdown, prompt, api_key, debug=False):
     t.start()
     try:
         response = client.models.generate_content(
-            model=FLASH_MODEL,
+            model=GEMINI_FLASH,
             contents=[markdown],
             config=types.GenerateContentConfig(
                 temperature=0.3,
@@ -187,7 +187,7 @@ def process_group(
         CrumbBuilder()
         .add_file(prompt_path)
         .add_files([e["path"] for e in files])
-        .add_model(FLASH_MODEL)
+        .add_model(GEMINI_FLASH)
     )
     crumb_path = crumb_builder.commit(out_path)
     print(f"Crumb saved to: {crumb_path}")

@@ -6,6 +6,8 @@ from google import genai
 from google.genai import types
 from PIL import ImageDraw
 
+from think.models import GEMINI_FLASH, GEMINI_LITE
+
 # Module-level globals to store the client and system instruction
 _gemini_client = None
 _system_instruction = None
@@ -70,9 +72,9 @@ def gemini_describe_region(image, box, models=None, entities=None):
         models
         if models is not None
         else [
-            "gemini-2.5-flash",
+            GEMINI_FLASH,
             "gemini-2.0-flash",
-            "gemini-2.5-flash-lite-preview-06-17",
+            GEMINI_LITE,
             "gemini-2.0-flash-lite",
         ]
     )

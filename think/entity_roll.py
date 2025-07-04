@@ -13,8 +13,7 @@ from google import genai
 from google.genai import types
 
 from think.crumbs import CrumbBuilder
-
-PRO_MODEL = "gemini-2.5-pro"
+from think.models import GEMINI_PRO
 
 
 def extract_date_from_filename(filename: str) -> Optional[datetime]:
@@ -196,7 +195,7 @@ def process_day(day_str: str, day_dirs: Dict[str, str], force: bool) -> None:
         prompt = f.read().strip()
 
     print("  Sending to Gemini for entity extraction...")
-    result, _ = send_to_gemini(markdown, prompt, api_key, PRO_MODEL, False)
+    result, _ = send_to_gemini(markdown, prompt, api_key, GEMINI_PRO, False)
     if not result:
         print(f"Gemini returned no result for {day_str}")
         return
@@ -205,7 +204,7 @@ def process_day(day_str: str, day_dirs: Dict[str, str], force: bool) -> None:
         f.write(result)
     print(f"Wrote {out_path}")
 
-    crumb_builder = CrumbBuilder().add_file(PROMPT_PATH).add_files(files).add_model(PRO_MODEL)
+    crumb_builder = CrumbBuilder().add_file(PROMPT_PATH).add_files(files).add_model(GEMINI_PRO)
     crumb_path = crumb_builder.commit(out_path)
     print(f"Crumb saved to: {crumb_path}")
 

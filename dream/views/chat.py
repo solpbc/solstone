@@ -7,7 +7,7 @@ from flask import Blueprint, jsonify, render_template, request
 from google import genai
 from google.genai import types
 
-FLASH_MODEL = "gemini-2.5-flash"
+from think.models import GEMINI_FLASH
 
 bp = Blueprint("chat", __name__, template_folder="../templates")
 
@@ -30,7 +30,7 @@ def send_message() -> Any:
 
     client = genai.Client(api_key=api_key)
     response = client.models.generate_content(
-        model=FLASH_MODEL,
+        model=GEMINI_FLASH,
         contents=contents,
         config=types.GenerateContentConfig(temperature=0.3, max_output_tokens=1024),
     )

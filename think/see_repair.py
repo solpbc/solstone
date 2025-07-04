@@ -11,6 +11,7 @@ from think.border_detect import detect_border
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from see import gemini_look
 from think.crumbs import CrumbBuilder
+from think.models import GEMINI_FLASH, GEMINI_PRO
 
 
 def find_missing(day_dir):
@@ -114,7 +115,7 @@ def main():
 
     print(f"Found {len(missing)} missing JSON files.")
 
-    models = ["gemini-2.5-pro", "gemini-2.5-flash"] if args.pro else None
+    models = [GEMINI_PRO, GEMINI_FLASH] if args.pro else None
     process_files(missing, args.wait, models)
 
 

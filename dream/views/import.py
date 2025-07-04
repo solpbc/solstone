@@ -10,7 +10,7 @@ from google import genai
 from google.genai import types
 from werkzeug.utils import secure_filename
 
-FLASH_MODEL = "gemini-2.5-flash"
+from think.models import GEMINI_FLASH
 
 bp = Blueprint("import_view", __name__, template_folder="../templates")
 
@@ -49,7 +49,7 @@ def import_process() -> Any:
         "derived from the provided inputs."
     )
     response = client.models.generate_content(
-        model=FLASH_MODEL,
+        model=GEMINI_FLASH,
         contents=parts,
         config=types.GenerateContentConfig(
             temperature=0.3,

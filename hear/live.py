@@ -16,8 +16,9 @@ from silero_vad import load_silero_vad
 
 from hear.audio_utils import SAMPLE_RATE, detect_speech
 from see.screen_dbus import take_screenshot
+from think.models import GEMINI_FLASH
 
-MODEL = "gemini-2.5-flash"  # -lite-preview-06-17"
+MODEL = GEMINI_FLASH  # -lite-preview-06-17
 
 from google.genai import types
 

@@ -22,9 +22,10 @@ from watchdog.observers import Observer
 from hear.audio_utils import SAMPLE_RATE, detect_speech, merge_streams, resample_audio
 from hear.gemini import transcribe_segments
 from think.crumbs import CrumbBuilder
+from think.models import GEMINI_FLASH
 
 # Constants
-MODEL = "gemini-2.5-flash"
+MODEL = GEMINI_FLASH
 MIN_SPEECH_SECONDS = 1.0
 
 

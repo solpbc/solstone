@@ -14,15 +14,13 @@ from google.genai import types
 
 from think.cluster import cluster
 from think.crumbs import CrumbBuilder
+from think.models import GEMINI_FLASH, GEMINI_PRO
 
 DEFAULT_PROMPT_PATH = os.path.join(
     os.path.dirname(__file__),
     "ponder",
     "day.txt",
 )
-
-FLASH_MODEL = "gemini-2.5-flash"
-PRO_MODEL = "gemini-2.5-pro"
 
 
 def count_tokens(markdown: str, prompt: str, api_key: str, model: str) -> None:
@@ -150,7 +148,7 @@ def main() -> None:
 
     output_extension = ".md"
 
-    model = PRO_MODEL if args.pro else FLASH_MODEL
+    model = GEMINI_PRO if args.pro else GEMINI_FLASH
     day = os.path.basename(os.path.normpath(args.day))
     size_kb = len(markdown.encode("utf-8")) / 1024
 

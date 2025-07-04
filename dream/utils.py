@@ -7,8 +7,8 @@ from typing import Any, Dict, List, Optional
 from google import genai
 from google.genai import types
 
-FLASH_MODEL = "gemini-2.5-flash"
 from think.entities import parse_entity_line
+from think.models import GEMINI_FLASH
 
 DATE_RE = re.compile(r"\d{8}")
 
@@ -137,7 +137,7 @@ def generate_top_summary(info: Dict[str, Any], api_key: str) -> str:
     )
     client = genai.Client(api_key=api_key)
     response = client.models.generate_content(
-        model=FLASH_MODEL,
+        model=GEMINI_FLASH,
         contents=[joined],
         config=types.GenerateContentConfig(
             temperature=0.3,
