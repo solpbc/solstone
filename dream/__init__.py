@@ -21,6 +21,7 @@ from .utils import (
     update_top_entry,
 )
 from .views import calendar as calendar_view
+from .views import chat as chat_view
 from .views import entities as entities_view
 from .views import home as home_view
 from .views import register_views
@@ -57,6 +58,8 @@ home = home_view.home
 entities = entities_view.entities
 calendar = calendar_view.calendar_page
 calendar_day = calendar_view.calendar_day
+chat_page = chat_view.chat_page
+send_message = chat_view.send_message
 search_page = search_view.search_page
 import_page = import_page_view.import_page
 entities_data = entities_view.entities_data
@@ -74,6 +77,8 @@ __all__ = [
     "entities",
     "calendar",
     "calendar_day",
+    "chat_page",
+    "send_message",
     "search_page",
     "import_page",
     "entities_data",
