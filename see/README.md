@@ -29,4 +29,7 @@ screen-watch [--verbose] [--min PIXELS]
 screen-describe [-i SECONDS] [-v]
 ```
 
+The `gemini-see` command runs `screen-watch` and `screen-describe` together so
+new screenshots are captured and described continuously.
+
 Set the `GOOGLE_API_KEY` environment variable before running `screen-describe`.

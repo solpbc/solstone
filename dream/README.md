@@ -13,7 +13,7 @@ pip install -e .
 Run the server with:
 
 ```bash
-dream-review --password YOURPASSWORD
+dream --password YOURPASSWORD
 ```
 
 Open the printed URL in your browser and login with the password.
