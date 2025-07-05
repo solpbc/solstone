@@ -31,8 +31,15 @@ on these are available in the `JOURNAL.md` file.
   `isort`. The configuration resides in `pyproject.toml`.
 - Linting with `flake8` and type checking with `mypy` are recommended.
 - If tests are added under `tests/`, run `pytest` before committing.
-- Run `pip install -e .[dev]` once to install the packages needed for the
-  test suite, then execute `pytest` from the repository root.
+- The dependencies declared in `pyproject.toml` include heavy optional
+  packages (for example `torch` and `PyGObject`).  If `pip install -e .[dev]`
+  fails you can install only the minimal set needed for the tests:
+
+```bash
+pip install -e . --no-deps
+pip install numpy Pillow Flask Markdown pytest pytest-cov
+pytest
+```
 - Prompt .txt files in `hear/`, `see/` and `think/` provide system instructions
   for Gemini. Modify them only when a task explicitly requires it.
 - Use absolute imports from the package root (for example,
