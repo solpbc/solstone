@@ -1,0 +1,5 @@
+[
+  {"start": "00:00:01", "source": "mic", "speaker": 1, "text": "Hello world", "description": "calm voice"},
+  {"start": "00:00:03", "source": "sys", "speaker": 2, "text": "Welcome", "description": "flat tone"},
+  {"topics": ["greeting"], "setting": "personal"}
+]

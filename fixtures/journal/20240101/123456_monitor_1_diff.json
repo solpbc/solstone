@@ -1,0 +1,9 @@
+{
+  "app": "Terminal",
+  "app_title": "user@host: ~",
+  "visual_description": "A terminal window displaying a prompt.",
+  "user_input_text": "ls -al",
+  "full_ocr": "$ ls -al",
+  "meeting_state": "No meeting visible",
+  "activity_category": "Command line"
+}
