@@ -1,0 +1,13 @@
+{
+  "__top__": {
+    "file": "entities.md",
+    "mtime": 0,
+    "entries": [["Person", "Alice", "Example person"], ["Company", "ExampleCorp", "Example company"]],
+    "top": true
+  },
+  "20240101": {
+    "file": "20240101/entities.md",
+    "mtime": 0,
+    "entries": [["Project", "Sample Project", "Initial setup"]]
+  }
+}
