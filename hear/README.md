@@ -19,6 +19,10 @@ gemini-mic [-d] [-t SECONDS]
 gemini-transcribe [-p PROMPT] [-i SECONDS]
 ```
 
+The `gemini-hear` command runs both of the above tools in a loop so audio
+capture and transcription continue until interrupted. For live text output
+from the recorder's WebSocket stream you can use `gemini-live`.
+
 Use `-d` to enable debug mode and `-t` to adjust the speech processing interval.
 The `gemini-transcribe` command accepts `-p` to specify a prompt file and `-i` to
 control the polling interval. Crash
@@ -83,4 +87,10 @@ You can load the bytes in Python with:
 
 ```python
 samples = np.frombuffer(msg, dtype=np.float32).reshape(-1, 2)
+```
+
+To display transcriptions from this stream in real time run:
+
+```bash
+gemini-live --ws-url ws://localhost:9987
 ```

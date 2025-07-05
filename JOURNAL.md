@@ -27,7 +27,7 @@ Screen capture utilities produce per monitor diff files:
 
 - `HHMMSS_screen.md` – Markdown summary for that interval.
 
--Post‑processing commands may generate additional analysis files, for example:
+- Post‑processing commands may generate additional analysis files, for example:
 
 - `ponder_day.md` – high level summary of the day.
 - `ponder_knowledge_graph.md` – knowledge graph / network summary.
