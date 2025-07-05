@@ -32,7 +32,9 @@ dependencies = [
     # Core dependencies
     "python-dotenv",
     "google-genai",
-    "mcp",
+    "fastmcp[auth]>=2.6",
+    "python-jose",
+    "cryptography",
     "Flask",
     "Markdown",
     

@@ -10,7 +10,7 @@ Captured files are organised under a **journal** directory containing daily `YYY
 - **Hear** 👂 - Audio recording and transcription with the `gemini-mic` command
 - **Think** 🧠 - Data analysis and AI-powered insights with the `ponder-day` command
 - **Dream** 🌐 - Web interfaces for reviewing entities and meetings
-- **Serve** 🛰️ - Expose search tools over MCP with the `ponder-mcp` command (searches ponders and occurrences)
+ - **Serve** 🛰️ - Run `ponder-mcp` to launch an OAuth-protected MCP server for searching ponders and occurrences
 
 ## Quick Start
 

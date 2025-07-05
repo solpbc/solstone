@@ -20,7 +20,7 @@ The package exposes several commands:
 - `see-repair` and `hear-repair` fix partial outputs from the visual and audio tools.
 - `entity-roll` collects entities across days and writes a rollup file.
 - `process-day` runs the above tools for a single day folder.
-- `ponder-mcp` exposes search capabilities over MCP for both ponder text and structured occurrences.
+ - `ponder-mcp` starts an OAuth-enabled server exposing search capabilities over MCP for both ponder text and structured occurrences.
 
 ```bash
 ponder-day <day-folder> [-f PROMPT] [-p MODEL]
@@ -30,7 +30,7 @@ see-repair <day-folder>
 hear-repair <day-folder>
 entity-roll
 process-day [--day YYYYMMDD] [--force] [--repair] [--rebuild]
-ponder-mcp [--transport stdio|sse|streamable-http]
+ ponder-mcp [--port PORT]
 ```
 
 Set `GOOGLE_API_KEY` before running any command that contacts Gemini.

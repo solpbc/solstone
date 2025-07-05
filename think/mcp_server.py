@@ -1,7 +1,9 @@
 import argparse
+import os
 
 from dotenv import load_dotenv
-from mcp.server import FastMCP
+from fastmcp import FastMCP
+from fastmcp.server.auth import OAuthProvider, RSAKeyPair
 
 from .indexer import (
     load_cache,
@@ -15,45 +17,43 @@ from .indexer import (
 
 def create_server(journal: str) -> FastMCP:
     cache = load_cache(journal)
-    changed = scan_ponders(journal, cache)
-    changed |= scan_occurrences(journal, cache)
-    if changed:
+    if scan_ponders(journal, cache) | scan_occurrences(journal, cache):
         save_cache(journal, cache)
 
-    server = FastMCP(name="sunstone")
+    key_pair = RSAKeyPair.generate()
 
-    @server.tool(name="search", title="Search ponders", description="Search journal ponders")
+    auth = OAuthProvider(
+        issuer_url="https://sunstone.example.com",
+        key_pair=key_pair,
+        scopes_supported=["search", "search_occurrence"],
+        allow_dynamic_client_registration=True,
+    )
+
+    mcp = FastMCP(name="sunstone", auth=auth)
+
+    @mcp.tool(title="Search ponders", scope="search")
     def search_ponder(query: str, n_results: int = 5):
         return search_ponders(journal, query, n_results)
 
-    @server.tool(
-        name="search_occurrence",
-        title="Search occurrences",
-        description="Search extracted occurrences",
-    )
+    @mcp.tool(title="Search occurrences", scope="search_occurrence")
     def search_occurrence(query: str, n_results: int = 5):
         return search_occurrences(journal, query, n_results)
 
-    return server
+    return mcp
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Run MCP server for journal search")
-    parser.add_argument(
-        "--transport",
-        choices=["stdio", "sse", "streamable-http"],
-        default="stdio",
-        help="Transport protocol",
-    )
+    load_dotenv()
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--port", type=int, default=8000)
     args = parser.parse_args()
 
-    load_dotenv()
-    journal = os.getenv("JOURNAL_PATH")
-    if not journal:
-        parser.error("JOURNAL_PATH not set")
-
-    server = create_server(journal)
-    server.run(args.transport)
+    journal = os.getenv("JOURNAL_PATH") or parser.error("JOURNAL_PATH not set")
+    create_server(journal).run(
+        "streamable-http",
+        host="0.0.0.0",
+        port=args.port,
+    )
 
 
 if __name__ == "__main__":
