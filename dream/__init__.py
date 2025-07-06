@@ -20,6 +20,7 @@ from .utils import (
     modify_entity_in_file,
     update_top_entry,
 )
+from .views import admin as admin_view
 from .views import calendar as calendar_view
 from .views import chat as chat_view
 from .views import entities as entities_view
@@ -62,6 +63,10 @@ chat_page = chat_view.chat_page
 send_message = chat_view.send_message
 search_page = search_view.search_page
 import_page = import_page_view.import_page
+admin_page = admin_view.admin_page
+reindex = admin_view.reindex
+refresh_summary = admin_view.refresh_summary
+reload_entities_view = admin_view.reload_entities_view
 entities_data = entities_view.entities_data
 api_top_generate = entities_view.api_top_generate
 api_top_update = entities_view.api_top_update
@@ -88,6 +93,10 @@ __all__ = [
     "calendar_occurrences",
     "login",
     "logout",
+    "admin_page",
+    "reindex",
+    "refresh_summary",
+    "reload_entities_view",
     "format_date",
     "modify_entity_in_file",
     "modify_entity_file",
