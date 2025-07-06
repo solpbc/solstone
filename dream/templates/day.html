@@ -23,21 +23,37 @@ body{font-family:sans-serif;margin:0;}
   </h1>
   <div class="tabs">
     {% for file in files %}
-    <div class="tab{% if loop.first %} active{% endif %}" data-target="tab{{ loop.index0 }}">{{ file.label }}</div>
+    <a class="tab{% if loop.first %} active{% endif %}" href="#{{ file.slug }}" data-target="{{ file.slug }}">{{ file.label }}</a>
     {% endfor %}
   </div>
   {% for file in files %}
-  <div class="content" id="tab{{ loop.index0 }}" style="{% if not loop.first %}display:none{% endif %}">
+  <div class="content" id="{{ file.slug }}" style="{% if not loop.first %}display:none{% endif %}">
     <div class="markdown">{{ file.html|safe }}</div>
   </div>
   {% endfor %}
 </div>
 <script>
-document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>{
-  document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
-  document.querySelectorAll('.content').forEach(c=>c.style.display='none');
-  t.classList.add('active');
-  document.getElementById(t.dataset.target).style.display='block';
-});
+const tabs = document.querySelectorAll('.tab');
+const contents = document.querySelectorAll('.content');
+
+function showTab(id){
+  tabs.forEach(x=>x.classList.remove('active'));
+  contents.forEach(c=>c.style.display='none');
+  const tab = document.querySelector(`.tab[data-target="${id}"]`);
+  const content = document.getElementById(id);
+  if(tab) tab.classList.add('active');
+  if(content) content.style.display='block';
+  if(history.replaceState){
+    history.replaceState(null, '', '#' + id);
+  } else {
+    location.hash = '#' + id;
+  }
+}
+
+tabs.forEach(t=>t.addEventListener('click', e=>{e.preventDefault();showTab(t.dataset.target);}));
+const initial = location.hash.slice(1);
+if(initial && document.getElementById(initial)){
+  showTab(initial);
+}
 </script>
 {% endblock %}

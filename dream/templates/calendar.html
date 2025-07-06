@@ -95,6 +95,8 @@ h1 { margin-bottom: 0.5em; }
   right:10px;
   border-radius:4px;
   opacity:0.9;
+  display:block;
+  text-decoration:none;
 }
 .occ.meeting{background:#007bff;}
 .occ.message{background:#28a745;}
@@ -259,7 +261,9 @@ function openDay(dateStr){
     const title = escapeHtml(o.title || o.summary || type);
     const left = `calc(${col*colWidth}% + 10px)`;
     const width = `calc(${colWidth}% - 20px)`;
-    html += `<div class='occ ${type}' style='top:${top}%;height:${height}%;left:${left};width:${width};right:auto' title='${title}'></div>`;
+    const slug = o.slug ? `#${o.slug}` : '';
+    const href = `${dayBase}${dateStr}${slug}`;
+    html += `<a class='occ ${type}' href='${href}' style='top:${top}%;height:${height}%;left:${left};width:${width};right:auto' title='${title}'></a>`;
   });
 
   html += "</div></div>";

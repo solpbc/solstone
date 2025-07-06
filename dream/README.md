@@ -45,3 +45,11 @@ Each file inside `views/` defines a Flask `Blueprint` with all routes for that p
 
 This small structure keeps dependencies clear and makes it easy to focus on a single page.
 
+## Links and navigation
+
+- `/calendar` shows the month view. Clicking a day opens `/calendar/YYYYMMDD`.
+- Individual markdown files for a day are displayed as tabs. Each tab can be
+  linked directly via an anchor, e.g. `/calendar/20240101#meetings`.
+- Events in the calendar hour view modal also link to these anchors so you can
+  jump straight from an event to the relevant markdown section.
+

@@ -39,8 +39,9 @@ def calendar_day(day: str) -> str:
                 html = markdown.markdown(text)
             except Exception:
                 html = "<p>Error loading file.</p>"
-            label = name[7:-3].replace("_", " ").title()
-            files.append({"label": label, "html": html})
+            base = name[7:-3]
+            label = base.replace("_", " ").title()
+            files.append({"label": label, "html": html, "slug": base})
     title = format_date(day)
     days = sorted(d for d in os.listdir(state.journal_root) if re.fullmatch(DATE_RE, d))
     prev_day = next_day = None
