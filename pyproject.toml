@@ -32,7 +32,9 @@ dependencies = [
     # Core dependencies
     "python-dotenv",
     "google-genai",
-    "mcp",
+    "fastmcp[auth]>=2.6",
+    "python-jose",
+    "cryptography",
     "Flask",
     "Markdown",
     
@@ -83,7 +85,7 @@ gemini-see = "see.runner:main"
 
 # Analysis utilities
 ponder = "think.ponder:main"
-cluster-day = "think.cluster_day:main"
+cluster = "think.cluster:main"
 reduce-screen = "think.reduce_screen:main"
 see-repair = "think.see_repair:main"
 hear-repair = "think.hear_repair:main"

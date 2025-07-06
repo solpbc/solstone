@@ -7,7 +7,7 @@ from typing import Any
 from flask import Blueprint, jsonify, render_template
 
 from .. import state
-from ..utils import DATE_RE, build_index, format_date
+from ..utils import DATE_RE, build_occurrence_index, format_date
 
 bp = Blueprint("calendar", __name__, template_folder="../templates")
 
@@ -60,8 +60,8 @@ def calendar_day(day: str) -> str:
     )
 
 
-@bp.route("/calendar/api/meetings")
-def calendar_meetings() -> Any:
-    if not state.meetings_index and state.journal_root:
-        state.meetings_index = build_index(state.journal_root)
-    return jsonify(state.meetings_index)
+@bp.route("/calendar/api/occurrences")
+def calendar_occurrences() -> Any:
+    if not state.occurrences_index and state.journal_root:
+        state.occurrences_index = build_occurrence_index(state.journal_root)
+    return jsonify(state.occurrences_index)

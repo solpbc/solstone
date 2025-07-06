@@ -2,6 +2,7 @@
 <html>
 <head>
   <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <title>{{ title }}</title>
   <link rel="stylesheet" href="{{ url_for('review.static', filename='review.css') }}">
   {% block head %}{% endblock %}
@@ -9,6 +10,8 @@
 <body>
   <div class="nav-icons">
     <a href="{{ url_for('review.home') }}" class="{% if active=='home' %}current{% endif %}">🏠</a>
+    <a href="{{ url_for('search.search_page') }}" class="{% if active=='search' %}current{% endif %}">🔍</a>
+    <a href="{{ url_for('import_view.import_page') }}" class="{% if active=='import' %}current{% endif %}">📥</a>
     <a href="{{ url_for('calendar.calendar_page') }}" class="{% if active=='calendar' %}current{% endif %}">📅</a>
     <a href="{{ url_for('entities.entities') }}" class="{% if active=='entities' %}current{% endif %}">📑</a>
     <a href="{{ url_for('review.logout') }}" title="Logout">🔒</a>

@@ -5,6 +5,8 @@ import subprocess
 import sys
 from datetime import datetime, timedelta
 
+from dotenv import load_dotenv
+
 
 def run_command(cmd: list[str]) -> None:
     print(f"==> {' '.join(cmd)}")
@@ -46,7 +48,6 @@ def build_commands(journal: str, day: str, force: bool, repair: bool) -> list[li
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run daily processing tasks on a journal day")
-    parser.add_argument("--journal", required=True, help="Path to the journal directory")
     parser.add_argument(
         "--day",
         help="Day folder in YYYYMMDD format (defaults to yesterday)",
@@ -67,6 +68,10 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> None:
     args = parse_args()
+    load_dotenv()
+    journal = os.getenv("JOURNAL_PATH")
+    if not journal:
+        sys.exit("JOURNAL_PATH not set")
 
     day = args.day
     if day is None:
@@ -77,7 +82,7 @@ def main() -> None:
         day_dir = day
         day = os.path.basename(day_dir)
     else:
-        day_dir = os.path.join(args.journal, day)
+        day_dir = os.path.join(journal, day)
 
     if not os.path.isdir(day_dir):
         print(f"Day folder not found: {day_dir}")
@@ -95,7 +100,7 @@ def main() -> None:
                 if os.path.exists(crumb):
                     os.remove(crumb)
 
-    commands = build_commands(args.journal, day, args.force, repair)
+    commands = build_commands(journal, day, args.force, repair)
     for cmd in commands:
         run_command(cmd)
 

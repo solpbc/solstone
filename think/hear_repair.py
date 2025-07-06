@@ -9,6 +9,7 @@ from google import genai
 from google.genai import types
 
 from think.crumbs import CrumbBuilder
+from think.models import GEMINI_FLASH, GEMINI_PRO
 
 PROMPT_PATH = os.path.join(os.path.dirname(__file__), "..", "hear", "transcribe.txt")
 
@@ -30,7 +31,7 @@ def find_missing(day_dir):
     return missing
 
 
-def transcribe_file(client, prompt_text, audio_path, model="gemini-2.5-flash"):
+def transcribe_file(client, prompt_text, audio_path, model=GEMINI_FLASH):
     with open(audio_path, "rb") as f:
         audio_bytes = f.read()
 
@@ -66,7 +67,7 @@ def transcribe_file(client, prompt_text, audio_path, model="gemini-2.5-flash"):
         return ""
 
 
-def process_files(files, delay, client, prompt_text, model="gemini-2.5-flash"):
+def process_files(files, delay, client, prompt_text, model=GEMINI_FLASH):
     for audio_path, json_path in files:
         result = transcribe_file(client, prompt_text, audio_path, model)
         if result:
@@ -116,7 +117,7 @@ def main():
     with open(PROMPT_PATH, "r") as f:
         prompt_text = f.read().strip()
 
-    model = "gemini-2.5-pro" if args.pro else "gemini-2.5-flash"
+    model = GEMINI_PRO if args.pro else GEMINI_FLASH
 
     logging.basicConfig(level=logging.INFO)
     process_files(missing, args.wait, client, prompt_text, model)

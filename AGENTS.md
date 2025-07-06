@@ -31,10 +31,19 @@ on these are available in the `JOURNAL.md` file.
   `isort`. The configuration resides in `pyproject.toml`.
 - Linting with `flake8` and type checking with `mypy` are recommended.
 - If tests are added under `tests/`, run `pytest` before committing.
+- The dependencies declared in `pyproject.toml` include heavy optional
+  packages (for example `torch` and `PyGObject`).  If `pip install -e .[dev]`
+  fails you can install only the minimal set needed for the tests:
+
+```bash
+pip install -e . --no-deps
+pip install numpy Pillow Flask Markdown pytest pytest-cov
+pytest
+```
 - Prompt .txt files in `hear/`, `see/` and `think/` provide system instructions
   for Gemini. Modify them only when a task explicitly requires it.
 - Use absolute imports from the package root (for example,
-  `from hear.audio_utils import SAMPLE_RATE`) so that scripts can be run directly 
+  `from hear.audio_utils import SAMPLE_RATE`) so that scripts can be run directly
   as a cli or as a module, don't wrap imports in `try`/`except` blocks.
 
 ## Environment notes

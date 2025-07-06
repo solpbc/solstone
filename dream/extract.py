@@ -8,6 +8,7 @@ import tempfile
 from datetime import timedelta
 
 import cv2
+from dotenv import load_dotenv
 from PIL import Image
 
 from see.screen_compare import compare_images
@@ -108,7 +109,6 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Chunk a media file into the journal")
     parser.add_argument("media", help="Path to video or audio file")
     parser.add_argument("timestamp", help="Timestamp YYYYMMDD_HHMMSS for journal entry")
-    parser.add_argument("--journal", default=".", help="Journal directory")
     parser.add_argument("--see", type=str2bool, default=True, help="Process video stream")
     parser.add_argument("--hear", type=str2bool, default=True, help="Process audio stream")
     parser.add_argument(
@@ -119,10 +119,15 @@ def main() -> None:
     )
     args = parser.parse_args()
 
+    load_dotenv()
+    journal = os.getenv("JOURNAL_PATH")
+    if not journal:
+        parser.error("JOURNAL_PATH not set")
+
     if not TIME_RE.fullmatch(args.timestamp):
         raise SystemExit("timestamp must be in YYYYMMDD_HHMMSS format")
     base_dt = dt.datetime.strptime(args.timestamp, "%Y%m%d_%H%M%S")
-    day_dir = os.path.join(args.journal, base_dt.strftime("%Y%m%d"))
+    day_dir = os.path.join(journal, base_dt.strftime("%Y%m%d"))
     os.makedirs(day_dir, exist_ok=True)
 
     if args.hear:

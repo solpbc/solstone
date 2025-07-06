@@ -22,9 +22,10 @@ from watchdog.observers import Observer
 from hear.audio_utils import SAMPLE_RATE, detect_speech, merge_streams, resample_audio
 from hear.gemini import transcribe_segments
 from think.crumbs import CrumbBuilder
+from think.models import GEMINI_FLASH
 
 # Constants
-MODEL = "gemini-2.5-flash"
+MODEL = GEMINI_FLASH
 MIN_SPEECH_SECONDS = 1.0
 
 
@@ -289,9 +290,6 @@ def main():
     load_dotenv()
     parser = argparse.ArgumentParser(description="Transcribe FLAC files using Gemini")
     parser.add_argument(
-        "journal", type=Path, help="Journal directory containing daily audio folders"
-    )
-    parser.add_argument(
         "-p",
         "--prompt",
         type=Path,
@@ -313,11 +311,14 @@ def main():
     logging.basicConfig(level=logging.INFO if args.verbose else logging.WARNING)
     faulthandler.enable()
 
-    ent_path = args.journal / "entities.md"
+    journal = Path(os.getenv("JOURNAL_PATH", ""))
+    if not journal.is_dir():
+        parser.error("JOURNAL_PATH not set or invalid")
+    ent_path = journal / "entities.md"
     if not ent_path.is_file():
         parser.error(f"entities file not found: {ent_path}")
 
-    transcriber = Transcriber(args.journal, api_key, args.prompt)
+    transcriber = Transcriber(journal, api_key, args.prompt)
 
     if args.repair:
         try:

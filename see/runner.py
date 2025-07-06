@@ -7,8 +7,11 @@ import signal
 import subprocess
 import sys
 import time
+from datetime import datetime, timedelta
 from pathlib import Path
 from threading import Event, Thread
+
+from think.reduce_screen import reduce_day
 
 STOP_EVENT = Event()
 
@@ -38,6 +41,22 @@ def _run_scan(journal: str, interval: int, extra_args: list[str]) -> None:
             except subprocess.TimeoutExpired:
                 os.killpg(proc.pid, signal.SIGKILL)
             return
+
+        # Opportunistically reduce the previous 5 minute window
+        now = datetime.now()
+        prev_minute = now - timedelta(minutes=1)
+        block_end = prev_minute.replace(
+            minute=(prev_minute.minute // 5) * 5,
+            second=0,
+            microsecond=0,
+        )
+        block_start = block_end - timedelta(minutes=5)
+        day_dir = os.path.join(journal, prev_minute.strftime("%Y%m%d"))
+        try:
+            reduce_day(day_dir, start=block_start, end=block_end)
+        except Exception as exc:
+            print(f"reduce_day failed: {exc}", flush=True)
+
         time.sleep(interval)
 
 
@@ -67,12 +86,15 @@ def _run_describe(journal: str, extra_args: list[str]) -> None:
 
 
 def main() -> None:
-    if len(sys.argv) < 3:
-        print("Usage: gemini-see <interval_seconds> <journal_dir> [args...]", file=sys.stderr)
+    if len(sys.argv) < 2:
+        print("Usage: gemini-see <interval_seconds> [args...]", file=sys.stderr)
         sys.exit(1)
     interval = int(sys.argv[1])
-    journal = sys.argv[2]
-    extra_args = sys.argv[3:]
+    extra_args = sys.argv[2:]
+
+    journal = os.getenv("JOURNAL_PATH")
+    if not journal:
+        sys.exit("JOURNAL_PATH not set")
 
     signal.signal(signal.SIGINT, _signal_handler)
     signal.signal(signal.SIGTERM, _signal_handler)

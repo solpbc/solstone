@@ -7,10 +7,13 @@ Captured files are organised under a **journal** directory containing daily `YYY
 ## Features
 
 - **See** 👁️ - Screenshot capture and visual comparison with the `screen-watch` command
-- **Hear** 👂 - Audio recording and transcription with the `gemini-mic` command
-- **Think** 🧠 - Data analysis and AI-powered insights with the `ponder` command
-- **Dream** 🌐 - Web interfaces for reviewing entities and meetings
-- **Serve** 🛰️ - Expose search tools over MCP with the `ponder-mcp` command
+  and `screen-describe`. The `gemini-see` wrapper keeps both running in a loop.
+- **Hear** 👂 - Audio recording and transcription with `gemini-mic` and `gemini-transcribe`.
+  Use `gemini-hear` to run them together or `gemini-live` for real time transcripts.
+- **Think** 🧠 - Data analysis and AI-powered insights via commands like `ponder`,
+  `cluster`, `reduce-screen` and `process-day`.
+- **Dream** 🌐 - Run `dream --password PASSWORD` for a web UI to review entities and meetings.
+- **Serve** 🛰️ - `ponder-mcp` launches an OAuth-protected MCP server for searching ponders and occurrences.
 
 ## Quick Start
 
@@ -18,10 +21,13 @@ Captured files are organised under a **journal** directory containing daily `YYY
 pip install -e .
 ```
 
-Use `gemini-hear` together with `gemini-see` to run the audio and visual capture services
-in continuous loops. `gemini-hear` wraps `gemini-mic` and `gemini-transcribe`,
-while `gemini-see` wraps `screen-watch` and `screen-describe` so both sides keep
-running until interrupted.
+Set `JOURNAL_PATH` to the folder where recordings should be stored and
+`GOOGLE_API_KEY` for Gemini access.
+
+Use `gemini-hear` together with `gemini-see` to run the audio and visual capture
+services in continuous loops. `gemini-hear` wraps `gemini-mic` and
+`gemini-transcribe`, while `gemini-see` wraps `screen-watch` and
+`screen-describe`. Launch `dream` to review the captured data in your browser.
 
 ## Documentation
 

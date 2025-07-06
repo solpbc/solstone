@@ -13,7 +13,7 @@ pip install -e .
 Run the server with:
 
 ```bash
-dream-review <journal> --password YOURPASSWORD
+dream --password YOURPASSWORD
 ```
 
 Open the printed URL in your browser and login with the password.
@@ -29,6 +29,7 @@ dream/
       home.py        - home page and login/logout routes
       entities.py    - entity review UI and related APIs
       calendar.py    - meeting calendar UI and APIs
+      chat.py        - simple Gemini chat interface
   templates/         - HTML templates, one file per view
   static/            - shared CSS
 ```

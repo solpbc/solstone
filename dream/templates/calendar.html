@@ -1,5 +1,5 @@
 {% extends 'base.html' %}
-{% set title = 'Meeting Calendar' %}
+{% set title = 'Calendar' %}
 {% set active = 'calendar' %}
 {% block head %}
 <style>
@@ -70,11 +70,45 @@ h1 { margin-bottom: 0.5em; }
   margin-bottom:8px;
 }
 .meeting-meta strong { color:#333; }
+
+.day-view {
+  position:relative;
+  height:800px;
+  border-left:60px solid transparent;
+}
+.hour-line {
+  position:absolute;
+  left:0;
+  right:0;
+  border-top:1px solid #eee;
+  font-size:0.75em;
+  color:#777;
+}
+.hour-line span{
+  position:absolute;
+  left:-55px;
+  top:-0.6em;
+}
+.occ {
+  position:absolute;
+  left:10px;
+  right:10px;
+  border-radius:4px;
+  opacity:0.9;
+}
+.occ.meeting{background:#007bff;}
+.occ.message{background:#28a745;}
+.occ.file{background:#17a2b8;}
+.occ.followup{background:#ffc107;}
+.occ.documentation{background:#6f42c1;}
+.occ.research{background:#fd7e14;}
+.occ.media{background:#e83e8c;}
+.occ.other{background:#6c757d;}
 </style>
 {% endblock %}
 {% block body %}
 <div class="container">
-  <h1>Meeting Calendar</h1>
+  <h1>Calendar</h1>
   <div id="controls">
     <button id="prevMonth">&#8592;</button>
     <span id="monthLabel"></span>
@@ -96,20 +130,20 @@ h1 { margin-bottom: 0.5em; }
 </div>
 
 <script>
-let meetings = {};
+let occurrences = {};
 const dayBase = '{{ url_for('review.calendar_day', day='') }}';
 let months = [];
 let currentIndex = 0;
 
 function loadData() {
-  fetch('{{ url_for('review.calendar_meetings') }}')
+  fetch('{{ url_for('review.calendar_occurrences') }}')
     .then(r => {
-      if (!r.ok) throw new Error('Failed to fetch meetings');
+      if (!r.ok) throw new Error('Failed to fetch occurrences');
       return r.json();
     })
     .then(d => {
-      meetings = d || {};
-      months = Array.from(new Set(Object.keys(meetings).map(d => d.slice(0,6)))).sort();
+      occurrences = d || {};
+      months = Array.from(new Set(Object.keys(occurrences).map(d => d.slice(0,6)))).sort();
       if(!months.length) {
         const now = new Date();
         months = [generateYearMonth(now.getFullYear(), now.getMonth())];
@@ -118,7 +152,7 @@ function loadData() {
       showMonth(months[currentIndex]);
     })
     .catch(err => {
-      console.error('Error loading meetings:', err);
+      console.error('Error loading occurrences:', err);
       const now = new Date();
       months = [generateYearMonth(now.getFullYear(), now.getMonth())];
       currentIndex = 0;
@@ -126,14 +160,14 @@ function loadData() {
     });
 }
 
-function createMeetingButton(dateStr, count, day) {
+function createOccurrenceButton(dateStr, count, day) {
   const div = document.createElement('div');
   div.className = 'count';
-  div.textContent = `${count} meeting${count > 1 ? 's' : ''}`;
+  div.textContent = `${count} event${count > 1 ? 's' : ''}`;
   div.onclick = () => openDay(dateStr);
   div.setAttribute('role', 'button');
   div.setAttribute('tabindex', '0');
-  div.setAttribute('aria-label', `${count} meeting${count > 1 ? 's' : ''} on day ${day}`);
+  div.setAttribute('aria-label', `${count} event${count > 1 ? 's' : ''} on day ${day}`);
   div.addEventListener('keydown', (e) => {
     if (e.key === 'Enter' || e.key === ' ') {
       e.preventDefault();
@@ -167,11 +201,11 @@ function showMonth(ym) {
     }
     const td = document.createElement('td');
     const dateStr = ym + String(day).padStart(2,'0');
-    const count = (meetings[dateStr] || []).length;
+    const count = (occurrences[dateStr] || []).length;
     
     td.innerHTML = `<a class='day-number' href='${dayBase}${dateStr}'>${day}</a>`;
     if(count){
-      td.appendChild(createMeetingButton(dateStr, count, day));
+      td.appendChild(createOccurrenceButton(dateStr, count, day));
     }
     row.appendChild(td);
   }
@@ -184,64 +218,40 @@ function showMonth(ym) {
 }
 
 function openDay(dateStr){
-  const list = meetings[dateStr] || [];
+  const list = occurrences[dateStr] || [];
   if(!list.length) return;
   const modal = document.getElementById('meetingModal');
   const content = document.getElementById('modalContent');
-  
-  // Format date for header
+
   const year = parseInt(dateStr.slice(0,4));
   const month = parseInt(dateStr.slice(4,6)) - 1;
   const day = parseInt(dateStr.slice(6,8));
   const date = new Date(year, month, day);
-  const formattedDate = date.toLocaleDateString('en-US', { 
-    weekday: 'long', 
-    year: 'numeric', 
-    month: 'long', 
-    day: 'numeric' 
+  const formattedDate = date.toLocaleDateString('en-US', {
+    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
   });
-  
-  let html = `
-    <div class="modal-header">
-      <h3>${formattedDate}</h3>
-    </div>
-    <div class="modal-body">`;
-  
-  list.forEach(m => {
-    const title = escapeHtml(m.title || 'Meeting');
-    const topics = m.topicsDiscussed ? escapeHtml(m.topicsDiscussed) : '';
-    const slides = m.slidesPresented && m.slidesDescription ? escapeHtml(m.slidesDescription) : '';
-    
-    html += `<div class='meeting'><h3>${title}</h3>`;
-    
-    // Add meeting metadata
-    html += `<div class="meeting-meta">`;
-    if(m.startTime) {
-      // format start time rounded to 5 minutes
-      let dt = new Date(m.startTime);
-      let rm = Math.round(dt.getMinutes()/5)*5;
-      dt.setMinutes(rm);
-      let hr = dt.getHours()%12||12;
-      let mi = String(dt.getMinutes()).padStart(2,'0');
-      let ap = dt.getHours()>=12?'pm':'am';
-      let timeStr = `Start: ${hr}:${mi}${ap}`;
-      if(m.endTime) {
-        let startTime = new Date(m.startTime);
-        let endTime = new Date(m.endTime);
-        let dur = Math.round((endTime - startTime) / (1000 * 60) / 5) * 5; // duration in minutes, rounded to 5
-        let h = Math.floor(dur/60), mm = dur%60;
-        timeStr += `, ${h?`${h}h${mm?` ${mm}m`:''}`:`${mm}m`}`;
-      }
-      html += `<strong>${timeStr}</strong>`;
-    }
-    html += `</div>`;
-    
-    if(topics){ html += `<p>${topics}</p>`; }
-    if(slides){ html += `<p><em>${slides}</em></p>`; }
-    html += `</div>`;
+
+  let html = `<div class="modal-header"><h3>${formattedDate}</h3></div><div class="modal-body"><div class='day-view'>`;
+
+  for(let h=0; h<=24; h++){
+    const label = h===0? '12am' : h<12? h+'am' : h===12? '12pm' : (h-12)+'pm';
+    html += `<div class='hour-line' style='top:${(h/24)*100}%'><span>${label}</span></div>`;
+  }
+
+  list.forEach(o => {
+    if(!o.startTime) return;
+    const start = new Date(o.startTime);
+    const end = o.endTime ? new Date(o.endTime) : new Date(start.getTime()+5*60000);
+    const s = start.getHours()*60 + start.getMinutes();
+    const e = end.getHours()*60 + end.getMinutes();
+    const top = (s/1440)*100;
+    const height = Math.max((e - s)/1440*100, 0.4);
+    const type = o.type || 'other';
+    const title = escapeHtml(o.title || o.summary || type);
+    html += `<div class='occ ${type}' style='top:${top}%;height:${height}%' title='${title}'></div>`;
   });
-  html += '</div>';
-  
+
+  html += "</div></div>";
   content.innerHTML = html;
   modal.style.display='block';
   modal.setAttribute('aria-hidden', 'false');

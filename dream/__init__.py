@@ -6,12 +6,14 @@ import argparse
 import os
 import sys
 import types
+from importlib import import_module
 
+from dotenv import load_dotenv
 from flask import Flask
 
 from . import state
 from .utils import (
-    build_index,
+    build_occurrence_index,
     format_date,
     generate_top_summary,
     modify_entity_file,
@@ -19,9 +21,13 @@ from .utils import (
     update_top_entry,
 )
 from .views import calendar as calendar_view
+from .views import chat as chat_view
 from .views import entities as entities_view
 from .views import home as home_view
 from .views import register_views
+from .views import search as search_view
+
+import_page_view = import_module(".import", "dream.views")
 
 
 def create_app(journal: str = "", password: str = "") -> Flask:
@@ -38,7 +44,7 @@ def create_app(journal: str = "", password: str = "") -> Flask:
     if journal:
         state.journal_root = journal
         entities.reload_entities()
-        state.meetings_index = build_index(journal)
+        state.occurrences_index = build_occurrence_index(journal)
     return app
 
 
@@ -52,11 +58,15 @@ home = home_view.home
 entities = entities_view.entities
 calendar = calendar_view.calendar_page
 calendar_day = calendar_view.calendar_day
+chat_page = chat_view.chat_page
+send_message = chat_view.send_message
+search_page = search_view.search_page
+import_page = import_page_view.import_page
 entities_data = entities_view.entities_data
 api_top_generate = entities_view.api_top_generate
 api_top_update = entities_view.api_top_update
 api_modify_entity = entities_view.api_modify_entity
-calendar_meetings = calendar_view.calendar_meetings
+calendar_occurrences = calendar_view.calendar_occurrences
 login = home_view.login
 logout = home_view.logout
 
@@ -67,11 +77,15 @@ __all__ = [
     "entities",
     "calendar",
     "calendar_day",
+    "chat_page",
+    "send_message",
+    "search_page",
+    "import_page",
     "entities_data",
     "api_top_generate",
     "api_top_update",
     "api_modify_entity",
-    "calendar_meetings",
+    "calendar_occurrences",
     "login",
     "logout",
     "format_date",
@@ -82,7 +96,7 @@ __all__ = [
     "reload_entities",
     "journal_root",
     "entities_index",
-    "meetings_index",
+    "occurrences_index",
 ]
 
 
@@ -91,8 +105,8 @@ def __getattr__(name: str):
         return state.journal_root
     if name == "entities_index":
         return state.entities_index
-    if name == "meetings_index":
-        return state.meetings_index
+    if name == "occurrences_index":
+        return state.occurrences_index
     raise AttributeError(name)
 
 
@@ -101,14 +115,14 @@ def __setattr__(name: str, value) -> None:
         state.journal_root = value
     elif name == "entities_index":
         state.entities_index = value
-    elif name == "meetings_index":
-        state.meetings_index = value
+    elif name == "occurrences_index":
+        state.occurrences_index = value
     globals()[name] = value
 
 
 class _Module(types.ModuleType):
     def __setattr__(self, key, value):
-        if key in {"journal_root", "entities_index", "meetings_index"}:
+        if key in {"journal_root", "entities_index", "occurrences_index"}:
             setattr(state, key, value)
         super().__setattr__(key, value)
 
@@ -118,7 +132,6 @@ sys.modules[__name__].__class__ = _Module
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Combined review web service")
-    parser.add_argument("journal", help="Journal directory containing YYYYMMDD folders")
     parser.add_argument("--port", type=int, default=8000, help="Port to serve on")
     parser.add_argument(
         "--password",
@@ -127,7 +140,12 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    app = create_app(args.journal, args.password)
+    load_dotenv()
+    journal = os.getenv("JOURNAL_PATH")
+    if not journal:
+        raise SystemExit("JOURNAL_PATH not set")
+
+    app = create_app(journal, args.password)
     if not app.config["PASSWORD"]:
         raise ValueError("Password must be provided via --password or DREAM_PASSWORD")
 

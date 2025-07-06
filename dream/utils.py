@@ -7,8 +7,8 @@ from typing import Any, Dict, List, Optional
 from google import genai
 from google.genai import types
 
-from think.cluster_glob import FLASH_MODEL
 from think.entities import parse_entity_line
+from think.models import GEMINI_FLASH
 
 DATE_RE = re.compile(r"\d{8}")
 
@@ -137,7 +137,7 @@ def generate_top_summary(info: Dict[str, Any], api_key: str) -> str:
     )
     client = genai.Client(api_key=api_key)
     response = client.models.generate_content(
-        model=FLASH_MODEL,
+        model=GEMINI_FLASH,
         contents=[joined],
         config=types.GenerateContentConfig(
             temperature=0.3,
@@ -154,8 +154,8 @@ def _combine(day: str, time_str: str) -> str:
     return f"{day[:4]}-{day[4:6]}-{day[6:]}T{time_str}"
 
 
-def build_index(journal: str) -> Dict[str, List[Dict[str, Any]]]:
-    """Create a mapping of YYYYMMDD folders to meeting lists."""
+def build_occurrence_index(journal: str) -> Dict[str, List[Dict[str, Any]]]:
+    """Aggregate occurrences from all ponder_*.json files for each day."""
 
     index: Dict[str, List[Dict[str, Any]]] = {}
     for name in os.listdir(journal):
@@ -165,43 +165,35 @@ def build_index(journal: str) -> Dict[str, List[Dict[str, Any]]]:
         if not os.path.isdir(path):
             continue
 
-        file_path = os.path.join(path, "ponder_meetings.json")
-        if not os.path.isfile(file_path):
-            continue
-
-        meetings: List[Dict[str, Any]] = []
-        try:
-            with open(file_path, "r", encoding="utf-8") as f:
-                data = json.load(f)
-            if isinstance(data, dict):
-                for occ in data.get("occurrences", []):
-                    if occ.get("type") != "meeting":
-                        continue
-                    m: Dict[str, Any] = {
-                        "title": occ.get("title", ""),
-                        "summary": occ.get("summary", ""),
-                        "participants": occ.get("participants", []),
-                    }
-                    if occ.get("start"):
-                        m["startTime"] = _combine(name, occ["start"])
-                    if occ.get("end"):
-                        m["endTime"] = _combine(name, occ["end"])
-                    details = occ.get("details")
-                    if isinstance(details, dict):
-                        for key in [
-                            "topicsDiscussed",
-                            "slidesPresented",
-                            "slidesDescription",
-                        ]:
-                            if key in details:
-                                m[key] = details[key]
-                    meetings.append(m)
-            elif isinstance(data, list):
-                meetings = data
-        except Exception:
-            continue
-
-        if meetings:
-            index[name] = meetings
+        occs: List[Dict[str, Any]] = []
+        for fname in os.listdir(path):
+            if not (fname.startswith("ponder_") and fname.endswith(".json")):
+                continue
+            file_path = os.path.join(path, fname)
+            try:
+                with open(file_path, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                items = data.get("occurrences", []) if isinstance(data, dict) else data
+            except Exception:
+                continue
+            if not isinstance(items, list):
+                continue
+            for occ in items:
+                o: Dict[str, Any] = {
+                    "title": occ.get("title", ""),
+                    "summary": occ.get("summary", ""),
+                    "type": occ.get("type", ""),
+                }
+                if occ.get("start"):
+                    o["startTime"] = _combine(name, occ["start"])
+                if occ.get("end"):
+                    o["endTime"] = _combine(name, occ["end"])
+                occs.append(o)
+        if occs:
+            index[name] = occs
 
     return index
+
+
+# Backwards compatibility
+build_index = build_occurrence_index

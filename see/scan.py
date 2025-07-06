@@ -145,16 +145,19 @@ def main():
     parser = argparse.ArgumentParser(
         description="Capture screenshots once and compare with cached versions."
     )
-    parser.add_argument("journal", type=str, help="Journal directory to store screenshots")
     parser.add_argument("--verbose", action="store_true", help="Enable verbose output")
     parser.add_argument(
         "--min", type=int, default=400, help="Minimum size threshold for a bounding box (pixels)"
     )
     args = parser.parse_args()
+
+    journal = os.getenv("JOURNAL_PATH")
+    if not journal:
+        parser.error("JOURNAL_PATH not set")
     global GLOBAL_VERBOSE
     GLOBAL_VERBOSE = args.verbose
 
-    process_once(args.journal, args.min)
+    process_once(journal, args.min)
 
 
 if __name__ == "__main__":

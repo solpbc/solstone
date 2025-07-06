@@ -1,0 +1,82 @@
+{% extends 'base.html' %}
+{% set title = 'Search' %}
+{% set active = 'search' %}
+{% block head %}
+<style>
+body {
+  font-family: sans-serif;
+  margin: 0;
+}
+.container { max-width: 1200px; margin: 0 auto; padding: 1em; }
+#results { display: flex; gap: 2em; margin-top: 1em; }
+.column { flex: 1; }
+.result { margin-bottom: 1em; cursor: pointer; }
+.result-title { font-weight: bold; color: #1a0dab; }
+.modal { display:none; position:fixed; z-index:1000; left:0; top:0; width:100%; height:100%; background:rgba(0,0,0,0.5); }
+.modal-content { background:white; margin:5% auto; padding:1em; border-radius:8px; max-width:800px; max-height:80vh; overflow:auto; position:relative; }
+.close { position:absolute; top:10px; right:15px; cursor:pointer; font-size:24px; }
+</style>
+{% endblock %}
+{% block body %}
+<div class="container">
+  <form id="searchForm">
+    <input id="query" type="text" placeholder="Search" style="width:60%;padding:8px"/>
+    <button type="submit">Search</button>
+  </form>
+  <div id="results">
+    <div class="column">
+      <h3>Ponders</h3>
+      <div id="ponderResults"></div>
+    </div>
+    <div class="column">
+      <h3>Occurrences</h3>
+      <div id="occResults"></div>
+    </div>
+  </div>
+</div>
+<div id="detailModal" class="modal">
+  <div class="modal-content">
+    <span class="close">&times;</span>
+    <div id="modalContent"></div>
+  </div>
+</div>
+<script>
+const ponderUrl = '{{ url_for('search.search_ponder_api') }}';
+const occUrl = '{{ url_for('search.search_occurrence_api') }}';
+const ponderDetailUrl = '{{ url_for('search.ponder_detail') }}';
+const occDetailUrl = '{{ url_for('search.occurrence_detail') }}';
+
+function escapeHtml(t){const d=document.createElement('div');d.textContent=t;return d.innerHTML;}
+
+function renderResults(target, list, type){
+  target.innerHTML = '';
+  list.forEach(item => {
+    const div = document.createElement('div');
+    div.className = 'result';
+    div.innerHTML = `<div class="result-title">${escapeHtml(item.text)}</div>`;
+    div.onclick = () => showDetail(type, item.metadata);
+    target.appendChild(div);
+  });
+}
+
+function doSearch(){
+  const q = document.getElementById('query').value.trim();
+  if(!q) return;
+  fetch(ponderUrl + '?q=' + encodeURIComponent(q)).then(r=>r.json()).then(d=>renderResults(document.getElementById('ponderResults'), d, 'ponder'));
+  fetch(occUrl + '?q=' + encodeURIComponent(q)).then(r=>r.json()).then(d=>renderResults(document.getElementById('occResults'), d, 'occ'));
+}
+
+document.getElementById('searchForm').onsubmit = e => { e.preventDefault(); doSearch(); };
+
+function showDetail(type, meta){
+  const url = type==='ponder' ? `${ponderDetailUrl}?path=${encodeURIComponent(meta.ponder)}` : `${occDetailUrl}?path=${encodeURIComponent(meta.path)}&index=${meta.index}`;
+  fetch(url).then(r=>r.json()).then(d=>{
+    document.getElementById('modalContent').textContent = typeof d === 'string' ? d : JSON.stringify(d, null, 2);
+    document.getElementById('detailModal').style.display='block';
+  });
+}
+
+document.querySelector('.close').onclick=()=>{document.getElementById('detailModal').style.display='none';};
+window.onclick=e=>{if(e.target==document.getElementById('detailModal')) document.getElementById('detailModal').style.display='none';};
+</script>
+{% endblock %}

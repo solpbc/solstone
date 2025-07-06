@@ -1,0 +1,46 @@
+{% extends 'base.html' %}
+{% set title = 'Chat' %}
+{% set active = 'chat' %}
+{% block head %}
+<style>
+body {font-family: sans-serif; margin:0; display:flex; flex-direction:column; height:100vh;}
+#messages {flex:1; overflow-y:auto; padding:1em;}
+.message {margin-bottom:0.75em; padding:0.5em 0.75em; border-radius:8px; max-width:80%;}
+.from-user {background:#dcf8c6; align-self:flex-end;}
+.from-bot {background:#f1f0f0; align-self:flex-start;}
+#drawer {display:none; border-top:1px solid #ddd; padding:0.5em; background:#fafafa;}
+#inputArea {display:flex; gap:0.5em; padding:0.5em; border-top:1px solid #ddd;}
+#inputArea textarea {flex:1; resize:none; padding:0.5em; border-radius:6px; border:1px solid #ccc; font-family:inherit;}
+#inputArea button {padding:0.5em 1em;}
+</style>
+{% endblock %}
+{% block body %}
+<div id="messages"></div>
+<div id="drawer">Attachments drawer</div>
+<form id="inputArea">
+  <textarea id="messageInput" rows="1" placeholder="Send a message..."></textarea>
+  <button type="submit">Send</button>
+</form>
+<script>
+const sendUrl = '{{ url_for('chat.send_message') }}';
+const messagesDiv = document.getElementById('messages');
+function addMessage(text, cls){
+  const div=document.createElement('div');
+  div.className='message '+cls;
+  div.textContent=text;
+  messagesDiv.appendChild(div);
+  messagesDiv.scrollTop=messagesDiv.scrollHeight;
+}
+document.getElementById('inputArea').onsubmit=async e=>{
+  e.preventDefault();
+  const input=document.getElementById('messageInput');
+  const text=input.value.trim();
+  if(!text)return;
+  addMessage(text,'from-user');
+  input.value='';
+  const r=await fetch(sendUrl,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:text})});
+  if(r.ok){const d=await r.json();addMessage(d.text,'from-bot');}else{addMessage('Error','from-bot');}
+};
+</script>
+{% endblock %}
+
