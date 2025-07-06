@@ -15,6 +15,7 @@ from google.genai import types
 from think.cluster import cluster
 from think.crumbs import CrumbBuilder
 from think.models import GEMINI_FLASH, GEMINI_PRO
+from think.utils import day_path
 
 DEFAULT_PROMPT_PATH = os.path.join(
     os.path.dirname(__file__),
@@ -106,7 +107,7 @@ def main() -> None:
     )
     parser.add_argument(
         "day",
-        help="Path to the journal day folder",
+        help="Day in YYYYMMDD format",
     )
     parser.add_argument(
         "-f",
@@ -134,6 +135,7 @@ def main() -> None:
     args = parser.parse_args()
 
     markdown, file_count = cluster(args.day)
+    day_dir = day_path(args.day)
 
     load_dotenv()
     api_key = os.getenv("GOOGLE_API_KEY")
@@ -149,7 +151,7 @@ def main() -> None:
     output_extension = ".md"
 
     model = GEMINI_PRO if args.pro else GEMINI_FLASH
-    day = os.path.basename(os.path.normpath(args.day))
+    day = args.day
     size_kb = len(markdown.encode("utf-8")) / 1024
 
     print(
@@ -164,7 +166,7 @@ def main() -> None:
 
     # Determine the specific output path for this run
     output_filename = f"ponder_{prompt_basename}{output_extension}"
-    output_path = os.path.join(args.day, output_filename)
+    output_path = os.path.join(day_dir, output_filename)
 
     # Check if markdown file already exists
     md_exists = os.path.exists(output_path) and os.path.getsize(output_path) > 0
@@ -196,7 +198,7 @@ def main() -> None:
 
     # Only write markdown if it was newly generated
     if not md_exists or args.force:
-        os.makedirs(args.day, exist_ok=True)
+        os.makedirs(day_dir, exist_ok=True)
         with open(output_path, "w") as f:
             f.write(result)
         print(f"Results saved to: {output_path}")
@@ -204,8 +206,8 @@ def main() -> None:
         crumb_builder = (
             CrumbBuilder()
             .add_file(args.prompt)
-            .add_glob(os.path.join(args.day, "*_audio.json"))
-            .add_glob(os.path.join(args.day, "*_screen.md"))
+            .add_glob(os.path.join(day_dir, "*_audio.json"))
+            .add_glob(os.path.join(day_dir, "*_screen.md"))
             .add_model(model)
         )
         crumb_path = crumb_builder.commit(output_path)
@@ -220,7 +222,7 @@ def main() -> None:
         print(f"Occurrence prompt not found: {occ_prompt_path}")
         return
 
-    occ_output_path = os.path.join(args.day, f"ponder_{prompt_basename}.json")
+    occ_output_path = os.path.join(day_dir, f"ponder_{prompt_basename}.json")
     json_exists = os.path.exists(occ_output_path) and os.path.getsize(occ_output_path) > 0
 
     if json_exists and not args.force:

@@ -12,6 +12,7 @@ from google.genai import types
 
 from think.crumbs import CrumbBuilder
 from think.models import GEMINI_FLASH
+from think.utils import day_path
 
 DEFAULT_PROMPT_PATH = os.path.join(os.path.dirname(__file__), "reduce_screen.txt")
 
@@ -216,7 +217,7 @@ def _ensure_described(day_dir: str, start: datetime | None, end: datetime | None
 
 
 def reduce_day(
-    day_dir: str,
+    day: str,
     prompt_path: str = DEFAULT_PROMPT_PATH,
     *,
     force: bool = False,
@@ -224,13 +225,14 @@ def reduce_day(
     start: datetime | None = None,
     end: datetime | None = None,
 ) -> None:
-    """Process monitor diffs under *day_dir* between ``start`` and ``end``.
+    """Process monitor diffs under ``day`` between ``start`` and ``end``.
 
     When ``start``/``end`` are ``None`` all available 5 minute groups are processed.
     The function mirrors the behaviour of the ``reduce-screen`` CLI and is exposed
     so that other modules can opportunistically reduce recent captures.
     """
 
+    day_dir = day_path(day)
     if not os.path.isdir(day_dir):
         print(f"Folder not found: {day_dir}")
         return
@@ -281,7 +283,7 @@ def main():
     parser = argparse.ArgumentParser(
         description="Summarize all monitor JSON files in 5 minute chunks using Gemini"
     )
-    parser.add_argument("day_dir", help="Day directory containing *_monitor_*_diff.json files")
+    parser.add_argument("day", help="Day in YYYYMMDD format containing *_monitor_*_diff.json files")
     parser.add_argument("-p", "--prompt", default=DEFAULT_PROMPT_PATH, help="Prompt file")
     parser.add_argument("--force", action="store_true", help="Overwrite existing markdown files")
     parser.add_argument(
@@ -291,14 +293,15 @@ def main():
     parser.add_argument("--end", help="End time HH:MM for partial processing")
     args = parser.parse_args()
 
-    if not os.path.isdir(args.day_dir):
-        parser.error(f"Folder not found: {args.day_dir}")
+    day_dir = day_path(args.day)
+    if not os.path.isdir(day_dir):
+        parser.error(f"Folder not found: {day_dir}")
 
     start = datetime.strptime(args.start, "%H:%M") if args.start else None
     end = datetime.strptime(args.end, "%H:%M") if args.end else None
 
     reduce_day(
-        args.day_dir,
+        args.day,
         args.prompt,
         force=args.force,
         debug=args.debug,

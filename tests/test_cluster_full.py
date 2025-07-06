@@ -12,10 +12,11 @@ def copy_day(tmp_path: Path) -> Path:
     return dest
 
 
-def test_cluster_full(tmp_path):
+def test_cluster_full(tmp_path, monkeypatch):
     mod = importlib.import_module("think.cluster")
     day = copy_day(tmp_path)
-    md, count = mod.cluster(str(day))
+    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+    md, count = mod.cluster("20240101")
     assert count == 2
     assert "Audio Transcript" in md
     assert "Screen Activity Summary" in md
@@ -24,7 +25,8 @@ def test_cluster_full(tmp_path):
 def test_cluster_cli(tmp_path, monkeypatch, capsys):
     mod = importlib.import_module("think.cluster")
     day = copy_day(tmp_path)
-    monkeypatch.setattr("sys.argv", ["cluster", str(day)])
+    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+    monkeypatch.setattr("sys.argv", ["cluster", "20240101"])
     mod.main()
     out = capsys.readouterr().out
     assert "Screen Activity Summary" in out
