@@ -17,7 +17,6 @@ def run_command(cmd: list[str]) -> None:
 
 
 def build_commands(journal: str, day: str, force: bool, repair: bool) -> list[list[str]]:
-    day_dir = os.path.join(journal, day)
     commands: list[list[str]] = []
 
     if repair:
@@ -25,7 +24,7 @@ def build_commands(journal: str, day: str, force: bool, repair: bool) -> list[li
         commands.append(["gemini-transcribe", journal, "--repair", day])
         commands.append(["screen-describe", journal, "--repair", day])
 
-    reduce_cmd = ["reduce-screen", day_dir]
+    reduce_cmd = ["reduce-screen", day]
     if force:
         reduce_cmd.append("--force")
     commands.append(reduce_cmd)
@@ -33,7 +32,7 @@ def build_commands(journal: str, day: str, force: bool, repair: bool) -> list[li
     think_dir = os.path.dirname(__file__)
     prompt_paths = sorted(glob.glob(os.path.join(think_dir, "ponder", "*.txt")))
     for prompt in prompt_paths:
-        cmd = ["ponder", day_dir, "-f", prompt, "-p"]
+        cmd = ["ponder", day, "-f", prompt, "-p"]
         if force:
             cmd.append("--force")
         commands.append(cmd)
@@ -76,13 +75,7 @@ def main() -> None:
     day = args.day
     if day is None:
         day = (datetime.now() - timedelta(days=1)).strftime("%Y%m%d")
-
-    # Handle case where day might be a full path
-    if os.path.isdir(day):
-        day_dir = day
-        day = os.path.basename(day_dir)
-    else:
-        day_dir = os.path.join(journal, day)
+    day_dir = os.path.join(journal, day)
 
     if not os.path.isdir(day_dir):
         print(f"Day folder not found: {day_dir}")

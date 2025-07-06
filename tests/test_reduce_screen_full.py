@@ -13,10 +13,11 @@ def copy_day(tmp_path: Path) -> Path:
     return dest
 
 
-def test_parse_and_group_entries(tmp_path):
+def test_parse_and_group_entries(tmp_path, monkeypatch):
     mod = importlib.import_module("think.reduce_screen")
-    day = copy_day(tmp_path)
-    entries = mod.parse_monitor_files(str(day))
+    day_dir = copy_day(tmp_path)
+    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+    entries = mod.parse_monitor_files(str(day_dir))
     assert entries and entries[0]["monitor"] == 1
     groups = mod.group_entries(entries)
     assert groups
@@ -26,7 +27,7 @@ def test_parse_and_group_entries(tmp_path):
 
 def test_reduce_day(tmp_path, monkeypatch):
     mod = importlib.import_module("think.reduce_screen")
-    day = copy_day(tmp_path)
+    day_dir = copy_day(tmp_path)
     prompt = tmp_path / "prompt.txt"
     prompt.write_text("prompt")
 
@@ -37,8 +38,9 @@ def test_reduce_day(tmp_path, monkeypatch):
     monkeypatch.setattr(mod, "load_dotenv", lambda: True)
     monkeypatch.setenv("GOOGLE_API_KEY", "x")
 
-    mod.reduce_day(str(day), str(prompt))
-    out = day / "123000_screen.md"
+    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+    mod.reduce_day("20240101", str(prompt))
+    out = day_dir / "123000_screen.md"
     crumb = Path(str(out) + ".crumb")
     assert out.read_text() == "summary"
     assert crumb.is_file()

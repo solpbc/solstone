@@ -16,7 +16,7 @@ def copy_day(tmp_path: Path) -> Path:
 
 def test_ponder_main(tmp_path, monkeypatch):
     mod = importlib.import_module("think.ponder")
-    day = copy_day(tmp_path)
+    day_dir = copy_day(tmp_path)
     prompt = tmp_path / "prompt.txt"
     prompt.write_text("prompt")
 
@@ -47,11 +47,12 @@ def test_ponder_main(tmp_path, monkeypatch):
     monkeypatch.setattr(mod, "load_dotenv", lambda: True)
     monkeypatch.setenv("GOOGLE_API_KEY", "x")
 
-    monkeypatch.setattr("sys.argv", ["ponder-day", str(day), "-f", str(prompt)])
+    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+    monkeypatch.setattr("sys.argv", ["ponder-day", "20240101", "-f", str(prompt)])
     mod.main()
 
-    md = day / "ponder_prompt.md"
-    js = day / "ponder_prompt.json"
+    md = day_dir / "ponder_prompt.md"
+    js = day_dir / "ponder_prompt.json"
     assert md.read_text() == "summary"
     data = json.loads(js.read_text())
     assert data["day"] == "20240101"

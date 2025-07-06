@@ -19,15 +19,15 @@ The package exposes several commands:
 - `reduce-screen` condenses screenshot diff descriptions into shorter text.
 - `see-repair` and `hear-repair` fix partial outputs from the visual and audio tools.
 - `entity-roll` collects entities across days and writes a rollup file.
-- `process-day` runs the above tools for a single day folder.
+- `process-day` runs the above tools for a single day.
  - `ponder-mcp` starts an OAuth-enabled server exposing search capabilities over MCP for both ponder text and structured occurrences.
 
 ```bash
-ponder <day-folder> [-f PROMPT] [-p MODEL]
-cluster <day-folder>
-reduce-screen <day-folder>
-see-repair <day-folder>
-hear-repair <day-folder>
+ponder YYYYMMDD [-f PROMPT] [-p MODEL]
+cluster YYYYMMDD
+reduce-screen YYYYMMDD
+see-repair YYYYMMDD
+hear-repair YYYYMMDD
 entity-roll
 process-day [--day YYYYMMDD] [--force] [--repair] [--rebuild]
  ponder-mcp [--port PORT]

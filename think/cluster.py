@@ -6,6 +6,8 @@ from collections import defaultdict
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Tuple
 
+from .utils import day_path
+
 TIME_RE = r"(\d{6})"
 AUDIO_PATTERN = re.compile(rf"^{TIME_RE}_audio\.json$")
 SCREEN_SUMMARY_PATTERN = re.compile(rf"^{TIME_RE}_screen\.md$")
@@ -105,13 +107,16 @@ def _groups_to_markdown(groups: Dict[datetime, List[Dict[str, str]]]) -> str:
     return "\n".join(lines)
 
 
-def cluster(day_dir: str) -> Tuple[str, int]:
+def cluster(day: str) -> Tuple[str, int]:
     """Return Markdown summary for one day's JSON files and the number processed."""
+
+    day_dir = day_path(day)
+    if not os.path.isdir(day_dir):
+        return f"Day folder not found: {day_dir}", 0
 
     entries = _load_entries(day_dir, True, "summary")
     if not entries:
-        date_str = _date_str(day_dir)
-        return f"No audio or screen files found for date {date_str} in {day_dir}.", 0
+        return f"No audio or screen files found for date {day} in {day_dir}.", 0
 
     groups = _group_entries(entries)
     markdown = _groups_to_markdown(groups)
@@ -119,17 +124,18 @@ def cluster(day_dir: str) -> Tuple[str, int]:
 
 
 def cluster_range(
-    day_dir: str,
+    day: str,
     start: str,
     end: str,
     audio: bool = True,
     screen: str = "summary",
 ) -> str:
-    """Return markdown for ``day_dir`` limited to ``start``-``end`` (HHMMSS)."""
+    """Return markdown for ``day`` limited to ``start``-``end`` (HHMMSS)."""
 
     if screen not in {"summary", "raw"}:
         raise ValueError("screen must be 'summary' or 'raw'")
 
+    day_dir = day_path(day)
     date_str = _date_str(day_dir)
     start_dt = datetime.strptime(date_str + start, "%Y%m%d%H%M%S")
     end_dt = datetime.strptime(date_str + end, "%Y%m%d%H%M%S")
@@ -145,23 +151,13 @@ def main():
         description="Generate a Markdown report for a day's JSON files grouped by 5-minute intervals."
     )
     parser.add_argument(
-        "day_dir",
-        help="Path to the journal day folder (YYYYMMDD)",
+        "day",
+        help="Day in YYYYMMDD format",
     )
 
     args = parser.parse_args()
 
-    # Validate day_dir argument
-    if not os.path.isdir(args.day_dir):
-        print(f"Error: Folder not found at specified path: {args.day_dir}", file=sys.stderr)
-        sys.exit(1)
-
-    base = os.path.basename(os.path.normpath(args.day_dir))
-    if not re.fullmatch(r"\d{8}", base):
-        print("Error: Folder name must be in YYYYMMDD format (e.g., 20250524).", file=sys.stderr)
-        sys.exit(1)
-
-    markdown, _ = cluster(args.day_dir)
+    markdown, _ = cluster(args.day)
     print(markdown)
 
 

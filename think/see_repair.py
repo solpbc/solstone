@@ -12,9 +12,11 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from see import gemini_look
 from think.crumbs import CrumbBuilder
 from think.models import GEMINI_FLASH, GEMINI_PRO
+from think.utils import day_path
 
 
-def find_missing(day_dir):
+def find_missing(day: str):
+    day_dir = day_path(day)
     if not os.path.isdir(day_dir):
         raise FileNotFoundError(f"Day directory not found: {day_dir}")
     missing = []
@@ -94,7 +96,7 @@ def process_files(files, delay, models=None):
 
 def main():
     parser = argparse.ArgumentParser(description="Repair missing Gemini JSON for screenshot diffs")
-    parser.add_argument("day_dir", help="Day directory path containing screenshot files")
+    parser.add_argument("day", help="Day in YYYYMMDD format containing screenshot files")
     parser.add_argument(
         "--wait", type=float, default=0, help="Seconds to wait between API calls (default: 0)"
     )
@@ -104,13 +106,13 @@ def main():
     args = parser.parse_args()
 
     try:
-        missing = find_missing(args.day_dir)
+        missing = find_missing(args.day)
     except FileNotFoundError as e:
         print(str(e))
         return
 
     if not missing:
-        print(f"No missing JSON files found in {args.day_dir}.")
+        print(f"No missing JSON files found in {day_path(args.day)}.")
         return
 
     print(f"Found {len(missing)} missing JSON files.")
