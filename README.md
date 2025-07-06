@@ -8,7 +8,7 @@ Captured files are organised under a **journal** directory containing daily `YYY
 
 - **See** 👁️ - Screenshot capture and visual comparison with the `screen-watch` command
 - **Hear** 👂 - Audio recording and transcription with the `gemini-mic` command
-- **Think** 🧠 - Data analysis and AI-powered insights with the `ponder-day` command
+- **Think** 🧠 - Data analysis and AI-powered insights with the `ponder` command
 - **Dream** 🌐 - Web interfaces for reviewing entities and meetings
 - **Serve** 🛰️ - Expose search tools over MCP with the `ponder-mcp` command
 
