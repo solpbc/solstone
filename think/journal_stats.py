@@ -14,7 +14,6 @@ DATE_RE = re.compile(r"\d{8}")
 FLAC_RE = re.compile(r"^(\d{6})_audio\.flac$")
 AUDIO_JSON_RE = re.compile(r"^(\d{6})_audio\.json$")
 DIFF_PNG_RE = re.compile(r"^(\d{6})_monitor_\d+_diff\.png$")
-BOX_JSON_RE = re.compile(r"^(\d{6})_monitor_\d+_diff_box\.json$")
 DESC_JSON_RE = re.compile(r"^(\d{6})_monitor_\d+_diff\.json$")
 SCREEN_MD_RE = re.compile(r"^(\d{6})_screen\.md$")
 
@@ -63,8 +62,6 @@ class JournalStats:
                     image_bytes += os.path.getsize(file_path)
                 except OSError:
                     pass
-            elif BOX_JSON_RE.match(name):
-                stats["box_json"] += 1
             elif DESC_JSON_RE.match(name):
                 stats["desc_json"] += 1
             elif SCREEN_MD_RE.match(name):
