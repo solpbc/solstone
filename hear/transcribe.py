@@ -214,12 +214,16 @@ class Transcriber:
         if self._transcribe_segments(raw_path, segments):
             self.processed.add(json_path.name)
 
-    def repair_day(self, date_str: str):
-        """Repair incomplete processing for a specific day."""
+    def repair_day(self, date_str: str, dry_run: bool = False) -> int:
+        """Repair incomplete processing for a specific day.
+
+        When ``dry_run`` is ``True`` the method only returns the number of
+        audio files that would be processed.
+        """
         day_dir = self.journal_dir / date_str
         if not day_dir.exists():
             logging.error(f"Day directory {day_dir} does not exist")
-            return
+            return 0
 
         logging.info(f"Repairing day {date_str} in {day_dir}")
 
@@ -244,9 +248,14 @@ class Transcriber:
 
         logging.info(f"Found {len(missing)} audio files missing transcripts")
 
+        if dry_run:
+            return len(missing)
+
         for audio_path in missing:
             logging.info(f"Processing audio file: {audio_path}")
             self._handle_raw(audio_path)
+
+        return len(missing)
 
     def start(self):
         handler = PatternMatchingEventHandler(patterns=["*_raw.flac"], ignore_directories=True)

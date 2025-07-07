@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% import 'macros.html' as macros %}
 {% set active = 'calendar' %}
 {% block head %}
 <style>
@@ -12,19 +13,14 @@ body{font-family:sans-serif;margin:0;}
 {% endblock %}
 {% block body %}
 <div class="container">
-  <h1>
-    {% if prev_day %}
-    <a href="{{ url_for('calendar.calendar_day', day=prev_day) }}" aria-label="Previous day" style="text-decoration:none">&#9664;</a>
-    {% endif %}
-    {{ title }}
-    {% if next_day %}
-    <a href="{{ url_for('calendar.calendar_day', day=next_day) }}" aria-label="Next day" style="text-decoration:none">&#9654;</a>
-    {% endif %}
-  </h1>
+  {{ macros.day_heading(title,
+        prev_day and url_for('calendar.calendar_day', day=prev_day),
+        next_day and url_for('calendar.calendar_day', day=next_day)) }}
   <div class="tabs">
     {% for file in files %}
     <a class="tab{% if loop.first %} active{% endif %}" href="#{{ file.slug }}" data-target="{{ file.slug }}">{{ file.label }}</a>
     {% endfor %}
+    <a class="tab" href="{{ url_for('admin.admin_day_page', day=day) }}" title="Admin" aria-label="Admin" style="font-size:20px">⚙️</a>
   </div>
   {% for file in files %}
   <div class="content" id="{{ file.slug }}" style="{% if not loop.first %}display:none{% endif %}">

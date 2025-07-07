@@ -63,12 +63,16 @@ class Describer:
         with Image.open(img_path) as im:
             return gemini_look.gemini_describe_region(im, box, entities=str(self.entities))
 
-    def repair_day(self, date_str: str):
-        """Repair incomplete processing for a specific day."""
+    def repair_day(self, date_str: str, dry_run: bool = False) -> int:
+        """Repair incomplete processing for a specific day.
+
+        When ``dry_run`` is ``True`` no files are processed and the method
+        simply returns the number of files that would be repaired.
+        """
         day_dir = self.journal_dir / date_str
         if not day_dir.exists():
             logging.error(f"Day directory {day_dir} does not exist")
-            return
+            return 0
 
         logging.info(f"Repairing day {date_str} in {day_dir}")
 
@@ -90,6 +94,9 @@ class Describer:
 
         logging.info(f"Found {len(missing_descriptions)} images missing descriptions")
 
+        if dry_run:
+            return len(missing_descriptions)
+
         # Process missing descriptions sequentially
         for img_path, box_path, json_path in missing_descriptions:
             try:
@@ -97,6 +104,8 @@ class Describer:
                 self._process_once(img_path, box_path, json_path)
             except Exception as e:
                 logging.error(f"Failed to describe {img_path}: {e}")
+
+        return len(missing_descriptions)
 
     def start(self):
         handler = PatternMatchingEventHandler(patterns=["*_diff_box.json"], ignore_directories=True)

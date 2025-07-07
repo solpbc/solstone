@@ -13,6 +13,7 @@ from flask import Flask
 
 from . import state
 from .utils import (
+    adjacent_days,
     build_occurrence_index,
     format_date,
     generate_top_summary,
@@ -27,7 +28,11 @@ from .views import entities as entities_view
 from .views import home as home_view
 from .views import register_views
 from .views import search as search_view
+
+# isort: off
 from .task_runner import task_runner
+
+# isort: on
 
 import_page_view = import_module(".import", "dream.views")
 
@@ -99,6 +104,7 @@ __all__ = [
     "api_top_update",
     "api_modify_entity",
     "calendar_occurrences",
+    "adjacent_days",
     "login",
     "logout",
     "admin_page",

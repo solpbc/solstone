@@ -1,0 +1,7 @@
+{% macro day_heading(title, prev_url=None, next_url=None) %}
+  <h1>
+    {% if prev_url %}<a href="{{ prev_url }}" aria-label="Previous day" style="text-decoration:none">&#9664;</a>{% endif %}
+    {{ title }}
+    {% if next_url %}<a href="{{ next_url }}" aria-label="Next day" style="text-decoration:none">&#9654;</a>{% endif %}
+  </h1>
+{% endmacro %}
