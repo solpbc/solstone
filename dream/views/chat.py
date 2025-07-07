@@ -8,7 +8,7 @@ from flask import Blueprint, jsonify, render_template, request
 from google import genai
 from google.genai import types
 
-from mcp_tools import sunstone_toolset
+from think.mcp_tools import sunstone_toolset
 from think.models import GEMINI_FLASH
 
 bp = Blueprint("chat", __name__, template_folder="../templates")
