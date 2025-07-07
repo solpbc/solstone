@@ -7,6 +7,7 @@ import json
 import os
 import sys
 from datetime import datetime, timezone
+from enum import Enum
 from pathlib import Path
 from typing import Any, Dict, Iterable, List
 
@@ -56,3 +57,50 @@ class CrumbBuilder:
         with open(crumb_path, "w", encoding="utf-8") as f:
             json.dump(crumb, f, indent=2)
         return crumb_path
+
+
+class CrumbState(str, Enum):
+    """Result of :func:`validate_crumb`."""
+
+    MISSING = "missing"
+    STALE = "stale"
+    OK = "ok"
+
+
+def validate_crumb(output: str | Path) -> CrumbState:
+    """Return status for ``output`` based on its ``.crumb`` file."""
+
+    output_path = Path(output)
+    crumb_path = Path(str(output) + ".crumb")
+
+    if not output_path.exists() or not crumb_path.exists():
+        return CrumbState.MISSING
+
+    try:
+        with open(crumb_path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+    except Exception:
+        return CrumbState.STALE
+
+    for dep in data.get("dependencies", []):
+        dep_type = dep.get("type")
+        if dep_type == "file":
+            path = dep.get("path")
+            mtime = dep.get("mtime")
+            if not path or not os.path.exists(path) or int(os.path.getmtime(path)) != mtime:
+                return CrumbState.STALE
+        elif dep_type == "glob":
+            pattern = dep.get("pattern", "")
+            recorded = dep.get("files", {})
+            matches = glob.glob(pattern)
+            if set(matches) != set(recorded):
+                return CrumbState.STALE
+            for m in matches:
+                if int(os.path.getmtime(m)) != recorded[m]:
+                    return CrumbState.STALE
+        elif dep_type == "model":
+            continue
+        else:
+            return CrumbState.STALE
+
+    return CrumbState.OK
