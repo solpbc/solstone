@@ -18,12 +18,28 @@ pre { background:#f5f5f5; padding:0.5em; }
   <button id="reduceBtn">Screen Reduce</button>
   <pre id="status"></pre>
 </div>
+<div id="taskModal" class="modal">
+  <div class="modal-content">
+    <pre id="taskOutput"></pre>
+  </div>
+</div>
 <script>
-function post(url){return fetch(url,{method:'POST'}).then(r=>r.json()).then(d=>{document.getElementById('status').textContent=JSON.stringify(d,null,2);});}
-
-document.getElementById('repairBtn').onclick=()=>post('{{ url_for('admin.admin_repair', day=day) }}');
-document.getElementById('ponderBtn').onclick=()=>post('{{ url_for('admin.admin_ponder', day=day) }}');
-document.getElementById('entityBtn').onclick=()=>post('{{ url_for('admin.admin_entity', day=day) }}');
-document.getElementById('reduceBtn').onclick=()=>post('{{ url_for('admin.admin_reduce', day=day) }}');
+function runTask(url){
+  const modal=document.getElementById('taskModal');
+  const out=document.getElementById('taskOutput');
+  out.textContent='';
+  modal.style.display='block';
+  fetch(url,{method:'POST'}).then(r=>r.json()).then(d=>{
+    if(d.job_id){
+      const ws=new WebSocket(`ws://${location.hostname}:8765/${d.job_id}`);
+      ws.onmessage=e=>{if(e.data==='__DONE__'){ws.close();}else{out.textContent+=e.data+'\n';}};
+      ws.onclose=()=>{out.textContent+='\n[completed]\n';};
+    }else{out.textContent=JSON.stringify(d,null,2);} });
+}
+document.getElementById('repairBtn').onclick=()=>runTask('{{ url_for('admin.admin_repair', day=day) }}');
+document.getElementById('ponderBtn').onclick=()=>runTask('{{ url_for('admin.admin_ponder', day=day) }}');
+document.getElementById('entityBtn').onclick=()=>runTask('{{ url_for('admin.admin_entity', day=day) }}');
+document.getElementById('reduceBtn').onclick=()=>runTask('{{ url_for('admin.admin_reduce', day=day) }}');
+window.onclick=e=>{if(e.target==document.getElementById('taskModal'))document.getElementById('taskModal').style.display='none';};
 </script>
 {% endblock %}

@@ -27,6 +27,7 @@ from .views import entities as entities_view
 from .views import home as home_view
 from .views import register_views
 from .views import search as search_view
+from .wslog import ws_server
 
 import_page_view = import_module(".import", "dream.views")
 
@@ -41,6 +42,8 @@ def create_app(journal: str = "", password: str = "") -> Flask:
     app.secret_key = os.getenv("DREAM_SECRET", "sunstone-secret")
     app.config["PASSWORD"] = password
     register_views(app)
+    if "PYTEST_CURRENT_TEST" not in os.environ:
+        ws_server.start()
 
     if journal:
         state.journal_root = journal
