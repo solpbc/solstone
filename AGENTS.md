@@ -27,10 +27,10 @@ on these are available in the `JOURNAL.md` file.
 
 ## Development guidelines
 
-- Use **Python 3.9+** and keep code formatted with `black` (line length 100) and
+- Use **Python 3.9+** and keep code formatted with `black` and
   `isort`. The configuration resides in `pyproject.toml`.
 - Linting with `flake8` and type checking with `mypy` are recommended.
-- If tests are added under `tests/`, run `pytest` before committing.
+- Tests are under `tests/`, run `pytest` before committing, install dependencies or use mocks if needed.
 - The dependencies declared in `pyproject.toml` include heavy optional
   packages (for example `torch` and `PyGObject`).  If `pip install -e .[dev]`
   fails you can install only the minimal set needed for the tests:
