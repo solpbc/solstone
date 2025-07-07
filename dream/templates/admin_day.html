@@ -1,0 +1,29 @@
+{% extends 'base.html' %}
+{% set title = 'Admin ' + day %}
+{% set active = 'admin' %}
+{% block head %}
+<style>
+body { font-family: sans-serif; margin:0; }
+.container { max-width:600px; margin:0 auto; padding:1em; }
+button { padding:8px 16px; margin:0.5em 0; }
+pre { background:#f5f5f5; padding:0.5em; }
+</style>
+{% endblock %}
+{% block body %}
+<div class="container">
+  <h1>Admin {{ day }}</h1>
+  <button id="repairBtn">Run Repairs</button>
+  <button id="ponderBtn">Run Ponder Prompts</button>
+  <button id="entityBtn">Entity Roll</button>
+  <button id="reduceBtn">Screen Reduce</button>
+  <pre id="status"></pre>
+</div>
+<script>
+function post(url){return fetch(url,{method:'POST'}).then(r=>r.json()).then(d=>{document.getElementById('status').textContent=JSON.stringify(d,null,2);});}
+
+document.getElementById('repairBtn').onclick=()=>post('{{ url_for('admin.admin_repair', day=day) }}');
+document.getElementById('ponderBtn').onclick=()=>post('{{ url_for('admin.admin_ponder', day=day) }}');
+document.getElementById('entityBtn').onclick=()=>post('{{ url_for('admin.admin_entity', day=day) }}');
+document.getElementById('reduceBtn').onclick=()=>post('{{ url_for('admin.admin_reduce', day=day) }}');
+</script>
+{% endblock %}

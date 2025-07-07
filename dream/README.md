@@ -53,3 +53,7 @@ This small structure keeps dependencies clear and makes it easy to focus on a si
 - Events in the calendar hour view modal also link to these anchors so you can
   jump straight from an event to the relevant markdown section.
 
+
+### Admin view
+
+Navigate to `/admin` for index and reindex options. A specific day can be opened at `/admin/YYYYMMDD` to run repairs, ponder prompts, entity roll and screen reduction.

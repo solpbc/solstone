@@ -64,6 +64,11 @@ send_message = chat_view.send_message
 search_page = search_view.search_page
 import_page = import_page_view.import_page
 admin_page = admin_view.admin_page
+admin_day_page = admin_view.admin_day_page
+admin_repair = admin_view.admin_repair
+admin_ponder = admin_view.admin_ponder
+admin_entity = admin_view.admin_entity
+admin_reduce = admin_view.admin_reduce
 reindex = admin_view.reindex
 refresh_summary = admin_view.refresh_summary
 reload_entities_view = admin_view.reload_entities_view
@@ -94,6 +99,11 @@ __all__ = [
     "login",
     "logout",
     "admin_page",
+    "admin_day_page",
+    "admin_repair",
+    "admin_ponder",
+    "admin_entity",
+    "admin_reduce",
     "reindex",
     "refresh_summary",
     "reload_entities_view",
