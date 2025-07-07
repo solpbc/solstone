@@ -1,5 +1,5 @@
 {% extends 'base.html' %}
-{% set title = 'Admin ' + day %}
+{% import 'macros.html' as macros %}
 {% set active = 'admin' %}
 {% block head %}
 <style>
@@ -14,7 +14,9 @@ pre { background:#f5f5f5; padding:0.5em; }
 {% endblock %}
 {% block body %}
 <div class="container">
-  <h1>Admin {{ day }}</h1>
+  {{ macros.day_heading(title,
+        prev_day and url_for('admin.admin_day_page', day=prev_day),
+        next_day and url_for('admin.admin_day_page', day=next_day)) }}
   <button id="repairBtn">Run Repairs</button>
   <button id="ponderBtn">Run Ponder Prompts</button>
   <button id="entityBtn">Entity Roll</button>

@@ -7,8 +7,8 @@ from typing import Any
 from flask import Blueprint, jsonify, render_template
 
 from .. import state
-from ..utils import DATE_RE
 from ..task_runner import run_task
+from ..utils import DATE_RE, adjacent_days, format_date
 
 bp = Blueprint("admin", __name__, template_folder="../templates")
 
@@ -44,13 +44,20 @@ def _valid_day(day: str) -> bool:
     return os.path.isdir(os.path.join(state.journal_root, day))
 
 
-
-
 @bp.route("/admin/<day>")
 def admin_day_page(day: str) -> str:
     if not _valid_day(day):
         return "", 404
-    return render_template("admin_day.html", active="admin", day=day)
+    title = format_date(day)
+    prev_day, next_day = adjacent_days(state.journal_root, day)
+    return render_template(
+        "admin_day.html",
+        active="admin",
+        day=day,
+        title=f"Admin {title}",
+        prev_day=prev_day,
+        next_day=next_day,
+    )
 
 
 @bp.route("/admin/api/<day>/repairs", methods=["POST"])

@@ -13,6 +13,19 @@ from think.models import GEMINI_FLASH
 DATE_RE = re.compile(r"\d{8}")
 
 
+def adjacent_days(journal: str, day: str) -> tuple[Optional[str], Optional[str]]:
+    """Return previous and next day folder names if they exist."""
+    if not journal or not os.path.isdir(journal):
+        return None, None
+    days = sorted(d for d in os.listdir(journal) if DATE_RE.fullmatch(d))
+    if day not in days:
+        return None, None
+    idx = days.index(day)
+    prev_day = days[idx - 1] if idx > 0 else None
+    next_day = days[idx + 1] if idx < len(days) - 1 else None
+    return prev_day, next_day
+
+
 def format_date(date_str: str) -> str:
     """Convert YYYYMMDD to 'Wednesday April 2nd' format."""
     try:

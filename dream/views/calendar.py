@@ -7,7 +7,7 @@ from typing import Any
 from flask import Blueprint, jsonify, render_template
 
 from .. import state
-from ..utils import DATE_RE, build_occurrence_index, format_date
+from ..utils import DATE_RE, adjacent_days, build_occurrence_index, format_date
 
 bp = Blueprint("calendar", __name__, template_folder="../templates")
 
@@ -43,14 +43,7 @@ def calendar_day(day: str) -> str:
             label = base.replace("_", " ").title()
             files.append({"label": label, "html": html, "slug": base})
     title = format_date(day)
-    days = sorted(d for d in os.listdir(state.journal_root) if re.fullmatch(DATE_RE, d))
-    prev_day = next_day = None
-    if day in days:
-        idx = days.index(day)
-        if idx > 0:
-            prev_day = days[idx - 1]
-        if idx < len(days) - 1:
-            next_day = days[idx + 1]
+    prev_day, next_day = adjacent_days(state.journal_root, day)
     return render_template(
         "day.html",
         active="calendar",
@@ -58,6 +51,7 @@ def calendar_day(day: str) -> str:
         files=files,
         prev_day=prev_day,
         next_day=next_day,
+        day=day,
     )
 
 
