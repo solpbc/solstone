@@ -27,7 +27,7 @@ from .views import entities as entities_view
 from .views import home as home_view
 from .views import register_views
 from .views import search as search_view
-from .wslog import ws_server
+from .task_runner import task_runner
 
 import_page_view = import_module(".import", "dream.views")
 
@@ -43,7 +43,7 @@ def create_app(journal: str = "", password: str = "") -> Flask:
     app.config["PASSWORD"] = password
     register_views(app)
     if "PYTEST_CURRENT_TEST" not in os.environ:
-        ws_server.start()
+        task_runner.start()
 
     if journal:
         state.journal_root = journal

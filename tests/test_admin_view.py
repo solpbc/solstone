@@ -14,19 +14,13 @@ def test_admin_actions(monkeypatch, tmp_path):
     review.journal_root = str(tmp_path)
     called = {}
 
-    monkeypatch.setattr("dream.views.admin.load_cache", lambda j: {})
-    monkeypatch.setattr(
-        "dream.views.admin.save_cache", lambda j, c: called.setdefault("save", True)
-    )
-    monkeypatch.setattr(
-        "dream.views.admin.scan_entities", lambda j, c: called.setdefault("entities", True) or True
-    )
-    monkeypatch.setattr(
-        "dream.views.admin.scan_ponders", lambda j, c: called.setdefault("ponders", True) or True
-    )
-    monkeypatch.setattr(
-        "dream.views.admin.scan_occurrences", lambda j, c: called.setdefault("occ", True) or True
-    )
+    import sys
+    tr = sys.modules["dream.task_runner"]
+    monkeypatch.setattr(tr, "load_cache", lambda j: {})
+    monkeypatch.setattr(tr, "save_cache", lambda j, c: called.setdefault("save", True))
+    monkeypatch.setattr(tr, "scan_entities", lambda j, c: called.setdefault("entities", True) or True)
+    monkeypatch.setattr(tr, "scan_ponders", lambda j, c: called.setdefault("ponders", True) or True)
+    monkeypatch.setattr(tr, "scan_occurrences", lambda j, c: called.setdefault("occ", True) or True)
 
     with review.app.test_request_context("/admin/api/reindex", method="POST"):
         resp = review.reindex()
@@ -35,10 +29,13 @@ def test_admin_actions(monkeypatch, tmp_path):
 
     called.clear()
     monkeypatch.setattr(
-        "dream.views.admin.JournalStats.scan", lambda self, j: called.setdefault("scan", True)
+        sys.modules["dream.task_runner"].JournalStats,
+        "scan",
+        lambda self, j: called.setdefault("scan", True),
     )
     monkeypatch.setattr(
-        "dream.views.admin.JournalStats.save_markdown",
+        sys.modules["dream.task_runner"].JournalStats,
+        "save_markdown",
         lambda self, j: called.setdefault("save", True),
     )
     with review.app.test_request_context("/admin/api/summary", method="POST"):
@@ -47,9 +44,9 @@ def test_admin_actions(monkeypatch, tmp_path):
     assert called == {"scan": True, "save": True}
 
     called.clear()
-    monkeypatch.setattr(
-        "dream.views.admin.reload_entities", lambda: called.setdefault("reload", True)
-    )
+    import sys
+    tr = sys.modules["dream.task_runner"]
+    monkeypatch.setattr(tr, "reload_entities", lambda: called.setdefault("reload", True))
     with review.app.test_request_context("/admin/api/reload_entities", method="POST"):
         resp = review.reload_entities_view()
     assert resp.json["status"] == "ok"

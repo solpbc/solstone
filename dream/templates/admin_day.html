@@ -28,22 +28,25 @@ pre { background:#f5f5f5; padding:0.5em; }
   </div>
 </div>
 <script>
-function runTask(url){
+function runTask(data){
   const modal=document.getElementById('taskModal');
   const out=document.getElementById('taskOutput');
-  out.textContent='';
+  out.innerHTML='';
   modal.style.display='block';
-  fetch(url,{method:'POST'}).then(r=>r.json()).then(d=>{
-    if(d.job_id){
-      const ws=new WebSocket(`ws://${location.hostname}:8765/${d.job_id}`);
-      ws.onmessage=e=>{if(e.data==='__DONE__'){ws.close();}else{out.textContent+=e.data+'\n';}};
-      ws.onclose=()=>{out.textContent+='\n[completed]\n';};
-    }else{out.textContent=JSON.stringify(d,null,2);} });
+  const ws=new WebSocket(`ws://${location.hostname}:8765`);
+  ws.onopen=()=>ws.send(JSON.stringify(data));
+  ws.onmessage=e=>{
+    const msg=JSON.parse(e.data);
+    if(msg.type==='stdout') out.innerHTML+=msg.text+'\n';
+    else if(msg.type==='stderr') out.innerHTML+='<span style="color:red">'+msg.text+'</span>\n';
+    else if(msg.type==='exit'){out.innerHTML+='[exit '+msg.code+']\n'; ws.close();}
+  };
+  ws.onclose=()=>{out.innerHTML+='\n[completed]\n';};
 }
-document.getElementById('repairBtn').onclick=()=>runTask('{{ url_for('admin.admin_repair', day=day) }}');
-document.getElementById('ponderBtn').onclick=()=>runTask('{{ url_for('admin.admin_ponder', day=day) }}');
-document.getElementById('entityBtn').onclick=()=>runTask('{{ url_for('admin.admin_entity', day=day) }}');
-document.getElementById('reduceBtn').onclick=()=>runTask('{{ url_for('admin.admin_reduce', day=day) }}');
+document.getElementById('repairBtn').onclick=()=>runTask({task:'repairs',day:'{{ day }}'});
+document.getElementById('ponderBtn').onclick=()=>runTask({task:'ponder',day:'{{ day }}'});
+document.getElementById('entityBtn').onclick=()=>runTask({task:'entity',day:'{{ day }}'});
+document.getElementById('reduceBtn').onclick=()=>runTask({task:'reduce',day:'{{ day }}'});
 document.querySelector('.close').onclick=()=>{document.getElementById('taskModal').style.display='none';};
 window.onclick=e=>{if(e.target==document.getElementById('taskModal'))document.getElementById('taskModal').style.display='none';};
 </script>

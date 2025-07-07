@@ -27,21 +27,24 @@ pre { background:#f5f5f5; padding:0.5em; }
   </div>
 </div>
 <script>
-function runTask(url){
+function runTask(data){
   const modal=document.getElementById('taskModal');
   const out=document.getElementById('taskOutput');
-  out.textContent='';
+  out.innerHTML='';
   modal.style.display='block';
-  fetch(url,{method:'POST'}).then(r=>r.json()).then(d=>{
-    if(d.job_id){
-      const ws=new WebSocket(`ws://${location.hostname}:8765/${d.job_id}`);
-      ws.onmessage=e=>{if(e.data==='__DONE__'){ws.close();}else{out.textContent+=e.data+'\n';}};
-      ws.onclose=()=>{out.textContent+='\n[completed]\n';};
-    }else{out.textContent=JSON.stringify(d,null,2);} });
+  const ws=new WebSocket(`ws://${location.hostname}:8765`);
+  ws.onopen=()=>ws.send(JSON.stringify(data));
+  ws.onmessage=e=>{
+    const msg=JSON.parse(e.data);
+    if(msg.type==='stdout') out.innerHTML+=msg.text+'\n';
+    else if(msg.type==='stderr') out.innerHTML+='<span style="color:red">'+msg.text+'</span>\n';
+    else if(msg.type==='exit'){out.innerHTML+='[exit '+msg.code+']\n'; ws.close();}
+  };
+  ws.onclose=()=>{out.innerHTML+='\n[completed]\n';};
 }
-document.getElementById('reindexBtn').onclick=()=>runTask('{{ url_for('admin.reindex') }}');
-document.getElementById('summaryBtn').onclick=()=>runTask('{{ url_for('admin.refresh_summary') }}');
-document.getElementById('entitiesBtn').onclick=()=>runTask('{{ url_for('admin.reload_entities_view') }}');
+document.getElementById('reindexBtn').onclick=()=>runTask({task:'reindex'});
+document.getElementById('summaryBtn').onclick=()=>runTask({task:'summary'});
+document.getElementById('entitiesBtn').onclick=()=>runTask({task:'reload_entities'});
 document.querySelector('.close').onclick=()=>{document.getElementById('taskModal').style.display='none';};
 window.onclick=e=>{if(e.target==document.getElementById('taskModal'))document.getElementById('taskModal').style.display='none';};
 </script>

@@ -16,12 +16,13 @@ def test_admin_day_actions(monkeypatch, tmp_path):
     review.journal_root = str(tmp_path)
     called = []
 
-    monkeypatch.setattr("dream.views.admin._run", lambda cmd: called.append(cmd))
+    import sys
+    tr = sys.modules["dream.task_runner"]
+    monkeypatch.setattr(tr, "_run_command", lambda cmd, log: called.append(cmd) or 0)
     monkeypatch.setattr(
-        "dream.views.admin.entity_roll.process_day",
-        lambda day, dirs, force: called.append(["entity", day]),
+        tr.entity_roll, "process_day", lambda day, dirs, force: called.append(["entity", day])
     )
-    monkeypatch.setattr("dream.views.admin.reduce_day", lambda day: called.append(["reduce", day]))
+    monkeypatch.setattr(tr, "reduce_day", lambda day: called.append(["reduce", day]))
     monkeypatch.setattr(
         "glob.glob", lambda pattern: ["prompt1.txt", "prompt2.txt"] if "ponder" in pattern else []
     )
