@@ -20,16 +20,23 @@ pre { background:#f5f5f5; padding:0.5em; }
   <button id="summaryBtn">Refresh Summary</button>
   <button id="entitiesBtn">Reload Entities</button>
   <pre id="status"></pre>
-  {% if repair_days %}
+  {% if repair_data %}
   <h2>Outstanding Repairables</h2>
-  <ul>
-  {% for d in repair_days %}
-    <li><a href="{{ url_for('admin.admin_day_page', day=d.day) }}">{{ d.day }}</a>
-      - hear: {{ d.hear }}, see: {{ d.see }}, reduce: {{ d.reduce }},
-        ponder: {{ d.ponder }}, entity: {{ d.entity }}
-    </li>
-  {% endfor %}
+  <div class="tabs">
+    {% set cats = ['hear','see','reduce','ponder','entity'] %}
+    {% for cat in cats %}
+    <div class="tab{% if loop.first %} active{% endif %}" data-target="{{ cat }}">{{ cat.capitalize() }}</div>
+    {% endfor %}
+  </div>
+  {% for cat in cats %}
+  <ul class="content" id="{{ cat }}" style="{% if not loop.first %}display:none{% endif %}">
+    {% for item in repair_data[cat] %}
+    <li><a href="{{ url_for('admin.admin_day_page', day=item.day) }}">{{ item.day }}</a> - {{ item.count }}</li>
+    {% else %}
+    <li>No items</li>
+    {% endfor %}
   </ul>
+  {% endfor %}
   {% endif %}
 </div>
 <div id="taskModal" class="modal">
@@ -39,6 +46,13 @@ pre { background:#f5f5f5; padding:0.5em; }
   </div>
 </div>
 <script>
+const tabs = document.querySelectorAll('.tab');
+const contents = document.querySelectorAll('.content');
+function showTab(id){
+  tabs.forEach(t=>t.classList.toggle('active', t.dataset.target===id));
+  contents.forEach(c=>{c.style.display=c.id===id?'block':'none';});
+}
+tabs.forEach(t=>t.addEventListener('click', ()=>showTab(t.dataset.target)));
 function runTask(data){
   const modal=document.getElementById('taskModal');
   const out=document.getElementById('taskOutput');

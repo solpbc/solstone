@@ -23,7 +23,13 @@ bp = Blueprint("admin", __name__, template_folder="../templates")
 
 @bp.route("/admin")
 def admin_page() -> str:
-    repair_days: list[dict[str, Any]] = []
+    repair_by_cat: dict[str, list[dict[str, Any]]] = {
+        "hear": [],
+        "see": [],
+        "reduce": [],
+        "ponder": [],
+        "entity": [],
+    }
     if state.journal_root:
         stats_path = Path(state.journal_root) / "stats.json"
         if stats_path.is_file():
@@ -32,19 +38,19 @@ def admin_page() -> str:
                     data = json.load(f)
                 for day in sorted(data.get("days", {})):
                     d = data["days"].get(day, {})
-                    info = {
-                        "day": day,
+                    day_info = {
                         "hear": d.get("repair_hear", 0),
                         "see": d.get("repair_see", 0),
                         "reduce": d.get("repair_reduce", 0),
                         "ponder": d.get("repair_ponder", 0),
                         "entity": d.get("repair_entity", 0),
                     }
-                    if any(info[k] for k in ("hear", "see", "reduce", "ponder", "entity")):
-                        repair_days.append(info)
+                    for cat, count in day_info.items():
+                        if count > 0:
+                            repair_by_cat[cat].append({"day": day, "count": count})
             except Exception:
-                repair_days = []
-    return render_template("admin.html", active="admin", repair_days=repair_days)
+                repair_by_cat = {k: [] for k in repair_by_cat}
+    return render_template("admin.html", active="admin", repair_data=repair_by_cat)
 
 
 @bp.route("/admin/api/reindex", methods=["POST"])
