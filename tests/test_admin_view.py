@@ -1,4 +1,5 @@
 import importlib
+import json
 
 
 def test_admin_page(tmp_path):
@@ -9,16 +10,40 @@ def test_admin_page(tmp_path):
     assert "Admin" in html
 
 
+def test_admin_page_lists_repairables(tmp_path):
+    review = importlib.import_module("dream")
+    stats = {
+        "days": {
+            "20240101": {
+                "repair_hear": 1,
+                "repair_see": 0,
+                "repair_reduce": 0,
+                "repair_ponder": 0,
+                "repair_entity": 0,
+            }
+        }
+    }
+    (tmp_path / "stats.json").write_text(json.dumps(stats))
+    review.journal_root = str(tmp_path)
+    with review.app.test_request_context("/admin"):
+        html = review.admin_page()
+    assert "20240101" in html
+    assert "hear: 1" in html
+
+
 def test_admin_actions(monkeypatch, tmp_path):
     review = importlib.import_module("dream")
     review.journal_root = str(tmp_path)
     called = {}
 
     import sys
+
     tr = sys.modules["dream.task_runner"]
     monkeypatch.setattr(tr, "load_cache", lambda j: {})
     monkeypatch.setattr(tr, "save_cache", lambda j, c: called.setdefault("save", True))
-    monkeypatch.setattr(tr, "scan_entities", lambda j, c: called.setdefault("entities", True) or True)
+    monkeypatch.setattr(
+        tr, "scan_entities", lambda j, c: called.setdefault("entities", True) or True
+    )
     monkeypatch.setattr(tr, "scan_ponders", lambda j, c: called.setdefault("ponders", True) or True)
     monkeypatch.setattr(tr, "scan_occurrences", lambda j, c: called.setdefault("occ", True) or True)
 
@@ -45,6 +70,7 @@ def test_admin_actions(monkeypatch, tmp_path):
 
     called.clear()
     import sys
+
     tr = sys.modules["dream.task_runner"]
     monkeypatch.setattr(tr, "reload_entities", lambda: called.setdefault("reload", True))
     with review.app.test_request_context("/admin/api/reload_entities", method="POST"):

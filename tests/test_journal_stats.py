@@ -7,7 +7,6 @@ def test_scan_day(tmp_path, monkeypatch):
     day = journal / "20240101"
     day.mkdir()
     (day / "123456_audio.flac").write_bytes(b"RIFF")
-    (day / "123456_audio.json").write_text("{}")
     (day / "123456_monitor_1_diff.png").write_bytes(b"PNG")
     (day / "123456_monitor_1_diff_box.json").write_text("{}")
     (day / "123456_monitor_1_diff.json").write_text("{}")
@@ -18,6 +17,7 @@ def test_scan_day(tmp_path, monkeypatch):
     js = stats_mod.JournalStats()
     js.scan_day("20240101", str(day))
     assert js.days["20240101"]["audio_flac"] == 1
+    assert js.days["20240101"]["repair_hear"] == 1
     assert js.totals["diff_png"] == 1
 
 

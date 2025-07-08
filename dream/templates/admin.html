@@ -20,6 +20,17 @@ pre { background:#f5f5f5; padding:0.5em; }
   <button id="summaryBtn">Refresh Summary</button>
   <button id="entitiesBtn">Reload Entities</button>
   <pre id="status"></pre>
+  {% if repair_days %}
+  <h2>Outstanding Repairables</h2>
+  <ul>
+  {% for d in repair_days %}
+    <li><a href="{{ url_for('admin.admin_day_page', day=d.day) }}">{{ d.day }}</a>
+      - hear: {{ d.hear }}, see: {{ d.see }}, reduce: {{ d.reduce }},
+        ponder: {{ d.ponder }}, entity: {{ d.entity }}
+    </li>
+  {% endfor %}
+  </ul>
+  {% endif %}
 </div>
 <div id="taskModal" class="modal">
   <div class="modal-content">

@@ -14,6 +14,7 @@ from dotenv import load_dotenv
 from hear.transcribe import Transcriber
 from see.describe import Describer
 from see.reduce import scan_day as reduce_scan_day
+from think.entity_roll import scan_day as entity_scan_day
 from think.ponder import scan_day as ponder_scan_day
 
 DATE_RE = re.compile(r"\d{8}")
@@ -50,11 +51,13 @@ class JournalStats:
                 except OSError:
                     pass
         stats["audio_json"] = len(audio_info["processed"])
+        stats["repair_hear"] = len(audio_info["repairable"])
 
         # --- see ---
         diff_info = Describer.scan_day(day_dir)
         stats["diff_png"] = len(diff_info["raw"])
         stats["desc_json"] = len(diff_info["processed"])
+        stats["repair_see"] = len(diff_info["repairable"])
         for img_name in diff_info["raw"]:
             img_path = day_dir / img_name
             try:
@@ -64,11 +67,15 @@ class JournalStats:
 
         screen_info = reduce_scan_day(day)
         stats["screen_md"] = len(screen_info["processed"])
+        stats["repair_reduce"] = len(screen_info["repairable"])
 
         # --- think ---
         stats["entities"] = int((day_dir / "entities.md").exists())
+        entity_info = entity_scan_day(day)
+        stats["repair_entity"] = len(entity_info["repairable"])
         ponder_info = ponder_scan_day(day)
         stats["ponder"] = int(bool(ponder_info["processed"]))
+        stats["repair_ponder"] = len(ponder_info["repairable"])
 
         counts_for_totals = dict(stats)
         self.totals.update(counts_for_totals)
