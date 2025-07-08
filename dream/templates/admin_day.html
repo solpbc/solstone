@@ -17,10 +17,11 @@ pre { background:#f5f5f5; padding:0.5em; }
   {{ macros.day_heading(title,
         prev_day and url_for('admin.admin_day_page', day=prev_day),
         next_day and url_for('admin.admin_day_page', day=next_day)) }}
-  <button id="repairBtn">Run Repairs</button>
+  <button id="hearRepairBtn">Hear Repair ({{ hear_count }})</button>
+  <button id="seeRepairBtn">See Repair ({{ see_count }})</button>
   <button id="ponderBtn">Run Ponder Prompts</button>
   <button id="entityBtn">Entity Roll</button>
-  <button id="reduceBtn">Screen Reduce</button>
+  <button id="reduceBtn">Screen Reduce ({{ reduce_count }})</button>
   <pre id="status"></pre>
 </div>
 <div id="taskModal" class="modal">
@@ -45,7 +46,8 @@ function runTask(data){
   };
   ws.onclose=()=>{out.innerHTML+='\n[completed]\n';};
 }
-document.getElementById('repairBtn').onclick=()=>runTask({task:'repairs',day:'{{ day }}'});
+document.getElementById('hearRepairBtn').onclick=()=>runTask({task:'hear_repair',day:'{{ day }}'});
+document.getElementById('seeRepairBtn').onclick=()=>runTask({task:'see_repair',day:'{{ day }}'});
 document.getElementById('ponderBtn').onclick=()=>runTask({task:'ponder',day:'{{ day }}'});
 document.getElementById('entityBtn').onclick=()=>runTask({task:'entity',day:'{{ day }}'});
 document.getElementById('reduceBtn').onclick=()=>runTask({task:'reduce',day:'{{ day }}'});

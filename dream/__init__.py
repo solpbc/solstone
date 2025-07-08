@@ -73,7 +73,8 @@ search_page = search_view.search_page
 import_page = import_page_view.import_page
 admin_page = admin_view.admin_page
 admin_day_page = admin_view.admin_day_page
-admin_repair = admin_view.admin_repair
+admin_repair_hear = admin_view.admin_repair_hear
+admin_repair_see = admin_view.admin_repair_see
 admin_ponder = admin_view.admin_ponder
 admin_entity = admin_view.admin_entity
 admin_reduce = admin_view.admin_reduce
@@ -109,7 +110,8 @@ __all__ = [
     "logout",
     "admin_page",
     "admin_day_page",
-    "admin_repair",
+    "admin_repair_hear",
+    "admin_repair_see",
     "admin_ponder",
     "admin_entity",
     "admin_reduce",

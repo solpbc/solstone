@@ -98,12 +98,14 @@ def run_task(
             elif name == "reload_entities":
                 reload_entities()
                 code = 0
-            elif name == "repairs":
+            elif name == "hear_repair":
                 if not day:
                     raise ValueError("day required")
                 code = _run_command(["gemini-transcribe", "--repair", day], logger)
-                if code == 0:
-                    code = _run_command(["screen-describe", "--repair", day], logger)
+            elif name == "see_repair":
+                if not day:
+                    raise ValueError("day required")
+                code = _run_command(["screen-describe", "--repair", day], logger)
             elif name == "ponder":
                 if not day:
                     raise ValueError("day required")
