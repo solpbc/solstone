@@ -1,3 +1,17 @@
+body {
+  font-family: sans-serif;
+  margin: 0;
+  padding: 1em 1em 1em 70px;
+  box-sizing: border-box;
+}
+
+.container {
+  width: 100%;
+  margin: 0;
+  padding: 0 1em;
+  box-sizing: border-box;
+}
+
 .nav-icons {
   position: fixed;
   top: 10px;
@@ -35,6 +49,9 @@ html::before {
 }
 
 @media (max-width: 600px) {
+  body {
+    padding: 1em;
+  }
   .nav-icons {
     position: static;
     flex-direction: row;

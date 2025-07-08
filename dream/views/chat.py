@@ -13,10 +13,11 @@ from think.models import GEMINI_FLASH
 
 bp = Blueprint("chat", __name__, template_folder="../templates")
 
+
 async def ask_gemini(prompt: str, attachments: List[str], api_key: str) -> str:
     client = genai.Client(api_key=api_key)
     mcp_client = get_sunstone_client()
-    
+
     async with mcp_client:
         model = await client.aio.models.generate_content(
             model=GEMINI_FLASH,
@@ -46,5 +47,7 @@ def send_message() -> Any:
     message = payload.get("message", "")
     attachments = payload.get("attachments", [])
 
-    answer = asyncio.run(ask_gemini(message, attachments, api_key))
-    return jsonify(text=answer)
+    result = ask_gemini(message, attachments, api_key)
+    if asyncio.iscoroutine(result):
+        result = asyncio.run(result)
+    return jsonify(text=result)
