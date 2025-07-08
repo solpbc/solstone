@@ -9,6 +9,8 @@ pre { background:#f5f5f5; padding:0.5em; }
 .modal { display:none; position:fixed; z-index:1000; left:0; top:0; width:100%; height:100%; background:rgba(0,0,0,0.5); }
 .modal-content { background:white; margin:5% auto; padding:1em; border-radius:8px; max-width:800px; max-height:80vh; overflow:auto; position:relative; }
 .close { position:absolute; top:10px; right:15px; cursor:pointer; font-size:24px; }
+.spinner { display:inline-block; width:12px; height:12px; border:2px solid #ccc; border-top-color:#333; border-radius:50%; animation:spin 1s linear infinite; margin-left:4px; }
+@keyframes spin { to { transform:rotate(360deg); } }
 </style>
 {% endblock %}
 {% block body %}
@@ -33,17 +35,23 @@ pre { background:#f5f5f5; padding:0.5em; }
 function runTask(data){
   const modal=document.getElementById('taskModal');
   const out=document.getElementById('taskOutput');
+  const modalContent=document.querySelector('#taskModal .modal-content');
   out.innerHTML='';
   modal.style.display='block';
+  const spinner=document.createElement('span');
+  spinner.className='spinner';
+  out.appendChild(spinner);
+  const scroll=()=>{modalContent.scrollTop=modalContent.scrollHeight;};
+  const addLine=html=>{spinner.remove();out.innerHTML+=html+'\n';out.appendChild(spinner);scroll();};
   const ws=new WebSocket(`ws://${location.hostname}:8765`);
   ws.onopen=()=>ws.send(JSON.stringify(data));
   ws.onmessage=e=>{
     const msg=JSON.parse(e.data);
-    if(msg.type==='stdout') out.innerHTML+=msg.text+'\n';
-    else if(msg.type==='stderr') out.innerHTML+='<span style="color:red">'+msg.text+'</span>\n';
-    else if(msg.type==='exit'){out.innerHTML+='[exit '+msg.code+']\n'; ws.close();}
+    if(msg.type==='stdout') addLine(msg.text);
+    else if(msg.type==='stderr') addLine('<span style="color:red">'+msg.text+'</span>');
+    else if(msg.type==='exit'){spinner.remove();out.innerHTML+='[exit '+msg.code+']\n';scroll();ws.close();}
   };
-  ws.onclose=()=>{out.innerHTML+='\n[completed]\n';};
+  ws.onclose=()=>{spinner.remove();out.innerHTML+='\n[completed]\n';scroll();};
 }
 document.getElementById('hearRepairBtn').onclick=()=>runTask({task:'hear_repair',day:'{{ day }}'});
 document.getElementById('seeRepairBtn').onclick=()=>runTask({task:'see_repair',day:'{{ day }}'});
