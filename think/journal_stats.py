@@ -13,6 +13,7 @@ from dotenv import load_dotenv
 
 from hear.transcribe import Transcriber
 from see.describe import Describer
+from see.reduce import scan_day as reduce_scan_day
 
 DATE_RE = re.compile(r"\d{8}")
 SCREEN_MD_RE = re.compile(r"^(\d{6})_screen\.md$")
@@ -60,8 +61,10 @@ class JournalStats:
         stats["audio_json"] += len(audio_info["processed"])
 
         diff_info = Describer.scan_day(day_dir)
+        screen_info = reduce_scan_day(day)
         stats["diff_png"] += len(diff_info["raw"])
         stats["desc_json"] += len(diff_info["processed"])
+        stats["screen_md"] += len(screen_info["reduced"])
         for box_name in diff_info["raw"]:
             img_path = day_dir / box_name.replace("_box.json", ".png")
             try:
@@ -70,16 +73,14 @@ class JournalStats:
                 pass
 
         for name in os.listdir(path):
-            if SCREEN_MD_RE.match(name):
-                stats["screen_md"] += 1
-            elif name == "entities.md":
+            if name == "entities.md":
                 stats_bool["entities"] = True
-            else:
-                base, ext = os.path.splitext(name)
-                if ext in {".md", ".json"} and (base in PONDER_BASENAMES):
-                    stats_bool["ponder"] = True
-                elif name.startswith("ponder_"):
-                    stats_bool["ponder"] = True
+                continue
+            base, ext = os.path.splitext(name)
+            if ext in {".md", ".json"} and (base in PONDER_BASENAMES):
+                stats_bool["ponder"] = True
+            elif name.startswith("ponder_"):
+                stats_bool["ponder"] = True
 
         stats["entities"] = int(stats_bool["entities"])
         stats["ponder"] = int(stats_bool["ponder"])

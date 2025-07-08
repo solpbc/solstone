@@ -75,8 +75,9 @@ def group_entries(entries):
     return groups
 
 
-def scan_day(day_dir: Path) -> dict[str, list[str]]:
+def scan_day(day: str) -> dict[str, list[str]]:
     """Return lists of reduced markdown files and unreduced diff JSON files."""
+    day_dir = Path(day_path(day))
     reduced = sorted(p.name for p in day_dir.glob("*_screen.md"))
 
     unreduced: list[str] = []

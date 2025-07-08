@@ -51,7 +51,7 @@ def test_scan_day(tmp_path, monkeypatch):
     day_dir = copy_day(tmp_path)
     monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
 
-    info = mod.scan_day(day_dir)
+    info = mod.scan_day("20240101")
     assert "123456_screen.md" in info["reduced"]
     assert "123456_monitor_1_diff.json" in info["unreduced"]
 
@@ -66,6 +66,6 @@ def test_scan_day(tmp_path, monkeypatch):
     monkeypatch.setenv("GOOGLE_API_KEY", "x")
     mod.reduce_day("20240101", str(prompt))
 
-    info_after = mod.scan_day(day_dir)
+    info_after = mod.scan_day("20240101")
     assert "123000_screen.md" in info_after["reduced"]
     assert not info_after["unreduced"]
