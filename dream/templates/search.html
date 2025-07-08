@@ -64,10 +64,26 @@ function doSearch(){
 
 document.getElementById('searchForm').onsubmit = e => { e.preventDefault(); doSearch(); };
 
+function renderDetail(type, data, meta){
+  if(type==='ponder'){
+    return `<pre>${escapeHtml(data.text || '')}</pre>`;
+  }
+  let html = '';
+  if(data.title){html += `<h4>${escapeHtml(data.title)}</h4>`;}
+  if(data.summary){html += `<p><strong>Summary:</strong> ${escapeHtml(data.summary)}</p>`;}
+  const fields = ['type','source','start','end','work','participants'];
+  fields.forEach(f=>{if(data[f]) html += `<p><strong>${f.charAt(0).toUpperCase()+f.slice(1)}:</strong> ${escapeHtml(String(data[f]))}</p>`;});
+  if(data.details){
+    const details = typeof data.details==='string' ? data.details : JSON.stringify(data.details, null, 2);
+    html += `<pre>${escapeHtml(details)}</pre>`;
+  }
+  return html;
+}
+
 function showDetail(type, meta){
   const url = type==='ponder' ? `${ponderDetailUrl}?path=${encodeURIComponent(meta.ponder)}` : `${occDetailUrl}?path=${encodeURIComponent(meta.path)}&index=${meta.index}`;
   fetch(url).then(r=>r.json()).then(d=>{
-    document.getElementById('modalContent').textContent = typeof d === 'string' ? d : JSON.stringify(d, null, 2);
+    document.getElementById('modalContent').innerHTML = renderDetail(type, d, meta);
     document.getElementById('detailModal').style.display='block';
   });
 }
