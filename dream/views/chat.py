@@ -8,36 +8,27 @@ from flask import Blueprint, jsonify, render_template, request
 from google import genai
 from google.genai import types
 
-from think.mcp_tools import sunstone_toolset
+from think.mcp_tools import get_sunstone_client
 from think.models import GEMINI_FLASH
 
 bp = Blueprint("chat", __name__, template_folder="../templates")
 
-loop = asyncio.new_event_loop()
-_toolset = None
-
-
-async def _get_toolset():
-    global _toolset
-    if _toolset is None:
-        _toolset = await sunstone_toolset()
-    return _toolset
-
-
-def ask_gemini(prompt: str, attachments: List[str], api_key: str) -> str:
+async def ask_gemini(prompt: str, attachments: List[str], api_key: str) -> str:
     client = genai.Client(api_key=api_key)
-    toolset = loop.run_until_complete(_get_toolset())
-    model = client.models.generate_content(
-        model=GEMINI_FLASH,
-        contents=[prompt] + attachments,
-        config=types.GenerateContentConfig(
-            tools=[toolset],
-            tool_config=types.ToolConfig(
-                function_calling_config=types.FunctionCallingConfig(mode="AUTO")
+    mcp_client = get_sunstone_client()
+    
+    async with mcp_client:
+        model = await client.aio.models.generate_content(
+            model=GEMINI_FLASH,
+            contents=[prompt] + attachments,
+            config=types.GenerateContentConfig(
+                tools=[mcp_client.session],
+                tool_config=types.ToolConfig(
+                    function_calling_config=types.FunctionCallingConfig(mode="AUTO")
+                ),
             ),
-        ),
-    )
-    return model.text
+        )
+        return model.text
 
 
 @bp.route("/chat")
@@ -55,5 +46,5 @@ def send_message() -> Any:
     message = payload.get("message", "")
     attachments = payload.get("attachments", [])
 
-    answer = ask_gemini(message, attachments, api_key)
+    answer = asyncio.run(ask_gemini(message, attachments, api_key))
     return jsonify(text=answer)
