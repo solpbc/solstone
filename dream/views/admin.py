@@ -67,7 +67,7 @@ def admin_day_page(day: str) -> str:
         if state.journal_root:
             os.environ["JOURNAL_PATH"] = state.journal_root
         reduce_info = reduce_scan_day(day)
-        reduce_count = len(reduce_info.get("unreduced", []))
+        reduce_count = len(reduce_info.get("repairable", []))
     except Exception:
         pass
     return render_template(

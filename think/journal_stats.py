@@ -16,7 +16,6 @@ from see.reduce import scan_day as reduce_scan_day
 from think.ponder import scan_day as ponder_scan_day
 
 DATE_RE = re.compile(r"\d{8}")
-SCREEN_MD_RE = re.compile(r"^(\d{6})_screen\.md$")
 
 
 class JournalStats:
@@ -59,7 +58,7 @@ class JournalStats:
         ponder_info = ponder_scan_day(day)
         stats["diff_png"] += len(diff_info["raw"])
         stats["desc_json"] += len(diff_info["processed"])
-        stats["screen_md"] += len(screen_info["reduced"])
+        stats["screen_md"] += len(screen_info["processed"])
         for box_name in diff_info["raw"]:
             img_path = day_dir / box_name.replace("_box.json", ".png")
             try:

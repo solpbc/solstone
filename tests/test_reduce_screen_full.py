@@ -52,8 +52,8 @@ def test_scan_day(tmp_path, monkeypatch):
     monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
 
     info = mod.scan_day("20240101")
-    assert "123456_screen.md" in info["reduced"]
-    assert "123456_monitor_1_diff.json" in info["unreduced"]
+    assert "123456_screen.md" in info["processed"]
+    assert "123456_monitor_1_diff.json" in info["repairable"]
 
     prompt = tmp_path / "prompt.txt"
     prompt.write_text("prompt")
@@ -67,5 +67,5 @@ def test_scan_day(tmp_path, monkeypatch):
     mod.reduce_day("20240101", str(prompt))
 
     info_after = mod.scan_day("20240101")
-    assert "123000_screen.md" in info_after["reduced"]
-    assert not info_after["unreduced"]
+    assert "123000_screen.md" in info_after["processed"]
+    assert not info_after["repairable"]

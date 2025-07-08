@@ -102,7 +102,7 @@ def scan_day(day: str) -> dict[str, list[str]]:
             if Path(e["path"]).name not in deps:
                 unreduced.append(Path(e["path"]).name)
 
-    return {"reduced": reduced, "unreduced": sorted(set(unreduced))}
+    return {"processed": reduced, "repairable": sorted(set(unreduced))}
 
 
 def load_prompt(path):
