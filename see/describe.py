@@ -63,12 +63,27 @@ class Describer:
         with Image.open(img_path) as im:
             return gemini_look.gemini_describe_region(im, box, entities=str(self.entities))
 
-    def repair_day(self, date_str: str, dry_run: bool = False) -> int:
-        """Repair incomplete processing for a specific day.
+    @staticmethod
+    def scan_day(day_dir: Path) -> dict[str, list[str]]:
+        """Return lists of raw, processed and repairable files within ``day_dir``."""
+        raw = sorted(p.name for p in day_dir.glob("*_diff_box.json"))
+        processed = sorted(p.name for p in day_dir.glob("*_diff.json"))
 
-        When ``dry_run`` is ``True`` no files are processed and the method
-        simply returns the number of files that would be repaired.
-        """
+        repairable: list[str] = []
+        for box_name in raw:
+            box_path = day_dir / box_name
+            prefix = box_path.stem.replace("_box", "")
+            img_path = box_path.with_name(prefix + ".png")
+            json_path = box_path.with_name(prefix + ".json")
+            if not img_path.exists():
+                continue
+            if not json_path.exists():
+                repairable.append(box_name)
+
+        return {"raw": raw, "processed": processed, "repairable": sorted(repairable)}
+
+    def repair_day(self, date_str: str, files: list[str], dry_run: bool = False) -> int:
+        """Process ``files`` belonging to ``date_str`` and return the count."""
         day_dir = self.journal_dir / date_str
         if not day_dir.exists():
             logging.error(f"Day directory {day_dir} does not exist")
@@ -76,11 +91,11 @@ class Describer:
 
         logging.info(f"Repairing day {date_str} in {day_dir}")
 
-        # Find _diff_box.json files missing corresponding description .json
-        box_files = list(day_dir.glob("*_diff_box.json"))
-        missing_descriptions = []
+        if dry_run:
+            return len(files)
 
-        for box_path in box_files:
+        for box_name in files:
+            box_path = day_dir / box_name
             prefix = box_path.stem.replace("_box", "")
             img_path = box_path.with_name(prefix + ".png")
             json_path = box_path.with_name(prefix + ".json")
@@ -89,23 +104,13 @@ class Describer:
                 logging.warning(f"Skipping {box_path}: missing image {img_path}")
                 continue
 
-            if not json_path.exists():
-                missing_descriptions.append((img_path, box_path, json_path))
-
-        logging.info(f"Found {len(missing_descriptions)} images missing descriptions")
-
-        if dry_run:
-            return len(missing_descriptions)
-
-        # Process missing descriptions sequentially
-        for img_path, box_path, json_path in missing_descriptions:
             try:
                 logging.info(f"Describing image: {img_path}")
                 self._process_once(img_path, box_path, json_path)
             except Exception as e:
                 logging.error(f"Failed to describe {img_path}: {e}")
 
-        return len(missing_descriptions)
+        return len(files)
 
     def start(self):
         handler = PatternMatchingEventHandler(patterns=["*_diff_box.json"], ignore_directories=True)
@@ -183,7 +188,8 @@ def main() -> None:
             datetime.datetime.strptime(args.repair, "%Y%m%d")
         except ValueError:
             parser.error(f"Invalid date format: {args.repair}. Use YYYYMMDD format.")
-        describer.repair_day(args.repair)
+        info = Describer.scan_day(journal / args.repair)
+        describer.repair_day(args.repair, info["repairable"])
     else:
         describer.start()
 

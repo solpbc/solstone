@@ -5,16 +5,16 @@ import re
 import sys
 from collections import Counter
 from datetime import timedelta
+from pathlib import Path
 from typing import Dict
 
 import soundfile as sf
 from dotenv import load_dotenv
 
+from hear.transcribe import Transcriber
+from see.describe import Describer
+
 DATE_RE = re.compile(r"\d{8}")
-FLAC_RE = re.compile(r"^(\d{6})_audio\.flac$")
-AUDIO_JSON_RE = re.compile(r"^(\d{6})_audio\.json$")
-DIFF_PNG_RE = re.compile(r"^(\d{6})_monitor_\d+_diff\.png$")
-DESC_JSON_RE = re.compile(r"^(\d{6})_monitor_\d+_diff\.json$")
 SCREEN_MD_RE = re.compile(r"^(\d{6})_screen\.md$")
 
 PROMPT_DIR = os.path.join(os.path.dirname(__file__), "ponder")
@@ -41,10 +41,13 @@ class JournalStats:
         audio_sec = 0.0
         audio_bytes = 0
         image_bytes = 0
-        for name in os.listdir(path):
-            file_path = os.path.join(path, name)
-            if FLAC_RE.match(name):
+        day_dir = Path(path)
+
+        audio_info = Transcriber.scan_day(day_dir)
+        for name in audio_info["raw"]:
+            if name.endswith("_audio.flac"):
                 stats["audio_flac"] += 1
+                file_path = day_dir / name
                 try:
                     info = sf.info(file_path)
                     audio_sec += float(info.frames) / float(info.samplerate)
@@ -54,17 +57,20 @@ class JournalStats:
                     audio_bytes += os.path.getsize(file_path)
                 except OSError:
                     pass
-            elif AUDIO_JSON_RE.match(name):
-                stats["audio_json"] += 1
-            elif DIFF_PNG_RE.match(name):
-                stats["diff_png"] += 1
-                try:
-                    image_bytes += os.path.getsize(file_path)
-                except OSError:
-                    pass
-            elif DESC_JSON_RE.match(name):
-                stats["desc_json"] += 1
-            elif SCREEN_MD_RE.match(name):
+        stats["audio_json"] += len(audio_info["processed"])
+
+        diff_info = Describer.scan_day(day_dir)
+        stats["diff_png"] += len(diff_info["raw"])
+        stats["desc_json"] += len(diff_info["processed"])
+        for box_name in diff_info["raw"]:
+            img_path = day_dir / box_name.replace("_box.json", ".png")
+            try:
+                image_bytes += os.path.getsize(img_path)
+            except OSError:
+                pass
+
+        for name in os.listdir(path):
+            if SCREEN_MD_RE.match(name):
                 stats["screen_md"] += 1
             elif name == "entities.md":
                 stats_bool["entities"] = True

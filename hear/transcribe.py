@@ -214,12 +214,28 @@ class Transcriber:
         if self._transcribe_segments(raw_path, segments):
             self.processed.add(json_path.name)
 
-    def repair_day(self, date_str: str, dry_run: bool = False) -> int:
-        """Repair incomplete processing for a specific day.
+    @staticmethod
+    def scan_day(day_dir: Path) -> dict[str, list[str]]:
+        """Return lists of raw, processed and repairable files within ``day_dir``."""
+        raw_paths = list(day_dir.glob("*_raw.flac"))
+        raw_paths.extend(day_dir.glob("*_audio.flac"))
+        raw_paths.extend(day_dir.glob("*_audio.ogg"))
+        raw = sorted(p.name for p in raw_paths)
 
-        When ``dry_run`` is ``True`` the method only returns the number of
-        audio files that would be processed.
-        """
+        processed = sorted(p.name for p in day_dir.glob("*_audio.json"))
+
+        repairable: list[str] = []
+        for p in raw_paths:
+            json_path = p.with_name(
+                p.stem.replace("_raw", "").replace("_audio", "") + "_audio.json"
+            )
+            if not json_path.exists():
+                repairable.append(p.name)
+
+        return {"raw": raw, "processed": processed, "repairable": sorted(repairable)}
+
+    def repair_day(self, date_str: str, files: list[str], dry_run: bool = False) -> int:
+        """Process ``files`` belonging to ``date_str`` and return the count."""
         day_dir = self.journal_dir / date_str
         if not day_dir.exists():
             logging.error(f"Day directory {day_dir} does not exist")
@@ -227,35 +243,20 @@ class Transcriber:
 
         logging.info(f"Repairing day {date_str} in {day_dir}")
 
-        repair_files = []
-        repair_files.extend(day_dir.glob("*_raw.flac"))
-        repair_files.extend(day_dir.glob("*_audio.flac"))
-        repair_files.extend(day_dir.glob("*_audio.ogg"))
-
-        missing = []
-        for audio_path in repair_files:
-            json_path = self._get_json_path(audio_path)
-            if not json_path.exists():
-                missing.append(audio_path)
-
-        # Sort by timestamp (HHMMSS) to process files in chronological order
-        def extract_timestamp(path: Path) -> str:
-            # Extract HHMMSS from filename like "HHMMSS_raw.flac" or "HHMMSS_audio.flac"
-            stem = path.stem.replace("_raw", "").replace("_audio", "")
-            return stem
-
-        missing.sort(key=extract_timestamp)
-
-        logging.info(f"Found {len(missing)} audio files missing transcripts")
-
         if dry_run:
-            return len(missing)
+            return len(files)
 
-        for audio_path in missing:
+        # Sort by HHMMSS for processing order
+        files_sorted = sorted(files, key=lambda n: n.split("_")[0])
+        for name in files_sorted:
+            audio_path = day_dir / name
+            if not audio_path.exists():
+                logging.warning(f"Skipping missing audio file {audio_path}")
+                continue
             logging.info(f"Processing audio file: {audio_path}")
             self._handle_raw(audio_path)
 
-        return len(missing)
+        return len(files)
 
     def start(self):
         handler = PatternMatchingEventHandler(patterns=["*_raw.flac"], ignore_directories=True)
@@ -333,7 +334,8 @@ def main():
             datetime.datetime.strptime(args.repair, "%Y%m%d")
         except ValueError:
             parser.error(f"Invalid date format: {args.repair}. Use YYYYMMDD format.")
-        transcriber.repair_day(args.repair)
+        info = Transcriber.scan_day(journal / args.repair)
+        transcriber.repair_day(args.repair, info["repairable"])
     else:
         transcriber.start()
 
