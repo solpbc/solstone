@@ -94,6 +94,7 @@ def run_task(
                 js = JournalStats()
                 js.scan(state.journal_root)
                 js.save_markdown(state.journal_root)
+                js.save_json(state.journal_root)
                 code = 0
             elif name == "reload_entities":
                 reload_entities()
