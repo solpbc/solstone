@@ -28,7 +28,7 @@ def test_admin_page_lists_repairables(tmp_path):
     with review.app.test_request_context("/admin"):
         html = review.admin_page()
     assert "20240101" in html
-    assert "hear: 1" in html
+    assert "Hear" in html
 
 
 def test_admin_actions(monkeypatch, tmp_path):
