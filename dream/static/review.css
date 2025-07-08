@@ -64,3 +64,50 @@ html::before {
     display: none;
   }
 }
+
+/* Shared tab styling used across views */
+.tabs {
+  border-bottom: 2px solid #e0e0e0;
+  margin-bottom: 1em;
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+}
+
+.tab {
+  display: inline-block;
+  padding: 8px 12px;
+  margin-right: 4px;
+  background: #f5f5f5;
+  border: 1px solid #ddd;
+  border-bottom: none;
+  cursor: pointer;
+  border-radius: 4px 4px 0 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 120px;
+  transition: background-color 0.2s;
+}
+
+.tab:hover {
+  background: #e8e8e8;
+}
+
+.tab.active {
+  background: white;
+  border-bottom: 2px solid white;
+  margin-bottom: -2px;
+  font-weight: bold;
+}
+
+.admin-link {
+  margin-left: auto;
+  font-size: 20px;
+  text-decoration: none;
+}
+
+.content {
+  border: 1px solid #ddd;
+  padding: 1em;
+}

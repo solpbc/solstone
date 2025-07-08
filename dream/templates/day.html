@@ -1,16 +1,7 @@
 {% extends 'base.html' %}
 {% import 'macros.html' as macros %}
 {% set active = 'calendar' %}
-{% block head %}
-<style>
-.container{padding:0 1em;}
-.tabs{border-bottom:2px solid #e0e0e0;margin-bottom:1em;display:flex;flex-wrap:nowrap;align-items:center;}
-.tab{display:block;padding:8px 12px;margin-right:4px;background:#f5f5f5;border:1px solid #ddd;border-bottom:none;cursor:pointer;border-radius:4px 4px 0 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:120px;}
-.tab.active{background:white;font-weight:bold;}
-.admin-link{margin-left:auto;font-size:20px;text-decoration:none;}
-.content{border:1px solid #ddd;padding:1em;}
-</style>
-{% endblock %}
+{% block head %}{% endblock %}
 {% block body %}
 <div class="container">
   {{ macros.day_heading(title,
