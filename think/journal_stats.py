@@ -1,4 +1,5 @@
 import argparse
+import json
 import os
 import re
 import sys
@@ -195,6 +196,22 @@ class JournalStats:
         with open(path, "w", encoding="utf-8") as f:
             f.write(self.to_markdown() + "\n")
 
+    def to_dict(self) -> dict:
+        """Return a dictionary with all collected statistics."""
+        return {
+            "days": self.days,
+            "totals": dict(self.totals),
+            "total_audio_seconds": self.total_audio_sec,
+            "total_audio_bytes": self.total_audio_bytes,
+            "total_image_bytes": self.total_image_bytes,
+        }
+
+    def save_json(self, journal: str) -> None:
+        """Write full statistics to ``stats.json`` in ``journal``."""
+        path = os.path.join(journal, "stats.json")
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(self.to_dict(), f, indent=2)
+
 
 def main() -> None:
     parser = argparse.ArgumentParser(
@@ -212,8 +229,9 @@ def main() -> None:
     js.report()
     try:
         js.save_markdown(journal)
+        js.save_json(journal)
     except Exception as e:
-        print(f"Error writing summary: {e}", file=sys.stderr)
+        print(f"Error writing summary or stats: {e}", file=sys.stderr)
 
 
 if __name__ == "__main__":
