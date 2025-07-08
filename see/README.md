@@ -32,4 +32,6 @@ screen-describe [-i SECONDS] [-v]
 The `gemini-see` command runs `screen-watch` and `screen-describe` together so
 new screenshots are captured and described continuously.
 
+Use `reduce-screen` to summarise diff descriptions into five minute Markdown blocks.
+
 Set the `GOOGLE_API_KEY` environment variable before running `screen-describe`.

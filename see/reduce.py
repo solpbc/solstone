@@ -14,7 +14,7 @@ from think.crumbs import CrumbBuilder
 from think.models import GEMINI_FLASH
 from think.utils import day_path
 
-DEFAULT_PROMPT_PATH = os.path.join(os.path.dirname(__file__), "reduce_screen.txt")
+DEFAULT_PROMPT_PATH = os.path.join(os.path.dirname(__file__), "reduce.txt")
 
 
 class TokenTracker:

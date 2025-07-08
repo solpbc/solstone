@@ -7,11 +7,12 @@ Captured files are organised under a **journal** directory containing daily `YYY
 ## Features
 
 - **See** 👁️ - Screenshot capture and visual comparison with the `screen-watch` command
-  and `screen-describe`. The `gemini-see` wrapper keeps both running in a loop.
+  and `screen-describe`. The `gemini-see` wrapper keeps both running in a loop. The
+  `reduce-screen` command condenses diff descriptions into shorter Markdown.
 - **Hear** 👂 - Audio recording and transcription with `gemini-mic` and `gemini-transcribe`.
   Use `gemini-hear` to run them together or `gemini-live` for real time transcripts.
 - **Think** 🧠 - Data analysis and AI-powered insights via commands like `ponder`,
-  `cluster`, `reduce-screen` and `process-day`.
+  `cluster` and `process-day`.
 - **Dream** 🌐 - Run `dream --password PASSWORD` for a web UI to review entities and meetings.
 - **Serve** 🛰️ - `ponder-mcp` launches an OAuth-protected MCP server for searching ponders and occurrences.
 

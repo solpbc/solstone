@@ -16,7 +16,6 @@ The package exposes several commands:
 
 - `ponder` builds a Markdown summary of a day's recordings using a Gemini prompt.
 - `cluster` groups audio and screen JSON files into report sections.
-- `reduce-screen` condenses screenshot diff descriptions into shorter text.
 - `see-repair` and `hear-repair` fix partial outputs from the visual and audio tools.
 - `entity-roll` collects entities across days and writes a rollup file.
 - `process-day` runs the above tools for a single day.
@@ -25,7 +24,6 @@ The package exposes several commands:
 ```bash
 ponder YYYYMMDD [-f PROMPT] [-p MODEL]
 cluster YYYYMMDD
-reduce-screen YYYYMMDD
 see-repair YYYYMMDD
 hear-repair YYYYMMDD
 entity-roll

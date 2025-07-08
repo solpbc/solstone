@@ -9,7 +9,7 @@ from typing import Callable, Optional
 
 import websockets
 
-from . import state
+from see.reduce import reduce_day
 from think import entity_roll
 from think.indexer import (
     load_cache,
@@ -19,7 +19,8 @@ from think.indexer import (
     scan_ponders,
 )
 from think.journal_stats import JournalStats
-from think.reduce_screen import reduce_day
+
+from . import state
 from .views.entities import reload_entities
 
 
@@ -70,7 +71,9 @@ class _LineLogger:
             self.buf = ""
 
 
-def run_task(name: str, day: Optional[str] = None, logger: Optional[Callable[[str, str], None]] = None) -> int:
+def run_task(
+    name: str, day: Optional[str] = None, logger: Optional[Callable[[str, str], None]] = None
+) -> int:
     logger = logger or (lambda t, m: None)
     out_logger = _LineLogger("stdout", logger)
     err_logger = _LineLogger("stderr", logger)
@@ -151,13 +154,11 @@ class TaskRunner:
     def _run_loop(self) -> None:
         assert self.loop is not None
         asyncio.set_event_loop(self.loop)
-        
+
         async def start_server():
-            server = await websockets.serve(
-                lambda ws: self._handler(ws, ""), self.host, self.port
-            )
+            server = await websockets.serve(lambda ws: self._handler(ws, ""), self.host, self.port)
             await server.wait_closed()
-        
+
         self.loop.run_until_complete(start_server())
 
     async def _handler(self, ws: websockets.WebSocketServerProtocol, path: str) -> None:

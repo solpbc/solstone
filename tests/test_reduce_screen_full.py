@@ -14,7 +14,7 @@ def copy_day(tmp_path: Path) -> Path:
 
 
 def test_parse_and_group_entries(tmp_path, monkeypatch):
-    mod = importlib.import_module("think.reduce_screen")
+    mod = importlib.import_module("see.reduce")
     day_dir = copy_day(tmp_path)
     monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
     entries = mod.parse_monitor_files(str(day_dir))
@@ -26,7 +26,7 @@ def test_parse_and_group_entries(tmp_path, monkeypatch):
 
 
 def test_reduce_day(tmp_path, monkeypatch):
-    mod = importlib.import_module("think.reduce_screen")
+    mod = importlib.import_module("see.reduce")
     day_dir = copy_day(tmp_path)
     prompt = tmp_path / "prompt.txt"
     prompt.write_text("prompt")

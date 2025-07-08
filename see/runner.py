@@ -13,7 +13,7 @@ from threading import Event, Thread
 
 from dotenv import load_dotenv
 
-from think.reduce_screen import reduce_day
+from see.reduce import reduce_day
 
 STOP_EVENT = Event()
 

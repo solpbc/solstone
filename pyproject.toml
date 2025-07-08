@@ -86,7 +86,7 @@ gemini-see = "see.runner:main"
 # Analysis utilities
 ponder = "think.ponder:main"
 cluster = "think.cluster:main"
-reduce-screen = "think.reduce_screen:main"
+reduce-screen = "see.reduce:main"
 see-repair = "think.see_repair:main"
 hear-repair = "think.hear_repair:main"
 dream = "dream:main"
