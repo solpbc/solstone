@@ -44,7 +44,7 @@ def scan_day(day: str) -> dict[str, list[str]]:
             pondered.append(md_path.name)
         else:
             unpondered.append(md_path.name)
-    return {"pondered": sorted(pondered), "unpondered": sorted(unpondered)}
+    return {"processed": sorted(pondered), "repairable": sorted(unpondered)}
 
 
 def count_tokens(markdown: str, prompt: str, api_key: str, model: str) -> None:

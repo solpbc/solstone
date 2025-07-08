@@ -1,5 +1,4 @@
 import argparse
-import glob
 import os
 import re
 import sys
@@ -14,15 +13,10 @@ from dotenv import load_dotenv
 from hear.transcribe import Transcriber
 from see.describe import Describer
 from see.reduce import scan_day as reduce_scan_day
+from think.ponder import scan_day as ponder_scan_day
 
 DATE_RE = re.compile(r"\d{8}")
 SCREEN_MD_RE = re.compile(r"^(\d{6})_screen\.md$")
-
-PROMPT_DIR = os.path.join(os.path.dirname(__file__), "ponder")
-PROMPT_BASENAMES = [
-    os.path.splitext(os.path.basename(p))[0] for p in glob.glob(os.path.join(PROMPT_DIR, "*.txt"))
-]
-PONDER_BASENAMES = [f"ponder_{b}" for b in PROMPT_BASENAMES]
 
 
 class JournalStats:
@@ -62,6 +56,7 @@ class JournalStats:
 
         diff_info = Describer.scan_day(day_dir)
         screen_info = reduce_scan_day(day)
+        ponder_info = ponder_scan_day(day)
         stats["diff_png"] += len(diff_info["raw"])
         stats["desc_json"] += len(diff_info["processed"])
         stats["screen_md"] += len(screen_info["reduced"])
@@ -76,14 +71,9 @@ class JournalStats:
             if name == "entities.md":
                 stats_bool["entities"] = True
                 continue
-            base, ext = os.path.splitext(name)
-            if ext in {".md", ".json"} and (base in PONDER_BASENAMES):
-                stats_bool["ponder"] = True
-            elif name.startswith("ponder_"):
-                stats_bool["ponder"] = True
 
         stats["entities"] = int(stats_bool["entities"])
-        stats["ponder"] = int(stats_bool["ponder"])
+        stats["ponder"] = int(len(ponder_info["processed"]) > 0)
         counts_for_totals = dict(stats)
         self.totals.update(counts_for_totals)
         stats["audio_seconds"] = audio_sec
