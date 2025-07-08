@@ -28,15 +28,12 @@ class JournalStats:
 
     def scan_day(self, day: str, path: str) -> None:
         stats: Counter[str] = Counter()
-        stats_bool: Dict[str, bool] = {
-            "entities": False,
-            "ponder": False,
-        }
         audio_sec = 0.0
         audio_bytes = 0
         image_bytes = 0
         day_dir = Path(path)
 
+        # --- hear ---
         audio_info = Transcriber.scan_day(day_dir)
         for name in audio_info["raw"]:
             if name.endswith("_audio.flac"):
@@ -51,28 +48,27 @@ class JournalStats:
                     audio_bytes += os.path.getsize(file_path)
                 except OSError:
                     pass
-        stats["audio_json"] += len(audio_info["processed"])
+        stats["audio_json"] = len(audio_info["processed"])
 
+        # --- see ---
         diff_info = Describer.scan_day(day_dir)
-        screen_info = reduce_scan_day(day)
-        ponder_info = ponder_scan_day(day)
-        stats["diff_png"] += len(diff_info["raw"])
-        stats["desc_json"] += len(diff_info["processed"])
-        stats["screen_md"] += len(screen_info["processed"])
-        for box_name in diff_info["raw"]:
-            img_path = day_dir / box_name.replace("_box.json", ".png")
+        stats["diff_png"] = len(diff_info["raw"])
+        stats["desc_json"] = len(diff_info["processed"])
+        for img_name in diff_info["raw"]:
+            img_path = day_dir / img_name
             try:
                 image_bytes += os.path.getsize(img_path)
             except OSError:
                 pass
 
-        for name in os.listdir(path):
-            if name == "entities.md":
-                stats_bool["entities"] = True
-                continue
+        screen_info = reduce_scan_day(day)
+        stats["screen_md"] = len(screen_info["processed"])
 
-        stats["entities"] = int(stats_bool["entities"])
-        stats["ponder"] = int(len(ponder_info["processed"]) > 0)
+        # --- think ---
+        stats["entities"] = int((day_dir / "entities.md").exists())
+        ponder_info = ponder_scan_day(day)
+        stats["ponder"] = int(bool(ponder_info["processed"]))
+
         counts_for_totals = dict(stats)
         self.totals.update(counts_for_totals)
         stats["audio_seconds"] = audio_sec
