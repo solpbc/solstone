@@ -1,8 +1,10 @@
 import argparse
+import glob
 import json
 import os
 import threading
 import time
+from pathlib import Path
 
 from dotenv import load_dotenv
 from google import genai
@@ -13,11 +15,36 @@ from think.crumbs import CrumbBuilder
 from think.models import GEMINI_FLASH, GEMINI_PRO
 from think.utils import day_path
 
-DEFAULT_PROMPT_PATH = os.path.join(
-    os.path.dirname(__file__),
-    "ponder",
-    "day.txt",
-)
+PROMPT_DIR = os.path.join(os.path.dirname(__file__), "ponder")
+DEFAULT_PROMPT_PATH = os.path.join(PROMPT_DIR, "day.txt")
+
+
+def _prompt_basenames() -> list[str]:
+    """Return available prompt basenames under :data:`PROMPT_DIR`."""
+    return sorted(
+        os.path.splitext(os.path.basename(p))[0]
+        for p in glob.glob(os.path.join(PROMPT_DIR, "*.txt"))
+    )
+
+
+def _output_paths(day_dir: os.PathLike[str], basename: str) -> tuple[Path, Path]:
+    """Return markdown and JSON output paths for ``basename`` in ``day_dir``."""
+    day = Path(day_dir)
+    return day / f"ponder_{basename}.md", day / f"ponder_{basename}.json"
+
+
+def scan_day(day: str) -> dict[str, list[str]]:
+    """Return lists of processed and pending ponder markdown files."""
+    day_dir = Path(day_path(day))
+    pondered: list[str] = []
+    unpondered: list[str] = []
+    for base in _prompt_basenames():
+        md_path, _ = _output_paths(day_dir, base)
+        if md_path.exists():
+            pondered.append(md_path.name)
+        else:
+            unpondered.append(md_path.name)
+    return {"pondered": sorted(pondered), "unpondered": sorted(unpondered)}
 
 
 def count_tokens(markdown: str, prompt: str, api_key: str, model: str) -> None:
@@ -144,8 +171,6 @@ def main() -> None:
     except FileNotFoundError:
         parser.error(f"Prompt file not found: {args.prompt}")
 
-    output_extension = ".md"
-
     model = GEMINI_PRO if args.pro else GEMINI_FLASH
     day = args.day
     size_kb = len(markdown.encode("utf-8")) / 1024
@@ -158,18 +183,16 @@ def main() -> None:
         count_tokens(markdown, prompt, api_key, model)
         return
 
-    prompt_basename = os.path.splitext(os.path.basename(args.prompt))[0]
+    prompt_basename = Path(args.prompt).stem
 
-    # Determine the specific output path for this run
-    output_filename = f"ponder_{prompt_basename}{output_extension}"
-    output_path = os.path.join(day_dir, output_filename)
+    md_path, json_path = _output_paths(day_dir, prompt_basename)
 
     # Check if markdown file already exists
-    md_exists = os.path.exists(output_path) and os.path.getsize(output_path) > 0
+    md_exists = md_path.exists() and md_path.stat().st_size > 0
 
     if md_exists and not args.force:
-        print(f"Markdown file already exists: {output_path}. Loading existing content.")
-        with open(output_path, "r") as f:
+        print(f"Markdown file already exists: {md_path}. Loading existing content.")
+        with open(md_path, "r") as f:
             result = f.read()
         usage_metadata = None
     elif md_exists and args.force:
@@ -195,9 +218,9 @@ def main() -> None:
     # Only write markdown if it was newly generated
     if not md_exists or args.force:
         os.makedirs(day_dir, exist_ok=True)
-        with open(output_path, "w") as f:
+        with open(md_path, "w") as f:
             f.write(result)
-        print(f"Results saved to: {output_path}")
+        print(f"Results saved to: {md_path}")
 
         crumb_builder = (
             CrumbBuilder()
@@ -206,7 +229,7 @@ def main() -> None:
             .add_glob(os.path.join(day_dir, "*_screen.md"))
             .add_model(model)
         )
-        crumb_path = crumb_builder.commit(output_path)
+        crumb_path = crumb_builder.commit(str(md_path))
         print(f"Crumb saved to: {crumb_path}")
 
     # Create a corresponding occurrence JSON from the markdown summary
@@ -218,8 +241,8 @@ def main() -> None:
         print(f"Occurrence prompt not found: {occ_prompt_path}")
         return
 
-    occ_output_path = os.path.join(day_dir, f"ponder_{prompt_basename}.json")
-    json_exists = os.path.exists(occ_output_path) and os.path.getsize(occ_output_path) > 0
+    occ_output_path = json_path
+    json_exists = occ_output_path.exists() and occ_output_path.stat().st_size > 0
 
     if json_exists and not args.force:
         print(f"JSON file already exists: {occ_output_path}. Use --force to overwrite.")
@@ -243,9 +266,9 @@ def main() -> None:
     print(f"Results saved to: {occ_output_path}")
 
     occ_crumb_builder = (
-        CrumbBuilder().add_file(occ_prompt_path).add_file(output_path).add_model(model)
+        CrumbBuilder().add_file(occ_prompt_path).add_file(md_path).add_model(model)
     )
-    occ_crumb_path = occ_crumb_builder.commit(occ_output_path)
+    occ_crumb_path = occ_crumb_builder.commit(str(occ_output_path))
     print(f"Crumb saved to: {occ_crumb_path}")
 
 
