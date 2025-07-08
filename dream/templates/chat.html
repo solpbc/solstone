@@ -27,11 +27,14 @@ body {height:100vh; overflow:hidden;}
     <form id="inputArea">
       <textarea id="messageInput" rows="1" placeholder="Send a message..."></textarea>
       <button type="submit">Send</button>
+      <button type="button" id="clearBtn">Clear</button>
     </form>
   </div>
 </div>
 <script>
 const sendUrl = '{{ url_for('chat.send_message') }}';
+const historyUrl = '{{ url_for('chat.chat_history') }}';
+const clearUrl = '{{ url_for('chat.clear_history') }}';
 const form = document.getElementById('inputArea');
 const input = document.getElementById('messageInput');
 const messagesDiv = document.getElementById('messages');
@@ -60,6 +63,23 @@ document.getElementById('inputArea').onsubmit=async e=>{
   const r=await fetch(sendUrl,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:text})});
   if(r.ok){const d=await r.json();addMessage(d.text,'from-bot');}else{addMessage('Error','from-bot');}
 };
+
+async function loadHistory(){
+  const r=await fetch(historyUrl);
+  if(!r.ok)return;
+  const d=await r.json();
+  for(const m of d.history){
+    addMessage(m.text,m.role==='user'?'from-user':'from-bot');
+  }
+}
+
+document.getElementById('clearBtn').onclick=async()=>{
+  await fetch(clearUrl,{method:'POST'});
+  messagesDiv.innerHTML='';
+  input.focus();
+};
+
+loadHistory();
 </script>
 {% endblock %}
 

@@ -69,6 +69,8 @@ calendar = calendar_view.calendar_page
 calendar_day = calendar_view.calendar_day
 chat_page = chat_view.chat_page
 send_message = chat_view.send_message
+chat_history = chat_view.chat_history
+clear_history = chat_view.clear_history
 search_page = search_view.search_page
 import_page = import_page_view.import_page
 admin_page = admin_view.admin_page
@@ -98,6 +100,8 @@ __all__ = [
     "calendar_day",
     "chat_page",
     "send_message",
+    "chat_history",
+    "clear_history",
     "search_page",
     "import_page",
     "entities_data",
