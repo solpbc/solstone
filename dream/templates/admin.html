@@ -65,6 +65,7 @@ function runTask(data){
   const scroll=()=>{modalContent.scrollTop=modalContent.scrollHeight;};
   const addLine=html=>{spinner.remove();out.innerHTML+=html+'\n';out.appendChild(spinner);scroll();};
   const ws=new WebSocket(`ws://${location.hostname}:8765`);
+  const start=Date.now();
   ws.onopen=()=>ws.send(JSON.stringify(data));
   ws.onmessage=e=>{
     const msg=JSON.parse(e.data);
@@ -72,7 +73,9 @@ function runTask(data){
     else if(msg.type==='stderr') addLine('<span style="color:red">'+msg.text+'</span>');
     else if(msg.type==='exit'){spinner.remove();out.innerHTML+='[exit '+msg.code+']\n';scroll();ws.close();}
   };
-  ws.onclose=()=>{spinner.remove();out.innerHTML+='\n[completed]\n';scroll();};
+  ws.onclose=()=>{spinner.remove();const s=Math.round((Date.now()-start)/1000);
+    const msg=s>=60?(Math.round(s/6)/10+' minutes'):s+' seconds';
+    out.innerHTML+=`\n[completed in ${msg}]\n`;scroll();};
 }
 document.getElementById('reindexBtn').onclick=()=>runTask({task:'reindex'});
 document.getElementById('summaryBtn').onclick=()=>runTask({task:'summary'});

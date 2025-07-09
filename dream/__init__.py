@@ -80,6 +80,7 @@ admin_repair_see = admin_view.admin_repair_see
 admin_ponder = admin_view.admin_ponder
 admin_entity = admin_view.admin_entity
 admin_reduce = admin_view.admin_reduce
+admin_process = admin_view.admin_process
 reindex = admin_view.reindex
 refresh_summary = admin_view.refresh_summary
 reload_entities_view = admin_view.reload_entities_view
@@ -119,6 +120,7 @@ __all__ = [
     "admin_ponder",
     "admin_entity",
     "admin_reduce",
+    "admin_process",
     "reindex",
     "refresh_summary",
     "reload_entities_view",

@@ -10,6 +10,7 @@ def test_admin_day_page(tmp_path):
     assert "Hear Repair" in html
     assert "See Repair" in html
     assert "Screen Reduce" in html
+    assert "Process Day" in html
 
 
 def test_admin_day_actions(monkeypatch, tmp_path):
@@ -58,3 +59,9 @@ def test_admin_day_actions(monkeypatch, tmp_path):
         resp = review.admin_reduce("20240101")
     assert resp.json["status"] == "ok"
     assert ["reduce", "20240101"] in called
+
+    called.clear()
+    with review.app.test_request_context("/admin/api/20240101/process", method="POST"):
+        resp = review.admin_process("20240101")
+    assert resp.json["status"] == "ok"
+    assert ["process-day", "--day", "20240101", "--repair"] in called
