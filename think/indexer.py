@@ -10,6 +10,8 @@ from typing import Dict, List, Tuple
 import nltk
 from dotenv import load_dotenv
 
+from think.utils import journal_log
+
 from .entities import find_day_dirs, load_cache, save_cache, scan_entities
 
 INDEX_DIR = "index"
@@ -294,14 +296,15 @@ def main() -> None:
         help="Scan journal and update the index before searching",
     )
     parser.add_argument(
-        "-q", "--query",
+        "-q",
+        "--query",
         nargs="?",
         const="",
         help="Run query (interactive mode if no query provided)",
     )
-    
+
     args = parser.parse_args()
-    
+
     # Require either --rescan or -q
     if not args.rescan and args.query is None:
         parser.print_help()
@@ -319,6 +322,7 @@ def main() -> None:
         changed |= scan_occurrences(journal, cache, verbose=True)
         if changed:
             save_cache(journal, cache)
+        journal_log("indexer rescan ok")
 
     # Handle query argument
     if args.query is not None:

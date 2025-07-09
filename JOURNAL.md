@@ -7,6 +7,7 @@ This document describes the layout of a **journal** directory where all audio, s
 - `entities.md` – top list of entities gathered across days. Used by several tools.
 - `indexer.json` – cache file created by the `dream` web app to speed up indexing.
 - `entity_review.log` – operations performed in the web UI are appended here.
+- `task_log.txt` – optional log of utility runs in `[epoch]\tmessage` format.
 - `YYYYMMDD/` – individual day folders described below.
 
 ## Day folder contents
@@ -33,6 +34,7 @@ Screen capture utilities produce per monitor diff files:
 - `ponder_knowledge_graph.md` – knowledge graph / network summary.
 - `ponder_meetings.md` – meeting list used by the calendar web UI.
 - `entities.md` – daily entity rollup produced by `entity-roll`.
+- `task_log.txt` – log of tasks for that day in `[epoch]\tmessage` format.
 
 ### Crumbs
 

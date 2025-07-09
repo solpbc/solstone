@@ -7,13 +7,16 @@ from datetime import datetime, timedelta
 
 from dotenv import load_dotenv
 
+from think.utils import day_log
 
-def run_command(cmd: list[str]) -> None:
+
+def run_command(cmd: list[str]) -> bool:
     print(f"==> {' '.join(cmd)}")
     result = subprocess.run(cmd)
     if result.returncode != 0:
         print(f"Command failed with exit code {result.returncode}: {' '.join(cmd)}")
-        sys.exit(result.returncode)
+        return False
+    return True
 
 
 def build_commands(journal: str, day: str, force: bool, repair: bool) -> list[list[str]]:
@@ -94,8 +97,20 @@ def main() -> None:
                     os.remove(crumb)
 
     commands = build_commands(journal, day, args.force, repair)
+    success_count = 0
+    fail_count = 0
     for cmd in commands:
-        run_command(cmd)
+        if run_command(cmd):
+            success_count += 1
+        else:
+            fail_count += 1
+
+    msg = f"process-day {success_count}"
+    if fail_count:
+        msg += f" failed {fail_count}"
+    if args.force:
+        msg += " --force"
+    day_log(day, msg)
 
 
 if __name__ == "__main__":

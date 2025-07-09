@@ -6,6 +6,8 @@ import os
 import re
 from typing import Dict, List, Optional, Tuple
 
+from think.utils import journal_log
+
 DATE_RE = re.compile(r"\d{8}")
 ITEM_RE = re.compile(r"^\s*[-*]\s*(.*)")
 TOP_KEY = "__top__"
@@ -182,22 +184,21 @@ def get_entities(journal: str) -> Dict[str, Dict[str, dict]]:
 def main() -> None:
     """CLI entry point for entity indexing."""
     parser = argparse.ArgumentParser(description="Entity indexing for journal")
-    parser.add_argument("--rescan", action="store_true", 
-                       help="Force rescan by clearing cache")
-    
+    parser.add_argument("--rescan", action="store_true", help="Force rescan by clearing cache")
+
     args = parser.parse_args()
-    
+
     journal = os.environ.get("JOURNAL_PATH")
     if not journal:
         print("Error: JOURNAL_PATH environment variable not set")
         return
-    
+
     if not os.path.isdir(journal):
         print(f"Error: Journal directory '{journal}' does not exist")
         return
-    
+
     cache = load_cache(journal)
-    
+
     if args.rescan:
         print("Rescanning entities...")
         if scan_entities(journal, cache):
@@ -205,15 +206,16 @@ def main() -> None:
             print("Cache updated")
         else:
             print("No changes found")
-    
+        journal_log("entities rescan ok")
+
     entities = build_entities(cache)
-    
+
     print("Entity counts by category:")
     print("-" * 30)
     for category in sorted(entities.keys()):
         count = len(entities[category])
         print(f"{category}: {count}")
-    
+
     total = sum(len(entities[cat]) for cat in entities)
     print("-" * 30)
     print(f"Total: {total}")

@@ -15,7 +15,7 @@ from google.genai import types
 
 from think.crumbs import CrumbBuilder
 from think.models import GEMINI_PRO
-from think.utils import day_path
+from think.utils import day_log, day_path
 
 
 def extract_date_from_filename(filename: str) -> Optional[datetime]:
@@ -185,6 +185,8 @@ def process_day(day_str: str, day_dirs: Dict[str, str], force: bool) -> None:
         print(f"Skipping {day_str}: entities.md exists")
         return
 
+    success = False
+
     day = datetime.strptime(day_str, "%Y%m%d")
     files = gather_files(day, day_dirs)
     if not files:
@@ -199,28 +201,35 @@ def process_day(day_str: str, day_dirs: Dict[str, str], force: bool) -> None:
     print("  Clustering and merging content...")
     markdown = cluster_glob(files)
 
-    load_dotenv()
-    api_key = os.getenv("GOOGLE_API_KEY")
-    if not api_key:
-        print("GOOGLE_API_KEY not found in environment")
-        return
+    try:
+        load_dotenv()
+        api_key = os.getenv("GOOGLE_API_KEY")
+        if not api_key:
+            print("GOOGLE_API_KEY not found in environment")
+            return
 
-    with open(PROMPT_PATH, "r", encoding="utf-8") as f:
-        prompt = f.read().strip()
+        with open(PROMPT_PATH, "r", encoding="utf-8") as f:
+            prompt = f.read().strip()
 
-    print("  Sending to Gemini for entity extraction...")
-    result, _ = send_to_gemini(markdown, prompt, api_key, GEMINI_PRO, False)
-    if not result:
-        print(f"Gemini returned no result for {day_str}")
-        return
+        print("  Sending to Gemini for entity extraction...")
+        result, _ = send_to_gemini(markdown, prompt, api_key, GEMINI_PRO, False)
+        if not result:
+            print(f"Gemini returned no result for {day_str}")
+            return
 
-    with open(out_path, "w", encoding="utf-8") as f:
-        f.write(result)
-    print(f"Wrote {out_path}")
+        with open(out_path, "w", encoding="utf-8") as f:
+            f.write(result)
+        print(f"Wrote {out_path}")
 
-    crumb_builder = CrumbBuilder().add_file(PROMPT_PATH).add_files(files).add_model(GEMINI_PRO)
-    crumb_path = crumb_builder.commit(out_path)
-    print(f"Crumb saved to: {crumb_path}")
+        crumb_builder = CrumbBuilder().add_file(PROMPT_PATH).add_files(files).add_model(GEMINI_PRO)
+        crumb_path = crumb_builder.commit(out_path)
+        print(f"Crumb saved to: {crumb_path}")
+        success = True
+    finally:
+        msg = f"entity-roll {'ok' if success else 'failed'}"
+        if force:
+            msg += " --force"
+        day_log(day_str, msg)
 
 
 def main() -> None:
