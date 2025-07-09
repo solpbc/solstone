@@ -8,13 +8,17 @@
         prev_day and url_for('calendar.calendar_day', day=prev_day),
         next_day and url_for('calendar.calendar_day', day=next_day)) }}
   <div class="tabs">
+    <a class="tab active" href="#events" data-target="events">Events</a>
     {% for file in files %}
-    <a class="tab{% if loop.first %} active{% endif %}" href="#{{ file.slug }}" data-target="{{ file.slug }}">{{ file.label }}</a>
+    <a class="tab" href="#{{ file.slug }}" data-target="{{ file.slug }}">{{ file.label }}</a>
     {% endfor %}
     <a class="admin-link" href="{{ url_for('admin.admin_day_page', day=day) }}" title="Admin" aria-label="Admin">⚙️</a>
   </div>
+  <div class="content" id="events">
+    <div id="eventsView"></div>
+  </div>
   {% for file in files %}
-  <div class="content" id="{{ file.slug }}" style="{% if not loop.first %}display:none{% endif %}">
+  <div class="content" id="{{ file.slug }}" style="display:none">
     <div class="markdown">{{ file.html|safe }}</div>
   </div>
   {% endfor %}
@@ -22,13 +26,95 @@
 <script>
 const tabs = document.querySelectorAll('.tab');
 const contents = document.querySelectorAll('.content');
+const day = '{{ day }}';
+let events = [];
+
+function getColor(type){
+  const el = document.createElement('div');
+  el.className = 'occ ' + type;
+  document.body.appendChild(el);
+  const color = getComputedStyle(el).backgroundColor;
+  document.body.removeChild(el);
+  return color;
+}
+
+function slugToType(slug){
+  return slug.endsWith('s') ? slug.slice(0, -1) : slug;
+}
+
+function colorTabs(){
+  const map = {};
+  events.forEach(e => { if(!map[e.type]) map[e.type] = getColor(e.type); });
+  tabs.forEach(t => {
+    const type = slugToType(t.dataset.target);
+    const color = map[type];
+    if(color){
+      t.dataset.color = color;
+      t.style.backgroundColor = color;
+    }
+  });
+}
+
+function renderEvents(list){
+  const div = document.getElementById('eventsView');
+  let html = "<div class='day-view'>";
+  const startHour = 6;
+  const endHour = 22;
+  for(let h=startHour; h<=endHour; h++){
+    const label = h===0? '12am' : h<12? h+'am' : h===12? '12pm' : (h-12)+'pm';
+    html += `<div class='hour-line' style='top:${((h-startHour)/(endHour-startHour))*100}%'><span>${label}</span></div>`;
+  }
+  const types = Array.from(new Set(list.map(o => o.type || 'other')));
+  const colWidth = 100 / (types.length || 1);
+  list.forEach(o => {
+    if(!o.startTime) return;
+    const start = new Date(o.startTime);
+    const end = o.endTime ? new Date(o.endTime) : new Date(start.getTime()+5*60000);
+    let s = start.getHours()*60 + start.getMinutes();
+    let e = end.getHours()*60 + end.getMinutes();
+    s = Math.max(s, startHour*60);
+    e = Math.min(e, endHour*60);
+    if(e <= s) return;
+    const top = ((s - startHour*60)/((endHour-startHour)*60))*100;
+    const height = Math.max((e - s)/((endHour-startHour)*60)*100, 0.4);
+    const type = o.type || 'other';
+    const col = types.indexOf(type);
+    const title = escapeHtml(o.title || o.summary || type);
+    const left = `calc(${col*colWidth}% + 10px)`;
+    const width = `calc(${colWidth}% - 20px)`;
+    const slug = o.slug ? `#${o.slug}` : '';
+    const href = `${window.location.pathname}${slug}`;
+    html += `<a class='occ ${type}' href='${href}' style='top:${top}%;height:${height}%;left:${left};width:${width};right:auto' title='${title}'></a>`;
+  });
+  html += '</div>';
+  div.innerHTML = html;
+}
+
+function escapeHtml(text){
+  const d=document.createElement('div');
+  d.textContent=text;
+  return d.innerHTML;
+}
+
+function loadEvents(){
+  fetch('{{ url_for('calendar.calendar_occurrences') }}')
+    .then(r => r.json())
+    .then(d => {
+      events = d[day] || [];
+      renderEvents(events);
+      colorTabs();
+    });
+}
 
 function showTab(id){
-  tabs.forEach(x=>x.classList.remove('active'));
+  tabs.forEach(x=>{x.classList.remove('active'); if(x.dataset.color) x.style.backgroundColor=x.dataset.color;});
   contents.forEach(c=>c.style.display='none');
   const tab = document.querySelector(`.tab[data-target="${id}"]`);
   const content = document.getElementById(id);
-  if(tab) tab.classList.add('active');
+  if(tab){
+    tab.classList.add('active');
+    if(tab.dataset.color) tab.style.backgroundColor = tab.dataset.color;
+  }
   if(content) content.style.display='block';
   if(history.replaceState){
     history.replaceState(null, '', '#' + id);
@@ -39,8 +125,11 @@ function showTab(id){
 
 tabs.forEach(t=>t.addEventListener('click', e=>{e.preventDefault();showTab(t.dataset.target);}));
 const initial = location.hash.slice(1);
+loadEvents();
 if(initial && document.getElementById(initial)){
   showTab(initial);
+} else {
+  showTab('events');
 }
 </script>
 {% endblock %}

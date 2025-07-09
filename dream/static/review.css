@@ -110,3 +110,40 @@ html::before {
 .content {
   padding: 1em;
 }
+/* Day view schedule */
+.day-view {
+  position: relative;
+  height: 1067px;
+  border-left: 60px solid transparent;
+}
+.hour-line {
+  position: absolute;
+  left: 0;
+  right: 0;
+  border-top: 1px solid #eee;
+  font-size: 0.75em;
+  color: #777;
+}
+.hour-line span {
+  position: absolute;
+  left: -55px;
+  top: -0.6em;
+}
+.occ {
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  border-radius: 4px;
+  opacity: 0.9;
+  display: block;
+  text-decoration: none;
+}
+.occ.meeting { background: #007bff; }
+.occ.message { background: #28a745; }
+.occ.file { background: #17a2b8; }
+.occ.followup { background: #ffc107; }
+.occ.documentation { background: #6f42c1; }
+.occ.research { background: #fd7e14; }
+.occ.media { background: #e83e8c; }
+.occ.other { background: #6c757d; }
+
