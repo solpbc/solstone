@@ -276,6 +276,14 @@ def search_occurrences(journal: str, query: str, n_results: int = 5) -> List[Dic
     return results
 
 
+def _display_search_results(results: List[Dict[str, str]]) -> None:
+    """Display search results in a consistent format."""
+    for idx, r in enumerate(results, 1):
+        meta = r.get("metadata", {})
+        snippet = r["text"]
+        print(f"{idx}. {meta.get('day')} {meta.get('ponder')}: {snippet}")
+
+
 def main() -> None:
     import argparse
 
@@ -285,7 +293,19 @@ def main() -> None:
         action="store_true",
         help="Scan journal and update the index before searching",
     )
+    parser.add_argument(
+        "-q", "--query",
+        nargs="?",
+        const="",
+        help="Run query (interactive mode if no query provided)",
+    )
+    
     args = parser.parse_args()
+    
+    # Require either --rescan or -q
+    if not args.rescan and args.query is None:
+        parser.print_help()
+        return
 
     load_dotenv()
     journal = os.getenv("JOURNAL_PATH")
@@ -300,18 +320,23 @@ def main() -> None:
         if changed:
             save_cache(journal, cache)
 
-    while True:
-        try:
-            query = input("search> ").strip()
-        except EOFError:
-            break
-        if not query:
-            break
-        results = search_ponders(journal, query, 5)
-        for idx, r in enumerate(results, 1):
-            meta = r.get("metadata", {})
-            snippet = r["text"]
-            print(f"{idx}. {meta.get('day')} {meta.get('ponder')}: {snippet}")
+    # Handle query argument
+    if args.query is not None:
+        if args.query:
+            # Single query mode - run query and exit
+            results = search_ponders(journal, args.query, 5)
+            _display_search_results(results)
+        else:
+            # Interactive mode
+            while True:
+                try:
+                    query = input("search> ").strip()
+                except EOFError:
+                    break
+                if not query:
+                    break
+                results = search_ponders(journal, query, 5)
+                _display_search_results(results)
 
 
 if __name__ == "__main__":
