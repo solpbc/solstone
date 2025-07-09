@@ -1,5 +1,6 @@
 """Entity indexing utilities."""
 
+import argparse
 import json
 import os
 import re
@@ -176,3 +177,47 @@ def get_entities(journal: str) -> Dict[str, Dict[str, dict]]:
         save_cache(journal, cache)
 
     return build_entities(cache)
+
+
+def main() -> None:
+    """CLI entry point for entity indexing."""
+    parser = argparse.ArgumentParser(description="Entity indexing for journal")
+    parser.add_argument("--rescan", action="store_true", 
+                       help="Force rescan by clearing cache")
+    
+    args = parser.parse_args()
+    
+    journal = os.environ.get("JOURNAL_PATH")
+    if not journal:
+        print("Error: JOURNAL_PATH environment variable not set")
+        return
+    
+    if not os.path.isdir(journal):
+        print(f"Error: Journal directory '{journal}' does not exist")
+        return
+    
+    cache = load_cache(journal)
+    
+    if args.rescan:
+        print("Rescanning entities...")
+        if scan_entities(journal, cache):
+            save_cache(journal, cache)
+            print("Cache updated")
+        else:
+            print("No changes found")
+    
+    entities = build_entities(cache)
+    
+    print("Entity counts by category:")
+    print("-" * 30)
+    for category in sorted(entities.keys()):
+        count = len(entities[category])
+        print(f"{category}: {count}")
+    
+    total = sum(len(entities[cat]) for cat in entities)
+    print("-" * 30)
+    print(f"Total: {total}")
+
+
+if __name__ == "__main__":
+    main()
