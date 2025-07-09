@@ -213,7 +213,12 @@ def search_ponders(journal: str, query: str, n_results: int = 5) -> List[Dict[st
             {
                 "id": path,
                 "text": sentence,
-                "metadata": {"day": day, "ponder": ponder, "index": pos},
+                "metadata": {
+                    "day": day,
+                    "ponder": ponder,
+                    "path": path,
+                    "index": pos,
+                },
                 "score": rank,
             }
         )

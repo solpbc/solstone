@@ -67,3 +67,15 @@ def test_occurrence_index(tmp_path):
     mod.scan_occurrences(str(journal), cache, verbose=True)
     results = mod.search_occurrences(str(journal), "Standup")
     assert results and results[0]["metadata"]["day"] == "20240101"
+
+
+def test_ponder_index(tmp_path):
+    mod = importlib.import_module("think.indexer")
+    journal = tmp_path
+    day = journal / "20240102"
+    day.mkdir()
+    (day / "ponder_files.md").write_text("This is a test sentence.\n")
+    cache: dict = {}
+    mod.scan_ponders(str(journal), cache, verbose=True)
+    results = mod.search_ponders(str(journal), "test")
+    assert results and results[0]["metadata"]["path"] == "20240102/ponder_files.md"

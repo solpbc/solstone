@@ -8,6 +8,7 @@
 .column { flex: 1; }
 .result { margin-bottom: 1em; cursor: pointer; }
 .result-title { font-weight: bold; color: #1a0dab; }
+.occ-details { white-space: pre-wrap; }
 .modal { display:none; position:fixed; z-index:1000; left:0; top:0; width:100%; height:100%; background:rgba(0,0,0,0.5); }
 .modal-content { background:white; margin:5% auto; padding:1em; border-radius:8px; max-width:800px; max-height:80vh; overflow:auto; position:relative; }
 .close { position:absolute; top:10px; right:15px; cursor:pointer; font-size:24px; }
@@ -66,7 +67,7 @@ document.getElementById('searchForm').onsubmit = e => { e.preventDefault(); doSe
 
 function renderDetail(type, data, meta){
   if(type==='ponder'){
-    return `<pre>${escapeHtml(data.text || '')}</pre>`;
+    return `<div class="occ-details">${escapeHtml(data.text || '')}</div>`;
   }
   let html = '';
   if(data.title){html += `<h4>${escapeHtml(data.title)}</h4>`;}
@@ -75,13 +76,15 @@ function renderDetail(type, data, meta){
   fields.forEach(f=>{if(data[f]) html += `<p><strong>${f.charAt(0).toUpperCase()+f.slice(1)}:</strong> ${escapeHtml(String(data[f]))}</p>`;});
   if(data.details){
     const details = typeof data.details==='string' ? data.details : JSON.stringify(data.details, null, 2);
-    html += `<pre>${escapeHtml(details)}</pre>`;
+    html += `<div class="occ-details">${escapeHtml(details)}</div>`;
   }
   return html;
 }
 
 function showDetail(type, meta){
-  const url = type==='ponder' ? `${ponderDetailUrl}?path=${encodeURIComponent(meta.ponder)}` : `${occDetailUrl}?path=${encodeURIComponent(meta.path)}&index=${meta.index}`;
+  const url = type==='ponder'
+    ? `${ponderDetailUrl}?path=${encodeURIComponent(meta.path)}`
+    : `${occDetailUrl}?path=${encodeURIComponent(meta.path)}&index=${meta.index}`;
   fetch(url).then(r=>r.json()).then(d=>{
     document.getElementById('modalContent').innerHTML = renderDetail(type, d, meta);
     document.getElementById('detailModal').style.display='block';
