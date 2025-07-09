@@ -23,7 +23,9 @@ async def ask_gemini(prompt: str, attachments: List[str], api_key: str) -> str:
     mcp_client = get_sunstone_client()
 
     past: List[types.Content] = [
-        types.Content(role=("user" if m["role"] == "user" else "model"), parts=[types.Part(text=m["text"])])
+        types.Content(
+            role=("user" if m["role"] == "user" else "model"), parts=[types.Part(text=m["text"])]
+        )
         for m in state.chat_history
     ]
 
@@ -32,11 +34,21 @@ async def ask_gemini(prompt: str, attachments: List[str], api_key: str) -> str:
         past.append(types.Content(role="user", parts=[types.Part(text=a)]))
 
     async with mcp_client:
+        session = mcp_client.session
+
+        original_call_tool = session.call_tool
+
+        async def logged_call_tool(name: str, arguments: Dict[str, Any] | None = None, **kwargs):
+            print(f"Calling MCP tool {name} with args {arguments}")
+            return await original_call_tool(name=name, arguments=arguments, **kwargs)
+
+        session.call_tool = logged_call_tool  # type: ignore[assignment]
+
         model = await client.aio.models.generate_content(
             model=GEMINI_FLASH,
             contents=past,
             config=types.GenerateContentConfig(
-                tools=[mcp_client.session],
+                tools=[session],
                 tool_config=types.ToolConfig(
                     function_calling_config=types.FunctionCallingConfig(mode="AUTO")
                 ),
