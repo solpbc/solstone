@@ -8,6 +8,7 @@ import sqlite3
 from typing import Dict, List, Tuple
 
 import nltk
+import sqlite_utils
 from dotenv import load_dotenv
 
 from think.utils import journal_log
@@ -202,12 +203,14 @@ def scan_occurrences(journal: str, cache: Dict[str, dict], verbose: bool = False
 def search_ponders(journal: str, query: str, n_results: int = 5) -> List[Dict[str, str]]:
     """Search the ponder sentence index and return results."""
     conn, _ = get_index(journal)
+    db = sqlite_utils.Database(conn)
+    quoted = db.quote(query)
     cursor = conn.execute(
-        """
+        f"""
         SELECT sentence, path, day, ponder, position, bm25(sentences) as rank
-        FROM sentences WHERE sentences MATCH ? ORDER BY rank LIMIT ?
+        FROM sentences WHERE sentences MATCH {quoted} ORDER BY rank LIMIT ?
         """,
-        (query, n_results),
+        (n_results,),
     )
     results = []
     for sentence, path, day, ponder, pos, rank in cursor.fetchall():
@@ -231,12 +234,14 @@ def search_ponders(journal: str, query: str, n_results: int = 5) -> List[Dict[st
 def search_occurrences(journal: str, query: str, n_results: int = 5) -> List[Dict[str, str]]:
     """Search the occurrences index and return results."""
     conn, _ = get_index(journal)
+    db = sqlite_utils.Database(conn)
+    quoted = db.quote(query)
     cursor = conn.execute(
-        """
+        f"""
         SELECT title, summary, details, path, day, idx, type, source, start, end, work, participants, bm25(occurrences) as rank
-        FROM occurrences WHERE occurrences MATCH ? ORDER BY rank LIMIT ?
+        FROM occurrences WHERE occurrences MATCH {quoted} ORDER BY rank LIMIT ?
         """,
-        (query, n_results),
+        (n_results,),
     )
     results = []
     for row in cursor.fetchall():

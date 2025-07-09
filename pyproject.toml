@@ -59,6 +59,7 @@ dependencies = [
     "PyGObject",
     "watchdog",
     "nltk",
+    "sqlite-utils",
 ]
 
 [project.optional-dependencies]
