@@ -5,6 +5,7 @@ import json
 import os
 import subprocess
 import threading
+import time
 from typing import Callable, Optional
 
 import websockets
@@ -25,6 +26,7 @@ from .views.entities import reload_entities
 
 
 def _run_command(cmd: list[str], logger: Callable[[str, str], None]) -> int:
+    print("[task] run:", " ".join(cmd))
     env = os.environ.copy()
     if state.journal_root:
         env["JOURNAL_PATH"] = state.journal_root
@@ -48,6 +50,7 @@ def _run_command(cmd: list[str], logger: Callable[[str, str], None]) -> int:
     proc.wait()
     t_out.join()
     t_err.join()
+    print(f"[task] done: {' '.join(cmd)} (exit {proc.returncode})")
     return proc.returncode
 
 
@@ -77,6 +80,9 @@ def run_task(
     logger = logger or (lambda t, m: None)
     out_logger = _LineLogger("stdout", logger)
     err_logger = _LineLogger("stderr", logger)
+    start = time.monotonic()
+    info = f"{name} {day}" if day else name
+    print(f"[task] start: {info}")
 
     with contextlib.redirect_stdout(out_logger), contextlib.redirect_stderr(err_logger):
         try:
@@ -128,6 +134,10 @@ def run_task(
                     raise ValueError("day required")
                 reduce_day(day)
                 code = 0
+            elif name == "process_day":
+                if not day:
+                    raise ValueError("day required")
+                code = _run_command(["process-day", "--day", day, "--repair"], logger)
             else:
                 logger("stderr", f"Unknown task: {name}")
                 code = 1
@@ -137,6 +147,7 @@ def run_task(
         finally:
             out_logger.flush()
             err_logger.flush()
+    print(f"[task] end: {info} ({time.monotonic() - start:.1f}s)")
     return code
 
 

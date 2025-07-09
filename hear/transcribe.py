@@ -22,6 +22,7 @@ from hear.audio_utils import SAMPLE_RATE, detect_speech, merge_streams, resample
 from hear.gemini import transcribe_segments
 from think.crumbs import CrumbBuilder
 from think.models import GEMINI_FLASH
+from think.utils import day_log
 
 # Constants
 MODEL = GEMINI_FLASH
@@ -246,6 +247,8 @@ class Transcriber:
         if dry_run:
             return len(files)
 
+        success = 0
+
         # Sort by HHMMSS for processing order
         files_sorted = sorted(files, key=lambda n: n.split("_")[0])
         for name in files_sorted:
@@ -254,9 +257,13 @@ class Transcriber:
                 logging.warning(f"Skipping missing audio file {audio_path}")
                 continue
             logging.info(f"Processing audio file: {audio_path}")
+            json_path = self._get_json_path(audio_path)
+            before = json_path.exists()
             self._handle_raw(audio_path)
+            if json_path.exists() and not before:
+                success += 1
 
-        return len(files)
+        return success
 
     def start(self):
         handler = PatternMatchingEventHandler(patterns=["*_raw.flac"], ignore_directories=True)
@@ -335,7 +342,12 @@ def main():
         except ValueError:
             parser.error(f"Invalid date format: {args.repair}. Use YYYYMMDD format.")
         info = Transcriber.scan_day(journal / args.repair)
-        transcriber.repair_day(args.repair, info["repairable"])
+        repaired = transcriber.repair_day(args.repair, info["repairable"])
+        failed = len(info["repairable"]) - repaired
+        msg = f"gemini-transcribe repaired {repaired}"
+        if failed:
+            msg += f" failed {failed}"
+        day_log(args.repair, msg)
     else:
         transcriber.start()
 

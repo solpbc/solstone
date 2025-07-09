@@ -16,6 +16,7 @@ from watchdog.observers import Observer
 
 from see import gemini_look
 from think.crumbs import CrumbBuilder
+from think.utils import day_log
 
 
 class Describer:
@@ -94,6 +95,8 @@ class Describer:
         if dry_run:
             return len(files)
 
+        success = 0
+
         for box_name in files:
             box_path = day_dir / box_name
             prefix = box_path.stem.replace("_box", "")
@@ -106,11 +109,14 @@ class Describer:
 
             try:
                 logging.info(f"Describing image: {img_path}")
+                before = json_path.exists()
                 self._process_once(img_path, box_path, json_path)
+                if json_path.exists() and not before:
+                    success += 1
             except Exception as e:
                 logging.error(f"Failed to describe {img_path}: {e}")
 
-        return len(files)
+        return success
 
     def start(self):
         handler = PatternMatchingEventHandler(patterns=["*_diff_box.json"], ignore_directories=True)
@@ -189,7 +195,12 @@ def main() -> None:
         except ValueError:
             parser.error(f"Invalid date format: {args.repair}. Use YYYYMMDD format.")
         info = Describer.scan_day(journal / args.repair)
-        describer.repair_day(args.repair, info["repairable"])
+        repaired = describer.repair_day(args.repair, info["repairable"])
+        failed = len(info["repairable"]) - repaired
+        msg = f"screen-describe repaired {repaired}"
+        if failed:
+            msg += f" failed {failed}"
+        day_log(args.repair, msg)
     else:
         describer.start()
 

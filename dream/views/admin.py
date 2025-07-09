@@ -174,3 +174,12 @@ def admin_reduce(day: str) -> Any:
 
     run_task("reduce", day)
     return jsonify({"status": "ok"})
+
+
+@bp.route("/admin/api/<day>/process", methods=["POST"])
+def admin_process(day: str) -> Any:
+    if not _valid_day(day):
+        return jsonify({"error": "invalid day"}), 404
+
+    run_task("process_day", day)
+    return jsonify({"status": "ok"})

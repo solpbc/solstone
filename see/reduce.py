@@ -14,7 +14,7 @@ from google.genai import types
 
 from think.crumbs import CrumbBuilder
 from think.models import GEMINI_FLASH
-from think.utils import day_path
+from think.utils import day_log, day_path
 
 DEFAULT_PROMPT_PATH = os.path.join(os.path.dirname(__file__), "reduce.txt")
 
@@ -216,8 +216,7 @@ def process_group(
 
         print(f"Tokens: ({prompt_tokens}) -> ({candidates_tokens}) compression: {compression:.2f}%")
     except Exception as e:
-        print(f"Gemini call failed: {e}", file=sys.stderr)
-        sys.exit(1)
+        raise RuntimeError(f"Gemini call failed: {e}") from e
 
     print(f"Writing {out_name} ({len(result)})")
     with open(out_path, "w", encoding="utf-8") as f:
@@ -277,7 +276,7 @@ def reduce_day(
     debug: bool = False,
     start: datetime | None = None,
     end: datetime | None = None,
-) -> None:
+) -> tuple[int, int]:
     """Process monitor diffs under ``day`` between ``start`` and ``end``.
 
     When ``start``/``end`` are ``None`` all available 5 minute groups are processed.
@@ -288,7 +287,7 @@ def reduce_day(
     day_dir = day_path(day)
     if not os.path.isdir(day_dir):
         print(f"Folder not found: {day_dir}")
-        return
+        return 0, 0
 
     start = _normalize_time(start)
     end = _normalize_time(end)
@@ -299,31 +298,40 @@ def reduce_day(
     groups_iter = list(_iter_groups(day_dir, start, end))
     if not groups_iter:
         print("No monitor diff JSON files found")
-        return
+        return 0, 0
 
     try:
         api_key = _get_api_key()
     except RuntimeError as exc:
         print(str(exc), file=sys.stderr)
-        return
+        return 0, 0
 
     prompt = load_prompt(prompt_path)
     token_tracker = TokenTracker()
 
+    success = 0
+    failed = 0
     for group_start, files in groups_iter:
-        process_group(
-            group_start,
-            files,
-            prompt,
-            prompt_path,
-            api_key,
-            force,
-            day_dir,
-            token_tracker,
-            debug,
-        )
+        try:
+            process_group(
+                group_start,
+                files,
+                prompt,
+                prompt_path,
+                api_key,
+                force,
+                day_dir,
+                token_tracker,
+                debug,
+            )
+            success += 1
+        except Exception as e:
+            print(f"Error reducing {group_start}: {e}", file=sys.stderr)
+            failed += 1
 
     token_tracker.print_summary()
+
+    return success, failed
 
 
 def main():
@@ -347,7 +355,7 @@ def main():
     start = datetime.strptime(args.start, "%H:%M") if args.start else None
     end = datetime.strptime(args.end, "%H:%M") if args.end else None
 
-    reduce_day(
+    success, failed = reduce_day(
         args.day,
         args.prompt,
         force=args.force,
@@ -355,6 +363,13 @@ def main():
         start=start,
         end=end,
     )
+
+    msg = f"reduce-screen {success} blocks"
+    if failed:
+        msg += f" failed {failed}"
+    if args.force:
+        msg += " --force"
+    day_log(args.day, msg)
 
 
 if __name__ == "__main__":

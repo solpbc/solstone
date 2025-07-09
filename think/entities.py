@@ -6,6 +6,8 @@ import os
 import re
 from typing import Dict, List, Optional, Tuple
 
+from think.utils import journal_log
+
 DATE_RE = re.compile(r"\d{8}")
 ITEM_RE = re.compile(r"^\s*[-*]\s*(.*)")
 TOP_KEY = "__top__"
@@ -243,6 +245,7 @@ def main() -> None:
     if args.rescan:
         print("Rescanning entities...")
         ent.rescan()
+        journal_log("entities rescanned")
 
     entities = ent.index()
 
