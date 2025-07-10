@@ -1,7 +1,15 @@
 {% extends 'base.html' %}
 {% import 'macros.html' as macros %}
 {% set active = 'calendar' %}
-{% block head %}{% endblock %}
+{% block head %}
+<style>
+.modal { display:none; position:fixed; z-index:1000; left:0; top:0; width:100%; height:100%; background:rgba(0,0,0,0.5); }
+.modal-content { background:white; margin:5% auto; padding:1em; border-radius:8px; max-width:600px; position:relative; }
+.close { position:absolute; top:10px; right:15px; cursor:pointer; font-size:24px; }
+.occ-field { margin-bottom:0.5em; }
+.occ-field strong { display:inline-block; width:90px; }
+</style>
+{% endblock %}
 {% block body %}
 <div class="container">
   {{ macros.day_heading(title,
@@ -22,6 +30,12 @@
     <div class="markdown">{{ file.html|safe }}</div>
   </div>
   {% endfor %}
+  <div id="eventModal" class="modal">
+    <div class="modal-content">
+      <span class="close">&times;</span>
+      <div id="modalBody"></div>
+    </div>
+  </div>
 </div>
 <script src="{{ url_for('review.static', filename='colors.js') }}"></script>
 <script>
@@ -71,7 +85,7 @@ function renderEvents(list){
   // determine time range
   let start = Infinity;
   let end = -Infinity;
-  list.forEach(o => {
+  list.forEach((o, idx) => {
     if(!o.startTime) return;
     const s = new Date(o.startTime);
     const e = o.endTime ? new Date(o.endTime) : new Date(s.getTime() + 3600000);
@@ -113,7 +127,8 @@ function renderEvents(list){
       endMinutes: e,
       slug: slug,
       title: escapeHtml(o.title || o.summary || slug),
-      href: `${window.location.pathname}${slug ? '#' + slug : ''}`
+      href: `${window.location.pathname}${slug ? '#' + slug : ''}`,
+      index: idx
     });
   });
 
@@ -180,7 +195,7 @@ function renderEvents(list){
     const left = event.column * columnWidth;
     const width = columnWidth * 0.95; // Leave small gap between columns
     const color = slugColors[event.slug] || '#6c757d';
-    html += `<a class='occ' href='${event.href}' style='top:${top}%;height:${height}%;left:${left}%;width:${width}%;right:auto;background:${color}' title='${event.title}'></a>`;
+    html += `<a class='occ' data-index='${event.index}' href='${event.href}' style='top:${top}%;height:${height}%;left:${left}%;width:${width}%;right:auto;background:${color}' title='${event.title}'></a>`;
   });
   html += '</div>';
   div.innerHTML = html;
@@ -193,6 +208,20 @@ function escapeHtml(text){
   return d.innerHTML;
 }
 
+function openModal(idx){
+  const occ = events[idx];
+  if(!occ) return;
+  const body = document.getElementById('modalBody');
+  let html = '';
+  Object.keys(occ).forEach(key=>{
+    let val = occ[key];
+    if(typeof val === 'object') val = JSON.stringify(val, null, 2);
+    html += `<div class="occ-field"><strong>${escapeHtml(key)}</strong> ${escapeHtml(String(val))}</div>`;
+  });
+  body.innerHTML = html;
+  document.getElementById('eventModal').style.display='block';
+}
+
 function loadEvents(){
   fetch('{{ url_for('calendar.calendar_occurrences') }}')
     .then(r => r.json())
@@ -201,6 +230,10 @@ function loadEvents(){
       const slugs = renderEvents(events);
       orderTabs(slugs);
       colorTabs();
+      document.getElementById('eventsView').onclick = e => {
+        const el = e.target.closest('.occ');
+        if(el){ e.preventDefault(); openModal(parseInt(el.dataset.index)); }
+      };
     });
 }
 
@@ -229,5 +262,12 @@ if(initial && document.getElementById(initial)){
 } else {
   showTab('events');
 }
+document.querySelector('#eventModal .close').onclick = () => {
+  document.getElementById('eventModal').style.display = 'none';
+};
+window.onclick = e => {
+  const modal = document.getElementById('eventModal');
+  if(e.target === modal) modal.style.display = 'none';
+};
 </script>
 {% endblock %}
