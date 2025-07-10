@@ -20,15 +20,12 @@ pre { background:#f5f5f5; padding:0.5em; }
   <button id="summaryBtn">Refresh Summary</button>
   <button id="entitiesBtn">Reload Entities</button>
   <pre id="status"></pre>
-  <h2>Task Log</h2>
-  <pre id="logOutput"></pre>
-  {% if repair_data %}
-  <h2>Outstanding Repairables</h2>
+  {% set cats = ['hear','see','reduce','ponder','entity'] %}
   <div class="tabs">
-    {% set cats = ['hear','see','reduce','ponder','entity'] %}
     {% for cat in cats %}
     <div class="tab{% if loop.first %} active{% endif %}" data-target="{{ cat }}">{{ cat.capitalize() }}</div>
     {% endfor %}
+    <div class="tab" data-target="log">Task Log</div>
   </div>
   {% for cat in cats %}
   <ul class="content" id="{{ cat }}" style="{% if not loop.first %}display:none{% endif %}">
@@ -39,7 +36,9 @@ pre { background:#f5f5f5; padding:0.5em; }
     {% endfor %}
   </ul>
   {% endfor %}
-  {% endif %}
+  <div class="content" id="log" style="display:none">
+    <pre id="logOutput"></pre>
+  </div>
 </div>
 <div id="taskModal" class="modal">
   <div class="modal-content">
