@@ -35,12 +35,14 @@ pre { background:#f5f5f5; padding:0.5em; }
   </div>
 </div>
 <script>
+let taskDone=false;
 function runTask(data){
   const modal=document.getElementById('taskModal');
   const out=document.getElementById('taskOutput');
   const modalContent=document.querySelector('#taskModal .modal-content');
   out.innerHTML='';
   modal.style.display='block';
+  taskDone=false;
   const spinner=document.createElement('span');
   spinner.className='spinner';
   out.appendChild(spinner);
@@ -57,7 +59,7 @@ function runTask(data){
   };
   ws.onclose=()=>{spinner.remove();const s=Math.round((Date.now()-start)/1000);
     const msg=s>=60? (Math.round(s/6)/10+' minutes'):s+' seconds';
-    out.innerHTML+=`\n[completed in ${msg}]\n`;scroll();};
+    out.innerHTML+=`\n[completed in ${msg}]\n`;scroll();taskDone=true;};
 }
 document.getElementById('hearRepairBtn').onclick=()=>runTask({task:'hear_repair',day:'{{ day }}'});
 document.getElementById('seeRepairBtn').onclick=()=>runTask({task:'see_repair',day:'{{ day }}'});
@@ -65,9 +67,13 @@ document.getElementById('ponderBtn').onclick=()=>runTask({task:'ponder',day:'{{ 
 document.getElementById('entityBtn').onclick=()=>runTask({task:'entity',day:'{{ day }}'});
 document.getElementById('reduceBtn').onclick=()=>runTask({task:'reduce',day:'{{ day }}'});
 document.getElementById('processBtn').onclick=()=>runTask({task:'process_day',day:'{{ day }}'});
-document.querySelectorAll('#taskModal .close')[0].onclick=()=>{document.getElementById('taskModal').style.display='none';};
+function hideModal(){
+  document.getElementById('taskModal').style.display='none';
+  if(taskDone) location.reload();
+}
+document.querySelectorAll('#taskModal .close')[0].onclick=hideModal;
 window.onclick=e=>{
-  if(e.target==document.getElementById('taskModal'))document.getElementById('taskModal').style.display='none';
+  if(e.target==document.getElementById('taskModal')) hideModal();
 };
 function loadLog(){
   fetch('{{ url_for('admin.task_log', day=day) }}').then(r=>r.json()).then(data=>{

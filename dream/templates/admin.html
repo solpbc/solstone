@@ -47,6 +47,7 @@ pre { background:#f5f5f5; padding:0.5em; }
   </div>
 </div>
 <script>
+let taskDone=false;
 const tabs = document.querySelectorAll('.tab');
 const contents = document.querySelectorAll('.content');
 function showTab(id){
@@ -60,6 +61,7 @@ function runTask(data){
   const modalContent=document.querySelector('#taskModal .modal-content');
   out.innerHTML='';
   modal.style.display='block';
+  taskDone=false;
   const spinner=document.createElement('span');
   spinner.className='spinner';
   out.appendChild(spinner);
@@ -76,7 +78,7 @@ function runTask(data){
   };
   ws.onclose=()=>{spinner.remove();const s=Math.round((Date.now()-start)/1000);
     const msg=s>=60?(Math.round(s/6)/10+' minutes'):s+' seconds';
-    out.innerHTML+=`\n[completed in ${msg}]\n`;scroll();};
+    out.innerHTML+=`\n[completed in ${msg}]\n`;scroll();taskDone=true;};
 }
 document.getElementById('reindexBtn').onclick=()=>runTask({task:'reindex'});
 document.getElementById('summaryBtn').onclick=()=>runTask({task:'summary'});
@@ -87,9 +89,13 @@ function loadLog(){
     pre.textContent=data.map(e=>`${e.since} - ${e.message}`).join('\n');
   });
 }
-document.querySelectorAll('#taskModal .close')[0].onclick=()=>{document.getElementById('taskModal').style.display='none';};
+function hideModal(){
+  document.getElementById('taskModal').style.display='none';
+  if(taskDone) location.reload();
+}
+document.querySelectorAll('#taskModal .close')[0].onclick=hideModal;
 window.onclick=e=>{
-  if(e.target==document.getElementById('taskModal'))document.getElementById('taskModal').style.display='none';
+  if(e.target==document.getElementById('taskModal')) hideModal();
 };
 loadLog();
 </script>
