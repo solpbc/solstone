@@ -109,7 +109,7 @@ function renderEvents(list){
   const processedEvents = [];
   const slugs = [];
 
-  list.forEach(o => {
+  list.forEach((o, idx) => {
     if(!o.startTime) return;
     const start = new Date(o.startTime);
     const end = o.endTime ? new Date(o.endTime) : new Date(start.getTime()+5*60000);
