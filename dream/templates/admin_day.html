@@ -25,6 +25,8 @@ pre { background:#f5f5f5; padding:0.5em; }
   <button id="reduceBtn">Screen Reduce ({{ reduce_rep }}/{{ reduce_proc }})</button>
   <button id="processBtn">Process Day</button>
   <pre id="status"></pre>
+  <h2>Task Log</h2>
+  <pre id="logOutput"></pre>
 </div>
 <div id="taskModal" class="modal">
   <div class="modal-content">
@@ -63,7 +65,16 @@ document.getElementById('ponderBtn').onclick=()=>runTask({task:'ponder',day:'{{ 
 document.getElementById('entityBtn').onclick=()=>runTask({task:'entity',day:'{{ day }}'});
 document.getElementById('reduceBtn').onclick=()=>runTask({task:'reduce',day:'{{ day }}'});
 document.getElementById('processBtn').onclick=()=>runTask({task:'process_day',day:'{{ day }}'});
-document.querySelector('.close').onclick=()=>{document.getElementById('taskModal').style.display='none';};
-window.onclick=e=>{if(e.target==document.getElementById('taskModal'))document.getElementById('taskModal').style.display='none';};
+document.querySelectorAll('#taskModal .close')[0].onclick=()=>{document.getElementById('taskModal').style.display='none';};
+window.onclick=e=>{
+  if(e.target==document.getElementById('taskModal'))document.getElementById('taskModal').style.display='none';
+};
+function loadLog(){
+  fetch('{{ url_for('admin.task_log', day=day) }}').then(r=>r.json()).then(data=>{
+    const pre=document.getElementById('logOutput');
+    pre.textContent=data.map(e=>`${e.since} - ${e.message}`).join('\n');
+  });
+}
+loadLog();
 </script>
 {% endblock %}

@@ -20,6 +20,8 @@ pre { background:#f5f5f5; padding:0.5em; }
   <button id="summaryBtn">Refresh Summary</button>
   <button id="entitiesBtn">Reload Entities</button>
   <pre id="status"></pre>
+  <h2>Task Log</h2>
+  <pre id="logOutput"></pre>
   {% if repair_data %}
   <h2>Outstanding Repairables</h2>
   <div class="tabs">
@@ -80,7 +82,16 @@ function runTask(data){
 document.getElementById('reindexBtn').onclick=()=>runTask({task:'reindex'});
 document.getElementById('summaryBtn').onclick=()=>runTask({task:'summary'});
 document.getElementById('entitiesBtn').onclick=()=>runTask({task:'reload_entities'});
-document.querySelector('.close').onclick=()=>{document.getElementById('taskModal').style.display='none';};
-window.onclick=e=>{if(e.target==document.getElementById('taskModal'))document.getElementById('taskModal').style.display='none';};
+function loadLog(){
+  fetch('{{ url_for('admin.task_log') }}').then(r=>r.json()).then(data=>{
+    const pre=document.getElementById('logOutput');
+    pre.textContent=data.map(e=>`${e.since} - ${e.message}`).join('\n');
+  });
+}
+document.querySelectorAll('#taskModal .close')[0].onclick=()=>{document.getElementById('taskModal').style.display='none';};
+window.onclick=e=>{
+  if(e.target==document.getElementById('taskModal'))document.getElementById('taskModal').style.display='none';
+};
+loadLog();
 </script>
 {% endblock %}

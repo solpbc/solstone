@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import time
 from pathlib import Path
 from typing import Any
 
@@ -16,7 +17,7 @@ from think.ponder import scan_day as ponder_scan_day
 
 from .. import state
 from ..task_runner import run_task
-from ..utils import DATE_RE, adjacent_days, format_date
+from ..utils import DATE_RE, adjacent_days, format_date, time_since
 
 bp = Blueprint("admin", __name__, template_folder="../templates")
 
@@ -183,3 +184,37 @@ def admin_process(day: str) -> Any:
 
     run_task("process_day", day)
     return jsonify({"status": "ok"})
+
+
+@bp.route("/admin/api/task_log")
+@bp.route("/admin/api/<day>/task_log")
+def task_log(day: str | None = None) -> Any:
+    """Return task log entries for the journal or a specific day."""
+    path = None
+    if state.journal_root:
+        base = Path(state.journal_root)
+        if day:
+            if not _valid_day(day):
+                return jsonify([])
+            path = base / day / "task_log.txt"
+        else:
+            path = base / "task_log.txt"
+    entries: list[dict[str, Any]] = []
+    if path and path.is_file():
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                for line in f:
+                    parts = line.strip().split("\t", 1)
+                    if len(parts) != 2:
+                        continue
+                    try:
+                        ts = int(parts[0])
+                    except ValueError:
+                        continue
+                    entries.append({"time": ts, "message": parts[1]})
+        except Exception:
+            entries = []
+    entries.sort(key=lambda e: e["time"], reverse=True)
+    for e in entries:
+        e["since"] = time_since(e["time"])
+    return jsonify(entries)

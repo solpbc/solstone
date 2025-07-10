@@ -1,6 +1,7 @@
 import json
 import os
 import re
+import time
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
@@ -38,6 +39,24 @@ def format_date(date_str: str) -> str:
         return date_obj.strftime(f"%A %B {day}{suffix}")
     except ValueError:
         return date_str
+
+
+def time_since(epoch: int) -> str:
+    """Return short human readable age for ``epoch`` seconds."""
+    seconds = int(time.time() - epoch)
+    if seconds < 60:
+        return f"{seconds} seconds ago"
+    minutes = seconds // 60
+    if minutes < 60:
+        return f"{minutes} minute{'s' if minutes != 1 else ''} ago"
+    hours = minutes // 60
+    if hours < 24:
+        return f"{hours} hour{'s' if hours != 1 else ''} ago"
+    days = hours // 24
+    if days < 7:
+        return f"{days} day{'s' if days != 1 else ''} ago"
+    weeks = days // 7
+    return f"{weeks} week{'s' if weeks != 1 else ''} ago"
 
 
 def log_entity_operation(
