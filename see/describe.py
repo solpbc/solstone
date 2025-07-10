@@ -15,6 +15,7 @@ from watchdog.events import PatternMatchingEventHandler
 from watchdog.observers import Observer
 
 from see import gemini_look
+from see.reduce import reduce_day
 from think.crumbs import CrumbBuilder
 from think.utils import day_log
 
@@ -29,6 +30,7 @@ class Describer:
         self.observer: Optional[Observer] = None
         self.executor = ThreadPoolExecutor()
         self.attempts: dict[str, int] = {}
+        self._last_reduce: Optional[datetime.datetime] = None
 
     def _process_once(self, img_path: Path, box_path: Path, json_path: Path) -> None:
         result = self.describe(img_path, box_path)
@@ -118,6 +120,27 @@ class Describer:
 
         return success
 
+    def _maybe_reduce(self) -> None:
+        """Reduce the previous 5 minute window if enough time has passed."""
+        now = datetime.datetime.now()
+        prev_minute = now - datetime.timedelta(minutes=1)
+        if prev_minute.minute % 5 != 0:
+            return
+        block_end = prev_minute.replace(
+            minute=(prev_minute.minute // 5) * 5,
+            second=0,
+            microsecond=0,
+        )
+        if self._last_reduce == block_end:
+            return
+        block_start = block_end - datetime.timedelta(minutes=5)
+        day_str = prev_minute.strftime("%Y%m%d")
+        try:
+            reduce_day(day_str, start=block_start, end=block_end)
+            self._last_reduce = block_end
+        except Exception as exc:
+            logging.error(f"reduce_day failed: {exc}")
+
     def start(self):
         handler = PatternMatchingEventHandler(patterns=["*_diff_box.json"], ignore_directories=True)
 
@@ -152,6 +175,7 @@ class Describer:
                     self.processed.clear()
                     current_day = today_str
                     logging.info(f"Watching {day_dir}")
+                self._maybe_reduce()
                 time.sleep(1)
         except KeyboardInterrupt:
             pass

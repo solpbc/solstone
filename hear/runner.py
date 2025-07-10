@@ -23,13 +23,21 @@ def _run_loop(script: str, args: list[str]) -> None:
     while not STOP_EVENT.is_set():
         start_ts = time.strftime("%Y%m%d_%H%M%S")
         print(f"Starting {script} at {start_ts}", flush=True)
-        proc = subprocess.Popen(cmd, start_new_session=True)
+        try:
+            proc = subprocess.Popen(cmd, start_new_session=True)
+        except Exception as exc:  # Catch anything that prevents start
+            print(f"Failed to start {script}: {exc}", flush=True)
+            time.sleep(1)
+            continue
         while not STOP_EVENT.is_set():
             try:
                 proc.wait(timeout=0.5)
                 break
             except subprocess.TimeoutExpired:
                 continue
+            except Exception as exc:  # Unexpected errors while waiting
+                print(f"Error waiting for {script}: {exc}", flush=True)
+                break
         if STOP_EVENT.is_set():
             print(f"Stopping {script}...", flush=True)
             os.killpg(proc.pid, signal.SIGTERM)
@@ -38,7 +46,10 @@ def _run_loop(script: str, args: list[str]) -> None:
             except subprocess.TimeoutExpired:
                 os.killpg(proc.pid, signal.SIGKILL)
             return
-        print(f"{script} exited, restarting in 1 second...", flush=True)
+        print(
+            f"{script} exited with code {proc.returncode}, restarting in 1 second...",
+            flush=True,
+        )
         time.sleep(1)
 
 
