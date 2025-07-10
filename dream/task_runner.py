@@ -85,11 +85,12 @@ def run_task(
                         "-m",
                         "think.indexer",
                         "--rescan",
+                        "--verbose",
                     ],
                     logger,
                 )
             elif name == "summary":
-                code = _run_command(["journal-stats"], logger)
+                code = _run_command(["journal-stats", "--verbose"], logger)
             elif name == "reload_entities":
                 code = _run_command(
                     [
@@ -97,6 +98,7 @@ def run_task(
                         "-m",
                         "think.entities",
                         "--rescan",
+                        "--verbose",
                     ],
                     logger,
                 )
@@ -104,11 +106,11 @@ def run_task(
             elif name == "hear_repair":
                 if not day:
                     raise ValueError("day required")
-                code = _run_command(["gemini-transcribe", "--repair", day], logger)
+                code = _run_command(["gemini-transcribe", "--repair", day, "-v"], logger)
             elif name == "see_repair":
                 if not day:
                     raise ValueError("day required")
-                code = _run_command(["screen-describe", "--repair", day], logger)
+                code = _run_command(["screen-describe", "--repair", day, "-v"], logger)
             elif name == "ponder":
                 if not day:
                     raise ValueError("day required")
@@ -116,7 +118,17 @@ def run_task(
                 prompts = sorted(glob.glob(os.path.join(think_dir, "ponder", "*.txt")))
                 code = 0
                 for prompt in prompts:
-                    code = _run_command(["ponder", day, "-f", prompt, "-p"], logger)
+                    code = _run_command(
+                        [
+                            "ponder",
+                            day,
+                            "-f",
+                            prompt,
+                            "-p",
+                            "--verbose",
+                        ],
+                        logger,
+                    )
                     if code != 0:
                         break
             elif name == "entity":
@@ -128,17 +140,27 @@ def run_task(
                         "--day",
                         day,
                         "--force",
+                        "--verbose",
                     ],
                     logger,
                 )
             elif name == "reduce":
                 if not day:
                     raise ValueError("day required")
-                code = _run_command(["reduce-screen", day], logger)
+                code = _run_command(["reduce-screen", day, "--verbose"], logger)
             elif name == "process_day":
                 if not day:
                     raise ValueError("day required")
-                code = _run_command(["process-day", "--day", day, "--repair"], logger)
+                code = _run_command(
+                    [
+                        "process-day",
+                        "--day",
+                        day,
+                        "--repair",
+                        "--verbose",
+                    ],
+                    logger,
+                )
             else:
                 logger("stderr", f"Unknown task: {name}")
                 code = 1

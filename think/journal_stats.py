@@ -88,16 +88,22 @@ class JournalStats:
         self.total_audio_bytes += audio_bytes
         self.total_image_bytes += image_bytes
 
-    def scan(self, journal: str) -> None:
+    def scan(self, journal: str, verbose: bool = False) -> None:
         day_dirs = [d for d in os.listdir(journal) if DATE_RE.fullmatch(d)]
         day_dirs.sort()
         for idx, day in enumerate(day_dirs, 1):
             path = os.path.join(journal, day)
             if not os.path.isdir(path):
                 continue
-            print(f"[{idx}/{len(day_dirs)}] Scanning {day}...", end="\r", flush=True)
+            if verbose:
+                print(
+                    f"[{idx}/{len(day_dirs)}] Scanning {day}...",
+                    end="\r",
+                    flush=True,
+                )
             self.scan_day(day, path)
-        print()
+        if verbose:
+            print()
 
     def report(self) -> None:
         day_count = len(self.days)
@@ -224,7 +230,8 @@ def main() -> None:
     parser = argparse.ArgumentParser(
         description="Scan a sunstone journal and print overall statistics"
     )
-    parser.parse_args()
+    parser.add_argument("-v", "--verbose", action="store_true", help="Enable verbose output")
+    args = parser.parse_args()
 
     load_dotenv()
     journal = os.getenv("JOURNAL_PATH")
@@ -232,7 +239,7 @@ def main() -> None:
         parser.error("JOURNAL_PATH not set or invalid")
 
     js = JournalStats()
-    js.scan(journal)
+    js.scan(journal, verbose=args.verbose)
     js.report()
     try:
         js.save_markdown(journal)

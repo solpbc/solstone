@@ -307,6 +307,7 @@ def main() -> None:
         const="",
         help="Run query (interactive mode if no query provided)",
     )
+    parser.add_argument("-v", "--verbose", action="store_true", help="Enable verbose output")
 
     args = parser.parse_args()
 
@@ -323,8 +324,8 @@ def main() -> None:
     cache = load_cache(journal)
     if args.rescan:
         changed = scan_entities(journal, cache)
-        changed |= scan_ponders(journal, cache, verbose=True)
-        changed |= scan_occurrences(journal, cache, verbose=True)
+        changed |= scan_ponders(journal, cache, verbose=args.verbose)
+        changed |= scan_occurrences(journal, cache, verbose=args.verbose)
         if changed:
             save_cache(journal, cache)
         journal_log("indexer rescan ok")
