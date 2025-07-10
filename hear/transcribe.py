@@ -62,7 +62,7 @@ class Transcriber:
         except Exception as e:
             logging.error(f"Failed to move {raw_path} to trash: {e}")
 
-    def _process_raw(self, raw_path: Path) -> List[Dict[str, object]] | None:
+    def _process_raw(self, raw_path: Path, no_stash: bool = False) -> List[Dict[str, object]] | None:
         try:
             data, sr = sf.read(raw_path, dtype="float32")
 
@@ -98,7 +98,7 @@ class Transcriber:
             adjusted_ranges = [(s + offset_seconds, e + offset_seconds) for s, e in mic_ranges]
 
             merged = np.concatenate((self.merged_stash, merged))
-            segments, self.merged_stash = detect_speech(self.model, "mix", merged, adjusted_ranges)
+            segments, self.merged_stash = detect_speech(self.model, "mix", merged, adjusted_ranges, no_stash)
 
             if not segments:
                 # Don't trash if there's unfinished speech in the stash
@@ -112,7 +112,7 @@ class Transcriber:
                 return None
 
             total_seconds = sum(len(seg["data"]) / SAMPLE_RATE for seg in segments)
-            if total_seconds < MIN_SPEECH_SECONDS:
+            if total_seconds < MIN_SPEECH_SECONDS and not no_stash:
                 # Don't trash if there's unfinished speech in the stash
                 if len(self.merged_stash) > 0:
                     logging.info(
@@ -202,8 +202,8 @@ class Transcriber:
                     return False
         return False
 
-    def _handle_raw(self, raw_path: Path) -> None:
-        segments = self._process_raw(raw_path)
+    def _handle_raw(self, raw_path: Path, no_stash: bool = False) -> None:
+        segments = self._process_raw(raw_path, no_stash)
         if segments is None:
             return
 
@@ -251,7 +251,7 @@ class Transcriber:
 
         # Sort by HHMMSS for processing order
         files_sorted = sorted(files, key=lambda n: n.split("_")[0])
-        for name in files_sorted:
+        for i, name in enumerate(files_sorted):
             audio_path = day_dir / name
             if not audio_path.exists():
                 logging.warning(f"Skipping missing audio file {audio_path}")
@@ -259,7 +259,9 @@ class Transcriber:
             logging.info(f"Processing audio file: {audio_path}")
             json_path = self._get_json_path(audio_path)
             before = json_path.exists()
-            self._handle_raw(audio_path)
+            # Don't stash on the last file
+            is_last_file = i == len(files_sorted) - 1
+            self._handle_raw(audio_path, no_stash=is_last_file)
             if json_path.exists() and not before:
                 success += 1
 
