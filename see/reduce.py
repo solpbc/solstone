@@ -343,7 +343,7 @@ def main():
         args.day,
         args.prompt,
         force=args.force,
-        debug=args.debug or args.verbose,
+        debug=args.debug,
         start=start,
         end=end,
     )
