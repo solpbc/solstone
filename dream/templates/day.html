@@ -44,7 +44,10 @@ function slugToType(slug){
 
 function colorTabs(){
   const map = {};
-  events.forEach(e => { if(!map[e.type]) map[e.type] = getColor(e.type); });
+  events.forEach(e => {
+    const type = slugToType(e.slug || "other");
+    if(!map[type]) map[type] = getColor(type);
+  });
   tabs.forEach(t => {
     const type = slugToType(t.dataset.target);
     const color = map[type];
@@ -55,17 +58,17 @@ function colorTabs(){
   });
 }
 
-function orderTabs(types){
+function orderTabs(slugs){
   const container = document.querySelector('.tabs');
   const eventTab = container.querySelector('.tab[data-target="events"]');
   const admin = container.querySelector('.admin-link');
   const fileTabs = Array.from(container.querySelectorAll('.tab')).filter(t => t !== eventTab);
   const order = {};
-  types.forEach((t,i)=>{order[t]=i;});
+  slugs.forEach((s,i)=>{order[s]=i;});
   fileTabs.sort((a,b)=>{
-    const ta = slugToType(a.dataset.target);
-    const tb = slugToType(b.dataset.target);
-    return (order[ta] ?? 999) - (order[tb] ?? 999);
+    const sa = a.dataset.target;
+    const sb = b.dataset.target;
+    return (order[sa] ?? 999) - (order[sb] ?? 999);
   });
   container.innerHTML = '';
   container.appendChild(eventTab);
@@ -103,8 +106,8 @@ function renderEvents(list){
 
   // Process events and calculate overlapping groups
   const processedEvents = [];
-  const types = [];
-  
+  const slugs = [];
+
   list.forEach(o => {
     if(!o.startTime) return;
     const start = new Date(o.startTime);
@@ -114,61 +117,61 @@ function renderEvents(list){
     s = Math.max(s, startHour*60);
     e = Math.min(e, endHour*60);
     if(e <= s) return;
-    
-    const type = o.type || 'other';
-    if(!types.includes(type)) types.push(type);
-    
+
+    const slug = o.slug || 'other';
+    if(!slugs.includes(slug)) slugs.push(slug);
+
     processedEvents.push({
       startMinutes: s,
       endMinutes: e,
-      type: type,
-      title: escapeHtml(o.title || o.summary || type),
-      slug: o.slug ? `#${o.slug}` : '',
-      href: `${window.location.pathname}${o.slug ? '#' + o.slug : ''}`
+      slug: slug,
+      type: slugToType(slug),
+      title: escapeHtml(o.title || o.summary || slug),
+      href: `${window.location.pathname}${slug ? '#' + slug : ''}`
     });
   });
 
-  // Group events by type
-  const eventsByType = {};
-  types.forEach(type => {
-    eventsByType[type] = processedEvents.filter(e => e.type === type);
-    // Sort events within each type by start time
-    eventsByType[type].sort((a, b) => a.startMinutes - b.startMinutes);
+  // Group events by slug
+  const eventsBySlug = {};
+  slugs.forEach(slug => {
+    eventsBySlug[slug] = processedEvents.filter(e => e.slug === slug);
+    // Sort events within each slug by start time
+    eventsBySlug[slug].sort((a, b) => a.startMinutes - b.startMinutes);
   });
 
-  // Calculate columns needed for each type (based on overlaps within that type)
-  const typeColumnCounts = {};
-  types.forEach(type => {
-    const typeEvents = eventsByType[type];
-    const typeColumns = [];
-    
-    typeEvents.forEach(event => {
-      // Find first available column within this type
+  // Calculate columns needed for each slug (based on overlaps within that slug)
+  const slugColumnCounts = {};
+  slugs.forEach(slug => {
+    const slugEvents = eventsBySlug[slug];
+    const slugColumns = [];
+
+    slugEvents.forEach(event => {
+      // Find first available column within this slug
       let columnIndex = 0;
-      while (columnIndex < typeColumns.length && 
-             typeColumns[columnIndex].some(existing => 
-               event.startMinutes < existing.endMinutes && 
+      while (columnIndex < slugColumns.length &&
+             slugColumns[columnIndex].some(existing =>
+               event.startMinutes < existing.endMinutes &&
                event.endMinutes > existing.startMinutes)) {
         columnIndex++;
       }
-      
-      if (columnIndex === typeColumns.length) {
-        typeColumns.push([]);
+
+      if (columnIndex === slugColumns.length) {
+        slugColumns.push([]);
       }
-      
-      typeColumns[columnIndex].push(event);
-      event.typeColumn = columnIndex;
+
+      slugColumns[columnIndex].push(event);
+      event.slugColumn = columnIndex;
     });
-    
-    typeColumnCounts[type] = typeColumns.length;
+
+    slugColumnCounts[slug] = slugColumns.length;
   });
 
-  // Calculate global column positions for each type
+  // Calculate global column positions for each slug
   let globalColumnOffset = 0;
-  const typeColumnOffsets = {};
-  types.forEach(type => {
-    typeColumnOffsets[type] = globalColumnOffset;
-    globalColumnOffset += typeColumnCounts[type];
+  const slugColumnOffsets = {};
+  slugs.forEach(slug => {
+    slugColumnOffsets[slug] = globalColumnOffset;
+    globalColumnOffset += slugColumnCounts[slug];
   });
 
   const totalColumns = globalColumnOffset;
@@ -176,7 +179,7 @@ function renderEvents(list){
 
   // Assign final column positions
   processedEvents.forEach(event => {
-    event.column = typeColumnOffsets[event.type] + event.typeColumn;
+    event.column = slugColumnOffsets[event.slug] + event.slugColumn;
   });
   
   // Render events
@@ -185,12 +188,13 @@ function renderEvents(list){
     const height = Math.max((event.endMinutes - event.startMinutes)/((endHour-startHour)*60)*100, 0.4);
     const left = event.column * columnWidth;
     const width = columnWidth * 0.95; // Leave small gap between columns
-    
-    html += `<a class='occ ${event.type}' href='${event.href}' style='top:${top}%;height:${height}%;left:${left}%;width:${width}%;right:auto' title='${event.title}'></a>`;
+
+    const cls = slugToType(event.slug);
+    html += `<a class='occ ${cls}' href='${event.href}' style='top:${top}%;height:${height}%;left:${left}%;width:${width}%;right:auto' title='${event.title}'></a>`;
   });
   html += '</div>';
   div.innerHTML = html;
-  return types;
+  return slugs;
 }
 
 function escapeHtml(text){
@@ -204,8 +208,8 @@ function loadEvents(){
     .then(r => r.json())
     .then(d => {
       events = d[day] || [];
-      const types = renderEvents(events);
-      orderTabs(types);
+      const slugs = renderEvents(events);
+      orderTabs(slugs);
       colorTabs();
     });
 }

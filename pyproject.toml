@@ -94,6 +94,7 @@ journal-stats = "think.journal_stats:main"
 dream-extract = "dream.extract:main"
 process-day = "think.process_day:main"
 ponder-mcp = "think.mcp_server:main"
+journal-index = "think.indexer:main"
 
 [project.urls]
 Homepage = "https://github.com/yourusername/sunstone"

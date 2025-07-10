@@ -24,10 +24,6 @@ def test_admin_day_actions(monkeypatch, tmp_path):
     tr = sys.modules["dream.task_runner"]
     monkeypatch.setattr(tr, "_run_command", lambda cmd, log: called.append(cmd) or 0)
     monkeypatch.setattr(
-        tr.entity_roll, "process_day", lambda day, dirs, force: called.append(["entity", day])
-    )
-    monkeypatch.setattr(tr, "reduce_day", lambda day: called.append(["reduce", day]))
-    monkeypatch.setattr(
         "glob.glob", lambda pattern: ["prompt1.txt", "prompt2.txt"] if "ponder" in pattern else []
     )
 
@@ -52,13 +48,13 @@ def test_admin_day_actions(monkeypatch, tmp_path):
     with review.app.test_request_context("/admin/api/20240101/entity", method="POST"):
         resp = review.admin_entity("20240101")
     assert resp.json["status"] == "ok"
-    assert ["entity", "20240101"] in called
+    assert ["entity-roll", "--day", "20240101", "--force"] in called
 
     called.clear()
     with review.app.test_request_context("/admin/api/20240101/reduce", method="POST"):
         resp = review.admin_reduce("20240101")
     assert resp.json["status"] == "ok"
-    assert ["reduce", "20240101"] in called
+    assert ["reduce-screen", "20240101"] in called
 
     called.clear()
     with review.app.test_request_context("/admin/api/20240101/process", method="POST"):
