@@ -85,7 +85,10 @@ function renderEvents(list){
     if(!o.startTime) return;
     const s = new Date(o.startTime);
     const e = o.endTime ? new Date(o.endTime) : new Date(s.getTime() + 3600000);
-    start = Math.min(start, s.getHours()*60 + s.getMinutes());
+    const startMinutes = s.getHours()*60 + s.getMinutes();
+    // ignore events that happen at exactly midnight (noisy data)
+    if(startMinutes === 0) return;
+    start = Math.min(start, startMinutes);
     end = Math.max(end, e.getHours()*60 + e.getMinutes());
   });
   let startHour = Math.max(Math.floor(start/60) - 1, 0);
