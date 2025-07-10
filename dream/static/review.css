@@ -139,12 +139,5 @@ html::before {
   display: block;
   text-decoration: none;
 }
-.occ.meeting { background: #007bff; }
-.occ.message { background: #28a745; }
-.occ.file { background: #17a2b8; }
-.occ.followup { background: #ffc107; }
-.occ.documentation { background: #6f42c1; }
-.occ.research { background: #fd7e14; }
-.occ.media { background: #e83e8c; }
-.occ.other { background: #6c757d; }
+
 

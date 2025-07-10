@@ -28,32 +28,18 @@ let tabs = Array.from(document.querySelectorAll('.tab'));
 const contents = document.querySelectorAll('.content');
 const day = '{{ day }}';
 let events = [];
-
-function getColor(type){
-  const el = document.createElement('div');
-  el.className = 'occ ' + type;
-  document.body.appendChild(el);
-  const color = getComputedStyle(el).backgroundColor;
-  document.body.removeChild(el);
-  return color;
-}
-
-function slugToType(slug){
-  return slug.endsWith('s') ? slug.slice(0, -1) : slug;
-}
+const COLORS = ['#007bff','#28a745','#17a2b8','#ffc107','#6f42c1','#fd7e14','#e83e8c','#6c757d','#20c997','#ff5722','#9c27b0','#795548'];
+let slugColors = {};
 
 function colorTabs(){
-  const map = {};
-  events.forEach(e => {
-    const type = slugToType(e.slug || "other");
-    if(!map[type]) map[type] = getColor(type);
-  });
   tabs.forEach(t => {
-    const type = slugToType(t.dataset.target);
-    const color = map[type];
+    const color = slugColors[t.dataset.target];
     if(color){
       t.dataset.color = color;
       t.style.color = color;
+    } else {
+      t.style.color = '';
+      delete t.dataset.color;
     }
   });
 }
@@ -79,7 +65,7 @@ function orderTabs(slugs){
 
 function renderEvents(list){
   const div = document.getElementById('eventsView');
-  if(!list.length){ div.innerHTML = ""; return; }
+  if(!list.length){ div.innerHTML = ""; slugColors = {}; return []; }
 
   // determine time range
   let start = Infinity;
@@ -125,7 +111,6 @@ function renderEvents(list){
       startMinutes: s,
       endMinutes: e,
       slug: slug,
-      type: slugToType(slug),
       title: escapeHtml(o.title || o.summary || slug),
       href: `${window.location.pathname}${slug ? '#' + slug : ''}`
     });
@@ -177,6 +162,11 @@ function renderEvents(list){
   const totalColumns = globalColumnOffset;
   const columnWidth = totalColumns > 0 ? 100 / totalColumns : 100;
 
+  // Assign colors based on column order
+  const sortedSlugs = [...slugs].sort((a,b)=>slugColumnOffsets[a]-slugColumnOffsets[b]);
+  slugColors = {};
+  sortedSlugs.forEach((s,i)=>{ slugColors[s] = COLORS[i % COLORS.length]; });
+
   // Assign final column positions
   processedEvents.forEach(event => {
     event.column = slugColumnOffsets[event.slug] + event.slugColumn;
@@ -188,13 +178,12 @@ function renderEvents(list){
     const height = Math.max((event.endMinutes - event.startMinutes)/((endHour-startHour)*60)*100, 0.4);
     const left = event.column * columnWidth;
     const width = columnWidth * 0.95; // Leave small gap between columns
-
-    const cls = slugToType(event.slug);
-    html += `<a class='occ ${cls}' href='${event.href}' style='top:${top}%;height:${height}%;left:${left}%;width:${width}%;right:auto' title='${event.title}'></a>`;
+    const color = slugColors[event.slug] || '#6c757d';
+    html += `<a class='occ' href='${event.href}' style='top:${top}%;height:${height}%;left:${left}%;width:${width}%;right:auto;background:${color}' title='${event.title}'></a>`;
   });
   html += '</div>';
   div.innerHTML = html;
-  return slugs;
+  return sortedSlugs;
 }
 
 function escapeHtml(text){
