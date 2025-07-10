@@ -9,10 +9,12 @@ h1 { margin-bottom: 0.5em; }
 #controls button { background:#007bff; color:white; border:none; padding:6px 12px; margin:0 6px; border-radius:4px; cursor:pointer; }
 #controls span { font-size:1.2em; font-weight:bold; }
 #calendar { width:100%; border-collapse:collapse; }
-#calendar th, #calendar td { width:14.28%; border:1px solid #e0e0e0; vertical-align:top; height:80px; padding:4px; }
+#calendar th, #calendar td { width:14.28%; border:1px solid #e0e0e0; height:80px; padding:4px; }
+#calendar td { display:flex; flex-direction:column; }
 #calendar th { background:#f8f9fa; }
 .day-number{font-weight:bold;text-decoration:none;color:inherit;}
-.count { margin-top:4px; font-size:0.9em; color:#007bff; }
+.bar-chart{flex:1;display:flex;align-items:flex-end;gap:1px;text-decoration:none;}
+.bar-chart div{flex:1;min-width:2px;}
 </style>
 {% endblock %}
 {% block body %}
@@ -63,12 +65,66 @@ function loadData() {
     });
 }
 
-function createOccurrenceButton(dateStr, count) {
-  const a = document.createElement('a');
-  a.className = 'count';
-  a.textContent = `${count} event${count > 1 ? 's' : ''}`;
-  a.href = dayBase + dateStr;
-  return a;
+const COLORS = ['#007bff','#28a745','#17a2b8','#ffc107','#6f42c1','#fd7e14','#e83e8c','#6c757d','#20c997','#ff5722','#9c27b0','#795548'];
+
+function computeSlugColors(events){
+  const slugs = [];
+  const processed = [];
+  events.forEach(o => {
+    if(!o.startTime) return;
+    const start = new Date(o.startTime);
+    const end = o.endTime ? new Date(o.endTime) : new Date(start.getTime()+300000);
+    const s = start.getHours()*60 + start.getMinutes();
+    const e = end.getHours()*60 + end.getMinutes();
+    if(s === 0) return;
+    const slug = o.slug || 'other';
+    if(!slugs.includes(slug)) slugs.push(slug);
+    processed.push({slug,startMinutes:s,endMinutes:e});
+  });
+  const eventsBySlug = {};
+  slugs.forEach(slug=>{
+    eventsBySlug[slug] = processed.filter(e=>e.slug===slug).sort((a,b)=>a.startMinutes-b.startMinutes);
+  });
+  const slugColumnCounts = {};
+  slugs.forEach(slug=>{
+    const slugEvents = eventsBySlug[slug];
+    const cols = [];
+    slugEvents.forEach(evt=>{
+      let i=0;
+      while(i<cols.length && cols[i].some(ex=>evt.startMinutes < ex.endMinutes && evt.endMinutes > ex.startMinutes)) i++;
+      if(i===cols.length) cols.push([]);
+      cols[i].push(evt);
+    });
+    slugColumnCounts[slug] = cols.length;
+  });
+  let offset=0;
+  const slugOffsets={};
+  slugs.forEach(slug=>{slugOffsets[slug]=offset;offset+=slugColumnCounts[slug];});
+  const sorted = [...slugs].sort((a,b)=>slugOffsets[a]-slugOffsets[b]);
+  const colors={};
+  sorted.forEach((s,i)=>{colors[s]=COLORS[i%COLORS.length];});
+  return colors;
+}
+
+function createOccurrenceChart(dateStr, events){
+  const counts = {};
+  events.forEach(o=>{
+    const s = o.slug || 'other';
+    counts[s] = (counts[s]||0)+1;
+  });
+  const colors = computeSlugColors(events);
+  const chart = document.createElement('a');
+  chart.className = 'bar-chart';
+  chart.href = dayBase + dateStr;
+  const maxCount = Math.max(...Object.values(counts));
+  Object.keys(counts).forEach(slug=>{
+    const bar = document.createElement('div');
+    bar.style.height = (counts[slug]/maxCount*100)+'%';
+    bar.style.background = colors[slug] || '#6c757d';
+    bar.title = `${slug}: ${counts[slug]}`;
+    chart.appendChild(bar);
+  });
+  return chart;
 }
 
 function showMonth(ym) {
@@ -99,7 +155,7 @@ function showMonth(ym) {
     
     td.innerHTML = `<a class='day-number' href='${dayBase}${dateStr}'>${day}</a>`;
     if(count){
-      td.appendChild(createOccurrenceButton(dateStr, count));
+      td.appendChild(createOccurrenceChart(dateStr, occurrences[dateStr]));
     }
     row.appendChild(td);
   }

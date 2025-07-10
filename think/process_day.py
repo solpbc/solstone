@@ -20,8 +20,22 @@ def run_command(cmd: list[str]) -> bool:
 
 
 def build_commands(
-    day: str, force: bool, repair: bool, verbose: bool = False
+    journal_or_day: str,
+    day: str | None = None,
+    force: bool = False,
+    repair: bool = False,
+    verbose: bool = False,
 ) -> list[list[str]]:
+    """Return CLI commands for processing ``day``.
+
+    The legacy signature expected a ``journal`` path followed by ``day``.  The
+    command line interface only passes the day.  Accepting both forms keeps the
+    tests and CLI compatible.
+    """
+
+    if day is None:
+        day = journal_or_day
+
     commands: list[list[str]] = []
 
     if repair:
