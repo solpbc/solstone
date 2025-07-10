@@ -34,46 +34,26 @@ def test_admin_page_lists_repairables(tmp_path):
 def test_admin_actions(monkeypatch, tmp_path):
     review = importlib.import_module("dream")
     review.journal_root = str(tmp_path)
-    called = {}
+    called = []
 
     import sys
 
     tr = sys.modules["dream.task_runner"]
-    monkeypatch.setattr(tr, "load_cache", lambda j: {})
-    monkeypatch.setattr(tr, "save_cache", lambda j, c: called.setdefault("save", True))
-    monkeypatch.setattr(
-        tr, "scan_entities", lambda j, c: called.setdefault("entities", True) or True
-    )
-    monkeypatch.setattr(tr, "scan_ponders", lambda j, c: called.setdefault("ponders", True) or True)
-    monkeypatch.setattr(tr, "scan_occurrences", lambda j, c: called.setdefault("occ", True) or True)
+    monkeypatch.setattr(tr, "_run_command", lambda cmd, log: called.append(cmd) or 0)
 
     with review.app.test_request_context("/admin/api/reindex", method="POST"):
         resp = review.reindex()
     assert resp.json["status"] == "ok"
-    assert called == {"entities": True, "ponders": True, "occ": True, "save": True}
+    assert [sys.executable, "-m", "think.indexer", "--rescan"] in called
 
     called.clear()
-    monkeypatch.setattr(
-        sys.modules["dream.task_runner"].JournalStats,
-        "scan",
-        lambda self, j: called.setdefault("scan", True),
-    )
-    monkeypatch.setattr(
-        sys.modules["dream.task_runner"].JournalStats,
-        "save_markdown",
-        lambda self, j: called.setdefault("save", True),
-    )
     with review.app.test_request_context("/admin/api/summary", method="POST"):
         resp = review.refresh_summary()
     assert resp.json["status"] == "ok"
-    assert called == {"scan": True, "save": True}
+    assert ["journal-stats"] in called
 
     called.clear()
-    import sys
-
-    tr = sys.modules["dream.task_runner"]
-    monkeypatch.setattr(tr, "reload_entities", lambda: called.setdefault("reload", True))
     with review.app.test_request_context("/admin/api/reload_entities", method="POST"):
         resp = review.reload_entities_view()
     assert resp.json["status"] == "ok"
-    assert called == {"reload": True}
+    assert [sys.executable, "-m", "think.entities", "--rescan"] in called

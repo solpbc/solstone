@@ -4,22 +4,14 @@ import glob
 import json
 import os
 import subprocess
+import sys
 import threading
 import time
 from typing import Callable, Optional
 
 import websockets
 
-from see.reduce import reduce_day
 from think import entity_roll
-from think.indexer import (
-    load_cache,
-    save_cache,
-    scan_entities,
-    scan_occurrences,
-    scan_ponders,
-)
-from think.journal_stats import JournalStats
 
 from . import state
 from .views.entities import reload_entities
@@ -87,24 +79,28 @@ def run_task(
     with contextlib.redirect_stdout(out_logger), contextlib.redirect_stderr(err_logger):
         try:
             if name == "reindex":
-                journal = state.journal_root
-                cache = load_cache(journal)
-                changed = False
-                changed |= scan_entities(journal, cache)
-                changed |= scan_ponders(journal, cache)
-                changed |= scan_occurrences(journal, cache)
-                if changed:
-                    save_cache(journal, cache)
-                code = 0
+                code = _run_command(
+                    [
+                        sys.executable,
+                        "-m",
+                        "think.indexer",
+                        "--rescan",
+                    ],
+                    logger,
+                )
             elif name == "summary":
-                js = JournalStats()
-                js.scan(state.journal_root)
-                js.save_markdown(state.journal_root)
-                js.save_json(state.journal_root)
-                code = 0
+                code = _run_command(["journal-stats"], logger)
             elif name == "reload_entities":
+                code = _run_command(
+                    [
+                        sys.executable,
+                        "-m",
+                        "think.entities",
+                        "--rescan",
+                    ],
+                    logger,
+                )
                 reload_entities()
-                code = 0
             elif name == "hear_repair":
                 if not day:
                     raise ValueError("day required")
@@ -126,14 +122,19 @@ def run_task(
             elif name == "entity":
                 if not day:
                     raise ValueError("day required")
-                day_dirs = entity_roll.find_day_dirs(state.journal_root)
-                entity_roll.process_day(day, day_dirs, True)
-                code = 0
+                code = _run_command(
+                    [
+                        "entity-roll",
+                        "--day",
+                        day,
+                        "--force",
+                    ],
+                    logger,
+                )
             elif name == "reduce":
                 if not day:
                     raise ValueError("day required")
-                reduce_day(day)
-                code = 0
+                code = _run_command(["reduce-screen", day], logger)
             elif name == "process_day":
                 if not day:
                     raise ValueError("day required")

@@ -237,6 +237,7 @@ def main() -> None:
         description="Merge ponder_knowledge_graph files from a rolling 8-day window and generate entities.md"
     )
     parser.add_argument("--force", action="store_true", help="Overwrite existing files")
+    parser.add_argument("--day", help="Process a single day (YYYYMMDD)")
     args = parser.parse_args()
 
     load_dotenv()
@@ -248,8 +249,13 @@ def main() -> None:
     if not day_dirs:
         parser.error("No YYYYMMDD directories found")
 
-    for day_str in sorted(day_dirs.keys()):
-        process_day(day_str, day_dirs, args.force)
+    if args.day:
+        if args.day not in day_dirs:
+            parser.error(f"Day not found: {args.day}")
+        process_day(args.day, day_dirs, args.force)
+    else:
+        for day_str in sorted(day_dirs.keys()):
+            process_day(day_str, day_dirs, args.force)
 
 
 if __name__ == "__main__":
