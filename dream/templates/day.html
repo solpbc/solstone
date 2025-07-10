@@ -24,7 +24,7 @@
   {% endfor %}
 </div>
 <script>
-const tabs = document.querySelectorAll('.tab');
+let tabs = Array.from(document.querySelectorAll('.tab'));
 const contents = document.querySelectorAll('.content');
 const day = '{{ day }}';
 let events = [];
@@ -50,21 +50,56 @@ function colorTabs(){
     const color = map[type];
     if(color){
       t.dataset.color = color;
-      t.style.backgroundColor = color;
+      t.style.color = color;
     }
   });
 }
 
+function orderTabs(types){
+  const container = document.querySelector('.tabs');
+  const eventTab = container.querySelector('.tab[data-target="events"]');
+  const admin = container.querySelector('.admin-link');
+  const fileTabs = Array.from(container.querySelectorAll('.tab')).filter(t => t !== eventTab);
+  const order = {};
+  types.forEach((t,i)=>{order[t]=i;});
+  fileTabs.sort((a,b)=>{
+    const ta = slugToType(a.dataset.target);
+    const tb = slugToType(b.dataset.target);
+    return (order[ta] ?? 999) - (order[tb] ?? 999);
+  });
+  container.innerHTML = '';
+  container.appendChild(eventTab);
+  fileTabs.forEach(t=>container.appendChild(t));
+  if(admin) container.appendChild(admin);
+  tabs = Array.from(container.querySelectorAll('.tab'));
+}
+
 function renderEvents(list){
   const div = document.getElementById('eventsView');
-  let html = "<div class='day-view'>";
-  const startHour = 6;
-  const endHour = 22;
+  if(!list.length){ div.innerHTML = ""; return; }
+
+  // determine time range
+  let start = Infinity;
+  let end = -Infinity;
+  list.forEach(o => {
+    if(!o.startTime) return;
+    const s = new Date(o.startTime);
+    const e = o.endTime ? new Date(o.endTime) : new Date(s.getTime() + 3600000);
+    start = Math.min(start, s.getHours()*60 + s.getMinutes());
+    end = Math.max(end, e.getHours()*60 + e.getMinutes());
+  });
+  let startHour = Math.max(Math.floor(start/60) - 1, 0);
+  let endHour = Math.min(Math.ceil(end/60) + 1, 24);
+
+  const pxPerHour = 66.7;
+  let html = `<div class='day-view' style='height:${(endHour-startHour)*pxPerHour}px'>`;
   for(let h=startHour; h<=endHour; h++){
     const label = h===0? '12am' : h<12? h+'am' : h===12? '12pm' : (h-12)+'pm';
     html += `<div class='hour-line' style='top:${((h-startHour)/(endHour-startHour))*100}%'><span>${label}</span></div>`;
   }
-  const types = Array.from(new Set(list.map(o => o.type || 'other')));
+
+  const types = [];
+  list.forEach(o => { const t = o.type || 'other'; if(!types.includes(t)) types.push(t); });
   const colWidth = 100 / (types.length || 1);
   list.forEach(o => {
     if(!o.startTime) return;
@@ -80,14 +115,15 @@ function renderEvents(list){
     const type = o.type || 'other';
     const col = types.indexOf(type);
     const title = escapeHtml(o.title || o.summary || type);
-    const left = `calc(${col*colWidth}% + 10px)`;
-    const width = `calc(${colWidth}% - 20px)`;
+    const left = `calc(${col*colWidth}% + 4px)`;
+    const width = `calc(${colWidth}% - 8px)`;
     const slug = o.slug ? `#${o.slug}` : '';
     const href = `${window.location.pathname}${slug}`;
     html += `<a class='occ ${type}' href='${href}' style='top:${top}%;height:${height}%;left:${left};width:${width};right:auto' title='${title}'></a>`;
   });
   html += '</div>';
   div.innerHTML = html;
+  return types;
 }
 
 function escapeHtml(text){
@@ -101,19 +137,20 @@ function loadEvents(){
     .then(r => r.json())
     .then(d => {
       events = d[day] || [];
-      renderEvents(events);
+      const types = renderEvents(events);
+      orderTabs(types);
       colorTabs();
     });
 }
 
 function showTab(id){
-  tabs.forEach(x=>{x.classList.remove('active'); if(x.dataset.color) x.style.backgroundColor=x.dataset.color;});
+  tabs.forEach(x=>{x.classList.remove('active'); if(x.dataset.color) x.style.color=x.dataset.color;});
   contents.forEach(c=>c.style.display='none');
   const tab = document.querySelector(`.tab[data-target="${id}"]`);
   const content = document.getElementById(id);
   if(tab){
     tab.classList.add('active');
-    if(tab.dataset.color) tab.style.backgroundColor = tab.dataset.color;
+    if(tab.dataset.color) tab.style.color = tab.dataset.color;
   }
   if(content) content.style.display='block';
   if(history.replaceState){

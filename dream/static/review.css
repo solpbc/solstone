@@ -88,6 +88,8 @@ html::before {
   text-overflow: ellipsis;
   max-width: 120px;
   transition: background-color 0.2s;
+  text-decoration: none;
+  color: inherit;
 }
 
 .tab:hover {
@@ -113,7 +115,6 @@ html::before {
 /* Day view schedule */
 .day-view {
   position: relative;
-  height: 1067px;
   border-left: 60px solid transparent;
 }
 .hour-line {
@@ -131,8 +132,8 @@ html::before {
 }
 .occ {
   position: absolute;
-  left: 10px;
-  right: 10px;
+  left: 0;
+  right: 0;
   border-radius: 4px;
   opacity: 0.9;
   display: block;
