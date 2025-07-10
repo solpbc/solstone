@@ -195,15 +195,8 @@ def build_occurrence_index(journal: str) -> Dict[str, List[Dict[str, Any]]]:
                 o: Dict[str, Any] = {
                     "title": occ.get("title", ""),
                     "summary": occ.get("summary", ""),
-                    "type": occ.get("type", ""),
                 }
-                source = occ.get("source")
-                if (
-                    isinstance(source, str)
-                    and source.startswith("ponder_")
-                    and source.endswith(".md")
-                ):
-                    o["slug"] = source[7:-3]
+                o["slug"] = fname[7:-5]
                 if occ.get("start"):
                     o["startTime"] = _combine(name, occ["start"])
                 if occ.get("end"):
