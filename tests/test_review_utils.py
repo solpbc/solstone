@@ -8,6 +8,12 @@ def test_format_date():
     assert review.format_date("bad") == "bad"
 
 
+def test_time_since(monkeypatch):
+    review = importlib.import_module("dream")
+    monkeypatch.setattr("time.time", lambda: 120)
+    assert review.time_since(60) == "1 minute ago"
+
+
 def test_modify_and_update(tmp_path):
     review = importlib.import_module("dream")
     md = tmp_path / "entities.md"

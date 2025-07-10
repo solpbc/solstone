@@ -19,6 +19,7 @@ from .utils import (
     generate_top_summary,
     modify_entity_file,
     modify_entity_in_file,
+    time_since,
     update_top_entry,
 )
 from .views import admin as admin_view
@@ -81,6 +82,7 @@ admin_ponder = admin_view.admin_ponder
 admin_entity = admin_view.admin_entity
 admin_reduce = admin_view.admin_reduce
 admin_process = admin_view.admin_process
+task_log = admin_view.task_log
 reindex = admin_view.reindex
 refresh_summary = admin_view.refresh_summary
 reload_entities_view = admin_view.reload_entities_view
@@ -121,6 +123,7 @@ __all__ = [
     "admin_entity",
     "admin_reduce",
     "admin_process",
+    "task_log",
     "reindex",
     "refresh_summary",
     "reload_entities_view",
@@ -129,6 +132,7 @@ __all__ = [
     "modify_entity_file",
     "update_top_entry",
     "generate_top_summary",
+    "time_since",
     "reload_entities",
     "journal_root",
     "entities_index",
