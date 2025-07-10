@@ -20,7 +20,7 @@ def run_command(cmd: list[str]) -> bool:
 
 
 def build_commands(
-    day: str, force: bool, repair: bool, verbose: bool = False
+    journal: str, day: str, force: bool, repair: bool, verbose: bool = False
 ) -> list[list[str]]:
     commands: list[list[str]] = []
 
@@ -111,7 +111,7 @@ def main() -> None:
                 if os.path.exists(crumb):
                     os.remove(crumb)
 
-    commands = build_commands(day, args.force, repair, verbose=args.verbose)
+    commands = build_commands(journal, day, args.force, repair, verbose=args.verbose)
     success_count = 0
     fail_count = 0
     for cmd in commands:

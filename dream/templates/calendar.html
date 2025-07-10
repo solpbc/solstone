@@ -9,10 +9,11 @@ h1 { margin-bottom: 0.5em; }
 #controls button { background:#007bff; color:white; border:none; padding:6px 12px; margin:0 6px; border-radius:4px; cursor:pointer; }
 #controls span { font-size:1.2em; font-weight:bold; }
 #calendar { width:100%; border-collapse:collapse; }
-#calendar th, #calendar td { width:14.28%; border:1px solid #e0e0e0; vertical-align:top; height:80px; padding:4px; }
+#calendar th, #calendar td { width:14.28%; border:1px solid #e0e0e0; vertical-align:top; height:80px; padding:4px; position:relative; }
 #calendar th { background:#f8f9fa; }
 .day-number{font-weight:bold;text-decoration:none;color:inherit;}
-.count { margin-top:4px; font-size:0.9em; color:#007bff; }
+.bar-chart { position:absolute; bottom:4px; left:2px; right:2px; top:20px; display:flex; align-items:flex-end; }
+.bar-chart div { flex:1; margin:0 1px; }
 </style>
 {% endblock %}
 {% block body %}
@@ -31,7 +32,7 @@ h1 { margin-bottom: 0.5em; }
   </table>
 </div>
 
-
+<script src="{{ url_for('review.static', filename='colors.js') }}"></script>
 <script>
 let occurrences = {};
 const dayBase = '{{ url_for("calendar.calendar_day", day="") }}';
@@ -63,12 +64,29 @@ function loadData() {
     });
 }
 
-function createOccurrenceButton(dateStr, count) {
-  const a = document.createElement('a');
-  a.className = 'count';
-  a.textContent = `${count} event${count > 1 ? 's' : ''}`;
-  a.href = dayBase + dateStr;
-  return a;
+function createBarChart(occList, dateStr) {
+  const counts = {};
+  const order = [];
+  occList.forEach(o => {
+    const slug = o.slug || 'other';
+    if(!counts[slug]) { counts[slug] = 0; order.push(slug); }
+    counts[slug]++;
+  });
+  const slugColors = {};
+  order.forEach((s,i)=>{ slugColors[s] = CATEGORY_COLORS[i % CATEGORY_COLORS.length]; });
+  const max = Math.max(...Object.values(counts), 1);
+  const link = document.createElement('a');
+  link.href = dayBase + dateStr;
+  const div = document.createElement('div');
+  div.className = 'bar-chart';
+  order.forEach(slug => {
+    const bar = document.createElement('div');
+    bar.style.height = (counts[slug]/max*100)+'%';
+    bar.style.background = slugColors[slug];
+    div.appendChild(bar);
+  });
+  link.appendChild(div);
+  return link;
 }
 
 function showMonth(ym) {
@@ -95,11 +113,11 @@ function showMonth(ym) {
     }
     const td = document.createElement('td');
     const dateStr = ym + String(day).padStart(2,'0');
-    const count = (occurrences[dateStr] || []).length;
-    
+    const occList = occurrences[dateStr] || [];
+
     td.innerHTML = `<a class='day-number' href='${dayBase}${dateStr}'>${day}</a>`;
-    if(count){
-      td.appendChild(createOccurrenceButton(dateStr, count));
+    if(occList.length){
+      td.appendChild(createBarChart(occList, dateStr));
     }
     row.appendChild(td);
   }
