@@ -19,15 +19,25 @@ def run_command(cmd: list[str]) -> bool:
     return True
 
 
-def build_commands(journal: str, day: str, force: bool, repair: bool) -> list[list[str]]:
+def build_commands(
+    journal: str, day: str, force: bool, repair: bool, verbose: bool = False
+) -> list[list[str]]:
     commands: list[list[str]] = []
 
     if repair:
         print(f"Running repair routines for {day}")
-        commands.append(["gemini-transcribe", journal, "--repair", day])
-        commands.append(["screen-describe", journal, "--repair", day])
+        cmd = ["gemini-transcribe", journal, "--repair", day]
+        if verbose:
+            cmd.append("-v")
+        commands.append(cmd)
+        cmd = ["screen-describe", journal, "--repair", day]
+        if verbose:
+            cmd.append("-v")
+        commands.append(cmd)
 
     reduce_cmd = ["reduce-screen", day]
+    if verbose:
+        reduce_cmd.append("--verbose")
     if force:
         reduce_cmd.append("--force")
     commands.append(reduce_cmd)
@@ -36,11 +46,15 @@ def build_commands(journal: str, day: str, force: bool, repair: bool) -> list[li
     prompt_paths = sorted(glob.glob(os.path.join(think_dir, "ponder", "*.txt")))
     for prompt in prompt_paths:
         cmd = ["ponder", day, "-f", prompt, "-p"]
+        if verbose:
+            cmd.append("--verbose")
         if force:
             cmd.append("--force")
         commands.append(cmd)
 
     entity_cmd = ["entity-roll", journal]
+    if verbose:
+        entity_cmd.append("--verbose")
     if force:
         entity_cmd.append("--force")
     commands.append(entity_cmd)
@@ -65,6 +79,7 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Remove existing outputs before running repairs (implies --repair)",
     )
+    parser.add_argument("-v", "--verbose", action="store_true", help="Enable verbose output")
     return parser.parse_args()
 
 
@@ -96,7 +111,7 @@ def main() -> None:
                 if os.path.exists(crumb):
                     os.remove(crumb)
 
-    commands = build_commands(journal, day, args.force, repair)
+    commands = build_commands(journal, day, args.force, repair, verbose=args.verbose)
     success_count = 0
     fail_count = 0
     for cmd in commands:

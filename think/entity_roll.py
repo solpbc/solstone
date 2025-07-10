@@ -179,7 +179,7 @@ def scan_day(day: str) -> Dict[str, List[str]]:
     return {"processed": processed, "repairable": repairable}
 
 
-def process_day(day_str: str, day_dirs: Dict[str, str], force: bool) -> None:
+def process_day(day_str: str, day_dirs: Dict[str, str], force: bool, verbose: bool = False) -> None:
     out_path = os.path.join(day_dirs[day_str], "entities.md")
     if os.path.exists(out_path) and not force:
         print(f"Skipping {day_str}: entities.md exists")
@@ -212,7 +212,7 @@ def process_day(day_str: str, day_dirs: Dict[str, str], force: bool) -> None:
             prompt = f.read().strip()
 
         print("  Sending to Gemini for entity extraction...")
-        result, _ = send_to_gemini(markdown, prompt, api_key, GEMINI_PRO, False)
+        result, _ = send_to_gemini(markdown, prompt, api_key, GEMINI_PRO, verbose)
         if not result:
             print(f"Gemini returned no result for {day_str}")
             return
@@ -238,6 +238,7 @@ def main() -> None:
     )
     parser.add_argument("--force", action="store_true", help="Overwrite existing files")
     parser.add_argument("--day", help="Process a single day (YYYYMMDD)")
+    parser.add_argument("-v", "--verbose", action="store_true", help="Enable verbose output")
     args = parser.parse_args()
 
     load_dotenv()
@@ -252,10 +253,10 @@ def main() -> None:
     if args.day:
         if args.day not in day_dirs:
             parser.error(f"Day not found: {args.day}")
-        process_day(args.day, day_dirs, args.force)
+        process_day(args.day, day_dirs, args.force, verbose=args.verbose)
     else:
         for day_str in sorted(day_dirs.keys()):
-            process_day(day_str, day_dirs, args.force)
+            process_day(day_str, day_dirs, args.force, verbose=args.verbose)
 
 
 if __name__ == "__main__":

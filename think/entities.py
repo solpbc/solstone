@@ -213,8 +213,11 @@ class Entities:
                 repairable += 1
         return {"processed": processed, "repairable": repairable}
 
-    def rescan(self) -> None:
+    def rescan(self, verbose: bool = False) -> None:
         """Update :attr:`cache` from disk and save if changed."""
+
+        if verbose:
+            print(f"Scanning entities in {self.journal}")
 
         if scan_entities(self.journal, self.cache):
             save_cache(self.journal, self.cache)
@@ -229,6 +232,7 @@ def main() -> None:
     """CLI entry point for entity indexing."""
     parser = argparse.ArgumentParser(description="Entity indexing for journal")
     parser.add_argument("--rescan", action="store_true", help="Force rescan by clearing cache")
+    parser.add_argument("-v", "--verbose", action="store_true", help="Enable verbose output")
 
     args = parser.parse_args()
 
@@ -244,7 +248,7 @@ def main() -> None:
     ent = Entities(journal)
     if args.rescan:
         print("Rescanning entities...")
-        ent.rescan()
+        ent.rescan(verbose=args.verbose)
         journal_log("entities rescanned")
 
     entities = ent.index()

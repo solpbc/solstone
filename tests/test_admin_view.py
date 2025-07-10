@@ -65,19 +65,19 @@ def test_admin_actions(monkeypatch, tmp_path):
     with review.app.test_request_context("/admin/api/reindex", method="POST"):
         resp = review.reindex()
     assert resp.json["status"] == "ok"
-    assert [sys.executable, "-m", "think.indexer", "--rescan"] in called
+    assert [sys.executable, "-m", "think.indexer", "--rescan", "--verbose"] in called
 
     called.clear()
     with review.app.test_request_context("/admin/api/summary", method="POST"):
         resp = review.refresh_summary()
     assert resp.json["status"] == "ok"
-    assert ["journal-stats"] in called
+    assert ["journal-stats", "--verbose"] in called
 
     called.clear()
     with review.app.test_request_context("/admin/api/reload_entities", method="POST"):
         resp = review.reload_entities_view()
     assert resp.json["status"] == "ok"
-    assert [sys.executable, "-m", "think.entities", "--rescan"] in called
+    assert [sys.executable, "-m", "think.entities", "--rescan", "--verbose"] in called
 
 
 def test_task_log_api(monkeypatch, tmp_path):

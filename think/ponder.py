@@ -155,6 +155,7 @@ def main() -> None:
         action="store_true",
         help="Overwrite output file if it already exists",
     )
+    parser.add_argument("-v", "--verbose", action="store_true", help="Enable verbose output")
     args = parser.parse_args()
 
     markdown, file_count = cluster(args.day)
@@ -165,6 +166,8 @@ def main() -> None:
     try:
 
         load_dotenv()
+        if args.verbose:
+            print("Verbose mode enabled")
         api_key = os.getenv("GOOGLE_API_KEY")
         if not api_key:
             parser.error("GOOGLE_API_KEY not found in environment")
