@@ -171,6 +171,11 @@ def main() -> None:
         type=str,
         help="Repair mode: process incomplete files for specified day (YYYYMMDD format)",
     )
+    parser.add_argument(
+        "--scan",
+        type=str,
+        help="Scan mode: show file counts for specified day (YYYYMMDD format)",
+    )
     args = parser.parse_args()
 
     journal = Path(os.getenv("JOURNAL_PATH", ""))
@@ -188,7 +193,25 @@ def main() -> None:
 
     describer = Describer(journal)
 
-    if args.repair:
+    if args.scan:
+        # Validate date format
+        try:
+            datetime.datetime.strptime(args.scan, "%Y%m%d")
+        except ValueError:
+            parser.error(f"Invalid date format: {args.scan}. Use YYYYMMDD format.")
+        
+        day_dir = journal / args.scan
+        if not day_dir.exists():
+            print(f"Day directory {day_dir} does not exist")
+            return
+        
+        info = Describer.scan_day(day_dir)
+        print(f"Day {args.scan} scan results:")
+        print(f"  Raw files: {len(info['raw'])}")
+        print(f"  Processed files: {len(info['processed'])}")
+        print(f"  Repairable files: {len(info['repairable'])}")
+        
+    elif args.repair:
         # Validate date format
         try:
             datetime.datetime.strptime(args.repair, "%Y%m%d")
