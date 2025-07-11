@@ -210,12 +210,22 @@ def build_occurrence_index(journal: str) -> Dict[str, List[Dict[str, Any]]]:
                 continue
             if not isinstance(items, list):
                 continue
+            slug_counts: Dict[str, int] = {}
             for occ in items:
+                slug = fname[7:-5]
+                count = slug_counts.get(slug, 0)
+                slug_counts[slug] = count + 1
+
                 o: Dict[str, Any] = {
                     "title": occ.get("title", ""),
                     "summary": occ.get("summary", ""),
+                    "subject": occ.get("subject", ""),
+                    "details": occ.get("details", occ.get("description", "")),
+                    "participants": occ.get("participants", []),
+                    "slug": slug,
+                    "path": os.path.join(name, fname),
+                    "index": count,
                 }
-                o["slug"] = fname[7:-5]
                 if occ.get("start"):
                     o["startTime"] = _combine(name, occ["start"])
                 if occ.get("end"):

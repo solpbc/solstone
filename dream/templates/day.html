@@ -8,6 +8,7 @@
 .close { position:absolute; top:10px; right:15px; cursor:pointer; font-size:24px; }
 .occ-field { margin-bottom:0.5em; }
 .occ-field strong { display:inline-block; width:90px; }
+.occ-desc { margin-top:0.5em; white-space:pre-wrap; }
 </style>
 {% endblock %}
 {% block body %}
@@ -208,16 +209,51 @@ function escapeHtml(text){
   return d.innerHTML;
 }
 
+function fmtTime(ts){
+  const d = new Date(ts);
+  let h = d.getHours();
+  const m = d.getMinutes();
+  const suf = h >= 12 ? 'p' : 'a';
+  h = h % 12;
+  if(h === 0) h = 12;
+  return m ? `${h}:${String(m).padStart(2,'0')}${suf}` : `${h}${suf}`;
+}
+
+function fmtLength(start, end){
+  const s = new Date(start);
+  const e = end ? new Date(end) : new Date(s.getTime() + 5*60000);
+  const mins = Math.max(1, Math.round((e - s)/60000));
+  if(mins >= 60){
+    const h = Math.floor(mins/60);
+    const m = mins % 60;
+    return m ? `${h}h ${m}m` : `${h}h`;
+  }
+  return `${mins}m`;
+}
+
 function openModal(idx){
   const occ = events[idx];
   if(!occ) return;
   const body = document.getElementById('modalBody');
+
+  const slug = occ.slug ? occ.slug.charAt(0).toUpperCase()+occ.slug.slice(1) : '';
+  const titleText = `${slug ? slug+': ' : ''}${occ.title || ''}`.trim();
+  const subtitle = occ.subject || occ.summary || '';
   let html = '';
-  Object.keys(occ).forEach(key=>{
-    let val = occ[key];
-    if(typeof val === 'object') val = JSON.stringify(val, null, 2);
-    html += `<div class="occ-field"><strong>${escapeHtml(key)}</strong> ${escapeHtml(String(val))}</div>`;
-  });
+  if(titleText) html += `<h3>${escapeHtml(titleText)}</h3>`;
+  if(subtitle) html += `<h4>${escapeHtml(subtitle)}</h4>`;
+  if(occ.startTime){
+    const when = fmtTime(occ.startTime);
+    const len = fmtLength(occ.startTime, occ.endTime);
+    html += `<div class="occ-field"><strong>Started</strong> ${when} - ${len}</div>`;
+  }
+  if(Array.isArray(occ.participants) && occ.participants.length>1){
+    html += `<div class="occ-field"><strong>Participants</strong> ${escapeHtml(occ.participants.join(', '))}</div>`;
+  }
+  if(occ.details){
+    let det = typeof occ.details==='string' ? occ.details : JSON.stringify(occ.details, null, 2);
+    html += `<div class="occ-desc">${escapeHtml(det)}</div>`;
+  }
   body.innerHTML = html;
   document.getElementById('eventModal').style.display='block';
 }
