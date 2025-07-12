@@ -22,3 +22,4 @@ dependencies = [
 gemini-mic = "hear.capture:main"
 gemini-transcribe = "hear.transcribe:main"
 gemini-live = "hear.live:main"
+empty-trash = "hear.empty_trash:main"
