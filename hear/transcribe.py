@@ -45,6 +45,7 @@ class Transcriber:
         self.model = load_silero_vad()
         self.merged_stash = np.array([], dtype=np.float32)
         self.processed: set[str] = set()
+        self.processing: list[Path] = []
         self.observer: Optional[Observer] = None
         self.executor = ThreadPoolExecutor()
         self.attempts: dict[str, int] = {}
@@ -62,7 +63,9 @@ class Transcriber:
         except Exception as e:
             logging.error(f"Failed to move {raw_path} to trash: {e}")
 
-    def _process_raw(self, raw_path: Path, no_stash: bool = False) -> List[Dict[str, object]] | None:
+    def _process_raw(
+        self, raw_path: Path, no_stash: bool = False
+    ) -> List[Dict[str, object]] | None:
         try:
             data, sr = sf.read(raw_path, dtype="float32")
 
@@ -98,7 +101,9 @@ class Transcriber:
             adjusted_ranges = [(s + offset_seconds, e + offset_seconds) for s, e in mic_ranges]
 
             merged = np.concatenate((self.merged_stash, merged))
-            segments, self.merged_stash = detect_speech(self.model, "mix", merged, adjusted_ranges, no_stash)
+            segments, self.merged_stash = detect_speech(
+                self.model, "mix", merged, adjusted_ranges, no_stash
+            )
 
             if not segments:
                 # Don't trash if there's unfinished speech in the stash
@@ -174,6 +179,19 @@ class Transcriber:
 
         return audio_path.with_name(json_name)
 
+    def _mark_buffering_precursors(self) -> None:
+        """Mark any raw files awaiting transcription as buffering."""
+        for raw_path in self.processing:
+            if not raw_path.exists():
+                continue
+            json_path = self._get_json_path(raw_path)
+            if not json_path.exists():
+                try:
+                    json_path.write_text(json.dumps({"buffering": True}, indent=2))
+                except Exception as exc:  # pragma: no cover - filesystem errors
+                    logging.error("Failed to write buffering json for %s: %s", json_path, exc)
+        self.processing.clear()
+
     def _transcribe_segments(self, raw_path: Path, segments: List[Dict[str, object]]) -> bool:
         json_path = self._get_json_path(raw_path)
         attempts = 0
@@ -200,20 +218,28 @@ class Transcriber:
                 else:
                     logging.error(f"Failed to transcribe {raw_path}: {e}")
                     return False
+        # ran out of retries
         return False
 
     def _handle_raw(self, raw_path: Path, no_stash: bool = False) -> None:
         segments = self._process_raw(raw_path, no_stash)
-        if segments is None:
-            return
+        self.processing.append(raw_path)
 
         json_path = self._get_json_path(raw_path)
         if json_path.exists() or json_path.name in self.processed:
             self.processed.add(json_path.name)
+            self._mark_buffering_precursors()
             return
 
-        if self._transcribe_segments(raw_path, segments):
+        if segments is None:
+            return
+
+        success = self._transcribe_segments(raw_path, segments)
+        if success:
             self.processed.add(json_path.name)
+            self._mark_buffering_precursors()
+        else:
+            self.processing.clear()
 
     @staticmethod
     def scan_day(day_dir: Path) -> dict[str, list[str]]:
