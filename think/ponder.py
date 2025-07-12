@@ -13,7 +13,7 @@ from google.genai import types
 from think.cluster import cluster
 from think.crumbs import CrumbBuilder
 from think.models import GEMINI_FLASH, GEMINI_PRO
-from think.utils import day_log, day_path
+from think.utils import day_log, day_path, setup_cli
 
 PROMPT_DIR = os.path.join(os.path.dirname(__file__), "ponder")
 DEFAULT_PROMPT_PATH = os.path.join(PROMPT_DIR, "day.txt")
@@ -155,8 +155,7 @@ def main() -> None:
         action="store_true",
         help="Overwrite output file if it already exists",
     )
-    parser.add_argument("-v", "--verbose", action="store_true", help="Enable verbose output")
-    args = parser.parse_args()
+    args = setup_cli(parser)
 
     markdown, file_count = cluster(args.day)
     day_dir = day_path(args.day)

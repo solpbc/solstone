@@ -14,7 +14,7 @@ from google.genai import types
 
 from think.crumbs import CrumbBuilder
 from think.models import GEMINI_FLASH
-from think.utils import day_log, day_path
+from think.utils import day_log, day_path, setup_cli
 
 DEFAULT_PROMPT_PATH = os.path.join(os.path.dirname(__file__), "reduce.txt")
 
@@ -330,7 +330,7 @@ def main():
     parser.add_argument("-v", "--verbose", action="store_true", help="Enable verbose output")
     parser.add_argument("--start", help="Start time HH:MM for partial processing")
     parser.add_argument("--end", help="End time HH:MM for partial processing")
-    args = parser.parse_args()
+    args = setup_cli(parser)
 
     day_dir = day_path(args.day)
     if not os.path.isdir(day_dir):

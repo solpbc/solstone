@@ -8,8 +8,9 @@ import sys
 import types
 from importlib import import_module
 
-from dotenv import load_dotenv
 from flask import Flask
+
+from think.utils import setup_cli
 
 from . import state
 from .utils import (
@@ -178,9 +179,7 @@ def main() -> None:
         help="Password required for login (can also set DREAM_PASSWORD)",
         default=os.getenv("DREAM_PASSWORD"),
     )
-    args = parser.parse_args()
-
-    load_dotenv()
+    args = setup_cli(parser)
     journal = os.getenv("JOURNAL_PATH")
     if not journal:
         raise SystemExit("JOURNAL_PATH not set")

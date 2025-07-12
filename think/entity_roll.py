@@ -15,7 +15,7 @@ from google.genai import types
 
 from think.crumbs import CrumbBuilder
 from think.models import GEMINI_PRO
-from think.utils import day_log, day_path
+from think.utils import day_log, day_path, setup_cli
 
 
 def extract_date_from_filename(filename: str) -> Optional[datetime]:
@@ -239,12 +239,8 @@ def main() -> None:
     parser.add_argument("--force", action="store_true", help="Overwrite existing files")
     parser.add_argument("--day", help="Process a single day (YYYYMMDD)")
     parser.add_argument("-v", "--verbose", action="store_true", help="Enable verbose output")
-    args = parser.parse_args()
-
-    load_dotenv()
+    args = setup_cli(parser)
     journal = os.getenv("JOURNAL_PATH")
-    if not journal or not os.path.isdir(journal):
-        parser.error("JOURNAL_PATH not set or invalid")
 
     day_dirs = find_day_dirs(journal)
     if not day_dirs:

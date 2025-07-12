@@ -6,12 +6,12 @@ import logging
 import os
 import time
 
-from dotenv import load_dotenv
 from PIL import Image, ImageDraw
 
 from see.screen_compare import compare_images
 from see.screen_dbus import idle_time_ms, screen_snap
 from think.border_detect import detect_border
+from think.utils import setup_cli
 
 BLUE_BORDER = (0, 0, 255)
 
@@ -157,20 +157,11 @@ def main():
     parser = argparse.ArgumentParser(
         description="Capture screenshots once and compare with cached versions."
     )
-    parser.add_argument("-v", "--verbose", action="store_true", help="Enable verbose output")
     parser.add_argument(
         "--min", type=int, default=400, help="Minimum size threshold for a bounding box (pixels)"
     )
-    args = parser.parse_args()
-
-    load_dotenv()
-
+    args = setup_cli(parser)
     journal = os.getenv("JOURNAL_PATH")
-    if not journal:
-        parser.error("JOURNAL_PATH not set")
-
-    logging.basicConfig(level=logging.DEBUG if args.verbose else logging.INFO)
-
     process_once(journal, args.min)
 
 

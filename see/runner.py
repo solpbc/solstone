@@ -12,7 +12,7 @@ import time
 from pathlib import Path
 from threading import Event, Thread
 
-from dotenv import load_dotenv
+from think.utils import setup_cli
 
 STOP_EVENT = Event()
 
@@ -97,16 +97,11 @@ def _run_describe(extra_args: list[str]) -> None:
 
 
 def main() -> None:
-    load_dotenv()
-
     parser = argparse.ArgumentParser(
         description="Run scan.py and describe.py concurrently with automatic restarts."
     )
     parser.add_argument("interval", type=int, help="Seconds between scan runs")
-    parser.add_argument("-v", "--verbose", action="store_true", help="Enable verbose output")
-    args, extra_args = parser.parse_known_args()
-
-    logging.basicConfig(level=logging.DEBUG if args.verbose else logging.INFO)
+    args, extra_args = setup_cli(parser, parse_known=True)
 
     if args.verbose and "-v" not in extra_args and "--verbose" not in extra_args:
         extra_args = ["-v", *extra_args]

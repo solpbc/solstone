@@ -1,3 +1,5 @@
+import argparse
+import logging
 import os
 import re
 import time
@@ -41,3 +43,29 @@ def journal_log(message: str) -> None:
     journal = os.getenv("JOURNAL_PATH")
     if journal:
         _append_task_log(journal, message)
+
+
+def setup_cli(parser: argparse.ArgumentParser, *, parse_known: bool = False):
+    """Parse command line arguments and configure logging.
+
+    The parser will be extended with a ``-v``/``--verbose`` flag. Environment
+    variables from ``.env`` are loaded and ``JOURNAL_PATH`` is validated. The
+    parsed arguments are returned. If ``parse_known`` is ``True`` a tuple of
+    ``(args, extra)`` is returned using :func:`argparse.ArgumentParser.parse_known_args`.
+    """
+
+    load_dotenv()
+    parser.add_argument("-v", "--verbose", action="store_true", help="Enable verbose output")
+    if parse_known:
+        args, extra = parser.parse_known_args()
+    else:
+        args = parser.parse_args()
+        extra = None
+
+    logging.basicConfig(level=logging.INFO if args.verbose else logging.WARNING)
+
+    journal = os.getenv("JOURNAL_PATH")
+    if not journal or not os.path.isdir(journal):
+        parser.error("JOURNAL_PATH not set or invalid")
+
+    return (args, extra) if parse_known else args

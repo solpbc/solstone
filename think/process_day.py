@@ -8,7 +8,7 @@ from datetime import datetime, timedelta
 
 from dotenv import load_dotenv
 
-from think.utils import day_log
+from think.utils import day_log, setup_cli
 
 
 def run_command(cmd: list[str]) -> bool:
@@ -20,9 +20,7 @@ def run_command(cmd: list[str]) -> bool:
     return True
 
 
-def build_commands(
-    day: str, force: bool, repair: bool, verbose: bool = False
-) -> list[list[str]]:
+def build_commands(day: str, force: bool, repair: bool, verbose: bool = False) -> list[list[str]]:
     commands: list[list[str]] = []
 
     if repair:
@@ -63,7 +61,7 @@ def build_commands(
     return commands
 
 
-def parse_args() -> tuple[argparse.ArgumentParser, argparse.Namespace]:
+def parse_args() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Run daily processing tasks on a journal day")
     parser.add_argument(
         "--day",
@@ -80,14 +78,12 @@ def parse_args() -> tuple[argparse.ArgumentParser, argparse.Namespace]:
         action="store_true",
         help="Remove existing outputs before running repairs (implies --repair)",
     )
-    parser.add_argument("-v", "--verbose", action="store_true", help="Enable verbose output")
-    return parser, parser.parse_args()
+    return parser
 
 
 def main() -> None:
-    parser, args = parse_args()
-    load_dotenv()
-    logging.basicConfig(level=logging.INFO if args.verbose else logging.WARNING)
+    parser = parse_args()
+    args = setup_cli(parser)
     journal = os.getenv("JOURNAL_PATH")
     if not journal:
         parser.error("JOURNAL_PATH not set")

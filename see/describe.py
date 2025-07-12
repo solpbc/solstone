@@ -9,7 +9,6 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Optional
 
-from dotenv import load_dotenv
 from PIL import Image
 from watchdog.events import PatternMatchingEventHandler
 from watchdog.observers import Observer
@@ -17,7 +16,7 @@ from watchdog.observers import Observer
 from see import gemini_look
 from see.reduce import reduce_day
 from think.crumbs import CrumbBuilder
-from think.utils import day_log
+from think.utils import day_log, setup_cli
 
 
 class Describer:
@@ -187,9 +186,7 @@ class Describer:
 
 
 def main() -> None:
-    load_dotenv()
     parser = argparse.ArgumentParser(description="Describe screenshot diffs using Gemini")
-    parser.add_argument("-v", "--verbose", action="store_true", help="Enable verbose output")
     parser.add_argument(
         "--repair",
         type=str,
@@ -200,13 +197,9 @@ def main() -> None:
         type=str,
         help="Scan mode: show file counts for specified day (YYYYMMDD format)",
     )
-    args = parser.parse_args()
+    args = setup_cli(parser)
 
     journal = Path(os.getenv("JOURNAL_PATH", ""))
-    if not journal.is_dir():
-        parser.error("JOURNAL_PATH not set or invalid")
-
-    logging.basicConfig(level=logging.INFO if args.verbose else logging.WARNING)
     faulthandler.enable()
 
     gemini_look.initialize()
@@ -223,18 +216,18 @@ def main() -> None:
             datetime.datetime.strptime(args.scan, "%Y%m%d")
         except ValueError:
             parser.error(f"Invalid date format: {args.scan}. Use YYYYMMDD format.")
-        
+
         day_dir = journal / args.scan
         if not day_dir.exists():
             print(f"Day directory {day_dir} does not exist")
             return
-        
+
         info = Describer.scan_day(day_dir)
         print(f"Day {args.scan} scan results:")
         print(f"  Raw files: {len(info['raw'])}")
         print(f"  Processed files: {len(info['processed'])}")
         print(f"  Repairable files: {len(info['repairable'])}")
-        
+
     elif args.repair:
         # Validate date format
         try:

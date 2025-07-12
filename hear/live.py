@@ -9,7 +9,6 @@ import soundfile as sf
 import websockets
 from dbus_next.aio import MessageBus
 from dbus_next.constants import BusType
-from dotenv import load_dotenv
 from faster_whisper import WhisperModel
 from google import genai
 from google.genai import types
@@ -18,6 +17,7 @@ from silero_vad import load_silero_vad
 from hear.audio_utils import SAMPLE_RATE, detect_speech
 from see.screen_dbus import take_screenshot
 from think.models import GEMINI_FLASH, GEMINI_LITE
+from think.utils import setup_cli
 
 MODEL = GEMINI_FLASH  # -lite-preview-06-17
 
@@ -78,7 +78,7 @@ async def identify_active_speaker(client) -> str:
             contents=contents,
             config=types.GenerateContentConfig(
                 temperature=0.1,
-                max_output_tokens=256+1024,
+                max_output_tokens=256 + 1024,
                 thinking_config=types.ThinkingConfig(thinking_budget=1024),
                 response_mime_type="text/plain",
             ),
@@ -144,10 +144,14 @@ async def handle_audio_message(
                 )
                 if use_whisper:
                     w_text = transcribe_whisper(buf.getvalue())
-                    prefix = f"{speaker_state.get('name', '')}: " if speaker_state.get("name") else ""
+                    prefix = (
+                        f"{speaker_state.get('name', '')}: " if speaker_state.get("name") else ""
+                    )
                     print(f"G: {prefix}{g_text}\nW: {w_text}")
                 else:
-                    prefix = f"{speaker_state.get('name', '')}: " if speaker_state.get("name") else ""
+                    prefix = (
+                        f"{speaker_state.get('name', '')}: " if speaker_state.get("name") else ""
+                    )
                     print(f"G: {prefix}{g_text}")
                 speaker_state["name"] = ""
                 speaker_state["task"] = None
@@ -173,7 +177,9 @@ async def live_loop(ws_url: str, client, use_whisper: bool = False) -> None:
             async with websockets.connect(ws_url) as ws:
                 logging.info("WebSocket connected successfully")
                 async for msg in ws:
-                    stash = await handle_audio_message(msg, vad, stash, client, speaker_state, use_whisper)
+                    stash = await handle_audio_message(
+                        msg, vad, stash, client, speaker_state, use_whisper
+                    )
                     processed_seconds += (len(msg) // 8) / SAMPLE_RATE  # Approximate calculation
 
                 # If we reach here, connection closed normally
@@ -207,18 +213,17 @@ async def live_loop(ws_url: str, client, use_whisper: bool = False) -> None:
 
 
 def main() -> None:
-    load_dotenv()
     parser = argparse.ArgumentParser(description="Live transcription from WebSocket")
     parser.add_argument("--ws-url", required=True, help="WebSocket URL from gemini-mic")
     parser.add_argument("-v", "--verbose", action="store_true", help="Enable verbose output")
-    parser.add_argument("--whisper", action="store_true", help="Enable Whisper transcription (off by default)")
-    args = parser.parse_args()
+    parser.add_argument(
+        "--whisper", action="store_true", help="Enable Whisper transcription (off by default)"
+    )
+    args = setup_cli(parser)
 
     api_key = os.getenv("GOOGLE_API_KEY")
     if not api_key:
         raise SystemExit("Error: GOOGLE_API_KEY not found in environment.")
-
-    logging.basicConfig(level=logging.INFO if args.verbose else logging.WARNING)
 
     client = genai.Client(api_key=api_key)
 

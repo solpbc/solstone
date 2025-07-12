@@ -12,7 +12,6 @@ from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 import soundfile as sf
-from dotenv import load_dotenv
 from google import genai
 from silero_vad import load_silero_vad
 from watchdog.events import PatternMatchingEventHandler
@@ -22,7 +21,7 @@ from hear.audio_utils import SAMPLE_RATE, detect_speech, merge_streams, resample
 from hear.gemini import transcribe_segments
 from think.crumbs import CrumbBuilder
 from think.models import GEMINI_FLASH
-from think.utils import day_log
+from think.utils import day_log, setup_cli
 
 # Constants
 MODEL = GEMINI_FLASH
@@ -331,7 +330,6 @@ class Transcriber:
 
 
 def main():
-    load_dotenv()
     parser = argparse.ArgumentParser(description="Transcribe FLAC files using Gemini")
     parser.add_argument(
         "-p",
@@ -340,19 +338,17 @@ def main():
         default=Path(__file__).with_name("transcribe.txt"),
         help="Path to the system prompt text",
     )
-    parser.add_argument("-v", "--verbose", action="store_true", help="Enable verbose output")
     parser.add_argument(
         "--repair",
         type=str,
         help="Repair mode: process incomplete files for specified day (YYYYMMDD format)",
     )
-    args = parser.parse_args()
+    args = setup_cli(parser)
 
     api_key = os.getenv("GOOGLE_API_KEY")
     if not api_key:
         raise SystemExit("Error: GOOGLE_API_KEY not found in environment.")
 
-    logging.basicConfig(level=logging.INFO if args.verbose else logging.WARNING)
     faulthandler.enable()
 
     journal = Path(os.getenv("JOURNAL_PATH", ""))

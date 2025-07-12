@@ -15,9 +15,9 @@ from typing import Optional, Set
 import numpy as np
 import soundfile as sf
 import websockets
-from dotenv import load_dotenv
 
 from hear.input_detect import input_detect
+from think.utils import setup_cli
 
 # Constants
 SAMPLE_RATE = 16000
@@ -213,10 +213,6 @@ class AudioRecorder:
 
 
 def main():
-    # 1. Load environment
-    load_dotenv()
-
-    # 2. Parse CLI arguments
     parser = argparse.ArgumentParser(description="Record audio and save FLAC files.")
     parser.add_argument(
         "-d", "--debug", action="store_true", help="Enable debug mode (save audio buffers)."
@@ -227,22 +223,12 @@ def main():
     parser.add_argument(
         "--ws-port", type=int, default=None, help="Start websocket server on this port"
     )
-    parser.add_argument("-v", "--verbose", action="store_true", help="Enable verbose output")
-    args = parser.parse_args()
+    args = setup_cli(parser)
 
-    # Set up logging
     if args.debug:
-        log_level = logging.DEBUG
-    elif args.verbose:
-        log_level = logging.INFO
-    else:
-        log_level = logging.WARNING
-    logging.basicConfig(level=log_level)
+        logging.getLogger().setLevel(logging.DEBUG)
 
-    # Create save directory if needed
     journal = os.getenv("JOURNAL_PATH")
-    if not journal:
-        parser.error("JOURNAL_PATH not set")
     if not os.path.exists(journal):
         os.makedirs(journal)
 

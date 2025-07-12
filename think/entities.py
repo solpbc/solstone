@@ -6,7 +6,7 @@ import os
 import re
 from typing import Dict, List, Optional, Tuple
 
-from think.utils import journal_log
+from think.utils import journal_log, setup_cli
 
 DATE_RE = re.compile(r"\d{8}")
 ITEM_RE = re.compile(r"^\s*[-*]\s*(.*)")
@@ -234,16 +234,9 @@ def main() -> None:
     parser.add_argument("--rescan", action="store_true", help="Force rescan by clearing cache")
     parser.add_argument("-v", "--verbose", action="store_true", help="Enable verbose output")
 
-    args = parser.parse_args()
+    args = setup_cli(parser)
 
     journal = os.environ.get("JOURNAL_PATH")
-    if not journal:
-        print("Error: JOURNAL_PATH environment variable not set")
-        return
-
-    if not os.path.isdir(journal):
-        print(f"Error: Journal directory '{journal}' does not exist")
-        return
 
     ent = Entities(journal)
     if args.rescan:

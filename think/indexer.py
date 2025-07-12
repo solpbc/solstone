@@ -9,9 +9,8 @@ from typing import Dict, List, Tuple
 
 import nltk
 import sqlite_utils
-from dotenv import load_dotenv
 
-from think.utils import journal_log
+from think.utils import journal_log, setup_cli
 
 from .entities import find_day_dirs, load_cache, save_cache, scan_entities
 
@@ -309,17 +308,14 @@ def main() -> None:
     )
     parser.add_argument("-v", "--verbose", action="store_true", help="Enable verbose output")
 
-    args = parser.parse_args()
+    args = setup_cli(parser)
 
     # Require either --rescan or -q
     if not args.rescan and args.query is None:
         parser.print_help()
         return
 
-    load_dotenv()
     journal = os.getenv("JOURNAL_PATH")
-    if not journal:
-        parser.error("JOURNAL_PATH not set")
 
     cache = load_cache(journal)
     if args.rescan:

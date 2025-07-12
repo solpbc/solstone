@@ -8,10 +8,10 @@ import tempfile
 from datetime import timedelta
 
 import cv2
-from dotenv import load_dotenv
 from PIL import Image
 
 from see.screen_compare import compare_images
+from think.utils import setup_cli
 
 MIN_THRESHOLD = 250
 TIME_RE = re.compile(r"\d{8}_\d{6}")
@@ -118,12 +118,8 @@ def main() -> None:
         default=5.0,
         help="Video sampling interval in seconds",
     )
-    args = parser.parse_args()
-
-    load_dotenv()
+    args = setup_cli(parser)
     journal = os.getenv("JOURNAL_PATH")
-    if not journal:
-        parser.error("JOURNAL_PATH not set")
 
     if not TIME_RE.fullmatch(args.timestamp):
         raise SystemExit("timestamp must be in YYYYMMDD_HHMMSS format")

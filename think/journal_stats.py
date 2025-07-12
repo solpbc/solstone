@@ -9,13 +9,13 @@ from pathlib import Path
 from typing import Dict
 
 import soundfile as sf
-from dotenv import load_dotenv
 
 from hear.transcribe import Transcriber
 from see.describe import Describer
 from see.reduce import scan_day as reduce_scan_day
 from think.entity_roll import scan_day as entity_scan_day
 from think.ponder import scan_day as ponder_scan_day
+from think.utils import setup_cli
 
 DATE_RE = re.compile(r"\d{8}")
 
@@ -231,12 +231,8 @@ def main() -> None:
         description="Scan a sunstone journal and print overall statistics"
     )
     parser.add_argument("-v", "--verbose", action="store_true", help="Enable verbose output")
-    args = parser.parse_args()
-
-    load_dotenv()
+    args = setup_cli(parser)
     journal = os.getenv("JOURNAL_PATH")
-    if not journal or not os.path.isdir(journal):
-        parser.error("JOURNAL_PATH not set or invalid")
 
     js = JournalStats()
     js.scan(journal, verbose=args.verbose)

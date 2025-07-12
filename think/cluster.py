@@ -6,7 +6,7 @@ from collections import defaultdict
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Tuple
 
-from .utils import day_path
+from .utils import day_path, setup_cli
 
 TIME_RE = r"(\d{6})"
 AUDIO_PATTERN = re.compile(rf"^{TIME_RE}_audio\.json$")
@@ -155,7 +155,7 @@ def main():
         help="Day in YYYYMMDD format",
     )
 
-    args = parser.parse_args()
+    args = setup_cli(parser)
 
     markdown, _ = cluster(args.day)
     print(markdown)
