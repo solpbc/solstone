@@ -57,7 +57,31 @@ def count_tokens(markdown: str, prompt: str, api_key: str, model: str) -> None:
     print(f"Token count: {total_tokens}")
 
 
-def send_markdown(markdown: str, prompt: str, api_key: str, model: str) -> tuple[str, object]:
+def _get_or_create_cache(client: genai.Client, model: str, display_name: str, text: str) -> str:
+    """Return cache name for ``display_name`` creating it with ``text`` if needed."""
+
+    for c in client.caches.list(model=model):
+        if c.display_name == display_name:
+            return c.name
+
+    cache = client.caches.create(
+        model=model,
+        config=types.CreateCachedContentConfig(
+            display_name=display_name,
+            contents=[types.Part.from_text(text)],
+            ttl="900s",
+        ),
+    )
+    return cache.name
+
+
+def send_markdown(
+    markdown: str,
+    prompt: str,
+    api_key: str,
+    model: str,
+    cache_display_name: str | None = None,
+) -> tuple[str, object]:
     client = genai.Client(api_key=api_key)
 
     done = threading.Event()
@@ -82,9 +106,16 @@ def send_markdown(markdown: str, prompt: str, api_key: str, model: str) -> tuple
             "system_instruction": prompt,
         }
 
+        if cache_display_name:
+            cache_name = _get_or_create_cache(client, model, cache_display_name, markdown)
+            gen_config_args["cached_content"] = cache_name
+            contents: list[str] = [""]
+        else:
+            contents = [markdown]
+
         response = client.models.generate_content(
             model=model,
-            contents=[markdown],
+            contents=contents,
             config=types.GenerateContentConfig(**gen_config_args),
         )
         return response.text, response.usage_metadata
@@ -190,6 +221,7 @@ def main() -> None:
             return
 
         md_path, json_path = _output_paths(day_dir, prompt_basename)
+        cache_display_name = f"{day}_{prompt_basename}"
 
         # Check if markdown file already exists
         md_exists = md_path.exists() and md_path.stat().st_size > 0
@@ -201,9 +233,21 @@ def main() -> None:
             usage_metadata = None
         elif md_exists and args.force:
             print("Markdown file exists but --force specified. Regenerating.")
-            result, usage_metadata = send_markdown(markdown, prompt, api_key, model)
+            result, usage_metadata = send_markdown(
+                markdown,
+                prompt,
+                api_key,
+                model,
+                cache_display_name=cache_display_name,
+            )
         else:
-            result, usage_metadata = send_markdown(markdown, prompt, api_key, model)
+            result, usage_metadata = send_markdown(
+                markdown,
+                prompt,
+                api_key,
+                model,
+                cache_display_name=cache_display_name,
+            )
 
         # Extract and display only the essential token counts if we have usage data
         if usage_metadata is not None:
