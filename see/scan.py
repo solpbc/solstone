@@ -5,6 +5,7 @@ import json
 import os
 import time
 
+from dotenv import load_dotenv
 from PIL import Image, ImageDraw
 
 from see.screen_compare import compare_images
@@ -168,6 +169,8 @@ def main():
         "--min", type=int, default=400, help="Minimum size threshold for a bounding box (pixels)"
     )
     args = parser.parse_args()
+
+    load_dotenv()
 
     journal = os.getenv("JOURNAL_PATH")
     if not journal:
