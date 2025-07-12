@@ -230,7 +230,6 @@ def main() -> None:
     parser = argparse.ArgumentParser(
         description="Scan a sunstone journal and print overall statistics"
     )
-    parser.add_argument("-v", "--verbose", action="store_true", help="Enable verbose output")
     args = setup_cli(parser)
     journal = os.getenv("JOURNAL_PATH")
 

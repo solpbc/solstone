@@ -62,6 +62,7 @@ Holding **Shift** while clicking a task button runs it with `--force` if the com
 ### Tasks view
 
 The `/tasks` page lists all running tasks and recently completed ones. Logs are
-cached under `JOURNAL_PATH/tasks` with one JSON file per execution. Use the
+cached under `JOURNAL_PATH/tasks` with one `<id>.json` metadata file and a
+matching `<id>.jsonl` stream of log messages. Use the
 "Log" button to follow live output or "Kill" to stop a running task. The
 "Clear Old" button removes cached entries older than seven days.

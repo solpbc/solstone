@@ -29,12 +29,14 @@ button { padding:4px 8px; }
 function loadTasks(){
   fetch('{{ url_for('tasks.tasks_list') }}').then(r=>r.json()).then(data=>{
     const table=document.getElementById('taskTable');
-    table.innerHTML='<tr><th>Task</th><th>Started</th><th>Duration</th><th>From</th><th>Lines</th><th></th></tr>';
+    table.innerHTML='<tr><th>Task</th><th>Started</th><th>Duration</th><th>From</th><th>Lines</th><th>Exit</th><th></th></tr>';
     data.forEach(t=>{
       const tr=document.createElement('tr');
       const name=t.day?t.name+' '+t.day:t.name;
       const dur=t.duration>=60?(Math.round(t.duration/6)/10+'m'):t.duration+'s';
-      tr.innerHTML=`<td>${name}</td><td>${t.since}</td><td>${dur}</td><td>${t.initiator}</td><td>${t.lines}</td>`;
+      tr.title=t.command||'';
+      const exitStr = (t.exit_code===undefined || t.exit_code===null)?'' : t.exit_code;
+      tr.innerHTML=`<td>${name}</td><td>${t.since}</td><td>${dur}</td><td>${t.initiator}</td><td>${t.lines} lines</td><td>${exitStr}</td>`;
       const view=document.createElement('button');view.textContent='Log';
       view.onclick=()=>showLog(t.id);
       const cell=document.createElement('td');cell.appendChild(view);

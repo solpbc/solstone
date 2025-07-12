@@ -22,7 +22,7 @@ def _run_command(
     cmd: list[str],
     logger: Callable[[str, str], None],
     stop: Optional[threading.Event] = None,
-) -> int:
+) -> tuple[int, str]:
     print("[task] run:", " ".join(cmd))
     env = os.environ.copy()
     if state.journal_root:
@@ -92,10 +92,10 @@ def run_task(
     start = time.monotonic()
     info = f"{name} {day}" if day else name
     print(f"[task] start: {info}")
-
     use_stop = stop is not None
     stop = stop or threading.Event()
 
+    commands: list[str] = []
     with contextlib.redirect_stdout(out_logger), contextlib.redirect_stderr(err_logger):
         try:
             if name == "reindex":
@@ -106,9 +106,11 @@ def run_task(
                     "--rescan",
                     "--verbose",
                 ]
+                commands.append(" ".join(args))
                 code = _run_command(args, logger, stop) if use_stop else _run_command(args, logger)
             elif name == "summary":
                 args = ["journal-stats", "--verbose"]
+                commands.append(" ".join(args))
                 code = _run_command(args, logger, stop) if use_stop else _run_command(args, logger)
             elif name == "reload_entities":
                 args = [
@@ -118,17 +120,20 @@ def run_task(
                     "--rescan",
                     "--verbose",
                 ]
+                commands.append(" ".join(args))
                 code = _run_command(args, logger, stop) if use_stop else _run_command(args, logger)
                 reload_entities()
             elif name == "hear_repair":
                 if not day:
                     raise ValueError("day required")
                 args = ["gemini-transcribe", "--repair", day, "-v"]
+                commands.append(" ".join(args))
                 code = _run_command(args, logger, stop) if use_stop else _run_command(args, logger)
             elif name == "see_repair":
                 if not day:
                     raise ValueError("day required")
                 args = ["screen-describe", "--repair", day, "-v"]
+                commands.append(" ".join(args))
                 code = _run_command(args, logger, stop) if use_stop else _run_command(args, logger)
             elif name == "ponder":
                 if not day:
@@ -147,6 +152,7 @@ def run_task(
                     ]
                     if force:
                         cmd.append("--force")
+                    commands.append(" ".join(cmd))
                     code = (
                         _run_command(cmd, logger, stop) if use_stop else _run_command(cmd, logger)
                     )
@@ -162,6 +168,7 @@ def run_task(
                     "--force",
                     "--verbose",
                 ]
+                commands.append(" ".join(args))
                 code = _run_command(args, logger, stop) if use_stop else _run_command(args, logger)
             elif name == "reduce":
                 if not day:
@@ -169,6 +176,7 @@ def run_task(
                 cmd = ["reduce-screen", day, "--verbose"]
                 if force:
                     cmd.append("--force")
+                commands.append(" ".join(cmd))
                 code = _run_command(cmd, logger, stop) if use_stop else _run_command(cmd, logger)
             elif name == "process_day":
                 if not day:
@@ -182,6 +190,7 @@ def run_task(
                 ]
                 if force:
                     cmd.append("--force")
+                commands.append(" ".join(cmd))
                 code = _run_command(cmd, logger, stop) if use_stop else _run_command(cmd, logger)
             else:
                 logger("stderr", f"Unknown task: {name}")
@@ -193,7 +202,7 @@ def run_task(
             out_logger.flush()
             err_logger.flush()
     print(f"[task] end: {info} ({time.monotonic() - start:.1f}s)")
-    return code
+    return code, " && ".join(commands)
 
 
 class TaskRunner:
@@ -272,8 +281,8 @@ class TaskRunner:
                 )
 
         def _runner() -> None:
-            code = run_task(task, day, _log, force=force, stop=stop)
-            task_manager.finish_task(t.id, code)
+            code, cmd_str = run_task(task, day, _log, force=force, stop=stop)
+            task_manager.finish_task(t.id, code, cmd_str)
             if self.loop:
                 asyncio.run_coroutine_threadsafe(
                     ws.send(json.dumps({"type": "exit", "code": code})), self.loop

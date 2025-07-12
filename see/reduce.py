@@ -327,7 +327,6 @@ def main():
     parser.add_argument(
         "-d", "--debug", action="store_true", help="Print prompt and response from Gemini"
     )
-    parser.add_argument("-v", "--verbose", action="store_true", help="Enable verbose output")
     parser.add_argument("--start", help="Start time HH:MM for partial processing")
     parser.add_argument("--end", help="End time HH:MM for partial processing")
     args = setup_cli(parser)

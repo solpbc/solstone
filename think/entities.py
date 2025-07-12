@@ -232,7 +232,6 @@ def main() -> None:
     """CLI entry point for entity indexing."""
     parser = argparse.ArgumentParser(description="Entity indexing for journal")
     parser.add_argument("--rescan", action="store_true", help="Force rescan by clearing cache")
-    parser.add_argument("-v", "--verbose", action="store_true", help="Enable verbose output")
 
     args = setup_cli(parser)
 

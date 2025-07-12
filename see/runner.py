@@ -100,7 +100,13 @@ def main() -> None:
     parser = argparse.ArgumentParser(
         description="Run scan.py and describe.py concurrently with automatic restarts."
     )
-    parser.add_argument("interval", type=int, help="Seconds between scan runs")
+    parser.add_argument(
+        "interval",
+        type=int,
+        nargs="?",
+        default=5,
+        help="Seconds between scan runs (default: 5)",
+    )
     args, extra_args = setup_cli(parser, parse_known=True)
 
     if args.verbose and "-v" not in extra_args and "--verbose" not in extra_args:

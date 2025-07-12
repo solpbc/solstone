@@ -306,7 +306,6 @@ def main() -> None:
         const="",
         help="Run query (interactive mode if no query provided)",
     )
-    parser.add_argument("-v", "--verbose", action="store_true", help="Enable verbose output")
 
     args = setup_cli(parser)
 

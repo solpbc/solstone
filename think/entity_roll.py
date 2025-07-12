@@ -238,7 +238,6 @@ def main() -> None:
     )
     parser.add_argument("--force", action="store_true", help="Overwrite existing files")
     parser.add_argument("--day", help="Process a single day (YYYYMMDD)")
-    parser.add_argument("-v", "--verbose", action="store_true", help="Enable verbose output")
     args = setup_cli(parser)
     journal = os.getenv("JOURNAL_PATH")
 

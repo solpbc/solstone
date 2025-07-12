@@ -215,7 +215,6 @@ async def live_loop(ws_url: str, client, use_whisper: bool = False) -> None:
 def main() -> None:
     parser = argparse.ArgumentParser(description="Live transcription from WebSocket")
     parser.add_argument("--ws-url", required=True, help="WebSocket URL from gemini-mic")
-    parser.add_argument("-v", "--verbose", action="store_true", help="Enable verbose output")
     parser.add_argument(
         "--whisper", action="store_true", help="Enable Whisper transcription (off by default)"
     )

@@ -19,7 +19,7 @@ gemini-mic [-d] [-t SECONDS]
 gemini-transcribe [-p PROMPT] [-v] [--repair DAY]
 ```
 
-The `gemini-hear` command runs both of the above tools in a loop so audio
+The `sunstone-hear` command runs both of the above tools in a loop so audio
 capture and transcription continue until interrupted. For live text output
 from the recorder's WebSocket stream you can use `gemini-live`.
 

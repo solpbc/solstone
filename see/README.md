@@ -29,12 +29,11 @@ screen-watch [--verbose] [--min PIXELS]
 screen-describe [-v] [--scan DAY] [--repair DAY]
 ```
 
-The `gemini-see` command runs `screen-watch` and `screen-describe` together.
-It requires an interval in seconds which controls how often screenshots are
-captured and described continuously:
+The `sunstone-see` command runs `screen-watch` and `screen-describe` together.
+Screenshots are captured at a configurable interval (default 5 seconds):
 
 ```bash
-gemini-see <interval_seconds> [screen-watch/describe args]
+sunstone-see [interval_seconds] [screen-watch/describe args]
 ```
 
 Use `reduce-screen` to summarise diff descriptions into five minute Markdown blocks. Example:
