@@ -30,9 +30,11 @@ from .views import entities as entities_view
 from .views import home as home_view
 from .views import register_views
 from .views import search as search_view
+from .views import tasks as tasks_view
 
 # isort: off
 from .task_runner import task_runner
+from .tasks import task_manager
 
 # isort: on
 
@@ -54,6 +56,7 @@ def create_app(journal: str = "", password: str = "") -> Flask:
 
     if journal:
         state.journal_root = journal
+        task_manager.load_cached()
         entities_view.reload_entities()
         state.occurrences_index = build_occurrence_index(journal)
     return app
@@ -75,6 +78,9 @@ chat_history = chat_view.chat_history
 clear_history = chat_view.clear_history
 search_page = search_view.search_page
 import_page = import_page_view.import_page
+tasks_page = tasks_view.tasks_page
+tasks_list = tasks_view.tasks_list
+clear_old = tasks_view.clear_old
 admin_page = admin_view.admin_page
 admin_day_page = admin_view.admin_day_page
 admin_repair_hear = admin_view.admin_repair_hear
@@ -128,6 +134,9 @@ __all__ = [
     "reindex",
     "refresh_summary",
     "reload_entities_view",
+    "tasks_page",
+    "tasks_list",
+    "clear_old",
     "format_date",
     "modify_entity_in_file",
     "modify_entity_file",

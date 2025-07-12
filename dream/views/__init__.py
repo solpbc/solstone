@@ -4,7 +4,7 @@ from importlib import import_module
 
 from flask import Flask
 
-from . import admin, calendar, entities, home, search
+from . import admin, calendar, entities, home, search, tasks
 
 chat_view = import_module(".chat", __name__)
 
@@ -20,5 +20,6 @@ def register_views(app: Flask) -> None:
         admin.bp,
         chat_view.bp,
         import_view.bp,
+        tasks.bp,
     ]:
         app.register_blueprint(bp)

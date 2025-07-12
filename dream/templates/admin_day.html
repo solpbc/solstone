@@ -62,12 +62,12 @@ function runTask(data){
     const msg=s>=60? (Math.round(s/6)/10+' minutes'):s+' seconds';
     out.innerHTML+=`\n[completed in ${msg}]\n`;scroll();taskDone=true;};
 }
-document.getElementById('hearRepairBtn').onclick=()=>runTask({task:'hear_repair',day:'{{ day }}'});
-document.getElementById('seeRepairBtn').onclick=()=>runTask({task:'see_repair',day:'{{ day }}'});
-document.getElementById('ponderBtn').onclick=e=>runTask({task:'ponder',day:'{{ day }}',force:e.shiftKey});
-document.getElementById('entityBtn').onclick=e=>runTask({task:'entity',day:'{{ day }}'});
-document.getElementById('reduceBtn').onclick=e=>runTask({task:'reduce',day:'{{ day }}',force:e.shiftKey});
-document.getElementById('processBtn').onclick=e=>runTask({task:'process_day',day:'{{ day }}',force:e.shiftKey});
+document.getElementById('hearRepairBtn').onclick=()=>runTask({task:'hear_repair',day:'{{ day }}',src:'admin/{{ day }}'});
+document.getElementById('seeRepairBtn').onclick=()=>runTask({task:'see_repair',day:'{{ day }}',src:'admin/{{ day }}'});
+document.getElementById('ponderBtn').onclick=e=>runTask({task:'ponder',day:'{{ day }}',force:e.shiftKey,src:'admin/{{ day }}'});
+document.getElementById('entityBtn').onclick=e=>runTask({task:'entity',day:'{{ day }}',src:'admin/{{ day }}'});
+document.getElementById('reduceBtn').onclick=e=>runTask({task:'reduce',day:'{{ day }}',force:e.shiftKey,src:'admin/{{ day }}'});
+document.getElementById('processBtn').onclick=e=>runTask({task:'process_day',day:'{{ day }}',force:e.shiftKey,src:'admin/{{ day }}'});
 function hideModal(){
   document.getElementById('taskModal').style.display='none';
   if(taskDone) location.reload();

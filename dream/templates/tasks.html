@@ -1,0 +1,83 @@
+{% extends 'base.html' %}
+{% set title = 'Tasks' %}
+{% block head %}
+<style>
+.container { padding:0 1em; }
+table { border-collapse: collapse; width:100%; }
+th, td { padding:4px 8px; border-bottom:1px solid #ddd; }
+button { padding:4px 8px; }
+.modal { display:none; position:fixed; z-index:1000; left:0; top:0; width:100%; height:100%; background:rgba(0,0,0,0.5); }
+.modal-content { background:white; margin:5% auto; padding:1em; border-radius:8px; max-width:800px; max-height:80vh; overflow:auto; position:relative; }
+.close { position:absolute; top:10px; right:15px; cursor:pointer; font-size:24px; }
+.spinner { display:inline-block; width:12px; height:12px; border:2px solid #ccc; border-top-color:#333; border-radius:50%; animation:spin 1s linear infinite; margin-left:4px; }
+@keyframes spin { to { transform:rotate(360deg); } }
+</style>
+{% endblock %}
+{% block body %}
+<div class="container">
+  <h1>Tasks</h1>
+  <table id="taskTable"></table>
+  <button id="clearBtn">Clear Old</button>
+</div>
+<div id="taskModal" class="modal">
+  <div class="modal-content">
+    <span class="close">&times;</span>
+    <pre id="taskOutput"></pre>
+  </div>
+</div>
+<script>
+function loadTasks(){
+  fetch('{{ url_for('tasks.tasks_list') }}').then(r=>r.json()).then(data=>{
+    const table=document.getElementById('taskTable');
+    table.innerHTML='<tr><th>Task</th><th>Started</th><th>Duration</th><th>From</th><th>Lines</th><th></th></tr>';
+    data.forEach(t=>{
+      const tr=document.createElement('tr');
+      const name=t.day?t.name+' '+t.day:t.name;
+      const dur=t.duration>=60?(Math.round(t.duration/6)/10+'m'):t.duration+'s';
+      tr.innerHTML=`<td>${name}</td><td>${t.since}</td><td>${dur}</td><td>${t.initiator}</td><td>${t.lines}</td>`;
+      const view=document.createElement('button');view.textContent='Log';
+      view.onclick=()=>showLog(t.id);
+      const cell=document.createElement('td');cell.appendChild(view);
+      if(!t.end && !t.killed){
+        const kill=document.createElement('button');kill.textContent='Kill';kill.style.marginLeft='4px';
+        kill.onclick=()=>killTask(t.id);
+        cell.appendChild(kill);
+      }
+      if(t.exit_code && t.exit_code!==0) tr.style.background='#fdd';
+      if(t.killed) tr.style.background='#fcc';
+      tr.appendChild(cell);
+      table.appendChild(tr);
+    });
+  });
+}
+function showLog(id){
+  const modal=document.getElementById('taskModal');
+  const out=document.getElementById('taskOutput');
+  const content=document.querySelector('#taskModal .modal-content');
+  out.textContent='';
+  modal.style.display='block';
+  const ws=new WebSocket(`ws://${location.hostname}:8765`);
+  ws.onopen=()=>ws.send(JSON.stringify({attach:id}));
+  ws.onmessage=e=>{const m=JSON.parse(e.data);if(m.text) {out.textContent+=m.text+'\n';content.scrollTop=content.scrollHeight;}}
+  ws.onclose=()=>{};
+  modal.dataset.wsid=id;modal.dataset.ws=ws;
+}
+function killTask(id){
+  const ws=new WebSocket(`ws://${location.hostname}:8765`);
+  ws.onopen=()=>ws.send(JSON.stringify({kill:id}));
+  ws.onclose=()=>loadTasks();
+}
+function hideModal(){
+  const modal=document.getElementById('taskModal');
+  const ws=modal.dataset.ws;
+  if(ws) try{ws.close();}catch(e){}
+  modal.style.display='none';
+}
+document.querySelector('#taskModal .close').onclick=hideModal;
+window.onclick=e=>{if(e.target==document.getElementById('taskModal')) hideModal();};
+setInterval(loadTasks,2000);loadTasks();
+document.getElementById('clearBtn').onclick=()=>{
+  fetch('{{ url_for('tasks.clear_old') }}',{method:'POST'}).then(()=>loadTasks());
+};
+</script>
+{% endblock %}

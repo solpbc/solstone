@@ -81,9 +81,9 @@ function runTask(data){
     const msg=s>=60?(Math.round(s/6)/10+' minutes'):s+' seconds';
     out.innerHTML+=`\n[completed in ${msg}]\n`;scroll();taskDone=true;};
 }
-document.getElementById('reindexBtn').onclick=()=>runTask({task:'reindex'});
-document.getElementById('summaryBtn').onclick=()=>runTask({task:'summary'});
-document.getElementById('entitiesBtn').onclick=()=>runTask({task:'reload_entities'});
+document.getElementById('reindexBtn').onclick=()=>runTask({task:'reindex',src:'admin'});
+document.getElementById('summaryBtn').onclick=()=>runTask({task:'summary',src:'admin'});
+document.getElementById('entitiesBtn').onclick=()=>runTask({task:'reload_entities',src:'admin'});
 function loadLog(){
   fetch('{{ url_for('admin.task_log') }}').then(r=>r.json()).then(data=>{
     const pre=document.getElementById('logOutput');

@@ -14,10 +14,15 @@ import websockets
 from think import entity_roll
 
 from . import state
+from .tasks import task_manager
 from .views.entities import reload_entities
 
 
-def _run_command(cmd: list[str], logger: Callable[[str, str], None]) -> int:
+def _run_command(
+    cmd: list[str],
+    logger: Callable[[str, str], None],
+    stop: Optional[threading.Event] = None,
+) -> int:
     print("[task] run:", " ".join(cmd))
     env = os.environ.copy()
     if state.journal_root:
@@ -39,6 +44,13 @@ def _run_command(cmd: list[str], logger: Callable[[str, str], None]) -> int:
     t_err = threading.Thread(target=_reader, args=(proc.stderr, "stderr"), daemon=True)
     t_out.start()
     t_err.start()
+    use_stop = stop is not None
+    stop = stop or threading.Event()
+    while proc.poll() is None:
+        if stop.is_set():
+            proc.kill()
+            break
+        time.sleep(0.1)
     proc.wait()
     t_out.join()
     t_err.join()
@@ -72,6 +84,7 @@ def run_task(
     logger: Optional[Callable[[str, str], None]] = None,
     *,
     force: bool = False,
+    stop: Optional[threading.Event] = None,
 ) -> int:
     logger = logger or (lambda t, m: None)
     out_logger = _LineLogger("stdout", logger)
@@ -80,41 +93,42 @@ def run_task(
     info = f"{name} {day}" if day else name
     print(f"[task] start: {info}")
 
+    stop = stop or threading.Event()
+
     with contextlib.redirect_stdout(out_logger), contextlib.redirect_stderr(err_logger):
         try:
             if name == "reindex":
-                code = _run_command(
-                    [
-                        sys.executable,
-                        "-m",
-                        "think.indexer",
-                        "--rescan",
-                        "--verbose",
-                    ],
-                    logger,
-                )
+                args = [
+                    sys.executable,
+                    "-m",
+                    "think.indexer",
+                    "--rescan",
+                    "--verbose",
+                ]
+                code = _run_command(args, logger, stop) if use_stop else _run_command(args, logger)
             elif name == "summary":
-                code = _run_command(["journal-stats", "--verbose"], logger)
+                args = ["journal-stats", "--verbose"]
+                code = _run_command(args, logger, stop) if use_stop else _run_command(args, logger)
             elif name == "reload_entities":
-                code = _run_command(
-                    [
-                        sys.executable,
-                        "-m",
-                        "think.entities",
-                        "--rescan",
-                        "--verbose",
-                    ],
-                    logger,
-                )
+                args = [
+                    sys.executable,
+                    "-m",
+                    "think.entities",
+                    "--rescan",
+                    "--verbose",
+                ]
+                code = _run_command(args, logger, stop) if use_stop else _run_command(args, logger)
                 reload_entities()
             elif name == "hear_repair":
                 if not day:
                     raise ValueError("day required")
-                code = _run_command(["gemini-transcribe", "--repair", day, "-v"], logger)
+                args = ["gemini-transcribe", "--repair", day, "-v"]
+                code = _run_command(args, logger, stop) if use_stop else _run_command(args, logger)
             elif name == "see_repair":
                 if not day:
                     raise ValueError("day required")
-                code = _run_command(["screen-describe", "--repair", day, "-v"], logger)
+                args = ["screen-describe", "--repair", day, "-v"]
+                code = _run_command(args, logger, stop) if use_stop else _run_command(args, logger)
             elif name == "ponder":
                 if not day:
                     raise ValueError("day required")
@@ -132,29 +146,29 @@ def run_task(
                     ]
                     if force:
                         cmd.append("--force")
-                    code = _run_command(cmd, logger)
+                    code = (
+                        _run_command(cmd, logger, stop) if use_stop else _run_command(cmd, logger)
+                    )
                     if code != 0:
                         break
             elif name == "entity":
                 if not day:
                     raise ValueError("day required")
-                code = _run_command(
-                    [
-                        "entity-roll",
-                        "--day",
-                        day,
-                        "--force",
-                        "--verbose",
-                    ],
-                    logger,
-                )
+                args = [
+                    "entity-roll",
+                    "--day",
+                    day,
+                    "--force",
+                    "--verbose",
+                ]
+                code = _run_command(args, logger, stop) if use_stop else _run_command(args, logger)
             elif name == "reduce":
                 if not day:
                     raise ValueError("day required")
                 cmd = ["reduce-screen", day, "--verbose"]
                 if force:
                     cmd.append("--force")
-                code = _run_command(cmd, logger)
+                code = _run_command(cmd, logger, stop) if use_stop else _run_command(cmd, logger)
             elif name == "process_day":
                 if not day:
                     raise ValueError("day required")
@@ -167,7 +181,7 @@ def run_task(
                 ]
                 if force:
                     cmd.append("--force")
-                code = _run_command(cmd, logger)
+                code = _run_command(cmd, logger, stop) if use_stop else _run_command(cmd, logger)
             else:
                 logger("stderr", f"Unknown task: {name}")
                 code = 1
@@ -187,6 +201,7 @@ class TaskRunner:
         self.port = port
         self.loop: asyncio.AbstractEventLoop | None = None
         self._started = False
+        self.stops: dict[str, threading.Event] = {}
 
     def start(self) -> None:
         if self._started:
@@ -209,23 +224,55 @@ class TaskRunner:
         try:
             msg = await ws.recv()
             req = json.loads(msg)
-            task = req.get("task")
-            day = req.get("day")
-            force = bool(req.get("force"))
         except Exception as e:  # pragma: no cover - handshake errors
             await ws.send(json.dumps({"type": "stderr", "text": str(e)}))
             await ws.close()
             return
 
-        def _log(typ: str, text: str) -> None:
-            if not self.loop:
+        if "attach" in req:
+            tid = req.get("attach")
+            task = task_manager.tasks.get(tid)
+            if not task:
+                await ws.send(json.dumps({"type": "stderr", "text": "unknown task"}))
+                await ws.close()
                 return
-            asyncio.run_coroutine_threadsafe(
-                ws.send(json.dumps({"type": typ, "text": text})), self.loop
-            )
+            for line in task.log:
+                await ws.send(json.dumps({"type": "stdout", "text": line}))
+            task.watchers.append((self.loop, ws))
+            await ws.wait_closed()
+            with task_manager.lock:
+                if (self.loop, ws) in task.watchers:
+                    task.watchers.remove((self.loop, ws))
+            return
+
+        if "kill" in req:
+            tid = req.get("kill")
+            stop = self.stops.get(tid)
+            if stop:
+                stop.set()
+                task_manager.kill_task(tid)
+            await ws.close()
+            return
+
+        task = req.get("task")
+        day = req.get("day")
+        force = bool(req.get("force"))
+        src = req.get("src", "")
+        t = task_manager.create_task(task, day, src)
+        stop = threading.Event()
+        self.stops[t.id] = stop
+        await ws.send(json.dumps({"type": "id", "id": t.id}))
+
+        def _log(typ: str, text: str) -> None:
+            task_manager.append_log(t.id, typ, text)
+            if self.loop:
+                asyncio.run_coroutine_threadsafe(
+                    ws.send(json.dumps({"type": typ, "text": text})), self.loop
+                )
 
         def _runner() -> None:
-            code = run_task(task, day, _log, force=force)
+            code = run_task(task, day, _log, force=force, stop=stop)
+            task_manager.finish_task(t.id, code)
             if self.loop:
                 asyncio.run_coroutine_threadsafe(
                     ws.send(json.dumps({"type": "exit", "code": code})), self.loop
@@ -233,6 +280,7 @@ class TaskRunner:
 
         threading.Thread(target=_runner, daemon=True).start()
         await ws.wait_closed()
+        self.stops.pop(t.id, None)
 
 
 task_runner = TaskRunner()

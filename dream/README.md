@@ -58,3 +58,10 @@ This small structure keeps dependencies clear and makes it easy to focus on a si
 
 Navigate to `/admin` for index and reindex options. A specific day can be opened at `/admin/YYYYMMDD` to run repairs, ponder prompts, entity roll and screen reduction.
 Holding **Shift** while clicking a task button runs it with `--force` if the command supports that flag.
+
+### Tasks view
+
+The `/tasks` page lists all running tasks and recently completed ones. Logs are
+cached under `JOURNAL_PATH/tasks` with one JSON file per execution. Use the
+"Log" button to follow live output or "Kill" to stop a running task. The
+"Clear Old" button removes cached entries older than seven days.
