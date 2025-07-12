@@ -60,6 +60,8 @@ dependencies = [
     "watchdog",
     "nltk",
     "sqlite-utils",
+    "openai>=1.2.0",
+    "openai-agents>=0.1.0",
 ]
 
 [project.optional-dependencies]
