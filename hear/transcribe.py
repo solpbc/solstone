@@ -221,6 +221,10 @@ class Transcriber:
         return False
 
     def _handle_raw(self, raw_path: Path, no_stash: bool = False) -> None:
+        # skip files inside trash folder to avoid infinite loop
+        if "trash" in raw_path.parts:
+            logging.debug(f"Skipping file in trash: {raw_path}")
+            return
         segments = self._process_raw(raw_path, no_stash)
         self.processing.append(raw_path)
 
@@ -293,7 +297,11 @@ class Transcriber:
         return success
 
     def start(self):
-        handler = PatternMatchingEventHandler(patterns=["*_raw.flac"], ignore_directories=True)
+        handler = PatternMatchingEventHandler(
+            patterns=["*_raw.flac"],
+            ignore_directories=True,
+            ignore_patterns=["*/trash/*"]
+        )
 
         def on_created(event):
             raw_path = Path(event.src_path)
