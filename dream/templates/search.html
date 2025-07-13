@@ -4,14 +4,11 @@
 {% block head %}
 <style>
 .container { padding: 0 1em; }
-#results { display: flex; gap: 2em; margin-top: 1em; }
-.column { flex: 1; }
-.result { margin-bottom: 1em; cursor: pointer; }
-.result-title { font-weight: bold; color: #1a0dab; }
-.occ-details { white-space: pre-wrap; }
-.modal { display:none; position:fixed; z-index:1000; left:0; top:0; width:100%; height:100%; background:rgba(0,0,0,0.5); }
-.modal-content { background:white; margin:5% auto; padding:1em; border-radius:8px; max-width:800px; max-height:80vh; overflow:auto; position:relative; }
-.close { position:absolute; top:10px; right:15px; cursor:pointer; font-size:24px; }
+#resultsTable { width:100%; border-collapse:collapse; margin-top:1em; }
+#resultsTable th, #resultsTable td { padding:8px; border-bottom:1px solid #ddd; }
+#resultsTable th { background:#f8f9fa; text-align:left; }
+.slug-link { font-weight:bold; text-decoration:none; }
+.load-more { margin-top:1em; padding:6px 12px; background:#007bff; color:white; border:none; border-radius:4px; cursor:pointer; }
 </style>
 {% endblock %}
 {% block body %}
@@ -20,78 +17,69 @@
     <input id="query" type="text" placeholder="Search" style="width:60%;padding:8px"/>
     <button type="submit">Search</button>
   </form>
-  <div id="results">
-    <div class="column">
-      <h3>Ponders</h3>
-      <div id="ponderResults"></div>
-    </div>
-    <div class="column">
-      <h3>Occurrences</h3>
-      <div id="occResults"></div>
-    </div>
-  </div>
+  <table id="resultsTable" style="display:none">
+    <thead>
+      <tr><th>Date</th><th>Slug</th><th>Sentence</th></tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+  <button id="loadMore" class="load-more" style="display:none"></button>
 </div>
-<div id="detailModal" class="modal">
-  <div class="modal-content">
-    <span class="close">&times;</span>
-    <div id="modalContent"></div>
-  </div>
-</div>
+<script src="{{ url_for('review.static', filename='colors.js') }}"></script>
 <script>
 const ponderUrl = '{{ url_for('search.search_ponder_api') }}';
-const occUrl = '{{ url_for('search.search_occurrence_api') }}';
-const ponderDetailUrl = '{{ url_for('search.ponder_detail') }}';
-const occDetailUrl = '{{ url_for('search.occurrence_detail') }}';
-
-function escapeHtml(t){const d=document.createElement('div');d.textContent=t;return d.innerHTML;}
-
-function renderResults(target, list, type){
-  target.innerHTML = '';
+const dayBase = '{{ url_for('calendar.calendar_day', day='') }}';
+const COLORS = window.CATEGORY_COLORS;
+let slugColors = {};
+let colorIndex = 0;
+let query = '';
+let offset = 0;
+let total = 0;
+const limit = 20;
+function getColor(slug){
+  if(!slugColors[slug]){ slugColors[slug] = COLORS[colorIndex % COLORS.length]; colorIndex++; }
+  return slugColors[slug];
+}
+function renderRows(list){
+  const tbody = document.querySelector('#resultsTable tbody');
   list.forEach(item => {
-    const div = document.createElement('div');
-    div.className = 'result';
-    div.innerHTML = `<div class="result-title">${escapeHtml(item.text)}</div>`;
-    div.onclick = () => showDetail(type, item.metadata);
-    target.appendChild(div);
+    const tr = document.createElement('tr');
+    const tdDate = document.createElement('td');
+    tdDate.textContent = item.date;
+    const tdSlug = document.createElement('td');
+    const link = document.createElement('a');
+    link.className = 'slug-link';
+    link.href = dayBase + item.day + '#' + item.slug;
+    link.textContent = item.slug;
+    link.style.color = getColor(item.slug);
+    tdSlug.appendChild(link);
+    const tdText = document.createElement('td');
+    tdText.innerHTML = item.text;
+    tr.appendChild(tdDate); tr.appendChild(tdSlug); tr.appendChild(tdText);
+    tbody.appendChild(tr);
   });
 }
-
-function doSearch(){
-  const q = document.getElementById('query').value.trim();
-  if(!q) return;
-  fetch(ponderUrl + '?q=' + encodeURIComponent(q)).then(r=>r.json()).then(d=>renderResults(document.getElementById('ponderResults'), d, 'ponder'));
-  fetch(occUrl + '?q=' + encodeURIComponent(q)).then(r=>r.json()).then(d=>renderResults(document.getElementById('occResults'), d, 'occ'));
-}
-
-document.getElementById('searchForm').onsubmit = e => { e.preventDefault(); doSearch(); };
-
-function renderDetail(type, data, meta){
-  if(type==='ponder'){
-    return `<div class="occ-details">${escapeHtml(data.text || '')}</div>`;
+function updateLoadMore(){
+  const btn = document.getElementById('loadMore');
+  if(offset < total){
+    btn.textContent = `Load More (${offset}/${total})`;
+    btn.style.display = 'block';
+  } else {
+    btn.style.display = 'none';
   }
-  let html = '';
-  if(data.title){html += `<h4>${escapeHtml(data.title)}</h4>`;}
-  if(data.summary){html += `<p><strong>Summary:</strong> ${escapeHtml(data.summary)}</p>`;}
-  const fields = ['type','source','start','end','work','participants'];
-  fields.forEach(f=>{if(data[f]) html += `<p><strong>${f.charAt(0).toUpperCase()+f.slice(1)}:</strong> ${escapeHtml(String(data[f]))}</p>`;});
-  if(data.details){
-    const details = typeof data.details==='string' ? data.details : JSON.stringify(data.details, null, 2);
-    html += `<div class="occ-details">${escapeHtml(details)}</div>`;
-  }
-  return html;
 }
-
-function showDetail(type, meta){
-  const url = type==='ponder'
-    ? `${ponderDetailUrl}?path=${encodeURIComponent(meta.path)}`
-    : `${occDetailUrl}?path=${encodeURIComponent(meta.path)}&index=${meta.index}`;
-  fetch(url).then(r=>r.json()).then(d=>{
-    document.getElementById('modalContent').innerHTML = renderDetail(type, d, meta);
-    document.getElementById('detailModal').style.display='block';
-  });
+function doSearch(reset=true){
+  if(reset){ offset = 0; slugColors = {}; colorIndex=0; document.querySelector('#resultsTable tbody').innerHTML=''; }
+  fetch(`${ponderUrl}?q=${encodeURIComponent(query)}&limit=${limit}&offset=${offset}`)
+    .then(r=>r.json()).then(d=>{
+      total = d.total || 0;
+      renderRows(d.results || []);
+      document.getElementById('resultsTable').style.display = 'table';
+      offset += d.results.length;
+      updateLoadMore();
+    });
 }
-
-document.querySelector('.close').onclick=()=>{document.getElementById('detailModal').style.display='none';};
-window.onclick=e=>{if(e.target==document.getElementById('detailModal')) document.getElementById('detailModal').style.display='none';};
+document.getElementById('searchForm').onsubmit = e => { e.preventDefault(); query = document.getElementById('query').value.trim(); if(!query) return; doSearch(true); };
+document.getElementById('loadMore').onclick = () => doSearch(false);
 </script>
 {% endblock %}

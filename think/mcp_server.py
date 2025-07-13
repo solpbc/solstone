@@ -15,8 +15,9 @@ def create_server(journal: str) -> FastMCP:
     mcp = FastMCP(name="sunstone")
 
     @mcp.tool(title="Search ponders")
-    def search_ponder(query: str, n_results: int = 5):
-        return search_ponders(journal, query, n_results)
+    def search_ponder(query: str, n_results: int = 5, offset: int = 0):
+        _total, results = search_ponders(journal, query, n_results, offset)
+        return results
 
     @mcp.tool(title="Search occurrences")
     def search_occurrence(query: str, n_results: int = 5):

@@ -4,11 +4,13 @@ import json
 import os
 from typing import Any
 
+import markdown  # type: ignore
 from flask import Blueprint, jsonify, render_template, request
 
 from think.indexer import search_occurrences, search_ponders
 
 from .. import state
+from ..utils import format_date
 
 bp = Blueprint("search", __name__, template_folder="../templates")
 
@@ -22,9 +24,35 @@ def search_page() -> str:
 def search_ponder_api() -> Any:
     query = request.args.get("q", "").strip()
     if not query:
-        return jsonify([])
-    results = search_ponders(state.journal_root, query, 10)
-    return jsonify(results)
+        return jsonify({"total": 0, "results": []})
+
+    try:
+        limit = int(request.args.get("limit", 20))
+    except ValueError:
+        limit = 20
+    try:
+        offset = int(request.args.get("offset", 0))
+    except ValueError:
+        offset = 0
+
+    total, rows = search_ponders(state.journal_root, query, limit, offset)
+    results = []
+    for r in rows:
+        meta = r.get("metadata", {})
+        slug = meta.get("ponder", "")
+        if slug.startswith("ponder_") and slug.endswith(".md"):
+            slug = slug[7:-3]
+        results.append(
+            {
+                "day": meta.get("day", ""),
+                "date": format_date(meta.get("day", "")),
+                "slug": slug,
+                "text": markdown.markdown(r["text"]),
+                "score": r.get("score", 0.0),
+            }
+        )
+
+    return jsonify({"total": total, "results": results})
 
 
 @bp.route("/search/api/occurrence")

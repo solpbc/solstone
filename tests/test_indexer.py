@@ -79,5 +79,6 @@ def test_ponder_index(tmp_path):
     (day / "ponder_files.md").write_text("This is a test sentence.\n")
     cache: dict = {}
     mod.scan_ponders(str(journal), cache, verbose=True)
-    results = mod.search_ponders(str(journal), "test")
+    total, results = mod.search_ponders(str(journal), "test")
+    assert total == 1
     assert results and results[0]["metadata"]["path"] == "20240102/ponder_files.md"
