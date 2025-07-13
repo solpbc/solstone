@@ -58,7 +58,7 @@ dependencies = [
     "dbus-next",
     "PyGObject",
     "watchdog",
-    "nltk",
+    "syntok",
     "sqlite-utils",
     "openai>=1.2.0",
     "openai-agents>=0.1.0",

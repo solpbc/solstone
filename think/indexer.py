@@ -7,16 +7,14 @@ import re
 import sqlite3
 from typing import Dict, List, Tuple
 
-import nltk
 import sqlite_utils
+from syntok import segmenter
 
 from think.utils import journal_log, setup_cli
 
 from .entities import find_day_dirs, load_cache, save_cache, scan_entities
 
 INDEX_DIR = "index"
-
-nltk.download("punkt", quiet=True)
 
 
 # Sentence indexing helpers -------------------------------------------------
@@ -31,7 +29,12 @@ PONDER_BASENAMES = [f"ponder_{b}" for b in PROMPT_BASENAMES]
 def split_sentences(text: str) -> List[str]:
     """Return a list of cleaned sentences from markdown text."""
     cleaned = re.sub(r"^[*-]\s*", "", text, flags=re.MULTILINE)
-    sentences = [s.strip() for s in nltk.sent_tokenize(cleaned) if s.strip()]
+    sentences: List[str] = []
+    for paragraph in segmenter.process(cleaned):
+        for sentence in paragraph:
+            joined = "".join(str(t) for t in sentence).strip()
+            if joined:
+                sentences.append(joined)
     return sentences
 
 

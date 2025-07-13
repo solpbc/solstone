@@ -25,7 +25,8 @@ from agents import (
     set_default_openai_key,
 )
 
-from think.indexer import search_occurrences as search_occurrences_impl, search_ponders as search_ponders_impl
+from think.indexer import search_occurrences as search_occurrences_impl
+from think.indexer import search_ponders as search_ponders_impl
 from think.utils import setup_cli
 
 
@@ -54,7 +55,7 @@ def search_occurrences(query: str) -> str:
 @function_tool
 def read_markdown(date: str, filename: str) -> str:
     """Read an entire Markdown file for a given date and filename.
-    
+
     Returns markdown contents from journal/YYYYMMDD/filename.md.
     """
 
@@ -62,6 +63,12 @@ def read_markdown(date: str, filename: str) -> str:
     if not md_path.is_file():
         raise FileNotFoundError(f"Markdown not found: {md_path}")
     return md_path.read_text(encoding="utf-8")
+
+
+# Compatibility aliases used in tests
+tool_search_ponder = search_ponder
+tool_search_occurrences = search_occurrences
+tool_read_markdown = read_markdown
 
 
 def build_agent(model: str, max_tokens: int) -> tuple[Agent, RunConfig]:

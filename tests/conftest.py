@@ -215,10 +215,3 @@ def add_module_stubs(monkeypatch):
     if "screen_compare" not in sys.modules:
         mod = importlib.import_module("see.screen_compare")
         sys.modules["screen_compare"] = mod
-    if "nltk" not in sys.modules:
-        nltk_mod = types.ModuleType("nltk")
-        nltk_mod.download = lambda *a, **k: True
-        nltk_mod.sent_tokenize = lambda t: t.split(".")
-        sys.modules["nltk"] = nltk_mod
-    monkeypatch.setattr("nltk.download", lambda *a, **k: True, raising=False)
-    monkeypatch.setattr("nltk.download", lambda *a, **k: True, raising=False)
