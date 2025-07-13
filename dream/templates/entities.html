@@ -23,16 +23,23 @@ th {
   color: #333;
 }
 tr:hover { background: #f8f9fa; }
-.count { 
-  text-align: center; 
-  font-weight: bold; 
+.count {
+  text-align: center;
+  font-weight: bold;
   color: #007bff;
   width: 80px;
   cursor: pointer;
 }
-.count:hover { 
-  background: #e3f2fd; 
+.count:hover {
+  background: #e3f2fd;
   border-radius: 4px;
+}
+.search-icon {
+  margin-left: 6px;
+  cursor: pointer;
+}
+.search-icon:hover {
+  color: #007bff;
 }
 .name { font-weight: 500; width: 200px; }
 .desc { color: #666; }
@@ -195,8 +202,9 @@ function showType(type) {
   items.forEach(item => {
     const tr = document.createElement('tr');
     const count = item.top ? `<span style="color:gold" title="${item.dates.length} entries">&#9733;</span>` : item.dates.length;
+    const search = `<span class="search-icon" onclick="showSearchResults('${item.name}', event)" title="Search">&#128269;</span>`;
     tr.innerHTML = `
-      <td class="count" onclick="handleCountClick(event, '${item.name}')">${count}</td>
+      <td class="count" onclick="handleCountClick(event, '${item.name}')">${count}${search}</td>
       <td class="name">${item.name}</td>
       <td class="desc">${item.desc}</td>
     `;
@@ -406,6 +414,23 @@ function showEntityDetails(name) {
   };
 
   modal.style.display = 'block';
+}
+
+function showSearchResults(name, evt) {
+  if (evt) evt.stopPropagation();
+  const modal = document.getElementById('entityModal');
+  const content = document.getElementById('modalContent');
+  content.innerHTML = `<div class="modal-header"><h3>${name}</h3></div><div class="modal-body">Loading...</div>`;
+  modal.style.display = 'block';
+  fetch('{{ url_for('entities.entities') }}/api/search?q=' + encodeURIComponent(name))
+    .then(r => r.json())
+    .then(list => {
+      let body = '';
+      list.forEach(item => {
+        body += `<div class="date-entry"><div class="date-label">${item.day} - ${item.slug}</div><div>${item.html}</div></div>`;
+      });
+      content.innerHTML = `<div class="modal-header"><h3>${name}</h3></div><div class="modal-body">${body}</div>`;
+    });
 }
 
 // Modal close functionality

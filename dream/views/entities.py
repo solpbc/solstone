@@ -3,9 +3,11 @@ from __future__ import annotations
 import os
 from typing import Any, Dict, List
 
+import markdown  # type: ignore
 from flask import Blueprint, jsonify, render_template, request
 
 from think.entities import Entities
+from think.indexer import search_ponders
 
 from .. import state
 from ..utils import (
@@ -98,3 +100,23 @@ def api_modify_entity() -> Any:
             pass
     reload_entities()
     return jsonify({"status": "ok"})
+
+
+@bp.route("/entities/api/search")
+def api_search() -> Any:
+    query = request.args.get("q", "").strip()
+    if not query:
+        return jsonify([])
+    results = search_ponders(state.journal_root, query, 1000)
+    formatted = []
+    for r in results:
+        meta = r.get("metadata", {})
+        day = meta.get("day", "")
+        ponder = meta.get("ponder", "")
+        slug = ponder[7:-3] if ponder.startswith("ponder_") and ponder.endswith(".md") else ponder
+        try:
+            html = markdown.markdown(r.get("text", ""))
+        except Exception:
+            html = r.get("text", "")
+        formatted.append({"day": format_date(day), "slug": slug, "html": html})
+    return jsonify(formatted)
