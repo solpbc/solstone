@@ -60,8 +60,8 @@ def count_tokens(markdown: str, prompt: str, api_key: str, model: str) -> None:
 def _get_or_create_cache(client: genai.Client, model: str, display_name: str, text: str) -> str:
     """Return cache name for ``display_name`` creating it with ``text`` if needed."""
 
-    for c in client.caches.list(model=model):
-        if c.display_name == display_name:
+    for c in client.caches.list():
+        if c.model == model and c.display_name == display_name:
             return c.name
 
     cache = client.caches.create(
