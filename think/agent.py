@@ -101,17 +101,18 @@ def main() -> None:
 
     args = setup_cli(parser)
 
+    if args.verbose:
+        logging.getLogger().setLevel(logging.DEBUG)
+        logging.getLogger("openai.agents").setLevel(logging.DEBUG)
+
     if args.task_file == "-":
         user_prompt = sys.stdin.read()
     else:
         if not os.path.isfile(args.task_file):
             parser.error(f"Task file not found: {args.task_file}")
-        if args.verbose:
-            logging.getLogger().setLevel(logging.DEBUG)
-            logging.getLogger("openai.agents").setLevel(logging.DEBUG)
 
-    logging.info("Loading task file %s", args.task_file)
-    user_prompt = Path(args.task_file).read_text(encoding="utf-8")
+        logging.info("Loading task file %s", args.task_file)
+        user_prompt = Path(args.task_file).read_text(encoding="utf-8")
 
     logging.debug("Task contents: %s", user_prompt)
 
