@@ -75,6 +75,8 @@ dev = [
 ]
 
 [project.scripts]
+# Top-level helper
+sunstone = "sunstone:main"
 # Audio utilities
 gemini-mic = "hear.capture:main"
 gemini-transcribe = "hear.transcribe:main"

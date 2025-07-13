@@ -16,6 +16,7 @@ Captured files are organised under a **journal** directory containing daily `YYY
   `cluster` and `process-day`.
 - **Dream** 🌐 - Run `dream --password PASSWORD` for a web UI to review entities and meetings.
 - **Serve** 🛰️ - `ponder-mcp` launches an OAuth-protected MCP server for searching ponders and occurrences.
+- **Help** ❓ - `sunstone` prints a list of available commands and their arguments.
 
 ## Quick Start
 
@@ -26,6 +27,8 @@ pip install -e .
 Set `JOURNAL_PATH` to the folder where recordings should be stored and
 `GOOGLE_API_KEY` for Gemini access. These variables can also be placed in a
 `.env` file which is loaded by most commands.
+
+Run `sunstone` to see all available commands.
 
 Use `sunstone-hear` together with `sunstone-see` to run the audio and visual capture
 services in continuous loops. `sunstone-hear` wraps `gemini-mic` and
