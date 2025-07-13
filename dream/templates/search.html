@@ -6,6 +6,7 @@
 .container { padding: 0 1em; }
 #resultsTable { width:100%; border-collapse:collapse; margin-top:1em; }
 #resultsTable th, #resultsTable td { padding:8px; border-bottom:1px solid #ddd; }
+#resultsTable td.date-cell { white-space:nowrap; cursor:pointer; }
 #resultsTable th { background:#f8f9fa; text-align:left; }
 .slug-link { font-weight:bold; text-decoration:none; }
 .load-more { margin-top:1em; padding:6px 12px; background:#007bff; color:white; border:none; border-radius:4px; cursor:pointer; }
@@ -36,6 +37,14 @@ let query = '';
 let offset = 0;
 let total = 0;
 const limit = 20;
+
+// Initialize from URL
+const params = new URLSearchParams(window.location.search);
+query = params.get('q') || '';
+if (query) {
+  document.getElementById('query').value = query;
+  doSearch(true);
+}
 function getColor(slug){
   if(!slugColors[slug]){ slugColors[slug] = COLORS[colorIndex % COLORS.length]; colorIndex++; }
   return slugColors[slug];
@@ -45,8 +54,10 @@ function renderRows(list){
   list.forEach(item => {
     const tr = document.createElement('tr');
     const tdDate = document.createElement('td');
+    tdDate.className = 'date-cell';
     tdDate.textContent = item.date;
-    const tdSlug = document.createElement('td');
+    tdDate.onclick = () => { window.location = dayBase + item.day; };
+  const tdSlug = document.createElement('td');
     const link = document.createElement('a');
     link.className = 'slug-link';
     link.href = dayBase + item.day + '#' + item.slug;

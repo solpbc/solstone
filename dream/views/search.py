@@ -42,12 +42,16 @@ def search_ponder_api() -> Any:
         slug = meta.get("ponder", "")
         if slug.startswith("ponder_") and slug.endswith(".md"):
             slug = slug[7:-3]
+        text = r["text"]
+        words = text.split()
+        if len(words) > 100:
+            text = " ".join(words[:100]) + " ..."
         results.append(
             {
                 "day": meta.get("day", ""),
                 "date": format_date(meta.get("day", "")),
                 "slug": slug,
-                "text": markdown.markdown(r["text"]),
+                "text": markdown.markdown(text),
                 "score": r.get("score", 0.0),
             }
         )
