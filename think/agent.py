@@ -25,7 +25,7 @@ def tool_search_ponder(query: str) -> str:
     """Search ponder sentences using the journal index."""
 
     journal = os.getenv("JOURNAL_PATH", "")
-    results = search_ponders(journal, query, 5)
+    _total, results = search_ponders(journal, query, 5)
     return "\n".join(r["text"] for r in results)
 
 

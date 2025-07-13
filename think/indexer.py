@@ -199,19 +199,27 @@ def scan_occurrences(journal: str, cache: Dict[str, dict], verbose: bool = False
     return changed
 
 
-def search_ponders(journal: str, query: str, n_results: int = 5) -> List[Dict[str, str]]:
-    """Search the ponder sentence index and return results."""
+def search_ponders(
+    journal: str, query: str, limit: int = 5, offset: int = 0
+) -> tuple[int, List[Dict[str, str]]]:
+    """Search the ponder sentence index and return total count and results."""
+
     conn, _ = get_index(journal)
     db = sqlite_utils.Database(conn)
     quoted = db.quote(query)
+
+    total = conn.execute(
+        f"SELECT count(*) FROM sentences WHERE sentences MATCH {quoted}"
+    ).fetchone()[0]
+
     cursor = conn.execute(
         f"""
         SELECT sentence, path, day, ponder, position, bm25(sentences) as rank
-        FROM sentences WHERE sentences MATCH {quoted} ORDER BY rank LIMIT ?
+        FROM sentences WHERE sentences MATCH {quoted} ORDER BY rank LIMIT ? OFFSET ?
         """,
-        (n_results,),
+        (limit, offset),
     )
-    results = []
+    results: List[Dict[str, str]] = []
     for sentence, path, day, ponder, pos, rank in cursor.fetchall():
         results.append(
             {
@@ -227,7 +235,7 @@ def search_ponders(journal: str, query: str, n_results: int = 5) -> List[Dict[st
             }
         )
     conn.close()
-    return results
+    return total, results
 
 
 def search_occurrences(journal: str, query: str, n_results: int = 5) -> List[Dict[str, str]]:
@@ -329,7 +337,7 @@ def main() -> None:
     if args.query is not None:
         if args.query:
             # Single query mode - run query and exit
-            results = search_ponders(journal, args.query, 5)
+            _total, results = search_ponders(journal, args.query, 5)
             _display_search_results(results)
         else:
             # Interactive mode
@@ -340,7 +348,7 @@ def main() -> None:
                     break
                 if not query:
                     break
-                results = search_ponders(journal, query, 5)
+                _total, results = search_ponders(journal, query, 5)
                 _display_search_results(results)
 
 
