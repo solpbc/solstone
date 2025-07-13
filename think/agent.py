@@ -15,6 +15,7 @@ import logging
 import os
 import sys
 from pathlib import Path
+from typing import Any
 
 from agents import (
     Agent,
@@ -31,12 +32,29 @@ from think.utils import setup_cli
 
 
 @function_tool
-def search_ponder(query: str) -> str:
-    """Full-text search over ponder summaries using the journal index."""
+def search_ponder(query: str, limit: int = 5, offset: int = 0) -> dict[str, Any]:
+    """Full-text search over ponder summaries using the journal index.
+
+    Args:
+        query: Search query string.
+        limit: Maximum number of results to return.
+        offset: Result offset for pagination.
+
+    Returns:
+        A dictionary with the total number of matches and a list of result
+        dictionaries. Each result contains the day, filename and matching text.
+    """
 
     journal = os.getenv("JOURNAL_PATH", "")
-    _total, results = search_ponders_impl(journal, query, 5)
-    return "\n".join(r["text"] for r in results)
+    total, results = search_ponders_impl(journal, query, limit, offset)
+    items = []
+    for r in results:
+        meta = r.get("metadata", {})
+        ponder = meta.get("ponder", "")
+        if ponder.endswith(".md"):
+            ponder = ponder[:-3]
+        items.append({"day": meta.get("day", ""), "filename": ponder, "text": r.get("text", "")})
+    return {"total": total, "results": items}
 
 
 @function_tool
