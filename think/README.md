@@ -71,7 +71,7 @@ WantedBy=timers.target
 ## CLI Agent
 
 `think.agent` provides a small command line interface around an OpenAI agent.
-It can search across ponder summaries, search the occurrences index and read
+It can search across topic summaries, search the occurrences index and read
 full Markdown files from the journal using three custom tools.
 
 ```bash
@@ -81,7 +81,7 @@ python -m think.agent path/to/task.txt [--model MODEL] [--max-tokens N]
 Set `OPENAI_API_KEY` and `JOURNAL_PATH` in your environment so the agent can
 query your journal index. The tools available to the agent are:
 
-- **search_ponder** – full text search across `ponder_*.md` sentences.
+- **search_ponder** – full text search across `topics/*.md` sentences.
 - **search_occurrences** – keyword search over `occurrences.json` entries.
 - **read_markdown** – return the contents of any `journal/YYYYMMDD/*.md` file.
 

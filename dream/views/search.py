@@ -40,8 +40,10 @@ def search_ponder_api() -> Any:
     for r in rows:
         meta = r.get("metadata", {})
         slug = meta.get("ponder", "")
-        if slug.startswith("ponder_") and slug.endswith(".md"):
-            slug = slug[7:-3]
+        if slug.startswith("topics/"):
+            slug = slug[len("topics/") :]
+        if slug.endswith(".md"):
+            slug = slug[:-3]
         text = r["text"]
         words = text.split()
         if len(words) > 100:

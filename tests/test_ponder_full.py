@@ -51,8 +51,8 @@ def test_ponder_main(tmp_path, monkeypatch):
     monkeypatch.setattr("sys.argv", ["ponder-day", "20240101", "-f", str(prompt)])
     mod.main()
 
-    md = day_dir / "ponder_prompt.md"
-    js = day_dir / "ponder_prompt.json"
+    md = day_dir / "topics" / "prompt.md"
+    js = day_dir / "topics" / "prompt.json"
     assert md.read_text() == "summary"
     data = json.loads(js.read_text())
     assert data["day"] == "20240101"

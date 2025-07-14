@@ -139,7 +139,7 @@ def run_task(
                 if not day:
                     raise ValueError("day required")
                 think_dir = os.path.dirname(entity_roll.__file__)
-                prompts = sorted(glob.glob(os.path.join(think_dir, "ponder", "*.txt")))
+                prompts = sorted(glob.glob(os.path.join(think_dir, "topics", "*.txt")))
                 code = 0
                 for prompt in prompts:
                     cmd = [

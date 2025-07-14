@@ -25,9 +25,12 @@ def calendar_day(day: str) -> str:
     if not os.path.isdir(day_dir):
         return "", 404
     files = []
-    for name in sorted(os.listdir(day_dir)):
-        if name.startswith("ponder_") and name.endswith(".md"):
-            path = os.path.join(day_dir, name)
+    topics_dir = os.path.join(day_dir, "topics")
+    if os.path.isdir(topics_dir):
+        for name in sorted(os.listdir(topics_dir)):
+            if not name.endswith(".md"):
+                continue
+            path = os.path.join(topics_dir, name)
             try:
                 with open(path, "r", encoding="utf-8") as f:
                     text = f.read()
@@ -39,7 +42,7 @@ def calendar_day(day: str) -> str:
                 html = markdown.markdown(text)
             except Exception:
                 html = "<p>Error loading file.</p>"
-            base = name[7:-3]
+            base = name[:-3]
             label = base.replace("_", " ").title()
             files.append({"label": label, "html": html, "slug": base})
     title = format_date(day)

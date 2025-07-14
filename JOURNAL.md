@@ -30,15 +30,15 @@ Screen capture utilities produce per monitor diff files:
 
 - Post‑processing commands may generate additional analysis files, for example:
 
-- `ponder_day.md` – high level summary of the day.
-- `ponder_knowledge_graph.md` – knowledge graph / network summary.
-- `ponder_meetings.md` – meeting list used by the calendar web UI.
+- `topics/day.md` – high level summary of the day.
+- `topics/knowledge_graph.md` – knowledge graph / network summary.
+- `topics/meetings.md` – meeting list used by the calendar web UI.
 - `entities.md` – daily entity rollup produced by `entity-roll`.
 - `task_log.txt` – log of tasks for that day in `[epoch]\tmessage` format.
 
 ### Crumbs
 
-Most generated files are accompanied by a `.crumb` file capturing dependencies and model information. See `CRUMBS.md` for the format. Example: `20250610/ponder_day.md.crumb`.
+Most generated files are accompanied by a `.crumb` file capturing dependencies and model information. See `CRUMBS.md` for the format. Example: `20250610/topics/day.md.crumb`.
 
 ## Occurrence JSON
 
@@ -53,7 +53,7 @@ stored as `occurrences.json` inside each day folder.
   "occurrences": [
     {
       "type": "meeting",
-      "source": "ponder_meetings.md",
+      "source": "topics/meetings.md",
       "start": "09:00:00",
       "end": "09:30:00",
       "title": "Team stand-up",
@@ -76,6 +76,6 @@ stored as `occurrences.json` inside each day folder.
 - **participants** – optional list of people or entities involved.
 - **details** – free-form string of other occurrence specific information.
 
-Each `ponder_*` tool can map its findings into this structure allowing the
+Each topic analysis can map its findings into this structure allowing the
 indexer to collect and search occurrences across all days.
 
