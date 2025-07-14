@@ -20,7 +20,7 @@
   </form>
   <table id="resultsTable" style="display:none">
     <thead>
-      <tr><th>Date</th><th>Slug</th><th>Sentence</th></tr>
+      <tr><th>Date</th><th>Topic</th><th>Sentence</th></tr>
     </thead>
     <tbody></tbody>
   </table>
@@ -31,7 +31,7 @@
 const ponderUrl = '{{ url_for('search.search_ponder_api') }}';
 const dayBase = '{{ url_for('calendar.calendar_day', day='') }}';
 const COLORS = window.CATEGORY_COLORS;
-let slugColors = {};
+let topicColors = {};
 let colorIndex = 0;
 let query = '';
 let offset = 0;
@@ -48,9 +48,9 @@ if (query) {
   queryInput.value = query;
   doSearch(true);
 }
-function getColor(slug){
-  if(!slugColors[slug]){ slugColors[slug] = COLORS[colorIndex % COLORS.length]; colorIndex++; }
-  return slugColors[slug];
+function getColor(topic){
+  if(!topicColors[topic]){ topicColors[topic] = COLORS[colorIndex % COLORS.length]; colorIndex++; }
+  return topicColors[topic];
 }
 function renderRows(list){
   const tbody = document.querySelector('#resultsTable tbody');
@@ -60,16 +60,16 @@ function renderRows(list){
     tdDate.className = 'date-cell';
     tdDate.textContent = item.date;
     tdDate.onclick = () => { window.location = dayBase + item.day; };
-  const tdSlug = document.createElement('td');
+  const tdTopic = document.createElement('td');
     const link = document.createElement('a');
     link.className = 'slug-link';
-    link.href = dayBase + item.day + '#' + item.slug;
-    link.textContent = item.slug;
-    link.style.color = getColor(item.slug);
-    tdSlug.appendChild(link);
+    link.href = dayBase + item.day + '#' + item.topic;
+    link.textContent = item.topic;
+    link.style.color = item.color || getColor(item.topic);
+    tdTopic.appendChild(link);
     const tdText = document.createElement('td');
     tdText.innerHTML = item.text;
-    tr.appendChild(tdDate); tr.appendChild(tdSlug); tr.appendChild(tdText);
+    tr.appendChild(tdDate); tr.appendChild(tdTopic); tr.appendChild(tdText);
     tbody.appendChild(tr);
   });
 }
@@ -83,7 +83,7 @@ function updateLoadMore(){
   }
 }
 function doSearch(reset=true){
-  if(reset){ offset = 0; slugColors = {}; colorIndex=0; document.querySelector('#resultsTable tbody').innerHTML=''; }
+  if(reset){ offset = 0; topicColors = {}; colorIndex=0; document.querySelector('#resultsTable tbody').innerHTML=''; }
   fetch(`${ponderUrl}?q=${encodeURIComponent(query)}&limit=${limit}&offset=${offset}`)
     .then(r=>r.json()).then(d=>{
       total = d.total || 0;

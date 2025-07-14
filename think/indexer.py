@@ -1,6 +1,5 @@
 """Utilities for indexing ponder outputs and occurrences."""
 
-import glob
 import json
 import os
 import re
@@ -10,7 +9,7 @@ from typing import Dict, List, Tuple
 import sqlite_utils
 from syntok import segmenter
 
-from think.utils import journal_log, setup_cli
+from think.utils import get_topics, journal_log, setup_cli
 
 from .entities import find_day_dirs, load_cache, save_cache, scan_entities
 
@@ -20,9 +19,7 @@ INDEX_DIR = "index"
 # Sentence indexing helpers -------------------------------------------------
 
 TOPIC_DIR = os.path.join(os.path.dirname(__file__), "topics")
-TOPIC_BASENAMES = [
-    os.path.splitext(os.path.basename(p))[0] for p in glob.glob(os.path.join(TOPIC_DIR, "*.txt"))
-]
+TOPIC_BASENAMES = sorted(get_topics().keys())
 
 
 def split_sentences(text: str) -> List[str]:

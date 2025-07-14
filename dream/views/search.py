@@ -35,15 +35,18 @@ def search_ponder_api() -> Any:
     except ValueError:
         offset = 0
 
+    from think.utils import get_topics
+
+    topics = get_topics()
     total, rows = search_ponders(state.journal_root, query, limit, offset)
     results = []
     for r in rows:
         meta = r.get("metadata", {})
-        slug = meta.get("ponder", "")
-        if slug.startswith("topics/"):
-            slug = slug[len("topics/") :]
-        if slug.endswith(".md"):
-            slug = slug[:-3]
+        topic = meta.get("ponder", "")
+        if topic.startswith("topics/"):
+            topic = topic[len("topics/"):]
+        if topic.endswith(".md"):
+            topic = topic[:-3]
         text = r["text"]
         words = text.split()
         if len(words) > 100:
@@ -52,7 +55,8 @@ def search_ponder_api() -> Any:
             {
                 "day": meta.get("day", ""),
                 "date": format_date(meta.get("day", "")),
-                "slug": slug,
+                "topic": topic,
+                "color": topics.get(topic, {}).get("color"),
                 "text": markdown.markdown(text),
                 "score": r.get("score", 0.0),
             }

@@ -19,7 +19,7 @@
   <div class="tabs">
     <a class="tab active" href="#events" data-target="events">Events</a>
     {% for file in files %}
-    <a class="tab" href="#{{ file.slug }}" data-target="{{ file.slug }}">{{ file.label }}</a>
+    <a class="tab" href="#{{ file.topic }}" data-target="{{ file.topic }}" data-color="{{ file.color }}">{{ file.label }}</a>
     {% endfor %}
     <a class="admin-link" href="{{ url_for('admin.admin_day_page', day=day) }}" title="Admin" aria-label="Admin">⚙️</a>
   </div>
@@ -27,7 +27,7 @@
     <div id="eventsView"></div>
   </div>
   {% for file in files %}
-  <div class="content" id="{{ file.slug }}" style="display:none">
+  <div class="content" id="{{ file.topic }}" style="display:none">
     <div class="markdown">{{ file.html|safe }}</div>
   </div>
   {% endfor %}
@@ -45,11 +45,13 @@ const contents = document.querySelectorAll('.content');
 const day = '{{ day }}';
 let events = [];
 const COLORS = window.CATEGORY_COLORS;
-let slugColors = {};
+let topicColors = {};
+// initialize colors from tab data
+tabs.forEach(t => { if(t.dataset.color){ topicColors[t.dataset.target] = t.dataset.color; } });
 
 function colorTabs(){
   tabs.forEach(t => {
-    const color = slugColors[t.dataset.target];
+    const color = topicColors[t.dataset.target];
     if(color){
       t.dataset.color = color;
       t.style.color = color;
@@ -60,13 +62,13 @@ function colorTabs(){
   });
 }
 
-function orderTabs(slugs){
+function orderTabs(topics){
   const container = document.querySelector('.tabs');
   const eventTab = container.querySelector('.tab[data-target="events"]');
   const admin = container.querySelector('.admin-link');
   const fileTabs = Array.from(container.querySelectorAll('.tab')).filter(t => t !== eventTab);
   const order = {};
-  slugs.forEach((s,i)=>{order[s]=i;});
+  topics.forEach((s,i)=>{order[s]=i;});
   fileTabs.sort((a,b)=>{
     const sa = a.dataset.target;
     const sb = b.dataset.target;
@@ -81,7 +83,7 @@ function orderTabs(slugs){
 
 function renderEvents(list){
   const div = document.getElementById('eventsView');
-  if(!list.length){ div.innerHTML = ""; slugColors = {}; return []; }
+  if(!list.length){ div.innerHTML = ""; return []; }
 
   // determine time range
   let start = Infinity;
@@ -108,7 +110,7 @@ function renderEvents(list){
 
   // Process events and calculate overlapping groups
   const processedEvents = [];
-  const slugs = [];
+  const topics = [];
 
   list.forEach((o, idx) => {
     if(!o.startTime) return;
@@ -120,73 +122,71 @@ function renderEvents(list){
     e = Math.min(e, endHour*60);
     if(e <= s) return;
 
-    const slug = o.slug || 'other';
-    if(!slugs.includes(slug)) slugs.push(slug);
+    const topic = o.topic || 'other';
+    if(!topics.includes(topic)) topics.push(topic);
 
     processedEvents.push({
       startMinutes: s,
       endMinutes: e,
-      slug: slug,
-      title: escapeHtml(o.title || o.summary || slug),
-      href: `${window.location.pathname}${slug ? '#' + slug : ''}`,
+      topic: topic,
+      title: escapeHtml(o.title || o.summary || topic),
+      href: `${window.location.pathname}${topic ? '#' + topic : ''}`,
       index: idx
     });
   });
 
-  // Group events by slug
-  const eventsBySlug = {};
-  slugs.forEach(slug => {
-    eventsBySlug[slug] = processedEvents.filter(e => e.slug === slug);
-    // Sort events within each slug by start time
-    eventsBySlug[slug].sort((a, b) => a.startMinutes - b.startMinutes);
+  // Group events by topic
+  const eventsByTopic = {};
+  topics.forEach(topic => {
+    eventsByTopic[topic] = processedEvents.filter(e => e.topic === topic);
+    // Sort events within each topic by start time
+    eventsByTopic[topic].sort((a, b) => a.startMinutes - b.startMinutes);
   });
 
-  // Calculate columns needed for each slug (based on overlaps within that slug)
-  const slugColumnCounts = {};
-  slugs.forEach(slug => {
-    const slugEvents = eventsBySlug[slug];
-    const slugColumns = [];
+  // Calculate columns needed for each topic (based on overlaps within that topic)
+  const topicColumnCounts = {};
+  topics.forEach(topic => {
+    const topicEvents = eventsByTopic[topic];
+    const topicColumns = [];
 
-    slugEvents.forEach(event => {
-      // Find first available column within this slug
+    topicEvents.forEach(event => {
+      // Find first available column within this topic
       let columnIndex = 0;
-      while (columnIndex < slugColumns.length &&
-             slugColumns[columnIndex].some(existing =>
+      while (columnIndex < topicColumns.length &&
+             topicColumns[columnIndex].some(existing =>
                event.startMinutes < existing.endMinutes &&
                event.endMinutes > existing.startMinutes)) {
         columnIndex++;
       }
 
-      if (columnIndex === slugColumns.length) {
-        slugColumns.push([]);
+      if (columnIndex === topicColumns.length) {
+        topicColumns.push([]);
       }
 
-      slugColumns[columnIndex].push(event);
+      topicColumns[columnIndex].push(event);
       event.slugColumn = columnIndex;
     });
 
-    slugColumnCounts[slug] = slugColumns.length;
+    topicColumnCounts[topic] = topicColumns.length;
   });
 
-  // Calculate global column positions for each slug
+  // Calculate global column positions for each topic
   let globalColumnOffset = 0;
-  const slugColumnOffsets = {};
-  slugs.forEach(slug => {
-    slugColumnOffsets[slug] = globalColumnOffset;
-    globalColumnOffset += slugColumnCounts[slug];
+  const topicColumnOffsets = {};
+  topics.forEach(topic => {
+    topicColumnOffsets[topic] = globalColumnOffset;
+    globalColumnOffset += topicColumnCounts[topic];
   });
 
   const totalColumns = globalColumnOffset;
   const columnWidth = totalColumns > 0 ? 100 / totalColumns : 100;
 
   // Assign colors based on column order
-  const sortedSlugs = [...slugs].sort((a,b)=>slugColumnOffsets[a]-slugColumnOffsets[b]);
-  slugColors = {};
-  sortedSlugs.forEach((s,i)=>{ slugColors[s] = COLORS[i % COLORS.length]; });
+  const sortedTopics = [...topics].sort((a,b)=>topicColumnOffsets[a]-topicColumnOffsets[b]);
 
   // Assign final column positions
   processedEvents.forEach(event => {
-    event.column = slugColumnOffsets[event.slug] + event.slugColumn;
+    event.column = topicColumnOffsets[event.topic] + event.slugColumn;
   });
   
   // Render events
@@ -195,7 +195,7 @@ function renderEvents(list){
     const height = Math.max((event.endMinutes - event.startMinutes)/((endHour-startHour)*60)*100, 0.4);
     const left = event.column * columnWidth;
     const width = columnWidth * 0.95; // Leave small gap between columns
-    const color = slugColors[event.slug] || '#6c757d';
+    const color = topicColors[event.topic] || '#6c757d';
     html += `<a class='occ' data-index='${event.index}' href='${event.href}' style='top:${top}%;height:${height}%;left:${left}%;width:${width}%;right:auto;background:${color}' title='${event.title}'></a>`;
   });
   html += '</div>';
@@ -236,8 +236,8 @@ function openModal(idx){
   if(!occ) return;
   const body = document.getElementById('modalBody');
 
-  const slug = occ.slug ? occ.slug.charAt(0).toUpperCase()+occ.slug.slice(1) : '';
-  const titleText = `${slug ? slug+': ' : ''}${occ.title || ''}`.trim();
+  const topic = occ.topic ? occ.topic.charAt(0).toUpperCase()+occ.topic.slice(1) : '';
+  const titleText = `${topic ? topic+': ' : ''}${occ.title || ''}`.trim();
   const subtitle = occ.subject || occ.summary || '';
   let html = '';
   if(titleText) html += `<h3>${escapeHtml(titleText)}</h3>`;
@@ -263,8 +263,8 @@ function loadEvents(){
     .then(r => r.json())
     .then(d => {
       events = d[day] || [];
-      const slugs = renderEvents(events);
-      orderTabs(slugs);
+      const topicsList = renderEvents(events);
+      orderTabs(topicsList);
       colorTabs();
       document.getElementById('eventsView').onclick = e => {
         const el = e.target.closest('.occ');

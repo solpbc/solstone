@@ -67,22 +67,25 @@ function loadData() {
 function createBarChart(occList, dateStr) {
   const counts = {};
   const order = [];
+  const topicColors = {};
   occList.forEach(o => {
-    const slug = o.slug || 'other';
-    if(!counts[slug]) { counts[slug] = 0; order.push(slug); }
-    counts[slug]++;
+    const topic = o.topic || 'other';
+    if(!counts[topic]) {
+      counts[topic] = 0;
+      order.push(topic);
+      topicColors[topic] = o.color || CATEGORY_COLORS[order.length % CATEGORY_COLORS.length];
+    }
+    counts[topic]++;
   });
-  const slugColors = {};
-  order.forEach((s,i)=>{ slugColors[s] = CATEGORY_COLORS[i % CATEGORY_COLORS.length]; });
   const max = Math.max(...Object.values(counts), 1);
   const link = document.createElement('a');
   link.href = dayBase + dateStr;
   const div = document.createElement('div');
   div.className = 'bar-chart';
-  order.forEach(slug => {
+  order.forEach(topic => {
     const bar = document.createElement('div');
-    bar.style.height = (counts[slug]/max*100)+'%';
-    bar.style.background = slugColors[slug];
+    bar.style.height = (counts[topic]/max*100)+'%';
+    bar.style.background = topicColors[topic];
     div.appendChild(bar);
   });
   link.appendChild(div);

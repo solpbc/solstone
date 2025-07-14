@@ -3,10 +3,7 @@ import glob
 import logging
 import os
 import subprocess
-import sys
 from datetime import datetime, timedelta
-
-from dotenv import load_dotenv
 
 from think.utils import day_log, setup_cli
 

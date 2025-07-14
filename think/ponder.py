@@ -1,5 +1,4 @@
 import argparse
-import glob
 import json
 import os
 import threading
@@ -13,18 +12,16 @@ from google.genai import types
 from think.cluster import cluster
 from think.crumbs import CrumbBuilder
 from think.models import GEMINI_FLASH, GEMINI_PRO
-from think.utils import day_log, day_path, setup_cli
+from think.utils import day_log, day_path, get_topics, setup_cli
 
+TOPICS = get_topics()
 TOPIC_DIR = os.path.join(os.path.dirname(__file__), "topics")
-DEFAULT_TOPIC_PATH = os.path.join(TOPIC_DIR, "day.txt")
+DEFAULT_TOPIC_PATH = TOPICS.get("day", {}).get("path", os.path.join(TOPIC_DIR, "day.txt"))
 
 
 def _topic_basenames() -> list[str]:
-    """Return available topic basenames under :data:`TOPIC_DIR`."""
-    return sorted(
-        os.path.splitext(os.path.basename(p))[0]
-        for p in glob.glob(os.path.join(TOPIC_DIR, "*.txt"))
-    )
+    """Return available topic basenames under :data:`TOPICS`."""
+    return sorted(TOPICS.keys())
 
 
 def _output_paths(day_dir: os.PathLike[str], basename: str) -> tuple[Path, Path]:

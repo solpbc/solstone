@@ -48,7 +48,7 @@ def test_reduce_day(tmp_path, monkeypatch):
 
 def test_scan_day(tmp_path, monkeypatch):
     mod = importlib.import_module("see.reduce")
-    day_dir = copy_day(tmp_path)
+    copy_day(tmp_path)
     monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
 
     info = mod.scan_day("20240101")

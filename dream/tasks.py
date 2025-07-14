@@ -51,7 +51,7 @@ class TaskManager:
         return os.path.join(path, f"{tid}.jsonl") if path else ""
 
     def create_task(self, name: str, day: Optional[str], initiator: str) -> Task:
-        tid = f"{int(time.time()*1000)}"
+        tid = f"{int(time.time() * 1000)}"
         task = Task(id=tid, name=name, day=day, start=time.time(), initiator=initiator)
         with self.lock:
             self.tasks[tid] = task

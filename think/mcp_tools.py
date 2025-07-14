@@ -1,4 +1,3 @@
-import asyncio
 import os
 
 _SERVER_PATH = os.path.join(os.path.dirname(__file__), "mcp_server.py")

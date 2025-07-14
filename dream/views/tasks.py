@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import time
 
-from flask import Blueprint, jsonify, render_template, request
+from flask import Blueprint, jsonify, render_template
 
 from ..tasks import task_manager
 from ..utils import time_since

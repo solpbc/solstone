@@ -24,11 +24,15 @@ def calendar_day(day: str) -> str:
     day_dir = os.path.join(state.journal_root, day)
     if not os.path.isdir(day_dir):
         return "", 404
+    from think.utils import get_topics
+
+    topics = get_topics()
     files = []
     topics_dir = os.path.join(day_dir, "topics")
     if os.path.isdir(topics_dir):
         for name in sorted(os.listdir(topics_dir)):
-            if not name.endswith(".md"):
+            base, ext = os.path.splitext(name)
+            if ext != ".md" or base not in topics:
                 continue
             path = os.path.join(topics_dir, name)
             try:
@@ -42,9 +46,15 @@ def calendar_day(day: str) -> str:
                 html = markdown.markdown(text)
             except Exception:
                 html = "<p>Error loading file.</p>"
-            base = name[:-3]
             label = base.replace("_", " ").title()
-            files.append({"label": label, "html": html, "slug": base})
+            files.append(
+                {
+                    "label": label,
+                    "html": html,
+                    "topic": base,
+                    "color": topics[base]["color"],
+                }
+            )
     title = format_date(day)
     prev_day, next_day = adjacent_days(state.journal_root, day)
     return render_template(

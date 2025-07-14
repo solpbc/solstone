@@ -9,6 +9,22 @@ from dotenv import load_dotenv
 
 DATE_RE = re.compile(r"\d{8}")
 
+# Colors used for topic visualization in the dream app
+CATEGORY_COLORS = [
+    "#007bff",
+    "#28a745",
+    "#17a2b8",
+    "#ffc107",
+    "#6f42c1",
+    "#fd7e14",
+    "#e83e8c",
+    "#6c757d",
+    "#20c997",
+    "#ff5722",
+    "#9c27b0",
+    "#795548",
+]
+
 
 def day_path(day: str) -> str:
     """Return absolute path for *day* from ``JOURNAL_PATH`` environment variable."""
@@ -69,3 +85,25 @@ def setup_cli(parser: argparse.ArgumentParser, *, parse_known: bool = False):
         parser.error("JOURNAL_PATH not set or invalid")
 
     return (args, extra) if parse_known else args
+
+
+def get_topics() -> dict[str, dict[str, object]]:
+    """Return available topics with metadata.
+
+    Each key is the topic name and the value contains the ``path`` to the
+    ``.txt`` file, the assigned ``color`` from :data:`CATEGORY_COLORS`, and the
+    file ``mtime``.
+    """
+
+    topics_dir = Path(__file__).parent / "topics"
+    topics: dict[str, dict[str, object]] = {}
+    for idx, txt_path in enumerate(sorted(topics_dir.glob("*.txt"))):
+        name = txt_path.stem
+        color = CATEGORY_COLORS[idx % len(CATEGORY_COLORS)]
+        mtime = int(txt_path.stat().st_mtime)
+        topics[name] = {
+            "path": str(txt_path),
+            "color": color,
+            "mtime": mtime,
+        }
+    return topics

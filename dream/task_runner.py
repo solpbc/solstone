@@ -1,6 +1,5 @@
 import asyncio
 import contextlib
-import glob
 import json
 import os
 import subprocess
@@ -10,8 +9,6 @@ import time
 from typing import Callable, Optional
 
 import websockets
-
-from think import entity_roll
 
 from . import state
 from .tasks import task_manager
@@ -44,7 +41,6 @@ def _run_command(
     t_err = threading.Thread(target=_reader, args=(proc.stderr, "stderr"), daemon=True)
     t_out.start()
     t_err.start()
-    use_stop = stop is not None
     stop = stop or threading.Event()
     while proc.poll() is None:
         if stop.is_set():
@@ -138,8 +134,10 @@ def run_task(
             elif name == "ponder":
                 if not day:
                     raise ValueError("day required")
-                think_dir = os.path.dirname(entity_roll.__file__)
-                prompts = sorted(glob.glob(os.path.join(think_dir, "topics", "*.txt")))
+                from think.utils import get_topics
+
+                prompts = [info["path"] for info in get_topics().values()]
+                prompts.sort()
                 code = 0
                 for prompt in prompts:
                     cmd = [

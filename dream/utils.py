@@ -10,6 +10,7 @@ from google.genai import types
 
 from think.entities import parse_entity_line
 from think.models import GEMINI_FLASH
+from think.utils import get_topics
 
 DATE_RE = re.compile(r"\d{8}")
 
@@ -201,8 +202,10 @@ def build_occurrence_index(journal: str) -> Dict[str, List[Dict[str, Any]]]:
         topics_dir = os.path.join(path, "topics")
         if not os.path.isdir(topics_dir):
             continue
+        topics = get_topics()
         for fname in os.listdir(topics_dir):
-            if not fname.endswith(".json"):
+            base, ext = os.path.splitext(fname)
+            if ext != ".json" or base not in topics:
                 continue
             file_path = os.path.join(topics_dir, fname)
             try:
@@ -213,11 +216,11 @@ def build_occurrence_index(journal: str) -> Dict[str, List[Dict[str, Any]]]:
                 continue
             if not isinstance(items, list):
                 continue
-            slug_counts: Dict[str, int] = {}
-            slug = fname[:-5]
+            topic_counts: Dict[str, int] = {}
+            topic = base
             for occ in items:
-                count = slug_counts.get(slug, 0)
-                slug_counts[slug] = count + 1
+                count = topic_counts.get(topic, 0)
+                topic_counts[topic] = count + 1
 
                 o: Dict[str, Any] = {
                     "title": occ.get("title", ""),
@@ -225,7 +228,8 @@ def build_occurrence_index(journal: str) -> Dict[str, List[Dict[str, Any]]]:
                     "subject": occ.get("subject", ""),
                     "details": occ.get("details", occ.get("description", "")),
                     "participants": occ.get("participants", []),
-                    "slug": slug,
+                    "topic": topic,
+                    "color": topics[topic]["color"],
                     "path": os.path.join(name, "topics", fname),
                     "index": count,
                 }
