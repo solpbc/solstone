@@ -18,10 +18,10 @@ def test_scan_day(tmp_path, monkeypatch):
     monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
 
     info = mod.scan_day("20240101")
-    assert "ponder_day.md" in info["processed"]
-    assert "ponder_media.md" in info["repairable"]
+    assert "topics/day.md" in info["processed"]
+    assert "topics/media.md" in info["repairable"]
 
-    (day_dir / "ponder_media.md").write_text("done")
+    (day_dir / "topics" / "media.md").write_text("done")
     info_after = mod.scan_day("20240101")
-    assert "ponder_media.md" in info_after["processed"]
-    assert "ponder_media.md" not in info_after["repairable"]
+    assert "topics/media.md" in info_after["processed"]
+    assert "topics/media.md" not in info_after["repairable"]

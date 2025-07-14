@@ -30,7 +30,8 @@ def _topic_basenames() -> list[str]:
 def _output_paths(day_dir: os.PathLike[str], basename: str) -> tuple[Path, Path]:
     """Return markdown and JSON output paths for ``basename`` in ``day_dir``."""
     day = Path(day_dir)
-    return day / f"ponder_{basename}.md", day / f"ponder_{basename}.json"
+    topic_dir = day / "topics"
+    return topic_dir / f"{basename}.md", topic_dir / f"{basename}.json"
 
 
 def scan_day(day: str) -> dict[str, list[str]]:
@@ -41,9 +42,9 @@ def scan_day(day: str) -> dict[str, list[str]]:
     for base in _topic_basenames():
         md_path, _ = _output_paths(day_dir, base)
         if md_path.exists():
-            pondered.append(md_path.name)
+            pondered.append(os.path.join("topics", md_path.name))
         else:
-            unpondered.append(md_path.name)
+            unpondered.append(os.path.join("topics", md_path.name))
     return {"processed": sorted(pondered), "repairable": sorted(unpondered)}
 
 
@@ -267,7 +268,7 @@ def main() -> None:
 
         # Only write markdown if it was newly generated
         if not md_exists or args.force:
-            os.makedirs(day_dir, exist_ok=True)
+            os.makedirs(md_path.parent, exist_ok=True)
             with open(md_path, "w") as f:
                 f.write(result)
             print(f"Results saved to: {md_path}")
@@ -310,6 +311,7 @@ def main() -> None:
 
         occ_result = json.dumps(full_occurrence_obj, indent=2)
 
+        os.makedirs(occ_output_path.parent, exist_ok=True)
         with open(occ_output_path, "w") as f:
             f.write(occ_result)
 

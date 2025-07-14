@@ -45,7 +45,9 @@ def test_build_index_occurrence_format(tmp_path):
             }
         ],
     }
-    (day / "ponder_meetings.json").write_text(json.dumps(data))
+    topics_dir = day / "topics"
+    topics_dir.mkdir()
+    (topics_dir / "meetings.json").write_text(json.dumps(data))
     index = review.build_occurrence_index(str(tmp_path))
     assert index["20240101"][0]["title"] == "Standup"
     assert index["20240101"][0]["startTime"].endswith("T09:00:00")
@@ -55,7 +57,9 @@ def test_build_index_old_format(tmp_path):
     review = importlib.import_module("dream")
     day = tmp_path / "20240102"
     day.mkdir()
+    topics_dir = day / "topics"
+    topics_dir.mkdir()
     meetings = [{"title": "Old", "startTime": "2024-01-02T10:00:00"}]
-    (day / "ponder_meetings.json").write_text(json.dumps(meetings))
+    (topics_dir / "meetings.json").write_text(json.dumps(meetings))
     index = review.build_occurrence_index(str(tmp_path))
     assert index["20240102"][0]["title"] == "Old"

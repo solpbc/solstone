@@ -24,7 +24,7 @@ def test_admin_day_actions(monkeypatch, tmp_path):
     tr = sys.modules["dream.task_runner"]
     monkeypatch.setattr(tr, "_run_command", lambda cmd, log: called.append(cmd) or 0)
     monkeypatch.setattr(
-        "glob.glob", lambda pattern: ["prompt1.txt", "prompt2.txt"] if "ponder" in pattern else []
+        "glob.glob", lambda pattern: ["prompt1.txt", "prompt2.txt"] if "topics" in pattern else []
     )
 
     with review.app.test_request_context("/admin/api/20240101/repair_hear", method="POST"):

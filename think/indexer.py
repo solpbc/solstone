@@ -23,7 +23,6 @@ TOPIC_DIR = os.path.join(os.path.dirname(__file__), "topics")
 TOPIC_BASENAMES = [
     os.path.splitext(os.path.basename(p))[0] for p in glob.glob(os.path.join(TOPIC_DIR, "*.txt"))
 ]
-PONDER_BASENAMES = [f"ponder_{b}" for b in TOPIC_BASENAMES]
 
 
 def split_sentences(text: str) -> List[str]:
@@ -76,11 +75,14 @@ def find_ponder_files(journal: str, exts: Tuple[str, ...] | None = None) -> Dict
     files: Dict[str, str] = {}
     exts = exts or (".md", ".json")
     for day, day_path in find_day_dirs(journal).items():
-        for name in os.listdir(day_path):
+        topics_dir = os.path.join(day_path, "topics")
+        if not os.path.isdir(topics_dir):
+            continue
+        for name in os.listdir(topics_dir):
             base, ext = os.path.splitext(name)
-            if ext in exts and base in PONDER_BASENAMES:
-                rel = os.path.join(day, name)
-                files[rel] = os.path.join(day_path, name)
+            if ext in exts and base in TOPIC_BASENAMES:
+                rel = os.path.join(day, "topics", name)
+                files[rel] = os.path.join(topics_dir, name)
     return files
 
 
@@ -176,7 +178,7 @@ def scan_ponders(journal: str, cache: Dict[str, dict], verbose: bool = False) ->
     p_cache = cache.setdefault("ponders", {})
     files = find_ponder_files(journal, (".md",))
     if files:
-        print(f"\nIndexing {len(files)} ponder files...")
+        print(f"\nIndexing {len(files)} topic files...")
     changed = _scan_files(
         conn, files, p_cache, "DELETE FROM sentences WHERE path=?", _index_sentences, verbose
     )

@@ -187,7 +187,7 @@ def _combine(day: str, time_str: str) -> str:
 
 
 def build_occurrence_index(journal: str) -> Dict[str, List[Dict[str, Any]]]:
-    """Aggregate occurrences from all ponder_*.json files for each day."""
+    """Aggregate occurrences from all topic JSON files for each day."""
 
     index: Dict[str, List[Dict[str, Any]]] = {}
     for name in os.listdir(journal):
@@ -198,10 +198,13 @@ def build_occurrence_index(journal: str) -> Dict[str, List[Dict[str, Any]]]:
             continue
 
         occs: List[Dict[str, Any]] = []
-        for fname in os.listdir(path):
-            if not (fname.startswith("ponder_") and fname.endswith(".json")):
+        topics_dir = os.path.join(path, "topics")
+        if not os.path.isdir(topics_dir):
+            continue
+        for fname in os.listdir(topics_dir):
+            if not fname.endswith(".json"):
                 continue
-            file_path = os.path.join(path, fname)
+            file_path = os.path.join(topics_dir, fname)
             try:
                 with open(file_path, "r", encoding="utf-8") as f:
                     data = json.load(f)
@@ -211,8 +214,8 @@ def build_occurrence_index(journal: str) -> Dict[str, List[Dict[str, Any]]]:
             if not isinstance(items, list):
                 continue
             slug_counts: Dict[str, int] = {}
+            slug = fname[:-5]
             for occ in items:
-                slug = fname[7:-5]
                 count = slug_counts.get(slug, 0)
                 slug_counts[slug] = count + 1
 
@@ -223,7 +226,7 @@ def build_occurrence_index(journal: str) -> Dict[str, List[Dict[str, Any]]]:
                     "details": occ.get("details", occ.get("description", "")),
                     "participants": occ.get("participants", []),
                     "slug": slug,
-                    "path": os.path.join(name, fname),
+                    "path": os.path.join(name, "topics", fname),
                     "index": count,
                 }
                 if occ.get("start"):
