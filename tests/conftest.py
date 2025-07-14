@@ -185,7 +185,11 @@ def add_module_stubs(monkeypatch):
         sys.modules["websockets"] = ws_mod
     for name in ["librosa", "noisereduce", "silero_vad", "watchdog.events", "watchdog.observers"]:
         if name not in sys.modules:
-            sys.modules[name] = types.ModuleType(name)
+            mod = types.ModuleType(name)
+            if name == "silero_vad":
+                mod.load_silero_vad = lambda *a, **k: lambda data, sr: []
+                mod.get_speech_timestamps = lambda *a, **k: []
+            sys.modules[name] = mod
     if "watchdog.events" in sys.modules and not hasattr(
         sys.modules["watchdog.events"], "PatternMatchingEventHandler"
     ):

@@ -298,9 +298,7 @@ class Transcriber:
 
     def start(self):
         handler = PatternMatchingEventHandler(
-            patterns=["*_raw.flac"],
-            ignore_directories=True,
-            ignore_patterns=["*/trash/*"]
+            patterns=["*_raw.flac"], ignore_directories=True, ignore_patterns=["*/trash/*"]
         )
 
         def on_created(event):

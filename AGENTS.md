@@ -54,8 +54,8 @@ sunstone/
 * **Commands**:
 
   ```bash
-  pip install -e .[dev]
-  pytest --cov=.
+  pip install -e .[test-lite]
+  pytest -q --cov=.
   flake8 .
   mypy .
   ```

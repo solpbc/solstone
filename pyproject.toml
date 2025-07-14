@@ -33,8 +33,6 @@ dependencies = [
     "python-dotenv",
     "google-genai",
     "fastmcp[auth]>=2.6",
-    "python-jose",
-    "cryptography",
     "Flask",
     "Markdown",
     
@@ -66,12 +64,20 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = [
-    "pytest",
-    "pytest-cov",
     "black",
     "flake8",
     "isort",
     "mypy",
+    "pytest",
+    "pytest-cov",
+]
+test-lite = [
+    "black",
+    "flake8",
+    "isort",
+    "mypy",
+    "pytest",
+    "pytest-cov",
 ]
 
 [project.scripts]

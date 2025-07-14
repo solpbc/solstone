@@ -26,7 +26,7 @@ def test_main_runs(tmp_path, monkeypatch):
     monkeypatch.setenv("JOURNAL_PATH", str(journal))
     called = []
     monkeypatch.setattr(mod, "run_command", lambda cmd: called.append(cmd))
-    monkeypatch.setattr(mod, "load_dotenv", lambda: True)
+    monkeypatch.setattr("think.utils.load_dotenv", lambda: True)
     monkeypatch.setattr("sys.argv", ["process-day", "--day", "20240101", "--force", "--verbose"])
     mod.main()
     assert any(c[0] == "reduce-screen" for c in called)
