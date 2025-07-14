@@ -39,7 +39,11 @@ def build_commands(day: str, force: bool, repair: bool, verbose: bool = False) -
     commands.append(reduce_cmd)
 
     think_dir = os.path.dirname(__file__)
-    prompt_paths = sorted(glob.glob(os.path.join(think_dir, "ponder", "*.txt")))
+    prompt_dir = os.path.join(think_dir, "ponder")
+    if os.path.isdir(prompt_dir):
+        prompt_paths = sorted(glob.glob(os.path.join(prompt_dir, "*.txt")))
+    else:
+        prompt_paths = sorted(glob.glob(os.path.join(think_dir, "ponder*.txt")))
     for prompt in prompt_paths:
         cmd = ["ponder", day, "-f", prompt, "-p"]
         if verbose:

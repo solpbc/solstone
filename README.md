@@ -48,3 +48,12 @@ Each package has its own README with detailed usage information:
 - [see/README.md](see/README.md)
 - [think/README.md](think/README.md)
 - [dream/README.md](dream/README.md)
+
+## Testing
+
+Install the package with development extras and run the tests:
+
+```bash
+pip install -e .[dev]
+pytest -q --cov=.
+```

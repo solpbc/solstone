@@ -17,6 +17,10 @@ def test_scan_day(tmp_path, monkeypatch):
     day_dir = copy_day(tmp_path)
     monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
 
+    topics = day_dir / "topics"
+    topics.mkdir()
+    (topics / "knowledge_graph.md").write_text("data")
+
     info = mod.scan_day("20240101")
     assert "entities.md" in info["processed"]
 

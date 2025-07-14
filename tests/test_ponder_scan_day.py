@@ -9,6 +9,9 @@ def copy_day(tmp_path: Path) -> Path:
     src = FIXTURES / "journal" / "20240101"
     dest = tmp_path / "20240101"
     shutil.copytree(src, dest)
+    topics = dest / "topics"
+    topics.mkdir()
+    (topics / "day.md").write_text("done")
     return dest
 
 

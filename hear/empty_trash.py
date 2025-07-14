@@ -83,7 +83,9 @@ def _process_day_parallel(day_dir: Path, num_workers: int, args) -> tuple[int, i
 def main() -> None:
     parser = argparse.ArgumentParser(description="Permanently delete trashed audio files")
     parser.add_argument("-d", "--dry-run", action="store_true", help="Do not modify the filesystem")
-    parser.add_argument("-j", "--jobs", type=int, default=1, help="Number of parallel workers for speech detection")
+    parser.add_argument(
+        "-j", "--jobs", type=int, default=1, help="Number of parallel workers for speech detection"
+    )
     args = setup_cli(parser)
 
     journal = Path(os.getenv("JOURNAL_PATH", ""))
