@@ -42,7 +42,7 @@ Most generated files are accompanied by a `.crumb` file capturing dependencies a
 
 ## Occurrence JSON
 
-Several `think/ponder` prompts extract time based events from the day's
+Several `think/topics` prompts extract time based events from the day's
 transcripts—meetings, messages, follow ups, file activity and more.  To index
 these consistently the results can be normalised into an **occurrence** container
 stored as `occurrences.json` inside each day folder.

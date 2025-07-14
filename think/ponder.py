@@ -15,15 +15,15 @@ from think.crumbs import CrumbBuilder
 from think.models import GEMINI_FLASH, GEMINI_PRO
 from think.utils import day_log, day_path, setup_cli
 
-PROMPT_DIR = os.path.join(os.path.dirname(__file__), "ponder")
-DEFAULT_PROMPT_PATH = os.path.join(PROMPT_DIR, "day.txt")
+TOPIC_DIR = os.path.join(os.path.dirname(__file__), "topics")
+DEFAULT_TOPIC_PATH = os.path.join(TOPIC_DIR, "day.txt")
 
 
-def _prompt_basenames() -> list[str]:
-    """Return available prompt basenames under :data:`PROMPT_DIR`."""
+def _topic_basenames() -> list[str]:
+    """Return available topic basenames under :data:`TOPIC_DIR`."""
     return sorted(
         os.path.splitext(os.path.basename(p))[0]
-        for p in glob.glob(os.path.join(PROMPT_DIR, "*.txt"))
+        for p in glob.glob(os.path.join(TOPIC_DIR, "*.txt"))
     )
 
 
@@ -38,7 +38,7 @@ def scan_day(day: str) -> dict[str, list[str]]:
     day_dir = Path(day_path(day))
     pondered: list[str] = []
     unpondered: list[str] = []
-    for base in _prompt_basenames():
+    for base in _topic_basenames():
         md_path, _ = _output_paths(day_dir, base)
         if md_path.exists():
             pondered.append(md_path.name)
@@ -165,9 +165,11 @@ def main() -> None:
     )
     parser.add_argument(
         "-f",
+        "--topic",
         "--prompt",
-        default=DEFAULT_PROMPT_PATH,
-        help="Prompt file to use",
+        dest="topic",
+        default=DEFAULT_TOPIC_PATH,
+        help="Topic file to use",
     )
     parser.add_argument(
         "-p",
@@ -190,7 +192,7 @@ def main() -> None:
 
     markdown, file_count = cluster(args.day)
     day_dir = day_path(args.day)
-    prompt_basename = Path(args.prompt).stem
+    topic_basename = Path(args.topic).stem
     success = False
 
     try:
@@ -203,25 +205,25 @@ def main() -> None:
             parser.error("GOOGLE_API_KEY not found in environment")
 
         try:
-            with open(args.prompt, "r") as f:
+            with open(args.topic, "r") as f:
                 prompt = f.read().strip()
         except FileNotFoundError:
-            parser.error(f"Prompt file not found: {args.prompt}")
+            parser.error(f"Topic file not found: {args.topic}")
 
         model = GEMINI_PRO if args.pro else GEMINI_FLASH
         day = args.day
         size_kb = len(markdown.encode("utf-8")) / 1024
 
         print(
-            f"Prompt: {args.prompt} | Model: {model} | Day: {day} | Files: {file_count} | Size: {size_kb:.1f}KB"
+            f"Topic: {args.topic} | Model: {model} | Day: {day} | Files: {file_count} | Size: {size_kb:.1f}KB"
         )
 
         if args.count:
             count_tokens(markdown, prompt, api_key, model)
             return
 
-        md_path, json_path = _output_paths(day_dir, prompt_basename)
-        cache_display_name = f"{day}_{prompt_basename}"
+        md_path, json_path = _output_paths(day_dir, topic_basename)
+        cache_display_name = f"{day}_{topic_basename}"
 
         # Check if markdown file already exists
         md_exists = md_path.exists() and md_path.stat().st_size > 0
@@ -272,7 +274,7 @@ def main() -> None:
 
             crumb_builder = (
                 CrumbBuilder()
-                .add_file(args.prompt)
+                .add_file(args.topic)
                 .add_glob(os.path.join(day_dir, "*_audio.json"))
                 .add_glob(os.path.join(day_dir, "*_screen.md"))
                 .add_model(model)
@@ -321,7 +323,7 @@ def main() -> None:
         success = True
 
     finally:
-        msg = f"ponder {prompt_basename} {'ok' if success else 'failed'}"
+        msg = f"ponder {topic_basename} {'ok' if success else 'failed'}"
         if args.force:
             msg += " --force"
         day_log(args.day, msg)

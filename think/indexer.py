@@ -19,11 +19,11 @@ INDEX_DIR = "index"
 
 # Sentence indexing helpers -------------------------------------------------
 
-PROMPT_DIR = os.path.join(os.path.dirname(__file__), "ponder")
-PROMPT_BASENAMES = [
-    os.path.splitext(os.path.basename(p))[0] for p in glob.glob(os.path.join(PROMPT_DIR, "*.txt"))
+TOPIC_DIR = os.path.join(os.path.dirname(__file__), "topics")
+TOPIC_BASENAMES = [
+    os.path.splitext(os.path.basename(p))[0] for p in glob.glob(os.path.join(TOPIC_DIR, "*.txt"))
 ]
-PONDER_BASENAMES = [f"ponder_{b}" for b in PROMPT_BASENAMES]
+PONDER_BASENAMES = [f"ponder_{b}" for b in TOPIC_BASENAMES]
 
 
 def split_sentences(text: str) -> List[str]:

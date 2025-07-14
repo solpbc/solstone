@@ -12,7 +12,7 @@
   "dependencies": [                          // list of inputs relied upon
     {
       "type": "file",                        // a single file dependency
-      "path": "think/ponder/day.txt",
+      "path": "think/topics/day.txt",
       "mtime": 1716543210                    // modification time (epoch seconds)
     },
     {

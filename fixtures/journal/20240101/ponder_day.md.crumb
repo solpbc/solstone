@@ -2,5 +2,5 @@
   "generator": "think.ponder",
   "output": "20240101/ponder_day.md",
   "generated_at": "2024-01-01T12:00:00Z",
-  "dependencies": [{"type": "file", "path": "think/ponder/day.txt", "mtime": 0}]
+  "dependencies": [{"type": "file", "path": "think/topics/day.txt", "mtime": 0}]
 }
