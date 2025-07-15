@@ -82,7 +82,7 @@ test-lite = [
 
 [project.scripts]
 # Top-level helper
-sunstone = "sunstone:main"
+sunstone = "think.sunstone:main"
 # Audio utilities
 gemini-mic = "hear.capture:main"
 gemini-transcribe = "hear.transcribe:main"
