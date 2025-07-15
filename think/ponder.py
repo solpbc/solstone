@@ -22,9 +22,7 @@ DEFAULT_TOPIC_PATH = TOPICS.get("day", {}).get("path", os.path.join(TOPIC_DIR, "
 # analysis. The topic prompt will be provided afterwards as a separate
 # user message.
 COMMON_SYSTEM_INSTRUCTION = (
-    "You will be given transcripts for a day. "
-    "Use them to inform your response. "
-    "Specific instructions will follow the transcripts."
+    "You are an expert productivity analyst tasked with analyzing a full workday transcript containing both audio conversations and screen activity data, segmented into 5-minute chunks. You will be given the transcripts and then following that you will have a detailed user request for how to process them.  Please follow those instructions carefully."
 )
 
 
@@ -78,8 +76,9 @@ def _get_or_create_cache(
         model=model,
         config=types.CreateCachedContentConfig(
             display_name=display_name,
-            contents=[COMMON_SYSTEM_INSTRUCTION, transcript],
-            ttl="900s",
+            system_instruction=COMMON_SYSTEM_INSTRUCTION,
+            contents=[transcript],
+            ttl="1200s",
         ),
     )
     return cache.name
@@ -266,8 +265,9 @@ def main() -> None:
             prompt_tokens = getattr(usage_metadata, "prompt_token_count", 0)
             thoughts_tokens = getattr(usage_metadata, "thoughts_token_count", 0)
             candidates_tokens = getattr(usage_metadata, "candidates_token_count", 0)
+            cached_tokens = getattr(usage_metadata, "cached_content_token_count", 0)
             print(
-                f"Usage: prompt={prompt_tokens} thoughts={thoughts_tokens} candidates={candidates_tokens}"
+                f"Usage: prompt={prompt_tokens} thoughts={thoughts_tokens} candidates={candidates_tokens} cached={cached_tokens}"
             )
 
         # Check if we got a valid response
