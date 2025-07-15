@@ -7,7 +7,7 @@ from .sunstone import main as sunstone_main
 __all__ = [
     "cluster_day",
     "cluster_range",
-    "Entities", 
+    "Entities",
     "detect_border",
     "sunstone_main",
 ]

@@ -254,6 +254,7 @@ def build_occurrence_index(journal: str) -> Dict[str, List[Dict[str, Any]]]:
                 if occ.get("end"):
                     o["endTime"] = _combine(name, occ["end"])
                 occs.append(o)
+
         if occs:
             index[name] = occs
 
