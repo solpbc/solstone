@@ -1,5 +1,6 @@
 import argparse
 import json
+import logging
 import os
 import re
 import sys
@@ -36,10 +37,10 @@ class TokenTracker:
         return (1 - self.total_candidates_tokens / self.total_prompt_tokens) * 100
 
     def print_summary(self):
-        print("\n=== Summary ===")
-        print(f"Total tokens in: {self.total_prompt_tokens}")
-        print(f"Total tokens out: {self.total_candidates_tokens}")
-        print(f"Total compression: {self.get_compression_percent():.2f}%")
+        logging.info("\n=== Summary ===")
+        logging.info("Total tokens in: %s", self.total_prompt_tokens)
+        logging.info("Total tokens out: %s", self.total_candidates_tokens)
+        logging.info("Total compression: %.2f%%", self.get_compression_percent())
 
 
 def parse_monitor_files(day_dir):
@@ -110,7 +111,7 @@ def load_prompt(path):
         with open(path, "r", encoding="utf-8") as f:
             return f.read().strip()
     except FileNotFoundError:
-        print(f"Prompt file not found: {path}", file=sys.stderr)
+        logging.error("Prompt file not found: %s", path)
         sys.exit(1)
 
 
@@ -132,14 +133,14 @@ def call_gemini(markdown, prompt, api_key, debug=False):
             time.sleep(5)
             elapsed += 5
             if not done.is_set():
-                print(f"... {elapsed}s elapsed")
+                logging.info("... %ss elapsed", elapsed)
 
     if debug:
-        print("\n=== DEBUG: Prompt to Gemini ===")
-        print(f"System instruction: {prompt}")
-        print("\n=== DEBUG: Content to Gemini ===")
-        print(markdown)
-        print("\n=== DEBUG: End of input ===\n")
+        logging.debug("\n=== DEBUG: Prompt to Gemini ===")
+        logging.debug("System instruction: %s", prompt)
+        logging.debug("\n=== DEBUG: Content to Gemini ===")
+        logging.debug(markdown)
+        logging.debug("\n=== DEBUG: End of input ===\n")
 
     t = threading.Thread(target=progress, daemon=True)
     t.start()
@@ -155,9 +156,9 @@ def call_gemini(markdown, prompt, api_key, debug=False):
         )
 
         if debug:
-            print("\n=== DEBUG: Response from Gemini ===")
-            print(response.text)
-            print("\n=== DEBUG: End of response ===\n")
+            logging.debug("\n=== DEBUG: Response from Gemini ===")
+            logging.debug(response.text)
+            logging.debug("\n=== DEBUG: End of response ===\n")
 
         return response.text, response.usage_metadata
     finally:
@@ -171,7 +172,7 @@ def process_group(
     out_name = f"{start.strftime('%H%M%S')}_screen.md"
     out_path = os.path.join(day_dir, out_name)
     if os.path.exists(out_path) and not force:
-        print(f"Skipping existing {out_name}")
+        logging.info("Skipping existing %s", out_name)
         return
 
     lines = []
@@ -202,8 +203,11 @@ def process_group(
     markdown = "\n".join(lines)
     monitor_count = len(monitor_files)
     file_count = len(files)
-    print(
-        f"Processing screen activity starting {start.strftime('%H:%M')} ({monitor_count} monitors, {file_count} files)"
+    logging.info(
+        "Processing screen activity starting %s (%s monitors, %s files)",
+        start.strftime("%H:%M"),
+        monitor_count,
+        file_count,
     )
     try:
         result, usage_metadata = call_gemini(markdown, prompt, api_key, debug)
@@ -214,14 +218,19 @@ def process_group(
         candidates_tokens = usage_metadata.candidates_token_count
         compression = (1 - candidates_tokens / prompt_tokens) * 100 if prompt_tokens > 0 else 0
 
-        print(f"Tokens: ({prompt_tokens}) -> ({candidates_tokens}) compression: {compression:.2f}%")
+        logging.info(
+            "Tokens: (%s) -> (%s) compression: %.2f%%",
+            prompt_tokens,
+            candidates_tokens,
+            compression,
+        )
     except Exception as e:
         raise RuntimeError(f"Gemini call failed: {e}") from e
 
-    print(f"Writing {out_name} ({len(result)})")
+    logging.info("Writing %s (%s)", out_name, len(result))
     with open(out_path, "w", encoding="utf-8") as f:
         f.write(result)
-    print(f"Saved {out_path}")
+    logging.info("Saved %s", out_path)
 
     crumb_builder = (
         CrumbBuilder()
@@ -230,7 +239,7 @@ def process_group(
         .add_model(GEMINI_FLASH)
     )
     crumb_path = crumb_builder.commit(out_path)
-    print(f"Crumb saved to: {crumb_path}")
+    logging.info("Crumb saved to: %s", crumb_path)
 
 
 def _normalize_time(value: datetime | None) -> datetime | None:
@@ -270,23 +279,23 @@ def reduce_day(
 
     day_dir = day_path(day)
     if not os.path.isdir(day_dir):
-        print(f"Folder not found: {day_dir}")
+        logging.error("Folder not found: %s", day_dir)
         return 0, 0
 
     start = _normalize_time(start)
     end = _normalize_time(end)
 
-    print(f"Processing folder: {day_dir}")
+    logging.info("Processing folder: %s", day_dir)
 
     groups_iter = list(_iter_groups(day_dir, start, end))
     if not groups_iter:
-        print("No monitor diff JSON files found")
+        logging.info("No monitor diff JSON files found")
         return 0, 0
 
     try:
         api_key = _get_api_key()
     except RuntimeError as exc:
-        print(str(exc), file=sys.stderr)
+        logging.error(str(exc))
         return 0, 0
 
     prompt = load_prompt(prompt_path)
@@ -309,7 +318,7 @@ def reduce_day(
             )
             success += 1
         except Exception as e:
-            print(f"Error reducing {group_start}: {e}", file=sys.stderr)
+            logging.error("Error reducing %s: %s", group_start, e)
             failed += 1
 
     token_tracker.print_summary()
