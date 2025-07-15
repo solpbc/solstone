@@ -18,6 +18,15 @@ TOPICS = get_topics()
 TOPIC_DIR = os.path.join(os.path.dirname(__file__), "topics")
 DEFAULT_TOPIC_PATH = TOPICS.get("day", {}).get("path", os.path.join(TOPIC_DIR, "day.txt"))
 
+# Common system instruction that explains the overall context for Gemini
+# analysis. The topic prompt will be provided afterwards as a separate
+# user message.
+COMMON_SYSTEM_INSTRUCTION = (
+    "You will be given transcripts for a day. "
+    "Use them to inform your response. "
+    "Specific instructions will follow the transcripts."
+)
+
 
 def _topic_basenames() -> list[str]:
     """Return available topic basenames under :data:`TOPICS`."""
@@ -55,8 +64,11 @@ def count_tokens(markdown: str, prompt: str, api_key: str, model: str) -> None:
     print(f"Token count: {total_tokens}")
 
 
-def _get_or_create_cache(client: genai.Client, model: str, display_name: str, text: str) -> str:
-    """Return cache name for ``display_name`` creating it with ``text`` if needed."""
+def _get_or_create_cache(
+    client: genai.Client, model: str, display_name: str, transcript: str
+) -> str:
+    """Return cache name for ``display_name`` creating it with ``transcript`` and
+    :data:`COMMON_SYSTEM_INSTRUCTION` if needed."""
 
     for c in client.caches.list():
         if c.model == model and c.display_name == display_name:
@@ -66,7 +78,7 @@ def _get_or_create_cache(client: genai.Client, model: str, display_name: str, te
         model=model,
         config=types.CreateCachedContentConfig(
             display_name=display_name,
-            contents=[text],
+            contents=[COMMON_SYSTEM_INSTRUCTION, transcript],
             ttl="900s",
         ),
     )
@@ -101,15 +113,15 @@ def send_markdown(
             "thinking_config": types.ThinkingConfig(
                 thinking_budget=8192 * 3,
             ),
-            "system_instruction": prompt,
         }
 
         if cache_display_name:
             cache_name = _get_or_create_cache(client, model, cache_display_name, markdown)
             gen_config_args["cached_content"] = cache_name
-            contents: list[str] = [""]
+            contents: list[str] = [prompt]
         else:
-            contents = [markdown]
+            gen_config_args["system_instruction"] = COMMON_SYSTEM_INSTRUCTION
+            contents = [markdown, prompt]
 
         response = client.models.generate_content(
             model=model,
