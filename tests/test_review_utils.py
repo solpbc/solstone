@@ -63,3 +63,11 @@ def test_build_index_old_format(tmp_path):
     (topics_dir / "meetings.json").write_text(json.dumps(meetings))
     index = review.build_occurrence_index(str(tmp_path))
     assert index["20240102"][0]["title"] == "Old"
+
+
+def test_list_day_folders(tmp_path):
+    review = importlib.import_module("dream")
+    (tmp_path / "20240101").mkdir()
+    (tmp_path / "20240103").mkdir()
+    days = review.list_day_folders(str(tmp_path))
+    assert days == ["20240101", "20240103"]

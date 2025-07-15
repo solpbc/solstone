@@ -44,7 +44,7 @@ def search_ponder_api() -> Any:
         meta = r.get("metadata", {})
         topic = meta.get("ponder", "")
         if topic.startswith("topics/"):
-            topic = topic[len("topics/") :]
+            topic = topic[len("topics/") :]  # noqa: E203
         if topic.endswith(".md"):
             topic = topic[:-3]
         text = r["text"]

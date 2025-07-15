@@ -28,6 +28,22 @@ def adjacent_days(journal: str, day: str) -> tuple[Optional[str], Optional[str]]
     return prev_day, next_day
 
 
+def list_day_folders(journal: str) -> List[str]:
+    """Return sorted list of YYYYMMDD folders inside ``journal``."""
+
+    days: List[str] = []
+    if not journal or not os.path.isdir(journal):
+        return days
+    for name in os.listdir(journal):
+        if not DATE_RE.fullmatch(name):
+            continue
+        path = os.path.join(journal, name)
+        if os.path.isdir(path):
+            days.append(name)
+    days.sort()
+    return days
+
+
 def format_date(date_str: str) -> str:
     """Convert YYYYMMDD to 'Wednesday April 2nd' format."""
     try:
