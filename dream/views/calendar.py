@@ -7,7 +7,13 @@ from typing import Any
 from flask import Blueprint, jsonify, render_template
 
 from .. import state
-from ..utils import DATE_RE, adjacent_days, build_occurrence_index, format_date
+from ..utils import (
+    DATE_RE,
+    adjacent_days,
+    build_occurrence_index,
+    format_date,
+    list_day_folders,
+)
 
 bp = Blueprint("calendar", __name__, template_folder="../templates")
 
@@ -73,3 +79,11 @@ def calendar_occurrences() -> Any:
     if not state.occurrences_index and state.journal_root:
         state.occurrences_index = build_occurrence_index(state.journal_root)
     return jsonify(state.occurrences_index)
+
+
+@bp.route("/calendar/api/days")
+def calendar_days() -> Any:
+    """Return list of available day folders."""
+
+    days = list_day_folders(state.journal_root)
+    return jsonify(days)

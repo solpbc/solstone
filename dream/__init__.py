@@ -98,6 +98,7 @@ api_top_generate = entities_view.api_top_generate
 api_top_update = entities_view.api_top_update
 api_modify_entity = entities_view.api_modify_entity
 calendar_occurrences = calendar_view.calendar_occurrences
+calendar_days = calendar_view.calendar_days
 login = home_view.login
 logout = home_view.logout
 
@@ -119,6 +120,7 @@ __all__ = [
     "api_top_update",
     "api_modify_entity",
     "calendar_occurrences",
+    "calendar_days",
     "adjacent_days",
     "login",
     "logout",
