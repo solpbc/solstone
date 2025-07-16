@@ -1,4 +1,5 @@
 import argparse
+import concurrent.futures
 import json
 import logging
 import os
@@ -24,12 +25,14 @@ class TokenTracker:
     def __init__(self):
         self.total_prompt_tokens = 0
         self.total_candidates_tokens = 0
+        self._lock = threading.Lock()
 
     def add_usage(self, usage_metadata):
         prompt_tokens = getattr(usage_metadata, "prompt_token_count", None) or 0
         candidates_tokens = getattr(usage_metadata, "candidates_token_count", None) or 0
-        self.total_prompt_tokens += prompt_tokens
-        self.total_candidates_tokens += candidates_tokens
+        with self._lock:
+            self.total_prompt_tokens += prompt_tokens
+            self.total_candidates_tokens += candidates_tokens
 
     def get_compression_percent(self):
         if self.total_prompt_tokens == 0:
@@ -269,12 +272,19 @@ def reduce_day(
     debug: bool = False,
     start: datetime | None = None,
     end: datetime | None = None,
+    jobs: int = 1,
 ) -> tuple[int, int]:
     """Process monitor diffs under ``day`` between ``start`` and ``end``.
 
     When ``start``/``end`` are ``None`` all available 5 minute groups are processed.
     The function mirrors the behaviour of the ``reduce-screen`` CLI and is exposed
     so that other modules can opportunistically reduce recent captures.
+
+    Parameters
+    ----------
+    jobs:
+        Number of parallel Gemini calls to allow. A ``ThreadPoolExecutor`` is
+        always used so ``jobs=1`` still executes via the thread pool.
     """
 
     day_dir = day_path(day)
@@ -303,9 +313,11 @@ def reduce_day(
 
     success = 0
     failed = 0
-    for group_start, files in groups_iter:
-        try:
-            process_group(
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=max(1, jobs)) as executor:
+        future_map = {
+            executor.submit(
+                process_group,
                 group_start,
                 files,
                 prompt,
@@ -315,11 +327,17 @@ def reduce_day(
                 day_dir,
                 token_tracker,
                 debug,
-            )
-            success += 1
-        except Exception as e:
-            logging.error("Error reducing %s: %s", group_start, e)
-            failed += 1
+            ): group_start
+            for group_start, files in groups_iter
+        }
+        for future in concurrent.futures.as_completed(future_map):
+            group_start = future_map[future]
+            try:
+                future.result()
+                success += 1
+            except Exception as e:
+                logging.error("Error reducing %s: %s", group_start, e)
+                failed += 1
 
     token_tracker.print_summary()
 
@@ -338,6 +356,7 @@ def main():
     )
     parser.add_argument("--start", help="Start time HH:MM for partial processing")
     parser.add_argument("--end", help="End time HH:MM for partial processing")
+    parser.add_argument("-j", "--jobs", type=int, default=1, help="Number of parallel Gemini calls")
     args = setup_cli(parser)
 
     day_dir = day_path(args.day)
@@ -354,6 +373,7 @@ def main():
         debug=args.debug,
         start=start,
         end=end,
+        jobs=max(1, args.jobs),
     )
 
     msg = f"reduce-screen {success} blocks"
