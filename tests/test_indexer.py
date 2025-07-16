@@ -86,3 +86,16 @@ def test_ponder_index(tmp_path):
     assert results and results[0]["metadata"]["path"] == "20240102/topics/files.md"
     assert total == 1
     assert results and results[0]["metadata"]["path"] == "20240102/topics/files.md"
+
+
+def test_raw_index(tmp_path):
+    mod = importlib.import_module("think.indexer")
+    journal = tmp_path
+    day = journal / "20240103"
+    day.mkdir()
+    (day / "123000_audio.json").write_text(json.dumps({"text": "hello"}))
+    (day / "123000_monitor_1_diff.json").write_text(json.dumps({"desc": "screen"}))
+    mod.scan_raws(str(journal), verbose=True)
+    total, results = mod.search_raws(str(journal), "hello")
+    assert total == 1
+    assert results and results[0]["metadata"]["type"] == "audio"
