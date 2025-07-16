@@ -39,7 +39,7 @@ sunstone-see [interval_seconds] [screen-watch/describe args]
 Use `reduce-screen` to summarise diff descriptions into five minute Markdown blocks. Example:
 
 ```bash
-reduce-screen YYYYMMDD [--force] [--start HH:MM] [--end HH:MM]
+reduce-screen YYYYMMDD [--force] [--start HH:MM] [--end HH:MM] [-j THREADS]
 ```
 
 Set the `GOOGLE_API_KEY` environment variable (or place it in a `.env` file)
