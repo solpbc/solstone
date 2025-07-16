@@ -27,16 +27,23 @@ def test_agent_run(monkeypatch):
     agents_stub.RunConfig = lambda **k: SimpleNamespace()
     agents_stub.ModelSettings = lambda **k: SimpleNamespace()
     agents_stub.set_default_openai_key = lambda k: None
+
+    agents_mcp_stub = types.ModuleType("agents.mcp")
+
+    class DummyMCPServer:
+        def __init__(self, command: str, args: list[str]):
+            self.command = command
+            self.args = args
+
+    agents_mcp_stub.MCPServerStdio = DummyMCPServer
+
     sys.modules["agents"] = agents_stub
+    sys.modules["agents.mcp"] = agents_mcp_stub
 
     mod = importlib.import_module("think.agent")
 
     monkeypatch.setenv("OPENAI_API_KEY", "x")
     monkeypatch.setenv("JOURNAL_PATH", "/tmp")
-
-    monkeypatch.setattr(mod, "tool_search_ponder", lambda query: "ponder")
-    monkeypatch.setattr(mod, "tool_search_occurrences", lambda query: "occ")
-    monkeypatch.setattr(mod, "tool_read_markdown", lambda d, f: "md")
 
     monkeypatch.setattr(mod, "Agent", DummyAgent)
     monkeypatch.setattr(mod, "Runner", DummyRunner)
@@ -88,10 +95,6 @@ def test_agent_run_with_mcp(monkeypatch):
 
     monkeypatch.setenv("OPENAI_API_KEY", "x")
     monkeypatch.setenv("JOURNAL_PATH", "/tmp")
-
-    monkeypatch.setattr(mod, "tool_search_ponder", lambda query: "ponder")
-    monkeypatch.setattr(mod, "tool_search_occurrences", lambda query: "occ")
-    monkeypatch.setattr(mod, "tool_read_markdown", lambda d, f: "md")
 
     agent, cfg = mod.build_agent("gpt-4", 100)
     assert agent.kwargs.get("mcp_servers")

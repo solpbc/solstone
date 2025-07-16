@@ -17,10 +17,10 @@ import sys
 from pathlib import Path
 
 from agents import Agent, ModelSettings, RunConfig, Runner, set_default_openai_key
+from agents.mcp import MCPServerStdio
 
 from think.utils import setup_cli
 
-from agents.mcp import MCPServerStdio
 
 def build_agent(model: str, max_tokens: int) -> tuple[Agent, RunConfig]:
     """Return configured OpenAI agent and run configuration."""
