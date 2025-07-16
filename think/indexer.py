@@ -64,6 +64,13 @@ def get_index(journal: str) -> Tuple[sqlite3.Connection, str]:
         )
         """
     )
+    conn.execute(
+        """
+        CREATE VIRTUAL TABLE IF NOT EXISTS raws USING fts5(
+            content, path UNINDEXED, day UNINDEXED, time UNINDEXED, type UNINDEXED
+        )
+        """
+    )
     return conn, db_path
 
 
@@ -80,6 +87,23 @@ def find_ponder_files(journal: str, exts: Tuple[str, ...] | None = None) -> Dict
             if ext in exts and base in TOPIC_BASENAMES:
                 rel = os.path.join(day, "topics", name)
                 files[rel] = os.path.join(topics_dir, name)
+    return files
+
+
+# Raw file helpers -----------------------------------------------------------
+
+AUDIO_RE = re.compile(r"^(?P<time>\d{6})_audio\.json$")
+SCREEN_RE = re.compile(r"^(?P<time>\d{6})_monitor_\d+_diff\.json$")
+
+
+def find_raw_files(journal: str) -> Dict[str, str]:
+    """Return mapping of raw JSON file paths relative to ``journal``."""
+    files: Dict[str, str] = {}
+    for day, day_path in find_day_dirs(journal).items():
+        for name in os.listdir(day_path):
+            if AUDIO_RE.match(name) or SCREEN_RE.match(name):
+                rel = os.path.join(day, name)
+                files[rel] = os.path.join(day_path, name)
     return files
 
 
@@ -202,6 +226,40 @@ def scan_occurrences(journal: str, verbose: bool = False) -> bool:
     return changed
 
 
+def _index_raws(conn: sqlite3.Connection, rel: str, path: str, verbose: bool) -> None:
+    with open(path, "r", encoding="utf-8") as f:
+        content = f.read()
+    name = os.path.basename(path)
+    m = AUDIO_RE.match(name)
+    rtype = "audio"
+    if not m:
+        m = SCREEN_RE.match(name)
+        rtype = "screen"
+    if not m:
+        return
+    time_part = m.group("time")
+    day = rel.split(os.sep, 1)[0]
+    conn.execute(
+        ("INSERT INTO raws(content, path, day, time, type) VALUES (?, ?, ?, ?, ?)"),
+        (content, rel, day, time_part, rtype),
+    )
+    if verbose:
+        print("  indexed raw", rel)
+
+
+def scan_raws(journal: str, verbose: bool = False) -> bool:
+    """Index raw audio and screen diff JSON files."""
+    conn, _ = get_index(journal)
+    files = find_raw_files(journal)
+    if files:
+        print(f"\nIndexing {len(files)} raw files...")
+    changed = _scan_files(conn, files, "DELETE FROM raws WHERE path=?", _index_raws, verbose)
+    if changed:
+        conn.commit()
+    conn.close()
+    return changed
+
+
 def search_ponders(
     journal: str, query: str, limit: int = 5, offset: int = 0
 ) -> tuple[int, List[Dict[str, str]]]:
@@ -293,12 +351,51 @@ def search_occurrences(journal: str, query: str, n_results: int = 5) -> List[Dic
     return results
 
 
+def search_raws(
+    journal: str, query: str, limit: int = 5, offset: int = 0
+) -> tuple[int, List[Dict[str, str]]]:
+    """Search the raws index and return total count and results."""
+
+    conn, _ = get_index(journal)
+    db = sqlite_utils.Database(conn)
+    quoted = db.quote(query)
+
+    total = conn.execute(f"SELECT count(*) FROM raws WHERE raws MATCH {quoted}").fetchone()[0]
+
+    cursor = conn.execute(
+        f"""
+        SELECT content, path, day, time, type, bm25(raws) as rank
+        FROM raws WHERE raws MATCH {quoted} ORDER BY rank LIMIT ? OFFSET ?
+        """,
+        (limit, offset),
+    )
+
+    results: List[Dict[str, str]] = []
+    for content, path, day, time_part, rtype, rank in cursor.fetchall():
+        results.append(
+            {
+                "id": path,
+                "text": content,
+                "metadata": {
+                    "day": day,
+                    "path": path,
+                    "time": time_part,
+                    "type": rtype,
+                },
+                "score": rank,
+            }
+        )
+    conn.close()
+    return total, results
+
+
 def _display_search_results(results: List[Dict[str, str]]) -> None:
     """Display search results in a consistent format."""
     for idx, r in enumerate(results, 1):
         meta = r.get("metadata", {})
         snippet = r["text"]
-        print(f"{idx}. {meta.get('day')} {meta.get('ponder')}: {snippet}")
+        label = meta.get("ponder") or meta.get("time") or ""
+        print(f"{idx}. {meta.get('day')} {label}: {snippet}")
 
 
 def main() -> None:
@@ -309,6 +406,11 @@ def main() -> None:
         "--rescan",
         action="store_true",
         help="Scan journal and update the index before searching",
+    )
+    parser.add_argument(
+        "--raws",
+        action="store_true",
+        help="Operate on raw *_audio.json and *_diff.json files",
     )
     parser.add_argument(
         "-q",
@@ -328,20 +430,25 @@ def main() -> None:
     journal = os.getenv("JOURNAL_PATH")
 
     if args.rescan:
-        # Load cache only for entities, remove it from ponder/occurrence scanning
-        cache = load_cache(journal)
-        changed = scan_entities(journal, cache)
-        changed |= scan_ponders(journal, verbose=args.verbose)
-        changed |= scan_occurrences(journal, verbose=args.verbose)
-        if changed:
-            save_cache(journal, cache)
-        journal_log("indexer rescan ok")
+        if args.raws:
+            changed = scan_raws(journal, verbose=args.verbose)
+            if changed:
+                journal_log("indexer raw rescan ok")
+        else:
+            cache = load_cache(journal)
+            changed = scan_entities(journal, cache)
+            changed |= scan_ponders(journal, verbose=args.verbose)
+            changed |= scan_occurrences(journal, verbose=args.verbose)
+            if changed:
+                save_cache(journal, cache)
+                journal_log("indexer rescan ok")
 
     # Handle query argument
     if args.query is not None:
+        search_func = search_raws if args.raws else search_ponders
         if args.query:
             # Single query mode - run query and exit
-            _total, results = search_ponders(journal, args.query, 5)
+            _total, results = search_func(journal, args.query, 5)
             _display_search_results(results)
         else:
             # Interactive mode
@@ -352,7 +459,7 @@ def main() -> None:
                     break
                 if not query:
                     break
-                _total, results = search_ponders(journal, query, 5)
+                _total, results = search_func(journal, query, 5)
                 _display_search_results(results)
 
 
