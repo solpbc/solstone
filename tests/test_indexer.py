@@ -55,7 +55,7 @@ def test_occurrence_index(tmp_path):
         "occurrences": [
             {
                 "type": "meeting",
-                "source": "ponder_meetings.md",
+                "source": "topics/meetings.md",
                 "start": "09:00:00",
                 "end": "09:30:00",
                 "title": "Standup",
