@@ -108,19 +108,18 @@ def add_module_stubs(monkeypatch):
         screen_dbus.idle_time_ms = lambda: 0
         sys.modules["see.screen_dbus"] = screen_dbus
         sys.modules["screen_dbus"] = screen_dbus
-    if "google" not in sys.modules:
-        google_mod = types.ModuleType("google")
-        genai_mod = types.ModuleType("google.genai")
+    google_mod = sys.modules.get("google", types.ModuleType("google"))
+    genai_mod = types.ModuleType("google.genai")
 
-        class DummyClient:
-            def __init__(self, *a, **k):
-                pass
+    class DummyClient:
+        def __init__(self, *a, **k):
+            pass
 
-        genai_mod.Client = DummyClient
-        genai_mod.types = types.SimpleNamespace(GenerateContentConfig=lambda **k: None)
-        google_mod.genai = genai_mod
-        sys.modules["google"] = google_mod
-        sys.modules["google.genai"] = genai_mod
+    genai_mod.Client = DummyClient
+    genai_mod.types = types.SimpleNamespace(GenerateContentConfig=lambda **k: None)
+    google_mod.genai = genai_mod
+    sys.modules["google"] = google_mod
+    sys.modules["google.genai"] = genai_mod
     if "skimage.metrics" not in sys.modules:
         metrics_mod = types.ModuleType("skimage.metrics")
 
@@ -157,45 +156,49 @@ def add_module_stubs(monkeypatch):
 
         sf_mod.write = write
         sys.modules["soundfile"] = sf_mod
-    if "websockets" not in sys.modules:
-        ws_mod = types.ModuleType("websockets")
+    ws_mod = types.ModuleType("websockets")
 
-        class DummyWS:
-            async def send(self, data):
-                return None
+    class DummyWS:
+        async def send(self, data):
+            return None
 
-            async def wait_closed(self):
-                return None
+        async def wait_closed(self):
+            return None
 
-        class ConnectionClosed(Exception):
+    class ConnectionClosed(Exception):
+        pass
+
+    class ClientConnection:
+        def __init__(self, *a, **k):
             pass
 
-        class ClientConnection:
-            def __init__(self, *a, **k):
-                pass
+    client_mod = types.ModuleType("websockets.client")
+    client_mod.ClientConnection = ClientConnection
 
-        client_mod = types.ModuleType("websockets.client")
-        client_mod.ClientConnection = ClientConnection
+    async def connect(*a, **k):
+        return ClientConnection()
 
-        async def serve(handler, host, port):
-            class Server:
-                def __init__(self):
-                    self.ws = DummyWS()
+    client_mod.connect = connect
 
-                async def __aenter__(self):
-                    return self
+    async def serve(handler, host, port):
+        class Server:
+            def __init__(self):
+                self.ws = DummyWS()
 
-                async def __aexit__(self, exc_type, exc, tb):
-                    return False
+            async def __aenter__(self):
+                return self
 
-            return Server()
+            async def __aexit__(self, exc_type, exc, tb):
+                return False
 
-        ws_mod.WebSocketServerProtocol = DummyWS
-        ws_mod.serve = serve
-        ws_mod.ConnectionClosed = ConnectionClosed
-        ws_mod.client = client_mod
-        sys.modules["websockets"] = ws_mod
-        sys.modules["websockets.client"] = client_mod
+        return Server()
+
+    ws_mod.WebSocketServerProtocol = DummyWS
+    ws_mod.serve = serve
+    ws_mod.ConnectionClosed = ConnectionClosed
+    ws_mod.client = client_mod
+    sys.modules["websockets"] = ws_mod
+    sys.modules["websockets.client"] = client_mod
     for name in ["librosa", "noisereduce", "silero_vad", "watchdog.events", "watchdog.observers"]:
         if name not in sys.modules:
             mod = types.ModuleType(name)
