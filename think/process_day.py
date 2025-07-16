@@ -5,7 +5,7 @@ import os
 import subprocess
 from datetime import datetime, timedelta
 
-from think.utils import day_log, setup_cli
+from think.utils import day_log, setup_cli, get_topics
 
 
 def run_command(cmd: list[str]) -> bool:
@@ -38,14 +38,9 @@ def build_commands(day: str, force: bool, repair: bool, verbose: bool = False) -
         reduce_cmd.append("--force")
     commands.append(reduce_cmd)
 
-    think_dir = os.path.dirname(__file__)
-    prompt_dir = os.path.join(think_dir, "ponder")
-    if os.path.isdir(prompt_dir):
-        prompt_paths = sorted(glob.glob(os.path.join(prompt_dir, "*.txt")))
-    else:
-        prompt_paths = sorted(glob.glob(os.path.join(think_dir, "ponder*.txt")))
-    for prompt in prompt_paths:
-        cmd = ["ponder", day, "-f", prompt, "-p"]
+    topics = get_topics()
+    for topic_name, topic_data in topics.items():
+        cmd = ["ponder", day, "-f", topic_data["path"], "-p"]
         if verbose:
             cmd.append("--verbose")
         if force:
