@@ -1,27 +1,58 @@
 import argparse
 import os
+from pathlib import Path
+from typing import Any
 
 from fastmcp import FastMCP
 
-from think.indexer import (
-    search_occurrences,
-    search_ponders,
-)
+from think.indexer import search_occurrences as search_occurrences_impl
+from think.indexer import search_ponders as search_ponders_impl
 from think.utils import setup_cli
+
+
+def search_ponder(query: str, limit: int = 5, offset: int = 0) -> dict[str, Any]:
+    """Full-text search over ponder summaries."""
+
+    journal = os.getenv("JOURNAL_PATH", "")
+    total, results = search_ponders_impl(journal, query, limit, offset)
+    items = []
+    for r in results:
+        meta = r.get("metadata", {})
+        ponder = meta.get("ponder", "")
+        if ponder.endswith(".md"):
+            ponder = ponder[:-3]
+        items.append({"day": meta.get("day", ""), "filename": ponder, "text": r.get("text", "")})
+    return {"total": total, "results": items}
+
+
+def search_occurrence(query: str) -> str:
+    """Search structured occurrences by keyword."""
+
+    journal = os.getenv("JOURNAL_PATH", "")
+    results = search_occurrences_impl(journal, query, 5)
+    lines = []
+    for r in results:
+        meta = r.get("metadata", {})
+        lines.append(f"{meta.get('day')} {meta.get('type')}: {r['text']}")
+    return "\n".join(lines)
+
+
+def read_markdown(date: str, filename: str) -> str:
+    """Return journal markdown contents."""
+
+    journal = os.getenv("JOURNAL_PATH", "journal")
+    md_path = Path(journal) / date / f"{filename}.md"
+    if not md_path.is_file():
+        raise FileNotFoundError(f"Markdown not found: {md_path}")
+    return md_path.read_text(encoding="utf-8")
 
 
 def create_server(journal: str) -> FastMCP:
     mcp = FastMCP(name="sunstone")
-
-    @mcp.tool(title="Search ponders")
-    def search_ponder(query: str, n_results: int = 5, offset: int = 0):
-        _total, results = search_ponders(journal, query, n_results, offset)
-        return results
-
-    @mcp.tool(title="Search occurrences")
-    def search_occurrence(query: str, n_results: int = 5):
-        return search_occurrences(journal, query, n_results)
-
+    os.environ["JOURNAL_PATH"] = journal
+    mcp.tool(search_ponder, title="Search ponders")
+    mcp.tool(search_occurrence, title="Search occurrences")
+    mcp.tool(read_markdown, title="Read markdown")
     return mcp
 
 

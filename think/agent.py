@@ -15,77 +15,28 @@ import logging
 import os
 import sys
 from pathlib import Path
-from typing import Any
 
-from agents import (
-    Agent,
-    ModelSettings,
-    RunConfig,
-    Runner,
-    function_tool,
-    set_default_openai_key,
-)
+from agents import Agent, ModelSettings, RunConfig, Runner, set_default_openai_key
 
-from think.indexer import search_occurrences as search_occurrences_impl
-from think.indexer import search_ponders as search_ponders_impl
+try:  # Optional import to avoid heavy dependencies during tests
+    from think.mcp_server import read_markdown, search_occurrence, search_ponder
+except Exception:  # pragma: no cover - replaced in tests
+
+    def search_ponder(*_args, **_kwargs):
+        raise NotImplementedError
+
+    def search_occurrence(*_args, **_kwargs):
+        raise NotImplementedError
+
+    def read_markdown(*_args, **_kwargs):
+        raise NotImplementedError
+
+
 from think.utils import setup_cli
 
-
-@function_tool
-def search_ponder(query: str, limit: int = 5, offset: int = 0) -> dict[str, Any]:
-    """Full-text search over ponder summaries using the journal index.
-
-    Args:
-        query: Search query string.
-        limit: Maximum number of results to return.
-        offset: Result offset for pagination.
-
-    Returns:
-        A dictionary with the total number of matches and a list of result
-        dictionaries. Each result contains the day, filename and matching text.
-    """
-
-    journal = os.getenv("JOURNAL_PATH", "")
-    total, results = search_ponders_impl(journal, query, limit, offset)
-    items = []
-    for r in results:
-        meta = r.get("metadata", {})
-        ponder = meta.get("ponder", "")
-        if ponder.endswith(".md"):
-            ponder = ponder[:-3]
-        items.append({"day": meta.get("day", ""), "filename": ponder, "text": r.get("text", "")})
-    return {"total": total, "results": items}
-
-
-@function_tool
-def search_occurrences(query: str) -> str:
-    """Search structured occurrences by keyword using the journal index."""
-
-    journal = os.getenv("JOURNAL_PATH", "")
-    results = search_occurrences_impl(journal, query, 5)
-    lines = []
-    for r in results:
-        meta = r.get("metadata", {})
-        lines.append(f"{meta.get('day')} {meta.get('type')}: {r['text']}")
-    return "\n".join(lines)
-
-
-@function_tool
-def read_markdown(date: str, filename: str) -> str:
-    """Read an entire Markdown file for a given date and filename.
-
-    Returns markdown contents from journal/YYYYMMDD/filename.md.
-    """
-
-    md_path = Path("journal") / date / f"{filename}.md"
-    if not md_path.is_file():
-        raise FileNotFoundError(f"Markdown not found: {md_path}")
-    return md_path.read_text(encoding="utf-8")
-
-
-# Compatibility aliases used in tests
+# Aliases for backwards compatibility with tests
 tool_search_ponder = search_ponder
-tool_search_occurrences = search_occurrences
+tool_search_occurrences = search_occurrence
 tool_read_markdown = read_markdown
 
 
@@ -101,14 +52,24 @@ def build_agent(model: str, max_tokens: int) -> tuple[Agent, RunConfig]:
         model_settings=ModelSettings(max_tokens=max_tokens, temperature=0.2),
     )
 
+    try:
+        from agents.mcp import MCPServerStdio
+    except Exception:  # pragma: no cover - missing in test stubs
+        MCPServerStdio = None
+
+    mcp_servers = []
+    if MCPServerStdio is not None:
+        mcp_servers.append(
+            MCPServerStdio(command="python", args=["think/mcp_server.py", "--stdio"])
+        )
+
     agent = Agent(
         name="SunstoneCLI",
         instructions=(
-            "You are the Sunstone journal assistant. Use the provided tools "
-            "to search ponder summaries, search occurrences, and read markdown files. "
-            "When answering, always mention which tool was used."
+            "You are the Sunstone journal assistant. Use the provided tools to "
+            "search ponder summaries, search occurrences, and read markdown files."
         ),
-        tools=[search_ponder, search_occurrences, read_markdown],
+        mcp_servers=mcp_servers,
     )
     return agent, run_config
 
