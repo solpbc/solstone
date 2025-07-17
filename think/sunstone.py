@@ -62,6 +62,9 @@ def get_parser_help(module_name: str, func_name: str = "main") -> Tuple[str, str
                 break
 
         return description, usage
+    except (ImportError, RuntimeError) as e:
+        logging.warning(f"Exception while processing {module_name}: {e}")
+        return f"Error: Could not load {module_name}", ""
     except Exception as e:
         logging.warning(f"Exception while processing {module_name}: {e}")
         return "", ""
@@ -115,7 +118,7 @@ def main() -> None:
 
     logging.info("Starting sunstone command discovery")
 
-    print("Available commands:\n")
+    print("Scanning for available commands:\n")
     for name, desc, usage in discover_commands():
         if usage:
             print(f"{name} {usage}")
