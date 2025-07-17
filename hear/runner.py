@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import argparse
 import os
 import signal
 import subprocess
@@ -10,11 +11,21 @@ import time
 from pathlib import Path
 from threading import Event, Thread
 
+from think.utils import setup_cli
+
 STOP_EVENT = Event()
 
 
 def _signal_handler(signum: int, frame) -> None:  # type: ignore[unused-argument]
     STOP_EVENT.set()
+
+
+def parse_args() -> tuple[argparse.Namespace, list[str]]:
+    """Parse command line arguments for the runner."""
+    parser = argparse.ArgumentParser(
+        description="Run capture.py and transcribe.py in parallel with automatic restarts."
+    )
+    return setup_cli(parser, parse_known=True)
 
 
 def _run_loop(script: str, args: list[str]) -> None:
@@ -54,14 +65,14 @@ def _run_loop(script: str, args: list[str]) -> None:
 
 
 def main() -> None:
-    args = sys.argv[1:]
+    args, extra = parse_args()
 
     signal.signal(signal.SIGINT, _signal_handler)
     signal.signal(signal.SIGTERM, _signal_handler)
 
-    capture_args = args + ["--ws-port", "9987"]
+    capture_args = extra + ["--ws-port", "9987"]
     capture_thread = Thread(target=_run_loop, args=("capture.py", capture_args))
-    transcribe_thread = Thread(target=_run_loop, args=("transcribe.py", args))
+    transcribe_thread = Thread(target=_run_loop, args=("transcribe.py", extra))
 
     capture_thread.start()
     transcribe_thread.start()

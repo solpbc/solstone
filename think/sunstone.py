@@ -15,9 +15,9 @@ def get_parser_help(module_name: str, func_name: str = "main") -> Tuple[str, str
     # Skip self to prevent infinite recursion
     if module_name == "think.sunstone":
         return "Print available sunstone commands with descriptions.", ""
-    
+
     logging.info(f"Getting parser help for module: {module_name}")
-    
+
     pytest_env: Optional[str] = os.environ.get("PYTEST_CURRENT_TEST")
     os.environ["PYTEST_CURRENT_TEST"] = "sunstone-discover"
     try:
@@ -79,7 +79,7 @@ def discover_commands() -> List[Tuple[str, str, str]]:
 
     eps = entry_points()
     logging.debug(f"Entry points type: {type(eps)}")
-    
+
     if hasattr(eps, "select"):
         scripts = eps.select(group="console_scripts")
     else:
@@ -91,7 +91,7 @@ def discover_commands() -> List[Tuple[str, str, str]]:
         ep for ep in scripts if ep.value.startswith(("hear.", "see.", "think.", "dream."))
     ]
     logging.info(f"Found {len(sunstone_eps)} sunstone entry points")
-    
+
     sunstone_eps.sort(key=lambda ep: ep.name)
 
     for ep in sunstone_eps:
@@ -107,12 +107,14 @@ def discover_commands() -> List[Tuple[str, str, str]]:
 
 def main() -> None:
     """Print available sunstone commands with descriptions."""
-    parser = argparse.ArgumentParser(description="Print available sunstone commands with descriptions.")
-    
+    parser = argparse.ArgumentParser(
+        description="Print available sunstone commands with descriptions."
+    )
+
     setup_cli(parser)
-    
+
     logging.info("Starting sunstone command discovery")
-    
+
     print("Available commands:\n")
     for name, desc, usage in discover_commands():
         if usage:
