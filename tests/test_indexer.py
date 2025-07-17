@@ -99,3 +99,27 @@ def test_raw_index(tmp_path):
     total, results = mod.search_raws(str(journal), "hello")
     assert total == 1
     assert results and results[0]["metadata"]["type"] == "audio"
+
+
+def test_index_caching(tmp_path):
+    mod = importlib.import_module("think.indexer")
+    journal = tmp_path
+    day = journal / "20240104"
+    day.mkdir()
+    topics_dir = day / "topics"
+    topics_dir.mkdir()
+    md = topics_dir / "files.md"
+    md.write_text("Cached sentence.\n")
+
+    # First scan indexes the file
+    assert mod.scan_topics(str(journal)) is True
+
+    # Second scan without modification should be a no-op
+    assert mod.scan_topics(str(journal)) is False
+
+    # Modify file to trigger reindex
+    import time as _time
+
+    _time.sleep(1)
+    md.write_text("Updated sentence.\n")
+    assert mod.scan_topics(str(journal)) is True

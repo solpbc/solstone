@@ -1,9 +1,11 @@
 """Utilities for indexing topic outputs and occurrences."""
 
 import json
+import logging
 import os
 import re
 import sqlite3
+import time
 from typing import Dict, List, Tuple
 
 import sqlite_utils
@@ -114,6 +116,7 @@ def _scan_files(
     index_func,
     verbose: bool = False,
 ) -> bool:
+    logger = logging.getLogger(__name__)
     changed = False
     total = len(files)
 
@@ -121,32 +124,42 @@ def _scan_files(
     cursor = conn.execute("SELECT path, mtime FROM files")
     db_mtimes = dict(cursor.fetchall())
 
-    for idx, (rel, path) in enumerate(files.items(), 1):
-        if total:
-            print(f"[{idx}/{total}] {rel}")
+    to_index: List[Tuple[str, str, int]] = []
+    for rel, path in files.items():
         mtime = int(os.path.getmtime(path))
         if db_mtimes.get(rel) != mtime:
-            conn.execute(delete_sql, (rel,))
-            index_func(conn, rel, path, verbose)
-            conn.execute("REPLACE INTO files(path, mtime) VALUES (?, ?)", (rel, mtime))
-            changed = True
+            to_index.append((rel, path, mtime))
+
+    cached = total - len(to_index)
+    logger.info("%s total files, %s cached, %s to index", total, cached, len(to_index))
+    start = time.time()
+    for idx, (rel, path, mtime) in enumerate(to_index, 1):
+        if verbose:
+            logger.info("[%s/%s] %s", idx, len(to_index), rel)
+        conn.execute(delete_sql, (rel,))
+        index_func(conn, rel, path, verbose)
+        conn.execute("REPLACE INTO files(path, mtime) VALUES (?, ?)", (rel, mtime))
+        changed = True
 
     # Remove files that no longer exist
-    for rel in db_mtimes:
+    for rel in list(db_mtimes.keys()):
         if rel not in files:
             conn.execute(delete_sql, (rel,))
             conn.execute("DELETE FROM files WHERE path=?", (rel,))
             changed = True
 
+    elapsed = time.time() - start
+    logger.info("%s total indexed in %.2f seconds", len(to_index), elapsed)
     return changed
 
 
 def _index_sentences(conn: sqlite3.Connection, rel: str, path: str, verbose: bool) -> None:
+    logger = logging.getLogger(__name__)
     with open(path, "r", encoding="utf-8") as f:
         text = f.read()
     sentences = split_sentences(text)
     if verbose:
-        print(f"  indexed {len(sentences)} sentences")
+        logger.info("  indexed %s sentences", len(sentences))
     day, topic = rel.split(os.sep, 1)
     for pos, sentence in enumerate(sentences):
         conn.execute(
@@ -156,11 +169,12 @@ def _index_sentences(conn: sqlite3.Connection, rel: str, path: str, verbose: boo
 
 
 def _index_occurrences(conn: sqlite3.Connection, rel: str, path: str, verbose: bool) -> None:
+    logger = logging.getLogger(__name__)
     with open(path, "r", encoding="utf-8") as f:
         data = json.load(f)
     occs = data.get("occurrences", []) if isinstance(data, dict) else data
     if verbose:
-        print(f"  indexed {len(occs)} occurrences")
+        logger.info("  indexed %s occurrences", len(occs))
     day = rel.split(os.sep, 1)[0]
     for idx, occ in enumerate(occs):
         title = occ.get("title", "")
@@ -198,10 +212,11 @@ def _index_occurrences(conn: sqlite3.Connection, rel: str, path: str, verbose: b
 
 def scan_topics(journal: str, verbose: bool = False) -> bool:
     """Index sentences from topic markdown files."""
+    logger = logging.getLogger(__name__)
     conn, _ = get_index(journal)
     files = find_topic_files(journal, (".md",))
     if files:
-        print(f"\nIndexing {len(files)} topic files...")
+        logger.info("\nIndexing %s topic files...", len(files))
     changed = _scan_files(
         conn, files, "DELETE FROM sentences WHERE path=?", _index_sentences, verbose
     )
@@ -213,10 +228,11 @@ def scan_topics(journal: str, verbose: bool = False) -> bool:
 
 def scan_occurrences(journal: str, verbose: bool = False) -> bool:
     """Index occurrence JSON files."""
+    logger = logging.getLogger(__name__)
     conn, _ = get_index(journal)
     files = find_topic_files(journal, (".json",))
     if files:
-        print(f"\nIndexing {len(files)} occurrence files...")
+        logger.info("\nIndexing %s occurrence files...", len(files))
     changed = _scan_files(
         conn, files, "DELETE FROM occurrences WHERE path=?", _index_occurrences, verbose
     )
@@ -227,6 +243,7 @@ def scan_occurrences(journal: str, verbose: bool = False) -> bool:
 
 
 def _index_raws(conn: sqlite3.Connection, rel: str, path: str, verbose: bool) -> None:
+    logger = logging.getLogger(__name__)
     with open(path, "r", encoding="utf-8") as f:
         content = f.read()
     name = os.path.basename(path)
@@ -244,15 +261,16 @@ def _index_raws(conn: sqlite3.Connection, rel: str, path: str, verbose: bool) ->
         (content, rel, day, time_part, rtype),
     )
     if verbose:
-        print("  indexed raw", rel)
+        logger.info("  indexed raw %s", rel)
 
 
 def scan_raws(journal: str, verbose: bool = False) -> bool:
     """Index raw audio and screen diff JSON files."""
+    logger = logging.getLogger(__name__)
     conn, _ = get_index(journal)
     files = find_raw_files(journal)
     if files:
-        print(f"\nIndexing {len(files)} raw files...")
+        logger.info("\nIndexing %s raw files...", len(files))
     changed = _scan_files(conn, files, "DELETE FROM raws WHERE path=?", _index_raws, verbose)
     if changed:
         conn.commit()
