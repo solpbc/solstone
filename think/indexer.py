@@ -39,9 +39,13 @@ def split_sentences(text: str) -> List[str]:
 # Ponder indexing -----------------------------------------------------------
 
 
-def get_index(journal: str) -> Tuple[sqlite3.Connection, str]:
-    """Return SQLite connection for sentence and occurrence indexes."""
-    db_dir = os.path.join(journal, INDEX_DIR)
+def get_index(journal: str, day: str | None = None) -> Tuple[sqlite3.Connection, str]:
+    """Return SQLite connection for indexes.
+
+    If ``day`` is provided the database is stored under that day's ``index``
+    directory. Otherwise the journal level ``index`` folder is used.
+    """
+    db_dir = os.path.join(journal, day, INDEX_DIR) if day else os.path.join(journal, INDEX_DIR)
     os.makedirs(db_dir, exist_ok=True)
     db_path = os.path.join(db_dir, "indexer.sqlite")
     conn = sqlite3.connect(db_path)
@@ -265,16 +269,25 @@ def _index_raws(conn: sqlite3.Connection, rel: str, path: str, verbose: bool) ->
 
 
 def scan_raws(journal: str, verbose: bool = False) -> bool:
-    """Index raw audio and screen diff JSON files."""
+    """Index raw audio and screen diff JSON files on a per-day basis."""
     logger = logging.getLogger(__name__)
-    conn, _ = get_index(journal)
     files = find_raw_files(journal)
-    if files:
-        logger.info("\nIndexing %s raw files...", len(files))
-    changed = _scan_files(conn, files, "DELETE FROM raws WHERE path=?", _index_raws, verbose)
-    if changed:
-        conn.commit()
-    conn.close()
+    if not files:
+        return False
+
+    grouped: Dict[str, Dict[str, str]] = {}
+    for rel, path in files.items():
+        day = rel.split(os.sep, 1)[0]
+        grouped.setdefault(day, {})[rel] = path
+
+    changed = False
+    for day, day_files in grouped.items():
+        conn, _ = get_index(journal, day=day)
+        logger.info("\nIndexing %s raw files for %s...", len(day_files), day)
+        if _scan_files(conn, day_files, "DELETE FROM raws WHERE path=?", _index_raws, verbose):
+            conn.commit()
+            changed = True
+        conn.close()
     return changed
 
 
@@ -372,39 +385,45 @@ def search_occurrences(journal: str, query: str, n_results: int = 5) -> List[Dic
 def search_raws(
     journal: str, query: str, limit: int = 5, offset: int = 0
 ) -> tuple[int, List[Dict[str, str]]]:
-    """Search the raws index and return total count and results."""
-
-    conn, _ = get_index(journal)
-    db = sqlite_utils.Database(conn)
-    quoted = db.quote(query)
-
-    total = conn.execute(f"SELECT count(*) FROM raws WHERE raws MATCH {quoted}").fetchone()[0]
-
-    cursor = conn.execute(
-        f"""
-        SELECT content, path, day, time, type, bm25(raws) as rank
-        FROM raws WHERE raws MATCH {quoted} ORDER BY rank LIMIT ? OFFSET ?
-        """,
-        (limit, offset),
-    )
+    """Search per-day raw indexes and return total count and results."""
 
     results: List[Dict[str, str]] = []
-    for content, path, day, time_part, rtype, rank in cursor.fetchall():
-        results.append(
-            {
-                "id": path,
-                "text": content,
-                "metadata": {
-                    "day": day,
-                    "path": path,
-                    "time": time_part,
-                    "type": rtype,
-                },
-                "score": rank,
-            }
+    total = 0
+
+    for day in sorted(find_day_dirs(journal)):
+        conn, _ = get_index(journal, day=day)
+        db = sqlite_utils.Database(conn)
+        quoted = db.quote(query)
+
+        total += conn.execute(f"SELECT count(*) FROM raws WHERE raws MATCH {quoted}").fetchone()[0]
+
+        cursor = conn.execute(
+            f"""
+            SELECT content, path, day, time, type, bm25(raws) as rank
+            FROM raws WHERE raws MATCH {quoted} ORDER BY rank
+            """
         )
-    conn.close()
-    return total, results
+
+        for content, path, day_label, time_part, rtype, rank in cursor.fetchall():
+            results.append(
+                {
+                    "id": path,
+                    "text": content,
+                    "metadata": {
+                        "day": day_label,
+                        "path": path,
+                        "time": time_part,
+                        "type": rtype,
+                    },
+                    "score": rank,
+                }
+            )
+        conn.close()
+
+    results.sort(key=lambda r: r["score"])
+    start = offset
+    end = offset + limit
+    return total, results[start:end]
 
 
 def _display_search_results(results: List[Dict[str, str]]) -> None:
