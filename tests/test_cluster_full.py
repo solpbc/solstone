@@ -30,3 +30,16 @@ def test_cluster_cli(tmp_path, monkeypatch, capsys):
     mod.main()
     out = capsys.readouterr().out
     assert "Screen Activity Summary" in out
+
+
+def test_cluster_cli_range(tmp_path, monkeypatch, capsys):
+    mod = importlib.import_module("think.cluster")
+    copy_day(tmp_path)
+    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+    monkeypatch.setattr(
+        "sys.argv",
+        ["cluster", "20240101", "--start", "123456", "--length", "1"],
+    )
+    mod.main()
+    out = capsys.readouterr().out
+    assert "Screen Activity Summary" in out

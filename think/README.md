@@ -15,7 +15,8 @@ All dependencies are listed in `pyproject.toml`.
 The package exposes several commands:
 
 - `ponder` builds a Markdown summary of a day's recordings using a Gemini prompt.
-- `cluster` groups audio and screen JSON files into report sections.
+- `cluster` groups audio and screen JSON files into report sections. Use `--start` and
+  `--length` to limit the report to a specific time range.
 - `screen-describe` and `gemini-transcribe` include a `--repair` option to process
   any missing screenshot or audio descriptions for a day.
 - `entity-roll` collects entities across days and writes a rollup file.
@@ -24,7 +25,7 @@ The package exposes several commands:
 
 ```bash
 ponder YYYYMMDD [-f PROMPT] [-p] [-c] [--force] [-v]
-cluster YYYYMMDD
+cluster YYYYMMDD [--start HHMMSS --length MINUTES]
 entity-roll
 process-day [--day YYYYMMDD] [--force] [--repair] [--rebuild]
  ponder-mcp [--port PORT]

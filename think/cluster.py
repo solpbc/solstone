@@ -154,11 +154,35 @@ def main():
         "day",
         help="Day in YYYYMMDD format",
     )
+    parser.add_argument(
+        "--start",
+        metavar="HHMMSS",
+        help="Start time for range (HHMMSS)",
+    )
+    parser.add_argument(
+        "--length",
+        type=int,
+        help="Length of range in minutes",
+    )
 
     args = setup_cli(parser)
 
-    markdown, _ = cluster(args.day)
-    print(markdown)
+    if args.start and args.length is not None:
+        start_dt = datetime.strptime(args.start, "%H%M%S")
+        end_dt = start_dt + timedelta(minutes=args.length)
+        markdown = cluster_range(
+            args.day,
+            args.start,
+            end_dt.strftime("%H%M%S"),
+            audio=True,
+            screen="summary",
+        )
+        print(markdown)
+    elif args.start or args.length is not None:
+        parser.error("--start and --length must be used together")
+    else:
+        markdown, _ = cluster(args.day)
+        print(markdown)
 
 
 if __name__ == "__main__":
