@@ -16,7 +16,7 @@ def get_parser_help(module_name: str, func_name: str = "main") -> Tuple[str, str
     if module_name == "think.sunstone":
         return "Print available sunstone commands with descriptions.", ""
     
-    logging.debug(f"Getting parser help for module: {module_name}, function: {func_name}")
+    logging.info(f"Getting parser help for module: {module_name}")
     
     pytest_env: Optional[str] = os.environ.get("PYTEST_CURRENT_TEST")
     os.environ["PYTEST_CURRENT_TEST"] = "sunstone-discover"
@@ -31,7 +31,7 @@ def get_parser_help(module_name: str, func_name: str = "main") -> Tuple[str, str
             try:
                 module.parse_args()
             except Exception as e:
-                logging.debug(f"parse_args failed: {e}")
+                logging.warning(f"parse_args failed: {e}")
 
         help_output = ""
         old_stdout = sys.stdout
@@ -63,7 +63,7 @@ def get_parser_help(module_name: str, func_name: str = "main") -> Tuple[str, str
 
         return description, usage
     except Exception as e:
-        logging.debug(f"Exception while processing {module_name}: {e}")
+        logging.warning(f"Exception while processing {module_name}: {e}")
         return "", ""
     finally:
         if pytest_env is None:
@@ -74,7 +74,7 @@ def get_parser_help(module_name: str, func_name: str = "main") -> Tuple[str, str
 
 def discover_commands() -> List[Tuple[str, str, str]]:
     """Return available sunstone commands discovered via entry points."""
-    logging.debug("Starting command discovery")
+    logging.info("Starting command discovery")
     commands = []
 
     eps = entry_points()
@@ -85,12 +85,12 @@ def discover_commands() -> List[Tuple[str, str, str]]:
     else:
         scripts = eps.get("console_scripts", [])  # type: ignore[attr-defined]
 
-    logging.debug(f"Found {len(scripts)} console scripts")
+    logging.info(f"Found {len(scripts)} console scripts")
 
     sunstone_eps = [
         ep for ep in scripts if ep.value.startswith(("hear.", "see.", "think.", "dream."))
     ]
-    logging.debug(f"Found {len(sunstone_eps)} sunstone entry points")
+    logging.info(f"Found {len(sunstone_eps)} sunstone entry points")
     
     sunstone_eps.sort(key=lambda ep: ep.name)
 
@@ -101,7 +101,7 @@ def discover_commands() -> List[Tuple[str, str, str]]:
         commands.append((ep.name, description, usage))
         logging.debug(f"Added command: {ep.name}, desc: {description}, usage: {usage}")
 
-    logging.debug(f"Discovery complete, found {len(commands)} commands")
+    logging.info(f"Discovery complete, found {len(commands)} commands")
     return commands
 
 
@@ -111,7 +111,7 @@ def main() -> None:
     
     setup_cli(parser)
     
-    logging.debug("Starting sunstone command discovery")
+    logging.info("Starting sunstone command discovery")
     
     print("Available commands:\n")
     for name, desc, usage in discover_commands():
