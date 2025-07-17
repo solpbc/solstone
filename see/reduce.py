@@ -351,9 +351,6 @@ def main():
     parser.add_argument("day", help="Day in YYYYMMDD format containing *_monitor_*_diff.json files")
     parser.add_argument("-p", "--prompt", default=DEFAULT_PROMPT_PATH, help="Prompt file")
     parser.add_argument("--force", action="store_true", help="Overwrite existing markdown files")
-    parser.add_argument(
-        "-d", "--debug", action="store_true", help="Print prompt and response from Gemini"
-    )
     parser.add_argument("--start", help="Start time HH:MM for partial processing")
     parser.add_argument("--end", help="End time HH:MM for partial processing")
     parser.add_argument("-j", "--jobs", type=int, default=1, help="Number of parallel Gemini calls")

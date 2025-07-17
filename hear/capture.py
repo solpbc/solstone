@@ -215,18 +215,12 @@ class AudioRecorder:
 def main():
     parser = argparse.ArgumentParser(description="Record audio and save FLAC files.")
     parser.add_argument(
-        "-d", "--debug", action="store_true", help="Enable debug mode (save audio buffers)."
-    )
-    parser.add_argument(
         "-t", "--timer_interval", type=int, default=60, help="Timer interval in seconds."
     )
     parser.add_argument(
         "--ws-port", type=int, default=None, help="Start websocket server on this port"
     )
     args = setup_cli(parser)
-
-    if args.debug:
-        logging.getLogger().setLevel(logging.DEBUG)
 
     journal = os.getenv("JOURNAL_PATH")
     if not os.path.exists(journal):

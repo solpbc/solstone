@@ -64,7 +64,7 @@ def journal_log(message: str) -> None:
 def setup_cli(parser: argparse.ArgumentParser, *, parse_known: bool = False):
     """Parse command line arguments and configure logging.
 
-    The parser will be extended with a ``-v``/``--verbose`` flag. Environment
+    The parser will be extended with ``-v``/``--verbose`` and ``-d``/``--debug`` flags. Environment
     variables from ``.env`` are loaded and ``JOURNAL_PATH`` is validated. The
     parsed arguments are returned. If ``parse_known`` is ``True`` a tuple of
     ``(args, extra)`` is returned using :func:`argparse.ArgumentParser.parse_known_args`.
@@ -72,13 +72,21 @@ def setup_cli(parser: argparse.ArgumentParser, *, parse_known: bool = False):
 
     load_dotenv()
     parser.add_argument("-v", "--verbose", action="store_true", help="Enable verbose output")
+    parser.add_argument("-d", "--debug", action="store_true", help="Enable debug logging")
     if parse_known:
         args, extra = parser.parse_known_args()
     else:
         args = parser.parse_args()
         extra = None
 
-    logging.basicConfig(level=logging.INFO if args.verbose else logging.WARNING)
+    if args.debug:
+        log_level = logging.DEBUG
+    elif args.verbose:
+        log_level = logging.INFO
+    else:
+        log_level = logging.WARNING
+
+    logging.basicConfig(level=log_level)
 
     journal = os.getenv("JOURNAL_PATH")
     if not journal or not os.path.isdir(journal):
