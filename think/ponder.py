@@ -14,12 +14,6 @@ from think.crumbs import CrumbBuilder
 from think.models import GEMINI_FLASH, GEMINI_PRO
 from think.utils import day_log, day_path, get_topics, setup_cli
 
-TOPICS = get_topics()
-TOPIC_DIR = os.path.join(os.path.dirname(__file__), "topics")
-
-# Common system instruction that explains the overall context for Gemini
-# analysis. The topic prompt will be provided afterwards as a separate
-# user message.
 COMMON_SYSTEM_INSTRUCTION = (
     "You are an expert productivity analyst tasked with analyzing a full workday transcript containing both audio conversations and screen activity data, segmented into 5-minute chunks. You will be given the transcripts and then following that you will have a detailed user request for how to process them.  Please follow those instructions carefully."
 )
@@ -27,7 +21,7 @@ COMMON_SYSTEM_INSTRUCTION = (
 
 def _topic_basenames() -> list[str]:
     """Return available topic basenames under :data:`TOPICS`."""
-    return sorted(TOPICS.keys())
+    return sorted(get_topics().keys())
 
 
 def _output_paths(day_dir: os.PathLike[str], basename: str) -> tuple[Path, Path]:
@@ -340,4 +334,5 @@ def main() -> None:
 
 
 if __name__ == "__main__":
+    main()
     main()
