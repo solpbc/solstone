@@ -8,6 +8,10 @@ from typing import List, Optional, Tuple
 
 def get_parser_help(module_name: str, func_name: str = "main") -> Tuple[str, str]:
     """Return description and usage for a command without triggering side effects."""
+    # Skip self to prevent infinite recursion
+    if module_name == "think.sunstone":
+        return "Print available sunstone commands with descriptions.", ""
+    
     pytest_env: Optional[str] = os.environ.get("PYTEST_CURRENT_TEST")
     os.environ["PYTEST_CURRENT_TEST"] = "sunstone-discover"
     try:
