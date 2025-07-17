@@ -74,31 +74,25 @@ dev = [
 ]
 
 [project.scripts]
-# Top-level helper
 sunstone = "think.sunstone:main"
-# Audio utilities
-gemini-mic = "hear.capture:main"
-gemini-transcribe = "hear.transcribe:main"
-sunstone-hear = "hear.runner:main"
-gemini-live = "hear.live:main"
-
-# Visual utilities  
-screen-watch = "see.scan:main"
-screen-describe = "see.describe:main"
-sunstone-see = "see.runner:main"
-
-# Analysis utilities
-ponder = "think.ponder:main"
-cluster = "think.cluster:main"
-reduce-screen = "see.reduce:main"
 dream = "dream:main"
-entity-roll = "think.entity_roll:main"
-journal-stats = "think.journal_stats:main"
-dream-extract = "think.extract:main"
-process-day = "think.process_day:main"
-ponder-mcp = "think.mcp_server:main"
-journal-index = "think.indexer:main"
-empty-trash = "hear.empty_trash:main"
+hear-capture = "hear.capture:main"
+hear-transcribe = "hear.transcribe:main"
+hear-runner = "hear.runner:main"
+hear-live = "hear.live:main"
+hear-empty-trash = "hear.empty_trash:main"
+see-scan = "see.scan:main"
+see-describe = "see.describe:main"
+see-runner = "see.runner:main"
+see-reduce = "see.reduce:main"
+think-ponder = "think.ponder:main"
+think-cluster = "think.cluster:main"
+think-entity-roll = "think.entity_roll:main"
+think-journal-stats = "think.journal_stats:main"
+think-extract = "think.extract:main"
+think-process-day = "think.process_day:main"
+think-mcp-server = "think.mcp_server:main"
+think-indexer = "think.indexer:main"
 
 [project.urls]
 Homepage = "https://github.com/yourusername/sunstone"
@@ -112,7 +106,7 @@ include = ["hear*", "see*", "think*", "dream*"]
 [tool.setuptools.package-data]
 hear = ["*.txt"]
 see = ["*.txt"]
-think = ["*.txt"]
+think = ["*.txt", "topics/*.txt"]
 dream = [
     "templates/*.html",
     "static/*",
@@ -120,15 +114,13 @@ dream = [
 
 # Development tools configuration
 [tool.black]
-line-length = 100
 target-version = ['py39']
 
 [tool.isort]
 profile = "black"
-line_length = 100
 
 [tool.flake8]
-ignore = ["E501"]
+# No line length restrictions
 
 [tool.mypy]
 python_version = "3.12"
