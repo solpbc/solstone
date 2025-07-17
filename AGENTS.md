@@ -5,7 +5,7 @@
 * **hear/**: Captures system audio and transcribes it via an external AI API.
 * **see/**: Takes screenshots and analyzes them with AI vision models.
 * **think/**: Post‑processes and summarizes captured data (clustering, topic extraction).
-* **dream/**: A web interface for navigating and interacting with journaled content.
+* **dream/**: A web app for navigating and interacting with journaled content.
 
 Entry points for each package are defined in `pyproject.toml` under `[tool.poetry.scripts]`. Each package has its own `README.md` with deeper usage examples.
 
@@ -85,4 +85,3 @@ sunstone/
   * `think/utils.py` available for any script
   * `dream/utils.py` for the dream app
   * whenever you create a new shared utility anywhere else, add a note here to make it more visible
-  * `think/extract.py` hosts the `dream-extract` CLI for chunking media into the journal
