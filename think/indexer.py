@@ -121,14 +121,12 @@ def _scan_files(
     verbose: bool = False,
 ) -> bool:
     logger = logging.getLogger(__name__)
-    changed = False
     total = len(files)
 
     # Get current file mtimes from database
-    cursor = conn.execute("SELECT path, mtime FROM files")
-    db_mtimes = dict(cursor.fetchall())
+    db_mtimes = {path: mtime for path, mtime in conn.execute("SELECT path, mtime FROM files")}
 
-    to_index: List[Tuple[str, str, int]] = []
+    to_index = []
     for rel, path in files.items():
         mtime = int(os.path.getmtime(path))
         if db_mtimes.get(rel) != mtime:
@@ -143,18 +141,16 @@ def _scan_files(
         conn.execute(delete_sql, (rel,))
         index_func(conn, rel, path, verbose)
         conn.execute("REPLACE INTO files(path, mtime) VALUES (?, ?)", (rel, mtime))
-        changed = True
 
     # Remove files that no longer exist
-    for rel in list(db_mtimes.keys()):
-        if rel not in files:
-            conn.execute(delete_sql, (rel,))
-            conn.execute("DELETE FROM files WHERE path=?", (rel,))
-            changed = True
+    removed = set(db_mtimes) - set(files)
+    for rel in removed:
+        conn.execute(delete_sql, (rel,))
+        conn.execute("DELETE FROM files WHERE path=?", (rel,))
 
     elapsed = time.time() - start
     logger.info("%s total indexed in %.2f seconds", len(to_index), elapsed)
-    return changed
+    return bool(to_index or removed)
 
 
 def _index_sentences(conn: sqlite3.Connection, rel: str, path: str, verbose: bool) -> None:
