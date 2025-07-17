@@ -1,51 +1,58 @@
 import importlib
+import os
 import sys
 from importlib.metadata import entry_points
 from io import StringIO
-from typing import List, Tuple
+from typing import List, Optional, Tuple
 
 
 def get_parser_help(module_name: str, func_name: str = "main") -> Tuple[str, str]:
-    """Return description and usage for a command."""
+    """Return description and usage for a command without triggering side effects."""
+    pytest_env: Optional[str] = os.environ.get("PYTEST_CURRENT_TEST")
+    os.environ["PYTEST_CURRENT_TEST"] = "sunstone-discover"
     try:
         module = importlib.import_module(module_name)
+        description = module.__doc__.splitlines()[0].strip() if module.__doc__ else ""
+
+        if hasattr(module, "parse_args"):
+            try:
+                module.parse_args()
+            except Exception:
+                pass
+
+        help_output = ""
+        old_stdout = sys.stdout
+        sys.stdout = StringIO()
+        try:
+            if hasattr(module, func_name):
+                old_argv = sys.argv
+                sys.argv = [module_name, "--help"]
+                try:
+                    getattr(module, func_name)()
+                except SystemExit:
+                    pass
+                finally:
+                    sys.argv = old_argv
+                help_output = sys.stdout.getvalue()
+        finally:
+            sys.stdout = old_stdout
+
+        usage = ""
+        for line in help_output.splitlines():
+            if line.lower().startswith("usage:"):
+                parts = line.split()
+                if len(parts) > 2:
+                    usage = " ".join(parts[2:])
+                break
+
+        return description, usage
     except Exception:
         return "", ""
-
-    description = module.__doc__.splitlines()[0].strip() if module.__doc__ else ""
-
-    if hasattr(module, "parse_args"):
-        try:
-            module.parse_args()
-        except Exception:
-            pass
-
-    help_output = ""
-    old_stdout = sys.stdout
-    sys.stdout = StringIO()
-    try:
-        if hasattr(module, func_name):
-            old_argv = sys.argv
-            sys.argv = [module_name, "--help"]
-            try:
-                getattr(module, func_name)()
-            except SystemExit:
-                pass
-            finally:
-                sys.argv = old_argv
-            help_output = sys.stdout.getvalue()
     finally:
-        sys.stdout = old_stdout
-
-    usage = ""
-    for line in help_output.splitlines():
-        if line.lower().startswith("usage:"):
-            parts = line.split()
-            if len(parts) > 2:
-                usage = " ".join(parts[2:])
-            break
-
-    return description, usage
+        if pytest_env is None:
+            os.environ.pop("PYTEST_CURRENT_TEST", None)
+        else:
+            os.environ["PYTEST_CURRENT_TEST"] = pytest_env
 
 
 def discover_commands() -> List[Tuple[str, str, str]]:
