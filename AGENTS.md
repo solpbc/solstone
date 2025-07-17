@@ -85,3 +85,4 @@ sunstone/
   * `think/utils.py` available for any script
   * `dream/utils.py` for the dream app
   * whenever you create a new shared utility anywhere else, add a note here to make it more visible
+  * `think/extract.py` hosts the `dream-extract` CLI for chunking media into the journal
