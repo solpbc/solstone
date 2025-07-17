@@ -99,6 +99,7 @@ def test_raw_index(tmp_path):
     total, results = mod.search_raws(str(journal), "hello")
     assert total == 1
     assert results and results[0]["metadata"]["type"] == "audio"
+    assert (day / "index" / "indexer.sqlite").exists()
 
 
 def test_index_caching(tmp_path):
