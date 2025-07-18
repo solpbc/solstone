@@ -19,7 +19,7 @@ from see.screen_dbus import take_screenshot
 from think.models import GEMINI_FLASH
 from think.utils import setup_cli
 
-MODEL = GEMINI_FLASH  # -lite-preview-06-17
+MODEL = GEMINI_FLASH + "-lite-preview-06-17"
 
 
 async def transcribe_light(client, model: str, audio_bytes: bytes) -> str:
@@ -77,9 +77,9 @@ async def identify_active_speaker(client, speaker_state) -> None:
             contents=contents,
             config=types.GenerateContentConfig(
                 temperature=0.1,
-                max_output_tokens=256 + 1024,
+                max_output_tokens=32 + 512,
                 system_instruction="Examine this screenshot looking ONLY for video conferencing apps like Zoom, Teams, Meet, or WebEx. Then if found, identify who is actively speaking right now based on visual indicators such as the speaker's frame being highlighted or outlined differently. Return only the speaker's first name, or 'Unknown' if no meeting is visible or nobody is clearly speaking.",
-                thinking_config=types.ThinkingConfig(thinking_budget=1024),
+                thinking_config=types.ThinkingConfig(thinking_budget=512),
                 response_mime_type="text/plain",
             ),
         )
