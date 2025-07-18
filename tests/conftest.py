@@ -76,7 +76,11 @@ def add_module_stubs(monkeypatch):
         def load_dotenv(*a, **k):
             return True
 
+        def dotenv_values(*a, **k):
+            return {}
+
         dotenv_mod.load_dotenv = load_dotenv
+        dotenv_mod.dotenv_values = dotenv_values
         sys.modules["dotenv"] = dotenv_mod
     if "input_detect" not in sys.modules:
         input_detect_mod = types.ModuleType("input_detect")
@@ -199,7 +203,13 @@ def add_module_stubs(monkeypatch):
     ws_mod.client = client_mod
     sys.modules["websockets"] = ws_mod
     sys.modules["websockets.client"] = client_mod
-    for name in ["librosa", "noisereduce", "silero_vad", "watchdog.events", "watchdog.observers"]:
+    for name in [
+        "librosa",
+        "noisereduce",
+        "silero_vad",
+        "watchdog.events",
+        "watchdog.observers",
+    ]:
         if name not in sys.modules:
             mod = types.ModuleType(name)
             if name == "silero_vad":
@@ -213,7 +223,9 @@ def add_module_stubs(monkeypatch):
         class PatternMatchingEventHandler:
             pass
 
-        sys.modules["watchdog.events"].PatternMatchingEventHandler = PatternMatchingEventHandler
+        sys.modules["watchdog.events"].PatternMatchingEventHandler = (
+            PatternMatchingEventHandler
+        )
     if "watchdog.observers" in sys.modules and not hasattr(
         sys.modules["watchdog.observers"], "Observer"
     ):

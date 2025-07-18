@@ -2,14 +2,29 @@ from __future__ import annotations
 
 import asyncio
 import os
+from pathlib import Path
 from typing import Any, Dict, List
 
+from fastmcp import Client
+from fastmcp.client.transports import PythonStdioTransport
 from flask import Blueprint, jsonify, render_template, request
 from google import genai
 from google.genai import types
 
-from think.mcp_tools import get_sunstone_client
 from think.models import GEMINI_FLASH
+
+
+def _create_mcp_client() -> Client:
+    """Return a FastMCP client for the think tools."""
+
+    server_url = os.getenv("SUNSTONE_MCP_URL")
+    if server_url:
+        return Client(server_url)
+
+    server_path = Path(__file__).resolve().parents[2] / "think" / "mcp_server.py"
+    transport = PythonStdioTransport(str(server_path), env=os.environ.copy())
+    return Client(transport)
+
 
 from .. import state
 
@@ -20,11 +35,12 @@ async def ask_gemini(prompt: str, attachments: List[str], api_key: str) -> str:
     """Send ``prompt`` along with prior chat history to Gemini."""
 
     client = genai.Client(api_key=api_key)
-    mcp_client = get_sunstone_client()
+    mcp_client = _create_mcp_client()
 
     past: List[types.Content] = [
         types.Content(
-            role=("user" if m["role"] == "user" else "model"), parts=[types.Part(text=m["text"])]
+            role=("user" if m["role"] == "user" else "model"),
+            parts=[types.Part(text=m["text"])],
         )
         for m in state.chat_history
     ]
@@ -38,7 +54,9 @@ async def ask_gemini(prompt: str, attachments: List[str], api_key: str) -> str:
 
         original_call_tool = session.call_tool
 
-        async def logged_call_tool(name: str, arguments: Dict[str, Any] | None = None, **kwargs):
+        async def logged_call_tool(
+            name: str, arguments: Dict[str, Any] | None = None, **kwargs
+        ):
             print(f"Calling MCP tool {name} with args {arguments}")
             return await original_call_tool(name=name, arguments=arguments, **kwargs)
 
