@@ -45,13 +45,19 @@ def get_index(journal: str, day: str | None = None) -> Tuple[sqlite3.Connection,
     If ``day`` is provided the database is stored under that day's ``index``
     directory. Otherwise the journal level ``index`` folder is used.
     """
-    db_dir = os.path.join(journal, day, INDEX_DIR) if day else os.path.join(journal, INDEX_DIR)
+    db_dir = (
+        os.path.join(journal, day, INDEX_DIR)
+        if day
+        else os.path.join(journal, INDEX_DIR)
+    )
     os.makedirs(db_dir, exist_ok=True)
     db_path = os.path.join(db_dir, "indexer.sqlite")
     conn = sqlite3.connect(db_path)
     conn.execute("PRAGMA journal_mode=WAL")
     conn.execute("PRAGMA synchronous=NORMAL")
-    conn.execute("CREATE TABLE IF NOT EXISTS files(path TEXT PRIMARY KEY, mtime INTEGER)")
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS files(path TEXT PRIMARY KEY, mtime INTEGER)"
+    )
     conn.execute(
         """
         CREATE VIRTUAL TABLE IF NOT EXISTS sentences USING fts5(
@@ -80,7 +86,9 @@ def get_index(journal: str, day: str | None = None) -> Tuple[sqlite3.Connection,
     return conn, db_path
 
 
-def find_topic_files(journal: str, exts: Tuple[str, ...] | None = None) -> Dict[str, str]:
+def find_topic_files(
+    journal: str, exts: Tuple[str, ...] | None = None
+) -> Dict[str, str]:
     """Map relative topic file path to full path filtered by ``exts``."""
     files: Dict[str, str] = {}
     exts = exts or (".md", ".json")
@@ -124,7 +132,9 @@ def _scan_files(
     total = len(files)
 
     # Get current file mtimes from database
-    db_mtimes = {path: mtime for path, mtime in conn.execute("SELECT path, mtime FROM files")}
+    db_mtimes = {
+        path: mtime for path, mtime in conn.execute("SELECT path, mtime FROM files")
+    }
 
     to_index = []
     for rel, path in files.items():
@@ -153,7 +163,9 @@ def _scan_files(
     return bool(to_index or removed)
 
 
-def _index_sentences(conn: sqlite3.Connection, rel: str, path: str, verbose: bool) -> None:
+def _index_sentences(
+    conn: sqlite3.Connection, rel: str, path: str, verbose: bool
+) -> None:
     logger = logging.getLogger(__name__)
     with open(path, "r", encoding="utf-8") as f:
         text = f.read()
@@ -163,12 +175,16 @@ def _index_sentences(conn: sqlite3.Connection, rel: str, path: str, verbose: boo
     day, topic = rel.split(os.sep, 1)
     for pos, sentence in enumerate(sentences):
         conn.execute(
-            ("INSERT INTO sentences(sentence, path, day, topic, position) VALUES (?, ?, ?, ?, ?)"),
+            (
+                "INSERT INTO sentences(sentence, path, day, topic, position) VALUES (?, ?, ?, ?, ?)"
+            ),
             (sentence, rel, day, topic, pos),
         )
 
 
-def _index_occurrences(conn: sqlite3.Connection, rel: str, path: str, verbose: bool) -> None:
+def _index_occurrences(
+    conn: sqlite3.Connection, rel: str, path: str, verbose: bool
+) -> None:
     logger = logging.getLogger(__name__)
     with open(path, "r", encoding="utf-8") as f:
         data = json.load(f)
@@ -280,7 +296,9 @@ def scan_raws(journal: str, verbose: bool = False) -> bool:
     for day, day_files in grouped.items():
         conn, _ = get_index(journal, day=day)
         logger.info("\nIndexing %s raw files for %s...", len(day_files), day)
-        if _scan_files(conn, day_files, "DELETE FROM raws WHERE path=?", _index_raws, verbose):
+        if _scan_files(
+            conn, day_files, "DELETE FROM raws WHERE path=?", _index_raws, verbose
+        ):
             conn.commit()
             changed = True
         conn.close()
@@ -326,7 +344,9 @@ def search_topics(
     return total, results
 
 
-def search_occurrences(journal: str, query: str, n_results: int = 5) -> List[Dict[str, str]]:
+def search_occurrences(
+    journal: str, query: str, n_results: int = 5
+) -> List[Dict[str, str]]:
     """Search the occurrences index and return results."""
     conn, _ = get_index(journal)
     db = sqlite_utils.Database(conn)
@@ -379,19 +399,30 @@ def search_occurrences(journal: str, query: str, n_results: int = 5) -> List[Dic
 
 
 def search_raws(
-    journal: str, query: str, limit: int = 5, offset: int = 0
+    journal: str,
+    query: str,
+    limit: int = 5,
+    offset: int = 0,
+    day: str | None = None,
 ) -> tuple[int, List[Dict[str, str]]]:
-    """Search per-day raw indexes and return total count and results."""
+    """Search raw indexes and return total count and results.
+
+    If ``day`` is provided only that day's index is searched. Otherwise all
+    available per-day indexes are queried.
+    """
 
     results: List[Dict[str, str]] = []
     total = 0
 
-    for day in sorted(find_day_dirs(journal)):
-        conn, _ = get_index(journal, day=day)
+    days = [day] if day else sorted(find_day_dirs(journal))
+    for d in days:
+        conn, _ = get_index(journal, day=d)
         db = sqlite_utils.Database(conn)
         quoted = db.quote(query)
 
-        total += conn.execute(f"SELECT count(*) FROM raws WHERE raws MATCH {quoted}").fetchone()[0]
+        total += conn.execute(
+            f"SELECT count(*) FROM raws WHERE raws MATCH {quoted}"
+        ).fetchone()[0]
 
         cursor = conn.execute(
             f"""
@@ -434,7 +465,9 @@ def _display_search_results(results: List[Dict[str, str]]) -> None:
 def main() -> None:
     import argparse
 
-    parser = argparse.ArgumentParser(description="Index topic markdown and occurrence files")
+    parser = argparse.ArgumentParser(
+        description="Index topic markdown and occurrence files"
+    )
     parser.add_argument(
         "--rescan",
         action="store_true",
@@ -444,6 +477,10 @@ def main() -> None:
         "--raws",
         action="store_true",
         help="Operate on raw *_audio.json and *_diff.json files",
+    )
+    parser.add_argument(
+        "--day",
+        help="Limit raw query to a specific YYYYMMDD day",
     )
     parser.add_argument(
         "-q",
@@ -479,9 +516,12 @@ def main() -> None:
     # Handle query argument
     if args.query is not None:
         search_func = search_raws if args.raws else search_topics
+        query_kwargs = {}
+        if args.raws:
+            query_kwargs["day"] = args.day
         if args.query:
             # Single query mode - run query and exit
-            _total, results = search_func(journal, args.query, 5)
+            _total, results = search_func(journal, args.query, 5, **query_kwargs)
             _display_search_results(results)
         else:
             # Interactive mode
@@ -492,7 +532,7 @@ def main() -> None:
                     break
                 if not query:
                     break
-                _total, results = search_func(journal, query, 5)
+                _total, results = search_func(journal, query, 5, **query_kwargs)
                 _display_search_results(results)
 
 

@@ -124,3 +124,27 @@ def test_index_caching(tmp_path):
     _time.sleep(1)
     md.write_text("Updated sentence.\n")
     assert mod.scan_topics(str(journal)) is True
+
+
+def test_search_raws_day(tmp_path):
+    mod = importlib.import_module("think.indexer")
+    journal = tmp_path
+
+    day1 = journal / "20240105"
+    day1.mkdir()
+    (day1 / "123000_audio.json").write_text(json.dumps({"text": "hello"}))
+
+    day2 = journal / "20240106"
+    day2.mkdir()
+    (day2 / "090000_audio.json").write_text(json.dumps({"text": "hello"}))
+
+    mod.scan_raws(str(journal), verbose=True)
+
+    total_all, _ = mod.search_raws(str(journal), "hello", limit=10)
+    assert total_all == 2
+
+    total_day1, results_day1 = mod.search_raws(
+        str(journal), "hello", limit=10, day="20240105"
+    )
+    assert total_day1 == 1
+    assert results_day1[0]["metadata"]["day"] == "20240105"
