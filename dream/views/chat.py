@@ -11,9 +11,9 @@ from flask import Blueprint, jsonify, render_template, request
 from google import genai
 from google.genai import types
 
-from .. import state
-
 from think.models import GEMINI_FLASH
+
+from .. import state
 
 
 def _create_mcp_client() -> Client:

@@ -77,7 +77,9 @@ def main() -> None:
     transcribe_args = all_args
 
     capture_thread = Thread(target=_run_loop, args=("capture.py", capture_args))
-    transcribe_thread = Thread(target=_run_loop, args=("transcribe.py", transcribe_args))
+    transcribe_thread = Thread(
+        target=_run_loop, args=("transcribe.py", transcribe_args)
+    )
 
     capture_thread.start()
     transcribe_thread.start()

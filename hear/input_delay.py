@@ -22,7 +22,9 @@ def input_delay(mic_device, system_device, duration=0.2, sample_rate=44100):
     def record_device(device, device_key):
         barrier.wait()
         try:
-            audio = device.record(samplerate=sample_rate, numframes=int(sample_rate * duration))
+            audio = device.record(
+                samplerate=sample_rate, numframes=int(sample_rate * duration)
+            )
             results[device_key] = audio
         except Exception as e:
             print(f"Recording error on {device.name}: {e}")
@@ -38,7 +40,9 @@ def input_delay(mic_device, system_device, duration=0.2, sample_rate=44100):
 
     # Start recording and playback threads
     mic_thread = threading.Thread(target=record_device, args=(mic_device, "mic"))
-    system_thread = threading.Thread(target=record_device, args=(system_device, "system"))
+    system_thread = threading.Thread(
+        target=record_device, args=(system_device, "system")
+    )
     play_thread = threading.Thread(target=play_tone)
 
     threads = [mic_thread, system_thread, play_thread]

@@ -87,7 +87,11 @@ def validate_crumb(output: str | Path) -> CrumbState:
         if dep_type == "file":
             path = dep.get("path")
             mtime = dep.get("mtime")
-            if not path or not os.path.exists(path) or int(os.path.getmtime(path)) != mtime:
+            if (
+                not path
+                or not os.path.exists(path)
+                or int(os.path.getmtime(path)) != mtime
+            ):
                 return CrumbState.STALE
         elif dep_type == "glob":
             pattern = dep.get("pattern", "")

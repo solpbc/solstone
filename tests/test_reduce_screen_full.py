@@ -32,7 +32,9 @@ def test_reduce_day(tmp_path, monkeypatch):
     prompt.write_text("prompt")
 
     def fake_call(md, prompt_text, api_key, debug=False):
-        return "summary", SimpleNamespace(prompt_token_count=1, candidates_token_count=1)
+        return "summary", SimpleNamespace(
+            prompt_token_count=1, candidates_token_count=1
+        )
 
     monkeypatch.setattr(mod, "call_gemini", fake_call)
     monkeypatch.setattr(mod, "load_dotenv", lambda: True)
@@ -59,7 +61,9 @@ def test_scan_day(tmp_path, monkeypatch):
     prompt.write_text("prompt")
 
     def fake_call(md, prompt_text, api_key, debug=False):
-        return "summary", SimpleNamespace(prompt_token_count=1, candidates_token_count=1)
+        return "summary", SimpleNamespace(
+            prompt_token_count=1, candidates_token_count=1
+        )
 
     monkeypatch.setattr(mod, "call_gemini", fake_call)
     monkeypatch.setattr(mod, "load_dotenv", lambda: True)
@@ -86,7 +90,9 @@ def test_reduce_day_parallel(tmp_path, monkeypatch):
 
     def fake_call(md, prompt_text, api_key, debug=False):
         calls.append(1)
-        return "summary", SimpleNamespace(prompt_token_count=1, candidates_token_count=1)
+        return "summary", SimpleNamespace(
+            prompt_token_count=1, candidates_token_count=1
+        )
 
     monkeypatch.setattr(mod, "call_gemini", fake_call)
     monkeypatch.setattr(mod, "load_dotenv", lambda: True)

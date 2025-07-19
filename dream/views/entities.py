@@ -37,7 +37,8 @@ def entities_data() -> Any:
         data[etype] = []
         for name, info in names.items():
             formatted_descriptions = {
-                format_date(date): text for date, text in info.get("descriptions", {}).items()
+                format_date(date): text
+                for date, text in info.get("descriptions", {}).items()
             }
             data[etype].append(
                 {
@@ -93,7 +94,9 @@ def api_modify_entity() -> Any:
     if action == "rename" and new_name:
         top_file = os.path.join(state.journal_root, "entities.md")
         try:
-            modify_entity_in_file(top_file, etype, name, new_name, "rename", require_match=False)
+            modify_entity_in_file(
+                top_file, etype, name, new_name, "rename", require_match=False
+            )
         except Exception:
             pass
     reload_entities()

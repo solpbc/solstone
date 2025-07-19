@@ -77,7 +77,12 @@ def time_since(epoch: int) -> str:
 
 
 def log_entity_operation(
-    log_dir: str, operation: str, day: str, etype: str, name: str, new_name: Optional[str] = None
+    log_dir: str,
+    operation: str,
+    day: str,
+    etype: str,
+    name: str,
+    new_name: Optional[str] = None,
 ) -> None:
     """Log entity operations to entity_review.log."""
     log_path = os.path.join(log_dir, "entity_review.log")
@@ -143,7 +148,9 @@ def modify_entity_file(
 ) -> None:
     """Remove or rename an entity entry in a day's ``entities.md`` file."""
     file_path = os.path.join(journal, day, "entities.md")
-    modify_entity_in_file(file_path, etype, name, new_name, operation, require_match=True)
+    modify_entity_in_file(
+        file_path, etype, name, new_name, operation, require_match=True
+    )
     log_entity_operation(journal, operation, day, etype, name, new_name)
 
 

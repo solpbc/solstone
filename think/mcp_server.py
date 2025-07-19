@@ -21,7 +21,9 @@ def search_topic(query: str, limit: int = 5, offset: int = 0) -> dict[str, Any]:
         topic = meta.get("topic", "")
         if topic.endswith(".md"):
             topic = topic[:-3]
-        items.append({"day": meta.get("day", ""), "filename": topic, "text": r.get("text", "")})
+        items.append(
+            {"day": meta.get("day", ""), "filename": topic, "text": r.get("text", "")}
+        )
     return {"total": total, "results": items}
 
 

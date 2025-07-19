@@ -44,7 +44,9 @@ def _process_day_parallel(day_dir: Path, num_workers: int, args) -> tuple[int, i
     if not trash_dir.is_dir():
         return 0, 0
 
-    file_paths = [str(path) for path in sorted(trash_dir.iterdir()) if not path.is_dir()]
+    file_paths = [
+        str(path) for path in sorted(trash_dir.iterdir()) if not path.is_dir()
+    ]
     if not file_paths:
         return 0, 0
 
@@ -81,7 +83,9 @@ def _process_day_parallel(day_dir: Path, num_workers: int, args) -> tuple[int, i
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Permanently delete trashed audio files")
+    parser = argparse.ArgumentParser(
+        description="Permanently delete trashed audio files"
+    )
     parser.add_argument(
         "-n",
         "--dry-run",
@@ -89,7 +93,11 @@ def main() -> None:
         help="Do not modify the filesystem",
     )
     parser.add_argument(
-        "-j", "--jobs", type=int, default=1, help="Number of parallel workers for speech detection"
+        "-j",
+        "--jobs",
+        type=int,
+        default=1,
+        help="Number of parallel workers for speech detection",
     )
     args = setup_cli(parser)
 

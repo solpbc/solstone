@@ -21,7 +21,9 @@ def input_detect(duration=0.4, sample_rate=44100):
     def record_mic(mic, results):
         barrier.wait()
         try:
-            audio = mic.record(samplerate=sample_rate, numframes=int(sample_rate * duration))
+            audio = mic.record(
+                samplerate=sample_rate, numframes=int(sample_rate * duration)
+            )
             results[mic.name] = audio
         except Exception:
             results[mic.name] = None

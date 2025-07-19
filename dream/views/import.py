@@ -33,7 +33,9 @@ def import_process() -> Any:
         tmp_dir = tempfile.mkdtemp(prefix="upload_")
         path = os.path.join(tmp_dir, secure_filename(upload.filename))
         upload.save(path)
-        meta = f"File name: {upload.filename}; path: {path}; size: {os.path.getsize(path)}"
+        meta = (
+            f"File name: {upload.filename}; path: {path}; size: {os.path.getsize(path)}"
+        )
         parts.append(meta)
 
     text = request.form.get("text", "").strip()

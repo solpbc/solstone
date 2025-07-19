@@ -110,8 +110,12 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Chunk a media file into the journal")
     parser.add_argument("media", help="Path to video or audio file")
     parser.add_argument("timestamp", help="Timestamp YYYYMMDD_HHMMSS for journal entry")
-    parser.add_argument("--see", type=str2bool, default=True, help="Process video stream")
-    parser.add_argument("--hear", type=str2bool, default=True, help="Process audio stream")
+    parser.add_argument(
+        "--see", type=str2bool, default=True, help="Process video stream"
+    )
+    parser.add_argument(
+        "--hear", type=str2bool, default=True, help="Process audio stream"
+    )
     parser.add_argument(
         "--see-sample",
         type=float,

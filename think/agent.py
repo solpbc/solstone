@@ -53,7 +53,9 @@ def build_agent(model: str, max_tokens: int) -> tuple[Agent, RunConfig]:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Sunstone Agent CLI")
-    parser.add_argument("task_file", help="Path to .txt file with the request, or '-' for stdin")
+    parser.add_argument(
+        "task_file", help="Path to .txt file with the request, or '-' for stdin"
+    )
     parser.add_argument("--model", default="gpt-4", help="OpenAI model to use")
     parser.add_argument(
         "--max-tokens",

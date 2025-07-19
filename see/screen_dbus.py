@@ -39,7 +39,9 @@ async def get_idle_time_ms(bus):
         "org.gnome.Mutter.IdleMonitor", "/org/gnome/Mutter/IdleMonitor/Core"
     )
     proxy_obj = bus.get_proxy_object(
-        "org.gnome.Mutter.IdleMonitor", "/org/gnome/Mutter/IdleMonitor/Core", introspection
+        "org.gnome.Mutter.IdleMonitor",
+        "/org/gnome/Mutter/IdleMonitor/Core",
+        introspection,
     )
     idle_monitor = proxy_obj.get_interface("org.gnome.Mutter.IdleMonitor")
     idle_time = await idle_monitor.call_get_idletime()

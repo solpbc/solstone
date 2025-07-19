@@ -21,7 +21,9 @@ def test_modify_and_update(tmp_path):
     review.modify_entity_in_file(str(md), "Person", "Jane", operation="remove")
     assert md.read_text() == ""
     md.write_text("* Person: Jane - desc\n")
-    review.modify_entity_in_file(str(md), "Person", "Jane", new_name="J", operation="rename")
+    review.modify_entity_in_file(
+        str(md), "Person", "Jane", new_name="J", operation="rename"
+    )
     assert "J" in md.read_text()
     review.update_top_entry(str(tmp_path), "Person", "J", "info")
     top_path = tmp_path / "entities.md"

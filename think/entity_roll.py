@@ -94,7 +94,11 @@ def cluster_glob(filepaths: List[str]) -> str:
 
 
 def send_to_gemini(
-    markdown_content: str, prompt_text: str, api_key: str, model_name: str, is_json_mode: bool
+    markdown_content: str,
+    prompt_text: str,
+    api_key: str,
+    model_name: str,
+    is_json_mode: bool,
 ) -> tuple[Optional[str], Optional[object]]:
     """Send markdown content and a prompt to Gemini API."""
     client = genai.Client(api_key=api_key)
@@ -179,7 +183,9 @@ def scan_day(day: str) -> Dict[str, List[str]]:
     return {"processed": processed, "repairable": repairable}
 
 
-def process_day(day_str: str, day_dirs: Dict[str, str], force: bool, verbose: bool = False) -> None:
+def process_day(
+    day_str: str, day_dirs: Dict[str, str], force: bool, verbose: bool = False
+) -> None:
     out_path = os.path.join(day_dirs[day_str], "entities.md")
     if os.path.exists(out_path) and not force:
         print(f"Skipping {day_str}: entities.md exists")
@@ -221,7 +227,9 @@ def process_day(day_str: str, day_dirs: Dict[str, str], force: bool, verbose: bo
             f.write(result)
         print(f"Wrote {out_path}")
 
-        crumb_builder = CrumbBuilder().add_file(PROMPT_PATH).add_files(files).add_model(GEMINI_PRO)
+        crumb_builder = (
+            CrumbBuilder().add_file(PROMPT_PATH).add_files(files).add_model(GEMINI_PRO)
+        )
         crumb_path = crumb_builder.commit(out_path)
         print(f"Crumb saved to: {crumb_path}")
         success = True

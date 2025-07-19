@@ -119,13 +119,16 @@ def process_once(journal, min_threshold):
         if boxes:
             largest_box = max(
                 boxes,
-                key=lambda b: (b["box_2d"][3] - b["box_2d"][1]) * (b["box_2d"][2] - b["box_2d"][0]),
+                key=lambda b: (b["box_2d"][3] - b["box_2d"][1])
+                * (b["box_2d"][2] - b["box_2d"][0]),
             )
             y_min, x_min, y_max, x_max = largest_box["box_2d"]
             box_width = x_max - x_min
             box_height = y_max - y_min
             if box_width > min_threshold and box_height > min_threshold:
-                logging.debug("[Monitor %s] Detected significant difference: %s", idx, largest_box)
+                logging.debug(
+                    "[Monitor %s] Detected significant difference: %s", idx, largest_box
+                )
                 timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
                 date_part, time_part = timestamp.split("_", 1)
                 day_dir = os.path.join(journal, date_part)
@@ -137,7 +140,9 @@ def process_once(journal, min_threshold):
                 box_filename = base + "_box.json"
                 with open(box_filename, "w") as bf:
                     json.dump(largest_box, bf)
-                logging.info("[Monitor %s] Saved bounding box JSON: %s", idx, box_filename)
+                logging.info(
+                    "[Monitor %s] Saved bounding box JSON: %s", idx, box_filename
+                )
                 prev_images[idx] = censored_img
             else:
                 logging.debug(
@@ -158,7 +163,10 @@ def main():
         description="Capture screenshots once and compare with cached versions."
     )
     parser.add_argument(
-        "--min", type=int, default=400, help="Minimum size threshold for a bounding box (pixels)"
+        "--min",
+        type=int,
+        default=400,
+        help="Minimum size threshold for a bounding box (pixels)",
     )
     args = setup_cli(parser)
     journal = os.getenv("JOURNAL_PATH")

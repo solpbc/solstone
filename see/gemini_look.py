@@ -27,15 +27,21 @@ def initialize():
     load_dotenv()
     GEMINI_API_KEY = os.getenv("GOOGLE_API_KEY")
     if not GEMINI_API_KEY:
-        raise ValueError("GOOGLE_API_KEY not found in environment. Please create a .env file.")
+        raise ValueError(
+            "GOOGLE_API_KEY not found in environment. Please create a .env file."
+        )
 
     # Load system instruction from external file
     try:
-        system_instruction_path = os.path.join(os.path.dirname(__file__), "gemini_look.txt")
+        system_instruction_path = os.path.join(
+            os.path.dirname(__file__), "gemini_look.txt"
+        )
         with open(system_instruction_path, "r") as f:
             _system_instruction = f.read().strip()
     except FileNotFoundError:
-        print(f"Warning: System instruction file not found at {system_instruction_path}")
+        print(
+            f"Warning: System instruction file not found at {system_instruction_path}"
+        )
         return False
 
     _gemini_client = genai.Client(api_key=GEMINI_API_KEY)
@@ -58,7 +64,9 @@ def gemini_describe_region(image, box, models=None, entities=None):
     im_with_box = image.copy()
     draw = ImageDraw.Draw(im_with_box)
     draw.rectangle(
-        ((native_x_min, native_y_min), (native_x_max, native_y_max)), outline="red", width=3
+        ((native_x_min, native_y_min), (native_x_max, native_y_max)),
+        outline="red",
+        width=3,
     )
     cropped = im_with_box.crop((native_x_min, native_y_min, native_x_max, native_y_max))
 
@@ -93,7 +101,9 @@ def gemini_describe_region(image, box, models=None, entities=None):
                 ),
             )
             if not response.text:
-                print(f"Bad response from Gemini API with model {model_name}: {repr(response)}")
+                print(
+                    f"Bad response from Gemini API with model {model_name}: {repr(response)}"
+                )
             print(response.text)
             return {"result": json.loads(response.text), "model_used": model_name}
         except Exception as e:
@@ -101,5 +111,7 @@ def gemini_describe_region(image, box, models=None, entities=None):
             if model_name == models_to_try[-1]:  # If it's the last model in the list
                 return None  # All retries failed
             # Otherwise, loop will continue to the next model
-            print(f"Retrying with next model: {models_to_try[models_to_try.index(model_name) + 1]}")
+            print(
+                f"Retrying with next model: {models_to_try[models_to_try.index(model_name) + 1]}"
+            )
     return None

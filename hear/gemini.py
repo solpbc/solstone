@@ -15,14 +15,22 @@ USER_PROMPT = (
 
 
 def transcribe_segments(
-    client, model: str, prompt_text: str, entities_text: str, segments: List[Dict[str, object]]
+    client,
+    model: str,
+    prompt_text: str,
+    entities_text: str,
+    segments: List[Dict[str, object]],
 ) -> dict:
     """Send audio segments to Gemini and return the parsed JSON result."""
 
     contents = [entities_text, USER_PROMPT]
     for seg in segments:
-        contents.append(f"This clip starts at {seg['start']} and the source is '{seg['source']}':")
-        contents.append(types.Part.from_bytes(data=seg["bytes"], mime_type="audio/flac"))
+        contents.append(
+            f"This clip starts at {seg['start']} and the source is '{seg['source']}':"
+        )
+        contents.append(
+            types.Part.from_bytes(data=seg["bytes"], mime_type="audio/flac")
+        )
 
     response = client.models.generate_content(
         model=model,

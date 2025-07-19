@@ -14,9 +14,7 @@ from think.crumbs import CrumbBuilder
 from think.models import GEMINI_FLASH, GEMINI_PRO
 from think.utils import day_log, day_path, get_topics, setup_cli
 
-COMMON_SYSTEM_INSTRUCTION = (
-    "You are an expert productivity analyst tasked with analyzing a full workday transcript containing both audio conversations and screen activity data, segmented into 5-minute chunks. You will be given the transcripts and then following that you will have a detailed user request for how to process them.  Please follow those instructions carefully. Take time to consider all of the nuance of the interactions from the day, deeply think through how best to prioritize the most important aspects and understandings, formulate the best approach for each step of the analysis."
-)
+COMMON_SYSTEM_INSTRUCTION = "You are an expert productivity analyst tasked with analyzing a full workday transcript containing both audio conversations and screen activity data, segmented into 5-minute chunks. You will be given the transcripts and then following that you will have a detailed user request for how to process them.  Please follow those instructions carefully. Take time to consider all of the nuance of the interactions from the day, deeply think through how best to prioritize the most important aspects and understandings, formulate the best approach for each step of the analysis."
 
 
 def _topic_basenames() -> list[str]:
@@ -108,7 +106,9 @@ def send_markdown(
         }
 
         if cache_display_name:
-            cache_name = _get_or_create_cache(client, model, cache_display_name, markdown)
+            cache_name = _get_or_create_cache(
+                client, model, cache_display_name, markdown
+            )
             gen_config_args["cached_content"] = cache_name
             contents: list[str] = [prompt]
         else:
@@ -298,7 +298,9 @@ def main() -> None:
         json_exists = occ_output_path.exists() and occ_output_path.stat().st_size > 0
 
         if json_exists and not args.force:
-            print(f"JSON file already exists: {occ_output_path}. Use --force to overwrite.")
+            print(
+                f"JSON file already exists: {occ_output_path}. Use --force to overwrite."
+            )
             return
         elif json_exists and args.force:
             print("JSON file exists but --force specified. Regenerating.")

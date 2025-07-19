@@ -57,8 +57,16 @@ def input_graph(flac_file, chunk_duration=0.05):
 
     # Create the plot
     plt.figure(figsize=(12, 6))
-    plt.plot(time_points, mic_rms, label="Microphone RMS (Left)", alpha=0.8, linewidth=2)
-    plt.plot(time_points, system_rms, label="System Audio RMS (Right)", alpha=0.8, linewidth=2)
+    plt.plot(
+        time_points, mic_rms, label="Microphone RMS (Left)", alpha=0.8, linewidth=2
+    )
+    plt.plot(
+        time_points,
+        system_rms,
+        label="System Audio RMS (Right)",
+        alpha=0.8,
+        linewidth=2,
+    )
 
     plt.xlabel("Time (seconds)")
     plt.ylabel("RMS Amplitude")
@@ -68,7 +76,9 @@ def input_graph(flac_file, chunk_duration=0.05):
     plt.tight_layout()
 
     # Show statistics
-    print(f"\nMicrophone RMS (Left) - Mean: {np.mean(mic_rms):.4f}, Max: {np.max(mic_rms):.4f}")
+    print(
+        f"\nMicrophone RMS (Left) - Mean: {np.mean(mic_rms):.4f}, Max: {np.max(mic_rms):.4f}"
+    )
     print(
         f"System Audio RMS (Right) - Mean: {np.mean(system_rms):.4f}, Max: {np.max(system_rms):.4f}"
     )

@@ -85,7 +85,10 @@ class AudioRecorder:
                             if not self._running:
                                 break
                             time.sleep(0.5)
-                del mic_rec, sys_rec  # Explicitly delete to reset system audio device resources
+                del (
+                    mic_rec,
+                    sys_rec,
+                )  # Explicitly delete to reset system audio device resources
                 gc.collect()  # Force garbage collection after deleting recorders
             except Exception as e:
                 logging.error(f"Error setting up recorders: {e}")
@@ -104,7 +107,9 @@ class AudioRecorder:
                 continue
 
             # Clean the data
-            stereo_chunk = np.nan_to_num(stereo_chunk, nan=0.0, posinf=1e10, neginf=-1e10)
+            stereo_chunk = np.nan_to_num(
+                stereo_chunk, nan=0.0, posinf=1e10, neginf=-1e10
+            )
             stereo_buffer = np.vstack((stereo_buffer, stereo_chunk))
 
         if stereo_buffer.size == 0:
@@ -144,7 +149,9 @@ class AudioRecorder:
         asyncio.set_event_loop(self.ws_loop)
 
         async def start_server():
-            server = await websockets.serve(self._ws_handler, "0.0.0.0", self.websocket_port)
+            server = await websockets.serve(
+                self._ws_handler, "0.0.0.0", self.websocket_port
+            )
             await server.wait_closed()
 
         self.ws_loop.run_until_complete(start_server())
@@ -171,7 +178,9 @@ class AudioRecorder:
             current_time = time.time()
             if current_time - last_save_time >= self.timer_interval:
                 if accumulated_data.size == 0:
-                    logging.warning("Timer interval elapsed with no accumulated audio data")
+                    logging.warning(
+                        "Timer interval elapsed with no accumulated audio data"
+                    )
                 else:
                     raw_bytes = self.create_flac_bytes(accumulated_data)
                     self.save_flac(raw_bytes, suffix="raw")
@@ -215,7 +224,11 @@ class AudioRecorder:
 def main():
     parser = argparse.ArgumentParser(description="Record audio and save FLAC files.")
     parser.add_argument(
-        "-t", "--timer_interval", type=int, default=60, help="Timer interval in seconds."
+        "-t",
+        "--timer_interval",
+        type=int,
+        default=60,
+        help="Timer interval in seconds.",
     )
     parser.add_argument(
         "--ws-port", type=int, default=None, help="Start websocket server on this port"

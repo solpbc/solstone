@@ -95,7 +95,9 @@ def build_entities(cache: Dict[str, dict]) -> Dict[str, Dict[str, dict]]:
         is_top = info.get("top", False)
         for etype, name, desc in info.get("entries", []):
             type_map = index.setdefault(etype, {})
-            entry = type_map.setdefault(name, {"dates": [], "descriptions": {}, "top": False})
+            entry = type_map.setdefault(
+                name, {"dates": [], "descriptions": {}, "top": False}
+            )
             if is_top:
                 entry["top"] = True
                 if desc:
@@ -231,7 +233,9 @@ class Entities:
 def main() -> None:
     """CLI entry point for entity indexing."""
     parser = argparse.ArgumentParser(description="Entity indexing for journal")
-    parser.add_argument("--rescan", action="store_true", help="Force rescan by clearing cache")
+    parser.add_argument(
+        "--rescan", action="store_true", help="Force rescan by clearing cache"
+    )
 
     args = setup_cli(parser)
 

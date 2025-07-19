@@ -32,7 +32,9 @@ def _load_entries(day_dir: str, audio: bool, screen_mode: str) -> List[Dict[str,
         if audio and (match := AUDIO_PATTERN.match(filename)):
             time_part = match.group(1)
             prefix = "audio"
-        elif screen_mode == "summary" and (match := SCREEN_SUMMARY_PATTERN.match(filename)):
+        elif screen_mode == "summary" and (
+            match := SCREEN_SUMMARY_PATTERN.match(filename)
+        ):
             time_part = match.group(1)
             prefix = "screen"
         elif screen_mode == "raw" and (match := SCREEN_DIFF_PATTERN.match(filename)):
@@ -64,11 +66,15 @@ def _load_entries(day_dir: str, audio: bool, screen_mode: str) -> List[Dict[str,
     return entries
 
 
-def _group_entries(entries: List[Dict[str, str]]) -> Dict[datetime, List[Dict[str, str]]]:
+def _group_entries(
+    entries: List[Dict[str, str]],
+) -> Dict[datetime, List[Dict[str, str]]]:
     grouped: Dict[datetime, List[Dict[str, str]]] = defaultdict(list)
     for e in entries:
         ts = e["timestamp"]
-        interval = ts.replace(minute=ts.minute - (ts.minute % 5), second=0, microsecond=0)
+        interval = ts.replace(
+            minute=ts.minute - (ts.minute % 5), second=0, microsecond=0
+        )
         grouped[interval].append(e)
     return grouped
 

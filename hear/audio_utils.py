@@ -94,7 +94,9 @@ def resample_audio(
             audio_tensor = enhance(df_model, df_state, audio_tensor)[0]
 
     if in_sr != out_sr:
-        audio_tensor = df_resample(audio_tensor.unsqueeze(0), in_sr, out_sr, method="kaiser_best")
+        audio_tensor = df_resample(
+            audio_tensor.unsqueeze(0), in_sr, out_sr, method="kaiser_best"
+        )
 
     return audio_tensor.squeeze().cpu().numpy()
 
@@ -151,7 +153,11 @@ def detect_speech(
         unprocessed_data = np.array([], dtype=np.float32)
         for i, seg in enumerate(speech_segments):
             # Skip stash logic if no_stash is True
-            if not no_stash and i == len(speech_segments) - 1 and total_duration - seg["end"] < 1:
+            if (
+                not no_stash
+                and i == len(speech_segments) - 1
+                and total_duration - seg["end"] < 1
+            ):
                 start_idx = int(seg["start"] * SAMPLE_RATE)
                 unprocessed_data = buffer_data[start_idx:]
                 break
@@ -159,7 +165,9 @@ def detect_speech(
             end_idx = int(seg["end"] * SAMPLE_RATE)
             seg_data = buffer_data[start_idx:end_idx]
 
-            mic_overlap = calculate_mic_overlap(seg["start"], seg["end"], mic_ranges or [])
+            mic_overlap = calculate_mic_overlap(
+                seg["start"], seg["end"], mic_ranges or []
+            )
             in_mic = mic_overlap > 0.8
 
             segments.append({"offset": seg["start"], "data": seg_data, "mic": in_mic})
