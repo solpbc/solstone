@@ -36,6 +36,9 @@ dependencies = [
     "Flask",
     "Markdown",
     "syntok",
+
+    # Natural language time parsing
+    "timefhuman",
     
     # Audio processing dependencies
     "soundcard",

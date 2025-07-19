@@ -22,7 +22,7 @@ def prepare_soundfile(monkeypatch, frames):
 
 def test_split_cli(tmp_path, monkeypatch):
     frames = 16000 * 60
-    sf = prepare_soundfile(monkeypatch, frames)
+    _ = prepare_soundfile(monkeypatch, frames)
 
     day = tmp_path / "20240101"
     day.mkdir()
@@ -31,12 +31,27 @@ def test_split_cli(tmp_path, monkeypatch):
 
     monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
     mod = importlib.import_module("hear.split")
-    monkeypatch.setattr("sys.argv", ["hear-split", "20240101", "1"])
+    monkeypatch.setattr(
+        "sys.argv",
+        ["hear-split", "Jan 1 2024 12:00pm to 12:01pm"],
+    )
     mod.main()
     assert (day / "120000_mic_audio.flac").exists()
     assert (day / "120000_system_audio.flac").exists()
     assert src.exists()
 
-    monkeypatch.setattr("sys.argv", ["hear-split", "20240101", "1", "--cleanup"])
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "hear-split",
+            "--day",
+            "20240101",
+            "--start",
+            "120000",
+            "--length",
+            "1",
+            "--cleanup",
+        ],
+    )
     mod.main()
     assert not src.exists()
