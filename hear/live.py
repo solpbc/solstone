@@ -3,7 +3,9 @@ import asyncio
 import io
 import logging
 import os
+import threading
 import time
+from typing import Callable
 
 import numpy as np
 import soundfile as sf
@@ -15,7 +17,6 @@ from google.genai import types
 from silero_vad import load_silero_vad
 
 from hear.audio_utils import SAMPLE_RATE, detect_speech
-from see.screen_dbus import take_screenshot
 from think.models import GEMINI_FLASH
 from think.utils import setup_cli
 
@@ -48,9 +49,17 @@ async def transcribe_light(client, model: str, audio_bytes: bytes) -> str:
     return result
 
 
-async def identify_active_speaker(client, speaker_state) -> None:
+async def identify_active_speaker(
+    client,
+    speaker_state,
+    *,
+    event_callback: Callable[[dict], None] | None = None,
+    msg_id: int = 0,
+) -> None:
     """Capture a screenshot and ask Gemini who is speaking, updating shared state."""
     try:
+        from see.screen_dbus import take_screenshot
+
         screenshot_start = time.time()
         bus = await MessageBus(bus_type=BusType.SESSION).connect()
         screenshot_bytes = await take_screenshot(bus)
@@ -88,6 +97,14 @@ async def identify_active_speaker(client, speaker_state) -> None:
         speaker_name = response.text.strip()
         logging.info("Meeting Speaker: %s", speaker_name)
         speaker_state["current_speaker"] = speaker_name
+        if event_callback:
+            event_callback(
+                {
+                    "event": "speaker",
+                    "id": msg_id,
+                    "speaker": speaker_name,
+                }
+            )
     except Exception as e:
         logging.error("Gemini meeting request failed: %s", e)
         speaker_state["current_speaker"] = "Unknown"
@@ -95,7 +112,14 @@ async def identify_active_speaker(client, speaker_state) -> None:
         speaker_state["task_running"] = False
 
 
-async def transcribe_audio_segments(segments, client, speaker_state):
+async def transcribe_audio_segments(
+    segments,
+    client,
+    speaker_state,
+    *,
+    event_callback: Callable[[dict], None] | None = None,
+    message_id: int = 0,
+) -> None:
     """Transcribe audio segments in a separate async task."""
     try:
         combined_audio = np.concatenate([seg["data"] for seg in segments])
@@ -112,12 +136,22 @@ async def transcribe_audio_segments(segments, client, speaker_state):
         transcribe_duration = time.time() - transcribe_start
         logging.debug(f"Transcription took {transcribe_duration:.3f}s")
 
+        speaker = None
         if speaker_state is not None:
-            current_speaker = speaker_state.get("current_speaker", "")
-            prefix = f"{current_speaker}: " if current_speaker else ""
+            speaker = speaker_state.get("current_speaker", "")
+            prefix = f"{speaker}: " if speaker else ""
             print(f"{prefix}{text}")
         else:
             print(text)
+        if event_callback:
+            event_callback(
+                {
+                    "event": "transcription",
+                    "id": message_id,
+                    "text": text,
+                    "speaker": speaker or "",
+                }
+            )
 
     except Exception as e:
         logging.error("Transcription error: %s", e)
@@ -129,6 +163,9 @@ async def handle_audio_message(
     stash: np.ndarray,
     client,
     speaker_state: dict | None,
+    *,
+    event_callback: Callable[[dict], None] | None = None,
+    message_id: int = 0,
 ) -> np.ndarray:
     """Handle a single audio message from WebSocket."""
     try:
@@ -138,19 +175,32 @@ async def handle_audio_message(
 
         # Trigger screenshot capture if stash grows beyond 3 seconds and no task is running
         if (
-            speaker_state is not None and
-            len(stash) / SAMPLE_RATE > 3 and
-            not speaker_state.get("task_running", False)
+            speaker_state is not None
+            and len(stash) / SAMPLE_RATE > 3
+            and not speaker_state.get("task_running", False)
         ):
             speaker_state["task_running"] = True
-            asyncio.create_task(identify_active_speaker(client, speaker_state))
+            asyncio.create_task(
+                identify_active_speaker(
+                    client,
+                    speaker_state,
+                    event_callback=event_callback,
+                    msg_id=message_id,
+                )
+            )
 
         segments, stash = detect_speech(vad, "live", stash)
 
         # Launch transcription as async task if segments found
         if segments:
             asyncio.create_task(
-                transcribe_audio_segments(segments, client, speaker_state)
+                transcribe_audio_segments(
+                    segments,
+                    client,
+                    speaker_state,
+                    event_callback=event_callback,
+                    message_id=message_id,
+                )
             )
 
         return stash
@@ -159,7 +209,13 @@ async def handle_audio_message(
         return stash
 
 
-async def live_loop(ws_url: str, client, use_speaker: bool = False) -> None:
+async def live_loop(
+    ws_url: str,
+    client,
+    use_speaker: bool = False,
+    *,
+    event_callback: Callable[[dict], None] | None = None,
+) -> None:
     vad = load_silero_vad()
     stash = np.array([], dtype=np.float32)
     speaker_state = (
@@ -169,6 +225,7 @@ async def live_loop(ws_url: str, client, use_speaker: bool = False) -> None:
     max_retries = 5
     retry_delay = 2.0
 
+    msg_id = 0
     for attempt in range(max_retries):
         try:
             logging.info(
@@ -178,8 +235,15 @@ async def live_loop(ws_url: str, client, use_speaker: bool = False) -> None:
                 logging.info("WebSocket connected successfully")
                 async for msg in ws:
                     stash = await handle_audio_message(
-                        msg, vad, stash, client, speaker_state
+                        msg,
+                        vad,
+                        stash,
+                        client,
+                        speaker_state,
+                        event_callback=event_callback,
+                        message_id=msg_id,
                     )
+                    msg_id += 1
                     processed_seconds += (
                         len(msg) // 8
                     ) / SAMPLE_RATE  # Approximate calculation
@@ -212,6 +276,30 @@ async def live_loop(ws_url: str, client, use_speaker: bool = False) -> None:
                 retry_delay *= 1.5
             else:
                 raise
+
+
+def run(
+    ws_url: str,
+    use_speaker: bool = True,
+    callback: Callable[[dict], None] | None = None,
+) -> None:
+    """Run the live transcription loop with optional callback."""
+    api_key = os.getenv("GOOGLE_API_KEY")
+    if not api_key:
+        raise SystemExit("Error: GOOGLE_API_KEY not found in environment.")
+    client = genai.Client(api_key=api_key)
+    asyncio.run(live_loop(ws_url, client, use_speaker, event_callback=callback))
+
+
+def start_thread(
+    ws_url: str, callback: Callable[[dict], None], use_speaker: bool = True
+) -> threading.Thread:
+    """Run ``run`` in a background thread and return it."""
+    thread = threading.Thread(
+        target=run, args=(ws_url, use_speaker, callback), daemon=True
+    )
+    thread.start()
+    return thread
 
 
 def main() -> None:

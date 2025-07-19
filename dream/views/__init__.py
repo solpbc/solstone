@@ -6,6 +6,8 @@ from flask import Flask
 
 from . import admin, calendar, entities, home, search, tasks
 
+live_view = import_module(".live", __name__)
+
 chat_view = import_module(".chat", __name__)
 
 import_view = import_module(".import", __name__)
@@ -20,6 +22,7 @@ def register_views(app: Flask) -> None:
         admin.bp,
         chat_view.bp,
         import_view.bp,
+        live_view.bp,
         tasks.bp,
     ]:
         app.register_blueprint(bp)

@@ -30,6 +30,7 @@ from .views import calendar as calendar_view
 from .views import chat as chat_view
 from .views import entities as entities_view
 from .views import home as home_view
+from .views import live as live_view
 from .views import register_views
 from .views import search as search_view
 from .views import tasks as tasks_view
@@ -79,6 +80,8 @@ chat_page = chat_view.chat_page
 send_message = chat_view.send_message
 chat_history = chat_view.chat_history
 clear_history = chat_view.clear_history
+live_page = live_view.live_page
+live_join = live_view.live_join
 search_page = search_view.search_page
 import_page = import_page_view.import_page
 tasks_page = tasks_view.tasks_page
@@ -116,6 +119,8 @@ __all__ = [
     "send_message",
     "chat_history",
     "clear_history",
+    "live_page",
+    "live_join",
     "search_page",
     "import_page",
     "entities_data",
