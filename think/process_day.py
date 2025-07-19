@@ -5,33 +5,37 @@ import os
 import subprocess
 from datetime import datetime, timedelta
 
-from think.utils import day_log, setup_cli, get_topics
+from think.utils import day_log, get_topics, setup_cli
 
 
 def run_command(cmd: list[str]) -> bool:
     logging.info("==> %s", " ".join(cmd))
     result = subprocess.run(cmd)
     if result.returncode != 0:
-        logging.error("Command failed with exit code %s: %s", result.returncode, " ".join(cmd))
+        logging.error(
+            "Command failed with exit code %s: %s", result.returncode, " ".join(cmd)
+        )
         return False
     return True
 
 
-def build_commands(day: str, force: bool, repair: bool, verbose: bool = False) -> list[list[str]]:
+def build_commands(
+    day: str, force: bool, repair: bool, verbose: bool = False
+) -> list[list[str]]:
     commands: list[list[str]] = []
 
     if repair:
         logging.info("Running repair routines for %s", day)
-        cmd = ["gemini-transcribe", "--repair", day]
+        cmd = ["hear-transcribe", "--repair", day]
         if verbose:
             cmd.append("-v")
         commands.append(cmd)
-        cmd = ["screen-describe", "--repair", day]
+        cmd = ["see-describe", "--repair", day]
         if verbose:
             cmd.append("-v")
         commands.append(cmd)
 
-    reduce_cmd = ["reduce-screen", day]
+    reduce_cmd = ["see-reduce", day]
     if verbose:
         reduce_cmd.append("--verbose")
     if force:
@@ -40,14 +44,14 @@ def build_commands(day: str, force: bool, repair: bool, verbose: bool = False) -
 
     topics = get_topics()
     for topic_name, topic_data in topics.items():
-        cmd = ["ponder", day, "-f", topic_data["path"], "-p"]
+        cmd = ["think-ponder", day, "-f", topic_data["path"], "-p"]
         if verbose:
             cmd.append("--verbose")
         if force:
             cmd.append("--force")
         commands.append(cmd)
 
-    entity_cmd = ["entity-roll", "--day", day]
+    entity_cmd = ["think-entity-roll", "--day", day]
     if verbose:
         entity_cmd.append("--verbose")
     if force:
@@ -58,7 +62,9 @@ def build_commands(day: str, force: bool, repair: bool, verbose: bool = False) -
 
 
 def parse_args() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="Run daily processing tasks on a journal day")
+    parser = argparse.ArgumentParser(
+        description="Run daily processing tasks on a journal day"
+    )
     parser.add_argument(
         "--day",
         help="Day folder in YYYYMMDD format (defaults to yesterday)",
@@ -113,7 +119,7 @@ def main() -> None:
         else:
             fail_count += 1
 
-    msg = f"process-day {success_count}"
+    msg = f"think-process-day {success_count}"
     if fail_count:
         msg += f" failed {fail_count}"
     if args.force:

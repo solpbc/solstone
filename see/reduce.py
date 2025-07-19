@@ -170,7 +170,15 @@ def call_gemini(markdown, prompt, api_key, debug=False):
 
 
 def process_group(
-    start, files, prompt, prompt_path, api_key, force, day_dir, token_tracker, debug=False
+    start,
+    files,
+    prompt,
+    prompt_path,
+    api_key,
+    force,
+    day_dir,
+    token_tracker,
+    debug=False,
 ):
     out_name = f"{start.strftime('%H%M%S')}_screen.md"
     out_path = os.path.join(day_dir, out_name)
@@ -180,7 +188,9 @@ def process_group(
 
     lines = []
     end = start + timedelta(minutes=5)
-    lines.append(f"## Screen Activity {start.strftime('%H:%M')} - {end.strftime('%H:%M')}")
+    lines.append(
+        f"## Screen Activity {start.strftime('%H:%M')} - {end.strftime('%H:%M')}"
+    )
     lines.append("")
 
     # Group files by monitor for organized display
@@ -219,7 +229,9 @@ def process_group(
         # Calculate compression for this file
         prompt_tokens = usage_metadata.prompt_token_count
         candidates_tokens = usage_metadata.candidates_token_count
-        compression = (1 - candidates_tokens / prompt_tokens) * 100 if prompt_tokens > 0 else 0
+        compression = (
+            (1 - candidates_tokens / prompt_tokens) * 100 if prompt_tokens > 0 else 0
+        )
 
         logging.info(
             "Tokens: (%s) -> (%s) compression: %.2f%%",
@@ -277,7 +289,7 @@ def reduce_day(
     """Process monitor diffs under ``day`` between ``start`` and ``end``.
 
     When ``start``/``end`` are ``None`` all available 5 minute groups are processed.
-    The function mirrors the behaviour of the ``reduce-screen`` CLI and is exposed
+    The function mirrors the behaviour of the ``see-reduce`` CLI and is exposed
     so that other modules can opportunistically reduce recent captures.
 
     Parameters
@@ -348,12 +360,20 @@ def main():
     parser = argparse.ArgumentParser(
         description="Summarize all monitor JSON files in 5 minute chunks using Gemini"
     )
-    parser.add_argument("day", help="Day in YYYYMMDD format containing *_monitor_*_diff.json files")
-    parser.add_argument("-p", "--prompt", default=DEFAULT_PROMPT_PATH, help="Prompt file")
-    parser.add_argument("--force", action="store_true", help="Overwrite existing markdown files")
+    parser.add_argument(
+        "day", help="Day in YYYYMMDD format containing *_monitor_*_diff.json files"
+    )
+    parser.add_argument(
+        "-p", "--prompt", default=DEFAULT_PROMPT_PATH, help="Prompt file"
+    )
+    parser.add_argument(
+        "--force", action="store_true", help="Overwrite existing markdown files"
+    )
     parser.add_argument("--start", help="Start time HH:MM for partial processing")
     parser.add_argument("--end", help="End time HH:MM for partial processing")
-    parser.add_argument("-j", "--jobs", type=int, default=1, help="Number of parallel Gemini calls")
+    parser.add_argument(
+        "-j", "--jobs", type=int, default=1, help="Number of parallel Gemini calls"
+    )
     args = setup_cli(parser)
 
     day_dir = day_path(args.day)
@@ -373,7 +393,7 @@ def main():
         jobs=max(1, args.jobs),
     )
 
-    msg = f"reduce-screen {success} blocks"
+    msg = f"see-reduce {success} blocks"
     if failed:
         msg += f" failed {failed}"
     if args.force:

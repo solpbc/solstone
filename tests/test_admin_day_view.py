@@ -24,40 +24,45 @@ def test_admin_day_actions(monkeypatch, tmp_path):
     tr = sys.modules["dream.task_runner"]
     monkeypatch.setattr(tr, "_run_command", lambda cmd, log: called.append(cmd) or 0)
     monkeypatch.setattr(
-        "glob.glob", lambda pattern: ["prompt1.txt", "prompt2.txt"] if "topics" in pattern else []
+        "glob.glob",
+        lambda pattern: ["prompt1.txt", "prompt2.txt"] if "topics" in pattern else [],
     )
 
-    with review.app.test_request_context("/admin/api/20240101/repair_hear", method="POST"):
+    with review.app.test_request_context(
+        "/admin/api/20240101/repair_hear", method="POST"
+    ):
         resp = review.admin_repair_hear("20240101")
     assert resp.json["status"] == "ok"
-    assert ["gemini-transcribe", "--repair", "20240101", "-v"] in called
+    assert ["hear-transcribe", "--repair", "20240101", "-v"] in called
 
     called.clear()
-    with review.app.test_request_context("/admin/api/20240101/repair_see", method="POST"):
+    with review.app.test_request_context(
+        "/admin/api/20240101/repair_see", method="POST"
+    ):
         resp = review.admin_repair_see("20240101")
     assert resp.json["status"] == "ok"
-    assert ["screen-describe", "--repair", "20240101", "-v"] in called
+    assert ["see-describe", "--repair", "20240101", "-v"] in called
 
     called.clear()
     with review.app.test_request_context("/admin/api/20240101/ponder", method="POST"):
         resp = review.admin_ponder("20240101")
     assert resp.json["status"] == "ok"
-    assert any(cmd[0] == "ponder" for cmd in called)
+    assert any(cmd[0] == "think-ponder" for cmd in called)
 
     called.clear()
     with review.app.test_request_context("/admin/api/20240101/entity", method="POST"):
         resp = review.admin_entity("20240101")
     assert resp.json["status"] == "ok"
-    assert ["entity-roll", "--day", "20240101", "--force", "--verbose"] in called
+    assert ["think-entity-roll", "--day", "20240101", "--force", "--verbose"] in called
 
     called.clear()
     with review.app.test_request_context("/admin/api/20240101/reduce", method="POST"):
         resp = review.admin_reduce("20240101")
     assert resp.json["status"] == "ok"
-    assert ["reduce-screen", "20240101", "--verbose"] in called
+    assert ["see-reduce", "20240101", "--verbose"] in called
 
     called.clear()
     with review.app.test_request_context("/admin/api/20240101/process", method="POST"):
         resp = review.admin_process("20240101")
     assert resp.json["status"] == "ok"
-    assert ["process-day", "--day", "20240101", "--repair", "--verbose"] in called
+    assert ["think-process-day", "--day", "20240101", "--repair", "--verbose"] in called

@@ -71,7 +71,7 @@ def test_admin_actions(monkeypatch, tmp_path):
     with review.app.test_request_context("/admin/api/summary", method="POST"):
         resp = review.refresh_summary()
     assert resp.json["status"] == "ok"
-    assert ["journal-stats", "--verbose"] in called
+    assert ["think-journal-stats", "--verbose"] in called
 
     called.clear()
     with review.app.test_request_context("/admin/api/reload_entities", method="POST"):
