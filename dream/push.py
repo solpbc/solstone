@@ -35,7 +35,7 @@ class PushServer:
 
         self.loop.run_until_complete(start_server())
 
-    async def _handler(self, ws: websockets.WebSocketServerProtocol, path: str) -> None:
+    async def _handler(self, ws: websockets.WebSocketServerProtocol) -> None:
         assert self.loop is not None
         self.clients.append((self.loop, ws))
         try:
