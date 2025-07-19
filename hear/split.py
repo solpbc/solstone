@@ -5,6 +5,7 @@ from pathlib import Path
 
 import soundfile as sf
 
+from hear.transcribe import Transcriber
 from think.utils import day_path, parse_time_range, setup_cli
 
 TOLERANCE_SEC = 1.0
@@ -34,16 +35,20 @@ def find_files(
 ) -> list[Path]:
     """Return audio files in ``day_dir`` matching ``length_min`` and optional range."""
 
+    info = Transcriber.scan_day(day_dir)
+
     expected = length_min * 60
     files: list[Path] = []
-    for audio in sorted(day_dir.glob("*_audio.flac")):
+
+    for name in info["processed"]:
+        audio = day_dir / name
         try:
-            info = sf.info(audio)
+            meta = sf.info(audio)
         except Exception as exc:  # pragma: no cover - invalid file
             logging.error("Failed to read %s: %s", audio, exc)
             continue
 
-        duration = info.frames / info.samplerate if info.samplerate else 0
+        duration = meta.frames / meta.samplerate if meta.samplerate else 0
         if abs(duration - expected) > TOLERANCE_SEC:
             continue
 

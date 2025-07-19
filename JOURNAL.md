@@ -15,7 +15,7 @@ This document describes the layout of a **journal** directory where all audio, s
 Audio capture tools write FLAC files and transcripts:
 
 - `HHMMSS_raw.flac` – temporary mixed audio; removed after processing.
-- `HHMMSS_audio.flac` – final clipped audio segment.
+- `heard/HHMMSS_audio.flac` – final clipped audio segment moved after transcription.
 - `HHMMSS_audio.json` – transcript JSON produced by `gemini-transcribe`.
 
 Screen capture utilities produce per monitor diff files:

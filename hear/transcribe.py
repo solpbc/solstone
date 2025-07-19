@@ -277,12 +277,17 @@ class Transcriber:
 
     @staticmethod
     def scan_day(day_dir: Path) -> dict[str, list[str]]:
-        """Return lists of raw, processed and repairable files within ``day_dir``."""
+        """Return lists of raw, processed and repairable files within ``day_dir``.
+
+        The ``processed`` list includes paths relative to ``day_dir`` so callers
+        can easily open them. Processed audio lives in the ``heard/`` subfolder.
+        """
+
         raw = sorted(p.name for p in day_dir.glob("*_audio.flac"))
 
         heard_dir = day_dir / "heard"
         processed = (
-            sorted(p.name for p in heard_dir.glob("*_audio.flac"))
+            [f"heard/{p.name}" for p in sorted(heard_dir.glob("*_audio.flac"))]
             if heard_dir.is_dir()
             else []
         )
