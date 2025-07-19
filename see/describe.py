@@ -7,7 +7,7 @@ import os
 import time
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Tuple
 
 from PIL import Image
 from watchdog.events import PatternMatchingEventHandler
@@ -31,14 +31,46 @@ class Describer:
         self.attempts: dict[str, int] = {}
         self._last_reduce: Optional[datetime.datetime] = None
 
+    def _move_to_seen(self, img_path: Path, box_path: Path) -> Tuple[Path, Path]:
+        """Move processed files into the day ``seen`` directory.
+
+        Parameters
+        ----------
+        img_path : Path
+            Path to the diff PNG.
+        box_path : Path
+            Path to the diff bounding box JSON.
+
+        Returns
+        -------
+        Tuple[Path, Path]
+            The new image and box paths if moved successfully, otherwise the
+            original paths.
+        """
+        seen_dir = img_path.parent / "seen"
+        try:
+            seen_dir.mkdir(exist_ok=True)
+            new_img = seen_dir / img_path.name
+            new_box = seen_dir / box_path.name
+            img_path.rename(new_img)
+            box_path.rename(new_box)
+            logging.info("Moved %s and %s to %s", img_path, box_path, seen_dir)
+            return new_img, new_box
+        except Exception as exc:  # pragma: no cover - filesystem errors
+            logging.error(
+                "Failed to move %s and %s to seen: %s", img_path, box_path, exc
+            )
+            return img_path, box_path
+
     def _process_once(self, img_path: Path, box_path: Path, json_path: Path) -> None:
         result = self.describe(img_path, box_path)
         if not result:
             raise RuntimeError("Gemini API returned no result")
         json_path.write_text(json.dumps(result["result"], indent=2))
         logging.info(f"Described {img_path} -> {json_path}")
+        new_img, new_box = self._move_to_seen(img_path, box_path)
         crumb_builder = (
-            CrumbBuilder().add_file(img_path).add_file(box_path).add_file(self.entities)
+            CrumbBuilder().add_file(new_img).add_file(new_box).add_file(self.entities)
         )
         crumb_builder.add_model(result["model_used"])
         crumb_path = crumb_builder.commit(str(json_path))
@@ -46,6 +78,8 @@ class Describer:
 
     def _process(self, img_path: Path, box_path: Path, json_path: Path) -> None:
         if json_path.exists() or json_path.name in self.processed:
+            if img_path.exists() and box_path.exists():
+                self._move_to_seen(img_path, box_path)
             self.processed.add(json_path.name)
             return
         attempts = 0
@@ -71,22 +105,23 @@ class Describer:
 
     @staticmethod
     def scan_day(day_dir: Path) -> dict[str, list[str]]:
-        """Return lists of raw, processed and repairable files within ``day_dir``."""
+        """Return lists of raw, processed and repairable files within ``day_dir``.
+
+        Processed files are those moved into the ``seen/`` directory. Raw files
+        are ``*_diff_box.json`` still present in ``day_dir``. The ``repairable``
+        list mirrors ``raw`` for compatibility with existing callers.
+        """
+
         raw = sorted(p.name for p in day_dir.glob("*_diff_box.json"))
-        processed = sorted(p.name for p in day_dir.glob("*_diff.json"))
 
-        repairable: list[str] = []
-        for box_name in raw:
-            box_path = day_dir / box_name
-            prefix = box_path.stem.replace("_box", "")
-            img_path = box_path.with_name(prefix + ".png")
-            json_path = box_path.with_name(prefix + ".json")
-            if not img_path.exists():
-                continue
-            if not json_path.exists():
-                repairable.append(box_name)
+        seen_dir = day_dir / "seen"
+        processed = (
+            [f"seen/{p.name}" for p in sorted(seen_dir.glob("*_diff_box.json"))]
+            if seen_dir.is_dir()
+            else []
+        )
 
-        return {"raw": raw, "processed": processed, "repairable": sorted(repairable)}
+        return {"raw": raw, "processed": processed, "repairable": raw.copy()}
 
     def repair_day(self, date_str: str, files: list[str], dry_run: bool = False) -> int:
         """Process ``files`` belonging to ``date_str`` and return the count."""
@@ -114,10 +149,12 @@ class Describer:
 
             try:
                 logging.info(f"Describing image: {img_path}")
-                before = json_path.exists()
-                self._process_once(img_path, box_path, json_path)
-                if json_path.exists() and not before:
-                    success += 1
+                if json_path.exists():
+                    self._move_to_seen(img_path, box_path)
+                else:
+                    self._process_once(img_path, box_path, json_path)
+                    if json_path.exists():
+                        success += 1
             except Exception as e:
                 logging.error(f"Failed to describe {img_path}: {e}")
 
