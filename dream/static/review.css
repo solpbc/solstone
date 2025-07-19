@@ -48,6 +48,11 @@ html::before {
   border-radius: 4px;
 }
 
+#homeIcon.error {
+  box-shadow: 0 0 4px 2px red;
+  border-radius: 4px;
+}
+
 .nav-icons a.current {
   background: #eee;
   border-radius: 4px;

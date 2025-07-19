@@ -21,5 +21,14 @@
   </div>
   {% block body %}{% endblock %}
   <script src="{{ url_for('review.static', filename='events.js') }}"></script>
+  <script>
+    (function(){
+      const home = document.getElementById('homeIcon');
+      if(home){
+        window.addEventListener('error', () => home.classList.add('error'));
+        window.addEventListener('unhandledrejection', () => home.classList.add('error'));
+      }
+    })();
+  </script>
 </body>
 </html>
