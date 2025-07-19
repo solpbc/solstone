@@ -56,4 +56,6 @@ Install the package with development extras and run the tests:
 ```bash
 pip install -e .[dev]
 pytest -q --cov=.
+flake8 .
+mypy .
 ```
