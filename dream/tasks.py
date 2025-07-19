@@ -9,6 +9,7 @@ from dataclasses import dataclass, field
 from typing import Dict, List, Optional
 
 from . import state
+from .push import push_server
 
 
 @dataclass
@@ -55,6 +56,7 @@ class TaskManager:
         task = Task(id=tid, name=name, day=day, start=time.time(), initiator=initiator)
         with self.lock:
             self.tasks[tid] = task
+        push_server.push({"view": "tasks", "event": "created", "id": tid})
         return task
 
     def list_tasks(self) -> List[Dict[str, object]]:
@@ -115,6 +117,7 @@ class TaskManager:
             watchers = list(task.watchers)
             task.watchers.clear()
             self._save_task(task)
+        push_server.push({"view": "tasks", "event": "finished", "id": tid})
         for loop, ws in watchers:
             try:
                 asyncio.run_coroutine_threadsafe(ws.close(), loop)
@@ -131,6 +134,7 @@ class TaskManager:
             watchers = list(task.watchers)
             task.watchers.clear()
             self._save_task(task)
+        push_server.push({"view": "tasks", "event": "killed", "id": tid})
         for loop, ws in watchers:
             try:
                 asyncio.run_coroutine_threadsafe(ws.close(), loop)
@@ -226,6 +230,8 @@ class TaskManager:
                     removed += 1
                 except Exception:
                     pass
+        if removed:
+            push_server.push({"view": "tasks", "event": "cleared"})
         return removed
 
 

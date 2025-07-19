@@ -13,6 +13,7 @@ from flask import Flask
 from think.utils import setup_cli
 
 from . import state
+from .push import push_server
 from .utils import (
     adjacent_days,
     build_occurrence_index,
@@ -54,6 +55,7 @@ def create_app(journal: str = "", password: str = "") -> Flask:
     register_views(app)
     if "PYTEST_CURRENT_TEST" not in os.environ:
         task_runner.start()
+        push_server.start()
 
     if journal:
         state.journal_root = journal

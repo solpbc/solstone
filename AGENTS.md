@@ -84,4 +84,5 @@ sunstone/
 * Check for shared function or common utilities:
   * `think/utils.py` available for any script
   * `dream/utils.py` for the dream app
+  * `dream/push.py` websocket event utilities
   * whenever you create a new shared utility anywhere else, add a note here to make it more visible
