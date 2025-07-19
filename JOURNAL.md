@@ -18,10 +18,14 @@ Audio capture tools write FLAC files and transcripts:
 - `heard/HHMMSS_audio.flac` – final clipped audio segment moved after transcription.
 - `HHMMSS_audio.json` – transcript JSON produced by `gemini-transcribe`.
 
-Screen capture utilities produce per monitor diff files:
+Screen capture utilities produce per monitor diff files. After `screen-describe`
+moves the image and its bounding box into a `seen/` directory, the Gemini
+description remains in the day folder:
 
-- `HHMMSS_monitor_N_diff.png` – screenshot of changed region.
-- `HHMMSS_monitor_N_diff_box.json` – bounding box for the change.
+- `HHMMSS_monitor_N_diff.png` – screenshot of the changed region, moved to
+  `seen/` once processed.
+- `HHMMSS_monitor_N_diff_box.json` – bounding box for the change, also moved to
+  `seen/`.
 - `HHMMSS_monitor_N_diff.json` – Gemini description of the diff.
 
 `reduce-screen` summarises these diffs into five‑minute chunks:

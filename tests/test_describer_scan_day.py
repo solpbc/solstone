@@ -1,5 +1,4 @@
 import importlib
-from pathlib import Path
 
 
 def test_scan_day(tmp_path):
