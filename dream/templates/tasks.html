@@ -77,7 +77,8 @@ function hideModal(){
 }
 document.querySelector('#taskModal .close').onclick=hideModal;
 window.onclick=e=>{if(e.target==document.getElementById('taskModal')) hideModal();};
-setInterval(loadTasks,2000);loadTasks();
+appEvents.listen('tasks',()=>loadTasks());
+loadTasks();
 document.getElementById('clearBtn').onclick=()=>{
   fetch('{{ url_for('tasks.clear_old') }}',{method:'POST'}).then(()=>loadTasks());
 };
