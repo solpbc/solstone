@@ -1,5 +1,4 @@
 import importlib
-from pathlib import Path
 
 
 def test_scan_day(tmp_path):
@@ -12,5 +11,5 @@ def test_scan_day(tmp_path):
 
     info = mod.Transcriber.scan_day(day_dir)
     assert info["raw"] == ["120000_audio.flac"]
-    assert info["processed"] == ["110000_audio.flac"]
+    assert info["processed"] == ["heard/110000_audio.flac"]
     assert info["repairable"] == ["120000_audio.flac"]
