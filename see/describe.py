@@ -37,7 +37,9 @@ class Describer:
             raise RuntimeError("Gemini API returned no result")
         json_path.write_text(json.dumps(result["result"], indent=2))
         logging.info(f"Described {img_path} -> {json_path}")
-        crumb_builder = CrumbBuilder().add_file(img_path).add_file(box_path).add_file(self.entities)
+        crumb_builder = (
+            CrumbBuilder().add_file(img_path).add_file(box_path).add_file(self.entities)
+        )
         crumb_builder.add_model(result["model_used"])
         crumb_path = crumb_builder.commit(str(json_path))
         logging.info(f"Crumb saved to {crumb_path}")
@@ -63,7 +65,9 @@ class Describer:
         logging.info(f"Processing {img_path} with box {box_path}")
         box = json.loads(box_path.read_text())
         with Image.open(img_path) as im:
-            return gemini_look.gemini_describe_region(im, box, entities=str(self.entities))
+            return gemini_look.gemini_describe_region(
+                im, box, entities=str(self.entities)
+            )
 
     @staticmethod
     def scan_day(day_dir: Path) -> dict[str, list[str]]:
@@ -141,7 +145,9 @@ class Describer:
             logging.error(f"reduce_day failed: {exc}")
 
     def start(self):
-        handler = PatternMatchingEventHandler(patterns=["*_diff_box.json"], ignore_directories=True)
+        handler = PatternMatchingEventHandler(
+            patterns=["*_diff_box.json"], ignore_directories=True
+        )
 
         def on_created(event):
             box_path = Path(event.src_path)
@@ -186,7 +192,9 @@ class Describer:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Describe screenshot diffs using Gemini")
+    parser = argparse.ArgumentParser(
+        description="Describe screenshot diffs using Gemini"
+    )
     parser.add_argument(
         "--repair",
         type=str,
@@ -237,7 +245,7 @@ def main() -> None:
         info = Describer.scan_day(journal / args.repair)
         repaired = describer.repair_day(args.repair, info["repairable"])
         failed = len(info["repairable"]) - repaired
-        msg = f"screen-describe repaired {repaired}"
+        msg = f"see-describe repaired {repaired}"
         if failed:
             msg += f" failed {failed}"
         day_log(args.repair, msg)

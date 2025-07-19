@@ -25,7 +25,9 @@ def test_ponder_main(tmp_path, monkeypatch):
         "send_markdown",
         lambda *a, **k: (
             "summary",
-            SimpleNamespace(prompt_token_count=1, thoughts_token_count=1, candidates_token_count=1),
+            SimpleNamespace(
+                prompt_token_count=1, thoughts_token_count=1, candidates_token_count=1
+            ),
         ),
     )
     monkeypatch.setattr(
@@ -48,7 +50,7 @@ def test_ponder_main(tmp_path, monkeypatch):
     monkeypatch.setenv("GOOGLE_API_KEY", "x")
 
     monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
-    monkeypatch.setattr("sys.argv", ["ponder-day", "20240101", "-f", str(prompt)])
+    monkeypatch.setattr("sys.argv", ["think-ponder", "20240101", "-f", str(prompt)])
     mod.main()
 
     md = day_dir / "topics" / "prompt.md"

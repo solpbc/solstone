@@ -103,11 +103,19 @@ def run_task(
                     "--verbose",
                 ]
                 commands.append(" ".join(args))
-                code = _run_command(args, logger, stop) if use_stop else _run_command(args, logger)
+                code = (
+                    _run_command(args, logger, stop)
+                    if use_stop
+                    else _run_command(args, logger)
+                )
             elif name == "summary":
-                args = ["journal-stats", "--verbose"]
+                args = ["think-journal-stats", "--verbose"]
                 commands.append(" ".join(args))
-                code = _run_command(args, logger, stop) if use_stop else _run_command(args, logger)
+                code = (
+                    _run_command(args, logger, stop)
+                    if use_stop
+                    else _run_command(args, logger)
+                )
             elif name == "reload_entities":
                 args = [
                     sys.executable,
@@ -117,20 +125,32 @@ def run_task(
                     "--verbose",
                 ]
                 commands.append(" ".join(args))
-                code = _run_command(args, logger, stop) if use_stop else _run_command(args, logger)
+                code = (
+                    _run_command(args, logger, stop)
+                    if use_stop
+                    else _run_command(args, logger)
+                )
                 reload_entities()
             elif name == "hear_repair":
                 if not day:
                     raise ValueError("day required")
-                args = ["gemini-transcribe", "--repair", day, "-v"]
+                args = ["hear-transcribe", "--repair", day, "-v"]
                 commands.append(" ".join(args))
-                code = _run_command(args, logger, stop) if use_stop else _run_command(args, logger)
+                code = (
+                    _run_command(args, logger, stop)
+                    if use_stop
+                    else _run_command(args, logger)
+                )
             elif name == "see_repair":
                 if not day:
                     raise ValueError("day required")
-                args = ["screen-describe", "--repair", day, "-v"]
+                args = ["see-describe", "--repair", day, "-v"]
                 commands.append(" ".join(args))
-                code = _run_command(args, logger, stop) if use_stop else _run_command(args, logger)
+                code = (
+                    _run_command(args, logger, stop)
+                    if use_stop
+                    else _run_command(args, logger)
+                )
             elif name == "ponder":
                 if not day:
                     raise ValueError("day required")
@@ -141,7 +161,7 @@ def run_task(
                 code = 0
                 for prompt in prompts:
                     cmd = [
-                        "ponder",
+                        "think-ponder",
                         day,
                         "-f",
                         prompt,
@@ -152,7 +172,9 @@ def run_task(
                         cmd.append("--force")
                     commands.append(" ".join(cmd))
                     code = (
-                        _run_command(cmd, logger, stop) if use_stop else _run_command(cmd, logger)
+                        _run_command(cmd, logger, stop)
+                        if use_stop
+                        else _run_command(cmd, logger)
                     )
                     if code != 0:
                         break
@@ -160,27 +182,35 @@ def run_task(
                 if not day:
                     raise ValueError("day required")
                 args = [
-                    "entity-roll",
+                    "think-entity-roll",
                     "--day",
                     day,
                     "--force",
                     "--verbose",
                 ]
                 commands.append(" ".join(args))
-                code = _run_command(args, logger, stop) if use_stop else _run_command(args, logger)
+                code = (
+                    _run_command(args, logger, stop)
+                    if use_stop
+                    else _run_command(args, logger)
+                )
             elif name == "reduce":
                 if not day:
                     raise ValueError("day required")
-                cmd = ["reduce-screen", day, "--verbose"]
+                cmd = ["see-reduce", day, "--verbose"]
                 if force:
                     cmd.append("--force")
                 commands.append(" ".join(cmd))
-                code = _run_command(cmd, logger, stop) if use_stop else _run_command(cmd, logger)
+                code = (
+                    _run_command(cmd, logger, stop)
+                    if use_stop
+                    else _run_command(cmd, logger)
+                )
             elif name == "process_day":
                 if not day:
                     raise ValueError("day required")
                 cmd = [
-                    "process-day",
+                    "think-process-day",
                     "--day",
                     day,
                     "--repair",
@@ -189,7 +219,11 @@ def run_task(
                 if force:
                     cmd.append("--force")
                 commands.append(" ".join(cmd))
-                code = _run_command(cmd, logger, stop) if use_stop else _run_command(cmd, logger)
+                code = (
+                    _run_command(cmd, logger, stop)
+                    if use_stop
+                    else _run_command(cmd, logger)
+                )
             else:
                 logger("stderr", f"Unknown task: {name}")
                 code = 1
@@ -223,7 +257,9 @@ class TaskRunner:
         asyncio.set_event_loop(self.loop)
 
         async def start_server():
-            server = await websockets.serve(lambda ws: self._handler(ws, ""), self.host, self.port)
+            server = await websockets.serve(
+                lambda ws: self._handler(ws, ""), self.host, self.port
+            )
             await server.wait_closed()
 
         self.loop.run_until_complete(start_server())

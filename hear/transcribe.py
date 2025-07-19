@@ -73,7 +73,9 @@ class Transcriber:
                 merged = resample_audio(
                     data, sr, SAMPLE_RATE, self._df_model, self._df_state, self._df_sr
                 )
-                logging.info(f"Single channel audio detected in {raw_path} {sr}, no mic data.")
+                logging.info(
+                    f"Single channel audio detected in {raw_path} {sr}, no mic data."
+                )
             else:
                 logging.info(
                     f"Dual channel audio detected in {raw_path} {sr}, denoising mic channel."
@@ -88,7 +90,12 @@ class Transcriber:
                     denoise=True,
                 )
                 sys_new = resample_audio(
-                    data[:, 1], sr, SAMPLE_RATE, self._df_model, self._df_state, self._df_sr
+                    data[:, 1],
+                    sr,
+                    SAMPLE_RATE,
+                    self._df_model,
+                    self._df_state,
+                    self._df_sr,
                 )
 
                 # when testing, save denoised mic audio for validation
@@ -97,7 +104,9 @@ class Transcriber:
                 merged, mic_ranges = merge_streams(sys_new, mic_new, sr)
 
             offset_seconds = len(self.merged_stash) / SAMPLE_RATE
-            adjusted_ranges = [(s + offset_seconds, e + offset_seconds) for s, e in mic_ranges]
+            adjusted_ranges = [
+                (s + offset_seconds, e + offset_seconds) for s, e in mic_ranges
+            ]
 
             merged = np.concatenate((self.merged_stash, merged))
             segments, self.merged_stash = detect_speech(
@@ -141,7 +150,9 @@ class Transcriber:
             time_part = raw_path.stem.replace("_raw", "").replace("_audio", "")
             end_dt = datetime.datetime.strptime(f"{day}_{time_part}", "%Y%m%d_%H%M%S")
             file_duration = len(data) / SAMPLE_RATE
-            base_dt = end_dt - datetime.timedelta(seconds=file_duration + offset_seconds)
+            base_dt = end_dt - datetime.timedelta(
+                seconds=file_duration + offset_seconds
+            )
 
             processed: List[Dict[str, object]] = []
             for seg in segments:
@@ -188,10 +199,14 @@ class Transcriber:
                 try:
                     json_path.write_text(json.dumps({"buffering": True}, indent=2))
                 except Exception as exc:  # pragma: no cover - filesystem errors
-                    logging.error("Failed to write buffering json for %s: %s", json_path, exc)
+                    logging.error(
+                        "Failed to write buffering json for %s: %s", json_path, exc
+                    )
         self.processing.clear()
 
-    def _transcribe_segments(self, raw_path: Path, segments: List[Dict[str, object]]) -> bool:
+    def _transcribe_segments(
+        self, raw_path: Path, segments: List[Dict[str, object]]
+    ) -> bool:
         json_path = self._get_json_path(raw_path)
         attempts = 0
         while attempts < 2:
@@ -204,7 +219,9 @@ class Transcriber:
                 logging.info(f"Transcribed {raw_path} -> {json_path}")
 
                 crumb_builder = (
-                    CrumbBuilder().add_file(self.prompt_path).add_file(self.entities_path)
+                    CrumbBuilder()
+                    .add_file(self.prompt_path)
+                    .add_file(self.entities_path)
                 )
                 crumb_builder = crumb_builder.add_file(raw_path).add_model(MODEL)
                 crumb_path = crumb_builder.commit(str(json_path))
@@ -298,7 +315,9 @@ class Transcriber:
 
     def start(self):
         handler = PatternMatchingEventHandler(
-            patterns=["*_raw.flac"], ignore_directories=True, ignore_patterns=["*/trash/*"]
+            patterns=["*_raw.flac"],
+            ignore_directories=True,
+            ignore_patterns=["*/trash/*"],
         )
 
         def on_created(event):
@@ -374,7 +393,7 @@ def main():
         info = Transcriber.scan_day(journal / args.repair)
         repaired = transcriber.repair_day(args.repair, info["repairable"])
         failed = len(info["repairable"]) - repaired
-        msg = f"gemini-transcribe repaired {repaired}"
+        msg = f"hear-transcribe repaired {repaired}"
         if failed:
             msg += f" failed {failed}"
         day_log(args.repair, msg)
