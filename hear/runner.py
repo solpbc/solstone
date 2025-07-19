@@ -72,10 +72,10 @@ def main() -> None:
 
     # Pass through all original arguments (skip script name)
     all_args = sys.argv[1:]
-    
+
     capture_args = all_args + ["--ws-port", "9987"]
     transcribe_args = all_args
-    
+
     capture_thread = Thread(target=_run_loop, args=("capture.py", capture_args))
     transcribe_thread = Thread(target=_run_loop, args=("transcribe.py", transcribe_args))
 

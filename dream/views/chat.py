@@ -11,6 +11,8 @@ from flask import Blueprint, jsonify, render_template, request
 from google import genai
 from google.genai import types
 
+from .. import state
+
 from think.models import GEMINI_FLASH
 
 
@@ -25,8 +27,6 @@ def _create_mcp_client() -> Client:
     transport = PythonStdioTransport(str(server_path), env=os.environ.copy())
     return Client(transport)
 
-
-from .. import state
 
 bp = Blueprint("chat", __name__, template_folder="../templates")
 

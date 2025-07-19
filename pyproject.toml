@@ -121,6 +121,7 @@ profile = "black"
 
 [tool.flake8]
 # No line length restrictions
+extend-ignore = ["W503", "W504"]
 
 [tool.mypy]
 python_version = "3.12"

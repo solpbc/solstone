@@ -138,9 +138,9 @@ async def handle_audio_message(
 
         # Trigger screenshot capture if stash grows beyond 3 seconds and no task is running
         if (
-            speaker_state is not None
-            and len(stash) / SAMPLE_RATE > 3
-            and not speaker_state.get("task_running", False)
+            speaker_state is not None and
+            len(stash) / SAMPLE_RATE > 3 and
+            not speaker_state.get("task_running", False)
         ):
             speaker_state["task_running"] = True
             asyncio.create_task(identify_active_speaker(client, speaker_state))
