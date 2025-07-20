@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import os
+import sys
 from pathlib import Path
 from typing import Any, Dict, List
 
@@ -24,7 +25,13 @@ def _create_mcp_client() -> Client:
         return Client(server_url)
 
     server_path = Path(__file__).resolve().parents[2] / "think" / "mcp_server.py"
-    transport = PythonStdioTransport(str(server_path), env=os.environ.copy())
+
+    env = os.environ.copy()
+    if state.journal_root:
+        env["JOURNAL_PATH"] = state.journal_root
+    env["PYTHONPATH"] = os.pathsep.join([os.getcwd()] + sys.path)
+
+    transport = PythonStdioTransport(str(server_path), env=env)
     return Client(transport)
 
 
