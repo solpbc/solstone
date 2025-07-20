@@ -13,6 +13,8 @@ When ``TASK_FILE`` is omitted, an interactive ``chat>`` prompt is started.
 from __future__ import annotations
 
 import argparse
+import asyncio
+import inspect
 import logging
 import os
 import sys
@@ -39,11 +41,17 @@ def build_agent(model: str, max_tokens: int) -> tuple[Agent, RunConfig]:
     mcp_servers = []
     if MCPServerStdio is not None:
         server = MCPServerStdio(
-            {"command": "python", "args": ["think/mcp_server.py", "--stdio"]}
+            {
+                "command": sys.executable,
+                "args": ["-m", "think.mcp_server", "--stdio"],
+            }
         )
         if hasattr(server, "connect"):
             try:
-                server.connect()
+                if inspect.iscoroutinefunction(server.connect):
+                    asyncio.run(server.connect())
+                else:
+                    server.connect()
             except Exception:  # pragma: no cover - best effort
                 logging.debug("Failed to connect MCP server", exc_info=True)
         mcp_servers.append(server)
@@ -94,26 +102,37 @@ def main() -> None:
     logging.info("Building agent with model %s", args.model)
     agent, run_config = build_agent(args.model, args.max_tokens)
 
-    if user_prompts is None:
-        # interactive mode
-        try:
-            while True:
+    try:
+        if user_prompts is None:
+            # interactive mode
+            try:
+                while True:
+                    try:
+                        prompt = input("chat> ")
+                    except EOFError:
+                        break
+                    if not prompt:
+                        continue
+                    result = Runner.run_sync(agent, prompt, run_config=run_config)
+                    print(result.final_output)
+            except KeyboardInterrupt:
+                pass
+        else:
+            user_prompt = user_prompts[0]
+            logging.debug("Task contents: %s", user_prompt)
+            logging.info("Running agent")
+            result = Runner.run_sync(agent, user_prompt, run_config=run_config)
+            print(result.final_output)
+    finally:
+        for server in getattr(agent, "mcp_servers", []):
+            if hasattr(server, "cleanup"):
                 try:
-                    prompt = input("chat> ")
-                except EOFError:
-                    break
-                if not prompt:
-                    continue
-                result = Runner.run_sync(agent, prompt, run_config=run_config)
-                print(result.final_output)
-        except KeyboardInterrupt:
-            pass
-    else:
-        user_prompt = user_prompts[0]
-        logging.debug("Task contents: %s", user_prompt)
-        logging.info("Running agent")
-        result = Runner.run_sync(agent, user_prompt, run_config=run_config)
-        print(result.final_output)
+                    if inspect.iscoroutinefunction(server.cleanup):
+                        asyncio.run(server.cleanup())
+                    else:
+                        server.cleanup()
+                except Exception:  # pragma: no cover - best effort
+                    logging.debug("Failed to cleanup MCP server", exc_info=True)
 
 
 if __name__ == "__main__":
