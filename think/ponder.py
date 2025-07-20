@@ -126,8 +126,28 @@ def send_markdown(
         t.join()
 
 
-def send_occurrence(markdown: str, prompt: str, api_key: str, model: str) -> object:
-    """Send markdown to generate occurrence data and return parsed JSON."""
+def send_occurrence(
+    markdown: str,
+    prompt: str,
+    api_key: str,
+    model: str,
+    extra_instructions: str | None = None,
+) -> object:
+    """Send markdown to generate occurrence data and return parsed JSON.
+
+    Parameters
+    ----------
+    markdown:
+        Markdown summary to convert into occurrences.
+    prompt:
+        System instruction guiding the model.
+    api_key:
+        Google API key for authentication.
+    model:
+        Gemini model name.
+    extra_instructions:
+        Optional additional instructions prepended to ``markdown``.
+    """
     client = genai.Client(api_key=api_key)
 
     gen_config_args = {
@@ -140,9 +160,13 @@ def send_occurrence(markdown: str, prompt: str, api_key: str, model: str) -> obj
         "system_instruction": prompt,
     }
 
+    contents = [markdown]
+    if extra_instructions:
+        contents.insert(0, extra_instructions)
+
     response = client.models.generate_content(
         model=model,
-        contents=[markdown],
+        contents=contents,
         config=types.GenerateContentConfig(**gen_config_args),
     )
 
@@ -195,6 +219,8 @@ def main() -> None:
     markdown, file_count = cluster(args.day)
     day_dir = day_path(args.day)
     topic_basename = Path(args.topic).stem
+    topic_meta = get_topics().get(topic_basename, {})
+    extra_occ = topic_meta.get("occurrences")
     success = False
 
     try:
@@ -306,7 +332,13 @@ def main() -> None:
             print("JSON file exists but --force specified. Regenerating.")
 
         try:
-            occurrences = send_occurrence(result, occ_prompt, api_key, model)
+            occurrences = send_occurrence(
+                result,
+                occ_prompt,
+                api_key,
+                model,
+                extra_instructions=extra_occ,
+            )
         except ValueError as e:
             print(f"Error: {e}")
             return
