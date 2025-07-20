@@ -7,7 +7,7 @@ from typing import Any
 
 from fastmcp import FastMCP
 
-from think.indexer import search_occurrences as search_occurrences_impl
+from think.indexer import search_raws as search_raws_impl
 from think.indexer import search_topics as search_topics_impl
 
 # Create the MCP server
@@ -34,17 +34,26 @@ def search_topic(query: str, limit: int = 5, offset: int = 0) -> dict[str, Any]:
 
 
 @mcp.tool
-def search_occurrence(query: str) -> str:
-    """Search structured occurrences by keyword."""
+def search_raw(query: str, day: str, limit: int = 5, offset: int = 0) -> dict[str, Any]:
+    """Full-text search over raw transcripts and screen diffs for a day."""
     journal = os.getenv("JOURNAL_PATH", "journal")
-    results = search_occurrences_impl(journal, query, 5)
+    total, results = search_raws_impl(
+        journal, query, limit=limit, offset=offset, day=day
+    )
 
-    lines = []
+    items = []
     for r in results:
         meta = r.get("metadata", {})
-        lines.append(f"{meta.get('day')} {meta.get('type')}: {r['text']}")
+        items.append(
+            {
+                "day": meta.get("day", ""),
+                "time": meta.get("time", ""),
+                "type": meta.get("type", ""),
+                "text": r.get("text", ""),
+            }
+        )
 
-    return "\n".join(lines)
+    return {"total": total, "results": items}
 
 
 @mcp.tool

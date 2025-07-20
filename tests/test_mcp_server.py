@@ -9,7 +9,9 @@ async def run_client(script: Path, env: dict[str, str]):
     transport = PythonStdioTransport(str(script), args=[], env=env, keep_alive=False)
     async with Client(transport) as client:
         result1 = await client.call_tool("search_topic", {"query": "hello"})
-        result2 = await client.call_tool("search_occurrence", {"query": "hi"})
+        result2 = await client.call_tool(
+            "search_raw", {"query": "hi", "day": "20240101"}
+        )
     return result1.data, result2.data
 
 
@@ -21,9 +23,19 @@ def test_mcp_server_via_stdio(tmp_path):
 
     calls = calls_file.read_text(encoding="utf-8").splitlines()
     assert "topics:hello:5:0" in calls
-    assert "occurrences:hi:5" in calls
+    assert "raws:hi:20240101:5:0" in calls
     assert data1 == {
         "total": 1,
         "results": [{"day": "20240101", "filename": "foo", "text": "hello"}],
     }
-    assert data2 == "20240101 note: occurred"
+    assert data2 == {
+        "total": 1,
+        "results": [
+            {
+                "day": "20240101",
+                "time": "123000",
+                "type": "audio",
+                "text": "occurred",
+            }
+        ],
+    }

@@ -21,7 +21,7 @@ The package exposes several commands:
   any missing screenshot or audio descriptions for a day.
 - `entity-roll` collects entities across days and writes a rollup file.
 - `process-day` runs the above tools for a single day.
- - `ponder-mcp` starts an OAuth-enabled server exposing search capabilities over MCP for both ponder text and structured occurrences.
+ - `ponder-mcp` starts an OAuth-enabled server exposing search capabilities over MCP for both ponder text and raw transcripts.
 
 ```bash
 ponder YYYYMMDD [-f PROMPT] [-p] [-c] [--force] [-v]
@@ -72,7 +72,7 @@ WantedBy=timers.target
 ## CLI Agent
 
 `think.agent` provides a small command line interface around an OpenAI agent.
-It can search across topic summaries, search the occurrences index and read
+It can search across topic summaries, query raw transcripts and read
 full Markdown files from the journal using three custom tools.
 
 ```bash
@@ -86,7 +86,8 @@ query your journal index. The command starts a local MCP server and connects to
 it automatically. The tools available to the agent are:
 
 - **search_topic** – full text search across `topics/*.md` sentences.
-- **search_occurrences** – keyword search over `occurrences.json` entries.
+- **search_raw** – full text search over raw `*_audio.json` and
+  `*_diff.json` files for a specific day (requires the `day` argument).
 - **read_markdown** – return the contents of any `journal/YYYYMMDD/*.md` file.
 
 The agent will loop automatically and print its final answer to `stdout`.

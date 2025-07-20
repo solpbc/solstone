@@ -19,13 +19,18 @@ def stub_search_topics(journal, query, limit=5, offset=0):
     return 1, [{"text": "hello", "metadata": {"day": "20240101", "topic": "foo.md"}}]
 
 
-def stub_search_occurrences(journal, query, limit):
-    log_call(f"occurrences:{query}:{limit}")
-    return [{"text": "occurred", "metadata": {"day": "20240101", "type": "note"}}]
+def stub_search_raws(journal, query, limit=5, offset=0, day=None):
+    log_call(f"raws:{query}:{day}:{limit}:{offset}")
+    return 1, [
+        {
+            "text": "occurred",
+            "metadata": {"day": "20240101", "time": "123000", "type": "audio"},
+        }
+    ]
 
 
 mcp_server.search_topics_impl = stub_search_topics
-mcp_server.search_occurrences_impl = stub_search_occurrences
+mcp_server.search_raws_impl = stub_search_raws
 
 if __name__ == "__main__":
     mcp_server.mcp.run()
