@@ -90,3 +90,14 @@ it automatically. The tools available to the agent are:
 - **read_markdown** – return the contents of any `journal/YYYYMMDD/*.md` file.
 
 The agent will loop automatically and print its final answer to `stdout`.
+
+## Topic map keys
+
+`think.utils.get_topics()` reads the prompt files under `think/topics` and
+returns a dictionary keyed by topic name. Each entry contains:
+
+- `path` – the prompt text file path
+- `color` – UI color hex string
+- `mtime` – modification time of the `.txt` file
+- Any additional keys from the matching `<topic>.json` metadata file such as
+  `title`, `description` or `occurrences`

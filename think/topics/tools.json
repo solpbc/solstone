@@ -1,5 +1,5 @@
 {
     "title": "Tool Usage",
     "description": "Catalogues every application or service used throughout the day and how long it was active. The report details which tools are critical, supporting or distracting.",
-    "occurrences": "Whenever a tool is launched or actively used, create an occurrence noting the time span, purpose and intensity of use. Distinguish between core work tools and occasional utilities.",
+    "occurrences": "Whenever a tool is launched or actively used, create an occurrence noting the time span, purpose and intensity of use. Distinguish between core work tools and occasional utilities."
 }

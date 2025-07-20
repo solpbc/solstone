@@ -1,4 +1,5 @@
 import argparse
+import json
 import logging
 import os
 import re
@@ -104,9 +105,9 @@ def setup_cli(parser: argparse.ArgumentParser, *, parse_known: bool = False):
 def get_topics() -> dict[str, dict[str, object]]:
     """Return available topics with metadata.
 
-    Each key is the topic name and the value contains the ``path`` to the
-    ``.txt`` file, the assigned ``color`` from :data:`CATEGORY_COLORS`, and the
-    file ``mtime``.
+    Each key is the topic name. The value contains the ``path`` to the
+    ``.txt`` file, the assigned ``color`` from :data:`CATEGORY_COLORS`, the file
+    ``mtime`` and any keys loaded from a matching ``.json`` metadata file.
     """
 
     topics_dir = Path(__file__).parent / "topics"
@@ -115,11 +116,21 @@ def get_topics() -> dict[str, dict[str, object]]:
         name = txt_path.stem
         color = CATEGORY_COLORS[idx % len(CATEGORY_COLORS)]
         mtime = int(txt_path.stat().st_mtime)
-        topics[name] = {
+        info: dict[str, object] = {
             "path": str(txt_path),
             "color": color,
             "mtime": mtime,
         }
+        json_path = txt_path.with_suffix(".json")
+        if json_path.exists():
+            try:
+                with open(json_path, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                if isinstance(data, dict):
+                    info.update(data)
+            except Exception as exc:  # pragma: no cover - metadata optional
+                logging.debug("Error reading %s: %s", json_path, exc)
+        topics[name] = info
     return topics
 
 
