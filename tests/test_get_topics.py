@@ -11,3 +11,4 @@ def test_get_topics():
     assert isinstance(info["color"], str)
     assert isinstance(info["mtime"], int)
     assert "title" in info
+    assert "occurrences" in info
