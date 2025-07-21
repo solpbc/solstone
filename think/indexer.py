@@ -60,7 +60,7 @@ def get_index(journal: str, day: str | None = None) -> Tuple[sqlite3.Connection,
     )
     conn.execute(
         """
-        CREATE VIRTUAL TABLE IF NOT EXISTS sentences USING fts5(
+        CREATE VIRTUAL TABLE IF NOT EXISTS topics_text USING fts5(
             sentence, path UNINDEXED, day UNINDEXED, topic UNINDEXED, position UNINDEXED
         )
         """
@@ -94,7 +94,7 @@ def get_index(journal: str, day: str | None = None) -> Tuple[sqlite3.Connection,
     )
     conn.execute(
         """
-        CREATE VIRTUAL TABLE IF NOT EXISTS raws USING fts5(
+        CREATE VIRTUAL TABLE IF NOT EXISTS raws_text USING fts5(
             content, path UNINDEXED, day UNINDEXED, time UNINDEXED, type UNINDEXED
         )
         """
@@ -199,7 +199,7 @@ def _index_sentences(
     for pos, sentence in enumerate(sentences):
         conn.execute(
             (
-                "INSERT INTO sentences(sentence, path, day, topic, position) VALUES (?, ?, ?, ?, ?)"
+                "INSERT INTO topics_text(sentence, path, day, topic, position) VALUES (?, ?, ?, ?, ?)"
             ),
             (sentence, rel, day, topic, pos),
         )
@@ -266,7 +266,7 @@ def scan_topics(journal: str, verbose: bool = False) -> bool:
     if files:
         logger.info("\nIndexing %s topic files...", len(files))
     changed = _scan_files(
-        conn, files, "DELETE FROM sentences WHERE path=?", _index_sentences, verbose
+        conn, files, "DELETE FROM topics_text WHERE path=?", _index_sentences, verbose
     )
     if changed:
         conn.commit()
@@ -309,7 +309,7 @@ def _index_raws(conn: sqlite3.Connection, rel: str, path: str, verbose: bool) ->
     time_part = m.group("time")
     day = rel.split(os.sep, 1)[0]
     conn.execute(
-        ("INSERT INTO raws(content, path, day, time, type) VALUES (?, ?, ?, ?, ?)"),
+        ("INSERT INTO raws_text(content, path, day, time, type) VALUES (?, ?, ?, ?, ?)"),
         (content, rel, day, time_part, rtype),
     )
     if verbose:
@@ -333,7 +333,7 @@ def scan_raws(journal: str, verbose: bool = False) -> bool:
         conn, _ = get_index(journal, day=day)
         logger.info("\nIndexing %s raw files for %s...", len(day_files), day)
         if _scan_files(
-            conn, day_files, "DELETE FROM raws WHERE path=?", _index_raws, verbose
+            conn, day_files, "DELETE FROM raws_text WHERE path=?", _index_raws, verbose
         ):
             conn.commit()
             changed = True
@@ -351,13 +351,13 @@ def search_topics(
     quoted = db.quote(query)
 
     total = conn.execute(
-        f"SELECT count(*) FROM sentences WHERE sentences MATCH {quoted}"
+        f"SELECT count(*) FROM topics_text WHERE topics_text MATCH {quoted}"
     ).fetchone()[0]
 
     cursor = conn.execute(
         f"""
-        SELECT sentence, path, day, topic, position, bm25(sentences) as rank
-        FROM sentences WHERE sentences MATCH {quoted} ORDER BY rank LIMIT ? OFFSET ?
+        SELECT sentence, path, day, topic, position, bm25(topics_text) as rank
+        FROM topics_text WHERE topics_text MATCH {quoted} ORDER BY rank LIMIT ? OFFSET ?
         """,
         (limit, offset),
     )
@@ -493,13 +493,13 @@ def search_raws(
         quoted = db.quote(query)
 
         total += conn.execute(
-            f"SELECT count(*) FROM raws WHERE raws MATCH {quoted}"
+            f"SELECT count(*) FROM raws_text WHERE raws_text MATCH {quoted}"
         ).fetchone()[0]
 
         cursor = conn.execute(
             f"""
-            SELECT content, path, day, time, type, bm25(raws) as rank
-            FROM raws WHERE raws MATCH {quoted} ORDER BY rank
+            SELECT content, path, day, time, type, bm25(raws_text) as rank
+            FROM raws_text WHERE raws_text MATCH {quoted} ORDER BY rank
             """
         )
 
