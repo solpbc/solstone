@@ -68,7 +68,7 @@ def get_index(journal: str, day: str | None = None) -> Tuple[sqlite3.Connection,
     conn.execute(
         """
         CREATE VIRTUAL TABLE IF NOT EXISTS occ_text USING fts5(
-            title, summary, details, participants,
+            content,
             path UNINDEXED, day UNINDEXED, idx UNINDEXED
         )
         """
@@ -217,27 +217,10 @@ def _index_occurrences(
     day = rel.split(os.sep, 1)[0]
     topic = os.path.splitext(os.path.basename(rel))[0]
     for idx, occ in enumerate(occs):
-        title = occ.get("title", "")
-        summary = occ.get("summary", occ.get("subject", ""))
-        details = occ.get("details")
-        if not isinstance(details, str):
-            try:
-                details = json.dumps(details, ensure_ascii=False)
-            except Exception:
-                details = str(details)
-        participants = occ.get("participants")
-        if isinstance(participants, list):
-            participants = ", ".join(participants)
         conn.execute(
+            ("INSERT INTO occ_text(content, path, day, idx) " "VALUES (?, ?, ?, ?)"),
             (
-                "INSERT INTO occ_text(title, summary, details, participants, path, day, idx) "
-                "VALUES (?, ?, ?, ?, ?, ?, ?)"
-            ),
-            (
-                title,
-                summary,
-                details or "",
-                participants or "",
+                json.dumps(occ, ensure_ascii=False),
                 rel,
                 day,
                 idx,
@@ -309,7 +292,9 @@ def _index_raws(conn: sqlite3.Connection, rel: str, path: str, verbose: bool) ->
     time_part = m.group("time")
     day = rel.split(os.sep, 1)[0]
     conn.execute(
-        ("INSERT INTO raws_text(content, path, day, time, type) VALUES (?, ?, ?, ?, ?)"),
+        (
+            "INSERT INTO raws_text(content, path, day, time, type) VALUES (?, ?, ?, ?, ?)"
+        ),
         (content, rel, day, time_part, rtype),
     )
     if verbose:
@@ -380,20 +365,6 @@ def search_topics(
     return total, results
 
 
-def rehydrate_occurrence(journal: str, path: str, idx: int) -> Dict[str, Any]:
-    """Return the JSON occurrence at ``idx`` from ``path``."""
-    full = os.path.join(journal, path)
-    try:
-        with open(full, "r", encoding="utf-8") as f:
-            data = json.load(f)
-    except Exception:
-        return {}
-    items = data.get("occurrences", data) if isinstance(data, dict) else data
-    if isinstance(items, list) and 0 <= idx < len(items):
-        return items[idx]
-    return {}
-
-
 def search_occurrences(
     journal: str,
     query: str,
@@ -409,7 +380,7 @@ def search_occurrences(
     db = sqlite_utils.Database(conn)
     quoted = db.quote(query)
     sql = f"""
-        SELECT t.title, t.summary, t.details, t.participants,
+        SELECT t.content,
                m.path, m.day, m.idx, m.topic, m.start, m.end,
                bm25(occ_text) as rank
         FROM occ_text t JOIN occ_match m ON t.path=m.path AND t.idx=m.idx
@@ -435,10 +406,7 @@ def search_occurrences(
     results = []
     for row in cursor.fetchall():
         (
-            title,
-            summary,
-            details,
-            participants,
+            content,
             path,
             day_label,
             idx,
@@ -447,8 +415,17 @@ def search_occurrences(
             end_val,
             rank,
         ) = row
-        text = title or summary or details
-        occ_obj = rehydrate_occurrence(journal, path, idx)
+        try:
+            occ_obj = json.loads(content)
+        except Exception:
+            occ_obj = {}
+        text = (
+            occ_obj.get("title")
+            or occ_obj.get("summary")
+            or occ_obj.get("subject")
+            or occ_obj.get("details")
+            or content
+        )
         results.append(
             {
                 "id": f"{path}:{idx}",
@@ -460,7 +437,7 @@ def search_occurrences(
                     "topic": topic_label,
                     "start": start_val,
                     "end": end_val,
-                    "participants": participants,
+                    "participants": occ_obj.get("participants"),
                 },
                 "score": rank,
                 "occurrence": occ_obj,
