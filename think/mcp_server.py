@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
 """MCP server for Sunstone journal assistant."""
 
+import json
 import os
 from pathlib import Path
 from typing import Any
 
 from fastmcp import FastMCP
+from fastmcp.resources import TextResource
 
 from think.indexer import search_raws as search_raws_impl
 from think.indexer import search_topics as search_topics_impl
@@ -107,6 +109,32 @@ def read_markdown(date: str, filename: str) -> str:
         raise FileNotFoundError(f"Markdown not found: {md_path}")
 
     return md_path.read_text(encoding="utf-8")
+
+
+@mcp.resource("journal://summary/{day}/{topic}")
+def get_topic_summary(day: str, topic: str) -> TextResource:
+    """Return JSON summary for a topic markdown file."""
+    journal = os.getenv("JOURNAL_PATH", "journal")
+    md_path = Path(journal) / day / "topics" / f"{topic}.md"
+
+    if not md_path.is_file():
+        content = {"error": f"Topic '{topic}' not found for day {day}"}
+    else:
+        text = md_path.read_text(encoding="utf-8")
+        content = {
+            "day": day,
+            "topic": topic,
+            "summary": text,
+            "word_count": len(text.split()),
+        }
+
+    return TextResource(
+        uri=f"journal://summary/{day}/{topic}",
+        name=f"Summary: {topic} ({day})",
+        description=f"Summary of {topic} topic from {day}",
+        mime_type="application/json",
+        text=json.dumps(content, indent=2),
+    )
 
 
 if __name__ == "__main__":
