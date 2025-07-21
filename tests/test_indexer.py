@@ -70,6 +70,7 @@ def test_occurrence_index(tmp_path):
     mod.scan_occurrences(str(journal), verbose=True)
     results = mod.search_occurrences(str(journal), "Standup")
     assert results and results[0]["metadata"]["day"] == "20240101"
+    assert results[0]["occurrence"]["title"] == "Standup"
 
 
 def test_ponder_index(tmp_path):

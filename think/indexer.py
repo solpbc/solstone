@@ -6,7 +6,7 @@ import os
 import re
 import sqlite3
 import time
-from typing import Dict, List, Tuple
+from typing import Any, Dict, List, Tuple
 
 import sqlite_utils
 from syntok import segmenter
@@ -67,14 +67,30 @@ def get_index(journal: str, day: str | None = None) -> Tuple[sqlite3.Connection,
     )
     conn.execute(
         """
-        CREATE VIRTUAL TABLE IF NOT EXISTS occurrences USING fts5(
-            title, summary, details,
-            path UNINDEXED, day UNINDEXED, idx UNINDEXED,
-            type UNINDEXED, source UNINDEXED,
-            start UNINDEXED, end UNINDEXED,
-            work UNINDEXED, participants UNINDEXED
+        CREATE VIRTUAL TABLE IF NOT EXISTS occ_text USING fts5(
+            title, summary, details, participants,
+            path UNINDEXED, day UNINDEXED, idx UNINDEXED
         )
         """
+    )
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS occ_match(
+            path TEXT,
+            day TEXT,
+            idx INTEGER,
+            topic TEXT,
+            start TEXT,
+            end TEXT,
+            PRIMARY KEY(path, idx)
+        )
+        """
+    )
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS occ_match_day_start_end ON occ_match(day, start, end)"
+    )
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS occ_match_day_topic ON occ_match(day, topic)"
     )
     conn.execute(
         """
@@ -124,7 +140,7 @@ def find_raw_files(journal: str) -> Dict[str, str]:
 def _scan_files(
     conn: sqlite3.Connection,
     files: Dict[str, str],
-    delete_sql: str,
+    delete_sql: str | List[str],
     index_func,
     verbose: bool = False,
 ) -> bool:
@@ -145,17 +161,24 @@ def _scan_files(
     cached = total - len(to_index)
     logger.info("%s total files, %s cached, %s to index", total, cached, len(to_index))
     start = time.time()
+    if isinstance(delete_sql, str):
+        delete_sqls = [delete_sql]
+    else:
+        delete_sqls = list(delete_sql)
+
     for idx, (rel, path, mtime) in enumerate(to_index, 1):
         if verbose:
             logger.info("[%s/%s] %s", idx, len(to_index), rel)
-        conn.execute(delete_sql, (rel,))
+        for dsql in delete_sqls:
+            conn.execute(dsql, (rel,))
         index_func(conn, rel, path, verbose)
         conn.execute("REPLACE INTO files(path, mtime) VALUES (?, ?)", (rel, mtime))
 
     # Remove files that no longer exist
     removed = set(db_mtimes) - set(files)
     for rel in removed:
-        conn.execute(delete_sql, (rel,))
+        for dsql in delete_sqls:
+            conn.execute(dsql, (rel,))
         conn.execute("DELETE FROM files WHERE path=?", (rel,))
 
     elapsed = time.time() - start
@@ -192,6 +215,7 @@ def _index_occurrences(
     if verbose:
         logger.info("  indexed %s occurrences", len(occs))
     day = rel.split(os.sep, 1)[0]
+    topic = os.path.splitext(os.path.basename(rel))[0]
     for idx, occ in enumerate(occs):
         title = occ.get("title", "")
         summary = occ.get("summary", occ.get("subject", ""))
@@ -206,22 +230,30 @@ def _index_occurrences(
             participants = ", ".join(participants)
         conn.execute(
             (
-                "INSERT INTO occurrences(title, summary, details, path, day, idx, type, source, start, end, work, participants) "
-                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+                "INSERT INTO occ_text(title, summary, details, participants, path, day, idx) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?)"
             ),
             (
                 title,
                 summary,
                 details or "",
+                participants or "",
                 rel,
                 day,
                 idx,
-                occ.get("type", ""),
-                occ.get("source", ""),
+            ),
+        )
+        conn.execute(
+            (
+                "INSERT INTO occ_match(path, day, idx, topic, start, end) VALUES (?, ?, ?, ?, ?, ?)"
+            ),
+            (
+                rel,
+                day,
+                idx,
+                topic,
                 occ.get("start", ""),
                 occ.get("end", ""),
-                str(occ.get("work", "")),
-                participants or "",
             ),
         )
 
@@ -250,7 +282,11 @@ def scan_occurrences(journal: str, verbose: bool = False) -> bool:
     if files:
         logger.info("\nIndexing %s occurrence files...", len(files))
     changed = _scan_files(
-        conn, files, "DELETE FROM occurrences WHERE path=?", _index_occurrences, verbose
+        conn,
+        files,
+        ["DELETE FROM occ_text WHERE path=?", "DELETE FROM occ_match WHERE path=?"],
+        _index_occurrences,
+        verbose,
     )
     if changed:
         conn.commit()
@@ -344,54 +380,90 @@ def search_topics(
     return total, results
 
 
+def rehydrate_occurrence(journal: str, path: str, idx: int) -> Dict[str, Any]:
+    """Return the JSON occurrence at ``idx`` from ``path``."""
+    full = os.path.join(journal, path)
+    try:
+        with open(full, "r", encoding="utf-8") as f:
+            data = json.load(f)
+    except Exception:
+        return {}
+    items = data.get("occurrences", data) if isinstance(data, dict) else data
+    if isinstance(items, list) and 0 <= idx < len(items):
+        return items[idx]
+    return {}
+
+
 def search_occurrences(
-    journal: str, query: str, n_results: int = 5
-) -> List[Dict[str, str]]:
+    journal: str,
+    query: str,
+    n_results: int = 5,
+    *,
+    day: str | None = None,
+    start: str | None = None,
+    end: str | None = None,
+    topic: str | None = None,
+) -> List[Dict[str, Any]]:
     """Search the occurrences index and return results."""
     conn, _ = get_index(journal)
     db = sqlite_utils.Database(conn)
     quoted = db.quote(query)
-    cursor = conn.execute(
-        f"""
-        SELECT title, summary, details, path, day, idx, type, source, start, end, work, participants, bm25(occurrences) as rank
-        FROM occurrences WHERE occurrences MATCH {quoted} ORDER BY rank LIMIT ?
-        """,
-        (n_results,),
-    )
+    sql = f"""
+        SELECT t.title, t.summary, t.details, t.participants,
+               m.path, m.day, m.idx, m.topic, m.start, m.end,
+               bm25(occ_text) as rank
+        FROM occ_text t JOIN occ_match m ON t.path=m.path AND t.idx=m.idx
+        WHERE occ_text MATCH {quoted}
+    """
+    params: List[str] = []
+    if day:
+        sql += " AND m.day=?"
+        params.append(day)
+    if topic:
+        sql += " AND m.topic=?"
+        params.append(topic)
+    if start:
+        sql += " AND m.end>=?"
+        params.append(start)
+    if end:
+        sql += " AND m.start<=?"
+        params.append(end)
+    sql += " ORDER BY rank LIMIT ?"
+    params.append(n_results)
+
+    cursor = conn.execute(sql, params)
     results = []
     for row in cursor.fetchall():
         (
             title,
             summary,
             details,
-            path,
-            day,
-            idx,
-            o_type,
-            source,
-            start,
-            end,
-            work,
             participants,
+            path,
+            day_label,
+            idx,
+            topic_label,
+            start_val,
+            end_val,
             rank,
         ) = row
         text = title or summary or details
+        occ_obj = rehydrate_occurrence(journal, path, idx)
         results.append(
             {
                 "id": f"{path}:{idx}",
                 "text": text,
                 "metadata": {
-                    "day": day,
+                    "day": day_label,
                     "path": path,
                     "index": idx,
-                    "type": o_type,
-                    "start": start,
-                    "end": end,
-                    "source": source,
-                    "work": work,
+                    "topic": topic_label,
+                    "start": start_val,
+                    "end": end_val,
                     "participants": participants,
                 },
                 "score": rank,
+                "occurrence": occ_obj,
             }
         )
     conn.close()
