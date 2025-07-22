@@ -213,7 +213,6 @@ def run_task(
                     "think-process-day",
                     "--day",
                     day,
-                    "--repair",
                     "--verbose",
                 ]
                 if force:

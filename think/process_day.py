@@ -20,20 +20,19 @@ def run_command(cmd: list[str]) -> bool:
 
 
 def build_commands(
-    day: str, force: bool, repair: bool, verbose: bool = False
+    day: str, force: bool, verbose: bool = False
 ) -> list[list[str]]:
     commands: list[list[str]] = []
 
-    if repair:
-        logging.info("Running repair routines for %s", day)
-        cmd = ["hear-transcribe", "--repair", day]
-        if verbose:
-            cmd.append("-v")
-        commands.append(cmd)
-        cmd = ["see-describe", "--repair", day]
-        if verbose:
-            cmd.append("-v")
-        commands.append(cmd)
+    logging.info("Running repair routines for %s", day)
+    cmd = ["hear-transcribe", "--repair", day]
+    if verbose:
+        cmd.append("-v")
+    commands.append(cmd)
+    cmd = ["see-describe", "--repair", day]
+    if verbose:
+        cmd.append("-v")
+    commands.append(cmd)
 
     reduce_cmd = ["see-reduce", day]
     if verbose:
@@ -71,14 +70,9 @@ def parse_args() -> argparse.ArgumentParser:
     )
     parser.add_argument("--force", action="store_true", help="Overwrite existing files")
     parser.add_argument(
-        "--repair",
-        action="store_true",
-        help="Run hear and see repair routines before processing",
-    )
-    parser.add_argument(
         "--rebuild",
         action="store_true",
-        help="Remove existing outputs before running repairs (implies --repair)",
+        help="Remove existing outputs before running",
     )
     return parser
 
@@ -98,7 +92,6 @@ def main() -> None:
     if not os.path.isdir(day_dir):
         parser.error(f"Day folder not found: {day_dir}")
 
-    repair = args.repair or args.rebuild
     if args.rebuild:
         for pattern in ("*_audio.json", "*_monitor_*_diff.json"):
             for path in glob.glob(os.path.join(day_dir, pattern)):
@@ -110,7 +103,7 @@ def main() -> None:
                 if os.path.exists(crumb):
                     os.remove(crumb)
 
-    commands = build_commands(day, args.force, repair, verbose=args.verbose)
+    commands = build_commands(day, args.force, verbose=args.verbose)
     success_count = 0
     fail_count = 0
     for cmd in commands:
