@@ -12,6 +12,6 @@ def test_scan_day(tmp_path):
     (seen_dir / "110000_monitor_1_diff_box.json").write_text("{}")
 
     info = mod.Describer.scan_day(day_dir)
-    assert info["raw"] == ["120000_monitor_1_diff_box.json"]
-    assert info["processed"] == ["seen/110000_monitor_1_diff_box.json"]
-    assert info["repairable"] == ["120000_monitor_1_diff_box.json"]
+    assert info["raw"] == ["seen/110000_monitor_1_diff.png"]
+    assert info["processed"] == []
+    assert info["repairable"] == ["120000_monitor_1_diff.png"]

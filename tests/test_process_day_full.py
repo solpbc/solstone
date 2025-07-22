@@ -14,7 +14,7 @@ def copy_journal(tmp_path: Path) -> Path:
 
 def test_build_commands(tmp_path):
     mod = importlib.import_module("think.process_day")
-    cmds = mod.build_commands("20240101", force=True, repair=False, verbose=True)
+    cmds = mod.build_commands("20240101", force=True, verbose=True)
     assert ["see-reduce", "20240101", "--verbose", "--force"] in cmds
     assert any(cmd[0] == "think-ponder" for cmd in cmds)
     assert cmds[-1][0] == "think-entity-roll"

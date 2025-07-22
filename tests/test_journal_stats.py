@@ -36,7 +36,7 @@ def test_scan_day(tmp_path, monkeypatch):
     js.scan_day("20240101", str(day))
     assert js.days["20240101"]["audio_flac"] == 1
     assert js.days["20240101"]["repair_hear"] == 1
-    assert js.totals["diff_png"] == 1
+    assert js.totals["diff_png"] == 0
     assert js.topic_counts["meetings"] == 1
     assert js.heatmap[0][0] == 5
 
