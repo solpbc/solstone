@@ -14,21 +14,21 @@ All dependencies are listed in `pyproject.toml`.
 
 The package exposes several commands:
 
-- `ponder` builds a Markdown summary of a day's recordings using a Gemini prompt.
-- `cluster` groups audio and screen JSON files into report sections. Use `--start` and
+- `think-ponder` builds a Markdown summary of a day's recordings using a Gemini prompt.
+- `think-cluster` groups audio and screen JSON files into report sections. Use `--start` and
   `--length` to limit the report to a specific time range.
-- `screen-describe` and `gemini-transcribe` include a `--repair` option to process
+- `see-describe` and `hear-transcribe` include a `--repair` option to process
   any missing screenshot or audio descriptions for a day.
-- `entity-roll` collects entities across days and writes a rollup file.
-- `process-day` runs the above tools for a single day.
- - `ponder-mcp` starts an OAuth-enabled server exposing search capabilities over MCP for both ponder text and raw transcripts.
+- `think-entity-roll` collects entities across days and writes a rollup file.
+- `think-process-day` runs the above tools for a single day.
+ - `think-mcp-server` starts an OAuth-enabled server exposing search capabilities over MCP for both ponder text and raw transcripts.
 
 ```bash
-ponder YYYYMMDD [-f PROMPT] [-p] [-c] [--force] [-v]
-cluster YYYYMMDD [--start HHMMSS --length MINUTES]
-entity-roll
-process-day [--day YYYYMMDD] [--force] [--repair] [--rebuild]
- ponder-mcp [--port PORT]
+think-ponder YYYYMMDD [-f PROMPT] [-p] [-c] [--force] [-v]
+think-cluster YYYYMMDD [--start HHMMSS --length MINUTES]
+think-entity-roll
+think-process-day [--day YYYYMMDD] [--force] [--repair] [--rebuild]
+ think-mcp-server [--port PORT]
 ```
 
 `-p` is a switch enabling the Gemini Pro model. Use `-c` to count tokens only,
@@ -40,7 +40,7 @@ is loaded automatically by most commands.
 
 ## Automating daily processing
 
-The `process-day` command can be triggered by a systemd timer. Below is a
+The `think-process-day` command can be triggered by a systemd timer. Below is a
 minimal service and timer that process yesterday's folder every morning at
 06:00:
 
@@ -50,7 +50,7 @@ Description=Process sunstone journal
 
 [Service]
 Type=oneshot
-ExecStart=/usr/local/bin/process-day --repair
+ExecStart=/usr/local/bin/think-process-day --repair
 
 [Install]
 WantedBy=multi-user.target
@@ -58,12 +58,12 @@ WantedBy=multi-user.target
 
 ```ini
 [Unit]
-Description=Run process-day daily
+Description=Run think-process-day daily
 
 [Timer]
 OnCalendar=*-*-* 06:00:00
 Persistent=true
-Unit=process-day.service
+Unit=think-process-day.service
 
 [Install]
 WantedBy=timers.target

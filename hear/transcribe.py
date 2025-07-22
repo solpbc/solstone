@@ -85,10 +85,10 @@ class Transcriber:
                 logging.error(
                     "Failed to mark/move precursor %s: %s", precursor_path, exc
                 )
-        
+
         # Move the current raw_path to heard
         self._move_to_heard(raw_path)
-        
+
         # Clear processing list
         self.processing.clear()
 
@@ -129,7 +129,7 @@ class Transcriber:
                 )
 
                 # when testing, save denoised mic audio for validation
-                #sf.write("./mic_denoise.flac", mic_new, SAMPLE_RATE)
+                # sf.write("./mic_denoise.flac", mic_new, SAMPLE_RATE)
 
                 merged, mic_ranges = merge_streams(sys_new, mic_new, sr)
 

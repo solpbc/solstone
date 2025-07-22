@@ -7,7 +7,7 @@ import os
 import time
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
-from typing import Optional, Tuple
+from typing import Optional
 
 from PIL import Image
 from watchdog.events import PatternMatchingEventHandler
@@ -105,7 +105,7 @@ class Describer:
     def scan_day(day_dir: Path) -> dict[str, list[str]]:
         """Return lists of raw, processed and repairable files within ``day_dir``.
 
-        Raw files are ``*.png`` files in the ``seen/`` directory. 
+        Raw files are ``*.png`` files in the ``seen/`` directory.
         Processed files are ``*_diff.json`` files in ``day_dir``.
         Repairable files are ``*.png`` files in ``day_dir``.
         """
@@ -118,7 +118,7 @@ class Describer:
         )
 
         processed = sorted(p.name for p in day_dir.glob("*_diff.json"))
-        
+
         repairable = sorted(p.name for p in day_dir.glob("*.png"))
 
         return {"raw": raw, "processed": processed, "repairable": repairable}

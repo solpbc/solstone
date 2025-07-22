@@ -12,19 +12,25 @@ All Python dependencies are declared in `pyproject.toml`. System packages for so
 
 ## Usage
 
-After setting the `GOOGLE_API_KEY` environment variable you can run the `gemini-mic` command to capture audio and `gemini-transcribe` to convert the recordings to text.  The journal location is taken from the `JOURNAL_PATH` environment variable.  These variables can also be stored in a `.env` file which is loaded automatically.  The paths for a single day are called **days**.  The commands correspond to the `capture.py` and `transcribe.py` modules respectively:
+After setting the `GOOGLE_API_KEY` environment variable you can run the
+`hear-capture` command to capture audio and `hear-transcribe` to convert the
+recordings to text. The journal location is taken from the `JOURNAL_PATH`
+environment variable. These variables can also be stored in a `.env` file which
+is loaded automatically. The paths for a single day are called **days**. The
+commands correspond to the `capture.py` and `transcribe.py` modules
+respectively:
 
 ```bash
-gemini-mic [-d] [-t SECONDS]
-gemini-transcribe [-p PROMPT] [-v] [--repair DAY]
+hear-capture [-d] [-t SECONDS]
+hear-transcribe [-p PROMPT] [-v] [--repair DAY]
 ```
 
-The `sunstone-hear` command runs both of the above tools in a loop so audio
-capture and transcription continue until interrupted. For live text output
-from the recorder's WebSocket stream you can use `gemini-live`.
+The `hear-runner` command runs both of the above tools in a loop so audio capture
+and transcription continue until interrupted. For live text output from the
+recorder's WebSocket stream you can use `hear-live`.
 
 Use `-d` to enable debug mode and `-t` to adjust the speech processing interval.
-The `gemini-transcribe` command accepts `-p` to specify a prompt file, `-v` for
+The `hear-transcribe` command accepts `-p` to specify a prompt file, `-v` for
 verbose output and `--repair` to process a previous day. Crash
 tracebacks are logged to standard error by default.
 
@@ -48,7 +54,7 @@ with when events actually happened.
 
 ### Capture Workflow
 
-The `gemini-mic` command is a wrapper around `AudioRecorder` in `capture.py`.
+The `hear-capture` command is a wrapper around `AudioRecorder` in `capture.py`.
 When launched it automatically detects the active microphone and loopback
 devices using an ultrasonic tone.  Separate threads record from each device at
 48 kHz and enqueue chunks.  Every `timer_interval` seconds the recorder merges
@@ -59,7 +65,7 @@ The resulting files are named with a timestamp and the `_raw.flac` suffix.
 
 ### Transcription Workflow
 
-`gemini-transcribe` watches the latest day directory for new `_raw.flac` files
+`hear-transcribe` watches the latest day directory for new `_raw.flac` files
 and processes each as follows:
 
 1. Denoise the recording with DeepFilterNet3.
@@ -77,7 +83,7 @@ previous day to ensure no recordings are missed.
 
 ### WebSocket Streaming
 
-Running `gemini-mic` with `--ws-port` starts a WebSocket server broadcasting the
+Running `hear-capture` with `--ws-port` starts a WebSocket server broadcasting the
 new stereo chunk every second. Each message is a binary frame containing
 little-endian `float32` samples interleaved as stereo pairs (`mic`, `system`)
 at 16 kHz. The chunk size corresponds to the audio collected during that
@@ -92,5 +98,5 @@ samples = np.frombuffer(msg, dtype=np.float32).reshape(-1, 2)
 To display transcriptions from this stream in real time run:
 
 ```bash
-gemini-live --ws-url ws://localhost:9987
+hear-live --ws-url ws://localhost:9987
 ```
