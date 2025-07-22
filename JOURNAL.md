@@ -23,9 +23,7 @@ moves the image and its bounding box into a `seen/` directory, the Gemini
 description remains in the day folder:
 
 - `HHMMSS_monitor_N_diff.png` – screenshot of the changed region, moved to
-  `seen/` once processed.
-- `HHMMSS_monitor_N_diff_box.json` – bounding box for the change, also moved to
-  `seen/`.
+  `seen/` once processed, contains a box_2d metadata field for the changed area.
 - `HHMMSS_monitor_N_diff.json` – Gemini description of the diff.
 
 `reduce-screen` summarises these diffs into five‑minute chunks:

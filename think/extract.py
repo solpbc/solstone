@@ -9,6 +9,7 @@ from datetime import timedelta
 
 import cv2
 from PIL import Image
+from PIL.PngImagePlugin import PngInfo
 
 from see.screen_compare import compare_images
 from think.utils import setup_cli
@@ -96,11 +97,17 @@ def process_video(path: str, out_dir: str, start: dt.datetime, sample_s: float) 
                     ts = start + timedelta(seconds=frame_idx / fps)
                     time_part = ts.strftime("%H%M%S")
                     img_path = os.path.join(out_dir, f"{time_part}_extract_diff.png")
-                    img.save(img_path)
-                    with open(
-                        os.path.join(out_dir, f"{time_part}_extract_diff_box.json"), "w"
-                    ) as f:
-                        json.dump(largest, f)
+                    
+                    # Add box_2d to PNG metadata
+                    pnginfo = PngInfo()
+                    pnginfo.add_text("box_2d", json.dumps(largest["box_2d"]))
+                    
+                    # Atomically save the image
+                    with tempfile.NamedTemporaryFile(
+                        dir=os.path.dirname(img_path), suffix=".pngtmp", delete=False
+                    ) as tf:
+                        img.save(tf, format="PNG", pnginfo=pnginfo)
+                    os.replace(tf.name, img_path)
         prev_img = img
         frame_idx += interval
     cap.release()
