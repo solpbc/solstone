@@ -15,11 +15,11 @@ Dependencies are defined in `pyproject.toml`. You will also need system packages
 The package exposes two commands driven by the `scan.py` and `describe.py` modules:
 
 - `see-scan` captures the current screen state and compares it with the last run.
-  When differences are found the full screenshot and a `_box.json` file are saved
+  When differences are found the full screenshot with a ()`box_2d` metadata field) is saved
   for later processing. Previous screenshots and the last run timestamp are stored
   under `~/.cache/sunstone/see`.
 
-- `see-describe` watches the journal's current day folder for these `_box.json`
+- `see-describe` watches the journal's current day folder for these `.png`
   files and uses Gemini to produce a JSON description for each diff image. The
   region is highlighted with a red box before calling Gemini. Optional flags
   enable verbose output or allow repair/scan modes for a given day.
