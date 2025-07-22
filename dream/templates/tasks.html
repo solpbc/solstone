@@ -26,30 +26,44 @@ button { padding:4px 8px; }
   </div>
 </div>
 <script>
+let taskMap={};
+function fmtDur(d){return d>=60?(Math.round(d/6)/10+'m'):d+'s';}
+function buildRow(t){
+  const tr=document.createElement('tr');
+  tr.dataset.id=t.id;
+  const name=t.day?t.name+' '+t.day:t.name;
+  const dur=fmtDur(t.duration);
+  tr.title=t.command||'';
+  const exitStr=(t.exit_code===undefined||t.exit_code===null)?'':t.exit_code;
+  tr.innerHTML=`<td>${name}</td><td>${t.since}</td><td class="dur">${dur}</td><td>${t.initiator}</td><td class="lines">${t.lines} lines</td><td>${exitStr}</td>`;
+  const view=document.createElement('button');view.textContent='Log';
+  view.onclick=()=>showLog(t.id);
+  const cell=document.createElement('td');cell.appendChild(view);
+  if(!t.end && !t.killed){
+    const kill=document.createElement('button');kill.textContent='Kill';kill.style.marginLeft='4px';
+    kill.onclick=()=>killTask(t.id);
+    cell.appendChild(kill);
+  }
+  if(t.exit_code && t.exit_code!==0) tr.style.background='#fdd';
+  if(t.killed) tr.style.background='#fcc';
+  tr.appendChild(cell);
+  taskMap[t.id]={row:tr,dur:tr.querySelector('.dur'),lines:tr.querySelector('.lines')};
+  return tr;
+}
 function loadTasks(){
   fetch('{{ url_for('tasks.tasks_list') }}').then(r=>r.json()).then(data=>{
     const table=document.getElementById('taskTable');
     table.innerHTML='<tr><th>Task</th><th>Started</th><th>Duration</th><th>From</th><th>Lines</th><th>Exit</th><th></th></tr>';
-    data.forEach(t=>{
-      const tr=document.createElement('tr');
-      const name=t.day?t.name+' '+t.day:t.name;
-      const dur=t.duration>=60?(Math.round(t.duration/6)/10+'m'):t.duration+'s';
-      tr.title=t.command||'';
-      const exitStr = (t.exit_code===undefined || t.exit_code===null)?'' : t.exit_code;
-      tr.innerHTML=`<td>${name}</td><td>${t.since}</td><td>${dur}</td><td>${t.initiator}</td><td>${t.lines} lines</td><td>${exitStr}</td>`;
-      const view=document.createElement('button');view.textContent='Log';
-      view.onclick=()=>showLog(t.id);
-      const cell=document.createElement('td');cell.appendChild(view);
-      if(!t.end && !t.killed){
-        const kill=document.createElement('button');kill.textContent='Kill';kill.style.marginLeft='4px';
-        kill.onclick=()=>killTask(t.id);
-        cell.appendChild(kill);
-      }
-      if(t.exit_code && t.exit_code!==0) tr.style.background='#fdd';
-      if(t.killed) tr.style.background='#fcc';
-      tr.appendChild(cell);
-      table.appendChild(tr);
-    });
+    taskMap={};
+    data.forEach(t=>{table.appendChild(buildRow(t));});
+  });
+}
+function updateStatus(list){
+  list.forEach(s=>{
+    const info=taskMap[s.id];
+    if(!info) return;
+    info.dur.textContent=fmtDur(s.duration);
+    info.lines.textContent=s.lines+' lines';
   });
 }
 function showLog(id){
@@ -77,7 +91,7 @@ function hideModal(){
 }
 document.querySelector('#taskModal .close').onclick=hideModal;
 window.onclick=e=>{if(e.target==document.getElementById('taskModal')) hideModal();};
-appEvents.listen('tasks',()=>loadTasks());
+appEvents.listen('tasks',m=>{if(m.event==='status') updateStatus(m.tasks); else loadTasks();});
 loadTasks();
 document.getElementById('clearBtn').onclick=()=>{
   fetch('{{ url_for('tasks.clear_old') }}',{method:'POST'}).then(()=>loadTasks());

@@ -38,6 +38,8 @@ class TaskManager:
     def __init__(self) -> None:
         self.tasks: Dict[str, Task] = {}
         self.lock = threading.Lock()
+        self._status_stop = threading.Event()
+        threading.Thread(target=self._status_loop, daemon=True).start()
 
     # tasks dir path
     def _tasks_dir(self) -> str:
@@ -233,6 +235,24 @@ class TaskManager:
         if removed:
             push_server.push({"view": "tasks", "event": "cleared"})
         return removed
+
+    def _status_loop(self) -> None:
+        while not self._status_stop.is_set():
+            time.sleep(1)
+            updates = []
+            now = time.time()
+            with self.lock:
+                for t in self.tasks.values():
+                    if t.end is None and not t.killed:
+                        updates.append(
+                            {
+                                "id": t.id,
+                                "duration": int(now - t.start),
+                                "lines": len(t.log),
+                            }
+                        )
+            if updates:
+                push_server.push({"view": "tasks", "event": "status", "tasks": updates})
 
 
 task_manager = TaskManager()
