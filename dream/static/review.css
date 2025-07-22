@@ -97,6 +97,7 @@ html::before {
   overflow: hidden;
   text-overflow: ellipsis;
   max-width: 120px;
+  min-width: 0;
   transition: background-color 0.2s;
   text-decoration: none;
   color: inherit;
@@ -111,6 +112,8 @@ html::before {
   border-bottom: 2px solid white;
   margin-bottom: -2px;
   font-weight: bold;
+  max-width: none;
+  flex: 0 0 auto;
 }
 
 .admin-link {
