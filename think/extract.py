@@ -97,11 +97,11 @@ def process_video(path: str, out_dir: str, start: dt.datetime, sample_s: float) 
                     ts = start + timedelta(seconds=frame_idx / fps)
                     time_part = ts.strftime("%H%M%S")
                     img_path = os.path.join(out_dir, f"{time_part}_extract_diff.png")
-                    
+
                     # Add box_2d to PNG metadata
                     pnginfo = PngInfo()
                     pnginfo.add_text("box_2d", json.dumps(largest["box_2d"]))
-                    
+
                     # Atomically save the image
                     with tempfile.NamedTemporaryFile(
                         dir=os.path.dirname(img_path), suffix=".pngtmp", delete=False
