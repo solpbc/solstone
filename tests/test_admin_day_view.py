@@ -65,4 +65,4 @@ def test_admin_day_actions(monkeypatch, tmp_path):
     with review.app.test_request_context("/admin/api/20240101/process", method="POST"):
         resp = review.admin_process("20240101")
     assert resp.json["status"] == "ok"
-    assert ["think-process-day", "--day", "20240101", "--repair", "--verbose"] in called
+    assert ["think-process-day", "--day", "20240101", "--verbose"] in called
