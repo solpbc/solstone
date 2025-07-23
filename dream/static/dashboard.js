@@ -1,148 +1,314 @@
-// Dashboard rendering logic for the home page
+// Dashboard module for client-side rendering
+const Dashboard = (function() {
+  'use strict';
 
-function createElem(tag, className, html) {
-  const el = document.createElement(tag);
-  if (className) el.className = className;
-  if (html !== undefined) el.innerHTML = html;
-  return el;
-}
-
-function summaryCard(title, value, subtitle) {
-  const card = createElem('div', 'stat-card');
-  card.innerHTML = `<h3>${title}</h3><p class="stat-value">${value}</p><p class="stat-subtitle">${subtitle}</p>`;
-  return card;
-}
-
-function progressCard(title, done, total) {
-  const pct = total ? (done / total) * 100 : 100;
-  const card = createElem('div', 'progress-card');
-  card.innerHTML = `<h3>${title}</h3>` +
-    `<div class="progress-bar"><div class="progress-fill" style="width:${pct}%">${Math.round(pct)}%</div></div>` +
-    `<div class="progress-stats"><span>${done} / ${total} files</span><span>${total - done} pending</span></div>`;
-  return card;
-}
-
-function buildBarChart(data, container, valueKey, unit, gradient) {
-  container.innerHTML = '';
-  if (!data.length) {
-    container.innerHTML = '<div style="text-align:center;color:#999;padding:2em;">No data available</div>';
-    return;
+  // DOM element factory
+  function el(tag, attrs = {}, children = []) {
+    const elem = document.createElement(tag);
+    Object.entries(attrs).forEach(([k, v]) => {
+      if (k === 'className') elem.className = v;
+      else if (k === 'innerHTML') elem.innerHTML = v;
+      else if (k === 'style' && typeof v === 'object') {
+        Object.assign(elem.style, v);
+      } else elem.setAttribute(k, v);
+    });
+    children.forEach(child => {
+      if (typeof child === 'string') elem.appendChild(document.createTextNode(child));
+      else if (child) elem.appendChild(child);
+    });
+    return elem;
   }
-  const maxVal = Math.max(...data.map(d => d[valueKey])) || 1;
-  const skip = Math.ceil(data.length / 30);
-  data.forEach((d, i) => {
-    if (i % skip !== 0) return;
-    const bar = createElem('div', 'bar');
-    bar.style.height = `${(d[valueKey] / maxVal) * 100}%`;
-    if (gradient) bar.style.background = gradient;
-    const label = createElem('div', 'bar-label', d.day);
-    bar.appendChild(label);
-    if (d[valueKey] > 0) {
-      const val = createElem('div', 'bar-value', d[valueKey] + (unit || ''));
-      bar.appendChild(val);
-    }
-    container.appendChild(bar);
-  });
-}
 
-function buildHeatmap(data) {
-  const container = document.getElementById('heatmap');
-  container.innerHTML = '';
-  if (!data.length) return;
-  const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-  let maxVal = 0;
-  data.forEach(row => row.forEach(v => { if (v > maxVal) maxVal = v; }));
-  container.appendChild(document.createElement('div'));
-  const header = createElem('div', 'heatmap-header');
-  for (let h = 0; h < 24; h++) header.appendChild(createElem('div', 'heatmap-hour', h));
-  container.appendChild(header);
-  for (let d = 0; d < 7; d++) {
-    container.appendChild(createElem('div', 'heatmap-label', days[d]));
+  // Format numbers with appropriate units
+  function fmt(num, decimals = 1) {
+    return Number(num).toFixed(decimals);
+  }
+
+  // Create a stat card
+  function statCard(title, value, subtitle, color) {
+    return el('div', {className: 'stat-card'}, [
+      el('h3', {}, [title]),
+      el('p', {className: 'stat-value', style: color ? {color} : {}}, [String(value)]),
+      el('p', {className: 'stat-subtitle'}, [subtitle])
+    ]);
+  }
+
+  // Create a progress card
+  function progressCard(title, done, total) {
+    const pct = total > 0 ? Math.round((done / total) * 100) : 100;
+    return el('div', {className: 'progress-card'}, [
+      el('h3', {}, [title]),
+      el('div', {className: 'progress-bar'}, [
+        el('div', {
+          className: 'progress-fill',
+          style: {width: `${pct}%`}
+        }, [`${pct}%`])
+      ]),
+      el('div', {className: 'progress-stats'}, [
+        el('span', {}, [`${done} / ${total} files`]),
+        el('span', {}, [`${total - done} pending`])
+      ])
+    ]);
+  }
+
+  // Build activity chart
+  function buildChart(container, data, config = {}) {
+    const {valueKey = 'value', unit = '', color = null, maxBars = 30} = config;
+    
+    if (!data.length) {
+      container.appendChild(
+        el('div', {className: 'empty-chart'}, ['No data available'])
+      );
+      return;
+    }
+
+    const chart = el('div', {className: 'bar-chart'});
+    const maxVal = Math.max(...data.map(d => d[valueKey])) || 1;
+    const skip = Math.ceil(data.length / maxBars);
+
+    data.forEach((d, i) => {
+      if (i % skip !== 0) return;
+      
+      const height = (d[valueKey] / maxVal) * 100;
+      const bar = el('div', {
+        className: 'bar',
+        style: color ? {height: `${height}%`, background: color} : {height: `${height}%`}
+      });
+      
+      bar.appendChild(el('div', {className: 'bar-label'}, [d.day || d.label]));
+      
+      if (d[valueKey] > 0) {
+        bar.appendChild(
+          el('div', {className: 'bar-value'}, [`${d[valueKey]}${unit}`])
+        );
+      }
+      
+      chart.appendChild(bar);
+    });
+
+    container.appendChild(chart);
+  }
+
+  // Build heatmap
+  function buildHeatmap(container, data) {
+    const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    const maxVal = Math.max(...data.flat()) || 1;
+    
+    const heatmap = el('div', {className: 'heatmap'});
+    
+    // Empty top-left corner
+    heatmap.appendChild(el('div'));
+    
+    // Hour headers
+    const header = el('div', {className: 'heatmap-header'});
     for (let h = 0; h < 24; h++) {
-      const intensity = maxVal ? data[d][h] / maxVal : 0;
-      const cell = createElem('div', 'heatmap-cell');
-      cell.style.background = `rgba(102,126,234,${intensity})`;
-      cell.title = `${days[d]} ${h}:00 - ${Math.round(data[d][h])} min`;
-      container.appendChild(cell);
+      header.appendChild(el('div', {className: 'heatmap-hour'}, [String(h)]));
+    }
+    heatmap.appendChild(header);
+    
+    // Days with cells
+    for (let d = 0; d < 7; d++) {
+      heatmap.appendChild(el('div', {className: 'heatmap-label'}, [days[d]]));
+      
+      for (let h = 0; h < 24; h++) {
+        const intensity = data[d][h] / maxVal;
+        const cell = el('div', {
+          className: 'heatmap-cell',
+          style: {background: `rgba(102,126,234,${intensity})`},
+          title: `${days[d]} ${h}:00 - ${Math.round(data[d][h])} min`
+        });
+        heatmap.appendChild(cell);
+      }
+    }
+    
+    container.appendChild(heatmap);
+  }
+
+  // Build topics grid
+  function buildTopics(container, counts, minutes) {
+    const names = Object.keys(counts);
+    if (!names.length) {
+      container.style.display = 'none';
+      return;
+    }
+    
+    container.style.display = 'block';
+    const sorted = names.sort((a, b) => counts[b] - counts[a]);
+    const grid = el('div', {className: 'topics-grid'});
+    
+    sorted.forEach(name => {
+      const card = el('div', {className: 'topic-card'}, [
+        el('div', {className: 'topic-name'}, [name]),
+        el('div', {className: 'topic-stats'}, [
+          el('span', {}, [`${counts[name]} occurrences`]),
+          el('span', {}, [`${Math.round(minutes[name] || 0)}m`])
+        ])
+      ]);
+      grid.appendChild(card);
+    });
+    
+    container.appendChild(el('h2', {}, ['Topics']));
+    container.appendChild(grid);
+  }
+
+  // Main render function
+  function render(data) {
+    if (!data) return;
+    
+    const stats = data.stats || {};
+    const summary = data.summary_html || '';
+    
+    // Clear loading state and notices
+    document.getElementById('loading').style.display = 'none';
+    document.getElementById('notice').innerHTML = '';
+    
+    // Show main content
+    const main = document.getElementById('mainContent');
+    main.style.display = 'block';
+    
+    // Handle empty data
+    if (!stats.days || Object.keys(stats.days).length === 0) {
+      document.getElementById('notice').appendChild(
+        el('div', {className: 'alert alert-warning'}, [
+          el('strong', {}, ['No data available. ']),
+          'Run journal_stats.py to generate statistics.'
+        ])
+      );
+      return;
+    }
+    
+    // Calculate derived values
+    const days = Object.keys(stats.days).sort();
+    const totals = stats.totals || {};
+    const totalDays = days.length;
+    const totalAudioHours = fmt((stats.total_audio_seconds || 0) / 3600);
+    const totalStorage = Math.round(
+      ((stats.total_audio_bytes || 0) + (stats.total_image_bytes || 0)) / (1024 * 1024)
+    );
+    const completion = totals.audio_flac > 0 ? 
+      Math.round((totals.audio_json / totals.audio_flac) * 100) : 100;
+    
+    // Render stats cards
+    const statsGrid = document.getElementById('statsGrid');
+    statsGrid.innerHTML = ''; // Clear existing content
+    statsGrid.appendChild(statCard('Total Days', totalDays, 'days recorded'));
+    statsGrid.appendChild(statCard('Audio Duration', totalAudioHours, 'hours recorded'));
+    statsGrid.appendChild(statCard('Storage Used', totalStorage, 'MB total'));
+    statsGrid.appendChild(statCard('Processing Status', `${completion}%`, 'complete'));
+    
+    // Render progress cards
+    const progressSection = document.getElementById('progressSection');
+    progressSection.innerHTML = ''; // Clear existing content
+    progressSection.appendChild(
+      progressCard('Audio Transcription', totals.audio_json || 0, totals.audio_flac || 0)
+    );
+    progressSection.appendChild(
+      progressCard('Screenshot Analysis', totals.desc_json || 0, totals.diff_png || 0)
+    );
+    
+    // Prepare chart data
+    const recent = days.slice(-30);
+    const activityData = recent.map(day => ({
+      day: day.slice(4, 6) + '/' + day.slice(6, 8),
+      value: stats.days[day].activity || 0
+    }));
+    
+    const audioData = recent.map(day => ({
+      day: day.slice(4, 6) + '/' + day.slice(6, 8),
+      hours: parseFloat(fmt((stats.days[day].audio_seconds || 0) / 3600, 1))
+    }));
+    
+    // Render charts
+    buildChart(document.getElementById('activityChart'), activityData);
+    buildChart(document.getElementById('audioChart'), audioData, {
+      valueKey: 'hours',
+      unit: 'h',
+      color: 'linear-gradient(to top, #f093fb, #f5576c)'
+    });
+    
+    // Render heatmap
+    if (stats.heatmap) {
+      buildHeatmap(document.getElementById('heatmap'), stats.heatmap);
+    }
+    
+    // Render topics
+    if (stats.topic_counts && Object.keys(stats.topic_counts).length > 0) {
+      buildTopics(
+        document.getElementById('topicsSection'),
+        stats.topic_counts,
+        stats.topic_minutes
+      );
+    }
+    
+    // Render repairs if needed
+    const repairs = ['repair_hear', 'repair_see', 'repair_reduce', 'repair_entity', 'repair_ponder'];
+    const hasRepairs = repairs.some(key => (totals[key] || 0) > 0);
+    
+    if (hasRepairs) {
+      const repairSection = document.getElementById('repairSection');
+      const alert = el('div', {className: 'chart-section alert-repair'}, [
+        el('h2', {}, ['Items Needing Repair']),
+        el('div', {className: 'stats-grid', id: 'repairGrid'})
+      ]);
+      
+      const repairGrid = alert.querySelector('#repairGrid');
+      const repairLabels = {
+        repair_hear: 'Audio',
+        repair_see: 'Screenshots',
+        repair_reduce: 'Summaries',
+        repair_entity: 'Entities',
+        repair_ponder: 'Ponder'
+      };
+      
+      repairs.forEach(key => {
+        const count = totals[key] || 0;
+        if (count > 0) {
+          repairGrid.appendChild(
+            statCard(repairLabels[key], count, '', '#f5576c')
+          );
+        }
+      });
+      
+      repairSection.appendChild(alert);
+    }
+    
+    // Render summary if available
+    if (summary) {
+      document.getElementById('summarySection').innerHTML = summary;
     }
   }
-}
 
-function buildTopics(counts, minutes) {
-  const names = Object.keys(counts || {});
-  if (!names.length) return;
-  const section = document.getElementById('topicsSection');
-  section.innerHTML = '<h2>Topics</h2><div class="topics-grid" id="topicsGrid"></div>';
-  const grid = document.getElementById('topicsGrid');
-  names.sort((a, b) => counts[b] - counts[a]);
-  names.forEach(name => {
-    const card = createElem('div', 'topic-card');
-    card.innerHTML = `<div class="topic-name">${name}</div>` +
-      `<div class="topic-stats"><span>${counts[name]} occurrences</span>` +
-      `<span>${Math.round(minutes[name] || 0)}m</span></div>`;
-    grid.appendChild(card);
-  });
-}
-
-function buildRepairs(totals) {
-  const categories = {
-    repair_hear: 'Audio',
-    repair_see: 'Screenshots',
-    repair_reduce: 'Summaries',
-    repair_entity: 'Entities',
-    repair_ponder: 'Ponder'
+  // Public API
+  return {
+    load: function(url) {
+      fetch(url, {
+        credentials: 'same-origin'  // Include cookies for authentication
+      })
+        .then(response => {
+          if (!response.ok) {
+            if (response.status === 401 || response.redirected) {
+              // Redirected to login, reload the page
+              window.location.reload();
+              return;
+            }
+            throw new Error('Failed to load data');
+          }
+          return response.json();
+        })
+        .then(data => {
+          if (data) render(data);
+        })
+        .catch(error => {
+          document.getElementById('loading').style.display = 'none';
+          document.getElementById('notice').appendChild(
+            el('div', {className: 'alert alert-error'}, [
+              'Failed to load dashboard data: ' + error.message
+            ])
+          );
+        });
+    }
   };
-  const any = Object.keys(categories).some(k => (totals[k] || 0) > 0);
-  if (!any) return;
-  const section = document.getElementById('repairSection');
-  section.innerHTML = '<div class="chart-section" style="background:#fff3cd;border:1px solid #ffeaa7;">' +
-    '<h2>Items Needing Repair</h2><div class="stats-grid" id="repairGrid" style="margin-bottom:0;"></div></div>';
-  const grid = document.getElementById('repairGrid');
-  Object.keys(categories).forEach(key => {
-    const count = totals[key] || 0;
-    if (!count) return;
-    const card = createElem('div', 'stat-card');
-    card.innerHTML = `<h3>${categories[key]}</h3><p class="stat-value" style="color:#f5576c;">${count}</p>`;
-    grid.appendChild(card);
-  });
-}
+})();
 
-function renderDashboard(data) {
-  if (!data || !data.days || Object.keys(data.days).length === 0) {
-    document.getElementById('notice').innerHTML = '<div style="background:#fff3cd;border:1px solid #ffeaa7;border-radius:8px;padding:1em;margin-bottom:2em;">' +
-      '<strong>No data available.</strong> Run journal_stats.py to generate statistics.</div>';
-    return;
-  }
-  const days = Object.keys(data.days).sort();
-  const totals = data.totals || {};
-  const totalAudioMB = ((data.total_audio_bytes || 0) + (data.total_image_bytes || 0)) / (1024 * 1024);
-
-  const statsGrid = document.getElementById('statsGrid');
-  statsGrid.appendChild(summaryCard('Total Days', days.length, 'days recorded'));
-  statsGrid.appendChild(summaryCard('Audio Duration', (data.total_audio_seconds / 3600).toFixed(1), 'hours recorded'));
-  statsGrid.appendChild(summaryCard('Storage Used', Math.round(totalAudioMB), 'MB total'));
-  const completion = totals.audio_flac ? (totals.audio_json / totals.audio_flac) * 100 : 100;
-  statsGrid.appendChild(summaryCard('Processing Status', Math.round(completion) + '%', 'complete'));
-
-  const progressSection = document.getElementById('progressSection');
-  progressSection.appendChild(progressCard('Audio Transcription', totals.audio_json || 0, totals.audio_flac || 0));
-  progressSection.appendChild(progressCard('Screenshot Analysis', totals.desc_json || 0, totals.diff_png || 0));
-
-  const activityData = days.map(day => ({ day, value: data.days[day].activity || 0 }));
-  buildBarChart(activityData, document.getElementById('activityChart'), 'value');
-
-  const audioData = days.map(day => ({ day, hours: (data.days[day].audio_seconds || 0) / 3600 }));
-  buildBarChart(audioData, document.getElementById('audioChart'), 'hours', 'h', 'linear-gradient(to top,#f093fb,#f5576c)');
-
-  buildHeatmap(data.heatmap || []);
-  buildTopics(data.topic_counts || {}, data.topic_minutes || {});
-  buildRepairs(totals);
-}
-
-function loadStats(url) {
-  fetch(url).then(r => r.json()).then(renderDashboard).catch(() => {
-    document.getElementById('notice').textContent = 'Failed to load stats';
-  });
-}
-
-export { loadStats };
+// Export for use in templates
+window.Dashboard = Dashboard;

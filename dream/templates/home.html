@@ -3,6 +3,7 @@
 {% set active = 'home' %}
 {% block head %}
 <style>
+/* Layout */
 .dashboard {
   padding: 2em;
   max-width: 1400px;
@@ -15,8 +16,51 @@ h1 {
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
+  background-clip: text;
 }
 
+/* Loading state */
+#loading {
+  text-align: center;
+  padding: 4em;
+  color: #666;
+}
+
+.spinner {
+  display: inline-block;
+  width: 40px;
+  height: 40px;
+  border: 4px solid #f0f0f0;
+  border-top-color: #667eea;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin: 0 auto 1em;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Alerts */
+.alert {
+  padding: 1em;
+  border-radius: 8px;
+  margin-bottom: 2em;
+}
+
+.alert-warning {
+  background: #fff3cd;
+  border: 1px solid #ffeaa7;
+  color: #856404;
+}
+
+.alert-error {
+  background: #f8d7da;
+  border: 1px solid #f5c6cb;
+  color: #721c24;
+}
+
+/* Stats grid */
 .stats-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
@@ -52,6 +96,7 @@ h1 {
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
+  background-clip: text;
 }
 
 .stat-subtitle {
@@ -60,116 +105,7 @@ h1 {
   margin-top: 0.5em;
 }
 
-.chart-section {
-  background: white;
-  border-radius: 12px;
-  padding: 2em;
-  margin-bottom: 2em;
-  box-shadow: 0 4px 15px rgba(0,0,0,0.08);
-}
-
-.chart-section h2 {
-  margin-top: 0;
-  color: #333;
-  font-size: 1.5em;
-}
-
-.chart {
-  height: 300px;
-  position: relative;
-  margin-top: 1.5em;
-}
-
-.bar-chart {
-  display: flex;
-  align-items: flex-end;
-  height: 100%;
-  gap: 2px;
-  padding: 0 10px;
-}
-
-.bar {
-  flex: 1;
-  background: linear-gradient(to top, #667eea, #764ba2);
-  border-radius: 4px 4px 0 0;
-  transition: opacity 0.2s;
-  position: relative;
-}
-
-.bar:hover {
-  opacity: 0.8;
-}
-
-.bar-label {
-  position: absolute;
-  bottom: -20px;
-  left: 50%;
-  transform: translateX(-50%);
-  font-size: 0.7em;
-  color: #666;
-  white-space: nowrap;
-}
-
-.bar-value {
-  position: absolute;
-  top: -25px;
-  left: 50%;
-  transform: translateX(-50%);
-  font-size: 0.8em;
-  font-weight: 600;
-  color: #333;
-}
-
-.heatmap-section {
-  background: white;
-  border-radius: 12px;
-  padding: 2em;
-  margin-bottom: 2em;
-  box-shadow: 0 4px 15px rgba(0,0,0,0.08);
-}
-
-.heatmap {
-  display: grid;
-  grid-template-columns: 40px repeat(24, 1fr);
-  gap: 2px;
-  margin-top: 1.5em;
-}
-
-.heatmap-label {
-  font-size: 0.8em;
-  color: #666;
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  padding-right: 8px;
-}
-
-.heatmap-cell {
-  aspect-ratio: 1;
-  border-radius: 2px;
-  background: #f0f0f0;
-  transition: transform 0.2s;
-}
-
-.heatmap-cell:hover {
-  transform: scale(1.2);
-  z-index: 10;
-}
-
-.heatmap-header {
-  grid-column: 2 / -1;
-  display: grid;
-  grid-template-columns: repeat(24, 1fr);
-  gap: 2px;
-  margin-bottom: 4px;
-}
-
-.heatmap-hour {
-  text-align: center;
-  font-size: 0.7em;
-  color: #999;
-}
-
+/* Progress cards */
 .progress-section {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
@@ -218,11 +154,138 @@ h1 {
   font-size: 0.9em;
 }
 
+/* Chart sections */
+.chart-section {
+  background: white;
+  border-radius: 12px;
+  padding: 2em;
+  margin-bottom: 2em;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+}
+
+.chart-section h2 {
+  margin-top: 0;
+  color: #333;
+  font-size: 1.5em;
+}
+
+.chart {
+  height: 300px;
+  position: relative;
+  margin-top: 1.5em;
+}
+
+.bar-chart {
+  display: flex;
+  align-items: flex-end;
+  height: 100%;
+  gap: 2px;
+  padding: 0 10px;
+}
+
+.bar {
+  flex: 1;
+  background: linear-gradient(to top, #667eea, #764ba2);
+  border-radius: 4px 4px 0 0;
+  transition: opacity 0.2s;
+  position: relative;
+  min-width: 20px;
+}
+
+.bar:hover {
+  opacity: 0.8;
+}
+
+.bar-label {
+  position: absolute;
+  bottom: -20px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 0.7em;
+  color: #666;
+  white-space: nowrap;
+}
+
+.bar-value {
+  position: absolute;
+  top: -25px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 0.8em;
+  font-weight: 600;
+  color: #333;
+  white-space: nowrap;
+}
+
+.empty-chart {
+  text-align: center;
+  color: #999;
+  padding: 2em;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Heatmap */
+.heatmap-section {
+  background: white;
+  border-radius: 12px;
+  padding: 2em;
+  margin-bottom: 2em;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+}
+
+.heatmap {
+  display: grid;
+  grid-template-columns: 40px repeat(24, 1fr);
+  gap: 2px;
+  margin-top: 1.5em;
+}
+
+.heatmap-label {
+  font-size: 0.8em;
+  color: #666;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding-right: 8px;
+}
+
+.heatmap-cell {
+  aspect-ratio: 1;
+  border-radius: 2px;
+  background: #f0f0f0;
+  transition: transform 0.2s;
+  cursor: default;
+}
+
+.heatmap-cell:hover {
+  transform: scale(1.2);
+  z-index: 10;
+}
+
+.heatmap-header {
+  grid-column: 2 / -1;
+  display: grid;
+  grid-template-columns: repeat(24, 1fr);
+  gap: 2px;
+  margin-bottom: 4px;
+}
+
+.heatmap-hour {
+  text-align: center;
+  font-size: 0.7em;
+  color: #999;
+}
+
+/* Topics */
 .topics-section {
   background: white;
   border-radius: 12px;
   padding: 2em;
   box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+  margin-bottom: 2em;
 }
 
 .topics-grid {
@@ -236,7 +299,7 @@ h1 {
   background: #f8f8f8;
   border-radius: 8px;
   padding: 1em;
-  transition: transform 0.2s;
+  transition: all 0.2s;
 }
 
 .topic-card:hover {
@@ -257,6 +320,32 @@ h1 {
   color: #666;
 }
 
+/* Repair alert */
+.alert-repair {
+  background: #fff3cd;
+  border: 1px solid #ffeaa7;
+}
+
+.alert-repair .stat-value {
+  background: #f5576c;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Summary section */
+#summarySection {
+  margin-top: 3em;
+  padding-top: 2em;
+  border-top: 1px solid #e0e0e0;
+}
+
+#summarySection h1 { font-size: 1.8em; }
+#summarySection h2 { font-size: 1.4em; margin-top: 1.5em; }
+#summarySection p { line-height: 1.6; }
+#summarySection ul { line-height: 1.6; }
+
+/* Responsive */
 @media (max-width: 768px) {
   .dashboard {
     padding: 1em;
@@ -268,37 +357,55 @@ h1 {
     font-size: 0.8em;
     grid-template-columns: 30px repeat(24, 1fr);
   }
+  .bar {
+    min-width: 10px;
+  }
+  .bar-value {
+    font-size: 0.7em;
+  }
 }
 </style>
 {% endblock %}
+
 {% block body %}
-<div class="dashboard">
+<div class="dashboard" data-stats-url="{{ url_for('review.stats_data') }}">
   <h1>Journal Dashboard</h1>
+  
   <div id="notice"></div>
-  <div id="statsGrid" class="stats-grid"></div>
-  <div id="progressSection" class="progress-section"></div>
-  <div class="chart-section">
-    <h2>Recent Activity (Last 30 Days)</h2>
-    <div class="chart"><div id="activityChart" class="bar-chart"></div></div>
+  
+  <div id="loading">
+    <div class="spinner"></div>
+    <p>Loading dashboard data...</p>
   </div>
-  <div class="chart-section">
-    <h2>Audio Hours per Day</h2>
-    <div class="chart"><div id="audioChart" class="bar-chart"></div></div>
+  
+  <div id="mainContent" style="display: none;">
+    <div id="statsGrid" class="stats-grid"></div>
+    <div id="progressSection" class="progress-section"></div>
+    
+    <div class="chart-section">
+      <h2>Recent Activity (Last 30 Days)</h2>
+      <div class="chart" id="activityChart"></div>
+    </div>
+    
+    <div class="chart-section">
+      <h2>Audio Hours per Day</h2>
+      <div class="chart" id="audioChart"></div>
+    </div>
+    
+    <div class="heatmap-section">
+      <h2>Activity Heatmap</h2>
+      <div id="heatmap"></div>
+    </div>
+    
+    <div id="topicsSection" class="topics-section"></div></div>
+    <div id="repairSection"></div>
+    <div id="summarySection"></div>
   </div>
-  <div class="heatmap-section">
-    <h2>Activity Heatmap</h2>
-    <div id="heatmap" class="heatmap"></div>
-  </div>
-  <div id="topicsSection" class="topics-section"></div>
-  <div id="repairSection"></div>
-  {% if summary_html %}
-  <div class="markdown" style="margin-top:2em;">
-    {{ summary_html|safe }}
-  </div>
-  {% endif %}
 </div>
+
 <script src="{{ url_for('review.static', filename='dashboard.js') }}"></script>
 <script>
-  loadStats('{{ url_for('review.stats_data') }}');
+  // Load dashboard data when page loads
+  Dashboard.load('{{ url_for('review.stats_data') }}');
 </script>
 {% endblock %}
