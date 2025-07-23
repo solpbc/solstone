@@ -80,7 +80,7 @@ def stats_data() -> Any:
             try:
                 import markdown  # type: ignore
                 with open(summary_path, "r", encoding="utf-8") as f:
-                    response["summary_html"] = markdown.markdown(f.read())
+                    response["summary_html"] = markdown.markdown(f.read(), extensions=['extra'])
             except Exception:
                 pass
     

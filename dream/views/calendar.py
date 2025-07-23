@@ -49,7 +49,7 @@ def calendar_day(day: str) -> str:
             try:
                 import markdown  # type: ignore
 
-                html = markdown.markdown(text)
+                html = markdown.markdown(text, extensions=['extra'])
             except Exception:
                 html = "<p>Error loading file.</p>"
             label = base.replace("_", " ").title()

@@ -57,7 +57,7 @@ def search_topic_api() -> Any:
                 "date": format_date(meta.get("day", "")),
                 "topic": topic,
                 "color": topics.get(topic, {}).get("color"),
-                "text": markdown.markdown(text),
+                "text": markdown.markdown(text, extensions=['extra']),
                 "score": r.get("score", 0.0),
             }
         )
