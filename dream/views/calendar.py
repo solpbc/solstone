@@ -49,7 +49,7 @@ def calendar_day(day: str) -> str:
             try:
                 import markdown  # type: ignore
 
-                html = markdown.markdown(text, extensions=['extra'])
+                html = markdown.markdown(text, extensions=["extra"])
             except Exception:
                 html = "<p>Error loading file.</p>"
             label = base.replace("_", " ").title()
@@ -64,7 +64,7 @@ def calendar_day(day: str) -> str:
     title = format_date(day)
     prev_day, next_day = adjacent_days(state.journal_root, day)
     return render_template(
-        "day.html",
+        "calendar_day.html",
         active="calendar",
         title=title,
         files=files,
