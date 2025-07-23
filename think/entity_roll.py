@@ -178,8 +178,8 @@ def scan_day(day: str) -> Dict[str, List[str]]:
     repairable: List[str] = []
     if (day_dir / "entities.md").exists():
         processed.append("entities.md")
-    elif list((day_dir / "topics").glob("knowledge_graph*.md")):
-        repairable.append("entities.md")
+    elif (day_dir / "topics" / "knowledge_graph.md").exists():
+        repairable.append("topics/knowledge_graph.md")
     return {"processed": processed, "repairable": repairable}
 
 

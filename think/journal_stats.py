@@ -41,10 +41,10 @@ class JournalStats:
         # --- hear ---
         audio_info = Transcriber.scan_day(day_dir)
         audio_files = [
-            (day_dir / n, n) for n in audio_info["raw"] + audio_info["processed"]
+            (day_dir / n, n) for n in audio_info["raw"]
         ]
         for path, name in audio_files:
-            if name.endswith("_audio.flac"):
+            if name.endswith(".flac"):
                 stats["audio_flac"] += 1
                 try:
                     info = sf.info(path)
@@ -75,9 +75,10 @@ class JournalStats:
         stats["repair_reduce"] = len(screen_info["repairable"])
 
         # --- think ---
-        stats["entities"] = int((day_dir / "entities.md").exists())
         entity_info = entity_scan_day(day)
+        stats["entities"] = len(entity_info["processed"])
         stats["repair_entity"] = len(entity_info["repairable"])
+
         ponder_info = ponder_scan_day(day)
         stats["ponder_processed"] = len(ponder_info["processed"])
         stats["repair_ponder"] = len(ponder_info["repairable"])
