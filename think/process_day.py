@@ -91,7 +91,7 @@ def main() -> None:
         parser.error(f"Day folder not found: {day_dir}")
 
     if args.rebuild:
-        for pattern in ("*_audio.json", "*_monitor_*_diff.json"):
+        for pattern in ("*_audio.json", "*_[a-z]*_*_diff.json"):
             for path in glob.glob(os.path.join(day_dir, pattern)):
                 try:
                     os.remove(path)

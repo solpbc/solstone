@@ -47,13 +47,13 @@ class TokenTracker:
 
 
 def parse_monitor_files(day_dir):
-    pattern = re.compile(r"^(\d{6})_monitor_(\d+)_diff\.json$")
+    pattern = re.compile(r"^(\d{6})_([a-z]+)_(\d+)_diff\.json$")
     entries = []
     for name in os.listdir(day_dir):
         m = pattern.match(name)
         if not m:
             continue
-        time_part, mon = m.groups()
+        time_part, source, ident = m.groups()
         try:
             ts = datetime.strptime(time_part, "%H%M%S")
         except ValueError:
@@ -61,7 +61,9 @@ def parse_monitor_files(day_dir):
         entries.append(
             {
                 "timestamp": ts,
-                "monitor": int(mon),
+                "source": source,
+                "id": int(ident),
+                "monitor": int(ident) if source == "monitor" else None,
                 "path": os.path.join(day_dir, name),
             }
         )
@@ -74,7 +76,7 @@ def group_entries(entries):
     for e in entries:
         interval_minute = e["timestamp"].minute - (e["timestamp"].minute % 5)
         start = e["timestamp"].replace(minute=interval_minute, second=0, microsecond=0)
-        key = start  # Remove monitor from key to group all monitors together
+        key = start  # Group all sources together by timestamp
         groups.setdefault(key, []).append(e)
     return groups
 
@@ -358,10 +360,10 @@ def reduce_day(
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Summarize all monitor JSON files in 5 minute chunks using Gemini"
+        description="Summarize all diff JSON files in 5 minute chunks using Gemini"
     )
     parser.add_argument(
-        "day", help="Day in YYYYMMDD format containing *_monitor_*_diff.json files"
+        "day", help="Day in YYYYMMDD format containing *_<source>_<id>_diff.json files"
     )
     parser.add_argument(
         "-p", "--prompt", default=DEFAULT_PROMPT_PATH, help="Prompt file"

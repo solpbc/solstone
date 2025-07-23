@@ -11,7 +11,7 @@ from .utils import day_path, setup_cli
 TIME_RE = r"(\d{6})"
 AUDIO_PATTERN = re.compile(rf"^{TIME_RE}_audio\.json$")
 SCREEN_SUMMARY_PATTERN = re.compile(rf"^{TIME_RE}_screen\.md$")
-SCREEN_DIFF_PATTERN = re.compile(rf"^{TIME_RE}_monitor_(\d+)_diff\.json$")
+SCREEN_DIFF_PATTERN = re.compile(rf"^{TIME_RE}_([a-z]+)_(\d+)_diff\.json$")
 
 
 def _date_str(day_dir: str) -> str:
@@ -28,6 +28,8 @@ def _load_entries(day_dir: str, audio: bool, screen_mode: str) -> List[Dict[str,
         match = None
         prefix = None
         monitor: Optional[str] = None
+        source: Optional[str] = None
+        ident: Optional[str] = None
 
         if audio and (match := AUDIO_PATTERN.match(filename)):
             time_part = match.group(1)
@@ -39,8 +41,10 @@ def _load_entries(day_dir: str, audio: bool, screen_mode: str) -> List[Dict[str,
             prefix = "screen"
         elif screen_mode == "raw" and (match := SCREEN_DIFF_PATTERN.match(filename)):
             time_part = match.group(1)
-            monitor = match.group(2)
-            prefix = "monitor"
+            source = match.group(2)
+            ident = match.group(3)
+            monitor = ident if source == "monitor" else None
+            prefix = source
         else:
             continue
 
@@ -59,6 +63,16 @@ def _load_entries(day_dir: str, audio: bool, screen_mode: str) -> List[Dict[str,
                 "prefix": prefix,
                 "content": content,
                 "monitor": monitor,
+                "source": (
+                    source
+                    if match and prefix != "audio" and prefix != "screen"
+                    else None
+                ),
+                "id": (
+                    ident
+                    if match and prefix != "audio" and prefix != "screen"
+                    else None
+                ),
             }
         )
 
@@ -101,10 +115,15 @@ def _groups_to_markdown(groups: Dict[datetime, List[Dict[str, str]]]) -> str:
                 lines.append(entry["content"].strip())
                 lines.append('"""')
                 lines.append("")
-            elif entry["prefix"] == "monitor":
-                lines.append(
-                    f"### Monitor {entry['monitor']} {entry['timestamp'].strftime('%H:%M:%S')}"
+            else:
+                src = entry.get("source") or entry["prefix"]
+                ident = entry.get("id") or entry.get("monitor")
+                title = (
+                    f"{src.capitalize()} {ident}"
+                    if ident is not None
+                    else src.capitalize()
                 )
+                lines.append(f"### {title} {entry['timestamp'].strftime('%H:%M:%S')}")
                 lines.append("```json")
                 lines.append(entry["content"].strip())
                 lines.append("```")

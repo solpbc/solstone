@@ -123,7 +123,7 @@ def find_topic_files(
 # Raw file helpers -----------------------------------------------------------
 
 AUDIO_RE = re.compile(r"^(?P<time>\d{6})_audio\.json$")
-SCREEN_RE = re.compile(r"^(?P<time>\d{6})_monitor_\d+_diff\.json$")
+SCREEN_RE = re.compile(r"^(?P<time>\d{6})_[a-z]+_\d+_diff\.json$")
 
 
 def find_raw_files(journal: str) -> Dict[str, str]:
