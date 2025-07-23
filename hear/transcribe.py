@@ -295,16 +295,18 @@ class Transcriber:
         can easily open them. Processed audio lives in the ``heard/`` subfolder.
         """
 
-        raw = sorted(p.name for p in day_dir.glob("*.flac"))
-
         heard_dir = day_dir / "heard"
-        processed = (
+        raw = (
             [f"heard/{p.name}" for p in sorted(heard_dir.glob("*.flac"))]
             if heard_dir.is_dir()
             else []
         )
 
-        return {"raw": raw, "processed": processed, "repairable": raw.copy()}
+        processed = sorted(p.name for p in day_dir.glob("*_audio.json"))
+        
+        repairable = sorted(p.name for p in day_dir.glob("*.flac"))
+
+        return {"raw": raw, "processed": processed, "repairable": repairable}
 
     def repair_day(self, date_str: str, files: list[str], dry_run: bool = False) -> int:
         """Process ``files`` belonging to ``date_str`` and return the count."""

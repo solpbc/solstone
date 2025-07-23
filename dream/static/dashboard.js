@@ -21,7 +21,8 @@ const Dashboard = (function() {
 
   // Format numbers with appropriate units
   function fmt(num, decimals = 1) {
-    return Number(num).toFixed(decimals);
+    const value = Number(num);
+    return value > 10 ? value.toFixed(0) : value.toFixed(decimals);
   }
 
   // Create a stat card
@@ -34,9 +35,9 @@ const Dashboard = (function() {
   }
 
   // Create a progress card
-  function progressCard(title, done, total) {
-    const maxTotal = Math.max(total, done);
-    const pct = maxTotal > 0 ? Math.min(100, Math.round((done / maxTotal) * 100)) : 100;
+  function progressCard(title, processed, repairable) {
+    const total = processed + repairable;
+    const pct = total > 0 ? Math.round((processed / total) * 100) : 100;
     return el('div', {className: 'progress-card'}, [
       el('h3', {}, [title]),
       el('div', {className: 'progress-bar'}, [
@@ -46,8 +47,8 @@ const Dashboard = (function() {
         }, [`${pct}%`])
       ]),
       el('div', {className: 'progress-stats'}, [
-        el('span', {}, [`${done} / ${maxTotal} files`]),
-        el('span', {}, [`${Math.max(maxTotal - done, 0)} pending`])
+        el('span', {}, [`${processed} processed`]),
+        el('span', {}, [`${repairable} pending`])
       ])
     ]);
   }
@@ -185,9 +186,10 @@ const Dashboard = (function() {
     const totalAudioHours = fmt((stats.total_audio_seconds || 0) / 3600);
     const totalStorageBytes = (stats.total_audio_bytes || 0) + (stats.total_image_bytes || 0);
     const totalStorageMB = totalStorageBytes / (1024 * 1024);
-    const totalStorageStr = totalStorageMB >= 1000
-      ? `${fmt(totalStorageMB / 1024)} GB`
-      : `${fmt(totalStorageMB, 0)} MB`;
+    const totalStorageValue = totalStorageMB >= 1000
+      ? fmt(totalStorageMB / 1024)
+      : fmt(totalStorageMB);
+    const totalStorageUnit = totalStorageMB >= 1000 ? 'GB total' : 'MB total';
     const completion = totals.audio_flac > 0 ?
       Math.round((totals.audio_json / totals.audio_flac) * 100) : 100;
     
@@ -196,17 +198,17 @@ const Dashboard = (function() {
     statsGrid.innerHTML = ''; // Clear existing content
     statsGrid.appendChild(statCard('Total Days', totalDays, 'days recorded'));
     statsGrid.appendChild(statCard('Audio Duration', totalAudioHours, 'hours recorded'));
-    statsGrid.appendChild(statCard('Storage Used', totalStorageStr, 'total'));
+    statsGrid.appendChild(statCard('Storage Used', totalStorageValue, totalStorageUnit));
     statsGrid.appendChild(statCard('Processing Status', `${completion}%`, 'complete'));
     
     // Render progress cards
     const progressSection = document.getElementById('progressSection');
     progressSection.innerHTML = ''; // Clear existing content
     progressSection.appendChild(
-      progressCard('Audio Transcription', totals.audio_json || 0, totals.audio_flac || 0)
+      progressCard('Audio Transcription', totals.audio_json || 0, totals.repair_hear || 0)
     );
     progressSection.appendChild(
-      progressCard('Screenshot Analysis', totals.desc_json || 0, totals.diff_png || 0)
+      progressCard('Screenshot Analysis', totals.desc_json || 0, totals.repair_see || 0)
     );
     
     // Prepare chart data
@@ -218,7 +220,7 @@ const Dashboard = (function() {
     
     const audioData = recent.map(day => ({
       day: day.slice(4, 6) + '/' + day.slice(6, 8),
-      hours: parseFloat(fmt((stats.days[day].audio_seconds || 0) / 3600, 1))
+      hours: parseFloat(fmt((stats.days[day].audio_seconds || 0) / 3600))
     }));
     
     // Render charts
