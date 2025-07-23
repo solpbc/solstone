@@ -40,17 +40,19 @@ class JournalStats:
 
         # --- hear ---
         audio_info = Transcriber.scan_day(day_dir)
-        for name in audio_info["raw"]:
+        audio_files = [
+            (day_dir / n, n) for n in audio_info["raw"] + audio_info["processed"]
+        ]
+        for path, name in audio_files:
             if name.endswith("_audio.flac"):
                 stats["audio_flac"] += 1
-                file_path = day_dir / name
                 try:
-                    info = sf.info(file_path)
+                    info = sf.info(path)
                     audio_sec += float(info.frames) / float(info.samplerate)
                 except Exception:
                     pass
                 try:
-                    audio_bytes += os.path.getsize(file_path)
+                    audio_bytes += os.path.getsize(path)
                 except OSError:
                     pass
         stats["audio_json"] = len(audio_info["processed"])
