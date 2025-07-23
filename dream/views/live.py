@@ -4,7 +4,7 @@ import os
 
 from flask import Blueprint, jsonify, render_template, request
 
-from hear.live import start_thread
+from hear.live import start_thread, stop_thread
 
 from ..push import push_server
 
@@ -31,3 +31,13 @@ def live_join() -> object:
     if _thread is None or not _thread.is_alive():
         _thread = start_thread(ws_url, _push, True)
     return jsonify(status="started")
+
+
+@bp.route("/live/api/leave", methods=["POST"])
+def live_leave() -> object:
+    global _thread
+    if _thread is not None:
+        stop_thread(_thread)
+        _thread = None
+        return jsonify(status="stopped")
+    return jsonify(status="not_running")

@@ -82,6 +82,7 @@ chat_history = chat_view.chat_history
 clear_history = chat_view.clear_history
 live_page = live_view.live_page
 live_join = live_view.live_join
+live_leave = live_view.live_leave
 search_page = search_view.search_page
 import_page = import_page_view.import_page
 tasks_page = tasks_view.tasks_page
@@ -122,6 +123,7 @@ __all__ = [
     "clear_history",
     "live_page",
     "live_join",
+    "live_leave",
     "search_page",
     "import_page",
     "entities_data",

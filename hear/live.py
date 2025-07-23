@@ -5,7 +5,7 @@ import logging
 import os
 import threading
 import time
-from typing import Callable
+from typing import Callable, Optional
 
 import numpy as np
 import soundfile as sf
@@ -215,6 +215,7 @@ async def live_loop(
     use_speaker: bool = False,
     *,
     event_callback: Callable[[dict], None] | None = None,
+    stop_event: Optional[threading.Event] = None,
 ) -> None:
     vad = load_silero_vad()
     stash = np.array([], dtype=np.float32)
@@ -227,27 +228,37 @@ async def live_loop(
 
     msg_id = 0
     for attempt in range(max_retries):
+        if stop_event and stop_event.is_set():
+            break
         try:
             logging.info(
                 f"Connecting to WebSocket (attempt {attempt + 1}/{max_retries})"
             )
             async with websockets.connect(ws_url) as ws:
                 logging.info("WebSocket connected successfully")
-                async for msg in ws:
-                    stash = await handle_audio_message(
-                        msg,
-                        vad,
-                        stash,
-                        client,
-                        speaker_state,
-                        event_callback=event_callback,
-                        message_id=msg_id,
-                    )
-                    msg_id += 1
-                    processed_seconds += (
-                        len(msg) // 8
-                    ) / SAMPLE_RATE  # Approximate calculation
-
+                if event_callback:
+                    event_callback({"event": "joined"})
+                try:
+                    async for msg in ws:
+                        if stop_event and stop_event.is_set():
+                            await ws.close()
+                            break
+                        stash = await handle_audio_message(
+                            msg,
+                            vad,
+                            stash,
+                            client,
+                            speaker_state,
+                            event_callback=event_callback,
+                            message_id=msg_id,
+                        )
+                        msg_id += 1
+                        processed_seconds += (
+                            len(msg) // 8
+                        ) / SAMPLE_RATE  # Approximate calculation
+                finally:
+                    if event_callback:
+                        event_callback({"event": "left"})
                 # If we reach here, connection closed normally
                 logging.info("WebSocket connection closed normally")
                 break
@@ -282,24 +293,46 @@ def run(
     ws_url: str,
     use_speaker: bool = True,
     callback: Callable[[dict], None] | None = None,
+    stop_event: Optional[threading.Event] = None,
 ) -> None:
     """Run the live transcription loop with optional callback."""
     api_key = os.getenv("GOOGLE_API_KEY")
     if not api_key:
         raise SystemExit("Error: GOOGLE_API_KEY not found in environment.")
     client = genai.Client(api_key=api_key)
-    asyncio.run(live_loop(ws_url, client, use_speaker, event_callback=callback))
+    asyncio.run(
+        live_loop(
+            ws_url,
+            client,
+            use_speaker,
+            event_callback=callback,
+            stop_event=stop_event,
+        )
+    )
 
 
 def start_thread(
     ws_url: str, callback: Callable[[dict], None], use_speaker: bool = True
 ) -> threading.Thread:
     """Run ``run`` in a background thread and return it."""
-    thread = threading.Thread(
-        target=run, args=(ws_url, use_speaker, callback), daemon=True
-    )
+    stop_event = threading.Event()
+
+    def _run() -> None:
+        run(ws_url, use_speaker, callback, stop_event)
+
+    thread = threading.Thread(target=_run, daemon=True)
+    thread.stop_event = stop_event  # type: ignore[attr-defined]
     thread.start()
     return thread
+
+
+def stop_thread(thread: threading.Thread | None) -> None:
+    """Signal the given live thread to stop."""
+    if not thread:
+        return
+    stop_event = getattr(thread, "stop_event", None)
+    if isinstance(stop_event, threading.Event):
+        stop_event.set()
 
 
 def main() -> None:
