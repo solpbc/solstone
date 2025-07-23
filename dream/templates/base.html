@@ -15,6 +15,7 @@
     <a href="{{ url_for('calendar.calendar_page') }}" class="{% if active=='calendar' %}current{% endif %}">📅</a>
     <a href="{{ url_for('entities.entities') }}" class="{% if active=='entities' %}current{% endif %}">📑</a>
     <a href="{{ url_for('chat.chat_page') }}" class="{% if active=='chat' %}current{% endif %}">💬</a>
+    <a href="{{ url_for('live.live_page') }}" class="{% if active=='live' %}current{% endif %}">🎤</a>
     <a href="{{ url_for('admin.admin_page') }}" class="{% if active=='admin' %}current{% endif %}">⚙️</a>
     <a href="{{ url_for('tasks.tasks_page') }}" class="{% if active=='tasks' %}current{% endif %}">📝</a>
     <a href="{{ url_for('review.logout') }}" title="Logout">🔒</a>
