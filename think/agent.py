@@ -20,7 +20,7 @@ from pathlib import Path
 from agents import Agent, ModelSettings, RunConfig, Runner, set_default_openai_key
 from agents.mcp import MCPServerStdio
 
-from think.utils import setup_cli
+from think.utils import agent_instructions, setup_cli
 
 
 async def main_async():
@@ -86,10 +86,7 @@ async def main_async():
         # Create agent with connected server
         agent = Agent(
             name="SunstoneCLI",
-            instructions=(
-                "You are the Sunstone journal assistant. Use the provided tools to "
-                "search ponder summaries, search occurrences, and read markdown files."
-            ),
+            instructions=agent_instructions(),
             mcp_servers=[mcp_server],
         )
 

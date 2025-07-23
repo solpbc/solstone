@@ -13,6 +13,7 @@ from google import genai
 from google.genai import types
 
 from think.models import GEMINI_FLASH
+from think.utils import agent_instructions
 
 from .. import state
 
@@ -77,6 +78,7 @@ async def ask_gemini(prompt: str, attachments: List[str], api_key: str) -> str:
                 tool_config=types.ToolConfig(
                     function_calling_config=types.FunctionCallingConfig(mode="AUTO")
                 ),
+                system_instruction=agent_instructions(),
             ),
         )
 

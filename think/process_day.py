@@ -19,9 +19,7 @@ def run_command(cmd: list[str]) -> bool:
     return True
 
 
-def build_commands(
-    day: str, force: bool, verbose: bool = False
-) -> list[list[str]]:
+def build_commands(day: str, force: bool, verbose: bool = False) -> list[list[str]]:
     commands: list[list[str]] = []
 
     logging.info("Running repair routines for %s", day)

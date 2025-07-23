@@ -40,9 +40,7 @@ class Describer:
             logging.info("Moved %s to %s", img_path, seen_dir)
             return new_img
         except Exception as exc:  # pragma: no cover - filesystem errors
-            logging.error(
-                "Failed to move %s to seen: %s", img_path, exc
-            )
+            logging.error("Failed to move %s to seen: %s", img_path, exc)
             return img_path
 
     def _process_once(self, img_path: Path, json_path: Path) -> None:
@@ -52,9 +50,7 @@ class Describer:
         json_path.write_text(json.dumps(result["result"], indent=2))
         logging.info(f"Described {img_path} -> {json_path}")
         new_img = self._move_to_seen(img_path)
-        crumb_builder = (
-            CrumbBuilder().add_file(new_img).add_file(self.entities)
-        )
+        crumb_builder = CrumbBuilder().add_file(new_img).add_file(self.entities)
         crumb_builder.add_model(result["model_used"])
         crumb_path = crumb_builder.commit(str(json_path))
         logging.info(f"Crumb saved to {crumb_path}")
@@ -96,7 +92,9 @@ class Describer:
             else:
                 # Default to full image dimensions
                 box = [0, 0, im.width, im.height]
-                logging.warning(f"No box_2d metadata found in {img_path}, using full image dimensions: {box}")
+                logging.warning(
+                    f"No box_2d metadata found in {img_path}, using full image dimensions: {box}"
+                )
             return gemini_look.gemini_describe_region(
                 im, box, entities=str(self.entities)
             )
@@ -181,7 +179,9 @@ class Describer:
         except Exception as exc:
             logging.error(f"reduce_day failed: {exc}")
 
-    def _handle_image_event(self, event_path: str, event_type: str = "detected") -> None:
+    def _handle_image_event(
+        self, event_path: str, event_type: str = "detected"
+    ) -> None:
         """Common handler for image file events (created/moved)."""
         img_path = Path(event_path)
         json_path = self._get_json_path(img_path)
