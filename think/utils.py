@@ -176,29 +176,3 @@ def parse_time_range(text: str) -> Optional[tuple[str, str, str]]:
     start = start_dt.strftime("%H%M%S")
     end = end_dt.strftime("%H%M%S")
     return day, start, end
-
-
-AGENT_PATH = Path(__file__).with_name("agent.txt")
-
-
-def agent_instructions() -> str:
-    """Return system instructions for the Sunstone agent."""
-
-    text = AGENT_PATH.read_text(encoding="utf-8")
-
-    journal = os.getenv("JOURNAL_PATH")
-    if journal:
-        ent_path = Path(journal) / "entities.md"
-        if ent_path.is_file():
-            entities = ent_path.read_text(encoding="utf-8").strip()
-            if entities:
-                text += "\n\n## Master Entities\n" + entities + "\n"
-
-    topics = get_topics()
-    if topics:
-        text += "\n## Topics\n"
-        for name, info in sorted(topics.items()):
-            desc = str(info.get("description", ""))
-            text += f"* {name}: {desc}\n"
-
-    return text

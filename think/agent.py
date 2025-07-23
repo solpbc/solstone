@@ -20,7 +20,35 @@ from pathlib import Path
 from agents import Agent, ModelSettings, RunConfig, Runner, set_default_openai_key
 from agents.mcp import MCPServerStdio
 
-from think.utils import agent_instructions, setup_cli
+from think.utils import get_topics, setup_cli
+
+AGENT_PATH = Path(__file__).with_name("agent.txt")
+
+
+def agent_instructions() -> tuple[str, str]:
+    """Return system instruction and initial user message."""
+
+    system_instruction = AGENT_PATH.read_text(encoding="utf-8")
+
+    user_parts: list[str] = []
+    journal = os.getenv("JOURNAL_PATH")
+    if journal:
+        ent_path = Path(journal) / "entities.md"
+        if ent_path.is_file():
+            entities = ent_path.read_text(encoding="utf-8").strip()
+            if entities:
+                user_parts.append("## Master Entities\n" + entities)
+
+    topics = get_topics()
+    if topics:
+        lines = ["## Topics"]
+        for name, info in sorted(topics.items()):
+            desc = str(info.get("description", ""))
+            lines.append(f"* {name}: {desc}")
+        user_parts.append("\n".join(lines))
+
+    user_message = "\n\n".join(user_parts).strip()
+    return system_instruction, user_message
 
 
 async def main_async():
@@ -83,10 +111,11 @@ async def main_async():
 
     # Connect to MCP server and run
     async with mcp_server:
+        system_instruction, first_user_msg = agent_instructions()
         # Create agent with connected server
         agent = Agent(
             name="SunstoneCLI",
-            instructions=agent_instructions(),
+            instructions=system_instruction,
             mcp_servers=[mcp_server],
         )
 
@@ -105,7 +134,9 @@ async def main_async():
                         if not prompt:
                             continue
 
-                        result = await Runner.run(agent, prompt, run_config=run_config)
+                        result = await Runner.run(
+                            agent, [first_user_msg, prompt], run_config=run_config
+                        )
                         print(result.final_output)
 
                     except EOFError:
@@ -118,7 +149,9 @@ async def main_async():
             logging.debug("Task contents: %s", user_prompt)
             logging.info("Running agent with model %s", args.model)
 
-            result = await Runner.run(agent, user_prompt, run_config=run_config)
+            result = await Runner.run(
+                agent, [first_user_msg, user_prompt], run_config=run_config
+            )
             print(result.final_output)
 
 

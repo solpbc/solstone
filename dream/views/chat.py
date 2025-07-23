@@ -13,7 +13,6 @@ from google import genai
 from google.genai import types
 
 from think.models import GEMINI_FLASH
-from think.utils import agent_instructions
 
 from .. import state
 
@@ -45,13 +44,20 @@ async def ask_gemini(prompt: str, attachments: List[str], api_key: str) -> str:
     client = genai.Client(api_key=api_key)
     mcp_client = _create_mcp_client()
 
+    from think.agent import agent_instructions
+
+    system_instruction, first_user = agent_instructions()
+
     past: List[types.Content] = [
+        types.Content(role="user", parts=[types.Part(text=first_user)])
+    ]
+    past.extend(
         types.Content(
             role=("user" if m["role"] == "user" else "model"),
             parts=[types.Part(text=m["text"])],
         )
         for m in state.chat_history
-    ]
+    )
 
     past.append(types.Content(role="user", parts=[types.Part(text=prompt)]))
     for a in attachments:
@@ -78,7 +84,7 @@ async def ask_gemini(prompt: str, attachments: List[str], api_key: str) -> str:
                 tool_config=types.ToolConfig(
                     function_calling_config=types.FunctionCallingConfig(mode="AUTO")
                 ),
-                system_instruction=agent_instructions(),
+                system_instruction=system_instruction,
             ),
         )
 
