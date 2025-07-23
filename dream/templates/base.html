@@ -9,15 +9,15 @@
 </head>
 <body>
   <div class="nav-icons">
-    <a id="homeIcon" href="{{ url_for('review.home') }}" class="{% if active=='home' %}current{% endif %}">🏠</a>
-    <a href="{{ url_for('search.search_page') }}" class="{% if active=='search' %}current{% endif %}">🔍</a>
-    <a href="{{ url_for('import_view.import_page') }}" class="{% if active=='import' %}current{% endif %}">📥</a>
-    <a href="{{ url_for('calendar.calendar_page') }}" class="{% if active=='calendar' %}current{% endif %}">📅</a>
-    <a href="{{ url_for('entities.entities') }}" class="{% if active=='entities' %}current{% endif %}">📑</a>
-    <a href="{{ url_for('chat.chat_page') }}" class="{% if active=='chat' %}current{% endif %}">💬</a>
-    <a href="{{ url_for('live.live_page') }}" class="{% if active=='live' %}current{% endif %}">🎤</a>
-    <a href="{{ url_for('admin.admin_page') }}" class="{% if active=='admin' %}current{% endif %}">⚙️</a>
-    <a href="{{ url_for('tasks.tasks_page') }}" class="{% if active=='tasks' %}current{% endif %}">📝</a>
+    <a id="homeIcon" href="{{ url_for('review.home') }}" class="{% if active=='home' %}current{% endif %}" title="Home">🏠</a>
+    <a href="{{ url_for('search.search_page') }}" class="{% if active=='search' %}current{% endif %}" title="Search">🔍</a>
+    <a href="{{ url_for('import_view.import_page') }}" class="{% if active=='import' %}current{% endif %}" title="Import">📥</a>
+    <a href="{{ url_for('calendar.calendar_page') }}" class="{% if active=='calendar' %}current{% endif %}" title="Calendar">📅</a>
+    <a href="{{ url_for('entities.entities') }}" class="{% if active=='entities' %}current{% endif %}" title="Entities">📑</a>
+    <a href="{{ url_for('chat.chat_page') }}" class="{% if active=='chat' %}current{% endif %}" title="Chat">💬</a>
+    <a href="{{ url_for('live.live_page') }}" class="{% if active=='live' %}current{% endif %}" title="Live">🎤</a>
+    <a href="{{ url_for('admin.admin_page') }}" class="{% if active=='admin' %}current{% endif %}" title="Admin">⚙️</a>
+    <a href="{{ url_for('tasks.tasks_page') }}" class="{% if active=='tasks' %}current{% endif %}" title="Tasks">⏳</a>
     <a href="{{ url_for('review.logout') }}" title="Logout">🔒</a>
   </div>
   <script>
