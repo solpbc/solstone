@@ -35,7 +35,8 @@ const Dashboard = (function() {
 
   // Create a progress card
   function progressCard(title, done, total) {
-    const pct = total > 0 ? Math.round((done / total) * 100) : 100;
+    const maxTotal = Math.max(total, done);
+    const pct = maxTotal > 0 ? Math.min(100, Math.round((done / maxTotal) * 100)) : 100;
     return el('div', {className: 'progress-card'}, [
       el('h3', {}, [title]),
       el('div', {className: 'progress-bar'}, [
@@ -45,8 +46,8 @@ const Dashboard = (function() {
         }, [`${pct}%`])
       ]),
       el('div', {className: 'progress-stats'}, [
-        el('span', {}, [`${done} / ${total} files`]),
-        el('span', {}, [`${total - done} pending`])
+        el('span', {}, [`${done} / ${maxTotal} files`]),
+        el('span', {}, [`${Math.max(maxTotal - done, 0)} pending`])
       ])
     ]);
   }
@@ -182,10 +183,12 @@ const Dashboard = (function() {
     const totals = stats.totals || {};
     const totalDays = days.length;
     const totalAudioHours = fmt((stats.total_audio_seconds || 0) / 3600);
-    const totalStorage = Math.round(
-      ((stats.total_audio_bytes || 0) + (stats.total_image_bytes || 0)) / (1024 * 1024)
-    );
-    const completion = totals.audio_flac > 0 ? 
+    const totalStorageBytes = (stats.total_audio_bytes || 0) + (stats.total_image_bytes || 0);
+    const totalStorageMB = totalStorageBytes / (1024 * 1024);
+    const totalStorageStr = totalStorageMB >= 1000
+      ? `${fmt(totalStorageMB / 1024)} GB`
+      : `${fmt(totalStorageMB, 0)} MB`;
+    const completion = totals.audio_flac > 0 ?
       Math.round((totals.audio_json / totals.audio_flac) * 100) : 100;
     
     // Render stats cards
@@ -193,7 +196,7 @@ const Dashboard = (function() {
     statsGrid.innerHTML = ''; // Clear existing content
     statsGrid.appendChild(statCard('Total Days', totalDays, 'days recorded'));
     statsGrid.appendChild(statCard('Audio Duration', totalAudioHours, 'hours recorded'));
-    statsGrid.appendChild(statCard('Storage Used', totalStorage, 'MB total'));
+    statsGrid.appendChild(statCard('Storage Used', totalStorageStr, 'total'));
     statsGrid.appendChild(statCard('Processing Status', `${completion}%`, 'complete'));
     
     // Render progress cards
