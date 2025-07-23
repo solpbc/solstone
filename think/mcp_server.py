@@ -9,6 +9,7 @@ from typing import Any
 from fastmcp import FastMCP
 from fastmcp.resources import TextResource
 
+from think.cluster import cluster_range
 from think.indexer import search_raws as search_raws_impl
 from think.indexer import search_topics as search_topics_impl
 
@@ -135,6 +136,57 @@ def get_topic_summary(day: str, topic: str) -> TextResource:
         mime_type="application/json",
         text=json.dumps(content, indent=2),
     )
+
+
+@mcp.resource("journal://raw/{day}/{time}/{length}")
+def get_raw_cluster(day: str, time: str, length: str) -> TextResource:
+    """Return raw audio and screen transcripts for a specific time range.
+
+    This resource provides raw audio and screen transcripts for a given
+    time range. The data is organized into 5-minute intervals and formatted
+    as markdown. Each 5 minute segment could potentially be very large if there was a lot of activity, so it is recommended to use this with a specific minimum time range.
+    
+    Args:
+        day: Day in YYYYMMDD format
+        time: Start time in HHMMSS format
+        length: Length in minutes for the time range
+    """
+    try:
+        # Parse the length as minutes and convert to end time
+        length_minutes = int(length)
+        from datetime import datetime, timedelta
+        
+        # Parse start time
+        start_dt = datetime.strptime(f"{day}{time}", "%Y%m%d%H%M%S")
+        # Calculate end time
+        end_dt = start_dt + timedelta(minutes=length_minutes)
+        end_time = end_dt.strftime("%H%M%S")
+        
+        # Use cluster_range with raw screen data
+        markdown_content = cluster_range(
+            day=day,
+            start=time,
+            end=end_time,
+            screen="raw"
+        )
+        
+        return TextResource(
+            uri=f"journal://raw/{day}/{time}/{length}",
+            name=f"Raw Cluster: {day} {time} ({length}min)",
+            description=f"Raw screen activity cluster from {day} starting at {time} for {length} minutes",
+            mime_type="text/markdown",
+            text=markdown_content,
+        )
+        
+    except Exception as e:
+        error_content = f"# Error\n\nFailed to generate raw cluster for {day} {time} ({length}min): {str(e)}"
+        return TextResource(
+            uri=f"journal://raw/{day}/{time}/{length}",
+            name=f"Raw Cluster Error: {day} {time} ({length}min)",
+            description=f"Error generating raw screen cluster",
+            mime_type="text/markdown",
+            text=error_content,
+        )
 
 
 if __name__ == "__main__":
