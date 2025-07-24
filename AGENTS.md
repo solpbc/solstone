@@ -49,7 +49,7 @@ sunstone/
 
 ## Testing & CI
 
-* **Test Framework**: pytest. Place tests under `tests/`, matching module structure.
+* **Test Framework**: pytest. Place tests under `tests/`, matching module structure. Add or update tests when developing new functionality.
 * **Coverage**: We include `pytest-cov` in dev dependencies. Aim to maintain or improve existing coverage.
 * **Commands**:
 
@@ -59,7 +59,7 @@ sunstone/
   flake8 .
   mypy .
   ```
-* **Continuous Integration**: GitHub Actions runs Black, isort, flake8, mypy, and pytest on every pull request. Ensure local checks pass before pushing.
+* **Always Test**: Ensure local tests relevant to your changes all pass before pushing, if they're failing on an unrelated part of the project then they can be ignored.
 
 ---
 
@@ -85,5 +85,3 @@ sunstone/
   * `think/utils.py` available for any script
   * `dream/utils.py` for the dream app
   * `dream/push.py` websocket event utilities
-  * `think/utils.py` time range helpers
-  * whenever you create a new shared utility anywhere else, add a note here to make it more visible
