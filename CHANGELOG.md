@@ -8,3 +8,8 @@
 - Renamed `think/border_detect.py` to `think/detect_border.py` and
   `think/created_detect.py` to `think/detect_created.py`, updating function names
   and references
+
+### Added
+
+- `think/detect_transcript.py` and `think/detect_transcript.txt` for splitting
+  transcripts into 5 minute segments

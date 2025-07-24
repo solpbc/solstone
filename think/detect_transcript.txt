@@ -1,0 +1,2 @@
+Return the line numbers where each 5 minute segment of the provided transcript begins. The transcript will have line numbers already prepended like "1: ...". Respond only with a JSON array of integers, for example:
+[1, 42, 85]
