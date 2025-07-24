@@ -58,7 +58,7 @@ def split_audio(path: str, out_dir: str, start: dt.datetime) -> None:
                 continue
             ts = start + timedelta(seconds=idx * 60)
             time_part = ts.strftime("%H%M%S")
-            dest = os.path.join(out_dir, f"{time_part}_extract_raw.flac")
+            dest = os.path.join(out_dir, f"{time_part}_import_raw.flac")
             os.replace(os.path.join(tmpdir, name), dest)
 
 
@@ -96,7 +96,7 @@ def process_video(path: str, out_dir: str, start: dt.datetime, sample_s: float) 
                 if width > MIN_THRESHOLD and height > MIN_THRESHOLD:
                     ts = start + timedelta(seconds=frame_idx / fps)
                     time_part = ts.strftime("%H%M%S")
-                    img_path = os.path.join(out_dir, f"{time_part}_extract_diff.png")
+                    img_path = os.path.join(out_dir, f"{time_part}_import_diff.png")
 
                     # Add box_2d to PNG metadata
                     pnginfo = PngInfo()
