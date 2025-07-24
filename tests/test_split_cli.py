@@ -26,7 +26,9 @@ def test_split_cli(tmp_path, monkeypatch):
 
     day = tmp_path / "20240101"
     day.mkdir()
-    src = day / "120000_audio.flac"
+    heard = day / "heard"
+    heard.mkdir()
+    src = heard / "120000_audio.flac"
     src.write_bytes(b"data")
 
     monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
@@ -36,8 +38,8 @@ def test_split_cli(tmp_path, monkeypatch):
         ["hear-split", "Jan 1 2024 12:00pm to 12:01pm"],
     )
     mod.main()
-    assert (day / "120000_mic_audio.flac").exists()
-    assert (day / "120000_system_audio.flac").exists()
+    assert (heard / "120000_mic_audio.flac").exists()
+    assert (heard / "120000_system_audio.flac").exists()
     assert src.exists()
 
     monkeypatch.setattr(

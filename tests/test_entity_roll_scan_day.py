@@ -26,4 +26,4 @@ def test_scan_day(tmp_path, monkeypatch):
 
     (day_dir / "entities.md").unlink()
     info_after = mod.scan_day("20240101")
-    assert "entities.md" in info_after["repairable"]
+    assert "topics/knowledge_graph.md" in info_after["repairable"]

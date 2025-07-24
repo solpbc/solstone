@@ -10,6 +10,6 @@ def test_scan_day(tmp_path):
     (heard_dir / "110000_audio.flac").write_bytes(b"data")
 
     info = mod.Transcriber.scan_day(day_dir)
-    assert info["raw"] == ["120000_audio.flac"]
-    assert info["processed"] == ["heard/110000_audio.flac"]
+    assert info["raw"] == ["heard/110000_audio.flac"]
+    assert info["processed"] == []
     assert info["repairable"] == ["120000_audio.flac"]
