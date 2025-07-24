@@ -12,7 +12,7 @@ from PIL import Image
 from PIL.PngImagePlugin import PngInfo
 
 from see.screen_compare import compare_images
-from think.detect import detect_media_timestamp
+from think.detect import detect_creation_time
 from think.utils import setup_cli
 
 MIN_THRESHOLD = 250
@@ -140,7 +140,7 @@ def main() -> None:
     args = setup_cli(parser)
 
     if args.detect:
-        result = detect_media_timestamp(args.media)
+        result = detect_creation_time(args.media)
         print(json.dumps(result, indent=2))
         return
 
