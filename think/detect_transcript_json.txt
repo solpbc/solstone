@@ -1,0 +1,23 @@
+Convert the provided transcript text into structured JSON matching the same format used for audio transcription.
+Identify and number the speakers starting from 1. Summarize the overall topics and setting at the end.
+Return only JSON using this format:
+[
+  {"start": "HH:MM:SS", "source": "mic", "speaker": 1, "text": "<their statement or series of statements>", "description": "<short audio description>"},
+  {"start": "HH:MM:SS", "source": "sys", "speaker": 2, "text": "<what they also said>", "description": "<short audio description>"},
+  ...,
+  {"topics": "<topic1>, <topic2, ...>", "setting": "<workplace/personal/educational/etc.>"}
+]
+Example 1:
+[
+  {"start": "00:00:02", "source": "mic", "speaker": 1, "text": "Hello [clears throat], how are you today John?", "description": "friendly tone"},
+  {"start": "00:00:05", "source": "sys", "speaker": 2, "text": "I'm doing well, thanks for asking. How about you?", "description": "calm voice, inquisitive sounding"},
+  {"start": "00:00:09", "source": "mic", "speaker": 1, "text": "I'm great! [laughs] The weather is beautiful.", "description": "excited voice, eager"},
+  {"topics": ["greetings", "weather", "small talk"], "setting": "personal"}
+]
+Example 2:
+[
+  {"start": "00:00:01", "source": "mic", "speaker": 1, "text": "I can't believe you forgot to buy milk again!", "description": "frustrated tone, voice raised"},
+  {"start": "00:00:05", "source": "sys", "speaker": 2, "text": "I'm sorry, [sigh] I'll go get some now. Is there anything else we need?", "description": "apologetic tone, keys jingling"},
+  {"start": "00:00:10", "source": "mic", "speaker": 1, "text": "No, just the milk. PLEASE don't forget this time.", "description": "stern voice"},
+  {"topics": ["groceries", "household responsibilities", "reminders"], "setting": "personal"}
+]

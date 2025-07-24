@@ -29,7 +29,7 @@ def test_parse_line_numbers_invalid():
         mod.parse_line_numbers("[5]", 3)
 
 
-def test_detect_transcript(monkeypatch):
+def test_detect_transcript_segment(monkeypatch):
     mod = importlib.import_module("think.detect_transcript")
 
     class DummyClient:
@@ -49,5 +49,5 @@ def test_detect_transcript(monkeypatch):
             ThinkingConfig=lambda **k: None,
         ),
     )
-    result = mod.detect_transcript("a\nb\nc\nd", api_key="x")
+    result = mod.detect_transcript_segment("a\nb\nc\nd", api_key="x")
     assert result == ["a\nb", "c\nd"]
