@@ -75,3 +75,54 @@ def test_main_no_runners(tmp_path, monkeypatch):
     mod.main()
     assert True in called
     assert False not in called
+
+
+def test_main_no_daily(tmp_path, monkeypatch):
+    mod = importlib.reload(importlib.import_module("think.supervisor"))
+    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+    (tmp_path / "health").mkdir()
+
+    called = {}
+
+    def fake_supervise(*args, **kwargs):
+        called.update(kwargs)
+
+    monkeypatch.setattr(mod, "supervise", fake_supervise)
+    monkeypatch.setattr(mod, "start_runners", lambda journal: None)
+    monkeypatch.setattr("sys.argv", ["think-supervisor", "--no-daily", "--no-runners"])
+
+    mod.main()
+    assert called.get("daily") is False
+
+
+def test_run_process_day(tmp_path, monkeypatch):
+    mod = importlib.import_module("think.supervisor")
+    log_path = tmp_path / "supervisor.log"
+
+    commands = []
+
+    class DummyResult:
+        returncode = 0
+
+    def fake_run(cmd, stdout=None, stderr=None):
+        commands.append((cmd, getattr(stdout, "name", None)))
+        if stdout:
+            stdout.write(b"done")
+        return DummyResult()
+
+    monkeypatch.setattr(mod.subprocess, "run", fake_run)
+
+    times = iter([0, 1])
+    monkeypatch.setattr(mod.time, "time", lambda: next(times))
+
+    messages = []
+    monkeypatch.setattr(
+        mod.logging, "info", lambda msg, *a: messages.append(msg % a if a else msg)
+    )
+
+    log_path.parent.mkdir(exist_ok=True)
+    mod.run_process_day(log_path)
+
+    assert commands[0][0][2] == "think.process_day"
+    assert log_path.read_bytes() == b"done"
+    assert any("seconds" in m for m in messages)
