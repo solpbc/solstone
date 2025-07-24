@@ -10,6 +10,7 @@ from fastmcp import FastMCP
 from fastmcp.resources import TextResource
 
 from think.cluster import cluster_range
+from think.indexer import search_occurrences as search_occurrences_impl
 from think.indexer import search_raws as search_raws_impl
 from think.indexer import search_topics as search_topics_impl
 
@@ -121,20 +122,70 @@ def search_raw(query: str, day: str, limit: int = 5, offset: int = 0) -> dict[st
 
 
 @mcp.tool
-def read_markdown(date: str, filename: str) -> str | dict[str, str]:
-    """Return journal markdown contents."""
+def search_events(
+    query: str,
+    limit: int = 5,
+    *,
+    day: str | None = None,
+    topic: str | None = None,
+    start: str | None = None,
+    end: str | None = None,
+) -> dict[str, Any]:
+    """Search structured events extracted from journal summaries.
+
+    This tool searches JSON event data generated from your daily summaries.
+    Use it to find meetings, tasks, or other notable activities. Results may
+    be filtered by day, topic, or a time range.
+
+    Args:
+        query: Natural language search query (e.g., "team standup")
+        limit: Maximum number of events to return (default: 5)
+        day: Optional ``YYYYMMDD`` day to filter results
+        topic: Optional topic name to filter by
+        start: Return events ending on or after this ``HH:MM`` time
+        end: Return events starting on or before this ``HH:MM`` time
+
+    Returns:
+        Dictionary with ``limit`` and ``results`` list containing day, topic,
+        start/end times and short event summaries.
+
+    Examples:
+        - search_events("sprint review")
+        - search_events("planning", day="20240101", limit=10)
+    """
+
     try:
         journal = os.getenv("JOURNAL_PATH", "journal")
-        md_path = Path(journal) / date / f"{filename}.md"
+        rows = search_occurrences_impl(
+            journal,
+            query,
+            n_results=limit,
+            day=day,
+            start=start,
+            end=end,
+            topic=topic,
+        )
 
-        if not md_path.is_file():
-            raise FileNotFoundError(f"Markdown not found: {md_path}")
+        items = []
+        for r in rows:
+            meta = r.get("metadata", {})
+            occ = r.get("occurrence", {})
+            items.append(
+                {
+                    "day": meta.get("day", ""),
+                    "topic": meta.get("topic", ""),
+                    "start": meta.get("start", ""),
+                    "end": meta.get("end", ""),
+                    "title": occ.get("title") or r.get("text", ""),
+                    "summary": occ.get("summary", ""),
+                }
+            )
 
-        return md_path.read_text(encoding="utf-8")
+        return {"limit": limit, "results": items}
     except Exception as exc:
         return {
-            "error": f"Failed to read markdown: {exc}",
-            "suggestion": "confirm the date and filename are correct",
+            "error": f"Failed to search events: {exc}",
+            "suggestion": "try adjusting the query or filters",
         }
 
 

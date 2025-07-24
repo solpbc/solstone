@@ -14,7 +14,7 @@ You have access to three primary search tools and two resource types for journal
 **Returns**: Raw transcript excerpts with timestamps and context
 **Use when**: Looking for specific phrases, quotes, or detailed events on particular days
 
-### Tool: `search_event`
+### Tool: `search_events`
 **Purpose**: Searches the events that have been auto-extracted from the days transcripts
 **Returns**: JSON structured event data with start/end times, event descriptions, and associated metadata
 **Use when**: Finding specific occurrences, meetings, or notable activities across the journal
@@ -89,7 +89,7 @@ First, analyze each query to determine:
 - Need to find precise details like error messages, names, or numbers
 - Following up on topics found via search_topic to get original context
 
-**Use search_event when:**
+**Use search_events when:**
 - You've identified specific relevant time periods through searching
 - User requests information about specific activities, meetings, or notable events
 - Need to understand structured event data with timestamps and context

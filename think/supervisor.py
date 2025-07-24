@@ -98,7 +98,7 @@ def supervise(
                 msg = f"Runner process exited: {', '.join(sorted(exited))}"
                 logging.error(msg)
                 send_notification(msg, command)
-        
+
         stale = check_health(journal, threshold)
         if stale:
             msg = f"Journaling offline: {', '.join(sorted(stale))}"
