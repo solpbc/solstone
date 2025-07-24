@@ -19,7 +19,7 @@ mcp = FastMCP("sunstone")
 
 
 @mcp.tool
-def search_topic(query: str, limit: int = 5, offset: int = 0) -> dict[str, Any]:
+def search_topic(query: str, limit: int = 5, offset: int = 0, *, topic: str | None = None) -> dict[str, Any]:
     """Search across journal topic summaries using semantic full-text search.
 
     This tool searches through pre-processed topic summaries that represent
@@ -29,23 +29,25 @@ def search_topic(query: str, limit: int = 5, offset: int = 0) -> dict[str, Any]:
 
     Args:
         query: Natural language search query (e.g., "meetings about product launch")
-        limit: Maximum number of results to return (default: 5, max: 20)
-        offset: Number of results to skip for pagination (default: 0)
+        limit: Optional maximum number of results to return (default: 5, max: 20)
+        offset: Optional number of results to skip for pagination (default: 0)
+        topic: Optional topic name to filter results by
 
     Returns:
         Dictionary containing:
         - total: Total number of matching topics
         - limit: Current limit value used for this query
         - offset: Current offset value used for this query
-        - results: List of matching topics with day, filename, and text excerpt
+        - results: List of matching topics with day, topic, and text excerpt
 
     Examples:
         - search_topic("machine learning projects")
         - search_topic("team retrospectives", limit=10)
+        - search_topic("planning", topic="standup")
     """
     try:
         journal = os.getenv("JOURNAL_PATH", "journal")
-        total, results = search_topics_impl(journal, query, limit, offset)
+        total, results = search_topics_impl(journal, query, limit, offset, topic=topic)
 
         items = []
         for r in results:
@@ -56,7 +58,7 @@ def search_topic(query: str, limit: int = 5, offset: int = 0) -> dict[str, Any]:
             items.append(
                 {
                     "day": meta.get("day", ""),
-                    "filename": topic,
+                    "topic": topic,
                     "text": r.get("text", ""),
                 }
             )
@@ -81,8 +83,8 @@ def search_raw(query: str, day: str, limit: int = 5, offset: int = 0) -> dict[st
     Args:
         query: Natural language search query (e.g., "error message")
         day: Day folder to search in ``YYYYMMDD`` format
-        limit: Maximum number of results to return (default: 5, max: 20)
-        offset: Number of results to skip for pagination (default: 0)
+        limit: Optional maximum number of results to return (default: 5, max: 20)
+        offset: Optional number of results to skip for pagination (default: 0)
 
     Returns:
         Dictionary containing:
@@ -125,6 +127,7 @@ def search_raw(query: str, day: str, limit: int = 5, offset: int = 0) -> dict[st
 def search_events(
     query: str,
     limit: int = 5,
+    offset: int = 0,
     *,
     day: str | None = None,
     topic: str | None = None,
@@ -139,19 +142,21 @@ def search_events(
 
     Args:
         query: Natural language search query (e.g., "team standup")
-        limit: Maximum number of events to return (default: 5)
+        limit: Optional maximum number of events to return (default: 5)
+        offset: Optional number of results to skip for pagination (default: 0)
         day: Optional ``YYYYMMDD`` day to filter results
         topic: Optional topic name to filter by
-        start: Return events ending on or after this ``HH:MM`` time
-        end: Return events starting on or before this ``HH:MM`` time
+        start: Optional start time to filter events starting on or after this ``HH:MM:SS`` time
+        end: Optional end time to filter events ending on or before this ``HH:MM:SS`` time
 
     Returns:
-        Dictionary with ``limit`` and ``results`` list containing day, topic,
+        Dictionary with ``limit``, ``offset`` and ``results`` list containing day, topic,
         start/end times and short event summaries.
 
     Examples:
         - search_events("sprint review")
         - search_events("planning", day="20240101", limit=10)
+        - search_events("standup", limit=5, offset=10)
     """
 
     try:
@@ -160,6 +165,7 @@ def search_events(
             journal,
             query,
             n_results=limit,
+            offset=offset,
             day=day,
             start=start,
             end=end,
@@ -181,7 +187,7 @@ def search_events(
                 }
             )
 
-        return {"limit": limit, "results": items}
+        return {"limit": limit, "offset": offset, "results": items}
     except Exception as exc:
         return {
             "error": f"Failed to search events: {exc}",
