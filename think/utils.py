@@ -64,6 +64,23 @@ def journal_log(message: str) -> None:
         _append_task_log(journal, message)
 
 
+def touch_health(name: str) -> None:
+    """Update the journal's ``name`` heartbeat file.
+
+    The journal path is read from ``JOURNAL_PATH`` in the environment.
+    """
+    load_dotenv()
+    journal = os.getenv("JOURNAL_PATH")
+    if not journal:
+        return
+    path = Path(journal) / "health" / f"{name}.up"
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.touch()
+    except Exception:
+        pass
+
+
 def setup_cli(parser: argparse.ArgumentParser, *, parse_known: bool = False):
     """Parse command line arguments and configure logging.
 

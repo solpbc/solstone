@@ -3,8 +3,9 @@ import importlib
 import numpy as np
 
 
-def test_get_buffer_and_flac(tmp_path):
+def test_get_buffer_and_flac(tmp_path, monkeypatch):
     cap = importlib.import_module("hear.capture")
+    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
     rec = cap.AudioRecorder(journal=str(tmp_path))
     stereo_chunk = np.column_stack(
         (
@@ -20,3 +21,5 @@ def test_get_buffer_and_flac(tmp_path):
     rec.save_flac(data, "t")
     files = list(tmp_path.rglob("*_t.flac"))
     assert files
+    hb = tmp_path / "health" / "hear.up"
+    assert hb.is_file()
