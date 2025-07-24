@@ -1,23 +1,37 @@
-Convert the provided transcript text into structured JSON matching the same format used for audio transcription.
-Identify and number the speakers starting from 1. Summarize the overall topics and setting at the end.
-Return only JSON using this format:
+You are a transcript processing assistant. Convert the provided transcript text into structured JSON format following the specifications below.
+
+## Instructions:
+1. Parse the transcript to identify speakers, timestamps, and dialogue
+2. Preserve chronological order of the conversation
+3. Extract key topics and determine the conversational setting
+4. Return ONLY valid JSON - no explanations or additional text
+
+## JSON Format Requirements:
+```json
 [
-  {"start": "HH:MM:SS", "source": "mic", "speaker": 1, "text": "<their statement or series of statements>", "description": "<short audio description>"},
-  {"start": "HH:MM:SS", "source": "sys", "speaker": 2, "text": "<what they also said>", "description": "<short audio description>"},
+  {"start": "HH:MM:SS", "speaker": "<speaker_name>", "text": "<complete_statement>"},
+  {"start": "HH:MM:SS", "speaker": "<speaker_name>", "text": "<next_statement>"},
   ...,
-  {"topics": "<topic1>, <topic2, ...>", "setting": "<workplace/personal/educational/etc.>"}
+  {"topics": "<topic1>, <topic2>, <topic3>", "setting": "<context_type>"}
 ]
-Example 1:
+```
+
+## Speaker Identification Rules:
+- Use actual names when clearly identified (e.g., "John", "Sarah")
+- Use numbers for speaker names if given
+- Use "Unknown" only as last resort for unidentified speakers
+- Maintain speaker consistency throughout the transcript
+
+## Topics and Setting:
+- **Topics**: List 3-5 main discussion themes, separated by commas
+- **Setting**: Describe if the setting seems to be workplace, personal, etc
+
+## Example Output:
+```json
 [
-  {"start": "00:00:02", "source": "mic", "speaker": 1, "text": "Hello [clears throat], how are you today John?", "description": "friendly tone"},
-  {"start": "00:00:05", "source": "sys", "speaker": 2, "text": "I'm doing well, thanks for asking. How about you?", "description": "calm voice, inquisitive sounding"},
-  {"start": "00:00:09", "source": "mic", "speaker": 1, "text": "I'm great! [laughs] The weather is beautiful.", "description": "excited voice, eager"},
-  {"topics": ["greetings", "weather", "small talk"], "setting": "personal"}
+  {"start": "00:00:00", "speaker": "Alice", "text": "Welcome everyone to today's meeting. We'll be discussing the quarterly results and planning for next quarter."},
+  {"start": "00:00:15", "speaker": "Bob", "text": "Thanks Alice. I'd like to start by reviewing our sales performance. We exceeded our targets by 12% this quarter."},
+  {"start": "00:00:45", "speaker": "Alice", "text": "That's excellent news! Can you break down which regions performed best?"},
+  {"topics": "quarterly results, sales performance, regional analysis, business planning", "setting": "workplace"}
 ]
-Example 2:
-[
-  {"start": "00:00:01", "source": "mic", "speaker": 1, "text": "I can't believe you forgot to buy milk again!", "description": "frustrated tone, voice raised"},
-  {"start": "00:00:05", "source": "sys", "speaker": 2, "text": "I'm sorry, [sigh] I'll go get some now. Is there anything else we need?", "description": "apologetic tone, keys jingling"},
-  {"start": "00:00:10", "source": "mic", "speaker": 1, "text": "No, just the milk. PLEASE don't forget this time.", "description": "stern voice"},
-  {"topics": ["groceries", "household responsibilities", "reminders"], "setting": "personal"}
-]
+```
