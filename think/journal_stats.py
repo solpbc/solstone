@@ -40,9 +40,7 @@ class JournalStats:
 
         # --- hear ---
         audio_info = Transcriber.scan_day(day_dir)
-        audio_files = [
-            (day_dir / n, n) for n in audio_info["raw"]
-        ]
+        audio_files = [(day_dir / n, n) for n in audio_info["raw"]]
         for path, name in audio_files:
             if name.endswith(".flac"):
                 stats["audio_flac"] += 1

@@ -15,8 +15,8 @@ from .models import GEMINI_LITE
 
 
 def _load_system_prompt() -> str:
-    """Load the system prompt from created_detect.txt file."""
-    prompt_path = os.path.join(os.path.dirname(__file__), "created_detect.txt")
+    """Load the system prompt from detect_created.txt file."""
+    prompt_path = os.path.join(os.path.dirname(__file__), "detect_created.txt")
     with open(prompt_path, "r", encoding="utf-8") as f:
         return f.read().strip()
 
@@ -35,7 +35,7 @@ def _extract_metadata(path: str) -> str:
         return f"Error extracting metadata: {exc}"
 
 
-def detect_creation_time(path: str, api_key: Optional[str] = None) -> Optional[dict]:
+def detect_created(path: str, api_key: Optional[str] = None) -> Optional[dict]:
     """Return creation time information for *path* using Gemini."""
 
     if api_key is None:

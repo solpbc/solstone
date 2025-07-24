@@ -1,5 +1,5 @@
 [run]
 include =
-    think/border_detect.py
+    think/detect_border.py
     think/crumbs.py
     see/screen_compare.py
