@@ -1,6 +1,5 @@
 import importlib
 import json
-from pathlib import Path
 
 
 def test_importer_text(tmp_path, monkeypatch):
