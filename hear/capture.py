@@ -17,7 +17,7 @@ import soundfile as sf
 import websockets
 
 from hear.input_detect import input_detect
-from think.utils import setup_cli
+from think.utils import setup_cli, touch_health
 
 # Constants
 SAMPLE_RATE = 16000
@@ -199,6 +199,7 @@ class AudioRecorder:
         with open(flac_filepath, "wb") as f:
             f.write(flac_bytes)
         logging.info(f"Saved audio to {flac_filepath}")
+        touch_health("hear")
 
     def start(self):
         threads = [

@@ -13,7 +13,7 @@ from PIL.PngImagePlugin import PngInfo
 from see.screen_compare import compare_images
 from see.screen_dbus import idle_time_ms, screen_snap
 from think.border_detect import detect_border
-from think.utils import setup_cli
+from think.utils import setup_cli, touch_health
 
 BLUE_BORDER = (0, 0, 255)
 
@@ -54,6 +54,7 @@ def save_cache(images):
         img.save(os.path.join(CACHE_DIR, f"monitor_{idx}.png"))
     with open(os.path.join(CACHE_DIR, "last"), "w") as f:
         f.write(str(time.time()))
+    touch_health("see")
 
 
 def recent_audio_activity(journal: str, window: int = 120) -> bool:
@@ -148,6 +149,7 @@ def process_once(journal, min_threshold):
                 ) as tf:
                     censored_img.save(tf, format="PNG", pnginfo=pnginfo)
                 os.replace(tf.name, img_filename)
+                touch_health("see")
 
                 logging.info("[Monitor %s] Saved diff image: %s", idx, img_filename)
                 prev_images[idx] = censored_img
