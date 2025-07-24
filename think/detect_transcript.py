@@ -86,8 +86,8 @@ def detect_transcript_segment(text: str, api_key: Optional[str] = None) -> List[
         contents=[numbered],
         config=types.GenerateContentConfig(
             temperature=0.3,
-            max_output_tokens=512,
-            thinking_config=types.ThinkingConfig(thinking_budget=512),
+            max_output_tokens=4096+8192,
+            thinking_config=types.ThinkingConfig(thinking_budget=8192),
             system_instruction=_load_segment_prompt(),
             response_mime_type="application/json",
         ),
@@ -113,8 +113,8 @@ def detect_transcript_json(
         contents=[text],
         config=types.GenerateContentConfig(
             temperature=0.3,
-            max_output_tokens=8192,
-            thinking_config=types.ThinkingConfig(thinking_budget=2048),
+            max_output_tokens=8192+8192,
+            thinking_config=types.ThinkingConfig(thinking_budget=8192),
             system_instruction=_load_json_prompt(),
             response_mime_type="application/json",
         ),
