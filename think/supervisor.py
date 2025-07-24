@@ -4,6 +4,7 @@ import os
 import subprocess
 import sys
 import time
+from datetime import datetime
 from pathlib import Path
 
 from think.utils import setup_cli
@@ -37,6 +38,19 @@ def send_notification(message: str, command: str = "notify-send") -> None:
         logging.error("Failed to send notification: %s", exc)
 
 
+def run_process_day(log_path: Path) -> None:
+    """Run ``think.process_day`` and log duration to ``log_path``."""
+    start = time.time()
+    with open(log_path, "ab") as log_file:
+        subprocess.run(
+            [sys.executable, "-m", "think.process_day"],
+            stdout=log_file,
+            stderr=log_file,
+        )
+    duration = int(time.time() - start)
+    logging.info("think.process_day finished in %s seconds", duration)
+
+
 def start_runners(journal: str) -> list[subprocess.Popen]:
     """Launch hear and see runners logging output to supervisor.log."""
     log_path = Path(journal) / "health" / "supervisor.log"
@@ -60,8 +74,11 @@ def supervise(
     threshold: int = DEFAULT_THRESHOLD,
     interval: int = CHECK_INTERVAL,
     command: str = "notify-send",
+    daily: bool = True,
 ) -> None:
     """Monitor heartbeat files and alert when they become stale."""
+    log_path = Path(journal) / "health" / "supervisor.log"
+    last_day = datetime.now().date()
     while True:  # pragma: no cover - loop checked via unit tests by patching
         stale = check_health(journal, threshold)
         if stale:
@@ -70,6 +87,9 @@ def supervise(
             send_notification(msg, command)
         else:
             logging.info("Heartbeat OK")
+        if daily and datetime.now().date() != last_day:
+            run_process_day(log_path)
+            last_day = datetime.now().date()
         time.sleep(interval)
 
 
@@ -93,6 +113,11 @@ def parse_args() -> argparse.ArgumentParser:
         "--no-runners",
         action="store_true",
         help="Do not automatically start hear and see runners",
+    )
+    parser.add_argument(
+        "--no-daily",
+        action="store_true",
+        help="Disable daily processing run at midnight",
     )
     return parser
 
@@ -124,6 +149,7 @@ def main() -> None:
             threshold=args.threshold,
             interval=args.interval,
             command=args.notify_cmd,
+            daily=not args.no_daily,
         )
     finally:
         for proc in procs:
