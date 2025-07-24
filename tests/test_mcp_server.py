@@ -34,10 +34,14 @@ def test_mcp_server_via_stdio(tmp_path):
     assert "raws:hi:20240101:5:0" in calls
     assert data1 == {
         "total": 1,
+        "limit": 5,
+        "offset": 0,
         "results": [{"day": "20240101", "filename": "foo", "text": "hello"}],
     }
     assert data2 == {
         "total": 1,
+        "limit": 5,
+        "offset": 0,
         "results": [
             {
                 "day": "20240101",

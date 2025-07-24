@@ -34,6 +34,8 @@ def search_topic(query: str, limit: int = 5, offset: int = 0) -> dict[str, Any]:
     Returns:
         Dictionary containing:
         - total: Total number of matching topics
+        - limit: Current limit value used for this query
+        - offset: Current offset value used for this query
         - results: List of matching topics with day, filename, and text excerpt
 
     Examples:
@@ -58,7 +60,7 @@ def search_topic(query: str, limit: int = 5, offset: int = 0) -> dict[str, Any]:
                 }
             )
 
-        return {"total": total, "results": items}
+        return {"total": total, "limit": limit, "offset": offset, "results": items}
     except Exception as exc:
         return {
             "error": f"Failed to search topics: {exc}",
@@ -84,6 +86,8 @@ def search_raw(query: str, day: str, limit: int = 5, offset: int = 0) -> dict[st
     Returns:
         Dictionary containing:
         - total: Total number of matching raw entries
+        - limit: Current limit value used for this query
+        - offset: Current offset value used for this query
         - results: List of entries with day, time, type, and text snippet
 
     Examples:
@@ -108,7 +112,7 @@ def search_raw(query: str, day: str, limit: int = 5, offset: int = 0) -> dict[st
                 }
             )
 
-        return {"total": total, "results": items}
+        return {"total": total, "limit": limit, "offset": offset, "results": items}
     except Exception as exc:
         return {
             "error": f"Failed to search raw data: {exc}",
