@@ -122,6 +122,7 @@ async def main_async():
         if user_prompts is None:
             # Interactive mode
             logging.info("Starting interactive mode with model %s", args.model)
+            conversation_history = [first_user_msg]  # Start with initial context
             try:
                 while True:
                     try:
@@ -134,10 +135,16 @@ async def main_async():
                         if not prompt:
                             continue
 
+                        # Add user prompt to conversation history
+                        conversation_history.append(prompt)
+
                         result = await Runner.run(
-                            agent, [first_user_msg, prompt], run_config=run_config
+                            agent, conversation_history, run_config=run_config
                         )
                         print(result.final_output)
+
+                        # Add agent response to conversation history
+                        conversation_history.append(result.final_output)
 
                     except EOFError:
                         break
