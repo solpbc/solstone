@@ -89,6 +89,11 @@ def parse_args() -> argparse.ArgumentParser:
         default="notify-send",
         help="Command used to send desktop notification",
     )
+    parser.add_argument(
+        "--no-runners",
+        action="store_true",
+        help="Do not automatically start hear and see runners",
+    )
     return parser
 
 
@@ -110,7 +115,9 @@ def main() -> None:
         level=level, handlers=handlers, format="%(asctime)s %(levelname)s %(message)s"
     )
 
-    procs = start_runners(journal)
+    procs: list[subprocess.Popen] = []
+    if not args.no_runners:
+        procs = start_runners(journal)
     try:
         supervise(
             journal,

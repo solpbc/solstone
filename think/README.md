@@ -21,13 +21,15 @@ The package exposes several commands:
   any missing screenshot or audio descriptions for a day.
 - `think-entity-roll` collects entities across days and writes a rollup file.
 - `think-process-day` runs the above tools for a single day.
- - `think-mcp-server` starts an OAuth-enabled server exposing search capabilities over MCP for both ponder text and raw transcripts.
+- `think-supervisor` monitors hear and see heartbeats. Use `--no-runners` to skip starting them automatically.
+- `think-mcp-server` starts an OAuth-enabled server exposing search capabilities over MCP for both ponder text and raw transcripts.
 
 ```bash
 think-ponder YYYYMMDD [-f PROMPT] [-p] [-c] [--force] [-v]
 think-cluster YYYYMMDD [--start HHMMSS --length MINUTES]
 think-entity-roll
 think-process-day [--day YYYYMMDD] [--force] [--repair] [--rebuild]
+think-supervisor [--no-runners]
  think-mcp-server [--port PORT]
 ```
 

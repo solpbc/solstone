@@ -56,3 +56,22 @@ def test_start_runners(tmp_path, monkeypatch):
     assert len(procs) == 2
     assert any("hear.runner" in c[0] for c in started)
     assert any("see.runner" in c[0] for c in started)
+
+
+def test_main_no_runners(tmp_path, monkeypatch):
+    mod = importlib.import_module("think.supervisor")
+    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+    (tmp_path / "health").mkdir()
+
+    called = []
+
+    def fake_supervise(*args, **kwargs):
+        called.append(True)
+
+    monkeypatch.setattr(mod, "supervise", fake_supervise)
+    monkeypatch.setattr(mod, "start_runners", lambda journal: called.append(False))
+    monkeypatch.setattr("sys.argv", ["think-supervisor", "--no-runners"])
+
+    mod.main()
+    assert True in called
+    assert False not in called
