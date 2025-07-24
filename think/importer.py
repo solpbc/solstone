@@ -12,7 +12,7 @@ from PIL import Image
 from PIL.PngImagePlugin import PngInfo
 
 from see.screen_compare import compare_images
-from think.detect import detect_creation_time
+from think.created_detect import detect_creation_time
 from think.utils import setup_cli
 
 MIN_THRESHOLD = 250

@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
+import json
 import os
 import subprocess
 from typing import Optional
-import json
 
 from dotenv import load_dotenv
 from google import genai
@@ -15,8 +15,8 @@ from .models import GEMINI_LITE
 
 
 def _load_system_prompt() -> str:
-    """Load the system prompt from detect.txt file."""
-    prompt_path = os.path.join(os.path.dirname(__file__), "detect.txt")
+    """Load the system prompt from created_detect.txt file."""
+    prompt_path = os.path.join(os.path.dirname(__file__), "created_detect.txt")
     with open(prompt_path, "r", encoding="utf-8") as f:
         return f.read().strip()
 
