@@ -42,7 +42,7 @@ def search_topic_api() -> Any:
     results = []
     for r in rows:
         meta = r.get("metadata", {})
-        topic = meta.get("ponder", "")
+        topic = meta.get("topic", "")
         if topic.startswith("topics/"):
             topic = topic[len("topics/") :]  # noqa: E203
         if topic.endswith(".md"):
@@ -57,7 +57,7 @@ def search_topic_api() -> Any:
                 "date": format_date(meta.get("day", "")),
                 "topic": topic,
                 "color": topics.get(topic, {}).get("color"),
-                "text": markdown.markdown(text, extensions=['extra']),
+                "text": markdown.markdown(text, extensions=["extra"]),
                 "score": r.get("score", 0.0),
             }
         )
