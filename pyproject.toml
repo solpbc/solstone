@@ -95,6 +95,7 @@ think-process-day = "think.process_day:main"
 think-mcp-server = "think.mcp_server:main"
 think-indexer = "think.indexer:main"
 think-agent = "think.agent:main"
+think-supervisor = "think.supervisor:main"
 
 [project.urls]
 Homepage = "https://github.com/yourusername/sunstone"
