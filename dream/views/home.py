@@ -15,6 +15,8 @@ from flask import (
     url_for,
 )
 
+from think.utils import get_topics
+
 from .. import state
 
 bp = Blueprint(
@@ -79,9 +81,14 @@ def stats_data() -> Any:
         if os.path.isfile(summary_path):
             try:
                 import markdown  # type: ignore
+
                 with open(summary_path, "r", encoding="utf-8") as f:
-                    response["summary_html"] = markdown.markdown(f.read(), extensions=['extra'])
+                    response["summary_html"] = markdown.markdown(
+                        f.read(), extensions=["extra"]
+                    )
             except Exception:
                 pass
+
+        response["topics"] = get_topics()
 
     return jsonify(response)

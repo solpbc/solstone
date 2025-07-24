@@ -25,6 +25,17 @@ const Dashboard = (function() {
     return value > 10 ? value.toFixed(0) : value.toFixed(decimals);
   }
 
+  function fmtMinutes(min) {
+    const value = Number(min);
+    if (value >= 1440) {
+      return (value / 1440).toFixed(1) + 'd';
+    }
+    if (value >= 60) {
+      return Math.round(value / 60) + 'h';
+    }
+    return Math.round(value) + 'm';
+  }
+
   // Create a stat card
   function statCard(title, value, subtitle, color) {
     return el('div', {className: 'stat-card'}, [
@@ -127,7 +138,7 @@ const Dashboard = (function() {
   }
 
   // Build topics grid
-  function buildTopics(container, counts, minutes) {
+  function buildTopics(container, counts, minutes, meta = {}) {
     const names = Object.keys(counts);
     if (!names.length) {
       container.style.display = 'none';
@@ -139,11 +150,14 @@ const Dashboard = (function() {
     const grid = el('div', {className: 'topics-grid'});
     
     sorted.forEach(name => {
+      const info = meta[name] || {};
+      const title = info.title || name;
+      const color = info.color || null;
       const card = el('div', {className: 'topic-card'}, [
-        el('div', {className: 'topic-name'}, [name]),
+        el('div', {className: 'topic-name', style: color ? {color} : {}}, [title]),
         el('div', {className: 'topic-stats'}, [
-          el('span', {}, [`${counts[name]} occurrences`]),
-          el('span', {}, [`${Math.round(minutes[name] || 0)}m`])
+          el('span', {}, [String(counts[name])]),
+          el('span', {}, [fmtMinutes(minutes[name] || 0)])
         ])
       ]);
       grid.appendChild(card);
@@ -241,7 +255,8 @@ const Dashboard = (function() {
       buildTopics(
         document.getElementById('topicsSection'),
         stats.topic_counts,
-        stats.topic_minutes
+        stats.topic_minutes,
+        data.topics || {}
       );
     }
     

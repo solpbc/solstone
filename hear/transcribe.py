@@ -303,7 +303,7 @@ class Transcriber:
         )
 
         processed = sorted(p.name for p in day_dir.glob("*_audio.json"))
-        
+
         repairable = sorted(p.name for p in day_dir.glob("*.flac"))
 
         return {"raw": raw, "processed": processed, "repairable": repairable}
