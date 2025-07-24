@@ -15,3 +15,12 @@
 - `detect_transcript_json` utility and `detect_transcript_json.txt` for
   converting transcript text segments into the JSON format used by
   `hear.transcribe`.
+
+## 2025-07-26
+
+- `think/importer.py` can now process `.txt` and `.pdf` transcript files.
+- Detected creation time via `detect_created` and splits transcripts with
+  `detect_transcript_segment`, converting each chunk to JSON with
+  `detect_transcript_json`.
+- JSON segments are written as `HHMMSS_imported_audio.json` files incremented by
+  five minutes per chunk.

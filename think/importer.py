@@ -13,7 +13,13 @@ from PIL.PngImagePlugin import PngInfo
 
 from see.screen_compare import compare_images
 from think.detect_created import detect_created
+from think.detect_transcript import detect_transcript_json, detect_transcript_segment
 from think.utils import setup_cli
+
+try:
+    from PyPDF2 import PdfReader
+except Exception:  # pragma: no cover - optional dependency
+    PdfReader = None
 
 MIN_THRESHOLD = 250
 TIME_RE = re.compile(r"\d{8}_\d{6}")
@@ -114,6 +120,47 @@ def process_video(path: str, out_dir: str, start: dt.datetime, sample_s: float) 
     cap.release()
 
 
+def _read_transcript(path: str) -> str:
+    """Return transcript text from a .txt or .pdf file."""
+    ext = os.path.splitext(path)[1].lower()
+    if ext == ".txt":
+        with open(path, "r", encoding="utf-8") as f:
+            return f.read()
+    if ext == ".pdf":
+        if PdfReader is None:
+            raise RuntimeError("PyPDF2 required for PDF support")
+        reader = PdfReader(path)
+        parts = []
+        for page in reader.pages:
+            text = page.extract_text() or ""
+            parts.append(text)
+        return "\n".join(parts)
+    raise ValueError("unsupported transcript format")
+
+
+def process_transcript(path: str, journal: str) -> None:
+    """Process a transcript file and write imported JSON segments."""
+    info = detect_created(path)
+    if not info:
+        raise RuntimeError("unable to detect creation time")
+    base_dt = dt.datetime.strptime(f"{info['day']}_{info['time']}", "%Y%m%d_%H%M%S")
+    day_dir = os.path.join(journal, info["day"])
+    os.makedirs(day_dir, exist_ok=True)
+
+    text = _read_transcript(path)
+    segments = detect_transcript_segment(text)
+    for idx, seg in enumerate(segments):
+        json_data = detect_transcript_json(seg)
+        if not json_data:
+            continue
+        ts = base_dt + timedelta(minutes=idx * 5)
+        json_path = os.path.join(
+            day_dir, f"{ts.strftime('%H%M%S')}_imported_audio.json"
+        )
+        with open(json_path, "w", encoding="utf-8") as f:
+            json.dump(json_data, f, indent=2)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Chunk a media file into the journal")
     parser.add_argument("media", help="Path to video or audio file")
@@ -145,6 +192,11 @@ def main() -> None:
         return
 
     journal = os.getenv("JOURNAL_PATH")
+
+    ext = os.path.splitext(args.media)[1].lower()
+    if ext in {".txt", ".pdf"}:
+        process_transcript(args.media, journal)
+        return
 
     if not args.timestamp or not TIME_RE.fullmatch(args.timestamp):
         raise SystemExit(

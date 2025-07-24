@@ -42,10 +42,11 @@ dependencies = [
     "Pillow",
     "numpy",
     "dbus-next",
-    
+
     "sqlite-utils",
     "openai>=1.2.0",
     "openai-agents>=0.1.0",
+    "PyPDF2",
 ]
 
 [project.optional-dependencies]
