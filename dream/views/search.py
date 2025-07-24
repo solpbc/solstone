@@ -38,7 +38,7 @@ def search_topic_api() -> Any:
     from think.utils import get_topics
 
     topics = get_topics()
-    total, rows = search_topics(state.journal_root, query, limit, offset)
+    total, rows = search_topics(query, limit, offset)
     results = []
     for r in rows:
         meta = r.get("metadata", {})
@@ -70,7 +70,7 @@ def search_occurrence_api() -> Any:
     query = request.args.get("q", "").strip()
     if not query:
         return jsonify([])
-    results = search_occurrences(state.journal_root, query, 10)
+    results = search_occurrences(query, 10)
     return jsonify(results)
 
 

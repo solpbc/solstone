@@ -14,12 +14,12 @@ def log_call(entry):
 # Stub the indexer functions
 
 
-def stub_search_topics(journal, query, limit=5, offset=0):
+def stub_search_topics(query, limit=5, offset=0):
     log_call(f"topics:{query}:{limit}:{offset}")
     return 1, [{"text": "hello", "metadata": {"day": "20240101", "topic": "foo.md"}}]
 
 
-def stub_search_raws(journal, query, limit=5, offset=0, day=None):
+def stub_search_raws(query, limit=5, offset=0, day=None):
     log_call(f"raws:{query}:{day}:{limit}:{offset}")
     return 1, [
         {
@@ -30,7 +30,6 @@ def stub_search_raws(journal, query, limit=5, offset=0, day=None):
 
 
 def stub_search_occurrences(
-    journal,
     query,
     n_results=5,
     *,

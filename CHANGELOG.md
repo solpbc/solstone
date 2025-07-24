@@ -23,3 +23,4 @@ Guide for updating, always append new entries to the existing list for the same 
   `detect_transcript_json`.
 - JSON segments are written as `HHMMSS_imported_audio.json` files incremented by
   five minutes per chunk.
+- search_* functions no longer require JOURNAL_PATH argument; get_index infers from environment and tests updated

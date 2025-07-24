@@ -1,4 +1,5 @@
 import importlib
+import os
 
 
 def test_search_topic_api(tmp_path):
@@ -7,6 +8,7 @@ def test_search_topic_api(tmp_path):
     search_view = importlib.import_module("dream.views.search")
 
     journal = tmp_path
+    os.environ["JOURNAL_PATH"] = str(journal)
     day = journal / "20240107" / "topics"
     day.mkdir(parents=True)
     (day / "files.md").write_text("This is a test sentence.\n")

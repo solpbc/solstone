@@ -39,12 +39,21 @@ def split_sentences(text: str) -> List[str]:
 # Ponder indexing -----------------------------------------------------------
 
 
-def get_index(journal: str, day: str | None = None) -> Tuple[sqlite3.Connection, str]:
+def get_index(
+    journal: str | None = None, day: str | None = None
+) -> Tuple[sqlite3.Connection, str]:
     """Return SQLite connection for indexes.
 
-    If ``day`` is provided the database is stored under that day's ``index``
-    directory. Otherwise the journal level ``index`` folder is used.
+    If ``journal`` is not provided it will be read from the ``JOURNAL_PATH``
+    environment variable. When ``day`` is supplied the database is stored under
+    that day's ``index`` directory, otherwise the journal level ``index`` folder
+    is used.
     """
+
+    journal = journal or os.getenv("JOURNAL_PATH")
+    if not journal:
+        raise RuntimeError("JOURNAL_PATH not set")
+
     db_dir = (
         os.path.join(journal, day, INDEX_DIR)
         if day
@@ -327,7 +336,6 @@ def scan_raws(journal: str, verbose: bool = False) -> bool:
 
 
 def search_topics(
-    journal: str,
     query: str,
     limit: int = 5,
     offset: int = 0,
@@ -337,13 +345,13 @@ def search_topics(
 ) -> tuple[int, List[Dict[str, str]]]:
     """Search the topic sentence index and return total count and results."""
 
-    conn, _ = get_index(journal)
+    conn, _ = get_index()
     db = sqlite_utils.Database(conn)
     quoted = db.quote(query)
 
     where_clause = f"topics_text MATCH {quoted}"
     params: List[str] = []
-    
+
     if day:
         where_clause += " AND day=?"
         params.append(day)
@@ -352,8 +360,7 @@ def search_topics(
         params.append(f"%{topic}%")
 
     total = conn.execute(
-        f"SELECT count(*) FROM topics_text WHERE {where_clause}",
-        params
+        f"SELECT count(*) FROM topics_text WHERE {where_clause}", params
     ).fetchone()[0]
 
     cursor = conn.execute(
@@ -383,7 +390,6 @@ def search_topics(
 
 
 def search_occurrences(
-    journal: str,
     query: str,
     limit: int = 5,
     offset: int = 0,
@@ -394,14 +400,14 @@ def search_occurrences(
     topic: str | None = None,
 ) -> tuple[int, List[Dict[str, Any]]]:
     """Search the occurrences index and return total count and results."""
-    conn, _ = get_index(journal)
+    conn, _ = get_index()
     db = sqlite_utils.Database(conn)
     quoted = db.quote(query)
-    
+
     # Build WHERE clause and parameters
     where_clause = f"occ_text MATCH {quoted}"
     params: List[str] = []
-    
+
     if day:
         where_clause += " AND m.day=?"
         params.append(day)
@@ -414,7 +420,7 @@ def search_occurrences(
     if end:
         where_clause += " AND m.start<=?"
         params.append(end)
-    
+
     # Get total count
     total = conn.execute(
         f"""
@@ -422,9 +428,9 @@ def search_occurrences(
         FROM occ_text t JOIN occ_match m ON t.path=m.path AND t.idx=m.idx
         WHERE {where_clause}
         """,
-        params
+        params,
     ).fetchone()[0]
-    
+
     # Get results with limit and offset
     sql = f"""
         SELECT t.content,
@@ -434,7 +440,7 @@ def search_occurrences(
         WHERE {where_clause}
         ORDER BY rank LIMIT ? OFFSET ?
     """
-    
+
     cursor = conn.execute(sql, params + [limit, offset])
     results = []
     for row in cursor.fetchall():
@@ -481,7 +487,6 @@ def search_occurrences(
 
 
 def search_raws(
-    journal: str,
     query: str,
     limit: int = 5,
     offset: int = 0,
@@ -496,9 +501,13 @@ def search_raws(
     results: List[Dict[str, str]] = []
     total = 0
 
+    journal = os.getenv("JOURNAL_PATH")
+    if not journal:
+        raise RuntimeError("JOURNAL_PATH not set")
+
     days = [day] if day else sorted(find_day_dirs(journal))
     for d in days:
-        conn, _ = get_index(journal, day=d)
+        conn, _ = get_index(day=d)
         db = sqlite_utils.Database(conn)
         quoted = db.quote(query)
 
@@ -603,7 +612,7 @@ def main() -> None:
             query_kwargs["day"] = args.day
         if args.query:
             # Single query mode - run query and exit
-            _total, results = search_func(journal, args.query, 5, **query_kwargs)
+            _total, results = search_func(args.query, 5, **query_kwargs)
             _display_search_results(results)
         else:
             # Interactive mode
@@ -614,7 +623,7 @@ def main() -> None:
                     break
                 if not query:
                     break
-                _total, results = search_func(journal, query, 5, **query_kwargs)
+                _total, results = search_func(query, 5, **query_kwargs)
                 _display_search_results(results)
 
 

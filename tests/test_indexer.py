@@ -1,5 +1,6 @@
 import importlib
 import json
+import os
 
 
 def test_parse_entity_line():
@@ -48,6 +49,7 @@ def test_entities_class(tmp_path):
 def test_occurrence_index(tmp_path):
     mod = importlib.import_module("think.indexer")
     journal = tmp_path
+    os.environ["JOURNAL_PATH"] = str(journal)
     day = journal / "20240101"
     day.mkdir()
     data = {
@@ -68,7 +70,8 @@ def test_occurrence_index(tmp_path):
     topics_dir.mkdir()
     (topics_dir / "meetings.json").write_text(json.dumps(data))
     mod.scan_occurrences(str(journal), verbose=True)
-    results = mod.search_occurrences(str(journal), "Standup")
+    total, results = mod.search_occurrences("Standup")
+    assert total == 1
     assert results and results[0]["metadata"]["day"] == "20240101"
     assert results[0]["occurrence"]["title"] == "Standup"
 
@@ -76,13 +79,14 @@ def test_occurrence_index(tmp_path):
 def test_ponder_index(tmp_path):
     mod = importlib.import_module("think.indexer")
     journal = tmp_path
+    os.environ["JOURNAL_PATH"] = str(journal)
     day = journal / "20240102"
     day.mkdir()
     topics_dir = day / "topics"
     topics_dir.mkdir()
     (topics_dir / "files.md").write_text("This is a test sentence.\n")
     mod.scan_topics(str(journal), verbose=True)
-    total, results = mod.search_topics(str(journal), "test")
+    total, results = mod.search_topics("test")
     assert total == 1
     assert results and results[0]["metadata"]["path"] == "20240102/topics/files.md"
     assert total == 1
@@ -92,12 +96,13 @@ def test_ponder_index(tmp_path):
 def test_raw_index(tmp_path):
     mod = importlib.import_module("think.indexer")
     journal = tmp_path
+    os.environ["JOURNAL_PATH"] = str(journal)
     day = journal / "20240103"
     day.mkdir()
     (day / "123000_audio.json").write_text(json.dumps({"text": "hello"}))
     (day / "123000_monitor_1_diff.json").write_text(json.dumps({"desc": "screen"}))
     mod.scan_raws(str(journal), verbose=True)
-    total, results = mod.search_raws(str(journal), "hello")
+    total, results = mod.search_raws("hello")
     assert total == 1
     assert results and results[0]["metadata"]["type"] == "audio"
     assert (day / "index" / "indexer.sqlite").exists()
@@ -130,6 +135,7 @@ def test_index_caching(tmp_path):
 def test_search_raws_day(tmp_path):
     mod = importlib.import_module("think.indexer")
     journal = tmp_path
+    os.environ["JOURNAL_PATH"] = str(journal)
 
     day1 = journal / "20240105"
     day1.mkdir()
@@ -141,11 +147,9 @@ def test_search_raws_day(tmp_path):
 
     mod.scan_raws(str(journal), verbose=True)
 
-    total_all, _ = mod.search_raws(str(journal), "hello", limit=10)
+    total_all, _ = mod.search_raws("hello", limit=10)
     assert total_all == 2
 
-    total_day1, results_day1 = mod.search_raws(
-        str(journal), "hello", limit=10, day="20240105"
-    )
+    total_day1, results_day1 = mod.search_raws("hello", limit=10, day="20240105")
     assert total_day1 == 1
     assert results_day1[0]["metadata"]["day"] == "20240105"
