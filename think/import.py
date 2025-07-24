@@ -12,6 +12,7 @@ from PIL import Image
 from PIL.PngImagePlugin import PngInfo
 
 from see.screen_compare import compare_images
+from think.detect import detect_media_timestamp
 from think.utils import setup_cli
 
 MIN_THRESHOLD = 250
@@ -116,7 +117,9 @@ def process_video(path: str, out_dir: str, start: dt.datetime, sample_s: float) 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Chunk a media file into the journal")
     parser.add_argument("media", help="Path to video or audio file")
-    parser.add_argument("timestamp", help="Timestamp YYYYMMDD_HHMMSS for journal entry")
+    parser.add_argument(
+        "timestamp", nargs="?", help="Timestamp YYYYMMDD_HHMMSS for journal entry"
+    )
     parser.add_argument(
         "--see", type=str2bool, default=True, help="Process video stream"
     )
@@ -129,11 +132,24 @@ def main() -> None:
         default=5.0,
         help="Video sampling interval in seconds",
     )
+    parser.add_argument(
+        "--detect",
+        action="store_true",
+        help="Detect creation timestamp using Gemini and exit",
+    )
     args = setup_cli(parser)
+
+    if args.detect:
+        result = detect_media_timestamp(args.media)
+        print(json.dumps(result, indent=2))
+        return
+
     journal = os.getenv("JOURNAL_PATH")
 
-    if not TIME_RE.fullmatch(args.timestamp):
-        raise SystemExit("timestamp must be in YYYYMMDD_HHMMSS format")
+    if not args.timestamp or not TIME_RE.fullmatch(args.timestamp):
+        raise SystemExit(
+            "timestamp must be in YYYYMMDD_HHMMSS format or specify --detect"
+        )
     base_dt = dt.datetime.strptime(args.timestamp, "%Y%m%d_%H%M%S")
     day_dir = os.path.join(journal, base_dt.strftime("%Y%m%d"))
     os.makedirs(day_dir, exist_ok=True)
