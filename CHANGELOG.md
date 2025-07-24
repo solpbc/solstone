@@ -1,6 +1,6 @@
 # Changelog
 
-## 2025-07-24
+## 2025-07-25
 
 - CHANGELOG.md created to start tracking agentic coding updates
 - Renamed `think/detect.py` and `think/detect.txt` to `think/created_detect.py` and
@@ -8,21 +8,10 @@
 - Renamed `think/border_detect.py` to `think/detect_border.py` and
   `think/created_detect.py` to `think/detect_created.py`, updating function names
   and references
-
-### Added
-
 - `think/detect_transcript.py` and `think/detect_transcript.txt` for splitting
   transcripts into 5 minute segments
-
-## 2025-07-25
-
-### Changed
-
 - Renamed `detect_transcript` function and prompt to
   `detect_transcript_segment`/`detect_transcript_segment.txt`.
-
-### Added
-
 - `detect_transcript_json` utility and `detect_transcript_json.txt` for
   converting transcript text segments into the JSON format used by
   `hear.transcribe`.
