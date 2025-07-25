@@ -71,7 +71,7 @@ def parse_entities(path: str) -> List[Tuple[str, str, str]]:
 
 def load_cache(journal: str) -> Dict[str, dict]:
     """Load the indexer cache from ``journal``."""
-    cache_path = os.path.join(journal, "indexer.json")
+    cache_path = os.path.join(journal, "entities.json")
     if os.path.isfile(cache_path):
         try:
             with open(cache_path, "r", encoding="utf-8") as f:
@@ -83,7 +83,7 @@ def load_cache(journal: str) -> Dict[str, dict]:
 
 def save_cache(journal: str, cache: Dict[str, dict]) -> None:
     """Save the indexer cache to ``journal``."""
-    cache_path = os.path.join(journal, "indexer.json")
+    cache_path = os.path.join(journal, "entities.json")
     with open(cache_path, "w", encoding="utf-8") as f:
         json.dump(cache, f, indent=2)
 

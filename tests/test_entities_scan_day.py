@@ -24,7 +24,7 @@ def test_scan_day(tmp_path, monkeypatch):
             "entries": [],
         }
     }
-    (tmp_path / "indexer.json").write_text(json.dumps(cache))
+    (tmp_path / "entities.json").write_text(json.dumps(cache))
 
     ent = mod.Entities(str(tmp_path))
     info = ent.scan_day("20240101")
