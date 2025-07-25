@@ -15,7 +15,7 @@ from think.utils import get_topics, journal_log, setup_cli
 
 from .entities import find_day_dirs, load_cache, save_cache, scan_entities
 
-INDEX_DIR = "index"
+INDEX_DIR = "indexer"
 
 
 # Sentence indexing helpers -------------------------------------------------
