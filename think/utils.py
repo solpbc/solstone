@@ -64,6 +64,14 @@ def journal_log(message: str) -> None:
         _append_task_log(journal, message)
 
 
+def importer_log(message: str) -> None:
+    """Append ``message`` to the journal's ``importer/task_log.txt``."""
+    load_dotenv()
+    journal = os.getenv("JOURNAL_PATH")
+    if journal:
+        _append_task_log(Path(journal) / "importer", message)
+
+
 def touch_health(name: str) -> None:
     """Update the journal's ``name`` heartbeat file.
 

@@ -1,6 +1,25 @@
 import os
+import sys
+import types
+from pathlib import Path
 
-from think import mcp_server
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+if "google" not in sys.modules:
+    google_mod = types.ModuleType("google")
+    genai_mod = types.ModuleType("google.genai")
+
+    class DummyClient:
+        def __init__(self, *a, **k):
+            pass
+
+    genai_mod.Client = DummyClient
+    genai_mod.types = types.SimpleNamespace(GenerateContentConfig=lambda **k: None)
+    google_mod.genai = genai_mod
+    sys.modules["google"] = google_mod
+    sys.modules["google.genai"] = genai_mod
+
+from think import mcp_server  # noqa: E402
 
 CALLS_FILE = os.environ.get("CALLS_FILE")
 

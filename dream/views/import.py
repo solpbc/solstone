@@ -1,16 +1,16 @@
 from __future__ import annotations
 
-import json
-import os
-import tempfile
-from typing import Any, List
+import time
+from pathlib import Path
+from typing import Any
 
 from flask import Blueprint, jsonify, render_template, request
-from google import genai
-from google.genai import types
 from werkzeug.utils import secure_filename
 
-from think.models import GEMINI_FLASH
+from think.detect_created import detect_created
+
+from .. import state
+from ..task_runner import run_task
 
 bp = Blueprint("import_view", __name__, template_folder="../templates")
 
@@ -20,50 +20,62 @@ def import_page() -> str:
     return render_template("import.html", active="import")
 
 
-@bp.route("/import/api/process", methods=["POST"])
-def import_process() -> Any:
-    api_key = os.getenv("GOOGLE_API_KEY")
-    if not api_key:
+@bp.route("/import/api/save", methods=["POST"])
+def import_save() -> Any:
+    if not state.journal_root:
         return ("", 500)
-
-    parts: List[str] = []
-
+    imp_dir = Path(state.journal_root) / "importer"
+    imp_dir.mkdir(parents=True, exist_ok=True)
     upload = request.files.get("file")
-    if upload and upload.filename:
-        tmp_dir = tempfile.mkdtemp(prefix="upload_")
-        path = os.path.join(tmp_dir, secure_filename(upload.filename))
-        upload.save(path)
-        meta = (
-            f"File name: {upload.filename}; path: {path}; size: {os.path.getsize(path)}"
-        )
-        parts.append(meta)
-
     text = request.form.get("text", "").strip()
-    if text:
-        parts.append(text)
-
-    if not parts:
-        return jsonify({"error": "No input provided"}), 400
-
-    client = genai.Client(api_key=api_key)
-    prompt = (
-        "Return JSON object with fields day (YYYYMMDD), start (HHMMSS) and title "
-        "derived from the provided inputs."
-    )
-    response = client.models.generate_content(
-        model=GEMINI_FLASH,
-        contents=parts,
-        config=types.GenerateContentConfig(
-            temperature=0.3,
-            max_output_tokens=256,
-            response_mime_type="application/json",
-            system_instruction=prompt,
-        ),
-    )
-
+    if upload and upload.filename:
+        filename = secure_filename(upload.filename)
+        path = imp_dir / f"{int(time.time()*1000)}_{filename}"
+        upload.save(path)
+    elif text:
+        path = imp_dir / f"{int(time.time()*1000)}_paste.txt"
+        path.write_text(text, encoding="utf-8")
+    else:
+        return jsonify({"error": "No input"}), 400
+    ts = None
     try:
-        result = json.loads(response.text)
+        result = detect_created(str(path))
+        if result and result.get("day") and result.get("time"):
+            ts = f"{result['day']}_{result['time']}"
     except Exception:
-        return jsonify({"error": "Failed to parse response"}), 500
+        ts = None
+    return jsonify({"path": str(path), "timestamp": ts})
 
-    return jsonify(result)
+
+@bp.route("/import/api/log")
+def import_log() -> Any:
+    entries: list[dict[str, Any]] = []
+    if state.journal_root:
+        log_path = Path(state.journal_root) / "importer" / "task_log.txt"
+        if log_path.is_file():
+            try:
+                with open(log_path, "r", encoding="utf-8") as f:
+                    for line in f:
+                        parts = line.strip().split("\t", 1)
+                        if len(parts) != 2:
+                            continue
+                        try:
+                            ts = int(parts[0])
+                        except ValueError:
+                            continue
+                        entries.append({"time": ts, "message": parts[1]})
+            except Exception:
+                entries = []
+    entries.sort(key=lambda e: e["time"], reverse=True)
+    return jsonify(entries)
+
+
+@bp.route("/import/api/start", methods=["POST"])
+def import_start() -> Any:
+    data = request.get_json(force=True)
+    path = data.get("path")
+    ts = data.get("timestamp")
+    if not path or not ts:
+        return jsonify({"error": "missing params"}), 400
+    run_task("importer", f"{path}|{ts}")
+    return jsonify({"status": "ok"})

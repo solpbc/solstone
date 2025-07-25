@@ -3,19 +3,17 @@
 {% set active = 'import' %}
 {% block head %}
 <style>
-/* Container padding mirrors other views */
-.container { padding: 0 1em; }
-/* Drag-and-drop area styling */
-#dropArea { border: 2px dashed #999; padding: 2em; text-align: center; margin-bottom: 1em; cursor: pointer; }
-#dropArea.dragover { background: #eef; border-color: #333; }
-textarea { width: 100%; min-height: 150px; }
-/* Larger box for the Paste tab */
-#pasteText { min-height: 300px; }
-button { margin-top: 1em; padding: 6px 12px; }
-/* Simple modal for showing results */
-.modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.5); }
-.modal-content { background: white; margin: 5% auto; padding: 1em; border-radius: 8px; max-width: 400px; position: relative; }
-.close { position: absolute; top: 10px; right: 15px; cursor: pointer; font-size: 24px; }
+.container { padding:0 1em; }
+#dropArea { border:2px dashed #999; padding:2em; text-align:center; margin-bottom:1em; cursor:pointer; }
+#dropArea.dragover { background:#eef; border-color:#333; }
+textarea { width:100%; min-height:150px; }
+#pasteText { min-height:300px; }
+button { margin-top:1em; padding:6px 12px; }
+.modal { display:none; position:fixed; z-index:1000; left:0; top:0; width:100%; height:100%; background:rgba(0,0,0,0.5); }
+.modal-content { background:white; margin:5% auto; padding:1em; border-radius:8px; max-width:500px; max-height:80vh; overflow:auto; position:relative; }
+.close { position:absolute; top:10px; right:15px; cursor:pointer; font-size:24px; }
+.spinner { display:inline-block; width:12px; height:12px; border:2px solid #ccc; border-top-color:#333; border-radius:50%; animation:spin 1s linear infinite; margin-left:4px; }
+@keyframes spin { to { transform:rotate(360deg); } }
 </style>
 {% endblock %}
 {% block body %}
@@ -38,12 +36,25 @@ button { margin-top: 1em; padding: 6px 12px; }
     </div>
     <button type="submit">Submit</button>
   </form>
+  <h2>Import Log</h2>
+  <pre id="logOutput"></pre>
 </div>
 
-<div id="resultModal" class="modal">
+<div id="detectModal" class="modal">
   <div class="modal-content">
     <span class="close">&times;</span>
-    <pre id="resultContent"></pre>
+    <div>
+      <label>Timestamp <input id="timestampInput" /></label>
+      <input type="hidden" id="savedPath" />
+      <button id="startBtn">Start Import</button>
+    </div>
+  </div>
+</div>
+
+<div id="taskModal" class="modal">
+  <div class="modal-content">
+    <span class="close">&times;</span>
+    <pre id="taskOutput"></pre>
   </div>
 </div>
 
@@ -77,11 +88,45 @@ document.getElementById('importForm').onsubmit=e=>{
   } else {
     fd.append('text', document.getElementById('pasteText').value);
   }
-  fetch('{{ url_for('import_view.import_process') }}', {method:'POST', body:fd})
-    .then(r=>r.json()).then(showResult);
+  fetch('{{ url_for('import_view.import_save') }}', {method:'POST', body:fd})
+    .then(r=>r.json()).then(showDetect);
 };
-function showResult(res){document.getElementById('resultContent').textContent=JSON.stringify(res,null,2);document.getElementById('resultModal').style.display='block';}
-document.querySelector('.close').onclick=()=>{document.getElementById('resultModal').style.display='none';};
-window.onclick=e=>{if(e.target==document.getElementById('resultModal'))document.getElementById('resultModal').style.display='none';};
+function showDetect(res){
+  document.getElementById('timestampInput').value=res.timestamp||'';
+  document.getElementById('savedPath').value=res.path;
+  document.getElementById('detectModal').style.display='block';
+}
+function loadLog(){
+  fetch('{{ url_for('import_view.import_log') }}').then(r=>r.json()).then(data=>{
+    const pre=document.getElementById('logOutput');
+    pre.textContent=data.map(e=>new Date(e.time*1000).toLocaleString()+" - "+e.message).join('\n');
+  });
+}
+function runTask(data){
+  const modal=document.getElementById('taskModal');
+  const out=document.getElementById('taskOutput');
+  const content=document.querySelector('#taskModal .modal-content');
+  out.innerHTML='';
+  modal.style.display='block';
+  const spinner=document.createElement('span');
+  spinner.className='spinner';
+  out.appendChild(spinner);
+  const scroll=()=>{content.scrollTop=content.scrollHeight;};
+  const addLine=html=>{spinner.remove();out.innerHTML+=html+'\n';out.appendChild(spinner);scroll();};
+  const ws=new WebSocket(`ws://${location.hostname}:8765`);
+  ws.onopen=()=>ws.send(JSON.stringify(data));
+  ws.onmessage=e=>{const msg=JSON.parse(e.data);if(msg.type==='stdout')addLine(msg.text);else if(msg.type==='stderr')addLine('<span style="color:red">'+msg.text+'</span>');else if(msg.type==='exit'){spinner.remove();out.innerHTML+='[exit '+msg.code+']\n';scroll();ws.close();}};
+  ws.onclose=()=>{spinner.remove();loadLog();};
+}
+document.getElementById('startBtn').onclick=()=>{
+  const ts=document.getElementById('timestampInput').value.trim();
+  const path=document.getElementById('savedPath').value;
+  document.getElementById('detectModal').style.display='none';
+  runTask({task:'importer',day:path+'|'+ts,src:'import'});
+};
+document.querySelectorAll('.close')[0].onclick=()=>{document.getElementById('detectModal').style.display='none';};
+document.querySelectorAll('.close')[1].onclick=()=>{document.getElementById('taskModal').style.display='none';};
+window.onclick=e=>{if(e.target==document.getElementById('detectModal'))document.getElementById('detectModal').style.display='none';if(e.target==document.getElementById('taskModal'))document.getElementById('taskModal').style.display='none';};
+loadLog();
 </script>
 {% endblock %}

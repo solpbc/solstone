@@ -18,6 +18,8 @@ Guide for updating: always append new entries to the existing list for the same 
   converting transcript text segments into the JSON format used by
   `hear.transcribe`.
 - `think/importer.py` can now process `.txt` and `.pdf` transcript files.
+- Dream import view saves uploads to `importer/`, detects timestamps via
+  `detect_created`, launches importer tasks, and shows importer task log.
 - Detected creation time via `detect_created` and splits transcripts with
   `detect_transcript_segment`, converting each chunk to JSON with
   `detect_transcript_json`.

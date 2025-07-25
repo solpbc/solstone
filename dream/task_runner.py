@@ -206,6 +206,24 @@ def run_task(
                     if use_stop
                     else _run_command(cmd, logger)
                 )
+            elif name == "importer":
+                if not day:
+                    raise ValueError("file and timestamp required")
+                try:
+                    path, ts = day.split("|", 1)
+                except ValueError:
+                    raise ValueError("invalid importer args")
+                cmd = ["think-importer", path, ts, "--verbose"]
+                commands.append(" ".join(cmd))
+                code = (
+                    _run_command(cmd, logger, stop)
+                    if use_stop
+                    else _run_command(cmd, logger)
+                )
+                from think.utils import importer_log
+
+                status = "ok" if code == 0 else f"fail({code})"
+                importer_log(f"{os.path.basename(path)} {ts} {status}")
             elif name == "process_day":
                 if not day:
                     raise ValueError("day required")
