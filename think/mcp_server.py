@@ -56,14 +56,11 @@ def search_topic(
         items = []
         for r in results:
             meta = r.get("metadata", {})
-            topic_label = meta.get("topic", "")
-            if topic_label.endswith(".md"):
-                topic_label = topic_label[:-3]
-            topic_label = os.path.basename(topic_label)
+            topic = meta.get("topic", "")
             items.append(
                 {
                     "day": meta.get("day", ""),
-                    "topic": topic_label,
+                    "topic": topic,
                     "text": r.get("text", ""),
                 }
             )
