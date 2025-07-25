@@ -78,7 +78,7 @@ It can search across topic summaries, query raw transcripts and read
 full topic summaries from the journal using custom tools.
 
 ```bash
-think-agent [TASK_FILE] [--model MODEL] [--max-tokens N]
+think-agent [TASK_FILE] [--model MODEL] [--max-tokens N] [-o OUT_FILE]
 ```
 
 If `TASK_FILE` is omitted an interactive prompt is started.
@@ -87,7 +87,8 @@ Set `OPENAI_API_KEY` and `JOURNAL_PATH` in your environment so the agent can
 query your journal index. The command starts a local MCP server and connects to
 it automatically.
 
-The agent will run automatically and print its final answer to `stdout`.
+The agent will run automatically and print its final answer to `stdout`. Use
+`-o` or `--out` to write the result (or any error message) to a file.
 
 ## Topic map keys
 

@@ -5,7 +5,7 @@ CLI utility launching an OpenAI agent able to search ponder summaries,
 occurrences and read full markdown files from the journal.
 
 Usage:
-    think-agent [TASK_FILE] [--model MODEL] [--max-tokens N] [-v]
+    think-agent [TASK_FILE] [--model MODEL] [--max-tokens N] [-v] [-o OUT]
 
 When ``TASK_FILE`` is omitted, an interactive ``chat>`` prompt is started.
 """
@@ -16,6 +16,7 @@ import logging
 import os
 import sys
 from pathlib import Path
+from typing import Optional
 
 from agents import Agent, ModelSettings, RunConfig, Runner, set_default_openai_key
 from agents.mcp import MCPServerStdio
@@ -23,6 +24,16 @@ from agents.mcp import MCPServerStdio
 from think.utils import get_topics, setup_cli
 
 AGENT_PATH = Path(__file__).with_name("agent.txt")
+
+
+def write_output(path: Optional[str], text: str) -> None:
+    """Write *text* to *path* if provided."""
+    if not path:
+        return
+    try:
+        Path(path).write_text(text, encoding="utf-8")
+    except Exception as exc:  # pragma: no cover - display only
+        logging.error("Failed to write output to %s: %s", path, exc)
 
 
 def agent_instructions() -> tuple[str, str]:
@@ -66,8 +77,14 @@ async def main_async():
         default=1024,
         help="Maximum tokens for the final response",
     )
+    parser.add_argument(
+        "-o",
+        "--out",
+        help="File path to write the final result or error to",
+    )
 
     args = setup_cli(parser)
+    out_path = args.out
 
     if args.verbose:
         logging.getLogger().setLevel(logging.DEBUG)
@@ -110,56 +127,62 @@ async def main_async():
     )
 
     # Connect to MCP server and run
-    async with mcp_server:
-        system_instruction, first_user_msg = agent_instructions()
-        # Create agent with connected server
-        agent = Agent(
-            name="SunstoneCLI",
-            instructions=system_instruction,
-            mcp_servers=[mcp_server],
-        )
-
-        if user_prompts is None:
-            # Interactive mode
-            logging.info("Starting interactive mode with model %s", args.model)
-            conversation_history = [first_user_msg]  # Start with initial context
-            try:
-                while True:
-                    try:
-                        # Use asyncio-friendly input
-                        loop = asyncio.get_event_loop()
-                        prompt = await loop.run_in_executor(
-                            None, lambda: input("chat> ")
-                        )
-
-                        if not prompt:
-                            continue
-
-                        # Add user prompt to conversation history
-                        conversation_history.append(prompt)
-
-                        result = await Runner.run(
-                            agent, conversation_history, run_config=run_config
-                        )
-                        print(result.final_output)
-
-                        # Add agent response to conversation history
-                        conversation_history.append(result.final_output)
-
-                    except EOFError:
-                        break
-            except KeyboardInterrupt:
-                pass
-        else:
-            # Single prompt mode
-            user_prompt = user_prompts[0]
-            logging.debug("Task contents: %s", user_prompt)
-            logging.info("Running agent with model %s", args.model)
-
-            result = await Runner.run(
-                agent, [first_user_msg, user_prompt], run_config=run_config
+    try:
+        async with mcp_server:
+            system_instruction, first_user_msg = agent_instructions()
+            # Create agent with connected server
+            agent = Agent(
+                name="SunstoneCLI",
+                instructions=system_instruction,
+                mcp_servers=[mcp_server],
             )
-            print(result.final_output)
+
+            if user_prompts is None:
+                # Interactive mode
+                logging.info("Starting interactive mode with model %s", args.model)
+                conversation_history = [first_user_msg]  # Start with initial context
+                try:
+                    while True:
+                        try:
+                            # Use asyncio-friendly input
+                            loop = asyncio.get_event_loop()
+                            prompt = await loop.run_in_executor(
+                                None, lambda: input("chat> ")
+                            )
+
+                            if not prompt:
+                                continue
+
+                            # Add user prompt to conversation history
+                            conversation_history.append(prompt)
+
+                            result = await Runner.run(
+                                agent, conversation_history, run_config=run_config
+                            )
+                            print(result.final_output)
+                            write_output(out_path, result.final_output)
+
+                            # Add agent response to conversation history
+                            conversation_history.append(result.final_output)
+
+                        except EOFError:
+                            break
+                except KeyboardInterrupt:
+                    pass
+            else:
+                # Single prompt mode
+                user_prompt = user_prompts[0]
+                logging.debug("Task contents: %s", user_prompt)
+                logging.info("Running agent with model %s", args.model)
+
+                result = await Runner.run(
+                    agent, [first_user_msg, user_prompt], run_config=run_config
+                )
+                print(result.final_output)
+                write_output(out_path, result.final_output)
+    except Exception as exc:
+        write_output(out_path, str(exc))
+        raise
 
 
 def main():
