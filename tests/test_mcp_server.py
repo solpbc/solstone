@@ -38,7 +38,7 @@ def test_mcp_server_via_stdio(tmp_path):
         "total": 1,
         "limit": 5,
         "offset": 0,
-        "results": [{"day": "20240101", "filename": "foo", "text": "hello"}],
+        "results": [{"day": "20240101", "topic": "foo", "text": "hello"}],
     }
     assert data2 == {
         "total": 1,
@@ -57,6 +57,7 @@ def test_mcp_server_via_stdio(tmp_path):
     assert summary["topic"] == "foo"
     assert summary["summary"] == "first paragraph\n\nsecond"
     assert data3 == {
+        "total": 1,
         "limit": 5,
         "results": [
             {
