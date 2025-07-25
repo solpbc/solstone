@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import os
 import subprocess
+import sys
 from typing import Optional
 
 from dotenv import load_dotenv
@@ -73,3 +74,30 @@ def detect_created(path: str, api_key: Optional[str] = None) -> Optional[dict]:
         return json.loads(response.text)
     except json.JSONDecodeError:
         return None
+
+
+def main():
+    """Main CLI entry point for detect_created utility."""
+    import argparse
+    from .utils import setup_cli
+    
+    parser = argparse.ArgumentParser(
+        description="Detect creation time information from media file metadata using Gemini"
+    )
+    parser.add_argument(
+        "file_path",
+        help="Path to the media file to analyze"
+    )
+    
+    args = setup_cli(parser)
+    
+    result = detect_created(args.file_path)
+    if result is not None:
+        print(json.dumps(result, indent=2))
+    else:
+        print("Failed to detect creation time information", file=sys.stderr)
+        sys.exit(1)
+
+
+if __name__ == "__main__":
+    main()
