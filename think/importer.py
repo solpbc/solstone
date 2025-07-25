@@ -1,6 +1,7 @@
 import argparse
 import datetime as dt
 import json
+import logging
 import os
 import re
 import subprocess
@@ -17,9 +18,11 @@ from think.detect_transcript import detect_transcript_json, detect_transcript_se
 from think.utils import setup_cli
 
 try:
-    from PyPDF2 import PdfReader
+    from pypdf import PdfReader
 except Exception:  # pragma: no cover - optional dependency
     PdfReader = None
+
+logger = logging.getLogger(__name__)
 
 MIN_THRESHOLD = 250
 TIME_RE = re.compile(r"\d{8}_\d{6}")
@@ -67,6 +70,7 @@ def split_audio(path: str, out_dir: str, start: dt.datetime) -> None:
             time_part = ts.strftime("%H%M%S")
             dest = os.path.join(out_dir, f"{time_part}_import_raw.flac")
             os.replace(os.path.join(tmpdir, name), dest)
+            logger.info(f"Added audio segment to journal: {dest}")
 
 
 def process_video(path: str, out_dir: str, start: dt.datetime, sample_s: float) -> None:
@@ -103,7 +107,7 @@ def process_video(path: str, out_dir: str, start: dt.datetime, sample_s: float) 
                 if width > MIN_THRESHOLD and height > MIN_THRESHOLD:
                     ts = start + timedelta(seconds=frame_idx / fps)
                     time_part = ts.strftime("%H%M%S")
-                    img_path = os.path.join(out_dir, f"{time_part}_import_diff.png")
+                    img_path = os.path.join(out_dir, f"{time_part}_import_1_diff.png")
 
                     # Add box_2d to PNG metadata
                     pnginfo = PngInfo()
@@ -115,6 +119,7 @@ def process_video(path: str, out_dir: str, start: dt.datetime, sample_s: float) 
                     ) as tf:
                         img.save(tf, format="PNG", pnginfo=pnginfo)
                     os.replace(tf.name, img_path)
+                    logger.info(f"Added video frame to journal: {img_path}")
         prev_img = img
         frame_idx += interval
     cap.release()
@@ -128,7 +133,7 @@ def _read_transcript(path: str) -> str:
             return f.read()
     if ext == ".pdf":
         if PdfReader is None:
-            raise RuntimeError("PyPDF2 required for PDF support")
+            raise RuntimeError("pypdf required for PDF support")
         reader = PdfReader(path)
         parts = []
         for page in reader.pages:
@@ -138,15 +143,8 @@ def _read_transcript(path: str) -> str:
     raise ValueError("unsupported transcript format")
 
 
-def process_transcript(path: str, journal: str) -> None:
+def process_transcript(path: str, day_dir: str, base_dt: dt.datetime) -> None:
     """Process a transcript file and write imported JSON segments."""
-    info = detect_created(path)
-    if not info:
-        raise RuntimeError("unable to detect creation time")
-    base_dt = dt.datetime.strptime(f"{info['day']}_{info['time']}", "%Y%m%d_%H%M%S")
-    day_dir = os.path.join(journal, info["day"])
-    os.makedirs(day_dir, exist_ok=True)
-
     text = _read_transcript(path)
     segments = detect_transcript_segment(text)
     for idx, seg in enumerate(segments):
@@ -159,6 +157,7 @@ def process_transcript(path: str, journal: str) -> None:
         )
         with open(json_path, "w", encoding="utf-8") as f:
             json.dump(json_data, f, indent=2)
+        logger.info(f"Added transcript segment to journal: {json_path}")
 
 
 def main() -> None:
@@ -179,32 +178,32 @@ def main() -> None:
         default=5.0,
         help="Video sampling interval in seconds",
     )
-    parser.add_argument(
-        "--detect",
-        action="store_true",
-        help="Detect creation timestamp using Gemini and exit",
-    )
     args = setup_cli(parser)
-
-    if args.detect:
-        result = detect_created(args.media)
-        print(json.dumps(result, indent=2))
-        return
 
     journal = os.getenv("JOURNAL_PATH")
 
-    ext = os.path.splitext(args.media)[1].lower()
-    if ext in {".txt", ".pdf"}:
-        process_transcript(args.media, journal)
-        return
+    # If no timestamp provided, detect it and show instruction
+    if not args.timestamp:
+        result = detect_created(args.media)
+        if result and result.get('day') and result.get('time'):
+            detected_timestamp = f"{result['day']}_{result['time']}"
+            print(f"Detected: --timestamp {detected_timestamp}")
+            return
+        else:
+            raise SystemExit("Could not detect timestamp. Please provide --timestamp YYYYMMDD_HHMMSS")
 
-    if not args.timestamp or not TIME_RE.fullmatch(args.timestamp):
-        raise SystemExit(
-            "timestamp must be in YYYYMMDD_HHMMSS format or specify --detect"
-        )
+    if not TIME_RE.fullmatch(args.timestamp):
+        raise SystemExit("timestamp must be in YYYYMMDD_HHMMSS format")
+    
     base_dt = dt.datetime.strptime(args.timestamp, "%Y%m%d_%H%M%S")
+    logger.info(f"Using provided timestamp: {args.timestamp}")
     day_dir = os.path.join(journal, base_dt.strftime("%Y%m%d"))
     os.makedirs(day_dir, exist_ok=True)
+
+    ext = os.path.splitext(args.media)[1].lower()
+    if ext in {".txt", ".pdf"}:
+        process_transcript(args.media, day_dir, base_dt)
+        return
 
     if args.hear:
         split_audio(args.media, day_dir, base_dt)
