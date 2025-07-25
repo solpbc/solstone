@@ -1,5 +1,4 @@
 import asyncio
-import json
 from pathlib import Path
 
 from fastmcp import Client
@@ -28,7 +27,8 @@ def test_mcp_server_via_stdio(tmp_path):
 
     script = Path(__file__).with_name("run_mcp_stub.py")
     data1, data2, data3, text = asyncio.run(run_client(script, env))
-    summary = json.loads(text)
+    # The resource returns raw text content, not JSON
+    summary_text = text
 
     calls = calls_file.read_text(encoding="utf-8").splitlines()
     assert "topics:hello:5:0" in calls
@@ -38,7 +38,7 @@ def test_mcp_server_via_stdio(tmp_path):
         "total": 1,
         "limit": 5,
         "offset": 0,
-        "results": [{"day": "20240101", "topic": "foo", "text": "hello"}],
+        "results": [{"day": "20240101", "topic": "foo.md", "text": "hello"}],
     }
     assert data2 == {
         "total": 1,
@@ -53,12 +53,11 @@ def test_mcp_server_via_stdio(tmp_path):
             }
         ],
     }
-    assert summary["day"] == "20240101"
-    assert summary["topic"] == "foo"
-    assert summary["summary"] == "first paragraph\n\nsecond"
+    assert summary_text == "first paragraph\n\nsecond"
     assert data3 == {
         "total": 1,
         "limit": 5,
+        "offset": 0,
         "results": [
             {
                 "day": "20240101",
