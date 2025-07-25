@@ -43,22 +43,22 @@ def agent_instructions() -> tuple[str, str]:
 
     system_instruction = AGENT_PATH.read_text(encoding="utf-8")
 
-    user_parts: list[str] = []
+    extra_parts: list[str] = []
     journal = os.getenv("JOURNAL_PATH")
     if journal:
         ent_path = Path(journal) / "entities.md"
         if ent_path.is_file():
             entities = ent_path.read_text(encoding="utf-8").strip()
             if entities:
-                user_parts.append("## Master Entities\n" + entities)
+                extra_parts.append("## Well-Known Entities\n" + entities)
 
     topics = get_topics()
     if topics:
-        lines = ["## Topics"]
+        lines = ["## Topics", "These are the topics available for use in tool and resource requests:"]
         for name, info in sorted(topics.items()):
-            desc = str(info.get("description", ""))
-            lines.append(f"* {name}: {desc}")
-        user_parts.append("\n".join(lines))
+            desc = str(info.get("contains", ""))
+            lines.append(f"* Topic: `{name}`: {desc}")
+        extra_parts.append("\n".join(lines))
 
     now = datetime.now()
 
@@ -71,10 +71,10 @@ def agent_instructions() -> tuple[str, str]:
         # Fallback without timezone
         time_str = now.strftime("%A, %B %d, %Y at %I:%M %p")
     
-    user_parts.append(f"## Current Date and Time\n{time_str}")
+    extra_parts.append(f"## Current Date and Time\n{time_str}")
 
-    user_message = "\n\n".join(user_parts).strip()
-    return system_instruction, user_message
+    extra_context = "\n\n".join(extra_parts).strip()
+    return system_instruction, extra_context
 
 
 async def main_async():
