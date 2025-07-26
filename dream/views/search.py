@@ -10,8 +10,8 @@ from flask import Blueprint, jsonify, render_template, request
 
 from think.indexer import (
     search_events,
-    search_transcripts,
     search_summaries,
+    search_transcripts,
 )
 
 from .. import state
@@ -203,3 +203,16 @@ def occurrence_detail() -> Any:
         except Exception:
             pass
     return jsonify(data)
+
+
+# Backwards compatibility aliases for tests and old URLs
+def search_topic_api() -> Any:
+    return search_summaries_api()
+
+
+def search_occurrence_api() -> Any:
+    return search_events_api()
+
+
+def search_raw_api() -> Any:
+    return search_transcripts_api()

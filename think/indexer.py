@@ -17,6 +17,61 @@ from .entities import find_day_dirs, load_cache, save_cache, scan_entities
 
 INDEX_DIR = "indexer"
 
+# Mapping of index types to their SQLite filenames
+DB_NAMES = {
+    "summaries": "summaries.sqlite",
+    "events": "events.sqlite",
+    "transcripts": "transcripts.sqlite",
+}
+
+# SQL statements to create required tables per index
+SCHEMAS = {
+    "summaries": [
+        "CREATE TABLE IF NOT EXISTS files(path TEXT PRIMARY KEY, mtime INTEGER)",
+        """
+        CREATE VIRTUAL TABLE IF NOT EXISTS summaries_text USING fts5(
+            sentence, path UNINDEXED, day UNINDEXED, topic UNINDEXED, position UNINDEXED
+        )
+        """,
+    ],
+    "events": [
+        "CREATE TABLE IF NOT EXISTS files(path TEXT PRIMARY KEY, mtime INTEGER)",
+        """
+        CREATE VIRTUAL TABLE IF NOT EXISTS events_text USING fts5(
+            content,
+            path UNINDEXED, day UNINDEXED, idx UNINDEXED
+        )
+        """,
+        """
+        CREATE TABLE IF NOT EXISTS event_match(
+            path TEXT,
+            day TEXT,
+            idx INTEGER,
+            topic TEXT,
+            start TEXT,
+            end TEXT,
+            PRIMARY KEY(path, idx)
+        )
+        """,
+        "CREATE INDEX IF NOT EXISTS event_match_day_start_end ON event_match(day, start, end)",
+        "CREATE INDEX IF NOT EXISTS event_match_day_topic ON event_match(day, topic)",
+    ],
+    "transcripts": [
+        "CREATE TABLE IF NOT EXISTS files(path TEXT PRIMARY KEY, mtime INTEGER)",
+        """
+        CREATE VIRTUAL TABLE IF NOT EXISTS transcripts_text USING fts5(
+            content, path UNINDEXED, day UNINDEXED, time UNINDEXED, type UNINDEXED
+        )
+        """,
+    ],
+}
+
+
+def _ensure_schema(conn: sqlite3.Connection, index: str) -> None:
+    """Create required tables for *index* if they don't exist."""
+    for statement in SCHEMAS[index]:
+        conn.execute(statement)
+
 
 # Sentence indexing helpers -------------------------------------------------
 
@@ -40,75 +95,52 @@ def split_sentences(text: str) -> List[str]:
 
 
 def get_index(
-    journal: str | None = None, day: str | None = None
+    *,
+    index: str,
+    journal: str | None = None,
+    day: str | None = None,
 ) -> Tuple[sqlite3.Connection, str]:
-    """Return SQLite connection for indexes.
-
-    If ``journal`` is not provided it will be read from the ``JOURNAL_PATH``
-    environment variable. When ``day`` is supplied the database is stored under
-    that day's ``index`` directory, otherwise the journal level ``index`` folder
-    is used.
-    """
+    """Return SQLite connection for the given *index* type."""
 
     journal = journal or os.getenv("JOURNAL_PATH")
     if not journal:
         raise RuntimeError("JOURNAL_PATH not set")
 
-    db_dir = (
-        os.path.join(journal, day, INDEX_DIR)
-        if day
-        else os.path.join(journal, INDEX_DIR)
-    )
+    if index == "transcripts":
+        if not day:
+            raise ValueError("day required for transcripts index")
+        db_dir = os.path.join(journal, day, INDEX_DIR)
+    else:
+        db_dir = os.path.join(journal, INDEX_DIR)
+
     os.makedirs(db_dir, exist_ok=True)
-    db_path = os.path.join(db_dir, "indexer.sqlite")
+    db_path = os.path.join(db_dir, DB_NAMES[index])
     conn = sqlite3.connect(db_path)
     conn.execute("PRAGMA journal_mode=WAL")
     conn.execute("PRAGMA synchronous=NORMAL")
-    conn.execute(
-        "CREATE TABLE IF NOT EXISTS files(path TEXT PRIMARY KEY, mtime INTEGER)"
-    )
-    conn.execute(
-        """
-        CREATE VIRTUAL TABLE IF NOT EXISTS summaries_text USING fts5(
-            sentence, path UNINDEXED, day UNINDEXED, topic UNINDEXED, position UNINDEXED
-        )
-        """
-    )
-    conn.execute(
-        """
-        CREATE VIRTUAL TABLE IF NOT EXISTS events_text USING fts5(
-            content,
-            path UNINDEXED, day UNINDEXED, idx UNINDEXED
-        )
-        """
-    )
-    conn.execute(
-        """
-        CREATE TABLE IF NOT EXISTS event_match(
-            path TEXT,
-            day TEXT,
-            idx INTEGER,
-            topic TEXT,
-            start TEXT,
-            end TEXT,
-            PRIMARY KEY(path, idx)
-        )
-        """
-    )
-    conn.execute(
-        "CREATE INDEX IF NOT EXISTS event_match_day_start_end ON event_match(day, start, end)"
-    )
-    conn.execute(
-        "CREATE INDEX IF NOT EXISTS event_match_day_topic ON event_match(day, topic)"
-    )
-    conn.execute(
-        """
-        CREATE VIRTUAL TABLE IF NOT EXISTS transcripts_text USING fts5(
-            content, path UNINDEXED, day UNINDEXED, time UNINDEXED, type UNINDEXED
-        )
-        """
-    )
+    _ensure_schema(conn, index)
     return conn, db_path
+
+
+def reset_index(journal: str, index: str, *, day: str | None = None) -> None:
+    """Remove SQLite files for the given *index*."""
+
+    if index == "transcripts":
+        if day:
+            paths = [os.path.join(journal, day, INDEX_DIR, DB_NAMES[index])]
+        else:
+            paths = [
+                os.path.join(journal, d, INDEX_DIR, DB_NAMES[index])
+                for d in find_day_dirs(journal)
+            ]
+    else:
+        paths = [os.path.join(journal, INDEX_DIR, DB_NAMES[index])]
+
+    for p in paths:
+        try:
+            os.unlink(p)
+        except FileNotFoundError:
+            pass
 
 
 def find_summary_files(
@@ -251,7 +283,7 @@ def _index_events(conn: sqlite3.Connection, rel: str, path: str, verbose: bool) 
 def scan_summaries(journal: str, verbose: bool = False) -> bool:
     """Index sentences from summary markdown files."""
     logger = logging.getLogger(__name__)
-    conn, _ = get_index(journal)
+    conn, _ = get_index(index="summaries", journal=journal)
     files = find_summary_files(journal, (".md",))
     if files:
         logger.info("\nIndexing %s summary files...", len(files))
@@ -271,7 +303,7 @@ def scan_summaries(journal: str, verbose: bool = False) -> bool:
 def scan_events(journal: str, verbose: bool = False) -> bool:
     """Index event JSON files."""
     logger = logging.getLogger(__name__)
-    conn, _ = get_index(journal)
+    conn, _ = get_index(index="events", journal=journal)
     files = find_summary_files(journal, (".json",))
     if files:
         logger.info("\nIndexing %s event files...", len(files))
@@ -378,7 +410,7 @@ def scan_transcripts(journal: str, verbose: bool = False) -> bool:
 
     changed = False
     for day, day_files in grouped.items():
-        conn, _ = get_index(journal, day=day)
+        conn, _ = get_index(index="transcripts", journal=journal, day=day)
         logger.info("\nIndexing %s transcript files for %s...", len(day_files), day)
         if _scan_files(
             conn,
@@ -403,7 +435,7 @@ def search_summaries(
 ) -> tuple[int, List[Dict[str, str]]]:
     """Search the summary sentence index and return total count and results."""
 
-    conn, _ = get_index()
+    conn, _ = get_index(index="summaries")
     db = sqlite_utils.Database(conn)
     quoted = db.quote(query)
 
@@ -447,8 +479,6 @@ def search_summaries(
     return total, results
 
 
-
-
 # Search events from the events index.
 
 
@@ -463,7 +493,7 @@ def search_events(
     topic: str | None = None,
 ) -> tuple[int, List[Dict[str, Any]]]:
     """Search the events index and return total count and results."""
-    conn, _ = get_index()
+    conn, _ = get_index(index="events")
     db = sqlite_utils.Database(conn)
     quoted = db.quote(query)
 
@@ -549,8 +579,6 @@ def search_events(
     return total, results
 
 
-
-
 def search_transcripts(
     query: str,
     limit: int = 5,
@@ -573,7 +601,7 @@ def search_transcripts(
 
     days = [day] if day else sorted(find_day_dirs(journal))
     for d in days:
-        conn, _ = get_index(day=d)
+        conn, _ = get_index(index="transcripts", day=d)
         db = sqlite_utils.Database(conn)
         quoted = db.quote(query)
 
@@ -630,14 +658,20 @@ def main() -> None:
         description="Index summary markdown and event files"
     )
     parser.add_argument(
+        "--index",
+        choices=["summaries", "events", "transcripts"],
+        required=True,
+        help="Which index to operate on",
+    )
+    parser.add_argument(
         "--rescan",
         action="store_true",
         help="Scan journal and update the index before searching",
     )
     parser.add_argument(
-        "--transcripts",
+        "--reset",
         action="store_true",
-        help="Operate on transcript *_audio.json and *_diff.json files",
+        help="Remove the selected index before optional rescan",
     )
     parser.add_argument(
         "--day",
@@ -660,26 +694,39 @@ def main() -> None:
 
     journal = os.getenv("JOURNAL_PATH")
 
+    if args.reset:
+        reset_index(
+            journal, args.index, day=args.day if args.index == "transcripts" else None
+        )
+
     if args.rescan:
-        if args.transcripts:
+        if args.index == "transcripts":
             changed = scan_transcripts(journal, verbose=args.verbose)
             if changed:
-                journal_log("indexer transcript rescan ok")
-        else:
+                journal_log("indexer transcripts rescan ok")
+        elif args.index == "events":
+            changed = scan_events(journal, verbose=args.verbose)
+            if changed:
+                journal_log("indexer events rescan ok")
+        elif args.index == "summaries":
             cache = load_cache(journal)
             changed = scan_entities(journal, cache)
             changed |= scan_summaries(journal, verbose=args.verbose)
-            changed |= scan_events(journal, verbose=args.verbose)
             if changed:
                 save_cache(journal, cache)
-                journal_log("indexer rescan ok")
+                journal_log("indexer summaries rescan ok")
 
     # Handle query argument
     if args.query is not None:
-        search_func = search_transcripts if args.transcripts else search_summaries
-        query_kwargs = {}
-        if args.transcripts:
-            query_kwargs["day"] = args.day
+        if args.index == "transcripts":
+            search_func = search_transcripts
+            query_kwargs = {"day": args.day}
+        elif args.index == "events":
+            search_func = search_events
+            query_kwargs = {}
+        else:
+            search_func = search_summaries
+            query_kwargs = {}
         if args.query:
             # Single query mode - run query and exit
             _total, results = search_func(args.query, 5, **query_kwargs)
@@ -695,8 +742,6 @@ def main() -> None:
                     break
                 _total, results = search_func(query, 5, **query_kwargs)
                 _display_search_results(results)
-
-
 
 
 if __name__ == "__main__":

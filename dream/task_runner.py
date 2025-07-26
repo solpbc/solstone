@@ -95,19 +95,25 @@ def run_task(
     with contextlib.redirect_stdout(out_logger), contextlib.redirect_stderr(err_logger):
         try:
             if name == "reindex":
-                args = [
-                    sys.executable,
-                    "-m",
-                    "think.indexer",
-                    "--rescan",
-                    "--verbose",
-                ]
-                commands.append(" ".join(args))
-                code = (
-                    _run_command(args, logger, stop)
-                    if use_stop
-                    else _run_command(args, logger)
-                )
+                code = 0
+                for idx_name in ["summaries", "events", "transcripts"]:
+                    args = [
+                        sys.executable,
+                        "-m",
+                        "think.indexer",
+                        "--index",
+                        idx_name,
+                        "--rescan",
+                        "--verbose",
+                    ]
+                    commands.append(" ".join(args))
+                    code = (
+                        _run_command(args, logger, stop)
+                        if use_stop
+                        else _run_command(args, logger)
+                    )
+                    if code != 0:
+                        break
             elif name == "summary":
                 args = ["think-journal-stats", "--verbose"]
                 commands.append(" ".join(args))

@@ -13,6 +13,12 @@ Guide for updating: always append new entries to the existing list for the same 
   `topic:` filters
 - Topic indexing renamed to "summaries" (old `search_topics` alias removed)
 
+## 2025-07-27
+- Indexer split into `summaries.sqlite`, `events.sqlite`, and per-day
+  `transcripts.sqlite` files
+- `think-indexer` CLI now requires `--index` and supports `--reset`
+- Admin reindex task runs all three indexes sequentially
+
 ## 2025-07-25
 
 - CHANGELOG.md created to start tracking agentic coding updates
