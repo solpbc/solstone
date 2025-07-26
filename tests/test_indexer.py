@@ -153,3 +153,20 @@ def test_search_raws_day(tmp_path):
     total_day1, results_day1 = mod.search_raws("hello", limit=10, day="20240105")
     assert total_day1 == 1
     assert results_day1[0]["metadata"]["day"] == "20240105"
+
+
+def test_search_raws_time_order(tmp_path):
+    mod = importlib.import_module("think.indexer")
+    journal = tmp_path
+    os.environ["JOURNAL_PATH"] = str(journal)
+
+    day = journal / "20240107"
+    day.mkdir()
+    (day / "090000_audio.json").write_text(json.dumps({"text": "hello"}))
+    (day / "123000_audio.json").write_text(json.dumps({"text": "hello"}))
+
+    mod.scan_raws(str(journal), verbose=True)
+
+    total, results = mod.search_raws("hello", limit=10, day="20240107")
+    assert total == 2
+    assert [r["metadata"]["time"] for r in results] == ["090000", "123000"]

@@ -494,8 +494,9 @@ def search_raws(
 ) -> tuple[int, List[Dict[str, str]]]:
     """Search raw indexes and return total count and results.
 
-    If ``day`` is provided only that day's index is searched. Otherwise all
-    available per-day indexes are queried.
+    If ``day`` is provided only that day's index is searched and results are
+    ordered chronologically. Otherwise all available per-day indexes are
+    queried and results are ordered by relevance.
     """
 
     results: List[Dict[str, str]] = []
@@ -515,10 +516,11 @@ def search_raws(
             f"SELECT count(*) FROM raws_text WHERE raws_text MATCH {quoted}"
         ).fetchone()[0]
 
+        order_clause = "time" if day else "rank"
         cursor = conn.execute(
             f"""
             SELECT content, path, day, time, type, bm25(raws_text) as rank
-            FROM raws_text WHERE raws_text MATCH {quoted} ORDER BY rank
+            FROM raws_text WHERE raws_text MATCH {quoted} ORDER BY {order_clause}
             """
         )
 
@@ -538,7 +540,10 @@ def search_raws(
             )
         conn.close()
 
-    results.sort(key=lambda r: r["score"])
+    if day:
+        results.sort(key=lambda r: r["metadata"]["time"])
+    else:
+        results.sort(key=lambda r: r["score"])
     start = offset
     end = offset + limit
     return total, results[start:end]

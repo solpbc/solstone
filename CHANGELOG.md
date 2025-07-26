@@ -7,6 +7,8 @@ Guide for updating: always append new entries to the existing list for the same 
 - Integrated task and event WebSocket endpoints into the main Flask app
 - Search results allow filtering by clicking dates or topics which insert
   `day:` and `topic:` filters into the query and auto-run the search
+- Raw search results for a specific day are ordered by time ascending rather
+  than relevance
 - Search view gains a "Transcripts" tab to query raw data by day while ignoring
   `topic:` filters
 
