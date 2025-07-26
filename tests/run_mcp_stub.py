@@ -75,7 +75,7 @@ def stub_search_occurrences(
     ]
 
 
-mcp_server.search_topics_impl = stub_search_topics
+mcp_server.search_summaries_impl = stub_search_topics
 mcp_server.search_raws_impl = stub_search_raws
 mcp_server.search_occurrences_impl = stub_search_occurrences
 
