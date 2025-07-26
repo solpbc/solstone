@@ -85,8 +85,8 @@ def test_ponder_index(tmp_path):
     topics_dir = day / "topics"
     topics_dir.mkdir()
     (topics_dir / "files.md").write_text("This is a test sentence.\n")
-    mod.scan_topics(str(journal), verbose=True)
-    total, results = mod.search_topics("test")
+    mod.scan_summaries(str(journal), verbose=True)
+    total, results = mod.search_summaries("test")
     assert total == 1
     assert results and results[0]["metadata"]["path"] == "20240102/topics/files.md"
     assert total == 1
@@ -133,17 +133,17 @@ def test_index_caching(tmp_path):
     md.write_text("Cached sentence.\n")
 
     # First scan indexes the file
-    assert mod.scan_topics(str(journal)) is True
+    assert mod.scan_summaries(str(journal)) is True
 
     # Second scan without modification should be a no-op
-    assert mod.scan_topics(str(journal)) is False
+    assert mod.scan_summaries(str(journal)) is False
 
     # Modify file to trigger reindex
     import time as _time
 
     _time.sleep(1)
     md.write_text("Updated sentence.\n")
-    assert mod.scan_topics(str(journal)) is True
+    assert mod.scan_summaries(str(journal)) is True
 
 
 def test_search_raws_day(tmp_path):

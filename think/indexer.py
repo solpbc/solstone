@@ -1,4 +1,4 @@
-"""Utilities for indexing topic outputs and events."""
+"""Utilities for indexing summary outputs and events."""
 
 import json
 import logging
@@ -69,7 +69,7 @@ def get_index(
     )
     conn.execute(
         """
-        CREATE VIRTUAL TABLE IF NOT EXISTS topics_text USING fts5(
+        CREATE VIRTUAL TABLE IF NOT EXISTS summaries_text USING fts5(
             sentence, path UNINDEXED, day UNINDEXED, topic UNINDEXED, position UNINDEXED
         )
         """
@@ -111,10 +111,10 @@ def get_index(
     return conn, db_path
 
 
-def find_topic_files(
+def find_summary_files(
     journal: str, exts: Tuple[str, ...] | None = None
 ) -> Dict[str, str]:
-    """Map relative topic file path to full path filtered by ``exts``."""
+    """Map relative summary file path to full path filtered by ``exts``."""
     files: Dict[str, str] = {}
     exts = exts or (".md", ".json")
     for day, day_path in find_day_dirs(journal).items():
@@ -208,7 +208,7 @@ def _index_sentences(
     for pos, sentence in enumerate(sentences):
         conn.execute(
             (
-                "INSERT INTO topics_text(sentence, path, day, topic, position) VALUES (?, ?, ?, ?, ?)"
+                "INSERT INTO summaries_text(sentence, path, day, topic, position) VALUES (?, ?, ?, ?, ?)"
             ),
             (sentence, rel, day, topic, pos),
         )
@@ -248,15 +248,19 @@ def _index_events(conn: sqlite3.Connection, rel: str, path: str, verbose: bool) 
         )
 
 
-def scan_topics(journal: str, verbose: bool = False) -> bool:
-    """Index sentences from topic markdown files."""
+def scan_summaries(journal: str, verbose: bool = False) -> bool:
+    """Index sentences from summary markdown files."""
     logger = logging.getLogger(__name__)
     conn, _ = get_index(journal)
-    files = find_topic_files(journal, (".md",))
+    files = find_summary_files(journal, (".md",))
     if files:
-        logger.info("\nIndexing %s topic files...", len(files))
+        logger.info("\nIndexing %s summary files...", len(files))
     changed = _scan_files(
-        conn, files, "DELETE FROM topics_text WHERE path=?", _index_sentences, verbose
+        conn,
+        files,
+        "DELETE FROM summaries_text WHERE path=?",
+        _index_sentences,
+        verbose,
     )
     if changed:
         conn.commit()
@@ -268,7 +272,7 @@ def scan_events(journal: str, verbose: bool = False) -> bool:
     """Index event JSON files."""
     logger = logging.getLogger(__name__)
     conn, _ = get_index(journal)
-    files = find_topic_files(journal, (".json",))
+    files = find_summary_files(journal, (".json",))
     if files:
         logger.info("\nIndexing %s event files...", len(files))
     changed = _scan_files(
@@ -383,7 +387,7 @@ def scan_raws(journal: str, verbose: bool = False) -> bool:
     return changed
 
 
-def search_topics(
+def search_summaries(
     query: str,
     limit: int = 5,
     offset: int = 0,
@@ -391,13 +395,13 @@ def search_topics(
     day: str | None = None,
     topic: str | None = None,
 ) -> tuple[int, List[Dict[str, str]]]:
-    """Search the topic sentence index and return total count and results."""
+    """Search the summary sentence index and return total count and results."""
 
     conn, _ = get_index()
     db = sqlite_utils.Database(conn)
     quoted = db.quote(query)
 
-    where_clause = f"topics_text MATCH {quoted}"
+    where_clause = f"summaries_text MATCH {quoted}"
     params: List[str] = []
 
     if day:
@@ -408,13 +412,13 @@ def search_topics(
         params.append(f"%{topic}%")
 
     total = conn.execute(
-        f"SELECT count(*) FROM topics_text WHERE {where_clause}", params
+        f"SELECT count(*) FROM summaries_text WHERE {where_clause}", params
     ).fetchone()[0]
 
     cursor = conn.execute(
         f"""
-        SELECT sentence, path, day, topic, position, bm25(topics_text) as rank
-        FROM topics_text WHERE {where_clause} ORDER BY rank LIMIT ? OFFSET ?
+        SELECT sentence, path, day, topic, position, bm25(summaries_text) as rank
+        FROM summaries_text WHERE {where_clause} ORDER BY rank LIMIT ? OFFSET ?
         """,
         params + [limit, offset],
     )
@@ -435,6 +439,10 @@ def search_topics(
         )
     conn.close()
     return total, results
+
+
+# Backwards compatibility alias
+search_topics = search_summaries
 
 
 # Search events from the events index.
@@ -616,7 +624,9 @@ def _display_search_results(results: List[Dict[str, str]]) -> None:
 def main() -> None:
     import argparse
 
-    parser = argparse.ArgumentParser(description="Index topic markdown and event files")
+    parser = argparse.ArgumentParser(
+        description="Index summary markdown and event files"
+    )
     parser.add_argument(
         "--rescan",
         action="store_true",
@@ -656,7 +666,7 @@ def main() -> None:
         else:
             cache = load_cache(journal)
             changed = scan_entities(journal, cache)
-            changed |= scan_topics(journal, verbose=args.verbose)
+            changed |= scan_summaries(journal, verbose=args.verbose)
             changed |= scan_events(journal, verbose=args.verbose)
             if changed:
                 save_cache(journal, cache)
@@ -664,7 +674,7 @@ def main() -> None:
 
     # Handle query argument
     if args.query is not None:
-        search_func = search_raws if args.raws else search_topics
+        search_func = search_raws if args.raws else search_summaries
         query_kwargs = {}
         if args.raws:
             query_kwargs["day"] = args.day

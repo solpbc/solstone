@@ -14,7 +14,7 @@ def test_search_topic_api(tmp_path):
     day.mkdir(parents=True)
     (day / "files.md").write_text("This is a test sentence.\n")
 
-    indexer.scan_topics(str(journal))
+    indexer.scan_summaries(str(journal))
     review.journal_root = str(journal)
 
     with review.app.test_request_context("/search/api/topic?q=test"):
@@ -40,7 +40,7 @@ def test_search_topic_api_filters(tmp_path):
     day2.mkdir(parents=True)
     (day2 / "other.md").write_text("Sentence two.\n")
 
-    indexer.scan_topics(str(journal))
+    indexer.scan_summaries(str(journal))
     review.journal_root = str(journal)
 
     with review.app.test_request_context("/search/api/topic?q=Sentence&day=20240107"):

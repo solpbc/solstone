@@ -11,7 +11,7 @@ from flask import Blueprint, jsonify, render_template, request
 from think.indexer import (
     search_occurrences,
     search_raws,
-    search_topics,
+    search_summaries,
 )
 
 from .. import state
@@ -45,7 +45,7 @@ def search_topic_api() -> Any:
     topics = get_topics()
     day = request.args.get("day")
     topic_filter = request.args.get("topic")
-    total, rows = search_topics(query, limit, offset, day=day, topic=topic_filter)
+    total, rows = search_summaries(query, limit, offset, day=day, topic=topic_filter)
     results = []
     for r in rows:
         meta = r.get("metadata", {})

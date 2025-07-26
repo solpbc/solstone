@@ -12,7 +12,7 @@ from fastmcp.resources import TextResource
 from think.cluster import cluster_range
 from think.indexer import search_occurrences as search_occurrences_impl
 from think.indexer import search_raws as search_raws_impl
-from think.indexer import search_topics as search_topics_impl
+from think.indexer import search_summaries as search_summaries_impl
 
 # Create the MCP server
 mcp = FastMCP("sunstone")
@@ -51,7 +51,7 @@ def search_topic(
         kwargs = {}
         if topic is not None:
             kwargs["topic"] = topic
-        total, results = search_topics_impl(query, limit, offset, **kwargs)
+        total, results = search_summaries_impl(query, limit, offset, **kwargs)
 
         items = []
         for r in results:
