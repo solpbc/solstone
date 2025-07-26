@@ -32,9 +32,9 @@
 </div>
 <script src="{{ url_for('review.static', filename='colors.js') }}"></script>
 <script>
-const topicUrl = '{{ url_for('search.search_topic_api') }}';
-const occUrl = '{{ url_for('search.search_occurrence_api') }}';
-const rawUrl = '{{ url_for('search.search_raw_api') }}';
+const summariesUrl = '{{ url_for('search.search_summaries_api') }}';
+const eventsUrl = '{{ url_for('search.search_events_api') }}';
+const transcriptsUrl = '{{ url_for('search.search_transcripts_api') }}';
 const dayBase = '{{ url_for('calendar.calendar_day', day='') }}';
 const COLORS = window.CATEGORY_COLORS;
   let topicColors = {};
@@ -224,9 +224,9 @@ function doSearch(reset=true){
   if(reset){ offset = 0; topicColors = {}; colorIndex=0; document.querySelector('#resultsTable tbody').innerHTML=''; }
   setHeaders(parsed.index);
   updateTabs(parsed.index);
-  let api = topicUrl;
-  if(parsed.index==='events') api = occUrl;
-  else if(parsed.index==='transcripts') api = rawUrl;
+  let api = summariesUrl;
+  if(parsed.index==='events') api = eventsUrl;
+  else if(parsed.index==='transcripts') api = transcriptsUrl;
   const url = new URL(api, window.location.origin);
   url.searchParams.set('q', parsed.text);
   if(parsed.day) url.searchParams.set('day', parsed.day);

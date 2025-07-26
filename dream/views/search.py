@@ -25,8 +25,8 @@ def search_page() -> str:
     return render_template("search.html", active="search")
 
 
-@bp.route("/search/api/topic")
-def search_topic_api() -> Any:
+@bp.route("/search/api/summaries")
+def search_summaries_api() -> Any:
     query = request.args.get("q", "").strip()
     if not query:
         return jsonify({"total": 0, "results": []})
@@ -72,8 +72,8 @@ def search_topic_api() -> Any:
     return jsonify({"total": total, "results": results})
 
 
-@bp.route("/search/api/occurrence")
-def search_occurrence_api() -> Any:
+@bp.route("/search/api/events")
+def search_events_api() -> Any:
     query = request.args.get("q", "").strip()
     if not query:
         return jsonify({"total": 0, "results": []})
@@ -133,8 +133,8 @@ def search_occurrence_api() -> Any:
     return jsonify({"total": total, "results": results})
 
 
-@bp.route("/search/api/raw")
-def search_raw_api() -> Any:
+@bp.route("/search/api/transcripts")
+def search_transcripts_api() -> Any:
     query = request.args.get("q", "").strip()
     if not query:
         return jsonify({"total": 0, "results": []})
