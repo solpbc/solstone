@@ -12,6 +12,9 @@ Guide for updating: always append new entries to the existing list for the same 
 - Search view gains a "Transcripts" tab to query raw data by day while ignoring
   `topic:` filters
 - Topic indexing renamed to "summaries" (old `search_topics` alias removed)
+- Removed compatibility aliases `search_topic_api`, `search_occurrence_api`, and
+  `search_raw_api`; tests now call `search_summaries_api`, `search_events_api`,
+  and `search_transcripts_api` directly
 
 ## 2025-07-27
 - Indexer split into `summaries.sqlite`, `events.sqlite`, and per-day

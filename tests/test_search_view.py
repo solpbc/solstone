@@ -3,7 +3,7 @@ import json
 import os
 
 
-def test_search_topic_api(tmp_path):
+def test_search_summaries_api(tmp_path):
     indexer = importlib.import_module("think.indexer")
     review = importlib.import_module("dream")
     search_view = importlib.import_module("dream.views.search")
@@ -17,14 +17,14 @@ def test_search_topic_api(tmp_path):
     indexer.scan_summaries(str(journal))
     review.journal_root = str(journal)
 
-    with review.app.test_request_context("/search/api/topic?q=test"):
-        resp = search_view.search_topic_api()
+    with review.app.test_request_context("/search/api/summaries?q=test"):
+        resp = search_view.search_summaries_api()
 
     assert resp.json["total"] == 1
     assert resp.json["results"][0]["topic"] == "files"
 
 
-def test_search_topic_api_filters(tmp_path):
+def test_search_summaries_api_filters(tmp_path):
     indexer = importlib.import_module("think.indexer")
     review = importlib.import_module("dream")
     search_view = importlib.import_module("dream.views.search")
@@ -43,18 +43,22 @@ def test_search_topic_api_filters(tmp_path):
     indexer.scan_summaries(str(journal))
     review.journal_root = str(journal)
 
-    with review.app.test_request_context("/search/api/topic?q=Sentence&day=20240107"):
-        resp = search_view.search_topic_api()
+    with review.app.test_request_context(
+        "/search/api/summaries?q=Sentence&day=20240107"
+    ):
+        resp = search_view.search_summaries_api()
     assert resp.json["total"] == 1
     assert resp.json["results"][0]["day"] == "20240107"
 
-    with review.app.test_request_context("/search/api/topic?q=Sentence&topic=files"):
-        resp = search_view.search_topic_api()
+    with review.app.test_request_context(
+        "/search/api/summaries?q=Sentence&topic=files"
+    ):
+        resp = search_view.search_summaries_api()
     assert resp.json["total"] == 1
     assert resp.json["results"][0]["topic"] == "files"
 
 
-def test_search_occurrence_api(tmp_path):
+def test_search_events_api(tmp_path):
     indexer = importlib.import_module("think.indexer")
     review = importlib.import_module("dream")
     search_view = importlib.import_module("dream.views.search")
@@ -84,14 +88,14 @@ def test_search_occurrence_api(tmp_path):
     indexer.scan_events(str(journal))
     review.journal_root = str(journal)
 
-    with review.app.test_request_context("/search/api/occurrence?q=Standup"):
-        resp = search_view.search_occurrence_api()
+    with review.app.test_request_context("/search/api/events?q=Standup"):
+        resp = search_view.search_events_api()
 
     assert resp.json["total"] == 1
     assert resp.json["results"][0]["topic"] == "meetings"
 
 
-def test_search_raw_api(tmp_path):
+def test_search_transcripts_api(tmp_path):
     indexer = importlib.import_module("think.indexer")
     review = importlib.import_module("dream")
     search_view = importlib.import_module("dream.views.search")
@@ -119,9 +123,9 @@ def test_search_raw_api(tmp_path):
     review.journal_root = str(journal)
 
     with review.app.test_request_context(
-        "/search/api/raw?q=hello&day=20240103&topic=ignoreme"
+        "/search/api/transcripts?q=hello&day=20240103&topic=ignoreme"
     ):
-        resp = search_view.search_raw_api()
+        resp = search_view.search_transcripts_api()
 
     assert resp.json["total"] == 1
     assert resp.json["results"][0]["time"] == "123000"
