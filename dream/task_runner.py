@@ -272,7 +272,10 @@ class TaskRunner:
             msg = ws.receive()
             req = json.loads(msg)
         except Exception as e:  # pragma: no cover - handshake errors
-            ws.send(json.dumps({"type": "stderr", "text": str(e)}))
+            try:
+                ws.send(json.dumps({"type": "stderr", "text": str(e)}))
+            except ConnectionClosed:
+                pass
             ws.close()
             return
 
@@ -280,11 +283,17 @@ class TaskRunner:
             tid = req.get("attach")
             task = task_manager.tasks.get(tid)
             if not task:
-                ws.send(json.dumps({"type": "stderr", "text": "unknown task"}))
+                try:
+                    ws.send(json.dumps({"type": "stderr", "text": "unknown task"}))
+                except ConnectionClosed:
+                    pass
                 ws.close()
                 return
             for line in task.log:
-                ws.send(json.dumps({"type": "stdout", "text": line}))
+                try:
+                    ws.send(json.dumps({"type": "stdout", "text": line}))
+                except ConnectionClosed:
+                    break
             task.watchers.append(ws)
             while ws.connected:
                 ws.receive(timeout=1)
@@ -309,16 +318,25 @@ class TaskRunner:
         t = task_manager.create_task(task, day, src)
         stop = threading.Event()
         self.stops[t.id] = stop
-        ws.send(json.dumps({"type": "id", "id": t.id}))
+        try:
+            ws.send(json.dumps({"type": "id", "id": t.id}))
+        except ConnectionClosed:
+            return  # Client disconnected before task started
 
         def _log(typ: str, text: str) -> None:
             task_manager.append_log(t.id, typ, text)
-            ws.send(json.dumps({"type": typ, "text": text}))
+            try:
+                ws.send(json.dumps({"type": typ, "text": text}))
+            except ConnectionClosed:
+                pass  # WebSocket closed, log is still recorded in task_manager
 
         def _runner() -> None:
             code, cmd_str = run_task(task, day, _log, force=force, stop=stop)
             task_manager.finish_task(t.id, code, cmd_str)
-            ws.send(json.dumps({"type": "exit", "code": code}))
+            try:
+                ws.send(json.dumps({"type": "exit", "code": code}))
+            except ConnectionClosed:
+                pass  # WebSocket closed, task is still marked as finished
 
         threading.Thread(target=_runner, daemon=True).start()
         while ws.connected:
