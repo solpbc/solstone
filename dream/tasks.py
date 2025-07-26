@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import asyncio
 import json
 import os
 import threading
@@ -24,9 +23,7 @@ class Task:
     killed: bool = False
     log: List[str] = field(default_factory=list)
     command: str = ""
-    watchers: List[tuple[asyncio.AbstractEventLoop, object]] = field(
-        default_factory=list, repr=False
-    )
+    watchers: List[object] = field(default_factory=list, repr=False)
 
     @property
     def duration(self) -> float:
@@ -97,15 +94,13 @@ class TaskManager:
                     f.write(json.dumps({"type": typ, "text": text}) + "\n")
             except Exception:
                 pass
-        for loop, ws in watchers:
+        for ws in watchers:
             try:
-                asyncio.run_coroutine_threadsafe(
-                    ws.send(json.dumps({"type": typ, "text": text})), loop
-                )
+                ws.send(json.dumps({"type": typ, "text": text}))
             except Exception:
                 with self.lock:
-                    if (loop, ws) in task.watchers:
-                        task.watchers.remove((loop, ws))
+                    if ws in task.watchers:
+                        task.watchers.remove(ws)
 
     def finish_task(self, tid: str, code: int, command: str = "") -> None:
         with self.lock:
@@ -120,9 +115,9 @@ class TaskManager:
             task.watchers.clear()
             self._save_task(task)
         push_server.push({"view": "tasks", "event": "finished", "id": tid})
-        for loop, ws in watchers:
+        for ws in watchers:
             try:
-                asyncio.run_coroutine_threadsafe(ws.close(), loop)
+                ws.close()
             except Exception:
                 pass
 
@@ -137,9 +132,9 @@ class TaskManager:
             task.watchers.clear()
             self._save_task(task)
         push_server.push({"view": "tasks", "event": "killed", "id": tid})
-        for loop, ws in watchers:
+        for ws in watchers:
             try:
-                asyncio.run_coroutine_threadsafe(ws.close(), loop)
+                ws.close()
             except Exception:
                 pass
 

@@ -9,6 +9,7 @@ import types
 from importlib import import_module
 
 from flask import Flask
+from flask_sock import Sock
 
 from think.utils import setup_cli
 
@@ -55,9 +56,9 @@ def create_app(journal: str = "", password: str = "") -> Flask:
     app.secret_key = os.getenv("DREAM_SECRET", "sunstone-secret")
     app.config["PASSWORD"] = password
     register_views(app)
-    if "PYTEST_CURRENT_TEST" not in os.environ:
-        task_runner.start()
-        push_server.start()
+    sock = Sock(app)
+    task_runner.register(sock)
+    push_server.register(sock)
 
     if journal:
         state.journal_root = journal

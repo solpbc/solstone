@@ -28,7 +28,7 @@
     let retry = 1000;
     const home = document.getElementById('homeIcon');
     function connect(){
-      ws = new WebSocket(`ws://${location.hostname}:8766`);
+      ws = new WebSocket(`ws://${location.host}/ws/events`);
       ws.onopen = () => {
         if(home) home.classList.add('connected');
         retry = 1000;

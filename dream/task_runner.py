@@ -1,4 +1,3 @@
-import asyncio
 import contextlib
 import json
 import os
@@ -8,7 +7,8 @@ import threading
 import time
 from typing import Callable, Optional
 
-import websockets
+from flask_sock import Sock
+from simple_websocket import ConnectionClosed
 
 from . import state
 from .tasks import task_manager
@@ -33,7 +33,7 @@ def _run_command(
     )
     assert proc.stdout and proc.stderr
 
-    def _reader(stream: asyncio.StreamReader, typ: str) -> None:
+    def _reader(stream, typ: str) -> None:
         for line in stream:
             logger(typ, line.rstrip())
 
@@ -255,55 +255,42 @@ def run_task(
 
 
 class TaskRunner:
-    def __init__(self, host: str = "0.0.0.0", port: int = 8765) -> None:
-        self.host = host
-        self.port = port
-        self.loop: asyncio.AbstractEventLoop | None = None
-        self._started = False
+    def __init__(self, path: str = "/ws/tasks") -> None:
+        self.path = path
         self.stops: dict[str, threading.Event] = {}
 
-    def start(self) -> None:
-        if self._started:
-            return
-        self._started = True
-        self.loop = asyncio.new_event_loop()
-        threading.Thread(target=self._run_loop, daemon=True).start()
+    def register(self, sock: Sock) -> None:
+        @sock.route(self.path, endpoint="tasks_ws")
+        def _handler(ws) -> None:
+            self._handler(ws)
 
-    def _run_loop(self) -> None:
-        assert self.loop is not None
-        asyncio.set_event_loop(self.loop)
+    def start(self) -> None:  # Backwards compatibility
+        pass
 
-        async def start_server():
-            server = await websockets.serve(
-                lambda ws: self._handler(ws, ""), self.host, self.port
-            )
-            await server.wait_closed()
-
-        self.loop.run_until_complete(start_server())
-
-    async def _handler(self, ws: websockets.WebSocketServerProtocol, path: str) -> None:
+    def _handler(self, ws) -> None:
         try:
-            msg = await ws.recv()
+            msg = ws.receive()
             req = json.loads(msg)
         except Exception as e:  # pragma: no cover - handshake errors
-            await ws.send(json.dumps({"type": "stderr", "text": str(e)}))
-            await ws.close()
+            ws.send(json.dumps({"type": "stderr", "text": str(e)}))
+            ws.close()
             return
 
         if "attach" in req:
             tid = req.get("attach")
             task = task_manager.tasks.get(tid)
             if not task:
-                await ws.send(json.dumps({"type": "stderr", "text": "unknown task"}))
-                await ws.close()
+                ws.send(json.dumps({"type": "stderr", "text": "unknown task"}))
+                ws.close()
                 return
             for line in task.log:
-                await ws.send(json.dumps({"type": "stdout", "text": line}))
-            task.watchers.append((self.loop, ws))
-            await ws.wait_closed()
+                ws.send(json.dumps({"type": "stdout", "text": line}))
+            task.watchers.append(ws)
+            while ws.connected:
+                ws.receive(timeout=1)
             with task_manager.lock:
-                if (self.loop, ws) in task.watchers:
-                    task.watchers.remove((self.loop, ws))
+                if ws in task.watchers:
+                    task.watchers.remove(ws)
             return
 
         if "kill" in req:
@@ -312,7 +299,7 @@ class TaskRunner:
             if stop:
                 stop.set()
                 task_manager.kill_task(tid)
-            await ws.close()
+            ws.close()
             return
 
         task = req.get("task")
@@ -322,25 +309,20 @@ class TaskRunner:
         t = task_manager.create_task(task, day, src)
         stop = threading.Event()
         self.stops[t.id] = stop
-        await ws.send(json.dumps({"type": "id", "id": t.id}))
+        ws.send(json.dumps({"type": "id", "id": t.id}))
 
         def _log(typ: str, text: str) -> None:
             task_manager.append_log(t.id, typ, text)
-            if self.loop:
-                asyncio.run_coroutine_threadsafe(
-                    ws.send(json.dumps({"type": typ, "text": text})), self.loop
-                )
+            ws.send(json.dumps({"type": typ, "text": text}))
 
         def _runner() -> None:
             code, cmd_str = run_task(task, day, _log, force=force, stop=stop)
             task_manager.finish_task(t.id, code, cmd_str)
-            if self.loop:
-                asyncio.run_coroutine_threadsafe(
-                    ws.send(json.dumps({"type": "exit", "code": code})), self.loop
-                )
+            ws.send(json.dumps({"type": "exit", "code": code}))
 
         threading.Thread(target=_runner, daemon=True).start()
-        await ws.wait_closed()
+        while ws.connected:
+            ws.receive(timeout=1)
         self.stops.pop(t.id, None)
 
 

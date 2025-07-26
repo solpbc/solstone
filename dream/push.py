@@ -1,57 +1,41 @@
-import asyncio
 import json
-import threading
-from typing import List, Tuple
+from typing import List
 
-import websockets
+from flask_sock import Sock
+from simple_websocket import ConnectionClosed
 
 
 class PushServer:
-    """Simple global event websocket for the dream app."""
+    """Simple global event WebSocket for the dream app."""
 
-    def __init__(self, host: str = "0.0.0.0", port: int = 8766) -> None:
-        self.host = host
-        self.port = port
-        self.loop: asyncio.AbstractEventLoop | None = None
-        self._started = False
-        self.clients: List[
-            Tuple[asyncio.AbstractEventLoop, websockets.WebSocketServerProtocol]
-        ] = []
+    def __init__(self, path: str = "/ws/events") -> None:
+        self.path = path
+        self.clients: List[object] = []
 
-    def start(self) -> None:
-        if self._started:
-            return
-        self._started = True
-        self.loop = asyncio.new_event_loop()
-        threading.Thread(target=self._run_loop, daemon=True).start()
+    def register(self, sock: Sock) -> None:
+        @sock.route(self.path, endpoint="push_ws")
+        def _handler(ws) -> None:
+            self.clients.append(ws)
+            try:
+                while ws.connected:
+                    ws.receive(timeout=1)
+            except ConnectionClosed:
+                pass
+            finally:
+                if ws in self.clients:
+                    self.clients.remove(ws)
 
-    def _run_loop(self) -> None:
-        assert self.loop is not None
-        asyncio.set_event_loop(self.loop)
-
-        async def start_server() -> None:
-            server = await websockets.serve(self._handler, self.host, self.port)
-            await server.wait_closed()
-
-        self.loop.run_until_complete(start_server())
-
-    async def _handler(self, ws: websockets.WebSocketServerProtocol) -> None:
-        assert self.loop is not None
-        self.clients.append((self.loop, ws))
-        try:
-            await ws.wait_closed()
-        finally:
-            if (self.loop, ws) in self.clients:
-                self.clients.remove((self.loop, ws))
+    def start(self) -> None:  # Backwards compatibility
+        pass
 
     def push(self, event: dict) -> None:
         msg = json.dumps(event)
-        for loop, ws in list(self.clients):
+        for ws in list(self.clients):
             try:
-                asyncio.run_coroutine_threadsafe(ws.send(msg), loop)
-            except Exception:
-                if (loop, ws) in self.clients:
-                    self.clients.remove((loop, ws))
+                ws.send(msg)
+            except ConnectionClosed:
+                if ws in self.clients:
+                    self.clients.remove(ws)
 
 
 push_server = PushServer()

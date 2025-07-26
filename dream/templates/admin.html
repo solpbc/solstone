@@ -68,7 +68,7 @@ function runTask(data){
   out.appendChild(spinner);
   const scroll=()=>{modalContent.scrollTop=modalContent.scrollHeight;};
   const addLine=html=>{spinner.remove();out.innerHTML+=html+'\n';out.appendChild(spinner);scroll();};
-  const ws=new WebSocket(`ws://${location.hostname}:8765`);
+  const ws=new WebSocket(`ws://${location.host}/ws/tasks`);
   const start=Date.now();
   ws.onopen=()=>ws.send(JSON.stringify(data));
   ws.onmessage=e=>{

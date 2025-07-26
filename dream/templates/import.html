@@ -113,7 +113,7 @@ function runTask(data){
   out.appendChild(spinner);
   const scroll=()=>{content.scrollTop=content.scrollHeight;};
   const addLine=html=>{spinner.remove();out.innerHTML+=html+'\n';out.appendChild(spinner);scroll();};
-  const ws=new WebSocket(`ws://${location.hostname}:8765`);
+  const ws=new WebSocket(`ws://${location.host}/ws/tasks`);
   ws.onopen=()=>ws.send(JSON.stringify(data));
   ws.onmessage=e=>{const msg=JSON.parse(e.data);if(msg.type==='stdout')addLine(msg.text);else if(msg.type==='stderr')addLine('<span style="color:red">'+msg.text+'</span>');else if(msg.type==='exit'){spinner.remove();out.innerHTML+='[exit '+msg.code+']\n';scroll();ws.close();}};
   ws.onclose=()=>{spinner.remove();loadLog();};

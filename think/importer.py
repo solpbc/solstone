@@ -178,23 +178,27 @@ def main() -> None:
         default=5.0,
         help="Video sampling interval in seconds",
     )
-    args = setup_cli(parser)
+    args, extra = setup_cli(parser, parse_known=True)
+    if extra and not args.timestamp:
+        args.timestamp = extra[0]
 
     journal = os.getenv("JOURNAL_PATH")
 
     # If no timestamp provided, detect it and show instruction
     if not args.timestamp:
         result = detect_created(args.media)
-        if result and result.get('day') and result.get('time'):
+        if result and result.get("day") and result.get("time"):
             detected_timestamp = f"{result['day']}_{result['time']}"
             print(f"Detected: --timestamp {detected_timestamp}")
             return
         else:
-            raise SystemExit("Could not detect timestamp. Please provide --timestamp YYYYMMDD_HHMMSS")
+            raise SystemExit(
+                "Could not detect timestamp. Please provide --timestamp YYYYMMDD_HHMMSS"
+            )
 
     if not TIME_RE.fullmatch(args.timestamp):
         raise SystemExit("timestamp must be in YYYYMMDD_HHMMSS format")
-    
+
     base_dt = dt.datetime.strptime(args.timestamp, "%Y%m%d_%H%M%S")
     logger.info(f"Using provided timestamp: {args.timestamp}")
     day_dir = os.path.join(journal, base_dt.strftime("%Y%m%d"))

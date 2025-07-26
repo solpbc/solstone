@@ -73,14 +73,14 @@ function showLog(id){
   const content=document.querySelector('#taskModal .modal-content');
   out.textContent='';
   modal.style.display='block';
-  const ws=new WebSocket(`ws://${location.hostname}:8765`);
+  const ws=new WebSocket(`ws://${location.host}/ws/tasks`);
   ws.onopen=()=>ws.send(JSON.stringify({attach:id}));
   ws.onmessage=e=>{const m=JSON.parse(e.data);if(m.text) {out.textContent+=m.text+'\n';content.scrollTop=content.scrollHeight;}}
   ws.onclose=()=>{};
   modal.dataset.wsid=id;modal.dataset.ws=ws;
 }
 function killTask(id){
-  const ws=new WebSocket(`ws://${location.hostname}:8765`);
+  const ws=new WebSocket(`ws://${location.host}/ws/tasks`);
   ws.onopen=()=>ws.send(JSON.stringify({kill:id}));
   ws.onclose=()=>loadTasks();
 }
