@@ -2,38 +2,14 @@ from __future__ import annotations
 
 import asyncio
 import os
-import sys
-from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, List
 
-from fastmcp import Client
-from fastmcp.client.transports import PythonStdioTransport
 from flask import Blueprint, jsonify, render_template, request
-from google import genai
 from google.genai import types
 
-from think.models import GEMINI_FLASH
+from think.genai import AgentSession
 
 from .. import state
-
-
-def _create_mcp_client() -> Client:
-    """Return a FastMCP client for the think tools."""
-
-    server_url = os.getenv("SUNSTONE_MCP_URL")
-    if server_url:
-        return Client(server_url)
-
-    server_path = Path(__file__).resolve().parents[2] / "think" / "mcp_server.py"
-
-    env = os.environ.copy()
-    if state.journal_root:
-        env["JOURNAL_PATH"] = state.journal_root
-    env["PYTHONPATH"] = os.pathsep.join([os.getcwd()] + sys.path)
-
-    transport = PythonStdioTransport(str(server_path), env=env)
-    return Client(transport)
-
 
 bp = Blueprint("chat", __name__, template_folder="../templates")
 
@@ -41,56 +17,22 @@ bp = Blueprint("chat", __name__, template_folder="../templates")
 async def ask_gemini(prompt: str, attachments: List[str], api_key: str) -> str:
     """Send ``prompt`` along with prior chat history to Gemini."""
 
-    client = genai.Client(api_key=api_key)
-    mcp_client = _create_mcp_client()
+    async with AgentSession() as agent:
+        for m in state.chat_history:
+            role = "user" if m["role"] == "user" else "model"
+            agent.history.append(
+                types.Content(role=role, parts=[types.Part(text=m["text"])])
+            )
 
-    from think.agent import agent_instructions
+        full_prompt = prompt
+        if attachments:
+            full_prompt = "\n".join([prompt] + attachments)
 
-    system_instruction, first_user = agent_instructions()
-
-    past: List[types.Content] = [
-        types.Content(role="user", parts=[types.Part(text=first_user)])
-    ]
-    past.extend(
-        types.Content(
-            role=("user" if m["role"] == "user" else "model"),
-            parts=[types.Part(text=m["text"])],
-        )
-        for m in state.chat_history
-    )
-
-    past.append(types.Content(role="user", parts=[types.Part(text=prompt)]))
-    for a in attachments:
-        past.append(types.Content(role="user", parts=[types.Part(text=a)]))
-
-    async with mcp_client:
-        session = mcp_client.session
-
-        original_call_tool = session.call_tool
-
-        async def logged_call_tool(
-            name: str, arguments: Dict[str, Any] | None = None, **kwargs
-        ):
-            print(f"Calling MCP tool {name} with args {arguments}")
-            return await original_call_tool(name=name, arguments=arguments, **kwargs)
-
-        session.call_tool = logged_call_tool  # type: ignore[assignment]
-
-        model = await client.aio.models.generate_content(
-            model=GEMINI_FLASH,
-            contents=past,
-            config=types.GenerateContentConfig(
-                tools=[session],
-                tool_config=types.ToolConfig(
-                    function_calling_config=types.FunctionCallingConfig(mode="AUTO")
-                ),
-                system_instruction=system_instruction,
-            ),
-        )
+        text, _ = await agent.run(full_prompt)
 
     state.chat_history.append({"role": "user", "text": prompt})
-    state.chat_history.append({"role": "bot", "text": model.text})
-    return model.text
+    state.chat_history.append({"role": "bot", "text": text})
+    return text
 
 
 @bp.route("/chat")
