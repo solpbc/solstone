@@ -188,6 +188,8 @@ class AgentSession:
         self.agent: Agent | None = None
         self._mcp: MCPServerStdio | None = None
         self.run_config = RunConfig()
+        self._history: list[dict[str, str]] = []
+        self._pending_history: list[dict[str, str]] = []
 
     async def __aenter__(self) -> "AgentSession":
         journal_path = os.getenv("JOURNAL_PATH", "journal")
@@ -215,6 +217,18 @@ class AgentSession:
         )
         return self
 
+    @property
+    def history(self) -> list[dict[str, str]]:
+        """Return chat history added and generated during this session."""
+
+        return list(self._history)
+
+    def add_history(self, role: str, text: str) -> None:
+        """Queue a history message for the next run."""
+
+        self._pending_history.append({"role": role, "content": text})
+        self._history.append({"role": role, "content": text})
+
     async def __aexit__(self, exc_type, exc, tb) -> None:
         if self._mcp:
             await self._mcp.__aexit__(exc_type, exc, tb)
@@ -225,11 +239,18 @@ class AgentSession:
         if self.agent is None or self._mcp is None:
             raise RuntimeError("AgentSession not initialized")
 
+        if self._pending_history:
+            await self.session.add_items(self._pending_history)
+            self._pending_history.clear()
+
+        self._history.append({"role": "user", "content": prompt})
+
         self._callback.emit({"event": "start", "prompt": prompt})
         result = await Runner.run(
             self.agent, prompt, session=self.session, run_config=self.run_config
         )
         self._callback.emit({"event": "finish", "result": result.final_output})
+        self._history.append({"role": "assistant", "content": result.final_output})
         return result.final_output
 
 

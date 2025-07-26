@@ -138,6 +138,7 @@ class AgentSession:
         self.client: genai.Client | None = None
         self.chat: genai.chats.Chat | None = None
         self.system_instruction = ""
+        self._history: list[dict[str, str]] = []
 
     async def __aenter__(self) -> "AgentSession":
         self._mcp = _create_mcp_client()
@@ -161,26 +162,25 @@ class AgentSession:
         return self
 
     @property
-    def history(self) -> list[types.Content]:
-        """Return the current chat history."""
-        if self.chat is None:
-            return []
-        return list(self.chat.get_history())
+    def history(self) -> list[dict[str, str]]:
+        """Return the accumulated chat history as ``role``/``content`` dicts."""
+
+        return list(self._history)
 
     def add_history(self, role: str, text: str) -> None:
         """Record a message to the chat history."""
-        if self.chat is None:
-            raise RuntimeError("AgentSession not initialized")
-        self.chat.record_history(
-            types.Content(role=role, parts=[types.Part(text=text)])
-        )
+        if self.chat is not None:
+            self.chat.record_history(
+                types.Content(role=role, parts=[types.Part(text=text)])
+            )
+        self._history.append({"role": role, "content": text})
 
     async def __aexit__(self, exc_type, exc, tb) -> None:
         if self._mcp:
             await self._mcp.__aexit__(exc_type, exc, tb)
 
-    async def run(self, prompt: str) -> Tuple[str, Any]:
-        """Run ``prompt`` through Gemini and return result and session."""
+    async def run(self, prompt: str) -> str:
+        """Run ``prompt`` through Gemini and return the result."""
 
         if self._mcp is None or self.client is None or self.chat is None:
             raise RuntimeError("AgentSession not initialized")
@@ -196,7 +196,9 @@ class AgentSession:
         response = await asyncio.to_thread(self.chat.send_message, prompt, config=cfg)
         text = response.text
         self._callback.emit({"event": "finish", "result": text})
-        return text, session
+        self._history.append({"role": "user", "content": prompt})
+        self._history.append({"role": "assistant", "content": text})
+        return text
 
 
 async def run_prompt(
@@ -205,7 +207,7 @@ async def run_prompt(
     model: str = GEMINI_FLASH,
     max_tokens: int = 8192,
     on_event: Optional[Callable[[dict], None]] = None,
-) -> Tuple[str, Any]:
+) -> str:
     """Convenience helper to run ``prompt`` with a temporary :class:`AgentSession`."""
 
     async with AgentSession(model, max_tokens=max_tokens, on_event=on_event) as ag:

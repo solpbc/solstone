@@ -25,7 +25,7 @@ async def ask_gemini(prompt: str, attachments: List[str], api_key: str) -> str:
         if attachments:
             full_prompt = "\n".join([prompt] + attachments)
 
-        text, _ = await agent.run(full_prompt)
+        text = await agent.run(full_prompt)
 
     state.chat_history.append({"role": "user", "text": prompt})
     state.chat_history.append({"role": "bot", "text": text})
