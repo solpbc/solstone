@@ -38,7 +38,9 @@ def search_topic_api() -> Any:
     from think.utils import get_topics
 
     topics = get_topics()
-    total, rows = search_topics(query, limit, offset)
+    day = request.args.get("day")
+    topic_filter = request.args.get("topic")
+    total, rows = search_topics(query, limit, offset, day=day, topic=topic_filter)
     results = []
     for r in rows:
         meta = r.get("metadata", {})
@@ -80,7 +82,9 @@ def search_occurrence_api() -> Any:
     except ValueError:
         offset = 0
 
-    total, rows = search_occurrences(query, limit, offset)
+    day = request.args.get("day")
+    topic_filter = request.args.get("topic")
+    total, rows = search_occurrences(query, limit, offset, day=day, topic=topic_filter)
     return jsonify({"total": total, "results": rows})
 
 

@@ -31,46 +31,88 @@
 const topicUrl = '{{ url_for('search.search_topic_api') }}';
 const dayBase = '{{ url_for('calendar.calendar_day', day='') }}';
 const COLORS = window.CATEGORY_COLORS;
-let topicColors = {};
-let colorIndex = 0;
-let query = '';
-let offset = 0;
-let total = 0;
-const limit = 20;
+  let topicColors = {};
+  let colorIndex = 0;
+  let query = '';
+  let offset = 0;
+  let total = 0;
+  const limit = 20;
 
 const queryInput = document.getElementById('query');
 queryInput.focus();
 
 // Initialize from URL
-const params = new URLSearchParams(window.location.search);
-query = params.get('q') || '';
-if (query) {
-  queryInput.value = query;
-  doSearch(true);
+function loadFromHash(){
+  const hashParams = new URLSearchParams(window.location.hash.slice(1));
+  query = hashParams.get('q') || '';
+  if (query) {
+    queryInput.value = query;
+    doSearch(true);
+  }
 }
-function getColor(topic){
-  if(!topicColors[topic]){ topicColors[topic] = COLORS[colorIndex % COLORS.length]; colorIndex++; }
-  return topicColors[topic];
+loadFromHash();
+window.addEventListener('hashchange', loadFromHash);
+
+function parseQuery(q){
+  let day = '';
+  let topic = '';
+  const terms = [];
+  q.split(/\s+/).forEach(part => {
+    if(part.startsWith('day:')){
+      day = part.slice(4);
+    } else if(part.startsWith('topic:')){
+      topic = part.slice(6);
+    } else if(part){
+      terms.push(part);
+    }
+  });
+  return {text: terms.join(' '), day, topic};
 }
-function renderRows(list){
-  const tbody = document.querySelector('#resultsTable tbody');
-  list.forEach(item => {
-    const tr = document.createElement('tr');
-    const tdDate = document.createElement('td');
-    tdDate.className = 'date-cell';
-    tdDate.textContent = item.date;
-    tdDate.onclick = () => { window.location = dayBase + item.day; };
-  const tdTopic = document.createElement('td');
-    const link = document.createElement('a');
-    link.className = 'slug-link';
-    link.href = dayBase + item.day + '#' + item.topic;
-    link.textContent = item.topic;
-    link.style.color = item.color || getColor(item.topic);
-    tdTopic.appendChild(link);
-    const tdText = document.createElement('td');
-    tdText.innerHTML = item.text;
-    tr.appendChild(tdDate); tr.appendChild(tdTopic); tr.appendChild(tdText);
-    tbody.appendChild(tr);
+  function getColor(topic){
+    if(!topicColors[topic]){ topicColors[topic] = COLORS[colorIndex % COLORS.length]; colorIndex++; }
+    return topicColors[topic];
+  }
+  function addFilter(type, value){
+    const parts = queryInput.value.split(/\s+/).filter(p => p && !p.startsWith(type+':'));
+    parts.push(`${type}:${value}`);
+    queryInput.value = parts.join(' ');
+    query = queryInput.value.trim();
+    window.location.hash = `q=${encodeURIComponent(query)}`;
+    doSearch(true);
+  }
+  function renderRows(list){
+    const tbody = document.querySelector('#resultsTable tbody');
+    list.forEach(item => {
+      const tr = document.createElement('tr');
+      const tdDate = document.createElement('td');
+      tdDate.className = 'date-cell';
+      const dlink = document.createElement('a');
+      dlink.href = dayBase + item.day;
+      dlink.textContent = item.date;
+      dlink.onclick = e => {
+        if(!(e.ctrlKey||e.metaKey||e.shiftKey)){
+          e.preventDefault();
+          addFilter('day', item.day);
+        }
+      };
+      tdDate.appendChild(dlink);
+      const tdTopic = document.createElement('td');
+      const link = document.createElement('a');
+      link.className = 'slug-link';
+      link.href = dayBase + item.day + '#' + item.topic;
+      link.textContent = item.topic;
+      link.style.color = item.color || getColor(item.topic);
+      link.onclick = e => {
+        if(!(e.ctrlKey||e.metaKey||e.shiftKey)){
+          e.preventDefault();
+          addFilter('topic', item.topic);
+        }
+      };
+      tdTopic.appendChild(link);
+      const tdText = document.createElement('td');
+      tdText.innerHTML = item.text;
+      tr.appendChild(tdDate); tr.appendChild(tdTopic); tr.appendChild(tdText);
+      tbody.appendChild(tr);
   });
 }
 function updateLoadMore(){
@@ -83,8 +125,15 @@ function updateLoadMore(){
   }
 }
 function doSearch(reset=true){
+  const parsed = parseQuery(query);
   if(reset){ offset = 0; topicColors = {}; colorIndex=0; document.querySelector('#resultsTable tbody').innerHTML=''; }
-  fetch(`${topicUrl}?q=${encodeURIComponent(query)}&limit=${limit}&offset=${offset}`)
+  const url = new URL(topicUrl, window.location.origin);
+  url.searchParams.set('q', parsed.text);
+  if(parsed.day) url.searchParams.set('day', parsed.day);
+  if(parsed.topic) url.searchParams.set('topic', parsed.topic);
+  url.searchParams.set('limit', limit);
+  url.searchParams.set('offset', offset);
+  fetch(url)
     .then(r=>r.json()).then(d=>{
       total = d.total || 0;
       renderRows(d.results || []);
@@ -97,6 +146,7 @@ document.getElementById('searchForm').onsubmit = e => {
   e.preventDefault();
   query = queryInput.value.trim();
   if (!query) return;
+  window.location.hash = `q=${encodeURIComponent(query)}`;
   doSearch(true);
 };
 document.getElementById('loadMore').onclick = () => doSearch(false);

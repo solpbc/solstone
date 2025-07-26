@@ -16,7 +16,10 @@ def test_importer_text(tmp_path, monkeypatch):
     monkeypatch.setattr(mod, "detect_transcript_segment", lambda t: ["seg1", "seg2"])
     monkeypatch.setattr(mod, "detect_transcript_json", lambda t: [{"text": t}])
 
-    monkeypatch.setattr("sys.argv", ["think-importer", str(txt), "20240101_120000"])
+    monkeypatch.setattr(
+        "sys.argv",
+        ["think-importer", str(txt), "--timestamp", "20240101_120000"],
+    )
     mod.main()
 
     f1 = tmp_path / "20240101" / "120000_imported_audio.json"

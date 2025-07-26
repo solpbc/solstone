@@ -5,6 +5,8 @@ Guide for updating: always append new entries to the existing list for the same 
 ## 2025-07-26
 - Task list view truncates long descriptions with ellipsis and prevents wrapping
 - Integrated task and event WebSocket endpoints into the main Flask app
+- Search results allow filtering by clicking dates or topics which insert
+  `day:` and `topic:` filters into the query and auto-run the search
 
 ## 2025-07-25
 
@@ -32,3 +34,6 @@ Guide for updating: always append new entries to the existing list for the same 
 - search_* functions no longer require JOURNAL_PATH argument; get_index infers from environment and tests updated
 - think-agent supports `-o/--out` to write the final result or error to a file
 - Added initial Agents view accessible at `/agents` with a rocket icon and a textarea form.
+- Search page now uses `#q=` fragments for shareable queries and auto-runs them.
+- Query strings support `day:YYYYMMDD` and `topic:<topic>` filters parsed client side.
+- Search APIs accept `day` and `topic` parameters and filter results accordingly.
