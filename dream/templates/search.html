@@ -7,6 +7,7 @@
 #resultsTable { width:100%; border-collapse:collapse; margin-top:1em; }
 #resultsTable th, #resultsTable td { padding:8px; border-bottom:1px solid #ddd; }
 #resultsTable td.date-cell { white-space:nowrap; cursor:pointer; }
+#resultsTable td.preview-cell { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:60vw; }
 #resultsTable th { background:#f8f9fa; text-align:left; }
 .slug-link { font-weight:bold; text-decoration:none; }
 .load-more { margin-top:1em; padding:6px 12px; background:#007bff; color:white; border:none; border-radius:4px; cursor:pointer; }
@@ -21,6 +22,7 @@
   <div class="tabs">
     <div class="tab active" data-index="summaries">Summaries</div>
     <div class="tab" data-index="events">Events</div>
+    <div class="tab" data-index="transcripts">Transcripts</div>
   </div>
   <table id="resultsTable" style="display:none">
     <thead></thead>
@@ -32,6 +34,7 @@
 <script>
 const topicUrl = '{{ url_for('search.search_topic_api') }}';
 const occUrl = '{{ url_for('search.search_occurrence_api') }}';
+const rawUrl = '{{ url_for('search.search_raw_api') }}';
 const dayBase = '{{ url_for('calendar.calendar_day', day='') }}';
 const COLORS = window.CATEGORY_COLORS;
   let topicColors = {};
@@ -163,11 +166,41 @@ function parseQuery(q){
     });
   }
 
+  function renderRawRows(list){
+    const tbody = document.querySelector('#resultsTable tbody');
+    list.forEach(item => {
+      const tr = document.createElement('tr');
+      const tdDate = document.createElement('td');
+      tdDate.className = 'date-cell';
+      const dlink = document.createElement('a');
+      dlink.href = dayBase + item.day;
+      dlink.textContent = item.date;
+      dlink.onclick = e => {
+        if(!(e.ctrlKey||e.metaKey||e.shiftKey)){
+          e.preventDefault();
+          addFilter('day', item.day);
+        }
+      };
+      tdDate.appendChild(dlink);
+      const tdTime = document.createElement('td');
+      tdTime.textContent = item.time;
+      const tdType = document.createElement('td');
+      tdType.textContent = item.type;
+      const tdPrev = document.createElement('td');
+      tdPrev.className = 'preview-cell';
+      tdPrev.textContent = item.preview;
+      tr.appendChild(tdDate); tr.appendChild(tdTime); tr.appendChild(tdType); tr.appendChild(tdPrev);
+      tbody.appendChild(tr);
+    });
+  }
+
   function setHeaders(index){
     const thead=document.querySelector('#resultsTable thead');
     if(index==='events'){
       thead.innerHTML='<tr><th>Date</th><th>Topic</th><th>Start</th><th>Length</th><th>Summary</th></tr>';
-    }else{
+    } else if(index==='transcripts'){
+      thead.innerHTML='<tr><th>Date</th><th>Time</th><th>Type</th><th class="preview-col">Preview</th></tr>';
+    } else {
       thead.innerHTML='<tr><th>Date</th><th>Topic</th><th>Sentence</th></tr>';
     }
   }
@@ -191,16 +224,21 @@ function doSearch(reset=true){
   if(reset){ offset = 0; topicColors = {}; colorIndex=0; document.querySelector('#resultsTable tbody').innerHTML=''; }
   setHeaders(parsed.index);
   updateTabs(parsed.index);
-  const url = new URL(parsed.index==='events'?occUrl:topicUrl, window.location.origin);
+  let api = topicUrl;
+  if(parsed.index==='events') api = occUrl;
+  else if(parsed.index==='transcripts') api = rawUrl;
+  const url = new URL(api, window.location.origin);
   url.searchParams.set('q', parsed.text);
   if(parsed.day) url.searchParams.set('day', parsed.day);
-  if(parsed.topic) url.searchParams.set('topic', parsed.topic);
+  if(parsed.topic && parsed.index!=='transcripts') url.searchParams.set('topic', parsed.topic);
   url.searchParams.set('limit', limit);
   url.searchParams.set('offset', offset);
   fetch(url)
     .then(r=>r.json()).then(d=>{
       total = d.total || 0;
-      if(parsed.index==='events'){ renderEventRows(d.results || []); } else { renderTopicRows(d.results || []); }
+      if(parsed.index==='events'){ renderEventRows(d.results || []); }
+      else if(parsed.index==='transcripts'){ renderRawRows(d.results || []); }
+      else { renderTopicRows(d.results || []); }
       document.getElementById('resultsTable').style.display = 'table';
       offset += d.results.length;
       updateLoadMore();

@@ -89,3 +89,28 @@ def test_search_occurrence_api(tmp_path):
 
     assert resp.json["total"] == 1
     assert resp.json["results"][0]["topic"] == "meetings"
+
+
+def test_search_raw_api(tmp_path):
+    indexer = importlib.import_module("think.indexer")
+    review = importlib.import_module("dream")
+    search_view = importlib.import_module("dream.views.search")
+
+    journal = tmp_path
+    os.environ["JOURNAL_PATH"] = str(journal)
+
+    day_dir = journal / "20240103"
+    day_dir.mkdir()
+    (day_dir / "123000_audio.json").write_text(json.dumps({"text": "hello raw"}))
+
+    indexer.scan_raws(str(journal))
+    review.journal_root = str(journal)
+
+    with review.app.test_request_context(
+        "/search/api/raw?q=hello&day=20240103&topic=ignoreme"
+    ):
+        resp = search_view.search_raw_api()
+
+    assert resp.json["total"] == 1
+    assert resp.json["results"][0]["time"] == "123000"
+    assert resp.json["results"][0]["type"] == "audio"

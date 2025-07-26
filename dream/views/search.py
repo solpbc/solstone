@@ -2,12 +2,17 @@ from __future__ import annotations
 
 import json
 import os
+import re
 from typing import Any
 
 import markdown  # type: ignore
 from flask import Blueprint, jsonify, render_template, request
 
-from think.indexer import search_occurrences, search_topics
+from think.indexer import (
+    search_occurrences,
+    search_raws,
+    search_topics,
+)
 
 from .. import state
 from ..utils import format_date
@@ -93,7 +98,7 @@ def search_occurrence_api() -> Any:
         meta = r.get("metadata", {})
         topic = meta.get("topic", "")
         if topic.startswith("topics/"):
-            topic = topic[len("topics/") :]
+            topic = topic[len("topics/") :]  # noqa: E203
         if topic.endswith(".md"):
             topic = topic[:-3]
         text = r.get("text", "")
@@ -122,6 +127,42 @@ def search_occurrence_api() -> Any:
                 "length": length,
                 "text": markdown.markdown(text, extensions=["extra"]),
                 "score": r.get("score", 0.0),
+            }
+        )
+
+    return jsonify({"total": total, "results": results})
+
+
+@bp.route("/search/api/raw")
+def search_raw_api() -> Any:
+    query = request.args.get("q", "").strip()
+    if not query:
+        return jsonify({"total": 0, "results": []})
+
+    try:
+        limit = int(request.args.get("limit", 20))
+    except ValueError:
+        limit = 20
+    try:
+        offset = int(request.args.get("offset", 0))
+    except ValueError:
+        offset = 0
+
+    day = request.args.get("day")
+    total, rows = search_raws(query, limit, offset, day=day)
+    results = []
+    for r in rows:
+        meta = r.get("metadata", {})
+        text = r.get("text", "")
+        preview = re.sub(r"[^A-Za-z0-9]+", " ", text)
+        preview = re.sub(r"\s+", " ", preview).strip()
+        results.append(
+            {
+                "day": meta.get("day", ""),
+                "date": format_date(meta.get("day", "")),
+                "time": meta.get("time", ""),
+                "type": meta.get("type", ""),
+                "preview": preview,
             }
         )
 
