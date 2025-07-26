@@ -42,11 +42,31 @@ const queryInput = document.getElementById('query');
 queryInput.focus();
 
 // Initialize from URL
-const params = new URLSearchParams(window.location.search);
-query = params.get('q') || '';
-if (query) {
-  queryInput.value = query;
-  doSearch(true);
+function loadFromHash(){
+  const hashParams = new URLSearchParams(window.location.hash.slice(1));
+  query = hashParams.get('q') || '';
+  if (query) {
+    queryInput.value = query;
+    doSearch(true);
+  }
+}
+loadFromHash();
+window.addEventListener('hashchange', loadFromHash);
+
+function parseQuery(q){
+  let day = '';
+  let topic = '';
+  const terms = [];
+  q.split(/\s+/).forEach(part => {
+    if(part.startsWith('day:')){
+      day = part.slice(4);
+    } else if(part.startsWith('topic:')){
+      topic = part.slice(6);
+    } else if(part){
+      terms.push(part);
+    }
+  });
+  return {text: terms.join(' '), day, topic};
 }
 function getColor(topic){
   if(!topicColors[topic]){ topicColors[topic] = COLORS[colorIndex % COLORS.length]; colorIndex++; }
@@ -83,8 +103,15 @@ function updateLoadMore(){
   }
 }
 function doSearch(reset=true){
+  const parsed = parseQuery(query);
   if(reset){ offset = 0; topicColors = {}; colorIndex=0; document.querySelector('#resultsTable tbody').innerHTML=''; }
-  fetch(`${topicUrl}?q=${encodeURIComponent(query)}&limit=${limit}&offset=${offset}`)
+  const url = new URL(topicUrl, window.location.origin);
+  url.searchParams.set('q', parsed.text);
+  if(parsed.day) url.searchParams.set('day', parsed.day);
+  if(parsed.topic) url.searchParams.set('topic', parsed.topic);
+  url.searchParams.set('limit', limit);
+  url.searchParams.set('offset', offset);
+  fetch(url)
     .then(r=>r.json()).then(d=>{
       total = d.total || 0;
       renderRows(d.results || []);
@@ -97,6 +124,7 @@ document.getElementById('searchForm').onsubmit = e => {
   e.preventDefault();
   query = queryInput.value.trim();
   if (!query) return;
+  window.location.hash = `q=${encodeURIComponent(query)}`;
   doSearch(true);
 };
 document.getElementById('loadMore').onclick = () => doSearch(false);
