@@ -35,6 +35,7 @@ def test_agent_main(monkeypatch, tmp_path, capsys):
     agents_stub.RunConfig = lambda **k: SimpleNamespace()
     agents_stub.ModelSettings = lambda **k: SimpleNamespace()
     agents_stub.set_default_openai_key = lambda k: None
+
     class DummySession:
         def __init__(self, *a, **k):
             pass
@@ -95,6 +96,7 @@ def test_agent_outfile(monkeypatch, tmp_path):
     agents_stub.RunConfig = lambda **k: SimpleNamespace()
     agents_stub.ModelSettings = lambda **k: SimpleNamespace()
     agents_stub.set_default_openai_key = lambda k: None
+
     class DummySession:
         def __init__(self, *a, **k):
             pass
@@ -153,6 +155,7 @@ def test_agent_outfile_error(monkeypatch, tmp_path):
     agents_stub.RunConfig = lambda **k: SimpleNamespace()
     agents_stub.ModelSettings = lambda **k: SimpleNamespace()
     agents_stub.set_default_openai_key = lambda k: None
+
     class DummySession:
         def __init__(self, *a, **k):
             pass

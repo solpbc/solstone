@@ -2,6 +2,10 @@
 
 Guide for updating: always append new entries to the existing list for the same day, but start a new day section at the top if the date has changed in the Mountain time zone.
 
+## 2025-07-29
+- Updated `think.agent` and `think.genai` to rely on built-in in-memory session management.
+- Cleaned up whitespace in detection utilities to satisfy linters.
+
 ## 2025-07-28
 - `think-agent` provides an `AgentSession` helper for stateful runs with event callbacks.
 - The standalone `think.agents` module was removed and its functionality merged into `think.agent`.

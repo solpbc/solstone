@@ -180,12 +180,11 @@ class AgentSession:
         *,
         max_tokens: int = 4096,
         on_event: Optional[Callable[[dict], None]] = None,
-        session: Optional[SQLiteSession] = None,
     ) -> None:
         self.model = model
         self.max_tokens = max_tokens
         self._callback = JSONEventCallback(on_event)
-        self.session = session
+        self.session = SQLiteSession("sunstone_cli_session")
         self.agent: Agent | None = None
         self._mcp: MCPServerStdio | None = None
         self.run_config = RunConfig()
@@ -220,21 +219,18 @@ class AgentSession:
         if self._mcp:
             await self._mcp.__aexit__(exc_type, exc, tb)
 
-    async def run(self, prompt: str) -> Tuple[str, SQLiteSession]:
-        """Run ``prompt`` through the agent and return result and session."""
+    async def run(self, prompt: str) -> str:
+        """Run ``prompt`` through the agent and return the result."""
 
         if self.agent is None or self._mcp is None:
             raise RuntimeError("AgentSession not initialized")
-
-        if self.session is None:
-            self.session = SQLiteSession("sunstone_cli_session")
 
         self._callback.emit({"event": "start", "prompt": prompt})
         result = await Runner.run(
             self.agent, prompt, session=self.session, run_config=self.run_config
         )
         self._callback.emit({"event": "finish", "result": result.final_output})
-        return result.final_output, self.session
+        return result.final_output
 
 
 async def run_prompt(
@@ -243,13 +239,10 @@ async def run_prompt(
     model: str = "gpt-4.1",
     max_tokens: int = 4096,
     on_event: Optional[Callable[[dict], None]] = None,
-    session: Optional[SQLiteSession] = None,
-) -> Tuple[str, SQLiteSession]:
+) -> str:
     """Convenience helper to run ``prompt`` with a temporary :class:`AgentSession`."""
 
-    async with AgentSession(
-        model, max_tokens=max_tokens, on_event=on_event, session=session
-    ) as ag:
+    async with AgentSession(model, max_tokens=max_tokens, on_event=on_event) as ag:
         return await ag.run(prompt)
 
 
@@ -309,7 +302,6 @@ async def main_async():
         ) as agent_session:
             if user_prompt is None:
                 app_logger.info("Starting interactive mode with model %s", args.model)
-                session: SQLiteSession | None = None
                 try:
                     while True:
                         try:
@@ -319,7 +311,7 @@ async def main_async():
                             )
                             if not prompt:
                                 continue
-                            _, session = await agent_session.run(prompt)
+                            await agent_session.run(prompt)
                         except EOFError:
                             break
                 except KeyboardInterrupt:

@@ -5,7 +5,6 @@ import os
 from typing import Any, List
 
 from flask import Blueprint, jsonify, render_template, request
-from google.genai import types
 
 from think.genai import AgentSession
 
@@ -20,9 +19,7 @@ async def ask_gemini(prompt: str, attachments: List[str], api_key: str) -> str:
     async with AgentSession() as agent:
         for m in state.chat_history:
             role = "user" if m["role"] == "user" else "model"
-            agent.history.append(
-                types.Content(role=role, parts=[types.Part(text=m["text"])])
-            )
+            agent.add_history(role, m["text"])
 
         full_prompt = prompt
         if attachments:

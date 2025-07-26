@@ -17,23 +17,33 @@ def _setup_genai_stub(monkeypatch):
     google_mod = types.ModuleType("google")
     genai_mod = types.ModuleType("google.genai")
 
-    class DummyModels:
-        async def generate_content(self, **kwargs):
-            DummyModels.kwargs = kwargs
+    class DummyChat:
+        def __init__(self, model, history=None, config=None):
+            self.model = model
+            self.history = list(history or [])
+            self.config = config
+
+        def get_history(self):
+            return list(self.history)
+
+        def record_history(self, content):
+            self.history.append(content)
+
+        def send_message(self, message, config=None):
+            DummyChat.kwargs = {
+                "message": message,
+                "config": config,
+                "model": self.model,
+            }
             return SimpleNamespace(text="ok")
+
+    class DummyChats:
+        def create(self, *, model, config=None, history=None):
+            return DummyChat(model, history=history, config=config)
 
     class DummyClient:
         def __init__(self, *a, **k):
-            self.models = DummyModels()
-            self.aio = self
-
-        async def models_generate_content(
-            self, **kwargs
-        ):  # pragma: no cover - compatibility
-            return await DummyModels().generate_content(**kwargs)
-
-        async def generate_content(self, **kwargs):
-            return await DummyModels().generate_content(**kwargs)
+            self.chats = DummyChats()
 
     genai_mod.Client = DummyClient
     genai_mod.types = types.SimpleNamespace(

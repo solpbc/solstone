@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """MCP server for Sunstone journal assistant."""
 
-import json
 import os
 from pathlib import Path
 from typing import Any
@@ -11,8 +10,8 @@ from fastmcp.resources import TextResource
 
 from think.cluster import cluster_range
 from think.indexer import search_events as search_events_impl
-from think.indexer import search_transcripts as search_transcripts_impl
 from think.indexer import search_summaries as search_summaries_impl
+from think.indexer import search_transcripts as search_transcripts_impl
 
 # Create the MCP server
 mcp = FastMCP("sunstone")
@@ -74,7 +73,9 @@ def search_summaries(
 
 
 @mcp.tool
-def search_transcripts(query: str, day: str, limit: int = 5, offset: int = 0) -> dict[str, Any]:
+def search_transcripts(
+    query: str, day: str, limit: int = 5, offset: int = 0
+) -> dict[str, Any]:
     """Search raw transcripts and screen diffs for a specific day.
 
     This tool scans raw audio transcripts (``*_audio.json``) and screenshot
@@ -100,7 +101,9 @@ def search_transcripts(query: str, day: str, limit: int = 5, offset: int = 0) ->
         - search_transcripts("feature flag", day="20240102", limit=10)
     """
     try:
-        total, results = search_transcripts_impl(query, limit=limit, offset=offset, day=day)
+        total, results = search_transcripts_impl(
+            query, limit=limit, offset=offset, day=day
+        )
 
         items = []
         for r in results:

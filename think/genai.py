@@ -19,7 +19,7 @@ import logging
 import os
 import sys
 from pathlib import Path
-from typing import Any, Callable, List, Optional, Tuple
+from typing import Any, Callable, Optional, Tuple
 
 from fastmcp import Client
 from fastmcp.client.transports import PythonStdioTransport
@@ -136,7 +136,7 @@ class AgentSession:
         self._callback = JSONEventCallback(on_event)
         self._mcp: Client | None = None
         self.client: genai.Client | None = None
-        self.history: List[types.Content] = []
+        self.chat: genai.chats.Chat | None = None
         self.system_instruction = ""
 
     async def __aenter__(self) -> "AgentSession":
@@ -149,10 +149,31 @@ class AgentSession:
         self.client = genai.Client(api_key=api_key)
 
         self.system_instruction, first_user = agent_instructions()
-        self.history = [types.Content(role="user", parts=[types.Part(text=first_user)])]
 
         ToolLoggingHooks(self._callback).attach(self._mcp.session)
+        self.chat = self.client.chats.create(
+            model=self.model,
+            config=types.GenerateContentConfig(
+                system_instruction=self.system_instruction
+            ),
+            history=[types.Content(role="user", parts=[types.Part(text=first_user)])],
+        )
         return self
+
+    @property
+    def history(self) -> list[types.Content]:
+        """Return the current chat history."""
+        if self.chat is None:
+            return []
+        return list(self.chat.get_history())
+
+    def add_history(self, role: str, text: str) -> None:
+        """Record a message to the chat history."""
+        if self.chat is None:
+            raise RuntimeError("AgentSession not initialized")
+        self.chat.record_history(
+            types.Content(role=role, parts=[types.Part(text=text)])
+        )
 
     async def __aexit__(self, exc_type, exc, tb) -> None:
         if self._mcp:
@@ -161,26 +182,19 @@ class AgentSession:
     async def run(self, prompt: str) -> Tuple[str, Any]:
         """Run ``prompt`` through Gemini and return result and session."""
 
-        if self._mcp is None or self.client is None:
+        if self._mcp is None or self.client is None or self.chat is None:
             raise RuntimeError("AgentSession not initialized")
-
-        self.history.append(types.Content(role="user", parts=[types.Part(text=prompt)]))
         self._callback.emit({"event": "start", "prompt": prompt})
         session = self._mcp.session
-        response = await self.client.aio.models.generate_content(
-            model=self.model,
-            contents=self.history,
-            config=types.GenerateContentConfig(
-                max_output_tokens=self.max_tokens,
-                tools=[session],
-                tool_config=types.ToolConfig(
-                    function_calling_config=types.FunctionCallingConfig(mode="AUTO")
-                ),
-                system_instruction=self.system_instruction,
+        cfg = types.GenerateContentConfig(
+            max_output_tokens=self.max_tokens,
+            tools=[session],
+            tool_config=types.ToolConfig(
+                function_calling_config=types.FunctionCallingConfig(mode="AUTO")
             ),
         )
+        response = await asyncio.to_thread(self.chat.send_message, prompt, config=cfg)
         text = response.text
-        self.history.append(types.Content(role="model", parts=[types.Part(text=text)]))
         self._callback.emit({"event": "finish", "result": text})
         return text, session
 

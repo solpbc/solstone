@@ -79,18 +79,16 @@ def detect_created(path: str, api_key: Optional[str] = None) -> Optional[dict]:
 def main():
     """Main CLI entry point for detect_created utility."""
     import argparse
+
     from .utils import setup_cli
-    
+
     parser = argparse.ArgumentParser(
         description="Detect creation time information from media file metadata using Gemini"
     )
-    parser.add_argument(
-        "file_path",
-        help="Path to the media file to analyze"
-    )
-    
+    parser.add_argument("file_path", help="Path to the media file to analyze")
+
     args = setup_cli(parser)
-    
+
     result = detect_created(args.file_path)
     if result is not None:
         print(json.dumps(result, indent=2))
