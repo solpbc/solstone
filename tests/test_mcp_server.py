@@ -8,9 +8,9 @@ from fastmcp.client.transports import PythonStdioTransport
 async def run_client(script: Path, env: dict[str, str]):
     transport = PythonStdioTransport(str(script), args=[], env=env, keep_alive=False)
     async with Client(transport) as client:
-        result1 = await client.call_tool("search_topic", {"query": "hello"})
+        result1 = await client.call_tool("search_summaries", {"query": "hello"})
         result2 = await client.call_tool(
-            "search_raw", {"query": "hi", "day": "20240101"}
+            "search_transcripts", {"query": "hi", "day": "20240101"}
         )
         result3 = await client.call_tool("search_events", {"query": "meet"})
         resource = await client.read_resource("journal://summary/20240101/foo")

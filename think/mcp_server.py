@@ -19,7 +19,7 @@ mcp = FastMCP("sunstone")
 
 
 @mcp.tool
-def search_topic(
+def search_summaries(
     query: str, limit: int = 5, offset: int = 0, *, topic: str | None = None
 ) -> dict[str, Any]:
     """Search across journal topic summaries using semantic full-text search.
@@ -43,9 +43,9 @@ def search_topic(
         - results: List of matching topics with day, topic, and text excerpt, ordered by text relevance
 
     Examples:
-        - search_topic("machine learning projects")
-        - search_topic("team retrospectives", limit=10)
-        - search_topic("planning", topic="standup")
+        - search_summaries("machine learning projects")
+        - search_summaries("team retrospectives", limit=10)
+        - search_summaries("planning", topic="standup")
     """
     try:
         kwargs = {}
@@ -74,7 +74,7 @@ def search_topic(
 
 
 @mcp.tool
-def search_raw(query: str, day: str, limit: int = 5, offset: int = 0) -> dict[str, Any]:
+def search_transcripts(query: str, day: str, limit: int = 5, offset: int = 0) -> dict[str, Any]:
     """Search raw transcripts and screen diffs for a specific day.
 
     This tool scans raw audio transcripts (``*_audio.json``) and screenshot
@@ -96,8 +96,8 @@ def search_raw(query: str, day: str, limit: int = 5, offset: int = 0) -> dict[st
         - results: List of entries with day, time, type, and text snippet, ordered by time series in the given range
 
     Examples:
-        - search_raw("error message", day="20240101")
-        - search_raw("feature flag", day="20240102", limit=10)
+        - search_transcripts("error message", day="20240101")
+        - search_transcripts("feature flag", day="20240102", limit=10)
     """
     try:
         total, results = search_transcripts_impl(query, limit=limit, offset=offset, day=day)
