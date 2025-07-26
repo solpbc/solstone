@@ -69,9 +69,19 @@ def search_topic_api() -> Any:
 def search_occurrence_api() -> Any:
     query = request.args.get("q", "").strip()
     if not query:
-        return jsonify([])
-    results = search_occurrences(query, 10)
-    return jsonify(results)
+        return jsonify({"total": 0, "results": []})
+
+    try:
+        limit = int(request.args.get("limit", 10))
+    except ValueError:
+        limit = 10
+    try:
+        offset = int(request.args.get("offset", 0))
+    except ValueError:
+        offset = 0
+
+    total, rows = search_occurrences(query, limit, offset)
+    return jsonify({"total": total, "results": rows})
 
 
 @bp.route("/search/api/topic_detail")
