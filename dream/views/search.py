@@ -9,8 +9,8 @@ import markdown  # type: ignore
 from flask import Blueprint, jsonify, render_template, request
 
 from think.indexer import (
-    search_occurrences,
-    search_raws,
+    search_events,
+    search_transcripts,
     search_summaries,
 )
 
@@ -92,7 +92,7 @@ def search_occurrence_api() -> Any:
     topics = get_topics()
     day = request.args.get("day")
     topic_filter = request.args.get("topic")
-    total, rows = search_occurrences(query, limit, offset, day=day, topic=topic_filter)
+    total, rows = search_events(query, limit, offset, day=day, topic=topic_filter)
     results = []
     for r in rows:
         meta = r.get("metadata", {})
@@ -149,7 +149,7 @@ def search_raw_api() -> Any:
         offset = 0
 
     day = request.args.get("day")
-    total, rows = search_raws(query, limit, offset, day=day)
+    total, rows = search_transcripts(query, limit, offset, day=day)
     results = []
     for r in rows:
         meta = r.get("metadata", {})

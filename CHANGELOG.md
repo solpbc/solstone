@@ -11,7 +11,7 @@ Guide for updating: always append new entries to the existing list for the same 
   than relevance
 - Search view gains a "Transcripts" tab to query raw data by day while ignoring
   `topic:` filters
-- Topic indexing renamed to "summaries" with `search_topics` kept as alias
+- Topic indexing renamed to "summaries" (old `search_topics` alias removed)
 
 ## 2025-07-25
 

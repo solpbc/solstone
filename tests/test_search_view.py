@@ -115,7 +115,7 @@ def test_search_raw_api(tmp_path):
         )
     )
 
-    indexer.scan_raws(str(journal))
+    indexer.scan_transcripts(str(journal))
     review.journal_root = str(journal)
 
     with review.app.test_request_context(

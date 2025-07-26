@@ -447,8 +447,6 @@ def search_summaries(
     return total, results
 
 
-# Backwards compatibility alias
-search_topics = search_summaries
 
 
 # Search events from the events index.
@@ -551,8 +549,6 @@ def search_events(
     return total, results
 
 
-# Backwards compatibility alias
-search_occurrences = search_events
 
 
 def search_transcripts(
@@ -701,8 +697,6 @@ def main() -> None:
                 _display_search_results(results)
 
 
-# Backwards compatibility alias
-search_raws = search_transcripts
 
 
 if __name__ == "__main__":

@@ -10,8 +10,8 @@ from fastmcp import FastMCP
 from fastmcp.resources import TextResource
 
 from think.cluster import cluster_range
-from think.indexer import search_occurrences as search_occurrences_impl
-from think.indexer import search_raws as search_raws_impl
+from think.indexer import search_events as search_events_impl
+from think.indexer import search_transcripts as search_transcripts_impl
 from think.indexer import search_summaries as search_summaries_impl
 
 # Create the MCP server
@@ -100,7 +100,7 @@ def search_raw(query: str, day: str, limit: int = 5, offset: int = 0) -> dict[st
         - search_raw("feature flag", day="20240102", limit=10)
     """
     try:
-        total, results = search_raws_impl(query, limit=limit, offset=offset, day=day)
+        total, results = search_transcripts_impl(query, limit=limit, offset=offset, day=day)
 
         items = []
         for r in results:
@@ -160,7 +160,7 @@ def search_events(
     """
 
     try:
-        total, rows = search_occurrences_impl(
+        total, rows = search_events_impl(
             query,
             limit=limit,
             offset=offset,

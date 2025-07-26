@@ -116,7 +116,7 @@ def test_raw_index(tmp_path):
         )
     )
     mod.scan_transcripts(str(journal), verbose=True)
-    total, results = mod.search_raws("hello")
+    total, results = mod.search_transcripts("hello")
     assert total == 1
     assert results and results[0]["metadata"]["type"] == "audio"
     assert (day / "indexer" / "indexer.sqlite").exists()
@@ -175,10 +175,10 @@ def test_search_raws_day(tmp_path):
 
     mod.scan_transcripts(str(journal), verbose=True)
 
-    total_all, _ = mod.search_raws("hello", limit=10)
+    total_all, _ = mod.search_transcripts("hello", limit=10)
     assert total_all == 2
 
-    total_day1, results_day1 = mod.search_raws("hello", limit=10, day="20240105")
+    total_day1, results_day1 = mod.search_transcripts("hello", limit=10, day="20240105")
     assert total_day1 == 1
     assert results_day1[0]["metadata"]["day"] == "20240105"
 
@@ -209,6 +209,6 @@ def test_search_raws_time_order(tmp_path):
 
     mod.scan_transcripts(str(journal), verbose=True)
 
-    total, results = mod.search_raws("hello", limit=10, day="20240107")
+    total, results = mod.search_transcripts("hello", limit=10, day="20240107")
     assert total == 2
     assert [r["metadata"]["time"] for r in results] == ["090000", "123000"]
