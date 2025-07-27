@@ -1,4 +1,7 @@
 # Changelog
+## 2025-08-02
+- Chat view now streams agent tool events via WebSocket and displays
+  small search cards linking to the relevant query.
 ## 2025-08-01
 - Dream APIs return JSON error bodies and the client shows errors in a modal.
 ## 2025-07-31
