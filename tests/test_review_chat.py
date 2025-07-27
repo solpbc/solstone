@@ -13,8 +13,9 @@ def test_chat_page_renders(tmp_path):
 def test_send_message_no_key(monkeypatch):
     review = importlib.import_module("dream")
     monkeypatch.delenv("GOOGLE_API_KEY", raising=False)
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
     with review.app.test_request_context(
-        "/chat/api/send", method="POST", json={"message": "hi"}
+        "/chat/api/send", method="POST", json={"message": "hi", "backend": "google"}
     ):
         resp = asyncio.run(review.send_message())
     assert resp[1] == 500
@@ -23,6 +24,7 @@ def test_send_message_no_key(monkeypatch):
 def test_send_message_success(monkeypatch):
     review = importlib.import_module("dream")
     monkeypatch.setenv("GOOGLE_API_KEY", "x")
+    monkeypatch.setenv("OPENAI_API_KEY", "x")
 
     class DummyAgent:
         def __init__(self):
@@ -39,10 +41,11 @@ def test_send_message_success(monkeypatch):
             self.history.append({"role": "assistant", "content": "pong"})
             return "pong"
 
-    monkeypatch.setattr("dream.views.chat.AgentSession", DummyAgent)
+    monkeypatch.setattr("dream.views.chat.GoogleAgent", DummyAgent)
+    monkeypatch.setattr("dream.views.chat.OpenAIAgent", DummyAgent)
 
     with review.app.test_request_context(
-        "/chat/api/send", method="POST", json={"message": "hi"}
+        "/chat/api/send", method="POST", json={"message": "hi", "backend": "google"}
     ):
         resp = asyncio.run(review.send_message())
     assert resp.json == {"text": "pong"}
@@ -50,6 +53,37 @@ def test_send_message_success(monkeypatch):
         {"role": "user", "content": "hi"},
         {"role": "assistant", "content": "pong"},
     ]
+
+
+def test_send_message_openai(monkeypatch):
+    review = importlib.import_module("dream")
+    monkeypatch.setenv("GOOGLE_API_KEY", "x")
+    monkeypatch.setenv("OPENAI_API_KEY", "x")
+
+    class DummyAgent:
+        def __init__(self):
+            self.history = []
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc, tb):
+            pass
+
+        async def run(self, prompt):
+            self.history.append({"role": "user", "content": prompt})
+            self.history.append({"role": "assistant", "content": "pong"})
+            return "pong"
+
+    monkeypatch.setattr("dream.views.chat.GoogleAgent", DummyAgent)
+    monkeypatch.setattr("dream.views.chat.OpenAIAgent", DummyAgent)
+
+    with review.app.test_request_context(
+        "/chat/api/send", method="POST", json={"message": "hi", "backend": "openai"}
+    ):
+        resp = asyncio.run(review.send_message())
+    assert resp.json == {"text": "pong"}
+    assert review.state.chat_backend == "openai"
 
 
 def test_history_and_clear(monkeypatch):

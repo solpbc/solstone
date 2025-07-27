@@ -1,10 +1,13 @@
 from typing import Any, Dict, List, Optional
 
-from think.google import AgentSession
+from think.agents import BaseAgentSession
 
-# Cached Gemini chat agent session. ``AgentSession.history`` stores
+# Cached chat agent session. ``BaseAgentSession.history`` stores
 # the role/content pairs for the conversation.
-chat_agent: Optional[AgentSession] = None
+chat_agent: Optional[BaseAgentSession] = None
+# Currently selected backend name. ``send_message`` updates this when
+# a new backend is requested.
+chat_backend: str = "google"
 
 journal_root: str = ""
 entities_index: Dict[str, Dict[str, dict]] = {}

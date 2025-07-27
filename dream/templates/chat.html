@@ -18,6 +18,10 @@ body {height:100vh; overflow:hidden;}
   <div id="drawer">Attachments drawer</div>
   <div class="input-tray">
     <form id="inputArea" class="input-area">
+      <select id="backendSelect">
+        <option value="google">Google</option>
+        <option value="openai">OpenAI</option>
+      </select>
       <textarea id="messageInput" rows="1" placeholder="Send a message..."></textarea>
       <button type="submit">Send</button>
       <button type="button" id="clearBtn">Clear</button>
@@ -31,6 +35,7 @@ const clearUrl = '{{ url_for('chat.clear_history') }}';
 const form = document.getElementById('inputArea');
 const input = document.getElementById('messageInput');
 const messagesDiv = document.getElementById('messages');
+const backendSelect = document.getElementById('backendSelect');
 
 input.focus();
 
@@ -53,7 +58,7 @@ document.getElementById('inputArea').onsubmit=async e=>{
   if(!text)return;
   addMessage(text,'from-user');
   input.value='';
-  const r=await fetch(sendUrl,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:text})});
+  const r=await fetch(sendUrl,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:text,backend:backendSelect.value})});
   if(r.ok){const d=await r.json();addMessage(d.text,'from-bot');}else{addMessage('Error','from-bot');}
 };
 
@@ -71,6 +76,12 @@ document.getElementById('clearBtn').onclick=async()=>{
   messagesDiv.innerHTML='';
   input.focus();
 };
+
+backendSelect.addEventListener('change', async ()=>{
+  await fetch(clearUrl,{method:'POST'});
+  messagesDiv.innerHTML='';
+  input.focus();
+});
 
 loadHistory();
 </script>
