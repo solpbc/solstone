@@ -3,9 +3,12 @@ import json
 import logging
 import os
 import re
+import sys
 import time
+import zoneinfo
+from datetime import datetime
 from pathlib import Path
-from typing import Optional
+from typing import Any, Literal, Optional, Tuple
 
 from dotenv import load_dotenv
 from timefhuman import timefhuman
@@ -27,6 +30,8 @@ CATEGORY_COLORS = [
     "#9c27b0",
     "#795548",
 ]
+
+AGENT_PATH = Path(__file__).with_name("agent.txt")
 
 
 def day_path(day: str) -> str:
@@ -157,6 +162,79 @@ def get_topics() -> dict[str, dict[str, object]]:
                 logging.debug("Error reading %s: %s", json_path, exc)
         topics[name] = info
     return topics
+
+
+def agent_instructions() -> Tuple[str, str]:
+    """Return system instruction and initial user context."""
+
+    system_instruction = AGENT_PATH.read_text(encoding="utf-8")
+
+    extra_parts: list[str] = []
+    journal = os.getenv("JOURNAL_PATH")
+    if journal:
+        ent_path = Path(journal) / "entities.md"
+        if ent_path.is_file():
+            entities = ent_path.read_text(encoding="utf-8").strip()
+            if entities:
+                extra_parts.append("## Well-Known Entities\n" + entities)
+
+    topics = get_topics()
+    if topics:
+        lines = [
+            "## Topics",
+            "These are the topics available for use in tool and resource requests:",
+        ]
+        for name, info in sorted(topics.items()):
+            desc = str(info.get("contains", ""))
+            lines.append(f"* Topic: `{name}`: {desc}")
+        extra_parts.append("\n".join(lines))
+
+    now = datetime.now()
+    try:
+        local_tz = zoneinfo.ZoneInfo(str(now.astimezone().tzinfo))
+        now_local = now.astimezone(local_tz)
+        time_str = now_local.strftime("%A, %B %d, %Y at %I:%M %p %Z")
+    except Exception:
+        time_str = now.strftime("%A, %B %d, %Y at %I:%M %p")
+
+    extra_parts.append(f"## Current Date and Time\n{time_str}")
+
+    extra_context = "\n\n".join(extra_parts).strip()
+    return system_instruction, extra_context
+
+
+def create_mcp_client(backend: Literal["agents", "fastmcp"] = "agents") -> Any:
+    """Return an MCP client for Sunstone tools."""
+
+    server_path = Path(__file__).resolve().parent / "mcp_server.py"
+
+    env = os.environ.copy()
+    journal_path = os.getenv("JOURNAL_PATH")
+    if journal_path:
+        env["JOURNAL_PATH"] = journal_path
+    env["PYTHONPATH"] = os.pathsep.join([os.getcwd()] + sys.path)
+
+    if backend == "fastmcp":
+        from fastmcp import Client
+        from fastmcp.client.transports import PythonStdioTransport
+
+        server_url = os.getenv("SUNSTONE_MCP_URL")
+        if server_url:
+            return Client(server_url)
+
+        transport = PythonStdioTransport(str(server_path), env=env)
+        return Client(transport)
+
+    from agents.mcp import MCPServerStdio
+
+    return MCPServerStdio(
+        params={
+            "command": sys.executable,
+            "args": ["-m", "think.mcp_server"],
+            "env": env,
+        },
+        name="Sunstone MCP Server",
+    )
 
 
 def parse_time_range(text: str) -> Optional[tuple[str, str, str]]:

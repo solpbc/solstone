@@ -17,10 +17,8 @@ import asyncio
 import logging
 import os
 import sys
-import zoneinfo
-from datetime import datetime
 from pathlib import Path
-from typing import Callable, Optional, Tuple
+from typing import Callable, Optional
 
 from agents import (
     Agent,
@@ -34,7 +32,7 @@ from agents import (
 )
 from agents.mcp import MCPServerStdio
 
-from think.utils import get_topics, setup_cli
+from think.utils import agent_instructions, create_mcp_client, setup_cli
 
 from .agents import BaseAgentSession, JSONEventCallback, JSONEventWriter
 
@@ -88,48 +86,6 @@ class ToolLoggingHooks(AgentHooks):
         self.writer.emit({"event": "agent_end", "agent": agent_name})
 
 
-AGENT_PATH = Path(__file__).with_name("agent.txt")
-
-
-def agent_instructions() -> Tuple[str, str]:
-    """Return system instruction and initial user context."""
-
-    system_instruction = AGENT_PATH.read_text(encoding="utf-8")
-
-    extra_parts: list[str] = []
-    journal = os.getenv("JOURNAL_PATH")
-    if journal:
-        ent_path = Path(journal) / "entities.md"
-        if ent_path.is_file():
-            entities = ent_path.read_text(encoding="utf-8").strip()
-            if entities:
-                extra_parts.append("## Well-Known Entities\n" + entities)
-
-    topics = get_topics()
-    if topics:
-        lines = [
-            "## Topics",
-            "These are the topics available for use in tool and resource requests:",
-        ]
-        for name, info in sorted(topics.items()):
-            desc = str(info.get("contains", ""))
-            lines.append(f"* Topic: `{name}`: {desc}")
-        extra_parts.append("\n".join(lines))
-
-    now = datetime.now()
-    try:
-        local_tz = zoneinfo.ZoneInfo(str(now.astimezone().tzinfo))
-        now_local = now.astimezone(local_tz)
-        time_str = now_local.strftime("%A, %B %d, %Y at %I:%M %p %Z")
-    except Exception:
-        time_str = now.strftime("%A, %B %d, %Y at %I:%M %p")
-
-    extra_parts.append(f"## Current Date and Time\n{time_str}")
-
-    extra_context = "\n\n".join(extra_parts).strip()
-    return system_instruction, extra_context
-
-
 class AgentSession(BaseAgentSession):
     """Context manager wrapping the Sunstone agent with optional session reuse."""
 
@@ -151,18 +107,7 @@ class AgentSession(BaseAgentSession):
         self._pending_history: list[dict[str, str]] = []
 
     async def __aenter__(self) -> "AgentSession":
-        journal_path = os.getenv("JOURNAL_PATH", "journal")
-        self._mcp = MCPServerStdio(
-            params={
-                "command": sys.executable,
-                "args": ["-m", "think.mcp_server"],
-                "env": {
-                    "JOURNAL_PATH": journal_path,
-                    "PYTHONPATH": os.pathsep.join([os.getcwd()] + sys.path),
-                },
-            },
-            name="Sunstone MCP Server",
-        )
+        self._mcp = create_mcp_client()
         await self._mcp.__aenter__()
 
         system_instruction, extra_context = agent_instructions()
