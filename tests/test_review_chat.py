@@ -28,7 +28,7 @@ def test_send_message_success(monkeypatch):
     monkeypatch.setenv("OPENAI_API_KEY", "x")
 
     class DummyAgent:
-        def __init__(self):
+        def __init__(self, *a, **k):
             self.history = []
 
         async def __aenter__(self):
@@ -62,7 +62,7 @@ def test_send_message_openai(monkeypatch):
     monkeypatch.setenv("OPENAI_API_KEY", "x")
 
     class DummyAgent:
-        def __init__(self):
+        def __init__(self, *a, **k):
             self.history = []
 
         async def __aenter__(self):
@@ -92,7 +92,7 @@ def test_history_and_clear(monkeypatch):
     monkeypatch.setenv("GOOGLE_API_KEY", "x")
 
     class DummyAgent:
-        def __init__(self):
+        def __init__(self, *a, **k):
             self.history = [
                 {"role": "user", "content": "u"},
                 {"role": "assistant", "content": "b"},
@@ -124,3 +124,46 @@ def test_history_and_clear(monkeypatch):
         resp = asyncio.run(review.clear_history())
     assert resp.json == {"ok": True}
     assert review.state.chat_agent is None
+
+
+def test_tool_event_pushed(monkeypatch):
+    review = importlib.import_module("dream")
+    monkeypatch.setenv("GOOGLE_API_KEY", "x")
+
+    events = []
+
+    monkeypatch.setattr("dream.views.chat.push_server.push", lambda e: events.append(e))
+
+    class DummyAgent:
+        def __init__(self, *a, **k):
+            self.history = []
+            self.cb = k.get("on_event")
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc, tb):
+            pass
+
+        async def run(self, prompt):
+            if self.cb:
+                self.cb(
+                    {
+                        "event": "tool_start",
+                        "tool": "search_events",
+                        "args": {"query": prompt},
+                    }
+                )
+            self.history.append({"role": "user", "content": prompt})
+            self.history.append({"role": "assistant", "content": "pong"})
+            return "pong"
+
+    monkeypatch.setattr("dream.views.chat.GoogleAgent", DummyAgent)
+
+    with review.app.test_request_context(
+        "/chat/api/send", method="POST", json={"message": "hi", "backend": "google"}
+    ):
+        resp = asyncio.run(review.send_message())
+
+    assert resp.json == {"text": "pong"}
+    assert events[0]["view"] == "chat"

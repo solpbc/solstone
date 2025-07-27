@@ -9,6 +9,9 @@ body {height:100vh; overflow:hidden;}
 .message {margin-bottom:0.75em; padding:0.5em 0.75em; border-radius:8px; max-width:80%;}
 .from-user {background:#dcf8c6; align-self:flex-end;}
 .from-bot {background:#f1f0f0; align-self:flex-start;}
+#messages .event-card{background:#fff4e5;border:1px solid #f0ad4e;border-radius:6px;padding:0.5em 0.75em;margin-bottom:0.75em;font-size:0.85em;max-width:80%;align-self:flex-start;}
+#messages .event-card a{text-decoration:none;color:#007bff;}
+#messages .event-card a:hover{text-decoration:underline;}
 #drawer {display:none; border-top:1px solid #ddd; padding:0.5em; background:#fafafa;}
 </style>
 {% endblock %}
@@ -36,6 +39,18 @@ const form = document.getElementById('inputArea');
 const input = document.getElementById('messageInput');
 const messagesDiv = document.getElementById('messages');
 const backendSelect = document.getElementById('backendSelect');
+const searchBase = '{{ url_for('search.search_page') }}';
+
+function addEventCard(text, url){
+  const div=document.createElement('div');
+  div.className='event-card';
+  const a=document.createElement('a');
+  a.href=url;
+  a.textContent=text;
+  div.appendChild(a);
+  messagesDiv.appendChild(div);
+  messagesDiv.scrollTop=messagesDiv.scrollHeight;
+}
 
 input.focus();
 
@@ -81,6 +96,17 @@ backendSelect.addEventListener('change', async ()=>{
   await fetch(clearUrl,{method:'POST'});
   messagesDiv.innerHTML='';
   input.focus();
+});
+
+appEvents.listen('chat',e=>{
+  if(e.event==='tool_start'&&e.args&&e.args.query){
+    let idx='summaries';
+    if(e.tool.includes('event')) idx='events';
+    else if(e.tool.includes('transcript')) idx='transcripts';
+    const q=e.args.query+(idx==='summaries'?'':' index:'+idx);
+    const url=searchBase+'#q='+encodeURIComponent(q);
+    addEventCard('Search '+e.args.query,url);
+  }
 });
 
 loadHistory();

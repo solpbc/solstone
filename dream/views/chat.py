@@ -9,6 +9,14 @@ from think.google import AgentSession as GoogleAgent
 from think.openai import AgentSession as OpenAIAgent
 
 from .. import state
+from ..push import push_server
+
+
+def _push_event(event: dict) -> None:
+    """Forward agent events to connected chat clients."""
+
+    push_server.push({"view": "chat", **event})
+
 
 bp = Blueprint("chat", __name__, template_folder="../templates")
 
@@ -23,9 +31,9 @@ async def get_agent(backend: str):
         await state.chat_agent.__aexit__(None, None, None)
 
     if backend == "openai":
-        state.chat_agent = OpenAIAgent()
+        state.chat_agent = OpenAIAgent(on_event=_push_event)
     else:
-        state.chat_agent = GoogleAgent()
+        state.chat_agent = GoogleAgent(on_event=_push_event)
 
     await state.chat_agent.__aenter__()
     state.chat_backend = backend
