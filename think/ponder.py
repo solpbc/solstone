@@ -221,6 +221,7 @@ def main() -> None:
     topic_basename = Path(args.topic).stem
     topic_meta = get_topics().get(topic_basename, {})
     extra_occ = topic_meta.get("occurrences")
+    skip_occ = bool(topic_meta.get("skip_occurrences", False))
     success = False
 
     try:
@@ -310,6 +311,11 @@ def main() -> None:
             )
             crumb_path = crumb_builder.commit(str(md_path))
             print(f"Crumb saved to: {crumb_path}")
+
+        if skip_occ:
+            print("skip_occurrences enabled; skipping occurrence generation")
+            success = True
+            return
 
         # Create a corresponding occurrence JSON from the markdown summary
         occ_prompt_path = os.path.join(os.path.dirname(__file__), "ponder.txt")
