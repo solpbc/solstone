@@ -1,4 +1,7 @@
 # Changelog
+## 2025-08-04
+- `think.utils.get_raw_file` returns the relative raw path, mime type and
+  metadata for a transcript.
 ## 2025-08-03
 - `think.ponder` skips occurrence generation when the topic metadata
   includes `"skip_occurrences": true`.

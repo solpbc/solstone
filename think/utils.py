@@ -279,3 +279,46 @@ def parse_time_range(text: str) -> Optional[tuple[str, str, str]]:
     start = start_dt.strftime("%H%M%S")
     end = end_dt.strftime("%H%M%S")
     return day, start, end
+
+
+def get_raw_file(day: str, name: str) -> tuple[str, str, Any]:
+    """Return raw file path, mime type and metadata for a transcript.
+
+    Parameters
+    ----------
+    day:
+        Day folder in ``YYYYMMDD`` format.
+    name:
+        Transcript filename such as ``HHMMSS_audio.json`` or
+        ``HHMMSS_monitor_1_diff.json``.
+
+    Returns
+    -------
+    tuple[str, str, Any]
+        ``(path, mime_type, metadata)`` where ``path`` is relative to the day
+        directory, ``mime_type`` is either ``image/png`` or ``audio/flac`` and
+        ``metadata`` contains the parsed JSON data (empty on failure).
+    """
+
+    day_dir = Path(day_path(day))
+    json_path = day_dir / name
+
+    if name.endswith("_audio.json"):
+        raw_name = name[:-5] + ".flac"
+        rel = f"heard/{raw_name}"
+        mime = "audio/flac"
+    elif name.endswith("_diff.json"):
+        raw_name = name[:-5] + ".png"
+        rel = f"seen/{raw_name}"
+        mime = "image/png"
+    else:
+        raise ValueError(f"unsupported transcript name: {name}")
+
+    meta: Any = {}
+    try:
+        with open(json_path, "r", encoding="utf-8") as f:
+            meta = json.load(f)
+    except Exception:  # pragma: no cover - optional metadata
+        logging.debug("Failed to read %s", json_path)
+
+    return rel, mime, meta
