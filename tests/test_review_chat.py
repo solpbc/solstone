@@ -1,3 +1,4 @@
+import asyncio
 import importlib
 
 
@@ -15,7 +16,7 @@ def test_send_message_no_key(monkeypatch):
     with review.app.test_request_context(
         "/chat/api/send", method="POST", json={"message": "hi"}
     ):
-        resp = review.send_message()
+        resp = asyncio.run(review.send_message())
     assert resp[1] == 500
 
 
@@ -43,7 +44,7 @@ def test_send_message_success(monkeypatch):
     with review.app.test_request_context(
         "/chat/api/send", method="POST", json={"message": "hi"}
     ):
-        resp = review.send_message()
+        resp = asyncio.run(review.send_message())
     assert resp.json == {"text": "pong"}
     assert review.state.chat_agent.history[-2:] == [
         {"role": "user", "content": "hi"},
@@ -85,6 +86,6 @@ def test_history_and_clear(monkeypatch):
     }
 
     with review.app.test_request_context("/chat/api/clear", method="POST"):
-        resp = review.clear_history()
+        resp = asyncio.run(review.clear_history())
     assert resp.json == {"ok": True}
     assert review.state.chat_agent is None

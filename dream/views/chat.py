@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import asyncio
 import os
 from typing import Any, List
 
@@ -30,18 +29,16 @@ def chat_page() -> str:
 
 
 @bp.route("/chat/api/send", methods=["POST"])
-def send_message() -> Any:
+async def send_message() -> Any:
     api_key = os.getenv("GOOGLE_API_KEY")
     if not api_key:
-        return ("", 500)
+        return "", 500
 
     payload = request.get_json(force=True)
     message = payload.get("message", "")
     attachments = payload.get("attachments", [])
 
-    result = ask_gemini(message, attachments)
-    if asyncio.iscoroutine(result):
-        result = asyncio.run(result)
+    result = await ask_gemini(message, attachments)
     return jsonify(text=result)
 
 
@@ -57,13 +54,11 @@ def chat_history() -> Any:
 
 
 @bp.route("/chat/api/clear", methods=["POST"])
-def clear_history() -> Any:
+async def clear_history() -> Any:
     """Clear the cached history."""
 
     agent = state.chat_agent
     if agent is not None:
-        result = agent.__aexit__(None, None, None)
-        if asyncio.iscoroutine(result):
-            asyncio.run(result)
+        await agent.__aexit__(None, None, None)
     state.chat_agent = None
     return jsonify(ok=True)
