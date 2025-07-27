@@ -55,7 +55,13 @@
     };
   })();
   </script>
-  {% block body %}{% endblock %}
+{% block body %}{% endblock %}
+  <div id="errorModal" class="modal">
+    <div class="modal-content">
+      <span class="close">&times;</span>
+      <pre id="errorMessage"></pre>
+    </div>
+  </div>
   <script src="{{ url_for('review.static', filename='events.js') }}"></script>
   <script>
     (function(){
@@ -64,6 +70,16 @@
         window.addEventListener('error', () => home.classList.add('error'));
         window.addEventListener('unhandledrejection', () => home.classList.add('error'));
       }
+    })();
+  </script>
+  <script>
+    (function(){
+      const modal=document.getElementById('errorModal');
+      const close=modal.querySelector('.close');
+      const msg=document.getElementById('errorMessage');
+      window.showError=text=>{msg.textContent=text;modal.style.display='block';};
+      close.onclick=()=>{modal.style.display='none';};
+      window.addEventListener('click',e=>{if(e.target===modal)modal.style.display='none';});
     })();
   </script>
 </body>

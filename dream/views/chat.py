@@ -54,10 +54,14 @@ async def send_message() -> Any:
 
     if backend == "openai":
         if not os.getenv("OPENAI_API_KEY"):
-            return "", 500
+            resp = jsonify({"error": "OPENAI_API_KEY not set"})
+            resp.status_code = 500
+            return resp
     else:
         if not os.getenv("GOOGLE_API_KEY"):
-            return "", 500
+            resp = jsonify({"error": "GOOGLE_API_KEY not set"})
+            resp.status_code = 500
+            return resp
 
     result = await ask_agent(message, attachments, backend)
     return jsonify(text=result)

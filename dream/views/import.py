@@ -23,7 +23,9 @@ def import_page() -> str:
 @bp.route("/import/api/save", methods=["POST"])
 def import_save() -> Any:
     if not state.journal_root:
-        return ("", 500)
+        resp = jsonify({"error": "JOURNAL_PATH not set"})
+        resp.status_code = 500
+        return resp
     imp_dir = Path(state.journal_root) / "importer"
     imp_dir.mkdir(parents=True, exist_ok=True)
     upload = request.files.get("file")

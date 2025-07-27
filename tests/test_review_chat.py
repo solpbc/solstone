@@ -18,7 +18,8 @@ def test_send_message_no_key(monkeypatch):
         "/chat/api/send", method="POST", json={"message": "hi", "backend": "google"}
     ):
         resp = asyncio.run(review.send_message())
-    assert resp[1] == 500
+    assert resp.status_code == 500
+    assert resp.json == {"error": "GOOGLE_API_KEY not set"}
 
 
 def test_send_message_success(monkeypatch):

@@ -59,7 +59,7 @@ document.getElementById('inputArea').onsubmit=async e=>{
   addMessage(text,'from-user');
   input.value='';
   const r=await fetch(sendUrl,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:text,backend:backendSelect.value})});
-  if(r.ok){const d=await r.json();addMessage(d.text,'from-bot');}else{addMessage('Error','from-bot');}
+  if(r.ok){const d=await r.json();addMessage(d.text,'from-bot');}else{let err='Error';try{const d=await r.json();err=d.error||err;}catch{};if(window.showError)showError(err);}
 };
 
 async function loadHistory(){

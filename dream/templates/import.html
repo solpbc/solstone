@@ -89,7 +89,7 @@ document.getElementById('importForm').onsubmit=e=>{
     fd.append('text', document.getElementById('pasteText').value);
   }
   fetch('{{ url_for('import_view.import_save') }}', {method:'POST', body:fd})
-    .then(r=>r.json()).then(showDetect);
+    .then(async r=>{const d=await r.json();if(!r.ok){if(window.showError)showError(d.error||'Upload failed');return;}showDetect(d);});
 };
 function showDetect(res){
   document.getElementById('timestampInput').value=res.timestamp||'';

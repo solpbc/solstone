@@ -1,4 +1,6 @@
 # Changelog
+## 2025-08-01
+- Dream APIs return JSON error bodies and the client shows errors in a modal.
 ## 2025-07-31
 - Added `think.google` module replacing `think.genai`.
 - Added `think.events` module standardizing event emission across backends.
