@@ -115,3 +115,50 @@ def test_ponder_extra_instructions(tmp_path, monkeypatch):
     assert data["day"] == "20240101"
     assert data["occurrences"]
     assert captured["extra"]
+
+
+def test_ponder_skip_occurrences(tmp_path, monkeypatch):
+    mod = importlib.import_module("think.ponder")
+    day_dir = copy_day(tmp_path)
+    topic_file = Path(mod.__file__).resolve().parent / "topics" / "day.txt"
+
+    def fake_get_topics():
+        utils = importlib.import_module("think.utils")
+        topics = utils.get_topics()
+        topics["day"]["skip_occurrences"] = True
+        return topics
+
+    monkeypatch.setattr(mod, "get_topics", fake_get_topics)
+    monkeypatch.setattr(
+        mod,
+        "send_markdown",
+        lambda *a, **k: (
+            "summary",
+            SimpleNamespace(
+                prompt_token_count=1,
+                thoughts_token_count=1,
+                candidates_token_count=1,
+            ),
+        ),
+    )
+    called = {}
+
+    def fake_send_occurrence(*args, **kwargs):
+        called["called"] = True
+        return []
+
+    monkeypatch.setattr(mod, "send_occurrence", fake_send_occurrence)
+    monkeypatch.setattr(mod, "load_dotenv", lambda: True)
+    monkeypatch.setenv("GOOGLE_API_KEY", "x")
+
+    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+    monkeypatch.setattr("sys.argv", ["think-ponder", "20240101", "-f", str(topic_file)])
+    mod.main()
+
+    md = day_dir / "topics" / "day.md"
+    js = day_dir / "topics" / "day.json"
+    assert md.read_text() == "summary"
+    assert not js.exists()
+    assert md.with_suffix(md.suffix + ".crumb").is_file()
+    assert not js.with_suffix(js.suffix + ".crumb").exists()
+    assert "called" not in called
