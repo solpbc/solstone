@@ -55,12 +55,24 @@ def test_agent_main(monkeypatch, tmp_path, capsys):
 
     agents_mcp_stub.MCPServerStdio = lambda **k: DummyMCP()
 
+    for key in list(sys.modules.keys()):
+        if key == "agents" or key.startswith("agents."):
+            sys.modules.pop(key)
     sys.modules["agents"] = agents_stub
     sys.modules["agents.mcp"] = agents_mcp_stub
     sys.modules.pop("think.openai", None)
     sys.modules.pop("think.agents", None)
 
     mod = importlib.reload(importlib.import_module("think.agents"))
+    mod._openai.Agent = DummyAgent
+    mod._openai.Runner = DummyRunner
+    mod._openai.RunConfig = lambda **k: SimpleNamespace()
+    mod._openai.ModelSettings = lambda **k: SimpleNamespace()
+    mod._openai.set_default_openai_key = lambda k: None
+    mod._openai.SQLiteSession = DummySession
+    mod._openai.AgentHooks = object
+    mod._openai.enable_verbose_stdout_logging = lambda: None
+    mod._openai.MCPServerStdio = lambda **k: DummyMCP()
 
     journal = tmp_path / "journal"
     journal.mkdir()
@@ -117,12 +129,24 @@ def test_agent_outfile(monkeypatch, tmp_path):
 
     agents_mcp_stub.MCPServerStdio = lambda **k: DummyMCP()
 
+    for key in list(sys.modules.keys()):
+        if key == "agents" or key.startswith("agents."):
+            sys.modules.pop(key)
     sys.modules["agents"] = agents_stub
     sys.modules["agents.mcp"] = agents_mcp_stub
     sys.modules.pop("think.openai", None)
     sys.modules.pop("think.agents", None)
 
     mod = importlib.reload(importlib.import_module("think.agents"))
+    mod._openai.Agent = DummyAgent
+    mod._openai.Runner = DummyRunner
+    mod._openai.RunConfig = lambda **k: SimpleNamespace()
+    mod._openai.ModelSettings = lambda **k: SimpleNamespace()
+    mod._openai.set_default_openai_key = lambda k: None
+    mod._openai.SQLiteSession = DummySession
+    mod._openai.AgentHooks = object
+    mod._openai.enable_verbose_stdout_logging = lambda: None
+    mod._openai.MCPServerStdio = lambda **k: DummyMCP()
 
     journal = tmp_path / "journal"
     journal.mkdir()
@@ -177,12 +201,24 @@ def test_agent_outfile_error(monkeypatch, tmp_path):
 
     agents_mcp_stub.MCPServerStdio = lambda **k: DummyMCP()
 
+    for key in list(sys.modules.keys()):
+        if key == "agents" or key.startswith("agents."):
+            sys.modules.pop(key)
     sys.modules["agents"] = agents_stub
     sys.modules["agents.mcp"] = agents_mcp_stub
     sys.modules.pop("think.agents", None)
     sys.modules.pop("think.openai", None)
 
     mod = importlib.reload(importlib.import_module("think.agents"))
+    mod._openai.Agent = DummyAgent
+    mod._openai.Runner = DummyRunner
+    mod._openai.RunConfig = lambda **k: SimpleNamespace()
+    mod._openai.ModelSettings = lambda **k: SimpleNamespace()
+    mod._openai.set_default_openai_key = lambda k: None
+    mod._openai.SQLiteSession = DummySession
+    mod._openai.AgentHooks = object
+    mod._openai.enable_verbose_stdout_logging = lambda: None
+    mod._openai.MCPServerStdio = lambda **k: DummyMCP()
 
     journal = tmp_path / "journal"
     journal.mkdir()
