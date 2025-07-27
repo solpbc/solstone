@@ -4,6 +4,7 @@
 - Added `think.events` module standardizing event emission across backends.
 - Introduced `BaseAgentSession` ensuring common API for agent sessions.
 - OpenAI logic moved to `think.openai`; `think.agent` now re-exports it.
+- Merged `agent.py`, `agent_session.py` and `events.py` into new `agents.py`.
 
 
 Guide for updating: always append new entries to the existing list for the same day, but start a new day section at the top if the date has changed in the Mountain time zone.

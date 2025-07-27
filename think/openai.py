@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""think.agent
+"""think.agents
 
 CLI utility launching an OpenAI agent able to search ponder summaries,
 occurrences and read full markdown files from the journal.
@@ -13,6 +13,7 @@ When ``TASK_FILE`` is omitted, an interactive ``chat>`` prompt is started.
 from __future__ import annotations
 
 import argparse
+import asyncio
 import logging
 import os
 import sys
@@ -35,8 +36,7 @@ from agents.mcp import MCPServerStdio
 
 from think.utils import get_topics, setup_cli
 
-from .agent_session import BaseAgentSession
-from .events import JSONEventCallback, JSONEventWriter
+from .agents import BaseAgentSession, JSONEventCallback, JSONEventWriter
 
 
 def setup_logging(verbose: bool = False) -> logging.Logger:

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
+from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Any, Callable, Literal, Optional, TypedDict, Union
 
@@ -46,18 +47,6 @@ class ErrorEvent(TypedDict):
 Event = Union[ToolStartEvent, ToolEndEvent, StartEvent, FinishEvent, ErrorEvent]
 
 
-__all__ = [
-    "ToolStartEvent",
-    "ToolEndEvent",
-    "StartEvent",
-    "FinishEvent",
-    "ErrorEvent",
-    "Event",
-    "JSONEventWriter",
-    "JSONEventCallback",
-]
-
-
 class JSONEventWriter:
     """Write JSONL events to stdout and an optional file."""
 
@@ -98,3 +87,52 @@ class JSONEventCallback:
     def emit(self, data: Event) -> None:
         if self.callback:
             self.callback(data)
+
+
+class BaseAgentSession(ABC):
+    """Abstract base class for LLM agent sessions."""
+
+    @abstractmethod
+    async def __aenter__(self) -> "BaseAgentSession":
+        """Enter the session context."""
+
+    @abstractmethod
+    async def __aexit__(self, exc_type, exc, tb) -> None:
+        """Exit the session context."""
+
+    @property
+    @abstractmethod
+    def history(self) -> list[dict[str, str]]:
+        """Return the chat history as ``role``/``content`` pairs."""
+
+    @abstractmethod
+    def add_history(self, role: str, text: str) -> None:
+        """Queue a prior message for the next run."""
+
+    @abstractmethod
+    async def run(self, prompt: str) -> str:
+        """Run ``prompt`` through the agent and return the response text."""
+
+
+from . import openai as _openai  # noqa: E402
+
+AgentSession = _openai.AgentSession
+run_prompt = _openai.run_prompt
+main_async = _openai.main_async
+main = _openai.main
+
+__all__ = [
+    "ToolStartEvent",
+    "ToolEndEvent",
+    "StartEvent",
+    "FinishEvent",
+    "ErrorEvent",
+    "Event",
+    "JSONEventWriter",
+    "JSONEventCallback",
+    "BaseAgentSession",
+    "AgentSession",
+    "run_prompt",
+    "main_async",
+    "main",
+]

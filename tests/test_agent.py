@@ -60,7 +60,7 @@ def test_agent_main(monkeypatch, tmp_path, capsys):
     sys.modules.pop("think.openai", None)
     sys.modules.pop("think.agents", None)
 
-    mod = importlib.reload(importlib.import_module("think.agent"))
+    mod = importlib.reload(importlib.import_module("think.agents"))
 
     journal = tmp_path / "journal"
     journal.mkdir()
@@ -122,7 +122,7 @@ def test_agent_outfile(monkeypatch, tmp_path):
     sys.modules.pop("think.openai", None)
     sys.modules.pop("think.agents", None)
 
-    mod = importlib.reload(importlib.import_module("think.agent"))
+    mod = importlib.reload(importlib.import_module("think.agents"))
 
     journal = tmp_path / "journal"
     journal.mkdir()
@@ -182,7 +182,7 @@ def test_agent_outfile_error(monkeypatch, tmp_path):
     sys.modules.pop("think.agents", None)
     sys.modules.pop("think.openai", None)
 
-    mod = importlib.reload(importlib.import_module("think.agent"))
+    mod = importlib.reload(importlib.import_module("think.agents"))
 
     journal = tmp_path / "journal"
     journal.mkdir()

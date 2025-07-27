@@ -25,8 +25,7 @@ from fastmcp.client.transports import PythonStdioTransport
 from google import genai
 from google.genai import types
 
-from .agent_session import BaseAgentSession
-from .events import JSONEventCallback, JSONEventWriter
+from .agents import BaseAgentSession, JSONEventCallback, JSONEventWriter
 from .models import GEMINI_FLASH
 from .openai import agent_instructions
 from .utils import setup_cli

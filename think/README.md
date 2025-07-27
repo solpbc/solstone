@@ -91,9 +91,9 @@ final answer to `stdout`; `-o` or `--out` writes all JSON events to a file.
 
 ### Common interface
 
-The `AgentSession` context manager powers both CLIs and can be imported from
-`think.agent` or `think.google`. It exposes a minimal API that callers can swap
-between:
+The `AgentSession` context manager powers both CLIs. Use
+`think.openai.AgentSession` or `think.google.AgentSession` depending on the
+backend. The shared `BaseAgentSession` interface lives in `think.agents`:
 
 ```python
 async with AgentSession() as agent:
