@@ -21,14 +21,12 @@ from pathlib import Path
 from typing import Any, Callable, Optional
 
 from fastmcp import Client
-from fastmcp.client.transports import PythonStdioTransport
 from google import genai
 from google.genai import types
 
 from .agents import BaseAgentSession, JSONEventCallback, JSONEventWriter
 from .models import GEMINI_FLASH
-from .openai import agent_instructions
-from .utils import setup_cli
+from .utils import agent_instructions, create_mcp_client, setup_cli
 
 
 def setup_logging(verbose: bool) -> logging.Logger:
@@ -60,25 +58,6 @@ class ToolLoggingHooks:
         session.call_tool = wrapped  # type: ignore[assignment]
 
 
-def _create_mcp_client() -> Client:
-    """Return a FastMCP client for the think tools."""
-
-    server_url = os.getenv("SUNSTONE_MCP_URL")
-    if server_url:
-        return Client(server_url)
-
-    server_path = Path(__file__).resolve().parent / "mcp_server.py"
-
-    env = os.environ.copy()
-    journal_path = os.getenv("JOURNAL_PATH")
-    if journal_path:
-        env["JOURNAL_PATH"] = journal_path
-    env["PYTHONPATH"] = os.pathsep.join([os.getcwd()] + sys.path)
-
-    transport = PythonStdioTransport(str(server_path), env=env)
-    return Client(transport)
-
-
 class AgentSession(BaseAgentSession):
     """Context manager running Gemini with MCP tools."""
 
@@ -99,7 +78,7 @@ class AgentSession(BaseAgentSession):
         self._history: list[dict[str, str]] = []
 
     async def __aenter__(self) -> "AgentSession":
-        self._mcp = _create_mcp_client()
+        self._mcp = create_mcp_client("fastmcp")
         await self._mcp.__aenter__()
 
         api_key = os.getenv("GOOGLE_API_KEY")
