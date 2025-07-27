@@ -197,8 +197,8 @@ def search_events(
 
 
 @mcp.resource("journal://summary/{day}/{topic}")
-def get_topic_summary(day: str, topic: str) -> TextResource:
-    """Return JSON summary for a topic markdown file."""
+def get_summary(day: str, topic: str) -> TextResource:
+    """Return the markdown summary for a topic."""
     journal = os.getenv("JOURNAL_PATH", "journal")
     md_path = Path(journal) / day / "topics" / f"{topic}.md"
 
@@ -217,7 +217,7 @@ def get_topic_summary(day: str, topic: str) -> TextResource:
 
 
 @mcp.resource("journal://raw/{day}/{time}/{length}")
-def get_raw_cluster(day: str, time: str, length: str) -> TextResource:
+def get_transcripts(day: str, time: str, length: str) -> TextResource:
     """Return raw audio and screen transcripts for a specific time range.
 
     This resource provides raw audio and screen transcripts for a given
@@ -247,18 +247,18 @@ def get_raw_cluster(day: str, time: str, length: str) -> TextResource:
 
         return TextResource(
             uri=f"journal://raw/{day}/{time}/{length}",
-            name=f"Raw Cluster: {day} {time} ({length}min)",
-            description=f"Raw screen activity cluster from {day} starting at {time} for {length} minutes",
+            name=f"Transcripts: {day} {time} ({length}min)",
+            description=f"Raw screen activity from {day} starting at {time} for {length} minutes",
             mime_type="text/markdown",
             text=markdown_content,
         )
 
     except Exception as e:
-        error_content = f"# Error\n\nFailed to generate raw cluster for {day} {time} ({length}min): {str(e)}"
+        error_content = f"# Error\n\nFailed to generate transcripts for {day} {time} ({length}min): {str(e)}"
         return TextResource(
             uri=f"journal://raw/{day}/{time}/{length}",
-            name=f"Raw Cluster Error: {day} {time} ({length}min)",
-            description="Error generating raw screen cluster",
+            name=f"Transcripts Error: {day} {time} ({length}min)",
+            description="Error generating raw screen transcripts",
             mime_type="text/markdown",
             text=error_content,
         )

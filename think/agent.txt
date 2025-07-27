@@ -62,7 +62,7 @@ Example workflow:
 ```
 
 ### Important Notes
-- Raw cluster resources can return large amounts of data; be mindful of context windows
+- Transcript resources can return large amounts of data; be mindful of context windows
 - Start with shorter time ranges (15-30 minutes) unless you need longer periods
 - Resources provide unfiltered access - process and summarize appropriately for users
 
