@@ -96,7 +96,7 @@ think-importer = "think.importer:main"
 think-process-day = "think.process_day:main"
 think-mcp-server = "think.mcp_server:main"
 think-indexer = "think.indexer:main"
-think-agent = "think.agents:main"
+think-agent = "think.openai:main"
 think-supervisor = "think.supervisor:main"
 think-detect-created = "think.detect_created:main"
 

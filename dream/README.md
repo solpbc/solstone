@@ -29,7 +29,7 @@ dream/
       home.py        - home page and login/logout routes
       entities.py    - entity review UI and related APIs
       calendar.py    - meeting calendar UI and APIs
-      chat.py        - simple Gemini chat interface
+      chat.py        - simple chat interface for Google or OpenAI LLMs
   templates/         - HTML templates, one file per view
   static/            - shared CSS
 ```

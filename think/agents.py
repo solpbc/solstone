@@ -114,13 +114,6 @@ class BaseAgentSession(ABC):
         """Run ``prompt`` through the agent and return the response text."""
 
 
-from . import openai as _openai  # noqa: E402
-
-AgentSession = _openai.AgentSession
-run_prompt = _openai.run_prompt
-main_async = _openai.main_async
-main = _openai.main
-
 __all__ = [
     "ToolStartEvent",
     "ToolEndEvent",
@@ -131,8 +124,4 @@ __all__ = [
     "JSONEventWriter",
     "JSONEventCallback",
     "BaseAgentSession",
-    "AgentSession",
-    "run_prompt",
-    "main_async",
-    "main",
 ]

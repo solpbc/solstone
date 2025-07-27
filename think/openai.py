@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""think.agents
+"""think.openai
 
 CLI utility launching an OpenAI agent able to search ponder summaries,
 occurrences and read full markdown files from the journal.

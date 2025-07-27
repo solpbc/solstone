@@ -7,6 +7,8 @@
 - Merged `agent.py`, `agent_session.py` and `events.py` into new `agents.py`.
 - Dream chat view now lets you pick Google or OpenAI as the backend and clears
   history when changed.
+- Removed re-exports from `think.agents`; imports must use `think.openai` or
+  `think.google` directly.
 
 
 Guide for updating: always append new entries to the existing list for the same day, but start a new day section at the top if the date has changed in the Mountain time zone.
