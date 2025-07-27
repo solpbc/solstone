@@ -6,7 +6,7 @@ from typing import Any, List
 
 from flask import Blueprint, jsonify, render_template, request
 
-from think.genai import AgentSession
+from think.google import AgentSession
 
 from .. import state
 

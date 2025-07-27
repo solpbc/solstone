@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""think.genai
+"""think.google
 
 CLI utility launching a Gemini agent able to search ponder summaries,
 occurrences and read full markdown files from the journal.
 
 Usage:
-    think-genai [TASK_FILE] [--model MODEL] [--max-tokens N] [-v] [-o OUT]
+    think-google [TASK_FILE] [--model MODEL] [--max-tokens N] [-v] [-o OUT]
 
 When ``TASK_FILE`` is omitted, an interactive ``chat>`` prompt is started.
 """
@@ -26,8 +26,9 @@ from fastmcp.client.transports import PythonStdioTransport
 from google import genai
 from google.genai import types
 
-from .agent import agent_instructions
+from .agent_session import BaseAgentSession
 from .models import GEMINI_FLASH
+from .openai import agent_instructions
 from .utils import setup_cli
 
 
@@ -121,7 +122,7 @@ def _create_mcp_client() -> Client:
     return Client(transport)
 
 
-class AgentSession:
+class AgentSession(BaseAgentSession):
     """Context manager running Gemini with MCP tools."""
 
     def __init__(

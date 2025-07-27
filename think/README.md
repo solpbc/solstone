@@ -77,10 +77,10 @@ Two command line tools offer the same interface using different LLM backends:
 
 ```bash
 think-agent  [TASK_FILE] [--model MODEL] [--max-tokens N] [-o OUT_FILE]
-think-genai [TASK_FILE] [--model MODEL] [--max-tokens N] [-o OUT_FILE]
+think-google [TASK_FILE] [--model MODEL] [--max-tokens N] [-o OUT_FILE]
 ```
 
-`think-agent` relies on the OpenAI Agents API while `think-genai` talks to
+`think-agent` relies on the OpenAI Agents API while `think-google` talks to
 Gemini via the `google-genai` library. Both start a local MCP server so tools
 like topic search are available during a run. If `TASK_FILE` is omitted an
 interactive prompt is started.
@@ -92,7 +92,7 @@ final answer to `stdout`; `-o` or `--out` writes all JSON events to a file.
 ### Common interface
 
 The `AgentSession` context manager powers both CLIs and can be imported from
-`think.agent` or `think.genai`. It exposes a minimal API that callers can swap
+`think.agent` or `think.google`. It exposes a minimal API that callers can swap
 between:
 
 ```python

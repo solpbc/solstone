@@ -57,6 +57,7 @@ def test_agent_main(monkeypatch, tmp_path, capsys):
 
     sys.modules["agents"] = agents_stub
     sys.modules["agents.mcp"] = agents_mcp_stub
+    sys.modules.pop("think.openai", None)
     sys.modules.pop("think.agents", None)
 
     mod = importlib.reload(importlib.import_module("think.agent"))
@@ -118,6 +119,7 @@ def test_agent_outfile(monkeypatch, tmp_path):
 
     sys.modules["agents"] = agents_stub
     sys.modules["agents.mcp"] = agents_mcp_stub
+    sys.modules.pop("think.openai", None)
     sys.modules.pop("think.agents", None)
 
     mod = importlib.reload(importlib.import_module("think.agent"))
@@ -178,6 +180,7 @@ def test_agent_outfile_error(monkeypatch, tmp_path):
     sys.modules["agents"] = agents_stub
     sys.modules["agents.mcp"] = agents_mcp_stub
     sys.modules.pop("think.agents", None)
+    sys.modules.pop("think.openai", None)
 
     mod = importlib.reload(importlib.import_module("think.agent"))
 

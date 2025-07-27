@@ -1,6 +1,6 @@
 from typing import Any, Dict, List, Optional
 
-from think.genai import AgentSession
+from think.google import AgentSession
 
 # Cached Gemini chat agent session. ``AgentSession.history`` stores
 # the role/content pairs for the conversation.
