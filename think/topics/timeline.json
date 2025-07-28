@@ -1,6 +1,6 @@
 {
-“title”: “Day Timeline”,
-“description”: “Constructs a comprehensive chronological timeline of the entire workday, mapping activities, transitions, and key moments. Creates a visual narrative of how the day unfolded with timestamps and context.”,
-“contains”: “A detailed hour-by-hour timeline showing activity flows, major transitions, key decisions, energy patterns, and turning points throughout the day with rich contextual annotations.”,
-“occurrences”: false
+    "title": "Day Timeline",
+    "description": "Constructs a detailed chronological timeline documenting every activity, task shift, and event throughout the workday. Creates a comprehensive historical record with rich descriptions of what happened when.",
+    "contains": "An hour-by-hour timeline with detailed sub-sections for each activity shift, capturing all work tasks, meetings, conversations, tools used, and transitions with descriptive context.",
+    "occurrences": "Create an occurrence for each hour period, don't break down hours into any smaller segments the goal for timeline occurrences is for them to capture whatever happened within each hour of the day where there was activity."
 }
