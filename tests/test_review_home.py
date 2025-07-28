@@ -21,4 +21,4 @@ def test_stats_api(tmp_path):
         resp = review.stats_data()
     assert resp.json["stats"] == stats
     assert "<h1>Hello</h1>" in resp.json["summary_html"]
-    assert "day" in resp.json["topics"]
+    assert "flow" in resp.json["topics"]

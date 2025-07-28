@@ -32,7 +32,7 @@ description remains in the day folder:
 
 - Post‑processing commands may generate additional analysis files, for example:
 
-- `topics/day.md` – high level summary of the day.
+- `topics/flow.md` – high level summary of the day.
 - `topics/knowledge_graph.md` – knowledge graph / network summary.
 - `topics/meetings.md` – meeting list used by the calendar web UI.
 - `entities.md` – daily entity rollup produced by `entity-roll`.
@@ -40,7 +40,7 @@ description remains in the day folder:
 
 ### Crumbs
 
-Most generated files are accompanied by a `.crumb` file capturing dependencies and model information. See `CRUMBS.md` for the format. Example: `20250610/topics/day.md.crumb`.
+Most generated files are accompanied by a `.crumb` file capturing dependencies and model information. See `CRUMBS.md` for the format. Example: `20250610/topics/flow.md.crumb`.
 
 ## Occurrence JSON
 

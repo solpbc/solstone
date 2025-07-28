@@ -11,7 +11,7 @@ def copy_day(tmp_path: Path) -> Path:
     shutil.copytree(src, dest)
     topics = dest / "topics"
     topics.mkdir()
-    (topics / "day.md").write_text("done")
+    (topics / "flow.md").write_text("done")
     return dest
 
 
@@ -21,7 +21,7 @@ def test_scan_day(tmp_path, monkeypatch):
     monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
 
     info = mod.scan_day("20240101")
-    assert "topics/day.md" in info["processed"]
+    assert "topics/flow.md" in info["processed"]
     assert "topics/media.md" in info["repairable"]
 
     (day_dir / "topics" / "media.md").write_text("done")

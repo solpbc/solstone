@@ -14,7 +14,7 @@ def test_scan_day(tmp_path, monkeypatch):
     (day / "123456_screen.md").write_text("hi")
     (day / "entities.md").write_text("")
     (day / "topics").mkdir()
-    (day / "topics" / "day.md").write_text("")
+    (day / "topics" / "flow.md").write_text("")
     data = {
         "day": "20240101",
         "occurrences": [

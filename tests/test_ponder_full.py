@@ -69,7 +69,7 @@ def test_ponder_main(tmp_path, monkeypatch):
 def test_ponder_extra_instructions(tmp_path, monkeypatch):
     mod = importlib.import_module("think.ponder")
     day_dir = copy_day(tmp_path)
-    topic_file = Path(mod.__file__).resolve().parent / "topics" / "day.txt"
+    topic_file = Path(mod.__file__).resolve().parent / "topics" / "flow.txt"
 
     monkeypatch.setattr(
         mod,
@@ -108,8 +108,8 @@ def test_ponder_extra_instructions(tmp_path, monkeypatch):
     monkeypatch.setattr("sys.argv", ["think-ponder", "20240101", "-f", str(topic_file)])
     mod.main()
 
-    md = day_dir / "topics" / "day.md"
-    js = day_dir / "topics" / "day.json"
+    md = day_dir / "topics" / "flow.md"
+    js = day_dir / "topics" / "flow.json"
     assert md.read_text() == "summary"
     data = json.loads(js.read_text())
     assert data["day"] == "20240101"
@@ -120,12 +120,12 @@ def test_ponder_extra_instructions(tmp_path, monkeypatch):
 def test_ponder_skip_occurrences(tmp_path, monkeypatch):
     mod = importlib.import_module("think.ponder")
     day_dir = copy_day(tmp_path)
-    topic_file = Path(mod.__file__).resolve().parent / "topics" / "day.txt"
+    topic_file = Path(mod.__file__).resolve().parent / "topics" / "flow.txt"
 
     def fake_get_topics():
         utils = importlib.import_module("think.utils")
         topics = utils.get_topics()
-        topics["day"]["skip_occurrences"] = True
+        topics["flow"]["skip_occurrences"] = True
         return topics
 
     monkeypatch.setattr(mod, "get_topics", fake_get_topics)
@@ -155,8 +155,8 @@ def test_ponder_skip_occurrences(tmp_path, monkeypatch):
     monkeypatch.setattr("sys.argv", ["think-ponder", "20240101", "-f", str(topic_file)])
     mod.main()
 
-    md = day_dir / "topics" / "day.md"
-    js = day_dir / "topics" / "day.json"
+    md = day_dir / "topics" / "flow.md"
+    js = day_dir / "topics" / "flow.json"
     assert md.read_text() == "summary"
     assert not js.exists()
     assert md.with_suffix(md.suffix + ".crumb").is_file()

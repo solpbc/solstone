@@ -1,0 +1,6 @@
+{
+  "generator": "think.ponder",
+  "output": "20240101/topics/flow.md",
+  "generated_at": "2024-01-01T12:00:00Z",
+  "dependencies": [{"type": "file", "path": "think/topics/flow.txt", "mtime": 0}]
+}

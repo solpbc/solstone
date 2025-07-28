@@ -1,9 +1,9 @@
 {
     "generator": "think.ponder",
-    "output": "20250610/topics/day.md",
+    "output": "20250610/topics/flow.md",
     "generated_at": "2025-06-10T12:00:01Z",
     "dependencies": [
-        {"type": "file", "path": "think/topics/day.txt", "mtime": 1717999380},
+        {"type": "file", "path": "think/topics/flow.txt", "mtime": 1717999380},
         {
             "type": "glob",
             "pattern": "20250610/*_monitor_*_diff.json",

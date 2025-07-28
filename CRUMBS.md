@@ -7,12 +7,12 @@
 ```json
 {
   "generator": "think/ponder.pl",          // module or command that produced the file
-  "output": "20250524/topics/day.md",       // path to the generated artifact
+  "output": "20250524/topics/flow.md",      // path to the generated artifact
   "generated_at": "2025-05-24T12:00:01Z",   // ISO 8601 timestamp of generation
   "dependencies": [                          // list of inputs relied upon
     {
       "type": "file",                        // a single file dependency
-      "path": "think/topics/day.txt",
+      "path": "think/topics/flow.txt",
       "mtime": 1716543210                    // modification time (epoch seconds)
     },
     {
