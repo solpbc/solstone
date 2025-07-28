@@ -1,0 +1,6 @@
+{
+“title”: “Day Timeline”,
+“description”: “Constructs a comprehensive chronological timeline of the entire workday, mapping activities, transitions, and key moments. Creates a visual narrative of how the day unfolded with timestamps and context.”,
+“contains”: “A detailed hour-by-hour timeline showing activity flows, major transitions, key decisions, energy patterns, and turning points throughout the day with rich contextual annotations.”,
+“occurrences”: false
+}
