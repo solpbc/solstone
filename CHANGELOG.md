@@ -105,3 +105,6 @@ Guide for updating:
   option.
 - Fixed `think.google` to use Gemini's asynchronous chat API instead of running
   synchronous calls in a thread.
+- Added constants for OpenAI models `GPT_4O`, `GPT_4_TURBO`, `GPT_O3` and `GPT_O4_MINI`.
+- `think.openai` now defaults to `GPT_O4_MINI`.
+- Updated tests for the new default model.
