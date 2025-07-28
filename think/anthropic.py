@@ -51,10 +51,17 @@ class ToolExecutor:
         )
 
         try:
-            result = await self.mcp.session.call_tool(
-                name=tool_use.name,
-                arguments=tool_use.input,
-            )
+            try:
+                result = await self.mcp.session.call_tool(
+                    name=tool_use.name,
+                    arguments=tool_use.input,
+                )
+            except RuntimeError:
+                await self.mcp.__aenter__()
+                result = await self.mcp.session.call_tool(
+                    name=tool_use.name,
+                    arguments=tool_use.input,
+                )
             self.callback.emit(
                 {
                     "event": "tool_end",
@@ -142,7 +149,13 @@ class AgentSession(BaseAgentSession):
             return []
 
         tools = []
-        for tool in await self._mcp.list_tools():
+        try:
+            tool_list = await self._mcp.list_tools()
+        except RuntimeError:
+            await self._mcp.__aenter__()
+            tool_list = await self._mcp.list_tools()
+
+        for tool in tool_list:
             tools.append(
                 {
                     "name": tool.name,

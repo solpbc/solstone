@@ -109,3 +109,4 @@ Guide for updating:
 - `think.openai` now defaults to `GPT_O4_MINI`.
 - Updated tests for the new default model.
 - Bumped MCP client timeout for OpenAI agent to avoid stdio cancel scope errors.
+- Fixed Anthropic agent sessions to reconnect MCP client if the connection closes.

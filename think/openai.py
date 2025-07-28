@@ -29,7 +29,7 @@ from .agents import BaseAgentSession, JSONEventCallback
 from .models import GPT_O4_MINI
 
 DEFAULT_MODEL = GPT_O4_MINI
-DEFAULT_MAX_TOKENS = 1024*32
+DEFAULT_MAX_TOKENS = 1024 * 32
 
 
 def setup_logging(verbose: bool = False) -> logging.Logger:
