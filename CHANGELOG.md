@@ -105,6 +105,7 @@ Guide for updating: always append new entries to the existing list for the same 
 - search_* functions no longer require JOURNAL_PATH argument; get_index infers from environment and tests updated
 - think-agent supports `-o/--out` to write the final result or error to a file
 - Added initial Agents view accessible at `/agents` with a rocket icon and a textarea form.
+- Agents page now lists previous runs from `<journal>/agents` showing start time, model, persona and prompt.
 - Search page now uses `#q=` fragments for shareable queries and auto-runs them.
 - Query strings support `day:YYYYMMDD` and `topic:<topic>` filters parsed client side.
 - Search APIs accept `day` and `topic` parameters and filter results accordingly.

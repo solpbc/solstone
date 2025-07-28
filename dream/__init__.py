@@ -80,6 +80,7 @@ calendar = calendar_view.calendar_page
 calendar_day = calendar_view.calendar_day
 chat_page = chat_view.chat_page
 agents_page = agents_view.agents_page
+agents_list = agents_view.agents_list
 send_message = chat_view.send_message
 chat_history = chat_view.chat_history
 clear_history = chat_view.clear_history
@@ -122,6 +123,7 @@ __all__ = [
     "calendar_day",
     "chat_page",
     "agents_page",
+    "agents_list",
     "send_message",
     "chat_history",
     "clear_history",

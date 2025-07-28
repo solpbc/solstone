@@ -4,6 +4,9 @@
 {% block head %}
 <style>
 .container { padding: 0 1em; }
+table { border-collapse: collapse; width:100%; table-layout: fixed; }
+th, td { padding:4px 8px; border-bottom:1px solid #ddd; white-space: nowrap; }
+td:last-child { overflow:hidden; text-overflow:ellipsis; }
 </style>
 {% endblock %}
 {% block body %}
@@ -12,11 +15,29 @@
     <textarea id="agentInput" rows="3" placeholder="Ask the agents..."></textarea>
     <button type="submit">✨</button>
   </form>
+  <table id="agentTable"></table>
 </div>
 <script>
   document.getElementById('agentForm').onsubmit = function(e){
     e.preventDefault();
     alert('Coming soon!');
   };
+
+  function buildRow(a){
+    const tr=document.createElement('tr');
+    const short=a.prompt.length>80?a.prompt.slice(0,80)+'…':a.prompt;
+    tr.innerHTML=`<td>${a.since}</td><td>${a.model}</td><td>${a.persona}</td><td title="${a.prompt}">${short}</td>`;
+    return tr;
+  }
+
+  function loadAgents(){
+    fetch('{{ url_for('agents.agents_list') }}').then(r=>r.json()).then(data=>{
+      const table=document.getElementById('agentTable');
+      table.innerHTML='<tr><th>Started</th><th>Model</th><th>Persona</th><th>Prompt</th></tr>';
+      data.forEach(a=>table.appendChild(buildRow(a)));
+    });
+  }
+
+  loadAgents();
 </script>
 {% endblock %}
