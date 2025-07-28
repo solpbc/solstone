@@ -88,6 +88,39 @@ def test_send_message_openai(monkeypatch):
     assert review.state.chat_backend == "openai"
 
 
+def test_send_message_anthropic(monkeypatch):
+    review = importlib.import_module("dream")
+    monkeypatch.setenv("GOOGLE_API_KEY", "x")
+    monkeypatch.setenv("OPENAI_API_KEY", "x")
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "x")
+
+    class DummyAgent:
+        def __init__(self, *a, **k):
+            self.history = []
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc, tb):
+            pass
+
+        async def run(self, prompt):
+            self.history.append({"role": "user", "content": prompt})
+            self.history.append({"role": "assistant", "content": "pong"})
+            return "pong"
+
+    monkeypatch.setattr("dream.views.chat.GoogleAgent", DummyAgent)
+    monkeypatch.setattr("dream.views.chat.OpenAIAgent", DummyAgent)
+    monkeypatch.setattr("dream.views.chat.ClaudeAgent", DummyAgent)
+
+    with review.app.test_request_context(
+        "/chat/api/send", method="POST", json={"message": "hi", "backend": "anthropic"}
+    ):
+        resp = asyncio.run(review.send_message())
+    assert resp.json == {"text": "pong"}
+    assert review.state.chat_backend == "anthropic"
+
+
 def test_history_and_clear(monkeypatch):
     review = importlib.import_module("dream")
     monkeypatch.setenv("GOOGLE_API_KEY", "x")
