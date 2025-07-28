@@ -34,7 +34,7 @@ class DummySession:
     async def call_tool(self, name: str, arguments=None, **kwargs):
         return {"ok": True}
 
-    def list_tools(self):
+    async def list_tools(self):
         return []
 
 

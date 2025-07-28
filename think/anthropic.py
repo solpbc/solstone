@@ -135,11 +135,14 @@ class AgentSession(BaseAgentSession):
         if self._mcp:
             await self._mcp.__aexit__(exc_type, exc, tb)
 
-    def _get_mcp_tools(self) -> list[ToolParam]:
-        if not self._mcp or not hasattr(self._mcp.session, "list_tools"):
+    async def _get_mcp_tools(self) -> list[ToolParam]:
+        """Return a list of MCP tools formatted for Claude."""
+
+        if not self._mcp or not hasattr(self._mcp, "list_tools"):
             return []
+
         tools = []
-        for tool in self._mcp.session.list_tools():
+        for tool in await self._mcp.list_tools():
             tools.append(
                 {
                     "name": tool.name,
@@ -148,6 +151,7 @@ class AgentSession(BaseAgentSession):
                     or {"type": "object", "properties": {}, "required": []},
                 }
             )
+
         return tools
 
     async def run(self, prompt: str) -> str:
@@ -167,7 +171,7 @@ class AgentSession(BaseAgentSession):
             }
         )
 
-        tools = self._get_mcp_tools()
+        tools = await self._get_mcp_tools()
 
         while True:
             response = await self.client.messages.create(
