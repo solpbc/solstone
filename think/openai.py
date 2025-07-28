@@ -26,8 +26,9 @@ from agents.mcp import MCPServerStdio
 from think.utils import agent_instructions, create_mcp_client
 
 from .agents import BaseAgentSession, JSONEventCallback
+from .models import GPT_O4_MINI
 
-DEFAULT_MODEL = "gpt-4.1"
+DEFAULT_MODEL = GPT_O4_MINI
 DEFAULT_MAX_TOKENS = 4096
 
 
