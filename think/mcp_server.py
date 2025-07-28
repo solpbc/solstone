@@ -20,7 +20,7 @@ mcp = FastMCP("sunstone")
 
 @mcp.tool
 def search_summaries(
-    query: str, limit: int = 5, offset: int = 0, *, topic: str | None = None
+    query: str, limit: int = 5, offset: int = 0, *, topic: str | None = None, day: str | None = None
 ) -> dict[str, Any]:
     """Search across journal topic summaries using semantic full-text search.
 
@@ -30,10 +30,11 @@ def search_summaries(
     discussed over time.
 
     Args:
-        query: Natural language search query (e.g., "meetings about product launch")
+        query: Natural language search query (e.g., "meetings product launch")
         limit: Optional maximum number of results to return (default: 5, max: 20)
         offset: Optional number of results to skip for pagination (default: 0)
         topic: Optional topic name to filter results by
+        day: Optional day to filter results by in ``YYYYMMDD`` format
 
     Returns:
         Dictionary containing:
@@ -46,11 +47,14 @@ def search_summaries(
         - search_summaries("machine learning projects")
         - search_summaries("team retrospectives", limit=10)
         - search_summaries("planning", topic="standup")
+        - search_summaries("meetings", day="20240101")
     """
     try:
         kwargs = {}
         if topic is not None:
             kwargs["topic"] = topic
+        if day is not None:
+            kwargs["day"] = day
         total, results = search_summaries_impl(query, limit, offset, **kwargs)
 
         items = []
