@@ -13,7 +13,7 @@
   metadata for a transcript.
 ## 2025-08-03
 - `think.ponder` skips occurrence generation when the topic metadata
-  includes `"skip_occurrences": true`.
+  sets `"occurrences": false`.
 ## 2025-08-02
 - Chat view now streams agent tool events via WebSocket and displays
   small search cards linking to the relevant query.
