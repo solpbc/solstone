@@ -89,7 +89,7 @@ def _setup_fastmcp_stub(monkeypatch):
     monkeypatch.setitem(sys.modules, "fastmcp.client.transports", transports_mod)
 
 
-def test_genai_main(monkeypatch, tmp_path, capsys):
+def test_google_main(monkeypatch, tmp_path, capsys):
     _setup_genai_stub(monkeypatch)
     _setup_fastmcp_stub(monkeypatch)
     sys.modules.pop("think.google", None)
@@ -103,7 +103,7 @@ def test_genai_main(monkeypatch, tmp_path, capsys):
     monkeypatch.setenv("JOURNAL_PATH", str(journal))
     monkeypatch.setenv("GOOGLE_API_KEY", "x")
 
-    asyncio.run(run_main(mod, ["think.google", str(task)]))
+    asyncio.run(run_main(mod, ["think-google", str(task)]))
 
     out_lines = capsys.readouterr().out.strip().splitlines()
     events = [json.loads(line) for line in out_lines]
@@ -121,7 +121,7 @@ def test_genai_main(monkeypatch, tmp_path, capsys):
     assert logged_events == events
 
 
-def test_genai_outfile(monkeypatch, tmp_path):
+def test_google_outfile(monkeypatch, tmp_path):
     _setup_genai_stub(monkeypatch)
     _setup_fastmcp_stub(monkeypatch)
     sys.modules.pop("think.google", None)
@@ -136,7 +136,7 @@ def test_genai_outfile(monkeypatch, tmp_path):
     monkeypatch.setenv("JOURNAL_PATH", str(journal))
     monkeypatch.setenv("GOOGLE_API_KEY", "x")
 
-    asyncio.run(run_main(mod, ["think.google", str(task), "-o", str(out_file)]))
+    asyncio.run(run_main(mod, ["think-google", str(task), "-o", str(out_file)]))
 
     events = [json.loads(line) for line in out_file.read_text().splitlines()]
     assert events[0] == {
@@ -153,7 +153,7 @@ def test_genai_outfile(monkeypatch, tmp_path):
     assert logged_events == events
 
 
-def test_genai_outfile_error(monkeypatch, tmp_path):
+def test_google_outfile_error(monkeypatch, tmp_path):
     _setup_genai_stub(monkeypatch)
     _setup_fastmcp_stub(monkeypatch)
 
@@ -181,7 +181,7 @@ def test_genai_outfile_error(monkeypatch, tmp_path):
     monkeypatch.setenv("GOOGLE_API_KEY", "x")
 
     with pytest.raises(RuntimeError):
-        asyncio.run(run_main(mod, ["think.google", str(task), "-o", str(out_file)]))
+        asyncio.run(run_main(mod, ["think-google", str(task), "-o", str(out_file)]))
 
     events = [json.loads(line) for line in out_file.read_text().splitlines()]
     assert events[-1] == {"event": "error", "error": "boom"}

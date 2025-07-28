@@ -13,7 +13,7 @@ async def run_main(mod, argv):
     await mod.main_async()
 
 
-def test_agent_main(monkeypatch, tmp_path, capsys):
+def test_openai_main(monkeypatch, tmp_path, capsys):
     agents_stub = types.ModuleType("agents")
 
     last_kwargs = {}
@@ -92,7 +92,7 @@ def test_agent_main(monkeypatch, tmp_path, capsys):
     assert logged_events == events
 
 
-def test_agent_outfile(monkeypatch, tmp_path):
+def test_openai_outfile(monkeypatch, tmp_path):
     agents_stub = types.ModuleType("agents")
 
     class DummyAgent:
@@ -164,7 +164,7 @@ def test_agent_outfile(monkeypatch, tmp_path):
     assert logged_events == events
 
 
-def test_agent_outfile_error(monkeypatch, tmp_path):
+def test_openai_outfile_error(monkeypatch, tmp_path):
     agents_stub = types.ModuleType("agents")
 
     class DummyAgent:
