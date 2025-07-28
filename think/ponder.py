@@ -221,7 +221,7 @@ def main() -> None:
     topic_basename = Path(args.topic).stem
     topic_meta = get_topics().get(topic_basename, {})
     extra_occ = topic_meta.get("occurrences")
-    skip_occ = bool(topic_meta.get("skip_occurrences", False))
+    skip_occ = extra_occ is False
     success = False
 
     try:
@@ -313,7 +313,7 @@ def main() -> None:
             print(f"Crumb saved to: {crumb_path}")
 
         if skip_occ:
-            print("skip_occurrences enabled; skipping occurrence generation")
+            print('"occurrences" set to false; skipping occurrence generation')
             success = True
             return
 
