@@ -103,3 +103,5 @@ Guide for updating:
   has `"occurrences": false`.
 - Dream chat view now supports the Anthropic backend and UI shows a "Claude"
   option.
+- Fixed `think.google` to use Gemini's asynchronous chat API instead of running
+  synchronous calls in a thread.

@@ -69,7 +69,7 @@ class AgentSession(BaseAgentSession):
         self._callback = JSONEventCallback(on_event)
         self._mcp: Client | None = None
         self.client: genai.Client | None = None
-        self.chat: genai.chats.Chat | None = None
+        self.chat: genai.chats.AsyncChat | None = None
         self.system_instruction = ""
         self._history: list[dict[str, str]] = []
         self.persona = persona
@@ -86,7 +86,7 @@ class AgentSession(BaseAgentSession):
         self.system_instruction, first_user, _ = agent_instructions(self.persona)
 
         ToolLoggingHooks(self._callback).attach(self._mcp.session)
-        self.chat = self.client.chats.create(
+        self.chat = self.client.aio.chats.create(
             model=self.model,
             config=types.GenerateContentConfig(
                 system_instruction=self.system_instruction
@@ -134,7 +134,7 @@ class AgentSession(BaseAgentSession):
                 function_calling_config=types.FunctionCallingConfig(mode="AUTO")
             ),
         )
-        response = await asyncio.to_thread(self.chat.send_message, prompt, config=cfg)
+        response = await self.chat.send_message(prompt, config=cfg)
         text = response.text
         self._callback.emit({"event": "finish", "result": text})
         self._history.append({"role": "user", "content": prompt})
