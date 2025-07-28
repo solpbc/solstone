@@ -1,87 +1,11 @@
 # Changelog
-## 2025-08-10
-- Dream chat view now supports the Anthropic backend and UI shows a "Claude"
-  option.
 
-## 2025-08-09
-- Agent event JSON messages now include a ``ts`` epoch timestamp.
-- `think.ponder` now skips occurrence generation when the topic metadata
-  has `"occurrences": false`.
-
-## 2025-08-08
-- New ``think-agents`` CLI consolidates ``think-agent`` and ``think-claude``.
-- Backend modules no longer expose their own command line interfaces.
-## 2025-08-07
-- Agent start events now log the active persona and model.
-- Added `think.anthropic` CLI using the Anthropic Claude SDK.
-## 2025-08-06
-- Agent sessions are automatically logged under `JOURNAL_PATH/agents` as JSONL files.
-## 2025-08-05
-- `think.mcp_server.get_media` resource returns the raw FLAC or PNG
-  referenced by a transcript JSON using `think.utils.get_raw_file`.
-- Agent instructions moved to `think/agents/default.txt` and loaded via
-  `agent_instructions(persona)` with optional personas.
-## 2025-08-04
-- `think.utils.get_raw_file` returns the relative raw path, mime type and
-  metadata for a transcript.
-## 2025-08-03
-- `think.ponder` skips occurrence generation when the topic metadata
-  includes `"skip_occurrences": true`.
-## 2025-08-02
-- Chat view now streams agent tool events via WebSocket and displays
-  small search cards linking to the relevant query.
-## 2025-08-01
-- Dream APIs return JSON error bodies and the client shows errors in a modal.
-## 2025-07-31
-- Added `think.google` module replacing `think.genai`.
-- Added `think.events` module standardizing event emission across backends.
-- Introduced `BaseAgentSession` ensuring common API for agent sessions.
-- OpenAI logic moved to `think.openai`; `think.agent` now re-exports it.
-- Merged `agent.py`, `agent_session.py` and `events.py` into new `agents.py`.
-- Dream chat view now lets you pick Google or OpenAI as the backend and clears
-  history when changed.
-- Removed re-exports from `think.agents`; imports must use `think.openai` or
-  `think.google` directly.
-
-
-Guide for updating: always append new entries to the existing list for the same day, but start a new day section at the top if the date has changed in the Mountain time zone.
-
-## 2025-07-30
-- Unified `AgentSession` APIs for `think.agent` and `think.genai`.
-- `dream` chat view now works with either agent implementation.
-- Documentation expanded with a common interface section.
-- Dream chat backend now stores the shared `AgentSession` instance instead of
-  manually managing chat history.
-
-## 2025-07-29
-- Updated `think.agent` and `think.genai` to rely on built-in in-memory session management.
-- Cleaned up whitespace in detection utilities to satisfy linters.
-
-## 2025-07-28
-- `think-agent` provides an `AgentSession` helper for stateful runs with event callbacks.
-- The standalone `think.agents` module was removed and its functionality merged into `think.agent`.
-- `think-agent` CLI now uses `AgentSession` for a cleaner implementation.
-- Added `think.genai` providing a Gemini-powered agent CLI mirroring `think.agent`.
-
-## 2025-07-26
-- Task list view truncates long descriptions with ellipsis and prevents wrapping
-- Integrated task and event WebSocket endpoints into the main Flask app
-- Search results allow filtering by clicking dates or topics which insert
-  `day:` and `topic:` filters into the query and auto-run the search
-- Raw search results for a specific day are ordered by time ascending rather
-  than relevance
-- Search view gains a "Transcripts" tab to query raw data by day while ignoring
-  `topic:` filters
-- Topic indexing renamed to "summaries" (old `search_topics` alias removed)
-- Removed compatibility aliases `search_topic_api`, `search_occurrence_api`, and
-  `search_raw_api`; tests now call `search_summaries_api`, `search_events_api`,
-  and `search_transcripts_api` directly
-
-## 2025-07-27
-- Indexer split into `summaries.sqlite`, `events.sqlite`, and per-day
-  `transcripts.sqlite` files
-- `think-indexer` CLI now requires `--index` and supports `--reset`
-- Admin reindex task runs all three indexes sequentially
+Guide for updating:
+- Never remove or insert above this section
+- The changelog is in chronological order (oldest first)
+- Use a system tool to check the current date in the Mountain time zone
+- Look to see if today's date has already been added as a section at the bottom of this file, start a new section if not
+- Always append new entries to the existing list for today's section at the bottom
 
 ## 2025-07-25
 
@@ -113,3 +37,69 @@ Guide for updating: always append new entries to the existing list for the same 
 - Search page now uses `#q=` fragments for shareable queries and auto-runs them.
 - Query strings support `day:YYYYMMDD` and `topic:<topic>` filters parsed client side.
 - Search APIs accept `day` and `topic` parameters and filter results accordingly.
+
+## 2025-07-26
+
+- Task list view truncates long descriptions with ellipsis and prevents wrapping
+- Integrated task and event WebSocket endpoints into the main Flask app
+- Search results allow filtering by clicking dates or topics which insert
+  `day:` and `topic:` filters into the query and auto-run the search
+- Raw search results for a specific day are ordered by time ascending rather
+  than relevance
+- Search view gains a "Transcripts" tab to query raw data by day while ignoring
+  `topic:` filters
+- Topic indexing renamed to "summaries" (old `search_topics` alias removed)
+- Removed compatibility aliases `search_topic_api`, `search_occurrence_api`, and
+  `search_raw_api`; tests now call `search_summaries_api`, `search_events_api`,
+  and `search_transcripts_api` directly
+- Indexer split into `summaries.sqlite`, `events.sqlite`, and per-day
+  `transcripts.sqlite` files
+- `think-indexer` CLI now requires `--index` and supports `--reset`
+- Admin reindex task runs all three indexes sequentially
+- `think-agent` provides an `AgentSession` helper for stateful runs with event callbacks.
+- The standalone `think.agents` module was removed and its functionality merged into `think.agent`.
+- `think-agent` CLI now uses `AgentSession` for a cleaner implementation.
+- Added `think.genai` providing a Gemini-powered agent CLI mirroring `think.agent`.
+- Updated `think.agent` and `think.genai` to rely on built-in in-memory session management.
+- Cleaned up whitespace in detection utilities to satisfy linters.
+- Unified `AgentSession` APIs for `think.agent` and `think.genai`.
+- `dream` chat view now works with either agent implementation.
+- Documentation expanded with a common interface section.
+
+## 2025-07-27
+
+- Dream chat backend now stores the shared `AgentSession` instance instead of
+  manually managing chat history.
+- Added `think.google` module replacing `think.genai`.
+- Added `think.events` module standardizing event emission across backends.
+- Introduced `BaseAgentSession` ensuring common API for agent sessions.
+- OpenAI logic moved to `think.openai`; `think.agent` now re-exports it.
+- Merged `agent.py`, `agent_session.py` and `events.py` into new `agents.py`.
+- Dream chat view now lets you pick Google or OpenAI as the backend and clears
+  history when changed.
+- Removed re-exports from `think.agents`; imports must use `think.openai` or
+  `think.google` directly.
+- Dream APIs return JSON error bodies and the client shows errors in a modal.
+- Chat view now streams agent tool events via WebSocket and displays
+  small search cards linking to the relevant query.
+- `think.ponder` skips occurrence generation when the topic metadata
+  includes `"skip_occurrences": true`.
+- `think.utils.get_raw_file` returns the relative raw path, mime type and
+  metadata for a transcript.
+- `think.mcp_server.get_media` resource returns the raw FLAC or PNG
+  referenced by a transcript JSON using `think.utils.get_raw_file`.
+- Agent instructions moved to `think/agents/default.txt` and loaded via
+  `agent_instructions(persona)` with optional personas.
+- Agent sessions are automatically logged under `JOURNAL_PATH/agents` as JSONL files.
+
+## 2025-07-28
+
+- Agent start events now log the active persona and model.
+- Added `think.anthropic` CLI using the Anthropic Claude SDK.
+- New ``think-agents`` CLI consolidates ``think-agent`` and ``think-claude``.
+- Backend modules no longer expose their own command line interfaces.
+- Agent event JSON messages now include a ``ts`` epoch timestamp.
+- `think.ponder` now skips occurrence generation when the topic metadata
+  has `"occurrences": false`.
+- Dream chat view now supports the Anthropic backend and UI shows a "Claude"
+  option.

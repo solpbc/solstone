@@ -66,10 +66,10 @@ sunstone/
 
 ## Important Notes
 
-* **Update Changelog**: Remember to update `CHANGELOG.md` after adding any new features or capabilities.
+* **Update Changelog**: Remember to update `CHANGELOG.md` after adding any new features or capabilities, follow the instructions at the top of the file.
 * **Input Validation**: Sanitize and validate all external inputs (file paths, user data).
 * **Error Handling**: Raise exceptions for unexpected states; avoid silent failures.
-* **JOURNAL_PATH**: The `setup_cli()` utility (that all `main()` use) validates that this env var is available, so avoid passing the journal path around when it's accessible anywhere via the environment.
+* **JOURNAL_PATH**: The `setup_cli()` utility (that all `main()` use) validates that this env var is available, so avoid passing the journal path around since it's already accessible anywhere via the environment.
 
 ---
 
@@ -77,13 +77,10 @@ sunstone/
 
 * **Standard Library Preferred**: Avoid adding heavy dependencies for simple tasks.
 * **Adding New Dependencies**: Must update `pyproject.toml` under `[tool.poetry.dependencies]` and `[tool.poetry.dev-dependencies]` if for tests or tooling.
-* **Optional Heavy Packages**: Use extras (`.[full]`) to install GPU/torch if needed. Document any optional features.
 
 ---
 
-## Shared Utilities
-
-* Check for shared function or common utilities:
-  * `think/utils.py` available for any script
-  * `dream/utils.py` for the dream app
-  * `dream/push.py` websocket event utilities
+## General Principles
+* **DRY**: Apply the DRY principle when it makes sense to re-use and share logic and reduce duplicate code blocks
+* **Conciseness**: Try to make all changes and additions concisely
+* **Maintainability**: Structure and name things so that they are easily maintainable with some light extensibility in mind, but never overly-abstracted
