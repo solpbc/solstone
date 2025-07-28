@@ -125,7 +125,7 @@ def test_ponder_skip_occurrences(tmp_path, monkeypatch):
     def fake_get_topics():
         utils = importlib.import_module("think.utils")
         topics = utils.get_topics()
-        topics["flow"]["skip_occurrences"] = True
+        topics["flow"]["occurrences"] = False
         return topics
 
     monkeypatch.setattr(mod, "get_topics", fake_get_topics)
