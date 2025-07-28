@@ -1,4 +1,8 @@
 # Changelog
+## 2025-08-10
+- Dream chat view now supports the Anthropic backend and UI shows a "Claude"
+  option.
+
 ## 2025-08-09
 - Agent event JSON messages now include a ``ts`` epoch timestamp.
 - `think.ponder` now skips occurrence generation when the topic metadata

@@ -5,6 +5,7 @@ from typing import Any, List
 
 from flask import Blueprint, jsonify, render_template, request
 
+from think.anthropic import AgentSession as ClaudeAgent
 from think.google import AgentSession as GoogleAgent
 from think.openai import AgentSession as OpenAIAgent
 
@@ -32,6 +33,8 @@ async def get_agent(backend: str):
 
     if backend == "openai":
         state.chat_agent = OpenAIAgent(on_event=_push_event)
+    elif backend == "anthropic":
+        state.chat_agent = ClaudeAgent(on_event=_push_event)
     else:
         state.chat_agent = GoogleAgent(on_event=_push_event)
 
@@ -61,15 +64,16 @@ async def send_message() -> Any:
     backend = payload.get("backend", state.chat_backend)
 
     if backend == "openai":
-        if not os.getenv("OPENAI_API_KEY"):
-            resp = jsonify({"error": "OPENAI_API_KEY not set"})
-            resp.status_code = 500
-            return resp
+        key_name = "OPENAI_API_KEY"
+    elif backend == "anthropic":
+        key_name = "ANTHROPIC_API_KEY"
     else:
-        if not os.getenv("GOOGLE_API_KEY"):
-            resp = jsonify({"error": "GOOGLE_API_KEY not set"})
-            resp.status_code = 500
-            return resp
+        key_name = "GOOGLE_API_KEY"
+
+    if not os.getenv(key_name):
+        resp = jsonify({"error": f"{key_name} not set"})
+        resp.status_code = 500
+        return resp
 
     result = await ask_agent(message, attachments, backend)
     return jsonify(text=result)
