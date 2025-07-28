@@ -110,6 +110,11 @@ def test_genai_main(monkeypatch, tmp_path, capsys):
     assert events[0] == {"event": "start", "prompt": "hello"}
     assert events[-1] == {"event": "finish", "result": "ok"}
 
+    logged = list((journal / "agents").glob("*.jsonl"))
+    assert len(logged) == 1
+    logged_events = [json.loads(line) for line in logged[0].read_text().splitlines()]
+    assert logged_events == events
+
 
 def test_genai_outfile(monkeypatch, tmp_path):
     _setup_genai_stub(monkeypatch)
@@ -131,6 +136,11 @@ def test_genai_outfile(monkeypatch, tmp_path):
     events = [json.loads(line) for line in out_file.read_text().splitlines()]
     assert events[0] == {"event": "start", "prompt": "hello"}
     assert events[-1] == {"event": "finish", "result": "ok"}
+
+    logged = list((journal / "agents").glob("*.jsonl"))
+    assert len(logged) == 1
+    logged_events = [json.loads(line) for line in logged[0].read_text().splitlines()]
+    assert logged_events == events
 
 
 def test_genai_outfile_error(monkeypatch, tmp_path):
@@ -165,3 +175,8 @@ def test_genai_outfile_error(monkeypatch, tmp_path):
 
     events = [json.loads(line) for line in out_file.read_text().splitlines()]
     assert events[-1] == {"event": "error", "error": "boom"}
+
+    logged = list((journal / "agents").glob("*.jsonl"))
+    assert len(logged) == 1
+    logged_events = [json.loads(line) for line in logged[0].read_text().splitlines()]
+    assert logged_events == events

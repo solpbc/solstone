@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import json
 import logging
+import os
+import time
 from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Any, Callable, Literal, Optional, TypedDict, Union
@@ -78,6 +80,31 @@ class JSONEventWriter:
                 pass
 
 
+class JournalEventWriter(JSONEventWriter):
+    """Write JSONL events to ``<journal>/agents/<epoch>.jsonl``."""
+
+    def __init__(self) -> None:
+        journal = os.getenv("JOURNAL_PATH")
+        path = None
+        if journal:
+            try:
+                ts = int(time.time() * 1000)
+                base = Path(journal) / "agents"
+                base.mkdir(parents=True, exist_ok=True)
+                path = str(base / f"{ts}.jsonl")
+            except Exception as exc:  # pragma: no cover - optional
+                logging.error("Failed to init journal log: %s", exc)
+        super().__init__(path)
+
+    def emit(self, data: Event) -> None:
+        if self.file:
+            try:
+                self.file.write(json.dumps(data, ensure_ascii=False) + "\n")
+                self.file.flush()
+            except Exception as exc:  # pragma: no cover - display only
+                logging.error("Failed to write journal event to %s: %s", self.path, exc)
+
+
 class JSONEventCallback:
     """Emit JSON events via a callback."""
 
@@ -122,6 +149,7 @@ __all__ = [
     "ErrorEvent",
     "Event",
     "JSONEventWriter",
+    "JournalEventWriter",
     "JSONEventCallback",
     "BaseAgentSession",
 ]

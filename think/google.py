@@ -24,7 +24,12 @@ from fastmcp import Client
 from google import genai
 from google.genai import types
 
-from .agents import BaseAgentSession, JSONEventCallback, JSONEventWriter
+from .agents import (
+    BaseAgentSession,
+    JournalEventWriter,
+    JSONEventCallback,
+    JSONEventWriter,
+)
 from .models import GEMINI_FLASH
 from .utils import agent_instructions, create_mcp_client, setup_cli
 
@@ -194,6 +199,11 @@ async def main_async():
 
     app_logger = setup_logging(args.verbose)
     event_writer = JSONEventWriter(out_path)
+    journal_writer = JournalEventWriter()
+
+    def emit_event(data: dict) -> None:
+        event_writer.emit(data)
+        journal_writer.emit(data)
 
     # Get task/prompt
     if args.query:
@@ -212,7 +222,7 @@ async def main_async():
         async with AgentSession(
             model=args.model,
             max_tokens=args.max_tokens,
-            on_event=event_writer.emit,
+            on_event=emit_event,
             persona=args.persona,
         ) as agent_session:
             if user_prompt is None:
@@ -236,10 +246,11 @@ async def main_async():
                 app_logger.info("Running agent with model %s", args.model)
                 await agent_session.run(user_prompt)
     except Exception as exc:
-        event_writer.emit({"event": "error", "error": str(exc)})
+        emit_event({"event": "error", "error": str(exc)})
         raise
     finally:
         event_writer.close()
+        journal_writer.close()
 
 
 def main() -> None:

@@ -81,6 +81,11 @@ def test_agent_main(monkeypatch, tmp_path, capsys):
     assert DummyRunner.called
     assert last_kwargs.get("mcp_servers") is not None
 
+    logged = list((journal / "agents").glob("*.jsonl"))
+    assert len(logged) == 1
+    logged_events = [json.loads(line) for line in logged[0].read_text().splitlines()]
+    assert logged_events == events
+
 
 def test_agent_outfile(monkeypatch, tmp_path):
     agents_stub = types.ModuleType("agents")
@@ -143,6 +148,11 @@ def test_agent_outfile(monkeypatch, tmp_path):
     assert events[0] == {"event": "start", "prompt": "hello"}
     assert events[-1] == {"event": "finish", "result": "ok"}
 
+    logged = list((journal / "agents").glob("*.jsonl"))
+    assert len(logged) == 1
+    logged_events = [json.loads(line) for line in logged[0].read_text().splitlines()]
+    assert logged_events == events
+
 
 def test_agent_outfile_error(monkeypatch, tmp_path):
     agents_stub = types.ModuleType("agents")
@@ -204,3 +214,8 @@ def test_agent_outfile_error(monkeypatch, tmp_path):
 
     events = [json.loads(line) for line in out_file.read_text().splitlines()]
     assert events[-1] == {"event": "error", "error": "boom"}
+
+    logged = list((journal / "agents").glob("*.jsonl"))
+    assert len(logged) == 1
+    logged_events = [json.loads(line) for line in logged[0].read_text().splitlines()]
+    assert logged_events == events

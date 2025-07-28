@@ -1,4 +1,6 @@
 # Changelog
+## 2025-08-06
+- Agent sessions are automatically logged under `JOURNAL_PATH/agents` as JSONL files.
 ## 2025-08-05
 - `think.mcp_server.get_media` resource returns the raw FLAC or PNG
   referenced by a transcript JSON using `think.utils.get_raw_file`.
