@@ -1,6 +1,7 @@
 # Changelog
 ## 2025-08-07
 - Agent start events now log the active persona and model.
+- Added `think.anthropic` CLI using the Anthropic Claude SDK.
 ## 2025-08-06
 - Agent sessions are automatically logged under `JOURNAL_PATH/agents` as JSONL files.
 ## 2025-08-05

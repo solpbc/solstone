@@ -73,27 +73,31 @@ WantedBy=timers.target
 
 ## CLI Agent
 
-Two command line tools offer the same interface using different LLM backends:
+Three command line tools offer the same interface using different LLM backends:
 
 ```bash
-think-agent  [TASK_FILE] [--model MODEL] [--max-tokens N] [-o OUT_FILE]
-think-google [TASK_FILE] [--model MODEL] [--max-tokens N] [-o OUT_FILE]
+think-agent   [TASK_FILE] [--model MODEL] [--max-tokens N] [-o OUT_FILE]
+think-google  [TASK_FILE] [--model MODEL] [--max-tokens N] [-o OUT_FILE]
+think-claude  [TASK_FILE] [--model MODEL] [--max-tokens N] [-o OUT_FILE]
 ```
 
-`think-agent` relies on the OpenAI Agents API while `think-google` talks to
-Gemini via the `google-genai` library. Both start a local MCP server so tools
+`think-agent` relies on the OpenAI Agents API, `think-google` talks to Gemini via
+the `google-genai` library and `think-claude` uses the Anthropic Claude SDK. All
+three start a local MCP server so tools
 like topic search are available during a run. If `TASK_FILE` is omitted an
 interactive prompt is started.
 
-Set `OPENAI_API_KEY` or `GOOGLE_API_KEY` (depending on the command) along with
-`JOURNAL_PATH` so the agent can query your journal index. The agent prints its
+Set `OPENAI_API_KEY`, `GOOGLE_API_KEY` or `ANTHROPIC_API_KEY` (depending on the
+command) along with `JOURNAL_PATH` so the agent can query your journal index.
+The agent prints its
 final answer to `stdout`; `-o` or `--out` writes all JSON events to a file.
 
 ### Common interface
 
-The `AgentSession` context manager powers both CLIs. Use
-`think.openai.AgentSession` or `think.google.AgentSession` depending on the
-backend. The shared `BaseAgentSession` interface lives in `think.agents`:
+The `AgentSession` context manager powers all the CLIs. Use
+`think.openai.AgentSession`, `think.google.AgentSession` or
+`think.anthropic.AgentSession` depending on the backend. The shared
+`BaseAgentSession` interface lives in `think.agents`:
 
 ```python
 async with AgentSession() as agent:
@@ -104,8 +108,8 @@ async with AgentSession() as agent:
 
 `run()` returns the final text result. `add_history()` queues prior messages to
 provide context and `history` exposes all messages seen during the session. The
-same code works with either implementation, allowing you to choose between
-OpenAI or Gemini at runtime.
+same code works with any implementation, allowing you to choose between OpenAI,
+Gemini or Claude at runtime.
 
 ## Topic map keys
 
