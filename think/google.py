@@ -128,7 +128,14 @@ class AgentSession(BaseAgentSession):
 
         if self._mcp is None or self.client is None or self.chat is None:
             raise RuntimeError("AgentSession not initialized")
-        self._callback.emit({"event": "start", "prompt": prompt})
+        self._callback.emit(
+            {
+                "event": "start",
+                "prompt": prompt,
+                "persona": self.persona,
+                "model": self.model,
+            }
+        )
         session = self._mcp.session
         cfg = types.GenerateContentConfig(
             max_output_tokens=self.max_tokens,

@@ -30,6 +30,8 @@ class StartEvent(TypedDict):
 
     event: Literal["start"]
     prompt: str
+    persona: str
+    model: str
 
 
 class FinishEvent(TypedDict):

@@ -107,7 +107,12 @@ def test_genai_main(monkeypatch, tmp_path, capsys):
 
     out_lines = capsys.readouterr().out.strip().splitlines()
     events = [json.loads(line) for line in out_lines]
-    assert events[0] == {"event": "start", "prompt": "hello"}
+    assert events[0] == {
+        "event": "start",
+        "prompt": "hello",
+        "persona": "default",
+        "model": "gemini-2.5-flash",
+    }
     assert events[-1] == {"event": "finish", "result": "ok"}
 
     logged = list((journal / "agents").glob("*.jsonl"))
@@ -134,7 +139,12 @@ def test_genai_outfile(monkeypatch, tmp_path):
     asyncio.run(run_main(mod, ["think.google", str(task), "-o", str(out_file)]))
 
     events = [json.loads(line) for line in out_file.read_text().splitlines()]
-    assert events[0] == {"event": "start", "prompt": "hello"}
+    assert events[0] == {
+        "event": "start",
+        "prompt": "hello",
+        "persona": "default",
+        "model": "gemini-2.5-flash",
+    }
     assert events[-1] == {"event": "finish", "result": "ok"}
 
     logged = list((journal / "agents").glob("*.jsonl"))

@@ -76,7 +76,12 @@ def test_agent_main(monkeypatch, tmp_path, capsys):
 
     out_lines = capsys.readouterr().out.strip().splitlines()
     events = [json.loads(line) for line in out_lines]
-    assert events[0] == {"event": "start", "prompt": "hello"}
+    assert events[0] == {
+        "event": "start",
+        "prompt": "hello",
+        "persona": "default",
+        "model": "gpt-4.1",
+    }
     assert events[-1] == {"event": "finish", "result": "ok"}
     assert DummyRunner.called
     assert last_kwargs.get("mcp_servers") is not None
@@ -145,7 +150,12 @@ def test_agent_outfile(monkeypatch, tmp_path):
     asyncio.run(run_main(mod, ["think-agent", str(task), "-o", str(out_file)]))
 
     events = [json.loads(line) for line in out_file.read_text().splitlines()]
-    assert events[0] == {"event": "start", "prompt": "hello"}
+    assert events[0] == {
+        "event": "start",
+        "prompt": "hello",
+        "persona": "default",
+        "model": "gpt-4.1",
+    }
     assert events[-1] == {"event": "finish", "result": "ok"}
 
     logged = list((journal / "agents").glob("*.jsonl"))

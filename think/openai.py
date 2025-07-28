@@ -156,7 +156,14 @@ class AgentSession(BaseAgentSession):
 
         self._history.append({"role": "user", "content": prompt})
 
-        self._callback.emit({"event": "start", "prompt": prompt})
+        self._callback.emit(
+            {
+                "event": "start",
+                "prompt": prompt,
+                "persona": self.persona,
+                "model": self.model,
+            }
+        )
         result = await Runner.run(
             self.agent, prompt, session=self.session, run_config=self.run_config
         )
