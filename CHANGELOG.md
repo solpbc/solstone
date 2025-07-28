@@ -109,3 +109,5 @@ Guide for updating:
 - `think.openai` now defaults to `GPT_O4_MINI`.
 - Updated tests for the new default model.
 - Bumped MCP client timeout for OpenAI agent to avoid stdio cancel scope errors.
+- OpenAI chat backend now starts and stops its MCP server for each request,
+  fixing cancel scope errors when switching sessions.

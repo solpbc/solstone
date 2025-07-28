@@ -21,7 +21,6 @@ from agents import (
     SQLiteSession,
     enable_verbose_stdout_logging,
 )
-from agents.mcp import MCPServerStdio
 
 from think.utils import agent_instructions, create_mcp_client
 
@@ -29,7 +28,7 @@ from .agents import BaseAgentSession, JSONEventCallback
 from .models import GPT_O4_MINI
 
 DEFAULT_MODEL = GPT_O4_MINI
-DEFAULT_MAX_TOKENS = 1024*32
+DEFAULT_MAX_TOKENS = 1024 * 32
 
 
 def setup_logging(verbose: bool = False) -> logging.Logger:
@@ -96,26 +95,12 @@ class AgentSession(BaseAgentSession):
         self.max_tokens = max_tokens
         self._callback = JSONEventCallback(on_event)
         self.session = SQLiteSession("sunstone_cli_session")
-        self.agent: Agent | None = None
-        self._mcp: MCPServerStdio | None = None
         self.run_config = RunConfig()
         self._history: list[dict[str, str]] = []
         self._pending_history: list[dict[str, str]] = []
         self.persona = persona
 
     async def __aenter__(self) -> "AgentSession":
-        self._mcp = create_mcp_client()
-        await self._mcp.__aenter__()
-
-        system_instruction, extra_context, _ = agent_instructions(self.persona)
-        self.agent = Agent(
-            name="SunstoneCLI",
-            instructions=f"{system_instruction}\n\n{extra_context}",
-            model=self.model,
-            model_settings=ModelSettings(max_tokens=self.max_tokens),
-            mcp_servers=[self._mcp],
-            hooks=ToolLoggingHooks(self._callback),
-        )
         return self
 
     @property
@@ -131,14 +116,11 @@ class AgentSession(BaseAgentSession):
         self._history.append({"role": role, "content": text})
 
     async def __aexit__(self, exc_type, exc, tb) -> None:
-        if self._mcp:
-            await self._mcp.__aexit__(exc_type, exc, tb)
+        if hasattr(self.session, "close"):
+            self.session.close()
 
     async def run(self, prompt: str) -> str:
         """Run ``prompt`` through the agent and return the result."""
-
-        if self.agent is None or self._mcp is None:
-            raise RuntimeError("AgentSession not initialized")
 
         if self._pending_history:
             await self.session.add_items(self._pending_history)
@@ -146,17 +128,35 @@ class AgentSession(BaseAgentSession):
 
         self._history.append({"role": "user", "content": prompt})
 
+        model_name = self.model
+        if self.model.startswith("o4-mini"):
+            parts = self.model.split("-")
+            if len(parts) >= 2:
+                model_name = "-".join(parts[:2])
         self._callback.emit(
             {
                 "event": "start",
                 "prompt": prompt,
                 "persona": self.persona,
-                "model": self.model,
+                "model": model_name,
             }
         )
-        result = await Runner.run(
-            self.agent, prompt, session=self.session, run_config=self.run_config
-        )
+
+        async with create_mcp_client() as mcp:
+            system_instruction, extra_context, _ = agent_instructions(self.persona)
+            agent = Agent(
+                name="SunstoneCLI",
+                instructions=f"{system_instruction}\n\n{extra_context}",
+                model=self.model,
+                model_settings=ModelSettings(max_tokens=self.max_tokens),
+                mcp_servers=[mcp],
+                hooks=ToolLoggingHooks(self._callback),
+            )
+
+            result = await Runner.run(
+                agent, prompt, session=self.session, run_config=self.run_config
+            )
+
         self._callback.emit({"event": "finish", "result": result.final_output})
         self._history.append({"role": "assistant", "content": result.final_output})
         return result.final_output
