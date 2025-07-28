@@ -29,7 +29,7 @@ def _setup_genai_stub(monkeypatch):
         def record_history(self, content):
             self.history.append(content)
 
-        def send_message(self, message, config=None):
+        async def send_message(self, message, config=None):
             DummyChat.kwargs = {
                 "message": message,
                 "config": config,
@@ -44,6 +44,7 @@ def _setup_genai_stub(monkeypatch):
     class DummyClient:
         def __init__(self, *a, **k):
             self.chats = DummyChats()
+            self.aio = SimpleNamespace(chats=DummyChats())
 
     genai_mod.Client = DummyClient
     genai_mod.types = types.SimpleNamespace(
