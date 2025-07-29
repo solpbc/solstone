@@ -19,6 +19,16 @@ class DummyMessages:
         return SimpleNamespace(content=[SimpleNamespace(type="text", text="ok")])
 
 
+class DummyMessagesWithThinking:
+    async def create(self, **kwargs):
+        DummyMessagesWithThinking.kwargs = kwargs
+        # Return response with both thinking and text content
+        return SimpleNamespace(content=[
+            SimpleNamespace(type="thinking", thinking="I need to analyze this step by step."),
+            SimpleNamespace(type="text", text="ok")
+        ])
+
+
 class DummyClient:
     def __init__(self, *a, **k):
         self.messages = DummyMessages()
@@ -141,6 +151,58 @@ def test_claude_outfile(monkeypatch, tmp_path):
     assert len(logged) == 1
     logged_events = [json.loads(line) for line in logged[0].read_text().splitlines()]
     assert logged_events == events
+
+
+def test_claude_thinking_events(monkeypatch, tmp_path, capsys):
+    """Test that thinking events are properly emitted for Claude models."""
+    
+    class DummyClientWithThinking:
+        def __init__(self, *a, **k):
+            self.messages = DummyMessagesWithThinking()
+    
+    # Setup stubs with thinking support
+    anthropic_mod = types.ModuleType("anthropic")
+    anthropic_mod.AsyncAnthropic = DummyClientWithThinking
+    types_mod = types.ModuleType("anthropic.types")
+    types_mod.MessageParam = dict
+    types_mod.ToolParam = dict
+    types_mod.ToolUseBlock = SimpleNamespace
+    anthropic_mod.types = types_mod
+    monkeypatch.setitem(sys.modules, "anthropic", anthropic_mod)
+    monkeypatch.setitem(sys.modules, "anthropic.types", types_mod)
+    
+    _setup_fastmcp_stub(monkeypatch)
+    sys.modules.pop("think.anthropic", None)
+    importlib.reload(importlib.import_module("think.anthropic"))
+    mod = importlib.reload(importlib.import_module("think.agents"))
+
+    journal = tmp_path / "journal"
+    journal.mkdir()
+    task = tmp_path / "task.txt"
+    task.write_text("hello")
+
+    monkeypatch.setenv("JOURNAL_PATH", str(journal))
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "x")
+
+    asyncio.run(run_main(mod, ["think-agents", str(task), "--backend", "anthropic"]))
+
+    out_lines = capsys.readouterr().out.strip().splitlines()
+    events = [json.loads(line) for line in out_lines]
+    
+    # Check that we have start, thinking, and finish events
+    assert events[0]["event"] == "start"
+    assert isinstance(events[0]["ts"], int)
+    assert events[0]["prompt"] == "hello"
+    
+    # Look for thinking event
+    thinking_events = [e for e in events if e["event"] == "thinking"]
+    assert len(thinking_events) == 1
+    assert thinking_events[0]["summary"] == "I need to analyze this step by step."
+    assert thinking_events[0]["model"] == "claude-opus-4-20250514"
+    assert isinstance(thinking_events[0]["ts"], int)
+    
+    assert events[-1]["event"] == "finish"
+    assert events[-1]["result"] == "ok"
 
 
 def test_claude_outfile_error(monkeypatch, tmp_path):

@@ -10,13 +10,14 @@ from __future__ import annotations
 import json
 import logging
 import os
+import time
 import traceback
 from typing import Any, Callable, Optional
 
 from anthropic import AsyncAnthropic
 from anthropic.types import MessageParam, ToolParam, ToolUseBlock
 
-from .agents import BaseAgentSession, JSONEventCallback
+from .agents import BaseAgentSession, JSONEventCallback, ThinkingEvent
 from .models import CLAUDE_OPUS_4
 from .utils import agent_instructions, create_mcp_client
 
@@ -190,12 +191,21 @@ class AgentSession(BaseAgentSession):
                 tool_executor = ToolExecutor(mcp, self._callback)
 
                 while True:
+                    # Configure thinking for supported models
+                    thinking_config = None
+                    if self.model in ["claude-opus-4-20250514", "claude-sonnet-4-20250514", "claude-sonnet-3-7-20241124"]:
+                        thinking_config = {
+                            "type": "enabled",
+                            "budget_tokens": min(10000, self.max_tokens - 1000)  # Reserve some tokens for final response
+                        }
+                    
                     response = await self.client.messages.create(
                         model=self.model,
                         max_tokens=self.max_tokens,
                         system=self.system_instruction,
                         messages=self.messages,
                         tools=tools if tools else None,
+                        thinking=thinking_config,
                     )
 
                     tool_uses = []
@@ -205,6 +215,15 @@ class AgentSession(BaseAgentSession):
                             final_text += block.text
                         elif getattr(block, "type", None) == "tool_use":
                             tool_uses.append(block)
+                        elif getattr(block, "type", None) == "thinking":
+                            # Emit thinking event with the reasoning content
+                            thinking_event: ThinkingEvent = {
+                                "event": "thinking",
+                                "ts": int(time.time() * 1000),
+                                "summary": block.thinking,
+                                "model": self.model
+                            }
+                            self._callback.emit(thinking_event)
 
                     self.messages.append(
                         {"role": "assistant", "content": response.content}
