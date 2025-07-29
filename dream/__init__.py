@@ -104,7 +104,9 @@ task_log = admin_view.task_log
 reindex = admin_view.reindex
 refresh_summary = admin_view.refresh_summary
 reload_entities_view = admin_view.reload_entities_view
-entities_data = entities_view.entities_data
+entities_types = entities_view.entities_types
+entities_list = entities_view.entities_list
+entities_details = entities_view.entities_details
 api_top_generate = entities_view.api_top_generate
 api_top_update = entities_view.api_top_update
 api_modify_entity = entities_view.api_modify_entity
@@ -132,7 +134,9 @@ __all__ = [
     "live_leave",
     "search_page",
     "import_page",
-    "entities_data",
+    "entities_types",
+    "entities_list",
+    "entities_details",
     "api_top_generate",
     "api_top_update",
     "api_modify_entity",

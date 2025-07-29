@@ -6,6 +6,7 @@ from typing import Any, Dict, List
 from flask import Blueprint, jsonify, render_template, request
 
 from think.entities import Entities
+from think.indexer import scan_entities, search_entities
 
 from .. import state
 from ..utils import (
@@ -20,9 +21,11 @@ bp = Blueprint("entities", __name__, template_folder="../templates")
 
 
 def reload_entities() -> None:
+    """Rescan entity files and rebuild the search index."""
     ent = Entities(state.journal_root)
     ent.rescan()
     state.entities_index = ent.index()
+    scan_entities(state.journal_root)
 
 
 @bp.route("/entities")
@@ -30,27 +33,91 @@ def entities() -> str:
     return render_template("entities.html", active="entities")
 
 
-@bp.route("/entities/api/data")
-def entities_data() -> Any:
-    data: Dict[str, List[Dict[str, object]]] = {}
-    for etype, names in state.entities_index.items():
-        data[etype] = []
-        for name, info in names.items():
-            formatted_descriptions = {
-                format_date(date): text
-                for date, text in info.get("descriptions", {}).items()
-            }
-            data[etype].append(
-                {
-                    "name": name,
-                    "dates": [format_date(d) for d in sorted(info.get("dates", []))],
-                    "raw_dates": sorted(info.get("dates", [])),
-                    "desc": info.get("primary", ""),
-                    "top": info.get("top", False),
-                    "descriptions": formatted_descriptions,
-                }
-            )
+@bp.route("/entities/api/types")
+def entities_types() -> Any:
+    """Return available entity types and their counts."""
+    types = ["Person", "Company", "Project", "Tool"]
+    data: Dict[str, int] = {}
+    for t in types:
+        total, _ = search_entities("", limit=0, etype=t)
+        data[t] = total
     return jsonify(data)
+
+
+@bp.route("/entities/api/list")
+def entities_list() -> Any:
+    """Return entities for a specific type ordered by count."""
+    etype = request.args.get("type")
+    if not etype:
+        return jsonify([])
+    _total_top, top_results = search_entities(
+        "",
+        limit=500,
+        etype=etype,
+        top=True,
+        order="count",
+    )
+    _total_other, other_results = search_entities(
+        "",
+        limit=500,
+        etype=etype,
+        top=False,
+        order="count",
+    )
+    results = []
+    for r in top_results + other_results:
+        meta = r["metadata"]
+        results.append(
+            {
+                "name": meta["name"],
+                "desc": r["text"],
+                "top": meta.get("top", False),
+                "count": meta.get("days", 0),
+            }
+        )
+    return jsonify(results)
+
+
+@bp.route("/entities/api/details")
+def entities_details() -> Any:
+    """Return detailed info for a single entity."""
+    etype = request.args.get("type")
+    name = request.args.get("name")
+    if not etype or not name:
+        return jsonify({})
+    _total, results = search_entities(
+        "",
+        limit=1000,
+        etype=etype,
+        name=name,
+        order="day",
+    )
+    if not results:
+        return jsonify({})
+    aggregated = results[0]
+    top_flag = aggregated["metadata"].get("top", False)
+    desc = aggregated["text"]
+    descriptions: Dict[str, str] = {}
+    raw_dates: List[str] = []
+    for r in results[1:]:
+        meta = r["metadata"]
+        day = meta.get("day")
+        if day:
+            if day not in raw_dates:
+                raw_dates.append(day)
+            if r["text"]:
+                descriptions[format_date(day)] = r["text"]
+    raw_dates.sort()
+    return jsonify(
+        {
+            "name": name,
+            "top": top_flag,
+            "desc": desc,
+            "dates": [format_date(d) for d in raw_dates],
+            "raw_dates": raw_dates,
+            "descriptions": descriptions,
+        }
+    )
 
 
 @bp.route("/entities/api/top_generate", methods=["POST"])
