@@ -103,7 +103,15 @@ def test_admin_actions(monkeypatch, tmp_path):
     with review.app.test_request_context("/admin/api/reload_entities", method="POST"):
         resp = review.reload_entities_view()
     assert resp.json["status"] == "ok"
-    assert [sys.executable, "-m", "think.entities", "--rescan", "--verbose"] in called
+    assert [
+        sys.executable,
+        "-m",
+        "think.indexer",
+        "--index",
+        "entities",
+        "--rescan",
+        "--verbose",
+    ] in called
 
 
 def test_task_log_api(monkeypatch, tmp_path):

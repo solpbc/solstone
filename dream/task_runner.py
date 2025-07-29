@@ -126,7 +126,9 @@ def run_task(
                 args = [
                     sys.executable,
                     "-m",
-                    "think.entities",
+                    "think.indexer",
+                    "--index",
+                    "entities",
                     "--rescan",
                     "--verbose",
                 ]

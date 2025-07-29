@@ -13,11 +13,7 @@ from syntok import segmenter
 
 from think.utils import get_topics, journal_log, setup_cli
 
-from .entities import (
-    find_day_dirs,
-    load_cache,
-    save_cache,
-)
+from .entities import find_day_dirs, load_cache, save_cache
 from .entities import scan_entities as scan_entities_cache
 
 INDEX_DIR = "indexer"
@@ -833,8 +829,17 @@ def search_entities(
     etype: str | None = None,
     name: str | None = None,
     top: bool | None = None,
+    order: str = "rank",
 ) -> tuple[int, List[Dict[str, Any]]]:
-    """Search the entities index and return total count and results."""
+    """Search the entities index and return total count and results.
+
+    Parameters
+    ----------
+    order : str, optional
+        How to sort entity results. "rank" (default) sorts by FTS rank,
+        "count" sorts by descending appearance count and "day" orders
+        appearance rows chronologically.
+    """
 
     conn, _ = get_index(index="entities")
     db = sqlite_utils.Database(conn)
@@ -864,8 +869,12 @@ def search_entities(
         f"SELECT count(*) FROM entities WHERE {where_clause}", params
     ).fetchone()[0]
 
+    order = order.lower()
+    ent_order = "bm25(entities)"
+    if order == "count":
+        ent_order = "days DESC"
     ent_cursor = conn.execute(
-        f"SELECT name, desc, type, top, first_seen, last_seen, days, bm25(entities) as rank FROM entities WHERE {where_clause} ORDER BY rank LIMIT ? OFFSET ?",
+        f"SELECT name, desc, type, top, first_seen, last_seen, days, bm25(entities) as rank FROM entities WHERE {where_clause} ORDER BY {ent_order} LIMIT ? OFFSET ?",
         params + [limit, offset],
     )
 
@@ -929,8 +938,11 @@ def search_entities(
 
     app_results: List[Dict[str, Any]] = []
     if remaining_limit > 0:
+        app_order = "bm25(entity_appearances)"
+        if order == "day":
+            app_order = "day"
         app_cursor = conn.execute(
-            f"SELECT name, desc, day, type, path, bm25(entity_appearances) as rank FROM entity_appearances WHERE {fts_clause} ORDER BY rank LIMIT ? OFFSET ?",
+            f"SELECT name, desc, day, type, path, bm25(entity_appearances) as rank FROM entity_appearances WHERE {fts_clause} ORDER BY {app_order} LIMIT ? OFFSET ?",
             params2 + [remaining_limit, appearance_offset],
         )
         for (

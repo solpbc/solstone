@@ -159,26 +159,22 @@ tr:hover { background: #f8f9fa; }
 let data = {};
 let activeType = null;
 let currentItem = null;
-
-// Track ongoing top generations
 let generatingTops = new Set();
 
-function reloadData() {
+function reloadTabs() {
   const currentType = activeType;
-  fetch('{{ url_for('entities.entities_data') }}').then(r => r.json()).then(d => {
-    data = d;
+  fetch('{{ url_for('entities.entities_types') }}').then(r => r.json()).then(counts => {
     const tabsDiv = document.getElementById('tabs');
     tabsDiv.innerHTML = '';
-    Object.keys(data).forEach(type => {
+    Object.keys(counts).forEach(type => {
       const tab = document.createElement('div');
       tab.className = 'tab';
-      const count = data[type] ? data[type].length : 0;
-      tab.textContent = `${type} (${count})`;
+      tab.textContent = `${type} (${counts[type]})`;
       tab.onclick = () => showType(type);
       tabsDiv.appendChild(tab);
     });
-    const first = Object.keys(data)[0];
-    if (currentType && data[currentType]) {
+    const first = Object.keys(counts)[0];
+    if (currentType && counts[currentType] !== undefined) {
       showType(currentType);
     } else if (first) {
       showType(first);
@@ -186,29 +182,35 @@ function reloadData() {
   });
 }
 
-reloadData();
+reloadTabs();
+
+function loadType(type) {
+  return fetch(`{{ url_for('entities.entities_list') }}?type=${encodeURIComponent(type)}`)
+    .then(r => r.json())
+    .then(items => { data[type] = items; });
+}
 
 function showType(type) {
-  // Update active tab
   document.querySelectorAll('.tab').forEach(tab => {
     tab.classList.toggle('active', tab.textContent.startsWith(type));
   });
-  
   activeType = type;
+  if (!data[type]) {
+    loadType(type).then(renderTable);
+  } else {
+    renderTable();
+  }
+}
+
+function renderTable() {
   const tbody = document.getElementById('entities');
   tbody.innerHTML = '';
-  const items = data[type] || [];
-  items.sort((a, b) => b.dates.length - a.dates.length);
-
+  const items = data[activeType] || [];
   items.forEach(item => {
     const tr = document.createElement('tr');
-    const count = item.top ? `<span style="color:gold" title="${item.dates.length} entries">&#9733;</span>` : item.dates.length;
+    const count = item.top ? '<span style="color:gold">&#9733;</span>' : item.count;
     const search = `<a class="search-icon" href="{{ url_for('search.search_page') }}?q=${encodeURIComponent(item.name)}" title="Search">&#128269;</a>`;
-    tr.innerHTML = `
-      <td class="count" onclick="handleCountClick(event, '${item.name}')">${count}${search}</td>
-      <td class="name">${item.name}</td>
-      <td class="desc">${item.desc}</td>
-    `;
+    tr.innerHTML = `<td class="count" onclick="handleCountClick(event, '${item.name}')">${count}${search}</td><td class="name">${item.name}</td><td class="desc">${item.desc}</td>`;
     tbody.appendChild(tr);
   });
 }
@@ -243,7 +245,7 @@ function editName(nameElement, item) {
       body: JSON.stringify({ type: activeType, name: original, new_name: newName, days: item.raw_dates })
     }).then(() => {
       document.getElementById('entityModal').style.display = 'none';
-      reloadData();
+      reloadTabs();
     });
   };
 
@@ -313,7 +315,7 @@ function showTopEditor(item, text) {
       body: JSON.stringify({ type: activeType, name: item.name, desc })
     }).then(() => {
       document.getElementById('entityModal').style.display = 'none';
-      reloadData();
+      reloadTabs();
     });
   };
   document.getElementById('modalEntityName').onclick = () => {
@@ -329,7 +331,7 @@ function showTopEditor(item, text) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ type: activeType, name: item.name, days: item.raw_dates })
     }).then(() => {
-      reloadData();
+      reloadTabs();
     });
   };
 }
@@ -365,56 +367,51 @@ function handleStarClick(item) {
 }
 
 function showEntityDetails(name) {
-  const item = data[activeType].find(item => item.name === name);
-  if (!item) return;
-  currentItem = item;
-  
-  const modal = document.getElementById('entityModal');
-  const content = document.getElementById('modalContent');
-
-  const star = item.top ? '&#9733;' : '&#9734;';
-  let html = `
-    <div class="modal-header">
-      <span id="modalStar" style="cursor:pointer;margin-right:8px;color:gold">${star}</span>
-      <h3 id="modalEntityName">${name}</h3>
-      <span id="modalDelete" style="cursor:pointer;color:#555;margin-left:8px;" title="Delete entity">&#128465;</span>
-    </div>
-    <div class="modal-body">`;
-  
-  item.dates.forEach(date => {
-    const desc = item.descriptions && item.descriptions[date] ? item.descriptions[date] : 'No description';
-    html += `
-      <div class="date-entry">
-        <div class="date-label">${date}</div>
-        <div class="date-desc">${desc}</div>
-      </div>
-    `;
-  });
-  html += '</div>';
-
-  content.innerHTML = html;
-  // Add click handlers for editing and top entry
-  document.getElementById('modalEntityName').onclick = () => {
-    editName(document.getElementById('modalEntityName'), item);
-  };
-  document.getElementById('modalStar').onclick = () => {
-    handleStarClick(item);
-  };
-  document.getElementById('modalDelete').onclick = () => {
-    if (!confirm(`Delete ${name}?`)) return;
-    
-    modal.style.display = 'none';
-    
-    fetch('{{ url_for('entities.entities') }}/api/remove', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ type: activeType, name: name, days: item.raw_dates })
-    }).then(() => {
-      reloadData();
+  fetch(`{{ url_for('entities.entities_details') }}?type=${activeType}&name=${encodeURIComponent(name)}`)
+    .then(r => r.json())
+    .then(item => {
+      if (!item) return;
+      currentItem = item;
+      const modal = document.getElementById('entityModal');
+      const content = document.getElementById('modalContent');
+      const star = item.top ? '&#9733;' : '&#9734;';
+      let html = `
+        <div class="modal-header">
+          <span id="modalStar" style="cursor:pointer;margin-right:8px;color:gold">${star}</span>
+          <h3 id="modalEntityName">${name}</h3>
+          <span id="modalDelete" style="cursor:pointer;color:#555;margin-left:8px;" title="Delete entity">&#128465;</span>
+        </div>
+        <div class="modal-body">`;
+      item.dates.forEach(date => {
+        const desc = item.descriptions && item.descriptions[date] ? item.descriptions[date] : 'No description';
+        html += `
+          <div class="date-entry">
+            <div class="date-label">${date}</div>
+            <div class="date-desc">${desc}</div>
+          </div>
+        `;
+      });
+      html += '</div>';
+      content.innerHTML = html;
+      document.getElementById('modalEntityName').onclick = () => {
+        editName(document.getElementById('modalEntityName'), item);
+      };
+      document.getElementById('modalStar').onclick = () => {
+        handleStarClick(item);
+      };
+      document.getElementById('modalDelete').onclick = () => {
+        if (!confirm(`Delete ${name}?`)) return;
+        modal.style.display = 'none';
+        fetch('{{ url_for('entities.entities') }}/api/remove', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ type: activeType, name: name, days: item.raw_dates })
+        }).then(() => {
+          reloadTabs();
+        });
+      };
+      modal.style.display = 'block';
     });
-  };
-
-  modal.style.display = 'block';
 }
 
 
@@ -475,7 +472,7 @@ function handleCountClick(event, name) {
         countCell.innerHTML = '<span style="color:gold">&#9733;</span>';
         countCell.style.opacity = '1';
         generatingTops.delete(name);
-        reloadData();
+        reloadTabs();
         
       } catch (err) {
         console.error('Network error for', name, ':', err);
