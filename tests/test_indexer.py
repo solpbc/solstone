@@ -226,11 +226,11 @@ def test_entities_index(tmp_path):
 
     mod.scan_entities(str(journal), verbose=True)
 
-    total, results = mod.search_entities("Alice")
-    assert total == 1
-    assert results[0]["metadata"]["day"] == ""
+    total, results = mod.search_entities("Alice", limit=1)
+    assert total == 2
+    assert results[0]["metadata"]["top"] is True
 
-    total_proj, results_proj = mod.search_entities("", etype="Project")
-    assert total_proj == 1
-    assert results_proj[0]["metadata"]["day"] == "20240108"
+    total_proj, results_proj = mod.search_entities("", etype="Project", limit=1)
+    assert total_proj == 2
+    assert results_proj[0]["metadata"]["first_seen"] == "20240108"
     assert (journal / "indexer" / "entities.sqlite").exists()

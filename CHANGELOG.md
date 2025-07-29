@@ -116,3 +116,5 @@ Guide for updating:
 ## 2025-07-29
 
 - Added `entities` index to `think.indexer` with FTS search of `entities.md` files.
+- Refactored entity indexing to use `entities` and `entity_appearances` tables,
+  tracking first/last seen days and top descriptions.
