@@ -10,6 +10,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import traceback
 from typing import Any, Callable, Optional
 
 from anthropic import AsyncAnthropic
@@ -108,18 +109,29 @@ class AgentSession(BaseAgentSession):
         self.persona = persona
 
     async def __aenter__(self) -> "AgentSession":
-        api_key = os.getenv("ANTHROPIC_API_KEY")
-        if not api_key:
-            raise RuntimeError("ANTHROPIC_API_KEY not set")
-        self.client = AsyncAnthropic(api_key=api_key)
+        try:
+            api_key = os.getenv("ANTHROPIC_API_KEY")
+            if not api_key:
+                raise RuntimeError("ANTHROPIC_API_KEY not set")
+            self.client = AsyncAnthropic(api_key=api_key)
 
-        self.system_instruction, first_user, _ = agent_instructions(self.persona)
+            self.system_instruction, first_user, _ = agent_instructions(self.persona)
 
-        if first_user:
-            self.messages.append({"role": "user", "content": first_user})
-            self._history.append({"role": "user", "content": first_user})
+            if first_user:
+                self.messages.append({"role": "user", "content": first_user})
+                self._history.append({"role": "user", "content": first_user})
 
-        return self
+            return self
+        except Exception as exc:
+            self._callback.emit(
+                {
+                    "event": "error",
+                    "error": str(exc),
+                    "trace": traceback.format_exc(),
+                }
+            )
+            setattr(exc, "_evented", True)
+            raise
 
     @property
     def history(self) -> list[dict[str, str]]:
@@ -157,55 +169,70 @@ class AgentSession(BaseAgentSession):
 
     async def run(self, prompt: str) -> str:
         """Run ``prompt`` through Claude and return the result."""
-        if self.client is None:
-            raise RuntimeError("AgentSession not initialized")
+        try:
+            if self.client is None:
+                raise RuntimeError("AgentSession not initialized")
 
-        self.messages.append({"role": "user", "content": prompt})
-        self._history.append({"role": "user", "content": prompt})
+            self.messages.append({"role": "user", "content": prompt})
+            self._history.append({"role": "user", "content": prompt})
 
-        self._callback.emit(
-            {
-                "event": "start",
-                "prompt": prompt,
-                "persona": self.persona,
-                "model": self.model,
-            }
-        )
+            self._callback.emit(
+                {
+                    "event": "start",
+                    "prompt": prompt,
+                    "persona": self.persona,
+                    "model": self.model,
+                }
+            )
 
-        async with create_mcp_client("fastmcp") as mcp:
-            tools = await self._get_mcp_tools(mcp)
-            tool_executor = ToolExecutor(mcp, self._callback)
+            async with create_mcp_client("fastmcp") as mcp:
+                tools = await self._get_mcp_tools(mcp)
+                tool_executor = ToolExecutor(mcp, self._callback)
 
-            while True:
-                response = await self.client.messages.create(
-                    model=self.model,
-                    max_tokens=self.max_tokens,
-                    system=self.system_instruction,
-                    messages=self.messages,
-                    tools=tools if tools else None,
-                )
+                while True:
+                    response = await self.client.messages.create(
+                        model=self.model,
+                        max_tokens=self.max_tokens,
+                        system=self.system_instruction,
+                        messages=self.messages,
+                        tools=tools if tools else None,
+                    )
 
-                tool_uses = []
-                final_text = ""
-                for block in response.content:
-                    if getattr(block, "type", None) == "text":
-                        final_text += block.text
-                    elif getattr(block, "type", None) == "tool_use":
-                        tool_uses.append(block)
+                    tool_uses = []
+                    final_text = ""
+                    for block in response.content:
+                        if getattr(block, "type", None) == "text":
+                            final_text += block.text
+                        elif getattr(block, "type", None) == "tool_use":
+                            tool_uses.append(block)
 
-                self.messages.append({"role": "assistant", "content": response.content})
+                    self.messages.append(
+                        {"role": "assistant", "content": response.content}
+                    )
 
-                if not tool_uses:
-                    self._callback.emit({"event": "finish", "result": final_text})
-                    self._history.append({"role": "assistant", "content": final_text})
-                    return final_text
+                    if not tool_uses:
+                        self._callback.emit({"event": "finish", "result": final_text})
+                        self._history.append(
+                            {"role": "assistant", "content": final_text}
+                        )
+                        return final_text
 
-                results = []
-                for tool_use in tool_uses:
-                    result = await tool_executor.execute_tool(tool_use)
-                    results.append(result)
+                    results = []
+                    for tool_use in tool_uses:
+                        result = await tool_executor.execute_tool(tool_use)
+                        results.append(result)
 
-                self.messages.append({"role": "user", "content": results})
+                    self.messages.append({"role": "user", "content": results})
+        except Exception as exc:
+            self._callback.emit(
+                {
+                    "event": "error",
+                    "error": str(exc),
+                    "trace": traceback.format_exc(),
+                }
+            )
+            setattr(exc, "_evented", True)
+            raise
 
 
 async def run_prompt(

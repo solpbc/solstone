@@ -203,6 +203,7 @@ def test_google_outfile_error(monkeypatch, tmp_path):
     assert events[-1]["event"] == "error"
     assert isinstance(events[-1]["ts"], int)
     assert events[-1]["error"] == "boom"
+    assert "trace" in events[-1]
 
     logged = list((journal / "agents").glob("*.jsonl"))
     assert len(logged) == 1

@@ -7,6 +7,7 @@ import logging
 import os
 import sys
 import time
+import traceback
 from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Any, Callable, Literal, Optional, TypedDict, Union
@@ -312,9 +313,14 @@ async def main_async() -> None:
                 app_logger.info("Running agent with model %s", args.model)
                 await agent_session.run(user_prompt)
     except Exception as exc:  # pragma: no cover - unexpected
-        err = {"event": "error", "error": str(exc)}
-        emit_event(err)
-        _journal_emit(err)
+        err = {
+            "event": "error",
+            "error": str(exc),
+            "trace": traceback.format_exc(),
+        }
+        if not getattr(exc, "_evented", False):
+            emit_event(err)
+            _journal_emit(err)
         raise
     finally:
         event_writer.close()

@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import logging
 import os
+import traceback
 from typing import Any, Callable, Optional
 
 from fastmcp import Client
@@ -74,25 +75,38 @@ class AgentSession(BaseAgentSession):
         self.persona = persona
 
     async def __aenter__(self) -> "AgentSession":
-        self._mcp = create_mcp_client("fastmcp")
-        await self._mcp.__aenter__()
+        try:
+            self._mcp = create_mcp_client("fastmcp")
+            await self._mcp.__aenter__()
 
-        api_key = os.getenv("GOOGLE_API_KEY")
-        if not api_key:
-            raise RuntimeError("GOOGLE_API_KEY not set")
-        self.client = genai.Client(api_key=api_key)
+            api_key = os.getenv("GOOGLE_API_KEY")
+            if not api_key:
+                raise RuntimeError("GOOGLE_API_KEY not set")
+            self.client = genai.Client(api_key=api_key)
 
-        self.system_instruction, first_user, _ = agent_instructions(self.persona)
+            self.system_instruction, first_user, _ = agent_instructions(self.persona)
 
-        ToolLoggingHooks(self._callback).attach(self._mcp.session)
-        self.chat = self.client.aio.chats.create(
-            model=self.model,
-            config=types.GenerateContentConfig(
-                system_instruction=self.system_instruction
-            ),
-            history=[types.Content(role="user", parts=[types.Part(text=first_user)])],
-        )
-        return self
+            ToolLoggingHooks(self._callback).attach(self._mcp.session)
+            self.chat = self.client.aio.chats.create(
+                model=self.model,
+                config=types.GenerateContentConfig(
+                    system_instruction=self.system_instruction
+                ),
+                history=[
+                    types.Content(role="user", parts=[types.Part(text=first_user)])
+                ],
+            )
+            return self
+        except Exception as exc:
+            self._callback.emit(
+                {
+                    "event": "error",
+                    "error": str(exc),
+                    "trace": traceback.format_exc(),
+                }
+            )
+            setattr(exc, "_evented", True)
+            raise
 
     @property
     def history(self) -> list[dict[str, str]]:
@@ -114,31 +128,41 @@ class AgentSession(BaseAgentSession):
 
     async def run(self, prompt: str) -> str:
         """Run ``prompt`` through Gemini and return the result."""
-
-        if self._mcp is None or self.client is None or self.chat is None:
-            raise RuntimeError("AgentSession not initialized")
-        self._callback.emit(
-            {
-                "event": "start",
-                "prompt": prompt,
-                "persona": self.persona,
-                "model": self.model,
-            }
-        )
-        session = self._mcp.session
-        cfg = types.GenerateContentConfig(
-            max_output_tokens=self.max_tokens,
-            tools=[session],
-            tool_config=types.ToolConfig(
-                function_calling_config=types.FunctionCallingConfig(mode="AUTO")
-            ),
-        )
-        response = await self.chat.send_message(prompt, config=cfg)
-        text = response.text
-        self._callback.emit({"event": "finish", "result": text})
-        self._history.append({"role": "user", "content": prompt})
-        self._history.append({"role": "assistant", "content": text})
-        return text
+        try:
+            if self._mcp is None or self.client is None or self.chat is None:
+                raise RuntimeError("AgentSession not initialized")
+            self._callback.emit(
+                {
+                    "event": "start",
+                    "prompt": prompt,
+                    "persona": self.persona,
+                    "model": self.model,
+                }
+            )
+            session = self._mcp.session
+            cfg = types.GenerateContentConfig(
+                max_output_tokens=self.max_tokens,
+                tools=[session],
+                tool_config=types.ToolConfig(
+                    function_calling_config=types.FunctionCallingConfig(mode="AUTO")
+                ),
+            )
+            response = await self.chat.send_message(prompt, config=cfg)
+            text = response.text
+            self._callback.emit({"event": "finish", "result": text})
+            self._history.append({"role": "user", "content": prompt})
+            self._history.append({"role": "assistant", "content": text})
+            return text
+        except Exception as exc:
+            self._callback.emit(
+                {
+                    "event": "error",
+                    "error": str(exc),
+                    "trace": traceback.format_exc(),
+                }
+            )
+            setattr(exc, "_evented", True)
+            raise
 
 
 async def run_prompt(

@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import logging
 import sys
+import traceback
 from typing import Callable, Optional
 
 from agents import (
@@ -121,45 +122,55 @@ class AgentSession(BaseAgentSession):
 
     async def run(self, prompt: str) -> str:
         """Run ``prompt`` through the agent and return the result."""
+        try:
+            if self._pending_history:
+                await self.session.add_items(self._pending_history)
+                self._pending_history.clear()
 
-        if self._pending_history:
-            await self.session.add_items(self._pending_history)
-            self._pending_history.clear()
+            self._history.append({"role": "user", "content": prompt})
 
-        self._history.append({"role": "user", "content": prompt})
-
-        model_name = self.model
-        if self.model.startswith("o4-mini"):
-            parts = self.model.split("-")
-            if len(parts) >= 2:
-                model_name = "-".join(parts[:2])
-        self._callback.emit(
-            {
-                "event": "start",
-                "prompt": prompt,
-                "persona": self.persona,
-                "model": model_name,
-            }
-        )
-
-        async with create_mcp_client() as mcp:
-            system_instruction, extra_context, _ = agent_instructions(self.persona)
-            agent = Agent(
-                name="SunstoneCLI",
-                instructions=f"{system_instruction}\n\n{extra_context}",
-                model=self.model,
-                model_settings=ModelSettings(max_tokens=self.max_tokens),
-                mcp_servers=[mcp],
-                hooks=ToolLoggingHooks(self._callback),
+            model_name = self.model
+            if self.model.startswith("o4-mini"):
+                parts = self.model.split("-")
+                if len(parts) >= 2:
+                    model_name = "-".join(parts[:2])
+            self._callback.emit(
+                {
+                    "event": "start",
+                    "prompt": prompt,
+                    "persona": self.persona,
+                    "model": model_name,
+                }
             )
 
-            result = await Runner.run(
-                agent, prompt, session=self.session, run_config=self.run_config
-            )
+            async with create_mcp_client() as mcp:
+                system_instruction, extra_context, _ = agent_instructions(self.persona)
+                agent = Agent(
+                    name="SunstoneCLI",
+                    instructions=f"{system_instruction}\n\n{extra_context}",
+                    model=self.model,
+                    model_settings=ModelSettings(max_tokens=self.max_tokens),
+                    mcp_servers=[mcp],
+                    hooks=ToolLoggingHooks(self._callback),
+                )
 
-        self._callback.emit({"event": "finish", "result": result.final_output})
-        self._history.append({"role": "assistant", "content": result.final_output})
-        return result.final_output
+                result = await Runner.run(
+                    agent, prompt, session=self.session, run_config=self.run_config
+                )
+
+            self._callback.emit({"event": "finish", "result": result.final_output})
+            self._history.append({"role": "assistant", "content": result.final_output})
+            return result.final_output
+        except Exception as exc:
+            self._callback.emit(
+                {
+                    "event": "error",
+                    "error": str(exc),
+                    "trace": traceback.format_exc(),
+                }
+            )
+            setattr(exc, "_evented", True)
+            raise
 
 
 async def run_prompt(
