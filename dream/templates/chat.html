@@ -17,6 +17,11 @@ body {height:100vh; overflow:hidden;}
 #messages .tool-placard .tool-name{font-weight:bold;color:#1976d2;}
 #messages .tool-placard .tool-tooltip{visibility:hidden;background:#333;color:#fff;text-align:left;border-radius:4px;padding:0.5em;position:absolute;z-index:1000;bottom:125%;left:0;min-width:300px;max-width:500px;font-size:0.75em;font-family:monospace;white-space:pre-wrap;opacity:0;transition:opacity 0.3s;}
 #messages .tool-placard:hover .tool-tooltip{visibility:visible;opacity:1;}
+#messages .thinking-card{background:#f8f4ff;border:1px solid #9c27b0;border-radius:6px;padding:0.5em 0.75em;margin-bottom:0.75em;font-size:0.85em;max-width:80%;align-self:flex-start;cursor:pointer;}
+#messages .thinking-card:hover{background:#f3e5f5;}
+#messages .thinking-card .thinking-label{font-weight:bold;color:#7b1fa2;margin-bottom:0.25em;}
+#messages .thinking-card .thinking-content{color:#333;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+#messages .thinking-card.expanded .thinking-content{white-space:pre-wrap;overflow:visible;text-overflow:clip;}
 #drawer {display:none; border-top:1px solid #ddd; padding:0.5em; background:#fafafa;}
 </style>
 {% endblock %}
@@ -73,6 +78,28 @@ function addToolPlacard(toolName, args){
     tooltip.textContent=JSON.stringify(args, null, 2);
     div.appendChild(tooltip);
   }
+  
+  messagesDiv.appendChild(div);
+  messagesDiv.scrollTop=messagesDiv.scrollHeight;
+}
+
+function addThinkingCard(summary, model){
+  const div=document.createElement('div');
+  div.className='thinking-card';
+  
+  const label=document.createElement('div');
+  label.className='thinking-label';
+  label.textContent=`💭 Thinking (${model})`;
+  div.appendChild(label);
+  
+  const content=document.createElement('div');
+  content.className='thinking-content';
+  content.textContent=summary;
+  div.appendChild(content);
+  
+  div.addEventListener('click', () => {
+    div.classList.toggle('expanded');
+  });
   
   messagesDiv.appendChild(div);
   messagesDiv.scrollTop=messagesDiv.scrollHeight;
@@ -138,6 +165,9 @@ appEvents.listen('chat',e=>{
       // Handle all other tools with placards
       addToolPlacard(e.tool, e.args);
     }
+  } else if(e.event==='thinking'){
+    // Handle thinking events
+    addThinkingCard(e.summary, e.model || 'unknown');
   }
 });
 
