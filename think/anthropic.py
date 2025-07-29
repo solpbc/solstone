@@ -101,26 +101,19 @@ class AgentSession(BaseAgentSession):
         self.model = model
         self.max_tokens = max_tokens
         self._callback = JSONEventCallback(on_event)
-        self._mcp = None
         self.client: AsyncAnthropic | None = None
         self.messages: list[MessageParam] = []
         self.system_instruction = ""
         self._history: list[dict[str, str]] = []
         self.persona = persona
-        self.tool_executor: ToolExecutor | None = None
 
     async def __aenter__(self) -> "AgentSession":
-        self._mcp = create_mcp_client("fastmcp")
-        await self._mcp.__aenter__()
-
         api_key = os.getenv("ANTHROPIC_API_KEY")
         if not api_key:
             raise RuntimeError("ANTHROPIC_API_KEY not set")
         self.client = AsyncAnthropic(api_key=api_key)
 
         self.system_instruction, first_user, _ = agent_instructions(self.persona)
-
-        self.tool_executor = ToolExecutor(self._mcp, self._callback)
 
         if first_user:
             self.messages.append({"role": "user", "content": first_user})
@@ -139,21 +132,16 @@ class AgentSession(BaseAgentSession):
         self._history.append({"role": role, "content": text})
 
     async def __aexit__(self, exc_type, exc, tb) -> None:
-        if self._mcp:
-            await self._mcp.__aexit__(exc_type, exc, tb)
+        pass
 
-    async def _get_mcp_tools(self) -> list[ToolParam]:
-        """Return a list of MCP tools formatted for Claude."""
+    async def _get_mcp_tools(self, mcp: Any) -> list[ToolParam]:
+        """Return a list of MCP tools formatted for Claude using ``mcp``."""
 
-        if not self._mcp or not hasattr(self._mcp, "list_tools"):
+        if not hasattr(mcp, "list_tools"):
             return []
 
         tools = []
-        try:
-            tool_list = await self._mcp.list_tools()
-        except RuntimeError:
-            await self._mcp.__aenter__()
-            tool_list = await self._mcp.list_tools()
+        tool_list = await mcp.list_tools()
 
         for tool in tool_list:
             tools.append(
@@ -169,7 +157,7 @@ class AgentSession(BaseAgentSession):
 
     async def run(self, prompt: str) -> str:
         """Run ``prompt`` through Claude and return the result."""
-        if self.client is None or self._mcp is None:
+        if self.client is None:
             raise RuntimeError("AgentSession not initialized")
 
         self.messages.append({"role": "user", "content": prompt})
@@ -184,39 +172,40 @@ class AgentSession(BaseAgentSession):
             }
         )
 
-        tools = await self._get_mcp_tools()
+        async with create_mcp_client("fastmcp") as mcp:
+            tools = await self._get_mcp_tools(mcp)
+            tool_executor = ToolExecutor(mcp, self._callback)
 
-        while True:
-            response = await self.client.messages.create(
-                model=self.model,
-                max_tokens=self.max_tokens,
-                system=self.system_instruction,
-                messages=self.messages,
-                tools=tools if tools else None,
-            )
+            while True:
+                response = await self.client.messages.create(
+                    model=self.model,
+                    max_tokens=self.max_tokens,
+                    system=self.system_instruction,
+                    messages=self.messages,
+                    tools=tools if tools else None,
+                )
 
-            tool_uses = []
-            final_text = ""
-            for block in response.content:
-                if getattr(block, "type", None) == "text":
-                    final_text += block.text
-                elif getattr(block, "type", None) == "tool_use":
-                    tool_uses.append(block)
+                tool_uses = []
+                final_text = ""
+                for block in response.content:
+                    if getattr(block, "type", None) == "text":
+                        final_text += block.text
+                    elif getattr(block, "type", None) == "tool_use":
+                        tool_uses.append(block)
 
-            self.messages.append({"role": "assistant", "content": response.content})
+                self.messages.append({"role": "assistant", "content": response.content})
 
-            if not tool_uses:
-                self._callback.emit({"event": "finish", "result": final_text})
-                self._history.append({"role": "assistant", "content": final_text})
-                return final_text
+                if not tool_uses:
+                    self._callback.emit({"event": "finish", "result": final_text})
+                    self._history.append({"role": "assistant", "content": final_text})
+                    return final_text
 
-            results = []
-            for tool_use in tool_uses:
-                assert self.tool_executor
-                result = await self.tool_executor.execute_tool(tool_use)
-                results.append(result)
+                results = []
+                for tool_use in tool_uses:
+                    result = await tool_executor.execute_tool(tool_use)
+                    results.append(result)
 
-            self.messages.append({"role": "user", "content": results})
+                self.messages.append({"role": "user", "content": results})
 
 
 async def run_prompt(
