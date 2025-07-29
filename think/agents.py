@@ -117,6 +117,35 @@ class JournalEventWriter(JSONEventWriter):
                 logging.error("Failed to write journal event to %s: %s", self.path, exc)
 
 
+_global_journal_writer: Optional[JournalEventWriter] | None = None
+
+
+def _journal_emit(event: Event) -> None:
+    """Write ``event`` to the journal log, creating it lazily."""
+    global _global_journal_writer
+    event_type = event.get("event")
+    if event_type == "start":
+        if _global_journal_writer is not None:
+            _global_journal_writer.close()
+        _global_journal_writer = JournalEventWriter()
+    elif _global_journal_writer is None:
+        _global_journal_writer = JournalEventWriter()
+
+    if _global_journal_writer:
+        _global_journal_writer.emit(event)
+        if event_type in {"finish", "error"}:
+            _global_journal_writer.close()
+            _global_journal_writer = None
+
+
+def _close_journal_writer() -> None:
+    """Close the global journal log if open."""
+    global _global_journal_writer
+    if _global_journal_writer is not None:
+        _global_journal_writer.close()
+        _global_journal_writer = None
+
+
 class JSONEventCallback:
     """Emit JSON events via a callback."""
 
@@ -124,8 +153,14 @@ class JSONEventCallback:
         self.callback = callback
 
     def emit(self, data: Event) -> None:
+        if "ts" not in data:
+            data = {**data, "ts": int(time.time() * 1000)}
         if self.callback:
-            self.callback({**data, "ts": int(time.time() * 1000)})
+            self.callback(data)
+        _journal_emit(data)
+
+    def close(self) -> None:
+        _close_journal_writer()
 
 
 class BaseAgentSession(ABC):
@@ -224,13 +259,11 @@ async def main_async() -> None:
 
     app_logger = backend_mod.setup_logging(args.verbose)
     event_writer = JSONEventWriter(out_path)
-    journal_writer = JournalEventWriter()
 
     def emit_event(data: Event) -> None:
         if "ts" not in data:
             data["ts"] = int(time.time() * 1000)
         event_writer.emit(data)
-        journal_writer.emit(data)
 
     if args.backend == "openai":
         api_key = os.getenv("OPENAI_API_KEY", "")
@@ -279,11 +312,13 @@ async def main_async() -> None:
                 app_logger.info("Running agent with model %s", args.model)
                 await agent_session.run(user_prompt)
     except Exception as exc:  # pragma: no cover - unexpected
-        emit_event({"event": "error", "error": str(exc)})
+        err = {"event": "error", "error": str(exc)}
+        emit_event(err)
+        _journal_emit(err)
         raise
     finally:
         event_writer.close()
-        journal_writer.close()
+        _close_journal_writer()
 
 
 def main() -> None:
