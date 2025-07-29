@@ -59,7 +59,16 @@ class ErrorEvent(TypedDict):
     error: str
 
 
-Event = Union[ToolStartEvent, ToolEndEvent, StartEvent, FinishEvent, ErrorEvent]
+class ThinkingEvent(TypedDict):
+    """Event emitted when thinking/reasoning summaries are available."""
+
+    event: Literal["thinking"]
+    ts: int
+    summary: str
+    model: Optional[str]
+
+
+Event = Union[ToolStartEvent, ToolEndEvent, StartEvent, FinishEvent, ErrorEvent, ThinkingEvent]
 
 
 class JSONEventWriter:
@@ -195,6 +204,7 @@ __all__ = [
     "StartEvent",
     "FinishEvent",
     "ErrorEvent",
+    "ThinkingEvent",
     "Event",
     "JSONEventWriter",
     "JournalEventWriter",

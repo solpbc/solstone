@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import logging
 import sys
+import time
 import traceback
 from typing import Callable, Optional
 
@@ -25,7 +26,7 @@ from agents import (
 
 from think.utils import agent_instructions, create_mcp_client
 
-from .agents import BaseAgentSession, JSONEventCallback
+from .agents import BaseAgentSession, JSONEventCallback, ThinkingEvent
 from .models import GPT_O4_MINI
 
 DEFAULT_MODEL = GPT_O4_MINI
@@ -157,6 +158,44 @@ class AgentSession(BaseAgentSession):
                 result = await Runner.run(
                     agent, prompt, session=self.session, run_config=self.run_config
                 )
+
+            # Extract thinking summaries from reasoning items
+            if hasattr(result, 'new_items') and result.new_items:
+                for item in result.new_items:
+                    if hasattr(item, 'reasoning') and item.reasoning:
+                        if hasattr(item.reasoning, 'summary') and item.reasoning.summary:
+                            thinking_event: ThinkingEvent = {
+                                "event": "thinking",
+                                "ts": int(time.time() * 1000),
+                                "summary": item.reasoning.summary,
+                                "model": self.model
+                            }
+                            self._callback.emit(thinking_event)
+                        elif hasattr(item.reasoning, 'content') and item.reasoning.content:
+                            # Fall back to content if summary not available
+                            thinking_event: ThinkingEvent = {
+                                "event": "thinking",
+                                "ts": int(time.time() * 1000),
+                                "summary": item.reasoning.content,
+                                "model": self.model
+                            }
+                            self._callback.emit(thinking_event)
+
+            # Alternative: Extract thinking summaries from raw responses
+            elif hasattr(result, 'raw_responses') and result.raw_responses:
+                for response in result.raw_responses:
+                    if hasattr(response, 'output') and response.output:
+                        for output_item in response.output:
+                            if hasattr(output_item, 'summary') and output_item.summary:
+                                for summary_item in output_item.summary:
+                                    if hasattr(summary_item, 'text') and summary_item.text:
+                                        thinking_event: ThinkingEvent = {
+                                            "event": "thinking",
+                                            "ts": int(time.time() * 1000),
+                                            "summary": summary_item.text,
+                                            "model": self.model
+                                        }
+                                        self._callback.emit(thinking_event)
 
             self._callback.emit({"event": "finish", "result": result.final_output})
             self._history.append({"role": "assistant", "content": result.final_output})
