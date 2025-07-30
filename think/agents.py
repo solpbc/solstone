@@ -8,7 +8,6 @@ import os
 import sys
 import time
 import traceback
-from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Any, Callable, Literal, Optional, TypedDict, Union
 
@@ -173,29 +172,42 @@ class JSONEventCallback:
         _close_journal_writer()
 
 
-class BaseAgentSession(ABC):
-    """Abstract base class for LLM agent sessions."""
-
-    @abstractmethod
-    async def __aenter__(self) -> "BaseAgentSession":
-        """Enter the session context."""
-
-    @abstractmethod
-    async def __aexit__(self, exc_type, exc, tb) -> None:
-        """Exit the session context."""
-
-    @property
-    @abstractmethod
-    def history(self) -> list[dict[str, str]]:
-        """Return the chat history as ``role``/``content`` pairs."""
-
-    @abstractmethod
-    def add_history(self, role: str, text: str) -> None:
-        """Queue a prior message for the next run."""
-
-    @abstractmethod
-    async def run(self, prompt: str) -> str:
-        """Run ``prompt`` through the agent and return the response text."""
+async def run_agent(
+    prompt: str,
+    *,
+    backend: str = "openai",
+    model: str = "",
+    max_tokens: int = 0,
+    on_event: Optional[Callable[[Event], None]] = None,
+    persona: str = "default",
+) -> str:
+    """Run a single prompt through an agent backend and return the response.
+    
+    Args:
+        prompt: The prompt to run
+        backend: Backend provider ("openai", "google", "anthropic")
+        model: Model to use (defaults to backend default)
+        max_tokens: Maximum tokens (defaults to backend default)
+        on_event: Optional event callback
+        persona: Persona instructions to load
+    
+    Returns:
+        The agent's response text
+    """
+    if backend == "google":
+        from . import google as backend_mod
+    elif backend == "anthropic":
+        from . import anthropic as backend_mod
+    else:
+        from . import openai as backend_mod
+    
+    return await backend_mod.run_agent(
+        prompt,
+        model=model or backend_mod.DEFAULT_MODEL,
+        max_tokens=max_tokens or backend_mod.DEFAULT_MAX_TOKENS,
+        on_event=on_event,
+        persona=persona,
+    )
 
 
 __all__ = [
@@ -209,7 +221,7 @@ __all__ = [
     "JSONEventWriter",
     "JournalEventWriter",
     "JSONEventCallback",
-    "BaseAgentSession",
+    "run_agent",
 ]
 
 
@@ -296,32 +308,40 @@ async def main_async() -> None:
         user_prompt = Path(args.task_file).read_text(encoding="utf-8")
 
     try:
-        async with backend_mod.AgentSession(
-            model=args.model,
-            max_tokens=args.max_tokens,
-            on_event=emit_event,
-            persona=args.persona,
-        ) as agent_session:
-            if user_prompt is None:
-                app_logger.info("Starting interactive mode with model %s", args.model)
-                try:
-                    while True:
-                        try:
-                            loop = asyncio.get_event_loop()
-                            prompt = await loop.run_in_executor(
-                                None, lambda: input("chat> ")
-                            )
-                            if not prompt:
-                                continue
-                            await agent_session.run(prompt)
-                        except EOFError:
-                            break
-                except KeyboardInterrupt:
-                    pass
-            else:
-                app_logger.debug("Task contents: %s", user_prompt)
-                app_logger.info("Running agent with model %s", args.model)
-                await agent_session.run(user_prompt)
+        if user_prompt is None:
+            app_logger.info("Starting interactive mode with model %s", args.model)
+            try:
+                while True:
+                    try:
+                        loop = asyncio.get_event_loop()
+                        prompt = await loop.run_in_executor(
+                            None, lambda: input("chat> ")
+                        )
+                        if not prompt:
+                            continue
+                        await run_agent(
+                            prompt,
+                            backend=args.backend,
+                            model=args.model,
+                            max_tokens=args.max_tokens,
+                            on_event=emit_event,
+                            persona=args.persona,
+                        )
+                    except EOFError:
+                        break
+            except KeyboardInterrupt:
+                pass
+        else:
+            app_logger.debug("Task contents: %s", user_prompt)
+            app_logger.info("Running agent with model %s", args.model)
+            await run_agent(
+                user_prompt,
+                backend=args.backend,
+                model=args.model,
+                max_tokens=args.max_tokens,
+                on_event=emit_event,
+                persona=args.persona,
+            )
     except Exception as exc:  # pragma: no cover - unexpected
         err = {
             "event": "error",

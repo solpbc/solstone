@@ -26,7 +26,7 @@ from agents import (
 
 from think.utils import agent_instructions, create_mcp_client
 
-from .agents import BaseAgentSession, JSONEventCallback, ThinkingEvent
+from .agents import JSONEventCallback, ThinkingEvent
 from .models import GPT_O4_MINI
 
 DEFAULT_MODEL = GPT_O4_MINI
@@ -72,7 +72,6 @@ class ToolLoggingHooks(AgentHooks):
         self.writer.emit({"event": "tool_start", "tool": tool_name, "args": arguments})
 
     def on_tool_call_end(self, context, tool_name: str, result) -> None:
-
         self.writer.emit({"event": "tool_end", "tool": tool_name, "result": result})
 
     def on_agent_start(self, context, agent_name: str) -> None:
@@ -82,134 +81,97 @@ class ToolLoggingHooks(AgentHooks):
         self.writer.emit({"event": "agent_end", "agent": agent_name})
 
 
-class AgentSession(BaseAgentSession):
-    """Context manager wrapping the Sunstone agent with optional session reuse."""
+async def run_agent(
+    prompt: str,
+    *,
+    model: str = DEFAULT_MODEL,
+    max_tokens: int = DEFAULT_MAX_TOKENS,
+    on_event: Optional[Callable[[dict], None]] = None,
+    persona: str = "default",
+) -> str:
+    """Run a single prompt through the OpenAI agent and return the response."""
+    callback = JSONEventCallback(on_event)
+    
+    try:
+        model_name = model
+        if model.startswith("o4-mini"):
+            parts = model.split("-")
+            if len(parts) >= 2:
+                model_name = "-".join(parts[:2])
+        
+        callback.emit({
+            "event": "start",
+            "prompt": prompt,
+            "persona": persona,
+            "model": model_name,
+        })
 
-    def __init__(
-        self,
-        model: str = DEFAULT_MODEL,
-        *,
-        max_tokens: int = DEFAULT_MAX_TOKENS,
-        on_event: Optional[Callable[[dict], None]] = None,
-        persona: str = "default",
-    ) -> None:
-        self.model = model
-        self.max_tokens = max_tokens
-        self._callback = JSONEventCallback(on_event)
-        self.session = SQLiteSession("sunstone_cli_session")
-        self.run_config = RunConfig()
-        self._history: list[dict[str, str]] = []
-        self._pending_history: list[dict[str, str]] = []
-        self.persona = persona
-
-    async def __aenter__(self) -> "AgentSession":
-        return self
-
-    @property
-    def history(self) -> list[dict[str, str]]:
-        """Return chat history added and generated during this session."""
-
-        return list(self._history)
-
-    def add_history(self, role: str, text: str) -> None:
-        """Queue a history message for the next run."""
-
-        self._pending_history.append({"role": role, "content": text})
-        self._history.append({"role": role, "content": text})
-
-    async def __aexit__(self, exc_type, exc, tb) -> None:
-        if hasattr(self.session, "close"):
-            self.session.close()
-
-    async def run(self, prompt: str) -> str:
-        """Run ``prompt`` through the agent and return the result."""
-        try:
-            if self._pending_history:
-                await self.session.add_items(self._pending_history)
-                self._pending_history.clear()
-
-            self._history.append({"role": "user", "content": prompt})
-
-            model_name = self.model
-            if self.model.startswith("o4-mini"):
-                parts = self.model.split("-")
-                if len(parts) >= 2:
-                    model_name = "-".join(parts[:2])
-            self._callback.emit(
-                {
-                    "event": "start",
-                    "prompt": prompt,
-                    "persona": self.persona,
-                    "model": model_name,
-                }
+        async with create_mcp_client() as mcp:
+            system_instruction, extra_context, _ = agent_instructions(persona)
+            agent = Agent(
+                name="SunstoneCLI",
+                instructions=f"{system_instruction}\n\n{extra_context}",
+                model=model,
+                model_settings=ModelSettings(max_tokens=max_tokens),
+                mcp_servers=[mcp],
+                hooks=ToolLoggingHooks(callback),
             )
 
-            async with create_mcp_client() as mcp:
-                system_instruction, extra_context, _ = agent_instructions(self.persona)
-                agent = Agent(
-                    name="SunstoneCLI",
-                    instructions=f"{system_instruction}\n\n{extra_context}",
-                    model=self.model,
-                    model_settings=ModelSettings(max_tokens=self.max_tokens),
-                    mcp_servers=[mcp],
-                    hooks=ToolLoggingHooks(self._callback),
-                )
+            # Create temporary session for this run
+            session = SQLiteSession("sunstone_oneshot")
+            try:
+                result = await Runner.run(agent, prompt, session=session, run_config=RunConfig())
+            finally:
+                if hasattr(session, "close"):
+                    session.close()
 
-                result = await Runner.run(
-                    agent, prompt, session=self.session, run_config=self.run_config
-                )
+        # Extract thinking summaries from reasoning items
+        if hasattr(result, 'new_items') and result.new_items:
+            for item in result.new_items:
+                if hasattr(item, 'reasoning') and item.reasoning:
+                    if hasattr(item.reasoning, 'summary') and item.reasoning.summary:
+                        thinking_event: ThinkingEvent = {
+                            "event": "thinking",
+                            "ts": int(time.time() * 1000),
+                            "summary": item.reasoning.summary,
+                            "model": model
+                        }
+                        callback.emit(thinking_event)
+                    elif hasattr(item.reasoning, 'content') and item.reasoning.content:
+                        thinking_event: ThinkingEvent = {
+                            "event": "thinking",
+                            "ts": int(time.time() * 1000),
+                            "summary": item.reasoning.content,
+                            "model": model
+                        }
+                        callback.emit(thinking_event)
 
-            # Extract thinking summaries from reasoning items
-            if hasattr(result, 'new_items') and result.new_items:
-                for item in result.new_items:
-                    if hasattr(item, 'reasoning') and item.reasoning:
-                        if hasattr(item.reasoning, 'summary') and item.reasoning.summary:
-                            thinking_event: ThinkingEvent = {
-                                "event": "thinking",
-                                "ts": int(time.time() * 1000),
-                                "summary": item.reasoning.summary,
-                                "model": self.model
-                            }
-                            self._callback.emit(thinking_event)
-                        elif hasattr(item.reasoning, 'content') and item.reasoning.content:
-                            # Fall back to content if summary not available
-                            thinking_event: ThinkingEvent = {
-                                "event": "thinking",
-                                "ts": int(time.time() * 1000),
-                                "summary": item.reasoning.content,
-                                "model": self.model
-                            }
-                            self._callback.emit(thinking_event)
+        # Alternative: Extract thinking summaries from raw responses
+        elif hasattr(result, 'raw_responses') and result.raw_responses:
+            for response in result.raw_responses:
+                if hasattr(response, 'output') and response.output:
+                    for output_item in response.output:
+                        if hasattr(output_item, 'summary') and output_item.summary:
+                            for summary_item in output_item.summary:
+                                if hasattr(summary_item, 'text') and summary_item.text:
+                                    thinking_event: ThinkingEvent = {
+                                        "event": "thinking",
+                                        "ts": int(time.time() * 1000),
+                                        "summary": summary_item.text,
+                                        "model": model
+                                    }
+                                    callback.emit(thinking_event)
 
-            # Alternative: Extract thinking summaries from raw responses
-            elif hasattr(result, 'raw_responses') and result.raw_responses:
-                for response in result.raw_responses:
-                    if hasattr(response, 'output') and response.output:
-                        for output_item in response.output:
-                            if hasattr(output_item, 'summary') and output_item.summary:
-                                for summary_item in output_item.summary:
-                                    if hasattr(summary_item, 'text') and summary_item.text:
-                                        thinking_event: ThinkingEvent = {
-                                            "event": "thinking",
-                                            "ts": int(time.time() * 1000),
-                                            "summary": summary_item.text,
-                                            "model": self.model
-                                        }
-                                        self._callback.emit(thinking_event)
-
-            self._callback.emit({"event": "finish", "result": result.final_output})
-            self._history.append({"role": "assistant", "content": result.final_output})
-            return result.final_output
-        except Exception as exc:
-            self._callback.emit(
-                {
-                    "event": "error",
-                    "error": str(exc),
-                    "trace": traceback.format_exc(),
-                }
-            )
-            setattr(exc, "_evented", True)
-            raise
+        callback.emit({"event": "finish", "result": result.final_output})
+        return result.final_output
+    except Exception as exc:
+        callback.emit({
+            "event": "error",
+            "error": str(exc),
+            "trace": traceback.format_exc(),
+        })
+        setattr(exc, "_evented", True)
+        raise
 
 
 async def run_prompt(
@@ -220,16 +182,14 @@ async def run_prompt(
     on_event: Optional[Callable[[dict], None]] = None,
     persona: str = "default",
 ) -> str:
-    """Convenience helper to run ``prompt`` with a temporary :class:`AgentSession`."""
-
-    async with AgentSession(
-        model, max_tokens=max_tokens, on_event=on_event, persona=persona
-    ) as ag:
-        return await ag.run(prompt)
+    """Convenience helper to run ``prompt`` (alias for run_agent)."""
+    return await run_agent(
+        prompt, model=model, max_tokens=max_tokens, on_event=on_event, persona=persona
+    )
 
 
 __all__ = [
-    "AgentSession",
+    "run_agent",
     "run_prompt",
     "setup_logging",
     "DEFAULT_MODEL",

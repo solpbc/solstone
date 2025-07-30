@@ -17,7 +17,7 @@ from typing import Any, Callable, Optional
 from anthropic import AsyncAnthropic
 from anthropic.types import MessageParam, ToolParam, ToolUseBlock
 
-from .agents import BaseAgentSession, JSONEventCallback, ThinkingEvent
+from .agents import JSONEventCallback, ThinkingEvent
 from .models import CLAUDE_OPUS_4
 from .utils import agent_instructions, create_mcp_client
 
@@ -44,13 +44,11 @@ class ToolExecutor:
 
     async def execute_tool(self, tool_use: ToolUseBlock) -> dict:
         """Execute ``tool_use`` and return a Claude ``tool_result`` block."""
-        self.callback.emit(
-            {
-                "event": "tool_start",
-                "tool": tool_use.name,
-                "args": tool_use.input,
-            }
-        )
+        self.callback.emit({
+            "event": "tool_start",
+            "tool": tool_use.name,
+            "args": tool_use.input,
+        })
 
         try:
             try:
@@ -72,22 +70,18 @@ class ToolExecutor:
                 # Direct result (dict, string, etc.)
                 result_data = result
                 
-            self.callback.emit(
-                {
-                    "event": "tool_end",
-                    "tool": tool_use.name,
-                    "result": result_data,
-                }
-            )
+            self.callback.emit({
+                "event": "tool_end",
+                "tool": tool_use.name,
+                "result": result_data,
+            })
             content = result_data if isinstance(result_data, str) else json.dumps(result_data)
         except Exception as exc:  # pragma: no cover - unexpected
-            self.callback.emit(
-                {
-                    "event": "tool_end",
-                    "tool": tool_use.name,
-                    "result": {"error": str(exc)},
-                }
-            )
+            self.callback.emit({
+                "event": "tool_end",
+                "tool": tool_use.name,
+                "result": {"error": str(exc)},
+            })
             content = f"Error: {exc}"
 
         return {
@@ -97,169 +91,117 @@ class ToolExecutor:
         }
 
 
-class AgentSession(BaseAgentSession):
-    """Context manager running Claude with MCP tools."""
+async def _get_mcp_tools(mcp: Any) -> list[ToolParam]:
+    """Return a list of MCP tools formatted for Claude using ``mcp``."""
 
-    def __init__(
-        self,
-        model: str = DEFAULT_MODEL,
-        *,
-        max_tokens: int = DEFAULT_MAX_TOKENS,
-        on_event: Optional[Callable[[dict], None]] = None,
-        persona: str = "default",
-    ) -> None:
-        self.model = model
-        self.max_tokens = max_tokens
-        self._callback = JSONEventCallback(on_event)
-        self.client: AsyncAnthropic | None = None
-        self.messages: list[MessageParam] = []
-        self.system_instruction = ""
-        self._history: list[dict[str, str]] = []
-        self.persona = persona
+    if not hasattr(mcp, "list_tools"):
+        return []
 
-    async def __aenter__(self) -> "AgentSession":
-        try:
-            api_key = os.getenv("ANTHROPIC_API_KEY")
-            if not api_key:
-                raise RuntimeError("ANTHROPIC_API_KEY not set")
-            self.client = AsyncAnthropic(api_key=api_key)
+    tools = []
+    tool_list = await mcp.list_tools()
 
-            self.system_instruction, first_user, _ = agent_instructions(self.persona)
+    for tool in tool_list:
+        tools.append({
+            "name": tool.name,
+            "description": tool.description or "",
+            "input_schema": tool.inputSchema
+            or {"type": "object", "properties": {}, "required": []},
+        })
 
+    return tools
+
+
+async def run_agent(
+    prompt: str,
+    *,
+    model: str = DEFAULT_MODEL,
+    max_tokens: int = DEFAULT_MAX_TOKENS,
+    on_event: Optional[Callable[[dict], None]] = None,
+    persona: str = "default",
+) -> str:
+    """Run a single prompt through the Anthropic Claude agent and return the response."""
+    callback = JSONEventCallback(on_event)
+    
+    try:
+        api_key = os.getenv("ANTHROPIC_API_KEY")
+        if not api_key:
+            raise RuntimeError("ANTHROPIC_API_KEY not set")
+        
+        client = AsyncAnthropic(api_key=api_key)
+
+        callback.emit({
+            "event": "start",
+            "prompt": prompt,
+            "persona": persona,
+            "model": model,
+        })
+
+        async with create_mcp_client("fastmcp") as mcp:
+            system_instruction, first_user, _ = agent_instructions(persona)
+            tools = await _get_mcp_tools(mcp)
+            tool_executor = ToolExecutor(mcp, callback)
+
+            # Build initial messages
+            messages: list[MessageParam] = []
             if first_user:
-                self.messages.append({"role": "user", "content": first_user})
-                self._history.append({"role": "user", "content": first_user})
+                messages.append({"role": "user", "content": first_user})
+            messages.append({"role": "user", "content": prompt})
 
-            return self
-        except Exception as exc:
-            self._callback.emit(
-                {
-                    "event": "error",
-                    "error": str(exc),
-                    "trace": traceback.format_exc(),
-                }
-            )
-            setattr(exc, "_evented", True)
-            raise
+            while True:
+                # Configure thinking for supported models
+                thinking_config = None
+                if model in ["claude-opus-4-20250514", "claude-sonnet-4-20250514", "claude-sonnet-3-7-20241124"]:
+                    thinking_config = {
+                        "type": "enabled",
+                        "budget_tokens": min(10000, max_tokens - 1000)  # Reserve some tokens for final response
+                    }
+                
+                response = await client.messages.create(
+                    model=model,
+                    max_tokens=max_tokens,
+                    system=system_instruction,
+                    messages=messages,
+                    tools=tools if tools else None,
+                    thinking=thinking_config,
+                )
 
-    @property
-    def history(self) -> list[dict[str, str]]:
-        """Return the accumulated chat history."""
-        return list(self._history)
-
-    def add_history(self, role: str, text: str) -> None:
-        """Queue a history message for the next run."""
-        self.messages.append({"role": role, "content": text})
-        self._history.append({"role": role, "content": text})
-
-    async def __aexit__(self, exc_type, exc, tb) -> None:
-        pass
-
-    async def _get_mcp_tools(self, mcp: Any) -> list[ToolParam]:
-        """Return a list of MCP tools formatted for Claude using ``mcp``."""
-
-        if not hasattr(mcp, "list_tools"):
-            return []
-
-        tools = []
-        tool_list = await mcp.list_tools()
-
-        for tool in tool_list:
-            tools.append(
-                {
-                    "name": tool.name,
-                    "description": tool.description or "",
-                    "input_schema": tool.inputSchema
-                    or {"type": "object", "properties": {}, "required": []},
-                }
-            )
-
-        return tools
-
-    async def run(self, prompt: str) -> str:
-        """Run ``prompt`` through Claude and return the result."""
-        try:
-            if self.client is None:
-                raise RuntimeError("AgentSession not initialized")
-
-            self.messages.append({"role": "user", "content": prompt})
-            self._history.append({"role": "user", "content": prompt})
-
-            self._callback.emit(
-                {
-                    "event": "start",
-                    "prompt": prompt,
-                    "persona": self.persona,
-                    "model": self.model,
-                }
-            )
-
-            async with create_mcp_client("fastmcp") as mcp:
-                tools = await self._get_mcp_tools(mcp)
-                tool_executor = ToolExecutor(mcp, self._callback)
-
-                while True:
-                    # Configure thinking for supported models
-                    thinking_config = None
-                    if self.model in ["claude-opus-4-20250514", "claude-sonnet-4-20250514", "claude-sonnet-3-7-20241124"]:
-                        thinking_config = {
-                            "type": "enabled",
-                            "budget_tokens": min(10000, self.max_tokens - 1000)  # Reserve some tokens for final response
+                tool_uses = []
+                final_text = ""
+                for block in response.content:
+                    if getattr(block, "type", None) == "text":
+                        final_text += block.text
+                    elif getattr(block, "type", None) == "tool_use":
+                        tool_uses.append(block)
+                    elif getattr(block, "type", None) == "thinking":
+                        # Emit thinking event with the reasoning content
+                        thinking_event: ThinkingEvent = {
+                            "event": "thinking",
+                            "ts": int(time.time() * 1000),
+                            "summary": block.thinking,
+                            "model": model
                         }
-                    
-                    response = await self.client.messages.create(
-                        model=self.model,
-                        max_tokens=self.max_tokens,
-                        system=self.system_instruction,
-                        messages=self.messages,
-                        tools=tools if tools else None,
-                        thinking=thinking_config,
-                    )
+                        callback.emit(thinking_event)
 
-                    tool_uses = []
-                    final_text = ""
-                    for block in response.content:
-                        if getattr(block, "type", None) == "text":
-                            final_text += block.text
-                        elif getattr(block, "type", None) == "tool_use":
-                            tool_uses.append(block)
-                        elif getattr(block, "type", None) == "thinking":
-                            # Emit thinking event with the reasoning content
-                            thinking_event: ThinkingEvent = {
-                                "event": "thinking",
-                                "ts": int(time.time() * 1000),
-                                "summary": block.thinking,
-                                "model": self.model
-                            }
-                            self._callback.emit(thinking_event)
+                messages.append({"role": "assistant", "content": response.content})
 
-                    self.messages.append(
-                        {"role": "assistant", "content": response.content}
-                    )
+                if not tool_uses:
+                    callback.emit({"event": "finish", "result": final_text})
+                    return final_text
 
-                    if not tool_uses:
-                        self._callback.emit({"event": "finish", "result": final_text})
-                        self._history.append(
-                            {"role": "assistant", "content": final_text}
-                        )
-                        return final_text
+                results = []
+                for tool_use in tool_uses:
+                    result = await tool_executor.execute_tool(tool_use)
+                    results.append(result)
 
-                    results = []
-                    for tool_use in tool_uses:
-                        result = await tool_executor.execute_tool(tool_use)
-                        results.append(result)
-
-                    self.messages.append({"role": "user", "content": results})
-        except Exception as exc:
-            self._callback.emit(
-                {
-                    "event": "error",
-                    "error": str(exc),
-                    "trace": traceback.format_exc(),
-                }
-            )
-            setattr(exc, "_evented", True)
-            raise
+                messages.append({"role": "user", "content": results})
+    except Exception as exc:
+        callback.emit({
+            "event": "error",
+            "error": str(exc),
+            "trace": traceback.format_exc(),
+        })
+        setattr(exc, "_evented", True)
+        raise
 
 
 async def run_prompt(
@@ -270,15 +212,14 @@ async def run_prompt(
     on_event: Optional[Callable[[dict], None]] = None,
     persona: str = "default",
 ) -> str:
-    """Convenience helper to run ``prompt`` with a temporary session."""
-    async with AgentSession(
-        model, max_tokens=max_tokens, on_event=on_event, persona=persona
-    ) as ag:
-        return await ag.run(prompt)
+    """Convenience helper to run ``prompt`` (alias for run_agent)."""
+    return await run_agent(
+        prompt, model=model, max_tokens=max_tokens, on_event=on_event, persona=persona
+    )
 
 
 __all__ = [
-    "AgentSession",
+    "run_agent",
     "run_prompt",
     "setup_logging",
     "DEFAULT_MODEL",
