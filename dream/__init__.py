@@ -170,7 +170,6 @@ __all__ = [
     "reload_entities",
     "stats_data",
     "journal_root",
-    "entities_index",
     "occurrences_index",
 ]
 
@@ -178,8 +177,6 @@ __all__ = [
 def __getattr__(name: str):
     if name == "journal_root":
         return state.journal_root
-    if name == "entities_index":
-        return state.entities_index
     if name == "occurrences_index":
         return state.occurrences_index
     raise AttributeError(name)
@@ -188,8 +185,6 @@ def __getattr__(name: str):
 def __setattr__(name: str, value) -> None:
     if name == "journal_root":
         state.journal_root = value
-    elif name == "entities_index":
-        state.entities_index = value
     elif name == "occurrences_index":
         state.occurrences_index = value
     globals()[name] = value
@@ -197,7 +192,7 @@ def __setattr__(name: str, value) -> None:
 
 class _Module(types.ModuleType):
     def __setattr__(self, key, value):
-        if key in {"journal_root", "entities_index", "occurrences_index"}:
+        if key in {"journal_root", "occurrences_index"}:
             setattr(state, key, value)
         super().__setattr__(key, value)
 

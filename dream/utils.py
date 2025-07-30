@@ -8,7 +8,7 @@ from typing import Any, Dict, List, Optional
 from google import genai
 from google.genai import types
 
-from think.entities import parse_entity_line
+from think.indexer import parse_entity_line
 from think.models import GEMINI_FLASH
 from think.utils import get_topics
 

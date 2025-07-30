@@ -13,8 +13,20 @@ from syntok import segmenter
 
 from think.utils import get_topics, journal_log, setup_cli
 
-from .entities import find_day_dirs, load_cache, save_cache
-from .entities import scan_entities as scan_entities_cache
+# Moved from entities.py
+DATE_RE = re.compile(r"\d{8}")
+
+
+def find_day_dirs(journal: str) -> Dict[str, str]:
+    """Return mapping of YYYYMMDD strings to absolute paths."""
+    days: Dict[str, str] = {}
+    for name in os.listdir(journal):
+        if DATE_RE.fullmatch(name):
+            path = os.path.join(journal, name)
+            if os.path.isdir(path):
+                days[name] = path
+    return days
+
 
 INDEX_DIR = "indexer"
 
@@ -1039,11 +1051,8 @@ def main() -> None:
             if changed:
                 journal_log("indexer events rescan ok")
         elif args.index == "summaries":
-            cache = load_cache(journal)
-            changed = scan_entities_cache(journal, cache)
-            changed |= scan_summaries(journal, verbose=args.verbose)
+            changed = scan_summaries(journal, verbose=args.verbose)
             if changed:
-                save_cache(journal, cache)
                 journal_log("indexer summaries rescan ok")
         elif args.index == "entities":
             changed = scan_entities(journal, verbose=args.verbose)

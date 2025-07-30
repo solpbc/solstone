@@ -27,7 +27,7 @@ dream/
   utils.py           - helpers for parsing and building indices
   views/             - one module per view
       home.py        - home page and login/logout routes
-      entities.py    - entity review UI and related APIs
+      entities.py    - entity review UI using the indexer-based entity search
       calendar.py    - meeting calendar UI and APIs
       chat.py        - simple chat interface for Google, OpenAI or Anthropic LLMs
   templates/         - HTML templates, one file per view

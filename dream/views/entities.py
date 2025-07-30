@@ -5,7 +5,6 @@ from typing import Any, Dict, List
 
 from flask import Blueprint, jsonify, render_template, request
 
-from think.entities import Entities
 from think.indexer import scan_entities, search_entities
 
 from .. import state
@@ -22,9 +21,6 @@ bp = Blueprint("entities", __name__, template_folder="../templates")
 
 def reload_entities() -> None:
     """Rescan entity files and rebuild the search index."""
-    ent = Entities(state.journal_root)
-    ent.rescan()
-    state.entities_index = ent.index()
     scan_entities(state.journal_root)
 
 
@@ -125,7 +121,9 @@ def api_top_generate() -> Any:
     payload = request.get_json(force=True)
     etype = payload.get("type")
     name = payload.get("name")
-    info = state.entities_index.get(etype, {}).get(name)
+    # Get entity info from the indexer search
+    _total, results = search_entities("", limit=1, etype=etype, name=name)
+    info = results[0]["metadata"] if results else None
     api_key = os.getenv("GOOGLE_API_KEY")
     if not api_key or info is None:
         return ("", 400)
