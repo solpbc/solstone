@@ -90,6 +90,43 @@ def chat_history() -> Any:
     return jsonify(history=history)
 
 
+@bp.route("/chat/api/agent/<agent_id>")
+def agent_events(agent_id: str) -> Any:
+    """Return events from a historical agent run."""
+    
+    if not state.journal_root:
+        return jsonify({"error": "Journal root not configured"}), 500
+    
+    agents_dir = os.path.join(state.journal_root, "agents")
+    agent_file = os.path.join(agents_dir, f"{agent_id}.jsonl")
+    
+    if not os.path.isfile(agent_file):
+        return jsonify({"error": "Agent not found"}), 404
+    
+    events = []
+    history = []
+    
+    try:
+        with open(agent_file, "r", encoding="utf-8") as f:
+            for line in f:
+                event = json.loads(line.strip())
+                if not event:
+                    continue
+                
+                events.append(event)
+                
+                # Build chat history for display
+                if event.get("event") == "start":
+                    history.append({"role": "user", "text": event.get("prompt", "")})
+                elif event.get("event") == "finish":
+                    history.append({"role": "assistant", "text": event.get("result", "")})
+                    
+    except Exception as e:
+        return jsonify({"error": f"Failed to read agent file: {str(e)}"}), 500
+    
+    return jsonify(events=events, history=history)
+
+
 @bp.route("/chat/api/clear", methods=["POST"])
 async def clear_history() -> Any:
     """Clear the cached history."""

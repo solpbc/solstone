@@ -46,11 +46,16 @@ body {height:100vh; overflow:hidden;}
 const sendUrl = '{{ url_for('chat.send_message') }}';
 const historyUrl = '{{ url_for('chat.chat_history') }}';
 const clearUrl = '{{ url_for('chat.clear_history') }}';
+const agentUrl = '{{ url_for('chat.agent_events', agent_id='AGENT_ID') }}';
 const form = document.getElementById('inputArea');
 const input = document.getElementById('messageInput');
 const messagesDiv = document.getElementById('messages');
 const backendSelect = document.getElementById('backendSelect');
 const searchBase = '{{ url_for('search.search_page') }}';
+
+// Check if viewing historical agent
+const fragment = window.location.hash.slice(1);
+const isHistorical = fragment && /^\d+$/.test(fragment);
 
 function addEventCard(text, url){
   const div=document.createElement('div');
@@ -139,39 +144,92 @@ async function loadHistory(){
   }
 }
 
-document.getElementById('clearBtn').onclick=async()=>{
-  await fetch(clearUrl,{method:'POST'});
-  messagesDiv.innerHTML='';
-  input.focus();
-};
+async function loadHistoricalAgent(agentId){
+  const url = agentUrl.replace('AGENT_ID', agentId);
+  const r = await fetch(url);
+  if(!r.ok){
+    showError('Failed to load historical agent: ' + agentId);
+    return;
+  }
+  const d = await r.json();
+  
+  // Load chat history first
+  for(const m of d.history){
+    addMessage(m.text, m.role==='user'?'from-user':'from-bot');
+  }
+  
+  // Then replay events
+  for(const event of d.events){
+    handleHistoricalEvent(event);
+  }
+}
 
-backendSelect.addEventListener('change', async ()=>{
-  await fetch(clearUrl,{method:'POST'});
-  messagesDiv.innerHTML='';
-  input.focus();
-});
-
-appEvents.listen('chat',e=>{
-  if(e.event==='tool_start'){
+function handleHistoricalEvent(event){
+  if(event.event === 'tool_start'){
     // Handle search tools with special event cards
-    if(e.args&&e.args.query){
+    if(event.args && event.args.query){
       let idx='summaries';
-      if(e.tool.includes('event')) idx='events';
-      else if(e.tool.includes('transcript')) idx='transcripts';
-      const q=e.args.query+(idx==='summaries'?'':' index:'+idx);
+      if(event.tool.includes('event')) idx='events';
+      else if(event.tool.includes('transcript')) idx='transcripts';
+      const q=event.args.query+(idx==='summaries'?'':' index:'+idx);
       const url=searchBase+'#q='+encodeURIComponent(q);
-      addEventCard('Search '+e.args.query,url);
+      addEventCard('Search '+event.args.query,url);
     } else {
       // Handle all other tools with placards
-      addToolPlacard(e.tool, e.args);
+      addToolPlacard(event.tool, event.args);
     }
-  } else if(e.event==='thinking'){
+  } else if(event.event === 'thinking'){
     // Handle thinking events
-    addThinkingCard(e.summary, e.model || 'unknown');
+    addThinkingCard(event.summary, event.model || 'unknown');
   }
-});
+}
 
-loadHistory();
+// Disable input and controls if viewing historical agent
+if(isHistorical){
+  form.style.display = 'none';
+  // Add a notice that this is historical
+  const notice = document.createElement('div');
+  notice.style.cssText = 'background:#fff3cd;border:1px solid #ffeaa7;padding:0.75rem;margin:1rem;border-radius:4px;text-align:center;color:#856404;';
+  notice.textContent = `Viewing historical agent run: ${fragment} (read-only)`;
+  document.querySelector('.container').insertBefore(notice, messagesDiv);
+  
+  loadHistoricalAgent(fragment);
+} else {
+  // Live mode - enable normal functionality
+  document.getElementById('clearBtn').onclick=async()=>{
+    await fetch(clearUrl,{method:'POST'});
+    messagesDiv.innerHTML='';
+    input.focus();
+  };
+
+  backendSelect.addEventListener('change', async ()=>{
+    await fetch(clearUrl,{method:'POST'});
+    messagesDiv.innerHTML='';
+    input.focus();
+  });
+
+  appEvents.listen('chat',e=>{
+    if(e.event==='tool_start'){
+      // Handle search tools with special event cards
+      if(e.args&&e.args.query){
+        let idx='summaries';
+        if(e.tool.includes('event')) idx='events';
+        else if(e.tool.includes('transcript')) idx='transcripts';
+        const q=e.args.query+(idx==='summaries'?'':' index:'+idx);
+        const url=searchBase+'#q='+encodeURIComponent(q);
+        addEventCard('Search '+e.args.query,url);
+      } else {
+        // Handle all other tools with placards
+        addToolPlacard(e.tool, e.args);
+      }
+    } else if(e.event==='thinking'){
+      // Handle thinking events
+      addThinkingCard(e.summary, e.model || 'unknown');
+    }
+  });
+
+  loadHistory();
+}
 </script>
 {% endblock %}
 
