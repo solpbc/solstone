@@ -29,13 +29,17 @@ def main() -> None:
     parser.add_argument(
         "--index",
         choices=["summaries", "events", "transcripts", "entities"],
-        required=True,
         help="Which index to operate on",
     )
     parser.add_argument(
         "--rescan",
         action="store_true",
         help="Scan journal and update the index before searching",
+    )
+    parser.add_argument(
+        "--rescan-all",
+        action="store_true",
+        help="Scan journal and update all indexes",
     )
     parser.add_argument(
         "--reset",
@@ -56,10 +60,14 @@ def main() -> None:
 
     args = setup_cli(parser)
 
-    # Require either --rescan or -q
-    if not args.rescan and args.query is None:
+    # Require either --rescan, --rescan-all, or -q
+    if not args.rescan and not args.rescan_all and args.query is None:
         parser.print_help()
         return
+    
+    # Validate --index is required unless using --rescan-all
+    if not args.rescan_all and not args.index:
+        parser.error("--index is required unless using --rescan-all")
 
     journal = os.getenv("JOURNAL_PATH")
 
@@ -67,6 +75,27 @@ def main() -> None:
         reset_index(
             journal, args.index, day=args.day if args.index == "transcripts" else None
         )
+
+    if args.rescan_all:
+        # Rescan all indexes
+        indexes = ["summaries", "events", "transcripts", "entities"]
+        for index_name in indexes:
+            if index_name == "transcripts":
+                changed = scan_transcripts(journal, verbose=args.verbose)
+                if changed:
+                    journal_log(f"indexer {index_name} rescan ok")
+            elif index_name == "events":
+                changed = scan_events(journal, verbose=args.verbose)
+                if changed:
+                    journal_log(f"indexer {index_name} rescan ok")
+            elif index_name == "summaries":
+                changed = scan_summaries(journal, verbose=args.verbose)
+                if changed:
+                    journal_log(f"indexer {index_name} rescan ok")
+            elif index_name == "entities":
+                changed = scan_entities(journal, verbose=args.verbose)
+                if changed:
+                    journal_log(f"indexer {index_name} rescan ok")
 
     if args.rescan:
         if args.index == "transcripts":
@@ -88,6 +117,9 @@ def main() -> None:
 
     # Handle query argument
     if args.query is not None:
+        if not args.index:
+            parser.error("--index is required when using --query")
+        
         if args.index == "transcripts":
             search_func = search_transcripts
             query_kwargs = {"day": args.day}
