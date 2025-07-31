@@ -18,11 +18,11 @@ from anthropic import AsyncAnthropic
 from anthropic.types import MessageParam, ToolParam, ToolUseBlock
 
 from .agents import JSONEventCallback, ThinkingEvent
-from .models import CLAUDE_OPUS_4
+from .models import CLAUDE_OPUS_4, CLAUDE_SONNET_4
 from .utils import agent_instructions, create_mcp_client
 
-DEFAULT_MODEL = CLAUDE_OPUS_4
-DEFAULT_MAX_TOKENS = 4096
+DEFAULT_MODEL = CLAUDE_SONNET_4
+DEFAULT_MAX_TOKENS = 8096*2
 
 
 def setup_logging(verbose: bool) -> logging.Logger:

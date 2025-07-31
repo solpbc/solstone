@@ -4,6 +4,7 @@ import json
 import os
 from typing import Any, List
 
+import markdown  # type: ignore
 from flask import Blueprint, jsonify, render_template, request
 
 from think.agents import run_agent
@@ -57,7 +58,9 @@ async def send_message() -> Any:
         return resp
 
     result = await ask_agent(message, attachments, backend)
-    return jsonify(text=result)
+    # Render markdown to HTML server-side
+    html_result = markdown.markdown(result, extensions=["extra"])
+    return jsonify(text=result, html=html_result)
 
 
 @bp.route("/chat/api/history")

@@ -118,3 +118,11 @@ Guide for updating:
 - Added `entities` index to `think.indexer` with FTS search of `entities.md` files.
 - Refactored entity indexing to use `entities` and `entity_appearances` tables,
   tracking first/last seen days and top descriptions.
+
+## 2025-07-30
+
+- Enhanced dream chat view with modern UI improvements including gradient user messages,
+  animated message appearances, and improved input styling with rounded corners
+- Added server-side markdown rendering for bot messages using Python markdown library
+- Implemented typing indicator animation that displays while waiting for agent responses
+- Improved backend selector with emoji indicators for each AI provider (Google, OpenAI, Claude)
