@@ -129,6 +129,10 @@ document.getElementById('inputArea').onsubmit=async e=>{
   e.preventDefault();
   const text=input.value.trim();
   if(!text)return;
+  
+  // Clear previous messages for fresh one-shot conversation
+  messagesDiv.innerHTML='';
+  
   addMessage(text,'from-user');
   input.value='';
   const r=await fetch(sendUrl,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:text,backend:backendSelect.value})});

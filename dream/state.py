@@ -1,12 +1,7 @@
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
-from think.agents import BaseAgentSession
-
-# Cached chat agent session. ``BaseAgentSession.history`` stores
-# the role/content pairs for the conversation.
-chat_agent: Optional[BaseAgentSession] = None
 # Currently selected backend name ("google", "openai" or "anthropic").
-# ``send_message`` updates this when a new backend is requested.
+# Each message starts fresh with no persistent session.
 chat_backend: str = "google"
 
 journal_root: str = ""

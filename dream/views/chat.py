@@ -1,13 +1,12 @@
 from __future__ import annotations
 
+import json
 import os
 from typing import Any, List
 
 from flask import Blueprint, jsonify, render_template, request
 
-from think.anthropic import AgentSession as ClaudeAgent
-from think.google import AgentSession as GoogleAgent
-from think.openai import AgentSession as OpenAIAgent
+from think.agents import run_agent
 
 from .. import state
 from ..push import push_server
@@ -22,33 +21,15 @@ def _push_event(event: dict) -> None:
 bp = Blueprint("chat", __name__, template_folder="../templates")
 
 
-async def get_agent(backend: str):
-    """Return the cached agent for ``backend`` creating one if needed."""
-
-    if state.chat_agent is not None and state.chat_backend == backend:
-        return state.chat_agent
-
-    if state.chat_agent is not None:
-        await state.chat_agent.__aexit__(None, None, None)
-
-    if backend == "openai":
-        state.chat_agent = OpenAIAgent(on_event=_push_event)
-    elif backend == "anthropic":
-        state.chat_agent = ClaudeAgent(on_event=_push_event)
-    else:
-        state.chat_agent = GoogleAgent(on_event=_push_event)
-
-    await state.chat_agent.__aenter__()
-    state.chat_backend = backend
-    return state.chat_agent
-
-
 async def ask_agent(prompt: str, attachments: List[str], backend: str) -> str:
-    """Send ``prompt`` to the selected agent backend."""
+    """Send ``prompt`` to the selected agent backend using one-shot pattern."""
 
-    agent = await get_agent(backend)
     full_prompt = "\n".join([prompt] + attachments) if attachments else prompt
-    return await agent.run(full_prompt)
+    return await run_agent(
+        full_prompt,
+        backend=backend,
+        on_event=_push_event,
+    )
 
 
 @bp.route("/chat")
@@ -81,13 +62,9 @@ async def send_message() -> Any:
 
 @bp.route("/chat/api/history")
 def chat_history() -> Any:
-    """Return the full cached chat history."""
+    """Return empty history since we use one-shot pattern with no persistence."""
 
-    history = []
-    if state.chat_agent is not None:
-        for msg in state.chat_agent.history:
-            history.append({"role": msg["role"], "text": msg["content"]})
-    return jsonify(history=history)
+    return jsonify(history=[])
 
 
 @bp.route("/chat/api/agent/<agent_id>")
@@ -129,10 +106,6 @@ def agent_events(agent_id: str) -> Any:
 
 @bp.route("/chat/api/clear", methods=["POST"])
 async def clear_history() -> Any:
-    """Clear the cached history."""
+    """No-op since we use one-shot pattern with no persistent state."""
 
-    agent = state.chat_agent
-    if agent is not None:
-        await agent.__aexit__(None, None, None)
-    state.chat_agent = None
     return jsonify(ok=True)
