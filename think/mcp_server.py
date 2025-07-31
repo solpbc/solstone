@@ -20,7 +20,12 @@ mcp = FastMCP("sunstone")
 
 @mcp.tool
 def search_summaries(
-    query: str, limit: int = 5, offset: int = 0, *, topic: str | None = None, day: str | None = None
+    query: str,
+    limit: int = 5,
+    offset: int = 0,
+    *,
+    topic: str | None = None,
+    day: str | None = None,
 ) -> dict[str, Any]:
     """Search across journal topic summaries using semantic full-text search.
 
@@ -199,6 +204,45 @@ def search_events(
             "error": f"Failed to search events: {exc}",
             "suggestion": "try adjusting the query or filters",
         }
+
+
+@mcp.tool
+async def get_resource(uri: str) -> dict[str, Any]:
+    """Return the contents of a journal resource.
+
+    Many MCP clients cannot read ``journal://`` resources directly. This tool
+    acts as a wrapper around the server resources so they can be fetched via a
+    normal tool call.
+
+    The following resource types are supported:
+
+    - ``journal://summary/{day}/{topic}`` — markdown topic summaries
+    - ``journal://raw/{day}/{time}/{length}`` — raw transcripts for a time range
+    - ``journal://media/{day}/{name}`` — raw FLAC or PNG media files
+
+    Args:
+        uri: Resource URI to fetch.
+
+    Returns:
+        Dictionary containing ``uri`` and ``mime_type`` along with either a
+        ``text`` or ``blob`` field depending on the resource content.
+    """
+
+    try:
+        resource = await mcp._resource_manager.get_resource(uri)
+        data = await resource.read()
+        if isinstance(data, bytes):
+            import base64
+
+            return {
+                "uri": uri,
+                "mime_type": resource.mime_type,
+                "blob": base64.b64encode(data).decode("utf-8"),
+            }
+
+        return {"uri": uri, "mime_type": resource.mime_type, "text": data}
+    except Exception as exc:  # pragma: no cover - unexpected failure
+        return {"error": f"Failed to fetch resource: {exc}"}
 
 
 @mcp.resource("journal://summary/{day}/{topic}")

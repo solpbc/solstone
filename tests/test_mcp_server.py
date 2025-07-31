@@ -13,14 +13,18 @@ async def run_client(script: Path, env: dict[str, str]):
             "search_transcripts", {"query": "hi", "day": "20240101"}
         )
         result3 = await client.call_tool("search_events", {"query": "meet"})
-        resource = await client.read_resource("journal://summary/20240101/foo")
-        media = await client.read_resource("journal://media/20240101/090000_audio.json")
+        resource = await client.call_tool(
+            "get_resource", {"uri": "journal://summary/20240101/foo"}
+        )
+        media = await client.call_tool(
+            "get_resource", {"uri": "journal://media/20240101/090000_audio.json"}
+        )
     return (
         result1.data,
         result2.data,
         result3.data,
-        resource[0].text,
-        media[0].blob,
+        resource.data["text"],
+        media.data["blob"],
     )
 
 
