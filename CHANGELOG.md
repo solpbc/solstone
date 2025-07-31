@@ -126,3 +126,8 @@ Guide for updating:
 - Added server-side markdown rendering for bot messages using Python markdown library
 - Implemented typing indicator animation that displays while waiting for agent responses
 - Improved backend selector with emoji indicators for each AI provider (Google, OpenAI, Claude)
+
+## 2025-07-31
+
+- Added `think.planner` module with CLI and `generate_plan` function for creating agent plans using Gemini Pro.
+- New `think-planner` command exposed via project scripts.
