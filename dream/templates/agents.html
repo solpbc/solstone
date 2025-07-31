@@ -106,6 +106,41 @@
   background: #0056b3;
 }
 
+.input-area.busy {
+  position: relative;
+}
+
+.input-area.busy::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(255, 255, 255, 0.8);
+  cursor: wait;
+  z-index: 10;
+}
+
+.input-area.busy textarea,
+.input-area.busy button {
+  pointer-events: none;
+}
+
+.planning-status {
+  margin-top: 0.5rem;
+  padding: 0.5rem;
+  background: #e3f2fd;
+  border: 1px solid #90caf9;
+  border-radius: 4px;
+  font-size: 0.9rem;
+  display: none;
+}
+
+.planning-status.show {
+  display: block;
+}
+
 .selection-status {
   font-size: 0.9rem;
   color: #666;
@@ -240,6 +275,97 @@ tr a:hover {
   overflow-x: auto;
   margin-bottom: 1rem;
 }
+
+/* Planning Modal Tabs */
+.modal-tabs {
+  display: flex;
+  border-bottom: 1px solid #e0e0e0;
+  margin: -20px -20px 20px -20px;
+  background: #f8f9fa;
+}
+
+.modal-tab {
+  padding: 12px 20px;
+  cursor: pointer;
+  border: none;
+  background: none;
+  font-size: 0.9rem;
+  color: #666;
+  transition: all 0.2s ease;
+  flex: 1;
+  text-align: center;
+}
+
+.modal-tab:hover {
+  background: #e9ecef;
+  color: #333;
+}
+
+.modal-tab.active {
+  color: #007bff;
+  background: white;
+  border-bottom: 2px solid #007bff;
+}
+
+.tab-content {
+  display: none;
+}
+
+.tab-content.active {
+  display: block;
+}
+
+.plan-editor {
+  width: 100%;
+  min-height: 400px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  padding: 1rem;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  font-size: 0.9rem;
+  line-height: 1.4;
+  resize: vertical;
+}
+
+.config-section {
+  margin-bottom: 1.5rem;
+}
+
+.config-section label {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-weight: 500;
+  color: #333;
+}
+
+.config-section select,
+.config-section input {
+  width: 100%;
+  padding: 0.5rem;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 0.9rem;
+}
+
+.start-agent-btn {
+  background: #28a745;
+  color: white;
+  border: none;
+  padding: 0.75rem 2rem;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 1rem;
+  margin-top: 1rem;
+}
+
+.start-agent-btn:hover {
+  background: #218838;
+}
+
+.start-agent-btn:disabled {
+  background: #6c757d;
+  cursor: not-allowed;
+}
 </style>
 {% endblock %}
 {% block body %}
@@ -249,16 +375,16 @@ tr a:hover {
   <!-- Agent Selection Cards -->
   <div id="agentCards" class="agent-cards"></div>
   
-  <!-- Selection Status -->
-  <div id="selectionStatus" class="selection-status required">
-    Please select an agent to continue.
-  </div>
-  
   <!-- Input Form -->
   <form id="agentForm" class="input-area">
-    <textarea id="agentInput" rows="3" placeholder="Ask the selected agent..."></textarea>
-    <button type="submit" disabled>✨</button>
+    <textarea id="agentInput" rows="3" placeholder="Describe what you want to accomplish..."></textarea>
+    <button type="submit">✨ Create Plan</button>
   </form>
+  
+  <!-- Planning Status -->
+  <div id="planningStatus" class="planning-status">
+    <div>🧠 Creating execution plan...</div>
+  </div>
   
   <!-- Session History -->
   <table id="agentTable"></table>
@@ -277,10 +403,68 @@ tr a:hover {
   </div>
 </div>
 
+<!-- Planning Modal -->
+<div id="planningModal" class="modal">
+  <div class="modal-content">
+    <span class="close" onclick="closePlanningModal()">&times;</span>
+    <div class="modal-header">
+      <h3>Agent Execution Plan</h3>
+    </div>
+    <div class="modal-body">
+      <!-- Tabs -->
+      <div class="modal-tabs">
+        <button class="modal-tab active" onclick="switchTab('plan')">Edit Plan</button>
+        <button class="modal-tab" onclick="switchTab('preview')">Preview</button>
+        <button class="modal-tab" onclick="switchTab('config')">Configuration</button>
+      </div>
+      
+      <!-- Tab Content -->
+      <div id="planTab" class="tab-content active">
+        <textarea id="planEditor" class="plan-editor" placeholder="Your execution plan will appear here..."></textarea>
+      </div>
+      
+      <div id="previewTab" class="tab-content">
+        <div id="planPreview" class="markdown-content"></div>
+      </div>
+      
+      <div id="configTab" class="tab-content">
+        <div class="config-section">
+          <label for="agentBackend">Agent Backend</label>
+          <select id="agentBackend">
+            <option value="openai">OpenAI</option>
+            <option value="anthropic">Anthropic</option>
+            <option value="google">Google</option>
+          </select>
+        </div>
+        
+        <div class="config-section">
+          <label for="agentModel">Model (optional)</label>
+          <input type="text" id="agentModel" placeholder="Leave empty for default">
+        </div>
+        
+        <div class="config-section">
+          <label for="maxTokens">Max Tokens</label>
+          <input type="number" id="maxTokens" placeholder="0 for default" min="0">
+        </div>
+        
+        <div class="config-section">
+          <label for="agentPersona">Persona</label>
+          <select id="agentPersona">
+            <option value="default">Default</option>
+          </select>
+        </div>
+        
+        <button id="startAgentBtn" class="start-agent-btn" onclick="startAgent()">
+          🚀 Start Agent
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 <script>
 let availableAgents = [];
-let selectedAgent = null;
 
 // Load available agents and render cards
 function loadAvailableAgents() {
@@ -289,14 +473,10 @@ function loadAvailableAgents() {
     .then(agents => {
       availableAgents = agents;
       renderAgentCards();
-      // Auto-select first agent if only one available
-      if (agents.length === 1) {
-        selectAgent(agents[0].id);
-      }
     });
 }
 
-// Render agent selection cards
+// Render agent selection cards (for viewing details only)
 function renderAgentCards() {
   const container = document.getElementById('agentCards');
   container.innerHTML = '';
@@ -313,37 +493,12 @@ function renderAgentCards() {
     
     card.addEventListener('click', (e) => {
       if (!e.target.classList.contains('view-details')) {
-        selectAgent(agent.id);
+        viewAgentDetails(agent.id, e);
       }
     });
     
     container.appendChild(card);
   });
-}
-
-// Select an agent
-function selectAgent(agentId) {
-  selectedAgent = agentId;
-  
-  // Update card selection
-  document.querySelectorAll('.agent-card').forEach(card => {
-    card.classList.toggle('selected', card.dataset.agentId === agentId);
-  });
-  
-  // Update form state
-  const submitBtn = document.querySelector('#agentForm button');
-  const statusDiv = document.getElementById('selectionStatus');
-  
-  if (selectedAgent) {
-    submitBtn.disabled = false;
-    const agent = availableAgents.find(a => a.id === agentId);
-    statusDiv.textContent = `Selected: ${agent.title}`;
-    statusDiv.className = 'selection-status';
-  } else {
-    submitBtn.disabled = true;
-    statusDiv.textContent = 'Please select an agent to continue.';
-    statusDiv.className = 'selection-status required';
-  }
 }
 
 // View agent details in modal
@@ -378,20 +533,184 @@ function viewAgentDetails(agentId, event) {
 document.getElementById('agentForm').onsubmit = function(e) {
   e.preventDefault();
   
-  if (!selectedAgent) {
-    alert('Please select an agent first.');
-    return;
-  }
-  
   const input = document.getElementById('agentInput');
   if (!input.value.trim()) {
-    alert('Please enter a message.');
+    alert('Please describe what you want to accomplish.');
     return;
   }
   
-  // TODO: Backend integration will be handled later
-  alert(`Selected agent: ${selectedAgent}\nMessage: ${input.value}\n\nBackend integration coming soon!`);
+  // Start planning process
+  createPlan(input.value.trim());
 };
+
+// Create plan from user input
+async function createPlan(userRequest) {
+  const form = document.getElementById('agentForm');
+  const status = document.getElementById('planningStatus');
+  
+  // Show busy state
+  form.classList.add('busy');
+  status.classList.add('show');
+  
+  try {
+    const response = await fetch('{{ url_for('agents.create_plan') }}', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        request: userRequest,
+        backend: 'openai', // Default for now
+        model: '',
+        max_tokens: 0
+      })
+    });
+    
+    const data = await response.json();
+    
+    if (!response.ok) {
+      throw new Error(data.error || 'Failed to create plan');
+    }
+    
+    // Show planning modal with the plan
+    showPlanningModal(data.plan);
+    
+  } catch (error) {
+    alert('Error creating plan: ' + error.message);
+  } finally {
+    // Remove busy state
+    form.classList.remove('busy');
+    status.classList.remove('show');
+  }
+}
+
+// Show planning modal with plan
+function showPlanningModal(plan) {
+  const modal = document.getElementById('planningModal');
+  const editor = document.getElementById('planEditor');
+  
+  // Set the plan in the editor
+  editor.value = plan;
+  
+  // Update preview
+  updatePreview();
+  
+  // Load available personas
+  loadPersonas();
+  
+  // Show modal
+  modal.style.display = 'block';
+}
+
+// Close planning modal
+function closePlanningModal() {
+  document.getElementById('planningModal').style.display = 'none';
+}
+
+// Switch between tabs
+function switchTab(tabName) {
+  // Update tab buttons
+  document.querySelectorAll('.modal-tab').forEach(tab => {
+    tab.classList.remove('active');
+  });
+  event.target.classList.add('active');
+  
+  // Update tab content
+  document.querySelectorAll('.tab-content').forEach(content => {
+    content.classList.remove('active');
+  });
+  document.getElementById(tabName + 'Tab').classList.add('active');
+  
+  // Update preview if switching to preview tab
+  if (tabName === 'preview') {
+    updatePreview();
+  }
+}
+
+// Update markdown preview
+function updatePreview() {
+  const editor = document.getElementById('planEditor');
+  const preview = document.getElementById('planPreview');
+  
+  if (editor.value.trim()) {
+    preview.innerHTML = marked.parse(editor.value);
+  } else {
+    preview.innerHTML = '<p><em>No plan content to preview</em></p>';
+  }
+}
+
+// Load available personas
+function loadPersonas() {
+  fetch('{{ url_for('agents.available_agents') }}')
+    .then(r => r.json())
+    .then(agents => {
+      const select = document.getElementById('agentPersona');
+      select.innerHTML = '<option value="default">Default</option>';
+      
+      agents.forEach(agent => {
+        const option = document.createElement('option');
+        option.value = agent.id;
+        option.textContent = agent.title;
+        select.appendChild(option);
+      });
+    })
+    .catch(err => {
+      console.error('Failed to load personas:', err);
+    });
+}
+
+// Start agent with current plan and config
+async function startAgent() {
+  const plan = document.getElementById('planEditor').value.trim();
+  if (!plan) {
+    alert('Please provide a plan before starting the agent.');
+    return;
+  }
+  
+  const backend = document.getElementById('agentBackend').value;
+  const model = document.getElementById('agentModel').value.trim();
+  const maxTokens = parseInt(document.getElementById('maxTokens').value) || 0;
+  const persona = document.getElementById('agentPersona').value;
+  
+  const startBtn = document.getElementById('startAgentBtn');
+  startBtn.disabled = true;
+  startBtn.textContent = '🚀 Starting...';
+  
+  try {
+    const response = await fetch('{{ url_for('agents.start_agent') }}', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        plan: plan,
+        backend: backend,
+        model: model,
+        max_tokens: maxTokens,
+        persona: persona
+      })
+    });
+    
+    const data = await response.json();
+    
+    if (!response.ok) {
+      throw new Error(data.error || 'Failed to start agent');
+    }
+    
+    // Success - close modal and reload agents
+    closePlanningModal();
+    loadAgentSessions();
+    
+    // Clear the input form
+    document.getElementById('agentInput').value = '';
+    
+  } catch (error) {
+    alert('Error starting agent: ' + error.message);
+  } finally {
+    startBtn.disabled = false;
+    startBtn.textContent = '🚀 Start Agent';
+  }
+}
 
 // Modal close functionality
 document.querySelector('.close').onclick = function() {
@@ -399,9 +718,14 @@ document.querySelector('.close').onclick = function() {
 };
 
 window.onclick = function(event) {
-  const modal = document.getElementById('agentModal');
-  if (event.target == modal) {
-    modal.style.display = 'none';
+  const agentModal = document.getElementById('agentModal');
+  const planningModal = document.getElementById('planningModal');
+  
+  if (event.target == agentModal) {
+    agentModal.style.display = 'none';
+  }
+  if (event.target == planningModal) {
+    planningModal.style.display = 'none';
   }
 };
 

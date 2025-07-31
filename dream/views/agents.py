@@ -1,9 +1,10 @@
 from __future__ import annotations
 
+import asyncio
 import json
 import os
 
-from flask import Blueprint, jsonify, render_template
+from flask import Blueprint, jsonify, render_template, request
 
 from .. import state
 from ..utils import time_since
@@ -123,3 +124,75 @@ def agents_list() -> object:
             )
     items.sort(key=lambda x: float(x.get("start", 0)), reverse=True)
     return jsonify(items)
+
+
+@bp.route("/agents/api/plan", methods=["POST"])
+def create_plan() -> object:
+    """Create a plan from user input using the planner agent."""
+    data = request.get_json()
+    if not data or not data.get("request"):
+        return jsonify({"error": "Request is required"}), 400
+    
+    user_request = data["request"]
+    backend = data.get("backend", "openai")
+    model = data.get("model", "")
+    max_tokens = data.get("max_tokens", 0)
+    
+    try:
+        # Import planner module
+        import sys
+        sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(__file__)), ".."))
+        from think.planner import create_plan
+        
+        # Run the planning async function
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        try:
+            plan = loop.run_until_complete(create_plan(
+                user_request,
+                backend=backend,
+                model=model,
+                max_tokens=max_tokens
+            ))
+            return jsonify({"plan": plan})
+        finally:
+            loop.close()
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@bp.route("/agents/api/start", methods=["POST"])
+def start_agent() -> object:
+    """Start a new agent with the given plan and configuration."""
+    data = request.get_json()
+    if not data or not data.get("plan"):
+        return jsonify({"error": "Plan is required"}), 400
+    
+    plan = data["plan"]
+    backend = data.get("backend", "openai")
+    model = data.get("model", "")
+    max_tokens = data.get("max_tokens", 0)
+    persona = data.get("persona", "default")
+    
+    try:
+        # Import agents module
+        import sys
+        sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(__file__)), ".."))
+        from think import agents
+        
+        # Run the agent async function
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        try:
+            result = loop.run_until_complete(agents.run_agent(
+                plan,
+                backend=backend,
+                model=model,
+                max_tokens=max_tokens,
+                persona=persona
+            ))
+            return jsonify({"success": True, "result": result})
+        finally:
+            loop.close()
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
