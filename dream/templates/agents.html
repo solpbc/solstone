@@ -133,6 +133,16 @@ td:last-child {
   overflow: hidden; 
   text-overflow: ellipsis; 
 }
+tr:hover {
+  background-color: #f8f9fa;
+}
+tr a {
+  color: #007bff;
+  text-decoration: none;
+}
+tr a:hover {
+  text-decoration: underline;
+}
 
 /* Modal Styling (reused from entities.html) */
 .modal {
@@ -399,7 +409,10 @@ window.onclick = function(event) {
 function buildRow(a) {
   const tr = document.createElement('tr');
   const short = a.prompt.length > 80 ? a.prompt.slice(0, 80) + '…' : a.prompt;
-  tr.innerHTML = `<td>${a.since}</td><td>${a.model}</td><td>${a.persona}</td><td title="${a.prompt}">${short}</td>`;
+  const chatLink = `{{ url_for('chat.chat_page') }}#${a.id}`;
+  tr.innerHTML = `<td><a href="${chatLink}">${a.since}</a></td><td>${a.model}</td><td>${a.persona}</td><td title="${a.prompt}"><a href="${chatLink}">${short}</a></td>`;
+  tr.style.cursor = 'pointer';
+  tr.onclick = () => window.location.href = chatLink;
   return tr;
 }
 
