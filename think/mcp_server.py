@@ -7,6 +7,7 @@ from typing import Any
 
 from fastmcp import FastMCP
 from fastmcp.resources import FileResource, TextResource
+from fastmcp.utilities.types import Audio, File, Image
 
 from think.cluster import cluster_range
 from think.indexer import search_events as search_events_impl
@@ -207,7 +208,7 @@ def search_events(
 
 
 @mcp.tool
-async def get_resource(uri: str) -> dict[str, Any]:
+async def get_resource(uri: str) -> object:
     """Return the contents of a journal resource.
 
     Many MCP clients cannot read ``journal://`` resources directly. This tool
@@ -224,23 +225,25 @@ async def get_resource(uri: str) -> dict[str, Any]:
         uri: Resource URI to fetch.
 
     Returns:
-        Dictionary containing ``uri`` and ``mime_type`` along with either a
-        ``text`` or ``blob`` field depending on the resource content.
+        ``Image`` or ``Audio`` objects for binary media, or a plain string for
+        text resources.
     """
 
     try:
         resource = await mcp._resource_manager.get_resource(uri)
         data = await resource.read()
+        mime = resource.mime_type or "application/octet-stream"
+
         if isinstance(data, bytes):
-            import base64
+            format_ = mime.split("/")[-1]
+            if mime.startswith("image/"):
+                return Image(data=data, format=format_)
+            if mime.startswith("audio/"):
+                return Audio(data=data, format=format_)
+            return File(data=data, format=format_, name=getattr(resource, "name", None))
 
-            return {
-                "uri": uri,
-                "mime_type": resource.mime_type,
-                "blob": base64.b64encode(data).decode("utf-8"),
-            }
-
-        return {"uri": uri, "mime_type": resource.mime_type, "text": data}
+        # text content
+        return str(data)
     except Exception as exc:  # pragma: no cover - unexpected failure
         return {"error": f"Failed to fetch resource: {exc}"}
 
