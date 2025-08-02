@@ -91,112 +91,42 @@ def agents_list() -> object:
     limit = max(1, min(limit, 100))  # Limit between 1-100
     offset = max(0, offset)
 
-    try:
-        # Try to get cortex client
-        from ..cortex_client import get_global_cortex_client
-        client = get_global_cortex_client()
+    # Try to get cortex client
+    from ..cortex_client import get_global_cortex_client
+    client = get_global_cortex_client()
 
-        if client:
-            # Use cortex WebSocket API
-            response = client.list_agents(limit=limit, offset=offset)
-            if response:
-                agents = response.get("agents", [])
-                pagination_info = response.get("pagination", {})
+    if not client:
+        return jsonify({"error": "Could not connect to cortex server"}), 503
 
-                # Transform cortex format to match expected frontend format
-                items = []
-                for agent in agents:
-                    start_ms = agent.get("started_at", 0)
-                    start = start_ms / 1000
-                    metadata = agent.get("metadata", {})
+    # Use cortex WebSocket API
+    response = client.list_agents(limit=limit, offset=offset)
+    if not response:
+        return jsonify({"error": "Failed to get response from cortex server"}), 503
 
-                    items.append({
-                        "id": agent.get("id", ""),
-                        "start": start,
-                        "since": time_since(start),
-                        "model": metadata.get("model", ""),
-                        "persona": metadata.get("persona", ""),
-                        "prompt": metadata.get("prompt", ""),
-                        "status": agent.get("status", "unknown"),
-                        "pid": agent.get("pid"),
-                    })
+    agents = response.get("agents", [])
+    pagination_info = response.get("pagination", {})
 
-                return jsonify({
-                    "agents": items,
-                    "pagination": pagination_info
-                })
+    # Transform cortex format to match expected frontend format
+    items = []
+    for agent in agents:
+        start_ms = agent.get("started_at", 0)
+        start = start_ms / 1000
+        metadata = agent.get("metadata", {})
 
-        # Fallback to file-based approach
-        return _agents_list_fallback(limit, offset)
-
-    except Exception as e:
-        # Log error and fall back to file-based approach
-        import logging
-        logging.getLogger(__name__).warning(f"Cortex API failed, using fallback: {e}")
-        return _agents_list_fallback(limit, offset)
-
-
-def _agents_list_fallback(limit: int, offset: int) -> object:
-    """Fallback file-based agent listing with pagination."""
-    path = _agents_dir()
-    items: list[dict[str, object]] = []
-
-    if path and os.path.isdir(path):
-        for name in os.listdir(path):
-            if not name.endswith(".jsonl"):
-                continue
-            full = os.path.join(path, name)
-            start_ms = 0
-            try:
-                start_ms = int(os.path.splitext(name)[0])
-            except ValueError:
-                try:
-                    start_ms = int(os.stat(full).st_mtime * 1000)
-                except Exception:
-                    start_ms = 0
-            start = start_ms / 1000
-            prompt = ""
-            persona = ""
-            model = ""
-            try:
-                with open(full, "r", encoding="utf-8") as f:
-                    for line in f:
-                        j = json.loads(line)
-                        if j.get("event") == "start":
-                            prompt = j.get("prompt", "")
-                            persona = j.get("persona", "")
-                            model = j.get("model", "")
-                            break
-            except Exception:
-                continue
-            items.append(
-                {
-                    "id": os.path.splitext(name)[0],
-                    "start": start,
-                    "since": time_since(start),
-                    "model": model,
-                    "persona": persona,
-                    "prompt": prompt,
-                    "status": "finished",  # Assume finished for file-based
-                    "pid": None,
-                }
-            )
-
-    # Sort by start time (newest first)
-    items.sort(key=lambda x: float(x.get("start", 0)), reverse=True)
-
-    # Apply pagination
-    total = len(items)
-    paginated_items = items[offset:offset + limit]
+        items.append({
+            "id": agent.get("id", ""),
+            "start": start,
+            "since": time_since(start),
+            "model": metadata.get("model", ""),
+            "persona": metadata.get("persona", ""),
+            "prompt": metadata.get("prompt", ""),
+            "status": agent.get("status", "unknown"),
+            "pid": agent.get("pid"),
+        })
 
     return jsonify({
-        "agents": paginated_items,
-        "pagination": {
-            "limit": limit,
-            "offset": offset,
-            "total": total,
-            "has_more": offset + limit < total
-        }
+        "agents": items,
+        "pagination": pagination_info
     })
 
 

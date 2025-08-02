@@ -27,7 +27,11 @@ class MockWebSocket:
         
     def receive(self, timeout=None):
         if self.received:
-            return self.received.pop(0)
+            msg = self.received.pop(0)
+            # If we receive None, disconnect to stop the loop
+            if msg is None:
+                self.connected = False
+            return msg
         return None
         
     def close(self):
@@ -95,13 +99,16 @@ def test_cortex_server_initialization(cortex_server):
 def test_handle_list_empty(cortex_server):
     """Test listing agents when none are running."""
     ws = MockWebSocket()
+    req = {"limit": 10, "offset": 0}
     
-    cortex_server._handle_list(ws)
+    cortex_server._handle_list(ws, req)
     
     assert len(ws.messages) == 1
     response = json.loads(ws.messages[0])
     assert response["type"] == "agent_list"
     assert response["agents"] == []
+    assert "pagination" in response
+    assert response["pagination"]["total"] == 0
 
 
 def test_handle_list_with_agents(cortex_server):
@@ -117,13 +124,16 @@ def test_handle_list_with_agents(cortex_server):
     cortex_server.running_agents["123456789"] = agent
     
     ws = MockWebSocket()
-    cortex_server._handle_list(ws)
+    req = {"limit": 10, "offset": 0}
+    cortex_server._handle_list(ws, req)
     
     assert len(ws.messages) == 1
     response = json.loads(ws.messages[0])
     assert response["type"] == "agent_list"
     assert len(response["agents"]) == 1
     assert response["agents"][0]["id"] == "123456789"
+    assert "pagination" in response
+    assert response["pagination"]["total"] == 1
 
 
 def test_handle_attach_nonexistent_agent(cortex_server):
@@ -399,6 +409,7 @@ def test_connection_handler_invalid_json(cortex_server):
     """Test connection handler with invalid JSON."""
     ws = MockWebSocket()
     ws.add_received("invalid json")
+    ws.add_received(None)  # This will cause the loop to break
     
     # Mock the _handle_connection method to test just the JSON parsing part
     with patch.object(cortex_server, '_send_error') as mock_send_error:
@@ -416,6 +427,7 @@ def test_connection_handler_unknown_action(cortex_server):
     """Test connection handler with unknown action."""
     ws = MockWebSocket()
     ws.add_received(json.dumps({"action": "unknown"}))
+    ws.add_received(None)  # This will cause the loop to break
     
     with patch.object(cortex_server, '_send_error') as mock_send_error:
         try:
@@ -501,3 +513,208 @@ def test_send_agent_history_with_invalid_json(cortex_server, tmp_path):
     
     event2 = json.loads(ws.messages[1])
     assert event2["event"]["event"] == "finish"
+
+
+def test_historical_agent_creation():
+    """Test HistoricalAgent class initialization and methods."""
+    from think.cortex import HistoricalAgent
+    
+    first_event = {
+        "event": "start",
+        "ts": 1703123456789,
+        "prompt": "Test prompt",
+        "persona": "default", 
+        "model": "gpt-4"
+    }
+    
+    log_path = Path("/tmp/test.jsonl")
+    agent = HistoricalAgent("123456789", log_path, first_event, "finished")
+    
+    assert agent.agent_id == "123456789"
+    assert agent.log_path == log_path
+    assert agent.first_event == first_event
+    assert agent.status == "finished"
+    assert agent.started_at == 1703123456789
+    
+    # Test to_dict
+    agent_dict = agent.to_dict()
+    assert agent_dict["id"] == "123456789"
+    assert agent_dict["status"] == "finished"
+    assert agent_dict["started_at"] == 1703123456789
+    assert agent_dict["pid"] is None
+    assert agent_dict["metadata"]["prompt"] == "Test prompt"
+    assert agent_dict["metadata"]["persona"] == "default"
+    assert agent_dict["metadata"]["model"] == "gpt-4"
+
+
+def test_load_historical_agents_empty(cortex_server, mock_journal):
+    """Test loading historical agents when none exist."""
+    agents = cortex_server._load_historical_agents()
+    assert agents == []
+
+
+def test_load_historical_agents_with_files(cortex_server, mock_journal):
+    """Test loading historical agents from journal files."""
+    agents_dir = mock_journal / "agents"
+    
+    # Create a historical agent file
+    agent_file = agents_dir / "1703123456789.jsonl"
+    agent_file.write_text(
+        '{"event": "start", "ts": 1703123456789, "prompt": "Test prompt", "persona": "default", "model": "gpt-4"}\n'
+        '{"event": "thinking", "ts": 1703123456790, "summary": "Processing..."}\n'
+        '{"event": "finish", "ts": 1703123456791, "result": "Done"}\n'
+    )
+    
+    agents = cortex_server._load_historical_agents()
+    assert len(agents) == 1
+    
+    agent = agents[0]
+    assert agent.agent_id == "1703123456789"
+    assert agent.status == "finished"
+    assert agent.first_event["prompt"] == "Test prompt"
+
+
+def test_parse_agent_file_valid(cortex_server, tmp_path):
+    """Test parsing a valid agent JSONL file."""
+    agent_file = tmp_path / "test.jsonl"
+    agent_file.write_text(
+        '{"event": "start", "ts": 1703123456789, "prompt": "Test", "persona": "default"}\n'
+        '{"event": "finish", "ts": 1703123456790, "result": "Done"}\n'
+    )
+    
+    agent = cortex_server._parse_agent_file("test", agent_file)
+    assert agent is not None
+    assert agent.agent_id == "test"
+    assert agent.status == "finished"
+    assert agent.first_event["prompt"] == "Test"
+
+
+def test_parse_agent_file_empty(cortex_server, tmp_path):
+    """Test parsing an empty agent file."""
+    agent_file = tmp_path / "empty.jsonl"
+    agent_file.write_text("")
+    
+    agent = cortex_server._parse_agent_file("empty", agent_file)
+    assert agent is None
+
+
+def test_determine_agent_status_finished(cortex_server):
+    """Test determining agent status with finish event."""
+    lines = [
+        '{"event": "start", "ts": 1703123456789}\n',
+        '{"event": "thinking", "ts": 1703123456790}\n',
+        '{"event": "finish", "ts": 1703123456791}\n'
+    ]
+    
+    status = cortex_server._determine_agent_status(lines)
+    assert status == "finished"
+
+
+def test_determine_agent_status_error(cortex_server):
+    """Test determining agent status with error event."""
+    lines = [
+        '{"event": "start", "ts": 1703123456789}\n',
+        '{"event": "thinking", "ts": 1703123456790}\n',
+        '{"event": "error", "ts": 1703123456791, "error": "Something went wrong"}\n'
+    ]
+    
+    status = cortex_server._determine_agent_status(lines)
+    assert status == "error"
+
+
+def test_determine_agent_status_unknown(cortex_server):
+    """Test determining agent status with no finish/error events."""
+    lines = [
+        '{"event": "start", "ts": 1703123456789}\n',
+        '{"event": "thinking", "ts": 1703123456790}\n'
+    ]
+    
+    status = cortex_server._determine_agent_status(lines)
+    assert status == "unknown"
+
+
+def test_get_all_agents_with_pagination(cortex_server, mock_journal):
+    """Test getting all agents with pagination."""
+    from think.cortex import RunningAgent
+    
+    # Add running agent
+    mock_process = MagicMock()
+    mock_process.poll.return_value = None
+    mock_process.pid = 12345
+    agent = RunningAgent("999999999", mock_process, Path("/tmp/running.jsonl"))
+    cortex_server.running_agents["999999999"] = agent
+    
+    # Add historical agent
+    agents_dir = mock_journal / "agents"
+    agent_file = agents_dir / "1703123456789.jsonl"
+    agent_file.write_text(
+        '{"event": "start", "ts": 1703123456789, "prompt": "Test", "persona": "default"}\n'
+        '{"event": "finish", "ts": 1703123456790}\n'
+    )
+    
+    # Test pagination
+    agents, total = cortex_server._get_all_agents_with_pagination(limit=10, offset=0)
+    
+    assert total == 2  # 1 running + 1 historical
+    assert len(agents) == 2
+    
+    # Agents should be sorted by started_at (newest first)
+    # Running agent should come first (higher timestamp)
+    assert agents[0]["status"] == "running"
+    assert agents[1]["status"] == "finished"
+
+
+def test_handle_list_with_pagination(cortex_server, mock_journal):
+    """Test list request with pagination parameters."""
+    from think.cortex import RunningAgent
+    
+    # Add some agents
+    for i in range(15):
+        if i < 5:
+            # Add running agents
+            mock_process = MagicMock()
+            mock_process.poll.return_value = None
+            mock_process.pid = 12345 + i
+            agent = RunningAgent(f"99999999{i}", mock_process, Path(f"/tmp/running{i}.jsonl"))
+            cortex_server.running_agents[f"99999999{i}"] = agent
+        else:
+            # Add historical agents
+            agents_dir = mock_journal / "agents"
+            agent_file = agents_dir / f"17031234567{i:02d}.jsonl"
+            agent_file.write_text(
+                f'{{"event": "start", "ts": 17031234567{i:02d}, "prompt": "Test {i}"}}\n'
+                f'{{"event": "finish", "ts": 17031234567{i:02d}}}\n'
+            )
+    
+    # Test first page
+    ws = MockWebSocket()
+    req = {"limit": 10, "offset": 0}
+    cortex_server._handle_list(ws, req)
+    
+    response = json.loads(ws.messages[0])
+    assert response["type"] == "agent_list"
+    assert len(response["agents"]) == 10
+    assert response["pagination"]["total"] == 15
+    assert response["pagination"]["has_more"] is True
+    
+    # Test second page
+    ws = MockWebSocket()
+    req = {"limit": 10, "offset": 10}
+    cortex_server._handle_list(ws, req)
+    
+    response = json.loads(ws.messages[0])
+    assert len(response["agents"]) == 5
+    assert response["pagination"]["has_more"] is False
+
+
+def test_handle_list_invalid_pagination(cortex_server):
+    """Test list request with invalid pagination parameters."""
+    ws = MockWebSocket()
+    req = {"limit": "invalid", "offset": "invalid"}
+    
+    cortex_server._handle_list(ws, req)
+    
+    assert len(ws.messages) == 1
+    response = json.loads(ws.messages[0])
+    assert response["type"] == "error"
+    assert "Invalid limit or offset" in response["message"]
