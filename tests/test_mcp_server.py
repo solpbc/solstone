@@ -23,8 +23,8 @@ async def run_client(script: Path, env: dict[str, str]):
         result1.data,
         result2.data,
         result3.data,
-        resource.data["text"],
-        media.data["blob"],
+        resource.content[0].text,
+        media.content[0].data,
     )
 
 

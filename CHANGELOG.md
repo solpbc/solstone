@@ -132,3 +132,4 @@ Guide for updating:
 - Added `think.planner` module with CLI and `generate_plan` function for creating agent plans using Gemini Pro.
 - New `think-planner` command exposed via project scripts.
 - Added `get_resource` tool in `think.mcp_server` to fetch ``journal://`` resources through a tool call.
+- Fixed `get_resource` to return `Image`/`Audio` wrappers instead of base64-encoded blobs.
