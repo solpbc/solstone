@@ -215,39 +215,28 @@ def agent_instructions(persona: str = "default") -> Tuple[str, str, dict[str, ob
     return system_instruction, extra_context, meta
 
 
-def create_mcp_client(backend: Literal["agents", "fastmcp"] = "agents") -> Any:
-    """Return an MCP client for Sunstone tools."""
-
-    server_path = Path(__file__).resolve().parent / "mcp_tools.py"
-
-    env = os.environ.copy()
+def create_mcp_client() -> Any:
+    """Return a fastMCP HTTP client for Sunstone tools."""
+    
+    # Auto-discover HTTP server URI from journal
     journal_path = os.getenv("JOURNAL_PATH")
-    if journal_path:
-        env["JOURNAL_PATH"] = journal_path
-    env["PYTHONPATH"] = os.pathsep.join([os.getcwd()] + sys.path)
+    if not journal_path:
+        raise RuntimeError("JOURNAL_PATH not set")
+        
+    uri_file = Path(journal_path) / "agents" / "mcp.uri"
+    if not uri_file.exists():
+        raise RuntimeError(f"MCP server URI file not found: {uri_file}")
+        
+    try:
+        http_uri = uri_file.read_text().strip()
+    except Exception as exc:
+        raise RuntimeError(f"Failed to read MCP server URI: {exc}")
+    
+    if not http_uri:
+        raise RuntimeError("MCP server URI file is empty")
 
-    if backend == "fastmcp":
-        from fastmcp import Client
-        from fastmcp.client.transports import PythonStdioTransport
-
-        server_url = os.getenv("SUNSTONE_MCP_URL")
-        if server_url:
-            return Client(server_url)
-
-        transport = PythonStdioTransport(str(server_path), env=env)
-        return Client(transport)
-
-    from agents.mcp import MCPServerStdio
-
-    return MCPServerStdio(
-        params={
-            "command": sys.executable,
-            "args": ["-m", "think.mcp_tools"],
-            "env": env,
-        },
-        name="Sunstone MCP Server",
-        client_session_timeout_seconds=None,
-    )
+    from fastmcp import Client
+    return Client(http_uri)
 
 
 def parse_time_range(text: str) -> Optional[tuple[str, str, str]]:

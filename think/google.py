@@ -78,7 +78,7 @@ async def run_agent(
         })
 
         # Create fresh client and MCP for each run (prevents event loop issues)
-        async with create_mcp_client("fastmcp") as mcp:
+        async with create_mcp_client() as mcp:
             client = genai.Client(api_key=api_key)
 
             # Get system instruction

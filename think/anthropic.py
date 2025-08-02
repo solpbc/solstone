@@ -148,7 +148,7 @@ async def run_agent(
             "model": model,
         })
 
-        async with create_mcp_client("fastmcp") as mcp:
+        async with create_mcp_client() as mcp:
             system_instruction, first_user, _ = agent_instructions(persona)
             tools = await _get_mcp_tools(mcp)
             tool_executor = ToolExecutor(mcp, callback)
