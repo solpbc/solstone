@@ -19,7 +19,7 @@ import sys
 import threading
 import time
 from pathlib import Path
-from typing import Any, Dict, Optional, Set
+from typing import Any, Dict, List, Optional, Set, Tuple
 
 from flask_sock import Sock
 from simple_websocket import ConnectionClosed
@@ -59,6 +59,32 @@ class RunningAgent:
             "status": self.status,
             "started_at": self.started_at,
             "pid": self.process.pid if self.process.poll() is None else None,
+            "metadata": {}  # Running agents don't have stored metadata
+        }
+
+
+class HistoricalAgent:
+    """Represents a finished/closed agent from journal files."""
+
+    def __init__(self, agent_id: str, log_path: Path, first_event: Dict[str, Any], status: str = "finished"):
+        self.agent_id = agent_id
+        self.log_path = log_path
+        self.first_event = first_event
+        self.status = status  # "finished", "error", or "unknown"
+        self.started_at = first_event.get("ts", 0)
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary for JSON serialization."""
+        return {
+            "id": self.agent_id,
+            "status": self.status,
+            "started_at": self.started_at,
+            "pid": None,  # Historical agents don't have PIDs
+            "metadata": {
+                "prompt": self.first_event.get("prompt", ""),
+                "persona": self.first_event.get("persona", "default"),
+                "model": self.first_event.get("model", ""),
+            }
         }
 
 
@@ -97,7 +123,7 @@ class CortexServer:
                     action = req.get("action")
 
                     if action == "list":
-                        self._handle_list(ws)
+                        self._handle_list(ws, req)
                     elif action == "attach":
                         agent_id = req.get("agent_id")
                         if agent_id:
@@ -124,16 +150,36 @@ class CortexServer:
             if attached_agent:
                 self._cleanup_watcher(ws, attached_agent)
 
-    def _handle_list(self, ws) -> None:
-        """Handle list agents request."""
-        with self.lock:
-            # Clean up dead agents first
-            self._cleanup_dead_agents()
+    def _handle_list(self, ws, req: Dict[str, Any]) -> None:
+        """Handle list agents request with pagination support."""
+        # Extract pagination parameters
+        limit = req.get("limit", 10)
+        offset = req.get("offset", 0)
 
-            agents = [agent.to_dict() for agent in self.running_agents.values()]
+        # Validate parameters
+        try:
+            limit = max(1, min(int(limit), 100))  # Limit between 1-100
+            offset = max(0, int(offset))
+        except (ValueError, TypeError):
+            self._send_error(ws, "Invalid limit or offset parameters")
+            return
 
-        response = {"type": "agent_list", "agents": agents}
-        self._send_message(ws, response)
+        try:
+            agents, total_count = self._get_all_agents_with_pagination(limit, offset)
+            response = {
+                "type": "agent_list",
+                "agents": agents,
+                "pagination": {
+                    "limit": limit,
+                    "offset": offset,
+                    "total": total_count,
+                    "has_more": offset + limit < total_count
+                }
+            }
+            self._send_message(ws, response)
+        except Exception as e:
+            self.logger.exception("Error handling list request")
+            self._send_error(ws, f"Error fetching agents: {e}")
 
     def _handle_attach(self, ws, agent_id: str, current_attached: Optional[str]) -> str:
         """Handle attach to agent request."""
@@ -141,26 +187,41 @@ class CortexServer:
         if current_attached:
             self._handle_detach(ws, current_attached)
 
+        # Check if it's a running agent first
         with self.lock:
-            agent = self.running_agents.get(agent_id)
-            if not agent:
-                self._send_error(ws, f"Agent {agent_id} not found")
-                return current_attached or ""
+            running_agent = self.running_agents.get(agent_id)
+            if running_agent:
+                if not running_agent.is_running():
+                    self._send_error(ws, f"Agent {agent_id} is not running")
+                    return current_attached or ""
 
-            if not agent.is_running():
-                self._send_error(ws, f"Agent {agent_id} is not running")
-                return current_attached or ""
+                # Add to watchers for live updates
+                running_agent.watchers.add(ws)
 
-            # Add to watchers
-            agent.watchers.add(ws)
+                # Send attach confirmation
+                self._send_message(ws, {"type": "attached", "agent_id": agent_id})
 
-        # Send attach confirmation
-        self._send_message(ws, {"type": "attached", "agent_id": agent_id})
+                # Send historical events from the agent's log file
+                self._send_agent_history(ws, agent_id, running_agent.log_path)
 
-        # Send historical events from the agent's log file
-        self._send_agent_history(ws, agent_id, agent.log_path)
+                return agent_id
 
-        return agent_id
+        # Check if it's a historical agent
+        historical_agents = self._load_historical_agents()
+        historical_agent = next((a for a in historical_agents if a.agent_id == agent_id), None)
+
+        if historical_agent:
+            # Send attach confirmation
+            self._send_message(ws, {"type": "attached", "agent_id": agent_id})
+
+            # Send historical events from the agent's log file
+            self._send_agent_history(ws, agent_id, historical_agent.log_path)
+
+            return agent_id
+
+        # Agent not found
+        self._send_error(ws, f"Agent {agent_id} not found")
+        return current_attached or ""
 
     def _handle_detach(self, ws, attached_agent: Optional[str]) -> None:
         """Handle detach from agent request."""
@@ -370,10 +431,114 @@ class CortexServer:
         return False
 
     def get_agent_count(self) -> int:
-        """Get count of running agents."""
+        """Get count of all agents (running + historical)."""
         with self.lock:
             self._cleanup_dead_agents()
-            return len(self.running_agents)
+            running_count = len(self.running_agents)
+
+        historical_count = len(self._load_historical_agents())
+        return running_count + historical_count
+
+    def _load_historical_agents(self) -> List[HistoricalAgent]:
+        """Load historical agents from journal agent files."""
+        historical_agents = []
+        journal = os.getenv("JOURNAL_PATH")
+        if not journal:
+            return historical_agents
+
+        agents_dir = Path(journal) / "agents"
+        if not agents_dir.exists():
+            return historical_agents
+
+        # Find all .jsonl files
+        try:
+            for jsonl_file in agents_dir.glob("*.jsonl"):
+                try:
+                    agent_id = jsonl_file.stem
+                    # Skip if this agent is currently running
+                    if agent_id in self.running_agents:
+                        continue
+
+                    agent = self._parse_agent_file(agent_id, jsonl_file)
+                    if agent:
+                        historical_agents.append(agent)
+                except Exception as e:
+                    self.logger.warning(f"Error parsing agent file {jsonl_file}: {e}")
+                    continue
+        except Exception as e:
+            self.logger.error(f"Error scanning agents directory: {e}")
+
+        return historical_agents
+
+    def _parse_agent_file(self, agent_id: str, jsonl_file: Path) -> Optional[HistoricalAgent]:
+        """Parse a single agent JSONL file to extract metadata and status."""
+        try:
+            with open(jsonl_file, "r") as f:
+                lines = f.readlines()
+
+            if not lines:
+                return None
+
+            # Parse the first event (should be a start event)
+            first_line = lines[0].strip()
+            if not first_line:
+                return None
+
+            first_event = json.loads(first_line)
+            if first_event.get("event") != "start":
+                # If first event is not start, create a minimal event
+                first_event = {"event": "start", "ts": 0, "prompt": "", "persona": "default", "model": ""}
+
+            # Determine final status by looking at the last few events
+            status = self._determine_agent_status(lines)
+
+            return HistoricalAgent(agent_id, jsonl_file, first_event, status)
+
+        except Exception as e:
+            self.logger.warning(f"Error parsing agent file {jsonl_file}: {e}")
+            return None
+
+    def _determine_agent_status(self, lines: List[str]) -> str:
+        """Determine agent final status from JSONL events."""
+        # Look through events in reverse to find finish/error events
+        for line in reversed(lines):
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                event = json.loads(line)
+                event_type = event.get("event")
+                if event_type == "finish":
+                    return "finished"
+                elif event_type == "error":
+                    return "error"
+            except json.JSONDecodeError:
+                continue
+        return "unknown"
+
+    def _get_all_agents_with_pagination(self, limit: int = 10, offset: int = 0) -> Tuple[List[Dict[str, Any]], int]:
+        """Get all agents (running + historical) with pagination."""
+        # Get running agents
+        with self.lock:
+            self._cleanup_dead_agents()
+            running = list(self.running_agents.values())
+
+        # Get historical agents
+        historical = self._load_historical_agents()
+
+        # Combine and sort by started_at (newest first)
+        all_agents = running + historical
+        all_agents.sort(key=lambda a: a.started_at, reverse=True)
+
+        total_count = len(all_agents)
+
+        # Apply pagination
+        paginated_agents = all_agents[offset:offset + limit]
+
+        # Convert to dict format
+        agent_dicts = [agent.to_dict() for agent in paginated_agents]
+
+        return agent_dicts, total_count
 
 
 # Global instance

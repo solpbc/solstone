@@ -179,6 +179,73 @@ tr a:hover {
   text-decoration: underline;
 }
 
+/* Status indicators */
+.status-badge {
+  display: inline-block;
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  margin-right: 0.5rem;
+}
+
+.status-running {
+  background-color: #d4edda;
+  color: #155724;
+}
+
+.status-finished {
+  background-color: #d1ecf1;
+  color: #0c5460;
+}
+
+.status-error {
+  background-color: #f8d7da;
+  color: #721c24;
+}
+
+.status-unknown {
+  background-color: #e2e3e5;
+  color: #383d41;
+}
+
+/* Pagination */
+.pagination {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 1rem;
+  padding: 1rem;
+}
+
+.pagination button {
+  padding: 0.5rem 1rem;
+  border: 1px solid #ddd;
+  background: white;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+}
+
+.pagination button:hover:not(:disabled) {
+  background: #007bff;
+  color: white;
+  border-color: #007bff;
+}
+
+.pagination button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.pagination .page-info {
+  margin: 0 1rem;
+  font-size: 0.9rem;
+  color: #666;
+}
+
 /* Modal Styling (reused from entities.html) */
 .modal {
   display: none;
@@ -388,6 +455,15 @@ tr a:hover {
   
   <!-- Session History -->
   <table id="agentTable"></table>
+  
+  <!-- Pagination -->
+  <div id="pagination" class="pagination" style="display: none;">
+    <button id="prevBtn" onclick="changePage(-1)">Previous</button>
+    <div class="page-info">
+      <span id="pageInfo">Page 1 of 1</span>
+    </div>
+    <button id="nextBtn" onclick="changePage(1)">Next</button>
+  </div>
 </div>
 
 <!-- Agent Details Modal -->
@@ -731,25 +807,98 @@ window.onclick = function(event) {
   }
 };
 
+// Pagination state
+let currentPage = 0;
+let pageSize = 10;
+let totalAgents = 0;
+
 // Session history table functions
 function buildRow(a) {
   const tr = document.createElement('tr');
   const short = a.prompt.length > 80 ? a.prompt.slice(0, 80) + '…' : a.prompt;
   const chatLink = `{{ url_for('chat.chat_page') }}#${a.id}`;
-  tr.innerHTML = `<td><a href="${chatLink}">${a.since}</a></td><td>${a.model}</td><td>${a.persona}</td><td title="${a.prompt}"><a href="${chatLink}">${short}</a></td>`;
+  
+  // Status badge
+  const statusClass = `status-${a.status || 'unknown'}`;
+  const statusBadge = `<span class="status-badge ${statusClass}">${a.status || 'unknown'}</span>`;
+  
+  // PID indicator for running agents
+  const pidIndicator = a.pid ? ` (PID: ${a.pid})` : '';
+  
+  tr.innerHTML = `
+    <td><a href="${chatLink}">${statusBadge}${a.since}</a></td>
+    <td>${a.model}${pidIndicator}</td>
+    <td>${a.persona}</td>
+    <td title="${a.prompt}"><a href="${chatLink}">${short}</a></td>
+  `;
   tr.style.cursor = 'pointer';
   tr.onclick = () => window.location.href = chatLink;
   return tr;
 }
 
-function loadAgentSessions() {
-  fetch('{{ url_for('agents.agents_list') }}')
+function loadAgentSessions(page = 0) {
+  const offset = page * pageSize;
+  fetch(`{{ url_for('agents.agents_list') }}?limit=${pageSize}&offset=${offset}`)
     .then(r => r.json())
     .then(data => {
+      // Handle both new and old response formats
+      const agents = data.agents || data;
+      const pagination = data.pagination;
+      
       const table = document.getElementById('agentTable');
-      table.innerHTML = '<tr><th>Started</th><th>Model</th><th>Persona</th><th>Prompt</th></tr>';
-      data.forEach(a => table.appendChild(buildRow(a)));
+      table.innerHTML = '<tr><th>Status & Started</th><th>Model</th><th>Persona</th><th>Prompt</th></tr>';
+      
+      if (agents && agents.length > 0) {
+        agents.forEach(a => table.appendChild(buildRow(a)));
+      } else {
+        const noDataRow = document.createElement('tr');
+        noDataRow.innerHTML = '<td colspan="4" style="text-align: center; color: #666;">No agents found</td>';
+        table.appendChild(noDataRow);
+      }
+      
+      // Update pagination if available
+      if (pagination) {
+        currentPage = Math.floor(pagination.offset / pagination.limit);
+        totalAgents = pagination.total;
+        updatePagination(pagination);
+      }
+    })
+    .catch(err => {
+      console.error('Failed to load agents:', err);
+      const table = document.getElementById('agentTable');
+      table.innerHTML = '<tr><th>Status & Started</th><th>Model</th><th>Persona</th><th>Prompt</th></tr>';
+      const errorRow = document.createElement('tr');
+      errorRow.innerHTML = '<td colspan="4" style="text-align: center; color: #dc3545;">Failed to load agents</td>';
+      table.appendChild(errorRow);
     });
+}
+
+function updatePagination(pagination) {
+  const paginationDiv = document.getElementById('pagination');
+  const prevBtn = document.getElementById('prevBtn');
+  const nextBtn = document.getElementById('nextBtn');
+  const pageInfo = document.getElementById('pageInfo');
+  
+  if (pagination.total > pagination.limit) {
+    paginationDiv.style.display = 'flex';
+    
+    const currentPageNum = Math.floor(pagination.offset / pagination.limit) + 1;
+    const totalPages = Math.ceil(pagination.total / pagination.limit);
+    
+    pageInfo.textContent = `Page ${currentPageNum} of ${totalPages} (${pagination.total} total)`;
+    
+    prevBtn.disabled = pagination.offset === 0;
+    nextBtn.disabled = !pagination.has_more;
+  } else {
+    paginationDiv.style.display = 'none';
+  }
+}
+
+function changePage(delta) {
+  const newPage = currentPage + delta;
+  if (newPage >= 0) {
+    loadAgentSessions(newPage);
+  }
 }
 
 // Initialize

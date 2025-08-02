@@ -137,6 +137,36 @@ class CortexClient:
             self.logger.error(f"Failed to detach from agent: {e}")
             return False
 
+    def list_agents(self, limit: int = 10, offset: int = 0) -> Optional[Dict[str, Any]]:
+        """List agents with pagination (synchronous)."""
+        if not self.connected or not self._loop:
+            return None
+
+        request = {
+            "action": "list",
+            "limit": limit,
+            "offset": offset,
+        }
+
+        # Clear previous response
+        self._responses.clear()
+        self._response_event.clear()
+
+        # Send request asynchronously
+        future = asyncio.run_coroutine_threadsafe(
+            self._send_request(request), self._loop
+        )
+
+        try:
+            future.result(timeout=5)
+            # Wait for response
+            if self._response_event.wait(timeout=5):
+                return self._responses.get("agent_list")
+            return None
+        except Exception as e:
+            self.logger.error(f"Failed to list agents: {e}")
+            return None
+
     def set_event_callback(self, callback: Callable[[Dict[str, Any]], None]) -> None:
         """Set callback function for agent events."""
         self.event_callback = callback
@@ -207,6 +237,11 @@ class CortexClient:
             elif msg_type == "agent_finished":
                 agent_id = data.get("agent_id")
                 self.logger.info(f"Agent finished: {agent_id}")
+
+            elif msg_type == "agent_list":
+                # Store agent list response
+                self._responses["agent_list"] = data
+                self._response_event.set()
 
             elif msg_type == "error":
                 error_msg = data.get("message", "Unknown error")
