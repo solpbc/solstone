@@ -393,7 +393,7 @@ def main() -> None:
         "--host", default="127.0.0.1", help="Host to bind to (default: 127.0.0.1)"
     )
     parser.add_argument(
-        "--port", type=int, default=5001, help="Port to bind to (default: 5001)"
+        "--port", type=int, default=2468, help="Port to bind to (default: 2468)"
     )
     parser.add_argument(
         "--path", default="/ws/cortex", help="WebSocket path (default: /ws/cortex)"
@@ -430,6 +430,16 @@ def main() -> None:
     logging.getLogger(__name__).info(
         f"Starting Cortex server on {args.host}:{args.port} with WebSocket path {args.path}"
     )
+
+    # Write URI file for service discovery
+    journal = os.getenv("JOURNAL_PATH")
+    if journal:
+        from pathlib import Path
+        uri_file = Path(journal) / "agents" / "cortex.uri"
+        uri_file.parent.mkdir(parents=True, exist_ok=True)
+        cortex_uri = f"ws://{args.host}:{args.port}{args.path}"
+        uri_file.write_text(cortex_uri)
+        logging.getLogger(__name__).info(f"Cortex URI written to {uri_file}")
 
     try:
         app.run(host=args.host, port=args.port, debug=args.verbose)
