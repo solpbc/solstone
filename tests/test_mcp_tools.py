@@ -7,7 +7,9 @@ from fastmcp.client.transports import PythonStdioTransport
 
 async def run_client(script: Path, env: dict[str, str]):
     transport = PythonStdioTransport(str(script), args=[], env=env, keep_alive=False)
-    async with Client(transport) as client:
+    async with Client(
+        transport, roots=[Path(env["JOURNAL_PATH"]).as_uri()]
+    ) as client:
         result1 = await client.call_tool("search_summaries", {"query": "hello"})
         result2 = await client.call_tool(
             "search_transcripts", {"query": "hi", "day": "20240101"}
@@ -23,12 +25,12 @@ async def run_client(script: Path, env: dict[str, str]):
         result1.data,
         result2.data,
         result3.data,
-        resource.content[0].text,
-        media.content[0].data,
+        resource.data,
+        media.data,
     )
 
 
-def test_mcp_server_via_stdio(tmp_path):
+def test_mcp_tools_via_stdio(tmp_path):
     calls_file = tmp_path / "calls.txt"
     env = {"JOURNAL_PATH": str(tmp_path), "CALLS_FILE": str(calls_file)}
 

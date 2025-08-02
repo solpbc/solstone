@@ -69,6 +69,23 @@ def start_runners(journal: str) -> list[tuple[subprocess.Popen, str]]:
     return procs
 
 
+def start_mcp_server(journal: str) -> subprocess.Popen:
+    """Launch the MCP tools HTTP server."""
+    log_path = Path(journal) / "health" / "supervisor.log"
+    log_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(log_path, "ab") as log_file:
+        env = os.environ.copy()
+        env["JOURNAL_PATH"] = journal
+        proc = subprocess.Popen(
+            [sys.executable, "-m", "think.mcp_tools", "http"],
+            stdout=log_file,
+            stderr=log_file,
+            start_new_session=True,
+            env=env,
+        )
+    return proc
+
+
 def check_runner_exits(procs: list[tuple[subprocess.Popen, str]]) -> list[str]:
     """Check if any runner processes have exited and return their names."""
     exited = []
@@ -159,9 +176,13 @@ def main() -> None:
         level=level, handlers=handlers, format="%(asctime)s %(levelname)s %(message)s"
     )
 
+    os.environ.setdefault("SUNSTONE_MCP_URL", "http://127.0.0.1:8000/mcp/")
+
     procs: list[tuple[subprocess.Popen, str]] = []
     if not args.no_runners:
         procs = start_runners(journal)
+    mcp_proc = start_mcp_server(journal)
+    procs.append((mcp_proc, "mcp"))
     try:
         supervise(
             journal,

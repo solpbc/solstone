@@ -19,7 +19,7 @@ if "google" not in sys.modules:
     sys.modules["google"] = google_mod
     sys.modules["google.genai"] = genai_mod
 
-from think import mcp_server  # noqa: E402
+from think import mcp_tools  # noqa: E402
 
 CALLS_FILE = os.environ.get("CALLS_FILE")
 
@@ -75,9 +75,9 @@ def stub_search_events(
     ]
 
 
-mcp_server.search_summaries_impl = stub_search_summaries
-mcp_server.search_transcripts_impl = stub_search_transcripts
-mcp_server.search_events_impl = stub_search_events
+mcp_tools.search_summaries_impl = stub_search_summaries
+mcp_tools.search_transcripts_impl = stub_search_transcripts
+mcp_tools.search_events_impl = stub_search_events
 
 if __name__ == "__main__":
-    mcp_server.mcp.run()
+    mcp_tools.mcp.run()

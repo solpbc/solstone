@@ -86,7 +86,7 @@ Guide for updating:
   includes `"skip_occurrences": true`.
 - `think.utils.get_raw_file` returns the relative raw path, mime type and
   metadata for a transcript.
-- `think.mcp_server.get_media` resource returns the raw FLAC or PNG
+- `think.mcp_tools.get_media` resource returns the raw FLAC or PNG
   referenced by a transcript JSON using `think.utils.get_raw_file`.
 - Agent instructions moved to `think/agents/default.txt` and loaded via
   `agent_instructions(persona)` with optional personas.
@@ -131,5 +131,10 @@ Guide for updating:
 
 - Added `think.planner` module with CLI and `generate_plan` function for creating agent plans using Gemini Pro.
 - New `think-planner` command exposed via project scripts.
-- Added `get_resource` tool in `think.mcp_server` to fetch ``journal://`` resources through a tool call.
+- Added `get_resource` tool in `think.mcp_tools` to fetch ``journal://`` resources through a tool call.
 - Fixed `get_resource` to return `Image`/`Audio` wrappers instead of base64-encoded blobs.
+
+## 2025-08-02
+
+- Renamed `think.mcp_server` to `think.mcp_tools` and updated project references.
+- `think.supervisor` now launches an HTTP MCP server to expose Sunstone tools.

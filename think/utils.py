@@ -218,7 +218,7 @@ def agent_instructions(persona: str = "default") -> Tuple[str, str, dict[str, ob
 def create_mcp_client(backend: Literal["agents", "fastmcp"] = "agents") -> Any:
     """Return an MCP client for Sunstone tools."""
 
-    server_path = Path(__file__).resolve().parent / "mcp_server.py"
+    server_path = Path(__file__).resolve().parent / "mcp_tools.py"
 
     env = os.environ.copy()
     journal_path = os.getenv("JOURNAL_PATH")
@@ -242,7 +242,7 @@ def create_mcp_client(backend: Literal["agents", "fastmcp"] = "agents") -> Any:
     return MCPServerStdio(
         params={
             "command": sys.executable,
-            "args": ["-m", "think.mcp_server"],
+            "args": ["-m", "think.mcp_tools"],
             "env": env,
         },
         name="Sunstone MCP Server",

@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
-"""MCP server for Sunstone journal assistant."""
+"""MCP tools for the Sunstone journal assistant."""
 
+import base64
 import os
+import sys
 from pathlib import Path
 from typing import Any
 
 from fastmcp import FastMCP
 from fastmcp.resources import FileResource, TextResource
-from fastmcp.utilities.types import Audio, File, Image
 
 from think.cluster import cluster_range
 from think.indexer import search_events as search_events_impl
@@ -232,15 +233,10 @@ async def get_resource(uri: str) -> object:
     try:
         resource = await mcp._resource_manager.get_resource(uri)
         data = await resource.read()
-        mime = resource.mime_type or "application/octet-stream"
 
         if isinstance(data, bytes):
-            format_ = mime.split("/")[-1]
-            if mime.startswith("image/"):
-                return Image(data=data, format=format_)
-            if mime.startswith("audio/"):
-                return Audio(data=data, format=format_)
-            return File(data=data, format=format_, name=getattr(resource, "name", None))
+            # Return base64 encoded data for binary content
+            return base64.b64encode(data).decode("utf-8")
 
         # text content
         return str(data)
@@ -346,6 +342,28 @@ def get_media(day: str, name: str) -> FileResource:
     )
 
 
+def main() -> None:
+    """Run the MCP server using the requested transport."""
+
+    transport = "stdio"
+    if len(sys.argv) > 1:
+        transport = sys.argv[1]
+
+    if transport == "http":
+        host = os.getenv("SUNSTONE_MCP_HOST", "127.0.0.1")
+        port = int(os.getenv("SUNSTONE_MCP_PORT", "8000"))
+        path = os.getenv("SUNSTONE_MCP_PATH", "/mcp/")
+        mcp.run(
+            transport="http",
+            host=host,
+            port=port,
+            path=path,
+            show_banner=False,
+        )
+    else:
+        # default stdio transport
+        mcp.run(show_banner=False)
+
+
 if __name__ == "__main__":
-    # When run directly, use stdio transport (default)
-    mcp.run(show_banner=False)
+    main()
