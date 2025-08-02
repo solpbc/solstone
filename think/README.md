@@ -22,7 +22,8 @@ The package exposes several commands:
 - `think-entity-roll` collects entities across days and writes a rollup file.
 - `think-process-day` runs the above tools for a single day.
 - `think-supervisor` monitors hear and see heartbeats. Use `--no-runners` to skip starting them automatically.
-- `think-mcp-server` starts an OAuth-enabled server exposing search capabilities over MCP for both ponder text and raw transcripts.
+- `think-mcp-tools` starts an MCP server exposing search capabilities for both ponder text and raw transcripts.
+- `think-cortex` starts a WebSocket API server for managing AI agent instances.
 
 ```bash
 think-ponder YYYYMMDD [-f PROMPT] [-p] [-c] [--force] [-v]
@@ -30,7 +31,8 @@ think-cluster YYYYMMDD [--start HHMMSS --length MINUTES]
 think-entity-roll
 think-process-day [--day YYYYMMDD] [--force] [--repair] [--rebuild]
 think-supervisor [--no-runners]
- think-mcp-server [--port PORT]
+think-mcp-tools [--transport http] [--port PORT] [--path PATH]
+think-cortex [--host HOST] [--port PORT] [--path PATH]
 ```
 
 `-p` is a switch enabling the Gemini Pro model. Use `-c` to count tokens only,
@@ -39,6 +41,15 @@ think-supervisor [--no-runners]
 Set `GOOGLE_API_KEY` before running any command that contacts Gemini.
 `JOURNAL_PATH` and `GOOGLE_API_KEY` can also be provided in a `.env` file which
 is loaded automatically by most commands.
+
+## Service Discovery
+
+When HTTP services start up, they write their active URIs to files in the journal's `agents/` directory for automated discovery:
+
+- `think-mcp-tools --transport http` writes to `<journal>/agents/mcp.uri` (default: `http://127.0.0.1:6270/mcp/`)
+- `think-cortex` writes to `<journal>/agents/cortex.uri` (default: `ws://127.0.0.1:2468/ws/cortex`)
+
+These URI files allow other components to automatically discover running services without hardcoded addresses.
 
 ## Automating daily processing
 
