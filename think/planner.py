@@ -1,4 +1,6 @@
 import argparse
+import asyncio
+import logging
 import os
 import sys
 from pathlib import Path
@@ -9,14 +11,55 @@ from google import genai
 from google.genai import types
 
 from .models import GEMINI_PRO
-from .utils import setup_cli
+from .utils import setup_cli, create_mcp_client
 
 PROMPT_PATH = Path(__file__).with_name("planner.txt")
 
 
+async def _get_mcp_tools() -> str:
+    """Return formatted MCP tools information for the prompt."""
+    try:
+        mcp = create_mcp_client()
+        if not hasattr(mcp, "list_tools"):
+            return ""
+        
+        tool_list = await mcp.list_tools()
+        if not tool_list:
+            return ""
+        
+        lines = [
+            "",
+            "## Available Tools",
+            "",
+            "The following tools are available for use in your plans:",
+            ""
+        ]
+        
+        for tool in tool_list:
+            name = tool.name
+            description = tool.description or "No description available"
+            lines.append(f"**{name}**: {description}")
+        
+        return "\n".join(lines)
+    
+    except Exception as exc:
+        logging.debug("Failed to fetch MCP tools: %s", exc)
+        return ""
+
+
 def _load_prompt() -> str:
     """Return system instruction text for planning."""
-    return PROMPT_PATH.read_text(encoding="utf-8").strip()
+    base_prompt = PROMPT_PATH.read_text(encoding="utf-8").strip()
+    
+    # Try to add MCP tools information
+    try:
+        tools_info = asyncio.run(_get_mcp_tools())
+        if tools_info:
+            return base_prompt + "\n" + tools_info
+    except Exception as exc:
+        logging.debug("Failed to load MCP tools for prompt: %s", exc)
+    
+    return base_prompt
 
 
 def generate_plan(
