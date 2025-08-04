@@ -1,0 +1,3 @@
+{"timestamp": "2025-01-01T12:00:00Z", "type": "created", "message": "Matter created"}
+{"timestamp": "2025-01-01T12:30:00Z", "type": "update", "message": "Added initial description"}
+{"timestamp": "2025-01-01T13:00:00Z", "type": "progress", "message": "Started working on implementation"}
