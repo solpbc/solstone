@@ -1,0 +1,295 @@
+{% extends 'base.html' %}
+{% set title = matter_data.title or 'Matter' %}
+{% set active = 'domains' %}
+{% block head %}
+<style>
+/* Matter header */
+.matter-header {
+  position: relative;
+  width: 100%;
+  padding: 3em 2em;
+  margin-bottom: 2em;
+  color: white;
+  text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+  background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+  border-radius: 0 0 16px 16px;
+  overflow: hidden;
+}
+
+.matter-header.has-color {
+  background: var(--matter-color);
+}
+
+.matter-header h1 {
+  margin: 0 0 0.5em 0;
+  font-size: 2.5em;
+  font-weight: 700;
+  color: white;
+  background: none;
+  -webkit-background-clip: unset;
+  -webkit-text-fill-color: unset;
+  background-clip: unset;
+}
+
+.matter-header .description {
+  font-size: 1.2em;
+  opacity: 0.9;
+  line-height: 1.4;
+  margin: 0;
+  max-width: 800px;
+}
+
+.matter-meta-row {
+  margin-top: 1em;
+  display: flex;
+  align-items: center;
+  gap: 2em;
+  flex-wrap: wrap;
+}
+
+.matter-info-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5em;
+  font-size: 1.1em;
+  opacity: 0.9;
+}
+
+.matter-info-item .icon {
+  font-size: 1.2em;
+}
+
+.matter-status {
+  background: rgba(255, 255, 255, 0.2);
+  padding: 0.3em 0.8em;
+  border-radius: 16px;
+  font-size: 0.9em;
+  font-weight: 500;
+  text-transform: capitalize;
+}
+
+.matter-priority {
+  background: rgba(255, 255, 255, 0.2);
+  padding: 0.3em 0.8em;
+  border-radius: 16px;
+  font-size: 0.9em;
+  font-weight: 500;
+  text-transform: capitalize;
+}
+
+.matter-tags {
+  display: flex;
+  gap: 0.5em;
+  flex-wrap: wrap;
+}
+
+.matter-tag {
+  background: rgba(255, 255, 255, 0.2);
+  padding: 0.3em 0.8em;
+  border-radius: 16px;
+  font-size: 0.8em;
+  font-weight: 500;
+}
+
+/* Back button */
+.back-button {
+  position: absolute;
+  top: 1em;
+  left: 1em;
+  color: white;
+  text-decoration: none;
+  font-size: 1.1em;
+  opacity: 0.8;
+  transition: opacity 0.2s;
+}
+
+.back-button:hover {
+  opacity: 1;
+  color: white;
+}
+
+/* Tab navigation */
+.tab-container {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 0 2em;
+}
+
+.tab-nav {
+  display: flex;
+  border-bottom: 2px solid #eee;
+  margin-bottom: 2em;
+}
+
+.tab-button {
+  background: none;
+  border: none;
+  padding: 1em 2em;
+  font-size: 1.1em;
+  font-weight: 500;
+  color: #666;
+  cursor: pointer;
+  border-bottom: 3px solid transparent;
+  transition: all 0.2s;
+}
+
+.tab-button:hover {
+  color: #333;
+  background: #f8f9fa;
+}
+
+.tab-button.active {
+  color: #28a745;
+  border-bottom-color: #28a745;
+  background: #f0fff4;
+}
+
+/* Tab content */
+.tab-content {
+  display: none;
+  padding: 2em 0;
+}
+
+.tab-content.active {
+  display: block;
+}
+
+.tab-content h2 {
+  color: #333;
+  margin-bottom: 1.5em;
+  font-size: 1.8em;
+}
+
+/* Placeholder content styling */
+.placeholder {
+  text-align: center;
+  padding: 4em;
+  color: #666;
+  background: #f8f9fa;
+  border-radius: 12px;
+  border: 2px dashed #ddd;
+}
+
+.placeholder h3 {
+  color: #999;
+  margin-bottom: 1em;
+}
+
+.placeholder p {
+  line-height: 1.6;
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+.placeholder .icon {
+  font-size: 3em;
+  margin-bottom: 0.5em;
+  opacity: 0.5;
+}
+</style>
+{% endblock %}
+{% block body %}
+<div class="matter-header{% if domain_data.color %} has-color{% endif %}"{% if domain_data.color %} style="--matter-color: {{ domain_data.color }}"{% endif %}>
+  <a href="{{ url_for('domains.domain_detail', domain_name=domain_name) }}" class="back-button">← Back to {{ domain_data.title or domain_name }}</a>
+  
+  <h1>{{ matter_data.title or 'Untitled Matter' }}</h1>
+  
+  {% if matter_data.description %}
+  <p class="description">{{ matter_data.description }}</p>
+  {% endif %}
+  
+  <div class="matter-meta-row">
+    {% if matter_data.status %}
+    <div class="matter-info-item">
+      <span class="icon">📊</span>
+      <span class="matter-status">{{ matter_data.status }}</span>
+    </div>
+    {% endif %}
+    
+    {% if matter_data.priority %}
+    <div class="matter-info-item">
+      <span class="icon">⚡</span>
+      <span class="matter-priority">{{ matter_data.priority }}</span>
+    </div>
+    {% endif %}
+    
+    {% if matter_data.created %}
+    <div class="matter-info-item">
+      <span class="icon">📅</span>
+      <span>Created {{ matter_data.created }}</span>
+    </div>
+    {% endif %}
+    
+    {% if matter_data.tags %}
+    <div class="matter-info-item">
+      <span class="icon">🏷️</span>
+      <div class="matter-tags">
+        {% for tag in matter_data.tags %}
+        <span class="matter-tag">{{ tag }}</span>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<div class="tab-container">
+  <div class="tab-nav">
+    <button class="tab-button active" data-tab="objectives">Objectives</button>
+    <button class="tab-button" data-tab="logs">Logs</button>
+    <button class="tab-button" data-tab="attachments">Attachments</button>
+  </div>
+  
+  <div id="objectives-tab" class="tab-content active">
+    <div class="placeholder">
+      <div class="icon">🎯</div>
+      <h3>Objectives</h3>
+      <p>This section will display the matter's objectives and goals. Content management features will be implemented in a future update.</p>
+    </div>
+  </div>
+  
+  <div id="logs-tab" class="tab-content">
+    <div class="placeholder">
+      <div class="icon">📝</div>
+      <h3>Activity Logs</h3>
+      <p>This section will display the matter's activity log entries from the .jsonl file. Log viewing and management features will be implemented in a future update.</p>
+    </div>
+  </div>
+  
+  <div id="attachments-tab" class="tab-content">
+    <div class="placeholder">
+      <div class="icon">📎</div>
+      <h3>Attachments</h3>
+      <p>This section will display files and resources attached to this matter. Attachment management features will be implemented in a future update.</p>
+    </div>
+  </div>
+</div>
+
+<script>
+const domainName = '{{ domain_name }}';
+const matterTimestamp = '{{ matter_timestamp }}';
+
+// Tab switching functionality
+document.addEventListener('DOMContentLoaded', function() {
+  const tabButtons = document.querySelectorAll('.tab-button');
+  const tabContents = document.querySelectorAll('.tab-content');
+  
+  tabButtons.forEach(button => {
+    button.addEventListener('click', function() {
+      const targetTab = this.dataset.tab;
+      
+      // Remove active class from all buttons and content
+      tabButtons.forEach(btn => btn.classList.remove('active'));
+      tabContents.forEach(content => content.classList.remove('active'));
+      
+      // Add active class to clicked button and corresponding content
+      this.classList.add('active');
+      document.getElementById(targetTab + '-tab').classList.add('active');
+      
+      // Future: Load data when tabs are clicked
+      console.log('Switched to tab:', targetTab);
+    });
+  });
+});
+</script>
+{% endblock %}

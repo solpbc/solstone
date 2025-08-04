@@ -10,7 +10,7 @@ from flask import Blueprint, jsonify, render_template, request
 from dotenv import load_dotenv
 
 from think.indexer import search_entities
-from think.utils import get_domains
+from think.utils import get_domains, get_matters
 
 bp = Blueprint("domains", __name__, template_folder="../templates")
 
@@ -98,12 +98,14 @@ def domain_detail(domain_name: str) -> str:
     domains = get_domains()
     if domain_name not in domains:
         return render_template("404.html"), 404
-    
+
     domain_data = domains[domain_name]
-    return render_template("domain_detail.html", 
-                         domain_name=domain_name, 
-                         domain_data=domain_data,
-                         active="domains")
+    return render_template(
+        "domain_detail.html",
+        domain_name=domain_name,
+        domain_data=domain_data,
+        active="domains",
+    )
 
 
 @bp.route("/api/domains/<domain_name>", methods=["PUT"])
@@ -165,10 +167,10 @@ def get_domain_entities(domain_name: str) -> Any:
 
     domain_path = Path(journal) / "domains" / domain_name
     entities_file = domain_path / "entities.md"
-    
+
     if not entities_file.exists():
         return jsonify({"domain_entities": [], "all_entities": []})
-    
+
     # Read domain-specific entities
     domain_entities = []
     try:
@@ -183,19 +185,16 @@ def get_domain_entities(domain_name: str) -> Any:
                         name_desc = rest.strip().split(" - ", 1)
                         name = name_desc[0].strip()
                         desc = name_desc[1].strip() if len(name_desc) > 1 else ""
-                        domain_entities.append({
-                            "type": etype,
-                            "name": name,
-                            "desc": desc,
-                            "starred": True
-                        })
+                        domain_entities.append(
+                            {"type": etype, "name": name, "desc": desc, "starred": True}
+                        )
     except Exception:
         pass
-    
+
     # Get all entities from global search
     types = ["Person", "Company", "Project", "Tool"]
     all_entities = []
-    
+
     for etype in types:
         _total_top, top_results = search_entities(
             "", limit=500, etype=etype, top=True, order="count"
@@ -203,7 +202,7 @@ def get_domain_entities(domain_name: str) -> Any:
         _total_other, other_results = search_entities(
             "", limit=500, etype=etype, top=False, order="count"
         )
-        
+
         for result in top_results + other_results:
             meta = result["metadata"]
             entity = {
@@ -212,25 +211,26 @@ def get_domain_entities(domain_name: str) -> Any:
                 "desc": result["text"],
                 "top": meta.get("top", False),
                 "count": meta.get("days", 0),
-                "starred": False
+                "starred": False,
             }
-            
+
             # Check if this entity is already in domain entities
             for domain_entity in domain_entities:
-                if (domain_entity["type"] == entity["type"] and 
-                    domain_entity["name"] == entity["name"]):
+                if (
+                    domain_entity["type"] == entity["type"]
+                    and domain_entity["name"] == entity["name"]
+                ):
                     entity["starred"] = True
                     break
-            
+
             all_entities.append(entity)
-    
+
     # Sort: starred entities first, then by count/top status
-    all_entities.sort(key=lambda x: (not x["starred"], not x.get("top", False), -x.get("count", 0)))
-    
-    return jsonify({
-        "domain_entities": domain_entities,
-        "all_entities": all_entities
-    })
+    all_entities.sort(
+        key=lambda x: (not x["starred"], not x.get("top", False), -x.get("count", 0))
+    )
+
+    return jsonify({"domain_entities": domain_entities, "all_entities": all_entities})
 
 
 @bp.route("/api/domains/<domain_name>/entities", methods=["POST"])
@@ -247,43 +247,43 @@ def add_domain_entity(domain_name: str) -> Any:
 
     domain_path = Path(journal) / "domains" / domain_name
     entities_file = domain_path / "entities.md"
-    
+
     if not domain_path.exists():
         return jsonify({"error": "Domain not found"}), 404
 
     etype = data.get("type", "").strip()
     name = data.get("name", "").strip()
     desc = data.get("desc", "").strip()
-    
+
     if not etype or not name:
         return jsonify({"error": "Type and name are required"}), 400
-    
+
     try:
         # Read existing content
         existing_lines = []
         if entities_file.exists():
             with open(entities_file, "r", encoding="utf-8") as f:
                 existing_lines = f.readlines()
-        
+
         # Check if entity already exists
         new_line = f"* {etype}: {name}"
         if desc:
             new_line += f" - {desc}"
         new_line += "\n"
-        
+
         for line in existing_lines:
             if line.strip().startswith(f"* {etype}: {name}"):
                 return jsonify({"error": "Entity already exists in domain"}), 409
-        
+
         # Add the new entity
         existing_lines.append(new_line)
-        
+
         # Write back to file
         with open(entities_file, "w", encoding="utf-8") as f:
             f.writelines(existing_lines)
-        
+
         return jsonify({"success": True})
-        
+
     except Exception as e:
         return jsonify({"error": f"Failed to add entity: {str(e)}"}), 500
 
@@ -302,21 +302,21 @@ def remove_domain_entity(domain_name: str) -> Any:
 
     domain_path = Path(journal) / "domains" / domain_name
     entities_file = domain_path / "entities.md"
-    
+
     if not entities_file.exists():
         return jsonify({"error": "Entities file not found"}), 404
 
     etype = data.get("type", "").strip()
     name = data.get("name", "").strip()
-    
+
     if not etype or not name:
         return jsonify({"error": "Type and name are required"}), 400
-    
+
     try:
         # Read existing content
         with open(entities_file, "r", encoding="utf-8") as f:
             lines = f.readlines()
-        
+
         # Filter out the entity to remove
         new_lines = []
         removed = False
@@ -325,16 +325,16 @@ def remove_domain_entity(domain_name: str) -> Any:
                 removed = True
                 continue
             new_lines.append(line)
-        
+
         if not removed:
             return jsonify({"error": "Entity not found in domain"}), 404
-        
+
         # Write back to file
         with open(entities_file, "w", encoding="utf-8") as f:
             f.writelines(new_lines)
-        
+
         return jsonify({"success": True})
-        
+
     except Exception as e:
         return jsonify({"error": f"Failed to remove entity: {str(e)}"}), 500
 
@@ -347,7 +347,7 @@ def generate_domain_description(domain_name: str) -> Any:
         return jsonify({"error": "No data provided"}), 400
 
     current_description = data.get("current_description", "")
-    
+
     # Check for Google API key
     api_key = os.getenv("GOOGLE_API_KEY")
     if not api_key:
@@ -366,18 +366,18 @@ def generate_domain_description(domain_name: str) -> Any:
         # Get domain metadata
         domains = get_domains()
         domain_data = domains.get(domain_name, {})
-        
+
         # Build context for the agent
         context_parts = [
             f"Domain Name: {domain_name}",
             f"Domain Title: {domain_data.get('title', domain_name)}",
         ]
-        
+
         if current_description:
             context_parts.append(f"Current Description: {current_description}")
         else:
             context_parts.append("Current Description: (none)")
-        
+
         # Check if domain has entities
         entities_file = domain_path / "entities.md"
         if entities_file.exists():
@@ -388,16 +388,16 @@ def generate_domain_description(domain_name: str) -> Any:
                     context_parts.append(f"Domain Entities: {entities_content}")
             except Exception:
                 pass
-        
+
         # Check if domain has matters
         matters_dir = domain_path / "matters"
         if matters_dir.exists():
             matters_files = list(matters_dir.glob("*.md"))
             if matters_files:
                 context_parts.append(f"Domain has {len(matters_files)} matter files")
-        
+
         context = "\n".join(context_parts)
-        
+
         prompt = f"""Please generate a compelling, informative description for this domain based on the following context:
 
 {context}
@@ -406,7 +406,7 @@ Generate a clear, engaging 1-2 sentence description that captures the essence an
 
         # Import and run the Google agent
         from think.google import run_agent
-        
+
         # Run the agent synchronously using asyncio
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
@@ -416,9 +416,9 @@ Generate a clear, engaging 1-2 sentence description that captures the essence an
             )
         finally:
             loop.close()
-            
+
         return jsonify({"success": True, "description": description.strip()})
-        
+
     except Exception as e:
         return jsonify({"error": f"Failed to generate description: {str(e)}"}), 500
 
@@ -433,7 +433,7 @@ def update_entity_description(domain_name: str) -> Any:
     entity_type = data.get("type", "").strip()
     entity_name = data.get("name", "").strip()
     new_description = data.get("description", "").strip()
-    
+
     if not entity_type or not entity_name:
         return jsonify({"error": "Type and name are required"}), 400
 
@@ -444,7 +444,7 @@ def update_entity_description(domain_name: str) -> Any:
 
     domain_path = Path(journal) / "domains" / domain_name
     entities_file = domain_path / "entities.md"
-    
+
     if not domain_path.exists():
         return jsonify({"error": "Domain not found"}), 404
 
@@ -454,7 +454,7 @@ def update_entity_description(domain_name: str) -> Any:
         if entities_file.exists():
             with open(entities_file, "r", encoding="utf-8") as f:
                 lines = f.readlines()
-        
+
         # Find and update the entity line
         updated = False
         for i, line in enumerate(lines):
@@ -466,16 +466,16 @@ def update_entity_description(domain_name: str) -> Any:
                     lines[i] = f"* {entity_type}: {entity_name}\n"
                 updated = True
                 break
-        
+
         if not updated:
             return jsonify({"error": "Entity not found in domain"}), 404
-        
+
         # Write back to file
         with open(entities_file, "w", encoding="utf-8") as f:
             f.writelines(lines)
-        
+
         return jsonify({"success": True})
-        
+
     except Exception as e:
         return jsonify({"error": f"Failed to update entity description: {str(e)}"}), 500
 
@@ -490,10 +490,10 @@ def generate_entity_description(domain_name: str) -> Any:
     entity_type = data.get("type", "").strip()
     entity_name = data.get("name", "").strip()
     current_description = data.get("current_description", "")
-    
+
     if not entity_type or not entity_name:
         return jsonify({"error": "Type and name are required"}), 400
-    
+
     # Check for Google API key
     api_key = os.getenv("GOOGLE_API_KEY")
     if not api_key:
@@ -506,14 +506,14 @@ def generate_entity_description(domain_name: str) -> Any:
             f"Entity Name: {entity_name}",
             f"Domain: {domain_name}",
         ]
-        
+
         if current_description:
             context_parts.append(f"Current Description: {current_description}")
         else:
             context_parts.append("Current Description: (none)")
-        
+
         context = "\n".join(context_parts)
-        
+
         prompt = f"""Please generate a compelling, informative description for this entity based on the following context:
 
 {context}
@@ -522,7 +522,7 @@ Generate a clear, concise description (1-2 sentences) that captures what this {e
 
         # Import and run the Google agent
         from think.google import run_agent
-        
+
         # Run the agent synchronously using asyncio
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
@@ -532,8 +532,91 @@ Generate a clear, concise description (1-2 sentences) that captures what this {e
             )
         finally:
             loop.close()
-            
+
         return jsonify({"success": True, "description": description.strip()})
-        
+
     except Exception as e:
-        return jsonify({"error": f"Failed to generate entity description: {str(e)}"}), 500
+        return (
+            jsonify({"error": f"Failed to generate entity description: {str(e)}"}),
+            500,
+        )
+
+
+@bp.route("/domains/<domain_name>/matters/<matter_timestamp>")
+def matter_detail(domain_name: str, matter_timestamp: str) -> str:
+    """Display detailed view for a specific matter."""
+    domains = get_domains()
+    if domain_name not in domains:
+        return render_template("404.html"), 404
+
+    # Get the specific matter
+    matters = get_matters(domain_name, limit=None, offset=0)
+    if matter_timestamp not in matters:
+        return render_template("404.html"), 404
+
+    domain_data = domains[domain_name]
+    matter_data = matters[matter_timestamp]
+
+    return render_template(
+        "matter_detail.html",
+        domain_name=domain_name,
+        domain_data=domain_data,
+        matter_timestamp=matter_timestamp,
+        matter_data=matter_data,
+        active="domains",
+    )
+
+
+@bp.route("/api/domains/<domain_name>/matters")
+def get_domain_matters(domain_name: str) -> Any:
+    """Get matters for a specific domain with pagination support."""
+
+    # Get pagination parameters
+    limit = request.args.get("limit", type=int)
+    offset = request.args.get("offset", default=0, type=int)
+
+    try:
+        # Get matters from the utility function
+        matters_data = get_matters(domain_name, limit=limit, offset=offset)
+
+        # Add activity log count and format data for the frontend
+        from pathlib import Path
+
+        matters_list = []
+        for timestamp, matter_info in matters_data.items():
+            # Count lines in the activity log
+            activity_count = 0
+            activity_log_path = Path(matter_info["activity_log_path"])
+            if activity_log_path.exists():
+                try:
+                    with open(activity_log_path, "r", encoding="utf-8") as f:
+                        activity_count = sum(1 for line in f if line.strip())
+                except Exception:
+                    pass
+
+            # Get mtime of the activity log file for the timestamp display
+            log_mtime = None
+            if activity_log_path.exists():
+                try:
+                    log_mtime = int(activity_log_path.stat().st_mtime)
+                except Exception:
+                    pass
+
+            matter_display = {
+                "timestamp": timestamp,
+                "title": matter_info.get("title", ""),
+                "description": matter_info.get("description", ""),
+                "status": matter_info.get("status", ""),
+                "priority": matter_info.get("priority", ""),
+                "tags": matter_info.get("tags", []),
+                "created": matter_info.get("created", ""),
+                "activity_count": activity_count,
+                "activity_log_exists": matter_info["activity_log_exists"],
+                "log_mtime": log_mtime,
+            }
+            matters_list.append(matter_display)
+
+        return jsonify({"matters": matters_list})
+
+    except Exception as e:
+        return jsonify({"error": f"Failed to get matters: {str(e)}"}), 500

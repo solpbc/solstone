@@ -20,7 +20,7 @@ Each domain is organized as `domains/<domain>/` where `<domain>` is a descriptiv
 
 - `domain.json` – metadata file with domain title and description.
 - `entities.md` – entities specific to this domain.
-- `matters/` – domain-specific sub-projects (to be defined).
+- `matters/` – domain-specific sub-projects and focused topics.
 
 ### Domain metadata
 
@@ -42,6 +42,50 @@ Optional fields:
 ### Domain entities
 
 The `entities.md` file follows the same format as the top-level entities file but contains only entities relevant to this specific domain. This allows for more targeted entity tracking within focused areas of work.
+
+### Domain matters
+
+Matters represent specific scoped topics, sub-projects, or focused areas of work within a domain. Each matter is stored as a pair of files in `domains/<domain>/matters/` using a timestamp-based ID system.
+
+#### Matter file structure
+
+Each matter consists of two files with the same timestamp ID:
+
+- `<timestamp>.json` – matter metadata including title, description, and other properties
+- `<timestamp>.jsonl` – chronological log of matter-related activities in JSON Lines format
+
+The timestamp follows the same format used for agents and tasks, ensuring unique identification and chronological ordering.
+
+#### Matter metadata format
+
+The `<timestamp>.json` file contains the matter's core information:
+
+```json
+{
+  "title": "API Performance Optimization",
+  "description": "Investigating and implementing improvements to reduce API response times",
+  "created": "2025-01-15T10:30:00Z",
+  "status": "active",
+  "priority": "high",
+  "tags": ["performance", "backend", "optimization"]
+}
+```
+
+Required fields:
+- `title` – concise name for the matter
+- `description` – detailed explanation of the matter's scope and purpose
+
+Optional fields:
+- `created` – ISO 8601 timestamp of matter creation
+- `status` – current state (e.g., "active", "completed", "paused", "cancelled")
+- `priority` – importance level (e.g., "low", "medium", "high", "critical")
+- `tags` – array of relevant keywords for categorization and search
+
+#### Matter activity log
+
+The `<timestamp>.jsonl` file maintains a chronological record of all matter-related activities in JSON Lines format. The specific format and fields will be defined separately.
+
+This structure allows matters to serve as focused tracking mechanisms for specific topics within a domain, with full activity history and metadata management.
 
 ## Day folder contents
 

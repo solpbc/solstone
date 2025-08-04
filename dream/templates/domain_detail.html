@@ -471,6 +471,129 @@
 .no-entity-desc:hover {
   opacity: 0.8;
 }
+
+/* Matters styling */
+.matters-container {
+  background: white;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.matters-list {
+  padding: 0;
+}
+
+.matter-item {
+  border-bottom: 1px solid #e0e0e0;
+  padding: 20px;
+  transition: background-color 0.2s;
+  cursor: pointer;
+}
+
+.matter-item:hover {
+  background: #f8f9fa;
+}
+
+.matter-item:last-child {
+  border-bottom: none;
+}
+
+.matter-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 8px;
+}
+
+.matter-title {
+  font-size: 1.2em;
+  font-weight: 600;
+  color: #333;
+  margin: 0;
+  flex: 1;
+}
+
+.matter-meta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 0.9em;
+  color: #666;
+  flex-shrink: 0;
+}
+
+.matter-timestamp {
+  color: #999;
+}
+
+.matter-activity-count {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: #e3f2fd;
+  color: #1976d2;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 0.8em;
+  font-weight: 500;
+}
+
+.matter-description {
+  color: #666;
+  line-height: 1.4;
+  margin: 8px 0;
+}
+
+.matter-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 12px;
+}
+
+.matter-tags {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.matter-tag {
+  background: #f1f3f4;
+  color: #5f6368;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 0.8em;
+  font-weight: 500;
+}
+
+.matter-status {
+  padding: 4px 12px;
+  border-radius: 16px;
+  font-size: 0.8em;
+  font-weight: 500;
+  text-transform: capitalize;
+}
+
+.matter-status.active {
+  background: #e8f5e8;
+  color: #2e7d32;
+}
+
+.matter-status.completed {
+  background: #e3f2fd;
+  color: #1976d2;
+}
+
+.matter-status.paused {
+  background: #fff3e0;
+  color: #f57c00;
+}
+
+.matter-status.cancelled {
+  background: #ffebee;
+  color: #c62828;
+}
 </style>
 {% endblock %}
 {% block body %}
@@ -503,9 +626,15 @@
   </div>
   
   <div id="matters-tab" class="tab-content active">
-    <div class="placeholder">
-      <h3>Matters</h3>
-      <p>Domain-specific sub-projects and matters will be displayed here. This feature is coming soon and will show organized content from the <code>matters/</code> directory within this domain.</p>
+    <div class="loading" id="matters-loading">Loading matters...</div>
+    <div id="matters-content" style="display: none;">
+      <div class="matters-container">
+        <div class="matters-list" id="matters-list">
+        </div>
+        <div id="no-matters" class="no-entities" style="display: none;">
+          No matters found for this domain yet.
+        </div>
+      </div>
     </div>
   </div>
   
@@ -581,6 +710,7 @@
 <script>
 const domainName = '{{ domain_name }}';
 let entitiesData = null;
+let mattersData = null;
 
 // Tab switching functionality
 document.addEventListener('DOMContentLoaded', function() {
@@ -599,12 +729,17 @@ document.addEventListener('DOMContentLoaded', function() {
       this.classList.add('active');
       document.getElementById(targetTab + '-tab').classList.add('active');
       
-      // Load entities when entities tab is clicked
+      // Load data when tabs are clicked
       if (targetTab === 'entities' && !entitiesData) {
         loadEntities();
+      } else if (targetTab === 'matters' && !mattersData) {
+        loadMatters();
       }
     });
   });
+  
+  // Load matters by default since matters tab is active
+  loadMatters();
 });
 
 function loadEntities() {
@@ -754,6 +889,131 @@ function toggleEntityStar(entity, starButton) {
     starButton.disabled = false;
     starButton.style.opacity = '1';
   });
+}
+
+function loadMatters() {
+  fetch(`/api/domains/${encodeURIComponent(domainName)}/matters`)
+    .then(response => response.json())
+    .then(data => {
+      if (data.error) {
+        console.error('Error loading matters:', data.error);
+        document.getElementById('matters-loading').innerHTML = 'Error loading matters: ' + data.error;
+        return;
+      }
+      
+      mattersData = data.matters;
+      renderMatters();
+      document.getElementById('matters-loading').style.display = 'none';
+      document.getElementById('matters-content').style.display = 'block';
+    })
+    .catch(error => {
+      console.error('Error loading matters:', error);
+      document.getElementById('matters-loading').innerHTML = 'Error loading matters';
+    });
+}
+
+function renderMatters() {
+  if (!mattersData) return;
+  
+  const mattersList = document.getElementById('matters-list');
+  const noMatters = document.getElementById('no-matters');
+  
+  // Clear existing content
+  mattersList.innerHTML = '';
+  
+  if (mattersData.length === 0) {
+    noMatters.style.display = 'block';
+    return;
+  }
+  
+  noMatters.style.display = 'none';
+  
+  mattersData.forEach(matter => {
+    const matterElement = createMatterElement(matter);
+    mattersList.appendChild(matterElement);
+  });
+}
+
+function createMatterElement(matter) {
+  const div = document.createElement('div');
+  div.className = 'matter-item';
+  
+  // Format timestamp
+  let timestampText = 'No activity';
+  if (matter.log_mtime) {
+    timestampText = formatTimeSince(matter.log_mtime);
+  }
+  
+  // Create tags HTML
+  let tagsHtml = '';
+  if (matter.tags && matter.tags.length > 0) {
+    tagsHtml = matter.tags.map(tag => 
+      `<span class="matter-tag">${escapeHtml(tag)}</span>`
+    ).join('');
+  }
+  
+  // Create status HTML
+  let statusHtml = '';
+  if (matter.status) {
+    statusHtml = `<span class="matter-status ${matter.status}">${escapeHtml(matter.status)}</span>`;
+  }
+  
+  div.innerHTML = `
+    <div class="matter-header">
+      <h3 class="matter-title">${escapeHtml(matter.title || 'Untitled Matter')}</h3>
+      <div class="matter-meta">
+        <span class="matter-timestamp">${timestampText}</span>
+        <span class="matter-activity-count">
+          📝 ${matter.activity_count} ${matter.activity_count === 1 ? 'entry' : 'entries'}
+        </span>
+      </div>
+    </div>
+    ${matter.description ? `<div class="matter-description">${escapeHtml(matter.description)}</div>` : ''}
+    <div class="matter-footer">
+      <div class="matter-tags">${tagsHtml}</div>
+      ${statusHtml}
+    </div>
+  `;
+  
+  // Add click handler to navigate to matter detail view
+  div.onclick = () => {
+    window.location.href = `/domains/${encodeURIComponent(domainName)}/matters/${matter.timestamp}`;
+  };
+  
+  return div;
+}
+
+function formatTimeSince(epochSeconds) {
+  const now = Math.floor(Date.now() / 1000);
+  const seconds = now - epochSeconds;
+  
+  if (seconds < 60) {
+    return `${seconds} seconds ago`;
+  }
+  
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) {
+    return `${minutes} minute${minutes !== 1 ? 's' : ''} ago`;
+  }
+  
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) {
+    return `${hours} hour${hours !== 1 ? 's' : ''} ago`;
+  }
+  
+  const days = Math.floor(hours / 24);
+  if (days < 7) {
+    return `${days} day${days !== 1 ? 's' : ''} ago`;
+  }
+  
+  const weeks = Math.floor(days / 7);
+  return `${weeks} week${weeks !== 1 ? 's' : ''} ago`;
+}
+
+function escapeHtml(text) {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
 }
 
 // Description editor functionality

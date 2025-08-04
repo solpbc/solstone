@@ -330,6 +330,70 @@ def parse_time_range(text: str) -> Optional[tuple[str, str, str]]:
     return day, start, end
 
 
+def get_matters(domain: str, *, limit: Optional[int] = None, offset: int = 0) -> dict[str, dict[str, object]]:
+    """Return matters for the specified domain with pagination support.
+
+    Parameters
+    ----------
+    domain:
+        Domain name to get matters for.
+    limit:
+        Maximum number of matters to return. If None, returns all matters.
+    offset:
+        Number of matters to skip from the beginning (for pagination).
+
+    Returns
+    -------
+    dict[str, dict[str, object]]
+        Dictionary where keys are matter timestamps and values contain
+        matter metadata from the .json file plus 'activity_log_path' field.
+        Results are sorted by timestamp (newest first).
+    """
+    load_dotenv()
+    journal = os.getenv("JOURNAL_PATH")
+    if not journal:
+        raise RuntimeError("JOURNAL_PATH not set")
+
+    domain_path = Path(journal) / "domains" / domain
+    matters_dir = domain_path / "matters"
+    matters: dict[str, dict[str, object]] = {}
+
+    if not matters_dir.exists():
+        return matters
+
+    # Find all .json files (matter metadata)
+    json_files = list(matters_dir.glob("*.json"))
+    # Sort by filename (timestamp) in descending order (newest first)
+    json_files.sort(reverse=True)
+
+    # Apply offset and limit
+    start_idx = offset
+    end_idx = start_idx + limit if limit is not None else len(json_files)
+    json_files = json_files[start_idx:end_idx]
+
+    for json_path in json_files:
+        timestamp = json_path.stem
+        jsonl_path = matters_dir / f"{timestamp}.jsonl"
+
+        try:
+            with open(json_path, "r", encoding="utf-8") as f:
+                matter_data = json.load(f)
+
+            if isinstance(matter_data, dict):
+                matter_info = {
+                    "timestamp": timestamp,
+                    "metadata_path": str(json_path),
+                    "activity_log_path": str(jsonl_path),
+                    "activity_log_exists": jsonl_path.exists(),
+                    **matter_data  # Include all fields from the JSON metadata
+                }
+                matters[timestamp] = matter_info
+        except Exception as exc:  # pragma: no cover - metadata optional
+            logging.debug("Error reading %s: %s", json_path, exc)
+
+    return matters
+
+
 def get_raw_file(day: str, name: str) -> tuple[str, str, Any]:
     """Return raw file path, mime type and metadata for a transcript.
 
