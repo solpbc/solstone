@@ -1,0 +1,8 @@
+{
+  "title": "Test Matter",
+  "description": "A test matter to validate the matter detail view functionality",
+  "status": "active",
+  "priority": "high",
+  "tags": ["test", "development", "ui"],
+  "created": "2025-01-01T12:00:00Z"
+}
