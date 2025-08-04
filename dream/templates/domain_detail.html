@@ -135,6 +135,342 @@
   max-width: 600px;
   margin: 0 auto;
 }
+
+/* Entities table styling */
+.entities-container {
+  background: white;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.entities-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.entities-table th,
+.entities-table td {
+  padding: 12px;
+  text-align: left;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.entities-table th {
+  background: #f8f9fa;
+  font-weight: 600;
+  color: #333;
+}
+
+.entities-table tr:hover {
+  background: #f8f9fa;
+}
+
+.entity-type {
+  font-weight: 500;
+  color: #007bff;
+  width: 100px;
+}
+
+.entity-name {
+  font-weight: 500;
+  width: 200px;
+}
+
+.entity-desc {
+  color: #666;
+}
+
+.entity-count {
+  text-align: center;
+  font-weight: bold;
+  color: #007bff;
+  width: 80px;
+}
+
+.star-button {
+  background: none;
+  border: none;
+  font-size: 18px;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  transition: background-color 0.2s;
+  width: 30px;
+  text-align: center;
+}
+
+.star-button:hover {
+  background: #f0f0f0;
+}
+
+.star-button.starred {
+  color: #ffc107;
+}
+
+.star-button.unstarred {
+  color: #ccc;
+}
+
+.entities-section {
+  margin-bottom: 2em;
+}
+
+.entities-section h3 {
+  margin: 0 0 1em 0;
+  padding: 15px 20px;
+  background: #f8f9fa;
+  border-bottom: 1px solid #e0e0e0;
+  font-size: 1.2em;
+  color: #333;
+}
+
+.loading {
+  text-align: center;
+  padding: 2em;
+  color: #666;
+}
+
+.no-entities {
+  text-align: center;
+  padding: 2em;
+  color: #999;
+  font-style: italic;
+}
+
+/* Description editing */
+.edit-description-btn {
+  margin-left: 0.5em;
+  cursor: pointer;
+  font-size: 1.1em;
+  transition: opacity 0.2s, transform 0.2s;
+  display: inline-block;
+}
+
+.edit-description-btn:hover {
+  opacity: 1;
+  transform: scale(1.1);
+}
+
+/* Hide pencil icon by default for descriptions with content */
+.has-description .edit-description-btn {
+  opacity: 0;
+}
+
+.has-description:hover .edit-description-btn {
+  opacity: 0.7;
+}
+
+.no-description {
+  opacity: 0.7;
+  font-style: italic;
+}
+
+.no-description .edit-description-btn {
+  opacity: 0.7;
+}
+
+.add-description-text {
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.add-description-text:hover {
+  opacity: 1;
+}
+
+/* Description modal */
+.description-modal {
+  display: none;
+  position: fixed;
+  z-index: 2000;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0,0,0,0.6);
+}
+
+.description-modal-content {
+  background-color: white;
+  margin: 10% auto;
+  border-radius: 12px;
+  width: 90%;
+  max-width: 600px;
+  position: relative;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+  overflow: hidden;
+}
+
+.description-close {
+  color: #aaa;
+  float: right;
+  font-size: 28px;
+  font-weight: bold;
+  cursor: pointer;
+  line-height: 1;
+  position: absolute;
+  top: 15px;
+  right: 20px;
+  background: white;
+  z-index: 3;
+  transition: color 0.2s;
+}
+
+.description-close:hover {
+  color: #000;
+}
+
+.description-modal-header {
+  padding: 20px 40px 15px 20px;
+  border-bottom: 1px solid #e0e0e0;
+  background: white;
+  border-radius: 12px 12px 0 0;
+}
+
+.description-modal-header h3 {
+  margin: 0;
+  color: #333;
+  font-size: 1.4em;
+}
+
+.description-modal-body {
+  padding: 20px;
+}
+
+#descriptionText {
+  width: 100%;
+  min-height: 120px;
+  padding: 12px;
+  border: 2px solid #e0e0e0;
+  border-radius: 8px;
+  font-size: 1em;
+  font-family: inherit;
+  resize: vertical;
+  margin-bottom: 20px;
+  transition: border-color 0.2s;
+}
+
+#descriptionText:focus {
+  outline: none;
+  border-color: #667eea;
+}
+
+.description-buttons {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.generate-btn {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  padding: 10px 16px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 1em;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s;
+}
+
+.generate-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+}
+
+.generate-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.generate-btn.generating {
+  background: #999;
+}
+
+.generate-btn.generating .generate-icon {
+  animation: sparkle 1.5s infinite;
+}
+
+@keyframes sparkle {
+  0%, 100% { transform: scale(1) rotate(0deg); }
+  50% { transform: scale(1.2) rotate(180deg); }
+}
+
+.button-group {
+  display: flex;
+  gap: 10px;
+}
+
+.cancel-btn, .save-btn {
+  padding: 10px 20px;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 1em;
+  transition: all 0.2s;
+}
+
+.cancel-btn {
+  background: #f8f9fa;
+  color: #666;
+  border: 1px solid #e0e0e0;
+}
+
+.cancel-btn:hover {
+  background: #e9ecef;
+}
+
+.save-btn {
+  background: #28a745;
+  color: white;
+}
+
+.save-btn:hover {
+  background: #218838;
+  transform: translateY(-1px);
+}
+
+/* Entity description editing */
+.entity-edit-btn {
+  margin-left: 0.5em;
+  cursor: pointer;
+  font-size: 1em;
+  transition: opacity 0.2s, transform 0.2s;
+  display: inline-block;
+}
+
+.entity-edit-btn:hover {
+  opacity: 1;
+  transform: scale(1.1);
+}
+
+/* Hide pencil icon by default for entities with descriptions */
+.has-entity-desc .entity-edit-btn {
+  opacity: 0;
+}
+
+.has-entity-desc:hover .entity-edit-btn {
+  opacity: 0.6;
+}
+
+.no-entity-desc-cell .entity-edit-btn {
+  opacity: 0.6;
+}
+
+.no-entity-desc {
+  color: #999;
+  font-style: italic;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.no-entity-desc:hover {
+  opacity: 0.8;
+}
 </style>
 {% endblock %}
 {% block body %}
@@ -148,7 +484,15 @@
   <h1>{{ domain_data.title or domain_name }}</h1>
   
   {% if domain_data.description %}
-  <p class="description">{{ domain_data.description }}</p>
+  <p class="description has-description">
+    {{ domain_data.description }}
+    <span class="edit-description-btn" onclick="openDescriptionEditor()" title="Edit description">✏️</span>
+  </p>
+  {% else %}
+  <p class="description no-description">
+    <span class="add-description-text" onclick="openDescriptionEditor()">Add description...</span>
+    <span class="edit-description-btn" onclick="openDescriptionEditor()" title="Add description">✨</span>
+  </p>
   {% endif %}
 </div>
 
@@ -166,14 +510,78 @@
   </div>
   
   <div id="entities-tab" class="tab-content">
-    <div class="placeholder">
-      <h3>Entities</h3>
-      <p>Domain-specific entities will be displayed here. This will show entities from the <code>entities.md</code> file within this domain, allowing you to track people, projects, and concepts specific to this area of focus.</p>
+    <div class="loading" id="entities-loading">Loading entities...</div>
+    <div id="entities-content" style="display: none;">
+      <div class="entities-section" id="domain-entities-section">
+        <div class="entities-container">
+          <h3>{{ domain_data.title or domain_name }} Entities</h3>
+          <table class="entities-table">
+            <thead>
+              <tr>
+                <th></th>
+                <th class="entity-type">Type</th>
+                <th class="entity-name">Name</th>
+                <th class="entity-desc">Description</th>
+              </tr>
+            </thead>
+            <tbody id="domain-entities-tbody">
+            </tbody>
+          </table>
+          <div id="no-domain-entities" class="no-entities" style="display: none;">
+            No entities added to this domain yet. Star entities below to add them.
+          </div>
+        </div>
+      </div>
+      
+      <div class="entities-section">
+        <div class="entities-container">
+          <h3>All Entities</h3>
+          <table class="entities-table">
+            <thead>
+              <tr>
+                <th></th>
+                <th class="entity-type">Type</th>
+                <th class="entity-count">Count</th>
+                <th class="entity-name">Name</th>
+                <th class="entity-desc">Description</th>
+              </tr>
+            </thead>
+            <tbody id="all-entities-tbody">
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Description Editor Modal -->
+<div id="descriptionModal" class="description-modal">
+  <div class="description-modal-content">
+    <span class="description-close">&times;</span>
+    <div class="description-modal-header">
+      <h3 id="modal-title">Edit Domain Description</h3>
+    </div>
+    <div class="description-modal-body">
+      <textarea id="descriptionText" placeholder="Enter domain description..."></textarea>
+      <div class="description-buttons">
+        <button id="generateBtn" class="generate-btn" title="Generate description with AI">
+          <span class="generate-icon">✨</span>
+          <span class="generate-text">Generate</span>
+        </button>
+        <div class="button-group">
+          <button id="cancelBtn" class="cancel-btn">Cancel</button>
+          <button id="saveBtn" class="save-btn">Save</button>
+        </div>
+      </div>
     </div>
   </div>
 </div>
 
 <script>
+const domainName = '{{ domain_name }}';
+let entitiesData = null;
+
 // Tab switching functionality
 document.addEventListener('DOMContentLoaded', function() {
   const tabButtons = document.querySelectorAll('.tab-button');
@@ -190,8 +598,506 @@ document.addEventListener('DOMContentLoaded', function() {
       // Add active class to clicked button and corresponding content
       this.classList.add('active');
       document.getElementById(targetTab + '-tab').classList.add('active');
+      
+      // Load entities when entities tab is clicked
+      if (targetTab === 'entities' && !entitiesData) {
+        loadEntities();
+      }
     });
   });
 });
+
+function loadEntities() {
+  fetch(`/api/domains/${encodeURIComponent(domainName)}/entities`)
+    .then(response => response.json())
+    .then(data => {
+      entitiesData = data;
+      renderEntities();
+      document.getElementById('entities-loading').style.display = 'none';
+      document.getElementById('entities-content').style.display = 'block';
+    })
+    .catch(error => {
+      console.error('Error loading entities:', error);
+      document.getElementById('entities-loading').innerHTML = 'Error loading entities';
+    });
+}
+
+function renderEntities() {
+  if (!entitiesData) return;
+  
+  const domainTbody = document.getElementById('domain-entities-tbody');
+  const allTbody = document.getElementById('all-entities-tbody');
+  const noDomainEntities = document.getElementById('no-domain-entities');
+  
+  // Clear existing content
+  domainTbody.innerHTML = '';
+  allTbody.innerHTML = '';
+  
+  // Render domain entities
+  const starredEntities = entitiesData.all_entities.filter(e => e.starred);
+  if (starredEntities.length === 0) {
+    noDomainEntities.style.display = 'block';
+    document.getElementById('domain-entities-section').querySelector('table').style.display = 'none';
+  } else {
+    noDomainEntities.style.display = 'none';
+    document.getElementById('domain-entities-section').querySelector('table').style.display = 'table';
+    
+    starredEntities.forEach(entity => {
+      const row = createEntityRow(entity, true);
+      domainTbody.appendChild(row);
+    });
+  }
+  
+  // Render all entities
+  entitiesData.all_entities.forEach(entity => {
+    const row = createEntityRow(entity, false);
+    allTbody.appendChild(row);
+  });
+}
+
+function createEntityRow(entity, isDomainSection) {
+  const row = document.createElement('tr');
+  
+  const starCell = document.createElement('td');
+  const starButton = document.createElement('button');
+  starButton.className = `star-button ${entity.starred ? 'starred' : 'unstarred'}`;
+  starButton.innerHTML = entity.starred ? '★' : '☆';
+  starButton.onclick = () => toggleEntityStar(entity, starButton);
+  starCell.appendChild(starButton);
+  
+  const typeCell = document.createElement('td');
+  typeCell.className = 'entity-type';
+  typeCell.textContent = entity.type;
+  
+  const nameCell = document.createElement('td');
+  nameCell.className = 'entity-name';
+  nameCell.textContent = entity.name;
+  
+  const descCell = document.createElement('td');
+  descCell.className = 'entity-desc';
+  if (entity.desc) {
+    descCell.innerHTML = `<span class="entity-desc-text">${entity.desc}</span> <span class="entity-edit-btn" onclick="openEntityDescriptionEditor('${entity.type}', '${entity.name.replace(/'/g, "\\'")}', '${(entity.desc || '').replace(/'/g, "\\'")}')" title="Edit description">✏️</span>`;
+    descCell.classList.add('has-entity-desc');
+  } else {
+    descCell.innerHTML = `<span class="no-entity-desc" onclick="openEntityDescriptionEditor('${entity.type}', '${entity.name.replace(/'/g, "\\'")}', '')">Add description...</span> <span class="entity-edit-btn" onclick="openEntityDescriptionEditor('${entity.type}', '${entity.name.replace(/'/g, "\\'")}', '')" title="Add description">✨</span>`;
+    descCell.classList.add('no-entity-desc-cell');
+  }
+  
+  row.appendChild(starCell);
+  row.appendChild(typeCell);
+  
+  if (!isDomainSection) {
+    // Add count column for all entities section
+    const countCell = document.createElement('td');
+    countCell.className = 'entity-count';
+    if (entity.top) {
+      countCell.innerHTML = '<span style="color:gold">★</span>';
+    } else {
+      countCell.textContent = entity.count || 0;
+    }
+    row.appendChild(countCell);
+  }
+  
+  row.appendChild(nameCell);
+  row.appendChild(descCell);
+  
+  return row;
+}
+
+function toggleEntityStar(entity, starButton) {
+  const wasStarred = entity.starred;
+  
+  // Disable button during request
+  starButton.disabled = true;
+  starButton.style.opacity = '0.5';
+  
+  const method = wasStarred ? 'DELETE' : 'POST';
+  const url = `/api/domains/${encodeURIComponent(domainName)}/entities`;
+  
+  fetch(url, {
+    method: method,
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      type: entity.type,
+      name: entity.name,
+      desc: entity.desc
+    })
+  })
+  .then(response => response.json())
+  .then(data => {
+    if (data.success) {
+      // Update entity state
+      entity.starred = !wasStarred;
+      
+      // Update star button
+      starButton.className = `star-button ${entity.starred ? 'starred' : 'unstarred'}`;
+      starButton.innerHTML = entity.starred ? '★' : '☆';
+      
+      // Re-render entities to update the domain section
+      renderEntities();
+    } else {
+      console.error('Error toggling entity:', data.error);
+      alert('Error: ' + (data.error || 'Unknown error'));
+    }
+    
+    // Re-enable button
+    starButton.disabled = false;
+    starButton.style.opacity = '1';
+  })
+  .catch(error => {
+    console.error('Network error:', error);
+    alert('Network error: ' + error.message);
+    
+    // Re-enable button
+    starButton.disabled = false;
+    starButton.style.opacity = '1';
+  });
+}
+
+// Description editor functionality
+function openDescriptionEditor() {
+  const modal = document.getElementById('descriptionModal');
+  const textarea = document.getElementById('descriptionText');
+  
+  // Set current description
+  const currentDesc = '{{ domain_data.description|replace("'", "\\'") }}' || '';
+  textarea.value = currentDesc;
+  
+  modal.style.display = 'block';
+  textarea.focus();
+}
+
+function closeDescriptionEditor() {
+  document.getElementById('descriptionModal').style.display = 'none';
+}
+
+// Modal event listeners
+document.addEventListener('DOMContentLoaded', function() {
+  const modal = document.getElementById('descriptionModal');
+  const closeBtn = document.querySelector('.description-close');
+  const cancelBtn = document.getElementById('cancelBtn');
+  const saveBtn = document.getElementById('saveBtn');
+  const generateBtn = document.getElementById('generateBtn');
+  
+  // Close modal
+  closeBtn.onclick = closeDescriptionEditor;
+  cancelBtn.onclick = closeDescriptionEditor;
+  
+  // Click outside to close
+  window.onclick = function(event) {
+    if (event.target === modal) {
+      closeDescriptionEditor();
+    }
+  };
+  
+  // Save description
+  saveBtn.onclick = function() {
+    const description = document.getElementById('descriptionText').value.trim();
+    saveDescription(description);
+  };
+  
+  // Generate description
+  generateBtn.onclick = function() {
+    generateDescription();
+  };
+});
+
+function saveDescription(description) {
+  const saveBtn = document.getElementById('saveBtn');
+  const originalText = saveBtn.textContent;
+  
+  saveBtn.textContent = 'Saving...';
+  saveBtn.disabled = true;
+  
+  fetch(`/api/domains/${encodeURIComponent(domainName)}`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      description: description
+    })
+  })
+  .then(response => response.json())
+  .then(data => {
+    if (data.success) {
+      // Update the page description
+      const descElement = document.querySelector('.description');
+      if (description) {
+        descElement.innerHTML = `${description} <span class="edit-description-btn" onclick="openDescriptionEditor()" title="Edit description">✨</span>`;
+        descElement.classList.remove('no-description');
+      } else {
+        descElement.innerHTML = '<span class="add-description-text" onclick="openDescriptionEditor()">Add description...</span> <span class="edit-description-btn" onclick="openDescriptionEditor()" title="Add description">✨</span>';
+        descElement.classList.add('no-description');
+      }
+      closeDescriptionEditor();
+    } else {
+      alert('Error saving description: ' + (data.error || 'Unknown error'));
+    }
+    
+    saveBtn.textContent = originalText;
+    saveBtn.disabled = false;
+  })
+  .catch(error => {
+    console.error('Error saving description:', error);
+    alert('Network error: ' + error.message);
+    
+    saveBtn.textContent = originalText;
+    saveBtn.disabled = false;
+  });
+}
+
+function generateDescription() {
+  const generateBtn = document.getElementById('generateBtn');
+  const textarea = document.getElementById('descriptionText');
+  const generateIcon = generateBtn.querySelector('.generate-icon');
+  const generateText = generateBtn.querySelector('.generate-text');
+  
+  // Update button state
+  generateBtn.disabled = true;
+  generateBtn.classList.add('generating');
+  generateText.textContent = 'Generating...';
+  
+  const currentDescription = textarea.value.trim();
+  
+  fetch(`/api/domains/${encodeURIComponent(domainName)}/generate-description`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      current_description: currentDescription,
+      domain_name: domainName
+    })
+  })
+  .then(response => response.json())
+  .then(data => {
+    if (data.success && data.description) {
+      textarea.value = data.description;
+      textarea.focus();
+    } else {
+      alert('Error generating description: ' + (data.error || 'Unknown error'));
+    }
+    
+    // Reset button state
+    generateBtn.disabled = false;
+    generateBtn.classList.remove('generating');
+    generateText.textContent = 'Generate';
+  })
+  .catch(error => {
+    console.error('Error generating description:', error);
+    alert('Network error: ' + error.message);
+    
+    // Reset button state
+    generateBtn.disabled = false;
+    generateBtn.classList.remove('generating');
+    generateText.textContent = 'Generate';
+  });
+}
+
+// Entity description editing
+let currentEntityType = null;
+let currentEntityName = null;
+
+function openEntityDescriptionEditor(entityType, entityName, currentDescription) {
+  currentEntityType = entityType;
+  currentEntityName = entityName;
+  
+  const modal = document.getElementById('descriptionModal');
+  const textarea = document.getElementById('descriptionText');
+  const title = document.getElementById('modal-title');
+  
+  // Update modal title and content
+  title.textContent = `Edit ${entityType}: ${entityName}`;
+  textarea.placeholder = `Enter description for ${entityName}...`;
+  textarea.value = currentDescription || '';
+  
+  modal.style.display = 'block';
+  textarea.focus();
+}
+
+// Override save function to handle both domain and entity descriptions
+function saveDescription(description) {
+  const saveBtn = document.getElementById('saveBtn');
+  const originalText = saveBtn.textContent;
+  
+  saveBtn.textContent = 'Saving...';
+  saveBtn.disabled = true;
+  
+  // Determine if we're editing domain or entity description
+  if (currentEntityType && currentEntityName) {
+    // Save entity description
+    saveEntityDescription(description);
+  } else {
+    // Save domain description (original functionality)
+    saveDomainDescription(description);
+  }
+}
+
+function saveDomainDescription(description) {
+  const saveBtn = document.getElementById('saveBtn');
+  
+  fetch(`/api/domains/${encodeURIComponent(domainName)}`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      description: description
+    })
+  })
+  .then(response => response.json())
+  .then(data => {
+    if (data.success) {
+      // Update the page description
+      const descElement = document.querySelector('.description');
+      if (description) {
+        descElement.innerHTML = `${description} <span class="edit-description-btn" onclick="openDescriptionEditor()" title="Edit description">✏️</span>`;
+        descElement.classList.remove('no-description');
+        descElement.classList.add('has-description');
+      } else {
+        descElement.innerHTML = '<span class="add-description-text" onclick="openDescriptionEditor()">Add description...</span> <span class="edit-description-btn" onclick="openDescriptionEditor()" title="Add description">✨</span>';
+        descElement.classList.add('no-description');
+        descElement.classList.remove('has-description');
+      }
+      closeDescriptionEditor();
+    } else {
+      alert('Error saving description: ' + (data.error || 'Unknown error'));
+    }
+    
+    saveBtn.textContent = 'Save';
+    saveBtn.disabled = false;
+  })
+  .catch(error => {
+    console.error('Error saving description:', error);
+    alert('Network error: ' + error.message);
+    
+    saveBtn.textContent = 'Save';
+    saveBtn.disabled = false;
+  });
+}
+
+function saveEntityDescription(description) {
+  const saveBtn = document.getElementById('saveBtn');
+  
+  fetch(`/api/domains/${encodeURIComponent(domainName)}/entities/description`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      type: currentEntityType,
+      name: currentEntityName,
+      description: description
+    })
+  })
+  .then(response => response.json())
+  .then(data => {
+    if (data.success) {
+      // Update the entity in our local data
+      if (entitiesData && entitiesData.all_entities) {
+        const entity = entitiesData.all_entities.find(e => 
+          e.type === currentEntityType && e.name === currentEntityName
+        );
+        if (entity) {
+          entity.desc = description;
+        }
+      }
+      
+      // Re-render the entities tables
+      renderEntities();
+      closeDescriptionEditor();
+    } else {
+      alert('Error saving entity description: ' + (data.error || 'Unknown error'));
+    }
+    
+    saveBtn.textContent = 'Save';
+    saveBtn.disabled = false;
+  })
+  .catch(error => {
+    console.error('Error saving entity description:', error);
+    alert('Network error: ' + error.message);
+    
+    saveBtn.textContent = 'Save';
+    saveBtn.disabled = false;
+  });
+}
+
+// Override generate function to handle both domain and entity descriptions
+function generateDescription() {
+  const generateBtn = document.getElementById('generateBtn');
+  const textarea = document.getElementById('descriptionText');
+  const generateIcon = generateBtn.querySelector('.generate-icon');
+  const generateText = generateBtn.querySelector('.generate-text');
+  
+  // Update button state
+  generateBtn.disabled = true;
+  generateBtn.classList.add('generating');
+  generateText.textContent = 'Generating...';
+  
+  const currentDescription = textarea.value.trim();
+  
+  // Determine API endpoint and payload
+  let apiUrl, payload;
+  
+  if (currentEntityType && currentEntityName) {
+    // Generate entity description
+    apiUrl = `/api/domains/${encodeURIComponent(domainName)}/entities/generate-description`;
+    payload = {
+      type: currentEntityType,
+      name: currentEntityName,
+      current_description: currentDescription
+    };
+  } else {
+    // Generate domain description (original functionality)
+    apiUrl = `/api/domains/${encodeURIComponent(domainName)}/generate-description`;
+    payload = {
+      current_description: currentDescription,
+      domain_name: domainName
+    };
+  }
+  
+  fetch(apiUrl, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(payload)
+  })
+  .then(response => response.json())
+  .then(data => {
+    if (data.success && data.description) {
+      textarea.value = data.description;
+      textarea.focus();
+    } else {
+      alert('Error generating description: ' + (data.error || 'Unknown error'));
+    }
+    
+    // Reset button state
+    generateBtn.disabled = false;
+    generateBtn.classList.remove('generating');
+    generateText.textContent = 'Generate';
+  })
+  .catch(error => {
+    console.error('Error generating description:', error);
+    alert('Network error: ' + error.message);
+    
+    // Reset button state
+    generateBtn.disabled = false;
+    generateBtn.classList.remove('generating');
+    generateText.textContent = 'Generate';
+  });
+}
+
+// Reset entity editing state when modal closes
+function closeDescriptionEditor() {
+  currentEntityType = null;
+  currentEntityName = null;
+  document.getElementById('modal-title').textContent = 'Edit Domain Description';
+  document.getElementById('descriptionText').placeholder = 'Enter domain description...';
+  document.getElementById('descriptionModal').style.display = 'none';
+}
 </script>
 {% endblock %}
