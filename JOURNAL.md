@@ -7,7 +7,41 @@ This document describes the layout of a **journal** directory where all audio, s
 - `entities.md` – top list of entities gathered across days. Used by several tools.
 - `entity_review.log` – operations performed in the web UI are appended here.
 - `task_log.txt` – optional log of utility runs in `[epoch]\tmessage` format.
+- `domains/` – domain-specific organization folders described below.
 - `YYYYMMDD/` – individual day folders described below.
+
+## Domain folders
+
+The `domains/` directory provides a way to organize journal content by scope or focus area. Each domain represents a cohesive grouping of related activities, projects, or areas of interest.
+
+### Domain structure
+
+Each domain is organized as `domains/<domain>/` where `<domain>` is a descriptive name. Each domain folder contains:
+
+- `domain.json` – metadata file with domain title and description.
+- `entities.md` – entities specific to this domain.
+- `matters/` – domain-specific sub-projects (to be defined).
+
+### Domain metadata
+
+The `domain.json` file contains basic information about the domain:
+
+```json
+{
+  "title": "Machine Learning Research",
+  "description": "AI/ML research projects, experiments, and related activities",
+  "color": "#4f46e5",
+  "emoji": "🧠"
+}
+```
+
+Optional fields:
+- `color` – hex color code for the domain card background in the web UI
+- `emoji` – emoji icon displayed in the top-left of the domain card
+
+### Domain entities
+
+The `entities.md` file follows the same format as the top-level entities file but contains only entities relevant to this specific domain. This allows for more targeted entity tracking within focused areas of work.
 
 ## Day folder contents
 

@@ -1,0 +1,197 @@
+{% extends 'base.html' %}
+{% set title = domain_data.title or domain_name %}
+{% set active = 'domains' %}
+{% block head %}
+<style>
+/* Domain header */
+.domain-header {
+  position: relative;
+  width: 100%;
+  padding: 3em 2em;
+  margin-bottom: 2em;
+  color: white;
+  text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 0 0 16px 16px;
+  overflow: hidden;
+}
+
+.domain-header.has-color {
+  background: var(--domain-color);
+}
+
+.domain-header .domain-emoji {
+  font-size: 3em;
+  display: block;
+  margin-bottom: 0.5em;
+  opacity: 0.9;
+}
+
+.domain-header h1 {
+  margin: 0 0 0.5em 0;
+  font-size: 2.5em;
+  font-weight: 700;
+  color: white;
+  background: none;
+  -webkit-background-clip: unset;
+  -webkit-text-fill-color: unset;
+  background-clip: unset;
+}
+
+.domain-header .description {
+  font-size: 1.2em;
+  opacity: 0.9;
+  line-height: 1.4;
+  margin: 0;
+  max-width: 800px;
+}
+
+/* Back button */
+.back-button {
+  position: absolute;
+  top: 1em;
+  left: 1em;
+  color: white;
+  text-decoration: none;
+  font-size: 1.1em;
+  opacity: 0.8;
+  transition: opacity 0.2s;
+}
+
+.back-button:hover {
+  opacity: 1;
+  color: white;
+}
+
+/* Tab navigation */
+.tab-container {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 0 2em;
+}
+
+.tab-nav {
+  display: flex;
+  border-bottom: 2px solid #eee;
+  margin-bottom: 2em;
+}
+
+.tab-button {
+  background: none;
+  border: none;
+  padding: 1em 2em;
+  font-size: 1.1em;
+  font-weight: 500;
+  color: #666;
+  cursor: pointer;
+  border-bottom: 3px solid transparent;
+  transition: all 0.2s;
+}
+
+.tab-button:hover {
+  color: #333;
+  background: #f8f9fa;
+}
+
+.tab-button.active {
+  color: #667eea;
+  border-bottom-color: #667eea;
+  background: #f8f9ff;
+}
+
+/* Tab content */
+.tab-content {
+  display: none;
+  padding: 2em 0;
+}
+
+.tab-content.active {
+  display: block;
+}
+
+.tab-content h2 {
+  color: #333;
+  margin-bottom: 1.5em;
+  font-size: 1.8em;
+}
+
+/* Placeholder content styling */
+.placeholder {
+  text-align: center;
+  padding: 4em;
+  color: #666;
+  background: #f8f9fa;
+  border-radius: 12px;
+  border: 2px dashed #ddd;
+}
+
+.placeholder h3 {
+  color: #999;
+  margin-bottom: 1em;
+}
+
+.placeholder p {
+  line-height: 1.6;
+  max-width: 600px;
+  margin: 0 auto;
+}
+</style>
+{% endblock %}
+{% block body %}
+<div class="domain-header{% if domain_data.color %} has-color{% endif %}"{% if domain_data.color %} style="--domain-color: {{ domain_data.color }}"{% endif %}>
+  <a href="{{ url_for('domains.domains_page') }}" class="back-button">← Back to Domains</a>
+  
+  {% if domain_data.emoji %}
+  <div class="domain-emoji">{{ domain_data.emoji }}</div>
+  {% endif %}
+  
+  <h1>{{ domain_data.title or domain_name }}</h1>
+  
+  {% if domain_data.description %}
+  <p class="description">{{ domain_data.description }}</p>
+  {% endif %}
+</div>
+
+<div class="tab-container">
+  <div class="tab-nav">
+    <button class="tab-button active" data-tab="matters">Matters</button>
+    <button class="tab-button" data-tab="entities">Entities</button>
+  </div>
+  
+  <div id="matters-tab" class="tab-content active">
+    <div class="placeholder">
+      <h3>Matters</h3>
+      <p>Domain-specific sub-projects and matters will be displayed here. This feature is coming soon and will show organized content from the <code>matters/</code> directory within this domain.</p>
+    </div>
+  </div>
+  
+  <div id="entities-tab" class="tab-content">
+    <div class="placeholder">
+      <h3>Entities</h3>
+      <p>Domain-specific entities will be displayed here. This will show entities from the <code>entities.md</code> file within this domain, allowing you to track people, projects, and concepts specific to this area of focus.</p>
+    </div>
+  </div>
+</div>
+
+<script>
+// Tab switching functionality
+document.addEventListener('DOMContentLoaded', function() {
+  const tabButtons = document.querySelectorAll('.tab-button');
+  const tabContents = document.querySelectorAll('.tab-content');
+  
+  tabButtons.forEach(button => {
+    button.addEventListener('click', function() {
+      const targetTab = this.dataset.tab;
+      
+      // Remove active class from all buttons and content
+      tabButtons.forEach(btn => btn.classList.remove('active'));
+      tabContents.forEach(content => content.classList.remove('active'));
+      
+      // Add active class to clicked button and corresponding content
+      this.classList.add('active');
+      document.getElementById(targetTab + '-tab').classList.add('active');
+    });
+  });
+});
+</script>
+{% endblock %}

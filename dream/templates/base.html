@@ -10,6 +10,7 @@
 <body>
   <div class="nav-icons">
     <a id="homeIcon" href="{{ url_for('review.home') }}" class="{% if active=='home' %}current{% endif %}" title="Home">🏠</a>
+    <a href="{{ url_for('domains.domains_page') }}" class="{% if active=='domains' %}current{% endif %}" title="Domains">🎯</a>
     <a href="{{ url_for('calendar.calendar_page') }}" class="{% if active=='calendar' %}current{% endif %}" title="Calendar">📅</a>
     <a href="{{ url_for('chat.chat_page') }}" class="{% if active=='chat' %}current{% endif %}" title="Chat">💬</a>
     <a href="{{ url_for('agents.agents_page') }}" class="{% if active=='agents' %}current{% endif %}" title="Agents">🚀</a>

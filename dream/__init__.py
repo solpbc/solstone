@@ -30,6 +30,7 @@ from .views import admin as admin_view
 from .views import agents as agents_view
 from .views import calendar as calendar_view
 from .views import chat as chat_view
+from .views import domains as domains_view
 from .views import entities as entities_view
 from .views import home as home_view
 from .views import live as live_view
@@ -74,6 +75,8 @@ app = create_app()
 reload_entities = entities_view.reload_entities
 
 home = home_view.home
+domains_page = domains_view.domains_page
+domains_list = domains_view.domains_list
 entities = entities_view.entities
 calendar = calendar_view.calendar_page
 calendar_day = calendar_view.calendar_day
@@ -118,6 +121,8 @@ __all__ = [
     "app",
     "create_app",
     "home",
+    "domains_page",
+    "domains_list",
     "entities",
     "calendar",
     "calendar_day",
