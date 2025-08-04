@@ -13,7 +13,8 @@ async def run_main(mod, argv):
     await mod.main_async()
 
 
-def test_openai_main(monkeypatch, tmp_path, capsys):
+def _setup_openai_mocks(monkeypatch):
+    """Setup common mocks for OpenAI tests."""
     agents_stub = types.ModuleType("agents")
 
     last_kwargs = {}
@@ -61,6 +62,17 @@ def test_openai_main(monkeypatch, tmp_path, capsys):
     sys.modules["agents"] = agents_stub
     sys.modules["agents.mcp"] = agents_mcp_stub
     sys.modules.pop("think.openai", None)
+    
+    # Mock create_mcp_client to avoid reading URI file
+    def mock_create_mcp_client():
+        return DummyMCP()
+    monkeypatch.setattr("think.utils.create_mcp_client", mock_create_mcp_client)
+    
+    return last_kwargs, DummyRunner
+
+
+def test_openai_main(monkeypatch, tmp_path, capsys):
+    last_kwargs, DummyRunner = _setup_openai_mocks(monkeypatch)
 
     importlib.reload(importlib.import_module("think.openai"))
     mod = importlib.reload(importlib.import_module("think.agents"))
@@ -152,6 +164,16 @@ def test_openai_thinking_events(monkeypatch, tmp_path, capsys):
     sys.modules["agents"] = agents_stub
     sys.modules["agents.mcp"] = agents_mcp_stub
     sys.modules.pop("think.openai", None)
+    
+    # Mock create_mcp_client to avoid reading URI file
+    class DummyMCP:
+        async def __aenter__(self):
+            return self
+        async def __aexit__(self, exc_type, exc, tb):
+            pass
+    def mock_create_mcp_client():
+        return DummyMCP()
+    monkeypatch.setattr("think.utils.create_mcp_client", mock_create_mcp_client)
 
     importlib.reload(importlib.import_module("think.openai"))
     mod = importlib.reload(importlib.import_module("think.agents"))
@@ -229,6 +251,16 @@ def test_openai_outfile(monkeypatch, tmp_path):
     sys.modules["agents"] = agents_stub
     sys.modules["agents.mcp"] = agents_mcp_stub
     sys.modules.pop("think.openai", None)
+    
+    # Mock create_mcp_client to avoid reading URI file
+    class DummyMCP:
+        async def __aenter__(self):
+            return self
+        async def __aexit__(self, exc_type, exc, tb):
+            pass
+    def mock_create_mcp_client():
+        return DummyMCP()
+    monkeypatch.setattr("think.utils.create_mcp_client", mock_create_mcp_client)
 
     importlib.reload(importlib.import_module("think.openai"))
     mod = importlib.reload(importlib.import_module("think.agents"))
@@ -323,6 +355,16 @@ def test_openai_thinking_events(monkeypatch, tmp_path, capsys):
     sys.modules["agents"] = agents_stub
     sys.modules["agents.mcp"] = agents_mcp_stub
     sys.modules.pop("think.openai", None)
+    
+    # Mock create_mcp_client to avoid reading URI file
+    class DummyMCP:
+        async def __aenter__(self):
+            return self
+        async def __aexit__(self, exc_type, exc, tb):
+            pass
+    def mock_create_mcp_client():
+        return DummyMCP()
+    monkeypatch.setattr("think.utils.create_mcp_client", mock_create_mcp_client)
 
     importlib.reload(importlib.import_module("think.openai"))
     mod = importlib.reload(importlib.import_module("think.agents"))
@@ -400,6 +442,16 @@ def test_openai_outfile_error(monkeypatch, tmp_path):
     sys.modules["agents"] = agents_stub
     sys.modules["agents.mcp"] = agents_mcp_stub
     sys.modules.pop("think.openai", None)
+    
+    # Mock create_mcp_client to avoid reading URI file
+    class DummyMCP:
+        async def __aenter__(self):
+            return self
+        async def __aexit__(self, exc_type, exc, tb):
+            pass
+    def mock_create_mcp_client():
+        return DummyMCP()
+    monkeypatch.setattr("think.utils.create_mcp_client", mock_create_mcp_client)
 
     importlib.reload(importlib.import_module("think.openai"))
     mod = importlib.reload(importlib.import_module("think.agents"))
@@ -491,6 +543,16 @@ def test_openai_thinking_events(monkeypatch, tmp_path, capsys):
     sys.modules["agents"] = agents_stub
     sys.modules["agents.mcp"] = agents_mcp_stub
     sys.modules.pop("think.openai", None)
+    
+    # Mock create_mcp_client to avoid reading URI file
+    class DummyMCP:
+        async def __aenter__(self):
+            return self
+        async def __aexit__(self, exc_type, exc, tb):
+            pass
+    def mock_create_mcp_client():
+        return DummyMCP()
+    monkeypatch.setattr("think.utils.create_mcp_client", mock_create_mcp_client)
 
     importlib.reload(importlib.import_module("think.openai"))
     mod = importlib.reload(importlib.import_module("think.agents"))

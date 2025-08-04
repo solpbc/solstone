@@ -96,5 +96,5 @@ def test_load_prompt_without_mcp_tools(monkeypatch):
     prompt = mod._load_prompt()
     
     # Check that it still returns the base prompt without tools
-    assert "You are a strategic task planner" in prompt
+    assert "You are a strategic research planner" in prompt
     assert "## Available Tools" not in prompt
