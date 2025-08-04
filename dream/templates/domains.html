@@ -1,0 +1,514 @@
+{% extends 'base.html' %}
+{% set title = 'Domains' %}
+{% set active = 'domains' %}
+{% block head %}
+<style>
+/* Layout */
+.domains-container {
+  padding: 2em;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+h1 {
+  font-size: 2.5em;
+  margin-bottom: 1em;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Loading state */
+#loading {
+  text-align: center;
+  padding: 4em;
+  color: #666;
+}
+
+.spinner {
+  display: inline-block;
+  width: 40px;
+  height: 40px;
+  border: 4px solid #f0f0f0;
+  border-top-color: #667eea;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin: 0 auto 1em;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Domains grid */
+.domains-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+  gap: 1.5em;
+  margin-bottom: 3em;
+}
+
+.domain-card {
+  background: white;
+  border-radius: 12px;
+  padding: 1.5em;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+  transition: transform 0.2s, box-shadow 0.2s;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+}
+
+.domain-card.add-domain {
+  border: 2px dashed #ccc;
+  background: #fafafa;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  color: #666;
+  font-size: 1.1em;
+  font-weight: 500;
+}
+
+.domain-card.add-domain:hover {
+  border-color: #667eea;
+  color: #667eea;
+  background: #f8f9ff;
+}
+
+.domain-card .edit-icon {
+  position: absolute;
+  top: 1em;
+  right: 1em;
+  opacity: 0;
+  transition: opacity 0.2s;
+  cursor: pointer;
+  font-size: 1em;
+  color: #666;
+  background: rgba(255, 255, 255, 0.9);
+  border-radius: 50%;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.domain-card:hover .edit-icon {
+  opacity: 1;
+}
+
+.domain-card .edit-icon:hover {
+  color: #333;
+  background: white;
+}
+
+
+.domain-card .domain-emoji {
+  position: absolute;
+  top: 1em;
+  left: 1em;
+  font-size: 1.5em;
+  opacity: 0.9;
+}
+
+.domain-card.has-emoji {
+  padding-left: 3.5em;
+}
+
+.domain-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(0,0,0,0.12);
+}
+
+.domain-card h3 {
+  font-size: 1.2em;
+  margin: 0 0 0.5em 0;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  font-weight: 600;
+}
+
+
+.domain-description {
+  color: #666;
+  line-height: 1.4;
+  margin: 0;
+}
+
+
+.empty-state {
+  text-align: center;
+  padding: 4em;
+  color: #666;
+}
+
+.empty-state h2 {
+  color: #999;
+  margin-bottom: 1em;
+}
+
+/* Modal styles */
+.modal {
+  display: none;
+  position: fixed;
+  z-index: 1000;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.5);
+}
+
+.modal-content {
+  background-color: white;
+  margin: 5% auto;
+  padding: 2em;
+  border-radius: 12px;
+  width: 90%;
+  max-width: 500px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5em;
+  padding-bottom: 0.5em;
+  border-bottom: 1px solid #eee;
+}
+
+.modal-header h2 {
+  margin: 0;
+  color: #333;
+}
+
+.close {
+  color: #aaa;
+  font-size: 28px;
+  font-weight: bold;
+  cursor: pointer;
+  line-height: 1;
+}
+
+.close:hover {
+  color: #333;
+}
+
+.form-group {
+  margin-bottom: 1.5em;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 0.5em;
+  font-weight: 500;
+  color: #333;
+}
+
+.form-group input, .form-group textarea {
+  width: 100%;
+  padding: 0.75em;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 1em;
+  font-family: inherit;
+  transition: border-color 0.2s;
+  box-sizing: border-box;
+}
+
+.form-group input:focus, .form-group textarea:focus {
+  outline: none;
+  border-color: #667eea;
+}
+
+.form-group textarea {
+  resize: vertical;
+  min-height: 80px;
+}
+
+.form-actions {
+  display: flex;
+  gap: 1em;
+  justify-content: flex-end;
+  margin-top: 2em;
+}
+
+.btn {
+  padding: 0.75em 1.5em;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 1em;
+  font-weight: 500;
+  transition: background-color 0.2s;
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+}
+
+.btn-primary:hover {
+  opacity: 0.9;
+}
+
+.btn-secondary {
+  background: #f5f5f5;
+  color: #666;
+}
+
+.btn-secondary:hover {
+  background: #eee;
+}
+
+.error-message {
+  background: #fee;
+  color: #c33;
+  padding: 0.75em;
+  border-radius: 6px;
+  margin-bottom: 1em;
+  border: 1px solid #fcc;
+}
+</style>
+{% endblock %}
+{% block body %}
+<div class="domains-container">
+  <h1>Domains</h1>
+  
+  <div id="loading">
+    <div class="spinner"></div>
+    <p>Loading domains...</p>
+  </div>
+  
+  <div id="domains-content" style="display: none;">
+    <div class="domains-grid" id="domains-grid">
+      <!-- Domain cards will be inserted here -->
+    </div>
+    
+    <div id="empty-state" class="empty-state" style="display: none;">
+      <h2>No domains found</h2>
+      <p>Create a domain by adding a folder to <code>&lt;journal&gt;/domains/&lt;domain-name&gt;/</code> with a <code>domain.json</code> file.</p>
+    </div>
+  </div>
+</div>
+
+<!-- Domain Editor Modal -->
+<div id="domainModal" class="modal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h2 id="modalTitle">Add Domain</h2>
+      <span class="close">&times;</span>
+    </div>
+    <div id="errorContainer"></div>
+    <form id="domainForm">
+      <div class="form-group">
+        <label for="domainName">Domain Name*</label>
+        <input type="text" id="domainName" name="name" required placeholder="e.g., machine-learning">
+      </div>
+      <div class="form-group">
+        <label for="domainTitle">Title*</label>
+        <input type="text" id="domainTitle" name="title" required placeholder="e.g., Machine Learning Research">
+      </div>
+      <div class="form-group">
+        <label for="domainDescription">Description</label>
+        <textarea id="domainDescription" name="description" placeholder="Brief description of this domain..."></textarea>
+      </div>
+      <div class="form-group">
+        <label for="domainEmoji">Emoji</label>
+        <input type="text" id="domainEmoji" name="emoji" placeholder="🧠" maxlength="2">
+      </div>
+      <div class="form-group">
+        <label for="domainColor">Color</label>
+        <input type="color" id="domainColor" name="color">
+      </div>
+      <div class="form-actions">
+        <button type="button" class="btn btn-secondary" id="cancelBtn">Cancel</button>
+        <button type="submit" class="btn btn-primary" id="saveBtn">Save Domain</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+// Load domains data
+async function loadDomains() {
+  try {
+    const response = await fetch('{{ url_for('domains.domains_list') }}');
+    const domains = await response.json();
+    
+    document.getElementById('loading').style.display = 'none';
+    document.getElementById('domains-content').style.display = 'block';
+    
+    const domainsGrid = document.getElementById('domains-grid');
+    const emptyState = document.getElementById('empty-state');
+    
+    if (Object.keys(domains).length === 0) {
+      emptyState.style.display = 'block';
+      return;
+    }
+    
+    // Clear existing content
+    domainsGrid.innerHTML = '';
+    
+    // Create domain cards
+    Object.entries(domains).forEach(([domainName, domainData]) => {
+      const card = document.createElement('div');
+      card.className = 'domain-card';
+      
+      // Apply background color if provided
+      if (domainData.color) {
+        card.style.background = domainData.color;
+      }
+      
+      // Add emoji if provided
+      if (domainData.emoji) {
+        card.classList.add('has-emoji');
+      }
+      
+      card.innerHTML = `
+        ${domainData.emoji ? `<div class="domain-emoji">${domainData.emoji}</div>` : ''}
+        <div class="edit-icon" title="Edit domain">⚙️</div>
+        <h3>${domainData.title || domainName}</h3>
+        <p class="domain-description">${domainData.description || 'No description available'}</p>
+      `;
+      
+      // Add click handler to navigate to domain detail view
+      card.addEventListener('click', (e) => {
+        // Don't trigger if clicking the edit icon
+        if (e.target.classList.contains('edit-icon')) {
+          e.stopPropagation();
+          openEditModal(domainName, domainData);
+          return;
+        }
+        // Navigate to domain detail view
+        window.location.href = `{{ url_for('domains.domains_page') }}/${domainName}`;
+      });
+      
+      domainsGrid.appendChild(card);
+    });
+    
+    // Add "Add Domain" card
+    const addCard = document.createElement('div');
+    addCard.className = 'domain-card add-domain';
+    addCard.innerHTML = '+ Add Domain';
+    addCard.addEventListener('click', () => openAddModal());
+    domainsGrid.appendChild(addCard);
+    
+  } catch (error) {
+    console.error('Error loading domains:', error);
+    document.getElementById('loading').innerHTML = '<p>Error loading domains</p>';
+  }
+}
+
+// Modal functionality
+const modal = document.getElementById('domainModal');
+const closeBtn = document.querySelector('.close');
+const cancelBtn = document.getElementById('cancelBtn');
+const form = document.getElementById('domainForm');
+const errorContainer = document.getElementById('errorContainer');
+
+let isEditMode = false;
+let editDomainName = '';
+
+function openAddModal() {
+  isEditMode = false;
+  editDomainName = '';
+  document.getElementById('modalTitle').textContent = 'Add Domain';
+  document.getElementById('saveBtn').textContent = 'Save Domain';
+  form.reset();
+  document.getElementById('domainName').disabled = false;
+  clearErrors();
+  modal.style.display = 'block';
+}
+
+function openEditModal(domainName, domainData) {
+  isEditMode = true;
+  editDomainName = domainName;
+  document.getElementById('modalTitle').textContent = 'Edit Domain';
+  document.getElementById('saveBtn').textContent = 'Update Domain';
+  
+  // Populate form
+  document.getElementById('domainName').value = domainName;
+  document.getElementById('domainName').disabled = true;
+  document.getElementById('domainTitle').value = domainData.title || domainName;
+  document.getElementById('domainDescription').value = domainData.description || '';
+  document.getElementById('domainEmoji').value = domainData.emoji || '';
+  document.getElementById('domainColor').value = domainData.color || '#667eea';
+  
+  clearErrors();
+  modal.style.display = 'block';
+}
+
+function closeModal() {
+  modal.style.display = 'none';
+  form.reset();
+  clearErrors();
+}
+
+function clearErrors() {
+  errorContainer.innerHTML = '';
+}
+
+function showError(message) {
+  errorContainer.innerHTML = `<div class="error-message">${message}</div>`;
+}
+
+// Event handlers
+closeBtn.onclick = closeModal;
+cancelBtn.onclick = closeModal;
+window.onclick = (e) => {
+  if (e.target === modal) closeModal();
+};
+
+// Form submission
+form.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  clearErrors();
+  
+  const formData = new FormData(form);
+  const data = Object.fromEntries(formData.entries());
+  
+  try {
+    let response;
+    if (isEditMode) {
+      response = await fetch(`{{ url_for('domains.domains_list') }}/${editDomainName}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data)
+      });
+    } else {
+      response = await fetch('{{ url_for('domains.domains_list') }}', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data)
+      });
+    }
+    
+    const result = await response.json();
+    
+    if (response.ok && result.success) {
+      closeModal();
+      loadDomains(); // Reload the domains view
+    } else {
+      showError(result.error || 'An error occurred');
+    }
+  } catch (error) {
+    console.error('Error saving domain:', error);
+    showError('Network error occurred');
+  }
+});
+
+// Load domains when page loads
+document.addEventListener('DOMContentLoaded', loadDomains);
+</script>
+{% endblock %}

@@ -164,6 +164,52 @@ def get_topics() -> dict[str, dict[str, object]]:
     return topics
 
 
+def get_domains() -> dict[str, dict[str, object]]:
+    """Return available domains with metadata.
+
+    Each key is the domain name. The value contains the domain metadata
+    from domain.json including title, description, and the domain path.
+    """
+    load_dotenv()
+    journal = os.getenv("JOURNAL_PATH")
+    if not journal:
+        raise RuntimeError("JOURNAL_PATH not set")
+
+    domains_dir = Path(journal) / "domains"
+    domains: dict[str, dict[str, object]] = {}
+
+    if not domains_dir.exists():
+        return domains
+
+    for domain_path in sorted(domains_dir.iterdir()):
+        if not domain_path.is_dir():
+            continue
+
+        domain_name = domain_path.name
+        domain_json = domain_path / "domain.json"
+
+        if not domain_json.exists():
+            continue
+
+        try:
+            with open(domain_json, "r", encoding="utf-8") as f:
+                domain_data = json.load(f)
+
+            if isinstance(domain_data, dict):
+                domain_info = {
+                    "path": str(domain_path),
+                    "title": domain_data.get("title", domain_name),
+                    "description": domain_data.get("description", ""),
+                    "color": domain_data.get("color", ""),
+                    "emoji": domain_data.get("emoji", ""),
+                }
+                domains[domain_name] = domain_info
+        except Exception as exc:  # pragma: no cover - metadata optional
+            logging.debug("Error reading %s: %s", domain_json, exc)
+
+    return domains
+
+
 def agent_instructions(persona: str = "default") -> Tuple[str, str, dict[str, object]]:
     """Return system instruction, initial user context and metadata for ``persona``."""
 
@@ -217,25 +263,26 @@ def agent_instructions(persona: str = "default") -> Tuple[str, str, dict[str, ob
 
 def create_mcp_client() -> Any:
     """Return a fastMCP HTTP client for Sunstone tools."""
-    
+
     # Auto-discover HTTP server URI from journal
     journal_path = os.getenv("JOURNAL_PATH")
     if not journal_path:
         raise RuntimeError("JOURNAL_PATH not set")
-        
+
     uri_file = Path(journal_path) / "agents" / "mcp.uri"
     if not uri_file.exists():
         raise RuntimeError(f"MCP server URI file not found: {uri_file}")
-        
+
     try:
         http_uri = uri_file.read_text().strip()
     except Exception as exc:
         raise RuntimeError(f"Failed to read MCP server URI: {exc}")
-    
+
     if not http_uri:
         raise RuntimeError("MCP server URI file is empty")
 
     from fastmcp import Client
+
     return Client(http_uri)
 
 
