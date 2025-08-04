@@ -1,0 +1,15 @@
+{
+  "title": "Add File Upload Functionality",
+  "description": "Implement secure file upload capabilities for matter attachments with proper validation and metadata extraction",
+  "created": "2025-01-01T16:00:00Z",
+  "status": "pending",
+  "priority": "medium",
+  "target_date": "2025-01-05T00:00:00Z",
+  "completion_criteria": [
+    "File upload form with drag-and-drop support",
+    "File type validation and size limits",
+    "Automatic metadata extraction",
+    "Secure file storage with proper permissions",
+    "Preview functionality for common file types"
+  ]
+}

@@ -3,12 +3,11 @@ import json
 import logging
 import os
 import re
-import sys
 import time
 import zoneinfo
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Literal, Optional, Tuple
+from typing import Any, Optional, Tuple
 
 from dotenv import load_dotenv
 from timefhuman import timefhuman
@@ -330,7 +329,9 @@ def parse_time_range(text: str) -> Optional[tuple[str, str, str]]:
     return day, start, end
 
 
-def get_matters(domain: str, *, limit: Optional[int] = None, offset: int = 0) -> dict[str, dict[str, object]]:
+def get_matters(
+    domain: str, *, limit: Optional[int] = None, offset: int = 0
+) -> dict[str, dict[str, object]]:
     """Return matters for the specified domain with pagination support.
 
     Parameters
@@ -346,7 +347,7 @@ def get_matters(domain: str, *, limit: Optional[int] = None, offset: int = 0) ->
     -------
     dict[str, dict[str, object]]
         Dictionary where keys are matter timestamps and values contain
-        matter metadata from the .json file plus 'activity_log_path' field.
+        matter metadata from the matter.json file plus 'activity_log_path' field.
         Results are sorted by timestamp (newest first).
     """
     load_dotenv()
@@ -355,25 +356,27 @@ def get_matters(domain: str, *, limit: Optional[int] = None, offset: int = 0) ->
         raise RuntimeError("JOURNAL_PATH not set")
 
     domain_path = Path(journal) / "domains" / domain
-    matters_dir = domain_path / "matters"
     matters: dict[str, dict[str, object]] = {}
 
-    if not matters_dir.exists():
+    if not domain_path.exists():
         return matters
 
-    # Find all .json files (matter metadata)
-    json_files = list(matters_dir.glob("*.json"))
-    # Sort by filename (timestamp) in descending order (newest first)
-    json_files.sort(reverse=True)
+    # Find all timestamp directories (matters are now stored as directories)
+    timestamp_dirs = [
+        d for d in domain_path.iterdir() if d.is_dir() and d.name.isdigit()
+    ]
+    # Sort by directory name (timestamp) in descending order (newest first)
+    timestamp_dirs.sort(key=lambda d: d.name, reverse=True)
 
     # Apply offset and limit
     start_idx = offset
-    end_idx = start_idx + limit if limit is not None else len(json_files)
-    json_files = json_files[start_idx:end_idx]
+    end_idx = start_idx + limit if limit is not None else len(timestamp_dirs)
+    timestamp_dirs = timestamp_dirs[start_idx:end_idx]
 
-    for json_path in json_files:
-        timestamp = json_path.stem
-        jsonl_path = matters_dir / f"{timestamp}.jsonl"
+    for matter_dir in timestamp_dirs:
+        timestamp = matter_dir.name
+        json_path = matter_dir / "matter.json"
+        jsonl_path = matter_dir / "matter.jsonl"
 
         try:
             with open(json_path, "r", encoding="utf-8") as f:
@@ -385,13 +388,125 @@ def get_matters(domain: str, *, limit: Optional[int] = None, offset: int = 0) ->
                     "metadata_path": str(json_path),
                     "activity_log_path": str(jsonl_path),
                     "activity_log_exists": jsonl_path.exists(),
-                    **matter_data  # Include all fields from the JSON metadata
+                    **matter_data,  # Include all fields from the JSON metadata
                 }
                 matters[timestamp] = matter_info
         except Exception as exc:  # pragma: no cover - metadata optional
             logging.debug("Error reading %s: %s", json_path, exc)
 
     return matters
+
+
+def get_matter(domain: str, matter_id: str) -> dict[str, Any]:
+    """Return complete matter data including metadata, logs, objectives, and attachments.
+
+    Parameters
+    ----------
+    domain:
+        Domain name containing the matter.
+    matter_id:
+        Matter timestamp ID.
+
+    Returns
+    -------
+    dict[str, Any]
+        Dictionary containing:
+        - metadata: matter metadata from matter.json
+        - activity_log: parsed matter activity log from matter.jsonl
+        - objectives: dict of objectives with metadata and activity logs
+        - attachments: dict of attachment metadata from .json files
+
+    Raises
+    ------
+    FileNotFoundError
+        If the matter directory doesn't exist.
+    """
+    load_dotenv()
+    journal = os.getenv("JOURNAL_PATH")
+    if not journal:
+        raise RuntimeError("JOURNAL_PATH not set")
+
+    matter_path = Path(journal) / "domains" / domain / matter_id
+    if not matter_path.exists():
+        raise FileNotFoundError(f"Matter {matter_id} not found in domain {domain}")
+
+    result: dict[str, Any] = {
+        "metadata": {},
+        "activity_log": [],
+        "objectives": {},
+        "attachments": {},
+    }
+
+    # Load matter metadata
+    matter_json = matter_path / "matter.json"
+    if matter_json.exists():
+        try:
+            with open(matter_json, "r", encoding="utf-8") as f:
+                result["metadata"] = json.load(f)
+        except Exception as exc:
+            logging.debug("Error reading %s: %s", matter_json, exc)
+
+    # Load matter activity log
+    matter_jsonl = matter_path / "matter.jsonl"
+    if matter_jsonl.exists():
+        try:
+            with open(matter_jsonl, "r", encoding="utf-8") as f:
+                result["activity_log"] = [
+                    json.loads(line.strip()) for line in f if line.strip()
+                ]
+        except Exception as exc:
+            logging.debug("Error reading %s: %s", matter_jsonl, exc)
+
+    # Load objectives
+    objectives_dir = matter_path / "objectives"
+    if objectives_dir.exists():
+        for obj_dir in objectives_dir.iterdir():
+            if obj_dir.is_dir() and obj_dir.name.isdigit():
+                obj_id = obj_dir.name
+                obj_data = {"metadata": {}, "activity_log": []}
+
+                # Load objective metadata
+                obj_json = obj_dir / f"{obj_id}.json"
+                if obj_json.exists():
+                    try:
+                        with open(obj_json, "r", encoding="utf-8") as f:
+                            obj_data["metadata"] = json.load(f)
+                    except Exception as exc:
+                        logging.debug("Error reading %s: %s", obj_json, exc)
+
+                # Load objective activity log
+                obj_jsonl = obj_dir / f"{obj_id}.jsonl"
+                if obj_jsonl.exists():
+                    try:
+                        with open(obj_jsonl, "r", encoding="utf-8") as f:
+                            obj_data["activity_log"] = [
+                                json.loads(line.strip()) for line in f if line.strip()
+                            ]
+                    except Exception as exc:
+                        logging.debug("Error reading %s: %s", obj_jsonl, exc)
+
+                result["objectives"][obj_id] = obj_data
+
+    # Load attachment metadata
+    attachments_dir = matter_path / "attachments"
+    if attachments_dir.exists():
+        for meta_file in attachments_dir.glob("*.json"):
+            # Skip if this is a metadata file for a non-existent attachment
+            attachment_name = meta_file.stem
+            # Check if the actual attachment file exists (any extension)
+            attachment_exists = any(
+                f.stem == attachment_name and f.suffix != ".json"
+                for f in attachments_dir.iterdir()
+            )
+
+            if attachment_exists:
+                try:
+                    with open(meta_file, "r", encoding="utf-8") as f:
+                        result["attachments"][attachment_name] = json.load(f)
+                except Exception as exc:
+                    logging.debug("Error reading %s: %s", meta_file, exc)
+
+    return result
 
 
 def get_raw_file(day: str, name: str) -> tuple[str, str, Any]:

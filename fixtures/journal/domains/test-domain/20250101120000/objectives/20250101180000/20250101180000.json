@@ -1,0 +1,15 @@
+{
+  "title": "Write Comprehensive Tests",
+  "description": "Develop thorough test coverage for all matter functionality including UI tests, API tests, and integration tests",
+  "created": "2025-01-01T18:00:00Z",
+  "status": "completed",
+  "priority": "high",
+  "target_date": "2025-01-02T00:00:00Z",
+  "completion_criteria": [
+    "Unit tests for all utility functions",
+    "API endpoint tests with proper mocking",
+    "Frontend component tests",
+    "Integration tests for file operations",
+    "Test coverage above 90%"
+  ]
+}

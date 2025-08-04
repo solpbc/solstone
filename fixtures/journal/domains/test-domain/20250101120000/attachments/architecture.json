@@ -1,0 +1,9 @@
+{
+  "title": "System Architecture Document",
+  "description": "High-level architectural overview and component design for the test matter system implementation",
+  "created": "2025-01-01T13:15:00Z",
+  "modified": "2025-01-01T14:20:00Z",
+  "size": 542,
+  "mime_type": "text/markdown",
+  "tags": ["architecture", "documentation", "design", "system"]
+}

@@ -10,7 +10,7 @@ from flask import Blueprint, jsonify, render_template, request
 from dotenv import load_dotenv
 
 from think.indexer import search_entities
-from think.utils import get_domains, get_matters
+from think.utils import get_domains, get_matters, get_matter
 
 bp = Blueprint("domains", __name__, template_folder="../templates")
 
@@ -82,9 +82,7 @@ def create_domain() -> Any:
         entities_md = domain_path / "entities.md"
         entities_md.write_text("", encoding="utf-8")
 
-        # Create matters directory
-        matters_dir = domain_path / "matters"
-        matters_dir.mkdir(exist_ok=True)
+        # No need to create matters directory - matters will be created as timestamp directories
 
         return jsonify({"success": True, "domain": domain_name})
 
@@ -390,11 +388,9 @@ def generate_domain_description(domain_name: str) -> Any:
                 pass
 
         # Check if domain has matters
-        matters_dir = domain_path / "matters"
-        if matters_dir.exists():
-            matters_files = list(matters_dir.glob("*.md"))
-            if matters_files:
-                context_parts.append(f"Domain has {len(matters_files)} matter files")
+        matters = get_matters(domain_name)
+        if matters:
+            context_parts.append(f"Domain has {len(matters)} matters")
 
         context = "\n".join(context_parts)
 
@@ -549,13 +545,13 @@ def matter_detail(domain_name: str, matter_timestamp: str) -> str:
     if domain_name not in domains:
         return render_template("404.html"), 404
 
-    # Get the specific matter
-    matters = get_matters(domain_name, limit=None, offset=0)
-    if matter_timestamp not in matters:
+    try:
+        # Get comprehensive matter data using the new get_matter function
+        matter_data = get_matter(domain_name, matter_timestamp)
+    except FileNotFoundError:
         return render_template("404.html"), 404
 
     domain_data = domains[domain_name]
-    matter_data = matters[matter_timestamp]
 
     return render_template(
         "matter_detail.html",

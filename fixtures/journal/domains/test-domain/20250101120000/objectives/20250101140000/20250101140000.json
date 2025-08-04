@@ -1,0 +1,15 @@
+{
+  "title": "Implement Matter Detail View",
+  "description": "Create a comprehensive matter detail view that displays matter metadata, attachments, and objectives in an organized layout",
+  "created": "2025-01-01T14:00:00Z",
+  "status": "in_progress",
+  "priority": "high",
+  "target_date": "2025-01-03T00:00:00Z",
+  "completion_criteria": [
+    "Matter metadata displayed clearly",
+    "Attachments list with download links",
+    "Objectives section with progress tracking",
+    "Responsive design works on mobile",
+    "All tests passing"
+  ]
+}

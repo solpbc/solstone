@@ -1,5 +1,5 @@
 {% extends 'base.html' %}
-{% set title = matter_data.title or 'Matter' %}
+{% set title = matter_data.metadata.title or 'Matter' %}
 {% set active = 'domains' %}
 {% block head %}
 <style>
@@ -160,31 +160,207 @@
   font-size: 1.8em;
 }
 
-/* Placeholder content styling */
-.placeholder {
-  text-align: center;
-  padding: 4em;
-  color: #666;
-  background: #f8f9fa;
+/* Content styling */
+.content-section {
+  background: white;
   border-radius: 12px;
-  border: 2px dashed #ddd;
+  border: 1px solid #e9ecef;
+  overflow: hidden;
 }
 
-.placeholder h3 {
-  color: #999;
-  margin-bottom: 1em;
+.content-section h3 {
+  background: #f8f9fa;
+  margin: 0;
+  padding: 1rem 1.5rem;
+  font-size: 1.2em;
+  font-weight: 600;
+  color: #495057;
+  border-bottom: 1px solid #e9ecef;
 }
 
-.placeholder p {
-  line-height: 1.6;
-  max-width: 600px;
-  margin: 0 auto;
+.content-list {
+  padding: 0;
+  margin: 0;
+  list-style: none;
 }
 
-.placeholder .icon {
-  font-size: 3em;
-  margin-bottom: 0.5em;
+.content-item {
+  padding: 1rem 1.5rem;
+  border-bottom: 1px solid #f1f3f4;
+  transition: background-color 0.2s;
+}
+
+.content-item:last-child {
+  border-bottom: none;
+}
+
+.content-item:hover {
+  background-color: #f8f9fa;
+}
+
+.item-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.5rem;
+}
+
+.item-title {
+  font-weight: 600;
+  color: #343a40;
+  margin: 0;
+}
+
+.item-meta {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  font-size: 0.9em;
+  color: #6c757d;
+}
+
+.status-badge {
+  display: inline-block;
+  padding: 0.25rem 0.75rem;
+  border-radius: 12px;
+  font-size: 0.8em;
+  font-weight: 500;
+  text-transform: capitalize;
+}
+
+.status-pending {
+  background-color: #fff3cd;
+  color: #856404;
+}
+
+.status-in-progress, .status-in_progress {
+  background-color: #cff4fc;
+  color: #055160;
+}
+
+.status-completed {
+  background-color: #d1edff;
+  color: #084298;
+}
+
+.status-active {
+  background-color: #d4edda;
+  color: #155724;
+}
+
+.priority-high {
+  color: #dc3545;
+}
+
+.priority-medium {
+  color: #fd7e14;
+}
+
+.priority-low {
+  color: #28a745;
+}
+
+.item-description {
+  color: #6c757d;
+  margin: 0.5rem 0;
+  line-height: 1.4;
+}
+
+.log-entry {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+}
+
+.log-timestamp {
+  font-size: 0.85em;
+  color: #6c757d;
+  white-space: nowrap;
+  min-width: 120px;
+}
+
+.log-content {
+  flex: 1;
+}
+
+.log-type {
+  display: inline-block;
+  padding: 0.15rem 0.5rem;
+  border-radius: 8px;
+  font-size: 0.75em;
+  font-weight: 500;
+  text-transform: uppercase;
+  margin-right: 0.5rem;
+}
+
+.log-type-created {
+  background-color: #e7f3ff;
+  color: #0969da;
+}
+
+.log-type-update {
+  background-color: #fff8e1;
+  color: #bf8700;
+}
+
+.log-type-progress {
+  background-color: #f0f9ff;
+  color: #0284c7;
+}
+
+.log-type-completed {
+  background-color: #f0fdf4;
+  color: #16a34a;
+}
+
+.attachment-item {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.attachment-icon {
+  font-size: 1.5em;
+  width: 2em;
+  text-align: center;
+}
+
+.attachment-info {
+  flex: 1;
+}
+
+.attachment-name {
+  font-weight: 600;
+  color: #343a40;
+  margin: 0;
+}
+
+.attachment-meta {
+  font-size: 0.9em;
+  color: #6c757d;
+  margin-top: 0.25rem;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 3rem;
+  color: #6c757d;
+}
+
+.empty-state .icon {
+  font-size: 2.5em;
+  margin-bottom: 1rem;
   opacity: 0.5;
+}
+
+.empty-state h4 {
+  color: #adb5bd;
+  margin-bottom: 0.5rem;
+}
+
+.empty-state p {
+  margin: 0;
+  line-height: 1.4;
 }
 </style>
 {% endblock %}
@@ -192,39 +368,39 @@
 <div class="matter-header{% if domain_data.color %} has-color{% endif %}"{% if domain_data.color %} style="--matter-color: {{ domain_data.color }}"{% endif %}>
   <a href="{{ url_for('domains.domain_detail', domain_name=domain_name) }}" class="back-button">← Back to {{ domain_data.title or domain_name }}</a>
   
-  <h1>{{ matter_data.title or 'Untitled Matter' }}</h1>
+  <h1>{{ matter_data.metadata.title or 'Untitled Matter' }}</h1>
   
-  {% if matter_data.description %}
-  <p class="description">{{ matter_data.description }}</p>
+  {% if matter_data.metadata.description %}
+  <p class="description">{{ matter_data.metadata.description }}</p>
   {% endif %}
   
   <div class="matter-meta-row">
-    {% if matter_data.status %}
+    {% if matter_data.metadata.status %}
     <div class="matter-info-item">
       <span class="icon">📊</span>
-      <span class="matter-status">{{ matter_data.status }}</span>
+      <span class="matter-status">{{ matter_data.metadata.status }}</span>
     </div>
     {% endif %}
     
-    {% if matter_data.priority %}
+    {% if matter_data.metadata.priority %}
     <div class="matter-info-item">
       <span class="icon">⚡</span>
-      <span class="matter-priority">{{ matter_data.priority }}</span>
+      <span class="matter-priority">{{ matter_data.metadata.priority }}</span>
     </div>
     {% endif %}
     
-    {% if matter_data.created %}
+    {% if matter_data.metadata.created %}
     <div class="matter-info-item">
       <span class="icon">📅</span>
-      <span>Created {{ matter_data.created }}</span>
+      <span>Created {{ matter_data.metadata.created }}</span>
     </div>
     {% endif %}
     
-    {% if matter_data.tags %}
+    {% if matter_data.metadata.tags %}
     <div class="matter-info-item">
       <span class="icon">🏷️</span>
       <div class="matter-tags">
-        {% for tag in matter_data.tags %}
+        {% for tag in matter_data.metadata.tags %}
         <span class="matter-tag">{{ tag }}</span>
         {% endfor %}
       </div>
@@ -241,33 +417,137 @@
   </div>
   
   <div id="objectives-tab" class="tab-content active">
-    <div class="placeholder">
-      <div class="icon">🎯</div>
-      <h3>Objectives</h3>
-      <p>This section will display the matter's objectives and goals. Content management features will be implemented in a future update.</p>
+    {% if matter_data.objectives %}
+    <div class="content-section">
+      <h3>🎯 Objectives ({{ matter_data.objectives|length }})</h3>
+      <ul class="content-list">
+        {% for obj_id, objective in matter_data.objectives.items() %}
+        <li class="content-item">
+          <div class="item-header">
+            <h4 class="item-title">{{ objective.metadata.title or 'Untitled Objective' }}</h4>
+            <div class="item-meta">
+              {% if objective.metadata.status %}
+              <span class="status-badge status-{{ objective.metadata.status }}">{{ objective.metadata.status }}</span>
+              {% endif %}
+              {% if objective.metadata.priority %}
+              <span class="priority-{{ objective.metadata.priority }}">⚡ {{ objective.metadata.priority }}</span>
+              {% endif %}
+            </div>
+          </div>
+          {% if objective.metadata.description %}
+          <p class="item-description">{{ objective.metadata.description }}</p>
+          {% endif %}
+          {% if objective.activity_log %}
+          <div class="item-meta">
+            <small>📅 {{ objective.activity_log|length }} activity log entries</small>
+            {% if objective.metadata.target_date %}
+            <small>🎯 Target: {{ objective.metadata.target_date }}</small>
+            {% endif %}
+          </div>
+          {% endif %}
+        </li>
+        {% endfor %}
+      </ul>
     </div>
+    {% else %}
+    <div class="empty-state">
+      <div class="icon">🎯</div>
+      <h4>No Objectives</h4>
+      <p>This matter doesn't have any objectives yet.</p>
+    </div>
+    {% endif %}
   </div>
   
   <div id="logs-tab" class="tab-content">
-    <div class="placeholder">
-      <div class="icon">📝</div>
-      <h3>Activity Logs</h3>
-      <p>This section will display the matter's activity log entries from the .jsonl file. Log viewing and management features will be implemented in a future update.</p>
+    {% if matter_data.activity_log %}
+    <div class="content-section">
+      <h3>📝 Activity Log ({{ matter_data.activity_log|length }} entries)</h3>
+      <ul class="content-list">
+        {% for log_entry in matter_data.activity_log %}
+        <li class="content-item">
+          <div class="log-entry">
+            <div class="log-timestamp">
+              {% if log_entry.timestamp %}
+              {{ log_entry.timestamp[:10] }}<br>
+              <small>{{ log_entry.timestamp[11:19] }}</small>
+              {% endif %}
+            </div>
+            <div class="log-content">
+              {% if log_entry.type %}
+              <span class="log-type log-type-{{ log_entry.type }}">{{ log_entry.type }}</span>
+              {% endif %}
+              {{ log_entry.description or log_entry.message or 'No description' }}
+              {% if log_entry.user %}
+              <small style="color: #adb5bd; margin-left: 0.5rem;">— {{ log_entry.user }}</small>
+              {% endif %}
+            </div>
+          </div>
+        </li>
+        {% endfor %}
+      </ul>
     </div>
+    {% else %}
+    <div class="empty-state">
+      <div class="icon">📝</div>
+      <h4>No Activity Logs</h4>
+      <p>This matter doesn't have any activity log entries yet.</p>
+    </div>
+    {% endif %}
   </div>
   
   <div id="attachments-tab" class="tab-content">
-    <div class="placeholder">
-      <div class="icon">📎</div>
-      <h3>Attachments</h3>
-      <p>This section will display files and resources attached to this matter. Attachment management features will be implemented in a future update.</p>
+    {% if matter_data.attachments %}
+    <div class="content-section">
+      <h3>📎 Attachments ({{ matter_data.attachments|length }})</h3>
+      <ul class="content-list">
+        {% for att_name, attachment in matter_data.attachments.items() %}
+        <li class="content-item">
+          <div class="attachment-item">
+            <div class="attachment-icon">
+              {% if attachment.mime_type %}
+                {% if attachment.mime_type.startswith('image/') %}🖼️
+                {% elif attachment.mime_type.startswith('text/') %}📝
+                {% elif attachment.mime_type == 'application/pdf' %}📄
+                {% elif attachment.mime_type.startswith('video/') %}🎥
+                {% elif attachment.mime_type.startswith('audio/') %}🎧
+                {% else %}📎
+                {% endif %}
+              {% else %}📎
+              {% endif %}
+            </div>
+            <div class="attachment-info">
+              <h4 class="attachment-name">{{ attachment.title or att_name }}</h4>
+              {% if attachment.description %}
+              <p class="item-description">{{ attachment.description }}</p>
+              {% endif %}
+              <div class="attachment-meta">
+                {% if attachment.mime_type %}
+                <span>{{ attachment.mime_type }}</span>
+                {% endif %}
+                {% if attachment.size %}
+                <span>• {{ (attachment.size / 1024) | round(1) }} KB</span>
+                {% endif %}
+              </div>
+            </div>
+          </div>
+        </li>
+        {% endfor %}
+      </ul>
     </div>
+    {% else %}
+    <div class="empty-state">
+      <div class="icon">📎</div>
+      <h4>No Attachments</h4>
+      <p>This matter doesn't have any attachments yet.</p>
+    </div>
+    {% endif %}
   </div>
 </div>
 
 <script>
 const domainName = '{{ domain_name }}';
 const matterTimestamp = '{{ matter_timestamp }}';
+const matterData = {{ matter_data | tojson }};
 
 // Tab switching functionality
 document.addEventListener('DOMContentLoaded', function() {
@@ -286,10 +566,12 @@ document.addEventListener('DOMContentLoaded', function() {
       this.classList.add('active');
       document.getElementById(targetTab + '-tab').classList.add('active');
       
-      // Future: Load data when tabs are clicked
       console.log('Switched to tab:', targetTab);
     });
   });
+  
+  // Debug: Log matter data to console
+  console.log('Matter data:', matterData);
 });
 </script>
 {% endblock %}
