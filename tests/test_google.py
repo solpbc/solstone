@@ -89,6 +89,11 @@ def _setup_fastmcp_stub(monkeypatch):
     transports_mod = types.ModuleType("fastmcp.client.transports")
     transports_mod.PythonStdioTransport = lambda *a, **k: None
     monkeypatch.setitem(sys.modules, "fastmcp.client.transports", transports_mod)
+    
+    # Mock create_mcp_client to avoid reading URI file
+    def mock_create_mcp_client():
+        return DummyMCPClient()
+    monkeypatch.setattr("think.utils.create_mcp_client", mock_create_mcp_client)
 
 
 def test_google_main(monkeypatch, tmp_path, capsys):
@@ -178,6 +183,11 @@ def test_google_outfile_error(monkeypatch, tmp_path):
     transports_mod = types.ModuleType("fastmcp.client.transports")
     transports_mod.PythonStdioTransport = lambda *a, **k: None
     monkeypatch.setitem(sys.modules, "fastmcp.client.transports", transports_mod)
+    
+    # Mock create_mcp_client to avoid reading URI file
+    def mock_create_mcp_client():
+        return ErrorClient()
+    monkeypatch.setattr("think.utils.create_mcp_client", mock_create_mcp_client)
 
     sys.modules.pop("think.google", None)
     importlib.reload(importlib.import_module("think.google"))
