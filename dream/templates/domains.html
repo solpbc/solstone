@@ -348,52 +348,51 @@ async function loadDomains() {
     const domainsGrid = document.getElementById('domains-grid');
     const emptyState = document.getElementById('empty-state');
     
-    if (Object.keys(domains).length === 0) {
-      emptyState.style.display = 'block';
-      return;
-    }
-    
     // Clear existing content
     domainsGrid.innerHTML = '';
     
-    // Create domain cards
-    Object.entries(domains).forEach(([domainName, domainData]) => {
-      const card = document.createElement('div');
-      card.className = 'domain-card';
-      
-      // Apply background color if provided
-      if (domainData.color) {
-        card.style.background = domainData.color;
-      }
-      
-      // Add emoji if provided
-      if (domainData.emoji) {
-        card.classList.add('has-emoji');
-      }
-      
-      card.innerHTML = `
-        ${domainData.emoji ? `<div class="domain-emoji">${domainData.emoji}</div>` : ''}
-        <div class="edit-icon" title="Edit domain">⚙️</div>
-        <h3>${domainData.title || domainName}</h3>
-        <p class="domain-description">${domainData.description || 'No description available'}</p>
-      `;
-      
-      // Add click handler to navigate to domain detail view
-      card.addEventListener('click', (e) => {
-        // Don't trigger if clicking the edit icon
-        if (e.target.classList.contains('edit-icon')) {
-          e.stopPropagation();
-          openEditModal(domainName, domainData);
-          return;
+    if (Object.keys(domains).length === 0) {
+      emptyState.style.display = 'block';
+    } else {
+      // Create domain cards
+      Object.entries(domains).forEach(([domainName, domainData]) => {
+        const card = document.createElement('div');
+        card.className = 'domain-card';
+        
+        // Apply background color if provided
+        if (domainData.color) {
+          card.style.background = domainData.color;
         }
-        // Navigate to domain detail view
-        window.location.href = `{{ url_for('domains.domains_page') }}/${domainName}`;
+        
+        // Add emoji if provided
+        if (domainData.emoji) {
+          card.classList.add('has-emoji');
+        }
+        
+        card.innerHTML = `
+          ${domainData.emoji ? `<div class="domain-emoji">${domainData.emoji}</div>` : ''}
+          <div class="edit-icon" title="Edit domain">⚙️</div>
+          <h3>${domainData.title || domainName}</h3>
+          <p class="domain-description">${domainData.description || 'No description available'}</p>
+        `;
+        
+        // Add click handler to navigate to domain detail view
+        card.addEventListener('click', (e) => {
+          // Don't trigger if clicking the edit icon
+          if (e.target.classList.contains('edit-icon')) {
+            e.stopPropagation();
+            openEditModal(domainName, domainData);
+            return;
+          }
+          // Navigate to domain detail view
+          window.location.href = `{{ url_for('domains.domains_page') }}/${domainName}`;
+        });
+        
+        domainsGrid.appendChild(card);
       });
-      
-      domainsGrid.appendChild(card);
-    });
+    }
     
-    // Add "Add Domain" card
+    // Always add "Add Domain" card
     const addCard = document.createElement('div');
     addCard.className = 'domain-card add-domain';
     addCard.innerHTML = '+ Add Domain';
