@@ -52,7 +52,7 @@ Matters represent specific scoped topics, sub-projects, or focused areas of work
 Each matter is organized as `domains/<domain>/<timestamp>/` where the timestamp serves as the matter ID. Within each matter directory:
 
 - `matter.json` – matter metadata including title, description, and other properties
-- `matter.jsonl` – chronological log of matter-related activities in JSON Lines format
+- `activity_log.jsonl` – chronological log of matter-related activities in JSON Lines format
 - `attachments/` – directory containing files and their metadata
 - `objectives/` – directory containing objectives with metadata and activity logs
 
@@ -85,7 +85,7 @@ Optional fields:
 
 #### Matter activity log
 
-The `matter.jsonl` file maintains a chronological record of all matter-related activities in JSON Lines format. The specific format and fields will be defined separately.
+The `activity_log.jsonl` file maintains a chronological record of all matter-related activities in JSON Lines format. The specific format and fields will be defined separately.
 
 #### Matter attachments
 

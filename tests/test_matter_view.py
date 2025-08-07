@@ -124,7 +124,7 @@ def test_get_matter_comprehensive():
                 "description": "Started work",
             },
         ]
-        (matter_path / "matter.jsonl").write_text(
+        (matter_path / "activity_log.jsonl").write_text(
             "\n".join(json.dumps(entry) for entry in matter_log)
         )
 
@@ -211,7 +211,7 @@ def test_get_matter_missing_files():
         matter_path.mkdir(parents=True)
 
         # Create only minimal required structure (just the directory)
-        # No matter.json, matter.jsonl, objectives, or attachments
+        # No matter.json, activity_log.jsonl, objectives, or attachments
 
         with patch.dict(os.environ, {"JOURNAL_PATH": str(journal_path)}):
             from think.utils import get_matter

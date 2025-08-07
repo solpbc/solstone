@@ -685,8 +685,8 @@ def create_matter(domain_name: str) -> Any:
         with open(matter_json, "w", encoding="utf-8") as f:
             json.dump(matter_data, f, indent=2, ensure_ascii=False)
 
-        # Create empty matter.jsonl (activity log)
-        matter_jsonl = matter_path / "matter.jsonl"
+        # Create empty activity_log.jsonl (activity log)
+        matter_jsonl = matter_path / "activity_log.jsonl"
         matter_jsonl.write_text("", encoding="utf-8")
 
         # Create directories for attachments and objectives

@@ -376,7 +376,7 @@ def get_matters(
     for matter_dir in timestamp_dirs:
         timestamp = matter_dir.name
         json_path = matter_dir / "matter.json"
-        jsonl_path = matter_dir / "matter.jsonl"
+        jsonl_path = matter_dir / "activity_log.jsonl"
 
         try:
             with open(json_path, "r", encoding="utf-8") as f:
@@ -412,7 +412,7 @@ def get_matter(domain: str, matter_id: str) -> dict[str, Any]:
     dict[str, Any]
         Dictionary containing:
         - metadata: matter metadata from matter.json
-        - activity_log: parsed matter activity log from matter.jsonl
+        - activity_log: parsed matter activity log from activity_log.jsonl
         - objectives: dict of objectives with metadata and activity logs
         - attachments: dict of attachment metadata from .json files
 
@@ -447,7 +447,7 @@ def get_matter(domain: str, matter_id: str) -> dict[str, Any]:
             logging.debug("Error reading %s: %s", matter_json, exc)
 
     # Load matter activity log
-    matter_jsonl = matter_path / "matter.jsonl"
+    matter_jsonl = matter_path / "activity_log.jsonl"
     if matter_jsonl.exists():
         try:
             with open(matter_jsonl, "r", encoding="utf-8") as f:
