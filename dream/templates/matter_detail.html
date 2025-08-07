@@ -421,30 +421,37 @@
     <div class="content-section">
       <h3>🎯 Objectives ({{ matter_data.objectives|length }})</h3>
       <ul class="content-list">
-        {% for obj_id, objective in matter_data.objectives.items() %}
+        {% for obj_name, objective in matter_data.objectives.items() %}
         <li class="content-item">
           <div class="item-header">
-            <h4 class="item-title">{{ objective.metadata.title or 'Untitled Objective' }}</h4>
+            <h4 class="item-title">{{ obj_name|replace('_', ' ')|title }}</h4>
             <div class="item-meta">
-              {% if objective.metadata.status %}
-              <span class="status-badge status-{{ objective.metadata.status }}">{{ objective.metadata.status }}</span>
-              {% endif %}
-              {% if objective.metadata.priority %}
-              <span class="priority-{{ objective.metadata.priority }}">⚡ {{ objective.metadata.priority }}</span>
+              {% if objective.outcome %}
+              <span class="status-badge status-completed">Completed</span>
+              {% else %}
+              <span class="status-badge status-in-progress">In Progress</span>
               {% endif %}
             </div>
           </div>
-          {% if objective.metadata.description %}
-          <p class="item-description">{{ objective.metadata.description }}</p>
-          {% endif %}
-          {% if objective.activity_log %}
-          <div class="item-meta">
-            <small>📅 {{ objective.activity_log|length }} activity log entries</small>
-            {% if objective.metadata.target_date %}
-            <small>🎯 Target: {{ objective.metadata.target_date }}</small>
+          {% if objective.objective %}
+          <div class="item-description">
+            <!-- Display first line of objective as description -->
+            {% set first_line = objective.objective.split('\n')[0] %}
+            {% if first_line.startswith('# ') %}
+              {{ objective.objective.split('\n')[1:3]|join(' ')|truncate(200) }}
+            {% else %}
+              {{ first_line|truncate(200) }}
             {% endif %}
           </div>
           {% endif %}
+          <div class="item-meta">
+            {% if objective.created %}
+            <small>📅 Created</small>
+            {% endif %}
+            {% if objective.outcome %}
+            <small>✅ Completed</small>
+            {% endif %}
+          </div>
         </li>
         {% endfor %}
       </ul>

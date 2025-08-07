@@ -413,7 +413,7 @@ def get_matter(domain: str, matter_id: str) -> dict[str, Any]:
         Dictionary containing:
         - metadata: matter metadata from matter.json
         - activity_log: parsed matter activity log from activity_log.jsonl
-        - objectives: dict of objectives with metadata and activity logs
+        - objectives: dict of objectives keyed by name, each containing name, objective, outcome (if completed), created, and modified timestamps
         - attachments: dict of attachment metadata from .json files
 
     Raises
@@ -457,35 +457,45 @@ def get_matter(domain: str, matter_id: str) -> dict[str, Any]:
         except Exception as exc:
             logging.debug("Error reading %s: %s", matter_jsonl, exc)
 
-    # Load objectives
-    objectives_dir = matter_path / "objectives"
-    if objectives_dir.exists():
-        for obj_dir in objectives_dir.iterdir():
-            if obj_dir.is_dir() and obj_dir.name.isdigit():
-                obj_id = obj_dir.name
-                obj_data = {"metadata": {}, "activity_log": []}
+    # Load objectives (new format: objective_<name> directories with OBJECTIVE.md and OUTCOME.md)
+    for obj_dir in matter_path.iterdir():
+        if obj_dir.is_dir() and obj_dir.name.startswith("objective_"):
+            obj_name = obj_dir.name[len("objective_"):]  # Remove "objective_" prefix
+            obj_data = {
+                "name": obj_name,
+                "objective": "",
+                "outcome": None,
+                "created": None,
+                "modified": None,
+            }
 
-                # Load objective metadata
-                obj_json = obj_dir / f"{obj_id}.json"
-                if obj_json.exists():
-                    try:
-                        with open(obj_json, "r", encoding="utf-8") as f:
-                            obj_data["metadata"] = json.load(f)
-                    except Exception as exc:
-                        logging.debug("Error reading %s: %s", obj_json, exc)
+            # Load timestamps from directory metadata
+            try:
+                stat = obj_dir.stat()
+                obj_data["created"] = stat.st_ctime
+                obj_data["modified"] = stat.st_mtime
+            except Exception as exc:
+                logging.debug("Error reading directory stats for %s: %s", obj_dir, exc)
 
-                # Load objective activity log
-                obj_jsonl = obj_dir / f"{obj_id}.jsonl"
-                if obj_jsonl.exists():
-                    try:
-                        with open(obj_jsonl, "r", encoding="utf-8") as f:
-                            obj_data["activity_log"] = [
-                                json.loads(line.strip()) for line in f if line.strip()
-                            ]
-                    except Exception as exc:
-                        logging.debug("Error reading %s: %s", obj_jsonl, exc)
+            # Load OBJECTIVE.md
+            objective_file = obj_dir / "OBJECTIVE.md"
+            if objective_file.exists():
+                try:
+                    with open(objective_file, "r", encoding="utf-8") as f:
+                        obj_data["objective"] = f.read().strip()
+                except Exception as exc:
+                    logging.debug("Error reading %s: %s", objective_file, exc)
 
-                result["objectives"][obj_id] = obj_data
+            # Load OUTCOME.md if it exists
+            outcome_file = obj_dir / "OUTCOME.md"
+            if outcome_file.exists():
+                try:
+                    with open(outcome_file, "r", encoding="utf-8") as f:
+                        obj_data["outcome"] = f.read().strip()
+                except Exception as exc:
+                    logging.debug("Error reading %s: %s", outcome_file, exc)
+
+            result["objectives"][obj_name] = obj_data
 
     # Load attachment metadata
     attachments_dir = matter_path / "attachments"

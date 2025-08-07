@@ -627,7 +627,6 @@ def create_matter(domain_name: str) -> Any:
 
     title = data.get("title", "").strip()
     description = data.get("description", "").strip()
-    
     if not title:
         return jsonify({"error": "Matter title is required"}), 400
     if not description:
@@ -646,7 +645,6 @@ def create_matter(domain_name: str) -> Any:
         # Generate timestamp-based matter ID
         from datetime import datetime
         timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
-        
         # Ensure unique timestamp (in case of rapid creation)
         matter_path = domain_path / timestamp
         counter = 1
@@ -656,7 +654,6 @@ def create_matter(domain_name: str) -> Any:
             counter += 1
             if counter > 99:  # Safety limit
                 return jsonify({"error": "Unable to generate unique matter ID"}), 500
-        
         # Use the final timestamp (with counter if needed)
         if counter > 1:
             timestamp = f"{timestamp}_{counter-1:02d}"
@@ -673,7 +670,7 @@ def create_matter(domain_name: str) -> Any:
             "status": data.get("status", "active"),
             "priority": data.get("priority", "medium"),
         }
-        
+
         # Process tags
         tags_input = data.get("tags", "").strip()
         if tags_input:
@@ -689,12 +686,11 @@ def create_matter(domain_name: str) -> Any:
         matter_jsonl = matter_path / "activity_log.jsonl"
         matter_jsonl.write_text("", encoding="utf-8")
 
-        # Create directories for attachments and objectives
+        # Create directory for attachments
         (matter_path / "attachments").mkdir(exist_ok=True)
-        (matter_path / "objectives").mkdir(exist_ok=True)
 
         return jsonify({
-            "success": True, 
+            "success": True,
             "matter_timestamp": timestamp,
             "matter_data": matter_data
         })

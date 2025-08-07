@@ -16,7 +16,7 @@ The `domains/` directory provides a way to organize journal content by scope or 
 
 ### Domain structure
 
-Each domain is organized as `domains/<domain>/` where `<domain>` is a descriptive name. Each domain folder contains:
+Each domain is organized as `domains/<domain>/` where `<domain>` is a descriptive short name. Each domain folder contains:
 
 - `domain.json` – metadata file with domain title and description.
 - `entities.md` – entities specific to this domain.
@@ -39,11 +39,11 @@ Optional fields:
 - `color` – hex color code for the domain card background in the web UI
 - `emoji` – emoji icon displayed in the top-left of the domain card
 
-### Domain entities
+### Domain Entities
 
 The `entities.md` file follows the same format as the top-level entities file but contains only entities relevant to this specific domain. This allows for more targeted entity tracking within focused areas of work.
 
-### Domain matters
+### Domain Matters
 
 Matters represent specific scoped topics, sub-projects, or focused areas of work within a domain. Each matter is stored as a directory within the domain using a timestamp-based ID system.
 
@@ -54,7 +54,8 @@ Each matter is organized as `domains/<domain>/<timestamp>/` where the timestamp 
 - `matter.json` – matter metadata including title, description, and other properties
 - `activity_log.jsonl` – chronological log of matter-related activities in JSON Lines format
 - `attachments/` – directory containing files and their metadata
-- `objectives/` – directory containing objectives with metadata and activity logs
+- `objective_<name>/` – individual objective directories containing OBJECTIVE.md and optional OUTCOME.md
+- the directory created/modified timestamps are the source when the matter was first created or last modified
 
 The timestamp follows the same format used for agents and tasks, ensuring unique identification and chronological ordering.
 
@@ -66,7 +67,6 @@ The `matter.json` file contains the matter's core information:
 {
   "title": "API Performance Optimization",
   "description": "Investigating and implementing improvements to reduce API response times",
-  "created": "2025-01-15T10:30:00Z",
   "status": "active",
   "priority": "high",
   "tags": ["performance", "backend", "optimization"]
@@ -78,7 +78,6 @@ Required fields:
 - `description` – detailed explanation of the matter's scope and purpose
 
 Optional fields:
-- `created` – ISO 8601 timestamp of matter creation
 - `status` – current state (e.g., "active", "completed", "paused", "cancelled")
 - `priority` – importance level (e.g., "low", "medium", "high", "critical")
 - `tags` – array of relevant keywords for categorization and search
@@ -93,6 +92,7 @@ The `attachments/` directory contains files relevant to the matter along with th
 
 - `<filename>.<extension>` – the actual file (document, image, code, etc.)
 - `<filename>.json` – metadata describing the attachment
+- The .json file created/modified timestamps represent those values for the attachment relative to the matter
 
 The metadata file format:
 
@@ -100,8 +100,6 @@ The metadata file format:
 {
   "title": "API Documentation",
   "description": "Complete API reference documentation for the performance optimization work",
-  "created": "2025-01-15T14:30:00Z",
-  "modified": "2025-01-15T14:30:00Z",
   "size": 2048576,
   "mime_type": "application/pdf",
   "tags": ["documentation", "api", "reference"]
@@ -113,49 +111,28 @@ Required fields:
 - `description` – detailed explanation of the attachment's content and relevance
 
 Optional fields:
-- `created` – ISO 8601 timestamp when attachment was added
-- `modified` – ISO 8601 timestamp when attachment was last modified
 - `size` – file size in bytes
 - `mime_type` – MIME type of the attached file
 - `tags` – array of keywords for categorization
 
 #### Matter objectives
 
-The `objectives/` directory contains specific goals and sub-tasks related to the matter. Each objective is organized as `<timestamp>/` containing:
+Objectives are specific goals and sub-tasks related to the matter. Each objective is organized as `objective_<name>/` where `<name>` is a unique alphanumeric identifier with underscores for separation. Each objective directory contains:
 
-- `<timestamp>.json` – objective metadata
-- `<timestamp>.jsonl` – chronological log of objective-related activities
+- `OBJECTIVE.md` – markdown file describing the objective, its requirements, and approach
+- `OUTCOME.md` – markdown file describing the results and completion details (present only when objective is completed)
 
-The objective metadata format:
+The objective name serves as the unique identifier and should be descriptive yet concise (e.g., `ui_implementation`, `database_optimization`, `api_testing`).
 
-```json
-{
-  "title": "Reduce API response time by 50%",
-  "description": "Implement caching and database query optimization to achieve sub-200ms response times for all endpoints",
-  "created": "2025-01-15T10:45:00Z",
-  "status": "in_progress",
-  "priority": "high",
-  "target_date": "2025-02-01T00:00:00Z",
-  "completion_criteria": [
-    "All API endpoints respond in under 200ms",
-    "Database query optimization completed",
-    "Redis caching layer implemented"
-  ]
-}
+Example objective structure:
+
+```
+objective_performance_optimization/
+├── OBJECTIVE.md
+└── OUTCOME.md    # Only present when completed
 ```
 
-Required fields:
-- `title` – concise objective statement
-- `description` – detailed explanation of what needs to be accomplished
-
-Optional fields:
-- `created` – ISO 8601 timestamp of objective creation
-- `status` – current state (e.g., "pending", "in_progress", "completed", "blocked")
-- `priority` – importance level (e.g., "low", "medium", "high", "critical")
-- `target_date` – ISO 8601 timestamp for when objective should be completed
-- `completion_criteria` – array of specific measurable outcomes that define success
-
-This structure allows matters to serve as comprehensive project management units with full activity history, relevant files, and structured goal tracking.
+The presence of `OUTCOME.md` indicates objective completion. Directory timestamps (created/modified) provide temporal tracking without requiring separate metadata files.
 
 ## Day folder contents
 

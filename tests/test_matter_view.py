@@ -128,33 +128,22 @@ def test_get_matter_comprehensive():
             "\n".join(json.dumps(entry) for entry in matter_log)
         )
 
-        # Create objectives
-        objectives_dir = matter_path / "objectives"
-        obj1_dir = objectives_dir / "20250101140000"
+        # Create objectives (new format: objective_<name> directories)
+        obj1_dir = matter_path / "objective_ui_implementation"
         obj1_dir.mkdir(parents=True)
-
-        obj1_data = {
-            "title": "First Objective",
-            "description": "Test objective 1",
-            "status": "in_progress",
-            "priority": "high",
-        }
-        (obj1_dir / "20250101140000.json").write_text(json.dumps(obj1_data))
-
-        obj1_log = [
-            {
-                "timestamp": "2025-01-01T14:00:00Z",
-                "type": "created",
-                "description": "Objective created",
-            },
-            {
-                "timestamp": "2025-01-01T14:30:00Z",
-                "type": "progress",
-                "description": "Work started",
-            },
-        ]
-        (obj1_dir / "20250101140000.jsonl").write_text(
-            "\n".join(json.dumps(entry) for entry in obj1_log)
+        
+        (obj1_dir / "OBJECTIVE.md").write_text(
+            "# UI Implementation\n\nCreate a comprehensive matter detail view."
+        )
+        (obj1_dir / "OUTCOME.md").write_text(
+            "# Completed Successfully\n\nThe UI has been implemented with all features."
+        )
+        
+        obj2_dir = matter_path / "objective_api_integration"
+        obj2_dir.mkdir(parents=True)
+        
+        (obj2_dir / "OBJECTIVE.md").write_text(
+            "# API Integration\n\nIntegrate backend API support."
         )
 
         # Create attachments
@@ -186,13 +175,25 @@ def test_get_matter_comprehensive():
             assert result["activity_log"][0]["type"] == "created"
             assert result["activity_log"][1]["type"] == "progress"
 
-            # Verify objectives
-            assert len(result["objectives"]) == 1
-            assert "20250101140000" in result["objectives"]
-            obj1 = result["objectives"]["20250101140000"]
-            assert obj1["metadata"]["title"] == "First Objective"
-            assert obj1["metadata"]["status"] == "in_progress"
-            assert len(obj1["activity_log"]) == 2
+            # Verify objectives (new structure)
+            assert len(result["objectives"]) == 2
+            
+            # Test completed objective
+            assert "ui_implementation" in result["objectives"]
+            obj1 = result["objectives"]["ui_implementation"]
+            assert obj1["name"] == "ui_implementation"
+            assert "UI Implementation" in obj1["objective"]
+            assert obj1["outcome"] is not None
+            assert "Completed Successfully" in obj1["outcome"]
+            assert obj1["created"] is not None
+            assert obj1["modified"] is not None
+            
+            # Test in-progress objective
+            assert "api_integration" in result["objectives"]
+            obj2 = result["objectives"]["api_integration"]
+            assert obj2["name"] == "api_integration"
+            assert "API Integration" in obj2["objective"]
+            assert obj2["outcome"] is None
 
             # Verify attachments
             assert len(result["attachments"]) == 1
@@ -280,3 +281,124 @@ def test_get_matter_attachment_validation():
             assert len(result["attachments"]) == 1
             assert "valid" in result["attachments"]
             assert "orphan" not in result["attachments"]
+
+
+def test_get_matter_new_objective_structure():
+    """Test get_matter handles the new objective_<name> directory structure."""
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        journal_path = Path(tmp_dir) / "journal"
+        domain_path = journal_path / "domains" / "test-domain"
+        matter_path = domain_path / "20250101120000"
+        matter_path.mkdir(parents=True)
+
+        # Create domain.json
+        (domain_path / "domain.json").write_text('{"title": "Test Domain"}')
+
+        # Create objectives in new format: objective_<name> directories
+        # Completed objective with both OBJECTIVE.md and OUTCOME.md
+        completed_obj_dir = matter_path / "objective_ui_design"
+        completed_obj_dir.mkdir(parents=True)
+        (completed_obj_dir / "OBJECTIVE.md").write_text(
+            "# UI Design\n\nDesign the user interface for the application.\n\n"
+            "This includes wireframes, mockups, and design specifications."
+        )
+        (completed_obj_dir / "OUTCOME.md").write_text(
+            "# Design Completed\n\nAll UI designs have been finalized and approved.\n\n"
+            "The designs are ready for implementation."
+        )
+
+        # In-progress objective with only OBJECTIVE.md
+        in_progress_obj_dir = matter_path / "objective_database_schema"
+        in_progress_obj_dir.mkdir(parents=True)
+        (in_progress_obj_dir / "OBJECTIVE.md").write_text(
+            "# Database Schema\n\nDesign and implement the database schema.\n\n"
+            "Include tables, relationships, and indexes."
+        )
+
+        # Objective with invalid name (should be ignored)
+        invalid_obj_dir = matter_path / "not_an_objective"
+        invalid_obj_dir.mkdir(parents=True)
+        (invalid_obj_dir / "OBJECTIVE.md").write_text("This should be ignored")
+
+        with patch.dict(os.environ, {"JOURNAL_PATH": str(journal_path)}):
+            from think.utils import get_matter
+
+            result = get_matter("test-domain", "20250101120000")
+
+            # Should find 2 objectives (not the invalid one)
+            assert len(result["objectives"]) == 2
+
+            # Test completed objective
+            assert "ui_design" in result["objectives"]
+            ui_obj = result["objectives"]["ui_design"]
+            assert ui_obj["name"] == "ui_design"
+            assert "UI Design" in ui_obj["objective"]
+            assert "Design the user interface" in ui_obj["objective"]
+            assert ui_obj["outcome"] is not None
+            assert "Design Completed" in ui_obj["outcome"]
+            assert "All UI designs have been finalized" in ui_obj["outcome"]
+            assert isinstance(ui_obj["created"], (int, float))
+            assert isinstance(ui_obj["modified"], (int, float))
+
+            # Test in-progress objective
+            assert "database_schema" in result["objectives"]
+            db_obj = result["objectives"]["database_schema"]
+            assert db_obj["name"] == "database_schema"
+            assert "Database Schema" in db_obj["objective"]
+            assert "Design and implement the database" in db_obj["objective"]
+            assert db_obj["outcome"] is None
+            assert isinstance(db_obj["created"], (int, float))
+            assert isinstance(db_obj["modified"], (int, float))
+
+            # Invalid objective should not be included
+            assert "not_an_objective" not in result["objectives"]
+
+
+def test_get_matter_objective_edge_cases():
+    """Test get_matter handles edge cases in objective structure."""
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        journal_path = Path(tmp_dir) / "journal"
+        domain_path = journal_path / "domains" / "test-domain"
+        matter_path = domain_path / "20250101120000"
+        matter_path.mkdir(parents=True)
+
+        # Create domain.json
+        (domain_path / "domain.json").write_text('{"title": "Test Domain"}')
+
+        # Objective with missing OBJECTIVE.md file
+        missing_obj_dir = matter_path / "objective_missing_file"
+        missing_obj_dir.mkdir(parents=True)
+        (missing_obj_dir / "OUTCOME.md").write_text("Has outcome but no objective")
+
+        # Objective with empty OBJECTIVE.md
+        empty_obj_dir = matter_path / "objective_empty_file"
+        empty_obj_dir.mkdir(parents=True)
+        (empty_obj_dir / "OBJECTIVE.md").write_text("")
+
+        # Objective with only whitespace in files
+        whitespace_obj_dir = matter_path / "objective_whitespace"
+        whitespace_obj_dir.mkdir(parents=True)
+        (whitespace_obj_dir / "OBJECTIVE.md").write_text("   \n\n   ")
+        (whitespace_obj_dir / "OUTCOME.md").write_text("   \n\n   ")
+
+        with patch.dict(os.environ, {"JOURNAL_PATH": str(journal_path)}):
+            from think.utils import get_matter
+
+            result = get_matter("test-domain", "20250101120000")
+
+            # Should find all 3 objectives even with edge cases
+            assert len(result["objectives"]) == 3
+
+            # Test missing OBJECTIVE.md
+            missing_obj = result["objectives"]["missing_file"]
+            assert missing_obj["objective"] == ""  # Should be empty string, not None
+            assert "Has outcome but no objective" in missing_obj["outcome"]
+
+            # Test empty OBJECTIVE.md
+            empty_obj = result["objectives"]["empty_file"]
+            assert empty_obj["objective"] == ""
+
+            # Test whitespace-only files (should be stripped)
+            whitespace_obj = result["objectives"]["whitespace"]
+            assert whitespace_obj["objective"] == ""
+            assert whitespace_obj["outcome"] == ""
