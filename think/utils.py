@@ -346,9 +346,9 @@ def get_matters(
     Returns
     -------
     dict[str, dict[str, object]]
-        Dictionary where keys are matter timestamps and values contain
+        Dictionary where keys are matter IDs and values contain
         matter metadata from the matter.json file plus 'activity_log_path' field.
-        Results are sorted by timestamp (newest first).
+        Results are sorted by matter ID (newest first).
     """
     load_dotenv()
     journal = os.getenv("JOURNAL_PATH")
@@ -361,20 +361,21 @@ def get_matters(
     if not domain_path.exists():
         return matters
 
-    # Find all timestamp directories (matters are now stored as directories)
-    timestamp_dirs = [
-        d for d in domain_path.iterdir() if d.is_dir() and d.name.isdigit()
+    # Find all matter_X directories
+    matter_dirs = [
+        d for d in domain_path.iterdir() 
+        if d.is_dir() and d.name.startswith("matter_") and d.name[7:].isdigit()
     ]
-    # Sort by directory name (timestamp) in descending order (newest first)
-    timestamp_dirs.sort(key=lambda d: d.name, reverse=True)
+    # Sort by matter number in descending order (newest first)
+    matter_dirs.sort(key=lambda d: int(d.name[7:]), reverse=True)
 
     # Apply offset and limit
     start_idx = offset
-    end_idx = start_idx + limit if limit is not None else len(timestamp_dirs)
-    timestamp_dirs = timestamp_dirs[start_idx:end_idx]
+    end_idx = start_idx + limit if limit is not None else len(matter_dirs)
+    matter_dirs = matter_dirs[start_idx:end_idx]
 
-    for matter_dir in timestamp_dirs:
-        timestamp = matter_dir.name
+    for matter_dir in matter_dirs:
+        matter_id = matter_dir.name
         json_path = matter_dir / "matter.json"
         jsonl_path = matter_dir / "activity_log.jsonl"
 
@@ -384,13 +385,13 @@ def get_matters(
 
             if isinstance(matter_data, dict):
                 matter_info = {
-                    "timestamp": timestamp,
+                    "matter_id": matter_id,
                     "metadata_path": str(json_path),
                     "activity_log_path": str(jsonl_path),
                     "activity_log_exists": jsonl_path.exists(),
                     **matter_data,  # Include all fields from the JSON metadata
                 }
-                matters[timestamp] = matter_info
+                matters[matter_id] = matter_info
         except Exception as exc:  # pragma: no cover - metadata optional
             logging.debug("Error reading %s: %s", json_path, exc)
 
@@ -405,7 +406,7 @@ def get_matter(domain: str, matter_id: str) -> dict[str, Any]:
     domain:
         Domain name containing the matter.
     matter_id:
-        Matter timestamp ID.
+        Matter ID in matter_X format.
 
     Returns
     -------

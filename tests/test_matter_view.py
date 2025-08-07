@@ -14,7 +14,7 @@ def test_matter_detail_route_validation():
         # Set up test journal structure
         journal_path = Path(tmp_dir) / "journal"
         domain_path = journal_path / "domains" / "test-domain"
-        matter_path = domain_path / "20250101120000"
+        matter_path = domain_path / "matter_1"
         matter_path.mkdir(parents=True)
 
         # Create domain.json
@@ -58,8 +58,8 @@ def test_matter_detail_route_validation():
             from think.utils import get_matters
 
             matters = get_matters("test-domain")
-            assert "20250101120000" in matters
-            assert matters["20250101120000"]["title"] == "Test Matter"
+            assert "matter_1" in matters
+            assert matters["matter_1"]["title"] == "Test Matter"
 
 
 def test_matter_detail_template_exists():
@@ -94,7 +94,7 @@ def test_get_matter_comprehensive():
         # Set up comprehensive test structure
         journal_path = Path(tmp_dir) / "journal"
         domain_path = journal_path / "domains" / "test-domain"
-        matter_path = domain_path / "20250101120000"
+        matter_path = domain_path / "matter_1"
         matter_path.mkdir(parents=True)
 
         # Create domain.json
@@ -164,7 +164,7 @@ def test_get_matter_comprehensive():
         with patch.dict(os.environ, {"JOURNAL_PATH": str(journal_path)}):
             from think.utils import get_matter
 
-            result = get_matter("test-domain", "20250101120000")
+            result = get_matter("test-domain", "matter_1")
 
             # Verify matter metadata
             assert result["metadata"]["title"] == "Test Matter"
@@ -208,7 +208,7 @@ def test_get_matter_missing_files():
     with tempfile.TemporaryDirectory() as tmp_dir:
         journal_path = Path(tmp_dir) / "journal"
         domain_path = journal_path / "domains" / "test-domain"
-        matter_path = domain_path / "20250101120000"
+        matter_path = domain_path / "matter_1"
         matter_path.mkdir(parents=True)
 
         # Create only minimal required structure (just the directory)
@@ -217,7 +217,7 @@ def test_get_matter_missing_files():
         with patch.dict(os.environ, {"JOURNAL_PATH": str(journal_path)}):
             from think.utils import get_matter
 
-            result = get_matter("test-domain", "20250101120000")
+            result = get_matter("test-domain", "matter_1")
 
             # Should return empty structures, not fail
             assert result["metadata"] == {}
@@ -239,7 +239,7 @@ def test_get_matter_error_handling():
                 FileNotFoundError,
                 match="Matter .* not found in domain nonexistent-domain",
             ):
-                get_matter("nonexistent-domain", "20250101120000")
+                get_matter("nonexistent-domain", "matter_1")
 
             # Test non-existent matter in existing domain
             domain_path = journal_path / "domains" / "test-domain"
@@ -249,7 +249,7 @@ def test_get_matter_error_handling():
             with pytest.raises(
                 FileNotFoundError, match="Matter .* not found in domain test-domain"
             ):
-                get_matter("test-domain", "99999999999999")
+                get_matter("test-domain", "matter_999")
 
 
 def test_get_matter_attachment_validation():
@@ -257,7 +257,7 @@ def test_get_matter_attachment_validation():
     with tempfile.TemporaryDirectory() as tmp_dir:
         journal_path = Path(tmp_dir) / "journal"
         domain_path = journal_path / "domains" / "test-domain"
-        matter_path = domain_path / "20250101120000"
+        matter_path = domain_path / "matter_1"
         attachments_dir = matter_path / "attachments"
         attachments_dir.mkdir(parents=True)
 
@@ -275,7 +275,7 @@ def test_get_matter_attachment_validation():
         with patch.dict(os.environ, {"JOURNAL_PATH": str(journal_path)}):
             from think.utils import get_matter
 
-            result = get_matter("test-domain", "20250101120000")
+            result = get_matter("test-domain", "matter_1")
 
             # Should only include attachment with corresponding file
             assert len(result["attachments"]) == 1
@@ -288,7 +288,7 @@ def test_get_matter_new_objective_structure():
     with tempfile.TemporaryDirectory() as tmp_dir:
         journal_path = Path(tmp_dir) / "journal"
         domain_path = journal_path / "domains" / "test-domain"
-        matter_path = domain_path / "20250101120000"
+        matter_path = domain_path / "matter_1"
         matter_path.mkdir(parents=True)
 
         # Create domain.json
@@ -323,7 +323,7 @@ def test_get_matter_new_objective_structure():
         with patch.dict(os.environ, {"JOURNAL_PATH": str(journal_path)}):
             from think.utils import get_matter
 
-            result = get_matter("test-domain", "20250101120000")
+            result = get_matter("test-domain", "matter_1")
 
             # Should find 2 objectives (not the invalid one)
             assert len(result["objectives"]) == 2
@@ -359,7 +359,7 @@ def test_get_matter_objective_edge_cases():
     with tempfile.TemporaryDirectory() as tmp_dir:
         journal_path = Path(tmp_dir) / "journal"
         domain_path = journal_path / "domains" / "test-domain"
-        matter_path = domain_path / "20250101120000"
+        matter_path = domain_path / "matter_1"
         matter_path.mkdir(parents=True)
 
         # Create domain.json
@@ -384,7 +384,7 @@ def test_get_matter_objective_edge_cases():
         with patch.dict(os.environ, {"JOURNAL_PATH": str(journal_path)}):
             from think.utils import get_matter
 
-            result = get_matter("test-domain", "20250101120000")
+            result = get_matter("test-domain", "matter_1")
 
             # Should find all 3 objectives even with edge cases
             assert len(result["objectives"]) == 3

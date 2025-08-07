@@ -538,8 +538,8 @@ Generate a clear, concise description (1-2 sentences) that captures what this {e
         )
 
 
-@bp.route("/domains/<domain_name>/matters/<matter_timestamp>")
-def matter_detail(domain_name: str, matter_timestamp: str) -> str:
+@bp.route("/domains/<domain_name>/matters/<matter_id>")
+def matter_detail(domain_name: str, matter_id: str) -> str:
     """Display detailed view for a specific matter."""
     domains = get_domains()
     if domain_name not in domains:
@@ -547,7 +547,7 @@ def matter_detail(domain_name: str, matter_timestamp: str) -> str:
 
     try:
         # Get comprehensive matter data using the new get_matter function
-        matter_data = get_matter(domain_name, matter_timestamp)
+        matter_data = get_matter(domain_name, matter_id)
     except FileNotFoundError:
         return render_template("404.html"), 404
 
@@ -557,7 +557,7 @@ def matter_detail(domain_name: str, matter_timestamp: str) -> str:
         "matter_detail.html",
         domain_name=domain_name,
         domain_data=domain_data,
-        matter_timestamp=matter_timestamp,
+        matter_id=matter_id,
         matter_data=matter_data,
         active="domains",
     )
@@ -579,7 +579,7 @@ def get_domain_matters(domain_name: str) -> Any:
         from pathlib import Path
 
         matters_list = []
-        for timestamp, matter_info in matters_data.items():
+        for matter_id, matter_info in matters_data.items():
             # Count lines in the activity log
             activity_count = 0
             activity_log_path = Path(matter_info["activity_log_path"])
@@ -599,7 +599,7 @@ def get_domain_matters(domain_name: str) -> Any:
                     pass
 
             matter_display = {
-                "timestamp": timestamp,
+                "matter_id": matter_id,
                 "title": matter_info.get("title", ""),
                 "description": matter_info.get("description", ""),
                 "status": matter_info.get("status", ""),
@@ -642,22 +642,24 @@ def create_matter(domain_name: str) -> Any:
         return jsonify({"error": "Domain not found"}), 404
 
     try:
-        # Generate timestamp-based matter ID
-        from datetime import datetime
-        timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
-        # Ensure unique timestamp (in case of rapid creation)
-        matter_path = domain_path / timestamp
-        counter = 1
-        while matter_path.exists():
-            timestamp_with_counter = f"{timestamp}_{counter:02d}"
-            matter_path = domain_path / timestamp_with_counter
-            counter += 1
-            if counter > 99:  # Safety limit
-                return jsonify({"error": "Unable to generate unique matter ID"}), 500
-        # Use the final timestamp (with counter if needed)
-        if counter > 1:
-            timestamp = f"{timestamp}_{counter-1:02d}"
-            matter_path = domain_path / timestamp
+        # Generate matter_X ID by finding the next available number
+        existing_matters = [
+            d for d in domain_path.iterdir() 
+            if d.is_dir() and d.name.startswith("matter_") and d.name[7:].isdigit()
+        ]
+        
+        # Find the highest existing matter number
+        max_number = 0
+        for matter_dir in existing_matters:
+            try:
+                number = int(matter_dir.name[7:])
+                max_number = max(max_number, number)
+            except ValueError:
+                continue
+        
+        # Generate new matter ID
+        matter_id = f"matter_{max_number + 1}"
+        matter_path = domain_path / matter_id
 
         # Create matter directory
         matter_path.mkdir(parents=True, exist_ok=True)
@@ -691,7 +693,7 @@ def create_matter(domain_name: str) -> Any:
 
         return jsonify({
             "success": True,
-            "matter_timestamp": timestamp,
+            "matter_id": matter_id,
             "matter_data": matter_data
         })
 

@@ -997,7 +997,7 @@ document.getElementById('matterForm').addEventListener('submit', async (e) => {
       loadMatters(); // Reload the matters list
       
       // Optional: Show success message or navigate to the new matter
-      // console.log('Matter created successfully:', result.matter_timestamp);
+      // console.log('Matter created successfully:', result.matter_id);
     } else {
       showMatterError(result.error || 'An error occurred while creating the matter');
     }
@@ -1241,7 +1241,7 @@ function createMatterElement(matter) {
   
   // Add click handler to navigate to matter detail view
   div.onclick = () => {
-    window.location.href = `/domains/${encodeURIComponent(domainName)}/matters/${matter.timestamp}`;
+    window.location.href = `/domains/${encodeURIComponent(domainName)}/matters/${matter.matter_id}`;
   };
   
   return div;

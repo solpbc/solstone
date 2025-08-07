@@ -45,11 +45,11 @@ The `entities.md` file follows the same format as the top-level entities file bu
 
 ### Domain Matters
 
-Matters represent specific scoped topics, sub-projects, or focused areas of work within a domain. Each matter is stored as a directory within the domain using a timestamp-based ID system.
+Matters represent specific scoped topics, sub-projects, or focused areas of work within a domain. Each matter is stored as a directory within the domain using an incrementing integer ID system.
 
 #### Matter file structure
 
-Each matter is organized as `domains/<domain>/<timestamp>/` where the timestamp serves as the matter ID. Within each matter directory:
+Each matter is organized as `domains/<domain>/matter_X/` where X is an incrementing integer that serves as the matter ID. Within each matter directory:
 
 - `matter.json` – matter metadata including title, description, and other properties
 - `activity_log.jsonl` – chronological log of matter-related activities in JSON Lines format
@@ -57,7 +57,7 @@ Each matter is organized as `domains/<domain>/<timestamp>/` where the timestamp 
 - `objective_<name>/` – individual objective directories containing OBJECTIVE.md and optional OUTCOME.md
 - the directory created/modified timestamps are the source when the matter was first created or last modified
 
-The timestamp follows the same format used for agents and tasks, ensuring unique identification and chronological ordering.
+The incrementing integer format ensures unique identification and allows for easy ordering by creation sequence.
 
 #### Matter metadata format
 
