@@ -166,11 +166,11 @@ h1 {
 
 .modal-content {
   background-color: white;
-  margin: 5% auto;
-  padding: 2em;
+  margin: 8% auto;
+  padding: 1.5em;
   border-radius: 12px;
   width: 90%;
-  max-width: 500px;
+  max-width: 420px;
   box-shadow: 0 8px 32px rgba(0,0,0,0.2);
 }
 
@@ -178,8 +178,8 @@ h1 {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 1.5em;
-  padding-bottom: 0.5em;
+  margin-bottom: 1.2em;
+  padding-bottom: 0.4em;
   border-bottom: 1px solid #eee;
 }
 
@@ -201,7 +201,7 @@ h1 {
 }
 
 .form-group {
-  margin-bottom: 1.5em;
+  margin-bottom: 1.2em;
 }
 
 .form-group label {
@@ -213,10 +213,10 @@ h1 {
 
 .form-group input, .form-group textarea {
   width: 100%;
-  padding: 0.75em;
+  padding: 0.6em 0.75em;
   border: 1px solid #ddd;
   border-radius: 6px;
-  font-size: 1em;
+  font-size: 0.95em;
   font-family: inherit;
   transition: border-color 0.2s;
   box-sizing: border-box;
@@ -229,22 +229,22 @@ h1 {
 
 .form-group textarea {
   resize: vertical;
-  min-height: 80px;
+  min-height: 70px;
 }
 
 .form-actions {
   display: flex;
-  gap: 1em;
+  gap: 0.8em;
   justify-content: flex-end;
-  margin-top: 2em;
+  margin-top: 1.5em;
 }
 
 .btn {
-  padding: 0.75em 1.5em;
+  padding: 0.6em 1.2em;
   border: none;
   border-radius: 6px;
   cursor: pointer;
-  font-size: 1em;
+  font-size: 0.95em;
   font-weight: 500;
   transition: background-color 0.2s;
 }
@@ -274,6 +274,30 @@ h1 {
   border-radius: 6px;
   margin-bottom: 1em;
   border: 1px solid #fcc;
+}
+
+/* Color input enhancement */
+.color-input-group {
+  display: flex;
+  gap: 0.5em;
+  align-items: center;
+}
+
+.color-input-group input[type="color"] {
+  width: 50px;
+  height: 38px;
+  padding: 0;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.color-input-group input[type="text"] {
+  flex: 1;
+  min-width: 0;
+  font-family: monospace;
+  text-transform: uppercase;
 }
 </style>
 {% endblock %}
@@ -308,11 +332,11 @@ h1 {
     <div id="errorContainer"></div>
     <form id="domainForm">
       <div class="form-group">
-        <label for="domainName">Domain Name*</label>
+        <label for="domainName">Handle</label>
         <input type="text" id="domainName" name="name" required placeholder="e.g., machine-learning">
       </div>
       <div class="form-group">
-        <label for="domainTitle">Title*</label>
+        <label for="domainTitle">Name</label>
         <input type="text" id="domainTitle" name="title" required placeholder="e.g., Machine Learning Research">
       </div>
       <div class="form-group">
@@ -325,7 +349,10 @@ h1 {
       </div>
       <div class="form-group">
         <label for="domainColor">Color</label>
-        <input type="color" id="domainColor" name="color">
+        <div class="color-input-group">
+          <input type="color" id="domainColor" name="color" value="#667eea">
+          <input type="text" id="domainColorHex" placeholder="#667eea" maxlength="7" pattern="^#[0-9A-Fa-f]{6}$">
+        </div>
       </div>
       <div class="form-actions">
         <button type="button" class="btn btn-secondary" id="cancelBtn">Cancel</button>
@@ -422,6 +449,8 @@ function openAddModal() {
   document.getElementById('saveBtn').textContent = 'Save Domain';
   form.reset();
   document.getElementById('domainName').disabled = false;
+  document.getElementById('domainColor').value = '#667eea';
+  document.getElementById('domainColorHex').value = '#667EEA';
   clearErrors();
   modal.style.display = 'block';
 }
@@ -438,7 +467,9 @@ function openEditModal(domainName, domainData) {
   document.getElementById('domainTitle').value = domainData.title || domainName;
   document.getElementById('domainDescription').value = domainData.description || '';
   document.getElementById('domainEmoji').value = domainData.emoji || '';
-  document.getElementById('domainColor').value = domainData.color || '#667eea';
+  const colorValue = domainData.color || '#667eea';
+  document.getElementById('domainColor').value = colorValue;
+  document.getElementById('domainColorHex').value = colorValue.toUpperCase();
   
   clearErrors();
   modal.style.display = 'block';
@@ -447,6 +478,8 @@ function openEditModal(domainName, domainData) {
 function closeModal() {
   modal.style.display = 'none';
   form.reset();
+  document.getElementById('domainColor').value = '#667eea';
+  document.getElementById('domainColorHex').value = '#667EEA';
   clearErrors();
 }
 
@@ -457,6 +490,33 @@ function clearErrors() {
 function showError(message) {
   errorContainer.innerHTML = `<div class="error-message">${message}</div>`;
 }
+
+// Color input synchronization
+const colorPicker = document.getElementById('domainColor');
+const colorHex = document.getElementById('domainColorHex');
+
+function updateColorHex() {
+  colorHex.value = colorPicker.value.toUpperCase();
+}
+
+function updateColorPicker() {
+  const hexValue = colorHex.value.trim();
+  if (/^#[0-9A-Fa-f]{6}$/.test(hexValue)) {
+    colorPicker.value = hexValue;
+  }
+}
+
+colorPicker.addEventListener('input', updateColorHex);
+colorHex.addEventListener('input', updateColorPicker);
+colorHex.addEventListener('blur', () => {
+  const hexValue = colorHex.value.trim();
+  if (hexValue && !hexValue.startsWith('#')) {
+    colorHex.value = '#' + hexValue;
+    updateColorPicker();
+  } else if (!hexValue) {
+    colorHex.value = colorPicker.value.toUpperCase();
+  }
+});
 
 // Event handlers
 closeBtn.onclick = closeModal;
@@ -472,6 +532,14 @@ form.addEventListener('submit', async (e) => {
   
   const formData = new FormData(form);
   const data = Object.fromEntries(formData.entries());
+  
+  // Use the hex input value if it's valid, otherwise use the color picker
+  const hexValue = document.getElementById('domainColorHex').value.trim();
+  if (/^#[0-9A-Fa-f]{6}$/.test(hexValue)) {
+    data.color = hexValue;
+  } else {
+    data.color = document.getElementById('domainColor').value;
+  }
   
   try {
     let response;

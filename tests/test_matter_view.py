@@ -402,3 +402,33 @@ def test_get_matter_objective_edge_cases():
             whitespace_obj = result["objectives"]["whitespace"]
             assert whitespace_obj["objective"] == ""
             assert whitespace_obj["outcome"] == ""
+
+
+def test_domains_template_modal_improvements():
+    """Test that domains.html template has the improved modal structure."""
+    template_path = Path("dream/templates/domains.html")
+    assert template_path.exists(), "domains.html template should exist"
+    
+    content = template_path.read_text()
+    
+    # Check that asterisks (*) are removed from field labels
+    assert "Domain Name*" not in content, "Asterisks should be removed from field labels"
+    assert "Title*" not in content, "Asterisks should be removed from field labels"
+    
+    # Check that field labels are updated
+    assert '<label for="domainName">Handle</label>' in content, "Domain Name should be changed to Handle"
+    assert '<label for="domainTitle">Name</label>' in content, "Title should be changed to Name"
+    
+    # Check that color input group is present
+    assert 'class="color-input-group"' in content, "Color input group should be present"
+    assert 'type="color"' in content, "Color picker should be present"
+    assert 'id="domainColorHex"' in content, "Hex input field should be present"
+    
+    # Check for compact modal styling
+    assert 'max-width: 420px' in content, "Modal should be more compact"
+    assert 'margin-bottom: 1.2em' in content, "Form groups should have reduced spacing"
+    
+    # Check for color synchronization JavaScript
+    assert 'updateColorHex' in content, "Color sync functions should be present"
+    assert 'updateColorPicker' in content, "Color sync functions should be present"
+    assert 'colorPicker.addEventListener' in content, "Color event listeners should be present"
