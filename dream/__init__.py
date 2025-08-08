@@ -219,7 +219,7 @@ def main() -> None:
     if not app.config["PASSWORD"]:
         raise ValueError("Password must be provided via --password or DREAM_PASSWORD")
 
-    app.run(host="0.0.0.0", port=args.port)
+    app.run(host="0.0.0.0", port=args.port, debug=args.verbose)
 
 
 if __name__ == "__main__":
