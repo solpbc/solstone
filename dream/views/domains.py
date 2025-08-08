@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import json
 import os
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -644,10 +645,10 @@ def create_matter(domain_name: str) -> Any:
     try:
         # Generate matter_X ID by finding the next available number
         existing_matters = [
-            d for d in domain_path.iterdir() 
+            d for d in domain_path.iterdir()
             if d.is_dir() and d.name.startswith("matter_") and d.name[7:].isdigit()
         ]
-        
+
         # Find the highest existing matter number
         max_number = 0
         for matter_dir in existing_matters:
@@ -656,7 +657,7 @@ def create_matter(domain_name: str) -> Any:
                 max_number = max(max_number, number)
             except ValueError:
                 continue
-        
+
         # Generate new matter ID
         matter_id = f"matter_{max_number + 1}"
         matter_path = domain_path / matter_id
@@ -699,3 +700,68 @@ def create_matter(domain_name: str) -> Any:
 
     except Exception as e:
         return jsonify({"error": f"Failed to create matter: {str(e)}"}), 500
+
+
+@bp.route("/api/domains/<domain_name>/matters/<matter_id>/objectives", methods=["POST"])
+def create_objective(domain_name: str, matter_id: str) -> Any:
+    """Create a new objective in the specified matter."""
+    data = request.get_json()
+    if not data:
+        return jsonify({"error": "No data provided"}), 400
+
+    objective_name = data.get("name", "").strip()
+    objective_content = data.get("objective", "").strip()
+    if not objective_name:
+        return jsonify({"error": "Objective name is required"}), 400
+    if not objective_content:
+        return jsonify({"error": "Objective content is required"}), 400
+
+    # Validate objective name (alphanumeric with underscores)
+    if not objective_name.replace("_", "").replace("-", "").isalnum():
+        return jsonify({
+            "error": "Objective name must be alphanumeric with optional underscores or hyphens"
+        }), 400
+
+    load_dotenv()
+    journal = os.getenv("JOURNAL_PATH")
+    if not journal:
+        return jsonify({"error": "JOURNAL_PATH not set"}), 500
+
+    domain_path = Path(journal) / "domains" / domain_name
+    matter_path = domain_path / matter_id
+
+    if not matter_path.exists():
+        return jsonify({"error": "Matter not found"}), 404
+
+    try:
+        # Create objective directory
+        objective_dir = matter_path / f"objective_{objective_name}"
+        if objective_dir.exists():
+            return jsonify({"error": "Objective already exists"}), 409
+
+        objective_dir.mkdir(parents=True, exist_ok=True)
+
+        # Create OBJECTIVE.md file
+        objective_file = objective_dir / "OBJECTIVE.md"
+        objective_file.write_text(objective_content, encoding="utf-8")
+
+        # Log the objective creation in the matter's activity log
+        activity_log_path = matter_path / "activity_log.jsonl"
+        log_entry = {
+            "timestamp": datetime.now().isoformat() + "Z",
+            "type": "created",
+            "description": f"Created objective: {objective_name}",
+            "user": "system"
+        }
+
+        with open(activity_log_path, "a", encoding="utf-8") as f:
+            f.write(json.dumps(log_entry) + "\n")
+
+        return jsonify({
+            "success": True,
+            "objective_name": objective_name,
+            "objective_dir": f"objective_{objective_name}"
+        })
+
+    except Exception as e:
+        return jsonify({"error": f"Failed to create objective: {str(e)}"}), 500

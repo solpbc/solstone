@@ -14,6 +14,7 @@
   background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
   border-radius: 0 0 16px 16px;
   overflow: hidden;
+  box-sizing: border-box;
 }
 
 .matter-header.has-color {
@@ -362,6 +363,187 @@
   margin: 0;
   line-height: 1.4;
 }
+
+/* Add objective styles */
+.add-objective-btn {
+  position: absolute;
+  top: 1rem;
+  right: 1.5rem;
+  background: #28a745;
+  color: white;
+  border: none;
+  padding: 0.75rem 1.5rem;
+  border-radius: 8px;
+  font-size: 0.9em;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.add-objective-btn:hover {
+  background: #218838;
+  transform: translateY(-1px);
+}
+
+.tab-content {
+  position: relative;
+}
+
+/* Modal styles */
+.modal {
+  display: none;
+  position: fixed;
+  z-index: 1000;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.5);
+}
+
+.modal-content {
+  background-color: white;
+  margin: 5% auto;
+  padding: 0;
+  border-radius: 12px;
+  width: 90%;
+  max-width: 600px;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+  animation: modalSlideIn 0.3s ease-out;
+}
+
+@keyframes modalSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-50px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.modal-header {
+  padding: 1.5rem 2rem;
+  border-bottom: 1px solid #e9ecef;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.modal-header h3 {
+  margin: 0;
+  color: #333;
+  font-size: 1.3em;
+}
+
+.close {
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  color: #adb5bd;
+  cursor: pointer;
+  padding: 0;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: all 0.2s;
+}
+
+.close:hover {
+  background-color: #f8f9fa;
+  color: #495057;
+}
+
+.modal-body {
+  padding: 2rem;
+}
+
+.form-group {
+  margin-bottom: 1.5rem;
+}
+
+.form-group label {
+  display: block;
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 0.5rem;
+  font-size: 0.9em;
+}
+
+.form-group input,
+.form-group textarea {
+  width: 100%;
+  padding: 0.75rem;
+  border: 2px solid #e9ecef;
+  border-radius: 8px;
+  font-size: 1rem;
+  transition: border-color 0.2s;
+  font-family: inherit;
+}
+
+.form-group input:focus,
+.form-group textarea:focus {
+  outline: none;
+  border-color: #28a745;
+  box-shadow: 0 0 0 3px rgba(40, 167, 69, 0.1);
+}
+
+.form-group textarea {
+  resize: vertical;
+  min-height: 150px;
+  font-family: 'Monaco', 'Consolas', 'Courier New', monospace;
+}
+
+.form-help {
+  font-size: 0.85em;
+  color: #6c757d;
+  margin-top: 0.25rem;
+}
+
+.modal-footer {
+  padding: 1.5rem 2rem;
+  border-top: 1px solid #e9ecef;
+  display: flex;
+  gap: 1rem;
+  justify-content: flex-end;
+}
+
+.btn {
+  padding: 0.75rem 1.5rem;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.9em;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-primary {
+  background: #28a745;
+  color: white;
+}
+
+.btn-primary:hover {
+  background: #218838;
+}
+
+.btn-primary:disabled {
+  background: #94d3a2;
+  cursor: not-allowed;
+}
+
+.btn-secondary {
+  background: #6c757d;
+  color: white;
+}
+
+.btn-secondary:hover {
+  background: #5a6268;
+}
 </style>
 {% endblock %}
 {% block body %}
@@ -417,6 +599,8 @@
   </div>
   
   <div id="objectives-tab" class="tab-content active">
+    <button class="add-objective-btn" onclick="showAddObjectiveModal()">+ Add Objective</button>
+    
     {% if matter_data.objectives %}
     <div class="content-section">
       <h3>🎯 Objectives ({{ matter_data.objectives|length }})</h3>
@@ -460,7 +644,9 @@
     <div class="empty-state">
       <div class="icon">🎯</div>
       <h4>No Objectives</h4>
-      <p>This matter doesn't have any objectives yet.</p>
+      <p>This matter doesn't have any objectives yet.<br>
+        <button class="btn btn-primary" onclick="showAddObjectiveModal()" style="margin-top: 1rem;">Create First Objective</button>
+      </p>
     </div>
     {% endif %}
   </div>
@@ -551,6 +737,44 @@
   </div>
 </div>
 
+<!-- Add Objective Modal -->
+<div id="addObjectiveModal" class="modal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h3>Add New Objective</h3>
+      <button class="close" onclick="hideAddObjectiveModal()">&times;</button>
+    </div>
+    <div class="modal-body">
+      <form id="addObjectiveForm">
+        <div class="form-group">
+          <label for="objectiveName">Objective Name *</label>
+          <input type="text" id="objectiveName" name="name" placeholder="e.g., database_optimization" required>
+          <div class="form-help">Use lowercase letters, numbers, underscores, and hyphens only</div>
+        </div>
+        
+        <div class="form-group">
+          <label for="objectiveContent">Objective Content *</label>
+          <textarea id="objectiveContent" name="objective" placeholder="# Objective Title
+
+Describe what needs to be accomplished, requirements, and approach...
+
+## Success Criteria
+- [ ] Criterion 1
+- [ ] Criterion 2
+
+## Notes
+Additional details or considerations..." required></textarea>
+          <div class="form-help">Use Markdown format. This will be saved as OBJECTIVE.md</div>
+        </div>
+      </form>
+    </div>
+    <div class="modal-footer">
+      <button type="button" class="btn btn-secondary" onclick="hideAddObjectiveModal()">Cancel</button>
+      <button type="submit" form="addObjectiveForm" class="btn btn-primary" id="createObjectiveBtn">Create Objective</button>
+    </div>
+  </div>
+</div>
+
 <script>
 const domainName = '{{ domain_name }}';
 const matterId = '{{ matter_id }}';
@@ -579,6 +803,71 @@ document.addEventListener('DOMContentLoaded', function() {
   
   // Debug: Log matter data to console
   console.log('Matter data:', matterData);
+});
+
+// Modal functions
+function showAddObjectiveModal() {
+  document.getElementById('addObjectiveModal').style.display = 'block';
+  document.getElementById('objectiveName').focus();
+}
+
+function hideAddObjectiveModal() {
+  document.getElementById('addObjectiveModal').style.display = 'none';
+  document.getElementById('addObjectiveForm').reset();
+}
+
+// Close modal when clicking outside
+window.onclick = function(event) {
+  const modal = document.getElementById('addObjectiveModal');
+  if (event.target === modal) {
+    hideAddObjectiveModal();
+  }
+}
+
+// Handle objective form submission
+document.getElementById('addObjectiveForm').addEventListener('submit', async function(e) {
+  e.preventDefault();
+  
+  const createBtn = document.getElementById('createObjectiveBtn');
+  const originalText = createBtn.textContent;
+  
+  try {
+    // Disable button and show loading state
+    createBtn.disabled = true;
+    createBtn.textContent = 'Creating...';
+    
+    const formData = new FormData(this);
+    const data = {
+      name: formData.get('name'),
+      objective: formData.get('objective')
+    };
+    
+    const response = await fetch(`/api/domains/${domainName}/matters/${matterId}/objectives`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(data)
+    });
+    
+    const result = await response.json();
+    
+    if (response.ok && result.success) {
+      // Success - reload page to show new objective
+      window.location.reload();
+    } else {
+      // Show error message
+      alert('Error creating objective: ' + (result.error || 'Unknown error'));
+    }
+    
+  } catch (error) {
+    console.error('Error creating objective:', error);
+    alert('Error creating objective. Please try again.');
+  } finally {
+    // Re-enable button
+    createBtn.disabled = false;
+    createBtn.textContent = originalText;
+  }
 });
 </script>
 {% endblock %}
