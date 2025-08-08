@@ -8,11 +8,6 @@ from typing import Any
 
 from flask import Blueprint, jsonify, render_template
 
-from hear.transcribe import Transcriber
-from see.describe import Describer
-from see.reduce import scan_day as reduce_scan_day
-from think.entity_roll import scan_day as entity_scan_day
-from think.ponder import scan_day as ponder_scan_day
 
 from .. import state
 from ..task_runner import run_task
@@ -86,27 +81,36 @@ def admin_day_page(day: str) -> str:
     ponder_rep = ponder_proc = 0
     entity_rep = entity_proc = 0
     reduce_rep = reduce_proc = 0
-    try:
-        day_dir = Path(state.journal_root) / day
-        hear_info = Transcriber.scan_day(day_dir)
-        hear_rep = len(hear_info.get("repairable", []))
-        hear_proc = len(hear_info.get("processed", []))
-        see_info = Describer.scan_day(day_dir)
-        see_rep = len(see_info.get("repairable", []))
-        see_proc = len(see_info.get("processed", []))
-        if state.journal_root:
-            os.environ["JOURNAL_PATH"] = state.journal_root
-        reduce_info = reduce_scan_day(day)
-        reduce_rep = len(reduce_info.get("repairable", []))
-        reduce_proc = len(reduce_info.get("processed", []))
-        ponder_info = ponder_scan_day(day)
-        ponder_rep = len(ponder_info.get("repairable", []))
-        ponder_proc = len(ponder_info.get("processed", []))
-        entity_info = entity_scan_day(day)
-        entity_rep = len(entity_info.get("repairable", []))
-        entity_proc = len(entity_info.get("processed", []))
-    except Exception:
-        pass
+    
+    # Read stats from stats.json instead of scanning on demand
+    if state.journal_root:
+        stats_path = Path(state.journal_root) / "stats.json"
+        if stats_path.is_file():
+            try:
+                with open(stats_path, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                day_stats = data.get("days", {}).get(day, {})
+                
+                # Extract repair counts
+                hear_rep = day_stats.get("repair_hear", 0)
+                see_rep = day_stats.get("repair_see", 0)
+                reduce_rep = day_stats.get("repair_reduce", 0)
+                ponder_rep = day_stats.get("repair_ponder", 0)
+                entity_rep = day_stats.get("repair_entity", 0)
+                
+                # Extract processed counts
+                # For hear: audio_json indicates processed transcripts
+                hear_proc = day_stats.get("audio_json", 0)
+                # For see: desc_json indicates processed descriptions
+                see_proc = day_stats.get("desc_json", 0)
+                # For reduce: screen_md indicates processed screen summaries
+                reduce_proc = day_stats.get("screen_md", 0)
+                # For ponder: ponder_processed is directly available
+                ponder_proc = day_stats.get("ponder_processed", 0)
+                # For entity: entities indicates days with entities.md (1 or 0)
+                entity_proc = day_stats.get("entities", 0)
+            except Exception:
+                pass
     return render_template(
         "admin_day.html",
         active="admin",
