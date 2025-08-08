@@ -4,8 +4,6 @@ import os
 
 from flask import Blueprint, jsonify, render_template, request
 
-from hear.live import start_thread, stop_thread
-
 from ..push import push_server
 
 bp = Blueprint("live", __name__, template_folder="../templates")
@@ -24,6 +22,8 @@ def live_page() -> str:
 
 @bp.route("/live/api/join", methods=["POST"])
 def live_join() -> object:
+    from hear.live import start_thread
+
     global _thread
     ws_url = request.json.get("ws_url") or os.getenv(
         "LIVE_WS_URL", "ws://localhost:9987"
@@ -35,6 +35,8 @@ def live_join() -> object:
 
 @bp.route("/live/api/leave", methods=["POST"])
 def live_leave() -> object:
+    from hear.live import stop_thread
+
     global _thread
     if _thread is not None:
         stop_thread(_thread)
