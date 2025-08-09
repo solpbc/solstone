@@ -68,17 +68,33 @@ class ToolLoggingHooks(AgentHooks):
     def __init__(self, writer: JSONEventCallback) -> None:
         self.writer = writer
 
-    def on_tool_call_start(self, context, tool_name: str, arguments: dict) -> None:
-        self.writer.emit({"event": "tool_start", "tool": tool_name, "args": arguments})
+    async def on_tool_start(self, context, agent, tool) -> None:
+        """Emit a ``tool_start`` event when a tool begins."""
+        self.writer.emit(
+            {
+                "event": "tool_start",
+                "tool": getattr(context, "tool_name", getattr(tool, "name", "")),
+                "args": None,
+            }
+        )
 
-    def on_tool_call_end(self, context, tool_name: str, result) -> None:
-        self.writer.emit({"event": "tool_end", "tool": tool_name, "result": result})
+    async def on_tool_end(self, context, agent, tool, result) -> None:
+        """Emit a ``tool_end`` event when a tool finishes."""
+        self.writer.emit(
+            {
+                "event": "tool_end",
+                "tool": getattr(context, "tool_name", getattr(tool, "name", "")),
+                "result": result,
+            }
+        )
 
-    def on_agent_start(self, context, agent_name: str) -> None:
-        self.writer.emit({"event": "agent_start", "agent": agent_name})
+    async def on_start(self, context, agent) -> None:
+        """Emit an ``agent_start`` event when an agent starts."""
+        self.writer.emit({"event": "agent_start", "agent": getattr(agent, "name", "")})
 
-    def on_agent_end(self, context, agent_name: str, result) -> None:
-        self.writer.emit({"event": "agent_end", "agent": agent_name})
+    async def on_end(self, context, agent, output) -> None:
+        """Emit an ``agent_end`` event when an agent finishes."""
+        self.writer.emit({"event": "agent_end", "agent": getattr(agent, "name", "")})
 
 
 async def run_agent(
@@ -91,20 +107,22 @@ async def run_agent(
 ) -> str:
     """Run a single prompt through the OpenAI agent and return the response."""
     callback = JSONEventCallback(on_event)
-    
+
     try:
         model_name = model
         if model.startswith("o4-mini"):
             parts = model.split("-")
             if len(parts) >= 2:
                 model_name = "-".join(parts[:2])
-        
-        callback.emit({
-            "event": "start",
-            "prompt": prompt,
-            "persona": persona,
-            "model": model_name,
-        })
+
+        callback.emit(
+            {
+                "event": "start",
+                "prompt": prompt,
+                "persona": persona,
+                "model": model_name,
+            }
+        )
 
         async with create_mcp_client() as mcp:
             system_instruction, extra_context, _ = agent_instructions(persona)
@@ -120,56 +138,60 @@ async def run_agent(
             # Create temporary session for this run
             session = SQLiteSession("sunstone_oneshot")
             try:
-                result = await Runner.run(agent, prompt, session=session, run_config=RunConfig())
+                result = await Runner.run(
+                    agent, prompt, session=session, run_config=RunConfig()
+                )
             finally:
                 if hasattr(session, "close"):
                     session.close()
 
         # Extract thinking summaries from reasoning items
-        if hasattr(result, 'new_items') and result.new_items:
+        if hasattr(result, "new_items") and result.new_items:
             for item in result.new_items:
-                if hasattr(item, 'reasoning') and item.reasoning:
-                    if hasattr(item.reasoning, 'summary') and item.reasoning.summary:
+                if hasattr(item, "reasoning") and item.reasoning:
+                    if hasattr(item.reasoning, "summary") and item.reasoning.summary:
                         thinking_event: ThinkingEvent = {
                             "event": "thinking",
                             "ts": int(time.time() * 1000),
                             "summary": item.reasoning.summary,
-                            "model": model
+                            "model": model,
                         }
                         callback.emit(thinking_event)
-                    elif hasattr(item.reasoning, 'content') and item.reasoning.content:
+                    elif hasattr(item.reasoning, "content") and item.reasoning.content:
                         thinking_event: ThinkingEvent = {
                             "event": "thinking",
                             "ts": int(time.time() * 1000),
                             "summary": item.reasoning.content,
-                            "model": model
+                            "model": model,
                         }
                         callback.emit(thinking_event)
 
         # Alternative: Extract thinking summaries from raw responses
-        elif hasattr(result, 'raw_responses') and result.raw_responses:
+        elif hasattr(result, "raw_responses") and result.raw_responses:
             for response in result.raw_responses:
-                if hasattr(response, 'output') and response.output:
+                if hasattr(response, "output") and response.output:
                     for output_item in response.output:
-                        if hasattr(output_item, 'summary') and output_item.summary:
+                        if hasattr(output_item, "summary") and output_item.summary:
                             for summary_item in output_item.summary:
-                                if hasattr(summary_item, 'text') and summary_item.text:
+                                if hasattr(summary_item, "text") and summary_item.text:
                                     thinking_event: ThinkingEvent = {
                                         "event": "thinking",
                                         "ts": int(time.time() * 1000),
                                         "summary": summary_item.text,
-                                        "model": model
+                                        "model": model,
                                     }
                                     callback.emit(thinking_event)
 
         callback.emit({"event": "finish", "result": result.final_output})
         return result.final_output
     except Exception as exc:
-        callback.emit({
-            "event": "error",
-            "error": str(exc),
-            "trace": traceback.format_exc(),
-        })
+        callback.emit(
+            {
+                "event": "error",
+                "error": str(exc),
+                "trace": traceback.format_exc(),
+            }
+        )
         setattr(exc, "_evented", True)
         raise
 
