@@ -113,6 +113,9 @@ api_top_update = entities_view.api_top_update
 api_modify_entity = entities_view.api_modify_entity
 calendar_occurrences = calendar_view.calendar_occurrences
 calendar_days = calendar_view.calendar_days
+calendar_transcript_page = calendar_view.calendar_transcript_page
+calendar_transcript_ranges = calendar_view.calendar_transcript_ranges
+calendar_transcript_range = calendar_view.calendar_transcript_range
 login = home_view.login
 logout = home_view.logout
 stats_data = home_view.stats_data
@@ -145,6 +148,9 @@ __all__ = [
     "api_modify_entity",
     "calendar_occurrences",
     "calendar_days",
+    "calendar_transcript_page",
+    "calendar_transcript_ranges",
+    "calendar_transcript_range",
     "adjacent_days",
     "login",
     "logout",

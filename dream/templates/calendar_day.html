@@ -21,6 +21,7 @@
     {% for file in files %}
     <a class="tab" href="#{{ file.topic }}" data-target="{{ file.topic }}" data-color="{{ file.color }}">{{ file.label }}</a>
     {% endfor %}
+    <a class="admin-link" style="margin-left:0" href="{{ url_for('calendar.calendar_transcript_page', day=day) }}" title="Transcripts" aria-label="Transcripts">📝</a>
     <a class="admin-link" href="{{ url_for('admin.admin_day_page', day=day) }}" title="Admin" aria-label="Admin">⚙️</a>
   </div>
   <div class="content" id="events">

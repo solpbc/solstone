@@ -1,0 +1,254 @@
+{% extends 'base.html' %}
+{% import 'macros.html' as macros %}
+{% set active = 'calendar' %}
+{% block head %}
+<style>
+  :root{
+    --bg:#f8fafc;
+    --panel:#ffffff;
+    --muted:#6b7280;
+    --line:#e5e7eb;
+    --dash:#f3f4f6;
+    --rail:#f9fafb;
+    --primary:#60a5fa;
+    --primary-50:#eff6ff;
+    --border:#c7d2fe;
+  }
+  html,body{height:100%;}
+  body{margin:0;background:var(--bg);color:#111827;font:14px/1.4 system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Arial, sans-serif;}
+  .wrap{max-width:1200px;margin:0 auto;padding:16px;height:100%;box-sizing:border-box;}
+  .card{height:80vh;background:var(--panel);border-radius:16px;box-shadow:0 1px 2px rgba(0,0,0,.04);display:grid;grid-template-columns:180px 1fr;overflow:hidden}
+
+  .timeline{position:relative;border-right:1px solid var(--line);user-select:none}
+  .grid{position:absolute;inset:0}
+  .grid .hour{position:absolute;left:0;right:0;border-top:1px solid var(--line)}
+  .grid .quarter{position:absolute;left:0;right:0;border-top:1px dashed var(--dash)}
+  .labels{position:absolute;left:0;top:0;bottom:0;width:64px;background:var(--rail);border-right:1px solid var(--line);pointer-events:none}
+  .label{position:absolute;right:0;padding-right:8px;transform:translateY(-50%);font-size:11px;color:var(--muted)}
+  .lane{position:absolute;left:64px;right:0;top:0;bottom:0}
+
+  .sel-wrap{position:absolute;left:58px;right:-12px;pointer-events:none;z-index:2}
+  .sel{position:absolute;left:-4px;right:-4px;height:100%;background:color-mix(in oklab, var(--primary-50) 70%, transparent);border:1px solid var(--border);border-radius:12px;box-shadow:0 1px 2px rgba(0,0,0,.06);pointer-events:auto;cursor:grab}
+  .sel:active{cursor:grabbing}
+
+  .bumper{position:absolute;left:40px;right:40px;margin:auto;height:14px;border:1px solid var(--primary);border-radius:999px;background:#dbeafe;cursor:ns-resize}
+  .bumper.top{top:-7px}
+  .bumper.bottom{bottom:-7px}
+
+  /* Segments lane */
+  .segments{position:absolute;left:64px;right:0;top:0;bottom:0;pointer-events:none;z-index:1}
+  .seg{position:absolute;width:40px;border-radius:12px;box-shadow:0 1px 1px rgba(0,0,0,.04);}
+  .seg.green{background:color-mix(in oklab, #86efac 60%, transparent);border:1px solid #86efac}
+  .seg.yellow{background:color-mix(in oklab, #fde68a 60%, transparent);border:1px solid #facc15}
+
+  .right{padding:24px;display:flex;flex-direction:column;gap:16px}
+  .h{font-size:20px;font-weight:600;margin:0}
+  .muted{color:#6b7280}
+  .panel{flex:1;border:1px solid var(--line);border-radius:16px;padding:16px;overflow:auto}
+  .btn{padding:8px 12px;border:1px solid #d1d5db;border-radius:12px;background:#fff;cursor:pointer}
+  .btn:hover{background:#f9fafb}
+</style>
+{% endblock %}
+{% block body %}
+<div class="container">
+  {{ macros.day_heading(title,
+        prev_day and url_for('calendar.calendar_transcript_page', day=prev_day),
+        next_day and url_for('calendar.calendar_transcript_page', day=next_day)) }}
+</div>
+<div class="wrap">
+  <div class="card">
+    <div id="timeline" class="timeline" aria-label="Day timeline (08:00–22:00)">
+      <div class="grid" aria-hidden="true"></div>
+      <div class="labels" aria-hidden="true"></div>
+      <div class="lane" data-role="lane"></div>
+      <div class="segments" data-role="segments"></div>
+      <div class="sel-wrap" style="top:0;height:0">
+        <div class="sel" data-handle="move">
+          <div class="bumper top" data-handle="start" title="Drag to adjust start"></div>
+          <div class="bumper bottom" data-handle="end" title="Drag to adjust end"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="right">
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <div>
+          <h2 class="h">Transcript Preview</h2>
+          <div class="muted" id="rangeText">Selected range: 09:00 – 10:00</div>
+        </div>
+        <button class="btn" id="requestBtn">Load Transcript</button>
+      </div>
+      <div class="panel" id="panel"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+  const START = 8 * 60;
+  const END = 22 * 60;
+  const STEP = 15;
+  const DEFAULT_LEN = 60;
+  const MIN_LEN = 15;
+
+  const day = '{{ day }}';
+
+  const root = document.getElementById('timeline');
+  const grid = root.querySelector('.grid');
+  const labels = root.querySelector('.labels');
+  const lane = root.querySelector('.lane');
+  const segmentsEl = root.querySelector('[data-role="segments"]');
+  const selWrap = root.querySelector('.sel-wrap');
+  const sel = root.querySelector('.sel');
+  const rangeText = document.getElementById('rangeText');
+  const panel = document.getElementById('panel');
+  const requestBtn = document.getElementById('requestBtn');
+
+  let height = root.clientHeight;
+  let ppm = height / (END - START);
+  const y = (m) => (m - START) * ppm;
+  const mFromY = (py) => Math.max(START, Math.min(END, Math.round(py / ppm) + START));
+  const snap = (m) => Math.round(m / STEP) * STEP;
+  const hhmm = (m) => String(Math.floor(m/60)).padStart(2,'0') + ':' + String(m%60).padStart(2,'0');
+  const hhmmss = (m) => hhmm(m).replace(':','') + '00';
+
+  let range = { start: 9*60, end: 10*60 };
+
+  function addSegment(color, startMin, endMin, column = 0){
+    const el = document.createElement('div');
+    el.className = 'seg ' + (color === 'yellow' ? 'yellow' : 'green');
+    el.style.top = y(startMin) + 'px';
+    el.style.height = Math.max(2, y(endMin) - y(startMin)) + 'px';
+    const segW = 40;
+    const gutter = 8;
+    const left = (column === 1 ? gutter + segW + gutter : gutter);
+    el.style.left = left + 'px';
+    segmentsEl.appendChild(el);
+    return el;
+  }
+
+  let drag = null;
+
+  function buildGrid(){
+    grid.innerHTML = '';
+    labels.innerHTML = '';
+    for (let h = START/60; h <= END/60; h++) {
+      const hourLine = document.createElement('div');
+      hourLine.className = 'hour';
+      hourLine.style.top = y(h*60) + 'px';
+      grid.appendChild(hourLine);
+
+      const lab = document.createElement('div');
+      lab.className = 'label';
+      lab.style.top = y(h*60) + 'px';
+      lab.textContent = String(h).padStart(2,'0') + ':00';
+      labels.appendChild(lab);
+
+      if (h < END/60){
+        [15,30,45].forEach(m => {
+          const q = document.createElement('div');
+          q.className = 'quarter';
+          q.style.top = y(h*60 + m) + 'px';
+          grid.appendChild(q);
+        });
+      }
+    }
+  }
+
+  function render(){
+    selWrap.style.top = y(range.start) + 'px';
+    selWrap.style.height = (y(range.end) - y(range.start)) + 'px';
+    const txt = `${hhmm(range.start)} – ${hhmm(range.end)}`;
+    rangeText.textContent = 'Selected range: ' + txt;
+  }
+
+  const ro = new ResizeObserver(() => {
+    height = root.clientHeight;
+    ppm = height / (END - START);
+    buildGrid();
+    render();
+  });
+  ro.observe(root);
+
+  buildGrid();
+  render();
+
+  fetch(`/calendar/api/transcript_ranges/${day}`)
+    .then(r => r.json())
+    .then(data => {
+      (data.audio || []).forEach(rg => {
+        const [s,e] = rg.map(t => {
+          const [hh,mm] = t.split(':').map(Number);
+          return hh*60 + mm;
+        });
+        addSegment('green', s, e, 0);
+      });
+      (data.screen || []).forEach(rg => {
+        const [s,e] = rg.map(t => {
+          const [hh,mm] = t.split(':').map(Number);
+          return hh*60 + mm;
+        });
+        addSegment('yellow', s, e, 1);
+      });
+    });
+
+  root.addEventListener('click', (e) => {
+    if (e.target.closest('.sel')) return;
+    const box = root.getBoundingClientRect();
+    const py = e.clientY - box.top;
+    let mid = snap(mFromY(py));
+    let start = Math.max(START, Math.min(END - DEFAULT_LEN, mid - DEFAULT_LEN/2));
+    start = snap(start);
+    range = { start, end: snap(start + DEFAULT_LEN) };
+    render();
+  });
+
+  function onPointerMove(ev){
+    if (!drag) return;
+    const dy = ev.clientY - drag.y0;
+    const dMin = Math.round((dy / ppm) / STEP) * STEP;
+    if (drag.mode === 'move'){
+      const len = drag.r0.end - drag.r0.start;
+      let s = drag.r0.start + dMin;
+      s = Math.max(START, Math.min(END - len, s));
+      s = snap(s);
+      range = { start: s, end: snap(s + len) };
+    } else if (drag.mode === 'start'){
+      let s = drag.r0.start + dMin;
+      s = Math.max(START, Math.min(drag.r0.end - MIN_LEN, s));
+      range = { start: snap(s), end: snap(drag.r0.end) };
+    } else if (drag.mode === 'end'){
+      let e = drag.r0.end + dMin;
+      e = Math.min(END, Math.max(drag.r0.start + MIN_LEN, e));
+      range = { start: snap(drag.r0.start), end: snap(e) };
+    }
+    render();
+  }
+  function onPointerUp(){ drag = null; window.removeEventListener('pointermove', onPointerMove); window.removeEventListener('pointerup', onPointerUp); }
+
+  function begin(mode){
+    return (ev) => {
+      ev.stopPropagation();
+      drag = { mode, y0: ev.clientY, r0: { ...range } };
+      window.addEventListener('pointermove', onPointerMove);
+      window.addEventListener('pointerup', onPointerUp);
+    };
+  }
+
+  sel.addEventListener('pointerdown', begin('move'));
+  sel.querySelector('[data-handle="start"]').addEventListener('pointerdown', begin('start'));
+  sel.querySelector('[data-handle="end"]').addEventListener('pointerdown', begin('end'));
+
+  requestBtn.addEventListener('click', () => {
+    const start = hhmmss(range.start);
+    const end = hhmmss(range.end);
+    fetch(`/calendar/api/transcript/${day}?start=${start}&end=${end}`)
+      .then(r => r.json())
+      .then(d => {
+        panel.innerHTML = d.html || '';
+      });
+  });
+})();
+</script>
+{% endblock %}
+

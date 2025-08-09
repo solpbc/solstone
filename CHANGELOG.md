@@ -147,3 +147,4 @@ Guide for updating:
 
 - Added `cluster_scan` to `think.cluster` to report 15-minute intervals with
   audio and screen transcripts and exposed it via the package API.
+- Added calendar transcript viewer that uses `think.cluster_scan` and `cluster_range` to browse and load transcripts for a day.

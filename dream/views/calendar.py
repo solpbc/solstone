@@ -4,7 +4,7 @@ import os
 import re
 from typing import Any
 
-from flask import Blueprint, jsonify, render_template
+from flask import Blueprint, jsonify, render_template, request
 
 from .. import state
 from ..utils import (
@@ -72,6 +72,60 @@ def calendar_day(day: str) -> str:
         next_day=next_day,
         day=day,
     )
+
+
+@bp.route("/calendar/<day>/transcript")
+def calendar_transcript_page(day: str) -> str:
+    """Render transcript viewer for a specific day."""
+
+    if not re.fullmatch(DATE_RE.pattern, day):
+        return "", 404
+    title = format_date(day)
+    prev_day, next_day = adjacent_days(state.journal_root, day)
+    return render_template(
+        "calendar_transcript.html",
+        active="calendar",
+        title=title,
+        day=day,
+        prev_day=prev_day,
+        next_day=next_day,
+    )
+
+
+@bp.route("/calendar/api/transcript_ranges/<day>")
+def calendar_transcript_ranges(day: str) -> Any:
+    """Return available transcript ranges for ``day``."""
+
+    if not re.fullmatch(DATE_RE.pattern, day):
+        return "", 404
+    from think.cluster import cluster_scan
+
+    audio_ranges, screen_ranges = cluster_scan(day)
+    return jsonify({"audio": audio_ranges, "screen": screen_ranges})
+
+
+@bp.route("/calendar/api/transcript/<day>")
+def calendar_transcript_range(day: str) -> Any:
+    """Return transcript markdown HTML for the selected range."""
+
+    if not re.fullmatch(DATE_RE.pattern, day):
+        return "", 404
+    start = request.args.get("start", "")
+    end = request.args.get("end", "")
+    if not re.fullmatch(r"\d{6}", start) or not re.fullmatch(r"\d{6}", end):
+        return "", 400
+    from think.cluster import cluster_range
+
+    markdown_text = cluster_range(day, start, end, audio=True, screen="summary")
+    try:
+        import markdown  # type: ignore
+
+        html_output = markdown.markdown(markdown_text, extensions=["extra"])
+    except Exception:  # pragma: no cover - fallback
+        import html as html_mod
+
+        html_output = f"<pre>{html_mod.escape(markdown_text)}</pre>"
+    return jsonify({"html": html_output})
 
 
 @bp.route("/calendar/api/occurrences")
