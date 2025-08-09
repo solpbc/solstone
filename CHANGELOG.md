@@ -138,3 +138,7 @@ Guide for updating:
 
 - Renamed `think.mcp_server` to `think.mcp_tools` and updated project references.
 - `think.supervisor` now launches an HTTP MCP server to expose Sunstone tools.
+
+## 2025-08-08
+
+- Updated OpenAI agent hooks to align with latest Agents SDK lifecycle events.
