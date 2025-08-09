@@ -142,3 +142,8 @@ Guide for updating:
 ## 2025-08-08
 
 - Updated OpenAI agent hooks to align with latest Agents SDK lifecycle events.
+
+## 2025-08-09
+
+- Added `cluster_scan` to `think.cluster` to report 15-minute intervals with
+  audio and screen transcripts and exposed it via the package API.

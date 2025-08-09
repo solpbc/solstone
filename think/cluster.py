@@ -4,7 +4,7 @@ import re
 import sys
 from collections import defaultdict
 from datetime import datetime, timedelta
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Set, Tuple
 
 from .utils import day_path, setup_cli
 
@@ -130,6 +130,79 @@ def _groups_to_markdown(groups: Dict[datetime, List[Dict[str, str]]]) -> str:
                 lines.append("")
 
     return "\n".join(lines)
+
+
+def _slots_to_ranges(slots: List[datetime]) -> List[Tuple[str, str]]:
+    """Collapse 15-minute slots into start/end pairs.
+
+    Args:
+        slots: Sorted list of datetimes marking 15-minute interval starts.
+
+    Returns:
+        List of (start, end) time strings in ``HH:MM`` format representing
+        contiguous 15-minute ranges.
+    """
+
+    ranges: List[Tuple[str, str]] = []
+    if not slots:
+        return ranges
+
+    start = slots[0]
+    prev = slots[0]
+    for current in slots[1:]:
+        if current - prev == timedelta(minutes=15):
+            prev = current
+            continue
+        ranges.append(
+            (start.strftime("%H:%M"), (prev + timedelta(minutes=15)).strftime("%H:%M"))
+        )
+        start = prev = current
+
+    ranges.append(
+        (start.strftime("%H:%M"), (prev + timedelta(minutes=15)).strftime("%H:%M"))
+    )
+    return ranges
+
+
+def cluster_scan(day: str) -> Tuple[List[Tuple[str, str]], List[Tuple[str, str]]]:
+    """Return 15-minute ranges with audio and screen transcripts for ``day``.
+
+    Args:
+        day: Day folder in ``YYYYMMDD`` format.
+
+    Returns:
+        Two lists containing ``(start, end)`` pairs (``HH:MM``) for audio and
+        screen transcripts respectively.
+    """
+
+    day_dir = day_path(day)
+    if not os.path.isdir(day_dir):
+        return [], []
+
+    date_str = _date_str(day_dir)
+    audio_slots: Set[datetime] = set()
+    screen_slots: Set[datetime] = set()
+
+    for filename in os.listdir(day_dir):
+        match = None
+        if match := AUDIO_PATTERN.match(filename):
+            time_part = match.group(1)
+            dt = datetime.strptime(date_str + time_part, "%Y%m%d%H%M%S")
+            slot = dt.replace(
+                minute=dt.minute - (dt.minute % 15), second=0, microsecond=0
+            )
+            audio_slots.add(slot)
+        elif match := SCREEN_SUMMARY_PATTERN.match(filename):
+            time_part = match.group(1)
+            dt = datetime.strptime(date_str + time_part, "%Y%m%d%H%M%S")
+            slot = dt.replace(
+                minute=dt.minute - (dt.minute % 15), second=0, microsecond=0
+            )
+            screen_slots.add(slot)
+
+    audio_ranges = _slots_to_ranges(sorted(audio_slots))
+    screen_ranges = _slots_to_ranges(sorted(screen_slots))
+    return audio_ranges, screen_ranges
 
 
 def cluster(day: str) -> Tuple[str, int]:
