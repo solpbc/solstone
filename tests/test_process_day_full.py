@@ -17,7 +17,8 @@ def test_build_commands(tmp_path):
     cmds = mod.build_commands("20240101", force=True, verbose=True)
     assert ["see-reduce", "20240101", "--verbose", "--force"] in cmds
     assert any(cmd[0] == "think-ponder" for cmd in cmds)
-    assert cmds[-1][0] == "think-entity-roll"
+    assert any(cmd[0] == "think-entity-roll" for cmd in cmds)
+    assert cmds[-1][0] == "think-journal-stats"
 
 
 def test_main_runs(tmp_path, monkeypatch):

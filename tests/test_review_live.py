@@ -32,8 +32,8 @@ def test_live_join_leave(monkeypatch):
             fake_thread.alive = False
             called["stopped"] = True
 
-    monkeypatch.setattr("dream.views.live.start_thread", fake_start)
-    monkeypatch.setattr("dream.views.live.stop_thread", fake_stop)
+    monkeypatch.setattr("hear.live.start_thread", fake_start)
+    monkeypatch.setattr("hear.live.stop_thread", fake_stop)
     with review.app.test_request_context("/live/api/join", method="POST", json={}):
         resp = review.live_join()
     assert resp.json == {"status": "started"}
