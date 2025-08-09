@@ -6,3 +6,4 @@ def test_public_functions(tmp_path):
     # Test that core functions are available
     assert hasattr(think, "cluster_day")
     assert hasattr(think, "cluster_range")
+    assert hasattr(think, "cluster_scan")
