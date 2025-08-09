@@ -17,9 +17,9 @@
   html,body{height:100%;}
   body{margin:0;background:var(--bg);color:#111827;font:14px/1.4 system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Arial, sans-serif;}
   .wrap{max-width:1200px;margin:0 auto;padding:16px;height:100%;box-sizing:border-box;}
-  .card{height:80vh;background:var(--panel);border-radius:16px;box-shadow:0 1px 2px rgba(0,0,0,.04);display:grid;grid-template-columns:180px 1fr;overflow:hidden}
+  .card{height:80vh;background:var(--panel);border-radius:16px;box-shadow:0 1px 2px rgba(0,0,0,.04);display:grid;grid-template-columns:180px 1fr 180px;overflow:hidden}
 
-  .timeline{position:relative;border-right:1px solid var(--line);user-select:none}
+  .timeline{position:relative;border-right:1px solid var(--line);user-select:none;height:100%;overflow:hidden}
   .grid{position:absolute;inset:0}
   .grid .hour{position:absolute;left:0;right:0;border-top:1px solid var(--line)}
   .grid .quarter{position:absolute;left:0;right:0;border-top:1px dashed var(--dash)}
@@ -27,7 +27,7 @@
   .label{position:absolute;right:0;padding-right:8px;transform:translateY(-50%);font-size:11px;color:var(--muted)}
   .lane{position:absolute;left:64px;right:0;top:0;bottom:0}
 
-  .sel-wrap{position:absolute;left:58px;right:-12px;pointer-events:none;z-index:2}
+  .sel-wrap{position:absolute;left:58px;right:8px;pointer-events:none;z-index:2}
   .sel{position:absolute;left:-4px;right:-4px;height:100%;background:color-mix(in oklab, var(--primary-50) 70%, transparent);border:1px solid var(--border);border-radius:12px;box-shadow:0 1px 2px rgba(0,0,0,.06);pointer-events:auto;cursor:grab}
   .sel:active{cursor:grabbing}
 
@@ -41,12 +41,28 @@
   .seg.green{background:color-mix(in oklab, #86efac 60%, transparent);border:1px solid #86efac}
   .seg.yellow{background:color-mix(in oklab, #fde68a 60%, transparent);border:1px solid #facc15}
 
-  .right{padding:24px;display:flex;flex-direction:column;gap:16px}
+  .right{padding:24px;display:flex;flex-direction:column;gap:16px;height:100%;box-sizing:border-box;overflow:hidden}
   .h{font-size:20px;font-weight:600;margin:0}
   .muted{color:#6b7280}
-  .panel{flex:1;border:1px solid var(--line);border-radius:16px;padding:16px;overflow:auto}
+  .panel{flex:1;border:1px solid var(--line);border-radius:16px;padding:16px;overflow-y:auto;min-height:0;overflow-x:hidden}
+  .panel pre{white-space:pre-wrap;word-wrap:break-word;overflow-wrap:break-word}
+  .panel code{white-space:pre-wrap;word-wrap:break-word}
   .btn{padding:8px 12px;border:1px solid #d1d5db;border-radius:12px;background:#fff;cursor:pointer}
   .btn:hover{background:#f9fafb}
+
+  /* Zoomed timeline styles */
+  .zoom-timeline{position:relative;border-left:1px solid var(--line);user-select:none;height:100%;overflow:hidden;display:none}
+  .zoom-timeline.active{display:block}
+  .zoom-labels{position:absolute;right:0;top:0;bottom:0;width:64px;background:var(--rail);border-left:1px solid var(--line);pointer-events:none}
+  .zoom-label{position:absolute;left:0;padding-left:8px;transform:translateY(-50%);font-size:11px;color:var(--muted)}
+  .zoom-lane{position:absolute;left:0;right:64px;top:0;bottom:0}
+  .zoom-marks{position:absolute;left:8px;right:64px;top:0;bottom:0;pointer-events:none}
+  .mark{position:absolute;width:40px;height:2px;border-radius:1px}
+  .mark.green{background:#86efac;left:0}
+  .mark.yellow{background:#facc15;left:48px}
+  .zoom-sel-wrap{position:absolute;left:8px;right:58px;pointer-events:none;z-index:2}
+  .zoom-sel{position:absolute;left:-4px;right:-4px;height:100%;background:color-mix(in oklab, var(--primary-50) 40%, transparent);border:1px solid var(--border);border-radius:12px;box-shadow:0 1px 2px rgba(0,0,0,.06);pointer-events:auto;cursor:grab}
+  .zoom-sel:active{cursor:grabbing}
 </style>
 {% endblock %}
 {% block body %}
@@ -76,9 +92,32 @@
           <h2 class="h">Transcript Preview</h2>
           <div class="muted" id="rangeText">Selected range: 09:00 – 10:00</div>
         </div>
-        <button class="btn" id="requestBtn">Load Transcript</button>
+        <div style="display:flex;align-items:center;gap:12px">
+          <label style="display:flex;align-items:center;gap:4px;cursor:pointer">
+            <input type="checkbox" id="audioCheck" checked>
+            <span>Audio</span>
+          </label>
+          <label style="display:flex;align-items:center;gap:4px;cursor:pointer">
+            <input type="checkbox" id="screenCheck" checked>
+            <span>Screen</span>
+          </label>
+          <button class="btn" id="requestBtn">Load Transcript</button>
+        </div>
       </div>
       <div class="panel" id="panel"></div>
+    </div>
+
+    <div id="zoomTimeline" class="zoom-timeline" aria-label="Zoomed timeline">
+      <div class="zoom-grid grid" aria-hidden="true"></div>
+      <div class="zoom-labels" aria-hidden="true"></div>
+      <div class="zoom-lane" data-role="zoom-lane"></div>
+      <div class="zoom-marks" data-role="zoom-marks"></div>
+      <div class="zoom-sel-wrap" style="top:0;height:0">
+        <div class="zoom-sel" data-handle="zoom-move">
+          <div class="bumper top" data-handle="zoom-start" title="Drag to adjust start"></div>
+          <div class="bumper bottom" data-handle="zoom-end" title="Drag to adjust end"></div>
+        </div>
+      </div>
     </div>
   </div>
 </div>
@@ -103,6 +142,13 @@
   const rangeText = document.getElementById('rangeText');
   const panel = document.getElementById('panel');
   const requestBtn = document.getElementById('requestBtn');
+  
+  const zoomRoot = document.getElementById('zoomTimeline');
+  const zoomGrid = zoomRoot.querySelector('.zoom-grid');
+  const zoomLabels = zoomRoot.querySelector('.zoom-labels');
+  const zoomMarks = zoomRoot.querySelector('[data-role="zoom-marks"]');
+  const zoomSelWrap = zoomRoot.querySelector('.zoom-sel-wrap');
+  const zoomSel = zoomRoot.querySelector('.zoom-sel');
 
   let height = root.clientHeight;
   let ppm = height / (END - START);
@@ -113,6 +159,15 @@
   const hhmmss = (m) => hhmm(m).replace(':','') + '00';
 
   let range = { start: 9*60, end: 10*60 };
+  let zoomRange = { start: 9*60, end: 9*60 + 15 };  // Default 15-minute window in zoom
+  let zoomHeight = zoomRoot.clientHeight;
+  let zoomPpm = 0;
+  let zoomStart = range.start;
+  let zoomEnd = range.end;
+  
+  const zoomY = (m) => (m - zoomStart) * zoomPpm;
+  const zoomMFromY = (py) => Math.max(zoomStart, Math.min(zoomEnd, Math.round(py / zoomPpm) + zoomStart));
+  const zoomSnap = (m) => Math.round(m) * 1;  // 1-minute precision for zoom
 
   function addSegment(color, startMin, endMin, column = 0){
     const el = document.createElement('div');
@@ -161,6 +216,71 @@
     const txt = `${hhmm(range.start)} – ${hhmm(range.end)}`;
     rangeText.textContent = 'Selected range: ' + txt;
   }
+  
+  function renderZoom(){
+    zoomSelWrap.style.top = zoomY(zoomRange.start) + 'px';
+    zoomSelWrap.style.height = (zoomY(zoomRange.end) - zoomY(zoomRange.start)) + 'px';
+  }
+  
+  function buildZoomGrid(){
+    zoomGrid.innerHTML = '';
+    zoomLabels.innerHTML = '';
+    
+    // Calculate minute intervals based on range duration
+    const duration = zoomEnd - zoomStart;
+    
+    // Always show 15-minute intervals for labels
+    for (let m = zoomStart; m <= zoomEnd; m++) {
+      // Add grid lines for hours and quarter-hours
+      if (m % 60 === 0) {
+        const line = document.createElement('div');
+        line.className = 'hour';
+        line.style.top = zoomY(m) + 'px';
+        zoomGrid.appendChild(line);
+      } else if (m % 15 === 0) {
+        const line = document.createElement('div');
+        line.className = 'quarter';
+        line.style.top = zoomY(m) + 'px';
+        zoomGrid.appendChild(line);
+      }
+      
+      // Add labels every 15 minutes
+      if (m % 15 === 0) {
+        const lab = document.createElement('div');
+        lab.className = 'zoom-label';
+        lab.style.top = zoomY(m) + 'px';
+        lab.textContent = hhmm(m);
+        zoomLabels.appendChild(lab);
+      }
+    }
+  }
+  
+  function fetchZoomFiles(){
+    if (!zoomRoot.classList.contains('active')) return;
+    
+    const audio = document.getElementById('audioCheck').checked;
+    const screen = document.getElementById('screenCheck').checked;
+    let type = null;
+    if (audio && !screen) type = 'audio';
+    else if (!audio && screen) type = 'screen';
+    
+    const start = hhmmss(zoomStart);
+    const end = hhmmss(zoomEnd);
+    
+    fetch(`/calendar/api/raw_files/${day}?start=${start}&end=${end}${type ? '&type=' + type : ''}`)
+      .then(r => r.json())
+      .then(data => {
+        zoomMarks.innerHTML = '';
+        (data.files || []).forEach(f => {
+          const mark = document.createElement('div');
+          mark.className = 'mark ' + (f.type === 'audio' ? 'green' : 'yellow');
+          mark.style.top = zoomY(f.minute) + 'px';
+          mark.title = `${f.time} - ${f.type}`;
+          zoomMarks.appendChild(mark);
+        });
+      })
+      .catch(() => {});
+  }
 
   const ro = new ResizeObserver(() => {
     height = root.clientHeight;
@@ -169,6 +289,18 @@
     render();
   });
   ro.observe(root);
+  
+  const zoomRo = new ResizeObserver(() => {
+    if (zoomRoot.classList.contains('active')) {
+      zoomHeight = zoomRoot.clientHeight;
+      if (zoomEnd > zoomStart) {
+        zoomPpm = zoomHeight / (zoomEnd - zoomStart);
+        buildZoomGrid();
+        renderZoom();
+      }
+    }
+  });
+  zoomRo.observe(zoomRoot);
 
   buildGrid();
   render();
@@ -238,14 +370,69 @@
   sel.addEventListener('pointerdown', begin('move'));
   sel.querySelector('[data-handle="start"]').addEventListener('pointerdown', begin('start'));
   sel.querySelector('[data-handle="end"]').addEventListener('pointerdown', begin('end'));
+  
+  // Zoom timeline drag handlers (no action yet, just visual)
+  function beginZoom(mode){
+    return (ev) => {
+      if (!zoomRoot.classList.contains('active')) return;
+      ev.stopPropagation();
+      const zoomDrag = { mode, y0: ev.clientY, r0: { ...zoomRange } };
+      
+      const onZoomMove = (e) => {
+        const dy = e.clientY - zoomDrag.y0;
+        const dMin = Math.round(dy / zoomPpm);
+        
+        if (mode === 'zoom-move'){
+          const len = zoomDrag.r0.end - zoomDrag.r0.start;
+          let s = zoomDrag.r0.start + dMin;
+          s = Math.max(zoomStart, Math.min(zoomEnd - len, s));
+          s = zoomSnap(s);
+          zoomRange = { start: s, end: zoomSnap(s + len) };
+        } else if (mode === 'zoom-start'){
+          let s = zoomDrag.r0.start + dMin;
+          s = Math.max(zoomStart, Math.min(zoomDrag.r0.end - 1, s));
+          zoomRange = { start: zoomSnap(s), end: zoomSnap(zoomDrag.r0.end) };
+        } else if (mode === 'zoom-end'){
+          let e = zoomDrag.r0.end + dMin;
+          e = Math.min(zoomEnd, Math.max(zoomDrag.r0.start + 1, e));
+          zoomRange = { start: zoomSnap(zoomDrag.r0.start), end: zoomSnap(e) };
+        }
+        renderZoom();
+      };
+      
+      const onZoomUp = () => {
+        window.removeEventListener('pointermove', onZoomMove);
+        window.removeEventListener('pointerup', onZoomUp);
+      };
+      
+      window.addEventListener('pointermove', onZoomMove);
+      window.addEventListener('pointerup', onZoomUp);
+    };
+  }
+  
+  zoomSel.addEventListener('pointerdown', beginZoom('zoom-move'));
+  zoomSel.querySelector('[data-handle="zoom-start"]').addEventListener('pointerdown', beginZoom('zoom-start'));
+  zoomSel.querySelector('[data-handle="zoom-end"]').addEventListener('pointerdown', beginZoom('zoom-end'));
 
   requestBtn.addEventListener('click', () => {
     const start = hhmmss(range.start);
     const end = hhmmss(range.end);
-    fetch(`/calendar/api/transcript/${day}?start=${start}&end=${end}`)
+    const audio = document.getElementById('audioCheck').checked;
+    const screen = document.getElementById('screenCheck').checked;
+    fetch(`/calendar/api/transcript/${day}?start=${start}&end=${end}&audio=${audio}&screen=${screen}`)
       .then(r => r.json())
       .then(d => {
         panel.innerHTML = d.html || '';
+        // Show and update zoom timeline after loading transcript
+        zoomRoot.classList.add('active');
+        zoomStart = range.start;
+        zoomEnd = range.end;
+        zoomHeight = zoomRoot.clientHeight;
+        zoomPpm = zoomHeight / (zoomEnd - zoomStart);
+        zoomRange = { start: zoomStart, end: Math.min(zoomStart + 15, zoomEnd) }; // Reset zoom range to first 15 minutes
+        buildZoomGrid();
+        fetchZoomFiles();
+        renderZoom();
       });
   });
 })();

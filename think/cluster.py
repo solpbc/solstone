@@ -21,7 +21,7 @@ def _date_str(day_dir: str) -> str:
     return base
 
 
-def _load_entries(day_dir: str, audio: bool, screen_mode: str) -> List[Dict[str, str]]:
+def _load_entries(day_dir: str, audio: bool, screen_mode: Optional[str]) -> List[Dict[str, str]]:
     date_str = _date_str(day_dir)
     entries: List[Dict[str, str]] = []
     for filename in os.listdir(day_dir):
@@ -242,6 +242,39 @@ def cluster_range(
     entries = [e for e in entries if start_dt <= e["timestamp"] < end_dt]
     groups = _group_entries(entries)
     return _groups_to_markdown(groups)
+
+
+def cluster_files(day: str, start: str, end: str, type: Optional[str] = None) -> List[str]:
+    """Return raw audio and screen transcript contents for ``day`` in ``start``-``end`` (HHMMSS).
+
+    Args:
+        day: Day in YYYYMMDD format
+        start: Start time in HHMMSS format
+        end: End time in HHMMSS format
+        type: Filter by content type - 'audio', 'screen', or None for both
+
+    Returns:
+        List of strings containing the raw JSON/markdown content for each matching file,
+        ordered chronologically.
+    """
+    if type is not None and type not in {"audio", "screen"}:
+        raise ValueError("type must be 'audio', 'screen', or None")
+    
+    day_dir = day_path(day)
+    date_str = _date_str(day_dir)
+    start_dt = datetime.strptime(date_str + start, "%Y%m%d%H%M%S")
+    end_dt = datetime.strptime(date_str + end, "%Y%m%d%H%M%S")
+
+    # Determine loading parameters based on type filter
+    if type == "audio":
+        entries = _load_entries(day_dir, audio=True, screen_mode=None)
+    elif type == "screen":
+        entries = _load_entries(day_dir, audio=False, screen_mode="raw")
+    else:  # type is None - load both
+        entries = _load_entries(day_dir, audio=True, screen_mode="raw")
+
+    # Filter to the requested window and return the raw contents.
+    return [e["content"].strip() for e in entries if start_dt <= e["timestamp"] < end_dt]
 
 
 def main():
