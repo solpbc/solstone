@@ -211,6 +211,7 @@ def calendar_raw_files(day: str) -> Any:
         if start_dt <= e["timestamp"] < end_dt:
             # Convert timestamp to minutes since midnight for easier rendering
             minutes = e["timestamp"].hour * 60 + e["timestamp"].minute
+            # For screen files, prefix could be "screen" (summary) or source name (raw)
             file_type_str = "audio" if e["prefix"] == "audio" else "screen"
             files.append(
                 {
@@ -265,10 +266,9 @@ def calendar_media_files(day: str) -> Any:
                 rel_path, mime_type, metadata = get_raw_file(day, e["name"])
 
                 # Create a URL path for serving the file
-                file_url = (
-                    f"/calendar/api/serve_file/{day}/{rel_path.replace('/', '__')}"
-                )
+                file_url = f"/calendar/api/serve_file/{day}/{rel_path.replace('/', '__')}"
 
+                # For screen files, prefix could be "screen" (summary) or source name (raw)
                 file_type_str = "audio" if e["prefix"] == "audio" else "screen"
                 human_time = e["timestamp"].strftime("%I:%M:%S %p").lstrip("0")
 

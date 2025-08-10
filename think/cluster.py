@@ -73,6 +73,7 @@ def _load_entries(day_dir: str, audio: bool, screen_mode: Optional[str]) -> List
                     if match and prefix != "audio" and prefix != "screen"
                     else None
                 ),
+                "name": filename,
             }
         )
 
@@ -259,7 +260,7 @@ def cluster_files(day: str, start: str, end: str, type: Optional[str] = None) ->
     """
     if type is not None and type not in {"audio", "screen"}:
         raise ValueError("type must be 'audio', 'screen', or None")
-    
+
     day_dir = day_path(day)
     date_str = _date_str(day_dir)
     start_dt = datetime.strptime(date_str + start, "%Y%m%d%H%M%S")

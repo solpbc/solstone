@@ -363,7 +363,7 @@ def get_matters(
 
     # Find all matter_X directories
     matter_dirs = [
-        d for d in domain_path.iterdir() 
+        d for d in domain_path.iterdir()
         if d.is_dir() and d.name.startswith("matter_") and d.name[7:].isdigit()
     ]
     # Sort by matter number in descending order (newest first)
@@ -543,7 +543,8 @@ def get_raw_file(day: str, name: str) -> tuple[str, str, Any]:
     json_path = day_dir / name
 
     if name.endswith("_audio.json"):
-        raw_name = name[:-5] + ".flac"
+        # Audio files are stored as _raw.flac in the heard directory
+        raw_name = name.replace("_audio.json", "_raw.flac")
         rel = f"heard/{raw_name}"
         mime = "audio/flac"
     elif name.endswith("_diff.json"):

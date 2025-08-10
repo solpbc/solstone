@@ -138,9 +138,9 @@ The presence of `OUTCOME.md` indicates objective completion. Directory timestamp
 
 Audio capture tools write FLAC files and transcripts:
 
-- `HHMMSS_raw.flac` – temporary mixed audio; removed after processing.
-- `heard/HHMMSS_audio.flac` – final clipped audio segment moved after transcription.
-- `HHMMSS_audio.json` – transcript JSON produced by `gemini-transcribe`.
+- `HHMMSS_raw.flac` – mixed audio file, moved to `heard/` after transcription.
+- `heard/HHMMSS_raw.flac` – audio files moved here after processing.
+- `HHMMSS_audio.json` – transcript JSON produced by transcription.
 
 Screen capture utilities produce per-source diff files. After `screen-describe`
 moves the image and its bounding box into a `seen/` directory, the Gemini
