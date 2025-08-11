@@ -3,7 +3,6 @@
 
 import base64
 import os
-import sys
 from pathlib import Path
 from typing import Any
 
@@ -345,27 +344,28 @@ def get_media(day: str, name: str) -> FileResource:
 def main() -> None:
     """Run the MCP server using the requested transport."""
     import argparse
+
     from think.utils import setup_cli
 
     parser = argparse.ArgumentParser(description="Sunstone MCP Tools Server")
     parser.add_argument(
-        "--transport", 
-        choices=["stdio", "http"], 
+        "--transport",
+        choices=["stdio", "http"],
         default="stdio",
-        help="Transport method: stdio (default) or http"
+        help="Transport method: stdio (default) or http",
     )
     parser.add_argument(
-        "--port", 
-        type=int, 
-        default=6270, 
-        help="Port to bind to for HTTP transport (default: 6270)"
+        "--port",
+        type=int,
+        default=6270,
+        help="Port to bind to for HTTP transport (default: 6270)",
     )
     parser.add_argument(
         "--path", 
         default="/mcp", 
         help="HTTP path for MCP endpoints (default: /mcp)"
     )
-    
+
     args = setup_cli(parser)
 
     if args.transport == "http":
@@ -373,12 +373,13 @@ def main() -> None:
         journal = os.getenv("JOURNAL_PATH")
         if journal:
             from pathlib import Path
+
             uri_file = Path(journal) / "agents" / "mcp.uri"
             uri_file.parent.mkdir(parents=True, exist_ok=True)
             mcp_uri = f"http://127.0.0.1:{args.port}{args.path}"
             uri_file.write_text(mcp_uri)
             print(f"MCP Tools URI written to {uri_file}")
-        
+
         mcp.run(
             transport="http",
             host="127.0.0.1",

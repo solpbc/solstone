@@ -24,7 +24,7 @@ def import_page() -> str:
 def import_save() -> Any:
     import json
     from datetime import datetime
-    
+
     if not state.journal_root:
         resp = jsonify({"error": "JOURNAL_PATH not set"})
         resp.status_code = 500
@@ -34,10 +34,10 @@ def import_save() -> Any:
     upload = request.files.get("file")
     text = request.form.get("text", "").strip()
     domain = request.form.get("domain", "").strip() or None
-    
+
     # Generate timestamp for filename
     timestamp_ms = int(time.time() * 1000)
-    
+
     if upload and upload.filename:
         filename = secure_filename(upload.filename)
         path = imp_dir / f"{timestamp_ms}_{filename}"
@@ -47,33 +47,39 @@ def import_save() -> Any:
         path.write_text(text, encoding="utf-8")
     else:
         return jsonify({"error": "No input"}), 400
-    
+
     # Detect timestamp from content
     ts = None
     detection_result = None
     try:
         detection_result = detect_created(str(path))
-        if detection_result and detection_result.get("day") and detection_result.get("time"):
+        if (
+            detection_result
+            and detection_result.get("day")
+            and detection_result.get("time")
+        ):
             ts = f"{detection_result['day']}_{detection_result['time']}"
     except Exception:
         ts = None
-    
+
     # Save metadata JSON file
     metadata = {
         "original_filename": upload.filename if upload else "paste.txt",
         "upload_timestamp": timestamp_ms,
         "upload_datetime": datetime.fromtimestamp(timestamp_ms / 1000).isoformat(),
-        "optional_text": text if text and upload else None,  # Only include if file upload with text
+        "optional_text": (
+            text if text and upload else None
+        ),  # Only include if file upload with text
         "detection_result": detection_result,
         "detected_timestamp": ts,
         "file_size": path.stat().st_size if path.exists() else 0,
         "mime_type": upload.content_type if upload else "text/plain",
-        "domain": domain  # Include selected domain
+        "domain": domain,  # Include selected domain
     }
-    
+
     metadata_path = Path(str(path) + ".json")
     metadata_path.write_text(json.dumps(metadata, indent=2), encoding="utf-8")
-    
+
     return jsonify({"path": str(path), "timestamp": ts})
 
 

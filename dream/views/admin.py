@@ -8,7 +8,6 @@ from typing import Any
 
 from flask import Blueprint, jsonify, render_template
 
-
 from .. import state
 from ..task_runner import run_task
 from ..utils import DATE_RE, adjacent_days, format_date, time_since
@@ -60,8 +59,6 @@ def refresh_summary() -> Any:
     return jsonify({"status": "ok"})
 
 
-
-
 def _valid_day(day: str) -> bool:
     if not re.fullmatch(DATE_RE, day):
         return False
@@ -81,7 +78,7 @@ def admin_day_page(day: str) -> str:
     ponder_rep = ponder_proc = 0
     entity_rep = entity_proc = 0
     reduce_rep = reduce_proc = 0
-    
+
     # Read stats from stats.json instead of scanning on demand
     if state.journal_root:
         stats_path = Path(state.journal_root) / "stats.json"
@@ -90,14 +87,14 @@ def admin_day_page(day: str) -> str:
                 with open(stats_path, "r", encoding="utf-8") as f:
                     data = json.load(f)
                 day_stats = data.get("days", {}).get(day, {})
-                
+
                 # Extract repair counts
                 hear_rep = day_stats.get("repair_hear", 0)
                 see_rep = day_stats.get("repair_see", 0)
                 reduce_rep = day_stats.get("repair_reduce", 0)
                 ponder_rep = day_stats.get("repair_ponder", 0)
                 entity_rep = day_stats.get("repair_entity", 0)
-                
+
                 # Extract processed counts
                 # For hear: audio_json indicates processed transcripts
                 hear_proc = day_stats.get("audio_json", 0)

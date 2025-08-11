@@ -7,11 +7,11 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from flask import Blueprint, jsonify, render_template, request
 from dotenv import load_dotenv
+from flask import Blueprint, jsonify, render_template, request
 
 from think.indexer import search_entities
-from think.utils import get_domains, get_matters, get_matter
+from think.utils import get_domains, get_matter, get_matters
 
 bp = Blueprint("domains", __name__, template_folder="../templates")
 
@@ -645,7 +645,8 @@ def create_matter(domain_name: str) -> Any:
     try:
         # Generate matter_X ID by finding the next available number
         existing_matters = [
-            d for d in domain_path.iterdir()
+            d
+            for d in domain_path.iterdir()
             if d.is_dir() and d.name.startswith("matter_") and d.name[7:].isdigit()
         ]
 
@@ -692,11 +693,9 @@ def create_matter(domain_name: str) -> Any:
         # Create directory for attachments
         (matter_path / "attachments").mkdir(exist_ok=True)
 
-        return jsonify({
-            "success": True,
-            "matter_id": matter_id,
-            "matter_data": matter_data
-        })
+        return jsonify(
+            {"success": True, "matter_id": matter_id, "matter_data": matter_data}
+        )
 
     except Exception as e:
         return jsonify({"error": f"Failed to create matter: {str(e)}"}), 500
@@ -718,9 +717,14 @@ def create_objective(domain_name: str, matter_id: str) -> Any:
 
     # Validate objective name (alphanumeric with underscores)
     if not objective_name.replace("_", "").replace("-", "").isalnum():
-        return jsonify({
-            "error": "Objective name must be alphanumeric with optional underscores or hyphens"
-        }), 400
+        return (
+            jsonify(
+                {
+                    "error": "Objective name must be alphanumeric with optional underscores or hyphens"
+                }
+            ),
+            400,
+        )
 
     load_dotenv()
     journal = os.getenv("JOURNAL_PATH")
@@ -751,17 +755,19 @@ def create_objective(domain_name: str, matter_id: str) -> Any:
             "timestamp": datetime.now().isoformat() + "Z",
             "type": "created",
             "description": f"Created objective: {objective_name}",
-            "user": "system"
+            "user": "system",
         }
 
         with open(activity_log_path, "a", encoding="utf-8") as f:
             f.write(json.dumps(log_entry) + "\n")
 
-        return jsonify({
-            "success": True,
-            "objective_name": objective_name,
-            "objective_dir": f"objective_{objective_name}"
-        })
+        return jsonify(
+            {
+                "success": True,
+                "objective_name": objective_name,
+                "objective_dir": f"objective_{objective_name}",
+            }
+        )
 
     except Exception as e:
         return jsonify({"error": f"Failed to create objective: {str(e)}"}), 500

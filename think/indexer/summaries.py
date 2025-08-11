@@ -9,8 +9,8 @@ import sqlite_utils
 from syntok import segmenter
 
 from think.utils import get_topics
-from .core import find_day_dirs, get_index, _scan_files
 
+from .core import _scan_files, find_day_dirs, get_index
 
 # Sentence indexing helpers
 TOPIC_DIR = os.path.join(os.path.dirname(__file__), "..", "topics")

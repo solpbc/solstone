@@ -59,14 +59,20 @@ class RunningAgent:
             "status": self.status,
             "started_at": self.started_at,
             "pid": self.process.pid if self.process.poll() is None else None,
-            "metadata": {}  # Running agents don't have stored metadata
+            "metadata": {},  # Running agents don't have stored metadata
         }
 
 
 class HistoricalAgent:
     """Represents a finished/closed agent from journal files."""
 
-    def __init__(self, agent_id: str, log_path: Path, first_event: Dict[str, Any], status: str = "finished"):
+    def __init__(
+        self,
+        agent_id: str,
+        log_path: Path,
+        first_event: Dict[str, Any],
+        status: str = "finished",
+    ):
         self.agent_id = agent_id
         self.log_path = log_path
         self.first_event = first_event
@@ -84,7 +90,7 @@ class HistoricalAgent:
                 "prompt": self.first_event.get("prompt", ""),
                 "persona": self.first_event.get("persona", "default"),
                 "model": self.first_event.get("model", ""),
-            }
+            },
         }
 
 
@@ -106,7 +112,6 @@ class CortexServer:
 
     def start(self) -> None:
         """Start the cortex server (for backwards compatibility)."""
-        pass
 
     def _handle_connection(self, ws) -> None:
         """Handle a new WebSocket connection."""
@@ -173,8 +178,8 @@ class CortexServer:
                     "limit": limit,
                     "offset": offset,
                     "total": total_count,
-                    "has_more": offset + limit < total_count
-                }
+                    "has_more": offset + limit < total_count,
+                },
             }
             self._send_message(ws, response)
         except Exception as e:
@@ -208,7 +213,9 @@ class CortexServer:
 
         # Check if it's a historical agent
         historical_agents = self._load_historical_agents()
-        historical_agent = next((a for a in historical_agents if a.agent_id == agent_id), None)
+        historical_agent = next(
+            (a for a in historical_agents if a.agent_id == agent_id), None
+        )
 
         if historical_agent:
             # Send attach confirmation
@@ -470,7 +477,9 @@ class CortexServer:
 
         return historical_agents
 
-    def _parse_agent_file(self, agent_id: str, jsonl_file: Path) -> Optional[HistoricalAgent]:
+    def _parse_agent_file(
+        self, agent_id: str, jsonl_file: Path
+    ) -> Optional[HistoricalAgent]:
         """Parse a single agent JSONL file to extract metadata and status."""
         try:
             with open(jsonl_file, "r") as f:
@@ -487,7 +496,13 @@ class CortexServer:
             first_event = json.loads(first_line)
             if first_event.get("event") != "start":
                 # If first event is not start, create a minimal event
-                first_event = {"event": "start", "ts": 0, "prompt": "", "persona": "default", "model": ""}
+                first_event = {
+                    "event": "start",
+                    "ts": 0,
+                    "prompt": "",
+                    "persona": "default",
+                    "model": "",
+                }
 
             # Determine final status by looking at the last few events
             status = self._determine_agent_status(lines)
@@ -516,7 +531,9 @@ class CortexServer:
                 continue
         return "unknown"
 
-    def _get_all_agents_with_pagination(self, limit: int = 10, offset: int = 0) -> Tuple[List[Dict[str, Any]], int]:
+    def _get_all_agents_with_pagination(
+        self, limit: int = 10, offset: int = 0
+    ) -> Tuple[List[Dict[str, Any]], int]:
         """Get all agents (running + historical) with pagination."""
         # Get running agents
         with self.lock:
@@ -533,7 +550,7 @@ class CortexServer:
         total_count = len(all_agents)
 
         # Apply pagination
-        paginated_agents = all_agents[offset:offset + limit]
+        paginated_agents = all_agents[offset : offset + limit]
 
         # Convert to dict format
         agent_dicts = [agent.to_dict() for agent in paginated_agents]
@@ -548,6 +565,7 @@ cortex_server = CortexServer()
 def main() -> None:
     """CLI entry point for the cortex server."""
     import argparse
+
     from flask import Flask
     from flask_sock import Sock
 
@@ -600,6 +618,7 @@ def main() -> None:
     journal = os.getenv("JOURNAL_PATH")
     if journal:
         from pathlib import Path
+
         uri_file = Path(journal) / "agents" / "cortex.uri"
         uri_file.parent.mkdir(parents=True, exist_ok=True)
         cortex_uri = f"ws://{args.host}:{args.port}{args.path}"

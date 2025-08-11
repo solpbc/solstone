@@ -6,7 +6,6 @@ import sqlite3
 import time
 from typing import Callable, Dict, List, Union
 
-
 # Common regex patterns
 DATE_RE = re.compile(r"\d{8}")
 

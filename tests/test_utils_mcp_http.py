@@ -23,11 +23,11 @@ class TestCreateMCPClientHTTP:
             uri_file = agents_dir / "mcp.uri"
             test_uri = "http://127.0.0.1:6270/mcp/"
             uri_file.write_text(test_uri)
-            
+
             with patch.dict(os.environ, {"JOURNAL_PATH": tmp_dir}):
                 with patch("fastmcp.Client") as mock_client:
                     result = create_mcp_client()
-                    
+
                     # Should create client with discovered URI
                     mock_client.assert_called_once_with(test_uri)
                     assert result == mock_client.return_value
@@ -41,13 +41,15 @@ class TestCreateMCPClientHTTP:
             uri_file = agents_dir / "mcp.uri"
             test_uri = "http://127.0.0.1:6270/mcp/"
             uri_file.write_text(f"  {test_uri}  \n")
-            
+
             with patch.dict(os.environ, {"JOURNAL_PATH": tmp_dir}):
                 with patch("fastmcp.Client") as mock_client:
                     result = create_mcp_client()
-                    
+
                     # Should strip whitespace from URI
-                    mock_client.assert_called_once_with(test_uri)  # stripped, no whitespace
+                    mock_client.assert_called_once_with(
+                        test_uri
+                    )  # stripped, no whitespace
                     assert result == mock_client.return_value
 
     def test_no_journal_path(self):
@@ -71,7 +73,7 @@ class TestCreateMCPClientHTTP:
             agents_dir.mkdir()
             # Create a directory instead of file to cause read error
             (agents_dir / "mcp.uri").mkdir()
-            
+
             with patch.dict(os.environ, {"JOURNAL_PATH": tmp_dir}):
                 with pytest.raises(RuntimeError, match="Failed to read MCP server URI"):
                     create_mcp_client()
@@ -84,7 +86,7 @@ class TestCreateMCPClientHTTP:
             agents_dir.mkdir()
             uri_file = agents_dir / "mcp.uri"
             uri_file.write_text("")
-            
+
             with patch.dict(os.environ, {"JOURNAL_PATH": tmp_dir}):
                 with pytest.raises(RuntimeError, match="MCP server URI file is empty"):
                     create_mcp_client()
@@ -97,7 +99,7 @@ class TestCreateMCPClientHTTP:
             agents_dir.mkdir()
             uri_file = agents_dir / "mcp.uri"
             uri_file.write_text("   \n  \t  ")
-            
+
             with patch.dict(os.environ, {"JOURNAL_PATH": tmp_dir}):
                 with pytest.raises(RuntimeError, match="MCP server URI file is empty"):
                     create_mcp_client()

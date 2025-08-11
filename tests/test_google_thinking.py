@@ -5,8 +5,6 @@ import sys
 import types
 from types import SimpleNamespace
 
-import pytest
-
 
 async def run_main(mod, argv):
     sys.argv = argv
@@ -33,12 +31,9 @@ def _setup_genai_stub(monkeypatch):
             # Create mock response with thinking content at candidate level
             candidate = SimpleNamespace(
                 thought="I need to analyze this step by step.",
-                content=SimpleNamespace(parts=[])
+                content=SimpleNamespace(parts=[]),
             )
-            response = SimpleNamespace(
-                text="ok",
-                candidates=[candidate]
-            )
+            response = SimpleNamespace(text="ok", candidates=[candidate])
             return response
 
     class DummyChats:
@@ -93,17 +88,18 @@ def _setup_fastmcp_stub(monkeypatch):
     transports_mod = types.ModuleType("fastmcp.client.transports")
     transports_mod.PythonStdioTransport = lambda *a, **k: None
     monkeypatch.setitem(sys.modules, "fastmcp.client.transports", transports_mod)
-    
+
     # Mock create_mcp_client to avoid reading URI file
     def mock_create_mcp_client():
         return DummyMCPClient()
+
     monkeypatch.setattr("think.utils.create_mcp_client", mock_create_mcp_client)
 
 
 def test_google_thinking_events(monkeypatch, tmp_path, capsys):
     _setup_genai_stub(monkeypatch)
     _setup_fastmcp_stub(monkeypatch)
-    
+
     sys.modules.pop("think.google", None)
     importlib.reload(importlib.import_module("think.google"))
     mod = importlib.reload(importlib.import_module("think.agents"))
@@ -120,18 +116,18 @@ def test_google_thinking_events(monkeypatch, tmp_path, capsys):
 
     out_lines = capsys.readouterr().out.strip().splitlines()
     events = [json.loads(line) for line in out_lines]
-    
+
     # Check that we have start, thinking, and finish events
     assert events[0]["event"] == "start"
     assert isinstance(events[0]["ts"], int)
     assert events[0]["prompt"] == "hello"
-    
+
     # Look for thinking event
     thinking_events = [e for e in events if e["event"] == "thinking"]
     assert len(thinking_events) == 1
     assert thinking_events[0]["summary"] == "I need to analyze this step by step."
     assert thinking_events[0]["model"] == "gemini-2.5-flash"
     assert isinstance(thinking_events[0]["ts"], int)
-    
+
     assert events[-1]["event"] == "finish"
     assert events[-1]["result"] == "ok"

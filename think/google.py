@@ -63,19 +63,21 @@ async def run_agent(
 ) -> str:
     """Run a single prompt through the Google Gemini agent and return the response."""
     callback = JSONEventCallback(on_event)
-    
+
     try:
         # Check API key
         api_key = os.getenv("GOOGLE_API_KEY")
         if not api_key:
             raise RuntimeError("GOOGLE_API_KEY not set")
 
-        callback.emit({
-            "event": "start",
-            "prompt": prompt,
-            "persona": persona,
-            "model": model,
-        })
+        callback.emit(
+            {
+                "event": "start",
+                "prompt": prompt,
+                "persona": persona,
+                "model": model,
+            }
+        )
 
         # Create fresh client and MCP for each run (prevents event loop issues)
         async with create_mcp_client() as mcp:
@@ -148,11 +150,13 @@ async def run_agent(
             callback.emit({"event": "finish", "result": text})
             return text
     except Exception as exc:
-        callback.emit({
-            "event": "error",
-            "error": str(exc),
-            "trace": traceback.format_exc(),
-        })
+        callback.emit(
+            {
+                "event": "error",
+                "error": str(exc),
+                "trace": traceback.format_exc(),
+            }
+        )
         setattr(exc, "_evented", True)
         raise
 
