@@ -245,6 +245,7 @@ def api_merge_entities() -> Any:
     source_name = payload.get("source_name")
     target_type = payload.get("target_type")
     target_name = payload.get("target_name")
+    selected_days = payload.get("days")  # Optional: specific days to merge
 
     if not all([source_type, source_name, target_type, target_name]):
         return jsonify({"error": "Missing required fields"}), 400
@@ -252,7 +253,7 @@ def api_merge_entities() -> Any:
     if source_name == target_name and source_type == target_type:
         return jsonify({"error": "Cannot merge entity with itself"}), 400
 
-    # Get all days where the source entity appears
+    # Always get the source entity results for later use
     _total, source_results = search_entities(
         "", limit=1000, etype=source_type, name=source_name, order="day"
     )
@@ -260,13 +261,17 @@ def api_merge_entities() -> Any:
     if not source_results:
         return jsonify({"error": f"Source entity '{source_type}: {source_name}' not found"}), 404
 
-    # Collect all days where source appears (excluding aggregated entity)
-    days_to_update = []
-    for result in source_results:
-        meta = result.get("metadata", {})
-        day = meta.get("day")
-        if day:  # Only process day-specific occurrences
-            days_to_update.append(day)
+    # If specific days are provided, use those; otherwise get all days
+    if selected_days:
+        days_to_update = selected_days
+    else:
+        # Collect all days where source appears (excluding aggregated entity)
+        days_to_update = []
+        for result in source_results:
+            meta = result.get("metadata", {})
+            day = meta.get("day")
+            if day:  # Only process day-specific occurrences
+                days_to_update.append(day)
 
     successful_days = []
     failed_days = []

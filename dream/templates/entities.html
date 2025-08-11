@@ -229,6 +229,15 @@ table[data-entity-type="Tool"] th {
   position: relative;
 }
 
+.entity-card-top {
+  border-width: 4px;
+  border-style: solid;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+  font-weight: 700;
+  outline: 2px solid rgba(0,123,255,0.3);
+  outline-offset: 2px;
+}
+
 .entity-card:hover {
   box-shadow: 0 4px 8px rgba(0,0,0,0.15);
   transform: translateY(-2px);
@@ -536,18 +545,14 @@ table[data-entity-type="Tool"] th {
 
 <!-- Merge Confirmation Modal -->
 <div id="mergeConfirmModal" class="modal">
-  <div class="modal-content" style="max-width: 600px;">
-    <div class="modal-header">
-      <h2>Confirm Entity Merge</h2>
-      <span class="close" id="mergeConfirmClose">&times;</span>
+  <div class="modal-content" style="max-width: 900px; max-height: 85vh; display: flex; flex-direction: column;">
+    <span class="close" id="mergeConfirmClose" style="position: absolute; top: 10px; right: 15px; z-index: 1;">&times;</span>
+    <div id="mergeDetails" style="flex-shrink: 0;"></div>
+    <div class="form-actions" style="flex-shrink: 0; padding: 0 1.5em; margin-top: 1em;">
+      <button type="button" class="btn btn-secondary" id="mergeCancelBtn">Cancel</button>
+      <button type="button" class="btn btn-primary" id="mergeConfirmBtn">Confirm Merge</button>
     </div>
-    <div class="modal-body">
-      <div id="mergeDetails" style="margin-bottom: 1.5em;"></div>
-      <div class="form-actions">
-        <button type="button" class="btn btn-secondary" id="mergeCancelBtn">Cancel</button>
-        <button type="button" class="btn btn-primary" id="mergeConfirmBtn">Confirm Merge</button>
-      </div>
-    </div>
+    <div id="mergeOccurrences" style="flex: 1; overflow-y: auto; padding: 0 1.5em 1.5em 1.5em;"></div>
   </div>
 </div>
 
@@ -609,7 +614,22 @@ function reloadTabs() {
     tabsDiv.appendChild(mergeTab);
     
     const first = Object.keys(counts)[0];
-    if (wasMergeMode) {
+    
+    // Check for URL fragment to determine initial tab
+    const fragment = parseFragment();
+    if (fragment) {
+      if (fragment.type === 'merge') {
+        showMergeTab(fragment.query, false);
+      } else if (counts[fragment.type]) {
+        showType(fragment.type, false);
+      } else if (wasMergeMode) {
+        showMergeTab();
+      } else if (currentType && counts[currentType] !== undefined) {
+        showType(currentType);
+      } else if (first) {
+        showType(first);
+      }
+    } else if (wasMergeMode) {
       showMergeTab();
     } else if (currentType && counts[currentType] !== undefined) {
       showType(currentType);
@@ -624,6 +644,42 @@ function reloadTabs() {
   });
 }
 
+// Function to parse URL fragment
+function parseFragment() {
+  const hash = window.location.hash.substring(1); // Remove #
+  if (!hash) return null;
+  
+  if (hash === 'merge') {
+    return { type: 'merge', query: '' };
+  }
+  
+  if (hash.startsWith('merge?q=')) {
+    const query = decodeURIComponent(hash.substring(8));
+    return { type: 'merge', query };
+  }
+  
+  // Check if it's a valid entity type
+  const validTypes = ['person', 'company', 'project', 'tool'];
+  if (validTypes.includes(hash.toLowerCase())) {
+    // Convert to proper case
+    return { type: hash.charAt(0).toUpperCase() + hash.slice(1).toLowerCase() };
+  }
+  
+  return null;
+}
+
+// Handle browser back/forward navigation
+window.addEventListener('hashchange', () => {
+  const fragment = parseFragment();
+  if (fragment) {
+    if (fragment.type === 'merge') {
+      showMergeTab(fragment.query, false);
+    } else {
+      showType(fragment.type, false);
+    }
+  }
+});
+
 reloadTabs();
 
 function loadType(type) {
@@ -632,12 +688,17 @@ function loadType(type) {
     .then(items => { data[type] = items; });
 }
 
-function showType(type) {
+function showType(type, updateFragment = true) {
   mergeMode = false;
   document.querySelectorAll('.tab').forEach(tab => {
     tab.classList.toggle('active', tab.textContent.startsWith(type));
   });
   activeType = type;
+  
+  // Update URL fragment
+  if (updateFragment) {
+    window.location.hash = type.toLowerCase();
+  }
   
   // Show table, hide merge container
   const table = document.getElementById('entityTable');
@@ -1006,22 +1067,38 @@ window.addEventListener('click', function(event) {
 });
 
 // Merge tab functionality
-function showMergeTab() {
+function showMergeTab(query = '', updateFragment = true) {
   mergeMode = true;
   document.querySelectorAll('.tab').forEach(tab => {
     tab.classList.toggle('active', tab.textContent === 'Merge');
   });
+  
+  // Update URL fragment
+  if (updateFragment) {
+    if (query) {
+      window.location.hash = `merge?q=${encodeURIComponent(query)}`;
+    } else {
+      window.location.hash = 'merge';
+    }
+  }
   
   // Hide table, show merge container
   document.getElementById('entityTable').style.display = 'none';
   document.getElementById('mergeContainer').style.display = 'block';
   document.getElementById('newEntityBtn').style.display = 'none';
   
-  // Clear the search input and grid when switching to merge tab
+  // Set the search input and run search if query provided
   const searchInput = document.getElementById('mergeSearchInput');
-  searchInput.value = '';
-  document.getElementById('mergeGrid').innerHTML = '';
-  allEntities = [];
+  if (query) {
+    searchInput.value = query;
+    // Trigger search
+    searchInput.dispatchEvent(new Event('input'));
+  } else {
+    // Clear the search input and grid when switching to merge tab
+    searchInput.value = '';
+    document.getElementById('mergeGrid').innerHTML = '';
+    allEntities = [];
+  }
   
   // Auto-focus the search input
   searchInput.focus();
@@ -1032,9 +1109,18 @@ function renderMergeGrid(entities) {
   const grid = document.getElementById('mergeGrid');
   grid.innerHTML = '';
   
-  entities.forEach(entity => {
+  // Sort entities: top entities first, then non-top entities
+  const sortedEntities = entities.sort((a, b) => {
+    // Top entities come first
+    if (a.top && !b.top) return -1;
+    if (!a.top && b.top) return 1;
+    // Within same top status, sort alphabetically by name
+    return a.name.localeCompare(b.name);
+  });
+  
+  sortedEntities.forEach(entity => {
     const card = document.createElement('div');
-    card.className = 'entity-card';
+    card.className = entity.top ? 'entity-card entity-card-top' : 'entity-card';
     card.draggable = true;
     card.dataset.entityType = entity.type;
     card.dataset.entityName = entity.name;
@@ -1142,13 +1228,14 @@ async function handleDrop(e) {
 }
 
 async function showMergeConfirmation(source, target) {
-  // First, fetch entity details to get occurrence count
-  let sourceOccurrences = 0;
+  // First, fetch entity details to get all occurrences with descriptions
+  let occurrences = [];
   try {
-    const response = await fetch(`{{ url_for('search.search_entities_api') }}?type=${encodeURIComponent(source.type)}&name=${encodeURIComponent(source.name)}&limit=1000`);
+    const response = await fetch(`{{ url_for('search.search_entities_api') }}?type=${encodeURIComponent(source.type)}&name=${encodeURIComponent(source.name)}&limit=1000&order=day`);
     const data = await response.json();
-    // Count day-specific occurrences (not the aggregated entry)
-    sourceOccurrences = data.results.filter(r => r.appearance).length;
+    // Get day-specific occurrences (not the aggregated entry)
+    // The API returns appearance=true for day-specific occurrences and includes day directly in the result
+    occurrences = data.results.filter(r => r.appearance === true && r.day);
   } catch (error) {
     console.error('Error fetching entity details:', error);
   }
@@ -1156,7 +1243,7 @@ async function showMergeConfirmation(source, target) {
   // Build confirmation message
   const detailsDiv = document.getElementById('mergeDetails');
   detailsDiv.innerHTML = `
-    <div style="padding: 1em; background: #f8f9fa; border-radius: 8px; margin-bottom: 1em;">
+    <div style="padding: 1em; background: #f8f9fa; border-radius: 8px;">
       <p style="margin-bottom: 1em;"><strong>This will merge:</strong></p>
       <div style="display: flex; align-items: center; gap: 2em; margin-bottom: 1em;">
         <div style="flex: 1; padding: 1em; background: white; border: 2px solid #dc3545; border-radius: 6px;">
@@ -1169,13 +1256,85 @@ async function showMergeConfirmation(source, target) {
           <div style="font-weight: 600; color: #333;">${target.name}</div>
         </div>
       </div>
-      ${sourceOccurrences > 0 ? `<p style="margin-bottom: 0.5em;"><strong>${sourceOccurrences} occurrence${sourceOccurrences !== 1 ? 's' : ''}</strong> will be updated.</p>` : ''}
-      <p style="margin: 0; color: #666; font-size: 0.9em;">All references to "${source.type}: ${source.name}" will be replaced with "${target.type}: ${target.name}"</p>
+      <p style="margin: 0; color: #666; font-size: 0.9em;">All checked references below will be replaced with "${target.type}: ${target.name}"</p>
     </div>
   `;
   
-  // Store entities for later use
-  window.pendingMerge = { source, target };
+  // Build occurrences list with checkboxes
+  const occurrencesDiv = document.getElementById('mergeOccurrences');
+  if (occurrences.length > 0) {
+    // Format dates for display
+    const formatDate = (dateStr) => {
+      try {
+        const year = dateStr.substring(0, 4);
+        const month = dateStr.substring(4, 6);
+        const day = dateStr.substring(6, 8);
+        const date = new Date(year, month - 1, day);
+        const options = { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' };
+        return date.toLocaleDateString('en-US', options);
+      } catch (e) {
+        return dateStr;
+      }
+    };
+    
+    let occurrencesHtml = `
+      <div style="display: flex; justify-content: space-between; align-items: center; margin: 1em 0; padding-top: 1em; border-top: 1px solid #eee;">
+        <h3 style="margin: 0; font-size: 1.1em;">Select occurrences to merge (${occurrences.length} total)</h3>
+        <label style="cursor: pointer; color: #007bff;">
+          <input type="checkbox" id="selectAllOccurrences" checked style="margin-right: 0.5em;">
+          Select All
+        </label>
+      </div>
+      <div style="border: 1px solid #ddd; border-radius: 8px;">
+    `;
+    
+    occurrences.forEach((occ, index) => {
+      const day = occ.day;  // Day is directly on the result object, not in metadata
+      const description = occ.text && occ.text !== source.name ? occ.text : '(no description)';
+      const isLast = index === occurrences.length - 1;
+      occurrencesHtml += `
+        <div style="padding: 0.75em 1em; ${!isLast ? 'border-bottom: 1px solid #f0f0f0;' : ''} display: flex; align-items: start;">
+          <input type="checkbox" class="occurrence-checkbox" data-day="${day}" checked style="margin-right: 1em; margin-top: 0.25em;">
+          <div style="flex: 1;">
+            <div style="font-weight: 500; color: #333; margin-bottom: 0.25em;">${formatDate(day)}</div>
+            <div style="color: #666; font-style: italic; font-size: 0.9em;">${description}</div>
+          </div>
+        </div>
+      `;
+    });
+    
+    occurrencesHtml += `
+      </div>
+    `;
+    occurrencesDiv.innerHTML = occurrencesHtml;
+    
+    // Add select all functionality
+    document.getElementById('selectAllOccurrences').addEventListener('change', (e) => {
+      const checkboxes = document.querySelectorAll('.occurrence-checkbox');
+      checkboxes.forEach(cb => cb.checked = e.target.checked);
+    });
+    
+    // Update select all when individual checkboxes change
+    occurrencesDiv.addEventListener('change', (e) => {
+      if (e.target.classList.contains('occurrence-checkbox')) {
+        const checkboxes = document.querySelectorAll('.occurrence-checkbox');
+        const allChecked = Array.from(checkboxes).every(cb => cb.checked);
+        const someChecked = Array.from(checkboxes).some(cb => cb.checked);
+        const selectAll = document.getElementById('selectAllOccurrences');
+        selectAll.checked = allChecked;
+        selectAll.indeterminate = !allChecked && someChecked;
+      }
+    });
+  } else {
+    occurrencesDiv.innerHTML = `
+      <div style="padding: 1em; background: #fff3cd; border: 1px solid #ffc107; border-radius: 8px; color: #856404;">
+        No occurrences found for "${source.type}: ${source.name}" in daily entries.
+      </div>
+    `;
+  }
+  
+  // Store entities and occurrences for later use
+  window.pendingMerge = { source, target, occurrences };
   
   // Show modal
   const modal = document.getElementById('mergeConfirmModal');
@@ -1191,12 +1350,19 @@ async function performMerge(source, target) {
   const confirmBtn = document.getElementById('mergeConfirmBtn');
   const modal = document.getElementById('mergeConfirmModal');
   
+  // Get selected days from checkboxes
+  const selectedDays = [];
+  const checkboxes = document.querySelectorAll('.occurrence-checkbox:checked');
+  checkboxes.forEach(cb => {
+    selectedDays.push(cb.dataset.day);
+  });
+  
   // Disable button and show processing state
   confirmBtn.disabled = true;
   confirmBtn.textContent = 'Merging...';
   
   try {
-    // Call the backend merge endpoint
+    // Call the backend merge endpoint with selected days
     const response = await fetch('{{ url_for('entities.entities') }}/api/merge', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -1204,7 +1370,8 @@ async function performMerge(source, target) {
         source_type: source.type,
         source_name: source.name,
         target_type: target.type,
-        target_name: target.name
+        target_name: target.name,
+        days: selectedDays
       })
     });
     
@@ -1263,6 +1430,15 @@ async function performMerge(source, target) {
 document.getElementById('mergeSearchInput').addEventListener('input', async (e) => {
   const query = e.target.value.trim();
   
+  // Update URL fragment with search query
+  if (mergeMode) {
+    if (query) {
+      window.location.hash = `merge?q=${encodeURIComponent(query)}`;
+    } else {
+      window.location.hash = 'merge';
+    }
+  }
+  
   if (query.length === 0) {
     // Clear the grid when search is empty
     document.getElementById('mergeGrid').innerHTML = '';
@@ -1275,7 +1451,7 @@ document.getElementById('mergeSearchInput').addEventListener('input', async (e) 
   }
   
   try {
-    const response = await fetch(`{{ url_for('search.search_entities_api') }}?q=${encodeURIComponent(query)}&limit=100`);
+    const response = await fetch(`{{ url_for('search.search_entities_api') }}?name=${encodeURIComponent(query)}&limit=100`);
     const data = await response.json();
     const filtered = data.results.filter(e => !e.appearance);
     allEntities = filtered; // Store the search results
