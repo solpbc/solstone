@@ -123,7 +123,9 @@ def api_top_generate() -> Any:
     etype = payload.get("type")
     name = payload.get("name")
     # Get all entity appearances to collect descriptions
-    _total, results = search_entities("", limit=1000, etype=etype, name=name, order="day")
+    _total, results = search_entities(
+        "", limit=1000, etype=etype, name=name, order="day"
+    )
     if not results:
         return ("", 400)
 
@@ -144,10 +146,7 @@ def api_top_generate() -> Any:
         latest_day = max(descriptions.keys())
         primary = descriptions[latest_day]
 
-    info = {
-        "descriptions": descriptions,
-        "primary": primary
-    }
+    info = {"descriptions": descriptions, "primary": primary}
 
     api_key = os.getenv("GOOGLE_API_KEY")
     if not api_key:
@@ -170,6 +169,73 @@ def api_top_update() -> Any:
     return jsonify({"status": "ok"})
 
 
+@bp.route("/entities/api/create", methods=["POST"])
+def api_create_entity() -> Any:
+    """Create a new top-level entity."""
+    payload = request.get_json(force=True)
+    etype = payload.get("type")
+    name = payload.get("name", "").strip()
+    description = payload.get("description", "").strip()
+
+    if not etype or not name:
+        return (
+            jsonify({"success": False, "error": "Entity type and name are required"}),
+            400,
+        )
+
+    # Validate entity type
+    valid_types = ["Person", "Company", "Project", "Tool"]
+    if etype not in valid_types:
+        return (
+            jsonify(
+                {
+                    "success": False,
+                    "error": f"Invalid entity type. Must be one of: {', '.join(valid_types)}",
+                }
+            ),
+            400,
+        )
+
+    try:
+        # Check if entity already exists at top level
+        _total, existing = search_entities("", limit=1, etype=etype, name=name)
+        if existing:
+            # Check if any existing entity is a top-level entity
+            for result in existing:
+                if result["metadata"].get("top", False):
+                    return (
+                        jsonify(
+                            {
+                                "success": False,
+                                "error": f"A top-level {etype} named '{name}' already exists",
+                            }
+                        ),
+                        409,
+                    )
+
+        # Create the entity by adding it to the top-level entities.md file
+        if description:
+            update_top_entry(state.journal_root, etype, name, description)
+        else:
+            update_top_entry(
+                state.journal_root, etype, name, name
+            )  # Use name as default description
+
+        # Reload entities index
+        reload_entities()
+
+        return jsonify({"success": True})
+
+    except Exception as e:
+        logging.error(f"Error creating entity '{etype}: {name}': {str(e)}")
+        return (
+            jsonify(
+                {"success": False, "error": "An error occurred creating the entity"}
+            ),
+            500,
+        )
+
+
 @bp.route("/entities/api/remove", methods=["POST"])
 @bp.route("/entities/api/rename", methods=["POST"])
 def api_modify_entity() -> Any:
@@ -184,7 +250,9 @@ def api_modify_entity() -> Any:
     failed_days = []
 
     for day in days:
-        success = modify_entity_file(state.journal_root, day, etype, name, new_name, action)
+        success = modify_entity_file(
+            state.journal_root, day, etype, name, new_name, action
+        )
         if success:
             successful_days.append(day)
         else:
@@ -196,14 +264,16 @@ def api_modify_entity() -> Any:
             top_file, etype, name, new_name, "rename", require_match=False
         )
         if not success:
-            logging.info(f"Entity '{etype}: {name}' not found in top-level entities.md, skipping top-level rename")
+            logging.info(
+                f"Entity '{etype}: {name}' not found in top-level entities.md, skipping top-level rename"
+            )
 
     if failed_days:
-        logging.info(f"Entity '{etype}: {name}' operation '{action}' failed for days: {failed_days}")
+        logging.info(
+            f"Entity '{etype}: {name}' operation '{action}' failed for days: {failed_days}"
+        )
 
     reload_entities()
-    return jsonify({
-        "status": "ok",
-        "successful_days": successful_days,
-        "failed_days": failed_days
-    })
+    return jsonify(
+        {"status": "ok", "successful_days": successful_days, "failed_days": failed_days}
+    )

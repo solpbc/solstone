@@ -45,6 +45,36 @@ tr:hover { background: #f8f9fa; }
 .name { font-weight: 500; width: 200px; }
 .desc { color: #666; }
 
+/* Tab styling with new entity button */
+.tabs-container {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 1em;
+}
+
+.tabs {
+  display: flex;
+  gap: 0;
+}
+
+.new-entity-btn {
+  background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.9em;
+  font-weight: 500;
+  transition: opacity 0.2s;
+  white-space: nowrap;
+}
+
+.new-entity-btn:hover {
+  opacity: 0.9;
+}
+
 /* Modal styling */
 .modal {
   display: none;
@@ -129,12 +159,97 @@ tr:hover { background: #f8f9fa; }
   color: #666;
   font-style: italic;
 }
+
+/* New entity modal styles */
+.new-entity-modal .modal-content {
+  max-width: 500px;
+  margin: 15% auto;
+}
+
+.form-group {
+  margin-bottom: 1.2em;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 0.5em;
+  font-weight: 500;
+  color: #333;
+}
+
+.form-group input, .form-group textarea {
+  width: 100%;
+  padding: 0.6em 0.75em;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 0.95em;
+  font-family: inherit;
+  transition: border-color 0.2s;
+  box-sizing: border-box;
+}
+
+.form-group input:focus, .form-group textarea:focus {
+  outline: none;
+  border-color: #007bff;
+}
+
+.form-group textarea {
+  resize: vertical;
+  min-height: 80px;
+}
+
+.form-actions {
+  display: flex;
+  gap: 0.8em;
+  justify-content: flex-end;
+  margin-top: 1.5em;
+}
+
+.btn {
+  padding: 0.6em 1.2em;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.95em;
+  font-weight: 500;
+  transition: background-color 0.2s;
+}
+
+.btn-primary {
+  background: #007bff;
+  color: white;
+}
+
+.btn-primary:hover {
+  background: #0056b3;
+}
+
+.btn-secondary {
+  background: #f5f5f5;
+  color: #666;
+}
+
+.btn-secondary:hover {
+  background: #eee;
+}
+
+.error-message {
+  background: #fee;
+  color: #c33;
+  padding: 0.75em;
+  border-radius: 6px;
+  margin-bottom: 1em;
+  border: 1px solid #fcc;
+}
 </style>
 {% endblock %}
 {% block body %}
 <div class="container">
   <h1>Entity Review</h1>
-  <div class="tabs" id="tabs"></div>
+  <div class="tabs-container">
+    <div class="tabs" id="tabs"></div>
+    <button class="new-entity-btn" id="newEntityBtn" onclick="openNewEntityModal()" style="display: none;">+ New Entity</button>
+  </div>
   <table id="entityTable">
     <thead>
       <tr>
@@ -147,11 +262,36 @@ tr:hover { background: #f8f9fa; }
   </table>
 </div>
 
-<!-- Modal -->
+<!-- Entity Details Modal -->
 <div id="entityModal" class="modal">
   <div class="modal-content">
     <span class="close">&times;</span>
     <div id="modalContent"></div>
+  </div>
+</div>
+
+<!-- New Entity Modal -->
+<div id="newEntityModal" class="modal new-entity-modal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h2 id="newEntityModalTitle">Add New Entity</h2>
+      <span class="close" id="newEntityClose">&times;</span>
+    </div>
+    <div id="newEntityErrorContainer"></div>
+    <form id="newEntityForm">
+      <div class="form-group">
+        <label for="entityName">Name</label>
+        <input type="text" id="entityName" name="name" required placeholder="Entity name">
+      </div>
+      <div class="form-group">
+        <label for="entityDescription">Description</label>
+        <textarea id="entityDescription" name="description" placeholder="Brief description (optional)"></textarea>
+      </div>
+      <div class="form-actions">
+        <button type="button" class="btn btn-secondary" id="newEntityCancelBtn">Cancel</button>
+        <button type="submit" class="btn btn-primary" id="newEntitySaveBtn">Create Entity</button>
+      </div>
+    </form>
   </div>
 </div>
 
@@ -165,6 +305,7 @@ function reloadTabs() {
   const currentType = activeType;
   fetch('{{ url_for('entities.entities_types') }}').then(r => r.json()).then(counts => {
     const tabsDiv = document.getElementById('tabs');
+    const newEntityBtn = document.getElementById('newEntityBtn');
     tabsDiv.innerHTML = '';
     Object.keys(counts).forEach(type => {
       const tab = document.createElement('div');
@@ -178,6 +319,11 @@ function reloadTabs() {
       showType(currentType);
     } else if (first) {
       showType(first);
+    }
+    
+    // Show new entity button if we have any entity types
+    if (Object.keys(counts).length > 0) {
+      newEntityBtn.style.display = 'block';
     }
   });
 }
@@ -195,6 +341,11 @@ function showType(type) {
     tab.classList.toggle('active', tab.textContent.startsWith(type));
   });
   activeType = type;
+  
+  // Update new entity button text to show current type
+  const newEntityBtn = document.getElementById('newEntityBtn');
+  newEntityBtn.textContent = `+ New ${type}`;
+  
   if (!data[type]) {
     loadType(type).then(renderTable);
   } else {
@@ -487,6 +638,87 @@ function handleCountClick(event, name) {
     showEntityDetails(name);
   }
 }
+
+// New Entity Modal functionality
+function openNewEntityModal() {
+  const modal = document.getElementById('newEntityModal');
+  const title = document.getElementById('newEntityModalTitle');
+  title.textContent = `Add New ${activeType}`;
+  
+  // Reset form
+  document.getElementById('newEntityForm').reset();
+  clearNewEntityErrors();
+  
+  modal.style.display = 'block';
+}
+
+function closeNewEntityModal() {
+  const modal = document.getElementById('newEntityModal');
+  modal.style.display = 'none';
+  document.getElementById('newEntityForm').reset();
+  clearNewEntityErrors();
+}
+
+function clearNewEntityErrors() {
+  const errorContainer = document.getElementById('newEntityErrorContainer');
+  errorContainer.innerHTML = '';
+}
+
+function showNewEntityError(message) {
+  const errorContainer = document.getElementById('newEntityErrorContainer');
+  errorContainer.innerHTML = `<div class="error-message">${message}</div>`;
+}
+
+// New Entity Modal event handlers
+document.getElementById('newEntityClose').onclick = closeNewEntityModal;
+document.getElementById('newEntityCancelBtn').onclick = closeNewEntityModal;
+
+window.addEventListener('click', function(event) {
+  const modal = document.getElementById('newEntityModal');
+  if (event.target === modal) {
+    closeNewEntityModal();
+  }
+});
+
+// New Entity Form submission
+document.getElementById('newEntityForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  clearNewEntityErrors();
+  
+  const formData = new FormData(e.target);
+  const data = {
+    type: activeType,
+    name: formData.get('name').trim(),
+    description: formData.get('description').trim()
+  };
+  
+  if (!data.name) {
+    showNewEntityError('Entity name is required');
+    return;
+  }
+  
+  try {
+    const response = await fetch('{{ url_for('entities.entities') }}/api/create', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(data)
+    });
+    
+    const result = await response.json();
+    
+    if (response.ok && result.success) {
+      closeNewEntityModal();
+      reloadTabs(); // Reload to update counts and entity list
+    } else {
+      showNewEntityError(result.error || 'An error occurred creating the entity');
+    }
+  } catch (error) {
+    console.error('Error creating entity:', error);
+    showNewEntityError('Network error occurred');
+  }
+});
 </script>
 {% endblock %}
 
