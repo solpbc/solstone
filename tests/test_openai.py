@@ -47,7 +47,7 @@ def _setup_openai_mocks(monkeypatch):
 
     agents_mcp_stub = types.ModuleType("agents.mcp")
 
-    class DummyMCP:
+    class DummyMCP:  # noqa: F811
         async def __aenter__(self):
             return self
 
@@ -62,12 +62,13 @@ def _setup_openai_mocks(monkeypatch):
     sys.modules["agents"] = agents_stub
     sys.modules["agents.mcp"] = agents_mcp_stub
     sys.modules.pop("think.openai", None)
-    
+
     # Mock create_mcp_client to avoid reading URI file
     def mock_create_mcp_client():
         return DummyMCP()
+
     monkeypatch.setattr("think.utils.create_mcp_client", mock_create_mcp_client)
-    
+
     return last_kwargs, DummyRunner
 
 
@@ -125,13 +126,10 @@ def test_openai_thinking_events(monkeypatch, tmp_path, capsys):
             reasoning_item = SimpleNamespace(
                 reasoning=SimpleNamespace(
                     summary="I need to think about this step by step.",
-                    content="This is my reasoning process."
+                    content="This is my reasoning process.",
                 )
             )
-            return SimpleNamespace(
-                final_output="ok",
-                new_items=[reasoning_item]
-            )
+            return SimpleNamespace(final_output="ok", new_items=[reasoning_item])
 
     agents_stub.Agent = DummyAgent
     agents_stub.Runner = DummyRunner
@@ -149,7 +147,7 @@ def test_openai_thinking_events(monkeypatch, tmp_path, capsys):
 
     agents_mcp_stub = types.ModuleType("agents.mcp")
 
-    class DummyMCP:
+    class DummyMCP:  # noqa: F811
         async def __aenter__(self):
             return self
 
@@ -164,15 +162,18 @@ def test_openai_thinking_events(monkeypatch, tmp_path, capsys):
     sys.modules["agents"] = agents_stub
     sys.modules["agents.mcp"] = agents_mcp_stub
     sys.modules.pop("think.openai", None)
-    
+
     # Mock create_mcp_client to avoid reading URI file
-    class DummyMCP:
+    class DummyMCP:  # noqa: F811
         async def __aenter__(self):
             return self
+
         async def __aexit__(self, exc_type, exc, tb):
             pass
+
     def mock_create_mcp_client():
         return DummyMCP()
+
     monkeypatch.setattr("think.utils.create_mcp_client", mock_create_mcp_client)
 
     importlib.reload(importlib.import_module("think.openai"))
@@ -190,19 +191,19 @@ def test_openai_thinking_events(monkeypatch, tmp_path, capsys):
 
     out_lines = capsys.readouterr().out.strip().splitlines()
     events = [json.loads(line) for line in out_lines]
-    
+
     # Check that we have start, thinking, and finish events
     assert events[0]["event"] == "start"
     assert isinstance(events[0]["ts"], int)
     assert events[0]["prompt"] == "hello"
-    
+
     # Look for thinking event
     thinking_events = [e for e in events if e["event"] == "thinking"]
     assert len(thinking_events) == 1
     assert thinking_events[0]["summary"] == "I need to think about this step by step."
     assert thinking_events[0]["model"] == "o4-mini-2025-04-16"
     assert isinstance(thinking_events[0]["ts"], int)
-    
+
     assert events[-1]["event"] == "finish"
     assert events[-1]["result"] == "ok"
     assert DummyRunner.called
@@ -236,7 +237,7 @@ def test_openai_outfile(monkeypatch, tmp_path):
 
     agents_mcp_stub = types.ModuleType("agents.mcp")
 
-    class DummyMCP:
+    class DummyMCP:  # noqa: F811
         async def __aenter__(self):
             return self
 
@@ -251,15 +252,18 @@ def test_openai_outfile(monkeypatch, tmp_path):
     sys.modules["agents"] = agents_stub
     sys.modules["agents.mcp"] = agents_mcp_stub
     sys.modules.pop("think.openai", None)
-    
+
     # Mock create_mcp_client to avoid reading URI file
-    class DummyMCP:
+    class DummyMCP:  # noqa: F811
         async def __aenter__(self):
             return self
+
         async def __aexit__(self, exc_type, exc, tb):
             pass
+
     def mock_create_mcp_client():
         return DummyMCP()
+
     monkeypatch.setattr("think.utils.create_mcp_client", mock_create_mcp_client)
 
     importlib.reload(importlib.import_module("think.openai"))
@@ -297,7 +301,7 @@ def test_openai_outfile(monkeypatch, tmp_path):
     assert logged_events == events
 
 
-def test_openai_thinking_events(monkeypatch, tmp_path, capsys):
+def test_openai_thinking_events_stdout(monkeypatch, tmp_path, capsys):
     agents_stub = types.ModuleType("agents")
 
     last_kwargs = {}
@@ -316,13 +320,10 @@ def test_openai_thinking_events(monkeypatch, tmp_path, capsys):
             reasoning_item = SimpleNamespace(
                 reasoning=SimpleNamespace(
                     summary="I need to think about this step by step.",
-                    content="This is my reasoning process."
+                    content="This is my reasoning process.",
                 )
             )
-            return SimpleNamespace(
-                final_output="ok",
-                new_items=[reasoning_item]
-            )
+            return SimpleNamespace(final_output="ok", new_items=[reasoning_item])
 
     agents_stub.Agent = DummyAgent
     agents_stub.Runner = DummyRunner
@@ -340,7 +341,7 @@ def test_openai_thinking_events(monkeypatch, tmp_path, capsys):
 
     agents_mcp_stub = types.ModuleType("agents.mcp")
 
-    class DummyMCP:
+    class DummyMCP:  # noqa: F811
         async def __aenter__(self):
             return self
 
@@ -355,15 +356,18 @@ def test_openai_thinking_events(monkeypatch, tmp_path, capsys):
     sys.modules["agents"] = agents_stub
     sys.modules["agents.mcp"] = agents_mcp_stub
     sys.modules.pop("think.openai", None)
-    
+
     # Mock create_mcp_client to avoid reading URI file
-    class DummyMCP:
+    class DummyMCP:  # noqa: F811
         async def __aenter__(self):
             return self
+
         async def __aexit__(self, exc_type, exc, tb):
             pass
+
     def mock_create_mcp_client():
         return DummyMCP()
+
     monkeypatch.setattr("think.utils.create_mcp_client", mock_create_mcp_client)
 
     importlib.reload(importlib.import_module("think.openai"))
@@ -381,19 +385,19 @@ def test_openai_thinking_events(monkeypatch, tmp_path, capsys):
 
     out_lines = capsys.readouterr().out.strip().splitlines()
     events = [json.loads(line) for line in out_lines]
-    
+
     # Check that we have start, thinking, and finish events
     assert events[0]["event"] == "start"
     assert isinstance(events[0]["ts"], int)
     assert events[0]["prompt"] == "hello"
-    
+
     # Look for thinking event
     thinking_events = [e for e in events if e["event"] == "thinking"]
     assert len(thinking_events) == 1
     assert thinking_events[0]["summary"] == "I need to think about this step by step."
     assert thinking_events[0]["model"] == "o4-mini-2025-04-16"
     assert isinstance(thinking_events[0]["ts"], int)
-    
+
     assert events[-1]["event"] == "finish"
     assert events[-1]["result"] == "ok"
     assert DummyRunner.called
@@ -427,7 +431,7 @@ def test_openai_outfile_error(monkeypatch, tmp_path):
 
     agents_mcp_stub = types.ModuleType("agents.mcp")
 
-    class DummyMCP:
+    class DummyMCP:  # noqa: F811
         async def __aenter__(self):
             return self
 
@@ -442,15 +446,18 @@ def test_openai_outfile_error(monkeypatch, tmp_path):
     sys.modules["agents"] = agents_stub
     sys.modules["agents.mcp"] = agents_mcp_stub
     sys.modules.pop("think.openai", None)
-    
+
     # Mock create_mcp_client to avoid reading URI file
-    class DummyMCP:
+    class DummyMCP:  # noqa: F811
         async def __aenter__(self):
             return self
+
         async def __aexit__(self, exc_type, exc, tb):
             pass
+
     def mock_create_mcp_client():
         return DummyMCP()
+
     monkeypatch.setattr("think.utils.create_mcp_client", mock_create_mcp_client)
 
     importlib.reload(importlib.import_module("think.openai"))
@@ -485,7 +492,7 @@ def test_openai_outfile_error(monkeypatch, tmp_path):
     assert logged_events == events
 
 
-def test_openai_thinking_events(monkeypatch, tmp_path, capsys):
+def test_openai_thinking_events_error(monkeypatch, tmp_path, capsys):
     agents_stub = types.ModuleType("agents")
 
     last_kwargs = {}
@@ -504,13 +511,10 @@ def test_openai_thinking_events(monkeypatch, tmp_path, capsys):
             reasoning_item = SimpleNamespace(
                 reasoning=SimpleNamespace(
                     summary="I need to think about this step by step.",
-                    content="This is my reasoning process."
+                    content="This is my reasoning process.",
                 )
             )
-            return SimpleNamespace(
-                final_output="ok",
-                new_items=[reasoning_item]
-            )
+            return SimpleNamespace(final_output="ok", new_items=[reasoning_item])
 
     agents_stub.Agent = DummyAgent
     agents_stub.Runner = DummyRunner
@@ -528,7 +532,7 @@ def test_openai_thinking_events(monkeypatch, tmp_path, capsys):
 
     agents_mcp_stub = types.ModuleType("agents.mcp")
 
-    class DummyMCP:
+    class DummyMCP:  # noqa: F811
         async def __aenter__(self):
             return self
 
@@ -543,15 +547,18 @@ def test_openai_thinking_events(monkeypatch, tmp_path, capsys):
     sys.modules["agents"] = agents_stub
     sys.modules["agents.mcp"] = agents_mcp_stub
     sys.modules.pop("think.openai", None)
-    
+
     # Mock create_mcp_client to avoid reading URI file
-    class DummyMCP:
+    class DummyMCP:  # noqa: F811
         async def __aenter__(self):
             return self
+
         async def __aexit__(self, exc_type, exc, tb):
             pass
+
     def mock_create_mcp_client():
         return DummyMCP()
+
     monkeypatch.setattr("think.utils.create_mcp_client", mock_create_mcp_client)
 
     importlib.reload(importlib.import_module("think.openai"))
@@ -569,19 +576,19 @@ def test_openai_thinking_events(monkeypatch, tmp_path, capsys):
 
     out_lines = capsys.readouterr().out.strip().splitlines()
     events = [json.loads(line) for line in out_lines]
-    
+
     # Check that we have start, thinking, and finish events
     assert events[0]["event"] == "start"
     assert isinstance(events[0]["ts"], int)
     assert events[0]["prompt"] == "hello"
-    
+
     # Look for thinking event
     thinking_events = [e for e in events if e["event"] == "thinking"]
     assert len(thinking_events) == 1
     assert thinking_events[0]["summary"] == "I need to think about this step by step."
     assert thinking_events[0]["model"] == "o4-mini-2025-04-16"
     assert isinstance(thinking_events[0]["ts"], int)
-    
+
     assert events[-1]["event"] == "finish"
     assert events[-1]["result"] == "ok"
     assert DummyRunner.called

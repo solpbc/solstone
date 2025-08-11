@@ -4,6 +4,9 @@ This module provides backward compatibility by re-exporting all the main
 functions from the sub-modules.
 """
 
+# Import from cli
+from .cli import main
+
 # Import from core
 from .core import (
     DATE_RE,
@@ -13,31 +16,6 @@ from .core import (
     find_day_dirs,
     get_index,
     reset_index,
-)
-
-# Import from summaries
-from .summaries import (
-    TOPIC_BASENAMES,
-    TOPIC_DIR,
-    find_summary_files,
-    scan_summaries,
-    search_summaries,
-    split_sentences,
-)
-
-# Import from events
-from .events import (
-    scan_events,
-    search_events,
-)
-
-# Import from transcripts
-from .transcripts import (
-    AUDIO_RE,
-    SCREEN_RE,
-    find_transcript_files,
-    scan_transcripts,
-    search_transcripts,
 )
 
 # Import from entities
@@ -50,8 +28,30 @@ from .entities import (
     search_entities,
 )
 
-# Import from cli
-from .cli import main
+# Import from events
+from .events import (
+    scan_events,
+    search_events,
+)
+
+# Import from summaries
+from .summaries import (
+    TOPIC_BASENAMES,
+    TOPIC_DIR,
+    find_summary_files,
+    scan_summaries,
+    search_summaries,
+    split_sentences,
+)
+
+# Import from transcripts
+from .transcripts import (
+    AUDIO_RE,
+    SCREEN_RE,
+    find_transcript_files,
+    scan_transcripts,
+    search_transcripts,
+)
 
 # All public functions and constants
 __all__ = [

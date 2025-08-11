@@ -18,11 +18,11 @@ from anthropic import AsyncAnthropic
 from anthropic.types import MessageParam, ToolParam, ToolUseBlock
 
 from .agents import JSONEventCallback, ThinkingEvent
-from .models import CLAUDE_OPUS_4, CLAUDE_SONNET_4
+from .models import CLAUDE_SONNET_4
 from .utils import agent_instructions, create_mcp_client
 
 DEFAULT_MODEL = CLAUDE_SONNET_4
-DEFAULT_MAX_TOKENS = 8096*2
+DEFAULT_MAX_TOKENS = 8096 * 2
 
 
 def setup_logging(verbose: bool) -> logging.Logger:
@@ -44,11 +44,13 @@ class ToolExecutor:
 
     async def execute_tool(self, tool_use: ToolUseBlock) -> dict:
         """Execute ``tool_use`` and return a Claude ``tool_result`` block."""
-        self.callback.emit({
-            "event": "tool_start",
-            "tool": tool_use.name,
-            "args": tool_use.input,
-        })
+        self.callback.emit(
+            {
+                "event": "tool_start",
+                "tool": tool_use.name,
+                "args": tool_use.input,
+            }
+        )
 
         try:
             try:
@@ -63,37 +65,47 @@ class ToolExecutor:
                     arguments=tool_use.input,
                 )
             # Extract content from CallToolResult if needed
-            if hasattr(result, 'content'):
+            if hasattr(result, "content"):
                 # MCP CallToolResult object - extract text from TextContent objects
                 if isinstance(result.content, list):
                     # Handle array of content items
                     extracted_content = []
                     for item in result.content:
-                        if hasattr(item, 'text'):
+                        if hasattr(item, "text"):
                             # TextContent object - extract the text
                             extracted_content.append(item.text)
                         else:
                             # Other content types - keep as is
                             extracted_content.append(item)
                     # If single text content, return as string, otherwise as list
-                    result_data = extracted_content[0] if len(extracted_content) == 1 else extracted_content
+                    result_data = (
+                        extracted_content[0]
+                        if len(extracted_content) == 1
+                        else extracted_content
+                    )
                 else:
                     result_data = result.content
             else:
                 # Direct result (dict, string, etc.)
                 result_data = result
-            self.callback.emit({
-                "event": "tool_end",
-                "tool": tool_use.name,
-                "result": result_data,
-            })
-            content = result_data if isinstance(result_data, str) else json.dumps(result_data)
+            self.callback.emit(
+                {
+                    "event": "tool_end",
+                    "tool": tool_use.name,
+                    "result": result_data,
+                }
+            )
+            content = (
+                result_data if isinstance(result_data, str) else json.dumps(result_data)
+            )
         except Exception as exc:  # pragma: no cover - unexpected
-            self.callback.emit({
-                "event": "tool_end",
-                "tool": tool_use.name,
-                "result": {"error": str(exc)},
-            })
+            self.callback.emit(
+                {
+                    "event": "tool_end",
+                    "tool": tool_use.name,
+                    "result": {"error": str(exc)},
+                }
+            )
             content = f"Error: {exc}"
 
         return {
@@ -113,12 +125,14 @@ async def _get_mcp_tools(mcp: Any) -> list[ToolParam]:
     tool_list = await mcp.list_tools()
 
     for tool in tool_list:
-        tools.append({
-            "name": tool.name,
-            "description": tool.description or "",
-            "input_schema": tool.inputSchema
-            or {"type": "object", "properties": {}, "required": []},
-        })
+        tools.append(
+            {
+                "name": tool.name,
+                "description": tool.description or "",
+                "input_schema": tool.inputSchema
+                or {"type": "object", "properties": {}, "required": []},
+            }
+        )
 
     return tools
 
@@ -141,12 +155,14 @@ async def run_agent(
 
         client = AsyncAnthropic(api_key=api_key)
 
-        callback.emit({
-            "event": "start",
-            "prompt": prompt,
-            "persona": persona,
-            "model": model,
-        })
+        callback.emit(
+            {
+                "event": "start",
+                "prompt": prompt,
+                "persona": persona,
+                "model": model,
+            }
+        )
 
         async with create_mcp_client() as mcp:
             system_instruction, first_user, _ = agent_instructions(persona)
@@ -162,10 +178,16 @@ async def run_agent(
             while True:
                 # Configure thinking for supported models
                 thinking_config = None
-                if model in ["claude-opus-4-20250514", "claude-sonnet-4-20250514", "claude-sonnet-3-7-20241124"]:
+                if model in [
+                    "claude-opus-4-20250514",
+                    "claude-sonnet-4-20250514",
+                    "claude-sonnet-3-7-20241124",
+                ]:
                     thinking_config = {
                         "type": "enabled",
-                        "budget_tokens": min(10000, max_tokens - 1000)  # Reserve some tokens for final response
+                        "budget_tokens": min(
+                            10000, max_tokens - 1000
+                        ),  # Reserve some tokens for final response
                     }
 
                 response = await client.messages.create(
@@ -190,7 +212,7 @@ async def run_agent(
                             "event": "thinking",
                             "ts": int(time.time() * 1000),
                             "summary": block.thinking,
-                            "model": model
+                            "model": model,
                         }
                         callback.emit(thinking_event)
 
@@ -207,11 +229,13 @@ async def run_agent(
 
                 messages.append({"role": "user", "content": results})
     except Exception as exc:
-        callback.emit({
-            "event": "error",
-            "error": str(exc),
-            "trace": traceback.format_exc(),
-        })
+        callback.emit(
+            {
+                "event": "error",
+                "error": str(exc),
+                "trace": traceback.format_exc(),
+            }
+        )
         setattr(exc, "_evented", True)
         raise
 

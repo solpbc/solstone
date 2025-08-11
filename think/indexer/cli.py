@@ -5,11 +5,12 @@ import os
 from typing import Dict, List
 
 from think.utils import journal_log, setup_cli
+
 from .core import reset_index
-from .summaries import scan_summaries, search_summaries
-from .events import scan_events, search_events
-from .transcripts import scan_transcripts, search_transcripts
 from .entities import scan_entities, search_entities
+from .events import scan_events, search_events
+from .summaries import scan_summaries, search_summaries
+from .transcripts import scan_transcripts, search_transcripts
 
 
 def _display_search_results(results: List[Dict[str, str]]) -> None:
@@ -64,7 +65,7 @@ def main() -> None:
     if not args.rescan and not args.rescan_all and args.query is None:
         parser.print_help()
         return
-    
+
     # Validate --index is required unless using --rescan-all
     if not args.rescan_all and not args.index:
         parser.error("--index is required unless using --rescan-all")
@@ -119,7 +120,7 @@ def main() -> None:
     if args.query is not None:
         if not args.index:
             parser.error("--index is required when using --query")
-        
+
         if args.index == "transcripts":
             search_func = search_transcripts
             query_kwargs = {"day": args.day}

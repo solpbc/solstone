@@ -198,21 +198,26 @@ def run_task(
                     path, ts = day.split("|", 1)
                 except ValueError:
                     raise ValueError("invalid importer args")
-                    
+
                 # Update metadata JSON with task ID and user-submitted timestamp
                 if task_id:
                     import json
                     from pathlib import Path
+
                     metadata_path = Path(str(path) + ".json")
                     if metadata_path.exists():
                         try:
-                            metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+                            metadata = json.loads(
+                                metadata_path.read_text(encoding="utf-8")
+                            )
                             metadata["task_id"] = task_id
                             metadata["user_submitted_timestamp"] = ts
-                            metadata_path.write_text(json.dumps(metadata, indent=2), encoding="utf-8")
+                            metadata_path.write_text(
+                                json.dumps(metadata, indent=2), encoding="utf-8"
+                            )
                         except Exception:
                             pass  # Continue even if metadata update fails
-                
+
                 cmd = ["think-importer", path, ts, "--verbose"]
                 commands.append(" ".join(cmd))
                 code = (
@@ -331,7 +336,9 @@ class TaskRunner:
                 pass  # WebSocket closed, log is still recorded in task_manager
 
         def _runner() -> None:
-            code, cmd_str = run_task(task, day, _log, force=force, stop=stop, task_id=t.id)
+            code, cmd_str = run_task(
+                task, day, _log, force=force, stop=stop, task_id=t.id
+            )
             task_manager.finish_task(t.id, code, cmd_str)
             try:
                 ws.send(json.dumps({"type": "exit", "code": code}))

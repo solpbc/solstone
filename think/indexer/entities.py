@@ -8,8 +8,7 @@ from typing import Any, Dict, List, Tuple
 
 import sqlite_utils
 
-from .core import find_day_dirs, get_index, _scan_files
-
+from .core import _scan_files, find_day_dirs, get_index
 
 # Entity parsing helpers
 ENTITY_ITEM_RE = re.compile(r"^\s*[-*]\s*(.*)")

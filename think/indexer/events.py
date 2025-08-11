@@ -8,7 +8,7 @@ from typing import Any, Dict, List
 
 import sqlite_utils
 
-from .core import get_index, _scan_files
+from .core import _scan_files, get_index
 from .summaries import find_summary_files
 
 

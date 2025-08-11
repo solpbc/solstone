@@ -67,7 +67,9 @@ class ThinkingEvent(TypedDict):
     model: Optional[str]
 
 
-Event = Union[ToolStartEvent, ToolEndEvent, StartEvent, FinishEvent, ErrorEvent, ThinkingEvent]
+Event = Union[
+    ToolStartEvent, ToolEndEvent, StartEvent, FinishEvent, ErrorEvent, ThinkingEvent
+]
 
 
 class JSONEventWriter:
@@ -182,7 +184,7 @@ async def run_agent(
     persona: str = "default",
 ) -> str:
     """Run a single prompt through an agent backend and return the response.
-    
+
     Args:
         prompt: The prompt to run
         backend: Backend provider ("openai", "google", "anthropic")
@@ -190,7 +192,7 @@ async def run_agent(
         max_tokens: Maximum tokens (defaults to backend default)
         on_event: Optional event callback
         persona: Persona instructions to load
-    
+
     Returns:
         The agent's response text
     """
@@ -200,7 +202,7 @@ async def run_agent(
         from . import anthropic as backend_mod
     else:
         from . import openai as backend_mod
-    
+
     return await backend_mod.run_agent(
         prompt,
         model=model or backend_mod.DEFAULT_MODEL,

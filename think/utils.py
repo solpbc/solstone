@@ -363,7 +363,8 @@ def get_matters(
 
     # Find all matter_X directories
     matter_dirs = [
-        d for d in domain_path.iterdir()
+        d
+        for d in domain_path.iterdir()
         if d.is_dir() and d.name.startswith("matter_") and d.name[7:].isdigit()
     ]
     # Sort by matter number in descending order (newest first)
@@ -461,7 +462,7 @@ def get_matter(domain: str, matter_id: str) -> dict[str, Any]:
     # Load objectives (new format: objective_<name> directories with OBJECTIVE.md and OUTCOME.md)
     for obj_dir in matter_path.iterdir():
         if obj_dir.is_dir() and obj_dir.name.startswith("objective_"):
-            obj_name = obj_dir.name[len("objective_"):]  # Remove "objective_" prefix
+            obj_name = obj_dir.name[len("objective_") :]  # Remove "objective_" prefix
             obj_data = {
                 "name": obj_name,
                 "objective": "",

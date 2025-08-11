@@ -1,4 +1,3 @@
-import asyncio
 import importlib
 import time
 
@@ -31,7 +30,9 @@ def test_send_message_success(monkeypatch):
         dummy_ask_agent_via_cortex.called = (prompt, attachments, backend)
         return "pong"
 
-    monkeypatch.setattr("dream.views.chat.ask_agent_via_cortex", dummy_ask_agent_via_cortex)
+    monkeypatch.setattr(
+        "dream.views.chat.ask_agent_via_cortex", dummy_ask_agent_via_cortex
+    )
 
     with review.app.test_request_context(
         "/chat/api/send", method="POST", json={"message": "hi", "backend": "google"}
@@ -52,7 +53,9 @@ def test_send_message_openai(monkeypatch):
         called["backend"] = backend
         return "pong"
 
-    monkeypatch.setattr("dream.views.chat.ask_agent_via_cortex", dummy_ask_agent_via_cortex)
+    monkeypatch.setattr(
+        "dream.views.chat.ask_agent_via_cortex", dummy_ask_agent_via_cortex
+    )
 
     with review.app.test_request_context(
         "/chat/api/send", method="POST", json={"message": "hi", "backend": "openai"}
@@ -72,7 +75,9 @@ def test_send_message_anthropic(monkeypatch):
         called["backend"] = backend
         return "pong"
 
-    monkeypatch.setattr("dream.views.chat.ask_agent_via_cortex", dummy_ask_agent_via_cortex)
+    monkeypatch.setattr(
+        "dream.views.chat.ask_agent_via_cortex", dummy_ask_agent_via_cortex
+    )
 
     with review.app.test_request_context(
         "/chat/api/send", method="POST", json={"message": "hi", "backend": "anthropic"}
@@ -106,28 +111,33 @@ def test_tool_event_pushed(monkeypatch):
     class MockCortexClient:
         def __init__(self):
             self.event_callback = None
-            
+
         def set_event_callback(self, callback):
             self.event_callback = callback
-            
+
         def spawn_agent(self, prompt, backend, persona):
             # Simulate tool event
-            self.event_callback({
-                "event": "tool_start",
-                "ts": int(time.time() * 1000),
-                "tool": "search_events",
-                "args": {"query": prompt},
-            })
-    
+            self.event_callback(
+                {
+                    "event": "tool_start",
+                    "ts": int(time.time() * 1000),
+                    "tool": "search_events",
+                    "args": {"query": prompt},
+                }
+            )
+
     def dummy_ask_agent_via_cortex(prompt, attachments, backend):
         # Simulate the cortex interaction flow
         client = MockCortexClient()
         import dream.views.chat
+
         client.set_event_callback(dream.views.chat._handle_cortex_event)
         client.spawn_agent(prompt, backend, "default")
         return "pong"
 
-    monkeypatch.setattr("dream.views.chat.ask_agent_via_cortex", dummy_ask_agent_via_cortex)
+    monkeypatch.setattr(
+        "dream.views.chat.ask_agent_via_cortex", dummy_ask_agent_via_cortex
+    )
 
     with review.app.test_request_context(
         "/chat/api/send", method="POST", json={"message": "hi", "backend": "google"}

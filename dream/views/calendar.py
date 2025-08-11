@@ -130,14 +130,15 @@ def calendar_transcript_range(day: str) -> Any:
             markdown_text = cluster_range(day, start, end, audio=True, screen="summary")
         elif audio_enabled and not screen_enabled:
             # Only audio selected - custom logic to exclude screen content
+            from datetime import datetime
+
             from think.cluster import (
-                day_path,
                 _date_str,
-                _load_entries,
                 _group_entries,
                 _groups_to_markdown,
+                _load_entries,
+                day_path,
             )
-            from datetime import datetime
 
             day_dir = day_path(day)
             date_str = _date_str(day_dir)
@@ -186,8 +187,9 @@ def calendar_raw_files(day: str) -> Any:
 
     file_type = request.args.get("type", None)  # 'audio', 'screen', or None for both
 
-    from think.cluster import day_path, _date_str, _load_entries
     from datetime import datetime
+
+    from think.cluster import _date_str, _load_entries, day_path
 
     day_dir = day_path(day)
     if not os.path.isdir(day_dir):
@@ -237,9 +239,10 @@ def calendar_media_files(day: str) -> Any:
 
     file_type = request.args.get("type", None)  # 'audio', 'screen', or None for both
 
-    from think.cluster import day_path, _date_str, _load_entries
-    from think.utils import get_raw_file
     from datetime import datetime
+
+    from think.cluster import _date_str, _load_entries, day_path
+    from think.utils import get_raw_file
 
     day_dir = day_path(day)
     if not os.path.isdir(day_dir):
@@ -266,7 +269,9 @@ def calendar_media_files(day: str) -> Any:
                 rel_path, mime_type, metadata = get_raw_file(day, e["name"])
 
                 # Create a URL path for serving the file
-                file_url = f"/calendar/api/serve_file/{day}/{rel_path.replace('/', '__')}"
+                file_url = (
+                    f"/calendar/api/serve_file/{day}/{rel_path.replace('/', '__')}"
+                )
 
                 # For screen files, prefix could be "screen" (summary) or source name (raw)
                 file_type_str = "audio" if e["prefix"] == "audio" else "screen"

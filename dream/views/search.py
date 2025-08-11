@@ -194,8 +194,7 @@ def search_entities_api() -> Any:
     order = request.args.get("order", "rank")
 
     total, rows = search_entities(
-        query, limit, offset,
-        day=day, etype=etype, name=name, top=top, order=order
+        query, limit, offset, day=day, etype=etype, name=name, top=top, order=order
     )
     results = []
     for r in rows:
@@ -215,23 +214,27 @@ def search_entities_api() -> Any:
 
         if is_appearance:
             # This is an entity appearance
-            result.update({
-                "day": meta.get("day", ""),
-                "date": format_date(meta.get("day", "")),
-                "path": meta.get("path", ""),
-                "appearance": True,
-            })
+            result.update(
+                {
+                    "day": meta.get("day", ""),
+                    "date": format_date(meta.get("day", "")),
+                    "path": meta.get("path", ""),
+                    "appearance": True,
+                }
+            )
         else:
             # This is an aggregated entity
-            result.update({
-                "first_seen": meta.get("first_seen", ""),
-                "last_seen": meta.get("last_seen", ""),
-                "first_date": format_date(meta.get("first_seen", "")),
-                "last_date": format_date(meta.get("last_seen", "")),
-                "days": meta.get("days", 0),
-                "top": meta.get("top", False),
-                "appearance": False,
-            })
+            result.update(
+                {
+                    "first_seen": meta.get("first_seen", ""),
+                    "last_seen": meta.get("last_seen", ""),
+                    "first_date": format_date(meta.get("first_seen", "")),
+                    "last_date": format_date(meta.get("last_seen", "")),
+                    "days": meta.get("days", 0),
+                    "top": meta.get("top", False),
+                    "appearance": False,
+                }
+            )
 
         results.append(result)
 

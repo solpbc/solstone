@@ -5,6 +5,7 @@ import os
 import tempfile
 from pathlib import Path
 from unittest.mock import patch
+
 import pytest
 
 
@@ -463,9 +464,11 @@ def test_create_objective_api():
 
         # Test the API endpoint
         with patch.dict(os.environ, {"JOURNAL_PATH": str(journal_path)}):
-            from dream.views.domains import create_objective
-            from flask import Flask
             import json as flask_json
+
+            from flask import Flask
+
+            from dream.views.domains import create_objective
 
             app = Flask(__name__)
 
@@ -530,9 +533,11 @@ def test_create_objective_validation():
         (matter_path / "activity_log.jsonl").write_text("")
 
         with patch.dict(os.environ, {"JOURNAL_PATH": str(journal_path)}):
-            from dream.views.domains import create_objective
-            from flask import Flask
             import json as flask_json
+
+            from flask import Flask
+
+            from dream.views.domains import create_objective
 
             app = Flask(__name__)
 
@@ -609,9 +614,11 @@ def test_create_objective_duplicate_handling():
         (existing_obj_dir / "OBJECTIVE.md").write_text("Existing objective")
 
         with patch.dict(os.environ, {"JOURNAL_PATH": str(journal_path)}):
-            from dream.views.domains import create_objective
-            from flask import Flask
             import json as flask_json
+
+            from flask import Flask
+
+            from dream.views.domains import create_objective
 
             app = Flask(__name__)
 

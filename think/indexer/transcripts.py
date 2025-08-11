@@ -9,8 +9,7 @@ from typing import Dict, List
 
 import sqlite_utils
 
-from .core import find_day_dirs, get_index, _scan_files
-
+from .core import _scan_files, find_day_dirs, get_index
 
 # Transcript file helpers
 AUDIO_RE = re.compile(r"^(?P<time>\d{6})_audio\.json$")

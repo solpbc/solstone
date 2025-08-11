@@ -1,2 +1,2 @@
 [flake8]
-extend-ignore = W503,W504,E501
+extend-ignore = W503,W504,E501,E203

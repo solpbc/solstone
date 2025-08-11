@@ -122,7 +122,9 @@ def api_top_generate() -> Any:
     etype = payload.get("type")
     name = payload.get("name")
     # Get all entity appearances to collect descriptions
-    _total, results = search_entities("", limit=1000, etype=etype, name=name, order="day")
+    _total, results = search_entities(
+        "", limit=1000, etype=etype, name=name, order="day"
+    )
     if not results:
         return ("", 400)
 
@@ -143,10 +145,7 @@ def api_top_generate() -> Any:
         latest_day = max(descriptions.keys())
         primary = descriptions[latest_day]
 
-    info = {
-        "descriptions": descriptions,
-        "primary": primary
-    }
+    info = {"descriptions": descriptions, "primary": primary}
 
     api_key = os.getenv("GOOGLE_API_KEY")
     if not api_key:

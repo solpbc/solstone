@@ -21,7 +21,9 @@ def _date_str(day_dir: str) -> str:
     return base
 
 
-def _load_entries(day_dir: str, audio: bool, screen_mode: Optional[str]) -> List[Dict[str, str]]:
+def _load_entries(
+    day_dir: str, audio: bool, screen_mode: Optional[str]
+) -> List[Dict[str, str]]:
     date_str = _date_str(day_dir)
     entries: List[Dict[str, str]] = []
     for filename in os.listdir(day_dir):
@@ -245,7 +247,9 @@ def cluster_range(
     return _groups_to_markdown(groups)
 
 
-def cluster_files(day: str, start: str, end: str, type: Optional[str] = None) -> List[str]:
+def cluster_files(
+    day: str, start: str, end: str, type: Optional[str] = None
+) -> List[str]:
     """Return raw audio and screen transcript contents for ``day`` in ``start``-``end`` (HHMMSS).
 
     Args:
@@ -275,7 +279,9 @@ def cluster_files(day: str, start: str, end: str, type: Optional[str] = None) ->
         entries = _load_entries(day_dir, audio=True, screen_mode="raw")
 
     # Filter to the requested window and return the raw contents.
-    return [e["content"].strip() for e in entries if start_dt <= e["timestamp"] < end_dt]
+    return [
+        e["content"].strip() for e in entries if start_dt <= e["timestamp"] < end_dt
+    ]
 
 
 def main():
