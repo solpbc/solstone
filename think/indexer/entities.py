@@ -15,6 +15,8 @@ from .core import find_day_dirs, get_index, _scan_files
 ENTITY_ITEM_RE = re.compile(r"^\s*[-*]\s*(.*)")
 
 
+
+
 def parse_entity_line(line: str) -> Tuple[str, str, str] | None:
     """Parse a single line from an ``entities.md`` file."""
     cleaned = line.replace("**", "")
@@ -193,7 +195,13 @@ def search_entities(
     if query:
         fts_parts.append(query)
     if name:
-        fts_parts.append(f"name:{name}")
+        # For column-specific searches, quote the entire expression if needed
+        if any(c in name for c in '.()[]"*'):
+            # Name contains special chars, quote the whole column:term expression
+            escaped_name = name.replace('"', '""')
+            fts_parts.append(f'name:"{escaped_name}"')
+        else:
+            fts_parts.append(f"name:{name}")
 
     where_clause = "1"
     params: List[str] = []
