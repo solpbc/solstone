@@ -21,15 +21,19 @@
   background: var(--domain-color);
 }
 
+.domain-header-content {
+  display: flex;
+  align-items: center;
+  gap: 0.5em;
+}
+
 .domain-header .domain-emoji {
-  font-size: 3em;
-  display: block;
-  margin-bottom: 0.5em;
+  font-size: 2.5em;
   opacity: 0.9;
 }
 
 .domain-header h1 {
-  margin: 0 0 0.5em 0;
+  margin: 0;
   font-size: 2.5em;
   font-weight: 700;
   color: white;
@@ -39,13 +43,6 @@
   background-clip: unset;
 }
 
-.domain-header .description {
-  font-size: 1.2em;
-  opacity: 0.9;
-  line-height: 1.4;
-  margin: 0;
-  max-width: 800px;
-}
 
 /* Back button */
 .back-button {
@@ -246,45 +243,16 @@
   font-style: italic;
 }
 
-/* Description editing */
-.edit-description-btn {
-  margin-left: 0.5em;
-  cursor: pointer;
+/* Description tab content styling */
+.description-content {
+  max-width: 800px;
+}
+
+.description-content p {
   font-size: 1.1em;
-  transition: opacity 0.2s, transform 0.2s;
-  display: inline-block;
-}
-
-.edit-description-btn:hover {
-  opacity: 1;
-  transform: scale(1.1);
-}
-
-/* Hide pencil icon by default for descriptions with content */
-.has-description .edit-description-btn {
-  opacity: 0;
-}
-
-.has-description:hover .edit-description-btn {
-  opacity: 0.7;
-}
-
-.no-description {
-  opacity: 0.7;
-  font-style: italic;
-}
-
-.no-description .edit-description-btn {
-  opacity: 0.7;
-}
-
-.add-description-text {
-  cursor: pointer;
-  transition: opacity 0.2s;
-}
-
-.add-description-text:hover {
-  opacity: 1;
+  line-height: 1.6;
+  color: #333;
+  margin-bottom: 2em;
 }
 
 /* Description modal */
@@ -777,29 +745,19 @@
 <div class="domain-header{% if domain_data.color %} has-color{% endif %}"{% if domain_data.color %} style="--domain-color: {{ domain_data.color }}"{% endif %}>
   <a href="{{ url_for('domains.domains_page') }}" class="back-button">← Back to Domains</a>
   
-  {% if domain_data.emoji %}
-  <div class="domain-emoji">{{ domain_data.emoji }}</div>
-  {% endif %}
-  
-  <h1>{{ domain_data.title or domain_name }}</h1>
-  
-  {% if domain_data.description %}
-  <p class="description has-description">
-    {{ domain_data.description }}
-    <span class="edit-description-btn" onclick="openDescriptionEditor()" title="Edit description">✏️</span>
-  </p>
-  {% else %}
-  <p class="description no-description">
-    <span class="add-description-text" onclick="openDescriptionEditor()">Add description...</span>
-    <span class="edit-description-btn" onclick="openDescriptionEditor()" title="Add description">✨</span>
-  </p>
-  {% endif %}
+  <div class="domain-header-content">
+    {% if domain_data.emoji %}
+    <div class="domain-emoji">{{ domain_data.emoji }}</div>
+    {% endif %}
+    <h1>{{ domain_data.title or domain_name }}</h1>
+  </div>
 </div>
 
 <div class="tab-container">
   <div class="tab-nav">
     <button class="tab-button active" data-tab="matters">Matters</button>
     <button class="tab-button" data-tab="entities">Entities</button>
+    <button class="tab-button" data-tab="description">Description</button>
   </div>
   
   <div id="matters-tab" class="tab-content active">
@@ -866,6 +824,24 @@
         </div>
       </div>
     </div>
+  </div>
+  
+  <div id="description-tab" class="tab-content">
+    <h2>Description</h2>
+    {% if domain_data.description %}
+    <div class="description-content has-description">
+      <p>{{ domain_data.description }}</p>
+      <button class="btn btn-primary" onclick="openDescriptionEditor()">✏️ Edit Description</button>
+    </div>
+    {% else %}
+    <div class="description-content no-description">
+      <div class="placeholder">
+        <h3>No description yet</h3>
+        <p>Add a description to help explain what this domain is about and what matters it contains.</p>
+        <button class="btn btn-primary" onclick="openDescriptionEditor()">✨ Add Description</button>
+      </div>
+    </div>
+    {% endif %}
   </div>
 </div>
 
@@ -1486,16 +1462,22 @@ function saveDomainDescription(description) {
   .then(response => response.json())
   .then(data => {
     if (data.success) {
-      // Update the page description
-      const descElement = document.querySelector('.description');
+      // Update the description tab content
+      const descContent = document.querySelector('.description-content');
       if (description) {
-        descElement.innerHTML = `${description} <span class="edit-description-btn" onclick="openDescriptionEditor()" title="Edit description">✏️</span>`;
-        descElement.classList.remove('no-description');
-        descElement.classList.add('has-description');
+        descContent.innerHTML = `<p>${description}</p><button class="btn btn-primary" onclick="openDescriptionEditor()">✏️ Edit Description</button>`;
+        descContent.classList.remove('no-description');
+        descContent.classList.add('has-description');
       } else {
-        descElement.innerHTML = '<span class="add-description-text" onclick="openDescriptionEditor()">Add description...</span> <span class="edit-description-btn" onclick="openDescriptionEditor()" title="Add description">✨</span>';
-        descElement.classList.add('no-description');
-        descElement.classList.remove('has-description');
+        descContent.innerHTML = `
+          <div class="placeholder">
+            <h3>No description yet</h3>
+            <p>Add a description to help explain what this domain is about and what matters it contains.</p>
+            <button class="btn btn-primary" onclick="openDescriptionEditor()">✨ Add Description</button>
+          </div>
+        `;
+        descContent.classList.add('no-description');
+        descContent.classList.remove('has-description');
       }
       closeDescriptionEditor();
     } else {
