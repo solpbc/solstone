@@ -193,7 +193,7 @@ def main() -> None:
         level=level, handlers=handlers, format="%(asctime)s %(levelname)s %(message)s"
     )
 
-    os.environ.setdefault("SUNSTONE_MCP_URL", "http://127.0.0.1:6270/mcp/")
+    os.environ.setdefault("SUNSTONE_MCP_URL", "http://127.0.0.1:6270/mcp")
 
     procs: list[tuple[subprocess.Popen, str]] = []
     if not args.no_runners:

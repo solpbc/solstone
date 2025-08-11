@@ -9,7 +9,7 @@ from typing import Dict, List, Optional, Set, Tuple
 from .utils import day_path, setup_cli
 
 TIME_RE = r"(\d{6})"
-AUDIO_PATTERN = re.compile(rf"^{TIME_RE}_.*_audio\.json$")
+AUDIO_PATTERN = re.compile(rf"^{TIME_RE}.*_audio\.json$")
 SCREEN_SUMMARY_PATTERN = re.compile(rf"^{TIME_RE}_screen\.md$")
 SCREEN_DIFF_PATTERN = re.compile(rf"^{TIME_RE}_([a-z]+)_(\d+)_diff\.json$")
 
