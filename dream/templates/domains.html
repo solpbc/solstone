@@ -225,11 +225,6 @@ h1 {
   min-height: 70px;
 }
 
-.domain-handle {
-  font-family: monospace;
-  color: #666;
-  margin-top: 0.3em;
-}
 
 .form-actions {
   display: flex;
@@ -331,10 +326,12 @@ h1 {
     <div id="errorContainer"></div>
     <form id="domainForm">
       <div class="form-group">
-        <label for="domainTitle">Title</label>
+        <label for="domainTitle">Name</label>
         <input type="text" id="domainTitle" name="title" required placeholder="e.g., Machine Learning Research">
-        <div class="domain-handle">Name: <code id="domainHandle"></code></div>
-        <input type="hidden" id="domainName" name="name">
+      </div>
+      <div class="form-group">
+        <label for="domainName">Handle</label>
+        <input type="text" id="domainName" name="name" required placeholder="e.g., machine_learning">
       </div>
       <div class="form-group" id="domainDescriptionGroup">
         <label for="domainDescription">Description</label>
@@ -437,7 +434,6 @@ const errorContainer = document.getElementById('errorContainer');
 
 const titleInput = document.getElementById('domainTitle');
 const nameInput = document.getElementById('domainName');
-const handleDisplay = document.getElementById('domainHandle');
 const descriptionGroup = document.getElementById('domainDescriptionGroup');
 
 function generateSlug(text) {
@@ -448,7 +444,6 @@ function updateSlug() {
   if (isEditMode) return;
   const slug = generateSlug(titleInput.value);
   nameInput.value = slug;
-  handleDisplay.textContent = slug;
 }
 
 titleInput.addEventListener('input', updateSlug);
@@ -463,7 +458,6 @@ function openAddModal() {
   document.getElementById('saveBtn').textContent = 'Save Domain';
   form.reset();
   nameInput.value = '';
-  handleDisplay.textContent = '';
   descriptionGroup.style.display = 'none';
   document.getElementById('domainColor').value = '#667eea';
   document.getElementById('domainColorHex').value = '#667EEA';
@@ -480,7 +474,6 @@ function openEditModal(domainName, domainData) {
   // Populate form
   titleInput.value = domainData.title || domainName;
   nameInput.value = domainName;
-  handleDisplay.textContent = domainName;
   descriptionGroup.style.display = 'block';
   document.getElementById('domainDescription').value = domainData.description || '';
   document.getElementById('domainEmoji').value = domainData.emoji || '';
@@ -496,7 +489,6 @@ function closeModal() {
   modal.style.display = 'none';
   form.reset();
   nameInput.value = '';
-  handleDisplay.textContent = '';
   descriptionGroup.style.display = 'block';
   document.getElementById('domainColor').value = '#667eea';
   document.getElementById('domainColorHex').value = '#667EEA';
