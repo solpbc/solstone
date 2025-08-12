@@ -1,0 +1,245 @@
+{% extends 'base.html' %}
+{% set title = 'Import Details' %}
+{% set active = 'import' %}
+{% block head %}
+<style>
+.container { padding: 0 1em; }
+.back-link { display: inline-block; margin-bottom: 1em; color: #007bff; text-decoration: none; }
+.back-link:hover { text-decoration: underline; }
+.import-header { margin-bottom: 2em; }
+.import-header h1 { margin: 0 0 0.5em 0; }
+.import-meta { color: #666; font-size: 0.9em; }
+
+/* Tabs */
+.tabs { display: flex; border-bottom: 2px solid #ddd; margin-bottom: 1em; }
+.tab { padding: 10px 20px; cursor: pointer; border-bottom: 3px solid transparent; margin-bottom: -2px; }
+.tab:hover { background: #f5f5f5; }
+.tab.active { border-bottom-color: #007bff; font-weight: bold; }
+.tab-content { display: none; }
+.tab-content.active { display: block; }
+
+/* JSON viewer */
+.json-viewer { background: #f5f5f5; border: 1px solid #ddd; border-radius: 4px; padding: 1em; overflow-x: auto; }
+.json-viewer pre { margin: 0; font-family: monospace; font-size: 0.9em; }
+.json-key { color: #881391; }
+.json-string { color: #1a1aa6; }
+.json-number { color: #098658; }
+.json-boolean { color: #d73a49; }
+.json-null { color: #666; }
+
+/* Links section */
+.links-section { margin-top: 2em; padding: 1em; background: #f9f9f9; border-radius: 4px; }
+.links-section h3 { margin-top: 0; }
+.link-item { margin: 0.5em 0; }
+.link-item a { color: #007bff; text-decoration: none; }
+.link-item a:hover { text-decoration: underline; }
+
+/* Files list */
+.files-list { margin-top: 1em; }
+.files-list h4 { margin-bottom: 0.5em; }
+.files-list ul { margin: 0; padding-left: 1.5em; }
+.files-list li { margin: 0.25em 0; font-family: monospace; font-size: 0.9em; color: #666; }
+
+/* Status badge */
+.status-badge { display: inline-block; padding: 4px 10px; border-radius: 4px; font-size: 0.85em; margin-left: 1em; }
+.status-badge.success { background: #d4edda; color: #155724; }
+.status-badge.pending { background: #fff3cd; color: #856404; }
+
+/* Info grid */
+.info-grid { display: grid; grid-template-columns: auto 1fr; gap: 0.5em 1em; margin: 1em 0; }
+.info-label { font-weight: bold; color: #666; }
+.info-value { color: #333; }
+
+.no-data { color: #999; font-style: italic; padding: 2em; text-align: center; }
+</style>
+{% endblock %}
+
+{% block body %}
+<div class="container">
+  <a href="{{ url_for('import_view.import_page') }}" class="back-link">← Back to Imports</a>
+  
+  <div class="import-header">
+    <h1>Import: {{ timestamp }}</h1>
+    <div class="import-meta" id="importMeta">
+      <span>Loading...</span>
+    </div>
+  </div>
+
+  <div class="tabs">
+    <div class="tab active" data-target="overview">Overview</div>
+    <div class="tab" data-target="import-json">Upload Metadata</div>
+    <div class="tab" data-target="imported-json">Processing Results</div>
+  </div>
+
+  <div class="tab-content active" id="overview">
+    <div class="info-grid" id="overviewContent">
+      <div class="info-label">Loading...</div>
+    </div>
+    
+    <div class="links-section" id="linksSection" style="display:none;">
+      <h3>Quick Links</h3>
+      <div id="quickLinks"></div>
+    </div>
+    
+    <div class="files-list" id="filesList" style="display:none;">
+      <h4>Created Files</h4>
+      <ul id="filesListContent"></ul>
+    </div>
+  </div>
+
+  <div class="tab-content" id="import-json">
+    <div class="json-viewer">
+      <pre id="importJsonContent">Loading...</pre>
+    </div>
+  </div>
+
+  <div class="tab-content" id="imported-json">
+    <div class="json-viewer">
+      <pre id="importedJsonContent">Loading...</pre>
+    </div>
+  </div>
+</div>
+
+<script>
+// Tab switching
+const tabs = document.querySelectorAll('.tab');
+const contents = document.querySelectorAll('.tab-content');
+
+tabs.forEach(tab => {
+  tab.addEventListener('click', () => {
+    const target = tab.dataset.target;
+    tabs.forEach(t => t.classList.toggle('active', t.dataset.target === target));
+    contents.forEach(c => c.classList.toggle('active', c.id === target));
+  });
+});
+
+// Format JSON with syntax highlighting
+function formatJson(obj) {
+  if (!obj) return '<span class="json-null">No data available</span>';
+  
+  const json = JSON.stringify(obj, null, 2);
+  return json.replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g, function (match) {
+    let cls = 'json-number';
+    if (/^"/.test(match)) {
+      if (/:$/.test(match)) {
+        cls = 'json-key';
+      } else {
+        cls = 'json-string';
+      }
+    } else if (/true|false/.test(match)) {
+      cls = 'json-boolean';
+    } else if (/null/.test(match)) {
+      cls = 'json-null';
+    }
+    return '<span class="' + cls + '">' + match + '</span>';
+  });
+}
+
+// Format file size
+function formatFileSize(bytes) {
+  if (!bytes || bytes === 0) return '0 B';
+  const k = 1024;
+  const sizes = ['B', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+}
+
+// Format timestamp
+function formatTimestamp(timestamp) {
+  if (!timestamp) return '-';
+  // Convert YYYYMMDD_HHMMSS to readable format
+  const match = timestamp.match(/(\d{4})(\d{2})(\d{2})_(\d{2})(\d{2})(\d{2})/);
+  if (match) {
+    const [_, year, month, day, hour, min, sec] = match;
+    return `${year}-${month}-${day} ${hour}:${min}:${sec}`;
+  }
+  return timestamp;
+}
+
+// Load import details
+fetch('{{ url_for("import_view.import_detail_api", timestamp=timestamp) }}')
+  .then(r => r.json())
+  .then(data => {
+    // Update header metadata
+    const metaDiv = document.getElementById('importMeta');
+    if (data.import_json) {
+      const uploadTime = new Date(data.import_json.upload_datetime).toLocaleString();
+      const fileName = data.import_json.original_filename || 'Unknown';
+      const fileSize = formatFileSize(data.import_json.file_size);
+      const processed = data.imported_json ? true : false;
+      const statusClass = processed ? 'success' : 'pending';
+      const statusText = processed ? 'Completed' : 'Pending';
+      
+      metaDiv.innerHTML = `
+        <span>${fileName} (${fileSize})</span> • 
+        <span>Uploaded: ${uploadTime}</span>
+        <span class="status-badge ${statusClass}">${statusText}</span>
+      `;
+    }
+    
+    // Update overview tab
+    const overviewContent = document.getElementById('overviewContent');
+    let overviewHtml = '';
+    
+    if (data.import_json) {
+      overviewHtml += `<div class="info-label">Original File:</div><div class="info-value">${data.import_json.original_filename || '-'}</div>`;
+      overviewHtml += `<div class="info-label">File Size:</div><div class="info-value">${formatFileSize(data.import_json.file_size)}</div>`;
+      overviewHtml += `<div class="info-label">MIME Type:</div><div class="info-value">${data.import_json.mime_type || '-'}</div>`;
+      overviewHtml += `<div class="info-label">Upload Time:</div><div class="info-value">${new Date(data.import_json.upload_datetime).toLocaleString()}</div>`;
+      overviewHtml += `<div class="info-label">Detected Timestamp:</div><div class="info-value">${formatTimestamp(data.import_json.detected_timestamp) || 'Not detected'}</div>`;
+      overviewHtml += `<div class="info-label">Import Timestamp:</div><div class="info-value">${formatTimestamp(data.import_json.user_timestamp)}</div>`;
+      if (data.import_json.domain) {
+        overviewHtml += `<div class="info-label">Domain:</div><div class="info-value">${data.import_json.domain}</div>`;
+      }
+    }
+    
+    if (data.imported_json) {
+      overviewHtml += `<div class="info-label">Processing Status:</div><div class="info-value">Completed</div>`;
+      overviewHtml += `<div class="info-label">Target Day:</div><div class="info-value">${data.imported_json.target_day || '-'}</div>`;
+      overviewHtml += `<div class="info-label">Files Created:</div><div class="info-value">${data.imported_json.total_files_created || 0}</div>`;
+      overviewHtml += `<div class="info-label">Processing Time:</div><div class="info-value">${new Date(data.imported_json.processing_completed).toLocaleString()}</div>`;
+      
+      // Show quick links
+      if (data.imported_json.target_day) {
+        const linksSection = document.getElementById('linksSection');
+        const quickLinks = document.getElementById('quickLinks');
+        linksSection.style.display = 'block';
+        
+        let linksHtml = '';
+        linksHtml += `<div class="link-item">📅 <a href="/calendar/${data.imported_json.target_day}">View Day in Calendar</a></div>`;
+        linksHtml += `<div class="link-item">📝 <a href="/calendar/${data.imported_json.target_day}#transcript">View Transcript</a></div>`;
+        quickLinks.innerHTML = linksHtml;
+      }
+      
+      // Show created files
+      if (data.imported_json.all_created_files && data.imported_json.all_created_files.length > 0) {
+        const filesList = document.getElementById('filesList');
+        const filesListContent = document.getElementById('filesListContent');
+        filesList.style.display = 'block';
+        
+        let filesHtml = '';
+        data.imported_json.all_created_files.forEach(file => {
+          const basename = file.split('/').pop();
+          filesHtml += `<li>${basename}</li>`;
+        });
+        filesListContent.innerHTML = filesHtml;
+      }
+    } else {
+      overviewHtml += `<div class="info-label">Processing Status:</div><div class="info-value">Pending</div>`;
+    }
+    
+    overviewContent.innerHTML = overviewHtml;
+    
+    // Update JSON tabs
+    document.getElementById('importJsonContent').innerHTML = formatJson(data.import_json);
+    document.getElementById('importedJsonContent').innerHTML = data.imported_json ? formatJson(data.imported_json) : '<span class="no-data">Processing not yet completed</span>';
+  })
+  .catch(err => {
+    console.error('Error loading import details:', err);
+    document.getElementById('importMeta').innerHTML = '<span style="color:red;">Error loading import details</span>';
+    document.getElementById('overviewContent').innerHTML = '<div class="no-data">Error loading data</div>';
+    document.getElementById('importJsonContent').innerHTML = '<span class="no-data">Error loading data</span>';
+    document.getElementById('importedJsonContent').innerHTML = '<span class="no-data">Error loading data</span>';
+  });
+</script>
+{% endblock %}

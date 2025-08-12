@@ -6,8 +6,6 @@
 .container { padding:0 1em; }
 #dropArea { border:2px dashed #999; padding:2em; text-align:center; margin-bottom:1em; cursor:pointer; }
 #dropArea.dragover { background:#eef; border-color:#333; }
-textarea { width:100%; min-height:150px; }
-#pasteText { min-height:300px; }
 button { margin-top:1em; padding:6px 12px; }
 button:disabled { background:#ccc; color:#666; cursor:not-allowed; opacity:0.6; }
 .modal { display:none; position:fixed; z-index:1000; left:0; top:0; width:100%; height:100%; background:rgba(0,0,0,0.5); }
@@ -18,14 +16,31 @@ button:disabled { background:#ccc; color:#666; cursor:not-allowed; opacity:0.6; 
 .domain-selector { margin-left: auto; display: flex; align-items: center; gap: 0.5em; }
 .domain-selector label { font-size: 0.9em; color: #666; }
 .domain-selector select { padding: 4px 8px; border: 1px solid #ddd; border-radius: 4px; background: white; }
+
+/* Import list styles */
+.import-list { margin-top: 2em; }
+.import-list h2 { margin-bottom: 1em; }
+.import-table { width: 100%; border-collapse: collapse; }
+.import-table th { background: #f5f5f5; text-align: left; padding: 8px; border-bottom: 2px solid #ddd; font-size: 0.9em; }
+.import-table td { padding: 8px; border-bottom: 1px solid #eee; }
+.import-table tr:hover { background: #f9f9f9; cursor: pointer; }
+.import-status { display: inline-block; padding: 2px 8px; border-radius: 3px; font-size: 0.85em; }
+.import-status.success { background: #d4edda; color: #155724; }
+.import-status.pending { background: #fff3cd; color: #856404; }
+.import-status.failed { background: #f8d7da; color: #721c24; }
+.file-size { color: #666; font-size: 0.9em; }
+.timestamp-link { color: #007bff; text-decoration: none; }
+.timestamp-link:hover { text-decoration: underline; }
+.no-imports { color: #666; font-style: italic; padding: 2em; text-align: center; }
+
 @keyframes spin { to { transform:rotate(360deg); } }
 </style>
 {% endblock %}
 {% block body %}
 <div class="container">
   <div class="tabs">
-    <div class="tab active" data-target="media">Media</div>
-    <div class="tab" data-target="paste">Paste</div>
+    <div class="tab active" data-target="media">Upload File</div>
+    <div class="tab" data-target="paste">Paste Text</div>
     <div class="domain-selector">
       <label for="domainSelect">Domain:</label>
       <select id="domainSelect">
@@ -40,15 +55,19 @@ button:disabled { background:#ccc; color:#666; cursor:not-allowed; opacity:0.6; 
         <input id="fileInput" type="file" style="display:none" />
         <div id="fileLabel"></div>
       </div>
-      <textarea id="freeText" placeholder="Optional text"></textarea>
     </div>
     <div class="content" id="paste" style="display:none">
-      <textarea id="pasteText" placeholder="Paste text here"></textarea>
+      <textarea id="pasteText" placeholder="Paste text here" style="width:100%; min-height:300px;"></textarea>
     </div>
     <button type="submit" id="submitBtn">Submit</button>
   </form>
-  <h2>Import Log</h2>
-  <pre id="logOutput"></pre>
+  
+  <div class="import-list">
+    <h2>Import History</h2>
+    <div id="importListContent">
+      <div class="no-imports">Loading imports...</div>
+    </div>
+  </div>
 </div>
 
 <div id="detectModal" class="modal">
@@ -90,6 +109,7 @@ dropArea.onclick = () => fileInput.click();
 ['dragleave','drop'].forEach(ev=>dropArea.addEventListener(ev,e=>{e.preventDefault();dropArea.classList.remove('dragover');if(ev==='drop'){}}));
 dropArea.addEventListener('drop',e=>{const f=e.dataTransfer.files[0];if(f){currentFile=f;fileLabel.textContent=f.name;}});
 fileInput.onchange=e=>{currentFile=e.target.files[0];if(currentFile)fileLabel.textContent=currentFile.name;};
+
 document.getElementById('importForm').onsubmit=e=>{
   e.preventDefault();
   const submitBtn = document.getElementById('submitBtn');
@@ -102,7 +122,6 @@ document.getElementById('importForm').onsubmit=e=>{
   const fd=new FormData();
   if(activeTab==='media'){
     if(currentFile) fd.append('file', currentFile);
-    fd.append('text', document.getElementById('freeText').value);
   } else {
     fd.append('text', document.getElementById('pasteText').value);
   }
@@ -129,17 +148,81 @@ document.getElementById('importForm').onsubmit=e=>{
       if(window.showError)showError('Upload failed');
     });
 };
+
 function showDetect(res){
   document.getElementById('timestampInput').value=res.timestamp||'';
   document.getElementById('savedPath').value=res.path;
   document.getElementById('detectModal').style.display='block';
 }
-function loadLog(){
-  fetch('{{ url_for('import_view.import_log') }}').then(r=>r.json()).then(data=>{
-    const pre=document.getElementById('logOutput');
-    pre.textContent=data.map(e=>new Date(e.time*1000).toLocaleString()+" - "+e.message).join('\n');
+
+function formatFileSize(bytes) {
+  if (bytes === 0) return '0 B';
+  const k = 1024;
+  const sizes = ['B', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+}
+
+function formatDuration(minutes) {
+  if (!minutes) return '';
+  const hours = Math.floor(minutes / 60);
+  const mins = minutes % 60;
+  if (hours > 0) {
+    return `${hours}h ${mins}m`;
+  }
+  return `${mins}m`;
+}
+
+function loadImports(){
+  fetch('{{ url_for('import_view.import_list') }}').then(r=>r.json()).then(imports=>{
+    const container = document.getElementById('importListContent');
+    
+    if (!imports || imports.length === 0) {
+      container.innerHTML = '<div class="no-imports">No imports found</div>';
+      return;
+    }
+    
+    let html = '<table class="import-table">';
+    html += '<thead><tr>';
+    html += '<th>Imported At</th>';
+    html += '<th>File</th>';
+    html += '<th>Size</th>';
+    html += '<th>Imported To</th>';
+    html += '<th>Status</th>';
+    html += '<th>Files Created</th>';
+    html += '<th>Duration</th>';
+    html += '</tr></thead><tbody>';
+    
+    imports.forEach(imp => {
+      const createdAt = new Date(imp.created_at * 1000).toLocaleString();
+      const targetDay = imp.target_day ? imp.target_day.replace(/(\d{4})(\d{2})(\d{2})/, '$1-$2-$3') : '-';
+      const statusClass = imp.processed ? 'success' : 'pending';
+      const statusText = imp.processed ? 'Completed' : 'Pending';
+      
+      html += `<tr onclick="window.location.href='/import/${imp.timestamp}'">`;
+      html += `<td>${createdAt}</td>`;
+      html += `<td>${imp.original_filename || 'Unknown'}</td>`;
+      html += `<td class="file-size">${formatFileSize(imp.file_size || 0)}</td>`;
+      html += `<td>`;
+      if (imp.target_day) {
+        html += `<a href="/calendar/${imp.target_day}" class="timestamp-link" onclick="event.stopPropagation();">${targetDay}</a>`;
+      } else {
+        html += '-';
+      }
+      html += `</td>`;
+      html += `<td><span class="import-status ${statusClass}">${statusText}</span></td>`;
+      html += `<td>${imp.total_files_created || 0}</td>`;
+      html += `<td>${formatDuration(imp.duration_minutes)}</td>`;
+      html += '</tr>';
+    });
+    
+    html += '</tbody></table>';
+    container.innerHTML = html;
+  }).catch(err => {
+    document.getElementById('importListContent').innerHTML = '<div class="no-imports">Error loading imports</div>';
   });
 }
+
 function runTask(data){
   const modal=document.getElementById('taskModal');
   const out=document.getElementById('taskOutput');
@@ -154,14 +237,16 @@ function runTask(data){
   const ws=new WebSocket(`ws://${location.host}/ws/tasks`);
   ws.onopen=()=>ws.send(JSON.stringify(data));
   ws.onmessage=e=>{const msg=JSON.parse(e.data);if(msg.type==='stdout')addLine(msg.text);else if(msg.type==='stderr')addLine('<span style="color:red">'+msg.text+'</span>');else if(msg.type==='exit'){spinner.remove();out.innerHTML+='[exit '+msg.code+']\n';scroll();ws.close();}};
-  ws.onclose=()=>{spinner.remove();loadLog();};
+  ws.onclose=()=>{spinner.remove();loadImports();};
 }
+
 document.getElementById('startBtn').onclick=()=>{
   const ts=document.getElementById('timestampInput').value.trim();
   const path=document.getElementById('savedPath').value;
   document.getElementById('detectModal').style.display='none';
   runTask({task:'importer',day:path+'|'+ts,src:'import'});
 };
+
 document.querySelectorAll('.close')[0].onclick=()=>{document.getElementById('detectModal').style.display='none';};
 document.querySelectorAll('.close')[1].onclick=()=>{document.getElementById('taskModal').style.display='none';};
 window.onclick=e=>{if(e.target==document.getElementById('detectModal'))document.getElementById('detectModal').style.display='none';if(e.target==document.getElementById('taskModal'))document.getElementById('taskModal').style.display='none';};
@@ -196,7 +281,7 @@ function checkUrlFragment(){
   }
 }
 
-loadLog();
+loadImports();
 loadDomains();
 setTimeout(checkUrlFragment, 100); // Wait for domains to load
 </script>
