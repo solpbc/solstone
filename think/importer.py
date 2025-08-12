@@ -302,20 +302,61 @@ def main() -> None:
     day_dir = os.path.join(journal, base_dt.strftime("%Y%m%d"))
     os.makedirs(day_dir, exist_ok=True)
 
+    # Track processing results for metadata update
+    processing_results = {
+        "processed_timestamp": args.timestamp,
+        "target_day": base_dt.strftime("%Y%m%d"),
+        "outputs": []
+    }
+
     ext = os.path.splitext(args.media)[1].lower()
     if ext in {".txt", ".pdf"}:
         process_transcript(args.media, day_dir, base_dt)
-        return
+        processing_results["outputs"].append({
+            "type": "transcript",
+            "format": "imported_audio.json",
+            "description": "Transcript segments"
+        })
+    else:
+        if args.hear:
+            audio_transcribe(args.media, day_dir, base_dt)
+            processing_results["outputs"].append({
+                "type": "audio_transcript",
+                "format": "imported_audio.json",
+                "description": "Rev AI transcription chunks"
+            })
+        if args.split:
+            split_audio(args.media, day_dir, base_dt)
+            processing_results["outputs"].append({
+                "type": "audio_segments",
+                "format": "import_raw.flac",
+                "description": "60-second FLAC segments"
+            })
+        if args.see:
+            if has_video_stream(args.media):
+                process_video(args.media, day_dir, base_dt, args.see_sample)
+                processing_results["outputs"].append({
+                    "type": "video_frames",
+                    "format": "import_1_diff.png",
+                    "description": "Extracted video frames with changes"
+                })
+            else:
+                logger.info(f"No video stream found in {args.media}, skipping video processing")
 
-    if args.hear:
-        audio_transcribe(args.media, day_dir, base_dt)
-    if args.split:
-        split_audio(args.media, day_dir, base_dt)
-    if args.see:
-        if has_video_stream(args.media):
-            process_video(args.media, day_dir, base_dt, args.see_sample)
-        else:
-            logger.info(f"No video stream found in {args.media}, skipping video processing")
+    # Update import.json with processing results if it exists
+    media_path = Path(args.media)
+    import_metadata_path = media_path.parent / "import.json"
+    if import_metadata_path.exists():
+        try:
+            with open(import_metadata_path, "r", encoding="utf-8") as f:
+                metadata = json.load(f)
+            metadata["processing_results"] = processing_results
+            metadata["processing_completed"] = dt.datetime.now().isoformat()
+            with open(import_metadata_path, "w", encoding="utf-8") as f:
+                json.dump(metadata, f, indent=2)
+            logger.info(f"Updated import metadata: {import_metadata_path}")
+        except Exception as e:
+            logger.warning(f"Failed to update import metadata: {e}")
 
 
 if __name__ == "__main__":

@@ -204,7 +204,14 @@ def run_task(
                     import json
                     from pathlib import Path
 
-                    metadata_path = Path(str(path) + ".json")
+                    # New structure: metadata is in import.json in the parent directory
+                    file_path = Path(path)
+                    metadata_path = file_path.parent / "import.json"
+
+                    # Fall back to old structure if new doesn't exist
+                    if not metadata_path.exists():
+                        metadata_path = Path(str(path) + ".json")
+
                     if metadata_path.exists():
                         try:
                             metadata = json.loads(
@@ -225,10 +232,6 @@ def run_task(
                     if use_stop
                     else _run_command(cmd, logger)
                 )
-                from think.utils import importer_log
-
-                status = "ok" if code == 0 else f"fail({code})"
-                importer_log(f"{os.path.basename(path)} {ts} {status}")
             elif name == "process_day":
                 if not day:
                     raise ValueError("day required")
