@@ -45,8 +45,10 @@ html::before {
   font-size: 28px;
   text-decoration: none;
   color: black;
-  padding: 4px;
+  padding: 6px;
+  margin: 2px 0;
   display: block;
+  transition: all 0.2s ease;
 }
 
 #homeIcon.connected {
@@ -60,8 +62,20 @@ html::before {
 }
 
 .nav-icons a.current {
-  background: #eee;
-  border-radius: 4px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 6px;
+  transform: scale(1.1);
+  box-shadow: 0 0 10px rgba(102, 126, 234, 0.4);
+}
+
+.nav-icons a.current:hover {
+  transform: scale(1.15);
+}
+
+.nav-icons a:hover:not(.current) {
+  background: rgba(102, 126, 234, 0.1);
+  border-radius: 6px;
+  transform: scale(1.05);
 }
 
 @media (max-width: 600px) {

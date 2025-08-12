@@ -57,7 +57,8 @@ h1 {
   transition: transform 0.2s, box-shadow 0.2s;
   cursor: pointer;
   position: relative;
-  overflow: hidden;
+  overflow: visible;
+  min-height: 4em;
 }
 
 .domain-card.add-domain {
@@ -87,7 +88,7 @@ h1 {
   cursor: pointer;
   font-size: 1em;
   color: #666;
-  background: rgba(255, 255, 255, 0.9);
+  background: transparent;
   border-radius: 50%;
   width: 24px;
   height: 24px;
@@ -102,16 +103,17 @@ h1 {
 
 .domain-card .edit-icon:hover {
   color: #333;
-  background: white;
+  background: transparent;
 }
 
 
 .domain-card .domain-emoji {
   position: absolute;
-  top: 1em;
-  left: 1em;
-  font-size: 1.5em;
+  top: 0.5em;
+  left: 0.5em;
+  font-size: 3em;
   opacity: 0.9;
+  line-height: 1;
 }
 
 .domain-card.has-emoji {
@@ -126,11 +128,28 @@ h1 {
 .domain-card h3 {
   font-size: 1.2em;
   margin: 0 0 0.5em 0;
+  padding-right: 2em;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
   font-weight: 600;
+  text-align: right;
+}
+
+.domain-card.dark-background h3 {
+  background: linear-gradient(135deg, #ffffff 0%, #f0f0f0 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.domain-card.dark-background .edit-icon {
+  color: #ccc;
+}
+
+.domain-card.dark-background .edit-icon:hover {
+  color: #fff;
 }
 
 
@@ -297,7 +316,6 @@ h1 {
 {% endblock %}
 {% block body %}
 <div class="domains-container">
-  <h1>Domains</h1>
   
   <div id="loading">
     <div class="spinner"></div>
@@ -357,6 +375,21 @@ h1 {
 </div>
 
 <script>
+// Helper function to determine if a color is dark
+function isColorDark(color) {
+  // Convert hex to RGB
+  const hex = color.replace('#', '');
+  const r = parseInt(hex.substr(0, 2), 16);
+  const g = parseInt(hex.substr(2, 2), 16);
+  const b = parseInt(hex.substr(4, 2), 16);
+  
+  // Calculate relative luminance (WCAG formula)
+  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+  
+  // Return true if luminance is less than 0.5 (dark)
+  return luminance < 0.5;
+}
+
 // Load domains data
 async function loadDomains() {
   try {
@@ -383,6 +416,11 @@ async function loadDomains() {
         // Apply background color if provided
         if (domainData.color) {
           card.style.background = domainData.color;
+          
+          // Add dark background class if color is dark
+          if (isColorDark(domainData.color)) {
+            card.classList.add('dark-background');
+          }
         }
         
         // Add emoji if provided
