@@ -10,6 +10,8 @@ from datetime import timedelta
 from pathlib import Path
 
 import cv2
+from google import genai
+from google.genai import types
 from PIL import Image
 from PIL.PngImagePlugin import PngInfo
 
@@ -17,6 +19,7 @@ from hear.revai import convert_revai_to_sunstone, transcribe_file
 from see.screen_compare import compare_images
 from think.detect_created import detect_created
 from think.detect_transcript import detect_transcript_json, detect_transcript_segment
+from think.models import GEMINI_PRO
 from think.utils import setup_cli
 
 try:
@@ -287,6 +290,111 @@ def audio_transcribe(path: str, day_dir: str, base_dt: dt.datetime) -> tuple[lis
     return created_files, revai_json
 
 
+def create_transcript_summary(
+    import_dir: Path, 
+    audio_json_files: list[str],
+    input_filename: str,
+    timestamp: str
+) -> None:
+    """Create a summary of all imported audio transcript files using Gemini Pro.
+    
+    Args:
+        import_dir: Directory where the summary will be saved
+        audio_json_files: List of paths to _imported_audio.json files
+        input_filename: Original media filename for context
+        timestamp: Processing timestamp for context
+    """
+    if not audio_json_files:
+        logger.info("No audio transcript files to summarize")
+        return
+    
+    # Check for API key
+    api_key = os.getenv("GOOGLE_API_KEY")
+    if not api_key:
+        logger.warning("GOOGLE_API_KEY not set, skipping summarization")
+        return
+    
+    # Read all transcript chunks
+    all_transcripts = []
+    for json_path in audio_json_files:
+        try:
+            with open(json_path, "r", encoding="utf-8") as f:
+                transcript_data = json.load(f)
+                all_transcripts.append({
+                    "file": os.path.basename(json_path),
+                    "content": transcript_data
+                })
+        except Exception as e:
+            logger.warning(f"Failed to read {json_path}: {e}")
+    
+    if not all_transcripts:
+        logger.warning("No transcripts could be read for summarization")
+        return
+    
+    # Load the prompt from importer.txt
+    prompt_file = Path(__file__).parent / "importer.txt"
+    try:
+        with open(prompt_file, "r", encoding="utf-8") as f:
+            importer_prompt_template = f.read()
+    except Exception as e:
+        logger.error(f"Failed to load importer.txt: {e}")
+        return
+    
+    # Add the context metadata to the prompt
+    importer_prompt = importer_prompt_template + f"""
+
+## Metadata for this summary:
+- Original file: {input_filename}
+- Recording timestamp: {timestamp}
+- Number of transcript segments: {len(all_transcripts)}
+- Total transcript entries: {sum(len(t["content"]) if isinstance(t["content"], list) else 0 for t in all_transcripts)}"""
+
+    # Format the transcript content for the user message
+    user_message_parts = []
+    
+    for transcript_info in all_transcripts:
+        entries = transcript_info["content"]
+        if isinstance(entries, list):
+            user_message_parts.append(f"\n## Transcript Segment: {transcript_info['file']}\n")
+            user_message_parts.append(json.dumps(entries, indent=2))
+    
+    user_message = "\n".join(user_message_parts)
+    
+    try:
+        logger.info(f"Creating summary with Gemini Pro for {len(all_transcripts)} transcript segments")
+        
+        # Create Gemini client and generate summary
+        client = genai.Client(api_key=api_key)
+        response = client.models.generate_content(
+            model=GEMINI_PRO,
+            contents=[user_message],
+            config=types.GenerateContentConfig(
+                temperature=0.3,
+                max_output_tokens=8192,
+                system_instruction=importer_prompt,
+            ),
+        )
+        
+        # Save the summary
+        summary_path = import_dir / "summary.md"
+        total_entries = sum(len(t["content"]) if isinstance(t["content"], list) else 0 for t in all_transcripts)
+        with open(summary_path, "w", encoding="utf-8") as f:
+            f.write(f"# Audio Transcript Summary\n\n")
+            f.write(f"**Source File:** {input_filename}\n")
+            f.write(f"**Import Timestamp:** {timestamp}\n")
+            f.write(f"**Segments Processed:** {len(all_transcripts)}\n")
+            f.write(f"**Total Entries:** {total_entries}\n\n")
+            f.write("---\n\n")
+            f.write(response.text)
+        
+        logger.info(f"Created transcript summary: {summary_path}")
+        
+    except Exception as e:
+        logger.error(f"Failed to create summary with Gemini Pro: {e}")
+        # Don't fail the entire import process if summarization fails
+        pass
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Chunk a media file into the journal")
     parser.add_argument("media", help="Path to video or audio file")
@@ -301,6 +409,10 @@ def main() -> None:
     )
     parser.add_argument(
         "--hear", type=str2bool, default=True, help="Transcribe audio using Rev AI"
+    )
+    parser.add_argument(
+        "--summarize", type=str2bool, default=True, 
+        help="Create summary.md using Gemini Pro for audio transcripts"
     )
     parser.add_argument(
         "--see-sample",
@@ -337,6 +449,7 @@ def main() -> None:
 
     # Track all created files and processing metadata
     all_created_files = []
+    audio_transcript_files = []  # Track audio transcript files for summarization
     revai_json_data = None
     processing_results = {
         "processed_timestamp": args.timestamp,
@@ -351,6 +464,7 @@ def main() -> None:
     if ext in {".txt", ".pdf"}:
         created_files = process_transcript(args.media, day_dir, base_dt)
         all_created_files.extend(created_files)
+        audio_transcript_files.extend(created_files)  # Track for summarization
         processing_results["outputs"].append({
             "type": "transcript",
             "format": "imported_audio.json",
@@ -362,6 +476,7 @@ def main() -> None:
         if args.hear:
             created_files, revai_json_data = audio_transcribe(args.media, day_dir, base_dt)
             all_created_files.extend(created_files)
+            audio_transcript_files.extend(created_files)  # Track for summarization
             processing_results["outputs"].append({
                 "type": "audio_transcript",
                 "format": "imported_audio.json",
@@ -440,6 +555,15 @@ def main() -> None:
             logger.info(f"Updated import metadata: {import_metadata_path}")
         except Exception as e:
             logger.warning(f"Failed to update import metadata: {e}")
+    
+    # Create Gemini Pro summary if requested and audio transcripts were created
+    if args.summarize and audio_transcript_files:
+        create_transcript_summary(
+            import_dir=import_dir,
+            audio_json_files=audio_transcript_files,
+            input_filename=os.path.basename(args.media),
+            timestamp=args.timestamp
+        )
 
 
 if __name__ == "__main__":
