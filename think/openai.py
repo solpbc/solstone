@@ -1,100 +1,128 @@
 #!/usr/bin/env python3
-"""OpenAI backed agent implementation.
+"""
+OpenAI-backed agent implementation for the Sunstone `think-agents` CLI.
 
-This module provides :class:`AgentSession` which wraps the OpenAI Agents API
-and exposes a simple ``run(prompt)`` coroutine. It is used by the unified
-``think-agents`` CLI and can be imported directly for programmatic access.
+- Connects to a local MCP server over Streamable HTTP
+- Runs an agent with streaming to surface tool args/results and (when available) reasoning summaries
+- Emits JSON events compatible with the CLI (`start`, `tool_start`, `tool_end`, `thinking`, `finish`, `error`)
+- Raises max_turns (configurable via env)
 """
 
 from __future__ import annotations
 
+import json
 import logging
+import os
 import sys
 import time
 import traceback
-from typing import Callable, Optional
+from pathlib import Path
+from typing import Any, Callable, Dict, Optional
+from urllib.parse import urlparse, urlunparse
 
-from agents import (
-    Agent,
-    AgentHooks,
-    ModelSettings,
-    RunConfig,
-    Runner,
-    SQLiteSession,
-    enable_verbose_stdout_logging,
+from agents import Agent, Runner, SQLiteSession
+from agents.model_settings import ModelSettings
+from agents.run import RunConfig
+from agents.mcp.server import MCPServerStreamableHttp
+from agents.items import (
+    MessageOutputItem,
+    ToolCallItem,
+    ToolCallOutputItem,
+    ReasoningItem,
 )
 
-from think.utils import agent_instructions, create_mcp_client
+# Optional: used only for raw text deltas if available
+try:
+    from openai.types.responses import ResponseTextDeltaEvent  # type: ignore
+except Exception:  # pragma: no cover
+    ResponseTextDeltaEvent = object  # type: ignore
+
+from think.utils import agent_instructions
 
 from .agents import JSONEventCallback, ThinkingEvent
 from .models import GPT_5
 
-DEFAULT_MODEL = GPT_5
-DEFAULT_MAX_TOKENS = 1024 * 32
+DEFAULT_MODEL = os.getenv("OPENAI_AGENT_MODEL", GPT_5)
+DEFAULT_MAX_TOKENS = int(os.getenv("OPENAI_AGENT_MAX_TOKENS", "1024"))
+DEFAULT_MAX_TURNS = int(os.getenv("OPENAI_AGENT_MAX_TURNS", "32"))
+
+LOG = logging.getLogger("think.openai")
 
 
 def setup_logging(verbose: bool = False) -> logging.Logger:
-    """Setup logging configuration for agent and tools."""
-
-    if verbose:
-        enable_verbose_stdout_logging()
-
-        openai_agents_logger = logging.getLogger("openai.agents")
-        openai_agents_logger.setLevel(logging.DEBUG)
-        if not openai_agents_logger.handlers:
-            handler = logging.StreamHandler(sys.stdout)
-            formatter = logging.Formatter(
-                "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-            )
-            handler.setFormatter(formatter)
-            openai_agents_logger.addHandler(handler)
-
-        tracing_logger = logging.getLogger("openai.agents.tracing")
-        tracing_logger.setLevel(logging.DEBUG)
-        if not tracing_logger.handlers:
-            tracing_logger.addHandler(handler)
-
-    app_logger = logging.getLogger(__name__)
-    if verbose:
-        app_logger.setLevel(logging.DEBUG)
-    else:
-        app_logger.setLevel(logging.INFO)
-    return app_logger
+    level = logging.DEBUG if verbose else logging.INFO
+    logging.basicConfig(level=level, stream=sys.stdout)
+    return LOG
 
 
-class ToolLoggingHooks(AgentHooks):
-    """Hooks forwarding agent events to :class:`JSONEventCallback`."""
+def _now_ms() -> int:
+    return int(time.time() * 1000)
 
-    def __init__(self, writer: JSONEventCallback) -> None:
-        self.writer = writer
 
-    async def on_tool_start(self, context, agent, tool) -> None:
-        """Emit a ``tool_start`` event when a tool begins."""
-        self.writer.emit(
-            {
-                "event": "tool_start",
-                "tool": getattr(context, "tool_name", getattr(tool, "name", "")),
-                "args": None,
-            }
-        )
+def _normalize_streamable_http_uri(http_uri: str) -> str:
+    """
+    Ensure the Streamable HTTP MCP URL points at the MCP endpoint.
 
-    async def on_tool_end(self, context, agent, tool, result) -> None:
-        """Emit a ``tool_end`` event when a tool finishes."""
-        self.writer.emit(
-            {
-                "event": "tool_end",
-                "tool": getattr(context, "tool_name", getattr(tool, "name", "")),
-                "result": result,
-            }
-        )
+    If no path or '/', append '/mcp'.
+    If already '/mcp' (with or without trailing '/'), keep unchanged.
+    Otherwise, leave as-is (user may have a reverse-proxy path).
+    """
+    try:
+        parsed = urlparse(http_uri.strip())
+        path = parsed.path or ""
+        if path in ("", "/"):
+            path = "/mcp"
+        elif path.rstrip("/") == "/mcp":
+            path = "/mcp"
+        new_parsed = parsed._replace(path=path)
+        return urlunparse(new_parsed)
+    except Exception:
+        return http_uri
 
-    async def on_start(self, context, agent) -> None:
-        """Emit an ``agent_start`` event when an agent starts."""
-        self.writer.emit({"event": "agent_start", "agent": getattr(agent, "name", "")})
 
-    async def on_end(self, context, agent, output) -> None:
-        """Emit an ``agent_end`` event when an agent finishes."""
-        self.writer.emit({"event": "agent_end", "agent": getattr(agent, "name", "")})
+def _json_maybe_loads(v: Any) -> Any:
+    if isinstance(v, str):
+        try:
+            return json.loads(v)
+        except Exception:
+            return v
+    return v
+
+
+def _extract_tool_name(raw_call: Any) -> str:
+    for attr in ("name", "tool", "tool_name"):
+        if hasattr(raw_call, attr):
+            val = getattr(raw_call, attr)
+            if isinstance(val, str) and val:
+                return val
+    return type(raw_call).__name__
+
+
+def _extract_tool_call_id(raw_call: Any) -> Optional[str]:
+    for attr in ("id", "call_id", "tool_call_id"):
+        if hasattr(raw_call, attr):
+            val = getattr(raw_call, attr)
+            if isinstance(val, str) and val:
+                return val
+    return None
+
+
+def _extract_tool_args(raw_call: Any) -> Any:
+    """
+    Function tools usually expose `.arguments` (often JSON string).
+    Some tools expose `.input_json` / `.input`.
+    """
+    if hasattr(raw_call, "arguments"):
+        return _json_maybe_loads(getattr(raw_call, "arguments"))
+    for attr in ("input_json", "input", "arguments_json"):
+        if hasattr(raw_call, attr):
+            return getattr(raw_call, attr)
+    if isinstance(raw_call, dict):
+        if "arguments" in raw_call:
+            return _json_maybe_loads(raw_call["arguments"])
+        if "input" in raw_call:
+            return raw_call["input"]
+    return None
 
 
 async def run_agent(
@@ -105,94 +133,184 @@ async def run_agent(
     on_event: Optional[Callable[[dict], None]] = None,
     persona: str = "default",
 ) -> str:
-    """Run a single prompt through the OpenAI agent and return the response."""
-    callback = JSONEventCallback(on_event)
+    """
+    Run a single prompt through the OpenAI Agents SDK using streaming.
+    Emits JSON events and returns the final text output.
+    """
+    LOG.info("Running agent with model %s", model)
+    cb = JSONEventCallback(on_event)
+    cb.emit({"event": "start", "prompt": prompt, "persona": persona, "model": model, "ts": _now_ms()})
+
+    # Model settings: keep to widely-supported fields
+    model_settings = ModelSettings(
+        max_tokens=max_tokens,
+        # If you later want to add temperature/top_p etc., do it here.
+        # Avoid unsupported reasoning params to prevent 400s.
+    )
+
+    # Read MCP server URL from journal
+    journal_path = os.getenv("JOURNAL_PATH")
+    if not journal_path:
+        raise RuntimeError("JOURNAL_PATH not set")
+    uri_file = Path(journal_path) / "agents" / "mcp.uri"
+    if not uri_file.exists():
+        raise RuntimeError(f"MCP server URI file not found: {uri_file}")
+    http_uri_raw = uri_file.read_text().strip()
+    if not http_uri_raw:
+        raise RuntimeError("MCP server URI file is empty")
+    http_uri = _normalize_streamable_http_uri(http_uri_raw)
+
+    mcp_server = MCPServerStreamableHttp(
+        params={"url": http_uri},
+        cache_tools_list=True,
+    )
+
+    # Use your repo's persona utility
+    system_instruction, extra_context, _ = agent_instructions(persona)
+
+    # Keep a map of in-flight tools so we can pair outputs with args
+    pending_tools: Dict[str, Dict[str, Any]] = {}
+
+    # Accumulate streamed text chunks as a fallback (if final_output missing)
+    streamed_text: list[str] = []
+
+    session = SQLiteSession("sunstone_oneshot")
 
     try:
-        model_name = model
-        if model.startswith("gpt-5"):
-            # For gpt-5 models, use the full model name as-is
-            model_name = model
-
-        callback.emit(
-            {
-                "event": "start",
-                "prompt": prompt,
-                "persona": persona,
-                "model": model_name,
-            }
-        )
-
-        async with create_mcp_client() as mcp:
-            system_instruction, extra_context, _ = agent_instructions(persona)
+        async with mcp_server:
             agent = Agent(
                 name="SunstoneCLI",
-                instructions=f"{system_instruction}\n\n{extra_context}",
+                instructions=f"{system_instruction}\n\n{extra_context}".strip(),
                 model=model,
-                model_settings=ModelSettings(max_tokens=max_tokens),
-                mcp_servers=[mcp],
-                hooks=ToolLoggingHooks(callback),
+                model_settings=model_settings,
+                mcp_servers=[mcp_server],
             )
 
-            # Create temporary session for this run
-            session = SQLiteSession("sunstone_oneshot")
-            try:
-                result = await Runner.run(
-                    agent, prompt, session=session, run_config=RunConfig()
-                )
-            finally:
-                if hasattr(session, "close"):
-                    session.close()
+            result = Runner.run_streamed(
+                agent,
+                input=prompt,
+                session=session,
+                run_config=RunConfig(tracing_disabled=True),  # per docs
+                max_turns=DEFAULT_MAX_TURNS,
+            )
 
-        # Extract thinking summaries from reasoning items
-        if hasattr(result, "new_items") and result.new_items:
-            for item in result.new_items:
-                if hasattr(item, "reasoning") and item.reasoning:
-                    if hasattr(item.reasoning, "summary") and item.reasoning.summary:
-                        thinking_event: ThinkingEvent = {
-                            "event": "thinking",
-                            "ts": int(time.time() * 1000),
-                            "summary": item.reasoning.summary,
-                            "model": model,
+            async for ev in result.stream_events():
+                # 1) Raw deltas (Responses API events)
+                if ev.type == "raw_response_event":
+                    data = getattr(ev, "data", None)
+                    # If we have text deltas, capture them (optional)
+                    if isinstance(data, ResponseTextDeltaEvent) and isinstance(getattr(data, "delta", None), str):
+                        streamed_text.append(data.delta)
+                    continue
+
+                # 2) Agent updates (handoffs)
+                if ev.type == "agent_updated_stream_event":
+                    new_agent = getattr(ev, "new_agent", None)
+                    cb.emit(
+                        {
+                            "event": "agent_updated",
+                            "agent": getattr(new_agent, "name", None),
+                            "ts": _now_ms(),
                         }
-                        callback.emit(thinking_event)
-                    elif hasattr(item.reasoning, "content") and item.reasoning.content:
-                        thinking_event: ThinkingEvent = {
-                            "event": "thinking",
-                            "ts": int(time.time() * 1000),
-                            "summary": item.reasoning.content,
-                            "model": model,
-                        }
-                        callback.emit(thinking_event)
+                    )
+                    continue
 
-        # Alternative: Extract thinking summaries from raw responses
-        elif hasattr(result, "raw_responses") and result.raw_responses:
-            for response in result.raw_responses:
-                if hasattr(response, "output") and response.output:
-                    for output_item in response.output:
-                        if hasattr(output_item, "summary") and output_item.summary:
-                            for summary_item in output_item.summary:
-                                if hasattr(summary_item, "text") and summary_item.text:
-                                    thinking_event: ThinkingEvent = {
-                                        "event": "thinking",
-                                        "ts": int(time.time() * 1000),
-                                        "summary": summary_item.text,
-                                        "model": model,
-                                    }
-                                    callback.emit(thinking_event)
+                # 3) Run items (messages, tools, reasoning, etc.)
+                if ev.type == "run_item_stream_event":
+                    name = ev.name
+                    item = ev.item
 
-        callback.emit({"event": "finish", "result": result.final_output})
-        return result.final_output
+                    # Tool call started — capture args
+                    if name == "tool_called" and isinstance(item, ToolCallItem):
+                        raw = item.raw_item
+                        tool_name = _extract_tool_name(raw)
+                        call_id = _extract_tool_call_id(raw) or tool_name
+                        args = _extract_tool_args(raw)
+                        pending_tools[call_id] = {"tool": tool_name, "args": args}
+                        cb.emit(
+                            {
+                                "event": "tool_start",
+                                "tool": tool_name,
+                                "args": args,
+                                "call_id": call_id,
+                                "ts": _now_ms(),
+                            }
+                        )
+
+                    # Tool output finished — mirror end, include original args if we have them
+                    elif name == "tool_output" and isinstance(item, ToolCallOutputItem):
+                        raw = item.raw_item
+                        call_id = (
+                            getattr(raw, "tool_call_id", None)
+                            or getattr(raw, "call_id", None)
+                            or getattr(raw, "id", None)
+                        )
+                        meta = pending_tools.pop(call_id, {}) if call_id else {}
+                        cb.emit(
+                            {
+                                "event": "tool_end",
+                                "tool": meta.get("tool", "tool"),
+                                "args": meta.get("args"),
+                                "result": item.output,
+                                "call_id": call_id,
+                                "ts": _now_ms(),
+                            }
+                        )
+
+                    # Reasoning / "thinking" item created — no special params required
+                    elif name == "reasoning_item_created" and isinstance(item, ReasoningItem):
+                        summary_text: Optional[str] = None
+                        raw = item.raw_item
+
+                        # Try raw.summary (list of text parts)
+                        if hasattr(raw, "summary") and getattr(raw, "summary"):
+                            try:
+                                parts = getattr(raw, "summary")
+                                texts = [getattr(p, "text", "") for p in parts if getattr(p, "text", None)]
+                                if texts:
+                                    summary_text = "".join(texts)
+                            except Exception:
+                                pass
+
+                        # Fallback: raw.content (list of text parts)
+                        if not summary_text and hasattr(raw, "content") and getattr(raw, "content"):
+                            try:
+                                parts = getattr(raw, "content")
+                                texts = [getattr(p, "text", "") for p in parts if getattr(p, "text", None)]
+                                if texts:
+                                    summary_text = "".join(texts)
+                            except Exception:
+                                pass
+
+                        if summary_text:
+                            thinking_event: ThinkingEvent = {
+                                "event": "thinking",
+                                "summary": summary_text,
+                                "model": model,
+                                "ts": _now_ms(),
+                            }
+                            cb.emit(thinking_event)
+
+                    # Completed assistant message (final text will be read from result)
+                    elif name == "message_output_created" and isinstance(item, MessageOutputItem):
+                        pass  # no-op
+
+            # Done streaming — prefer result.final_output, else join deltas
+            final_text = getattr(result, "final_output", None)
+            if not isinstance(final_text, str) or not final_text:
+                final_text = "".join(streamed_text)
+
+            cb.emit({"event": "finish", "result": final_text, "ts": _now_ms()})
+            return final_text
+
     except Exception as exc:
-        callback.emit(
-            {
-                "event": "error",
-                "error": str(exc),
-                "trace": traceback.format_exc(),
-            }
-        )
-        setattr(exc, "_evented", True)
+        trace = "".join(traceback.format_exception(type(exc), exc, exc.__traceback__))
+        cb.emit({"event": "error", "error": str(exc), "trace": trace, "ts": _now_ms()})
         raise
+    finally:
+        # IMPORTANT: Don't explicitly close the SQLiteSession while streaming;
+        # the SDK continues to read from it in background tasks and closing can race.
+        pass
 
 
 async def run_prompt(
@@ -203,9 +321,13 @@ async def run_prompt(
     on_event: Optional[Callable[[dict], None]] = None,
     persona: str = "default",
 ) -> str:
-    """Convenience helper to run ``prompt`` (alias for run_agent)."""
+    """Alias for run_agent for CLI parity."""
     return await run_agent(
-        prompt, model=model, max_tokens=max_tokens, on_event=on_event, persona=persona
+        prompt,
+        model=model,
+        max_tokens=max_tokens,
+        on_event=on_event,
+        persona=persona,
     )
 
 
