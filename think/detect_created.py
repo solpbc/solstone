@@ -6,6 +6,7 @@ import json
 import os
 import subprocess
 import sys
+from datetime import datetime
 from typing import Optional
 
 from dotenv import load_dotenv
@@ -36,8 +37,30 @@ def _extract_metadata(path: str) -> str:
         return f"Error extracting metadata: {exc}"
 
 
-def detect_created(path: str, api_key: Optional[str] = None) -> Optional[dict]:
-    """Return creation time information for *path* using Gemini."""
+def _debug_write_content(content: str, path: str) -> None:
+    """Write content to a debug file in /tmp for diagnosis."""
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    filename = f"gemini_debug_{timestamp}_{os.path.basename(path)}.md"
+    debug_path = os.path.join("/tmp", filename)
+
+    with open(debug_path, "w", encoding="utf-8") as f:
+        f.write(content)
+
+    print(f"Debug: Content written to {debug_path}", file=sys.stderr)
+
+
+def detect_created(path: str, api_key: Optional[str] = None, original_filename: Optional[str] = None) -> Optional[dict]:
+    """Return creation time information for *path* using Gemini.
+
+    Parameters
+    ----------
+    path : str
+        Path to the file to analyze
+    api_key : Optional[str]
+        Google API key for Gemini
+    original_filename : Optional[str]
+        Original filename if path is a temporary file
+    """
 
     if api_key is None:
         load_dotenv()
@@ -47,12 +70,27 @@ def detect_created(path: str, api_key: Optional[str] = None) -> Optional[dict]:
 
     metadata = _extract_metadata(path)
 
+    # Use original filename in header if provided, otherwise use the actual path
+    display_path = original_filename if original_filename else path
+
     lines = [
-        f"# exiftool -all output for {path}",
+        f"# exiftool -all output for {display_path}",
         "",
-        metadata,
     ]
+
+    # If we have an original filename and it's different from path, add a note
+    if original_filename and original_filename != path:
+        lines.extend([
+            f"Original filename: {original_filename}",
+            f"(Analyzing temporary file: {path})",
+            "",
+        ])
+
+    lines.append(metadata)
     markdown = "\n".join(lines)
+
+    # Debug: write content to temp file
+    _debug_write_content(markdown, path)
 
     client = genai.Client(api_key=api_key)
 

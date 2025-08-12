@@ -52,7 +52,15 @@ def import_save() -> Any:
     # Create temporary file for detection if needed
     if upload:
         import tempfile
-        with tempfile.NamedTemporaryFile(delete=False, suffix=Path(filename).suffix) as tmp:
+        # Preserve original filename structure in temp file name for timestamp detection
+        # Use prefix to include original filename (minus extension)
+        original_stem = Path(filename).stem
+        suffix = Path(filename).suffix
+        with tempfile.NamedTemporaryFile(
+            delete=False,
+            prefix=f"{original_stem}_",
+            suffix=suffix
+        ) as tmp:
             upload.save(tmp.name)
             temp_path = tmp.name
             upload.seek(0)  # Reset file pointer for later save
@@ -63,7 +71,9 @@ def import_save() -> Any:
             temp_path = tmp.name
 
     try:
-        detection_result = detect_created(temp_path)
+        # Pass original filename for better timestamp detection
+        original_name = upload.filename if upload else None
+        detection_result = detect_created(temp_path, original_filename=original_name)
         if (
             detection_result
             and detection_result.get("day")

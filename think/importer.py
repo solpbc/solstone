@@ -316,7 +316,8 @@ def main() -> None:
 
     # If no timestamp provided, detect it and show instruction
     if not args.timestamp:
-        result = detect_created(args.media)
+        # Pass the original filename for better detection
+        result = detect_created(args.media, original_filename=os.path.basename(args.media))
         if result and result.get("day") and result.get("time"):
             detected_timestamp = f"{result['day']}_{result['time']}"
             print(f"Detected: --timestamp {detected_timestamp}")
