@@ -808,7 +808,17 @@
       
       <div class="entities-section">
         <div class="entities-container">
-          <h3 id="all-entities-title">Other Entities</h3>
+          <h3 id="all-entities-title" style="display: flex; align-items: center; justify-content: space-between;">
+            <span>Other Entities</span>
+            <input type="text" id="entity-search" placeholder="Search entities..." style="
+              max-width: 250px;
+              padding: 6px 12px;
+              border: 1px solid #ddd;
+              border-radius: 6px;
+              font-size: 0.9em;
+              font-family: inherit;
+            ">
+          </h3>
           <table class="entities-table">
             <thead>
               <tr>
@@ -915,13 +925,33 @@ document.addEventListener('DOMContentLoaded', function() {
       document.getElementById(targetTab + '-tab').classList.add('active');
       
       // Load data when tabs are clicked
-      if (targetTab === 'entities' && !entitiesData) {
-        loadEntities();
+      if (targetTab === 'entities') {
+        if (!entitiesData) {
+          loadEntities();
+        }
+        // Auto-focus the search input when entities tab is opened
+        setTimeout(() => {
+          const searchInput = document.getElementById('entity-search');
+          if (searchInput) {
+            searchInput.focus();
+          }
+        }, 100);
       } else if (targetTab === 'matters' && !mattersData) {
         loadMatters();
       }
     });
   });
+  
+  // Add entity search functionality
+  const entitySearchInput = document.getElementById('entity-search');
+  if (entitySearchInput) {
+    entitySearchInput.addEventListener('input', function() {
+      const searchTerm = this.value.trim();
+      if (entitiesData) {
+        renderEntities(searchTerm);
+      }
+    });
+  }
   
   // Load matters by default since matters tab is active
   loadMatters();
@@ -984,7 +1014,7 @@ function loadEntities() {
     });
 }
 
-function renderEntities() {
+function renderEntities(searchTerm = '') {
   if (!entitiesData) return;
   
   const domainTbody = document.getElementById('domain-entities-tbody');
@@ -1012,7 +1042,15 @@ function renderEntities() {
   
   // Render non-starred entities only (filtering out domain entities)
   const unstarredEntities = entitiesData.all_entities.filter(e => !e.starred);
-  unstarredEntities.forEach(entity => {
+  
+  // Apply search filter if searchTerm is provided
+  const filteredEntities = searchTerm 
+    ? unstarredEntities.filter(entity => 
+        entity.name.toLowerCase().includes(searchTerm.toLowerCase())
+      )
+    : unstarredEntities;
+  
+  filteredEntities.forEach(entity => {
     const row = createEntityRow(entity, false);
     allTbody.appendChild(row);
   });
@@ -1085,8 +1123,12 @@ function toggleEntityStar(entity, starButton) {
       starButton.className = `star-button ${entity.starred ? 'starred' : 'unstarred'}`;
       starButton.innerHTML = entity.starred ? '★' : '☆';
       
-      // Re-render entities to update the domain section
-      renderEntities();
+      // Get current search term to maintain filter
+      const searchInput = document.getElementById('entity-search');
+      const currentSearchTerm = searchInput ? searchInput.value.trim() : '';
+      
+      // Re-render entities with current search filter
+      renderEntities(currentSearchTerm);
     } else {
       console.error('Error toggling entity:', data.error);
       alert('Error: ' + (data.error || 'Unknown error'));
@@ -1522,8 +1564,12 @@ function saveEntityDescription(description) {
         }
       }
       
-      // Re-render the entities tables
-      renderEntities();
+      // Get current search term to maintain filter
+      const searchInput = document.getElementById('entity-search');
+      const currentSearchTerm = searchInput ? searchInput.value.trim() : '';
+      
+      // Re-render the entities tables with current search filter
+      renderEntities(currentSearchTerm);
       closeDescriptionEditor();
     } else {
       alert('Error saving entity description: ' + (data.error || 'Unknown error'));

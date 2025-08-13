@@ -194,17 +194,15 @@ def search_entities(
     if query:
         fts_parts.append(query)
     if name:
-        # For column-specific searches, quote the entire expression if needed
-        if any(c in name for c in '.()[]"*'):
-            # Name contains special chars, quote the whole column:term expression
-            escaped_name = name.replace('"', '""')
-            fts_parts.append(f'name:"{escaped_name}"')
-        else:
-            fts_parts.append(f"name:{name}")
+        # FTS5 column-specific search: escape double quotes and wrap in double quotes
+        # This handles all special characters correctly for FTS5
+        escaped_name = name.replace('"', '""')
+        fts_parts.append(f'name:"{escaped_name}"')
 
     where_clause = "1"
     params: List[str] = []
     if fts_parts:
+        # Use db.quote to properly escape the entire FTS5 query
         quoted = db.quote(" AND ".join(fts_parts))
         where_clause = f"entities MATCH {quoted}"
     if day:
