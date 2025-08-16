@@ -91,7 +91,7 @@ During an active attachment, the server streams:
 
 ## Agent Event Format
 
-All agent events are JSON objects with `event` and millisecond `ts` fields. Backends (OpenAI, Gemini, Claude) emit the following event types:
+All agent events are JSON objects with `event` and millisecond `ts` fields. The `ts` field is automatically added if not provided by the backend. Backends (OpenAI, Gemini, Claude) emit the following event types:
 
 ### start
 Emitted when an agent run begins.
