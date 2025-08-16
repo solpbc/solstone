@@ -12,7 +12,9 @@ help:
 	@echo "  make install   - Install package in editable mode"
 	@echo "  make deps      - Install test/dev dependencies only"
 	@echo "  make full      - Install package with all optional dependencies"
-	@echo "  make test      - Run tests (installs deps if needed)"
+	@echo "  make test      - Run unit tests (installs deps if needed)"
+	@echo "  make test-integration - Run integration tests"
+	@echo "  make test-all  - Run both unit and integration tests"
 	@echo "  make lint      - Run all linting and formatting checks"
 	@echo "  make format    - Auto-format code with black and isort"
 	@echo "  make check     - Run type checking with mypy"
@@ -51,15 +53,15 @@ dev: pyproject.toml
 	@touch .package-installed
 	@touch .deps-installed
 
-# Run tests
+# Run tests (excluding integration tests)
 test: .deps-installed
 	@echo "Running tests..."
-	pytest -q --cov=.
+	pytest -q --cov=. --ignore=tests/integration
 
-# Run tests with verbose output
+# Run tests with verbose output (excluding integration tests)
 test-verbose: .deps-installed
 	@echo "Running tests with verbose output..."
-	pytest -v --cov=. --cov-report=term-missing
+	pytest -v --cov=. --cov-report=term-missing --ignore=tests/integration
 
 # Run specific test file or pattern
 test-only: .deps-installed
@@ -70,6 +72,30 @@ test-only: .deps-installed
 		exit 1; \
 	fi
 	pytest $(TEST)
+
+# Run integration tests
+test-integration: .deps-installed
+	@echo "Running integration tests..."
+	pytest tests/integration/ -v --tb=short
+
+# Run integration tests with coverage
+test-integration-cov: .deps-installed
+	@echo "Running integration tests with coverage..."
+	pytest tests/integration/ -v --cov=. --cov-report=term-missing
+
+# Run specific integration test
+test-integration-only: .deps-installed
+	@if [ -z "$(TEST)" ]; then \
+		echo "Usage: make test-integration-only TEST=<test_file_or_pattern>"; \
+		echo "Example: make test-integration-only TEST=test_api.py"; \
+		exit 1; \
+	fi
+	pytest tests/integration/$(TEST)
+
+# Run all tests (unit + integration)
+test-all: .deps-installed
+	@echo "Running all tests (unit + integration)..."
+	pytest tests/ -v --cov=.
 
 # Auto-format code
 format: .deps-installed
@@ -136,9 +162,9 @@ watch:
 	@command -v ptw >/dev/null 2>&1 || { echo "Installing pytest-watch..."; pip install pytest-watch; }
 	ptw -- -q
 
-# Generate coverage report
+# Generate coverage report (excluding integration tests)
 coverage: .deps-installed
-	pytest --cov=. --cov-report=html --cov-report=term
+	pytest --cov=. --cov-report=html --cov-report=term --ignore=tests/integration
 	@echo "Coverage report generated in htmlcov/index.html"
 
 # Update dependencies to latest versions
