@@ -94,6 +94,7 @@ class ToolExecutor:
                 {
                     "event": "tool_end",
                     "tool": tool_use.name,
+                    "args": tool_use.input,
                     "result": result_data,
                     "call_id": call_id,
                 }
@@ -106,6 +107,7 @@ class ToolExecutor:
                 {
                     "event": "tool_end",
                     "tool": tool_use.name,
+                    "args": tool_use.input,
                     "result": {"error": str(exc)},
                     "call_id": call_id,
                 }

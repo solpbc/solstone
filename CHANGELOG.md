@@ -161,3 +161,8 @@ Guide for updating:
 - Screen diff transcripts extract source from filename pattern (e.g., '123456_monitor_1_diff.json' → 'monitor_1')
 - Added optional --source filter to transcript search for filtering results by source
 - Search results now display source in brackets (e.g., [mic], [sys], [monitor_1])
+
+## 2025-08-16
+
+- Standardised agent event fields across OpenAI, Gemini and Claude backends
+- Documented Cortex WebSocket API and event types in new `CORTEX.md`
