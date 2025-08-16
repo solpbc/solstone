@@ -1,86 +1,230 @@
-## Project Overview
+# Development Guidelines & Contribution Standards
 
-**Sunstone** is a Python‑based AI-driven desktop journaling toolkit that:
+This document provides comprehensive guidelines for contributing to Sunstone, whether you're an AI assistant, human developer, or automated system.
 
-* **hear/**: Captures system audio and transcribes it via an external AI API.
-* **see/**: Takes screenshots and analyzes them with AI vision models.
-* **think/**: Post‑processes and summarizes captured data (clustering, topic extraction).
-* **dream/**: A web app for navigating and interacting with journaled content.
+## 📋 Project Overview
 
-Entry points for each package are defined in `pyproject.toml` under `[tool.poetry.scripts]`. Each package has its own `README.md` with deeper usage examples.
+**Sunstone** is a Python-based AI-driven desktop journaling toolkit that provides:
+
+* **hear/** - System audio capture and AI-powered transcription
+* **see/** - Screenshot capture and visual analysis with AI vision models
+* **think/** - Data post-processing, summarization, and intelligent insights
+* **dream/** - Web application for navigating and interacting with captured content
+
+The project uses a modular architecture where each package can operate independently while sharing common utilities and data formats through the journal system.
 
 ---
 
-## Project Structure
+## 🏗️ Project Structure
 
 ```
 sunstone/
 ├── hear/           # Audio capture & transcription
 ├── see/            # Screenshot capture & image analysis
-├── think/          # Data post‑processing & summarization
+├── think/          # Data post-processing & AI analysis
+│   ├── agents/     # Agent system prompts and configs
+│   ├── indexer/    # Database indexing subsystem
+│   └── topics/     # Topic extraction templates
 ├── dream/          # Web app frontend & backend
-├── tests/          # pytest test suites
-├── JOURNAL.md      # Domain model for journal directories
-├── README.md       # Helpful project overview
-├── CHANGELOG.md    # Project version history & release notes
-├── CRUMBS.md       # Definition of the .crumb file format
-└── AGENTS.md       # AI & contributor guidance (this file)
+│   ├── static/     # JavaScript and CSS assets
+│   ├── templates/  # Jinja2 HTML templates
+│   └── views/      # Flask view modules
+├── tests/          # Comprehensive pytest test suites
+├── fixtures/       # Test data and examples
+├── Makefile        # Build and development automation
+├── pyproject.toml  # Package configuration and dependencies
+├── JOURNAL.md      # Journal directory structure documentation
+├── README.md       # Project overview and quick start
+├── CHANGELOG.md    # Version history & release notes
+├── CRUMBS.md       # Crumb file format specification
+├── CORTEX.md       # Agent system documentation
+└── AGENTS.md       # Development guidelines (this file)
 ```
 
-* **Packages**: Each top‑level folder is a Python package with an `__init__.py`. Use absolute imports (e.g. `from sunstone.hear import recorder`).
-* **Journal**: Data is organized under a root `journal/` with the location always specified in a .env as `JOURNAL_PATH`, with subfolders per date (“day”) as `YYYYMMDD`. See `JOURNAL.md` for details.
+### Package Organization
+
+* **Modules**: Each top-level folder is a Python package with `__init__.py`
+* **Imports**: Use absolute imports (e.g., `from hear.capture import record_audio`)
+* **Entry Points**: Defined in `pyproject.toml` under `[project.scripts]`
+* **Journal**: Data stored under `JOURNAL_PATH` environment variable location
 
 ---
 
-## Coding Standards & Style
+## 💻 Coding Standards & Style
 
-* **Language**: Python 3.9+
-* **Formatter**: Black (`black .`) and isort (`isort .`) with settings in `pyproject.toml`.
-* **Linting**: flake8 (`flake8 .`), MyPy (`mypy .`). All new code must pass these checks.
-* **Naming Conventions**:
+### Language & Tools
+* **Python Version**: 3.9+ required
+* **Code Formatting**: 
+  - Black (`make format` or `black .`)
+  - isort (`make format` or `isort .`)
+  - Settings configured in `pyproject.toml`
+* **Linting & Type Checking**:
+  - flake8 (`make lint-flake8` or `flake8 .`)
+  - mypy (`make check` or `mypy .`)
+  - All new code must pass these checks
 
-  * **Modules & packages**: snake\_case
-  * **Classes**: PascalCase
-  * **Functions & variables**: snake\_case
-  * **Constants**: UPPER\_SNAKE\_CASE
-* **Docstrings**: Google style or NumPy style. Include parameter and return descriptions.
-* **Imports**: Absolute imports only, grouped in the order: standard library, third‑party, local.
+### Naming Conventions
+* **Modules & Packages**: `snake_case` (e.g., `audio_utils.py`)
+* **Classes**: `PascalCase` (e.g., `AudioProcessor`)
+* **Functions & Variables**: `snake_case` (e.g., `process_audio()`)
+* **Constants**: `UPPER_SNAKE_CASE` (e.g., `MAX_BUFFER_SIZE`)
+* **Private Members**: Leading underscore (e.g., `_internal_method()`)
 
----
-
-## Testing & CI
-
-* **Test Framework**: pytest. Place tests under `tests/`, matching module structure. Add or update tests when developing new functionality.
-* **Coverage**: We include `pytest-cov` in dev dependencies. Aim to maintain or improve existing coverage.
-* **Commands**:
-
-  ```bash
-  pip install -e .[dev]
-  pytest -q --cov=.
-  flake8 .
-  mypy .
-  ```
-* **Always Test**: Ensure local tests relevant to your changes all pass before pushing, if they're failing on an unrelated part of the project then they can be ignored.
-
----
-
-## Important Notes
-
-* **Update Changelog**: Remember to update `CHANGELOG.md` after adding any new features or capabilities, follow the instructions at the top of the file.
-* **Input Validation**: Sanitize and validate all external inputs (file paths, user data).
-* **Error Handling**: Raise exceptions for unexpected states; avoid silent failures.
-* **JOURNAL_PATH**: The `setup_cli()` utility (that all `main()` use) validates that this env var is available, so avoid passing the journal path around since it's already accessible anywhere via the environment.
+### Code Organization
+* **Docstrings**: Google or NumPy style with parameter/return descriptions
+* **Imports**: 
+  - Absolute imports only
+  - Grouped in order: standard library, third-party, local
+  - One import per line for clarity
+* **File Structure**:
+  - Constants at top
+  - Helper functions before main functions
+  - Classes after functions
+  - Main/CLI code at bottom
 
 ---
 
-## Dependencies Management
+## 🧪 Testing & Quality Assurance
 
-* **Standard Library Preferred**: Avoid adding heavy dependencies for simple tasks.
-* **Adding New Dependencies**: Must update `pyproject.toml` under `[tool.poetry.dependencies]` and `[tool.poetry.dev-dependencies]` if for tests or tooling.
+### Test Framework
+* **Framework**: pytest with coverage reporting
+* **Structure**: Tests in `tests/` mirroring source structure
+* **Naming**: Test files prefixed with `test_`, functions with `test_`
+* **Fixtures**: Shared fixtures in `tests/conftest.py`
+
+### Running Tests
+```bash
+# Quick test run
+make test
+
+# Verbose with coverage
+make test-verbose
+
+# Specific test file or pattern
+make test-only TEST=tests/test_utils.py
+make test-only TEST="-k test_function_name"
+
+# Generate HTML coverage report
+make coverage
+```
+
+### Development Workflow
+```bash
+# Before committing
+make check-all  # Formats, lints, and tests
+
+# Or individually
+make format     # Auto-format code
+make lint       # Check code quality
+make test       # Run tests
+
+# Clean up
+make clean      # Remove build artifacts
+```
+
+### Continuous Integration
+* Tests must pass for all changes
+* Maintain or improve code coverage
+* Fix linting issues before merging
+* Update tests when adding features
 
 ---
 
-## General Principles
-* **DRY**: Apply the DRY principle when it makes sense to re-use and share logic and reduce duplicate code blocks
-* **Conciseness**: Try to make all changes and additions concisely
-* **Maintainability**: Structure and name things so that they are easily maintainable with some light extensibility in mind, but never overly-abstracted
+## 📝 Important Development Notes
+
+### Environment Management
+* **JOURNAL_PATH**: Always available via environment after `setup_cli()`
+* **API Keys**: Store in `.env` file, never commit to repository
+* **Configuration**: Use `python-dotenv` for environment variables
+
+### Error Handling
+* **Exceptions**: Raise specific exceptions with clear messages
+* **Validation**: Validate all external inputs (paths, user data)
+* **Logging**: Use Python's logging module, not print statements
+* **Silent Failures**: Avoid them - fail fast with clear errors
+
+### Documentation
+* **CHANGELOG.md**: Update for all features/fixes following format
+* **README Files**: Update package READMEs for new functionality
+* **Code Comments**: Explain "why" not "what" - code should be self-documenting
+* **Type Hints**: Use type hints for function signatures
+
+---
+
+## 📦 Dependencies Management
+
+### Adding Dependencies
+* **Minimize Dependencies**: Use standard library when possible
+* **Production Dependencies**: Add to `dependencies` in `pyproject.toml`
+* **Development Dependencies**: Add to `[project.optional-dependencies]` dev section
+* **Optional Features**: Add to appropriate optional dependency group (e.g., `full`)
+
+### Installing Dependencies
+```bash
+# Basic package installation
+make install
+
+# With all optional dependencies
+make full
+
+# Development environment
+make dev
+
+# Update dependencies
+make update-deps
+```
+
+---
+
+## 🎯 Development Principles
+
+### Code Quality
+* **DRY (Don't Repeat Yourself)**: Extract common logic into utilities
+* **KISS (Keep It Simple)**: Prefer simple, readable solutions
+* **YAGNI (You Aren't Gonna Need It)**: Don't over-engineer
+* **Single Responsibility**: Functions/classes should do one thing well
+
+### Best Practices
+* **Conciseness**: Write clear, concise code without sacrificing readability
+* **Maintainability**: Structure code for easy maintenance and extension
+* **Performance**: Profile before optimizing, focus on bottlenecks
+* **Security**: Never expose secrets, validate inputs, sanitize outputs
+
+### Git Workflow
+* **Commits**: Small, focused commits with clear messages
+* **Branches**: Feature branches from main, descriptive names
+* **Pull Requests**: Include tests, update docs, pass CI checks
+* **Reviews**: Address feedback promptly and thoroughly
+
+---
+
+## 🚀 Quick Reference
+
+### Common Commands
+```bash
+# Development setup
+make dev            # Install with dev dependencies
+make test          # Run tests
+make format        # Format code
+make lint          # Check code quality
+
+# Before pushing
+make check-all     # Format, lint, and test
+
+# Cleanup
+make clean         # Remove artifacts
+make clean-install # Clean and reinstall
+```
+
+### File Locations
+* **Entry Points**: `pyproject.toml` `[project.scripts]`
+* **Test Fixtures**: `fixtures/` directory
+* **Logs**: `logs/` directory (gitignored)
+* **Journal Data**: Path from `JOURNAL_PATH` env var
+* **Config**: `.env` file in project root
+
+### Getting Help
+* Run `make help` for available Make targets
+* Run `sunstone` for CLI command list
+* Check package READMEs for detailed usage
+* Review test files for usage examples

@@ -1,61 +1,173 @@
-# sunstone
+# Sunstone
 Navigate Work Intelligently
 
-A comprehensive collection of multimodal AI utilities for workplace audio, visual, and cognitive processing.
-Captured files are organised under a **journal** directory containing daily `YYYYMMDD` folders.
+A comprehensive Python-based AI-driven desktop journaling toolkit for multimodal capture, analysis, and intelligent navigation of workplace activities. Sunstone organizes captured data under a **journal** directory containing daily `YYYYMMDD` folders, enabling powerful temporal analysis and review.
 
-## Features
+## 🚀 Features
 
-- **See** 👁️ - Screenshot capture and visual comparison with the `screen-watch` command
-  and `screen-describe`. The `sunstone-see` wrapper keeps both running in a loop. The
-  `reduce-screen` command condenses diff descriptions into shorter Markdown. These
-  tools run only on Linux with a GNOME desktop.
-- **Hear** 👂 - Audio recording and transcription with `gemini-mic` and `gemini-transcribe`.
-  Use `sunstone-hear` to run them together or `gemini-live` for real time transcripts.
-- **Think** 🧠 - Data analysis and AI-powered insights via commands like `ponder`,
-  `cluster` and `process-day`.
-- **Dream** 🌐 - Run `dream --password PASSWORD` for a web UI to review entities and meetings.
- - **Serve** 🛰️ - `ponder-mcp` launches an OAuth-protected MCP server for searching topics and occurrences.
-- **Help** ❓ - `sunstone` prints a list of available commands and their arguments.
+### Core Modules
 
-## Quick Start
+- **Hear** 👂 - Audio capture and transcription
+  - `hear-capture` - Records system audio segments
+  - `hear-transcribe` - Transcribes audio via AI APIs
+  - `hear-runner` - Runs capture and transcription in a loop
+  - `hear-live` - Real-time transcription display
+  
+- **See** 👁️ - Visual capture and analysis
+  - `see-scan` - Takes screenshots with diff detection
+  - `see-describe` - Analyzes visual changes with AI
+  - `see-runner` - Continuous screenshot monitoring
+  - `see-reduce` - Condenses descriptions to Markdown
+  - *Note: Requires Linux with GNOME desktop*
 
+- **Think** 🧠 - Data processing and insights
+  - `think-ponder` - Generates AI-powered summaries and topics
+  - `think-cluster` - Groups related content
+  - `think-entity-roll` - Extracts and tracks entities
+  - `think-indexer` - Builds searchable database
+  - `think-supervisor` - Orchestrates agent workflows
+  - `think-process-day` - Full daily data pipeline
+
+- **Dream** 🌐 - Web interface and review
+  - `dream` - Launch web UI (with `--password` for auth)
+  - Review entities, meetings, tasks, and domains
+  - Live transcription monitoring
+  - Calendar view with daily summaries
+
+### Additional Tools
+
+- **MCP Server** 🛰️ - `think-mcp-tools` launches Model Context Protocol server
+- **Cortex** 🧩 - `think-cortex` provides agent-based task execution
+- **Help** ❓ - `sunstone` lists all available commands
+
+## 📦 Installation
+
+### Basic Installation
 ```bash
+# Install package in editable mode
+make install
+# or
 pip install -e .
 ```
 
-Set `JOURNAL_PATH` to the folder where recordings should be stored and
-`GOOGLE_API_KEY` for Gemini access. These variables can also be placed in a
-`.env` file which is loaded by most commands.
+### Full Installation (with optional dependencies)
+```bash
+# Install with all optional dependencies (audio/video processing)
+make full
+# or
+pip install -e .[full]
+```
 
-Run `sunstone` to see all available commands.
+### Development Installation
+```bash
+# Install with development tools
+make dev
+# or
+pip install -e .[dev]
+```
 
-Use `sunstone-hear` together with `sunstone-see` to run the audio and visual capture
-services in continuous loops. `sunstone-hear` wraps `gemini-mic` and
-`gemini-transcribe`, while `sunstone-see` wraps `screen-watch` and
-`screen-describe`. Launch `dream` to review the captured data in your browser.
+## ⚙️ Configuration
 
-## Documentation
-
-Formats:
-
-- [JOURNAL.md](JOURNAL.md) - details about the structure and contents of the **journal** directory
-- [CRUMBS.md](CRUMBS.md) - .crumb json files created to trace inputs for all token generation
-
-Each package has its own README with detailed usage information:
-
-- [hear/README.md](hear/README.md)
-- [see/README.md](see/README.md)
-- [think/README.md](think/README.md)
-- [dream/README.md](dream/README.md)
-
-## Testing
-
-Install the package with development extras and run the tests:
+Create a `.env` file in your project root or set these environment variables:
 
 ```bash
-pip install -e .[dev]
-pytest -q --cov=.
-flake8 .
-mypy .
+# Required
+JOURNAL_PATH=/path/to/your/journal  # Where all data is stored
+GOOGLE_API_KEY=your-api-key         # For Gemini AI services
+
+# Optional
+OPENAI_API_KEY=your-api-key         # For OpenAI services
+ANTHROPIC_API_KEY=your-api-key      # For Claude services
 ```
+
+## 🎯 Quick Start
+
+1. **Set up environment**:
+   ```bash
+   cp .env.example .env  # If available
+   # Edit .env with your settings
+   ```
+
+2. **Start capturing**:
+   ```bash
+   # Audio capture and transcription
+   hear-runner
+   
+   # Screenshot monitoring (Linux/GNOME only)
+   see-runner
+   ```
+
+3. **Process captured data**:
+   ```bash
+   # Run full processing pipeline for today
+   think-process-day
+   
+   # Or process specific date
+   think-process-day 20240101
+   ```
+
+4. **Review in web UI**:
+   ```bash
+   # Launch web interface
+   dream --password your-password
+   # Open http://localhost:5000
+   ```
+
+## 🧪 Testing
+
+```bash
+# Run all tests with coverage
+make test
+
+# Run specific tests
+make test-only TEST=tests/test_utils.py
+
+# Run with verbose output
+make test-verbose
+
+# Generate HTML coverage report
+make coverage
+```
+
+## 🔧 Development
+
+```bash
+# Format code
+make format
+
+# Run linting checks
+make lint
+
+# Type checking
+make check
+
+# Run all checks before committing
+make check-all
+
+# Clean build artifacts
+make clean
+```
+
+See the [Makefile](Makefile) for all available commands or run `make help`.
+
+## 📚 Documentation
+
+- [JOURNAL.md](JOURNAL.md) - Journal directory structure and data organization
+- [CRUMBS.md](CRUMBS.md) - Crumb file format for tracking AI token generation
+- [AGENTS.md](AGENTS.md) - Development guidelines and coding standards
+- [CHANGELOG.md](CHANGELOG.md) - Version history and release notes
+- [CORTEX.md](CORTEX.md) - Agent system documentation
+
+### Package Documentation
+- [hear/README.md](hear/README.md) - Audio capture and transcription details
+- [see/README.md](see/README.md) - Screenshot and visual analysis details
+- [think/README.md](think/README.md) - Data processing and AI analysis details
+- [dream/README.md](dream/README.md) - Web interface usage and features
+
+## 🤝 Contributing
+
+Please read [AGENTS.md](AGENTS.md) for development guidelines, coding standards, and contribution instructions.
+
+## 📄 License
+
+MIT License - see LICENSE file for details
