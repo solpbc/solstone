@@ -16,7 +16,7 @@ from watchdog.observers import Observer
 from see import gemini_look
 from see.reduce import reduce_day
 from think.crumbs import CrumbBuilder
-from think.utils import day_log, setup_cli
+from think.utils import day_log, load_entity_names, setup_cli
 
 
 class Describer:
@@ -24,7 +24,8 @@ class Describer:
         """Watch the journal and describe new screenshot diffs for the current day."""
         self.journal_dir = journal_dir
         self.watch_dir: Optional[Path] = None
-        self.entities = journal_dir / "entities.md"
+        # Validate entities file exists at startup
+        load_entity_names(journal_dir, required=True)
         self.processed: set[str] = set()
         self.observer: Optional[Observer] = None
         self.executor = ThreadPoolExecutor()
@@ -50,7 +51,7 @@ class Describer:
         json_path.write_text(json.dumps(result["result"], indent=2))
         logging.info(f"Described {img_path} -> {json_path}")
         new_img = self._move_to_seen(img_path)
-        crumb_builder = CrumbBuilder().add_file(new_img).add_file(self.entities)
+        crumb_builder = CrumbBuilder().add_file(new_img).add_file(self.journal_dir / "entities.md")
         crumb_builder.add_model(result["model_used"])
         crumb_path = crumb_builder.commit(str(json_path))
         logging.info(f"Crumb saved to {crumb_path}")
@@ -95,8 +96,10 @@ class Describer:
                 logging.warning(
                     f"No box_2d metadata found in {img_path}, using full image dimensions: {box}"
                 )
+            entity_names = load_entity_names(self.journal_dir)
+            entities_text = f"Known entities: {entity_names}" if entity_names else ""
             return gemini_look.gemini_describe_region(
-                im, box, entities=str(self.entities)
+                im, box, entities_text=entities_text
             )
 
     @staticmethod

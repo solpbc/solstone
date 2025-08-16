@@ -21,7 +21,7 @@ from hear.audio_utils import SAMPLE_RATE, detect_speech, merge_streams, resample
 from hear.gemini import transcribe_segments
 from think.crumbs import CrumbBuilder
 from think.models import GEMINI_FLASH
-from think.utils import day_log, setup_cli
+from think.utils import day_log, load_entity_names, setup_cli
 
 # Constants
 MODEL = GEMINI_FLASH
@@ -40,7 +40,8 @@ class Transcriber:
         self.client = genai.Client(api_key=api_key)
         self.prompt_path = prompt_path
         self.prompt_text = prompt_path.read_text().strip()
-        self.entities_path = journal_dir / "entities.md"
+        # Validate entities file exists at startup
+        load_entity_names(journal_dir, required=True)
         self.model = load_silero_vad()
         self.merged_stash = np.array([], dtype=np.float32)
         self.processing: list[Path] = []
@@ -239,7 +240,9 @@ class Transcriber:
         attempts = 0
         while attempts < 2:
             try:
-                entities_text = self.entities_path.read_text().strip()
+                entity_names = load_entity_names(self.journal_dir)
+                # If no entity names found, use empty string
+                entities_text = f"Known entities: {entity_names}" if entity_names else ""
                 result = transcribe_segments(
                     self.client, MODEL, self.prompt_text, entities_text, segments
                 )
@@ -249,7 +252,7 @@ class Transcriber:
                 crumb_builder = (
                     CrumbBuilder()
                     .add_file(self.prompt_path)
-                    .add_file(self.entities_path)
+                    .add_file(self.journal_dir / "entities.md")
                 )
                 crumb_builder = crumb_builder.add_file(raw_path).add_model(MODEL)
                 crumb_path = crumb_builder.commit(str(json_path))

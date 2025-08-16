@@ -48,7 +48,7 @@ def initialize():
     return _gemini_client is not None
 
 
-def gemini_describe_region(image, box, models=None, entities=None):
+def gemini_describe_region(image, box, models=None, entities_text=None):
     """
     Crops the image using native pixel coordinates from box,
     computes normalized coordinates once for the Gemini call, and then
@@ -71,10 +71,8 @@ def gemini_describe_region(image, box, models=None, entities=None):
     cropped = im_with_box.crop((native_x_min, native_y_min, native_x_max, native_y_max))
 
     prompt = "Here is the latest screenshot with the cropped region of interest, please return the complete JSON as instructed."
-    if not entities or not os.path.isfile(entities):
-        raise FileNotFoundError(f"entities file not found: {entities}")
-    with open(entities, "r", encoding="utf-8") as ef:
-        entities_text = ef.read().strip()
+    if not entities_text:
+        entities_text = ""  # Use empty string if no entities provided
     contents = [entities_text, prompt, im_with_box, cropped]
 
     models_to_try = (
