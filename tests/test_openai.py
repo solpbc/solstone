@@ -32,7 +32,7 @@ def _setup_openai_mocks(monkeypatch, tmp_path):
         def __init__(self, events=None):
             self.events = events or []
             self.final_output = "ok"
-        
+
         async def stream_events(self):
             for event in self.events:
                 yield event
@@ -60,7 +60,7 @@ def _setup_openai_mocks(monkeypatch, tmp_path):
 
     agents_stub.SQLiteSession = DummySession
 
-    class DummyMCPServer:  
+    class DummyMCPServer:
         async def __aenter__(self):
             return self
 
@@ -103,7 +103,7 @@ def test_openai_main(monkeypatch, tmp_path, capsys):
     agents_dir.mkdir()
     mcp_uri_file = agents_dir / "mcp.uri"
     mcp_uri_file.write_text("http://localhost:5173/mcp")
-    
+
     task = tmp_path / "task.txt"
     task.write_text("hello")
 
@@ -133,7 +133,7 @@ def test_openai_main(monkeypatch, tmp_path, capsys):
 
 def test_openai_thinking_events(monkeypatch, tmp_path, capsys):
     last_kwargs, DummyRunner = _setup_openai_mocks(monkeypatch, tmp_path)
-    
+
     # Create reasoning event with summary in raw_item
     raw_item = SimpleNamespace(
         summary=[SimpleNamespace(text="I need to think about this step by step.")]
@@ -141,9 +141,9 @@ def test_openai_thinking_events(monkeypatch, tmp_path, capsys):
     reasoning_event = SimpleNamespace(
         type="run_item_stream_event",
         name="reasoning_item_created",
-        item=SimpleNamespace(raw_item=raw_item)
+        item=SimpleNamespace(raw_item=raw_item),
     )
-    
+
     DummyRunner.events_to_stream = [reasoning_event]
 
     importlib.reload(importlib.import_module("think.openai"))
@@ -156,7 +156,7 @@ def test_openai_thinking_events(monkeypatch, tmp_path, capsys):
     agents_dir.mkdir()
     mcp_uri_file = agents_dir / "mcp.uri"
     mcp_uri_file.write_text("http://localhost:5173/mcp")
-    
+
     task = tmp_path / "task.txt"
     task.write_text("hello")
 
@@ -199,7 +199,7 @@ def test_openai_outfile(monkeypatch, tmp_path):
     agents_dir.mkdir()
     mcp_uri_file = agents_dir / "mcp.uri"
     mcp_uri_file.write_text("http://localhost:5173/mcp")
-    
+
     task = tmp_path / "task.txt"
     task.write_text("hello")
     out_file = tmp_path / "out.txt"
@@ -232,7 +232,7 @@ def test_openai_outfile(monkeypatch, tmp_path):
 
 def test_openai_thinking_events_stdout(monkeypatch, tmp_path, capsys):
     last_kwargs, DummyRunner = _setup_openai_mocks(monkeypatch, tmp_path)
-    
+
     # Create reasoning event with summary in raw_item
     raw_item = SimpleNamespace(
         summary=[SimpleNamespace(text="I need to think about this step by step.")]
@@ -240,9 +240,9 @@ def test_openai_thinking_events_stdout(monkeypatch, tmp_path, capsys):
     reasoning_event = SimpleNamespace(
         type="run_item_stream_event",
         name="reasoning_item_created",
-        item=SimpleNamespace(raw_item=raw_item)
+        item=SimpleNamespace(raw_item=raw_item),
     )
-    
+
     DummyRunner.events_to_stream = [reasoning_event]
 
     importlib.reload(importlib.import_module("think.openai"))
@@ -255,7 +255,7 @@ def test_openai_thinking_events_stdout(monkeypatch, tmp_path, capsys):
     agents_dir.mkdir()
     mcp_uri_file = agents_dir / "mcp.uri"
     mcp_uri_file.write_text("http://localhost:5173/mcp")
-    
+
     task = tmp_path / "task.txt"
     task.write_text("hello")
 
@@ -286,19 +286,18 @@ def test_openai_thinking_events_stdout(monkeypatch, tmp_path, capsys):
 
 def test_openai_outfile_error(monkeypatch, tmp_path):
     last_kwargs, DummyRunner = _setup_openai_mocks(monkeypatch, tmp_path)
-    
+
     # Make the stream_events raise an error
     class ErrorStreamResult:
         final_output = "ok"
-        
+
         async def stream_events(self):
             # Yield nothing then raise error to simulate streaming error
             if False:
                 yield
             raise RuntimeError("boom")
-    
+
     # Override run_streamed to return error stream
-    original_run_streamed = DummyRunner.run_streamed
     DummyRunner.run_streamed = lambda *a, **k: ErrorStreamResult()
 
     importlib.reload(importlib.import_module("think.openai"))
@@ -311,7 +310,7 @@ def test_openai_outfile_error(monkeypatch, tmp_path):
     agents_dir.mkdir()
     mcp_uri_file = agents_dir / "mcp.uri"
     mcp_uri_file.write_text("http://localhost:5173/mcp")
-    
+
     task = tmp_path / "task.txt"
     task.write_text("hello")
     out_file = tmp_path / "out.txt"
@@ -339,14 +338,18 @@ def test_openai_outfile_error(monkeypatch, tmp_path):
     # Combine all logged events from all files
     all_logged_events = []
     for log_file in logged:
-        all_logged_events.extend([json.loads(line) for line in log_file.read_text().splitlines()])
+        all_logged_events.extend(
+            [json.loads(line) for line in log_file.read_text().splitlines()]
+        )
     # Check that our events are in the logged events
-    assert any(e["event"] == "error" and e["error"] == "boom" for e in all_logged_events)
+    assert any(
+        e["event"] == "error" and e["error"] == "boom" for e in all_logged_events
+    )
 
 
 def test_openai_thinking_events_error(monkeypatch, tmp_path, capsys):
     last_kwargs, DummyRunner = _setup_openai_mocks(monkeypatch, tmp_path)
-    
+
     # Create reasoning event with summary in raw_item
     raw_item = SimpleNamespace(
         summary=[SimpleNamespace(text="I need to think about this step by step.")]
@@ -354,9 +357,9 @@ def test_openai_thinking_events_error(monkeypatch, tmp_path, capsys):
     reasoning_event = SimpleNamespace(
         type="run_item_stream_event",
         name="reasoning_item_created",
-        item=SimpleNamespace(raw_item=raw_item)
+        item=SimpleNamespace(raw_item=raw_item),
     )
-    
+
     DummyRunner.events_to_stream = [reasoning_event]
 
     importlib.reload(importlib.import_module("think.openai"))
@@ -369,7 +372,7 @@ def test_openai_thinking_events_error(monkeypatch, tmp_path, capsys):
     agents_dir.mkdir()
     mcp_uri_file = agents_dir / "mcp.uri"
     mcp_uri_file.write_text("http://localhost:5173/mcp")
-    
+
     task = tmp_path / "task.txt"
     task.write_text("hello")
 
@@ -400,28 +403,24 @@ def test_openai_thinking_events_error(monkeypatch, tmp_path, capsys):
 
 def test_openai_tool_call_events(monkeypatch, tmp_path, capsys):
     last_kwargs, DummyRunner = _setup_openai_mocks(monkeypatch, tmp_path)
-    
+
     # Create tool call and output events
     tool_call_raw = SimpleNamespace(
-        name="search_web",
-        id="call_123",
-        arguments='{"query": "weather today"}'
+        name="search_web", id="call_123", arguments='{"query": "weather today"}'
     )
     tool_call_event = SimpleNamespace(
         type="run_item_stream_event",
         name="tool_called",
-        item=SimpleNamespace(raw_item=tool_call_raw)
+        item=SimpleNamespace(raw_item=tool_call_raw),
     )
-    
-    tool_output_raw = SimpleNamespace(
-        tool_call_id="call_123"
-    )
+
+    tool_output_raw = SimpleNamespace(tool_call_id="call_123")
     tool_output_event = SimpleNamespace(
         type="run_item_stream_event",
         name="tool_output",
-        item=SimpleNamespace(raw_item=tool_output_raw, output="Sunny, 75°F")
+        item=SimpleNamespace(raw_item=tool_output_raw, output="Sunny, 75°F"),
     )
-    
+
     DummyRunner.events_to_stream = [tool_call_event, tool_output_event]
 
     importlib.reload(importlib.import_module("think.openai"))
@@ -434,7 +433,7 @@ def test_openai_tool_call_events(monkeypatch, tmp_path, capsys):
     agents_dir.mkdir()
     mcp_uri_file = agents_dir / "mcp.uri"
     mcp_uri_file.write_text("http://localhost:5173/mcp")
-    
+
     task = tmp_path / "task.txt"
     task.write_text("what's the weather?")
 

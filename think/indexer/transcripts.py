@@ -187,7 +187,15 @@ def search_transcripts(
             """
         )
 
-        for content, path, day_label, time_part, rtype, source_val, rank in cursor.fetchall():
+        for (
+            content,
+            path,
+            day_label,
+            time_part,
+            rtype,
+            source_val,
+            rank,
+        ) in cursor.fetchall():
             results.append(
                 {
                     "id": path,

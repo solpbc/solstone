@@ -14,8 +14,6 @@ from .core import _scan_files, find_day_dirs, get_index
 ENTITY_ITEM_RE = re.compile(r"^\s*[-*]\s*(.*)")
 
 
-
-
 def parse_entity_line(line: str) -> Tuple[str, str, str] | None:
     """Parse a single line from an ``entities.md`` file."""
     cleaned = line.replace("**", "")

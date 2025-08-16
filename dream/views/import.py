@@ -52,21 +52,21 @@ def import_save() -> Any:
     # Create temporary file for detection if needed
     if upload:
         import tempfile
+
         # Preserve original filename structure in temp file name for timestamp detection
         # Use prefix to include original filename (minus extension)
         original_stem = Path(filename).stem
         suffix = Path(filename).suffix
         with tempfile.NamedTemporaryFile(
-            delete=False,
-            prefix=f"{original_stem}_",
-            suffix=suffix
+            delete=False, prefix=f"{original_stem}_", suffix=suffix
         ) as tmp:
             upload.save(tmp.name)
             temp_path = tmp.name
             upload.seek(0)  # Reset file pointer for later save
     else:
         import tempfile
-        with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.txt') as tmp:
+
+        with tempfile.NamedTemporaryFile(mode="w", delete=False, suffix=".txt") as tmp:
             tmp.write(text)
             temp_path = tmp.name
 
@@ -87,7 +87,11 @@ def import_save() -> Any:
         Path(temp_path).unlink(missing_ok=True)
 
     # Use detected timestamp or fall back to upload timestamp
-    folder_timestamp = ts if ts else f"{datetime.fromtimestamp(timestamp_ms / 1000).strftime('%Y%m%d_%H%M%S')}"
+    folder_timestamp = (
+        ts
+        if ts
+        else f"{datetime.fromtimestamp(timestamp_ms / 1000).strftime('%Y%m%d_%H%M%S')}"
+    )
 
     # Create import folder structure: imports/<timestamp>/<filename>
     import_dir = Path(state.journal_root) / "imports" / folder_timestamp
@@ -125,6 +129,7 @@ def import_list() -> Any:
     """Get list of all imports with their metadata."""
     import json
     from datetime import datetime
+
     imports = []
 
     if not state.journal_root:
@@ -140,13 +145,15 @@ def import_list() -> Any:
             continue
 
         # Skip if it's not a timestamp folder
-        if not (import_folder.name.count('_') == 1 and len(import_folder.name) == 15):
+        if not (import_folder.name.count("_") == 1 and len(import_folder.name) == 15):
             continue
 
         import_data = {
             "timestamp": import_folder.name,
             "created_at": import_folder.stat().st_ctime,
-            "created_at_iso": datetime.fromtimestamp(import_folder.stat().st_ctime).isoformat(),
+            "created_at_iso": datetime.fromtimestamp(
+                import_folder.stat().st_ctime
+            ).isoformat(),
         }
 
         # Read import.json if it exists
@@ -156,7 +163,9 @@ def import_list() -> Any:
             try:
                 with open(import_json, "r", encoding="utf-8") as f:
                     import_meta = json.load(f)
-                    import_data["original_filename"] = import_meta.get("original_filename", "Unknown")
+                    import_data["original_filename"] = import_meta.get(
+                        "original_filename", "Unknown"
+                    )
                     import_data["file_size"] = import_meta.get("file_size", 0)
                     import_data["mime_type"] = import_meta.get("mime_type", "")
                     import_data["domain"] = import_meta.get("domain")
@@ -165,7 +174,9 @@ def import_list() -> Any:
                     import_data["task_id"] = task_id
                     # Use upload_timestamp if available for better sorting
                     if "upload_timestamp" in import_meta:
-                        import_data["imported_at"] = import_meta["upload_timestamp"] / 1000  # Convert ms to seconds
+                        import_data["imported_at"] = (
+                            import_meta["upload_timestamp"] / 1000
+                        )  # Convert ms to seconds
                     else:
                         import_data["imported_at"] = import_folder.stat().st_ctime
             except Exception:
@@ -175,7 +186,7 @@ def import_list() -> Any:
 
         # Check task status if we have a task_id
         import_data["status"] = "pending"  # Default status
-        
+
         # Read imported.json if it exists (processing results)
         imported_json = import_folder / "imported.json"
         if imported_json.exists():
@@ -183,7 +194,9 @@ def import_list() -> Any:
                 with open(imported_json, "r", encoding="utf-8") as f:
                     imported_meta = json.load(f)
                     import_data["processed"] = True
-                    import_data["total_files_created"] = imported_meta.get("total_files_created", 0)
+                    import_data["total_files_created"] = imported_meta.get(
+                        "total_files_created", 0
+                    )
                     import_data["target_day"] = imported_meta.get("target_day")
                     import_data["status"] = "success"  # Has imported.json = successful
 
@@ -203,7 +216,9 @@ def import_list() -> Any:
                             # Convert to minutes
                             start_h, start_m = int(start_time[:2]), int(start_time[2:4])
                             end_h, end_m = int(end_time[:2]), int(end_time[2:4])
-                            duration_minutes = (end_h * 60 + end_m) - (start_h * 60 + start_m)
+                            duration_minutes = (end_h * 60 + end_m) - (
+                                start_h * 60 + start_m
+                            )
                             if duration_minutes > 0:
                                 import_data["duration_minutes"] = duration_minutes
             except Exception:
@@ -217,6 +232,7 @@ def import_list() -> Any:
             if task_id:
                 # Check for task exit code by looking at task history
                 from dream.tasks import task_manager
+
                 task = task_manager.tasks.get(task_id)
                 if task:
                     if task.exit_code is not None and task.exit_code != 0:
@@ -317,19 +333,33 @@ def import_summary_api(timestamp: str) -> Any:
 
     summary_path = import_dir / "summary.md"
     if not summary_path.exists():
-        return jsonify({"html": "<div class='no-data'>No summary available</div>", "has_summary": False})
+        return jsonify(
+            {
+                "html": "<div class='no-data'>No summary available</div>",
+                "has_summary": False,
+            }
+        )
 
     try:
         with open(summary_path, "r", encoding="utf-8") as f:
             summary_md = f.read()
-        
+
         # Render markdown to HTML server-side
         import markdown  # type: ignore
-        html_output = markdown.markdown(summary_md, extensions=["extra", "codehilite", "fenced_code", "tables"])
-        
+
+        html_output = markdown.markdown(
+            summary_md, extensions=["extra", "codehilite", "fenced_code", "tables"]
+        )
+
         return jsonify({"html": html_output, "has_summary": True})
     except Exception as e:
-        return jsonify({"error": str(e), "html": "<div class='no-data'>Error loading summary</div>", "has_summary": False})
+        return jsonify(
+            {
+                "error": str(e),
+                "html": "<div class='no-data'>Error loading summary</div>",
+                "has_summary": False,
+            }
+        )
 
 
 @bp.route("/import/api/start", methods=["POST"])

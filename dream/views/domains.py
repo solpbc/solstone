@@ -674,7 +674,6 @@ def create_matter(domain_name: str) -> Any:
             "priority": data.get("priority", "medium"),
         }
 
-
         matter_json = matter_path / "matter.json"
         with open(matter_json, "w", encoding="utf-8") as f:
             json.dump(matter_data, f, indent=2, ensure_ascii=False)
@@ -694,54 +693,58 @@ def create_matter(domain_name: str) -> Any:
         return jsonify({"error": f"Failed to create matter: {str(e)}"}), 500
 
 
-@bp.route("/api/domains/<domain_name>/matters/<matter_id>/attachments/upload", methods=["POST"])
+@bp.route(
+    "/api/domains/<domain_name>/matters/<matter_id>/attachments/upload",
+    methods=["POST"],
+)
 def upload_attachment(domain_name: str, matter_id: str) -> Any:
     """Upload a file attachment to a matter."""
     if "file" not in request.files:
         return jsonify({"error": "No file provided"}), 400
-    
+
     file = request.files["file"]
     if file.filename == "":
         return jsonify({"error": "No file selected"}), 400
-    
+
     load_dotenv()
     journal = os.getenv("JOURNAL_PATH")
     if not journal:
         return jsonify({"error": "JOURNAL_PATH not set"}), 500
-    
+
     domain_path = Path(journal) / "domains" / domain_name
     matter_path = domain_path / matter_id
     attachments_dir = matter_path / "attachments"
-    
+
     if not matter_path.exists():
         return jsonify({"error": "Matter not found"}), 404
-    
+
     try:
         # Create attachments directory if it doesn't exist
         attachments_dir.mkdir(exist_ok=True)
-        
+
         # Generate safe filename
         from werkzeug.utils import secure_filename
+
         original_filename = secure_filename(file.filename)
-        
+
         # Handle duplicate filenames by adding a number
         base_name = Path(original_filename).stem
         extension = Path(original_filename).suffix
         filename = original_filename
         counter = 1
-        
+
         while (attachments_dir / filename).exists():
             filename = f"{base_name}_{counter}{extension}"
             counter += 1
-        
+
         # Save the file
         file_path = attachments_dir / filename
         file.save(str(file_path))
-        
+
         # Get file info
         file_size = file_path.stat().st_size
         mime_type = file.content_type or "application/octet-stream"
-        
+
         # Create initial metadata
         metadata = {
             "original_name": file.filename,
@@ -749,12 +752,12 @@ def upload_attachment(domain_name: str, matter_id: str) -> Any:
             "mime_type": mime_type,
             "uploaded": datetime.now().isoformat() + "Z",
         }
-        
+
         # Save metadata JSON
         metadata_path = attachments_dir / f"{Path(filename).stem}.json"
         with open(metadata_path, "w", encoding="utf-8") as f:
             json.dump(metadata, f, indent=2, ensure_ascii=False)
-        
+
         # Log the upload in the matter's activity log
         activity_log_path = matter_path / "activity_log.jsonl"
         log_entry = {
@@ -763,71 +766,76 @@ def upload_attachment(domain_name: str, matter_id: str) -> Any:
             "description": f"Uploaded attachment: {filename}",
             "user": "system",
         }
-        
+
         with open(activity_log_path, "a", encoding="utf-8") as f:
             f.write(json.dumps(log_entry) + "\n")
-        
-        return jsonify({
-            "success": True,
-            "filename": Path(filename).stem,  # Return stem for metadata endpoint
-            "full_filename": filename,
-            "size": file_size,
-            "mime_type": mime_type
-        })
-        
+
+        return jsonify(
+            {
+                "success": True,
+                "filename": Path(filename).stem,  # Return stem for metadata endpoint
+                "full_filename": filename,
+                "size": file_size,
+                "mime_type": mime_type,
+            }
+        )
+
     except Exception as e:
         return jsonify({"error": f"Failed to upload attachment: {str(e)}"}), 500
 
 
-@bp.route("/api/domains/<domain_name>/matters/<matter_id>/attachments/metadata", methods=["POST"])
+@bp.route(
+    "/api/domains/<domain_name>/matters/<matter_id>/attachments/metadata",
+    methods=["POST"],
+)
 def update_attachment_metadata(domain_name: str, matter_id: str) -> Any:
     """Update attachment metadata with title and notes."""
     data = request.get_json()
     if not data:
         return jsonify({"error": "No data provided"}), 400
-    
+
     filename = data.get("filename", "").strip()
     title = data.get("title", "").strip()
     notes = data.get("notes", "").strip()
-    
+
     if not filename:
         return jsonify({"error": "Filename is required"}), 400
     if not title:
         return jsonify({"error": "Title is required"}), 400
-    
+
     load_dotenv()
     journal = os.getenv("JOURNAL_PATH")
     if not journal:
         return jsonify({"error": "JOURNAL_PATH not set"}), 500
-    
+
     domain_path = Path(journal) / "domains" / domain_name
     matter_path = domain_path / matter_id
     attachments_dir = matter_path / "attachments"
-    
+
     if not attachments_dir.exists():
         return jsonify({"error": "Attachments directory not found"}), 404
-    
+
     try:
         # Find the metadata file
         metadata_path = attachments_dir / f"{filename}.json"
-        
+
         if not metadata_path.exists():
             return jsonify({"error": "Attachment metadata not found"}), 404
-        
+
         # Read existing metadata
         with open(metadata_path, "r", encoding="utf-8") as f:
             metadata = json.load(f)
-        
+
         # Update with title and notes
         metadata["title"] = title
         if notes:
             metadata["description"] = notes
         metadata["modified"] = datetime.now().isoformat() + "Z"
-        
+
         # Save updated metadata
         with open(metadata_path, "w", encoding="utf-8") as f:
             json.dump(metadata, f, indent=2, ensure_ascii=False)
-        
+
         # Log the metadata update
         activity_log_path = matter_path / "activity_log.jsonl"
         log_entry = {
@@ -836,14 +844,17 @@ def update_attachment_metadata(domain_name: str, matter_id: str) -> Any:
             "description": f"Updated attachment metadata: {title}",
             "user": "system",
         }
-        
+
         with open(activity_log_path, "a", encoding="utf-8") as f:
             f.write(json.dumps(log_entry) + "\n")
-        
+
         return jsonify({"success": True})
-        
+
     except Exception as e:
-        return jsonify({"error": f"Failed to update attachment metadata: {str(e)}"}), 500
+        return (
+            jsonify({"error": f"Failed to update attachment metadata: {str(e)}"}),
+            500,
+        )
 
 
 @bp.route("/api/domains/<domain_name>/matters/<matter_id>", methods=["PUT"])
@@ -852,56 +863,57 @@ def update_matter(domain_name: str, matter_id: str) -> Any:
     data = request.get_json()
     if not data:
         return jsonify({"error": "No data provided"}), 400
-    
+
     load_dotenv()
     journal = os.getenv("JOURNAL_PATH")
     if not journal:
         return jsonify({"error": "JOURNAL_PATH not set"}), 500
-    
+
     domain_path = Path(journal) / "domains" / domain_name
     matter_path = domain_path / matter_id
     matter_json_path = matter_path / "matter.json"
-    
+
     if not matter_json_path.exists():
         return jsonify({"error": "Matter not found"}), 404
-    
+
     try:
         # Read existing matter data
         with open(matter_json_path, "r", encoding="utf-8") as f:
             matter_data = json.load(f)
-        
+
         # Track what was changed for the activity log
         changes = []
-        
+
         # Update fields if provided
         if "title" in data and data["title"] != matter_data.get("title"):
             changes.append(f"title to '{data['title']}'")
             matter_data["title"] = data["title"]
-        
-        if "description" in data and data["description"] != matter_data.get("description"):
-            changes.append(f"description")
+
+        if "description" in data and data["description"] != matter_data.get(
+            "description"
+        ):
+            changes.append("description")
             matter_data["description"] = data["description"]
-        
+
         if "status" in data and data["status"] != matter_data.get("status"):
             old_status = matter_data.get("status", "unknown")
             changes.append(f"status from '{old_status}' to '{data['status']}'")
             matter_data["status"] = data["status"]
-        
+
         if "priority" in data and data["priority"] != matter_data.get("priority"):
             old_priority = matter_data.get("priority", "unknown")
             changes.append(f"priority from '{old_priority}' to '{data['priority']}'")
             matter_data["priority"] = data["priority"]
-        
-        
+
         # Only update if there were changes
         if changes:
             # Add modified timestamp
             matter_data["modified"] = datetime.now().isoformat() + "Z"
-            
+
             # Save updated matter data
             with open(matter_json_path, "w", encoding="utf-8") as f:
                 json.dump(matter_data, f, indent=2, ensure_ascii=False)
-            
+
             # Log the update in the activity log
             activity_log_path = matter_path / "activity_log.jsonl"
             log_entry = {
@@ -910,14 +922,20 @@ def update_matter(domain_name: str, matter_id: str) -> Any:
                 "description": f"Updated {', '.join(changes)}",
                 "user": "system",
             }
-            
+
             with open(activity_log_path, "a", encoding="utf-8") as f:
                 f.write(json.dumps(log_entry) + "\n")
-            
+
             return jsonify({"success": True, "matter_data": matter_data})
         else:
-            return jsonify({"success": True, "message": "No changes made", "matter_data": matter_data})
-        
+            return jsonify(
+                {
+                    "success": True,
+                    "message": "No changes made",
+                    "matter_data": matter_data,
+                }
+            )
+
     except Exception as e:
         return jsonify({"error": f"Failed to update matter: {str(e)}"}), 500
 

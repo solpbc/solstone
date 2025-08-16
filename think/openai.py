@@ -21,15 +21,15 @@ from typing import Any, Callable, Dict, Optional
 from urllib.parse import urlparse, urlunparse
 
 from agents import Agent, Runner, SQLiteSession
-from agents.model_settings import ModelSettings
-from agents.run import RunConfig
-from agents.mcp.server import MCPServerStreamableHttp
 from agents.items import (
     MessageOutputItem,
+    ReasoningItem,
     ToolCallItem,
     ToolCallOutputItem,
-    ReasoningItem,
 )
+from agents.mcp.server import MCPServerStreamableHttp
+from agents.model_settings import ModelSettings
+from agents.run import RunConfig
 
 # Optional: used only for raw text deltas if available
 try:
@@ -139,7 +139,15 @@ async def run_agent(
     """
     LOG.info("Running agent with model %s", model)
     cb = JSONEventCallback(on_event)
-    cb.emit({"event": "start", "prompt": prompt, "persona": persona, "model": model, "ts": _now_ms()})
+    cb.emit(
+        {
+            "event": "start",
+            "prompt": prompt,
+            "persona": persona,
+            "model": model,
+            "ts": _now_ms(),
+        }
+    )
 
     # Model settings: keep to widely-supported fields
     model_settings = ModelSettings(
@@ -199,7 +207,9 @@ async def run_agent(
                 if ev.type == "raw_response_event":
                     data = getattr(ev, "data", None)
                     # If we have text deltas, capture them (optional)
-                    if isinstance(data, ResponseTextDeltaEvent) and isinstance(getattr(data, "delta", None), str):
+                    if isinstance(data, ResponseTextDeltaEvent) and isinstance(
+                        getattr(data, "delta", None), str
+                    ):
                         streamed_text.append(data.delta)
                     continue
 
@@ -258,7 +268,9 @@ async def run_agent(
                         )
 
                     # Reasoning / "thinking" item created — no special params required
-                    elif name == "reasoning_item_created" and isinstance(item, ReasoningItem):
+                    elif name == "reasoning_item_created" and isinstance(
+                        item, ReasoningItem
+                    ):
                         summary_text: Optional[str] = None
                         raw = item.raw_item
 
@@ -266,17 +278,29 @@ async def run_agent(
                         if hasattr(raw, "summary") and getattr(raw, "summary"):
                             try:
                                 parts = getattr(raw, "summary")
-                                texts = [getattr(p, "text", "") for p in parts if getattr(p, "text", None)]
+                                texts = [
+                                    getattr(p, "text", "")
+                                    for p in parts
+                                    if getattr(p, "text", None)
+                                ]
                                 if texts:
                                     summary_text = "".join(texts)
                             except Exception:
                                 pass
 
                         # Fallback: raw.content (list of text parts)
-                        if not summary_text and hasattr(raw, "content") and getattr(raw, "content"):
+                        if (
+                            not summary_text
+                            and hasattr(raw, "content")
+                            and getattr(raw, "content")
+                        ):
                             try:
                                 parts = getattr(raw, "content")
-                                texts = [getattr(p, "text", "") for p in parts if getattr(p, "text", None)]
+                                texts = [
+                                    getattr(p, "text", "")
+                                    for p in parts
+                                    if getattr(p, "text", None)
+                                ]
                                 if texts:
                                     summary_text = "".join(texts)
                             except Exception:
@@ -292,7 +316,9 @@ async def run_agent(
                             cb.emit(thinking_event)
 
                     # Completed assistant message (final text will be read from result)
-                    elif name == "message_output_created" and isinstance(item, MessageOutputItem):
+                    elif name == "message_output_created" and isinstance(
+                        item, MessageOutputItem
+                    ):
                         pass  # no-op
 
             # Done streaming — prefer result.final_output, else join deltas

@@ -259,7 +259,12 @@ def api_merge_entities() -> Any:
     )
 
     if not source_results:
-        return jsonify({"error": f"Source entity '{source_type}: {source_name}' not found"}), 404
+        return (
+            jsonify(
+                {"error": f"Source entity '{source_type}: {source_name}' not found"}
+            ),
+            404,
+        )
 
     # If specific days are provided, use those; otherwise get all days
     if selected_days:
@@ -338,7 +343,7 @@ def api_merge_entities() -> Any:
             # Promote target to top-level with source's description if available
             source_desc = next(
                 (r["text"] for r in source_results if r["metadata"].get("top", False)),
-                target_name
+                target_name,
             )
             update_top_entry(state.journal_root, target_type, target_name, source_desc)
 
@@ -350,12 +355,14 @@ def api_merge_entities() -> Any:
 
     reload_entities()
 
-    return jsonify({
-        "status": "ok",
-        "successful_days": successful_days,
-        "failed_days": failed_days,
-        "message": f"Merged {len(successful_days)} occurrences"
-    })
+    return jsonify(
+        {
+            "status": "ok",
+            "successful_days": successful_days,
+            "failed_days": failed_days,
+            "message": f"Merged {len(successful_days)} occurrences",
+        }
+    )
 
 
 @bp.route("/entities/api/remove", methods=["POST"])

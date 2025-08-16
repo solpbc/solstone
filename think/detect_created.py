@@ -49,7 +49,9 @@ def _debug_write_content(content: str, path: str) -> None:
     print(f"Debug: Content written to {debug_path}", file=sys.stderr)
 
 
-def detect_created(path: str, api_key: Optional[str] = None, original_filename: Optional[str] = None) -> Optional[dict]:
+def detect_created(
+    path: str, api_key: Optional[str] = None, original_filename: Optional[str] = None
+) -> Optional[dict]:
     """Return creation time information for *path* using Gemini.
 
     Parameters
@@ -80,11 +82,13 @@ def detect_created(path: str, api_key: Optional[str] = None, original_filename: 
 
     # If we have an original filename and it's different from path, add a note
     if original_filename and original_filename != path:
-        lines.extend([
-            f"Original filename: {original_filename}",
-            f"(Analyzing temporary file: {path})",
-            "",
-        ])
+        lines.extend(
+            [
+                f"Original filename: {original_filename}",
+                f"(Analyzing temporary file: {path})",
+                "",
+            ]
+        )
 
     lines.append(metadata)
     markdown = "\n".join(lines)

@@ -124,7 +124,9 @@ def modify_entity_in_file(
             logging.warning(f"No match found for '{etype}: {name}' in {file_path}")
         return False
     if len(matches) > 1:
-        logging.warning(f"Multiple matches found for '{etype}: {name}' in {file_path}, using first match")
+        logging.warning(
+            f"Multiple matches found for '{etype}: {name}' in {file_path}, using first match"
+        )
         # Use the first match instead of failing
         matches = [matches[0]]
     idx, desc = matches[0]
