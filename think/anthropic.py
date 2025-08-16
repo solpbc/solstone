@@ -49,6 +49,7 @@ class ToolExecutor:
                 "event": "tool_start",
                 "tool": tool_use.name,
                 "args": tool_use.input,
+                "call_id": tool_use.id,
             }
         )
 
@@ -92,7 +93,9 @@ class ToolExecutor:
                 {
                     "event": "tool_end",
                     "tool": tool_use.name,
+                    "args": tool_use.input,
                     "result": result_data,
+                    "call_id": tool_use.id,
                 }
             )
             content = (
@@ -103,7 +106,9 @@ class ToolExecutor:
                 {
                     "event": "tool_end",
                     "tool": tool_use.name,
+                    "args": tool_use.input,
                     "result": {"error": str(exc)},
+                    "call_id": tool_use.id,
                 }
             )
             content = f"Error: {exc}"

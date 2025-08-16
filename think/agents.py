@@ -14,22 +14,25 @@ from typing import Any, Callable, Literal, Optional, TypedDict, Union
 from think.utils import setup_cli
 
 
-class ToolStartEvent(TypedDict):
+class ToolStartEvent(TypedDict, total=False):
     """Event emitted when a tool starts."""
 
     event: Literal["tool_start"]
     ts: int
     tool: str
     args: Optional[dict[str, Any]]
+    call_id: Optional[str]
 
 
-class ToolEndEvent(TypedDict):
+class ToolEndEvent(TypedDict, total=False):
     """Event emitted when a tool finishes."""
 
     event: Literal["tool_end"]
     ts: int
     tool: str
+    args: Optional[dict[str, Any]]
     result: Any
+    call_id: Optional[str]
 
 
 class StartEvent(TypedDict):
@@ -50,12 +53,21 @@ class FinishEvent(TypedDict):
     result: str
 
 
-class ErrorEvent(TypedDict):
+class ErrorEvent(TypedDict, total=False):
     """Event emitted when an error occurs."""
 
     event: Literal["error"]
     ts: int
     error: str
+    trace: Optional[str]
+
+
+class AgentUpdatedEvent(TypedDict):
+    """Event emitted when the agent context changes."""
+
+    event: Literal["agent_updated"]
+    ts: int
+    agent: str
 
 
 class ThinkingEvent(TypedDict):
@@ -68,7 +80,13 @@ class ThinkingEvent(TypedDict):
 
 
 Event = Union[
-    ToolStartEvent, ToolEndEvent, StartEvent, FinishEvent, ErrorEvent, ThinkingEvent
+    ToolStartEvent,
+    ToolEndEvent,
+    StartEvent,
+    FinishEvent,
+    ErrorEvent,
+    ThinkingEvent,
+    AgentUpdatedEvent,
 ]
 
 
@@ -218,6 +236,7 @@ __all__ = [
     "StartEvent",
     "FinishEvent",
     "ErrorEvent",
+    "AgentUpdatedEvent",
     "ThinkingEvent",
     "Event",
     "JSONEventWriter",
