@@ -8,3 +8,5 @@ logs/
 *.mp3
 *.flac
 .coverage
+fixtures/journal/agents/*.jsonl
+.deps-installed

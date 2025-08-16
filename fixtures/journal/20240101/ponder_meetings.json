@@ -9,6 +9,33 @@
       "title": "Team sync",
       "summary": "Daily standup",
       "details": "Discussion about project status"
+    },
+    {
+      "type": "meeting",
+      "source": "topics/meetings.md",
+      "start": "10:30:00",
+      "end": "11:30:00",
+      "title": "Client review with Acme Corp",
+      "summary": "Demo of authentication module",
+      "details": "Present current progress on auth implementation"
+    },
+    {
+      "type": "meeting",
+      "source": "topics/meetings.md",
+      "start": "14:00:00",
+      "end": "15:00:00",
+      "title": "Sprint planning",
+      "summary": "Plan next sprint tasks",
+      "details": "Prioritize auth module completion and testing"
+    },
+    {
+      "type": "meeting",
+      "source": "topics/meetings.md",
+      "start": "16:00:00",
+      "end": "16:30:00",
+      "title": "Architecture discussion",
+      "summary": "Review system architecture",
+      "details": "Discuss JWT implementation and security considerations"
     }
   ]
 }

@@ -1,0 +1,7 @@
+[
+  {"start": "00:00:01", "source": "mic", "speaker": 1, "text": "Alright, so we found the issue with the token expiration. It turns out the timezone wasn't being handled correctly in the JWT library.", "description": "debugging"},
+  {"start": "00:00:15", "source": "mic", "speaker": 1, "text": "Jane did a great job catching this in the QA environment before it went to production.", "description": "acknowledgment"},
+  {"start": "00:00:25", "source": "mic", "speaker": 1, "text": "We need to add more comprehensive tests around timezone handling.", "description": "testing"},
+  {"start": "00:00:35", "source": "mic", "speaker": 1, "text": "The FastAPI migration is going really well. Much cleaner than our old Flask setup.", "description": "framework"},
+  {"start": "00:00:45", "source": "mic", "speaker": 1, "text": "Docker is making the deployment process so much smoother.", "description": "deployment"}
+]

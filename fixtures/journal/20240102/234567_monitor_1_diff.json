@@ -1,0 +1,9 @@
+{
+  "app": "VSCode",
+  "app_title": "auth_fix.py - Visual Studio Code",
+  "visual_description": "Debugging session in VSCode with the FastAPI application running in debug mode. Multiple terminal tabs showing Docker logs, PostgreSQL queries, and pytest output. The main editor has the auth module open with breakpoints set on the token validation logic.",
+  "user_input_text": "breakpoint()",
+  "full_ocr": "auth_fix.py\n\nimport jwt\nimport pytz\nfrom datetime import datetime, timedelta\nfrom fastapi import HTTPException\n\ndef validate_jwt_token_with_timezone(token: str, timezone: str = 'UTC'):\n    try:\n        tz = pytz.timezone(timezone)\n        now = datetime.now(tz)\n        \n        payload = jwt.decode(token, SECRET_KEY, algorithms=['HS256'])\n        exp_time = datetime.fromtimestamp(payload['exp'], tz=tz)\n        \n        if now > exp_time:\n            raise HTTPException(status_code=401, detail='Token expired')\n        \n        return payload['user_id']\n    except jwt.ExpiredSignatureError:\n        raise HTTPException(status_code=401, detail='Token expired')\n\n# Terminal output:\n# Docker logs showing container startup\n# PostgreSQL query logs\n# pytest output showing all tests passing",
+  "meeting_state": "No meeting visible",
+  "activity_category": "Debugging"
+}

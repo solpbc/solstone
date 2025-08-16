@@ -1,9 +1,9 @@
 {
-  "app": "Terminal",
-  "app_title": "user@host: ~",
-  "visual_description": "A terminal window displaying a prompt.",
-  "user_input_text": "ls -al",
-  "full_ocr": "$ ls -al",
+  "app": "IDE",
+  "app_title": "auth.py - Visual Studio Code",
+  "visual_description": "Working on the new authentication module for the web application. The screen shows the IDE with multiple tabs open including auth.py, test_auth.py, and the terminal running pytest.",
+  "user_input_text": "def validate_jwt_token(token):",
+  "full_ocr": "auth.py\n\nimport jwt\nfrom datetime import datetime, timedelta\n\ndef generate_jwt_token(user_id):\n    payload = {\n        'user_id': user_id,\n        'exp': datetime.utcnow() + timedelta(hours=24)\n    }\n    return jwt.encode(payload, SECRET_KEY, algorithm='HS256')\n\ndef validate_jwt_token(token):\n    try:\n        payload = jwt.decode(token, SECRET_KEY, algorithms=['HS256'])\n        return payload['user_id']\n    except jwt.ExpiredSignatureError:\n        return None",
   "meeting_state": "No meeting visible",
-  "activity_category": "Command line"
+  "activity_category": "Software Development"
 }
