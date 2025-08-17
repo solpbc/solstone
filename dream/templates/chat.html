@@ -111,6 +111,9 @@ function addEventCard(text, url){
 // Track tool calls by ID to update them when complete
 const toolPlacards = {};
 
+// Track agent switches - only show when switching between agents
+let previousAgent = null;
+
 function addToolPlacard(toolName, args, callId){
   const div=document.createElement('div');
   div.className='tool-placard';
@@ -160,11 +163,15 @@ function completeToolPlacard(callId, result){
 }
 
 function addAgentUpdate(agentName){
-  const div=document.createElement('div');
-  div.className='agent-update';
-  div.textContent=`→ Switched to ${agentName} agent`;
-  messagesDiv.appendChild(div);
-  messagesDiv.scrollTop=messagesDiv.scrollHeight;
+  // Only show agent switch if we're actually switching from one agent to another
+  if(previousAgent && previousAgent !== agentName){
+    const div=document.createElement('div');
+    div.className='agent-update';
+    div.textContent=`→ Switched from ${previousAgent} to ${agentName} agent`;
+    messagesDiv.appendChild(div);
+    messagesDiv.scrollTop=messagesDiv.scrollHeight;
+  }
+  previousAgent = agentName;
 }
 
 function addThinkingCard(summary, model){
@@ -216,6 +223,9 @@ document.getElementById('inputArea').onsubmit=async e=>{
   
   // Clear previous messages for fresh one-shot conversation
   messagesDiv.innerHTML='';
+  
+  // Reset agent tracking when starting new conversation
+  previousAgent = null;
   
   addMessage(text,'from-user');
   input.value='';
@@ -305,12 +315,14 @@ if(isHistorical){
   document.getElementById('clearBtn').onclick=async()=>{
     await fetch(clearUrl,{method:'POST'});
     messagesDiv.innerHTML='';
+    previousAgent = null;  // Reset agent tracking
     input.focus();
   };
 
   backendSelect.addEventListener('change', async ()=>{
     await fetch(clearUrl,{method:'POST'});
     messagesDiv.innerHTML='';
+    previousAgent = null;  // Reset agent tracking
     input.focus();
   });
 
