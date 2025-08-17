@@ -70,6 +70,11 @@ def test_ponder_extra_instructions(tmp_path, monkeypatch):
     mod = importlib.import_module("think.ponder")
     day_dir = copy_day(tmp_path)
     topic_file = Path(mod.__file__).resolve().parent / "topics" / "flow.txt"
+    
+    # Remove existing flow.md to ensure mock content is used
+    flow_md = day_dir / "topics" / "flow.md"
+    if flow_md.exists():
+        flow_md.unlink()
 
     monkeypatch.setattr(
         mod,
@@ -121,6 +126,11 @@ def test_ponder_skip_occurrences(tmp_path, monkeypatch):
     mod = importlib.import_module("think.ponder")
     day_dir = copy_day(tmp_path)
     topic_file = Path(mod.__file__).resolve().parent / "topics" / "flow.txt"
+    
+    # Remove existing flow.md to ensure mock content is used
+    flow_md = day_dir / "topics" / "flow.md"
+    if flow_md.exists():
+        flow_md.unlink()
 
     def fake_get_topics():
         utils = importlib.import_module("think.utils")

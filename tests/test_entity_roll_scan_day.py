@@ -18,7 +18,7 @@ def test_scan_day(tmp_path, monkeypatch):
     monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
 
     topics = day_dir / "topics"
-    topics.mkdir()
+    topics.mkdir(exist_ok=True)  # Allow existing directory
     (topics / "knowledge_graph.md").write_text("data")
 
     info = mod.scan_day("20240101")

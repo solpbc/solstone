@@ -93,7 +93,7 @@ def test_cortex_server_initialization(cortex_server):
     assert cortex_server.running_agents == {}
 
 
-def test_handle_list_empty(cortex_server):
+def test_handle_list_empty(cortex_server, mock_journal):
     """Test listing agents when none are running."""
     ws = MockWebSocket()
     req = {"limit": 10, "offset": 0}
@@ -108,7 +108,7 @@ def test_handle_list_empty(cortex_server):
     assert response["pagination"]["total"] == 0
 
 
-def test_handle_list_with_agents(cortex_server):
+def test_handle_list_with_agents(cortex_server, mock_journal):
     """Test listing agents when some are running."""
     from think.cortex import RunningAgent
 
@@ -385,7 +385,7 @@ def test_stop_agent(cortex_server):
     assert result is False
 
 
-def test_get_agent_count(cortex_server):
+def test_get_agent_count(cortex_server, mock_journal):
     """Test getting count of running agents."""
     from think.cortex import RunningAgent
 

@@ -10,7 +10,7 @@ def copy_day(tmp_path: Path) -> Path:
     dest = tmp_path / "20240101"
     shutil.copytree(src, dest)
     topics = dest / "topics"
-    topics.mkdir()
+    topics.mkdir(exist_ok=True)  # Allow existing directory
     (topics / "flow.md").write_text("done")
     return dest
 

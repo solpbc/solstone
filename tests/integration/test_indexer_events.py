@@ -120,9 +120,13 @@ def test_events_indexer_with_custom_events():
         }
     ]
     
-    # Write additional events file
-    events_file = journal_path / "20240101" / "system_events.json"
-    events_file.write_text(json.dumps(events_data, indent=2))
+    # Write additional events file in topics directory with a valid topic name
+    # Use "timeline" as it's a valid topic name
+    events_file = journal_path / "20240101" / "topics" / "timeline.json"
+    events_file.parent.mkdir(exist_ok=True)
+    # Wrap in occurrences structure as expected by the indexer
+    events_json = {"day": "20240101", "occurrences": events_data}
+    events_file.write_text(json.dumps(events_json, indent=2))
     
     with tempfile.TemporaryDirectory() as tmpdir:
         old_journal = os.environ.get("JOURNAL_PATH")
@@ -156,7 +160,9 @@ def test_events_indexer_with_custom_events():
             assert total > 0, "Should find deployment event"
             found_deployment = False
             for result in results:
-                if "authentication service" in result["text"]:
+                # Check in the event data
+                event_json = json.dumps(result.get("event", {}))
+                if "authentication service" in event_json:
                     found_deployment = True
                     break
             assert found_deployment, "Should find authentication service deployment"

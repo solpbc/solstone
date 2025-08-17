@@ -170,13 +170,13 @@ def test_entities_indexer_by_type():
             scan_entities(str(journal_path))
             
             # Search for all Person entities
-            total, results = search_entities("Person")
-            person_count = sum(1 for r in results if r["metadata"]["type"] == "Person")
+            total, results = search_entities("", etype="Person")
+            person_count = len(results)
             assert person_count >= 2, "Should find at least 2 Person entities (John and Jane)"
             
             # Search for all Tool entities
-            total, results = search_entities("Tool")
-            tool_entities = [r for r in results if r["metadata"]["type"] == "Tool"]
+            total, results = search_entities("", etype="Tool")
+            tool_entities = results
             assert len(tool_entities) >= 2, "Should find at least 2 Tool entities"
             
             # Verify we have both pytest and Docker

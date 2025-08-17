@@ -82,12 +82,17 @@ def search_events(
 ) -> tuple[int, List[Dict[str, Any]]]:
     """Search the events index and return total count and results."""
     conn, _ = get_index(index="events")
-    db = sqlite_utils.Database(conn)
-    quoted = db.quote(query)
-
-    # Build WHERE clause and parameters
-    where_clause = f"events_text MATCH {quoted}"
-    params: List[str] = []
+    
+    # Build WHERE clause and parameters  
+    # For FTS5, we need to properly escape the query
+    # If query contains special FTS5 characters, wrap in double quotes
+    # Special chars include: : . ( ) " * @ 
+    if any(c in query for c in ':.()"*@'):
+        fts_query = f'"{query}"'
+    else:
+        fts_query = query
+    where_clause = "events_text MATCH ?"
+    params: List[str] = [fts_query]
 
     if day:
         where_clause += " AND m.day=?"

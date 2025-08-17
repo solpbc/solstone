@@ -23,5 +23,5 @@ def test_gemini_describe_region(tmp_path, monkeypatch):
     box = [0, 0, 5, 5]
     entities = tmp_path / "e.md"
     entities.write_text("")
-    result = mod.gemini_describe_region(img, box, entities=str(entities))
+    result = mod.gemini_describe_region(img, box, entities_text=str(entities))
     assert result["result"]["ok"]
