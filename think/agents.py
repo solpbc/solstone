@@ -3,7 +3,6 @@ from __future__ import annotations
 import argparse
 import asyncio
 import json
-import logging
 import os
 import sys
 import time
@@ -91,7 +90,7 @@ Event = Union[
 
 
 class JSONEventWriter:
-    """Write JSONL events to stdout and an optional file."""
+    """Write JSONL events to stdout and optionally to a file."""
 
     def __init__(self, path: Optional[str] = None) -> None:
         self.path = path
@@ -100,18 +99,19 @@ class JSONEventWriter:
             try:
                 Path(path).parent.mkdir(parents=True, exist_ok=True)
                 self.file = open(path, "a", encoding="utf-8")
-            except Exception as exc:  # pragma: no cover - display only
-                logging.error("Failed to open %s: %s", path, exc)
+            except Exception:
+                pass  # Fail silently if can't open file
 
     def emit(self, data: Event) -> None:
         line = json.dumps(data, ensure_ascii=False)
         print(line)
+        sys.stdout.flush()  # Ensure immediate output for cortex
         if self.file:
             try:
                 self.file.write(line + "\n")
                 self.file.flush()
-            except Exception as exc:  # pragma: no cover - display only
-                logging.error("Failed to write event to %s: %s", self.path, exc)
+            except Exception:
+                pass  # Fail silently on write errors
 
     def close(self) -> None:
         if self.file:
@@ -122,57 +122,27 @@ class JSONEventWriter:
 
 
 class JournalEventWriter(JSONEventWriter):
-    """Write JSONL events to ``<journal>/agents/<epoch>.jsonl``."""
+    """Deprecated - journal logging now handled by cortex."""
 
     def __init__(self) -> None:
-        journal = os.getenv("JOURNAL_PATH")
-        path = None
-        if journal:
-            try:
-                ts = int(time.time() * 1000)
-                base = Path(journal) / "agents"
-                base.mkdir(parents=True, exist_ok=True)
-                path = str(base / f"{ts}.jsonl")
-            except Exception as exc:  # pragma: no cover - optional
-                logging.error("Failed to init journal log: %s", exc)
-        super().__init__(path)
+        # Don't create journal files - cortex handles journal logging
+        # Only stdout output is used
+        super().__init__(path=None)
 
     def emit(self, data: Event) -> None:
-        if self.file:
-            try:
-                self.file.write(json.dumps(data, ensure_ascii=False) + "\n")
-                self.file.flush()
-            except Exception as exc:  # pragma: no cover - display only
-                logging.error("Failed to write journal event to %s: %s", self.path, exc)
-
-
-_global_journal_writer: Optional[JournalEventWriter] | None = None
+        # Just emit to stdout, cortex will handle journal logging
+        super().emit(data)
 
 
 def _journal_emit(event: Event) -> None:
-    """Write ``event`` to the journal log, creating it lazily."""
-    global _global_journal_writer
-    event_type = event.get("event")
-    if event_type == "start":
-        if _global_journal_writer is not None:
-            _global_journal_writer.close()
-        _global_journal_writer = JournalEventWriter()
-    elif _global_journal_writer is None:
-        _global_journal_writer = JournalEventWriter()
-
-    if _global_journal_writer:
-        _global_journal_writer.emit(event)
-        if event_type in {"finish", "error"}:
-            _global_journal_writer.close()
-            _global_journal_writer = None
+    """Emit event to stdout for cortex to capture."""
+    # No longer manages files - just ensure event goes to stdout
+    pass
 
 
 def _close_journal_writer() -> None:
-    """Close the global journal log if open."""
-    global _global_journal_writer
-    if _global_journal_writer is not None:
-        _global_journal_writer.close()
-        _global_journal_writer = None
+    """No-op - cortex manages all file handles."""
+    pass
 
 
 class JSONEventCallback:
@@ -186,10 +156,9 @@ class JSONEventCallback:
             data = {**data, "ts": int(time.time() * 1000)}
         if self.callback:
             self.callback(data)
-        _journal_emit(data)
 
     def close(self) -> None:
-        _close_journal_writer()
+        pass
 
 
 async def run_agent(
@@ -371,11 +340,9 @@ async def main_async() -> None:
         }
         if not getattr(exc, "_evented", False):
             emit_event(err)
-            _journal_emit(err)
         raise
     finally:
         event_writer.close()
-        _close_journal_writer()
 
 
 def main() -> None:

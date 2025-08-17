@@ -253,8 +253,8 @@ def test_handle_spawn(mock_thread, mock_popen, cortex_server, mock_journal):
     # Check agent was added to running agents
     assert len(cortex_server.running_agents) == 1
 
-    # Check monitoring thread was started
-    mock_thread.assert_called_once()
+    # Check monitoring threads were started (stdout and stderr)
+    assert mock_thread.call_count == 2  # Two threads: stdout and stderr
 
 
 def test_handle_spawn_missing_prompt(cortex_server, mock_journal):
@@ -448,22 +448,24 @@ def test_send_message_connection_closed(cortex_server):
 
 
 @patch("think.cortex.time.time")
-def test_tail_agent_log(mock_time, cortex_server, tmp_path):
-    """Test tailing agent log file."""
+def test_monitor_stdout(mock_time, cortex_server, tmp_path):
+    """Test monitoring agent stdout."""
     from think.cortex import RunningAgent
+    from io import StringIO
 
     # Mock time to return consistent values
     mock_time.return_value = 1703123456.789
 
-    # Create log file with events
+    # Create log file path
     log_path = tmp_path / "agent.jsonl"
-    log_path.write_text(
+
+    # Create mock process with stdout
+    mock_process = MagicMock()
+    mock_process.poll.return_value = None  # Still running initially
+    mock_process.stdout = StringIO(
         '{"event": "start", "ts": 1703123456789}\n'
         '{"event": "finish", "ts": 1703123456790}\n'
     )
-
-    mock_process = MagicMock()
-    mock_process.poll.return_value = 1  # Not running
 
     agent = RunningAgent("123456789", mock_process, log_path)
     cortex_server.running_agents["123456789"] = agent
@@ -472,11 +474,14 @@ def test_tail_agent_log(mock_time, cortex_server, tmp_path):
     ws = MockWebSocket()
     agent.watchers.add(ws)
 
-    # This should return quickly since process is not running
-    cortex_server._tail_agent_log(agent)
+    # Monitor stdout (this will read all lines and write to log)
+    cortex_server._monitor_stdout(agent)
 
-    # No broadcasts should happen since process isn't running
-    assert len(ws.messages) == 0
+    # Check log file was created with events
+    assert log_path.exists()
+    log_contents = log_path.read_text()
+    assert '"event": "start"' in log_contents
+    assert '"event": "finish"' in log_contents
 
 
 def test_send_agent_history_nonexistent_file(cortex_server):

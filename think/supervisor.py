@@ -51,15 +51,18 @@ def run_process_day(log_path: Path) -> None:
     logging.info("think.process_day finished in %s seconds", duration)
 
 
-def start_runners(journal: str) -> list[tuple[subprocess.Popen, str]]:
+def start_runners(journal: str, verbose: bool = False) -> list[tuple[subprocess.Popen, str]]:
     """Launch hear and see runners logging output to supervisor.log."""
     log_path = Path(journal) / "health" / "supervisor.log"
     log_path.parent.mkdir(parents=True, exist_ok=True)
     procs = []
     for module in ("hear.runner", "see.runner"):
+        cmd = [sys.executable, "-m", module]
+        if verbose:
+            cmd.append("-v")
         with open(log_path, "ab") as log_file:
             proc = subprocess.Popen(
-                [sys.executable, "-m", module],
+                cmd,
                 stdout=log_file,
                 stderr=log_file,
                 start_new_session=True,
@@ -69,15 +72,18 @@ def start_runners(journal: str) -> list[tuple[subprocess.Popen, str]]:
     return procs
 
 
-def start_mcp_server(journal: str) -> subprocess.Popen:
+def start_mcp_server(journal: str, verbose: bool = False) -> subprocess.Popen:
     """Launch the MCP tools HTTP server."""
     log_path = Path(journal) / "health" / "supervisor.log"
     log_path.parent.mkdir(parents=True, exist_ok=True)
+    cmd = [sys.executable, "-m", "think.mcp_tools", "--transport", "http"]
+    if verbose:
+        cmd.append("-v")
     with open(log_path, "ab") as log_file:
         env = os.environ.copy()
         env["JOURNAL_PATH"] = journal
         proc = subprocess.Popen(
-            [sys.executable, "-m", "think.mcp_tools", "--transport", "http"],
+            cmd,
             stdout=log_file,
             stderr=log_file,
             start_new_session=True,
@@ -86,15 +92,18 @@ def start_mcp_server(journal: str) -> subprocess.Popen:
     return proc
 
 
-def start_cortex_server(journal: str) -> subprocess.Popen:
+def start_cortex_server(journal: str, verbose: bool = False) -> subprocess.Popen:
     """Launch the Cortex WebSocket API server."""
     log_path = Path(journal) / "health" / "supervisor.log"
     log_path.parent.mkdir(parents=True, exist_ok=True)
+    cmd = [sys.executable, "-m", "think.cortex"]
+    if verbose:
+        cmd.append("-v")
     with open(log_path, "ab") as log_file:
         env = os.environ.copy()
         env["JOURNAL_PATH"] = journal
         proc = subprocess.Popen(
-            [sys.executable, "-m", "think.cortex"],
+            cmd,
             stdout=log_file,
             stderr=log_file,
             start_new_session=True,
@@ -197,10 +206,10 @@ def main() -> None:
 
     procs: list[tuple[subprocess.Popen, str]] = []
     if not args.no_runners:
-        procs = start_runners(journal)
-    mcp_proc = start_mcp_server(journal)
+        procs = start_runners(journal, verbose=args.verbose)
+    mcp_proc = start_mcp_server(journal, verbose=args.verbose)
     procs.append((mcp_proc, "mcp"))
-    cortex_proc = start_cortex_server(journal)
+    cortex_proc = start_cortex_server(journal, verbose=args.verbose)
     procs.append((cortex_proc, "cortex"))
     try:
         supervise(

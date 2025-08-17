@@ -261,6 +261,25 @@ class CortexServer:
         log_path = Path(journal) / "agents" / f"{agent_id}.jsonl"
         log_path.parent.mkdir(parents=True, exist_ok=True)
 
+        # Create the log file immediately
+        try:
+            with open(log_path, "w") as f:
+                # Write initial start event to log file
+                start_event = {
+                    "event": "start",
+                    "ts": int(time.time() * 1000),
+                    "prompt": prompt,
+                    "persona": persona,
+                    "model": model,
+                    "backend": backend
+                }
+                f.write(json.dumps(start_event) + "\n")
+            self.logger.debug(f"Created log file for agent {agent_id}: {log_path}")
+        except Exception as e:
+            self.logger.error(f"Failed to create log file for agent {agent_id}: {e}")
+            self._send_error(ws, f"Failed to create agent log file: {e}")
+            return
+
         # Spawn the agent process
         try:
             cmd = [
@@ -283,8 +302,11 @@ class CortexServer:
             env = os.environ.copy()
             env["JOURNAL_PATH"] = journal
 
+            # Log the command in verbose mode
+            self.logger.info(f"Spawning agent {agent_id}: {' '.join(cmd)}")
+
             process = subprocess.Popen(
-                cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, env=env
+                cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, env=env, bufsize=1
             )
 
             # Create running agent entry
@@ -293,9 +315,12 @@ class CortexServer:
             with self.lock:
                 self.running_agents[agent_id] = agent
 
-            # Start monitoring thread
+            # Start monitoring threads
             threading.Thread(
-                target=self._monitor_agent, args=(agent,), daemon=True
+                target=self._monitor_stdout, args=(agent,), daemon=True
+            ).start()
+            threading.Thread(
+                target=self._monitor_stderr, args=(agent,), daemon=True
             ).start()
 
             self._send_message(ws, {"type": "agent_spawned", "agent_id": agent_id})
@@ -304,15 +329,63 @@ class CortexServer:
             self.logger.exception(f"Failed to spawn agent: {e}")
             self._send_error(ws, f"Failed to spawn agent: {e}")
 
-    def _monitor_agent(self, agent: RunningAgent) -> None:
-        """Monitor an agent process and broadcast events to watchers."""
+    def _monitor_stdout(self, agent: RunningAgent) -> None:
+        """Monitor agent stdout and write events to log file."""
+        if not agent.process.stdout:
+            return
+
         try:
-            # Monitor the log file for new events
-            self._tail_agent_log(agent)
+            for line in agent.process.stdout:
+                if not line:
+                    continue
+
+                line = line.strip()
+                if not line:
+                    continue
+
+                try:
+                    # Parse JSON event from stdout
+                    event_data = json.loads(line)
+
+                    # Write to log file
+                    with open(agent.log_path, "a") as f:
+                        f.write(line + "\n")
+
+                    # Broadcast to watchers
+                    self._broadcast_agent_event(agent.agent_id, event_data)
+
+                except json.JSONDecodeError as e:
+                    self.logger.debug(f"Agent {agent.agent_id} invalid JSON output: {e}, line: {line}")
+                    # Still write non-JSON output as an info event
+                    info_event = {
+                        "event": "info",
+                        "ts": int(time.time() * 1000),
+                        "message": line
+                    }
+                    with open(agent.log_path, "a") as f:
+                        f.write(json.dumps(info_event) + "\n")
+                    self._broadcast_agent_event(agent.agent_id, info_event)
+
         except Exception as e:
-            self.logger.exception(f"Error monitoring agent {agent.agent_id}: {e}")
+            self.logger.error(f"Error monitoring stdout for agent {agent.agent_id}: {e}")
         finally:
-            # Clean up when agent finishes
+            # Clean up when stdout closes
+            exit_code = agent.process.poll()
+            if exit_code is not None:
+                self.logger.info(f"Agent {agent.agent_id} exited with code {exit_code}")
+
+                # Write finish event to log
+                finish_event = {
+                    "event": "finish" if exit_code == 0 else "error",
+                    "ts": int(time.time() * 1000),
+                    "exit_code": exit_code
+                }
+                try:
+                    with open(agent.log_path, "a") as f:
+                        f.write(json.dumps(finish_event) + "\n")
+                except Exception as e:
+                    self.logger.warning(f"Failed to write finish event: {e}")
+
             with self.lock:
                 if agent.agent_id in self.running_agents:
                     agent.status = "finished"
@@ -327,37 +400,41 @@ class CortexServer:
                             pass
                     agent.watchers.clear()
 
-    def _tail_agent_log(self, agent: RunningAgent) -> None:
-        """Tail the agent's log file and broadcast events to watchers."""
-        log_path = agent.log_path
-
-        # Wait for log file to be created
-        timeout = 30  # seconds
-        start_time = time.time()
-        while not log_path.exists() and time.time() - start_time < timeout:
-            if not agent.is_running():
-                return
-            time.sleep(0.1)
-
-        if not log_path.exists():
-            self.logger.warning(f"Agent log file not created: {log_path}")
+    def _monitor_stderr(self, agent: RunningAgent) -> None:
+        """Monitor agent stderr and broadcast errors to watchers."""
+        if not agent.process.stderr:
             return
 
-        # Tail the file
-        with open(log_path, "r") as f:
-            # Go to end of file
-            f.seek(0, 2)
+        try:
+            for line in agent.process.stderr:
+                if not line:
+                    continue
 
-            while agent.is_running():
-                line = f.readline()
-                if line:
-                    try:
-                        event_data = json.loads(line.strip())
-                        self._broadcast_agent_event(agent.agent_id, event_data)
-                    except json.JSONDecodeError:
-                        continue
-                else:
-                    time.sleep(0.1)
+                # Log to cortex server's stderr
+                self.logger.error(f"Agent {agent.agent_id} stderr: {line.strip()}")
+
+                # Create error event
+                error_event = {
+                    "event": "error",
+                    "ts": int(time.time() * 1000),
+                    "message": line.strip(),
+                    "source": "stderr"
+                }
+
+                # Broadcast to watchers
+                self._broadcast_agent_event(agent.agent_id, error_event)
+
+                # Also write to the agent's log file
+                try:
+                    with open(agent.log_path, "a") as f:
+                        f.write(json.dumps(error_event) + "\n")
+                except Exception as e:
+                    self.logger.warning(f"Failed to write stderr to log: {e}")
+
+        except Exception as e:
+            self.logger.error(f"Error monitoring stderr for agent {agent.agent_id}: {e}")
+
+    # Remove _tail_agent_log method as stdout monitoring replaces it
 
     def _broadcast_agent_event(self, agent_id: str, event_data: Dict[str, Any]) -> None:
         """Broadcast an agent event to all watchers."""
@@ -392,7 +469,8 @@ class CortexServer:
                                 "event": event_data,
                             }
                             self._send_message(ws, message)
-                        except json.JSONDecodeError:
+                        except json.JSONDecodeError as e:
+                            self.logger.debug(f"Agent {agent_id} history invalid JSON: {e}, line: {line.strip()}")
                             continue
         except Exception as e:
             self.logger.warning(f"Error reading agent history: {e}")

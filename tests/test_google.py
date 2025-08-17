@@ -125,10 +125,8 @@ def test_google_main(monkeypatch, tmp_path, capsys):
     assert isinstance(events[-1]["ts"], int)
     assert events[-1]["result"] == "ok"
 
-    logged = list((journal / "agents").glob("*.jsonl"))
-    assert len(logged) == 1
-    logged_events = [json.loads(line) for line in logged[0].read_text().splitlines()]
-    assert logged_events == events
+    # Journal logging is now handled by cortex, not by agents directly
+    # So we don't check for journal files here
 
 
 def test_google_outfile(monkeypatch, tmp_path):
@@ -164,10 +162,8 @@ def test_google_outfile(monkeypatch, tmp_path):
     assert isinstance(events[-1]["ts"], int)
     assert events[-1]["result"] == "ok"
 
-    logged = list((journal / "agents").glob("*.jsonl"))
-    assert len(logged) == 1
-    logged_events = [json.loads(line) for line in logged[0].read_text().splitlines()]
-    assert logged_events == events
+    # Journal logging is now handled by cortex, not by agents directly
+    # So we don't check for journal files here
 
 
 def test_google_outfile_error(monkeypatch, tmp_path):
@@ -218,7 +214,5 @@ def test_google_outfile_error(monkeypatch, tmp_path):
     assert events[-1]["error"] == "boom"
     assert "trace" in events[-1]
 
-    logged = list((journal / "agents").glob("*.jsonl"))
-    assert len(logged) == 1
-    logged_events = [json.loads(line) for line in logged[0].read_text().splitlines()]
-    assert logged_events == events
+    # Journal logging is now handled by cortex, not by agents directly
+    # So we don't check for journal files here

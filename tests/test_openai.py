@@ -125,10 +125,8 @@ def test_openai_main(monkeypatch, tmp_path, capsys):
     assert DummyRunner.called
     assert last_kwargs.get("mcp_servers") is not None
 
-    logged = list((journal / "agents").glob("*.jsonl"))
-    assert len(logged) == 1
-    logged_events = [json.loads(line) for line in logged[0].read_text().splitlines()]
-    assert logged_events == events
+    # Journal logging is now handled by cortex, not by agents directly
+    # So we don't check for journal files here
 
 
 def test_openai_thinking_events(monkeypatch, tmp_path, capsys):
@@ -224,10 +222,8 @@ def test_openai_outfile(monkeypatch, tmp_path):
     assert isinstance(events[-1]["ts"], int)
     assert events[-1]["result"] == "ok"
 
-    logged = list((journal / "agents").glob("*.jsonl"))
-    assert len(logged) == 1
-    logged_events = [json.loads(line) for line in logged[0].read_text().splitlines()]
-    assert logged_events == events
+    # Journal logging is now handled by cortex, not by agents directly
+    # So we don't check for journal files here
 
 
 def test_openai_thinking_events_stdout(monkeypatch, tmp_path, capsys):
@@ -332,19 +328,8 @@ def test_openai_outfile_error(monkeypatch, tmp_path):
     assert events[-1]["error"] == "boom"
     assert "trace" in events[-1]
 
-    logged = list((journal / "agents").glob("*.jsonl"))
-    # Two log files may be created (one for the start and one for the error)
-    assert len(logged) >= 1
-    # Combine all logged events from all files
-    all_logged_events = []
-    for log_file in logged:
-        all_logged_events.extend(
-            [json.loads(line) for line in log_file.read_text().splitlines()]
-        )
-    # Check that our events are in the logged events
-    assert any(
-        e["event"] == "error" and e["error"] == "boom" for e in all_logged_events
-    )
+    # Journal logging is now handled by cortex, not by agents directly
+    # So we don't check for journal files here
 
 
 def test_openai_thinking_events_error(monkeypatch, tmp_path, capsys):
