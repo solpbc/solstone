@@ -12,18 +12,38 @@ from silero_vad import load_silero_vad
 from hear.audio_utils import SAMPLE_RATE, detect_speech
 from think.utils import DATE_RE, day_log, setup_cli
 
+# Match the threshold used in live capture
+MIN_SPEECH_SECONDS = 1.0
+
 
 def _speech_in_file(path: Path, vad_model) -> bool:
     data, sr = sf.read(path, dtype="float32")
     if data.ndim > 1:
-        data = data.mean(axis=1)
+        # Use first channel (matches live capture behavior for system audio)
+        data = data[:, 0]
     if sr != SAMPLE_RATE and sr > 0:
         from scipy.signal import resample
 
         target_len = int(len(data) * SAMPLE_RATE / sr)
         data = resample(data, target_len)
     segments, _ = detect_speech(vad_model, path.name, data, None, True)
-    return bool(segments)
+    
+    # Match live capture logic: check total speech duration
+    if not segments:
+        logging.debug(f"No speech segments detected in {path.name}")
+        return False
+    
+    total_seconds = sum(len(seg["data"]) / SAMPLE_RATE for seg in segments)
+    if total_seconds < MIN_SPEECH_SECONDS:
+        logging.debug(
+            f"Total speech duration {total_seconds:.2f}s < {MIN_SPEECH_SECONDS:.2f}s in {path.name}"
+        )
+        return False
+    
+    logging.debug(
+        f"Found {total_seconds:.2f}s of speech in {path.name} ({len(segments)} segments)"
+    )
+    return True
 
 
 def _process_file_worker(file_path_str: str) -> tuple[str, bool, str | None]:

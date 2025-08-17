@@ -145,7 +145,7 @@ def detect_speech(
             speech_pad_ms=70,
             min_silence_duration_ms=100,
             min_speech_duration_ms=200,
-            threshold=0.2,
+            threshold=0.25,
         )
         buffer_seconds = len(buffer_data) / SAMPLE_RATE
         segments = []
