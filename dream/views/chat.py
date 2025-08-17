@@ -151,14 +151,22 @@ def agent_events(agent_id: str) -> Any:
                 if not event:
                     continue
 
+                # Add HTML rendering for finish events
+                if event.get("event") == "finish":
+                    result_text = event.get("result", "")
+                    event["html"] = markdown.markdown(result_text, extensions=["extra"])
+                
                 events.append(event)
 
                 # Build chat history for display
                 if event.get("event") == "start":
                     history.append({"role": "user", "text": event.get("prompt", "")})
                 elif event.get("event") == "finish":
+                    result_text = event.get("result", "")
+                    # Convert markdown to HTML for proper display
+                    html_result = markdown.markdown(result_text, extensions=["extra"])
                     history.append(
-                        {"role": "assistant", "text": event.get("result", "")}
+                        {"role": "assistant", "text": result_text, "html": html_result}
                     )
 
     except Exception as e:

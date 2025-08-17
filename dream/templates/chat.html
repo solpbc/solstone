@@ -57,6 +57,11 @@ body {height:100vh; overflow:hidden;}
 .typing-indicator span:nth-child(1) {animation-delay:-0.32s;}
 .typing-indicator span:nth-child(2) {animation-delay:-0.16s;}
 @keyframes typingBounce {0%,80%,100%{transform:scale(0.8);opacity:0.5;}40%{transform:scale(1);opacity:1;}}
+.activity-indicator {align-self:flex-start; padding:0.75em 1em; background:#f0f0f0; border-radius:12px; margin-bottom:0.75em; margin-top:0.5em; max-width:80px; display:none;}
+.activity-indicator.active {display:flex; align-items:center; gap:4px; animation:fadeInUp 0.3s ease-out;}
+.activity-indicator span {width:8px; height:8px; background:#999; border-radius:50%; animation:typingBounce 1.4s infinite ease-in-out;}
+.activity-indicator span:nth-child(1) {animation-delay:-0.32s;}
+.activity-indicator span:nth-child(2) {animation-delay:-0.16s;}
 </style>
 {% endblock %}
 {% block body %}
@@ -93,6 +98,70 @@ const messagesDiv = document.getElementById('messages');
 const backendSelect = document.getElementById('backendSelect');
 const searchBase = '{{ url_for('search.search_page') }}';
 
+// Create persistent activity indicator
+const activityIndicator = document.createElement('div');
+activityIndicator.className = 'activity-indicator';
+activityIndicator.id = 'activityIndicator';
+activityIndicator.innerHTML = '<span></span><span></span><span></span>';
+
+// Track if we're currently processing events
+let eventProcessingActive = false;
+let eventTimeout = null;
+let responseInProgress = false;
+
+function showActivityIndicator() {
+  if (!document.getElementById('activityIndicator')) {
+    messagesDiv.appendChild(activityIndicator);
+  }
+  activityIndicator.classList.add('active');
+  eventProcessingActive = true;
+  
+  // Auto-scroll to keep activity indicator in view
+  requestAnimationFrame(() => {
+    messagesDiv.scrollTop = messagesDiv.scrollHeight;
+  });
+  
+  // Clear any existing timeout
+  if (eventTimeout) {
+    clearTimeout(eventTimeout);
+    eventTimeout = null;
+  }
+}
+
+function hideActivityIndicator() {
+  // Only hide if we're not expecting more events
+  if (!responseInProgress) {
+    // Set a small delay before hiding to handle rapid event sequences
+    if (eventTimeout) {
+      clearTimeout(eventTimeout);
+    }
+    eventTimeout = setTimeout(() => {
+      activityIndicator.classList.remove('active');
+      eventProcessingActive = false;
+    }, 500);
+  }
+}
+
+function forceHideActivityIndicator() {
+  // Force hide without delay
+  if (eventTimeout) {
+    clearTimeout(eventTimeout);
+    eventTimeout = null;
+  }
+  activityIndicator.classList.remove('active');
+  eventProcessingActive = false;
+  responseInProgress = false;
+}
+
+function ensureActivityIndicatorAtBottom() {
+  // Ensure activity indicator is always the last element
+  if (!activityIndicator.parentNode) {
+    messagesDiv.appendChild(activityIndicator);
+  } else if (activityIndicator.parentNode === messagesDiv && messagesDiv.lastElementChild !== activityIndicator) {
+    messagesDiv.appendChild(activityIndicator);
+  }
+}
+
 // Check if viewing historical agent
 const fragment = window.location.hash.slice(1);
 const isHistorical = fragment && /^\d+$/.test(fragment);
@@ -103,8 +172,9 @@ function addEventCard(text, url){
   const a=document.createElement('a');
   a.href=url;
   a.textContent=text;
-  div.appendChild(a);
-  messagesDiv.appendChild(div);
+  div.appendChild(a);  // This line was missing!
+  messagesDiv.insertBefore(div, activityIndicator);
+  ensureActivityIndicatorAtBottom();
   messagesDiv.scrollTop=messagesDiv.scrollHeight;
 }
 
@@ -135,7 +205,8 @@ function addToolPlacard(toolName, args, callId){
     div.appendChild(tooltip);
   }
   
-  messagesDiv.appendChild(div);
+  messagesDiv.insertBefore(div, activityIndicator);
+  ensureActivityIndicatorAtBottom();
   messagesDiv.scrollTop=messagesDiv.scrollHeight;
   
   // Store reference to update later
@@ -168,7 +239,8 @@ function addAgentUpdate(agentName){
     const div=document.createElement('div');
     div.className='agent-update';
     div.textContent=`→ Switched from ${previousAgent} to ${agentName} agent`;
-    messagesDiv.appendChild(div);
+    messagesDiv.insertBefore(div, activityIndicator);
+    ensureActivityIndicatorAtBottom();
     messagesDiv.scrollTop=messagesDiv.scrollHeight;
   }
   previousAgent = agentName;
@@ -192,7 +264,8 @@ function addThinkingCard(summary, model){
     div.classList.toggle('expanded');
   });
   
-  messagesDiv.appendChild(div);
+  messagesDiv.insertBefore(div, activityIndicator);
+  ensureActivityIndicatorAtBottom();
   messagesDiv.scrollTop=messagesDiv.scrollHeight;
 }
 
@@ -213,7 +286,8 @@ function addMessage(text, cls, isHtml=false){
   } else {
     div.textContent = text;
   }
-  messagesDiv.appendChild(div);
+  messagesDiv.insertBefore(div, activityIndicator);
+  ensureActivityIndicatorAtBottom();
   messagesDiv.scrollTop=messagesDiv.scrollHeight;
 }
 document.getElementById('inputArea').onsubmit=async e=>{
@@ -227,22 +301,31 @@ document.getElementById('inputArea').onsubmit=async e=>{
   // Reset agent tracking when starting new conversation
   previousAgent = null;
   
+  // Add the activity indicator to the messages div
+  messagesDiv.appendChild(activityIndicator);
+  
   addMessage(text,'from-user');
   input.value='';
   
-  // Re-create and show typing indicator after user message
-  const typingDiv = document.createElement('div');
-  typingDiv.className = 'typing-indicator show';
-  typingDiv.id = 'typingIndicator';
-  typingDiv.innerHTML = '<span></span><span></span><span></span>';
-  messagesDiv.appendChild(typingDiv);
+  // Show activity indicator and mark response as in progress
+  responseInProgress = true;
+  showActivityIndicator();
   
   const r=await fetch(sendUrl,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:text,backend:backendSelect.value})});
   
-  // Hide typing indicator
-  typingDiv.classList.remove('show');
-  
-  if(r.ok){const d=await r.json();addMessage(d.html||d.text,'from-bot',!!d.html);}else{let err='Error';try{const d=await r.json();err=d.error||err;}catch{};if(window.showError)showError(err);}
+  if(r.ok){
+    const d=await r.json();
+    addMessage(d.html||d.text,'from-bot',!!d.html);
+    // Response complete - force hide after a short delay
+    responseInProgress = false;
+    setTimeout(forceHideActivityIndicator, 1000);
+  }else{
+    responseInProgress = false;
+    forceHideActivityIndicator();
+    let err='Error';
+    try{const d=await r.json();err=d.error||err;}catch{};
+    if(window.showError)showError(err);
+  }
 };
 
 async function loadHistory(){
@@ -263,41 +346,118 @@ async function loadHistoricalAgent(agentId){
   }
   const d = await r.json();
   
-  // Load chat history first
-  for(const m of d.history){
-    addMessage(m.text, m.role==='user'?'from-user':'from-bot');
-  }
-  
-  // Then replay events
+  // Process events in chronological order
+  // This maintains the proper sequence of messages and tool calls
   for(const event of d.events){
-    handleHistoricalEvent(event);
+    if(event.event === 'start'){
+      // User message
+      addMessage(event.prompt || '', 'from-user');
+    } else if(event.event === 'finish'){
+      // Assistant final response - use HTML if available for markdown formatting
+      const text = event.result || '';
+      const html = event.html || text;
+      addMessage(html, 'from-bot', !!event.html);
+    } else {
+      // All other events (tool calls, thinking, etc.)
+      handleHistoricalEvent(event);
+    }
   }
 }
 
-function handleHistoricalEvent(event){
-  if(event.event === 'tool_start'){
-    // Handle search tools with special event cards
-    if(event.args && event.args.query){
-      let idx='summaries';
-      if(event.tool.includes('event')) idx='events';
-      else if(event.tool.includes('transcript')) idx='transcripts';
-      const q=event.args.query+(idx==='summaries'?'':' index:'+idx);
-      const url=searchBase+'#q='+encodeURIComponent(q);
-      addEventCard('Search '+event.args.query,url);
-    } else {
-      // Handle all other tools with placards
-      addToolPlacard(event.tool, event.args, event.call_id);
-    }
-  } else if(event.event === 'tool_end'){
-    // Update tool placard to show completion
-    completeToolPlacard(event.call_id, event.result);
-  } else if(event.event === 'thinking'){
-    // Handle thinking events
-    addThinkingCard(event.summary, event.model || 'unknown');
-  } else if(event.event === 'agent_updated'){
-    // Handle agent switch events
-    addAgentUpdate(event.agent || 'unknown');
+// Unified event handler for both live and historical events
+function processEvent(event) {
+  switch(event.event) {
+    case 'tool_start':
+      handleToolStart(event);
+      break;
+    case 'tool_end':
+      completeToolPlacard(event.call_id, event.result);
+      break;
+    case 'thinking':
+      addThinkingCard(event.summary, event.model || 'unknown');
+      break;
+    case 'agent_updated':
+      addAgentUpdate(event.agent || 'unknown');
+      break;
   }
+}
+
+// Handle tool_start events
+function handleToolStart(event) {
+  const {tool, args, call_id} = event;
+  
+  // Handle search tools with special event cards
+  if(args && args.query) {
+    // Determine which index is being searched
+    let idx = 'summaries';
+    let indexName = 'Summaries';
+    if(tool.includes('event')) {
+      idx = 'events';
+      indexName = 'Events';
+    } else if(tool.includes('transcript')) {
+      idx = 'transcripts';
+      indexName = 'Transcripts';
+    }
+    
+    // Extract date from query if present (format: YYYYMMDD or YYYY-MM-DD)
+    let dateStr = '';
+    const dateMatch = args.query.match(/\b(\d{8}|\d{4}-\d{2}-\d{2})\b/);
+    if(dateMatch) {
+      const dateRaw = dateMatch[1].replace(/-/g, '');
+      const month = parseInt(dateRaw.substring(4, 6), 10);
+      const day = parseInt(dateRaw.substring(6, 8), 10);
+      dateStr = ` on ${month}/${day}`;
+    }
+    
+    // Build search URL
+    const q = args.query + (idx === 'summaries' ? '' : ' index:' + idx);
+    const url = searchBase + '#q=' + encodeURIComponent(q);
+    
+    // Create descriptive text
+    const searchText = `Searching ${indexName} for "${args.query}"${dateStr}`;
+    addEventCard(searchText, url);
+    return;
+  }
+  
+  // Handle get_resource tool
+  if(tool === 'get_resource' && args && args.uri) {
+    const resourceCard = createResourceCard(args.uri);
+    if(resourceCard) {
+      addEventCard(resourceCard.text, resourceCard.url);
+      return;
+    }
+  }
+  
+  // Default: show tool placard
+  addToolPlacard(tool, args, call_id);
+}
+
+// Create resource card for get_resource tool
+function createResourceCard(uri) {
+  // Parse journal://summary/20250815/meetings format
+  const match = uri.match(/journal:\/\/summary\/(\d{8})\/(.+)/);
+  if(!match) return null;
+  
+  const date = match[1];
+  const topic = match[2];
+  
+  // Format date as M/D
+  const month = parseInt(date.substring(4, 6), 10);
+  const day = parseInt(date.substring(6, 8), 10);
+  const dateStr = `${month}/${day}`;
+  
+  // Capitalize first letter of topic
+  const topicDisplay = topic.charAt(0).toUpperCase() + topic.slice(1);
+  
+  return {
+    text: `Reading ${topicDisplay} Summary from ${dateStr}`,
+    url: `/calendar/${date}#${topic}`
+  };
+}
+
+// Simplified wrapper for historical events
+function handleHistoricalEvent(event) {
+  processEvent(event);
 }
 
 // Disable input and controls if viewing historical agent
@@ -309,46 +469,44 @@ if(isHistorical){
   notice.textContent = `Viewing historical agent run: ${fragment} (read-only)`;
   document.querySelector('.container').insertBefore(notice, messagesDiv);
   
+  // Add activity indicator to messages div for historical view
+  messagesDiv.appendChild(activityIndicator);
+  
   loadHistoricalAgent(fragment);
 } else {
   // Live mode - enable normal functionality
   document.getElementById('clearBtn').onclick=async()=>{
     await fetch(clearUrl,{method:'POST'});
     messagesDiv.innerHTML='';
+    messagesDiv.appendChild(activityIndicator);  // Re-add activity indicator
     previousAgent = null;  // Reset agent tracking
+    responseInProgress = false;  // Reset response state
+    forceHideActivityIndicator();  // Ensure it's hidden
     input.focus();
   };
 
   backendSelect.addEventListener('change', async ()=>{
     await fetch(clearUrl,{method:'POST'});
     messagesDiv.innerHTML='';
+    messagesDiv.appendChild(activityIndicator);  // Re-add activity indicator
     previousAgent = null;  // Reset agent tracking
+    responseInProgress = false;  // Reset response state
+    forceHideActivityIndicator();  // Ensure it's hidden
     input.focus();
   });
 
-  appEvents.listen('chat',e=>{
-    if(e.event==='tool_start'){
-      // Handle search tools with special event cards
-      if(e.args&&e.args.query){
-        let idx='summaries';
-        if(e.tool.includes('event')) idx='events';
-        else if(e.tool.includes('transcript')) idx='transcripts';
-        const q=e.args.query+(idx==='summaries'?'':' index:'+idx);
-        const url=searchBase+'#q='+encodeURIComponent(q);
-        addEventCard('Search '+e.args.query,url);
-      } else {
-        // Handle all other tools with placards
-        addToolPlacard(e.tool, e.args, e.call_id);
-      }
-    } else if(e.event==='tool_end'){
-      // Update tool placard to show completion
-      completeToolPlacard(e.call_id, e.result);
-    } else if(e.event==='thinking'){
-      // Handle thinking events
-      addThinkingCard(e.summary, e.model || 'unknown');
-    } else if(e.event==='agent_updated'){
-      // Handle agent switch events
-      addAgentUpdate(e.agent || 'unknown');
+  appEvents.listen('chat', e => {
+    // Keep activity indicator visible while events are coming
+    if (responseInProgress) {
+      showActivityIndicator();
+    }
+    
+    // Use unified event processor
+    processEvent(e);
+    
+    // Don't hide while response is in progress
+    if (responseInProgress) {
+      showActivityIndicator();
     }
   });
 
