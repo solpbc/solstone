@@ -150,24 +150,25 @@ def test_handle_attach_successful(cortex_server, tmp_path):
     """Test successful agent attachment."""
     from think.cortex import RunningAgent
 
-    # Create mock agent log file with sample events
+    # Create mock agent log file
     log_path = tmp_path / "test.jsonl"
-    log_path.write_text(
-        '{"event": "start", "ts": 1703123456789, "prompt": "test"}\n'
-        '{"event": "finish", "ts": 1703123456790, "result": "done"}\n'
-    )
-
-    # Add mock running agent
+    
+    # Add mock running agent with in-memory events
     mock_process = MagicMock()
     mock_process.poll.return_value = None
 
     agent = RunningAgent("123456789", mock_process, log_path)
+    # Add events to agent's in-memory list
+    agent.events = [
+        {"event": "start", "ts": 1703123456789, "prompt": "test"},
+        {"event": "finish", "ts": 1703123456790, "result": "done"}
+    ]
     cortex_server.running_agents["123456789"] = agent
 
     ws = MockWebSocket()
     result = cortex_server._handle_attach(ws, "123456789", None)
 
-    # Should have attachment confirmation + 2 history events
+    # Should have attachment confirmation + 2 in-memory events
     assert len(ws.messages) == 3
 
     # Check attachment confirmation
@@ -175,7 +176,7 @@ def test_handle_attach_successful(cortex_server, tmp_path):
     assert attach_response["type"] == "attached"
     assert attach_response["agent_id"] == "123456789"
 
-    # Check history events
+    # Check in-memory events
     event1 = json.loads(ws.messages[1])
     assert event1["type"] == "agent_event"
     assert event1["event"]["event"] == "start"

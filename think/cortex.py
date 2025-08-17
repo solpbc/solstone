@@ -36,6 +36,8 @@ class RunningAgent:
         self.status = "running"
         self.watchers: Set[Any] = set()  # WebSocket connections watching this agent
         self.stop_event = threading.Event()
+        self.events: List[Dict[str, Any]] = []  # All events from this agent in memory
+        self.lock = threading.RLock()  # Lock for thread-safe event list access
 
     def is_running(self) -> bool:
         """Check if the agent process is still running."""
@@ -206,12 +208,19 @@ class CortexServer:
                 # Send attach confirmation
                 self._send_message(ws, {"type": "attached", "agent_id": agent_id})
 
-                # Send historical events from the agent's log file
-                self._send_agent_history(ws, agent_id, running_agent.log_path)
+                # Send all in-memory events for running agent
+                with running_agent.lock:
+                    for event_data in running_agent.events:
+                        message = {
+                            "type": "agent_event",
+                            "agent_id": agent_id,
+                            "event": event_data,
+                        }
+                        self._send_message(ws, message)
 
                 return agent_id
 
-        # Check if it's a historical agent
+        # Check if it's a historical agent (finished agent with log file)
         historical_agents = self._load_historical_agents()
         historical_agent = next(
             (a for a in historical_agents if a.agent_id == agent_id), None
@@ -221,7 +230,7 @@ class CortexServer:
             # Send attach confirmation
             self._send_message(ws, {"type": "attached", "agent_id": agent_id})
 
-            # Send historical events from the agent's log file
+            # Send historical events from the agent's log file (only for finished agents)
             self._send_agent_history(ws, agent_id, historical_agent.log_path)
 
             return agent_id
@@ -261,18 +270,18 @@ class CortexServer:
         log_path = Path(journal) / "agents" / f"{agent_id}.jsonl"
         log_path.parent.mkdir(parents=True, exist_ok=True)
 
-        # Create the log file immediately
+        # Create the log file immediately with start event
+        start_event = {
+            "event": "start",
+            "ts": int(time.time() * 1000),
+            "prompt": prompt,
+            "persona": persona,
+            "model": model,
+            "backend": backend
+        }
+        
         try:
             with open(log_path, "w") as f:
-                # Write initial start event to log file
-                start_event = {
-                    "event": "start",
-                    "ts": int(time.time() * 1000),
-                    "prompt": prompt,
-                    "persona": persona,
-                    "model": model,
-                    "backend": backend
-                }
                 f.write(json.dumps(start_event) + "\n")
             self.logger.debug(f"Created log file for agent {agent_id}: {log_path}")
         except Exception as e:
@@ -309,8 +318,10 @@ class CortexServer:
                 cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, env=env, bufsize=1
             )
 
-            # Create running agent entry
+            # Create running agent entry with start event already in memory
             agent = RunningAgent(agent_id, process, log_path)
+            with agent.lock:
+                agent.events.append(start_event)
 
             with self.lock:
                 self.running_agents[agent_id] = agent
@@ -347,6 +358,10 @@ class CortexServer:
                     # Parse JSON event from stdout
                     event_data = json.loads(line)
 
+                    # Store in memory for running agents
+                    with agent.lock:
+                        agent.events.append(event_data)
+
                     # Write to log file
                     with open(agent.log_path, "a") as f:
                         f.write(line + "\n")
@@ -362,6 +377,11 @@ class CortexServer:
                         "ts": int(time.time() * 1000),
                         "message": line
                     }
+                    
+                    # Store in memory
+                    with agent.lock:
+                        agent.events.append(info_event)
+                    
                     with open(agent.log_path, "a") as f:
                         f.write(json.dumps(info_event) + "\n")
                     self._broadcast_agent_event(agent.agent_id, info_event)
@@ -374,12 +394,18 @@ class CortexServer:
             if exit_code is not None:
                 self.logger.info(f"Agent {agent.agent_id} exited with code {exit_code}")
 
-                # Write finish event to log
+                # Create finish event
                 finish_event = {
                     "event": "finish" if exit_code == 0 else "error",
                     "ts": int(time.time() * 1000),
                     "exit_code": exit_code
                 }
+                
+                # Store in memory
+                with agent.lock:
+                    agent.events.append(finish_event)
+                
+                # Write to log file
                 try:
                     with open(agent.log_path, "a") as f:
                         f.write(json.dumps(finish_event) + "\n")
@@ -399,6 +425,11 @@ class CortexServer:
                         except ConnectionClosed:
                             pass
                     agent.watchers.clear()
+                    
+                    # Remove finished agent from memory after notifying watchers
+                    # The log file remains for historical access
+                    del self.running_agents[agent.agent_id]
+                    self.logger.debug(f"Removed finished agent {agent.agent_id} from memory")
 
     def _monitor_stderr(self, agent: RunningAgent) -> None:
         """Monitor agent stderr and broadcast errors to watchers."""
@@ -420,6 +451,10 @@ class CortexServer:
                     "message": line.strip(),
                     "source": "stderr"
                 }
+
+                # Store in memory
+                with agent.lock:
+                    agent.events.append(error_event)
 
                 # Broadcast to watchers
                 self._broadcast_agent_event(agent.agent_id, error_event)
@@ -453,8 +488,9 @@ class CortexServer:
                     agent.watchers.discard(ws)
 
     def _send_agent_history(self, ws, agent_id: str, log_path: Path) -> None:
-        """Send historical events from agent log file."""
+        """Send historical events from agent log file (only for finished agents)."""
         if not log_path.exists():
+            self.logger.warning(f"Log file not found for historical agent {agent_id}")
             return
 
         try:
@@ -483,11 +519,16 @@ class CortexServer:
                 agent.watchers.discard(ws)
 
     def _cleanup_dead_agents(self) -> None:
-        """Remove agents that are no longer running."""
+        """Remove agents that are no longer running.
+        
+        Note: This is mainly a safety net since agents should be removed
+        immediately when they finish in _monitor_stdout.
+        """
         dead_agents = []
         for agent_id, agent in self.running_agents.items():
             if not agent.is_running():
                 dead_agents.append(agent_id)
+                self.logger.warning(f"Found dead agent {agent_id} that wasn't cleaned up properly")
 
         for agent_id in dead_agents:
             del self.running_agents[agent_id]
