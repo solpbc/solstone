@@ -142,7 +142,7 @@ def test_handle_attach_nonexistent_agent(cortex_server):
     assert len(ws.messages) == 1
     response = json.loads(ws.messages[0])
     assert response["type"] == "error"
-    assert "not found" in response["message"]
+    assert "not found or not running" in response["message"]
     assert result == ""
 
 
@@ -485,210 +485,63 @@ def test_monitor_stdout(mock_time, cortex_server, tmp_path):
     assert '"event": "finish"' in log_contents
 
 
-def test_send_agent_history_nonexistent_file(cortex_server):
-    """Test sending history from non-existent log file."""
-    ws = MockWebSocket()
-
-    cortex_server._send_agent_history(ws, "123456789", Path("/nonexistent/file.jsonl"))
-
-    # Should not send any messages for non-existent file
-    assert len(ws.messages) == 0
-
-
-def test_send_agent_history_with_invalid_json(cortex_server, tmp_path):
-    """Test sending history with invalid JSON lines."""
-    log_path = tmp_path / "agent.jsonl"
-    log_path.write_text(
-        '{"event": "start", "ts": 1703123456789}\n'
-        "invalid json line\n"
-        '{"event": "finish", "ts": 1703123456790}\n'
-    )
-
-    ws = MockWebSocket()
-    cortex_server._send_agent_history(ws, "123456789", log_path)
-
-    # Should send 2 valid events, skip the invalid one
-    assert len(ws.messages) == 2
-
-    event1 = json.loads(ws.messages[0])
-    assert event1["event"]["event"] == "start"
-
-    event2 = json.loads(ws.messages[1])
-    assert event2["event"]["event"] == "finish"
+# Removed tests for historical agent functionality:
+# - test_send_agent_history_nonexistent_file
+# - test_send_agent_history_with_invalid_json
+# - test_historical_agent_creation
+# - test_load_historical_agents_empty
+# - test_load_historical_agents_with_files
+# - test_parse_agent_file_valid
+# - test_parse_agent_file_empty
+# - test_determine_agent_status_finished
+# - test_determine_agent_status_error
+# - test_determine_agent_status_unknown
 
 
-def test_historical_agent_creation():
-    """Test HistoricalAgent class initialization and methods."""
-    from think.cortex import HistoricalAgent
-
-    first_event = {
-        "event": "start",
-        "ts": 1703123456789,
-        "prompt": "Test prompt",
-        "persona": "default",
-        "model": "gpt-4",
-    }
-
-    log_path = Path("/tmp/test.jsonl")
-    agent = HistoricalAgent("123456789", log_path, first_event, "finished")
-
-    assert agent.agent_id == "123456789"
-    assert agent.log_path == log_path
-    assert agent.first_event == first_event
-    assert agent.status == "finished"
-    assert agent.started_at == 1703123456789
-
-    # Test to_dict
-    agent_dict = agent.to_dict()
-    assert agent_dict["id"] == "123456789"
-    assert agent_dict["status"] == "finished"
-    assert agent_dict["started_at"] == 1703123456789
-    assert agent_dict["pid"] is None
-    assert agent_dict["metadata"]["prompt"] == "Test prompt"
-    assert agent_dict["metadata"]["persona"] == "default"
-    assert agent_dict["metadata"]["model"] == "gpt-4"
-
-
-def test_load_historical_agents_empty(cortex_server, mock_journal):
-    """Test loading historical agents when none exist."""
-    agents = cortex_server._load_historical_agents()
-    assert agents == []
-
-
-def test_load_historical_agents_with_files(cortex_server, mock_journal):
-    """Test loading historical agents from journal files."""
-    agents_dir = mock_journal / "agents"
-
-    # Create a historical agent file
-    agent_file = agents_dir / "1703123456789.jsonl"
-    agent_file.write_text(
-        '{"event": "start", "ts": 1703123456789, "prompt": "Test prompt", "persona": "default", "model": "gpt-4"}\n'
-        '{"event": "thinking", "ts": 1703123456790, "summary": "Processing..."}\n'
-        '{"event": "finish", "ts": 1703123456791, "result": "Done"}\n'
-    )
-
-    agents = cortex_server._load_historical_agents()
-    assert len(agents) == 1
-
-    agent = agents[0]
-    assert agent.agent_id == "1703123456789"
-    assert agent.status == "finished"
-    assert agent.first_event["prompt"] == "Test prompt"
-
-
-def test_parse_agent_file_valid(cortex_server, tmp_path):
-    """Test parsing a valid agent JSONL file."""
-    agent_file = tmp_path / "test.jsonl"
-    agent_file.write_text(
-        '{"event": "start", "ts": 1703123456789, "prompt": "Test", "persona": "default"}\n'
-        '{"event": "finish", "ts": 1703123456790, "result": "Done"}\n'
-    )
-
-    agent = cortex_server._parse_agent_file("test", agent_file)
-    assert agent is not None
-    assert agent.agent_id == "test"
-    assert agent.status == "finished"
-    assert agent.first_event["prompt"] == "Test"
-
-
-def test_parse_agent_file_empty(cortex_server, tmp_path):
-    """Test parsing an empty agent file."""
-    agent_file = tmp_path / "empty.jsonl"
-    agent_file.write_text("")
-
-    agent = cortex_server._parse_agent_file("empty", agent_file)
-    assert agent is None
-
-
-def test_determine_agent_status_finished(cortex_server):
-    """Test determining agent status with finish event."""
-    lines = [
-        '{"event": "start", "ts": 1703123456789}\n',
-        '{"event": "thinking", "ts": 1703123456790}\n',
-        '{"event": "finish", "ts": 1703123456791}\n',
-    ]
-
-    status = cortex_server._determine_agent_status(lines)
-    assert status == "finished"
-
-
-def test_determine_agent_status_error(cortex_server):
-    """Test determining agent status with error event."""
-    lines = [
-        '{"event": "start", "ts": 1703123456789}\n',
-        '{"event": "thinking", "ts": 1703123456790}\n',
-        '{"event": "error", "ts": 1703123456791, "error": "Something went wrong"}\n',
-    ]
-
-    status = cortex_server._determine_agent_status(lines)
-    assert status == "error"
-
-
-def test_determine_agent_status_unknown(cortex_server):
-    """Test determining agent status with no finish/error events."""
-    lines = [
-        '{"event": "start", "ts": 1703123456789}\n',
-        '{"event": "thinking", "ts": 1703123456790}\n',
-    ]
-
-    status = cortex_server._determine_agent_status(lines)
-    assert status == "unknown"
-
-
-def test_get_all_agents_with_pagination(cortex_server, mock_journal):
-    """Test getting all agents with pagination."""
+def test_get_running_agents_with_pagination(cortex_server, mock_journal):
+    """Test getting running agents with pagination."""
     from think.cortex import RunningAgent
 
-    # Add running agent
-    mock_process = MagicMock()
-    mock_process.poll.return_value = None
-    mock_process.pid = 12345
-    agent = RunningAgent("999999999", mock_process, Path("/tmp/running.jsonl"))
-    cortex_server.running_agents["999999999"] = agent
+    # Add running agents
+    mock_process1 = MagicMock()
+    mock_process1.poll.return_value = None
+    mock_process1.pid = 12345
+    agent1 = RunningAgent("999999999", mock_process1, Path("/tmp/running1.jsonl"))
+    agent1.started_at = 1703123456789
+    cortex_server.running_agents["999999999"] = agent1
 
-    # Add historical agent
-    agents_dir = mock_journal / "agents"
-    agent_file = agents_dir / "1703123456789.jsonl"
-    agent_file.write_text(
-        '{"event": "start", "ts": 1703123456789, "prompt": "Test", "persona": "default"}\n'
-        '{"event": "finish", "ts": 1703123456790}\n'
-    )
+    mock_process2 = MagicMock()
+    mock_process2.poll.return_value = None
+    mock_process2.pid = 12346
+    agent2 = RunningAgent("888888888", mock_process2, Path("/tmp/running2.jsonl"))
+    agent2.started_at = 1703123456790  # Newer
+    cortex_server.running_agents["888888888"] = agent2
 
     # Test pagination
-    agents, total = cortex_server._get_all_agents_with_pagination(limit=10, offset=0)
+    agents, total = cortex_server._get_running_agents_with_pagination(limit=10, offset=0)
 
-    assert total == 2  # 1 running + 1 historical
+    assert total == 2  # 2 running agents
     assert len(agents) == 2
 
     # Agents should be sorted by started_at (newest first)
-    # Running agent should come first (higher timestamp)
-    assert agents[0]["status"] == "running"
-    assert agents[1]["status"] == "finished"
+    assert agents[0]["id"] == "888888888"  # Newer agent first
+    assert agents[1]["id"] == "999999999"
 
 
 def test_handle_list_with_pagination(cortex_server, mock_journal):
     """Test list request with pagination parameters."""
     from think.cortex import RunningAgent
 
-    # Add some agents
+    # Add only running agents
     for i in range(15):
-        if i < 5:
-            # Add running agents
-            mock_process = MagicMock()
-            mock_process.poll.return_value = None
-            mock_process.pid = 12345 + i
-            agent = RunningAgent(
-                f"99999999{i}", mock_process, Path(f"/tmp/running{i}.jsonl")
-            )
-            cortex_server.running_agents[f"99999999{i}"] = agent
-        else:
-            # Add historical agents
-            agents_dir = mock_journal / "agents"
-            agent_file = agents_dir / f"17031234567{i:02d}.jsonl"
-            agent_file.write_text(
-                f'{{"event": "start", "ts": 17031234567{i:02d}, "prompt": "Test {i}"}}\n'
-                f'{{"event": "finish", "ts": 17031234567{i:02d}}}\n'
-            )
+        mock_process = MagicMock()
+        mock_process.poll.return_value = None
+        mock_process.pid = 12345 + i
+        agent = RunningAgent(
+            f"99999999{i}", mock_process, Path(f"/tmp/running{i}.jsonl")
+        )
+        agent.started_at = 1703123456789 + i  # Different timestamps for sorting
+        cortex_server.running_agents[f"99999999{i}"] = agent
 
     # Test first page
     ws = MockWebSocket()

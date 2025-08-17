@@ -2,11 +2,12 @@
 
 This module provides a WebSocket API to:
 - List running agents
-- Attach to agents and get full history + live events
+- Attach to running agents for live events
 - Detach from live events
 - Spawn new agents
 
-Agents are identified by their timestamp ID used in <journal>/agents/<ts>.jsonl files.
+Cortex only manages actively running agents. Historical agent data should be
+accessed directly from <journal>/agents/<ts>.jsonl files.
 """
 
 from __future__ import annotations
@@ -62,37 +63,6 @@ class RunningAgent:
             "started_at": self.started_at,
             "pid": self.process.pid if self.process.poll() is None else None,
             "metadata": {},  # Running agents don't have stored metadata
-        }
-
-
-class HistoricalAgent:
-    """Represents a finished/closed agent from journal files."""
-
-    def __init__(
-        self,
-        agent_id: str,
-        log_path: Path,
-        first_event: Dict[str, Any],
-        status: str = "finished",
-    ):
-        self.agent_id = agent_id
-        self.log_path = log_path
-        self.first_event = first_event
-        self.status = status  # "finished", "error", or "unknown"
-        self.started_at = first_event.get("ts", 0)
-
-    def to_dict(self) -> Dict[str, Any]:
-        """Convert to dictionary for JSON serialization."""
-        return {
-            "id": self.agent_id,
-            "status": self.status,
-            "started_at": self.started_at,
-            "pid": None,  # Historical agents don't have PIDs
-            "metadata": {
-                "prompt": self.first_event.get("prompt", ""),
-                "persona": self.first_event.get("persona", "default"),
-                "model": self.first_event.get("model", ""),
-            },
         }
 
 
@@ -172,7 +142,9 @@ class CortexServer:
             return
 
         try:
-            agents, total_count = self._get_all_agents_with_pagination(limit, offset)
+            agents, total_count = self._get_running_agents_with_pagination(
+                limit, offset
+            )
             response = {
                 "type": "agent_list",
                 "agents": agents,
@@ -194,50 +166,34 @@ class CortexServer:
         if current_attached:
             self._handle_detach(ws, current_attached)
 
-        # Check if it's a running agent first
+        # Only support running agents
         with self.lock:
             running_agent = self.running_agents.get(agent_id)
-            if running_agent:
-                if not running_agent.is_running():
-                    self._send_error(ws, f"Agent {agent_id} is not running")
-                    return current_attached or ""
+            if not running_agent:
+                self._send_error(ws, f"Agent {agent_id} not found or not running")
+                return current_attached or ""
 
-                # Add to watchers for live updates
-                running_agent.watchers.add(ws)
+            if not running_agent.is_running():
+                self._send_error(ws, f"Agent {agent_id} is not running")
+                return current_attached or ""
 
-                # Send attach confirmation
-                self._send_message(ws, {"type": "attached", "agent_id": agent_id})
+            # Add to watchers for live updates
+            running_agent.watchers.add(ws)
 
-                # Send all in-memory events for running agent
-                with running_agent.lock:
-                    for event_data in running_agent.events:
-                        message = {
-                            "type": "agent_event",
-                            "agent_id": agent_id,
-                            "event": event_data,
-                        }
-                        self._send_message(ws, message)
-
-                return agent_id
-
-        # Check if it's a historical agent (finished agent with log file)
-        historical_agents = self._load_historical_agents()
-        historical_agent = next(
-            (a for a in historical_agents if a.agent_id == agent_id), None
-        )
-
-        if historical_agent:
             # Send attach confirmation
             self._send_message(ws, {"type": "attached", "agent_id": agent_id})
 
-            # Send historical events from the agent's log file (only for finished agents)
-            self._send_agent_history(ws, agent_id, historical_agent.log_path)
+            # Send all in-memory events for running agent
+            with running_agent.lock:
+                for event_data in running_agent.events:
+                    message = {
+                        "type": "agent_event",
+                        "agent_id": agent_id,
+                        "event": event_data,
+                    }
+                    self._send_message(ws, message)
 
             return agent_id
-
-        # Agent not found
-        self._send_error(ws, f"Agent {agent_id} not found")
-        return current_attached or ""
 
     def _handle_detach(self, ws, attached_agent: Optional[str]) -> None:
         """Handle detach from agent request."""
@@ -277,9 +233,9 @@ class CortexServer:
             "prompt": prompt,
             "persona": persona,
             "model": model,
-            "backend": backend
+            "backend": backend,
         }
-        
+
         try:
             with open(log_path, "w") as f:
                 f.write(json.dumps(start_event) + "\n")
@@ -315,7 +271,12 @@ class CortexServer:
             self.logger.info(f"Spawning agent {agent_id}: {' '.join(cmd)}")
 
             process = subprocess.Popen(
-                cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, env=env, bufsize=1
+                cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                env=env,
+                bufsize=1,
             )
 
             # Create running agent entry with start event already in memory
@@ -370,24 +331,28 @@ class CortexServer:
                     self._broadcast_agent_event(agent.agent_id, event_data)
 
                 except json.JSONDecodeError as e:
-                    self.logger.debug(f"Agent {agent.agent_id} invalid JSON output: {e}, line: {line}")
+                    self.logger.debug(
+                        f"Agent {agent.agent_id} invalid JSON output: {e}, line: {line}"
+                    )
                     # Still write non-JSON output as an info event
                     info_event = {
                         "event": "info",
                         "ts": int(time.time() * 1000),
-                        "message": line
+                        "message": line,
                     }
-                    
+
                     # Store in memory
                     with agent.lock:
                         agent.events.append(info_event)
-                    
+
                     with open(agent.log_path, "a") as f:
                         f.write(json.dumps(info_event) + "\n")
                     self._broadcast_agent_event(agent.agent_id, info_event)
 
         except Exception as e:
-            self.logger.error(f"Error monitoring stdout for agent {agent.agent_id}: {e}")
+            self.logger.error(
+                f"Error monitoring stdout for agent {agent.agent_id}: {e}"
+            )
         finally:
             # Clean up when stdout closes
             exit_code = agent.process.poll()
@@ -398,13 +363,13 @@ class CortexServer:
                 finish_event = {
                     "event": "finish" if exit_code == 0 else "error",
                     "ts": int(time.time() * 1000),
-                    "exit_code": exit_code
+                    "exit_code": exit_code,
                 }
-                
+
                 # Store in memory
                 with agent.lock:
                     agent.events.append(finish_event)
-                
+
                 # Write to log file
                 try:
                     with open(agent.log_path, "a") as f:
@@ -425,11 +390,13 @@ class CortexServer:
                         except ConnectionClosed:
                             pass
                     agent.watchers.clear()
-                    
+
                     # Remove finished agent from memory after notifying watchers
                     # The log file remains for historical access
                     del self.running_agents[agent.agent_id]
-                    self.logger.debug(f"Removed finished agent {agent.agent_id} from memory")
+                    self.logger.debug(
+                        f"Removed finished agent {agent.agent_id} from memory"
+                    )
 
     def _monitor_stderr(self, agent: RunningAgent) -> None:
         """Monitor agent stderr and broadcast errors to watchers."""
@@ -449,7 +416,7 @@ class CortexServer:
                     "event": "error",
                     "ts": int(time.time() * 1000),
                     "message": line.strip(),
-                    "source": "stderr"
+                    "source": "stderr",
                 }
 
                 # Store in memory
@@ -467,7 +434,9 @@ class CortexServer:
                     self.logger.warning(f"Failed to write stderr to log: {e}")
 
         except Exception as e:
-            self.logger.error(f"Error monitoring stderr for agent {agent.agent_id}: {e}")
+            self.logger.error(
+                f"Error monitoring stderr for agent {agent.agent_id}: {e}"
+            )
 
     # Remove _tail_agent_log method as stdout monitoring replaces it
 
@@ -487,30 +456,6 @@ class CortexServer:
                 except ConnectionClosed:
                     agent.watchers.discard(ws)
 
-    def _send_agent_history(self, ws, agent_id: str, log_path: Path) -> None:
-        """Send historical events from agent log file (only for finished agents)."""
-        if not log_path.exists():
-            self.logger.warning(f"Log file not found for historical agent {agent_id}")
-            return
-
-        try:
-            with open(log_path, "r") as f:
-                for line in f:
-                    if line.strip():
-                        try:
-                            event_data = json.loads(line.strip())
-                            message = {
-                                "type": "agent_event",
-                                "agent_id": agent_id,
-                                "event": event_data,
-                            }
-                            self._send_message(ws, message)
-                        except json.JSONDecodeError as e:
-                            self.logger.debug(f"Agent {agent_id} history invalid JSON: {e}, line: {line.strip()}")
-                            continue
-        except Exception as e:
-            self.logger.warning(f"Error reading agent history: {e}")
-
     def _cleanup_watcher(self, ws, agent_id: str) -> None:
         """Remove WebSocket from agent watchers."""
         with self.lock:
@@ -520,7 +465,7 @@ class CortexServer:
 
     def _cleanup_dead_agents(self) -> None:
         """Remove agents that are no longer running.
-        
+
         Note: This is mainly a safety net since agents should be removed
         immediately when they finish in _monitor_stdout.
         """
@@ -528,7 +473,9 @@ class CortexServer:
         for agent_id, agent in self.running_agents.items():
             if not agent.is_running():
                 dead_agents.append(agent_id)
-                self.logger.warning(f"Found dead agent {agent_id} that wasn't cleaned up properly")
+                self.logger.warning(
+                    f"Found dead agent {agent_id} that wasn't cleaned up properly"
+                )
 
         for agent_id in dead_agents:
             del self.running_agents[agent_id]
@@ -557,119 +504,27 @@ class CortexServer:
         return False
 
     def get_agent_count(self) -> int:
-        """Get count of all agents (running + historical)."""
+        """Get count of running agents."""
         with self.lock:
             self._cleanup_dead_agents()
-            running_count = len(self.running_agents)
+            return len(self.running_agents)
 
-        historical_count = len(self._load_historical_agents())
-        return running_count + historical_count
-
-    def _load_historical_agents(self) -> List[HistoricalAgent]:
-        """Load historical agents from journal agent files."""
-        historical_agents = []
-        journal = os.getenv("JOURNAL_PATH")
-        if not journal:
-            return historical_agents
-
-        agents_dir = Path(journal) / "agents"
-        if not agents_dir.exists():
-            return historical_agents
-
-        # Find all .jsonl files
-        try:
-            for jsonl_file in agents_dir.glob("*.jsonl"):
-                try:
-                    agent_id = jsonl_file.stem
-                    # Skip if this agent is currently running
-                    if agent_id in self.running_agents:
-                        continue
-
-                    agent = self._parse_agent_file(agent_id, jsonl_file)
-                    if agent:
-                        historical_agents.append(agent)
-                except Exception as e:
-                    self.logger.warning(f"Error parsing agent file {jsonl_file}: {e}")
-                    continue
-        except Exception as e:
-            self.logger.error(f"Error scanning agents directory: {e}")
-
-        return historical_agents
-
-    def _parse_agent_file(
-        self, agent_id: str, jsonl_file: Path
-    ) -> Optional[HistoricalAgent]:
-        """Parse a single agent JSONL file to extract metadata and status."""
-        try:
-            with open(jsonl_file, "r") as f:
-                lines = f.readlines()
-
-            if not lines:
-                return None
-
-            # Parse the first event (should be a start event)
-            first_line = lines[0].strip()
-            if not first_line:
-                return None
-
-            first_event = json.loads(first_line)
-            if first_event.get("event") != "start":
-                # If first event is not start, create a minimal event
-                first_event = {
-                    "event": "start",
-                    "ts": 0,
-                    "prompt": "",
-                    "persona": "default",
-                    "model": "",
-                }
-
-            # Determine final status by looking at the last few events
-            status = self._determine_agent_status(lines)
-
-            return HistoricalAgent(agent_id, jsonl_file, first_event, status)
-
-        except Exception as e:
-            self.logger.warning(f"Error parsing agent file {jsonl_file}: {e}")
-            return None
-
-    def _determine_agent_status(self, lines: List[str]) -> str:
-        """Determine agent final status from JSONL events."""
-        # Look through events in reverse to find finish/error events
-        for line in reversed(lines):
-            line = line.strip()
-            if not line:
-                continue
-            try:
-                event = json.loads(line)
-                event_type = event.get("event")
-                if event_type == "finish":
-                    return "finished"
-                elif event_type == "error":
-                    return "error"
-            except json.JSONDecodeError:
-                continue
-        return "unknown"
-
-    def _get_all_agents_with_pagination(
+    def _get_running_agents_with_pagination(
         self, limit: int = 10, offset: int = 0
     ) -> Tuple[List[Dict[str, Any]], int]:
-        """Get all agents (running + historical) with pagination."""
-        # Get running agents
+        """Get running agents with pagination."""
+        # Get running agents only
         with self.lock:
             self._cleanup_dead_agents()
             running = list(self.running_agents.values())
 
-        # Get historical agents
-        historical = self._load_historical_agents()
+        # Sort by started_at (newest first)
+        running.sort(key=lambda a: a.started_at, reverse=True)
 
-        # Combine and sort by started_at (newest first)
-        all_agents = running + historical
-        all_agents.sort(key=lambda a: a.started_at, reverse=True)
-
-        total_count = len(all_agents)
+        total_count = len(running)
 
         # Apply pagination
-        paginated_agents = all_agents[offset : offset + limit]
+        paginated_agents = running[offset : offset + limit]
 
         # Convert to dict format
         agent_dicts = [agent.to_dict() for agent in paginated_agents]

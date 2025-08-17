@@ -1,6 +1,6 @@
 # Cortex API and Eventing
 
-The Cortex system provides a WebSocket API for managing and monitoring AI agent instances. Agents emit structured JSON events during execution that are stored in `<journal>/agents/<timestamp>.jsonl` files and can be consumed via the WebSocket API or directly from the files.
+The Cortex system provides a WebSocket API for spawning and managing actively running AI agent instances. It acts as a process manager and event relay for live agent executions only. Historical agent data is stored in `<journal>/agents/<timestamp>.jsonl` files and should be accessed directly from those files.
 
 ## Service Discovery
 
@@ -11,6 +11,20 @@ When services start up, they write their active URIs to files in the journal's `
 
 Use the `JOURNAL_PATH` environment variable to locate the journal and these URI files.
 
+## Architecture
+
+### Event Flow
+1. **Agent Spawning**: Cortex spawns agent processes via `python -m think.agents`
+2. **Event Emission**: Agents write JSON events to stdout (captured by Cortex)
+3. **Event Storage**: Cortex writes events to `<journal>/agents/<timestamp>.jsonl`
+4. **Event Relay**: Cortex broadcasts events to attached WebSocket clients
+5. **Agent Completion**: When agents finish, they are removed from Cortex memory
+
+### Key Components
+- **RunningAgent**: In-memory representation of active agent processes with event buffer
+- **Event Monitoring**: Cortex monitors agent stdout/stderr and manages the lifecycle
+- **No Historical Support**: Cortex only tracks running agents; finished agents exist only in `.jsonl` files
+
 ## WebSocket API
 
 Connect to the URI and send JSON messages with an `action` field:
@@ -20,27 +34,24 @@ Request:
 ```json
 {"action": "list", "limit": 10, "offset": 0}
 ```
-Response:
+Response (only running agents):
 ```json
 {
   "type": "agent_list",
   "agents": [
     {
       "id": "1234567890123",
-      "status": "finished",
+      "status": "running",
       "started_at": 1234567890123,
-      "metadata": {
-        "prompt": "User's request",
-        "persona": "default",
-        "model": "gpt-4o"
-      }
+      "pid": 12345,
+      "metadata": {}
     }
   ],
   "pagination": {
     "limit": 10,
     "offset": 0,
-    "total": 42,
-    "has_more": true
+    "total": 2,
+    "has_more": false
   }
 }
 ```
@@ -50,11 +61,11 @@ Request:
 ```json
 {"action": "attach", "agent_id": "1234567890123"}
 ```
-Response:
+Response (only for running agents):
 ```json
 {"type": "attached", "agent_id": "1234567890123"}
 ```
-Followed by historical `agent_event` messages replaying the agent's execution.
+Streams in-memory buffered events and live updates. Returns error if agent is not running.
 
 ### Detach from Agent
 Request:
@@ -83,11 +94,31 @@ Response:
 {"type": "agent_spawned", "agent_id": "1234567890123"}
 ```
 
+Cortex immediately:
+1. Creates the `.jsonl` file with a start event
+2. Spawns the agent subprocess
+3. Monitors stdout/stderr for events
+4. Writes events to both the `.jsonl` file and broadcasts to watchers
+
 During an active attachment, the server streams:
 
 - `{"type": "agent_event", "agent_id": "123", "event": {...}}` for each agent JSON event
 - `{"type": "agent_finished", "agent_id": "123"}` when an agent exits
 - `{"type": "error", "message": "..."}` for protocol errors
+
+## History Management
+
+Agent history is stored exclusively in `<journal>/agents/<timestamp>.jsonl` files:
+
+- **Running Agents**: Cortex captures stdout from agent processes and writes events to `.jsonl` files in real-time
+- **In-Memory Buffer**: Running agents maintain an in-memory event buffer for fast replay to new attachments
+- **Agent Completion**: Once finished, agents are removed from Cortex memory entirely
+- **Historical Access**: Finished agent data must be accessed directly from `.jsonl` files, not through Cortex
+- **Event Sources**: 
+  - Agent stdout → parsed as JSON events
+  - Agent stderr → converted to error events
+  - Non-JSON output → wrapped as info events
+  - Process exit → generates finish/error event
 
 ## Agent Event Format
 
@@ -172,6 +203,16 @@ Emitted when an error occurs during execution.
 }
 ```
 
+### info
+Emitted when non-JSON output is captured from agent stdout.
+```json
+{
+  "event": "info",
+  "ts": 1234567890123,
+  "message": "Non-JSON output line from agent"
+}
+```
+
 ## Tool Call Tracking
 
 Tool events use `call_id` to pair `tool_start` and `tool_end` events. This allows tracking:
@@ -188,7 +229,8 @@ The Dream web app (`dream/views/chat.py`) connects to Cortex via WebSocket to:
 1. Spawn new agents in response to user queries
 2. Receive real-time events during agent execution
 3. Display tool usage, thinking summaries, and results in the chat interface
-4. Allow viewing historical agent runs by attaching to completed agents
+
+Note: Historical agent runs must be accessed directly from `.jsonl` files, not through Cortex.
 
 Events are forwarded through the WebSocket with type `agent_event`:
 ```json
@@ -212,5 +254,9 @@ The system supports multiple AI backends, each implementing the same event inter
 - **Google** (`think/google.py`): Gemini models with Google AI SDK
 - **Anthropic** (`think/anthropic.py`): Claude models with Anthropic SDK
 
-All backends emit consistent event structures, ensuring uniform behavior across different AI providers.
+All backends:
+- Emit JSON events to stdout (one per line)
+- Are spawned as subprocesses by Cortex
+- Use consistent event structures across providers
+- Write events via `JSONEventWriter` which outputs to stdout for Cortex to capture
 
