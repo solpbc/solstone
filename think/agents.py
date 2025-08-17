@@ -42,6 +42,7 @@ class StartEvent(TypedDict):
     prompt: str
     persona: str
     model: str
+    backend: str
 
 
 class FinishEvent(TypedDict):

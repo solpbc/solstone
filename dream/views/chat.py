@@ -62,11 +62,18 @@ def ask_agent_via_cortex(prompt: str, attachments: List[str], backend: str) -> s
     full_prompt = "\n".join([prompt] + attachments) if attachments else prompt
 
     # Spawn agent via cortex
-    client.spawn_agent(
+    agent_id = client.spawn_agent(
         prompt=full_prompt,
         backend=backend,
         persona="default",
     )
+    
+    if not agent_id:
+        raise Exception("Failed to spawn agent")
+    
+    # Attach to the spawned agent to receive events
+    if not client.attach_agent(agent_id):
+        raise Exception(f"Failed to attach to agent {agent_id}")
 
     # Wait for agent to finish (with timeout)
     timeout = 300  # 5 minutes

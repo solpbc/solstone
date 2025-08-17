@@ -85,6 +85,10 @@ class CortexClient:
         if max_tokens:
             request["max_tokens"] = max_tokens
 
+        # Clear previous response
+        self._responses.clear()
+        self._response_event.clear()
+
         # Send request asynchronously
         future = asyncio.run_coroutine_threadsafe(
             self._send_request(request), self._loop
@@ -92,7 +96,10 @@ class CortexClient:
 
         try:
             future.result(timeout=5)
-            return None  # Agent ID will come via callback
+            # Wait for agent_spawned response
+            if self._response_event.wait(timeout=5):
+                return self._responses.get("spawned_agent_id")
+            return None
         except Exception as e:
             self.logger.error(f"Failed to spawn agent: {e}")
             return None
@@ -226,6 +233,9 @@ class CortexClient:
             elif msg_type == "agent_spawned":
                 agent_id = data.get("agent_id")
                 self.logger.info(f"Agent spawned: {agent_id}")
+                # Store the spawned agent ID for retrieval
+                self._responses["spawned_agent_id"] = agent_id
+                self._response_event.set()
 
             elif msg_type == "attached":
                 agent_id = data.get("agent_id")

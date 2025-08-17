@@ -226,19 +226,10 @@ class CortexServer:
         log_path = Path(journal) / "agents" / f"{agent_id}.jsonl"
         log_path.parent.mkdir(parents=True, exist_ok=True)
 
-        # Create the log file immediately with start event
-        start_event = {
-            "event": "start",
-            "ts": int(time.time() * 1000),
-            "prompt": prompt,
-            "persona": persona,
-            "model": model,
-            "backend": backend,
-        }
-
+        # Create empty log file - agent will write its own start event
         try:
-            with open(log_path, "w") as f:
-                f.write(json.dumps(start_event) + "\n")
+            # Just ensure the file exists
+            log_path.touch()
             self.logger.debug(f"Created log file for agent {agent_id}: {log_path}")
         except Exception as e:
             self.logger.error(f"Failed to create log file for agent {agent_id}: {e}")
@@ -277,10 +268,8 @@ class CortexServer:
                 bufsize=1,
             )
 
-            # Create running agent entry with start event already in memory
+            # Create running agent entry (agent will emit its own start event)
             agent = RunningAgent(agent_id, process, log_path)
-            with agent.lock:
-                agent.events.append(start_event)
 
             with self.lock:
                 self.running_agents[agent_id] = agent

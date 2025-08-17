@@ -145,6 +145,7 @@ async def run_agent(
             "prompt": prompt,
             "persona": persona,
             "model": model,
+            "backend": "openai",
             "ts": _now_ms(),
         }
     )
