@@ -104,6 +104,7 @@ admin_reduce = admin_view.admin_reduce
 admin_process = admin_view.admin_process
 task_log = admin_view.task_log
 reindex = admin_view.reindex
+reset_indexes = admin_view.reset_indexes
 refresh_summary = admin_view.refresh_summary
 entities_types = entities_view.entities_types
 entities_list = entities_view.entities_list
@@ -164,6 +165,7 @@ __all__ = [
     "admin_process",
     "task_log",
     "reindex",
+    "reset_indexes",
     "refresh_summary",
     "tasks_page",
     "tasks_list",

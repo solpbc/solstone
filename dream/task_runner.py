@@ -96,9 +96,7 @@ def run_task(
         try:
             if name == "reindex":
                 args = [
-                    sys.executable,
-                    "-m",
-                    "think.indexer",
+                    "think-indexer",
                     "--rescan-all",
                     "--verbose",
                 ]
@@ -108,6 +106,41 @@ def run_task(
                     if use_stop
                     else _run_command(args, logger)
                 )
+            elif name == "reset_indexes":
+                # Reset all indexes (both journal-level and per-day)
+                indexes = ["summaries", "events", "entities"]
+                code = 0
+                # Reset journal-level indexes
+                for index in indexes:
+                    args = [
+                        "think-indexer",
+                        "--index",
+                        index,
+                        "--reset",
+                    ]
+                    commands.append(" ".join(args))
+                    result = (
+                        _run_command(args, logger, stop)
+                        if use_stop
+                        else _run_command(args, logger)
+                    )
+                    if result != 0:
+                        code = result
+                # Reset per-day transcript indexes
+                args = [
+                    "think-indexer",
+                    "--index",
+                    "transcripts",
+                    "--reset",
+                ]
+                commands.append(" ".join(args))
+                result = (
+                    _run_command(args, logger, stop)
+                    if use_stop
+                    else _run_command(args, logger)
+                )
+                if result != 0:
+                    code = result
             elif name == "summary":
                 args = ["think-journal-stats", "--verbose"]
                 commands.append(" ".join(args))

@@ -17,6 +17,7 @@ pre { background:#f5f5f5; padding:0.5em; }
 {% block body %}
 <div class="container">
   <button id="reindexBtn">Reindex</button>
+  <button id="resetIndexesBtn">Reset Indexes</button>
   <button id="summaryBtn">Refresh Summary</button>
   <pre id="status"></pre>
   {% set cats = ['hear','see','reduce','ponder','entity'] %}
@@ -81,6 +82,11 @@ function runTask(data){
     out.innerHTML+=`\n[completed in ${msg}]\n`;scroll();taskDone=true;};
 }
 document.getElementById('reindexBtn').onclick=()=>runTask({task:'reindex',src:'admin'});
+document.getElementById('resetIndexesBtn').onclick=()=>{
+  if(confirm('This will delete all search indexes. They will need to be rebuilt. Continue?')){
+    runTask({task:'reset_indexes',src:'admin'});
+  }
+};
 document.getElementById('summaryBtn').onclick=()=>runTask({task:'summary',src:'admin'});
 function loadLog(){
   fetch('{{ url_for('admin.task_log') }}').then(r=>r.json()).then(data=>{

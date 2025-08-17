@@ -53,6 +53,12 @@ def reindex() -> Any:
     return jsonify({"status": "ok"})
 
 
+@bp.route("/admin/api/reset_indexes", methods=["POST"])
+def reset_indexes() -> Any:
+    run_task("reset_indexes")
+    return jsonify({"status": "ok"})
+
+
 @bp.route("/admin/api/summary", methods=["POST"])
 def refresh_summary() -> Any:
     run_task("summary")

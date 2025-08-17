@@ -47,6 +47,7 @@ sunstone/
 * **Imports**: Use absolute imports (e.g., `from hear.capture import record_audio`)
 * **Entry Points**: Defined in `pyproject.toml` under `[project.scripts]`
 * **Journal**: Data stored under `JOURNAL_PATH` environment variable location
+* **Calling**: When calling other modules as a separate process always use their command name and never call using `python -m ...`
 
 ---
 
