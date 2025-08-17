@@ -98,28 +98,33 @@
   line-height: 1.4;
 }
 
-.agent-card .view-details {
-  position: absolute;
-  top: 0.5rem;
-  right: 0.5rem;
-  background: #f0f0f0;
-  border: none;
-  border-radius: 4px;
-  padding: 0.25rem 0.5rem;
-  font-size: 0.75rem;
-  cursor: pointer;
-  opacity: 0;
-  transition: opacity 0.2s ease;
+/* Create Persona Card */
+.create-persona-card {
+  background: #f8f9ff;
+  border: 2px dashed #007bff;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 120px;
 }
 
-.agent-card:hover .view-details {
-  opacity: 1;
+.create-persona-card:hover {
+  background: #e8ecff;
+  border-style: solid;
 }
 
-.agent-card .view-details:hover {
-  background: #007bff;
-  color: white;
+.create-persona-card h3 {
+  color: #007bff;
+  margin: 0 0 0.5rem 0;
+  font-size: 1.2rem;
 }
+
+.create-persona-card p {
+  color: #007bff;
+  opacity: 0.8;
+}
+
 
 /* Input Form */
 .input-area {
@@ -485,6 +490,123 @@ tr a:hover {
   background: #6c757d;
   cursor: not-allowed;
 }
+
+/* Create Persona Modal Styles */
+#createPersonaModal .modal-content {
+  max-width: 700px;
+}
+
+#personaTitle {
+  width: 100%;
+  padding: 0.75rem;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 1rem;
+  margin-bottom: 1rem;
+}
+
+.plan-content {
+  background: #f8f9fa;
+  border: 1px solid #dee2e6;
+  border-radius: 4px;
+  padding: 1rem;
+  margin: 1rem 0;
+  max-height: 400px;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  font-family: 'Monaco', 'Menlo', monospace;
+  font-size: 0.9rem;
+}
+
+.modal-actions {
+  display: flex;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.modal-actions button {
+  padding: 0.75rem 1.5rem;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 1rem;
+}
+
+.modal-actions button:first-child {
+  background: #28a745;
+  color: white;
+}
+
+.modal-actions button:first-child:hover {
+  background: #218838;
+}
+
+.modal-actions button:last-child {
+  background: #6c757d;
+  color: white;
+}
+
+.modal-actions button:last-child:hover {
+  background: #545b62;
+}
+
+/* Edit Mode Styles */
+.edit-btn {
+  position: absolute;
+  top: 20px;
+  right: 60px;
+  background: #007bff;
+  color: white;
+  border: none;
+  padding: 0.4rem 0.8rem;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  z-index: 3;
+}
+
+.edit-btn:hover {
+  background: #0056b3;
+}
+
+.edit-btn.save-mode {
+  background: #28a745;
+  position: static;
+  margin-left: 1rem;
+  flex-shrink: 0;
+}
+
+.edit-btn.save-mode:hover {
+  background: #218838;
+}
+
+.modal-header.edit-mode {
+  display: flex;
+  align-items: center;
+  padding-right: 60px;
+}
+
+.edit-mode-input {
+  flex: 1;
+  padding: 0.5rem;
+  font-size: 1.1rem;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-weight: 500;
+  margin: 0;
+}
+
+.edit-mode-textarea {
+  width: 100%;
+  min-height: 400px;
+  padding: 1rem;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  resize: vertical;
+}
 </style>
 {% endblock %}
 {% block body %}
@@ -492,30 +614,15 @@ tr a:hover {
   
   <!-- Tab Navigation -->
   <div class="tab-nav">
-    <button class="tab-button active" onclick="switchMainTab('create')">Create</button>
-    <button class="tab-button" onclick="switchMainTab('log')">Log</button>
-    <button class="tab-button" onclick="switchMainTab('agents')">Agents</button>
+    <button class="tab-button active" onclick="switchMainTab('log')">Log</button>
+    <button class="tab-button" onclick="switchMainTab('agents')">Personas</button>
   </div>
   
   <!-- Tab Content -->
   <div class="tab-container">
     
-    <!-- Create Tab -->
-    <div id="createTab" class="main-tab-content active">
-      <!-- Input Form -->
-      <form id="agentForm" class="input-area">
-        <textarea id="agentInput" rows="5" placeholder="Describe what you want to accomplish..."></textarea>
-        <button type="submit">✨ Create Plan</button>
-      </form>
-      
-      <!-- Planning Status -->
-      <div id="planningStatus" class="planning-status">
-        <div>🧠 Creating execution plan...</div>
-      </div>
-    </div>
-    
     <!-- Log Tab -->
-    <div id="logTab" class="main-tab-content">
+    <div id="logTab" class="main-tab-content active">
       <!-- Session History -->
       <table id="agentTable"></table>
       
@@ -529,7 +636,7 @@ tr a:hover {
       </div>
     </div>
     
-    <!-- Agents Tab -->
+    <!-- Personas Tab -->
     <div id="agentsTab" class="main-tab-content">
       <div id="agentCards" class="agent-cards"></div>
     </div>
@@ -537,15 +644,47 @@ tr a:hover {
   </div>
 </div>
 
+<!-- Create Persona Modal -->
+<div id="createPersonaModal" class="modal">
+  <div class="modal-content">
+    <span class="close" onclick="closeCreatePersonaModal()">&times;</span>
+    <h2>Create New Persona</h2>
+    <form id="createPersonaForm" class="input-area">
+      <input type="text" id="personaTitle" placeholder="Persona Title" required />
+      <textarea id="personaInput" rows="8" placeholder="Describe what this persona should accomplish..." required></textarea>
+      <button type="submit" id="createPlanBtn">Create Plan</button>
+    </form>
+    
+    <!-- Planning Status -->
+    <div id="createPersonaPlanningStatus" class="planning-status">
+      <div>Creating execution plan...</div>
+    </div>
+    
+    <!-- Result Area -->
+    <div id="personaResult" style="display: none;">
+      <h3>Generated Plan</h3>
+      <div id="personaResultContent" class="plan-content"></div>
+      <div class="modal-actions">
+        <button onclick="saveNewPersona()">Save Persona</button>
+        <button onclick="editPersonaPlan()">Edit Plan</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- Agent Details Modal -->
 <div id="agentModal" class="modal">
   <div class="modal-content">
     <span class="close">&times;</span>
-    <div class="modal-header">
+    <button id="editBtn" class="edit-btn" onclick="toggleEditMode()">Edit</button>
+    <div id="modalHeader" class="modal-header">
       <h3 id="modalTitle"></h3>
+      <input id="modalTitleEdit" class="edit-mode-input" style="display: none;" />
+      <button id="saveBtn" class="edit-btn save-mode" style="display: none;" onclick="savePersonaChanges()">Save</button>
     </div>
     <div class="modal-body">
       <div id="modalContent" class="markdown-content"></div>
+      <textarea id="modalContentEdit" class="edit-mode-textarea" style="display: none;"></textarea>
     </div>
   </div>
 </div>
@@ -617,6 +756,8 @@ tr a:hover {
 <script>
 let availableAgents = [];
 let currentMainTab = 'create';
+let currentEditingAgent = null;
+let isEditMode = false;
 
 // Switch between main tabs
 function switchMainTab(tabName) {
@@ -657,20 +798,28 @@ function renderAgentCards() {
   const container = document.getElementById('agentCards');
   container.innerHTML = '';
   
+  // Add Create Persona card first
+  const createCard = document.createElement('div');
+  createCard.className = 'agent-card create-persona-card';
+  createCard.innerHTML = `
+    <h3>+ Create New Persona</h3>
+    <p>Define a new agent persona</p>
+  `;
+  createCard.addEventListener('click', openCreatePersonaModal);
+  container.appendChild(createCard);
+  
+  // Add existing personas
   availableAgents.forEach(agent => {
     const card = document.createElement('div');
     card.className = 'agent-card';
     card.dataset.agentId = agent.id;
     card.innerHTML = `
-      <button class="view-details" onclick="viewAgentDetails('${agent.id}', event)">View Details</button>
       <h3>${agent.title}</h3>
       <p>${agent.description}</p>
     `;
     
     card.addEventListener('click', (e) => {
-      if (!e.target.classList.contains('view-details')) {
-        viewAgentDetails(agent.id, e);
-      }
+      viewAgentDetails(agent.id, e);
     });
     
     container.appendChild(card);
@@ -684,7 +833,24 @@ function viewAgentDetails(agentId, event) {
   const agent = availableAgents.find(a => a.id === agentId);
   if (!agent) return;
   
+  currentEditingAgent = agentId;
+  isEditMode = false;
+  
+  // Reset edit mode UI
+  const editBtn = document.getElementById('editBtn');
+  const saveBtn = document.getElementById('saveBtn');
+  const modalHeader = document.getElementById('modalHeader');
+  
+  editBtn.style.display = 'block';
+  saveBtn.style.display = 'none';
+  modalHeader.classList.remove('edit-mode');
+  document.getElementById('modalTitle').style.display = 'block';
+  document.getElementById('modalTitleEdit').style.display = 'none';
+  document.getElementById('modalContent').style.display = 'block';
+  document.getElementById('modalContentEdit').style.display = 'none';
+  
   document.getElementById('modalTitle').textContent = agent.title;
+  document.getElementById('modalTitleEdit').value = agent.title;
   document.getElementById('modalContent').innerHTML = '<p>Loading...</p>';
   document.getElementById('agentModal').style.display = 'block';
   
@@ -694,15 +860,123 @@ function viewAgentDetails(agentId, event) {
     .then(data => {
       if (data.error) {
         document.getElementById('modalContent').innerHTML = `<p>Error: ${data.error}</p>`;
+        document.getElementById('modalContentEdit').value = '';
       } else {
-        // Convert markdown to HTML
+        // Store raw markdown for editing
+        document.getElementById('modalContentEdit').value = data.content;
+        // Convert markdown to HTML for display
         const html = marked.parse(data.content);
         document.getElementById('modalContent').innerHTML = html;
       }
     })
     .catch(err => {
       document.getElementById('modalContent').innerHTML = `<p>Error loading content: ${err.message}</p>`;
+      document.getElementById('modalContentEdit').value = '';
     });
+}
+
+// Toggle edit mode for persona
+function toggleEditMode() {
+  const editBtn = document.getElementById('editBtn');
+  const saveBtn = document.getElementById('saveBtn');
+  const modalHeader = document.getElementById('modalHeader');
+  const titleDisplay = document.getElementById('modalTitle');
+  const titleEdit = document.getElementById('modalTitleEdit');
+  const contentDisplay = document.getElementById('modalContent');
+  const contentEdit = document.getElementById('modalContentEdit');
+  
+  if (!isEditMode) {
+    // Enter edit mode
+    isEditMode = true;
+    editBtn.style.display = 'none';
+    saveBtn.style.display = 'block';
+    modalHeader.classList.add('edit-mode');
+    
+    titleDisplay.style.display = 'none';
+    titleEdit.style.display = 'block';
+    contentDisplay.style.display = 'none';
+    contentEdit.style.display = 'block';
+    
+    // Focus on title input
+    titleEdit.focus();
+  }
+}
+
+// Save persona changes
+async function savePersonaChanges() {
+  const editBtn = document.getElementById('editBtn');
+  const saveBtn = document.getElementById('saveBtn');
+  const modalHeader = document.getElementById('modalHeader');
+  const newTitle = document.getElementById('modalTitleEdit').value.trim();
+  const newContent = document.getElementById('modalContentEdit').value.trim();
+  
+  if (!newTitle || !newContent) {
+    showError('Title and content cannot be empty');
+    return;
+  }
+  
+  if (!currentEditingAgent) {
+    showError('No agent selected for editing');
+    return;
+  }
+  
+  saveBtn.disabled = true;
+  saveBtn.textContent = 'Saving...';
+  
+  try {
+    const response = await fetch(`{{ url_for('agents.update_agent', agent_id='') }}${currentEditingAgent}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        title: newTitle,
+        content: newContent
+      })
+    });
+    
+    const data = await response.json();
+    
+    if (!response.ok) {
+      throw new Error(data.error || 'Failed to save changes');
+    }
+    
+    // Update local data
+    const agent = availableAgents.find(a => a.id === currentEditingAgent);
+    if (agent) {
+      agent.title = newTitle;
+      // Update the agent card if it exists
+      const card = document.querySelector(`[data-agent-id="${currentEditingAgent}"] h3`);
+      if (card) {
+        card.textContent = newTitle;
+      }
+    }
+    
+    // Exit edit mode and update display
+    isEditMode = false;
+    editBtn.style.display = 'block';
+    saveBtn.style.display = 'none';
+    modalHeader.classList.remove('edit-mode');
+    
+    document.getElementById('modalTitle').textContent = newTitle;
+    document.getElementById('modalTitle').style.display = 'block';
+    document.getElementById('modalTitleEdit').style.display = 'none';
+    
+    // Update content display with new markdown
+    const html = marked.parse(newContent);
+    document.getElementById('modalContent').innerHTML = html;
+    document.getElementById('modalContent').style.display = 'block';
+    document.getElementById('modalContentEdit').style.display = 'none';
+    
+    // Refresh persona dropdown in planning modal if it's open
+    loadPersonas();
+    
+  } catch (error) {
+    showError('Error saving changes: ' + error.message);
+  } finally {
+    saveBtn.disabled = false;
+    saveBtn.textContent = 'Save';
+  }
 }
 
 // Form submission
@@ -888,20 +1162,25 @@ async function startAgent() {
 
 // Modal close functionality
 document.querySelector('.close').onclick = function() {
+  // Reset edit mode when closing
+  if (isEditMode) {
+    isEditMode = false;
+    const editBtn = document.getElementById('editBtn');
+    const saveBtn = document.getElementById('saveBtn');
+    const modalHeader = document.getElementById('modalHeader');
+    
+    editBtn.style.display = 'block';
+    saveBtn.style.display = 'none';
+    modalHeader.classList.remove('edit-mode');
+    document.getElementById('modalTitle').style.display = 'block';
+    document.getElementById('modalTitleEdit').style.display = 'none';
+    document.getElementById('modalContent').style.display = 'block';
+    document.getElementById('modalContentEdit').style.display = 'none';
+  }
   document.getElementById('agentModal').style.display = 'none';
 };
 
-window.onclick = function(event) {
-  const agentModal = document.getElementById('agentModal');
-  const planningModal = document.getElementById('planningModal');
-  
-  if (event.target == agentModal) {
-    agentModal.style.display = 'none';
-  }
-  if (event.target == planningModal) {
-    planningModal.style.display = 'none';
-  }
-};
+// Moved to bottom of script with createPersonaModal handling
 
 // Pagination state
 let currentPage = 0;
@@ -1037,7 +1316,184 @@ function hideConnectionWarning() {
   }
 }
 
+// Show error message
+function showError(message) {
+  alert(message); // Simple alert for now, can be improved with a toast notification
+}
+
+// Create Persona Modal Functions
+function openCreatePersonaModal() {
+  const modal = document.getElementById('createPersonaModal');
+  modal.style.display = 'block';
+  
+  // Reset form
+  document.getElementById('createPersonaForm').reset();
+  document.getElementById('createPersonaPlanningStatus').classList.remove('show');
+  document.getElementById('personaResult').style.display = 'none';
+  document.getElementById('createPlanBtn').disabled = false;
+}
+
+function closeCreatePersonaModal() {
+  document.getElementById('createPersonaModal').style.display = 'none';
+}
+
+// Handle create persona form submission
+document.getElementById('createPersonaForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  
+  const title = document.getElementById('personaTitle').value.trim();
+  const input = document.getElementById('personaInput').value.trim();
+  const form = e.target;
+  const status = document.getElementById('createPersonaPlanningStatus');
+  const createBtn = document.getElementById('createPlanBtn');
+  
+  if (!title || !input) return;
+  
+  // Show planning status
+  form.classList.add('busy');
+  status.classList.add('show');
+  createBtn.disabled = true;
+  
+  try {
+    const response = await fetch('{{ url_for('agents.create_plan') }}', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        request: input,
+        model: '' // Uses Gemini Pro by default
+      })
+    });
+    
+    const data = await response.json();
+    
+    if (!response.ok) {
+      throw new Error(data.error || 'Failed to create plan');
+    }
+    
+    // Show the generated plan
+    showPersonaResult(data.plan, title);
+    
+  } catch (error) {
+    showError('Error creating plan: ' + error.message);
+    createBtn.disabled = false;
+  } finally {
+    // Remove busy state
+    form.classList.remove('busy');
+    status.classList.remove('show');
+  }
+});
+
+function showPersonaResult(plan, title) {
+  const resultDiv = document.getElementById('personaResult');
+  const resultContent = document.getElementById('personaResultContent');
+  
+  // Store plan and title for saving
+  window.currentPersonaPlan = plan;
+  window.currentPersonaTitle = title;
+  
+  // Display the plan
+  resultContent.textContent = plan;
+  resultDiv.style.display = 'block';
+  
+  // Hide form
+  document.getElementById('createPersonaForm').style.display = 'none';
+}
+
+function editPersonaPlan() {
+  const resultContent = document.getElementById('personaResultContent');
+  
+  // Convert to editable textarea
+  const textarea = document.createElement('textarea');
+  textarea.value = resultContent.textContent;
+  textarea.style.width = '100%';
+  textarea.style.minHeight = '400px';
+  textarea.style.padding = '1rem';
+  textarea.style.fontFamily = 'Monaco, Menlo, monospace';
+  textarea.style.fontSize = '0.9rem';
+  
+  resultContent.innerHTML = '';
+  resultContent.appendChild(textarea);
+  
+  // Update the plan when editing
+  textarea.addEventListener('input', () => {
+    window.currentPersonaPlan = textarea.value;
+  });
+}
+
+async function saveNewPersona() {
+  const title = window.currentPersonaTitle;
+  const content = window.currentPersonaPlan;
+  
+  if (!title || !content) {
+    showError('Missing title or content');
+    return;
+  }
+  
+  // Generate a unique ID for the new persona
+  const personaId = title.toLowerCase().replace(/[^a-z0-9]+/g, '_');
+  
+  try {
+    // Create or update the persona
+    const response = await fetch(`{{ url_for('agents.update_agent', agent_id='') }}${personaId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        title: title,
+        content: content
+      })
+    });
+    
+    const data = await response.json();
+    
+    if (response.ok) {
+      alert('Persona saved successfully!');
+      closeCreatePersonaModal();
+      // Reset form for next use
+      document.getElementById('createPersonaForm').style.display = 'block';
+      document.getElementById('personaResult').style.display = 'none';
+      // Reload personas
+      loadAvailableAgents();
+    } else {
+      throw new Error(data.error || 'Failed to save persona');
+    }
+  } catch (error) {
+    showError('Error saving persona: ' + error.message);
+  }
+}
+
+// Update modal close handlers
+window.onclick = function(event) {
+  const agentModal = document.getElementById('agentModal');
+  const planningModal = document.getElementById('planningModal');
+  const createPersonaModal = document.getElementById('createPersonaModal');
+  
+  if (event.target == agentModal) {
+    // Reset edit mode when closing via background click
+    if (isEditMode) {
+      isEditMode = false;
+      const editBtn = document.getElementById('editBtn');
+      const saveBtn = document.getElementById('saveBtn');
+      const modalHeader = document.getElementById('modalHeader');
+      
+      editBtn.style.display = 'block';
+      saveBtn.style.display = 'none';
+      modalHeader.classList.remove('edit-mode');
+      document.getElementById('modalTitle').style.display = 'block';
+      document.getElementById('modalTitleEdit').style.display = 'none';
+      document.getElementById('modalContent').style.display = 'block';
+      document.getElementById('modalContentEdit').style.display = 'none';
+    }
+    agentModal.style.display = 'none';
+  }
+  if (event.target == planningModal) {
+    planningModal.style.display = 'none';
+  }
+  if (event.target == createPersonaModal) {
+    createPersonaModal.style.display = 'none';
+  }
+};
+
 // Initialize - Don't load data until tabs are clicked
-// The Create tab is shown by default, other tabs load data on demand
+// The Log tab is shown by default now
 </script>
 {% endblock %}

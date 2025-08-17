@@ -165,6 +165,61 @@ def create_plan() -> object:
         return jsonify({"error": str(e)}), 500
 
 
+@bp.route("/agents/api/update/<agent_id>", methods=["PUT"])
+def update_agent(agent_id: str) -> object:
+    """Update an agent's title and content or create a new one."""
+    data = request.get_json()
+    if not data:
+        return jsonify({"error": "No data provided"}), 400
+    
+    new_title = data.get("title", "").strip()
+    new_content = data.get("content", "").strip()
+    
+    if not new_title or not new_content:
+        return jsonify({"error": "Title and content are required"}), 400
+    
+    # Path to agent files
+    agents_path = os.path.join(
+        os.path.dirname(os.path.dirname(__file__)), "..", "think", "agents"
+    )
+    json_path = os.path.join(agents_path, f"{agent_id}.json")
+    txt_path = os.path.join(agents_path, f"{agent_id}.txt")
+    
+    # Check if this is update or create
+    is_new = not os.path.isfile(json_path)
+    
+    try:
+        if is_new:
+            # Create new agent config
+            agent_config = {
+                "title": new_title,
+                "description": "",
+                "model": "gemini-2.0-flash-exp"
+            }
+        else:
+            # Update existing JSON file
+            with open(json_path, "r", encoding="utf-8") as f:
+                agent_config = json.load(f)
+            agent_config["title"] = new_title
+        
+        # Update description (first line of content)
+        first_line = new_content.split('\n')[0] if new_content else ""
+        agent_config["description"] = first_line[:100] + "..." if len(first_line) > 100 else first_line
+        
+        # Write JSON file
+        with open(json_path, "w", encoding="utf-8") as f:
+            json.dump(agent_config, f, indent=2, ensure_ascii=False)
+        
+        # Write TXT file
+        with open(txt_path, "w", encoding="utf-8") as f:
+            f.write(new_content)
+        
+        action = "created" if is_new else "updated"
+        return jsonify({"success": True, "message": f"Agent {action} successfully"})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
 @bp.route("/agents/api/start", methods=["POST"])
 def start_agent() -> object:
     """Start a new agent with the given plan and configuration."""
