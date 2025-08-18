@@ -1,0 +1,13 @@
+{
+  "id": "msg_1736001000000",
+  "timestamp": 1736001000000,
+  "from": {
+    "type": "system",
+    "id": "indexer"
+  },
+  "body": "Daily indexing completed successfully.\n\nProcessed:\n- 24 audio transcripts\n- 156 screen captures\n- 5 topic summaries\n\nAll indexes have been updated.",
+  "status": "read",
+  "context": {
+    "day": "20250117"
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "id": "msg_1736002000000",
+  "timestamp": 1736002000000,
+  "from": {
+    "type": "agent",
+    "id": "task_monitor"
+  },
+  "body": "Reminder: You have 3 pending objectives that are approaching their target completion dates.\n\nPlease review your active matters for updates.",
+  "status": "unread"
+}
