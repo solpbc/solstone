@@ -50,7 +50,9 @@ def run_process_day() -> None:
     logging.info("think.process_day finished in %s seconds", duration)
 
 
-def start_runners(journal: str, verbose: bool = False) -> list[tuple[subprocess.Popen, str]]:
+def start_runners(
+    journal: str, verbose: bool = False
+) -> list[tuple[subprocess.Popen, str]]:
     """Launch hear and see runners with output to console."""
     procs = []
     for module in ("hear.runner", "see.runner"):
@@ -186,7 +188,7 @@ def main() -> None:
     logging.basicConfig(
         level=level,
         handlers=[logging.StreamHandler()],
-        format="%(asctime)s %(levelname)s %(message)s"
+        format="%(asctime)s %(levelname)s %(message)s",
     )
 
     os.environ.setdefault("SUNSTONE_MCP_URL", "http://127.0.0.1:6270/mcp")

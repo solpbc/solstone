@@ -51,7 +51,9 @@ class Describer:
         json_path.write_text(json.dumps(result["result"], indent=2))
         logging.info(f"Described {img_path} -> {json_path}")
         new_img = self._move_to_seen(img_path)
-        crumb_builder = CrumbBuilder().add_file(new_img).add_file(self.journal_dir / "entities.md")
+        crumb_builder = (
+            CrumbBuilder().add_file(new_img).add_file(self.journal_dir / "entities.md")
+        )
         crumb_builder.add_model(result["model_used"])
         crumb_path = crumb_builder.commit(str(json_path))
         logging.info(f"Crumb saved to {crumb_path}")

@@ -557,24 +557,26 @@ def get_raw_file(day: str, name: str) -> tuple[str, str, Any]:
     return rel, mime, meta
 
 
-def load_entity_names(journal_path: str | Path | None = None, required: bool = False) -> str | None:
+def load_entity_names(
+    journal_path: str | Path | None = None, required: bool = False
+) -> str | None:
     """Load entity names from journal/entities.md for AI transcription context.
-    
+
     This function extracts just the entity names (no types or descriptions) from
     the top-level entities.md file and returns them as a comma-delimited string.
     This is specifically optimized for transcription accuracy in hear/ and see/
     modules where the AI needs to recognize entity names but doesn't need the
     full context.
-    
+
     Args:
         journal_path: Path to journal directory. If None, uses JOURNAL_PATH env var.
         required: If True, raises FileNotFoundError when entities.md is missing.
                  If False, returns None when missing.
-    
+
     Returns:
         Comma-delimited string of entity names (e.g., "John Smith, Acme Corp, Project X"),
         or None if the file is not found and required=False.
-        
+
     Raises:
         FileNotFoundError: If required=True and entities.md doesn't exist.
         ValueError: If journal_path is not provided and JOURNAL_PATH env var is not set.
@@ -584,18 +586,20 @@ def load_entity_names(journal_path: str | Path | None = None, required: bool = F
         journal_path = os.getenv("JOURNAL_PATH")
         if not journal_path:
             raise ValueError("JOURNAL_PATH not set and no journal_path provided")
-    
+
     journal_path = Path(journal_path)
     entities_path = journal_path / "entities.md"
-    
+
     if not entities_path.is_file():
         if required:
-            raise FileNotFoundError(f"Required entities file not found: {entities_path}")
+            raise FileNotFoundError(
+                f"Required entities file not found: {entities_path}"
+            )
         return None
-    
+
     # Import here to avoid circular dependency
     from think.indexer import parse_entity_line
-    
+
     # Parse entity names from the file
     entity_names = []
     with open(entities_path, "r", encoding="utf-8") as f:
@@ -605,8 +609,8 @@ def load_entity_names(journal_path: str | Path | None = None, required: bool = F
                 _, name, _ = parsed  # Ignore type and description
                 if name and name not in entity_names:  # Avoid duplicates
                     entity_names.append(name)
-    
+
     if not entity_names:
         return None
-    
+
     return ", ".join(entity_names)

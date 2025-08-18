@@ -152,7 +152,7 @@ def test_handle_attach_successful(cortex_server, tmp_path):
 
     # Create mock agent log file
     log_path = tmp_path / "test.jsonl"
-    
+
     # Add mock running agent with in-memory events
     mock_process = MagicMock()
     mock_process.poll.return_value = None
@@ -161,7 +161,7 @@ def test_handle_attach_successful(cortex_server, tmp_path):
     # Add events to agent's in-memory list
     agent.events = [
         {"event": "start", "ts": 1703123456789, "prompt": "test"},
-        {"event": "finish", "ts": 1703123456790, "result": "done"}
+        {"event": "finish", "ts": 1703123456790, "result": "done"},
     ]
     cortex_server.running_agents["123456789"] = agent
 
@@ -451,8 +451,9 @@ def test_send_message_connection_closed(cortex_server):
 @patch("think.cortex.time.time")
 def test_monitor_stdout(mock_time, cortex_server, tmp_path):
     """Test monitoring agent stdout."""
-    from think.cortex import RunningAgent
     from io import StringIO
+
+    from think.cortex import RunningAgent
 
     # Mock time to return consistent values
     mock_time.return_value = 1703123456.789
@@ -518,7 +519,9 @@ def test_get_running_agents_with_pagination(cortex_server, mock_journal):
     cortex_server.running_agents["888888888"] = agent2
 
     # Test pagination
-    agents, total = cortex_server._get_running_agents_with_pagination(limit=10, offset=0)
+    agents, total = cortex_server._get_running_agents_with_pagination(
+        limit=10, offset=0
+    )
 
     assert total == 2  # 2 running agents
     assert len(agents) == 2

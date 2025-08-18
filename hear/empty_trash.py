@@ -27,19 +27,19 @@ def _speech_in_file(path: Path, vad_model) -> bool:
         target_len = int(len(data) * SAMPLE_RATE / sr)
         data = resample(data, target_len)
     segments, _ = detect_speech(vad_model, path.name, data, None, True)
-    
+
     # Match live capture logic: check total speech duration
     if not segments:
         logging.debug(f"No speech segments detected in {path.name}")
         return False
-    
+
     total_seconds = sum(len(seg["data"]) / SAMPLE_RATE for seg in segments)
     if total_seconds < MIN_SPEECH_SECONDS:
         logging.debug(
             f"Total speech duration {total_seconds:.2f}s < {MIN_SPEECH_SECONDS:.2f}s in {path.name}"
         )
         return False
-    
+
     logging.debug(
         f"Found {total_seconds:.2f}s of speech in {path.name} ({len(segments)} segments)"
     )

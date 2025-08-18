@@ -100,12 +100,13 @@ def agents_list() -> object:
 
     live_agents = []
     historical_agents = []
-    
+
     # Get live agents from Cortex if requested
     if agent_type in ["live", "all"]:
         from ..cortex_client import get_global_cortex_client
+
         client = get_global_cortex_client()
-        
+
         if client:
             response = client.list_agents(limit=100, offset=0)  # Get all live agents
             if response:
@@ -114,33 +115,35 @@ def agents_list() -> object:
                     start_ms = agent.get("started_at", 0)
                     start = start_ms / 1000
                     metadata = agent.get("metadata", {})
-                    
-                    live_agents.append({
-                        "id": agent.get("id", ""),
-                        "start": start,
-                        "since": time_since(start),
-                        "model": metadata.get("model", ""),
-                        "persona": metadata.get("persona", ""),
-                        "prompt": metadata.get("prompt", ""),
-                        "status": agent.get("status", "running"),
-                        "pid": agent.get("pid"),
-                        "is_live": True
-                    })
-    
+
+                    live_agents.append(
+                        {
+                            "id": agent.get("id", ""),
+                            "start": start,
+                            "since": time_since(start),
+                            "model": metadata.get("model", ""),
+                            "persona": metadata.get("persona", ""),
+                            "prompt": metadata.get("prompt", ""),
+                            "status": agent.get("status", "running"),
+                            "pid": agent.get("pid"),
+                            "is_live": True,
+                        }
+                    )
+
     # Get historical agents from journal if requested
     if agent_type in ["historical", "all"]:
         agents_dir = _agents_dir()
         if agents_dir and os.path.exists(agents_dir):
             # Get all .jsonl files
             jsonl_files = [f for f in os.listdir(agents_dir) if f.endswith(".jsonl")]
-            
+
             for jsonl_file in jsonl_files:
                 agent_id = jsonl_file[:-6]  # Remove .jsonl extension
-                
+
                 # Skip if this is a live agent
                 if any(a["id"] == agent_id for a in live_agents):
                     continue
-                    
+
                 agent_path = os.path.join(agents_dir, jsonl_file)
                 try:
                     # Read first and last lines to get metadata
@@ -148,53 +151,59 @@ def agents_list() -> object:
                         lines = f.readlines()
                         if lines:
                             first_event = json.loads(lines[0])
-                            last_event = json.loads(lines[-1]) if len(lines) > 1 else first_event
-                            
+                            last_event = (
+                                json.loads(lines[-1]) if len(lines) > 1 else first_event
+                            )
+
                             # Extract metadata from events
                             start_ms = first_event.get("ts", int(agent_id))
                             start = start_ms / 1000
-                            
+
                             # Determine status from last event
                             status = "finished"
                             if last_event.get("event") == "error":
                                 status = "error"
                             elif last_event.get("event") != "finish":
                                 status = "interrupted"
-                            
-                            historical_agents.append({
-                                "id": agent_id,
-                                "start": start,
-                                "since": time_since(start),
-                                "model": first_event.get("model", ""),
-                                "persona": first_event.get("persona", "default"),
-                                "prompt": first_event.get("prompt", ""),
-                                "status": status,
-                                "pid": None,
-                                "is_live": False
-                            })
+
+                            historical_agents.append(
+                                {
+                                    "id": agent_id,
+                                    "start": start,
+                                    "since": time_since(start),
+                                    "model": first_event.get("model", ""),
+                                    "persona": first_event.get("persona", "default"),
+                                    "prompt": first_event.get("prompt", ""),
+                                    "status": status,
+                                    "pid": None,
+                                    "is_live": False,
+                                }
+                            )
                 except Exception:
                     # Skip malformed files
                     continue
-    
+
     # Combine and sort by timestamp (newest first)
     all_agents = live_agents + historical_agents
     all_agents.sort(key=lambda x: x["start"], reverse=True)
-    
+
     # Apply pagination
     total = len(all_agents)
-    paginated = all_agents[offset:offset + limit]
-    
-    return jsonify({
-        "agents": paginated,
-        "pagination": {
-            "limit": limit,
-            "offset": offset,
-            "total": total,
-            "has_more": offset + limit < total
-        },
-        "live_count": len(live_agents),
-        "historical_count": len(historical_agents)
-    })
+    paginated = all_agents[offset : offset + limit]
+
+    return jsonify(
+        {
+            "agents": paginated,
+            "pagination": {
+                "limit": limit,
+                "offset": offset,
+                "total": total,
+                "has_more": offset + limit < total,
+            },
+            "live_count": len(live_agents),
+            "historical_count": len(historical_agents),
+        }
+    )
 
 
 @bp.route("/agents/api/plan", methods=["POST"])
@@ -232,49 +241,51 @@ def update_agent(agent_id: str) -> object:
     data = request.get_json()
     if not data:
         return jsonify({"error": "No data provided"}), 400
-    
+
     new_title = data.get("title", "").strip()
     new_content = data.get("content", "").strip()
-    
+
     if not new_title or not new_content:
         return jsonify({"error": "Title and content are required"}), 400
-    
+
     # Path to agent files
     agents_path = os.path.join(
         os.path.dirname(os.path.dirname(__file__)), "..", "think", "agents"
     )
     json_path = os.path.join(agents_path, f"{agent_id}.json")
     txt_path = os.path.join(agents_path, f"{agent_id}.txt")
-    
+
     # Check if this is update or create
     is_new = not os.path.isfile(json_path)
-    
+
     try:
         if is_new:
             # Create new agent config
             agent_config = {
                 "title": new_title,
                 "description": "",
-                "model": "gemini-2.0-flash-exp"
+                "model": "gemini-2.0-flash-exp",
             }
         else:
             # Update existing JSON file
             with open(json_path, "r", encoding="utf-8") as f:
                 agent_config = json.load(f)
             agent_config["title"] = new_title
-        
+
         # Update description (first line of content)
-        first_line = new_content.split('\n')[0] if new_content else ""
-        agent_config["description"] = first_line[:100] + "..." if len(first_line) > 100 else first_line
-        
+        first_line = new_content.split("\n")[0] if new_content else ""
+        agent_config["description"] = (
+            first_line[:100] + "..." if len(first_line) > 100 else first_line
+        )
+
         # Write JSON file
         with open(json_path, "w", encoding="utf-8") as f:
             json.dump(agent_config, f, indent=2, ensure_ascii=False)
-        
+
         # Write TXT file
         with open(txt_path, "w", encoding="utf-8") as f:
             f.write(new_content)
-        
+
         action = "created" if is_new else "updated"
         return jsonify({"success": True, "message": f"Agent {action} successfully"})
     except Exception as e:

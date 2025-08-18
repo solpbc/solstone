@@ -82,11 +82,11 @@ def search_events(
 ) -> tuple[int, List[Dict[str, Any]]]:
     """Search the events index and return total count and results."""
     conn, _ = get_index(index="events")
-    
-    # Build WHERE clause and parameters  
+
+    # Build WHERE clause and parameters
     # For FTS5, we need to properly escape the query
     # If query contains special FTS5 characters, wrap in double quotes
-    # Special chars include: : . ( ) " * @ 
+    # Special chars include: : . ( ) " * @
     if any(c in query for c in ':.()"*@'):
         fts_query = f'"{query}"'
     else:

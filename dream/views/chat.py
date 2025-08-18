@@ -67,10 +67,10 @@ def ask_agent_via_cortex(prompt: str, attachments: List[str], backend: str) -> s
         backend=backend,
         persona="default",
     )
-    
+
     if not agent_id:
         raise Exception("Failed to spawn agent")
-    
+
     # Attach to the spawned agent to receive events
     if not client.attach_agent(agent_id):
         raise Exception(f"Failed to attach to agent {agent_id}")
@@ -155,7 +155,7 @@ def agent_events(agent_id: str) -> Any:
                 if event.get("event") == "finish":
                     result_text = event.get("result", "")
                     event["html"] = markdown.markdown(result_text, extensions=["extra"])
-                
+
                 events.append(event)
 
                 # Build chat history for display

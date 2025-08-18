@@ -242,7 +242,9 @@ class Transcriber:
             try:
                 entity_names = load_entity_names(self.journal_dir)
                 # If no entity names found, use empty string
-                entities_text = f"Known entities: {entity_names}" if entity_names else ""
+                entities_text = (
+                    f"Known entities: {entity_names}" if entity_names else ""
+                )
                 result = transcribe_segments(
                     self.client, MODEL, self.prompt_text, entities_text, segments
                 )

@@ -16,8 +16,17 @@ def test_agents_list_all(monkeypatch, tmp_path):
     # Create a historical agent file
     historical_file = agents_dir / "200000.jsonl"
     historical_file.write_text(
-        json.dumps({"event": "start", "ts": 200000, "prompt": "historical test", "model": "gpt-4", "persona": "default"}) + "\n" +
-        json.dumps({"event": "finish", "ts": 201000, "result": "done"})
+        json.dumps(
+            {
+                "event": "start",
+                "ts": 200000,
+                "prompt": "historical test",
+                "model": "gpt-4",
+                "persona": "default",
+            }
+        )
+        + "\n"
+        + json.dumps({"event": "finish", "ts": 201000, "result": "done"})
     )
 
     # Mock cortex client to return live agent data
@@ -82,20 +91,36 @@ def test_agents_list_historical_only(monkeypatch, tmp_path):
     # Create historical agent files
     historical_file1 = agents_dir / "200000.jsonl"
     historical_file1.write_text(
-        json.dumps({"event": "start", "ts": 200000, "prompt": "test 1", "model": "gpt-4", "persona": "default"}) + "\n" +
-        json.dumps({"event": "finish", "ts": 201000})
+        json.dumps(
+            {
+                "event": "start",
+                "ts": 200000,
+                "prompt": "test 1",
+                "model": "gpt-4",
+                "persona": "default",
+            }
+        )
+        + "\n"
+        + json.dumps({"event": "finish", "ts": 201000})
     )
 
     historical_file2 = agents_dir / "300000.jsonl"
     historical_file2.write_text(
-        json.dumps({"event": "start", "ts": 300000, "prompt": "test 2", "model": "gpt-3.5", "persona": "custom"}) + "\n" +
-        json.dumps({"event": "error", "ts": 301000, "error": "failed"})
+        json.dumps(
+            {
+                "event": "start",
+                "ts": 300000,
+                "prompt": "test 2",
+                "model": "gpt-3.5",
+                "persona": "custom",
+            }
+        )
+        + "\n"
+        + json.dumps({"event": "error", "ts": 301000, "error": "failed"})
     )
 
     # Mock cortex client as unavailable
-    monkeypatch.setattr(
-        "dream.cortex_client.get_global_cortex_client", lambda: None
-    )
+    monkeypatch.setattr("dream.cortex_client.get_global_cortex_client", lambda: None)
     monkeypatch.setattr("time.time", lambda: 400)
 
     with review.app.test_request_context("/agents/api/list?type=historical"):
@@ -118,28 +143,27 @@ def test_agents_list_historical_only(monkeypatch, tmp_path):
 def test_agents_list_with_real_fixtures(monkeypatch):
     """Test listing agents from actual fixture files."""
     review = importlib.import_module("dream")
-    
+
     # Use the real fixtures directory
     fixtures_path = Path(__file__).parent.parent / "fixtures" / "journal"
     if not fixtures_path.exists():
         import pytest
+
         pytest.skip("Fixtures directory not found")
-    
+
     review.journal_root = str(fixtures_path)
-    
+
     # Mock cortex client as unavailable
-    monkeypatch.setattr(
-        "dream.cortex_client.get_global_cortex_client", lambda: None
-    )
+    monkeypatch.setattr("dream.cortex_client.get_global_cortex_client", lambda: None)
     monkeypatch.setattr("time.time", lambda: 1755392200)  # Time after all fixtures
-    
+
     with review.app.test_request_context("/agents/api/list?type=historical"):
         resp = review.agents_list()
-    
+
     # Should have loaded agents from fixtures
     assert resp.json["historical_count"] > 0
     agents = resp.json["agents"]
-    
+
     # Verify agent structure
     if agents:
         agent = agents[0]
@@ -149,6 +173,6 @@ def test_agents_list_with_real_fixtures(monkeypatch):
         assert "persona" in agent
         assert "status" in agent
         assert agent["is_live"] is False
-        
+
         # Check status values are correct
         assert agent["status"] in ["finished", "error", "interrupted"]

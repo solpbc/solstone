@@ -68,12 +68,21 @@ def main() -> None:
     args = setup_cli(parser)
 
     # Require either --rescan, --rescan-all, --reset, or -q
-    if not args.rescan and not args.rescan_all and not args.reset and args.query is None:
+    if (
+        not args.rescan
+        and not args.rescan_all
+        and not args.reset
+        and args.query is None
+    ):
         parser.print_help()
         return
 
     # Validate --index is required unless using --rescan-all
-    if not args.rescan_all and not args.index and (args.rescan or args.reset or args.query is not None):
+    if (
+        not args.rescan_all
+        and not args.index
+        and (args.rescan or args.reset or args.query is not None)
+    ):
         parser.error("--index is required unless using --rescan-all")
 
     journal = os.getenv("JOURNAL_PATH")

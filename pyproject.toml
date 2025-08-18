@@ -102,6 +102,7 @@ think-agents = "think.agents:main"
 think-supervisor = "think.supervisor:main"
 think-detect-created = "think.detect_created:main"
 think-cortex = "think.cortex:main"
+think-messages = "think.messages:main"
 
 [project.urls]
 Homepage = "https://github.com/yourusername/sunstone"

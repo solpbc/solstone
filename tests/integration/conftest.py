@@ -1,18 +1,15 @@
 """Configuration and fixtures for integration tests."""
 
 import os
-import pytest
 from pathlib import Path
+
+import pytest
 
 
 def pytest_configure(config):
     """Configure pytest for integration testing."""
-    config.addinivalue_line(
-        "markers", "integration: mark test as an integration test"
-    )
-    config.addinivalue_line(
-        "markers", "slow: mark test as slow running"
-    )
+    config.addinivalue_line("markers", "integration: mark test as an integration test")
+    config.addinivalue_line("markers", "slow: mark test as slow running")
     config.addinivalue_line(
         "markers", "requires_api: mark test as requiring external API access"
     )

@@ -43,9 +43,7 @@ def test_start_runners(tmp_path, monkeypatch):
             pass
 
     def fake_popen(cmd, stdout=None, stderr=None, start_new_session=False):
-        started.append(
-            (cmd, stdout, stderr)
-        )
+        started.append((cmd, stdout, stderr))
         return DummyProc()
 
     monkeypatch.setattr(mod.subprocess, "Popen", fake_popen)
