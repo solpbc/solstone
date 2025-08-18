@@ -33,6 +33,7 @@ from .views import chat as chat_view
 from .views import domains as domains_view
 from .views import entities as entities_view
 from .views import home as home_view
+from .views import inbox as inbox_view
 from .views import live as live_view
 from .views import register_views
 from .views import search as search_view
@@ -77,6 +78,9 @@ reload_entities = entities_view.reload_entities
 home = home_view.home
 domains_page = domains_view.domains_page
 domains_list = domains_view.domains_list
+inbox_page = inbox_view.inbox_page
+get_messages = inbox_view.get_messages
+get_stats = inbox_view.get_stats
 entities = entities_view.entities
 calendar = calendar_view.calendar_page
 calendar_day = calendar_view.calendar_day
@@ -127,6 +131,9 @@ __all__ = [
     "home",
     "domains_page",
     "domains_list",
+    "inbox_page",
+    "get_messages",
+    "get_stats",
     "entities",
     "calendar",
     "calendar_day",
