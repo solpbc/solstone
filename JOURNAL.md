@@ -8,6 +8,7 @@ This document describes the layout of a **journal** directory where all audio, s
 - `entity_review.log` – operations performed in the web UI are appended here.
 - `task_log.txt` – optional log of utility runs in `[epoch]\tmessage` format.
 - `domains/` – domain-specific organization folders described below.
+- `inbox/` – asynchronous messaging system for agent communications described below.
 - `YYYYMMDD/` – individual day folders described below.
 
 ## Domain folders
@@ -137,6 +138,74 @@ objective_performance_optimization/
 ```
 
 The presence of `OUTCOME.md` indicates objective completion. Directory timestamps (created/modified) provide temporal tracking without requiring separate metadata files.
+
+## Inbox
+
+The `inbox/` directory provides an asynchronous messaging system where agents and automated processes can leave messages for user review. Messages are organized in active and archived subdirectories.
+
+### Inbox structure
+
+The inbox is organized as follows:
+
+- `inbox/active/` – directory containing unread and active messages
+- `inbox/archived/` – directory containing archived messages
+- `inbox/activity_log.jsonl` – chronological log of inbox activities
+
+### Message files
+
+Each message is stored as a single JSON file named `msg_<timestamp>.json` where `<timestamp>` is epoch milliseconds (e.g., `msg_1755450767962.json`).
+
+Message files can exist in either:
+- `inbox/active/msg_<timestamp>.json` – for active/unread messages
+- `inbox/archived/msg_<timestamp>.json` – for archived messages
+
+### Message format
+
+Each message JSON file contains:
+
+```json
+{
+  "id": "msg_1755450767962",
+  "timestamp": 1755450767962,
+  "from": {
+    "type": "agent",
+    "id": "research_agent"
+  },
+  "body": "Message content in plain text or markdown format",
+  "status": "unread",
+  "context": {
+    "domain": "ml_research",
+    "matter": "matter_1",
+    "day": "20250117"
+  }
+}
+```
+
+Required fields:
+- `id` – unique message identifier matching the filename
+- `timestamp` – epoch milliseconds when the message was created
+- `from` – sender information with `type` (agent/system/domain) and `id`
+- `body` – message content as text or markdown
+- `status` – message state (unread/read/archived)
+
+Optional fields:
+- `context` – reference to related journal entities (domain, matter, day)
+
+### Inbox activity log
+
+The `inbox/activity_log.jsonl` file tracks all inbox operations in JSON Lines format:
+
+```json
+{"timestamp": 1755450767962, "action": "received", "message_id": "msg_1755450767962", "from": "research_agent"}
+{"timestamp": 1755450768000, "action": "read", "message_id": "msg_1755450767962"}
+{"timestamp": 1755450769000, "action": "archived", "message_id": "msg_1755450767962"}
+```
+
+Common actions include:
+- `received` – new message created
+- `read` – message marked as read
+- `archived` – message moved to archive
+- `deleted` – message removed
 
 ## Day folder contents
 
