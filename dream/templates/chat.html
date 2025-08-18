@@ -357,6 +357,11 @@ async function loadHistoricalAgent(agentId){
       const text = event.result || '';
       const html = event.html || text;
       addMessage(html, 'from-bot', !!event.html);
+    } else if(event.event === 'error'){
+      // Error event - display as final response
+      const text = event.result || event.error || 'Unknown error occurred';
+      const html = event.html || text;
+      addMessage(html, 'from-bot', !!event.html);
     } else {
       // All other events (tool calls, thinking, etc.)
       handleHistoricalEvent(event);
@@ -378,6 +383,15 @@ function processEvent(event) {
       break;
     case 'agent_updated':
       addAgentUpdate(event.agent || 'unknown');
+      break;
+    case 'error':
+      // Handle error events during live streaming
+      // Since the backend already sends formatted HTML for errors,
+      // we just need to display the message
+      responseInProgress = false;
+      forceHideActivityIndicator();
+      // Note: The actual error message will be sent from backend
+      // via the finish/error handling in _handle_cortex_event
       break;
   }
 }

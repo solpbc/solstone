@@ -34,10 +34,18 @@ def _handle_cortex_event(event: dict) -> None:
     # Forward to push server
     _push_event(event)
 
-    # Check if agent finished
-    if event.get("event") == "finish":
+    # Check if agent finished or errored
+    event_type = event.get("event")
+    if event_type == "finish":
         with _lock:
             _agent_result = event.get("result", "")
+            _agent_finished.set()
+    elif event_type == "error":
+        with _lock:
+            # Format error message with details
+            error_msg = event.get("error", "Unknown error")
+            trace = event.get("trace", "")
+            _agent_result = f"❌ **Error**: {error_msg}\n\n```\n{trace}\n```" if trace else f"❌ **Error**: {error_msg}"
             _agent_finished.set()
 
 
@@ -151,10 +159,17 @@ def agent_events(agent_id: str) -> Any:
                 if not event:
                     continue
 
-                # Add HTML rendering for finish events
+                # Add HTML rendering for finish and error events
                 if event.get("event") == "finish":
                     result_text = event.get("result", "")
                     event["html"] = markdown.markdown(result_text, extensions=["extra"])
+                elif event.get("event") == "error":
+                    # Format error message
+                    error_msg = event.get("error", "Unknown error")
+                    trace = event.get("trace", "")
+                    error_text = f"❌ **Error**: {error_msg}\n\n```\n{trace}\n```" if trace else f"❌ **Error**: {error_msg}"
+                    event["html"] = markdown.markdown(error_text, extensions=["extra"])
+                    event["result"] = error_text  # Add result field for consistency
 
                 events.append(event)
 
@@ -167,6 +182,15 @@ def agent_events(agent_id: str) -> Any:
                     html_result = markdown.markdown(result_text, extensions=["extra"])
                     history.append(
                         {"role": "assistant", "text": result_text, "html": html_result}
+                    )
+                elif event.get("event") == "error":
+                    # Format error message for history
+                    error_msg = event.get("error", "Unknown error")
+                    trace = event.get("trace", "")
+                    error_text = f"❌ **Error**: {error_msg}\n\n```\n{trace}\n```" if trace else f"❌ **Error**: {error_msg}"
+                    html_result = markdown.markdown(error_text, extensions=["extra"])
+                    history.append(
+                        {"role": "assistant", "text": error_text, "html": html_result}
                     )
 
     except Exception as e:
