@@ -10,8 +10,9 @@ from typing import Any
 from dotenv import load_dotenv
 from flask import Blueprint, jsonify, render_template, request
 
+from think.domains import get_matter, get_matters
 from think.indexer import search_entities
-from think.utils import get_domains, get_matter, get_matters
+from think.utils import get_domains
 
 bp = Blueprint("domains", __name__, template_folder="../templates")
 

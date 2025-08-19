@@ -56,7 +56,7 @@ def test_matter_detail_route_validation():
             assert domains["test-domain"]["title"] == "Test Domain"
 
             # Test get_matters function
-            from think.utils import get_matters
+            from think.domains import get_matters
 
             matters = get_matters("test-domain")
             assert "matter_1" in matters
@@ -163,7 +163,7 @@ def test_get_matter_comprehensive():
 
         # Test the function
         with patch.dict(os.environ, {"JOURNAL_PATH": str(journal_path)}):
-            from think.utils import get_matter
+            from think.domains import get_matter
 
             result = get_matter("test-domain", "matter_1")
 
@@ -216,7 +216,7 @@ def test_get_matter_missing_files():
         # No matter.json, activity_log.jsonl, objectives, or attachments
 
         with patch.dict(os.environ, {"JOURNAL_PATH": str(journal_path)}):
-            from think.utils import get_matter
+            from think.domains import get_matter
 
             result = get_matter("test-domain", "matter_1")
 
@@ -233,7 +233,7 @@ def test_get_matter_error_handling():
         journal_path = Path(tmp_dir) / "journal"
 
         with patch.dict(os.environ, {"JOURNAL_PATH": str(journal_path)}):
-            from think.utils import get_matter
+            from think.domains import get_matter
 
             # Test non-existent domain
             with pytest.raises(
@@ -274,7 +274,7 @@ def test_get_matter_attachment_validation():
         )
 
         with patch.dict(os.environ, {"JOURNAL_PATH": str(journal_path)}):
-            from think.utils import get_matter
+            from think.domains import get_matter
 
             result = get_matter("test-domain", "matter_1")
 
@@ -322,7 +322,7 @@ def test_get_matter_new_objective_structure():
         (invalid_obj_dir / "OBJECTIVE.md").write_text("This should be ignored")
 
         with patch.dict(os.environ, {"JOURNAL_PATH": str(journal_path)}):
-            from think.utils import get_matter
+            from think.domains import get_matter
 
             result = get_matter("test-domain", "matter_1")
 
@@ -383,7 +383,7 @@ def test_get_matter_objective_edge_cases():
         (whitespace_obj_dir / "OUTCOME.md").write_text("   \n\n   ")
 
         with patch.dict(os.environ, {"JOURNAL_PATH": str(journal_path)}):
-            from think.utils import get_matter
+            from think.domains import get_matter
 
             result = get_matter("test-domain", "matter_1")
 
