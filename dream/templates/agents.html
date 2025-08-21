@@ -106,7 +106,7 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  min-height: 120px;
+  min-height: 80px;
 }
 
 .create-persona-card:hover {
@@ -116,13 +116,8 @@
 
 .create-persona-card h3 {
   color: #007bff;
-  margin: 0 0 0.5rem 0;
+  margin: 0;
   font-size: 1.2rem;
-}
-
-.create-persona-card p {
-  color: #007bff;
-  opacity: 0.8;
 }
 
 
@@ -213,17 +208,39 @@
 table { 
   border-collapse: collapse; 
   width: 100%; 
-  table-layout: fixed; 
   margin-top: 2rem;
 }
 th, td { 
   padding: 4px 8px; 
   border-bottom: 1px solid #ddd; 
   white-space: nowrap; 
+  text-align: left;
 }
-td:last-child { 
+th {
+  font-weight: 600;
+  background-color: #f8f9fa;
+}
+/* Adjust column widths */
+td:nth-child(1), th:nth-child(1) { /* Status */
+  width: 100px;
+}
+td:nth-child(2), th:nth-child(2) { /* Started */
+  width: 120px;
+}
+td:nth-child(3), th:nth-child(3) { /* Runtime */
+  width: 80px;
+  text-align: right;
+}
+td:nth-child(4), th:nth-child(4) { /* Model */
+  width: 150px;
+}
+td:nth-child(5), th:nth-child(5) { /* Persona */
+  width: 180px;
+}
+td:last-child { /* Prompt */
   overflow: hidden; 
-  text-overflow: ellipsis; 
+  text-overflow: ellipsis;
+  max-width: 0;
 }
 tr:hover {
   background-color: #f8f9fa;
@@ -730,7 +747,7 @@ tr a:hover {
 <!-- Agent Details Modal -->
 <div id="agentModal" class="modal">
   <div class="modal-content">
-    <span class="close">&times;</span>
+    <span class="close" onclick="closeAgentModal()">&times;</span>
     <button id="editBtn" class="edit-btn" onclick="toggleEditMode()">Edit</button>
     <div id="modalHeader" class="modal-header">
       <h3 id="modalTitle"></h3>
@@ -862,7 +879,6 @@ function renderAgentCards() {
   createCard.className = 'agent-card create-persona-card';
   createCard.innerHTML = `
     <h3>+ Create New Persona</h3>
-    <p>Define a new agent persona</p>
   `;
   createCard.addEventListener('click', openCreatePersonaModal);
   container.appendChild(createCard);
@@ -872,9 +888,9 @@ function renderAgentCards() {
     const card = document.createElement('div');
     card.className = 'agent-card';
     card.dataset.agentId = agent.id;
+    card.title = agent.description; // Set description as tooltip
     card.innerHTML = `
       <h3>${agent.title}</h3>
-      <p>${agent.description}</p>
     `;
     
     card.addEventListener('click', (e) => {
@@ -1169,8 +1185,8 @@ async function startAgent() {
   }
 }
 
-// Modal close functionality
-document.querySelector('.close').onclick = function() {
+// Close agent modal function
+function closeAgentModal() {
   // Reset edit mode when closing
   if (isEditMode) {
     isEditMode = false;
@@ -1187,7 +1203,7 @@ document.querySelector('.close').onclick = function() {
     document.getElementById('modalContentEdit').style.display = 'none';
   }
   document.getElementById('agentModal').style.display = 'none';
-};
+}
 
 // Moved to bottom of script with createPersonaModal handling
 
@@ -1209,10 +1225,27 @@ function buildRow(a) {
   // PID indicator for running agents
   const pidIndicator = a.pid ? ` (PID: ${a.pid})` : '';
   
+  // Format runtime
+  let runtimeDisplay = '';
+  if (a.runtime_seconds !== undefined && a.runtime_seconds !== null) {
+    const totalSeconds = Math.floor(a.runtime_seconds);
+    const minutes = Math.floor(totalSeconds / 60);
+    
+    if (totalSeconds > 59) {
+      // For 60 seconds or more, show just minutes
+      runtimeDisplay = `${minutes}m`;
+    } else {
+      // For less than 60 seconds, show as Xs
+      runtimeDisplay = `${totalSeconds}s`;
+    }
+  }
+  
   tr.innerHTML = `
-    <td><a href="${chatLink}">${statusBadge}${a.since}</a></td>
+    <td><a href="${chatLink}">${statusBadge}</a></td>
+    <td><a href="${chatLink}">${a.since}</a></td>
+    <td>${runtimeDisplay}</td>
     <td>${a.model}${pidIndicator}</td>
-    <td>${a.persona}</td>
+    <td>${a.persona_title || a.persona}</td>
     <td title="${a.prompt}"><a href="${chatLink}">${short}</a></td>
   `;
   tr.style.cursor = 'pointer';
@@ -1253,7 +1286,7 @@ function loadAgentSessions(page = 0) {
       const liveEmpty = document.getElementById('liveEmpty');
       
       if (liveAgents.length > 0) {
-        liveTable.innerHTML = '<tr><th>Status & Started</th><th>Model</th><th>Persona</th><th>Prompt</th></tr>';
+        liveTable.innerHTML = '<tr><th>Status</th><th>Started</th><th>Runtime</th><th>Model</th><th>Persona</th><th>Prompt</th></tr>';
         liveAgents.forEach(a => liveTable.appendChild(buildRow(a)));
         liveTable.style.display = 'table';
         liveEmpty.style.display = 'none';
@@ -1267,7 +1300,7 @@ function loadAgentSessions(page = 0) {
       const histEmpty = document.getElementById('historicalEmpty');
       
       if (historicalAgents.length > 0) {
-        histTable.innerHTML = '<tr><th>Status & Started</th><th>Model</th><th>Persona</th><th>Prompt</th></tr>';
+        histTable.innerHTML = '<tr><th>Status</th><th>Started</th><th>Runtime</th><th>Model</th><th>Persona</th><th>Prompt</th></tr>';
         historicalAgents.forEach(a => histTable.appendChild(buildRow(a)));
         histTable.style.display = 'table';
         histEmpty.style.display = 'none';
@@ -1311,7 +1344,7 @@ function loadAgentSessions(page = 0) {
           const histEmpty = document.getElementById('historicalEmpty');
           
           if (historicalAgents.length > 0) {
-            histTable.innerHTML = '<tr><th>Status & Started</th><th>Model</th><th>Persona</th><th>Prompt</th></tr>';
+            histTable.innerHTML = '<tr><th>Status</th><th>Started</th><th>Runtime</th><th>Model</th><th>Persona</th><th>Prompt</th></tr>';
             historicalAgents.forEach(a => histTable.appendChild(buildRow(a)));
             histTable.style.display = 'table';
             histEmpty.style.display = 'none';
@@ -1542,22 +1575,7 @@ window.onclick = function(event) {
   const createPersonaModal = document.getElementById('createPersonaModal');
   
   if (event.target == agentModal) {
-    // Reset edit mode when closing via background click
-    if (isEditMode) {
-      isEditMode = false;
-      const editBtn = document.getElementById('editBtn');
-      const saveBtn = document.getElementById('saveBtn');
-      const modalHeader = document.getElementById('modalHeader');
-      
-      editBtn.style.display = 'block';
-      saveBtn.style.display = 'none';
-      modalHeader.classList.remove('edit-mode');
-      document.getElementById('modalTitle').style.display = 'block';
-      document.getElementById('modalTitleEdit').style.display = 'none';
-      document.getElementById('modalContent').style.display = 'block';
-      document.getElementById('modalContentEdit').style.display = 'none';
-    }
-    agentModal.style.display = 'none';
+    closeAgentModal();
   }
   if (event.target == planningModal) {
     planningModal.style.display = 'none';

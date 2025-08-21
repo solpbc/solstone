@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import json
 import os
+import time
 
 from flask import Blueprint, jsonify, render_template, request
 
@@ -35,29 +36,38 @@ def available_agents() -> object:
     items: list[dict[str, object]] = []
 
     if os.path.isdir(agents_path):
-        # Find all .json files and match with corresponding .txt files
-        json_files = [f for f in os.listdir(agents_path) if f.endswith(".json")]
+        # Find all .txt files and match with optional .json files
+        txt_files = [f for f in os.listdir(agents_path) if f.endswith(".txt")]
 
-        for json_file in json_files:
-            base_name = json_file[:-5]  # Remove .json extension
-            txt_file = base_name + ".txt"
+        for txt_file in txt_files:
+            base_name = txt_file[:-4]  # Remove .txt extension
+            json_file = base_name + ".json"
 
-            json_path = os.path.join(agents_path, json_file)
             txt_path = os.path.join(agents_path, txt_file)
-
-            # Skip if no corresponding .txt file
-            if not os.path.isfile(txt_path):
-                continue
+            json_path = os.path.join(agents_path, json_file)
 
             try:
-                with open(json_path, "r", encoding="utf-8") as f:
-                    agent_config = json.load(f)
+                # Read first line of .txt file as description
+                with open(txt_path, "r", encoding="utf-8") as f:
+                    first_line = f.readline().strip()
+                    # Remove trailing period if present for consistency
+                    description = first_line.rstrip(".")
+
+                # Read title from .json if it exists, otherwise use base_name
+                title = base_name
+                if os.path.isfile(json_path):
+                    try:
+                        with open(json_path, "r", encoding="utf-8") as f:
+                            agent_config = json.load(f)
+                            title = agent_config.get("title", base_name)
+                    except Exception:
+                        pass
 
                 items.append(
                     {
                         "id": base_name,
-                        "title": agent_config.get("title", base_name),
-                        "description": agent_config.get("description", ""),
+                        "title": title,
+                        "description": description,
                     }
                 )
             except Exception:
@@ -100,6 +110,29 @@ def agents_list() -> object:
 
     live_agents = []
     historical_agents = []
+    
+    # Load persona titles once for efficiency
+    persona_titles = {}
+    agents_path = os.path.join(
+        os.path.dirname(os.path.dirname(__file__)), "..", "think", "agents"
+    )
+    if os.path.isdir(agents_path):
+        txt_files = [f for f in os.listdir(agents_path) if f.endswith(".txt")]
+        for txt_file in txt_files:
+            base_name = txt_file[:-4]
+            json_file = base_name + ".json"
+            json_path = os.path.join(agents_path, json_file)
+            
+            # Default to ID if no json file
+            title = base_name
+            if os.path.isfile(json_path):
+                try:
+                    with open(json_path, "r", encoding="utf-8") as f:
+                        agent_config = json.load(f)
+                        title = agent_config.get("title", base_name)
+                except Exception:
+                    pass
+            persona_titles[base_name] = title
 
     # Get live agents from Cortex if requested
     if agent_type in ["live", "all"]:
@@ -116,13 +149,18 @@ def agents_list() -> object:
                     start = start_ms / 1000
                     metadata = agent.get("metadata", {})
 
+                    persona_id = metadata.get("persona", "default")
+                    # Calculate runtime in seconds for live agents (ongoing)
+                    runtime_seconds = time.time() - start if start > 0 else 0
                     live_agents.append(
                         {
                             "id": agent.get("id", ""),
                             "start": start,
                             "since": time_since(start),
+                            "runtime_seconds": runtime_seconds,
                             "model": metadata.get("model", ""),
-                            "persona": metadata.get("persona", ""),
+                            "persona": persona_id,
+                            "persona_title": persona_titles.get(persona_id, persona_id),
                             "prompt": metadata.get("prompt", ""),
                             "status": agent.get("status", "running"),
                             "pid": agent.get("pid"),
@@ -158,6 +196,13 @@ def agents_list() -> object:
                             # Extract metadata from events
                             start_ms = first_event.get("ts", int(agent_id))
                             start = start_ms / 1000
+                            
+                            # Get end time from last event
+                            end_ms = last_event.get("ts", start_ms)
+                            end = end_ms / 1000
+                            
+                            # Calculate runtime in seconds
+                            runtime_seconds = end - start if end >= start else 0
 
                             # Determine status from last event
                             status = "finished"
@@ -166,13 +211,16 @@ def agents_list() -> object:
                             elif last_event.get("event") != "finish":
                                 status = "interrupted"
 
+                            persona_id = first_event.get("persona", "default")
                             historical_agents.append(
                                 {
                                     "id": agent_id,
                                     "start": start,
                                     "since": time_since(start),
+                                    "runtime_seconds": runtime_seconds,
                                     "model": first_event.get("model", ""),
-                                    "persona": first_event.get("persona", "default"),
+                                    "persona": persona_id,
+                                    "persona_title": persona_titles.get(persona_id, persona_id),
                                     "prompt": first_event.get("prompt", ""),
                                     "status": status,
                                     "pid": None,

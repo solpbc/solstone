@@ -67,7 +67,7 @@ Use available MCP tools systematically:
 Phase 1: Discovery
 - search_summaries() for broad theme identification
 - search_events() for meeting and activity patterns
-- Look for topics mentioned 3+ times in different contexts
+- Look for topics mentioned multiple times in different contexts
 
 Phase 2: Deep Dive
 - search_transcripts() for specific discussions on promising themes
