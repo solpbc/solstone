@@ -14,6 +14,7 @@ from think.domains import domain_summary
 from think.indexer import search_events as search_events_impl
 from think.indexer import search_summaries as search_summaries_impl
 from think.indexer import search_transcripts as search_transcripts_impl
+from think.messages import send_message as send_message_impl
 from think.utils import get_raw_file
 
 # Create the MCP server
@@ -242,24 +243,69 @@ def get_domain(domain: str) -> dict[str, Any]:
     try:
         # Get the domain summary markdown
         summary_text = domain_summary(domain)
-        return {
-            "domain": domain,
-            "summary": summary_text
-        }
+        return {"domain": domain, "summary": summary_text}
     except FileNotFoundError:
         return {
             "error": f"Domain '{domain}' not found",
-            "suggestion": "verify the domain name exists or check JOURNAL_PATH is set correctly"
+            "suggestion": "verify the domain name exists or check JOURNAL_PATH is set correctly",
         }
     except RuntimeError as exc:
         return {
             "error": str(exc),
-            "suggestion": "ensure JOURNAL_PATH environment variable is set"
+            "suggestion": "ensure JOURNAL_PATH environment variable is set",
         }
     except Exception as exc:
         return {
             "error": f"Failed to get domain summary: {exc}",
-            "suggestion": "check that the domain exists and has valid metadata"
+            "suggestion": "check that the domain exists and has valid metadata",
+        }
+
+
+@mcp.tool
+def send_message(body: str) -> dict[str, Any]:
+    """Send a message to the user's inbox for asynchronous communication.
+
+    This tool allows MCP agents and tools to leave messages in the user's inbox
+    that can be reviewed later through the web interface. Messages appear as unread
+    notifications and can be archived after review. Use this for:
+    - Alerting about things or issues that need attention
+    - Leaving reminders or follow-up items
+    - Anything concerning you encounter that should be raised
+
+    Args:
+        body: The message content to send. Can be plain text or markdown formatted.
+              Keep messages concise but informative. Include relevant context or
+              action items if applicable.
+
+    Returns:
+        Dictionary containing either:
+        - success: True and message_id if the message was sent successfully
+        - error: Error message if sending failed
+
+    Examples:
+        - send_message("While analysing I found a potential security vulnerability")
+        - send_message("Daily summary ready for review in domain 'work_projects'")
+        - send_message("Failed to process transcript for 20240115 - file corrupted")
+        - send_message("Reminder: Review the pending PRs in the dashboard")
+    """
+    try:
+        # Send the message with MCP tool identification
+        message_id = send_message_impl(body=body, from_type="agent", from_id="mcp_tool")
+
+        return {
+            "success": True,
+            "message_id": message_id,
+            "message": f"Message sent successfully to inbox (ID: {message_id})",
+        }
+    except RuntimeError as exc:
+        return {
+            "error": str(exc),
+            "suggestion": "ensure JOURNAL_PATH environment variable is set",
+        }
+    except Exception as exc:
+        return {
+            "error": f"Failed to send message: {exc}",
+            "suggestion": "check journal directory permissions and structure",
         }
 
 

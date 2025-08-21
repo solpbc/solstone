@@ -19,12 +19,16 @@ async def run_client(script: Path, env: dict[str, str]):
         media = await client.call_tool(
             "get_resource", {"uri": "journal://media/20240101/090000_audio.json"}
         )
+        message_result = await client.call_tool(
+            "send_message", {"body": "Test message from MCP tool"}
+        )
     return (
         result1.data,
         result2.data,
         result3.data,
         resource.data,
         media.data,
+        message_result.data,
     )
 
 
@@ -43,7 +47,7 @@ def test_mcp_tools_via_stdio(tmp_path):
     (day_dir / "090000_audio.json").write_text("[]", encoding="utf-8")
 
     script = Path(__file__).with_name("run_mcp_stub.py")
-    data1, data2, data3, text, blob = asyncio.run(run_client(script, env))
+    data1, data2, data3, text, blob, message_data = asyncio.run(run_client(script, env))
     # The resource returns raw text content, not JSON
     summary_text = text
 
@@ -51,6 +55,7 @@ def test_mcp_tools_via_stdio(tmp_path):
     assert "topics:hello:5:0" in calls
     assert "raws:hi:20240101:5:0" in calls
     assert any(c.startswith("events:meet") for c in calls)
+    assert "send_message:Test message from MCP tool:agent:mcp_tool" in calls
     assert data1 == {
         "total": 1,
         "limit": 5,
@@ -88,4 +93,11 @@ def test_mcp_tools_via_stdio(tmp_path):
                 "summary": "Daily sync",
             }
         ],
+    }
+
+    # Test send_message result
+    assert message_data == {
+        "success": True,
+        "message_id": "msg_1755741524726",
+        "message": "Message sent successfully to inbox (ID: msg_1755741524726)",
     }

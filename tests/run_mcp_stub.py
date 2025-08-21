@@ -75,9 +75,15 @@ def stub_search_events(
     ]
 
 
+def stub_send_message(body, from_type="system", from_id="system", context=None):
+    log_call(f"send_message:{body}:{from_type}:{from_id}")
+    return "msg_1755741524726"
+
+
 mcp_tools.search_summaries_impl = stub_search_summaries
 mcp_tools.search_transcripts_impl = stub_search_transcripts
 mcp_tools.search_events_impl = stub_search_events
+mcp_tools.send_message_impl = stub_send_message
 
 if __name__ == "__main__":
     mcp_tools.mcp.run()
