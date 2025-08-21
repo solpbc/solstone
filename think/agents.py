@@ -175,7 +175,7 @@ async def run_agent(
 
     Args:
         prompt: The prompt to run
-        backend: Backend provider ("openai", "google", "anthropic")
+        backend: Backend provider ("openai", "google", "anthropic", "claude")
         model: Model to use (defaults to backend default)
         max_tokens: Maximum tokens (defaults to backend default)
         on_event: Optional event callback
@@ -188,6 +188,8 @@ async def run_agent(
         from . import google as backend_mod
     elif backend == "anthropic":
         from . import anthropic as backend_mod
+    elif backend == "claude":
+        from . import claude as backend_mod
     else:
         from . import openai as backend_mod
 
@@ -222,7 +224,7 @@ async def main_async() -> None:
     pre_parser = argparse.ArgumentParser(add_help=False)
     pre_parser.add_argument(
         "--backend",
-        choices=["openai", "google", "anthropic"],
+        choices=["openai", "google", "anthropic", "claude"],
         default="openai",
         help="Backend provider",
     )
@@ -232,6 +234,8 @@ async def main_async() -> None:
         from . import google as backend_mod
     elif pre_args.backend == "anthropic":
         from . import anthropic as backend_mod
+    elif pre_args.backend == "claude":
+        from . import claude as backend_mod
     else:
         from . import openai as backend_mod
 
@@ -243,7 +247,7 @@ async def main_async() -> None:
     )
     parser.add_argument(
         "--backend",
-        choices=["openai", "google", "anthropic"],
+        choices=["openai", "google", "anthropic", "claude"],
         default=pre_args.backend,
         help="Backend provider",
     )

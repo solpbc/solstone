@@ -13,6 +13,9 @@ def pytest_configure(config):
     config.addinivalue_line(
         "markers", "requires_api: mark test as requiring external API access"
     )
+    config.addinivalue_line(
+        "markers", "requires_claude_sdk: mark test as requiring Claude Code SDK"
+    )
 
 
 @pytest.fixture(scope="session")
