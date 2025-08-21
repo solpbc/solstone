@@ -280,3 +280,37 @@ def build_occurrence_index(journal: str) -> Dict[str, List[Dict[str, Any]]]:
 
 # Backwards compatibility
 build_index = build_occurrence_index
+
+
+def get_persona_titles() -> Dict[str, str]:
+    """Load persona titles from think/agents directory.
+
+    Returns:
+        Dictionary mapping persona IDs to their display titles
+    """
+    persona_titles = {}
+    agents_path = os.path.join(
+        os.path.dirname(os.path.dirname(__file__)), "think", "agents"
+    )
+
+    if not os.path.isdir(agents_path):
+        return persona_titles
+
+    txt_files = [f for f in os.listdir(agents_path) if f.endswith(".txt")]
+    for txt_file in txt_files:
+        base_name = txt_file[:-4]
+        json_file = base_name + ".json"
+        json_path = os.path.join(agents_path, json_file)
+
+        # Default to ID if no json file
+        title = base_name
+        if os.path.isfile(json_path):
+            try:
+                with open(json_path, "r", encoding="utf-8") as f:
+                    agent_config = json.load(f)
+                    title = agent_config.get("title", base_name)
+            except Exception:
+                pass
+        persona_titles[base_name] = title
+
+    return persona_titles

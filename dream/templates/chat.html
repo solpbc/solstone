@@ -98,6 +98,34 @@ const messagesDiv = document.getElementById('messages');
 const backendSelect = document.getElementById('backendSelect');
 const searchBase = '{{ url_for('search.search_page') }}';
 
+// Pass persona titles from backend
+const personaTitles = {{ persona_titles | tojson }};
+
+// Parse fragment for persona and agent ID
+let currentPersona = 'default';
+let isHistorical = false;
+let historicalAgentId = null;
+
+function parseFragment() {
+  const fragment = window.location.hash.slice(1);
+  if (!fragment) return;
+  
+  // Check if it's a historical agent (just numbers)
+  if (/^\d+$/.test(fragment)) {
+    isHistorical = true;
+    historicalAgentId = fragment;
+    return;
+  }
+  
+  // Parse persona from fragment
+  const personaMatch = fragment.match(/persona=([^&]+)/);
+  if (personaMatch) {
+    currentPersona = personaMatch[1];
+  }
+}
+
+parseFragment();
+
 // Create persistent activity indicator
 const activityIndicator = document.createElement('div');
 activityIndicator.className = 'activity-indicator';
@@ -161,10 +189,6 @@ function ensureActivityIndicatorAtBottom() {
     messagesDiv.appendChild(activityIndicator);
   }
 }
-
-// Check if viewing historical agent
-const fragment = window.location.hash.slice(1);
-const isHistorical = fragment && /^\d+$/.test(fragment);
 
 function addEventCard(text, url){
   const div=document.createElement('div');
@@ -311,7 +335,7 @@ document.getElementById('inputArea').onsubmit=async e=>{
   responseInProgress = true;
   showActivityIndicator();
   
-  const r=await fetch(sendUrl,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:text,backend:backendSelect.value})});
+  const r=await fetch(sendUrl,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:text,backend:backendSelect.value,persona:currentPersona})});
   
   if(r.ok){
     const d=await r.json();
@@ -580,6 +604,16 @@ function updateHistoricalHeader(agentId, events) {
   }
 }
 
+// Display persona header if not default
+if(currentPersona !== 'default' && !isHistorical){
+  const personaTitle = personaTitles[currentPersona] || currentPersona;
+  const notice = document.createElement('div');
+  notice.id = 'personaNotice';
+  notice.style.cssText = 'background:#e3f2fd;border:1px solid #2196f3;padding:0.75rem;margin:1rem;border-radius:4px;text-align:center;color:#1565c0;';
+  notice.innerHTML = `Using <strong>${personaTitle}</strong> persona`;
+  document.querySelector('.container').insertBefore(notice, messagesDiv);
+}
+
 // Disable input and controls if viewing historical agent
 if(isHistorical){
   form.style.display = 'none';
@@ -593,7 +627,7 @@ if(isHistorical){
   // Add activity indicator to messages div for historical view
   messagesDiv.appendChild(activityIndicator);
   
-  loadHistoricalAgent(fragment);
+  loadHistoricalAgent(historicalAgentId);
 } else {
   // Live mode - enable normal functionality
   document.getElementById('clearBtn').onclick=async()=>{
@@ -632,6 +666,38 @@ if(isHistorical){
   });
 
   loadHistory();
+  
+  // Listen for hash changes to update persona
+  window.addEventListener('hashchange', () => {
+    const oldPersona = currentPersona;
+    parseFragment();
+    
+    // If persona changed, update the header
+    if (oldPersona !== currentPersona && !isHistorical) {
+      const notice = document.getElementById('personaNotice');
+      if (currentPersona === 'default' && notice) {
+        notice.remove();
+      } else if (currentPersona !== 'default') {
+        const personaTitle = personaTitles[currentPersona] || currentPersona;
+        if (notice) {
+          notice.innerHTML = `Using <strong>${personaTitle}</strong> persona`;
+        } else {
+          const newNotice = document.createElement('div');
+          newNotice.id = 'personaNotice';
+          newNotice.style.cssText = 'background:#e3f2fd;border:1px solid #2196f3;padding:0.75rem;margin:1rem;border-radius:4px;text-align:center;color:#1565c0;';
+          newNotice.innerHTML = `Using <strong>${personaTitle}</strong> persona`;
+          document.querySelector('.container').insertBefore(newNotice, messagesDiv);
+        }
+      }
+      
+      // Clear messages when switching personas
+      messagesDiv.innerHTML = '';
+      messagesDiv.appendChild(activityIndicator);
+      previousAgent = null;
+      responseInProgress = false;
+      forceHideActivityIndicator();
+    }
+  });
 }
 </script>
 {% endblock %}

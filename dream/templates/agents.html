@@ -79,6 +79,29 @@
   box-shadow: 0 2px 8px rgba(0, 123, 255, 0.1);
 }
 
+.agent-card .chat-link {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  font-size: 1.5rem;
+  text-decoration: none;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  background: white;
+  border-radius: 4px;
+  padding: 0.2rem 0.4rem;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.agent-card:hover .chat-link {
+  opacity: 1;
+}
+
+.agent-card .chat-link:hover {
+  transform: scale(1.1);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+}
+
 .agent-card.selected {
   border-color: #007bff;
   background: #f8f9ff;
@@ -889,10 +912,22 @@ function renderAgentCards() {
     card.className = 'agent-card';
     card.dataset.agentId = agent.id;
     card.title = agent.description; // Set description as tooltip
+    
+    // Create chat link that stops propagation
+    const chatLink = document.createElement('a');
+    chatLink.className = 'chat-link';
+    chatLink.href = `/chat#persona=${agent.id}`;
+    chatLink.innerHTML = '💬';
+    chatLink.title = `Chat with ${agent.title}`;
+    chatLink.onclick = (e) => {
+      e.stopPropagation(); // Prevent card click when clicking chat link
+    };
+    
     card.innerHTML = `
       <h3>${agent.title}</h3>
     `;
     
+    card.appendChild(chatLink);
     card.addEventListener('click', (e) => {
       viewAgentDetails(agent.id, e);
     });

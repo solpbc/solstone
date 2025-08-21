@@ -110,29 +110,10 @@ def agents_list() -> object:
 
     live_agents = []
     historical_agents = []
-    
+
     # Load persona titles once for efficiency
-    persona_titles = {}
-    agents_path = os.path.join(
-        os.path.dirname(os.path.dirname(__file__)), "..", "think", "agents"
-    )
-    if os.path.isdir(agents_path):
-        txt_files = [f for f in os.listdir(agents_path) if f.endswith(".txt")]
-        for txt_file in txt_files:
-            base_name = txt_file[:-4]
-            json_file = base_name + ".json"
-            json_path = os.path.join(agents_path, json_file)
-            
-            # Default to ID if no json file
-            title = base_name
-            if os.path.isfile(json_path):
-                try:
-                    with open(json_path, "r", encoding="utf-8") as f:
-                        agent_config = json.load(f)
-                        title = agent_config.get("title", base_name)
-                except Exception:
-                    pass
-            persona_titles[base_name] = title
+    from ..utils import get_persona_titles
+    persona_titles = get_persona_titles()
 
     # Get live agents from Cortex if requested
     if agent_type in ["live", "all"]:
@@ -196,11 +177,10 @@ def agents_list() -> object:
                             # Extract metadata from events
                             start_ms = first_event.get("ts", int(agent_id))
                             start = start_ms / 1000
-                            
+
                             # Get end time from last event
                             end_ms = last_event.get("ts", start_ms)
                             end = end_ms / 1000
-                            
                             # Calculate runtime in seconds
                             runtime_seconds = end - start if end >= start else 0
 

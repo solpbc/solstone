@@ -22,7 +22,9 @@ bp = Blueprint("chat", __name__, template_folder="../templates")
 
 @bp.route("/chat")
 def chat_page() -> str:
-    return render_template("chat.html", active="chat")
+    from ..utils import get_persona_titles
+    persona_titles = get_persona_titles()
+    return render_template("chat.html", active="chat", persona_titles=persona_titles)
 
 
 @bp.route("/chat/api/send", methods=["POST"])
@@ -31,6 +33,7 @@ def send_message() -> Any:
     message = payload.get("message", "")
     attachments = payload.get("attachments", [])
     backend = payload.get("backend", state.chat_backend)
+    persona = payload.get("persona", "default")  # Get persona from request
 
     if backend == "openai":
         key_name = "OPENAI_API_KEY"
@@ -50,7 +53,7 @@ def send_message() -> Any:
             prompt=message,
             attachments=attachments,
             backend=backend,
-            persona="default",
+            persona=persona,  # Pass the persona to the agent
             timeout=300,  # 5 minutes for chat
             on_event=_push_event,  # Forward events to push server
         )
