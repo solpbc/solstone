@@ -184,6 +184,7 @@ def agent_instructions(persona: str = "default") -> Tuple[str, str, dict[str, ob
         # Add domains to agent instructions
         try:
             from think.domains import get_domains
+
             domains = get_domains()
             if domains:
                 lines = ["## Domains"]

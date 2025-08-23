@@ -32,22 +32,10 @@ def test_parse_line_numbers_invalid():
 def test_detect_transcript_segment(monkeypatch):
     mod = importlib.import_module("think.detect_transcript")
 
-    class DummyClient:
-        class Models:
-            def generate_content(self, **kwargs):
-                return SimpleNamespace(text="[3]")
+    # Mock the gemini_generate function instead of genai.Client
+    def mock_gemini_generate(**kwargs):
+        return "[3]"
 
-        def __init__(self):
-            self.models = self.Models()
-
-    monkeypatch.setattr(mod.genai, "Client", lambda *a, **k: DummyClient())
-    monkeypatch.setattr(
-        mod,
-        "types",
-        SimpleNamespace(
-            GenerateContentConfig=lambda **k: None,
-            ThinkingConfig=lambda **k: None,
-        ),
-    )
+    monkeypatch.setattr("think.detect_transcript.gemini_generate", mock_gemini_generate)
     result = mod.detect_transcript_segment("a\nb\nc\nd", api_key="x")
     assert result == ["a\nb", "c\nd"]

@@ -113,6 +113,7 @@ def agents_list() -> object:
 
     # Load persona titles once for efficiency
     from ..utils import get_persona_titles
+
     persona_titles = get_persona_titles()
 
     # Get live agents from Cortex if requested
@@ -200,7 +201,9 @@ def agents_list() -> object:
                                     "runtime_seconds": runtime_seconds,
                                     "model": first_event.get("model", ""),
                                     "persona": persona_id,
-                                    "persona_title": persona_titles.get(persona_id, persona_id),
+                                    "persona_title": persona_titles.get(
+                                        persona_id, persona_id
+                                    ),
                                     "prompt": first_event.get("prompt", ""),
                                     "status": status,
                                     "pid": None,

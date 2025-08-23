@@ -26,8 +26,21 @@ def test_send_message_success(monkeypatch):
     review = importlib.import_module("dream")
     monkeypatch.setenv("GOOGLE_API_KEY", "x")
 
-    def dummy_run_agent_via_cortex(prompt, persona="default", backend="openai", attachments=None, timeout=60, on_event=None):
-        dummy_run_agent_via_cortex.called = (prompt, persona, backend, attachments, timeout)
+    def dummy_run_agent_via_cortex(
+        prompt,
+        persona="default",
+        backend="openai",
+        attachments=None,
+        timeout=60,
+        on_event=None,
+    ):
+        dummy_run_agent_via_cortex.called = (
+            prompt,
+            persona,
+            backend,
+            attachments,
+            timeout,
+        )
         return "pong"
 
     monkeypatch.setattr(
@@ -50,7 +63,14 @@ def test_send_message_openai(monkeypatch):
 
     called = {}
 
-    def dummy_run_agent_via_cortex(prompt, persona="default", backend="openai", attachments=None, timeout=60, on_event=None):
+    def dummy_run_agent_via_cortex(
+        prompt,
+        persona="default",
+        backend="openai",
+        attachments=None,
+        timeout=60,
+        on_event=None,
+    ):
         called["backend"] = backend
         called["persona"] = persona
         return "pong"
@@ -73,7 +93,14 @@ def test_send_message_anthropic(monkeypatch):
 
     called = {}
 
-    def dummy_run_agent_via_cortex(prompt, persona="default", backend="openai", attachments=None, timeout=60, on_event=None):
+    def dummy_run_agent_via_cortex(
+        prompt,
+        persona="default",
+        backend="openai",
+        attachments=None,
+        timeout=60,
+        on_event=None,
+    ):
         called["backend"] = backend
         called["persona"] = persona
         return "pong"
@@ -129,16 +156,25 @@ def test_tool_event_pushed(monkeypatch):
                 }
             )
 
-    def dummy_run_agent_via_cortex(prompt, persona="default", backend="openai", attachments=None, timeout=60, on_event=None):
+    def dummy_run_agent_via_cortex(
+        prompt,
+        persona="default",
+        backend="openai",
+        attachments=None,
+        timeout=60,
+        on_event=None,
+    ):
         # Simulate the cortex interaction flow
         if on_event:
             # Simulate a tool event
-            on_event({
-                "event": "tool_start",
-                "ts": int(time.time() * 1000),
-                "tool": "search_events",
-                "args": {"query": prompt},
-            })
+            on_event(
+                {
+                    "event": "tool_start",
+                    "ts": int(time.time() * 1000),
+                    "tool": "search_events",
+                    "args": {"query": prompt},
+                }
+            )
         return "pong"
 
     monkeypatch.setattr(

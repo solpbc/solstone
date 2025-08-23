@@ -11,6 +11,7 @@ from flask import Blueprint, jsonify, render_template, request
 
 from think.domains import get_domains, get_matter, get_matters
 from think.indexer import search_entities
+
 from ..cortex_utils import run_agent_via_cortex
 
 bp = Blueprint("domains", __name__, template_folder="../templates")

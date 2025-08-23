@@ -3,22 +3,16 @@ import importlib
 from PIL import Image
 
 
-class DummyClient:
-    class Models:
-        def generate_content(self, **kwargs):
-            class R:
-                text = '{"ok": true}'
-
-            return R()
-
-    def __init__(self):
-        self.models = self.Models()
-
-
 def test_gemini_describe_region(tmp_path, monkeypatch):
     mod = importlib.import_module("see.gemini_look")
-    monkeypatch.setattr(mod, "_gemini_client", DummyClient())
+    
+    # Mock the gemini_generate function
+    def mock_gemini_generate(**kwargs):
+        return '{"ok": true}'
+    
+    monkeypatch.setattr("see.gemini_look.gemini_generate", mock_gemini_generate)
     monkeypatch.setattr(mod, "_system_instruction", "sys")
+    
     img = Image.new("RGB", (10, 10), "white")
     box = [0, 0, 5, 5]
     entities = tmp_path / "e.md"

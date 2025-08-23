@@ -35,7 +35,7 @@ def gemini_generate(
 ) -> str:
     """
     Simplified wrapper for genai.models.generate_content with common defaults.
-    
+
     Parameters
     ----------
     contents : str, List, or List[types.Content]
@@ -59,7 +59,7 @@ def gemini_generate(
         Name of cached content to use
     client : genai.Client, optional
         Existing client to reuse. If not provided, creates a new one.
-    
+
     Returns
     -------
     str
@@ -72,41 +72,41 @@ def gemini_generate(
         if not api_key:
             raise ValueError("GOOGLE_API_KEY not found in environment")
         client = genai.Client(api_key=api_key)
-    
+
     # Normalize contents to list if it's a plain string
     # But don't touch it if it's already a list (could contain Parts or Content objects)
     if isinstance(contents, str):
         contents = [contents]
-    
+
     # Build config
     config_args = {
         "temperature": temperature,
         "max_output_tokens": max_output_tokens,
     }
-    
+
     if system_instruction:
         config_args["system_instruction"] = system_instruction
-    
+
     if json_output:
         config_args["response_mime_type"] = "application/json"
-    
+
     if thinking_budget:
         config_args["thinking_config"] = types.ThinkingConfig(
             thinking_budget=thinking_budget
         )
-    
+
     if cached_content:
         config_args["cached_content"] = cached_content
-    
+
     # Make the API call
     response = client.models.generate_content(
         model=model,
         contents=contents,
         config=types.GenerateContentConfig(**config_args),
     )
-    
+
     # Log token usage if we have usage metadata
-    if hasattr(response, 'usage_metadata'):
+    if hasattr(response, "usage_metadata"):
         try:
             journal = os.getenv("JOURNAL_PATH")
             if journal:
@@ -115,18 +115,18 @@ def gemini_generate(
                 frame = inspect.currentframe()
                 if frame and frame.f_back:
                     caller_frame = frame.f_back
-                    module_name = caller_frame.f_globals.get('__name__', 'unknown')
+                    module_name = caller_frame.f_globals.get("__name__", "unknown")
                     func_name = caller_frame.f_code.co_name
                     line_num = caller_frame.f_lineno
-                    
+
                     # Clean up module name
-                    for prefix in ['think.', 'hear.', 'see.', 'dream.']:
+                    for prefix in ["think.", "hear.", "see.", "dream."]:
                         if module_name.startswith(prefix):
-                            module_name = module_name[len(prefix):]
+                            module_name = module_name[len(prefix) :]
                             break
-                    
+
                     context = f"{module_name}.{func_name}:{line_num}"
-                
+
                 # Build token log entry
                 usage = response.usage_metadata
                 token_data = {
@@ -135,28 +135,32 @@ def gemini_generate(
                     "model": model,
                     "context": context,
                     "usage": {
-                        "prompt_tokens": getattr(usage, 'prompt_token_count', 0),
-                        "candidates_tokens": getattr(usage, 'candidates_token_count', 0),
-                        "cached_tokens": getattr(usage, 'cached_content_token_count', 0),
-                        "thoughts_tokens": getattr(usage, 'thoughts_token_count', 0),
-                        "total_tokens": getattr(usage, 'total_token_count', 0),
-                    }
+                        "prompt_tokens": getattr(usage, "prompt_token_count", 0),
+                        "candidates_tokens": getattr(
+                            usage, "candidates_token_count", 0
+                        ),
+                        "cached_tokens": getattr(
+                            usage, "cached_content_token_count", 0
+                        ),
+                        "thoughts_tokens": getattr(usage, "thoughts_token_count", 0),
+                        "total_tokens": getattr(usage, "total_token_count", 0),
+                    },
                 }
-                
+
                 # Save to journal/tokens/<timestamp>.json
                 tokens_dir = Path(journal) / "tokens"
                 tokens_dir.mkdir(exist_ok=True)
-                
+
                 filename = f"{int(time.time() * 1000)}.json"
                 filepath = tokens_dir / filename
-                
-                with open(filepath, 'w') as f:
+
+                with open(filepath, "w") as f:
                     json.dump(token_data, f, indent=2)
-                    
+
         except Exception:
             # Silently fail - logging shouldn't break the main flow
             pass
-    
+
     return response.text
 
 

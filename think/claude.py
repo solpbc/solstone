@@ -16,8 +16,8 @@ from typing import Any, Callable, Optional
 
 from claude_code_sdk import (
     AssistantMessage,
-    CLINotFoundError,
     ClaudeCodeOptions,
+    CLINotFoundError,
     ProcessError,
     TextBlock,
     ToolResultBlock,
@@ -51,24 +51,26 @@ async def run_agent(
 ) -> str:
     """Run a single prompt through the Claude Code SDK and return the response."""
     callback = JSONEventCallback(on_event)
-    
+
     try:
         # Get journal path for file permissions
         journal_path = os.getenv("JOURNAL_PATH")
         if not journal_path:
             raise RuntimeError("JOURNAL_PATH not set")
 
-        callback.emit({
-            "event": "start",
-            "prompt": prompt,
-            "persona": persona,
-            "model": model,
-            "backend": "claude",
-        })
+        callback.emit(
+            {
+                "event": "start",
+                "prompt": prompt,
+                "persona": persona,
+                "model": model,
+                "backend": "claude",
+            }
+        )
 
         # Get persona instructions
         system_instruction, first_user, _ = agent_instructions(persona)
-        
+
         # Combine prompts
         full_prompt = []
         if first_user:
@@ -104,7 +106,7 @@ async def run_agent(
         # Track tool calls for pairing start/end events
         tool_calls = {}
         response_text = []
-        
+
         # Stream responses from Claude Code
         async for message in query(prompt=combined_prompt, options=options):
             if isinstance(message, AssistantMessage):
@@ -113,40 +115,44 @@ async def run_agent(
                     if isinstance(block, TextBlock):
                         # Regular text response
                         response_text.append(block.text)
-                        
+
                     elif isinstance(block, ToolUseBlock):
                         # Tool being called
                         tool_id = getattr(block, "id", str(time.time()))
                         tool_name = getattr(block, "name", "unknown")
                         tool_input = getattr(block, "input", {})
-                        
+
                         tool_calls[tool_id] = {
                             "name": tool_name,
                             "input": tool_input,
                         }
-                        
-                        callback.emit({
-                            "event": "tool_start",
-                            "tool": tool_name,
-                            "args": tool_input,
-                            "call_id": tool_id,
-                        })
-                        
+
+                        callback.emit(
+                            {
+                                "event": "tool_start",
+                                "tool": tool_name,
+                                "args": tool_input,
+                                "call_id": tool_id,
+                            }
+                        )
+
                     elif isinstance(block, ToolResultBlock):
                         # Tool result received
                         tool_id = getattr(block, "tool_use_id", None)
                         content = getattr(block, "content", "")
-                        
+
                         if tool_id and tool_id in tool_calls:
                             tool_info = tool_calls[tool_id]
-                            callback.emit({
-                                "event": "tool_end",
-                                "tool": tool_info["name"],
-                                "args": tool_info["input"],
-                                "result": content,
-                                "call_id": tool_id,
-                            })
-                        
+                            callback.emit(
+                                {
+                                    "event": "tool_end",
+                                    "tool": tool_info["name"],
+                                    "args": tool_info["input"],
+                                    "result": content,
+                                    "call_id": tool_id,
+                                }
+                            )
+
                     # Handle other block types if needed
                     elif hasattr(block, "thinking"):
                         # Thinking/reasoning block
@@ -159,78 +165,90 @@ async def run_agent(
                                 "model": model,
                             }
                             callback.emit(thinking_event)
-                            
+
             elif isinstance(message, UserMessage):
                 # User message in conversation (shouldn't happen in our case)
                 pass
-                
+
             # Handle other message types or raw events
             elif hasattr(message, "__dict__"):
                 # Check for streaming events or other message types
                 msg_dict = message.__dict__ if hasattr(message, "__dict__") else {}
-                
+
                 # Look for tool events in the message structure
                 if msg_dict.get("type") == "tool_use":
                     tool_id = msg_dict.get("id", str(time.time()))
                     tool_name = msg_dict.get("name", "unknown")
                     tool_input = msg_dict.get("input", {})
-                    
+
                     tool_calls[tool_id] = {
                         "name": tool_name,
                         "input": tool_input,
                     }
-                    
-                    callback.emit({
-                        "event": "tool_start",
-                        "tool": tool_name,
-                        "args": tool_input,
-                        "call_id": tool_id,
-                    })
-                    
+
+                    callback.emit(
+                        {
+                            "event": "tool_start",
+                            "tool": tool_name,
+                            "args": tool_input,
+                            "call_id": tool_id,
+                        }
+                    )
+
                 elif msg_dict.get("type") == "tool_result":
                     tool_id = msg_dict.get("tool_use_id")
                     content = msg_dict.get("content", "")
-                    
+
                     if tool_id and tool_id in tool_calls:
                         tool_info = tool_calls[tool_id]
-                        callback.emit({
-                            "event": "tool_end",
-                            "tool": tool_info["name"],
-                            "args": tool_info["input"],
-                            "result": content,
-                            "call_id": tool_id,
-                        })
+                        callback.emit(
+                            {
+                                "event": "tool_end",
+                                "tool": tool_info["name"],
+                                "args": tool_info["input"],
+                                "result": content,
+                                "call_id": tool_id,
+                            }
+                        )
 
         # Combine all response text
         final_text = "".join(response_text).strip()
-        
+
         callback.emit({"event": "finish", "result": final_text})
         return final_text
 
     except CLINotFoundError:
         error_msg = "Claude Code CLI not found. Please install with: npm install -g @anthropic-ai/claude-code"
-        callback.emit({
-            "event": "error",
-            "error": error_msg,
-            "trace": traceback.format_exc(),
-        })
+        callback.emit(
+            {
+                "event": "error",
+                "error": error_msg,
+                "trace": traceback.format_exc(),
+            }
+        )
         raise RuntimeError(error_msg)
-        
+
     except ProcessError as e:
-        error_msg = f"Claude Code process failed with exit code {e.exit_code}: {e.stderr}"
-        callback.emit({
-            "event": "error",
-            "error": error_msg,
-            "trace": traceback.format_exc(),
-        })
+        error_msg = (
+            f"Claude Code process failed with exit code {e.exit_code}: {e.stderr}"
+        )
+        callback.emit(
+            {
+                "event": "error",
+                "error": error_msg,
+                "trace": traceback.format_exc(),
+            }
+        )
         raise RuntimeError(error_msg)
-        
+
     except Exception as exc:
-        callback.emit({
-            "event": "error",
-            "error": str(exc),
-            "trace": traceback.format_exc(),
-        })
+        callback.emit(
+            {
+                "event": "error",
+                "error": str(exc),
+                "trace": traceback.format_exc(),
+            }
+        )
         setattr(exc, "_evented", True)
         raise
 

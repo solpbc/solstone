@@ -34,10 +34,10 @@ def test_claude_backend_real_sdk():
     """Test Claude backend with real SDK call if Claude Code CLI is available."""
     # Use the fixtures journal path
     fixtures_env, journal_path = get_fixtures_env()
-    
+
     if not fixtures_env:
         pytest.skip("fixtures/.env not found")
-    
+
     if not journal_path:
         pytest.skip("JOURNAL_PATH not found in fixtures/.env file")
 
@@ -45,7 +45,7 @@ def test_claude_backend_real_sdk():
     claude_path = Path.home() / ".claude" / "local" / "node_modules" / ".bin" / "claude"
     if not claude_path.exists():
         pytest.skip(f"Claude Code CLI not found at {claude_path}")
-    
+
     try:
         result = subprocess.run(
             [str(claude_path), "--version"],
@@ -56,12 +56,14 @@ def test_claude_backend_real_sdk():
         if result.returncode != 0:
             pytest.skip("Claude Code CLI not working properly")
     except (subprocess.TimeoutExpired, FileNotFoundError):
-        pytest.skip("Claude Code CLI not found - install with: npm install -g @anthropic-ai/claude-code")
+        pytest.skip(
+            "Claude Code CLI not found - install with: npm install -g @anthropic-ai/claude-code"
+        )
 
     # Create journal structure
     journal_dir = Path(journal_path)
     journal_dir.mkdir(parents=True, exist_ok=True)
-    
+
     agents_dir = journal_dir / "agents"
     agents_dir.mkdir(exist_ok=True)
 
@@ -77,7 +79,9 @@ def test_claude_backend_real_sdk():
         env = os.environ.copy()
         env["JOURNAL_PATH"] = journal_path
         # Add Claude CLI to PATH
-        claude_bin_dir = str(Path.home() / ".claude" / "local" / "node_modules" / ".bin")
+        claude_bin_dir = str(
+            Path.home() / ".claude" / "local" / "node_modules" / ".bin"
+        )
         env["PATH"] = claude_bin_dir + ":" + env.get("PATH", "")
         # Use Sonnet 4 for testing
         env["CLAUDE_AGENT_MODEL"] = CLAUDE_SONNET_4
@@ -95,9 +99,7 @@ def test_claude_backend_real_sdk():
         )
 
         # Check that the command succeeded
-        assert (
-            result.returncode == 0
-        ), f"Command failed with stderr: {result.stderr}"
+        assert result.returncode == 0, f"Command failed with stderr: {result.stderr}"
 
         # Parse stdout events (should be JSONL format)
         stdout_lines = result.stdout.strip().split("\n")
@@ -152,10 +154,10 @@ def test_claude_backend_with_tool_calls():
     """Test Claude backend with tool calls."""
     # Use the fixtures journal path
     fixtures_env, journal_path = get_fixtures_env()
-    
+
     if not fixtures_env:
         pytest.skip("fixtures/.env not found")
-    
+
     if not journal_path:
         pytest.skip("JOURNAL_PATH not found in fixtures/.env file")
 
@@ -163,7 +165,7 @@ def test_claude_backend_with_tool_calls():
     claude_path = Path.home() / ".claude" / "local" / "node_modules" / ".bin" / "claude"
     if not claude_path.exists():
         pytest.skip(f"Claude Code CLI not found at {claude_path}")
-    
+
     try:
         result = subprocess.run(
             [str(claude_path), "--version"],
@@ -179,7 +181,7 @@ def test_claude_backend_with_tool_calls():
     # Create journal structure
     journal_dir = Path(journal_path)
     journal_dir.mkdir(parents=True, exist_ok=True)
-    
+
     agents_dir = journal_dir / "agents"
     agents_dir.mkdir(exist_ok=True)
 
@@ -199,7 +201,9 @@ def test_claude_backend_with_tool_calls():
         env = os.environ.copy()
         env["JOURNAL_PATH"] = journal_path
         # Add Claude CLI to PATH
-        claude_bin_dir = str(Path.home() / ".claude" / "local" / "node_modules" / ".bin")
+        claude_bin_dir = str(
+            Path.home() / ".claude" / "local" / "node_modules" / ".bin"
+        )
         env["PATH"] = claude_bin_dir + ":" + env.get("PATH", "")
         env["CLAUDE_AGENT_MODEL"] = CLAUDE_SONNET_4
         env["CLAUDE_AGENT_MAX_TOKENS"] = "200"
@@ -219,9 +223,7 @@ def test_claude_backend_with_tool_calls():
         test_file.unlink(missing_ok=True)
 
         # Check that the command succeeded
-        assert (
-            result.returncode == 0
-        ), f"Command failed with stderr: {result.stderr}"
+        assert result.returncode == 0, f"Command failed with stderr: {result.stderr}"
 
         # Parse stdout events
         stdout_lines = result.stdout.strip().split("\n")
@@ -237,7 +239,7 @@ def test_claude_backend_with_tool_calls():
         # Look for tool events (optional - Claude might just respond without tools)
         tool_start_events = [e for e in events if e.get("event") == "tool_start"]
         tool_end_events = [e for e in events if e.get("event") == "tool_end"]
-        
+
         # Tool events are optional in this backend
         # The important thing is that the finish event contains the correct response
 
@@ -256,10 +258,10 @@ def test_claude_backend_with_thinking():
     """Test Claude backend thinking/reasoning events."""
     # Use the fixtures journal path
     fixtures_env, journal_path = get_fixtures_env()
-    
+
     if not fixtures_env:
         pytest.skip("fixtures/.env not found")
-    
+
     if not journal_path:
         pytest.skip("JOURNAL_PATH not found in fixtures/.env file")
 
@@ -267,7 +269,7 @@ def test_claude_backend_with_thinking():
     claude_path = Path.home() / ".claude" / "local" / "node_modules" / ".bin" / "claude"
     if not claude_path.exists():
         pytest.skip(f"Claude Code CLI not found at {claude_path}")
-    
+
     try:
         result = subprocess.run(
             [str(claude_path), "--version"],
@@ -283,7 +285,7 @@ def test_claude_backend_with_thinking():
     # Create journal structure
     journal_dir = Path(journal_path)
     journal_dir.mkdir(parents=True, exist_ok=True)
-    
+
     agents_dir = journal_dir / "agents"
     agents_dir.mkdir(exist_ok=True)
 
@@ -301,7 +303,9 @@ def test_claude_backend_with_thinking():
         env = os.environ.copy()
         env["JOURNAL_PATH"] = journal_path
         # Add Claude CLI to PATH
-        claude_bin_dir = str(Path.home() / ".claude" / "local" / "node_modules" / ".bin")
+        claude_bin_dir = str(
+            Path.home() / ".claude" / "local" / "node_modules" / ".bin"
+        )
         env["PATH"] = claude_bin_dir + ":" + env.get("PATH", "")
         # Use Sonnet 4 model
         env["CLAUDE_AGENT_MODEL"] = CLAUDE_SONNET_4
@@ -319,9 +323,7 @@ def test_claude_backend_with_thinking():
         )
 
         # Check that the command succeeded
-        assert (
-            result.returncode == 0
-        ), f"Command failed with stderr: {result.stderr}"
+        assert result.returncode == 0, f"Command failed with stderr: {result.stderr}"
 
         # Parse stdout events
         stdout_lines = result.stdout.strip().split("\n")
