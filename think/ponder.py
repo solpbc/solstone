@@ -1,8 +1,6 @@
 import argparse
 import json
 import os
-import threading
-import time
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -58,7 +56,7 @@ def _get_or_create_cache(
 ) -> str:
     """Return cache name for ``display_name`` creating it with ``transcript`` and
     :data:`COMMON_SYSTEM_INSTRUCTION` if needed.
-    
+
     The cache contains the system instruction + transcript which are identical
     for all topics on the same day, so display_name should be day-based only."""
 
@@ -84,49 +82,31 @@ def send_markdown(
     api_key: str,
     model: str,
     cache_display_name: str | None = None,
-) -> tuple[str, object]:
+) -> str:
     client = genai.Client(api_key=api_key)
 
-    done = threading.Event()
+    gen_config_args = {
+        "temperature": 0.3,
+        "max_output_tokens": 8192 * 6,
+        "thinking_config": types.ThinkingConfig(
+            thinking_budget=8192 * 3,
+        ),
+    }
 
-    def progress():
-        elapsed = 0
-        while not done.is_set():
-            time.sleep(5)
-            elapsed += 5
-            if not done.is_set():
-                print(f"... {elapsed}s elapsed")
+    if cache_display_name:
+        cache_name = _get_or_create_cache(client, model, cache_display_name, markdown)
+        gen_config_args["cached_content"] = cache_name
+        contents: list[str] = [prompt]
+    else:
+        gen_config_args["system_instruction"] = COMMON_SYSTEM_INSTRUCTION
+        contents = [markdown, prompt]
 
-    t = threading.Thread(target=progress, daemon=True)
-    t.start()
-    try:
-        gen_config_args = {
-            "temperature": 0.3,
-            "max_output_tokens": 8192 * 6,
-            "thinking_config": types.ThinkingConfig(
-                thinking_budget=8192 * 3,
-            ),
-        }
-
-        if cache_display_name:
-            cache_name = _get_or_create_cache(
-                client, model, cache_display_name, markdown
-            )
-            gen_config_args["cached_content"] = cache_name
-            contents: list[str] = [prompt]
-        else:
-            gen_config_args["system_instruction"] = COMMON_SYSTEM_INSTRUCTION
-            contents = [markdown, prompt]
-
-        response = client.models.generate_content(
-            model=model,
-            contents=contents,
-            config=types.GenerateContentConfig(**gen_config_args),
-        )
-        return response.text, response.usage_metadata
-    finally:
-        done.set()
-        t.join()
+    response = client.models.generate_content(
+        model=model,
+        contents=contents,
+        config=types.GenerateContentConfig(**gen_config_args),
+    )
+    return response.text
 
 
 def send_occurrence(
@@ -265,10 +245,9 @@ def main() -> None:
             print(f"Markdown file already exists: {md_path}. Loading existing content.")
             with open(md_path, "r") as f:
                 result = f.read()
-            usage_metadata = None
         elif md_exists and args.force:
             print("Markdown file exists but --force specified. Regenerating.")
-            result, usage_metadata = send_markdown(
+            result = send_markdown(
                 markdown,
                 prompt,
                 api_key,
@@ -276,22 +255,12 @@ def main() -> None:
                 cache_display_name=cache_display_name,
             )
         else:
-            result, usage_metadata = send_markdown(
+            result = send_markdown(
                 markdown,
                 prompt,
                 api_key,
                 model,
                 cache_display_name=cache_display_name,
-            )
-
-        # Extract and display only the essential token counts if we have usage data
-        if usage_metadata is not None:
-            prompt_tokens = getattr(usage_metadata, "prompt_token_count", 0)
-            thoughts_tokens = getattr(usage_metadata, "thoughts_token_count", 0)
-            candidates_tokens = getattr(usage_metadata, "candidates_token_count", 0)
-            cached_tokens = getattr(usage_metadata, "cached_content_token_count", 0)
-            print(
-                f"Usage: prompt={prompt_tokens} thoughts={thoughts_tokens} candidates={candidates_tokens} cached={cached_tokens}"
             )
 
         # Check if we got a valid response

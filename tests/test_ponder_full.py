@@ -2,7 +2,6 @@ import importlib
 import json
 import shutil
 from pathlib import Path
-from types import SimpleNamespace
 
 FIXTURES = Path("fixtures")
 
@@ -23,12 +22,7 @@ def test_ponder_main(tmp_path, monkeypatch):
     monkeypatch.setattr(
         mod,
         "send_markdown",
-        lambda *a, **k: (
-            "summary",
-            SimpleNamespace(
-                prompt_token_count=1, thoughts_token_count=1, candidates_token_count=1
-            ),
-        ),
+        lambda *a, **k: "summary",
     )
     captured = {}
 
@@ -79,14 +73,7 @@ def test_ponder_extra_instructions(tmp_path, monkeypatch):
     monkeypatch.setattr(
         mod,
         "send_markdown",
-        lambda *a, **k: (
-            "summary",
-            SimpleNamespace(
-                prompt_token_count=1,
-                thoughts_token_count=1,
-                candidates_token_count=1,
-            ),
-        ),
+        lambda *a, **k: "summary",
     )
     captured = {}
 
@@ -142,14 +129,7 @@ def test_ponder_skip_occurrences(tmp_path, monkeypatch):
     monkeypatch.setattr(
         mod,
         "send_markdown",
-        lambda *a, **k: (
-            "summary",
-            SimpleNamespace(
-                prompt_token_count=1,
-                thoughts_token_count=1,
-                candidates_token_count=1,
-            ),
-        ),
+        lambda *a, **k: "summary",
     )
     called = {}
 

@@ -5,8 +5,6 @@ import logging
 import os
 import re
 import sys
-import threading
-import time
 from datetime import datetime, timedelta
 from pathlib import Path
 
@@ -19,31 +17,6 @@ from think.models import GEMINI_FLASH
 from think.utils import day_log, day_path, setup_cli
 
 DEFAULT_PROMPT_PATH = os.path.join(os.path.dirname(__file__), "reduce.txt")
-
-
-class TokenTracker:
-    def __init__(self):
-        self.total_prompt_tokens = 0
-        self.total_candidates_tokens = 0
-        self._lock = threading.Lock()
-
-    def add_usage(self, usage_metadata):
-        prompt_tokens = getattr(usage_metadata, "prompt_token_count", None) or 0
-        candidates_tokens = getattr(usage_metadata, "candidates_token_count", None) or 0
-        with self._lock:
-            self.total_prompt_tokens += prompt_tokens
-            self.total_candidates_tokens += candidates_tokens
-
-    def get_compression_percent(self):
-        if self.total_prompt_tokens == 0:
-            return 0.0
-        return (1 - self.total_candidates_tokens / self.total_prompt_tokens) * 100
-
-    def print_summary(self):
-        logging.info("\n=== Summary ===")
-        logging.info("Total tokens in: %s", self.total_prompt_tokens)
-        logging.info("Total tokens out: %s", self.total_candidates_tokens)
-        logging.info("Total compression: %.2f%%", self.get_compression_percent())
 
 
 def parse_monitor_files(day_dir):
@@ -130,15 +103,6 @@ def _get_api_key() -> str:
 
 def call_gemini(markdown, prompt, api_key, debug=False):
     client = genai.Client(api_key=api_key)
-    done = threading.Event()
-
-    def progress():
-        elapsed = 0
-        while not done.is_set():
-            time.sleep(5)
-            elapsed += 5
-            if not done.is_set():
-                logging.info("... %ss elapsed", elapsed)
 
     if debug:
         logging.debug("\n=== DEBUG: Prompt to Gemini ===")
@@ -147,28 +111,22 @@ def call_gemini(markdown, prompt, api_key, debug=False):
         logging.debug(markdown)
         logging.debug("\n=== DEBUG: End of input ===\n")
 
-    t = threading.Thread(target=progress, daemon=True)
-    t.start()
-    try:
-        response = client.models.generate_content(
-            model=GEMINI_FLASH,
-            contents=[markdown],
-            config=types.GenerateContentConfig(
-                temperature=0.3,
-                max_output_tokens=8192 * 2,
-                system_instruction=prompt,
-            ),
-        )
+    response = client.models.generate_content(
+        model=GEMINI_FLASH,
+        contents=[markdown],
+        config=types.GenerateContentConfig(
+            temperature=0.3,
+            max_output_tokens=8192 * 2,
+            system_instruction=prompt,
+        ),
+    )
 
-        if debug:
-            logging.debug("\n=== DEBUG: Response from Gemini ===")
-            logging.debug(response.text)
-            logging.debug("\n=== DEBUG: End of response ===\n")
+    if debug:
+        logging.debug("\n=== DEBUG: Response from Gemini ===")
+        logging.debug(response.text)
+        logging.debug("\n=== DEBUG: End of response ===\n")
 
-        return response.text, response.usage_metadata
-    finally:
-        done.set()
-        t.join()
+    return response.text
 
 
 def process_group(
@@ -179,7 +137,6 @@ def process_group(
     api_key,
     force,
     day_dir,
-    token_tracker,
     debug=False,
 ):
     out_name = f"{start.strftime('%H%M%S')}_screen.md"
@@ -225,22 +182,7 @@ def process_group(
         file_count,
     )
     try:
-        result, usage_metadata = call_gemini(markdown, prompt, api_key, debug)
-        token_tracker.add_usage(usage_metadata)
-
-        # Calculate compression for this file
-        prompt_tokens = usage_metadata.prompt_token_count
-        candidates_tokens = usage_metadata.candidates_token_count
-        compression = (
-            (1 - candidates_tokens / prompt_tokens) * 100 if prompt_tokens > 0 else 0
-        )
-
-        logging.info(
-            "Tokens: (%s) -> (%s) compression: %.2f%%",
-            prompt_tokens,
-            candidates_tokens,
-            compression,
-        )
+        result = call_gemini(markdown, prompt, api_key, debug)
     except Exception as e:
         raise RuntimeError(f"Gemini call failed: {e}") from e
 
@@ -323,7 +265,6 @@ def reduce_day(
         return 0, 0
 
     prompt = load_prompt(prompt_path)
-    token_tracker = TokenTracker()
 
     success = 0
     failed = 0
@@ -339,7 +280,6 @@ def reduce_day(
                 api_key,
                 force,
                 day_dir,
-                token_tracker,
                 debug,
             ): group_start
             for group_start, files in groups_iter
@@ -352,8 +292,6 @@ def reduce_day(
             except Exception as e:
                 logging.error("Error reducing %s: %s", group_start, e)
                 failed += 1
-
-    token_tracker.print_summary()
 
     return success, failed
 

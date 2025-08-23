@@ -3,8 +3,6 @@ import glob
 import os
 import re
 import sys
-import threading
-import time
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
@@ -99,22 +97,10 @@ def send_to_gemini(
     api_key: str,
     model_name: str,
     is_json_mode: bool,
-) -> tuple[Optional[str], Optional[object]]:
+) -> Optional[str]:
     """Send markdown content and a prompt to Gemini API."""
     client = genai.Client(api_key=api_key)
 
-    done = threading.Event()
-
-    def progress():
-        elapsed = 0
-        while not done.is_set():
-            time.sleep(5)
-            elapsed += 5
-            if not done.is_set():
-                print(f"... {elapsed}s elapsed", file=sys.stderr)
-
-    t = threading.Thread(target=progress, daemon=True)
-    t.start()
     try:
         generation_config_args = {
             "temperature": 0.3,
@@ -132,14 +118,11 @@ def send_to_gemini(
             contents=[markdown_content],
             config=types.GenerateContentConfig(**generation_config_args),
         )
-        return response.text, response.usage_metadata
+        return response.text
 
     except Exception as e:
         print(f"Error during Gemini API call: {e}", file=sys.stderr)
-        return None, None
-    finally:
-        done.set()
-        t.join()
+        return None
 
 
 DATE_RE = re.compile(r"\d{8}")
@@ -218,7 +201,7 @@ def process_day(
             prompt = f.read().strip()
 
         print("  Sending to Gemini for entity extraction...")
-        result, _ = send_to_gemini(markdown, prompt, api_key, GEMINI_PRO, verbose)
+        result = send_to_gemini(markdown, prompt, api_key, GEMINI_PRO, verbose)
         if not result:
             print(f"Gemini returned no result for {day_str}")
             return
