@@ -7,7 +7,11 @@ import pytest
 
 
 @pytest.fixture(autouse=True)
-def add_module_stubs(monkeypatch):
+def add_module_stubs(request, monkeypatch):
+    # Skip stubbing for integration tests
+    if "integration" in request.node.keywords:
+        return
+    
     # stub heavy modules used by think.indexer
     if "usearch.index" not in sys.modules:
         usearch = types.ModuleType("usearch")

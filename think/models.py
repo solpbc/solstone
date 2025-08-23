@@ -99,11 +99,49 @@ def gemini_generate(
         config_args["cached_content"] = cached_content
 
     # Make the API call
+    # Ensure model name has "models/" prefix if not already present
+    if not model.startswith("models/"):
+        model = f"models/{model}"
+    
     response = client.models.generate_content(
         model=model,
         contents=contents,
         config=types.GenerateContentConfig(**config_args),
     )
+
+    # Check if response is valid and has text
+    if response is None or response.text is None:
+        # Try to extract text from candidates if available
+        if response and hasattr(response, "candidates") and response.candidates:
+            candidate = response.candidates[0]
+            
+            # Check for finish reason to understand why we got no text
+            if hasattr(candidate, "finish_reason"):
+                finish_reason = str(candidate.finish_reason)
+                if "MAX_TOKENS" in finish_reason:
+                    raise ValueError(
+                        f"Model hit max_output_tokens limit ({max_output_tokens}) before producing output. "
+                        f"Try increasing max_output_tokens."
+                    )
+                elif "SAFETY" in finish_reason:
+                    raise ValueError(f"Response blocked by safety filters: {finish_reason}")
+                elif "STOP" not in finish_reason:
+                    raise ValueError(f"Response failed with reason: {finish_reason}")
+            
+            # Try to extract text from parts if available
+            if hasattr(candidate, "content") and hasattr(candidate.content, "parts") and candidate.content.parts:
+                for part in candidate.content.parts:
+                    if hasattr(part, "text") and part.text:
+                        return part.text
+        
+        # If we still don't have text, raise an error with details
+        error_msg = "No text in response"
+        if response:
+            if hasattr(response, "candidates") and not response.candidates:
+                error_msg = "No candidates in response"
+            elif hasattr(response, "prompt_feedback"):
+                error_msg = f"Response issue: {response.prompt_feedback}"
+        raise ValueError(error_msg)
 
     # Log token usage if we have usage metadata
     if hasattr(response, "usage_metadata"):
