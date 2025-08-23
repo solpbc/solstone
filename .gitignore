@@ -9,6 +9,7 @@ logs/
 *.flac
 .coverage
 fixtures/journal/agents/*.jsonl
+fixtures/journal/tokens/*.json
 .deps-installed
 .package-installed
 *.sqlite
