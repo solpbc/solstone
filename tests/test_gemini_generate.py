@@ -7,6 +7,8 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
+from google import genai
+from google.genai import types
 
 from think.models import GEMINI_FLASH, GEMINI_LITE, gemini_generate
 
@@ -166,3 +168,96 @@ def test_gemini_generate_string_normalization(mock_client_class):
     
     call_args = mock_client.models.generate_content.call_args
     assert call_args[1]["contents"] == ["Already", "a", "list"]
+
+
+@patch.dict(os.environ, {"GOOGLE_API_KEY": "test_key"})
+@patch("think.models.genai.Client")
+def test_gemini_generate_with_client_reuse(mock_client_class):
+    """Test that client can be reused across calls."""
+    # Create a real mock client to pass in
+    existing_client = MagicMock()
+    mock_response = MagicMock()
+    mock_response.text = "Response 1"
+    mock_response.usage_metadata = None
+    existing_client.models.generate_content.return_value = mock_response
+    
+    # First call with existing client
+    text1, _ = gemini_generate("First prompt", client=existing_client)
+    assert text1 == "Response 1"
+    
+    # Second call with same client
+    mock_response.text = "Response 2"
+    text2, _ = gemini_generate("Second prompt", client=existing_client)
+    assert text2 == "Response 2"
+    
+    # Verify Client class was never instantiated
+    mock_client_class.assert_not_called()
+    
+    # Verify the existing client was used both times
+    assert existing_client.models.generate_content.call_count == 2
+
+
+@patch.dict(os.environ, {"GOOGLE_API_KEY": "test_key"})
+@patch("think.models.genai.Client")
+def test_gemini_generate_with_multimodal_parts(mock_client_class):
+    """Test that multimodal content with Parts works."""
+    # Setup mock
+    mock_client = MagicMock()
+    mock_client_class.return_value = mock_client
+    
+    mock_response = MagicMock()
+    mock_response.text = "Described audio"
+    mock_response.usage_metadata = None
+    mock_client.models.generate_content.return_value = mock_response
+    
+    # Create multimodal content with Parts
+    audio_part = types.Part.from_bytes(data=b"fake_audio_data", mime_type="audio/flac")
+    contents = [
+        "Please transcribe this audio:",
+        audio_part,
+        "End of audio"
+    ]
+    
+    # Call with multimodal content
+    text, _ = gemini_generate(contents, model=GEMINI_FLASH)
+    
+    # Verify
+    assert text == "Described audio"
+    
+    # Check that contents were passed through unchanged
+    call_args = mock_client.models.generate_content.call_args
+    assert call_args[1]["contents"] == contents
+    assert call_args[1]["contents"][1] == audio_part
+
+
+@patch.dict(os.environ, {"GOOGLE_API_KEY": "test_key"})
+@patch("think.models.genai.Client")
+def test_gemini_generate_with_content_objects(mock_client_class):
+    """Test that Content objects for conversations work."""
+    # Setup mock
+    mock_client = MagicMock()
+    mock_client_class.return_value = mock_client
+    
+    mock_response = MagicMock()
+    mock_response.text = "Assistant response"
+    mock_response.usage_metadata = None
+    mock_client.models.generate_content.return_value = mock_response
+    
+    # Create conversation with Content objects
+    contents = [
+        types.Content(role="user", parts=[types.Part(text="Hello")]),
+        types.Content(role="model", parts=[types.Part(text="Hi there!")]),
+        types.Content(role="user", parts=[types.Part(text="How are you?")])
+    ]
+    
+    # Call with Content objects
+    text, _ = gemini_generate(contents, model=GEMINI_FLASH)
+    
+    # Verify
+    assert text == "Assistant response"
+    
+    # Check that contents were passed through unchanged
+    call_args = mock_client.models.generate_content.call_args
+    assert call_args[1]["contents"] == contents
+    assert len(call_args[1]["contents"]) == 3
+    assert call_args[1]["contents"][0].role == "user"

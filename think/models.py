@@ -23,7 +23,7 @@ CLAUDE_HAIKU_3_5 = "claude-3-5-haiku-latest"
 
 
 def gemini_generate(
-    contents: Union[str, List[Any]],
+    contents: Union[str, List[Any], List[types.Content]],
     model: str = GEMINI_FLASH,
     temperature: float = 0.3,
     max_output_tokens: int = 8192 * 2,
@@ -31,14 +31,18 @@ def gemini_generate(
     json_output: bool = False,
     thinking_budget: Optional[int] = None,
     cached_content: Optional[str] = None,
+    client: Optional[genai.Client] = None,
 ) -> Tuple[str, Optional[Any]]:
     """
     Simplified wrapper for genai.models.generate_content with common defaults.
     
     Parameters
     ----------
-    contents : str or List
-        The content to send to the model
+    contents : str, List, or List[types.Content]
+        The content to send to the model. Can be:
+        - A string (will be converted to a list with one string)
+        - A list of strings, types.Part objects, or mixed content
+        - A list of types.Content objects for complex conversations
     model : str
         Model name to use (default: GEMINI_FLASH)
     temperature : float
@@ -53,20 +57,24 @@ def gemini_generate(
         Token budget for model thinking
     cached_content : str, optional
         Name of cached content to use
+    client : genai.Client, optional
+        Existing client to reuse. If not provided, creates a new one.
     
     Returns
     -------
     Tuple[str, Optional[Any]]
         Response text and usage metadata
     """
-    load_dotenv()
-    api_key = os.getenv("GOOGLE_API_KEY")
-    if not api_key:
-        raise ValueError("GOOGLE_API_KEY not found in environment")
+    # Get or create client
+    if client is None:
+        load_dotenv()
+        api_key = os.getenv("GOOGLE_API_KEY")
+        if not api_key:
+            raise ValueError("GOOGLE_API_KEY not found in environment")
+        client = genai.Client(api_key=api_key)
     
-    client = genai.Client(api_key=api_key)
-    
-    # Normalize contents to list
+    # Normalize contents to list if it's a plain string
+    # But don't touch it if it's already a list (could contain Parts or Content objects)
     if isinstance(contents, str):
         contents = [contents]
     
