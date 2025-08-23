@@ -34,11 +34,11 @@ def _setup_genai(monkeypatch):
 def test_generate_plan(monkeypatch):
     sys.modules.pop("think.planner", None)
     mod = importlib.import_module("think.planner")
-    
+
     # Mock gemini_generate to return "plan"
     def mock_gemini_generate(**kwargs):
         return "plan"
-    
+
     monkeypatch.setattr("think.planner.gemini_generate", mock_gemini_generate)
     result = mod.generate_plan("do something", api_key="x")
     assert result == "plan"

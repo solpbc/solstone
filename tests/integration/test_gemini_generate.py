@@ -172,11 +172,16 @@ def test_gemini_generate_with_conversation():
     contents = [
         types.Content(role="user", parts=[types.Part(text="My favorite number is 7.")]),
         types.Content(
-            role="model", parts=[types.Part(text="I'll remember that your favorite number is 7.")]
+            role="model",
+            parts=[types.Part(text="I'll remember that your favorite number is 7.")],
         ),
         types.Content(
             role="user",
-            parts=[types.Part(text="What is my favorite number plus 3? Just give the number.")],
+            parts=[
+                types.Part(
+                    text="What is my favorite number plus 3? Just give the number."
+                )
+            ],
         ),
     ]
 
@@ -316,7 +321,7 @@ def test_gemini_generate_max_tokens_error():
             temperature=0.3,
             max_output_tokens=10,  # Too low to produce any output
         )
-    
+
     # Check that the error message is clear and helpful
     error_msg = str(exc_info.value)
     assert "max_output_tokens limit" in error_msg

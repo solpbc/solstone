@@ -11,7 +11,7 @@ def add_module_stubs(request, monkeypatch):
     # Skip stubbing for integration tests
     if "integration" in request.node.keywords:
         return
-    
+
     # stub heavy modules used by think.indexer
     if "usearch.index" not in sys.modules:
         usearch = types.ModuleType("usearch")
@@ -124,14 +124,13 @@ def add_module_stubs(request, monkeypatch):
             pass
 
     genai_mod.Client = DummyClient
-    
+
     # Mock Content type for type hints
     class MockContent:
         pass
-    
+
     genai_mod.types = types.SimpleNamespace(
-        GenerateContentConfig=lambda **k: None,
-        Content=MockContent
+        GenerateContentConfig=lambda **k: None, Content=MockContent
     )
     google_mod.genai = genai_mod
     sys.modules["google"] = google_mod
