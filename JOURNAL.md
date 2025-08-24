@@ -139,6 +139,58 @@ objective_performance_optimization/
 
 The presence of `OUTCOME.md` indicates objective completion. Directory timestamps (created/modified) provide temporal tracking without requiring separate metadata files.
 
+## TODO.md Format
+
+A daily task tracking file located in each day folder with two main sections for temporal organization:
+
+```markdown
+# Today
+- [ ] **Task**: Implement audio capture improvements #hear (09:30)
+- [x] **Meeting**: Weekly standup with team (10:15)
+- [ ] **Review**: Check PR comments on indexer module #think (11:45)
+- [ ] ~~**Task**: Update documentation for API~~ #dream (14:20)
+
+# Future
+- [ ] **Goal**: Design new agent persona system #think 01/25/2025
+- [ ] **Research**: Investigate alternative OCR libraries #see 01/26/2025
+- [ ] **Task**: Refactor domain summary generation 02/01/2025
+```
+
+### Format Specification
+
+Each todo item follows this pattern:
+
+**Today section:**
+```
+- [checkbox] [~~]**Type**: description #optional-domain-tag (HH:MM)[~~]
+```
+
+**Future section:**
+```
+- [checkbox] [~~]**Type**: description #optional-domain-tag MM/DD/YYYY[~~]
+```
+
+**Components:**
+- `- [ ]` - Uncompleted task checkbox
+- `- [x]` - Completed task checkbox  
+- `**Type**:` - Bold categorization (Task, Meeting, Review, Goal, Research, Fix, etc.)
+- `description` - The actual todo content
+- `#optional-domain-tag` - Optional single domain reference
+- `(HH:MM)` - Required timestamp in Today section (24-hour format)
+- `MM/DD/YYYY` - Required date in Future section
+- `~~text~~` - Strikethrough wrapping for cancelled items
+
+**Rules:**
+- Items in "Today" section are for current day execution with time tracking
+- Items in "Future" section are for upcoming/someday tasks with target dates
+- Completed items remain in place with `[x]` marking
+- Cancelled items get full strikethrough but remain visible for history
+- Today items use timestamps in parentheses at the end
+- Future items use dates without parentheses at the end
+- Domain tag is optional but helps with context linking
+
+This format is human-readable, grep-friendly, and maintains consistency with the journal's entity notation style while being simple enough for daily manual editing.
+
 ## Inbox
 
 The `inbox/` directory provides an asynchronous messaging system where agents and automated processes can leave messages for user review. Messages are organized in active and archived subdirectories.
