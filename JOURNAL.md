@@ -17,7 +17,7 @@ The `domains/` directory provides a way to organize journal content by scope or 
 
 ### Domain structure
 
-Each domain is organized as `domains/<domain>/` where `<domain>` is a descriptive short unique name. Each domain folder contains:
+Each domain is organized as `domains/<domain>/` where `<domain>` is a descriptive short unique name. When referencing domains in the system, use hashtags (e.g., `#personal` for the "Personal Life" domain, `#ml_research` for "Machine Learning Research"). Each domain folder contains:
 
 - `domain.json` – metadata file with domain title and description.
 - `entities.md` – entities specific to this domain.
