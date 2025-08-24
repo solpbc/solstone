@@ -197,12 +197,10 @@ def test_google_outfile_error(monkeypatch, tmp_path, capsys):
     monkeypatch.setenv("JOURNAL_PATH", str(journal))
     monkeypatch.setenv("GOOGLE_API_KEY", "x")
 
-    with pytest.raises(RuntimeError):
-        ndjson_input = json.dumps({"prompt": "hello", "backend": "google"})
+    ndjson_input = json.dumps({"prompt": "hello", "backend": "google"})
     asyncio.run(run_main(mod, ["think-agents"], stdin_data=ndjson_input))
 
-    # Output file functionality was removed in NDJSON-only mode
-    # Check stdout instead
+    # Check stdout for error event
     out_lines = capsys.readouterr().out.strip().splitlines()
     events = [json.loads(line) for line in out_lines]
     assert events[-1]["event"] == "error"

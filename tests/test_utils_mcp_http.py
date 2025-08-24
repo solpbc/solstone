@@ -2,6 +2,7 @@
 """Tests for HTTP MCP integration in utils.py."""
 
 import os
+import sys
 import tempfile
 from pathlib import Path
 from unittest.mock import patch
@@ -13,6 +14,13 @@ from think.utils import create_mcp_client
 
 class TestCreateMCPClientHTTP:
     """Test HTTP MCP client creation and URI auto-discovery."""
+
+    def setup_method(self):
+        """Clean up any stubbed fastmcp module from other tests."""
+        if "fastmcp" in sys.modules:
+            del sys.modules["fastmcp"]
+        if "fastmcp.fastmcp" in sys.modules:
+            del sys.modules["fastmcp.fastmcp"]
 
     def test_with_uri_file(self):
         """Test client uses URI file when available."""

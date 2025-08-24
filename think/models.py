@@ -99,10 +99,6 @@ def gemini_generate(
         config_args["cached_content"] = cached_content
 
     # Make the API call
-    # Ensure model name has "models/" prefix if not already present
-    if not model.startswith("models/"):
-        model = f"models/{model}"
-
     response = client.models.generate_content(
         model=model,
         contents=contents,

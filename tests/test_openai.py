@@ -310,8 +310,7 @@ def test_openai_outfile_error(monkeypatch, tmp_path, capsys):
     monkeypatch.setenv("OPENAI_API_KEY", "x")
 
     ndjson_input = json.dumps({"prompt": "hello", "backend": "openai"})
-    with pytest.raises(RuntimeError):
-        asyncio.run(run_main(mod, ["think-agents"], stdin_data=ndjson_input))
+    asyncio.run(run_main(mod, ["think-agents"], stdin_data=ndjson_input))
 
     # Output file functionality was removed in NDJSON-only mode
     # Check stdout instead

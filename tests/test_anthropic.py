@@ -30,7 +30,7 @@ class DummyMessagesWithThinking:
         # Return response with both thinking and text content
         return SimpleNamespace(
             content=[
-                SimpleNamespace(type="thinking", text="I'm thinking about this..."),
+                SimpleNamespace(type="thinking", thinking="I'm thinking about this..."),
                 SimpleNamespace(type="text", text="ok"),
             ]
         )
@@ -45,6 +45,7 @@ class DummyMessagesError:
 def _setup_anthropic_stub(monkeypatch, error=False, with_thinking=False):
     # Create mock Anthropic client
     anthropic_stub = types.ModuleType("anthropic")
+    anthropic_types_stub = types.ModuleType("anthropic.types")
 
     class DummyClient:
         def __init__(self, **kwargs):
@@ -57,11 +58,22 @@ def _setup_anthropic_stub(monkeypatch, error=False, with_thinking=False):
 
     anthropic_stub.Anthropic = DummyClient
     anthropic_stub.AsyncAnthropic = DummyClient  # Add async version
+    
+    # Add types to the types module
+    anthropic_types_stub.MessageParam = dict
+    anthropic_types_stub.ToolParam = dict
+    anthropic_types_stub.ToolUseBlock = SimpleNamespace
+    
+    # Add types as a submodule
+    anthropic_stub.types = anthropic_types_stub
 
     # Stub out the anthropic module
     if "anthropic" in sys.modules:
         sys.modules.pop("anthropic")
+    if "anthropic.types" in sys.modules:
+        sys.modules.pop("anthropic.types")
     sys.modules["anthropic"] = anthropic_stub
+    sys.modules["anthropic.types"] = anthropic_types_stub
 
 
 def _setup_fastmcp_stub(monkeypatch):
@@ -80,7 +92,7 @@ def _setup_fastmcp_stub(monkeypatch):
             pass
 
         async def list_tools(self):
-            return SimpleNamespace(tools=[])
+            return []
 
         async def call_tool(self, name, arguments):
             return SimpleNamespace(
@@ -96,7 +108,7 @@ def _setup_fastmcp_stub(monkeypatch):
     sys.modules["fastmcp"] = fastmcp_stub
     sys.modules["fastmcp.fastmcp"] = fastmcp_fastmcp_stub
 
-    async def mock_create_mcp_client(uri):
+    def mock_create_mcp_client():
         return DummyClient()
 
     monkeypatch.setattr("think.utils.create_mcp_client", mock_create_mcp_client)
@@ -111,6 +123,11 @@ def test_claude_main(monkeypatch, tmp_path, capsys):
 
     journal = tmp_path / "journal"
     journal.mkdir()
+    # Create agents directory and MCP URI file
+    agents_dir = journal / "agents"
+    agents_dir.mkdir()
+    mcp_uri_file = agents_dir / "mcp.uri"
+    mcp_uri_file.write_text("http://localhost:5173/mcp")
 
     monkeypatch.setenv("JOURNAL_PATH", str(journal))
     monkeypatch.setenv("ANTHROPIC_API_KEY", "x")
@@ -142,6 +159,11 @@ def test_claude_outfile(monkeypatch, tmp_path, capsys):
 
     journal = tmp_path / "journal"
     journal.mkdir()
+    # Create agents directory and MCP URI file
+    agents_dir = journal / "agents"
+    agents_dir.mkdir()
+    mcp_uri_file = agents_dir / "mcp.uri"
+    mcp_uri_file.write_text("http://localhost:5173/mcp")
 
     monkeypatch.setenv("JOURNAL_PATH", str(journal))
     monkeypatch.setenv("ANTHROPIC_API_KEY", "x")
@@ -182,6 +204,11 @@ def test_claude_thinking_events(monkeypatch, tmp_path, capsys):
 
     journal = tmp_path / "journal"
     journal.mkdir()
+    # Create agents directory and MCP URI file
+    agents_dir = journal / "agents"
+    agents_dir.mkdir()
+    mcp_uri_file = agents_dir / "mcp.uri"
+    mcp_uri_file.write_text("http://localhost:5173/mcp")
 
     monkeypatch.setenv("JOURNAL_PATH", str(journal))
     monkeypatch.setenv("ANTHROPIC_API_KEY", "x")
@@ -212,13 +239,17 @@ def test_claude_outfile_error(monkeypatch, tmp_path, capsys):
 
     journal = tmp_path / "journal"
     journal.mkdir()
+    # Create agents directory and MCP URI file
+    agents_dir = journal / "agents"
+    agents_dir.mkdir()
+    mcp_uri_file = agents_dir / "mcp.uri"
+    mcp_uri_file.write_text("http://localhost:5173/mcp")
 
     monkeypatch.setenv("JOURNAL_PATH", str(journal))
     monkeypatch.setenv("ANTHROPIC_API_KEY", "x")
 
     ndjson_input = json.dumps({"prompt": "hello", "backend": "anthropic"})
-    with pytest.raises(Exception):
-        asyncio.run(run_main(mod, ["think-agents"], stdin_data=ndjson_input))
+    asyncio.run(run_main(mod, ["think-agents"], stdin_data=ndjson_input))
 
     # Error events should be written to stdout
     out_lines = capsys.readouterr().out.strip().splitlines()
