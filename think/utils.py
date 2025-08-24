@@ -191,10 +191,19 @@ def agent_instructions(persona: str = "default") -> Tuple[str, str, dict[str, ob
                 for name, info in sorted(domains.items()):
                     title = str(info.get("title", name))
                     desc = str(info.get("description", ""))
-                    if desc:
-                        lines.append(f"* Domain: `{name}`: {title} - {desc}")
+                    emoji = str(info.get("emoji", ""))
+                    
+                    # Format with emoji if available
+                    if emoji:
+                        title_with_emoji = f"{emoji} {title}"
                     else:
-                        lines.append(f"* Domain: `{name}`: {title}")
+                        title_with_emoji = title
+                    
+                    # Build domain line with hashtag format
+                    if desc:
+                        lines.append(f"* Domain: {title_with_emoji} (#{name}) - {desc}")
+                    else:
+                        lines.append(f"* Domain: {title_with_emoji} (#{name})")
                 extra_parts.append("\n".join(lines))
         except Exception as exc:
             logging.debug("Error loading domains: %s", exc)
