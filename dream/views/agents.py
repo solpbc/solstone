@@ -111,10 +111,11 @@ def agents_list() -> object:
     live_agents = []
     historical_agents = []
 
-    # Load persona titles once for efficiency
-    from ..utils import get_persona_titles
+    # Load persona metadata once for efficiency
+    from ..utils import get_personas
 
-    persona_titles = get_persona_titles()
+    personas = get_personas()
+    persona_titles = {pid: p["title"] for pid, p in personas.items()}
 
     # Get live agents from Cortex if requested
     if agent_type in ["live", "all"]:

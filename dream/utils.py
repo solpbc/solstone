@@ -275,35 +275,60 @@ def build_occurrence_index(journal: str) -> Dict[str, List[Dict[str, Any]]]:
 build_index = build_occurrence_index
 
 
-def get_persona_titles() -> Dict[str, str]:
-    """Load persona titles from think/agents directory.
+def get_personas() -> Dict[str, Dict[str, Any]]:
+    """Load persona metadata from think/agents directory.
 
     Returns:
-        Dictionary mapping persona IDs to their display titles
+        Dictionary mapping persona IDs to their metadata including:
+        - title: Display title for the persona
+        - txt_path: Absolute path to the .txt file
+        - json_path: Absolute path to the .json file (if exists)
+        - config: Contents of the JSON configuration (if exists)
     """
-    persona_titles = {}
+    personas = {}
     agents_path = os.path.join(
         os.path.dirname(os.path.dirname(__file__)), "think", "agents"
     )
 
     if not os.path.isdir(agents_path):
-        return persona_titles
+        return personas
 
     txt_files = [f for f in os.listdir(agents_path) if f.endswith(".txt")]
     for txt_file in txt_files:
         base_name = txt_file[:-4]
+        txt_path = os.path.join(agents_path, txt_file)
         json_file = base_name + ".json"
         json_path = os.path.join(agents_path, json_file)
 
-        # Default to ID if no json file
-        title = base_name
+        # Build metadata for this persona
+        metadata = {
+            "title": base_name,  # Default to ID
+            "txt_path": txt_path,
+        }
+
+        # Load JSON config if exists
         if os.path.isfile(json_path):
+            metadata["json_path"] = json_path
             try:
                 with open(json_path, "r", encoding="utf-8") as f:
                     agent_config = json.load(f)
-                    title = agent_config.get("title", base_name)
+                    metadata["config"] = agent_config
+                    metadata["title"] = agent_config.get("title", base_name)
             except Exception:
                 pass
-        persona_titles[base_name] = title
 
-    return persona_titles
+        personas[base_name] = metadata
+
+    return personas
+
+
+def get_persona_titles() -> Dict[str, str]:
+    """Load persona titles from think/agents directory.
+
+    Returns:
+        Dictionary mapping persona IDs to their display titles
+
+    Note: This function is deprecated. Use get_personas() instead.
+    """
+    personas = get_personas()
+    return {pid: p["title"] for pid, p in personas.items()}

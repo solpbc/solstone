@@ -22,9 +22,10 @@ bp = Blueprint("chat", __name__, template_folder="../templates")
 
 @bp.route("/chat")
 def chat_page() -> str:
-    from ..utils import get_persona_titles
+    from ..utils import get_personas
 
-    persona_titles = get_persona_titles()
+    personas = get_personas()
+    persona_titles = {pid: p["title"] for pid, p in personas.items()}
     return render_template("chat.html", active="chat", persona_titles=persona_titles)
 
 
