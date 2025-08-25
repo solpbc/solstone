@@ -192,13 +192,13 @@ def agent_instructions(persona: str = "default") -> Tuple[str, str, dict[str, ob
                     title = str(info.get("title", name))
                     desc = str(info.get("description", ""))
                     emoji = str(info.get("emoji", ""))
-                    
+
                     # Format with emoji if available
                     if emoji:
                         title_with_emoji = f"{emoji} {title}"
                     else:
                         title_with_emoji = title
-                    
+
                     # Build domain line with hashtag format
                     if desc:
                         lines.append(f"* Domain: {title_with_emoji} (#{name}) - {desc}")
@@ -403,3 +403,154 @@ def load_entity_names(
         return None
 
     return ", ".join(entity_names)
+
+
+def get_todos(day: str) -> dict[str, list[dict[str, Any]]] | None:
+    """Parse TODO.md file for a given day and return structured data.
+
+    Parameters
+    ----------
+    day:
+        Day folder in YYYYMMDD format.
+
+    Returns
+    -------
+    dict[str, list[dict[str, Any]]] | None
+        Dictionary with 'today' and 'future' keys containing parsed todos,
+        or None if TODO.md doesn't exist.
+
+    Example
+    -------
+    >>> todos = get_todos("20250124")
+    >>> if todos:
+    ...     for item in todos['today']:
+    ...         print(f"{item['type']}: {item['description']}")
+    """
+    day_dir = Path(day_path(day))
+    todo_path = day_dir / "TODO.md"
+
+    if not todo_path.exists():
+        return None
+
+    todos = {"today": [], "future": []}
+
+    current_section = None
+
+    try:
+        with open(todo_path, "r", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+
+                # Check for section headers
+                if line == "# Today":
+                    current_section = "today"
+                    continue
+                elif line == "# Future":
+                    current_section = "future"
+                    continue
+
+                # Skip empty lines or non-todo lines
+                if not line.startswith("- ["):
+                    continue
+
+                # Parse checkbox state
+                completed = False
+                cancelled = False
+
+                if line.startswith("- [x]"):
+                    completed = True
+                    line = line[6:].strip()
+                elif line.startswith("- [ ]"):
+                    line = line[5:].strip()
+                else:
+                    continue  # Not a valid todo line
+
+                # Check for strikethrough (cancelled) - may have content after ~~
+                if line.startswith("~~"):
+                    # Find the closing ~~
+                    close_idx = line.find("~~", 2)
+                    if close_idx > 0:
+                        cancelled = True
+                        # Extract the content between ~~ and reconstruct line
+                        cancelled_content = line[2:close_idx].strip()
+                        after_content = line[close_idx + 2 :].strip()
+                        line = (
+                            cancelled_content + " " + after_content
+                            if after_content
+                            else cancelled_content
+                        )
+
+                # Parse the type (bold text)
+                type_match = re.match(r"\*\*([^*]+)\*\*:\s*(.*)", line)
+                if not type_match:
+                    continue
+
+                todo_type = type_match.group(1)
+                remainder = type_match.group(2)
+
+                # Parse based on section
+                if current_section == "today":
+                    # Today format: description #optional-domain-tag (HH:MM)
+                    time_match = re.search(r"\((\d{2}:\d{2})\)$", remainder)
+                    if time_match:
+                        time_str = time_match.group(1)
+                        remainder = remainder[: time_match.start()].strip()
+                    else:
+                        time_str = None
+
+                    # Extract domain tag if present
+                    domain_match = re.search(r"#(\S+)", remainder)
+                    if domain_match:
+                        domain = domain_match.group(1)
+                        description = remainder[: domain_match.start()].strip()
+                    else:
+                        domain = None
+                        description = remainder
+
+                    todo_item = {
+                        "type": todo_type,
+                        "description": description,
+                        "completed": completed,
+                        "cancelled": cancelled,
+                        "time": time_str,
+                    }
+                    if domain:
+                        todo_item["domain"] = domain
+
+                    todos["today"].append(todo_item)
+
+                elif current_section == "future":
+                    # Future format: description #optional-domain-tag MM/DD/YYYY
+                    date_match = re.search(r"(\d{2}/\d{2}/\d{4})$", remainder)
+                    if date_match:
+                        date_str = date_match.group(1)
+                        remainder = remainder[: date_match.start()].strip()
+                    else:
+                        date_str = None
+
+                    # Extract domain tag if present
+                    domain_match = re.search(r"#(\S+)", remainder)
+                    if domain_match:
+                        domain = domain_match.group(1)
+                        description = remainder[: domain_match.start()].strip()
+                    else:
+                        domain = None
+                        description = remainder
+
+                    todo_item = {
+                        "type": todo_type,
+                        "description": description,
+                        "completed": completed,
+                        "cancelled": cancelled,
+                        "date": date_str,
+                    }
+                    if domain:
+                        todo_item["domain"] = domain
+
+                    todos["future"].append(todo_item)
+
+    except Exception as exc:
+        logging.debug("Error parsing TODO.md for day %s: %s", day, exc)
+        return None
+
+    return todos
