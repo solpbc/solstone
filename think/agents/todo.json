@@ -1,6 +1,7 @@
 {
   "title": "TODO Task Manager",
   "description": "Intelligent daily task list generator that mines journal data and carries forward commitments",
+  "schedule": "daily",
   "capabilities": [
     "Analyzes yesterday's TODO.md for incomplete items",
     "Mines journal for emerging priorities and commitments",

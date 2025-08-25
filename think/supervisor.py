@@ -1,4 +1,5 @@
 import argparse
+import json
 import logging
 import os
 import subprocess
@@ -7,7 +8,7 @@ import time
 from datetime import datetime
 from pathlib import Path
 
-from think.utils import setup_cli
+from think.utils import get_personas, setup_cli
 
 DEFAULT_THRESHOLD = 90
 CHECK_INTERVAL = 30
@@ -38,16 +39,58 @@ def send_notification(message: str, command: str = "notify-send") -> None:
         logging.error("Failed to send notification: %s", exc)
 
 
-def run_process_day() -> None:
-    """Run ``think.process_day`` and log duration."""
+def run_process_day() -> bool:
+    """Run ``think.process_day`` and log duration.
+    
+    Returns:
+        True if process_day completed successfully, False otherwise.
+    """
     start = time.time()
-    subprocess.run(
+    result = subprocess.run(
         [sys.executable, "-m", "think.process_day"],
         stdout=None,  # Inherit stdout
         stderr=None,  # Inherit stderr
     )
     duration = int(time.time() - start)
     logging.info("think.process_day finished in %s seconds", duration)
+    return result.returncode == 0
+
+
+def spawn_scheduled_agents(journal: str) -> None:
+    """Spawn agents that have schedule:daily in their metadata."""
+    try:
+        personas = get_personas()
+        for persona_id, metadata in personas.items():
+            config = metadata.get("config", {})
+            if config.get("schedule") == "daily":
+                logging.info(f"Spawning scheduled agent: {persona_id}")
+                # Prepare NDJSON request for the agent
+                request = {
+                    "prompt": f"Running daily scheduled task for {persona_id}",
+                    "backend": config.get("backend", "openai"),
+                    "persona": persona_id,
+                }
+                if "model" in config:
+                    request["model"] = config["model"]
+                
+                # Spawn via think-agents command
+                cmd = ["think-agents"]
+                env = os.environ.copy()
+                env["JOURNAL_PATH"] = journal
+                
+                proc = subprocess.Popen(
+                    cmd,
+                    stdin=subprocess.PIPE,
+                    stdout=None,
+                    stderr=None,
+                    env=env,
+                )
+                proc.stdin.write((json.dumps(request) + "\n").encode())
+                proc.stdin.close()
+                
+                logging.info(f"Started {persona_id} agent (PID: {proc.pid})")
+    except Exception as e:
+        logging.error(f"Failed to spawn scheduled agents: {e}")
 
 
 def start_runners(
@@ -141,7 +184,8 @@ def supervise(
         else:
             logging.info("Heartbeat OK")
         if daily and datetime.now().date() != last_day:
-            run_process_day()
+            if run_process_day():
+                spawn_scheduled_agents(journal)
             last_day = datetime.now().date()
         time.sleep(interval)
 
