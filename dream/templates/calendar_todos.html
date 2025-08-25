@@ -217,6 +217,53 @@
   opacity: 0.5;
 }
 
+.generate-btn {
+  margin-top: 1rem;
+  padding: 0.75rem 1.5rem;
+  background: #4CAF50;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.generate-btn:hover:not(:disabled) {
+  background: #45a049;
+}
+
+.generate-btn:disabled {
+  background: #ccc;
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+.generation-status {
+  margin-top: 1rem;
+  padding: 1rem;
+  background: #e3f2fd;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.spinner {
+  width: 20px;
+  height: 20px;
+  border: 3px solid #f3f3f3;
+  border-top: 3px solid #2196F3;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
 /* Type-specific colors */
 .todo-type.type-meeting { color: #9c27b0; }
 .todo-type.type-task { color: #2196f3; }
@@ -305,6 +352,13 @@
           <div class="no-todos" id="today-empty">
             <div class="no-todos-icon">📋</div>
             <p>No tasks for today</p>
+            {% if not todos %}
+              <button id="generate-today-btn" class="generate-btn" onclick="generateTodos()">🤖 Generate TODO List with AI</button>
+              <div id="generation-status-today" class="generation-status" style="display: none;">
+                <div class="spinner"></div>
+                <span>Generating your personalized TODO list...</span>
+              </div>
+            {% endif %}
           </div>
         {% endif %}
       </div>
@@ -354,6 +408,11 @@
         <div class="no-todos-icon">📄</div>
         <h3>No TODO.md file found</h3>
         <p>Create a TODO.md file in the day folder to start tracking tasks</p>
+        <button id="generate-todo-btn" class="generate-btn" onclick="generateTodos()">🤖 Generate TODO List with AI</button>
+        <div id="generation-status" class="generation-status" style="display: none;">
+          <div class="spinner"></div>
+          <span>Generating your personalized TODO list...</span>
+        </div>
       </div>
     {% endif %}
   </div>
@@ -361,6 +420,101 @@
 
 <script>
 const day = '{{ day }}';
+let generationAgent = null;
+
+// Check for active generation on page load
+window.addEventListener('DOMContentLoaded', async () => {
+  await checkGenerationStatus();
+});
+
+async function checkGenerationStatus() {
+  try {
+    const response = await fetch(`/calendar/${day}/todos/generation-status`);
+    if (response.ok) {
+      const data = await response.json();
+      if (data.agent_id && data.status === 'running') {
+        generationAgent = data.agent_id;
+        showGenerationInProgress();
+        pollGenerationStatus();
+      }
+    }
+  } catch (error) {
+    console.error('Failed to check generation status:', error);
+  }
+}
+
+async function generateTodos() {
+  // Try both possible button IDs
+  const btn = document.getElementById('generate-todo-btn') || document.getElementById('generate-today-btn');
+  const status = document.getElementById('generation-status') || document.getElementById('generation-status-today');
+  
+  // Disable button and show status
+  if (btn) btn.disabled = true;
+  if (status) status.style.display = 'flex';
+  
+  try {
+    const response = await fetch(`/calendar/${day}/todos/generate`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      }
+    });
+    
+    if (!response.ok) {
+      throw new Error('Failed to start generation');
+    }
+    
+    const data = await response.json();
+    if (data.agent_id) {
+      generationAgent = data.agent_id;
+      pollGenerationStatus();
+    } else {
+      throw new Error('No agent ID received');
+    }
+  } catch (error) {
+    console.error('Error generating todos:', error);
+    alert('Failed to generate TODO list. Please try again.');
+    if (btn) btn.disabled = false;
+    if (status) status.style.display = 'none';
+  }
+}
+
+function showGenerationInProgress() {
+  const btn = document.getElementById('generate-todo-btn') || document.getElementById('generate-today-btn');
+  const status = document.getElementById('generation-status') || document.getElementById('generation-status-today');
+  
+  if (btn) btn.disabled = true;
+  if (status) status.style.display = 'flex';
+}
+
+async function pollGenerationStatus() {
+  if (!generationAgent) return;
+  
+  const checkStatus = async () => {
+    try {
+      const response = await fetch(`/calendar/${day}/todos/generation-status?agent_id=${generationAgent}`);
+      if (response.ok) {
+        const data = await response.json();
+        
+        if (data.status === 'finished' || data.status === 'error') {
+          // Generation complete, reload page to show new todos
+          setTimeout(() => {
+            window.location.reload();
+          }, 1000);
+        } else {
+          // Still running, check again in 2 seconds
+          setTimeout(checkStatus, 2000);
+        }
+      }
+    } catch (error) {
+      console.error('Error checking generation status:', error);
+      // Continue polling even on error
+      setTimeout(checkStatus, 3000);
+    }
+  };
+  
+  checkStatus();
+}
 
 async function updateTodo(section, index, field, value) {
   try {

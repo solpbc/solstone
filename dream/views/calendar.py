@@ -243,6 +243,129 @@ def calendar_todos_page(day: str) -> Any:
     )
 
 
+@bp.route("/calendar/<day>/todos/generate", methods=["POST"])
+def generate_todos(day: str) -> Any:
+    """Generate TODO list for a specific day using the TODO persona."""
+
+    if not re.fullmatch(DATE_RE.pattern, day):
+        return "", 404
+
+    # Import cortex client
+    from ..cortex_client import get_global_cortex_client
+
+    client = get_global_cortex_client()
+    if not client:
+        return jsonify({"error": "Cortex service not available"}), 503
+
+    # Get yesterday's TODO if it exists
+    from pathlib import Path
+    from datetime import datetime, timedelta
+
+    day_date = datetime.strptime(day, "%Y%m%d")
+    yesterday = (day_date - timedelta(days=1)).strftime("%Y%m%d")
+    yesterday_path = Path(state.journal_root) / yesterday / "TODO.md"
+
+    yesterday_content = ""
+    if yesterday_path.exists():
+        try:
+            yesterday_content = yesterday_path.read_text()
+        except Exception:
+            pass
+
+    # Prepare the prompt for the TODO persona
+    prompt = f"""Generate a TODO list for {day_date.strftime('%Y-%m-%d')}.
+
+Current date/time: {datetime.now().strftime('%Y-%m-%d %H:%M')}
+Target day: {day_date.strftime('%Y-%m-%d')}
+Target day folder: {day}
+
+Yesterday's TODO.md content:
+{yesterday_content if yesterday_content else "(No TODO.md from yesterday)"}
+
+Please analyze recent journal entries and generate an appropriate TODO.md file.
+Write the generated TODO list to the file at: {day}/TODO.md"""
+
+    # Spawn agent with TODO persona
+    agent_id = client.spawn_agent(
+        prompt=prompt,
+        persona="todo",
+        backend="openai",  # Use configured backend
+        model="",  # Use default model for persona
+    )
+
+    if not agent_id:
+        return jsonify({"error": "Failed to spawn agent"}), 500
+
+    # Store agent ID for this day's generation (in memory for now)
+    if not hasattr(state, "todo_generation_agents"):
+        state.todo_generation_agents = {}
+    state.todo_generation_agents[day] = agent_id
+
+    return jsonify({"agent_id": agent_id, "status": "started"})
+
+
+@bp.route("/calendar/<day>/todos/generation-status")
+def todo_generation_status(day: str) -> Any:
+    """Check the status of TODO generation for a specific day."""
+
+    if not re.fullmatch(DATE_RE.pattern, day):
+        return "", 404
+
+    # Check for specific agent_id in query params
+    agent_id = request.args.get("agent_id")
+
+    # Or get from state if tracking
+    if not agent_id and hasattr(state, "todo_generation_agents"):
+        agent_id = state.todo_generation_agents.get(day)
+
+    if not agent_id:
+        return jsonify({"status": "none", "agent_id": None})
+
+    # Check agent status
+    from ..cortex_client import get_global_cortex_client
+    import os
+
+    # First check if agent exists in journal (finished)
+    agents_dir = os.path.join(state.journal_root, "agents")
+    agent_file = os.path.join(agents_dir, f"{agent_id}.jsonl")
+
+    if os.path.exists(agent_file):
+        # Agent has finished, check if TODO was created
+        from pathlib import Path
+
+        todo_path = Path(state.journal_root) / day / "TODO.md"
+
+        if todo_path.exists():
+            # Clear from state tracking
+            if (
+                hasattr(state, "todo_generation_agents")
+                and day in state.todo_generation_agents
+            ):
+                del state.todo_generation_agents[day]
+            return jsonify(
+                {"status": "finished", "agent_id": agent_id, "todo_created": True}
+            )
+        else:
+            return jsonify(
+                {"status": "finished", "agent_id": agent_id, "todo_created": False}
+            )
+
+    # Check if still running via cortex
+    client = get_global_cortex_client()
+    if client:
+        response = client.list_agents(limit=100, offset=0)
+        if response:
+            agents = response.get("agents", [])
+            for agent in agents:
+                if agent.get("id") == agent_id:
+                    return jsonify({"status": "running", "agent_id": agent_id})
+            # Agent not in running list, likely finished or errored
+            return jsonify({"status": "unknown", "agent_id": agent_id})
+
+    # No cortex client available, can't check status
+    return jsonify({"status": "unknown", "agent_id": agent_id})
+
+
 @bp.route("/calendar/api/transcript_ranges/<day>")
 def calendar_transcript_ranges(day: str) -> Any:
     """Return available transcript ranges for ``day``."""
