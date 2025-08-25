@@ -112,7 +112,7 @@ def agents_list() -> object:
     historical_agents = []
 
     # Load persona metadata once for efficiency
-    from ..utils import get_personas
+    from think.utils import get_personas
 
     personas = get_personas()
     persona_titles = {pid: p["title"] for pid, p in personas.items()}

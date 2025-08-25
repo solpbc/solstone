@@ -22,7 +22,7 @@ bp = Blueprint("chat", __name__, template_folder="../templates")
 
 @bp.route("/chat")
 def chat_page() -> str:
-    from ..utils import get_personas
+    from think.utils import get_personas
 
     personas = get_personas()
     persona_titles = {pid: p["title"] for pid, p in personas.items()}
