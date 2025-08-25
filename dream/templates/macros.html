@@ -1,4 +1,4 @@
-{% macro day_heading(title, prev_url=None, next_url=None, transcript_url=None, admin_url=None) %}
+{% macro day_heading(title, prev_url=None, next_url=None, transcript_url=None, admin_url=None, todos_url=None) %}
   <h1 style="display: flex; justify-content: space-between; align-items: center;">
     <div>
       {% if prev_url %}<a href="{{ prev_url }}" aria-label="Previous day" style="text-decoration:none">&#9664;</a>{% endif %}
@@ -6,6 +6,7 @@
       {% if next_url %}<a href="{{ next_url }}" aria-label="Next day" style="text-decoration:none">&#9654;</a>{% endif %}
     </div>
     <div style="display: flex; gap: 10px;">
+      {% if todos_url %}<a href="{{ todos_url }}" title="TODOs" aria-label="TODOs" style="text-decoration:none">✅</a>{% endif %}
       {% if transcript_url %}<a href="{{ transcript_url }}" title="Transcripts" aria-label="Transcripts" style="text-decoration:none">📝</a>{% endif %}
       {% if admin_url %}<a href="{{ admin_url }}" title="Admin" aria-label="Admin" style="text-decoration:none">⚙️</a>{% endif %}
     </div>

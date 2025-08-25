@@ -17,7 +17,8 @@
         prev_day and url_for('calendar.calendar_day', day=prev_day),
         next_day and url_for('calendar.calendar_day', day=next_day),
         url_for('calendar.calendar_transcript_page', day=day),
-        url_for('admin.admin_day_page', day=day)) }}
+        url_for('admin.admin_day_page', day=day),
+        url_for('calendar.calendar_todos_page', day=day)) }}
   <div class="tabs">
     <a class="tab active" href="#events" data-target="events">Events</a>
     {% for file in files %}

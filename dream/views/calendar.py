@@ -92,6 +92,30 @@ def calendar_transcript_page(day: str) -> str:
     )
 
 
+@bp.route("/calendar/<day>/todos")
+def calendar_todos_page(day: str) -> str:
+    """Render TODO viewer for a specific day."""
+
+    if not re.fullmatch(DATE_RE.pattern, day):
+        return "", 404
+
+    from think.utils import get_todos
+
+    todos = get_todos(day)
+    title = format_date(day)
+    prev_day, next_day = adjacent_days(state.journal_root, day)
+
+    return render_template(
+        "calendar_todos.html",
+        active="calendar",
+        title=title,
+        day=day,
+        prev_day=prev_day,
+        next_day=next_day,
+        todos=todos,
+    )
+
+
 @bp.route("/calendar/api/transcript_ranges/<day>")
 def calendar_transcript_ranges(day: str) -> Any:
     """Return available transcript ranges for ``day``."""

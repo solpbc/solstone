@@ -1,0 +1,260 @@
+{% extends 'base.html' %}
+{% import 'macros.html' as macros %}
+{% set active = 'calendar' %}
+{% block head %}
+<style>
+.todos-container {
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+.todos-section {
+  margin-bottom: 3rem;
+}
+
+.todos-section h2 {
+  font-size: 1.5rem;
+  margin-bottom: 1.5rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 2px solid #e0e0e0;
+}
+
+.todo-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.todo-item {
+  display: flex;
+  align-items: start;
+  padding: 0.75rem 1rem;
+  margin-bottom: 0.5rem;
+  background: #f8f9fa;
+  border-radius: 8px;
+  transition: background-color 0.2s;
+}
+
+.todo-item:hover {
+  background: #e9ecef;
+}
+
+.todo-item.completed {
+  opacity: 0.7;
+  background: #e8f5e9;
+}
+
+.todo-item.cancelled {
+  opacity: 0.5;
+  background: #ffebee;
+  text-decoration: line-through;
+}
+
+.todo-checkbox {
+  width: 20px;
+  height: 20px;
+  margin-right: 1rem;
+  margin-top: 2px;
+  flex-shrink: 0;
+}
+
+.todo-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.todo-main {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.todo-type {
+  font-weight: 600;
+  color: #495057;
+  flex-shrink: 0;
+}
+
+.todo-type::after {
+  content: ":";
+  margin-left: 2px;
+}
+
+.todo-description {
+  flex: 1;
+  color: #212529;
+  min-width: 200px;
+}
+
+.todo-meta {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  margin-top: 0.25rem;
+  font-size: 0.875rem;
+}
+
+.todo-domain {
+  display: inline-block;
+  padding: 0.125rem 0.5rem;
+  background: #007bff;
+  color: white;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.todo-time {
+  color: #6c757d;
+  font-family: monospace;
+}
+
+.todo-date {
+  color: #6c757d;
+  font-weight: 500;
+}
+
+.no-todos {
+  text-align: center;
+  padding: 3rem 1rem;
+  color: #6c757d;
+  font-style: italic;
+}
+
+.no-todos-icon {
+  font-size: 3rem;
+  margin-bottom: 1rem;
+  opacity: 0.5;
+}
+
+/* Type-specific colors */
+.todo-type.type-meeting { color: #9c27b0; }
+.todo-type.type-task { color: #2196f3; }
+.todo-type.type-review { color: #ff9800; }
+.todo-type.type-fix { color: #f44336; }
+.todo-type.type-goal { color: #4caf50; }
+.todo-type.type-research { color: #00bcd4; }
+
+/* Domain-specific colors */
+.todo-domain.domain-hear { background: #9c27b0; }
+.todo-domain.domain-see { background: #2196f3; }
+.todo-domain.domain-think { background: #4caf50; }
+.todo-domain.domain-dream { background: #ff9800; }
+.todo-domain.domain-personal { background: #607d8b; }
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .todo-item {
+    padding: 0.5rem 0.75rem;
+  }
+  
+  .todo-main {
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+  
+  .todo-type::after {
+    content: "";
+  }
+  
+  .todo-description {
+    margin-top: 0.25rem;
+  }
+}
+</style>
+{% endblock %}
+{% block body %}
+<div class="container">
+  {{ macros.day_heading(title,
+        prev_day and url_for('calendar.calendar_day', day=prev_day),
+        next_day and url_for('calendar.calendar_day', day=next_day),
+        url_for('calendar.calendar_transcript_page', day=day),
+        url_for('admin.admin_day_page', day=day),
+        url_for('calendar.calendar_todos_page', day=day)) }}
+  
+  <div class="todos-container">
+    {% if todos %}
+      <!-- Today Section -->
+      <div class="todos-section">
+        <h2>Today</h2>
+        {% if todos.today %}
+          <ul class="todo-list">
+            {% for item in todos.today %}
+              <li class="todo-item {% if item.completed %}completed{% elif item.cancelled %}cancelled{% endif %}">
+                <input type="checkbox" 
+                       class="todo-checkbox" 
+                       {% if item.completed %}checked{% endif %} 
+                       disabled>
+                <div class="todo-content">
+                  <div class="todo-main">
+                    <span class="todo-type type-{{ item.type|lower }}">{{ item.type }}</span>
+                    <span class="todo-description">{{ item.description }}</span>
+                  </div>
+                  <div class="todo-meta">
+                    {% if item.domain %}
+                      <span class="todo-domain domain-{{ item.domain }}">{{ item.domain }}</span>
+                    {% endif %}
+                    {% if item.time %}
+                      <span class="todo-time">{{ item.time }}</span>
+                    {% endif %}
+                  </div>
+                </div>
+              </li>
+            {% endfor %}
+          </ul>
+        {% else %}
+          <div class="no-todos">
+            <div class="no-todos-icon">📋</div>
+            <p>No tasks for today</p>
+          </div>
+        {% endif %}
+      </div>
+      
+      <!-- Future Section -->
+      <div class="todos-section">
+        <h2>Future</h2>
+        {% if todos.future %}
+          <ul class="todo-list">
+            {% for item in todos.future %}
+              <li class="todo-item {% if item.completed %}completed{% elif item.cancelled %}cancelled{% endif %}">
+                <input type="checkbox" 
+                       class="todo-checkbox" 
+                       {% if item.completed %}checked{% endif %} 
+                       disabled>
+                <div class="todo-content">
+                  <div class="todo-main">
+                    <span class="todo-type type-{{ item.type|lower }}">{{ item.type }}</span>
+                    <span class="todo-description">{{ item.description }}</span>
+                  </div>
+                  <div class="todo-meta">
+                    {% if item.domain %}
+                      <span class="todo-domain domain-{{ item.domain }}">{{ item.domain }}</span>
+                    {% endif %}
+                    {% if item.date %}
+                      <span class="todo-date">{{ item.date }}</span>
+                    {% endif %}
+                  </div>
+                </div>
+              </li>
+            {% endfor %}
+          </ul>
+        {% else %}
+          <div class="no-todos">
+            <div class="no-todos-icon">🗓️</div>
+            <p>No future tasks scheduled</p>
+          </div>
+        {% endif %}
+      </div>
+    {% else %}
+      <div class="no-todos">
+        <div class="no-todos-icon">📄</div>
+        <h3>No TODO.md file found</h3>
+        <p>Create a TODO.md file in the day folder to start tracking tasks</p>
+      </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}
