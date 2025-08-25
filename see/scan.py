@@ -11,7 +11,7 @@ from PIL import Image, ImageDraw
 from PIL.PngImagePlugin import PngInfo
 
 from see.screen_compare import compare_images
-from see.screen_dbus import idle_time_ms, screen_snap
+from see.screen_dbus import check_screen_state, idle_time_ms, screen_snap
 from think.detect_border import detect_border
 from think.utils import setup_cli, touch_health
 
@@ -103,6 +103,17 @@ def process_once(journal, min_threshold):
     idle_ms = idle_time_ms()
     if not recent_audio and last_ts and idle_ms / 1000 >= (time.time() - last_ts):
         logging.debug("Desktop still idle; nothing to do.")
+        touch_health("see")
+        return
+
+    # Check screen state first
+    screen_state = check_screen_state()
+    if screen_state["locked"]:
+        logging.debug("Screen is locked; skipping screenshot.")
+        touch_health("see")
+        return
+    if screen_state["power_save"]:
+        logging.debug("Screen is in power save mode; skipping screenshot.")
         touch_health("see")
         return
 

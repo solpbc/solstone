@@ -48,6 +48,42 @@ async def get_idle_time_ms(bus):
     return idle_time
 
 
+async def is_screen_locked(bus) -> bool:
+    """Check if the screen is currently locked using GNOME ScreenSaver."""
+    try:
+        intro = await bus.introspect("org.gnome.ScreenSaver", "/org/gnome/ScreenSaver")
+        obj = bus.get_proxy_object(
+            "org.gnome.ScreenSaver", "/org/gnome/ScreenSaver", intro
+        )
+        iface = obj.get_interface("org.gnome.ScreenSaver")
+        return bool(await iface.call_get_active())
+    except Exception:
+        # If the interface isn't present on this session, treat as unlocked
+        return False
+
+
+async def is_power_save_active(bus) -> bool:
+    """Check if display power save mode is active (screen blanked)."""
+    try:
+        intro = await bus.introspect(
+            "org.gnome.Mutter.DisplayConfig", "/org/gnome/Mutter/DisplayConfig"
+        )
+        obj = bus.get_proxy_object(
+            "org.gnome.Mutter.DisplayConfig", "/org/gnome/Mutter/DisplayConfig", intro
+        )
+        iface = obj.get_interface("org.freedesktop.DBus.Properties")
+        # Get("org.gnome.Mutter.DisplayConfig", "PowerSaveMode") -> int32
+        # 0 = on, nonzero = blanked
+        mode_variant = await iface.call_get(
+            "org.gnome.Mutter.DisplayConfig", "PowerSaveMode"
+        )
+        mode = int(mode_variant.value)
+        return mode != 0
+    except Exception:
+        # Property or service not available -> assume not blanked
+        return False
+
+
 async def _idle_time_ms_async():
     """Return the current idle time of the desktop in milliseconds."""
     bus = await MessageBus(bus_type=BusType.SESSION).connect()
@@ -57,6 +93,19 @@ async def _idle_time_ms_async():
 def idle_time_ms():
     """Synchronous wrapper around ``_idle_time_ms_async``."""
     return asyncio.run(_idle_time_ms_async())
+
+
+async def _check_screen_state_async():
+    """Check screen lock and power save state."""
+    bus = await MessageBus(bus_type=BusType.SESSION).connect()
+    locked = await is_screen_locked(bus)
+    power_save = await is_power_save_active(bus)
+    return {"locked": locked, "power_save": power_save}
+
+
+def check_screen_state():
+    """Synchronous wrapper to check screen lock and power save state."""
+    return asyncio.run(_check_screen_state_async())
 
 
 def get_monitor_geometries():
@@ -83,10 +132,19 @@ def get_monitor_geometries():
 
 
 # asynchronous snapshot helper that returns an array of monitor images only if user is active
-async def screen_snap_async():
+async def screen_snap_async(skip_if_locked=True):
     global last_screenshot_timestamp
     now = time.time()
     bus = await MessageBus(bus_type=BusType.SESSION).connect()
+
+    # Check if screen is locked or in power save mode
+    if skip_if_locked:
+        locked = await is_screen_locked(bus)
+        power_save = await is_power_save_active(bus)
+        if locked or power_save:
+            # Screen is locked or blanked, skip screenshot but update heartbeat
+            return []
+
     if last_screenshot_timestamp:
         idle_time_ms = await get_idle_time_ms(bus)
         elapsed = now - last_screenshot_timestamp
