@@ -166,8 +166,7 @@ def test_todo_update_adds_timestamp(client, monkeypatch, tmp_path):
             "/calendar/20250101/todos",
             json={
                 "action": "update",
-                "section": "today",
-                "index": 0,
+                "line_number": 2,  # Line 2 is the first todo item
                 "field": "completed",
                 "value": True,
             },
@@ -278,8 +277,7 @@ def test_todo_timestamp_update_preserves_content(client, monkeypatch, tmp_path):
             "/calendar/20250101/todos",
             json={
                 "action": "update",
-                "section": "today",
-                "index": 0,
+                "line_number": 2,  # Line 2 is the first todo item
                 "field": "completed",
                 "value": True,
             },

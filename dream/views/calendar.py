@@ -221,11 +221,22 @@ def calendar_todos_page(day: str) -> Any:
 
             current_time = datetime.now().strftime("%H:%M")
 
-            # Determine if this is a "today" item (check if timestamp exists)
-            is_today_item = re.search(r"\(\d{1,2}:\d{2}\)\s*$", line) is not None
+            # Determine if this is a "today" item by checking section
+            # Find which section this line belongs to
+            is_today_item = False
+            for i in range(line_index, -1, -1):
+                if lines[i].strip() == "# Today":
+                    is_today_item = True
+                    break
+                elif lines[i].strip() == "# Future":
+                    is_today_item = False
+                    break
 
-            # For 'today' items, remove old timestamp before any modification
-            if is_today_item and field != "cancelled":
+            # Check if timestamp already exists
+            has_timestamp = re.search(r"\(\d{1,2}:\d{2}\)\s*$", line) is not None
+
+            # For 'today' items with timestamps, remove old timestamp before any modification
+            if has_timestamp and field != "cancelled":
                 lines[line_index] = (
                     re.sub(r"\s*\(\d{1,2}:\d{2}\)\s*$", "", lines[line_index].rstrip())
                     + "\n"
