@@ -30,6 +30,7 @@ def test_send_message_success(monkeypatch):
         prompt,
         persona="default",
         backend="openai",
+        config=None,
         attachments=None,
         timeout=60,
         on_event=None,
@@ -38,6 +39,7 @@ def test_send_message_success(monkeypatch):
             prompt,
             persona,
             backend,
+            config,
             attachments,
             timeout,
         )
@@ -67,12 +69,14 @@ def test_send_message_openai(monkeypatch):
         prompt,
         persona="default",
         backend="openai",
+        config=None,
         attachments=None,
         timeout=60,
         on_event=None,
     ):
         called["backend"] = backend
         called["persona"] = persona
+        called["config"] = config
         return "pong"
 
     monkeypatch.setattr(
@@ -97,12 +101,14 @@ def test_send_message_anthropic(monkeypatch):
         prompt,
         persona="default",
         backend="openai",
+        config=None,
         attachments=None,
         timeout=60,
         on_event=None,
     ):
         called["backend"] = backend
         called["persona"] = persona
+        called["config"] = config
         return "pong"
 
     monkeypatch.setattr(
@@ -145,7 +151,7 @@ def test_tool_event_pushed(monkeypatch):
         def set_event_callback(self, callback):
             self.event_callback = callback
 
-        def spawn_agent(self, prompt, backend, persona):
+        def spawn_agent(self, prompt, backend, persona, config=None):
             # Simulate tool event
             self.event_callback(
                 {
@@ -160,6 +166,7 @@ def test_tool_event_pushed(monkeypatch):
         prompt,
         persona="default",
         backend="openai",
+        config=None,
         attachments=None,
         timeout=60,
         on_event=None,

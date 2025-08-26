@@ -120,6 +120,7 @@ def run_agent_via_cortex(
     prompt: str,
     persona: str = "default",
     backend: str = "openai",
+    config: Optional[Dict[str, Any]] = None,
     attachments: Optional[List[str]] = None,
     timeout: int = 60,
     on_event: Optional[Callable[[dict], None]] = None,
@@ -130,6 +131,7 @@ def run_agent_via_cortex(
         prompt: The prompt to send to the agent
         persona: The persona to use (default: "default")
         backend: The backend to use (default: "openai")
+        config: Optional configuration dictionary for the agent
         attachments: Optional list of attachments to include with prompt
         timeout: Maximum time to wait for completion in seconds (default: 60)
         on_event: Optional callback for agent events
@@ -145,6 +147,7 @@ def run_agent_via_cortex(
         prompt=prompt,
         persona=persona,
         backend=backend,
+        config=config,
         attachments=attachments,
         on_event=on_event,
     )
