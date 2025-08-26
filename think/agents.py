@@ -8,7 +8,7 @@ import sys
 import time
 import traceback
 from pathlib import Path
-from typing import Any, Callable, Literal, Optional, TypedDict, Union
+from typing import Any, Callable, Dict, Literal, Optional, TypedDict, Union
 
 from think.utils import setup_cli
 
@@ -166,8 +166,7 @@ async def run_agent(
     prompt: str,
     *,
     backend: str = "openai",
-    model: str = "",
-    max_tokens: int = 0,
+    config: Optional[Dict[str, Any]] = None,
     on_event: Optional[Callable[[Event], None]] = None,
     persona: str = "default",
 ) -> str:
@@ -176,8 +175,7 @@ async def run_agent(
     Args:
         prompt: The prompt to run
         backend: Backend provider ("openai", "google", "anthropic", "claude")
-        model: Model to use (defaults to backend default)
-        max_tokens: Maximum tokens (defaults to backend default)
+        config: Configuration dictionary for the backend (supports 'model', 'max_tokens', and backend-specific options)
         on_event: Optional event callback
         persona: Persona instructions to load
 
@@ -195,8 +193,7 @@ async def run_agent(
 
     return await backend_mod.run_agent(
         prompt,
-        model=model or backend_mod.DEFAULT_MODEL,
-        max_tokens=max_tokens or backend_mod.DEFAULT_MAX_TOKENS,
+        config=config or {},
         on_event=on_event,
         persona=persona,
     )
@@ -266,9 +263,10 @@ async def main_async() -> None:
 
                 # Run agent with provided parameters
                 backend = request.get("backend", "openai")
-                model = request.get("model", "")
-                max_tokens = request.get("max_tokens", 0)
                 persona = request.get("persona", "default")
+
+                # Get config from request - expect it to be a dict
+                config = request.get("config", {})
 
                 # Set OpenAI key if needed
                 if backend == "openai":
@@ -279,14 +277,13 @@ async def main_async() -> None:
                         set_default_openai_key(api_key)
 
                 app_logger.debug(
-                    f"Processing request: backend={backend}, model={model}"
+                    f"Processing request: backend={backend}, config={config}"
                 )
 
                 await run_agent(
                     prompt,
                     backend=backend,
-                    model=model or "",
-                    max_tokens=max_tokens or 0,
+                    config=config,
                     on_event=emit_event,
                     persona=persona,
                 )

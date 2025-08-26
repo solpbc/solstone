@@ -32,12 +32,16 @@ def mock_run_agent(monkeypatch):
         # Emit events through the callback if provided
         on_event = kwargs.get("on_event")
         if on_event:
+            # Extract model from config if present
+            config = kwargs.get("config", {})
+            model = config.get("model", kwargs.get("model", ""))
+
             on_event(
                 {
                     "event": "start",
                     "prompt": prompt,
                     "backend": kwargs.get("backend", "openai"),
-                    "model": kwargs.get("model", ""),
+                    "model": model,
                     "persona": kwargs.get("persona", "default"),
                     "ts": 1234567890,
                 }
@@ -64,9 +68,11 @@ def test_ndjson_single_request(mock_journal, mock_run_agent, monkeypatch, capsys
         {
             "prompt": "What is 2+2?",
             "backend": "openai",
-            "model": "gpt-4o",
             "persona": "default",
-            "max_tokens": 100,
+            "config": {
+                "model": "gpt-4o",
+                "max_tokens": 100,
+            },
         }
     )
 
@@ -90,7 +96,7 @@ def test_ndjson_single_request(mock_journal, mock_run_agent, monkeypatch, capsys
     assert start_event["event"] == "start"
     assert start_event["prompt"] == "What is 2+2?"
     assert start_event["backend"] == "openai"
-    assert start_event["model"] == "gpt-4o"
+    assert start_event["model"] == "gpt-4o"  # Model comes from config
 
     finish_event = json.loads(lines[1])
     assert finish_event["event"] == "finish"
@@ -104,7 +110,11 @@ def test_ndjson_multiple_requests(mock_journal, mock_run_agent, monkeypatch, cap
     # Multiple NDJSON lines
     requests = [
         {"prompt": "First question", "backend": "openai"},
-        {"prompt": "Second question", "backend": "anthropic", "model": "claude-3"},
+        {
+            "prompt": "Second question",
+            "backend": "anthropic",
+            "config": {"model": "claude-3"},
+        },
         {"prompt": "Third question", "persona": "technical"},
     ]
 
@@ -175,7 +185,7 @@ def test_ndjson_missing_prompt(mock_journal, mock_run_agent, monkeypatch, capsys
     ndjson_input = json.dumps(
         {
             "backend": "openai",
-            "model": "gpt-4o",
+            "config": {"model": "gpt-4o"},
             # Missing 'prompt' field
         }
     )

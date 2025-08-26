@@ -11,7 +11,7 @@ import logging
 import os
 import time
 import traceback
-from typing import Any, Callable, Optional
+from typing import Any, Callable, Dict, Optional
 
 from google import genai
 from google.genai import types
@@ -20,8 +20,9 @@ from .agents import JSONEventCallback, ThinkingEvent
 from .models import GEMINI_FLASH
 from .utils import agent_instructions, create_mcp_client
 
-DEFAULT_MODEL = GEMINI_FLASH
-DEFAULT_MAX_TOKENS = 8192
+# Default values are now handled internally
+_DEFAULT_MODEL = GEMINI_FLASH
+_DEFAULT_MAX_TOKENS = 8192
 
 
 def setup_logging(verbose: bool) -> logging.Logger:
@@ -74,12 +75,23 @@ class ToolLoggingHooks:
 async def run_agent(
     prompt: str,
     *,
-    model: str = DEFAULT_MODEL,
-    max_tokens: int = DEFAULT_MAX_TOKENS,
+    config: Optional[Dict[str, Any]] = None,
     on_event: Optional[Callable[[dict], None]] = None,
     persona: str = "default",
 ) -> str:
-    """Run a single prompt through the Google Gemini agent and return the response."""
+    """Run a single prompt through the Google Gemini agent and return the response.
+
+    Args:
+        prompt: The prompt to run
+        config: Configuration dictionary (supports 'model', 'max_tokens', and backend-specific options)
+        on_event: Optional event callback
+        persona: Persona instructions to load
+    """
+    # Extract config values with defaults
+    config = config or {}
+    model = config.get("model", _DEFAULT_MODEL)
+    max_tokens = config.get("max_tokens", _DEFAULT_MAX_TOKENS)
+
     callback = JSONEventCallback(on_event)
 
     try:
@@ -183,21 +195,16 @@ async def run_agent(
 async def run_prompt(
     prompt: str,
     *,
-    model: str = DEFAULT_MODEL,
-    max_tokens: int = DEFAULT_MAX_TOKENS,
+    config: Optional[Dict[str, Any]] = None,
     on_event: Optional[Callable[[dict], None]] = None,
     persona: str = "default",
 ) -> str:
     """Convenience helper to run ``prompt`` (alias for run_agent)."""
-    return await run_agent(
-        prompt, model=model, max_tokens=max_tokens, on_event=on_event, persona=persona
-    )
+    return await run_agent(prompt, config=config, on_event=on_event, persona=persona)
 
 
 __all__ = [
     "run_agent",
     "run_prompt",
     "setup_logging",
-    "DEFAULT_MODEL",
-    "DEFAULT_MAX_TOKENS",
 ]

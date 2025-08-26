@@ -11,7 +11,7 @@ import logging
 import os
 import time
 import traceback
-from typing import Callable, Optional
+from typing import Any, Callable, Dict, Optional
 
 from claude_code_sdk import (
     AssistantMessage,
@@ -29,8 +29,9 @@ from .agents import JSONEventCallback, ThinkingEvent
 from .models import CLAUDE_SONNET_4
 from .utils import agent_instructions
 
-DEFAULT_MODEL = CLAUDE_SONNET_4
-DEFAULT_MAX_TOKENS = 8096 * 2
+# Default values are now handled internally
+_DEFAULT_MODEL = CLAUDE_SONNET_4
+_DEFAULT_MAX_TOKENS = 8096 * 2
 
 
 def setup_logging(verbose: bool) -> logging.Logger:
@@ -43,12 +44,25 @@ def setup_logging(verbose: bool) -> logging.Logger:
 async def run_agent(
     prompt: str,
     *,
-    model: str = DEFAULT_MODEL,
-    max_tokens: int = DEFAULT_MAX_TOKENS,
+    config: Optional[Dict[str, Any]] = None,
     on_event: Optional[Callable[[dict], None]] = None,
     persona: str = "default",
 ) -> str:
-    """Run a single prompt through the Claude Code SDK and return the response."""
+    """Run a single prompt through the Claude Code SDK and return the response.
+
+    Args:
+        prompt: The prompt to run
+        config: Configuration dictionary (supports 'model', 'max_tokens', 'max_turns', etc.)
+        on_event: Optional event callback
+        persona: Persona instructions to load
+    """
+    # Extract config values with defaults
+    config = config or {}
+    model = config.get("model", _DEFAULT_MODEL)
+    # max_tokens is not used by Claude Code SDK, but we extract it for future compatibility
+    # max_tokens = config.get("max_tokens", _DEFAULT_MAX_TOKENS)
+    max_turns = config.get("max_turns", 3)  # Default for Claude Code
+
     callback = JSONEventCallback(on_event)
 
     try:
@@ -99,7 +113,7 @@ async def run_agent(
             ],
             disallowed_tools=["mcp_*"],  # Disable MCP tools
             permission_mode="acceptEdits",  # Auto-accept file edits
-            max_turns=3,  # Allow multiple turns for complex tasks
+            max_turns=max_turns,  # Allow multiple turns for complex tasks
         )
 
         # Track tool calls for pairing start/end events
@@ -255,21 +269,16 @@ async def run_agent(
 async def run_prompt(
     prompt: str,
     *,
-    model: str = DEFAULT_MODEL,
-    max_tokens: int = DEFAULT_MAX_TOKENS,
+    config: Optional[Dict[str, Any]] = None,
     on_event: Optional[Callable[[dict], None]] = None,
     persona: str = "default",
 ) -> str:
     """Convenience helper to run ``prompt`` (alias for run_agent)."""
-    return await run_agent(
-        prompt, model=model, max_tokens=max_tokens, on_event=on_event, persona=persona
-    )
+    return await run_agent(prompt, config=config, on_event=on_event, persona=persona)
 
 
 __all__ = [
     "run_agent",
     "run_prompt",
     "setup_logging",
-    "DEFAULT_MODEL",
-    "DEFAULT_MAX_TOKENS",
 ]

@@ -350,12 +350,18 @@ def start_agent() -> object:
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
         try:
+            # Build config for agent
+            config = {}
+            if model:
+                config["model"] = model
+            if max_tokens:
+                config["max_tokens"] = max_tokens
+
             result = loop.run_until_complete(
                 agents.run_agent(
                     plan,
                     backend=backend,
-                    model=model,
-                    max_tokens=max_tokens,
+                    config=config,
                     persona=persona,
                 )
             )

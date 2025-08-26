@@ -252,9 +252,9 @@ def test_handle_spawn(mock_thread, mock_popen, cortex_server, mock_journal):
 
     assert ndjson_request["prompt"] == "Test prompt"
     assert ndjson_request["backend"] == "openai"
-    assert ndjson_request["model"] == "gpt-4"
     assert ndjson_request["persona"] == "default"
-    assert ndjson_request["max_tokens"] == 1000
+    assert ndjson_request["config"]["model"] == "gpt-4"
+    assert ndjson_request["config"]["max_tokens"] == 1000
 
     # Check stdin was closed
     mock_process.stdin.close.assert_called_once()

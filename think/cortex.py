@@ -238,15 +238,19 @@ class CortexServer:
         # Spawn the agent process
         try:
             # Build NDJSON request
+            # Build config dict for model and max_tokens
+            config = {}
+            if model:
+                config["model"] = model
+            if max_tokens:
+                config["max_tokens"] = max_tokens
+
             request = {
                 "prompt": prompt,
                 "backend": backend,
                 "persona": persona,
+                "config": config,
             }
-            if model:
-                request["model"] = model
-            if max_tokens:
-                request["max_tokens"] = max_tokens
 
             ndjson_input = json.dumps(request)
 

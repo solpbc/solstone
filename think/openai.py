@@ -42,9 +42,10 @@ from think.utils import agent_instructions
 from .agents import JSONEventCallback, ThinkingEvent
 from .models import GPT_5
 
-DEFAULT_MODEL = os.getenv("OPENAI_AGENT_MODEL", GPT_5)
-DEFAULT_MAX_TOKENS = int(os.getenv("OPENAI_AGENT_MAX_TOKENS", "16384"))
-DEFAULT_MAX_TURNS = int(os.getenv("OPENAI_AGENT_MAX_TURNS", "64"))
+# Default values are now handled internally
+_DEFAULT_MODEL = os.getenv("OPENAI_AGENT_MODEL", GPT_5)
+_DEFAULT_MAX_TOKENS = int(os.getenv("OPENAI_AGENT_MAX_TOKENS", "16384"))
+_DEFAULT_MAX_TURNS = int(os.getenv("OPENAI_AGENT_MAX_TURNS", "64"))
 
 LOG = logging.getLogger("think.openai")
 
@@ -128,15 +129,26 @@ def _extract_tool_args(raw_call: Any) -> Any:
 async def run_agent(
     prompt: str,
     *,
-    model: str = DEFAULT_MODEL,
-    max_tokens: int = DEFAULT_MAX_TOKENS,
+    config: Optional[Dict[str, Any]] = None,
     on_event: Optional[Callable[[dict], None]] = None,
     persona: str = "default",
 ) -> str:
     """
     Run a single prompt through the OpenAI Agents SDK using streaming.
     Emits JSON events and returns the final text output.
+
+    Args:
+        prompt: The prompt to run
+        config: Configuration dictionary (supports 'model', 'max_tokens', 'max_turns', etc.)
+        on_event: Optional event callback
+        persona: Persona instructions to load
     """
+    # Extract config values with defaults
+    config = config or {}
+    model = config.get("model", _DEFAULT_MODEL)
+    max_tokens = config.get("max_tokens", _DEFAULT_MAX_TOKENS)
+    max_turns = config.get("max_turns", _DEFAULT_MAX_TURNS)
+
     LOG.info("Running agent with model %s", model)
     cb = JSONEventCallback(on_event)
     cb.emit(
@@ -200,7 +212,7 @@ async def run_agent(
                 input=prompt,
                 session=session,
                 run_config=RunConfig(tracing_disabled=True),  # per docs
-                max_turns=DEFAULT_MAX_TURNS,
+                max_turns=max_turns,
             )
 
             async for ev in result.stream_events():
@@ -344,16 +356,14 @@ async def run_agent(
 async def run_prompt(
     prompt: str,
     *,
-    model: str = DEFAULT_MODEL,
-    max_tokens: int = DEFAULT_MAX_TOKENS,
+    config: Optional[Dict[str, Any]] = None,
     on_event: Optional[Callable[[dict], None]] = None,
     persona: str = "default",
 ) -> str:
     """Alias for run_agent for CLI parity."""
     return await run_agent(
         prompt,
-        model=model,
-        max_tokens=max_tokens,
+        config=config,
         on_event=on_event,
         persona=persona,
     )
@@ -363,6 +373,4 @@ __all__ = [
     "run_agent",
     "run_prompt",
     "setup_logging",
-    "DEFAULT_MODEL",
-    "DEFAULT_MAX_TOKENS",
 ]
