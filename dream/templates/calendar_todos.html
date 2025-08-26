@@ -149,6 +149,17 @@
   font-weight: 500;
 }
 
+.clickable-date {
+  cursor: pointer;
+  transition: background-color 0.2s;
+  padding: 2px 4px;
+  border-radius: 3px;
+}
+
+.clickable-date:hover {
+  background-color: rgba(108, 117, 125, 0.1);
+}
+
 .todo-delete {
   color: #dc3545;
   cursor: pointer;
@@ -322,17 +333,17 @@
         <ul class="todo-list" id="today-list">
           {% if todos and todos.today %}
             {% for item in todos.today %}
-              <li class="todo-item {% if item.completed %}completed{% elif item.cancelled %}cancelled{% endif %}" data-index="{{ loop.index0 }}">
+              <li class="todo-item {% if item.completed %}completed{% elif item.cancelled %}cancelled{% endif %}" data-line="{{ item.line_number }}">
                 <div class="todo-item-inner">
                   <input type="checkbox" 
                          class="todo-checkbox" 
                          {% if item.completed %}checked{% endif %}
-                         onchange="toggleCompleted('today', {{ loop.index0 }}, this.checked)">
+                         onchange="toggleCompleted({{ item.line_number }}, this.checked)">
                   <div class="todo-content">
                     {% if item.type %}
                     <span class="todo-type type-{{ item.type|lower }}">{{ item.type }}</span>
                     {% endif %}
-                    <span class="todo-description" onclick="editTodo(this, 'today', {{ loop.index0 }})">{{ item.description }}</span>
+                    <span class="todo-description" onclick="editTodo(this, {{ item.line_number }})">{{ item.description }}</span>
                     {% if item.domain %}
                       <span class="todo-domain domain-{{ item.domain }}">{{ item.domain }}</span>
                     {% endif %}
@@ -341,7 +352,7 @@
                     {% endif %}
                   </div>
                 </div>
-                <span class="todo-delete" onclick="toggleCancelled('today', {{ loop.index0 }})" title="Delete">🗑️</span>
+                <span class="todo-delete" onclick="toggleCancelled({{ item.line_number }})" title="Delete">🗑️</span>
               </li>
             {% endfor %}
           {% endif %}
@@ -370,26 +381,26 @@
         <ul class="todo-list" id="future-list">
           {% if todos and todos.future %}
             {% for item in todos.future %}
-              <li class="todo-item {% if item.completed %}completed{% elif item.cancelled %}cancelled{% endif %}" data-index="{{ loop.index0 }}">
+              <li class="todo-item {% if item.completed %}completed{% elif item.cancelled %}cancelled{% endif %}" data-line="{{ item.line_number }}">
                 <div class="todo-item-inner">
                   <input type="checkbox" 
                          class="todo-checkbox" 
                          {% if item.completed %}checked{% endif %}
-                         onchange="toggleCompleted('future', {{ loop.index0 }}, this.checked)">
+                         onchange="toggleCompleted({{ item.line_number }}, this.checked)">
                   <div class="todo-content">
                     {% if item.type %}
                     <span class="todo-type type-{{ item.type|lower }}">{{ item.type }}</span>
                     {% endif %}
-                    <span class="todo-description" onclick="editTodo(this, 'future', {{ loop.index0 }})">{{ item.description }}</span>
+                    <span class="todo-description" onclick="editTodo(this, {{ item.line_number }})">{{ item.description }}</span>
                     {% if item.domain %}
                       <span class="todo-domain domain-{{ item.domain }}">{{ item.domain }}</span>
                     {% endif %}
                     {% if item.date %}
-                      <span class="todo-date">{{ item.date }}</span>
+                      <span class="todo-date clickable-date" onclick="editDate(event, {{ item.line_number }})" title="Click to change date">{{ item.date }}</span>
                     {% endif %}
                   </div>
                 </div>
-                <span class="todo-delete" onclick="toggleCancelled('future', {{ loop.index0 }})" title="Delete">🗑️</span>
+                <span class="todo-delete" onclick="toggleCancelled({{ item.line_number }})" title="Delete">🗑️</span>
               </li>
             {% endfor %}
           {% endif %}
@@ -536,7 +547,7 @@ async function pollGenerationStatus() {
   checkStatus();
 }
 
-async function updateTodo(section, index, field, value) {
+async function updateTodo(lineNumber, field, value) {
   try {
     const response = await fetch(`/calendar/${day}/todos`, {
       method: 'POST',
@@ -545,8 +556,7 @@ async function updateTodo(section, index, field, value) {
       },
       body: JSON.stringify({
         action: 'update',
-        section: section,
-        index: index,
+        line_number: lineNumber,
         field: field,
         value: value
       })
@@ -592,10 +602,10 @@ async function addTodo(section, text) {
   }
 }
 
-function toggleCompleted(section, index, checked) {
-  const item = document.querySelector(`#${section}-list .todo-item[data-index="${index}"]`);
+function toggleCompleted(lineNumber, checked) {
+  const item = document.querySelector(`.todo-item[data-line="${lineNumber}"]`);
   
-  updateTodo(section, index, 'completed', checked).then(success => {
+  updateTodo(lineNumber, 'completed', checked).then(success => {
     if (success) {
       if (checked) {
         item.classList.add('completed');
@@ -610,11 +620,11 @@ function toggleCompleted(section, index, checked) {
   });
 }
 
-function toggleCancelled(section, index) {
-  const item = document.querySelector(`#${section}-list .todo-item[data-index="${index}"]`);
+function toggleCancelled(lineNumber) {
+  const item = document.querySelector(`.todo-item[data-line="${lineNumber}"]`);
   
   // Always set as cancelled (delete)
-  updateTodo(section, index, 'cancelled', true).then(success => {
+  updateTodo(lineNumber, 'cancelled', true).then(success => {
     if (success) {
       item.classList.add('cancelled');
       // Item will be hidden by CSS
@@ -622,24 +632,34 @@ function toggleCancelled(section, index) {
   });
 }
 
-function editTodo(element, section, index) {
+function editTodo(element, lineNumber) {
   const currentText = element.textContent;
   const todoItem = element.closest('.todo-item');
   const todoContent = element.closest('.todo-content');
   const todoTypeElement = todoContent.querySelector('.todo-type');
   const todoDomainElement = todoContent.querySelector('.todo-domain');
+  const todoDateElement = todoContent.querySelector('.todo-date');
+  const todoTimeElement = todoContent.querySelector('.todo-time');
   const todoType = todoTypeElement ? todoTypeElement.textContent.replace(':', '') : null;
   const todoDomain = todoDomainElement ? todoDomainElement.textContent : null;
+  const todoDate = todoDateElement ? todoDateElement.textContent : null;
+  const todoTime = todoTimeElement ? todoTimeElement.dataset.time : null;
   
   // Create input field
   const input = document.createElement('input');
   input.type = 'text';
   input.className = 'todo-input edit-mode';
   
-  // Build the input value with type prefix and domain hashtag
+  // Build the input value with type prefix, domain hashtag, and date/time
   let inputValue = todoType ? `**${todoType}**: ${currentText}` : currentText;
   if (todoDomain) {
     inputValue += ` #${todoDomain}`;
+  }
+  if (todoDate) {
+    inputValue += ` ${todoDate}`;
+  }
+  if (todoTime) {
+    inputValue += ` (${todoTime})`;
   }
   input.value = inputValue;
   
@@ -655,12 +675,10 @@ function editTodo(element, section, index) {
   
   const saveEdit = async () => {
     const newValue = input.value.trim();
-    let originalValue = todoType ? `**${todoType}**: ${currentText}` : currentText;
-    if (todoDomain) {
-      originalValue += ` #${todoDomain}`;
-    }
+    // Store original value to compare
+    const originalValue = inputValue;
     if (newValue && newValue !== originalValue) {
-      const success = await updateTodo(section, index, 'text', newValue);
+      const success = await updateTodo(lineNumber, 'text', newValue);
       if (success) {
         // Reload to get updated metadata
         window.location.reload();
@@ -740,6 +758,81 @@ function addNewTodo(section) {
       if (list.children.length === 0 && emptyMessage) {
         emptyMessage.style.display = 'block';
       }
+    }
+  });
+}
+
+async function editDate(event, lineNumber) {
+  event.stopPropagation();
+  
+  const dateSpan = event.target;
+  const currentDate = dateSpan.textContent.trim();
+  
+  // Convert MM/DD/YYYY to YYYY-MM-DD for date input
+  const parts = currentDate.split('/');
+  const formattedDate = parts.length === 3 ? 
+    `${parts[2]}-${parts[0].padStart(2, '0')}-${parts[1].padStart(2, '0')}` : '';
+  
+  // Create date input
+  const input = document.createElement('input');
+  input.type = 'date';
+  input.value = formattedDate;
+  input.style.padding = '2px 4px';
+  input.style.fontSize = 'inherit';
+  input.style.fontFamily = 'inherit';
+  
+  // Store original date for comparison
+  const originalValue = formattedDate;
+  
+  // Replace span with input
+  dateSpan.style.display = 'none';
+  dateSpan.parentNode.insertBefore(input, dateSpan.nextSibling);
+  input.focus();
+  
+  const saveDate = async () => {
+    const newValue = input.value;
+    
+    // Only update if changed
+    if (newValue && newValue !== originalValue) {
+      // Convert YYYY-MM-DD back to MM/DD/YYYY
+      const [year, month, day] = newValue.split('-');
+      const displayDate = `${month}/${day}/${year}`;
+      
+      // Update the backend
+      const success = await updateTodo(lineNumber, 'date', displayDate);
+      
+      if (success) {
+        // Reload page to get re-sorted list
+        window.location.reload();
+      } else {
+        // Restore original display on failure
+        input.remove();
+        dateSpan.style.display = '';
+      }
+    } else {
+      // No change, just restore display
+      input.remove();
+      dateSpan.style.display = '';
+    }
+  };
+  
+  const cancelEdit = () => {
+    input.remove();
+    dateSpan.style.display = '';
+  };
+  
+  // Handle blur event
+  input.addEventListener('blur', saveDate);
+  
+  // Handle keyboard events
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      input.blur(); // This will trigger the save via blur event
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      input.removeEventListener('blur', saveDate); // Prevent blur from saving
+      cancelEdit();
     }
   });
 }

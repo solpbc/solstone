@@ -435,10 +435,12 @@ def get_todos(day: str) -> dict[str, list[dict[str, Any]]] | None:
     todos = {"today": [], "future": []}
 
     current_section = None
+    line_number = 0  # Track actual line numbers in file (1-based for editors)
 
     try:
         with open(todo_path, "r", encoding="utf-8") as f:
             for line in f:
+                line_number += 1  # Increment before processing (1-based)
                 line = line.strip()
 
                 # Check for section headers
@@ -499,7 +501,7 @@ def get_todos(day: str) -> dict[str, list[dict[str, Any]]] | None:
                     if time_match:
                         # Validate hour is in valid range (00-23)
                         time_str = time_match.group(1)
-                        hour = int(time_str.split(':')[0])
+                        hour = int(time_str.split(":")[0])
                         if hour <= 23:
                             remainder = remainder[: time_match.start()].strip()
                         else:
@@ -510,7 +512,9 @@ def get_todos(day: str) -> dict[str, list[dict[str, Any]]] | None:
                     # Extract domain tag if present
                     # Domain tags should be #word with alphanumeric/hyphen/underscore only
                     # and should be preceded by whitespace to avoid matching issue numbers
-                    domain_match = re.search(r"\s#([a-zA-Z][a-zA-Z0-9_-]*)\b", remainder)
+                    domain_match = re.search(
+                        r"\s#([a-zA-Z][a-zA-Z0-9_-]*)\b", remainder
+                    )
                     if domain_match:
                         domain = domain_match.group(1)
                         description = remainder[: domain_match.start()].strip()
@@ -524,6 +528,7 @@ def get_todos(day: str) -> dict[str, list[dict[str, Any]]] | None:
                         "completed": completed,
                         "cancelled": cancelled,
                         "time": time_str,
+                        "line_number": line_number,  # Add line number for tracking
                     }
                     if domain:
                         todo_item["domain"] = domain
@@ -542,7 +547,9 @@ def get_todos(day: str) -> dict[str, list[dict[str, Any]]] | None:
                     # Extract domain tag if present
                     # Domain tags should be #word with alphanumeric/hyphen/underscore only
                     # and should be preceded by whitespace to avoid matching issue numbers
-                    domain_match = re.search(r"\s#([a-zA-Z][a-zA-Z0-9_-]*)\b", remainder)
+                    domain_match = re.search(
+                        r"\s#([a-zA-Z][a-zA-Z0-9_-]*)\b", remainder
+                    )
                     if domain_match:
                         domain = domain_match.group(1)
                         description = remainder[: domain_match.start()].strip()
@@ -556,6 +563,7 @@ def get_todos(day: str) -> dict[str, list[dict[str, Any]]] | None:
                         "completed": completed,
                         "cancelled": cancelled,
                         "date": date_str,
+                        "line_number": line_number,  # Add line number for tracking
                     }
                     if domain:
                         todo_item["domain"] = domain
@@ -565,6 +573,25 @@ def get_todos(day: str) -> dict[str, list[dict[str, Any]]] | None:
     except Exception as exc:
         logging.debug("Error parsing TODO.md for day %s: %s", day, exc)
         return None
+
+    # Sort future todos by date
+    if todos["future"]:
+        from datetime import datetime
+
+        def parse_date(date_str):
+            """Parse MM/DD/YYYY format to datetime for sorting."""
+            if not date_str:
+                return datetime(9999, 12, 31)
+            try:
+                parts = date_str.split("/")
+                if len(parts) == 3:
+                    month, day, year = int(parts[0]), int(parts[1]), int(parts[2])
+                    return datetime(year, month, day)
+            except (ValueError, IndexError):
+                pass
+            return datetime(9999, 12, 31)
+
+        todos["future"].sort(key=lambda x: parse_date(x.get("date")))
 
     return todos
 

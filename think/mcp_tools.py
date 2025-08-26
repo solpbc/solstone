@@ -447,22 +447,22 @@ def get_media(day: str, name: str) -> FileResource:
 @mcp.resource("journal://todo/{day}")
 def get_todo(day: str) -> TextResource:
     """Return the TODO.md file for a specific day.
-    
+
     This resource provides access to the daily task tracking file which contains
-    two sections: "Today" for current day tasks with timestamps, and "Future" 
-    for upcoming tasks with target dates. Tasks can be marked as completed [x], 
+    two sections: "Today" for current day tasks with timestamps, and "Future"
+    for upcoming tasks with target dates. Tasks can be marked as completed [x],
     uncompleted [ ], or cancelled with strikethrough formatting.
-    
+
     Args:
         day: Day in YYYYMMDD format
-        
+
     Returns:
         TextResource containing the TODO.md content for the specified day,
         or a message indicating the file doesn't exist.
     """
     journal = os.getenv("JOURNAL_PATH", "journal")
     todo_path = Path(journal) / day / "TODO.md"
-    
+
     if not todo_path.is_file():
         # Check if the day folder exists
         day_path = Path(journal) / day
@@ -473,7 +473,7 @@ def get_todo(day: str) -> TextResource:
             text = f"# TODO for {day}\n\n## Today\n\n(No tasks yet)\n\n## Future\n\n(No future tasks)"
     else:
         text = todo_path.read_text(encoding="utf-8")
-    
+
     return TextResource(
         uri=f"journal://todo/{day}",
         name=f"TODO: {day}",

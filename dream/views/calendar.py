@@ -144,7 +144,9 @@ def calendar_todos_page(day: str) -> Any:
             # Format the new line
             if has_type:
                 if section == "today":
-                    new_line = f"- [ ] **{todo_type}**: {description} ({current_time})\n"
+                    new_line = (
+                        f"- [ ] **{todo_type}**: {description} ({current_time})\n"
+                    )
                 else:  # future
                     new_line = f"- [ ] **{todo_type}**: {description}\n"
             else:
@@ -186,77 +188,87 @@ def calendar_todos_page(day: str) -> Any:
             return jsonify({"success": True})
 
         elif action == "update":
-            index = data.get("index")
-            section = data.get("section")
+            line_number = data.get("line_number")  # 1-based line number
             field = data.get("field")
             value = data.get("value")
 
             if not todo_path.exists():
                 return jsonify({"success": False, "error": "TODO.md not found"}), 404
 
+            if not line_number or line_number < 1:
+                return jsonify({"success": False, "error": "Invalid line number"}), 400
+
             content = todo_path.read_text()
             lines = content.splitlines(keepends=True)
+
+            # Validate line number is within bounds
+            if line_number > len(lines):
+                return (
+                    jsonify({"success": False, "error": "Line number out of range"}),
+                    400,
+                )
+
+            # Get the line to update (convert to 0-based index)
+            line_index = line_number - 1
+            line = lines[line_index]
+
+            # Ensure it's a todo line
+            if not line.strip().startswith("- ["):
+                return jsonify({"success": False, "error": "Not a todo line"}), 400
 
             # Get current time for timestamp update
             from datetime import datetime
 
             current_time = datetime.now().strftime("%H:%M")
 
-            # Find and update the specific line
-            current_section = None
-            todo_count = -1
+            # Determine if this is a "today" item (check if timestamp exists)
+            is_today_item = re.search(r"\(\d{1,2}:\d{2}\)\s*$", line) is not None
 
-            for i, line in enumerate(lines):
-                if line.strip() == "# Today":
-                    current_section = "today"
-                elif line.strip() == "# Future":
-                    current_section = "future"
-                elif current_section == section and line.strip().startswith("- ["):
-                    todo_count += 1
-                    if todo_count == index:
-                        # For 'today' section, update timestamp on any modification
-                        if current_section == "today":
-                            # Remove old timestamp if present
-                            lines[i] = (
-                                re.sub(
-                                    r"\s*\(\d{1,2}:\d{2}\)\s*$", "", lines[i].rstrip()
-                                )
-                                + "\n"
-                            )
+            # For 'today' items, remove old timestamp before any modification
+            if is_today_item and field != "cancelled":
+                lines[line_index] = (
+                    re.sub(r"\s*\(\d{1,2}:\d{2}\)\s*$", "", lines[line_index].rstrip())
+                    + "\n"
+                )
 
-                        if field == "completed":
-                            if value:
-                                lines[i] = lines[i].replace("- [ ]", "- [x]", 1)
-                            else:
-                                lines[i] = lines[i].replace("- [x]", "- [ ]", 1)
-                        elif field == "cancelled":
-                            # Toggle strikethrough
-                            if value:
-                                # Add strikethrough after checkbox
-                                match = re.match(r"(- \[.\] )(.*)", lines[i])
-                                if match and not match.group(2).startswith("~~"):
-                                    lines[i] = (
-                                        match.group(1)
-                                        + "~~"
-                                        + match.group(2).rstrip()
-                                        + "~~\n"
-                                    )
-                            else:
-                                # Remove strikethrough
-                                lines[i] = re.sub(
-                                    r"(- \[.\] )~~(.+?)~~", r"\1\2", lines[i]
-                                )
-                        elif field == "text":
-                            # Update the entire text after checkbox
-                            match = re.match(r"(- \[.\] )(.*)", lines[i])
-                            if match:
-                                lines[i] = match.group(1) + value + "\n"
+            # Apply the field update
+            if field == "completed":
+                if value:
+                    lines[line_index] = lines[line_index].replace("- [ ]", "- [x]", 1)
+                else:
+                    lines[line_index] = lines[line_index].replace("- [x]", "- [ ]", 1)
+            elif field == "cancelled":
+                # Toggle strikethrough
+                if value:
+                    # Add strikethrough after checkbox
+                    match = re.match(r"(- \[.\] )(.*)", lines[line_index])
+                    if match and not match.group(2).startswith("~~"):
+                        lines[line_index] = (
+                            match.group(1) + "~~" + match.group(2).rstrip() + "~~\n"
+                        )
+                else:
+                    # Remove strikethrough
+                    lines[line_index] = re.sub(
+                        r"(- \[.\] )~~(.+?)~~", r"\1\2", lines[line_index]
+                    )
+            elif field == "text":
+                # Update the entire text after checkbox
+                match = re.match(r"(- \[.\] )(.*)", lines[line_index])
+                if match:
+                    lines[line_index] = match.group(1) + value + "\n"
+            elif field == "date":
+                # Update just the date for future items
+                match = re.match(r"(- \[.\] )(.*)", lines[line_index])
+                if match:
+                    content = match.group(2).rstrip()
+                    # Remove any existing date (MM/DD/YYYY format) at the end
+                    content = re.sub(r"\s+\d{1,2}/\d{1,2}/\d{4}\s*$", "", content)
+                    # Add the new date
+                    lines[line_index] = match.group(1) + content + " " + value + "\n"
 
-                        # Add timestamp for 'today' section items (unless cancelled)
-                        if current_section == "today" and field != "cancelled":
-                            lines[i] = lines[i].rstrip() + f" ({current_time})\n"
-
-                        break
+            # Re-add timestamp for 'today' items (unless cancelled or date update)
+            if is_today_item and field not in ["cancelled", "date"]:
+                lines[line_index] = lines[line_index].rstrip() + f" ({current_time})\n"
 
             todo_path.write_text("".join(lines))
             return jsonify({"success": True})
@@ -294,8 +306,8 @@ def generate_todos(day: str) -> Any:
         return jsonify({"error": "Cortex service not available"}), 503
 
     # Get yesterday's TODO if it exists
-    from pathlib import Path
     from datetime import datetime, timedelta
+    from pathlib import Path
 
     day_date = datetime.strptime(day, "%Y%m%d")
     yesterday = (day_date - timedelta(days=1)).strftime("%Y%m%d")
@@ -358,8 +370,9 @@ def todo_generation_status(day: str) -> Any:
         return jsonify({"status": "none", "agent_id": None})
 
     # Check agent status
-    from ..cortex_client import get_global_cortex_client
     import os
+
+    from ..cortex_client import get_global_cortex_client
 
     # First check if agent exists in journal (finished)
     agents_dir = os.path.join(state.journal_root, "agents")

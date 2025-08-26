@@ -139,46 +139,49 @@ def test_todo_update_adds_timestamp(client, monkeypatch, tmp_path):
     journal_root.mkdir()
     day_dir = journal_root / "20250101"
     day_dir.mkdir()
-    
+
     # Create initial TODO.md without timestamps
     todo_file = day_dir / "TODO.md"
-    todo_file.write_text("""# Today
+    todo_file.write_text(
+        """# Today
 - [ ] **Task**: Test task without timestamp
 - [ ] **Meeting**: Another task
 
 # Future
-""")
-    
+"""
+    )
+
     import dream.state as dream_state
+
     monkeypatch.setattr(dream_state, "journal_root", str(journal_root))
-    
+
     # Mock datetime to control the timestamp
     mock_datetime = MagicMock()
     mock_datetime.now.return_value.strftime.return_value = "15:30"
-    
-    with patch('datetime.datetime', mock_datetime):
-        
+
+    with patch("datetime.datetime", mock_datetime):
+
         # Update the first item (mark as completed)
         response = client.post(
             "/calendar/20250101/todos",
             json={
                 "action": "update",
-                "section": "today", 
+                "section": "today",
                 "index": 0,
                 "field": "completed",
-                "value": True
-            }
+                "value": True,
+            },
         )
         assert response.status_code == 200
-        
+
         # Read the updated file
         updated_content = todo_file.read_text()
         lines = updated_content.splitlines()
-        
+
         # First item should now be completed with timestamp
         assert "- [x]" in lines[1]
         assert "(15:30)" in lines[1]
-        
+
         # Second item should remain unchanged
         assert "- [ ]" in lines[2]
         assert "(15:30)" not in lines[2]
@@ -191,51 +194,50 @@ def test_todo_add_includes_timestamp(client, monkeypatch, tmp_path):
     journal_root.mkdir()
     day_dir = journal_root / "20250101"
     day_dir.mkdir()
-    
+
     # Create initial TODO.md
     todo_file = day_dir / "TODO.md"
-    todo_file.write_text("""# Today
+    todo_file.write_text(
+        """# Today
 
 # Future
-""")
-    
+"""
+    )
+
     import dream.state as dream_state
+
     monkeypatch.setattr(dream_state, "journal_root", str(journal_root))
-    
+
     # Mock datetime to control the timestamp
     mock_datetime = MagicMock()
     mock_datetime.now.return_value.strftime.return_value = "10:45"
-    
-    with patch('datetime.datetime', mock_datetime):
-        
+
+    with patch("datetime.datetime", mock_datetime):
+
         # Add a new task to today section
         response = client.post(
             "/calendar/20250101/todos",
             json={
                 "action": "add",
                 "section": "today",
-                "text": "Task: New test task #testing"
-            }
+                "text": "Task: New test task #testing",
+            },
         )
         assert response.status_code == 200
-        
+
         # Read the updated file
         updated_content = todo_file.read_text()
-        
+
         # New task should have timestamp
         assert "**Task**: New test task #testing (10:45)" in updated_content
-        
+
         # Add a task to future section (should not have timestamp)
         response = client.post(
             "/calendar/20250101/todos",
-            json={
-                "action": "add",
-                "section": "future",
-                "text": "Goal: Future goal"
-            }
+            json={"action": "add", "section": "future", "text": "Goal: Future goal"},
         )
         assert response.status_code == 200
-        
+
         updated_content = todo_file.read_text()
         assert "**Goal**: Future goal" in updated_content
         assert "**Goal**: Future goal (10:45)" not in updated_content
@@ -243,31 +245,34 @@ def test_todo_add_includes_timestamp(client, monkeypatch, tmp_path):
 
 def test_todo_timestamp_update_preserves_content(client, monkeypatch, tmp_path):
     """Test that timestamp updates preserve the task content."""
-    
+
     # Set journal root
     journal_root = tmp_path / "test_journal"
     journal_root.mkdir()
     day_dir = journal_root / "20250101"
     day_dir.mkdir()
-    
+
     # Create TODO.md with existing timestamp
     todo_file = day_dir / "TODO.md"
-    todo_file.write_text("""# Today
+    todo_file.write_text(
+        """# Today
 - [ ] **Task**: Task with domain #hear (09:00)
 - [x] **Meeting**: Completed task #dream (10:00)
 
 # Future
-""")
-    
+"""
+    )
+
     import dream.state as dream_state
+
     monkeypatch.setattr(dream_state, "journal_root", str(journal_root))
-    
+
     # Mock datetime for new timestamp
     mock_datetime = MagicMock()
     mock_datetime.now.return_value.strftime.return_value = "16:45"
-    
-    with patch('datetime.datetime', mock_datetime):
-        
+
+    with patch("datetime.datetime", mock_datetime):
+
         # Update the first item
         response = client.post(
             "/calendar/20250101/todos",
@@ -276,17 +281,17 @@ def test_todo_timestamp_update_preserves_content(client, monkeypatch, tmp_path):
                 "section": "today",
                 "index": 0,
                 "field": "completed",
-                "value": True
-            }
+                "value": True,
+            },
         )
         assert response.status_code == 200
-        
+
         # Read the updated file
         updated_content = todo_file.read_text()
         lines = updated_content.splitlines()
-        
+
         # Task should be completed with new timestamp but preserve content
         assert "- [x] **Task**: Task with domain #hear (16:45)" in lines[1]
-        
+
         # Other items should remain unchanged
         assert "- [x] **Meeting**: Completed task #dream (10:00)" in lines[2]

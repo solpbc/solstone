@@ -76,7 +76,7 @@ def test_get_todos_parses_today_section(mock_journal):
 
 
 def test_get_todos_parses_future_section(mock_journal):
-    """Test parsing of Future section items."""
+    """Test parsing of Future section items (now sorted by date)."""
     with patch.dict("os.environ", {"JOURNAL_PATH": str(mock_journal)}):
         todos = get_todos("20250124")
 
@@ -84,7 +84,9 @@ def test_get_todos_parses_future_section(mock_journal):
         assert "future" in todos
         assert len(todos["future"]) == 4
 
-        # Check goal with domain
+        # Items should be sorted by date: 01/25, 01/26, 01/27, 02/01
+
+        # First item (01/25/2025) - Goal
         goal = todos["future"][0]
         assert goal["type"] == "Goal"
         assert goal["description"] == "Design new agent persona system"
@@ -93,20 +95,26 @@ def test_get_todos_parses_future_section(mock_journal):
         assert goal["date"] == "01/25/2025"
         assert goal["domain"] == "think"
 
-        # Check research task
+        # Second item (01/26/2025) - Research task
         research = todos["future"][1]
         assert research["type"] == "Research"
         assert research["description"] == "Investigate alternative OCR libraries"
         assert research["date"] == "01/26/2025"
         assert research["domain"] == "see"
 
-        # Check cancelled meeting
-        cancelled_meeting = todos["future"][3]
+        # Third item (01/27/2025) - Cancelled meeting
+        cancelled_meeting = todos["future"][2]
         assert cancelled_meeting["type"] == "Meeting"
         assert cancelled_meeting["description"] == "Cancelled planning session"
         assert cancelled_meeting["cancelled"] is True
         assert cancelled_meeting["date"] == "01/27/2025"
         assert cancelled_meeting["domain"] == "personal"
+
+        # Fourth item (02/01/2025) - Task
+        task = todos["future"][3]
+        assert task["type"] == "Task"
+        assert task["description"] == "Refactor domain summary generation"
+        assert task["date"] == "02/01/2025"
 
 
 def test_get_todos_returns_none_for_missing_file(mock_journal):
@@ -280,27 +288,32 @@ def test_get_todos_optional_type_prefix(tmp_path):
         assert today_items[4]["time"] == "15:30"
         assert today_items[4]["domain"] == "meeting"
 
-        # Check future todos
+        # Check future todos (now sorted by date)
         future_items = todos["future"]
         assert len(future_items) == 4
 
-        # Items with type prefix
-        assert future_items[0]["type"] == "Goal"
-        assert future_items[0]["description"] == "Complete Q1 objectives"
-        assert future_items[0]["date"] == "03/31/2025"
+        # Items should be sorted by date: 02/01, 02/10, 02/15, 03/31
 
-        assert future_items[2]["type"] == "Research"
-        assert future_items[2]["description"] == "Investigate new framework"
-        assert future_items[2]["domain"] == "research"
+        # First item (02/01/2025) - Research with type prefix
+        assert future_items[0]["type"] == "Research"
+        assert future_items[0]["description"] == "Investigate new framework"
+        assert future_items[0]["date"] == "02/01/2025"
+        assert future_items[0]["domain"] == "research"
 
-        # Items without type prefix
+        # Second item (02/10/2025) - No type prefix
         assert future_items[1]["type"] is None
-        assert future_items[1]["description"] == "Plan team retreat"
-        assert future_items[1]["date"] == "02/15/2025"
+        assert future_items[1]["description"] == "Migrate database to new schema"
+        assert future_items[1]["date"] == "02/10/2025"
 
-        assert future_items[3]["type"] is None
-        assert future_items[3]["description"] == "Migrate database to new schema"
-        assert future_items[3]["date"] == "02/10/2025"
+        # Third item (02/15/2025) - No type prefix
+        assert future_items[2]["type"] is None
+        assert future_items[2]["description"] == "Plan team retreat"
+        assert future_items[2]["date"] == "02/15/2025"
+
+        # Fourth item (03/31/2025) - Goal with type prefix
+        assert future_items[3]["type"] == "Goal"
+        assert future_items[3]["description"] == "Complete Q1 objectives"
+        assert future_items[3]["date"] == "03/31/2025"
 
 
 def test_timestamp_preserves_domain_tags(tmp_path):
