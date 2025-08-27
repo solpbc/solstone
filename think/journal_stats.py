@@ -126,9 +126,6 @@ class JournalStats:
                         self.heatmap[weekday][hour] += (next_tick - cur) / 60
                         cur = next_tick
 
-        # --- token usage ---
-        self.scan_tokens_for_day(day, Path(path).parent)
-        
         counts_for_totals = dict(stats)
         self.totals.update(counts_for_totals)
         stats["audio_seconds"] = audio_sec
@@ -140,15 +137,11 @@ class JournalStats:
         self.total_audio_bytes += audio_bytes
         self.total_image_bytes += image_bytes
 
-    def scan_tokens_for_day(self, day: str, journal_path: Path) -> None:
-        """Scan token usage files for a specific day."""
+    def scan_all_tokens(self, journal_path: Path) -> None:
+        """Scan all token usage files in the tokens directory."""
         tokens_dir = journal_path / "tokens"
         if not tokens_dir.is_dir():
             return
-        
-        # Initialize day's token usage if not exists
-        if day not in self.token_usage:
-            self.token_usage[day] = {}
         
         # Scan all token files in the tokens directory
         for token_file in tokens_dir.glob("*.json"):
@@ -162,15 +155,16 @@ class JournalStats:
                     continue
                 
                 file_date = timestamp_str.split("_")[0]
-                if file_date != day:
-                    continue
-                
                 model = data.get("model", "unknown")
                 usage = data.get("usage", {})
                 
+                # Initialize day's token usage if not exists
+                if file_date not in self.token_usage:
+                    self.token_usage[file_date] = {}
+                
                 # Initialize model entry if not exists
-                if model not in self.token_usage[day]:
-                    self.token_usage[day][model] = {}
+                if model not in self.token_usage[file_date]:
+                    self.token_usage[file_date][model] = {}
                 if model not in self.token_totals:
                     self.token_totals[model] = {}
                 
@@ -179,9 +173,9 @@ class JournalStats:
                     if not isinstance(count, int):
                         continue
                     # Add to day's model totals
-                    if token_type not in self.token_usage[day][model]:
-                        self.token_usage[day][model][token_type] = 0
-                    self.token_usage[day][model][token_type] += count
+                    if token_type not in self.token_usage[file_date][model]:
+                        self.token_usage[file_date][model][token_type] = 0
+                    self.token_usage[file_date][model][token_type] += count
                     
                     # Add to overall model totals
                     if token_type not in self.token_totals[model]:
@@ -205,6 +199,10 @@ class JournalStats:
                     flush=True,
                 )
             self.scan_day(day, path)
+        
+        # Scan tokens directory once after all days are processed
+        self.scan_all_tokens(Path(journal))
+        
         if verbose:
             print()
 

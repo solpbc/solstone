@@ -65,8 +65,10 @@ def test_markdown(tmp_path, monkeypatch):
 def test_token_usage(tmp_path, monkeypatch):
     stats_mod = importlib.import_module("think.journal_stats")
     journal = tmp_path
-    day = journal / "20240101"
-    day.mkdir()
+    day1 = journal / "20240101"
+    day1.mkdir()
+    day2 = journal / "20240102"
+    day2.mkdir()
     
     # Create tokens directory with test token files
     tokens_dir = journal / "tokens"
@@ -133,7 +135,7 @@ def test_token_usage(tmp_path, monkeypatch):
     
     monkeypatch.setenv("JOURNAL_PATH", str(journal))
     js = stats_mod.JournalStats()
-    js.scan_day("20240101", str(day))
+    js.scan(str(journal))
     
     # Check token usage for the day
     assert "20240101" in js.token_usage
@@ -155,7 +157,7 @@ def test_token_usage(tmp_path, monkeypatch):
     assert claude_usage["total_tokens"] == 750
     
     # Check overall model totals
-    assert js.token_totals["gemini-2.5-flash"]["prompt_tokens"] == 300
+    assert js.token_totals["gemini-2.5-flash"]["prompt_tokens"] == 1300  # 300 from day1 + 1000 from day2
     assert js.token_totals["claude-3-opus"]["prompt_tokens"] == 500
     
     # Test markdown generation includes token usage
