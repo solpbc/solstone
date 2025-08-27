@@ -184,7 +184,14 @@ const Dashboard = (function() {
       bar.appendChild(el('div', {className: 'bar-label'}, [d.day.slice(4, 6) + '/' + d.day.slice(6, 8)]));
       
       if (d.total > 0) {
-        const formatted = d.total >= 1000 ? `${(d.total/1000).toFixed(1)}k` : String(d.total);
+        let formatted;
+        if (d.total >= 1000000) {
+          formatted = `${(d.total/1000000).toFixed(1)}m`;
+        } else if (d.total >= 1000) {
+          formatted = `${(d.total/1000).toFixed(1)}k`;
+        } else {
+          formatted = String(d.total);
+        }
         bar.appendChild(el('div', {className: 'bar-value'}, [formatted]));
         bar.setAttribute('title', `Prompt: ${d.prompt}, Thoughts: ${d.thoughts}, Response: ${d.candidates}`);
       }
