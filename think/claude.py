@@ -113,7 +113,6 @@ async def run_agent(
                 "Bash(ls:*)",
                 "Bash(cat:*)",
                 "Bash(mkdir:*)",
-                "Bash(rm:*)",
                 "Bash(pwd)",
                 "Bash(echo:*)",
             ],
