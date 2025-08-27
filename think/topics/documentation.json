@@ -2,5 +2,6 @@
     "title": "Documentation Moments",
     "description": "Finds when important knowledge is shared in the transcript and suggests what should be written down. Output is a Markdown list of documentation opportunities with time ranges and destinations.",
     "occurrences": "Record an occurrence whenever a new procedure, decision or troubleshooting step is described. Capture the related file or tool and where the documentation should live such as wiki or README.",
-    "contains": "A list of documentation opportunities with timestamps, context, key details to capture, and suggested destinations for recording important knowledge shared during the workday."
+    "contains": "A list of documentation opportunities with timestamps, context, key details to capture, and suggested destinations for recording important knowledge shared during the workday.",
+    "color": "#007bff"
 }

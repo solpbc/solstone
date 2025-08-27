@@ -2,5 +2,6 @@
     "title": "Day Overview",
     "description": "Summarizes the overall flow of the workday. Looks for patterns in focus, energy, context switching and highlights productivity insights in a Markdown report.",
     "contains": "Detailed analysis of work rhythms, deep work sessions, energy patterns, context switching costs, flow states, and actionable productivity optimization recommendations with specific timestamps and examples.",
-    "occurrences": "Create an occurrence for noteworthy shifts in work rhythms or focus. Include timestamps when deep work starts or ends, or when energy levels noticeably change. Classify each as work or personal based on the surrounding context."
+    "occurrences": "Create an occurrence for noteworthy shifts in work rhythms or focus. Include timestamps when deep work starts or ends, or when energy levels noticeably change. Classify each as work or personal based on the surrounding context.",
+    "color": "#17a2b8"
 }

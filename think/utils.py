@@ -14,21 +14,7 @@ from timefhuman import timefhuman
 
 DATE_RE = re.compile(r"\d{8}")
 
-# Colors used for topic visualization in the dream app
-CATEGORY_COLORS = [
-    "#007bff",
-    "#28a745",
-    "#17a2b8",
-    "#ffc107",
-    "#6f42c1",
-    "#fd7e14",
-    "#e83e8c",
-    "#6c757d",
-    "#20c997",
-    "#ff5722",
-    "#9c27b0",
-    "#795548",
-]
+# Topic colors are now stored in each topic's JSON metadata file
 
 AGENT_DIR = Path(__file__).with_name("agents")
 
@@ -127,19 +113,17 @@ def get_topics() -> dict[str, dict[str, object]]:
     """Return available topics with metadata.
 
     Each key is the topic name. The value contains the ``path`` to the
-    ``.txt`` file, the assigned ``color`` from :data:`CATEGORY_COLORS`, the file
+    ``.txt`` file, the ``color`` from the metadata JSON, the file
     ``mtime`` and any keys loaded from a matching ``.json`` metadata file.
     """
 
     topics_dir = Path(__file__).parent / "topics"
     topics: dict[str, dict[str, object]] = {}
-    for idx, txt_path in enumerate(sorted(topics_dir.glob("*.txt"))):
+    for txt_path in sorted(topics_dir.glob("*.txt")):
         name = txt_path.stem
-        color = CATEGORY_COLORS[idx % len(CATEGORY_COLORS)]
         mtime = int(txt_path.stat().st_mtime)
         info: dict[str, object] = {
             "path": str(txt_path),
-            "color": color,
             "mtime": mtime,
         }
         json_path = txt_path.with_suffix(".json")
@@ -149,8 +133,14 @@ def get_topics() -> dict[str, dict[str, object]]:
                     data = json.load(f)
                 if isinstance(data, dict):
                     info.update(data)
+                    # Ensure color exists, fallback to a default if missing
+                    if "color" not in info:
+                        info["color"] = "#6c757d"  # Default gray color
             except Exception as exc:  # pragma: no cover - metadata optional
                 logging.debug("Error reading %s: %s", json_path, exc)
+                info["color"] = "#6c757d"  # Default gray color
+        else:
+            info["color"] = "#6c757d"  # Default gray color
         topics[name] = info
     return topics
 
