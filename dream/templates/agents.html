@@ -690,6 +690,7 @@ tr a:hover {
   <div class="tab-nav">
     <button class="tab-button active" onclick="switchMainTab('log')">Log</button>
     <button class="tab-button" onclick="switchMainTab('agents')">Personas</button>
+    <button class="tab-button" onclick="switchMainTab('topics')">Topics</button>
   </div>
   
   <!-- Tab Content -->
@@ -736,6 +737,11 @@ tr a:hover {
       <div id="agentCards" class="agent-cards"></div>
     </div>
     
+    <!-- Topics Tab -->
+    <div id="topicsTab" class="main-tab-content">
+      <div id="topicCards" class="agent-cards"></div>
+    </div>
+    
   </div>
 </div>
 
@@ -767,15 +773,38 @@ tr a:hover {
   </div>
 </div>
 
-<!-- Agent Details Modal -->
-<div id="agentModal" class="modal">
+<!-- Create Topic Modal -->
+<div id="createTopicModal" class="modal">
   <div class="modal-content">
-    <span class="close" onclick="closeAgentModal()">&times;</span>
+    <span class="close" onclick="closeCreateTopicModal()">&times;</span>
+    <h2>Create New Topic</h2>
+    <form id="createTopicForm" class="input-area">
+      <input type="text" id="topicTitle" placeholder="Topic Title" required />
+      <textarea id="topicInput" rows="8" placeholder="Describe what information this topic should extract..." required></textarea>
+      <button type="submit" id="createTopicBtn">Create Topic</button>
+    </form>
+    
+    <!-- Result Area -->
+    <div id="topicResult" style="display: none;">
+      <h3>Topic Content</h3>
+      <div id="topicResultContent" class="plan-content"></div>
+      <div class="modal-actions">
+        <button onclick="saveNewTopic()">Save Topic</button>
+        <button onclick="editTopicContent()">Edit Content</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Item Details Modal (for both Personas and Topics) -->
+<div id="itemModal" class="modal">
+  <div class="modal-content">
+    <span class="close" onclick="closeItemModal()">&times;</span>
     <button id="editBtn" class="edit-btn" onclick="toggleEditMode()">Edit</button>
     <div id="modalHeader" class="modal-header">
       <h3 id="modalTitle"></h3>
       <input id="modalTitleEdit" class="edit-mode-input" style="display: none;" />
-      <button id="saveBtn" class="edit-btn save-mode" style="display: none;" onclick="savePersonaChanges()">Save</button>
+      <button id="saveBtn" class="edit-btn save-mode" style="display: none;" onclick="saveItemChanges()">Save</button>
     </div>
     <div class="modal-body">
       <div id="modalContent" class="markdown-content"></div>
@@ -850,8 +879,10 @@ tr a:hover {
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 <script>
 let availableAgents = [];
-let currentMainTab = 'create';
-let currentEditingAgent = null;
+let availableTopics = [];
+let currentMainTab = 'log';
+let currentEditingItem = null;
+let currentEditingType = null; // 'agent' or 'topic'
 let isEditMode = false;
 
 // Switch between main tabs
@@ -879,6 +910,11 @@ function switchMainTab(tabName) {
     if (!document.getElementById('agentCards').children.length) {
       loadAvailableAgents();
     }
+  } else if (tabName === 'topics') {
+    stopAutoRefresh();
+    if (!document.getElementById('topicCards').children.length) {
+      loadAvailableTopics();
+    }
   }
 }
 
@@ -892,58 +928,84 @@ function loadAvailableAgents() {
     });
 }
 
-// Render agent selection cards (for viewing details only)
-function renderAgentCards() {
-  const container = document.getElementById('agentCards');
+// Load available topics and render cards
+function loadAvailableTopics() {
+  fetch('{{ url_for('agents.available_topics') }}')
+    .then(r => r.json())
+    .then(topics => {
+      availableTopics = topics;
+      renderTopicCards();
+    });
+}
+
+// Generic function to render cards for both agents and topics
+function renderCards(items, containerId, itemType, createModalFunc) {
+  const container = document.getElementById(containerId);
   container.innerHTML = '';
   
-  // Add Create Persona card first
+  // Add Create card first
   const createCard = document.createElement('div');
   createCard.className = 'agent-card create-persona-card';
+  const itemLabel = itemType === 'agent' ? 'Persona' : 'Topic';
   createCard.innerHTML = `
-    <h3>+ Create New Persona</h3>
+    <h3>+ Create New ${itemLabel}</h3>
   `;
-  createCard.addEventListener('click', openCreatePersonaModal);
+  createCard.addEventListener('click', createModalFunc);
   container.appendChild(createCard);
   
-  // Add existing personas
-  availableAgents.forEach(agent => {
+  // Add existing items
+  items.forEach(item => {
     const card = document.createElement('div');
     card.className = 'agent-card';
-    card.dataset.agentId = agent.id;
-    card.title = agent.description; // Set description as tooltip
-    
-    // Create chat link that stops propagation
-    const chatLink = document.createElement('a');
-    chatLink.className = 'chat-link';
-    chatLink.href = `/chat#persona=${agent.id}`;
-    chatLink.innerHTML = '💬';
-    chatLink.title = `Chat with ${agent.title}`;
-    chatLink.onclick = (e) => {
-      e.stopPropagation(); // Prevent card click when clicking chat link
-    };
+    card.dataset.itemId = item.id;
+    card.dataset.itemType = itemType;
+    card.title = item.description; // Set description as tooltip
     
     card.innerHTML = `
-      <h3>${agent.title}</h3>
+      <h3>${item.title}</h3>
     `;
     
-    card.appendChild(chatLink);
+    // Create chat link for agents only
+    if (itemType === 'agent') {
+      const chatLink = document.createElement('a');
+      chatLink.className = 'chat-link';
+      chatLink.href = `/chat#persona=${item.id}`;
+      chatLink.innerHTML = '💬';
+      chatLink.title = `Chat with ${item.title}`;
+      chatLink.onclick = (e) => {
+        e.stopPropagation(); // Prevent card click when clicking chat link
+      };
+      card.appendChild(chatLink);
+    }
+    
     card.addEventListener('click', (e) => {
-      viewAgentDetails(agent.id, e);
+      viewItemDetails(item.id, itemType, e);
     });
     
     container.appendChild(card);
   });
 }
 
-// View agent details in modal
-function viewAgentDetails(agentId, event) {
+// Render agent selection cards
+function renderAgentCards() {
+  renderCards(availableAgents, 'agentCards', 'agent', openCreatePersonaModal);
+}
+
+// Render topic selection cards
+function renderTopicCards() {
+  renderCards(availableTopics, 'topicCards', 'topic', openCreateTopicModal);
+}
+
+// View item details in modal (generic for both agents and topics)
+function viewItemDetails(itemId, itemType, event) {
   event.stopPropagation();
   
-  const agent = availableAgents.find(a => a.id === agentId);
-  if (!agent) return;
+  const items = itemType === 'agent' ? availableAgents : availableTopics;
+  const item = items.find(i => i.id === itemId);
+  if (!item) return;
   
-  currentEditingAgent = agentId;
+  currentEditingItem = itemId;
+  currentEditingType = itemType;
   isEditMode = false;
   
   // Reset edit mode UI
@@ -959,13 +1021,18 @@ function viewAgentDetails(agentId, event) {
   document.getElementById('modalContent').style.display = 'block';
   document.getElementById('modalContentEdit').style.display = 'none';
   
-  document.getElementById('modalTitle').textContent = agent.title;
-  document.getElementById('modalTitleEdit').value = agent.title;
+  document.getElementById('modalTitle').textContent = item.title;
+  document.getElementById('modalTitleEdit').value = item.title;
   document.getElementById('modalContent').innerHTML = '<p>Loading...</p>';
-  document.getElementById('agentModal').style.display = 'block';
+  document.getElementById('itemModal').style.display = 'block';
   
-  // Load and render agent content
-  fetch(`{{ url_for('agents.agent_content', agent_id='') }}${agentId}`)
+  // Determine the correct endpoint based on item type
+  const contentUrl = itemType === 'agent' 
+    ? `{{ url_for('agents.agent_content', agent_id='') }}${itemId}`
+    : `{{ url_for('agents.topic_content', topic_id='') }}${itemId}`;
+  
+  // Load and render item content
+  fetch(contentUrl)
     .then(r => r.json())
     .then(data => {
       if (data.error) {
@@ -1012,8 +1079,8 @@ function toggleEditMode() {
   }
 }
 
-// Save persona changes
-async function savePersonaChanges() {
+// Save item changes (generic for both agents and topics)
+async function saveItemChanges() {
   const editBtn = document.getElementById('editBtn');
   const saveBtn = document.getElementById('saveBtn');
   const modalHeader = document.getElementById('modalHeader');
@@ -1025,16 +1092,21 @@ async function savePersonaChanges() {
     return;
   }
   
-  if (!currentEditingAgent) {
-    showError('No agent selected for editing');
+  if (!currentEditingItem || !currentEditingType) {
+    showError('No item selected for editing');
     return;
   }
   
   saveBtn.disabled = true;
   saveBtn.textContent = 'Saving...';
   
+  // Determine the correct endpoint based on item type
+  const updateUrl = currentEditingType === 'agent'
+    ? `{{ url_for('agents.update_agent', agent_id='') }}${currentEditingItem}`
+    : `{{ url_for('agents.update_topic', topic_id='') }}${currentEditingItem}`;
+  
   try {
-    const response = await fetch(`{{ url_for('agents.update_agent', agent_id='') }}${currentEditingAgent}`, {
+    const response = await fetch(updateUrl, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
@@ -1052,11 +1124,12 @@ async function savePersonaChanges() {
     }
     
     // Update local data
-    const agent = availableAgents.find(a => a.id === currentEditingAgent);
-    if (agent) {
-      agent.title = newTitle;
-      // Update the agent card if it exists
-      const card = document.querySelector(`[data-agent-id="${currentEditingAgent}"] h3`);
+    const items = currentEditingType === 'agent' ? availableAgents : availableTopics;
+    const item = items.find(i => i.id === currentEditingItem);
+    if (item) {
+      item.title = newTitle;
+      // Update the item card if it exists
+      const card = document.querySelector(`[data-item-id="${currentEditingItem}"][data-item-type="${currentEditingType}"] h3`);
       if (card) {
         card.textContent = newTitle;
       }
@@ -1078,8 +1151,10 @@ async function savePersonaChanges() {
     document.getElementById('modalContent').style.display = 'block';
     document.getElementById('modalContentEdit').style.display = 'none';
     
-    // Refresh persona dropdown in planning modal if it's open
-    loadPersonas();
+    // Refresh persona dropdown in planning modal if it's open (for agents only)
+    if (currentEditingType === 'agent') {
+      loadPersonas();
+    }
     
   } catch (error) {
     showError('Error saving changes: ' + error.message);
@@ -1224,8 +1299,8 @@ async function startAgent() {
   }
 }
 
-// Close agent modal function
-function closeAgentModal() {
+// Close item modal function
+function closeItemModal() {
   // Reset edit mode when closing
   if (isEditMode) {
     isEditMode = false;
@@ -1241,7 +1316,7 @@ function closeAgentModal() {
     document.getElementById('modalContent').style.display = 'block';
     document.getElementById('modalContentEdit').style.display = 'none';
   }
-  document.getElementById('agentModal').style.display = 'none';
+  document.getElementById('itemModal').style.display = 'none';
 }
 
 // Moved to bottom of script with createPersonaModal handling
@@ -1483,6 +1558,21 @@ function closeCreatePersonaModal() {
   document.getElementById('createPersonaModal').style.display = 'none';
 }
 
+// Create Topic Modal Functions
+function openCreateTopicModal() {
+  const modal = document.getElementById('createTopicModal');
+  modal.style.display = 'block';
+  
+  // Reset form
+  document.getElementById('createTopicForm').reset();
+  document.getElementById('topicResult').style.display = 'none';
+  document.getElementById('createTopicBtn').disabled = false;
+}
+
+function closeCreateTopicModal() {
+  document.getElementById('createTopicModal').style.display = 'none';
+}
+
 // Handle create persona form submission
 document.getElementById('createPersonaForm').addEventListener('submit', async (e) => {
   e.preventDefault();
@@ -1607,20 +1697,117 @@ async function saveNewPersona() {
   }
 }
 
+// Handle create topic form submission
+document.getElementById('createTopicForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  
+  const title = document.getElementById('topicTitle').value.trim();
+  const input = document.getElementById('topicInput').value.trim();
+  const form = e.target;
+  const createBtn = document.getElementById('createTopicBtn');
+  
+  if (!title || !input) return;
+  
+  // Show the topic content area
+  showTopicResult(input, title);
+  
+  // Hide form
+  form.style.display = 'none';
+});
+
+function showTopicResult(content, title) {
+  const resultDiv = document.getElementById('topicResult');
+  const resultContent = document.getElementById('topicResultContent');
+  
+  // Store content and title for saving
+  window.currentTopicContent = content;
+  window.currentTopicTitle = title;
+  
+  // Display the content
+  resultContent.textContent = content;
+  resultDiv.style.display = 'block';
+}
+
+function editTopicContent() {
+  const resultContent = document.getElementById('topicResultContent');
+  
+  // Convert to editable textarea
+  const textarea = document.createElement('textarea');
+  textarea.value = resultContent.textContent;
+  textarea.style.width = '100%';
+  textarea.style.minHeight = '400px';
+  textarea.style.padding = '1rem';
+  textarea.style.fontFamily = 'Monaco, Menlo, monospace';
+  textarea.style.fontSize = '0.9rem';
+  
+  resultContent.innerHTML = '';
+  resultContent.appendChild(textarea);
+  
+  // Update the content when editing
+  textarea.addEventListener('input', () => {
+    window.currentTopicContent = textarea.value;
+  });
+}
+
+async function saveNewTopic() {
+  const title = window.currentTopicTitle;
+  const content = window.currentTopicContent;
+  
+  if (!title || !content) {
+    showError('Missing title or content');
+    return;
+  }
+  
+  // Generate a unique ID for the new topic
+  const topicId = title.toLowerCase().replace(/[^a-z0-9]+/g, '_');
+  
+  try {
+    // Create or update the topic
+    const response = await fetch(`{{ url_for('agents.update_topic', topic_id='') }}${topicId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        title: title,
+        content: content
+      })
+    });
+    
+    const data = await response.json();
+    
+    if (response.ok) {
+      alert('Topic saved successfully!');
+      closeCreateTopicModal();
+      // Reset form for next use
+      document.getElementById('createTopicForm').style.display = 'block';
+      document.getElementById('topicResult').style.display = 'none';
+      // Reload topics
+      loadAvailableTopics();
+    } else {
+      throw new Error(data.error || 'Failed to save topic');
+    }
+  } catch (error) {
+    showError('Error saving topic: ' + error.message);
+  }
+}
+
 // Update modal close handlers
 window.onclick = function(event) {
-  const agentModal = document.getElementById('agentModal');
+  const itemModal = document.getElementById('itemModal');
   const planningModal = document.getElementById('planningModal');
   const createPersonaModal = document.getElementById('createPersonaModal');
+  const createTopicModal = document.getElementById('createTopicModal');
   
-  if (event.target == agentModal) {
-    closeAgentModal();
+  if (event.target == itemModal) {
+    closeItemModal();
   }
   if (event.target == planningModal) {
     planningModal.style.display = 'none';
   }
   if (event.target == createPersonaModal) {
     createPersonaModal.style.display = 'none';
+  }
+  if (event.target == createTopicModal) {
+    createTopicModal.style.display = 'none';
   }
 };
 

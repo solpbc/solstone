@@ -27,24 +27,30 @@ def _agents_dir() -> str:
     return path
 
 
-@bp.route("/agents/api/available")
-def available_agents() -> object:
-    """Return list of available agent definitions from think/agents/."""
-    agents_path = os.path.join(
-        os.path.dirname(os.path.dirname(__file__)), "..", "think", "agents"
+def _list_items(item_type: str) -> list[dict[str, object]]:
+    """Generic function to list items from think/{item_type}/.
+    
+    Args:
+        item_type: Either 'agents' or 'topics'
+    
+    Returns:
+        List of items with id, title, and description
+    """
+    items_path = os.path.join(
+        os.path.dirname(os.path.dirname(__file__)), "..", "think", item_type
     )
     items: list[dict[str, object]] = []
 
-    if os.path.isdir(agents_path):
+    if os.path.isdir(items_path):
         # Find all .txt files and match with optional .json files
-        txt_files = [f for f in os.listdir(agents_path) if f.endswith(".txt")]
+        txt_files = [f for f in os.listdir(items_path) if f.endswith(".txt")]
 
         for txt_file in txt_files:
             base_name = txt_file[:-4]  # Remove .txt extension
             json_file = base_name + ".json"
 
-            txt_path = os.path.join(agents_path, txt_file)
-            json_path = os.path.join(agents_path, json_file)
+            txt_path = os.path.join(items_path, txt_file)
+            json_path = os.path.join(items_path, json_file)
 
             try:
                 # Read first line of .txt file as description
@@ -58,8 +64,8 @@ def available_agents() -> object:
                 if os.path.isfile(json_path):
                     try:
                         with open(json_path, "r", encoding="utf-8") as f:
-                            agent_config = json.load(f)
-                            title = agent_config.get("title", base_name)
+                            config = json.load(f)
+                            title = config.get("title", base_name)
                     except Exception:
                         pass
 
@@ -74,26 +80,46 @@ def available_agents() -> object:
                 continue
 
     items.sort(key=lambda x: x.get("title", ""))
-    return jsonify(items)
+    return items
+
+
+@bp.route("/agents/api/available")
+def available_agents() -> object:
+    """Return list of available agent definitions from think/agents/."""
+    return jsonify(_list_items("agents"))
+
+
+def _get_item_content(item_type: str, item_id: str) -> tuple[dict, int]:
+    """Generic function to get item content from think/{item_type}/{item_id}.txt.
+    
+    Args:
+        item_type: Either 'agents' or 'topics'
+        item_id: The item identifier
+    
+    Returns:
+        Tuple of (response dict, status code)
+    """
+    items_path = os.path.join(
+        os.path.dirname(os.path.dirname(__file__)), "..", "think", item_type
+    )
+    txt_path = os.path.join(items_path, f"{item_id}.txt")
+
+    if not os.path.isfile(txt_path):
+        return {"error": f"{item_type[:-1].title()} not found"}, 404
+
+    try:
+        with open(txt_path, "r", encoding="utf-8") as f:
+            content = f.read()
+        return {"content": content}, 200
+    except Exception as e:
+        return {"error": str(e)}, 500
 
 
 @bp.route("/agents/api/content/<agent_id>")
 def agent_content(agent_id: str) -> object:
     """Return the .txt content for an agent."""
-    agents_path = os.path.join(
-        os.path.dirname(os.path.dirname(__file__)), "..", "think", "agents"
-    )
-    txt_path = os.path.join(agents_path, f"{agent_id}.txt")
-
-    if not os.path.isfile(txt_path):
-        return jsonify({"error": "Agent not found"}), 404
-
-    try:
-        with open(txt_path, "r", encoding="utf-8") as f:
-            content = f.read()
-        return jsonify({"content": content})
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    response, status = _get_item_content("agents", agent_id)
+    return jsonify(response), status
 
 
 @bp.route("/agents/api/list")
@@ -267,61 +293,78 @@ def create_plan() -> object:
         return jsonify({"error": str(e)}), 500
 
 
-@bp.route("/agents/api/update/<agent_id>", methods=["PUT"])
-def update_agent(agent_id: str) -> object:
-    """Update an agent's title and content or create a new one."""
-    data = request.get_json()
+def _update_item(item_type: str, item_id: str, data: dict) -> tuple[dict, int]:
+    """Generic function to update or create an item.
+    
+    Args:
+        item_type: Either 'agents' or 'topics'
+        item_id: The item identifier
+        data: Request data with title and content
+    
+    Returns:
+        Tuple of (response dict, status code)
+    """
     if not data:
-        return jsonify({"error": "No data provided"}), 400
+        return {"error": "No data provided"}, 400
 
     new_title = data.get("title", "").strip()
     new_content = data.get("content", "").strip()
 
     if not new_title or not new_content:
-        return jsonify({"error": "Title and content are required"}), 400
+        return {"error": "Title and content are required"}, 400
 
-    # Path to agent files
-    agents_path = os.path.join(
-        os.path.dirname(os.path.dirname(__file__)), "..", "think", "agents"
+    # Path to item files
+    items_path = os.path.join(
+        os.path.dirname(os.path.dirname(__file__)), "..", "think", item_type
     )
-    json_path = os.path.join(agents_path, f"{agent_id}.json")
-    txt_path = os.path.join(agents_path, f"{agent_id}.txt")
+    json_path = os.path.join(items_path, f"{item_id}.json")
+    txt_path = os.path.join(items_path, f"{item_id}.txt")
 
     # Check if this is update or create
     is_new = not os.path.isfile(json_path)
 
     try:
         if is_new:
-            # Create new agent config
-            agent_config = {
+            # Create new item config
+            item_config = {
                 "title": new_title,
                 "description": "",
-                "model": "gemini-2.0-flash-exp",
             }
+            # Add model field for agents only
+            if item_type == "agents":
+                item_config["model"] = "gemini-2.0-flash-exp"
         else:
             # Update existing JSON file
             with open(json_path, "r", encoding="utf-8") as f:
-                agent_config = json.load(f)
-            agent_config["title"] = new_title
+                item_config = json.load(f)
+            item_config["title"] = new_title
 
         # Update description (first line of content)
         first_line = new_content.split("\n")[0] if new_content else ""
-        agent_config["description"] = (
+        item_config["description"] = (
             first_line[:100] + "..." if len(first_line) > 100 else first_line
         )
 
         # Write JSON file
         with open(json_path, "w", encoding="utf-8") as f:
-            json.dump(agent_config, f, indent=2, ensure_ascii=False)
+            json.dump(item_config, f, indent=2, ensure_ascii=False)
 
         # Write TXT file
         with open(txt_path, "w", encoding="utf-8") as f:
             f.write(new_content)
 
         action = "created" if is_new else "updated"
-        return jsonify({"success": True, "message": f"Agent {action} successfully"})
+        item_name = item_type[:-1].title()  # 'agents' -> 'Agent', 'topics' -> 'Topic'
+        return {"success": True, "message": f"{item_name} {action} successfully"}, 200
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return {"error": str(e)}, 500
+
+
+@bp.route("/agents/api/update/<agent_id>", methods=["PUT"])
+def update_agent(agent_id: str) -> object:
+    """Update an agent's title and content or create a new one."""
+    response, status = _update_item("agents", agent_id, request.get_json())
+    return jsonify(response), status
 
 
 @bp.route("/agents/api/start", methods=["POST"])
@@ -362,3 +405,24 @@ def start_agent() -> object:
             loop.close()
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+
+# Topics API endpoints
+@bp.route("/agents/api/topics")
+def available_topics() -> object:
+    """Return list of available topic definitions from think/topics/."""
+    return jsonify(_list_items("topics"))
+
+
+@bp.route("/agents/api/topics/content/<topic_id>")
+def topic_content(topic_id: str) -> object:
+    """Return the .txt content for a topic."""
+    response, status = _get_item_content("topics", topic_id)
+    return jsonify(response), status
+
+
+@bp.route("/agents/api/topics/update/<topic_id>", methods=["PUT"])
+def update_topic(topic_id: str) -> object:
+    """Update a topic's title and content or create a new one."""
+    response, status = _update_item("topics", topic_id, request.get_json())
+    return jsonify(response), status
