@@ -347,6 +347,82 @@ h1 {
 #summarySection p { line-height: 1.6; }
 #summarySection ul { line-height: 1.6; }
 
+/* Model selector */
+.model-select {
+  float: right;
+  padding: 0.4em 0.8em;
+  font-size: 0.85em;
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
+  background: white;
+  color: #333;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.model-select:hover {
+  border-color: #667eea;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.model-select:focus {
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102,126,234,0.1);
+}
+
+/* Stacked bar styles */
+.bar-stack {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  height: 100%;
+  border-radius: 4px 4px 0 0;
+  overflow: hidden;
+}
+
+.stack-segment {
+  min-height: 2px;
+  transition: opacity 0.2s;
+  position: relative;
+}
+
+.stack-segment.prompt {
+  background: #667eea;
+}
+
+.stack-segment.thoughts {
+  background: #9b59b6;
+}
+
+.stack-segment.candidates {
+  background: #e91e63;
+}
+
+.bar-stack:hover .stack-segment {
+  opacity: 0.85;
+}
+
+.token-legend {
+  display: flex;
+  gap: 1.5em;
+  margin-top: 1em;
+  font-size: 0.85em;
+  justify-content: center;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5em;
+}
+
+.legend-color {
+  width: 14px;
+  height: 14px;
+  border-radius: 2px;
+}
+
 /* Responsive */
 @media (max-width: 768px) {
   .dashboard {
@@ -385,8 +461,12 @@ h1 {
     <div id="progressSection" class="progress-section"></div>
     
     <div class="chart-section">
-      <h2>Recent Activity (Last 30 Days)</h2>
-      <div class="chart" id="activityChart"></div>
+      <h2>Token Activity (Last 30 Days) 
+        <select id="modelSelector" class="model-select">
+          <option value="">Select Model...</option>
+        </select>
+      </h2>
+      <div class="chart" id="tokenChart"></div>
     </div>
     
     <div class="chart-section">

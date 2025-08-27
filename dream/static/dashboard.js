@@ -102,6 +102,116 @@ const Dashboard = (function() {
     container.appendChild(chart);
   }
 
+  // Build stacked token chart
+  function buildTokenChart(container, tokenData, model) {
+    container.innerHTML = ''; // Clear existing content
+    
+    if (!tokenData || !model) {
+      container.appendChild(
+        el('div', {className: 'empty-chart'}, ['Select a model to view token usage'])
+      );
+      return;
+    }
+
+    // Get last 30 days of data
+    const days = Object.keys(tokenData).sort().slice(-30);
+    
+    if (!days.length) {
+      container.appendChild(
+        el('div', {className: 'empty-chart'}, ['No token data available for this model'])
+      );
+      return;
+    }
+
+    // Calculate max total for scaling
+    let maxTotal = 0;
+    const chartData = days.map(day => {
+      const dayData = tokenData[day][model] || {};
+      const prompt = dayData.prompt_tokens || 0;
+      const thoughts = dayData.thoughts_tokens || 0;
+      const candidates = dayData.candidates_tokens || 0;
+      const total = prompt + thoughts + candidates;
+      maxTotal = Math.max(maxTotal, total);
+      return { day, prompt, thoughts, candidates, total };
+    });
+
+    if (maxTotal === 0) {
+      container.appendChild(
+        el('div', {className: 'empty-chart'}, ['No token usage for this model in the last 30 days'])
+      );
+      return;
+    }
+
+    const chart = el('div', {className: 'bar-chart'});
+    
+    chartData.forEach(d => {
+      const height = (d.total / maxTotal) * 100;
+      const bar = el('div', {
+        className: 'bar',
+        style: {height: `${height}%`, background: 'transparent', overflow: 'visible'}
+      });
+      
+      // Create stacked segments
+      const stack = el('div', {className: 'bar-stack', style: {height: '100%'}});
+      
+      // Calculate segment heights as percentages of the bar
+      if (d.total > 0) {
+        const promptPct = (d.prompt / d.total) * 100;
+        const thoughtsPct = (d.thoughts / d.total) * 100;
+        const candidatesPct = (d.candidates / d.total) * 100;
+        
+        if (d.candidates > 0) {
+          stack.appendChild(el('div', {
+            className: 'stack-segment candidates',
+            style: {height: `${candidatesPct}%`}
+          }));
+        }
+        if (d.thoughts > 0) {
+          stack.appendChild(el('div', {
+            className: 'stack-segment thoughts',
+            style: {height: `${thoughtsPct}%`}
+          }));
+        }
+        if (d.prompt > 0) {
+          stack.appendChild(el('div', {
+            className: 'stack-segment prompt',
+            style: {height: `${promptPct}%`}
+          }));
+        }
+      }
+      
+      bar.appendChild(stack);
+      bar.appendChild(el('div', {className: 'bar-label'}, [d.day.slice(4, 6) + '/' + d.day.slice(6, 8)]));
+      
+      if (d.total > 0) {
+        const formatted = d.total >= 1000 ? `${(d.total/1000).toFixed(1)}k` : String(d.total);
+        bar.appendChild(el('div', {className: 'bar-value'}, [formatted]));
+        bar.setAttribute('title', `Prompt: ${d.prompt}, Thoughts: ${d.thoughts}, Response: ${d.candidates}`);
+      }
+      
+      chart.appendChild(bar);
+    });
+
+    container.appendChild(chart);
+    
+    // Add legend
+    const legend = el('div', {className: 'token-legend'}, [
+      el('div', {className: 'legend-item'}, [
+        el('div', {className: 'legend-color', style: {background: '#667eea'}}),
+        'Prompt'
+      ]),
+      el('div', {className: 'legend-item'}, [
+        el('div', {className: 'legend-color', style: {background: '#9b59b6'}}),
+        'Thoughts'
+      ]),
+      el('div', {className: 'legend-item'}, [
+        el('div', {className: 'legend-color', style: {background: '#e91e63'}}),
+        'Response'
+      ])
+    ]);
+    container.appendChild(legend);
+  }
+
   // Build heatmap
   function buildHeatmap(container, data) {
     const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -225,20 +335,43 @@ const Dashboard = (function() {
       progressCard('Screenshot Analysis', totals.desc_json || 0, totals.repair_see || 0)
     );
     
-    // Prepare chart data
-    const recent = days.slice(-30);
-    const activityData = recent.map(day => ({
-      day: day.slice(4, 6) + '/' + day.slice(6, 8),
-      value: stats.days[day].activity || 0
-    }));
+    // Token usage setup
+    const tokenUsage = stats.token_usage_by_day || {};
+    const tokenTotals = stats.token_totals_by_model || {};
+    const models = Object.keys(tokenTotals).sort();
     
+    // Populate model selector
+    const modelSelector = document.getElementById('modelSelector');
+    if (models.length > 0) {
+      modelSelector.innerHTML = '';
+      models.forEach(model => {
+        const option = el('option', {value: model}, [model]);
+        modelSelector.appendChild(option);
+      });
+      
+      // Set first model as default
+      modelSelector.value = models[0];
+      
+      // Initial render
+      buildTokenChart(document.getElementById('tokenChart'), tokenUsage, models[0]);
+      
+      // Handle model selection changes
+      modelSelector.addEventListener('change', function() {
+        buildTokenChart(document.getElementById('tokenChart'), tokenUsage, this.value);
+      });
+    } else {
+      // No token data available
+      buildTokenChart(document.getElementById('tokenChart'), null, null);
+    }
+    
+    // Audio chart data
+    const recent = days.slice(-30);
     const audioData = recent.map(day => ({
       day: day.slice(4, 6) + '/' + day.slice(6, 8),
       hours: parseFloat(fmt((stats.days[day].audio_seconds || 0) / 3600))
     }));
     
-    // Render charts
-    buildChart(document.getElementById('activityChart'), activityData);
+    // Render audio chart
     buildChart(document.getElementById('audioChart'), audioData, {
       valueKey: 'hours',
       unit: 'h',
