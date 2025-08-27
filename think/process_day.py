@@ -8,15 +8,23 @@ from datetime import datetime, timedelta
 from think.utils import day_log, get_topics, setup_cli
 
 
-def run_command(cmd: list[str]) -> bool:
+def run_command(cmd: list[str], day: str) -> bool:
     logging.info("==> %s", " ".join(cmd))
-    result = subprocess.run(cmd)
-    if result.returncode != 0:
-        logging.error(
-            "Command failed with exit code %s: %s", result.returncode, " ".join(cmd)
-        )
+    # Extract command name for logging (e.g., "think-ponder" -> "ponder")
+    cmd_name = cmd[0].replace("think-", "").replace("-", "_")
+    try:
+        result = subprocess.run(cmd)
+        if result.returncode != 0:
+            logging.error(
+                "Command failed with exit code %s: %s", result.returncode, " ".join(cmd)
+            )
+            day_log(day, f"{cmd_name} error {result.returncode}")
+            return False
+        return True
+    except Exception as e:
+        logging.error("Command exception: %s: %s", e, " ".join(cmd))
+        day_log(day, f"{cmd_name} exception")
         return False
-    return True
 
 
 def build_commands(day: str, force: bool, verbose: bool = False) -> list[list[str]]:
@@ -111,7 +119,10 @@ def main() -> None:
     success_count = 0
     fail_count = 0
     for cmd in commands:
-        if run_command(cmd):
+        # Log every command attempt
+        day_log(day, f"starting: {' '.join(cmd)}")
+        
+        if run_command(cmd, day):
             success_count += 1
         else:
             fail_count += 1
