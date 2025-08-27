@@ -30,6 +30,10 @@ class JournalStats:
         self.topic_counts: Counter[str] = Counter()
         self.topic_minutes: Counter[str] = Counter()
         self.heatmap: list[list[float]] = [[0.0 for _ in range(24)] for _ in range(7)]
+        # Token usage tracking: {day: {model: {token_type: count}}}
+        self.token_usage: Dict[str, Dict[str, Dict[str, int]]] = {}
+        # Total token usage by model: {model: {token_type: count}}
+        self.token_totals: Dict[str, Dict[str, int]] = {}
 
     def scan_day(self, day: str, path: str) -> None:
         stats: Counter[str] = Counter()
@@ -122,6 +126,9 @@ class JournalStats:
                         self.heatmap[weekday][hour] += (next_tick - cur) / 60
                         cur = next_tick
 
+        # --- token usage ---
+        self.scan_tokens_for_day(day, Path(path).parent)
+        
         counts_for_totals = dict(stats)
         self.totals.update(counts_for_totals)
         stats["audio_seconds"] = audio_sec
@@ -132,6 +139,57 @@ class JournalStats:
         self.total_audio_sec += audio_sec
         self.total_audio_bytes += audio_bytes
         self.total_image_bytes += image_bytes
+
+    def scan_tokens_for_day(self, day: str, journal_path: Path) -> None:
+        """Scan token usage files for a specific day."""
+        tokens_dir = journal_path / "tokens"
+        if not tokens_dir.is_dir():
+            return
+        
+        # Initialize day's token usage if not exists
+        if day not in self.token_usage:
+            self.token_usage[day] = {}
+        
+        # Scan all token files in the tokens directory
+        for token_file in tokens_dir.glob("*.json"):
+            try:
+                with open(token_file, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                
+                # Extract date from timestamp_str (YYYYMMDD_HHMMSS)
+                timestamp_str = data.get("timestamp_str", "")
+                if not timestamp_str:
+                    continue
+                
+                file_date = timestamp_str.split("_")[0]
+                if file_date != day:
+                    continue
+                
+                model = data.get("model", "unknown")
+                usage = data.get("usage", {})
+                
+                # Initialize model entry if not exists
+                if model not in self.token_usage[day]:
+                    self.token_usage[day][model] = {}
+                if model not in self.token_totals:
+                    self.token_totals[model] = {}
+                
+                # Add token counts for each type
+                for token_type, count in usage.items():
+                    if not isinstance(count, int):
+                        continue
+                    # Add to day's model totals
+                    if token_type not in self.token_usage[day][model]:
+                        self.token_usage[day][model][token_type] = 0
+                    self.token_usage[day][model][token_type] += count
+                    
+                    # Add to overall model totals
+                    if token_type not in self.token_totals[model]:
+                        self.token_totals[model][token_type] = 0
+                    self.token_totals[model][token_type] += count
+                    
+            except (json.JSONDecodeError, OSError, KeyError):
+                continue
 
     def scan(self, journal: str, verbose: bool = False) -> None:
         day_dirs = [d for d in os.listdir(journal) if DATE_RE.fullmatch(d)]
@@ -175,6 +233,18 @@ class JournalStats:
         print(
             f"Ponder processed: {self.totals.get('ponder_processed', 0)} | Repairable: {self.totals.get('repair_ponder', 0)}"
         )
+
+        # Token usage report
+        if self.token_totals:
+            print("\nToken Usage by Model:")
+            for model in sorted(self.token_totals.keys()):
+                tokens = self.token_totals[model]
+                total = tokens.get("total_tokens", 0)
+                prompt = tokens.get("prompt_tokens", 0)
+                print(f"  {model}:")
+                print(f"    Total: {total:,} | Prompt: {prompt:,} | Response: {tokens.get('candidates_tokens', 0):,}")
+                if tokens.get("cached_tokens", 0) > 0:
+                    print(f"    Cached: {tokens.get('cached_tokens', 0):,} | Thoughts: {tokens.get('thoughts_tokens', 0):,}")
 
         # per-day audio hours
         if day_count:
@@ -232,6 +302,25 @@ class JournalStats:
             f" | Repairable: {self.totals.get('repair_ponder', 0)}"
         )
 
+        if self.token_totals:
+            lines.append("")
+            lines.append("## Token Usage by Model")
+            lines.append("")
+            for model in sorted(self.token_totals.keys()):
+                tokens = self.token_totals[model]
+                total = tokens.get("total_tokens", 0)
+                prompt = tokens.get("prompt_tokens", 0)
+                response = tokens.get("candidates_tokens", 0)
+                cached = tokens.get("cached_tokens", 0)
+                thoughts = tokens.get("thoughts_tokens", 0)
+                
+                lines.append(f"### {model}")
+                lines.append(f"- Total: {total:,} tokens")
+                lines.append(f"- Prompt: {prompt:,} | Response: {response:,}")
+                if cached > 0 or thoughts > 0:
+                    lines.append(f"- Cached: {cached:,} | Thoughts: {thoughts:,}")
+                lines.append("")
+
         if self.topic_counts:
             lines.append("")
             lines.append("## Topic activity")
@@ -287,6 +376,8 @@ class JournalStats:
             "topic_counts": dict(self.topic_counts),
             "topic_minutes": {k: round(v, 2) for k, v in self.topic_minutes.items()},
             "heatmap": self.heatmap,
+            "token_usage_by_day": self.token_usage,
+            "token_totals_by_model": self.token_totals,
         }
 
     def save_json(self, journal: str) -> None:
