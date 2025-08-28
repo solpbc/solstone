@@ -24,6 +24,7 @@ Use the `JOURNAL_PATH` environment variable to locate the journal and these URI 
 - **RunningAgent**: In-memory representation of active agent processes with event buffer
 - **Event Monitoring**: Cortex monitors agent stdout/stderr and manages the lifecycle
 - **No Historical Support**: Cortex only tracks running agents; finished agents exist only in `.jsonl` files
+- **NDJSON Input Mode**: Agent processes accept newline-delimited JSON via stdin for batch processing
 
 ## WebSocket API
 
@@ -84,9 +85,16 @@ Request:
   "action": "spawn",
   "prompt": "Analyze this code for security issues",
   "backend": "openai",
-  "model": "gpt-4o",
   "persona": "default",
-  "max_tokens": 8192
+  "config": {
+    "model": "gpt-4o",
+    "max_tokens": 8192,
+    "domain": "my-project"  // Required for Claude backend
+  },
+  "handoff": {
+    "persona": "reviewer",
+    "prompt": "Review the analysis"
+  }
 }
 ```
 Response:
@@ -132,7 +140,8 @@ Emitted when an agent run begins.
   "ts": 1234567890123,
   "prompt": "User's request text",
   "persona": "default",
-  "model": "gpt-4o"
+  "model": "gpt-4o",
+  "handoff_from": "1234567890122"  // Present when spawned via handoff
 }
 ```
 
@@ -188,7 +197,12 @@ Emitted when the agent run completes successfully.
 {
   "event": "finish",
   "ts": 1234567890123,
-  "result": "Final response text to the user"
+  "result": "Final response text to the user",
+  "handoff": {  // Optional: triggers next agent
+    "prompt": "Continue with next task",
+    "persona": "specialist",
+    "backend": "openai"
+  }
 }
 ```
 
@@ -223,6 +237,36 @@ Tool events use `call_id` to pair `tool_start` and `tool_end` events. This allow
 
 The frontend uses this to show real-time status updates as tools execute, changing from "running..." to "✓" when complete.
 
+## Agent Handoff
+
+Agents can transfer control to other agents for specialized tasks. When an agent completes with a handoff configuration, Cortex automatically spawns the next agent in the chain.
+
+- The `finish` event may include a `handoff` field specifying the next agent
+- The subsequent `start` event includes `handoff_from` with the originating agent ID
+- This enables multi-step workflows and agent specialization
+
+## Agent Personas
+
+Agents use persona configurations stored in the `think/agents/` directory. Each persona consists of:
+- A `.txt` file containing system instructions and prompts
+- An optional `.json` file with metadata and configuration
+
+Personas define specialized behaviors, tool usage patterns, and domain expertise. Available personas can be discovered by listing files in the `think/agents/` directory.
+
+## MCP Tools Integration
+
+The Model Context Protocol (MCP) provides tools for agent-journal interaction:
+
+### Backend Support
+- **OpenAI, Anthropic, Google**: Full MCP tool support via HTTP transport
+- **Claude**: Uses filesystem tools instead; requires `domain` configuration in spawn request
+
+### Tool Discovery
+MCP tools are provided by the `think-mcp-tools --transport http` service, which:
+- Writes its URI to `<journal>/agents/mcp.uri` for automatic discovery
+- Exposes journal search and retrieval capabilities
+- Available tools can be discovered via the MCP service endpoint
+
 ## Frontend Integration
 
 The Dream web app (`dream/views/chat.py`) connects to Cortex via WebSocket to:
@@ -253,10 +297,24 @@ The system supports multiple AI backends, each implementing the same event inter
 - **OpenAI** (`think/openai.py`): GPT models with OpenAI Agents SDK
 - **Google** (`think/google.py`): Gemini models with Google AI SDK
 - **Anthropic** (`think/anthropic.py`): Claude models with Anthropic SDK
+- **Claude** (`think/claude.py`): Claude models via Claude Code SDK
+  - Uses filesystem tools (Read, Write, Edit, etc.) instead of MCP
+  - Requires `domain` configuration specifying journal domain directory
+  - Operates within domain-scoped file permissions
 
 All backends:
 - Emit JSON events to stdout (one per line)
 - Are spawned as subprocesses by Cortex
 - Use consistent event structures across providers
-- Write events via `JSONEventWriter` which outputs to stdout for Cortex to capture
+- Process events are written to stdout for Cortex to capture
+
+## Process Management
+
+The `think-supervisor` command provides process management for the Cortex ecosystem:
+- Starts and monitors the Cortex WebSocket server
+- Starts and monitors the MCP tools HTTP server
+- Handles process restarts on failure
+- Monitors system health indicators
+
+This is distinct from agent lifecycle management, which Cortex handles internally
 
