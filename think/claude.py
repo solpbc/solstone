@@ -95,7 +95,7 @@ async def run_agent(
         # Load persona instructions from agents directory
         agents_dir = os.path.join(os.path.dirname(__file__), "agents")
         instructions_path = os.path.join(agents_dir, f"{persona}.txt")
-        
+
         # Check if persona exists and optionally verify it's for claude backend
         json_path = os.path.join(agents_dir, f"{persona}.json")
         if os.path.exists(json_path):
@@ -109,12 +109,10 @@ async def run_agent(
                         )
             except json.JSONDecodeError:
                 pass  # Continue if JSON is malformed
-        
+
         if not os.path.exists(instructions_path):
-            raise ValueError(
-                f"Persona '{persona}' not found at {instructions_path}"
-            )
-        
+            raise ValueError(f"Persona '{persona}' not found at {instructions_path}")
+
         try:
             with open(instructions_path, "r", encoding="utf-8") as f:
                 system_instruction = f.read()
@@ -308,7 +306,7 @@ async def run_prompt(
     persona: str = "default",
 ) -> str:
     """Convenience helper to run ``prompt`` (alias for run_agent).
-    
+
     Loads persona-specific system instructions from think/agents/<persona>.txt.
     Use persona="matter_editor" for domain matter management tasks.
     """

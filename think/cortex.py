@@ -23,13 +23,20 @@ from typing import Any, Dict, List, Optional, Set, Tuple
 
 from flask_sock import Sock
 from simple_websocket import ConnectionClosed
+
 from think.utils import get_personas
 
 
 class RunningAgent:
     """Represents a running agent process."""
 
-    def __init__(self, agent_id: str, process: subprocess.Popen, log_path: Path, request: Optional[Dict[str, Any]] = None):
+    def __init__(
+        self,
+        agent_id: str,
+        process: subprocess.Popen,
+        log_path: Path,
+        request: Optional[Dict[str, Any]] = None,
+    ):
         self.agent_id = agent_id
         self.process = process
         self.log_path = log_path
@@ -315,7 +322,7 @@ class CortexServer:
                         if handoff:
                             # Add handoff info to finish event
                             event_data["handoff"] = handoff
-                    
+
                     # Check for start events to add handoff_from if applicable
                     elif event_data.get("event") == "start":
                         if agent.request.get("handoff_from"):
@@ -331,15 +338,13 @@ class CortexServer:
 
                     # Broadcast to watchers
                     self._broadcast_agent_event(agent.agent_id, event_data)
-                    
+
                     # Spawn handoff agent after finish event is fully processed
                     if event_data.get("event") == "finish" and "handoff" in event_data:
                         # Slight delay to ensure finish event is fully processed
                         time.sleep(0.1)
                         self._spawn_handoff_agent(
-                            agent.agent_id, 
-                            event_data["result"], 
-                            event_data["handoff"]
+                            agent.agent_id, event_data["result"], event_data["handoff"]
                         )
 
                 except json.JSONDecodeError as e:
@@ -516,14 +521,14 @@ class CortexServer:
 
     def _check_for_handoff(self, agent: RunningAgent) -> Optional[Dict[str, Any]]:
         """Check if the agent has a handoff configured.
-        
+
         Returns the handoff configuration if found, None otherwise.
         Priority: request handoff > persona default handoff
         """
         # First check the original request for handoff
         if agent.request.get("handoff"):
             return agent.request["handoff"]
-        
+
         # Then check persona metadata for default handoff
         persona = agent.request.get("persona", "default")
         try:
@@ -534,12 +539,14 @@ class CortexServer:
                     return persona_config["handoff"]
         except Exception as e:
             self.logger.debug(f"Error checking persona handoff: {e}")
-        
+
         return None
 
-    def _spawn_handoff_agent(self, parent_agent_id: str, result: str, handoff: Dict[str, Any]) -> None:
+    def _spawn_handoff_agent(
+        self, parent_agent_id: str, result: str, handoff: Dict[str, Any]
+    ) -> None:
         """Spawn a new agent as part of a handoff chain.
-        
+
         Args:
             parent_agent_id: The ID of the agent that finished
             result: The result from the parent agent (becomes the prompt)
@@ -551,25 +558,25 @@ class CortexServer:
             if not persona:
                 self.logger.error("Handoff missing required 'persona' field")
                 return
-            
+
             # Build config from handoff (excluding persona key)
             config = {k: v for k, v in handoff.items() if k != "persona"}
-            
+
             # Generate new agent ID
             agent_id = str(int(time.time() * 1000))
-            
+
             # Set up journal log path
             journal = os.getenv("JOURNAL_PATH")
             if not journal:
                 self.logger.error("JOURNAL_PATH not configured for handoff")
                 return
-            
+
             log_path = Path(journal) / "agents" / f"{agent_id}.jsonl"
             log_path.parent.mkdir(parents=True, exist_ok=True)
-            
+
             # Create empty log file
             log_path.touch()
-            
+
             # Build request for the new agent
             request = {
                 "prompt": result,  # Use parent's result as prompt
@@ -577,19 +584,21 @@ class CortexServer:
                 "config": config,
                 "handoff_from": parent_agent_id,  # Track chain lineage
             }
-            
+
             # Extract backend if specified in config
             backend = config.get("backend", "openai")
             request["backend"] = backend
-            
+
             # Spawn the agent process
             ndjson_input = json.dumps(request)
-            self.logger.info(f"Spawning handoff agent {agent_id} from {parent_agent_id}")
-            
+            self.logger.info(
+                f"Spawning handoff agent {agent_id} from {parent_agent_id}"
+            )
+
             cmd = ["think-agents"]
             env = os.environ.copy()
             env["JOURNAL_PATH"] = journal
-            
+
             process = subprocess.Popen(
                 cmd,
                 stdin=subprocess.PIPE,
@@ -599,17 +608,17 @@ class CortexServer:
                 env=env,
                 bufsize=1,
             )
-            
+
             # Send the NDJSON input and close stdin
             process.stdin.write(ndjson_input + "\n")
             process.stdin.close()
-            
+
             # Create running agent entry
             agent = RunningAgent(agent_id, process, log_path, request=request)
-            
+
             with self.lock:
                 self.running_agents[agent_id] = agent
-            
+
             # Start monitoring threads
             threading.Thread(
                 target=self._monitor_stdout, args=(agent,), daemon=True
@@ -617,9 +626,9 @@ class CortexServer:
             threading.Thread(
                 target=self._monitor_stderr, args=(agent,), daemon=True
             ).start()
-            
+
             self.logger.info(f"Handoff agent {agent_id} spawned successfully")
-            
+
         except Exception as e:
             self.logger.exception(f"Failed to spawn handoff agent: {e}")
 

@@ -45,16 +45,18 @@ def test_openai_backend_basic():
     env["OPENAI_API_KEY"] = api_key
 
     # Create NDJSON input with disable_mcp
-    ndjson_input = json.dumps({
-        "prompt": "what is 1+1? Just give me the number.",
-        "backend": "openai",
-        "persona": "default",
-        "config": {
-            "model": "gpt-4o-mini",  # Use cheap model for testing
-            "max_tokens": 100,
-            "disable_mcp": True
+    ndjson_input = json.dumps(
+        {
+            "prompt": "what is 1+1? Just give me the number.",
+            "backend": "openai",
+            "persona": "default",
+            "config": {
+                "model": "gpt-4o-mini",  # Use cheap model for testing
+                "max_tokens": 100,
+                "disable_mcp": True,
+            },
         }
-    })
+    )
 
     # Run the think-agents command
     cmd = ["think-agents"]
@@ -81,7 +83,9 @@ def test_openai_backend_basic():
                 pytest.fail(f"Failed to parse JSON line: {line}\nError: {e}")
 
     # Verify we have events
-    assert len(events) >= 2, f"Expected at least start and finish events, got {len(events)}"
+    assert (
+        len(events) >= 2
+    ), f"Expected at least start and finish events, got {len(events)}"
 
     # Check start event
     start_event = events[0]
@@ -99,7 +103,9 @@ def test_openai_backend_basic():
 
     # The result should contain "2"
     result_text = finish_event["result"].lower()
-    assert "2" in result_text or "two" in result_text, f"Expected '2' in response, got: {finish_event['result']}"
+    assert (
+        "2" in result_text or "two" in result_text
+    ), f"Expected '2' in response, got: {finish_event['result']}"
 
     # Check for no errors
     error_events = [e for e in events if e.get("event") == "error"]
@@ -130,16 +136,18 @@ def test_openai_backend_with_reasoning():
     env["OPENAI_API_KEY"] = api_key
 
     # Try o1-mini model (may not be available)
-    ndjson_input = json.dumps({
-        "prompt": "What is the square root of 16? Just the number please.",
-        "backend": "openai",
-        "persona": "default",
-        "config": {
-            "model": "o1-mini",  # Reasoning model if available
-            "max_tokens": 200,
-            "disable_mcp": True
+    ndjson_input = json.dumps(
+        {
+            "prompt": "What is the square root of 16? Just the number please.",
+            "backend": "openai",
+            "persona": "default",
+            "config": {
+                "model": "o1-mini",  # Reasoning model if available
+                "max_tokens": 200,
+                "disable_mcp": True,
+            },
         }
-    })
+    )
 
     # Run the think-agents command
     cmd = ["think-agents"]
@@ -154,18 +162,23 @@ def test_openai_backend_with_reasoning():
 
     # Allow for model unavailability
     if result.returncode != 0:
-        if "model not found" in result.stderr.lower() or "does not exist" in result.stderr.lower():
+        if (
+            "model not found" in result.stderr.lower()
+            or "does not exist" in result.stderr.lower()
+        ):
             # Fall back to gpt-4o-mini
-            ndjson_input = json.dumps({
-                "prompt": "What is the square root of 16? Just the number please.",
-                "backend": "openai",
-                "persona": "default",
-                "config": {
-                    "model": "gpt-4o-mini",
-                    "max_tokens": 200,
-                    "disable_mcp": True
+            ndjson_input = json.dumps(
+                {
+                    "prompt": "What is the square root of 16? Just the number please.",
+                    "backend": "openai",
+                    "persona": "default",
+                    "config": {
+                        "model": "gpt-4o-mini",
+                        "max_tokens": 200,
+                        "disable_mcp": True,
+                    },
                 }
-            })
+            )
             result = subprocess.run(
                 cmd,
                 env=env,
@@ -189,7 +202,9 @@ def test_openai_backend_with_reasoning():
     finish_event = events[-1]
     assert finish_event["event"] == "finish"
     result_text = finish_event["result"].lower()
-    assert "4" in result_text or "four" in result_text, f"Expected '4' in response, got: {finish_event['result']}"
+    assert (
+        "4" in result_text or "four" in result_text
+    ), f"Expected '4' in response, got: {finish_event['result']}"
 
 
 @pytest.mark.integration
@@ -213,16 +228,14 @@ def test_openai_backend_with_verbose():
     env["OPENAI_API_KEY"] = api_key
 
     # Create NDJSON input
-    ndjson_input = json.dumps({
-        "prompt": "what is 2+2? Just give me the number.",
-        "backend": "openai",
-        "persona": "default",
-        "config": {
-            "model": "gpt-4o-mini",
-            "max_tokens": 100,
-            "disable_mcp": True
+    ndjson_input = json.dumps(
+        {
+            "prompt": "what is 2+2? Just give me the number.",
+            "backend": "openai",
+            "persona": "default",
+            "config": {"model": "gpt-4o-mini", "max_tokens": 100, "disable_mcp": True},
         }
-    })
+    )
 
     # Run with verbose flag
     cmd = ["think-agents", "-v"]
@@ -252,7 +265,9 @@ def test_openai_backend_with_verbose():
 
     # Result should contain 4
     result_text = events[-1]["result"].lower()
-    assert "4" in result_text or "four" in result_text, f"Expected '4' in response, got: {events[-1]['result']}"
+    assert (
+        "4" in result_text or "four" in result_text
+    ), f"Expected '4' in response, got: {events[-1]['result']}"
 
 
 @pytest.mark.integration
@@ -276,16 +291,14 @@ def test_openai_backend_custom_model():
     env["OPENAI_API_KEY"] = api_key
 
     # Use gpt-4o for higher quality (but more expensive)
-    ndjson_input = json.dumps({
-        "prompt": "What is 3*3? Just give me the number.",
-        "backend": "openai",
-        "persona": "default",
-        "config": {
-            "model": "gpt-4o",
-            "max_tokens": 50,
-            "disable_mcp": True
+    ndjson_input = json.dumps(
+        {
+            "prompt": "What is 3*3? Just give me the number.",
+            "backend": "openai",
+            "persona": "default",
+            "config": {"model": "gpt-4o", "max_tokens": 50, "disable_mcp": True},
         }
-    })
+    )
 
     # Run the command
     cmd = ["think-agents"]
@@ -311,7 +324,9 @@ def test_openai_backend_custom_model():
     # Verify the answer
     finish_event = events[-1]
     result_text = finish_event["result"].lower()
-    assert "9" in result_text or "nine" in result_text, f"Expected '9' in response, got: {finish_event['result']}"
+    assert (
+        "9" in result_text or "nine" in result_text
+    ), f"Expected '9' in response, got: {finish_event['result']}"
 
 
 @pytest.mark.integration
@@ -335,17 +350,19 @@ def test_openai_backend_multi_turn():
     env["OPENAI_API_KEY"] = api_key
 
     # Test with max_turns set
-    ndjson_input = json.dumps({
-        "prompt": "Count from 1 to 3, just the numbers separated by commas.",
-        "backend": "openai",
-        "persona": "default",
-        "config": {
-            "model": "gpt-4o-mini",
-            "max_tokens": 100,
-            "max_turns": 2,  # Allow up to 2 turns
-            "disable_mcp": True
+    ndjson_input = json.dumps(
+        {
+            "prompt": "Count from 1 to 3, just the numbers separated by commas.",
+            "backend": "openai",
+            "persona": "default",
+            "config": {
+                "model": "gpt-4o-mini",
+                "max_tokens": 100,
+                "max_turns": 2,  # Allow up to 2 turns
+                "disable_mcp": True,
+            },
         }
-    })
+    )
 
     # Run the command
     cmd = ["think-agents"]
@@ -367,5 +384,6 @@ def test_openai_backend_multi_turn():
     # Verify the answer contains the sequence
     finish_event = events[-1]
     result_text = finish_event["result"].lower()
-    assert "1" in result_text and "2" in result_text and "3" in result_text, \
-        f"Expected '1, 2, 3' in response, got: {finish_event['result']}"
+    assert (
+        "1" in result_text and "2" in result_text and "3" in result_text
+    ), f"Expected '1, 2, 3' in response, got: {finish_event['result']}"

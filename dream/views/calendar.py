@@ -667,9 +667,9 @@ def serve_media_file(day: str, encoded_path: str) -> Any:
 @bp.route("/calendar/api/occurrences")
 def calendar_occurrences() -> Any:
     from datetime import date
-    
+
     today_str = date.today().strftime("%Y%m%d")
-    
+
     # Check if we need to rebuild or update the index
     needs_rebuild = False
     if not state.occurrences_index:
@@ -679,7 +679,7 @@ def calendar_occurrences() -> Any:
         # Date has changed since last build - rebuild for simplicity
         # Could optimize this to only add new days, but full rebuild ensures consistency
         needs_rebuild = True
-    
+
     if needs_rebuild and state.journal_root:
         state.occurrences_index = build_occurrence_index(state.journal_root)
         state.occurrences_index_date = today_str
@@ -692,18 +692,19 @@ def calendar_occurrences() -> Any:
                 path = os.path.join(state.journal_root, name)
                 if os.path.isdir(path):
                     current_days.add(name)
-        
+
         # Find new days not in the index
         new_days = current_days - state.occurrences_index_days
         if new_days:
             # Load only the new days
             from think.utils import get_topics
+
             topics = get_topics()
-            
+
             for day in new_days:
                 day_path = os.path.join(state.journal_root, day)
                 topics_dir = os.path.join(day_path, "topics")
-                
+
                 if os.path.isdir(topics_dir):
                     occs = []
                     for fname in os.listdir(topics_dir):
@@ -714,31 +715,39 @@ def calendar_occurrences() -> Any:
                         try:
                             with open(file_path, "r", encoding="utf-8") as f:
                                 data = json.load(f)
-                            items = data.get("occurrences", []) if isinstance(data, dict) else data
+                            items = (
+                                data.get("occurrences", [])
+                                if isinstance(data, dict)
+                                else data
+                            )
                         except Exception:
                             continue
                         if not isinstance(items, list):
                             continue
-                        
+
                         topic = base
                         for occ in items:
-                            occs.append({
-                                "title": occ.get("title", ""),
-                                "summary": occ.get("summary", ""),
-                                "subject": occ.get("subject", ""),
-                                "details": occ.get("details", occ.get("description", "")),
-                                "participants": occ.get("participants", []),
-                                "topic": topic,
-                                "color": topics[topic]["color"],
-                                "path": os.path.join(day, "topics", fname),
-                            })
-                    
+                            occs.append(
+                                {
+                                    "title": occ.get("title", ""),
+                                    "summary": occ.get("summary", ""),
+                                    "subject": occ.get("subject", ""),
+                                    "details": occ.get(
+                                        "details", occ.get("description", "")
+                                    ),
+                                    "participants": occ.get("participants", []),
+                                    "topic": topic,
+                                    "color": topics[topic]["color"],
+                                    "path": os.path.join(day, "topics", fname),
+                                }
+                            )
+
                     if occs:
                         state.occurrences_index[day] = occs
-                
+
                 # Add to tracked days even if no occurrences (to avoid rechecking)
                 state.occurrences_index_days.add(day)
-    
+
     return jsonify(state.occurrences_index)
 
 

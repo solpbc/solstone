@@ -47,15 +47,14 @@ def test_google_backend_basic():
     env["GOOGLE_API_KEY"] = api_key
 
     # Create NDJSON input with disable_mcp
-    ndjson_input = json.dumps({
-        "prompt": "what is 1+1? Just give me the number.",
-        "backend": "google",
-        "persona": "default",
-        "config": {
-            "max_tokens": 100,
-            "disable_mcp": True
+    ndjson_input = json.dumps(
+        {
+            "prompt": "what is 1+1? Just give me the number.",
+            "backend": "google",
+            "persona": "default",
+            "config": {"max_tokens": 100, "disable_mcp": True},
         }
-    })
+    )
 
     # Run the think-agents command
     cmd = ["think-agents"]
@@ -82,7 +81,9 @@ def test_google_backend_basic():
                 pytest.fail(f"Failed to parse JSON line: {line}\nError: {e}")
 
     # Verify we have events
-    assert len(events) >= 2, f"Expected at least start and finish events, got {len(events)}"
+    assert (
+        len(events) >= 2
+    ), f"Expected at least start and finish events, got {len(events)}"
 
     # Check start event
     start_event = events[0]
@@ -100,7 +101,9 @@ def test_google_backend_basic():
 
     # The result should contain "2"
     result_text = finish_event["result"].lower()
-    assert "2" in result_text or "two" in result_text, f"Expected '2' in response, got: {finish_event['result']}"
+    assert (
+        "2" in result_text or "two" in result_text
+    ), f"Expected '2' in response, got: {finish_event['result']}"
 
     # Check for no errors
     error_events = [e for e in events if e.get("event") == "error"]
@@ -134,16 +137,18 @@ def test_google_backend_with_thinking():
     env["GOOGLE_API_KEY"] = api_key
 
     # Create NDJSON input with thinking model (if available)
-    ndjson_input = json.dumps({
-        "prompt": "What is the square root of 16? Just the number please.",
-        "backend": "google",
-        "persona": "default",
-        "config": {
-            "model": "gemini-2.0-flash-thinking-exp",  # Thinking model if available
-            "max_tokens": 200,
-            "disable_mcp": True
+    ndjson_input = json.dumps(
+        {
+            "prompt": "What is the square root of 16? Just the number please.",
+            "backend": "google",
+            "persona": "default",
+            "config": {
+                "model": "gemini-2.0-flash-thinking-exp",  # Thinking model if available
+                "max_tokens": 200,
+                "disable_mcp": True,
+            },
         }
-    })
+    )
 
     # Run the think-agents command
     cmd = ["think-agents"]
@@ -158,7 +163,10 @@ def test_google_backend_with_thinking():
 
     # Allow for model unavailability
     if result.returncode != 0:
-        if "model not found" in result.stderr.lower() or "invalid model" in result.stderr.lower():
+        if (
+            "model not found" in result.stderr.lower()
+            or "invalid model" in result.stderr.lower()
+        ):
             pytest.skip("Thinking model not available")
         assert False, f"Command failed with stderr: {result.stderr}"
 
@@ -174,7 +182,9 @@ def test_google_backend_with_thinking():
     finish_event = events[-1]
     assert finish_event["event"] == "finish"
     result_text = finish_event["result"].lower()
-    assert "4" in result_text or "four" in result_text, f"Expected '4' in response, got: {finish_event['result']}"
+    assert (
+        "4" in result_text or "four" in result_text
+    ), f"Expected '4' in response, got: {finish_event['result']}"
 
 
 @pytest.mark.integration
@@ -198,15 +208,14 @@ def test_google_backend_with_verbose():
     env["GOOGLE_API_KEY"] = api_key
 
     # Create NDJSON input
-    ndjson_input = json.dumps({
-        "prompt": "what is 2+2? Just give me the number.",
-        "backend": "google",
-        "persona": "default",
-        "config": {
-            "max_tokens": 100,
-            "disable_mcp": True
+    ndjson_input = json.dumps(
+        {
+            "prompt": "what is 2+2? Just give me the number.",
+            "backend": "google",
+            "persona": "default",
+            "config": {"max_tokens": 100, "disable_mcp": True},
         }
-    })
+    )
 
     # Run with verbose flag
     cmd = ["think-agents", "-v"]
@@ -236,7 +245,9 @@ def test_google_backend_with_verbose():
 
     # Result should contain 4
     result_text = events[-1]["result"].lower()
-    assert "4" in result_text or "four" in result_text, f"Expected '4' in response, got: {events[-1]['result']}"
+    assert (
+        "4" in result_text or "four" in result_text
+    ), f"Expected '4' in response, got: {events[-1]['result']}"
 
 
 @pytest.mark.integration
@@ -260,16 +271,18 @@ def test_google_backend_custom_model():
     env["GOOGLE_API_KEY"] = api_key
 
     # Use a specific model
-    ndjson_input = json.dumps({
-        "prompt": "What is 3*3? Just give me the number.",
-        "backend": "google",
-        "persona": "default",
-        "config": {
-            "model": "gemini-1.5-flash",  # Specific version
-            "max_tokens": 50,
-            "disable_mcp": True
+    ndjson_input = json.dumps(
+        {
+            "prompt": "What is 3*3? Just give me the number.",
+            "backend": "google",
+            "persona": "default",
+            "config": {
+                "model": "gemini-1.5-flash",  # Specific version
+                "max_tokens": 50,
+                "disable_mcp": True,
+            },
         }
-    })
+    )
 
     # Run the command
     cmd = ["think-agents"]
@@ -295,4 +308,6 @@ def test_google_backend_custom_model():
     # Verify the answer
     finish_event = events[-1]
     result_text = finish_event["result"].lower()
-    assert "9" in result_text or "nine" in result_text, f"Expected '9' in response, got: {finish_event['result']}"
+    assert (
+        "9" in result_text or "nine" in result_text
+    ), f"Expected '9' in response, got: {finish_event['result']}"

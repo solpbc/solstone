@@ -47,15 +47,14 @@ def test_anthropic_backend_basic():
     env["ANTHROPIC_API_KEY"] = api_key
 
     # Create NDJSON input with disable_mcp
-    ndjson_input = json.dumps({
-        "prompt": "what is 1+1? Just give me the number.",
-        "backend": "anthropic",
-        "persona": "default",
-        "config": {
-            "max_tokens": 100,
-            "disable_mcp": True
+    ndjson_input = json.dumps(
+        {
+            "prompt": "what is 1+1? Just give me the number.",
+            "backend": "anthropic",
+            "persona": "default",
+            "config": {"max_tokens": 100, "disable_mcp": True},
         }
-    })
+    )
 
     # Run the think-agents command
     cmd = ["think-agents"]
@@ -82,7 +81,9 @@ def test_anthropic_backend_basic():
                 pytest.fail(f"Failed to parse JSON line: {line}\nError: {e}")
 
     # Verify we have events
-    assert len(events) >= 2, f"Expected at least start and finish events, got {len(events)}"
+    assert (
+        len(events) >= 2
+    ), f"Expected at least start and finish events, got {len(events)}"
 
     # Check start event
     start_event = events[0]
@@ -100,7 +101,9 @@ def test_anthropic_backend_basic():
 
     # The result should contain "2"
     result_text = finish_event["result"].lower()
-    assert "2" in result_text or "two" in result_text, f"Expected '2' in response, got: {finish_event['result']}"
+    assert (
+        "2" in result_text or "two" in result_text
+    ), f"Expected '2' in response, got: {finish_event['result']}"
 
     # Check for no errors
     error_events = [e for e in events if e.get("event") == "error"]
@@ -131,17 +134,19 @@ def test_anthropic_backend_with_thinking():
     env["ANTHROPIC_API_KEY"] = api_key
 
     # Create NDJSON input with thinking config
-    ndjson_input = json.dumps({
-        "prompt": "What is the square root of 16? Just the number please.",
-        "backend": "anthropic",
-        "persona": "default",
-        "config": {
-            "model": "claude-sonnet-3-7-20241124",  # Model that supports thinking
-            "max_tokens": 200,
-            "thinking_budget_tokens": 1000,
-            "disable_mcp": True
+    ndjson_input = json.dumps(
+        {
+            "prompt": "What is the square root of 16? Just the number please.",
+            "backend": "anthropic",
+            "persona": "default",
+            "config": {
+                "model": "claude-sonnet-3-7-20241124",  # Model that supports thinking
+                "max_tokens": 200,
+                "thinking_budget_tokens": 1000,
+                "disable_mcp": True,
+            },
         }
-    })
+    )
 
     # Run the think-agents command
     cmd = ["think-agents"]
@@ -168,7 +173,9 @@ def test_anthropic_backend_with_thinking():
     finish_event = events[-1]
     assert finish_event["event"] == "finish"
     result_text = finish_event["result"].lower()
-    assert "4" in result_text or "four" in result_text, f"Expected '4' in response, got: {finish_event['result']}"
+    assert (
+        "4" in result_text or "four" in result_text
+    ), f"Expected '4' in response, got: {finish_event['result']}"
 
 
 @pytest.mark.integration
@@ -192,15 +199,14 @@ def test_anthropic_backend_with_verbose():
     env["ANTHROPIC_API_KEY"] = api_key
 
     # Create NDJSON input
-    ndjson_input = json.dumps({
-        "prompt": "what is 2+2? Just give me the number.",
-        "backend": "anthropic",
-        "persona": "default",
-        "config": {
-            "max_tokens": 100,
-            "disable_mcp": True
+    ndjson_input = json.dumps(
+        {
+            "prompt": "what is 2+2? Just give me the number.",
+            "backend": "anthropic",
+            "persona": "default",
+            "config": {"max_tokens": 100, "disable_mcp": True},
         }
-    })
+    )
 
     # Run with verbose flag
     cmd = ["think-agents", "-v"]
@@ -230,7 +236,9 @@ def test_anthropic_backend_with_verbose():
 
     # Result should contain 4
     result_text = events[-1]["result"].lower()
-    assert "4" in result_text or "four" in result_text, f"Expected '4' in response, got: {events[-1]['result']}"
+    assert (
+        "4" in result_text or "four" in result_text
+    ), f"Expected '4' in response, got: {events[-1]['result']}"
 
 
 @pytest.mark.integration
@@ -254,16 +262,18 @@ def test_anthropic_backend_custom_model():
     env["ANTHROPIC_API_KEY"] = api_key
 
     # Use a different model (Haiku for speed)
-    ndjson_input = json.dumps({
-        "prompt": "What is 3*3? Just give me the number.",
-        "backend": "anthropic",
-        "persona": "default",
-        "config": {
-            "model": "claude-3-haiku-20240307",
-            "max_tokens": 50,
-            "disable_mcp": True
+    ndjson_input = json.dumps(
+        {
+            "prompt": "What is 3*3? Just give me the number.",
+            "backend": "anthropic",
+            "persona": "default",
+            "config": {
+                "model": "claude-3-haiku-20240307",
+                "max_tokens": 50,
+                "disable_mcp": True,
+            },
         }
-    })
+    )
 
     # Run the command
     cmd = ["think-agents"]
@@ -289,4 +299,6 @@ def test_anthropic_backend_custom_model():
     # Verify the answer
     finish_event = events[-1]
     result_text = finish_event["result"].lower()
-    assert "9" in result_text or "nine" in result_text, f"Expected '9' in response, got: {finish_event['result']}"
+    assert (
+        "9" in result_text or "nine" in result_text
+    ), f"Expected '9' in response, got: {finish_event['result']}"

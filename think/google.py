@@ -113,7 +113,7 @@ async def run_agent(
 
         # Get system instruction (always needed)
         system_instruction, first_user, _ = agent_instructions(persona)
-        
+
         # Build minimal history for chat
         history = []
         if first_user:
@@ -127,9 +127,7 @@ async def run_agent(
         # Create fresh chat session
         chat = client.aio.chats.create(
             model=model,
-            config=types.GenerateContentConfig(
-                system_instruction=system_instruction
-            ),
+            config=types.GenerateContentConfig(system_instruction=system_instruction),
             history=history,
         )
 

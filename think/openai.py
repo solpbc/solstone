@@ -150,7 +150,11 @@ async def run_agent(
     max_turns = config.get("max_turns", _DEFAULT_MAX_TURNS)
     disable_mcp = config.get("disable_mcp", False)
 
-    LOG.info("Running agent with model %s (MCP: %s)", model, "disabled" if disable_mcp else "enabled")
+    LOG.info(
+        "Running agent with model %s (MCP: %s)",
+        model,
+        "disabled" if disable_mcp else "enabled",
+    )
     cb = JSONEventCallback(on_event)
     cb.emit(
         {
@@ -208,11 +212,13 @@ async def run_agent(
         else:
             # Create a dummy context manager when MCP is disabled
             from contextlib import asynccontextmanager
+
             @asynccontextmanager
             async def dummy_context():
                 yield
+
             mcp_context = dummy_context()
-        
+
         async with mcp_context:
             # Create agent with or without MCP servers
             mcp_servers_list = [mcp_server] if mcp_server else []

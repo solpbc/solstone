@@ -64,7 +64,7 @@ def test_claude_backend_real_sdk():
 
     agents_dir = journal_dir / "agents"
     agents_dir.mkdir(exist_ok=True)
-    
+
     # Create test-domain directory for Claude backend
     domains_dir = journal_dir / "domains"
     domains_dir.mkdir(exist_ok=True)
@@ -88,16 +88,18 @@ def test_claude_backend_real_sdk():
         env["CLAUDE_AGENT_MAX_TOKENS"] = "100"
 
         # Create NDJSON input
-        ndjson_input = json.dumps({
-            "prompt": "what is 2+2? Just give me the number.",
-            "backend": "claude",
-            "persona": "default",
-            "config": {
-                "model": CLAUDE_SONNET_4,
-                "max_tokens": 100,
-                "domain": "test-domain"  # Claude backend requires a domain
+        ndjson_input = json.dumps(
+            {
+                "prompt": "what is 2+2? Just give me the number.",
+                "backend": "claude",
+                "persona": "default",
+                "config": {
+                    "model": CLAUDE_SONNET_4,
+                    "max_tokens": 100,
+                    "domain": "test-domain",  # Claude backend requires a domain
+                },
             }
-        })
+        )
 
         # Run the think-agents command
         cmd = ["think-agents"]
@@ -197,7 +199,7 @@ def test_claude_backend_with_tool_calls():
 
     agents_dir = journal_dir / "agents"
     agents_dir.mkdir(exist_ok=True)
-    
+
     # Create test-domain directory for Claude backend
     domains_dir = journal_dir / "domains"
     domains_dir.mkdir(exist_ok=True)
@@ -224,16 +226,18 @@ def test_claude_backend_with_tool_calls():
         env["CLAUDE_AGENT_MAX_TOKENS"] = "200"
 
         # Create NDJSON input
-        ndjson_input = json.dumps({
-            "prompt": f"Read the file at {test_file} and tell me what it says.",
-            "backend": "claude",
-            "persona": "default",
-            "config": {
-                "model": CLAUDE_SONNET_4,
-                "max_tokens": 200,
-                "domain": "test-domain"  # Claude backend requires a domain
+        ndjson_input = json.dumps(
+            {
+                "prompt": f"Read the file at {test_file} and tell me what it says.",
+                "backend": "claude",
+                "persona": "default",
+                "config": {
+                    "model": CLAUDE_SONNET_4,
+                    "max_tokens": 200,
+                    "domain": "test-domain",  # Claude backend requires a domain
+                },
             }
-        })
+        )
 
         # Run the think-agents command with verbose flag to get tool events
         cmd = ["think-agents", "-v"]
@@ -316,7 +320,7 @@ def test_claude_backend_with_thinking():
 
     agents_dir = journal_dir / "agents"
     agents_dir.mkdir(exist_ok=True)
-    
+
     # Create test-domain directory for Claude backend
     domains_dir = journal_dir / "domains"
     domains_dir.mkdir(exist_ok=True)
@@ -340,16 +344,18 @@ def test_claude_backend_with_thinking():
         env["CLAUDE_AGENT_MAX_TOKENS"] = "200"
 
         # Create NDJSON input
-        ndjson_input = json.dumps({
-            "prompt": "Think step by step: If I have 3 apples and give away 1, how many do I have left? Just give the number.",
-            "backend": "claude",
-            "persona": "default",
-            "config": {
-                "model": CLAUDE_SONNET_4,
-                "max_tokens": 200,
-                "domain": "test-domain"  # Claude backend requires a domain
+        ndjson_input = json.dumps(
+            {
+                "prompt": "Think step by step: If I have 3 apples and give away 1, how many do I have left? Just give the number.",
+                "backend": "claude",
+                "persona": "default",
+                "config": {
+                    "model": CLAUDE_SONNET_4,
+                    "max_tokens": 200,
+                    "domain": "test-domain",  # Claude backend requires a domain
+                },
             }
-        })
+        )
 
         # Run the think-agents command
         cmd = ["think-agents"]

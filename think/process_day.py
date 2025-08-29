@@ -121,7 +121,7 @@ def main() -> None:
     for cmd in commands:
         # Log every command attempt
         day_log(day, f"starting: {' '.join(cmd)}")
-        
+
         if run_command(cmd, day):
             success_count += 1
         else:

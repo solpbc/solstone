@@ -187,7 +187,7 @@ async def run_agent(
 
         # Get system instruction (always needed)
         system_instruction, first_user, _ = agent_instructions(persona)
-        
+
         # Build initial messages
         messages: list[MessageParam] = []
         if first_user:
@@ -218,7 +218,7 @@ async def run_agent(
                             # Skip thinking for small token limits
                             thinking_config = None
                             budget_tokens = None
-                        
+
                         if budget_tokens is not None:
                             thinking_config = {
                                 "type": "enabled",
@@ -236,7 +236,7 @@ async def run_agent(
                         create_params["tools"] = tools
                     if thinking_config is not None:
                         create_params["thinking"] = thinking_config
-                    
+
                     response = await client.messages.create(**create_params)
 
                     tool_uses = []
@@ -287,7 +287,7 @@ async def run_agent(
                     # Skip thinking for small token limits
                     thinking_config = None
                     budget_tokens = None
-                
+
                 if budget_tokens is not None:
                     thinking_config = {
                         "type": "enabled",
@@ -303,7 +303,7 @@ async def run_agent(
             }
             if thinking_config is not None:
                 create_params["thinking"] = thinking_config
-            
+
             response = await client.messages.create(**create_params)
 
             final_text = ""

@@ -29,32 +29,32 @@ def _agents_dir() -> str:
 
 def _list_items(item_type: str) -> list[dict[str, object]]:
     """Generic function to list items from think/{item_type}/.
-    
+
     Args:
         item_type: Either 'agents' or 'topics'
-    
+
     Returns:
         List of items with id, title, and description (and color for topics)
     """
     # Special handling for topics to get colors from get_topics()
     if item_type == "topics":
         from think.utils import get_topics
-        
+
         topics = get_topics()
         items: list[dict[str, object]] = []
-        
+
         for name, info in topics.items():
             item = {
                 "id": name,
                 "title": info.get("title", name),
                 "description": info.get("description", ""),
-                "color": info.get("color", "#007bff")
+                "color": info.get("color", "#007bff"),
             }
             items.append(item)
-        
+
         items.sort(key=lambda x: x.get("title", ""))
         return items
-    
+
     # Standard handling for agents
     items_path = os.path.join(
         os.path.dirname(os.path.dirname(__file__)), "..", "think", item_type
@@ -111,11 +111,11 @@ def available_agents() -> object:
 
 def _get_item_content(item_type: str, item_id: str) -> tuple[dict, int]:
     """Generic function to get item content from think/{item_type}/{item_id}.txt.
-    
+
     Args:
         item_type: Either 'agents' or 'topics'
         item_id: The item identifier
-    
+
     Returns:
         Tuple of (response dict, status code)
     """
@@ -315,12 +315,12 @@ def create_plan() -> object:
 
 def _update_item(item_type: str, item_id: str, data: dict) -> tuple[dict, int]:
     """Generic function to update or create an item.
-    
+
     Args:
         item_type: Either 'agents' or 'topics'
         item_id: The item identifier
         data: Request data with title and content
-    
+
     Returns:
         Tuple of (response dict, status code)
     """

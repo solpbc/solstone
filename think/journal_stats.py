@@ -142,32 +142,32 @@ class JournalStats:
         tokens_dir = journal_path / "tokens"
         if not tokens_dir.is_dir():
             return
-        
+
         # Scan all token files in the tokens directory
         for token_file in tokens_dir.glob("*.json"):
             try:
                 with open(token_file, "r", encoding="utf-8") as f:
                     data = json.load(f)
-                
+
                 # Extract date from timestamp_str (YYYYMMDD_HHMMSS)
                 timestamp_str = data.get("timestamp_str", "")
                 if not timestamp_str:
                     continue
-                
+
                 file_date = timestamp_str.split("_")[0]
                 model = data.get("model", "unknown")
                 usage = data.get("usage", {})
-                
+
                 # Initialize day's token usage if not exists
                 if file_date not in self.token_usage:
                     self.token_usage[file_date] = {}
-                
+
                 # Initialize model entry if not exists
                 if model not in self.token_usage[file_date]:
                     self.token_usage[file_date][model] = {}
                 if model not in self.token_totals:
                     self.token_totals[model] = {}
-                
+
                 # Add token counts for each type
                 for token_type, count in usage.items():
                     if not isinstance(count, int):
@@ -176,12 +176,12 @@ class JournalStats:
                     if token_type not in self.token_usage[file_date][model]:
                         self.token_usage[file_date][model][token_type] = 0
                     self.token_usage[file_date][model][token_type] += count
-                    
+
                     # Add to overall model totals
                     if token_type not in self.token_totals[model]:
                         self.token_totals[model][token_type] = 0
                     self.token_totals[model][token_type] += count
-                    
+
             except (json.JSONDecodeError, OSError, KeyError):
                 continue
 
@@ -199,10 +199,10 @@ class JournalStats:
                     flush=True,
                 )
             self.scan_day(day, path)
-        
+
         # Scan tokens directory once after all days are processed
         self.scan_all_tokens(Path(journal))
-        
+
         if verbose:
             print()
 
@@ -240,9 +240,13 @@ class JournalStats:
                 total = tokens.get("total_tokens", 0)
                 prompt = tokens.get("prompt_tokens", 0)
                 print(f"  {model}:")
-                print(f"    Total: {total:,} | Prompt: {prompt:,} | Response: {tokens.get('candidates_tokens', 0):,}")
+                print(
+                    f"    Total: {total:,} | Prompt: {prompt:,} | Response: {tokens.get('candidates_tokens', 0):,}"
+                )
                 if tokens.get("cached_tokens", 0) > 0:
-                    print(f"    Cached: {tokens.get('cached_tokens', 0):,} | Thoughts: {tokens.get('thoughts_tokens', 0):,}")
+                    print(
+                        f"    Cached: {tokens.get('cached_tokens', 0):,} | Thoughts: {tokens.get('thoughts_tokens', 0):,}"
+                    )
 
         # per-day audio hours
         if day_count:
@@ -311,7 +315,7 @@ class JournalStats:
                 response = tokens.get("candidates_tokens", 0)
                 cached = tokens.get("cached_tokens", 0)
                 thoughts = tokens.get("thoughts_tokens", 0)
-                
+
                 lines.append(f"### {model}")
                 lines.append(f"- Total: {total:,} tokens")
                 lines.append(f"- Prompt: {prompt:,} | Response: {response:,}")
