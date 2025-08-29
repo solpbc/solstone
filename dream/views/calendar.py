@@ -311,7 +311,7 @@ def generate_todos(day: str) -> Any:
         return "", 404
 
     # Import cortex client
-    from ..cortex_client import get_global_cortex_client
+    from think.cortex_client_sync import get_global_cortex_client
 
     client = get_global_cortex_client()
     if not client:
@@ -384,7 +384,7 @@ def todo_generation_status(day: str) -> Any:
     # Check agent status
     import os
 
-    from ..cortex_client import get_global_cortex_client
+    from think.cortex_client_sync import get_global_cortex_client
 
     # First check if agent exists in journal (finished)
     agents_dir = os.path.join(state.journal_root, "agents")

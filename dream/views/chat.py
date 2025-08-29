@@ -7,8 +7,9 @@ from typing import Any
 import markdown  # type: ignore
 from flask import Blueprint, jsonify, render_template, request
 
+from think.cortex_client_sync import run_agent_via_cortex
+
 from .. import state
-from ..cortex_utils import run_agent_via_cortex
 from ..push import push_server
 
 

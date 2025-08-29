@@ -165,7 +165,7 @@ def agents_list() -> object:
 
     # Get live agents from Cortex if requested
     if agent_type in ["live", "all"]:
-        from ..cortex_client import get_global_cortex_client
+        from think.cortex_client_sync import get_global_cortex_client
 
         client = get_global_cortex_client()
 

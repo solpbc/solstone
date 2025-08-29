@@ -36,7 +36,7 @@ def test_todo_generation_endpoint(client, monkeypatch):
     mock_client = MagicMock()
     mock_client.spawn_agent.return_value = "test_agent_123"
 
-    with patch("dream.cortex_client.get_global_cortex_client") as mock_get_client:
+    with patch("think.cortex_client_sync.get_global_cortex_client") as mock_get_client:
         mock_get_client.return_value = mock_client
 
         # Test generation request
@@ -84,7 +84,7 @@ def test_todo_generation_status_endpoint(client, monkeypatch, tmp_path):
         "agents": [{"id": "test_agent_123", "status": "running"}]
     }
 
-    with patch("dream.cortex_client.get_global_cortex_client") as mock_get_client:
+    with patch("think.cortex_client_sync.get_global_cortex_client") as mock_get_client:
         mock_get_client.return_value = mock_client
 
         response = client.get(
@@ -122,7 +122,7 @@ def test_todo_generation_no_cortex(client, monkeypatch):
 
     monkeypatch.setattr(dream_state, "journal_root", "/tmp/test_journal")
 
-    with patch("dream.cortex_client.get_global_cortex_client") as mock_get_client:
+    with patch("think.cortex_client_sync.get_global_cortex_client") as mock_get_client:
         mock_get_client.return_value = None
 
         response = client.post("/calendar/20250101/todos/generate")
