@@ -128,7 +128,18 @@ function parseFragment() {
   }
 }
 
+function parseQueryParams() {
+  // Also check for agent ID in query parameters
+  const params = new URLSearchParams(window.location.search);
+  const agentParam = params.get('agent');
+  if (agentParam && /^\d+$/.test(agentParam)) {
+    isHistorical = true;
+    historicalAgentId = agentParam;
+  }
+}
+
 parseFragment();
+parseQueryParams();
 
 // Create persistent activity indicator
 const activityIndicator = document.createElement('div');

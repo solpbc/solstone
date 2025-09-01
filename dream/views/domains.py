@@ -611,7 +611,7 @@ def get_domain_matters(domain_name: str) -> Any:
 
 @bp.route("/api/domains/<domain_name>/matters", methods=["POST"])
 def create_matter(domain_name: str) -> Any:
-    """Create a new matter in the specified domain."""
+    """Create a new matter in the specified domain using AI agent."""
     data = request.get_json()
     if not data:
         return jsonify({"error": "No data provided"}), 400
@@ -633,51 +633,50 @@ def create_matter(domain_name: str) -> Any:
         return jsonify({"error": "Domain not found"}), 404
 
     try:
-        # Generate matter_X ID by finding the next available number
-        existing_matters = [
-            d
-            for d in domain_path.iterdir()
-            if d.is_dir() and d.name.startswith("matter_") and d.name[7:].isdigit()
-        ]
+        # Get the synchronous Cortex client
+        from ..cortex_utils import get_global_cortex_client
+        
+        client = get_global_cortex_client()
+        if not client:
+            return jsonify({"error": "Failed to connect to Cortex server"}), 500
+        
+        # Prepare the prompt for the matter_editor persona
+        priority = data.get("priority", "medium")
+        status = data.get("status", "active")
+        
+        prompt = f"""Create a new matter in the '{domain_name}' domain with the following details:
 
-        # Find the highest existing matter number
-        max_number = 0
-        for matter_dir in existing_matters:
-            try:
-                number = int(matter_dir.name[7:])
-                max_number = max(max_number, number)
-            except ValueError:
-                continue
+Title: {title}
+Description: {description}
+Priority: {priority}
+Status: {status}
 
-        # Generate new matter ID
-        matter_id = f"matter_{max_number + 1}"
-        matter_path = domain_path / matter_id
+Please create this matter with appropriate structure and initial setup. Parse the description to identify any objectives that should be created."""
 
-        # Create matter directory
-        matter_path.mkdir(parents=True, exist_ok=True)
-
-        # Create matter.json
-        matter_data = {
-            "title": title,
-            "description": description,
-            "created": datetime.now().isoformat() + "Z",
-            "status": data.get("status", "active"),
-            "priority": data.get("priority", "medium"),
+        # Configure for claude backend with domain access
+        config = {
+            "domain": domain_name,
+            "model": "claude-3-5-sonnet-20241022",
+            "max_turns": 10
         }
-
-        matter_json = matter_path / "matter.json"
-        with open(matter_json, "w", encoding="utf-8") as f:
-            json.dump(matter_data, f, indent=2, ensure_ascii=False)
-
-        # Create empty activity_log.jsonl (activity log)
-        matter_jsonl = matter_path / "activity_log.jsonl"
-        matter_jsonl.write_text("", encoding="utf-8")
-
-        # Create directory for attachments
-        (matter_path / "attachments").mkdir(exist_ok=True)
+        
+        # Spawn the agent and get the agent_id
+        agent_id = client.spawn_agent(
+            prompt=prompt,
+            persona="matter_editor",
+            backend="claude",
+            config=config
+        )
+        
+        if not agent_id:
+            return jsonify({"error": "Failed to spawn agent"}), 500
 
         return jsonify(
-            {"success": True, "matter_id": matter_id, "matter_data": matter_data}
+            {
+                "success": True,
+                "agent_id": agent_id,
+                "redirect": f"/chat?agent={agent_id}"
+            }
         )
 
     except Exception as e:

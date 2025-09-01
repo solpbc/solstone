@@ -977,10 +977,16 @@ document.getElementById('matterForm').addEventListener('submit', async (e) => {
     
     if (response.ok && result.success) {
       closeMatterModal();
-      loadMatters(); // Reload the matters list
       
-      // Optional: Show success message or navigate to the new matter
-      // console.log('Matter created successfully:', result.matter_id);
+      // Redirect to chat view to watch the agent run
+      if (result.redirect) {
+        window.location.href = result.redirect;
+      } else if (result.agent_id) {
+        window.location.href = `/chat?agent=${result.agent_id}`;
+      } else {
+        // Fallback: reload matters list if no redirect
+        loadMatters();
+      }
     } else {
       showMatterError(result.error || 'An error occurred while creating the matter');
     }
