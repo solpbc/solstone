@@ -635,15 +635,15 @@ def create_matter(domain_name: str) -> Any:
     try:
         # Get the synchronous Cortex client
         from ..cortex_utils import get_global_cortex_client
-        
+
         client = get_global_cortex_client()
         if not client:
             return jsonify({"error": "Failed to connect to Cortex server"}), 500
-        
+
         # Prepare the prompt for the matter_editor persona
         priority = data.get("priority", "medium")
         status = data.get("status", "active")
-        
+
         prompt = f"""Create a new matter in the '{domain_name}' domain with the following details:
 
 Title: {title}
@@ -657,17 +657,14 @@ Please create this matter with appropriate structure and initial setup. Parse th
         config = {
             "domain": domain_name,
             "model": "claude-3-5-sonnet-20241022",
-            "max_turns": 10
+            "max_turns": 10,
         }
-        
+
         # Spawn the agent and get the agent_id
         agent_id = client.spawn_agent(
-            prompt=prompt,
-            persona="matter_editor",
-            backend="claude",
-            config=config
+            prompt=prompt, persona="matter_editor", backend="claude", config=config
         )
-        
+
         if not agent_id:
             return jsonify({"error": "Failed to spawn agent"}), 500
 
@@ -675,7 +672,7 @@ Please create this matter with appropriate structure and initial setup. Parse th
             {
                 "success": True,
                 "agent_id": agent_id,
-                "redirect": f"/chat?agent={agent_id}"
+                "redirect": f"/chat?agent={agent_id}",
             }
         )
 

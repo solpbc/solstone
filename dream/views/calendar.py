@@ -667,34 +667,35 @@ def serve_media_file(day: str, encoded_path: str) -> Any:
 @bp.route("/calendar/api/download_audio/<day>")
 def download_audio(day: str) -> Any:
     """Download concatenated MP3 of audio files for a time range."""
-    
+
     if not re.fullmatch(DATE_RE.pattern, day):
         return "", 404
-    
+
     start = request.args.get("start", "")
     end = request.args.get("end", "")
     if not re.fullmatch(r"\d{6}", start) or not re.fullmatch(r"\d{6}", end):
         return "", 400
-    
+
     import subprocess
     import tempfile
     from datetime import datetime
     from pathlib import Path
-    
+
     from flask import Response, send_file
+
     from think.cluster import _date_str, _load_entries, day_path
-    
+
     day_dir = day_path(day)
     if not os.path.isdir(day_dir):
         return jsonify({"error": "Day directory not found"}), 404
-    
+
     date_str = _date_str(day_dir)
     start_dt = datetime.strptime(date_str + start, "%Y%m%d%H%M%S")
     end_dt = datetime.strptime(date_str + end, "%Y%m%d%H%M%S")
-    
+
     # Load audio entries only
     entries = _load_entries(day_dir, audio=True, screen_mode=None)
-    
+
     # Filter to time range
     audio_files = []
     for e in entries:
@@ -704,39 +705,46 @@ def download_audio(day: str) -> Any:
             flac_path = os.path.join(day_dir, "heard", raw_name)
             if os.path.isfile(flac_path):
                 audio_files.append(flac_path)
-    
+
     if not audio_files:
         return jsonify({"error": "No audio files found in the selected range"}), 404
-    
+
     # Generate filename
     start_hhmm = start_dt.strftime("%H%M")
     end_hhmm = end_dt.strftime("%H%M")
     filename = f"sunstone_{day}_{start_hhmm}-{end_hhmm}.mp3"
-    
+
     # Format date for metadata
     date_obj = datetime.strptime(day, "%Y%m%d")
     date_formatted = date_obj.strftime("%B %d, %Y")
     time_range = f"{start_dt.strftime('%I:%M %p')} - {end_dt.strftime('%I:%M %p')}"
-    
+
     try:
         # Create temporary directory for processing
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)
-            
+
             if len(audio_files) == 1:
                 # Single file - convert directly to MP3
                 output_mp3 = temp_path / filename
                 cmd = [
                     "ffmpeg",
-                    "-i", audio_files[0],
-                    "-c:a", "libmp3lame",
-                    "-b:a", "192k",
-                    "-metadata", f"title=Sunstone Recording - {date_formatted} {time_range}",
-                    "-metadata", "album=Sunstone Journal",
-                    "-metadata", f"date={date_obj.year}",
-                    "-metadata", f"comment=Time range: {time_range}",
+                    "-i",
+                    audio_files[0],
+                    "-c:a",
+                    "libmp3lame",
+                    "-b:a",
+                    "192k",
+                    "-metadata",
+                    f"title=Sunstone Recording - {date_formatted} {time_range}",
+                    "-metadata",
+                    "album=Sunstone Journal",
+                    "-metadata",
+                    f"date={date_obj.year}",
+                    "-metadata",
+                    f"comment=Time range: {time_range}",
                     "-y",
-                    str(output_mp3)
+                    str(output_mp3),
                 ]
                 subprocess.run(cmd, check=True, capture_output=True)
             else:
@@ -747,32 +755,41 @@ def download_audio(day: str) -> Any:
                         # FFmpeg concat format requires escaping
                         escaped_path = str(flac_file).replace("'", "'\\''")
                         f.write(f"file '{escaped_path}'\n")
-                
+
                 output_mp3 = temp_path / filename
                 cmd = [
                     "ffmpeg",
-                    "-f", "concat",
-                    "-safe", "0",
-                    "-i", str(concat_file),
-                    "-c:a", "libmp3lame",
-                    "-b:a", "192k",
-                    "-metadata", f"title=Sunstone Recording - {date_formatted} {time_range}",
-                    "-metadata", "album=Sunstone Journal",
-                    "-metadata", f"date={date_obj.year}",
-                    "-metadata", f"comment=Time range: {time_range}",
+                    "-f",
+                    "concat",
+                    "-safe",
+                    "0",
+                    "-i",
+                    str(concat_file),
+                    "-c:a",
+                    "libmp3lame",
+                    "-b:a",
+                    "192k",
+                    "-metadata",
+                    f"title=Sunstone Recording - {date_formatted} {time_range}",
+                    "-metadata",
+                    "album=Sunstone Journal",
+                    "-metadata",
+                    f"date={date_obj.year}",
+                    "-metadata",
+                    f"comment=Time range: {time_range}",
                     "-y",
-                    str(output_mp3)
+                    str(output_mp3),
                 ]
                 subprocess.run(cmd, check=True, capture_output=True)
-            
+
             # Send the file
             return send_file(
                 str(output_mp3),
                 mimetype="audio/mpeg",
                 as_attachment=True,
-                download_name=filename
+                download_name=filename,
             )
-    
+
     except subprocess.CalledProcessError as e:
         return jsonify({"error": f"Audio processing failed: {str(e)}"}), 500
     except Exception as e:
