@@ -616,12 +616,12 @@ def create_matter(domain_name: str) -> Any:
     if not data:
         return jsonify({"error": "No data provided"}), 400
 
-    title = data.get("title", "").strip()
     description = data.get("description", "").strip()
-    if not title:
-        return jsonify({"error": "Matter title is required"}), 400
     if not description:
         return jsonify({"error": "Matter description is required"}), 400
+    
+    # Title is optional - AI will generate one if not provided
+    title = data.get("title", "").strip()
 
     load_dotenv()
     journal = os.getenv("JOURNAL_PATH")
@@ -644,7 +644,8 @@ def create_matter(domain_name: str) -> Any:
         priority = data.get("priority", "medium")
         status = data.get("status", "active")
 
-        prompt = f"""Create a new matter in the '{domain_name}' domain with the following details:
+        if title:
+            prompt = f"""Create a new matter in the '{domain_name}' domain with the following details:
 
 Title: {title}
 Description: {description}
@@ -652,6 +653,17 @@ Priority: {priority}
 Status: {status}
 
 Please create this matter with appropriate structure and initial setup. Parse the description to identify any objectives that should be created."""
+        else:
+            prompt = f"""Create a new matter in the '{domain_name}' domain based on the following description:
+
+Description: {description}
+Priority: {priority}
+Status: {status}
+
+Please analyze the description and:
+1. Generate an appropriate, concise title for this matter
+2. Create the matter with appropriate structure and initial setup
+3. Identify and create any objectives that should be created based on the description"""
 
         # Configure for claude backend with domain access
         config = {

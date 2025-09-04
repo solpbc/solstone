@@ -705,7 +705,7 @@
 
 .form-group textarea {
   resize: vertical;
-  min-height: 70px;
+  min-height: 120px;
 }
 
 .form-group small {
@@ -863,12 +863,8 @@
     <div id="matterErrorContainer"></div>
     <form id="matterForm">
       <div class="form-group">
-        <label for="matterTitle">Title</label>
-        <input type="text" id="matterTitle" name="title" required placeholder="e.g., API Performance Optimization">
-      </div>
-      <div class="form-group">
         <label for="matterDescription">Description</label>
-        <textarea id="matterDescription" name="description" required placeholder="Brief description of this matter..."></textarea>
+        <textarea id="matterDescription" name="description" required placeholder="Describe what this matter is about. The AI will generate an appropriate title and structure based on your description..." style="min-height: 200px;"></textarea>
       </div>
       <div class="form-actions">
         <button type="button" class="btn btn-secondary" onclick="closeMatterModal()">Cancel</button>
@@ -963,6 +959,11 @@ document.getElementById('matterForm').addEventListener('submit', async (e) => {
   
   const formData = new FormData(e.target);
   const data = Object.fromEntries(formData.entries());
+  
+  // Generate title from description if not provided
+  if (!data.title) {
+    data.title = 'New Matter';
+  }
   
   try {
     const response = await fetch(`/api/domains/${encodeURIComponent(domainName)}/matters`, {
@@ -1292,10 +1293,10 @@ function openAddMatterModal() {
   form.reset();
   clearMatterErrors();
   
-  // Set focus to title field
+  // Set focus to description field
   
   modal.style.display = 'block';
-  document.getElementById('matterTitle').focus();
+  document.getElementById('matterDescription').focus();
 }
 
 function closeMatterModal() {
