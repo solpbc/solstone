@@ -82,25 +82,36 @@ Unit=think-process-day.service
 WantedBy=timers.target
 ```
 
-## CLI Agent
+## Agent System
 
-The single ``think-agents`` command works with OpenAI, Gemini or Claude via the
-``--backend`` option:
+### Cortex: Central Agent Manager
+
+The Cortex service (`think-cortex`) is the central system for managing AI agent instances. It monitors the journal's `agents/` directory for new requests and manages agent execution. All agent spawning should go through Cortex for proper event tracking and management.
+
+To spawn agents programmatically, use the `CortexClient`:
+
+```python
+from think.cortex_client import CortexClient
+
+async with CortexClient() as client:
+    agent_id = await client.spawn(
+        prompt="Your task here",
+        persona="default",
+        backend="openai"  # or "google", "anthropic", "claude"
+    )
+    result = await client.wait_for_completion(agent_id)
+```
+
+### Direct CLI Usage (Testing Only)
+
+The `think-agents` command is primarily used internally by Cortex. For testing purposes, it can be invoked directly:
 
 ```bash
 think-agents [TASK_FILE] [--backend PROVIDER] [--model MODEL] [--max-tokens N] [-o OUT_FILE]
 ```
 
-The provider can be ``openai`` (default), ``google`` or ``anthropic``. The CLI
-starts a local MCP server so tools
-like topic search are available during a run. If `TASK_FILE` is omitted an
-interactive prompt is started.
-
-Set the corresponding API key environment variable (`OPENAI_API_KEY`,
-`GOOGLE_API_KEY` or `ANTHROPIC_API_KEY`) along with `JOURNAL_PATH` so the agent can
-query your journal index.
-The agent prints its
-final answer to `stdout`; `-o` or `--out` writes all JSON events to a file.
+The provider can be ``openai`` (default), ``google`` or ``anthropic``. Set the corresponding API key environment variable (`OPENAI_API_KEY`,
+`GOOGLE_API_KEY` or `ANTHROPIC_API_KEY`) along with `JOURNAL_PATH`.
 
 ### Common interface
 
@@ -134,4 +145,15 @@ returns a dictionary keyed by topic name. Each entry contains:
 
 ## Cortex API
 
-See [CORTEX.md](/CORTEX.md) for complete documentation of the Cortex WebSocket API and agent event structures.
+Cortex is the central agent management system that all agent spawning should go through. See [CORTEX.md](/CORTEX.md) for complete documentation of the Cortex WebSocket API and agent event structures.
+
+### Using CortexClient
+
+The `think.cortex_client` module provides a Python client for interacting with Cortex:
+
+```python
+from think.cortex_client import run_agent
+
+# Simple helper for one-shot agent runs
+result = await run_agent("Your prompt", persona="default", backend="openai")
+```

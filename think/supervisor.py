@@ -1,5 +1,5 @@
 import argparse
-import json
+import asyncio
 import logging
 import os
 import subprocess
@@ -8,6 +8,7 @@ import time
 from datetime import datetime
 from pathlib import Path
 
+from think.cortex_client import CortexClient
 from think.utils import get_personas, setup_cli
 
 DEFAULT_THRESHOLD = 90
@@ -58,39 +59,35 @@ def run_process_day() -> bool:
 
 def spawn_scheduled_agents(journal: str) -> None:
     """Spawn agents that have schedule:daily in their metadata."""
-    try:
-        personas = get_personas()
-        for persona_id, metadata in personas.items():
-            config = metadata.get("config", {})
-            if config.get("schedule") == "daily":
-                logging.info(f"Spawning scheduled agent: {persona_id}")
-                # Prepare NDJSON request for the agent
-                request = {
-                    "prompt": f"Running daily scheduled task for {persona_id}",
-                    "backend": config.get("backend", "openai"),
-                    "persona": persona_id,
-                }
-                if "model" in config:
-                    request["model"] = config["model"]
 
-                # Spawn via think-agents command
-                cmd = ["think-agents"]
-                env = os.environ.copy()
-                env["JOURNAL_PATH"] = journal
+    async def _spawn():
+        try:
+            personas = get_personas()
+            async with CortexClient(journal_path=journal) as client:
+                for persona_id, metadata in personas.items():
+                    config = metadata.get("config", {})
+                    if config.get("schedule") == "daily":
+                        logging.info(f"Spawning scheduled agent: {persona_id}")
 
-                proc = subprocess.Popen(
-                    cmd,
-                    stdin=subprocess.PIPE,
-                    stdout=None,
-                    stderr=None,
-                    env=env,
-                )
-                proc.stdin.write((json.dumps(request) + "\n").encode())
-                proc.stdin.close()
+                        # Prepare agent config
+                        agent_config = {}
+                        if "model" in config:
+                            agent_config["model"] = config["model"]
 
-                logging.info(f"Started {persona_id} agent (PID: {proc.pid})")
-    except Exception as e:
-        logging.error(f"Failed to spawn scheduled agents: {e}")
+                        # Spawn via Cortex
+                        agent_id = await client.spawn(
+                            prompt=f"Running daily scheduled task for {persona_id}",
+                            persona=persona_id,
+                            backend=config.get("backend", "openai"),
+                            config=agent_config,
+                        )
+
+                        logging.info(f"Started {persona_id} agent (ID: {agent_id})")
+        except Exception as e:
+            logging.error(f"Failed to spawn scheduled agents: {e}")
+
+    # Run the async function
+    asyncio.run(_spawn())
 
 
 def start_runners(

@@ -14,7 +14,7 @@ The Cortex system manages AI agent execution through a file-based architecture. 
 
 ### Key Components
 - **File Watching**: Cortex uses inotify to monitor for new `*_active.jsonl` files
-- **Process Management**: Spawns agent subprocesses via `python -m think.agents`
+- **Process Management**: Spawns agent subprocesses via the `think-agents` command
 - **Event Capture**: Monitors agent stdout/stderr and appends to JSONL files
 - **Atomic Operations**: File renames provide race-free state transitions
 - **NDJSON Input Mode**: Agent processes accept newline-delimited JSON via stdin for batch processing

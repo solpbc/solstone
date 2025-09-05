@@ -166,3 +166,10 @@ Guide for updating:
 
 - Standardised agent event fields across OpenAI, Gemini and Claude backends
 - Documented Cortex WebSocket API and event types in new `CORTEX.md`
+
+## 2025-09-05
+
+- Migrated `think/supervisor.py` to use `CortexClient` for spawning scheduled agents instead of direct subprocess calls
+- Centralized all agent spawning through the Cortex service for proper event tracking and management
+- Updated documentation to clarify Cortex as the central agent manager
+- Removed references to direct `think-agents` invocation from documentation

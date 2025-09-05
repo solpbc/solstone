@@ -1,18 +1,14 @@
 """Test supervisor scheduling functionality."""
 
-import json
-import subprocess
-from unittest.mock import MagicMock, Mock, call, patch
-
-import pytest
+from unittest.mock import AsyncMock, Mock, patch
 
 from think.supervisor import spawn_scheduled_agents
 
 
-@patch("think.supervisor.subprocess.Popen")
+@patch("think.supervisor.CortexClient")
 @patch("think.supervisor.get_personas")
-def test_spawn_scheduled_agents(mock_get_personas, mock_popen):
-    """Test that scheduled agents are spawned correctly."""
+def test_spawn_scheduled_agents(mock_get_personas, mock_cortex_client_class):
+    """Test that scheduled agents are spawned correctly via Cortex."""
     # Mock personas with one scheduled and one not
     mock_get_personas.return_value = {
         "todo": {
@@ -29,42 +25,36 @@ def test_spawn_scheduled_agents(mock_get_personas, mock_popen):
         },
     }
 
-    # Mock the Popen process
-    mock_proc = Mock()
-    mock_proc.pid = 12345
-    mock_proc.stdin = Mock()
-    mock_popen.return_value = mock_proc
+    # Mock the CortexClient instance
+    mock_client = AsyncMock()
+    mock_cortex_client_class.return_value.__aenter__.return_value = mock_client
+    mock_cortex_client_class.return_value.__aexit__.return_value = None
+
+    # Mock spawn to return agent IDs
+    mock_client.spawn.side_effect = ["agent_123", "agent_456"]
 
     # Call the function
     spawn_scheduled_agents("/test/journal")
 
+    # Should have created CortexClient with correct journal path
+    mock_cortex_client_class.assert_called_once_with(journal_path="/test/journal")
+
     # Should spawn 2 agents (todo and another_daily)
-    assert mock_popen.call_count == 2
+    assert mock_client.spawn.call_count == 2
 
     # Check first spawn call (todo)
-    first_call = mock_popen.call_args_list[0]
-    assert first_call[0][0] == ["think-agents"]
-    assert first_call[1]["stdin"] == subprocess.PIPE
-    assert first_call[1]["env"]["JOURNAL_PATH"] == "/test/journal"
-
-    # Check that correct NDJSON was written for todo
-    written_data = mock_proc.stdin.write.call_args_list[0][0][0]
-    request = json.loads(written_data.decode().strip())
-    assert request["persona"] == "todo"
-    assert request["backend"] == "openai"
-    assert request["model"] == "gpt-4"
-    assert "prompt" in request
+    first_call = mock_client.spawn.call_args_list[0]
+    assert first_call[1]["persona"] == "todo"
+    assert first_call[1]["backend"] == "openai"
+    assert first_call[1]["config"] == {"model": "gpt-4"}
+    assert "Running daily scheduled task for todo" in first_call[1]["prompt"]
 
     # Check second spawn call (another_daily)
-    second_call = mock_popen.call_args_list[1]
-    assert second_call[0][0] == ["think-agents"]
-
-    # Check that correct NDJSON was written for another_daily
-    written_data = mock_proc.stdin.write.call_args_list[1][0][0]
-    request = json.loads(written_data.decode().strip())
-    assert request["persona"] == "another_daily"
-    assert request["backend"] == "openai"  # default
-    assert "model" not in request  # not specified
+    second_call = mock_client.spawn.call_args_list[1]
+    assert second_call[1]["persona"] == "another_daily"
+    assert second_call[1]["backend"] == "openai"  # default
+    assert second_call[1]["config"] == {}  # no model specified
+    assert "Running daily scheduled task for another_daily" in second_call[1]["prompt"]
 
 
 @patch("think.supervisor.spawn_scheduled_agents")
