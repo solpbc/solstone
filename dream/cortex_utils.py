@@ -15,6 +15,7 @@ class SyncCortexClient:
     """Synchronous wrapper around the async CortexClient for Flask usage."""
 
     def __init__(self, journal_path: Optional[str] = None):
+        self.journal_path = journal_path
         self.client = AsyncCortexClient(journal_path)
         self._loop: Optional[asyncio.AbstractEventLoop] = None
         self._thread: Optional[threading.Thread] = None
@@ -32,15 +33,15 @@ class SyncCortexClient:
         future = asyncio.run_coroutine_threadsafe(coro, self._loop)
         return future.result()
 
-    def spawn_agent(
+    def spawn(
         self,
         prompt: str,
-        backend: str = "openai",
         persona: str = "default",
+        backend: str = "openai",
         config: Optional[Dict[str, Any]] = None,
         handoff: Optional[Dict[str, Any]] = None,
         handoff_from: Optional[str] = None,
-    ) -> Optional[str]:
+    ) -> str:
         """Spawn a new agent and return agent_id."""
         return self._run_async(
             self.client.spawn(
@@ -55,7 +56,7 @@ class SyncCortexClient:
 
     def list_agents(
         self, limit: int = 10, offset: int = 0, include_active: bool = True
-    ) -> Optional[Dict[str, Any]]:
+    ) -> Dict[str, Any]:
         """List agents with pagination."""
         return self._run_async(
             self.client.list_agents(
@@ -77,6 +78,54 @@ class SyncCortexClient:
         """Get all events for an agent."""
         return self._run_async(self.client.get_agent_events(agent_id))
 
+    def read_events(
+        self, agent_id: str, on_event: Callable[[dict], None], follow: bool = True
+    ) -> None:
+        """Read events from an agent synchronously."""
+        return self._run_async(
+            self.client.read_events(agent_id, on_event, follow=follow)
+        )
+
+    def run_agent(
+        self,
+        prompt: str,
+        persona: str = "default",
+        backend: str = "openai",
+        config: Optional[Dict[str, Any]] = None,
+    ) -> str:
+        """Run an agent and wait for completion."""
+        # Use the async helper through our event loop
+        return self._run_async(
+            async_run_agent(
+                prompt,
+                journal_path=self.journal_path,  # Pass journal_path explicitly
+                persona=persona,
+                backend=backend,
+                config=config,
+            )
+        )
+
+    def run_agent_with_events(
+        self,
+        prompt: str,
+        on_event: Callable[[dict], None],
+        persona: str = "default",
+        backend: str = "openai",
+        config: Optional[Dict[str, Any]] = None,
+    ) -> str:
+        """Run an agent and stream events to callback."""
+        # Use the async helper through our event loop
+        return self._run_async(
+            async_run_agent_with_events(
+                prompt,
+                on_event,
+                journal_path=self.journal_path,  # Pass journal_path explicitly
+                persona=persona,
+                backend=backend,
+                config=config,
+            )
+        )
+
     def cleanup(self) -> None:
         """Clean up the event loop."""
         if self._loop:
@@ -90,14 +139,24 @@ _sync_client: Optional[SyncCortexClient] = None
 _client_lock = threading.Lock()
 
 
-def get_global_cortex_client() -> Optional[SyncCortexClient]:
-    """Get or create global synchronous cortex client instance."""
+def get_global_cortex_client(
+    journal_path: Optional[str] = None,
+) -> Optional[SyncCortexClient]:
+    """Get or create global synchronous cortex client instance.
+
+    Args:
+        journal_path: Optional journal path to use. If not provided,
+                     uses JOURNAL_PATH environment variable.
+
+    Returns:
+        SyncCortexClient instance or None if creation fails
+    """
     global _sync_client
 
     with _client_lock:
         if _sync_client is None:
             try:
-                _sync_client = SyncCortexClient()
+                _sync_client = SyncCortexClient(journal_path=journal_path)
             except Exception:
                 return None
 
@@ -112,8 +171,12 @@ def run_agent_via_cortex(
     attachments: Optional[List[str]] = None,
     timeout: int = 60,
     on_event: Optional[Callable[[dict], None]] = None,
+    journal_path: Optional[str] = None,
 ) -> str:
     """Synchronous helper to run an agent via Cortex.
+
+    This is a convenience function that uses the global SyncCortexClient
+    to run agents. For better control, use SyncCortexClient directly.
 
     Args:
         prompt: The prompt to send to the agent
@@ -123,6 +186,7 @@ def run_agent_via_cortex(
         attachments: Optional list of attachments to include with prompt
         timeout: Maximum time to wait for completion in seconds (default: 60)
         on_event: Optional callback for agent events
+        journal_path: Optional journal path (uses JOURNAL_PATH env var if not set)
 
     Returns:
         The agent's response text
@@ -136,18 +200,20 @@ def run_agent_via_cortex(
     else:
         full_prompt = prompt
 
-    # Get or create event loop for async execution
-    loop = None
-    try:
-        loop = asyncio.get_running_loop()
-    except RuntimeError:
-        # No loop running, create a new one
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
+    # Get or create the sync client
+    client = get_global_cortex_client(journal_path=journal_path)
+    if not client:
+        raise RuntimeError("Failed to create Cortex client")
 
-    # Run the async function
+    # Set timeout in config if specified
+    if config is None:
+        config = {}
+    if timeout and "timeout" not in config:
+        config["timeout"] = timeout
+
+    # Run agent with or without event streaming
     if on_event:
-        coro = async_run_agent_with_events(
+        return client.run_agent_with_events(
             full_prompt,
             on_event,
             persona=persona,
@@ -155,31 +221,9 @@ def run_agent_via_cortex(
             config=config,
         )
     else:
-        coro = async_run_agent(
+        return client.run_agent(
             full_prompt,
             persona=persona,
             backend=backend,
             config=config,
         )
-
-    # Execute in the appropriate way
-    try:
-        # If we're already in an async context, run in executor
-        if asyncio.iscoroutinefunction(lambda: None):
-            return asyncio.run(coro)
-        else:
-            # Run in new event loop
-            return asyncio.run(coro)
-    except RuntimeError:
-        # Fallback to thread-based execution
-        thread_loop = asyncio.new_event_loop()
-
-        def run_in_thread():
-            asyncio.set_event_loop(thread_loop)
-            return thread_loop.run_until_complete(coro)
-
-        import concurrent.futures
-
-        with concurrent.futures.ThreadPoolExecutor() as executor:
-            future = executor.submit(run_in_thread)
-            return future.result(timeout=timeout)
