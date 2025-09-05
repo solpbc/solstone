@@ -1,136 +1,72 @@
 # Cortex API and Eventing
 
-The Cortex system provides a WebSocket API for spawning and managing actively running AI agent instances. It acts as a process manager and event relay for live agent executions only. Historical agent data is stored in `<journal>/agents/<timestamp>.jsonl` files and should be accessed directly from those files.
-
-## Service Discovery
-
-When services start up, they write their active URIs to files in the journal's `agents/` directory for automated discovery:
-
-- `think-cortex` writes its WebSocket URI to `<journal>/agents/cortex.uri` (default: `ws://127.0.0.1:2468/ws/cortex`)
-- `think-mcp-tools --transport http` writes to `<journal>/agents/mcp.uri` (default: `http://127.0.0.1:6270/mcp/`)
-
-Use the `JOURNAL_PATH` environment variable to locate the journal and these URI files.
+The Cortex system manages AI agent execution through a file-based architecture. It acts as a process manager for agent instances, monitoring the journal's `agents/` directory for new requests and appending execution events to JSONL files.
 
 ## Architecture
 
 ### Event Flow
-1. **Agent Spawning**: Cortex spawns agent processes via `python -m think.agents`
-2. **Event Emission**: Agents write JSON events to stdout (captured by Cortex)
-3. **Event Storage**: Cortex writes events to `<journal>/agents/<timestamp>.jsonl`
-4. **Event Relay**: Cortex broadcasts events to attached WebSocket clients
-5. **Agent Completion**: When agents finish, they are removed from Cortex memory
+1. **Request Creation**: Client writes spawn request to `<timestamp>_pending.jsonl`
+2. **Agent Activation**: Client renames file to `<timestamp>_active.jsonl` (atomic handoff)
+3. **Agent Spawning**: Cortex detects new active file via inotify and spawns agent process
+4. **Event Emission**: Agents write JSON events to stdout (captured by Cortex)
+5. **Event Storage**: Cortex appends events to the active JSONL file with timestamps
+6. **Agent Completion**: Cortex renames file to `<timestamp>.jsonl` when agent finishes
 
 ### Key Components
-- **RunningAgent**: In-memory representation of active agent processes with event buffer
-- **Event Monitoring**: Cortex monitors agent stdout/stderr and manages the lifecycle
-- **No Historical Support**: Cortex only tracks running agents; finished agents exist only in `.jsonl` files
+- **File Watching**: Cortex uses inotify to monitor for new `*_active.jsonl` files
+- **Process Management**: Spawns agent subprocesses via `python -m think.agents`
+- **Event Capture**: Monitors agent stdout/stderr and appends to JSONL files
+- **Atomic Operations**: File renames provide race-free state transitions
 - **NDJSON Input Mode**: Agent processes accept newline-delimited JSON via stdin for batch processing
 
-## WebSocket API
+### File States
+- `<timestamp>_pending.jsonl`: Request written by client, awaiting processing
+- `<timestamp>_active.jsonl`: Agent currently executing (Cortex is appending events)
+- `<timestamp>.jsonl`: Agent completed (contains full history)
 
-Connect to the URI and send JSON messages with an `action` field:
+## Request Format
 
-### List Agents
-Request:
-```json
-{"action": "list", "limit": 10, "offset": 0}
-```
-Response (only running agents):
+The first line of a request file must be a JSON object with `event: "request"`:
+
 ```json
 {
-  "type": "agent_list",
-  "agents": [
-    {
-      "id": "1234567890123",
-      "status": "running",
-      "started_at": 1234567890123,
-      "pid": 12345,
-      "metadata": {}
-    }
-  ],
-  "pagination": {
-    "limit": 10,
-    "offset": 0,
-    "total": 2,
-    "has_more": false
-  }
-}
-```
-
-### Attach to Agent
-Request:
-```json
-{"action": "attach", "agent_id": "1234567890123"}
-```
-Response (only for running agents):
-```json
-{"type": "attached", "agent_id": "1234567890123"}
-```
-Streams in-memory buffered events and live updates. Returns error if agent is not running.
-
-### Detach from Agent
-Request:
-```json
-{"action": "detach"}
-```
-Response:
-```json
-{"type": "detached"}
-```
-
-### Spawn New Agent
-Request:
-```json
-{
-  "action": "spawn",
-  "prompt": "Analyze this code for security issues",
-  "backend": "openai",
-  "persona": "default",
-  "config": {
-    "model": "gpt-4o",
-    "max_tokens": 8192,
-    "domain": "my-project"  // Required for Claude backend
+  "event": "request",
+  "ts": 1234567890123,              // Required: millisecond timestamp (must match filename)
+  "prompt": "Analyze this code for security issues",  // Required: the task or question
+  "backend": "openai",              // Required: openai, google, anthropic, or claude
+  "persona": "default",              // Optional: agent persona from think/agents/*.txt
+  "config": {                        // Optional: backend-specific configuration
+    "model": "gpt-4o",              // Optional: model override
+    "max_tokens": 8192,             // Optional: token limit
+    "domain": "my-project"          // Required for Claude backend only
   },
-  "handoff": {
+  "handoff": {                       // Optional: chain to another agent on completion
     "persona": "reviewer",
-    "prompt": "Review the analysis"
-  }
+    "prompt": "Review the analysis",
+    "backend": "openai"
+  },
+  "handoff_from": "1234567890122"   // Optional: present when spawned via handoff
 }
 ```
-Response:
-```json
-{"type": "agent_spawned", "agent_id": "1234567890123"}
-```
-
-Cortex immediately:
-1. Creates the `.jsonl` file with a start event
-2. Spawns the agent subprocess
-3. Monitors stdout/stderr for events
-4. Writes events to both the `.jsonl` file and broadcasts to watchers
-
-During an active attachment, the server streams:
-
-- `{"type": "agent_event", "agent_id": "123", "event": {...}}` for each agent JSON event
-- `{"type": "agent_finished", "agent_id": "123"}` when an agent exits
-- `{"type": "error", "message": "..."}` for protocol errors
-
-## History Management
-
-Agent history is stored exclusively in `<journal>/agents/<timestamp>.jsonl` files:
-
-- **Running Agents**: Cortex captures stdout from agent processes and writes events to `.jsonl` files in real-time
-- **In-Memory Buffer**: Running agents maintain an in-memory event buffer for fast replay to new attachments
-- **Agent Completion**: Once finished, agents are removed from Cortex memory entirely
-- **Historical Access**: Finished agent data must be accessed directly from `.jsonl` files, not through Cortex
-- **Event Sources**: 
-  - Agent stdout → parsed as JSON events
-  - Agent stderr → converted to error events
-  - Non-JSON output → wrapped as info events
-  - Process exit → generates finish/error event
 
 ## Agent Event Format
 
-All agent events are JSON objects with `event` and millisecond `ts` fields. The `ts` field is automatically added if not provided by the backend. Backends (OpenAI, Gemini, Claude) emit the following event types:
+All subsequent lines are JSON objects with `event` and millisecond `ts` fields. The `ts` field is automatically added by Cortex if not provided by the backend.
+
+### request
+The initial spawn request (first line of file, written by client).
+```json
+{
+  "event": "request",
+  "ts": 1234567890123,
+  "prompt": "User's task or question",
+  "backend": "openai",
+  "persona": "default",
+  "config": {},
+  "handoff": {},
+  "handoff_from": "1234567890122"
+}
+```
 
 ### start
 Emitted when an agent run begins.
@@ -138,10 +74,8 @@ Emitted when an agent run begins.
 {
   "event": "start",
   "ts": 1234567890123,
-  "prompt": "User's request text",
   "persona": "default",
-  "model": "gpt-4o",
-  "handoff_from": "1234567890122"  // Present when spawned via handoff
+  "model": "gpt-4o"
 }
 ```
 
@@ -198,7 +132,7 @@ Emitted when the agent run completes successfully.
   "event": "finish",
   "ts": 1234567890123,
   "result": "Final response text to the user",
-  "handoff": {  // Optional: triggers next agent
+  "handoff": {                     // Optional: triggers next agent
     "prompt": "Continue with next task",
     "persona": "specialist",
     "backend": "openai"
@@ -242,7 +176,7 @@ The frontend uses this to show real-time status updates as tools execute, changi
 Agents can transfer control to other agents for specialized tasks. When an agent completes with a handoff configuration, Cortex automatically spawns the next agent in the chain.
 
 - The `finish` event may include a `handoff` field specifying the next agent
-- The subsequent `start` event includes `handoff_from` with the originating agent ID
+- The subsequent request includes `handoff_from` with the originating agent ID
 - This enables multi-step workflows and agent specialization
 
 ## Agent Personas
@@ -267,29 +201,6 @@ MCP tools are provided by the `think-mcp-tools --transport http` service, which:
 - Exposes journal search and retrieval capabilities
 - Available tools can be discovered via the MCP service endpoint
 
-## Frontend Integration
-
-The Dream web app (`dream/views/chat.py`) connects to Cortex via WebSocket to:
-1. Spawn new agents in response to user queries
-2. Receive real-time events during agent execution
-3. Display tool usage, thinking summaries, and results in the chat interface
-
-Note: Historical agent runs must be accessed directly from `.jsonl` files, not through Cortex.
-
-Events are forwarded through the WebSocket with type `agent_event`:
-```json
-{
-  "type": "agent_event",
-  "event": {
-    "event": "tool_start",
-    "tool": "search_summaries",
-    "args": {"query": "example"},
-    "call_id": "search_summaries-1",
-    "ts": 1234567890123
-  }
-}
-```
-
 ## Agent Backends
 
 The system supports multiple AI backends, each implementing the same event interface:
@@ -311,10 +222,10 @@ All backends:
 ## Process Management
 
 The `think-supervisor` command provides process management for the Cortex ecosystem:
-- Starts and monitors the Cortex WebSocket server
+- Starts and monitors the Cortex file watcher service
 - Starts and monitors the MCP tools HTTP server
 - Handles process restarts on failure
 - Monitors system health indicators
 
-This is distinct from agent lifecycle management, which Cortex handles internally
+This is distinct from agent lifecycle management, which Cortex handles internally through file state transitions.
 
