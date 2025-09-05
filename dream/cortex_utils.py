@@ -14,11 +14,10 @@ from think.cortex_client import run_agent_with_events as async_run_agent_with_ev
 class SyncCortexClient:
     """Synchronous wrapper around the async CortexClient for Flask usage."""
 
-    def __init__(self, uri: Optional[str] = None):
-        self.client = AsyncCortexClient(uri)
+    def __init__(self, journal_path: Optional[str] = None):
+        self.client = AsyncCortexClient(journal_path)
         self._loop: Optional[asyncio.AbstractEventLoop] = None
         self._thread: Optional[threading.Thread] = None
-        self._connected = False
 
     def _ensure_loop(self):
         """Ensure async event loop is running."""
@@ -33,49 +32,57 @@ class SyncCortexClient:
         future = asyncio.run_coroutine_threadsafe(coro, self._loop)
         return future.result()
 
-    def connect(self) -> None:
-        """Connect to Cortex server."""
-        if not self._connected:
-            self._run_async(self.client.connect())
-            self._connected = True
-
-    def disconnect(self) -> None:
-        """Disconnect from Cortex server."""
-        if self._connected:
-            self._run_async(self.client.disconnect())
-            self._connected = False
-        if self._loop:
-            self._loop.call_soon_threadsafe(self._loop.stop)
-
     def spawn_agent(
         self,
         prompt: str,
         backend: str = "openai",
         persona: str = "default",
         config: Optional[Dict[str, Any]] = None,
+        handoff: Optional[Dict[str, Any]] = None,
+        handoff_from: Optional[str] = None,
     ) -> Optional[str]:
         """Spawn a new agent and return agent_id."""
-        self.connect()
         return self._run_async(
             self.client.spawn(
                 prompt=prompt,
                 persona=persona,
                 backend=backend,
                 config=config,
+                handoff=handoff,
+                handoff_from=handoff_from,
             )
         )
 
-    def list_agents(self, limit: int = 10, offset: int = 0) -> Optional[Dict[str, Any]]:
+    def list_agents(
+        self, limit: int = 10, offset: int = 0, include_active: bool = True
+    ) -> Optional[Dict[str, Any]]:
         """List agents with pagination."""
-        self.connect()
-        return self._run_async(self.client.list_agents(limit=limit, offset=offset))
+        return self._run_async(
+            self.client.list_agents(
+                limit=limit, offset=offset, include_active=include_active
+            )
+        )
 
     def wait_for_completion(self, agent_id: str, timeout: float = 60) -> str:
         """Wait for agent to complete and return result."""
-        self.connect()
         return self._run_async(
             self.client.wait_for_completion(agent_id, timeout=timeout)
         )
+
+    def get_agent_status(self, agent_id: str) -> str:
+        """Get the current status of an agent."""
+        return self._run_async(self.client.get_agent_status(agent_id))
+
+    def get_agent_events(self, agent_id: str) -> List[dict]:
+        """Get all events for an agent."""
+        return self._run_async(self.client.get_agent_events(agent_id))
+
+    def cleanup(self) -> None:
+        """Clean up the event loop."""
+        if self._loop:
+            self._loop.call_soon_threadsafe(self._loop.stop)
+            if self._thread and self._thread.is_alive():
+                self._thread.join(timeout=1)
 
 
 # Global client instance for Flask app
@@ -91,7 +98,6 @@ def get_global_cortex_client() -> Optional[SyncCortexClient]:
         if _sync_client is None:
             try:
                 _sync_client = SyncCortexClient()
-                _sync_client.connect()
             except Exception:
                 return None
 
@@ -122,7 +128,7 @@ def run_agent_via_cortex(
         The agent's response text
 
     Raises:
-        Exception: If connection fails, agent spawn fails, or agent errors
+        Exception: If agent spawn fails or agent errors
     """
     # Prepare full prompt with attachments
     if attachments:

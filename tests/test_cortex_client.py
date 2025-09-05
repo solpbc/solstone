@@ -1,10 +1,12 @@
-"""Tests for the Cortex WebSocket client."""
+"""Tests for the Cortex file-based client."""
 
 from __future__ import annotations
 
 import asyncio
 import json
-from unittest.mock import AsyncMock, patch
+import time
+from pathlib import Path
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -12,351 +14,460 @@ from think.cortex_client import CortexClient, run_agent, run_agent_with_events
 
 
 @pytest.fixture
-def mock_websocket():
-    """Create a mock WebSocket connection."""
-    ws = AsyncMock()
-    ws.send = AsyncMock()
-    ws.recv = AsyncMock()
-    ws.close = AsyncMock()
-
-    # Make ws async iterable by default (empty)
-    async def default_aiter():
-        return
-        yield  # Make it a generator
-
-    ws.__aiter__ = lambda self: default_aiter()
-    return ws
-
-
-@pytest.fixture
-def mock_connect(mock_websocket):
-    """Mock websockets.connect."""
-    with patch(
-        "think.cortex_client.websockets.connect",
-        new=AsyncMock(return_value=mock_websocket),
-    ):
-        yield mock_websocket
-
-
-@pytest.fixture
 def temp_journal(tmp_path):
-    """Create a temporary journal directory with cortex.uri."""
+    """Create a temporary journal directory."""
     journal_path = tmp_path / "journal"
     journal_path.mkdir()
     agents_dir = journal_path / "agents"
     agents_dir.mkdir()
-
-    # Write custom cortex URI
-    uri_file = agents_dir / "cortex.uri"
-    uri_file.write_text("ws://test-cortex:9999/ws/cortex")
-
     return journal_path
+
+
+@pytest.fixture
+def mock_time():
+    """Mock time.time() for consistent agent IDs."""
+    with patch("think.cortex_client.time.time") as mock:
+        mock.return_value = 1234567890.123
+        yield mock
 
 
 class TestCortexClient:
     """Test CortexClient class."""
 
-    def test_uri_discovery_from_file(self, temp_journal, monkeypatch):
-        """Test URI discovery from cortex.uri file."""
+    def test_init_with_journal_path(self, temp_journal):
+        """Test initialization with explicit journal path."""
+        client = CortexClient(journal_path=str(temp_journal))
+        assert client.journal_path == temp_journal
+        assert client.agents_dir == temp_journal / "agents"
+
+    def test_init_with_env_var(self, temp_journal, monkeypatch):
+        """Test initialization with JOURNAL_PATH env var."""
         monkeypatch.setenv("JOURNAL_PATH", str(temp_journal))
-
         client = CortexClient()
-        assert client.uri == "ws://test-cortex:9999/ws/cortex"
+        assert client.journal_path == temp_journal
+        assert client.agents_dir == temp_journal / "agents"
 
-    def test_uri_discovery_fallback(self, monkeypatch):
-        """Test URI fallback when no journal path."""
-        monkeypatch.delenv("JOURNAL_PATH", raising=False)
-
-        client = CortexClient()
-        assert client.uri == "ws://127.0.0.1:2468/ws/cortex"
-
-    def test_uri_explicit(self):
-        """Test explicit URI overrides discovery."""
-        client = CortexClient(uri="ws://custom:1234/ws")
-        assert client.uri == "ws://custom:1234/ws"
+    def test_init_creates_agents_dir(self, tmp_path):
+        """Test that initialization creates the agents directory."""
+        journal_path = tmp_path / "new_journal"
+        client = CortexClient(journal_path=str(journal_path))
+        assert client.agents_dir.exists()
 
     @pytest.mark.asyncio
-    async def test_connect_success(self, mock_connect):
-        """Test successful connection."""
-        client = CortexClient()
-
-        await client.connect()
-
-        assert client.ws == mock_connect
-        mock_connect.close.assert_not_called()
-
-    @pytest.mark.asyncio
-    async def test_connect_already_connected(self, mock_connect):
-        """Test connect when already connected."""
-        client = CortexClient()
-
-        await client.connect()
-        await client.connect()  # Second call should be no-op
-
-        # Should only connect once
-        with patch("think.cortex_client.websockets.connect") as mock:
-            await client.connect()
-            mock.assert_not_called()
-
-    @pytest.mark.asyncio
-    async def test_disconnect(self, mock_connect):
-        """Test disconnection."""
-        client = CortexClient()
-
-        await client.connect()
-        await client.disconnect()
-
-        mock_connect.close.assert_called_once()
-        assert client.ws is None
-
-    @pytest.mark.asyncio
-    async def test_context_manager(self, mock_connect):
+    async def test_context_manager(self, temp_journal):
         """Test async context manager."""
-        async with CortexClient() as client:
-            assert client.ws == mock_connect
-
-        mock_connect.close.assert_called_once()
+        async with CortexClient(journal_path=str(temp_journal)) as client:
+            assert isinstance(client, CortexClient)
+            assert client.agents_dir.exists()
 
     @pytest.mark.asyncio
-    async def test_spawn_success(self, mock_connect):
-        """Test successful agent spawn."""
-        mock_connect.recv.return_value = json.dumps(
-            {"type": "agent_spawned", "agent_id": "test_agent_123"}
-        )
-
-        client = CortexClient()
-        await client.connect()
-
+    async def test_spawn_creates_request_file(self, temp_journal, mock_time):
+        """Test that spawn creates and activates request file."""
+        client = CortexClient(journal_path=str(temp_journal))
+        
         agent_id = await client.spawn(
             prompt="Test prompt",
             persona="tester",
             backend="openai",
             config={"model": "gpt-4"},
             handoff={"persona": "reviewer"},
+            handoff_from="previous_agent"
         )
-
-        assert agent_id == "test_agent_123"
-
-        # Check request sent
-        mock_connect.send.assert_called_once()
-        sent_data = json.loads(mock_connect.send.call_args[0][0])
-        assert sent_data["action"] == "spawn"
-        assert sent_data["prompt"] == "Test prompt"
-        assert sent_data["persona"] == "tester"
-        assert sent_data["backend"] == "openai"
-        assert sent_data["config"] == {"model": "gpt-4"}
-        assert sent_data["handoff"] == {"persona": "reviewer"}
-
-    @pytest.mark.asyncio
-    async def test_spawn_error(self, mock_connect):
-        """Test spawn error handling."""
-        mock_connect.recv.return_value = json.dumps(
-            {"type": "error", "message": "Spawn failed: invalid persona"}
-        )
-
-        client = CortexClient()
-        await client.connect()
-
-        with pytest.raises(RuntimeError, match="Spawn failed: invalid persona"):
-            await client.spawn("Test prompt")
+        
+        assert agent_id == "1234567890123"
+        
+        # Check that active file exists
+        active_file = client.agents_dir / f"{agent_id}_active.jsonl"
+        assert active_file.exists()
+        
+        # Check request content
+        with open(active_file, "r") as f:
+            request = json.loads(f.readline())
+            
+        assert request["event"] == "request"
+        assert request["ts"] == 1234567890123
+        assert request["prompt"] == "Test prompt"
+        assert request["persona"] == "tester"
+        assert request["backend"] == "openai"
+        assert request["config"] == {"model": "gpt-4"}
+        assert request["handoff"] == {"persona": "reviewer"}
+        assert request["handoff_from"] == "previous_agent"
 
     @pytest.mark.asyncio
-    async def test_spawn_not_connected(self):
-        """Test spawn when not connected."""
-        client = CortexClient()
-
-        with pytest.raises(RuntimeError, match="Not connected to Cortex"):
-            await client.spawn("Test prompt")
-
-    @pytest.mark.asyncio
-    async def test_list_agents(self, mock_connect):
-        """Test listing agents."""
-        mock_connect.recv.return_value = json.dumps(
-            {
-                "type": "agent_list",
-                "agents": [
-                    {"id": "agent1", "status": "running"},
-                    {"id": "agent2", "status": "running"},
-                ],
-                "pagination": {"limit": 10, "offset": 0, "total": 2, "has_more": False},
-            }
-        )
-
-        client = CortexClient()
-        await client.connect()
-
-        result = await client.list_agents(limit=10, offset=0)
-
-        assert result["type"] == "agent_list"
-        assert len(result["agents"]) == 2
-        assert result["pagination"]["total"] == 2
-
-        # Check request
-        mock_connect.send.assert_called_once()
-        sent_data = json.loads(mock_connect.send.call_args[0][0])
-        assert sent_data["action"] == "list"
-        assert sent_data["limit"] == 10
-        assert sent_data["offset"] == 0
+    async def test_spawn_minimal_params(self, temp_journal, mock_time):
+        """Test spawn with minimal parameters."""
+        client = CortexClient(journal_path=str(temp_journal))
+        
+        agent_id = await client.spawn("Simple prompt")
+        
+        active_file = client.agents_dir / f"{agent_id}_active.jsonl"
+        with open(active_file, "r") as f:
+            request = json.loads(f.readline())
+            
+        assert request["prompt"] == "Simple prompt"
+        assert request["persona"] == "default"
+        assert request["backend"] == "openai"
+        assert request["config"] == {}
+        assert "handoff" not in request
+        assert "handoff_from" not in request
 
     @pytest.mark.asyncio
-    async def test_attach_and_events(self, mock_connect):
-        """Test attaching to agent and receiving events."""
-        events_received = []
+    async def test_list_agents_empty(self, temp_journal):
+        """Test listing agents when none exist."""
+        client = CortexClient(journal_path=str(temp_journal))
+        
+        result = await client.list_agents()
+        
+        assert result["agents"] == []
+        assert result["pagination"]["total"] == 0
+        assert result["pagination"]["has_more"] is False
 
-        async def on_event(event):
-            events_received.append(event)
-
-        # Mock message stream
-        messages = [
-            json.dumps({"type": "attached", "agent_id": "test_agent"}),
-            json.dumps(
-                {
-                    "type": "agent_event",
-                    "event": {"event": "tool_start", "tool": "search"},
-                }
-            ),
-            json.dumps(
-                {
-                    "type": "agent_event",
-                    "event": {"event": "tool_end", "tool": "search", "result": "data"},
-                }
-            ),
-            json.dumps(
-                {"type": "agent_event", "event": {"event": "finish", "result": "Done"}}
-            ),
-            json.dumps({"type": "agent_finished", "agent_id": "test_agent"}),
+    @pytest.mark.asyncio
+    async def test_list_agents_with_files(self, temp_journal):
+        """Test listing agents with various file states."""
+        client = CortexClient(journal_path=str(temp_journal))
+        
+        # Create some agent files
+        agents_data = [
+            ("1234567890001", "active", {"event": "request", "ts": 1234567890001, "prompt": "Test 1", "persona": "default", "backend": "openai"}),
+            ("1234567890002", "completed", {"event": "request", "ts": 1234567890002, "prompt": "Test 2", "persona": "tester", "backend": "google"}),
+            ("1234567890003", "completed", {"event": "request", "ts": 1234567890003, "prompt": "Test 3", "persona": "reviewer", "backend": "anthropic"}),
         ]
-
-        # Create async generator
-        async def async_messages():
-            for msg in messages:
-                yield msg
-
-        mock_connect.__aiter__ = lambda self: async_messages()
-
-        client = CortexClient()
-        await client.connect()
-
-        await client.attach("test_agent", on_event)
-
-        # Check events received
-        assert len(events_received) == 3
-        assert events_received[0]["event"] == "tool_start"
-        assert events_received[1]["event"] == "tool_end"
-        assert events_received[2]["event"] == "finish"
-
-    @pytest.mark.asyncio
-    async def test_detach(self, mock_connect):
-        """Test detaching from agent."""
-        mock_connect.recv.return_value = json.dumps({"type": "detached"})
-
-        client = CortexClient()
-        await client.connect()
-
-        await client.detach()
-
-        mock_connect.send.assert_called_once()
-        sent_data = json.loads(mock_connect.send.call_args[0][0])
-        assert sent_data["action"] == "detach"
+        
+        for agent_id, status, request in agents_data:
+            if status == "active":
+                file_path = client.agents_dir / f"{agent_id}_active.jsonl"
+            else:
+                file_path = client.agents_dir / f"{agent_id}.jsonl"
+                
+            with open(file_path, "w") as f:
+                f.write(json.dumps(request) + "\n")
+                
+        result = await client.list_agents(limit=2, offset=0)
+        
+        assert len(result["agents"]) == 2
+        assert result["pagination"]["total"] == 3
+        assert result["pagination"]["has_more"] is True
+        
+        # Check first agent
+        agent = result["agents"][0]
+        assert agent["status"] in ["running", "completed"]
+        assert agent["persona"] in ["default", "tester", "reviewer"]
+        assert agent["backend"] in ["openai", "google", "anthropic"]
 
     @pytest.mark.asyncio
-    async def test_wait_for_completion(self, mock_connect):
+    async def test_list_agents_exclude_active(self, temp_journal):
+        """Test listing agents excluding active ones."""
+        client = CortexClient(journal_path=str(temp_journal))
+        
+        # Create active and completed files
+        active_file = client.agents_dir / "1234567890001_active.jsonl"
+        completed_file = client.agents_dir / "1234567890002.jsonl"
+        
+        for file_path in [active_file, completed_file]:
+            with open(file_path, "w") as f:
+                f.write(json.dumps({"event": "request", "ts": 1234567890000, "prompt": "Test", "persona": "default", "backend": "openai"}) + "\n")
+                
+        result = await client.list_agents(include_active=False)
+        
+        # Should only include completed file
+        assert len(result["agents"]) == 1
+        assert result["agents"][0]["status"] == "completed"
+
+    @pytest.mark.asyncio
+    async def test_read_events_from_active_file(self, temp_journal):
+        """Test reading events from an active agent file."""
+        client = CortexClient(journal_path=str(temp_journal))
+        
+        # Create active file with events
+        agent_id = "1234567890001"
+        active_file = client.agents_dir / f"{agent_id}_active.jsonl"
+        
+        events = [
+            {"event": "request", "ts": 1234567890001, "prompt": "Test"},
+            {"event": "start", "ts": 1234567890002, "persona": "default"},
+            {"event": "tool_start", "ts": 1234567890003, "tool": "search"},
+            {"event": "tool_end", "ts": 1234567890004, "tool": "search", "result": "data"},
+            {"event": "finish", "ts": 1234567890005, "result": "Done"},
+        ]
+        
+        with open(active_file, "w") as f:
+            for event in events:
+                f.write(json.dumps(event) + "\n")
+                
+        # Read events
+        received_events = []
+        await client.read_events(
+            agent_id, 
+            lambda e: received_events.append(e),
+            follow=False
+        )
+        
+        assert len(received_events) == 5
+        assert received_events[0]["event"] == "request"
+        assert received_events[-1]["event"] == "finish"
+
+    @pytest.mark.asyncio
+    async def test_read_events_from_completed_file(self, temp_journal):
+        """Test reading events from a completed agent file."""
+        client = CortexClient(journal_path=str(temp_journal))
+        
+        agent_id = "1234567890001"
+        completed_file = client.agents_dir / f"{agent_id}.jsonl"
+        
+        events = [
+            {"event": "request", "ts": 1234567890001},
+            {"event": "finish", "ts": 1234567890002, "result": "Completed"},
+        ]
+        
+        with open(completed_file, "w") as f:
+            for event in events:
+                f.write(json.dumps(event) + "\n")
+                
+        received_events = []
+        await client.read_events(
+            agent_id,
+            lambda e: received_events.append(e),
+            follow=False
+        )
+        
+        assert len(received_events) == 2
+        assert received_events[1]["result"] == "Completed"
+
+    @pytest.mark.asyncio
+    async def test_read_events_file_not_found(self, temp_journal):
+        """Test reading events from non-existent agent."""
+        client = CortexClient(journal_path=str(temp_journal))
+        
+        with pytest.raises(FileNotFoundError, match="Agent file not found"):
+            await client.read_events("nonexistent", lambda e: None)
+
+    @pytest.mark.asyncio
+    async def test_wait_for_completion_success(self, temp_journal):
         """Test waiting for agent completion."""
-
-        # Mock attach behavior
-        async def mock_attach(agent_id, on_event):
-            await on_event({"event": "tool_start", "tool": "search"})
-            await on_event({"event": "tool_end", "tool": "search"})
-            await on_event({"event": "finish", "result": "Task completed"})
-
-        client = CortexClient()
-        await client.connect()
-        client.attach = mock_attach
-
-        result = await client.wait_for_completion("test_agent", timeout=5)
-
+        client = CortexClient(journal_path=str(temp_journal))
+        
+        agent_id = "1234567890001"
+        active_file = client.agents_dir / f"{agent_id}_active.jsonl"
+        
+        # Write initial events
+        with open(active_file, "w") as f:
+            f.write(json.dumps({"event": "request", "ts": 1234567890001}) + "\n")
+            f.write(json.dumps({"event": "start", "ts": 1234567890002}) + "\n")
+            
+        # Simulate agent completing after a delay
+        async def complete_agent():
+            await asyncio.sleep(0.1)
+            with open(active_file, "a") as f:
+                f.write(json.dumps({"event": "finish", "ts": 1234567890003, "result": "Task completed"}) + "\n")
+                
+        # Start completion in background
+        asyncio.create_task(complete_agent())
+        
+        # Wait for completion
+        result = await client.wait_for_completion(agent_id, timeout=1)
         assert result == "Task completed"
 
     @pytest.mark.asyncio
-    async def test_wait_for_completion_error(self, mock_connect):
+    async def test_wait_for_completion_error(self, temp_journal):
         """Test wait_for_completion with agent error."""
-
-        async def mock_attach(agent_id, on_event):
-            await on_event({"event": "error", "error": "Agent failed"})
-
-        client = CortexClient()
-        await client.connect()
-        client.attach = mock_attach
-
+        client = CortexClient(journal_path=str(temp_journal))
+        
+        agent_id = "1234567890001"
+        active_file = client.agents_dir / f"{agent_id}_active.jsonl"
+        
+        with open(active_file, "w") as f:
+            f.write(json.dumps({"event": "request", "ts": 1234567890001}) + "\n")
+            f.write(json.dumps({"event": "error", "ts": 1234567890002, "error": "Agent failed"}) + "\n")
+            
         with pytest.raises(RuntimeError, match="Agent error: Agent failed"):
-            await client.wait_for_completion("test_agent")
+            await client.wait_for_completion(agent_id)
 
     @pytest.mark.asyncio
-    async def test_wait_for_completion_timeout(self, mock_connect):
+    async def test_wait_for_completion_timeout(self, temp_journal):
         """Test wait_for_completion timeout."""
-
-        async def mock_attach(agent_id, on_event):
-            # Never send finish event
-            await asyncio.sleep(10)
-
-        client = CortexClient()
-        await client.connect()
-        client.attach = mock_attach
-
+        client = CortexClient(journal_path=str(temp_journal))
+        
+        agent_id = "1234567890001"
+        active_file = client.agents_dir / f"{agent_id}_active.jsonl"
+        
+        # Create file with no finish event
+        with open(active_file, "w") as f:
+            f.write(json.dumps({"event": "request", "ts": 1234567890001}) + "\n")
+            f.write(json.dumps({"event": "start", "ts": 1234567890002}) + "\n")
+            
         with pytest.raises(TimeoutError, match="timed out after 0.1 seconds"):
-            await client.wait_for_completion("test_agent", timeout=0.1)
+            await client.wait_for_completion(agent_id, timeout=0.1)
+
+    @pytest.mark.asyncio
+    async def test_get_agent_status_running(self, temp_journal):
+        """Test getting status of running agent."""
+        client = CortexClient(journal_path=str(temp_journal))
+        
+        agent_id = "1234567890001"
+        active_file = client.agents_dir / f"{agent_id}_active.jsonl"
+        active_file.touch()
+        
+        status = await client.get_agent_status(agent_id)
+        assert status == "running"
+
+    @pytest.mark.asyncio
+    async def test_get_agent_status_completed(self, temp_journal):
+        """Test getting status of completed agent."""
+        client = CortexClient(journal_path=str(temp_journal))
+        
+        agent_id = "1234567890001"
+        completed_file = client.agents_dir / f"{agent_id}.jsonl"
+        
+        with open(completed_file, "w") as f:
+            f.write(json.dumps({"event": "finish", "ts": 1234567890001}) + "\n")
+            
+        status = await client.get_agent_status(agent_id)
+        assert status == "completed"
+
+    @pytest.mark.asyncio
+    async def test_get_agent_status_failed(self, temp_journal):
+        """Test getting status of failed agent."""
+        client = CortexClient(journal_path=str(temp_journal))
+        
+        agent_id = "1234567890001"
+        completed_file = client.agents_dir / f"{agent_id}.jsonl"
+        
+        with open(completed_file, "w") as f:
+            f.write(json.dumps({"event": "error", "ts": 1234567890001}) + "\n")
+            
+        status = await client.get_agent_status(agent_id)
+        assert status == "failed"
+
+    @pytest.mark.asyncio
+    async def test_get_agent_status_not_found(self, temp_journal):
+        """Test getting status of non-existent agent."""
+        client = CortexClient(journal_path=str(temp_journal))
+        
+        status = await client.get_agent_status("nonexistent")
+        assert status == "not_found"
+
+    @pytest.mark.asyncio
+    async def test_get_agent_events(self, temp_journal):
+        """Test getting all events for an agent."""
+        client = CortexClient(journal_path=str(temp_journal))
+        
+        agent_id = "1234567890001"
+        completed_file = client.agents_dir / f"{agent_id}.jsonl"
+        
+        events = [
+            {"event": "request", "ts": 1234567890001},
+            {"event": "start", "ts": 1234567890002},
+            {"event": "finish", "ts": 1234567890003},
+        ]
+        
+        with open(completed_file, "w") as f:
+            for event in events:
+                f.write(json.dumps(event) + "\n")
+                
+        result = await client.get_agent_events(agent_id)
+        
+        assert len(result) == 3
+        assert result[0]["event"] == "request"
+        assert result[2]["event"] == "finish"
+
+    @pytest.mark.asyncio
+    async def test_get_agent_events_not_found(self, temp_journal):
+        """Test getting events for non-existent agent."""
+        client = CortexClient(journal_path=str(temp_journal))
+        
+        with pytest.raises(FileNotFoundError, match="Agent file not found"):
+            await client.get_agent_events("nonexistent")
 
 
 class TestHelperFunctions:
     """Test helper functions."""
 
     @pytest.mark.asyncio
-    async def test_run_agent(self, mock_connect):
+    async def test_run_agent(self, temp_journal, mock_time):
         """Test run_agent helper."""
-        # Mock spawn and wait_for_completion
-        with patch("think.cortex_client.CortexClient") as MockClient:
-            client = AsyncMock()
-            MockClient.return_value.__aenter__.return_value = client
-            MockClient.return_value.__aexit__.return_value = None
-
-            client.spawn.return_value = "agent_123"
-            client.wait_for_completion.return_value = "Result text"
-
-            result = await run_agent("Test prompt", persona="tester", backend="openai")
-
-            assert result == "Result text"
-            client.spawn.assert_called_once_with(
-                "Test prompt", persona="tester", backend="openai"
-            )
-            client.wait_for_completion.assert_called_once_with("agent_123")
+        # Create a mock agent file that completes
+        agent_id = "1234567890123"
+        active_file = temp_journal / "agents" / f"{agent_id}_active.jsonl"
+        
+        async def simulate_agent():
+            await asyncio.sleep(0.05)
+            with open(active_file, "a") as f:
+                f.write(json.dumps({"event": "finish", "ts": 1234567890124, "result": "Test result"}) + "\n")
+                
+        # Start simulation in background
+        asyncio.create_task(simulate_agent())
+        
+        result = await run_agent(
+            "Test prompt",
+            journal_path=str(temp_journal),
+            persona="tester",
+            backend="openai"
+        )
+        
+        assert result == "Test result"
 
     @pytest.mark.asyncio
-    async def test_run_agent_with_events(self, mock_connect):
+    async def test_run_agent_with_events(self, temp_journal, mock_time):
         """Test run_agent_with_events helper."""
         events_received = []
-
+        
         def on_event(event):
             events_received.append(event)
+            
+        # Create a mock agent file with events
+        agent_id = "1234567890123"
+        active_file = temp_journal / "agents" / f"{agent_id}_active.jsonl"
+        
+        async def simulate_agent():
+            await asyncio.sleep(0.05)
+            with open(active_file, "a") as f:
+                f.write(json.dumps({"event": "tool_start", "ts": 1234567890124, "tool": "search"}) + "\n")
+                f.write(json.dumps({"event": "tool_end", "ts": 1234567890125, "tool": "search"}) + "\n")
+                f.write(json.dumps({"event": "finish", "ts": 1234567890126, "result": "Done"}) + "\n")
+                
+        # Start simulation in background
+        asyncio.create_task(simulate_agent())
+        
+        result = await run_agent_with_events(
+            "Test prompt",
+            on_event,
+            journal_path=str(temp_journal)
+        )
+        
+        assert result == "Done"
+        assert len(events_received) == 4  # request + tool_start + tool_end + finish
+        assert events_received[0]["event"] == "request"
+        assert events_received[1]["event"] == "tool_start"
+        assert events_received[2]["event"] == "tool_end"
+        assert events_received[3]["event"] == "finish"
+        # Check that agent_id was added to events
+        assert all("agent_id" in e for e in events_received)
 
-        with patch("think.cortex_client.CortexClient") as MockClient:
-            client = AsyncMock()
-            MockClient.return_value.__aenter__.return_value = client
-            MockClient.return_value.__aexit__.return_value = None
-
-            client.spawn.return_value = "agent_123"
-
-            # Mock attach to send events
-            async def mock_attach(agent_id, handler):
-                await handler({"event": "tool_start", "tool": "search"})
-                await handler({"event": "finish", "result": "Done"})
-
-            client.attach = mock_attach
-
-            result = await run_agent_with_events(
-                "Test prompt", on_event, persona="tester"
-            )
-
-            assert result == "Done"
-            assert len(events_received) == 2
-            assert events_received[0]["event"] == "tool_start"
-            assert events_received[1]["event"] == "finish"
+    @pytest.mark.asyncio
+    async def test_run_agent_with_async_event_handler(self, temp_journal, mock_time):
+        """Test run_agent_with_events with async event handler."""
+        events_received = []
+        
+        async def on_event(event):
+            await asyncio.sleep(0.01)  # Simulate async work
+            events_received.append(event)
+            
+        agent_id = "1234567890123"
+        active_file = temp_journal / "agents" / f"{agent_id}_active.jsonl"
+        
+        async def simulate_agent():
+            await asyncio.sleep(0.05)
+            with open(active_file, "a") as f:
+                f.write(json.dumps({"event": "finish", "ts": 1234567890124, "result": "Done"}) + "\n")
+                
+        asyncio.create_task(simulate_agent())
+        
+        result = await run_agent_with_events(
+            "Test prompt",
+            on_event,
+            journal_path=str(temp_journal)
+        )
+        
+        assert result == "Done"
+        assert len(events_received) == 2  # request + finish
