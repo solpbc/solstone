@@ -1,42 +1,12 @@
+"""Tests for the file-based Cortex agent manager."""
+
 import json
-import subprocess
+import time
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, patch, mock_open
+import threading
 
 import pytest
-
-
-class MockWebSocket:
-    """Mock WebSocket for testing."""
-
-    def __init__(self):
-        self.messages = []
-        self.received = []
-        self.connected = True
-        self.closed = False
-
-    def send(self, message):
-        if self.closed:
-            from simple_websocket import ConnectionClosed
-
-            raise ConnectionClosed()
-        self.messages.append(message)
-
-    def receive(self, timeout=None):
-        if self.received:
-            msg = self.received.pop(0)
-            # If we receive None, disconnect to stop the loop
-            if msg is None:
-                self.connected = False
-            return msg
-        return None
-
-    def close(self):
-        self.closed = True
-        self.connected = False
-
-    def add_received(self, message):
-        self.received.append(message)
 
 
 @pytest.fixture
@@ -46,662 +16,616 @@ def mock_journal(tmp_path, monkeypatch):
     journal_path.mkdir()
     agents_path = journal_path / "agents"
     agents_path.mkdir()
-
+    
     monkeypatch.setenv("JOURNAL_PATH", str(journal_path))
     return journal_path
 
 
 @pytest.fixture
-def cortex_server():
-    """Create a CortexServer instance for testing."""
-    from think.cortex import CortexServer
+def cortex_service(mock_journal):
+    """Create a CortexService instance for testing."""
+    from think.cortex import CortexService
+    return CortexService(str(mock_journal))
 
-    return CortexServer("/test/ws")
 
-
-def test_running_agent_creation():
-    """Test RunningAgent class initialization and methods."""
-    from think.cortex import RunningAgent
-
+def test_agent_process_creation():
+    """Test AgentProcess class initialization and methods."""
+    from think.cortex import AgentProcess
+    
     mock_process = MagicMock()
     mock_process.poll.return_value = None  # Running
     mock_process.pid = 12345
-
+    
     log_path = Path("/tmp/test.jsonl")
-    agent = RunningAgent("123456789", mock_process, log_path)
-
+    agent = AgentProcess("123456789", mock_process, log_path)
+    
     assert agent.agent_id == "123456789"
     assert agent.process == mock_process
     assert agent.log_path == log_path
-    assert agent.status == "running"
     assert agent.is_running() is True
-
-    # Test to_dict
-    agent_dict = agent.to_dict()
-    assert agent_dict["id"] == "123456789"
-    assert agent_dict["status"] == "running"
-    assert agent_dict["pid"] == 12345
-
+    
     # Test stop
     agent.stop()
     mock_process.terminate.assert_called_once()
-    assert agent.status == "stopped"
+    assert agent.stop_event.is_set()
 
 
-def test_cortex_server_initialization(cortex_server):
-    """Test CortexServer initialization."""
-    assert cortex_server.path == "/test/ws"
-    assert cortex_server.running_agents == {}
+def test_cortex_service_initialization(cortex_service, mock_journal):
+    """Test CortexService initialization."""
+    assert cortex_service.journal_path == mock_journal
+    assert cortex_service.agents_dir == mock_journal / "agents"
+    assert cortex_service.running_agents == {}
+    assert cortex_service.agents_dir.exists()
 
 
-def test_handle_list_empty(cortex_server, mock_journal):
-    """Test listing agents when none are running."""
-    ws = MockWebSocket()
-    req = {"limit": 10, "offset": 0}
-
-    cortex_server._handle_list(ws, req)
-
-    assert len(ws.messages) == 1
-    response = json.loads(ws.messages[0])
-    assert response["type"] == "agent_list"
-    assert response["agents"] == []
-    assert "pagination" in response
-    assert response["pagination"]["total"] == 0
-
-
-def test_handle_list_with_agents(cortex_server, mock_journal):
-    """Test listing agents when some are running."""
-    from think.cortex import RunningAgent
-
-    # Add mock running agent
-    mock_process = MagicMock()
-    mock_process.poll.return_value = None
-    mock_process.pid = 12345
-
-    agent = RunningAgent("123456789", mock_process, Path("/tmp/test.jsonl"))
-    cortex_server.running_agents["123456789"] = agent
-
-    ws = MockWebSocket()
-    req = {"limit": 10, "offset": 0}
-    cortex_server._handle_list(ws, req)
-
-    assert len(ws.messages) == 1
-    response = json.loads(ws.messages[0])
-    assert response["type"] == "agent_list"
-    assert len(response["agents"]) == 1
-    assert response["agents"][0]["id"] == "123456789"
-    assert "pagination" in response
-    assert response["pagination"]["total"] == 1
+def test_process_existing_active_files(cortex_service, mock_journal):
+    """Test processing existing active files on startup."""
+    # Create an existing active file
+    active_file = mock_journal / "agents" / "123456789_active.jsonl"
+    request = {
+        "event": "request",
+        "ts": 123456789,
+        "prompt": "Test prompt",
+        "backend": "openai",
+        "persona": "default"
+    }
+    active_file.write_text(json.dumps(request) + "\n")
+    
+    with patch.object(cortex_service, '_handle_active_file') as mock_handle:
+        cortex_service._process_existing_active_files()
+        mock_handle.assert_called_once_with("123456789", active_file)
 
 
-def test_handle_attach_nonexistent_agent(cortex_server):
-    """Test attaching to a non-existent agent."""
-    ws = MockWebSocket()
-
-    result = cortex_server._handle_attach(ws, "999999999", None)
-
-    assert len(ws.messages) == 1
-    response = json.loads(ws.messages[0])
-    assert response["type"] == "error"
-    assert "not found or not running" in response["message"]
-    assert result == ""
-
-
-def test_handle_attach_successful(cortex_server, tmp_path):
-    """Test successful agent attachment."""
-    from think.cortex import RunningAgent
-
-    # Create mock agent log file
-    log_path = tmp_path / "test.jsonl"
-
-    # Add mock running agent with in-memory events
-    mock_process = MagicMock()
-    mock_process.poll.return_value = None
-
-    agent = RunningAgent("123456789", mock_process, log_path)
-    # Add events to agent's in-memory list
-    agent.events = [
-        {"event": "start", "ts": 1703123456789, "prompt": "test"},
-        {"event": "finish", "ts": 1703123456790, "result": "done"},
-    ]
-    cortex_server.running_agents["123456789"] = agent
-
-    ws = MockWebSocket()
-    result = cortex_server._handle_attach(ws, "123456789", None)
-
-    # Should have attachment confirmation + 2 in-memory events
-    assert len(ws.messages) == 3
-
-    # Check attachment confirmation
-    attach_response = json.loads(ws.messages[0])
-    assert attach_response["type"] == "attached"
-    assert attach_response["agent_id"] == "123456789"
-
-    # Check in-memory events
-    event1 = json.loads(ws.messages[1])
-    assert event1["type"] == "agent_event"
-    assert event1["event"]["event"] == "start"
-
-    event2 = json.loads(ws.messages[2])
-    assert event2["type"] == "agent_event"
-    assert event2["event"]["event"] == "finish"
-
-    assert result == "123456789"
-    assert ws in agent.watchers
-
-
-def test_handle_detach(cortex_server):
-    """Test detaching from an agent."""
-    from think.cortex import RunningAgent
-
-    # Add mock running agent with watcher
-    mock_process = MagicMock()
-    mock_process.poll.return_value = None
-
-    agent = RunningAgent("123456789", mock_process, Path("/tmp/test.jsonl"))
-    cortex_server.running_agents["123456789"] = agent
-
-    ws = MockWebSocket()
-    agent.watchers.add(ws)
-
-    result = cortex_server._handle_detach(ws, "123456789")
-
-    assert len(ws.messages) == 1
-    response = json.loads(ws.messages[0])
-    assert response["type"] == "detached"
-    assert ws not in agent.watchers
-    assert result is None
-
-
-@patch("think.cortex.subprocess.Popen")
-@patch("think.cortex.threading.Thread")
-def test_handle_spawn(mock_thread, mock_popen, cortex_server, mock_journal):
-    """Test spawning a new agent."""
-    mock_process = MagicMock()
-    mock_process.pid = 12345
-    mock_process.poll.return_value = None
-    mock_process.stdin = MagicMock()
-    mock_popen.return_value = mock_process
-
-    ws = MockWebSocket()
-    spawn_request = {
+def test_handle_active_file_valid_request(cortex_service, mock_journal):
+    """Test handling a valid active file."""
+    agent_id = "123456789"
+    file_path = mock_journal / "agents" / f"{agent_id}_active.jsonl"
+    
+    request = {
+        "event": "request",
+        "ts": 123456789,
         "prompt": "Test prompt",
         "backend": "openai",
         "persona": "default",
-        "config": {
-            "model": "gpt-4",
-            "max_tokens": 1000,
-        },
+        "config": {"model": "gpt-4"}
     }
-
-    cortex_server._handle_spawn(ws, spawn_request)
-
-    # Check subprocess was called correctly
-    mock_popen.assert_called_once()
-    call_args = mock_popen.call_args
-    cmd = call_args[0][0]
-
-    # Should only have the command name now
-    assert cmd == ["think-agents"]
-
-    # Check stdin was configured
-    assert call_args[1]["stdin"] == subprocess.PIPE
-
-    # Check NDJSON was written to stdin
-    mock_process.stdin.write.assert_called_once()
-    written_data = mock_process.stdin.write.call_args[0][0]
-    ndjson_request = json.loads(written_data.strip())
-
-    assert ndjson_request["prompt"] == "Test prompt"
-    assert ndjson_request["backend"] == "openai"
-    assert ndjson_request["persona"] == "default"
-    assert ndjson_request["config"]["model"] == "gpt-4"
-    assert ndjson_request["config"]["max_tokens"] == 1000
-
-    # Check stdin was closed
-    mock_process.stdin.close.assert_called_once()
-
-    # Check response
-    assert len(ws.messages) == 1
-    response = json.loads(ws.messages[0])
-    assert response["type"] == "agent_spawned"
-    assert "agent_id" in response
-
-    # Check agent was added to running agents
-    assert len(cortex_server.running_agents) == 1
-
-    # Check monitoring threads were started (stdout and stderr)
-    assert mock_thread.call_count == 2  # Two threads: stdout and stderr
-
-
-def test_handle_spawn_missing_prompt(cortex_server, mock_journal):
-    """Test spawning agent without prompt."""
-    ws = MockWebSocket()
-    spawn_request = {"backend": "openai"}
-
-    cortex_server._handle_spawn(ws, spawn_request)
-
-    assert len(ws.messages) == 1
-    response = json.loads(ws.messages[0])
-    assert response["type"] == "error"
-    assert "prompt is required" in response["message"]
-
-
-def test_handle_spawn_no_journal(cortex_server, monkeypatch):
-    """Test spawning agent without JOURNAL_PATH."""
-    monkeypatch.delenv("JOURNAL_PATH", raising=False)
-
-    ws = MockWebSocket()
-    spawn_request = {"prompt": "test"}
-
-    cortex_server._handle_spawn(ws, spawn_request)
-
-    assert len(ws.messages) == 1
-    response = json.loads(ws.messages[0])
-    assert response["type"] == "error"
-    assert "JOURNAL_PATH not configured" in response["message"]
-
-
-def test_broadcast_agent_event(cortex_server):
-    """Test broadcasting events to agent watchers."""
-    from think.cortex import RunningAgent
-
-    mock_process = MagicMock()
-    mock_process.poll.return_value = None
-
-    agent = RunningAgent("123456789", mock_process, Path("/tmp/test.jsonl"))
-    cortex_server.running_agents["123456789"] = agent
-
-    ws1 = MockWebSocket()
-    ws2 = MockWebSocket()
-    agent.watchers.add(ws1)
-    agent.watchers.add(ws2)
-
-    event_data = {"event": "thinking", "ts": 1703123456789, "summary": "test"}
-    cortex_server._broadcast_agent_event("123456789", event_data)
-
-    # Both watchers should receive the event
-    assert len(ws1.messages) == 1
-    assert len(ws2.messages) == 1
-
-    response1 = json.loads(ws1.messages[0])
-    assert response1["type"] == "agent_event"
-    assert response1["agent_id"] == "123456789"
-    assert response1["event"] == event_data
-
-
-def test_broadcast_agent_event_removes_closed_watchers(cortex_server):
-    """Test that closed watchers are removed during broadcast."""
-    from think.cortex import RunningAgent
-
-    mock_process = MagicMock()
-    mock_process.poll.return_value = None
-
-    agent = RunningAgent("123456789", mock_process, Path("/tmp/test.jsonl"))
-    cortex_server.running_agents["123456789"] = agent
-
-    ws1 = MockWebSocket()
-    ws2 = MockWebSocket()
-    ws2.close()  # Close this one
-
-    agent.watchers.add(ws1)
-    agent.watchers.add(ws2)
-
-    event_data = {"event": "thinking", "ts": 1703123456789, "summary": "test"}
-    cortex_server._broadcast_agent_event("123456789", event_data)
-
-    # Only ws1 should receive the event, ws2 should be removed
-    assert len(ws1.messages) == 1
-    assert len(ws2.messages) == 0
-    assert ws2 not in agent.watchers
-    assert ws1 in agent.watchers
-
-
-def test_cleanup_dead_agents(cortex_server):
-    """Test cleanup of finished agents."""
-    from think.cortex import RunningAgent
-
-    # Add one running and one dead agent
-    mock_process1 = MagicMock()
-    mock_process1.poll.return_value = None  # Running
-
-    mock_process2 = MagicMock()
-    mock_process2.poll.return_value = 1  # Finished
-
-    agent1 = RunningAgent("111111111", mock_process1, Path("/tmp/test1.jsonl"))
-    agent2 = RunningAgent("222222222", mock_process2, Path("/tmp/test2.jsonl"))
-
-    cortex_server.running_agents["111111111"] = agent1
-    cortex_server.running_agents["222222222"] = agent2
-
-    cortex_server._cleanup_dead_agents()
-
-    # Only running agent should remain
-    assert len(cortex_server.running_agents) == 1
-    assert "111111111" in cortex_server.running_agents
-    assert "222222222" not in cortex_server.running_agents
-
-
-def test_stop_agent(cortex_server):
-    """Test stopping a running agent."""
-    from think.cortex import RunningAgent
-
-    mock_process = MagicMock()
-    mock_process.poll.return_value = None
-
-    agent = RunningAgent("123456789", mock_process, Path("/tmp/test.jsonl"))
-    cortex_server.running_agents["123456789"] = agent
-
-    # Test stopping existing agent
-    result = cortex_server.stop_agent("123456789")
-    assert result is True
-    mock_process.terminate.assert_called_once()
-
-    # Test stopping non-existent agent
-    result = cortex_server.stop_agent("999999999")
-    assert result is False
-
-
-def test_get_agent_count(cortex_server, mock_journal):
-    """Test getting count of running agents."""
-    from think.cortex import RunningAgent
-
-    assert cortex_server.get_agent_count() == 0
-
-    # Add running agent
-    mock_process = MagicMock()
-    mock_process.poll.return_value = None
-
-    agent = RunningAgent("123456789", mock_process, Path("/tmp/test.jsonl"))
-    cortex_server.running_agents["123456789"] = agent
-
-    assert cortex_server.get_agent_count() == 1
-
-
-def test_connection_handler_invalid_json(cortex_server):
-    """Test connection handler with invalid JSON."""
-    ws = MockWebSocket()
-    ws.add_received("invalid json")
-    ws.add_received(None)  # This will cause the loop to break
-
-    # Mock the _handle_connection method to test just the JSON parsing part
-    with patch.object(cortex_server, "_send_error") as mock_send_error:
-        try:
-            cortex_server._handle_connection(ws)
-        except Exception:
-            pass  # Expected due to mocking
-
-    mock_send_error.assert_called()
-    args = mock_send_error.call_args[0]
-    assert "Invalid JSON" in args[1]
-
-
-def test_connection_handler_unknown_action(cortex_server):
-    """Test connection handler with unknown action."""
-    ws = MockWebSocket()
-    ws.add_received(json.dumps({"action": "unknown"}))
-    ws.add_received(None)  # This will cause the loop to break
-
-    with patch.object(cortex_server, "_send_error") as mock_send_error:
-        try:
-            cortex_server._handle_connection(ws)
-        except Exception:
-            pass  # Expected due to mocking
-
-    mock_send_error.assert_called()
-    args = mock_send_error.call_args[0]
-    assert "Unknown action: unknown" in args[1]
-
-
-def test_send_message_connection_closed(cortex_server):
-    """Test sending message to closed connection."""
-    from simple_websocket import ConnectionClosed
-
-    ws = MockWebSocket()
-    ws.close()
-
-    with pytest.raises(ConnectionClosed):
-        cortex_server._send_message(ws, {"type": "test"})
-
-
-@patch("think.cortex.time.time")
-def test_monitor_stdout(mock_time, cortex_server, tmp_path):
-    """Test monitoring agent stdout."""
-    from io import StringIO
-
-    from think.cortex import RunningAgent
-
-    # Mock time to return consistent values
-    mock_time.return_value = 1703123456.789
-
-    # Create log file path
-    log_path = tmp_path / "agent.jsonl"
-
-    # Create mock process with stdout
-    mock_process = MagicMock()
-    mock_process.poll.return_value = None  # Still running initially
-    mock_process.stdout = StringIO(
-        '{"event": "start", "ts": 1703123456789}\n'
-        '{"event": "finish", "ts": 1703123456790}\n'
-    )
-
-    agent = RunningAgent("123456789", mock_process, log_path)
-    cortex_server.running_agents["123456789"] = agent
-
-    # Add a watcher
-    ws = MockWebSocket()
-    agent.watchers.add(ws)
-
-    # Monitor stdout (this will read all lines and write to log)
-    cortex_server._monitor_stdout(agent)
-
-    # Check log file was created with events
-    assert log_path.exists()
-    log_contents = log_path.read_text()
-    assert '"event": "start"' in log_contents
-    assert '"event": "finish"' in log_contents
-
-
-# Removed tests for historical agent functionality:
-# - test_send_agent_history_nonexistent_file
-# - test_send_agent_history_with_invalid_json
-# - test_historical_agent_creation
-# - test_load_historical_agents_empty
-# - test_load_historical_agents_with_files
-# - test_parse_agent_file_valid
-# - test_parse_agent_file_empty
-# - test_determine_agent_status_finished
-# - test_determine_agent_status_error
-# - test_determine_agent_status_unknown
-
-
-def test_get_running_agents_with_pagination(cortex_server, mock_journal):
-    """Test getting running agents with pagination."""
-    from think.cortex import RunningAgent
-
-    # Add running agents
-    mock_process1 = MagicMock()
-    mock_process1.poll.return_value = None
-    mock_process1.pid = 12345
-    agent1 = RunningAgent("999999999", mock_process1, Path("/tmp/running1.jsonl"))
-    agent1.started_at = 1703123456789
-    cortex_server.running_agents["999999999"] = agent1
-
-    mock_process2 = MagicMock()
-    mock_process2.poll.return_value = None
-    mock_process2.pid = 12346
-    agent2 = RunningAgent("888888888", mock_process2, Path("/tmp/running2.jsonl"))
-    agent2.started_at = 1703123456790  # Newer
-    cortex_server.running_agents["888888888"] = agent2
-
-    # Test pagination
-    agents, total = cortex_server._get_running_agents_with_pagination(
-        limit=10, offset=0
-    )
-
-    assert total == 2  # 2 running agents
-    assert len(agents) == 2
-
-    # Agents should be sorted by started_at (newest first)
-    assert agents[0]["id"] == "888888888"  # Newer agent first
-    assert agents[1]["id"] == "999999999"
-
-
-def test_handle_list_with_pagination(cortex_server, mock_journal):
-    """Test list request with pagination parameters."""
-    from think.cortex import RunningAgent
-
-    # Add only running agents
-    for i in range(15):
-        mock_process = MagicMock()
-        mock_process.poll.return_value = None
-        mock_process.pid = 12345 + i
-        agent = RunningAgent(
-            f"99999999{i}", mock_process, Path(f"/tmp/running{i}.jsonl")
+    file_path.write_text(json.dumps(request) + "\n")
+    
+    with patch.object(cortex_service, '_spawn_agent') as mock_spawn:
+        cortex_service._handle_active_file(agent_id, file_path)
+        mock_spawn.assert_called_once_with(
+            agent_id, file_path, "Test prompt", "openai", "default", 
+            {"model": "gpt-4"}, None
         )
-        agent.started_at = 1703123456789 + i  # Different timestamps for sorting
-        cortex_server.running_agents[f"99999999{i}"] = agent
-
-    # Test first page
-    ws = MockWebSocket()
-    req = {"limit": 10, "offset": 0}
-    cortex_server._handle_list(ws, req)
-
-    response = json.loads(ws.messages[0])
-    assert response["type"] == "agent_list"
-    assert len(response["agents"]) == 10
-    assert response["pagination"]["total"] == 15
-    assert response["pagination"]["has_more"] is True
-
-    # Test second page
-    ws = MockWebSocket()
-    req = {"limit": 10, "offset": 10}
-    cortex_server._handle_list(ws, req)
-
-    response = json.loads(ws.messages[0])
-    assert len(response["agents"]) == 5
-    assert response["pagination"]["has_more"] is False
 
 
-def test_handle_list_invalid_pagination(cortex_server):
-    """Test list request with invalid pagination parameters."""
-    ws = MockWebSocket()
-    req = {"limit": "invalid", "offset": "invalid"}
-
-    cortex_server._handle_list(ws, req)
-
-    assert len(ws.messages) == 1
-    response = json.loads(ws.messages[0])
-    assert response["type"] == "error"
-    assert "Invalid limit or offset" in response["message"]
+def test_handle_active_file_empty_file(cortex_service, mock_journal):
+    """Test handling an empty active file."""
+    agent_id = "123456789"
+    file_path = mock_journal / "agents" / f"{agent_id}_active.jsonl"
+    file_path.touch()  # Empty file
+    
+    with patch.object(cortex_service, '_spawn_agent') as mock_spawn:
+        cortex_service._handle_active_file(agent_id, file_path)
+        mock_spawn.assert_not_called()
 
 
-@patch("think.cortex.get_personas")
-def test_check_for_handoff_from_request(mock_get_personas, cortex_server):
-    """Test handoff detection from original request."""
-    from think.cortex import RunningAgent
+def test_handle_active_file_invalid_json(cortex_service, mock_journal):
+    """Test handling active file with invalid JSON."""
+    agent_id = "123456789"
+    file_path = mock_journal / "agents" / f"{agent_id}_active.jsonl"
+    file_path.write_text("invalid json\n")
+    
+    with patch.object(cortex_service, '_write_error_and_complete') as mock_error:
+        cortex_service._handle_active_file(agent_id, file_path)
+        mock_error.assert_called_once()
+        assert "Invalid JSON" in mock_error.call_args[0][1]
 
-    # Create agent with handoff in request
-    mock_process = MagicMock()
+
+def test_handle_active_file_missing_event_field(cortex_service, mock_journal):
+    """Test handling active file without 'event' field."""
+    agent_id = "123456789"
+    file_path = mock_journal / "agents" / f"{agent_id}_active.jsonl"
+    
     request = {
-        "prompt": "Test",
-        "persona": "test",
-        "handoff": {"persona": "matter_editor", "domain": "test"},
+        "ts": 123456789,
+        "prompt": "Test prompt"
     }
-    agent = RunningAgent("123", mock_process, Path("/tmp/test.jsonl"), request=request)
-
-    handoff = cortex_server._check_for_handoff(agent)
-    assert handoff is not None
-    assert handoff["persona"] == "matter_editor"
-    assert handoff["domain"] == "test"
-
-    # Should not call get_personas when request has handoff
-    mock_get_personas.assert_not_called()
+    file_path.write_text(json.dumps(request) + "\n")
+    
+    with patch.object(cortex_service, '_spawn_agent') as mock_spawn:
+        cortex_service._handle_active_file(agent_id, file_path)
+        mock_spawn.assert_not_called()
 
 
-@patch("think.cortex.get_personas")
-def test_check_for_handoff_from_persona(mock_get_personas, cortex_server):
-    """Test handoff detection from persona default."""
-    from think.cortex import RunningAgent
-
-    # Mock persona with default handoff
-    mock_get_personas.return_value = {
-        "test": {
-            "title": "Test",
-            "config": {"handoff": {"persona": "todo", "max_turns": 5}},
-        }
-    }
-
-    # Create agent without handoff in request
-    mock_process = MagicMock()
-    request = {"prompt": "Test", "persona": "test"}
-    agent = RunningAgent("123", mock_process, Path("/tmp/test.jsonl"), request=request)
-
-    handoff = cortex_server._check_for_handoff(agent)
-    assert handoff is not None
-    assert handoff["persona"] == "todo"
-    assert handoff["max_turns"] == 5
-
-
-@patch("think.cortex.get_personas")
-def test_check_for_handoff_request_overrides_persona(mock_get_personas, cortex_server):
-    """Test that request handoff takes precedence over persona default."""
-    from think.cortex import RunningAgent
-
-    # Mock persona with default handoff
-    mock_get_personas.return_value = {
-        "test": {
-            "title": "Test",
-            "config": {"handoff": {"persona": "todo"}},
-        }
-    }
-
-    # Create agent with different handoff in request
-    mock_process = MagicMock()
+def test_handle_active_file_empty_prompt(cortex_service, mock_journal):
+    """Test handling active file with empty prompt."""
+    agent_id = "123456789"
+    file_path = mock_journal / "agents" / f"{agent_id}_active.jsonl"
+    
     request = {
-        "prompt": "Test",
-        "persona": "test",
-        "handoff": {"persona": "matter_editor"},  # Should override persona default
+        "event": "request",
+        "ts": 123456789,
+        "prompt": "",
+        "backend": "openai"
     }
-    agent = RunningAgent("123", mock_process, Path("/tmp/test.jsonl"), request=request)
-
-    handoff = cortex_server._check_for_handoff(agent)
-    assert handoff is not None
-    assert handoff["persona"] == "matter_editor"  # Request wins
-
-    # Should not call get_personas when request has handoff
-    mock_get_personas.assert_not_called()
+    file_path.write_text(json.dumps(request) + "\n")
+    
+    with patch.object(cortex_service, '_write_error_and_complete') as mock_error:
+        cortex_service._handle_active_file(agent_id, file_path)
+        mock_error.assert_called_once()
+        assert "Empty prompt" in mock_error.call_args[0][1]
 
 
 @patch("think.cortex.subprocess.Popen")
 @patch("think.cortex.threading.Thread")
-def test_spawn_handoff_agent(mock_thread, mock_popen, cortex_server, mock_journal):
-    """Test spawning a handoff agent."""
+def test_spawn_agent(mock_thread, mock_popen, cortex_service, mock_journal):
+    """Test spawning an agent subprocess."""
     mock_process = MagicMock()
     mock_process.pid = 12345
     mock_process.poll.return_value = None
     mock_process.stdin = MagicMock()
+    mock_process.stdout = MagicMock()
+    mock_process.stderr = MagicMock()
     mock_popen.return_value = mock_process
-
-    handoff = {"persona": "matter_editor", "domain": "test", "max_turns": 10}
-    parent_result = "Create a new matter for AI safety research"
-
-    cortex_server._spawn_handoff_agent("parent123", parent_result, handoff)
-
+    
+    agent_id = "123456789"
+    file_path = mock_journal / "agents" / f"{agent_id}_active.jsonl"
+    
+    cortex_service._spawn_agent(
+        agent_id, file_path, "Test prompt", "openai", 
+        "default", {"model": "gpt-4"}, None
+    )
+    
     # Check subprocess was called
     mock_popen.assert_called_once()
     call_args = mock_popen.call_args
-
-    # Check NDJSON input was written
+    assert call_args[0][0] == ["think-agents"]
+    assert call_args[1]["stdin"] is not None
+    assert call_args[1]["stdout"] is not None
+    assert call_args[1]["stderr"] is not None
+    
+    # Check NDJSON was written to stdin
     mock_process.stdin.write.assert_called_once()
     written_data = mock_process.stdin.write.call_args[0][0]
-    request = json.loads(written_data.strip())
+    ndjson = json.loads(written_data.strip())
+    assert ndjson["prompt"] == "Test prompt"
+    assert ndjson["backend"] == "openai"
+    assert ndjson["persona"] == "default"
+    assert ndjson["config"]["model"] == "gpt-4"
+    
+    # Check stdin was closed
+    mock_process.stdin.close.assert_called_once()
+    
+    # Check agent was tracked
+    assert agent_id in cortex_service.running_agents
+    agent = cortex_service.running_agents[agent_id]
+    assert agent.agent_id == agent_id
+    assert agent.log_path == file_path
+    
+    # Check monitoring threads were started
+    assert mock_thread.call_count == 2  # stdout and stderr
 
-    assert request["prompt"] == parent_result  # Parent's result becomes prompt
+
+@patch("think.cortex.subprocess.Popen")
+def test_spawn_agent_with_handoff_from(mock_popen, cortex_service, mock_journal):
+    """Test spawning an agent with handoff_from parameter."""
+    mock_process = MagicMock()
+    mock_process.pid = 12345
+    mock_process.stdin = MagicMock()
+    mock_process.stdout = MagicMock()
+    mock_process.stderr = MagicMock()
+    mock_popen.return_value = mock_process
+    
+    agent_id = "123456789"
+    file_path = mock_journal / "agents" / f"{agent_id}_active.jsonl"
+    
+    with patch("think.cortex.threading.Thread"):
+        cortex_service._spawn_agent(
+            agent_id, file_path, "Test", "openai", 
+            "default", {}, "parent123"
+        )
+    
+    # Check handoff_from was included in NDJSON
+    written_data = mock_process.stdin.write.call_args[0][0]
+    ndjson = json.loads(written_data.strip())
+    assert ndjson["handoff_from"] == "parent123"
+
+
+def test_monitor_stdout_json_events(cortex_service, mock_journal):
+    """Test monitoring stdout with JSON events."""
+    from io import StringIO
+    from think.cortex import AgentProcess
+    
+    agent_id = "123456789"
+    log_path = mock_journal / "agents" / f"{agent_id}_active.jsonl"
+    
+    mock_process = MagicMock()
+    mock_process.poll.return_value = 0  # Process exits
+    mock_process.stdout = StringIO(
+        '{"event": "start", "ts": 1234567890}\n'
+        '{"event": "finish", "ts": 1234567891, "result": "Done"}\n'
+    )
+    
+    agent = AgentProcess(agent_id, mock_process, log_path)
+    cortex_service.running_agents[agent_id] = agent
+    
+    with patch.object(cortex_service, '_complete_agent_file') as mock_complete:
+        cortex_service._monitor_stdout(agent)
+        
+        # Check events were written to file
+        assert log_path.exists()
+        lines = log_path.read_text().strip().split("\n")
+        assert len(lines) == 2
+        assert json.loads(lines[0])["event"] == "start"
+        assert json.loads(lines[1])["event"] == "finish"
+        
+        # Check file was completed
+        mock_complete.assert_called_once_with(agent_id, log_path)
+    
+    # Check agent was removed
+    assert agent_id not in cortex_service.running_agents
+
+
+def test_monitor_stdout_non_json_output(cortex_service, mock_journal):
+    """Test monitoring stdout with non-JSON output."""
+    from io import StringIO
+    from think.cortex import AgentProcess
+    
+    agent_id = "123456789"
+    log_path = mock_journal / "agents" / f"{agent_id}_active.jsonl"
+    
+    mock_process = MagicMock()
+    mock_process.poll.return_value = 0
+    mock_process.stdout = StringIO(
+        "Plain text output\n"
+        '{"event": "finish", "ts": 1234567890}\n'
+    )
+    
+    agent = AgentProcess(agent_id, mock_process, log_path)
+    cortex_service.running_agents[agent_id] = agent
+    
+    with patch.object(cortex_service, '_complete_agent_file'):
+        cortex_service._monitor_stdout(agent)
+        
+        # Check info event was created for non-JSON
+        lines = log_path.read_text().strip().split("\n")
+        assert len(lines) == 2
+        
+        info_event = json.loads(lines[0])
+        assert info_event["event"] == "info"
+        assert info_event["message"] == "Plain text output"
+        assert "ts" in info_event
+
+
+def test_monitor_stdout_with_handoff(cortex_service, mock_journal):
+    """Test monitoring stdout with handoff in finish event."""
+    from io import StringIO
+    from think.cortex import AgentProcess
+    
+    agent_id = "123456789"
+    log_path = mock_journal / "agents" / f"{agent_id}_active.jsonl"
+    
+    mock_process = MagicMock()
+    mock_process.poll.return_value = 0
+    mock_process.stdout = StringIO(
+        '{"event": "finish", "ts": 1234567890, "result": "Create matter", '
+        '"handoff": {"persona": "matter_editor", "domain": "test"}}\n'
+    )
+    
+    agent = AgentProcess(agent_id, mock_process, log_path)
+    cortex_service.running_agents[agent_id] = agent
+    
+    with patch.object(cortex_service, '_spawn_handoff') as mock_handoff:
+        with patch.object(cortex_service, '_complete_agent_file'):
+            cortex_service._monitor_stdout(agent)
+            
+            mock_handoff.assert_called_once_with(
+                agent_id, "Create matter", 
+                {"persona": "matter_editor", "domain": "test"}
+            )
+
+
+def test_monitor_stdout_no_finish_event(cortex_service, mock_journal):
+    """Test monitoring stdout when process exits without finish event."""
+    from io import StringIO
+    from think.cortex import AgentProcess
+    
+    agent_id = "123456789"
+    log_path = mock_journal / "agents" / f"{agent_id}_active.jsonl"
+    
+    mock_process = MagicMock()
+    mock_process.poll.return_value = 1  # Non-zero exit
+    mock_process.stdout = StringIO(
+        '{"event": "start", "ts": 1234567890}\n'
+    )
+    
+    agent = AgentProcess(agent_id, mock_process, log_path)
+    cortex_service.running_agents[agent_id] = agent
+    
+    with patch.object(cortex_service, '_complete_agent_file'):
+        cortex_service._monitor_stdout(agent)
+        
+        # Check error event was added
+        lines = log_path.read_text().strip().split("\n")
+        assert len(lines) == 2
+        
+        error_event = json.loads(lines[1])
+        assert error_event["event"] == "error"
+        assert "exit_code" in error_event
+        assert error_event["exit_code"] == 1
+
+
+def test_monitor_stderr(cortex_service, mock_journal):
+    """Test monitoring stderr for errors."""
+    from io import StringIO
+    from think.cortex import AgentProcess
+    
+    agent_id = "123456789"
+    log_path = mock_journal / "agents" / f"{agent_id}_active.jsonl"
+    
+    mock_process = MagicMock()
+    mock_process.poll.return_value = 1  # Error exit
+    mock_process.stderr = StringIO(
+        "Error: Something went wrong\n"
+        "Stack trace line 1\n"
+        "Stack trace line 2\n"
+    )
+    
+    agent = AgentProcess(agent_id, mock_process, log_path)
+    
+    cortex_service._monitor_stderr(agent)
+    
+    # Check error event was written
+    assert log_path.exists()
+    lines = log_path.read_text().strip().split("\n")
+    assert len(lines) == 1
+    
+    error_event = json.loads(lines[0])
+    assert error_event["event"] == "error"
+    assert "trace" in error_event
+    assert "Error: Something went wrong" in error_event["trace"]
+    assert error_event["exit_code"] == 1
+
+
+def test_has_finish_event(cortex_service, mock_journal):
+    """Test checking for finish event in JSONL file."""
+    file_path = mock_journal / "agents" / "test.jsonl"
+    
+    # File with finish event
+    file_path.write_text(
+        '{"event": "start", "ts": 123}\n'
+        '{"event": "finish", "ts": 124}\n'
+    )
+    assert cortex_service._has_finish_event(file_path) is True
+    
+    # File with error event
+    file_path.write_text(
+        '{"event": "start", "ts": 123}\n'
+        '{"event": "error", "ts": 124}\n'
+    )
+    assert cortex_service._has_finish_event(file_path) is True
+    
+    # File without finish/error
+    file_path.write_text('{"event": "start", "ts": 123}\n')
+    assert cortex_service._has_finish_event(file_path) is False
+    
+    # Empty file
+    file_path.write_text("")
+    assert cortex_service._has_finish_event(file_path) is False
+
+
+def test_complete_agent_file(cortex_service, mock_journal):
+    """Test completing an agent file (rename from active to completed)."""
+    agent_id = "123456789"
+    active_path = mock_journal / "agents" / f"{agent_id}_active.jsonl"
+    active_path.touch()
+    
+    cortex_service._complete_agent_file(agent_id, active_path)
+    
+    # Check file was renamed
+    assert not active_path.exists()
+    completed_path = mock_journal / "agents" / f"{agent_id}.jsonl"
+    assert completed_path.exists()
+
+
+def test_write_error_and_complete(cortex_service, mock_journal):
+    """Test writing error and completing file."""
+    agent_id = "123456789"
+    file_path = mock_journal / "agents" / f"{agent_id}_active.jsonl"
+    file_path.touch()
+    
+    cortex_service._write_error_and_complete(file_path, "Test error message")
+    
+    # Check error was written
+    completed_path = mock_journal / "agents" / f"{agent_id}.jsonl"
+    assert completed_path.exists()
+    assert not file_path.exists()
+    
+    content = completed_path.read_text()
+    error_event = json.loads(content)
+    assert error_event["event"] == "error"
+    assert error_event["error"] == "Test error message"
+    assert "ts" in error_event
+
+
+def test_spawn_handoff(cortex_service, mock_journal):
+    """Test spawning a handoff agent."""
+    parent_id = "parent123"
+    result = "Create a new matter for AI research"
+    handoff = {
+        "persona": "matter_editor",
+        "backend": "claude",
+        "domain": "test",
+        "max_turns": 5
+    }
+    
+    with patch("think.cortex.time.time", return_value=987654321.0):
+        cortex_service._spawn_handoff(parent_id, result, handoff)
+    
+    # Check pending file was created and renamed to active
+    agent_id = "987654321000"
+    active_path = mock_journal / "agents" / f"{agent_id}_active.jsonl"
+    assert active_path.exists()
+    
+    # Check request content
+    content = active_path.read_text()
+    request = json.loads(content)
+    assert request["event"] == "request"
+    assert request["ts"] == 987654321000
+    assert request["prompt"] == result
+    assert request["backend"] == "claude"
     assert request["persona"] == "matter_editor"
     assert request["config"]["domain"] == "test"
-    assert request["config"]["max_turns"] == 10
-    assert request["handoff_from"] == "parent123"  # Tracks lineage
+    assert request["config"]["max_turns"] == 5
+    assert request["handoff_from"] == parent_id
 
-    # Check monitoring threads were started
-    assert mock_thread.call_count == 2  # stdout and stderr monitors
+
+def test_spawn_handoff_with_explicit_prompt(cortex_service, mock_journal):
+    """Test spawning handoff with explicit prompt in config."""
+    parent_id = "parent123"
+    result = "Parent result"
+    handoff = {
+        "persona": "reviewer",
+        "prompt": "Review this analysis"  # Explicit prompt
+    }
+    
+    with patch("think.cortex.time.time", return_value=987654321.0):
+        cortex_service._spawn_handoff(parent_id, result, handoff)
+    
+    active_path = mock_journal / "agents" / "987654321000_active.jsonl"
+    content = active_path.read_text()
+    request = json.loads(content)
+    assert request["prompt"] == "Review this analysis"  # Uses explicit prompt
+
+
+def test_stop_service(cortex_service):
+    """Test stopping the Cortex service."""
+    from think.cortex import AgentProcess
+    
+    # Add running agents
+    mock_process1 = MagicMock()
+    mock_process1.poll.return_value = None
+    agent1 = AgentProcess("111", mock_process1, Path("/tmp/1.jsonl"))
+    
+    mock_process2 = MagicMock()
+    mock_process2.poll.return_value = None
+    agent2 = AgentProcess("222", mock_process2, Path("/tmp/2.jsonl"))
+    
+    cortex_service.running_agents["111"] = agent1
+    cortex_service.running_agents["222"] = agent2
+    
+    # Mock observer
+    mock_observer = MagicMock()
+    mock_observer.is_alive.return_value = True
+    cortex_service.observer = mock_observer
+    
+    cortex_service.stop()
+    
+    # Check stop event is set
+    assert cortex_service.stop_event.is_set()
+    
+    # Check observer was stopped
+    mock_observer.stop.assert_called_once()
+    mock_observer.join.assert_called_once_with(timeout=5)
+    
+    # Check all agents were stopped
+    assert agent1.stop_event.is_set()
+    assert agent2.stop_event.is_set()
+    mock_process1.terminate.assert_called_once()
+    mock_process2.terminate.assert_called_once()
+
+
+def test_get_status(cortex_service):
+    """Test getting service status."""
+    from think.cortex import AgentProcess
+    
+    # Empty status
+    status = cortex_service.get_status()
+    assert status["running_agents"] == 0
+    assert status["agent_ids"] == []
+    
+    # Add running agents
+    mock_process = MagicMock()
+    agent1 = AgentProcess("111", mock_process, Path("/tmp/1.jsonl"))
+    agent2 = AgentProcess("222", mock_process, Path("/tmp/2.jsonl"))
+    
+    cortex_service.running_agents["111"] = agent1
+    cortex_service.running_agents["222"] = agent2
+    
+    status = cortex_service.get_status()
+    assert status["running_agents"] == 2
+    assert set(status["agent_ids"]) == {"111", "222"}
+
+
+def test_agent_file_handler_on_moved(cortex_service, mock_journal):
+    """Test AgentFileHandler handles moved files (pending -> active)."""
+    from think.cortex import AgentFileHandler
+    
+    handler = AgentFileHandler(cortex_service)
+    
+    # Create mock event for file move
+    mock_event = MagicMock()
+    mock_event.is_directory = False
+    mock_event.dest_path = str(mock_journal / "agents" / "123_active.jsonl")
+    
+    with patch.object(cortex_service, '_handle_active_file') as mock_handle:
+        handler.on_moved(mock_event)
+        mock_handle.assert_called_once_with("123", Path(mock_event.dest_path))
+
+
+def test_agent_file_handler_on_created(cortex_service, mock_journal):
+    """Test AgentFileHandler handles created files."""
+    from think.cortex import AgentFileHandler
+    
+    handler = AgentFileHandler(cortex_service)
+    
+    # Create mock event for file creation
+    mock_event = MagicMock()
+    mock_event.is_directory = False
+    mock_event.src_path = str(mock_journal / "agents" / "456_active.jsonl")
+    
+    with patch.object(cortex_service, '_handle_active_file') as mock_handle:
+        with patch("think.cortex.time.sleep"):  # Skip delay
+            handler.on_created(mock_event)
+            mock_handle.assert_called_once_with("456", Path(mock_event.src_path))
+
+
+def test_agent_file_handler_ignores_directories(cortex_service, mock_journal):
+    """Test AgentFileHandler ignores directory events."""
+    from think.cortex import AgentFileHandler
+    
+    handler = AgentFileHandler(cortex_service)
+    
+    # Create mock event for directory
+    mock_event = MagicMock()
+    mock_event.is_directory = True
+    mock_event.dest_path = str(mock_journal / "agents" / "subdir")
+    
+    with patch.object(cortex_service, '_handle_active_file') as mock_handle:
+        handler.on_moved(mock_event)
+        mock_handle.assert_not_called()
+
+
+@patch("think.cortex.Observer")
+def test_start_with_watchdog(mock_observer_class, cortex_service, mock_journal):
+    """Test starting service with watchdog Observer."""
+    mock_observer = MagicMock()
+    mock_observer_class.return_value = mock_observer
+    
+    # Create existing active file
+    active_file = mock_journal / "agents" / "existing_active.jsonl"
+    active_file.touch()
+    
+    with patch.object(cortex_service, '_process_existing_active_files') as mock_process:
+        with patch.object(cortex_service.stop_event, 'is_set', side_effect=[False, True]):
+            with patch("think.cortex.time.sleep"):
+                cortex_service.start()
+    
+    # Check observer was configured
+    mock_observer_class.assert_called_once()
+    mock_observer.schedule.assert_called_once()
+    mock_observer.start.assert_called_once()
+    
+    # Check existing files were processed
+    mock_process.assert_called_once()

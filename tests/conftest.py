@@ -232,9 +232,13 @@ def add_module_stubs(request, monkeypatch):
         sys.modules["watchdog.events"], "PatternMatchingEventHandler"
     ):
 
+        class FileSystemEventHandler:
+            pass
+
         class PatternMatchingEventHandler:
             pass
 
+        sys.modules["watchdog.events"].FileSystemEventHandler = FileSystemEventHandler
         sys.modules["watchdog.events"].PatternMatchingEventHandler = (
             PatternMatchingEventHandler
         )
@@ -254,6 +258,9 @@ def add_module_stubs(request, monkeypatch):
 
             def join(self, *a, **k):
                 pass
+            
+            def is_alive(self):
+                return False
 
         sys.modules["watchdog.observers"].Observer = Observer
     if "screen_compare" not in sys.modules:
