@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 import os
 import threading
 from pathlib import Path
@@ -63,19 +64,19 @@ class SyncCortexClient:
         )
 
     def list_agents(
-        self, 
-        limit: int = 10, 
-        offset: int = 0, 
+        self,
+        limit: int = 10,
+        offset: int = 0,
         include_active: bool = True,
-        agent_type: str = "all"
+        agent_type: str = "all",
     ) -> Dict[str, Any]:
         """List agents with pagination and filtering."""
         return self._run_async(
             self.client.list_agents(
-                limit=limit, 
-                offset=offset, 
+                limit=limit,
+                offset=offset,
                 include_active=include_active,
-                agent_type=agent_type
+                agent_type=agent_type,
             )
         )
 
@@ -175,7 +176,9 @@ def get_global_cortex_client(
         if _sync_client is None:
             try:
                 _sync_client = SyncCortexClient(journal_path=journal_path)
-            except Exception:
+            except Exception as e:
+                # Log the error for debugging
+                logging.error(f"Failed to create SyncCortexClient: {e}")
                 return None
 
         return _sync_client
@@ -183,12 +186,12 @@ def get_global_cortex_client(
 
 def cleanup_global_cortex_client() -> None:
     """Clean up the global cortex client instance.
-    
+
     This should be called when the Flask app is shutting down to properly
     clean up the event loop and thread resources.
     """
     global _sync_client
-    
+
     with _client_lock:
         if _sync_client is not None:
             _sync_client.cleanup()
@@ -201,23 +204,23 @@ _agent_watcher_task = None
 
 def start_global_agent_watcher(callback: Callable[[dict], None]) -> None:
     """Start the global agent watcher that broadcasts all events.
-    
+
     Args:
         callback: Function to call with ALL agent events
     """
     global _agent_watcher_task
-    
+
     if _agent_watcher_task is not None:
         return  # Already running
-        
+
     journal_path = os.getenv("JOURNAL_PATH", ".")
     agents_dir = Path(journal_path) / "agents"
-    
+
     # Get the global client's event loop
     client = get_global_cortex_client()
     if not client or not client._loop:
         raise RuntimeError("Cortex client not initialized")
-        
+
     # Create and start watcher in the existing event loop
     async def run_watcher():
         watcher = SimpleAgentWatcher(agents_dir, callback)
@@ -225,10 +228,8 @@ def start_global_agent_watcher(callback: Callable[[dict], None]) -> None:
         # Keep watcher alive
         while True:
             await asyncio.sleep(60)
-            
-    _agent_watcher_task = asyncio.run_coroutine_threadsafe(
-        run_watcher(), client._loop
-    )
+
+    _agent_watcher_task = asyncio.run_coroutine_threadsafe(run_watcher(), client._loop)
 
 
 def run_agent_via_cortex(

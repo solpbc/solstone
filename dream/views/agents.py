@@ -3,12 +3,10 @@ from __future__ import annotations
 import asyncio
 import json
 import os
-import time
 
 from flask import Blueprint, jsonify, render_template, request
 
 from .. import state
-from ..utils import time_since
 
 bp = Blueprint("agents", __name__, template_folder="../templates")
 
@@ -173,26 +171,30 @@ def _get_agents_list(agent_type: str) -> object:
 
     # Get agents from unified CortexClient
     from ..cortex_utils import get_global_cortex_client
-    from think.utils import get_personas, time_since
+    from ..utils import time_since
+    from think.utils import get_personas
 
     client = get_global_cortex_client()
     if not client:
-        return jsonify({
-            "agents": [],
-            "pagination": {"limit": limit, "offset": offset, "total": 0, "has_more": False},
-            "live_count": 0,
-            "historical_count": 0,
-        })
+        # This should never happen in normal operation
+        raise RuntimeError("Cortex client not initialized")
 
     # Get all agents using enhanced list_agents
     response = client.list_agents(limit=limit, offset=offset, agent_type=agent_type)
     if not response:
-        return jsonify({
-            "agents": [],
-            "pagination": {"limit": limit, "offset": offset, "total": 0, "has_more": False},
-            "live_count": 0,
-            "historical_count": 0,
-        })
+        return jsonify(
+            {
+                "agents": [],
+                "pagination": {
+                    "limit": limit,
+                    "offset": offset,
+                    "total": 0,
+                    "has_more": False,
+                },
+                "live_count": 0,
+                "historical_count": 0,
+            }
+        )
 
     # Load persona titles for display
     personas = get_personas()

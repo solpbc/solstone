@@ -17,7 +17,12 @@ from watchdog.observers import Observer
 class AgentEventWatcher(FileSystemEventHandler):
     """Watch for changes to agent JSONL files."""
 
-    def __init__(self, file_path: Path, event_queue: asyncio.Queue, loop: asyncio.AbstractEventLoop):
+    def __init__(
+        self,
+        file_path: Path,
+        event_queue: asyncio.Queue,
+        loop: asyncio.AbstractEventLoop,
+    ):
         self.file_path = file_path
         self.event_queue = event_queue
         self.last_position = 0
@@ -27,17 +32,20 @@ class AgentEventWatcher(FileSystemEventHandler):
         """Handle file modification events."""
         if event.src_path == str(self.file_path):
             # Queue a check for new events (thread-safe)
-            asyncio.run_coroutine_threadsafe(
-                self.event_queue.put("check"), self.loop
-            )
+            asyncio.run_coroutine_threadsafe(self.event_queue.put("check"), self.loop)
 
 
 class SimpleAgentWatcher:
     """Simple watcher that monitors all active agents and broadcasts all events."""
-    
-    def __init__(self, agents_dir: Path, callback: Callable[[dict], None], logger: Optional[logging.Logger] = None):
+
+    def __init__(
+        self,
+        agents_dir: Path,
+        callback: Callable[[dict], None],
+        logger: Optional[logging.Logger] = None,
+    ):
         """Initialize watcher for agent directory.
-        
+
         Args:
             agents_dir: Directory containing agent files
             callback: Function to call with ALL events from ALL agents
@@ -49,47 +57,47 @@ class SimpleAgentWatcher:
         self.observer = None
         self.active_agents = {}  # agent_id -> last_position
         self.running = False
-        
+
     async def start(self):
         """Start watching all active agents."""
         if self.running:
             return
-            
+
         self.running = True
         self.observer = Observer()
-        
+
         # Set up directory watcher
         handler = FileSystemEventHandler()
         handler.on_modified = self._on_file_modified
         handler.on_created = self._on_file_created
         self.observer.schedule(handler, str(self.agents_dir), recursive=False)
         self.observer.start()
-        
+
         # Initial scan for active agents
         await self._scan_active_agents()
-        
+
         # Start polling task
         asyncio.create_task(self._poll_agents())
-        
+
     async def stop(self):
         """Stop watching."""
         self.running = False
         if self.observer and self.observer.is_alive():
             self.observer.stop()
             self.observer.join(timeout=1)
-            
+
     def _on_file_modified(self, event):
         """Handle file modification - just mark for checking."""
         if not event.is_directory and event.src_path.endswith(".jsonl"):
             # We'll check it in the next poll cycle
             pass
-            
+
     def _on_file_created(self, event):
         """Handle new file creation."""
         if not event.is_directory and "_active.jsonl" in event.src_path:
             # New active agent, will be picked up in next poll cycle
             pass
-            
+
     async def _scan_active_agents(self):
         """Scan for all active agent files."""
         try:
@@ -100,7 +108,7 @@ class SimpleAgentWatcher:
                     self.logger.info(f"Started watching agent {agent_id}")
         except Exception as e:
             self.logger.error(f"Error scanning agents: {e}")
-            
+
     async def _poll_agents(self):
         """Poll all active agents for new events."""
         while self.running:
@@ -110,7 +118,7 @@ class SimpleAgentWatcher:
                 for agent_id, last_pos in list(self.active_agents.items()):
                     active_path = self.agents_dir / f"{agent_id}_active.jsonl"
                     completed_path = self.agents_dir / f"{agent_id}.jsonl"
-                    
+
                     # Determine current file
                     if active_path.exists():
                         file_path = active_path
@@ -120,7 +128,7 @@ class SimpleAgentWatcher:
                         # File disappeared
                         completed.append(agent_id)
                         continue
-                        
+
                     # Read new events
                     try:
                         with open(file_path, "r") as f:
@@ -131,35 +139,35 @@ class SimpleAgentWatcher:
                                     try:
                                         event = json.loads(line)
                                         event["agent_id"] = agent_id
-                                        
+
                                         # Broadcast event
                                         if asyncio.iscoroutinefunction(self.callback):
                                             await self.callback(event)
                                         else:
                                             self.callback(event)
-                                            
+
                                         # Check for completion
                                         if event.get("event") in ["finish", "error"]:
                                             completed.append(agent_id)
                                     except json.JSONDecodeError:
                                         pass
-                                        
+
                             self.active_agents[agent_id] = f.tell()
-                            
+
                     except Exception as e:
                         self.logger.error(f"Error reading agent {agent_id}: {e}")
-                        
+
                 # Remove completed agents
                 for agent_id in completed:
                     del self.active_agents[agent_id]
                     self.logger.info(f"Agent {agent_id} completed")
-                    
+
                 # Rescan for new agents periodically
                 await self._scan_active_agents()
-                
+
             except Exception as e:
                 self.logger.error(f"Poll error: {e}")
-                
+
             # Poll every 0.5 seconds
             await asyncio.sleep(0.5)
 
@@ -222,14 +230,14 @@ class CortexClient:
         return agent_id
 
     async def list_agents(
-        self, 
-        limit: int = 10, 
-        offset: int = 0, 
+        self,
+        limit: int = 10,
+        offset: int = 0,
         include_active: bool = True,
-        agent_type: str = "all"  # "all", "live", "historical"
+        agent_type: str = "all",  # "all", "live", "historical"
     ) -> Dict[str, Any]:
         """List agents from the file system with full metadata.
-        
+
         Args:
             limit: Maximum number of agents to return
             offset: Number of agents to skip
@@ -238,16 +246,20 @@ class CortexClient:
         """
         agents = []
 
+        # Handle backward compatibility - if include_active is False, use historical
+        if not include_active and agent_type == "all":
+            agent_type = "historical"
+
         # Collect all agent files based on type
         all_files = []
-        
+
         if agent_type in ["all", "historical"]:
             # Get completed files (*.jsonl but not *_active.jsonl)
             for file_path in self.agents_dir.glob("*.jsonl"):
                 if not file_path.name.endswith("_active.jsonl"):
                     all_files.append(file_path)
 
-        if agent_type in ["all", "live"] or include_active:
+        if agent_type in ["all", "live"]:
             # Add active files
             all_files.extend(self.agents_dir.glob("*_active.jsonl"))
 
@@ -262,21 +274,23 @@ class CortexClient:
         for file_path in paginated_files:
             agent_id = file_path.stem.replace("_active", "")
             is_active = "_active" in file_path.name
-            
+
             try:
                 with open(file_path, "r") as f:
                     lines = f.readlines()
                     if not lines:
                         continue
-                        
+
                     # Parse first and last events
                     first_event = json.loads(lines[0])
-                    last_event = json.loads(lines[-1]) if len(lines) > 1 else first_event
-                    
+                    last_event = (
+                        json.loads(lines[-1]) if len(lines) > 1 else first_event
+                    )
+
                     # Extract timing info
                     start_ts = first_event.get("ts", int(agent_id))
                     end_ts = last_event.get("ts", start_ts)
-                    
+
                     # Determine status
                     if is_active:
                         status = "running"
@@ -291,21 +305,23 @@ class CortexClient:
                         else:
                             status = "interrupted"
                         runtime_seconds = (end_ts - start_ts) / 1000
-                    
-                    agents.append({
-                        "id": agent_id,
-                        "status": status,
-                        "is_live": is_active,
-                        "persona": first_event.get("persona", "default"),
-                        "backend": first_event.get("backend", "openai"),
-                        "model": first_event.get("model", ""),
-                        "prompt": first_event.get("prompt", ""),
-                        "ts": start_ts,
-                        "start": start_ts / 1000,
-                        "end": end_ts / 1000 if not is_active else None,
-                        "runtime_seconds": runtime_seconds,
-                        "event_count": len(lines),
-                    })
+
+                    agents.append(
+                        {
+                            "id": agent_id,
+                            "status": status,
+                            "is_live": is_active,
+                            "persona": first_event.get("persona", "default"),
+                            "backend": first_event.get("backend", "openai"),
+                            "model": first_event.get("model", ""),
+                            "prompt": first_event.get("prompt", ""),
+                            "ts": start_ts,
+                            "start": start_ts / 1000,
+                            "end": end_ts / 1000 if not is_active else None,
+                            "runtime_seconds": runtime_seconds,
+                            "event_count": len(lines),
+                        }
+                    )
             except Exception as e:
                 self.logger.warning(f"Failed to read agent file {file_path}: {e}")
 

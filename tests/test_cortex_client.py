@@ -181,7 +181,7 @@ class TestCortexClient:
 
         # Check first agent
         agent = result["agents"][0]
-        assert agent["status"] in ["running", "completed"]
+        assert agent["status"] in ["running", "completed", "interrupted"]
         assert agent["persona"] in ["default", "tester", "reviewer"]
         assert agent["backend"] in ["openai", "google", "anthropic"]
 
@@ -213,7 +213,8 @@ class TestCortexClient:
 
         # Should only include completed file
         assert len(result["agents"]) == 1
-        assert result["agents"][0]["status"] == "completed"
+        # File only has request event, so status should be "interrupted"
+        assert result["agents"][0]["status"] == "interrupted"
 
     @pytest.mark.asyncio
     async def test_read_events_from_active_file(self, temp_journal):
