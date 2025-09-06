@@ -173,3 +173,4 @@ Guide for updating:
 - Centralized all agent spawning through the Cortex service for proper event tracking and management
 - Updated documentation to clarify Cortex as the central agent manager
 - Removed references to direct `think-agents` invocation from documentation
+- Removed redundant `test_openai_backend_multi_turn` test that duplicated basic functionality after simplification
