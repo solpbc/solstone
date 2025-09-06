@@ -175,3 +175,6 @@ Guide for updating:
 - Removed references to direct `think-agents` invocation from documentation
 - Removed redundant `test_openai_backend_multi_turn` test that duplicated basic functionality after simplification
 - Added comprehensive integration test suite for Cortex service (`tests/integration/test_cortex.py`) with streaming event verification
+- Added date range filtering support to `think.indexer.transcripts.search_transcripts()` with `start_date` and `end_date` parameters
+- Updated MCP tools `search_transcripts` to support date range queries alongside single day searches
+- Made `day` parameter optional in MCP `search_transcripts` tool to allow searching across all days or date ranges

@@ -87,18 +87,24 @@ def search_summaries(
 
 @mcp.tool
 def search_transcripts(
-    query: str, day: str, limit: int = 5, offset: int = 0
+    query: str,
+    day: str | None = None,
+    start_date: str | None = None,
+    end_date: str | None = None,
+    limit: int = 5,
+    offset: int = 0,
 ) -> dict[str, Any]:
-    """Search raw transcripts and screen diffs for a specific day.
+    """Search raw transcripts and screen diffs for a specific day or date range.
 
     This tool scans raw audio transcripts (``*_audio.json``) and screenshot
-    diffs (``*_diff.json``) produced throughout the day. Use it when you need
-    to recall exact wording, short snippets, or visual context from a given
-    date.
+    diffs (``*_diff.json``) produced throughout the day(s). Use it when you need
+    to recall exact wording, short snippets, or visual context from given dates.
 
     Args:
         query: Natural language search query (e.g., "error message")
-        day: Day folder to search in ``YYYYMMDD`` format
+        day: Optional specific day to search in ``YYYYMMDD`` format
+        start_date: Optional start date for range search in ``YYYYMMDD`` format
+        end_date: Optional end date for range search in ``YYYYMMDD`` format
         limit: Optional maximum number of results to return (default: 5, max: 20)
         offset: Optional number of results to skip for pagination (default: 0)
 
@@ -107,15 +113,21 @@ def search_transcripts(
         - total: Total number of matching raw entries
         - limit: Current limit value used for this query
         - offset: Current offset value used for this query
-        - results: List of entries with day, time, type, and text snippet, ordered by time series in the given range
+        - results: List of entries with day, time, type, and text snippet
 
     Examples:
         - search_transcripts("error message", day="20240101")
-        - search_transcripts("feature flag", day="20240102", limit=10)
+        - search_transcripts("feature flag", start_date="20240101", end_date="20240107")
+        - search_transcripts("bug fix")  # searches all days
     """
     try:
         total, results = search_transcripts_impl(
-            query, limit=limit, offset=offset, day=day
+            query,
+            limit=limit,
+            offset=offset,
+            day=day,
+            start_date=start_date,
+            end_date=end_date,
         )
 
         items = []

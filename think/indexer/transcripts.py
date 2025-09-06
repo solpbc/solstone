@@ -146,6 +146,8 @@ def search_transcripts(
     limit: int = 5,
     offset: int = 0,
     day: str | None = None,
+    start_date: str | None = None,
+    end_date: str | None = None,
     source: str | None = None,
 ) -> tuple[int, List[Dict[str, str]]]:
     """Search transcript indexes and return total count and results.
@@ -153,6 +155,9 @@ def search_transcripts(
     If ``day`` is provided only that day's index is searched and results are
     ordered chronologically. Otherwise all available per-day indexes are
     queried and results are ordered by relevance.
+    
+    If ``start_date`` and ``end_date`` are provided, only days within that
+    range are searched (format: YYYYMMDD).
 
     If ``source`` is provided, results are filtered to only that source.
     """
@@ -164,7 +169,20 @@ def search_transcripts(
     if not journal:
         raise RuntimeError("JOURNAL_PATH not set")
 
-    days = [day] if day else sorted(find_day_dirs(journal))
+    # Determine which days to search
+    if day:
+        days = [day]
+    else:
+        all_days = sorted(find_day_dirs(journal))
+        # Filter by date range if provided
+        if start_date and end_date:
+            days = [d for d in all_days if start_date <= d <= end_date]
+        elif start_date:  # Only start date
+            days = [d for d in all_days if d >= start_date]
+        elif end_date:  # Only end date
+            days = [d for d in all_days if d <= end_date]
+        else:
+            days = all_days
     for d in days:
         conn, _ = get_index(index="transcripts", day=d)
         db = sqlite_utils.Database(conn)

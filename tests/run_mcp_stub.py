@@ -38,7 +38,7 @@ def stub_search_summaries(query, limit=5, offset=0, *, topic=None):
     return 1, [{"text": "hello", "metadata": {"day": "20240101", "topic": "foo.md"}}]
 
 
-def stub_search_transcripts(query, limit=5, offset=0, day=None):
+def stub_search_transcripts(query, limit=5, offset=0, day=None, start_date=None, end_date=None, source=None):
     log_call(f"raws:{query}:{day}:{limit}:{offset}")
     return 1, [
         {
