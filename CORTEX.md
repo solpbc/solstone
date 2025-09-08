@@ -7,13 +7,13 @@ The Cortex system manages AI agent execution through a file-based architecture. 
 ### Event Flow
 1. **Request Creation**: Client writes spawn request to `<timestamp>_pending.jsonl`
 2. **Agent Activation**: Client renames file to `<timestamp>_active.jsonl` (atomic handoff)
-3. **Agent Spawning**: Cortex detects new active file via inotify and spawns agent process
+3. **Agent Spawning**: Cortex detects new active file via watchdog and spawns agent process
 4. **Event Emission**: Agents write JSON events to stdout (captured by Cortex)
 5. **Event Storage**: Cortex appends events to the active JSONL file with timestamps
 6. **Agent Completion**: Cortex renames file to `<timestamp>.jsonl` when agent finishes
 
 ### Key Components
-- **File Watching**: Cortex uses inotify to monitor for new `*_active.jsonl` files
+- **File Watching**: Cortex uses watchdog to monitor for new `*_active.jsonl` files
 - **Process Management**: Spawns agent subprocesses via the `think-agents` command
 - **Event Capture**: Monitors agent stdout/stderr and appends to JSONL files
 - **Atomic Operations**: File renames provide race-free state transitions

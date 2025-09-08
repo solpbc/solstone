@@ -47,7 +47,6 @@ is loaded automatically by most commands.
 When HTTP services start up, they write their active URIs to files in the journal's `agents/` directory for automated discovery:
 
 - `think-mcp-tools --transport http` writes to `<journal>/agents/mcp.uri` (default: `http://127.0.0.1:6270/mcp/`)
-- `think-cortex` writes to `<journal>/agents/cortex.uri` (default: `ws://127.0.0.1:2468/ws/cortex`)
 
 These URI files allow other components to automatically discover running services without hardcoded addresses.
 

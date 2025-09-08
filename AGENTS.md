@@ -96,12 +96,6 @@ os.environ["JOURNAL_PATH"] = "fixtures/journal"
 
 ---
 
-## 🔍 Service Discovery
-
-Services write URIs at startup: `agents/cortex.uri`, `agents/mcp.uri`. Check these files for service endpoints.
-
----
-
 ## 💻 Coding Standards & Style
 
 ### Language & Tools
