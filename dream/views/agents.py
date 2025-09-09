@@ -154,7 +154,6 @@ def agents_historical() -> object:
 
 @bp.route("/agents/api/list")
 def agents_list() -> object:
-    """Get list of agents - unified implementation using CortexClient."""
     # Get type parameter (live, historical, or all)
     agent_type = request.args.get("type", "all")
     return _get_agents_list(agent_type)

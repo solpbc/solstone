@@ -204,3 +204,7 @@ Guide for updating:
 - Fixed Dream agents view JavaScript filtering by non-existent `is_live` field, changed to use `status === 'running'`
 - Enhanced `cortex_agents()` function to extract prompt, model (from backend), and runtime_seconds fields for frontend display
 - Fixed timestamp display showing negative seconds by converting milliseconds to seconds before passing to `time_since()`
+- Updated `think/supervisor.py` to use new `cortex_request()` function instead of deprecated `CortexClient` class
+- Converted `spawn_scheduled_agents()` from async to synchronous, removing unnecessary asyncio usage
+- Updated `think/README.md` documentation to reflect new cortex_client function-based API
+- Fixed test mocks in `test_supervisor_schedule.py` to match the new cortex_client interface

@@ -1,13 +1,13 @@
 """Test supervisor scheduling functionality."""
 
-from unittest.mock import AsyncMock, Mock, patch
+from unittest.mock import Mock, patch
 
 from think.supervisor import spawn_scheduled_agents
 
 
-@patch("think.supervisor.CortexClient")
+@patch("think.supervisor.cortex_request")
 @patch("think.supervisor.get_personas")
-def test_spawn_scheduled_agents(mock_get_personas, mock_cortex_client_class):
+def test_spawn_scheduled_agents(mock_get_personas, mock_cortex_request):
     """Test that scheduled agents are spawned correctly via Cortex."""
     # Mock personas with one scheduled and one not
     mock_get_personas.return_value = {
@@ -25,32 +25,27 @@ def test_spawn_scheduled_agents(mock_get_personas, mock_cortex_client_class):
         },
     }
 
-    # Mock the CortexClient instance
-    mock_client = AsyncMock()
-    mock_cortex_client_class.return_value.__aenter__.return_value = mock_client
-    mock_cortex_client_class.return_value.__aexit__.return_value = None
-
-    # Mock spawn to return agent IDs
-    mock_client.spawn.side_effect = ["agent_123", "agent_456"]
+    # Mock cortex_request to return file paths
+    mock_cortex_request.side_effect = [
+        "/test/journal/agents/123456789_active.jsonl",
+        "/test/journal/agents/987654321_active.jsonl",
+    ]
 
     # Call the function
     spawn_scheduled_agents("/test/journal")
 
-    # Should have created CortexClient with correct journal path
-    mock_cortex_client_class.assert_called_once_with(journal_path="/test/journal")
-
     # Should spawn 2 agents (todo and another_daily)
-    assert mock_client.spawn.call_count == 2
+    assert mock_cortex_request.call_count == 2
 
-    # Check first spawn call (todo)
-    first_call = mock_client.spawn.call_args_list[0]
+    # Check first request call (todo)
+    first_call = mock_cortex_request.call_args_list[0]
     assert first_call[1]["persona"] == "todo"
     assert first_call[1]["backend"] == "openai"
     assert first_call[1]["config"] == {"model": "gpt-4"}
     assert "Running daily scheduled task for todo" in first_call[1]["prompt"]
 
-    # Check second spawn call (another_daily)
-    second_call = mock_client.spawn.call_args_list[1]
+    # Check second request call (another_daily)
+    second_call = mock_cortex_request.call_args_list[1]
     assert second_call[1]["persona"] == "another_daily"
     assert second_call[1]["backend"] == "openai"  # default
     assert second_call[1]["config"] == {}  # no model specified

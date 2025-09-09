@@ -1,5 +1,4 @@
 import argparse
-import asyncio
 import logging
 import os
 import subprocess
@@ -8,7 +7,7 @@ import time
 from datetime import datetime
 from pathlib import Path
 
-from think.cortex_client import CortexClient
+from think.cortex_client import cortex_request
 from think.utils import get_personas, setup_cli
 
 DEFAULT_THRESHOLD = 90
@@ -59,35 +58,31 @@ def run_process_day() -> bool:
 
 def spawn_scheduled_agents(journal: str) -> None:
     """Spawn agents that have schedule:daily in their metadata."""
+    try:
+        personas = get_personas()
+        for persona_id, metadata in personas.items():
+            config = metadata.get("config", {})
+            if config.get("schedule") == "daily":
+                logging.info(f"Spawning scheduled agent: {persona_id}")
 
-    async def _spawn():
-        try:
-            personas = get_personas()
-            async with CortexClient(journal_path=journal) as client:
-                for persona_id, metadata in personas.items():
-                    config = metadata.get("config", {})
-                    if config.get("schedule") == "daily":
-                        logging.info(f"Spawning scheduled agent: {persona_id}")
+                # Prepare agent config
+                agent_config = {}
+                if "model" in config:
+                    agent_config["model"] = config["model"]
 
-                        # Prepare agent config
-                        agent_config = {}
-                        if "model" in config:
-                            agent_config["model"] = config["model"]
+                # Spawn via Cortex
+                request_file = cortex_request(
+                    prompt=f"Running daily scheduled task for {persona_id}",
+                    persona=persona_id,
+                    backend=config.get("backend", "openai"),
+                    config=agent_config,
+                )
 
-                        # Spawn via Cortex
-                        agent_id = await client.spawn(
-                            prompt=f"Running daily scheduled task for {persona_id}",
-                            persona=persona_id,
-                            backend=config.get("backend", "openai"),
-                            config=agent_config,
-                        )
-
-                        logging.info(f"Started {persona_id} agent (ID: {agent_id})")
-        except Exception as e:
-            logging.error(f"Failed to spawn scheduled agents: {e}")
-
-    # Run the async function
-    asyncio.run(_spawn())
+                # Extract agent_id from the filename
+                agent_id = Path(request_file).stem.replace("_active", "")
+                logging.info(f"Started {persona_id} agent (ID: {agent_id})")
+    except Exception as e:
+        logging.error(f"Failed to spawn scheduled agents: {e}")
 
 
 def start_runners(

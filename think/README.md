@@ -87,18 +87,30 @@ WantedBy=timers.target
 
 The Cortex service (`think-cortex`) is the central system for managing AI agent instances. It monitors the journal's `agents/` directory for new requests and manages agent execution. All agent spawning should go through Cortex for proper event tracking and management.
 
-To spawn agents programmatically, use the `CortexClient`:
+To spawn agents programmatically, use the cortex_client functions:
 
 ```python
-from think.cortex_client import CortexClient
+from think.cortex_client import cortex_run, cortex_request, cortex_watch
 
-async with CortexClient() as client:
-    agent_id = await client.spawn(
-        prompt="Your task here",
-        persona="default",
-        backend="openai"  # or "google", "anthropic", "claude"
-    )
-    result = await client.wait_for_completion(agent_id)
+# Simple synchronous run
+result = cortex_run(
+    prompt="Your task here",
+    persona="default",
+    backend="openai"  # or "google", "anthropic", "claude"
+)
+
+# Or create a request and watch for events
+request_file = cortex_request(
+    prompt="Your task here",
+    persona="default",
+    backend="openai"
+)
+
+# Watch for all agent events
+def on_event(event):
+    print(f"Event: {event['event']}")
+    
+cortex_watch(on_event)
 ```
 
 ### Direct CLI Usage (Testing Only)
@@ -146,13 +158,17 @@ returns a dictionary keyed by topic name. Each entry contains:
 
 Cortex is the central agent management system that all agent spawning should go through. See [CORTEX.md](/CORTEX.md) for complete documentation of the Cortex WebSocket API and agent event structures.
 
-### Using CortexClient
+### Using cortex_client
 
-The `think.cortex_client` module provides a Python client for interacting with Cortex:
+The `think.cortex_client` module provides functions for interacting with Cortex:
 
 ```python
-from think.cortex_client import run_agent
+from think.cortex_client import cortex_run, cortex_agents
 
-# Simple helper for one-shot agent runs
-result = await run_agent("Your prompt", persona="default", backend="openai")
+# Simple synchronous agent run
+result = cortex_run("Your prompt", persona="default", backend="openai")
+
+# List running and completed agents
+agents_info = cortex_agents(limit=10, agent_type="live")
+print(f"Found {agents_info['live_count']} running agents")
 ```
