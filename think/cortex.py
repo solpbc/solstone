@@ -132,6 +132,7 @@ class CortexService:
             with open(file_path, "r") as f:
                 first_line = f.readline()
                 if not first_line:
+                    self._write_error_and_complete(file_path, "Empty request file")
                     self.logger.error(f"Empty request file: {file_path}")
                     return
 
@@ -139,27 +140,21 @@ class CortexService:
 
             # Validate request format
             if request.get("event") != "request":
+                self._write_error_and_complete(file_path, "Invalid request format")
                 self.logger.error(
                     f"Invalid request format in {file_path}: missing 'request' event"
                 )
                 return
 
-            # Extract request parameters
-            prompt = request.get("prompt", "")
-            backend = request.get("backend", "openai")
-            persona = request.get("persona", "default")
-            config = request.get("config", {})
-            handoff_from = request.get("handoff_from")
-
+            # Validate prompt early
+            prompt = request.get("prompt")
             if not prompt:
                 self.logger.error(f"Empty prompt in request {agent_id}")
                 self._write_error_and_complete(file_path, "Empty prompt in request")
                 return
 
-            # Spawn the agent process
-            self._spawn_agent(
-                agent_id, file_path, prompt, backend, persona, config, handoff_from
-            )
+            # Spawn the agent process with the full request object
+            self._spawn_agent(agent_id, file_path, request)
 
         except json.JSONDecodeError as e:
             self.logger.error(f"Invalid JSON in request file {file_path}: {e}")
@@ -172,25 +167,12 @@ class CortexService:
         self,
         agent_id: str,
         file_path: Path,
-        prompt: str,
-        backend: str,
-        persona: str,
-        config: Dict[str, Any],
-        handoff_from: Optional[str] = None,
+        request: Dict[str, Any],
     ) -> None:
-        """Spawn an agent subprocess and monitor its output."""
+        """Spawn an agent subprocess and monitor its output using the provided request."""
         try:
-            # Build NDJSON input for the agent
-            ndjson_request = {
-                "prompt": prompt,
-                "backend": backend,
-                "persona": persona,
-                "config": config,
-            }
-            if handoff_from:
-                ndjson_request["handoff_from"] = handoff_from
-
-            ndjson_input = json.dumps(ndjson_request)
+            # Pass the full request through to the agent as NDJSON
+            ndjson_input = json.dumps(request)
 
             # Prepare environment
             env = os.environ.copy()

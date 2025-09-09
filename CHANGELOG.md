@@ -182,3 +182,8 @@ Guide for updating:
 ## 2025-09-07
 
 - Enhanced Cortex service to clean up stale active agent files on startup, marking them as failed due to unexpected shutdown
+
+## 2025-09-08
+
+- Added `cortex_request()` function to `think/cortex_client.py` for creating Cortex agent request files
+- Enhanced `think/cortex.py` to validate request files and handle errors more gracefully before spawning agents
