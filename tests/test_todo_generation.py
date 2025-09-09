@@ -24,20 +24,21 @@ def client(app):
     return app.test_client()
 
 
-def test_todo_generation_endpoint(client, monkeypatch):
+def test_todo_generation_endpoint(client, monkeypatch, tmp_path):
     """Test the TODO generation endpoint."""
     # Set journal root
-    journal_root = "/tmp/test_journal"
+    journal_root = tmp_path / "test_journal"
+    journal_root.mkdir()
+    agents_dir = journal_root / "agents"
+    agents_dir.mkdir()
+    
     import dream.state as dream_state
+    monkeypatch.setattr(dream_state, "journal_root", str(journal_root))
+    monkeypatch.setenv("JOURNAL_PATH", str(journal_root))
 
-    monkeypatch.setattr(dream_state, "journal_root", journal_root)
-
-    # Mock cortex client
-    mock_client = MagicMock()
-    mock_client.spawn_agent.return_value = "test_agent_123"
-
-    with patch("dream.cortex_utils.get_global_cortex_client") as mock_get_client:
-        mock_get_client.return_value = mock_client
+    # Mock cortex_request to return a fake active file
+    with patch("think.cortex_client.cortex_request") as mock_request:
+        mock_request.return_value = str(agents_dir / "test_agent_123_active.jsonl")
 
         # Test generation request
         response = client.post("/calendar/20250101/todos/generate")
@@ -47,9 +48,9 @@ def test_todo_generation_endpoint(client, monkeypatch):
         assert data["agent_id"] == "test_agent_123"
         assert data["status"] == "started"
 
-        # Verify spawn_agent was called with correct parameters
-        mock_client.spawn_agent.assert_called_once()
-        call_args = mock_client.spawn_agent.call_args
+        # Verify cortex_request was called with correct parameters
+        mock_request.assert_called_once()
+        call_args = mock_request.call_args
         assert call_args.kwargs["persona"] == "todo"
         assert "20250101" in call_args.kwargs["prompt"]
 
@@ -66,6 +67,7 @@ def test_todo_generation_status_endpoint(client, monkeypatch, tmp_path):
     import dream.state as dream_state
 
     monkeypatch.setattr(dream_state, "journal_root", str(journal_root))
+    monkeypatch.setenv("JOURNAL_PATH", str(journal_root))
 
     # Clear any state from previous tests
     if hasattr(dream_state, "todo_generation_agents"):
@@ -78,22 +80,18 @@ def test_todo_generation_status_endpoint(client, monkeypatch, tmp_path):
     assert data["status"] == "none"
     assert data["agent_id"] is None
 
-    # Test status with agent_id parameter (running)
-    mock_client = MagicMock()
-    mock_client.list_agents.return_value = {
-        "agents": [{"id": "test_agent_123", "status": "running"}]
-    }
-
-    with patch("dream.cortex_utils.get_global_cortex_client") as mock_get_client:
-        mock_get_client.return_value = mock_client
-
-        response = client.get(
-            "/calendar/20250101/todos/generation-status?agent_id=test_agent_123"
-        )
-        assert response.status_code == 200
-        data = json.loads(response.data)
-        assert data["status"] == "running"
-        assert data["agent_id"] == "test_agent_123"
+    # Test status with agent_id parameter (running - active file exists)
+    active_file = agents_dir / "test_agent_123_active.jsonl"
+    # Write a proper request event as first line
+    active_file.write_text('{"event": "request", "ts": 1234567890, "prompt": "test", "persona": "todo", "backend": "openai"}\n')
+    
+    response = client.get(
+        "/calendar/20250101/todos/generation-status?agent_id=test_agent_123"
+    )
+    assert response.status_code == 200
+    data = json.loads(response.data)
+    assert data["status"] == "running"
+    assert data["agent_id"] == "test_agent_123"
 
     # Test status when agent is finished (create agent file)
     agent_file = agents_dir / "test_agent_123.jsonl"
@@ -121,15 +119,15 @@ def test_todo_generation_no_cortex(client, monkeypatch):
     import dream.state as dream_state
 
     monkeypatch.setattr(dream_state, "journal_root", "/tmp/test_journal")
+    # Don't set JOURNAL_PATH to trigger error
+    monkeypatch.delenv("JOURNAL_PATH", raising=False)
 
-    with patch("dream.cortex_utils.get_global_cortex_client") as mock_get_client:
-        mock_get_client.return_value = None
-
-        response = client.post("/calendar/20250101/todos/generate")
-        assert response.status_code == 503
-        data = json.loads(response.data)
-        assert "error" in data
-        assert "Cortex service not available" in data["error"]
+    # The cortex_request will raise ValueError when JOURNAL_PATH is not set
+    response = client.post("/calendar/20250101/todos/generate")
+    assert response.status_code == 500
+    data = json.loads(response.data)
+    assert "error" in data
+    assert "Failed to spawn agent" in data["error"]
 
 
 def test_todo_update_adds_timestamp(client, monkeypatch, tmp_path):

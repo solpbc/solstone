@@ -72,9 +72,11 @@ def test_process_existing_active_files(cortex_service, mock_journal):
     }
     active_file.write_text(json.dumps(request) + "\n")
 
-    with patch.object(cortex_service, "_handle_active_file") as mock_handle:
+    with patch.object(cortex_service, "_write_error_and_complete") as mock_error:
         cortex_service._process_existing_active_files()
-        mock_handle.assert_called_once_with("123456789", active_file)
+        # Now it writes error and completes for stale files
+        mock_error.assert_called_once()
+        assert "Cortex service shutdown" in mock_error.call_args[0][1]
 
 
 def test_handle_active_file_valid_request(cortex_service, mock_journal):
@@ -94,14 +96,11 @@ def test_handle_active_file_valid_request(cortex_service, mock_journal):
 
     with patch.object(cortex_service, "_spawn_agent") as mock_spawn:
         cortex_service._handle_active_file(agent_id, file_path)
+        # Now it passes the full request object
         mock_spawn.assert_called_once_with(
             agent_id,
             file_path,
-            "Test prompt",
-            "openai",
-            "default",
-            {"model": "gpt-4"},
-            None,
+            request,
         )
 
 
@@ -170,14 +169,19 @@ def test_spawn_agent(mock_thread, mock_popen, cortex_service, mock_journal):
     agent_id = "123456789"
     file_path = mock_journal / "agents" / f"{agent_id}_active.jsonl"
 
+    request = {
+        "event": "request",
+        "ts": 123456789,
+        "prompt": "Test prompt",
+        "backend": "openai",
+        "persona": "default",
+        "config": {"model": "gpt-4"},
+    }
+
     cortex_service._spawn_agent(
         agent_id,
         file_path,
-        "Test prompt",
-        "openai",
-        "default",
-        {"model": "gpt-4"},
-        None,
+        request,
     )
 
     # Check subprocess was called
@@ -192,6 +196,7 @@ def test_spawn_agent(mock_thread, mock_popen, cortex_service, mock_journal):
     mock_process.stdin.write.assert_called_once()
     written_data = mock_process.stdin.write.call_args[0][0]
     ndjson = json.loads(written_data.strip())
+    assert ndjson["event"] == "request"
     assert ndjson["prompt"] == "Test prompt"
     assert ndjson["backend"] == "openai"
     assert ndjson["persona"] == "default"
@@ -223,9 +228,18 @@ def test_spawn_agent_with_handoff_from(mock_popen, cortex_service, mock_journal)
     agent_id = "123456789"
     file_path = mock_journal / "agents" / f"{agent_id}_active.jsonl"
 
+    request = {
+        "event": "request",
+        "ts": 123456789,
+        "prompt": "Test",
+        "backend": "openai",
+        "persona": "default",
+        "handoff_from": "parent123",
+    }
+
     with patch("think.cortex.threading.Thread"):
         cortex_service._spawn_agent(
-            agent_id, file_path, "Test", "openai", "default", {}, "parent123"
+            agent_id, file_path, request
         )
 
     # Check handoff_from was included in NDJSON
@@ -341,7 +355,7 @@ def test_monitor_stdout_no_finish_event(cortex_service, mock_journal):
     log_path = mock_journal / "agents" / f"{agent_id}_active.jsonl"
 
     mock_process = MagicMock()
-    mock_process.poll.return_value = 1  # Non-zero exit
+    mock_process.wait.return_value = 1  # Non-zero exit
     mock_process.stdout = StringIO('{"event": "start", "ts": 1234567890}\n')
 
     agent = AgentProcess(agent_id, mock_process, log_path)
@@ -461,25 +475,18 @@ def test_spawn_handoff(cortex_service, mock_journal):
         "max_turns": 5,
     }
 
-    with patch("think.cortex.time.time", return_value=987654321.0):
+    with patch("think.cortex_client.cortex_request") as mock_request:
+        mock_request.return_value = mock_journal / "agents" / "987654321000_active.jsonl"
         cortex_service._spawn_handoff(parent_id, result, handoff)
 
-    # Check pending file was created and renamed to active
-    agent_id = "987654321000"
-    active_path = mock_journal / "agents" / f"{agent_id}_active.jsonl"
-    assert active_path.exists()
-
-    # Check request content
-    content = active_path.read_text()
-    request = json.loads(content)
-    assert request["event"] == "request"
-    assert request["ts"] == 987654321000
-    assert request["prompt"] == result
-    assert request["backend"] == "claude"
-    assert request["persona"] == "matter_editor"
-    assert request["config"]["domain"] == "test"
-    assert request["config"]["max_turns"] == 5
-    assert request["handoff_from"] == parent_id
+        # Check cortex_request was called with correct parameters
+        mock_request.assert_called_once_with(
+            prompt=result,
+            persona="matter_editor",
+            backend="claude",
+            handoff_from=parent_id,
+            config={"domain": "test", "max_turns": 5},
+        )
 
 
 def test_spawn_handoff_with_explicit_prompt(cortex_service, mock_journal):
@@ -491,13 +498,17 @@ def test_spawn_handoff_with_explicit_prompt(cortex_service, mock_journal):
         "prompt": "Review this analysis",  # Explicit prompt
     }
 
-    with patch("think.cortex.time.time", return_value=987654321.0):
+    with patch("think.cortex_client.cortex_request") as mock_request:
         cortex_service._spawn_handoff(parent_id, result, handoff)
 
-    active_path = mock_journal / "agents" / "987654321000_active.jsonl"
-    content = active_path.read_text()
-    request = json.loads(content)
-    assert request["prompt"] == "Review this analysis"  # Uses explicit prompt
+        # Check cortex_request was called with explicit prompt
+        mock_request.assert_called_once_with(
+            prompt="Review this analysis",  # Uses explicit prompt
+            persona="reviewer",
+            backend="openai",
+            handoff_from=parent_id,
+            config=None,
+        )
 
 
 def test_stop_service(cortex_service):
