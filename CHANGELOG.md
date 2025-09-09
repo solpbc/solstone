@@ -214,3 +214,8 @@ Guide for updating:
 - Refactored `tests/integration/test_cortex.py` to use new cortex_client functional API instead of CortexClient class
 - Fixed 8 failing tests in `tests/test_cortex.py` to align with refactored Cortex service that now passes full request objects instead of individual parameters
 - Updated `tests/test_todo_generation.py` to use new `cortex_request()` API and properly set JOURNAL_PATH environment variable
+
+## 2025-09-09
+
+- Fixed test cleanup issue in `tests/integration/test_cortex.py` by using daemon threads and simplifying error handling test to avoid indefinite blocking in watchfiles
+- Updated integration tests to use correct model constants from `think/models.py` for consistency

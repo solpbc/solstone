@@ -64,7 +64,7 @@ def test_google_backend_basic():
         input=ndjson_input,
         capture_output=True,
         text=True,
-        timeout=30,
+        timeout=10,
     )
 
     # Check that the command succeeded
@@ -158,7 +158,7 @@ def test_google_backend_with_thinking():
         input=ndjson_input,
         capture_output=True,
         text=True,
-        timeout=30,
+        timeout=10,
     )
 
     # Allow for model unavailability
@@ -227,7 +227,7 @@ def test_google_backend_with_verbose():
         input=ndjson_input,
         capture_output=True,
         text=True,
-        timeout=30,
+        timeout=10,
     )
 
     # Parse JSON events from stdout
@@ -294,7 +294,7 @@ def test_google_backend_custom_model():
         input=ndjson_input,
         capture_output=True,
         text=True,
-        timeout=30,
+        timeout=10,
     )
 
     assert result.returncode == 0, f"Command failed with stderr: {result.stderr}"

@@ -68,7 +68,7 @@ def test_openai_backend_basic():
         input=ndjson_input,
         capture_output=True,
         text=True,
-        timeout=30,
+        timeout=10,
     )
 
     # Check that the command succeeded
@@ -159,7 +159,7 @@ def test_openai_backend_with_reasoning():
         input=ndjson_input,
         capture_output=True,
         text=True,
-        timeout=30,
+        timeout=10,
     )
 
     assert result.returncode == 0, f"Command failed with stderr: {result.stderr}"
@@ -207,7 +207,7 @@ def test_openai_backend_with_verbose():
             "prompt": "what is 2+2? Just give me the number.",
             "backend": "openai",
             "persona": "default",
-            "config": {"model": "gpt-4o-mini", "max_tokens": 100, "disable_mcp": True},
+            "config": {"model": GPT_5_MINI, "max_tokens": 100, "disable_mcp": True},
         }
     )
 
@@ -219,7 +219,7 @@ def test_openai_backend_with_verbose():
         input=ndjson_input,
         capture_output=True,
         text=True,
-        timeout=30,
+        timeout=10,
     )
 
     # Parse JSON events from stdout
@@ -282,7 +282,7 @@ def test_openai_backend_custom_model():
         input=ndjson_input,
         capture_output=True,
         text=True,
-        timeout=30,
+        timeout=10,
     )
 
     assert result.returncode == 0, f"Command failed with stderr: {result.stderr}"

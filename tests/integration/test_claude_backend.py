@@ -110,7 +110,7 @@ def test_claude_backend_real_sdk():
             input=ndjson_input,
             capture_output=True,
             text=True,
-            timeout=60,  # 60 second timeout for SDK call
+            timeout=10,  # 60 second timeout for SDK call
         )
 
         # Check that the command succeeded
@@ -248,7 +248,7 @@ def test_claude_backend_with_tool_calls():
             input=ndjson_input,
             capture_output=True,
             text=True,
-            timeout=60,
+            timeout=10,
         )
 
         # Clean up test file
@@ -366,7 +366,7 @@ def test_claude_backend_with_thinking():
             input=ndjson_input,
             capture_output=True,
             text=True,
-            timeout=60,
+            timeout=10,
         )
 
         # Check that the command succeeded
