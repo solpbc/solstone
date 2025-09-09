@@ -8,7 +8,7 @@ from threading import Thread
 
 import pytest
 
-from think.cortex_client import cortex_request, cortex_watch, run_agent
+from think.cortex_client import cortex_request, cortex_watch, cortex_run
 
 
 class TestCortexClient:
@@ -514,7 +514,7 @@ class TestCortexClient:
         simulator.start()
         
         # Run the agent
-        result = run_agent(
+        result = cortex_run(
             prompt="Test task",
             persona="default",
             backend="openai",
@@ -559,5 +559,5 @@ class TestCortexClient:
         
         # Run the agent and expect error
         with pytest.raises(RuntimeError, match="Agent error: Something went wrong"):
-            run_agent(prompt="Test task", persona="default", backend="openai")
+            cortex_run(prompt="Test task", persona="default", backend="openai")
 

@@ -158,7 +158,7 @@ def cortex_watch(on_event: Callable[[Dict[str, Any]], Optional[bool]]) -> None:
                 file_positions.pop(path, None)
 
 
-def run_agent(
+def cortex_run(
     prompt: str,
     persona: str = "default",
     backend: str = "openai",
