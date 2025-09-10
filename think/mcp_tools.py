@@ -20,8 +20,11 @@ from think.utils import get_raw_file
 # Create the MCP server
 mcp = FastMCP("sunstone")
 
+# Add annotation hints for all MCP tools
+HINTS = {"readOnlyHint": True, "openWorldHint": False}
 
-@mcp.tool
+
+@mcp.tool(annotations=HINTS)
 def search_summaries(
     query: str,
     limit: int = 5,
@@ -85,7 +88,7 @@ def search_summaries(
         }
 
 
-@mcp.tool
+@mcp.tool(annotations=HINTS)
 def search_transcripts(
     query: str,
     day: str | None = None,
@@ -150,7 +153,7 @@ def search_transcripts(
         }
 
 
-@mcp.tool
+@mcp.tool(annotations=HINTS)
 def search_events(
     query: str,
     limit: int = 5,
@@ -221,7 +224,7 @@ def search_events(
         }
 
 
-@mcp.tool
+@mcp.tool(annotations=HINTS)
 def get_domain(domain: str) -> dict[str, Any]:
     """Get a comprehensive summary of a domain including its metadata, entities, and matters.
 
@@ -273,7 +276,7 @@ def get_domain(domain: str) -> dict[str, Any]:
         }
 
 
-@mcp.tool
+@mcp.tool(annotations=HINTS)
 def send_message(body: str) -> dict[str, Any]:
     """Send a message to the user's inbox for asynchronous communication.
 
@@ -321,7 +324,7 @@ def send_message(body: str) -> dict[str, Any]:
         }
 
 
-@mcp.tool
+@mcp.tool(annotations=HINTS)
 async def get_resource(uri: str) -> object:
     """Return the contents of a journal resource.
 
