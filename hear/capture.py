@@ -189,13 +189,14 @@ class AudioRecorder:
 
     def save_flac(self, flac_bytes, suffix="_audio"):
         """Save the audio to a dated directory."""
+        from think.utils import day_path
+        
         timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
 
         date_part, time_part = timestamp.split("_", 1)
-        day_dir = os.path.join(self.save_dir, date_part)
-        os.makedirs(day_dir, exist_ok=True)
+        day_dir = day_path(date_part)  # Will create if doesn't exist, returns Path
 
-        flac_filepath = os.path.join(day_dir, f"{time_part}_{suffix}.flac")
+        flac_filepath = day_dir / f"{time_part}_{suffix}.flac"
         with open(flac_filepath, "wb") as f:
             f.write(flac_bytes)
         logging.info(f"Saved audio to {flac_filepath}")

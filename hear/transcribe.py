@@ -364,12 +364,14 @@ class Transcriber:
 
         handler.on_created = on_created
 
+        from think.utils import day_path
+        
         self.observer = None
         current_day: Optional[str] = None
         try:
             while True:
                 today_str = datetime.datetime.now().strftime("%Y%m%d")
-                day_dir = self.journal_dir / today_str
+                day_dir = day_path()  # Uses today by default, creates if needed
                 if day_dir.exists() and (current_day != today_str):
                     if self.observer:
                         self.observer.stop()

@@ -235,3 +235,8 @@ Guide for updating:
 - Simplified 9 call sites across the codebase by removing redundant date calculations, Path() conversions, and mkdir() calls
 - Updated callers in `think/cortex.py`, `think/cluster.py`, `dream/views/calendar.py`, `think/ponder.py`, `think/entity_roll.py`, `see/reduce.py`, and `hear/split.py`
 - Fixed test mocks in `tests/test_cortex.py` to patch `think.utils.datetime` instead of `think.cortex.datetime` for proper date mocking
+- Refactored 5 additional locations to use the improved `day_path()` utility for better DRY compliance
+- Updated `see/scan.py` `recent_audio_activity()` to use `day_path()` instead of manual path construction
+- Updated `see/describe.py` `repair_day()` and `start()` methods to use `day_path()` for day directory creation
+- Updated `hear/transcribe.py` `start()` method to use `day_path()` for monitoring loop
+- Updated `hear/capture.py` `save_flac()` method to use `day_path()` for audio file saving

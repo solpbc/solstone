@@ -59,14 +59,16 @@ def save_cache(images):
 
 def recent_audio_activity(journal: str, window: int = 120) -> bool:
     """Return True if an *_audio.json file was modified in the last ``window`` seconds."""
-    day_dir = os.path.join(journal, datetime.datetime.now().strftime("%Y%m%d"))
-    if not os.path.isdir(day_dir):
+    from think.utils import day_path
+    
+    day_dir = day_path()  # Uses today by default, creates if needed, returns Path
+    if not day_dir.exists():
         return False
     cutoff = time.time() - window
     for name in os.listdir(day_dir):
         if not name.endswith("_audio.json"):
             continue
-        path = os.path.join(day_dir, name)
+        path = day_dir / name
         try:
             if os.path.getmtime(path) >= cutoff:
                 return True
