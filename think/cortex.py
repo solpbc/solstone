@@ -267,9 +267,11 @@ class CortexService:
                     # Parse JSON event
                     event = json.loads(line)
 
-                    # Ensure event has timestamp
+                    # Ensure event has timestamp and agent_id
                     if "ts" not in event:
                         event["ts"] = int(time.time() * 1000)
+                    if "agent_id" not in event:
+                        event["agent_id"] = agent.agent_id
 
                     # Append to JSONL file
                     with open(agent.log_path, "a") as f:
@@ -308,6 +310,7 @@ class CortexService:
                         "event": "info",
                         "ts": int(time.time() * 1000),
                         "message": line,
+                        "agent_id": agent.agent_id,
                     }
                     with open(agent.log_path, "a") as f:
                         f.write(json.dumps(info_event) + "\n")
@@ -331,6 +334,7 @@ class CortexService:
                     "ts": int(time.time() * 1000),
                     "error": f"Agent exited with code {exit_code} without finish event",
                     "exit_code": exit_code,
+                    "agent_id": agent.agent_id,
                 }
                 with open(agent.log_path, "a") as f:
                     f.write(json.dumps(error_event) + "\n")
@@ -379,6 +383,7 @@ class CortexService:
                         "error": "Process failed with stderr output",
                         "trace": "\n".join(stderr_lines),
                         "exit_code": exit_code,
+                        "agent_id": agent.agent_id,
                     }
                     try:
                         with open(agent.log_path, "a") as f:
@@ -413,16 +418,17 @@ class CortexService:
     def _write_error_and_complete(self, file_path: Path, error_message: str) -> None:
         """Write an error event to the file and mark it as complete."""
         try:
+            agent_id = file_path.stem.replace("_active", "")
             error_event = {
                 "event": "error",
                 "ts": int(time.time() * 1000),
                 "error": error_message,
+                "agent_id": agent_id,
             }
             with open(file_path, "a") as f:
                 f.write(json.dumps(error_event) + "\n")
 
             # Complete the file
-            agent_id = file_path.stem.replace("_active", "")
             self._complete_agent_file(agent_id, file_path)
         except Exception as e:
             self.logger.error(f"Failed to write error and complete: {e}")

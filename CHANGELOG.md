@@ -307,3 +307,6 @@ Guide for updating:
 - Updated OpenAI backend to use ToolFilterStatic for MCP server-level filtering when tools list provided
 - Modified Anthropic backend to filter MCP tools during conversion to Claude format based on allowed tools list
 - Added warning in Google backend for tool filtering requests as full implementation pending due to SDK limitations
+- Fixed cortex integration tests to align expectations with actual cortex event emission behavior
+- Added agent_id field to all events emitted by cortex for consistent agent tracking across event streams
+- Updated CORTEX.md documentation to reflect that all events include agent_id field added by cortex

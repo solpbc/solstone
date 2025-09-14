@@ -54,7 +54,7 @@ The first line of a request file must be a JSON object with `event: "request"`:
 
 ## Agent Event Format
 
-All subsequent lines are JSON objects with `event` and millisecond `ts` fields. The `ts` field is automatically added by Cortex if not provided by the backend.
+All subsequent lines are JSON objects with `event` and millisecond `ts` fields. The `ts` field is automatically added by Cortex if not provided by the backend. Additionally, Cortex automatically adds an `agent_id` field (matching the timestamp from the filename) to all events for tracking purposes.
 
 ### request
 The initial spawn request (first line of file, written by client).
@@ -62,6 +62,7 @@ The initial spawn request (first line of file, written by client).
 {
   "event": "request",
   "ts": 1234567890123,
+  "agent_id": "1234567890123",
   "prompt": "User's task or question",
   "backend": "openai",
   "persona": "default",
@@ -79,6 +80,7 @@ Emitted when an agent run begins.
 {
   "event": "start",
   "ts": 1234567890123,
+  "agent_id": "1234567890123",
   "persona": "default",
   "model": "gpt-4o"
 }
@@ -90,6 +92,7 @@ Emitted when a tool execution begins.
 {
   "event": "tool_start",
   "ts": 1234567890123,
+  "agent_id": "1234567890123",
   "tool": "search_summaries",
   "args": {"query": "search terms", "limit": 10},
   "call_id": "search_summaries-1"
@@ -102,6 +105,7 @@ Emitted when a tool execution completes.
 {
   "event": "tool_end",
   "ts": 1234567890123,
+  "agent_id": "1234567890123",
   "tool": "search_summaries",
   "args": {"query": "search terms"},
   "result": ["result", "array", "or", "object"],
@@ -115,6 +119,7 @@ Emitted when the model produces reasoning/thinking content (model-dependent, pri
 {
   "event": "thinking",
   "ts": 1234567890123,
+  "agent_id": "1234567890123",
   "summary": "Model's internal reasoning about the task...",
   "model": "o1-mini"
 }
@@ -126,6 +131,7 @@ Emitted when control is handed off to a different agent (multi-agent scenarios).
 {
   "event": "agent_updated",
   "ts": 1234567890123,
+  "agent_id": "1234567890123",
   "agent": "SpecializedAgent"
 }
 ```
@@ -136,6 +142,7 @@ Emitted when the agent run completes successfully.
 {
   "event": "finish",
   "ts": 1234567890123,
+  "agent_id": "1234567890123",
   "result": "Final response text to the user",
   "handoff": {                     // Optional: triggers next agent
     "prompt": "Continue with next task",
@@ -151,6 +158,7 @@ Emitted when an error occurs during execution.
 {
   "event": "error",
   "ts": 1234567890123,
+  "agent_id": "1234567890123",
   "error": "Error message",
   "trace": "Full stack trace..."
 }
@@ -162,6 +170,7 @@ Emitted when non-JSON output is captured from agent stdout.
 {
   "event": "info",
   "ts": 1234567890123,
+  "agent_id": "1234567890123",
   "message": "Non-JSON output line from agent"
 }
 ```
