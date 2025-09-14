@@ -273,3 +273,7 @@ Guide for updating:
 - Added Decision Dossier Agent to analyze yesterday's most consequential decisions for gaps and stakeholder impacts
 - Created `think/agents/decisionalizer.txt` with MCP tool-based research protocol for deep decision analysis
 - Created `think/agents/decisionalizer.json` to schedule daily dossier generation analyzing previous day's decisions
+- Added TODO Review Agent to validate task completion by checking journal evidence
+- Created `think/agents/todo_review.txt` with instructions to search yesterday's journal for completion indicators
+- Created `think/agents/todo_review.json` to run via handoff from TODO generator and update TODO.md with verified completions
+- Modified `think/agents/todo.json` to add handoff configuration that chains to todo_review agent after generation

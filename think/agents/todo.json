@@ -2,5 +2,9 @@
   "title": "TODO Generator",
   "description": "Intelligent daily task list generator that mines journal data and carries forward commitments",
   "schedule": "daily",
-  "save": "TODO.md"
+  "save": "TODO.md",
+  "handoff": {
+    "persona": "todo_review",
+    "prompt": "Please review and update this TODO list by checking journal evidence for completed tasks:\n\n{{result}}"
+  }
 }

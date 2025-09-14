@@ -1,0 +1,5 @@
+{
+  "title": "TODO Review",
+  "description": "Validates task completion status by checking journal evidence and updates TODO.md",
+  "save": "TODO.md"
+}
