@@ -210,6 +210,17 @@ When spawning an agent:
 
 Personas define specialized behaviors, tool usage patterns, and domain expertise. Available personas can be discovered using the `get_agents()` function or by listing files in the `think/agents/` directory.
 
+### Persona Configuration Options
+
+The `.json` file for a persona can include:
+- `backend`: Default backend (openai, google, anthropic, claude)
+- `model`: Default model name for the backend
+- `max_tokens`: Maximum response token limit
+- `tools`: MCP tools configuration (string or array)
+  - String: Tool pack name (e.g., "default", "journal") - expanded via `get_tools()`
+  - Array: Explicit list of tool names (e.g., `["search_summaries", "get_domain"]`)
+  - If omitted, defaults to "default" pack
+
 ## MCP Tools Integration
 
 The Model Context Protocol (MCP) provides tools for agent-journal interaction:

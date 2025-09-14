@@ -298,3 +298,8 @@ Guide for updating:
 - Added timeout increases for Claude SDK operations in integration tests
 - Fixed OpenAI backend tests to properly find finish events in event stream
 - Updated CORTEX.md documentation to clarify config structure and merge behavior
+- Added tool packs system to organize MCP tools into logical groups for agent personas
+- Created TOOL_PACKS dict in think/mcp_tools.py with initial "journal" pack containing all tools
+- Implemented get_tools() function to retrieve tool names by pack with "default" as alias for "journal"
+- Updated CORTEX.md to document new "tools" config option accepting pack names or explicit tool arrays
+- Modified think/cortex.py to expand tool pack strings to arrays before passing to agent backends

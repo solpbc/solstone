@@ -23,6 +23,18 @@ mcp = FastMCP("sunstone")
 # Add annotation hints for all MCP tools
 HINTS = {"readOnlyHint": True, "openWorldHint": False}
 
+# Tool packs - logical groupings of tools
+TOOL_PACKS = {
+    "journal": [
+        "search_summaries",
+        "search_transcripts",
+        "search_events",
+        "get_domain",
+        "send_message",
+        "get_resource",
+    ],
+}
+
 
 @mcp.tool(annotations=HINTS)
 def search_summaries(
@@ -496,6 +508,27 @@ def get_todo(day: str) -> TextResource:
         mime_type="text/markdown",
         text=text,
     )
+
+
+def get_tools(pack: str = "default") -> list[str]:
+    """Get list of tool names for a given pack.
+
+    Args:
+        pack: Name of the tool pack (default: "default" which maps to "journal")
+
+    Returns:
+        List of tool names in the pack
+
+    Raises:
+        KeyError: If pack doesn't exist
+    """
+    # "default" is an alias for "journal"
+    if pack == "default":
+        pack = "journal"
+
+    if pack not in TOOL_PACKS:
+        raise KeyError(f"Unknown tool pack '{pack}'. Available: {list(TOOL_PACKS.keys())}")
+    return TOOL_PACKS[pack]
 
 
 def main() -> None:

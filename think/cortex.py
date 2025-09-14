@@ -160,12 +160,25 @@ class CortexService:
 
             # Load persona and merge with request
             from think.utils import get_agent
+            from think.mcp_tools import get_tools
 
             persona = request.get("persona", "default")
             config = get_agent(persona)
 
             # Merge request into config (request values override persona defaults)
             config.update(request)
+
+            # Expand tools if it's a string (tool pack name)
+            tools_config = config.get("tools")
+            if isinstance(tools_config, str):
+                try:
+                    config["tools"] = get_tools(tools_config)
+                except KeyError as e:
+                    self.logger.warning(f"Invalid tool pack '{tools_config}': {e}, using default")
+                    config["tools"] = get_tools("default")
+            elif tools_config is None:
+                # If no tools specified, use default pack
+                config["tools"] = get_tools("default")
 
             # Spawn the agent process with the merged config
             self._spawn_agent(agent_id, file_path, config)
