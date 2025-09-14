@@ -289,3 +289,6 @@ Guide for updating:
 - Modified supervisor scheduled agents to rely on Cortex for configuration merging
 - Updated web interface to use cortex_client instead of direct agent calls
 - Fixed all tests to work with new unified configuration approach
+- Updated test_agents_ndjson.py tests to mock backend modules directly instead of deleted run_agent function
+- Fixed test_process_day_full.py to expect think-indexer as last command after daily processing rescan addition
+- Applied code formatting with black and isort to maintain code quality standards

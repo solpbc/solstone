@@ -18,6 +18,7 @@ import os
 import subprocess
 import threading
 import time
+
 # Removed datetime - using time.time() instead
 from pathlib import Path
 from typing import Any, Dict, Optional
@@ -458,7 +459,8 @@ class CortexService:
                 backend=handoff_config.get("backend", "openai"),
                 handoff_from=parent_id,
                 config={
-                    k: v for k, v in handoff_config.items()
+                    k: v
+                    for k, v in handoff_config.items()
                     if k not in ["prompt", "persona", "backend", "handoff_from"]
                 },
             )

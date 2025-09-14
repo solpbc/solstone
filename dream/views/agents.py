@@ -326,6 +326,7 @@ def start_agent() -> object:
 
         # Extract agent_id from the filename
         from pathlib import Path
+
         agent_id = Path(request_file).stem.replace("_active", "")
 
         return jsonify({"success": True, "agent_id": agent_id})
@@ -377,9 +378,6 @@ def toggle_topic(topic_id: str) -> object:
         with open(json_path, "w", encoding="utf-8") as f:
             json.dump(topic_config, f, indent=4)
 
-        return jsonify({
-            "success": True,
-            "disabled": topic_config["disabled"]
-        })
+        return jsonify({"success": True, "disabled": topic_config["disabled"]})
     except Exception as e:
         return jsonify({"error": str(e)}), 500

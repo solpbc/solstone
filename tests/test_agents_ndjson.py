@@ -2,8 +2,9 @@
 
 import asyncio
 import json
+import sys
 from io import StringIO
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -24,55 +25,46 @@ def mock_journal(tmp_path, monkeypatch):
     return journal_path
 
 
-@pytest.fixture
-def mock_run_agent(monkeypatch):
-    """Mock the run_agent function."""
+async def mock_run_agent(config, on_event=None):
+    """Mock run_agent function for testing."""
+    # Extract values from config
+    prompt = config.get("prompt", "")
+    backend = config.get("backend", "openai")
+    model = config.get("model", "")
+    persona = config.get("persona", "default")
 
-    async def mock_agent(prompt, **kwargs):
-        # Emit events through the callback if provided
-        on_event = kwargs.get("on_event")
-        if on_event:
-            # Extract model from config if present
-            config = kwargs.get("config", {})
-            model = config.get("model", kwargs.get("model", ""))
-
-            on_event(
-                {
-                    "event": "start",
-                    "prompt": prompt,
-                    "backend": kwargs.get("backend", "openai"),
-                    "model": model,
-                    "persona": kwargs.get("persona", "default"),
-                    "ts": 1234567890,
-                }
-            )
-            on_event(
-                {
-                    "event": "finish",
-                    "result": f"Response to: {prompt}",
-                    "ts": 1234567891,
-                }
-            )
-        return f"Response to: {prompt}"
-
-    monkeypatch.setattr("think.agents.run_agent", mock_agent)
-    return mock_agent
+    # Emit events through the callback if provided
+    if on_event:
+        on_event(
+            {
+                "event": "start",
+                "prompt": prompt,
+                "backend": backend,
+                "model": model,
+                "persona": persona,
+                "ts": 1234567890,
+            }
+        )
+        on_event(
+            {
+                "event": "finish",
+                "result": f"Response to: {prompt}",
+                "ts": 1234567891,
+            }
+        )
+    return f"Response to: {prompt}"
 
 
-def test_ndjson_single_request(mock_journal, mock_run_agent, monkeypatch, capsys):
+def test_ndjson_single_request(mock_journal, monkeypatch, capsys):
     """Test processing a single NDJSON request from stdin."""
-    from think.agents import main_async
-
     # Mock stdin with NDJSON data
     ndjson_input = json.dumps(
         {
             "prompt": "What is 2+2?",
             "backend": "openai",
             "persona": "default",
-            "config": {
-                "model": "gpt-4o",
-                "max_tokens": 100,
-            },
+            "model": "gpt-4o",
+            "max_tokens": 100,
         }
     )
 
@@ -82,8 +74,25 @@ def test_ndjson_single_request(mock_journal, mock_run_agent, monkeypatch, capsys
     mock_args = MagicMock()
     mock_args.verbose = False
 
+    # Create mock backend modules
+    mock_openai = MagicMock()
+    mock_openai.run_agent = mock_run_agent
+
+    # Mock the modules in sys.modules before import
+    monkeypatch.setitem(sys.modules, "think.openai", mock_openai)
+    monkeypatch.setitem(sys.modules, "think.anthropic", MagicMock())
+    monkeypatch.setitem(sys.modules, "think.google", MagicMock())
+    monkeypatch.setitem(sys.modules, "think.claude", MagicMock())
+
+    # Mock agents module to prevent actual imports
+    monkeypatch.setitem(sys.modules, "agents", MagicMock())
+
+    # Now import after mocks are in place
+    from think.agents import main_async
+
     with patch("think.agents.setup_cli", return_value=mock_args):
-        asyncio.run(main_async())
+        with patch("agents.set_default_openai_key"):
+            asyncio.run(main_async())
 
     # Check output events
     captured = capsys.readouterr()
@@ -103,17 +112,15 @@ def test_ndjson_single_request(mock_journal, mock_run_agent, monkeypatch, capsys
     assert "Response to: What is 2+2?" in finish_event["result"]
 
 
-def test_ndjson_multiple_requests(mock_journal, mock_run_agent, monkeypatch, capsys):
+def test_ndjson_multiple_requests(mock_journal, monkeypatch, capsys):
     """Test processing multiple NDJSON requests from stdin."""
-    from think.agents import main_async
-
     # Multiple NDJSON lines
     requests = [
         {"prompt": "First question", "backend": "openai"},
         {
             "prompt": "Second question",
             "backend": "anthropic",
-            "config": {"model": "claude-3"},
+            "model": "claude-3",
         },
         {"prompt": "Third question", "persona": "technical"},
     ]
@@ -125,8 +132,24 @@ def test_ndjson_multiple_requests(mock_journal, mock_run_agent, monkeypatch, cap
     mock_args = MagicMock()
     mock_args.verbose = False
 
+    # Create mock backend modules
+    mock_openai = MagicMock()
+    mock_openai.run_agent = mock_run_agent
+    mock_anthropic = MagicMock()
+    mock_anthropic.run_agent = mock_run_agent
+
+    # Mock the modules in sys.modules before import
+    monkeypatch.setitem(sys.modules, "think.openai", mock_openai)
+    monkeypatch.setitem(sys.modules, "think.anthropic", mock_anthropic)
+    monkeypatch.setitem(sys.modules, "think.google", MagicMock())
+    monkeypatch.setitem(sys.modules, "think.claude", MagicMock())
+    monkeypatch.setitem(sys.modules, "agents", MagicMock())
+
+    from think.agents import main_async
+
     with patch("think.agents.setup_cli", return_value=mock_args):
-        asyncio.run(main_async())
+        with patch("agents.set_default_openai_key"):
+            asyncio.run(main_async())
 
     captured = capsys.readouterr()
     lines = [line for line in captured.out.strip().split("\n") if line]
@@ -146,10 +169,8 @@ def test_ndjson_multiple_requests(mock_journal, mock_run_agent, monkeypatch, cap
     assert start_events[2]["persona"] == "technical"
 
 
-def test_ndjson_invalid_json(mock_journal, mock_run_agent, monkeypatch, capsys):
+def test_ndjson_invalid_json(mock_journal, monkeypatch, capsys):
     """Test handling of invalid JSON in NDJSON input."""
-    from think.agents import main_async
-
     # Mix of valid and invalid JSON
     ndjson_input = """{"prompt": "Valid request"}
 not valid json
@@ -160,8 +181,22 @@ not valid json
     mock_args = MagicMock()
     mock_args.verbose = False
 
+    # Create mock backend modules
+    mock_openai = MagicMock()
+    mock_openai.run_agent = mock_run_agent
+
+    # Mock the modules in sys.modules before import
+    monkeypatch.setitem(sys.modules, "think.openai", mock_openai)
+    monkeypatch.setitem(sys.modules, "think.anthropic", MagicMock())
+    monkeypatch.setitem(sys.modules, "think.google", MagicMock())
+    monkeypatch.setitem(sys.modules, "think.claude", MagicMock())
+    monkeypatch.setitem(sys.modules, "agents", MagicMock())
+
+    from think.agents import main_async
+
     with patch("think.agents.setup_cli", return_value=mock_args):
-        asyncio.run(main_async())
+        with patch("agents.set_default_openai_key"):
+            asyncio.run(main_async())
 
     captured = capsys.readouterr()
     lines = [line for line in captured.out.strip().split("\n") if line]
@@ -178,14 +213,12 @@ not valid json
     assert len(start_events) == 2
 
 
-def test_ndjson_missing_prompt(mock_journal, mock_run_agent, monkeypatch, capsys):
+def test_ndjson_missing_prompt(mock_journal, monkeypatch, capsys):
     """Test handling of NDJSON request without required 'prompt' field."""
-    from think.agents import main_async
-
     ndjson_input = json.dumps(
         {
             "backend": "openai",
-            "config": {"model": "gpt-4o"},
+            "model": "gpt-4o",
             # Missing 'prompt' field
         }
     )
@@ -195,8 +228,18 @@ def test_ndjson_missing_prompt(mock_journal, mock_run_agent, monkeypatch, capsys
     mock_args = MagicMock()
     mock_args.verbose = False
 
+    # Mock the modules in sys.modules before import
+    monkeypatch.setitem(sys.modules, "think.openai", MagicMock())
+    monkeypatch.setitem(sys.modules, "think.anthropic", MagicMock())
+    monkeypatch.setitem(sys.modules, "think.google", MagicMock())
+    monkeypatch.setitem(sys.modules, "think.claude", MagicMock())
+    monkeypatch.setitem(sys.modules, "agents", MagicMock())
+
+    from think.agents import main_async
+
     with patch("think.agents.setup_cli", return_value=mock_args):
-        asyncio.run(main_async())
+        with patch("agents.set_default_openai_key"):
+            asyncio.run(main_async())
 
     captured = capsys.readouterr()
     lines = [line for line in captured.out.strip().split("\n") if line]
@@ -208,10 +251,8 @@ def test_ndjson_missing_prompt(mock_journal, mock_run_agent, monkeypatch, capsys
     assert "Missing 'prompt'" in error_event["error"]
 
 
-def test_ndjson_empty_lines(mock_journal, mock_run_agent, monkeypatch, capsys):
+def test_ndjson_empty_lines(mock_journal, monkeypatch, capsys):
     """Test that empty lines in NDJSON input are ignored."""
-    from think.agents import main_async
-
     ndjson_input = """{"prompt": "First"}
 
 {"prompt": "Second"}
@@ -223,8 +264,22 @@ def test_ndjson_empty_lines(mock_journal, mock_run_agent, monkeypatch, capsys):
     mock_args = MagicMock()
     mock_args.verbose = False
 
+    # Create mock backend modules
+    mock_openai = MagicMock()
+    mock_openai.run_agent = mock_run_agent
+
+    # Mock the modules in sys.modules before import
+    monkeypatch.setitem(sys.modules, "think.openai", mock_openai)
+    monkeypatch.setitem(sys.modules, "think.anthropic", MagicMock())
+    monkeypatch.setitem(sys.modules, "think.google", MagicMock())
+    monkeypatch.setitem(sys.modules, "think.claude", MagicMock())
+    monkeypatch.setitem(sys.modules, "agents", MagicMock())
+
+    from think.agents import main_async
+
     with patch("think.agents.setup_cli", return_value=mock_args):
-        asyncio.run(main_async())
+        with patch("agents.set_default_openai_key"):
+            asyncio.run(main_async())
 
     captured = capsys.readouterr()
     lines = [line for line in captured.out.strip().split("\n") if line]
@@ -236,10 +291,8 @@ def test_ndjson_empty_lines(mock_journal, mock_run_agent, monkeypatch, capsys):
     assert len(start_events) == 2
 
 
-def test_default_values(mock_journal, mock_run_agent, monkeypatch, capsys):
+def test_default_values(mock_journal, monkeypatch, capsys):
     """Test that default values are applied when not specified."""
-    from think.agents import main_async
-
     # Minimal request with only prompt
     ndjson_input = json.dumps({"prompt": "Test prompt"})
 
@@ -248,8 +301,22 @@ def test_default_values(mock_journal, mock_run_agent, monkeypatch, capsys):
     mock_args = MagicMock()
     mock_args.verbose = False
 
+    # Create mock backend modules
+    mock_openai = MagicMock()
+    mock_openai.run_agent = mock_run_agent
+
+    # Mock the modules in sys.modules before import
+    monkeypatch.setitem(sys.modules, "think.openai", mock_openai)
+    monkeypatch.setitem(sys.modules, "think.anthropic", MagicMock())
+    monkeypatch.setitem(sys.modules, "think.google", MagicMock())
+    monkeypatch.setitem(sys.modules, "think.claude", MagicMock())
+    monkeypatch.setitem(sys.modules, "agents", MagicMock())
+
+    from think.agents import main_async
+
     with patch("think.agents.setup_cli", return_value=mock_args):
-        asyncio.run(main_async())
+        with patch("agents.set_default_openai_key"):
+            asyncio.run(main_async())
 
     captured = capsys.readouterr()
     lines = captured.out.strip().split("\n")
@@ -261,10 +328,8 @@ def test_default_values(mock_journal, mock_run_agent, monkeypatch, capsys):
     assert start_event["persona"] == "default"  # Default persona
 
 
-def test_openai_key_setting(mock_journal, mock_run_agent, monkeypatch, capsys):
+def test_openai_key_setting(mock_journal, monkeypatch, capsys):
     """Test that OpenAI API key is set when backend is openai."""
-    from think.agents import main_async
-
     monkeypatch.setenv("OPENAI_API_KEY", "test-key-123")
 
     ndjson_input = json.dumps({"prompt": "Test", "backend": "openai"})
@@ -273,6 +338,19 @@ def test_openai_key_setting(mock_journal, mock_run_agent, monkeypatch, capsys):
 
     mock_args = MagicMock()
     mock_args.verbose = False
+
+    # Create mock backend modules
+    mock_openai = MagicMock()
+    mock_openai.run_agent = mock_run_agent
+
+    # Mock the modules in sys.modules before import
+    monkeypatch.setitem(sys.modules, "think.openai", mock_openai)
+    monkeypatch.setitem(sys.modules, "think.anthropic", MagicMock())
+    monkeypatch.setitem(sys.modules, "think.google", MagicMock())
+    monkeypatch.setitem(sys.modules, "think.claude", MagicMock())
+    monkeypatch.setitem(sys.modules, "agents", MagicMock())
+
+    from think.agents import main_async
 
     mock_set_key = MagicMock()
 

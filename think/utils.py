@@ -291,6 +291,7 @@ def get_agent(persona: str = "default") -> dict:
 
         # Add domains to agent instructions
         from think.domains import get_domains
+
         try:
             domains = get_domains()
             if domains:
@@ -305,6 +306,7 @@ def get_agent(persona: str = "default") -> dict:
     now = datetime.now()
     try:
         import tzlocal
+
         local_tz = tzlocal.get_localzone()
         now_local = now.astimezone(local_tz)
         time_str = now_local.strftime("%A, %B %d, %Y at %I:%M %p %Z")
