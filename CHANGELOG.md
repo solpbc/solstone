@@ -337,3 +337,4 @@ Guide for updating:
 - Removed redundant on_moved handler in AgentFileHandler to prevent double-processing of renamed files
 - Added file existence check in _handle_active_file to gracefully handle already-processed files
 - Added --no-cortex flag to think-supervisor to allow running Cortex separately during debugging sessions
+- Restored rename handling in Cortex watcher with duplicate suppression so pending→active transitions spawn agents reliably

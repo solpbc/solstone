@@ -82,6 +82,19 @@ class AgentFileHandler(FileSystemEventHandler):
             time.sleep(0.1)
             self.cortex_service._handle_active_file(agent_id, file_path)
 
+    def on_moved(self, event):
+        """Handle rename events (pending -> active transitions)."""
+        if event.is_directory:
+            return
+
+        # watchdog emits both src_path and dest_path; we care about the new name
+        dest_path = Path(getattr(event, "dest_path", event.src_path))
+        if dest_path.name.endswith("_active.jsonl"):
+            agent_id = dest_path.stem.replace("_active", "")
+            self.logger.info(f"Detected activated agent via rename: {agent_id}")
+            time.sleep(0.1)
+            self.cortex_service._handle_active_file(agent_id, dest_path)
+
 
 class CortexService:
     """File-based agent process manager."""
@@ -152,6 +165,14 @@ class CortexService:
     def _handle_active_file(self, agent_id: str, file_path: Path) -> None:
         """Handle a newly activated agent request file."""
         try:
+            # Skip if this agent is already being processed (dedupe rename/create)
+            with self.lock:
+                if agent_id in self.running_agents:
+                    self.logger.debug(
+                        f"Agent {agent_id} already running, skipping duplicate activation"
+                    )
+                    return
+
             # Check if file still exists (may have already been processed)
             if not file_path.exists():
                 self.logger.debug(f"Active file already processed: {file_path}")
