@@ -6,7 +6,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 from flask import Flask
 
-from dream.views.calendar import bp
+from dream.views.todos import bp
 
 
 @pytest.fixture
@@ -42,7 +42,7 @@ def test_todo_generation_endpoint(client, monkeypatch, tmp_path):
         mock_request.return_value = str(agents_dir / "test_agent_123_active.jsonl")
 
         # Test generation request
-        response = client.post("/calendar/20250101/todos/generate")
+        response = client.post("/todos/20250101/generate")
         assert response.status_code == 200
 
         data = json.loads(response.data)
@@ -75,7 +75,7 @@ def test_todo_generation_status_endpoint(client, monkeypatch, tmp_path):
         monkeypatch.delattr(dream_state, "todo_generation_agents")
 
     # Test status when no agent exists
-    response = client.get("/calendar/20250101/todos/generation-status")
+    response = client.get("/todos/20250101/generation-status")
     assert response.status_code == 200
     data = json.loads(response.data)
     assert data["status"] == "none"
@@ -89,7 +89,7 @@ def test_todo_generation_status_endpoint(client, monkeypatch, tmp_path):
     )
 
     response = client.get(
-        "/calendar/20250101/todos/generation-status?agent_id=test_agent_123"
+        "/todos/20250101/generation-status?agent_id=test_agent_123"
     )
     assert response.status_code == 200
     data = json.loads(response.data)
@@ -107,7 +107,7 @@ def test_todo_generation_status_endpoint(client, monkeypatch, tmp_path):
     todo_file.write_text("# Today\n- [ ] Test task\n")
 
     response = client.get(
-        "/calendar/20250101/todos/generation-status?agent_id=test_agent_123"
+        "/todos/20250101/generation-status?agent_id=test_agent_123"
     )
     assert response.status_code == 200
     data = json.loads(response.data)
@@ -126,7 +126,7 @@ def test_todo_generation_no_cortex(client, monkeypatch):
     monkeypatch.delenv("JOURNAL_PATH", raising=False)
 
     # The cortex_request will raise ValueError when JOURNAL_PATH is not set
-    response = client.post("/calendar/20250101/todos/generate")
+    response = client.post("/todos/20250101/generate")
     assert response.status_code == 500
     data = json.loads(response.data)
     assert "error" in data
@@ -164,7 +164,7 @@ def test_todo_update_adds_timestamp(client, monkeypatch, tmp_path):
 
         # Update the first item (mark as completed)
         response = client.post(
-            "/calendar/20250101/todos",
+            "/todos/20250101",
             json={
                 "action": "update",
                 "line_number": 2,  # Line 2 is the first todo item
@@ -216,7 +216,7 @@ def test_todo_add_includes_timestamp(client, monkeypatch, tmp_path):
 
         # Add a new task to today section
         response = client.post(
-            "/calendar/20250101/todos",
+            "/todos/20250101",
             json={
                 "action": "add",
                 "section": "today",
@@ -233,7 +233,7 @@ def test_todo_add_includes_timestamp(client, monkeypatch, tmp_path):
 
         # Add a task to future section (should not have timestamp)
         response = client.post(
-            "/calendar/20250101/todos",
+            "/todos/20250101",
             json={"action": "add", "section": "future", "text": "Goal: Future goal"},
         )
         assert response.status_code == 200
@@ -275,7 +275,7 @@ def test_todo_timestamp_update_preserves_content(client, monkeypatch, tmp_path):
 
         # Update the first item
         response = client.post(
-            "/calendar/20250101/todos",
+            "/todos/20250101",
             json={
                 "action": "update",
                 "line_number": 2,  # Line 2 is the first todo item

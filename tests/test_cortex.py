@@ -167,7 +167,8 @@ def test_handle_active_file_empty_prompt(cortex_service, mock_journal):
 
 @patch("think.cortex.subprocess.Popen")
 @patch("think.cortex.threading.Thread")
-def test_spawn_agent(mock_thread, mock_popen, cortex_service, mock_journal):
+@patch("think.cortex.threading.Timer")
+def test_spawn_agent(mock_timer, mock_thread, mock_popen, cortex_service, mock_journal):
     """Test spawning an agent subprocess."""
     mock_process = MagicMock()
     mock_process.pid = 12345
@@ -176,6 +177,10 @@ def test_spawn_agent(mock_thread, mock_popen, cortex_service, mock_journal):
     mock_process.stdout = MagicMock()
     mock_process.stderr = MagicMock()
     mock_popen.return_value = mock_process
+
+    # Setup mock timer
+    mock_timer_instance = MagicMock()
+    mock_timer.return_value = mock_timer_instance
 
     agent_id = "123456789"
     file_path = mock_journal / "agents" / f"{agent_id}_active.jsonl"
@@ -224,6 +229,10 @@ def test_spawn_agent(mock_thread, mock_popen, cortex_service, mock_journal):
 
     # Check monitoring threads were started
     assert mock_thread.call_count == 2  # stdout and stderr
+
+    # Check timer was created and started
+    mock_timer.assert_called_once()
+    mock_timer_instance.start.assert_called_once()
 
 
 @patch("think.cortex.subprocess.Popen")
