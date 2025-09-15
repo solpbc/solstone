@@ -226,6 +226,11 @@ def cortex_watch(on_event: Callable[[Dict[str, Any]], Optional[bool]]) -> None:
                     except (OSError, IOError):
                         # File might have been renamed/removed, remove from tracking
                         file_states.pop(path, None)
+                        continue  # Don't re-raise, just skip this file
+                    except Exception:
+                        # Unexpected error, log and continue
+                        file_states.pop(path, None)
+                        continue  # Continue watching other files
 
             # Handle renamed/removed files
             if change_type == Change.deleted:

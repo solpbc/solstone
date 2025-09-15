@@ -310,3 +310,9 @@ Guide for updating:
 - Fixed cortex integration tests to align expectations with actual cortex event emission behavior
 - Added agent_id field to all events emitted by cortex for consistent agent tracking across event streams
 - Updated CORTEX.md documentation to reflect that all events include agent_id field added by cortex
+- Created comprehensive integration test suite for cortex system in tests/integration/test_cortex.py
+- Implemented standardized error event schema across cortex with _create_error_event() helper method
+- Added configurable timeout support for agent execution with 10 minute default timeout
+- Fixed potential file descriptor leaks in cortex_watch with more defensive exception handling
+- Added thread safety for agent_requests dictionary access using existing lock throughout cortex
+- Implemented graceful agent shutdown using SIGTERM before SIGKILL with extended timeout

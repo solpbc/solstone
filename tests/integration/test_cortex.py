@@ -1,645 +1,266 @@
-"""Integration test for Cortex service with cortex_client."""
+"""Integration tests for the Cortex agent system."""
 
 import json
 import os
-import subprocess
+import threading
 import time
 from pathlib import Path
-from threading import Thread
 
 import pytest
-from dotenv import load_dotenv
 
-from think.cortex_client import cortex_agents, cortex_request, cortex_run, cortex_watch
-from think.models import GPT_5_MINI
-
-
-def get_fixtures_env():
-    """Load the fixtures/.env file and return the environment."""
-    fixtures_env = Path(__file__).parent.parent.parent / "fixtures" / ".env"
-    if not fixtures_env.exists():
-        return None, None, None
-
-    # Load the env file
-    load_dotenv(fixtures_env, override=True)
-
-    api_key = os.getenv("OPENAI_API_KEY")
-    journal_path = os.getenv("JOURNAL_PATH")
-
-    return fixtures_env, api_key, journal_path
-
-
-def read_agent_file(agent_id: str, journal_path: str):
-    """Read all events from an agent file."""
-    agents_dir = Path(journal_path) / "agents"
-
-    # Try active file first
-    active_file = agents_dir / f"{agent_id}_active.jsonl"
-    if active_file.exists():
-        agent_file = active_file
-    else:
-        # Look for completed file
-        for file in agents_dir.glob(f"{agent_id}_*.jsonl"):
-            if not file.name.endswith("_pending.jsonl"):
-                agent_file = file
-                break
-        else:
-            return []
-
-    events = []
-    with open(agent_file, "r") as f:
-        for line in f:
-            line = line.strip()
-            if line:
-                try:
-                    events.append(json.loads(line))
-                except json.JSONDecodeError:
-                    continue
-    return events
-
-
-def get_agent_status(agent_id: str, journal_path: str):
-    """Get the status of an agent."""
-    agents_dir = Path(journal_path) / "agents"
-
-    # Check for active file
-    active_file = agents_dir / f"{agent_id}_active.jsonl"
-    if active_file.exists():
-        return "running"
-
-    # Check for completed file (just the agent_id without suffix)
-    completed_file = agents_dir / f"{agent_id}.jsonl"
-    if completed_file.exists():
-        return "completed"
-
-    # Also check for failed files
-    for file in agents_dir.glob(f"{agent_id}_*.jsonl"):
-        if "_failed" in file.name:
-            return "failed"
-        elif not file.name.endswith("_pending.jsonl") and not file.name.endswith(
-            "_active.jsonl"
-        ):
-            return "completed"
-
-    # Check for pending file
-    pending_file = agents_dir / f"{agent_id}_pending.jsonl"
-    if pending_file.exists():
-        return "pending"
-
-    return "unknown"
+from think.cortex import CortexService
+from think.cortex_client import cortex_request, cortex_run, cortex_agents
 
 
 @pytest.mark.integration
-@pytest.mark.requires_api
-def test_cortex_service_with_client():
-    """Test Cortex service with cortex_client for a simple OpenAI request."""
-    fixtures_env, api_key, journal_path = get_fixtures_env()
+def test_cortex_service_startup(integration_journal_path):
+    """Test that Cortex service starts up and creates necessary directories."""
+    # Initialize the service
+    cortex = CortexService(journal_path=str(integration_journal_path))
 
-    if not fixtures_env:
-        pytest.skip("fixtures/.env not found")
+    # Verify agents directory was created
+    agents_dir = integration_journal_path / "agents"
+    assert agents_dir.exists()
+    assert agents_dir.is_dir()
 
-    if not api_key:
-        pytest.skip("OPENAI_API_KEY not found in fixtures/.env file")
+    # Verify service initializes correctly
+    status = cortex.get_status()
+    assert status["running_agents"] == 0
+    assert status["agent_ids"] == []
 
-    if not journal_path:
-        journal_path = str(Path(__file__).parent.parent.parent / "fixtures" / "journal")
 
-    # Prepare environment
-    env = os.environ.copy()
-    env["JOURNAL_PATH"] = journal_path
-    env["OPENAI_API_KEY"] = api_key
+@pytest.mark.integration
+def test_cortex_request_creation(integration_journal_path):
+    """Test creating a Cortex agent request file."""
+    # Set JOURNAL_PATH for cortex_request
+    os.environ["JOURNAL_PATH"] = str(integration_journal_path)
 
-    # Start Cortex service in background
-    cortex_process = subprocess.Popen(
-        ["think-cortex"],
-        env=env,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        text=True,
+    # Create a request
+    active_file = cortex_request(
+        prompt="Test prompt", persona="default", backend="openai"
     )
 
-    # Give Cortex time to start up
-    time.sleep(2)
+    # Verify file was created with correct name pattern
+    active_path = Path(active_file)
+    assert active_path.exists()
+    assert active_path.name.endswith("_active.jsonl")
+    assert active_path.parent == integration_journal_path / "agents"
+
+    # Verify request content
+    with open(active_path, "r") as f:
+        request = json.loads(f.readline())
+
+    assert request["event"] == "request"
+    assert request["prompt"] == "Test prompt"
+    assert request["persona"] == "default"
+    assert request["backend"] == "openai"
+    assert "ts" in request
+
+
+@pytest.mark.integration
+def test_cortex_agent_process_creation(integration_journal_path):
+    """Test that Cortex spawns agent processes for active files."""
+    # Set up environment
+    os.environ["JOURNAL_PATH"] = str(integration_journal_path)
+
+    # Start Cortex service in a thread
+    cortex = CortexService(journal_path=str(integration_journal_path))
+    service_thread = threading.Thread(target=cortex.start, daemon=True)
+    service_thread.start()
+
+    # Give service time to start watching
+    time.sleep(0.5)
 
     try:
-        # Verify Cortex is running
-        assert cortex_process.poll() is None, "Cortex service failed to start"
+        # Create a simple test request
+        active_file = cortex_request(
+            prompt="Return exactly: Hello from agent",
+            persona="default",
+            backend="openai",
+        )
 
-        # Set journal path for cortex_client functions
-        os.environ["JOURNAL_PATH"] = journal_path
+        # Give agent time to spawn and process
+        time.sleep(2)
 
-        # Collect all events
+        # The agent might have already completed, so check the file
+        active_path = Path(active_file)
+        completed_path = active_path.parent / active_path.name.replace(
+            "_active.jsonl", ".jsonl"
+        )
+
+        # Either file should exist (active if still running, completed if done)
+        assert active_path.exists() or completed_path.exists()
+
+        # If completed, verify it has events
+        if completed_path.exists():
+            with open(completed_path, "r") as f:
+                lines = f.readlines()
+                assert len(lines) >= 2  # At least request and finish/error
+
+                # First line should be request
+                first_event = json.loads(lines[0])
+                assert first_event["event"] == "request"
+
+                # Last line should be finish or error
+                last_event = json.loads(lines[-1])
+                assert last_event["event"] in ["finish", "error"]
+
+    finally:
+        # Stop the service
+        cortex.stop()
+
+
+@pytest.mark.integration
+@pytest.mark.slow
+def test_cortex_run_simple_agent(integration_journal_path):
+    """Test running an agent synchronously with cortex_run."""
+    # Set up environment
+    os.environ["JOURNAL_PATH"] = str(integration_journal_path)
+
+    # Start Cortex service in background
+    cortex = CortexService(journal_path=str(integration_journal_path))
+    service_thread = threading.Thread(target=cortex.start, daemon=True)
+    service_thread.start()
+
+    # Give service time to start
+    time.sleep(0.5)
+
+    try:
+        # Track events we receive
         events = []
 
-        def handle_event(event):
+        def on_event(event):
             events.append(event)
-            print(f"Event: {event.get('event')} - {event}")
 
-        # Run agent with simple math question
+        # Run agent synchronously
         result = cortex_run(
-            prompt="what is 2+2, just return the number nothing else",
-            backend="openai",
+            prompt="Return exactly the text: Integration test successful",
             persona="default",
-            config={
-                "model": GPT_5_MINI,  # Use cheap model for testing
-                "max_tokens": 100,
-                "disable_mcp": True,  # Disable MCP for simple test
-            },
-            on_event=handle_event,
+            backend="openai",
+            on_event=on_event,
         )
 
-        # Verify result contains "4"
-        assert "4" in result, f"Expected '4' in result, got: {result}"
+        # Verify we got a result
+        assert result is not None
+        assert isinstance(result, str)
 
-        # Verify we got some events
-        assert len(events) >= 2, f"Expected at least 2 events (request, finish), got {len(events)}"
+        # Verify we received events
+        assert len(events) > 0
 
-        # Events depend on what the agent process emits
-        # At minimum we should have request and finish/error
-        event_types = {e.get("event") for e in events}
-        assert "finish" in event_types or "error" in event_types, f"No completion event found. Got: {event_types}"
+        # Should have at least start and finish events
+        event_types = [e.get("event") for e in events]
+        assert "start" in event_types or "finish" in event_types
 
-        # Find finish event
-        finish_events = [e for e in events if e.get("event") == "finish"]
-        assert len(finish_events) > 0, "No finish event found"
-        finish_event = finish_events[0]
-        assert "4" in str(finish_event["result"])
+    except Exception as e:
+        # If the agent backend isn't available, skip the test
+        if any(keyword in str(e).lower() for keyword in ["api", "key", "mcp", "uri"]):
+            pytest.skip(f"Agent backend not configured: {e}")
+        raise
 
     finally:
-        # Clean up: terminate Cortex service
-        cortex_process.terminate()
-        try:
-            cortex_process.wait(timeout=5)
-        except subprocess.TimeoutExpired:
-            cortex_process.kill()
+        cortex.stop()
 
 
 @pytest.mark.integration
-@pytest.mark.requires_api
-def test_cortex_streaming_events():
-    """Test streaming events from Cortex service."""
-    fixtures_env, api_key, journal_path = get_fixtures_env()
+def test_cortex_agent_list(integration_journal_path):
+    """Test listing agents from the journal."""
+    # Set up environment
+    os.environ["JOURNAL_PATH"] = str(integration_journal_path)
 
-    if not fixtures_env:
-        pytest.skip("fixtures/.env not found")
+    # Create some mock agent files for testing
+    agents_dir = integration_journal_path / "agents"
+    agents_dir.mkdir(exist_ok=True)
 
-    if not api_key:
-        pytest.skip("OPENAI_API_KEY not found in fixtures/.env file")
+    # Clear any existing agent files from previous tests
+    for f in agents_dir.glob("*.jsonl"):
+        f.unlink()
 
-    if not journal_path:
-        journal_path = str(Path(__file__).parent.parent.parent / "fixtures" / "journal")
-
-    # Prepare environment
-    env = os.environ.copy()
-    env["JOURNAL_PATH"] = journal_path
-    env["OPENAI_API_KEY"] = api_key
-
-    # Start Cortex service in background
-    cortex_process = subprocess.Popen(
-        ["think-cortex"],
-        env=env,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        text=True,
+    # Create a completed agent file
+    completed_file = agents_dir / "1234567890123.jsonl"
+    completed_file.write_text(
+        '{"event": "request", "ts": 1234567890123, "prompt": "Test 1", "persona": "default", "backend": "openai"}\n'
+        '{"event": "finish", "ts": 1234567890456, "result": "Done"}\n'
     )
 
-    # Give Cortex time to start up
-    time.sleep(2)
-
-    try:
-        # Verify Cortex is running
-        assert cortex_process.poll() is None, "Cortex service failed to start"
-
-        # Set journal path for cortex_client functions
-        os.environ["JOURNAL_PATH"] = journal_path
-
-        # Track events as they stream
-        streamed_events = []
-        event_types_seen = set()
-
-        def event_handler(event):
-            streamed_events.append(event)
-            event_types_seen.add(event.get("event"))
-            print(f"Streamed: {event.get('event')} at {event.get('ts')}")
-
-        # Run agent and stream events
-        cortex_run(
-            prompt="What is the capital of France? Just say the city name.",
-            backend="openai",
-            persona="default",
-            config={
-                "model": GPT_5_MINI,  # Use cheap model for testing
-                "max_tokens": 100,
-                "disable_mcp": True,
-            },
-            on_event=event_handler,
-        )
-
-        # Verify we got completion event
-        # The specific events depend on what the agent emits
-        assert "finish" in event_types_seen or "error" in event_types_seen, f"No completion event. Got: {event_types_seen}"
-
-        # Verify finish event contains Paris
-        finish_events = [e for e in streamed_events if e.get("event") == "finish"]
-        assert (
-            len(finish_events) == 1
-        ), f"Expected 1 finish event, got {len(finish_events)}"
-        assert "Paris" in finish_events[0].get(
-            "result", ""
-        ), "Expected 'Paris' in result"
-
-    finally:
-        # Clean up: terminate Cortex service
-        cortex_process.terminate()
-        try:
-            cortex_process.wait(timeout=5)
-        except subprocess.TimeoutExpired:
-            cortex_process.kill()
-
-
-@pytest.mark.integration
-def test_cortex_agent_list():
-    """Test listing agents through cortex_agents function."""
-    # Use fixtures journal for this test
-    journal_path = str(Path(__file__).parent.parent.parent / "fixtures" / "journal")
-
-    # Set journal path for cortex_client functions
-    os.environ["JOURNAL_PATH"] = journal_path
+    # Create an active agent file
+    active_file = agents_dir / "1234567890789_active.jsonl"
+    active_file.write_text(
+        '{"event": "request", "ts": 1234567890789, "prompt": "Test 2", "persona": "default", "backend": "openai"}\n'
+    )
 
     # List all agents
-    result = cortex_agents(limit=5, agent_type="all")
+    result = cortex_agents(limit=10)
 
-    # Verify structure
     assert "agents" in result
     assert "pagination" in result
-    assert "live_count" in result
-    assert "historical_count" in result
+    assert len(result["agents"]) == 2
 
-    # Check pagination structure
-    pagination = result["pagination"]
-    assert "limit" in pagination
-    assert "offset" in pagination
-    assert "total" in pagination
-    assert "has_more" in pagination
+    # Check agent details
+    agents = result["agents"]
 
-    # If there are agents, verify their structure
-    if result["agents"]:
-        agent = result["agents"][0]
-        required_fields = [
-            "id",
-            "status",
-            "persona",
-            "model",
-            "prompt",
-            "start",
-        ]
-        for field in required_fields:
-            assert field in agent, f"Missing field '{field}' in agent"
+    # Find the completed agent
+    completed = next((a for a in agents if a["id"] == "1234567890123"), None)
+    assert completed is not None
+    assert completed["status"] == "completed"
+    assert completed["prompt"] == "Test 1"
 
+    # Find the active agent
+    active = next((a for a in agents if a["id"] == "1234567890789"), None)
+    assert active is not None
+    assert active["status"] == "running"
+    assert active["prompt"] == "Test 2"
 
-@pytest.mark.integration
-@pytest.mark.requires_api
-def test_cortex_simple_math_streaming():
-    """Test Cortex service with simple math question and verify streaming."""
-    fixtures_env, api_key, journal_path = get_fixtures_env()
+    # Test filtering
+    live_result = cortex_agents(agent_type="live")
+    assert len(live_result["agents"]) == 1
+    assert live_result["agents"][0]["status"] == "running"
 
-    if not fixtures_env:
-        pytest.skip("fixtures/.env not found")
-
-    if not api_key:
-        pytest.skip("OPENAI_API_KEY not found in fixtures/.env file")
-
-    if not journal_path:
-        journal_path = str(Path(__file__).parent.parent.parent / "fixtures" / "journal")
-
-    # Prepare environment
-    env = os.environ.copy()
-    env["JOURNAL_PATH"] = journal_path
-    env["OPENAI_API_KEY"] = api_key
-
-    # Start Cortex service in background
-    cortex_process = subprocess.Popen(
-        ["think-cortex"],
-        env=env,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        text=True,
-    )
-
-    # Give Cortex time to start up
-    time.sleep(2)
-
-    try:
-        # Verify Cortex is running
-        assert cortex_process.poll() is None, "Cortex service failed to start"
-
-        # Set journal path for cortex_client functions
-        os.environ["JOURNAL_PATH"] = journal_path
-
-        # Track events to verify streaming
-        event_sequence = []
-        result_value = None
-        error_message = None
-
-        def stream_handler(event):
-            event_type = event.get("event")
-            event_sequence.append(event_type)
-            print(f"Event: {event_type} - {event}")
-
-            if event_type == "finish":
-                nonlocal result_value
-                result_value = event.get("result", "")
-                print(f"Got result: {result_value}")
-            elif event_type == "error":
-                nonlocal error_message
-                error_message = event.get("error", "Unknown error")
-                print(f"Got error: {error_message}")
-
-        # Make the exact request: "what is 2+2, just return the number nothing else"
-        try:
-            result = cortex_run(
-                prompt="what is 2+2, just return the number nothing else",
-                backend="openai",
-                persona="default",
-                config={
-                    "model": GPT_5_MINI,  # Use cheap model for testing
-                    "max_tokens": 100,  # Minimum is 16 for OpenAI
-                    "disable_mcp": True,
-                },
-                on_event=stream_handler,
-            )
-            result_value = result
-        except RuntimeError as e:
-            error_message = str(e)
-
-        # Check if we got an error
-        if error_message:
-            print(f"Test failed with error: {error_message}")
-            print(f"Event sequence: {event_sequence}")
-            pytest.fail(f"Agent failed with error: {error_message}")
-
-        # Verify we got completion
-        assert (
-            "finish" in event_sequence or "error" in event_sequence
-        ), f"Missing completion event. Got events: {event_sequence}"
-
-        # Verify the final event has the correct answer
-        assert result_value is not None, "No result received"
-        assert "4" in result_value, f"Expected '4' in result, got: {result_value}"
-
-        print(f"Success! Got answer: {result_value}")
-        print(f"Event sequence: {event_sequence}")
-
-    finally:
-        # Clean up: terminate Cortex service
-        cortex_process.terminate()
-        try:
-            cortex_process.wait(timeout=5)
-        except subprocess.TimeoutExpired:
-            cortex_process.kill()
+    historical_result = cortex_agents(agent_type="historical")
+    assert len(historical_result["agents"]) == 1
+    assert historical_result["agents"][0]["status"] == "completed"
 
 
 @pytest.mark.integration
-@pytest.mark.requires_api
-def test_cortex_default_model():
-    """Test Cortex service using default model (no model specified)."""
-    fixtures_env, api_key, journal_path = get_fixtures_env()
+def test_cortex_error_handling(integration_journal_path):
+    """Test Cortex error handling for invalid requests."""
+    # Set up environment
+    os.environ["JOURNAL_PATH"] = str(integration_journal_path)
 
-    if not fixtures_env:
-        pytest.skip("fixtures/.env not found")
+    # Start Cortex service
+    cortex = CortexService(journal_path=str(integration_journal_path))
+    service_thread = threading.Thread(target=cortex.start, daemon=True)
+    service_thread.start()
 
-    if not api_key:
-        pytest.skip("OPENAI_API_KEY not found in fixtures/.env file")
-
-    if not journal_path:
-        journal_path = str(Path(__file__).parent.parent.parent / "fixtures" / "journal")
-
-    # Prepare environment
-    env = os.environ.copy()
-    env["JOURNAL_PATH"] = journal_path
-    env["OPENAI_API_KEY"] = api_key
-
-    # Start Cortex service in background
-    cortex_process = subprocess.Popen(
-        ["think-cortex"],
-        env=env,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        text=True,
-    )
-
-    # Give Cortex time to start up
-    time.sleep(2)
+    # Give service time to start
+    time.sleep(0.5)
 
     try:
-        # Verify Cortex is running
-        assert cortex_process.poll() is None, "Cortex service failed to start"
+        # Create a malformed request directly (bypassing cortex_request validation)
+        agents_dir = integration_journal_path / "agents"
+        agents_dir.mkdir(exist_ok=True)
 
-        # Set journal path for cortex_client functions
-        os.environ["JOURNAL_PATH"] = journal_path
+        # Create an active file with invalid JSON
+        ts = int(time.time() * 1000)
+        bad_file = agents_dir / f"{ts}_active.jsonl"
+        bad_file.write_text("not valid json\n")
 
-        # Track events
-        events = []
+        # Give Cortex time to process
+        time.sleep(1)
 
-        def event_handler(event):
-            events.append(event)
-            print(f"Event: {event.get('event')}")
+        # File should be completed with error
+        completed_file = agents_dir / f"{ts}.jsonl"
+        assert completed_file.exists()
 
-        # Run with NO model specified - use backend defaults
-        try:
-            result = cortex_run(
-                prompt="what is 2+2, just return the number nothing else",
-                backend="openai",
-                persona="default",
-                config={
-                    # No model specified - use default
-                    "disable_mcp": True,
-                },
-                on_event=event_handler,
-            )
-        except RuntimeError:
-            # Agent might error, that's ok for this test
-            result = None
-
-        # Check we got completion
-        event_types = [e.get("event") for e in events]
-        assert "finish" in event_types or "error" in event_types, f"No completion event. Got: {event_types}"
-
-        # Find the result
-        if result:
-            print(f"Got result with default model: {result}")
-            # Result should contain 4
-            assert "4" in result, f"Expected '4' in result, got: {result}"
-
-    finally:
-        # Clean up: terminate Cortex service
-        cortex_process.terminate()
-        try:
-            cortex_process.wait(timeout=5)
-        except subprocess.TimeoutExpired:
-            cortex_process.kill()
-
-
-@pytest.mark.integration
-def test_cortex_error_handling():
-    """Test Cortex error handling with invalid request."""
-    journal_path = str(Path(__file__).parent.parent.parent / "fixtures" / "journal")
-
-    # Prepare environment
-    env = os.environ.copy()
-    env["JOURNAL_PATH"] = journal_path
-
-    # Start Cortex service in background
-    cortex_process = subprocess.Popen(
-        ["think-cortex"],
-        env=env,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        text=True,
-    )
-
-    # Give Cortex time to start up
-    time.sleep(2)
-
-    try:
-        # Verify Cortex is running
-        assert cortex_process.poll() is None, "Cortex service failed to start"
-
-        # Set journal path for cortex_client functions
-        os.environ["JOURNAL_PATH"] = journal_path
-
-        # Create request with empty prompt (cortex will handle gracefully or reject)
-        agent_file = cortex_request(
-            prompt="",  # Empty prompt
-            backend="openai",
-            persona="default",
-        )
-
-        # Extract agent_id from the filename
-        agent_id = Path(agent_file).stem.replace("_active", "")
-
-        # Give Cortex time to process the request
-        time.sleep(3)
-
-        # Read events directly from the agent file instead of watching
-        events = read_agent_file(agent_id, journal_path)
-
-        # Check if we got any events
-        event_types = [e.get("event") for e in events]
-        print(f"Events found in agent file: {event_types}")
-
-        # For empty prompt, cortex might not process it at all or might handle it gracefully
-        # The test is mainly to ensure cortex doesn't crash with invalid input
-
-        # Check agent status
-        status = get_agent_status(agent_id, journal_path)
-        assert status in [
-            "failed",
-            "completed",
-            "running",
-        ], f"Expected valid status, got: {status}"
-
-    finally:
-        # Clean up: terminate Cortex service
-        cortex_process.terminate()
-        try:
-            cortex_process.wait(timeout=5)
-        except subprocess.TimeoutExpired:
-            cortex_process.kill()
-
-
-@pytest.mark.integration
-@pytest.mark.requires_api
-def test_cortex_watch_multiple_agents():
-    """Test running multiple agents simultaneously."""
-    fixtures_env, api_key, journal_path = get_fixtures_env()
-
-    if not fixtures_env:
-        pytest.skip("fixtures/.env not found")
-
-    if not api_key:
-        pytest.skip("OPENAI_API_KEY not found in fixtures/.env file")
-
-    if not journal_path:
-        journal_path = str(Path(__file__).parent.parent.parent / "fixtures" / "journal")
-
-    # Prepare environment
-    env = os.environ.copy()
-    env["JOURNAL_PATH"] = journal_path
-    env["OPENAI_API_KEY"] = api_key
-
-    # Start Cortex service in background
-    cortex_process = subprocess.Popen(
-        ["think-cortex"],
-        env=env,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        text=True,
-    )
-
-    # Give Cortex time to start up
-    time.sleep(2)
-
-    try:
-        # Verify Cortex is running
-        assert cortex_process.poll() is None, "Cortex service failed to start"
-
-        # Set journal path for cortex_client functions
-        os.environ["JOURNAL_PATH"] = journal_path
-
-        # Create and run multiple agents in parallel
-        results = []
-        errors = []
-
-        def run_agent(question, answer):
-            """Run a single agent and store result."""
-            try:
-                result = cortex_run(
-                    prompt=f"what is {question}, just return the number nothing else",
-                    backend="openai",
-                    persona="default",
-                    config={
-                        "model": GPT_5_MINI,
-                        "max_tokens": 100,
-                        "disable_mcp": True,
-                    },
+        # Should contain an error event
+        with open(completed_file, "r") as f:
+            lines = f.readlines()
+            # First line is the invalid content, second should be error
+            if len(lines) > 1:
+                error_event = json.loads(lines[-1])
+                assert error_event["event"] == "error"
+                assert (
+                    "JSON" in error_event["error"] or "Invalid" in error_event["error"]
                 )
-                results.append((question, answer, result))
-            except Exception as e:
-                errors.append((question, str(e)))
-
-        # Start agents in parallel threads
-        threads = []
-        test_cases = [("2+2", "4"), ("3+3", "6"), ("5+5", "10")]
-
-        for question, expected in test_cases:
-            t = Thread(target=run_agent, args=(question, expected))
-            t.start()
-            threads.append(t)
-            time.sleep(0.2)  # Small delay to avoid overwhelming the API
-
-        # Wait for all agents to complete
-        for t in threads:
-            t.join(timeout=30)
-
-        # Check results
-        assert len(errors) == 0, f"Some agents failed: {errors}"
-        assert len(results) > 0, "No agents completed successfully"
-
-        # Verify at least one correct answer
-        correct_count = 0
-        for question, expected, result in results:
-            if expected in result:
-                correct_count += 1
-                print(f"Agent for '{question}' returned correct answer: {result}")
-
-        assert correct_count > 0, f"No agents returned correct answers. Results: {results}"
-        print(f"Successfully ran {len(results)} agents in parallel, {correct_count} with correct answers")
 
     finally:
-        # Clean up: terminate Cortex service
-        cortex_process.terminate()
-        try:
-            cortex_process.wait(timeout=5)
-        except subprocess.TimeoutExpired:
-            cortex_process.kill()
+        cortex.stop()

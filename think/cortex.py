@@ -35,20 +35,31 @@ class AgentProcess:
         self.process = process
         self.log_path = log_path
         self.stop_event = threading.Event()
+        self.timeout_timer = None  # For timeout support
 
     def is_running(self) -> bool:
         """Check if the agent process is still running."""
         return self.process.poll() is None and not self.stop_event.is_set()
 
     def stop(self) -> None:
-        """Stop the agent process."""
+        """Stop the agent process gracefully."""
         self.stop_event.set()
+
+        # Cancel timeout timer if it exists
+        if self.timeout_timer:
+            self.timeout_timer.cancel()
+
         if self.process.poll() is None:
+            # First try SIGTERM for graceful shutdown
             self.process.terminate()
             try:
-                self.process.wait(timeout=5)
+                self.process.wait(timeout=10)  # Give more time for graceful shutdown
             except subprocess.TimeoutExpired:
+                logging.getLogger(__name__).warning(
+                    f"Agent {self.agent_id} didn't stop gracefully, killing"
+                )
                 self.process.kill()
+                self.process.wait()  # Ensure zombie is reaped
 
 
 class AgentFileHandler(FileSystemEventHandler):
@@ -98,6 +109,26 @@ class CortexService:
         self.lock = threading.RLock()
         self.stop_event = threading.Event()
         self.observer = None
+
+    def _create_error_event(
+        self,
+        agent_id: str,
+        error: str,
+        trace: Optional[str] = None,
+        exit_code: Optional[int] = None,
+    ) -> Dict[str, Any]:
+        """Create standardized error event."""
+        event = {
+            "event": "error",
+            "ts": int(time.time() * 1000),
+            "agent_id": agent_id,
+            "error": error,
+        }
+        if trace:
+            event["trace"] = trace
+        if exit_code is not None:
+            event["exit_code"] = exit_code
+        return event
 
     def start(self) -> None:
         """Start monitoring for new agent requests."""
@@ -174,7 +205,9 @@ class CortexService:
                 try:
                     config["tools"] = get_tools(tools_config)
                 except KeyError as e:
-                    self.logger.warning(f"Invalid tool pack '{tools_config}': {e}, using default")
+                    self.logger.warning(
+                        f"Invalid tool pack '{tools_config}': {e}, using default"
+                    )
                     config["tools"] = get_tools("default")
             elif tools_config is None:
                 # If no tools specified, use default pack
@@ -198,8 +231,9 @@ class CortexService:
     ) -> None:
         """Spawn an agent subprocess and monitor its output using the merged config."""
         try:
-            # Store the config for later use (e.g., for save field)
-            self.agent_requests[agent_id] = config
+            # Store the config for later use (e.g., for save field) - thread safe
+            with self.lock:
+                self.agent_requests[agent_id] = config
 
             # Pass the full config through to the agent as NDJSON
             ndjson_input = json.dumps(config)
@@ -232,6 +266,16 @@ class CortexService:
             with self.lock:
                 self.running_agents[agent_id] = agent
 
+            # Set up timeout (default to 10 minutes if not specified)
+            timeout_seconds = config.get(
+                "timeout_seconds", 600
+            )  # 600 seconds = 10 minutes
+            agent.timeout_timer = threading.Timer(
+                timeout_seconds,
+                lambda: self._timeout_agent(agent_id, agent, timeout_seconds),
+            )
+            agent.timeout_timer.start()
+
             # Start monitoring threads
             threading.Thread(
                 target=self._monitor_stdout, args=(agent,), daemon=True
@@ -248,6 +292,24 @@ class CortexService:
         except Exception as e:
             self.logger.exception(f"Failed to spawn agent {agent_id}: {e}")
             self._write_error_and_complete(file_path, f"Failed to spawn agent: {e}")
+
+    def _timeout_agent(
+        self, agent_id: str, agent: AgentProcess, timeout_seconds: int
+    ) -> None:
+        """Handle agent timeout."""
+        if agent.is_running():
+            self.logger.warning(
+                f"Agent {agent_id} timed out after {timeout_seconds} seconds"
+            )
+            error_event = self._create_error_event(
+                agent_id, f"Agent timed out after {timeout_seconds} seconds"
+            )
+            try:
+                with open(agent.log_path, "a") as f:
+                    f.write(json.dumps(error_event) + "\n")
+            except Exception as e:
+                self.logger.error(f"Failed to write timeout event: {e}")
+            agent.stop()
 
     def _monitor_stdout(self, agent: AgentProcess) -> None:
         """Monitor agent stdout and append events to the JSONL file."""
@@ -283,10 +345,11 @@ class CortexService:
                         if event.get("event") == "finish":
                             result = event.get("result", "")
 
-                            # Save result if requested
-                            original_request = getattr(self, "agent_requests", {}).get(
-                                agent.agent_id
-                            )
+                            # Save result if requested (thread-safe access)
+                            with self.lock:
+                                original_request = self.agent_requests.get(
+                                    agent.agent_id
+                                )
                             if original_request and original_request.get("save"):
                                 self._save_agent_result(
                                     agent.agent_id,
@@ -328,29 +391,24 @@ class CortexService:
             has_finish = self._has_finish_event(agent.log_path)
 
             if not has_finish:
-                # Write error event if no finish
-                error_event = {
-                    "event": "error",
-                    "ts": int(time.time() * 1000),
-                    "error": f"Agent exited with code {exit_code} without finish event",
-                    "exit_code": exit_code,
-                    "agent_id": agent.agent_id,
-                }
+                # Write error event if no finish using standardized format
+                error_event = self._create_error_event(
+                    agent.agent_id,
+                    f"Agent exited with code {exit_code} without finish event",
+                    exit_code=exit_code,
+                )
                 with open(agent.log_path, "a") as f:
                     f.write(json.dumps(error_event) + "\n")
 
             # Complete the file (rename from _active.jsonl to .jsonl)
             self._complete_agent_file(agent.agent_id, agent.log_path)
 
-            # Remove from running agents and clean up stored request
+            # Remove from running agents and clean up stored request (thread-safe)
             with self.lock:
                 if agent.agent_id in self.running_agents:
                     del self.running_agents[agent.agent_id]
                 # Clean up stored request
-                if (
-                    hasattr(self, "agent_requests")
-                    and agent.agent_id in self.agent_requests
-                ):
+                if agent.agent_id in self.agent_requests:
                     del self.agent_requests[agent.agent_id]
 
     def _monitor_stderr(self, agent: AgentProcess) -> None:
@@ -377,14 +435,12 @@ class CortexService:
             if stderr_lines:
                 exit_code = agent.process.poll()
                 if exit_code is not None and exit_code != 0:
-                    error_event = {
-                        "event": "error",
-                        "ts": int(time.time() * 1000),
-                        "error": "Process failed with stderr output",
-                        "trace": "\n".join(stderr_lines),
-                        "exit_code": exit_code,
-                        "agent_id": agent.agent_id,
-                    }
+                    error_event = self._create_error_event(
+                        agent.agent_id,
+                        "Process failed with stderr output",
+                        trace="\n".join(stderr_lines),
+                        exit_code=exit_code,
+                    )
                     try:
                         with open(agent.log_path, "a") as f:
                             f.write(json.dumps(error_event) + "\n")
@@ -419,12 +475,7 @@ class CortexService:
         """Write an error event to the file and mark it as complete."""
         try:
             agent_id = file_path.stem.replace("_active", "")
-            error_event = {
-                "event": "error",
-                "ts": int(time.time() * 1000),
-                "error": error_message,
-                "agent_id": agent_id,
-            }
+            error_event = self._create_error_event(agent_id, error_message)
             with open(file_path, "a") as f:
                 f.write(json.dumps(error_event) + "\n")
 
@@ -461,8 +512,9 @@ class CortexService:
         try:
             from think.cortex_client import cortex_request
 
-            # Get parent's config to inherit from
-            parent_config = self.agent_requests.get(parent_id, {})
+            # Get parent's config to inherit from (thread-safe)
+            with self.lock:
+                parent_config = self.agent_requests.get(parent_id, {})
 
             # Start with parent config and overlay handoff values
             handoff_config = parent_config.copy()
