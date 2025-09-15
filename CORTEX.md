@@ -36,11 +36,9 @@ The first line of a request file must be a JSON object with `event: "request"`:
   "prompt": "Analyze this code for security issues",  // Required: the task or question
   "backend": "openai",              // Required: openai, google, anthropic, or claude
   "persona": "default",              // Optional: agent persona from think/agents/*.txt
-  "config": {                        // Optional: backend-specific configuration
-    "model": "gpt-4o",              // Optional: model override
-    "max_tokens": 8192,             // Optional: token limit
-    "domain": "my-project"          // Required for Claude backend only
-  },
+  "model": "gpt-4o",               // Optional: backend-specific override
+  "max_tokens": 8192,               // Optional: token limit (if supported)
+  "domain": "my-project",          // Required for Claude backend only
   "save": "analysis.md",             // Optional: save result to file in day directory
   "day": "20250109",                  // Optional: YYYYMMDD format, defaults to current day
   "handoff": {                       // Optional: chain to another agent on completion
@@ -51,6 +49,9 @@ The first line of a request file must be a JSON object with `event: "request"`:
   "handoff_from": "1234567890122"   // Optional: present when spawned via handoff
 }
 ```
+
+All backend overrides (for example `model`, `max_tokens`, `disable_mcp`) are supplied as
+top-level keys to keep the schema flat and aligned with the agent backends.
 
 ## Agent Event Format
 
@@ -66,7 +67,6 @@ The initial spawn request (first line of file, written by client).
   "prompt": "User's task or question",
   "backend": "openai",
   "persona": "default",
-  "config": {},
   "save": "output.md",
   "day": "20250109",
   "handoff": {},
@@ -271,4 +271,3 @@ The `think-supervisor` command provides process management for the Cortex ecosys
 - Monitors system health indicators
 
 This is distinct from agent lifecycle management, which Cortex handles internally through file state transitions.
-

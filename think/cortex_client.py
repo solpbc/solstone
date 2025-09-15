@@ -64,7 +64,10 @@ def cortex_request(
 
     # Add optional fields
     if config:
-        request["config"] = config
+        if not isinstance(config, dict):
+            raise ValueError("config must be a dictionary")
+        # Merge config overrides directly into the request for a flat schema
+        request.update(config)
 
     if handoff_from:
         request["handoff_from"] = handoff_from

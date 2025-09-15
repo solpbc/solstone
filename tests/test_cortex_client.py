@@ -35,7 +35,8 @@ def test_cortex_request(tmp_path, monkeypatch):
         assert data["prompt"] == "Test prompt"
         assert data["persona"] == "default"
         assert data["backend"] == "openai"
-        assert data["config"]["model"] == "gpt-4o"
+        assert data["model"] == "gpt-4o"
+        assert "config" not in data
         assert "ts" in data
 
 

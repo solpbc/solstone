@@ -137,6 +137,7 @@ def test_cortex_run_simple_agent(integration_journal_path):
             prompt="Return exactly the text: Integration test successful",
             persona="default",
             backend="openai",
+            config={"disable_mcp": True},
             on_event=on_event,
         )
 

@@ -89,7 +89,7 @@ def test_handle_active_file_valid_request(cortex_service, mock_journal):
         "prompt": "Test prompt",
         "backend": "openai",
         "persona": "default",
-        "config": {"model": "gpt-4"},
+        "model": "gpt-4",
     }
     file_path.write_text(json.dumps(request) + "\n")
 
@@ -191,7 +191,7 @@ def test_spawn_agent(mock_timer, mock_thread, mock_popen, cortex_service, mock_j
         "prompt": "Test prompt",
         "backend": "openai",
         "persona": "default",
-        "config": {"model": "gpt-4"},
+        "model": "gpt-4",
     }
 
     cortex_service._spawn_agent(
@@ -216,7 +216,7 @@ def test_spawn_agent(mock_timer, mock_thread, mock_popen, cortex_service, mock_j
     assert ndjson["prompt"] == "Test prompt"
     assert ndjson["backend"] == "openai"
     assert ndjson["persona"] == "default"
-    assert ndjson["config"]["model"] == "gpt-4"
+    assert ndjson["model"] == "gpt-4"
 
     # Check stdin was closed
     mock_process.stdin.close.assert_called_once()
