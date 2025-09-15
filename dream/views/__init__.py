@@ -4,7 +4,7 @@ from importlib import import_module
 
 from flask import Flask
 
-from . import admin, agents, calendar, domains, entities, home, inbox, search, tasks
+from . import admin, agents, calendar, domains, entities, home, inbox, search, tasks, todos
 
 chat_view = import_module(".chat", __name__)
 
@@ -19,6 +19,7 @@ def register_views(app: Flask) -> None:
         search.bp,
         entities.bp,
         calendar.bp,
+        todos.bp,
         admin.bp,
         chat_view.bp,
         agents.bp,

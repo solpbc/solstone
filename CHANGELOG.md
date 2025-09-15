@@ -323,3 +323,10 @@ Guide for updating:
 - Deleted dream/views/live.py and dream/templates/live.html to remove unused live view interface
 - Updated dream navigation bar to remove live view link from base template
 - Cleaned up all live view imports and exports from dream/__init__.py and dream/views/__init__.py
+- Moved todos view from calendar subdirectory to be a top-level navigation item with green checkbox icon
+- Created dream/views/todos.py module with all todo management functionality extracted from calendar view
+- Added todos navigation link in base.html positioned right after domains with ✅ icon
+- Updated todos template to use active='todos' and maintain navigation within todos view for day switching
+- Modified all todo-related URLs from /calendar/<day>/todos to /todos/<day> for cleaner routing
+- Removed unnecessary top-right corner icons from todos view header for cleaner standalone interface
+- Updated calendar day template to link to new todos route instead of calendar todos subdirectory

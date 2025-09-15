@@ -1,6 +1,6 @@
 {% extends 'base.html' %}
 {% import 'macros.html' as macros %}
-{% set active = 'calendar' %}
+{% set active = 'todos' %}
 {% block head %}
 <style>
 .todos-container {
@@ -316,11 +316,8 @@
 {% block body %}
 <div class="container">
   {{ macros.day_heading(title,
-        prev_day and url_for('calendar.calendar_day', day=prev_day),
-        next_day and url_for('calendar.calendar_day', day=next_day),
-        url_for('calendar.calendar_transcript_page', day=day),
-        url_for('admin.admin_day_page', day=day),
-        url_for('calendar.calendar_todos_page', day=day)) }}
+        prev_day and url_for('todos.todos_day', day=prev_day),
+        next_day and url_for('todos.todos_day', day=next_day)) }}
   
   <div class="todos-container">
     {% if todos or true %}
@@ -460,7 +457,7 @@ window.addEventListener('DOMContentLoaded', async () => {
 
 async function checkGenerationStatus() {
   try {
-    const response = await fetch(`/calendar/${day}/todos/generation-status`);
+    const response = await fetch(`/todos/${day}/generation-status`);
     if (response.ok) {
       const data = await response.json();
       if (data.agent_id && data.status === 'running') {
@@ -484,7 +481,7 @@ async function generateTodos() {
   if (status) status.style.display = 'flex';
   
   try {
-    const response = await fetch(`/calendar/${day}/todos/generate`, {
+    const response = await fetch(`/todos/${day}/generate`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -523,7 +520,7 @@ async function pollGenerationStatus() {
   
   const checkStatus = async () => {
     try {
-      const response = await fetch(`/calendar/${day}/todos/generation-status?agent_id=${generationAgent}`);
+      const response = await fetch(`/todos/${day}/generation-status?agent_id=${generationAgent}`);
       if (response.ok) {
         const data = await response.json();
         
@@ -549,7 +546,7 @@ async function pollGenerationStatus() {
 
 async function updateTodo(lineNumber, field, value) {
   try {
-    const response = await fetch(`/calendar/${day}/todos`, {
+    const response = await fetch(`/todos/${day}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -576,7 +573,7 @@ async function updateTodo(lineNumber, field, value) {
 
 async function addTodo(section, text) {
   try {
-    const response = await fetch(`/calendar/${day}/todos`, {
+    const response = await fetch(`/todos/${day}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
