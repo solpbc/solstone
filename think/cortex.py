@@ -69,18 +69,6 @@ class AgentFileHandler(FileSystemEventHandler):
         self.cortex_service = cortex_service
         self.logger = logging.getLogger(__name__)
 
-    def on_moved(self, event):
-        """Handle file move events (pending -> active)."""
-        if event.is_directory:
-            return
-
-        # Check if file was renamed to _active.jsonl
-        dest_path = Path(event.dest_path)
-        if dest_path.name.endswith("_active.jsonl"):
-            agent_id = dest_path.stem.replace("_active", "")
-            self.logger.info(f"Detected new active file: {agent_id}")
-            self.cortex_service._handle_active_file(agent_id, dest_path)
-
     def on_created(self, event):
         """Handle file creation events (for direct _active.jsonl creation)."""
         if event.is_directory:
@@ -164,6 +152,11 @@ class CortexService:
     def _handle_active_file(self, agent_id: str, file_path: Path) -> None:
         """Handle a newly activated agent request file."""
         try:
+            # Check if file still exists (may have already been processed)
+            if not file_path.exists():
+                self.logger.debug(f"Active file already processed: {file_path}")
+                return
+
             # Read the request from the first line
             with open(file_path, "r") as f:
                 first_line = f.readline()

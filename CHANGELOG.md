@@ -330,3 +330,9 @@ Guide for updating:
 - Modified all todo-related URLs from /calendar/<day>/todos to /todos/<day> for cleaner routing
 - Removed unnecessary top-right corner icons from todos view header for cleaner standalone interface
 - Updated calendar day template to link to new todos route instead of calendar todos subdirectory
+
+## 2025-09-15
+
+- Fixed Cortex service race condition where file watcher could trigger duplicate processing of agent files
+- Removed redundant on_moved handler in AgentFileHandler to prevent double-processing of renamed files
+- Added file existence check in _handle_active_file to gracefully handle already-processed files
