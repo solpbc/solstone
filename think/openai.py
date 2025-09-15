@@ -201,7 +201,9 @@ async def run_agent(
             tool_filter = ToolFilterStatic(allowed_tool_names=allowed_tools)
             LOG.info(f"Using tool filter with allowed tools: {allowed_tools}")
         elif allowed_tools:
-            LOG.warning("Tool filtering requested but ToolFilterStatic not available in this version")
+            LOG.warning(
+                "Tool filtering requested but ToolFilterStatic not available in this version"
+            )
 
         mcp_server = MCPServerStreamableHttp(
             params={"url": http_uri},

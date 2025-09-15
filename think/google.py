@@ -154,8 +154,12 @@ async def run_agent(
                 # Tool filtering for Google requires more complex implementation
                 # that would need to intercept function calls and validate against allowed list
                 if allowed_tools and isinstance(allowed_tools, list):
-                    logging.getLogger(__name__).info(f"Tool filtering requested for Google backend with tools: {allowed_tools}")
-                    logging.getLogger(__name__).warning("Tool filtering for Google backend is not yet fully implemented - using all available tools")
+                    logging.getLogger(__name__).info(
+                        f"Tool filtering requested for Google backend with tools: {allowed_tools}"
+                    )
+                    logging.getLogger(__name__).warning(
+                        "Tool filtering for Google backend is not yet fully implemented - using all available tools"
+                    )
 
                 cfg = types.GenerateContentConfig(
                     max_output_tokens=max_tokens,

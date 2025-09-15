@@ -153,7 +153,9 @@ def test_claude_backend_real_sdk():
             else:
                 pytest.fail(f"Unexpected error: {finish_event}")
 
-        assert finish_event["event"] == "finish", f"Expected finish event, got: {finish_event}"
+        assert (
+            finish_event["event"] == "finish"
+        ), f"Expected finish event, got: {finish_event}"
         if "ts" in finish_event:
             assert isinstance(finish_event["ts"], int)
         assert "result" in finish_event
@@ -295,7 +297,9 @@ def test_claude_backend_with_tool_calls():
             else:
                 pytest.fail(f"Unexpected error: {finish_event}")
 
-        assert finish_event["event"] == "finish", f"Expected finish event, got: {finish_event}"
+        assert (
+            finish_event["event"] == "finish"
+        ), f"Expected finish event, got: {finish_event}"
         result_text = finish_event["result"].lower()
         assert (
             "hello" in result_text
@@ -415,7 +419,9 @@ def test_claude_backend_with_thinking():
             else:
                 pytest.fail(f"Unexpected error: {finish_event}")
 
-        assert finish_event["event"] == "finish", f"Expected finish event, got: {finish_event}"
+        assert (
+            finish_event["event"] == "finish"
+        ), f"Expected finish event, got: {finish_event}"
         result_text = finish_event["result"].lower()
         assert (
             "2" in result_text or "two" in result_text

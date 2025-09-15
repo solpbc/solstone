@@ -184,19 +184,21 @@ def test_google_backend_with_thinking():
     if finish_event.get("event") == "error":
         error_msg = finish_event.get("error", "Unknown error")
         trace = finish_event.get("trace", "")
-        if "quota" in error_msg.lower() or "rate" in error_msg.lower() or "retry" in error_msg.lower():
+        if (
+            "quota" in error_msg.lower()
+            or "rate" in error_msg.lower()
+            or "retry" in error_msg.lower()
+        ):
             pytest.skip(f"Intermittent Google API error: {error_msg}")
         else:
             pytest.fail(f"Unexpected error: {error_msg}\nTrace: {trace}")
 
-    assert finish_event["event"] == "finish", f"Expected finish event, got: {finish_event}"
+    assert (
+        finish_event["event"] == "finish"
+    ), f"Expected finish event, got: {finish_event}"
     assert "result" in finish_event, f"No result in finish event: {finish_event}"
     if finish_event["result"]:
         result_text = finish_event["result"].lower()
         assert (
             "4" in result_text or "four" in result_text
         ), f"Expected '4' in response, got: {finish_event['result']}"
-
-
-
-

@@ -190,8 +190,8 @@ class CortexService:
                 return
 
             # Load persona and merge with request
-            from think.utils import get_agent
             from think.mcp_tools import get_tools
+            from think.utils import get_agent
 
             persona = request.get("persona", "default")
             config = get_agent(persona)

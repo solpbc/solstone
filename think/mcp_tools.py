@@ -527,7 +527,9 @@ def get_tools(pack: str = "default") -> list[str]:
         pack = "journal"
 
     if pack not in TOOL_PACKS:
-        raise KeyError(f"Unknown tool pack '{pack}'. Available: {list(TOOL_PACKS.keys())}")
+        raise KeyError(
+            f"Unknown tool pack '{pack}'. Available: {list(TOOL_PACKS.keys())}"
+        )
     return TOOL_PACKS[pack]
 
 

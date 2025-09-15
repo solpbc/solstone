@@ -1,6 +1,7 @@
 import argparse
 import logging
 import os
+import signal
 import subprocess
 import sys
 import time
@@ -12,6 +13,9 @@ from think.utils import get_agents, setup_cli
 
 DEFAULT_THRESHOLD = 90
 CHECK_INTERVAL = 30
+
+# Global shutdown flag
+shutdown_requested = False
 
 
 def check_health(journal: str, threshold: int = DEFAULT_THRESHOLD) -> list[str]:
@@ -150,12 +154,15 @@ def supervise(
     procs: list[tuple[subprocess.Popen, str]] | None = None,
 ) -> None:
     """Monitor heartbeat files and alert when they become stale."""
+    global shutdown_requested
     last_day = datetime.now().date()
     alert_state = {}  # Track {issue_key: (last_alert_time, backoff_seconds)}
     initial_backoff = 60  # Start with 1 minute
     max_backoff = 3600  # Max 1 hour between alerts
 
-    while True:  # pragma: no cover - loop checked via unit tests by patching
+    while (
+        not shutdown_requested
+    ):  # pragma: no cover - loop checked via unit tests by patching
         # Check for runner exits first (immediate alert)
         if procs:
             exited = check_runner_exits(procs)
@@ -214,7 +221,12 @@ def supervise(
             if run_process_day():
                 spawn_scheduled_agents(journal)
             last_day = datetime.now().date()
-        time.sleep(interval)
+
+        # Use shorter sleep intervals to check for shutdown
+        for _ in range(interval):
+            if shutdown_requested:
+                break
+            time.sleep(1)
 
 
 def parse_args() -> argparse.ArgumentParser:
@@ -246,6 +258,13 @@ def parse_args() -> argparse.ArgumentParser:
     return parser
 
 
+def handle_shutdown(signum, frame):
+    """Handle shutdown signals gracefully."""
+    global shutdown_requested
+    shutdown_requested = True
+    logging.info("Shutdown requested, cleaning up...")
+
+
 def main() -> None:
     parser = parse_args()
     args = setup_cli(parser)
@@ -264,6 +283,10 @@ def main() -> None:
 
     os.environ.setdefault("SUNSTONE_MCP_URL", "http://127.0.0.1:6270/mcp")
 
+    # Set up signal handlers
+    signal.signal(signal.SIGINT, handle_shutdown)
+    signal.signal(signal.SIGTERM, handle_shutdown)
+
     procs: list[tuple[subprocess.Popen, str]] = []
     if not args.no_runners:
         procs = start_runners(journal, verbose=args.verbose)
@@ -280,16 +303,26 @@ def main() -> None:
             daily=not args.no_daily,
             procs=procs if procs else None,
         )
+    except KeyboardInterrupt:
+        logging.info("Caught KeyboardInterrupt, shutting down...")
     finally:
+        logging.info("Stopping all processes...")
         for proc, name in procs:
+            logging.info(f"Stopping {name}...")
             try:
                 proc.terminate()
             except Exception:
                 pass
             try:
                 proc.wait(timeout=2)
-            except Exception:
-                pass
+            except subprocess.TimeoutExpired:
+                logging.warning(f"{name} did not terminate gracefully, killing...")
+                try:
+                    proc.kill()
+                    proc.wait(timeout=1)
+                except Exception:
+                    pass
+        logging.info("Supervisor shutdown complete.")
 
 
 if __name__ == "__main__":

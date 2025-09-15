@@ -100,12 +100,18 @@ def test_anthropic_backend_basic():
     # Check if this was an API error (intermittent failures)
     if finish_event.get("event") == "error":
         error_msg = finish_event.get("error", "Unknown error")
-        if "rate" in error_msg.lower() or "retry" in error_msg.lower() or "quota" in error_msg.lower():
+        if (
+            "rate" in error_msg.lower()
+            or "retry" in error_msg.lower()
+            or "quota" in error_msg.lower()
+        ):
             pytest.skip(f"Intermittent Anthropic API error: {error_msg}")
         else:
             pytest.fail(f"Unexpected error: {finish_event}")
 
-    assert finish_event["event"] == "finish", f"Expected finish event, got: {finish_event}"
+    assert (
+        finish_event["event"] == "finish"
+    ), f"Expected finish event, got: {finish_event}"
     assert isinstance(finish_event["ts"], int)
     assert "result" in finish_event
 
@@ -183,17 +189,19 @@ def test_anthropic_backend_with_thinking():
     # Check if this was an API error (intermittent failures)
     if finish_event.get("event") == "error":
         error_msg = finish_event.get("error", "Unknown error")
-        if "rate" in error_msg.lower() or "retry" in error_msg.lower() or "quota" in error_msg.lower():
+        if (
+            "rate" in error_msg.lower()
+            or "retry" in error_msg.lower()
+            or "quota" in error_msg.lower()
+        ):
             pytest.skip(f"Intermittent Anthropic API error: {error_msg}")
         else:
             pytest.fail(f"Unexpected error: {finish_event}")
 
-    assert finish_event["event"] == "finish", f"Expected finish event, got: {finish_event}"
+    assert (
+        finish_event["event"] == "finish"
+    ), f"Expected finish event, got: {finish_event}"
     result_text = finish_event["result"].lower()
     assert (
         "4" in result_text or "four" in result_text
     ), f"Expected '4' in response, got: {finish_event['result']}"
-
-
-
-

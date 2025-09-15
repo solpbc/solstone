@@ -177,7 +177,6 @@ def test_openai_backend_with_reasoning():
     ), f"Expected '4' in response, got: {finish_event['result']}"
 
 
-
 @pytest.mark.integration
 @pytest.mark.requires_api
 def test_openai_backend_custom_model():

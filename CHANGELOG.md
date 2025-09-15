@@ -316,3 +316,6 @@ Guide for updating:
 - Fixed potential file descriptor leaks in cortex_watch with more defensive exception handling
 - Added thread safety for agent_requests dictionary access using existing lock throughout cortex
 - Implemented graceful agent shutdown using SIGTERM before SIGKILL with extended timeout
+- Added signal handling to supervisor for clean shutdown on Ctrl+C without tracebacks or timeout errors
+- Implemented global shutdown flag and graceful process termination for all child processes in supervisor
+- Applied code formatting with black and isort to maintain code consistency across multiple backend files

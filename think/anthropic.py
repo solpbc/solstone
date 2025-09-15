@@ -122,7 +122,9 @@ class ToolExecutor:
         }
 
 
-async def _get_mcp_tools(mcp: Any, allowed_tools: Optional[list[str]] = None) -> list[ToolParam]:
+async def _get_mcp_tools(
+    mcp: Any, allowed_tools: Optional[list[str]] = None
+) -> list[ToolParam]:
     """Return a list of MCP tools formatted for Claude using ``mcp``.
 
     Args:
@@ -209,7 +211,9 @@ async def run_agent(
                 # Extract allowed tools from config
                 allowed_tools = config.get("tools", None)
                 if allowed_tools and isinstance(allowed_tools, list):
-                    logging.getLogger(__name__).info(f"Using tool filter with allowed tools: {allowed_tools}")
+                    logging.getLogger(__name__).info(
+                        f"Using tool filter with allowed tools: {allowed_tools}"
+                    )
 
                 tools = await _get_mcp_tools(mcp, allowed_tools)
                 tool_executor = ToolExecutor(mcp, callback)
