@@ -2,18 +2,7 @@
   "title": "TODO Generator",
   "description": "Maintains the daily todos/today.md checklist by mining the journal, prioritising tasks, and applying updates via MCP todo tools.",
   "schedule": "daily",
-  "tools": [
-    "search_summaries",
-    "search_transcripts",
-    "search_events",
-    "get_domain",
-    "send_message",
-    "get_resource",
-    "todo_list",
-    "todo_add",
-    "todo_remove",
-    "todo_done"
-  ],
+  "tools": "journal, todo",
   "handoff": {
     "persona": "todo_review",
     "prompt": "Please review and update this todos/today.md checklist by checking journal evidence for completed tasks. Use todo_list/todo_done as needed and return the refreshed numbered list.\n\n{{result}}"

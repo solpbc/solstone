@@ -216,13 +216,25 @@ class CortexService:
             # Expand tools if it's a string (tool pack name)
             tools_config = config.get("tools")
             if isinstance(tools_config, str):
-                try:
-                    config["tools"] = get_tools(tools_config)
-                except KeyError as e:
-                    self.logger.warning(
-                        f"Invalid tool pack '{tools_config}': {e}, using default"
-                    )
-                    config["tools"] = get_tools("default")
+                pack_names = [p.strip() for p in tools_config.split(",") if p.strip()]
+                if not pack_names:
+                    pack_names = ["default"]
+
+                expanded: list[str] = []
+                for pack in pack_names:
+                    try:
+                        for tool in get_tools(pack):
+                            if tool not in expanded:
+                                expanded.append(tool)
+                    except KeyError as e:
+                        self.logger.warning(
+                            f"Invalid tool pack '{pack}': {e}, using default"
+                        )
+                        for tool in get_tools("default"):
+                            if tool not in expanded:
+                                expanded.append(tool)
+
+                config["tools"] = expanded
             elif tools_config is None:
                 # If no tools specified, use default pack
                 config["tools"] = get_tools("default")

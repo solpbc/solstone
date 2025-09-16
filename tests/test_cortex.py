@@ -115,6 +115,44 @@ def test_handle_active_file_valid_request(cortex_service, mock_journal):
                 assert called_config["backend"] == "openai"
 
 
+def test_handle_active_file_multiple_tool_packs(cortex_service, mock_journal):
+    """Ensure comma-separated tool packs are expanded into unique tool lists."""
+    agent_id = "toolpack"
+    file_path = mock_journal / "agents" / f"{agent_id}_active.jsonl"
+    request = {"event": "request", "ts": 1, "prompt": "Test", "persona": "todo"}
+    file_path.write_text(json.dumps(request) + "\n")
+
+    mock_mcp_tools = MagicMock()
+
+    def fake_get_tools(pack: str):
+        mapping = {
+            "journal": ["search_summaries", "get_resource"],
+            "todo": ["todo_list", "todo_add"],
+            "default": ["search_summaries"],
+        }
+        return mapping[pack]
+
+    mock_mcp_tools.get_tools.side_effect = fake_get_tools
+
+    with patch.dict("sys.modules", {"think.mcp_tools": mock_mcp_tools}):
+        with patch("think.utils.get_agent") as mock_get_agent:
+            mock_get_agent.return_value = {
+                "instruction": "todo",
+                "tools": "journal, todo",
+            }
+
+            with patch.object(cortex_service, "_spawn_agent") as mock_spawn:
+                cortex_service._handle_active_file(agent_id, file_path)
+                assert mock_spawn.called
+                config = mock_spawn.call_args[0][2]
+                assert config["tools"] == [
+                    "search_summaries",
+                    "get_resource",
+                    "todo_list",
+                    "todo_add",
+                ]
+
+
 def test_handle_active_file_empty_file(cortex_service, mock_journal):
     """Test handling an empty active file."""
     agent_id = "123456789"
