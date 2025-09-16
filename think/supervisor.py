@@ -4,9 +4,12 @@ import os
 import signal
 import subprocess
 import sys
+import threading
 import time
+from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
+from typing import TextIO
 
 from think.cortex_client import cortex_request
 from think.utils import get_agents, setup_cli
@@ -16,6 +19,101 @@ CHECK_INTERVAL = 30
 
 # Global shutdown flag
 shutdown_requested = False
+
+
+class ProcessLogWriter:
+    """Thread-safe writer that appends process output to a log file."""
+
+    def __init__(self, log_path: Path) -> None:
+        log_path.parent.mkdir(parents=True, exist_ok=True)
+        self._log_path = log_path
+        self._lock = threading.Lock()
+        self._fh = log_path.open("a", encoding="utf-8")
+
+    def write(self, message: str) -> None:
+        with self._lock:
+            self._fh.write(message)
+            self._fh.flush()
+
+    def close(self) -> None:
+        with self._lock:
+            if not self._fh.closed:
+                self._fh.close()
+
+
+@dataclass
+class ManagedProcess:
+    process: subprocess.Popen
+    name: str
+    logger: ProcessLogWriter
+    threads: list[threading.Thread] = field(default_factory=list)
+
+    def cleanup(self) -> None:
+        for thread in self.threads:
+            thread.join(timeout=1)
+        self.logger.close()
+
+
+def _format_log_line(process_name: str, stream_label: str, line: str) -> str:
+    timestamp = datetime.now().isoformat(timespec="seconds")
+    clean_line = line.rstrip("\n")
+    return f"{timestamp} [{process_name}:{stream_label}] {clean_line}\n"
+
+
+def _stream_output(
+    pipe: TextIO | None,
+    process_name: str,
+    stream_label: str,
+    logger: ProcessLogWriter,
+    verbose_target: TextIO | None,
+) -> None:
+    if pipe is None:
+        return
+    with pipe:
+        for line in pipe:
+            logger.write(_format_log_line(process_name, stream_label, line))
+            if verbose_target is not None:
+                verbose_target.write(line)
+                verbose_target.flush()
+
+
+def _launch_process(
+    name: str,
+    cmd: list[str],
+    journal: str,
+    verbose: bool,
+    *,
+    env: dict[str, str] | None = None,
+) -> ManagedProcess:
+    log_writer = ProcessLogWriter(Path(journal) / "health" / f"{name}.log")
+    try:
+        proc = subprocess.Popen(
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            bufsize=1,
+            start_new_session=True,
+            env=env,
+        )
+    except Exception:
+        log_writer.close()
+        raise
+    threads = [
+        threading.Thread(
+            target=_stream_output,
+            args=(proc.stdout, name, "stdout", log_writer, sys.stdout if verbose else None),
+            daemon=True,
+        ),
+        threading.Thread(
+            target=_stream_output,
+            args=(proc.stderr, name, "stderr", log_writer, sys.stderr if verbose else None),
+            daemon=True,
+        ),
+    ]
+    for thread in threads:
+        thread.start()
+    return ManagedProcess(process=proc, name=name, logger=log_writer, threads=threads)
 
 
 def check_health(journal: str, threshold: int = DEFAULT_THRESHOLD) -> list[str]:
@@ -81,49 +179,34 @@ def spawn_scheduled_agents(journal: str) -> None:
         logging.error(f"Failed to spawn scheduled agents: {e}")
 
 
-def start_runners(
-    journal: str, verbose: bool = False
-) -> list[tuple[subprocess.Popen, str]]:
-    """Launch hear and see runners with output to console."""
-    procs = []
+def start_runners(journal: str, verbose: bool = False) -> list[ManagedProcess]:
+    """Launch hear and see runners with output logging."""
+    procs: list[ManagedProcess] = []
     for module in ("hear.runner", "see.runner"):
         cmd = [sys.executable, "-m", module]
         if verbose:
             cmd.append("-v")
-        proc = subprocess.Popen(
-            cmd,
-            stdout=None,  # Inherit stdout
-            stderr=None,  # Inherit stderr
-            start_new_session=True,
-        )
-        runner_name = module.split(".")[0]  # "hear" or "see"
-        procs.append((proc, runner_name))
+        runner_name = module.split(".")[0]
+        procs.append(_launch_process(runner_name, cmd, journal, verbose))
     return procs
 
 
-def start_cortex_server(journal: str, verbose: bool = False) -> subprocess.Popen:
+def start_cortex_server(journal: str, verbose: bool = False) -> ManagedProcess:
     """Launch the Cortex WebSocket API server."""
     cmd = [sys.executable, "-m", "think.cortex"]
     if verbose:
         cmd.append("-v")
     env = os.environ.copy()
     env["JOURNAL_PATH"] = journal
-    proc = subprocess.Popen(
-        cmd,
-        stdout=None,  # Inherit stdout
-        stderr=None,  # Inherit stderr
-        start_new_session=True,
-        env=env,
-    )
-    return proc
+    return _launch_process("cortex", cmd, journal, verbose, env=env)
 
 
-def check_runner_exits(procs: list[tuple[subprocess.Popen, str]]) -> list[str]:
+def check_runner_exits(procs: list[ManagedProcess]) -> list[str]:
     """Check if any runner processes have exited and return their names."""
     exited = []
-    for proc, name in procs:
-        if proc.poll() is not None:  # Process has exited
-            exited.append(name)
+    for managed in procs:
+        if managed.process.poll() is not None:  # Process has exited
+            exited.append(managed.name)
     return exited
 
 
@@ -134,7 +217,7 @@ def supervise(
     interval: int = CHECK_INTERVAL,
     command: str = "notify-send",
     daily: bool = True,
-    procs: list[tuple[subprocess.Popen, str]] | None = None,
+    procs: list[ManagedProcess] | None = None,
 ) -> None:
     """Monitor heartbeat files and alert when they become stale."""
     global shutdown_requested
@@ -273,12 +356,11 @@ def main() -> None:
     signal.signal(signal.SIGINT, handle_shutdown)
     signal.signal(signal.SIGTERM, handle_shutdown)
 
-    procs: list[tuple[subprocess.Popen, str]] = []
+    procs: list[ManagedProcess] = []
     if not args.no_runners:
-        procs = start_runners(journal, verbose=args.verbose)
+        procs.extend(start_runners(journal, verbose=args.verbose))
     if not args.no_cortex:
-        cortex_proc = start_cortex_server(journal, verbose=args.verbose)
-        procs.append((cortex_proc, "cortex"))
+        procs.append(start_cortex_server(journal, verbose=args.verbose))
     try:
         supervise(
             journal,
@@ -292,7 +374,9 @@ def main() -> None:
         logging.info("Caught KeyboardInterrupt, shutting down...")
     finally:
         logging.info("Stopping all processes...")
-        for proc, name in procs:
+        for managed in procs:
+            name = managed.name
+            proc = managed.process
             logging.info(f"Stopping {name}...")
             try:
                 proc.terminate()
@@ -307,6 +391,7 @@ def main() -> None:
                     proc.wait(timeout=1)
                 except Exception:
                     pass
+            managed.cleanup()
         logging.info("Supervisor shutdown complete.")
 
 
