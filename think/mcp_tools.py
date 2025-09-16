@@ -3,6 +3,7 @@
 
 import base64
 import os
+import re
 from pathlib import Path
 from typing import Any
 
@@ -33,7 +34,236 @@ TOOL_PACKS = {
         "send_message",
         "get_resource",
     ],
+    "todo": [
+        "todo_list",
+        "todo_add",
+        "todo_remove",
+        "todo_done",
+    ],
 }
+
+
+_TODO_ENTRY_RE = re.compile(r"^- \[( |x|X)\]\s?(.*)$")
+
+
+def _todo_file_path(day: str) -> Path:
+    """Return the absolute path to the todo checklist for ``day``."""
+
+    journal = os.getenv("JOURNAL_PATH", "journal")
+    return Path(journal) / day / "todos" / "today.md"
+
+
+def _load_todo_entries(day: str) -> tuple[Path, list[str]]:
+    """Load todo entries for ``day`` as raw markdown lines."""
+
+    path = _todo_file_path(day)
+    day_dir = path.parents[1]
+    if not day_dir.is_dir():
+        raise FileNotFoundError(f"day folder '{day}' not found")
+
+    if not path.is_file():
+        path.parent.mkdir(parents=True, exist_ok=True)
+        return path, []
+
+    text = path.read_text(encoding="utf-8")
+    entries = [line.rstrip("\n") for line in text.splitlines() if line.strip()]
+    return path, entries
+
+
+def _write_todo_entries(path: Path, entries: list[str]) -> None:
+    """Persist todo ``entries`` back to ``path`` ensuring a newline terminator."""
+
+    content = "\n".join(entries)
+    if entries:
+        content += "\n"
+    path.write_text(content, encoding="utf-8")
+
+
+def _format_numbered(entries: list[str]) -> str:
+    """Return todo ``entries`` formatted with ``1:`` style numbering."""
+
+    if not entries:
+        return "0: (no todos)"
+
+    return "\n".join(f"{idx}: {line}" for idx, line in enumerate(entries, start=1))
+
+
+def _parse_entry(entry: str) -> tuple[bool, str]:
+    """Return completion flag and body text for a todo entry."""
+
+    match = _TODO_ENTRY_RE.match(entry)
+    if not match:
+        raise ValueError("entry is not a markdown checklist item")
+    completed = match.group(1).lower() == "x"
+    text = match.group(2)
+    return completed, text
+
+
+def _validate_line_number(line_number: int, max_line: int) -> None:
+    """Ensure ``line_number`` is within the inclusive range ``[1, max_line]``."""
+
+    if line_number < 1 or line_number > max_line:
+        raise IndexError(
+            f"line number {line_number} is out of range (1..{max_line})"
+        )
+
+
+@mcp.tool(annotations=HINTS)
+def todo_list(day: str) -> dict[str, Any]:
+    """Return the numbered markdown checklist for ``day``'s todos.
+
+    Args:
+        day: Journal day in ``YYYYMMDD`` format.
+
+    Returns:
+        Dictionary containing the formatted ``markdown`` view with ``N:`` line
+        prefixes, or an error payload when the journal day is missing.
+    """
+
+    try:
+        _, entries = _load_todo_entries(day)
+        return {"day": day, "markdown": _format_numbered(entries)}
+    except FileNotFoundError:
+        return {
+            "error": f"Day '{day}' not found",
+            "suggestion": "verify JOURNAL_PATH and the requested day folder",
+        }
+    except Exception as exc:  # pragma: no cover - unexpected failure
+        return {"error": f"Failed to list todos: {exc}"}
+
+
+@mcp.tool(annotations=HINTS)
+def todo_add(day: str, line_number: int, text: str) -> dict[str, Any]:
+    """Append a new unchecked todo entry using the next sequential line number.
+
+    Args:
+        day: Journal day in ``YYYYMMDD`` format.
+        line_number: Expected next line value; must be ``current_count + 1``.
+        text: Body of the todo item (stored after the ``- [ ]`` prefix).
+
+    Returns:
+        Dictionary with the updated ``markdown`` checklist including numbering,
+        or an error payload if validation fails.
+    """
+
+    try:
+        path, entries = _load_todo_entries(day)
+        expected_line = len(entries) + 1
+        if line_number != expected_line:
+            return {
+                "error": (
+                    f"line number {line_number} must match the next available line"
+                ),
+                "suggestion": f"retry with {expected_line}",
+            }
+
+        body = text.strip()
+        if not body:
+            return {
+                "error": "todo text cannot be empty",
+                "suggestion": "provide a short description of the task",
+            }
+
+        entries.append(f"- [ ] {body}")
+        _write_todo_entries(path, entries)
+        return {"day": day, "markdown": _format_numbered(entries)}
+    except FileNotFoundError:
+        return {
+            "error": f"Day '{day}' not found",
+            "suggestion": "create the day directory before adding todos",
+        }
+    except Exception as exc:  # pragma: no cover - unexpected failure
+        return {"error": f"Failed to add todo: {exc}"}
+
+
+@mcp.tool(annotations=HINTS)
+def todo_remove(day: str, line_number: int, guard: str) -> dict[str, Any]:
+    """Delete an existing todo entry after verifying its current text.
+
+    Args:
+        day: Journal day in ``YYYYMMDD`` format.
+        line_number: 1-based index of the entry to remove.
+        guard: Full todo line (e.g., ``- [ ] Review logs``) expected on the numbered line.
+
+    Returns:
+        Dictionary with the updated ``markdown`` checklist including numbering,
+        or an error payload if validation fails.
+    """
+
+    try:
+        path, entries = _load_todo_entries(day)
+        _validate_line_number(line_number, len(entries))
+
+        entry = entries[line_number - 1]
+        _parse_entry(entry)
+        if guard != entry:
+            return {
+                "error": "guard text does not match current todo",
+                "suggestion": f"expected '{entry}'",
+            }
+
+        del entries[line_number - 1]
+        _write_todo_entries(path, entries)
+        return {"day": day, "markdown": _format_numbered(entries)}
+    except FileNotFoundError:
+        return {
+            "error": f"Day '{day}' not found",
+            "suggestion": "verify the day folder exists before removing todos",
+        }
+    except IndexError as exc:
+        return {"error": str(exc), "suggestion": "refresh the todo list"}
+    except ValueError as exc:
+        return {
+            "error": f"Malformed todo entry: {exc}",
+            "suggestion": "recreate the todo manually if needed",
+        }
+    except Exception as exc:  # pragma: no cover - unexpected failure
+        return {"error": f"Failed to remove todo: {exc}"}
+
+
+@mcp.tool(annotations=HINTS)
+def todo_done(day: str, line_number: int, guard: str) -> dict[str, Any]:
+    """Mark a todo entry as completed by switching its checkbox to ``[x]``.
+
+    Args:
+        day: Journal day in ``YYYYMMDD`` format.
+        line_number: 1-based index of the entry to mark as done.
+        guard: Full todo line (e.g., ``- [ ] Review logs``) expected on the numbered line.
+
+    Returns:
+        Dictionary with the updated ``markdown`` checklist including numbering,
+        or an error payload if validation fails.
+    """
+
+    try:
+        path, entries = _load_todo_entries(day)
+        _validate_line_number(line_number, len(entries))
+
+        entry = entries[line_number - 1]
+        _, body = _parse_entry(entry)
+        if guard != entry:
+            return {
+                "error": "guard text does not match current todo",
+                "suggestion": f"expected '{entry}'",
+            }
+
+        entries[line_number - 1] = f"- [x] {body}"
+        _write_todo_entries(path, entries)
+        return {"day": day, "markdown": _format_numbered(entries)}
+    except FileNotFoundError:
+        return {
+            "error": f"Day '{day}' not found",
+            "suggestion": "verify the day folder exists before updating todos",
+        }
+    except IndexError as exc:
+        return {"error": str(exc), "suggestion": "refresh the todo list"}
+    except ValueError as exc:
+        return {
+            "error": f"Malformed todo entry: {exc}",
+            "suggestion": "recreate the todo manually if needed",
+        }
+    except Exception as exc:  # pragma: no cover - unexpected failure
+        return {"error": f"Failed to complete todo: {exc}"}
 
 
 @mcp.tool(annotations=HINTS)
