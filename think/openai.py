@@ -42,7 +42,7 @@ try:
 except Exception:  # pragma: no cover
     ResponseTextDeltaEvent = object  # type: ignore
 
-# Removed agent_instructions import - now using config directly
+# Agent configuration is now loaded via get_agent() in cortex.py
 
 from .agents import JSONEventCallback, ThinkingEvent
 from .models import GPT_5

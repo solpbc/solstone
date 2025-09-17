@@ -7,7 +7,7 @@ import time
 import zoneinfo
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Optional, Tuple
+from typing import Any, Optional
 
 from dotenv import load_dotenv
 from timefhuman import timefhuman
@@ -170,83 +170,6 @@ def get_topics() -> dict[str, dict[str, object]]:
     return topics
 
 
-def agent_instructions(persona: str = "default") -> Tuple[str, str, dict[str, object]]:
-    """Return system instruction, initial user context and metadata for ``persona``."""
-
-    txt_path = AGENT_DIR / f"{persona}.txt"
-    system_instruction = txt_path.read_text(encoding="utf-8")
-
-    meta: dict[str, object] = {}
-    json_path = txt_path.with_suffix(".json")
-    if json_path.exists():
-        try:
-            with open(json_path, "r", encoding="utf-8") as f:
-                data = json.load(f)
-            if isinstance(data, dict):
-                meta.update(data)
-        except Exception as exc:  # pragma: no cover - optional metadata
-            logging.debug("Error reading %s: %s", json_path, exc)
-
-    extra_parts: list[str] = []
-    journal = os.getenv("JOURNAL_PATH")
-    if journal:
-        ent_path = Path(journal) / "entities.md"
-        if ent_path.is_file():
-            entities = ent_path.read_text(encoding="utf-8").strip()
-            if entities:
-                extra_parts.append("## Well-Known Entities\n" + entities)
-
-        # Add domains to agent instructions
-        try:
-            from think.domains import get_domains
-
-            domains = get_domains()
-            if domains:
-                lines = ["## Domains"]
-                for name, info in sorted(domains.items()):
-                    title = str(info.get("title", name))
-                    desc = str(info.get("description", ""))
-                    emoji = str(info.get("emoji", ""))
-
-                    # Format with emoji if available
-                    if emoji:
-                        title_with_emoji = f"{emoji} {title}"
-                    else:
-                        title_with_emoji = title
-
-                    # Build domain line with hashtag format
-                    if desc:
-                        lines.append(f"* Domain: {title_with_emoji} (#{name}) - {desc}")
-                    else:
-                        lines.append(f"* Domain: {title_with_emoji} (#{name})")
-                extra_parts.append("\n".join(lines))
-        except Exception as exc:
-            logging.debug("Error loading domains: %s", exc)
-
-    topics = get_topics()
-    if topics:
-        lines = [
-            "## Topics",
-            "These are the topics available for use in tool and resource requests:",
-        ]
-        for name, info in sorted(topics.items()):
-            desc = str(info.get("contains", ""))
-            lines.append(f"* Topic: `{name}`: {desc}")
-        extra_parts.append("\n".join(lines))
-
-    now = datetime.now()
-    try:
-        local_tz = zoneinfo.ZoneInfo(str(now.astimezone().tzinfo))
-        now_local = now.astimezone(local_tz)
-        time_str = now_local.strftime("%A, %B %d, %Y at %I:%M %p %Z")
-    except Exception:
-        time_str = now.strftime("%A, %B %d, %Y at %I:%M %p")
-
-    extra_parts.append(f"## Current Date and Time\n{time_str}")
-
-    extra_context = "\n\n".join(extra_parts).strip()
-    return system_instruction, extra_context, meta
-
 
 def get_agent(persona: str = "default") -> dict:
     """Return complete agent configuration for a persona.
@@ -280,7 +203,7 @@ def get_agent(persona: str = "default") -> dict:
     # Add runtime context (entities and domains)
     extra_parts = []
 
-    # Add entities context - use same logic as agent_instructions
+    # Add entities context
     journal = os.getenv("JOURNAL_PATH")
     if journal:
         ent_path = Path(journal) / "entities.md"
