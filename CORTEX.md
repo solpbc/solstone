@@ -41,6 +41,7 @@ The first line of a request file must be a JSON object with `event: "request"`:
   "domain": "my-project",          // Required for Claude backend only
   "save": "analysis.md",             // Optional: save result to file in day directory
   "day": "20250109",                  // Optional: YYYYMMDD format, defaults to current day
+  "conversation_id": "abc123",       // Optional: resume OpenAI Agents session
   "handoff": {                       // Optional: chain to another agent on completion
     "persona": "reviewer",
     "prompt": "Review the analysis",
@@ -52,6 +53,13 @@ The first line of a request file must be a JSON object with `event: "request"`:
 
 All backend overrides (for example `model`, `max_tokens`, `disable_mcp`) are supplied as
 top-level keys to keep the schema flat and aligned with the agent backends.
+
+### Conversation Continuations
+
+OpenAI's Agents SDK supports carrying a `conversation_id` across requests to reuse an
+existing session. Include this optional field in the request payload when resuming an
+ongoing conversation. When the backend issues a `finish` event it will echo the active
+`conversation_id`, allowing callers to persist it for future turns.
 
 ## Agent Event Format
 

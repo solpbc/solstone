@@ -19,7 +19,7 @@ import traceback
 from typing import Any, Callable, Dict, Optional
 from urllib.parse import urlparse, urlunparse
 
-from agents import Agent, Runner, SQLiteSession
+from agents import Agent, Runner, OpenAIConversationsSession
 from agents.items import (
     MessageOutputItem,
     ReasoningItem,
@@ -152,6 +152,7 @@ async def run_agent(
     max_tokens = config.get("max_tokens", _DEFAULT_MAX_TOKENS)
     max_turns = config.get("max_turns", _DEFAULT_MAX_TURNS)
     disable_mcp = config.get("disable_mcp", False)
+    conversation_id_in = config.get("conversation_id")
 
     LOG.info(
         "Running agent with model %s (MCP: %s)",
@@ -213,7 +214,11 @@ async def run_agent(
     # Accumulate streamed text chunks as a fallback (if final_output missing)
     streamed_text: list[str] = []
 
-    session = SQLiteSession("sunstone_oneshot")
+    session = (
+        OpenAIConversationsSession(conversation_id=conversation_id_in)
+        if conversation_id_in
+        else OpenAIConversationsSession()
+    )
 
     try:
         # Handle MCP server context manager conditionally
@@ -372,7 +377,20 @@ async def run_agent(
             if not isinstance(final_text, str) or not final_text:
                 final_text = "".join(streamed_text)
 
-            cb.emit({"event": "finish", "result": final_text, "ts": _now_ms()})
+            conversation_id_out = (
+                getattr(session, "conversation_id", None)
+                or getattr(result, "conversation_id", None)
+                or conversation_id_in
+            )
+
+            cb.emit(
+                {
+                    "event": "finish",
+                    "result": final_text,
+                    "conversation_id": conversation_id_out,
+                    "ts": _now_ms(),
+                }
+            )
             return final_text
 
     except Exception as exc:
