@@ -1,5 +1,7 @@
 import importlib
+import io
 import os
+import subprocess
 import time
 
 
@@ -36,15 +38,28 @@ def test_start_runners(tmp_path, monkeypatch):
     started = []
 
     class DummyProc:
+        def __init__(self):
+            self.stdout = io.StringIO()
+            self.stderr = io.StringIO()
+
         def terminate(self):
             pass
 
         def wait(self, timeout=None):
             pass
 
-    def fake_popen(cmd, stdout=None, stderr=None, start_new_session=False):
+    def fake_popen(
+        cmd,
+        stdout=None,
+        stderr=None,
+        text=False,
+        bufsize=-1,
+        start_new_session=False,
+        env=None,
+    ):
+        proc = DummyProc()
         started.append((cmd, stdout, stderr))
-        return DummyProc()
+        return proc
 
     monkeypatch.setattr(mod.subprocess, "Popen", fake_popen)
 
@@ -53,10 +68,10 @@ def test_start_runners(tmp_path, monkeypatch):
     assert len(procs) == 2
     assert any("hear.runner" in c[0] for c in started)
     assert any("see.runner" in c[0] for c in started)
-    # Check that stdout and stderr are None (inherit from parent)
+    # Check that stdout and stderr capture pipes
     for cmd, stdout, stderr in started:
-        assert stdout is None
-        assert stderr is None
+        assert stdout == subprocess.PIPE
+        assert stderr == subprocess.PIPE
 
 
 def test_main_no_runners(tmp_path, monkeypatch):

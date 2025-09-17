@@ -19,7 +19,7 @@ import traceback
 from typing import Any, Callable, Dict, Optional
 from urllib.parse import urlparse, urlunparse
 
-from agents import Agent, Runner, OpenAIConversationsSession
+from agents import Agent, OpenAIConversationsSession, Runner
 from agents.items import (
     MessageOutputItem,
     ReasoningItem,

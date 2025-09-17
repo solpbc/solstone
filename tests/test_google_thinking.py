@@ -5,6 +5,8 @@ import sys
 import types
 from types import SimpleNamespace
 
+from tests.agents_stub import install_agents_stub
+
 
 async def run_main(mod, argv, stdin_data=None):
     sys.argv = argv
@@ -65,6 +67,7 @@ def _setup_genai_stub(monkeypatch):
 
 def test_google_thinking_events(monkeypatch, tmp_path, capsys):
     _setup_genai_stub(monkeypatch)
+    install_agents_stub()
 
     sys.modules.pop("think.google", None)
     importlib.reload(importlib.import_module("think.google"))

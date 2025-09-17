@@ -5,6 +5,8 @@ import sys
 import types
 from types import SimpleNamespace
 
+from tests.agents_stub import install_agents_stub
+
 from think.models import CLAUDE_SONNET_4
 
 
@@ -116,6 +118,7 @@ def _setup_fastmcp_stub(monkeypatch):
 def test_claude_main(monkeypatch, tmp_path, capsys):
     _setup_anthropic_stub(monkeypatch)
     _setup_fastmcp_stub(monkeypatch)
+    install_agents_stub()
     sys.modules.pop("think.anthropic", None)
     importlib.reload(importlib.import_module("think.anthropic"))
     mod = importlib.reload(importlib.import_module("think.agents"))
@@ -155,6 +158,7 @@ def test_claude_main(monkeypatch, tmp_path, capsys):
 def test_claude_outfile(monkeypatch, tmp_path, capsys):
     _setup_anthropic_stub(monkeypatch)
     _setup_fastmcp_stub(monkeypatch)
+    install_agents_stub()
     sys.modules.pop("think.anthropic", None)
     importlib.reload(importlib.import_module("think.anthropic"))
     mod = importlib.reload(importlib.import_module("think.agents"))
@@ -203,6 +207,7 @@ def test_claude_thinking_events(monkeypatch, tmp_path, capsys):
     # Setup anthropic stub with thinking
     _setup_anthropic_stub(monkeypatch, with_thinking=True)
     _setup_fastmcp_stub(monkeypatch)
+    install_agents_stub()
     sys.modules.pop("think.anthropic", None)
     importlib.reload(importlib.import_module("think.anthropic"))
     mod = importlib.reload(importlib.import_module("think.agents"))
@@ -241,6 +246,7 @@ def test_claude_thinking_events(monkeypatch, tmp_path, capsys):
 def test_claude_outfile_error(monkeypatch, tmp_path, capsys):
     _setup_anthropic_stub(monkeypatch, error=True)
     _setup_fastmcp_stub(monkeypatch)
+    install_agents_stub()
     sys.modules.pop("think.anthropic", None)
     importlib.reload(importlib.import_module("think.anthropic"))
     mod = importlib.reload(importlib.import_module("think.agents"))
