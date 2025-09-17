@@ -53,9 +53,19 @@ class WorkaroundConversations(Session):
 
     def __init__(self, inner: Session):
         self.inner = inner
-        # Expose conversation_id if the inner session has it
-        if hasattr(inner, 'conversation_id'):
-            self.conversation_id = inner.conversation_id
+        # The OpenAIConversationsSession stores the conversation_id as _session_id
+        # We need to expose it as conversation_id for compatibility
+
+    @property
+    def conversation_id(self):
+        """Get conversation_id from inner session."""
+        # Try direct conversation_id first
+        if hasattr(self.inner, 'conversation_id'):
+            return self.inner.conversation_id
+        # Fall back to _session_id (internal storage in OpenAIConversationsSession)
+        if hasattr(self.inner, '_session_id'):
+            return self.inner._session_id
+        return None
 
     async def get_items(self, limit=None):
         return await self.inner.get_items(limit=limit)
@@ -408,9 +418,12 @@ async def run_agent(
             if not isinstance(final_text, str) or not final_text:
                 final_text = "".join(streamed_text)
 
+            # Get conversation_id from various possible sources
             conversation_id_out = (
                 getattr(session, "conversation_id", None)
+                or getattr(session, "_session_id", None)  # Internal field in OpenAIConversationsSession
                 or getattr(result, "conversation_id", None)
+                or getattr(result, "_session_id", None)
                 or conversation_id_in
             )
 
