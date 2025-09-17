@@ -37,6 +37,11 @@ def send_message() -> Any:
     attachments = payload.get("attachments", [])
     backend = payload.get("backend", state.chat_backend)
     persona = payload.get("persona", "default")  # Get persona from request
+    continue_agent_id = payload.get("continue")
+
+    config: dict[str, Any] = {}
+    if continue_agent_id:
+        config["continue"] = continue_agent_id
 
     if backend == "openai":
         key_name = "OPENAI_API_KEY"
@@ -57,6 +62,7 @@ def send_message() -> Any:
             attachments=attachments,
             backend=backend,
             persona=persona,  # Pass the persona to the agent
+            config=config,
             timeout=300,  # 5 minutes for chat
             on_event=_push_event,  # Forward events to push server
         )

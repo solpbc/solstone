@@ -111,6 +111,8 @@ let isHistorical = false;
 let historicalAgentId = null;
 
 function parseFragment() {
+  isHistorical = false;
+  historicalAgentId = null;
   const fragment = window.location.hash.slice(1);
   if (!fragment) return;
   
@@ -151,6 +153,9 @@ activityIndicator.innerHTML = '<span></span><span></span><span></span>';
 let eventProcessingActive = false;
 let eventTimeout = null;
 let responseInProgress = false;
+let nextContinueAgentId = null;
+let chatControlsInitialized = false;
+let activeRunAgentId = null;
 
 function showActivityIndicator() {
   if (!document.getElementById('activityIndicator')) {
@@ -390,8 +395,13 @@ document.getElementById('inputArea').onsubmit=async e=>{
   const text=input.value.trim();
   if(!text)return;
   
-  // Clear previous messages for fresh one-shot conversation
-  messagesDiv.innerHTML='';
+  const continueAgent = nextContinueAgentId;
+  const isContinuing = Boolean(continueAgent);
+
+  // Clear previous messages unless we're continuing from an active conversation
+  if(!isContinuing){
+    messagesDiv.innerHTML='';
+  }
   // Clear tool placard references to prevent memory leaks
   Object.keys(toolPlacards).forEach(key => delete toolPlacards[key]);
   
@@ -408,7 +418,14 @@ document.getElementById('inputArea').onsubmit=async e=>{
   responseInProgress = true;
   showActivityIndicator();
   
-  const r=await fetch(sendUrl,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:text,backend:backendSelect.value,persona:currentPersona})});
+  const payload={message:text,backend:backendSelect.value,persona:currentPersona};
+  if(continueAgent){
+    payload['continue']=continueAgent;
+  }
+  nextContinueAgentId=null;
+  activeRunAgentId=null;
+
+  const r=await fetch(sendUrl,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
   
   if(r.ok){
     const d=await r.json();
@@ -443,9 +460,23 @@ async function loadHistoricalAgent(agentId){
     return;
   }
   const d = await r.json();
-  
+  const events = Array.isArray(d.events) ? d.events : [];
+  const requestEvent = events.find(e => e.event === 'request');
+  const finishEvent = [...events].reverse().find(e => e.event === 'finish');
+  const isLive = d.source === 'cortex' && d.is_running;
+  activeRunAgentId = null;
+
+  if(requestEvent){
+    if(requestEvent.persona){
+      currentPersona = requestEvent.persona;
+    }
+    if(requestEvent.backend){
+      backendSelect.value = requestEvent.backend;
+    }
+  }
+
   // Check if this is a live agent from Cortex vs historical from file
-  if(d.source === 'cortex' && d.is_running) {
+  if(isLive) {
     // This is a live agent - hide the historical notice
     const notice = document.getElementById('historicalNotice');
     if(notice) {
@@ -480,12 +511,12 @@ async function loadHistoricalAgent(agentId){
     }
   } else {
     // Update the header with human-friendly info for historical agents
-    updateHistoricalHeader(agentId, d.events);
+    updateHistoricalHeader(agentId, events);
   }
   
   // Process events in chronological order
   // This maintains the proper sequence of messages and tool calls
-  for(const event of d.events){
+  for(const event of events){
     if(event.event === 'start'){
       // User message
       addMessage(event.prompt || '', 'from-user');
@@ -506,10 +537,36 @@ async function loadHistoricalAgent(agentId){
       handleHistoricalEvent(event);
     }
   }
+
+  if(!isLive && finishEvent){
+    activeRunAgentId = agentId;
+    processEvent(finishEvent);
+  }
+
+  if(!isLive){
+    if(finishEvent && finishEvent.conversation_id){
+      nextContinueAgentId = agentId;
+      isHistorical = false;
+      form.style.display = '';
+      input.disabled = false;
+      input.placeholder = 'Continue conversation...';
+      initChatControls();
+      updatePersonaNotice();
+      input.focus();
+    } else {
+      form.style.display = 'none';
+    }
+  }
 }
 
 // Unified event handler for both live and historical events
 function processEvent(event) {
+  if(event.agent_id && responseInProgress){
+    if(!activeRunAgentId || activeRunAgentId === event.agent_id){
+      activeRunAgentId = event.agent_id;
+    }
+  }
+
   switch(event.event) {
     case 'tool_start':
       handleToolStart(event);
@@ -523,12 +580,27 @@ function processEvent(event) {
     case 'agent_updated':
       addAgentUpdate(event.agent || 'unknown');
       break;
+    case 'finish':
+      if(event.agent_id){
+        const matchesActive = activeRunAgentId ? event.agent_id === activeRunAgentId : responseInProgress;
+        if(matchesActive){
+          if(event.conversation_id){
+            nextContinueAgentId = event.agent_id;
+          } else if(nextContinueAgentId === event.agent_id){
+            nextContinueAgentId = null;
+          }
+          activeRunAgentId = null;
+        }
+      }
+      break;
     case 'error':
       // Handle error events during live streaming
       // Since the backend already sends formatted HTML for errors,
       // we just need to display the message
       responseInProgress = false;
       forceHideActivityIndicator();
+      activeRunAgentId = null;
+      nextContinueAgentId = null;
       // Note: The actual error message will be sent from backend
       // via the finish/error handling in _handle_cortex_event
       break;
@@ -678,9 +750,11 @@ function updateHistoricalHeader(agentId, events) {
   const notice = document.getElementById('historicalNotice');
   if (!notice) return;
   
+  const requestEvent = events.find(e => e.event === 'request');
   // Find start and finish events to calculate duration
   const startEvent = events.find(e => e.event === 'start');
   const finishEvent = events.find(e => e.event === 'finish' || e.event === 'error');
+  const continueId = requestEvent && requestEvent['continue'] ? String(requestEvent['continue']) : null;
   
   if (startEvent && startEvent.ts) {
     // Format the timestamp as a human-readable date
@@ -712,111 +786,118 @@ function updateHistoricalHeader(agentId, events) {
     // Check if it ended in error
     const errorStatus = finishEvent && finishEvent.event === 'error' ? ' • Status: Failed' : '';
     
-    notice.innerHTML = `Viewing historical agent run from ${dateStr}${durationStr}${errorStatus} (read-only)`;
+    let headerText = `Viewing historical agent run from ${dateStr}${durationStr}${errorStatus} (read-only)`;
+    if (continueId) {
+      headerText += ` • <a id="historicalContinueLink" href="/chat?agent=${continueId}" style="color:#1565c0;text-decoration:underline;">Previous run ${continueId}</a>`;
+    }
+    notice.innerHTML = headerText;
+  } else if (continueId) {
+    notice.innerHTML = `Viewing historical agent run (read-only) • <a id="historicalContinueLink" href="/chat?agent=${continueId}" style="color:#1565c0;text-decoration:underline;">Previous run ${continueId}</a>`;
   }
 }
 
-// Display persona header if not default
-if(currentPersona !== 'default' && !isHistorical){
+function updatePersonaNotice(){
+  const container = document.querySelector('.container');
+  if(!container) return;
+
+  let notice = document.getElementById('personaNotice');
+  if(currentPersona === 'default' || isHistorical){
+    if(notice){
+      notice.remove();
+    }
+    return;
+  }
+
   const personaTitle = personaTitles[currentPersona] || currentPersona;
-  const notice = document.createElement('div');
-  notice.id = 'personaNotice';
-  notice.style.cssText = 'background:#e3f2fd;border:1px solid #2196f3;padding:0.75rem;margin:1rem;border-radius:4px;text-align:center;color:#1565c0;';
+  if(!notice){
+    notice = document.createElement('div');
+    notice.id = 'personaNotice';
+    notice.style.cssText = 'background:#e3f2fd;border:1px solid #2196f3;padding:0.75rem;margin:1rem;border-radius:4px;text-align:center;color:#1565c0;';
+    container.insertBefore(notice, messagesDiv);
+  }
   notice.innerHTML = `Using <strong>${personaTitle}</strong> persona`;
-  document.querySelector('.container').insertBefore(notice, messagesDiv);
 }
 
-// Disable input and controls if viewing historical agent
-if(isHistorical){
-  form.style.display = 'none';
-  // Add a notice that this is historical
-  const notice = document.createElement('div');
-  notice.id = 'historicalNotice';
-  notice.style.cssText = 'background:#fff3cd;border:1px solid #ffeaa7;padding:0.75rem;margin:1rem;border-radius:4px;text-align:center;color:#856404;';
-  notice.textContent = `Loading historical agent run...`;
-  document.querySelector('.container').insertBefore(notice, messagesDiv);
-  
-  // Add activity indicator to messages div for historical view
-  messagesDiv.appendChild(activityIndicator);
-  
-  loadHistoricalAgent(historicalAgentId);
-} else {
-  // Live mode - enable normal functionality
-  document.getElementById('clearBtn').onclick=async()=>{
-    await fetch(clearUrl,{method:'POST'});
-    messagesDiv.innerHTML='';
-  // Clear tool placard references to prevent memory leaks
-  Object.keys(toolPlacards).forEach(key => delete toolPlacards[key]);
-    messagesDiv.appendChild(activityIndicator);  // Re-add activity indicator
-    previousAgent = null;  // Reset agent tracking
-    responseInProgress = false;  // Reset response state
-    forceHideActivityIndicator();  // Ensure it's hidden
-    input.focus();
-  };
+function initChatControls(){
+  if(chatControlsInitialized) return;
+  chatControlsInitialized = true;
+
+  const clearButton = document.getElementById('clearBtn');
+  if(clearButton){
+    clearButton.onclick = async ()=>{
+      await fetch(clearUrl,{method:'POST'});
+      messagesDiv.innerHTML='';
+      Object.keys(toolPlacards).forEach(key => delete toolPlacards[key]);
+      messagesDiv.appendChild(activityIndicator);
+      previousAgent = null;
+      responseInProgress = false;
+      nextContinueAgentId = null;
+      activeRunAgentId = null;
+      forceHideActivityIndicator();
+      input.focus();
+    };
+  }
 
   backendSelect.addEventListener('change', async ()=>{
     await fetch(clearUrl,{method:'POST'});
     messagesDiv.innerHTML='';
-  // Clear tool placard references to prevent memory leaks
-  Object.keys(toolPlacards).forEach(key => delete toolPlacards[key]);
-    messagesDiv.appendChild(activityIndicator);  // Re-add activity indicator
-    previousAgent = null;  // Reset agent tracking
-    responseInProgress = false;  // Reset response state
-    forceHideActivityIndicator();  // Ensure it's hidden
+    Object.keys(toolPlacards).forEach(key => delete toolPlacards[key]);
+    messagesDiv.appendChild(activityIndicator);
+    previousAgent = null;
+    responseInProgress = false;
+    nextContinueAgentId = null;
+    activeRunAgentId = null;
+    forceHideActivityIndicator();
     input.focus();
   });
 
   appEvents.listen('chat', e => {
-    // Keep activity indicator visible while events are coming
     if (responseInProgress) {
       showActivityIndicator();
     }
-    
-    // Use unified event processor
     processEvent(e);
-    
-    // Don't hide while response is in progress
     if (responseInProgress) {
       showActivityIndicator();
     }
   });
 
   loadHistory();
-  
-  // Listen for hash changes to update persona
+
   window.addEventListener('hashchange', () => {
     const oldPersona = currentPersona;
     parseFragment();
-    
-    // If persona changed, update the header
     if (oldPersona !== currentPersona && !isHistorical) {
-      const notice = document.getElementById('personaNotice');
-      if (currentPersona === 'default' && notice) {
-        notice.remove();
-      } else if (currentPersona !== 'default') {
-        const personaTitle = personaTitles[currentPersona] || currentPersona;
-        if (notice) {
-          notice.innerHTML = `Using <strong>${personaTitle}</strong> persona`;
-        } else {
-          const newNotice = document.createElement('div');
-          newNotice.id = 'personaNotice';
-          newNotice.style.cssText = 'background:#e3f2fd;border:1px solid #2196f3;padding:0.75rem;margin:1rem;border-radius:4px;text-align:center;color:#1565c0;';
-          newNotice.innerHTML = `Using <strong>${personaTitle}</strong> persona`;
-          document.querySelector('.container').insertBefore(newNotice, messagesDiv);
-        }
-      }
-      
-      // Clear messages when switching personas
-      messagesDiv.innerHTML = '';
-      // Clear tool placard references to prevent memory leaks
+      messagesDiv.innerHTML='';
       Object.keys(toolPlacards).forEach(key => delete toolPlacards[key]);
       messagesDiv.appendChild(activityIndicator);
       previousAgent = null;
       responseInProgress = false;
+      nextContinueAgentId = null;
+      activeRunAgentId = null;
       forceHideActivityIndicator();
     }
+    updatePersonaNotice();
   });
+
+  updatePersonaNotice();
+}
+
+// Disable input and controls if viewing historical agent
+if(isHistorical){
+  form.style.display = 'none';
+  const notice = document.createElement('div');
+  notice.id = 'historicalNotice';
+  notice.style.cssText = 'background:#fff3cd;border:1px solid #ffeaa7;padding:0.75rem;margin:1rem;border-radius:4px;text-align:center;color:#856404;';
+  notice.textContent = `Loading historical agent run...`;
+  document.querySelector('.container').insertBefore(notice, messagesDiv);
+
+  messagesDiv.appendChild(activityIndicator);
+
+  if(historicalAgentId){
+    loadHistoricalAgent(historicalAgentId);
+  }
+} else {
+  initChatControls();
 }
 </script>
 {% endblock %}
-
