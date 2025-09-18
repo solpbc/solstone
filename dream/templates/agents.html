@@ -126,8 +126,8 @@
   line-height: 1.4;
 }
 
-/* Create Persona Card */
-.create-persona-card {
+/* Create Agent Card */
+.create-agent-card {
   background: #f8f9ff;
   border: 2px dashed #007bff;
   display: flex;
@@ -137,12 +137,12 @@
   min-height: 80px;
 }
 
-.create-persona-card:hover {
+.create-agent-card:hover {
   background: #e8ecff;
   border-style: solid;
 }
 
-.create-persona-card h3 {
+.create-agent-card h3 {
   color: #007bff;
   margin: 0;
   font-size: 1.2rem;
@@ -271,7 +271,7 @@ td:nth-child(3), th:nth-child(3) { /* Runtime */
 td:nth-child(4), th:nth-child(4) { /* Model */
   width: 150px;
 }
-td:nth-child(5), th:nth-child(5) { /* Persona */
+td:nth-child(5), th:nth-child(5) { /* Agent */
   width: 180px;
 }
 td:last-child { /* Prompt */
@@ -579,7 +579,7 @@ tr a:hover {
   cursor: not-allowed;
 }
 
-/* Create Persona Modal Styles */
+/* Create Agent Modal Styles */
 #createPersonaModal .modal-content {
   max-width: 700px;
 }
@@ -723,7 +723,7 @@ tr a:hover {
   <!-- Tab Navigation -->
   <div class="tab-nav">
     <button class="tab-button active" onclick="switchMainTab('log')">Log</button>
-    <button class="tab-button" onclick="switchMainTab('agents')">Personas</button>
+    <button class="tab-button" onclick="switchMainTab('agents')">Agents</button>
     <button class="tab-button" onclick="switchMainTab('topics')">Topics</button>
   </div>
   
@@ -766,7 +766,7 @@ tr a:hover {
       </div>
     </div>
     
-    <!-- Personas Tab -->
+    <!-- Agents Tab -->
     <div id="agentsTab" class="main-tab-content">
       <div id="agentCards" class="agent-cards"></div>
     </div>
@@ -779,14 +779,14 @@ tr a:hover {
   </div>
 </div>
 
-<!-- Create Persona Modal -->
+<!-- Create Agent Modal -->
 <div id="createPersonaModal" class="modal">
   <div class="modal-content">
     <span class="close" onclick="closeCreatePersonaModal()">&times;</span>
-    <h2>Create New Persona</h2>
+    <h2>Create New Agent</h2>
     <form id="createPersonaForm" class="input-area">
-      <input type="text" id="personaTitle" placeholder="Persona Title" required />
-      <textarea id="personaInput" rows="8" placeholder="Describe what this persona should accomplish..." required></textarea>
+      <input type="text" id="personaTitle" placeholder="Agent Title" required />
+      <textarea id="personaInput" rows="8" placeholder="Describe what this agent should accomplish..." required></textarea>
       <button type="submit" id="createPlanBtn">Create Plan</button>
     </form>
     
@@ -800,7 +800,7 @@ tr a:hover {
       <h3>Generated Plan</h3>
       <div id="personaResultContent" class="plan-content"></div>
       <div class="modal-actions">
-        <button onclick="saveNewPersona()">Save Persona</button>
+        <button onclick="saveNewPersona()">Save Agent</button>
         <button onclick="editPersonaPlan()">Edit Plan</button>
       </div>
     </div>
@@ -830,7 +830,7 @@ tr a:hover {
   </div>
 </div>
 
-<!-- Item Details Modal (for both Personas and Topics) -->
+<!-- Item Details Modal (for both Agents and Topics) -->
 <div id="itemModal" class="modal">
   <div class="modal-content">
     <span class="close" onclick="closeItemModal()">&times;</span>
@@ -897,7 +897,7 @@ tr a:hover {
         </div>
         
         <div class="config-section">
-          <label for="agentPersona">Persona</label>
+          <label for="agentPersona">Agent</label>
           <select id="agentPersona">
             <option value="default">Default</option>
           </select>
@@ -980,8 +980,8 @@ function renderCards(items, containerId, itemType, createModalFunc) {
   
   // Add Create card first
   const createCard = document.createElement('div');
-  createCard.className = 'agent-card create-persona-card';
-  const itemLabel = itemType === 'agent' ? 'Persona' : 'Topic';
+  createCard.className = 'agent-card create-agent-card';
+  const itemLabel = itemType === 'agent' ? 'Agent' : 'Topic';
   createCard.innerHTML = `
     <h3>+ Create New ${itemLabel}</h3>
   `;
@@ -1134,7 +1134,7 @@ function viewItemDetails(itemId, itemType, event) {
     });
 }
 
-// Toggle edit mode for persona
+// Toggle edit mode for agent
 function toggleEditMode() {
   const editBtn = document.getElementById('editBtn');
   const saveBtn = document.getElementById('saveBtn');
@@ -1233,7 +1233,7 @@ async function saveItemChanges() {
     document.getElementById('modalContent').style.display = 'block';
     document.getElementById('modalContentEdit').style.display = 'none';
     
-    // Refresh persona dropdown in planning modal if it's open (for agents only)
+    // Refresh agent dropdown in planning modal if it's open (for agents only)
     if (currentEditingType === 'agent') {
       loadPersonas();
     }
@@ -1247,7 +1247,7 @@ async function saveItemChanges() {
 }
 
 // Form submission - removed as agentForm doesn't exist in this template
-// The create persona functionality is handled by createPersonaForm instead
+// The create agent functionality is handled by createPersonaForm instead
 
 // Show planning modal with plan
 function showPlanningModal(plan) {
@@ -1260,7 +1260,7 @@ function showPlanningModal(plan) {
   // Update preview
   updatePreview();
   
-  // Load available personas
+  // Load available agents
   loadPersonas();
   
   // Show modal
@@ -1304,7 +1304,7 @@ function updatePreview() {
   }
 }
 
-// Load available personas
+// Load available agents
 function loadPersonas() {
   fetch('{{ url_for('agents.available_agents') }}')
     .then(r => r.json())
@@ -1320,7 +1320,7 @@ function loadPersonas() {
       });
     })
     .catch(err => {
-      console.error('Failed to load personas:', err);
+      console.error('Failed to load agents:', err);
     });
 }
 
@@ -1482,7 +1482,7 @@ function loadAgentSessions(page = 0) {
       const liveEmpty = document.getElementById('liveEmpty');
       
       if (liveAgents.length > 0) {
-        liveTable.innerHTML = '<tr><th>Status</th><th>Started</th><th>Runtime</th><th>Model</th><th>Persona</th><th>Prompt</th></tr>';
+        liveTable.innerHTML = '<tr><th>Status</th><th>Started</th><th>Runtime</th><th>Model</th><th>Agent</th><th>Prompt</th></tr>';
         liveAgents.forEach(a => liveTable.appendChild(buildRow(a)));
         liveTable.style.display = 'table';
         liveEmpty.style.display = 'none';
@@ -1496,7 +1496,7 @@ function loadAgentSessions(page = 0) {
       const histEmpty = document.getElementById('historicalEmpty');
       
       if (historicalAgents.length > 0) {
-        histTable.innerHTML = '<tr><th>Status</th><th>Started</th><th>Runtime</th><th>Model</th><th>Persona</th><th>Prompt</th></tr>';
+        histTable.innerHTML = '<tr><th>Status</th><th>Started</th><th>Runtime</th><th>Model</th><th>Agent</th><th>Prompt</th></tr>';
         historicalAgents.forEach(a => histTable.appendChild(buildRow(a)));
         histTable.style.display = 'table';
         histEmpty.style.display = 'none';
@@ -1540,7 +1540,7 @@ function loadAgentSessions(page = 0) {
           const histEmpty = document.getElementById('historicalEmpty');
           
           if (historicalAgents.length > 0) {
-            histTable.innerHTML = '<tr><th>Status</th><th>Started</th><th>Runtime</th><th>Model</th><th>Persona</th><th>Prompt</th></tr>';
+            histTable.innerHTML = '<tr><th>Status</th><th>Started</th><th>Runtime</th><th>Model</th><th>Agent</th><th>Prompt</th></tr>';
             historicalAgents.forEach(a => histTable.appendChild(buildRow(a)));
             histTable.style.display = 'table';
             histEmpty.style.display = 'none';
@@ -1624,7 +1624,7 @@ function showError(message) {
   alert(message); // Simple alert for now, can be improved with a toast notification
 }
 
-// Create Persona Modal Functions
+// Create Agent Modal Functions
 function openCreatePersonaModal() {
   const modal = document.getElementById('createPersonaModal');
   modal.style.display = 'block';
@@ -1655,7 +1655,7 @@ function closeCreateTopicModal() {
   document.getElementById('createTopicModal').style.display = 'none';
 }
 
-// Handle create persona form submission
+// Handle create agent form submission
 document.getElementById('createPersonaForm').addEventListener('submit', async (e) => {
   e.preventDefault();
   
@@ -1747,11 +1747,11 @@ async function saveNewPersona() {
     return;
   }
   
-  // Generate a unique ID for the new persona
+  // Generate a unique ID for the new agent
   const personaId = title.toLowerCase().replace(/[^a-z0-9]+/g, '_');
   
   try {
-    // Create or update the persona
+    // Create or update the agent
     const response = await fetch(`{{ url_for('agents.update_agent', agent_id='') }}${personaId}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
@@ -1764,18 +1764,18 @@ async function saveNewPersona() {
     const data = await response.json();
     
     if (response.ok) {
-      alert('Persona saved successfully!');
+      alert('Agent saved successfully!');
       closeCreatePersonaModal();
       // Reset form for next use
       document.getElementById('createPersonaForm').style.display = 'block';
       document.getElementById('personaResult').style.display = 'none';
-      // Reload personas
+      // Reload agents
       loadAvailableAgents();
     } else {
-      throw new Error(data.error || 'Failed to save persona');
+      throw new Error(data.error || 'Failed to save agent');
     }
   } catch (error) {
-    showError('Error saving persona: ' + error.message);
+    showError('Error saving agent: ' + error.message);
   }
 }
 
