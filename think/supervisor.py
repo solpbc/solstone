@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import TextIO
 
 from think.cortex_client import cortex_request
+from think.domains import get_domains
 from think.utils import get_agents, setup_cli
 
 DEFAULT_THRESHOLD = 90
@@ -159,17 +160,30 @@ def spawn_scheduled_agents(journal: str) -> None:
         agents = get_agents()
         for persona_id, config in agents.items():
             if config.get("schedule") == "daily":
-                logging.info(f"Spawning scheduled agent: {persona_id}")
 
-                # Spawn via Cortex - it will load and merge the persona config
-                request_file = cortex_request(
-                    prompt=f"Running daily scheduled task for {persona_id}",
-                    persona=persona_id,
-                )
-
-                # Extract agent_id from the filename
-                agent_id = Path(request_file).stem.replace("_active", "")
-                logging.info(f"Started {persona_id} agent (ID: {agent_id})")
+                # Check if this is a multi-domain agent
+                if config.get("multi_domain"):
+                    domains = get_domains()
+                    for domain_name in domains.keys():
+                        logging.info(f"Spawning {persona_id} for domain: {domain_name}")
+                        request_file = cortex_request(
+                            prompt=f"You are processing domain '{domain_name}', use get_domain('{domain_name}') to load the correct context before starting.",
+                            persona=persona_id
+                        )
+                        # Extract agent_id from the filename
+                        agent_id = Path(request_file).stem.replace("_active", "")
+                        logging.info(f"Started {persona_id} agent for domain {domain_name} (ID: {agent_id})")
+                else:
+                    # Regular single-instance agent
+                    logging.info(f"Spawning scheduled agent: {persona_id}")
+                    # Spawn via Cortex - it will load and merge the persona config
+                    request_file = cortex_request(
+                        prompt=f"Running daily scheduled task for {persona_id}",
+                        persona=persona_id,
+                    )
+                    # Extract agent_id from the filename
+                    agent_id = Path(request_file).stem.replace("_active", "")
+                    logging.info(f"Started {persona_id} agent (ID: {agent_id})")
     except Exception as e:
         logging.error(f"Failed to spawn scheduled agents: {e}")
 
