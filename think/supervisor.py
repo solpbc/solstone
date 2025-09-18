@@ -3,7 +3,6 @@ import logging
 import os
 import signal
 import subprocess
-import sys
 import threading
 import time
 from dataclasses import dataclass, field
@@ -143,11 +142,7 @@ def run_process_day(journal: str) -> bool:
     """
 
     start = time.time()
-    managed = _launch_process(
-        "process_day",
-        [sys.executable, "-m", "think.process_day"],
-        journal,
-    )
+    managed = _launch_process("process_day", ["think-process-day", "-v"], journal)
     try:
         return_code = managed.process.wait()
     finally:
@@ -182,16 +177,18 @@ def spawn_scheduled_agents(journal: str) -> None:
 def start_runners(journal: str) -> list[ManagedProcess]:
     """Launch hear and see runners with output logging."""
     procs: list[ManagedProcess] = []
-    for module in ("hear.runner", "see.runner"):
-        cmd = [sys.executable, "-m", module]
-        runner_name = module.split(".")[0]
-        procs.append(_launch_process(runner_name, cmd, journal))
+    commands = {
+        "hear": ["hear-runner", "-v"],
+        "see": ["see-runner", "-v"],
+    }
+    for name, cmd in commands.items():
+        procs.append(_launch_process(name, cmd, journal))
     return procs
 
 
 def start_cortex_server(journal: str) -> ManagedProcess:
     """Launch the Cortex WebSocket API server."""
-    cmd = [sys.executable, "-m", "think.cortex"]
+    cmd = ["think-cortex", "-v"]
     env = os.environ.copy()
     env["JOURNAL_PATH"] = journal
     return _launch_process("cortex", cmd, journal, env=env)
@@ -348,6 +345,14 @@ def main() -> None:
         handlers=[logging.FileHandler(log_path, encoding="utf-8")],
         format="%(asctime)s %(levelname)s %(message)s",
     )
+
+    if args.verbose:
+        console_handler = logging.StreamHandler()
+        console_handler.setLevel(log_level)
+        console_handler.setFormatter(
+            logging.Formatter("%(asctime)s %(levelname)s %(message)s")
+        )
+        logging.getLogger().addHandler(console_handler)
 
     # Set up signal handlers
     signal.signal(signal.SIGINT, handle_shutdown)

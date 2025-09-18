@@ -2,7 +2,6 @@ import importlib
 import io
 import os
 import subprocess
-import sys
 import time
 
 
@@ -65,10 +64,9 @@ def test_start_runners(tmp_path, monkeypatch):
     monkeypatch.setattr(mod.subprocess, "Popen", fake_popen)
 
     procs = mod.start_runners(str(tmp_path))
-    # No longer creating log file, output goes to console (None)
     assert len(procs) == 2
-    assert any("hear.runner" in c[0] for c in started)
-    assert any("see.runner" in c[0] for c in started)
+    assert any(cmd == ["hear-runner", "-v"] for cmd, _, _ in started)
+    assert any(cmd == ["see-runner", "-v"] for cmd, _, _ in started)
     # Check that stdout and stderr capture pipes
     for cmd, stdout, stderr in started:
         assert stdout == subprocess.PIPE
@@ -153,8 +151,7 @@ def test_run_process_day(tmp_path, monkeypatch):
 
     name, cmd, journal, env = launch_calls["args"]
     assert name == "process_day"
-    assert cmd[0] == sys.executable
-    assert cmd[1:] == ["-m", "think.process_day"]
+    assert cmd == ["think-process-day", "-v"]
     assert journal == str(tmp_path)
     assert env is None
     assert launch_calls["logger"].closed is True
