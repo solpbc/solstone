@@ -58,7 +58,9 @@ def _process_file_worker(file_path_str: str) -> tuple[str, bool, str | None]:
         return (file_path_str, False, str(exc))
 
 
-def _process_day_parallel(day_dir: Path, num_workers: int, args) -> tuple[int, int]:
+def _process_day_parallel(
+    day_dir: Path, num_workers: int, args, gio_path: str | None
+) -> tuple[int, int]:
     """Process a single day's trash directory using parallel workers."""
     trash_dir = day_dir / "trash"
     if not trash_dir.is_dir():
@@ -72,8 +74,6 @@ def _process_day_parallel(day_dir: Path, num_workers: int, args) -> tuple[int, i
 
     removed = 0
     restored = 0
-    gio = shutil.which("gio")
-
     with Pool(processes=num_workers) as pool:
         results = pool.map(_process_file_worker, file_paths)
 
@@ -93,8 +93,8 @@ def _process_day_parallel(day_dir: Path, num_workers: int, args) -> tuple[int, i
             if args.verbose:
                 print(f"remove {path}")
             if not args.dry_run:
-                if gio:
-                    subprocess.run([gio, "trash", str(path)], check=False)
+                if gio_path:
+                    subprocess.run([gio_path, "trash", str(path)], check=False)
                 else:
                     path.unlink(missing_ok=True)
             removed += 1
@@ -119,6 +119,16 @@ def main() -> None:
         default=1,
         help="Number of parallel workers for speech detection",
     )
+    parser.add_argument(
+        "--gio-trash",
+        action="store_true",
+        help="Use gio trash command instead of permanently deleting files",
+    )
+    parser.add_argument(
+        "--day",
+        type=str,
+        help="Process only the specified journal day (YYYYMMDD)",
+    )
     args = setup_cli(parser)
 
     journal = Path(os.getenv("JOURNAL_PATH", ""))
@@ -129,7 +139,25 @@ def main() -> None:
     total_removed = 0
     total_restored = 0
 
-    for day_dir in sorted(p for p in journal.iterdir() if DATE_RE.fullmatch(p.name)):
+    gio_path = shutil.which("gio") if args.gio_trash else None
+
+    if args.gio_trash and not gio_path:
+        logging.warning("Requested --gio-trash but gio executable not found")
+        raise SystemExit(1)
+
+    if args.day:
+        if not DATE_RE.fullmatch(args.day):
+            parser.error("--day must match YYYYMMDD")
+        day_dirs = [journal / args.day]
+        if not day_dirs[0].is_dir():
+            logging.error("Day directory %s not found in %s", args.day, journal)
+            raise SystemExit(1)
+    else:
+        day_dirs = sorted(
+            p for p in journal.iterdir() if DATE_RE.fullmatch(p.name)
+        )
+
+    for day_dir in day_dirs:
         if args.jobs == 1:
             # Single-threaded processing (original logic)
             trash_dir = day_dir / "trash"
@@ -137,7 +165,6 @@ def main() -> None:
                 continue
             removed = 0
             restored = 0
-            gio = shutil.which("gio")
             for path in sorted(trash_dir.iterdir()):
                 if path.is_dir():
                     continue
@@ -156,14 +183,14 @@ def main() -> None:
                     if args.verbose:
                         print(f"remove {path}")
                     if not args.dry_run:
-                        if gio:
-                            subprocess.run([gio, "trash", str(path)], check=False)
+                        if gio_path:
+                            subprocess.run([gio_path, "trash", str(path)], check=False)
                         else:
                             path.unlink(missing_ok=True)
                     removed += 1
         else:
             # Multi-threaded processing
-            removed, restored = _process_day_parallel(day_dir, args.jobs, args)
+            removed, restored = _process_day_parallel(day_dir, args.jobs, args, gio_path)
 
         if removed or restored:
             total_removed += removed

@@ -79,6 +79,11 @@ def build_commands(day: str, force: bool, verbose: bool = False) -> list[list[st
         indexer_cmd.append("--verbose")
     commands.append(indexer_cmd)
 
+    empty_trash_cmd = ["hear-empty-trash", "--day", day]
+    if verbose:
+        empty_trash_cmd.append("--verbose")
+    commands.append(empty_trash_cmd)
+
     return commands
 
 
