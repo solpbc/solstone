@@ -6,7 +6,7 @@ import subprocess
 import threading
 import time
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import TextIO
 
@@ -158,7 +158,7 @@ def spawn_scheduled_agents(journal: str) -> None:
     """Spawn agents that have schedule:daily in their metadata."""
     try:
         # Calculate yesterday's date
-        yesterday = (datetime.now().date() - datetime.timedelta(days=1)).strftime("%Y-%m-%d")
+        yesterday = (datetime.now().date() - timedelta(days=1)).strftime("%Y-%m-%d")
         
         agents = get_agents()
         for persona_id, config in agents.items():
