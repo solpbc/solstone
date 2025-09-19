@@ -9,7 +9,7 @@ from typing import Any
 from dotenv import load_dotenv
 from flask import Blueprint, jsonify, render_template, request
 
-from think.domains import get_domains, get_matter, get_matters
+from think.domains import get_domain_news, get_domains, get_matter, get_matters
 from think.indexer import search_entities
 
 from ..cortex_utils import run_agent_via_cortex
@@ -553,6 +553,25 @@ def matter_detail(domain_name: str, matter_id: str) -> str:
         matter_data=matter_data,
         active="domains",
     )
+
+
+@bp.route("/api/domains/<domain_name>/news")
+def get_domain_news_feed(domain_name: str) -> Any:
+    """Return paginated news entries for a domain."""
+
+    cursor = request.args.get("cursor")
+    # Default to a single news file per request unless the client specifies otherwise
+    limit = request.args.get("days", default=1, type=int) or 1
+    if limit < 0:
+        limit = 1
+
+    try:
+        news_payload = get_domain_news(domain_name, cursor=cursor, limit=limit)
+        return jsonify(news_payload)
+    except RuntimeError as exc:
+        return jsonify({"error": str(exc)}), 500
+    except Exception as exc:  # pragma: no cover - defensive
+        return jsonify({"error": f"Failed to load news: {str(exc)}"}), 500
 
 
 @bp.route("/api/domains/<domain_name>/matters")

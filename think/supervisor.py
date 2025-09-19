@@ -157,6 +157,9 @@ def run_process_day(journal: str) -> bool:
 def spawn_scheduled_agents(journal: str) -> None:
     """Spawn agents that have schedule:daily in their metadata."""
     try:
+        # Calculate yesterday's date
+        yesterday = (datetime.now().date() - datetime.timedelta(days=1)).strftime("%Y-%m-%d")
+        
         agents = get_agents()
         for persona_id, config in agents.items():
             if config.get("schedule") == "daily":
@@ -167,7 +170,7 @@ def spawn_scheduled_agents(journal: str) -> None:
                     for domain_name in domains.keys():
                         logging.info(f"Spawning {persona_id} for domain: {domain_name}")
                         request_file = cortex_request(
-                            prompt=f"You are processing domain '{domain_name}', use get_domain('{domain_name}') to load the correct context before starting.",
+                            prompt=f"You are processing domain '{domain_name}' for yesterday ({yesterday}), use get_domain('{domain_name}') to load the correct context before starting.",
                             persona=persona_id
                         )
                         # Extract agent_id from the filename
@@ -178,7 +181,7 @@ def spawn_scheduled_agents(journal: str) -> None:
                     logging.info(f"Spawning scheduled agent: {persona_id}")
                     # Spawn via Cortex - it will load and merge the persona config
                     request_file = cortex_request(
-                        prompt=f"Running daily scheduled task for {persona_id}",
+                        prompt=f"Running daily scheduled task for {persona_id}, yesterday was {yesterday}.",
                         persona=persona_id,
                     )
                     # Extract agent_id from the filename

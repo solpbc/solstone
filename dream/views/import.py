@@ -125,6 +125,48 @@ def import_save() -> Any:
     return jsonify({"path": str(file_path), "timestamp": folder_timestamp})
 
 
+@bp.route("/import/api/domain", methods=["POST"])
+def import_update_domain() -> Any:
+    """Update the domain stored in import metadata for a saved file."""
+    import json
+
+    if not state.journal_root:
+        return jsonify({"error": "JOURNAL_PATH not set"}), 500
+
+    data = request.get_json(force=True)
+    raw_path = data.get("path", "").strip()
+    if not raw_path:
+        return jsonify({"error": "Missing import path"}), 400
+
+    domain = data.get("domain", "").strip() or None
+    file_path = Path(raw_path)
+
+    metadata_path = file_path.parent / "import.json"
+    if not metadata_path.exists():
+        legacy_path = Path(f"{raw_path}.json")
+        if legacy_path.exists():
+            metadata_path = legacy_path
+        else:
+            return jsonify({"error": "Import metadata not found"}), 404
+
+    try:
+        metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+    except Exception as exc:
+        return jsonify({"error": f"Failed to read import metadata: {exc}"}), 500
+
+    if metadata.get("domain") == domain:
+        return jsonify({"status": "ok", "domain": domain, "updated": False})
+
+    metadata["domain"] = domain
+
+    try:
+        metadata_path.write_text(json.dumps(metadata, indent=2), encoding="utf-8")
+    except Exception as exc:
+        return jsonify({"error": f"Failed to update metadata: {exc}"}), 500
+
+    return jsonify({"status": "ok", "domain": domain, "updated": True})
+
+
 @bp.route("/import/api/list")
 def import_list() -> Any:
     """Get list of all imports with their metadata."""

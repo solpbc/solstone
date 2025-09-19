@@ -13,9 +13,12 @@ button:disabled { background:#ccc; color:#666; cursor:not-allowed; opacity:0.6; 
 .close { position:absolute; top:10px; right:15px; cursor:pointer; font-size:24px; }
 .spinner { display:inline-block; width:12px; height:12px; border:2px solid #ccc; border-top-color:#333; border-radius:50%; animation:spin 1s linear infinite; margin-left:4px; }
 #taskOutput { white-space: pre-wrap; word-wrap: break-word; }
-.domain-selector { margin-left: auto; display: flex; align-items: center; gap: 0.5em; }
-.domain-selector label { font-size: 0.9em; color: #666; }
-.domain-selector select { padding: 4px 8px; border: 1px solid #ddd; border-radius: 4px; background: white; }
+.confirm-fields { display: flex; gap: 1em; flex-wrap: wrap; margin-top: 0.5em; }
+.confirm-field { display: flex; flex-direction: column; flex: 1 1 180px; min-width: 180px; }
+.confirm-field label { font-size: 0.9em; color: #666; margin-bottom: 0.25em; }
+.confirm-field input,
+.confirm-field select { padding: 6px 10px; border: 1px solid #ddd; border-radius: 4px; background: white; }
+.modal-actions { margin-top: 1em; display: flex; justify-content: flex-end; }
 
 /* Import list styles */
 .import-list { margin-top: 2em; }
@@ -41,12 +44,6 @@ button:disabled { background:#ccc; color:#666; cursor:not-allowed; opacity:0.6; 
   <div class="tabs">
     <div class="tab active" data-target="media">Upload File</div>
     <div class="tab" data-target="paste">Paste Text</div>
-    <div class="domain-selector">
-      <label for="domainSelect">Domain:</label>
-      <select id="domainSelect">
-        <option value="">None</option>
-      </select>
-    </div>
   </div>
   <form id="importForm">
     <div class="content" id="media">
@@ -73,9 +70,20 @@ button:disabled { background:#ccc; color:#666; cursor:not-allowed; opacity:0.6; 
 <div id="detectModal" class="modal">
   <div class="modal-content">
     <span class="close">&times;</span>
-    <div>
-      <label>Timestamp <input id="timestampInput" /></label>
-      <input type="hidden" id="savedPath" />
+    <div class="confirm-fields">
+      <div class="confirm-field">
+        <label for="timestampInput">Timestamp</label>
+        <input id="timestampInput" />
+      </div>
+      <div class="confirm-field">
+        <label for="domainSelect">Domain</label>
+        <select id="domainSelect">
+          <option value="">None</option>
+        </select>
+      </div>
+    </div>
+    <input type="hidden" id="savedPath" />
+    <div class="modal-actions">
       <button id="startBtn">Start Import</button>
     </div>
   </div>
@@ -102,6 +110,8 @@ tabs.forEach(t=>t.addEventListener('click', ()=>showTab(t.dataset.target)));
 const dropArea = document.getElementById('dropArea');
 const fileInput = document.getElementById('fileInput');
 const fileLabel = document.getElementById('fileLabel');
+const domainSelect = document.getElementById('domainSelect');
+const startBtn = document.getElementById('startBtn');
 let currentFile = null;
 
 dropArea.onclick = () => fileInput.click();
@@ -126,7 +136,7 @@ document.getElementById('importForm').onsubmit=e=>{
     fd.append('text', document.getElementById('pasteText').value);
   }
   // Add selected domain
-  const domain = document.getElementById('domainSelect').value;
+  const domain = domainSelect.value;
   if(domain) fd.append('domain', domain);
   fetch('{{ url_for('import_view.import_save') }}', {method:'POST', body:fd})
     .then(async r=>{
@@ -255,12 +265,44 @@ function runTask(data){
   ws.onclose=()=>{spinner.remove();loadImports();};
 }
 
-document.getElementById('startBtn').onclick=()=>{
-  const ts=document.getElementById('timestampInput').value.trim();
-  const path=document.getElementById('savedPath').value;
-  document.getElementById('detectModal').style.display='none';
-  runTask({task:'importer',day:path+'|'+ts,src:'import'});
-};
+startBtn.addEventListener('click', async () => {
+  const ts = document.getElementById('timestampInput').value.trim();
+  const path = document.getElementById('savedPath').value;
+  const domain = domainSelect.value;
+  const detectModal = document.getElementById('detectModal');
+
+  if (!ts) {
+    if (window.showError) showError('Timestamp is required before starting the import.');
+    return;
+  }
+
+  const originalText = startBtn.textContent;
+  startBtn.disabled = true;
+  startBtn.innerHTML = 'Starting<span class="spinner"></span>';
+
+  try {
+    const response = await fetch('{{ url_for('import_view.import_update_domain') }}', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ path, domain })
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.error || 'Failed to save domain selection');
+    }
+  } catch (err) {
+    startBtn.disabled = false;
+    startBtn.textContent = originalText;
+    if (window.showError && err instanceof Error) showError(err.message);
+    return;
+  }
+
+  startBtn.disabled = false;
+  startBtn.textContent = originalText;
+  detectModal.style.display = 'none';
+  runTask({ task: 'importer', day: path + '|' + ts, src: 'import' });
+});
 
 document.querySelectorAll('.close')[0].onclick=()=>{document.getElementById('detectModal').style.display='none';};
 document.querySelectorAll('.close')[1].onclick=()=>{document.getElementById('taskModal').style.display='none';};
