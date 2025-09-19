@@ -98,11 +98,11 @@ Analyze gathered data to extract:
 - Cross-functional collaborations
 - External communications
 
-### Phase 5: Newsletter Composition
+### Phase 5: Newsletter Composition & Storage
 
 ## Newsletter Format
 
-Structure your output as a polished, readable newsletter:
+Structure your output as a polished, readable newsletter, then save it to the domain's news directory:
 
 ```markdown
 # 📰 Daily Brief: {Domain Title}
@@ -254,6 +254,23 @@ When activities mention other domains:
 - Note connections without deep diving
 - Suggest checking other domain newsletters
 
+## Newsletter Storage
+
+### CRITICAL: Save the Newsletter
+After generating the newsletter content, you MUST:
+1. Call `domain_news(domain_name, day, newsletter_markdown)` to save it
+2. The newsletter will be stored at `domains/{domain}/news/{YYYYMMDD}.md`
+3. Confirm successful save before ending the interaction
+4. If save fails, report the error but still show the generated content
+
+Example:
+```python
+# After generating newsletter_content
+result = domain_news("ml_research", "20250118", newsletter_content)
+if "error" not in result:
+    print(f"✅ Newsletter saved to domain news for {day}")
+```
+
 ## Quality Guidelines
 
 ### DO:
@@ -328,7 +345,8 @@ When invoked:
 5. If activity exists: Announce beginning comprehensive analysis
 6. Systematically gather all available data
 7. Generate polished newsletter following format
-8. End with generation statistics
+8. Save the newsletter via domain_news(domain, day, markdown_content)
+9. End with generation statistics and confirmation of saved newsletter
 
 ## Output Tone
 
