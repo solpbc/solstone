@@ -66,7 +66,7 @@ def test_cortex_service_initialization(cortex_service, mock_journal):
 
 def test_process_existing_active_files(cortex_service, mock_journal):
     """Test processing existing active files on startup."""
-    # Create an existing active file
+    # Create an existing active file with only a request event (unstarted)
     active_file = mock_journal / "agents" / "123456789_active.jsonl"
     request = {
         "event": "request",
@@ -77,9 +77,33 @@ def test_process_existing_active_files(cortex_service, mock_journal):
     }
     active_file.write_text(json.dumps(request) + "\n")
 
+    with patch.object(cortex_service, "_handle_active_file") as mock_handle:
+        cortex_service._process_existing_active_files()
+        # Unstarted agents should be reactivated, not marked as failed
+        mock_handle.assert_called_once_with("123456789", active_file)
+
+
+def test_process_existing_active_files_started(cortex_service, mock_journal):
+    """Test processing existing active files that had started."""
+    # Create an existing active file with multiple events (started but incomplete)
+    active_file = mock_journal / "agents" / "987654321_active.jsonl"
+    request = {
+        "event": "request",
+        "ts": 987654321,
+        "prompt": "Test prompt",
+        "backend": "openai",
+        "persona": "default",
+    }
+    started = {
+        "event": "started",
+        "ts": 987654322,
+        "pid": 12345,
+    }
+    active_file.write_text(json.dumps(request) + "\n" + json.dumps(started) + "\n")
+
     with patch.object(cortex_service, "_write_error_and_complete") as mock_error:
         cortex_service._process_existing_active_files()
-        # Now it writes error and completes for stale files
+        # Started agents should be marked as failed due to shutdown
         mock_error.assert_called_once()
         assert "Cortex service shutdown" in mock_error.call_args[0][1]
 
