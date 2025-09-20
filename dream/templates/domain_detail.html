@@ -932,13 +932,13 @@
 
 <div class="tab-container">
   <div class="tab-nav">
-    <button class="tab-button active" data-tab="matters">Matters</button>
-    <button class="tab-button" data-tab="news">Newsletters</button>
+    <button class="tab-button active" data-tab="news">Newsletters</button>
+    <button class="tab-button" data-tab="matters">Matters</button>
     <button class="tab-button" data-tab="entities">Entities</button>
     <button class="tab-button" data-tab="description">Description</button>
   </div>
   
-  <div id="matters-tab" class="tab-content active">
+  <div id="matters-tab" class="tab-content">
     <div class="loading" id="matters-loading">Loading matters...</div>
     <div id="matters-content" style="display: none;">
       <div class="matters-container">
@@ -959,8 +959,8 @@
       </div>
     </div>
   </div>
-  
-  <div id="news-tab" class="tab-content">
+
+  <div id="news-tab" class="tab-content active">
     <div class="loading" id="news-loading">Loading newsletters...</div>
     <div id="news-content" style="display: none;">
       <div id="news-empty" class="no-entities" style="display: none;">
@@ -1153,8 +1153,8 @@ document.addEventListener('DOMContentLoaded', function() {
     });
   }
   
-  // Load matters by default since matters tab is active
-  loadMatters();
+  // Load newsletters by default since news tab is active
+  loadNews();
 });
 
 // Matter form submission
