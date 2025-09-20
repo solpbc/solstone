@@ -140,17 +140,112 @@
 .news-days {
   display: flex;
   flex-direction: column;
-  gap: 1.5em;
+  gap: 2.5em;
 }
 
 .news-day {
-  background: none;
+  background: white;
+  border-radius: 12px;
+  padding: 1.5em;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+  border: 1px solid #eef2ff;
 }
 
 .news-day-header {
-  margin: 0 0 0.75em 0;
-  font-size: 1.4em;
+  margin: 0 0 1em 0;
+  font-size: 1.5em;
+  font-weight: 600;
   color: #333;
+  padding-bottom: 0.5em;
+  border-bottom: 2px solid #eef2ff;
+}
+
+.newsletter-content {
+  line-height: 1.6;
+  color: #444;
+}
+
+.newsletter-content h1 {
+  font-size: 1.8em;
+  margin: 1em 0 0.5em 0;
+  color: #333;
+}
+
+.newsletter-content h2 {
+  font-size: 1.4em;
+  margin: 1em 0 0.5em 0;
+  color: #444;
+  border-bottom: 1px solid #eee;
+  padding-bottom: 0.25em;
+}
+
+.newsletter-content h3 {
+  font-size: 1.2em;
+  margin: 0.8em 0 0.4em 0;
+  color: #555;
+}
+
+.newsletter-content p {
+  margin: 0.8em 0;
+}
+
+.newsletter-content ul,
+.newsletter-content ol {
+  margin: 0.8em 0;
+  padding-left: 1.5em;
+}
+
+.newsletter-content li {
+  margin: 0.4em 0;
+}
+
+.newsletter-content blockquote {
+  background: #f9f9fa;
+  border-left: 4px solid #667eea;
+  padding: 0.8em 1em;
+  margin: 1em 0;
+  color: #555;
+}
+
+.newsletter-content code {
+  background: #f4f4f5;
+  padding: 0.2em 0.4em;
+  border-radius: 3px;
+  font-family: 'Courier New', monospace;
+  font-size: 0.9em;
+}
+
+.newsletter-content pre {
+  background: #f4f4f5;
+  padding: 1em;
+  border-radius: 6px;
+  overflow-x: auto;
+  margin: 1em 0;
+}
+
+.newsletter-content pre code {
+  background: none;
+  padding: 0;
+}
+
+.newsletter-content strong {
+  font-weight: 600;
+  color: #333;
+}
+
+.newsletter-content em {
+  font-style: italic;
+}
+
+.newsletter-content a {
+  color: #667eea;
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+  transition: border-color 0.2s;
+}
+
+.newsletter-content a:hover {
+  border-bottom-color: #667eea;
 }
 
 .news-entry {
@@ -823,6 +918,7 @@
 </style>
 {% endblock %}
 {% block body %}
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 <div class="domain-header{% if domain_data.color %} has-color{% endif %}"{% if domain_data.color %} style="--domain-color: {{ domain_data.color }}"{% endif %}>
   <a href="{{ url_for('domains.domains_page') }}" class="back-button">← Back to Domains</a>
   
@@ -837,7 +933,7 @@
 <div class="tab-container">
   <div class="tab-nav">
     <button class="tab-button active" data-tab="matters">Matters</button>
-    <button class="tab-button" data-tab="news">News</button>
+    <button class="tab-button" data-tab="news">Newsletters</button>
     <button class="tab-button" data-tab="entities">Entities</button>
     <button class="tab-button" data-tab="description">Description</button>
   </div>
@@ -865,14 +961,14 @@
   </div>
   
   <div id="news-tab" class="tab-content">
-    <div class="loading" id="news-loading">Loading news...</div>
+    <div class="loading" id="news-loading">Loading newsletters...</div>
     <div id="news-content" style="display: none;">
       <div id="news-empty" class="no-entities" style="display: none;">
-        <p>No news entries recorded for this domain yet.</p>
+        <p>No newsletters recorded for this domain yet.</p>
       </div>
       <div class="news-days" id="news-days"></div>
       <div class="news-load-more" id="news-load-more-container" style="display: none;">
-        <button id="news-load-more" class="btn btn-secondary">Load previous day</button>
+        <button id="news-load-more" class="btn btn-secondary">Load more newsletters</button>
       </div>
     </div>
   </div>
@@ -1158,7 +1254,7 @@ function loadNews() {
   if (newsCursor) {
     params.append('cursor', newsCursor);
   }
-  params.append('days', '1');
+  params.append('days', '5');
 
   fetch(`/api/domains/${encodeURIComponent(domainName)}/news?${params.toString()}`)
     .then(response => response.json())
@@ -1195,11 +1291,11 @@ function loadNews() {
         if (data.has_more && newsCursor) {
           loadMoreContainer.style.display = 'block';
           loadMoreButton.disabled = false;
-          loadMoreButton.textContent = 'Load previous day';
+          loadMoreButton.textContent = 'Load more newsletters';
         } else if (newsInitialized || days.length > 0) {
           loadMoreContainer.style.display = 'none';
           loadMoreButton.disabled = false;
-          loadMoreButton.textContent = 'Load previous day';
+          loadMoreButton.textContent = 'Load more newsletters';
         }
       }
 
@@ -1236,14 +1332,29 @@ function appendNewsDay(day) {
   header.textContent = day.friendly_date || formatNewsDateKey(day.date);
   section.appendChild(header);
 
-  const entries = Array.isArray(day.entries) ? day.entries : [];
+  // If we have raw markdown content, render that instead of parsed entries
+  if (day.raw_content) {
+    const contentDiv = document.createElement('div');
+    contentDiv.className = 'newsletter-content';
 
-  if (entries.length === 0) {
-    const emptyNotice = document.createElement('div');
-    emptyNotice.className = 'no-entities';
-    emptyNotice.textContent = 'No entries recorded for this day.';
-    section.appendChild(emptyNotice);
-  } else {
+    // Configure marked for safe rendering
+    marked.setOptions({
+      breaks: true,
+      gfm: true,
+      headerIds: false,
+      mangle: false
+    });
+
+    // Remove the top-level heading if present (we show it in our header)
+    let content = day.raw_content;
+    content = content.replace(/^# .+\n+/, '');
+
+    // Render markdown to HTML
+    contentDiv.innerHTML = marked.parse(content);
+    section.appendChild(contentDiv);
+  } else if (day.entries && day.entries.length > 0) {
+    // Fallback to the old parsed entries format
+    const entries = Array.isArray(day.entries) ? day.entries : [];
     entries.forEach(entry => {
       const article = document.createElement('article');
       article.className = 'news-entry';
@@ -1292,6 +1403,11 @@ function appendNewsDay(day) {
 
       section.appendChild(article);
     });
+  } else {
+    const emptyNotice = document.createElement('div');
+    emptyNotice.className = 'no-entities';
+    emptyNotice.textContent = 'No newsletter content for this day.';
+    section.appendChild(emptyNotice);
   }
 
   container.appendChild(section);

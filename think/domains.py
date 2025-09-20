@@ -318,11 +318,20 @@ def get_domain_news(
         date_key = news_path.stem
         friendly_date = _format_news_date(date_key)
         entries = _parse_news_entries(news_path)
+
+        # Also read the raw markdown content
+        raw_content = ""
+        try:
+            raw_content = news_path.read_text(encoding="utf-8")
+        except Exception:
+            pass
+
         days.append(
             {
                 "date": date_key,
                 "friendly_date": friendly_date,
                 "entries": entries,
+                "raw_content": raw_content,
             }
         )
 
@@ -336,8 +345,18 @@ def _format_news_date(date_key: str) -> str:
     """Return a human-friendly date label for a YYYYMMDD string."""
 
     try:
+        from datetime import timedelta
+
         date_obj = datetime.strptime(date_key, "%Y%m%d")
-        return date_obj.strftime("%A, %B %d, %Y")
+        today = datetime.now().date()
+        yesterday = today - timedelta(days=1)
+
+        if date_obj.date() == yesterday:
+            return "Yesterday"
+        elif date_obj.date() == today:
+            return "Today"
+        else:
+            return date_obj.strftime("%A, %B %d, %Y")
     except ValueError:
         return date_key
 

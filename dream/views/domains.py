@@ -560,10 +560,10 @@ def get_domain_news_feed(domain_name: str) -> Any:
     """Return paginated news entries for a domain."""
 
     cursor = request.args.get("cursor")
-    # Default to a single news file per request unless the client specifies otherwise
-    limit = request.args.get("days", default=1, type=int) or 1
+    # Default to 5 newsletters for initial load, 5 more for "load more"
+    limit = request.args.get("days", default=5, type=int) or 5
     if limit < 0:
-        limit = 1
+        limit = 5
 
     try:
         news_payload = get_domain_news(domain_name, cursor=cursor, limit=limit)
