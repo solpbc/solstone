@@ -31,7 +31,10 @@ def register_tool(*tool_args: Any, **tool_kwargs: Any) -> Callable[[F], F]:
     """Register ``func`` as an MCP tool while keeping it directly callable."""
 
     def decorator(func: F) -> F:
-        mcp.tool(*tool_args, **tool_kwargs)(func)
+        tool_obj = mcp.tool(*tool_args, **tool_kwargs)(func)
+        # Preserve FastMCP metadata so tests can call ``tool.fn`` while the
+        # module keeps the plain callable available.
+        setattr(func, "fn", getattr(tool_obj, "fn", func))
         return func
 
     return decorator
