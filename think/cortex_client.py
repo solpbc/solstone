@@ -90,7 +90,10 @@ def cortex_request(
     return str(active_file)
 
 
-def cortex_watch(on_event: Callable[[Dict[str, Any]], Optional[bool]]) -> None:
+def cortex_watch(
+    on_event: Callable[[Dict[str, Any]], Optional[bool]],
+    stop_event: Optional[Any] = None,
+) -> None:
     """Watch for Cortex agent events and emit callbacks.
 
     This function blocks and watches for any *_active.jsonl files in the agents
@@ -100,11 +103,22 @@ def cortex_watch(on_event: Callable[[Dict[str, Any]], Optional[bool]]) -> None:
     Args:
         on_event: Callback function that receives each event as a dict.
                  Should return False to stop watching, True/None to continue.
+        stop_event: Optional threading.Event() to stop watching cleanly.
+                   When set(), the watcher will exit its loop gracefully.
 
     The callback receives event dictionaries with at least:
         - event: Event type (request, start, tool_start, tool_end, finish, error, etc.)
         - ts: Millisecond timestamp
         - Additional fields depend on event type
+
+    Clean shutdown example:
+        import threading
+        stop_ev = threading.Event()
+        t = threading.Thread(target=lambda: cortex_watch(on_event, stop_ev))
+        t.start()
+        # Later, to stop:
+        stop_ev.set()
+        t.join()
     """
     # Get journal path from environment
     journal_path = os.environ.get("JOURNAL_PATH")
@@ -127,7 +141,11 @@ def cortex_watch(on_event: Callable[[Dict[str, Any]], Optional[bool]]) -> None:
             )
 
     # Watch for changes in the agents directory
-    for changes in watch(agents_dir):
+    watch_kwargs = {"raise_interrupt": False}
+    if stop_event is not None:
+        watch_kwargs["stop_event"] = stop_event
+
+    for changes in watch(agents_dir, **watch_kwargs):
         for change_type, path_str in changes:
             path = Path(path_str)
 
