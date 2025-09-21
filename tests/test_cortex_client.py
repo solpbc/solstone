@@ -4,7 +4,7 @@ import json
 import os
 import time
 from pathlib import Path
-from threading import Thread
+from threading import Event, Thread
 
 import pytest
 
@@ -386,6 +386,46 @@ def test_cortex_watch_handles_malformed_json(tmp_path, monkeypatch):
     assert len(received_events) == 2
     assert received_events[0]["event"] == "request"
     assert received_events[1]["event"] == "finish"
+
+
+def test_cortex_watch_stop_event_exits(tmp_path, monkeypatch):
+    """Test that setting stop_event stops the watcher thread."""
+    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+    agents_dir = tmp_path / "agents"
+    agents_dir.mkdir()
+
+    received_events = []
+
+    def callback(event):
+        received_events.append(event)
+        return True
+
+    stop_event = Event()
+    watcher_thread = Thread(target=cortex_watch, args=(callback, stop_event))
+    watcher_thread.start()
+
+    try:
+        time.sleep(0.3)  # Allow watcher to initialize
+
+        ts = int(time.time() * 1000)
+        active_file = agents_dir / f"{ts}_active.jsonl"
+        with open(active_file, "w") as f:
+            json.dump({"event": "request", "ts": ts}, f)
+            f.write("\n")
+
+        # Wait for watcher to process the event
+        deadline = time.time() + 5
+        while not received_events and time.time() < deadline:
+            time.sleep(0.1)
+
+        assert received_events
+
+        stop_event.set()
+        watcher_thread.join(timeout=5)
+        assert not watcher_thread.is_alive()
+    finally:
+        stop_event.set()
+        watcher_thread.join(timeout=0.5)
 
 
 def test_cortex_watch_multiple_active_files(tmp_path, monkeypatch):
