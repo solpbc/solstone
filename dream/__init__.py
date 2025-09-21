@@ -19,6 +19,7 @@ from think import todo as todo_store
 from think.utils import setup_cli
 
 from . import state
+from .cortex_utils import start_cortex_event_watcher
 from .push import push_server
 from .utils import (
     adjacent_days,
@@ -116,8 +117,11 @@ def create_app(journal: str = "", password: str = "") -> Flask:
 
     if journal:
         state.journal_root = journal
+        os.environ.setdefault("JOURNAL_PATH", journal)
         task_manager.load_cached()
         state.occurrences_index = build_occurrence_index(journal)
+
+    start_cortex_event_watcher()
     return app
 
 

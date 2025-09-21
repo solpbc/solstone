@@ -1039,7 +1039,7 @@ function renderCards(items, containerId, itemType, createModalFunc) {
     if (itemType === 'agent') {
       const chatLink = document.createElement('a');
       chatLink.className = 'chat-link';
-      chatLink.href = `/chat#persona=${item.id}`;
+      chatLink.href = `/chat?persona=${item.id}`;
       chatLink.innerHTML = '💬';
       chatLink.title = `Chat with ${item.title}`;
       chatLink.onclick = (e) => {

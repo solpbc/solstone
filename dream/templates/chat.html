@@ -105,43 +105,35 @@ const searchBase = '{{ url_for('search.search_page') }}';
 // Pass persona titles from backend
 const personaTitles = {{ persona_titles | tojson }};
 
-// Parse fragment for persona and agent ID
-let currentPersona = 'default';
+const processedEventIds = new Set();
+
+function shouldSkipEvent(event) {
+  const eventId = event && event.event_id;
+  if (!eventId) {
+    return false;
+  }
+  if (processedEventIds.has(eventId)) {
+    return true;
+  }
+  processedEventIds.add(eventId);
+  return false;
+}
+
+function resetEventTracking() {
+  processedEventIds.clear();
+}
+
+// Parse URL parameters for persona and agent ID
+const urlParams = new URLSearchParams(window.location.search);
+let currentPersona = urlParams.get('persona') || 'default';
 let isHistorical = false;
 let historicalAgentId = null;
 
-function parseFragment() {
-  isHistorical = false;
-  historicalAgentId = null;
-  const fragment = window.location.hash.slice(1);
-  if (!fragment) return;
-  
-  // Check if it's a historical agent (just numbers)
-  if (/^\d+$/.test(fragment)) {
-    isHistorical = true;
-    historicalAgentId = fragment;
-    return;
-  }
-  
-  // Parse persona from fragment
-  const personaMatch = fragment.match(/persona=([^&]+)/);
-  if (personaMatch) {
-    currentPersona = personaMatch[1];
-  }
+const agentParam = urlParams.get('agent');
+if (agentParam && /^\d+$/.test(agentParam)) {
+  isHistorical = true;
+  historicalAgentId = agentParam;
 }
-
-function parseQueryParams() {
-  // Also check for agent ID in query parameters
-  const params = new URLSearchParams(window.location.search);
-  const agentParam = params.get('agent');
-  if (agentParam && /^\d+$/.test(agentParam)) {
-    isHistorical = true;
-    historicalAgentId = agentParam;
-  }
-}
-
-parseFragment();
-parseQueryParams();
 
 // Create persistent activity indicator
 const activityIndicator = document.createElement('div');
@@ -401,6 +393,7 @@ document.getElementById('inputArea').onsubmit=async e=>{
   // Clear previous messages unless we're continuing from an active conversation
   if(!isContinuing){
     messagesDiv.innerHTML='';
+    resetEventTracking();
   }
   // Clear tool placard references to prevent memory leaks
   Object.keys(toolPlacards).forEach(key => delete toolPlacards[key]);
@@ -465,6 +458,7 @@ async function loadHistoricalAgent(agentId){
   const finishEvent = [...events].reverse().find(e => e.event === 'finish');
   const isLive = d.source === 'cortex' && d.is_running;
   activeRunAgentId = null;
+  resetEventTracking();
 
   if(requestEvent){
     if(requestEvent.persona){
@@ -549,6 +543,10 @@ async function loadHistoricalAgent(agentId){
 
 // Unified event handler for both live and historical events
 function processEvent(event) {
+  if (shouldSkipEvent(event)) {
+    return;
+  }
+
   if(event.agent_id && responseInProgress){
     if(!activeRunAgentId || activeRunAgentId === event.agent_id){
       activeRunAgentId = event.agent_id;
@@ -825,6 +823,7 @@ function initChatControls(){
       nextContinueAgentId = null;
       activeRunAgentId = null;
       forceHideActivityIndicator();
+      resetEventTracking();
       input.focus();
     };
   }
@@ -839,6 +838,7 @@ function initChatControls(){
     nextContinueAgentId = null;
     activeRunAgentId = null;
     forceHideActivityIndicator();
+    resetEventTracking();
     input.focus();
   });
 
@@ -846,12 +846,15 @@ function initChatControls(){
   // Handles both regular chat responses and watched agent events
   appEvents.listen('chat', e => {
     // Check if this event is relevant to us:
-    // 1. We're waiting for a regular chat response (responseInProgress)
+    // 1. We're processing a direct response from the active chat agent
     // 2. We're watching a specific agent and this event is from that agent
-    const isRelevant = responseInProgress ||
-                       (window.watchingAgentId && e.agent_id === window.watchingAgentId);
+    const eventAgentId = e.agent_id;
+    const eventSource = e.source || 'direct';
+    const isDirectChatEvent = responseInProgress && eventSource === 'direct';
+    const isSameAgent = responseInProgress && eventAgentId && activeRunAgentId === eventAgentId;
+    const isWatchedAgent = Boolean(window.watchingAgentId && eventAgentId === window.watchingAgentId);
 
-    if (!isRelevant) {
+    if (!isDirectChatEvent && !isSameAgent && !isWatchedAgent) {
       return; // Skip irrelevant events
     }
 
@@ -876,27 +879,12 @@ function initChatControls(){
 
   loadHistory();
 
-  window.addEventListener('hashchange', () => {
-    const oldPersona = currentPersona;
-    parseFragment();
-    if (oldPersona !== currentPersona && !isHistorical) {
-      messagesDiv.innerHTML='';
-      Object.keys(toolPlacards).forEach(key => delete toolPlacards[key]);
-      messagesDiv.appendChild(activityIndicator);
-      previousAgent = null;
-      responseInProgress = false;
-      nextContinueAgentId = null;
-      activeRunAgentId = null;
-      forceHideActivityIndicator();
-    }
-    updatePersonaNotice();
-  });
-
   updatePersonaNotice();
 }
 
 // Disable input and controls if viewing historical agent
 if(isHistorical){
+  initChatControls();
   form.style.display = 'none';
   const notice = document.createElement('div');
   notice.id = 'historicalNotice';

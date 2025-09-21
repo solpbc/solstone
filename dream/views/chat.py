@@ -8,14 +8,14 @@ import markdown  # type: ignore
 from flask import Blueprint, jsonify, render_template, request
 
 from .. import state
-from ..cortex_utils import run_agent_via_cortex
+from ..cortex_utils import build_cortex_event_payload, run_agent_via_cortex
 from ..push import push_server
 
 
 def _push_event(event: dict) -> None:
     """Forward agent events to connected chat clients."""
-    # Just broadcast to everyone - clients will filter by agent_id
-    push_server.push({"view": "chat", **event})
+    payload = build_cortex_event_payload(event, source="direct")
+    push_server.push(payload)
 
 
 bp = Blueprint("chat", __name__, template_folder="../templates")
