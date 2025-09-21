@@ -1412,7 +1412,7 @@ let totalAgents = 0;
 function buildRow(a) {
   const tr = document.createElement('tr');
   const short = a.prompt.length > 80 ? a.prompt.slice(0, 80) + '…' : a.prompt;
-  const chatLink = `{{ url_for('chat.chat_page') }}?persona=${a.id}`;
+  const chatLink = `{{ url_for('chat.chat_page') }}?agent=${a.id}`;
   
   // Status badge
   const statusClass = `status-${a.status || 'unknown'}`;
