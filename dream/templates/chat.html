@@ -492,22 +492,10 @@ async function loadHistoricalAgent(agentId){
       // Track that we're watching a specific agent
       window.watchingAgentId = d.agent_id;
       responseInProgress = true;  // Keep activity indicator visible
-      
-      // Listen for events from this specific agent
-      appEvents.listen('chat', e => {
-        // Only process events for the agent we're watching
-        if(window.watchingAgentId && e.agent_id === window.watchingAgentId) {
-          processEvent(e);
-          
-          // Check if agent finished
-          if(e.event === 'finish' || e.event === 'error') {
-            responseInProgress = false;
-            window.watchingAgentId = null;
-            // Update UI to show it's completed
-            input.placeholder = 'Agent run completed (read-only)';
-          }
-        }
-      });
+      showActivityIndicator();
+
+      // The global listener will handle events for this agent
+      // No need for a separate listener here
     }
   } else {
     // Update the header with human-friendly info for historical agents
@@ -854,13 +842,35 @@ function initChatControls(){
     input.focus();
   });
 
+  // Global event listener for all chat events
+  // Handles both regular chat responses and watched agent events
   appEvents.listen('chat', e => {
-    if (responseInProgress) {
-      showActivityIndicator();
+    // Check if this event is relevant to us:
+    // 1. We're waiting for a regular chat response (responseInProgress)
+    // 2. We're watching a specific agent and this event is from that agent
+    const isRelevant = responseInProgress ||
+                       (window.watchingAgentId && e.agent_id === window.watchingAgentId);
+
+    if (!isRelevant) {
+      return; // Skip irrelevant events
     }
+
+    // Show activity for relevant events
+    showActivityIndicator();
     processEvent(e);
-    if (responseInProgress) {
-      showActivityIndicator();
+
+    // Handle completion for watched agents
+    if (window.watchingAgentId && e.agent_id === window.watchingAgentId) {
+      if (e.event === 'finish' || e.event === 'error') {
+        responseInProgress = false;
+        window.watchingAgentId = null;
+        // Update UI to show it's completed
+        const input = document.getElementById('messageInput');
+        if (input) {
+          input.placeholder = 'Agent run completed (read-only)';
+        }
+        forceHideActivityIndicator();
+      }
     }
   });
 
