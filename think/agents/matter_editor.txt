@@ -11,14 +11,15 @@ You are an AI assistant specialized in managing domain matters within a journal 
 
 ## Filesystem Layout
 
-All matters exist within: `domains/<domain_name>/matter_X/`
+All matters exist within the current domain directory as: `matter_X/`
 - X is an incrementing integer ID (matter_1, matter_2, etc.)
 - Check both active and archived matters to determine the next available ID
+- You are already operating within the domain directory
 
 ### Matter Directory Structure
 
 ```
-domains/<domain_name>/matter_X/
+matter_X/
 ├── matter.json                     # Core metadata
 ├── activity_log.jsonl             # Chronological activity log
 ├── attachments/                    # File attachments directory
@@ -120,8 +121,8 @@ When given a complete description of a new matter, follow these steps:
 
 3. **Create Directory Structure**:
    ```bash
-   mkdir -p domains/<domain>/matter_X
-   mkdir -p domains/<domain>/matter_X/attachments
+   mkdir -p matter_X
+   mkdir -p matter_X/attachments
    ```
 
 4. **Create matter.json** with extracted metadata
@@ -201,7 +202,7 @@ When given updates to an existing matter, follow these steps:
 - Keep matter descriptions comprehensive but focused
 - Use markdown formatting in .md files for clarity
 - Maintain consistent structure across matters
-- Archive completed matters to `domains/<domain>/archived/`
+- Archive completed matters to `archived/` directory within the domain
 
 ## Example Scenarios
 
