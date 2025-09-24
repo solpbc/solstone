@@ -151,6 +151,8 @@
       <select id="domainSelect">
         <option value="">None</option>
       </select>
+      <label for="settingInput">Setting:</label>
+      <input id="settingInput" placeholder="e.g. Jer lunch with Joe" />
       <button id="rerunBtn">Re-run Import</button>
     </div>
     <div class="rerun-note">
@@ -248,6 +250,7 @@ function formatTimestamp(timestamp) {
 
 // Global variable to store import data
 let importData = null;
+const settingInput = document.getElementById('settingInput');
 
 // Load domains for dropdown
 function loadDomains() {
@@ -304,6 +307,7 @@ function runTask(taskData) {
 // Handle re-run button click
 document.getElementById('rerunBtn').addEventListener('click', () => {
   const domain = document.getElementById('domainSelect').value;
+  const setting = settingInput ? settingInput.value.trim() : '';
   
   if (confirm('This will re-run the import and overwrite existing transcription results. Continue?')) {
     const btn = document.getElementById('rerunBtn');
@@ -314,7 +318,7 @@ document.getElementById('rerunBtn').addEventListener('click', () => {
     fetch('{{ url_for("import_view.import_rerun", timestamp=timestamp) }}', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ domain: domain })
+      body: JSON.stringify({ domain: domain, setting: setting })
     })
     .then(r => r.json())
     .then(result => {
@@ -395,6 +399,12 @@ fetch('{{ url_for("import_view.import_detail_api", timestamp=timestamp) }}')
       overviewHtml += `<div class="info-label">Import Timestamp:</div><div class="info-value">${formatTimestamp(data.import_json.user_timestamp)}</div>`;
       if (data.import_json.domain) {
         overviewHtml += `<div class="info-label">Domain:</div><div class="info-value">${data.import_json.domain}</div>`;
+      }
+      if (data.import_json.setting) {
+        overviewHtml += `<div class="info-label">Setting:</div><div class="info-value">${data.import_json.setting}</div>`;
+      }
+      if (settingInput) {
+        settingInput.value = data.import_json.setting || '';
       }
     }
     

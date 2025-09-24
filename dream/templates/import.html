@@ -81,6 +81,10 @@ button:disabled { background:#ccc; color:#666; cursor:not-allowed; opacity:0.6; 
           <option value="">None</option>
         </select>
       </div>
+      <div class="confirm-field">
+        <label for="settingInput">Setting</label>
+        <input id="settingInput" placeholder="e.g. Jer lunch with Joe" />
+      </div>
     </div>
     <input type="hidden" id="savedPath" />
     <div class="modal-actions">
@@ -111,6 +115,7 @@ const dropArea = document.getElementById('dropArea');
 const fileInput = document.getElementById('fileInput');
 const fileLabel = document.getElementById('fileLabel');
 const domainSelect = document.getElementById('domainSelect');
+const settingInput = document.getElementById('settingInput');
 const startBtn = document.getElementById('startBtn');
 let currentFile = null;
 
@@ -138,6 +143,8 @@ document.getElementById('importForm').onsubmit=e=>{
   // Add selected domain
   const domain = domainSelect.value;
   if(domain) fd.append('domain', domain);
+  const settingValue = settingInput.value.trim();
+  if(settingValue) fd.append('setting', settingValue);
   fetch('{{ url_for('import_view.import_save') }}', {method:'POST', body:fd})
     .then(async r=>{
       const d=await r.json();
@@ -162,6 +169,10 @@ document.getElementById('importForm').onsubmit=e=>{
 function showDetect(res){
   document.getElementById('timestampInput').value=res.timestamp||'';
   document.getElementById('savedPath').value=res.path;
+  if(res.domain !== undefined) {
+    domainSelect.value = res.domain || '';
+  }
+  settingInput.value = res.setting || '';
   document.getElementById('detectModal').style.display='block';
 }
 
@@ -269,6 +280,7 @@ startBtn.addEventListener('click', async () => {
   const ts = document.getElementById('timestampInput').value.trim();
   const path = document.getElementById('savedPath').value;
   const domain = domainSelect.value;
+  const setting = settingInput.value.trim();
   const detectModal = document.getElementById('detectModal');
 
   if (!ts) {
@@ -281,10 +293,10 @@ startBtn.addEventListener('click', async () => {
   startBtn.innerHTML = 'Starting<span class="spinner"></span>';
 
   try {
-    const response = await fetch('{{ url_for('import_view.import_update_domain') }}', {
+    const response = await fetch('{{ url_for('import_view.import_update_metadata') }}', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ path, domain })
+      body: JSON.stringify({ path, domain, setting })
     });
 
     if (!response.ok) {

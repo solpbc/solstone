@@ -233,6 +233,7 @@ def run_task(
 
                 # Update metadata JSON with task ID and user-submitted timestamp
                 domain = None
+                setting = None
                 if task_id:
                     import json
                     from pathlib import Path
@@ -254,6 +255,7 @@ def run_task(
                             metadata["user_submitted_timestamp"] = ts
                             # Get domain from metadata
                             domain = metadata.get("domain")
+                            setting = metadata.get("setting")
                             metadata_path.write_text(
                                 json.dumps(metadata, indent=2), encoding="utf-8"
                             )
@@ -264,6 +266,8 @@ def run_task(
                 # Add domain parameter if available
                 if domain:
                     cmd.extend(["--domain", domain])
+                if setting:
+                    cmd.extend(["--setting", setting])
                 commands.append(" ".join(cmd))
                 code = (
                     _run_command(cmd, logger, stop)

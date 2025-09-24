@@ -34,6 +34,7 @@ def import_save() -> Any:
     upload = request.files.get("file")
     text = request.form.get("text", "").strip()
     domain = request.form.get("domain", "").strip() or None
+    setting = request.form.get("setting", "").strip() or None
 
     # Generate timestamp for folder name
     timestamp_ms = int(time.time() * 1000)
@@ -116,18 +117,26 @@ def import_save() -> Any:
         "file_size": file_path.stat().st_size if file_path.exists() else 0,
         "mime_type": upload.content_type if upload else "text/plain",
         "domain": domain,  # Include selected domain
+        "setting": setting,
         "file_path": str(file_path),  # Store the actual file path
     }
 
     metadata_path = import_dir / "import.json"
     metadata_path.write_text(json.dumps(metadata, indent=2), encoding="utf-8")
 
-    return jsonify({"path": str(file_path), "timestamp": folder_timestamp})
+    return jsonify(
+        {
+            "path": str(file_path),
+            "timestamp": folder_timestamp,
+            "domain": domain,
+            "setting": setting,
+        }
+    )
 
 
 @bp.route("/import/api/domain", methods=["POST"])
-def import_update_domain() -> Any:
-    """Update the domain stored in import metadata for a saved file."""
+def import_update_metadata() -> Any:
+    """Update stored metadata (domain/setting) for a saved import."""
     import json
 
     if not state.journal_root:
@@ -139,6 +148,7 @@ def import_update_domain() -> Any:
         return jsonify({"error": "Missing import path"}), 400
 
     domain = data.get("domain", "").strip() or None
+    setting = data.get("setting", "").strip() or None
     file_path = Path(raw_path)
 
     metadata_path = file_path.parent / "import.json"
@@ -154,17 +164,35 @@ def import_update_domain() -> Any:
     except Exception as exc:
         return jsonify({"error": f"Failed to read import metadata: {exc}"}), 500
 
-    if metadata.get("domain") == domain:
-        return jsonify({"status": "ok", "domain": domain, "updated": False})
+    current_domain = metadata.get("domain")
+    domain_missing = "domain" not in metadata
+    current_setting = metadata.get("setting")
+    setting_missing = "setting" not in metadata
 
-    metadata["domain"] = domain
+    updated = False
 
-    try:
-        metadata_path.write_text(json.dumps(metadata, indent=2), encoding="utf-8")
-    except Exception as exc:
-        return jsonify({"error": f"Failed to update metadata: {exc}"}), 500
+    if domain_missing or current_domain != domain:
+        metadata["domain"] = domain
+        updated = True
 
-    return jsonify({"status": "ok", "domain": domain, "updated": True})
+    if setting_missing or current_setting != setting:
+        metadata["setting"] = setting
+        updated = True
+
+    if updated:
+        try:
+            metadata_path.write_text(json.dumps(metadata, indent=2), encoding="utf-8")
+        except Exception as exc:
+            return jsonify({"error": f"Failed to update metadata: {exc}"}), 500
+
+    return jsonify(
+        {
+            "status": "ok",
+            "domain": domain,
+            "setting": setting,
+            "updated": updated,
+        }
+    )
 
 
 @bp.route("/import/api/list")
@@ -212,6 +240,7 @@ def import_list() -> Any:
                     import_data["file_size"] = import_meta.get("file_size", 0)
                     import_data["mime_type"] = import_meta.get("mime_type", "")
                     import_data["domain"] = import_meta.get("domain")
+                    import_data["setting"] = import_meta.get("setting")
                     import_data["user_timestamp"] = import_meta.get("user_timestamp")
                     task_id = import_meta.get("task_id")
                     import_data["task_id"] = task_id
@@ -451,10 +480,15 @@ def import_rerun(timestamp: str) -> Any:
     # Get new domain from request
     data = request.get_json(force=True)
     new_domain = data.get("domain", "").strip() or None
+    new_setting = data.get("setting", "").strip() or None
 
-    # Update metadata with new domain
-    if new_domain != metadata.get("domain"):
+    # Update metadata with new domain/setting values if changed
+    domain_changed = new_domain != metadata.get("domain")
+    setting_changed = new_setting != metadata.get("setting")
+
+    if domain_changed or setting_changed or "setting" not in metadata:
         metadata["domain"] = new_domain
+        metadata["setting"] = new_setting
         metadata["rerun_at"] = time.time() * 1000
         metadata["rerun_datetime"] = datetime.datetime.now().isoformat()
 
@@ -477,4 +511,4 @@ def import_rerun(timestamp: str) -> Any:
     # Run the importer task with the same timestamp
     run_task("importer", f"{file_path}|{timestamp}")
 
-    return jsonify({"status": "ok", "domain": new_domain})
+    return jsonify({"status": "ok", "domain": new_domain, "setting": new_setting})
