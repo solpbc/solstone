@@ -199,6 +199,71 @@ table[data-entity-type="Tool"] th {
   display: none;
 }
 
+.merge-quick-create {
+  display: none;
+  gap: 0.5em;
+  margin-top: 0.75em;
+  flex-wrap: wrap;
+}
+
+.merge-quick-create.active {
+  display: flex;
+}
+
+.quick-create-btn {
+  border: 1px solid transparent;
+  border-radius: 6px;
+  padding: 6px 14px;
+  font-size: 0.85em;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.2s, transform 0.2s;
+}
+
+.quick-create-btn:hover {
+  transform: translateY(-1px);
+}
+
+.quick-create-btn[data-entity-type="Person"] {
+  background: var(--color-person);
+  border-color: var(--border-person);
+  color: var(--text-person);
+}
+
+.quick-create-btn[data-entity-type="Person"]:hover {
+  background: #c8e6c9;
+}
+
+.quick-create-btn[data-entity-type="Company"] {
+  background: var(--color-company);
+  border-color: var(--border-company);
+  color: var(--text-company);
+}
+
+.quick-create-btn[data-entity-type="Company"]:hover {
+  background: #bbdefb;
+}
+
+.quick-create-btn[data-entity-type="Project"] {
+  background: var(--color-project);
+  border-color: var(--border-project);
+  color: var(--text-project);
+}
+
+.quick-create-btn[data-entity-type="Project"]:hover {
+  background: #ffe0b2;
+}
+
+.quick-create-btn[data-entity-type="Tool"] {
+  background: var(--color-tool);
+  border-color: var(--border-tool);
+  color: var(--text-tool);
+}
+
+.quick-create-btn[data-entity-type="Tool"]:hover {
+  background: #e1bee7;
+}
+
 .merge-search {
   margin-bottom: 1.5em;
 }
@@ -569,6 +634,7 @@ table[data-entity-type="Tool"] th {
     <div class="merge-search">
       <input type="text" id="mergeSearchInput" placeholder="Search entities to merge..." />
     </div>
+    <div id="mergeQuickCreate" class="merge-quick-create"></div>
     <div id="mergeStatus" class="merge-status"></div>
     <div id="mergeGrid" class="merge-grid"></div>
   </div>
@@ -631,6 +697,8 @@ let generatingTops = new Set();
 let mergeMode = false;
 let allEntities = [];
 let draggedEntity = null;
+let newEntityType = null;
+let currentMergeQuery = '';
 
 function reloadTabs() {
   const currentType = activeType;
@@ -1047,16 +1115,36 @@ function handleCountClick(event, name) {
 }
 
 // New Entity Modal functionality
-function openNewEntityModal() {
+function openNewEntityModal(typeOverride = null, namePrefill = '') {
   const modal = document.getElementById('newEntityModal');
   const title = document.getElementById('newEntityModalTitle');
-  title.textContent = `Add New ${activeType}`;
-  
+  const saveBtn = document.getElementById('newEntitySaveBtn');
+  const form = document.getElementById('newEntityForm');
+  const type = typeOverride || activeType;
+
+  newEntityType = type;
+
+  title.textContent = type ? `Add New ${type}` : 'Add New Entity';
+  if (saveBtn) {
+    saveBtn.textContent = type ? `Create ${type}` : 'Create Entity';
+  }
+
   // Reset form
-  document.getElementById('newEntityForm').reset();
+  form.reset();
   clearNewEntityErrors();
-  
+
+  const nameInput = document.getElementById('entityName');
+  const descriptionInput = document.getElementById('entityDescription');
+  if (namePrefill) {
+    nameInput.value = namePrefill;
+  }
+  if (descriptionInput) {
+    descriptionInput.value = '';
+  }
+
   modal.style.display = 'block';
+  nameInput.focus();
+  nameInput.select();
 }
 
 function closeNewEntityModal() {
@@ -1064,6 +1152,7 @@ function closeNewEntityModal() {
   modal.style.display = 'none';
   document.getElementById('newEntityForm').reset();
   clearNewEntityErrors();
+  newEntityType = null;
 }
 
 function clearNewEntityErrors() {
@@ -1082,9 +1171,15 @@ document.getElementById('newEntityClose').onclick = closeNewEntityModal;
 // Generate entity description button handler
 document.getElementById('generateEntityDescBtn').onclick = async function() {
   const entityName = document.getElementById('entityName').value.trim();
+  const resolvedType = newEntityType || activeType;
 
   if (!entityName) {
     showNewEntityError('Please enter an entity name first');
+    return;
+  }
+
+  if (!resolvedType) {
+    showNewEntityError('Entity type is required');
     return;
   }
 
@@ -1104,7 +1199,7 @@ document.getElementById('generateEntityDescBtn').onclick = async function() {
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        type: activeType,
+        type: resolvedType,
         name: entityName
       })
     });
@@ -1156,6 +1251,40 @@ window.addEventListener('click', function(event) {
   }
 });
 
+function updateMergeQuickCreate(query) {
+  const container = document.getElementById('mergeQuickCreate');
+  if (!container) {
+    return;
+  }
+
+  const trimmed = query.trim();
+  if (!trimmed) {
+    container.innerHTML = '';
+    container.classList.remove('active');
+    return;
+  }
+
+  const types = ['Person', 'Company', 'Project', 'Tool'];
+  container.innerHTML = types
+    .map(
+      (type) =>
+        `<button type="button" class="quick-create-btn" data-entity-type="${type}">+ New ${type}</button>`
+    )
+    .join('');
+  container.classList.add('active');
+}
+
+const mergeQuickCreateContainer = document.getElementById('mergeQuickCreate');
+if (mergeQuickCreateContainer) {
+  mergeQuickCreateContainer.addEventListener('click', (event) => {
+    const target = event.target;
+    if (target && target.classList.contains('quick-create-btn')) {
+      const type = target.getAttribute('data-entity-type');
+      openNewEntityModal(type, currentMergeQuery);
+    }
+  });
+}
+
 // Merge tab functionality
 function showMergeTab(query = '', updateFragment = true) {
   mergeMode = true;
@@ -1188,6 +1317,8 @@ function showMergeTab(query = '', updateFragment = true) {
     searchInput.value = '';
     document.getElementById('mergeGrid').innerHTML = '';
     allEntities = [];
+    currentMergeQuery = '';
+    updateMergeQuickCreate('');
   }
   
   // Auto-focus the search input
@@ -1519,6 +1650,8 @@ async function performMerge(source, target) {
 // Search functionality for merge tab
 document.getElementById('mergeSearchInput').addEventListener('input', async (e) => {
   const query = e.target.value.trim();
+  currentMergeQuery = query;
+  updateMergeQuickCreate(query);
   
   // Update URL fragment with search query
   if (mergeMode) {
@@ -1557,11 +1690,17 @@ document.getElementById('newEntityForm').addEventListener('submit', async (e) =>
   clearNewEntityErrors();
   
   const formData = new FormData(e.target);
+  const formType = newEntityType || activeType;
   const data = {
-    type: activeType,
+    type: formType,
     name: formData.get('name').trim(),
     description: formData.get('description').trim()
   };
+
+  if (!data.type) {
+    showNewEntityError('Entity type is required');
+    return;
+  }
   
   if (!data.name) {
     showNewEntityError('Entity name is required');
@@ -1592,4 +1731,3 @@ document.getElementById('newEntityForm').addEventListener('submit', async (e) =>
 });
 </script>
 {% endblock %}
-
