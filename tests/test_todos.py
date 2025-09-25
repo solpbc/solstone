@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from think.todo import get_todos
+from think.todo import get_todos, parse_item, parse_items
 
 
 @pytest.fixture
@@ -109,3 +109,142 @@ def test_get_todos_ignores_blank_lines(monkeypatch, journal_root):
 
     todos = get_todos("20240104")
     assert [item["index"] for item in todos] == [1, 2]
+
+
+def test_parse_item_valid_todo():
+    item = parse_item("- [ ] Simple todo", 1)
+    assert item is not None
+    assert item.index == 1
+    assert item.text == "Simple todo"
+    assert item.completed is False
+    assert item.cancelled is False
+    assert item.domain is None
+    assert item.time is None
+
+
+def test_parse_item_completed_todo():
+    item = parse_item("- [x] Completed task", 2)
+    assert item is not None
+    assert item.completed is True
+    assert item.text == "Completed task"
+
+
+def test_parse_item_with_domain():
+    item = parse_item("- [ ] Review PR #backend", 3)
+    assert item is not None
+    assert item.domain == "backend"
+    assert item.text == "Review PR"
+
+
+def test_parse_item_with_time():
+    item = parse_item("- [ ] Meeting at (14:30)", 4)
+    assert item is not None
+    assert item.time == "14:30"
+    assert item.text == "Meeting at"
+
+
+def test_parse_item_cancelled():
+    item = parse_item("- [ ] ~~Cancelled task~~", 5)
+    assert item is not None
+    assert item.cancelled is True
+    assert item.text == "Cancelled task"
+
+
+def test_parse_item_with_markup():
+    item = parse_item("- [ ] **Task**: Do something", 6)
+    assert item is not None
+    assert item.text == "Do something"
+
+
+def test_parse_item_complex():
+    item = parse_item("- [x] **Review**: Merge PR #think (10:30)", 7)
+    assert item is not None
+    assert item.completed is True
+    assert item.domain == "think"
+    assert item.time == "10:30"
+    assert item.text == "Merge PR"
+
+
+def test_parse_item_invalid_lines():
+    assert parse_item("", 1) is None
+    assert parse_item("Not a todo", 2) is None
+    assert parse_item("# Comment", 3) is None
+    assert parse_item("   ", 4) is None
+
+
+def test_parse_items_maintains_sequential_index():
+    lines = [
+        "- [ ] First",
+        "",
+        "Not a todo",
+        "- [x] Second",
+        "- [ ] Third",
+    ]
+    items = parse_items(lines)
+    assert len(items) == 3
+    assert items[0].index == 1
+    assert items[0].text == "First"
+    assert items[1].index == 2
+    assert items[1].text == "Second"
+    assert items[2].index == 3
+    assert items[2].text == "Third"
+
+
+def test_append_entry_validates_parsing(monkeypatch, journal_root):
+    from think.todo import TodoChecklist
+
+    monkeypatch.setenv("JOURNAL_PATH", str(journal_root))
+
+    # Create a day directory
+    day_dir = journal_root / "20240105" / "todos"
+    day_dir.mkdir(parents=True)
+
+    # Create domains with valid domain files
+    domains_dir = journal_root / "domains"
+    domains_dir.mkdir(parents=True)
+    for domain in ["work", "personal", "hobby"]:
+        domain_path = domains_dir / domain
+        domain_path.mkdir(parents=True)
+        domain_json = domain_path / "domain.json"
+        domain_json.write_text(f'{{"title": "{domain.title()}"}}', encoding="utf-8")
+
+    checklist = TodoChecklist.load("20240105")
+
+    # Test normal entry works
+    checklist.append_entry("Test task #work (10:30)")
+    assert len(checklist.entries) == 1
+
+    # Verify it parses correctly
+    items = parse_items(checklist.entries)
+    assert len(items) == 1
+    assert items[0].text == "Test task"
+    assert items[0].domain == "work"
+    assert items[0].time == "10:30"
+
+
+def test_append_entry_validates_domain(monkeypatch, journal_root):
+    from think.todo import TodoChecklist, TodoDomainError
+
+    monkeypatch.setenv("JOURNAL_PATH", str(journal_root))
+
+    # Create a day directory
+    day_dir = journal_root / "20240106" / "todos"
+    day_dir.mkdir(parents=True)
+
+    # Create domains with valid domain files
+    domains_dir = journal_root / "domains"
+    domains_dir.mkdir(parents=True)
+    for domain in ["work", "personal", "hobby"]:
+        domain_path = domains_dir / domain
+        domain_path.mkdir(parents=True)
+        domain_json = domain_path / "domain.json"
+        domain_json.write_text(f'{{"title": "{domain.title()}"}}', encoding="utf-8")
+
+    checklist = TodoChecklist.load("20240106")
+
+    # Test invalid domain raises error
+    with pytest.raises(TodoDomainError) as exc_info:
+        checklist.append_entry("Test task #invalid (10:30)")
+
+    assert exc_info.value.invalid_domain == "invalid"
+    assert set(exc_info.value.valid_domains) == {"work", "personal", "hobby"}

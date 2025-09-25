@@ -111,3 +111,28 @@ def test_todo_done_marks_complete(todo_env):
     assert todo_path.read_text(encoding="utf-8") == (
         "- [ ] First item\n- [x] Second item\n"
     )
+
+
+def test_todo_add_validates_domain(todo_env, tmp_path):
+    """todo_add should validate domain and provide helpful error for unknown domains."""
+
+    # Create domains with valid domain files
+    domains_dir = tmp_path / "domains"
+    domains_dir.mkdir(parents=True)
+    for domain in ["work", "personal", "hobby"]:
+        domain_path = domains_dir / domain
+        domain_path.mkdir(parents=True)
+        domain_json = domain_path / "domain.json"
+        domain_json.write_text(f'{{"title": "{domain.title()}"}}', encoding="utf-8")
+
+    day, _ = todo_env([])
+
+    result = call_tool(mcp_tools.todo_add, day, 1, "Test task #invalid")
+
+    assert "error" in result
+    assert "Unknown domain: invalid" in result["error"]
+    assert "suggestion" in result
+    # The domains might be returned in any order, so check for each one
+    assert "work" in result["suggestion"]
+    assert "personal" in result["suggestion"]
+    assert "hobby" in result["suggestion"]

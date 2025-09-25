@@ -11,6 +11,8 @@ from typing import Any, Iterable, Sequence
 
 from dotenv import load_dotenv
 
+from think.domains import get_domains
+
 __all__ = [
     "TodoChecklist",
     "TodoItem",
@@ -18,11 +20,13 @@ __all__ = [
     "TodoLineNumberError",
     "TodoGuardMismatchError",
     "TodoEmptyTextError",
+    "TodoDomainError",
     "get_todos",
     "todo_file_path",
     "format_numbered",
     "parse_entry",
     "validate_line_number",
+    "parse_item",
     "parse_items",
 ]
 
@@ -58,6 +62,15 @@ class TodoEmptyTextError(TodoError):
 
     def __init__(self) -> None:
         super().__init__("todo text cannot be empty")
+
+
+class TodoDomainError(TodoError):
+    """Raised when an invalid domain is specified in a todo entry."""
+
+    def __init__(self, invalid_domain: str, valid_domains: list[str]) -> None:
+        super().__init__(f"Unknown domain: {invalid_domain}")
+        self.invalid_domain = invalid_domain
+        self.valid_domains = valid_domains
 
 
 @dataclass(slots=True)
@@ -148,8 +161,24 @@ class TodoChecklist:
         """Append a new unchecked todo entry without line validation."""
 
         body = self._validated_body(text)
+        entry_line = f"- [ ] {body}"
 
-        self.entries.append(f"- [ ] {body}")
+        # Validate that the entry can be parsed correctly
+        item = parse_item(entry_line, len(self.entries) + 1)
+        if item is None:
+            raise TodoError(f"Failed to create valid todo entry from: {body}")
+
+        # Validate domain if specified
+        if item.domain:
+            try:
+                domains = get_domains()
+                valid_domains = list(domains.keys())
+                if item.domain not in valid_domains:
+                    raise TodoDomainError(item.domain, valid_domains)
+            except RuntimeError:  # JOURNAL_PATH not set
+                pass  # Skip domain validation if journal path not available
+
+        self.entries.append(entry_line)
         self.save()
 
     def remove_entry(self, line_number: int, guard: str) -> None:
@@ -249,6 +278,74 @@ def validate_line_number(line_number: int, max_line: int) -> None:
         raise IndexError(f"line number {line_number} is out of range (1..{max_line})")
 
 
+def parse_item(line: str, index: int) -> TodoItem | None:
+    """Parse a single todo line into a structured :class:`TodoItem` object.
+
+    Args:
+        line: The raw todo line text to parse.
+        index: The 1-based index for this item.
+
+    Returns:
+        A TodoItem object if the line is valid, None otherwise.
+    """
+
+    stripped = line.strip()
+    if not stripped or not stripped.startswith("- ["):
+        return None
+
+    match_state = TODO_ENTRY_RE.match(stripped)
+    if not match_state:
+        return None
+
+    completed = match_state.group(1).lower() == "x"
+    remainder = match_state.group(2).strip()
+
+    cancelled = False
+    cleaned = remainder
+    if cleaned.startswith("~~"):
+        close_idx = cleaned.find("~~", 2)
+        if close_idx > 0:
+            cancelled = True
+            inner = cleaned[2:close_idx].strip()
+            tail = cleaned[close_idx + 2 :].strip()
+            cleaned = inner + (f" {tail}" if tail else "")
+
+    description = cleaned
+
+    markup_match = LEADING_MARKUP_RE.match(cleaned)
+    if markup_match:
+        description = markup_match.group(2).strip()
+
+    domain: str | None = None
+    domain_match = DOMAIN_RE.search(description)
+    if domain_match:
+        domain = domain_match.group(1)
+        before = description[: domain_match.start()].rstrip()
+        after = description[domain_match.end() :].strip()
+        description = (before + (f" {after}" if after else "")).strip()
+
+    time: str | None = None
+    time_match = TIME_RE.search(description)
+    if time_match:
+        hour_str = time_match.group(1).split(":", 1)[0]
+        try:
+            if 0 <= int(hour_str) <= 23:
+                time = time_match.group(1)
+                description = description[: time_match.start()].rstrip()
+        except ValueError:
+            pass
+
+    return TodoItem(
+        index=index,
+        raw=stripped,
+        text=description,
+        domain=domain,
+        time=time,
+        completed=completed,
+        cancelled=cancelled,
+    )
+
+
 def parse_items(entries: Iterable[str]) -> list[TodoItem]:
     """Parse todo ``entries`` into structured :class:`TodoItem` objects."""
 
@@ -256,64 +353,11 @@ def parse_items(entries: Iterable[str]) -> list[TodoItem]:
     index = 0
 
     for raw in entries:
-        stripped = raw.strip()
-        if not stripped or not stripped.startswith("- ["):
-            continue
-
-        match_state = TODO_ENTRY_RE.match(stripped)
-        if not match_state:
-            continue
-
-        index += 1
-        completed = match_state.group(1).lower() == "x"
-        remainder = match_state.group(2).strip()
-
-        cancelled = False
-        cleaned = remainder
-        if cleaned.startswith("~~"):
-            close_idx = cleaned.find("~~", 2)
-            if close_idx > 0:
-                cancelled = True
-                inner = cleaned[2:close_idx].strip()
-                tail = cleaned[close_idx + 2 :].strip()
-                cleaned = inner + (f" {tail}" if tail else "")
-
-        description = cleaned
-
-        markup_match = LEADING_MARKUP_RE.match(cleaned)
-        if markup_match:
-            description = markup_match.group(2).strip()
-
-        domain: str | None = None
-        domain_match = DOMAIN_RE.search(description)
-        if domain_match:
-            domain = domain_match.group(1)
-            before = description[: domain_match.start()].rstrip()
-            after = description[domain_match.end() :].strip()
-            description = (before + (f" {after}" if after else "")).strip()
-
-        time: str | None = None
-        time_match = TIME_RE.search(description)
-        if time_match:
-            hour_str = time_match.group(1).split(":", 1)[0]
-            try:
-                if 0 <= int(hour_str) <= 23:
-                    time = time_match.group(1)
-                    description = description[: time_match.start()].rstrip()
-            except ValueError:
-                pass
-
-        items.append(
-            TodoItem(
-                index=index,
-                raw=stripped,
-                text=description,
-                domain=domain,
-                time=time,
-                completed=completed,
-                cancelled=cancelled,
-            )
-        )
+        item = parse_item(raw, index + 1)
+        if item:
+            index += 1
+            item.index = index  # Update with actual sequential index
+            items.append(item)
 
     return items
 

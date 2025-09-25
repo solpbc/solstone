@@ -39,6 +39,7 @@ def register_tool(*tool_args: Any, **tool_kwargs: Any) -> Callable[[F], F]:
 
     return decorator
 
+
 # Tool packs - logical groupings of tools
 TOOL_PACKS = {
     "journal": [
@@ -117,6 +118,12 @@ def todo_add(day: str, line_number: int, text: str) -> dict[str, Any]:
         return {
             "error": str(exc),
             "suggestion": "provide a short description of the task",
+        }
+    except todo.TodoDomainError as exc:
+        valid_domains_str = ", ".join(exc.valid_domains)
+        return {
+            "error": str(exc),
+            "suggestion": f"use one of the valid domains: {valid_domains_str}",
         }
     except Exception as exc:  # pragma: no cover - unexpected failure
         return {"error": f"Failed to add todo: {exc}"}
@@ -489,7 +496,7 @@ def domain_news(domain: str, day: str, markdown: str | None = None) -> dict[str,
         if not domain_path.exists():
             return {
                 "error": f"Domain '{domain}' not found",
-                "suggestion": "Create the domain first or check the domain name"
+                "suggestion": "Create the domain first or check the domain name",
             }
 
         # Ensure news directory exists
@@ -505,34 +512,30 @@ def domain_news(domain: str, day: str, markdown: str | None = None) -> dict[str,
             return {
                 "domain": domain,
                 "day": day,
-                "message": f"News for {day} saved successfully in domain '{domain}'"
+                "message": f"News for {day} saved successfully in domain '{domain}'",
             }
         else:
             # Read mode - return existing news or empty message
             if news_file.exists():
                 news_content = news_file.read_text(encoding="utf-8")
-                return {
-                    "domain": domain,
-                    "day": day,
-                    "news": news_content
-                }
+                return {"domain": domain, "day": day, "news": news_content}
             else:
                 return {
                     "domain": domain,
                     "day": day,
                     "news": None,
-                    "message": f"No news recorded for {day} in domain '{domain}'"
+                    "message": f"No news recorded for {day} in domain '{domain}'",
                 }
 
     except RuntimeError as exc:
         return {
             "error": str(exc),
-            "suggestion": "ensure JOURNAL_PATH environment variable is set"
+            "suggestion": "ensure JOURNAL_PATH environment variable is set",
         }
     except Exception as exc:
         return {
             "error": f"Failed to process domain news: {exc}",
-            "suggestion": "check domain exists and has proper permissions"
+            "suggestion": "check domain exists and has proper permissions",
         }
 
 
