@@ -199,6 +199,30 @@ table[data-entity-type="Tool"] th {
   display: none;
 }
 
+.entity-actions {
+  display: none;
+  align-items: center;
+  gap: 1em;
+  margin-bottom: 1em;
+  flex-wrap: wrap;
+}
+
+.entity-search {
+  flex: 1 1 220px;
+  max-width: 360px;
+  padding: 8px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 0.9em;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.entity-search:focus {
+  outline: none;
+  border-color: #007bff;
+  box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.1);
+}
+
 .merge-quick-create {
   display: none;
   gap: 0.5em;
@@ -397,7 +421,6 @@ table[data-entity-type="Tool"] th {
   font-weight: 500;
   transition: opacity 0.2s;
   white-space: nowrap;
-  margin-bottom: 1em;
   display: inline-block;
 }
 
@@ -618,7 +641,10 @@ table[data-entity-type="Tool"] th {
   <div class="tabs-container">
     <div class="tabs" id="tabs"></div>
   </div>
-  <button class="new-entity-btn" id="newEntityBtn" onclick="openNewEntityModal()" style="display: none;">+ New Entity</button>
+  <div class="entity-actions" id="entityActions">
+    <button class="new-entity-btn" id="newEntityBtn" style="display: none;">+ New Entity</button>
+    <input type="text" id="entitySearchInput" class="entity-search" placeholder="Search entities..." autocomplete="off" spellcheck="false">
+  </div>
   <table id="entityTable">
     <thead>
       <tr>
@@ -699,13 +725,47 @@ let allEntities = [];
 let draggedEntity = null;
 let newEntityType = null;
 let currentMergeQuery = '';
+let entitySearchFilters = {};
+const entitySearchInput = document.getElementById('entitySearchInput');
+const entityActions = document.getElementById('entityActions');
+const newEntityBtn = document.getElementById('newEntityBtn');
+
+if (entitySearchInput) {
+  entitySearchInput.addEventListener('input', (event) => {
+    if (!activeType) {
+      return;
+    }
+    entitySearchFilters[activeType] = event.target.value;
+    renderTable();
+  });
+
+  entitySearchInput.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      event.stopPropagation();
+      event.target.value = '';
+      if (activeType) {
+        entitySearchFilters[activeType] = '';
+        renderTable();
+      }
+    } else if (event.key === 'Enter') {
+      event.preventDefault();
+    }
+  });
+}
+
+if (newEntityBtn) {
+  newEntityBtn.addEventListener('click', () => {
+    const prefill = entitySearchInput ? entitySearchInput.value : '';
+    openNewEntityModal(null, prefill);
+  });
+}
 
 function reloadTabs() {
   const currentType = activeType;
   const wasMergeMode = mergeMode;
   fetch('{{ url_for('entities.entities_types') }}').then(r => r.json()).then(counts => {
     const tabsDiv = document.getElementById('tabs');
-    const newEntityBtn = document.getElementById('newEntityBtn');
     tabsDiv.innerHTML = '';
     Object.keys(counts).forEach(type => {
       const tab = document.createElement('div');
@@ -748,8 +808,18 @@ function reloadTabs() {
     }
     
     // Show new entity button if we have any entity types
-    if (Object.keys(counts).length > 0) {
-      newEntityBtn.style.display = 'block';
+    if (newEntityBtn) {
+      if (Object.keys(counts).length > 0) {
+        newEntityBtn.style.display = 'inline-block';
+        if (entityActions) {
+          entityActions.style.display = mergeMode ? 'none' : 'flex';
+        }
+      } else {
+        newEntityBtn.style.display = 'none';
+        if (entityActions) {
+          entityActions.style.display = 'none';
+        }
+      }
     }
   });
 }
@@ -815,11 +885,27 @@ function showType(type, updateFragment = true) {
   table.style.display = 'table';
   table.setAttribute('data-entity-type', type);
   document.getElementById('mergeContainer').style.display = 'none';
+  if (entityActions) {
+    entityActions.style.display = 'flex';
+  }
   
   // Update new entity button text to show current type
-  const newEntityBtn = document.getElementById('newEntityBtn');
-  newEntityBtn.textContent = `+ New ${type}`;
-  newEntityBtn.style.display = 'block';
+  if (newEntityBtn) {
+    newEntityBtn.textContent = `+ New ${type}`;
+    newEntityBtn.style.display = 'inline-block';
+  }
+
+  if (entitySearchInput) {
+    if (!(type in entitySearchFilters)) {
+      entitySearchFilters[type] = '';
+    }
+    entitySearchInput.placeholder = `Search ${type}`;
+    entitySearchInput.value = entitySearchFilters[type];
+    requestAnimationFrame(() => {
+      entitySearchInput.focus();
+      entitySearchInput.setSelectionRange(0, entitySearchInput.value.length);
+    });
+  }
   
   if (!data[type]) {
     loadType(type).then(renderTable);
@@ -832,7 +918,17 @@ function renderTable() {
   const tbody = document.getElementById('entities');
   tbody.innerHTML = '';
   const items = data[activeType] || [];
-  items.forEach(item => {
+  const rawFilter = activeType ? entitySearchFilters[activeType] || '' : '';
+  const words = rawFilter.trim().toLowerCase().split(/\s+/).filter(Boolean);
+  const filteredItems = words.length === 0
+    ? items
+    : items.filter(item => {
+        const name = (item.name || '').toLowerCase();
+        const desc = (item.desc || '').toLowerCase();
+        const combined = `${name} ${desc}`;
+        return words.every(word => combined.includes(word));
+      });
+  filteredItems.forEach(item => {
     const tr = document.createElement('tr');
     const count = item.top ? '<span style="color:gold">&#9733;</span>' : item.count;
     const search = `<a class="search-icon" href="{{ url_for('search.search_page') }}?q=${encodeURIComponent(item.name)}" title="Search">&#128269;</a>`;
@@ -1304,7 +1400,15 @@ function showMergeTab(query = '', updateFragment = true) {
   // Hide table, show merge container
   document.getElementById('entityTable').style.display = 'none';
   document.getElementById('mergeContainer').style.display = 'block';
-  document.getElementById('newEntityBtn').style.display = 'none';
+  if (newEntityBtn) {
+    newEntityBtn.style.display = 'none';
+  }
+  if (entityActions) {
+    entityActions.style.display = 'none';
+  }
+  if (entitySearchInput) {
+    entitySearchInput.blur();
+  }
   
   // Set the search input and run search if query provided
   const searchInput = document.getElementById('mergeSearchInput');
