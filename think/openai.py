@@ -240,6 +240,8 @@ async def run_agent(
             params={"url": http_uri},
             cache_tools_list=True,
             tool_filter=tool_filter,
+            # Increase tool invocation timeout to avoid premature cancellations
+            client_session_timeout_seconds=15.0,
         )
 
     # Extract instruction and extra_context from config
