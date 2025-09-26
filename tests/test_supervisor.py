@@ -6,18 +6,19 @@ import subprocess
 import time
 
 
-def test_check_health(tmp_path):
+def test_check_health(tmp_path, monkeypatch):
     mod = importlib.import_module("think.supervisor")
     health = tmp_path / "health"
     health.mkdir()
     for name in ("see.up", "hear.up"):
         (health / name).write_text("x")
-    assert mod.check_health(str(tmp_path), threshold=90) == []
+    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+    assert mod.check_health(threshold=90) == []
 
     old = time.time() - 100
     for hb in health.iterdir():
         os.utime(hb, (old, old))
-    stale = mod.check_health(str(tmp_path), threshold=90)
+    stale = mod.check_health(threshold=90)
     assert sorted(stale) == ["hear", "see"]
 
 
@@ -63,8 +64,9 @@ def test_start_runners(tmp_path, monkeypatch):
         return proc
 
     monkeypatch.setattr(mod.subprocess, "Popen", fake_popen)
+    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
 
-    procs = mod.start_runners(str(tmp_path))
+    procs = mod.start_runners()
     assert len(procs) == 2
     assert any(cmd == ["hear-runner", "-v"] for cmd, _, _ in started)
     assert any(cmd == ["see-runner", "-v"] for cmd, _, _ in started)
@@ -85,7 +87,7 @@ def test_main_no_runners(tmp_path, monkeypatch):
         called.append(True)
 
     monkeypatch.setattr(mod, "supervise", fake_supervise)
-    monkeypatch.setattr(mod, "start_runners", lambda journal: called.append(False))
+    monkeypatch.setattr(mod, "start_runners", lambda: called.append(False))
     monkeypatch.setattr("sys.argv", ["think-supervisor", "--no-runners"])
 
     mod.main()
@@ -104,7 +106,7 @@ def test_main_no_daily(tmp_path, monkeypatch):
         called.update(kwargs)
 
     monkeypatch.setattr(mod, "supervise", fake_supervise)
-    monkeypatch.setattr(mod, "start_runners", lambda journal: None)
+    monkeypatch.setattr(mod, "start_runners", lambda: None)
     monkeypatch.setattr("sys.argv", ["think-supervisor", "--no-daily", "--no-runners"])
 
     mod.main()
@@ -127,18 +129,21 @@ def test_run_process_day(tmp_path, monkeypatch):
         def close(self):
             self.closed = True
 
-    def fake_launch(name, cmd, journal, *, env=None):
+    def fake_launch(name, cmd, *, restart=False, log_name=None):
         dummy_logger = DummyLogger()
-        launch_calls["args"] = (name, cmd, journal, env)
+        launch_calls["args"] = (name, cmd, restart, log_name)
         launch_calls["logger"] = dummy_logger
         return mod.ManagedProcess(
             process=DummyProcess(),
             name=name,
             logger=dummy_logger,
+            cmd=list(cmd),
+            restart=restart,
             threads=[],
         )
 
     monkeypatch.setattr(mod, "_launch_process", fake_launch)
+    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
 
     times = iter([0, 1])
     monkeypatch.setattr(mod.time, "time", lambda: next(times))
@@ -148,13 +153,14 @@ def test_run_process_day(tmp_path, monkeypatch):
         mod.logging, "info", lambda msg, *a: messages.append(msg % a if a else msg)
     )
 
-    assert mod.run_process_day(str(tmp_path)) is True
+    assert mod.run_process_day() is True
 
-    name, cmd, journal, env = launch_calls["args"]
+    name, cmd, restart, log_name = launch_calls["args"]
     assert name == "process_day"
     assert cmd == ["think-process-day", "-v"]
-    assert journal == str(tmp_path)
-    assert env is None
+    assert restart is False
+    assert log_name is None
+    assert os.environ["JOURNAL_PATH"] == str(tmp_path)
     assert launch_calls["logger"].closed is True
     assert any("seconds" in m for m in messages)
 
@@ -165,7 +171,7 @@ def test_supervise_logs_recovery(monkeypatch, caplog):
 
     health_states = [["hear"], []]
 
-    def fake_check_health(journal, threshold):
+    def fake_check_health(threshold):
         state = health_states.pop(0)
         if not health_states:
             mod.shutdown_requested = True
@@ -177,8 +183,10 @@ def test_supervise_logs_recovery(monkeypatch, caplog):
     monkeypatch.setattr(mod.time, "time", lambda: 0)
     monkeypatch.setattr(mod.time, "sleep", lambda _: None)
 
+    monkeypatch.setenv("JOURNAL_PATH", "/test/journal")
+
     with caplog.at_level(logging.INFO):
-        mod.supervise("/test/journal", threshold=1, interval=1, procs=[])
+        mod.supervise(threshold=1, interval=1, procs=[])
 
     messages = [record.getMessage() for record in caplog.records]
     assert "hear heartbeat recovered" in messages

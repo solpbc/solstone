@@ -1,5 +1,6 @@
 """Test supervisor scheduling functionality."""
 
+import os
 from unittest.mock import Mock, patch
 
 from think.supervisor import spawn_scheduled_agents
@@ -34,7 +35,8 @@ def test_spawn_scheduled_agents(mock_get_agents, mock_cortex_request):
     ]
 
     # Call the function
-    spawn_scheduled_agents("/test/journal")
+    with patch.dict(os.environ, {"JOURNAL_PATH": "/test/journal"}, clear=True):
+        spawn_scheduled_agents()
 
     # Should spawn 2 agents (todo and another_daily)
     assert mock_cortex_request.call_count == 2
@@ -77,14 +79,16 @@ def test_supervisor_runs_scheduled_after_process_day(
                 # Use side effect to break loop after first iteration
                 mock_sleep.side_effect = KeyboardInterrupt
 
-                try:
-                    supervise("/test/journal", daily=True)
-                except KeyboardInterrupt:
-                    pass
+                with patch.dict(
+                    os.environ, {"JOURNAL_PATH": "/test/journal"}, clear=True
+                ):
+                    try:
+                        supervise(daily=True)
+                    except KeyboardInterrupt:
+                        pass
 
-                # Should have called process_day and spawn_scheduled_agents
                 mock_run_process_day.assert_called_once()
-                mock_spawn_scheduled.assert_called_once_with("/test/journal")
+                mock_spawn_scheduled.assert_called_once_with()
 
 
 @patch("think.supervisor.spawn_scheduled_agents")
@@ -114,11 +118,13 @@ def test_supervisor_skips_scheduled_on_process_day_failure(
                 # Use side effect to break loop after first iteration
                 mock_sleep.side_effect = KeyboardInterrupt
 
-                try:
-                    supervise("/test/journal", daily=True)
-                except KeyboardInterrupt:
-                    pass
+                with patch.dict(
+                    os.environ, {"JOURNAL_PATH": "/test/journal"}, clear=True
+                ):
+                    try:
+                        supervise(daily=True)
+                    except KeyboardInterrupt:
+                        pass
 
-                # Should have called process_day but NOT spawn_scheduled_agents
                 mock_run_process_day.assert_called_once()
                 mock_spawn_scheduled.assert_not_called()
