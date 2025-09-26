@@ -117,6 +117,87 @@ def todos_day(day: str):  # type: ignore[override]
     )
 
 
+@bp.route("/todos/<day>/move", methods=["POST"])
+def move_todo(day: str):  # type: ignore[override]
+    if not DATE_RE.fullmatch(day):
+        return "", 404
+
+    payload = request.get_json(silent=True) or {}
+    target_day = (payload.get("target_day") or "").strip()
+    index_value = payload.get("index")
+    guard = (payload.get("guard") or "").strip()
+
+    if not DATE_RE.fullmatch(target_day):
+        return jsonify({"error": "Please pick a valid target day."}), 400
+
+    try:
+        index = int(index_value)
+    except (TypeError, ValueError):
+        return jsonify({"error": "Missing todo index."}), 400
+
+    if index <= 0:
+        return jsonify({"error": "Todo index must be positive."}), 400
+
+    if not guard:
+        return jsonify({"error": "Todo guard value is required."}), 400
+
+    if target_day == day:
+        return jsonify(
+            {
+                "status": "noop",
+                "message": "Todo is already on that day.",
+                "redirect": url_for("todos.todos_day", day=day),
+            }
+        )
+
+    try:
+        source_checklist = TodoChecklist.load(day)
+    except (FileNotFoundError, RuntimeError) as exc:
+        bp.logger.debug("Failed to load source todo list for %s: %s", day, exc)
+        return jsonify({"error": "Todo list changed, please refresh and try again."}), 409
+
+    try:
+        target_checklist = TodoChecklist.load(target_day, ensure_day=True)
+    except (RuntimeError, FileNotFoundError) as exc:
+        bp.logger.debug("Failed to load target todo list for %s: %s", target_day, exc)
+        return jsonify({"error": "Unable to access target day."}), 500
+
+    try:
+        _, source_entry, completed, body = source_checklist._entry_components(index, guard)
+    except (TodoLineNumberError, TodoGuardMismatchError, IndexError, ValueError) as exc:
+        bp.logger.debug("Failed to locate todo %s on %s: %s", index, day, exc)
+        return jsonify({"error": "Todo list changed, please refresh and try again."}), 409
+
+    try:
+        target_checklist.append_entry(body)
+    except TodoEmptyTextError as exc:
+        bp.logger.debug("Failed to append todo to %s: %s", target_day, exc)
+        return jsonify({"error": "Unable to move todo to the selected day."}), 400
+
+    new_index = len(target_checklist.entries)
+    new_guard = target_checklist.entries[new_index - 1]
+
+    if completed:
+        try:
+            target_checklist.mark_done(new_index, new_guard)
+            new_guard = target_checklist.entries[new_index - 1]
+        except (TodoGuardMismatchError, TodoLineNumberError, IndexError) as exc:
+            bp.logger.debug("Failed to mark moved todo complete on %s: %s", target_day, exc)
+
+    try:
+        source_checklist.remove_entry(index, source_entry)
+    except (TodoGuardMismatchError, TodoLineNumberError, IndexError) as exc:
+        bp.logger.debug("Failed to remove todo %s from %s after move: %s", index, day, exc)
+        try:
+            target_checklist.remove_entry(new_index, new_guard)
+        except Exception:  # pragma: no cover - best effort cleanup
+            bp.logger.debug("Failed to roll back moved todo on %s", target_day)
+        return jsonify({"error": "Todo list changed, please refresh and try again."}), 409
+
+    redirect_url = url_for("todos.todos_day", day=target_day)
+    return jsonify({"status": "ok", "redirect": redirect_url, "target_day": target_day})
+
+
 @bp.route("/todos/<day>/generate", methods=["POST"])
 def generate_todos(day: str):  # type: ignore[override]
     if not DATE_RE.fullmatch(day):

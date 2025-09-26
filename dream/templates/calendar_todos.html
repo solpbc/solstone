@@ -117,6 +117,8 @@
 
 .todo-side form {
   display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .todo-side button {
@@ -127,10 +129,10 @@
   justify-content: center;
   padding: 0;
   line-height: 0;
+  border: none;
   border-radius: 9999px;
   cursor: pointer;
-  opacity: 0;
-  pointer-events: none;
+  color: #6b7280;
   transition: opacity 0.18s ease, color 0.18s ease, border-color 0.18s ease, background-color 0.18s ease;
 }
 
@@ -140,49 +142,61 @@
   fill: currentColor;
 }
 
-.todo-side:hover button,
-.todo-side:focus-within button {
-  opacity: 1;
-  pointer-events: auto;
-}
-
 .todo-side button:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
+}
+
+.todo-side-move {
+  position: relative;
+}
+
+.todo-side-move button {
+  background: #eef4ff;
+  border: 1px solid #c7d7fe;
+  color: #4c6ef5;
+  opacity: 0;
+}
+
+.todo-side-move button:hover,
+.todo-side-move button:focus,
+.todo-side-move button:focus-visible {
+  color: #1d4ed8;
+  border-color: #1d4ed8;
   opacity: 1;
-  pointer-events: auto;
 }
 
-.todo-side-check button {
-  background: #eef1f6;
-  border: 1px solid #d7dbe4;
-  color: #64748b;
+.todo-side-check {
+  padding-right: 0.35rem;
 }
 
-.todo-side-check:hover button,
-.todo-side-check:focus-within button,
-.todo-side-check button:focus-visible {
-  color: #2563eb;
+.todo-side-check input[type="checkbox"] {
+  width: 1.15rem;
+  height: 1.15rem;
+  cursor: pointer;
+  accent-color: #2563eb;
+  border-radius: 4px;
 }
 
-.todo-row.completed .todo-side-check button {
-  opacity: 1;
-  pointer-events: auto;
-  background: #e5e7eb;
-  border-color: #d1d5db;
-  color: #9ca3af;
+.todo-row.completed .todo-side-check input[type="checkbox"] {
+  accent-color: #9ca3af;
 }
 
 .todo-side-remove button {
   background: #f3f4f6;
   border: 1px solid #d1d5db;
   color: #9ca3af;
+  opacity: 0;
 }
 
-.todo-side-remove:hover button,
-.todo-side-remove:focus-within button,
+.todo-side-remove button:hover,
+.todo-side-remove button:focus,
 .todo-side-remove button:focus-visible {
   color: #ef4444;
   border-color: #ef4444;
+  opacity: 1;
 }
+
 
 .todo-domain-icon {
   display: inline-flex;
@@ -200,12 +214,6 @@
   line-height: 1;
 }
 
-@media (hover: none) {
-  .todo-side button {
-    opacity: 1;
-    pointer-events: auto;
-  }
-}
 
 .sr-only {
   position: absolute;
@@ -220,7 +228,7 @@
 }
 
 .add-form {
-  margin-top: 1.5rem;
+  margin: 1.5rem 0;
   display: flex;
   gap: 0.5rem;
   align-items: center;
@@ -266,6 +274,80 @@
   text-align: center;
   color: #6b7280;
 }
+
+.todo-move-popover {
+  position: absolute;
+  top: 2.4rem;
+  right: 0;
+  width: 16rem;
+  padding: 0.75rem;
+  border-radius: 8px;
+  border: 1px solid #d1d5db;
+  background: #ffffff;
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.18);
+  z-index: 20;
+}
+
+.todo-move-popover[hidden] {
+  display: none;
+}
+
+.todo-move-popover h4 {
+  margin: 0 0 0.5rem;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.todo-move-popover input[type="date"] {
+  width: 100%;
+  padding: 0.4rem 0.5rem;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  color: #111827;
+}
+
+.todo-move-popover input[type="date"]:focus {
+  border-color: #2563eb;
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.2);
+}
+
+.todo-move-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-top: 0.6rem;
+}
+
+.todo-move-actions button {
+  padding: 0.35rem 0.75rem;
+  font-size: 0.85rem;
+  border-radius: 6px;
+  border: none;
+  cursor: pointer;
+}
+
+.todo-move-cancel {
+  background: #f3f4f6;
+  color: #4b5563;
+}
+
+.todo-move-apply {
+  background: #2563eb;
+  color: #ffffff;
+}
+
+.todo-move-message {
+  margin-top: 0.5rem;
+  font-size: 0.78rem;
+  color: #b91c1c;
+}
+
+.todo-move-message[hidden] {
+  display: none;
+}
 </style>
 {% endblock %}
 
@@ -285,6 +367,17 @@
     {% endif %}
   {% endwith %}
 
+  <form method="post" class="add-form">
+    <input type="hidden" name="action" value="add">
+    <input
+      type="text"
+      name="text"
+      placeholder="Add a new todo (e.g., Merge PR #think (15:30))"
+      autocomplete="off"
+    >
+    <button type="submit">Add Todo</button>
+  </form>
+
   {% if todos %}
     {% set active_todos = todos | selectattr('completed', 'equalto', False) | list %}
     {% set completed_todos = todos | selectattr('completed', 'equalto', True) | list %}
@@ -292,27 +385,17 @@
       {% for item in active_todos + completed_todos %}
         <li class="todo-row {% if item.completed %}completed{% endif %}">
           <div class="todo-side todo-side-check">
-            <form method="post">
+            <form method="post" class="todo-check-form">
               <input type="hidden" name="action" value="{{ 'uncomplete' if item.completed else 'complete' }}">
               <input type="hidden" name="index" value="{{ item.index }}">
               <input type="hidden" name="guard" value="{{ item.raw }}">
-              <button
-                type="submit"
-                class="{{ 'uncomplete' if item.completed else 'complete' }}"
+              <input
+                type="checkbox"
+                class="todo-check-input"
                 aria-label="{{ 'Mark undone' if item.completed else 'Mark done' }}"
                 title="{{ 'Mark undone' if item.completed else 'Mark done' }}"
+                {% if item.completed %}checked{% endif %}
               >
-                {% if item.completed %}
-                  <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">
-                    <path d="M7.5 2a5.5 5.5 0 1 1-4.358 8.848l.915-.915a4.25 4.25 0 1 0 1.93-6.793V5H3V1.5h3.5z" />
-                  </svg>
-                {% else %}
-                  <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">
-                    <path d="M6.173 13.414 2.05 9.293l1.414-1.414 2.709 2.708 6.364-6.364 1.414 1.414z" />
-                  </svg>
-                {% endif %}
-                <span class="sr-only">{{ 'Mark undone' if item.completed else 'Mark done' }}</span>
-              </button>
             </form>
           </div>
           <div class="todo-item">
@@ -355,6 +438,35 @@
               >
             </form>
           </div>
+          <div class="todo-side todo-side-move">
+            <button
+              type="button"
+              class="move"
+              aria-label="Move todo"
+              title="Move todo"
+              aria-haspopup="dialog"
+              aria-expanded="false"
+            >
+              <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+                <path d="M2 3.5A1.5 1.5 0 0 1 3.5 2h9A1.5 1.5 0 0 1 14 3.5V5H2zm0 2.5h12v7a1.5 1.5 0 0 1-1.5 1.5h-9A1.5 1.5 0 0 1 2 13V6zm3-1.75a.75.75 0 0 0-1.5 0V6h1.5zm7.5 0a.75.75 0 0 0-1.5 0V6h1.5zM5 9.25a.75.75 0 0 1 .75-.75h4.5a.75.75 0 0 1 0 1.5h-4.5A.75.75 0 0 1 5 9.25zm0 3a.75.75 0 0 1 .75-.75h2a.75.75 0 0 1 0 1.5h-2A.75.75 0 0 1 5 12.25z" />
+              </svg>
+              <span class="sr-only">Move todo</span>
+            </button>
+            <div class="todo-move-popover" role="dialog" aria-label="Move todo" hidden>
+              <h4>Move to date</h4>
+              <input
+                type="date"
+                class="todo-move-date"
+                value="{{ day[:4] }}-{{ day[4:6] }}-{{ day[6:] }}"
+                aria-label="Select target day"
+              >
+              <div class="todo-move-message" role="alert" hidden></div>
+              <div class="todo-move-actions">
+                <button type="button" class="todo-move-cancel">Cancel</button>
+                <button type="button" class="todo-move-apply">Move</button>
+              </div>
+            </div>
+          </div>
           <div class="todo-side todo-side-remove">
             <form method="post">
               <input type="hidden" name="action" value="remove">
@@ -379,20 +491,102 @@
   {% else %}
     <div class="no-todos">
       <p>No todos recorded for this day yet.</p>
-      <p>Add a new entry below to start the checklist.</p>
+      <p>Add a new entry above to start the checklist.</p>
     </div>
   {% endif %}
-
-  <form method="post" class="add-form">
-    <input type="hidden" name="action" value="add">
-    <input type="text" name="text" placeholder="Add a new todo (e.g., Merge PR #think (15:30))">
-    <button type="submit">Add Todo</button>
-  </form>
 </div>
 <script>
 document.addEventListener('DOMContentLoaded', function () {
   var rows = document.querySelectorAll('.todo-row');
+  var addForm = document.querySelector('.add-form');
   var closeActiveEditor = null;
+  var closeActiveMove = null;
+  var moveEndpoint = {{ url_for('todos.move_todo', day=day)|tojson }};
+  var currentDay = {{ day|tojson }};
+
+  if (addForm) {
+    var addInput = addForm.querySelector('input[name="text"]');
+    if (addInput) {
+      var focusAddInput = function () {
+        if (document.activeElement === addInput) {
+          return;
+        }
+        addInput.focus();
+        var length = addInput.value.length;
+        try {
+          addInput.setSelectionRange(length, length);
+        } catch (err) {
+          // Some browsers may not support setSelectionRange on certain input types.
+        }
+      };
+
+      if (typeof window.requestAnimationFrame === 'function') {
+        window.requestAnimationFrame(focusAddInput);
+      } else {
+        setTimeout(focusAddInput, 0);
+      }
+
+      addInput.addEventListener('keydown', function (event) {
+        if (event.key === 'Escape') {
+          event.preventDefault();
+          addInput.value = '';
+          addInput.blur();
+          return;
+        }
+
+        if (event.key === 'Enter') {
+          event.preventDefault();
+          var trimmed = addInput.value.trim();
+          if (!trimmed) {
+            addInput.value = '';
+            addInput.focus();
+            return;
+          }
+          addInput.value = trimmed;
+          if (typeof addForm.requestSubmit === 'function') {
+            addForm.requestSubmit();
+          } else {
+            addForm.submit();
+          }
+        }
+      });
+
+      addForm.addEventListener('submit', function (event) {
+        var trimmed = addInput.value.trim();
+        if (!trimmed) {
+          event.preventDefault();
+          addInput.value = '';
+          addInput.focus();
+          return;
+        }
+        addInput.value = trimmed;
+      });
+    }
+  }
+
+  function dayToInputValue(dayString) {
+    if (typeof dayString !== 'string' || dayString.length !== 8) {
+      return '';
+    }
+    return dayString.slice(0, 4) + '-' + dayString.slice(4, 6) + '-' + dayString.slice(6, 8);
+  }
+
+  function inputValueToDay(inputValue) {
+    if (typeof inputValue !== 'string' || inputValue.length !== 10) {
+      return '';
+    }
+    var parts = inputValue.split('-');
+    if (parts.length !== 3) {
+      return '';
+    }
+    var year = parts[0];
+    var month = parts[1];
+    var dayPart = parts[2];
+    if (!/^\d{4}$/.test(year) || !/^\d{2}$/.test(month) || !/^\d{2}$/.test(dayPart)) {
+      return '';
+    }
+    return year + month + dayPart;
+  }
 
   function extractBody(guardValue) {
     if (!guardValue) {
@@ -410,6 +604,22 @@ document.addEventListener('DOMContentLoaded', function () {
   }
 
   rows.forEach(function (row) {
+    var checkForm = row.querySelector('.todo-check-form');
+    var checkInput = checkForm && checkForm.querySelector('.todo-check-input');
+    if (checkForm && checkInput) {
+      checkInput.addEventListener('change', function () {
+        var actionField = checkForm.querySelector('input[name="action"]');
+        if (actionField) {
+          actionField.value = checkInput.checked ? 'complete' : 'uncomplete';
+        }
+        if (typeof checkForm.requestSubmit === 'function') {
+          checkForm.requestSubmit();
+        } else {
+          checkForm.submit();
+        }
+      });
+    }
+
     var item = row.querySelector('.todo-item');
     var textEl = row.querySelector('.todo-text');
     var form = row.querySelector('.todo-edit-form');
@@ -455,6 +665,9 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     function openEditor() {
+      if (closeActiveMove && typeof closeActiveMove === 'function') {
+        closeActiveMove({ focus: false });
+      }
       if (closeActiveEditor && closeActiveEditor !== closeEditor) {
         closeActiveEditor();
       }
@@ -535,6 +748,227 @@ document.addEventListener('DOMContentLoaded', function () {
         return;
       }
       input.value = trimmed;
+    });
+
+    var moveSide = row.querySelector('.todo-side-move');
+    var moveButton = moveSide && moveSide.querySelector('.move');
+    var movePopover = moveSide && moveSide.querySelector('.todo-move-popover');
+    var moveDate = moveSide && moveSide.querySelector('.todo-move-date');
+    var moveCancel = moveSide && moveSide.querySelector('.todo-move-cancel');
+    var moveApply = moveSide && moveSide.querySelector('.todo-move-apply');
+    var moveMessage = moveSide && moveSide.querySelector('.todo-move-message');
+    var removeForm = row.querySelector('.todo-side-remove form');
+    var removeIndex = removeForm && removeForm.querySelector('input[name="index"]');
+    var removeGuard = removeForm && removeForm.querySelector('input[name="guard"]');
+
+    if (!moveSide || !moveButton || !movePopover || !moveDate || !moveCancel || !moveApply || !moveMessage || !removeIndex || !removeGuard) {
+      return;
+    }
+
+    var moveKeyHandler = null;
+    var moveOutsideHandler = null;
+
+    function resetMoveMessage() {
+      moveMessage.textContent = '';
+      moveMessage.hidden = true;
+    }
+
+    function showMoveMessage(text) {
+      moveMessage.textContent = text;
+      moveMessage.hidden = !text;
+    }
+
+    function setMovePending(isPending) {
+      moveButton.disabled = isPending;
+      moveDate.disabled = isPending;
+      moveCancel.disabled = isPending;
+      moveApply.disabled = isPending;
+    }
+
+    function closeMovePopover(options) {
+      if (movePopover.hidden) {
+        return;
+      }
+      movePopover.hidden = true;
+      moveButton.setAttribute('aria-expanded', 'false');
+      if (moveKeyHandler) {
+        document.removeEventListener('keydown', moveKeyHandler, true);
+        moveKeyHandler = null;
+      }
+      if (moveOutsideHandler) {
+        document.removeEventListener('mousedown', moveOutsideHandler, true);
+        moveOutsideHandler = null;
+      }
+      resetMoveMessage();
+      if (!options || options.focus !== false) {
+        moveButton.focus();
+      }
+      if (closeActiveMove === closeMovePopover) {
+        closeActiveMove = null;
+      }
+    }
+
+    function openMovePopover() {
+      if (closeActiveMove && closeActiveMove !== closeMovePopover) {
+        closeActiveMove({ focus: false });
+      }
+      if (closeActiveEditor && closeActiveEditor !== closeEditor) {
+        closeActiveEditor();
+      }
+
+      if (!moveDate.value) {
+        moveDate.value = dayToInputValue(currentDay);
+      }
+
+      movePopover.hidden = false;
+      moveButton.setAttribute('aria-expanded', 'true');
+
+      moveKeyHandler = function (event) {
+        if (event.key === 'Escape') {
+          event.preventDefault();
+          closeMovePopover();
+        }
+      };
+      moveOutsideHandler = function (event) {
+        if (movePopover.contains(event.target) || moveButton.contains(event.target)) {
+          return;
+        }
+        closeMovePopover({ focus: false });
+      };
+
+      document.addEventListener('keydown', moveKeyHandler, true);
+      document.addEventListener('mousedown', moveOutsideHandler, true);
+
+      var focusDate = function () {
+        moveDate.focus();
+      };
+      if (typeof window.requestAnimationFrame === 'function') {
+        window.requestAnimationFrame(focusDate);
+      } else {
+        setTimeout(focusDate, 0);
+      }
+
+      closeActiveMove = closeMovePopover;
+    }
+
+    function submitMove(targetValue) {
+      resetMoveMessage();
+      var selectedValue = typeof targetValue === 'string' ? targetValue : moveDate.value;
+      if (!selectedValue) {
+        showMoveMessage('Select a date to move this todo.');
+        return;
+      }
+
+      var targetDay = inputValueToDay(selectedValue);
+      if (!targetDay) {
+        showMoveMessage('Select a valid date.');
+        return;
+      }
+
+      var guardValue = removeGuard.value || '';
+      var indexValue = removeIndex.value || '';
+      var indexNumber = parseInt(indexValue, 10);
+      if (!guardValue || !indexNumber) {
+        showMoveMessage('Unable to locate this todo.');
+        return;
+      }
+
+      var navigateAway = false;
+      setMovePending(true);
+
+      fetch(moveEndpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          target_day: targetDay,
+          guard: guardValue,
+          index: indexNumber,
+        }),
+      })
+        .then(function (response) {
+          return response
+            .json()
+            .catch(function () {
+              return {};
+            })
+            .then(function (data) {
+              if (!response.ok) {
+                var message = data && data.error ? data.error : 'Unable to move todo.';
+                throw new Error(message);
+              }
+              return data;
+            });
+        })
+        .then(function (data) {
+          if (!data) {
+            showMoveMessage('Unexpected response while moving todo.');
+            return;
+          }
+
+          if (data.redirect) {
+            navigateAway = true;
+            window.location.href = data.redirect;
+            return;
+          }
+
+          if (data.message) {
+            showMoveMessage(data.message);
+            return;
+          }
+
+          navigateAway = true;
+          closeMovePopover({ focus: false });
+          window.location.reload();
+        })
+        .catch(function (error) {
+          showMoveMessage(error && error.message ? error.message : 'Unable to move todo.');
+        })
+        .finally(function () {
+          if (navigateAway) {
+            return;
+          }
+          setMovePending(false);
+        });
+    }
+
+    moveButton.addEventListener('click', function (event) {
+      event.preventDefault();
+      if (!movePopover.hidden) {
+        closeMovePopover();
+        return;
+      }
+      openMovePopover();
+    });
+
+    moveApply.addEventListener('click', function (event) {
+      event.preventDefault();
+      submitMove();
+    });
+
+    moveCancel.addEventListener('click', function (event) {
+      event.preventDefault();
+      closeMovePopover();
+    });
+
+    moveDate.addEventListener('keydown', function (event) {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        closeMovePopover();
+        return;
+      }
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        submitMove();
+      }
+    });
+
+    moveDate.addEventListener('change', function () {
+      if (!moveDate.value) {
+        return;
+      }
+      submitMove(moveDate.value);
     });
   });
 });
