@@ -28,6 +28,34 @@ def _get_journal_path() -> Path:
     return Path(journal)
 
 
+class RestartPolicy:
+    """Track restart attempts and compute backoff delays."""
+
+    _SCHEDULE = (0, 1, 5)
+
+    def __init__(self) -> None:
+        self.attempts = 0
+        self.last_start = 0.0
+
+    def record_start(self) -> None:
+        self.last_start = time.time()
+
+    def reset_attempts(self) -> None:
+        self.attempts = 0
+
+    def next_delay(self) -> int:
+        delay = self._SCHEDULE[min(self.attempts, len(self._SCHEDULE) - 1)]
+        self.attempts += 1
+        return delay
+
+
+_RESTART_POLICIES: dict[str, RestartPolicy] = {}
+
+
+def _get_restart_policy(name: str) -> RestartPolicy:
+    return _RESTART_POLICIES.setdefault(name, RestartPolicy())
+
+
 class ProcessLogWriter:
     """Thread-safe writer that appends process output to a log file."""
 
@@ -95,6 +123,9 @@ def _launch_process(
 ) -> ManagedProcess:
     journal_path = _get_journal_path()
     log_writer = ProcessLogWriter(journal_path / "health" / f"{(log_name or name)}.log")
+    policy: RestartPolicy | None = None
+    if restart:
+        policy = _get_restart_policy(name)
     try:
         proc = subprocess.Popen(
             cmd,
@@ -121,6 +152,8 @@ def _launch_process(
     ]
     for thread in threads:
         thread.start()
+    if policy:
+        policy.record_start()
     return ManagedProcess(
         process=proc,
         name=name,
@@ -219,14 +252,14 @@ def start_runners() -> list[ManagedProcess]:
         "see": ["see-runner", "-v"],
     }
     for name, cmd in commands.items():
-        procs.append(_launch_process(name, cmd))
+        procs.append(_launch_process(name, cmd, restart=True))
     return procs
 
 
 def start_cortex_server() -> ManagedProcess:
     """Launch the Cortex WebSocket API server."""
     cmd = ["think-cortex", "-v"]
-    return _launch_process("cortex", cmd)
+    return _launch_process("cortex", cmd, restart=True)
 
 
 def start_dream_server(verbose: bool) -> ManagedProcess:
@@ -311,6 +344,21 @@ def supervise(
                     managed.cleanup()
 
                     if managed.restart and not shutdown_requested:
+                        policy = _get_restart_policy(managed.name)
+                        uptime = time.time() - policy.last_start if policy.last_start else 0
+                        if uptime >= 60:
+                            policy.reset_attempts()
+                        delay = policy.next_delay()
+                        if delay:
+                            logging.info(
+                                "Waiting %ss before restarting %s", delay, managed.name
+                            )
+                            for _ in range(delay):
+                                if shutdown_requested:
+                                    break
+                                time.sleep(1)
+                        if shutdown_requested:
+                            continue
                         logging.info("Restarting %s...", managed.name)
                         try:
                             new_proc = _launch_process(
