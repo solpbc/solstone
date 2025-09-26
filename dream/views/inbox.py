@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
+import markdown  # type: ignore
 from flask import Blueprint, jsonify, render_template, request
 
 from think import messages
@@ -50,7 +51,14 @@ def get_message(message_id: str) -> Any:
         message = messages.get_message(message_id)
         if message is None:
             return jsonify({"error": "Message not found"}), 404
-        return jsonify(message)
+        body = message.get("body", "")
+        message_with_html = {
+            **message,
+            "body_html": markdown.markdown(body, extensions=["extra"])
+            if body
+            else "",
+        }
+        return jsonify(message_with_html)
     except RuntimeError as e:
         return jsonify({"error": str(e)}), 500
 

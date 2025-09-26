@@ -264,8 +264,60 @@
 .modal-message {
   color: #1f2933;
   line-height: 1.6;
-  white-space: pre-wrap;
-  word-wrap: break-word;
+  word-break: break-word;
+}
+
+.modal-message p {
+  margin: 0 0 1em;
+}
+
+.modal-message ul,
+.modal-message ol {
+  margin: 0 0 1em 1.25em;
+  padding-left: 0.75em;
+}
+
+.modal-message li {
+  margin-bottom: 0.35em;
+}
+
+.modal-message h1,
+.modal-message h2,
+.modal-message h3,
+.modal-message h4,
+.modal-message h5,
+.modal-message h6 {
+  margin: 1.5em 0 0.75em;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.modal-message code {
+  background: #f3f4f6;
+  padding: 0.1em 0.4em;
+  border-radius: 4px;
+  font-size: 0.95em;
+}
+
+.modal-message pre {
+  background: #1f2937;
+  color: #f9fafb;
+  padding: 1em;
+  border-radius: 8px;
+  overflow-x: auto;
+  margin: 0 0 1em;
+}
+
+.modal-message blockquote {
+  margin: 0 0 1em;
+  padding-left: 1em;
+  border-left: 3px solid #cbd5f5;
+  color: #4b5563;
+}
+
+.modal-message a {
+  color: #1a73e8;
+  text-decoration: underline;
 }
 
 .modal-context {
@@ -511,7 +563,14 @@ async function openMessage(messageId) {
   // Update modal content
   document.getElementById('modalFrom').textContent = `${message.from.id} (${message.from.type})`;
   document.getElementById('modalTimestamp').textContent = new Date(message.timestamp).toLocaleString();
-  document.getElementById('modalMessage').textContent = message.body;
+  const modalMessage = document.getElementById('modalMessage');
+  const needsFetch = !message.body_html;
+
+  if (!needsFetch) {
+    modalMessage.innerHTML = message.body_html;
+  } else {
+    modalMessage.innerHTML = '<p><em>Loading message...</em></p>';
+  }
   
   // Update context
   const contextDiv = document.getElementById('modalContext');
@@ -546,6 +605,32 @@ async function openMessage(messageId) {
 
   // Show modal
   document.getElementById('messageModal').style.display = 'block';
+
+  if (needsFetch) {
+    try {
+      const response = await fetch(`/inbox/api/message/${messageId}`);
+      if (!response.ok) {
+        throw new Error('Unable to load message');
+      }
+      const detailedMessage = await response.json();
+      Object.assign(message, detailedMessage);
+      currentMessage = message;
+
+      if (detailedMessage.body_html) {
+        modalMessage.innerHTML = detailedMessage.body_html;
+      } else if (detailedMessage.body) {
+        modalMessage.textContent = detailedMessage.body;
+      } else {
+        modalMessage.innerHTML = '<p><em>No content available.</em></p>';
+      }
+    } catch (error) {
+      if (message.body) {
+        modalMessage.textContent = message.body;
+      } else {
+        modalMessage.innerHTML = `<p style="color: #b91c1c;">Failed to load message: ${error.message}</p>`;
+      }
+    }
+  }
 
   // Mark as read automatically if unread
   if (message.status === 'unread') {
