@@ -79,8 +79,7 @@ def todo_list(day: str) -> dict[str, Any]:
         return {"day": day, "markdown": checklist.numbered()}
     except FileNotFoundError:
         return {
-            "error": f"Day '{day}' not found",
-            "suggestion": "verify JOURNAL_PATH and the requested day folder",
+            "error": f"Day '{day}' has no entries"
         }
     except Exception as exc:  # pragma: no cover - unexpected failure
         return {"error": f"Failed to list todos: {exc}"}
@@ -101,13 +100,12 @@ def todo_add(day: str, line_number: int, text: str) -> dict[str, Any]:
     """
 
     try:
-        checklist = todo.TodoChecklist.load(day)
+        checklist = todo.TodoChecklist.load(day, ensure_day=True)
         checklist.add_entry(line_number, text)
         return {"day": day, "markdown": checklist.numbered()}
-    except FileNotFoundError:
+    except RuntimeError as exc:
         return {
-            "error": f"Day '{day}' not found",
-            "suggestion": "create the day directory before adding todos",
+            "error": str(exc)
         }
     except todo.TodoLineNumberError as exc:
         return {

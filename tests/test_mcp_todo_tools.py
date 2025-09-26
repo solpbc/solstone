@@ -72,6 +72,27 @@ def test_todo_add_appends_entry(todo_env):
     )
 
 
+def test_todo_add_creates_missing_day(tmp_path, monkeypatch):
+    """todo_add should create future day folders when needed."""
+
+    day = "20991231"
+    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+
+    result = call_tool(
+        mcp_tools.todo_add, day, line_number=1, text="Plan end-of-year celebration"
+    )
+
+    todo_path = tmp_path / day / "todos" / "today.md"
+
+    assert result == {
+        "day": day,
+        "markdown": "1: - [ ] Plan end-of-year celebration",
+    }
+    assert todo_path.read_text(encoding="utf-8") == (
+        "- [ ] Plan end-of-year celebration\n"
+    )
+
+
 def test_todo_remove_validates_guard(todo_env):
     """todo_remove should validate the guard string before deleting."""
 
