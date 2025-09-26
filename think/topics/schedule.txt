@@ -1,0 +1,58 @@
+# Future Schedule Extraction
+
+**Input:** A markdown file containing chronologically ordered transcripts of a workday. The transcript combines audio recordings and screen activity in 5-minute segments.
+
+**Objective:** Identify and extract all future scheduled events and calendar entries visible or mentioned throughout the day. Focus exclusively on events scheduled for dates beyond today - not current day or historical events.
+
+**Instructions:**
+
+1. **Scan for Calendar Views:** Review all screen activity descriptions for:
+   - Calendar applications (Google Calendar, Outlook, Apple Calendar, etc.)
+   - Scheduling interfaces (Calendly, meeting schedulers, etc.)
+   - Email invitations showing future dates
+   - Project management tools with scheduled deadlines
+   - Any interface displaying future dates and times
+
+2. **Extract Event Details:** For each future scheduled item identified, capture:
+   - **Date & Time:** Full date and time information if available
+   - **Event Title:** The name or subject of the scheduled event
+   - **Participants:** Meeting attendees or people involved if visible
+   - **Location:** Physical location or meeting link/platform
+   - **Duration:** Expected length of the event
+   - **Description:** Any additional context or agenda items visible
+
+3. **Organize Chronologically:** Sort all identified events by their scheduled date and time, nearest future events first.
+
+4. **Focus on the Future:**
+   - Include only events scheduled for tomorrow and beyond
+   - Exclude today's events (already happened or happening)
+   - Exclude past events visible in calendar history
+   - Include recurring events' future instances if visible
+
+## Output Format
+
+Produce a clean Markdown document with:
+
+### Header Section
+A brief overview stating the date range of scheduled events found and total count.
+
+### Event Listings
+For each future event, create a formatted entry with:
+- **Date:** [Day, Full Date]
+- **Time:** [Start - End time with timezone if available]
+- **Event:** [Title/Subject]
+- **Participants:** [List of attendees if visible]
+- **Location:** [Physical/Virtual location]
+- **Notes:** [Any additional context, agenda items, or preparation needed]
+
+### Summary
+Conclude with a brief summary highlighting:
+- The next upcoming event
+- Any particularly important or unusual scheduled items
+- General schedule density for the upcoming period
+
+## Important Notes
+- Only extract what is clearly visible on screen or captured in a transcript
+- Don't infer or guess event details
+- Focus on definite scheduled items, not tentative plans mentioned in conversation
+- Include both personal and professional scheduled events if visible
