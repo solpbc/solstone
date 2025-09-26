@@ -73,6 +73,7 @@ def test_get_message_uses_think_module(mock_get_message, client):
 
     data = json.loads(response.data)
     assert data["id"] == "msg_123"
+    assert "body_html" in data
 
     mock_get_message.assert_called_once_with("msg_123")
 
@@ -117,31 +118,6 @@ def test_unarchive_uses_think_module(mock_unarchive, client):
     assert data["success"] is True
 
     mock_unarchive.assert_called_once_with("msg_123")
-
-
-@patch("dream.views.inbox.messages.list_messages")
-@patch("dream.views.inbox.messages.get_unread_count")
-def test_stats_uses_think_module(mock_unread_count, mock_list_messages, client):
-    """Test that get_stats uses think.messages functions."""
-    mock_list_messages.side_effect = [
-        [{"id": "msg_1", "status": "unread"}, {"id": "msg_2", "status": "read"}],
-        [{"id": "msg_3", "status": "archived"}],
-    ]
-    mock_unread_count.return_value = 1
-
-    response = client.get("/inbox/api/stats")
-    assert response.status_code == 200
-
-    data = json.loads(response.data)
-    assert data["active_count"] == 2
-    assert data["archived_count"] == 1
-    assert data["unread_count"] == 1
-    assert data["total_count"] == 3
-
-    assert mock_list_messages.call_count == 2
-    mock_list_messages.assert_any_call("active")
-    mock_list_messages.assert_any_call("archived")
-    mock_unread_count.assert_called_once()
 
 
 @patch("dream.views.inbox.messages.list_messages")

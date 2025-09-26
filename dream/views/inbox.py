@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from typing import Any
 
-import markdown  # type: ignore
 from flask import Blueprint, jsonify, render_template, request
+import markdown  # type: ignore
 
 from think import messages
 
@@ -95,25 +95,5 @@ def unarchive_message(message_id: str) -> Any:
             return jsonify({"success": True})
         else:
             return jsonify({"error": "Message not found"}), 404
-    except RuntimeError as e:
-        return jsonify({"error": str(e)}), 500
-
-
-@bp.route("/inbox/api/stats")
-def get_stats() -> Any:
-    """Get inbox statistics."""
-    try:
-        active_messages = messages.list_messages("active")
-        archived_messages = messages.list_messages("archived")
-        unread_count = messages.get_unread_count()
-
-        return jsonify(
-            {
-                "active_count": len(active_messages),
-                "archived_count": len(archived_messages),
-                "unread_count": unread_count,
-                "total_count": len(active_messages) + len(archived_messages),
-            }
-        )
     except RuntimeError as e:
         return jsonify({"error": str(e)}), 500

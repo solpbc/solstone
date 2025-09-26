@@ -494,8 +494,16 @@ async function loadMessages() {
     
     currentMessages = data.messages;
     
-    // Update stats
-    updateStats(data);
+    // Update unread badge
+    const unreadBadge = document.getElementById('unreadBadge');
+    if (currentStatus === 'active') {
+      unreadBadge.hidden = data.unread_count === 0;
+      if (!unreadBadge.hidden) {
+        unreadBadge.textContent = data.unread_count;
+      }
+    } else {
+      unreadBadge.hidden = true;
+    }
     
     // Render messages
     if (currentMessages.length === 0) {
@@ -678,20 +686,6 @@ async function unarchiveMessage() {
   }
 }
 
-// Update stats display
-function updateStats(data) {
-  const unreadBadge = document.getElementById('unreadBadge');
-  
-  if (currentStatus === 'active') {
-    unreadBadge.hidden = data.unread_count === 0;
-    if (!unreadBadge.hidden) {
-      unreadBadge.textContent = data.unread_count;
-    }
-  } else {
-    unreadBadge.hidden = true;
-  }
-}
-
 // Format timestamp
 function formatTime(timestamp) {
   const date = new Date(timestamp);
@@ -723,21 +717,7 @@ window.addEventListener('click', (e) => {
   if (e.target === modal) closeModal();
 });
 
-// Listen for new messages via WebSocket
-if (window.appEvents) {
-  window.appEvents.listen('inbox', (data) => {
-    if (data.action === 'new_message' && currentStatus === 'active') {
-      loadMessages();
-    }
-  });
-}
-
 // Initial load
 loadMessages();
-
-// Refresh every 30 seconds
-setInterval(() => {
-  if (currentStatus === 'active') loadMessages();
-}, 30000);
 </script>
 {% endblock %}

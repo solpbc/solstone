@@ -139,7 +139,6 @@ domains_page = domains_view.domains_page
 domains_list = domains_view.domains_list
 inbox_page = inbox_view.inbox_page
 get_messages = inbox_view.get_messages
-get_stats = inbox_view.get_stats
 entities = entities_view.entities
 calendar = calendar_view.calendar_page
 calendar_day = calendar_view.calendar_day
@@ -189,7 +188,6 @@ __all__ = [
     "domains_list",
     "inbox_page",
     "get_messages",
-    "get_stats",
     "entities",
     "calendar",
     "calendar_day",
