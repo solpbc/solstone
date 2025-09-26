@@ -1,99 +1,99 @@
 {% extends "base.html" %}
+{% set title = 'Inbox' %}
+{% set active = 'inbox' %}
 
 {% block head %}
 <style>
 .inbox-container {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 20px;
+  width: 100%;
+  margin: 0;
+  padding: 1.5em 0 3em;
 }
 
-.inbox-header {
+.inbox-top {
   display: flex;
-  justify-content: space-between;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: flex-start;
+  gap: 1em;
+  margin-bottom: 0;
+}
+
+.inbox-top .tabs {
+  flex: 1 1 auto;
+  display: flex;
+  align-items: flex-end;
+  margin-bottom: 0;
+}
+
+.inbox-top .tab {
+  flex: 0 0 auto;
+  display: inline-flex;
   align-items: center;
-  margin-bottom: 20px;
+  gap: 0.5em;
 }
 
-.inbox-title {
-  font-size: 24px;
-  font-weight: bold;
-  color: #e0e0e0;
-}
-
-.inbox-stats {
-  font-size: 14px;
-  color: #888;
-}
-
-.inbox-tabs {
-  display: flex;
-  gap: 20px;
-  margin-bottom: 20px;
-  border-bottom: 1px solid #333;
-}
-
-.inbox-tab {
-  padding: 10px 20px;
-  cursor: pointer;
-  border-bottom: 2px solid transparent;
-  color: #888;
-  transition: all 0.3s;
-}
-
-.inbox-tab:hover {
-  color: #e0e0e0;
-}
-
-.inbox-tab.active {
-  color: #4a9eff;
-  border-bottom-color: #4a9eff;
-}
-
-.inbox-tab .badge {
-  background: #ff4444;
-  color: white;
-  padding: 2px 6px;
-  border-radius: 10px;
+.tab-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: #e53935;
+  color: #fff;
   font-size: 11px;
-  margin-left: 5px;
+  font-weight: 600;
 }
 
 .message-list {
-  background: #1a1a1a;
-  border-radius: 8px;
+  background: #fff;
+  border: 1px solid #e0e0e0;
+  border-radius: 0 0 8px 8px;
   overflow: hidden;
+  border-top: none;
 }
 
 .message-item {
-  padding: 15px 20px;
-  border-bottom: 1px solid #333;
+  padding: 16px 20px;
+  border-top: 1px solid #e5e7eb;
   cursor: pointer;
-  transition: background 0.3s;
+  transition: background-color 0.2s ease, border-left-color 0.2s ease, box-shadow 0.2s ease;
   display: flex;
   align-items: flex-start;
-  gap: 15px;
+  gap: 16px;
+}
+
+.message-item:first-child {
+  border-top: none;
 }
 
 .message-item:hover {
-  background: #252525;
+  background: #eef3ff;
+  box-shadow: inset 0 1px 0 rgba(37, 99, 235, 0.18), inset 0 -1px 0 rgba(37, 99, 235, 0.18);
 }
 
 .message-item.unread {
-  background: #1a2332;
-  border-left: 3px solid #4a9eff;
+  background: #f0f6ff;
+  border-left: 3px solid #1a73e8;
+}
+
+.message-item.unread:hover {
+  background: #dce7ff;
 }
 
 .message-indicator {
-  width: 8px;
-  height: 8px;
+  width: 10px;
+  height: 10px;
   border-radius: 50%;
   margin-top: 8px;
   flex-shrink: 0;
+  background: #d2d6dc;
 }
 
 .message-item.unread .message-indicator {
-  background: #4a9eff;
+  background: #1a73e8;
 }
 
 .message-content {
@@ -105,76 +105,84 @@
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  margin-bottom: 5px;
+  margin-bottom: 6px;
+  gap: 12px;
 }
 
 .message-from {
-  font-weight: bold;
-  color: #e0e0e0;
+  font-weight: 600;
+  color: #1f2933;
   display: flex;
   align-items: center;
   gap: 8px;
+  min-width: 0;
 }
 
 .message-from-type {
   font-size: 11px;
-  padding: 2px 6px;
-  border-radius: 4px;
-  background: #333;
-  color: #888;
-  font-weight: normal;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #eef2f7;
+  color: #4a5568;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
 }
 
 .message-from-type.agent {
-  background: #2a3f5f;
-  color: #4a9eff;
+  background: #e3f2fd;
+  color: #1a73e8;
 }
 
 .message-from-type.system {
-  background: #3f2a5f;
-  color: #9f4aff;
+  background: #f3e8ff;
+  color: #6b2fbf;
 }
 
 .message-time {
   font-size: 12px;
-  color: #666;
+  color: #737373;
   white-space: nowrap;
 }
 
 .message-preview {
-  color: #999;
+  color: #374151;
   font-size: 14px;
   overflow: hidden;
   text-overflow: ellipsis;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
-  line-height: 1.4;
+  line-height: 1.45;
 }
 
 .message-context {
   display: flex;
-  gap: 10px;
-  margin-top: 5px;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
 }
 
 .context-tag {
-  font-size: 11px;
-  color: #666;
-  background: #222;
-  padding: 2px 6px;
-  border-radius: 4px;
+  font-size: 12px;
+  color: #425466;
+  background: #f3f4f6;
+  padding: 4px 8px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
 }
 
 .empty-state {
   text-align: center;
   padding: 60px 20px;
-  color: #666;
+  color: #6b7280;
 }
 
 .empty-state-icon {
   font-size: 48px;
-  margin-bottom: 10px;
+  margin-bottom: 12px;
   opacity: 0.5;
 }
 
@@ -186,8 +194,8 @@
   top: 0;
   width: 100%;
   height: 100%;
-  background-color: rgba(0, 0, 0, 0.8);
-  animation: fadeIn 0.3s;
+  background-color: rgba(15, 23, 42, 0.4);
+  animation: fadeIn 0.25s ease;
 }
 
 @keyframes fadeIn {
@@ -196,24 +204,26 @@
 }
 
 .modal-content {
-  background-color: #1a1a1a;
-  margin: 5% auto;
+  background-color: #fff;
+  margin: 4% auto;
   padding: 0;
-  border: 1px solid #333;
-  border-radius: 8px;
-  width: 90%;
-  max-width: 700px;
+  border: 1px solid #e5e7eb;
+  border-radius: 16px;
+  width: 80vw;
+  max-width: 1080px;
   max-height: 80vh;
   display: flex;
   flex-direction: column;
+  box-shadow: 0 18px 36px rgba(15, 23, 42, 0.18);
 }
 
 .modal-header {
   padding: 20px;
-  border-bottom: 1px solid #333;
+  border-bottom: 1px solid #f1f1f1;
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
+  gap: 16px;
 }
 
 .modal-title {
@@ -222,27 +232,27 @@
 
 .modal-from {
   font-size: 18px;
-  font-weight: bold;
-  color: #e0e0e0;
-  margin-bottom: 5px;
+  font-weight: 600;
+  color: #1f2933;
+  margin-bottom: 4px;
 }
 
 .modal-timestamp {
   font-size: 12px;
-  color: #666;
+  color: #6b7280;
 }
 
 .modal-close {
-  color: #888;
+  color: #7f8c9a;
   font-size: 28px;
   font-weight: bold;
   cursor: pointer;
   line-height: 20px;
-  transition: color 0.3s;
+  transition: color 0.2s ease;
 }
 
 .modal-close:hover {
-  color: #e0e0e0;
+  color: #000;
 }
 
 .modal-body {
@@ -252,87 +262,95 @@
 }
 
 .modal-message {
-  color: #e0e0e0;
+  color: #1f2933;
   line-height: 1.6;
   white-space: pre-wrap;
   word-wrap: break-word;
 }
 
 .modal-context {
-  margin-top: 20px;
-  padding-top: 20px;
-  border-top: 1px solid #333;
+  margin-top: 24px;
+  padding-top: 16px;
+  border-top: 1px solid #e5e7eb;
 }
 
 .modal-context-title {
   font-size: 12px;
-  color: #666;
+  color: #6b7280;
   margin-bottom: 10px;
   text-transform: uppercase;
+  letter-spacing: 0.05em;
 }
 
 .modal-context-items {
   display: flex;
-  gap: 10px;
+  gap: 8px;
   flex-wrap: wrap;
 }
 
 .modal-footer {
-  padding: 15px 20px;
-  border-top: 1px solid #333;
+  padding: 16px 20px;
+  border-top: 1px solid #f1f1f1;
   display: flex;
   gap: 10px;
   justify-content: flex-end;
+  flex-wrap: wrap;
 }
 
 .btn {
-  padding: 8px 16px;
-  border: none;
-  border-radius: 4px;
+  padding: 9px 18px;
+  border-radius: 6px;
   cursor: pointer;
   font-size: 14px;
-  transition: all 0.3s;
+  font-weight: 600;
+  border: 1px solid transparent;
+  transition: background-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 .btn-primary {
-  background: #4a9eff;
-  color: white;
+  background: #1a73e8;
+  color: #fff;
+  border-color: #1a73e8;
 }
 
 .btn-primary:hover {
-  background: #3a8eef;
+  background: #1666d2;
+  box-shadow: 0 6px 12px rgba(26, 115, 232, 0.2);
 }
 
 .btn-secondary {
-  background: #333;
-  color: #e0e0e0;
+  background: #f5f5f5;
+  color: #333;
+  border-color: #e0e0e0;
 }
 
 .btn-secondary:hover {
-  background: #444;
+  background: #ebebeb;
 }
 
 .btn-danger {
-  background: #ff4444;
-  color: white;
+  background: #e53935;
+  color: #fff;
+  border-color: #e53935;
 }
 
 .btn-danger:hover {
-  background: #ee3333;
+  background: #d32f2f;
+  box-shadow: 0 6px 12px rgba(211, 47, 47, 0.2);
 }
 
 .loading {
   text-align: center;
   padding: 40px;
-  color: #666;
+  color: #6b7280;
 }
 
 .spinner {
-  border: 3px solid #333;
-  border-top: 3px solid #4a9eff;
+  border: 3px solid #e5e7eb;
+  border-top: 3px solid #1a73e8;
   border-radius: 50%;
-  width: 40px;
-  height: 40px;
+  width: 36px;
+  height: 36px;
   animation: spin 1s linear infinite;
   margin: 0 auto;
 }
@@ -341,25 +359,29 @@
   0% { transform: rotate(0deg); }
   100% { transform: rotate(360deg); }
 }
+
+@media (max-width: 720px) {
+  .inbox-container {
+    padding: 1em 0 2em;
+  }
+
+  .inbox-top {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
 </style>
 {% endblock %}
 
 {% block body %}
-<div class="inbox-container">
-  <div class="inbox-header">
-    <div class="inbox-title">✉️ Inbox</div>
-    <div class="inbox-stats">
-      <span id="statsText">Loading...</span>
-    </div>
-  </div>
-
-  <div class="inbox-tabs">
-    <div class="inbox-tab active" data-status="active">
-      Inbox
-      <span class="badge" id="unreadBadge" style="display: none;">0</span>
-    </div>
-    <div class="inbox-tab" data-status="archived">
-      Archived
+<div class="container inbox-container">
+  <div class="inbox-top">
+    <div class="tabs">
+      <div class="tab active" data-status="active">
+        Inbox
+        <span class="tab-badge" id="unreadBadge" hidden>0</span>
+      </div>
+      <div class="tab" data-status="archived">Archived</div>
     </div>
   </div>
 
@@ -370,7 +392,6 @@
   </div>
 </div>
 
-<!-- Message Modal -->
 <div id="messageModal" class="modal">
   <div class="modal-content">
     <div class="modal-header">
@@ -396,15 +417,15 @@
 </div>
 
 <script>
+const statusTabs = Array.from(document.querySelectorAll('.inbox-top .tab'));
 let currentStatus = 'active';
 let currentMessages = [];
 let currentMessage = null;
 
 // Tab switching
-document.querySelectorAll('.inbox-tab').forEach(tab => {
+statusTabs.forEach(tab => {
   tab.addEventListener('click', () => {
-    document.querySelectorAll('.inbox-tab').forEach(t => t.classList.remove('active'));
-    tab.classList.add('active');
+    statusTabs.forEach(t => t.classList.toggle('active', t === tab));
     currentStatus = tab.dataset.status;
     loadMessages();
   });
@@ -574,19 +595,15 @@ async function unarchiveMessage() {
 
 // Update stats display
 function updateStats(data) {
-  const statsText = document.getElementById('statsText');
   const unreadBadge = document.getElementById('unreadBadge');
   
   if (currentStatus === 'active') {
-    statsText.textContent = `${data.total} messages${data.unread_count > 0 ? ` (${data.unread_count} unread)` : ''}`;
-    if (data.unread_count > 0) {
+    unreadBadge.hidden = data.unread_count === 0;
+    if (!unreadBadge.hidden) {
       unreadBadge.textContent = data.unread_count;
-      unreadBadge.style.display = 'inline-block';
-    } else {
-      unreadBadge.style.display = 'none';
     }
   } else {
-    statsText.textContent = `${data.total} archived messages`;
+    unreadBadge.hidden = true;
   }
 }
 
