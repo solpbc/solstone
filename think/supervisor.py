@@ -214,32 +214,44 @@ def spawn_scheduled_agents() -> None:
         yesterday = (datetime.now().date() - timedelta(days=1)).strftime("%Y-%m-%d")
 
         agents = get_agents()
+
+        # Filter and sort scheduled agents by priority
+        scheduled_agents = []
         for persona_id, config in agents.items():
             if config.get("schedule") == "daily":
+                # Default priority is 50 if not specified
+                priority = config.get("priority", 50)
+                scheduled_agents.append((priority, persona_id, config))
 
-                # Check if this is a multi-domain agent
-                if config.get("multi_domain"):
-                    domains = get_domains()
-                    for domain_name in domains.keys():
-                        logging.info(f"Spawning {persona_id} for domain: {domain_name}")
-                        request_file = cortex_request(
-                            prompt=f"You are processing domain '{domain_name}' for yesterday ({yesterday}), use get_domain('{domain_name}') to load the correct context before starting.",
-                            persona=persona_id
-                        )
-                        # Extract agent_id from the filename
-                        agent_id = Path(request_file).stem.replace("_active", "")
-                        logging.info(f"Started {persona_id} agent for domain {domain_name} (ID: {agent_id})")
-                else:
-                    # Regular single-instance agent
-                    logging.info(f"Spawning scheduled agent: {persona_id}")
-                    # Spawn via Cortex - it will load and merge the persona config
+        # Sort by priority (lower number = higher priority = runs first)
+        scheduled_agents.sort(key=lambda x: x[0])
+
+        # Execute agents in priority order
+        for priority, persona_id, config in scheduled_agents:
+            logging.info(f"Spawning scheduled agent: {persona_id} (priority: {priority})")
+
+            # Check if this is a multi-domain agent
+            if config.get("multi_domain"):
+                domains = get_domains()
+                for domain_name in domains.keys():
+                    logging.info(f"Spawning {persona_id} for domain: {domain_name}")
                     request_file = cortex_request(
-                        prompt=f"Running daily scheduled task for {persona_id}, yesterday was {yesterday}.",
-                        persona=persona_id,
+                        prompt=f"You are processing domain '{domain_name}' for yesterday ({yesterday}), use get_domain('{domain_name}') to load the correct context before starting.",
+                        persona=persona_id
                     )
                     # Extract agent_id from the filename
                     agent_id = Path(request_file).stem.replace("_active", "")
-                    logging.info(f"Started {persona_id} agent (ID: {agent_id})")
+                    logging.info(f"Started {persona_id} agent for domain {domain_name} (ID: {agent_id})")
+            else:
+                # Regular single-instance agent
+                # Spawn via Cortex - it will load and merge the persona config
+                request_file = cortex_request(
+                    prompt=f"Running daily scheduled task for {persona_id}, yesterday was {yesterday}.",
+                    persona=persona_id,
+                )
+                # Extract agent_id from the filename
+                agent_id = Path(request_file).stem.replace("_active", "")
+                logging.info(f"Started {persona_id} agent (ID: {agent_id})")
     except Exception as e:
         logging.error(f"Failed to spawn scheduled agents: {e}")
 
