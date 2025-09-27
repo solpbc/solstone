@@ -236,8 +236,13 @@ async def run_agent(
                 "Tool filtering requested but ToolFilterStatic not available in this version"
             )
 
+        agent_id = str(config.get("agent_id", "")).strip()
+        mcp_params = {"url": http_uri}
+        if agent_id:
+            mcp_params["headers"] = {"X-Agent-Id": agent_id}
+
         mcp_server = MCPServerStreamableHttp(
-            params={"url": http_uri},
+            params=mcp_params,
             cache_tools_list=True,
             tool_filter=tool_filter,
             # Increase tool invocation timeout to avoid premature cancellations

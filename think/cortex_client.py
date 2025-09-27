@@ -59,6 +59,7 @@ def cortex_request(
     request = {
         "event": "request",
         "ts": ts,
+        "agent_id": str(ts),
         "prompt": prompt,
         "backend": backend,
         "persona": persona,

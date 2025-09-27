@@ -286,6 +286,7 @@ class CortexService:
 
             # Merge request into config (request values override persona defaults)
             config.update(request)
+            config["agent_id"] = agent_id
 
             # Capture handoff configuration for post-run processing while
             # leaving it in the merged config for logging transparency.

@@ -138,6 +138,24 @@ def test_cortex_request_timestamp_matches_filename(tmp_path, monkeypatch):
     assert file_ts == request_ts
 
 
+def test_cortex_request_sets_agent_id(tmp_path, monkeypatch):
+    """Test that cortex_request sets agent_id matching the timestamp."""
+    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+
+    active_file = cortex_request(
+        prompt="Check agent id", persona="default", backend="openai"
+    )
+
+    filename = Path(active_file).name
+    file_ts_str = filename.replace("_active.jsonl", "")
+
+    with open(active_file, "r") as f:
+        data = json.loads(f.readline())
+
+    assert "agent_id" in data
+    assert data["agent_id"] == str(data["ts"]) == file_ts_str
+
+
 def test_cortex_request_atomic_rename(tmp_path, monkeypatch):
     """Test that cortex_request uses atomic rename from pending to active."""
     monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
