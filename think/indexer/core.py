@@ -18,6 +18,7 @@ DB_NAMES = {
     "events": "events.sqlite",
     "transcripts": "transcripts.sqlite",
     "entities": "entities.sqlite",
+    "news": "news.sqlite",
 }
 
 # SQL statements to create required tables per index
@@ -80,6 +81,16 @@ SCHEMAS = {
             day UNINDEXED,
             type UNINDEXED,
             path UNINDEXED
+        )
+        """,
+    ],
+    "news": [
+        "CREATE TABLE IF NOT EXISTS files(path TEXT PRIMARY KEY, mtime INTEGER)",
+        """
+        CREATE VIRTUAL TABLE IF NOT EXISTS news_text USING fts5(
+            content,
+            domain UNINDEXED,
+            day UNINDEXED
         )
         """,
     ],

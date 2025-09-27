@@ -53,6 +53,13 @@ from .transcripts import (
     search_transcripts,
 )
 
+# Import from news
+from .news import (
+    find_news_files,
+    scan_news,
+    search_news,
+)
+
 # All public functions and constants
 __all__ = [
     # Core
@@ -86,6 +93,10 @@ __all__ = [
     "parse_entity_line",
     "scan_entities",
     "search_entities",
+    # News
+    "find_news_files",
+    "scan_news",
+    "search_news",
     # CLI
     "main",
 ]
