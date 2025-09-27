@@ -13,6 +13,7 @@ from think import todo
 from think.cluster import cluster_range
 from think.domains import domain_summary
 from think.indexer import search_events as search_events_impl
+from think.indexer import search_news as search_news_impl
 from think.indexer import search_summaries as search_summaries_impl
 from think.indexer import search_transcripts as search_transcripts_impl
 from think.messages import send_message as send_message_impl
@@ -46,6 +47,7 @@ TOOL_PACKS = {
         "search_summaries",
         "search_transcripts",
         "search_events",
+        "search_news",
         "get_domain",
         "send_message",
         "get_resource",
@@ -78,9 +80,7 @@ def todo_list(day: str) -> dict[str, Any]:
         checklist = todo.TodoChecklist.load(day)
         return {"day": day, "markdown": checklist.numbered()}
     except FileNotFoundError:
-        return {
-            "error": f"Day '{day}' has no entries"
-        }
+        return {"error": f"Day '{day}' has no entries"}
     except Exception as exc:  # pragma: no cover - unexpected failure
         return {"error": f"Failed to list todos: {exc}"}
 
@@ -104,9 +104,7 @@ def todo_add(day: str, line_number: int, text: str) -> dict[str, Any]:
         checklist.add_entry(line_number, text)
         return {"day": day, "markdown": checklist.numbered()}
     except RuntimeError as exc:
-        return {
-            "error": str(exc)
-        }
+        return {"error": str(exc)}
     except todo.TodoLineNumberError as exc:
         return {
             "error": str(exc),
@@ -406,6 +404,72 @@ def search_events(
 
 
 @register_tool(annotations=HINTS)
+def search_news(
+    query: str,
+    limit: int = 5,
+    offset: int = 0,
+    *,
+    domain: str | None = None,
+    day: str | None = None,
+) -> dict[str, Any]:
+    """Search domain news content using full-text search.
+
+    This tool searches through news markdown files stored in domain-specific
+    news directories (domains/<domain>/news/YYYYMMDD.md). Use this when looking
+    for news items, announcements, or domain-specific updates that have been
+    captured in the journal.
+
+    Args:
+        query: Natural language search query (e.g., "product launch", "security update")
+        limit: Optional maximum number of results to return (default: 5, max: 20)
+        offset: Optional number of results to skip for pagination (default: 0)
+        domain: Optional domain name to filter results by (e.g., "ml_research", "work")
+        day: Optional day to filter results by in YYYYMMDD format
+
+    Returns:
+        Dictionary containing:
+        - total: Total number of matching news items
+        - limit: Current limit value used for this query
+        - offset: Current offset value used for this query
+        - results: List of matching news items with domain, day, and text snippet,
+                  ordered by relevance
+
+    Examples:
+        - search_news("product announcement")
+        - search_news("security", domain="work", limit=10)
+        - search_news("ai breakthrough", day="20250118")
+        - search_news("quarterly results", limit=5, offset=5)
+    """
+    try:
+        kwargs = {}
+        if domain is not None:
+            kwargs["domain"] = domain
+        if day is not None:
+            kwargs["day"] = day
+
+        total, results = search_news_impl(query, limit, offset, **kwargs)
+
+        items = []
+        for r in results:
+            meta = r.get("metadata", {})
+            items.append(
+                {
+                    "domain": meta.get("domain", ""),
+                    "day": meta.get("day", ""),
+                    "text": r.get("text", ""),
+                    "path": meta.get("path", ""),
+                }
+            )
+
+        return {"total": total, "limit": limit, "offset": offset, "results": items}
+    except Exception as exc:
+        return {
+            "error": f"Failed to search news: {exc}",
+            "suggestion": "try adjusting the query or ensure news indexes exist",
+        }
+
+
+@register_tool(annotations=HINTS)
 def get_domain(domain: str) -> dict[str, Any]:
     """Get a comprehensive summary of a domain including its metadata, entities, and matters.
 
@@ -601,6 +665,7 @@ async def get_resource(uri: str) -> object:
     - ``journal://transcripts/screen/{day}/{time}/{length}`` — screen summaries only
     - ``journal://media/{day}/{name}`` — raw FLAC or PNG media files
     - ``journal://todo/{day}`` — daily ``todos/today.md`` checklist file
+    - ``journal://news/{domain}/{day}`` — domain news markdown for a specific day
 
     Args:
         uri: Resource URI to fetch.
@@ -799,6 +864,30 @@ def get_todo(day: str) -> TextResource:
         uri=f"journal://todo/{day}",
         name=f"Todos: {day}",
         description=f"Checklist entries for {day}",
+        mime_type="text/markdown",
+        text=text,
+    )
+
+
+@mcp.resource("journal://news/{domain}/{day}")
+def get_news_content(domain: str, day: str) -> TextResource:
+    """Return the news markdown content for a specific domain and day."""
+    journal = os.getenv("JOURNAL_PATH", "journal")
+    news_path = Path(journal) / "domains" / domain / "news" / f"{day}.md"
+
+    if not news_path.is_file():
+        domain_path = news_path.parents[1]
+        if not domain_path.is_dir():
+            text = f"Domain '{domain}' not found."
+        else:
+            text = f"No news recorded for {day} in domain '{domain}'."
+    else:
+        text = news_path.read_text(encoding="utf-8")
+
+    return TextResource(
+        uri=f"journal://news/{domain}/{day}",
+        name=f"News: {domain}/{day}",
+        description=f"News content for domain '{domain}' on {day}",
         mime_type="text/markdown",
         text=text,
     )
