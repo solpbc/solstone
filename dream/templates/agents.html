@@ -126,6 +126,55 @@
   line-height: 1.4;
 }
 
+/* Agent metadata badges */
+.agent-metadata {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  margin-top: 0.5rem;
+}
+
+.metadata-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  padding: 0.2rem 0.5rem;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  background: #f0f0f0;
+  color: #555;
+}
+
+.metadata-badge.schedule {
+  background: #e3f2fd;
+  color: #1976d2;
+}
+
+.metadata-badge.priority {
+  background: #fff3e0;
+  color: #f57c00;
+}
+
+.metadata-badge.multi-domain {
+  background: #f3e5f5;
+  color: #7b1fa2;
+}
+
+.metadata-badge.tools {
+  background: #e8f5e9;
+  color: #388e3c;
+}
+
+.metadata-badge.backend {
+  background: #fce4ec;
+  color: #c2185b;
+}
+
+.metadata-badge .badge-icon {
+  font-size: 0.9rem;
+}
+
 /* Create Agent Card */
 .create-agent-card {
   background: #f8f9ff;
@@ -1342,8 +1391,49 @@ function renderCards(items, containerId, itemType, createModalFunc) {
       }
     }
     
+    // Build metadata badges HTML
+    let metadataHtml = '';
+    if (itemType === 'agent') {
+      const badges = [];
+
+      // Schedule badge
+      if (item.schedule === 'daily') {
+        badges.push('<span class="metadata-badge schedule"><span class="badge-icon">📅</span>Daily</span>');
+      }
+
+      // Priority badge
+      if (item.priority !== undefined && item.priority !== null) {
+        badges.push(`<span class="metadata-badge priority"><span class="badge-icon">⚡</span>P${item.priority}</span>`);
+      }
+
+      // Multi-domain badge
+      if (item.multi_domain) {
+        badges.push('<span class="metadata-badge multi-domain"><span class="badge-icon">🌐</span>Multi-Domain</span>');
+      }
+
+      // Tools badge (simplified)
+      if (item.tools) {
+        const toolsList = item.tools.split(',').map(t => t.trim());
+        if (toolsList.length === 1) {
+          badges.push(`<span class="metadata-badge tools"><span class="badge-icon">🔧</span>${toolsList[0]}</span>`);
+        } else {
+          badges.push(`<span class="metadata-badge tools"><span class="badge-icon">🔧</span>${toolsList.length} packs</span>`);
+        }
+      }
+
+      // Backend badge
+      if (item.backend) {
+        badges.push(`<span class="metadata-badge backend"><span class="badge-icon">🤖</span>${item.backend}</span>`);
+      }
+
+      if (badges.length > 0) {
+        metadataHtml = `<div class="agent-metadata">${badges.join('')}</div>`;
+      }
+    }
+
     card.innerHTML = `
       <h3>${titleHtml}</h3>
+      ${metadataHtml}
     `;
     
     // Create chat link for agents only
@@ -1369,7 +1459,26 @@ function renderCards(items, containerId, itemType, createModalFunc) {
 
 // Render agent selection cards
 function renderAgentCards() {
-  renderCards(availableAgents, 'agentCards', 'agent', openCreatePersonaModal);
+  // Sort agents by priority (if scheduled) then by title
+  const sortedAgents = [...availableAgents].sort((a, b) => {
+    // Scheduled agents with priority come first
+    if (a.schedule === 'daily' && b.schedule === 'daily') {
+      // Both scheduled, sort by priority (lower number = higher priority)
+      const aPriority = a.priority ?? 50;
+      const bPriority = b.priority ?? 50;
+      if (aPriority !== bPriority) {
+        return aPriority - bPriority;
+      }
+    } else if (a.schedule === 'daily') {
+      return -1; // a comes first
+    } else if (b.schedule === 'daily') {
+      return 1; // b comes first
+    }
+    // Fall back to alphabetical by title
+    return a.title.localeCompare(b.title);
+  });
+
+  renderCards(sortedAgents, 'agentCards', 'agent', openCreatePersonaModal);
 }
 
 // Render topic selection cards

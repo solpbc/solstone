@@ -89,11 +89,26 @@ def _list_items(item_type: str) -> list[dict[str, object]]:
                     except Exception:
                         pass
 
+                # Load full metadata from JSON if available
+                metadata = {}
+                if os.path.isfile(json_path):
+                    try:
+                        with open(json_path, "r", encoding="utf-8") as f:
+                            metadata = json.load(f)
+                    except Exception:
+                        pass
+
                 items.append(
                     {
                         "id": base_name,
                         "title": title,
                         "description": description,
+                        "schedule": metadata.get("schedule"),
+                        "priority": metadata.get("priority"),
+                        "multi_domain": metadata.get("multi_domain", False),
+                        "tools": metadata.get("tools"),
+                        "backend": metadata.get("backend"),
+                        "model": metadata.get("model"),
                     }
                 )
             except Exception:
