@@ -579,6 +579,22 @@ tr a:hover {
   cursor: not-allowed;
 }
 
+/* Item Modal Styles - 80% viewport */
+#itemModal .modal-content {
+  width: 80vw;
+  height: 80vh;
+  max-width: 1400px;
+  margin: 2.5% auto;
+  display: flex;
+  flex-direction: column;
+}
+
+#itemModal .modal-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 1.5rem;
+}
+
 /* Create Agent Modal Styles */
 #createPersonaModal .modal-content {
   max-width: 700px;
@@ -1024,6 +1040,35 @@ tr a:hover {
     <form id="createPersonaForm" class="input-area">
       <input type="text" id="personaTitle" placeholder="Agent Title" required />
       <textarea id="personaInput" rows="8" placeholder="Describe what this agent should accomplish..." required></textarea>
+      <div style="margin: 1rem 0; border-top: 1px solid #ddd; padding-top: 1rem;">
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+          <div>
+            <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+              <input type="checkbox" id="personaDailySchedule" style="width: auto;">
+              <span>Run daily (scheduled agent)</span>
+            </label>
+          </div>
+          <div>
+            <label style="display: block;">
+              Priority (0-99):
+              <input type="number" id="personaPriority" min="0" max="99" placeholder="Default: 50"
+                     style="width: 100px; margin-left: 0.5rem; padding: 0.25rem;">
+            </label>
+          </div>
+        </div>
+        <div>
+          <label style="display: block; margin-bottom: 0.5rem;">
+            Tool Packs:
+            <select id="personaToolPacks" multiple style="width: 100%; height: 80px; margin-top: 0.5rem;">
+              <option value="" selected>Default (All Tools)</option>
+              <option value="journal">Journal</option>
+              <option value="todo">Todo</option>
+              <option value="domains">Domains</option>
+            </select>
+          </label>
+          <small style="color: #666;">Hold Ctrl/Cmd to select multiple. Leave "Default" for all tools.</small>
+        </div>
+      </div>
       <button type="submit" id="createPromptBtn">Create Prompt</button>
     </form>
     
@@ -1032,15 +1077,7 @@ tr a:hover {
       <div>Creating prompt...</div>
     </div>
     
-    <!-- Result Area -->
-    <div id="personaResult" style="display: none;">
-      <h3>Generated Prompt</h3>
-      <div id="personaResultPromptContent" class="prompt-content"></div>
-      <div class="modal-actions">
-        <button onclick="saveNewPersona()">Save Agent</button>
-        <button onclick="editPersonaPrompt()">Edit Prompt</button>
-      </div>
-    </div>
+    <!-- Removed Result Area - now auto-saves and opens edit modal -->
   </div>
 </div>
 
@@ -1081,6 +1118,35 @@ tr a:hover {
     <div class="modal-body">
       <div id="modalContent" class="markdown-content"></div>
       <textarea id="modalContentEdit" class="edit-mode-textarea" style="display: none;"></textarea>
+      <div id="agentConfigContainer" style="display: none; margin-top: 1rem;">
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+          <div>
+            <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+              <input type="checkbox" id="modalDailySchedule" style="width: auto;">
+              <span>Run daily (scheduled agent)</span>
+            </label>
+          </div>
+          <div>
+            <label style="display: block; margin-bottom: 0.5rem;">
+              Priority (0-99, lower runs first):
+              <input type="number" id="modalPriority" min="0" max="99" placeholder="Default: 50"
+                     style="width: 100px; margin-left: 0.5rem; padding: 0.25rem;">
+            </label>
+          </div>
+        </div>
+        <div>
+          <label style="display: block; margin-bottom: 0.5rem;">
+            Tool Packs:
+            <select id="modalToolPacks" multiple style="width: 100%; height: 100px; margin-top: 0.5rem;">
+              <option value="">Default (All Tools)</option>
+              <option value="journal">Journal</option>
+              <option value="todo">Todo</option>
+              <option value="domains">Domains</option>
+            </select>
+          </label>
+          <small style="color: #666;">Hold Ctrl/Cmd to select multiple. Select only "Default" to use all tools.</small>
+        </div>
+      </div>
     </div>
   </div>
 </div>
@@ -1352,12 +1418,58 @@ function viewItemDetails(itemId, itemType, event) {
   document.getElementById('modalTitleEdit').value = item.title;
   document.getElementById('modalContent').innerHTML = '<p>Loading...</p>';
   document.getElementById('itemModal').style.display = 'block';
-  
+
+  // Hide agent config container initially (only shown in edit mode for agents)
+  document.getElementById('agentConfigContainer').style.display = 'none';
+
   // Determine the correct endpoint based on item type
-  const contentUrl = itemType === 'agent' 
+  const contentUrl = itemType === 'agent'
     ? `{{ url_for('agents.agent_content', agent_id='') }}${itemId}`
     : `{{ url_for('agents.topic_content', topic_id='') }}${itemId}`;
-  
+
+  // Load agent's config if it's an agent
+  if (itemType === 'agent') {
+    // Load the agent's JSON config to get schedule, priority, and tools
+    fetch(`/think/agents/${itemId}.json`)
+      .then(r => r.json())
+      .then(config => {
+        // Schedule
+        document.getElementById('modalDailySchedule').checked = config.schedule === 'daily';
+
+        // Priority (leave empty if not set, will show placeholder)
+        document.getElementById('modalPriority').value = config.priority || '';
+
+        // Tools - parse and select appropriate options
+        const toolsSelect = document.getElementById('modalToolPacks');
+        const toolsArray = config.tools ? config.tools.split(',').map(t => t.trim()) : [];
+
+        // Clear all selections first
+        for (let option of toolsSelect.options) {
+          option.selected = false;
+        }
+
+        // If no tools specified, select "Default"
+        if (toolsArray.length === 0) {
+          toolsSelect.options[0].selected = true;
+        } else {
+          // Select specified tool packs
+          for (let tool of toolsArray) {
+            for (let option of toolsSelect.options) {
+              if (option.value === tool) {
+                option.selected = true;
+              }
+            }
+          }
+        }
+      })
+      .catch(() => {
+        // If no JSON file or error, set defaults
+        document.getElementById('modalDailySchedule').checked = false;
+        document.getElementById('modalPriority').value = '';
+        document.getElementById('modalToolPacks').options[0].selected = true;
+      });
+  }
+
   // Load and render item content
   fetch(contentUrl)
     .then(r => r.json())
@@ -1395,12 +1507,17 @@ function toggleEditMode() {
     editBtn.style.display = 'none';
     saveBtn.style.display = 'block';
     modalHeader.classList.add('edit-mode');
-    
+
     titleDisplay.style.display = 'none';
     titleEdit.style.display = 'block';
     contentDisplay.style.display = 'none';
     contentEdit.style.display = 'block';
-    
+
+    // Show agent config container for agents only
+    if (currentEditingType === 'agent') {
+      document.getElementById('agentConfigContainer').style.display = 'block';
+    }
+
     // Focus on title input
     titleEdit.focus();
   }
@@ -1426,22 +1543,53 @@ async function saveItemChanges() {
   
   saveBtn.disabled = true;
   saveBtn.textContent = 'Saving...';
-  
+
   // Determine the correct endpoint based on item type
   const updateUrl = currentEditingType === 'agent'
     ? `{{ url_for('agents.update_agent', agent_id='') }}${currentEditingItem}`
     : `{{ url_for('agents.update_topic', topic_id='') }}${currentEditingItem}`;
-  
+
+  // Build request body
+  const requestBody = {
+    title: newTitle,
+    content: newContent
+  };
+
+  // Add agent-specific config
+  if (currentEditingType === 'agent') {
+    // Schedule
+    const isDaily = document.getElementById('modalDailySchedule').checked;
+    if (isDaily) {
+      requestBody.schedule = 'daily';
+    }
+
+    // Priority (only add if a value is entered)
+    const priority = document.getElementById('modalPriority').value;
+    if (priority !== '') {
+      requestBody.priority = parseInt(priority);
+    }
+
+    // Tools (only add if not "Default")
+    const toolsSelect = document.getElementById('modalToolPacks');
+    const selectedTools = [];
+    for (let option of toolsSelect.options) {
+      if (option.selected && option.value !== '') {
+        selectedTools.push(option.value);
+      }
+    }
+    // Only add tools parameter if specific packs are selected
+    if (selectedTools.length > 0) {
+      requestBody.tools = selectedTools.join(',');
+    }
+  }
+
   try {
     const response = await fetch(updateUrl, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        title: newTitle,
-        content: newContent
-      })
+      body: JSON.stringify(requestBody)
     });
     
     const data = await response.json();
@@ -1477,7 +1625,10 @@ async function saveItemChanges() {
     document.getElementById('modalContent').innerHTML = html;
     document.getElementById('modalContent').style.display = 'block';
     document.getElementById('modalContentEdit').style.display = 'none';
-    
+
+    // Hide agent config container when exiting edit mode
+    document.getElementById('agentConfigContainer').style.display = 'none';
+
     // Refresh agent dropdown in prompt modal if it's open (for agents only)
     if (currentEditingType === 'agent') {
       loadPersonas();
@@ -1876,8 +2027,9 @@ function openCreatePersonaModal() {
   
   // Reset form
   document.getElementById('createPersonaForm').reset();
+  document.getElementById('createPersonaForm').style.display = 'block';
+  document.getElementById('createPersonaForm').classList.remove('busy');
   document.getElementById('createPersonaPromptStatus').classList.remove('show');
-  document.getElementById('personaResult').style.display = 'none';
   document.getElementById('createPromptBtn').disabled = false;
 }
 
@@ -1951,83 +2103,79 @@ document.getElementById('createPersonaForm').addEventListener('submit', async (e
   }
 });
 
-function showPersonaPromptResult(prompt, title) {
-  const resultDiv = document.getElementById('personaResult');
-  const resultContent = document.getElementById('personaResultPromptContent');
-  
-  // Store prompt and title for saving
-  window.currentPersonaPrompt = prompt;
-  window.currentPersonaTitle = title;
-  
-  // Display the prompt
-  resultContent.textContent = prompt;
-  resultDiv.style.display = 'block';
-  
-  // Hide form
-  document.getElementById('createPersonaForm').style.display = 'none';
-}
-
-function editPersonaPrompt() {
-  const resultContent = document.getElementById('personaResultPromptContent');
-  
-  // Convert to editable textarea
-  const textarea = document.createElement('textarea');
-  textarea.value = resultContent.textContent;
-  textarea.style.width = '100%';
-  textarea.style.minHeight = '400px';
-  textarea.style.padding = '1rem';
-  textarea.style.fontFamily = 'Monaco, Menlo, monospace';
-  textarea.style.fontSize = '0.9rem';
-  
-  resultContent.innerHTML = '';
-  resultContent.appendChild(textarea);
-  
-  // Update the prompt when editing
-  textarea.addEventListener('input', () => {
-    window.currentPersonaPrompt = textarea.value;
-  });
-}
-
-async function saveNewPersona() {
-  const title = window.currentPersonaTitle;
-  const content = window.currentPersonaPrompt;
-  
-  if (!title || !content) {
-    showError('Missing title or content');
-    return;
-  }
-  
-  // Generate a unique ID for the new agent
+async function showPersonaPromptResult(prompt, title) {
+  // Auto-save the agent immediately
+  const isDaily = document.getElementById('personaDailySchedule').checked;
+  const priority = document.getElementById('personaPriority').value;
+  const toolsSelect = document.getElementById('personaToolPacks');
   const personaId = title.toLowerCase().replace(/[^a-z0-9]+/g, '_');
-  
+
   try {
-    // Create or update the agent
+    // Create the agent
+    const requestBody = {
+      title: title,
+      content: prompt
+    };
+
+    // Add schedule if daily is checked
+    if (isDaily) {
+      requestBody.schedule = 'daily';
+    }
+
+    // Add priority if specified
+    if (priority !== '') {
+      requestBody.priority = parseInt(priority);
+    }
+
+    // Add tools if specific packs are selected
+    const selectedTools = [];
+    for (let option of toolsSelect.options) {
+      if (option.selected && option.value !== '') {
+        selectedTools.push(option.value);
+      }
+    }
+    if (selectedTools.length > 0) {
+      requestBody.tools = selectedTools.join(',');
+    }
+
     const response = await fetch(`{{ url_for('agents.update_agent', agent_id='') }}${personaId}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        title: title,
-        content: content
-      })
+      body: JSON.stringify(requestBody)
     });
-    
+
     const data = await response.json();
-    
+
     if (response.ok) {
-      alert('Agent saved successfully!');
+      // Close create modal
       closeCreatePersonaModal();
-      // Reset form for next use
-      document.getElementById('createPersonaForm').style.display = 'block';
-      document.getElementById('personaResult').style.display = 'none';
-      // Reload agents
-      loadAvailableAgents();
+
+      // Reload agents list
+      await loadAvailableAgents();
+
+      // Open the edit modal with the new agent
+      setTimeout(() => {
+        // Find the new agent in the list
+        const newAgent = availableAgents.find(a => a.id === personaId);
+        if (newAgent) {
+          viewItemDetails(personaId, 'agent', { stopPropagation: () => {} });
+        }
+      }, 100);
     } else {
       throw new Error(data.error || 'Failed to save agent');
     }
   } catch (error) {
     showError('Error saving agent: ' + error.message);
+    // Re-enable the form
+    document.getElementById('createPersonaForm').classList.remove('busy');
+    document.getElementById('createPersonaPromptStatus').classList.remove('show');
+    document.getElementById('createPromptBtn').disabled = false;
   }
 }
+
+// Removed editPersonaPrompt - now using standard edit modal
+
+// Removed saveNewPersona - now handled in showPersonaPromptResult
 
 // Handle create topic form submission
 document.getElementById('createTopicForm').addEventListener('submit', async (e) => {

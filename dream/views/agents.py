@@ -243,6 +243,9 @@ def _update_item(item_type: str, item_id: str, data: dict) -> tuple[dict, int]:
 
     new_title = data.get("title", "").strip()
     new_content = data.get("content", "").strip()
+    schedule = data.get("schedule")  # Can be None, "daily", etc.
+    priority = data.get("priority")  # Can be None or 0-99
+    tools = data.get("tools")  # Can be None or comma-separated string
 
     if not new_title or not new_content:
         return {"error": "Title and content are required"}, 400
@@ -262,22 +265,39 @@ def _update_item(item_type: str, item_id: str, data: dict) -> tuple[dict, int]:
             # Create new item config
             item_config = {
                 "title": new_title,
-                "description": "",
             }
-            # Add model field for agents only
+            # Add optional fields if provided (for agents only)
             if item_type == "agents":
-                item_config["model"] = "gemini-2.0-flash-exp"
+                if schedule:
+                    item_config["schedule"] = schedule
+                if priority is not None:
+                    item_config["priority"] = priority
+                if tools:
+                    item_config["tools"] = tools
         else:
             # Update existing JSON file
             with open(json_path, "r", encoding="utf-8") as f:
                 item_config = json.load(f)
             item_config["title"] = new_title
+            # Update or remove optional fields for agents
+            if item_type == "agents":
+                # Schedule
+                if schedule:
+                    item_config["schedule"] = schedule
+                elif "schedule" in item_config:
+                    del item_config["schedule"]
 
-        # Update description (first line of content)
-        first_line = new_content.split("\n")[0] if new_content else ""
-        item_config["description"] = (
-            first_line[:100] + "..." if len(first_line) > 100 else first_line
-        )
+                # Priority
+                if priority is not None:
+                    item_config["priority"] = priority
+                elif "priority" in item_config:
+                    del item_config["priority"]
+
+                # Tools
+                if tools:
+                    item_config["tools"] = tools
+                elif "tools" in item_config:
+                    del item_config["tools"]
 
         # Write JSON file
         with open(json_path, "w", encoding="utf-8") as f:
