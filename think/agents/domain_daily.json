@@ -1,7 +1,0 @@
-{
-  "title": "Domain Daily Processor",
-  "description": "Runs daily processing for each domain",
-  "schedule": "daily",
-  "multi_domain": true,
-  "tools": "journal,domain"
-}
