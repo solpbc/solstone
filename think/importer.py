@@ -227,9 +227,9 @@ def process_video(
 
 
 def _read_transcript(path: str) -> str:
-    """Return transcript text from a .txt or .pdf file."""
+    """Return transcript text from a .txt/.md/.pdf file."""
     ext = os.path.splitext(path)[1].lower()
-    if ext == ".txt":
+    if ext in {".txt", ".md"}:
         with open(path, "r", encoding="utf-8") as f:
             return f.read()
     if ext == ".pdf":
@@ -607,7 +607,7 @@ def main() -> None:
     }
 
     ext = os.path.splitext(args.media)[1].lower()
-    if ext in {".txt", ".pdf"}:
+    if ext in {".txt", ".md", ".pdf"}:
         created_files = process_transcript(
             args.media,
             day_dir,
