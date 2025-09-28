@@ -5,7 +5,7 @@
 <style>
 .container { padding: 0 1em; }
 h1 { margin-bottom: 0.5em; }
-#controls { display: flex; align-items: center; margin-bottom: 1em; }
+#controls { display: flex; align-items: center; margin-bottom: 1em; gap: 6px; }
 #controls button { background:#007bff; color:white; border:none; padding:6px 12px; margin:0 6px; border-radius:4px; cursor:pointer; }
 #controls span { font-size:1.2em; font-weight:bold; }
 #calendar { width:100%; border-collapse:collapse; }
@@ -46,6 +46,7 @@ h1 { margin-bottom: 0.5em; }
     <button id="prevMonth">&#8592;</button>
     <span id="monthLabel"></span>
     <button id="nextMonth">&#8594;</button>
+    <button id="todayBtn" style="margin-left:auto;">Today</button>
   </div>
   <table id="calendar">
     <thead>
@@ -142,6 +143,15 @@ function showMonth(ym) {
   const month = parseInt(ym.slice(4)) - 1;
   const first = new Date(year, month, 1);
   document.getElementById('monthLabel').textContent = first.toLocaleString('default',{month:'long', year:'numeric'});
+
+  // Show/hide Today button based on current month
+  const todayBtn = document.getElementById('todayBtn');
+  if (ym === CURRENT_YEAR_MONTH) {
+    todayBtn.style.display = 'none';
+  } else {
+    todayBtn.style.display = 'block';
+  }
+
   const tbody = document.querySelector('#calendar tbody');
   tbody.innerHTML='';
   const startDay = first.getDay();
@@ -225,6 +235,16 @@ function navigateMonth(direction) {
 
 document.getElementById('prevMonth').onclick = () => navigateMonth(-1);
 document.getElementById('nextMonth').onclick = () => navigateMonth(1);
+document.getElementById('todayBtn').onclick = () => {
+  currentIndex = months.indexOf(CURRENT_YEAR_MONTH);
+  if (currentIndex === -1) {
+    // If current month not in list, add it
+    months.push(CURRENT_YEAR_MONTH);
+    months.sort();
+    currentIndex = months.indexOf(CURRENT_YEAR_MONTH);
+  }
+  showMonth(CURRENT_YEAR_MONTH);
+};
 
 loadData();
 </script>
