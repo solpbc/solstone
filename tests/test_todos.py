@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from think.todo import get_todos, parse_item, parse_items
+from think.todo import get_todos, parse_item, parse_items, upcoming
 
 
 @pytest.fixture
@@ -188,6 +188,82 @@ def test_parse_items_maintains_sequential_index():
     assert items[1].text == "Second"
     assert items[2].index == 3
     assert items[2].text == "Third"
+
+
+def test_upcoming_groups_future_days(monkeypatch, journal_root):
+    monkeypatch.setenv("JOURNAL_PATH", str(journal_root))
+    _write_todos(
+        journal_root,
+        "20240105",
+        [
+            "- [ ] First future task",
+            "- [x] Completed future task",
+        ],
+    )
+    _write_todos(
+        journal_root,
+        "20240106",
+        [
+            "- [ ] Another future task",
+        ],
+    )
+    _write_todos(
+        journal_root,
+        "20240103",
+        [
+            "- [ ] Past task",
+        ],
+    )
+
+    result = upcoming(today="20240104")
+
+    expected = (
+        "### 2024-01-05\n"
+        "- [ ] First future task\n"
+        "- [x] Completed future task\n\n"
+        "### 2024-01-06\n"
+        "- [ ] Another future task"
+    )
+
+    assert result == expected
+
+
+def test_upcoming_respects_limit(monkeypatch, journal_root):
+    monkeypatch.setenv("JOURNAL_PATH", str(journal_root))
+    _write_todos(
+        journal_root,
+        "20240105",
+        [
+            "- [ ] Task one",
+            "- [ ] Task two",
+            "- [ ] Task three",
+        ],
+    )
+
+    result = upcoming(limit=2, today="20240104")
+
+    expected = (
+        "### 2024-01-05\n"
+        "- [ ] Task one\n"
+        "- [ ] Task two"
+    )
+
+    assert result == expected
+
+
+def test_upcoming_when_no_future_todos(monkeypatch, journal_root):
+    monkeypatch.setenv("JOURNAL_PATH", str(journal_root))
+    _write_todos(
+        journal_root,
+        "20240102",
+        [
+            "- [ ] Existing task",
+        ],
+    )
+
+    result = upcoming(today="20240102")
+
+    assert result == "No upcoming todos."
 
 
 def test_append_entry_validates_parsing(monkeypatch, journal_root):

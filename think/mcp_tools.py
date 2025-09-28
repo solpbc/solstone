@@ -57,6 +57,7 @@ TOOL_PACKS = {
         "todo_add",
         "todo_remove",
         "todo_done",
+        "todo_upcoming",
     ],
     "domains": [
         "domain_news",
@@ -201,6 +202,17 @@ def todo_done(day: str, line_number: int, guard: str) -> dict[str, Any]:
         }
     except Exception as exc:  # pragma: no cover - unexpected failure
         return {"error": f"Failed to complete todo: {exc}"}
+
+
+@register_tool(annotations=HINTS)
+def todo_upcoming(limit: int = 20) -> dict[str, Any]:
+    """Return upcoming todos across future days as markdown sections."""
+
+    try:
+        markdown = todo.upcoming(limit=limit)
+        return {"limit": limit, "markdown": markdown}
+    except Exception as exc:  # pragma: no cover - unexpected failure
+        return {"error": f"Failed to load upcoming todos: {exc}"}
 
 
 @register_tool(annotations=HINTS)

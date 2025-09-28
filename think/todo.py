@@ -6,6 +6,7 @@ import logging
 import os
 import re
 from dataclasses import dataclass
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Iterable, Sequence
 
@@ -28,6 +29,7 @@ __all__ = [
     "validate_line_number",
     "parse_item",
     "parse_items",
+    "upcoming",
 ]
 
 TODO_ENTRY_RE = re.compile(r"^- \[( |x|X)\]\s?(.*)$")
@@ -384,3 +386,78 @@ def get_todos(day: str, *, ensure_day: bool = True) -> list[dict[str, Any]] | No
         return None
 
     return [item.as_dict() for item in parse_items(checklist.entries)]
+
+
+def upcoming(limit: int = 20, *, today: str | None = None) -> str:
+    """Return a markdown summary of upcoming todo entries.
+
+    Args:
+        limit: Maximum number of todo items to include.
+        today: Optional ``YYYYMMDD`` override for the current day, useful for testing.
+
+    Returns:
+        Markdown with a ``### YYYY-MM-DD`` section per day followed by raw todo
+        checklist lines. When no upcoming items exist the string
+        ``"No upcoming todos."`` is returned.
+    """
+
+    if limit <= 0:
+        return "No upcoming todos."
+
+    journal = os.getenv("JOURNAL_PATH", "journal")
+    root = Path(journal)
+    if not root.is_dir():
+        return "No upcoming todos."
+
+    today_str = today if today is not None else datetime.now().strftime("%Y%m%d")
+
+    try:
+        sorted_days = sorted(
+            day.name
+            for day in root.iterdir()
+            if day.is_dir() and len(day.name) == 8 and day.name.isdigit() and day.name > today_str
+        )
+    except OSError:  # pragma: no cover - filesystem failure
+        return "No upcoming todos."
+
+    remaining = limit
+    sections: list[str] = []
+
+    for day in sorted_days:
+        todo_path = root / day / "todos" / "today.md"
+        if not todo_path.is_file():
+            continue
+
+        try:
+            lines = [
+                line.rstrip("\n")
+                for line in todo_path.read_text(encoding="utf-8").splitlines()
+                if line.strip()
+            ]
+        except OSError:  # pragma: no cover - filesystem failure
+            continue
+
+        items = parse_items(lines)
+        if not items:
+            continue
+
+        day_heading = datetime.strptime(day, "%Y%m%d").strftime("%Y-%m-%d")
+        day_lines: list[str] = []
+
+        for item in items:
+            day_lines.append(item.raw)
+            remaining -= 1
+            if remaining == 0:
+                break
+
+        if day_lines:
+            section = "\n".join([f"### {day_heading}"] + day_lines)
+            sections.append(section)
+
+        if remaining == 0:
+            break
+
+    if not sections:
+        return "No upcoming todos."
+
+    return "\n\n".join(sections)
