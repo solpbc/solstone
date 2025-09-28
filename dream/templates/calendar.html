@@ -9,13 +9,35 @@ h1 { margin-bottom: 0.5em; }
 #controls button { background:#007bff; color:white; border:none; padding:6px 12px; margin:0 6px; border-radius:4px; cursor:pointer; }
 #controls span { font-size:1.2em; font-weight:bold; }
 #calendar { width:100%; border-collapse:collapse; }
-#calendar th, #calendar td { width:14.28%; border:1px solid #e0e0e0; vertical-align:top; height:80px; padding:4px; position:relative; }
+#calendar th, #calendar td { width:14.28%; border:1px solid #e0e0e0; vertical-align:top; height:90px; padding:4px; position:relative; }
 #calendar th { background:#f8f9fa; }
 #calendar td.today { background:rgba(0,123,255,0.12); box-shadow:inset 0 0 0 2px #007bff; }
-.day-number{font-weight:bold;text-decoration:none;color:inherit;}
-.missing{color:#ccc;}
-.bar-chart { position:absolute; bottom:4px; left:2px; right:2px; top:20px; display:flex; align-items:flex-end; }
-.bar-chart div { flex:1; margin:0 1px; }
+.day-number { font-weight:bold; text-decoration:none; color:inherit; display:inline-block; }
+.missing { color:#ccc; }
+/* Activity level backgrounds for past days */
+.activity-high { background:rgba(0,123,255,0.08); }  /* Light blue */
+.activity-medium { background:rgba(40,167,69,0.08); }  /* Light green */
+.activity-low { background:rgba(255,193,7,0.08); }  /* Light yellow */
+.activity-none { background:rgba(220,53,69,0.08); }  /* Light red */
+.day-actions {
+  position:absolute;
+  bottom:4px;
+  left:4px;
+  right:4px;
+  display:flex;
+  gap:3px;
+  justify-content:flex-start;
+}
+.day-actions a {
+  text-decoration:none;
+  font-size:18px;
+  padding:2px;
+  opacity:0.7;
+  transition:opacity 0.2s;
+}
+.day-actions a:hover {
+  opacity:1;
+}
 </style>
 {% endblock %}
 {% block body %}
@@ -33,11 +55,12 @@ h1 { margin-bottom: 0.5em; }
   </table>
 </div>
 
-<script src="{{ url_for('review.static', filename='colors.js') }}"></script>
 <script>
-let occurrences = {};
+let dayStats = {};
 let availableDays = new Set();
 const dayBase = '{{ url_for("calendar.calendar_day", day="") }}';
+const todosBase = '{{ url_for("todos.todos_day", day="") }}';
+const adminBase = '{{ url_for("admin.admin_day_page", day="") }}';
 let months = [];
 let currentIndex = 0;
 const now = new Date();
@@ -45,17 +68,17 @@ const CURRENT_YEAR_MONTH = generateYearMonth(now.getFullYear(), now.getMonth());
 const TODAY_DATE_STRING = CURRENT_YEAR_MONTH + String(now.getDate()).padStart(2,'0');
 
 function loadData() {
-  const occReq = fetch('{{ url_for("calendar.calendar_occurrences") }}').then(r => {
-    if (!r.ok) throw new Error('Failed to fetch occurrences');
+  const statsReq = fetch('{{ url_for("calendar.calendar_stats") }}').then(r => {
+    if (!r.ok) throw new Error('Failed to fetch stats');
     return r.json();
   });
   const daysReq = fetch('{{ url_for("calendar.calendar_days") }}').then(r => {
     if (!r.ok) throw new Error('Failed to fetch days');
     return r.json();
   });
-  Promise.all([occReq, daysReq])
-    .then(([occ, days]) => {
-      occurrences = occ || {};
+  Promise.all([statsReq, daysReq])
+    .then(([stats, days]) => {
+      dayStats = stats || {};
       availableDays = new Set(days || []);
       const monthSet = new Set(Array.from(availableDays).map(d => d.slice(0,6)));
       monthSet.add(CURRENT_YEAR_MONTH);
@@ -74,32 +97,44 @@ function loadData() {
     });
 }
 
-function createBarChart(occList, dateStr) {
-  const counts = {};
-  const order = [];
-  const topicColors = {};
-  occList.forEach(o => {
-    const topic = o.topic || 'other';
-    if(!counts[topic]) {
-      counts[topic] = 0;
-      order.push(topic);
-      topicColors[topic] = o.color || CATEGORY_COLORS[order.length % CATEGORY_COLORS.length];
+function createDayContent(dateStr, day) {
+  const stats = dayStats[dateStr];
+  const exists = availableDays.has(dateStr);
+
+  let html = '';
+
+  // Day number
+  if (exists) {
+    html += `<a class='day-number' href='${dayBase}${dateStr}'>${day}</a>`;
+  } else {
+    html += `<span class='day-number missing'>${day}</span>`;
+  }
+
+  // Action icons
+  if (exists && stats) {
+    html += `<div class='day-actions'>`;
+
+    // Note/Topics icon - only if topics exist
+    if (stats.has_topics) {
+      html += `<a href='${dayBase}${dateStr}' title='Day Notes'>📝</a>`;
     }
-    counts[topic]++;
-  });
-  const max = Math.max(...Object.values(counts), 1);
-  const link = document.createElement('a');
-  link.href = dayBase + dateStr;
-  const div = document.createElement('div');
-  div.className = 'bar-chart';
-  order.forEach(topic => {
-    const bar = document.createElement('div');
-    bar.style.height = (counts[topic]/max*100)+'%';
-    bar.style.background = topicColors[topic];
-    div.appendChild(bar);
-  });
-  link.appendChild(div);
-  return link;
+
+    // Todos icon - only if todos exist
+    if (stats.has_todos) {
+      html += `<a href='${todosBase}${dateStr}' title='Todos'>✅</a>`;
+    }
+
+    // Transcript icon - only if transcripts exist
+    if (stats.has_transcripts) {
+      html += `<a href='${dayBase}${dateStr}/transcript' title='Transcript'>💬</a>`;
+      // Admin icon - only if transcripts exist
+      html += `<a href='${adminBase}${dateStr}' title='Admin'>⚙️</a>`;
+    }
+
+    html += `</div>`;
+  }
+
+  return html;
 }
 
 function showMonth(ym) {
@@ -112,41 +147,45 @@ function showMonth(ym) {
   const startDay = first.getDay();
   const daysInMonth = new Date(year, month+1, 0).getDate();
   let row = document.createElement('tr');
-  
+
   // Empty cells for days before month starts
-  for(let i=0; i<startDay; i++){ 
-    row.appendChild(document.createElement('td')); 
+  for(let i=0; i<startDay; i++){
+    row.appendChild(document.createElement('td'));
   }
-  
+
   // Days of the month
   for(let day=1; day<=daysInMonth; day++){
-    if((startDay+day-1)%7===0 && day!==1){ 
-      tbody.appendChild(row); 
-      row=document.createElement('tr'); 
+    if((startDay+day-1)%7===0 && day!==1){
+      tbody.appendChild(row);
+      row=document.createElement('tr');
     }
     const td = document.createElement('td');
     const dateStr = ym + String(day).padStart(2,'0');
-    const occList = occurrences[dateStr] || [];
-    const exists = availableDays.has(dateStr);
+    const isPastDay = dateStr < TODAY_DATE_STRING;
 
-    if(exists){
-      td.innerHTML = `<a class='day-number' href='${dayBase}${dateStr}'>${day}</a>`;
-    } else {
-      td.textContent = day;
-      td.classList.add('missing');
+    td.innerHTML = createDayContent(dateStr, day);
+
+    // Apply activity level background for past days
+    if (isPastDay) {
+      const stats = dayStats[dateStr];
+      const exists = availableDays.has(dateStr);
+      if (!exists) {
+        td.classList.add('activity-none');
+      } else if (stats && stats.activity_level) {
+        td.classList.add('activity-' + stats.activity_level);
+      }
     }
+
     if (dateStr === TODAY_DATE_STRING) {
       td.classList.add('today');
     }
-    if(occList.length){
-      td.appendChild(createBarChart(occList, dateStr));
-    }
+
     row.appendChild(td);
   }
-  
+
   // Fill remaining cells in last row
-  while(row.children.length<7){ 
-    row.appendChild(document.createElement('td')); 
+  while(row.children.length<7){
+    row.appendChild(document.createElement('td'));
   }
   tbody.appendChild(row);
 }

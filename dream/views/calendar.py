@@ -350,7 +350,7 @@ def download_audio(day: str) -> Any:
     from datetime import datetime
     from pathlib import Path
 
-    from flask import Response, send_file
+    from flask import send_file
 
     from think.cluster import _date_str, _load_entries
     from think.utils import day_path
@@ -560,3 +560,103 @@ def calendar_days() -> Any:
 
     days = list_day_folders(state.journal_root)
     return jsonify(days)
+
+
+@bp.route("/calendar/api/stats")
+def calendar_stats() -> Any:
+    """Return lightweight stats for calendar display."""
+    import os
+    from datetime import datetime
+
+    if not state.journal_root:
+        return jsonify({})
+
+    today = datetime.now().strftime("%Y%m%d")
+    stats = {}
+
+    # Get all days and their occurrence counts
+    all_days = []
+    for name in os.listdir(state.journal_root):
+        if DATE_RE.fullmatch(name):
+            path = os.path.join(state.journal_root, name)
+            if os.path.isdir(path):
+                day_stats = {
+                    "day": name,
+                    "has_transcripts": False,
+                    "has_todos": False,
+                    "has_topics": False,
+                    "occurrence_count": 0,
+                }
+
+                # Check for transcripts (audio json files)
+                for fname in os.listdir(path):
+                    if fname.endswith("_audio.json"):
+                        day_stats["has_transcripts"] = True
+                        break
+
+                # Check for todos
+                todos_path = os.path.join(path, "todos", "today.md")
+                if os.path.exists(todos_path):
+                    day_stats["has_todos"] = True
+
+                # Check for topics and count occurrences
+                topics_dir = os.path.join(path, "topics")
+                if os.path.isdir(topics_dir):
+                    # Check if any topic files exist (json or md)
+                    topic_files = [f for f in os.listdir(topics_dir)
+                                   if (f.endswith(".json") or f.endswith(".md"))
+                                   and not f.endswith(".crumb")]
+                    if topic_files:
+                        day_stats["has_topics"] = True
+
+                    # Count occurrences from JSON files
+                    for fname in os.listdir(topics_dir):
+                        if fname.endswith(".json") and not fname.endswith(".crumb"):
+                            try:
+                                file_path = os.path.join(topics_dir, fname)
+                                with open(file_path, "r", encoding="utf-8") as f:
+                                    data = json.load(f)
+                                items = (
+                                    data.get("occurrences", [])
+                                    if isinstance(data, dict)
+                                    else data if isinstance(data, list) else []
+                                )
+                                day_stats["occurrence_count"] += len(items)
+                            except Exception:
+                                continue
+
+                all_days.append(day_stats)
+                stats[name] = day_stats
+
+    # Calculate percentiles for past days only
+    past_days_with_data = [
+        d for d in all_days
+        if d["day"] < today and d["occurrence_count"] > 0
+    ]
+
+    if past_days_with_data:
+        # Sort by occurrence count
+        sorted_days = sorted(past_days_with_data, key=lambda x: x["occurrence_count"])
+        total = len(sorted_days)
+
+        # Calculate thresholds
+        bottom_20_idx = int(total * 0.2)
+        top_20_idx = int(total * 0.8)
+
+        for day in sorted_days[:bottom_20_idx]:
+            stats[day["day"]]["activity_level"] = "low"
+
+        for day in sorted_days[bottom_20_idx:top_20_idx]:
+            stats[day["day"]]["activity_level"] = "medium"
+
+        for day in sorted_days[top_20_idx:]:
+            stats[day["day"]]["activity_level"] = "high"
+
+    # Mark days with no data as "none" (but only past days)
+    for day_name, day_stats in stats.items():
+        if day_name < today:
+            if day_stats["occurrence_count"] == 0:
+                day_stats["activity_level"] = "none"
+        # Today and future days get no activity_level
+
+    return jsonify(stats)
