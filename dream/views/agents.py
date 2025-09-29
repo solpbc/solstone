@@ -178,7 +178,9 @@ def agents_list() -> object:
 
 def _get_agents_list(agent_type: str) -> object:
     """Internal helper to get agents list."""
-    limit = int(request.args.get("limit", 10))
+    # Default limit depends on agent type - 20 for historical, 10 for live
+    default_limit = 20 if agent_type == "historical" else 10
+    limit = int(request.args.get("limit", default_limit))
     offset = int(request.args.get("offset", 0))
 
     # Validate parameters - cortex_agents already does this but let's be explicit
