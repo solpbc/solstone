@@ -736,24 +736,24 @@ let pageSize = 20;
 let totalAgents = 0;
 
 // Session history table functions
-function buildRow(a) {
+function buildRow(a, isHistorical = false) {
   const tr = document.createElement('tr');
   const short = a.prompt.length > 80 ? a.prompt.slice(0, 80) + '…' : a.prompt;
   const chatLink = `{{ url_for('chat.chat_page') }}?agent=${a.id}`;
-  
+
   // Status badge
   const statusClass = `status-${a.status || 'unknown'}`;
   const statusBadge = `<span class="status-badge ${statusClass}">${a.status || 'unknown'}</span>`;
-  
+
   // PID indicator for running agents
   const pidIndicator = a.pid ? ` (PID: ${a.pid})` : '';
-  
+
   // Format runtime
   let runtimeDisplay = '';
   if (a.runtime_seconds !== undefined && a.runtime_seconds !== null) {
     const totalSeconds = Math.floor(a.runtime_seconds);
     const minutes = Math.floor(totalSeconds / 60);
-    
+
     if (totalSeconds > 59) {
       // For 60 seconds or more, show just minutes
       runtimeDisplay = `${minutes}m`;
@@ -762,7 +762,7 @@ function buildRow(a) {
       runtimeDisplay = `${totalSeconds}s`;
     }
   }
-  
+
   tr.innerHTML = `
     <td><a href="${chatLink}">${statusBadge}</a></td>
     <td><a href="${chatLink}">${a.since}</a></td>
@@ -771,8 +771,39 @@ function buildRow(a) {
     <td>${a.persona_title || a.persona}</td>
     <td title="${a.prompt}"><a href="${chatLink}">${short}</a></td>
   `;
+
+  // Add restart button cell for historical agents
+  if (isHistorical) {
+    const restartCell = document.createElement('td');
+    restartCell.style.textAlign = 'center';
+    restartCell.style.padding = '0';
+
+    const restartBtn = document.createElement('button');
+    restartBtn.className = 'restart-btn';
+    restartBtn.title = 'Restart this agent';
+    restartBtn.innerHTML = '&#x21bb;';
+    restartBtn.dataset.agentId = a.id;
+    restartBtn.dataset.prompt = a.prompt;
+    restartBtn.dataset.persona = a.persona;
+    restartBtn.dataset.backend = a.model;
+
+    restartBtn.onclick = (e) => {
+      e.stopPropagation();
+      restartAgent(e.target);
+    };
+
+    restartCell.appendChild(restartBtn);
+    tr.appendChild(restartCell);
+  }
+
   tr.style.cursor = 'pointer';
-  tr.onclick = () => window.location.href = chatLink;
+  tr.onclick = (e) => {
+    // Don't navigate if clicking the restart button
+    if (e.target.classList.contains('restart-btn')) {
+      return;
+    }
+    window.location.href = chatLink;
+  };
   return tr;
 }
 
@@ -807,24 +838,24 @@ function loadAgentSessions(page = 0) {
       // Update live agents table
       const liveTable = document.getElementById('liveAgentTable');
       const liveEmpty = document.getElementById('liveEmpty');
-      
+
       if (liveAgents.length > 0) {
         liveTable.innerHTML = '<tr><th>Status</th><th>Started</th><th>Runtime</th><th>Model</th><th>Agent</th><th>Prompt</th></tr>';
-        liveAgents.forEach(a => liveTable.appendChild(buildRow(a)));
+        liveAgents.forEach(a => liveTable.appendChild(buildRow(a, false)));
         liveTable.style.display = 'table';
         liveEmpty.style.display = 'none';
       } else {
         liveTable.style.display = 'none';
         liveEmpty.style.display = 'block';
       }
-      
+
       // Update historical agents table
       const histTable = document.getElementById('historicalAgentTable');
       const histEmpty = document.getElementById('historicalEmpty');
-      
+
       if (historicalAgents.length > 0) {
-        histTable.innerHTML = '<tr><th>Status</th><th>Started</th><th>Runtime</th><th>Model</th><th>Agent</th><th>Prompt</th></tr>';
-        historicalAgents.forEach(a => histTable.appendChild(buildRow(a)));
+        histTable.innerHTML = '<tr><th>Status</th><th>Started</th><th>Runtime</th><th>Model</th><th>Agent</th><th>Prompt</th><th style="width: 40px;">Actions</th></tr>';
+        historicalAgents.forEach(a => histTable.appendChild(buildRow(a, true)));
         histTable.style.display = 'table';
         histEmpty.style.display = 'none';
       } else {
@@ -865,10 +896,10 @@ function loadAgentSessions(page = 0) {
           // Update historical agents table
           const histTable = document.getElementById('historicalAgentTable');
           const histEmpty = document.getElementById('historicalEmpty');
-          
+
           if (historicalAgents.length > 0) {
-            histTable.innerHTML = '<tr><th>Status</th><th>Started</th><th>Runtime</th><th>Model</th><th>Agent</th><th>Prompt</th></tr>';
-            historicalAgents.forEach(a => histTable.appendChild(buildRow(a)));
+            histTable.innerHTML = '<tr><th>Status</th><th>Started</th><th>Runtime</th><th>Model</th><th>Agent</th><th>Prompt</th><th style="width: 40px;">Actions</th></tr>';
+            historicalAgents.forEach(a => histTable.appendChild(buildRow(a, true)));
             histTable.style.display = 'table';
             histEmpty.style.display = 'none';
           } else {
@@ -949,6 +980,56 @@ function hideConnectionWarning() {
 // Show error message
 function showError(message) {
   alert(message); // Simple alert for now, can be improved with a toast notification
+}
+
+// Restart agent function
+async function restartAgent(buttonElement) {
+  // Get data from button's dataset
+  const agentId = buttonElement.dataset.agentId;
+  const prompt = buttonElement.dataset.prompt;
+  const persona = buttonElement.dataset.persona;
+  const backend = buttonElement.dataset.backend;
+
+  // Confirmation dialog
+  const confirmed = confirm(
+    `Are you sure you want to restart this agent?\n\n` +
+    `Prompt: ${prompt.substring(0, 100)}${prompt.length > 100 ? '...' : ''}\n` +
+    `Agent: ${persona}\n` +
+    `Backend: ${backend}\n\n` +
+    `This will create a new agent run with the same configuration.`
+  );
+
+  if (!confirmed) {
+    return;
+  }
+
+  try {
+    const response = await fetch('{{ url_for('agents.start_agent') }}', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        prompt: prompt,
+        backend: backend,
+        persona: persona,
+        config: {}
+      })
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.error || 'Failed to restart agent');
+    }
+
+    // Success - reload the agents list to show the new agent
+    alert('Agent restarted successfully!');
+    loadAgentSessions(currentPage);
+
+  } catch (error) {
+    showError('Error restarting agent: ' + error.message);
+  }
 }
 
 // Create Agent Modal Functions
