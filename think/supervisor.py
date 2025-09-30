@@ -20,6 +20,13 @@ CHECK_INTERVAL = 30
 # Global shutdown flag
 shutdown_requested = False
 
+# State for scheduled agent execution
+_scheduled_state = {
+    "pending_groups": [],  # List of (priority, [(persona_id, config, yesterday)])
+    "active_files": [],  # List of Path objects for current priority group
+    "start_time": 0,  # When current group started
+}
+
 
 def _get_journal_path() -> Path:
     journal = os.getenv("JOURNAL_PATH")
@@ -208,52 +215,114 @@ def run_process_day() -> bool:
 
 
 def spawn_scheduled_agents() -> None:
-    """Spawn agents that have schedule:daily in their metadata."""
+    """Prepare scheduled agents grouped by priority for sequential execution."""
     try:
         # Calculate yesterday's date
         yesterday = (datetime.now().date() - timedelta(days=1)).strftime("%Y-%m-%d")
 
         agents = get_agents()
 
-        # Filter and sort scheduled agents by priority
-        scheduled_agents = []
+        # Group agents by priority
+        priority_groups: dict[int, list[tuple[str, dict]]] = {}
         for persona_id, config in agents.items():
             if config.get("schedule") == "daily":
-                # Default priority is 50 if not specified
                 priority = config.get("priority", 50)
-                scheduled_agents.append((priority, persona_id, config))
+                priority_groups.setdefault(priority, []).append((persona_id, config))
 
-        # Sort by priority (lower number = higher priority = runs first)
-        scheduled_agents.sort(key=lambda x: x[0])
+        # Store sorted groups in state for sequential processing
+        _scheduled_state["pending_groups"] = [
+            (
+                priority,
+                [(persona_id, config, yesterday) for persona_id, config in agents_list],
+            )
+            for priority, agents_list in sorted(priority_groups.items())
+        ]
+        _scheduled_state["active_files"] = []
+        _scheduled_state["start_time"] = 0
 
-        # Execute agents in priority order
-        for priority, persona_id, config in scheduled_agents:
-            logging.info(f"Spawning scheduled agent: {persona_id} (priority: {priority})")
-
-            # Check if this is a multi-domain agent
-            if config.get("multi_domain"):
-                domains = get_domains()
-                for domain_name in domains.keys():
-                    logging.info(f"Spawning {persona_id} for domain: {domain_name}")
-                    request_file = cortex_request(
-                        prompt=f"You are processing domain '{domain_name}' for yesterday ({yesterday}), use get_domain('{domain_name}') to load the correct context before starting.",
-                        persona=persona_id
-                    )
-                    # Extract agent_id from the filename
-                    agent_id = Path(request_file).stem.replace("_active", "")
-                    logging.info(f"Started {persona_id} agent for domain {domain_name} (ID: {agent_id})")
-            else:
-                # Regular single-instance agent
-                # Spawn via Cortex - it will load and merge the persona config
-                request_file = cortex_request(
-                    prompt=f"Running daily scheduled task for {persona_id}, yesterday was {yesterday}.",
-                    persona=persona_id,
-                )
-                # Extract agent_id from the filename
-                agent_id = Path(request_file).stem.replace("_active", "")
-                logging.info(f"Started {persona_id} agent (ID: {agent_id})")
+        total_agents = sum(
+            len(agents_list) for _, agents_list in _scheduled_state["pending_groups"]
+        )
+        logging.info(
+            f"Prepared {len(_scheduled_state['pending_groups'])} priority groups "
+            f"with {total_agents} total agents"
+        )
     except Exception as e:
-        logging.error(f"Failed to spawn scheduled agents: {e}")
+        logging.error(f"Failed to prepare scheduled agents: {e}")
+
+
+def check_scheduled_agents() -> None:
+    """Check and advance scheduled agent execution (non-blocking).
+
+    Called from the main supervise loop to incrementally process priority groups.
+    Each priority group completes before the next begins.
+    """
+    state = _scheduled_state
+
+    # Nothing to do if no pending groups and no active agents
+    if not state["pending_groups"] and not state["active_files"]:
+        return
+
+    # Check if current priority group is done
+    if state["active_files"]:
+        all_done = not any(f.exists() for f in state["active_files"])
+        timed_out = (
+            time.time() - state["start_time"]
+        ) > 300  # 5 minute timeout per group
+
+        if all_done:
+            logging.info("Priority group completed")
+            state["active_files"] = []
+        elif timed_out:
+            logging.warning(
+                "Priority group timed out after 300s, proceeding to next group"
+            )
+            state["active_files"] = []
+        else:
+            return  # Still running, check again next iteration
+
+    # Check for shutdown before starting next group
+    if shutdown_requested:
+        state["pending_groups"] = []
+        state["active_files"] = []
+        return
+
+    # Spawn next priority group
+    if state["pending_groups"]:
+        priority, agents_list = state["pending_groups"].pop(0)
+        logging.info(f"Starting priority {priority} agents ({len(agents_list)} agents)")
+
+        active_files = []
+        for persona_id, config, yesterday in agents_list:
+            try:
+                # Check if this is a multi-domain agent
+                if config.get("multi_domain"):
+                    domains = get_domains()
+                    for domain_name in domains.keys():
+                        logging.info(f"Spawning {persona_id} for domain: {domain_name}")
+                        request_file = cortex_request(
+                            prompt=f"You are processing domain '{domain_name}' for yesterday ({yesterday}), use get_domain('{domain_name}') to load the correct context before starting.",
+                            persona=persona_id,
+                        )
+                        active_files.append(Path(request_file))
+                        agent_id = Path(request_file).stem.replace("_active", "")
+                        logging.info(
+                            f"Started {persona_id} for {domain_name} (ID: {agent_id})"
+                        )
+                else:
+                    # Regular single-instance agent
+                    request_file = cortex_request(
+                        prompt=f"Running daily scheduled task for {persona_id}, yesterday was {yesterday}.",
+                        persona=persona_id,
+                    )
+                    active_files.append(Path(request_file))
+                    agent_id = Path(request_file).stem.replace("_active", "")
+                    logging.info(f"Started {persona_id} agent (ID: {agent_id})")
+            except Exception as e:
+                logging.error(f"Failed to spawn {persona_id}: {e}")
+
+        state["active_files"] = active_files
+        state["start_time"] = time.time()
 
 
 def start_runners() -> list[ManagedProcess]:
@@ -301,9 +370,15 @@ def supervise(
     daily: bool = True,
     procs: list[ManagedProcess] | None = None,
 ) -> None:
-    """Monitor heartbeat files and alert when they become stale."""
+    """Monitor heartbeat files and alert when they become stale.
+
+    Main supervision loop runs at 1-second intervals for responsiveness.
+    Subsystems manage their own timing (health checks every interval seconds,
+    scheduled agents check continuously but only advance when ready).
+    """
     global shutdown_requested
     last_day = datetime.now().date()
+    last_health_check = 0.0  # Track last health check time
     alert_state = {}  # Track {issue_key: (last_alert_time, backoff_seconds)}
     prev_stale: set[str] = set()
     initial_backoff = 60  # Start with 1 minute
@@ -357,7 +432,9 @@ def supervise(
 
                     if managed.restart and not shutdown_requested:
                         policy = _get_restart_policy(managed.name)
-                        uptime = time.time() - policy.last_start if policy.last_start else 0
+                        uptime = (
+                            time.time() - policy.last_start if policy.last_start else 0
+                        )
                         if uptime >= 60:
                             policy.reset_attempts()
                         delay = policy.next_delay()
@@ -380,7 +457,9 @@ def supervise(
                                 log_name=managed.logger.path.stem,
                             )
                         except Exception as exc:  # pragma: no cover - defensive
-                            logging.exception("Failed to restart %s: %s", managed.name, exc)
+                            logging.exception(
+                                "Failed to restart %s: %s", managed.name, exc
+                            )
                             continue
 
                         insert_at = index if index is not None else len(procs)
@@ -391,60 +470,64 @@ def supervise(
                     else:
                         logging.info("Not restarting %s", managed.name)
 
-        stale = check_health(threshold)
-        stale_set = set(stale)
+        # Check health periodically (interval-based timing)
+        now = time.time()
+        if now - last_health_check >= interval:
+            stale = check_health(threshold)
+            stale_set = set(stale)
 
-        recovered = sorted(prev_stale - stale_set)
-        for name in recovered:
-            logging.info("%s heartbeat recovered", name)
+            recovered = sorted(prev_stale - stale_set)
+            for name in recovered:
+                logging.info("%s heartbeat recovered", name)
 
-        if stale_set:
-            msg = f"Journaling offline: {', '.join(sorted(stale_set))}"
-            logging.warning(msg)
+            if stale_set:
+                msg = f"Journaling offline: {', '.join(sorted(stale_set))}"
+                logging.warning(msg)
 
-            # Apply exponential backoff
-            stale_key = ("stale", tuple(sorted(stale_set)))
-            now = time.time()
+                # Apply exponential backoff
+                stale_key = ("stale", tuple(sorted(stale_set)))
 
-            if stale_key in alert_state:
-                last_time, backoff = alert_state[stale_key]
-                if now - last_time >= backoff:
-                    send_notification(msg, command)
-                    # Double the backoff for next time, up to max
-                    alert_state[stale_key] = (now, min(backoff * 2, max_backoff))
-                    logging.info(
-                        f"Alert sent, next backoff: {min(backoff * 2, max_backoff)}s"
-                    )
+                if stale_key in alert_state:
+                    last_time, backoff = alert_state[stale_key]
+                    if now - last_time >= backoff:
+                        send_notification(msg, command)
+                        # Double the backoff for next time, up to max
+                        alert_state[stale_key] = (now, min(backoff * 2, max_backoff))
+                        logging.info(
+                            f"Alert sent, next backoff: {min(backoff * 2, max_backoff)}s"
+                        )
+                    else:
+                        remaining = int(backoff - (now - last_time))
+                        logging.info(f"Suppressing alert, next in {remaining}s")
                 else:
-                    remaining = int(backoff - (now - last_time))
-                    logging.info(f"Suppressing alert, next in {remaining}s")
+                    send_notification(msg, command)
+                    alert_state[stale_key] = (now, initial_backoff)
+                # Retain only alert state entries still relevant
+                alert_state = {
+                    k: v
+                    for k, v in alert_state.items()
+                    if k[0] != "stale" or set(k[1]).issubset(stale_set)
+                }
             else:
-                send_notification(msg, command)
-                alert_state[stale_key] = (now, initial_backoff)
-            # Retain only alert state entries still relevant
-            alert_state = {
-                k: v
-                for k, v in alert_state.items()
-                if k[0] != "stale" or set(k[1]).issubset(stale_set)
-            }
-        else:
-            if prev_stale:
-                logging.info("Heartbeat OK")
-            # Clear alert state for stale services when they recover
-            alert_state = {k: v for k, v in alert_state.items() if k[0] != "stale"}
+                if prev_stale:
+                    logging.info("Heartbeat OK")
+                # Clear alert state for stale services when they recover
+                alert_state = {k: v for k, v in alert_state.items() if k[0] != "stale"}
 
-        prev_stale = stale_set
+            prev_stale = stale_set
+            last_health_check = now
 
+        # Check for daily processing (fast date comparison)
         if daily and datetime.now().date() != last_day:
             if run_process_day():
                 spawn_scheduled_agents()
             last_day = datetime.now().date()
 
-        # Use shorter sleep intervals to check for shutdown
-        for _ in range(interval):
-            if shutdown_requested:
-                break
-            time.sleep(1)
+        # Advance scheduled agent execution (non-blocking)
+        check_scheduled_agents()
+
+        # Sleep 1 second before next iteration (responsive to shutdown)
+        time.sleep(1)
 
 
 def parse_args() -> argparse.ArgumentParser:
