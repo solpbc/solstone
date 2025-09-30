@@ -275,16 +275,19 @@
 }
 
 /* Session History Table */
-table { 
-  border-collapse: collapse; 
-  width: 100%; 
+table {
+  border-collapse: collapse;
+  width: 100%;
   margin-top: 2rem;
+  table-layout: fixed;
 }
-th, td { 
-  padding: 4px 8px; 
-  border-bottom: 1px solid #ddd; 
-  white-space: nowrap; 
+th, td {
+  padding: 4px 8px;
+  border-bottom: 1px solid #ddd;
+  white-space: nowrap;
   text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 th {
   font-weight: 600;
@@ -292,25 +295,27 @@ th {
 }
 /* Adjust column widths */
 td:nth-child(1), th:nth-child(1) { /* Status */
-  width: 100px;
+  width: 40px;
+  text-align: center;
 }
 td:nth-child(2), th:nth-child(2) { /* Started */
-  width: 120px;
+  width: 100px;
 }
 td:nth-child(3), th:nth-child(3) { /* Runtime */
-  width: 80px;
+  width: 60px;
   text-align: right;
 }
 td:nth-child(4), th:nth-child(4) { /* Model */
-  width: 150px;
+  width: 120px;
 }
 td:nth-child(5), th:nth-child(5) { /* Agent */
-  width: 180px;
+  width: 150px;
 }
-td:last-child { /* Prompt */
-  overflow: hidden; 
-  text-overflow: ellipsis;
-  max-width: 0;
+td:nth-child(6), th:nth-child(6) { /* Prompt */
+  width: auto;
+}
+td:nth-child(7), th:nth-child(7) { /* Actions (for historical table) */
+  width: 40px;
 }
 tr:hover {
   background-color: #f8f9fa;
@@ -326,37 +331,9 @@ tr a:hover {
 /* Status indicators */
 .status-badge {
   display: inline-block;
-  padding: 2px 6px;
-  border-radius: 3px;
-  font-size: 0.75rem;
-  font-weight: 500;
-  text-transform: uppercase;
-  margin-right: 0.5rem;
-}
-
-.status-running {
-  background-color: #d4edda;
-  color: #155724;
-}
-
-.status-finished {
-  background-color: #d1ecf1;
-  color: #0c5460;
-}
-
-.status-error {
-  background-color: #f8d7da;
-  color: #721c24;
-}
-
-.status-interrupted {
-  background-color: #fff3cd;
-  color: #856404;
-}
-
-.status-unknown {
-  background-color: #e2e3e5;
-  color: #383d41;
+  font-size: 1.2rem;
+  line-height: 1;
+  cursor: help;
 }
 
 /* Section headers for agent log */

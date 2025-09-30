@@ -741,9 +741,18 @@ function buildRow(a, isHistorical = false) {
   const short = a.prompt.length > 80 ? a.prompt.slice(0, 80) + '…' : a.prompt;
   const chatLink = `{{ url_for('chat.chat_page') }}?agent=${a.id}`;
 
-  // Status badge
+  // Status emoji
+  const statusEmojis = {
+    'running': '▶️',
+    'completed': '✅',
+    'finished': '✅',
+    'error': '❌',
+    'interrupted': '⚠️',
+    'unknown': '❓'
+  };
   const statusClass = `status-${a.status || 'unknown'}`;
-  const statusBadge = `<span class="status-badge ${statusClass}">${a.status || 'unknown'}</span>`;
+  const statusEmoji = statusEmojis[a.status] || statusEmojis['unknown'];
+  const statusBadge = `<span class="status-badge ${statusClass}" title="${a.status || 'unknown'}">${statusEmoji}</span>`;
 
   // PID indicator for running agents
   const pidIndicator = a.pid ? ` (PID: ${a.pid})` : '';
@@ -840,7 +849,7 @@ function loadAgentSessions(page = 0) {
       const liveEmpty = document.getElementById('liveEmpty');
 
       if (liveAgents.length > 0) {
-        liveTable.innerHTML = '<tr><th>Status</th><th>Started</th><th>Runtime</th><th>Model</th><th>Agent</th><th>Prompt</th></tr>';
+        liveTable.innerHTML = '<tr><th></th><th>Started</th><th>Runtime</th><th>Model</th><th>Agent</th><th>Prompt</th></tr>';
         liveAgents.forEach(a => liveTable.appendChild(buildRow(a, false)));
         liveTable.style.display = 'table';
         liveEmpty.style.display = 'none';
@@ -854,7 +863,7 @@ function loadAgentSessions(page = 0) {
       const histEmpty = document.getElementById('historicalEmpty');
 
       if (historicalAgents.length > 0) {
-        histTable.innerHTML = '<tr><th>Status</th><th>Started</th><th>Runtime</th><th>Model</th><th>Agent</th><th>Prompt</th><th style="width: 40px;">Actions</th></tr>';
+        histTable.innerHTML = '<tr><th></th><th>Started</th><th>Runtime</th><th>Model</th><th>Agent</th><th>Prompt</th><th>⚙️</th></tr>';
         historicalAgents.forEach(a => histTable.appendChild(buildRow(a, true)));
         histTable.style.display = 'table';
         histEmpty.style.display = 'none';
@@ -898,7 +907,7 @@ function loadAgentSessions(page = 0) {
           const histEmpty = document.getElementById('historicalEmpty');
 
           if (historicalAgents.length > 0) {
-            histTable.innerHTML = '<tr><th>Status</th><th>Started</th><th>Runtime</th><th>Model</th><th>Agent</th><th>Prompt</th><th style="width: 40px;">Actions</th></tr>';
+            histTable.innerHTML = '<tr><th></th><th>Started</th><th>Runtime</th><th>Model</th><th>Agent</th><th>Prompt</th><th>⚙️</th></tr>';
             historicalAgents.forEach(a => histTable.appendChild(buildRow(a, true)));
             histTable.style.display = 'table';
             histEmpty.style.display = 'none';
