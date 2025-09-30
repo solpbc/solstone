@@ -1,0 +1,7 @@
+{
+  "title": "Daily News Briefing",
+  "description": "Creates a crisp TL;DR briefing highlighting yesterday's top activities across all domains, delivered to inbox",
+  "schedule": "daily",
+  "priority": 15,
+  "tools": "journal,domains"
+}
