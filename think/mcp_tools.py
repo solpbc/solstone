@@ -756,6 +756,18 @@ def _get_transcript_resource(
     try:
         # Parse the length as minutes and convert to end time
         length_minutes = int(length)
+
+        # Validate maximum length to prevent context overload
+        if length_minutes > 120:
+            error_content = f"# Error\n\nRequested {length_minutes} minutes exceeds the maximum of 120 minutes per call to minimize context overload. Please request a shorter time range."
+            return TextResource(
+                uri=f"journal://transcripts/{mode}/{day}/{time}/{length}",
+                name=f"Transcripts Error ({mode}): {day} {time} ({length}min)",
+                description=f"Error: Requested length exceeds maximum",
+                mime_type="text/markdown",
+                text=error_content,
+            )
+
         from datetime import datetime, timedelta
 
         # Parse start time
