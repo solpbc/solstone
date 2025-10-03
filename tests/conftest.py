@@ -115,6 +115,9 @@ def add_module_stubs(request, monkeypatch):
         screen_dbus.screen_snap = lambda: []
         screen_dbus.idle_time_ms = lambda: 0
         screen_dbus.check_screen_state = lambda: {"locked": False, "power_save": False}
+        screen_dbus.get_monitor_geometries = lambda: [
+            {"id": "HDMI-1", "box": [0, 0, 1920, 1080], "position": "center"}
+        ]
         sys.modules["see.screen_dbus"] = screen_dbus
         sys.modules["screen_dbus"] = screen_dbus
     google_mod = sys.modules.get("google", types.ModuleType("google"))

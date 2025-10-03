@@ -109,6 +109,14 @@ def check_screen_state():
 
 
 def get_monitor_geometries():
+    """
+    Get structured monitor information.
+
+    Returns:
+        List of dicts with format:
+        [{"id": "connector-id", "box": [x1, y1, x2, y2], "position": "center|left|right|top|bottom|left-top|..."}, ...]
+        where box contains [left, top, right, bottom] coordinates
+    """
     # Initialize GTK before using GDK functions
     Gtk.init()
 
@@ -122,12 +130,74 @@ def get_monitor_geometries():
             raise RuntimeError("No display available")
     # In GTK 4, get_monitors() returns a list of Gdk.Monitor objects.
     monitors = display.get_monitors()
-    geometries = []
+
+    # First pass: collect all geometries and compute union bounding box
+    monitor_data = []
     for monitor in monitors:
-        geom = (
-            monitor.get_geometry()
-        )  # geom is a Gdk.Rectangle with attributes: x, y, width, height
-        geometries.append(geom)
+        geom = monitor.get_geometry()
+        connector = monitor.get_connector() or f"monitor-{len(monitor_data)}"
+        monitor_data.append({
+            "monitor": monitor,
+            "connector": connector,
+            "x": geom.x,
+            "y": geom.y,
+            "width": geom.width,
+            "height": geom.height
+        })
+
+    # Compute union bounding box
+    min_x = min(m["x"] for m in monitor_data)
+    min_y = min(m["y"] for m in monitor_data)
+    max_x = max(m["x"] + m["width"] for m in monitor_data)
+    max_y = max(m["y"] + m["height"] for m in monitor_data)
+
+    # Compute midlines
+    union_mid_x = (min_x + max_x) / 2
+    union_mid_y = (min_y + max_y) / 2
+
+    # Epsilon for intersection detection (1 pixel tolerance)
+    epsilon = 1
+
+    # Second pass: assign positions based on midline intersections
+    geometries = []
+    for m in monitor_data:
+        x_left = m["x"]
+        x_right = m["x"] + m["width"]
+        y_top = m["y"]
+        y_bottom = m["y"] + m["height"]
+
+        # Horizontal position
+        if x_left <= union_mid_x + epsilon and x_right >= union_mid_x - epsilon:
+            h_pos = "center"
+        elif x_right < union_mid_x - epsilon:
+            h_pos = "left"
+        else:
+            h_pos = "right"
+
+        # Vertical position
+        if y_top <= union_mid_y + epsilon and y_bottom >= union_mid_y - epsilon:
+            v_pos = "center"
+        elif y_bottom < union_mid_y - epsilon:
+            v_pos = "top"
+        else:
+            v_pos = "bottom"
+
+        # Combine positions
+        if h_pos == "center" and v_pos == "center":
+            position = "center"
+        elif h_pos == "center":
+            position = v_pos
+        elif v_pos == "center":
+            position = h_pos
+        else:
+            position = f"{h_pos}-{v_pos}"
+
+        geometries.append({
+            "id": m["connector"],
+            "box": [m["x"], m["y"], m["x"] + m["width"], m["y"] + m["height"]],
+            "position": position
+        })
+
     return geometries
 
 
@@ -156,8 +226,8 @@ async def screen_snap_async(skip_if_locked=True):
     im = Image.open(io.BytesIO(screenshot_data))
     geometries = get_monitor_geometries()
     monitor_images = []
-    for geom in geometries:
-        box = (geom.x, geom.y, geom.x + geom.width, geom.y + geom.height)
+    for geom_info in geometries:
+        box = tuple(geom_info["box"])  # [x, y, x+w, y+h]
         monitor_img = im.crop(box)
         monitor_images.append(monitor_img)
     last_screenshot_timestamp = now

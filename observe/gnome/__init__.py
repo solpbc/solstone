@@ -1,0 +1,1 @@
+"""GNOME-specific observation utilities."""
