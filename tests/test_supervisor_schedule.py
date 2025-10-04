@@ -10,6 +10,8 @@ from think.supervisor import spawn_scheduled_agents
 @patch("think.supervisor.get_agents")
 def test_spawn_scheduled_agents(mock_get_agents, mock_cortex_request):
     """Test that scheduled agents are spawned correctly via Cortex."""
+    from think.supervisor import check_scheduled_agents
+
     # Mock agents with one scheduled and one not
     mock_get_agents.return_value = {
         "todo": {
@@ -34,9 +36,10 @@ def test_spawn_scheduled_agents(mock_get_agents, mock_cortex_request):
         "/test/journal/agents/987654321_active.jsonl",
     ]
 
-    # Call the function
+    # Call the functions (prepare then execute)
     with patch.dict(os.environ, {"JOURNAL_PATH": "/test/journal"}, clear=True):
         spawn_scheduled_agents()
+        check_scheduled_agents()
 
     # Should spawn 2 agents (todo and another_daily)
     assert mock_cortex_request.call_count == 2
