@@ -108,7 +108,9 @@ def _flatten_identity_to_template_vars(identity: dict[str, Any]) -> dict[str, st
     return template_vars
 
 
-def load_prompt(name: str, base_dir: str | Path | None = None) -> PromptContent:
+def load_prompt(
+    name: str, base_dir: str | Path | None = None, *, include_journal: bool = False
+) -> PromptContent:
     """Return the text contents and path for a ``.txt`` prompt file.
 
     Supports Python string.Template variable substitution using identity config
@@ -126,6 +128,9 @@ def load_prompt(name: str, base_dir: str | Path | None = None) -> PromptContent:
     base_dir:
         Optional directory containing the prompt file. Defaults to the directory
         of this module when not provided.
+    include_journal:
+        If True, prepends the content of ``think/journal.txt`` to the requested
+        prompt. Defaults to False.
 
     Returns
     -------
@@ -157,6 +162,11 @@ def load_prompt(name: str, base_dir: str | Path | None = None) -> PromptContent:
     except Exception as exc:
         # Log but don't fail - return original text if substitution fails
         logging.debug("Template substitution failed for %s: %s", prompt_path, exc)
+
+    # Prepend journal content if requested
+    if include_journal and name != "journal":
+        journal_content = load_prompt("journal", base_dir=base_dir)
+        text = f"{journal_content.text}\n\n{text}"
 
     return PromptContent(text=text, path=prompt_path)
 

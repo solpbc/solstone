@@ -170,3 +170,22 @@ def test_load_prompt_missing_config_graceful(tmp_path, mock_prompt_dir):
     assert "$entity_value" in result.text
     # The prompt should still load without errors
     assert result.path.exists()
+
+
+def test_load_prompt_include_journal(mock_journal_with_config, mock_prompt_dir):
+    """Test that include_journal prepends journal.txt content."""
+    # Create a journal.txt in the prompts directory
+    journal_prompt = "Journal preamble for $name.\n\nContext follows."
+    (mock_prompt_dir / "journal.txt").write_text(journal_prompt)
+
+    result = load_prompt("plain", base_dir=mock_prompt_dir, include_journal=True)
+
+    # Journal content should be prepended
+    assert "Journal preamble for Test User" in result.text
+    assert "Context follows" in result.text
+    # Original prompt content should follow
+    assert "This is a plain prompt without any variables." in result.text
+    # Journal should come before prompt
+    assert result.text.index("Journal preamble") < result.text.index(
+        "This is a plain prompt"
+    )

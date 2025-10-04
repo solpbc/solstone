@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import datetime
 from pathlib import Path
 
 import pytest
@@ -19,7 +20,9 @@ def call_tool(tool, *args, **kwargs):
 def todo_env(tmp_path, monkeypatch):
     """Create a temporary journal day with optional todo entries."""
 
-    def _create(entries: list[str] | None = None, day: str = "20240202"):
+    def _create(entries: list[str] | None = None, day: str | None = None):
+        if day is None:
+            day = datetime.now().strftime("%Y%m%d")
         day_dir = tmp_path / day
         (day_dir / "todos").mkdir(parents=True, exist_ok=True)
         if entries is not None:
