@@ -148,23 +148,10 @@ def test_audio_transcribe_sanitizes_entities(tmp_path, monkeypatch):
     audio_file = tmp_path / "test_audio.mp3"
     audio_file.write_bytes(b"fake audio content")
 
-    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
-
-    monkeypatch.setattr(
-        "think.domains.get_domains",
-        lambda: {
-            "uavionix": {
-                "entities": {
-                    "Person": [
-                        "Ryan Reed (R2)",
-                        "123",
-                        "Surface Awareness Initiative (SAI)",
-                        "Ryan Reed (R2)",
-                    ]
-                }
-            }
-        },
-    )
+    # Use fixtures journal for domain entities lookup
+    from pathlib import Path
+    fixtures_journal = Path(__file__).parent.parent / "fixtures" / "journal"
+    monkeypatch.setenv("JOURNAL_PATH", str(fixtures_journal))
 
     captured: list[list[str]] = []
 
@@ -180,13 +167,13 @@ def test_audio_transcribe_sanitizes_entities(tmp_path, monkeypatch):
         str(tmp_path),
         dt.datetime(2024, 1, 1, 12, 0, 0),
         import_id="20240101_120000",
-        domain="uavionix",
+        domain="acme",
     )
 
     assert captured
     assert captured[0] == [
-        "Ryan Reed (R)",
-        "Surface Awareness Initiative (SAI)",
+        "Test Person (TP)",
+        "Test Initiative (TI)",
     ]
 
 
