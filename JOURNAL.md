@@ -57,6 +57,21 @@ When an entity is selected in the configuration UI, the entity's description is 
 
 This configuration helps meeting extraction identify the user as a participant, enables personalized agent interactions, and ensures timestamps are interpreted correctly across the journal.
 
+### Convey configuration
+
+The `convey` block contains settings for the web application:
+
+```json
+{
+  "convey": {
+    "password": "your-password-here"
+  }
+}
+```
+
+Fields:
+- `password` (string) – Password for accessing the convey web application. When set, users must authenticate before accessing the journal interface.
+
 #### Template usage examples
 
 The structured pronoun format enables proper pronoun usage in generated text and agent responses:

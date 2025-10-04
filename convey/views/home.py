@@ -16,9 +16,19 @@ from flask import (
     url_for,
 )
 
-from think.utils import get_topics
+from think.utils import get_config, get_topics
 
 from .. import state
+
+
+def _get_password() -> str:
+    """Get current password from config, reloading on each call."""
+    try:
+        config = get_config()
+        convey_config = config.get("convey", {})
+        return convey_config.get("password", "")
+    except Exception:
+        return ""
 
 bp = Blueprint(
     "review",
@@ -43,14 +53,26 @@ def require_login() -> Any:
 
 @bp.route("/login", methods=["GET", "POST"])
 def login() -> Any:
+    # Re-check password from config on each request
+    password = _get_password()
+
+    # If no password is configured, show error page
+    if not password:
+        error = (
+            "No password configured. Please add a password to your journal "
+            "config at config/journal.json:\n\n"
+            '{\n  "convey": {\n    "password": "your-password-here"\n  }\n}'
+        )
+        return render_template("login.html", error=error, no_password=True)
+
     error = None
     if request.method == "POST":
-        if request.form.get("password") == current_app.config.get("PASSWORD"):
+        if request.form.get("password") == password:
             session["logged_in"] = True
             session.permanent = True
             return redirect(url_for("review.home"))
         error = "Invalid password"
-    return render_template("login.html", error=error)
+    return render_template("login.html", error=error, no_password=False)
 
 
 @bp.route("/logout")

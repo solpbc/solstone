@@ -13,12 +13,22 @@ pip install -e .
 Run the server with:
 
 ```bash
-convey --password YOURPASSWORD
+convey
 ```
 
-Open the printed URL in your browser and login with the password. You can also
-set `SS_CONVEY_PW` in your environment or `.env` file instead of passing
-`--password`.
+### Authentication
+
+Password authentication is configured through the journal config at `config/journal.json`:
+
+```json
+{
+  "convey": {
+    "password": "your-password-here"
+  }
+}
+```
+
+A password must be configured to use the application. If no password is set, the login page will display an error with configuration instructions.
 
 ## Layout
 

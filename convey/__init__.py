@@ -56,10 +56,16 @@ import_page_view = import_module(".import", "convey.views")
 logger = logging.getLogger(__name__)
 
 
-def _resolve_env_password() -> str:
-    """Return the configured Convey password from ``SS_CONVEY_PW``."""
+def _resolve_config_password() -> str:
+    """Return the configured Convey password from journal config."""
+    from think.utils import get_config
 
-    return os.getenv("SS_CONVEY_PW", "")
+    try:
+        config = get_config()
+        convey_config = config.get("convey", {})
+        return convey_config.get("password", "")
+    except Exception:
+        return ""
 
 
 def _count_pending_todos_today() -> int:
@@ -101,7 +107,7 @@ def _resolve_nav_badges() -> dict[str, int]:
     return badges
 
 
-def create_app(journal: str = "", password: str = "") -> Flask:
+def create_app(journal: str = "") -> Flask:
     """Create and configure the review Flask application."""
     app = Flask(
         __name__,
@@ -109,7 +115,6 @@ def create_app(journal: str = "", password: str = "") -> Flask:
         static_folder=os.path.join(os.path.dirname(__file__), "static"),
     )
     app.secret_key = os.getenv("CONVEY_SECRET", "sunstone-secret")
-    app.config["PASSWORD"] = password or _resolve_env_password()
     app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(days=30)
     register_views(app)
 
@@ -291,20 +296,17 @@ def run_service(
 def main() -> None:
     parser = argparse.ArgumentParser(description="Combined review web service")
     parser.add_argument("--port", type=int, default=8000, help="Port to serve on")
-    parser.add_argument(
-        "--password",
-        help="Password required for login (can also set SS_CONVEY_PW)",
-        default=None,
-    )
     args = setup_cli(parser)
     journal = os.getenv("JOURNAL_PATH")
     if not journal:
         raise SystemExit("JOURNAL_PATH not set")
 
-    password = args.password or _resolve_env_password()
-    app = create_app(journal, password)
-    if not app.config["PASSWORD"]:
-        raise ValueError("Password must be provided via --password or SS_CONVEY_PW")
+    app = create_app(journal)
+    password = _resolve_config_password()
+    if password:
+        logger.info("Password authentication enabled")
+    else:
+        logger.warning("No password configured - add to config/journal.json to enable authentication")
 
     run_service(app, host="0.0.0.0", port=args.port, debug=args.verbose)
 

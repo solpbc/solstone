@@ -7,11 +7,24 @@
   <link rel="stylesheet" href="{{ url_for('review.static', filename='review.css') }}">
 </head>
 <body>
-  <form method="post" style="max-width:300px;margin:10% auto;text-align:center;">
+  <div style="max-width:500px;margin:10% auto;text-align:center;">
     <h2>Convey Review Login</h2>
-    {% if error %}<p style="color:red;">{{ error }}</p>{% endif %}
-    <input type="password" name="password" placeholder="Password" style="width:100%;padding:0.5em;" autofocus>
-    <button type="submit" style="margin-top:1em;padding:0.5em 1em;">Login</button>
-  </form>
+    {% if error %}
+      <div style="color:red;margin:1em 0;text-align:left;">
+        {% if no_password %}
+          <p style="font-weight:bold;margin-bottom:1em;">{{ error.split('\n\n')[0] }}</p>
+          <pre style="background:#f5f5f5;padding:1em;text-align:left;border-radius:4px;">{{ error.split('\n\n')[1] }}</pre>
+        {% else %}
+          <p>{{ error }}</p>
+        {% endif %}
+      </div>
+    {% endif %}
+    {% if not no_password %}
+      <form method="post">
+        <input type="password" name="password" placeholder="Password" style="width:100%;padding:0.5em;" autofocus>
+        <button type="submit" style="margin-top:1em;padding:0.5em 1em;">Login</button>
+      </form>
+    {% endif %}
+  </div>
 </body>
 </html>
