@@ -1,4 +1,4 @@
-"""Utility web apps for reviewing dream data."""
+"""Utility web apps for reviewing convey data."""
 
 from __future__ import annotations
 
@@ -50,16 +50,16 @@ from .tasks import task_manager
 
 # isort: on
 
-import_page_view = import_module(".import", "dream.views")
+import_page_view = import_module(".import", "convey.views")
 
 
 logger = logging.getLogger(__name__)
 
 
 def _resolve_env_password() -> str:
-    """Return the configured Dream password from ``SS_DREAM_PW``."""
+    """Return the configured Convey password from ``SS_CONVEY_PW``."""
 
-    return os.getenv("SS_DREAM_PW", "")
+    return os.getenv("SS_CONVEY_PW", "")
 
 
 def _count_pending_todos_today() -> int:
@@ -108,7 +108,7 @@ def create_app(journal: str = "", password: str = "") -> Flask:
         template_folder=os.path.join(os.path.dirname(__file__), "templates"),
         static_folder=os.path.join(os.path.dirname(__file__), "static"),
     )
-    app.secret_key = os.getenv("DREAM_SECRET", "sunstone-secret")
+    app.secret_key = os.getenv("CONVEY_SECRET", "sunstone-secret")
     app.config["PASSWORD"] = password or _resolve_env_password()
     app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(days=30)
     register_views(app)
@@ -281,7 +281,7 @@ def run_service(
     debug: bool = False,
     start_watcher: bool = True,
 ) -> None:
-    """Run the Dream service, optionally starting the Cortex watcher."""
+    """Run the Convey service, optionally starting the Cortex watcher."""
 
     if start_watcher:
         start_cortex_event_watcher()
@@ -293,7 +293,7 @@ def main() -> None:
     parser.add_argument("--port", type=int, default=8000, help="Port to serve on")
     parser.add_argument(
         "--password",
-        help="Password required for login (can also set SS_DREAM_PW)",
+        help="Password required for login (can also set SS_CONVEY_PW)",
         default=None,
     )
     args = setup_cli(parser)
@@ -304,7 +304,7 @@ def main() -> None:
     password = args.password or _resolve_env_password()
     app = create_app(journal, password)
     if not app.config["PASSWORD"]:
-        raise ValueError("Password must be provided via --password or SS_DREAM_PW")
+        raise ValueError("Password must be provided via --password or SS_CONVEY_PW")
 
     run_service(app, host="0.0.0.0", port=args.port, debug=args.verbose)
 

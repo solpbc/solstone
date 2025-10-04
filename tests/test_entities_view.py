@@ -3,7 +3,7 @@ from unittest.mock import patch
 import pytest
 from flask import Flask
 
-from dream.views.entities import bp
+from convey.views.entities import bp
 
 
 @pytest.fixture
@@ -28,7 +28,7 @@ def authenticated_client(app):
         yield client
 
 
-@patch("dream.views.entities.render_template")
+@patch("convey.views.entities.render_template")
 def test_entities_page(mock_render, authenticated_client):
     """Test that the entities page loads."""
     mock_render.return_value = "Mocked entities page with Entity Review"
@@ -41,7 +41,7 @@ def test_entities_page(mock_render, authenticated_client):
     mock_render.assert_called_once_with("entities.html", active="entities")
 
 
-@patch("dream.views.entities.search_entities")
+@patch("convey.views.entities.search_entities")
 def test_entities_types_api(mock_search, authenticated_client):
     """Test the entity types API endpoint."""
     # Mock search_entities to return counts for each type
@@ -62,7 +62,7 @@ def test_entities_types_api(mock_search, authenticated_client):
     assert data["Tool"] == 1
 
 
-@patch("dream.views.entities.search_entities")
+@patch("convey.views.entities.search_entities")
 def test_entities_list_api(mock_search, authenticated_client):
     """Test the entity list API endpoint."""
     mock_search.side_effect = [
@@ -92,10 +92,10 @@ def test_entities_list_api(mock_search, authenticated_client):
     assert data[1]["name"] == "Bob"
 
 
-@patch("dream.views.entities.reload_entities")
-@patch("dream.views.entities.update_top_entry")
-@patch("dream.views.entities.search_entities")
-@patch("dream.views.entities.state")
+@patch("convey.views.entities.reload_entities")
+@patch("convey.views.entities.update_top_entry")
+@patch("convey.views.entities.search_entities")
+@patch("convey.views.entities.state")
 def test_create_entity_valid(
     mock_state, mock_search, mock_update, mock_reload, authenticated_client
 ):
@@ -119,10 +119,10 @@ def test_create_entity_valid(
     mock_reload.assert_called_once()
 
 
-@patch("dream.views.entities.reload_entities")
-@patch("dream.views.entities.update_top_entry")
-@patch("dream.views.entities.search_entities")
-@patch("dream.views.entities.state")
+@patch("convey.views.entities.reload_entities")
+@patch("convey.views.entities.update_top_entry")
+@patch("convey.views.entities.search_entities")
+@patch("convey.views.entities.state")
 def test_create_entity_without_description(
     mock_state, mock_search, mock_update, mock_reload, authenticated_client
 ):
@@ -186,8 +186,8 @@ def test_create_entity_invalid_type(authenticated_client):
     assert "Invalid entity type" in data["error"]
 
 
-@patch("dream.views.entities.search_entities")
-@patch("dream.views.entities.state")
+@patch("convey.views.entities.search_entities")
+@patch("convey.views.entities.state")
 def test_create_entity_duplicate(mock_state, mock_search, authenticated_client):
     """Test creating a duplicate entity fails."""
     mock_state.journal_root = "/fake/path"

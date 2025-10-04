@@ -1,12 +1,11 @@
-"""Tests for navigation badge helpers in dream package."""
+"""Tests for navigation badge helpers in convey package."""
 
 from __future__ import annotations
 
 from typing import Any
 
+import convey.__init__ as convey_app
 import pytest
-
-import dream.__init__ as dream_app
 
 
 def test_count_pending_todos_today_counts_incomplete(monkeypatch):
@@ -22,9 +21,9 @@ def test_count_pending_todos_today_counts_incomplete(monkeypatch):
             {"completed": False, "cancelled": True},
         ]
 
-    monkeypatch.setattr(dream_app.todo_store, "get_todos", fake_get_todos)
+    monkeypatch.setattr(convey_app.todo_store, "get_todos", fake_get_todos)
 
-    count = dream_app._count_pending_todos_today()
+    count = convey_app._count_pending_todos_today()
 
     assert count == 1
     assert calls and calls[0]["ensure_day"] is False
@@ -40,11 +39,11 @@ def test_resolve_nav_badges_filters_zero(monkeypatch):
         return 0
 
     monkeypatch.setattr(
-        dream_app,
+        convey_app,
         "NAV_BADGE_PROVIDERS",
         {"one": first_provider, "two": second_provider},
     )
 
-    badges = dream_app._resolve_nav_badges()
+    badges = convey_app._resolve_nav_badges()
 
     assert badges == {"one": 5}

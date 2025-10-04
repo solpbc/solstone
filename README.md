@@ -30,8 +30,8 @@ A comprehensive Python-based AI-driven desktop journaling toolkit for multimodal
   - `think-supervisor` - Orchestrates agent workflows
   - `think-process-day` - Full daily data pipeline
 
-- **Dream** 🌐 - Web interface and review
-  - `dream` - Launch web UI (with `--password` for auth)
+- **Convey** 🌐 - Web interface and review
+  - `convey` - Launch web UI (with `--password` for auth)
   - Review entities, meetings, tasks, and domains
   - Live transcription monitoring
   - Calendar view with daily summaries
@@ -111,7 +111,7 @@ ANTHROPIC_API_KEY=your-api-key      # For Claude services
 4. **Review in web UI**:
    ```bash
    # Launch web interface
-   dream --password your-password
+   convey --password your-password
    # Open http://localhost:5000
    ```
 
@@ -163,7 +163,7 @@ See the [Makefile](Makefile) for all available commands or run `make help`.
 - [hear/README.md](hear/README.md) - Audio capture and transcription details
 - [see/README.md](see/README.md) - Screenshot and visual analysis details
 - [think/README.md](think/README.md) - Data processing and AI analysis details
-- [dream/README.md](dream/README.md) - Web interface usage and features
+- [convey/README.md](convey/README.md) - Web interface usage and features
 
 ## 🤝 Contributing
 

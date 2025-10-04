@@ -3,19 +3,19 @@ import json
 
 
 def test_format_date():
-    review = importlib.import_module("dream")
+    review = importlib.import_module("convey")
     assert "2024" not in review.format_date("20240102")
     assert review.format_date("bad") == "bad"
 
 
 def test_time_since(monkeypatch):
-    review = importlib.import_module("dream")
+    review = importlib.import_module("convey")
     monkeypatch.setattr("time.time", lambda: 120)
     assert review.time_since(60) == "1 minute ago"
 
 
 def test_modify_and_update(tmp_path):
-    review = importlib.import_module("dream")
+    review = importlib.import_module("convey")
     md = tmp_path / "entities.md"
     md.write_text("* Person: Jane - desc\n")
     review.modify_entity_in_file(str(md), "Person", "Jane", operation="remove")
@@ -31,7 +31,7 @@ def test_modify_and_update(tmp_path):
 
 
 def test_build_index_occurrence_format(tmp_path):
-    review = importlib.import_module("dream")
+    review = importlib.import_module("convey")
     day = tmp_path / "20240101"
     day.mkdir()
     data = {
@@ -56,7 +56,7 @@ def test_build_index_occurrence_format(tmp_path):
 
 
 def test_build_index_old_format(tmp_path):
-    review = importlib.import_module("dream")
+    review = importlib.import_module("convey")
     day = tmp_path / "20240102"
     day.mkdir()
     topics_dir = day / "topics"
@@ -68,7 +68,7 @@ def test_build_index_old_format(tmp_path):
 
 
 def test_list_day_folders(tmp_path):
-    review = importlib.import_module("dream")
+    review = importlib.import_module("convey")
     (tmp_path / "20240101").mkdir()
     (tmp_path / "20240103").mkdir()
     days = review.list_day_folders(str(tmp_path))

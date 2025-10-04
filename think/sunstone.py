@@ -93,7 +93,7 @@ def discover_commands() -> List[Tuple[str, str, str]]:
     sunstone_eps = [
         ep
         for ep in scripts
-        if ep.value.startswith(("hear.", "see.", "think.", "dream."))
+        if ep.value.startswith(("hear.", "see.", "think.", "convey."))
     ]
     logging.info(f"Found {len(sunstone_eps)} sunstone entry points")
 

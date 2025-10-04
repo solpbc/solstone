@@ -303,7 +303,7 @@ def import_list() -> Any:
             # Check if task was started but didn't produce results
             if task_id:
                 # Check for task exit code by looking at task history
-                from dream.tasks import task_manager
+                from convey.tasks import task_manager
 
                 task = task_manager.tasks.get(task_id)
                 if task:

@@ -2,7 +2,7 @@ import importlib
 
 
 def test_calendar_days_api(tmp_path):
-    review = importlib.import_module("dream")
+    review = importlib.import_module("convey")
     (tmp_path / "20240101").mkdir()
     (tmp_path / "20240102").mkdir()
     review.journal_root = str(tmp_path)
@@ -12,7 +12,7 @@ def test_calendar_days_api(tmp_path):
 
 
 def test_transcript_ranges_api(tmp_path, monkeypatch):
-    review = importlib.import_module("dream")
+    review = importlib.import_module("convey")
     day_dir = tmp_path / "20240101"
     day_dir.mkdir()
     (day_dir / "090101_raw_audio.json").write_text("{}")
@@ -26,7 +26,7 @@ def test_transcript_ranges_api(tmp_path, monkeypatch):
 
 
 def test_transcript_range_api(tmp_path, monkeypatch):
-    review = importlib.import_module("dream")
+    review = importlib.import_module("convey")
     day_dir = tmp_path / "20240101"
     day_dir.mkdir()
     (day_dir / "120000_raw_audio.json").write_text('{"text": "hi"}')

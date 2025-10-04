@@ -1,4 +1,4 @@
-"""Tests for dream inbox view integration with think.messages module."""
+"""Tests for convey inbox view integration with think.messages module."""
 
 import json
 from unittest.mock import patch
@@ -6,7 +6,7 @@ from unittest.mock import patch
 import pytest
 from flask import Flask
 
-from dream.views.inbox import bp
+from convey.views.inbox import bp
 
 
 @pytest.fixture
@@ -24,7 +24,7 @@ def client(app):
     return app.test_client()
 
 
-@patch("dream.views.inbox.render_template")
+@patch("convey.views.inbox.render_template")
 def test_inbox_page(mock_render, client):
     """Test that inbox page route exists."""
     mock_render.return_value = "mocked template"
@@ -33,7 +33,7 @@ def test_inbox_page(mock_render, client):
     mock_render.assert_called_once_with("inbox.html", active="inbox")
 
 
-@patch("dream.views.inbox.messages.list_messages")
+@patch("convey.views.inbox.messages.list_messages")
 def test_get_messages_uses_think_module(mock_list_messages, client):
     """Test that get_messages uses think.messages.list_messages."""
     mock_list_messages.return_value = [
@@ -57,7 +57,7 @@ def test_get_messages_uses_think_module(mock_list_messages, client):
     mock_list_messages.assert_called_once_with("active")
 
 
-@patch("dream.views.inbox.messages.get_message")
+@patch("convey.views.inbox.messages.get_message")
 def test_get_message_uses_think_module(mock_get_message, client):
     """Test that get_message uses think.messages.get_message."""
     mock_get_message.return_value = {
@@ -78,7 +78,7 @@ def test_get_message_uses_think_module(mock_get_message, client):
     mock_get_message.assert_called_once_with("msg_123")
 
 
-@patch("dream.views.inbox.messages.mark_read")
+@patch("convey.views.inbox.messages.mark_read")
 def test_mark_read_uses_think_module(mock_mark_read, client):
     """Test that mark_read uses think.messages.mark_read."""
     mock_mark_read.return_value = True
@@ -92,7 +92,7 @@ def test_mark_read_uses_think_module(mock_mark_read, client):
     mock_mark_read.assert_called_once_with("msg_123")
 
 
-@patch("dream.views.inbox.messages.archive_message")
+@patch("convey.views.inbox.messages.archive_message")
 def test_archive_uses_think_module(mock_archive, client):
     """Test that archive_message uses think.messages.archive_message."""
     mock_archive.return_value = True
@@ -106,7 +106,7 @@ def test_archive_uses_think_module(mock_archive, client):
     mock_archive.assert_called_once_with("msg_123")
 
 
-@patch("dream.views.inbox.messages.unarchive_message")
+@patch("convey.views.inbox.messages.unarchive_message")
 def test_unarchive_uses_think_module(mock_unarchive, client):
     """Test that unarchive_message uses think.messages.unarchive_message."""
     mock_unarchive.return_value = True
@@ -120,7 +120,7 @@ def test_unarchive_uses_think_module(mock_unarchive, client):
     mock_unarchive.assert_called_once_with("msg_123")
 
 
-@patch("dream.views.inbox.messages.list_messages")
+@patch("convey.views.inbox.messages.list_messages")
 def test_handles_runtime_error(mock_list_messages, client):
     """Test that view properly handles RuntimeError from think.messages."""
     mock_list_messages.side_effect = RuntimeError("JOURNAL_PATH not set")

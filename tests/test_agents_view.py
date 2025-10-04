@@ -10,7 +10,7 @@ def test_agents_list_all(monkeypatch, tmp_path):
     # Set up environment
     monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
 
-    review = importlib.import_module("dream")
+    review = importlib.import_module("convey")
     agents_dir = tmp_path / "agents"
     agents_dir.mkdir(parents=True)
     review.journal_root = str(tmp_path)
@@ -86,7 +86,7 @@ def test_agents_list_historical_only(monkeypatch, tmp_path):
     # Set up environment
     monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
 
-    review = importlib.import_module("dream")
+    review = importlib.import_module("convey")
     agents_dir = tmp_path / "agents"
     agents_dir.mkdir(parents=True)
     review.journal_root = str(tmp_path)
@@ -147,7 +147,7 @@ def test_agents_list_with_real_fixtures(monkeypatch):
     """Test listing agents from actual fixture files."""
     import os
 
-    review = importlib.import_module("dream")
+    review = importlib.import_module("convey")
 
     # Use the real fixtures directory
     fixtures_path = Path(__file__).parent.parent / "fixtures" / "journal"

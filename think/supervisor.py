@@ -347,13 +347,13 @@ def start_cortex_server() -> ManagedProcess:
     return _launch_process("cortex", cmd, restart=True)
 
 
-def start_dream_server(verbose: bool) -> ManagedProcess:
-    """Launch the Dream web application with optional verbose logging."""
+def start_convey_server(verbose: bool) -> ManagedProcess:
+    """Launch the Convey web application with optional verbose logging."""
 
-    cmd = ["dream"]
+    cmd = ["convey"]
     if verbose:
         cmd.append("-v")
-    return _launch_process("dream", cmd, restart=True)
+    return _launch_process("convey", cmd, restart=True)
 
 
 def check_runner_exits(procs: list[ManagedProcess]) -> list[ManagedProcess]:
@@ -566,9 +566,9 @@ def parse_args() -> argparse.ArgumentParser:
         help="Do not start the Cortex server (run it manually for debugging)",
     )
     parser.add_argument(
-        "--no-dream",
+        "--no-convey",
         action="store_true",
-        help="Do not start the Dream web application",
+        help="Do not start the Convey web application",
     )
     return parser
 
@@ -618,8 +618,8 @@ def main() -> None:
         procs.extend(start_runners())
     if not args.no_cortex:
         procs.append(start_cortex_server())
-    if not args.no_dream:
-        procs.append(start_dream_server(verbose=args.verbose))
+    if not args.no_convey:
+        procs.append(start_convey_server(verbose=args.verbose))
 
     logging.info(f"Started {len(procs)} processes, entering supervision loop")
     try:

@@ -5,8 +5,8 @@ import os
 
 def test_search_summaries_api(tmp_path):
     indexer = importlib.import_module("think.indexer")
-    review = importlib.import_module("dream")
-    search_view = importlib.import_module("dream.views.search")
+    review = importlib.import_module("convey")
+    search_view = importlib.import_module("convey.views.search")
 
     journal = tmp_path
     os.environ["JOURNAL_PATH"] = str(journal)
@@ -26,8 +26,8 @@ def test_search_summaries_api(tmp_path):
 
 def test_search_summaries_api_filters(tmp_path):
     indexer = importlib.import_module("think.indexer")
-    review = importlib.import_module("dream")
-    search_view = importlib.import_module("dream.views.search")
+    review = importlib.import_module("convey")
+    search_view = importlib.import_module("convey.views.search")
 
     journal = tmp_path
     os.environ["JOURNAL_PATH"] = str(journal)
@@ -60,8 +60,8 @@ def test_search_summaries_api_filters(tmp_path):
 
 def test_search_events_api(tmp_path):
     indexer = importlib.import_module("think.indexer")
-    review = importlib.import_module("dream")
-    search_view = importlib.import_module("dream.views.search")
+    review = importlib.import_module("convey")
+    search_view = importlib.import_module("convey.views.search")
 
     journal = tmp_path
     os.environ["JOURNAL_PATH"] = str(journal)
@@ -97,8 +97,8 @@ def test_search_events_api(tmp_path):
 
 def test_search_transcripts_api(tmp_path):
     indexer = importlib.import_module("think.indexer")
-    review = importlib.import_module("dream")
-    search_view = importlib.import_module("dream.views.search")
+    review = importlib.import_module("convey")
+    search_view = importlib.import_module("convey.views.search")
 
     journal = tmp_path
     os.environ["JOURNAL_PATH"] = str(journal)

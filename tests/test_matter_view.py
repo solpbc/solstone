@@ -43,10 +43,10 @@ def test_matter_detail_route_validation():
             # Import here to avoid audio dependency issues
             import sys
 
-            if "dream.utils" in sys.modules:
-                del sys.modules["dream.utils"]
-            if "dream.views.domains" in sys.modules:
-                del sys.modules["dream.views.domains"]
+            if "convey.utils" in sys.modules:
+                del sys.modules["convey.utils"]
+            if "convey.views.domains" in sys.modules:
+                del sys.modules["convey.views.domains"]
 
             # Test get_domains function
             from think.domains import get_domains
@@ -65,7 +65,7 @@ def test_matter_detail_route_validation():
 
 def test_matter_detail_template_exists():
     """Test that matter_detail.html template exists and has expected structure."""
-    template_path = Path("dream/templates/matter_detail.html")
+    template_path = Path("convey/templates/matter_detail.html")
     assert template_path.exists(), "matter_detail.html template should exist"
 
     content = template_path.read_text()
@@ -79,7 +79,7 @@ def test_matter_detail_template_exists():
 
 def test_domain_detail_template_has_matter_links():
     """Test that domain_detail.html template includes matter navigation."""
-    template_path = Path("dream/templates/domain_detail.html")
+    template_path = Path("convey/templates/domain_detail.html")
     assert template_path.exists(), "domain_detail.html template should exist"
 
     content = template_path.read_text()
@@ -455,7 +455,7 @@ def test_get_matter_objective_edge_cases():
 
 def test_domains_template_modal_improvements():
     """Test that domains.html template has the improved modal structure."""
-    template_path = Path("dream/templates/domains.html")
+    template_path = Path("convey/templates/domains.html")
     assert template_path.exists(), "domains.html template should exist"
 
     content = template_path.read_text()
@@ -516,7 +516,7 @@ def test_create_objective_api():
 
             from flask import Flask
 
-            from dream.views.domains import create_objective
+            from convey.views.domains import create_objective
 
             app = Flask(__name__)
 
@@ -585,7 +585,7 @@ def test_create_objective_validation():
 
             from flask import Flask
 
-            from dream.views.domains import create_objective
+            from convey.views.domains import create_objective
 
             app = Flask(__name__)
 
@@ -666,7 +666,7 @@ def test_create_objective_duplicate_handling():
 
             from flask import Flask
 
-            from dream.views.domains import create_objective
+            from convey.views.domains import create_objective
 
             app = Flask(__name__)
 
@@ -692,7 +692,7 @@ def test_create_objective_duplicate_handling():
 
 def test_matter_detail_template_has_add_objective():
     """Test that matter_detail.html template includes add objective functionality."""
-    template_path = Path("dream/templates/matter_detail.html")
+    template_path = Path("convey/templates/matter_detail.html")
     assert template_path.exists(), "matter_detail.html template should exist"
 
     content = template_path.read_text()

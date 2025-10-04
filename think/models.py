@@ -159,7 +159,7 @@ def gemini_generate(
                     line_num = caller_frame.f_lineno
 
                     # Clean up module name
-                    for prefix in ["think.", "hear.", "see.", "dream."]:
+                    for prefix in ["think.", "hear.", "see.", "convey."]:
                         if module_name.startswith(prefix):
                             module_name = module_name[len(prefix) :]
                             break

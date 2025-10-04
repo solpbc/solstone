@@ -1,4 +1,4 @@
-# sunstone-dream
+# sunstone-convey
 
 Web-based journal review interface built with Flask. It exposes a few small views for exploring daily summaries and entity data stored inside a **journal** folder.
 
@@ -13,17 +13,17 @@ pip install -e .
 Run the server with:
 
 ```bash
-dream --password YOURPASSWORD
+convey --password YOURPASSWORD
 ```
 
 Open the printed URL in your browser and login with the password. You can also
-set `SS_DREAM_PW` in your environment or `.env` file instead of passing
+set `SS_CONVEY_PW` in your environment or `.env` file instead of passing
 `--password`.
 
 ## Layout
 
 ```
-dream/
+convey/
   __init__.py        - application factory and public API
   state.py           - global state shared by views
   utils.py           - helpers for parsing and building indices

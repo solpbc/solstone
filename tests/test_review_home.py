@@ -3,7 +3,7 @@ import json
 
 
 def test_home_template_renders(tmp_path):
-    review = importlib.import_module("dream")
+    review = importlib.import_module("convey")
     review.journal_root = str(tmp_path)
     with review.app.test_request_context("/"):
         html = review.home()
@@ -11,7 +11,7 @@ def test_home_template_renders(tmp_path):
 
 
 def test_stats_api(tmp_path):
-    review = importlib.import_module("dream")
+    review = importlib.import_module("convey")
     stats = {"days": {"20240101": {"activity": 1}}}
     (tmp_path / "stats.json").write_text(json.dumps(stats))
     summary = tmp_path / "summary.md"

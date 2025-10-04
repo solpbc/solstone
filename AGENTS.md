@@ -9,7 +9,7 @@ This document provides comprehensive guidelines for contributing to Sunstone, wh
 * **hear/** - System audio capture and AI-powered transcription
 * **see/** - Screenshot capture and visual analysis with AI vision models
 * **think/** - Data post-processing, summarization, and intelligent insights
-* **dream/** - Web application for navigating and interacting with captured content
+* **convey/** - Web application for navigating and interacting with captured content
 
 The project uses a modular architecture where each package can operate independently while sharing common utilities and data formats through the journal system.
 
@@ -25,7 +25,7 @@ sunstone/
 │   ├── agents/     # Agent system prompts and configs
 │   ├── indexer/    # Database indexing subsystem
 │   └── topics/     # Topic extraction templates
-├── dream/          # Web app frontend & backend
+├── convey/         # Web app frontend & backend
 │   ├── static/     # JavaScript and CSS assets
 │   ├── templates/  # Jinja2 HTML templates
 │   └── views/      # Flask view modules
@@ -54,7 +54,7 @@ sunstone/
 
 ## 🏛️ Architecture & Data Flow
 
-**Pipeline**: `hear/see` (capture) → JSON transcripts → `think` (analyze) → SQLite index → `dream` (web UI)
+**Pipeline**: `hear/see` (capture) → JSON transcripts → `think` (analyze) → SQLite index → `convey` (web UI)
 
 ---
 

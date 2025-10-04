@@ -3,7 +3,7 @@ import json
 
 
 def test_admin_page(tmp_path):
-    review = importlib.import_module("dream")
+    review = importlib.import_module("convey")
     review.journal_root = str(tmp_path)
     with review.app.test_request_context("/admin"):
         html = review.admin_page()
@@ -11,7 +11,7 @@ def test_admin_page(tmp_path):
 
 
 def test_admin_page_shows_log(tmp_path):
-    review = importlib.import_module("dream")
+    review = importlib.import_module("convey")
     log = tmp_path / "task_log.txt"
     log.write_text("1\tdid it\n")
     review.journal_root = str(tmp_path)
@@ -21,7 +21,7 @@ def test_admin_page_shows_log(tmp_path):
 
 
 def test_admin_day_page_shows_log(tmp_path):
-    review = importlib.import_module("dream")
+    review = importlib.import_module("convey")
     day = tmp_path / "20240102"
     day.mkdir()
     (day / "task_log.txt").write_text("2\tdid stuff\n")
@@ -32,7 +32,7 @@ def test_admin_day_page_shows_log(tmp_path):
 
 
 def test_admin_page_lists_repairables(tmp_path):
-    review = importlib.import_module("dream")
+    review = importlib.import_module("convey")
     stats = {
         "days": {
             "20240101": {
@@ -53,13 +53,13 @@ def test_admin_page_lists_repairables(tmp_path):
 
 
 def test_admin_actions(monkeypatch, tmp_path):
-    review = importlib.import_module("dream")
+    review = importlib.import_module("convey")
     review.journal_root = str(tmp_path)
     called = []
 
     import sys
 
-    tr = sys.modules["dream.task_runner"]
+    tr = sys.modules["convey.task_runner"]
     monkeypatch.setattr(tr, "_run_command", lambda cmd, log: called.append(cmd) or 0)
 
     with review.app.test_request_context("/admin/api/reindex", method="POST"):
@@ -75,7 +75,7 @@ def test_admin_actions(monkeypatch, tmp_path):
 
 
 def test_task_log_api(monkeypatch, tmp_path):
-    review = importlib.import_module("dream")
+    review = importlib.import_module("convey")
     log = tmp_path / "task_log.txt"
     log.write_text("10\tfirst\n20\tsecond\n")
     review.journal_root = str(tmp_path)
@@ -88,7 +88,7 @@ def test_task_log_api(monkeypatch, tmp_path):
 
 
 def test_task_log_api_day(monkeypatch, tmp_path):
-    review = importlib.import_module("dream")
+    review = importlib.import_module("convey")
     day = tmp_path / "20240101"
     day.mkdir()
     log = day / "task_log.txt"

@@ -1,4 +1,4 @@
-"""Tests for the dream todos generation endpoints."""
+"""Tests for the convey todos generation endpoints."""
 
 from __future__ import annotations
 
@@ -7,9 +7,8 @@ from pathlib import Path
 from unittest.mock import patch
 
 import pytest
+from convey.views.todos import bp
 from flask import Flask
-
-from dream.views.todos import bp
 
 
 @pytest.fixture
@@ -31,12 +30,12 @@ def test_todo_generation_endpoint(client, monkeypatch, tmp_path):
     agents_dir = journal_root / "agents"
     agents_dir.mkdir()
 
-    import dream.state as dream_state
+    import convey.state as convey_state
 
-    monkeypatch.setattr(dream_state, "journal_root", str(journal_root))
+    monkeypatch.setattr(convey_state, "journal_root", str(journal_root))
     monkeypatch.setenv("JOURNAL_PATH", str(journal_root))
 
-    monkeypatch.setattr(dream_state, "todo_generation_agents", {}, raising=False)
+    monkeypatch.setattr(convey_state, "todo_generation_agents", {}, raising=False)
 
     with patch("think.cortex_client.cortex_request") as mock_request:
         mock_request.return_value = str(agents_dir / "agent_1_active.jsonl")
@@ -58,9 +57,9 @@ def test_todo_generation_status_endpoint(client, monkeypatch, tmp_path):
     agents_dir = journal_root / "agents"
     agents_dir.mkdir()
 
-    import dream.state as dream_state
+    import convey.state as convey_state
 
-    monkeypatch.setattr(dream_state, "journal_root", str(journal_root))
+    monkeypatch.setattr(convey_state, "journal_root", str(journal_root))
     monkeypatch.setenv("JOURNAL_PATH", str(journal_root))
 
     # No agent tracking yet
@@ -89,9 +88,9 @@ def test_todo_generation_status_endpoint(client, monkeypatch, tmp_path):
 
 
 def test_todo_generation_no_cortex(client, monkeypatch):
-    import dream.state as dream_state
+    import convey.state as convey_state
 
-    monkeypatch.setattr(dream_state, "journal_root", "/tmp/journal")
+    monkeypatch.setattr(convey_state, "journal_root", "/tmp/journal")
     monkeypatch.delenv("JOURNAL_PATH", raising=False)
 
     resp = client.post("/todos/20240101/generate")

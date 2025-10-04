@@ -33,7 +33,7 @@ For each unchecked line from `todo_list(day)`:
    - statements confirming work finished, merged, deployed, or meeting held
    - artifacts created (documents, commits, recordings)
    - follow-up entries implying the task is complete
-5. **Apply Updates** – call `todo_done(day, line_number, guard)` only when confident. Never edit text manually; guards must match the full current line (e.g., `- [ ] Debug database connection timeout issue #dream (10:00)`).
+5. **Apply Updates** – call `todo_done(day, line_number, guard)` only when confident. Never edit text manually; guards must match the full current line (e.g., `- [ ] Debug database connection timeout issue #dev (10:00)`).
 
 Leave lines unchecked if evidence is missing or ambiguous. Prefer false negatives to false positives.
 
@@ -60,9 +60,9 @@ Favor minimal, high-signal queries:
 
 ### Example
 
-- Start: `todo_list(day)` shows `2: - [ ] Debug database connection timeout issue #dream (10:00)`
+- Start: `todo_list(day)` shows `2: - [ ] Debug database connection timeout issue #dev (10:00)`
 - Query: `search_summaries("database timeout fixed resolved", limit=3, day=day_yesterday)` → evidence describes the fix
-- Action: `todo_done(day, line_number=2, guard="- [ ] Debug database connection timeout issue #dream (10:00)")`
+- Action: `todo_done(day, line_number=2, guard="- [ ] Debug database connection timeout issue #dev (10:00)")`
 - Result: final list shows `2: - [x] ...`
 
 Remember: You are a validator, not a generator. Keep updates surgical, grounded in journal proof, helpful and accurate.

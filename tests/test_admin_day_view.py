@@ -2,7 +2,7 @@ import importlib
 
 
 def test_admin_day_page(tmp_path):
-    review = importlib.import_module("dream")
+    review = importlib.import_module("convey")
     (tmp_path / "20240101").mkdir()
     review.journal_root = str(tmp_path)
     with review.app.test_request_context("/admin/20240101"):
@@ -14,14 +14,14 @@ def test_admin_day_page(tmp_path):
 
 
 def test_admin_day_actions(monkeypatch, tmp_path):
-    review = importlib.import_module("dream")
+    review = importlib.import_module("convey")
     (tmp_path / "20240101").mkdir()
     review.journal_root = str(tmp_path)
     called = []
 
     import sys
 
-    tr = sys.modules["dream.task_runner"]
+    tr = sys.modules["convey.task_runner"]
     monkeypatch.setattr(tr, "_run_command", lambda cmd, log: called.append(cmd) or 0)
     monkeypatch.setattr(
         "glob.glob",
