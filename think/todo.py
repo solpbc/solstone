@@ -415,7 +415,10 @@ def upcoming(limit: int = 20, *, today: str | None = None) -> str:
         sorted_days = sorted(
             day.name
             for day in root.iterdir()
-            if day.is_dir() and len(day.name) == 8 and day.name.isdigit() and day.name > today_str
+            if day.is_dir()
+            and len(day.name) == 8
+            and day.name.isdigit()
+            and day.name > today_str
         )
     except OSError:  # pragma: no cover - filesystem failure
         return "No upcoming todos."

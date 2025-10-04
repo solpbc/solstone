@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from typing import Any
 
-from flask import Blueprint, jsonify, render_template, request
 import markdown  # type: ignore
+from flask import Blueprint, jsonify, render_template, request
 
 from think import messages
 
@@ -54,9 +54,7 @@ def get_message(message_id: str) -> Any:
         body = message.get("body", "")
         message_with_html = {
             **message,
-            "body_html": markdown.markdown(body, extensions=["extra"])
-            if body
-            else "",
+            "body_html": markdown.markdown(body, extensions=["extra"]) if body else "",
         }
         return jsonify(message_with_html)
     except RuntimeError as e:

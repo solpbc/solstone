@@ -16,7 +16,7 @@ def copy_day(tmp_path: Path) -> Path:
 
 
 def test_scan_day(tmp_path, monkeypatch):
-    mod = importlib.import_module("think.ponder")
+    mod = importlib.import_module("think.summarize")
     day_dir = copy_day(tmp_path)
     monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
 

@@ -32,7 +32,9 @@ def install_agents_stub():
         events_to_stream = []
 
         @staticmethod
-        def run_streamed(agent, input, session=None, run_config=None, max_turns=None):  # noqa: D417
+        def run_streamed(
+            agent, input, session=None, run_config=None, max_turns=None
+        ):  # noqa: D417
             DummyRunner.called = True
             return StreamResult(DummyRunner.events_to_stream)
 
@@ -72,7 +74,9 @@ def install_agents_stub():
     agents_stub.TResponseInputItem = dict
     agents_stub.set_default_openai_key = lambda key: None
     agents_run_stub.RunConfig = lambda **kwargs: SimpleNamespace(**kwargs)
-    agents_model_settings_stub.ModelSettings = lambda **kwargs: SimpleNamespace(**kwargs)
+    agents_model_settings_stub.ModelSettings = lambda **kwargs: SimpleNamespace(
+        **kwargs
+    )
     agents_stub.RunConfig = agents_run_stub.RunConfig
     agents_stub.ModelSettings = agents_model_settings_stub.ModelSettings
 

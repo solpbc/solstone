@@ -11,8 +11,8 @@
       "repair_reduce": 1,
       "entities": 1,
       "repair_entity": 0,
-      "ponder_processed": 3,
-      "repair_ponder": 8,
+      "summaries_processed": 3,
+      "repair_summaries": 8,
       "audio_seconds": 0.0,
       "audio_bytes": 5,
       "image_bytes": 0,
@@ -30,8 +30,8 @@
     "repair_reduce": 1,
     "entities": 1,
     "repair_entity": 0,
-    "ponder_processed": 3,
-    "repair_ponder": 8
+    "summaries_processed": 3,
+    "repair_summaries": 8
   },
   "total_audio_seconds": 0.0,
   "total_audio_bytes": 5,

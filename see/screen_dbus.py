@@ -136,14 +136,16 @@ def get_monitor_geometries():
     for monitor in monitors:
         geom = monitor.get_geometry()
         connector = monitor.get_connector() or f"monitor-{len(monitor_data)}"
-        monitor_data.append({
-            "monitor": monitor,
-            "connector": connector,
-            "x": geom.x,
-            "y": geom.y,
-            "width": geom.width,
-            "height": geom.height
-        })
+        monitor_data.append(
+            {
+                "monitor": monitor,
+                "connector": connector,
+                "x": geom.x,
+                "y": geom.y,
+                "width": geom.width,
+                "height": geom.height,
+            }
+        )
 
     # Compute union bounding box
     min_x = min(m["x"] for m in monitor_data)
@@ -192,11 +194,13 @@ def get_monitor_geometries():
         else:
             position = f"{h_pos}-{v_pos}"
 
-        geometries.append({
-            "id": m["connector"],
-            "box": [m["x"], m["y"], m["x"] + m["width"], m["y"] + m["height"]],
-            "position": position
-        })
+        geometries.append(
+            {
+                "id": m["connector"],
+                "box": [m["x"], m["y"], m["x"] + m["width"], m["y"] + m["height"]],
+                "position": position,
+            }
+        )
 
     return geometries
 

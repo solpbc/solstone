@@ -23,7 +23,7 @@ A comprehensive Python-based AI-driven desktop journaling toolkit for multimodal
   - *Note: Requires Linux with GNOME desktop*
 
 - **Think** 🧠 - Data processing and insights
-  - `think-ponder` - Generates AI-powered summaries and topics
+  - `think-summarize` - Generates AI-powered summaries and topics
   - `think-cluster` - Groups related content
   - `think-entity-roll` - Extracts and tracks entities
   - `think-indexer` - Builds searchable database

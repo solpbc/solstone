@@ -83,6 +83,8 @@ def scan_day(day: str) -> dict[str, list[str]]:
                 unreduced.append(Path(e["path"]).name)
 
     return {"processed": reduced, "repairable": sorted(set(unreduced))}
+
+
 def _get_api_key() -> str:
     load_dotenv()
     api_key = os.getenv("GOOGLE_API_KEY")

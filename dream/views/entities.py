@@ -4,8 +4,8 @@ import logging
 import os
 from typing import Any, Dict, List
 
-from flask import Blueprint, jsonify, render_template, request
 from dotenv import load_dotenv
+from flask import Blueprint, jsonify, render_template, request
 
 from think.indexer import scan_entities, search_entities
 

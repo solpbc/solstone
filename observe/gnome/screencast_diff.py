@@ -25,7 +25,6 @@ import numpy as np
 from PIL import Image
 from scipy.spatial.distance import jensenshannon
 
-
 # Frame comparison helper functions
 
 

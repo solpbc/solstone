@@ -58,7 +58,7 @@ This small structure keeps dependencies clear and makes it easy to focus on a si
 
 ### Admin view
 
-Navigate to `/admin` for index and reindex options. A specific day can be opened at `/admin/YYYYMMDD` to run repairs, ponder prompts, entity roll and screen reduction.
+Navigate to `/admin` for index and reindex options. A specific day can be opened at `/admin/YYYYMMDD` to run repairs, summarization prompts, entity roll and screen reduction.
 Holding **Shift** while clicking a task button runs it with `--force` if the command supports that flag.
 
 ### Tasks view

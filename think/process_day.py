@@ -10,7 +10,7 @@ from think.utils import day_log, get_topics, setup_cli
 
 def run_command(cmd: list[str], day: str) -> bool:
     logging.info("==> %s", " ".join(cmd))
-    # Extract command name for logging (e.g., "think-ponder" -> "ponder")
+    # Extract command name for logging (e.g., "think-summarize" -> "summarize")
     cmd_name = cmd[0].replace("think-", "").replace("-", "_")
     try:
         result = subprocess.run(cmd)
@@ -53,7 +53,7 @@ def build_commands(day: str, force: bool, verbose: bool = False) -> list[list[st
         if topic_data.get("disabled", False):
             logging.info("Skipping disabled topic: %s", topic_name)
             continue
-        cmd = ["think-ponder", day, "-f", topic_data["path"], "-p"]
+        cmd = ["think-summarize", day, "-f", topic_data["path"], "-p"]
         if verbose:
             cmd.append("--verbose")
         if force:

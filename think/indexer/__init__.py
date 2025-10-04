@@ -34,6 +34,13 @@ from .events import (
     search_events,
 )
 
+# Import from news
+from .news import (
+    find_news_files,
+    scan_news,
+    search_news,
+)
+
 # Import from summaries
 from .summaries import (
     TOPIC_BASENAMES,
@@ -51,13 +58,6 @@ from .transcripts import (
     find_transcript_files,
     scan_transcripts,
     search_transcripts,
-)
-
-# Import from news
-from .news import (
-    find_news_files,
-    scan_news,
-    search_news,
 )
 
 # All public functions and constants

@@ -52,7 +52,9 @@ def cortex_request(
 
     # Generate timestamp in milliseconds, ensuring uniqueness
     ts = int(time.time() * 1000)
-    while (agents_dir / f"{ts}_active.jsonl").exists() or (agents_dir / f"{ts}_pending.jsonl").exists():
+    while (agents_dir / f"{ts}_active.jsonl").exists() or (
+        agents_dir / f"{ts}_pending.jsonl"
+    ).exists():
         ts += 1
 
     # Build request object

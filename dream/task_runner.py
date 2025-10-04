@@ -168,7 +168,7 @@ def run_task(
                     if use_stop
                     else _run_command(args, logger)
                 )
-            elif name == "ponder":
+            elif name == "summarize":
                 if not day:
                     raise ValueError("day required")
                 from think.utils import get_topics
@@ -178,7 +178,7 @@ def run_task(
                 code = 0
                 for prompt in prompts:
                     cmd = [
-                        "think-ponder",
+                        "think-summarize",
                         day,
                         "-f",
                         prompt,

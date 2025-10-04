@@ -20,7 +20,7 @@ pre { background:#f5f5f5; padding:0.5em; }
   <button id="resetIndexesBtn">Reset Indexes</button>
   <button id="summaryBtn">Refresh Summary</button>
   <pre id="status"></pre>
-  {% set cats = ['hear','see','reduce','ponder','entity'] %}
+  {% set cats = ['hear','see','reduce','summaries','entity'] %}
   <div class="tabs">
     {% for cat in cats %}
     <div class="tab{% if loop.first %} active{% endif %}" data-target="{{ cat }}">{{ cat.capitalize() }}</div>

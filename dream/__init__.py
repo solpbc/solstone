@@ -55,6 +55,7 @@ import_page_view = import_module(".import", "dream.views")
 
 logger = logging.getLogger(__name__)
 
+
 def _resolve_env_password() -> str:
     """Return the configured Dream password from ``SS_DREAM_PW``."""
 
@@ -157,7 +158,7 @@ admin_page = admin_view.admin_page
 admin_day_page = admin_view.admin_day_page
 admin_repair_hear = admin_view.admin_repair_hear
 admin_repair_see = admin_view.admin_repair_see
-admin_ponder = admin_view.admin_ponder
+admin_summarize = admin_view.admin_summarize
 admin_entity = admin_view.admin_entity
 admin_reduce = admin_view.admin_reduce
 admin_process = admin_view.admin_process
@@ -219,7 +220,7 @@ __all__ = [
     "admin_day_page",
     "admin_repair_hear",
     "admin_repair_see",
-    "admin_ponder",
+    "admin_summarize",
     "admin_entity",
     "admin_reduce",
     "admin_process",

@@ -603,9 +603,12 @@ def calendar_stats() -> Any:
                 topics_dir = os.path.join(path, "topics")
                 if os.path.isdir(topics_dir):
                     # Check if any topic files exist (json or md)
-                    topic_files = [f for f in os.listdir(topics_dir)
-                                   if (f.endswith(".json") or f.endswith(".md"))
-                                   and not f.endswith(".crumb")]
+                    topic_files = [
+                        f
+                        for f in os.listdir(topics_dir)
+                        if (f.endswith(".json") or f.endswith(".md"))
+                        and not f.endswith(".crumb")
+                    ]
                     if topic_files:
                         day_stats["has_topics"] = True
 
@@ -630,8 +633,7 @@ def calendar_stats() -> Any:
 
     # Calculate percentiles for past days only
     past_days_with_data = [
-        d for d in all_days
-        if d["day"] < today and d["occurrence_count"] > 0
+        d for d in all_days if d["day"] < today and d["occurrence_count"] > 0
     ]
 
     if past_days_with_data:

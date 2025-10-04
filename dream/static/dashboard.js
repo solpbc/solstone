@@ -421,23 +421,23 @@ const Dashboard = (function() {
     }
     
     // Render repairs if needed
-    const repairs = ['repair_hear', 'repair_see', 'repair_reduce', 'repair_entity', 'repair_ponder'];
+    const repairs = ['repair_hear', 'repair_see', 'repair_reduce', 'repair_entity', 'repair_summaries'];
     const hasRepairs = repairs.some(key => (totals[key] || 0) > 0);
-    
+
     if (hasRepairs) {
       const repairSection = document.getElementById('repairSection');
       const alert = el('div', {className: 'chart-section alert-repair'}, [
         el('h2', {}, ['Items Needing Repair']),
         el('div', {className: 'stats-grid', id: 'repairGrid'})
       ]);
-      
+
       const repairGrid = alert.querySelector('#repairGrid');
       const repairLabels = {
         repair_hear: 'Audio',
         repair_see: 'Screenshots',
         repair_reduce: 'Summaries',
         repair_entity: 'Entities',
-        repair_ponder: 'Ponder'
+        repair_summaries: 'Topic Summaries'
       };
       
       repairs.forEach(key => {

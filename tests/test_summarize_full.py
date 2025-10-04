@@ -14,7 +14,7 @@ def copy_day(tmp_path: Path) -> Path:
 
 
 def test_ponder_main(tmp_path, monkeypatch):
-    mod = importlib.import_module("think.ponder")
+    mod = importlib.import_module("think.summarize")
     day_dir = copy_day(tmp_path)
     prompt = tmp_path / "prompt.txt"
     prompt.write_text("prompt")
@@ -61,7 +61,7 @@ def test_ponder_main(tmp_path, monkeypatch):
 
 
 def test_ponder_extra_instructions(tmp_path, monkeypatch):
-    mod = importlib.import_module("think.ponder")
+    mod = importlib.import_module("think.summarize")
     day_dir = copy_day(tmp_path)
     topic_file = Path(mod.__file__).resolve().parent / "topics" / "flow.txt"
 
@@ -110,7 +110,7 @@ def test_ponder_extra_instructions(tmp_path, monkeypatch):
 
 
 def test_ponder_skip_occurrences(tmp_path, monkeypatch):
-    mod = importlib.import_module("think.ponder")
+    mod = importlib.import_module("think.summarize")
     day_dir = copy_day(tmp_path)
     topic_file = Path(mod.__file__).resolve().parent / "topics" / "flow.txt"
 

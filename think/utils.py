@@ -218,7 +218,6 @@ def get_topics() -> dict[str, dict[str, object]]:
     return topics
 
 
-
 def get_agent(persona: str = "default") -> dict:
     """Return complete agent configuration for a persona.
 

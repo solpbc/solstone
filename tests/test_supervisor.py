@@ -174,7 +174,9 @@ def test_supervise_logs_recovery(monkeypatch, caplog):
     mod.shutdown_requested = False
 
     health_states = [["hear"], []]
-    time_counter = iter([0.0, 1.0, 2.0, 3.0, 4.0])  # Incrementing time for health check timing
+    time_counter = iter(
+        [0.0, 1.0, 2.0, 3.0, 4.0]
+    )  # Incrementing time for health check timing
 
     def fake_check_health(threshold):
         state = health_states.pop(0)
@@ -185,7 +187,9 @@ def test_supervise_logs_recovery(monkeypatch, caplog):
     monkeypatch.setattr(mod, "check_runner_exits", lambda procs: [])
     monkeypatch.setattr(mod, "check_health", fake_check_health)
     monkeypatch.setattr(mod, "send_notification", lambda *args, **kwargs: None)
-    monkeypatch.setattr(mod, "check_scheduled_agents", lambda: None)  # Mock scheduled agents
+    monkeypatch.setattr(
+        mod, "check_scheduled_agents", lambda: None
+    )  # Mock scheduled agents
     monkeypatch.setattr(mod.time, "time", lambda: next(time_counter))
     monkeypatch.setattr(mod.time, "sleep", lambda _: None)
 

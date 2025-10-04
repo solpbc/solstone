@@ -132,7 +132,10 @@ def _sanitize_entities(entities: list[str]) -> list[str]:
         filtered = re.sub(r"\s+", " ", filtered).strip()
 
         if not filtered or not any(ch.isalpha() for ch in filtered):
-            logger.debug("Dropping entity without alpha characters after sanitizing: %s", original)
+            logger.debug(
+                "Dropping entity without alpha characters after sanitizing: %s",
+                original,
+            )
             continue
 
         if filtered != original:
@@ -440,7 +443,9 @@ def create_transcript_summary(
                 if isinstance(transcript_data, dict) and "entries" in transcript_data:
                     entries = transcript_data.get("entries") or []
                 else:
-                    entries = transcript_data if isinstance(transcript_data, list) else []
+                    entries = (
+                        transcript_data if isinstance(transcript_data, list) else []
+                    )
 
                 all_transcripts.append(
                     {"file": os.path.basename(json_path), "content": entries}

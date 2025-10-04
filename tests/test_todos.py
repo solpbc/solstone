@@ -242,11 +242,7 @@ def test_upcoming_respects_limit(monkeypatch, journal_root):
 
     result = upcoming(limit=2, today="20240104")
 
-    expected = (
-        "### 20240105\n"
-        "- [ ] Task one\n"
-        "- [ ] Task two"
-    )
+    expected = "### 20240105\n" "- [ ] Task one\n" "- [ ] Task two"
 
     assert result == expected
 

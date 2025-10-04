@@ -13,17 +13,17 @@ Examples:
   python gnome_screencast.py --screencast 5 --fps 15 --no-cursor --out /tmp/sample.webm
 """
 
+import argparse
 import asyncio
 import os
-import sys
 import signal
-import argparse
 import subprocess
+import sys
 from typing import Tuple
 
+from dbus_next import Variant
 from dbus_next.aio import MessageBus
 from dbus_next.constants import BusType
-from dbus_next import Variant
 
 from see.screen_dbus import get_monitor_geometries
 
@@ -44,7 +44,9 @@ class Screencaster:
         obj = self.bus.get_proxy_object(SCREencast_BUS, SCREencast_PATH, introspection)
         self.iface = obj.get_interface(SCREencast_IFACE)
 
-    async def start(self, out_path: str, framerate: int = 30, draw_cursor: bool = True) -> Tuple[bool, str]:
+    async def start(
+        self, out_path: str, framerate: int = 30, draw_cursor: bool = True
+    ) -> Tuple[bool, str]:
         """
         Call org.gnome.Shell.Screencast.Screencast("file://...", { 'framerate': u, 'draw-cursor': b })
         Returns (ok: bool, resolved_output_path: str)
@@ -77,7 +79,9 @@ class Screencaster:
         return self._started
 
 
-async def run_screencast(duration_s: int, out_path: str, fps: int, draw_cursor: bool) -> int:
+async def run_screencast(
+    duration_s: int, out_path: str, fps: int, draw_cursor: bool
+) -> int:
     # Capture monitor geometries before starting recording
     geometries = get_monitor_geometries()
 
@@ -117,7 +121,9 @@ async def run_screencast(duration_s: int, out_path: str, fps: int, draw_cursor: 
     title_parts = []
     for geom_info in geometries:
         x1, y1, x2, y2 = geom_info["box"]
-        title_parts.append(f"{geom_info['id']}:{geom_info['position']},{x1},{y1},{x2},{y2}")
+        title_parts.append(
+            f"{geom_info['id']}:{geom_info['position']},{x1},{y1},{x2},{y2}"
+        )
     title = " ".join(title_parts)
 
     try:
@@ -125,7 +131,7 @@ async def run_screencast(duration_s: int, out_path: str, fps: int, draw_cursor: 
             ["mkvpropedit", resolved_path, "--edit", "info", "--set", f"title={title}"],
             check=True,
             capture_output=True,
-            text=True
+            text=True,
         )
         print(f"Updated video title with monitor dimensions: {title}")
     except subprocess.CalledProcessError as e:
@@ -138,14 +144,26 @@ async def run_screencast(duration_s: int, out_path: str, fps: int, draw_cursor: 
 
 def parse_args(argv: list[str]) -> argparse.Namespace:
     p = argparse.ArgumentParser(description="Minimal GNOME Shell screencast via D-Bus.")
-    p.add_argument("--screencast", type=int, metavar="SECONDS",
-                   help="Record a screencast for the given number of seconds, then stop.")
-    p.add_argument("--out", default="./screencast.webm",
-                   help="Output file path for the screencast (default: ./screencast.webm).")
-    p.add_argument("--fps", type=int, default=30,
-                   help="Framerate for the screencast (default: 30).")
-    p.add_argument("--no-cursor", action="store_true",
-                   help="Do not draw the mouse cursor.")
+    p.add_argument(
+        "--screencast",
+        type=int,
+        metavar="SECONDS",
+        help="Record a screencast for the given number of seconds, then stop.",
+    )
+    p.add_argument(
+        "--out",
+        default="./screencast.webm",
+        help="Output file path for the screencast (default: ./screencast.webm).",
+    )
+    p.add_argument(
+        "--fps",
+        type=int,
+        default=30,
+        help="Framerate for the screencast (default: 30).",
+    )
+    p.add_argument(
+        "--no-cursor", action="store_true", help="Do not draw the mouse cursor."
+    )
     return p.parse_args(argv)
 
 
@@ -153,19 +171,24 @@ def main():
     args = parse_args(sys.argv[1:])
 
     if args.screencast is None:
-        print("Nothing to do. Example:\n  python gnome_screencast.py --screencast 10\n", file=sys.stderr)
+        print(
+            "Nothing to do. Example:\n  python gnome_screencast.py --screencast 10\n",
+            file=sys.stderr,
+        )
         sys.exit(2)
 
     # Basic sanity on FPS
     fps = max(1, int(args.fps))
 
     try:
-        rc = asyncio.run(run_screencast(
-            duration_s=int(args.screencast),
-            out_path=args.out,
-            fps=fps,
-            draw_cursor=not args.no_cursor,
-        ))
+        rc = asyncio.run(
+            run_screencast(
+                duration_s=int(args.screencast),
+                out_path=args.out,
+                fps=fps,
+                draw_cursor=not args.no_cursor,
+            )
+        )
         sys.exit(rc)
     except Exception as e:
         # Common issues: not running GNOME Shell; calling from a non-GNOME compositor session.
@@ -175,4 +198,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

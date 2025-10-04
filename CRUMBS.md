@@ -6,7 +6,7 @@
 
 ```json
 {
-  "generator": "think/ponder.pl",          // module or command that produced the file
+  "generator": "think/summarize.py",       // module or command that produced the file
   "output": "20250524/topics/flow.md",      // path to the generated artifact
   "generated_at": "2025-05-24T12:00:01Z",   // ISO 8601 timestamp of generation
   "dependencies": [                          // list of inputs relied upon

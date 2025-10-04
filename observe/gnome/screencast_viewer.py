@@ -55,7 +55,7 @@ class ScreencastViewer:
                 position, x1, y1, x2, y2 = coord_parts[:5]
                 monitors[connector_id] = {
                     "box": [int(x1), int(y1), int(x2), int(y2)],
-                    "position": position
+                    "position": position,
                 }
 
         return monitors
@@ -69,7 +69,9 @@ class ScreencastViewer:
                 target_pts = int(timestamp / tb)  # convert seconds -> PTS units
 
                 # Seek near target (previous keyframe), then decode forward
-                container.seek(target_pts, stream=stream, any_frame=False, backward=True)
+                container.seek(
+                    target_pts, stream=stream, any_frame=False, backward=True
+                )
 
                 img = None
                 for packet in container.demux(stream):
@@ -77,7 +79,9 @@ class ScreencastViewer:
                         if frame.pts is None:
                             continue
                         # Use frame.time (float seconds) or calculate from pts
-                        frame_time = frame.time if frame.time is not None else (frame.pts * tb)
+                        frame_time = (
+                            frame.time if frame.time is not None else (frame.pts * tb)
+                        )
                         if frame_time + 1e-9 >= timestamp:
                             # Convert to PIL Image
                             img = frame.to_image()
@@ -86,7 +90,10 @@ class ScreencastViewer:
                         break
 
                 if img is None:
-                    print(f"WARNING: No frame found at/after timestamp {timestamp}", file=sys.stderr)
+                    print(
+                        f"WARNING: No frame found at/after timestamp {timestamp}",
+                        file=sys.stderr,
+                    )
                     raise RuntimeError("No frame at/after the requested timestamp")
 
         except FileNotFoundError:
@@ -96,8 +103,12 @@ class ScreencastViewer:
             img.save(buf, format="PNG")
             return buf.getvalue()
         except Exception as e:
-            print(f"ERROR: Failed to extract frame at timestamp {timestamp}: {e}", file=sys.stderr)
+            print(
+                f"ERROR: Failed to extract frame at timestamp {timestamp}: {e}",
+                file=sys.stderr,
+            )
             import traceback
+
             traceback.print_exc(file=sys.stderr)
             img = Image.new("RGB", (1, 1), color="red")
             buf = io.BytesIO()
@@ -107,14 +118,22 @@ class ScreencastViewer:
         # Crop if monitor_id specified
         if monitor_id:
             if monitor_id not in self.monitors:
-                print(f"WARNING: Monitor ID '{monitor_id}' not found. Available: {list(self.monitors.keys())}", file=sys.stderr)
+                print(
+                    f"WARNING: Monitor ID '{monitor_id}' not found. Available: {list(self.monitors.keys())}",
+                    file=sys.stderr,
+                )
             else:
                 try:
                     box = self.monitors[monitor_id]["box"]
-                    print(f"Cropping to monitor {monitor_id} box: {box}", file=sys.stderr)
+                    print(
+                        f"Cropping to monitor {monitor_id} box: {box}", file=sys.stderr
+                    )
                     img = img.crop(tuple(box))
                 except Exception as e:
-                    print(f"ERROR: Failed to crop frame for monitor {monitor_id}: {e}", file=sys.stderr)
+                    print(
+                        f"ERROR: Failed to crop frame for monitor {monitor_id}: {e}",
+                        file=sys.stderr,
+                    )
                     print(f"  Box: {self.monitors[monitor_id]['box']}", file=sys.stderr)
                     print(f"  Image size: {img.size}", file=sys.stderr)
 
@@ -166,7 +185,9 @@ def main():
         description="Serve screencast frames as PNG images"
     )
     parser.add_argument("video", help="Path to screencast webm file")
-    parser.add_argument("--port", type=int, default=9999, help="Server port (default: 9999)")
+    parser.add_argument(
+        "--port", type=int, default=9999, help="Server port (default: 9999)"
+    )
     args = parser.parse_args()
 
     viewer = ScreencastViewer(args.video)
@@ -179,7 +200,9 @@ def main():
     print(f"  http://0.0.0.0:{args.port}/1          - Frame at 1 second")
     if viewer.monitors:
         first_id = list(viewer.monitors.keys())[0]
-        print(f"  http://0.0.0.0:{args.port}/?id={first_id}  - First frame, monitor {first_id}")
+        print(
+            f"  http://0.0.0.0:{args.port}/?id={first_id}  - First frame, monitor {first_id}"
+        )
     print("\nPress Ctrl+C to stop")
 
     server = HTTPServer(("0.0.0.0", args.port), make_handler(viewer))

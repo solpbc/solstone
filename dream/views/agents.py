@@ -512,45 +512,44 @@ def available_tools() -> object:
             packs_info[pack_name] = {
                 "name": pack_name,
                 "tools": tool_names,
-                "description": _get_pack_description(pack_name)
+                "description": _get_pack_description(pack_name),
             }
 
         # Process individual tools
         for name, tool in tools.items():
             # Find which packs contain this tool
             containing_packs = [
-                pack for pack, tool_list in TOOL_PACKS.items()
-                if name in tool_list
+                pack for pack, tool_list in TOOL_PACKS.items() if name in tool_list
             ]
 
             # Extract input schema if available
             input_schema = None
-            if hasattr(tool, 'input_schema'):
+            if hasattr(tool, "input_schema"):
                 try:
                     input_schema = tool.input_schema
                     # If it's a pydantic model, convert to dict
-                    if hasattr(input_schema, 'model_json_schema'):
+                    if hasattr(input_schema, "model_json_schema"):
                         input_schema = input_schema.model_json_schema()
-                    elif hasattr(input_schema, 'dict'):
+                    elif hasattr(input_schema, "dict"):
                         input_schema = input_schema.dict()
                 except Exception:
                     pass
 
-            tools_list.append({
-                "name": name,
-                "description": tool.description or "No description available",
-                "packs": containing_packs,
-                "input_schema": input_schema,
-            })
+            tools_list.append(
+                {
+                    "name": name,
+                    "description": tool.description or "No description available",
+                    "packs": containing_packs,
+                    "input_schema": input_schema,
+                }
+            )
 
         # Sort tools alphabetically
         tools_list.sort(key=lambda x: x["name"])
 
-        return jsonify({
-            "tools": tools_list,
-            "packs": packs_info,
-            "total": len(tools_list)
-        })
+        return jsonify(
+            {"tools": tools_list, "packs": packs_info, "total": len(tools_list)}
+        )
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 

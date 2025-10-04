@@ -35,17 +35,17 @@ def _output_paths(day_dir: os.PathLike[str], basename: str) -> tuple[Path, Path]
 
 
 def scan_day(day: str) -> dict[str, list[str]]:
-    """Return lists of processed and pending ponder markdown files."""
+    """Return lists of processed and pending summary markdown files."""
     day_dir = day_path(day)
-    pondered: list[str] = []
-    unpondered: list[str] = []
+    summarized: list[str] = []
+    unsummarized: list[str] = []
     for base in _topic_basenames():
         md_path, _ = _output_paths(day_dir, base)
         if md_path.exists():
-            pondered.append(os.path.join("topics", md_path.name))
+            summarized.append(os.path.join("topics", md_path.name))
         else:
-            unpondered.append(os.path.join("topics", md_path.name))
-    return {"processed": sorted(pondered), "repairable": sorted(unpondered)}
+            unsummarized.append(os.path.join("topics", md_path.name))
+    return {"processed": sorted(summarized), "repairable": sorted(unsummarized)}
 
 
 def count_tokens(markdown: str, prompt: str, api_key: str, model: str) -> None:
@@ -250,11 +250,11 @@ def main() -> None:
             print("Markdown file exists but --force specified. Regenerating.")
             result = send_markdown(
                 markdown,
-            prompt,
-            api_key,
-            model,
-            cache_display_name=cache_display_name,
-        )
+                prompt,
+                api_key,
+                model,
+                cache_display_name=cache_display_name,
+            )
         else:
             result = send_markdown(
                 markdown,
@@ -293,7 +293,9 @@ def main() -> None:
 
         # Create a corresponding occurrence JSON from the markdown summary
         try:
-            occ_prompt_content = load_prompt("ponder", base_dir=Path(__file__).parent)
+            occ_prompt_content = load_prompt(
+                "summarize", base_dir=Path(__file__).parent
+            )
         except PromptNotFoundError as exc:
             print(exc)
             return
@@ -344,12 +346,11 @@ def main() -> None:
         success = True
 
     finally:
-        msg = f"ponder {topic_basename} {'ok' if success else 'failed'}"
+        msg = f"summarize {topic_basename} {'ok' if success else 'failed'}"
         if args.force:
             msg += " --force"
         day_log(args.day, msg)
 
 
 if __name__ == "__main__":
-    main()
     main()

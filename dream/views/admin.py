@@ -21,7 +21,7 @@ def admin_page() -> str:
         "hear": [],
         "see": [],
         "reduce": [],
-        "ponder": [],
+        "summaries": [],
         "entity": [],
     }
     if state.journal_root:
@@ -36,7 +36,7 @@ def admin_page() -> str:
                         "hear": d.get("repair_hear", 0),
                         "see": d.get("repair_see", 0),
                         "reduce": d.get("repair_reduce", 0),
-                        "ponder": d.get("repair_ponder", 0),
+                        "summaries": d.get("repair_summaries", 0),
                         "entity": d.get("repair_entity", 0),
                     }
                     for cat, count in day_info.items():
@@ -81,7 +81,7 @@ def admin_day_page(day: str) -> str:
     prev_day, next_day = adjacent_days(state.journal_root, day)
     hear_rep = hear_proc = 0
     see_rep = see_proc = 0
-    ponder_rep = ponder_proc = 0
+    summaries_rep = summaries_proc = 0
     entity_rep = entity_proc = 0
     reduce_rep = reduce_proc = 0
 
@@ -98,7 +98,7 @@ def admin_day_page(day: str) -> str:
                 hear_rep = day_stats.get("repair_hear", 0)
                 see_rep = day_stats.get("repair_see", 0)
                 reduce_rep = day_stats.get("repair_reduce", 0)
-                ponder_rep = day_stats.get("repair_ponder", 0)
+                summaries_rep = day_stats.get("repair_summaries", 0)
                 entity_rep = day_stats.get("repair_entity", 0)
 
                 # Extract processed counts
@@ -108,8 +108,8 @@ def admin_day_page(day: str) -> str:
                 see_proc = day_stats.get("desc_json", 0)
                 # For reduce: screen_md indicates processed screen summaries
                 reduce_proc = day_stats.get("screen_md", 0)
-                # For ponder: ponder_processed is directly available
-                ponder_proc = day_stats.get("ponder_processed", 0)
+                # For summaries: summaries_processed is directly available
+                summaries_proc = day_stats.get("summaries_processed", 0)
                 # For entity: entities indicates days with entities.md (1 or 0)
                 entity_proc = day_stats.get("entities", 0)
             except Exception:
@@ -125,8 +125,8 @@ def admin_day_page(day: str) -> str:
         hear_proc=hear_proc,
         see_rep=see_rep,
         see_proc=see_proc,
-        ponder_rep=ponder_rep,
-        ponder_proc=ponder_proc,
+        summaries_rep=summaries_rep,
+        summaries_proc=summaries_proc,
         entity_rep=entity_rep,
         entity_proc=entity_proc,
         reduce_rep=reduce_rep,
@@ -152,12 +152,12 @@ def admin_repair_see(day: str) -> Any:
     return jsonify({"status": "ok"})
 
 
-@bp.route("/admin/api/<day>/ponder", methods=["POST"])
-def admin_ponder(day: str) -> Any:
+@bp.route("/admin/api/<day>/summarize", methods=["POST"])
+def admin_summarize(day: str) -> Any:
     if not _valid_day(day):
         return jsonify({"error": "invalid day"}), 404
 
-    run_task("ponder", day)
+    run_task("summarize", day)
     return jsonify({"status": "ok"})
 
 

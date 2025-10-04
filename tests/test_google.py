@@ -144,6 +144,7 @@ def test_google_outfile(monkeypatch, tmp_path, capsys):
 def test_google_outfile_error(monkeypatch, tmp_path, capsys):
     _setup_genai_stub(monkeypatch)
     install_agents_stub()
+
     class ErrorClient:
         async def __aenter__(self):
             raise RuntimeError("boom")
@@ -151,7 +152,9 @@ def test_google_outfile_error(monkeypatch, tmp_path, capsys):
         async def __aexit__(self, exc_type, exc, tb):
             pass
 
-    monkeypatch.setattr("think.utils.create_mcp_client", lambda _url=None: ErrorClient())
+    monkeypatch.setattr(
+        "think.utils.create_mcp_client", lambda _url=None: ErrorClient()
+    )
 
     sys.modules.pop("think.google", None)
     importlib.reload(importlib.import_module("think.google"))

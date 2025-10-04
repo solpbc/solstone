@@ -153,9 +153,7 @@ def main() -> None:
             logging.error("Day directory %s not found in %s", args.day, journal)
             raise SystemExit(1)
     else:
-        day_dirs = sorted(
-            p for p in journal.iterdir() if DATE_RE.fullmatch(p.name)
-        )
+        day_dirs = sorted(p for p in journal.iterdir() if DATE_RE.fullmatch(p.name))
 
     for day_dir in day_dirs:
         if args.jobs == 1:
@@ -190,7 +188,9 @@ def main() -> None:
                     removed += 1
         else:
             # Multi-threaded processing
-            removed, restored = _process_day_parallel(day_dir, args.jobs, args, gio_path)
+            removed, restored = _process_day_parallel(
+                day_dir, args.jobs, args, gio_path
+            )
 
         if removed or restored:
             total_removed += removed

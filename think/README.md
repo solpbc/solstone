@@ -14,7 +14,7 @@ All dependencies are listed in `pyproject.toml`.
 
 The package exposes several commands:
 
-- `think-ponder` builds a Markdown summary of a day's recordings using a Gemini prompt.
+- `think-summarize` builds a Markdown summary of a day's recordings using a Gemini prompt.
 - `think-cluster` groups audio and screen JSON files into report sections. Use `--start` and
   `--length` to limit the report to a specific time range.
 - `see-describe` and `hear-transcribe` include a `--repair` option to process
@@ -22,11 +22,11 @@ The package exposes several commands:
 - `think-entity-roll` collects entities across days and writes a rollup file.
 - `think-process-day` runs the above tools for a single day.
 - `think-supervisor` monitors hear and see heartbeats. Use `--no-runners` to skip starting them automatically.
-- `think-mcp-tools` starts an MCP server exposing search capabilities for both ponder text and raw transcripts.
+- `think-mcp-tools` starts an MCP server exposing search capabilities for both summary text and raw transcripts.
 - `think-cortex` starts a WebSocket API server for managing AI agent instances.
 
 ```bash
-think-ponder YYYYMMDD [-f PROMPT] [-p] [-c] [--force] [-v]
+think-summarize YYYYMMDD [-f PROMPT] [-p] [-c] [--force] [-v]
 think-cluster YYYYMMDD [--start HHMMSS --length MINUTES]
 think-entity-roll
 think-process-day [--day YYYYMMDD] [--force] [--repair] [--rebuild]

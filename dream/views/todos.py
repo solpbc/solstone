@@ -156,7 +156,10 @@ def move_todo(day: str):  # type: ignore[override]
         source_checklist = TodoChecklist.load(day)
     except (FileNotFoundError, RuntimeError) as exc:
         bp.logger.debug("Failed to load source todo list for %s: %s", day, exc)
-        return jsonify({"error": "Todo list changed, please refresh and try again."}), 409
+        return (
+            jsonify({"error": "Todo list changed, please refresh and try again."}),
+            409,
+        )
 
     try:
         target_checklist = TodoChecklist.load(target_day, ensure_day=True)
@@ -165,10 +168,15 @@ def move_todo(day: str):  # type: ignore[override]
         return jsonify({"error": "Unable to access target day."}), 500
 
     try:
-        _, source_entry, completed, body = source_checklist._entry_components(index, guard)
+        _, source_entry, completed, body = source_checklist._entry_components(
+            index, guard
+        )
     except (TodoLineNumberError, TodoGuardMismatchError, IndexError, ValueError) as exc:
         bp.logger.debug("Failed to locate todo %s on %s: %s", index, day, exc)
-        return jsonify({"error": "Todo list changed, please refresh and try again."}), 409
+        return (
+            jsonify({"error": "Todo list changed, please refresh and try again."}),
+            409,
+        )
 
     try:
         target_checklist.append_entry(body)
@@ -184,17 +192,24 @@ def move_todo(day: str):  # type: ignore[override]
             target_checklist.mark_done(new_index, new_guard)
             new_guard = target_checklist.entries[new_index - 1]
         except (TodoGuardMismatchError, TodoLineNumberError, IndexError) as exc:
-            bp.logger.debug("Failed to mark moved todo complete on %s: %s", target_day, exc)
+            bp.logger.debug(
+                "Failed to mark moved todo complete on %s: %s", target_day, exc
+            )
 
     try:
         source_checklist.remove_entry(index, source_entry)
     except (TodoGuardMismatchError, TodoLineNumberError, IndexError) as exc:
-        bp.logger.debug("Failed to remove todo %s from %s after move: %s", index, day, exc)
+        bp.logger.debug(
+            "Failed to remove todo %s from %s after move: %s", index, day, exc
+        )
         try:
             target_checklist.remove_entry(new_index, new_guard)
         except Exception:  # pragma: no cover - best effort cleanup
             bp.logger.debug("Failed to roll back moved todo on %s", target_day)
-        return jsonify({"error": "Todo list changed, please refresh and try again."}), 409
+        return (
+            jsonify({"error": "Todo list changed, please refresh and try again."}),
+            409,
+        )
 
     redirect_url = url_for("todos.todos_day", day=target_day)
     return jsonify({"status": "ok", "redirect": redirect_url, "target_day": target_day})

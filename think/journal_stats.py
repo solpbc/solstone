@@ -14,7 +14,7 @@ from hear.transcribe import Transcriber
 from see.describe import Describer
 from see.reduce import scan_day as reduce_scan_day
 from think.entity_roll import scan_day as entity_scan_day
-from think.ponder import scan_day as ponder_scan_day
+from think.summarize import scan_day as summarize_scan_day
 from think.utils import setup_cli
 
 DATE_RE = re.compile(r"\d{8}")
@@ -81,9 +81,9 @@ class JournalStats:
         stats["entities"] = len(entity_info["processed"])
         stats["repair_entity"] = len(entity_info["repairable"])
 
-        ponder_info = ponder_scan_day(day)
-        stats["ponder_processed"] = len(ponder_info["processed"])
-        stats["repair_ponder"] = len(ponder_info["repairable"])
+        summary_info = summarize_scan_day(day)
+        stats["summaries_processed"] = len(summary_info["processed"])
+        stats["repair_summaries"] = len(summary_info["repairable"])
 
         # --- occurrences ---
         topics_dir = day_dir / "topics"

@@ -223,7 +223,10 @@ class CortexService:
             try:
                 with open(file_path, "r") as f:
                     lines = f.readlines()
-                    if len(lines) == 1 and json.loads(lines[0]).get("event") == "request":
+                    if (
+                        len(lines) == 1
+                        and json.loads(lines[0]).get("event") == "request"
+                    ):
                         # Agent never started - treat as new activation
                         self.logger.info(f"Reactivating unstarted agent: {agent_id}")
                         self._handle_active_file(agent_id, file_path)
@@ -232,7 +235,9 @@ class CortexService:
                 pass
 
             # Agent had started but didn't complete - mark as failed
-            self.logger.warning(f"Found stale active file from previous session: {agent_id}")
+            self.logger.warning(
+                f"Found stale active file from previous session: {agent_id}"
+            )
             error_message = "Agent failed due to unexpected Cortex service shutdown"
             self._write_error_and_complete(file_path, error_message)
 
@@ -360,7 +365,9 @@ class CortexService:
         if conversation_id:
             config.setdefault("conversation_id", conversation_id)
             self.logger.debug(
-                "Resolved conversation_id %s from agent %s", conversation_id, continue_id
+                "Resolved conversation_id %s from agent %s",
+                conversation_id,
+                continue_id,
             )
         else:
             self.logger.warning(
@@ -389,7 +396,8 @@ class CortexService:
                         last_event = json.loads(line)
                     except json.JSONDecodeError:
                         self.logger.debug(
-                            "Skipping malformed JSON line while reading %s", history_path
+                            "Skipping malformed JSON line while reading %s",
+                            history_path,
                         )
                         continue
 
@@ -719,7 +727,9 @@ class CortexService:
             from think.cortex_client import cortex_request
 
             if not handoff:
-                self.logger.debug("No handoff configuration provided for agent %s", parent_id)
+                self.logger.debug(
+                    "No handoff configuration provided for agent %s", parent_id
+                )
                 return
 
             # Operate on a copy so callers keep their original config untouched.

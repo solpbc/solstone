@@ -1,5 +1,5 @@
 {
-    "generator": "think.ponder",
+    "generator": "think.summarize",
     "output": "20250610/topics/flow.md",
     "generated_at": "2025-06-10T12:00:01Z",
     "dependencies": [

@@ -19,7 +19,13 @@ import traceback
 from typing import Any, Callable, Dict, Optional
 from urllib.parse import urlparse, urlunparse
 
-from agents import Agent, OpenAIConversationsSession, Runner, Session, TResponseInputItem
+from agents import (
+    Agent,
+    OpenAIConversationsSession,
+    Runner,
+    Session,
+    TResponseInputItem,
+)
 from agents.items import (
     MessageOutputItem,
     ReasoningItem,
@@ -60,10 +66,10 @@ class WorkaroundConversations(Session):
     def conversation_id(self):
         """Get conversation_id from inner session."""
         # Try direct conversation_id first
-        if hasattr(self.inner, 'conversation_id'):
+        if hasattr(self.inner, "conversation_id"):
             return self.inner.conversation_id
         # Fall back to _session_id (internal storage in OpenAIConversationsSession)
-        if hasattr(self.inner, '_session_id'):
+        if hasattr(self.inner, "_session_id"):
             return self.inner._session_id
         return None
 
@@ -75,9 +81,15 @@ class WorkaroundConversations(Session):
         for it in items:
             if it.get("type") == "message" and it.get("role") in ("user", "assistant"):
                 parts = it.get("content") or []
-                text_parts = [p for p in parts if p.get("type") == "text" and isinstance(p.get("text"), str)]
+                text_parts = [
+                    p
+                    for p in parts
+                    if p.get("type") == "text" and isinstance(p.get("text"), str)
+                ]
                 if text_parts:
-                    cleaned.append({"type": "message", "role": it["role"], "content": text_parts})
+                    cleaned.append(
+                        {"type": "message", "role": it["role"], "content": text_parts}
+                    )
         if cleaned:
             await self.inner.add_items(cleaned)
 
@@ -434,7 +446,9 @@ async def run_agent(
             # Get conversation_id from various possible sources
             conversation_id_out = (
                 getattr(session, "conversation_id", None)
-                or getattr(session, "_session_id", None)  # Internal field in OpenAIConversationsSession
+                or getattr(
+                    session, "_session_id", None
+                )  # Internal field in OpenAIConversationsSession
                 or getattr(result, "conversation_id", None)
                 or getattr(result, "_session_id", None)
                 or conversation_id_in

@@ -434,6 +434,8 @@ def test_monitor_stdout_with_handoff(cortex_service, mock_journal):
             )
 
     assert agent_id not in cortex_service.agent_handoffs
+
+
 def test_monitor_stdout_no_finish_event(cortex_service, mock_journal):
     """Test monitoring stdout when process exits without finish event."""
     from io import StringIO

@@ -272,10 +272,7 @@ def test_get_matter_normalizes_epoch_timestamps():
         assert result["activity_log"][1]["timestamp_raw"] == "1700000000000"
 
         assert result["activity_log"][2]["timestamp"] == "2025-01-01T12:00:00Z"
-        assert (
-            result["activity_log"][2]["timestamp_raw"]
-            == "2025-01-01T12:00:00Z"
-        )
+        assert result["activity_log"][2]["timestamp_raw"] == "2025-01-01T12:00:00Z"
 
 
 def test_get_matter_error_handling():
