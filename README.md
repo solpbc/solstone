@@ -1,3 +1,5 @@
+<img src="logo.png" alt="Sunstone Logo" width="300">
+
 # Sunstone
 Navigate Work Intelligently
 

@@ -11,6 +11,7 @@ from flask import (
     redirect,
     render_template,
     request,
+    send_from_directory,
     session,
     url_for,
 )
@@ -29,7 +30,7 @@ bp = Blueprint(
 
 @bp.before_app_request
 def require_login() -> Any:
-    if request.endpoint in {"review.login", "review.static", "review.stats_data"}:
+    if request.endpoint in {"review.login", "review.static", "review.stats_data", "review.favicon"}:
         return None
     if not session.get("logged_in"):
         return redirect(url_for("review.login"))
@@ -50,6 +51,13 @@ def login() -> Any:
 def logout() -> Any:
     session.pop("logged_in", None)
     return redirect(url_for("review.login"))
+
+
+@bp.route("/favicon.ico")
+def favicon() -> Any:
+    """Serve the favicon from the project root."""
+    project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    return send_from_directory(project_root, "favicon.ico", mimetype="image/x-icon")
 
 
 @bp.route("/")
