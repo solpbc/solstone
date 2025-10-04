@@ -133,7 +133,7 @@ def test_domain_summary_matter_priorities(monkeypatch):
 
 
 def test_get_domains_with_entities(monkeypatch):
-    """Test that get_domains() includes parsed entities."""
+    """Test that get_domains() returns metadata and load_entity_names() works with domains."""
     monkeypatch.setenv("JOURNAL_PATH", str(FIXTURES_PATH))
 
     domains = get_domains()
@@ -146,27 +146,26 @@ def test_get_domains_with_entities(monkeypatch):
     assert test_domain["title"] == "Test Domain"
     assert test_domain["emoji"] == "🧪"
 
-    # Check entities are parsed and included
-    assert "entities" in test_domain
-    entities = test_domain["entities"]
+    # Verify entities are NOT included in get_domains() anymore
+    assert "entities" not in test_domain
 
-    # Should have entity types as keys
-    assert "Person" in entities
-    assert "Company" in entities
-    assert "Project" in entities
-    assert "Tool" in entities
+    # Instead, verify entities can be loaded via load_entity_names()
+    from think.utils import load_entity_names
 
-    # Check specific entities
-    assert "John Smith" in entities["Person"]
-    assert "Jane Doe" in entities["Person"]
-    assert "Bob Wilson" in entities["Person"]
-    assert "Acme Corp" in entities["Company"]
-    assert "Tech Solutions Inc" in entities["Company"]
-    assert "API Optimization" in entities["Project"]
-    assert "Dashboard Redesign" in entities["Project"]
-    assert "Visual Studio Code" in entities["Tool"]
-    assert "Docker" in entities["Tool"]
-    assert "PostgreSQL" in entities["Tool"]
+    entity_names = load_entity_names(journal_path=FIXTURES_PATH, domain="test-domain")
+    assert entity_names is not None
+
+    # Check that specific entities are in the comma-delimited string
+    assert "John Smith" in entity_names
+    assert "Jane Doe" in entity_names
+    assert "Bob Wilson" in entity_names
+    assert "Acme Corp" in entity_names
+    assert "Tech Solutions Inc" in entity_names
+    assert "API Optimization" in entity_names
+    assert "Dashboard Redesign" in entity_names
+    assert "Visual Studio Code" in entity_names
+    assert "Docker" in entity_names
+    assert "PostgreSQL" in entity_names
 
 
 def test_get_domains_empty_entities(monkeypatch):
@@ -178,8 +177,16 @@ def test_get_domains_empty_entities(monkeypatch):
     # Check minimal-domain (should have no entities file)
     if "minimal-domain" in domains:
         minimal_domain = domains["minimal-domain"]
-        assert "entities" in minimal_domain
-        assert minimal_domain["entities"] == {}
+        # Entities are no longer included in get_domains()
+        assert "entities" not in minimal_domain
+
+        # Verify load_entity_names returns None for domains without entities.md
+        from think.utils import load_entity_names
+
+        entity_names = load_entity_names(
+            journal_path=FIXTURES_PATH, domain="minimal-domain"
+        )
+        assert entity_names is None
 
 
 def test_domain_summaries(monkeypatch):
@@ -195,11 +202,13 @@ def test_domain_summaries(monkeypatch):
     assert "**Test Domain** (#test-domain)" in summary
     assert "A test domain for validating matter functionality" in summary
 
-    # Check entities are formatted as sub-lists
-    assert "  - **Person**: John Smith, Jane Doe, Bob Wilson" in summary
-    assert "  - **Company**: Acme Corp, Tech Solutions Inc" in summary
-    assert "  - **Project**: API Optimization, Dashboard Redesign" in summary
-    assert "  - **Tool**: Visual Studio Code, Docker, PostgreSQL" in summary
+    # Check entities are included as comma-delimited list (not grouped by type anymore)
+    assert "  - **Entities**:" in summary
+    # Verify some specific entities are present
+    assert "John Smith" in summary
+    assert "Jane Doe" in summary
+    assert "Acme Corp" in summary
+    assert "API Optimization" in summary
 
     # Check other domains are included
     assert "(#full-featured)" in summary
@@ -230,11 +239,11 @@ def test_domain_summaries_mixed_entities(monkeypatch):
 
     summary = domain_summaries()
 
-    # Test domain should have entities
+    # Test domain should have entities (comma-delimited, not grouped by type)
     assert "**Test Domain** (#test-domain)" in summary
-    assert "  - **Person**:" in summary
+    assert "  - **Entities**:" in summary
 
-    # Minimal domain should not have entity sub-lists
+    # Minimal domain should not have entity lists
     assert "**Minimal Domain** (#minimal-domain)" in summary
     # Check that there's no entity list immediately after minimal-domain
     lines = summary.split("\n")
@@ -243,9 +252,11 @@ def test_domain_summaries_mixed_entities(monkeypatch):
             # Next non-empty line should not be an entity list
             j = i + 1
             while j < len(lines) and lines[j].strip():
-                assert not lines[j].strip().startswith("- **Person**:")
-                assert not lines[j].strip().startswith("- **Company**:")
-                assert not lines[j].strip().startswith("- **Project**:")
-                assert not lines[j].strip().startswith("- **Tool**:")
+                # Should not have Entities line for minimal-domain
+                if lines[j].strip().startswith("- **"):
+                    # This means we've reached the next domain
+                    break
+                # If we're still in minimal-domain section, shouldn't have entities
+                assert not lines[j].strip().startswith("- **Entities**:")
                 j += 1
             break

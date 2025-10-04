@@ -10,8 +10,6 @@ from typing import Any, Optional
 
 from dotenv import load_dotenv
 
-from think.indexer.entities import parse_entities
-
 
 def _normalize_matter_timestamp(value: Any) -> tuple[Optional[str], Optional[Any]]:
     """Return an ISO 8601 timestamp and the original value for matter logs.
@@ -63,11 +61,10 @@ def _normalize_matter_timestamp(value: Any) -> tuple[Optional[str], Optional[Any
 
 
 def get_domains() -> dict[str, dict[str, object]]:
-    """Return available domains with metadata and parsed entities.
+    """Return available domains with metadata.
 
     Each key is the domain name. The value contains the domain metadata
-    from domain.json including title, description, the domain path, and
-    parsed entities grouped by type.
+    from domain.json including title, description, and the domain path.
     """
     load_dotenv()
     journal = os.getenv("JOURNAL_PATH")
@@ -101,23 +98,7 @@ def get_domains() -> dict[str, dict[str, object]]:
                     "description": domain_data.get("description", ""),
                     "color": domain_data.get("color", ""),
                     "emoji": domain_data.get("emoji", ""),
-                    "entities": {},  # Will be populated below
                 }
-
-                # Parse entities for this domain
-                try:
-                    entity_tuples = parse_entities(str(domain_path))
-                    entities_by_type: dict[str, list[str]] = {}
-
-                    for etype, name, desc in entity_tuples:
-                        if etype not in entities_by_type:
-                            entities_by_type[etype] = []
-                        if name not in entities_by_type[etype]:
-                            entities_by_type[etype].append(name)
-
-                    domain_info["entities"] = entities_by_type
-                except Exception as exc:
-                    logging.debug("Error parsing entities for %s: %s", domain_name, exc)
 
                 domains[domain_name] = domain_info
         except Exception as exc:  # pragma: no cover - metadata optional
@@ -159,7 +140,6 @@ def domain_summary(domain: str) -> str:
     # Extract metadata
     title = domain_data.get("title", domain)
     description = domain_data.get("description", "")
-    emoji = domain_data.get("emoji", "")
     color = domain_data.get("color", "")
 
     # Build markdown summary
@@ -555,7 +535,7 @@ def domain_summaries() -> str:
     Returns a markdown-formatted string with each domain as a list item including:
     - Domain name and hashtag ID
     - Description
-    - Sub-list of entities grouped by type
+    - Entity names (if available)
 
     Returns:
         Formatted markdown string with all domains and their entities
@@ -563,7 +543,9 @@ def domain_summaries() -> str:
     Raises:
         RuntimeError: If JOURNAL_PATH is not set
     """
-    domains = get_domains()  # This now includes parsed entities
+    from think.utils import load_entity_names
+
+    domains = get_domains()
     if not domains:
         return "No domains found."
 
@@ -572,7 +554,6 @@ def domain_summaries() -> str:
 
     for domain_name, domain_info in sorted(domains.items()):
         # Build domain header with name and hashtag
-        emoji = domain_info.get("emoji", "")
         title = domain_info.get("title", domain_name)
         description = domain_info.get("description", "")
 
@@ -582,16 +563,14 @@ def domain_summaries() -> str:
         if description:
             lines.append(f"  {description}")
 
-        # Add entities as sub-list grouped by type (now from get_domains())
-        entities_by_type = domain_info.get("entities", {})
-        if entities_by_type:
-            for entity_type in ["Person", "Company", "Project", "Tool"]:
-                if entity_type in entities_by_type:
-                    entity_list = entities_by_type[entity_type]
-                    if entity_list:
-                        # Format as comma-separated list
-                        entities_str = ", ".join(entity_list)
-                        lines.append(f"  - **{entity_type}**: {entities_str}")
+        # Load entities for this domain
+        try:
+            entity_names = load_entity_names(domain=domain_name)
+            if entity_names:
+                lines.append(f"  - **Entities**: {entity_names}")
+        except Exception:
+            # No entities file or error loading - that's fine, skip it
+            pass
 
         lines.append("")  # Empty line between domains
 

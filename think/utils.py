@@ -4,7 +4,6 @@ import logging
 import os
 import re
 import time
-import zoneinfo
 from datetime import datetime
 from pathlib import Path
 from string import Template
@@ -579,12 +578,14 @@ def get_raw_file(day: str, name: str) -> tuple[str, str, Any]:
 
 
 def load_entity_names(
-    journal_path: str | Path | None = None, required: bool = False
+    journal_path: str | Path | None = None,
+    required: bool = False,
+    domain: str | None = None,
 ) -> str | None:
-    """Load entity names from journal/entities.md for AI transcription context.
+    """Load entity names from entities.md for AI transcription context.
 
     This function extracts just the entity names (no types or descriptions) from
-    the top-level entities.md file and returns them as a comma-delimited string.
+    an entities.md file and returns them as a comma-delimited string.
     This is specifically optimized for transcription accuracy in hear/ and see/
     modules where the AI needs to recognize entity names but doesn't need the
     full context.
@@ -593,6 +594,8 @@ def load_entity_names(
         journal_path: Path to journal directory. If None, uses JOURNAL_PATH env var.
         required: If True, raises FileNotFoundError when entities.md is missing.
                  If False, returns None when missing.
+        domain: Optional domain name. If provided, loads from domains/{domain}/entities.md
+                instead of the top-level entities.md file.
 
     Returns:
         Comma-delimited string of entity names (e.g., "John Smith, Acme Corp, Project X"),
@@ -609,7 +612,12 @@ def load_entity_names(
             raise ValueError("JOURNAL_PATH not set and no journal_path provided")
 
     journal_path = Path(journal_path)
-    entities_path = journal_path / "entities.md"
+
+    # Choose entities file based on domain parameter
+    if domain:
+        entities_path = journal_path / "domains" / domain / "entities.md"
+    else:
+        entities_path = journal_path / "entities.md"
 
     if not entities_path.is_file():
         if required:

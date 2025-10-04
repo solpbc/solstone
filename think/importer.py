@@ -315,27 +315,26 @@ def audio_transcribe(
     entities = None
     if domain:
         try:
-            from think.domains import get_domains
+            from think.utils import load_entity_names
 
-            domains = get_domains()
-            if domain in domains:
-                domain_entities = domains[domain].get("entities", {})
-                # Flatten all entity names into a single list for Rev AI
-                entities = []
-                for entity_type, names in domain_entities.items():
-                    entities.extend(names)
+            # Load entity names from domain-specific entities.md
+            entity_names = load_entity_names(domain=domain)
+            if entity_names:
+                # Split comma-delimited string to list
+                entities = [name.strip() for name in entity_names.split(",")]
+                entities = _sanitize_entities(entities)
                 if entities:
-                    entities = _sanitize_entities(entities)
-                    if entities:
-                        logger.info(
-                            f"Using {len(entities)} entities from domain '{domain}' for transcription"
-                        )
-                    else:
-                        logger.info(
-                            f"Domain '{domain}' entities removed after sanitization"
-                        )
+                    logger.info(
+                        f"Using {len(entities)} entities from domain '{domain}' for transcription"
+                    )
+                else:
+                    logger.info(
+                        f"Domain '{domain}' entities removed after sanitization"
+                    )
             else:
-                logger.warning(f"Domain '{domain}' not found")
+                logger.info(f"No entities found for domain '{domain}'")
+        except FileNotFoundError:
+            logger.info(f"Domain '{domain}' has no entities.md file")
         except Exception as e:
             logger.warning(f"Failed to load domain entities: {e}")
 
