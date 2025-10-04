@@ -44,6 +44,7 @@ dependencies = [
     "numpy",
     "dbus-next",
     "av",
+    "imagehash",
 
     "sqlite-utils",
     "openai>=1.2.0",
@@ -107,6 +108,7 @@ think-cortex = "think.cortex:main"
 think-messages = "think.messages:main"
 gnome-screencast = "observe.gnome.screencast:main"
 gnome-screencast-viewer = "observe.gnome.screencast_viewer:main"
+gnome-screencast-diff = "observe.gnome.screencast_diff:main"
 
 [project.urls]
 Homepage = "https://github.com/yourusername/sunstone"
