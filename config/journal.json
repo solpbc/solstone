@@ -2,7 +2,12 @@
   "identity": {
     "name": "Jeremie Miller",
     "preferred": "Jer",
-    "pronouns": ["he", "him"],
+    "pronouns": {
+      "subject": "he",
+      "object": "him",
+      "possessive": "his",
+      "reflexive": "himself"
+    },
     "aliases": ["Jer", "jeremie"],
     "email_addresses": ["jer@example.com"],
     "timezone": "America/Los_Angeles"

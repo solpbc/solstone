@@ -57,8 +57,16 @@ pre { background:#f5f5f5; padding:0.5em; }
       </div>
       <div class="form-group">
         <label for="config-pronouns">Pronouns</label>
-        <input type="text" id="config-pronouns" data-field="pronouns" placeholder="e.g., she/her, he/him, they/them">
-        <small>Use commas or slashes (e.g., "he/him" or "she, her")</small>
+        <select id="config-pronouns" data-field="pronouns">
+          <option value="">Select pronouns...</option>
+          <option value="she/her/her/herself">she/her/hers/herself</option>
+          <option value="he/him/his/himself">he/him/his/himself</option>
+          <option value="they/them/their/themselves">they/them/their/themselves</option>
+          <option value="ze/zir/zir/zirself">ze/zir/zirs/zirself</option>
+          <option value="xe/xem/xyr/xemself">xe/xem/xyrs/xemself</option>
+          <option value="it/it/its/itself">it/its/its/itself</option>
+        </select>
+        <small>Select a pronoun set for use in templates (subject/object/possessive/reflexive)</small>
       </div>
       <div class="form-group">
         <label for="config-aliases">Aliases</label>
@@ -239,7 +247,16 @@ function populateConfigForm(data){
   const identity = data.identity || {};
   document.getElementById('config-name').value = identity.name || '';
   document.getElementById('config-preferred').value = identity.preferred || '';
-  document.getElementById('config-pronouns').value = Array.isArray(identity.pronouns) ? identity.pronouns.join('/') : '';
+
+  // Handle pronouns - match dropdown option to saved structure
+  const pronouns = identity.pronouns || {};
+  if (pronouns.subject && pronouns.object && pronouns.possessive && pronouns.reflexive) {
+    const key = `${pronouns.subject}/${pronouns.object}/${pronouns.possessive}/${pronouns.reflexive}`;
+    document.getElementById('config-pronouns').value = key;
+  } else {
+    document.getElementById('config-pronouns').value = '';
+  }
+
   document.getElementById('config-aliases').value = Array.isArray(identity.aliases) ? identity.aliases.join(', ') : '';
   document.getElementById('config-emails').value = Array.isArray(identity.email_addresses) ? identity.email_addresses.join(', ') : '';
 
@@ -263,9 +280,10 @@ function populateConfigForm(data){
 }
 
 function setupConfigAutoSave(){
-  const inputs = document.querySelectorAll('#config input[data-field]');
+  const inputs = document.querySelectorAll('#config input[data-field], #config select[data-field]');
   inputs.forEach(input=>{
     input.addEventListener('blur', ()=>saveConfigField(input));
+    input.addEventListener('change', ()=>saveConfigField(input));
     input.addEventListener('keydown', e=>{
       if(e.key==='Enter'){
         e.preventDefault();
@@ -281,10 +299,25 @@ function saveConfigField(input){
 }
 
 function saveConfig(){
+  // Parse selected pronoun set into structured format
+  const pronounValue = document.getElementById('config-pronouns').value;
+  let pronouns = {subject: '', object: '', possessive: '', reflexive: ''};
+  if (pronounValue) {
+    const parts = pronounValue.split('/');
+    if (parts.length === 4) {
+      pronouns = {
+        subject: parts[0],
+        object: parts[1],
+        possessive: parts[2],
+        reflexive: parts[3]
+      };
+    }
+  }
+
   const identity = {
     name: document.getElementById('config-name').value.trim(),
     preferred: document.getElementById('config-preferred').value.trim(),
-    pronouns: document.getElementById('config-pronouns').value.split(/[,\/]/).map(s=>s.trim()).filter(s=>s),
+    pronouns: pronouns,
     aliases: document.getElementById('config-aliases').value.split(',').map(s=>s.trim()).filter(s=>s),
     email_addresses: document.getElementById('config-emails').value.split(',').map(s=>s.trim()).filter(s=>s),
     timezone: document.getElementById('config-timezone').value.trim()

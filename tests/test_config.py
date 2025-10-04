@@ -18,7 +18,12 @@ def config_journal(tmp_path):
         "identity": {
             "name": "Test User",
             "preferred": "Tester",
-            "pronouns": ["they", "them"],
+            "pronouns": {
+                "subject": "they",
+                "object": "them",
+                "possessive": "their",
+                "reflexive": "themselves",
+            },
             "aliases": ["test", "tester"],
             "email_addresses": ["test@example.com"],
             "timezone": "America/New_York",
@@ -42,7 +47,12 @@ def test_get_config_default_structure(tmp_path, monkeypatch):
     assert "identity" in config
     assert config["identity"]["name"] == ""
     assert config["identity"]["preferred"] == ""
-    assert config["identity"]["pronouns"] == []
+    assert config["identity"]["pronouns"] == {
+        "subject": "",
+        "object": "",
+        "possessive": "",
+        "reflexive": "",
+    }
     assert config["identity"]["aliases"] == []
     assert config["identity"]["email_addresses"] == []
     assert config["identity"]["timezone"] == ""
@@ -56,7 +66,12 @@ def test_get_config_loads_existing(config_journal, monkeypatch):
 
     assert config["identity"]["name"] == "Test User"
     assert config["identity"]["preferred"] == "Tester"
-    assert config["identity"]["pronouns"] == ["they", "them"]
+    assert config["identity"]["pronouns"] == {
+        "subject": "they",
+        "object": "them",
+        "possessive": "their",
+        "reflexive": "themselves",
+    }
     assert config["identity"]["aliases"] == ["test", "tester"]
     assert config["identity"]["email_addresses"] == ["test@example.com"]
     assert config["identity"]["timezone"] == "America/New_York"
@@ -86,7 +101,12 @@ def test_get_config_fills_missing_fields(tmp_path, monkeypatch):
     # Check that missing fields are filled with defaults
     assert config["identity"]["name"] == "Partial User"
     assert config["identity"]["preferred"] == ""
-    assert config["identity"]["pronouns"] == []
+    assert config["identity"]["pronouns"] == {
+        "subject": "",
+        "object": "",
+        "possessive": "",
+        "reflexive": "",
+    }
     assert config["identity"]["aliases"] == []
     assert config["identity"]["email_addresses"] == []
     assert config["identity"]["timezone"] == ""
@@ -118,6 +138,12 @@ def test_get_config_handles_invalid_json(tmp_path, monkeypatch):
 
     assert "identity" in config
     assert config["identity"]["name"] == ""
+    assert config["identity"]["pronouns"] == {
+        "subject": "",
+        "object": "",
+        "possessive": "",
+        "reflexive": "",
+    }
 
 
 def test_get_config_with_fixtures():
@@ -131,7 +157,11 @@ def test_get_config_with_fixtures():
     assert "identity" in config
     assert isinstance(config["identity"]["name"], str)
     assert isinstance(config["identity"]["preferred"], str)
-    assert isinstance(config["identity"]["pronouns"], list)
+    assert isinstance(config["identity"]["pronouns"], dict)
+    assert "subject" in config["identity"]["pronouns"]
+    assert "object" in config["identity"]["pronouns"]
+    assert "possessive" in config["identity"]["pronouns"]
+    assert "reflexive" in config["identity"]["pronouns"]
     assert isinstance(config["identity"]["aliases"], list)
     assert isinstance(config["identity"]["email_addresses"], list)
     assert isinstance(config["identity"]["timezone"], str)

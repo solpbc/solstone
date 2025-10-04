@@ -122,7 +122,12 @@ def get_config() -> dict[str, Any]:
     default_identity = {
         "name": "",
         "preferred": "",
-        "pronouns": [],
+        "pronouns": {
+            "subject": "",
+            "object": "",
+            "possessive": "",
+            "reflexive": "",
+        },
         "aliases": [],
         "email_addresses": [],
         "timezone": "",

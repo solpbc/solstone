@@ -25,7 +25,12 @@ The `identity` block contains information about the journal owner that helps too
   "identity": {
     "name": "Jeremie Miller",
     "preferred": "Jer",
-    "pronouns": ["he", "him"],
+    "pronouns": {
+      "subject": "he",
+      "object": "him",
+      "possessive": "his",
+      "reflexive": "himself"
+    },
     "aliases": ["Jer", "jeremie"],
     "email_addresses": ["jer@example.com"],
     "timezone": "America/Los_Angeles"
@@ -36,12 +41,28 @@ The `identity` block contains information about the journal owner that helps too
 Fields:
 - `name` (string) – Full legal or formal name of the journal owner
 - `preferred` (string) – Preferred name or nickname to be used when addressing the user
-- `pronouns` (array of strings) – Pronouns the user prefers (e.g., `["she", "her"]`, `["they", "them"]`)
+- `pronouns` (object) – Structured pronoun set for template usage with fields:
+  - `subject` – Subject pronoun (e.g., "he", "she", "they")
+  - `object` – Object pronoun (e.g., "him", "her", "them")
+  - `possessive` – Possessive adjective (e.g., "his", "her", "their")
+  - `reflexive` – Reflexive pronoun (e.g., "himself", "herself", "themselves")
 - `aliases` (array of strings) – Alternative names, nicknames, or usernames that may appear in transcripts
 - `email_addresses` (array of strings) – Email addresses associated with the user for participant detection
 - `timezone` (string) – IANA timezone identifier (e.g., "America/New_York", "Europe/London") for timestamp interpretation
 
 This configuration helps meeting extraction identify the user as a participant, enables personalized agent interactions, and ensures timestamps are interpreted correctly across the journal.
+
+#### Template usage examples
+
+The structured pronoun format enables proper pronoun usage in generated text and agent responses:
+
+```python
+# In templates or generated text:
+f"{identity.pronouns.subject} joined the meeting"  # "he joined the meeting"
+f"I spoke with {identity.pronouns.object}"         # "I spoke with him"
+f"That is {identity.pronouns.possessive} desk"     # "That is his desk"
+f"{identity.pronouns.subject} did it {identity.pronouns.reflexive}"  # "he did it himself"
+```
 
 ## Domain folders
 

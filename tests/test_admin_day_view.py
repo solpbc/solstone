@@ -44,7 +44,9 @@ def test_admin_day_actions(monkeypatch, tmp_path):
     assert ["see-describe", "--repair", "20240101", "-v"] in called
 
     called.clear()
-    with review.app.test_request_context("/admin/api/20240101/summarize", method="POST"):
+    with review.app.test_request_context(
+        "/admin/api/20240101/summarize", method="POST"
+    ):
         resp = review.admin_summarize("20240101")
     assert resp.json["status"] == "ok"
     assert any(cmd[0] == "think-summarize" for cmd in called)
