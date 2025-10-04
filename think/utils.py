@@ -7,6 +7,7 @@ import time
 import zoneinfo
 from datetime import datetime
 from pathlib import Path
+from string import Template
 from typing import Any, NamedTuple, Optional
 
 from dotenv import load_dotenv
@@ -34,8 +35,88 @@ class PromptNotFoundError(FileNotFoundError):
         super().__init__(f"Prompt file not found: {path}")
 
 
+def _flatten_identity_to_template_vars(identity: dict[str, Any]) -> dict[str, str]:
+    """Flatten identity config into template variables with uppercase-first versions.
+
+    Parameters
+    ----------
+    identity:
+        Identity configuration dictionary from get_config()['identity'].
+
+    Returns
+    -------
+    dict[str, str]
+        Template variables including flattened nested objects and uppercase-first versions.
+        For example:
+        - 'name' → identity['name']
+        - 'pronouns_possessive' → identity['pronouns']['possessive']
+        - 'Pronouns_possessive' → identity['pronouns']['possessive'].capitalize()
+        - 'entity_name' → value of identity['entity'] field
+        - 'entity_value' → description from entities.md for the entity
+    """
+    template_vars: dict[str, str] = {}
+
+    # Flatten top-level and nested values
+    for key, value in identity.items():
+        if isinstance(value, dict):
+            # Flatten nested dictionaries with underscore separator
+            for subkey, subvalue in value.items():
+                var_name = f"{key}_{subkey}"
+                template_vars[var_name] = str(subvalue)
+                # Create uppercase-first version
+                template_vars[var_name.capitalize()] = str(subvalue).capitalize()
+        elif isinstance(value, (str, int, float, bool)):
+            # Top-level scalar values
+            template_vars[key] = str(value)
+            # Create uppercase-first version
+            template_vars[key.capitalize()] = str(value).capitalize()
+
+    # Handle entity lookup
+    entity_ref = identity.get("entity", "")
+    if entity_ref:
+        template_vars["entity_name"] = entity_ref
+        template_vars["Entity_name"] = entity_ref  # No capitalize for entity name
+
+        # Fetch entity description from entities.md
+        try:
+            load_dotenv()
+            journal = os.getenv("JOURNAL_PATH")
+            if journal:
+                entities_path = Path(journal) / "entities.md"
+                if entities_path.is_file():
+                    from think.indexer import parse_entity_line
+
+                    with open(entities_path, "r", encoding="utf-8") as f:
+                        for line in f:
+                            parsed = parse_entity_line(line)
+                            if parsed:
+                                _, name, desc = parsed
+                                # Match entity by name
+                                if name == entity_ref:
+                                    template_vars["entity_value"] = desc
+                                    template_vars["Entity_value"] = desc.capitalize()
+                                    break
+        except Exception as exc:
+            logging.debug("Failed to load entity description: %s", exc)
+
+    # Add bio if present
+    bio = identity.get("bio", "")
+    if bio:
+        template_vars["bio"] = bio
+        template_vars["Bio"] = bio.capitalize()
+
+    return template_vars
+
+
 def load_prompt(name: str, base_dir: str | Path | None = None) -> PromptContent:
     """Return the text contents and path for a ``.txt`` prompt file.
+
+    Supports Python string.Template variable substitution using identity config
+    from get_config()['identity']. Template variables include:
+    - Top-level fields: $name, $preferred
+    - Nested fields with underscores: $pronouns_possessive, $pronouns_subject
+    - Uppercase-first versions: $Pronouns_possessive, $Name
+    - Entity fields: $entity_name (entity reference), $entity_value (description)
 
     Parameters
     ----------
@@ -49,8 +130,8 @@ def load_prompt(name: str, base_dir: str | Path | None = None) -> PromptContent:
     Returns
     -------
     PromptContent
-        The prompt text (with surrounding whitespace removed) and the resolved
-        path to the ``.txt`` file.
+        The prompt text (with surrounding whitespace removed and template variables
+        substituted) and the resolved path to the ``.txt`` file.
     """
 
     if not name:
@@ -63,6 +144,19 @@ def load_prompt(name: str, base_dir: str | Path | None = None) -> PromptContent:
         text = prompt_path.read_text(encoding="utf-8").strip()
     except FileNotFoundError as exc:  # pragma: no cover - caller handles missing prompt
         raise PromptNotFoundError(prompt_path) from exc
+
+    # Perform template substitution
+    try:
+        config = get_config()
+        identity = config.get("identity", {})
+        template_vars = _flatten_identity_to_template_vars(identity)
+
+        # Use safe_substitute to avoid errors for undefined variables
+        template = Template(text)
+        text = template.safe_substitute(template_vars)
+    except Exception as exc:
+        # Log but don't fail - return original text if substitution fails
+        logging.debug("Template substitution failed for %s: %s", prompt_path, exc)
 
     return PromptContent(text=text, path=prompt_path)
 
