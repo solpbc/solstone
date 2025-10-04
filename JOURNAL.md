@@ -52,6 +52,9 @@ Fields:
 - `timezone` (string) – IANA timezone identifier (e.g., "America/New_York", "Europe/London") for timestamp interpretation
 - `entity` (string) – Links to a Person entity from the top-level entities.md file for entity tracking and analysis. Auto-matches by name prefix if not set.
 
+**Entity Integration:**
+When an entity is selected in the configuration UI, the entity's description is automatically loaded into the "Short Bio" field for editing. Any changes to the short bio are saved both to the identity configuration and to the entity itself in entities.md. This ensures the journal owner's biographical information stays synchronized between the identity config and the entity system, allowing agents and analysis tools to access consistent contextual information about the user.
+
 This configuration helps meeting extraction identify the user as a participant, enables personalized agent interactions, and ensures timestamps are interpreted correctly across the journal.
 
 #### Template usage examples

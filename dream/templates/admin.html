@@ -18,8 +18,9 @@ pre { background:#f5f5f5; padding:0.5em; }
 .config-section h3 { color: #333; font-size: 1.3em; margin: 1.5em 0 1em 0; border-bottom: 2px solid #eee; padding-bottom: 0.5em; }
 .form-group { margin-bottom: 1.5em; }
 .form-group label { display: block; font-weight: 600; color: #333; margin-bottom: 0.5em; font-size: 0.95em; }
-.form-group input { width: 100%; padding: 0.6em 0.75em; border: 2px solid #ddd; border-radius: 8px; font-size: 0.95em; font-family: inherit; transition: border-color 0.2s, box-shadow 0.2s; box-sizing: border-box; }
-.form-group input:focus { outline: none; border-color: #667eea; box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1); }
+.form-group input, .form-group textarea, .form-group select { width: 100%; padding: 0.6em 0.75em; border: 2px solid #ddd; border-radius: 8px; font-size: 0.95em; font-family: inherit; transition: border-color 0.2s, box-shadow 0.2s; box-sizing: border-box; }
+.form-group input:focus, .form-group textarea:focus, .form-group select:focus { outline: none; border-color: #667eea; box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1); }
+.form-group textarea { resize: vertical; min-height: 60px; }
 .form-group small { display: block; margin-top: 0.3em; color: #666; font-size: 0.85em; line-height: 1.4; }
 .config-status { margin-top: 1em; padding: 0.75em 1em; border-radius: 8px; font-size: 0.9em; font-weight: 500; display: none; }
 .config-status.success { background: #d4edda; color: #155724; display: block; }
@@ -56,6 +57,18 @@ pre { background:#f5f5f5; padding:0.5em; }
         <small>Preferred name or nickname to be used when addressing you</small>
       </div>
       <div class="form-group">
+        <label for="config-entity">Entity</label>
+        <select id="config-entity" data-field="entity">
+          <option value="">Select entity...</option>
+        </select>
+        <small id="entity-display" style="color: #666; margin-top: 0.3em;"></small>
+      </div>
+      <div class="form-group">
+        <label for="config-short-bio">Short Bio</label>
+        <textarea id="config-short-bio" data-field="short_bio" rows="3" placeholder="Brief description of yourself (loaded from selected entity)"></textarea>
+        <small>This bio is stored in the entity and used across the journal for context</small>
+      </div>
+      <div class="form-group">
         <label for="config-pronouns">Pronouns</label>
         <select id="config-pronouns" data-field="pronouns">
           <option value="">Select pronouns...</option>
@@ -77,13 +90,6 @@ pre { background:#f5f5f5; padding:0.5em; }
         <label for="config-emails">Email Addresses</label>
         <input type="text" id="config-emails" data-field="email_addresses" placeholder="e.g., work@company.com, personal@example.com">
         <small>Comma-separated email addresses for participant detection</small>
-      </div>
-      <div class="form-group">
-        <label for="config-entity">Entity</label>
-        <select id="config-entity" data-field="entity">
-          <option value="">Select entity...</option>
-        </select>
-        <small id="entity-display" style="color: #666; margin-top: 0.3em;"></small>
       </div>
       <div class="form-group">
         <label for="config-timezone">Home Timezone</label>
@@ -180,6 +186,7 @@ let taskDone=false;
 let configData = null;
 let saveTimeout = null;
 let personEntities = [];
+let currentEntityDetails = null;
 const tabs = document.querySelectorAll('.tab');
 const contents = document.querySelectorAll('.content');
 function showTab(id){
@@ -329,6 +336,30 @@ function populateConfigForm(data){
   }
 }
 
+function loadEntityDetails(entityName){
+  if (!entityName) {
+    currentEntityDetails = null;
+    document.getElementById('config-short-bio').value = '';
+    return;
+  }
+
+  fetch(`{{ url_for('entities.entities_details') }}?type=Person&name=${encodeURIComponent(entityName)}`)
+    .then(r=>r.json())
+    .then(details=>{
+      currentEntityDetails = details;
+      if (details.desc) {
+        document.getElementById('config-short-bio').value = details.desc;
+      } else {
+        document.getElementById('config-short-bio').value = '';
+      }
+    })
+    .catch(err=>{
+      console.error('Error loading entity details:', err);
+      currentEntityDetails = null;
+      document.getElementById('config-short-bio').value = '';
+    });
+}
+
 function updateEntityDisplay(){
   const entitySelect = document.getElementById('config-entity');
   const entityDisplay = document.getElementById('entity-display');
@@ -341,25 +372,29 @@ function updateEntityDisplay(){
     } else {
       entityDisplay.textContent = `Selected: ${selectedEntity}`;
     }
+    loadEntityDetails(selectedEntity);
   } else {
     entityDisplay.textContent = '';
+    loadEntityDetails('');
   }
 }
 
 function setupConfigAutoSave(){
-  const inputs = document.querySelectorAll('#config input[data-field], #config select[data-field]');
+  const inputs = document.querySelectorAll('#config input[data-field], #config select[data-field], #config textarea[data-field]');
   inputs.forEach(input=>{
     input.addEventListener('blur', ()=>saveConfigField(input));
     input.addEventListener('change', ()=>{
       if(input.id === 'config-entity') updateEntityDisplay();
       saveConfigField(input);
     });
-    input.addEventListener('keydown', e=>{
-      if(e.key==='Enter'){
-        e.preventDefault();
-        saveConfigField(input);
-      }
-    });
+    if (input.tagName !== 'TEXTAREA') {
+      input.addEventListener('keydown', e=>{
+        if(e.key==='Enter'){
+          e.preventDefault();
+          saveConfigField(input);
+        }
+      });
+    }
   });
 }
 
@@ -384,6 +419,9 @@ function saveConfig(){
     }
   }
 
+  const entityName = document.getElementById('config-entity').value.trim();
+  const shortBio = document.getElementById('config-short-bio').value.trim();
+
   const identity = {
     name: document.getElementById('config-name').value.trim(),
     preferred: document.getElementById('config-preferred').value.trim(),
@@ -391,11 +429,12 @@ function saveConfig(){
     aliases: document.getElementById('config-aliases').value.split(',').map(s=>s.trim()).filter(s=>s),
     email_addresses: document.getElementById('config-emails').value.split(',').map(s=>s.trim()).filter(s=>s),
     timezone: document.getElementById('config-timezone').value.trim(),
-    entity: document.getElementById('config-entity').value.trim()
+    entity: entityName
   };
 
   showConfigStatus('Saving...', 'saving');
 
+  // Save config first
   fetch('{{ url_for('admin.update_config') }}', {
     method: 'PUT',
     headers: {'Content-Type': 'application/json'},
@@ -405,15 +444,31 @@ function saveConfig(){
   .then(data=>{
     if(data.success){
       configData = data.config;
-      showConfigStatus('Saved', 'success');
-      setTimeout(()=>hideConfigStatus(), 2000);
+
+      // If entity is selected and short_bio has content, update the entity
+      if (entityName && shortBio) {
+        return fetch('{{ url_for('entities.api_top_update') }}', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({
+            type: 'Person',
+            name: entityName,
+            desc: shortBio
+          })
+        });
+      }
+      return Promise.resolve();
     } else {
-      showConfigStatus('Error: ' + (data.error || 'Unknown error'), 'error');
+      throw new Error(data.error || 'Unknown error');
     }
+  })
+  .then(()=>{
+    showConfigStatus('Saved', 'success');
+    setTimeout(()=>hideConfigStatus(), 2000);
   })
   .catch(err=>{
     console.error('Error saving config:', err);
-    showConfigStatus('Error saving configuration', 'error');
+    showConfigStatus('Error: ' + (err.message || 'Error saving configuration'), 'error');
   });
 }
 
