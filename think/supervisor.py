@@ -343,7 +343,7 @@ def start_runners() -> list[ManagedProcess]:
 
 def start_cortex_server() -> ManagedProcess:
     """Launch the Cortex WebSocket API server."""
-    cmd = ["think-cortex", "-v"]
+    cmd = ["muse-cortex", "-v"]
     return _launch_process("cortex", cmd, restart=True)
 
 

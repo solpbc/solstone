@@ -84,7 +84,7 @@ def test_google_main(monkeypatch, tmp_path, capsys):
             "disable_mcp": True,
         }
     )
-    asyncio.run(run_main(mod, ["think-agents"], stdin_data=ndjson_input))
+    asyncio.run(run_main(mod, ["muse-agents"], stdin_data=ndjson_input))
 
     out_lines = capsys.readouterr().out.strip().splitlines()
     events = [json.loads(line) for line in out_lines]
@@ -122,7 +122,7 @@ def test_google_outfile(monkeypatch, tmp_path, capsys):
             "disable_mcp": True,
         }
     )
-    asyncio.run(run_main(mod, ["think-agents"], stdin_data=ndjson_input))
+    asyncio.run(run_main(mod, ["muse-agents"], stdin_data=ndjson_input))
 
     # Output file functionality was removed in NDJSON-only mode
     # Check stdout instead
@@ -174,7 +174,7 @@ def test_google_outfile_error(monkeypatch, tmp_path, capsys):
             "mcp_server_url": "http://localhost:5175/mcp",
         }
     )
-    asyncio.run(run_main(mod, ["think-agents"], stdin_data=ndjson_input))
+    asyncio.run(run_main(mod, ["muse-agents"], stdin_data=ndjson_input))
 
     # Check stdout for error event
     out_lines = capsys.readouterr().out.strip().splitlines()

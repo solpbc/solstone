@@ -57,8 +57,8 @@ def test_google_backend_basic():
         }
     )
 
-    # Run the think-agents command
-    cmd = ["think-agents"]
+    # Run the muse-agents command
+    cmd = ["muse-agents"]
     result = subprocess.run(
         cmd,
         env=env,
@@ -149,8 +149,8 @@ def test_google_backend_with_thinking():
         }
     )
 
-    # Run the think-agents command
-    cmd = ["think-agents"]
+    # Run the muse-agents command
+    cmd = ["muse-agents"]
     result = subprocess.run(
         cmd,
         env=env,

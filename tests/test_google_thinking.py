@@ -86,7 +86,7 @@ def test_google_thinking_events(monkeypatch, tmp_path, capsys):
             "disable_mcp": True,
         }
     )
-    asyncio.run(run_main(mod, ["think-agents"], stdin_data=ndjson_input))
+    asyncio.run(run_main(mod, ["muse-agents"], stdin_data=ndjson_input))
 
     out_lines = capsys.readouterr().out.strip().splitlines()
     events = [json.loads(line) for line in out_lines]

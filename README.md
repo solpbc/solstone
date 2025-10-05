@@ -38,8 +38,8 @@ A comprehensive Python-based AI-driven desktop journaling toolkit for multimodal
 
 ### Additional Tools
 
-- **MCP Server** 🛰️ - `think-mcp-tools` launches Model Context Protocol server
-- **Cortex** 🧩 - `think-cortex` provides agent-based task execution
+- **MCP Server** 🛰️ - `muse-mcp-tools` launches Model Context Protocol server
+- **Cortex** 🧩 - `muse-cortex` provides agent-based task execution
 - **Help** ❓ - `sunstone` lists all available commands
 
 ## 📦 Installation

@@ -99,8 +99,8 @@ def test_claude_backend_real_sdk():
             }
         )
 
-        # Run the think-agents command
-        cmd = ["think-agents"]
+        # Run the muse-agents command
+        cmd = ["muse-agents"]
 
         result = subprocess.run(
             cmd,
@@ -248,8 +248,8 @@ def test_claude_backend_with_tool_calls():
             }
         )
 
-        # Run the think-agents command with verbose flag to get tool events
-        cmd = ["think-agents", "-v"]
+        # Run the muse-agents command with verbose flag to get tool events
+        cmd = ["muse-agents", "-v"]
 
         result = subprocess.run(
             cmd,
@@ -377,8 +377,8 @@ def test_claude_backend_with_thinking():
             }
         )
 
-        # Run the think-agents command
-        cmd = ["think-agents"]
+        # Run the muse-agents command
+        cmd = ["muse-agents"]
 
         result = subprocess.run(
             cmd,

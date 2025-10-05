@@ -2,7 +2,7 @@
 """Claude Code SDK backend agent implementation.
 
 This module exposes agent functionality for interacting with Claude Code
-via the SDK and is used by the ``think-agents`` CLI.
+via the SDK and is used by the ``muse-agents`` CLI.
 """
 
 from __future__ import annotations

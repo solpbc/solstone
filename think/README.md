@@ -22,8 +22,8 @@ The package exposes several commands:
 - `think-entity-roll` collects entities across days and writes a rollup file.
 - `think-process-day` runs the above tools for a single day.
 - `think-supervisor` monitors hear and see heartbeats. Use `--no-runners` to skip starting them automatically.
-- `think-mcp-tools` starts an MCP server exposing search capabilities for both summary text and raw transcripts.
-- `think-cortex` starts a WebSocket API server for managing AI agent instances.
+- `muse-mcp-tools` starts an MCP server exposing search capabilities for both summary text and raw transcripts.
+- `muse-cortex` starts a WebSocket API server for managing AI agent instances.
 
 ```bash
 think-summarize YYYYMMDD [-f PROMPT] [-p] [-c] [--force] [-v]
@@ -31,8 +31,8 @@ think-cluster YYYYMMDD [--start HHMMSS --length MINUTES]
 think-entity-roll
 think-process-day [--day YYYYMMDD] [--force] [--repair] [--rebuild]
 think-supervisor [--no-runners]
-think-mcp-tools [--transport http] [--port PORT] [--path PATH]
-think-cortex [--host HOST] [--port PORT] [--path PATH]
+muse-mcp-tools [--transport http] [--port PORT] [--path PATH]
+muse-cortex [--host HOST] [--port PORT] [--path PATH]
 ```
 
 `-p` is a switch enabling the Gemini Pro model. Use `-c` to count tokens only,
@@ -84,7 +84,7 @@ WantedBy=timers.target
 
 ### Cortex: Central Agent Manager
 
-The Cortex service (`think-cortex`) is the central system for managing AI agent instances. It monitors the journal's `agents/` directory for new requests and manages agent execution. All agent spawning should go through Cortex for proper event tracking and management.
+The Cortex service (`muse-cortex`) is the central system for managing AI agent instances. It monitors the journal's `agents/` directory for new requests and manages agent execution. All agent spawning should go through Cortex for proper event tracking and management.
 
 To spawn agents programmatically, use the cortex_client functions:
 
@@ -114,10 +114,10 @@ cortex_watch(on_event)
 
 ### Direct CLI Usage (Testing Only)
 
-The `think-agents` command is primarily used internally by Cortex. For testing purposes, it can be invoked directly:
+The `muse-agents` command is primarily used internally by Cortex. For testing purposes, it can be invoked directly:
 
 ```bash
-think-agents [TASK_FILE] [--backend PROVIDER] [--model MODEL] [--max-tokens N] [-o OUT_FILE]
+muse-agents [TASK_FILE] [--backend PROVIDER] [--model MODEL] [--max-tokens N] [-o OUT_FILE]
 ```
 
 The provider can be ``openai`` (default), ``google`` or ``anthropic``. Set the corresponding API key environment variable (`OPENAI_API_KEY`,

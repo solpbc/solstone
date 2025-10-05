@@ -2,7 +2,7 @@
 """Anthropic Claude backed agent implementation.
 
 This module exposes :class:`AgentSession` for interacting with Anthropic's
-Claude API and is used by the ``think-agents`` CLI.
+Claude API and is used by the ``muse-agents`` CLI.
 """
 
 from __future__ import annotations

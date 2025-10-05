@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-OpenAI-backed agent implementation for the Sunstone `think-agents` CLI.
+OpenAI-backed agent implementation for the Sunstone `muse-agents` CLI.
 
 - Connects to a local MCP server over Streamable HTTP
 - Runs an agent with streaming to surface tool args/results and (when available) reasoning summaries

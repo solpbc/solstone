@@ -15,7 +15,7 @@ The Cortex system manages AI agent execution through a file-based architecture. 
 ### Key Components
 - **File Watching**: Cortex uses watchdog to monitor for new `*_active.jsonl` files
 - **Configuration Loading**: Cortex loads and merges persona configuration with request parameters
-- **Process Management**: Spawns agent subprocesses via the `think-agents` command with merged configuration
+- **Process Management**: Spawns agent subprocesses via the `muse-agents` command with merged configuration
 - **Event Capture**: Monitors agent stdout/stderr and appends to JSONL files
 - **Atomic Operations**: File renames provide race-free state transitions
 - **NDJSON Input Mode**: Agent processes accept newline-delimited JSON via stdin containing the full merged configuration

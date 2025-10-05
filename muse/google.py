@@ -2,7 +2,7 @@
 """Gemini backed agent implementation.
 
 This module exposes :class:`AgentSession` for interacting with Google's Gemini
-API. It is utilised by the unified ``think-agents`` CLI.
+API. It is utilised by the unified ``muse-agents`` CLI.
 """
 
 from __future__ import annotations

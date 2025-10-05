@@ -37,7 +37,7 @@ def test_todo_generation_endpoint(client, monkeypatch, tmp_path):
 
     monkeypatch.setattr(convey_state, "todo_generation_agents", {}, raising=False)
 
-    with patch("think.cortex_client.cortex_request") as mock_request:
+    with patch("muse.cortex_client.cortex_request") as mock_request:
         mock_request.return_value = str(agents_dir / "agent_1_active.jsonl")
 
         resp = client.post("/todos/20240101/generate")
