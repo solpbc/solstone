@@ -24,6 +24,7 @@ import os
 import signal
 import subprocess
 import sys
+import tempfile
 
 from dbus_next.aio import MessageBus
 
@@ -82,62 +83,87 @@ async def run_screencast(
     # Capture monitor geometries before starting recording
     geometries = get_monitor_geometries()
 
-    sc = Screencaster()
-    ok, resolved_path = await sc.start(out_path, fps, draw_cursor)
-    if not ok:
-        print("ERROR: Failed to start screencast.", file=sys.stderr)
-        return 1
+    # Create temp file in same directory for atomic move
+    out_dir = os.path.dirname(out_path)
+    temp_fd, temp_path = tempfile.mkstemp(dir=out_dir, suffix=".webm.tmp")
+    os.close(temp_fd)  # Close fd, we just need the path
 
-    print(f"Recording… ({duration_s}s) -> {resolved_path}")
+    try:
+        sc = Screencaster()
+        ok, resolved_path = await sc.start(temp_path, fps, draw_cursor)
+        if not ok:
+            print("ERROR: Failed to start screencast.", file=sys.stderr)
+            if os.path.exists(temp_path):
+                error_path = out_path.replace(".webm", ".webm.error")
+                os.replace(temp_path, error_path)
+                print(f"Moved failed recording to {error_path}", file=sys.stderr)
+            return 1
 
-    # Graceful Ctrl-C handling (stop and exit)
-    stop_event = asyncio.Event()
+        print(f"Recording… ({duration_s}s) -> {out_path}")
 
-    def _signal_handler():
-        stop_event.set()
+        # Graceful Ctrl-C handling (stop and exit)
+        stop_event = asyncio.Event()
 
-    loop = asyncio.get_running_loop()
-    for sig in (signal.SIGINT, signal.SIGTERM):
+        def _signal_handler():
+            stop_event.set()
+
+        loop = asyncio.get_running_loop()
+        for sig in (signal.SIGINT, signal.SIGTERM):
+            try:
+                loop.add_signal_handler(sig, _signal_handler)
+            except NotImplementedError:
+                # Windows / restricted environments
+                pass
+
         try:
-            loop.add_signal_handler(sig, _signal_handler)
-        except NotImplementedError:
-            # Windows / restricted environments
-            pass
+            # Wait for either duration elapsed or a signal
+            done = asyncio.create_task(asyncio.sleep(duration_s))
+            interrupted = asyncio.create_task(stop_event.wait())
+            await asyncio.wait({done, interrupted}, return_when=asyncio.FIRST_COMPLETED)
+        finally:
+            await sc.stop()
+            print("Stopped.")
 
-    try:
-        # Wait for either duration elapsed or a signal
-        done = asyncio.create_task(asyncio.sleep(duration_s))
-        interrupted = asyncio.create_task(stop_event.wait())
-        await asyncio.wait({done, interrupted}, return_when=asyncio.FIRST_COMPLETED)
-    finally:
-        await sc.stop()
-        print("Stopped.")
+        # Update video title with monitor dimensions
+        # Format: "connector-id:position,x1,y1,x2,y2 connector-id:position,x1,y1,x2,y2 ..."
+        title_parts = []
+        for geom_info in geometries:
+            x1, y1, x2, y2 = geom_info["box"]
+            title_parts.append(
+                f"{geom_info['id']}:{geom_info['position']},{x1},{y1},{x2},{y2}"
+            )
+        title = " ".join(title_parts)
 
-    # Update video title with monitor dimensions
-    # Format: "connector-id:position,x1,y1,x2,y2 connector-id:position,x1,y1,x2,y2 ..."
-    title_parts = []
-    for geom_info in geometries:
-        x1, y1, x2, y2 = geom_info["box"]
-        title_parts.append(
-            f"{geom_info['id']}:{geom_info['position']},{x1},{y1},{x2},{y2}"
-        )
-    title = " ".join(title_parts)
+        try:
+            subprocess.run(
+                ["mkvpropedit", resolved_path, "--edit", "info", "--set", f"title={title}"],
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+            print(f"Updated video title with monitor dimensions: {title}")
+        except subprocess.CalledProcessError as e:
+            print(f"Warning: Failed to update video title: {e.stderr}", file=sys.stderr)
+        except FileNotFoundError:
+            print("Warning: mkvpropedit not found, skipping title update", file=sys.stderr)
 
-    try:
-        subprocess.run(
-            ["mkvpropedit", resolved_path, "--edit", "info", "--set", f"title={title}"],
-            check=True,
-            capture_output=True,
-            text=True,
-        )
-        print(f"Updated video title with monitor dimensions: {title}")
-    except subprocess.CalledProcessError as e:
-        print(f"Warning: Failed to update video title: {e.stderr}", file=sys.stderr)
-    except FileNotFoundError:
-        print("Warning: mkvpropedit not found, skipping title update", file=sys.stderr)
+        # Atomically move temp file to final location
+        os.replace(resolved_path, out_path)
+        print(f"Saved to {out_path}")
 
-    touch_health("screencast")
-    return 0
+        touch_health("screencast")
+        return 0
+
+    except Exception as e:
+        # Move temp file to error location for debugging
+        if os.path.exists(temp_path):
+            try:
+                error_path = out_path.replace(".webm", ".webm.error")
+                os.replace(temp_path, error_path)
+                print(f"Moved partial recording to {error_path}", file=sys.stderr)
+            except OSError:
+                pass
+        raise e
 
 
 def main():
