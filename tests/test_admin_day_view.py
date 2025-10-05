@@ -1,9 +1,13 @@
 import importlib
 
+from think.utils import day_path
 
-def test_admin_day_page(tmp_path):
+
+def test_admin_day_page(tmp_path, monkeypatch):
+    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+    day_path("20240101")
+
     review = importlib.import_module("convey")
-    (tmp_path / "20240101").mkdir()
     review.journal_root = str(tmp_path)
     with review.app.test_request_context("/admin/20240101"):
         html = review.admin_day_page("20240101")
@@ -14,8 +18,10 @@ def test_admin_day_page(tmp_path):
 
 
 def test_admin_day_actions(monkeypatch, tmp_path):
+    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+    day_path("20240101")
+
     review = importlib.import_module("convey")
-    (tmp_path / "20240101").mkdir()
     review.journal_root = str(tmp_path)
     called = []
 

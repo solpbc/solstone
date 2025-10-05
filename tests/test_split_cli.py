@@ -4,6 +4,8 @@ from pathlib import Path
 
 import numpy as np
 
+from think.utils import day_path
+
 
 def prepare_soundfile(monkeypatch, frames):
     def read(path, dtype="float32"):
@@ -24,14 +26,13 @@ def test_split_cli(tmp_path, monkeypatch):
     frames = 16000 * 60
     _ = prepare_soundfile(monkeypatch, frames)
 
-    day = tmp_path / "20240101"
-    day.mkdir()
+    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+    day = day_path("20240101")
+
     heard = day / "heard"
     heard.mkdir()
     src = heard / "120000_audio.flac"
     src.write_bytes(b"data")
-
-    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
     mod = importlib.import_module("hear.split")
     monkeypatch.setattr(
         "sys.argv",

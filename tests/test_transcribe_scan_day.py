@@ -1,9 +1,13 @@
 import importlib
 
+from think.utils import day_path
 
-def test_scan_day(tmp_path):
+
+def test_scan_day(tmp_path, monkeypatch):
+    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+    day_dir = day_path("20240101")
+
     mod = importlib.import_module("hear.transcribe")
-    day_dir = tmp_path / "20240101"
     heard_dir = day_dir / "heard"
     heard_dir.mkdir(parents=True)
     (day_dir / "120000_audio.flac").write_bytes(b"data")

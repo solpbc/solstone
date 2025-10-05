@@ -1,6 +1,8 @@
 import importlib
 import json
 
+from think.utils import day_path
+
 
 def test_admin_page(tmp_path):
     review = importlib.import_module("convey")
@@ -20,10 +22,11 @@ def test_admin_page_shows_log(tmp_path):
     assert "Task Log" in html
 
 
-def test_admin_day_page_shows_log(tmp_path):
+def test_admin_day_page_shows_log(tmp_path, monkeypatch):
+    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+    day = day_path("20240102")
+
     review = importlib.import_module("convey")
-    day = tmp_path / "20240102"
-    day.mkdir()
     (day / "task_log.txt").write_text("2\tdid stuff\n")
     review.journal_root = str(tmp_path)
     with review.app.test_request_context("/admin/20240102"):
@@ -88,13 +91,13 @@ def test_task_log_api(monkeypatch, tmp_path):
 
 
 def test_task_log_api_day(monkeypatch, tmp_path):
+    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+    day = day_path("20240101")
+
     review = importlib.import_module("convey")
-    day = tmp_path / "20240101"
-    day.mkdir()
     log = day / "task_log.txt"
     log.write_text("60\tdid thing\n")
     review.journal_root = str(tmp_path)
-    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
     monkeypatch.setattr("time.time", lambda: 120)
     with review.app.test_request_context("/admin/api/20240101/task_log"):
         resp = review.task_log("20240101")

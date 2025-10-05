@@ -1,14 +1,23 @@
 import importlib
+import os
 import shutil
 from pathlib import Path
+
+from think.utils import day_path
 
 FIXTURES = Path("fixtures")
 
 
 def copy_day(tmp_path: Path) -> Path:
+    os.environ["JOURNAL_PATH"] = str(tmp_path)
+    dest = day_path("20240101")
     src = FIXTURES / "journal" / "20240101"
-    dest = tmp_path / "20240101"
-    shutil.copytree(src, dest)
+    # Copy contents from fixture to the day_path created directory
+    for item in src.iterdir():
+        if item.is_dir():
+            shutil.copytree(item, dest / item.name, dirs_exist_ok=True)
+        else:
+            shutil.copy2(item, dest / item.name)
     topics = dest / "topics"
     topics.mkdir(exist_ok=True)  # Allow existing directory
     (topics / "flow.md").write_text("done")

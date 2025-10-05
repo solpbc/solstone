@@ -1,9 +1,13 @@
 import importlib
 
+from think.utils import day_path
 
-def test_scan_day(tmp_path):
+
+def test_scan_day(tmp_path, monkeypatch):
+    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+    day_dir = day_path("20240101")
+
     mod = importlib.import_module("see.describe")
-    day_dir = tmp_path / "20240101"
     seen_dir = day_dir / "seen"
     seen_dir.mkdir(parents=True)
     (day_dir / "120000_monitor_1_diff.png").write_bytes(b"data")

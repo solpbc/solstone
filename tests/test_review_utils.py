@@ -2,6 +2,8 @@ import importlib
 import json
 import os
 
+from think.utils import day_path
+
 
 def test_format_date():
     review = importlib.import_module("convey")
@@ -31,11 +33,11 @@ def test_modify_and_update(tmp_path):
     assert top_path.read_text()
 
 
-def test_build_index_occurrence_format(tmp_path):
-    os.environ["JOURNAL_PATH"] = str(tmp_path)
+def test_build_index_occurrence_format(tmp_path, monkeypatch):
+    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+    day = day_path("20240101")
+
     review = importlib.import_module("convey")
-    day = tmp_path / "20240101"
-    day.mkdir()
     data = {
         "day": "20240101",
         "occurrences": [
@@ -57,11 +59,11 @@ def test_build_index_occurrence_format(tmp_path):
     assert index["20240101"][0]["startTime"].endswith("T09:00:00")
 
 
-def test_build_index_old_format(tmp_path):
-    os.environ["JOURNAL_PATH"] = str(tmp_path)
+def test_build_index_old_format(tmp_path, monkeypatch):
+    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+    day = day_path("20240102")
+
     review = importlib.import_module("convey")
-    day = tmp_path / "20240102"
-    day.mkdir()
     topics_dir = day / "topics"
     topics_dir.mkdir()
     meetings = [{"title": "Old", "startTime": "2024-01-02T10:00:00"}]
@@ -70,11 +72,11 @@ def test_build_index_old_format(tmp_path):
     assert index["20240102"][0]["title"] == "Old"
 
 
-def test_list_day_folders(tmp_path):
-    os.environ["JOURNAL_PATH"] = str(tmp_path)
+def test_list_day_folders(tmp_path, monkeypatch):
+    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
     from think.utils import day_dirs
 
-    (tmp_path / "20240101").mkdir()
-    (tmp_path / "20240103").mkdir()
+    day_path("20240101")
+    day_path("20240103")
     days = sorted(day_dirs().keys())
     assert days == ["20240101", "20240103"]

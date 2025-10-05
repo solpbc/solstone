@@ -4,6 +4,8 @@ import json
 from pathlib import Path
 from unittest.mock import patch
 
+from think.utils import day_path
+
 
 def test_importer_text(tmp_path, monkeypatch):
     mod = importlib.import_module("think.importer")
@@ -28,8 +30,9 @@ def test_importer_text(tmp_path, monkeypatch):
     )
     mod.main()
 
-    f1 = tmp_path / "20240101" / "120000_imported_audio.json"
-    f2 = tmp_path / "20240101" / "120500_imported_audio.json"
+    day_dir = day_path("20240101")
+    f1 = day_dir / "120000_imported_audio.json"
+    f2 = day_dir / "120500_imported_audio.json"
 
     chunk1 = json.loads(f1.read_text())
     chunk2 = json.loads(f2.read_text())
@@ -117,8 +120,9 @@ def test_importer_audio_transcribe(tmp_path, monkeypatch):
         mod.main()
 
     # Check that the files were created correctly
-    f1 = tmp_path / "20240101" / "120000_imported_audio.json"
-    f2 = tmp_path / "20240101" / "120500_imported_audio.json"
+    day_dir = day_path("20240101")
+    f1 = day_dir / "120000_imported_audio.json"
+    f2 = day_dir / "120500_imported_audio.json"
 
     assert f1.exists()
     assert f2.exists()

@@ -1,12 +1,12 @@
 import importlib
-import os
+
+from think.utils import day_path
 
 
-def test_get_raw_file(tmp_path):
+def test_get_raw_file(tmp_path, monkeypatch):
     utils = importlib.import_module("think.utils")
-    os.environ["JOURNAL_PATH"] = str(tmp_path)
-    day_dir = tmp_path / "20240101"
-    day_dir.mkdir()
+    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+    day_dir = day_path("20240101")
     seen = day_dir / "seen"
     seen.mkdir()
     heard = day_dir / "heard"
