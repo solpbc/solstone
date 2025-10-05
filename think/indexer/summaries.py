@@ -8,9 +8,9 @@ from typing import Dict, List, Tuple
 import sqlite_utils
 from syntok import segmenter
 
-from think.utils import get_topics
+from think.utils import day_dirs, get_topics
 
-from .core import _scan_files, find_day_dirs, get_index
+from .core import _scan_files, get_index
 
 # Sentence indexing helpers
 TOPIC_DIR = os.path.join(os.path.dirname(__file__), "..", "topics")
@@ -37,7 +37,7 @@ def find_summary_files(
     """Map relative summary file path to full path filtered by ``exts``."""
     files: Dict[str, str] = {}
     exts = exts or (".md", ".json")
-    for day, day_path in find_day_dirs(journal).items():
+    for day, day_path in day_dirs().items():
         topics_dir = os.path.join(day_path, "topics")
         if not os.path.isdir(topics_dir):
             continue

@@ -10,7 +10,7 @@ import soundfile as sf
 from silero_vad import load_silero_vad
 
 from hear.audio_utils import SAMPLE_RATE, detect_speech
-from think.utils import DATE_RE, day_log, setup_cli
+from think.utils import DATE_RE, day_dirs as get_day_dirs, day_log, setup_cli
 
 # Match the threshold used in live capture
 MIN_SPEECH_SECONDS = 1.0
@@ -153,7 +153,7 @@ def main() -> None:
             logging.error("Day directory %s not found in %s", args.day, journal)
             raise SystemExit(1)
     else:
-        day_dirs = sorted(p for p in journal.iterdir() if DATE_RE.fullmatch(p.name))
+        day_dirs = [Path(p) for p in sorted(get_day_dirs().values())]
 
     for day_dir in day_dirs:
         if args.jobs == 1:

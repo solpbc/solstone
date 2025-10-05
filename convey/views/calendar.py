@@ -7,13 +7,14 @@ from typing import Any
 
 from flask import Blueprint, jsonify, render_template, request
 
+from think.utils import day_dirs
+
 from .. import state
 from ..utils import (
     DATE_RE,
     adjacent_days,
     build_occurrence_index,
     format_date,
-    list_day_folders,
 )
 
 bp = Blueprint("calendar", __name__, template_folder="../templates")
@@ -489,12 +490,7 @@ def calendar_occurrences() -> Any:
         state.occurrences_index_days = set(state.occurrences_index.keys())
     elif state.journal_root:
         # Check for new days that aren't in the index yet (incremental update)
-        current_days = set()
-        for name in os.listdir(state.journal_root):
-            if DATE_RE.fullmatch(name):
-                path = os.path.join(state.journal_root, name)
-                if os.path.isdir(path):
-                    current_days.add(name)
+        current_days = set(day_dirs().keys())
 
         # Find new days not in the index
         new_days = current_days - state.occurrences_index_days
@@ -558,7 +554,7 @@ def calendar_occurrences() -> Any:
 def calendar_days() -> Any:
     """Return list of available day folders."""
 
-    days = list_day_folders(state.journal_root)
+    days = sorted(day_dirs().keys())
     return jsonify(days)
 
 
@@ -576,60 +572,57 @@ def calendar_stats() -> Any:
 
     # Get all days and their occurrence counts
     all_days = []
-    for name in os.listdir(state.journal_root):
-        if DATE_RE.fullmatch(name):
-            path = os.path.join(state.journal_root, name)
-            if os.path.isdir(path):
-                day_stats = {
-                    "day": name,
-                    "has_transcripts": False,
-                    "has_todos": False,
-                    "has_topics": False,
-                    "occurrence_count": 0,
-                }
+    for name, path in day_dirs().items():
+        day_stats = {
+            "day": name,
+            "has_transcripts": False,
+            "has_todos": False,
+            "has_topics": False,
+            "occurrence_count": 0,
+        }
 
-                # Check for transcripts (audio json files)
-                for fname in os.listdir(path):
-                    if fname.endswith("_audio.json"):
-                        day_stats["has_transcripts"] = True
-                        break
+        # Check for transcripts (audio json files)
+        for fname in os.listdir(path):
+            if fname.endswith("_audio.json"):
+                day_stats["has_transcripts"] = True
+                break
 
-                # Check for todos
-                todos_path = os.path.join(path, "todos", "today.md")
-                if os.path.exists(todos_path):
-                    day_stats["has_todos"] = True
+        # Check for todos
+        todos_path = os.path.join(path, "todos", "today.md")
+        if os.path.exists(todos_path):
+            day_stats["has_todos"] = True
 
-                # Check for topics and count occurrences
-                topics_dir = os.path.join(path, "topics")
-                if os.path.isdir(topics_dir):
-                    # Check if any topic files exist (json or md)
-                    topic_files = [
-                        f
-                        for f in os.listdir(topics_dir)
-                        if (f.endswith(".json") or f.endswith(".md"))
-                        and not f.endswith(".crumb")
-                    ]
-                    if topic_files:
-                        day_stats["has_topics"] = True
+        # Check for topics and count occurrences
+        topics_dir = os.path.join(path, "topics")
+        if os.path.isdir(topics_dir):
+            # Check if any topic files exist (json or md)
+            topic_files = [
+                f
+                for f in os.listdir(topics_dir)
+                if (f.endswith(".json") or f.endswith(".md"))
+                and not f.endswith(".crumb")
+            ]
+            if topic_files:
+                day_stats["has_topics"] = True
 
-                    # Count occurrences from JSON files
-                    for fname in os.listdir(topics_dir):
-                        if fname.endswith(".json") and not fname.endswith(".crumb"):
-                            try:
-                                file_path = os.path.join(topics_dir, fname)
-                                with open(file_path, "r", encoding="utf-8") as f:
-                                    data = json.load(f)
-                                items = (
-                                    data.get("occurrences", [])
-                                    if isinstance(data, dict)
-                                    else data if isinstance(data, list) else []
-                                )
-                                day_stats["occurrence_count"] += len(items)
-                            except Exception:
-                                continue
+            # Count occurrences from JSON files
+            for fname in os.listdir(topics_dir):
+                if fname.endswith(".json") and not fname.endswith(".crumb"):
+                    try:
+                        file_path = os.path.join(topics_dir, fname)
+                        with open(file_path, "r", encoding="utf-8") as f:
+                            data = json.load(f)
+                        items = (
+                            data.get("occurrences", [])
+                            if isinstance(data, dict)
+                            else data if isinstance(data, list) else []
+                        )
+                        day_stats["occurrence_count"] += len(items)
+                    except Exception:
+                        continue
 
-                all_days.append(day_stats)
-                stats[name] = day_stats
+        all_days.append(day_stats)
+        stats[name] = day_stats
 
     # Calculate percentiles for past days only
     past_days_with_data = [

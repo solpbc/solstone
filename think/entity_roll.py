@@ -11,6 +11,7 @@ from think.crumbs import CrumbBuilder
 from think.models import GEMINI_PRO, gemini_generate
 from think.utils import (
     PromptNotFoundError,
+    day_dirs as get_day_dirs,
     day_log,
     day_path,
     load_prompt,
@@ -117,17 +118,6 @@ def send_to_gemini(
 DATE_RE = re.compile(r"\d{8}")
 
 
-def find_day_dirs(journal: str) -> Dict[str, str]:
-    """Return mapping of YYYYMMDD string to full path."""
-    days = {}
-    for name in os.listdir(journal):
-        if DATE_RE.fullmatch(name):
-            path = os.path.join(journal, name)
-            if os.path.isdir(path):
-                days[name] = path
-    return days
-
-
 def gather_files(day: datetime, day_dirs: Dict[str, str]) -> List[str]:
     files = []
     for i in range(8):
@@ -220,7 +210,7 @@ def main() -> None:
     args = setup_cli(parser)
     journal = os.getenv("JOURNAL_PATH")
 
-    day_dirs = find_day_dirs(journal)
+    day_dirs = get_day_dirs()
     if not day_dirs:
         parser.error("No YYYYMMDD directories found")
 

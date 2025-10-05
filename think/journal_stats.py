@@ -15,7 +15,7 @@ from see.describe import Describer
 from see.reduce import scan_day as reduce_scan_day
 from think.entity_roll import scan_day as entity_scan_day
 from think.summarize import scan_day as summarize_scan_day
-from think.utils import setup_cli
+from think.utils import day_dirs, setup_cli
 
 DATE_RE = re.compile(r"\d{8}")
 
@@ -186,15 +186,14 @@ class JournalStats:
                 continue
 
     def scan(self, journal: str, verbose: bool = False) -> None:
-        day_dirs = [d for d in os.listdir(journal) if DATE_RE.fullmatch(d)]
-        day_dirs.sort()
-        for idx, day in enumerate(day_dirs, 1):
-            path = os.path.join(journal, day)
+        days_map = day_dirs()
+        sorted_days = sorted(days_map.items())
+        for idx, (day, path) in enumerate(sorted_days, 1):
             if not os.path.isdir(path):
                 continue
             if verbose:
                 print(
-                    f"[{idx}/{len(day_dirs)}] Scanning {day}...",
+                    f"[{idx}/{len(sorted_days)}] Scanning {day}...",
                     end="\r",
                     flush=True,
                 )

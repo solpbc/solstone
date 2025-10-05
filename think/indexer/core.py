@@ -6,6 +6,8 @@ import sqlite3
 import time
 from typing import Callable, Dict, List, Union
 
+from think.utils import day_dirs
+
 # Common regex patterns
 DATE_RE = re.compile(r"\d{8}")
 
@@ -97,17 +99,6 @@ SCHEMAS = {
 }
 
 
-def find_day_dirs(journal: str) -> Dict[str, str]:
-    """Return mapping of YYYYMMDD strings to absolute paths."""
-    days: Dict[str, str] = {}
-    for name in os.listdir(journal):
-        if DATE_RE.fullmatch(name):
-            path = os.path.join(journal, name)
-            if os.path.isdir(path):
-                days[name] = path
-    return days
-
-
 def _ensure_schema(conn: sqlite3.Connection, index: str) -> None:
     """Create required tables for *index* if they don't exist."""
     for statement in SCHEMAS[index]:
@@ -150,8 +141,7 @@ def reset_index(journal: str, index: str, *, day: str | None = None) -> None:
             paths = [os.path.join(journal, day, INDEX_DIR, DB_NAMES[index])]
         else:
             paths = [
-                os.path.join(journal, d, INDEX_DIR, DB_NAMES[index])
-                for d in find_day_dirs(journal)
+                os.path.join(journal, d, INDEX_DIR, DB_NAMES[index]) for d in day_dirs()
             ]
     else:
         paths = [os.path.join(journal, INDEX_DIR, DB_NAMES[index])]

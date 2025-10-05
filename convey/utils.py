@@ -8,7 +8,7 @@ from typing import Any, Dict, List, Optional
 
 from think.indexer import parse_entity_line
 from think.models import GEMINI_FLASH, gemini_generate
-from think.utils import get_topics
+from think.utils import day_dirs, get_topics
 
 DATE_RE = re.compile(r"\d{8}")
 
@@ -17,29 +17,13 @@ def adjacent_days(journal: str, day: str) -> tuple[Optional[str], Optional[str]]
     """Return previous and next day folder names if they exist."""
     if not journal or not os.path.isdir(journal):
         return None, None
-    days = sorted(d for d in os.listdir(journal) if DATE_RE.fullmatch(d))
+    days = sorted(day_dirs())
     if day not in days:
         return None, None
     idx = days.index(day)
     prev_day = days[idx - 1] if idx > 0 else None
     next_day = days[idx + 1] if idx < len(days) - 1 else None
     return prev_day, next_day
-
-
-def list_day_folders(journal: str) -> List[str]:
-    """Return sorted list of YYYYMMDD folders inside ``journal``."""
-
-    days: List[str] = []
-    if not journal or not os.path.isdir(journal):
-        return days
-    for name in os.listdir(journal):
-        if not DATE_RE.fullmatch(name):
-            continue
-        path = os.path.join(journal, name)
-        if os.path.isdir(path):
-            days.append(name)
-    days.sort()
-    return days
 
 
 def format_date(date_str: str) -> str:
@@ -217,12 +201,7 @@ def build_occurrence_index(journal: str) -> Dict[str, List[Dict[str, Any]]]:
     """Aggregate occurrences from all topic JSON files for each day."""
 
     index: Dict[str, List[Dict[str, Any]]] = {}
-    for name in os.listdir(journal):
-        if not DATE_RE.fullmatch(name):
-            continue
-        path = os.path.join(journal, name)
-        if not os.path.isdir(path):
-            continue
+    for name, path in day_dirs().items():
 
         occs: List[Dict[str, Any]] = []
         topics_dir = os.path.join(path, "topics")

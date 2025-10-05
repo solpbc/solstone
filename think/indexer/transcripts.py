@@ -9,7 +9,9 @@ from typing import Dict, List
 
 import sqlite_utils
 
-from .core import _scan_files, find_day_dirs, get_index
+from think.utils import day_dirs
+
+from .core import _scan_files, get_index
 
 # Transcript file helpers
 AUDIO_RE = re.compile(r"^(?P<time>\d{6}).*_audio\.json$")
@@ -19,7 +21,7 @@ SCREEN_RE = re.compile(r"^(?P<time>\d{6})_[a-z]+_\d+_diff\.json$")
 def find_transcript_files(journal: str) -> Dict[str, str]:
     """Return mapping of transcript JSON file paths relative to ``journal``."""
     files: Dict[str, str] = {}
-    for day, day_path in find_day_dirs(journal).items():
+    for day, day_path in day_dirs().items():
         for name in os.listdir(day_path):
             if AUDIO_RE.match(name) or SCREEN_RE.match(name):
                 rel = os.path.join(day, name)
@@ -173,7 +175,7 @@ def search_transcripts(
     if day:
         days = [day]
     else:
-        all_days = sorted(find_day_dirs(journal))
+        all_days = sorted(day_dirs())
         # Filter by date range if provided
         if start_date and end_date:
             days = [d for d in all_days if start_date <= d <= end_date]

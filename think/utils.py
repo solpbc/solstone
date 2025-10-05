@@ -206,6 +206,38 @@ def day_path(day: Optional[str] = None) -> Path:
     return path
 
 
+def day_dirs() -> dict[str, str]:
+    """Return mapping of YYYYMMDD day names to absolute paths.
+
+    Uses JOURNAL_PATH from environment (must be set via load_dotenv() or setup_cli()).
+
+    Returns
+    -------
+    dict[str, str]
+        Mapping of day folder names to their full paths.
+        Example: {"20250101": "/path/to/journal/20250101", ...}
+
+    Raises
+    ------
+    RuntimeError
+        If JOURNAL_PATH environment variable is not set.
+    """
+    load_dotenv()
+    journal = os.getenv("JOURNAL_PATH")
+    if not journal:
+        raise RuntimeError("JOURNAL_PATH not set")
+    if not os.path.isdir(journal):
+        return {}
+
+    days: dict[str, str] = {}
+    for name in os.listdir(journal):
+        if DATE_RE.fullmatch(name):
+            path = os.path.join(journal, name)
+            if os.path.isdir(path):
+                days[name] = path
+    return days
+
+
 def get_config() -> dict[str, Any]:
     """Return the journal configuration from config/journal.json.
 

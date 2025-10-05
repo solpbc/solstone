@@ -1,5 +1,6 @@
 import importlib
 import json
+import os
 
 
 def test_format_date():
@@ -31,6 +32,7 @@ def test_modify_and_update(tmp_path):
 
 
 def test_build_index_occurrence_format(tmp_path):
+    os.environ["JOURNAL_PATH"] = str(tmp_path)
     review = importlib.import_module("convey")
     day = tmp_path / "20240101"
     day.mkdir()
@@ -56,6 +58,7 @@ def test_build_index_occurrence_format(tmp_path):
 
 
 def test_build_index_old_format(tmp_path):
+    os.environ["JOURNAL_PATH"] = str(tmp_path)
     review = importlib.import_module("convey")
     day = tmp_path / "20240102"
     day.mkdir()
@@ -68,8 +71,10 @@ def test_build_index_old_format(tmp_path):
 
 
 def test_list_day_folders(tmp_path):
-    review = importlib.import_module("convey")
+    os.environ["JOURNAL_PATH"] = str(tmp_path)
+    from think.utils import day_dirs
+
     (tmp_path / "20240101").mkdir()
     (tmp_path / "20240103").mkdir()
-    days = review.list_day_folders(str(tmp_path))
+    days = sorted(day_dirs().keys())
     assert days == ["20240101", "20240103"]

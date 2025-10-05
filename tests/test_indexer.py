@@ -101,6 +101,7 @@ def test_raw_index(tmp_path):
 def test_index_caching(tmp_path):
     mod = importlib.import_module("think.indexer")
     journal = tmp_path
+    os.environ["JOURNAL_PATH"] = str(journal)
     day = journal / "20240104"
     day.mkdir()
     topics_dir = day / "topics"

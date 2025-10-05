@@ -8,7 +8,9 @@ from typing import Any, Dict, List, Tuple
 
 import sqlite_utils
 
-from .core import _scan_files, find_day_dirs, get_index
+from think.utils import day_dirs
+
+from .core import _scan_files, get_index
 
 # Entity parsing helpers
 ENTITY_ITEM_RE = re.compile(r"^\s*[-*]\s*(.*)")
@@ -66,7 +68,7 @@ def find_entity_files(journal: str) -> Dict[str, str]:
     if os.path.isfile(top_path):
         files["entities.md"] = top_path
 
-    for day, path in find_day_dirs(journal).items():
+    for day, path in day_dirs().items():
         md_path = os.path.join(path, "entities.md")
         if os.path.isfile(md_path):
             files[os.path.join(day, "entities.md")] = md_path

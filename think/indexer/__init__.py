@@ -13,7 +13,6 @@ from .core import (
     DB_NAMES,
     INDEX_DIR,
     SCHEMAS,
-    find_day_dirs,
     get_index,
     reset_index,
 )
@@ -67,7 +66,6 @@ __all__ = [
     "DB_NAMES",
     "INDEX_DIR",
     "SCHEMAS",
-    "find_day_dirs",
     "get_index",
     "reset_index",
     # Summaries
