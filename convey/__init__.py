@@ -287,7 +287,14 @@ def run_service(
     """Run the Convey service, optionally starting the Cortex watcher."""
 
     if start_watcher:
-        start_cortex_event_watcher()
+        # Only start watcher in Flask's main process (not the reloader parent)
+        # WERKZEUG_RUN_MAIN is set to 'true' only in the child/main process
+        is_reloader_process = os.environ.get("WERKZEUG_RUN_MAIN") != "true"
+        if not is_reloader_process:
+            logger.info("Starting Cortex event watcher")
+            start_cortex_event_watcher()
+        else:
+            logger.debug("Skipping watcher start in reloader parent process")
     app.run(host=host, port=port, debug=debug)
 
 
@@ -304,7 +311,9 @@ def main() -> None:
     if password:
         logger.info("Password authentication enabled")
     else:
-        logger.warning("No password configured - add to config/journal.json to enable authentication")
+        logger.warning(
+            "No password configured - add to config/journal.json to enable authentication"
+        )
 
     run_service(app, host="0.0.0.0", port=args.port, debug=args.verbose)
 
