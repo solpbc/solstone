@@ -164,7 +164,7 @@ def load_prompt(
 
     # Prepend journal content if requested
     if include_journal and name != "journal":
-        journal_content = load_prompt("journal", base_dir=base_dir)
+        journal_content = load_prompt("journal")
         text = f"{journal_content.text}\n\n{text}"
 
     return PromptContent(text=text, path=prompt_path)
