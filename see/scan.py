@@ -13,7 +13,7 @@ from PIL.PngImagePlugin import PngInfo
 from see.screen_compare import compare_images
 from see.screen_dbus import check_screen_state, idle_time_ms, screen_snap
 from think.detect_border import detect_border
-from think.utils import setup_cli, touch_health
+from think.utils import day_path, setup_cli, touch_health
 
 BLUE_BORDER = (0, 0, 255)
 
@@ -59,8 +59,6 @@ def save_cache(images):
 
 def recent_audio_activity(journal: str, window: int = 120) -> bool:
     """Return True if an *_audio.json file was modified in the last ``window`` seconds."""
-    from think.utils import day_path
-
     day_dir = day_path()  # Uses today by default, creates if needed, returns Path
     if not day_dir.exists():
         return False
