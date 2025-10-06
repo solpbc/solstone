@@ -317,12 +317,11 @@ def audio_transcribe(
         try:
             from think.utils import load_entity_names
 
-            # Load entity names from domain-specific entities.md
-            entity_names = load_entity_names(domain=domain)
+            # Load entity names from domain-specific entities.md (spoken mode for short forms)
+            entity_names = load_entity_names(domain=domain, spoken=True)
             if entity_names:
-                # Split comma-delimited string to list
-                entities = [name.strip() for name in entity_names.split(",")]
-                entities = _sanitize_entities(entities)
+                # entity_names is already a list in spoken mode
+                entities = _sanitize_entities(entity_names)
                 if entities:
                     logger.info(
                         f"Using {len(entities)} entities from domain '{domain}' for transcription"

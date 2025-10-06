@@ -251,11 +251,14 @@ class Transcriber:
         attempts = 0
         while attempts < 2:
             try:
-                entity_names = load_entity_names(self.journal_dir)
+                entity_names = load_entity_names(self.journal_dir, spoken=True)
                 # If no entity names found, use empty string
-                entities_text = (
-                    f"Known entities: {entity_names}" if entity_names else ""
-                )
+                # Convert list to comma-delimited string for prompt
+                if entity_names:
+                    entities_str = ", ".join(entity_names)
+                    entities_text = f"Known entities: {entities_str}"
+                else:
+                    entities_text = ""
                 result = transcribe_segments(
                     self.client, MODEL, self.prompt_text, entities_text, segments
                 )

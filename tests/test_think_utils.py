@@ -148,3 +148,94 @@ def test_load_entity_names_missing_env_var(monkeypatch):
     with pytest.raises(ValueError) as exc_info:
         load_entity_names(None)
     assert "JOURNAL_PATH not set" in str(exc_info.value)
+
+
+def test_load_entity_names_spoken_mode():
+    """Test spoken mode returns shortened forms optimized for speech recognition."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        entities_path = Path(tmpdir) / "entities.md"
+        entities_path.write_text(
+            """
+* Person: Jeremie Miller (Jer) - Software engineer
+* Person: Jane Elizabeth Doe - Product manager
+* Company: Acme Corporation (ACME) - Tech company
+* Company: Widget Inc - Manufacturing company
+* Company: Google - Search engine
+* Project: Sunstone Project (SUN) - AI journaling
+* Project: Project X - Secret project
+* Tool: Hammer - For hitting things
+* Tool: Docker - Container runtime
+"""
+        )
+
+        result = load_entity_names(tmpdir, spoken=True)
+
+        # Should return a list, not a string
+        assert isinstance(result, list)
+
+        # Person: "Jeremie Miller (Jer)" -> ["Jeremie", "Jer"]
+        assert "Jeremie" in result
+        assert "Jer" in result
+
+        # Person: "Jane Elizabeth Doe" -> ["Jane"]
+        assert "Jane" in result
+        # Should not include middle/last names
+        assert "Elizabeth" not in result
+        assert "Doe" not in result
+
+        # Company: "Acme Corporation (ACME)" -> ["ACME"]
+        assert "ACME" in result
+        # Should not include full company name
+        assert "Acme Corporation" not in result
+
+        # Company: "Widget Inc" (multi-word) -> ["Widget"]
+        assert "Widget" in result
+
+        # Company: "Google" (single word) -> ["Google"]
+        assert "Google" in result
+
+        # Project: "Sunstone Project (SUN)" -> ["SUN"]
+        assert "SUN" in result
+
+        # Project: "Project X" (no parens) -> ["Project X"]
+        assert "Project X" in result
+
+        # Tools should be excluded entirely
+        assert "Hammer" not in result
+        assert "Docker" not in result
+
+
+def test_load_entity_names_spoken_mode_empty():
+    """Test spoken mode with only tools returns None."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        entities_path = Path(tmpdir) / "entities.md"
+        entities_path.write_text(
+            """
+* Tool: Hammer - For hitting things
+* Tool: Docker - Container runtime
+"""
+        )
+
+        result = load_entity_names(tmpdir, spoken=True)
+        # All entities are tools, so result should be None
+        assert result is None
+
+
+def test_load_entity_names_spoken_mode_duplicates():
+    """Test spoken mode filters out duplicate shortened forms."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        entities_path = Path(tmpdir) / "entities.md"
+        entities_path.write_text(
+            """
+* Person: John Smith - Engineer
+* Person: John Doe - Manager
+* Company: Acme Corp - Tech
+* Company: Acme Industries - Manufacturing
+"""
+        )
+
+        result = load_entity_names(tmpdir, spoken=True)
+
+        # Should have only one "John" and one "Acme" even though there are two of each
+        assert result.count("John") == 1
+        assert result.count("Acme") == 1

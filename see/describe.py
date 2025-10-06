@@ -98,8 +98,13 @@ class Describer:
                 logging.warning(
                     f"No box_2d metadata found in {img_path}, using full image dimensions: {box}"
                 )
-            entity_names = load_entity_names(self.journal_dir)
-            entities_text = f"Known entities: {entity_names}" if entity_names else ""
+            entity_names = load_entity_names(self.journal_dir, spoken=True)
+            # Convert list to comma-delimited string for prompt
+            if entity_names:
+                entities_str = ", ".join(entity_names)
+                entities_text = f"Known entities: {entities_str}"
+            else:
+                entities_text = ""
             return gemini_look.gemini_describe_region(
                 im, box, entities_text=entities_text
             )
