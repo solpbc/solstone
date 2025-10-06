@@ -1,7 +1,7 @@
 ### Executive Summary
-The user has made a creative and subjective request: to analyze yesterday's journal data, find the most "poignant" and interesting material, and then leverage it to craft a hilarious joke to be sent as a message. This plan focuses on a comprehensive data-gathering operation for a single day to provide a rich set of raw material for the creative task.
+$Preferred has made a creative and subjective request: to analyze yesterday's journal data, find the most "poignant" and interesting material, and then leverage it to craft a hilarious joke to be sent as a message. This plan focuses on a comprehensive data-gathering operation for a single day to provide a rich set of raw material for the creative task.
 
-The research will first build a complete picture of yesterday's activities, then dive into specific details to find moments of irony, frustration, or absurdity that can be used as comedic fodder. The final step is not to answer the user directly, but to use the `send_message` tool to deliver the crafted joke.
+The research will first build a complete picture of yesterday's activities, then dive into specific details to find moments of irony, frustration, or absurdity that can be used as comedic fodder. The final step is not to answer directly, but to use the `send_message` tool to deliver the crafted joke.
 
 - **Expected Outcome Type**: A single, creative message containing a joke.
 - **Estimated Research Depth**: Comprehensive (for a single day).
@@ -60,7 +60,7 @@ The strategy is to conduct a three-phase data sweep of yesterday's journal entri
 2.  **Joke Selection and Delivery**:
     -   **Tool**: `send_message`
     -   **Parameters**: `body` will contain the final, selected joke.
-    -   **Purpose**: To deliver the final creative output to the user as requested.
+    -   **Purpose**: To deliver the final creative output as requested.
 
 ### Query Optimization Strategy
 -   **Primary Queries**: Broad, day-filtered searches to capture all topics and events from yesterday.

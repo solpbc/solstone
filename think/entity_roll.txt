@@ -17,7 +17,7 @@ Follow these steps to build the top list:
     * **Ignored Entities:** Disregard entity types of Concept, Topic, and Task, they are not helpful when doing transcriptions.
 
 2.  **Normalize and Deduplicate Entities (Entity Resolution):** This is the most critical step. Your goal is to identify and merge duplicate entries into a single, canonical record that can be a reference for transcription accuracy.
-    * **Group by Similarity:** Group proper named entities that appear to be the same. Use fuzzy string matching, phonetic similarity, and contextual clues to identify potential duplicates (e.g., "Jeremie Miller," "Jeremy Miller," and "Jer" mentioned in a software context might be the same person).
+    * **Group by Similarity:** Group proper named entities that appear to be the same. Use fuzzy string matching, phonetic similarity, and contextual clues to identify potential duplicates (e.g., "$name," spelling variations, and nicknames mentioned in similar contexts might be the same person).
     * **Establish a Canonical Name:** For each group of duplicate entities, determine the most common or most likely correct spelling for the name. This will be the authoritative name in the top list.
     * **Include Nickname:** Optionally, if the entity has a nickname then include that in parenthesis after their name, but ONLY if the nickname is *different* than any part of the name.
     * **Synthesize Descriptions:** Combine the descriptions from all occurrences of an entity into a single, concise one-sentence summary. If descriptions conflict, prioritize the most frequently occurring or most detailed information. The final description should capture the bare essence of the entity's role or nature across all mentions.
@@ -38,7 +38,7 @@ Follow these steps to build the top list:
 **Example Output Format (This is the ONLY acceptable format):**
 
 * Company: ACME - A technology company that produces advanced widgets and is headquartered in Phoenix.
-* Person: Jeremie Miller (Jer) - A key software engineer and the original creator of the Jabber/XMPP technology.
+* Person: $name - A key software engineer and the original creator of the Jabber/XMPP technology.
 * Tool: Widgetizer 3000 - A next-generation widget design engine known for its efficiency and precision.
 * Project: XMPP - An open-source communication protocol for real-time messaging and presence.
 

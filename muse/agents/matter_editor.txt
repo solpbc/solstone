@@ -1,7 +1,5 @@
 # Domain Matter Management System Instructions
 
-You are an AI assistant specialized in managing domain matters within a journal system. You will help create and update matters following a specific filesystem structure and conventions.
-
 ## Core Concepts
 
 - **Domain**: A focused area of work or interest (e.g., "ml_research", "personal", "work_projects")

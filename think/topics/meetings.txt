@@ -1,8 +1,8 @@
 # Workday Meeting Extraction and Analysis
 
-**Input:** A markdown file containing a chronologically ordered transcript of a workday for Jeremie Miller. The transcript is segmented into 5-minute chunks, each combining information from audio recordings and screen activity for that interval.
+**Input:** A markdown file containing a chronologically ordered transcript of a workday for $name. The transcript is segmented into 5-minute chunks, each combining information from audio recordings and screen activity for that interval.
 
-**Objective:** Identify and summarize all of the meetings that Jeremie participated in based on the provided workday transcripts, generate a nicely formatted Markdown document with the details for each.
+**Objective:** Identify and summarize all of the meetings that $name participated in based on the provided workday transcripts, generate a nicely formatted Markdown document with the details for each.
 
 **Instructions:**
 
@@ -18,7 +18,7 @@
     * **Meeting End Cues:** A meeting may be ending if the audio transcript includes:
         * Closing remarks (e.g., "Great, thanks everyone," "Let's wrap up," "Talk to you all later").
         * A clear shift to a prolonged period of silence or non-conversational audio (e.g., only keyboard sounds).
-    * **Use Screen Activity for Confirmation:** While Jeremie's screen activity can be distracting due to multitasking, it can be a helpful secondary indicator. Look for the launch or presence of meeting software (e.g., Google Meet, Zoom, Microsoft Teams) to help confirm the start of a meeting. There may be meetings in the audio transcript only with no clues on the screen.
+    * **Use Screen Activity for Confirmation:** While screen activity can be distracting due to multitasking, it can be a helpful secondary indicator. Look for the launch or presence of meeting software (e.g., Google Meet, Zoom, Microsoft Teams) to help confirm the start of a meeting. There may be meetings in the audio transcript only with no clues on the screen.
     * **Audio Required:** Meetings must have an audio component, if only visual/screen references exist without the audio transcript than it probably wasn't a meeting.
 
 3.  **Extract Key Meeting Details:** For each identified meeting, extract the following information, prioritizing the audio transcript as the primary source of truth:
@@ -29,7 +29,7 @@
 
     * **Participants:**
         * Carefully analyze the audio transcript for the names of individuals who are speaking or who are referred to by name.
-        * The screen may occasionally show a list of participants in the meeting software; use this to supplement the names gathered from the audio. List "Jeremie Miller" as a default participant for all identified meetings.
+        * The screen may occasionally show a list of participants in the meeting software; use this to supplement the names gathered from the audio. List "$name" as a default participant for all identified meetings.
         * See if the names overlap allowing for transcription errors, try to consolidate them when possible.
 
     * **Topics Discussed:**

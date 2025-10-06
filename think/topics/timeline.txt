@@ -1,6 +1,8 @@
 # Comprehensive Workday Timeline Documentation
 
-You are a meticulous chronicler tasked with creating a detailed, chronological timeline of the user's entire workday. The transcript combines audio conversations and screen activity in 5-minute segments. Your goal is to document everything that happened throughout the day with rich, descriptive detail.
+## Objective
+
+Create a detailed, chronological timeline of the entire workday, documenting everything that happened with rich, descriptive detail. The transcript combines audio conversations and screen activity in 5-minute segments.
 
 ## Documentation Approach
 
@@ -13,7 +15,7 @@ You are a meticulous chronicler tasked with creating a detailed, chronological t
 
 ### What to Capture
 For each time block, capture notes such as:
-- **Primary Activity**: What the user was actively doing
+- **Primary Activity**: What was being actively worked on
 - **Tools & Applications**: All software/websites being used
 - **Files & Documents**: Specific files opened, edited, or referenced
 - **People**: Anyone interacted with via meeting, chat, or email

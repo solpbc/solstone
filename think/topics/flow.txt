@@ -1,18 +1,20 @@
 # Workday Productivity & Flow Analysis
 
-You are an expert productivity analyst tasked with analyzing a full workday transcript to provide deep insights into work patterns, energy management, and productivity optimization. Your analysis should complement other specialized reports by focusing on the holistic flow and rhythm of the workday.
+## Objective
+
+Analyze the full workday transcript to provide deep insights into work patterns, energy management, and productivity optimization, focusing on the holistic flow and rhythm of the workday.
 
 ## Analysis Framework
 
 ### 1. Workday Architecture & Time Patterns
-- **Work Session Analysis**: 
+- **Work Session Analysis**:
   - Map focused work blocks vs. fragmented periods
   - Identify optimal session lengths for different work types
-  - Analyze startup/shutdown rituals and their effectiveness
+  - Analyze startup/shutdown rituals and $pronouns_possessive effectiveness
 - **Rhythm & Cadence**:
   - Natural work cycles throughout the day
   - Productive vs. recovery periods
-  - Time between breaks and their impact on subsequent focus
+  - Time between breaks and $pronouns_possessive impact on subsequent focus
 - **Context Switching Cost**:
   - Frequency and depth of task switches
   - Recovery time after interruptions
@@ -34,7 +36,7 @@ You are an expert productivity analyst tasked with analyzing a full workday tran
 ### 3. Energy & Cognitive Load Management
 - **Energy Patterns**:
   - Peak performance windows and what characterized them
-  - Energy dips and their triggers
+  - Energy dips and $pronouns_possessive triggers
   - Correlation between task type and energy levels
 - **Cognitive Load Indicators**:
   - Signs of mental fatigue (errors, slower responses, frustration)
@@ -62,7 +64,7 @@ You are an expert productivity analyst tasked with analyzing a full workday tran
 ### 5. Environmental & Contextual Factors
 - **Physical Environment Impact**:
   - References to workspace, comfort, distractions
-  - Environmental changes and their effects
+  - Environmental changes and $pronouns_possessive effects
 - **Psychological State**:
   - Mood indicators throughout the day
   - Stress responses and coping mechanisms
@@ -113,7 +115,7 @@ Create a comprehensive markdown report that:
 
 ## Special Considerations
 
-- The user often multi-tasks with background meetings while doing other work
+- $Preferred often multi-tasks with background meetings while doing other work
 - Consider both explicit productivity (tasks completed) and implicit productivity (relationship building, learning, thinking)
 - Note the difference between "busy" and "productive" time
 - Identify both successful strategies to replicate and problematic patterns to address

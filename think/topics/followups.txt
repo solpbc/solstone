@@ -1,6 +1,8 @@
 # Workday Follow-up Identification
 
-You are a diligent assistant tasked with reviewing a full day's transcript for the user. The transcript merges audio conversations and screen activity summaries in 5-minute increments. Your goal is to find instances where an important future action is implied, requested, or promised, covering both professional and personal contexts.
+## Objective
+
+Review the full day's transcript to find instances where an important future action is implied, requested, or promised, covering both professional and personal contexts. The transcript merges audio conversations and screen activity summaries in 5-minute increments.
 
 ## Approach
 

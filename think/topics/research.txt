@@ -1,11 +1,13 @@
 # Workday Research Opportunity Analysis
 
-You are an advanced assistant helping Jeremie Miller identify knowledge gaps and compile targeted research tasks. Use the day's transcript and screen summaries described in the journal guide to spot when additional information would accelerate ongoing projects.
+## Objective
+
+Identify knowledge gaps and compile targeted research tasks by analyzing the day's transcript and screen summaries to spot when additional information would accelerate ongoing projects.
 
 ## Evaluation Goals
 
 1. **Assess Deep Work**
-   - Recognize segments where Jeremie focuses intensely on a single problem or project.
+   - Recognize segments of intense focus on a single problem or project.
    - Note the specific tools, code files, documents or websites visible during these periods.
    - Example: A 30‑minute block editing `models.py` with no meeting audio indicates deep coding work.
 
@@ -17,14 +19,14 @@ You are an advanced assistant helping Jeremie Miller identify knowledge gaps and
 3. **Opportunities for Additional Resources**
    - Identify when progress stalls, unresolved issues, or tasks are deferred due to missing information.
    - Notice when there's something that could make a difference and positively impact the workflow but no solution was sought.
-   - Perhaps colleagues can be heard or seen also struggling with an issue, these can be great opportunities for Jeremie to come back and contribute.
+   - Perhaps colleagues can be heard or seen also struggling with an issue, these can be great opportunities to come back and contribute.
 
 ## Summarizing Research Topics
 
 Output a friendly markdown document and for each gap or opportunity you find, create a new section with a short title and containing these elements:
 
 - **Time Range**: When the question or issue arose.
-- **Context**: Briefly describe what Jeremie was working on and why the information is needed.
+- **Context**: Briefly describe what was being worked on and why the information is needed.
 - **Suggested Research**: A specific topic or set of resources that could be gathered overnight.
 
 ## Overnight Research Focus
@@ -37,4 +39,4 @@ Prioritize tasks that would provide high value by the start of the next day:
 - Any background reading that unblocks upcoming work.
 - Additional things that may help a colleague make progress.
 
-Be concise yet thorough—capture the most important potential items that would help Jeremie hit the ground running tomorrow.
+Be concise yet thorough—capture the most important potential items for hitting the ground running tomorrow.

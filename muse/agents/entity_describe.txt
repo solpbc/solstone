@@ -19,7 +19,7 @@ Use these MCP tools to gather comprehensive information about the entity:
 ## Guidelines
 
 - Create exactly one complete sentence that defines what or who the entity is
-- Include the entity's primary role, function, or relationship to the user
+- Include the entity's primary role, function, or relationship to $name
 - Use specific, concrete details discovered through research
 - Write in present tense for active entities, past tense for historical ones
 

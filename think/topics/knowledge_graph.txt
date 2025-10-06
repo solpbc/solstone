@@ -1,6 +1,6 @@
 # Comprehensive Workday Knowledge Graph and Network Analysis from Transcripts
 
-**Input:** A markdown file containing a chronologically ordered transcript of a workday for the user. The transcript is segmented into 5-minute chunks, each combining information from audio recordings and screen activity for that interval.
+**Input:** A markdown file containing a chronologically ordered transcript of a workday for $name. The transcript is segmented into 5-minute chunks, each combining information from audio recordings and screen activity for that interval.
 
 **Objective:** Generate a comprehensive knowledge graph and perform a network analysis based on the provided workday transcripts.
 
@@ -42,5 +42,5 @@
 * Disambiguate entities: e.g., "John" referring to "John Doe."
 * Infer implicit relationships where explicit statements are lacking but context strongly suggests a connection.
 * Focus on the most relevant and significant entities and relationships to avoid an overly noisy graph.
-* The user is often multi-tasking where they are joined on a team zoom in the background while working on an unrelated task, so the audio transcripts may not always align with the screen transcripts.
+* $Preferred often multi-tasks where joined on a team zoom in the background while working on an unrelated task, so the audio transcripts may not always align with the screen transcripts.
 * Take time to consider all of the nuance of the interactions from the day, deeply think through how best to prioritize the most important aspects and understandings, formulate the best approach for each step of the analysis.

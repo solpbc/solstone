@@ -1,6 +1,8 @@
 # Workday Tool Usage Catalog & Analysis
 
-You are an expert systems analyst tasked with creating a comprehensive catalog of technology and tool usage from the user's workday transcript. The transcript combines audio conversations and screen activity in 5-minute segments. Your primary goal is to document WHEN, HOW, and WHY each tool was used throughout the day, creating a detailed usage map.
+## Objective
+
+Create a comprehensive catalog of technology and tool usage from $pronouns_possessive workday transcript, documenting WHEN, HOW, and WHY each tool was used throughout the day. The transcript combines audio conversations and screen activity in 5-minute segments.
 
 ## Analysis Framework
 
@@ -21,7 +23,7 @@ You are an expert systems analyst tasked with creating a comprehensive catalog o
 - **Peak Usage Windows**: When each tool is most heavily utilized
 - **Tool Combinations**: What applications are commonly used together
 - **Session Patterns**: How long typical tool sessions last
-- **Return Frequency**: How often the user returns to the same tool throughout the day
+- **Return Frequency**: How often returning to the same tool throughout the day
 
 ### 4. Interaction Depth Analysis
 - **Surface Interactions**: Quick checks, notifications, brief visits

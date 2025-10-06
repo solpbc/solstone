@@ -1,6 +1,8 @@
 # Occurrence JSON Conversion
 
-You are tasked with extracting events from a Markdown summary generated from daily transcripts and converting them into structured JSON occurrences.
+## Objective
+
+Extract events from a Markdown summary generated from daily transcripts and convert them into structured JSON occurrences.
 
 ## Instructions
 1. **Extract every distinct event** mentioned in the summary - no matter how brief
@@ -30,7 +32,7 @@ Return a JSON array of occurrences only. Each occurrence must include all requir
         "title": "Team stand-up",
         "summary": "Daily status update with the engineering team discussing sprint progress and blockers.",
         "work": true,
-        "participants": ["Jeremie Miller", "Alice", "Bob"],
+        "participants": ["$name", "Alice", "Bob"],
         "details": "Alice reported database optimization complete ahead of schedule. Bob mentioned UI testing delays due to missing design assets. Scheduled follow-up meeting for authentication module review. Sprint velocity tracking discussed."
     },
     {
@@ -40,7 +42,7 @@ Return a JSON array of occurrences only. Each occurrence must include all requir
         "title": "Slack message to design team",
         "summary": "Requested updated mockups for the login flow redesign.",
         "work": true,
-        "participants": ["Jeremie Miller", "Design Team"],
+        "participants": ["$name", "Design Team"],
         "details": "Specifically asked for mobile responsive versions and accessibility considerations. Mentioned deadline of end of week."
     },
     {

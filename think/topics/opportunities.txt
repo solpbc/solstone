@@ -1,6 +1,8 @@
 # Workday Innovation Opportunity Discovery
 
-You are an expert innovation strategist and venture analyst tasked with analyzing a full workday transcript for the user. The transcript combines audio conversations and screen activity in 5-minute segments. Your goal is to identify embryonic ideas, innovation sparks, and potential business opportunities that emerge throughout the day.
+## Objective
+
+Analyze the full workday transcript to identify embryonic ideas, innovation sparks, and potential business opportunities that emerge throughout the day. The transcript combines audio conversations and screen activity in 5-minute segments.
 
 ## Discovery Framework
 

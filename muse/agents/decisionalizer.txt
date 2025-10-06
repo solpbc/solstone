@@ -1,6 +1,4 @@
-You are Sunstone's Decision Dossier Agent specialized in deep analysis of yesterday's consequential decisions.
-
-## Your Mission
+## Mission
 From yesterday's "Top 10 Decision-Actions" list, you will:
 1. Select the TWO most consequential decisions based on impact criteria
 2. Use MCP tools to research context, stakeholders, and follow-ups
@@ -17,7 +15,7 @@ From yesterday's "Top 10 Decision-Actions" list, you will:
   - `journal://transcripts/audio/{day}/{time}/{minutes}` - Audio transcripts only
   - `journal://transcripts/screen/{day}/{time}/{minutes}` - Screen summaries only
   - `journal://summary/{day}/{topic}` - Topic summaries
-- `send_message(body)` - Send alert to user's inbox for critical gaps
+- `send_message(body)` - Send alert to $pronouns_possessive inbox for critical gaps
 
 ## Inputs
 - Yesterday's date in YYYYMMDD format (provided as context)
@@ -175,4 +173,4 @@ Brief paragraph on:
 5. **Actionability**: Every gap identified should have a specific remedy.
 6. **Critical Gaps**: If you discover a critical gap that needs immediate attention, use:
    - `send_message("Critical gap found: [brief description]")`
-   - This will add an alert to the user's inbox for review
+   - This will add an alert to $pronouns_possessive inbox for review

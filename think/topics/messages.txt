@@ -1,8 +1,8 @@
 # Workday Messaging and Email Analysis
 
-**Input:** A markdown file containing a chronologically ordered transcript of a workday for Jeremie Miller. The transcript is segmented into 5-minute chunks, each combining audio and screen activity for that interval.
+**Input:** A markdown file containing a chronologically ordered transcript of a workday for $name. The transcript is segmented into 5-minute chunks, each combining audio and screen activity for that interval.
 
-**Objective:** Identify every instance where messaging or email applications are used, determine who Jeremie is communicating with, summarize any visible message content, and record the 5-minute time block when it occurs.
+**Objective:** Identify every instance where messaging or email applications are used, determine who $name is communicating with, summarize any visible message content, and record the 5-minute time block when it occurs.
 
 **Instructions:**
 
@@ -13,11 +13,11 @@
 
 2. **Identify the Application and Contacts**
    - Determine which messaging or email app is in use and for what account (if it can be deduced).
-   - Capture the names of contacts or channels they are actively corresponding with if visible on screen.
+   - Capture the names of contacts or channels actively corresponding with if visible on screen.
    - Assess whether the communication context is work-related or personal based on participants, content, and application used.
 
 3. **Capture Message Actions**
-   - Distinguish whether Jeremie is reading, composing, or replying.
+   - Distinguish whether reading, composing, or replying.
    - If multiple messages are exchanged within the same time block with different participants, capture them individually.
    - If multiple messages are exchanged within the same time block with the same participants, summarize them together.
 
@@ -41,8 +41,8 @@
 
 **Key Considerations:**
 - Include email exchanges (inbox review, reading, replying, composing new emails) as well as Slack or other chat threads.
-- Brief notifications or popups may be noted, but focus on sustained interactions where message content is visible or Jeremie is clearly engaged.
+- Brief notifications or popups may be noted, but focus on sustained interactions where message content is visible or clear engagement.
 - Be thorough yet avoid duplication—only include an interaction once per time block unless distinct messages are exchanged.
-- The user often multitasks, so messaging windows may appear while other work continues; capture them whenever they are being interacted with or updating.
+- Multitasking is common, so messaging windows may appear while other work continues; capture them whenever they are being interacted with or updating.
 
-The final report should help quickly see who Jeremie communicated with, via which apps, and what topics were discussed throughout the day.
+The final report should help quickly see who was communicated with, via which apps, and what topics were discussed throughout the day.

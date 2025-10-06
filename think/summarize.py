@@ -217,7 +217,7 @@ def main() -> None:
 
         topic_path = Path(args.topic)
         try:
-            topic_prompt = load_prompt(topic_path.stem, base_dir=topic_path.parent)
+            topic_prompt = load_prompt(topic_path.stem, base_dir=topic_path.parent, include_journal=True)
         except PromptNotFoundError:
             parser.error(f"Topic file not found: {topic_path}")
 
@@ -294,7 +294,7 @@ def main() -> None:
         # Create a corresponding occurrence JSON from the markdown summary
         try:
             occ_prompt_content = load_prompt(
-                "summarize", base_dir=Path(__file__).parent
+                "summarize", base_dir=Path(__file__).parent, include_journal=True
             )
         except PromptNotFoundError as exc:
             print(exc)

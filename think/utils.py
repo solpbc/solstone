@@ -444,7 +444,7 @@ def get_agent(persona: str = "default") -> dict:
     txt_path = AGENT_DIR / f"{persona}.txt"
     if not txt_path.exists():
         raise FileNotFoundError(f"Agent persona not found: {persona}")
-    prompt_data = load_prompt(persona, base_dir=AGENT_DIR)
+    prompt_data = load_prompt(persona, base_dir=AGENT_DIR, include_journal=True)
     config["instruction"] = prompt_data.text
 
     # Add runtime context (entities and domains)

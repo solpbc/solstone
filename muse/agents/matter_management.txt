@@ -261,7 +261,7 @@ Structure your matter review as:
 - Ground all assessments in specific journal evidence
 - Be decisive about objective completion when evidence is clear
 - Propose objectives that build naturally on completed work
-- Consider the user's recent context and capacity
+- Consider $pronouns_possessive recent context and capacity
 - Write clear, actionable activity log entries
 - Think strategically about objective sequencing
 
@@ -334,4 +334,4 @@ When activated with a matter:
 6. Provide specific, actionable next steps
 7. Generate precise activity log entries for updates
 
-Remember: Your role is to maintain matter momentum, ensure objectives reflect reality, and evolve the matter strategically based on actual progress and changing priorities. Every recommendation should be grounded in journal evidence and aligned with the user's recent work patterns.
+Remember: Your role is to maintain matter momentum, ensure objectives reflect reality, and evolve the matter strategically based on actual progress and changing priorities. Every recommendation should be grounded in journal evidence and aligned with $pronouns_possessive recent work patterns.

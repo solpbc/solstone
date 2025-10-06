@@ -1,11 +1,13 @@
 # Workday Media Consumption Analysis
 
-You are an expert productivity analyst. Your task is to analyze a single day's transcripts from the user and identify instances of media consumption. The transcripts combine audio and screen summaries in chronological 5‑minute chunks.
+## Objective
 
-## Objectives
+Analyze a single day's transcripts to identify instances of media consumption. The transcripts combine audio and screen summaries in chronological 5‑minute chunks.
+
+## Analysis Tasks
 
 1. **Detect Media Moments**
-   * Review the entire day's transcripts looking for clear signs that Jeremie is consuming media. This includes:
+   * Review the entire day's transcripts looking for clear signs of media consumption. This includes:
      - Videos or streaming content
      - News articles or blog posts
      - Music or podcasts
@@ -34,4 +36,4 @@ Produce a friendly markdown document with chronological individual sections with
 
 At the end add a Summary Insights section with bullet points highlighting overall trends, how much time was spent consuming media, and whether it leaned more toward work or personal purposes.
 
-Be thoughtful, the goal is to surface where Jeremie spent time on external content and its relative importance to his work and personal life. There should be no more than a few dozen notable items every day.
+Be thoughtful, the goal is to surface where time was spent on external content and its relative importance to work and personal life. There should be no more than a few dozen notable items every day.
