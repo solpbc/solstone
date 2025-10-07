@@ -152,7 +152,6 @@ class ScreencastDiffer:
             "gradient": 0.0,
             "histogram": 0.0,
             "score_compute": 0.0,
-            "top_frames_extract": 0.0,
             "top_frames_decode": 0.0,
             "top_frames_compare": 0.0,
             "top_frames_draw": 0.0,
@@ -314,8 +313,6 @@ class ScreencastDiffer:
         if not self.divergence_scores:
             return
 
-        t_extract_start = time.perf_counter()
-
         # Get top N frames by divergence score
         top_n_by_score = self.divergence_scores[: self.count]
 
@@ -457,8 +454,6 @@ class ScreencastDiffer:
 
             traceback.print_exc(file=sys.stderr)
             raise
-
-        self.timings["top_frames_extract"] = time.perf_counter() - t_extract_start
 
     def get_top_divergent(self, n: int = None):
         """Get the top N most divergent frames."""
