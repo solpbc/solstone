@@ -223,7 +223,7 @@ class ScreencastDiffer:
         print(f"Extracting top {self.count} frames as WebP...", file=sys.stderr)
         self._extract_top_frames()
         print(
-            f"Found {len(self.divergence_scores)} scored frames, ready to serve top {self.count}",
+            f"Found {len(self.divergence_scores)} scored frames, successfully extracted {len(self.top_frames)} of top {self.count}",
             file=sys.stderr,
         )
         self._print_timings()
@@ -523,15 +523,23 @@ class ScreencastDiffer:
         return self.divergence_scores[:n]
 
     def get_top_chronological(self, n: int = None):
-        """Get the top N frames in chronological order with their divergence rank."""
+        """Get the top N frames in chronological order with their divergence rank.
+
+        Only returns frames that were successfully decoded and are in top_frames.
+        """
         if n is None:
             n = self.count
         top_by_score = self.divergence_scores[:n]
         # Create rank mapping (1-indexed)
         rank_map = {ts: idx for idx, (ts, _) in enumerate(top_by_score, 1)}
-        # Sort by timestamp and add rank
+        # Sort by timestamp and add rank, filtering to only successfully decoded frames
         chronological = sorted(top_by_score, key=lambda x: x[0])
-        return [(ts, score, rank_map[ts]) for ts, score in chronological]
+        # Only return frames that exist in top_frames (i.e., were successfully decoded)
+        return [
+            (ts, score, rank_map[ts])
+            for ts, score in chronological
+            if rank_map[ts] in self.top_frames
+        ]
 
     def _print_timings(self):
         """Print performance timing breakdown."""
@@ -602,9 +610,13 @@ def make_handler(differ: ScreencastDiffer):
                 html.append("</style>")
                 html.append("</head><body>")
                 html.append(
-                    f"<h1>Top {differ.count} Most Divergent Frames (Chronological Order)</h1>"
+                    f"<h1>Top {len(differ.top_frames)} Most Divergent Frames (Chronological Order)</h1>"
                 )
                 html.append(f"<p>Video: {differ.video_path.name}</p>")
+                if len(differ.top_frames) < differ.count:
+                    html.append(
+                        f"<p><em>Note: {differ.count - len(differ.top_frames)} frames failed to decode and were skipped</em></p>"
+                    )
 
                 if differ.method == "packet-size":
                     html.append(
