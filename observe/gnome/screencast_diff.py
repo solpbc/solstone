@@ -389,18 +389,29 @@ class ScreencastDiffer:
                 tb = float(v.time_base)
 
                 for ts in sorted(target_timestamps):
-                    # Seek close to the frame we want
-                    container.seek(
-                        int(ts / tb), stream=v, any_frame=True, backward=True
-                    )
+                    try:
+                        # Seek close to the frame we want
+                        container.seek(
+                            int(ts / tb), stream=v, any_frame=True, backward=True
+                        )
 
-                    # Decode forward until we reach that timestamp
-                    for frame in container.decode(video=0):
-                        if frame.pts is None:
-                            continue
-                        if (frame.time or 0.0) + 1e-6 >= ts:
-                            frames_dict[ts] = frame
-                            break
+                        # Flush codec to reset decoder state after seek
+                        v.codec_context.flush_buffers()
+
+                        # Decode forward until we reach that timestamp
+                        for frame in container.decode(video=0):
+                            if frame.pts is None:
+                                continue
+                            if (frame.time or 0.0) + 1e-6 >= ts:
+                                frames_dict[ts] = frame
+                                break
+                    except av.error.InvalidDataError as e:
+                        # Skip frames that can't be decoded (corrupt or missing references)
+                        print(
+                            f"WARNING: Could not decode frame at {ts:.2f}s: {e}",
+                            file=sys.stderr,
+                        )
+                        continue
 
             self.timings["top_frames_decode"] = time.perf_counter() - t_decode_start
 
