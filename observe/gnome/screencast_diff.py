@@ -124,7 +124,11 @@ def compute_frame_score(
 
 class ScreencastDiffer:
     def __init__(
-        self, video_path: str, sample_interval: float = 1.0, method: str = "packet-size", count: int = 10
+        self,
+        video_path: str,
+        sample_interval: float = 1.0,
+        method: str = "packet-size",
+        count: int = 10,
     ):
         self.video_path = Path(video_path)
         if not self.video_path.exists():
@@ -135,7 +139,9 @@ class ScreencastDiffer:
         self.count = count
         self.frame_scores = []  # List of (timestamp, score) - computed during scan
         self.divergence_scores = []  # List of (timestamp, score) - sorted by score
-        self.top_frames = {}  # Dict of {idx: (timestamp, score, webp_bytes)} for top N
+        self.top_frames = (
+            {}
+        )  # Dict of {idx: (timestamp, score, webp_bytes, box_stats)} for top N
 
         # Performance timing
         self.timings = {
@@ -311,15 +317,14 @@ class ScreencastDiffer:
         t_extract_start = time.perf_counter()
 
         # Get top N frames by divergence score
-        top_n_by_score = self.divergence_scores[:self.count]
+        top_n_by_score = self.divergence_scores[: self.count]
 
         # Re-order by timestamp (chronological order)
         top_n_chronological = sorted(top_n_by_score, key=lambda x: x[0])
 
         # Create mapping from timestamp to (original_rank, score)
         timestamp_to_data = {
-            ts: (idx, score)
-            for idx, (ts, score) in enumerate(top_n_by_score, 1)
+            ts: (idx, score) for idx, (ts, score) in enumerate(top_n_by_score, 1)
         }
 
         # Collect set of timestamps we need
@@ -368,15 +373,46 @@ class ScreencastDiffer:
                 img = current_frame.to_image()
                 self.timings["top_frames_to_pil"] += time.perf_counter() - t_pil_start
 
+                # Initialize box statistics
+                box_stats = None
+
                 # If not the first frame, compute bounding boxes and draw them
                 if previous_frame is not None:
                     # Compare with previous frame to get change regions
                     t_compare_start = time.perf_counter()
                     boxes = compare_frames(previous_frame, current_frame)
-                    self.timings["top_frames_compare"] += time.perf_counter() - t_compare_start
+                    self.timings["top_frames_compare"] += (
+                        time.perf_counter() - t_compare_start
+                    )
 
-                    # Draw red 5px rectangles around changed regions
+                    # Calculate box statistics
                     if boxes:
+                        img_width, img_height = img.size
+                        total_pixels = img_width * img_height
+                        total_area = 0
+                        largest_area = 0
+                        largest_box = None
+
+                        for box_data in boxes:
+                            y_min, x_min, y_max, x_max = box_data["box_2d"]
+                            area = (x_max - x_min) * (y_max - y_min)
+                            total_area += area
+                            if area > largest_area:
+                                largest_area = area
+                                largest_box = box_data
+
+                        # Store statistics
+                        box_stats = {
+                            "num_boxes": len(boxes),
+                            "total_area": total_area,
+                            "percent_changed": (total_area / total_pixels) * 100,
+                            "largest_box": (
+                                largest_box["box_2d"] if largest_box else None
+                            ),
+                            "largest_area": largest_area,
+                        }
+
+                        # Draw red 5px rectangles around changed regions
                         t_draw_start = time.perf_counter()
                         draw = ImageDraw.Draw(img)
                         for box_data in boxes:
@@ -384,12 +420,18 @@ class ScreencastDiffer:
                             # Draw rectangle with 5px red border
                             for offset in range(5):
                                 draw.rectangle(
-                                    [x_min + offset, y_min + offset,
-                                     x_max - offset, y_max - offset],
+                                    [
+                                        x_min + offset,
+                                        y_min + offset,
+                                        x_max - offset,
+                                        y_max - offset,
+                                    ],
                                     outline="red",
-                                    width=1
+                                    width=1,
                                 )
-                        self.timings["top_frames_draw"] += time.perf_counter() - t_draw_start
+                        self.timings["top_frames_draw"] += (
+                            time.perf_counter() - t_draw_start
+                        )
 
                 # Encode as WebP with quality setting
                 t_webp_start = time.perf_counter()
@@ -399,7 +441,12 @@ class ScreencastDiffer:
                 self.timings["webp_encode"] += time.perf_counter() - t_webp_start
 
                 # Store with original divergence rank as key
-                self.top_frames[original_rank] = (timestamp, score, webp_bytes)
+                self.top_frames[original_rank] = (
+                    timestamp,
+                    score,
+                    webp_bytes,
+                    box_stats,
+                )
 
                 # Update previous frame for next iteration
                 previous_frame = current_frame
@@ -498,7 +545,9 @@ def make_handler(differ: ScreencastDiffer):
                 html.append(".rank { color: #f90; font-weight: bold; }")
                 html.append("</style>")
                 html.append("</head><body>")
-                html.append(f"<h1>Top {differ.count} Most Divergent Frames (Chronological Order)</h1>")
+                html.append(
+                    f"<h1>Top {differ.count} Most Divergent Frames (Chronological Order)</h1>"
+                )
                 html.append(f"<p>Video: {differ.video_path.name}</p>")
 
                 if differ.method == "packet-size":
@@ -513,7 +562,9 @@ def make_handler(differ: ScreencastDiffer):
                 html.append(
                     f"<p>Total frames analyzed: {len(differ.frame_scores)} (sampled every {differ.sample_interval}s)</p>"
                 )
-                html.append("<p>Frames shown in chronological order with red boxes highlighting changes from previous frame</p>")
+                html.append(
+                    "<p>Frames shown in chronological order with red boxes highlighting changes from previous frame</p>"
+                )
 
                 for timestamp, score, rank in differ.get_top_chronological():
                     html.append('<div class="frame">')
@@ -523,9 +574,32 @@ def make_handler(differ: ScreencastDiffer):
                     else:
                         score_label = f"Divergence Score: {score:.4f}"
 
+                    # Get box statistics for this frame
+                    _, _, _, box_stats = differ.top_frames[rank]
+
                     html.append(
                         f'<div class="info"><span class="rank">Rank #{rank}</span> - Timestamp: {timestamp:.2f}s - {score_label}</div>'
                     )
+
+                    # Display box statistics if available
+                    if box_stats:
+                        html.append('<div class="info">')
+                        html.append(
+                            f'  Changed regions: {box_stats["num_boxes"]} boxes, '
+                        )
+                        html.append(f'{box_stats["percent_changed"]:.2f}% of screen ')
+                        html.append(f'({box_stats["total_area"]:,} pixels)')
+                        if box_stats["largest_box"]:
+                            y_min, x_min, y_max, x_max = box_stats["largest_box"]
+                            w = x_max - x_min
+                            h = y_max - y_min
+                            html.append(f" | Largest box: {w}x{h}px")
+                        html.append("</div>")
+                    else:
+                        html.append(
+                            '<div class="info">First frame (no comparison)</div>'
+                        )
+
                     html.append(
                         f'<img src="/frame/{rank}" alt="Frame at {timestamp:.2f}s">'
                     )
@@ -541,7 +615,7 @@ def make_handler(differ: ScreencastDiffer):
                 try:
                     idx = int(self.path.split("/")[-1])
                     if idx in differ.top_frames:
-                        _, _, webp_bytes = differ.top_frames[idx]
+                        _, _, webp_bytes, _ = differ.top_frames[idx]
                         self.send_response(200)
                         self.send_header("Content-Type", "image/webp")
                         self.send_header("Content-Length", str(len(webp_bytes)))
@@ -578,7 +652,10 @@ def main():
         "--port", type=int, default=9999, help="Server port (default: 9999)"
     )
     parser.add_argument(
-        "--count", type=int, default=10, help="Number of top divergent frames to extract (default: 10)"
+        "--count",
+        type=int,
+        default=10,
+        help="Number of top divergent frames to extract (default: 10)",
     )
     args = parser.parse_args()
 
