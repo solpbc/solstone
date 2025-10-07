@@ -577,8 +577,19 @@ def make_handler(differ: ScreencastDiffer):
                     # Get box statistics for this frame
                     _, _, _, box_stats = differ.top_frames[rank]
 
+                    # Check if this frame meets the threshold logic from see/scan.py
+                    # (largest box width > 400 and height > 400)
+                    threshold_indicator = ""
+                    largest_w, largest_h = None, None
+                    if box_stats and box_stats["largest_box"]:
+                        y_min, x_min, y_max, x_max = box_stats["largest_box"]
+                        largest_w = x_max - x_min
+                        largest_h = y_max - y_min
+                        if largest_w > 400 and largest_h > 400:
+                            threshold_indicator = " ✅"
+
                     html.append(
-                        f'<div class="info"><span class="rank">Rank #{rank}</span> - Timestamp: {timestamp:.2f}s - {score_label}</div>'
+                        f'<div class="info"><span class="rank">Rank #{rank}</span> - Timestamp: {timestamp:.2f}s - {score_label}{threshold_indicator}</div>'
                     )
 
                     # Display box statistics if available
@@ -589,11 +600,8 @@ def make_handler(differ: ScreencastDiffer):
                         )
                         html.append(f'{box_stats["percent_changed"]:.2f}% of screen ')
                         html.append(f'({box_stats["total_area"]:,} pixels)')
-                        if box_stats["largest_box"]:
-                            y_min, x_min, y_max, x_max = box_stats["largest_box"]
-                            w = x_max - x_min
-                            h = y_max - y_min
-                            html.append(f" | Largest box: {w}x{h}px")
+                        if largest_w is not None and largest_h is not None:
+                            html.append(f" | Largest box: {largest_w}x{largest_h}px")
                         html.append("</div>")
                     else:
                         html.append(
