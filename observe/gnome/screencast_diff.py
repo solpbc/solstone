@@ -333,39 +333,35 @@ class ScreencastDiffer:
         target_timestamps = {ts for ts, _ in top_n_chronological}
 
         try:
-            # First pass: decode all target frames in order
+            # Decode only the specific frames we need using seek
             t_decode_start = time.perf_counter()
             frames_dict = {}  # timestamp -> av.VideoFrame
 
             with av.open(str(self.video_path)) as container:
-                # Enable frame-level multithreading for faster decode
-                stream = container.streams.video[0]
-                stream.thread_type = "AUTO"
-                stream.codec_context.thread_count = 0  # 0 = ffmpeg auto
+                v = container.streams.video[0]
+                v.thread_type = "AUTO"
+                v.codec_context.thread_count = 0  # 0 = ffmpeg auto
 
-                last_sampled = -self.sample_interval
+                # Convert seconds -> stream ticks (offset is in stream.time_base)
+                tb = float(v.time_base)
 
-                for frame in container.decode(video=0):
-                    if frame.pts is None:
-                        continue
+                for ts in sorted(target_timestamps):
+                    # Seek close to the frame we want
+                    container.seek(
+                        int(ts / tb), stream=v, any_frame=True, backward=True
+                    )
 
-                    timestamp = frame.time if frame.time is not None else 0.0
-
-                    # Sample at intervals and check if this is a top frame
-                    if timestamp - last_sampled >= self.sample_interval:
-                        if timestamp in target_timestamps:
-                            # Store the decoded frame
-                            frames_dict[timestamp] = frame
-
-                            # Exit early if we've found all top frames
-                            if len(frames_dict) >= self.count:
-                                break
-
-                        last_sampled = timestamp
+                    # Decode forward until we reach that timestamp
+                    for frame in container.decode(video=0):
+                        if frame.pts is None:
+                            continue
+                        if (frame.time or 0.0) + 1e-6 >= ts:
+                            frames_dict[ts] = frame
+                            break
 
             self.timings["top_frames_decode"] = time.perf_counter() - t_decode_start
 
-            # Second pass: compare consecutive frames and draw bounding boxes
+            # Compare consecutive frames and draw bounding boxes
             previous_frame = None
 
             for i, (timestamp, _) in enumerate(top_n_chronological):
