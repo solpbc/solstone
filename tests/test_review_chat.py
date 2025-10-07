@@ -1,6 +1,5 @@
 import importlib
 import os
-import time
 
 
 def test_chat_page_renders(tmp_path):
@@ -29,36 +28,26 @@ def test_send_message_success(monkeypatch, tmp_path):
     monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
     monkeypatch.setenv("GOOGLE_API_KEY", "x")
 
-    def dummy_run_agent_via_cortex(
-        prompt,
-        persona="default",
-        backend="openai",
-        config=None,
-        attachments=None,
-        timeout=60,
-        on_event=None,
-    ):
-        dummy_run_agent_via_cortex.called = (
-            prompt,
-            persona,
-            backend,
-            config,
-            attachments,
-            timeout,
-        )
-        return "pong"
+    # Create the agents directory that cortex_request expects
+    agents_dir = tmp_path / "agents"
+    agents_dir.mkdir()
 
-    monkeypatch.setattr(
-        "convey.views.chat.run_agent_via_cortex", dummy_run_agent_via_cortex
-    )
+    def dummy_cortex_request(prompt, persona="default", backend="openai", config=None):
+        dummy_cortex_request.called = (prompt, persona, backend, config)
+        # Return a fake agent file path
+        agent_file = agents_dir / "test_agent_123.jsonl"
+        agent_file.touch()
+        return str(agent_file)
+
+    monkeypatch.setattr("muse.cortex_client.cortex_request", dummy_cortex_request)
 
     with review.app.test_request_context(
         "/chat/api/send", method="POST", json={"message": "hi", "backend": "google"}
     ):
         resp = review.send_message()
-    assert resp.json == {"text": "pong", "html": "<p>pong</p>"}
-    assert dummy_run_agent_via_cortex.called[0] == "hi"
-    assert dummy_run_agent_via_cortex.called[2] == "google"
+    assert resp.json == {"agent_id": "test_agent_123"}
+    assert dummy_cortex_request.called[0] == "hi"
+    assert dummy_cortex_request.called[2] == "google"
 
 
 def test_send_message_openai(monkeypatch, tmp_path):
@@ -67,31 +56,28 @@ def test_send_message_openai(monkeypatch, tmp_path):
     monkeypatch.setenv("GOOGLE_API_KEY", "x")
     monkeypatch.setenv("OPENAI_API_KEY", "x")
 
+    # Create the agents directory that cortex_request expects
+    agents_dir = tmp_path / "agents"
+    agents_dir.mkdir()
+
     called = {}
 
-    def dummy_run_agent_via_cortex(
-        prompt,
-        persona="default",
-        backend="openai",
-        config=None,
-        attachments=None,
-        timeout=60,
-        on_event=None,
-    ):
+    def dummy_cortex_request(prompt, persona="default", backend="openai", config=None):
         called["backend"] = backend
         called["persona"] = persona
         called["config"] = config
-        return "pong"
+        # Return a fake agent file path
+        agent_file = agents_dir / "test_agent_456.jsonl"
+        agent_file.touch()
+        return str(agent_file)
 
-    monkeypatch.setattr(
-        "convey.views.chat.run_agent_via_cortex", dummy_run_agent_via_cortex
-    )
+    monkeypatch.setattr("muse.cortex_client.cortex_request", dummy_cortex_request)
 
     with review.app.test_request_context(
         "/chat/api/send", method="POST", json={"message": "hi", "backend": "openai"}
     ):
         resp = review.send_message()
-    assert resp.json["text"] == "pong"
+    assert resp.json["agent_id"] == "test_agent_456"
     assert called["backend"] == "openai"
 
 
@@ -100,31 +86,28 @@ def test_send_message_anthropic(monkeypatch, tmp_path):
     monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
     monkeypatch.setenv("ANTHROPIC_API_KEY", "x")
 
+    # Create the agents directory that cortex_request expects
+    agents_dir = tmp_path / "agents"
+    agents_dir.mkdir()
+
     called = {}
 
-    def dummy_run_agent_via_cortex(
-        prompt,
-        persona="default",
-        backend="openai",
-        config=None,
-        attachments=None,
-        timeout=60,
-        on_event=None,
-    ):
+    def dummy_cortex_request(prompt, persona="default", backend="openai", config=None):
         called["backend"] = backend
         called["persona"] = persona
         called["config"] = config
-        return "pong"
+        # Return a fake agent file path
+        agent_file = agents_dir / "test_agent_789.jsonl"
+        agent_file.touch()
+        return str(agent_file)
 
-    monkeypatch.setattr(
-        "convey.views.chat.run_agent_via_cortex", dummy_run_agent_via_cortex
-    )
+    monkeypatch.setattr("muse.cortex_client.cortex_request", dummy_cortex_request)
 
     with review.app.test_request_context(
         "/chat/api/send", method="POST", json={"message": "hi", "backend": "anthropic"}
     ):
         resp = review.send_message()
-    assert resp.json["text"] == "pong"
+    assert resp.json["agent_id"] == "test_agent_789"
     assert called["backend"] == "anthropic"
 
 
@@ -138,70 +121,3 @@ def test_history_and_clear(monkeypatch):
     with review.app.test_request_context("/chat/api/clear", method="POST"):
         resp = review.clear_history()
     assert resp.json == {"ok": True}
-
-
-def test_tool_event_pushed(monkeypatch, tmp_path):
-    review = importlib.import_module("convey")
-    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
-    monkeypatch.setenv("GOOGLE_API_KEY", "x")
-
-    events = []
-
-    monkeypatch.setattr(
-        "convey.views.chat.push_server.push", lambda e: events.append(e)
-    )
-
-    # Mock cortex client to simulate tool events
-    class MockCortexClient:
-        def __init__(self):
-            self.event_callback = None
-
-        def set_event_callback(self, callback):
-            self.event_callback = callback
-
-        def spawn_agent(self, prompt, backend, persona, config=None):
-            # Simulate tool event
-            self.event_callback(
-                {
-                    "event": "tool_start",
-                    "ts": int(time.time() * 1000),
-                    "tool": "search_events",
-                    "args": {"query": prompt},
-                }
-            )
-
-    def dummy_run_agent_via_cortex(
-        prompt,
-        persona="default",
-        backend="openai",
-        config=None,
-        attachments=None,
-        timeout=60,
-        on_event=None,
-    ):
-        # Simulate the cortex interaction flow
-        if on_event:
-            # Simulate a tool event
-            on_event(
-                {
-                    "event": "tool_start",
-                    "ts": int(time.time() * 1000),
-                    "tool": "search_events",
-                    "args": {"query": prompt},
-                }
-            )
-        return "pong"
-
-    monkeypatch.setattr(
-        "convey.views.chat.run_agent_via_cortex", dummy_run_agent_via_cortex
-    )
-
-    with review.app.test_request_context(
-        "/chat/api/send", method="POST", json={"message": "hi", "backend": "google"}
-    ):
-        resp = review.send_message()
-
-    assert resp.json["text"] == "pong"
-    assert events[0]["view"] == "chat"
-    assert events[0]["tool"] == "search_events"
-    assert isinstance(events[0]["ts"], int)

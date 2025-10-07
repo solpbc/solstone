@@ -9,7 +9,6 @@ from typing import Any, Callable, Dict, List, Optional
 
 import markdown  # type: ignore
 
-from muse.cortex_client import cortex_run as cortex_run_agent
 from muse.cortex_client import cortex_watch
 
 from . import state
@@ -115,36 +114,3 @@ def stop_cortex_event_watcher(timeout: float = 5.0) -> None:
             stop_event.set()
     if thread:
         thread.join(timeout)
-
-
-def run_agent_via_cortex(
-    prompt: str,
-    persona: str = "default",
-    backend: str = "openai",
-    config: Optional[Dict[str, Any]] = None,
-    attachments: Optional[List[str]] = None,
-    timeout: int = 60,
-    on_event: Optional[Callable[[dict], None]] = None,
-    journal_path: Optional[str] = None,
-) -> str:
-    """Run an agent synchronously via Cortex and return the result text."""
-
-    if attachments:
-        full_prompt = "\n".join([prompt] + attachments)
-    else:
-        full_prompt = prompt
-
-    if config is None:
-        config = {}
-    if timeout and "timeout" not in config:
-        config["timeout"] = timeout
-
-    _ensure_journal_env()
-
-    return cortex_run_agent(
-        prompt=full_prompt,
-        persona=persona,
-        backend=backend,
-        config=config,
-        on_event=on_event,
-    )
