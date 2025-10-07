@@ -33,9 +33,52 @@ import numpy as np
 from PIL import Image, ImageDraw
 from scipy.spatial.distance import jensenshannon
 
-from observe.utils import compare_frames, get_frames
+from observe.utils import get_frames
 
 # Frame comparison helper functions
+
+
+def fast_boxes(prev_rgb: np.ndarray, curr_rgb: np.ndarray, ds: int = 8, thr: int = 12):
+    """
+    Fast change detection using downscaled grayscale diff.
+
+    Args:
+        prev_rgb: Previous frame as HxWx3 uint8 array
+        curr_rgb: Current frame as HxWx3 uint8 array
+        ds: Downscale factor (default 8)
+        thr: Threshold for change detection (default 12)
+
+    Returns:
+        List of dicts with 'box_2d' key containing [y_min, x_min, y_max, x_max]
+    """
+    # Convert to grayscale using standard weights
+    Yp = (
+        0.299 * prev_rgb[..., 0] + 0.587 * prev_rgb[..., 1] + 0.114 * prev_rgb[..., 2]
+    ).astype(np.float32)
+    Yc = (
+        0.299 * curr_rgb[..., 0] + 0.587 * curr_rgb[..., 1] + 0.114 * curr_rgb[..., 2]
+    ).astype(np.float32)
+
+    # Downscale by block mean
+    h = (Yp.shape[0] // ds) * ds
+    w = (Yp.shape[1] // ds) * ds
+    Yp_ds = Yp[:h, :w].reshape(h // ds, ds, w // ds, ds).mean((1, 3))
+    Yc_ds = Yc[:h, :w].reshape(h // ds, ds, w // ds, ds).mean((1, 3))
+
+    # Compute absolute difference and threshold
+    D = np.abs(Yc_ds - Yp_ds)
+    M = (D > thr).astype(np.uint8)
+
+    # Get bounding box of changed regions
+    ys, xs = np.where(M)
+    if len(xs) == 0:
+        return []
+
+    # Simple bounding box around all changed pixels (upscaled back to full res)
+    y0, y1 = ys.min() * ds, min((ys.max() + 1) * ds, prev_rgb.shape[0]) - 1
+    x0, x1 = xs.min() * ds, min((xs.max() + 1) * ds, prev_rgb.shape[1]) - 1
+
+    return [{"box_2d": [y0, x0, y1, x1]}]
 
 
 def to_luma(img: Image.Image) -> np.ndarray:
@@ -362,7 +405,7 @@ class ScreencastDiffer:
             self.timings["top_frames_decode"] = time.perf_counter() - t_decode_start
 
             # Compare consecutive frames and draw bounding boxes
-            previous_frame = None
+            previous_arr = None
 
             for i, (timestamp, _) in enumerate(top_n_chronological):
                 if timestamp not in frames_dict:
@@ -381,10 +424,10 @@ class ScreencastDiffer:
                 box_stats = None
 
                 # If not the first frame, compute bounding boxes and draw them
-                if previous_frame is not None:
-                    # Compare with previous frame to get change regions
+                if previous_arr is not None:
+                    # Compare with previous frame to get change regions (fast downscaled diff)
                     t_compare_start = time.perf_counter()
-                    boxes = compare_frames(previous_frame, current_frame)
+                    boxes = fast_boxes(previous_arr, arr)
                     self.timings["top_frames_compare"] += (
                         time.perf_counter() - t_compare_start
                     )
@@ -452,8 +495,8 @@ class ScreencastDiffer:
                     box_stats,
                 )
 
-                # Update previous frame for next iteration
-                previous_frame = current_frame
+                # Update previous array for next iteration
+                previous_arr = arr
 
         except Exception as e:
             print(f"ERROR: Failed to extract top frames: {e}", file=sys.stderr)
