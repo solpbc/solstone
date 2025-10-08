@@ -47,9 +47,15 @@ def _list_items(item_type: str) -> list[dict[str, object]]:
         return items
 
     # Standard handling for agents
-    items_path = os.path.join(
-        os.path.dirname(os.path.dirname(__file__)), "..", "think", item_type
-    )
+    # Agents are in muse/agents/, topics are in think/topics/
+    if item_type == "agents":
+        items_path = os.path.join(
+            os.path.dirname(os.path.dirname(__file__)), "..", "muse", item_type
+        )
+    else:
+        items_path = os.path.join(
+            os.path.dirname(os.path.dirname(__file__)), "..", "think", item_type
+        )
     items: list[dict[str, object]] = []
 
     if os.path.isdir(items_path):
@@ -116,7 +122,7 @@ def available_agents() -> object:
 
 
 def _get_item_content(item_type: str, item_id: str) -> tuple[dict, int]:
-    """Generic function to get item content from think/{item_type}/{item_id}.txt.
+    """Generic function to get item content from {item_type}/{item_id}.txt.
 
     Args:
         item_type: Either 'agents' or 'topics'
@@ -125,9 +131,15 @@ def _get_item_content(item_type: str, item_id: str) -> tuple[dict, int]:
     Returns:
         Tuple of (response dict, status code)
     """
-    items_path = os.path.join(
-        os.path.dirname(os.path.dirname(__file__)), "..", "think", item_type
-    )
+    # Agents are in muse/agents/, topics are in think/topics/
+    if item_type == "agents":
+        items_path = os.path.join(
+            os.path.dirname(os.path.dirname(__file__)), "..", "muse", item_type
+        )
+    else:
+        items_path = os.path.join(
+            os.path.dirname(os.path.dirname(__file__)), "..", "think", item_type
+        )
     txt_path = os.path.join(items_path, f"{item_id}.txt")
 
     if not os.path.isfile(txt_path):
@@ -262,9 +274,15 @@ def _update_item(item_type: str, item_id: str, data: dict) -> tuple[dict, int]:
         return {"error": "Title and content are required"}, 400
 
     # Path to item files
-    items_path = os.path.join(
-        os.path.dirname(os.path.dirname(__file__)), "..", "think", item_type
-    )
+    # Agents are in muse/agents/, topics are in think/topics/
+    if item_type == "agents":
+        items_path = os.path.join(
+            os.path.dirname(os.path.dirname(__file__)), "..", "muse", item_type
+        )
+    else:
+        items_path = os.path.join(
+            os.path.dirname(os.path.dirname(__file__)), "..", "think", item_type
+        )
     json_path = os.path.join(items_path, f"{item_id}.json")
     txt_path = os.path.join(items_path, f"{item_id}.txt")
 
