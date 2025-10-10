@@ -56,6 +56,7 @@ class Observer:
         self.accumulated_audio_buffer = np.array([], dtype=np.float32).reshape(0, 2)
         self.screencast_running = False
         self.current_screencast_path = None
+        self.pending_finalizations = []  # List of (path, queued_time) tuples
 
     async def setup(self):
         """Initialize audio devices and DBus connection."""
@@ -180,9 +181,9 @@ class Observer:
             else:
                 logger.warning("Failed to start screencast")
 
-        # Finalize previous screencast
+        # Queue previous screencast for finalization (file may not exist yet)
         if did_stop and previous_screencast_path:
-            await self.finalize_screencast(previous_screencast_path)
+            self.pending_finalizations.append((previous_screencast_path, time.time()))
 
     async def finalize_screencast(self, screencast_path: str):
         """
@@ -246,6 +247,21 @@ class Observer:
         logger.info(f"Starting observer loop (interval={self.interval}s)")
 
         while self.running:
+            # Process any pending screencast finalizations
+            now = time.time()
+            for path, queued_time in list(self.pending_finalizations):
+                live_path = path + ".live"
+                age = now - queued_time
+
+                if os.path.exists(live_path):
+                    await self.finalize_screencast(path)
+                    self.pending_finalizations.remove((path, queued_time))
+                elif age > 10.0:
+                    logger.warning(
+                        f"Pending screencast not found after {age:.1f}s, giving up: {live_path}"
+                    )
+                    self.pending_finalizations.remove((path, queued_time))
+
             # Sleep for chunk duration
             await asyncio.sleep(CHUNK_DURATION)
 
@@ -313,8 +329,26 @@ class Observer:
             logger.info("Stopping screencast for shutdown")
             await self.screencaster.stop()
             if self.current_screencast_path:
+                # Wait for GNOME Shell to create the file (up to 5s)
+                live_path = self.current_screencast_path + ".live"
+                for attempt in range(10):
+                    if os.path.exists(live_path):
+                        break
+                    await asyncio.sleep(0.5)
                 await self.finalize_screencast(self.current_screencast_path)
             self.screencast_running = False
+
+        # Process any remaining pending finalizations
+        if self.pending_finalizations:
+            logger.info(f"Processing {len(self.pending_finalizations)} pending screencast(s)")
+            for path, _ in list(self.pending_finalizations):
+                live_path = path + ".live"
+                # Wait for file with retry
+                for attempt in range(10):
+                    if os.path.exists(live_path):
+                        break
+                    await asyncio.sleep(0.5)
+                await self.finalize_screencast(path)
 
         # Stop audio recorder
         self.audio_recorder.stop_recording()
