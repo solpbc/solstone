@@ -168,8 +168,9 @@ class Observer:
             date_part, time_part = self.get_timestamp_parts(self.start_at)
             day_dir = day_path(date_part)
 
+            # Use _live.webm name (GNOME won't append .webm), rename to _screencast.webm later
+            live_path = str(day_dir / f"{time_part}_live.webm")
             screencast_path = str(day_dir / f"{time_part}_screencast.webm")
-            live_path = screencast_path + ".live"
 
             ok, _ = await self.screencaster.start(
                 live_path, framerate=30, draw_cursor=True
@@ -187,12 +188,12 @@ class Observer:
 
     async def finalize_screencast(self, screencast_path: str):
         """
-        Add monitor metadata to screencast and rename from .live to .webm.
+        Add monitor metadata to screencast and rename from _live.webm to _screencast.webm.
 
         Args:
-            screencast_path: Base path without .live suffix
+            screencast_path: Final destination path (_screencast.webm)
         """
-        live_path = screencast_path + ".live"
+        live_path = screencast_path.replace("_screencast.webm", "_live.webm")
 
         if not os.path.exists(live_path):
             logger.warning(f"Screencast file not found: {live_path}")
@@ -248,7 +249,7 @@ class Observer:
             finalize_start = time.monotonic()
             now = time.time()
             for path, queued_time in list(self.pending_finalizations):
-                live_path = path + ".live"
+                live_path = path.replace("_screencast.webm", "_live.webm")
                 age = now - queued_time
 
                 if os.path.exists(live_path):
@@ -347,7 +348,7 @@ class Observer:
             await self.screencaster.stop()
             if self.current_screencast_path:
                 # Wait for GNOME Shell to create the file (up to 5s)
-                live_path = self.current_screencast_path + ".live"
+                live_path = self.current_screencast_path.replace("_screencast.webm", "_live.webm")
                 for attempt in range(10):
                     if os.path.exists(live_path):
                         break
@@ -359,7 +360,7 @@ class Observer:
         if self.pending_finalizations:
             logger.info(f"Processing {len(self.pending_finalizations)} pending screencast(s)")
             for path, _ in list(self.pending_finalizations):
-                live_path = path + ".live"
+                live_path = path.replace("_screencast.webm", "_live.webm")
                 # Wait for file with retry
                 for attempt in range(10):
                     if os.path.exists(live_path):

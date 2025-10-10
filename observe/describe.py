@@ -401,7 +401,7 @@ class Describer:
         handler = PatternMatchingEventHandler(
             patterns=["*.webm"],
             ignore_directories=True,
-            ignore_patterns=["*.live"],
+            ignore_patterns=["*_live.webm"],
         )
 
         def on_created(event):
