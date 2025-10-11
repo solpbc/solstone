@@ -35,20 +35,13 @@ def _todo_path(day: str, domain: str) -> Path:
 @bp.route("/todos")
 def todos_page() -> str:
     today = date.today().strftime("%Y%m%d")
-    domain = request.args.get("domain", "personal")
-    return redirect(url_for("todos.todos_day", day=today, domain=domain))
+    return redirect(url_for("todos.todos_day", day=today))
 
 
 @bp.route("/todos/<day>", methods=["GET", "POST"])
 def todos_day(day: str):  # type: ignore[override]
     if not DATE_RE.fullmatch(day):
         return "", 404
-
-    # Get domain from query parameter or form, default to "personal"
-    if request.method == "POST":
-        domain = request.form.get("domain", "personal")
-    else:
-        domain = request.args.get("domain", "personal")
 
     if request.method == "POST":
         action = request.form.get("action")
@@ -58,14 +51,30 @@ def todos_day(day: str):  # type: ignore[override]
             if not text:
                 flash("Cannot add an empty todo", "error")
             else:
-                try:
-                    checklist = TodoChecklist.load(day, domain)
-                    checklist.append_entry(text)
-                except (TodoEmptyTextError, RuntimeError) as exc:
-                    bp.logger.debug("Failed to append todo for %s/%s: %s", domain, day, exc)
-                    flash("Unable to add todo right now", "error")
-            return redirect(url_for("todos.todos_day", day=day, domain=domain))
+                # Extract domain from hashtag (e.g., "#work" -> "work")
+                import re
+                domain_match = re.search(r'#([a-z][a-z0-9_-]*)', text, re.IGNORECASE)
+                if domain_match:
+                    domain = domain_match.group(1).lower()
+                    # Remove the hashtag from the text
+                    text = re.sub(r'\s*#' + re.escape(domain_match.group(1)) + r'\b', '', text, count=1, flags=re.IGNORECASE).strip()
+                else:
+                    # Default to personal if no hashtag
+                    domain = "personal"
 
+                if not text:
+                    flash("Cannot add an empty todo", "error")
+                else:
+                    try:
+                        checklist = TodoChecklist.load(day, domain)
+                        checklist.append_entry(text)
+                    except (TodoEmptyTextError, RuntimeError) as exc:
+                        bp.logger.debug("Failed to append todo for %s/%s: %s", domain, day, exc)
+                        flash("Unable to add todo right now", "error")
+            return redirect(url_for("todos.todos_day", day=day))
+
+        # Get domain and index for other actions
+        domain = request.form.get("domain", "personal")
         index_str = request.form.get("index")
         guard = request.form.get("guard", "").strip()
 
@@ -76,14 +85,14 @@ def todos_day(day: str):  # type: ignore[override]
 
         if not index:
             flash("Missing todo index", "error")
-            return redirect(url_for("todos.todos_day", day=day, domain=domain))
+            return redirect(url_for("todos.todos_day", day=day))
 
         try:
             checklist = TodoChecklist.load(day, domain)
         except RuntimeError as exc:
             bp.logger.debug("Failed to load checklist for %s/%s: %s", domain, day, exc)
             flash("Todo list changed, please refresh and try again", "error")
-            return redirect(url_for("todos.todos_day", day=day, domain=domain))
+            return redirect(url_for("todos.todos_day", day=day))
 
         try:
             if action == "complete":
@@ -96,33 +105,43 @@ def todos_day(day: str):  # type: ignore[override]
                 checklist.update_entry_text(index, guard, request.form.get("text", ""))
             else:
                 flash("Unknown action", "error")
-                return redirect(url_for("todos.todos_day", day=day, domain=domain))
+                return redirect(url_for("todos.todos_day", day=day))
         except TodoEmptyTextError:
             flash("Cannot update todo to empty text", "error")
         except (TodoGuardMismatchError, TodoLineNumberError, IndexError, ValueError):
             flash("Todo list changed, please refresh and try again", "error")
 
-        return redirect(url_for("todos.todos_day", day=day, domain=domain))
+        return redirect(url_for("todos.todos_day", day=day))
 
-    todos = get_todos(day, domain) or []
+    # Load todos from all domains
     try:
         domain_map = get_domains()
     except Exception as exc:  # pragma: no cover - metadata is optional
         bp.logger.debug("Failed to load domain metadata: %s", exc)
         domain_map = {}
+
+    # Collect todos from each domain
+    todos_by_domain = {}
+    for domain_name in domain_map.keys():
+        domain_todos = get_todos(day, domain_name)
+        if domain_todos:
+            # Add domain info to each todo
+            for todo in domain_todos:
+                todo["domain"] = domain_name
+            todos_by_domain[domain_name] = domain_todos
+
     prev_day, next_day = adjacent_days(state.journal_root, day)
     today_day = date.today().strftime("%Y%m%d")
 
     return render_template(
-        "calendar_todos.html",
+        "todos.html",
         active="todos",
         title=format_date(day),
         day=day,
-        domain=domain,
         prev_day=prev_day,
         next_day=next_day,
         today_day=today_day,
-        todos=todos,
+        todos_by_domain=todos_by_domain,
         domain_map=domain_map,
     )
 
@@ -157,7 +176,7 @@ def move_todo(day: str):  # type: ignore[override]
             {
                 "status": "noop",
                 "message": "Todo is already on that day.",
-                "redirect": url_for("todos.todos_day", day=day, domain=domain),
+                "redirect": url_for("todos.todos_day", day=day),
             }
         )
 
@@ -220,7 +239,7 @@ def move_todo(day: str):  # type: ignore[override]
             409,
         )
 
-    redirect_url = url_for("todos.todos_day", day=target_day, domain=domain)
+    redirect_url = url_for("todos.todos_day", day=target_day)
     return jsonify({"status": "ok", "redirect": redirect_url, "target_day": target_day})
 
 

@@ -1,0 +1,454 @@
+{% extends 'base.html' %}
+{% import 'macros.html' as macros %}
+{% set active = 'todos' %}
+
+{% block head %}
+<style>
+.todo-container {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 1rem;
+}
+
+.todo-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.todo-title {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #111827;
+  margin: 0;
+}
+
+.todo-nav {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.todo-nav-btn {
+  padding: 0.4rem 0.8rem;
+  background: #f3f4f6;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  color: #374151;
+  text-decoration: none;
+  font-size: 0.9rem;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.todo-nav-btn:hover {
+  background: #e5e7eb;
+  border-color: #9ca3af;
+}
+
+.todo-nav-btn.today {
+  background: #2563eb;
+  border-color: #2563eb;
+  color: #ffffff;
+}
+
+.todo-nav-btn.today:hover {
+  background: #1d4ed8;
+  border-color: #1d4ed8;
+}
+
+.add-form {
+  margin-bottom: 2rem;
+}
+
+.add-form input[type="text"] {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.add-form input[type="text"]:focus {
+  outline: none;
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+.add-form input[type="text"]::placeholder {
+  color: #9ca3af;
+}
+
+.domain-section {
+  margin-bottom: 2.5rem;
+}
+
+.domain-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 2px solid;
+}
+
+.domain-title {
+  font-size: 0.875rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin: 0;
+}
+
+.domain-count {
+  font-size: 0.75rem;
+  color: #6b7280;
+  font-weight: 400;
+}
+
+.todo-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.todo-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid #f3f4f6;
+}
+
+.todo-row:last-child {
+  border-bottom: none;
+}
+
+.todo-row.completed {
+  opacity: 0.6;
+}
+
+.todo-checkbox {
+  flex-shrink: 0;
+  width: 1.25rem;
+  height: 1.25rem;
+  cursor: pointer;
+  accent-color: #2563eb;
+}
+
+.todo-content {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.todo-text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #111827;
+  font-size: 0.95rem;
+  cursor: text;
+}
+
+.todo-row.completed .todo-text {
+  text-decoration: line-through;
+  color: #6b7280;
+}
+
+.todo-time {
+  flex-shrink: 0;
+  font-size: 0.8rem;
+  color: #6b7280;
+  font-variant-numeric: tabular-nums;
+}
+
+.todo-actions {
+  display: flex;
+  gap: 0.25rem;
+  flex-shrink: 0;
+  margin-left: auto;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.todo-row:hover .todo-actions,
+.todo-row:focus-within .todo-actions {
+  opacity: 1;
+}
+
+.todo-action-btn {
+  width: 2rem;
+  height: 2rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: #6b7280;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.todo-action-btn:hover {
+  background: #f3f4f6;
+  color: #111827;
+}
+
+.todo-action-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.todo-action-btn.remove:hover {
+  color: #ef4444;
+}
+
+.no-todos {
+  text-align: center;
+  padding: 3rem 1rem;
+  color: #9ca3af;
+}
+
+.flash-messages {
+  margin-bottom: 1rem;
+}
+
+.flash-message {
+  padding: 0.75rem 1rem;
+  border-radius: 6px;
+  margin-bottom: 0.5rem;
+  font-size: 0.9rem;
+}
+
+.flash-message.error {
+  background: #fee2e2;
+  color: #b91c1c;
+  border: 1px solid #fecaca;
+}
+
+@media (hover: none), (pointer: coarse) {
+  .todo-actions {
+    opacity: 1;
+  }
+}
+</style>
+{% endblock %}
+
+{% block body %}
+<div class="todo-container">
+  <div class="todo-header">
+    <h1 class="todo-title">{{ title }}</h1>
+    <div class="todo-nav">
+      {% if prev_day %}
+        <a href="{{ url_for('todos.todos_day', day=prev_day) }}" class="todo-nav-btn">←</a>
+      {% endif %}
+      {% if day != today_day %}
+        <a href="{{ url_for('todos.todos_day', day=today_day) }}" class="todo-nav-btn today">Today</a>
+      {% endif %}
+      {% if next_day %}
+        <a href="{{ url_for('todos.todos_day', day=next_day) }}" class="todo-nav-btn">→</a>
+      {% endif %}
+    </div>
+  </div>
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      <div class="flash-messages">
+        {% for category, message in messages %}
+          <div class="flash-message {{ category }}">{{ message }}</div>
+        {% endfor %}
+      </div>
+    {% endif %}
+  {% endwith %}
+
+  <form method="post" class="add-form">
+    <input type="hidden" name="action" value="add">
+    <input
+      type="text"
+      name="text"
+      placeholder="Add a todo... (use #work, #research, etc. for specific domains)"
+      autocomplete="off"
+      autofocus
+    >
+  </form>
+
+  {% if todos_by_domain %}
+    {% for domain_name, domain_todos in todos_by_domain.items() | sort %}
+      {% set domain_info = domain_map.get(domain_name, {}) %}
+      {% set domain_title = domain_info.get('title', domain_name.title()) %}
+      {% set domain_color = domain_info.get('color', '#6b7280') %}
+      {% set active_count = domain_todos | selectattr('completed', 'equalto', False) | list | length %}
+
+      <div class="domain-section">
+        <div class="domain-header" style="border-color: {{ domain_color }};">
+          <h2 class="domain-title" style="color: {{ domain_color }};">{{ domain_title }}</h2>
+          <span class="domain-count">({{ active_count }})</span>
+        </div>
+
+        <ul class="todo-list">
+          {% for item in domain_todos %}
+            <li class="todo-row {% if item.completed %}completed{% endif %}">
+              <form method="post" style="display: contents;">
+                <input type="hidden" name="action" value="{{ 'uncomplete' if item.completed else 'complete' }}">
+                <input type="hidden" name="domain" value="{{ domain_name }}">
+                <input type="hidden" name="index" value="{{ item.index }}">
+                <input type="hidden" name="guard" value="{{ item.raw }}">
+                <input
+                  type="checkbox"
+                  class="todo-checkbox"
+                  {% if item.completed %}checked{% endif %}
+                  onchange="this.form.submit()"
+                >
+              </form>
+
+              <div class="todo-content">
+                <span class="todo-text" title="{{ item.text }}">{{ item.text }}</span>
+                {% if item.time %}
+                  <span class="todo-time">{{ item.time }}</span>
+                {% endif %}
+              </div>
+
+              <div class="todo-actions">
+                <button
+                  type="button"
+                  class="todo-action-btn move"
+                  title="Move to another day"
+                  data-index="{{ item.index }}"
+                  data-guard="{{ item.raw }}"
+                  data-domain="{{ domain_name }}"
+                  data-current-day="{{ day }}"
+                >
+                  📅
+                </button>
+
+                <form method="post" style="display: contents;">
+                  <input type="hidden" name="action" value="remove">
+                  <input type="hidden" name="domain" value="{{ domain_name }}">
+                  <input type="hidden" name="index" value="{{ item.index }}">
+                  <input type="hidden" name="guard" value="{{ item.raw }}">
+                  <button type="submit" class="todo-action-btn remove" title="Remove">
+                    🗑️
+                  </button>
+                </form>
+              </div>
+            </li>
+          {% endfor %}
+        </ul>
+      </div>
+    {% endfor %}
+  {% else %}
+    <div class="no-todos">
+      <p>No todos for this day yet.</p>
+      <p>Add one above to get started!</p>
+    </div>
+  {% endif %}
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const moveEndpoint = {{ url_for('todos.move_todo', day=day) | tojson }};
+
+  // Utility functions
+  function dayToInputValue(dayString) {
+    if (!dayString || dayString.length !== 8) return '';
+    return `${dayString.slice(0, 4)}-${dayString.slice(4, 6)}-${dayString.slice(6, 8)}`;
+  }
+
+  function inputValueToDay(inputValue) {
+    return inputValue ? inputValue.replace(/-/g, '') : '';
+  }
+
+  async function moveTodo(targetDay, domain, index, guard, button) {
+    if (!targetDay) return;
+
+    const originalText = button.textContent;
+    button.disabled = true;
+    button.textContent = '⏳';
+
+    try {
+      const response = await fetch(moveEndpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ target_day: targetDay, domain, index, guard })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        alert(data.error || 'Failed to move todo');
+        button.disabled = false;
+        button.textContent = originalText;
+        return;
+      }
+
+      window.location.href = data.redirect || window.location.href;
+    } catch (error) {
+      alert('Network error - please try again');
+      button.disabled = false;
+      button.textContent = originalText;
+    }
+  }
+
+  // Setup move functionality with native date picker
+  document.querySelectorAll('.todo-action-btn.move').forEach(button => {
+    const index = parseInt(button.dataset.index, 10);
+    const guard = button.dataset.guard;
+    const domain = button.dataset.domain;
+    const currentDay = button.dataset.currentDay;
+
+    button.addEventListener('click', (e) => {
+      e.stopPropagation();
+
+      // Create native date input positioned near the button
+      const dateInput = document.createElement('input');
+      dateInput.type = 'date';
+      dateInput.value = dayToInputValue(currentDay);
+
+      // Position near the calendar button
+      const rect = button.getBoundingClientRect();
+      dateInput.style.position = 'fixed';
+      dateInput.style.left = `${rect.left}px`;
+      dateInput.style.top = `${rect.top}px`;
+      dateInput.style.opacity = '0';
+      dateInput.style.pointerEvents = 'none';
+      dateInput.style.width = '0';
+      dateInput.style.height = '0';
+
+      // Handle date selection
+      dateInput.addEventListener('change', () => {
+        const targetDay = inputValueToDay(dateInput.value);
+        if (targetDay && targetDay !== currentDay) {
+          moveTodo(targetDay, domain, index, guard, button);
+        }
+        dateInput.remove();
+      });
+
+      // Handle cancel (close without selection)
+      dateInput.addEventListener('blur', () => {
+        setTimeout(() => dateInput.remove(), 100);
+      });
+
+      // Add to DOM and trigger picker
+      document.body.appendChild(dateInput);
+      dateInput.showPicker();
+    });
+  });
+
+  // Auto-focus add input
+  const addInput = document.querySelector('.add-form input[name="text"]');
+  addInput?.focus();
+});
+</script>
+{% endblock %}
