@@ -129,7 +129,7 @@ async def is_power_save_active(bus: MessageBus) -> bool:
 
 
 async def start_screencast(
-    bus: MessageBus, out_path: str, framerate: int = 30, draw_cursor: bool = True
+    bus: MessageBus, out_path: str, framerate: int = 1, draw_cursor: bool = True
 ) -> tuple[bool, str]:
     """
     Start GNOME Shell screencast recording.
@@ -137,7 +137,7 @@ async def start_screencast(
     Args:
         bus: Connected DBus session bus
         out_path: Output file path
-        framerate: Frames per second (default: 30)
+        framerate: Frames per second (default: 1)
         draw_cursor: Whether to draw mouse cursor (default: True)
 
     Returns:

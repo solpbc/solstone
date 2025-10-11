@@ -12,8 +12,8 @@ Examples:
   # 10 second recording with custom path
   gnome-screencast --screencast 10 --out /tmp/sample.webm
 
-  # 5 minute recording at 15 fps without cursor
-  gnome-screencast --fps 15 --no-cursor
+  # 5 minute recording at 1 fps without cursor
+  gnome-screencast --fps 1 --no-cursor
 """
 
 import argparse
@@ -51,7 +51,7 @@ class Screencaster:
             self.bus = await MessageBus(bus_type=BusType.SESSION).connect()
 
     async def start(
-        self, out_path: str, framerate: int = 30, draw_cursor: bool = True
+        self, out_path: str, framerate: int = 1, draw_cursor: bool = True
     ) -> tuple[bool, str]:
         """
         Start screencast recording.
@@ -199,8 +199,8 @@ def main():
     parser.add_argument(
         "--fps",
         type=int,
-        default=30,
-        help="Framerate for the screencast (default: 30).",
+        default=1,
+        help="Framerate for the screencast (default: 1).",
     )
     parser.add_argument(
         "--no-cursor", action="store_true", help="Do not draw the mouse cursor."

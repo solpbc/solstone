@@ -183,7 +183,7 @@ class Observer:
         screencast_path = str(day_dir / f"{time_part}_screencast.webm")
 
         ok, _ = await self.screencaster.start(
-            live_path, framerate=30, draw_cursor=True
+            live_path, framerate=1, draw_cursor=True
         )
         if ok:
             self.screencast_running = True
