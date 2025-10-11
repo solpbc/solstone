@@ -21,63 +21,35 @@ CLAUDE_OPUS_4 = "claude-opus-4-1"
 CLAUDE_SONNET_4 = "claude-sonnet-4-5-20250929"
 
 
-def gemini_generate(
-    contents: Union[str, List[Any], List[types.Content]],
-    model: str = GEMINI_FLASH,
-    temperature: float = 0.3,
-    max_output_tokens: int = 8192 * 2,
-    system_instruction: Optional[str] = None,
-    json_output: bool = False,
-    thinking_budget: Optional[int] = None,
-    cached_content: Optional[str] = None,
-    client: Optional[genai.Client] = None,
-) -> str:
-    """
-    Simplified wrapper for genai.models.generate_content with common defaults.
-
-    Parameters
-    ----------
-    contents : str, List, or List[types.Content]
-        The content to send to the model. Can be:
-        - A string (will be converted to a list with one string)
-        - A list of strings, types.Part objects, or mixed content
-        - A list of types.Content objects for complex conversations
-    model : str
-        Model name to use (default: GEMINI_FLASH)
-    temperature : float
-        Temperature for generation (default: 0.3)
-    max_output_tokens : int
-        Maximum output tokens (default: 8192 * 2)
-    system_instruction : str, optional
-        System instruction for the model
-    json_output : bool
-        Whether to request JSON response format (default: False)
-    thinking_budget : int, optional
-        Token budget for model thinking
-    cached_content : str, optional
-        Name of cached content to use
-    client : genai.Client, optional
-        Existing client to reuse. If not provided, creates a new one.
-
-    Returns
-    -------
-    str
-        Response text from the model
-    """
-    # Get or create client
+def _get_or_create_client(client: Optional[genai.Client]) -> genai.Client:
+    """Get existing client or create new one."""
     if client is None:
         load_dotenv()
         api_key = os.getenv("GOOGLE_API_KEY")
         if not api_key:
             raise ValueError("GOOGLE_API_KEY not found in environment")
         client = genai.Client(api_key=api_key)
+    return client
 
-    # Normalize contents to list if it's a plain string
-    # But don't touch it if it's already a list (could contain Parts or Content objects)
+
+def _normalize_contents(
+    contents: Union[str, List[Any], List[types.Content]],
+) -> List[Any]:
+    """Normalize contents to list format."""
     if isinstance(contents, str):
-        contents = [contents]
+        return [contents]
+    return contents
 
-    # Build config
+
+def _build_generate_config(
+    temperature: float,
+    max_output_tokens: int,
+    system_instruction: Optional[str],
+    json_output: bool,
+    thinking_budget: Optional[int],
+    cached_content: Optional[str],
+) -> types.GenerateContentConfig:
+    """Build the GenerateContentConfig."""
     config_args = {
         "temperature": temperature,
         "max_output_tokens": max_output_tokens,
@@ -97,14 +69,11 @@ def gemini_generate(
     if cached_content:
         config_args["cached_content"] = cached_content
 
-    # Make the API call
-    response = client.models.generate_content(
-        model=model,
-        contents=contents,
-        config=types.GenerateContentConfig(**config_args),
-    )
+    return types.GenerateContentConfig(**config_args)
 
-    # Check if response is valid and has text
+
+def _validate_response(response, max_output_tokens: int) -> str:
+    """Validate response and extract text."""
     if response is None or response.text is None:
         # Try to extract text from candidates if available
         if response and hasattr(response, "candidates") and response.candidates:
@@ -144,7 +113,11 @@ def gemini_generate(
                 error_msg = f"Response issue: {response.prompt_feedback}"
         raise ValueError(error_msg)
 
-    # Log token usage if we have usage metadata
+    return response.text
+
+
+def _log_token_usage(response, model: str) -> None:
+    """Log token usage to journal."""
     if hasattr(response, "usage_metadata"):
         try:
             journal = os.getenv("JOURNAL_PATH")
@@ -152,8 +125,9 @@ def gemini_generate(
                 # Auto-detect calling context
                 context = None
                 frame = inspect.currentframe()
-                if frame and frame.f_back:
-                    caller_frame = frame.f_back
+                if frame and frame.f_back and frame.f_back.f_back:
+                    # Go back 2 frames to skip this helper and get to actual caller
+                    caller_frame = frame.f_back.f_back
                     module_name = caller_frame.f_globals.get("__name__", "unknown")
                     func_name = caller_frame.f_code.co_name
                     line_num = caller_frame.f_lineno
@@ -200,7 +174,135 @@ def gemini_generate(
             # Silently fail - logging shouldn't break the main flow
             pass
 
-    return response.text
+
+def gemini_generate(
+    contents: Union[str, List[Any], List[types.Content]],
+    model: str = GEMINI_FLASH,
+    temperature: float = 0.3,
+    max_output_tokens: int = 8192 * 2,
+    system_instruction: Optional[str] = None,
+    json_output: bool = False,
+    thinking_budget: Optional[int] = None,
+    cached_content: Optional[str] = None,
+    client: Optional[genai.Client] = None,
+) -> str:
+    """
+    Simplified wrapper for genai.models.generate_content with common defaults.
+
+    Parameters
+    ----------
+    contents : str, List, or List[types.Content]
+        The content to send to the model. Can be:
+        - A string (will be converted to a list with one string)
+        - A list of strings, types.Part objects, or mixed content
+        - A list of types.Content objects for complex conversations
+    model : str
+        Model name to use (default: GEMINI_FLASH)
+    temperature : float
+        Temperature for generation (default: 0.3)
+    max_output_tokens : int
+        Maximum output tokens (default: 8192 * 2)
+    system_instruction : str, optional
+        System instruction for the model
+    json_output : bool
+        Whether to request JSON response format (default: False)
+    thinking_budget : int, optional
+        Token budget for model thinking
+    cached_content : str, optional
+        Name of cached content to use
+    client : genai.Client, optional
+        Existing client to reuse. If not provided, creates a new one.
+
+    Returns
+    -------
+    str
+        Response text from the model
+    """
+    client = _get_or_create_client(client)
+    contents = _normalize_contents(contents)
+    config = _build_generate_config(
+        temperature=temperature,
+        max_output_tokens=max_output_tokens,
+        system_instruction=system_instruction,
+        json_output=json_output,
+        thinking_budget=thinking_budget,
+        cached_content=cached_content,
+    )
+
+    response = client.models.generate_content(
+        model=model,
+        contents=contents,
+        config=config,
+    )
+
+    text = _validate_response(response, max_output_tokens)
+    _log_token_usage(response, model)
+    return text
+
+
+async def gemini_agenerate(
+    contents: Union[str, List[Any], List[types.Content]],
+    model: str = GEMINI_FLASH,
+    temperature: float = 0.3,
+    max_output_tokens: int = 8192 * 2,
+    system_instruction: Optional[str] = None,
+    json_output: bool = False,
+    thinking_budget: Optional[int] = None,
+    cached_content: Optional[str] = None,
+    client: Optional[genai.Client] = None,
+) -> str:
+    """
+    Async wrapper for genai.aio.models.generate_content with common defaults.
+
+    Parameters
+    ----------
+    contents : str, List, or List[types.Content]
+        The content to send to the model. Can be:
+        - A string (will be converted to a list with one string)
+        - A list of strings, types.Part objects, or mixed content
+        - A list of types.Content objects for complex conversations
+    model : str
+        Model name to use (default: GEMINI_FLASH)
+    temperature : float
+        Temperature for generation (default: 0.3)
+    max_output_tokens : int
+        Maximum output tokens (default: 8192 * 2)
+    system_instruction : str, optional
+        System instruction for the model
+    json_output : bool
+        Whether to request JSON response format (default: False)
+    thinking_budget : int, optional
+        Token budget for model thinking
+    cached_content : str, optional
+        Name of cached content to use
+    client : genai.Client, optional
+        Existing client to reuse. If not provided, creates a new one.
+
+    Returns
+    -------
+    str
+        Response text from the model
+    """
+    client = _get_or_create_client(client)
+    contents = _normalize_contents(contents)
+    config = _build_generate_config(
+        temperature=temperature,
+        max_output_tokens=max_output_tokens,
+        system_instruction=system_instruction,
+        json_output=json_output,
+        thinking_budget=thinking_budget,
+        cached_content=cached_content,
+    )
+
+    response = await client.aio.models.generate_content(
+        model=model,
+        contents=contents,
+        config=config,
+    )
+
+    text = _validate_response(response, max_output_tokens)
+    _log_token_usage(response, model)
+    return text
 
 
 __all__ = [
@@ -213,4 +315,5 @@ __all__ = [
     "CLAUDE_OPUS_4",
     "CLAUDE_SONNET_4",
     "gemini_generate",
+    "gemini_agenerate",
 ]
