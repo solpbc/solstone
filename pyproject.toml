@@ -112,6 +112,7 @@ gnome-screencast-diff = "observe.gnome.screencast_diff:main"
 observe-gnome = "observe.gnome.observer:main"
 observe-transcribe = "observe.transcribe:main"
 observe-describe = "observe.describe:main"
+observe-sense = "observe.sense:main"
 
 [project.urls]
 Homepage = "https://github.com/yourusername/sunstone"
