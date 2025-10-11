@@ -280,16 +280,18 @@
     {% endif %}
   {% endwith %}
 
-  <form method="post" class="add-form">
-    <input type="hidden" name="action" value="add">
-    <input
-      type="text"
-      name="text"
-      placeholder="Add a todo... (use #work, #research, etc. for specific domains)"
-      autocomplete="off"
-      autofocus
-    >
-  </form>
+  {% if day == today_day %}
+    <form method="post" class="add-form">
+      <input type="hidden" name="action" value="add">
+      <input
+        type="text"
+        name="text"
+        placeholder="Add a todo... (use #domain)"
+        autocomplete="off"
+        autofocus
+      >
+    </form>
+  {% endif %}
 
   {% if todos_by_domain %}
     {% for domain_name, domain_todos in todos_by_domain.items() | sort %}
