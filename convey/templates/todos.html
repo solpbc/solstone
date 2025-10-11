@@ -59,6 +59,18 @@
   border-color: #1d4ed8;
 }
 
+.todo-nav-btn.today.disabled {
+  background: #9ca3af;
+  border-color: #9ca3af;
+  cursor: default;
+  opacity: 0.6;
+}
+
+.todo-nav-btn.today.disabled:hover {
+  background: #9ca3af;
+  border-color: #9ca3af;
+}
+
 .add-form {
   margin-bottom: 2rem;
 }
@@ -276,7 +288,9 @@
       {% if prev_day %}
         <a href="{{ url_for('todos.todos_day', day=prev_day) }}" class="todo-nav-btn">←</a>
       {% endif %}
-      {% if day != today_day %}
+      {% if day == today_day %}
+        <span class="todo-nav-btn today disabled">Today</span>
+      {% else %}
         <a href="{{ url_for('todos.todos_day', day=today_day) }}" class="todo-nav-btn today">Today</a>
       {% endif %}
       {% if next_day %}
