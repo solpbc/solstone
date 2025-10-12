@@ -689,7 +689,7 @@ class VideoProcessor:
             if output_file:
                 output_file.write(result_line + "\n")
                 output_file.flush()
-            if logger.isEnabledFor(logging.INFO):
+            if logger.isEnabledFor(logging.DEBUG):
                 print(result_line, flush=True)
 
         # Close output file and create crumb
