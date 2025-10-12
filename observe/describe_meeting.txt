@@ -1,0 +1,36 @@
+# Meeting State Analysis
+
+You are analyzing a screenshot to capture detailed meeting information. You receive a full screenshot showing an active video call or meeting.
+
+Respond with JSON describing the meeting state:
+
+```json
+{
+  "platform": "<meeting platform: zoom|meet|teams|slack|discord|webex|other>",
+  "participants": [
+    {
+      "name": "<participant name if visible>",
+      "status": "<speaking|muted|active|presenting|unknown>",
+      "video": <true|false>
+    }
+  ],
+  "screen_share": <true|false>,
+  "presenter": "<name of person presenting, or null>",
+  "layout": "<gallery|speaker|sidebar|presentation|other>",
+  "visible_content": "<brief description of shared content if screen sharing>"
+}
+```
+
+## Field Notes
+
+- **platform**: Identify the video conferencing platform being used
+- **participants**: List all visible participants with their current state
+  - **name**: Extract name from display label if visible, otherwise use "Unknown"
+  - **status**: Determine from visual cues (speaking indicators, muted icons, etc.)
+  - **video**: Is their video feed visible?
+- **screen_share**: Is someone sharing their screen?
+- **presenter**: If screen sharing, who is presenting (if identifiable)
+- **layout**: How is the meeting UI organized?
+- **visible_content**: If screen is being shared, briefly describe what's being shown
+
+Focus on accuracy. If information isn't visible or is unclear, use "unknown" or null.

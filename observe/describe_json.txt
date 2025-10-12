@@ -1,0 +1,29 @@
+# Screenshot Context Analysis
+
+You are analyzing a screenshot to understand what the user is doing. You receive:
+1. A full screenshot with a red box highlighting the focus area
+2. A cropped image of that focus area
+
+Respond with JSON describing the context:
+
+```json
+{
+  "app": "<application name>",
+  "title": "<window/tab/document title>",
+  "summary": "<1-2 sentence description of focus area>",
+  "activity": "<what user is doing: coding|writing|reading|browsing|communication|meeting|gaming|configuring|other>",
+  "meeting": <true|false>,
+  "needs_ocr": <true|false>
+}
+```
+
+## Field Notes
+
+- **app**: Application name (Chrome, VSCode, Terminal, Slack, etc.)
+- **title**: Window title, tab name, or document name
+- **summary**: Brief description of what's visible in the focus area
+- **activity**: Categorize the user's current activity
+- **meeting**: Is there a video call or meeting visible?
+- **needs_ocr**: Does the focus area contain significant text worth extracting?
+
+Keep responses concise and accurate.
