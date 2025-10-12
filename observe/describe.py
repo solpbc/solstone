@@ -80,6 +80,10 @@ class VideoProcessor:
         self.qualified_frames: Dict[str, List[dict]] = {
             monitor_id: [] for monitor_id in self.monitors.keys()
         }
+        # Load entity names for vision analysis context
+        from think.utils import load_entity_names
+
+        self.entity_names = load_entity_names()
 
     def _parse_monitor_metadata(self) -> Dict[str, dict]:
         """
@@ -425,6 +429,17 @@ class VideoProcessor:
 
         return cropped
 
+    def _user_contents(self, prompt: str, image, entities: bool = False) -> list:
+        """Build contents list with optional entity context."""
+        contents = [prompt]
+        if entities and self.entity_names:
+            contents.append(
+                f"These are some frequently used names that you may encounter "
+                f"and can be helpful when transcribing for accuracy: {self.entity_names}"
+            )
+        contents.append(image)
+        return contents
+
     async def process_with_vision(
         self,
         use_prompt: str = "describe_json.txt",
@@ -475,13 +490,11 @@ class VideoProcessor:
             for frame_data in frames:
                 cropped_img = self._extract_frame_images(frame_data)
 
-                contents = [
-                    "Analyze this screenshot frame from a screencast recording.",
-                    cropped_img,
-                ]
-
                 req = batch.create(
-                    contents=contents,
+                    contents=self._user_contents(
+                        "Analyze this screenshot frame from a screencast recording.",
+                        cropped_img,
+                    ),
                     model=GEMINI_LITE,
                     system_instruction=system_instruction,
                     json_output=True,
@@ -572,10 +585,11 @@ class VideoProcessor:
 
                     batch.update(
                         req,
-                        contents=[
+                        contents=self._user_contents(
                             "Analyze this meeting screenshot.",
                             full_image,
-                        ],
+                            entities=True,
+                        ),
                         model=GEMINI_FLASH,
                         system_instruction=meeting_system_instruction,
                         json_output=True,
@@ -595,10 +609,11 @@ class VideoProcessor:
                     # Update request for text extraction and re-add
                     batch.update(
                         req,
-                        contents=[
+                        contents=self._user_contents(
                             "Extract text from this screenshot frame.",
                             req.cropped_img,
-                        ],
+                            entities=True,
+                        ),
                         model=GEMINI_FLASH,
                         system_instruction=text_system_instruction,
                         json_output=False,
