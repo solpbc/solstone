@@ -11,9 +11,7 @@ Example:
     req.my_id = "calc1"
     batch.add(req)
 
-    batch.close()
-
-    async for req in batch:
+    async for req in batch.drain_batch():
         print(f"{req.my_id}: {req.response}")
 """
 
@@ -86,10 +84,8 @@ class GeminiBatch:
         req2.task_id = "calc2"
         batch.add(req2)
 
-        batch.close()  # Signal no more requests
-
         # Process results as they complete
-        async for req in batch:
+        async for req in batch.drain_batch():
             print(f"{req.task_id}: {req.response}")
     """
 
@@ -109,8 +105,6 @@ class GeminiBatch:
         self.semaphore = asyncio.Semaphore(max_concurrent)
         self.result_queue: asyncio.Queue = asyncio.Queue()
         self.pending_tasks: set = set()
-        self.closed = False
-        self._monitor_task: Optional[asyncio.Task] = None
 
     def create(
         self,
@@ -150,35 +144,41 @@ class GeminiBatch:
         Add request to batch for execution.
 
         Request will be executed concurrently (up to max_concurrent limit).
-        Non-blocking - returns immediately.
+        Non-blocking - returns immediately. Can be called at any time, even
+        during iteration or after draining.
 
         Parameters
         ----------
         request : GeminiRequest
             Request to execute
         """
-        if self.closed:
-            raise RuntimeError("Cannot add requests to closed batch")
-
         task = asyncio.create_task(self._execute_request(request))
         self.pending_tasks.add(task)
 
-        # Start monitor task if not already running
-        if self._monitor_task is None:
-            self._monitor_task = asyncio.create_task(self._monitor_completion())
-
-    def close(self) -> None:
+    def is_drained(self) -> bool:
         """
-        Signal that no more requests will be added.
+        Check if batch is fully drained.
 
-        The async iterator will drain all pending results and then stop.
-        Can be called multiple times (idempotent).
+        Returns True when there are no pending tasks and no results waiting
+        in the queue.
+
+        Returns
+        -------
+        bool
+            True if batch is drained, False otherwise
         """
-        self.closed = True
+        # Clean up completed tasks
+        self.pending_tasks = {t for t in self.pending_tasks if not t.done()}
+        return len(self.pending_tasks) == 0 and self.result_queue.empty()
 
-        # Start monitor if not already running (handles empty batch case)
-        if self._monitor_task is None:
-            self._monitor_task = asyncio.create_task(self._monitor_completion())
+    async def wait_until_drained(self) -> None:
+        """
+        Wait until all pending work completes and queue is empty.
+
+        Blocks until is_drained() returns True.
+        """
+        while not self.is_drained():
+            await asyncio.sleep(0.1)
 
     async def _execute_request(self, request: GeminiRequest) -> None:
         """
@@ -216,46 +216,44 @@ class GeminiBatch:
         # Put completed request in result queue
         await self.result_queue.put(request)
 
-    async def _monitor_completion(self) -> None:
+    async def drain_batch(self):
         """
-        Monitor pending tasks and put sentinel when all complete and closed.
+        Async generator that yields completed requests until batch is drained.
 
-        This background task waits for all pending tasks to complete, then
-        puts None in the result queue to signal the iterator to stop.
-        """
-        while True:
-            await asyncio.sleep(0.1)  # Check every 100ms
+        Yields results from the queue while there's still pending work OR
+        results waiting. Stops when both pending_tasks is empty AND queue
+        is empty.
 
-            # Remove completed tasks
-            self.pending_tasks = {t for t in self.pending_tasks if not t.done()}
+        This can be called multiple times - each call will drain whatever
+        work is currently in the batch.
 
-            # If closed and no pending tasks, put sentinel and exit
-            if self.closed and len(self.pending_tasks) == 0:
-                await self.result_queue.put(None)  # Sentinel
-                break
-
-    def __aiter__(self):
-        """Return self as async iterator."""
-        return self
-
-    async def __anext__(self) -> GeminiRequest:
-        """
-        Get next completed request.
-
-        Blocks until a request completes. Raises StopAsyncIteration when
-        batch is closed and all requests have been processed.
-
-        Returns
-        -------
+        Yields
+        ------
         GeminiRequest
             Completed request with response/error populated
+
+        Example
+        -------
+        >>> async for req in batch.drain_batch():
+        ...     print(req.response)
+        ...     if req.error:
+        ...         batch.add(req)  # Retry on error
         """
-        result = await self.result_queue.get()
+        while True:
+            # Check if we're truly drained
+            self.pending_tasks = {t for t in self.pending_tasks if not t.done()}
 
-        if result is None:  # Sentinel value
-            raise StopAsyncIteration
+            # If drained, stop iteration
+            if len(self.pending_tasks) == 0 and self.result_queue.empty():
+                break
 
-        return result
+            # Try to get a result (with timeout to avoid blocking forever)
+            try:
+                result = await asyncio.wait_for(self.result_queue.get(), timeout=0.1)
+                yield result
+            except asyncio.TimeoutError:
+                # No result ready yet, but might have pending work
+                continue
 
 
 __all__ = ["GeminiRequest", "GeminiBatch"]

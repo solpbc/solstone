@@ -338,11 +338,9 @@ class VideoProcessor:
             boxes.append({"box_2d": [min_y, min_x, max_y, max_x]})
         return boxes
 
-    def _extract_frame_images(
-        self, frame_data: dict
-    ) -> tuple[Image.Image, Image.Image]:
+    def _extract_frame_images(self, frame_data: dict) -> Image.Image:
         """
-        Extract frame and create full + cropped images for vision analysis.
+        Extract frame and create cropped image for vision analysis.
 
         Parameters
         ----------
@@ -351,8 +349,8 @@ class VideoProcessor:
 
         Returns
         -------
-        tuple[Image.Image, Image.Image]
-            (full_image_with_box, cropped_region)
+        Image.Image
+            Cropped region expanded by 50px in all directions where possible
         """
         frame = frame_data["frame"]
         x1, y1, x2, y2 = frame_data["monitor_bounds"]
@@ -362,25 +360,25 @@ class VideoProcessor:
         arr = frame.to_ndarray(format="rgb24")
         full_image = Image.fromarray(arr)
 
-        # Draw red box on full image
-        draw = ImageDraw.Draw(full_image)
-
         # Convert box_2d (relative to monitor) to absolute coordinates
         abs_y_min = y1 + box_2d[0]
         abs_x_min = x1 + box_2d[1]
         abs_y_max = y1 + box_2d[2]
         abs_x_max = x1 + box_2d[3]
 
-        draw.rectangle(
-            ((abs_x_min, abs_y_min), (abs_x_max, abs_y_max)),
-            outline="red",
-            width=3,
+        # Expand bounds by 50px in all directions where possible
+        img_width, img_height = full_image.size
+        expanded_x_min = max(0, abs_x_min - 50)
+        expanded_y_min = max(0, abs_y_min - 50)
+        expanded_x_max = min(img_width, abs_x_max + 50)
+        expanded_y_max = min(img_height, abs_y_max + 50)
+
+        # Crop to expanded region
+        cropped = full_image.crop(
+            (expanded_x_min, expanded_y_min, expanded_x_max, expanded_y_max)
         )
 
-        # Crop to change region
-        cropped = full_image.crop((abs_x_min, abs_y_min, abs_x_max, abs_y_max))
-
-        return full_image, cropped
+        return cropped
 
     async def process_with_vision(
         self,
@@ -398,6 +396,7 @@ class VideoProcessor:
             Maximum number of concurrent API requests (default: 5)
         """
         from think.batch import GeminiBatch
+        from think.models import GEMINI_LITE
 
         # Load prompt template
         prompt_path = Path(__file__).parent / use_prompt
@@ -415,16 +414,16 @@ class VideoProcessor:
         # Create vision requests for all qualified frames
         for monitor_id, frames in qualified_frames.items():
             for frame_data in frames:
-                full_img, cropped_img = self._extract_frame_images(frame_data)
+                cropped_img = self._extract_frame_images(frame_data)
 
                 contents = [
                     "Analyze this screenshot frame from a screencast recording.",
-                    full_img,
                     cropped_img,
                 ]
 
                 req = batch.create(
                     contents=contents,
+                    model=GEMINI_LITE,
                     system_instruction=system_instruction,
                     json_output=True,
                     temperature=0.3,
@@ -435,13 +434,12 @@ class VideoProcessor:
                 req.timestamp = frame_data["timestamp"]
                 req.monitor = monitor_id
                 req.box_2d = frame_data["box_2d"]
+                req.retry_count = 0
 
                 batch.add(req)
 
-        batch.close()
-
-        # Stream results as they complete
-        async for req in batch:
+        # Stream results as they complete, with retry logic
+        async for req in batch.drain_batch():
             result = {
                 "frame_id": req.frame_id,
                 "timestamp": req.timestamp,
@@ -449,15 +447,37 @@ class VideoProcessor:
                 "box_2d": req.box_2d,
             }
 
+            # Check for errors or JSON decode issues
+            has_error = False
+            error_msg = None
+
             if req.error:
-                result["error"] = req.error
+                has_error = True
+                error_msg = req.error
             else:
                 try:
                     result["analysis"] = json.loads(req.response)
                     result["model_used"] = req.model_used
                     result["duration"] = req.duration
                 except json.JSONDecodeError as e:
-                    result["error"] = f"Invalid JSON response: {e}"
+                    has_error = True
+                    error_msg = f"Invalid JSON response: {e}"
+
+            # Retry logic (up to 3 attempts total, so 2 retries)
+            if has_error and req.retry_count < 2:
+                req.retry_count += 1
+                batch.add(req)
+                logger.info(
+                    f"Retrying frame {req.frame_id} (attempt {req.retry_count + 1}/3): {error_msg}"
+                )
+                continue  # Don't output, wait for retry result
+
+            # Final result (success or max retries exceeded)
+            if has_error:
+                result["error"] = error_msg
+
+            if req.retry_count > 0:
+                result["retry_count"] = req.retry_count
 
             # Output as JSONL (one JSON object per line)
             print(json.dumps(result), flush=True)

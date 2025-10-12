@@ -28,11 +28,9 @@ async def test_gemini_batch_basic_execution():
     req2.id = "calc2"
     batch.add(req2)
 
-    batch.close()
-
     # Collect results
     results = []
-    async for req in batch:
+    async for req in batch.drain_batch():
         results.append(req)
 
     # Verify both completed
@@ -66,10 +64,9 @@ async def test_gemini_batch_concurrent_timing():
     for i in range(3):
         req = batch_seq.create(contents=f"Count to {i+1}. Reply with just the number.")
         batch_seq.add(req)
-    batch_seq.close()
 
     seq_results = []
-    async for req in batch_seq:
+    async for req in batch_seq.drain_batch():
         seq_results.append(req)
     seq_duration = time.time() - start
 
@@ -79,10 +76,9 @@ async def test_gemini_batch_concurrent_timing():
     for i in range(3):
         req = batch_conc.create(contents=f"Count to {i+1}. Reply with just the number.")
         batch_conc.add(req)
-    batch_conc.close()
 
     conc_results = []
-    async for req in batch_conc:
+    async for req in batch_conc.drain_batch():
         conc_results.append(req)
     conc_duration = time.time() - start
 
@@ -108,10 +104,9 @@ async def test_gemini_batch_json_output():
     )
     req.id = "json_test"
     batch.add(req)
-    batch.close()
 
     results = []
-    async for r in batch:
+    async for r in batch.drain_batch():
         results.append(r)
 
     assert len(results) == 1
@@ -135,10 +130,8 @@ async def test_gemini_batch_different_models():
     req2.model_type = "lite"
     batch.add(req2)
 
-    batch.close()
-
     results = []
-    async for r in batch:
+    async for r in batch.drain_batch():
         results.append(r)
 
     assert len(results) == 2
@@ -165,7 +158,7 @@ async def test_gemini_batch_dynamic_adding():
     stage1_count = 0
     stage2_added = False
 
-    async for req in batch:
+    async for req in batch.drain_batch():
         if req.stage == "stage1":
             stage1_count += 1
 
@@ -177,7 +170,6 @@ async def test_gemini_batch_dynamic_adding():
                 req2.stage = "stage2"
                 batch.add(req2)
                 stage2_added = True
-                batch.close()  # Close after adding stage 2
 
     # Should have processed both stages
     assert stage1_count == 1
@@ -195,10 +187,9 @@ async def test_gemini_batch_token_logging():
 
         req = batch.create(contents="Say hello")
         batch.add(req)
-        batch.close()
 
         results = []
-        async for r in batch:
+        async for r in batch.drain_batch():
             results.append(r)
 
         # Check that token logs were created
@@ -225,7 +216,7 @@ async def test_gemini_batch_error_recovery():
     batch.add(req1)
 
     retried = False
-    async for req in batch:
+    async for req in batch.drain_batch():
         if req.attempt == 1:
             # Always add a retry request to test the pattern
             if not retried:
@@ -236,7 +227,6 @@ async def test_gemini_batch_error_recovery():
                 req2.attempt = 2
                 batch.add(req2)
                 retried = True
-                batch.close()
 
     # Pattern should complete successfully
     assert retried
@@ -263,10 +253,8 @@ async def test_gemini_batch_client_reuse():
     req2 = batch.create(contents="Say 'second'")
     batch.add(req2)
 
-    batch.close()
-
     results = []
-    async for req in batch:
+    async for req in batch.drain_batch():
         results.append(req)
 
     # Both should succeed with shared client
@@ -288,10 +276,9 @@ async def test_gemini_batch_custom_attributes_preserved():
     req.monitor = "DP-3"
     req.metadata = {"foo": "bar", "nested": {"baz": 123}}
     batch.add(req)
-    batch.close()
 
     results = []
-    async for r in batch:
+    async for r in batch.drain_batch():
         results.append(r)
 
     assert len(results) == 1

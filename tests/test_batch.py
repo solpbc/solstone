@@ -59,11 +59,10 @@ async def test_gemini_batch_basic(mock_get_client, mock_agenerate):
     req = batch.create(contents="What is 2+2?")
     req.task_id = "calc1"
     batch.add(req)
-    batch.close()
 
     # Iterate and verify
     results = []
-    async for completed_req in batch:
+    async for completed_req in batch.drain_batch():
         results.append(completed_req)
 
     assert len(results) == 1
@@ -106,11 +105,9 @@ async def test_gemini_batch_multiple_requests(mock_get_client, mock_agenerate):
     req3.id = 3
     batch.add(req3)
 
-    batch.close()
-
     # Collect results
     results = []
-    async for req in batch:
+    async for req in batch.drain_batch():
         results.append(req)
 
     # Should have all 3 results
@@ -141,11 +138,10 @@ async def test_gemini_batch_error_handling(mock_get_client, mock_agenerate):
     req = batch.create(contents="Bad prompt")
     req.id = "error_test"
     batch.add(req)
-    batch.close()
 
     # Get result
     results = []
-    async for r in batch:
+    async for r in batch.drain_batch():
         results.append(r)
 
     assert len(results) == 1
@@ -171,11 +167,11 @@ async def test_gemini_batch_dynamic_adding(mock_get_client, mock_agenerate):
     req1.stage = "initial"
     batch.add(req1)
 
-    # Don't close yet - will add more during iteration
+    # Process and add more during iteration
     results = []
     added_followup = False
 
-    async for req in batch:
+    async for req in batch.drain_batch():
         results.append(req)
 
         # After first result, add a follow-up
@@ -184,7 +180,6 @@ async def test_gemini_batch_dynamic_adding(mock_get_client, mock_agenerate):
             req2.stage = "followup"
             batch.add(req2)
             added_followup = True
-            batch.close()  # Now close after adding follow-up
 
     # Should have both results
     assert len(results) == 2
@@ -220,7 +215,7 @@ async def test_gemini_batch_retry_pattern(mock_get_client, mock_agenerate):
     batch.add(req1)
 
     results = []
-    async for req in batch:
+    async for req in batch.drain_batch():
         results.append(req)
 
         # If error, retry with different model
@@ -228,8 +223,6 @@ async def test_gemini_batch_retry_pattern(mock_get_client, mock_agenerate):
             retry = batch.create(req.contents, model=GEMINI_LITE)
             retry.attempt = 2
             batch.add(retry)
-        else:
-            batch.close()
 
     # Should have both attempts
     assert len(results) == 2
@@ -268,18 +261,37 @@ async def test_gemini_batch_factory_method(mock_get_client, mock_agenerate):
 @pytest.mark.asyncio
 @patch("think.batch.gemini_agenerate", new_callable=AsyncMock)
 @patch("think.batch._get_or_create_client")
-async def test_gemini_batch_cannot_add_after_close(mock_get_client, mock_agenerate):
-    """Test that adding after close raises error."""
+async def test_gemini_batch_can_add_after_draining(mock_get_client, mock_agenerate):
+    """Test that adding after draining works (reusable batch)."""
     mock_client = MagicMock()
     mock_get_client.return_value = mock_client
+    mock_agenerate.side_effect = ["Response 1", "Response 2"]
 
     batch = GeminiBatch()
-    batch.close()
 
-    # Should raise error
-    with pytest.raises(RuntimeError, match="Cannot add requests to closed batch"):
-        req = batch.create(contents="Test")
-        batch.add(req)
+    # First batch
+    req1 = batch.create(contents="First")
+    req1.id = 1
+    batch.add(req1)
+
+    results = []
+    async for req in batch.drain_batch():
+        results.append(req)
+
+    assert len(results) == 1
+    assert results[0].id == 1
+
+    # Add more work after draining
+    req2 = batch.create(contents="Second")
+    req2.id = 2
+    batch.add(req2)
+
+    async for req in batch.drain_batch():
+        results.append(req)
+
+    # Should have both results
+    assert len(results) == 2
+    assert {r.id for r in results} == {1, 2}
 
 
 @pytest.mark.asyncio
@@ -291,10 +303,9 @@ async def test_gemini_batch_empty_batch(mock_get_client, mock_agenerate):
     mock_get_client.return_value = mock_client
 
     batch = GeminiBatch()
-    batch.close()
 
     results = []
-    async for req in batch:
+    async for req in batch.drain_batch():
         results.append(req)
 
     assert len(results) == 0
@@ -336,10 +347,8 @@ async def test_gemini_batch_concurrency_limit(mock_get_client, mock_agenerate):
         req = batch.create(contents=f"Request {i}")
         batch.add(req)
 
-    batch.close()
-
     results = []
-    async for req in batch:
+    async for req in batch.drain_batch():
         results.append(req)
 
     assert len(results) == 5
