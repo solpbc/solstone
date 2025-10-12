@@ -112,6 +112,7 @@ gnome-screencast-diff = "observe.gnome.screencast_diff:main"
 observe-gnome = "observe.gnome.observer:main"
 observe-transcribe = "observe.transcribe:main"
 observe-describe = "observe.describe:main"
+observe-reduce = "observe.reduce:main"
 observe-sense = "observe.sense:main"
 
 [project.urls]
@@ -128,6 +129,7 @@ hear = ["*.txt"]
 see = ["*.txt"]
 think = ["*.txt", "topics/*.txt"]
 muse = ["agents/*.txt", "agents/*.json"]
+observe = ["*.txt", "*.json"]
 convey = [
     "templates/*.html",
     "static/*",

@@ -551,6 +551,7 @@ class VideoProcessor:
                 req.frame_id = frame_data["frame_id"]
                 req.timestamp = frame_data["timestamp"]
                 req.monitor = monitor_id
+                req.monitor_position = self.monitors[monitor_id].get("position")
                 req.box_2d = frame_data["box_2d"]
                 req.retry_count = 0
                 req.frame_data = frame_data  # Store for potential full frame access
@@ -676,6 +677,10 @@ class VideoProcessor:
                 "box_2d": req.box_2d,
                 "requests": req.requests,
             }
+
+            # Add monitor position if available and not "unknown"
+            if req.monitor_position and req.monitor_position != "unknown":
+                result["monitor_position"] = req.monitor_position
 
             # Add error at top level if any request failed
             if has_error:

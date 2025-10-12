@@ -207,6 +207,10 @@ class FileSensor:
             logger.info(
                 f"{handler_proc.handler_name} completed successfully for {handler_proc.file_path.name}"
             )
+
+            # If describe completed successfully, run reduce
+            if handler_proc.handler_name == "describe":
+                self._run_reduce(handler_proc.file_path)
         else:
             logger.error(
                 f"{handler_proc.handler_name} failed with exit code {exit_code} for {handler_proc.file_path.name}"
@@ -217,6 +221,32 @@ class FileSensor:
         with self.lock:
             if handler_proc.file_path in self.running:
                 del self.running[handler_proc.file_path]
+
+    def _run_reduce(self, video_path: Path):
+        """Run reduce on the video file after describe completes."""
+        cmd = ["observe-reduce", str(video_path)]
+        logger.info(f"Running reduce for {video_path.name}")
+
+        try:
+            result = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                timeout=300,  # 5 minute timeout
+            )
+
+            if result.returncode == 0:
+                logger.info(f"Reduce completed successfully for {video_path.name}")
+            else:
+                logger.warning(
+                    f"Reduce failed for {video_path.name} (exit code {result.returncode})"
+                )
+                if result.stderr:
+                    logger.debug(f"Reduce stderr: {result.stderr}")
+        except subprocess.TimeoutExpired:
+            logger.warning(f"Reduce timed out for {video_path.name}")
+        except Exception as exc:
+            logger.warning(f"Reduce failed for {video_path.name}: {exc}")
 
     def _handle_file(self, file_path: Path):
         """Route file to appropriate handler."""

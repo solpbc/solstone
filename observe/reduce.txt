@@ -1,0 +1,65 @@
+# Screencast Summarization Prompt
+
+You will be given chronologically ordered frame-by-frame analyses from a screencast recording. Each frame includes:
+
+- **Timestamp**: Absolute wall-clock time when the frame occurred (HH:MM:SS format)
+- **Monitor**: Which monitor the activity occurred on (when multiple monitors present)
+- **Category**: Type of activity (terminal, code, messaging, meeting, browsing, reading, media, gaming, productivity)
+- **Visual description**: 2-sentence description of what was visible on screen
+- **Extracted text**: Full OCR transcription when applicable (for terminal, code, messaging, reading, productivity)
+- **Meeting analysis**: Structured JSON data when meetings detected (participants, topics, visible content)
+
+Your job is to synthesize this into an articulate, comprehensive markdown report of what occurred during this screencast session.
+
+## Guidelines
+
+### Content Focus
+- Focus on applications, websites, documents, and meaningful work activities
+- Note clear actions and context (editing code, messaging, watching video, browsing documentation, running commands, etc.)
+- Ignore idle game playing such as mahjongg - it's not important
+- When multiple monitors present, weave activities across monitors into a coherent timeline
+
+### Information Synthesis
+- Combine repetitive or continuous activities into cohesive narratives rather than listing each frame
+- Highlight transitions between different activities, applications, or contexts
+- Deduplicate similar information while preserving all essential details
+- Use the entity names provided at the top for accurate transcription and context
+
+### Text Integration
+- Include relevant excerpts from extracted text when they provide meaningful context
+- For terminal sessions, include key commands and their outputs
+- For code editing, mention files, functions, or significant changes visible
+- For messaging, include relevant conversation excerpts that show topics or decisions
+- For documentation/reading, note what topics or sections were being reviewed
+
+### Meeting Handling
+- Synthesize meeting analysis data into readable summaries
+- Note who was present (participants field)
+- Summarize what was discussed (topics field)
+- Include any visible content mentioned in the meeting analysis
+
+### Entity Recognition
+- Capture all key entities encountered during the session (both known entities from the provided list and new ones)
+- Include: people names, project names, repository names, company names, product names, tool names, file paths, URLs, etc.
+- Add an "Entities" section at the end listing all significant entities mentioned
+
+## Output Format
+
+Provide a complete and detailed markdown report with:
+
+- **Clear structure**: Use headers (##, ###) to organize by time periods or major activity shifts
+- **Narrative flow**: Write in past tense as a natural chronological account
+- **Time attribution**: Include approximate times for major activities or transitions
+- **Relevant excerpts**: Use blockquotes or code blocks for extracted text when meaningful
+- **Essential details**: Preserve all important information (commands run, files edited, topics discussed, decisions made)
+- **Proper formatting**: Use markdown effectively (headers, lists, code blocks, emphasis, blockquotes)
+- **Entities section**: End with a "## Entities" section listing all key entities encountered
+
+Focus on creating a report that would be valuable for:
+- Understanding what work was accomplished during this session
+- Reviewing decisions or discussions that occurred
+- Tracking progress on specific tasks or projects
+- Providing context for future reference
+- Identifying key people, projects, and resources involved
+
+The summary should read like a well-written activity log, not a frame-by-frame enumeration.
