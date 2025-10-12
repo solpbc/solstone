@@ -225,10 +225,9 @@ class GeminiBatch:
         request : GeminiRequest
             Request to execute (will be modified in place)
         """
-        start_time = time.time()
-
         try:
             async with self.semaphore:
+                start_time = time.time()
                 response = await gemini_agenerate(
                     contents=request.contents,
                     model=request.model,
@@ -240,13 +239,14 @@ class GeminiBatch:
                     cached_content=request.cached_content,
                     client=self.client,
                 )
+                request.duration = time.time() - start_time
                 request.response = response
                 request.error = None
         except Exception as e:
+            request.duration = time.time() - start_time
             request.response = None
             request.error = str(e)
 
-        request.duration = time.time() - start_time
         request.model_used = request.model
 
         # Put completed request in result queue
