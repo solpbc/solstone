@@ -440,14 +440,27 @@ class VideoProcessor:
         contents.append(image)
         return contents
 
+    def _move_to_seen(self, media_path: Path) -> Path:
+        """Move processed media file to seen/ subdirectory."""
+        seen_dir = media_path.parent / "seen"
+        try:
+            seen_dir.mkdir(exist_ok=True)
+            new_path = seen_dir / media_path.name
+            media_path.rename(new_path)
+            logger.info(f"Moved {media_path} to {seen_dir}")
+            return new_path
+        except Exception as exc:
+            logger.error(f"Failed to move {media_path} to seen: {exc}")
+            return media_path
+
     def _create_crumb(
-        self, output_path: Path, used_prompts: set, used_models: set
+        self, output_path: Path, moved_video_path: Path, used_prompts: set, used_models: set
     ) -> None:
         """Create crumb file for the analysis output."""
         from think.crumbs import CrumbBuilder
 
         crumb_builder = CrumbBuilder()
-        crumb_builder.add_file(self.video_path)
+        crumb_builder.add_file(moved_video_path)
 
         # Add prompt files that were used
         observe_dir = Path(__file__).parent
@@ -692,10 +705,11 @@ class VideoProcessor:
             if logger.isEnabledFor(logging.DEBUG):
                 print(result_line, flush=True)
 
-        # Close output file and create crumb
+        # Close output file, move media, and create crumb
         if output_file:
             output_file.close()
-            self._create_crumb(output_path, used_prompts, used_models)
+            moved_path = self._move_to_seen(self.video_path)
+            self._create_crumb(output_path, moved_path, used_prompts, used_models)
 
 
 def output_qualified_frames(
