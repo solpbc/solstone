@@ -17,12 +17,12 @@ Respond with JSON describing the context:
 - **visible**: Pick the single most appropriate category for what is visible in the focus area
   - **terminal**: Command line interfaces
   - **code**: Code editors and IDEs
-  - **messaging**: Chat, email, Slack, Discord
-  - **meeting**: Video calls (Zoom, Meet, Teams)
-  - **browsing**: General web browsing, social media, shopping
+  - **messaging**: Chat, email, Slack, Discord, iMessage, Messages, any chat or messaging view
+  - **meeting**: Video calls and conferencing such as Zoom, Webex, Meet, Teams, etc
+  - **browsing**: General web browsing, social media posts, shopping
   - **reading**: Documents, articles, PDFs, documentation
-  - **media**: Video/music/image viewing or editing
-  - **gaming**: Games or gaming-related content
-  - **productivity**: Spreadsheets, presentations, word processors, calendars
+  - **media**: Videos, video players, Youtube, social media images and videos
+  - **gaming**: Any games or playing a game
+  - **productivity**: Spreadsheets, presentations, word processors, calendars, any other workplace activities and tools
 
 Keep responses concise and accurate.
