@@ -73,15 +73,6 @@ class Transcriber:
         except Exception as exc:
             logging.error("Failed to move %s to heard: %s", audio_path, exc)
 
-    def _trash_file(self, raw_path: Path) -> None:
-        """Move the given file to a trash directory inside its day folder."""
-        trash_dir = raw_path.parent / "trash"
-        try:
-            trash_dir.mkdir(exist_ok=True)
-            raw_path.rename(trash_dir / raw_path.name)
-            logging.info(f"Moved {raw_path} to trash")
-        except Exception as e:
-            logging.error(f"Failed to move {raw_path} to trash: {e}")
 
     def _process_audio(self, raw_path: Path) -> List[Dict[str, object]] | None:
         """Process audio file and return segments for transcription."""
@@ -107,24 +98,10 @@ class Transcriber:
                 self.vad_model, "mix", merged, mic_ranges, no_stash=True
             )
 
-            if not segments:
-                logging.info(f"No speech segments detected, moving {raw_path} to trash")
-                self._trash_file(raw_path)
-                return None
-
-            # Check minimum speech duration
-            total_seconds = sum(len(seg["data"]) / SAMPLE_RATE for seg in segments)
-            if total_seconds < MIN_SPEECH_SECONDS:
-                logging.info(
-                    f"Total speech duration {total_seconds:.2f}s < {MIN_SPEECH_SECONDS}s, moving {raw_path} to trash"
-                )
-                self._trash_file(raw_path)
-                return None
-
             # Extract timestamp from filename
-            day = raw_path.parent.name
             time_part = raw_path.stem.split("_")[0]
-            end_dt = datetime.datetime.strptime(f"{day}_{time_part}", "%Y%m%d_%H%M%S")
+            today = datetime.date.today().strftime("%Y%m%d")
+            end_dt = datetime.datetime.strptime(f"{today}_{time_part}", "%Y%m%d_%H%M%S")
             file_duration = len(data) / sr
             base_dt = end_dt - datetime.timedelta(seconds=file_duration)
 
@@ -136,15 +113,22 @@ class Transcriber:
                 audio_int16 = (np.clip(seg["data"], -1.0, 1.0) * 32767).astype(np.int16)
                 buf = io.BytesIO()
                 sf.write(buf, audio_int16, SAMPLE_RATE, format="FLAC")
+                source = "mic" if seg.get("mic") else "sys"
                 processed.append(
                     {
                         "start": start_str,
-                        "source": "mic" if seg.get("mic") else "sys",
+                        "source": source,
                         "bytes": buf.getvalue(),
                     }
                 )
 
+            # Output segment map in verbose mode
+            segment_map = " ".join(
+                f"{seg['start']}:{seg['source']}" for seg in processed
+            )
             logging.info(f"Processed {raw_path}: {len(processed)} segments")
+            logging.info(f"Segment map: {segment_map}")
+
             return processed
         except Exception as e:
             logging.error(f"Error processing {raw_path}: {e}", exc_info=True)
@@ -193,11 +177,6 @@ class Transcriber:
 
     def _handle_raw(self, raw_path: Path) -> None:
         """Process a raw audio file."""
-        # Skip files inside trash folder
-        if "trash" in raw_path.parts:
-            logging.debug(f"Skipping file in trash: {raw_path}")
-            return
-
         # Skip if already processed
         json_path = self._get_json_path(raw_path)
         if json_path.exists():
