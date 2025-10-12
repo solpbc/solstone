@@ -9,6 +9,7 @@ and qualifies frames that meet the 400x400 threshold for Gemini processing.
 from __future__ import annotations
 
 import argparse
+import asyncio
 import json
 import logging
 import re
@@ -17,6 +18,7 @@ from typing import Dict, List, Optional
 
 import av
 import numpy as np
+from PIL import Image, ImageDraw
 
 from think.utils import setup_cli
 
@@ -336,6 +338,130 @@ class VideoProcessor:
             boxes.append({"box_2d": [min_y, min_x, max_y, max_x]})
         return boxes
 
+    def _extract_frame_images(
+        self, frame_data: dict
+    ) -> tuple[Image.Image, Image.Image]:
+        """
+        Extract frame and create full + cropped images for vision analysis.
+
+        Parameters
+        ----------
+        frame_data : dict
+            Frame data containing frame, monitor_bounds, and box_2d
+
+        Returns
+        -------
+        tuple[Image.Image, Image.Image]
+            (full_image_with_box, cropped_region)
+        """
+        frame = frame_data["frame"]
+        x1, y1, x2, y2 = frame_data["monitor_bounds"]
+        box_2d = frame_data["box_2d"]  # Relative to monitor
+
+        # Convert PyAV frame to PIL Image
+        arr = frame.to_ndarray(format="rgb24")
+        full_image = Image.fromarray(arr)
+
+        # Draw red box on full image
+        draw = ImageDraw.Draw(full_image)
+
+        # Convert box_2d (relative to monitor) to absolute coordinates
+        abs_y_min = y1 + box_2d[0]
+        abs_x_min = x1 + box_2d[1]
+        abs_y_max = y1 + box_2d[2]
+        abs_x_max = x1 + box_2d[3]
+
+        draw.rectangle(
+            ((abs_x_min, abs_y_min), (abs_x_max, abs_y_max)),
+            outline="red",
+            width=3,
+        )
+
+        # Crop to change region
+        cropped = full_image.crop((abs_x_min, abs_y_min, abs_x_max, abs_y_max))
+
+        return full_image, cropped
+
+    async def process_with_vision(
+        self,
+        use_prompt: str = "describe_json.txt",
+        max_concurrent: int = 5,
+    ) -> None:
+        """
+        Process video and stream vision analysis results to stdout as JSONL.
+
+        Parameters
+        ----------
+        use_prompt : str
+            Prompt template filename to use (default: describe_json.txt)
+        max_concurrent : int
+            Maximum number of concurrent API requests (default: 5)
+        """
+        from think.batch import GeminiBatch
+
+        # Load prompt template
+        prompt_path = Path(__file__).parent / use_prompt
+        if not prompt_path.exists():
+            raise FileNotFoundError(f"Prompt template not found: {prompt_path}")
+
+        system_instruction = prompt_path.read_text()
+
+        # Process video to get qualified frames (synchronous)
+        qualified_frames = self.process()
+
+        # Create batch processor
+        batch = GeminiBatch(max_concurrent=max_concurrent)
+
+        # Create vision requests for all qualified frames
+        for monitor_id, frames in qualified_frames.items():
+            for frame_data in frames:
+                full_img, cropped_img = self._extract_frame_images(frame_data)
+
+                contents = [
+                    "Analyze this screenshot frame from a screencast recording.",
+                    full_img,
+                    cropped_img,
+                ]
+
+                req = batch.create(
+                    contents=contents,
+                    system_instruction=system_instruction,
+                    json_output=True,
+                    temperature=0.3,
+                )
+
+                # Attach metadata for tracking
+                req.frame_id = frame_data["frame_id"]
+                req.timestamp = frame_data["timestamp"]
+                req.monitor = monitor_id
+                req.box_2d = frame_data["box_2d"]
+
+                batch.add(req)
+
+        batch.close()
+
+        # Stream results as they complete
+        async for req in batch:
+            result = {
+                "frame_id": req.frame_id,
+                "timestamp": req.timestamp,
+                "monitor": req.monitor,
+                "box_2d": req.box_2d,
+            }
+
+            if req.error:
+                result["error"] = req.error
+            else:
+                try:
+                    result["analysis"] = json.loads(req.response)
+                    result["model_used"] = req.model_used
+                    result["duration"] = req.duration
+                except json.JSONDecodeError as e:
+                    result["error"] = f"Invalid JSON response: {e}"
+
+            # Output as JSONL (one JSON object per line)
+            print(json.dumps(result), flush=True)
+
 
 def output_qualified_frames(
     processor: VideoProcessor, qualified_frames: Dict[str, List[dict]]
@@ -374,15 +500,33 @@ def output_qualified_frames(
     print(json.dumps(output, indent=2))
 
 
-def main():
-    """CLI entry point."""
+async def async_main():
+    """Async CLI entry point."""
     parser = argparse.ArgumentParser(
-        description="Describe screencast videos by detecting significant frame changes"
+        description="Describe screencast videos with vision analysis"
     )
     parser.add_argument(
         "video_path",
         type=str,
         help="Path to video file to process",
+    )
+    parser.add_argument(
+        "--prompt",
+        type=str,
+        default="describe_json.txt",
+        help="Prompt template to use (default: describe_json.txt)",
+    )
+    parser.add_argument(
+        "-j",
+        "--jobs",
+        type=int,
+        default=5,
+        help="Max concurrent vision API requests (default: 5)",
+    )
+    parser.add_argument(
+        "--frames-only",
+        action="store_true",
+        help="Only output frame metadata without vision analysis",
     )
     args = setup_cli(parser)
 
@@ -394,11 +538,25 @@ def main():
 
     try:
         processor = VideoProcessor(video_path)
-        qualified_frames = processor.process()
-        output_qualified_frames(processor, qualified_frames)
+
+        if args.frames_only:
+            # Original behavior: just output frame metadata
+            qualified_frames = processor.process()
+            output_qualified_frames(processor, qualified_frames)
+        else:
+            # New behavior: process with vision analysis
+            await processor.process_with_vision(
+                use_prompt=args.prompt,
+                max_concurrent=args.jobs,
+            )
     except Exception as e:
         logger.error(f"Failed to process {video_path}: {e}", exc_info=True)
         raise
+
+
+def main():
+    """CLI entry point."""
+    asyncio.run(async_main())
 
 
 if __name__ == "__main__":
