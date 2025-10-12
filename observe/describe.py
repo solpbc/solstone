@@ -426,7 +426,9 @@ class VideoProcessor:
                     model=GEMINI_LITE,
                     system_instruction=system_instruction,
                     json_output=True,
-                    temperature=0.3,
+                    temperature=0.7,
+                    max_output_tokens=3072,
+                    thinking_budget=2048,
                 )
 
                 # Attach metadata for tracking
@@ -463,12 +465,12 @@ class VideoProcessor:
                     has_error = True
                     error_msg = f"Invalid JSON response: {e}"
 
-            # Retry logic (up to 3 attempts total, so 2 retries)
-            if has_error and req.retry_count < 2:
+            # Retry logic (up to 5 attempts total, so 4 retries)
+            if has_error and req.retry_count < 4:
                 req.retry_count += 1
                 batch.add(req)
                 logger.info(
-                    f"Retrying frame {req.frame_id} (attempt {req.retry_count + 1}/3): {error_msg}"
+                    f"Retrying frame {req.frame_id} (attempt {req.retry_count + 1}/5): {error_msg}"
                 )
                 continue  # Don't output, wait for retry result
 
