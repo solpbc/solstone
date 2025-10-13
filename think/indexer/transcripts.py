@@ -16,6 +16,7 @@ from .core import _scan_files, get_index
 # Transcript file helpers
 AUDIO_RE = re.compile(r"^(?P<time>\d{6}).*_audio\.json$")
 SCREEN_RE = re.compile(r"^(?P<time>\d{6})_[a-z]+_\d+_diff\.json$")
+SCREEN_JSONL_RE = re.compile(r"^(?P<time>\d{6})_screen\.jsonl$")
 
 
 def find_transcript_files(journal: str) -> Dict[str, str]:
@@ -23,7 +24,11 @@ def find_transcript_files(journal: str) -> Dict[str, str]:
     files: Dict[str, str] = {}
     for day, day_path in day_dirs().items():
         for name in os.listdir(day_path):
-            if AUDIO_RE.match(name) or SCREEN_RE.match(name):
+            if (
+                AUDIO_RE.match(name)
+                or SCREEN_RE.match(name)
+                or SCREEN_JSONL_RE.match(name)
+            ):
                 rel = os.path.join(day, name)
                 files[rel] = os.path.join(day_path, name)
     return files
@@ -70,10 +75,98 @@ def _parse_screen_diff(path: str, source: str) -> List[tuple[str, str]]:
     return texts
 
 
+def _parse_screen_jsonl(path: str) -> List[tuple[str, str]]:
+    """Return visual descriptions, extracted text, and meeting info from ``*_screen.jsonl`` file.
+
+    Returns list of (text, source) tuples where source is the monitor position
+    (or monitor name if position not available).
+    """
+    logger = logging.getLogger(__name__)
+    texts: List[tuple[str, str]] = []
+
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            for line_num, line in enumerate(f, 1):
+                line = line.strip()
+                if not line:
+                    continue
+
+                try:
+                    frame = json.loads(line)
+                except json.JSONDecodeError as e:
+                    logger.debug(
+                        "Skipping malformed JSON at %s:%d: %s", path, line_num, e
+                    )
+                    continue
+
+                # Skip frames with errors
+                if "error" in frame:
+                    continue
+
+                # Determine source: prefer monitor_position, fallback to monitor
+                source = frame.get("monitor_position") or frame.get(
+                    "monitor", "unknown"
+                )
+
+                # Extract visual_description from analysis
+                analysis = frame.get("analysis")
+                if analysis and isinstance(analysis, dict):
+                    visual_desc = analysis.get("visual_description")
+                    if visual_desc:
+                        texts.append((str(visual_desc), source))
+
+                # Extract text content if present
+                extracted_text = frame.get("extracted_text")
+                if extracted_text:
+                    texts.append((str(extracted_text), source))
+
+                # Extract meeting analysis if present
+                meeting_analysis = frame.get("meeting_analysis")
+                if meeting_analysis and isinstance(meeting_analysis, dict):
+                    # Index platform
+                    platform = meeting_analysis.get("platform")
+                    if platform:
+                        texts.append((f"Meeting platform: {platform}", source))
+
+                    # Index participant names
+                    participants = meeting_analysis.get("participants", [])
+                    if participants and isinstance(participants, list):
+                        for participant in participants:
+                            if isinstance(participant, dict):
+                                name = participant.get("name")
+                                if name and name.lower() != "unknown":
+                                    texts.append(
+                                        (f"Meeting participant: {name}", source)
+                                    )
+
+                    # Index screen share content
+                    screen_share = meeting_analysis.get("screen_share")
+                    if screen_share and isinstance(screen_share, dict):
+                        presenter = screen_share.get("presenter")
+                        if presenter:
+                            texts.append(
+                                (f"Screen share presenter: {presenter}", source)
+                            )
+
+                        description = screen_share.get("description")
+                        if description:
+                            texts.append((f"Screen share: {description}", source))
+
+                        formatted_text = screen_share.get("formatted_text")
+                        if formatted_text:
+                            texts.append((str(formatted_text), source))
+
+    except Exception as e:
+        logger.debug("Failed to parse %s: %s", path, e)
+        return []
+
+    return texts
+
+
 def _index_transcripts(
     conn: sqlite3.Connection, rel: str, path: str, verbose: bool
 ) -> None:
-    """Index text from transcript audio or screen diff JSON files."""
+    """Index text from transcript audio, screen diff JSON, or screen JSONL files."""
     logger = logging.getLogger(__name__)
 
     name = os.path.basename(path)
@@ -82,21 +175,28 @@ def _index_transcripts(
         rtype = "audio"
         texts = _parse_audio_json(path)
     else:
-        m = SCREEN_RE.match(name)
-        if not m:
-            return
-        rtype = "screen"
-        # Extract source from filename: <time>_<name>_<id>_diff.json
-        # Example: 123456_monitor_1_diff.json -> source is "monitor_1"
-        # Remove .json extension first
-        name_no_ext = name.replace(".json", "")
-        parts = name_no_ext.split("_")
-        if len(parts) >= 4 and parts[-1] == "diff":
-            # Join the parts between time and _diff to get source
-            source = "_".join(parts[1:-1])
+        # Try new JSONL format first
+        m = SCREEN_JSONL_RE.match(name)
+        if m:
+            rtype = "screen"
+            texts = _parse_screen_jsonl(path)
         else:
-            source = "unknown"
-        texts = _parse_screen_diff(path, source)
+            # Fall back to legacy diff.json format
+            m = SCREEN_RE.match(name)
+            if not m:
+                return
+            rtype = "screen"
+            # Extract source from filename: <time>_<name>_<id>_diff.json
+            # Example: 123456_monitor_1_diff.json -> source is "monitor_1"
+            # Remove .json extension first
+            name_no_ext = name.replace(".json", "")
+            parts = name_no_ext.split("_")
+            if len(parts) >= 4 and parts[-1] == "diff":
+                # Join the parts between time and _diff to get source
+                source = "_".join(parts[1:-1])
+            else:
+                source = "unknown"
+            texts = _parse_screen_diff(path, source)
 
     if not m:
         return
@@ -115,7 +215,7 @@ def _index_transcripts(
 
 
 def scan_transcripts(journal: str, verbose: bool = False) -> bool:
-    """Index transcript audio and screen diff JSON files on a per-day basis."""
+    """Index transcript audio, screen diff JSON, and screen JSONL files on a per-day basis."""
     logger = logging.getLogger(__name__)
     files = find_transcript_files(journal)
     if not files:
