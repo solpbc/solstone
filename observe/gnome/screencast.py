@@ -194,7 +194,7 @@ def main():
     parser.add_argument(
         "--out",
         default=None,
-        help="Output file path for the screencast (default: <journal>/YYYYMMDD/HHMMSS_screencast.webm).",
+        help="Output file path for the screencast (default: <journal>/YYYYMMDD/HHMMSS_screen.webm).",
     )
     parser.add_argument(
         "--fps",
@@ -220,7 +220,7 @@ def main():
 
         timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
         date_part, time_part = timestamp.split("_", 1)
-        out_path = str(day_path(date_part) / f"{time_part}_screencast.webm")
+        out_path = str(day_path(date_part) / f"{time_part}_screen.webm")
 
     # Basic sanity on FPS
     fps = max(1, int(args.fps))

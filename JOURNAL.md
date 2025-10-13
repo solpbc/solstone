@@ -398,19 +398,69 @@ Audio capture tools write FLAC files and transcripts:
 - `heard/HHMMSS_raw.flac` – audio files moved here after processing.
 - `HHMMSS_audio.json` – transcript JSON produced by transcription.
 
-Screen capture utilities produce per-source diff files. After `screen-describe`
-moves the image and its bounding box into a `seen/` directory, the Gemini
-description remains in the day folder:
+Screen capture produces screencast videos with multi-monitor metadata:
 
-- `HHMMSS_<source>_N_diff.png` – screenshot of the changed region, moved to
-  `seen/` once processed, contains a box_2d metadata field for the changed area.
-- `HHMMSS_<source>_N_diff.json` – Gemini description of the diff.
+- `HHMMSS_screen.webm` – screencast video file, moved to `seen/` after processing.
+- `seen/HHMMSS_screen.webm` – video files moved here after analysis.
+- `HHMMSS_screen.jsonl` – vision analysis results in JSON Lines format.
+- `HHMMSS_screen.md` – human-readable markdown summary of the video.
 
-`reduce-screen` summarises these diffs into five‑minute chunks:
+### Screencast video format
 
-- `HHMMSS_screen.md` – Markdown summary for that interval.
+Videos contain monitor layout information in their metadata title field using the format:
+```
+DP-3:center,1920,0,5360,1440 HDMI-4:right,5360,219,7280,1299
+```
 
-- Post‑processing commands may generate additional analysis files, for example:
+Each monitor entry: `<monitor_name>:<position>,<x1>,<y1>,<x2>,<y2>` where coordinates define the monitor's bounding box in the combined virtual screen space.
+
+### Vision analysis output
+
+The analysis file (`*_screen.jsonl`) contains one JSON object per qualified frame. Frames qualify when they contain a changed region of at least 400×400 pixels, detected using block-based SSIM comparison.
+
+Example frame record:
+
+```json
+{
+  "frame_id": 123,
+  "timestamp": 45.67,
+  "monitor": "DP-3",
+  "monitor_position": "center",
+  "box_2d": [100, 200, 500, 600],
+  "requests": [
+    {"type": "describe_json", "model": "gemini-2.0-flash-lite", "duration": 0.5}
+  ],
+  "analysis": {
+    "visual_description": "A terminal window showing command output with green text on dark background.",
+    "visible": "terminal"
+  }
+}
+```
+
+**Common fields:**
+- `frame_id` – sequential frame number in the video
+- `timestamp` – time in seconds from video start
+- `monitor` – monitor identifier from video metadata
+- `monitor_position` – optional monitor position (e.g., "center", "left", "right")
+- `box_2d` – bounding box of changed region `[y_min, x_min, y_max, x_max]` relative to monitor
+- `requests` – list of vision API requests made for this frame
+- `analysis` – categorization and visual description from initial analysis
+
+**Optional fields (conditional processing):**
+- `extracted_text` – present when frame contains messaging, browsing, reading, or productivity content
+- `meeting_analysis` – present when frame contains video conferencing, includes participant detection and bounding boxes
+- `error` – present when processing failed after retries
+
+The vision analysis uses multi-stage conditional processing:
+1. Initial categorization determines content type (terminal, code, messaging, meeting, browsing, reading, media, gaming, productivity)
+2. Text extraction triggered for categories: messaging, browsing, reading, productivity
+3. Meeting analysis triggered for meeting category, provides full-screen participant detection with entity recognition
+
+### Summary generation
+
+After all frames are processed, a markdown summary (`*_screen.md`) is generated from the analysis file. The summary provides a chronological narrative of the screencast, organizing frames by timestamp and including visual descriptions, extracted text, and meeting analysis where applicable.
+
+Post‑processing commands may generate additional analysis files, for example:
 
 - `topics/flow.md` – high level summary of the day.
 - `topics/knowledge_graph.md` – knowledge graph / network summary.

@@ -178,9 +178,9 @@ class Observer:
         date_part, time_part = self.get_timestamp_parts(self.start_at)
         day_dir = day_path(date_part)
 
-        # Use _live.webm name (GNOME won't append .webm), rename to _screencast.webm later
+        # Use _live.webm name (GNOME won't append .webm), rename to _screen.webm later
         live_path = str(day_dir / f"{time_part}_live.webm")
-        screencast_path = str(day_dir / f"{time_part}_screencast.webm")
+        screencast_path = str(day_dir / f"{time_part}_screen.webm")
 
         ok, _ = await self.screencaster.start(
             live_path, framerate=1, draw_cursor=True
@@ -196,12 +196,12 @@ class Observer:
 
     async def finalize_screencast(self, screencast_path: str):
         """
-        Add monitor metadata to screencast and rename from _live.webm to _screencast.webm.
+        Add monitor metadata to screencast and rename from _live.webm to _screen.webm.
 
         Args:
-            screencast_path: Final destination path (_screencast.webm)
+            screencast_path: Final destination path (_screen.webm)
         """
-        live_path = screencast_path.replace("_screencast.webm", "_live.webm")
+        live_path = screencast_path.replace("_screen.webm", "_live.webm")
 
         if not os.path.exists(live_path):
             logger.warning(f"Screencast file not found: {live_path}")
@@ -263,7 +263,7 @@ class Observer:
 
             # Process pending screencast finalization
             if self.pending_finalization:
-                live_path = self.pending_finalization.replace("_screencast.webm", "_live.webm")
+                live_path = self.pending_finalization.replace("_screen.webm", "_live.webm")
                 if os.path.exists(live_path):
                     await self.finalize_screencast(self.pending_finalization)
                     self.pending_finalization = None
@@ -347,7 +347,7 @@ class Observer:
             if self.current_screencast_path:
                 # Wait 1s for GNOME Shell to create the file
                 await asyncio.sleep(1.0)
-                live_path = self.current_screencast_path.replace("_screencast.webm", "_live.webm")
+                live_path = self.current_screencast_path.replace("_screen.webm", "_live.webm")
                 if os.path.exists(live_path):
                     await self.finalize_screencast(self.current_screencast_path)
                 else:
@@ -357,7 +357,7 @@ class Observer:
         # Process any remaining pending finalization
         if self.pending_finalization:
             await asyncio.sleep(1.0)
-            live_path = self.pending_finalization.replace("_screencast.webm", "_live.webm")
+            live_path = self.pending_finalization.replace("_screen.webm", "_live.webm")
             if os.path.exists(live_path):
                 await self.finalize_screencast(self.pending_finalization)
             else:

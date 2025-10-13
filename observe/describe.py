@@ -490,7 +490,7 @@ class VideoProcessor:
         max_concurrent : int
             Maximum number of concurrent API requests (default: 5)
         output_path : Optional[Path]
-            Path to write JSONL output (default: {video_stem}_analysis.jsonl)
+            Path to write JSONL output (default: {video_stem}.jsonl)
         """
         from think.batch import GeminiBatch
         from think.models import GEMINI_FLASH, GEMINI_LITE
@@ -796,7 +796,7 @@ async def async_main():
     # Check for existing output file (unless --frames-only or --force)
     output_path = None
     if not args.frames_only:
-        output_path = video_path.parent / f"{video_path.stem}_analysis.jsonl"
+        output_path = video_path.parent / f"{video_path.stem}.jsonl"
         if output_path.exists() and not args.force:
             parser.error(
                 f"Output file already exists: {output_path}\n"

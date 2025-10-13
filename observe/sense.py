@@ -354,8 +354,8 @@ def main():
     sensor = FileSensor(journal)
 
     # Register handlers
-    sensor.register("*_screencast.webm", "describe", ["observe-describe", "{file}"])
-    sensor.register("*_screencast.mp4", "describe", ["observe-describe", "{file}"])
+    sensor.register("*_screen.webm", "describe", ["observe-describe", "{file}"])
+    sensor.register("*_screen.mp4", "describe", ["observe-describe", "{file}"])
     sensor.register("*_raw.flac", "transcribe", ["observe-transcribe", "{file}"])
     sensor.register("*_raw.m4a", "transcribe", ["observe-transcribe", "{file}"])
 

@@ -2,7 +2,7 @@
 """
 Reduce screencast analysis JSONL to articulate markdown summary.
 
-Takes a video path, loads the corresponding _analysis.jsonl file, and generates
+Takes a video path, loads the corresponding .jsonl file, and generates
 a comprehensive markdown summary using Gemini.
 """
 
@@ -96,7 +96,7 @@ def assemble_markdown(frames: list[dict], entity_names: str, video_path: Path) -
     lines.append("")
 
     # Extract base timestamp from video filename (HHMMSS)
-    # Expected format: YYYYMMDD_HHMMSS_screencast.ext
+    # Expected format: HHMMSS_screen.ext
     try:
         parts = video_path.stem.split("_")
         if len(parts) >= 2:
@@ -230,8 +230,8 @@ def reduce_analysis(video_path: Path) -> int:
         Exit code (0 success, 1 error)
     """
     # Derive paths
-    analysis_path = video_path.parent / f"{video_path.stem}_analysis.jsonl"
-    summary_path = video_path.parent / f"{video_path.stem}_summary.md"
+    analysis_path = video_path.parent / f"{video_path.stem}.jsonl"
+    summary_path = video_path.parent / f"{video_path.stem}.md"
     prompt_path = Path(__file__).parent / "reduce.txt"
 
     # Check analysis file exists
@@ -305,7 +305,7 @@ def main():
     parser.add_argument(
         "video_path",
         type=str,
-        help="Path to video file (will look for {stem}_analysis.jsonl)",
+        help="Path to video file (will look for {stem}.jsonl)",
     )
     args = setup_cli(parser)
 
