@@ -14,7 +14,6 @@ import logging
 import sys
 from pathlib import Path
 
-from think.crumbs import CrumbBuilder
 from think.models import GEMINI_FLASH, gemini_generate
 from think.utils import load_entity_names, setup_cli
 
@@ -291,6 +290,8 @@ def reduce_analysis(video_path: Path) -> int:
     # Create crumb
     logger.info("Creating crumb")
     try:
+        from think.crumbs import CrumbBuilder  # Local import to avoid circular dependency
+
         crumb_builder = CrumbBuilder()
         crumb_builder.add_file(analysis_path)
         crumb_builder.add_file(prompt_path)

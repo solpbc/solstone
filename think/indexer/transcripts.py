@@ -10,7 +10,7 @@ from typing import Dict, List
 
 import sqlite_utils
 
-from observe import load_analysis_frames
+from observe.reduce import load_analysis_frames
 from think.utils import day_dirs
 
 from .core import _scan_files, get_index

@@ -8,7 +8,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Dict, List, Optional, Set, Tuple
 
-from observe import load_analysis_frames
+from observe.reduce import load_analysis_frames
 
 from .utils import day_path, setup_cli
 
