@@ -5,7 +5,10 @@ import re
 import sys
 from collections import defaultdict
 from datetime import datetime, timedelta
+from pathlib import Path
 from typing import Dict, List, Optional, Set, Tuple
+
+from observe import load_analysis_frames
 
 from .utils import day_path, setup_cli
 
@@ -48,39 +51,28 @@ def _load_entries(
             time_part = match.group(1)
             path = os.path.join(day_dir, filename)
             try:
-                with open(path, "r", encoding="utf-8") as f:
-                    frames = []
-                    for line in f:
-                        line = line.strip()
-                        if not line:
-                            continue
-                        try:
-                            frame = json.loads(line)
-                            # Skip frames with errors
-                            if "error" not in frame:
-                                frames.append(frame)
-                        except json.JSONDecodeError:
-                            continue
+                # Use shared loading logic from observe module
+                frames = load_analysis_frames(Path(path))
 
-                    # Sort frames by timestamp
-                    frames.sort(key=lambda f: f.get("timestamp", 0))
+                # Sort frames by timestamp
+                frames.sort(key=lambda f: f.get("timestamp", 0))
 
-                    # Create one entry with all frames as JSON content
-                    if frames:
-                        base_timestamp = datetime.strptime(
-                            date_str + time_part, "%Y%m%d%H%M%S"
-                        )
-                        entries.append(
-                            {
-                                "timestamp": base_timestamp,
-                                "prefix": "screen_jsonl",
-                                "content": json.dumps(frames, indent=2),
-                                "monitor": None,
-                                "source": None,
-                                "id": None,
-                                "name": filename,
-                            }
-                        )
+                # Create one entry with all frames as JSON content
+                if frames:
+                    base_timestamp = datetime.strptime(
+                        date_str + time_part, "%Y%m%d%H%M%S"
+                    )
+                    entries.append(
+                        {
+                            "timestamp": base_timestamp,
+                            "prefix": "screen_jsonl",
+                            "content": json.dumps(frames, indent=2),
+                            "monitor": None,
+                            "source": None,
+                            "id": None,
+                            "name": filename,
+                        }
+                    )
             except Exception as e:  # pragma: no cover - warning only
                 print(
                     f"Warning: Could not read JSONL file {filename}: {e}",

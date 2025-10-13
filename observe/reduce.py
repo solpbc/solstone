@@ -61,7 +61,12 @@ def load_analysis_frames(jsonl_path: Path) -> list[dict]:
     return frames
 
 
-def assemble_markdown(frames: list[dict], entity_names: str, video_path: Path) -> str:
+def assemble_markdown(
+    frames: list[dict],
+    entity_names: str = "",
+    video_path: Path | None = None,
+    include_entity_context: bool = True,
+) -> str:
     """
     Assemble markdown document from frame analyses.
 
@@ -69,25 +74,26 @@ def assemble_markdown(frames: list[dict], entity_names: str, video_path: Path) -
     ----------
     frames : list[dict]
         Frame analysis results
-    entity_names : str
-        Comma-separated entity names for context
-    video_path : Path
-        Path to video file (for extracting base timestamp)
+    entity_names : str, optional
+        Comma-separated entity names for context (default: "")
+    video_path : Path, optional
+        Path to video file (for extracting base timestamp). If None,
+        uses timestamps as-is without base time calculation (default: None)
+    include_entity_context : bool, optional
+        Whether to include entity context header (default: True)
 
     Returns
     -------
     str
-        Markdown document for Gemini
+        Markdown document
     """
     lines = []
 
     # Add entity context at the top
-    if entity_names:
+    if include_entity_context and entity_names:
         lines.append("# Entity Context")
         lines.append("")
-        lines.append(
-            f"Frequently used names that may appear: {entity_names}"
-        )
+        lines.append(f"Frequently used names that may appear: {entity_names}")
         lines.append("")
         lines.append("---")
         lines.append("")
@@ -97,17 +103,17 @@ def assemble_markdown(frames: list[dict], entity_names: str, video_path: Path) -
 
     # Extract base timestamp from video filename (HHMMSS)
     # Expected format: HHMMSS_screen.ext
-    try:
-        parts = video_path.stem.split("_")
-        if len(parts) >= 2:
-            base_time_str = parts[1]  # HHMMSS
-            base_hour = int(base_time_str[0:2])
-            base_minute = int(base_time_str[2:4])
-            base_second = int(base_time_str[4:6])
-        else:
-            base_hour = base_minute = base_second = 0
-    except (ValueError, IndexError):
-        base_hour = base_minute = base_second = 0
+    base_hour = base_minute = base_second = 0
+    if video_path:
+        try:
+            parts = video_path.stem.split("_")
+            if len(parts) >= 2:
+                base_time_str = parts[1]  # HHMMSS
+                base_hour = int(base_time_str[0:2])
+                base_minute = int(base_time_str[2:4])
+                base_second = int(base_time_str[4:6])
+        except (ValueError, IndexError):
+            pass
 
     # Check if multiple monitors present
     monitors_present = set(frame.get("monitor", "0") for frame in frames)
@@ -119,7 +125,9 @@ def assemble_markdown(frames: list[dict], entity_names: str, video_path: Path) -
     for frame in sorted_frames:
         # Calculate absolute time
         frame_offset = frame.get("timestamp", 0)
-        total_seconds = base_hour * 3600 + base_minute * 60 + base_second + int(frame_offset)
+        total_seconds = (
+            base_hour * 3600 + base_minute * 60 + base_second + int(frame_offset)
+        )
         abs_hour = (total_seconds // 3600) % 24
         abs_minute = (total_seconds // 60) % 60
         abs_second = total_seconds % 60

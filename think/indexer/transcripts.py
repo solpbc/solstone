@@ -5,10 +5,12 @@ import logging
 import os
 import re
 import sqlite3
+from pathlib import Path
 from typing import Dict, List
 
 import sqlite_utils
 
+from observe import load_analysis_frames
 from think.utils import day_dirs
 
 from .core import _scan_files, get_index
@@ -81,84 +83,58 @@ def _parse_screen_jsonl(path: str) -> List[tuple[str, str]]:
     Returns list of (text, source) tuples where source is the monitor position
     (or monitor name if position not available).
     """
-    logger = logging.getLogger(__name__)
     texts: List[tuple[str, str]] = []
 
-    try:
-        with open(path, "r", encoding="utf-8") as f:
-            for line_num, line in enumerate(f, 1):
-                line = line.strip()
-                if not line:
-                    continue
+    # Use shared loading logic from observe module
+    frames = load_analysis_frames(Path(path))
 
-                try:
-                    frame = json.loads(line)
-                except json.JSONDecodeError as e:
-                    logger.debug(
-                        "Skipping malformed JSON at %s:%d: %s", path, line_num, e
-                    )
-                    continue
+    for frame in frames:
+        # Determine source: prefer monitor_position, fallback to monitor
+        source = frame.get("monitor_position") or frame.get("monitor", "unknown")
 
-                # Skip frames with errors
-                if "error" in frame:
-                    continue
+        # Extract visual_description from analysis
+        analysis = frame.get("analysis")
+        if analysis and isinstance(analysis, dict):
+            visual_desc = analysis.get("visual_description")
+            if visual_desc:
+                texts.append((str(visual_desc), source))
 
-                # Determine source: prefer monitor_position, fallback to monitor
-                source = frame.get("monitor_position") or frame.get(
-                    "monitor", "unknown"
-                )
+        # Extract text content if present
+        extracted_text = frame.get("extracted_text")
+        if extracted_text:
+            texts.append((str(extracted_text), source))
 
-                # Extract visual_description from analysis
-                analysis = frame.get("analysis")
-                if analysis and isinstance(analysis, dict):
-                    visual_desc = analysis.get("visual_description")
-                    if visual_desc:
-                        texts.append((str(visual_desc), source))
+        # Extract meeting analysis if present
+        meeting_analysis = frame.get("meeting_analysis")
+        if meeting_analysis and isinstance(meeting_analysis, dict):
+            # Index platform
+            platform = meeting_analysis.get("platform")
+            if platform:
+                texts.append((f"Meeting platform: {platform}", source))
 
-                # Extract text content if present
-                extracted_text = frame.get("extracted_text")
-                if extracted_text:
-                    texts.append((str(extracted_text), source))
+            # Index participant names
+            participants = meeting_analysis.get("participants", [])
+            if participants and isinstance(participants, list):
+                for participant in participants:
+                    if isinstance(participant, dict):
+                        name = participant.get("name")
+                        if name and name.lower() != "unknown":
+                            texts.append((f"Meeting participant: {name}", source))
 
-                # Extract meeting analysis if present
-                meeting_analysis = frame.get("meeting_analysis")
-                if meeting_analysis and isinstance(meeting_analysis, dict):
-                    # Index platform
-                    platform = meeting_analysis.get("platform")
-                    if platform:
-                        texts.append((f"Meeting platform: {platform}", source))
+            # Index screen share content
+            screen_share = meeting_analysis.get("screen_share")
+            if screen_share and isinstance(screen_share, dict):
+                presenter = screen_share.get("presenter")
+                if presenter:
+                    texts.append((f"Screen share presenter: {presenter}", source))
 
-                    # Index participant names
-                    participants = meeting_analysis.get("participants", [])
-                    if participants and isinstance(participants, list):
-                        for participant in participants:
-                            if isinstance(participant, dict):
-                                name = participant.get("name")
-                                if name and name.lower() != "unknown":
-                                    texts.append(
-                                        (f"Meeting participant: {name}", source)
-                                    )
+                description = screen_share.get("description")
+                if description:
+                    texts.append((f"Screen share: {description}", source))
 
-                    # Index screen share content
-                    screen_share = meeting_analysis.get("screen_share")
-                    if screen_share and isinstance(screen_share, dict):
-                        presenter = screen_share.get("presenter")
-                        if presenter:
-                            texts.append(
-                                (f"Screen share presenter: {presenter}", source)
-                            )
-
-                        description = screen_share.get("description")
-                        if description:
-                            texts.append((f"Screen share: {description}", source))
-
-                        formatted_text = screen_share.get("formatted_text")
-                        if formatted_text:
-                            texts.append((str(formatted_text), source))
-
-    except Exception as e:
-        logger.debug("Failed to parse %s: %s", path, e)
-        return []
+                formatted_text = screen_share.get("formatted_text")
+                if formatted_text:
+                    texts.append((str(formatted_text), source))
 
     return texts
 
