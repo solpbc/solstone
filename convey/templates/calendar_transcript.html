@@ -509,16 +509,25 @@
     mediaFiles.forEach(file => {
       html += `<div style="margin-bottom: 24px;">`;
       html += `<h4 style="margin: 0 0 8px 0; color: #374151; font-size: 14px;">${file.human_time}</h4>`;
-      
+
       if (file.type === 'audio') {
-        html += `<audio controls style="width: 100%; max-width: 400px;">`;
+        html += `<audio controls style="width: 100%;">`;
         html += `<source src="${file.url}" type="${file.mime_type}">`;
         html += `Your browser does not support the audio element.`;
         html += `</audio>`;
       } else if (file.type === 'screen') {
-        html += `<img src="${file.url}" style="max-width: 100%; height: auto; border: 1px solid #e5e7eb; border-radius: 8px;" alt="Screenshot at ${file.human_time}">`;
+        // Check MIME type to determine if it's video or image
+        if (file.mime_type === 'video/webm' || file.mime_type.startsWith('video/')) {
+          html += `<video controls style="width: 100%; height: auto; border: 1px solid #e5e7eb; border-radius: 8px;">`;
+          html += `<source src="${file.url}" type="${file.mime_type}">`;
+          html += `Your browser does not support the video element.`;
+          html += `</video>`;
+        } else {
+          // Legacy screenshot PNG format
+          html += `<img src="${file.url}" style="width: 100%; height: auto; border: 1px solid #e5e7eb; border-radius: 8px;" alt="Screenshot at ${file.human_time}">`;
+        }
       }
-      
+
       html += `</div>`;
     });
 
