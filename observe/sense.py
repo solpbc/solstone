@@ -288,6 +288,10 @@ class FileSensor:
                 if not event.is_directory:
                     self.sensor._handle_file(Path(event.src_path))
 
+            def on_moved(self, event):
+                if not event.is_directory:
+                    self.sensor._handle_file(Path(event.dest_path))
+
         event_handler = SensorEventHandler(self)
 
         while self.running_flag:
