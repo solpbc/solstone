@@ -96,8 +96,10 @@ def _stream_output(
 class FileSensor:
     """Pattern-based file watcher that spawns handler processes."""
 
-    def __init__(self, journal_dir: Path):
+    def __init__(self, journal_dir: Path, verbose: bool = False, debug: bool = False):
         self.journal_dir = journal_dir
+        self.verbose = verbose
+        self.debug = debug
 
         # Registry: {glob_pattern: (handler_name, command_template)}
         self.handlers: Dict[str, tuple[str, List[str]]] = {}
@@ -150,6 +152,12 @@ class FileSensor:
 
         # Replace {file} placeholder with actual file path
         cmd = [str(file_path) if arg == "{file}" else arg for arg in command]
+
+        # Add verbose/debug flags if set
+        if self.debug:
+            cmd.append("-d")
+        elif self.verbose:
+            cmd.append("-v")
 
         # Create log file in day-specific health directory: YYYYMMDD/health/sense_{handler_name}.log
         day_health_dir = file_path.parent / "health"
@@ -226,6 +234,13 @@ class FileSensor:
         """Run reduce on the video file after describe completes."""
         jsonl_path = video_path.parent / f"{video_path.stem}.jsonl"
         cmd = ["observe-reduce", str(jsonl_path)]
+
+        # Add verbose/debug flags if set
+        if self.debug:
+            cmd.append("-d")
+        elif self.verbose:
+            cmd.append("-v")
+
         logger.info(f"Running reduce for {video_path.name}")
 
         try:
@@ -436,7 +451,7 @@ def main():
     if not journal.is_dir():
         parser.error("JOURNAL_PATH not set or invalid")
 
-    sensor = FileSensor(journal)
+    sensor = FileSensor(journal, verbose=args.verbose, debug=args.debug)
 
     # Register handlers
     sensor.register("*_screen.webm", "describe", ["observe-describe", "{file}"])
