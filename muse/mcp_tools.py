@@ -13,6 +13,7 @@ from fastmcp.resources import FileResource, TextResource
 from think import todo
 from think.cluster import cluster_range
 from think.domains import domain_summary
+from think.entities import load_entities, save_entities
 from think.indexer import search_events as search_events_impl
 from think.indexer import search_news as search_news_impl
 from think.indexer import search_summaries as search_summaries_impl
@@ -62,6 +63,11 @@ TOOL_PACKS = {
     ],
     "domains": [
         "domain_news",
+    ],
+    "entities": [
+        "entity_list",
+        "entity_detect",
+        "entity_attach",
     ],
 }
 
@@ -650,6 +656,190 @@ def domain_news(domain: str, day: str, markdown: str | None = None) -> dict[str,
         return {
             "error": f"Failed to process domain news: {exc}",
             "suggestion": "check domain exists and has proper permissions",
+        }
+
+
+@register_tool(annotations=HINTS)
+def entity_list(domain: str, day: str | None = None) -> dict[str, Any]:
+    """List entities for a domain.
+
+    Args:
+        domain: Domain name (e.g., "personal", "work")
+        day: Optional day in YYYYMMDD format. If None, returns attached entities
+             from entities.md. If provided, returns detected entities from
+             entities/YYYYMMDD.md
+
+    Returns:
+        Dictionary containing:
+        - domain: The domain name
+        - day: The day (or None for attached entities)
+        - count: Number of entities found
+        - entities: List of entity objects with type, name, and description
+
+    Examples:
+        - entity_list("personal")  # List attached entities
+        - entity_list("personal", "20250101")  # List detected entities for a day
+    """
+    try:
+        entities = load_entities(domain, day)
+
+        entity_list_data = []
+        for etype, name, desc in entities:
+            entity_list_data.append({"type": etype, "name": name, "description": desc})
+
+        return {
+            "domain": domain,
+            "day": day,
+            "count": len(entity_list_data),
+            "entities": entity_list_data,
+        }
+    except RuntimeError as exc:
+        return {
+            "error": str(exc),
+            "suggestion": "ensure JOURNAL_PATH environment variable is set",
+        }
+    except Exception as exc:
+        return {
+            "error": f"Failed to list entities: {exc}",
+            "suggestion": "check that the domain exists",
+        }
+
+
+@register_tool(annotations=HINTS)
+def entity_detect(
+    day: str, domain: str, type: str, name: str, description: str
+) -> dict[str, Any]:
+    """Record a detected entity for a specific day in a domain.
+
+    This tool adds an entity to the daily detected entities file at
+    domains/{domain}/entities/{day}.md. Detected entities are ephemeral
+    observations from a specific day that can later be promoted to attached
+    entities if they appear frequently.
+
+    Args:
+        day: Day in YYYYMMDD format when entity was detected
+        domain: Domain name (e.g., "personal", "work")
+        type: Entity type (Person, Company, Project, or Tool)
+        name: Entity name (e.g., "John Smith", "Acme Corp")
+        description: Day-specific description of the entity
+
+    Returns:
+        Dictionary containing:
+        - domain: The domain name
+        - day: The day
+        - message: Success message
+        - entity: The added entity details
+
+    Examples:
+        - entity_detect("20250101", "personal", "Person", "Alice", "Met at conference")
+        - entity_detect("20250101", "work", "Company", "Acme", "New client prospect")
+    """
+    try:
+        # Validate entity type
+        valid_types = {"Person", "Company", "Project", "Tool"}
+        if type not in valid_types:
+            return {
+                "error": f"Invalid entity type '{type}'",
+                "suggestion": f"must be one of: {', '.join(sorted(valid_types))}",
+            }
+
+        # Load existing entities for the day
+        existing = load_entities(domain, day)
+
+        # Check for duplicate
+        for existing_type, existing_name, _ in existing:
+            if existing_type == type and existing_name == name:
+                return {
+                    "error": f"Entity '{name}' of type '{type}' already detected for {day}",
+                    "suggestion": "entity already exists in detected list for this day",
+                }
+
+        # Add new entity
+        existing.append((type, name, description))
+        save_entities(domain, existing, day)
+
+        return {
+            "domain": domain,
+            "day": day,
+            "message": f"Entity '{name}' detected successfully",
+            "entity": {"type": type, "name": name, "description": description},
+        }
+    except RuntimeError as exc:
+        return {
+            "error": str(exc),
+            "suggestion": "ensure JOURNAL_PATH environment variable is set",
+        }
+    except Exception as exc:
+        return {
+            "error": f"Failed to detect entity: {exc}",
+            "suggestion": "check that the domain exists",
+        }
+
+
+@register_tool(annotations=HINTS)
+def entity_attach(
+    domain: str, type: str, name: str, description: str
+) -> dict[str, Any]:
+    """Attach an entity permanently to a domain.
+
+    This tool adds an entity to the persistent attached entities file at
+    domains/{domain}/entities.md. Attached entities are long-term tracked
+    entities that appear in domain summaries and agent context.
+
+    Args:
+        domain: Domain name (e.g., "personal", "work")
+        type: Entity type (Person, Company, Project, or Tool)
+        name: Entity name (e.g., "John Smith", "Acme Corp")
+        description: Persistent description of the entity
+
+    Returns:
+        Dictionary containing:
+        - domain: The domain name
+        - message: Success message
+        - entity: The attached entity details
+
+    Examples:
+        - entity_attach("personal", "Person", "Alice", "Close friend from college")
+        - entity_attach("work", "Company", "Acme", "Primary client")
+    """
+    try:
+        # Validate entity type
+        valid_types = {"Person", "Company", "Project", "Tool"}
+        if type not in valid_types:
+            return {
+                "error": f"Invalid entity type '{type}'",
+                "suggestion": f"must be one of: {', '.join(sorted(valid_types))}",
+            }
+
+        # Load existing attached entities
+        existing = load_entities(domain, day=None)
+
+        # Check for duplicate
+        for existing_type, existing_name, _ in existing:
+            if existing_type == type and existing_name == name:
+                return {
+                    "error": f"Entity '{name}' of type '{type}' already attached",
+                    "suggestion": "entity already exists in attached list for this domain",
+                }
+
+        # Add new entity
+        existing.append((type, name, description))
+        save_entities(domain, existing, day=None)
+
+        return {
+            "domain": domain,
+            "message": f"Entity '{name}' attached successfully",
+            "entity": {"type": type, "name": name, "description": description},
+        }
+    except RuntimeError as exc:
+        return {
+            "error": str(exc),
+            "suggestion": "ensure JOURNAL_PATH environment variable is set",
+        }
+    except Exception as exc:
+        return {
+            "error": f"Failed to attach entity: {exc}",
+            "suggestion": "check that the domain exists",
         }
 
 
