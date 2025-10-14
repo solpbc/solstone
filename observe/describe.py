@@ -454,7 +454,11 @@ class VideoProcessor:
             return media_path
 
     def _create_crumb(
-        self, output_path: Path, moved_video_path: Path, used_prompts: set, used_models: set
+        self,
+        output_path: Path,
+        moved_video_path: Path,
+        used_prompts: set,
+        used_models: set,
     ) -> None:
         """Create crumb file for the analysis output."""
         from think.crumbs import CrumbBuilder
@@ -782,26 +786,18 @@ async def async_main():
         action="store_true",
         help="Only output frame metadata without vision analysis",
     )
-    parser.add_argument(
-        "--force",
-        action="store_true",
-        help="Overwrite existing analysis file if present",
-    )
     args = setup_cli(parser)
 
     video_path = Path(args.video_path)
     if not video_path.exists():
         parser.error(f"Video file not found: {video_path}")
 
-    # Check for existing output file (unless --frames-only or --force)
+    # Determine output path and warn if overwriting
     output_path = None
     if not args.frames_only:
         output_path = video_path.parent / f"{video_path.stem}.jsonl"
-        if output_path.exists() and not args.force:
-            parser.error(
-                f"Output file already exists: {output_path}\n"
-                f"Use --force to overwrite"
-            )
+        if output_path.exists():
+            logger.warning(f"Overwriting existing analysis file: {output_path}")
 
     logger.info(f"Processing video: {video_path}")
 
