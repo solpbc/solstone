@@ -14,50 +14,11 @@ import logging
 import sys
 from pathlib import Path
 
+from observe.utils import load_analysis_frames
 from think.models import GEMINI_FLASH, gemini_generate
 from think.utils import load_entity_names, setup_cli
 
 logger = logging.getLogger(__name__)
-
-
-def load_analysis_frames(jsonl_path: Path) -> list[dict]:
-    """
-    Load and parse analysis JSONL, filtering out error frames.
-
-    Parameters
-    ----------
-    jsonl_path : Path
-        Path to analysis JSONL file
-
-    Returns
-    -------
-    list[dict]
-        List of valid frame analysis results
-    """
-    frames = []
-    try:
-        with open(jsonl_path, "r") as f:
-            for line_num, line in enumerate(f, 1):
-                line = line.strip()
-                if not line:
-                    continue
-                try:
-                    frame = json.loads(line)
-                    # Skip frames with errors
-                    if "error" not in frame:
-                        frames.append(frame)
-                except json.JSONDecodeError as e:
-                    logger.warning(
-                        f"Invalid JSON at line {line_num} in {jsonl_path}: {e}"
-                    )
-    except FileNotFoundError:
-        logger.error(f"Analysis file not found: {jsonl_path}")
-        return []
-    except Exception as e:
-        logger.error(f"Error reading {jsonl_path}: {e}")
-        return []
-
-    return frames
 
 
 def assemble_markdown(
@@ -222,23 +183,23 @@ def call_gemini_with_retry(
     return None
 
 
-def reduce_analysis(video_path: Path) -> int:
+def reduce_analysis(jsonl_path: Path) -> int:
     """
     Reduce analysis JSONL to markdown summary.
 
     Parameters
     ----------
-    video_path : Path
-        Path to original video file
+    jsonl_path : Path
+        Path to analysis JSONL file
 
     Returns
     -------
     int
         Exit code (0 success, 1 error)
     """
-    # Derive paths
-    analysis_path = video_path.parent / f"{video_path.stem}.jsonl"
-    summary_path = video_path.parent / f"{video_path.stem}.md"
+    # Derive paths from JSONL
+    analysis_path = jsonl_path
+    summary_path = jsonl_path.parent / f"{jsonl_path.stem}.md"
     prompt_path = Path(__file__).parent / "reduce.txt"
 
     # Check analysis file exists
@@ -266,7 +227,7 @@ def reduce_analysis(video_path: Path) -> int:
 
     # Assemble markdown
     logger.info("Assembling markdown for Gemini")
-    markdown = assemble_markdown(frames, entity_names, video_path)
+    markdown = assemble_markdown(frames, entity_names, jsonl_path)
 
     # Load prompt
     prompt_text = prompt_path.read_text()
@@ -290,7 +251,9 @@ def reduce_analysis(video_path: Path) -> int:
     # Create crumb
     logger.info("Creating crumb")
     try:
-        from think.crumbs import CrumbBuilder  # Local import to avoid circular dependency
+        from think.crumbs import (
+            CrumbBuilder,
+        )  # Local import to avoid circular dependency
 
         crumb_builder = CrumbBuilder()
         crumb_builder.add_file(analysis_path)
@@ -312,18 +275,18 @@ def main():
         description="Reduce screencast analysis to markdown summary"
     )
     parser.add_argument(
-        "video_path",
+        "jsonl_path",
         type=str,
-        help="Path to video file (will look for {stem}.jsonl)",
+        help="Path to analysis JSONL file",
     )
     args = setup_cli(parser)
 
-    video_path = Path(args.video_path)
-    if not video_path.exists():
-        logger.error(f"Video file not found: {video_path}")
+    jsonl_path = Path(args.jsonl_path)
+    if not jsonl_path.exists():
+        logger.error(f"JSONL file not found: {jsonl_path}")
         sys.exit(1)
 
-    exit_code = reduce_analysis(video_path)
+    exit_code = reduce_analysis(jsonl_path)
     sys.exit(exit_code)
 
 

@@ -224,7 +224,8 @@ class FileSensor:
 
     def _run_reduce(self, video_path: Path):
         """Run reduce on the video file after describe completes."""
-        cmd = ["observe-reduce", str(video_path)]
+        jsonl_path = video_path.parent / f"{video_path.stem}.jsonl"
+        cmd = ["observe-reduce", str(jsonl_path)]
         logger.info(f"Running reduce for {video_path.name}")
 
         try:
@@ -341,10 +342,94 @@ class FileSensor:
         with self.lock:
             self.running.clear()
 
+    def process_day(self, day: str, max_jobs: int = 1):
+        """Process all matching unprocessed files from a specific day directory.
+
+        Files are considered unprocessed if the source media file has not been
+        moved to seen/ or heard/ subdirectories. This approach handles incomplete
+        processing gracefully by re-running even if output files exist.
+
+        Also finds JSONL files without corresponding MD files and runs reduce on them.
+
+        Args:
+            day: Day in YYYYMMDD format
+            max_jobs: Maximum number of concurrent processing jobs
+        """
+        day_dir = day_path(day)
+        if not day_dir.exists():
+            logger.error(f"Day directory not found: {day_dir}")
+            return
+
+        # Find all matching unprocessed files (not yet moved to seen/heard)
+        to_process = []
+        for file_path in day_dir.iterdir():
+            if file_path.is_file():
+                handler_info = self._match_pattern(file_path)
+                if handler_info:
+                    handler_name, command = handler_info
+                    to_process.append((file_path, handler_name, command))
+
+        # Find incomplete reduces (JSONL files without corresponding MD)
+        for file_path in day_dir.glob("*_screen.jsonl"):
+            md_path = file_path.parent / f"{file_path.stem}.md"
+            if not md_path.exists():
+                # Register reduce as a handler task
+                to_process.append((file_path, "reduce", ["observe-reduce", "{file}"]))
+
+        if not to_process:
+            logger.info(f"No unprocessed files found in {day_dir}")
+            return
+
+        logger.info(f"Found {len(to_process)} unprocessed files to process")
+
+        # Process with concurrency limit using semaphore
+        semaphore = threading.Semaphore(max_jobs)
+        completion_events = {}
+
+        def process_with_limit(file_path, handler_name, command):
+            """Process a single file with semaphore-controlled concurrency."""
+            with semaphore:
+                self._spawn_handler(file_path, handler_name, command)
+                # Wait for this specific file to complete
+                while file_path in self.running:
+                    time.sleep(0.5)
+                # Signal completion
+                completion_events[file_path].set()
+
+        # Spawn all handlers (semaphore controls concurrency)
+        threads = []
+        for file_path, handler_name, command in to_process:
+            completion_events[file_path] = threading.Event()
+            thread = threading.Thread(
+                target=process_with_limit,
+                args=(file_path, handler_name, command),
+                daemon=False,
+            )
+            thread.start()
+            threads.append(thread)
+
+        # Wait for all to complete
+        for thread in threads:
+            thread.join()
+
+        logger.info("Batch processing complete")
+
 
 def main():
     """CLI entry point."""
     parser = argparse.ArgumentParser(description="Unified observe file processor")
+    parser.add_argument(
+        "--day",
+        type=str,
+        help="Process files from specific day (YYYYMMDD format) instead of watching",
+    )
+    parser.add_argument(
+        "-j",
+        "--jobs",
+        type=int,
+        default=1,
+        help="Max concurrent processing jobs when using --day (default: 1)",
+    )
     args = setup_cli(parser)
 
     journal = Path(os.getenv("JOURNAL_PATH", ""))
@@ -359,12 +444,20 @@ def main():
     sensor.register("*_raw.flac", "transcribe", ["observe-transcribe", "{file}"])
     sensor.register("*_raw.m4a", "transcribe", ["observe-transcribe", "{file}"])
 
-    logger.info("Starting observe sensor...")
-    try:
-        sensor.start()
-    except KeyboardInterrupt:
-        logger.info("Shutting down...")
-        sensor.stop()
+    if args.day:
+        # Batch mode: process specific day
+        logger.info(
+            f"Processing files from day {args.day} with {args.jobs} concurrent jobs"
+        )
+        sensor.process_day(args.day, max_jobs=args.jobs)
+    else:
+        # Watch mode: monitor for new files
+        logger.info("Starting observe sensor in watch mode...")
+        try:
+            sensor.start()
+        except KeyboardInterrupt:
+            logger.info("Shutting down...")
+            sensor.stop()
 
 
 if __name__ == "__main__":

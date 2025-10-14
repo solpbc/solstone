@@ -1,10 +1,55 @@
 """Utilities for working with screencasts and video files."""
 
+import json
+import logging
 from math import ceil
+from pathlib import Path
 
 import av
 import numpy as np
 from skimage.metrics import structural_similarity as ssim
+
+logger = logging.getLogger(__name__)
+
+
+def load_analysis_frames(jsonl_path: Path) -> list[dict]:
+    """
+    Load and parse analysis JSONL, filtering out error frames.
+
+    Parameters
+    ----------
+    jsonl_path : Path
+        Path to analysis JSONL file
+
+    Returns
+    -------
+    list[dict]
+        List of valid frame analysis results
+    """
+    frames = []
+    try:
+        with open(jsonl_path, "r") as f:
+            for line_num, line in enumerate(f, 1):
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    frame = json.loads(line)
+                    # Skip frames with errors
+                    if "error" not in frame:
+                        frames.append(frame)
+                except json.JSONDecodeError as e:
+                    logger.warning(
+                        f"Invalid JSON at line {line_num} in {jsonl_path}: {e}"
+                    )
+    except FileNotFoundError:
+        logger.error(f"Analysis file not found: {jsonl_path}")
+        return []
+    except Exception as e:
+        logger.error(f"Error reading {jsonl_path}: {e}")
+        return []
+
+    return frames
 
 
 def get_frames(container: av.container.Container) -> list[tuple[float, int]]:
