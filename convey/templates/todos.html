@@ -639,7 +639,16 @@ document.addEventListener('DOMContentLoaded', function() {
 
       // Add to DOM and trigger picker
       document.body.appendChild(dateInput);
-      dateInput.showPicker();
+      // Focus first (works reliably on iOS/iPad)
+      dateInput.focus();
+      // Try showPicker for desktop browsers
+      if (typeof dateInput.showPicker === 'function') {
+        try {
+          dateInput.showPicker();
+        } catch (e) {
+          // Ignore - focus() already worked on iOS
+        }
+      }
     });
   });
 
