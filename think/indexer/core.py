@@ -68,21 +68,11 @@ SCHEMAS = {
         """
         CREATE VIRTUAL TABLE IF NOT EXISTS entities USING fts5(
             name,
-            desc,
-            first_seen UNINDEXED,
-            last_seen UNINDEXED,
-            days UNINDEXED,
-            top UNINDEXED,
-            type UNINDEXED
-        )
-        """,
-        """
-        CREATE VIRTUAL TABLE IF NOT EXISTS entity_appearances USING fts5(
-            name,
-            desc,
+            description,
+            domain UNINDEXED,
             day UNINDEXED,
             type UNINDEXED,
-            path UNINDEXED
+            attached UNINDEXED
         )
         """,
     ],
@@ -141,7 +131,8 @@ def reset_index(journal: str, index: str, *, day: str | None = None) -> None:
             paths = [str(day_path(day) / INDEX_DIR / DB_NAMES[index])]
         else:
             paths = [
-                str(day_path(d) / INDEX_DIR / DB_NAMES[index]) for d in day_dirs().keys()
+                str(day_path(d) / INDEX_DIR / DB_NAMES[index])
+                for d in day_dirs().keys()
             ]
     else:
         paths = [os.path.join(journal, INDEX_DIR, DB_NAMES[index])]

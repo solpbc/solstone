@@ -8,8 +8,6 @@ from typing import Any, Dict, List, Tuple
 
 import sqlite_utils
 
-from think.utils import day_dirs
-
 from .core import _scan_files, get_index
 
 # Entity parsing helpers
@@ -62,16 +60,34 @@ def parse_entities(path: str) -> List[Tuple[str, str, str]]:
 
 
 def find_entity_files(journal: str) -> Dict[str, str]:
-    """Return mapping of entity file paths relative to ``journal``."""
+    """Map relative entity file paths to full paths for domain-scoped entities."""
     files: Dict[str, str] = {}
-    top_path = os.path.join(journal, "entities.md")
-    if os.path.isfile(top_path):
-        files["entities.md"] = top_path
+    domains_dir = os.path.join(journal, "domains")
 
-    for day, path in day_dirs().items():
-        md_path = os.path.join(path, "entities.md")
-        if os.path.isfile(md_path):
-            files[os.path.join(day, "entities.md")] = md_path
+    if not os.path.isdir(domains_dir):
+        return files
+
+    # Scan all directories in domains/ (not just those with domain.json)
+    for domain_name in os.listdir(domains_dir):
+        domain_path = os.path.join(domains_dir, domain_name)
+        if not os.path.isdir(domain_path):
+            continue
+
+        # Check for attached entities: domains/{domain}/entities.md
+        attached_path = os.path.join(domain_path, "entities.md")
+        if os.path.isfile(attached_path):
+            rel = os.path.join(domain_name, "entities.md")
+            files[rel] = attached_path
+
+        # Check for detected entities: domains/{domain}/entities/*.md
+        detected_dir = os.path.join(domain_path, "entities")
+        if os.path.isdir(detected_dir):
+            for filename in os.listdir(detected_dir):
+                if filename.endswith(".md") and len(filename) == 11:  # YYYYMMDD.md
+                    day = filename[:-3]
+                    if day.isdigit() and len(day) == 8:
+                        rel = os.path.join(domain_name, "entities", filename)
+                        files[rel] = os.path.join(detected_dir, filename)
 
     return files
 
@@ -79,88 +95,120 @@ def find_entity_files(journal: str) -> Dict[str, str]:
 def _index_entities(
     conn: sqlite3.Connection, rel: str, path: str, verbose: bool
 ) -> None:
-    """Index parsed entities from ``entities.md`` file."""
+    """Index parsed entities from domain-scoped ``entities.md`` file."""
     logger = logging.getLogger(__name__)
-    entries = parse_entities(os.path.dirname(path))
-    day = rel.split(os.sep, 1)[0] if os.sep in rel else ""
+
+    # Extract domain and day from relative path
+    # Format: {domain}/entities.md or {domain}/entities/YYYYMMDD.md
+    parts = rel.split(os.sep)
+    domain = parts[0]
+    day = None
+    attached = 1
+
+    if len(parts) == 3:  # {domain}/entities/YYYYMMDD.md
+        day = os.path.splitext(parts[2])[0]  # Remove .md extension
+        attached = 0
+
+    # Parse entities from the file
+    # For attached entities: path ends with entities.md, parse from parent dir
+    # For detected entities: path ends with YYYYMMDD.md in entities/ subdir, parse directly
+    if attached:
+        entries = parse_entities(os.path.dirname(path))
+    else:
+        # For detected entities, parse the specific file directly
+        entries = []
+        valid_types = {"Person", "Company", "Project", "Tool"}
+
+        with open(path, "r", encoding="utf-8") as f:
+            for line in f:
+                if not ENTITY_ITEM_RE.match(line.replace("**", "")):
+                    continue
+                parsed = parse_entity_line(line)
+                if not parsed:
+                    continue
+                etype, name, desc = parsed
+                if etype not in valid_types:
+                    continue
+                entries.append((etype, name, desc))
+
     for etype, name, desc in entries:
         conn.execute(
-            (
-                "INSERT INTO entity_appearances(name, desc, day, type, path) VALUES (?, ?, ?, ?, ?)"
-            ),
-            (name, desc, day, etype, rel),
+            "INSERT INTO entities(name, description, domain, day, type, attached) VALUES (?, ?, ?, ?, ?, ?)",
+            (name, desc, domain, day, etype, attached),
         )
+
     if verbose:
-        logger.info("  indexed %s entities", len(entries))
-
-
-def _rebuild_entities(conn: sqlite3.Connection) -> None:
-    """Rebuild the aggregate entities table from appearances."""
-    data: Dict[str, Dict[str, Any]] = {}
-    cursor = conn.execute(
-        "SELECT day, type, name, desc, path FROM entity_appearances ORDER BY day"
-    )
-    for day, etype, name, desc, path in cursor.fetchall():
-        entry = data.setdefault(
-            name,
-            {
-                "first_seen": "",
-                "last_seen": "",
-                "days": set(),
-                "top": False,
-                "desc": "",
-                "type": "",
-            },
-        )
-        if path == "entities.md" and day == "":
-            entry["top"] = True
-            entry["type"] = etype
-            if desc:
-                entry["desc"] = desc
-            continue
-
-        if not entry["first_seen"] or day < entry["first_seen"]:
-            entry["first_seen"] = day
-        if not entry["last_seen"] or day > entry["last_seen"]:
-            entry["last_seen"] = day
-        entry["days"].add(day)
-        if not entry["top"]:
-            entry["type"] = etype
-            if desc:
-                entry["desc"] = desc
-
-    conn.execute("DELETE FROM entities")
-    for name, info in data.items():
-        conn.execute(
-            "INSERT INTO entities(name, desc, first_seen, last_seen, days, top, type) VALUES (?, ?, ?, ?, ?, ?, ?)",
-            (
-                name,
-                info.get("desc", ""),
-                info.get("first_seen", ""),
-                info.get("last_seen", ""),
-                len(info.get("days", set())),
-                1 if info.get("top") else 0,
-                info.get("type", ""),
-            ),
+        logger.info(
+            "  indexed %s entities (domain=%s, day=%s)",
+            len(entries),
+            domain,
+            day or "attached",
         )
 
 
 def scan_entities(journal: str, verbose: bool = False) -> bool:
-    """Index entities from ``entities.md`` files across the journal."""
+    """Index entities from domain-scoped ``entities.md`` files."""
     logger = logging.getLogger(__name__)
     conn, _ = get_index(index="entities", journal=journal)
     files = find_entity_files(journal)
+
     if files:
         logger.info("\nIndexing %s entity files...", len(files))
-    changed = _scan_files(
-        conn,
-        files,
-        "DELETE FROM entity_appearances WHERE path=?",
-        _index_entities,
-        verbose,
-    )
+
+    # Build delete SQL based on rel path structure
+    def get_delete_sql(rel: str) -> str:
+        parts = rel.split(os.sep)
+        domain = parts[0]
+        if len(parts) == 2:  # attached: {domain}/entities.md
+            return f"DELETE FROM entities WHERE domain='{domain}' AND day IS NULL"
+        else:  # detected: {domain}/entities/YYYYMMDD.md
+            day = os.path.splitext(parts[2])[0]
+            return f"DELETE FROM entities WHERE domain='{domain}' AND day='{day}'"
+
+    # Modified _scan_files logic to handle dynamic delete SQL per file
+    # For now, use a list of possible delete patterns - we'll handle this in a custom scan
+    import time
+
+    total = len(files)
+
+    # Get current file mtimes from database
+    db_mtimes = {
+        path: mtime for path, mtime in conn.execute("SELECT path, mtime FROM files")
+    }
+
+    to_index = []
+    for rel, path in files.items():
+        mtime = int(os.path.getmtime(path))
+        if db_mtimes.get(rel) != mtime:
+            to_index.append((rel, path, mtime))
+
+    cached = total - len(to_index)
+    logger.info("%s total files, %s cached, %s to index", total, cached, len(to_index))
+    start = time.time()
+
+    for idx, (rel, path, mtime) in enumerate(to_index, 1):
+        if verbose:
+            logger.info("[%s/%s] %s", idx, len(to_index), rel)
+
+        # Execute appropriate delete SQL based on file type
+        delete_sql = get_delete_sql(rel)
+        conn.execute(delete_sql)
+
+        _index_entities(conn, rel, path, verbose)
+        conn.execute("REPLACE INTO files(path, mtime) VALUES (?, ?)", (rel, mtime))
+
+    # Remove files that no longer exist
+    removed = set(db_mtimes) - set(files)
+    for rel in removed:
+        delete_sql = get_delete_sql(rel)
+        conn.execute(delete_sql)
+        conn.execute("DELETE FROM files WHERE path=?", (rel,))
+
+    elapsed = time.time() - start
+    logger.info("%s total indexed in %.2f seconds", len(to_index), elapsed)
+
+    changed = bool(to_index or removed)
     if changed:
-        _rebuild_entities(conn)
         conn.commit()
     conn.close()
     return changed
@@ -171,153 +219,123 @@ def search_entities(
     limit: int = 5,
     offset: int = 0,
     *,
+    domain: str | None = None,
     day: str | None = None,
     etype: str | None = None,
     name: str | None = None,
-    top: bool | None = None,
+    attached: bool | None = None,
     order: str = "rank",
 ) -> tuple[int, List[Dict[str, Any]]]:
     """Search the entities index and return total count and results.
 
     Parameters
     ----------
-    order : str, optional
-        How to sort entity results. "rank" (default) sorts by FTS rank,
-        "count" sorts by descending appearance count and "day" orders
-        appearance rows chronologically.
-    """
+    query : str
+        FTS search across name and description fields
+    limit : int
+        Maximum number of results to return
+    offset : int
+        Number of results to skip
+    domain : str, optional
+        Filter to specific domain
+    day : str, optional
+        Filter to specific day (YYYYMMDD format)
+    etype : str, optional
+        Filter by entity type (Person, Company, Project, Tool)
+    name : str, optional
+        Column-specific FTS search on name field
+    attached : bool, optional
+        Filter by attached status (True=attached only, False=detected only)
+    order : str
+        Sort order: "rank" (BM25 relevance) or "day" (chronological)
 
+    Returns
+    -------
+    tuple[int, List[Dict[str, Any]]]
+        Total count and list of result dictionaries
+    """
     conn, _ = get_index(index="entities")
     db = sqlite_utils.Database(conn)
 
+    # Build FTS query combining query and name
     fts_parts = []
     if query:
         fts_parts.append(query)
     if name:
         # FTS5 column-specific search: escape double quotes and wrap in double quotes
-        # This handles all special characters correctly for FTS5
         escaped_name = name.replace('"', '""')
         # Add wildcard for prefix matching to support partial name searches
         fts_parts.append(f'name:"{escaped_name}"*')
 
     where_clause = "1"
-    params: List[str] = []
+    params: List[Any] = []
+
     if fts_parts:
         # Use db.quote to properly escape the entire FTS5 query
         quoted = db.quote(" AND ".join(fts_parts))
         where_clause = f"entities MATCH {quoted}"
+
+    if domain:
+        where_clause += " AND domain=?"
+        params.append(domain)
     if day:
-        where_clause += " AND first_seen<=? AND last_seen>=?"
-        params.extend([day, day])
+        where_clause += " AND day=?"
+        params.append(day)
     if etype:
         where_clause += " AND type=?"
         params.append(etype)
-    if top is not None:
-        where_clause += " AND top=?"
-        params.append(1 if top else 0)
+    if attached is True:
+        where_clause += " AND attached=1"
+    elif attached is False:
+        where_clause += " AND attached=0"
 
-    total_entities = conn.execute(
+    total = conn.execute(
         f"SELECT count(*) FROM entities WHERE {where_clause}", params
     ).fetchone()[0]
 
     order = order.lower()
-    ent_order = "bm25(entities)"
-    if order == "count":
-        ent_order = "days DESC"
-    ent_cursor = conn.execute(
-        f"SELECT name, desc, type, top, first_seen, last_seen, days, bm25(entities) as rank FROM entities WHERE {where_clause} ORDER BY {ent_order} LIMIT ? OFFSET ?",
+    order_by = "bm25(entities)"
+    if order == "day":
+        order_by = "day DESC"
+
+    cursor = conn.execute(
+        f"""
+        SELECT name, description, domain, day, type, attached, bm25(entities) as rank
+        FROM entities WHERE {where_clause} ORDER BY {order_by} LIMIT ? OFFSET ?
+        """,
         params + [limit, offset],
     )
 
-    ent_results: List[Dict[str, Any]] = []
+    results: List[Dict[str, Any]] = []
     for (
         name_val,
         desc_val,
+        domain_val,
+        day_val,
         type_val,
-        top_val,
-        first_seen_val,
-        last_seen_val,
-        days_val,
+        attached_val,
         rank,
-    ) in ent_cursor.fetchall():
-        ent_results.append(
+    ) in cursor.fetchall():
+        # Build unique ID
+        if day_val:
+            result_id = f"{domain_val}/entities/{day_val}.md:{name_val}"
+        else:
+            result_id = f"{domain_val}/entities.md:{name_val}"
+
+        results.append(
             {
-                "id": name_val,
+                "id": result_id,
                 "text": desc_val or name_val,
                 "metadata": {
-                    "name": name_val,
+                    "domain": domain_val,
+                    "day": day_val,
                     "type": type_val,
-                    "top": bool(top_val),
-                    "first_seen": first_seen_val,
-                    "last_seen": last_seen_val,
-                    "days": days_val,
+                    "name": name_val,
+                    "attached": bool(attached_val),
                 },
                 "score": rank,
             }
         )
 
-    # Determine remaining limit/offset for appearances
-    remaining_limit = max(0, limit - len(ent_results))
-    appearance_offset = 0
-    if offset > total_entities:
-        appearance_offset = offset - total_entities
-    elif offset + limit > total_entities:
-        appearance_offset = 0
-        remaining_limit = limit - (total_entities - offset)
-    else:
-        remaining_limit = 0
-
-    # Skip entity_appearances search if top is specified
-    if top is not None:
-        remaining_limit = 0
-
-    fts_clause = "1"
-    params2: List[str] = []
-    if fts_parts:
-        quoted2 = db.quote(" AND ".join(fts_parts))
-        fts_clause = f"entity_appearances MATCH {quoted2}"
-    if day:
-        fts_clause += " AND day=?"
-        params2.append(day)
-    if etype:
-        fts_clause += " AND type=?"
-        params2.append(etype)
-
-    total_appearances = conn.execute(
-        f"SELECT count(*) FROM entity_appearances WHERE {fts_clause}", params2
-    ).fetchone()[0]
-
-    app_results: List[Dict[str, Any]] = []
-    if remaining_limit > 0:
-        app_order = "bm25(entity_appearances)"
-        if order == "day":
-            app_order = "day"
-        app_cursor = conn.execute(
-            f"SELECT name, desc, day, type, path, bm25(entity_appearances) as rank FROM entity_appearances WHERE {fts_clause} ORDER BY {app_order} LIMIT ? OFFSET ?",
-            params2 + [remaining_limit, appearance_offset],
-        )
-        for (
-            name_val,
-            desc_val,
-            day_val,
-            type_val,
-            path_val,
-            rank,
-        ) in app_cursor.fetchall():
-            app_results.append(
-                {
-                    "id": f"{path_val}:{name_val}",
-                    "text": desc_val or name_val,
-                    "metadata": {
-                        "day": day_val,
-                        "path": path_val,
-                        "type": type_val,
-                        "name": name_val,
-                    },
-                    "score": rank,
-                }
-            )
-
     conn.close()
-    total = total_entities + total_appearances
-    return total, ent_results + app_results
+    return total, results
