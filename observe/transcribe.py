@@ -17,7 +17,7 @@ import soundfile as sf
 from google import genai
 from silero_vad import load_silero_vad
 
-from hear.audio_utils import (
+from observe.hear import (
     SAMPLE_RATE,
     calculate_mic_overlap,
     detect_speech,

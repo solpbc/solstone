@@ -10,6 +10,7 @@ from dotenv import load_dotenv
 from flask import Blueprint, jsonify, render_template, request
 
 from think.domains import get_domain_news, get_domains, get_matter, get_matters
+from think.entities import load_entities, save_entities
 from think.indexer import search_entities
 
 bp = Blueprint("domains", __name__, template_folder="../templates")
@@ -155,80 +156,60 @@ def update_domain(domain_name: str) -> Any:
         return jsonify({"error": f"Failed to update domain: {str(e)}"}), 500
 
 
-@bp.route("/api/domains/<domain_name>/entities")
-def get_domain_entities(domain_name: str) -> Any:
-    """Get entities for a specific domain."""
-    load_dotenv()
-    journal = os.getenv("JOURNAL_PATH")
-    if not journal:
-        return jsonify({"error": "JOURNAL_PATH not set"}), 500
+def get_domain_entities_data(domain_name: str) -> dict:
+    """Get entity data for a domain: attached and detected entities.
 
-    domain_path = Path(journal) / "domains" / domain_name
-    entities_file = domain_path / "entities.md"
+    Returns:
+        dict with keys:
+            - attached: list of {"type": str, "name": str, "description": str}
+            - detected: list of {"type": str, "name": str, "description": str, "count": int, "last_seen": str}
+    """
+    # Load attached entities
+    attached_tuples = load_entities(domain_name)
+    attached = [
+        {"type": etype, "name": name, "description": desc}
+        for etype, name, desc in attached_tuples
+    ]
 
-    if not entities_file.exists():
-        return jsonify({"domain_entities": [], "all_entities": []})
-
-    # Read domain-specific entities
-    domain_entities = []
-    try:
-        with open(entities_file, "r", encoding="utf-8") as f:
-            for line in f:
-                line = line.strip()
-                if line.startswith("* "):
-                    parts = line[2:].split(":", 1)
-                    if len(parts) == 2:
-                        etype, rest = parts
-                        etype = etype.strip()
-                        name_desc = rest.strip().split(" - ", 1)
-                        name = name_desc[0].strip()
-                        desc = name_desc[1].strip() if len(name_desc) > 1 else ""
-                        domain_entities.append(
-                            {"type": etype, "name": name, "desc": desc, "starred": True}
-                        )
-    except Exception:
-        pass
-
-    # Get all entities from global search
-    types = ["Person", "Company", "Project", "Tool"]
-    all_entities = []
-
-    for etype in types:
-        _total_top, top_results = search_entities(
-            "", limit=500, etype=etype, top=True, order="count"
-        )
-        _total_other, other_results = search_entities(
-            "", limit=500, etype=etype, top=False, order="count"
-        )
-
-        for result in top_results + other_results:
-            meta = result["metadata"]
-            entity = {
-                "type": etype,
-                "name": meta["name"],
-                "desc": result["text"],
-                "top": meta.get("top", False),
-                "count": meta.get("days", 0),
-                "starred": False,
-            }
-
-            # Check if this entity is already in domain entities
-            for domain_entity in domain_entities:
-                if (
-                    domain_entity["type"] == entity["type"]
-                    and domain_entity["name"] == entity["name"]
-                ):
-                    entity["starred"] = True
-                    break
-
-            all_entities.append(entity)
-
-    # Sort: starred entities first, then by count/top status
-    all_entities.sort(
-        key=lambda x: (not x["starred"], not x.get("top", False), -x.get("count", 0))
+    # Query detected entities from indexer
+    _, detected_results = search_entities(
+        "",
+        limit=1000,  # Get all detected entities
+        domain=domain_name,
+        attached=False,
+        order="day"  # Most recent first
     )
 
-    return jsonify({"domain_entities": domain_entities, "all_entities": all_entities})
+    # Aggregate detected entities by (type, name)
+    detected_map = {}
+    for result in detected_results:
+        meta = result["metadata"]
+        key = (meta["type"], meta["name"])
+
+        if key not in detected_map:
+            detected_map[key] = {
+                "type": meta["type"],
+                "name": meta["name"],
+                "description": result["text"],  # Most recent day's description
+                "count": 1,
+                "last_seen": meta["day"]
+            }
+        else:
+            detected_map[key]["count"] += 1
+
+    detected = list(detected_map.values())
+
+    return {"attached": attached, "detected": detected}
+
+
+@bp.route("/api/domains/<domain_name>/entities")
+def get_domain_entities(domain_name: str) -> Any:
+    """Get entities for a specific domain (attached and detected)."""
+    try:
+        data = get_domain_entities_data(domain_name)
+        return jsonify(data)
+    except Exception as e:
+        return jsonify({"error": f"Failed to get entities: {str(e)}"}), 500
 
 
 @bp.route("/api/domains/<domain_name>/entities", methods=["POST"])
