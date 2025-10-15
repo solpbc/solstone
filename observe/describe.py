@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import io
 import json
 import logging
 import re
@@ -77,6 +78,7 @@ class VideoProcessor:
         self.video_path = video_path
         self.monitors = self._parse_monitor_metadata()
         # Store qualified frames per monitor: {monitor_id: [frame_data, ...]}
+        # frame_data contains metadata and bytes, NOT raw frames
         self.qualified_frames: Dict[str, List[dict]] = {
             monitor_id: [] for monitor_id in self.monitors.keys()
         }
@@ -225,10 +227,11 @@ class VideoProcessor:
 
         Returns:
             Dict mapping monitor_id to list of qualified frames with timestamp,
-            frame data, and change boxes.
+            frame data (as bytes), and change boxes.
         """
-        # Track last qualified frame per monitor
-        last_qualified: Dict[str, Optional[av.VideoFrame]] = {
+        # Track last qualified frame per monitor as numpy array (grayscale)
+        # We need this only for comparison, not for storage
+        last_qualified: Dict[str, Optional[np.ndarray]] = {
             monitor_id: None for monitor_id in self.monitors.keys()
         }
 
@@ -261,27 +264,38 @@ class VideoProcessor:
                             monitor_height = y2 - y1
                             box_2d = [0, 0, monitor_height, monitor_width]
 
+                            # Convert frame to bytes immediately
+                            crop_bytes, full_bytes = self._frame_to_bytes(
+                                frame, (x1, y1, x2, y2), box_2d, None
+                            )
+
                             self.qualified_frames[monitor_id].append(
                                 {
                                     "frame_id": frame_count,
                                     "timestamp": timestamp,
-                                    "frame": frame,
                                     "monitor_bounds": (x1, y1, x2, y2),
                                     "box_2d": box_2d,
+                                    "crop_bytes": crop_bytes,
+                                    "full_bytes": full_bytes,
                                 }
                             )
 
-                            last_qualified[monitor_id] = frame
+                            # Store grayscale numpy array for comparison
+                            gray_arr = frame.to_ndarray(format="gray")
+                            last_qualified[monitor_id] = gray_arr
+                            # Nullify frame reference
+                            frame = None
+
                             logger.debug(
                                 f"Monitor {monitor_id}: First frame at {timestamp:.2f}s"
                             )
                             continue
 
-                        # Compare current frame slice with last qualified
-                        # We need to slice both frames for comparison
-                        boxes = self._compare_monitor_regions(
+                        # Compare current frame slice with last qualified numpy array
+                        current_gray = frame.to_ndarray(format="gray")
+                        boxes = self._compare_monitor_slices(
                             last_qualified[monitor_id],
-                            frame,
+                            current_gray,
                             x1,
                             y1,
                             x2,
@@ -312,12 +326,21 @@ class VideoProcessor:
                             if not qualifies:
                                 continue
 
+                            # Convert frame to bytes immediately
+                            crop_bytes, full_bytes = self._frame_to_bytes(
+                                frame,
+                                (x1, y1, x2, y2),
+                                largest_box["box_2d"],
+                                censor_coords,
+                            )
+
                             frame_data = {
                                 "frame_id": frame_count,
                                 "timestamp": timestamp,
-                                "frame": frame,
                                 "monitor_bounds": (x1, y1, x2, y2),
                                 "box_2d": largest_box["box_2d"],
+                                "crop_bytes": crop_bytes,
+                                "full_bytes": full_bytes,
                             }
 
                             # Add censor_coords if border was detected
@@ -326,7 +349,8 @@ class VideoProcessor:
 
                             self.qualified_frames[monitor_id].append(frame_data)
 
-                            last_qualified[monitor_id] = frame
+                            # Store grayscale numpy array for comparison
+                            last_qualified[monitor_id] = current_gray
                             logger.debug(
                                 f"Monitor {monitor_id}: Qualified frame at {timestamp:.2f}s "
                                 f"(box: {width}x{height})"
@@ -348,34 +372,116 @@ class VideoProcessor:
 
         return self.qualified_frames
 
-    def _compare_monitor_regions(
+    def _frame_to_bytes(
         self,
-        frame1: av.VideoFrame,
-        frame2: av.VideoFrame,
+        frame: av.VideoFrame,
+        monitor_bounds: tuple,
+        box_2d: list,
+        censor_coords: Optional[tuple],
+    ) -> tuple[bytes, bytes]:
+        """
+        Convert frame to bytes immediately - both crop and full frame.
+
+        Parameters
+        ----------
+        frame : av.VideoFrame
+            Video frame to convert
+        monitor_bounds : tuple
+            Monitor bounds (x1, y1, x2, y2) in absolute coordinates
+        box_2d : list
+            Change box [y_min, x_min, y_max, x_max] relative to monitor
+        censor_coords : Optional[tuple]
+            Censor coordinates (y_min, x_min, y_max, x_max) or None
+
+        Returns
+        -------
+        tuple[bytes, bytes]
+            (crop_bytes, full_frame_bytes) as PNG bytes
+        """
+        x1, y1, x2, y2 = monitor_bounds
+
+        # Convert to PIL Image once
+        arr = frame.to_ndarray(format="rgb24")
+        full_image = Image.fromarray(arr)
+
+        # Apply border censoring if present
+        if censor_coords:
+            censor_y_min, censor_x_min, censor_y_max, censor_x_max = censor_coords
+            draw = ImageDraw.Draw(full_image)
+            draw.rectangle(
+                ((censor_x_min, censor_y_min), (censor_x_max + 1, censor_y_max + 1)),
+                fill="black",
+            )
+
+        # Convert box_2d (relative to monitor) to absolute coordinates
+        abs_y_min = y1 + box_2d[0]
+        abs_x_min = x1 + box_2d[1]
+        abs_y_max = y1 + box_2d[2]
+        abs_x_max = x1 + box_2d[3]
+
+        # Expand bounds by 50px in all directions where possible
+        img_width, img_height = full_image.size
+        expanded_x_min = max(0, abs_x_min - 50)
+        expanded_y_min = max(0, abs_y_min - 50)
+        expanded_x_max = min(img_width, abs_x_max + 50)
+        expanded_y_max = min(img_height, abs_y_max + 50)
+
+        # Crop to expanded region
+        cropped = full_image.crop(
+            (expanded_x_min, expanded_y_min, expanded_x_max, expanded_y_max)
+        )
+
+        # Convert both to PNG bytes
+        crop_io = io.BytesIO()
+        cropped.save(crop_io, format="PNG", optimize=True)
+        crop_bytes = crop_io.getvalue()
+        crop_io.close()
+
+        full_io = io.BytesIO()
+        full_image.save(full_io, format="PNG", optimize=True)
+        full_bytes = full_io.getvalue()
+        full_io.close()
+
+        # Close PIL images immediately
+        cropped.close()
+        full_image.close()
+
+        # Free numpy array
+        del arr
+
+        return crop_bytes, full_bytes
+
+    def _compare_monitor_slices(
+        self,
+        slice1: np.ndarray,
+        slice2: np.ndarray,
         x1: int,
         y1: int,
         x2: int,
         y2: int,
     ) -> List[dict]:
         """
-        Compare monitor regions between two frames.
+        Compare monitor regions between two grayscale numpy arrays.
 
-        Returns boxes relative to the monitor slice coordinates.
+        Parameters
+        ----------
+        slice1 : np.ndarray
+            First grayscale image (full frame)
+        slice2 : np.ndarray
+            Second grayscale image (full frame)
+        x1, y1, x2, y2 : int
+            Monitor bounds to slice
+
+        Returns
+        -------
+        List[dict]
+            Boxes relative to the monitor slice coordinates
         """
-        # Create sliced frame views for comparison
-        # PyAV frames need to be converted to numpy, then sliced
-        arr1 = frame1.to_ndarray(format="gray")
-        arr2 = frame2.to_ndarray(format="gray")
-
         # Slice to monitor region
-        slice1 = arr1[y1:y2, x1:x2]
-        slice2 = arr2[y1:y2, x1:x2]
+        monitor_slice1 = slice1[y1:y2, x1:x2]
+        monitor_slice2 = slice2[y1:y2, x1:x2]
 
-        # Create temporary VideoFrames from slices for compare_frames
-        # Actually, compare_frames expects VideoFrames, but we can adapt it
-        # Let's use the direct numpy comparison approach from observe/utils.py
-
-        return self._compare_slices(slice1, slice2)
+        return self._compare_slices(monitor_slice1, monitor_slice2)
 
     def _compare_slices(
         self,
@@ -470,74 +576,6 @@ class VideoProcessor:
             max_y = min(height, max_y + margin)
             boxes.append({"box_2d": [min_y, min_x, max_y, max_x]})
         return boxes
-
-    def _apply_border_censoring(self, image: Image.Image, frame_data: dict) -> None:
-        """
-        Apply blue border censoring to an image in-place.
-
-        Parameters
-        ----------
-        image : Image.Image
-            PIL Image to modify
-        frame_data : dict
-            Frame data that may contain censor_coords
-        """
-        if "censor_coords" in frame_data and frame_data["censor_coords"]:
-            censor_y_min, censor_x_min, censor_y_max, censor_x_max = frame_data[
-                "censor_coords"
-            ]
-            draw = ImageDraw.Draw(image)
-            # PIL's rectangle() treats second point as exclusive, so add 1 to include
-            # the full bordered area (border pixels + interior)
-            draw.rectangle(
-                ((censor_x_min, censor_y_min), (censor_x_max + 1, censor_y_max + 1)),
-                fill="black",
-            )
-
-    def _extract_frame_images(self, frame_data: dict) -> Image.Image:
-        """
-        Extract frame and create cropped image for vision analysis.
-
-        Parameters
-        ----------
-        frame_data : dict
-            Frame data containing frame, monitor_bounds, box_2d, and optionally censor_coords
-
-        Returns
-        -------
-        Image.Image
-            Cropped region expanded by 50px in all directions where possible
-        """
-        frame = frame_data["frame"]
-        x1, y1, x2, y2 = frame_data["monitor_bounds"]
-        box_2d = frame_data["box_2d"]  # Relative to monitor
-
-        # Convert PyAV frame to PIL Image
-        arr = frame.to_ndarray(format="rgb24")
-        full_image = Image.fromarray(arr)
-
-        # Apply border censoring if present
-        self._apply_border_censoring(full_image, frame_data)
-
-        # Convert box_2d (relative to monitor) to absolute coordinates
-        abs_y_min = y1 + box_2d[0]
-        abs_x_min = x1 + box_2d[1]
-        abs_y_max = y1 + box_2d[2]
-        abs_x_max = x1 + box_2d[3]
-
-        # Expand bounds by 50px in all directions where possible
-        img_width, img_height = full_image.size
-        expanded_x_min = max(0, abs_x_min - 50)
-        expanded_y_min = max(0, abs_y_min - 50)
-        expanded_x_max = min(img_width, abs_x_max + 50)
-        expanded_y_max = min(img_height, abs_y_max + 50)
-
-        # Crop to expanded region
-        cropped = full_image.crop(
-            (expanded_x_min, expanded_y_min, expanded_x_max, expanded_y_max)
-        )
-
-        return cropped
 
     def _user_contents(self, prompt: str, image, entities: bool = False) -> list:
         """Build contents list with optional entity context."""
@@ -646,12 +684,13 @@ class VideoProcessor:
         # Create vision requests for all qualified frames
         for monitor_id, frames in qualified_frames.items():
             for frame_data in frames:
-                cropped_img = self._extract_frame_images(frame_data)
+                # Load crop image from bytes
+                crop_img = Image.open(io.BytesIO(frame_data["crop_bytes"]))
 
                 req = batch.create(
                     contents=self._user_contents(
                         "Analyze this screenshot frame from a screencast recording.",
-                        cropped_img,
+                        crop_img,
                     ),
                     model=GEMINI_LITE,
                     system_instruction=system_instruction,
@@ -661,15 +700,19 @@ class VideoProcessor:
                     thinking_budget=2048,
                 )
 
-                # Attach metadata for tracking
+                # Close the PIL Image immediately after creating request
+                crop_img.close()
+
+                # Attach metadata for tracking (store bytes, not PIL images)
                 req.frame_id = frame_data["frame_id"]
                 req.timestamp = frame_data["timestamp"]
                 req.monitor = monitor_id
                 req.monitor_position = self.monitors[monitor_id].get("position")
                 req.box_2d = frame_data["box_2d"]
                 req.retry_count = 0
-                req.frame_data = frame_data  # Store for potential full frame access
-                req.cropped_img = cropped_img  # Store for potential text extraction
+                req.crop_bytes = frame_data["crop_bytes"]  # Store bytes for reuse
+                req.full_bytes = frame_data["full_bytes"]  # Store for meeting analysis
+                req.censor_coords = frame_data.get("censor_coords")  # Store if present
                 req.request_type = RequestType.DESCRIBE_JSON
                 req.json_analysis = None  # Will store the JSON analysis result
                 req.meeting_analysis = None  # Will store meeting analysis if applicable
@@ -736,13 +779,8 @@ class VideoProcessor:
                 if visible_category == "meeting":
                     logger.info(f"Frame {req.frame_id}: Triggering meeting analysis")
                     used_prompts.add("describe_meeting.txt")
-                    # Need full frame for meeting analysis (not cropped)
-                    frame = req.frame_data["frame"]
-                    arr = frame.to_ndarray(format="rgb24")
-                    full_image = Image.fromarray(arr)
-
-                    # Apply border censoring if present
-                    self._apply_border_censoring(full_image, req.frame_data)
+                    # Load full frame from cached bytes
+                    full_image = Image.open(io.BytesIO(req.full_bytes))
 
                     batch.update(
                         req,
@@ -757,6 +795,9 @@ class VideoProcessor:
                         max_output_tokens=10240,
                         thinking_budget=6144,
                     )
+                    # Close image immediately after batch.update
+                    full_image.close()
+
                     req.request_type = RequestType.DESCRIBE_MEETING
                     req.retry_count = 0
                     continue  # Don't output yet, wait for meeting analysis
@@ -768,12 +809,15 @@ class VideoProcessor:
                         f"Frame {req.frame_id}: Triggering text extraction for category '{visible_category}'"
                     )
                     used_prompts.add("describe_text.txt")
+                    # Load crop image from cached bytes
+                    crop_img = Image.open(io.BytesIO(req.crop_bytes))
+
                     # Update request for text extraction and re-add
                     batch.update(
                         req,
                         contents=self._user_contents(
                             "Extract text from this screenshot frame.",
-                            req.cropped_img,
+                            crop_img,
                             entities=True,
                         ),
                         model=GEMINI_FLASH,
@@ -782,6 +826,9 @@ class VideoProcessor:
                         max_output_tokens=8192,
                         thinking_budget=4096,
                     )
+                    # Close image immediately after batch.update
+                    crop_img.close()
+
                     req.request_type = RequestType.DESCRIBE_TEXT
                     req.retry_count = 0
                     continue  # Don't output yet, wait for text extraction
@@ -796,8 +843,8 @@ class VideoProcessor:
             }
 
             # Add censor_coords if border was detected
-            if "censor_coords" in req.frame_data and req.frame_data["censor_coords"]:
-                result["censor_coords"] = list(req.frame_data["censor_coords"])
+            if req.censor_coords:
+                result["censor_coords"] = list(req.censor_coords)
 
             # Add monitor position if available and not "unknown"
             if req.monitor_position and req.monitor_position != "unknown":
@@ -831,11 +878,22 @@ class VideoProcessor:
             if logger.isEnabledFor(logging.DEBUG):
                 print(result_line, flush=True)
 
+            # Aggressively clear heavy fields now that request is finalized
+            req.crop_bytes = None
+            req.full_bytes = None
+            req.json_analysis = None
+            req.meeting_analysis = None
+            req.censor_coords = None
+
         # Close output file, move media, and create crumb
         if output_file:
             output_file.close()
             moved_path = self._move_to_seen(self.video_path)
             self._create_crumb(output_path, moved_path, used_prompts, used_models)
+
+        # Clear qualified_frames to free memory
+        for monitor_id in self.qualified_frames:
+            self.qualified_frames[monitor_id].clear()
 
 
 def output_qualified_frames(
