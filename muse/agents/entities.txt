@@ -60,6 +60,33 @@ For each entity candidate:
 - **Project**: Specific work initiative, codebase, product
 - **Tool**: Software, framework, library, service used
 
+**Entity Priority Guidelines** (CRITICAL - apply these thresholds):
+
+1. **Person** (HIGHEST PRIORITY - capture all):
+   - Record EVERY person mentioned or involved in conversations
+   - Include all meeting participants, email senders, collaborators
+   - Always capture even brief mentions
+   - These are the most valuable entities for context
+
+2. **Company** (SELECTIVE - only important):
+   - Record only significant business relationships
+   - Include: clients, vendors, partners actively discussed
+   - Skip: passing mentions, well-known tech companies just used as context
+   - Ask: "Is this company relationship important to track?"
+
+3. **Project** (CONSERVATIVE - only obvious):
+   - Record only when project is clearly central to the discussion
+   - Include: projects actively worked on, planned, or reviewed
+   - Skip: tangential references, tools mistaken for projects
+   - Must have clear project identity (name, scope, purpose)
+
+4. **Tool** (RARE - only when actively discussed):
+   - Record ONLY when tool is subject of discussion/evaluation
+   - Include: "evaluating Terraform vs Ansible", "learning Rust", "migrating from MySQL"
+   - Skip: tools merely used in work (VS Code, git, Python, etc.)
+   - Ask: "Was this tool actively talked about, or just used?"
+   - Default: DO NOT record tools unless explicitly discussed
+
 **Day-Specific Description:**
 - Capture HOW the entity appeared yesterday (NOT generic bio)
 - Good: "discussed API migration in standup", "sent contract for review", "debugged timeout issue"
@@ -71,11 +98,13 @@ For each entity candidate:
 - Actually mentioned/discussed in yesterday's content
 - Has meaningful day-specific context
 - Type is clearly identifiable
+- Meets priority threshold for its type
 
-**Record ALL Entities:**
-- Even if entity is already attached, record the detection
-- This creates a historical log of which entities were active on which days
-- Attached entities tell us "who matters", detected entities tell us "who was active when"
+**Record Based on Priority:**
+- ALL people detected, even if already attached
+- SELECTIVE companies/projects based on importance/clarity
+- RARE tools, only when actively discussed
+- This creates a historical log focused on human interactions first
 
 ### Phase 4: Record Detections
 
@@ -100,22 +129,30 @@ entity_detect(
 ```
 
 **Volume Guidelines:**
-- Typical day: 3-8 entities
-- Busy day with many meetings: 10-15 entities
-- Quiet day: 1-3 entities
-- Quality over quantity - only record entities with meaningful context
+- Person entities: Expect 5-15 on typical days, 20+ on meeting-heavy days
+- Company entities: Expect 0-3 per day (only truly important ones)
+- Project entities: Expect 1-3 per day (only clearly central ones)
+- Tool entities: Expect 0-1 per day (rarely recorded)
+- Total typical range: 6-20 entities (heavily weighted toward people)
+- Prioritize completeness for people over everything else
 
 ## Quality Guidelines
 
 ### DO:
 - Start with knowledge graphs as primary source
-- Record ALL entities encountered, even if already attached
+- Record ALL people encountered, even brief mentions
+- Be selective with companies (only important relationships)
+- Be conservative with projects (only obvious/central ones)
+- Be very rare with tools (only actively discussed)
 - Use day-specific descriptions that capture context
 - Extract full names whenever possible
 - Focus on entities actually active/mentioned yesterday
 
 ### DON'T:
-- Skip entities just because they're already attached
+- Skip any person mentions (these are highest priority)
+- Record companies just mentioned in passing
+- Record projects that aren't clearly central to the day
+- Record tools that were just used (git, Python, VS Code, etc.)
 - Use generic descriptions ("coworker", "project manager", "company we use")
 - Record entities without clear evidence from yesterday
 - Invent or assume entities not in the journal
@@ -128,8 +165,12 @@ When invoked:
 2. Compute yesterday's date in YYYYMMDD format
 3. Check if detections already exist for yesterday
 4. Start with knowledge graphs, then expand to other sources as needed
-5. Extract entities with day-specific context
+5. Extract entities with day-specific context, applying priority filters:
+   - ALL people (highest priority)
+   - SELECTIVE companies (only important)
+   - CONSERVATIVE projects (only obvious)
+   - RARE tools (only actively discussed)
 6. Record each entity using `entity_detect()` with the domain parameter
 7. Summarize: "Detected X entities: Y people, Z companies, etc."
 
-Remember: Your goal is to create a historical log of entity activity. Every detection should answer "what happened with this entity yesterday?" not "who is this entity in general?"
+Remember: Your goal is to create a historical log of entity activity focused on PEOPLE first. Every detection should answer "what happened with this entity yesterday?" not "who is this entity in general?" Prioritize completeness for people over all other entity types.

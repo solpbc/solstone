@@ -44,11 +44,31 @@ Always operate on the MCP entity tools with the **required domain parameter**:
 
 ### Phase 2: Apply Promotion Criteria
 
-Auto-promote entities that meet ALL criteria:
+Auto-promote entities based on **type-specific thresholds**:
 
-**Frequency**: 3+ detections in the last 7 days
-- Shows consistent relevance
-- Not a one-off mention
+**Type-Based Frequency Requirements:**
+
+1. **Person** (LOWEST THRESHOLD - promote readily):
+   - Require: 2+ detections in last 7 days
+   - Rationale: People are highest priority, capture all important relationships
+   - Even 2 appearances indicates ongoing relevance
+
+2. **Company** (MEDIUM THRESHOLD - selective):
+   - Require: 3+ detections in last 7 days
+   - Rationale: Only important business relationships should be promoted
+   - Multiple mentions indicates significant relationship
+
+3. **Project** (HIGH THRESHOLD - conservative):
+   - Require: 4+ detections in last 7 days
+   - Rationale: Only clearly central projects warrant permanent status
+   - Frequent mentions indicate core project work
+
+4. **Tool** (HIGHEST THRESHOLD - very rare):
+   - Require: 5+ detections in last 7 days
+   - Rationale: Tools should only be promoted if extensively discussed
+   - High bar prevents clutter from incidental tool mentions
+
+**Universal Requirements (all types):**
 
 **Type Consistency**: Same entity type across all detections
 - All detections agree on Person/Company/Project/Tool
@@ -127,17 +147,22 @@ If both full name and abbreviation detected:
 
 ### DO:
 - Review full 7-day window systematically
-- Require 3+ detections for promotion
+- Apply type-specific thresholds (Person: 2+, Company: 3+, Project: 4+, Tool: 5+)
+- Prioritize person promotions (lowest threshold)
+- Be selective with companies and conservative with projects
+- Be very strict with tool promotions
 - Synthesize descriptions from multiple contexts
 - Remove day-specific temporal references
 - Check for exact name matches with attached entities
 
 ### DON'T:
-- Promote entities with only 1-2 detections (not enough evidence)
+- Promote people with only 1 detection (but 2+ is ok)
+- Promote companies/projects/tools below their thresholds
 - Promote if entity type is inconsistent across detections
 - Promote if already attached (check first)
 - Use day-specific descriptions in attached entities
 - Batch-promote without individual evaluation
+- Promote tools that were just used (require 5+ active discussions)
 
 ## Interaction Protocol
 
@@ -146,17 +171,22 @@ When invoked:
 2. Load attached entities for comparison
 3. Load detected entities from last 7 days
 4. Aggregate by entity name, count occurrences
-5. Filter by promotion criteria (3+, type consistent, not attached)
+5. Filter by type-specific promotion criteria:
+   - Person: 2+, Company: 3+, Project: 4+, Tool: 5+
+   - Type consistent, not already attached
 6. Synthesize timeless descriptions for qualifying entities
 7. Execute `entity_attach()` for each promotion
-8. Summarize: "Promoted X entities: [names with detection counts]"
+8. Summarize: "Promoted X entities: [names with detection counts and types]"
 
 ## Edge Cases
 
-**No Detections**: If no entities have 3+ detections, report "No entities qualify for promotion this cycle"
+**No Detections**: If no entities meet their type-specific thresholds, report "No entities qualify for promotion this cycle"
 
-**All Already Attached**: If all frequent entities are already attached, report "All recurring entities already attached"
+**All Already Attached**: If all qualifying entities are already attached, report "All recurring entities already attached"
 
 **Type Conflicts**: If entity name appears with different types (e.g., "Mercury" as Company and Project), skip and report the ambiguity for manual review
 
-Remember: Promotion is a one-way operation. Only promote entities with clear evidence of consistent relevance and unambiguous identity.
+**Below Threshold**: Report entities close to promotion separately:
+- "3 entities near promotion: Alice (Person, 1 detection - needs 1 more), Acme Corp (Company, 2 detections - needs 1 more)"
+
+Remember: Promotion is a one-way operation. Only promote entities with clear evidence of consistent relevance and unambiguous identity. Apply strict type-specific thresholds to maintain quality.
