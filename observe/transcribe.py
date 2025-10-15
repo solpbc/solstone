@@ -23,7 +23,6 @@ from hear.audio_utils import (
     detect_speech,
     merge_streams,
 )
-from hear.gemini import transcribe_segments
 from think.crumbs import CrumbBuilder
 from think.models import GEMINI_FLASH
 from think.utils import (
@@ -36,6 +35,46 @@ from think.utils import (
 # Constants
 MODEL = GEMINI_FLASH
 MIN_SPEECH_SECONDS = 1.0
+
+USER_PROMPT = (
+    "Process the provided audio clips and output your professional accurate "
+    "transcription in the specified JSON format, each clip may contain one or more speakers."
+)
+
+
+def transcribe_segments(
+    client,
+    model: str,
+    prompt_text: str,
+    entities_text: str,
+    segments: List[Dict[str, object]],
+) -> dict:
+    """Send audio segments to Gemini and return the parsed JSON result."""
+    from google.genai import types
+
+    from think.models import gemini_generate
+
+    contents = [entities_text, USER_PROMPT]
+    for seg in segments:
+        contents.append(
+            f"This clip starts at {seg['start']} and the source is '{seg['source']}':"
+        )
+        contents.append(
+            types.Part.from_bytes(data=seg["bytes"], mime_type="audio/flac")
+        )
+
+    response_text = gemini_generate(
+        contents=contents,
+        model=model,
+        temperature=0.1,
+        max_output_tokens=8192 * 2,
+        system_instruction=prompt_text,
+        json_output=True,
+        client=client,
+    )
+    result = json.loads(response_text)
+    logging.info("Transcription result: %s", json.dumps(result, indent=2))
+    return result
 
 
 class Transcriber:
@@ -50,7 +89,7 @@ class Transcriber:
 
         try:
             prompt_data = load_prompt(
-                prompt_name, base_dir=Path(__file__).parent.parent / "hear"
+                prompt_name, base_dir=Path(__file__).parent
             )
         except PromptNotFoundError as exc:
             raise SystemExit(str(exc)) from exc
