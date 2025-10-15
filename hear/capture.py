@@ -16,7 +16,7 @@ import numpy as np
 import soundfile as sf
 import websockets
 
-from hear.input_detect import input_detect
+from observe.detect import input_detect
 from think.utils import setup_cli, touch_health
 
 # Constants
