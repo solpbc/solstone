@@ -21,7 +21,7 @@ import numpy as np
 from dbus_next.aio import MessageBus
 from dbus_next.constants import BusType
 
-from hear.capture import AudioRecorder, save_flac
+from observe.hear import AudioRecorder
 from observe.gnome.dbus import (
     get_idle_time_ms,
     get_monitor_geometries,
