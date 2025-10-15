@@ -108,6 +108,10 @@ class FileSensor:
         self.running: Dict[Path, HandlerProcess] = {}
         self.lock = threading.RLock()
 
+        # Queue for describe requests (only one describe runs at a time)
+        self.describe_queue: List[Path] = []
+        self.describe_running = False
+
         self.observer: Optional[Observer] = None
         self.current_day: Optional[str] = None
         self.running_flag = True
@@ -149,6 +153,17 @@ class FileSensor:
             if file_path in self.running:
                 logger.debug(f"File {file_path.name} already being processed")
                 return
+
+            # Queue describe requests to ensure only one runs at a time
+            if handler_name == "describe":
+                if self.describe_running:
+                    if file_path not in self.describe_queue:
+                        self.describe_queue.append(file_path)
+                        logger.info(
+                            f"Queueing {file_path.name} for describe (queue size: {len(self.describe_queue)})"
+                        )
+                    return
+                self.describe_running = True
 
         # Replace {file} placeholder with actual file path
         cmd = [str(file_path) if arg == "{file}" else arg for arg in command]
@@ -229,6 +244,23 @@ class FileSensor:
         with self.lock:
             if handler_proc.file_path in self.running:
                 del self.running[handler_proc.file_path]
+
+        # Process next queued describe if this was a describe handler
+        if handler_proc.handler_name == "describe":
+            next_file = None
+            with self.lock:
+                self.describe_running = False
+                if self.describe_queue:
+                    next_file = self.describe_queue.pop(0)
+                    logger.info(
+                        f"Starting queued describe for {next_file.name} ({len(self.describe_queue)} remaining)"
+                    )
+
+            if next_file:
+                handler_info = self._match_pattern(next_file)
+                if handler_info:
+                    handler_name, command = handler_info
+                    self._spawn_handler(next_file, handler_name, command)
 
     def _run_reduce(self, video_path: Path):
         """Run reduce on the video file after describe completes."""
@@ -406,8 +438,12 @@ class FileSensor:
             ext_counts[ext] = ext_counts.get(ext, 0) + 1
 
         # Format breakdown: "21 files (10 .webm, 8 .flac, 3 .jsonl)"
-        breakdown = ", ".join(f"{count} {ext}" for ext, count in sorted(ext_counts.items()))
-        logger.info(f"Found {len(to_process)} unprocessed files to process ({breakdown})")
+        breakdown = ", ".join(
+            f"{count} {ext}" for ext, count in sorted(ext_counts.items())
+        )
+        logger.info(
+            f"Found {len(to_process)} unprocessed files to process ({breakdown})"
+        )
 
         # Process with concurrency limit using semaphore
         semaphore = threading.Semaphore(max_jobs)
