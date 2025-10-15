@@ -3,10 +3,9 @@
     "20240101": {
       "audio_flac": 1,
       "audio_json": 0,
-      "repair_hear": 1,
+      "repair_observe": 2,
       "diff_png": 0,
       "desc_json": 1,
-      "repair_see": 1,
       "screen_md": 1,
       "repair_reduce": 1,
       "entities": 1,
@@ -22,10 +21,9 @@
   "totals": {
     "audio_flac": 1,
     "audio_json": 0,
-    "repair_hear": 1,
+    "repair_observe": 2,
     "diff_png": 0,
     "desc_json": 1,
-    "repair_see": 1,
     "screen_md": 1,
     "repair_reduce": 1,
     "entities": 1,

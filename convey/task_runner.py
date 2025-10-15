@@ -148,20 +148,10 @@ def run_task(
                     if use_stop
                     else _run_command(args, logger)
                 )
-            elif name == "hear_repair":
+            elif name == "sense_repair":
                 if not day:
                     raise ValueError("day required")
-                args = ["hear-transcribe", "--repair", day, "-v"]
-                commands.append(" ".join(args))
-                code = (
-                    _run_command(args, logger, stop)
-                    if use_stop
-                    else _run_command(args, logger)
-                )
-            elif name == "see_repair":
-                if not day:
-                    raise ValueError("day required")
-                args = ["see-describe", "--repair", day, "-v"]
+                args = ["observe-sense", "--day", day, "-v"]
                 commands.append(" ".join(args))
                 code = (
                     _run_command(args, logger, stop)

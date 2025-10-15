@@ -175,8 +175,7 @@ tasks_list = tasks_view.tasks_list
 clear_old = tasks_view.clear_old
 admin_page = admin_view.admin_page
 admin_day_page = admin_view.admin_day_page
-admin_repair_hear = admin_view.admin_repair_hear
-admin_repair_see = admin_view.admin_repair_see
+admin_sense_repair = admin_view.admin_sense_repair
 admin_summarize = admin_view.admin_summarize
 admin_entity = admin_view.admin_entity
 admin_reduce = admin_view.admin_reduce
@@ -237,8 +236,7 @@ __all__ = [
     "logout",
     "admin_page",
     "admin_day_page",
-    "admin_repair_hear",
-    "admin_repair_see",
+    "admin_sense_repair",
     "admin_summarize",
     "admin_entity",
     "admin_reduce",

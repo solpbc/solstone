@@ -10,8 +10,7 @@ from typing import Dict
 
 import soundfile as sf
 
-from hear.transcribe import Transcriber
-from see.describe import Describer
+from observe.sense import scan_day as observe_scan_day
 from see.reduce import scan_day as reduce_scan_day
 from think.entity_roll import scan_day as entity_scan_day
 from think.summarize import scan_day as summarize_scan_day
@@ -42,35 +41,39 @@ class JournalStats:
         image_bytes = 0
         day_dir = Path(path)
 
-        # --- hear ---
-        audio_info = Transcriber.scan_day(day_dir)
-        audio_files = [(day_dir / n, n) for n in audio_info["raw"]]
-        for path, name in audio_files:
-            if name.endswith(".flac"):
+        # --- observe (hear + see) ---
+        observe_info = observe_scan_day(day_dir)
+
+        # Count audio and video files from raw (processed) list
+        for file_name in observe_info["raw"]:
+            file_path = day_dir / file_name
+            if file_name.endswith((".flac", ".m4a")):
                 stats["audio_flac"] += 1
                 try:
-                    info = sf.info(path)
+                    info = sf.info(file_path)
                     audio_sec += float(info.frames) / float(info.samplerate)
                 except Exception:
                     pass
                 try:
-                    audio_bytes += os.path.getsize(path)
+                    audio_bytes += os.path.getsize(file_path)
                 except OSError:
                     pass
-        stats["audio_json"] = len(audio_info["processed"])
-        stats["repair_hear"] = len(audio_info["repairable"])
+            elif file_name.endswith((".webm", ".mp4", ".png")):
+                stats["diff_png"] += 1
+                try:
+                    image_bytes += os.path.getsize(file_path)
+                except OSError:
+                    pass
 
-        # --- see ---
-        diff_info = Describer.scan_day(day_dir)
-        stats["diff_png"] = len(diff_info["raw"])
-        stats["desc_json"] = len(diff_info["processed"])
-        stats["repair_see"] = len(diff_info["repairable"])
-        for img_name in diff_info["raw"]:
-            img_path = day_dir / img_name
-            try:
-                image_bytes += os.path.getsize(img_path)
-            except OSError:
-                pass
+        # Count processed outputs
+        for file_name in observe_info["processed"]:
+            if file_name.endswith("_audio.json"):
+                stats["audio_json"] += 1
+            elif file_name.endswith("_screen.jsonl"):
+                stats["desc_json"] += 1
+
+        # Single repair count for all unprocessed observe files
+        stats["repair_observe"] = len(observe_info["repairable"])
 
         screen_info = reduce_scan_day(day)
         stats["screen_md"] = len(screen_info["processed"])

@@ -434,6 +434,47 @@ class FileSensor:
         logger.info("Batch processing complete")
 
 
+def scan_day(day_dir: Path) -> dict[str, list[str]]:
+    """Scan a day directory and return lists of raw, processed, and repairable files.
+
+    Files are considered repairable if the source media is still in the day directory
+    (not yet moved to heard/ or seen/ subdirectories).
+
+    Args:
+        day_dir: Path to day directory (YYYYMMDD)
+
+    Returns:
+        Dictionary with:
+        - "raw": List of processed files in heard/ and seen/ subdirs
+        - "processed": List of output JSON files (*_audio.json, *.jsonl)
+        - "repairable": List of unprocessed source media files
+    """
+    # Find raw (processed) files in heard/ and seen/ subdirectories
+    raw = []
+    heard_dir = day_dir / "heard"
+    if heard_dir.is_dir():
+        raw.extend(f"heard/{p.name}" for p in sorted(heard_dir.glob("*.flac")))
+        raw.extend(f"heard/{p.name}" for p in sorted(heard_dir.glob("*.m4a")))
+
+    seen_dir = day_dir / "seen"
+    if seen_dir.is_dir():
+        raw.extend(f"seen/{p.name}" for p in sorted(seen_dir.glob("*.webm")))
+        raw.extend(f"seen/{p.name}" for p in sorted(seen_dir.glob("*.mp4")))
+
+    # Find processed output files
+    processed = sorted(p.name for p in day_dir.glob("*_audio.json"))
+    processed.extend(sorted(p.name for p in day_dir.glob("*_screen.jsonl")))
+
+    # Find repairable (unprocessed) files - source media still in day directory
+    repairable = []
+    repairable.extend(sorted(p.name for p in day_dir.glob("*.flac")))
+    repairable.extend(sorted(p.name for p in day_dir.glob("*.m4a")))
+    repairable.extend(sorted(p.name for p in day_dir.glob("*.webm")))
+    repairable.extend(sorted(p.name for p in day_dir.glob("*.mp4")))
+
+    return {"raw": raw, "processed": processed, "repairable": repairable}
+
+
 def main():
     """CLI entry point."""
     parser = argparse.ArgumentParser(description="Unified observe file processor")

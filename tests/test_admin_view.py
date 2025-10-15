@@ -39,8 +39,7 @@ def test_admin_page_lists_repairables(tmp_path):
     stats = {
         "days": {
             "20240101": {
-                "repair_hear": 1,
-                "repair_see": 0,
+                "repair_observe": 1,
                 "repair_reduce": 0,
                 "repair_ponder": 0,
                 "repair_entity": 0,
@@ -52,7 +51,7 @@ def test_admin_page_lists_repairables(tmp_path):
     with review.app.test_request_context("/admin"):
         html = review.admin_page()
     assert "20240101" in html
-    assert "Hear" in html
+    assert "Sense" in html
 
 
 def test_admin_actions(monkeypatch, tmp_path):

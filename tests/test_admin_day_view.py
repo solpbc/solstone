@@ -11,8 +11,7 @@ def test_admin_day_page(tmp_path, monkeypatch):
     review.journal_root = str(tmp_path)
     with review.app.test_request_context("/admin/20240101"):
         html = review.admin_day_page("20240101")
-    assert "Hear Repair" in html
-    assert "See Repair" in html
+    assert "Sense Repair" in html
     assert "Screen Reduce" in html
     assert "Process Day" in html
 
@@ -35,19 +34,11 @@ def test_admin_day_actions(monkeypatch, tmp_path):
     )
 
     with review.app.test_request_context(
-        "/admin/api/20240101/repair_hear", method="POST"
+        "/admin/api/20240101/sense_repair", method="POST"
     ):
-        resp = review.admin_repair_hear("20240101")
+        resp = review.admin_sense_repair("20240101")
     assert resp.json["status"] == "ok"
-    assert ["hear-transcribe", "--repair", "20240101", "-v"] in called
-
-    called.clear()
-    with review.app.test_request_context(
-        "/admin/api/20240101/repair_see", method="POST"
-    ):
-        resp = review.admin_repair_see("20240101")
-    assert resp.json["status"] == "ok"
-    assert ["see-describe", "--repair", "20240101", "-v"] in called
+    assert ["observe-sense", "--day", "20240101", "-v"] in called
 
     called.clear()
     with review.app.test_request_context(

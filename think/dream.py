@@ -31,11 +31,7 @@ def build_commands(day: str, force: bool, verbose: bool = False) -> list[list[st
     commands: list[list[str]] = []
 
     logging.info("Running repair routines for %s", day)
-    cmd = ["hear-transcribe", "--repair", day]
-    if verbose:
-        cmd.append("-v")
-    commands.append(cmd)
-    cmd = ["see-describe", "--repair", day]
+    cmd = ["observe-sense", "--day", day]
     if verbose:
         cmd.append("-v")
     commands.append(cmd)

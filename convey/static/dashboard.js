@@ -350,10 +350,7 @@ const Dashboard = (function() {
     const progressSection = document.getElementById('progressSection');
     progressSection.innerHTML = ''; // Clear existing content
     progressSection.appendChild(
-      progressCard('Audio Transcription', totals.audio_json || 0, totals.repair_hear || 0)
-    );
-    progressSection.appendChild(
-      progressCard('Screenshot Analysis', totals.desc_json || 0, totals.repair_see || 0)
+      progressCard('Observe Processing', (totals.audio_json || 0) + (totals.desc_json || 0), totals.repair_observe || 0)
     );
     
     // Token usage setup
@@ -421,7 +418,7 @@ const Dashboard = (function() {
     }
     
     // Render repairs if needed
-    const repairs = ['repair_hear', 'repair_see', 'repair_reduce', 'repair_entity', 'repair_summaries'];
+    const repairs = ['repair_observe', 'repair_reduce', 'repair_entity', 'repair_summaries'];
     const hasRepairs = repairs.some(key => (totals[key] || 0) > 0);
 
     if (hasRepairs) {
@@ -433,8 +430,7 @@ const Dashboard = (function() {
 
       const repairGrid = alert.querySelector('#repairGrid');
       const repairLabels = {
-        repair_hear: 'Audio',
-        repair_see: 'Screenshots',
+        repair_observe: 'Observe',
         repair_reduce: 'Summaries',
         repair_entity: 'Entities',
         repair_summaries: 'Topic Summaries'

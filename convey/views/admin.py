@@ -20,8 +20,7 @@ bp = Blueprint("admin", __name__, template_folder="../templates")
 @bp.route("/admin")
 def admin_page() -> str:
     repair_by_cat: dict[str, list[dict[str, Any]]] = {
-        "hear": [],
-        "see": [],
+        "sense": [],
         "reduce": [],
         "summaries": [],
         "entity": [],
@@ -35,8 +34,7 @@ def admin_page() -> str:
                 for day in sorted(data.get("days", {})):
                     d = data["days"].get(day, {})
                     day_info = {
-                        "hear": d.get("repair_hear", 0),
-                        "see": d.get("repair_see", 0),
+                        "sense": d.get("repair_observe", 0),
                         "reduce": d.get("repair_reduce", 0),
                         "summaries": d.get("repair_summaries", 0),
                         "entity": d.get("repair_entity", 0),
@@ -81,8 +79,7 @@ def admin_day_page(day: str) -> str:
         return "", 404
     title = format_date(day)
     prev_day, next_day = adjacent_days(state.journal_root, day)
-    hear_rep = hear_proc = 0
-    see_rep = see_proc = 0
+    sense_rep = sense_proc = 0
     summaries_rep = summaries_proc = 0
     entity_rep = entity_proc = 0
     reduce_rep = reduce_proc = 0
@@ -97,17 +94,14 @@ def admin_day_page(day: str) -> str:
                 day_stats = data.get("days", {}).get(day, {})
 
                 # Extract repair counts
-                hear_rep = day_stats.get("repair_hear", 0)
-                see_rep = day_stats.get("repair_see", 0)
+                sense_rep = day_stats.get("repair_observe", 0)
                 reduce_rep = day_stats.get("repair_reduce", 0)
                 summaries_rep = day_stats.get("repair_summaries", 0)
                 entity_rep = day_stats.get("repair_entity", 0)
 
                 # Extract processed counts
-                # For hear: audio_json indicates processed transcripts
-                hear_proc = day_stats.get("audio_json", 0)
-                # For see: desc_json indicates processed descriptions
-                see_proc = day_stats.get("desc_json", 0)
+                # For sense: audio_json + desc_json indicates processed transcripts + descriptions
+                sense_proc = day_stats.get("audio_json", 0) + day_stats.get("desc_json", 0)
                 # For reduce: screen_md indicates processed screen summaries
                 reduce_proc = day_stats.get("screen_md", 0)
                 # For summaries: summaries_processed is directly available
@@ -123,10 +117,8 @@ def admin_day_page(day: str) -> str:
         title=f"Admin {title}",
         prev_day=prev_day,
         next_day=next_day,
-        hear_rep=hear_rep,
-        hear_proc=hear_proc,
-        see_rep=see_rep,
-        see_proc=see_proc,
+        sense_rep=sense_rep,
+        sense_proc=sense_proc,
         summaries_rep=summaries_rep,
         summaries_proc=summaries_proc,
         entity_rep=entity_rep,
@@ -136,21 +128,12 @@ def admin_day_page(day: str) -> str:
     )
 
 
-@bp.route("/admin/api/<day>/repair_hear", methods=["POST"])
-def admin_repair_hear(day: str) -> Any:
+@bp.route("/admin/api/<day>/sense_repair", methods=["POST"])
+def admin_sense_repair(day: str) -> Any:
     if not _valid_day(day):
         return jsonify({"error": "invalid day"}), 404
 
-    run_task("hear_repair", day)
-    return jsonify({"status": "ok"})
-
-
-@bp.route("/admin/api/<day>/repair_see", methods=["POST"])
-def admin_repair_see(day: str) -> Any:
-    if not _valid_day(day):
-        return jsonify({"error": "invalid day"}), 404
-
-    run_task("see_repair", day)
+    run_task("sense_repair", day)
     return jsonify({"status": "ok"})
 
 
