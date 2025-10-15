@@ -1159,7 +1159,36 @@ function loadEntities() {
   fetch(`/api/domains/${encodeURIComponent(domainName)}/entities`)
     .then(response => response.json())
     .then(data => {
-      entitiesData = data;
+      // Transform new API format {attached, detected} to old format {all_entities}
+      const all_entities = [];
+
+      // Add attached entities with starred=true
+      if (data.attached) {
+        data.attached.forEach(entity => {
+          all_entities.push({
+            type: entity.type,
+            name: entity.name,
+            desc: entity.description,
+            starred: true
+          });
+        });
+      }
+
+      // Add detected entities with starred=false
+      if (data.detected) {
+        data.detected.forEach(entity => {
+          all_entities.push({
+            type: entity.type,
+            name: entity.name,
+            desc: entity.description,
+            starred: false,
+            count: entity.count,
+            last_seen: entity.last_seen
+          });
+        });
+      }
+
+      entitiesData = { all_entities };
       renderEntities();
       document.getElementById('entities-loading').style.display = 'none';
       document.getElementById('entities-content').style.display = 'block';
@@ -1372,22 +1401,30 @@ function renderEntities(searchTerm = '') {
 
 function createEntityRow(entity, isDomainSection) {
   const row = document.createElement('tr');
-  
+
   const starCell = document.createElement('td');
   const starButton = document.createElement('button');
   starButton.className = `star-button ${entity.starred ? 'starred' : 'unstarred'}`;
   starButton.innerHTML = entity.starred ? '★' : '☆';
   starButton.onclick = () => toggleEntityStar(entity, starButton);
   starCell.appendChild(starButton);
-  
+
   const typeCell = document.createElement('td');
   typeCell.className = 'entity-type';
   typeCell.textContent = entity.type;
-  
+
   const nameCell = document.createElement('td');
   nameCell.className = 'entity-name';
   nameCell.textContent = entity.name;
-  
+
+  // Add detection count badge for detected entities
+  if (!entity.starred && entity.count && entity.count > 1) {
+    const badge = document.createElement('span');
+    badge.style.cssText = 'margin-left: 8px; background: #e3f2fd; color: #1976d2; padding: 2px 8px; border-radius: 12px; font-size: 0.8em; font-weight: 500;';
+    badge.textContent = `${entity.count} detections`;
+    nameCell.appendChild(badge);
+  }
+
   const descCell = document.createElement('td');
   descCell.className = 'entity-desc';
   if (entity.desc) {
@@ -1397,12 +1434,12 @@ function createEntityRow(entity, isDomainSection) {
     descCell.innerHTML = `<span class="no-entity-desc" onclick="openEntityDescriptionEditor('${entity.type}', '${entity.name.replace(/'/g, "\\'")}', '')">Add description...</span> <span class="entity-edit-btn" onclick="openEntityDescriptionEditor('${entity.type}', '${entity.name.replace(/'/g, "\\'")}', '')" title="Add description">✨</span>`;
     descCell.classList.add('no-entity-desc-cell');
   }
-  
+
   row.appendChild(starCell);
   row.appendChild(typeCell);
   row.appendChild(nameCell);
   row.appendChild(descCell);
-  
+
   return row;
 }
 
