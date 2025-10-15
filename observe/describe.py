@@ -283,8 +283,6 @@ class VideoProcessor:
                             # Store grayscale numpy array for comparison
                             gray_arr = frame.to_ndarray(format="gray")
                             last_qualified[monitor_id] = gray_arr
-                            # Nullify frame reference
-                            frame = None
 
                             logger.debug(
                                 f"Monitor {monitor_id}: First frame at {timestamp:.2f}s"
