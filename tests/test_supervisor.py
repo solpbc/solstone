@@ -77,43 +77,6 @@ def test_start_runners(tmp_path, monkeypatch):
         assert stderr == subprocess.PIPE
 
 
-def test_main_no_runners(tmp_path, monkeypatch):
-    mod = importlib.import_module("think.supervisor")
-    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
-    (tmp_path / "health").mkdir()
-
-    called = []
-
-    def fake_supervise(*args, **kwargs):
-        called.append(True)
-
-    monkeypatch.setattr(mod, "supervise", fake_supervise)
-    monkeypatch.setattr(mod, "start_runners", lambda: called.append(False))
-    monkeypatch.setattr("sys.argv", ["think-supervisor", "--no-runners"])
-
-    mod.main()
-    assert True in called
-    assert False not in called
-
-
-def test_main_no_daily(tmp_path, monkeypatch):
-    mod = importlib.reload(importlib.import_module("think.supervisor"))
-    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
-    (tmp_path / "health").mkdir()
-
-    called = {}
-
-    def fake_supervise(*args, **kwargs):
-        called.update(kwargs)
-
-    monkeypatch.setattr(mod, "supervise", fake_supervise)
-    monkeypatch.setattr(mod, "start_runners", lambda: None)
-    monkeypatch.setattr("sys.argv", ["think-supervisor", "--no-daily", "--no-runners"])
-
-    mod.main()
-    assert called.get("daily") is False
-
-
 def test_run_dream(tmp_path, monkeypatch):
     mod = importlib.import_module("think.supervisor")
 

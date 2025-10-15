@@ -240,11 +240,11 @@ def test_gemini_generate_token_logging():
         # Model name may have "models/" prefix
         assert log_data["model"] in [GEMINI_FLASH, f"models/{GEMINI_FLASH}"]
         assert "usage" in log_data
-        assert "prompt_tokens" in log_data["usage"]
-        assert "candidates_tokens" in log_data["usage"]
+        assert "input_tokens" in log_data["usage"]
+        assert "output_tokens" in log_data["usage"]
         assert "total_tokens" in log_data["usage"]
-        assert log_data["usage"]["prompt_tokens"] > 0
-        assert log_data["usage"]["candidates_tokens"] > 0
+        assert log_data["usage"]["input_tokens"] > 0
+        assert log_data["usage"]["output_tokens"] > 0
 
 
 @pytest.mark.integration
@@ -521,11 +521,11 @@ async def test_gemini_agenerate_token_logging():
         # Model name may have "models/" prefix
         assert log_data["model"] in [GEMINI_FLASH, f"models/{GEMINI_FLASH}"]
         assert "usage" in log_data
-        assert "prompt_tokens" in log_data["usage"]
-        assert "candidates_tokens" in log_data["usage"]
+        assert "input_tokens" in log_data["usage"]
+        assert "output_tokens" in log_data["usage"]
         assert "total_tokens" in log_data["usage"]
-        assert log_data["usage"]["prompt_tokens"] > 0
-        assert log_data["usage"]["candidates_tokens"] > 0
+        assert log_data["usage"]["input_tokens"] > 0
+        assert log_data["usage"]["output_tokens"] > 0
 
 
 @pytest.mark.asyncio

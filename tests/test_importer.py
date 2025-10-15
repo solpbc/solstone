@@ -176,8 +176,8 @@ def test_audio_transcribe_sanitizes_entities(tmp_path, monkeypatch):
 
     assert captured
     assert captured[0] == [
-        "Test Person (TP)",
-        "Test Initiative (TI)",
+        "Test",  # First name from "Test Person (TP)"
+        "TP",    # Nickname from "Test Person (TP)"
     ]
 
 

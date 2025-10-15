@@ -191,23 +191,5 @@ def test_search_raws_time_order(tmp_path):
     assert [r["metadata"]["time"] for r in results] == ["090000", "123000"]
 
 
-def test_entities_index(tmp_path):
-    mod = importlib.import_module("think.indexer")
-    journal = tmp_path
-    os.environ["JOURNAL_PATH"] = str(journal)
-
-    (journal / "entities.md").write_text("* Person: Alice - Example\n")
-    day = journal / "20240108"
-    day.mkdir()
-    (day / "entities.md").write_text("* Project: Sunstone\n")
-
-    mod.scan_entities(str(journal), verbose=True)
-
-    total, results = mod.search_entities("Alice", limit=1)
-    assert total == 2
-    assert results[0]["metadata"]["top"] is True
-
-    total_proj, results_proj = mod.search_entities("", etype="Project", limit=1)
-    assert total_proj == 2
-    assert results_proj[0]["metadata"]["first_seen"] == "20240108"
-    assert (journal / "indexer" / "entities.sqlite").exists()
+# test_entities_index removed - tested old behavior where top-level and day-level
+# entities were indexed. Now only domain-scoped entities are indexed.

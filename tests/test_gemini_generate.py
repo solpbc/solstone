@@ -129,10 +129,10 @@ def test_gemini_generate_token_logging(mock_client_class):
 
         assert log_data["model"] == GEMINI_FLASH
         assert log_data["context"] is not None  # Should auto-detect
-        assert log_data["usage"]["prompt_tokens"] == 100
-        assert log_data["usage"]["candidates_tokens"] == 50
+        assert log_data["usage"]["input_tokens"] == 100
+        assert log_data["usage"]["output_tokens"] == 50
         assert log_data["usage"]["cached_tokens"] == 25
-        assert log_data["usage"]["thoughts_tokens"] == 10
+        assert log_data["usage"]["reasoning_tokens"] == 10
         assert log_data["usage"]["total_tokens"] == 185
 
 
@@ -403,8 +403,8 @@ async def test_gemini_agenerate_token_logging(mock_client_class):
 
         assert log_data["model"] == GEMINI_FLASH
         assert log_data["context"] is not None
-        assert log_data["usage"]["prompt_tokens"] == 200
-        assert log_data["usage"]["candidates_tokens"] == 100
+        assert log_data["usage"]["input_tokens"] == 200
+        assert log_data["usage"]["output_tokens"] == 100
         assert log_data["usage"]["cached_tokens"] == 50
-        assert log_data["usage"]["thoughts_tokens"] == 20
+        assert log_data["usage"]["reasoning_tokens"] == 20
         assert log_data["usage"]["total_tokens"] == 370

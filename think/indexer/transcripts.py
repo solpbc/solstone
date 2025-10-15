@@ -10,7 +10,6 @@ from typing import Dict, List
 
 import sqlite_utils
 
-from observe.reduce import load_analysis_frames
 from think.utils import day_dirs
 
 from .core import _scan_files, get_index
@@ -84,6 +83,9 @@ def _parse_screen_jsonl(path: str) -> List[tuple[str, str]]:
     (or monitor name if position not available).
     """
     texts: List[tuple[str, str]] = []
+
+    # Lazy import to avoid dependency issues during module init
+    from observe.utils import load_analysis_frames
 
     # Use shared loading logic from observe module
     frames = load_analysis_frames(Path(path))

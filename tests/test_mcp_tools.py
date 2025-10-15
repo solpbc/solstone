@@ -12,10 +12,10 @@ def test_todo_list_success_returns_numbered_markdown():
         "load",
         return_value=mock_checklist,
     ) as load_mock:
-        result = mcp_tools.todo_list("20240101")
+        result = mcp_tools.todo_list("20240101", "test")
 
-    load_mock.assert_called_once_with("20240101")
-    assert result == {"day": "20240101", "markdown": "1: - [ ] Investigate"}
+    load_mock.assert_called_once_with("20240101", "test")
+    assert result == {"day": "20240101", "domain": "test", "markdown": "1: - [ ] Investigate"}
     mock_checklist.numbered.assert_called_once_with()
 
 
