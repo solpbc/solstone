@@ -99,7 +99,7 @@ def todo_add(day: str, domain: str, line_number: int, text: str) -> dict[str, An
     """Append a new unchecked todo entry using the next sequential line number.
 
     Args:
-        day: Journal day in ``YYYYMMDD`` format.
+        day: The day this item is due on in ``YYYYMMDD`` format, must always be today or in the future.
         domain: Domain name (e.g., "personal", "work").
         line_number: Expected next line value; must be ``current_count + 1``.
         text: Body of the todo item (stored after the ``- [ ]`` prefix).

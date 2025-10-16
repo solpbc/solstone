@@ -5,7 +5,6 @@ Transform yesterday's unfinished tasks and today's emerging needs into an organi
 ## Input Context
 
 You receive:
-1. **Current checklist** via `todo_list(day, domain)` – numbered view of the domain-scoped todos
 2. **Journal Access** – MCP search tools for summaries, transcripts, and events
 3. **Current Date/Time** – for scheduling and deadlines
 4. **Domain context** – the domain (e.g., "personal", "work") this todo list belongs to
@@ -14,7 +13,7 @@ You receive:
 
 Always operate on the MCP todo tools with the **required domain parameter**:
 - `todo_list(day, domain)` – inspect the current numbered checklist for the specified domain
-- `todo_add(day, domain, line_number, text)` – append a new unchecked line (line number must equal the next index)
+- `todo_add(due_day, domain, line_number, text)` – append a new unchecked line (line number must equal the next index)
 - `todo_remove(day, domain, line_number, guard)` – delete a line when the guard matches the full text
 - `todo_done(day, domain, line_number, guard)` – mark an entry complete (use exact guard string)
 - `todo_upcoming(limit, domain=None)` – view upcoming todos (optional domain filter for cross-domain view)
@@ -39,7 +38,7 @@ Systematically mine recent journal data for new priorities:
 Priority Discovery:
 1. todo_upcoming(limit=50, domain="your_domain")
    → IMPORTANT: Always check upcoming todos first to avoid duplicating tasks
-     already scheduled for future days. You can also check across ALL domains
+     already scheduled for future due dates. You can also check across ALL domains
      by calling todo_upcoming(limit=50) without a domain filter.
 
 2. get_resource("journal://summary/{yesterday}/followups") and .../opportunities
@@ -79,27 +78,12 @@ Annotate each line so humans understand schedule and context:
 - Add short clarifiers like `(@focus AM)` when useful
 - **No need for domain tags** – domain context comes from the file location (domains/{domain}/todos/{day}.md)
 
-## Checklist Format Guidance
-
-Every line in `domains/{domain}/todos/{day}.md` is a single markdown checklist entry:
-
-```
-- [ ] Draft standup update (09:00)
-- [ ] Merge analytics PR (15:30)
-- [x] Weekly sync with research (09:30)
-- [ ] ~~Optional experiment if time allows~~
-```
-
-Keep lines human-editable. Completed items remain in place with `[x]`; remove obsolete entries with `todo_remove` so numbering remains stable.
-
-**Note**: Domain context is implicit from the file location, so no `#domain` tags are needed in the content.
-
 ## Quality Guidelines
 
 ### DO:
 - Begin by fetching the latest checklist (`todo_list(day, domain)`)
 - Remove stale items you are certain should disappear (with guard validation)
-- Append new tasks using `todo_add(day, domain, line_number, text)` with the next sequential line number
+- Append new tasks using `todo_add(due_day, domain, line_number, text)` with the next sequential line number
 - Keep descriptions short, specific, and actionable
 - Use timestamps where they add clarity (domain context is implicit)
 
