@@ -290,7 +290,8 @@ class CortexService:
             config = get_agent(persona)
 
             # Merge request into config (request values override persona defaults)
-            config.update(request)
+            # Only override with non-None values from request to preserve persona defaults
+            config.update({k: v for k, v in request.items() if v is not None})
             config["agent_id"] = agent_id
 
             # Capture handoff configuration for post-run processing while
