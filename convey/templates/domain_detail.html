@@ -2317,12 +2317,23 @@ appEvents.listen('domains', function(event) {
   // Only process events for our entity assist agent
   if (!entityAssistAgentId || event.agent_id !== entityAssistAgentId) return;
 
-  if (event.event === 'finish' || event.event === 'error') {
+  if (event.event === 'finish') {
     // Clear the agent ID
     entityAssistAgentId = null;
 
     // Refresh the page to show the new entity
     location.reload();
+  } else if (event.event === 'error') {
+    // Clear the agent ID
+    entityAssistAgentId = null;
+
+    // Remove the generating row
+    const genRow = document.getElementById('entity-assist-generating-row');
+    if (genRow) genRow.remove();
+
+    // Show error message
+    const errorMsg = event.error || 'Unknown error occurred';
+    alert('Error creating entity: ' + errorMsg);
   }
 });
 </script>
