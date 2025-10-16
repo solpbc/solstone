@@ -25,6 +25,7 @@ _scheduled_state = {
     "pending_groups": [],  # List of (priority, [(persona_id, config, yesterday)])
     "active_files": [],  # List of Path objects for current priority group
     "start_time": 0,  # When current group started
+    "rescan_pending": False,  # Whether domain rescan needs to run
 }
 
 
@@ -218,6 +219,26 @@ def run_dream() -> bool:
     return return_code == 0
 
 
+def run_domain_rescan() -> bool:
+    """Run ``think-indexer --rescan-domains`` while mirroring output to a dedicated log.
+
+    Returns ``True`` when the subprocess exits successfully.
+    """
+
+    start = time.time()
+    managed = _launch_process(
+        "domain_rescan", ["think-indexer", "--rescan-domains"], log_name="domain_rescan"
+    )
+    try:
+        return_code = managed.process.wait()
+    finally:
+        managed.cleanup()
+
+    duration = int(time.time() - start)
+    logging.info("think-indexer --rescan-domains finished in %s seconds", duration)
+    return return_code == 0
+
+
 def spawn_scheduled_agents() -> None:
     """Prepare scheduled agents grouped by priority for sequential execution."""
     try:
@@ -243,6 +264,7 @@ def spawn_scheduled_agents() -> None:
         ]
         _scheduled_state["active_files"] = []
         _scheduled_state["start_time"] = 0
+        _scheduled_state["rescan_pending"] = True
 
         total_agents = sum(
             len(agents_list) for _, agents_list in _scheduled_state["pending_groups"]
@@ -265,6 +287,14 @@ def check_scheduled_agents() -> None:
 
     # Nothing to do if no pending groups and no active agents
     if not state["pending_groups"] and not state["active_files"]:
+        # Check if domain rescan is pending
+        if state["rescan_pending"]:
+            logging.info("All agent groups completed, running domain rescan...")
+            state["rescan_pending"] = False
+            if run_domain_rescan():
+                logging.info("Domain rescan completed successfully")
+            else:
+                logging.warning("Domain rescan failed or exited with error")
         return
 
     # Check if current priority group is done
@@ -297,6 +327,7 @@ def check_scheduled_agents() -> None:
     if shutdown_requested:
         state["pending_groups"] = []
         state["active_files"] = []
+        state["rescan_pending"] = False
         return
 
     # Spawn next priority group
