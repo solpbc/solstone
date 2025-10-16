@@ -166,19 +166,31 @@ class JournalStats:
                 if model not in self.token_totals:
                     self.token_totals[model] = {}
 
+                # Normalize token field names for compatibility
+                # Old format -> New format mapping
+                field_mapping = {
+                    "prompt_tokens": "input_tokens",
+                    "candidates_tokens": "output_tokens",
+                    "thoughts_tokens": "reasoning_tokens",
+                }
+
                 # Add token counts for each type
                 for token_type, count in usage.items():
                     if not isinstance(count, int):
                         continue
+
+                    # Normalize field name (convert old names to new names)
+                    normalized_type = field_mapping.get(token_type, token_type)
+
                     # Add to day's model totals
-                    if token_type not in self.token_usage[file_date][model]:
-                        self.token_usage[file_date][model][token_type] = 0
-                    self.token_usage[file_date][model][token_type] += count
+                    if normalized_type not in self.token_usage[file_date][model]:
+                        self.token_usage[file_date][model][normalized_type] = 0
+                    self.token_usage[file_date][model][normalized_type] += count
 
                     # Add to overall model totals
-                    if token_type not in self.token_totals[model]:
-                        self.token_totals[model][token_type] = 0
-                    self.token_totals[model][token_type] += count
+                    if normalized_type not in self.token_totals[model]:
+                        self.token_totals[model][normalized_type] = 0
+                    self.token_totals[model][normalized_type] += count
 
             except (json.JSONDecodeError, OSError, KeyError):
                 continue
@@ -234,9 +246,9 @@ class JournalStats:
                 tokens = self.token_totals[model]
                 total = tokens.get("total_tokens", 0)
 
-                # Use unified field names (input/output) with fallback to old names
-                input_tokens = tokens.get("input_tokens", tokens.get("prompt_tokens", 0))
-                output_tokens = tokens.get("output_tokens", tokens.get("candidates_tokens", 0))
+                # Use normalized field names (old formats already converted during scan)
+                input_tokens = tokens.get("input_tokens", 0)
+                output_tokens = tokens.get("output_tokens", 0)
 
                 print(f"  {model}:")
                 print(
@@ -245,7 +257,7 @@ class JournalStats:
 
                 # Show optional fields if present
                 cached = tokens.get("cached_tokens", 0)
-                reasoning = tokens.get("reasoning_tokens", tokens.get("thoughts_tokens", 0))
+                reasoning = tokens.get("reasoning_tokens", 0)
                 requests = tokens.get("requests", 0)
 
                 if cached > 0 or reasoning > 0 or requests > 0:
@@ -319,11 +331,11 @@ class JournalStats:
                 tokens = self.token_totals[model]
                 total = tokens.get("total_tokens", 0)
 
-                # Use unified field names (input/output) with fallback to old names
-                input_tokens = tokens.get("input_tokens", tokens.get("prompt_tokens", 0))
-                output_tokens = tokens.get("output_tokens", tokens.get("candidates_tokens", 0))
+                # Use normalized field names (old formats already converted during scan)
+                input_tokens = tokens.get("input_tokens", 0)
+                output_tokens = tokens.get("output_tokens", 0)
                 cached = tokens.get("cached_tokens", 0)
-                reasoning = tokens.get("reasoning_tokens", tokens.get("thoughts_tokens", 0))
+                reasoning = tokens.get("reasoning_tokens", 0)
                 requests = tokens.get("requests", 0)
 
                 lines.append(f"### {model}")

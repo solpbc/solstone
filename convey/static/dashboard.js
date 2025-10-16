@@ -126,27 +126,27 @@ const Dashboard = (function() {
     // Calculate max total for scaling
     let maxTotal = 0;
     const chartData = days.map(day => {
-      let prompt = 0, thoughts = 0, candidates = 0;
-      
+      let input = 0, reasoning = 0, output = 0;
+
       if (model === 'total') {
         // Sum all models for this day
         const dayModels = tokenData[day] || {};
         Object.values(dayModels).forEach(modelData => {
-          prompt += modelData.prompt_tokens || 0;
-          thoughts += modelData.thoughts_tokens || 0;
-          candidates += modelData.candidates_tokens || 0;
+          input += modelData.input_tokens || 0;
+          reasoning += modelData.reasoning_tokens || 0;
+          output += modelData.output_tokens || 0;
         });
       } else {
         // Single model data
         const dayData = tokenData[day][model] || {};
-        prompt = dayData.prompt_tokens || 0;
-        thoughts = dayData.thoughts_tokens || 0;
-        candidates = dayData.candidates_tokens || 0;
+        input = dayData.input_tokens || 0;
+        reasoning = dayData.reasoning_tokens || 0;
+        output = dayData.output_tokens || 0;
       }
-      
-      const total = prompt + thoughts + candidates;
+
+      const total = input + reasoning + output;
       maxTotal = Math.max(maxTotal, total);
-      return { day, prompt, thoughts, candidates, total };
+      return { day, input, reasoning, output, total };
     });
 
     if (maxTotal === 0) {
@@ -170,26 +170,26 @@ const Dashboard = (function() {
       
       // Calculate segment heights as percentages of the bar
       if (d.total > 0) {
-        const promptPct = (d.prompt / d.total) * 100;
-        const thoughtsPct = (d.thoughts / d.total) * 100;
-        const candidatesPct = (d.candidates / d.total) * 100;
-        
-        if (d.candidates > 0) {
+        const inputPct = (d.input / d.total) * 100;
+        const reasoningPct = (d.reasoning / d.total) * 100;
+        const outputPct = (d.output / d.total) * 100;
+
+        if (d.output > 0) {
           stack.appendChild(el('div', {
-            className: 'stack-segment candidates',
-            style: {height: `${candidatesPct}%`}
+            className: 'stack-segment output',
+            style: {height: `${outputPct}%`}
           }));
         }
-        if (d.thoughts > 0) {
+        if (d.reasoning > 0) {
           stack.appendChild(el('div', {
-            className: 'stack-segment thoughts',
-            style: {height: `${thoughtsPct}%`}
+            className: 'stack-segment reasoning',
+            style: {height: `${reasoningPct}%`}
           }));
         }
-        if (d.prompt > 0) {
+        if (d.input > 0) {
           stack.appendChild(el('div', {
-            className: 'stack-segment prompt',
-            style: {height: `${promptPct}%`}
+            className: 'stack-segment input',
+            style: {height: `${inputPct}%`}
           }));
         }
       }
@@ -207,7 +207,7 @@ const Dashboard = (function() {
           formatted = String(d.total);
         }
         bar.appendChild(el('div', {className: 'bar-value'}, [formatted]));
-        bar.setAttribute('title', `Prompt: ${d.prompt}, Thoughts: ${d.thoughts}, Response: ${d.candidates}`);
+        bar.setAttribute('title', `Input: ${d.input}, Reasoning: ${d.reasoning}, Output: ${d.output}`);
       }
       
       chart.appendChild(bar);
@@ -219,15 +219,15 @@ const Dashboard = (function() {
     const legend = el('div', {className: 'token-legend'}, [
       el('div', {className: 'legend-item'}, [
         el('div', {className: 'legend-color', style: {background: '#667eea'}}),
-        'Prompt'
+        'Input'
       ]),
       el('div', {className: 'legend-item'}, [
         el('div', {className: 'legend-color', style: {background: '#9b59b6'}}),
-        'Thoughts'
+        'Reasoning'
       ]),
       el('div', {className: 'legend-item'}, [
         el('div', {className: 'legend-color', style: {background: '#e91e63'}}),
-        'Response'
+        'Output'
       ])
     ]);
     container.appendChild(legend);

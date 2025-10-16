@@ -99,6 +99,82 @@ def add_module_stubs(request, monkeypatch):
             observe_pkg = types.ModuleType("observe")
             sys.modules["observe"] = observe_pkg
         setattr(observe_pkg, "detect", detect_mod)
+    if "observe.sense" not in sys.modules:
+        sense_mod = types.ModuleType("observe.sense")
+
+        def scan_day(day_dir):
+            # Stub matching real scan_day behavior:
+            # - "raw": processed files in heard/ and seen/ subdirs
+            # - "processed": output JSON files in day root
+            # - "repairable": source media files in day root without matching JSON
+            from pathlib import Path
+
+            day_path = Path(day_dir)
+            raw_files = []
+            processed_files = []
+            repairable_files = []
+
+            if day_path.is_dir():
+                # Find raw (processed) files in heard/ and seen/ subdirectories
+                heard_dir = day_path / "heard"
+                if heard_dir.is_dir():
+                    for p in heard_dir.glob("*.flac"):
+                        raw_files.append(f"heard/{p.name}")
+                    for p in heard_dir.glob("*.m4a"):
+                        raw_files.append(f"heard/{p.name}")
+
+                seen_dir = day_path / "seen"
+                if seen_dir.is_dir():
+                    for p in seen_dir.glob("*.webm"):
+                        raw_files.append(f"seen/{p.name}")
+                    for p in seen_dir.glob("*.mp4"):
+                        raw_files.append(f"seen/{p.name}")
+
+                # Find processed output files in day root
+                for p in day_path.glob("*_audio.json"):
+                    processed_files.append(p.name)
+                for p in day_path.glob("*_screen.jsonl"):
+                    processed_files.append(p.name)
+
+                # Find repairable files (source media in root without matching JSON)
+                for audio_ext in ["*.flac", "*.m4a"]:
+                    for p in day_path.glob(audio_ext):
+                        json_file = p.with_name(p.stem + "_audio.json")
+                        if not json_file.exists():
+                            repairable_files.append(p.name)
+
+                for video_ext in ["*.webm", "*.mp4"]:
+                    for p in day_path.glob(video_ext):
+                        jsonl_file = p.with_name(p.stem + "_screen.jsonl")
+                        if not jsonl_file.exists():
+                            repairable_files.append(p.name)
+
+            return {
+                "raw": raw_files,
+                "processed": processed_files,
+                "repairable": repairable_files,
+            }
+
+        sense_mod.scan_day = scan_day
+        sys.modules["observe.sense"] = sense_mod
+        observe_pkg = sys.modules.get("observe")
+        if observe_pkg is None:
+            observe_pkg = types.ModuleType("observe")
+            sys.modules["observe"] = observe_pkg
+        setattr(observe_pkg, "sense", sense_mod)
+    if "observe.utils" not in sys.modules:
+        utils_mod = types.ModuleType("observe.utils")
+
+        def load_analysis_frames(path):
+            return []
+
+        utils_mod.load_analysis_frames = load_analysis_frames
+        sys.modules["observe.utils"] = utils_mod
+        observe_pkg = sys.modules.get("observe")
+        if observe_pkg is None:
+            observe_pkg = types.ModuleType("observe")
+            sys.modules["observe"] = observe_pkg
+        setattr(observe_pkg, "utils", utils_mod)
     if "gi" not in sys.modules:
         gi_mod = types.ModuleType("gi")
         gi_mod.require_version = lambda *a, **k: None
