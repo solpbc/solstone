@@ -203,21 +203,21 @@ def log_token_usage(
         # Build token log entry
         token_data = {
             "timestamp": time.time(),
-            "timestamp_str": time.strftime("%Y%m%d_%H%M%S"),
             "model": model,
             "context": context,
             "usage": normalized_usage,
         }
 
-        # Save to journal/tokens/<timestamp>.json
+        # Save to journal/tokens/<YYYYMMDD>.jsonl (one file per day)
         tokens_dir = Path(journal) / "tokens"
         tokens_dir.mkdir(exist_ok=True)
 
-        filename = f"{int(time.time() * 1000)}.json"
+        filename = time.strftime("%Y%m%d.jsonl")
         filepath = tokens_dir / filename
 
-        with open(filepath, "w") as f:
-            json.dump(token_data, f, indent=2)
+        # Atomic append - safe for parallel writers
+        with open(filepath, "a") as f:
+            f.write(json.dumps(token_data) + "\n")
 
     except Exception:
         # Silently fail - logging shouldn't break the main flow

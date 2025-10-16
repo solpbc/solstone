@@ -136,64 +136,76 @@ class JournalStats:
         self.total_image_bytes += image_bytes
 
     def scan_all_tokens(self, journal_path: Path) -> None:
-        """Scan all token usage files in the tokens directory."""
+        """Scan all token usage files in the tokens directory.
+
+        Supports both old format (individual *.json files) and new format (daily *.jsonl files).
+        """
         tokens_dir = journal_path / "tokens"
         if not tokens_dir.is_dir():
             return
 
-        # Scan all token files in the tokens directory
-        for token_file in tokens_dir.glob("*.json"):
+        # Scan both old JSON files and new JSONL files
+        all_token_files = list(tokens_dir.glob("*.json")) + list(tokens_dir.glob("*.jsonl"))
+
+        for token_file in all_token_files:
             try:
                 with open(token_file, "r", encoding="utf-8") as f:
-                    data = json.load(f)
+                    # Handle JSONL files (one JSON object per line)
+                    if token_file.suffix == ".jsonl":
+                        for line in f:
+                            line = line.strip()
+                            if not line:
+                                continue
+                            try:
+                                data = json.loads(line)
+                                self._process_token_entry(data)
+                            except json.JSONDecodeError:
+                                continue
+                    # Handle old individual JSON files
+                    else:
+                        data = json.load(f)
+                        self._process_token_entry(data)
 
-                # Extract date from timestamp_str (YYYYMMDD_HHMMSS)
-                timestamp_str = data.get("timestamp_str", "")
-                if not timestamp_str:
-                    continue
-
-                file_date = timestamp_str.split("_")[0]
-                model = data.get("model", "unknown")
-                usage = data.get("usage", {})
-
-                # Initialize day's token usage if not exists
-                if file_date not in self.token_usage:
-                    self.token_usage[file_date] = {}
-
-                # Initialize model entry if not exists
-                if model not in self.token_usage[file_date]:
-                    self.token_usage[file_date][model] = {}
-                if model not in self.token_totals:
-                    self.token_totals[model] = {}
-
-                # Normalize token field names for compatibility
-                # Old format -> New format mapping
-                field_mapping = {
-                    "prompt_tokens": "input_tokens",
-                    "candidates_tokens": "output_tokens",
-                    "thoughts_tokens": "reasoning_tokens",
-                }
-
-                # Add token counts for each type
-                for token_type, count in usage.items():
-                    if not isinstance(count, int):
-                        continue
-
-                    # Normalize field name (convert old names to new names)
-                    normalized_type = field_mapping.get(token_type, token_type)
-
-                    # Add to day's model totals
-                    if normalized_type not in self.token_usage[file_date][model]:
-                        self.token_usage[file_date][model][normalized_type] = 0
-                    self.token_usage[file_date][model][normalized_type] += count
-
-                    # Add to overall model totals
-                    if normalized_type not in self.token_totals[model]:
-                        self.token_totals[model][normalized_type] = 0
-                    self.token_totals[model][normalized_type] += count
-
-            except (json.JSONDecodeError, OSError, KeyError):
+            except (OSError, KeyError):
                 continue
+
+    def _process_token_entry(self, data: dict) -> None:
+        """Process a single token usage entry (expects normalized format)."""
+        from datetime import datetime
+
+        # Extract date from timestamp
+        timestamp = data.get("timestamp")
+        if not timestamp:
+            return
+
+        file_date = datetime.fromtimestamp(timestamp).strftime("%Y%m%d")
+        model = data.get("model", "unknown")
+        usage = data.get("usage", {})
+
+        # Initialize day's token usage if not exists
+        if file_date not in self.token_usage:
+            self.token_usage[file_date] = {}
+
+        # Initialize model entry if not exists
+        if model not in self.token_usage[file_date]:
+            self.token_usage[file_date][model] = {}
+        if model not in self.token_totals:
+            self.token_totals[model] = {}
+
+        # Add token counts (all fields are already normalized by migration)
+        for token_type, count in usage.items():
+            if not isinstance(count, int):
+                continue
+
+            # Add to day's model totals
+            if token_type not in self.token_usage[file_date][model]:
+                self.token_usage[file_date][model][token_type] = 0
+            self.token_usage[file_date][model][token_type] += count
+
+            # Add to overall model totals
+            if token_type not in self.token_totals[model]:
+                self.token_totals[model][token_type] = 0
+            self.token_totals[model][token_type] += count
 
     def scan(self, journal: str, verbose: bool = False) -> None:
         days_map = day_dirs()
