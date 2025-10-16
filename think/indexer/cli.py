@@ -46,6 +46,11 @@ def main() -> None:
         help="Scan journal and update all indexes",
     )
     parser.add_argument(
+        "--rescan-domains",
+        action="store_true",
+        help="Scan domains/ directory and update entity and news indexes",
+    )
+    parser.add_argument(
         "--reset",
         action="store_true",
         help="Remove the selected index before optional rescan",
@@ -72,23 +77,27 @@ def main() -> None:
 
     args = setup_cli(parser)
 
-    # Require either --rescan, --rescan-all, --reset, or -q
+    # Require either --rescan, --rescan-all, --rescan-domains, --reset, or -q
     if (
         not args.rescan
         and not args.rescan_all
+        and not args.rescan_domains
         and not args.reset
         and args.query is None
     ):
         parser.print_help()
         return
 
-    # Validate --index is required unless using --rescan-all
+    # Validate --index is required unless using --rescan-all or --rescan-domains
     if (
         not args.rescan_all
+        and not args.rescan_domains
         and not args.index
         and (args.rescan or args.reset or args.query is not None)
     ):
-        parser.error("--index is required unless using --rescan-all")
+        parser.error(
+            "--index is required unless using --rescan-all or --rescan-domains"
+        )
 
     journal = os.getenv("JOURNAL_PATH")
 
@@ -114,6 +123,19 @@ def main() -> None:
                 if changed:
                     journal_log(f"indexer {index_name} rescan ok")
             elif index_name == "entities":
+                changed = scan_entities(journal, verbose=args.verbose)
+                if changed:
+                    journal_log(f"indexer {index_name} rescan ok")
+            elif index_name == "news":
+                changed = scan_news(journal, verbose=args.verbose)
+                if changed:
+                    journal_log(f"indexer {index_name} rescan ok")
+
+    if args.rescan_domains:
+        # Rescan only domain-based indexes
+        domain_indexes = ["entities", "news"]
+        for index_name in domain_indexes:
+            if index_name == "entities":
                 changed = scan_entities(journal, verbose=args.verbose)
                 if changed:
                     journal_log(f"indexer {index_name} rescan ok")
