@@ -569,6 +569,76 @@
   opacity: 0.8;
 }
 
+/* Entity assistant inline add */
+.add-entity-button {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 20px;
+  cursor: pointer;
+  font-size: 0.9em;
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s;
+  margin: 0 0 12px 20px;
+}
+
+.add-entity-button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+}
+
+.entity-input-row td {
+  padding: 0 !important;
+}
+
+.entity-input-row input {
+  width: 100%;
+  border: 2px solid #667eea;
+  border-radius: 0;
+  padding: 12px;
+  font-size: 1em;
+  font-family: inherit;
+  box-sizing: border-box;
+  outline: none;
+}
+
+.entity-input-row input::placeholder {
+  color: #999;
+  font-style: italic;
+}
+
+.entity-generating-row {
+  opacity: 0.6;
+  background: #f8f9fa;
+}
+
+.entity-generating-row .generating-dots {
+  display: inline-block;
+  animation: ellipsis 1.5s infinite;
+}
+
+@keyframes ellipsis {
+  0% { content: '.'; }
+  33% { content: '..'; }
+  66% { content: '...'; }
+  100% { content: '.'; }
+}
+
+.entity-generating-row .generating-dots::after {
+  content: '...';
+  animation: ellipsis-dots 1.5s infinite;
+}
+
+@keyframes ellipsis-dots {
+  0%, 100% { content: '.'; }
+  33% { content: '..'; }
+  66% { content: '...'; }
+}
+
 /* Matters styling */
 .matters-container {
   background: white;
@@ -923,6 +993,10 @@
     <div id="entities-content" style="display: none;">
       <div class="entities-section" id="domain-entities-section">
         <div class="entities-container">
+          <button class="add-entity-button" onclick="openEntityAssistInput()" title="Add new entity with AI assistance">
+            <span>+</span>
+            <span>Add Entity</span>
+          </button>
           <table class="entities-table">
             <thead>
               <tr>
@@ -2092,5 +2166,145 @@ function closeDescriptionEditor() {
   document.getElementById('descriptionText').placeholder = 'Enter domain description...';
   document.getElementById('descriptionModal').style.display = 'none';
 }
+
+// Entity assistant inline add functionality
+let entityAssistAgentId = null;
+
+function openEntityAssistInput() {
+  const tbody = document.getElementById('domain-entities-tbody');
+
+  // Check if input row already exists
+  if (document.querySelector('.entity-input-row')) {
+    return;
+  }
+
+  // Create input row
+  const inputRow = document.createElement('tr');
+  inputRow.className = 'entity-input-row';
+
+  const inputCell = document.createElement('td');
+  inputCell.colSpan = 4;
+
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.placeholder = "Enter their name and we'll figure out the rest...";
+  input.id = 'entity-assist-input';
+
+  // Handle keyboard events
+  input.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+      // Cancel - remove the input row
+      inputRow.remove();
+
+      // Show the no entities message if no entities
+      const tbody = document.getElementById('domain-entities-tbody');
+      if (tbody.children.length === 0) {
+        document.getElementById('no-domain-entities').style.display = 'block';
+        document.getElementById('domain-entities-section').querySelector('table').style.display = 'none';
+      }
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      const name = input.value.trim();
+      if (name) {
+        submitEntityAssist(name);
+      }
+    }
+  });
+
+  inputCell.appendChild(input);
+  inputRow.appendChild(inputCell);
+
+  // Insert as first row
+  tbody.insertBefore(inputRow, tbody.firstChild);
+
+  // Show table if hidden
+  const table = document.getElementById('domain-entities-section').querySelector('table');
+  table.style.display = 'table';
+  document.getElementById('no-domain-entities').style.display = 'none';
+
+  // Focus the input
+  input.focus();
+}
+
+function submitEntityAssist(name) {
+  const inputRow = document.querySelector('.entity-input-row');
+  if (!inputRow) return;
+
+  // Remove input row
+  inputRow.remove();
+
+  // Create generating row
+  const generatingRow = document.createElement('tr');
+  generatingRow.className = 'entity-generating-row';
+  generatingRow.id = 'entity-assist-generating-row';
+
+  // Empty cell for star button column
+  const starCell = document.createElement('td');
+  generatingRow.appendChild(starCell);
+
+  // Empty cell for type column
+  const typeCell = document.createElement('td');
+  typeCell.className = 'entity-type';
+  generatingRow.appendChild(typeCell);
+
+  // Name cell
+  const nameCell = document.createElement('td');
+  nameCell.className = 'entity-name';
+  nameCell.textContent = escapeHtml(name);
+  generatingRow.appendChild(nameCell);
+
+  // Description cell with generating text
+  const descCell = document.createElement('td');
+  descCell.className = 'entity-desc';
+  descCell.innerHTML = 'Generating<span class="generating-dots"></span>';
+  generatingRow.appendChild(descCell);
+
+  // Insert as first row
+  const tbody = document.getElementById('domain-entities-tbody');
+  tbody.insertBefore(generatingRow, tbody.firstChild);
+
+  // Submit to backend
+  fetch(`/api/domains/${encodeURIComponent(domainName)}/entities/assist`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ name: name })
+  })
+  .then(response => response.json())
+  .then(data => {
+    if (!data.success) {
+      alert('Error starting entity assistant: ' + (data.error || 'Unknown error'));
+      // Remove generating row on error
+      const genRow = document.getElementById('entity-assist-generating-row');
+      if (genRow) genRow.remove();
+      return;
+    }
+
+    // Store agent ID for event filtering
+    entityAssistAgentId = data.agent_id;
+  })
+  .catch(error => {
+    console.error('Error starting entity assistant:', error);
+    alert('Network error: ' + error.message);
+    // Remove generating row on error
+    const genRow = document.getElementById('entity-assist-generating-row');
+    if (genRow) genRow.remove();
+  });
+}
+
+// Listen for entity assist completion events
+appEvents.listen('domains', function(event) {
+  // Only process events for our entity assist agent
+  if (!entityAssistAgentId || event.agent_id !== entityAssistAgentId) return;
+
+  if (event.event === 'finish' || event.event === 'error') {
+    // Clear the agent ID
+    entityAssistAgentId = null;
+
+    // Refresh the page to show the new entity
+    location.reload();
+  }
+});
 </script>
 {% endblock %}

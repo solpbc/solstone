@@ -177,7 +177,7 @@ def get_domain_entities_data(domain_name: str) -> dict:
         limit=1000,  # Get all detected entities
         domain=domain_name,
         attached=False,
-        order="day"  # Most recent first
+        order="day",  # Most recent first
     )
 
     # Aggregate detected entities by (type, name)
@@ -192,7 +192,7 @@ def get_domain_entities_data(domain_name: str) -> dict:
                 "name": meta["name"],
                 "description": result["text"],  # Most recent day's description
                 "count": 1,
-                "last_seen": meta["day"]
+                "last_seen": meta["day"],
             }
         else:
             detected_map[key]["count"] += 1
@@ -268,9 +268,7 @@ def remove_domain_entity(domain_name: str) -> Any:
 
         # Filter out the entity to remove
         filtered = [
-            (et, n, d)
-            for et, n, d in entities
-            if not (et == etype and n == name)
+            (et, n, d) for et, n, d in entities if not (et == etype and n == name)
         ]
 
         # Check if anything was removed
@@ -468,6 +466,39 @@ Generate a clear, concise description (1-2 sentences) that captures what this {e
             jsonify({"error": f"Failed to generate entity description: {str(e)}"}),
             500,
         )
+
+
+@bp.route("/api/domains/<domain_name>/entities/assist", methods=["POST"])
+def assist_entity_add(domain_name: str) -> Any:
+    """Use entity_assist agent to quickly add an entity with AI-generated details."""
+    data = request.get_json()
+    if not data:
+        return jsonify({"error": "No data provided"}), 400
+
+    name = data.get("name", "").strip()
+    if not name:
+        return jsonify({"error": "Entity name is required"}), 400
+
+    try:
+        # Import cortex request function
+        from muse.cortex_client import cortex_request
+
+        # Format prompt as specified by entity_assist agent
+        prompt = f"For the '{domain_name}' domain, this is the user's request to attach a new entity: {name}"
+
+        # Create agent request - entity_assist persona already has backend configured
+        agent_file = cortex_request(
+            prompt=prompt,
+            persona="entity_assist",
+        )
+
+        # Extract agent_id from the filename
+        agent_id = Path(agent_file).stem.replace("_active", "")
+
+        return jsonify({"success": True, "agent_id": agent_id})
+
+    except Exception as e:
+        return jsonify({"error": f"Failed to start entity assistant: {str(e)}"}), 500
 
 
 @bp.route("/domains/<domain_name>/matters/<matter_id>")
