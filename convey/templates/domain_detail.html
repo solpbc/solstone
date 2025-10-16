@@ -1018,7 +1018,7 @@
       <div class="entities-section">
         <div class="entities-container">
           <h3 id="all-entities-title" style="display: flex; align-items: center; justify-content: space-between;">
-            <span>Other Entities</span>
+            <span>Detected Entities</span>
             <input type="text" id="entity-search" placeholder="Search entities..." style="
               max-width: 250px;
               padding: 6px 12px;
@@ -1493,13 +1493,21 @@ function renderEntities(searchTerm = '') {
   
   // Render non-starred entities only (filtering out domain entities)
   const unstarredEntities = entitiesData.all_entities.filter(e => !e.starred);
-  
+
+  // Get set of attached entity names for filtering
+  const attachedNames = new Set(starredEntities.map(e => e.name));
+
+  // Filter out detected entities that have exact name match with attached entities
+  const uniqueUnstarredEntities = unstarredEntities.filter(entity =>
+    !attachedNames.has(entity.name)
+  );
+
   // Apply search filter if searchTerm is provided
-  const filteredEntities = searchTerm 
-    ? unstarredEntities.filter(entity => 
+  const filteredEntities = searchTerm
+    ? uniqueUnstarredEntities.filter(entity =>
         entity.name.toLowerCase().includes(searchTerm.toLowerCase())
       )
-    : unstarredEntities;
+    : uniqueUnstarredEntities;
   
   filteredEntities.forEach(entity => {
     const row = createEntityRow(entity, false);
