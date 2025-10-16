@@ -113,6 +113,44 @@ def save_entities(
         raise
 
 
+def update_entity(
+    domain: str,
+    type: str,
+    name: str,
+    old_description: str,
+    new_description: str,
+    day: Optional[str] = None,
+) -> None:
+    """Update an entity's description after validating current state.
+
+    Args:
+        domain: Domain name
+        type: Entity type to match
+        name: Entity name to match
+        old_description: Current description (guard - must match)
+        new_description: New description to set
+        day: Optional day for detected entities
+
+    Raises:
+        ValueError: If entity not found or guard mismatch
+        RuntimeError: If JOURNAL_PATH is not set
+    """
+    entities = load_entities(domain, day)
+
+    for i, (etype, ename, desc) in enumerate(entities):
+        if etype == type and ename == name:
+            if desc != old_description:
+                raise ValueError(
+                    f"Description mismatch for '{name}': expected '{old_description}', "
+                    f"found '{desc}'"
+                )
+            entities[i] = (type, name, new_description)
+            save_entities(domain, entities, day)
+            return
+
+    raise ValueError(f"Entity '{name}' of type '{type}' not found in domain '{domain}'")
+
+
 def load_all_attached_entities() -> list[tuple[str, str, str]]:
     """Load all attached entities from all domains with deduplication.
 

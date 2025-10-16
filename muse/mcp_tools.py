@@ -13,7 +13,7 @@ from fastmcp.resources import FileResource, TextResource
 from think import todo
 from think.cluster import cluster_range
 from think.domains import domain_summary
-from think.entities import load_entities, save_entities
+from think.entities import load_entities, save_entities, update_entity
 from think.indexer import search_events as search_events_impl
 from think.indexer import search_news as search_news_impl
 from think.indexer import search_summaries as search_summaries_impl
@@ -68,6 +68,7 @@ TOOL_PACKS = {
         "entity_list",
         "entity_detect",
         "entity_attach",
+        "entity_update",
     ],
 }
 
@@ -839,6 +840,85 @@ def entity_attach(
     except Exception as exc:
         return {
             "error": f"Failed to attach entity: {exc}",
+            "suggestion": "check that the domain exists",
+        }
+
+
+@register_tool(annotations=HINTS)
+def entity_update(
+    domain: str,
+    type: str,
+    name: str,
+    old_description: str,
+    new_description: str,
+    day: str | None = None,
+) -> dict[str, Any]:
+    """Update an existing entity's description using guard-based validation.
+
+    This tool modifies the description of an entity that's already tracked
+    in a domain. To prevent accidental overwrites, you must provide the current
+    description as a guard value. If the guard doesn't match the current state,
+    the operation fails with an error showing the actual current description.
+
+    Args:
+        domain: Domain name (e.g., "personal", "work")
+        type: Entity type (Person, Company, Project, or Tool)
+        name: Entity name to update
+        old_description: Current description (must match for safety)
+        new_description: New description to replace it with
+        day: Optional day in YYYYMMDD format for detected entities.
+             If None, updates attached entities in entities.md.
+             If provided, updates detected entities in entities/YYYYMMDD.md.
+
+    Returns:
+        Dictionary containing:
+        - domain: The domain name
+        - day: The day (or None for attached entities)
+        - message: Success message
+        - entity: The updated entity details
+
+    Examples:
+        - entity_update("personal", "Person", "Alice", "Met at conference", "Close colleague from tech conference")
+        - entity_update("work", "Company", "Acme", "New client", "Key client since Q1 2025")
+        - entity_update("personal", "Person", "Bob", "Friend", "College roommate", day="20250101")
+    """
+    try:
+        # Validate entity type
+        valid_types = {"Person", "Company", "Project", "Tool"}
+        if type not in valid_types:
+            return {
+                "error": f"Invalid entity type '{type}'",
+                "suggestion": f"must be one of: {', '.join(sorted(valid_types))}",
+            }
+
+        update_entity(domain, type, name, old_description, new_description, day)
+
+        return {
+            "domain": domain,
+            "day": day,
+            "message": f"Entity '{name}' updated successfully",
+            "entity": {"type": type, "name": name, "description": new_description},
+        }
+    except ValueError as exc:
+        error_msg = str(exc)
+        # Extract actual description if it's a guard mismatch
+        if "Description mismatch" in error_msg:
+            return {
+                "error": "Guard mismatch - description has changed",
+                "suggestion": error_msg,
+            }
+        return {
+            "error": error_msg,
+            "suggestion": "verify the entity exists and try again",
+        }
+    except RuntimeError as exc:
+        return {
+            "error": str(exc),
+            "suggestion": "ensure JOURNAL_PATH environment variable is set",
+        }
+    except Exception as exc:
+        return {
+            "error": f"Failed to update entity: {exc}",
             "suggestion": "check that the domain exists",
         }
 
