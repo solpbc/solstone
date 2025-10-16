@@ -1119,40 +1119,59 @@ let newsLoading = false;
 document.addEventListener('DOMContentLoaded', function() {
   const tabButtons = document.querySelectorAll('.tab-button');
   const tabContents = document.querySelectorAll('.tab-content');
-  
+
+  function switchToTab(targetTab) {
+    // Remove active class from all buttons and content
+    tabButtons.forEach(btn => btn.classList.remove('active'));
+    tabContents.forEach(content => content.classList.remove('active'));
+
+    // Add active class to clicked button and corresponding content
+    const targetButton = document.querySelector(`.tab-button[data-tab="${targetTab}"]`);
+    if (targetButton) {
+      targetButton.classList.add('active');
+    }
+    const targetContent = document.getElementById(targetTab + '-tab');
+    if (targetContent) {
+      targetContent.classList.add('active');
+    }
+
+    // Load data when tabs are activated
+    if (targetTab === 'entities') {
+      if (!entitiesData) {
+        loadEntities();
+      }
+      // Auto-focus the search input when entities tab is opened
+      setTimeout(() => {
+        const searchInput = document.getElementById('entity-search');
+        if (searchInput) {
+          searchInput.focus();
+        }
+      }, 100);
+    } else if (targetTab === 'news') {
+      if (!newsInitialized) {
+        loadNews();
+      }
+    } else if (targetTab === 'matters' && !mattersData) {
+      loadMatters();
+    }
+  }
+
   tabButtons.forEach(button => {
     button.addEventListener('click', function() {
       const targetTab = this.dataset.tab;
-      
-      // Remove active class from all buttons and content
-      tabButtons.forEach(btn => btn.classList.remove('active'));
-      tabContents.forEach(content => content.classList.remove('active'));
-      
-      // Add active class to clicked button and corresponding content
-      this.classList.add('active');
-      document.getElementById(targetTab + '-tab').classList.add('active');
-      
-      // Load data when tabs are clicked
-      if (targetTab === 'entities') {
-        if (!entitiesData) {
-          loadEntities();
-        }
-        // Auto-focus the search input when entities tab is opened
-        setTimeout(() => {
-          const searchInput = document.getElementById('entity-search');
-          if (searchInput) {
-            searchInput.focus();
-          }
-        }, 100);
-      } else if (targetTab === 'news') {
-        if (!newsInitialized) {
-          loadNews();
-        }
-      } else if (targetTab === 'matters' && !mattersData) {
-        loadMatters();
-      }
+
+      // Update URL hash
+      window.location.hash = targetTab;
+
+      switchToTab(targetTab);
     });
   });
+
+  // Check URL hash on page load and activate corresponding tab
+  const hash = window.location.hash.substring(1); // Remove the '#'
+  if (hash && document.querySelector(`.tab-button[data-tab="${hash}"]`)) {
+    switchToTab(hash);
+  }
   
   // Add entity search functionality
   const entitySearchInput = document.getElementById('entity-search');
