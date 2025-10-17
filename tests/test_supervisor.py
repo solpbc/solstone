@@ -5,6 +5,8 @@ import os
 import subprocess
 import time
 
+import pytest
+
 
 def test_check_health(tmp_path, monkeypatch):
     mod = importlib.import_module("think.supervisor")
@@ -22,7 +24,8 @@ def test_check_health(tmp_path, monkeypatch):
     assert sorted(stale) == ["hear", "see"]
 
 
-def test_send_notification(monkeypatch):
+@pytest.mark.asyncio
+async def test_send_notification(monkeypatch):
     mod = importlib.import_module("think.supervisor")
     called = []
 
@@ -35,7 +38,7 @@ def test_send_notification(monkeypatch):
         return FakeNotifier()
 
     monkeypatch.setattr(mod, "_get_notifier", fake_get_notifier)
-    mod.send_notification("test message", alert_key=("test", "key"))
+    await mod.send_notification("test message", alert_key=("test", "key"))
     assert len(called) == 1
     assert called[0]["message"] == "test message"
     assert called[0]["title"] == "Sunstone Supervisor"
@@ -43,7 +46,8 @@ def test_send_notification(monkeypatch):
     assert mod._notification_ids[("test", "key")] == "test-notification-id"
 
 
-def test_clear_notification(monkeypatch):
+@pytest.mark.asyncio
+async def test_clear_notification(monkeypatch):
     mod = importlib.import_module("think.supervisor")
     cleared = []
 
@@ -60,17 +64,17 @@ def test_clear_notification(monkeypatch):
     monkeypatch.setattr(mod, "_get_notifier", fake_get_notifier)
 
     # First send a notification to track
-    mod.send_notification("test message", alert_key=("test", "key"))
+    await mod.send_notification("test message", alert_key=("test", "key"))
     assert ("test", "key") in mod._notification_ids
 
     # Now clear it
-    mod.clear_notification(("test", "key"))
+    await mod.clear_notification(("test", "key"))
     assert len(cleared) == 1
     assert cleared[0] == "test-notification-id"
     assert ("test", "key") not in mod._notification_ids
 
     # Clearing a non-existent notification should be a no-op
-    mod.clear_notification(("nonexistent", "key"))
+    await mod.clear_notification(("nonexistent", "key"))
     assert len(cleared) == 1  # Still just one clear call
 
 
@@ -172,7 +176,8 @@ def test_run_dream(tmp_path, monkeypatch):
     assert any("seconds" in m for m in messages)
 
 
-def test_supervise_logs_recovery(monkeypatch, caplog):
+@pytest.mark.asyncio
+async def test_supervise_logs_recovery(monkeypatch, caplog):
     mod = importlib.reload(importlib.import_module("think.supervisor"))
     mod.shutdown_requested = False
 
@@ -187,20 +192,29 @@ def test_supervise_logs_recovery(monkeypatch, caplog):
             mod.shutdown_requested = True
         return state
 
+    async def fake_send_notification(*args, **kwargs):
+        pass
+
+    async def fake_clear_notification(*args, **kwargs):
+        pass
+
+    async def fake_sleep(_):
+        pass
+
     monkeypatch.setattr(mod, "check_runner_exits", lambda procs: [])
     monkeypatch.setattr(mod, "check_health", fake_check_health)
-    monkeypatch.setattr(mod, "send_notification", lambda *args, **kwargs: None)
-    monkeypatch.setattr(mod, "clear_notification", lambda *args, **kwargs: None)
+    monkeypatch.setattr(mod, "send_notification", fake_send_notification)
+    monkeypatch.setattr(mod, "clear_notification", fake_clear_notification)
     monkeypatch.setattr(
         mod, "check_scheduled_agents", lambda: None
     )  # Mock scheduled agents
     monkeypatch.setattr(mod.time, "time", lambda: next(time_counter))
-    monkeypatch.setattr(mod.time, "sleep", lambda _: None)
+    monkeypatch.setattr(mod.asyncio, "sleep", fake_sleep)
 
     monkeypatch.setenv("JOURNAL_PATH", "/test/journal")
 
     with caplog.at_level(logging.INFO):
-        mod.supervise(threshold=1, interval=1, procs=[])
+        await mod.supervise(threshold=1, interval=1, procs=[])
 
     messages = [record.getMessage() for record in caplog.records]
     assert "hear heartbeat recovered" in messages
