@@ -279,6 +279,10 @@ class Transcriber:
                     metadata = last_item
                     transcript_items = result[:-1]
 
+            # Add audio file reference to metadata
+            # Path is relative to the JSONL file, pointing to the heard/ subdirectory
+            metadata["raw"] = f"heard/{raw_path.name}"
+
             # Write JSONL format: metadata first, then transcript items
             jsonl_lines = [json.dumps(metadata)]
             jsonl_lines.extend(json.dumps(item) for item in transcript_items)

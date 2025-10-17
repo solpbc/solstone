@@ -56,6 +56,7 @@ def _write_import_jsonl(
     entries: list[dict],
     *,
     import_id: str,
+    raw_filename: str | None = None,
     domain: str | None = None,
     setting: str | None = None,
 ) -> None:
@@ -69,8 +70,16 @@ def _write_import_jsonl(
     if setting:
         imported_meta["setting"] = setting
 
+    # Build top-level metadata with imported info
+    metadata: dict[str, object] = {"imported": imported_meta}
+
+    # Add raw audio file reference if provided
+    # Path is relative from day directory to imports directory
+    if raw_filename:
+        metadata["raw"] = f"../imports/{import_id}/{raw_filename}"
+
     # Write JSONL: metadata first, then entries
-    jsonl_lines = [json.dumps({"imported": imported_meta})]
+    jsonl_lines = [json.dumps(metadata)]
     jsonl_lines.extend(json.dumps(entry) for entry in entries)
 
     with open(file_path, "w", encoding="utf-8") as f:
@@ -240,6 +249,7 @@ def process_transcript(
             json_path,
             json_data,
             import_id=import_id,
+            raw_filename=os.path.basename(path),
             domain=domain,
             setting=setting,
         )
@@ -359,6 +369,7 @@ def audio_transcribe(
             json_path,
             chunk_entries,
             import_id=import_id,
+            raw_filename=os.path.basename(path),
             domain=domain,
             setting=setting,
         )
