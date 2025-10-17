@@ -42,6 +42,66 @@ USER_PROMPT = (
 )
 
 
+def validate_transcription(result: list) -> tuple[bool, str]:
+    """Validate transcription result format.
+
+    Returns:
+        Tuple of (is_valid, error_message)
+    """
+    if not isinstance(result, list):
+        return False, "Result is not a list"
+
+    if len(result) == 0:
+        # Empty result is OK
+        return True, ""
+
+    # Check if last item is metadata (has topics/setting, no "start" field)
+    last_item = result[-1]
+    if not isinstance(last_item, dict):
+        return False, "Last item is not a dictionary"
+
+    # Metadata is identified by having "topics" or "setting" and no "start"
+    has_metadata = "start" not in last_item and (
+        "topics" in last_item or "setting" in last_item
+    )
+
+    # Determine which items to validate as transcript entries
+    items_to_check = result[:-1] if has_metadata else result
+
+    # It's OK to have no transcript items (only metadata or empty)
+    for idx, item in enumerate(items_to_check):
+        if not isinstance(item, dict):
+            return False, f"Item {idx} is not a dictionary"
+
+        if "start" not in item:
+            return False, f"Item {idx} missing 'start' field"
+
+        # Validate timestamp format (HH:MM:SS)
+        start = item["start"]
+        if not isinstance(start, str):
+            return False, f"Item {idx} 'start' is not a string"
+
+        try:
+            parts = start.split(":")
+            if len(parts) != 3:
+                return False, f"Item {idx} 'start' not in HH:MM:SS format"
+            hours, minutes, seconds = parts
+            int(hours)
+            int(minutes)
+            int(seconds)
+        except (ValueError, AttributeError):
+            return False, f"Item {idx} 'start' has invalid timestamp: {start}"
+
+        # Validate text field exists and is string
+        if "text" not in item:
+            return False, f"Item {idx} missing 'text' field"
+
+        if not isinstance(item.get("text"), str):
+            return False, f"Item {idx} 'text' is not a string"
+
+    return True, ""
+
+
 def transcribe_segments(
     client,
     model: str,
@@ -88,9 +148,7 @@ class Transcriber:
         self.client = genai.Client(api_key=api_key)
 
         try:
-            prompt_data = load_prompt(
-                prompt_name, base_dir=Path(__file__).parent
-            )
+            prompt_data = load_prompt(prompt_name, base_dir=Path(__file__).parent)
         except PromptNotFoundError as exc:
             raise SystemExit(str(exc)) from exc
 
@@ -191,9 +249,25 @@ class Transcriber:
             else:
                 entities_text = ""
 
-            result = transcribe_segments(
-                self.client, MODEL, self.prompt_text, entities_text, segments
-            )
+            # Try transcription with validation and retry logic
+            result = None
+            for attempt in range(2):
+                result = transcribe_segments(
+                    self.client, MODEL, self.prompt_text, entities_text, segments
+                )
+
+                # Validate the result
+                is_valid, error_msg = validate_transcription(result)
+                if is_valid:
+                    break
+
+                # Log validation failure
+                if attempt == 0:
+                    logging.info(f"Validation failed (retrying): {error_msg}")
+                else:
+                    logging.info(f"Validation failed on retry: {error_msg}")
+                    return False
+
             json_path.write_text(json.dumps({"text": result}, indent=2))
             logging.info(f"Transcribed {raw_path} -> {json_path}")
 
