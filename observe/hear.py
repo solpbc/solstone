@@ -335,3 +335,86 @@ def detect_speech(
     except Exception as e:
         logging.error(f"Error in detect_speech for {label}: {e}")
         raise
+
+
+def load_transcript(file_path: str | os.PathLike) -> tuple[dict, list[dict] | None]:
+    """Load a transcript JSONL file with metadata and entries.
+
+    The JSONL format has metadata as the first line (may be empty {})
+    and transcript entries as subsequent lines. Handles both native
+    transcripts (*_audio.jsonl) and imported transcripts (*_imported_audio.jsonl).
+
+    Args:
+        file_path: Path to the JSONL transcript file
+
+    Returns:
+        Tuple of (metadata, entries) where:
+        - metadata: Dict from first line. Native transcripts may have empty {}
+                   or contain "topics"/"setting". Imported transcripts contain
+                   {"imported": {"id": "...", "domain": "...", ...}}.
+                   On error, returns {"error": "message"}.
+        - entries: List of entry dicts from subsequent lines, each with fields
+                  like "start", "text", "source", etc. Returns None on error.
+
+    Examples:
+        # Load a native transcript
+        metadata, entries = load_transcript("20250101/120000_audio.jsonl")
+        if entries is None:
+            print(f"Error: {metadata.get('error')}")
+            return
+        for entry in entries:
+            print(f"{entry['start']}: {entry['text']}")
+
+        # Load an imported transcript
+        metadata, entries = load_transcript("20250101/120000_imported_audio.jsonl")
+        if entries is not None:
+            import_id = metadata.get("imported", {}).get("id")
+            domain = metadata.get("imported", {}).get("domain")
+            print(f"Imported from {import_id} (domain: {domain})")
+
+        # Check for topics/setting in native transcript
+        metadata, entries = load_transcript(path)
+        if entries is not None:
+            topics = metadata.get("topics")
+            setting = metadata.get("setting")
+    """
+    import json
+    from pathlib import Path
+
+    try:
+        path = Path(file_path)
+        if not path.exists():
+            return {"error": f"File not found: {file_path}"}, None
+
+        content = path.read_text(encoding="utf-8").strip()
+        if not content:
+            return {"error": "File is empty"}, None
+
+        lines = content.split("\n")
+
+        # Parse metadata from first line
+        try:
+            metadata = json.loads(lines[0])
+            if not isinstance(metadata, dict):
+                return {"error": "First line must be a JSON object"}, None
+        except json.JSONDecodeError as e:
+            return {"error": f"Invalid JSON in metadata line: {e}"}, None
+
+        # Parse entries from remaining lines
+        entries = []
+        for i, line in enumerate(lines[1:], start=2):
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                entry = json.loads(line)
+                if not isinstance(entry, dict):
+                    return {"error": f"Line {i} is not a JSON object"}, None
+                entries.append(entry)
+            except json.JSONDecodeError as e:
+                return {"error": f"Invalid JSON at line {i}: {e}"}, None
+
+        return metadata, entries
+
+    except Exception as e:
+        return {"error": f"Failed to load transcript: {e}"}, None

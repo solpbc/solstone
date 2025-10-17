@@ -13,7 +13,7 @@ from observe.utils import load_analysis_frames
 from .utils import day_path, setup_cli
 
 TIME_RE = r"(\d{6})"
-AUDIO_PATTERN = re.compile(rf"^{TIME_RE}.*_audio\.json$")
+AUDIO_PATTERN = re.compile(rf"^{TIME_RE}.*_audio\.jsonl$")
 SCREEN_SUMMARY_PATTERN = re.compile(rf"^{TIME_RE}_screen\.md$")
 SCREEN_JSONL_PATTERN = re.compile(rf"^{TIME_RE}_screen\.jsonl$")
 SCREEN_DIFF_PATTERN = re.compile(rf"^{TIME_RE}_([a-z]+)_(\d+)_diff\.json$")
@@ -41,6 +41,33 @@ def _load_entries(
         if audio and (match := AUDIO_PATTERN.match(filename)):
             time_part = match.group(1)
             prefix = "audio"
+            path = os.path.join(day_dir, filename)
+
+            # Load JSONL format using shared utility
+            from observe.hear import load_transcript
+
+            metadata, transcript_entries = load_transcript(path)
+            if transcript_entries is None:
+                print(
+                    f"Warning: Could not load transcript {filename}: {metadata.get('error')}",
+                    file=sys.stderr,
+                )
+                continue
+
+            # Convert entries to JSON string for markdown embedding
+            timestamp = datetime.strptime(date_str + time_part, "%Y%m%d%H%M%S")
+            entries.append(
+                {
+                    "timestamp": timestamp,
+                    "prefix": prefix,
+                    "content": json.dumps(transcript_entries, indent=2),
+                    "monitor": None,
+                    "source": None,
+                    "id": None,
+                    "name": filename,
+                }
+            )
+            continue
         elif screen_mode == "summary" and (
             match := SCREEN_SUMMARY_PATTERN.match(filename)
         ):

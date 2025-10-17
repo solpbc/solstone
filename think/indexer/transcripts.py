@@ -15,7 +15,7 @@ from think.utils import day_dirs
 from .core import _scan_files, get_index
 
 # Transcript file helpers
-AUDIO_RE = re.compile(r"^(?P<time>\d{6}).*_audio\.json$")
+AUDIO_RE = re.compile(r"^(?P<time>\d{6}).*_audio\.jsonl$")
 SCREEN_RE = re.compile(r"^(?P<time>\d{6})_[a-z]+_\d+_diff\.json$")
 SCREEN_JSONL_RE = re.compile(r"^(?P<time>\d{6})_screen\.jsonl$")
 
@@ -36,23 +36,18 @@ def find_transcript_files(journal: str) -> Dict[str, str]:
 
 
 def _parse_audio_json(path: str) -> List[tuple[str, str]]:
-    """Return transcript texts and sources from ``*_audio.json`` file."""
-    try:
-        with open(path, "r", encoding="utf-8") as f:
-            data = json.load(f)
-    except Exception:
+    """Return transcript texts and sources from ``*_audio.jsonl`` file."""
+    from observe.hear import load_transcript
+
+    metadata, entries = load_transcript(path)
+    if entries is None:
+        # Silently skip errored files
         return []
+
     texts: List[tuple[str, str]] = []
-    if isinstance(data, list):
-        for entry in data:
-            if isinstance(entry, dict):
-                text = entry.get("text")
-                source = entry.get("source", "unknown")
-                if text:
-                    texts.append((str(text), str(source)))
-    elif isinstance(data, dict):
-        text = data.get("text")
-        source = data.get("source", "unknown")
+    for entry in entries:
+        text = entry.get("text")
+        source = entry.get("source", "unknown")
         if text:
             texts.append((str(text), str(source)))
     return texts
