@@ -99,6 +99,50 @@ def add_module_stubs(request, monkeypatch):
             observe_pkg = types.ModuleType("observe")
             sys.modules["observe"] = observe_pkg
         setattr(observe_pkg, "detect", detect_mod)
+    if "observe.hear" not in sys.modules:
+        hear_mod = types.ModuleType("observe.hear")
+
+        def load_transcript(file_path):
+            """Stub for load_transcript that reads JSONL format."""
+            import json
+            from pathlib import Path
+
+            try:
+                path = Path(file_path)
+                if not path.exists():
+                    return {"error": f"File not found: {file_path}"}, None
+
+                content = path.read_text(encoding="utf-8").strip()
+                if not content:
+                    return {"error": "File is empty"}, None
+
+                lines = content.split("\n")
+
+                # Parse metadata from first line
+                metadata = json.loads(lines[0])
+                if not isinstance(metadata, dict):
+                    return {"error": "First line must be a JSON object"}, None
+
+                # Parse entries from remaining lines
+                entries = []
+                for line in lines[1:]:
+                    line = line.strip()
+                    if not line:
+                        continue
+                    entry = json.loads(line)
+                    entries.append(entry)
+
+                return metadata, entries
+            except Exception as e:
+                return {"error": f"Failed to load transcript: {e}"}, None
+
+        hear_mod.load_transcript = load_transcript
+        sys.modules["observe.hear"] = hear_mod
+        observe_pkg = sys.modules.get("observe")
+        if observe_pkg is None:
+            observe_pkg = types.ModuleType("observe")
+            sys.modules["observe"] = observe_pkg
+        setattr(observe_pkg, "hear", hear_mod)
     if "observe.sense" not in sys.modules:
         sense_mod = types.ModuleType("observe.sense")
 
@@ -131,15 +175,15 @@ def add_module_stubs(request, monkeypatch):
                         raw_files.append(f"seen/{p.name}")
 
                 # Find processed output files in day root
-                for p in day_path.glob("*_audio.json"):
+                for p in day_path.glob("*_audio.jsonl"):
                     processed_files.append(p.name)
                 for p in day_path.glob("*_screen.jsonl"):
                     processed_files.append(p.name)
 
-                # Find repairable files (source media in root without matching JSON)
+                # Find repairable files (source media in root without matching JSONL)
                 for audio_ext in ["*.flac", "*.m4a"]:
                     for p in day_path.glob(audio_ext):
-                        json_file = p.with_name(p.stem + "_audio.json")
+                        json_file = p.with_name(p.stem + "_audio.jsonl")
                         if not json_file.exists():
                             repairable_files.append(p.name)
 

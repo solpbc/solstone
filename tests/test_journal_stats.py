@@ -47,7 +47,8 @@ def test_markdown(tmp_path, monkeypatch):
     day = journal / "20240101"
     day.mkdir()
     (day / "123456_audio.flac").write_bytes(b"RIFF")
-    (day / "123456_audio.json").write_text("{}")
+    # Write JSONL format with empty metadata
+    (day / "123456_audio.jsonl").write_text("{}\n")
     (day / "topics").mkdir()
     (day / "topics" / "meetings.json").write_text(
         json.dumps({"day": "20240101", "occurrences": []})

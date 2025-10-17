@@ -31,19 +31,25 @@ def test_importer_text(tmp_path, monkeypatch):
     mod.main()
 
     day_dir = day_path("20240101")
-    f1 = day_dir / "120000_imported_audio.json"
-    f2 = day_dir / "120500_imported_audio.json"
+    f1 = day_dir / "120000_imported_audio.jsonl"
+    f2 = day_dir / "120500_imported_audio.jsonl"
 
-    chunk1 = json.loads(f1.read_text())
-    chunk2 = json.loads(f2.read_text())
+    # Read JSONL format: first line is metadata, subsequent lines are entries
+    lines1 = f1.read_text().strip().split("\n")
+    metadata1 = json.loads(lines1[0])
+    entries1 = [json.loads(line) for line in lines1[1:]]
 
-    assert chunk1["entries"] == [{"text": "seg1"}]
-    assert chunk1["imported"]["id"] == "20240101_120000"
-    assert "domain" not in chunk1["imported"]
+    lines2 = f2.read_text().strip().split("\n")
+    metadata2 = json.loads(lines2[0])
+    entries2 = [json.loads(line) for line in lines2[1:]]
 
-    assert chunk2["entries"] == [{"text": "seg2"}]
-    assert chunk2["imported"]["id"] == "20240101_120000"
-    assert "domain" not in chunk2["imported"]
+    assert entries1 == [{"text": "seg1"}]
+    assert metadata1["imported"]["id"] == "20240101_120000"
+    assert "domain" not in metadata1["imported"]
+
+    assert entries2 == [{"text": "seg2"}]
+    assert metadata2["imported"]["id"] == "20240101_120000"
+    assert "domain" not in metadata2["imported"]
 
 
 def test_importer_audio_transcribe(tmp_path, monkeypatch):
@@ -121,29 +127,35 @@ def test_importer_audio_transcribe(tmp_path, monkeypatch):
 
     # Check that the files were created correctly
     day_dir = day_path("20240101")
-    f1 = day_dir / "120000_imported_audio.json"
-    f2 = day_dir / "120500_imported_audio.json"
+    f1 = day_dir / "120000_imported_audio.jsonl"
+    f2 = day_dir / "120500_imported_audio.jsonl"
 
     assert f1.exists()
     assert f2.exists()
 
-    # Check first chunk (0-5 minutes)
-    chunk1 = json.loads(f1.read_text())
-    assert chunk1["imported"]["id"] == "20240101_120000"
-    assert len(chunk1["entries"]) == 2
-    assert chunk1["entries"][0]["text"] == "Hello world."
-    assert chunk1["entries"][0]["speaker"] == 1  # Rev uses 0-based, we use 1-based
-    assert chunk1["entries"][0]["source"] == "import"
-    assert chunk1["entries"][0]["start"] == "00:00:00"
-    assert chunk1["entries"][1]["text"] == "This is a test."
+    # Check first chunk (0-5 minutes) - JSONL format
+    lines1 = f1.read_text().strip().split("\n")
+    metadata1 = json.loads(lines1[0])
+    entries1 = [json.loads(line) for line in lines1[1:]]
 
-    # Check second chunk (5-10 minutes)
-    chunk2 = json.loads(f2.read_text())
-    assert chunk2["imported"]["id"] == "20240101_120000"
-    assert len(chunk2["entries"]) == 1
-    assert chunk2["entries"][0]["text"] == "Second chunk."
-    assert chunk2["entries"][0]["speaker"] == 2
-    assert chunk2["entries"][0]["start"] == "00:05:10"
+    assert metadata1["imported"]["id"] == "20240101_120000"
+    assert len(entries1) == 2
+    assert entries1[0]["text"] == "Hello world."
+    assert entries1[0]["speaker"] == 1  # Rev uses 0-based, we use 1-based
+    assert entries1[0]["source"] == "import"
+    assert entries1[0]["start"] == "00:00:00"
+    assert entries1[1]["text"] == "This is a test."
+
+    # Check second chunk (5-10 minutes) - JSONL format
+    lines2 = f2.read_text().strip().split("\n")
+    metadata2 = json.loads(lines2[0])
+    entries2 = [json.loads(line) for line in lines2[1:]]
+
+    assert metadata2["imported"]["id"] == "20240101_120000"
+    assert len(entries2) == 1
+    assert entries2[0]["text"] == "Second chunk."
+    assert entries2[0]["speaker"] == 2
+    assert entries2[0]["start"] == "00:05:10"
 
 
 def test_audio_transcribe_sanitizes_entities(tmp_path, monkeypatch):
@@ -222,7 +234,11 @@ def test_audio_transcribe_includes_import_metadata(tmp_path, monkeypatch):
 
     assert created_files
 
-    payload = json.loads(Path(created_files[0]).read_text())
-    assert payload["entries"][0]["text"] == "Test entry"
-    assert payload["imported"]["id"] == "20240101_120000"
-    assert payload["imported"]["domain"] == "uavionix"
+    # Read JSONL format: first line is metadata, subsequent lines are entries
+    lines = Path(created_files[0]).read_text().strip().split("\n")
+    metadata = json.loads(lines[0])
+    entries = [json.loads(line) for line in lines[1:]]
+
+    assert entries[0]["text"] == "Test entry"
+    assert metadata["imported"]["id"] == "20240101_120000"
+    assert metadata["imported"]["domain"] == "uavionix"

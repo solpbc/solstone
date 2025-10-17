@@ -75,13 +75,10 @@ def test_raw_index(tmp_path):
     os.environ["JOURNAL_PATH"] = str(journal)
     day = journal / "20240103"
     day.mkdir()
-    (day / "123000_audio.json").write_text(
-        json.dumps(
-            [
-                {"start": "00:00:01", "source": "mic", "speaker": 1, "text": "hello"},
-                {"topics": ["hi"], "setting": "personal"},
-            ]
-        )
+    # Write JSONL format: metadata first, then entries
+    (day / "123000_audio.jsonl").write_text(
+        json.dumps({"topics": ["hi"], "setting": "personal"}) + "\n" +
+        json.dumps({"start": "00:00:01", "source": "mic", "speaker": 1, "text": "hello"}) + "\n"
     )
     (day / "123000_monitor_1_diff.json").write_text(
         json.dumps(
@@ -130,24 +127,18 @@ def test_search_raws_day(tmp_path):
 
     day1 = journal / "20240105"
     day1.mkdir()
-    (day1 / "123000_audio.json").write_text(
-        json.dumps(
-            [
-                {"start": "00:00:01", "source": "mic", "speaker": 1, "text": "hello"},
-                {"topics": ["hi"], "setting": "personal"},
-            ]
-        )
+    # Write JSONL format: metadata first, then entries
+    (day1 / "123000_audio.jsonl").write_text(
+        json.dumps({"topics": ["hi"], "setting": "personal"}) + "\n" +
+        json.dumps({"start": "00:00:01", "source": "mic", "speaker": 1, "text": "hello"}) + "\n"
     )
 
     day2 = journal / "20240106"
     day2.mkdir()
-    (day2 / "090000_audio.json").write_text(
-        json.dumps(
-            [
-                {"start": "00:00:01", "source": "mic", "speaker": 1, "text": "hello"},
-                {"topics": ["hi"], "setting": "personal"},
-            ]
-        )
+    # Write JSONL format: metadata first, then entries
+    (day2 / "090000_audio.jsonl").write_text(
+        json.dumps({"topics": ["hi"], "setting": "personal"}) + "\n" +
+        json.dumps({"start": "00:00:01", "source": "mic", "speaker": 1, "text": "hello"}) + "\n"
     )
 
     mod.scan_transcripts(str(journal), verbose=True)
@@ -167,21 +158,15 @@ def test_search_raws_time_order(tmp_path):
 
     day = journal / "20240107"
     day.mkdir()
-    (day / "090000_audio.json").write_text(
-        json.dumps(
-            [
-                {"start": "00:00:01", "source": "mic", "speaker": 1, "text": "hello"},
-                {"topics": ["hi"], "setting": "personal"},
-            ]
-        )
+    # Write JSONL format: metadata first, then entries
+    (day / "090000_audio.jsonl").write_text(
+        json.dumps({"topics": ["hi"], "setting": "personal"}) + "\n" +
+        json.dumps({"start": "00:00:01", "source": "mic", "speaker": 1, "text": "hello"}) + "\n"
     )
-    (day / "123000_audio.json").write_text(
-        json.dumps(
-            [
-                {"start": "00:00:02", "source": "mic", "speaker": 1, "text": "hello"},
-                {"topics": ["hi"], "setting": "personal"},
-            ]
-        )
+    # Write JSONL format: metadata first, then entries
+    (day / "123000_audio.jsonl").write_text(
+        json.dumps({"topics": ["hi"], "setting": "personal"}) + "\n" +
+        json.dumps({"start": "00:00:02", "source": "mic", "speaker": 1, "text": "hello"}) + "\n"
     )
 
     mod.scan_transcripts(str(journal), verbose=True)

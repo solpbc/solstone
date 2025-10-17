@@ -105,18 +105,10 @@ def test_search_transcripts_api(tmp_path):
 
     day_dir = journal / "20240103"
     day_dir.mkdir()
-    (day_dir / "123000_audio.json").write_text(
-        json.dumps(
-            [
-                {
-                    "start": "00:00:01",
-                    "source": "mic",
-                    "speaker": 1,
-                    "text": "hello raw",
-                },
-                {"topics": ["t"], "setting": "personal"},
-            ]
-        )
+    # Write JSONL format: metadata first, then entries
+    (day_dir / "123000_audio.jsonl").write_text(
+        json.dumps({"topics": ["t"], "setting": "personal"}) + "\n" +
+        json.dumps({"start": "00:00:01", "source": "mic", "speaker": 1, "text": "hello raw"}) + "\n"
     )
 
     indexer.scan_transcripts(str(journal))
