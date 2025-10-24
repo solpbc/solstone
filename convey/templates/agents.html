@@ -325,6 +325,27 @@
   </div>
 </div>
 
+<!-- Agent Preview Modal -->
+<div id="agentPreviewModal" class="modal">
+  <div class="modal-content preview-modal-content">
+    <span class="close" onclick="closeAgentPreviewModal()">&times;</span>
+
+    <div class="modal-header">
+      <h3 id="previewModalTitle">Agent Prompt Preview</h3>
+    </div>
+
+    <div class="modal-body">
+      <div id="previewContent" class="markdown-content preview-content"></div>
+
+      <!-- Example invocation (for multi-domain agents) -->
+      <div id="exampleInvocation" class="example-invocation" style="display: none;">
+        <h4>Example Invocation</h4>
+        <div class="example-box"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 <script>
 {% include 'agents/_scripts.html' %}

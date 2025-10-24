@@ -171,18 +171,35 @@ function renderCards(items, containerId, itemType, createModalFunc) {
       <h3>${titleHtml}</h3>
       ${metadataHtml}
     `;
-    
-    // Create chat link for agents only
+
+    // Create action icons for agents only
     if (itemType === 'agent') {
+      const actionsContainer = document.createElement('div');
+      actionsContainer.className = 'card-actions';
+
+      // Preview icon
+      const previewBtn = document.createElement('button');
+      previewBtn.className = 'card-action-btn preview-btn';
+      previewBtn.innerHTML = '📄';
+      previewBtn.title = `Preview ${item.title} prompt`;
+      previewBtn.onclick = (e) => {
+        e.stopPropagation();
+        openAgentPreview(item.id);
+      };
+      actionsContainer.appendChild(previewBtn);
+
+      // Chat link
       const chatLink = document.createElement('a');
-      chatLink.className = 'chat-link';
+      chatLink.className = 'card-action-btn chat-btn';
       chatLink.href = `/chat?persona=${item.id}`;
       chatLink.innerHTML = '💬';
       chatLink.title = `Chat with ${item.title}`;
       chatLink.onclick = (e) => {
-        e.stopPropagation(); // Prevent card click when clicking chat link
+        e.stopPropagation();
       };
-      card.appendChild(chatLink);
+      actionsContainer.appendChild(chatLink);
+
+      card.appendChild(actionsContainer);
     }
     
     card.addEventListener('click', (e) => {
@@ -1615,6 +1632,51 @@ function createParametersSection(schema) {
   }
 
   return section;
+}
+
+// Agent Preview Modal Functions
+function openAgentPreview(personaId) {
+  const modal = document.getElementById('agentPreviewModal');
+  const titleEl = document.getElementById('previewModalTitle');
+
+  // Find agent
+  const agent = availableAgents.find(a => a.id === personaId);
+  if (!agent) return;
+
+  titleEl.textContent = `${agent.title} - Prompt Preview`;
+  modal.style.display = 'block';
+
+  // Show loading
+  document.getElementById('previewContent').innerHTML = '<div class="loading-spinner">Loading preview...</div>';
+
+  // Fetch preview
+  fetch(`/agents/api/preview/${personaId}`)
+    .then(r => r.json())
+    .then(data => {
+      if (data.error) {
+        throw new Error(data.error);
+      }
+
+      // Render markdown
+      document.getElementById('previewContent').innerHTML = marked.parse(data.full_prompt);
+
+      // Show example invocation if multi-domain
+      const exampleDiv = document.getElementById('exampleInvocation');
+      if (data.multi_domain && data.example_invocation) {
+        exampleDiv.style.display = 'block';
+        exampleDiv.querySelector('.example-box').textContent = data.example_invocation;
+      } else {
+        exampleDiv.style.display = 'none';
+      }
+    })
+    .catch(err => {
+      document.getElementById('previewContent').innerHTML =
+        `<div class="error-message">Error loading preview: ${err.message}</div>`;
+    });
+}
+
+function closeAgentPreviewModal() {
+  document.getElementById('agentPreviewModal').style.display = 'none';
 }
 
 // Initialize - The Log tab is shown by default now

@@ -121,6 +121,53 @@ def available_agents() -> object:
     return jsonify(_list_items("agents"))
 
 
+@bp.route("/agents/api/preview/<persona>")
+def preview_agent_prompt(persona: str) -> object:
+    """Return the complete rendered prompt for an agent.
+
+    Returns:
+        {
+            "persona": str,
+            "title": str,
+            "full_prompt": str,           # Combined instruction + extra_context
+            "example_invocation": str     # Example prompt for multi-domain agents
+        }
+    """
+    try:
+        from datetime import datetime
+
+        from think.utils import get_agent
+
+        config = get_agent(persona)
+
+        instruction = config.get("instruction", "")
+        extra_context = config.get("extra_context", "")
+        full_prompt = f"{instruction}\n\n---\n\n{extra_context}".strip()
+
+        # Generate example invocation for multi-domain agents
+        example_invocation = ""
+        if config.get("multi_domain"):
+            yesterday = (datetime.now()).strftime("%Y%m%d")  # Simplified for example
+            example_invocation = (
+                f"You are processing domain 'personal' for yesterday ({yesterday}), "
+                f"use get_domain('personal') to load the correct context before starting."
+            )
+
+        return jsonify(
+            {
+                "persona": persona,
+                "title": config.get("title", persona),
+                "full_prompt": full_prompt,
+                "example_invocation": example_invocation,
+                "multi_domain": config.get("multi_domain", False),
+            }
+        )
+    except FileNotFoundError:
+        return jsonify({"error": f"Agent '{persona}' not found"}), 404
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
 def _get_item_content(item_type: str, item_id: str) -> tuple[dict, int]:
     """Generic function to get item content from {item_type}/{item_id}.txt.
 

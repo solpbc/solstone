@@ -74,27 +74,56 @@
   box-shadow: 0 2px 8px rgba(0, 123, 255, 0.1);
 }
 
-.agent-card .chat-link {
+/* Card Actions Container */
+.card-actions {
   position: absolute;
   top: 0.5rem;
   right: 0.5rem;
-  font-size: 1.5rem;
-  text-decoration: none;
+  display: flex;
+  gap: 0.3rem;
   opacity: 0;
   transition: opacity 0.2s ease;
-  background: white;
-  border-radius: 4px;
-  padding: 0.2rem 0.4rem;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
 
-.agent-card:hover .chat-link {
+.agent-card:hover .card-actions {
   opacity: 1;
 }
 
-.agent-card .chat-link:hover {
+.card-action-btn {
+  font-size: 1.2rem;
+  text-decoration: none;
+  background: white;
+  border: 1px solid #e0e0e0;
+  border-radius: 4px;
+  padding: 0.25rem 0.4rem;
+  cursor: pointer;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.card-action-btn:hover {
   transform: scale(1.1);
   box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+  border-color: #007bff;
+}
+
+.preview-btn {
+  color: #666;
+}
+
+.preview-btn:hover {
+  background: #f0f7ff;
+}
+
+.chat-btn {
+  color: #007bff;
+}
+
+.chat-btn:hover {
+  background: #f0f7ff;
 }
 
 .agent-card.selected {
@@ -1094,4 +1123,99 @@ tr a:hover {
 
 .restart-btn:active {
   transform: scale(1.0);
+}
+
+/* Preview Modal Specific Styles */
+.preview-modal-content {
+  max-width: 900px;
+  max-height: 90vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.preview-modal-content .modal-body {
+  overflow-y: auto;
+  flex: 1;
+}
+
+.preview-content {
+  background: #f8f9fa;
+  border: 1px solid #dee2e6;
+  border-radius: 4px;
+  padding: 1.5rem;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-size: 0.9rem;
+  line-height: 1.6;
+  max-height: 60vh;
+  overflow-y: auto;
+}
+
+.preview-content h2 {
+  margin-top: 1.5rem;
+  margin-bottom: 0.75rem;
+  color: #1a1a1a;
+  border-bottom: 2px solid #007bff;
+  padding-bottom: 0.25rem;
+}
+
+.preview-content h3 {
+  margin-top: 1.25rem;
+  margin-bottom: 0.5rem;
+  color: #333;
+}
+
+.preview-content code {
+  background: #e9ecef;
+  padding: 0.1rem 0.3rem;
+  border-radius: 3px;
+  font-size: 0.85em;
+}
+
+.preview-content ul,
+.preview-content ol {
+  margin: 0.5rem 0;
+  padding-left: 1.5rem;
+}
+
+.preview-content li {
+  margin: 0.25rem 0;
+}
+
+.example-invocation {
+  margin-top: 1.5rem;
+  padding: 1rem;
+  background: #fff3cd;
+  border: 1px solid #ffc107;
+  border-radius: 4px;
+}
+
+.example-invocation h4 {
+  margin: 0 0 0.5rem 0;
+  color: #856404;
+}
+
+.example-box {
+  background: white;
+  padding: 0.75rem;
+  border-radius: 3px;
+  font-family: monospace;
+  font-size: 0.85rem;
+  color: #333;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+
+.loading-spinner {
+  text-align: center;
+  padding: 2rem;
+  color: #666;
+}
+
+.error-message {
+  background: #f8d7da;
+  color: #721c24;
+  padding: 1rem;
+  border: 1px solid #f5c6cb;
+  border-radius: 4px;
 }
