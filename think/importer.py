@@ -17,7 +17,6 @@ from PIL.PngImagePlugin import PngInfo
 
 from observe.hear import load_transcript
 from observe.revai import convert_revai_to_sunstone, transcribe_file
-from observe.utils import format_transcript_text
 from think.detect_created import detect_created
 from think.detect_transcript import detect_transcript_json, detect_transcript_segment
 from think.models import GEMINI_PRO, gemini_generate
@@ -411,11 +410,8 @@ def create_transcript_summary(
     all_transcripts = []
     for json_path in audio_json_files:
         try:
-            # Format the transcript as readable text for LLM
-            formatted_text = format_transcript_text(json_path)
-
-            # Also load to get entry count for metadata
-            metadata, entries = load_transcript(json_path)
+            # Load transcript with formatted text
+            metadata, entries, formatted_text = load_transcript(json_path)
             if entries is None:
                 error_msg = metadata.get("error", "Unknown error")
                 logger.warning(f"Failed to read {json_path}: {error_msg}")
@@ -449,7 +445,7 @@ def create_transcript_summary(
         f"- Original file: {input_filename}",
         f"- Recording timestamp: {timestamp}",
         f"- Number of transcript segments: {len(all_transcripts)}",
-        f"- Total transcript entries: {sum(len(t['content']) for t in all_transcripts)}",
+        f"- Total transcript entries: {sum(t['entry_count'] for t in all_transcripts)}",
     ]
     if setting:
         metadata_lines.append(f"- Setting: {setting}")

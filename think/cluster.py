@@ -46,7 +46,7 @@ def _load_entries(
             # Load JSONL format using shared utility
             from observe.hear import load_transcript
 
-            metadata, transcript_entries = load_transcript(path)
+            metadata, transcript_entries, _ = load_transcript(path)
             if transcript_entries is None:
                 print(
                     f"Warning: Could not load transcript {filename}: {metadata.get('error')}",

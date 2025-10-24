@@ -39,7 +39,7 @@ def _parse_audio_json(path: str) -> List[tuple[str, str]]:
     """Return transcript texts and sources from ``*_audio.jsonl`` file."""
     from observe.hear import load_transcript
 
-    metadata, entries = load_transcript(path)
+    metadata, entries, _ = load_transcript(path)
     if entries is None:
         # Silently skip errored files
         return []

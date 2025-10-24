@@ -337,8 +337,8 @@ def detect_speech(
         raise
 
 
-def load_transcript(file_path: str | os.PathLike) -> tuple[dict, list[dict] | None]:
-    """Load a transcript JSONL file with metadata and entries.
+def load_transcript(file_path: str | os.PathLike) -> tuple[dict, list[dict] | None, str]:
+    """Load a transcript JSONL file with metadata, entries, and formatted text.
 
     The JSONL format has metadata as the first line (may be empty {})
     and transcript entries as subsequent lines. Handles both native
@@ -348,47 +348,52 @@ def load_transcript(file_path: str | os.PathLike) -> tuple[dict, list[dict] | No
         file_path: Path to the JSONL transcript file
 
     Returns:
-        Tuple of (metadata, entries) where:
+        Tuple of (metadata, entries, formatted_text) where:
         - metadata: Dict from first line. Native transcripts may have empty {}
                    or contain "topics"/"setting". Imported transcripts contain
                    {"imported": {"id": "...", "domain": "...", ...}}.
                    On error, returns {"error": "message"}.
         - entries: List of entry dicts from subsequent lines, each with fields
                   like "start", "text", "source", etc. Returns None on error.
+        - formatted_text: Human-readable formatted text with header and entries.
+                         Format: "Start: 2024-06-15 10:05a Setting: work\n[00:00:15] (mic) Speaker 1: Hello"
 
     Examples:
         # Load a native transcript
-        metadata, entries = load_transcript("20250101/120000_audio.jsonl")
+        metadata, entries, formatted_text = load_transcript("20250101/120000_audio.jsonl")
         if entries is None:
             print(f"Error: {metadata.get('error')}")
             return
+        print(formatted_text)  # Human-readable output
         for entry in entries:
             print(f"{entry['start']}: {entry['text']}")
 
         # Load an imported transcript
-        metadata, entries = load_transcript("20250101/120000_imported_audio.jsonl")
+        metadata, entries, formatted_text = load_transcript("20250101/120000_imported_audio.jsonl")
         if entries is not None:
             import_id = metadata.get("imported", {}).get("id")
             domain = metadata.get("imported", {}).get("domain")
             print(f"Imported from {import_id} (domain: {domain})")
 
         # Check for topics/setting in native transcript
-        metadata, entries = load_transcript(path)
+        metadata, entries, formatted_text = load_transcript(path)
         if entries is not None:
             topics = metadata.get("topics")
             setting = metadata.get("setting")
     """
     import json
+    import re
+    from datetime import datetime
     from pathlib import Path
 
     try:
         path = Path(file_path)
         if not path.exists():
-            return {"error": f"File not found: {file_path}"}, None
+            return {"error": f"File not found: {file_path}"}, None, f"Error loading transcript: File not found: {file_path}"
 
         content = path.read_text(encoding="utf-8").strip()
         if not content:
-            return {"error": "File is empty"}, None
+            return {"error": "File is empty"}, None, "Error loading transcript: File is empty"
 
         lines = content.split("\n")
 
@@ -396,9 +401,9 @@ def load_transcript(file_path: str | os.PathLike) -> tuple[dict, list[dict] | No
         try:
             metadata = json.loads(lines[0])
             if not isinstance(metadata, dict):
-                return {"error": "First line must be a JSON object"}, None
+                return {"error": "First line must be a JSON object"}, None, "Error loading transcript: First line must be a JSON object"
         except json.JSONDecodeError as e:
-            return {"error": f"Invalid JSON in metadata line: {e}"}, None
+            return {"error": f"Invalid JSON in metadata line: {e}"}, None, f"Error loading transcript: Invalid JSON in metadata line: {e}"
 
         # Parse entries from remaining lines
         entries = []
@@ -409,12 +414,117 @@ def load_transcript(file_path: str | os.PathLike) -> tuple[dict, list[dict] | No
             try:
                 entry = json.loads(line)
                 if not isinstance(entry, dict):
-                    return {"error": f"Line {i} is not a JSON object"}, None
+                    return {"error": f"Line {i} is not a JSON object"}, None, f"Error loading transcript: Line {i} is not a JSON object"
                 entries.append(entry)
             except json.JSONDecodeError as e:
-                return {"error": f"Invalid JSON at line {i}: {e}"}, None
+                return {"error": f"Invalid JSON at line {i}: {e}"}, None, f"Error loading transcript: Invalid JSON at line {i}: {e}"
 
-        return metadata, entries
+        # Format the transcript as human-readable text
+        formatted_text = _format_transcript_entries(path, metadata, entries)
+
+        return metadata, entries, formatted_text
 
     except Exception as e:
-        return {"error": f"Failed to load transcript: {e}"}, None
+        return {"error": f"Failed to load transcript: {e}"}, None, f"Error loading transcript: {e}"
+
+
+def _format_transcript_entries(path: Path, metadata: dict, entries: list[dict]) -> str:
+    """Format transcript metadata and entries as human-readable text.
+
+    Internal helper for load_transcript().
+    """
+    import re
+    from datetime import datetime
+
+    # Parse day and time from filename
+    # Expected format: YYYYMMDD/HHMMSS_audio.jsonl or YYYYMMDD/HHMMSS_imported_audio.jsonl
+    parts = path.parts
+    day_str = None
+    time_str = None
+
+    # Try to find YYYYMMDD in path
+    for part in reversed(parts):
+        if re.match(r"^\d{8}$", part):
+            day_str = part
+            break
+
+    # Parse time from filename
+    filename = path.name
+    time_match = re.match(r"^(\d{6}).*_audio\.jsonl$", filename)
+    if time_match:
+        time_str = time_match.group(1)
+
+    # Build header line
+    header_parts = []
+
+    # Add start time if we could parse it
+    if day_str and time_str:
+        try:
+            dt = datetime.strptime(f"{day_str}{time_str}", "%Y%m%d%H%M%S")
+            # Format as "2024-06-15 10:05a"
+            time_formatted = dt.strftime("%Y-%m-%d %I:%M%p").lower()
+            header_parts.append(f"Start: {time_formatted}")
+        except ValueError:
+            pass
+
+    # Add metadata fields (excluding special fields)
+    skip_fields = {"error", "raw", "imported"}
+
+    for key, value in metadata.items():
+        if key in skip_fields:
+            continue
+
+        # Format the value
+        if isinstance(value, list):
+            value_str = ", ".join(str(v) for v in value)
+        else:
+            value_str = str(value)
+
+        if value_str:
+            header_parts.append(f"{key.capitalize()}: {value_str}")
+
+    # Handle imported metadata specially
+    if "imported" in metadata and isinstance(metadata["imported"], dict):
+        imported = metadata["imported"]
+        if "domain" in imported:
+            header_parts.append(f"Domain: {imported['domain']}")
+        if "id" in imported:
+            header_parts.append(f"Import ID: {imported['id']}")
+
+    # Build output
+    output_lines = []
+    if header_parts:
+        output_lines.append(" ".join(header_parts))
+
+    # Format entries
+    for entry in entries:
+        entry_parts = []
+
+        # Timestamp
+        start = entry.get("start", "")
+        if start:
+            entry_parts.append(f"[{start}]")
+
+        # Source (mic/sys)
+        source = entry.get("source", "")
+        if source:
+            entry_parts.append(f"({source})")
+
+        # Speaker
+        speaker = entry.get("speaker")
+        if speaker is not None:
+            entry_parts.append(f"Speaker {speaker}:")
+        else:
+            entry_parts.append("")
+
+        # Text
+        text = entry.get("text", "")
+
+        # Combine and add to output
+        prefix = " ".join(entry_parts).strip()
+        if prefix:
+            output_lines.append(f"{prefix} {text}" if text else prefix)
+        elif text:
+            output_lines.append(text)
+
+    return "\n".join(output_lines)
