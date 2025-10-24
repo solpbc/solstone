@@ -15,7 +15,9 @@ import cv2
 from PIL import Image
 from PIL.PngImagePlugin import PngInfo
 
+from observe.hear import load_transcript
 from observe.revai import convert_revai_to_sunstone, transcribe_file
+from observe.utils import format_transcript_text
 from think.detect_created import detect_created
 from think.detect_transcript import detect_transcript_json, detect_transcript_segment
 from think.models import GEMINI_PRO, gemini_generate
@@ -409,18 +411,23 @@ def create_transcript_summary(
     all_transcripts = []
     for json_path in audio_json_files:
         try:
-            with open(json_path, "r", encoding="utf-8") as f:
-                transcript_data = json.load(f)
-                if isinstance(transcript_data, dict) and "entries" in transcript_data:
-                    entries = transcript_data.get("entries") or []
-                else:
-                    entries = (
-                        transcript_data if isinstance(transcript_data, list) else []
-                    )
+            # Format the transcript as readable text for LLM
+            formatted_text = format_transcript_text(json_path)
 
-                all_transcripts.append(
-                    {"file": os.path.basename(json_path), "content": entries}
-                )
+            # Also load to get entry count for metadata
+            metadata, entries = load_transcript(json_path)
+            if entries is None:
+                error_msg = metadata.get("error", "Unknown error")
+                logger.warning(f"Failed to read {json_path}: {error_msg}")
+                continue
+
+            all_transcripts.append(
+                {
+                    "file": os.path.basename(json_path),
+                    "text": formatted_text,
+                    "entry_count": len(entries)
+                }
+            )
         except Exception as e:
             logger.warning(f"Failed to read {json_path}: {e}")
 
@@ -453,12 +460,10 @@ def create_transcript_summary(
     user_message_parts = []
 
     for transcript_info in all_transcripts:
-        entries = transcript_info["content"]
-        if isinstance(entries, list):
-            user_message_parts.append(
-                f"\n## Transcript Segment: {transcript_info['file']}\n"
-            )
-            user_message_parts.append(json.dumps(entries, indent=2))
+        user_message_parts.append(
+            f"\n## Transcript Segment: {transcript_info['file']}\n"
+        )
+        user_message_parts.append(transcript_info['text'])
 
     user_message = "\n".join(user_message_parts)
 
@@ -478,7 +483,7 @@ def create_transcript_summary(
 
         # Save the summary
         summary_path = import_dir / "summary.md"
-        total_entries = sum(len(t["content"]) for t in all_transcripts)
+        total_entries = sum(t["entry_count"] for t in all_transcripts)
         with open(summary_path, "w", encoding="utf-8") as f:
             f.write("# Audio Transcript Summary\n\n")
             f.write(f"**Source File:** {input_filename}\n")
