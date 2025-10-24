@@ -25,18 +25,15 @@ from .utils import (
     adjacent_days,
     build_occurrence_index,
     format_date,
-    generate_top_summary,
     modify_entity_file,
     modify_entity_in_file,
     time_since,
-    update_top_entry,
 )
 from .views import admin as admin_view
 from .views import agents as agents_view
 from .views import calendar as calendar_view
 from .views import chat as chat_view
 from .views import domains as domains_view
-from .views import entities as entities_view
 from .views import home as home_view
 from .views import inbox as inbox_view
 from .views import register_views
@@ -152,14 +149,11 @@ def create_app(journal: str = "") -> Flask:
 app = create_app()
 
 # Re-export commonly used callables
-reload_entities = entities_view.reload_entities
-
 home = home_view.home
 domains_page = domains_view.domains_page
 domains_list = domains_view.domains_list
 inbox_page = inbox_view.inbox_page
 get_messages = inbox_view.get_messages
-entities = entities_view.entities
 calendar = calendar_view.calendar_page
 calendar_day = calendar_view.calendar_day
 chat_page = chat_view.chat_page
@@ -182,12 +176,6 @@ task_log = admin_view.task_log
 reindex = admin_view.reindex
 reset_indexes = admin_view.reset_indexes
 refresh_summary = admin_view.refresh_summary
-entities_types = entities_view.entities_types
-entities_list = entities_view.entities_list
-entities_details = entities_view.entities_details
-api_top_generate = entities_view.api_top_generate
-api_top_update = entities_view.api_top_update
-api_modify_entity = entities_view.api_modify_entity
 calendar_occurrences = calendar_view.calendar_occurrences
 calendar_days = calendar_view.calendar_days
 calendar_stats = calendar_view.calendar_stats
@@ -206,7 +194,6 @@ __all__ = [
     "domains_list",
     "inbox_page",
     "get_messages",
-    "entities",
     "calendar",
     "calendar_day",
     "chat_page",
@@ -217,12 +204,6 @@ __all__ = [
     "clear_history",
     "search_page",
     "import_page",
-    "entities_types",
-    "entities_list",
-    "entities_details",
-    "api_top_generate",
-    "api_top_update",
-    "api_modify_entity",
     "calendar_occurrences",
     "calendar_days",
     "calendar_stats",
@@ -248,10 +229,7 @@ __all__ = [
     "format_date",
     "modify_entity_in_file",
     "modify_entity_file",
-    "update_top_entry",
-    "generate_top_summary",
     "time_since",
-    "reload_entities",
     "stats_data",
     "journal_root",
     "occurrences_index",

@@ -57,18 +57,6 @@ pre { background:#f5f5f5; padding:0.5em; }
         <small>Preferred name or nickname to be used when addressing you</small>
       </div>
       <div class="form-group">
-        <label for="config-entity">Entity</label>
-        <select id="config-entity" data-field="entity">
-          <option value="">Select entity...</option>
-        </select>
-        <small id="entity-display" style="color: #666; margin-top: 0.3em;"></small>
-      </div>
-      <div class="form-group">
-        <label for="config-short-bio">Short Bio</label>
-        <textarea id="config-short-bio" data-field="short_bio" rows="3" placeholder="Brief description of yourself (loaded from selected entity)"></textarea>
-        <small>This bio is stored in the entity and used across the journal for context</small>
-      </div>
-      <div class="form-group">
         <label for="config-pronouns">Pronouns</label>
         <select id="config-pronouns" data-field="pronouns">
           <option value="">Select pronouns...</option>
@@ -185,8 +173,6 @@ pre { background:#f5f5f5; padding:0.5em; }
 let taskDone=false;
 let configData = null;
 let saveTimeout = null;
-let personEntities = [];
-let currentEntityDetails = null;
 const tabs = document.querySelectorAll('.tab');
 const contents = document.querySelectorAll('.content');
 function showTab(id){
@@ -244,41 +230,18 @@ window.onclick=e=>{
 };
 
 // Config management functions
-function loadEntities(){
-  return fetch('{{ url_for('entities.entities_list') }}?type=Person')
+function loadConfig(){
+  fetch('{{ url_for('admin.get_config') }}')
     .then(r=>r.json())
-    .then(entities=>{
-      personEntities = entities.filter(e=>e.top); // Only top-level entities
-      const select = document.getElementById('config-entity');
-      // Clear existing options except first
-      while(select.options.length > 1) select.remove(1);
-      // Add entity options
-      personEntities.forEach(entity=>{
-        const opt = document.createElement('option');
-        opt.value = entity.name;
-        opt.textContent = entity.name;
-        select.appendChild(opt);
-      });
+    .then(data=>{
+      configData = data;
+      populateConfigForm(data);
+      setupConfigAutoSave();
     })
     .catch(err=>{
-      console.error('Error loading entities:', err);
+      console.error('Error loading config:', err);
+      showConfigStatus('Error loading configuration', 'error');
     });
-}
-
-function loadConfig(){
-  loadEntities().then(()=>{
-    fetch('{{ url_for('admin.get_config') }}')
-      .then(r=>r.json())
-      .then(data=>{
-        configData = data;
-        populateConfigForm(data);
-        setupConfigAutoSave();
-      })
-      .catch(err=>{
-        console.error('Error loading config:', err);
-        showConfigStatus('Error loading configuration', 'error');
-      });
-  });
 }
 
 function populateConfigForm(data){
@@ -297,25 +260,6 @@ function populateConfigForm(data){
 
   document.getElementById('config-aliases').value = Array.isArray(identity.aliases) ? identity.aliases.join(', ') : '';
   document.getElementById('config-emails').value = Array.isArray(identity.email_addresses) ? identity.email_addresses.join(', ') : '';
-
-  // Handle entity - auto-match by name prefix if not set
-  const entitySelect = document.getElementById('config-entity');
-  const entityDisplay = document.getElementById('entity-display');
-  let entityValue = identity.entity || '';
-
-  if (!entityValue && identity.name) {
-    // Try to auto-match by prefix
-    const name = identity.name.trim();
-    const match = personEntities.find(e => e.name.toLowerCase().startsWith(name.toLowerCase()));
-    if (match) {
-      entityValue = match.name;
-      // Auto-save the matched entity
-      setTimeout(() => saveConfig(), 500);
-    }
-  }
-
-  entitySelect.value = entityValue;
-  updateEntityDisplay();
 
   // Auto-detect timezone if not set
   const timezoneInput = document.getElementById('config-timezone');
@@ -336,55 +280,11 @@ function populateConfigForm(data){
   }
 }
 
-function loadEntityDetails(entityName){
-  if (!entityName) {
-    currentEntityDetails = null;
-    document.getElementById('config-short-bio').value = '';
-    return;
-  }
-
-  fetch(`{{ url_for('entities.entities_details') }}?type=Person&name=${encodeURIComponent(entityName)}`)
-    .then(r=>r.json())
-    .then(details=>{
-      currentEntityDetails = details;
-      if (details.desc) {
-        document.getElementById('config-short-bio').value = details.desc;
-      } else {
-        document.getElementById('config-short-bio').value = '';
-      }
-    })
-    .catch(err=>{
-      console.error('Error loading entity details:', err);
-      currentEntityDetails = null;
-      document.getElementById('config-short-bio').value = '';
-    });
-}
-
-function updateEntityDisplay(){
-  const entitySelect = document.getElementById('config-entity');
-  const entityDisplay = document.getElementById('entity-display');
-  const selectedEntity = entitySelect.value;
-
-  if (selectedEntity) {
-    const entity = personEntities.find(e => e.name === selectedEntity);
-    if (entity) {
-      entityDisplay.textContent = `Selected: ${entity.name}`;
-    } else {
-      entityDisplay.textContent = `Selected: ${selectedEntity}`;
-    }
-    loadEntityDetails(selectedEntity);
-  } else {
-    entityDisplay.textContent = '';
-    loadEntityDetails('');
-  }
-}
-
 function setupConfigAutoSave(){
   const inputs = document.querySelectorAll('#config input[data-field], #config select[data-field], #config textarea[data-field]');
   inputs.forEach(input=>{
     input.addEventListener('blur', ()=>saveConfigField(input));
     input.addEventListener('change', ()=>{
-      if(input.id === 'config-entity') updateEntityDisplay();
       saveConfigField(input);
     });
     if (input.tagName !== 'TEXTAREA') {
@@ -419,17 +319,13 @@ function saveConfig(){
     }
   }
 
-  const entityName = document.getElementById('config-entity').value.trim();
-  const shortBio = document.getElementById('config-short-bio').value.trim();
-
   const identity = {
     name: document.getElementById('config-name').value.trim(),
     preferred: document.getElementById('config-preferred').value.trim(),
     pronouns: pronouns,
     aliases: document.getElementById('config-aliases').value.split(',').map(s=>s.trim()).filter(s=>s),
     email_addresses: document.getElementById('config-emails').value.split(',').map(s=>s.trim()).filter(s=>s),
-    timezone: document.getElementById('config-timezone').value.trim(),
-    entity: entityName
+    timezone: document.getElementById('config-timezone').value.trim()
   };
 
   showConfigStatus('Saving...', 'saving');
@@ -444,27 +340,11 @@ function saveConfig(){
   .then(data=>{
     if(data.success){
       configData = data.config;
-
-      // If entity is selected and short_bio has content, update the entity
-      if (entityName && shortBio) {
-        return fetch('{{ url_for('entities.api_top_update') }}', {
-          method: 'POST',
-          headers: {'Content-Type': 'application/json'},
-          body: JSON.stringify({
-            type: 'Person',
-            name: entityName,
-            desc: shortBio
-          })
-        });
-      }
-      return Promise.resolve();
+      showConfigStatus('Saved', 'success');
+      setTimeout(()=>hideConfigStatus(), 2000);
     } else {
       throw new Error(data.error || 'Unknown error');
     }
-  })
-  .then(()=>{
-    showConfigStatus('Saved', 'success');
-    setTimeout(()=>hideConfigStatus(), 2000);
   })
   .catch(err=>{
     console.error('Error saving config:', err);

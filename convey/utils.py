@@ -145,52 +145,6 @@ def modify_entity_file(
     return success
 
 
-def update_top_entry(journal: str, etype: str, name: str, desc: str) -> None:
-    """Add or update an entry in the top entities.md file."""
-    desc = desc.replace("\n", " ").replace("\r", " ").strip()
-    file_path = os.path.join(journal, "entities.md")
-    lines: List[str] = []
-    if os.path.isfile(file_path):
-        with open(file_path, "r", encoding="utf-8") as f:
-            lines = f.readlines()
-    found = False
-    for idx, line in enumerate(lines):
-        parsed = parse_entity_line(line)
-        if not parsed:
-            continue
-        t, n, _ = parsed
-        if t == etype and n == name:
-            newline = "\n" if line.endswith("\n") else ""
-            lines[idx] = f"* {etype}: {name} - {desc}" + newline
-            found = True
-            break
-    if not found:
-        if lines and not lines[-1].endswith("\n"):
-            lines[-1] += "\n"
-        lines.append(f"* {etype}: {name} - {desc}\n")
-    with open(file_path, "w", encoding="utf-8") as f:
-        f.writelines(lines)
-
-
-def generate_top_summary(info: Dict[str, Any], api_key: str) -> str:
-    """Merge entity descriptions into a single summary via Gemini."""
-    descs = list(info.get("descriptions", {}).values())
-    if not descs and info.get("primary"):
-        descs.append(info["primary"])
-    joined = "\n".join(f"- {d}" for d in descs if d)
-    prompt = (
-        "Merge the following entity descriptions into one concise summary about"
-        " the same length as any individual line. Only return the final merged summary text."
-    )
-    return gemini_generate(
-        contents=joined,
-        model=GEMINI_FLASH,
-        temperature=0.3,
-        max_output_tokens=8192 * 2,
-        system_instruction=prompt,
-    )
-
-
 def _combine(day: str, time_str: str) -> str:
     """Return ISO timestamp string for ``day`` + ``time_str``."""
 
