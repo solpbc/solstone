@@ -323,16 +323,15 @@ def generate_domain_description(domain_name: str) -> Any:
         else:
             context_parts.append("Current Description: (none)")
 
-        # Check if domain has entities
-        entities_file = domain_path / "entities.md"
-        if entities_file.exists():
-            try:
-                with open(entities_file, "r", encoding="utf-8") as f:
-                    entities_content = f.read().strip()
-                if entities_content:
-                    context_parts.append(f"Domain Entities: {entities_content}")
-            except Exception:
-                pass
+        # Check if domain has entities using load_entity_names
+        from think.entities import load_entity_names
+
+        try:
+            entity_names = load_entity_names(domain=domain_name)
+            if entity_names:
+                context_parts.append(f"Domain Entities: {entity_names}")
+        except Exception:
+            pass
 
         # Check if domain has matters
         matters = get_matters(domain_name)

@@ -76,25 +76,32 @@ def _flatten_identity_to_template_vars(identity: dict[str, Any]) -> dict[str, st
         template_vars["entity_name"] = entity_ref
         template_vars["Entity_name"] = entity_ref  # No capitalize for entity name
 
-        # Fetch entity description from entities.md
+        # Fetch entity description using load_all_attached_entities
         try:
-            load_dotenv()
-            journal = os.getenv("JOURNAL_PATH")
-            if journal:
-                entities_path = Path(journal) / "entities.md"
-                if entities_path.is_file():
-                    from think.indexer import parse_entity_line
+            from think.entities import load_all_attached_entities
 
-                    with open(entities_path, "r", encoding="utf-8") as f:
-                        for line in f:
-                            parsed = parse_entity_line(line)
-                            if parsed:
-                                _, name, desc = parsed
-                                # Match entity by name
-                                if name == entity_ref:
-                                    template_vars["entity_value"] = desc
-                                    template_vars["Entity_value"] = desc.capitalize()
-                                    break
+            entities = load_all_attached_entities()
+
+            # Fallback to top-level entities.md for backward compatibility
+            if not entities:
+                load_dotenv()
+                journal = os.getenv("JOURNAL_PATH")
+                if journal:
+                    entities_path = Path(journal) / "entities.md"
+                    if entities_path.is_file():
+                        from think.indexer import parse_entity_line
+                        entities = []
+                        with open(entities_path, "r", encoding="utf-8") as f:
+                            for line in f:
+                                parsed = parse_entity_line(line)
+                                if parsed:
+                                    entities.append(parsed)
+
+            for _, name, desc in entities:
+                if name == entity_ref:
+                    template_vars["entity_value"] = desc
+                    template_vars["Entity_value"] = desc.capitalize()
+                    break
         except Exception as exc:
             logging.debug("Failed to load entity description: %s", exc)
 

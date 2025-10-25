@@ -158,17 +158,19 @@ def domain_summary(domain: str) -> str:
         lines.append(f"**Description:** {description}")
         lines.append("")
 
-    # Load entities if available
-    entities_path = domain_path / "entities.md"
-    if entities_path.exists():
-        with open(entities_path, "r", encoding="utf-8") as f:
-            entities_content = f.read().strip()
+    # Load entities if available using load_entities
+    from think.entities import load_entities
 
-        if entities_content:
-            lines.append("## Entities")
-            lines.append("")
-            lines.append(entities_content)
-            lines.append("")
+    entities = load_entities(domain)
+    if entities:
+        lines.append("## Entities")
+        lines.append("")
+        for entity_type, name, desc in entities:
+            if desc:
+                lines.append(f"- **{entity_type}**: {name} - {desc}")
+            else:
+                lines.append(f"- **{entity_type}**: {name}")
+        lines.append("")
 
     # Check for matters
     matters = []
