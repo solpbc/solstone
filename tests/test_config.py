@@ -18,6 +18,7 @@ def config_journal(tmp_path):
         "identity": {
             "name": "Test User",
             "preferred": "Tester",
+            "bio": "a software engineer and tester",
             "pronouns": {
                 "subject": "they",
                 "object": "them",
@@ -27,7 +28,6 @@ def config_journal(tmp_path):
             "aliases": ["test", "tester"],
             "email_addresses": ["test@example.com"],
             "timezone": "America/New_York",
-            "entity": "Test User (Tester)",
         }
     }
 
@@ -57,7 +57,7 @@ def test_get_config_default_structure(tmp_path, monkeypatch):
     assert config["identity"]["aliases"] == []
     assert config["identity"]["email_addresses"] == []
     assert config["identity"]["timezone"] == ""
-    assert config["identity"]["entity"] == ""
+    assert config["identity"]["bio"] == ""
 
 
 def test_get_config_loads_existing(config_journal, monkeypatch):
@@ -77,7 +77,7 @@ def test_get_config_loads_existing(config_journal, monkeypatch):
     assert config["identity"]["aliases"] == ["test", "tester"]
     assert config["identity"]["email_addresses"] == ["test@example.com"]
     assert config["identity"]["timezone"] == "America/New_York"
-    assert config["identity"]["entity"] == "Test User (Tester)"
+    assert config["identity"]["bio"] == "a software engineer and tester"
 
 
 def test_get_config_fills_missing_fields(tmp_path, monkeypatch):
@@ -113,7 +113,7 @@ def test_get_config_fills_missing_fields(tmp_path, monkeypatch):
     assert config["identity"]["aliases"] == []
     assert config["identity"]["email_addresses"] == []
     assert config["identity"]["timezone"] == ""
-    assert config["identity"]["entity"] == ""
+    assert config["identity"]["bio"] == ""
 
 
 def test_get_config_no_journal_path(monkeypatch, tmp_path):
@@ -148,7 +148,7 @@ def test_get_config_handles_invalid_json(tmp_path, monkeypatch):
         "possessive": "",
         "reflexive": "",
     }
-    assert config["identity"]["entity"] == ""
+    assert config["identity"]["bio"] == ""
 
 
 def test_get_config_with_fixtures():
@@ -170,4 +170,4 @@ def test_get_config_with_fixtures():
     assert isinstance(config["identity"]["aliases"], list)
     assert isinstance(config["identity"]["email_addresses"], list)
     assert isinstance(config["identity"]["timezone"], str)
-    assert isinstance(config["identity"]["entity"], str)
+    assert isinstance(config["identity"]["bio"], str)

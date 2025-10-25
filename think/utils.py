@@ -50,8 +50,7 @@ def _flatten_identity_to_template_vars(identity: dict[str, Any]) -> dict[str, st
         - 'name' → identity['name']
         - 'pronouns_possessive' → identity['pronouns']['possessive']
         - 'Pronouns_possessive' → identity['pronouns']['possessive'].capitalize()
-        - 'entity_name' → value of identity['entity'] field
-        - 'entity_value' → description from entities.md for the entity
+        - 'bio' → identity['bio']
     """
     template_vars: dict[str, str] = {}
 
@@ -70,44 +69,6 @@ def _flatten_identity_to_template_vars(identity: dict[str, Any]) -> dict[str, st
             # Create uppercase-first version
             template_vars[key.capitalize()] = str(value).capitalize()
 
-    # Handle entity lookup
-    entity_ref = identity.get("entity", "")
-    if entity_ref:
-        template_vars["entity_name"] = entity_ref
-        template_vars["Entity_name"] = entity_ref  # No capitalize for entity name
-
-        # Fetch entity description using load_all_attached_entities
-        try:
-            from think.entities import load_all_attached_entities
-
-            entities = load_all_attached_entities()
-
-            # Fallback to top-level entities.jsonl for backward compatibility
-            if not entities:
-                load_dotenv()
-                journal = os.getenv("JOURNAL_PATH")
-                if journal:
-                    entities_path = Path(journal) / "entities.jsonl"
-                    if entities_path.is_file():
-                        from think.entities import parse_entity_file
-                        entities = parse_entity_file(str(entities_path))
-
-            for entity in entities:
-                name = entity.get("name", "")
-                desc = entity.get("description", "")
-                if name == entity_ref:
-                    template_vars["entity_value"] = desc
-                    template_vars["Entity_value"] = desc.capitalize()
-                    break
-        except Exception as exc:
-            logging.debug("Failed to load entity description: %s", exc)
-
-    # Add bio if present
-    bio = identity.get("bio", "")
-    if bio:
-        template_vars["bio"] = bio
-        template_vars["Bio"] = bio.capitalize()
-
     return template_vars
 
 
@@ -118,10 +79,9 @@ def load_prompt(
 
     Supports Python string.Template variable substitution using identity config
     from get_config()['identity']. Template variables include:
-    - Top-level fields: $name, $preferred
+    - Top-level fields: $name, $preferred, $bio, $timezone
     - Nested fields with underscores: $pronouns_possessive, $pronouns_subject
-    - Uppercase-first versions: $Pronouns_possessive, $Name
-    - Entity fields: $entity_name (entity reference), $entity_value (description)
+    - Uppercase-first versions: $Pronouns_possessive, $Name, $Bio
 
     Parameters
     ----------
@@ -249,8 +209,8 @@ def get_config() -> dict[str, Any]:
     -------
     dict
         Journal configuration with at least an 'identity' key containing
-        name, preferred, pronouns, aliases, email_addresses, and timezone fields.
-        Returns default empty structure if config file doesn't exist.
+        name, preferred, bio, pronouns, aliases, email_addresses, and
+        timezone fields. Returns default empty structure if config file doesn't exist.
 
     Raises
     ------
@@ -261,6 +221,7 @@ def get_config() -> dict[str, Any]:
     default_identity = {
         "name": "",
         "preferred": "",
+        "bio": "",
         "pronouns": {
             "subject": "",
             "object": "",
@@ -270,7 +231,6 @@ def get_config() -> dict[str, Any]:
         "aliases": [],
         "email_addresses": [],
         "timezone": "",
-        "entity": "",
     }
 
     load_dotenv()
