@@ -448,48 +448,18 @@ def get_agent(persona: str = "default") -> dict:
     prompt_data = load_prompt(persona, base_dir=AGENT_DIR, include_journal=True)
     config["instruction"] = prompt_data.text
 
-    # Add runtime context (entities and domains)
+    # Add runtime context (domains with entities)
     extra_parts = []
 
-    # Add entities context grouped by domain
+    # Add domains with their entities using unified summary
     journal = os.getenv("JOURNAL_PATH")
     if journal:
         try:
-            from think.domains import get_domains
-            from think.entities import load_entities
+            from think.domains import domain_summaries
 
-            domains = get_domains()
-            if domains:
-                entity_sections = []
-                for domain_name in sorted(domains.keys()):
-                    entities = load_entities(domain_name)
-                    if entities:
-                        lines = [f"### Domain: {domain_name}"]
-                        for etype, name, desc in entities:
-                            lines.append(f"- **{etype}**: {name} - {desc}")
-                        entity_sections.append("\n".join(lines))
-
-                if entity_sections:
-                    extra_parts.append(
-                        "## Well-Known Entities\n\n" + "\n\n".join(entity_sections)
-                    )
-        except Exception:
-            pass  # Ignore if entities can't be loaded
-
-        # Add domains to agent instructions
-        try:
-            from think.domains import get_domains
-
-            domains = get_domains()
-            if domains:
-                domains_list = []
-                for domain_name, info in sorted(domains.items()):
-                    desc = str(info.get("description", "")).replace("\n", " ").strip()
-                    if desc:
-                        domains_list.append(f"- `{domain_name}`: {desc}")
-                    else:
-                        domains_list.append(f"- `{domain_name}`")
-                extra_parts.append("## Available Domains\n" + "\n".join(domains_list))
+            domains_summary = domain_summaries()
+            if domains_summary and domains_summary != "No domains found.":
+                extra_parts.append(domains_summary)
         except Exception:
             pass  # Ignore if domains can't be loaded
 

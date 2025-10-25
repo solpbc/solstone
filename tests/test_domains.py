@@ -196,12 +196,12 @@ def test_domain_summaries(monkeypatch):
     # Check header
     assert "## Available Domains" in summary
 
-    # Check test-domain is included with hashtag format
-    assert "**Test Domain** (#test-domain)" in summary
+    # Check test-domain is included with backtick format
+    assert "**Test Domain** (`test-domain`)" in summary
     assert "A test domain for validating matter functionality" in summary
 
-    # Check entities are included as comma-delimited list (not grouped by type anymore)
-    assert "  - **Entities**:" in summary
+    # Check entities are included with title prefix
+    assert "  - **Test Domain Entities**:" in summary
     # Verify some specific entities are present
     assert "John Smith" in summary
     assert "Jane Doe" in summary
@@ -209,8 +209,8 @@ def test_domain_summaries(monkeypatch):
     assert "API Optimization" in summary
 
     # Check other domains are included
-    assert "(#full-featured)" in summary
-    assert "(#minimal-domain)" in summary
+    assert "(`full-featured`)" in summary
+    assert "(`minimal-domain`)" in summary
 
 
 def test_domain_summaries_no_domains(monkeypatch, tmp_path):
@@ -238,15 +238,15 @@ def test_domain_summaries_mixed_entities(monkeypatch):
     summary = domain_summaries()
 
     # Test domain should have entities (comma-delimited, not grouped by type)
-    assert "**Test Domain** (#test-domain)" in summary
-    assert "  - **Entities**:" in summary
+    assert "**Test Domain** (`test-domain`)" in summary
+    assert "  - **Test Domain Entities**:" in summary
 
     # Minimal domain should not have entity lists
-    assert "**Minimal Domain** (#minimal-domain)" in summary
+    assert "**Minimal Domain** (`minimal-domain`)" in summary
     # Check that there's no entity list immediately after minimal-domain
     lines = summary.split("\n")
     for i, line in enumerate(lines):
-        if "**Minimal Domain** (#minimal-domain)" in line:
+        if "**Minimal Domain** (`minimal-domain`)" in line:
             # Next non-empty line should not be an entity list
             j = i + 1
             while j < len(lines) and lines[j].strip():

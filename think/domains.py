@@ -553,12 +553,12 @@ def domain_summaries() -> str:
     lines.append("## Available Domains\n")
 
     for domain_name, domain_info in sorted(domains.items()):
-        # Build domain header with name and hashtag
+        # Build domain header with name in parentheses
         title = domain_info.get("title", domain_name)
         description = domain_info.get("description", "")
 
         # Main list item for domain
-        lines.append(f"- **{title}** (#{domain_name})")
+        lines.append(f"- **{title}** (`{domain_name}`)")
 
         if description:
             lines.append(f"  {description}")
@@ -567,7 +567,7 @@ def domain_summaries() -> str:
         try:
             entity_names = load_entity_names(domain=domain_name)
             if entity_names:
-                lines.append(f"  - **Entities**: {entity_names}")
+                lines.append(f"  - **{title} Entities**: {entity_names}")
         except Exception:
             # No entities file or error loading - that's fine, skip it
             pass

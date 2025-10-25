@@ -79,20 +79,23 @@ def test_agent_context_includes_entities_by_domain(fixture_journal):
     """Test that agent context includes entities grouped by domain."""
     config = get_agent("entities")
 
-    # extra_context should contain domain-grouped entities
+    # extra_context should contain domain summaries with entities
     extra_context = config.get("extra_context", "")
-    assert "Well-Known Entities" in extra_context
-    assert "Domain:" in extra_context
+    assert "Available Domains" in extra_context
+
+    # Should include domain names in backtick format
+    assert "`test-domain`" in extra_context or "`full-featured`" in extra_context
 
     # Should include entities from fixture domains
-    # fixtures/journal/domains/personal/entities.md contains Alice Johnson, Bob Smith, Acme Corp
-    if "personal" in extra_context:
-        # If personal domain exists, check for its entities
-        assert (
-            "Alice Johnson" in extra_context
-            or "Bob Smith" in extra_context
-            or "Acme Corp" in extra_context
-        )
+    # fixtures/journal/domains/ contains various entities
+    assert "Entities" in extra_context
+
+    # Check for some known entities from the fixtures
+    assert (
+        "John Smith" in extra_context
+        or "Jane Doe" in extra_context
+        or "Acme Corp" in extra_context
+    )
 
 
 def test_agent_priority_ordering(fixture_journal):
