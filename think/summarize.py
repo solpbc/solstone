@@ -314,12 +314,23 @@ def main() -> None:
             print("JSON file exists but --force specified. Regenerating.")
 
         try:
+            # Load domain summaries and combine with topic-specific occurrence instructions
+            from think.domains import domain_summaries
+
+            domains_context = domain_summaries()
+
+            # Combine domain summaries with topic-specific instructions
+            if extra_occ:
+                combined_instructions = f"{domains_context}\n\n{extra_occ}"
+            else:
+                combined_instructions = domains_context
+
             occurrences = send_occurrence(
                 result,
                 occ_prompt,
                 api_key,
                 model,
-                extra_instructions=extra_occ,
+                extra_instructions=combined_instructions,
             )
         except ValueError as e:
             print(f"Error: {e}")

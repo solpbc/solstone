@@ -66,7 +66,8 @@ def test_ponder_main(tmp_path, monkeypatch):
     assert data["occurrences"]
     assert md.with_suffix(md.suffix + ".crumb").is_file()
     assert js.with_suffix(js.suffix + ".crumb").is_file()
-    assert captured["extra"] is None
+    # Domain summaries are now always included in extra_instructions
+    assert captured["extra"] == "No domains found."
 
 
 def test_ponder_extra_instructions(tmp_path, monkeypatch):
@@ -115,7 +116,9 @@ def test_ponder_extra_instructions(tmp_path, monkeypatch):
     data = json.loads(js.read_text())
     assert data["day"] == "20240101"
     assert data["occurrences"]
+    # Domain summaries are prepended to topic-specific occurrence instructions
     assert captured["extra"]
+    assert captured["extra"].startswith("No domains found.")
 
 
 def test_ponder_skip_occurrences(tmp_path, monkeypatch):
