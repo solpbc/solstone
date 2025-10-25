@@ -404,6 +404,7 @@ def search_events(
     offset: int = 0,
     *,
     day: str | None = None,
+    domain: str | None = None,
     topic: str | None = None,
     start: str | None = None,
     end: str | None = None,
@@ -412,24 +413,26 @@ def search_events(
 
     This tool searches JSON event data generated from your daily summaries.
     Use it to find meetings, tasks, or other notable activities. Results may
-    be filtered by day, topic, or a time range.
+    be filtered by day, domain, topic, or a time range.
 
     Args:
         query: Natural language search query (e.g., "team standup")
         limit: Optional maximum number of events to return (default: 5)
         offset: Optional number of results to skip for pagination (default: 0)
         day: Optional ``YYYYMMDD`` day to filter results
+        domain: Optional domain name to filter results by (e.g., "work", "personal")
         topic: Optional topic name to filter by
         start: Optional start time to filter events starting on or after this ``HH:MM:SS`` time
         end: Optional end time to filter events ending on or before this ``HH:MM:SS`` time
 
     Returns:
-        Dictionary with ``limit``, ``offset`` and ``results`` list containing day, topic,
+        Dictionary with ``limit``, ``offset`` and ``results`` list containing day, domain, topic,
         start/end times and short event summaries.
         Ordered by day and start time (most recent first).
 
     Examples:
         - search_events("sprint review")
+        - search_events("planning", domain="work")
         - search_events("planning", day="20240101", limit=10)
         - search_events("standup", limit=5, offset=10)
     """
@@ -440,6 +443,7 @@ def search_events(
             limit=limit,
             offset=offset,
             day=day,
+            domain=domain,
             start=start,
             end=end,
             topic=topic,
@@ -448,10 +452,11 @@ def search_events(
         items = []
         for r in rows:
             meta = r.get("metadata", {})
-            occ = r.get("occurrence", {})
+            occ = r.get("event", {})
             items.append(
                 {
                     "day": meta.get("day", ""),
+                    "domain": meta.get("domain", ""),
                     "topic": meta.get("topic", ""),
                     "start": meta.get("start", ""),
                     "end": meta.get("end", ""),

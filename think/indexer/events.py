@@ -32,13 +32,14 @@ def _index_events(conn: sqlite3.Connection, rel: str, path: str, verbose: bool) 
         )
         conn.execute(
             (
-                "INSERT INTO event_match(path, day, idx, topic, start, end) VALUES (?, ?, ?, ?, ?, ?)"
+                "INSERT INTO event_match(path, day, idx, topic, domain, start, end) VALUES (?, ?, ?, ?, ?, ?, ?)"
             ),
             (
                 rel,
                 day,
                 idx,
                 topic,
+                event.get("domain", ""),
                 event.get("start", ""),
                 event.get("end", ""),
             ),
@@ -74,6 +75,7 @@ def search_events(
     offset: int = 0,
     *,
     day: str | None = None,
+    domain: str | None = None,
     start: str | None = None,
     end: str | None = None,
     topic: str | None = None,
@@ -95,6 +97,9 @@ def search_events(
     if day:
         where_clause += " AND m.day=?"
         params.append(day)
+    if domain:
+        where_clause += " AND m.domain=?"
+        params.append(domain)
     if topic:
         where_clause += " AND m.topic=?"
         params.append(topic)
@@ -118,7 +123,7 @@ def search_events(
     # Get results with limit and offset, ordered by day and start time (newest first)
     sql = f"""
         SELECT t.content,
-               m.path, m.day, m.idx, m.topic, m.start, m.end,
+               m.path, m.day, m.idx, m.topic, m.domain, m.start, m.end,
                bm25(events_text) as rank
         FROM events_text t JOIN event_match m ON t.path=m.path AND t.idx=m.idx
         WHERE {where_clause}
@@ -134,6 +139,7 @@ def search_events(
             day_label,
             idx,
             topic_label,
+            domain_val,
             start_val,
             end_val,
             rank,
@@ -158,6 +164,7 @@ def search_events(
                     "path": path,
                     "index": idx,
                     "topic": topic_label,
+                    "domain": domain_val,
                     "start": start_val,
                     "end": end_val,
                     "participants": occ_obj.get("participants"),

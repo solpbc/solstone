@@ -8,6 +8,7 @@
       "end": "09:30:00",
       "title": "Team sync",
       "summary": "Daily standup",
+      "domain": "work",
       "details": "Discussion about project status"
     },
     {
@@ -17,6 +18,7 @@
       "end": "11:30:00",
       "title": "Client review with Acme Corp",
       "summary": "Demo of authentication module",
+      "domain": "work",
       "details": "Present current progress on auth implementation"
     },
     {
@@ -26,6 +28,7 @@
       "end": "15:00:00",
       "title": "Sprint planning",
       "summary": "Plan next sprint tasks",
+      "domain": "work",
       "details": "Prioritize auth module completion and testing"
     },
     {
@@ -35,6 +38,7 @@
       "end": "16:30:00",
       "title": "Architecture discussion",
       "summary": "Review system architecture",
+      "domain": "personal",
       "details": "Discuss JWT implementation and security considerations"
     }
   ]
