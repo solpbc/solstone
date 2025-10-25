@@ -504,6 +504,7 @@ def scan_day(day_dir: Path) -> dict[str, list[str]]:
     if seen_dir.is_dir():
         raw.extend(f"seen/{p.name}" for p in sorted(seen_dir.glob("*.webm")))
         raw.extend(f"seen/{p.name}" for p in sorted(seen_dir.glob("*.mp4")))
+        raw.extend(f"seen/{p.name}" for p in sorted(seen_dir.glob("*.mov")))
 
     # Find processed output files
     processed = sorted(p.name for p in day_dir.glob("*_audio.jsonl"))
@@ -515,6 +516,7 @@ def scan_day(day_dir: Path) -> dict[str, list[str]]:
     repairable.extend(sorted(p.name for p in day_dir.glob("*.m4a")))
     repairable.extend(sorted(p.name for p in day_dir.glob("*.webm")))
     repairable.extend(sorted(p.name for p in day_dir.glob("*.mp4")))
+    repairable.extend(sorted(p.name for p in day_dir.glob("*.mov")))
 
     return {"raw": raw, "processed": processed, "repairable": repairable}
 
@@ -545,6 +547,7 @@ def main():
     # Register handlers
     sensor.register("*_screen.webm", "describe", ["observe-describe", "{file}"])
     sensor.register("*_screen.mp4", "describe", ["observe-describe", "{file}"])
+    sensor.register("*_screen.mov", "describe", ["observe-describe", "{file}"])
     sensor.register("*_raw.flac", "transcribe", ["observe-transcribe", "{file}"])
     sensor.register("*_raw.m4a", "transcribe", ["observe-transcribe", "{file}"])
 
