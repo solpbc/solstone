@@ -1,12 +1,10 @@
 import json
-import logging
 import os
 import re
 import time
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
-from think.indexer import parse_entity_line
 from think.models import GEMINI_FLASH, gemini_generate
 from think.utils import day_dirs, day_path, get_topics
 
@@ -56,93 +54,6 @@ def time_since(epoch: int) -> str:
         return f"{days} day{'s' if days != 1 else ''} ago"
     weeks = days // 7
     return f"{weeks} week{'s' if weeks != 1 else ''} ago"
-
-
-def log_entity_operation(
-    log_dir: str,
-    operation: str,
-    day: str,
-    etype: str,
-    name: str,
-    new_name: Optional[str] = None,
-) -> None:
-    """Log entity operations to entity_review.log."""
-    log_path = os.path.join(log_dir, "entity_review.log")
-    timestamp = datetime.now().isoformat()
-    if new_name:
-        log_entry = f"{timestamp} {operation} {day} {etype}: {name} -> {new_name}\n"
-    else:
-        log_entry = f"{timestamp} {operation} {day} {etype}: {name}\n"
-    with open(log_path, "a", encoding="utf-8") as f:
-        f.write(log_entry)
-
-
-def modify_entity_in_file(
-    file_path: str,
-    etype: str,
-    name: str,
-    new_name: Optional[str] = None,
-    operation: str = "remove",
-    require_match: bool = True,
-) -> bool:
-    """Remove or rename an entity entry in an entities.md file."""
-    if not os.path.isfile(file_path):
-        if require_match:
-            logging.warning(f"entities.md not found at {file_path}")
-        return False
-    with open(file_path, "r", encoding="utf-8") as f:
-        lines = f.readlines()
-    matches: List[tuple[int, str]] = []
-    for idx, line in enumerate(lines):
-        parsed = parse_entity_line(line)
-        if not parsed:
-            continue
-        t, n, desc = parsed
-        if t == etype and n == name:
-            matches.append((idx, desc))
-    if len(matches) == 0:
-        if require_match:
-            logging.warning(f"No match found for '{etype}: {name}' in {file_path}")
-        return False
-    if len(matches) > 1:
-        logging.warning(
-            f"Multiple matches found for '{etype}: {name}' in {file_path}, using first match"
-        )
-        # Use the first match instead of failing
-        matches = [matches[0]]
-    idx, desc = matches[0]
-    newline = "\n" if lines[idx].endswith("\n") else ""
-    if operation == "remove":
-        del lines[idx]
-    elif operation == "rename" and new_name:
-        new_line = f"* {etype}: {new_name}"
-        if desc:
-            new_line += f" - {desc}"
-        lines[idx] = new_line + newline
-    with open(file_path, "w", encoding="utf-8") as f:
-        f.writelines(lines)
-    return True
-
-
-def modify_entity_file(
-    journal: str,
-    day: str,
-    etype: str,
-    name: str,
-    new_name: Optional[str] = None,
-    operation: str = "remove",
-) -> bool:
-    """Remove or rename an entity entry in a day's ``entities.md`` file.
-
-    Returns True if the operation was successful, False otherwise.
-    """
-    file_path = str(day_path(day) / "entities.md")
-    success = modify_entity_in_file(
-        file_path, etype, name, new_name, operation, require_match=True
-    )
-    if success:
-        log_entity_operation(journal, operation, day, etype, name, new_name)
-    return success
 
 
 def _combine(day: str, time_str: str) -> str:

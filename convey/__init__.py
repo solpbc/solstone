@@ -25,8 +25,6 @@ from .utils import (
     adjacent_days,
     build_occurrence_index,
     format_date,
-    modify_entity_file,
-    modify_entity_in_file,
     time_since,
 )
 from .views import admin as admin_view
@@ -227,8 +225,6 @@ __all__ = [
     "tasks_list",
     "clear_old",
     "format_date",
-    "modify_entity_in_file",
-    "modify_entity_file",
     "time_since",
     "stats_data",
     "journal_root",
