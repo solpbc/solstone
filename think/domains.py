@@ -534,7 +534,7 @@ def get_matter(domain: str, matter_id: str) -> dict[str, Any]:
     return result
 
 
-def domain_summaries() -> str:
+def domain_summaries(*, detailed_entities: bool = False) -> str:
     """Generate a formatted list summary of all domains for use in agent prompts.
 
     Returns a markdown-formatted string with each domain as a list item including:
@@ -542,13 +542,23 @@ def domain_summaries() -> str:
     - Description
     - Entity names (if available)
 
-    Returns:
+    Parameters
+    ----------
+    detailed_entities:
+        If True, includes full entity details (name: description).
+        If False (default), includes only entity names as a comma-separated list.
+
+    Returns
+    -------
+    str
         Formatted markdown string with all domains and their entities
 
-    Raises:
-        RuntimeError: If JOURNAL_PATH is not set
+    Raises
+    ------
+    RuntimeError
+        If JOURNAL_PATH is not set
     """
-    from think.entities import load_entity_names
+    from think.entities import load_entity_names, load_entities
 
     domains = get_domains()
     if not domains:
@@ -570,9 +580,21 @@ def domain_summaries() -> str:
 
         # Load entities for this domain
         try:
-            entity_names = load_entity_names(domain=domain_name)
-            if entity_names:
-                lines.append(f"  - **{title} Entities**: {entity_names}")
+            if detailed_entities:
+                entities = load_entities(domain_name)
+                if entities:
+                    lines.append(f"  - **{title} Entities**:")
+                    for entity in entities:
+                        name = entity.get("name", "")
+                        desc = entity.get("description", "")
+                        if desc:
+                            lines.append(f"    - {name}: {desc}")
+                        else:
+                            lines.append(f"    - {name}")
+            else:
+                entity_names = load_entity_names(domain=domain_name)
+                if entity_names:
+                    lines.append(f"  - **{title} Entities**: {entity_names}")
         except Exception:
             # No entities file or error loading - that's fine, skip it
             pass
