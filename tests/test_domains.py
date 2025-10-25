@@ -150,7 +150,7 @@ def test_get_domains_with_entities(monkeypatch):
     assert "entities" not in test_domain
 
     # Instead, verify entities can be loaded via load_entity_names()
-    from think.utils import load_entity_names
+    from think.entities import load_entity_names
 
     entity_names = load_entity_names(domain="test-domain")
     assert entity_names is not None
@@ -181,7 +181,7 @@ def test_get_domains_empty_entities(monkeypatch):
         assert "entities" not in minimal_domain
 
         # Verify load_entity_names returns None for domains without entities.md
-        from think.utils import load_entity_names
+        from think.entities import load_entity_names
 
         entity_names = load_entity_names(domain="minimal-domain")
         assert entity_names is None

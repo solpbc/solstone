@@ -24,10 +24,10 @@ from observe.hear import (
     merge_streams,
 )
 from think.crumbs import CrumbBuilder
+from think.entities import load_entity_names
 from think.models import GEMINI_FLASH
 from think.utils import (
     PromptNotFoundError,
-    load_entity_names,
     load_prompt,
     setup_cli,
 )

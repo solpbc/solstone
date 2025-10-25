@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from think.utils import load_entity_names
+from think.entities import load_entity_names
 
 
 def test_load_entity_names_with_valid_file(monkeypatch):
@@ -141,7 +141,7 @@ def test_load_entity_names_missing_env_var(monkeypatch):
     # Ensure JOURNAL_PATH is not set, even after load_dotenv
     monkeypatch.delenv("JOURNAL_PATH", raising=False)
     # Mock load_dotenv to prevent it from loading a .env file
-    monkeypatch.setattr("think.utils.load_dotenv", lambda: None)
+    monkeypatch.setattr("think.entities.load_dotenv", lambda: None)
 
     result = load_entity_names()
     assert result is None

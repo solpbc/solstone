@@ -83,7 +83,7 @@ class VideoProcessor:
             monitor_id: [] for monitor_id in self.monitors.keys()
         }
         # Load entity names for vision analysis context
-        from think.utils import load_entity_names
+        from think.entities import load_entity_names
 
         self.entity_names = load_entity_names()
 

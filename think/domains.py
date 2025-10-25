@@ -543,7 +543,7 @@ def domain_summaries() -> str:
     Raises:
         RuntimeError: If JOURNAL_PATH is not set
     """
-    from think.utils import load_entity_names
+    from think.entities import load_entity_names
 
     domains = get_domains()
     if not domains:

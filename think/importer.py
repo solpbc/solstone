@@ -289,7 +289,7 @@ def audio_transcribe(
     entities = None
     if domain:
         try:
-            from think.utils import load_entity_names
+            from think.entities import load_entity_names
 
             # Load entity names from domain-specific entities.md (spoken mode for short forms)
             entity_names = load_entity_names(domain=domain, spoken=True)

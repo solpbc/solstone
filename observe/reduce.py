@@ -15,8 +15,9 @@ import sys
 from pathlib import Path
 
 from observe.utils import load_analysis_frames
+from think.entities import load_entity_names
 from think.models import GEMINI_FLASH, gemini_generate
-from think.utils import load_entity_names, setup_cli
+from think.utils import setup_cli
 
 logger = logging.getLogger(__name__)
 

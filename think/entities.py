@@ -1,6 +1,7 @@
 """Domain-scoped entity utilities for detected and attached entities."""
 
 import os
+import re
 import tempfile
 from pathlib import Path
 from typing import Optional
@@ -201,3 +202,104 @@ def load_all_attached_entities() -> list[tuple[str, str, str]]:
                         all_entities.append((etype, name, desc))
 
     return all_entities
+
+
+def load_entity_names(
+    *,
+    domain: str | None = None,
+    spoken: bool = False,
+) -> str | list[str] | None:
+    """Load entity names from entities.md for AI transcription context.
+
+    This function extracts just the entity names (no types or descriptions) from
+    entity files. When spoken=False (default), returns them as a
+    comma-delimited string. When spoken=True, returns a list of shortened forms
+    optimized for audio transcription.
+
+    When domain is None, loads and merges entities from ALL domains with
+    deduplication (first occurrence wins when same name appears in multiple domains).
+    Falls back to top-level entities.md if no domains exist.
+
+    When spoken=True, uses uniform processing for all entity types:
+    - Extracts first word from base name (without parentheses)
+    - Extracts all items from within parentheses (comma-separated)
+    - Examples:
+      - "Ryan Reed (R2)" → ["Ryan", "R2"]
+      - "Federal Aviation Administration (FAA)" → ["Federal", "FAA"]
+      - "Acme Corp" → ["Acme"]
+      - "pytest" → ["pytest"]
+
+    Args:
+        domain: Optional domain name. If provided, loads from domains/{domain}/entities.md
+                If None, loads from ALL domains using load_all_attached_entities(),
+                with fallback to top-level entities.md for backward compatibility.
+        spoken: If True, returns list of shortened forms for speech recognition.
+                If False, returns comma-delimited string of full names.
+
+    Returns:
+        When spoken=False: Comma-delimited string of entity names (e.g., "John Smith, Acme Corp"),
+                          or None if no entities found.
+        When spoken=True: List of shortened entity names for speech, or None if no entities found.
+    """
+    # Load entities using existing utilities
+    try:
+        if domain is None:
+            # Load from ALL domains with deduplication
+            entities = load_all_attached_entities()
+
+            # Fallback to top-level entities.md if no domain entities found
+            if not entities:
+                from dotenv import load_dotenv
+
+                load_dotenv()
+                journal = os.getenv("JOURNAL_PATH")
+                if journal:
+                    from pathlib import Path
+                    entities_path = Path(journal) / "entities.md"
+                    if entities_path.is_file():
+                        with open(entities_path, "r", encoding="utf-8") as f:
+                            for line in f:
+                                parsed = parse_entity_line(line)
+                                if parsed:
+                                    entities.append(parsed)
+        else:
+            # Load from specific domain
+            entities = load_entities(domain)
+    except RuntimeError:
+        # JOURNAL_PATH not set
+        return None
+
+    if not entities:
+        return None
+
+    # Transform (type, name, desc) tuples into desired format
+    if not spoken:
+        # Non-spoken mode: comma-delimited string of full names
+        entity_names = []
+        for _, name, _ in entities:
+            if name and name not in entity_names:
+                entity_names.append(name)
+        return ", ".join(entity_names) if entity_names else None
+    else:
+        # Spoken mode: list of shortened forms
+        spoken_names = []
+        for _, name, _ in entities:
+            # Get base name (without parens) and extract first word
+            base_name = re.sub(r"\s*\([^)]+\)", "", name).strip()
+            first_word = base_name.split()[0] if base_name else None
+
+            # Add first word
+            if first_word and first_word not in spoken_names:
+                spoken_names.append(first_word)
+
+            # Extract and add all items from parens (comma-separated)
+            paren_match = re.search(r"\(([^)]+)\)", name)
+            if paren_match:
+                paren_items = [
+                    item.strip() for item in paren_match.group(1).split(",")
+                ]
+                for item in paren_items:
+                    if item and item not in spoken_names:
+                        spoken_names.append(item)
+
+        return spoken_names if spoken_names else None
