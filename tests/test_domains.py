@@ -123,7 +123,7 @@ def test_get_domains_with_entities(monkeypatch):
     entity_names = load_entity_names(domain="test-domain")
     assert entity_names is not None
 
-    # Check that specific entities are in the comma-delimited string
+    # Check that specific entities are in the semicolon-delimited string
     assert "John Smith" in entity_names
     assert "Jane Doe" in entity_names
     assert "Bob Wilson" in entity_names
@@ -205,7 +205,7 @@ def test_domain_summaries_mixed_entities(monkeypatch):
 
     summary = domain_summaries()
 
-    # Test domain should have entities (comma-delimited, not grouped by type)
+    # Test domain should have entities (semicolon-delimited, not grouped by type)
     assert "**Test Domain** (`test-domain`)" in summary
     assert "  - **Test Domain Entities**:" in summary
 

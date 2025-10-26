@@ -120,10 +120,18 @@ def domain_summary(domain: str) -> str:
             entity_type = entity.get("type", "")
             name = entity.get("name", "")
             desc = entity.get("description", "")
-            if desc:
-                lines.append(f"- **{entity_type}**: {name} - {desc}")
+            # Include aka values in parentheses after name
+            aka_list = entity.get("aka", [])
+            if isinstance(aka_list, list) and aka_list:
+                aka_str = ", ".join(aka_list)
+                formatted_name = f"{name} ({aka_str})"
             else:
-                lines.append(f"- **{entity_type}**: {name}")
+                formatted_name = name
+
+            if desc:
+                lines.append(f"- **{entity_type}**: {formatted_name} - {desc}")
+            else:
+                lines.append(f"- **{entity_type}**: {formatted_name}")
         lines.append("")
 
     return "\n".join(lines)
@@ -276,10 +284,18 @@ def domain_summaries(*, detailed_entities: bool = False) -> str:
                     for entity in entities:
                         name = entity.get("name", "")
                         desc = entity.get("description", "")
-                        if desc:
-                            lines.append(f"    - {name}: {desc}")
+                        # Include aka values in parentheses after name
+                        aka_list = entity.get("aka", [])
+                        if isinstance(aka_list, list) and aka_list:
+                            aka_str = ", ".join(aka_list)
+                            formatted_name = f"{name} ({aka_str})"
                         else:
-                            lines.append(f"    - {name}")
+                            formatted_name = name
+
+                        if desc:
+                            lines.append(f"    - {formatted_name}: {desc}")
+                        else:
+                            lines.append(f"    - {formatted_name}")
             else:
                 entity_names = load_entity_names(domain=domain_name)
                 if entity_names:

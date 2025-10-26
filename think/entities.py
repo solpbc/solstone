@@ -261,7 +261,7 @@ def load_entity_names(
 
     This function extracts just the entity names (no types or descriptions) from
     entity files. When spoken=False (default), returns them as a
-    comma-delimited string. When spoken=True, returns a list of shortened forms
+    semicolon-delimited string. When spoken=True, returns a list of shortened forms
     optimized for audio transcription.
 
     When domain is None, loads and merges entities from ALL domains with
@@ -282,10 +282,11 @@ def load_entity_names(
                 If None, loads from ALL domains using load_all_attached_entities(),
                 with fallback to top-level entities.md for backward compatibility.
         spoken: If True, returns list of shortened forms for speech recognition.
-                If False, returns comma-delimited string of full names.
+                If False, returns semicolon-delimited string of full names.
 
     Returns:
-        When spoken=False: Comma-delimited string of entity names (e.g., "John Smith, Acme Corp"),
+        When spoken=False: Semicolon-delimited string of entity names with aka values in parentheses
+                          (e.g., "John Smith (Johnny); Acme Corp (ACME, AcmeCo)"),
                           or None if no entities found.
         When spoken=True: List of shortened entity names for speech, or None if no entities found.
     """
@@ -319,13 +320,21 @@ def load_entity_names(
 
     # Transform entity dicts into desired format
     if not spoken:
-        # Non-spoken mode: comma-delimited string of full names
+        # Non-spoken mode: semicolon-delimited string of full names with aka in parentheses
         entity_names = []
         for entity in entities:
             name = entity.get("name", "")
             if name and name not in entity_names:
-                entity_names.append(name)
-        return ", ".join(entity_names) if entity_names else None
+                # Check for aka values and append in parentheses
+                aka_list = entity.get("aka", [])
+                if isinstance(aka_list, list) and aka_list:
+                    # Format: "Name (aka1, aka2, aka3)"
+                    aka_str = ", ".join(aka_list)
+                    formatted_name = f"{name} ({aka_str})"
+                else:
+                    formatted_name = name
+                entity_names.append(formatted_name)
+        return "; ".join(entity_names) if entity_names else None
     else:
         # Spoken mode: list of shortened forms
         spoken_names = []
@@ -363,3 +372,60 @@ def load_entity_names(
                     add_name_variants(aka_name)
 
         return spoken_names if spoken_names else None
+
+
+def load_detected_entities_recent(domain: str, days: int = 30) -> list[dict[str, Any]]:
+    """Load detected entities from last N days, excluding attached entity names/akas.
+
+    Args:
+        domain: Domain name
+        days: Number of days to look back (default: 30)
+
+    Returns:
+        List of detected entity dictionaries, deduplicated by name,
+        excluding any names that match attached entities or their aka values
+
+    Example:
+        >>> load_detected_entities_recent("personal", days=30)
+        [{"type": "Person", "name": "Charlie", "description": "Met at coffee shop"}]
+    """
+    from datetime import datetime, timedelta
+
+    # Load attached entities and build exclusion set
+    attached = load_entities(domain)
+    excluded_names = set()
+    for entity in attached:
+        name = entity.get("name", "")
+        if name:
+            excluded_names.add(name)
+        # Also exclude aka values
+        aka_list = entity.get("aka", [])
+        if isinstance(aka_list, list):
+            excluded_names.update(aka_list)
+
+    # Calculate date range (last N days)
+    end_date = datetime.now()
+    start_date = end_date - timedelta(days=days)
+
+    # Collect detected entities from date range
+    detected = []
+    seen_names = set()
+
+    current = start_date
+    while current <= end_date:
+        day_str = current.strftime("%Y%m%d")
+        try:
+            day_entities = load_entities(domain, day_str)
+            for entity in day_entities:
+                name = entity.get("name", "")
+                # Skip if already seen, or if matches attached/aka
+                if name and name not in seen_names and name not in excluded_names:
+                    seen_names.add(name)
+                    detected.append(entity)
+        except RuntimeError:
+            # File doesn't exist for this day, skip
+            pass
+
+        current += timedelta(days=1)
+
+    return detected

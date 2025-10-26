@@ -37,11 +37,11 @@ def test_load_entity_names_with_valid_file(monkeypatch):
         monkeypatch.setenv("JOURNAL_PATH", tmpdir)
         result = load_entity_names()
         assert (
-            result == "John Smith, Acme Corp, Project X, Hammer, Jane Doe, Widget Inc"
+            result == "John Smith; Acme Corp; Project X; Hammer; Jane Doe; Widget Inc"
         )
 
         # Check that names are extracted without duplicates
-        names = result.split(", ")
+        names = result.split("; ")
         assert len(names) == 6
         assert "John Smith" in names
         assert "Acme Corp" in names
@@ -104,9 +104,9 @@ def test_load_entity_names_with_duplicates(monkeypatch):
 
         monkeypatch.setenv("JOURNAL_PATH", tmpdir)
         result = load_entity_names()
-        assert result == "John Smith, Acme Corp"
+        assert result == "John Smith; Acme Corp"
 
-        names = result.split(", ")
+        names = result.split("; ")
         assert len(names) == 2
 
 
@@ -439,3 +439,52 @@ def test_load_entity_names_aka_deduplication(monkeypatch):
         # Should have only one "John" even though it appears in aka and as main name
         assert result.count("John") == 1
         assert "Alice" in result
+
+
+def test_load_entity_names_non_spoken_with_aka(monkeypatch):
+    """Test non-spoken mode includes aka values in parentheses."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        entities_path = Path(tmpdir) / "entities.jsonl"
+
+        with open(entities_path, "w", encoding="utf-8") as f:
+            # Entity with aka values
+            f.write(
+                json.dumps(
+                    {
+                        "type": "Person",
+                        "name": "Alice Johnson",
+                        "description": "Lead engineer",
+                        "aka": ["Ali", "AJ"],
+                    }
+                )
+                + "\n"
+            )
+            # Entity without aka
+            f.write(
+                json.dumps(
+                    {
+                        "type": "Company",
+                        "name": "TechCorp",
+                        "description": "Tech company",
+                    }
+                )
+                + "\n"
+            )
+            # Entity with single aka
+            f.write(
+                json.dumps(
+                    {
+                        "type": "Tool",
+                        "name": "PostgreSQL",
+                        "description": "Database",
+                        "aka": ["Postgres", "PG"],
+                    }
+                )
+                + "\n"
+            )
+
+        monkeypatch.setenv("JOURNAL_PATH", tmpdir)
+        result = load_entity_names(spoken=False)
+
+        # Should be semicolon-delimited with aka in parentheses
+        assert result == "Alice Johnson (Ali, AJ); TechCorp; PostgreSQL (Postgres, PG)"
