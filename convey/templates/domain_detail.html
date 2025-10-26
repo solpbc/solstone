@@ -2245,14 +2245,6 @@ function confirmEntityDelete() {
     // Reload entities to reflect changes
     entitiesData = null;
     loadEntities();
-
-    // Show success message
-    const successMsg = daysModified.length === 1
-      ? 'Entity deleted from 1 day file.'
-      : `Entity deleted from ${daysModified.length} day files.`;
-
-    // Simple success notification (could be enhanced with a toast)
-    alert(successMsg);
   })
   .catch(error => {
     console.error('Error deleting entity:', error);
