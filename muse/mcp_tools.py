@@ -75,6 +75,7 @@ TOOL_PACKS = {
         "entity_detect",
         "entity_attach",
         "entity_update",
+        "entity_add_aka",
     ],
 }
 
@@ -921,6 +922,109 @@ def entity_update(
         return {
             "error": f"Failed to update entity: {exc}",
             "suggestion": "check that the domain exists",
+        }
+
+
+@register_tool(annotations=HINTS)
+def entity_add_aka(domain: str, type: str, name: str, aka: str) -> dict[str, Any]:
+    """Add an alias (aka) to an attached entity.
+
+    This tool adds an alternative name, acronym, or nickname to an attached entity's
+    aka list. The aka field is used to improve entity recognition in audio transcription
+    and search. Duplicates are automatically prevented - if the alias already exists,
+    the operation succeeds with a notification message.
+
+    Special handling:
+    - First-word aliases are automatically skipped (e.g., "Jeremie" for "Jeremie Miller")
+    - This avoids redundancy since first words are already extracted for transcription
+    - Only meaningful aliases like nicknames, acronyms, or abbreviations are added
+
+    Args:
+        domain: Domain name (e.g., "personal", "work")
+        type: Entity type (Person, Company, Project, Tool, etc.)
+        name: Entity name to update
+        aka: Alias or acronym to add (e.g., "PG" for "PostgreSQL", "Jer" for "Jeremie Miller")
+
+    Returns:
+        Dictionary containing:
+        - domain: The domain name
+        - message: Success message indicating if aka was added, already existed, or was skipped
+        - entity: The updated entity details including the aka list
+
+    Examples:
+        - entity_add_aka("work", "Tool", "PostgreSQL", "Postgres")  # Added
+        - entity_add_aka("work", "Tool", "PostgreSQL", "PG")  # Added
+        - entity_add_aka("personal", "Person", "Jeremie Miller", "Jer")  # Added
+        - entity_add_aka("personal", "Person", "Jeremie Miller", "Jeremie")  # Skipped (first word)
+        - entity_add_aka("work", "Organization", "Anthropic PBC", "Anthropic")  # Skipped (first word)
+    """
+    try:
+        # Validate entity type
+        if not is_valid_entity_type(type):
+            return {
+                "error": f"Invalid entity type '{type}'",
+                "suggestion": "must be alphanumeric with spaces only, at least 3 characters long",
+            }
+
+        # Load attached entities only
+        entities = load_entities(domain, day=None)
+
+        # Find and update the entity
+        for entity in entities:
+            if entity.get("type") == type and entity.get("name") == name:
+                # Check if aka is just the first word of the entity name (silently ignore)
+                import re
+
+                base_name = re.sub(r"\s*\([^)]+\)", "", name).strip()
+                first_word = base_name.split()[0] if base_name else None
+                if first_word and aka.lower() == first_word.lower():
+                    return {
+                        "domain": domain,
+                        "message": f"Alias '{aka}' is already the first word of '{name}' (skipped)",
+                        "entity": entity,
+                    }
+
+                # Get or initialize aka list
+                aka_list = entity.get("aka", [])
+                if not isinstance(aka_list, list):
+                    aka_list = []
+
+                # Check if already present (dedup)
+                if aka in aka_list:
+                    return {
+                        "domain": domain,
+                        "message": f"Alias '{aka}' already exists for entity '{name}'",
+                        "entity": entity,
+                    }
+
+                # Add the new aka
+                aka_list.append(aka)
+                entity["aka"] = aka_list
+
+                # Save back atomically
+                save_entities(domain, entities, day=None)
+
+                return {
+                    "domain": domain,
+                    "message": f"Added alias '{aka}' to entity '{name}'",
+                    "entity": entity,
+                }
+
+        # Entity not found
+        return {
+            "error": f"Entity '{name}' of type '{type}' not found in attached entities",
+            "suggestion": "verify the entity exists in the domain (only attached entities supported, not detected)",
+        }
+
+    except RuntimeError as exc:
+        return {
+            "error": str(exc),
+            "suggestion": "ensure JOURNAL_PATH environment variable is set",
+        }
+    except Exception as exc:
+        return {
+            "error": f"Failed to add aka: {exc}",
+            "suggestion": "check that the domain exists and is accessible",
         }
 
 

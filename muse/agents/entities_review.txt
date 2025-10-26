@@ -16,6 +16,7 @@ Always operate on the MCP entity tools with the **required domain parameter**:
 - `entity_list(domain)` - list entities currently attached to THIS domain
 - `entity_list(domain, day)` - list entities detected for THIS domain on a specific day
 - `entity_attach(domain, type, name, description)` - promote entity to attached status FOR THIS DOMAIN
+- `entity_add_aka(domain, type, name, aka)` - add an alias/abbreviation to an attached entity FOR THIS DOMAIN
 
 ## Review Process
 
@@ -119,9 +120,33 @@ entity_attach(
 )
 ```
 
+### Phase 5: Detect and Add Aliases
+
+After promotions, review detected entities for name variations and add them as structured aliases.
+
+**Alias detection patterns:**
+- Nicknames: "Robert Johnson" detected as "Bob Johnson" or "Bob" → add aka: "Bob"
+- Acronyms: "Federal Aviation Administration" detected as "FAA" → add aka: "FAA"
+- Abbreviations: "PostgreSQL" detected as "Postgres" or "PG" → add aka: "Postgres", "PG"
+- Short forms: "Anthropic PBC" detected as "Anthropic" → add aka: "Anthropic"
+
+**Execution:**
+```
+entity_add_aka(domain="work", type="Organization", name="Federal Aviation Administration", aka="FAA")
+entity_add_aka(domain="work", type="Tool", name="PostgreSQL", aka="Postgres")
+entity_add_aka(domain="work", type="Tool", name="PostgreSQL", aka="PG")
+```
+
+**When to add aliases:**
+- Different name form appeared 2+ times in detections
+- Alias is unambiguous (not shared with other entities)
+- Natural nickname, acronym, or common abbreviation
+
+**Benefits:** Improves audio transcription recognition and search without cluttering descriptions.
+
 **After all promotions:**
-- Summarize what was promoted and why
-- Example: "Promoted 3 entities: Sarah Chen (3 detections), API Gateway (5 detections), Acme Corp (4 detections)"
+- Summarize promotions and aliases
+- Example: "Promoted 3 entities: Sarah Chen [+aka: Bob] (5 detections), API Gateway (5 detections), Federal Aviation Administration [+aka: FAA] (6 detections)"
 
 ## Smart Duplicate Handling
 
@@ -132,15 +157,15 @@ If detected name is substring of entity already attached to THIS domain:
 
 **Nickname Variations:**
 If multiple variations of same person detected:
-- "Sarah Chen" (3x) and "Sarah" (2x) both detected
-- Promote "Sarah Chen" (full name preferred)
-- Consider adding nickname notation: "Sarah Chen (Sarah)"
+- "Robert Johnson" (3x) and "Bob" (2x) both detected (5 total)
+- Promote with full name, count all variations toward threshold
+- Add nickname in Phase 5 using entity_add_aka
 
 **Organization Abbreviations:**
 If both full name and abbreviation detected:
-- "Anthropic PBC" and "Anthropic" both detected
-- Use most common form, note variation in description
-- "Anthropic PBC (Anthropic) - AI research company"
+- "Federal Aviation Administration" (2x) and "FAA" (4x) both detected (6 total)
+- Promote with full name, count all variations toward threshold
+- Add acronym in Phase 5 using entity_add_aka
 
 ## Quality Guidelines
 
@@ -175,7 +200,8 @@ When invoked:
    - Type consistent, not already attached to THIS domain
 6. Synthesize timeless descriptions for qualifying entities
 7. Execute `entity_attach()` for each promotion to THIS domain
-8. Summarize: "Promoted X entities for [domain]: [names with detection counts and types]"
+8. Detect name variations and execute `entity_add_aka()` for aliases
+9. Summarize: "Promoted X entities for [domain]: [names with aliases and detection counts]"
 
 ## Edge Cases
 

@@ -93,7 +93,7 @@ Derive the appropriate entity type from context. Common types include Person, Or
 - The description should help you remember what happened with this entity on this specific day
 
 **Quality Checks:**
-- Full name extracted (not abbreviations or nicknames)
+- Full name extracted when available (prefer "Robert Johnson" over "Bob", but record "Bob" if that's the only form used)
 - Actually mentioned/discussed in yesterday's content
 - Has meaningful day-specific context
 - Type is clearly identifiable
@@ -143,7 +143,7 @@ entity_detect(
 - Be conservative with projects (only obvious/central ones)
 - Be very rare with tools (only actively discussed)
 - Use day-specific descriptions that capture context
-- Extract full names whenever possible
+- Extract full names whenever possible (prefer "Sarah Chen" over "Sarah" if both forms appear in context, but still record "Bob" or "FAA" if that's the only form mentioned)
 - Focus on entities actually active/mentioned yesterday
 - Derive appropriate entity types from context
 
