@@ -5,17 +5,17 @@ from __future__ import annotations
 import argparse
 import datetime
 import faulthandler
+import io
 import json
 import logging
 import os
-from io import BytesIO
 from pathlib import Path
 from typing import Dict, List
 
+import av
 import numpy as np
 import soundfile as sf
 from google import genai
-from pydub import AudioSegment
 from silero_vad import load_silero_vad
 
 from observe.hear import (
@@ -173,12 +173,111 @@ class Transcriber:
         try:
             # Handle different audio formats
             if raw_path.suffix.lower() == ".m4a":
-                logging.info(f"Converting m4a to FLAC for processing: {raw_path}")
-                audio = AudioSegment.from_file(raw_path, format="m4a")
-                flac_buffer = BytesIO()
-                audio.export(flac_buffer, format="flac")
-                flac_buffer.seek(0)
-                data, sr = sf.read(flac_buffer, dtype="float32")
+                logging.info(f"Converting m4a to numpy for processing: {raw_path}")
+
+                # Open container and check for audio tracks
+                container = av.open(str(raw_path))
+                audio_streams = list(container.streams.audio)
+
+                if len(audio_streams) == 0:
+                    logging.error(f"No audio streams found in {raw_path}")
+                    return None
+
+                logging.info(f"Found {len(audio_streams)} audio stream(s) in {raw_path}")
+                for s in audio_streams:
+                    logging.info(
+                        f"  Stream {s.index}: {s.codec_context.name}, "
+                        f"{s.codec_context.channels} ch, {s.codec_context.sample_rate} Hz"
+                    )
+
+                # Decode function for a single stream to mono
+                def decode_stream_to_mono(container, stream, target_rate=SAMPLE_RATE):
+                    """Decode a stream to mono float32 at target sample rate."""
+                    resampler = av.audio.resampler.AudioResampler(
+                        format="flt", layout="mono", rate=target_rate
+                    )
+                    chunks = []
+                    for frame in container.decode(stream):
+                        for out_frame in resampler.resample(frame):
+                            # to_ndarray() returns shape (channels, samples)
+                            arr = out_frame.to_ndarray()
+                            chunks.append(arr)
+
+                    if not chunks:
+                        return np.zeros(0, dtype=np.float32)
+
+                    # Concatenate along samples axis and flatten to 1D
+                    combined = np.concatenate(chunks, axis=1)
+                    return combined.flatten()  # Ensure 1D mono
+
+                def decode_stream_stereo(container, stream, target_rate=SAMPLE_RATE):
+                    """Decode a stream to stereo float32 at target sample rate."""
+                    resampler = av.audio.resampler.AudioResampler(
+                        format="flt", layout="stereo", rate=target_rate
+                    )
+                    chunks = []
+                    for frame in container.decode(stream):
+                        for out_frame in resampler.resample(frame):
+                            # to_ndarray() returns shape (channels, samples)
+                            arr = out_frame.to_ndarray()
+                            chunks.append(arr)
+
+                    if not chunks:
+                        return np.zeros((2, 0), dtype=np.float32)
+
+                    # Concatenate along samples axis: shape (2, samples)
+                    combined = np.concatenate(chunks, axis=1)
+                    # Transpose to (samples, 2) to match soundfile format
+                    return combined.T
+
+                # Handle based on number of tracks and channels
+                if len(audio_streams) == 1:
+                    stream = audio_streams[0]
+                    channels = stream.codec_context.channels
+
+                    if channels >= 2:
+                        # Single track with stereo/multichannel - process like normal FLAC
+                        logging.info(
+                            f"Single track with {channels} channels, processing as stereo"
+                        )
+                        container.seek(0)
+                        data = decode_stream_stereo(container, stream)
+                        sr = SAMPLE_RATE
+                    else:
+                        # Single track, mono
+                        logging.info("Single track mono, processing as mono")
+                        container.seek(0)
+                        data = decode_stream_to_mono(container, stream)
+                        sr = SAMPLE_RATE
+
+                elif len(audio_streams) >= 2:
+                    # Multiple tracks - track 0 = system, track 1 = mic
+                    logging.info(
+                        "Multiple tracks detected, treating as system (track 0) "
+                        "and mic (track 1)"
+                    )
+
+                    # Decode track 0 (system)
+                    container.seek(0)
+                    sys_data = decode_stream_to_mono(container, audio_streams[0])
+
+                    # Decode track 1 (mic)
+                    container.seek(0)
+                    mic_data = decode_stream_to_mono(container, audio_streams[1])
+
+                    # Ensure same length (pad shorter one with zeros)
+                    max_len = max(len(sys_data), len(mic_data))
+                    if len(sys_data) < max_len:
+                        sys_data = np.pad(sys_data, (0, max_len - len(sys_data)))
+                    if len(mic_data) < max_len:
+                        mic_data = np.pad(mic_data, (0, max_len - len(mic_data)))
+
+                    # Stack into stereo array: shape (samples, 2)
+                    # data[:, 0] = mic, data[:, 1] = system
+                    data = np.column_stack([mic_data, sys_data])
+                    sr = SAMPLE_RATE
+
+                container.close()
             else:
                 # Direct read for FLAC and other formats supported by soundfile
                 data, sr = sf.read(raw_path, dtype="float32")
