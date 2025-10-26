@@ -99,6 +99,32 @@
   background: #f8f9ff;
 }
 
+.tab-link {
+  display: flex;
+  align-items: center;
+  padding: 1em 2em;
+  font-size: 1.1em;
+  font-weight: 500;
+  color: #666;
+  text-decoration: none;
+  border-bottom: 3px solid transparent;
+  transition: all 0.2s;
+  margin-left: auto;
+}
+
+.tab-link:hover {
+  color: #667eea;
+  background: #f8f9fa;
+}
+
+.tab-link .gear-icon {
+  transition: transform 0.3s ease;
+}
+
+.tab-link:hover .gear-icon {
+  transform: rotate(90deg);
+}
+
 /* Tab content */
 .tab-content {
   display: none;
@@ -771,6 +797,133 @@
   margin-bottom: 1em;
   border: 1px solid #fcc;
 }
+
+/* Entity delete button */
+.entity-delete-btn {
+  opacity: 0;
+  cursor: pointer;
+  color: #dc3545;
+  margin-left: 0.5em;
+  transition: opacity 0.2s, transform 0.2s;
+  display: inline-block;
+}
+
+tr:hover .entity-delete-btn {
+  opacity: 0.6;
+}
+
+.entity-delete-btn:hover {
+  opacity: 1 !important;
+  transform: scale(1.1);
+}
+
+/* Delete confirmation modal */
+.delete-modal {
+  display: none;
+  position: fixed;
+  z-index: 2000;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.6);
+}
+
+.delete-modal-content {
+  background-color: white;
+  margin: 10% auto;
+  border-radius: 12px;
+  width: 90%;
+  max-width: 600px;
+  position: relative;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+  overflow: hidden;
+}
+
+.delete-modal-header {
+  padding: 20px;
+  border-bottom: 1px solid #e0e0e0;
+  background: white;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.delete-modal-header h3 {
+  margin: 0;
+  color: #dc3545;
+  font-size: 1.4em;
+}
+
+.delete-modal-body {
+  padding: 20px;
+}
+
+.delete-warning {
+  background: #fff3cd;
+  border: 1px solid #ffc107;
+  color: #856404;
+  padding: 12px;
+  border-radius: 6px;
+  margin-bottom: 15px;
+  font-weight: 500;
+}
+
+.delete-days-list {
+  max-height: 300px;
+  overflow-y: auto;
+  margin: 15px 0;
+  padding: 10px;
+  background: #f8f9fa;
+  border-radius: 6px;
+}
+
+.delete-day-item {
+  padding: 8px;
+  margin: 4px 0;
+  background: white;
+  border-radius: 4px;
+  border-left: 3px solid #dc3545;
+}
+
+.delete-day-date {
+  font-weight: 600;
+  color: #333;
+}
+
+.delete-day-type {
+  color: #007bff;
+  font-size: 0.9em;
+  margin-left: 8px;
+}
+
+.delete-buttons {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+  margin-top: 20px;
+}
+
+.btn-danger {
+  background: #dc3545;
+  color: white;
+  padding: 10px 20px;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 1em;
+  transition: all 0.2s;
+}
+
+.btn-danger:hover:not(:disabled) {
+  background: #c82333;
+  transform: translateY(-1px);
+}
+
+.btn-danger:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
 </style>
 {% endblock %}
 {% block body %}
@@ -791,6 +944,13 @@
     <button class="tab-button active" data-tab="news">Newsletters</button>
     <button class="tab-button" data-tab="entities">Entities</button>
     <button class="tab-button" data-tab="description">Description</button>
+    <a href="{{ url_for('domains.entity_manager', domain_name=domain_name) }}" class="tab-link">
+      <span>Manage Entities</span>
+      <svg class="gear-icon" width="16" height="16" viewBox="0 0 16 16" fill="currentColor" style="margin-left: 4px;">
+        <path d="M8 4.754a3.246 3.246 0 1 0 0 6.492 3.246 3.246 0 0 0 0-6.492zM5.754 8a2.246 2.246 0 1 1 4.492 0 2.246 2.246 0 0 1-4.492 0z"/>
+        <path d="M9.796 1.343c-.527-1.79-3.065-1.79-3.592 0l-.094.319a.873.873 0 0 1-1.255.52l-.292-.16c-1.64-.892-3.433.902-2.54 2.541l.159.292a.873.873 0 0 1-.52 1.255l-.319.094c-1.79.527-1.79 3.065 0 3.592l.319.094a.873.873 0 0 1 .52 1.255l-.16.292c-.892 1.64.901 3.434 2.541 2.54l.292-.159a.873.873 0 0 1 1.255.52l.094.319c.527 1.79 3.065 1.79 3.592 0l.094-.319a.873.873 0 0 1 1.255-.52l.292.16c1.64.893 3.434-.902 2.54-2.541l-.159-.292a.873.873 0 0 1 .52-1.255l.319-.094c1.79-.527 1.79-3.065 0-3.592l-.319-.094a.873.873 0 0 1-.52-1.255l.16-.292c.893-1.64-.902-3.433-2.541-2.54l-.292.159a.873.873 0 0 1-1.255-.52l-.094-.319z"/>
+      </svg>
+    </a>
   </div>
   
   <div id="news-tab" class="tab-content active">
@@ -899,6 +1059,33 @@
           <button id="cancelBtn" class="cancel-btn">Cancel</button>
           <button id="saveBtn" class="save-btn">Save</button>
         </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Delete Entity Confirmation Modal -->
+<div id="deleteModal" class="delete-modal">
+  <div class="delete-modal-content">
+    <div class="delete-modal-header">
+      <h3>Delete Detected Entity</h3>
+      <span class="close" onclick="closeDeleteModal()">&times;</span>
+    </div>
+    <div class="delete-modal-body">
+      <div class="delete-warning">
+        ⚠️ This will permanently remove this entity from all detected day files. This action cannot be undone.
+      </div>
+      <p>Entity: <strong id="deleteEntityName"></strong></p>
+      <div id="deleteLoadingMsg" style="text-align: center; padding: 20px; display: none;">
+        <p>Loading preview...</p>
+      </div>
+      <div id="deleteDaysContainer" style="display: none;">
+        <p>Found in <strong id="deleteDaysCount"></strong>:</p>
+        <div class="delete-days-list" id="deleteDaysList"></div>
+      </div>
+      <div class="delete-buttons">
+        <button class="btn btn-secondary" onclick="closeDeleteModal()">Cancel</button>
+        <button id="confirmDeleteBtn" class="btn btn-danger" onclick="confirmEntityDelete()">Delete</button>
       </div>
     </div>
   </div>
@@ -1290,6 +1477,19 @@ function createEntityRow(entity, isDomainSection) {
   } else {
     descCell.innerHTML = `<span class="no-entity-desc" onclick="openEntityDescriptionEditor('${entity.type}', '${entity.name.replace(/'/g, "\\'")}', '')">Add description...</span> <span class="entity-edit-btn" onclick="openEntityDescriptionEditor('${entity.type}', '${entity.name.replace(/'/g, "\\'")}', '')" title="Add description">✨</span>`;
     descCell.classList.add('no-entity-desc-cell');
+  }
+
+  // Add delete button only for detected entities (not domain section)
+  if (!isDomainSection) {
+    const deleteBtn = document.createElement('span');
+    deleteBtn.className = 'entity-delete-btn';
+    deleteBtn.innerHTML = '🗑️';
+    deleteBtn.title = 'Delete detected entity';
+    deleteBtn.onclick = (e) => {
+      e.stopPropagation();
+      previewEntityDelete(entity.name);
+    };
+    descCell.appendChild(deleteBtn);
   }
 
   row.appendChild(starCell);
@@ -1929,6 +2129,166 @@ appEvents.listen('domains', function(event) {
     // Show error message
     const errorMsg = event.error || 'Unknown error occurred';
     alert('Error creating entity: ' + errorMsg);
+  }
+});
+
+// Entity deletion functionality
+let entityToDelete = null;
+
+function previewEntityDelete(entityName) {
+  entityToDelete = entityName;
+
+  const modal = document.getElementById('deleteModal');
+  const nameEl = document.getElementById('deleteEntityName');
+  const loadingEl = document.getElementById('deleteLoadingMsg');
+  const daysContainer = document.getElementById('deleteDaysContainer');
+  const confirmBtn = document.getElementById('confirmDeleteBtn');
+
+  // Set entity name
+  nameEl.textContent = entityName;
+
+  // Show loading state
+  loadingEl.style.display = 'block';
+  daysContainer.style.display = 'none';
+  confirmBtn.disabled = true;
+
+  // Show modal
+  modal.style.display = 'block';
+
+  // Fetch preview
+  fetch(`/api/domains/${encodeURIComponent(domainName)}/entities/detected/preview?name=${encodeURIComponent(entityName)}`)
+    .then(response => response.json())
+    .then(data => {
+      if (data.error) {
+        throw new Error(data.error);
+      }
+
+      const days = data.days || [];
+
+      if (days.length === 0) {
+        loadingEl.innerHTML = '<p style="color: #999;">Entity not found in any detected day files.</p>';
+        confirmBtn.disabled = true;
+        return;
+      }
+
+      // Hide loading, show days list
+      loadingEl.style.display = 'none';
+      daysContainer.style.display = 'block';
+      confirmBtn.disabled = false;
+
+      // Update count
+      const countText = days.length === 1 ? '1 day' : `${days.length} days`;
+      document.getElementById('deleteDaysCount').textContent = countText;
+
+      // Render days list
+      const daysList = document.getElementById('deleteDaysList');
+      daysList.innerHTML = '';
+
+      days.forEach(day => {
+        const dayItem = document.createElement('div');
+        dayItem.className = 'delete-day-item';
+
+        const dateStr = formatDayKey(day.day);
+        const typeStr = day.type ? ` (${day.type})` : '';
+
+        dayItem.innerHTML = `
+          <span class="delete-day-date">${dateStr}</span>
+          <span class="delete-day-type">${typeStr}</span>
+        `;
+
+        daysList.appendChild(dayItem);
+      });
+    })
+    .catch(error => {
+      console.error('Error previewing entity deletion:', error);
+      loadingEl.innerHTML = `<p style="color: #c33;">Error: ${escapeHtml(error.message)}</p>`;
+      confirmBtn.disabled = true;
+    });
+}
+
+function closeDeleteModal() {
+  document.getElementById('deleteModal').style.display = 'none';
+  entityToDelete = null;
+}
+
+function confirmEntityDelete() {
+  if (!entityToDelete) {
+    return;
+  }
+
+  const confirmBtn = document.getElementById('confirmDeleteBtn');
+  const originalText = confirmBtn.textContent;
+
+  confirmBtn.disabled = true;
+  confirmBtn.textContent = 'Deleting...';
+
+  fetch(`/api/domains/${encodeURIComponent(domainName)}/entities/detected`, {
+    method: 'DELETE',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      name: entityToDelete
+    })
+  })
+  .then(response => response.json())
+  .then(data => {
+    if (data.error) {
+      throw new Error(data.error);
+    }
+
+    const daysModified = data.days_modified || [];
+
+    // Close modal
+    closeDeleteModal();
+
+    // Reload entities to reflect changes
+    entitiesData = null;
+    loadEntities();
+
+    // Show success message
+    const successMsg = daysModified.length === 1
+      ? 'Entity deleted from 1 day file.'
+      : `Entity deleted from ${daysModified.length} day files.`;
+
+    // Simple success notification (could be enhanced with a toast)
+    alert(successMsg);
+  })
+  .catch(error => {
+    console.error('Error deleting entity:', error);
+    alert('Error deleting entity: ' + error.message);
+
+    confirmBtn.disabled = false;
+    confirmBtn.textContent = originalText;
+  });
+}
+
+function formatDayKey(dayKey) {
+  if (!dayKey || typeof dayKey !== 'string' || dayKey.length !== 8) {
+    return dayKey || 'Unknown date';
+  }
+
+  const year = Number(dayKey.slice(0, 4));
+  const month = Number(dayKey.slice(4, 6)) - 1;
+  const day = Number(dayKey.slice(6, 8));
+
+  const dateObj = new Date(year, month, day);
+  if (Number.isNaN(dateObj.getTime())) {
+    return dayKey;
+  }
+
+  return dateObj.toLocaleDateString(undefined, {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric'
+  });
+}
+
+// Close delete modal when clicking outside
+window.addEventListener('click', function(event) {
+  const modal = document.getElementById('deleteModal');
+  if (event.target === modal) {
+    closeDeleteModal();
   }
 });
 </script>

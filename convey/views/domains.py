@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import json
 import os
-from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -10,7 +9,11 @@ from dotenv import load_dotenv
 from flask import Blueprint, jsonify, render_template, request
 
 from think.domains import get_domain_news, get_domains
-from think.entities import load_entities, save_entities
+from think.entities import (
+    load_detected_entities_recent,
+    load_entities,
+    save_entities,
+)
 from think.indexer import search_entities
 
 bp = Blueprint("domains", __name__, template_folder="../templates")
@@ -262,7 +265,8 @@ def remove_domain_entity(domain_name: str) -> Any:
 
         # Filter out the entity to remove
         filtered = [
-            e for e in entities
+            e
+            for e in entities
             if not (e.get("type") == etype and e.get("name") == name)
         ]
 
@@ -488,8 +492,6 @@ def assist_entity_add(domain_name: str) -> Any:
         return jsonify({"error": f"Failed to start entity assistant: {str(e)}"}), 500
 
 
-
-
 @bp.route("/api/domains/<domain_name>/news")
 def get_domain_news_feed(domain_name: str) -> Any:
     """Return paginated news entries for a domain."""
@@ -510,13 +512,206 @@ def get_domain_news_feed(domain_name: str) -> Any:
         return jsonify({"error": f"Failed to load news: {str(exc)}"}), 500
 
 
+@bp.route("/domains/<domain_name>/entities/manage")
+def entity_manager(domain_name: str) -> str:
+    """Display entity management page for a domain."""
+    domains = get_domains()
+    if domain_name not in domains:
+        return render_template("404.html"), 404
+
+    try:
+        # Load attached entities
+        attached_entities = load_entities(domain_name)
+
+        # Load recent detected entities (last 30 days, excluding attached names/akas)
+        detected_entities = load_detected_entities_recent(domain_name, days=30)
+
+        return render_template(
+            "entity_manager.html",
+            domain_name=domain_name,
+            attached_entities=attached_entities,
+            detected_entities=detected_entities,
+            active="domains",
+        )
+    except Exception as e:
+        return render_template("error.html", error=str(e)), 500
 
 
+@bp.route("/api/domains/<domain_name>/entities/manage/add-aka", methods=["POST"])
+def add_aka_from_detected(domain_name: str) -> Any:
+    """Add a detected entity name to an attached entity's aka list."""
+    data = request.get_json()
+    if not data:
+        return jsonify({"error": "No data provided"}), 400
+
+    target_entity = data.get("target_entity", "").strip()
+    source_entity = data.get("source_entity", "").strip()
+
+    if not target_entity or not source_entity:
+        return jsonify({"error": "Both target and source entities are required"}), 400
+
+    try:
+        # Load attached entities
+        entities = load_entities(domain_name)
+
+        # Find target entity
+        target = None
+        for entity in entities:
+            if entity.get("name") == target_entity:
+                target = entity
+                break
+
+        if not target:
+            return jsonify({"error": "Target entity not found"}), 404
+
+        # Add source to aka list (create if doesn't exist)
+        aka_list = target.get("aka", [])
+        if not isinstance(aka_list, list):
+            aka_list = []
+
+        # Don't add duplicates
+        if source_entity not in aka_list:
+            aka_list.append(source_entity)
+            target["aka"] = aka_list
+
+            # Save updated entities
+            save_entities(domain_name, entities)
+
+            return jsonify({"success": True})
+        else:
+            return jsonify({"error": "This name is already in the aka list"}), 409
+
+    except Exception as e:
+        return jsonify({"error": f"Failed to add aka: {str(e)}"}), 500
 
 
+@bp.route("/api/domains/<domain_name>/entities/manage/update-aka", methods=["POST"])
+def update_aka_list(domain_name: str) -> Any:
+    """Update an attached entity's aka list directly."""
+    data = request.get_json()
+    if not data:
+        return jsonify({"error": "No data provided"}), 400
+
+    entity_name = data.get("entity_name", "").strip()
+    aka_list_str = data.get("aka_list", "").strip()
+
+    if not entity_name:
+        return jsonify({"error": "Entity name is required"}), 400
+
+    try:
+        # Parse comma-delimited aka list
+        if aka_list_str:
+            aka_list = [
+                item.strip() for item in aka_list_str.split(",") if item.strip()
+            ]
+        else:
+            aka_list = []
+
+        # Load attached entities
+        entities = load_entities(domain_name)
+
+        # Find and update target entity
+        target = None
+        for entity in entities:
+            if entity.get("name") == entity_name:
+                target = entity
+                break
+
+        if not target:
+            return jsonify({"error": "Entity not found"}), 404
+
+        # Update aka list (or remove field if empty)
+        if aka_list:
+            target["aka"] = aka_list
+        else:
+            target.pop("aka", None)
+
+        # Save updated entities
+        save_entities(domain_name, entities)
+
+        return jsonify({"success": True, "aka": aka_list})
+
+    except Exception as e:
+        return jsonify({"error": f"Failed to update aka list: {str(e)}"}), 500
 
 
+@bp.route("/api/domains/<domain_name>/entities/detected/preview")
+def preview_detected_entity_delete(domain_name: str) -> Any:
+    """Preview which days contain a detected entity before deletion."""
+    entity_name = request.args.get("name", "").strip()
+    if not entity_name:
+        return jsonify({"error": "Entity name is required"}), 400
+
+    try:
+        load_dotenv()
+        journal = os.getenv("JOURNAL_PATH")
+        if not journal:
+            return jsonify({"error": "JOURNAL_PATH not set"}), 500
+
+        entities_dir = Path(journal) / "domains" / domain_name / "entities"
+        if not entities_dir.exists():
+            return jsonify({"success": True, "days": []})
+
+        # Scan all day files for this entity
+        found_days = []
+        for day_file in sorted(entities_dir.glob("*.jsonl")):
+            day = day_file.stem
+            entities = load_entities(domain_name, day)
+
+            # Find all occurrences of this entity name (any type)
+            for entity in entities:
+                if entity.get("name") == entity_name:
+                    found_days.append(
+                        {
+                            "day": day,
+                            "type": entity.get("type", ""),
+                            "description": entity.get("description", ""),
+                        }
+                    )
+
+        return jsonify({"success": True, "days": found_days})
+
+    except Exception as e:
+        return jsonify({"error": f"Failed to preview entity: {str(e)}"}), 500
 
 
+@bp.route("/api/domains/<domain_name>/entities/detected", methods=["DELETE"])
+def delete_detected_entity(domain_name: str) -> Any:
+    """Delete a detected entity from all day files."""
+    data = request.get_json()
+    if not data:
+        return jsonify({"error": "No data provided"}), 400
 
+    entity_name = data.get("name", "").strip()
+    if not entity_name:
+        return jsonify({"error": "Entity name is required"}), 400
 
+    try:
+        load_dotenv()
+        journal = os.getenv("JOURNAL_PATH")
+        if not journal:
+            return jsonify({"error": "JOURNAL_PATH not set"}), 500
+
+        entities_dir = Path(journal) / "domains" / domain_name / "entities"
+        if not entities_dir.exists():
+            return jsonify({"success": True, "days_modified": []})
+
+        # Iterate through all day files and remove the entity
+        days_modified = []
+        for day_file in sorted(entities_dir.glob("*.jsonl")):
+            day = day_file.stem
+            entities = load_entities(domain_name, day)
+
+            # Filter out entities matching this name (any type)
+            original_count = len(entities)
+            filtered_entities = [e for e in entities if e.get("name") != entity_name]
+
+            # Only save if we actually removed something
+            if len(filtered_entities) < original_count:
+                save_entities(domain_name, filtered_entities, day)
+                days_modified.append(day)
+
+        return jsonify({"success": True, "days_modified": days_modified})
+
+    except Exception as e:
+        return jsonify({"error": f"Failed to delete entity: {str(e)}"}), 500
