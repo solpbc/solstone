@@ -155,74 +155,6 @@ async def _get_mcp_tools(
     return tools
 
 
-def _load_conversation_history(conversation_id: str) -> list[MessageParam]:
-    """Reconstruct Anthropic message history from agent log.
-
-    Args:
-        conversation_id: Agent ID whose conversation to continue
-
-    Returns:
-        List of MessageParam objects for the Anthropic API
-    """
-    from muse.cortex_client import read_agent_events
-
-    logger = logging.getLogger(__name__)
-
-    try:
-        events = read_agent_events(conversation_id)
-    except FileNotFoundError:
-        logger.warning(f"Cannot continue from {conversation_id}: log not found")
-        return []
-
-    messages: list[MessageParam] = []
-    current_tool_calls: list[tuple[str, Dict[str, Any]]] = []  # (tool_name, args)
-
-    for event in events:
-        event_type = event.get("event")
-
-        if event_type == "start":
-            # Add original prompt as user message
-            prompt = event.get("prompt", "")
-            if prompt:
-                messages.append({"role": "user", "content": prompt})
-
-        elif event_type == "tool_start":
-            # Track tool call for summary
-            tool_name = event.get("tool", "")
-            tool_args = event.get("args", {})
-            current_tool_calls.append((tool_name, tool_args))
-
-        elif event_type == "finish":
-            # Complete the assistant turn with text + tool summary
-            result_text = event.get("result", "").strip()
-
-            # Build content with text and tool summary
-            content_parts = []
-            if result_text:
-                content_parts.append(result_text)
-
-            if current_tool_calls:
-                # Synthesize tool call summary
-                tool_summaries = []
-                for tool_name, tool_args in current_tool_calls:
-                    # Format args as compact string
-                    args_str = ", ".join(
-                        f"{k}={repr(v)[:50]}" for k, v in tool_args.items()
-                    )
-                    tool_summaries.append(f"{tool_name}({args_str})")
-
-                tools_summary = "\n\nTools used: " + ", ".join(tool_summaries)
-                content_parts.append(tools_summary)
-
-            if content_parts:
-                messages.append({"role": "assistant", "content": "\n".join(content_parts)})
-
-            # Reset for next turn
-            current_tool_calls = []
-
-    return messages
-
-
 async def run_agent(
     config: Dict[str, Any],
     on_event: Optional[Callable[[dict], None]] = None,
@@ -270,8 +202,10 @@ async def run_agent(
         # Build initial messages - check for continuation first
         conversation_id = config.get("conversation_id")
         if conversation_id:
-            # Load previous conversation history
-            messages = _load_conversation_history(conversation_id)
+            # Load previous conversation history using shared function
+            from .agents import parse_agent_events_to_turns
+
+            messages = parse_agent_events_to_turns(conversation_id)
             # Add new prompt as continuation
             messages.append({"role": "user", "content": prompt})
         else:
@@ -359,11 +293,13 @@ async def run_agent(
                     if not tool_uses:
                         # Use agent_id as conversation_id for continuations
                         agent_id = config.get("agent_id", "unknown")
-                        callback.emit({
-                            "event": "finish",
-                            "result": final_text,
-                            "conversation_id": agent_id
-                        })
+                        callback.emit(
+                            {
+                                "event": "finish",
+                                "result": final_text,
+                                "conversation_id": agent_id,
+                            }
+                        )
                         return final_text
 
                     results = []
@@ -426,11 +362,9 @@ async def run_agent(
 
             # Use agent_id as conversation_id for continuations
             agent_id = config.get("agent_id", "unknown")
-            callback.emit({
-                "event": "finish",
-                "result": final_text,
-                "conversation_id": agent_id
-            })
+            callback.emit(
+                {"event": "finish", "result": final_text, "conversation_id": agent_id}
+            )
             return final_text
     except Exception as exc:
         callback.emit(

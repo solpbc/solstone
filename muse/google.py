@@ -148,12 +148,27 @@ async def run_agent(
         system_instruction = config.get("instruction", "")
         first_user = config.get("extra_context", "")
 
-        # Build minimal history for chat
-        history = []
-        if first_user:
-            history.append(
-                types.Content(role="user", parts=[types.Part(text=first_user)])
-            )
+        # Build history - check for continuation first
+        conversation_id = config.get("conversation_id")
+        if conversation_id:
+            # Load previous conversation history using shared function
+            from .agents import parse_agent_events_to_turns
+
+            turns = parse_agent_events_to_turns(conversation_id)
+            # Convert to Google's format
+            history = []
+            for turn in turns:
+                role = "model" if turn["role"] == "assistant" else turn["role"]
+                history.append(
+                    types.Content(role=role, parts=[types.Part(text=turn["content"])])
+                )
+        else:
+            # Fresh conversation
+            history = []
+            if first_user:
+                history.append(
+                    types.Content(role="user", parts=[types.Part(text=first_user)])
+                )
 
         # Create client
         client = genai.Client(api_key=api_key)
@@ -248,7 +263,9 @@ async def run_agent(
             callback.emit(thinking_event)
 
         text = response.text
-        callback.emit({"event": "finish", "result": text})
+        # Use agent_id as conversation_id for continuations
+        agent_id = config.get("agent_id", "unknown")
+        callback.emit({"event": "finish", "result": text, "conversation_id": agent_id})
         return text
     except Exception as exc:
         callback.emit(
