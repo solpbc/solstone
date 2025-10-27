@@ -1,4 +1,4 @@
-{% macro day_heading(title, prev_url=None, next_url=None, transcript_url=None, admin_url=None, todos_url=None, today_url=None) %}
+{% macro day_heading(title, prev_url=None, next_url=None, transcript_url=None, admin_url=None, todos_url=None, today_url=None, screens_url=None) %}
   <h1 style="display: flex; justify-content: space-between; align-items: center;">
     <div>
       {% if prev_url %}<a href="{{ prev_url }}" aria-label="Previous day" style="text-decoration:none">&#9664;</a>{% endif %}
@@ -9,6 +9,7 @@
       {% if today_url %}<a href="{{ today_url }}" title="Today" aria-label="Jump to today" class="day-heading-today">Today</a>{% endif %}
       {% if todos_url %}<a href="{{ todos_url }}" title="TODOs" aria-label="TODOs" style="text-decoration:none">✅</a>{% endif %}
       {% if transcript_url %}<a href="{{ transcript_url }}" title="Transcripts" aria-label="Transcripts" style="text-decoration:none">💬</a>{% endif %}
+      {% if screens_url %}<a href="{{ screens_url }}" title="Screen Debug" aria-label="Screen Debug" style="text-decoration:none">🎬</a>{% endif %}
       {% if admin_url %}<a href="{{ admin_url }}" title="Admin" aria-label="Admin" style="text-decoration:none">⚙️</a>{% endif %}
     </div>
   </h1>

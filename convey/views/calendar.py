@@ -665,6 +665,9 @@ def calendar_stats() -> Any:
 # no longer needed. Look for _dev_ prefix to identify all related code.
 # ============================================================================
 
+# In-memory cache for decoded frames: {(day, timestamp): {frame_id: jpeg_bytes}}
+_frame_cache: dict = {}
+
 
 @bp.route("/calendar/<day>/screens")
 def _dev_calendar_screens_list(day: str) -> str:
@@ -771,40 +774,7 @@ def _dev_screen_files(day: str) -> Any:
 
 @bp.route("/calendar/api/screen_frames/<day>/<timestamp>")
 def _dev_screen_frames(day: str, timestamp: str) -> Any:
-    """Return all frame records from a specific screen.jsonl file."""
-    if not re.fullmatch(DATE_RE.pattern, day):
-        return "", 404
-    if not re.fullmatch(r"\d{6}", timestamp):
-        return "", 404
-
-    day_dir = str(day_path(day))
-    jsonl_path = os.path.join(day_dir, f"{timestamp}_screen.jsonl")
-
-    if not os.path.isfile(jsonl_path):
-        return "", 404
-
-    try:
-        from observe.utils import load_analysis_frames
-
-        frames = load_analysis_frames(jsonl_path)
-
-        # Read the header line separately to get raw video path
-        raw_video_path = None
-        with open(jsonl_path, "r", encoding="utf-8") as f:
-            first_line = f.readline().strip()
-            if first_line:
-                header = json.loads(first_line)
-                raw_video_path = header.get("raw")
-
-        return jsonify({"frames": frames, "raw_video_path": raw_video_path})
-
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
-
-@bp.route("/calendar/api/screen_frame_image/<day>/<timestamp>/<int:frame_id>")
-def _dev_screen_frame_image(day: str, timestamp: str, frame_id: int) -> Any:
-    """Extract and serve a specific frame as JPEG from the video."""
+    """Return all frame records and pre-cache decoded frames from video."""
     if not re.fullmatch(DATE_RE.pattern, day):
         return "", 404
     if not re.fullmatch(r"\d{6}", timestamp):
@@ -820,64 +790,101 @@ def _dev_screen_frame_image(day: str, timestamp: str, frame_id: int) -> Any:
         import io
 
         import av
-        from flask import send_file
-        from observe.utils import load_analysis_frames
         from PIL import Image
 
-        # Load frames to find the one we want
-        frames = load_analysis_frames(jsonl_path)
-        target_frame = None
-        for frame in frames:
-            if frame.get("frame_id") == frame_id:
-                target_frame = frame
-                break
+        from observe.utils import load_analysis_frames
 
-        if not target_frame:
-            return "", 404
+        all_frames = load_analysis_frames(jsonl_path)
 
-        # Get video path
-        with open(jsonl_path, "r", encoding="utf-8") as f:
-            first_line = f.readline().strip()
-            header = json.loads(first_line)
-            raw_video_path = header.get("raw")
+        # The first line is a header with only {"raw": "path"}, filter it out
+        # Real frames have frame_id field
+        frames = [f for f in all_frames if "frame_id" in f]
 
-        if not raw_video_path:
-            return "", 404
+        # Extract raw video path from header (first item if it only has "raw" key)
+        raw_video_path = None
+        if all_frames and "raw" in all_frames[0] and "frame_id" not in all_frames[0]:
+            raw_video_path = all_frames[0].get("raw")
 
-        video_path = os.path.join(day_dir, raw_video_path)
-        if not os.path.isfile(video_path):
-            return "", 404
+        # Decode and cache all frames from the video
+        cache_key = (day, timestamp)
+        if cache_key not in _frame_cache and raw_video_path:
+            video_path = os.path.join(day_dir, raw_video_path)
+            if os.path.isfile(video_path):
+                _frame_cache[cache_key] = {}
 
-        # Extract frame at timestamp
-        frame_timestamp = target_frame.get("timestamp")
-        box_2d = target_frame.get("box_2d")  # [y_min, x_min, y_max, x_max]
+                # Build a mapping of timestamp -> frame_id and box_2d
+                frame_map = {}
+                for frame in frames:
+                    ts = frame.get("timestamp")
+                    if ts is not None:
+                        frame_map[ts] = {
+                            "frame_id": frame.get("frame_id"),
+                            "box_2d": frame.get("box_2d"),
+                        }
 
-        with av.open(str(video_path)) as container:
-            stream = container.streams.video[0]
-            # Seek to approximately the right position
-            seek_ts = int(frame_timestamp * stream.time_base.denominator)
-            container.seek(seek_ts, stream=stream)
+                # Decode the entire video in one pass
+                with av.open(str(video_path)) as container:
+                    stream = container.streams.video[0]
 
-            # Find the exact frame
-            for av_frame in container.decode(stream):
-                if av_frame.time >= frame_timestamp:
-                    # Convert to PIL Image
-                    arr = av_frame.to_ndarray(format="rgb24")
-                    img = Image.fromarray(arr)
+                    for av_frame in container.decode(stream):
+                        if av_frame.time is None:
+                            continue
 
-                    # Crop to box_2d if provided
-                    if box_2d:
-                        y_min, x_min, y_max, x_max = box_2d
-                        img = img.crop((x_min, y_min, x_max, y_max))
+                        # Find matching frame metadata (with tolerance)
+                        tolerance = 0.1
+                        for ts, metadata in frame_map.items():
+                            if abs(av_frame.time - ts) < tolerance:
+                                # Convert to PIL Image
+                                arr = av_frame.to_ndarray(format="rgb24")
+                                img = Image.fromarray(arr)
 
-                    # Convert to JPEG bytes
-                    buffer = io.BytesIO()
-                    img.save(buffer, format="JPEG", quality=85)
-                    buffer.seek(0)
+                                # Crop to box_2d if provided
+                                box_2d = metadata.get("box_2d")
+                                if box_2d:
+                                    y_min, x_min, y_max, x_max = box_2d
+                                    img = img.crop((x_min, y_min, x_max, y_max))
 
-                    return send_file(buffer, mimetype="image/jpeg")
+                                # Convert to JPEG bytes and cache
+                                buffer = io.BytesIO()
+                                img.save(buffer, format="JPEG", quality=85)
+                                jpeg_bytes = buffer.getvalue()
 
+                                frame_id = metadata.get("frame_id")
+                                _frame_cache[cache_key][frame_id] = jpeg_bytes
+
+                                # Remove from map so we don't match it again
+                                del frame_map[ts]
+                                break
+
+        return jsonify({"frames": frames, "raw_video_path": raw_video_path})
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@bp.route("/calendar/api/screen_frame_image/<day>/<timestamp>/<int:frame_id>")
+def _dev_screen_frame_image(day: str, timestamp: str, frame_id: int) -> Any:
+    """Serve a cached frame image as JPEG."""
+    if not re.fullmatch(DATE_RE.pattern, day):
         return "", 404
+    if not re.fullmatch(r"\d{6}", timestamp):
+        return "", 404
+
+    try:
+        import io
+
+        from flask import send_file
+
+        # Check cache
+        cache_key = (day, timestamp)
+        if cache_key in _frame_cache and frame_id in _frame_cache[cache_key]:
+            jpeg_bytes = _frame_cache[cache_key][frame_id]
+            buffer = io.BytesIO(jpeg_bytes)
+            buffer.seek(0)
+            return send_file(buffer, mimetype="image/jpeg")
+
+        # Frame not in cache
+        return jsonify({"error": "Frame not cached. Load the frames list first."}), 404
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500

@@ -1,0 +1,454 @@
+{% extends 'base.html' %}
+{% import 'macros.html' as macros %}
+{% set active = 'calendar' %}
+{% block head %}
+<style>
+.screens-detail {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+.back-link {
+  display: inline-block;
+  margin-bottom: 20px;
+  color: #007bff;
+  text-decoration: none;
+}
+
+.back-link:hover {
+  text-decoration: underline;
+}
+
+.metadata {
+  background: #f8f9fa;
+  padding: 16px;
+  border-radius: 8px;
+  margin-bottom: 24px;
+  border-left: 4px solid #007bff;
+}
+
+.metadata h3 {
+  margin-top: 0;
+  font-size: 1.1em;
+}
+
+.metadata p {
+  margin: 8px 0;
+  color: #495057;
+}
+
+.frame-card {
+  background: white;
+  border: 1px solid #dee2e6;
+  border-radius: 8px;
+  margin-bottom: 24px;
+  overflow: hidden;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.frame-header {
+  background: #f8f9fa;
+  padding: 12px 16px;
+  border-bottom: 1px solid #dee2e6;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.frame-title {
+  font-weight: 600;
+  color: #212529;
+}
+
+.frame-timestamp {
+  color: #6c757d;
+  font-size: 0.9em;
+}
+
+.frame-body {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.frame-image-container {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+}
+
+.frame-image-container h4 {
+  margin: 0 0 12px 0;
+  font-size: 0.95em;
+  color: #495057;
+}
+
+.frame-image {
+  width: 100%;
+  border: 1px solid #dee2e6;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.frame-image:hover {
+  opacity: 0.9;
+}
+
+.frame-json-container {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+}
+
+.frame-json-container h4 {
+  margin: 0 0 12px 0;
+  font-size: 0.95em;
+  color: #495057;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.toggle-json {
+  background: #007bff;
+  color: white;
+  border: none;
+  padding: 4px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.85em;
+}
+
+.toggle-json:hover {
+  background: #0056b3;
+}
+
+.frame-json {
+  background: #282c34;
+  color: #abb2bf;
+  padding: 12px;
+  border-radius: 4px;
+  overflow-x: auto;
+  font-family: 'Courier New', monospace;
+  font-size: 0.85em;
+  line-height: 1.5;
+  max-height: 500px;
+  overflow-y: auto;
+}
+
+.json-key {
+  color: #e06c75;
+}
+
+.json-string {
+  color: #98c379;
+}
+
+.json-number {
+  color: #d19a66;
+}
+
+.json-boolean {
+  color: #56b6c2;
+}
+
+.json-null {
+  color: #c678dd;
+}
+
+.frame-error {
+  background: #fff3cd;
+  border: 1px solid #ffc107;
+  padding: 12px;
+  border-radius: 4px;
+  color: #856404;
+  margin-top: 8px;
+}
+
+.loading {
+  text-align: center;
+  padding: 40px;
+  color: #6c757d;
+}
+
+.dev-badge {
+  display: inline-block;
+  background: #ffc107;
+  color: #000;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 0.75em;
+  font-weight: 600;
+  margin-left: 8px;
+  vertical-align: middle;
+}
+
+.frame-metadata {
+  background: #f8f9fa;
+  padding: 12px;
+  border-radius: 4px;
+  margin-bottom: 12px;
+  font-size: 0.9em;
+}
+
+.frame-metadata div {
+  margin: 4px 0;
+}
+
+.frame-metadata strong {
+  color: #495057;
+  margin-right: 8px;
+}
+
+.modal {
+  display: none;
+  position: fixed;
+  z-index: 1000;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0,0,0,0.9);
+  cursor: pointer;
+}
+
+.modal img {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  max-width: 90%;
+  max-height: 90%;
+  border: 2px solid white;
+}
+
+.close-modal {
+  position: absolute;
+  top: 20px;
+  right: 35px;
+  color: white;
+  font-size: 40px;
+  font-weight: bold;
+  cursor: pointer;
+}
+</style>
+{% endblock %}
+{% block body %}
+<div class="container">
+  {{ macros.day_heading(title,
+        prev_day and url_for('calendar._dev_calendar_screens_list', day=prev_day),
+        next_day and url_for('calendar._dev_calendar_screens_list', day=next_day),
+        url_for('calendar.calendar_transcript_page', day=day),
+        url_for('admin.admin_day_page', day=day),
+        url_for('todos.todos_day', day=day)) }}
+
+  <div class="screens-detail">
+    <a href="{{ url_for('calendar._dev_calendar_screens_list', day=day) }}" class="back-link">
+      ← Back to screens list
+    </a>
+
+    <h2>
+      Screen Debug Viewer - {{ timestamp }}
+      <span class="dev-badge">DEV</span>
+    </h2>
+
+    <div id="loading" class="loading">
+      Loading frame data...
+    </div>
+
+    <div id="metadata" class="metadata" style="display: none;">
+      <h3>File Metadata</h3>
+      <p><strong>Raw Video:</strong> <span id="rawVideoPath"></span></p>
+      <p><strong>Total Frames:</strong> <span id="frameCount"></span></p>
+    </div>
+
+    <div id="framesContainer"></div>
+  </div>
+</div>
+
+<div id="imageModal" class="modal">
+  <span class="close-modal">&times;</span>
+  <img id="modalImage" src="" alt="Frame">
+</div>
+
+<script>
+const day = '{{ day }}';
+const timestamp = '{{ timestamp }}';
+
+function syntaxHighlight(json) {
+  json = JSON.stringify(json, null, 2);
+  json = json.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  return json.replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g, function (match) {
+    let cls = 'json-number';
+    if (/^"/.test(match)) {
+      if (/:$/.test(match)) {
+        cls = 'json-key';
+      } else {
+        cls = 'json-string';
+      }
+    } else if (/true|false/.test(match)) {
+      cls = 'json-boolean';
+    } else if (/null/.test(match)) {
+      cls = 'json-null';
+    }
+    return '<span class="' + cls + '">' + match + '</span>';
+  });
+}
+
+function formatTimestamp(seconds) {
+  const mins = Math.floor(seconds / 60);
+  const secs = (seconds % 60).toFixed(2);
+  return `${mins}:${secs.padStart(5, '0')}`;
+}
+
+function createFrameCard(frame, index) {
+  const card = document.createElement('div');
+  card.className = 'frame-card';
+
+  const header = document.createElement('div');
+  header.className = 'frame-header';
+
+  const title = document.createElement('div');
+  title.className = 'frame-title';
+  title.textContent = `Frame ${frame.frame_id}`;
+
+  const timestampSpan = document.createElement('div');
+  timestampSpan.className = 'frame-timestamp';
+  timestampSpan.textContent = `Timestamp: ${formatTimestamp(frame.timestamp)}`;
+
+  header.appendChild(title);
+  header.appendChild(timestampSpan);
+
+  const body = document.createElement('div');
+  body.className = 'frame-body';
+
+  // Left side - Image
+  const imageContainer = document.createElement('div');
+  imageContainer.className = 'frame-image-container';
+
+  const imageTitle = document.createElement('h4');
+  imageTitle.textContent = 'Frame Image';
+  imageContainer.appendChild(imageTitle);
+
+  // Frame metadata
+  const metadata = document.createElement('div');
+  metadata.className = 'frame-metadata';
+  metadata.innerHTML = `
+    <div><strong>Monitor:</strong> ${frame.monitor || 'N/A'}</div>
+    <div><strong>Position:</strong> ${frame.monitor_position || 'N/A'}</div>
+    <div><strong>Bounding Box:</strong> ${frame.box_2d ? JSON.stringify(frame.box_2d) : 'N/A'}</div>
+    ${frame.requests ? `<div><strong>API Requests:</strong> ${frame.requests.length}</div>` : ''}
+  `;
+  imageContainer.appendChild(metadata);
+
+  const img = document.createElement('img');
+  img.className = 'frame-image';
+  img.src = `/calendar/api/screen_frame_image/${day}/${timestamp}/${frame.frame_id}`;
+  img.alt = `Frame ${frame.frame_id}`;
+  img.loading = 'lazy';
+  img.onclick = function() {
+    document.getElementById('modalImage').src = this.src;
+    document.getElementById('imageModal').style.display = 'block';
+  };
+  imageContainer.appendChild(img);
+
+  body.appendChild(imageContainer);
+
+  // Right side - JSON
+  const jsonContainer = document.createElement('div');
+  jsonContainer.className = 'frame-json-container';
+
+  const jsonTitle = document.createElement('h4');
+  jsonTitle.textContent = 'Frame JSON Data';
+
+  const toggleBtn = document.createElement('button');
+  toggleBtn.className = 'toggle-json';
+  toggleBtn.textContent = 'Collapse';
+  toggleBtn.dataset.expanded = 'true';
+
+  jsonTitle.appendChild(toggleBtn);
+  jsonContainer.appendChild(jsonTitle);
+
+  const jsonPre = document.createElement('pre');
+  jsonPre.className = 'frame-json';
+  jsonPre.innerHTML = syntaxHighlight(frame);
+  jsonContainer.appendChild(jsonPre);
+
+  toggleBtn.onclick = function() {
+    if (this.dataset.expanded === 'true') {
+      jsonPre.style.display = 'none';
+      this.textContent = 'Expand';
+      this.dataset.expanded = 'false';
+    } else {
+      jsonPre.style.display = 'block';
+      this.textContent = 'Collapse';
+      this.dataset.expanded = 'true';
+    }
+  };
+
+  // Show error if present
+  if (frame.error) {
+    const errorDiv = document.createElement('div');
+    errorDiv.className = 'frame-error';
+    errorDiv.innerHTML = `<strong>Error:</strong> ${frame.error}`;
+    jsonContainer.appendChild(errorDiv);
+  }
+
+  body.appendChild(jsonContainer);
+
+  card.appendChild(header);
+  card.appendChild(body);
+
+  return card;
+}
+
+function loadFrames() {
+  fetch(`/calendar/api/screen_frames/${day}/${timestamp}`)
+    .then(r => r.json())
+    .then(data => {
+      document.getElementById('loading').style.display = 'none';
+
+      if (data.error) {
+        document.getElementById('framesContainer').innerHTML =
+          `<div class="frame-error">Error: ${data.error}</div>`;
+        return;
+      }
+
+      // Show metadata
+      const metadata = document.getElementById('metadata');
+      document.getElementById('rawVideoPath').textContent = data.raw_video_path || 'Unknown';
+      document.getElementById('frameCount').textContent = data.frames.length;
+      metadata.style.display = 'block';
+
+      // Sort frames by frame_id
+      data.frames.sort((a, b) => a.frame_id - b.frame_id);
+
+      // Render frames
+      const container = document.getElementById('framesContainer');
+      data.frames.forEach((frame, index) => {
+        container.appendChild(createFrameCard(frame, index));
+      });
+    })
+    .catch(err => {
+      console.error('Error loading frames:', err);
+      document.getElementById('loading').innerHTML =
+        '<span style="color: red;">Error loading frame data</span>';
+    });
+}
+
+// Modal close handlers
+document.querySelector('.close-modal').onclick = function() {
+  document.getElementById('imageModal').style.display = 'none';
+};
+
+document.getElementById('imageModal').onclick = function(e) {
+  if (e.target === this) {
+    this.style.display = 'none';
+  }
+};
+
+loadFrames();
+</script>
+{% endblock %}
