@@ -60,12 +60,38 @@ class ToolLoggingHooks:
                 }
             )
             result = await original(name=name, arguments=arguments, **kwargs)
+
+            # Extract content from CallToolResult if needed
+            if hasattr(result, "content"):
+                # MCP CallToolResult object - extract text from TextContent objects
+                if isinstance(result.content, list):
+                    # Handle array of content items
+                    extracted_content = []
+                    for item in result.content:
+                        if hasattr(item, "text"):
+                            # TextContent object - extract the text
+                            extracted_content.append(item.text)
+                        else:
+                            # Other content types - keep as is
+                            extracted_content.append(item)
+                    # If single text content, return as string, otherwise as list
+                    result_data = (
+                        extracted_content[0]
+                        if len(extracted_content) == 1
+                        else extracted_content
+                    )
+                else:
+                    result_data = result.content
+            else:
+                # Direct result (dict, string, etc.)
+                result_data = result
+
             self.writer.emit(
                 {
                     "event": "tool_end",
                     "tool": name,
                     "args": arguments,
-                    "result": result,
+                    "result": result_data,
                     "call_id": call_id,
                 }
             )
