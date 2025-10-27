@@ -1,0 +1,387 @@
+/**
+ * Entity Manager Styles
+ */
+
+/* Container and Layout */
+.entity-manager-container {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 2em;
+  box-sizing: border-box;
+}
+
+.entity-manager-header {
+  margin-bottom: 2em;
+  position: relative;
+}
+
+.entity-manager-header .back-button {
+  display: inline-block;
+  color: #667eea;
+  text-decoration: none;
+  font-size: 1em;
+  margin-bottom: 1em;
+  opacity: 0.8;
+  transition: opacity 0.2s;
+}
+
+.entity-manager-header .back-button:hover {
+  opacity: 1;
+}
+
+.entity-manager-header h1 {
+  margin: 0 0 0.5em 0;
+  font-size: 2.5em;
+  font-weight: 700;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.subtitle {
+  color: #666;
+  font-size: 1.1em;
+  margin: 0;
+}
+
+/* Entity Grid */
+.entity-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+/* Entity Cards */
+.entity-card {
+  position: relative;
+  border: 2px solid;
+  border-radius: 8px;
+  padding: 0.75rem;
+  background: white;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
+  min-height: 60px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.entity-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+}
+
+/* Attached Entity Cards */
+.entity-card.attached {
+  border-width: 3px;
+  font-weight: 600;
+}
+
+.entity-card.attached:hover {
+  box-shadow: 0 4px 16px rgba(102, 126, 234, 0.2);
+}
+
+/* Detected Entity Cards */
+.entity-card.detected {
+  border-width: 1px;
+  opacity: 0.95;
+  cursor: grab;
+  touch-action: none; /* Prevent scrolling during drag on touch devices */
+  user-select: none; /* Prevent text selection during drag */
+  -webkit-user-select: none;
+}
+
+.entity-card.detected:active {
+  cursor: grabbing;
+}
+
+/* Drag States */
+.entity-card.dragging {
+  opacity: 0.3;
+  transform: scale(0.95);
+  cursor: grabbing;
+}
+
+.entity-card.drag-over {
+  background: #f0f4ff;
+  border-style: dashed;
+  border-width: 3px;
+  transform: scale(1.05);
+  box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.2);
+}
+
+/* Drag Ghost */
+.drag-ghost {
+  pointer-events: none;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+  transition: none;
+  will-change: transform;
+  cursor: grabbing;
+}
+
+/* Entity Card Content */
+.entity-name {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #333;
+  word-break: break-word;
+  line-height: 1.3;
+  flex-grow: 1;
+}
+
+.entity-aka-count {
+  font-size: 0.75rem;
+  color: #666;
+  font-weight: 400;
+  font-style: italic;
+  margin-top: auto;
+}
+
+/* Section Headings */
+.attached-entities-section,
+.detected-entities-section {
+  margin-bottom: 3em;
+}
+
+.attached-entities-section h2,
+.detected-entities-section h2 {
+  color: #333;
+  font-size: 1.6em;
+  font-weight: 600;
+  margin-bottom: 1em;
+  padding-bottom: 0.5em;
+  border-bottom: 2px solid #eee;
+}
+
+/* Empty State */
+.empty-state {
+  text-align: center;
+  padding: 4em 2em;
+  background: #f8f9fa;
+  border-radius: 12px;
+  border: 2px dashed #ddd;
+  grid-column: 1 / -1;
+}
+
+.empty-state p {
+  color: #666;
+  font-size: 1.1em;
+  margin: 0.5em 0;
+}
+
+.empty-hint {
+  font-size: 0.95em;
+  color: #999;
+  font-style: italic;
+}
+
+/* Modal Styles */
+.modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+  animation: fadeIn 0.2s ease;
+}
+
+.modal.hidden {
+  display: none;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.modal-content {
+  background: white;
+  border-radius: 16px;
+  padding: 2em;
+  min-width: 400px;
+  max-width: 500px;
+  box-shadow: 0 12px 48px rgba(0, 0, 0, 0.3);
+  animation: slideUp 0.3s ease;
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.modal-header {
+  margin-bottom: 1.5em;
+  padding-bottom: 0.75em;
+  border-bottom: 2px solid #eee;
+}
+
+.modal-header h3 {
+  margin: 0;
+  color: #333;
+  font-size: 1.5em;
+  font-weight: 600;
+}
+
+.modal-body {
+  margin-bottom: 1.5em;
+}
+
+.modal-body p {
+  color: #444;
+  font-size: 1.05em;
+  line-height: 1.6;
+  margin: 0.75em 0;
+}
+
+.modal-body strong {
+  color: #667eea;
+  font-weight: 600;
+}
+
+.modal-hint {
+  font-size: 0.9em;
+  color: #999;
+  font-style: italic;
+  margin-top: 0.5em;
+}
+
+.modal-hint kbd {
+  background: #f4f4f5;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  padding: 0.2em 0.5em;
+  font-family: 'Courier New', monospace;
+  font-size: 0.9em;
+  font-weight: 600;
+  color: #333;
+}
+
+.modal-actions {
+  display: flex;
+  gap: 1em;
+  justify-content: flex-end;
+}
+
+/* AKA Edit Input */
+#aka-input {
+  width: 100%;
+  padding: 0.75em 1em;
+  border: 2px solid #ddd;
+  border-radius: 8px;
+  font-size: 1em;
+  font-family: inherit;
+  transition: border-color 0.2s;
+  box-sizing: border-box;
+}
+
+#aka-input:focus {
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+/* Buttons */
+.btn {
+  padding: 0.7em 1.5em;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 1em;
+  font-weight: 500;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none !important;
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+}
+
+.btn-primary:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+.btn-secondary {
+  background: #f8f9fa;
+  color: #666;
+  border: 1px solid #ddd;
+}
+
+.btn-secondary:hover:not(:disabled) {
+  background: #e9ecef;
+  border-color: #ccc;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .entity-manager-container {
+    padding: 1em;
+  }
+
+  .entity-manager-header h1 {
+    font-size: 2em;
+  }
+
+  .subtitle {
+    font-size: 1em;
+  }
+
+  .entity-grid {
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    gap: 0.5rem;
+  }
+
+  .modal-content {
+    min-width: 90%;
+    margin: 0 1em;
+  }
+
+  .modal-actions {
+    flex-direction: column-reverse;
+  }
+
+  .btn {
+    width: 100%;
+  }
+}
+
+/* Animations for entity removal */
+.entity-card {
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+/* Touch device improvements */
+@media (hover: none) and (pointer: coarse) {
+  .entity-card:hover {
+    transform: none;
+  }
+
+  .entity-card:active {
+    transform: scale(0.98);
+  }
+}
