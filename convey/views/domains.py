@@ -710,6 +710,74 @@ def update_aka_list(domain_name: str) -> Any:
         return jsonify({"error": f"Failed to update aka list: {str(e)}"}), 500
 
 
+@bp.route("/api/domains/<domain_name>/entities/update", methods=["PUT"])
+def update_entity_full(domain_name: str) -> Any:
+    """Update entity name and AKA list."""
+    data = request.get_json()
+    if not data:
+        return jsonify({"error": "No data provided"}), 400
+
+    entity_type = data.get("type", "").strip()
+    old_name = data.get("old_name", "").strip()
+    new_name = data.get("new_name", "").strip()
+    aka_list_str = data.get("aka_list", "").strip()
+
+    if not entity_type or not old_name or not new_name:
+        return jsonify({"error": "Type, old_name, and new_name are required"}), 400
+
+    try:
+        # Parse comma-delimited aka list
+        if aka_list_str:
+            aka_list = [
+                item.strip() for item in aka_list_str.split(",") if item.strip()
+            ]
+        else:
+            aka_list = []
+
+        # Load attached entities
+        entities = load_entities(domain_name)
+
+        # Find target entity
+        target = None
+        target_index = -1
+        for i, entity in enumerate(entities):
+            if entity.get("type") == entity_type and entity.get("name") == old_name:
+                target = entity
+                target_index = i
+                break
+
+        if not target:
+            return jsonify({"error": "Entity not found"}), 404
+
+        # Check if new name conflicts with existing entities (excluding current)
+        if new_name != old_name:
+            for i, entity in enumerate(entities):
+                if (
+                    i != target_index
+                    and entity.get("type") == entity_type
+                    and entity.get("name") == new_name
+                ):
+                    return (
+                        jsonify({"error": f"Entity '{new_name}' already exists"}),
+                        409,
+                    )
+
+        # Update entity
+        target["name"] = new_name
+        if aka_list:
+            target["aka"] = aka_list
+        else:
+            target.pop("aka", None)
+
+        # Save updated entities
+        save_entities(domain_name, entities)
+
+        return jsonify({"success": True, "entity": target})
+
+    except Exception as e:
+        return jsonify({"error": f"Failed to update entity: {str(e)}"}), 500
+
+
 @bp.route("/api/domains/<domain_name>/entities/detected/preview")
 def preview_detected_entity_delete(domain_name: str) -> Any:
     """Preview which days contain a detected entity before deletion."""

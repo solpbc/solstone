@@ -1097,6 +1097,32 @@ tr:hover .entity-delete-btn {
   </div>
 </div>
 
+<!-- Entity Edit Modal -->
+<div id="entityEditModal" class="modal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h2>Edit Entity</h2>
+      <span class="close" onclick="closeEntityEditModal()">&times;</span>
+    </div>
+    <div id="entityEditError"></div>
+    <form id="entityEditForm">
+      <div class="form-group">
+        <label for="entityEditName">Name</label>
+        <input type="text" id="entityEditName" name="name" required>
+      </div>
+      <div class="form-group">
+        <label for="entityEditAkas">Alternative Names (AKAs)</label>
+        <input type="text" id="entityEditAkas" name="akas" placeholder="alias1, alias2, alias3">
+        <small>Comma-separated list of alternative names for audio transcription</small>
+      </div>
+      <div class="form-actions">
+        <button type="button" class="btn btn-secondary" onclick="closeEntityEditModal()">Cancel</button>
+        <button type="submit" class="btn btn-primary" id="entityEditSaveBtn">Save</button>
+      </div>
+    </form>
+  </div>
+</div>
+
 <script>
 const domainName = '{{ domain_name }}';
 let entitiesData = null;
@@ -1208,7 +1234,8 @@ function loadEntities() {
             type: entity.type,
             name: entity.name,
             desc: entity.description,
-            starred: true
+            starred: true,
+            aka: entity.aka || []
           });
         });
       }
@@ -1465,14 +1492,32 @@ function createEntityRow(entity, isDomainSection) {
 
   const nameCell = document.createElement('td');
   nameCell.className = 'entity-name';
-  nameCell.textContent = entity.name;
 
-  // Add detection count badge for detected entities
-  if (!entity.starred && entity.count && entity.count > 1) {
-    const badge = document.createElement('span');
-    badge.style.cssText = 'margin-left: 8px; background: #e3f2fd; color: #1976d2; padding: 2px 8px; border-radius: 12px; font-size: 0.8em; font-weight: 500;';
-    badge.textContent = `${entity.count} detections`;
-    nameCell.appendChild(badge);
+  // Create clickable name for attached entities
+  if (entity.starred) {
+    const nameLink = document.createElement('span');
+    nameLink.style.cssText = 'cursor: pointer; text-decoration: underline dotted;';
+    nameLink.textContent = entity.name;
+    nameLink.onclick = () => openEntityEditModal(entity.type, entity.name, entity.aka || []);
+    nameCell.appendChild(nameLink);
+
+    // Add AKAs if present
+    if (entity.aka && Array.isArray(entity.aka) && entity.aka.length > 0) {
+      const akaSpan = document.createElement('span');
+      akaSpan.style.cssText = 'margin-left: 4px; color: #666;';
+      akaSpan.textContent = ` (${entity.aka.join(', ')})`;
+      nameCell.appendChild(akaSpan);
+    }
+  } else {
+    nameCell.textContent = entity.name;
+
+    // Add detection count badge for detected entities
+    if (entity.count && entity.count > 1) {
+      const badge = document.createElement('span');
+      badge.style.cssText = 'margin-left: 8px; background: #e3f2fd; color: #1976d2; padding: 2px 8px; border-radius: 12px; font-size: 0.8em; font-weight: 500;';
+      badge.textContent = `${entity.count} detections`;
+      nameCell.appendChild(badge);
+    }
   }
 
   const descCell = document.createElement('td');
@@ -2304,5 +2349,125 @@ window.addEventListener('click', function(event) {
     closeDeleteModal();
   }
 });
+
+// Entity Edit Modal functionality
+let currentEditEntity = null;
+
+function openEntityEditModal(entityType, entityName, entityAkas) {
+  currentEditEntity = { type: entityType, name: entityName };
+
+  const modal = document.getElementById('entityEditModal');
+  const nameInput = document.getElementById('entityEditName');
+  const akasInput = document.getElementById('entityEditAkas');
+  const errorContainer = document.getElementById('entityEditError');
+
+  // Clear any previous errors
+  errorContainer.innerHTML = '';
+
+  // Populate form
+  nameInput.value = entityName;
+  akasInput.value = Array.isArray(entityAkas) ? entityAkas.join(', ') : (entityAkas || '');
+
+  // Show modal
+  modal.style.display = 'block';
+  nameInput.focus();
+}
+
+function closeEntityEditModal() {
+  const modal = document.getElementById('entityEditModal');
+  modal.style.display = 'none';
+  currentEditEntity = null;
+}
+
+// Handle entity edit form submission
+document.addEventListener('DOMContentLoaded', function() {
+  const entityEditForm = document.getElementById('entityEditForm');
+  const entityEditModal = document.getElementById('entityEditModal');
+
+  if (entityEditForm) {
+    entityEditForm.addEventListener('submit', function(e) {
+      e.preventDefault();
+      saveEntityEdit();
+    });
+  }
+
+  // Close modal when clicking outside
+  if (entityEditModal) {
+    window.addEventListener('click', function(event) {
+      if (event.target === entityEditModal) {
+        closeEntityEditModal();
+      }
+    });
+  }
+});
+
+function saveEntityEdit() {
+  if (!currentEditEntity) return;
+
+  const saveBtn = document.getElementById('entityEditSaveBtn');
+  const errorContainer = document.getElementById('entityEditError');
+  const newName = document.getElementById('entityEditName').value.trim();
+  const akaList = document.getElementById('entityEditAkas').value.trim();
+
+  if (!newName) {
+    errorContainer.innerHTML = '<div class="error-message">Name is required</div>';
+    return;
+  }
+
+  // Clear errors
+  errorContainer.innerHTML = '';
+
+  // Update button state
+  saveBtn.disabled = true;
+  saveBtn.textContent = 'Saving...';
+
+  fetch(`/api/domains/${encodeURIComponent(domainName)}/entities/update`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      type: currentEditEntity.type,
+      old_name: currentEditEntity.name,
+      new_name: newName,
+      aka_list: akaList
+    })
+  })
+  .then(response => response.json())
+  .then(data => {
+    if (data.success) {
+      // Update the entity in our local data
+      if (entitiesData && entitiesData.all_entities) {
+        const entity = entitiesData.all_entities.find(e =>
+          e.type === currentEditEntity.type && e.name === currentEditEntity.name
+        );
+        if (entity) {
+          entity.name = newName;
+          entity.aka = data.entity.aka || [];
+        }
+      }
+
+      // Get current search term to maintain filter
+      const searchInput = document.getElementById('entity-search');
+      const currentSearchTerm = searchInput ? searchInput.value.trim() : '';
+
+      // Re-render entities
+      renderEntities(currentSearchTerm);
+      closeEntityEditModal();
+    } else {
+      errorContainer.innerHTML = `<div class="error-message">${escapeHtml(data.error || 'Unknown error')}</div>`;
+    }
+
+    saveBtn.disabled = false;
+    saveBtn.textContent = 'Save';
+  })
+  .catch(error => {
+    console.error('Error saving entity:', error);
+    errorContainer.innerHTML = `<div class="error-message">Network error: ${escapeHtml(error.message)}</div>`;
+
+    saveBtn.disabled = false;
+    saveBtn.textContent = 'Save';
+  });
+}
 </script>
 {% endblock %}
