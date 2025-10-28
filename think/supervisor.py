@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import TextIO
 
 from desktop_notifier import DesktopNotifier, Urgency
+from watchfiles import PythonFilter, awatch
 
 from muse.cortex_client import cortex_request
 from think.domains import get_domains
@@ -19,6 +20,7 @@ from think.utils import get_agents, setup_cli
 
 DEFAULT_THRESHOLD = 60
 CHECK_INTERVAL = 30
+RELOAD_DEBOUNCE = 60  # seconds to wait after last change before reloading
 
 # Global shutdown flag
 shutdown_requested = False
@@ -34,6 +36,16 @@ _scheduled_state = {
     "start_time": 0,  # When current group started
     "rescan_pending": False,  # Whether domain rescan needs to run
 }
+
+# Directory to process mapping for auto-reload
+WATCH_DIRS = {
+    "observe": ["observer", "sense"],
+    "convey": ["convey"],
+    "muse": ["cortex"],
+}
+
+# State for auto-reload debounce tracking
+_reload_timers: dict[str, float] = {}  # process_name -> last_change_time
 
 
 def _get_journal_path() -> Path:
@@ -459,6 +471,63 @@ def check_runner_exits(procs: list[ManagedProcess]) -> list[ManagedProcess]:
     return exited
 
 
+async def watch_source_changes(procs: list[ManagedProcess]) -> None:
+    """Watch for Python file changes and update debounce timers."""
+    watch_paths = list(WATCH_DIRS.keys())
+    logging.info(f"Auto-reload enabled, watching: {', '.join(watch_paths)}")
+
+    async for changes in awatch(*watch_paths, watch_filter=PythonFilter()):
+        if shutdown_requested:
+            break
+
+        # Determine which process(es) were affected by these changes
+        affected_procs = set()
+        for change_type, path in changes:
+            path_obj = Path(path)
+            for dir_name, proc_names in WATCH_DIRS.items():
+                try:
+                    path_obj.relative_to(dir_name)
+                    affected_procs.update(proc_names)
+                    break
+                except ValueError:
+                    continue
+
+        # Update debounce timers for affected processes
+        if affected_procs:
+            now = time.time()
+            for proc_name in affected_procs:
+                _reload_timers[proc_name] = now
+                logging.debug(
+                    f"Source change detected for {proc_name}, debounce timer reset"
+                )
+
+
+async def check_reload_timers(procs: list[ManagedProcess]) -> None:
+    """Periodically check debounce timers and send SIGINT when ready."""
+    while not shutdown_requested:
+        now = time.time()
+
+        # Check each timer to see if debounce period has elapsed
+        for proc_name, last_change in list(_reload_timers.items()):
+            if now - last_change >= RELOAD_DEBOUNCE:
+                # Find the managed process and send SIGINT
+                for managed in procs:
+                    if managed.name == proc_name and managed.process.poll() is None:
+                        logging.info(
+                            f"Reloading {proc_name} after {RELOAD_DEBOUNCE}s debounce"
+                        )
+                        try:
+                            managed.process.send_signal(signal.SIGINT)
+                        except Exception as e:
+                            logging.warning(f"Failed to signal {proc_name}: {e}")
+                        break
+
+                # Remove timer - we've sent the signal, now it's up to the process
+                del _reload_timers[proc_name]
+
+        await asyncio.sleep(1)
+
+
 async def supervise(
     *,
     threshold: int = DEFAULT_THRESHOLD,
@@ -721,15 +790,27 @@ def main() -> None:
 
     logging.info(f"Started {len(procs)} processes, entering supervision loop")
     try:
-        asyncio.run(
-            supervise(
-                threshold=args.threshold,
-                interval=args.interval,
-                command=args.notify_cmd,
-                daily=not args.no_daily,
-                procs=procs if procs else None,
-            )
-        )
+
+        async def run_supervisor():
+            """Run supervision loop with optional auto-reload tasks."""
+            tasks = [
+                supervise(
+                    threshold=args.threshold,
+                    interval=args.interval,
+                    command=args.notify_cmd,
+                    daily=not args.no_daily,
+                    procs=procs if procs else None,
+                )
+            ]
+
+            # Enable auto-reload when verbose mode is active
+            if args.verbose and procs:
+                tasks.append(watch_source_changes(procs))
+                tasks.append(check_reload_timers(procs))
+
+            await asyncio.gather(*tasks)
+
+        asyncio.run(run_supervisor())
     except KeyboardInterrupt:
         logging.info("Caught KeyboardInterrupt, shutting down...")
     finally:
