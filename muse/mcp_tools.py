@@ -8,12 +8,12 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Callable, TypeVar
 
-from fastmcp import FastMCP
+from fastmcp import Context, FastMCP
 from fastmcp.resources import FileResource, TextResource
 
 from think import todo
 from think.cluster import cluster_range
-from think.domains import domain_summary
+from think.domains import domain_summary, log_action
 from think.entities import (
     is_valid_entity_type,
     load_entities,
@@ -103,7 +103,9 @@ def todo_list(day: str, domain: str) -> dict[str, Any]:
 
 
 @register_tool(annotations=HINTS)
-def todo_add(day: str, domain: str, line_number: int, text: str) -> dict[str, Any]:
+def todo_add(
+    day: str, domain: str, line_number: int, text: str, context: Context | None = None
+) -> dict[str, Any]:
     """Append a new unchecked todo entry using the next sequential line number.
 
     Args:
@@ -136,6 +138,13 @@ def todo_add(day: str, domain: str, line_number: int, text: str) -> dict[str, An
 
         checklist = todo.TodoChecklist.load(day, domain)
         checklist.add_entry(line_number, text)
+        log_action(
+            domain,
+            day,
+            "todo_add",
+            {"line_number": line_number, "text": text},
+            context=context,
+        )
         return {"day": day, "domain": domain, "markdown": checklist.numbered()}
     except RuntimeError as exc:
         return {"error": str(exc)}
@@ -154,7 +163,9 @@ def todo_add(day: str, domain: str, line_number: int, text: str) -> dict[str, An
 
 
 @register_tool(annotations=HINTS)
-def todo_remove(day: str, domain: str, line_number: int, guard: str) -> dict[str, Any]:
+def todo_remove(
+    day: str, domain: str, line_number: int, guard: str, context: Context | None = None
+) -> dict[str, Any]:
     """Delete an existing todo entry after verifying its current text.
 
     Args:
@@ -171,6 +182,13 @@ def todo_remove(day: str, domain: str, line_number: int, guard: str) -> dict[str
     try:
         checklist = todo.TodoChecklist.load(day, domain)
         checklist.remove_entry(line_number, guard)
+        log_action(
+            domain,
+            day,
+            "todo_remove",
+            {"line_number": line_number, "text": guard},
+            context=context,
+        )
         return {"day": day, "domain": domain, "markdown": checklist.numbered()}
     except FileNotFoundError:
         return {
@@ -194,7 +212,9 @@ def todo_remove(day: str, domain: str, line_number: int, guard: str) -> dict[str
 
 
 @register_tool(annotations=HINTS)
-def todo_done(day: str, domain: str, line_number: int, guard: str) -> dict[str, Any]:
+def todo_done(
+    day: str, domain: str, line_number: int, guard: str, context: Context | None = None
+) -> dict[str, Any]:
     """Mark a todo entry as completed by switching its checkbox to ``[x]``.
 
     Args:
@@ -211,6 +231,13 @@ def todo_done(day: str, domain: str, line_number: int, guard: str) -> dict[str, 
     try:
         checklist = todo.TodoChecklist.load(day, domain)
         checklist.mark_done(line_number, guard)
+        log_action(
+            domain,
+            day,
+            "todo_done",
+            {"line_number": line_number, "text": guard},
+            context=context,
+        )
         return {"day": day, "domain": domain, "markdown": checklist.numbered()}
     except FileNotFoundError:
         return {
@@ -713,7 +740,12 @@ def entity_list(domain: str, day: str | None = None) -> dict[str, Any]:
 
 @register_tool(annotations=HINTS)
 def entity_detect(
-    day: str, domain: str, type: str, name: str, description: str
+    day: str,
+    domain: str,
+    type: str,
+    name: str,
+    description: str,
+    context: Context | None = None,
 ) -> dict[str, Any]:
     """Record a detected entity for a specific day in a domain.
 
@@ -762,6 +794,13 @@ def entity_detect(
         # Add new entity
         existing.append({"type": type, "name": name, "description": description})
         save_entities(domain, existing, day)
+        log_action(
+            domain,
+            day,
+            "entity_detect",
+            {"type": type, "name": name, "description": description},
+            context=context,
+        )
 
         return {
             "domain": domain,
@@ -783,7 +822,7 @@ def entity_detect(
 
 @register_tool(annotations=HINTS)
 def entity_attach(
-    domain: str, type: str, name: str, description: str
+    domain: str, type: str, name: str, description: str, context: Context | None = None
 ) -> dict[str, Any]:
     """Attach an entity permanently to a domain.
 
@@ -830,6 +869,16 @@ def entity_attach(
         existing.append({"type": type, "name": name, "description": description})
         save_entities(domain, existing, day=None)
 
+        # Log to today's log since attached entities aren't day-scoped
+        today = datetime.now().strftime("%Y%m%d")
+        log_action(
+            domain,
+            today,
+            "entity_attach",
+            {"type": type, "name": name, "description": description},
+            context=context,
+        )
+
         return {
             "domain": domain,
             "message": f"Entity '{name}' attached successfully",
@@ -855,6 +904,7 @@ def entity_update(
     old_description: str,
     new_description: str,
     day: str | None = None,
+    context: Context | None = None,
 ) -> dict[str, Any]:
     """Update an existing entity's description using guard-based validation.
 
@@ -895,6 +945,21 @@ def entity_update(
 
         update_entity(domain, type, name, old_description, new_description, day)
 
+        # Use provided day or today for logging
+        log_day = day if day else datetime.now().strftime("%Y%m%d")
+        log_action(
+            domain,
+            log_day,
+            "entity_update",
+            {
+                "type": type,
+                "name": name,
+                "old_description": old_description,
+                "new_description": new_description,
+            },
+            context=context,
+        )
+
         return {
             "domain": domain,
             "day": day,
@@ -926,7 +991,9 @@ def entity_update(
 
 
 @register_tool(annotations=HINTS)
-def entity_add_aka(domain: str, type: str, name: str, aka: str) -> dict[str, Any]:
+def entity_add_aka(
+    domain: str, type: str, name: str, aka: str, context: Context | None = None
+) -> dict[str, Any]:
     """Add an alias (aka) to an attached entity.
 
     This tool adds an alternative name, acronym, or nickname to an attached entity's
@@ -1003,6 +1070,16 @@ def entity_add_aka(domain: str, type: str, name: str, aka: str) -> dict[str, Any
 
                 # Save back atomically
                 save_entities(domain, entities, day=None)
+
+                # Log to today's log since attached entities aren't day-scoped
+                today = datetime.now().strftime("%Y%m%d")
+                log_action(
+                    domain,
+                    today,
+                    "entity_add_aka",
+                    {"type": type, "name": name, "aka": aka},
+                    context=context,
+                )
 
                 return {
                     "domain": domain,

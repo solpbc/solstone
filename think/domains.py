@@ -9,6 +9,103 @@ from pathlib import Path
 from typing import Any, Optional
 
 from dotenv import load_dotenv
+from fastmcp import Context
+from fastmcp.server.dependencies import get_http_headers
+
+
+def _get_actor_info(context: Context | None = None) -> tuple[str, str | None]:
+    """Extract actor (persona) and agent_id from _meta or HTTP headers.
+
+    Priority: _meta (stdio/anthropic/google) > HTTP headers (openai)
+
+    Args:
+        context: Optional FastMCP context with request metadata
+
+    Returns:
+        Tuple of (actor, agent_id) where actor defaults to "mcp"
+        and agent_id may be None.
+    """
+    # First try _meta from context (stdio transport)
+    if context is not None:
+        try:
+            meta = context.request.params._meta
+            if meta:
+                persona = meta.get("persona")
+                agent_id = meta.get("agent_id")
+                if persona or agent_id:
+                    actor = persona if persona else "mcp"
+                    return actor, agent_id
+        except Exception:
+            pass
+
+    # Fallback to HTTP headers (HTTP transport)
+    try:
+        headers = get_http_headers(include_all=True)
+        # Normalize headers to lowercase for case-insensitive lookup
+        headers_lower = {k.lower(): v for k, v in headers.items()}
+
+        persona = headers_lower.get("x-agent-persona")
+        agent_id = headers_lower.get("x-agent-id")
+
+        actor = persona if persona else "mcp"
+        return actor, agent_id
+    except Exception:
+        # Not in HTTP context (stdio, tests)
+        return "mcp", None
+
+
+def log_action(
+    domain: str,
+    day: str,
+    action: str,
+    params: dict[str, Any],
+    context: Context | None = None,
+) -> None:
+    """Log an MCP tool action to the domain's daily audit log.
+
+    Creates a JSONL log entry in domains/{domain}/logs/{day}.jsonl for tracking
+    successful todo and entity modifications made via MCP tools. Automatically
+    extracts actor identity from _meta (stdio) or HTTP headers (HTTP transport).
+
+    Args:
+        domain: Domain name where the action occurred
+        day: Day in YYYYMMDD format when the action occurred
+        action: Action type (e.g., "todo_add", "entity_attach")
+        params: Dictionary of action-specific parameters
+        context: Optional FastMCP context for extracting _meta
+
+    Raises:
+        RuntimeError: If JOURNAL_PATH is not set
+    """
+    load_dotenv()
+    journal = os.getenv("JOURNAL_PATH")
+    if not journal:
+        raise RuntimeError("JOURNAL_PATH not set")
+
+    # Build log file path
+    log_path = Path(journal) / "domains" / domain / "logs" / f"{day}.jsonl"
+
+    # Ensure parent directory exists
+    log_path.parent.mkdir(parents=True, exist_ok=True)
+
+    # Get actor info from _meta or HTTP headers
+    actor, agent_id = _get_actor_info(context)
+
+    # Create log entry
+    entry = {
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "actor": actor,
+        "action": action,
+        "params": params,
+    }
+
+    # Add agent_id only if available
+    if agent_id is not None:
+        entry["agent_id"] = agent_id
+
+    # Append to log file
+    with open(log_path, "a", encoding="utf-8") as f:
+        f.write(json.dumps(entry, ensure_ascii=False) + "\n")
 
 
 def get_domains() -> dict[str, dict[str, object]]:
@@ -255,7 +352,7 @@ def domain_summaries(*, detailed_entities: bool = False) -> str:
     RuntimeError
         If JOURNAL_PATH is not set
     """
-    from think.entities import load_entity_names, load_entities
+    from think.entities import load_entities, load_entity_names
 
     domains = get_domains()
     if not domains:

@@ -16,10 +16,12 @@ from typing import Any, Callable, Dict, Optional
 
 from anthropic import AsyncAnthropic
 from anthropic.types import MessageParam, ToolParam, ToolUseBlock
+from mcp.types import RequestParams
 
-from .agents import JSONEventCallback, ThinkingEvent
 from think.models import CLAUDE_SONNET_4
 from think.utils import create_mcp_client
+
+from .agents import JSONEventCallback, ThinkingEvent
 
 # Default values are now handled internally
 _DEFAULT_MODEL = CLAUDE_SONNET_4
@@ -39,9 +41,17 @@ def setup_logging(verbose: bool) -> logging.Logger:
 class ToolExecutor:
     """Handle MCP tool execution and result formatting for Anthropic."""
 
-    def __init__(self, mcp_client: Any, callback: JSONEventCallback) -> None:
+    def __init__(
+        self,
+        mcp_client: Any,
+        callback: JSONEventCallback,
+        agent_id: str | None = None,
+        persona: str | None = None,
+    ) -> None:
         self.mcp = mcp_client
         self.callback = callback
+        self.agent_id = agent_id
+        self.persona = persona
 
     async def execute_tool(self, tool_use: ToolUseBlock) -> dict:
         """Execute ``tool_use`` and return a Claude ``tool_result`` block."""
@@ -55,17 +65,26 @@ class ToolExecutor:
             }
         )
 
+        # Build _meta dict for passing agent identity
+        meta = {}
+        if self.agent_id:
+            meta["agent_id"] = self.agent_id
+        if self.persona:
+            meta["persona"] = self.persona
+
         try:
             try:
                 result = await self.mcp.session.call_tool(
                     name=tool_use.name,
                     arguments=tool_use.input,
+                    params=RequestParams(_meta=meta) if meta else None,
                 )
             except RuntimeError:
                 await self.mcp.__aenter__()
                 result = await self.mcp.session.call_tool(
                     name=tool_use.name,
                     arguments=tool_use.input,
+                    params=RequestParams(_meta=meta) if meta else None,
                 )
             # Extract content from CallToolResult if needed
             if hasattr(result, "content"):
@@ -230,7 +249,10 @@ async def run_agent(
                     )
 
                 tools = await _get_mcp_tools(mcp, allowed_tools)
-                tool_executor = ToolExecutor(mcp, callback)
+                agent_id = config.get("agent_id")
+                tool_executor = ToolExecutor(
+                    mcp, callback, agent_id=agent_id, persona=persona
+                )
 
                 while True:
                     # Configure thinking for supported models

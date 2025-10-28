@@ -15,10 +15,12 @@ from typing import Any, Callable, Dict, Optional
 
 from google import genai
 from google.genai import types
+from mcp.types import RequestParams
 
-from .agents import JSONEventCallback, ThinkingEvent
 from think.models import GEMINI_FLASH
 from think.utils import create_mcp_client
+
+from .agents import JSONEventCallback, ThinkingEvent
 
 # Default values are now handled internally
 _DEFAULT_MODEL = GEMINI_FLASH
@@ -39,10 +41,17 @@ def setup_logging(verbose: bool) -> logging.Logger:
 class ToolLoggingHooks:
     """Wrap ``session.call_tool`` to emit events."""
 
-    def __init__(self, writer: JSONEventCallback) -> None:
+    def __init__(
+        self,
+        writer: JSONEventCallback,
+        agent_id: str | None = None,
+        persona: str | None = None,
+    ) -> None:
         self.writer = writer
         self._counter = 0
         self.session = None
+        self.agent_id = agent_id
+        self.persona = persona
 
     def attach(self, session: Any) -> None:
         self.session = session
@@ -59,7 +68,20 @@ class ToolLoggingHooks:
                     "call_id": call_id,
                 }
             )
-            result = await original(name=name, arguments=arguments, **kwargs)
+
+            # Build _meta dict for passing agent identity
+            meta = {}
+            if self.agent_id:
+                meta["agent_id"] = self.agent_id
+            if self.persona:
+                meta["persona"] = self.persona
+
+            result = await original(
+                name=name,
+                arguments=arguments,
+                params=RequestParams(_meta=meta) if meta else None,
+                **kwargs,
+            )
 
             # Extract content from CallToolResult if needed
             if hasattr(result, "content"):
@@ -189,7 +211,10 @@ async def run_agent(
             # Create MCP client and attach hooks
             async with create_mcp_client(str(mcp_url)) as mcp:
                 # Attach tool logging hooks to the MCP session
-                tool_hooks = ToolLoggingHooks(callback)
+                agent_id = config.get("agent_id")
+                tool_hooks = ToolLoggingHooks(
+                    callback, agent_id=agent_id, persona=persona
+                )
                 tool_hooks.attach(mcp.session)
 
                 # Extract allowed tools from config
