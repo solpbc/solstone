@@ -57,7 +57,9 @@ def test_todo_add_requires_next_line(todo_env):
 
     day, domain, _ = todo_env(["- [ ] First item"])
 
-    result = call_tool(mcp_tools.todo_add, day, domain, line_number=1, text="Second item")
+    result = call_tool(
+        mcp_tools.todo_add, day, domain, line_number=1, text="Second item"
+    )
 
     assert result["error"] == "line number 1 must match the next available line"
 
@@ -67,7 +69,9 @@ def test_todo_add_appends_entry(todo_env):
 
     day, domain, todo_path = todo_env(["- [ ] First item"])
 
-    result = call_tool(mcp_tools.todo_add, day, domain, line_number=2, text="Second item")
+    result = call_tool(
+        mcp_tools.todo_add, day, domain, line_number=2, text="Second item"
+    )
 
     assert result == {
         "day": day,
@@ -91,7 +95,11 @@ def test_todo_add_creates_missing_day(tmp_path, monkeypatch):
     domains_dir.mkdir(parents=True)
 
     result = call_tool(
-        mcp_tools.todo_add, day, domain, line_number=1, text="Plan end-of-year celebration"
+        mcp_tools.todo_add,
+        day,
+        domain,
+        line_number=1,
+        text="Plan end-of-year celebration",
     )
 
     todo_path = tmp_path / "domains" / domain / "todos" / f"{day}.md"
@@ -111,7 +119,9 @@ def test_todo_remove_validates_guard(todo_env):
 
     day, domain, _ = todo_env(["- [ ] First item", "- [ ] Second item"])
 
-    result = call_tool(mcp_tools.todo_remove, day, domain, line_number=2, guard="- [ ] Other")
+    result = call_tool(
+        mcp_tools.todo_remove, day, domain, line_number=2, guard="- [ ] Other"
+    )
 
     assert result["error"] == "guard text does not match current todo"
 

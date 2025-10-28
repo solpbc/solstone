@@ -79,8 +79,12 @@ def test_raw_index(tmp_path):
     day.mkdir()
     # Write JSONL format: metadata first, then entries
     (day / "123000_audio.jsonl").write_text(
-        json.dumps({"topics": ["hi"], "setting": "personal"}) + "\n" +
-        json.dumps({"start": "00:00:01", "source": "mic", "speaker": 1, "text": "hello"}) + "\n"
+        json.dumps({"topics": ["hi"], "setting": "personal"})
+        + "\n"
+        + json.dumps(
+            {"start": "00:00:01", "source": "mic", "speaker": 1, "text": "hello"}
+        )
+        + "\n"
     )
     (day / "123000_monitor_1_diff.json").write_text(
         json.dumps(
@@ -131,16 +135,24 @@ def test_search_raws_day(tmp_path):
     day1.mkdir()
     # Write JSONL format: metadata first, then entries
     (day1 / "123000_audio.jsonl").write_text(
-        json.dumps({"topics": ["hi"], "setting": "personal"}) + "\n" +
-        json.dumps({"start": "00:00:01", "source": "mic", "speaker": 1, "text": "hello"}) + "\n"
+        json.dumps({"topics": ["hi"], "setting": "personal"})
+        + "\n"
+        + json.dumps(
+            {"start": "00:00:01", "source": "mic", "speaker": 1, "text": "hello"}
+        )
+        + "\n"
     )
 
     day2 = journal / "20240106"
     day2.mkdir()
     # Write JSONL format: metadata first, then entries
     (day2 / "090000_audio.jsonl").write_text(
-        json.dumps({"topics": ["hi"], "setting": "personal"}) + "\n" +
-        json.dumps({"start": "00:00:01", "source": "mic", "speaker": 1, "text": "hello"}) + "\n"
+        json.dumps({"topics": ["hi"], "setting": "personal"})
+        + "\n"
+        + json.dumps(
+            {"start": "00:00:01", "source": "mic", "speaker": 1, "text": "hello"}
+        )
+        + "\n"
     )
 
     mod.scan_transcripts(str(journal), verbose=True)
@@ -162,13 +174,21 @@ def test_search_raws_time_order(tmp_path):
     day.mkdir()
     # Write JSONL format: metadata first, then entries
     (day / "090000_audio.jsonl").write_text(
-        json.dumps({"topics": ["hi"], "setting": "personal"}) + "\n" +
-        json.dumps({"start": "00:00:01", "source": "mic", "speaker": 1, "text": "hello"}) + "\n"
+        json.dumps({"topics": ["hi"], "setting": "personal"})
+        + "\n"
+        + json.dumps(
+            {"start": "00:00:01", "source": "mic", "speaker": 1, "text": "hello"}
+        )
+        + "\n"
     )
     # Write JSONL format: metadata first, then entries
     (day / "123000_audio.jsonl").write_text(
-        json.dumps({"topics": ["hi"], "setting": "personal"}) + "\n" +
-        json.dumps({"start": "00:00:02", "source": "mic", "speaker": 1, "text": "hello"}) + "\n"
+        json.dumps({"topics": ["hi"], "setting": "personal"})
+        + "\n"
+        + json.dumps(
+            {"start": "00:00:02", "source": "mic", "speaker": 1, "text": "hello"}
+        )
+        + "\n"
     )
 
     mod.scan_transcripts(str(journal), verbose=True)

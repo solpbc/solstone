@@ -356,7 +356,9 @@ def get_todos(day: str, domain: str) -> list[dict[str, Any]] | None:
     return [item.as_dict() for item in parse_items(checklist.entries)]
 
 
-def upcoming(limit: int = 20, domain: str | None = None, *, today: str | None = None) -> str:
+def upcoming(
+    limit: int = 20, domain: str | None = None, *, today: str | None = None
+) -> str:
     """Return a markdown summary of upcoming todo entries.
 
     Args:
@@ -391,11 +393,7 @@ def upcoming(limit: int = 20, domain: str | None = None, *, today: str | None = 
             domain_paths = [(domain, domains_dir / domain)]
         else:
             # All domains mode
-            domain_paths = [
-                (d.name, d)
-                for d in domains_dir.iterdir()
-                if d.is_dir()
-            ]
+            domain_paths = [(d.name, d) for d in domains_dir.iterdir() if d.is_dir()]
     except OSError:  # pragma: no cover - filesystem failure
         return "No upcoming todos."
 
@@ -452,7 +450,9 @@ def upcoming(limit: int = 20, domain: str | None = None, *, today: str | None = 
         # Get domain title for better display
         try:
             domains = get_domains()
-            domain_title = domains.get(domain_name, {}).get("title", domain_name.title())
+            domain_title = domains.get(domain_name, {}).get(
+                "title", domain_name.title()
+            )
         except (RuntimeError, KeyError):
             domain_title = domain_name.title()
 

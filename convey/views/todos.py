@@ -54,11 +54,18 @@ def todos_day(day: str):  # type: ignore[override]
             else:
                 # Extract domain from hashtag (e.g., "#work" -> "work")
                 import re
-                domain_match = re.search(r'#([a-z][a-z0-9_-]*)', text, re.IGNORECASE)
+
+                domain_match = re.search(r"#([a-z][a-z0-9_-]*)", text, re.IGNORECASE)
                 if domain_match:
                     domain = domain_match.group(1).lower()
                     # Remove the hashtag from the text
-                    text = re.sub(r'\s*#' + re.escape(domain_match.group(1)) + r'\b', '', text, count=1, flags=re.IGNORECASE).strip()
+                    text = re.sub(
+                        r"\s*#" + re.escape(domain_match.group(1)) + r"\b",
+                        "",
+                        text,
+                        count=1,
+                        flags=re.IGNORECASE,
+                    ).strip()
 
                     # Validate domain exists
                     try:
@@ -80,7 +87,9 @@ def todos_day(day: str):  # type: ignore[override]
                         checklist = TodoChecklist.load(day, domain)
                         checklist.append_entry(text)
                     except (TodoEmptyTextError, RuntimeError) as exc:
-                        current_app.logger.debug("Failed to append todo for %s/%s: %s", domain, day, exc)
+                        current_app.logger.debug(
+                            "Failed to append todo for %s/%s: %s", domain, day, exc
+                        )
                         flash("Unable to add todo right now", "error")
             return redirect(url_for("todos.todos_day", day=day))
 
@@ -101,7 +110,9 @@ def todos_day(day: str):  # type: ignore[override]
         try:
             checklist = TodoChecklist.load(day, domain)
         except RuntimeError as exc:
-            current_app.logger.debug("Failed to load checklist for %s/%s: %s", domain, day, exc)
+            current_app.logger.debug(
+                "Failed to load checklist for %s/%s: %s", domain, day, exc
+            )
             flash("Todo list changed, please refresh and try again", "error")
             return redirect(url_for("todos.todos_day", day=day))
 
@@ -114,14 +125,21 @@ def todos_day(day: str):  # type: ignore[override]
                 checklist.remove_entry(index, guard)
             elif action == "edit":
                 import re
+
                 text = request.form.get("text", "").strip()
 
                 # Check if text contains a domain hashtag
-                domain_match = re.search(r'#([a-z][a-z0-9_-]*)', text, re.IGNORECASE)
+                domain_match = re.search(r"#([a-z][a-z0-9_-]*)", text, re.IGNORECASE)
                 if domain_match:
                     new_domain = domain_match.group(1).lower()
                     # Remove the hashtag from the text
-                    text = re.sub(r'\s*#' + re.escape(domain_match.group(1)) + r'\b', '', text, count=1, flags=re.IGNORECASE).strip()
+                    text = re.sub(
+                        r"\s*#" + re.escape(domain_match.group(1)) + r"\b",
+                        "",
+                        text,
+                        count=1,
+                        flags=re.IGNORECASE,
+                    ).strip()
 
                     # Validate new domain exists
                     try:
@@ -136,7 +154,9 @@ def todos_day(day: str):  # type: ignore[override]
                     # If domain changed, move the todo
                     if new_domain != domain:
                         # Get the completed status before moving
-                        _, source_entry, completed, _ = checklist._entry_components(index, guard)
+                        _, source_entry, completed, _ = checklist._entry_components(
+                            index, guard
+                        )
 
                         # Add to new domain
                         new_checklist = TodoChecklist.load(day, new_domain)
@@ -164,7 +184,10 @@ def todos_day(day: str):  # type: ignore[override]
             flash("Todo list changed, please refresh and try again", "error")
 
         # If AJAX request, return JSON
-        if request.headers.get('X-Requested-With') == 'XMLHttpRequest' or request.accept_mimetypes.accept_json:
+        if (
+            request.headers.get("X-Requested-With") == "XMLHttpRequest"
+            or request.accept_mimetypes.accept_json
+        ):
             return jsonify({"status": "ok"})
 
         return redirect(url_for("todos.todos_day", day=day))
@@ -254,7 +277,9 @@ def move_todo(day: str):  # type: ignore[override]
     try:
         source_checklist = TodoChecklist.load(day, domain)
     except RuntimeError as exc:
-        current_app.logger.debug("Failed to load source todo list for %s/%s: %s", domain, day, exc)
+        current_app.logger.debug(
+            "Failed to load source todo list for %s/%s: %s", domain, day, exc
+        )
         return (
             jsonify({"error": "Todo list changed, please refresh and try again."}),
             409,
@@ -263,7 +288,9 @@ def move_todo(day: str):  # type: ignore[override]
     try:
         target_checklist = TodoChecklist.load(target_day, domain)
     except RuntimeError as exc:
-        current_app.logger.debug("Failed to load target todo list for %s/%s: %s", domain, target_day, exc)
+        current_app.logger.debug(
+            "Failed to load target todo list for %s/%s: %s", domain, target_day, exc
+        )
         return jsonify({"error": "Unable to access target day."}), 500
 
     try:

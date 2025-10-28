@@ -30,6 +30,7 @@ def _get_password() -> str:
     except Exception:
         return ""
 
+
 bp = Blueprint(
     "review",
     __name__,

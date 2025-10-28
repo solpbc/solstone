@@ -8,7 +8,8 @@ from typing import Any
 
 from flask import Blueprint, jsonify, render_template, request
 
-from think.utils import day_path, get_config as get_journal_config
+from think.utils import day_path
+from think.utils import get_config as get_journal_config
 
 from .. import state
 from ..task_runner import run_task
@@ -95,7 +96,9 @@ def admin_day_page(day: str) -> str:
 
                 # Extract processed counts
                 # For sense: audio_json + desc_json indicates processed transcripts + descriptions
-                sense_proc = day_stats.get("audio_json", 0) + day_stats.get("desc_json", 0)
+                sense_proc = day_stats.get("audio_json", 0) + day_stats.get(
+                    "desc_json", 0
+                )
                 # For summaries: summaries_processed is directly available
                 summaries_proc = day_stats.get("summaries_processed", 0)
             except Exception:

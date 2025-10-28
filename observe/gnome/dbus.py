@@ -16,7 +16,6 @@ gi.require_version("Gtk", "4.0")  # noqa: E402
 from gi.repository import Gdk, Gtk  # noqa: E402
 from PIL import Image  # noqa: E402
 
-
 # DBus service constants
 SCREENSHOT_BUS = "org.gnome.Shell.Screenshot"
 SCREENSHOT_PATH = "/org/gnome/Shell/Screenshot"
@@ -76,9 +75,7 @@ async def get_idle_time_ms(bus: MessageBus) -> int:
         Idle time in milliseconds
     """
     introspection = await bus.introspect(IDLE_MONITOR_BUS, IDLE_MONITOR_PATH)
-    proxy_obj = bus.get_proxy_object(
-        IDLE_MONITOR_BUS, IDLE_MONITOR_PATH, introspection
-    )
+    proxy_obj = bus.get_proxy_object(IDLE_MONITOR_BUS, IDLE_MONITOR_PATH, introspection)
     idle_monitor = proxy_obj.get_interface(IDLE_MONITOR_IFACE)
     idle_time = await idle_monitor.call_get_idletime()
     return idle_time

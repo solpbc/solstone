@@ -7,8 +7,9 @@ from pathlib import Path
 from unittest.mock import patch
 
 import pytest
-from convey.views.todos import bp
 from flask import Flask
+
+from convey.views.todos import bp
 
 
 @pytest.fixture

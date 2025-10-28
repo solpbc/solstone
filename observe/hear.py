@@ -337,7 +337,9 @@ def detect_speech(
         raise
 
 
-def load_transcript(file_path: str | os.PathLike) -> tuple[dict, list[dict] | None, str]:
+def load_transcript(
+    file_path: str | os.PathLike,
+) -> tuple[dict, list[dict] | None, str]:
     """Load a transcript JSONL file with metadata, entries, and formatted text.
 
     The JSONL format has metadata as the first line (may be empty {})
@@ -389,11 +391,19 @@ def load_transcript(file_path: str | os.PathLike) -> tuple[dict, list[dict] | No
     try:
         path = Path(file_path)
         if not path.exists():
-            return {"error": f"File not found: {file_path}"}, None, f"Error loading transcript: File not found: {file_path}"
+            return (
+                {"error": f"File not found: {file_path}"},
+                None,
+                f"Error loading transcript: File not found: {file_path}",
+            )
 
         content = path.read_text(encoding="utf-8").strip()
         if not content:
-            return {"error": "File is empty"}, None, "Error loading transcript: File is empty"
+            return (
+                {"error": "File is empty"},
+                None,
+                "Error loading transcript: File is empty",
+            )
 
         lines = content.split("\n")
 
@@ -401,9 +411,17 @@ def load_transcript(file_path: str | os.PathLike) -> tuple[dict, list[dict] | No
         try:
             metadata = json.loads(lines[0])
             if not isinstance(metadata, dict):
-                return {"error": "First line must be a JSON object"}, None, "Error loading transcript: First line must be a JSON object"
+                return (
+                    {"error": "First line must be a JSON object"},
+                    None,
+                    "Error loading transcript: First line must be a JSON object",
+                )
         except json.JSONDecodeError as e:
-            return {"error": f"Invalid JSON in metadata line: {e}"}, None, f"Error loading transcript: Invalid JSON in metadata line: {e}"
+            return (
+                {"error": f"Invalid JSON in metadata line: {e}"},
+                None,
+                f"Error loading transcript: Invalid JSON in metadata line: {e}",
+            )
 
         # Parse entries from remaining lines
         entries = []
@@ -414,10 +432,18 @@ def load_transcript(file_path: str | os.PathLike) -> tuple[dict, list[dict] | No
             try:
                 entry = json.loads(line)
                 if not isinstance(entry, dict):
-                    return {"error": f"Line {i} is not a JSON object"}, None, f"Error loading transcript: Line {i} is not a JSON object"
+                    return (
+                        {"error": f"Line {i} is not a JSON object"},
+                        None,
+                        f"Error loading transcript: Line {i} is not a JSON object",
+                    )
                 entries.append(entry)
             except json.JSONDecodeError as e:
-                return {"error": f"Invalid JSON at line {i}: {e}"}, None, f"Error loading transcript: Invalid JSON at line {i}: {e}"
+                return (
+                    {"error": f"Invalid JSON at line {i}: {e}"},
+                    None,
+                    f"Error loading transcript: Invalid JSON at line {i}: {e}",
+                )
 
         # Format the transcript as human-readable text
         formatted_text = _format_transcript_entries(path, metadata, entries)
@@ -425,7 +451,11 @@ def load_transcript(file_path: str | os.PathLike) -> tuple[dict, list[dict] | No
         return metadata, entries, formatted_text
 
     except Exception as e:
-        return {"error": f"Failed to load transcript: {e}"}, None, f"Error loading transcript: {e}"
+        return (
+            {"error": f"Failed to load transcript: {e}"},
+            None,
+            f"Error loading transcript: {e}",
+        )
 
 
 def _format_transcript_entries(path: Path, metadata: dict, entries: list[dict]) -> str:

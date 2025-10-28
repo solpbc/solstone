@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import TextIO
 
 from desktop_notifier import DesktopNotifier, Urgency
+
 from muse.cortex_client import cortex_request
 from think.domains import get_domains
 from think.utils import get_agents, setup_cli

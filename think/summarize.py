@@ -217,7 +217,9 @@ def main() -> None:
 
         topic_path = Path(args.topic)
         try:
-            topic_prompt = load_prompt(topic_path.stem, base_dir=topic_path.parent, include_journal=True)
+            topic_prompt = load_prompt(
+                topic_path.stem, base_dir=topic_path.parent, include_journal=True
+            )
         except PromptNotFoundError:
             parser.error(f"Topic file not found: {topic_path}")
 

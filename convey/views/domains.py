@@ -3,15 +3,13 @@ from __future__ import annotations
 import json
 import os
 import re
+from datetime import date
 from pathlib import Path
 from typing import Any
 
-from datetime import date
 from dotenv import load_dotenv
 from flask import Blueprint, jsonify, render_template, request
 
-from .. import state
-from ..utils import DATE_RE, adjacent_days, format_date
 from think.domains import get_domain_news, get_domains
 from think.entities import (
     load_detected_entities_recent,
@@ -20,6 +18,9 @@ from think.entities import (
 )
 from think.indexer import search_entities, search_events
 from think.utils import get_topics
+
+from .. import state
+from ..utils import DATE_RE, adjacent_days, format_date
 
 bp = Blueprint("domains", __name__, template_folder="../templates")
 
@@ -348,8 +349,9 @@ def generate_domain_description(domain_name: str) -> Any:
 Generate a clear, engaging 1-2 sentence description that captures the essence and purpose of this domain. The description should help users understand what they'll find in this domain and be appropriate for a personal knowledge management system."""
 
         # Create agent request - events will be broadcast by shared watcher
-        from muse.cortex_client import cortex_request
         from pathlib import Path
+
+        from muse.cortex_client import cortex_request
 
         agent_file = cortex_request(
             prompt=prompt,
@@ -445,8 +447,9 @@ def generate_entity_description(domain_name: str) -> Any:
 Generate a clear, concise description (1-2 sentences) that captures what this {entity_type.lower()} is and why it's relevant. The description should be appropriate for a personal knowledge management system and help users understand the entity's significance or role."""
 
         # Create agent request - events will be broadcast by shared watcher
-        from muse.cortex_client import cortex_request
         from pathlib import Path
+
+        from muse.cortex_client import cortex_request
 
         agent_file = cortex_request(
             prompt=prompt,

@@ -168,7 +168,7 @@ def log_token_usage(
                 # Clean up module name
                 for prefix in ["think.", "hear.", "see.", "convey.", "muse."]:
                     if module_name.startswith(prefix):
-                        module_name = module_name[len(prefix):]
+                        module_name = module_name[len(prefix) :]
                         break
 
                 context = f"{module_name}.{func_name}:{line_num}"
@@ -191,7 +191,9 @@ def log_token_usage(
 
                 output_details = details.get("output", {})
                 if output_details and output_details.get("reasoning_tokens"):
-                    normalized_usage["reasoning_tokens"] = output_details["reasoning_tokens"]
+                    normalized_usage["reasoning_tokens"] = output_details[
+                        "reasoning_tokens"
+                    ]
 
             # Optional requests field for OpenAI
             if "requests" in usage and usage["requests"] is not None:
@@ -244,7 +246,9 @@ def _log_token_usage(response, model: str) -> None:
             usage_dict = {
                 "prompt_token_count": getattr(usage, "prompt_token_count", 0),
                 "candidates_token_count": getattr(usage, "candidates_token_count", 0),
-                "cached_content_token_count": getattr(usage, "cached_content_token_count", 0),
+                "cached_content_token_count": getattr(
+                    usage, "cached_content_token_count", 0
+                ),
                 "thoughts_token_count": getattr(usage, "thoughts_token_count", 0),
                 "total_token_count": getattr(usage, "total_token_count", 0),
             }

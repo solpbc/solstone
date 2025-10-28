@@ -4,8 +4,9 @@ from __future__ import annotations
 
 from typing import Any
 
-import convey.__init__ as convey_app
 import pytest
+
+import convey.__init__ as convey_app
 
 
 def test_count_pending_todos_today_counts_incomplete(monkeypatch):
@@ -27,7 +28,9 @@ def test_count_pending_todos_today_counts_incomplete(monkeypatch):
             ]
         return []
 
-    monkeypatch.setattr(convey_app.todo_store, "get_domains_with_todos", fake_get_domains_with_todos)
+    monkeypatch.setattr(
+        convey_app.todo_store, "get_domains_with_todos", fake_get_domains_with_todos
+    )
     monkeypatch.setattr(convey_app.todo_store, "get_todos", fake_get_todos)
 
     count = convey_app._count_pending_todos_today()

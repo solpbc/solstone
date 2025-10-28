@@ -21,13 +21,13 @@ import numpy as np
 from dbus_next.aio import MessageBus
 from dbus_next.constants import BusType
 
-from observe.hear import AudioRecorder
 from observe.gnome.dbus import (
     get_idle_time_ms,
     get_monitor_geometries,
     is_screen_locked,
 )
 from observe.gnome.screencast import Screencaster
+from observe.hear import AudioRecorder
 from think.utils import day_path, setup_cli, touch_health
 
 logger = logging.getLogger(__name__)

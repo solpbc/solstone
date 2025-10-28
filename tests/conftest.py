@@ -110,18 +110,30 @@ def add_module_stubs(request, monkeypatch):
             try:
                 path = Path(file_path)
                 if not path.exists():
-                    return {"error": f"File not found: {file_path}"}, None, "Error loading transcript: File not found"
+                    return (
+                        {"error": f"File not found: {file_path}"},
+                        None,
+                        "Error loading transcript: File not found",
+                    )
 
                 content = path.read_text(encoding="utf-8").strip()
                 if not content:
-                    return {"error": "File is empty"}, None, "Error loading transcript: File is empty"
+                    return (
+                        {"error": "File is empty"},
+                        None,
+                        "Error loading transcript: File is empty",
+                    )
 
                 lines = content.split("\n")
 
                 # Parse metadata from first line
                 metadata = json.loads(lines[0])
                 if not isinstance(metadata, dict):
-                    return {"error": "First line must be a JSON object"}, None, "Error loading transcript: First line must be a JSON object"
+                    return (
+                        {"error": "First line must be a JSON object"},
+                        None,
+                        "Error loading transcript: First line must be a JSON object",
+                    )
 
                 # Parse entries from remaining lines
                 entries = []
@@ -135,7 +147,11 @@ def add_module_stubs(request, monkeypatch):
                 # Stub: return empty formatted text
                 return metadata, entries, ""
             except Exception as e:
-                return {"error": f"Failed to load transcript: {e}"}, None, f"Error loading transcript: {e}"
+                return (
+                    {"error": f"Failed to load transcript: {e}"},
+                    None,
+                    f"Error loading transcript: {e}",
+                )
 
         hear_mod.load_transcript = load_transcript
         sys.modules["observe.hear"] = hear_mod

@@ -166,6 +166,7 @@ def test_audio_transcribe_sanitizes_entities(tmp_path, monkeypatch):
 
     # Use fixtures journal for domain entities lookup
     from pathlib import Path
+
     fixtures_journal = Path(__file__).parent.parent / "fixtures" / "journal"
     monkeypatch.setenv("JOURNAL_PATH", str(fixtures_journal))
 
@@ -190,8 +191,8 @@ def test_audio_transcribe_sanitizes_entities(tmp_path, monkeypatch):
     # Entities are sorted by type then name, so Organization comes before Person
     assert captured[0] == [
         "Test",  # First name from "Test Initiative (TI)" (Organization comes first)
-        "TI",    # Nickname from "Test Initiative (TI)"
-        "TP",    # Nickname from "Test Person (TP)"
+        "TI",  # Nickname from "Test Initiative (TI)"
+        "TP",  # Nickname from "Test Person (TP)"
     ]
 
 

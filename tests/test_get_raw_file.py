@@ -19,7 +19,9 @@ def test_get_raw_file(tmp_path, monkeypatch):
 
     (heard / "090000_raw.flac").write_bytes(b"data")
     # Write JSONL format: metadata first, then entry
-    (day_dir / "090000_audio.jsonl").write_text('{"raw": "heard/090000_raw.flac"}\n{"text": "hello"}\n')
+    (day_dir / "090000_audio.jsonl").write_text(
+        '{"raw": "heard/090000_raw.flac"}\n{"text": "hello"}\n'
+    )
 
     path, mime, meta = utils.get_raw_file("20240101", "123000_monitor_1_diff.json")
     assert path == "seen/123000_monitor_1_diff.png"

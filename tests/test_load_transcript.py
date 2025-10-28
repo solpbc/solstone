@@ -235,13 +235,15 @@ def test_load_transcript_all_fields():
 
         lines = [
             json.dumps({}),
-            json.dumps({
-                "start": "12:00:01",
-                "source": "mic",
-                "speaker": 1,
-                "text": "Complete entry",
-                "description": "confident",
-            }),
+            json.dumps(
+                {
+                    "start": "12:00:01",
+                    "source": "mic",
+                    "speaker": 1,
+                    "text": "Complete entry",
+                    "description": "confident",
+                }
+            ),
         ]
         file_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
@@ -270,7 +272,12 @@ def test_load_transcript_formatted_text_basic():
         entries = [
             {"start": "00:01:23", "source": "mic", "speaker": 1, "text": "Hello world"},
             {"start": "00:01:25", "source": "sys", "speaker": 2, "text": "Hi there"},
-            {"start": "00:01:30", "source": "mic", "speaker": 1, "text": "How are you?"},
+            {
+                "start": "00:01:30",
+                "source": "mic",
+                "speaker": 1,
+                "text": "How are you?",
+            },
         ]
 
         lines = [json.dumps(metadata)]

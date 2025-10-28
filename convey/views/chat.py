@@ -46,8 +46,9 @@ def send_message() -> Any:
         return resp
 
     try:
-        from muse.cortex_client import cortex_request
         from pathlib import Path
+
+        from muse.cortex_client import cortex_request
 
         # Prepare the full prompt with attachments
         if attachments:

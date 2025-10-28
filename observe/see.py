@@ -1,7 +1,6 @@
 import numpy as np
 from PIL import Image
 
-
 # Historical note: This border detection function was previously used in describe.py
 # to detect and handle blue borders in screencast frames. The implementation would:
 # 1. Fast pre-check for pure blue (0,0,255) pixels in each frame

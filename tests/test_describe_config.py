@@ -70,9 +70,7 @@ def test_config_loading_with_valid_json(tmp_path):
 
     # Create valid JSON file
     valid_json_path = tmp_path / "describe.json"
-    config_data = {
-        "text_extraction_categories": ["code", "messaging", "reading"]
-    }
+    config_data = {"text_extraction_categories": ["code", "messaging", "reading"]}
     valid_json_path.write_text(json.dumps(config_data))
 
     with patch("observe.describe.Path") as mock_path:

@@ -50,8 +50,9 @@ except Exception:  # pragma: no cover
 
 # Agent configuration is now loaded via get_agent() in cortex.py
 
-from .agents import JSONEventCallback, ThinkingEvent
 from think.models import GPT_5
+
+from .agents import JSONEventCallback, ThinkingEvent
 
 
 class WorkaroundConversations(Session):

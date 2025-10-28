@@ -411,6 +411,7 @@ class VideoProcessor:
         Adapted from observe/utils.py compare_frames to work with numpy arrays.
         """
         from math import ceil
+
         from skimage.metrics import structural_similarity as ssim
 
         height, width = slice1.shape

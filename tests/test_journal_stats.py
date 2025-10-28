@@ -231,5 +231,3 @@ def test_token_usage_new_format(tmp_path, monkeypatch):
     assert "1,716" in md  # input tokens formatted with commas
     assert "3,710" in md  # output tokens formatted with commas
     assert "Reasoning: 4,688" in md
-
-

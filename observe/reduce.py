@@ -252,9 +252,9 @@ def reduce_analysis(jsonl_path: Path) -> int:
     # Create crumb
     logger.info("Creating crumb")
     try:
-        from think.crumbs import (
+        from think.crumbs import (  # Local import to avoid circular dependency
             CrumbBuilder,
-        )  # Local import to avoid circular dependency
+        )
 
         crumb_builder = CrumbBuilder()
         crumb_builder.add_file(analysis_path)

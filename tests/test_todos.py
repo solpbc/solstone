@@ -6,7 +6,13 @@ from pathlib import Path
 
 import pytest
 
-from think.todo import get_domains_with_todos, get_todos, parse_item, parse_items, upcoming
+from think.todo import (
+    get_domains_with_todos,
+    get_todos,
+    parse_item,
+    parse_items,
+    upcoming,
+)
 
 
 @pytest.fixture

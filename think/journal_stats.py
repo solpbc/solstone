@@ -140,7 +140,9 @@ class JournalStats:
             return
 
         # Scan both old JSON files and new JSONL files
-        all_token_files = list(tokens_dir.glob("*.json")) + list(tokens_dir.glob("*.jsonl"))
+        all_token_files = list(tokens_dir.glob("*.json")) + list(
+            tokens_dir.glob("*.jsonl")
+        )
 
         for token_file in all_token_files:
             try:
@@ -174,7 +176,9 @@ class JournalStats:
             return
 
         # Use UTC for consistent date extraction (timestamps are in UTC from time.time())
-        file_date = datetime.fromtimestamp(timestamp, tz=timezone.utc).strftime("%Y%m%d")
+        file_date = datetime.fromtimestamp(timestamp, tz=timezone.utc).strftime(
+            "%Y%m%d"
+        )
         model = data.get("model", "unknown")
         usage = data.get("usage", {})
 

@@ -27,8 +27,9 @@ from claude_code_sdk import (
 )
 from dotenv import load_dotenv
 
-from .agents import JSONEventCallback, ThinkingEvent
 from think.models import CLAUDE_SONNET_4
+
+from .agents import JSONEventCallback, ThinkingEvent
 
 # Add local claude installation to PATH if it exists
 _claude_bin = Path.home() / ".claude" / "local" / "node_modules" / ".bin"

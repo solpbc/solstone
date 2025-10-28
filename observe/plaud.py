@@ -13,19 +13,21 @@ Saves files with sanitized filenames based on the recording timestamp.
 """
 
 import argparse
-import os
-import sys
 import json
+import os
 import pathlib
-import tempfile
 import re
-from typing import Optional, List, Dict, Any
+import sys
+import tempfile
 from datetime import datetime
+from typing import Any, Dict, List, Optional
+
 import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
 API_BASE = "https://api.plaud.ai"
+
 
 def make_session() -> requests.Session:
     """Create a requests session with sane retries."""
@@ -42,7 +44,10 @@ def make_session() -> requests.Session:
     s.mount("https://", adapter)
     return s
 
-def get_temp_url(session: requests.Session, token: str, file_hash: str) -> Optional[str]:
+
+def get_temp_url(
+    session: requests.Session, token: str, file_hash: str
+) -> Optional[str]:
     """Call Plaud API to get a time-limited S3 URL for the given hash."""
     url = f"{API_BASE}/file/temp-url/{file_hash}"
     headers = {
@@ -53,7 +58,10 @@ def get_temp_url(session: requests.Session, token: str, file_hash: str) -> Optio
     }
     resp = session.get(url, headers=headers, timeout=20)
     if resp.status_code != 200:
-        print(f"[{file_hash}] API error {resp.status_code}: {resp.text[:200]}", file=sys.stderr)
+        print(
+            f"[{file_hash}] API error {resp.status_code}: {resp.text[:200]}",
+            file=sys.stderr,
+        )
         return None
 
     try:
@@ -74,6 +82,7 @@ def get_temp_url(session: requests.Session, token: str, file_hash: str) -> Optio
 
     return temp_url
 
+
 def list_files(session: requests.Session, token: str) -> Optional[List[Dict[str, Any]]]:
     """Fetch the list of all files from Plaud API."""
     url = f"{API_BASE}/file/simple/web"
@@ -82,7 +91,7 @@ def list_files(session: requests.Session, token: str) -> Optional[List[Dict[str,
         "limit": 99999,
         "is_trash": 2,
         "sort_by": "start_time",
-        "is_desc": "true"
+        "is_desc": "true",
     }
     headers = {
         "accept": "application/json, text/plain, */*",
@@ -111,26 +120,35 @@ def list_files(session: requests.Session, token: str) -> Optional[List[Dict[str,
         print(f"Error fetching file list: {e}", file=sys.stderr)
         return None
 
+
 def sanitize_filename(filename: str) -> str:
     """Convert a filename to a safe filesystem name."""
     # Replace problematic characters with underscores
-    safe = re.sub(r'[<>:"/\\|?*]', '_', filename)
+    safe = re.sub(r'[<>:"/\\|?*]', "_", filename)
     # Collapse multiple spaces/underscores
-    safe = re.sub(r'[\s_]+', '_', safe)
+    safe = re.sub(r"[\s_]+", "_", safe)
     # Remove leading/trailing underscores
-    safe = safe.strip('_')
+    safe = safe.strip("_")
     return safe or "unnamed"
 
-def download_to_file(session: requests.Session, url: str, dest_path: pathlib.Path) -> bool:
+
+def download_to_file(
+    session: requests.Session, url: str, dest_path: pathlib.Path
+) -> bool:
     """Stream-download URL to dest_path atomically."""
     dest_path.parent.mkdir(parents=True, exist_ok=True)
     with session.get(url, stream=True, timeout=60) as r:
         if r.status_code != 200:
-            print(f"[{dest_path.stem}] Download error {r.status_code}: {r.text[:200]}", file=sys.stderr)
+            print(
+                f"[{dest_path.stem}] Download error {r.status_code}: {r.text[:200]}",
+                file=sys.stderr,
+            )
             return False
         total = int(r.headers.get("Content-Length", "0")) or None
         # Write to a temp file then atomically move
-        with tempfile.NamedTemporaryFile(dir=str(dest_path.parent), delete=False) as tmp:
+        with tempfile.NamedTemporaryFile(
+            dir=str(dest_path.parent), delete=False
+        ) as tmp:
             tmp_path = pathlib.Path(tmp.name)
             try:
                 downloaded = 0
@@ -144,7 +162,9 @@ def download_to_file(session: requests.Session, url: str, dest_path: pathlib.Pat
             except Exception as e:
                 tmp.close()
                 tmp_path.unlink(missing_ok=True)
-                print(f"[{dest_path.stem}] Error while writing file: {e}", file=sys.stderr)
+                print(
+                    f"[{dest_path.stem}] Error while writing file: {e}", file=sys.stderr
+                )
                 return False
 
     tmp_path.replace(dest_path)
@@ -152,15 +172,22 @@ def download_to_file(session: requests.Session, url: str, dest_path: pathlib.Pat
     print(f"[{dest_path.stem}] Saved -> {dest_path}{size_info}")
     return True
 
+
 def format_size(bytes_size: int) -> str:
     """Format bytes as human-readable size."""
-    for unit in ['B', 'KB', 'MB', 'GB']:
+    for unit in ["B", "KB", "MB", "GB"]:
         if bytes_size < 1024.0:
             return f"{bytes_size:.1f}{unit}"
         bytes_size /= 1024.0
     return f"{bytes_size:.1f}TB"
 
-def sync_files(session: requests.Session, token: str, target_dir: pathlib.Path, dry_run: bool = True) -> int:
+
+def sync_files(
+    session: requests.Session,
+    token: str,
+    target_dir: pathlib.Path,
+    dry_run: bool = True,
+) -> int:
     """
     Sync files from Plaud API to local directory.
 
@@ -254,6 +281,7 @@ def sync_files(session: requests.Session, token: str, target_dir: pathlib.Path, 
 
     return downloaded
 
+
 def main():
     ap = argparse.ArgumentParser(
         description="Sync Plaud audio files to local directory",
@@ -265,11 +293,17 @@ Examples:
 
   # Actually download missing files
   %(prog)s --token "your_token" --dir ./recordings --save
-        """
+        """,
     )
     ap.add_argument("--token", required=True, help="Plaud API bearer token")
-    ap.add_argument("--dir", "-d", required=True, help="Target directory for syncing files")
-    ap.add_argument("--save", action="store_true", help="Actually download files (default is dry-run)")
+    ap.add_argument(
+        "--dir", "-d", required=True, help="Target directory for syncing files"
+    )
+    ap.add_argument(
+        "--save",
+        action="store_true",
+        help="Actually download files (default is dry-run)",
+    )
 
     args = ap.parse_args()
 
@@ -286,6 +320,7 @@ Examples:
     if result < 0:
         sys.exit(1)
     sys.exit(0)
+
 
 if __name__ == "__main__":
     main()
