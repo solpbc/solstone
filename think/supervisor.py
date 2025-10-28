@@ -481,13 +481,14 @@ async def watch_source_changes(procs: list[ManagedProcess]) -> None:
             break
 
         # Determine which process(es) were affected by these changes
-        affected_procs = set()
+        affected_procs = {}  # proc_name -> set of dir_names
         for change_type, path in changes:
             path_obj = Path(path)
             for dir_name, proc_names in WATCH_DIRS.items():
                 try:
                     path_obj.relative_to(dir_name)
-                    affected_procs.update(proc_names)
+                    for proc_name in proc_names:
+                        affected_procs.setdefault(proc_name, set()).add(dir_name)
                     break
                 except ValueError:
                     continue
@@ -495,10 +496,11 @@ async def watch_source_changes(procs: list[ManagedProcess]) -> None:
         # Update debounce timers for affected processes
         if affected_procs:
             now = time.time()
-            for proc_name in affected_procs:
+            for proc_name, dirs in affected_procs.items():
                 _reload_timers[proc_name] = now
+                dirs_str = ", ".join(sorted(dirs))
                 logging.debug(
-                    f"Source change detected for {proc_name}, debounce timer reset"
+                    f"Source change detected in {dirs_str} for {proc_name}, debounce timer reset"
                 )
 
 
@@ -743,8 +745,10 @@ def parse_args() -> argparse.ArgumentParser:
 def handle_shutdown(signum, frame):
     """Handle shutdown signals gracefully."""
     global shutdown_requested
-    shutdown_requested = True
-    logging.info("Shutdown requested, cleaning up...")
+    if not shutdown_requested:  # Only log once
+        shutdown_requested = True
+        logging.info("Shutdown requested, cleaning up...")
+    raise KeyboardInterrupt
 
 
 def main() -> None:
