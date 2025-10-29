@@ -31,7 +31,9 @@ def _get_actor_info(context: Context | None = None) -> tuple[str, str | None]:
             meta = context.request_context.meta
             if meta:
                 # Convert Pydantic model to dict and filter out None values
-                meta_dict = {k: v for k, v in meta.model_dump().items() if v is not None}
+                meta_dict = {
+                    k: v for k, v in meta.model_dump().items() if v is not None
+                }
                 persona = meta_dict.get("persona")
                 agent_id = meta_dict.get("agent_id")
                 if persona or agent_id:

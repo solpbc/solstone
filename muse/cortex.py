@@ -217,7 +217,9 @@ class CortexService:
                     if self.shutdown_requested.is_set():
                         with self.lock:
                             if len(self.running_agents) == 0:
-                                self.logger.info("No agents running, exiting gracefully")
+                                self.logger.info(
+                                    "No agents running, exiting gracefully"
+                                )
                                 return
                 break
             except KeyboardInterrupt:
