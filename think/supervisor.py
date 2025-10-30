@@ -505,11 +505,13 @@ def start_cortex_server() -> ManagedProcess:
     return _launch_process("cortex", cmd, restart=True)
 
 
-def start_convey_server(verbose: bool) -> ManagedProcess:
-    """Launch the Convey web application with optional verbose logging."""
+def start_convey_server(verbose: bool, debug: bool = False) -> ManagedProcess:
+    """Launch the Convey web application with optional verbose and debug logging."""
 
     cmd = ["convey"]
-    if verbose:
+    if debug:
+        cmd.append("-d")
+    elif verbose:
         cmd.append("-v")
     return _launch_process("convey", cmd, restart=True)
 
@@ -844,7 +846,7 @@ def main() -> None:
     if not args.no_cortex:
         procs.append(start_cortex_server())
     if not args.no_convey:
-        procs.append(start_convey_server(verbose=args.verbose))
+        procs.append(start_convey_server(verbose=args.verbose, debug=args.debug))
 
     logging.info(f"Started {len(procs)} processes, entering supervision loop")
     try:
