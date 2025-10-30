@@ -239,92 +239,9 @@ def cortex_watch(
                     path, agent_id, agent_states[agent_id], on_event
                 )
 
-                # Clean up if terminal event seen
+                # Clean up agent state when done, but continue watching other agents
                 if should_stop:
                     del agent_states[agent_id]
-                    return  # Exit watcher
-
-
-def cortex_run(
-    prompt: str,
-    persona: str = "default",
-    backend: str = "openai",
-    config: Optional[Dict[str, Any]] = None,
-    on_event: Optional[Callable[[Dict[str, Any]], None]] = None,
-) -> str:
-    """Run an agent synchronously and return the result.
-
-    This function creates a Cortex request, watches for events, and returns
-    the final result when the agent completes.
-
-    Args:
-        prompt: The task or question for the agent
-        persona: Agent persona from think/agents/*.txt (default: "default")
-        backend: AI backend - openai, google, anthropic, or claude (default: "openai")
-        config: Backend-specific configuration
-        on_event: Optional callback for streaming events
-
-    Returns:
-        The agent's final result text
-
-    Raises:
-        RuntimeError: If agent errors or times out
-    """
-    # Create the request
-    active_file = cortex_request(
-        prompt=prompt,
-        persona=persona,
-        backend=backend,
-        config=config,
-    )
-
-    # Extract agent_id from the filename (timestamp)
-    agent_id = Path(active_file).stem.replace("_active", "")
-
-    # Track result and errors
-    result = None
-    error = None
-    seen_finish = False
-
-    def event_handler(event: Dict[str, Any]) -> Optional[bool]:
-        nonlocal result, error, seen_finish
-
-        # Check if this event is for our agent
-        event_agent_id = event.get("agent_id", "")
-        if not event_agent_id:
-            # Try to infer from the event if no agent_id field
-            # Events in the same file are for the same agent
-            pass
-        elif event_agent_id != agent_id:
-            return True  # Continue watching, not our agent
-
-        # Call the user's callback if provided
-        if on_event:
-            on_event(event)
-
-        # Handle finish and error events
-        event_type = event.get("event")
-        if event_type == "finish":
-            result = event.get("result", "")
-            seen_finish = True
-            return False  # Stop watching
-        elif event_type == "error":
-            error = event.get("error", "Agent error")
-            seen_finish = True
-            return False  # Stop watching
-
-        return True  # Continue watching
-
-    # Watch for events
-    cortex_watch(event_handler)
-
-    # Check results
-    if error:
-        raise RuntimeError(f"Agent error: {error}")
-    elif result is not None:
-        return result
-    else:
-        raise RuntimeError("Agent did not complete properly")
 
 
 def read_agent_events(agent_id: str) -> list[Dict[str, Any]]:

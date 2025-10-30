@@ -8,7 +8,7 @@ from threading import Event, Thread
 
 import pytest
 
-from muse.cortex_client import cortex_agents, cortex_request, cortex_run, cortex_watch
+from muse.cortex_client import cortex_agents, cortex_request, cortex_watch
 
 
 def test_cortex_request(tmp_path, monkeypatch):
@@ -207,12 +207,13 @@ def test_cortex_watch_new_file(tmp_path, monkeypatch):
 
     # Track received events
     received_events = []
+    stop_event = Event()
 
     def callback(event):
         received_events.append(event)
-        # Stop after receiving finish event
+        # Stop watcher after receiving finish event
         if event.get("event") == "finish":
-            return False
+            stop_event.set()
         return True
 
     def simulate_agent():
@@ -247,8 +248,8 @@ def test_cortex_watch_new_file(tmp_path, monkeypatch):
     simulator.daemon = True
     simulator.start()
 
-    # Watch for events (will block until callback returns False)
-    cortex_watch(callback)
+    # Watch for events (will block until stop_event is set)
+    cortex_watch(callback, stop_event=stop_event)
 
     # Verify events were received
     assert len(received_events) == 3
@@ -277,12 +278,13 @@ def test_cortex_watch_existing_file(tmp_path, monkeypatch):
 
     # Track received events
     received_events = []
+    stop_event = Event()
 
     def callback(event):
         received_events.append(event)
-        # Stop after receiving finish event
+        # Stop watcher after receiving finish event
         if event.get("event") == "finish":
-            return False
+            stop_event.set()
         return True
 
     def append_more_events():
@@ -307,59 +309,12 @@ def test_cortex_watch_existing_file(tmp_path, monkeypatch):
     appender.start()
 
     # Watch for events (will only see new events, not existing ones)
-    cortex_watch(callback)
+    cortex_watch(callback, stop_event=stop_event)
 
     # Should only receive the newly appended events
     assert len(received_events) == 2
     assert received_events[0]["event"] == "tool_start"
     assert received_events[1]["event"] == "finish"
-
-
-def test_cortex_watch_callback_stops(tmp_path, monkeypatch):
-    """Test that cortex_watch stops when callback returns False."""
-    # Set up test journal path
-    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
-    agents_dir = tmp_path / "agents"
-    agents_dir.mkdir()
-
-    # Track received events
-    received_events = []
-
-    def callback(event):
-        received_events.append(event)
-        # Stop immediately after first event
-        return False
-
-    def simulate_agent():
-        """Simulate agent writing multiple events."""
-        time.sleep(0.5)  # Let watcher start
-
-        ts = int(time.time() * 1000)
-        active_file = agents_dir / f"{ts}_active.jsonl"
-
-        with open(active_file, "w") as f:
-            json.dump({"event": "request", "ts": ts}, f)
-            f.write("\n")
-
-        time.sleep(0.2)
-
-        with open(active_file, "a") as f:
-            json.dump({"event": "start", "ts": ts + 1}, f)
-            f.write("\n")
-            json.dump({"event": "finish", "ts": ts + 2}, f)
-            f.write("\n")
-
-    # Start simulator in background
-    simulator = Thread(target=simulate_agent)
-    simulator.daemon = True
-    simulator.start()
-
-    # Watch for events
-    cortex_watch(callback)
-
-    # Should only receive first event before stopping
-    assert len(received_events) == 1
-    assert received_events[0]["event"] == "request"
 
 
 def test_cortex_watch_handles_malformed_json(tmp_path, monkeypatch):
@@ -371,11 +326,12 @@ def test_cortex_watch_handles_malformed_json(tmp_path, monkeypatch):
 
     # Track received events
     received_events = []
+    stop_event = Event()
 
     def callback(event):
         received_events.append(event)
         if event.get("event") == "finish":
-            return False
+            stop_event.set()
         return True
 
     def simulate_agent():
@@ -398,7 +354,7 @@ def test_cortex_watch_handles_malformed_json(tmp_path, monkeypatch):
     simulator.start()
 
     # Watch for events
-    cortex_watch(callback)
+    cortex_watch(callback, stop_event=stop_event)
 
     # Should skip malformed line and continue
     assert len(received_events) == 2
@@ -456,15 +412,16 @@ def test_cortex_watch_multiple_active_files(tmp_path, monkeypatch):
     # Track received events
     received_events = []
     finish_count = 0
+    stop_event = Event()
 
     def callback(event):
         nonlocal finish_count
         received_events.append(event)
         if event.get("event") == "finish":
             finish_count += 1
-            # Stop after both agents finish
+            # Stop watcher after both agents finish
             if finish_count >= 2:
-                return False
+                stop_event.set()
         return True
 
     def simulate_multiple_agents():
@@ -505,7 +462,7 @@ def test_cortex_watch_multiple_active_files(tmp_path, monkeypatch):
     simulator.start()
 
     # Watch for events
-    cortex_watch(callback)
+    cortex_watch(callback, stop_event=stop_event)
 
     # Should receive events from both agents
     assert len(received_events) == 4  # 2 requests + 2 finishes
@@ -527,106 +484,6 @@ def test_cortex_watch_no_journal_path():
     finally:
         if old_path:
             os.environ["JOURNAL_PATH"] = old_path
-
-
-def test_cortex_run_basic(tmp_path, monkeypatch):
-    """Test run_agent basic functionality."""
-    # Set up test journal path
-    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
-    agents_dir = tmp_path / "agents"
-    agents_dir.mkdir()
-
-    # Track events received by callback
-    received_events = []
-
-    def event_callback(event):
-        received_events.append(event)
-
-    def simulate_agent():
-        """Simulate agent execution after request is created."""
-        time.sleep(0.5)  # Let run_agent create request and start watching
-
-        # Find the active file that was created
-        active_files = list(agents_dir.glob("*_active.jsonl"))
-        assert len(active_files) == 1
-        active_file = active_files[0]
-
-        # Append events to simulate agent execution
-        with open(active_file, "a") as f:
-            # Write start event
-            ts = int(time.time() * 1000)
-            json.dump({"event": "start", "ts": ts}, f)
-            f.write("\n")
-
-            time.sleep(0.1)
-
-            # Write tool event
-            json.dump({"event": "tool_start", "ts": ts + 1, "tool": "search"}, f)
-            f.write("\n")
-
-            time.sleep(0.1)
-
-            # Write finish event
-            json.dump(
-                {
-                    "event": "finish",
-                    "ts": ts + 2,
-                    "result": "Task completed successfully",
-                },
-                f,
-            )
-            f.write("\n")
-
-    # Start simulator in background
-    simulator = Thread(target=simulate_agent)
-    simulator.daemon = True
-    simulator.start()
-
-    # Run the agent
-    result = cortex_run(
-        prompt="Test task", persona="default", backend="openai", on_event=event_callback
-    )
-
-    # Verify result
-    assert result == "Task completed successfully"
-
-    # Verify events were received
-    assert len(received_events) >= 2  # At least start and finish
-    event_types = [e["event"] for e in received_events]
-    assert "start" in event_types
-    assert "finish" in event_types
-
-
-def test_cortex_run_with_error(tmp_path, monkeypatch):
-    """Test run_agent handling error events."""
-    # Set up test journal path
-    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
-    agents_dir = tmp_path / "agents"
-    agents_dir.mkdir()
-
-    def simulate_agent_error():
-        """Simulate agent that encounters an error."""
-        time.sleep(0.5)  # Let run_agent create request and start watching
-
-        # Find the active file that was created
-        active_files = list(agents_dir.glob("*_active.jsonl"))
-        assert len(active_files) == 1
-        active_file = active_files[0]
-
-        # Write error event
-        with open(active_file, "a") as f:
-            ts = int(time.time() * 1000)
-            json.dump({"event": "error", "ts": ts, "error": "Something went wrong"}, f)
-            f.write("\n")
-
-    # Start simulator in background
-    simulator = Thread(target=simulate_agent_error)
-    simulator.daemon = True
-    simulator.start()
-
-    # Run the agent and expect error
-    with pytest.raises(RuntimeError, match="Agent error: Something went wrong"):
-        cortex_run(prompt="Test task", persona="default", backend="openai")
 
 
 def test_cortex_agents_empty(tmp_path, monkeypatch):

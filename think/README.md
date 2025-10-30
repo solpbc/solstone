@@ -85,26 +85,21 @@ The Cortex service (`muse-cortex`) is the central system for managing AI agent i
 To spawn agents programmatically, use the cortex_client functions:
 
 ```python
-from muse.cortex_client import cortex_run, cortex_request, cortex_watch
+from muse.cortex_client import cortex_request, cortex_watch
 
-# Simple synchronous run
-result = cortex_run(
+# Create a request
+request_file = cortex_request(
     prompt="Your task here",
     persona="default",
     backend="openai"  # or "google", "anthropic", "claude"
 )
 
-# Or create a request and watch for events
-request_file = cortex_request(
-    prompt="Your task here",
-    persona="default",
-    backend="openai"
-)
-
 # Watch for all agent events
 def on_event(event):
     print(f"Event: {event['event']}")
-    
+    if event.get('event') == 'finish':
+        print(f"Result: {event.get('result')}")
+
 cortex_watch(on_event)
 ```
 
@@ -158,10 +153,14 @@ Cortex is the central agent management system that all agent spawning should go 
 The `muse.cortex_client` module provides functions for interacting with Cortex:
 
 ```python
-from muse.cortex_client import cortex_run, cortex_agents
+from muse.cortex_client import cortex_request, cortex_agents
 
-# Simple synchronous agent run
-result = cortex_run("Your prompt", persona="default", backend="openai")
+# Create an agent request
+request_file = cortex_request(
+    prompt="Your prompt",
+    persona="default",
+    backend="openai"
+)
 
 # List running and completed agents
 agents_info = cortex_agents(limit=10, agent_type="live")

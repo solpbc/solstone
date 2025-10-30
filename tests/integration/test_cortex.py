@@ -9,7 +9,7 @@ from pathlib import Path
 import pytest
 
 from muse.cortex import CortexService
-from muse.cortex_client import cortex_agents, cortex_request, cortex_run
+from muse.cortex_client import cortex_agents, cortex_request
 
 
 @pytest.mark.integration
@@ -112,57 +112,6 @@ def test_cortex_agent_process_creation(integration_journal_path):
 
 @pytest.mark.integration
 @pytest.mark.slow
-def test_cortex_run_simple_agent(integration_journal_path):
-    """Test running an agent synchronously with cortex_run."""
-    # Set up environment
-    os.environ["JOURNAL_PATH"] = str(integration_journal_path)
-
-    # Start Cortex service in background
-    cortex = CortexService(journal_path=str(integration_journal_path))
-    service_thread = threading.Thread(target=cortex.start, daemon=True)
-    service_thread.start()
-
-    # Give service time to start
-    time.sleep(0.5)
-
-    try:
-        # Track events we receive
-        events = []
-
-        def on_event(event):
-            events.append(event)
-
-        # Run agent synchronously
-        result = cortex_run(
-            prompt="Return exactly the text: Integration test successful",
-            persona="default",
-            backend="openai",
-            config={"disable_mcp": True},
-            on_event=on_event,
-        )
-
-        # Verify we got a result
-        assert result is not None
-        assert isinstance(result, str)
-
-        # Verify we received events
-        assert len(events) > 0
-
-        # Should have at least start and finish events
-        event_types = [e.get("event") for e in events]
-        assert "start" in event_types or "finish" in event_types
-
-    except Exception as e:
-        # If the agent backend isn't available, skip the test
-        if any(keyword in str(e).lower() for keyword in ["api", "key", "mcp", "uri"]):
-            pytest.skip(f"Agent backend not configured: {e}")
-        raise
-
-    finally:
-        cortex.stop()
-
-
-@pytest.mark.integration
 def test_cortex_agent_list(integration_journal_path):
     """Test listing agents from the journal."""
     # Set up environment
