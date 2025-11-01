@@ -155,7 +155,9 @@ class CallosumConnection:
     """
 
     def __init__(
-        self, socket_path: Optional[Path] = None, callback: Optional[Callable[[Dict[str, Any]], Any]] = None
+        self,
+        socket_path: Optional[Path] = None,
+        callback: Optional[Callable[[Dict[str, Any]], Any]] = None,
     ):
         if socket_path is None:
             journal = os.getenv("JOURNAL_PATH")
@@ -182,7 +184,9 @@ class CallosumConnection:
                 self.sock.settimeout(1.0)
 
                 # Always start receive loop to drain socket buffer
-                self.receive_thread = threading.Thread(target=self._receive_loop, daemon=True)
+                self.receive_thread = threading.Thread(
+                    target=self._receive_loop, daemon=True
+                )
                 self.receive_thread.start()
 
                 logger.debug(f"Connected to Callosum at {self.socket_path}")

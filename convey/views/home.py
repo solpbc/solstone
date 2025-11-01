@@ -6,7 +6,6 @@ from typing import Any
 
 from flask import (
     Blueprint,
-    current_app,
     jsonify,
     redirect,
     render_template,
@@ -116,10 +115,9 @@ def home() -> str:
 
 @bp.route("/api/stats")
 def stats_data() -> Any:
-    """Return statistics from stats.json and summary.md if available."""
+    """Return statistics from stats.json."""
     response = {
         "stats": {},
-        "summary_html": "",
     }
 
     if state.journal_root:
@@ -129,19 +127,6 @@ def stats_data() -> Any:
             try:
                 with open(stats_path, "r", encoding="utf-8") as f:
                     response["stats"] = json.load(f)
-            except Exception:
-                pass
-
-        # Load and render summary.md
-        summary_path = os.path.join(state.journal_root, "summary.md")
-        if os.path.isfile(summary_path):
-            try:
-                import markdown  # type: ignore
-
-                with open(summary_path, "r", encoding="utf-8") as f:
-                    response["summary_html"] = markdown.markdown(
-                        f.read(), extensions=["extra"]
-                    )
             except Exception:
                 pass
 

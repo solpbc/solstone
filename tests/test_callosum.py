@@ -173,10 +173,14 @@ def test_multiple_emitters_to_multiple_listeners(callosum_server):
     received_by_listener2 = []
 
     # Create listeners
-    listener1 = CallosumConnection(callback=lambda msg: received_by_listener1.append(msg))
+    listener1 = CallosumConnection(
+        callback=lambda msg: received_by_listener1.append(msg)
+    )
     listener1.connect()
 
-    listener2 = CallosumConnection(callback=lambda msg: received_by_listener2.append(msg))
+    listener2 = CallosumConnection(
+        callback=lambda msg: received_by_listener2.append(msg)
+    )
     listener2.connect()
 
     time.sleep(0.1)
@@ -368,10 +372,14 @@ def test_listener_disconnect_doesnt_affect_others(callosum_server):
     received_by_listener2 = []
 
     # Create two listeners
-    listener1 = CallosumConnection(callback=lambda msg: received_by_listener1.append(msg))
+    listener1 = CallosumConnection(
+        callback=lambda msg: received_by_listener1.append(msg)
+    )
     listener1.connect()
 
-    listener2 = CallosumConnection(callback=lambda msg: received_by_listener2.append(msg))
+    listener2 = CallosumConnection(
+        callback=lambda msg: received_by_listener2.append(msg)
+    )
     listener2.connect()
 
     time.sleep(0.1)

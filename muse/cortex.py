@@ -250,9 +250,7 @@ class CortexService:
             # Validate request format
             if request.get("event") != "request":
                 self._write_error_and_complete(file_path, "Invalid request format")
-                self.logger.error(
-                    f"Invalid request format: missing 'request' event"
-                )
+                self.logger.error(f"Invalid request format: missing 'request' event")
                 return
 
             # Validate prompt early
@@ -526,7 +524,9 @@ class CortexService:
 
                     # Broadcast event to Callosum
                     try:
-                        self.callosum.emit("cortex", event.get("event", "unknown"), **event)
+                        self.callosum.emit(
+                            "cortex", event.get("event", "unknown"), **event
+                        )
                     except Exception as e:
                         self.logger.debug(f"Failed to broadcast event to Callosum: {e}")
 

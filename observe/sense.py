@@ -396,46 +396,29 @@ class FileSensor:
 
 
 def scan_day(day_dir: Path) -> dict[str, list[str]]:
-    """Scan a day directory and return lists of raw, processed, and repairable files.
-
-    Files are considered repairable if the source media is still in the day directory
-    (not yet moved to heard/ or seen/ subdirectories).
+    """Scan a day directory for processed and unprocessed files.
 
     Args:
         day_dir: Path to day directory (YYYYMMDD)
 
     Returns:
         Dictionary with:
-        - "raw": List of processed files in heard/ and seen/ subdirs
-        - "processed": List of output JSONL files (*_audio.jsonl, *_screen.jsonl)
-        - "repairable": List of unprocessed source media files
+        - "processed": List of JSONL output files (*_audio.jsonl, *_screen.jsonl)
+        - "unprocessed": List of unprocessed source media files
     """
-    # Find raw (processed) files in heard/ and seen/ subdirectories
-    raw = []
-    heard_dir = day_dir / "heard"
-    if heard_dir.is_dir():
-        raw.extend(f"heard/{p.name}" for p in sorted(heard_dir.glob("*.flac")))
-        raw.extend(f"heard/{p.name}" for p in sorted(heard_dir.glob("*.m4a")))
-
-    seen_dir = day_dir / "seen"
-    if seen_dir.is_dir():
-        raw.extend(f"seen/{p.name}" for p in sorted(seen_dir.glob("*.webm")))
-        raw.extend(f"seen/{p.name}" for p in sorted(seen_dir.glob("*.mp4")))
-        raw.extend(f"seen/{p.name}" for p in sorted(seen_dir.glob("*.mov")))
-
     # Find processed output files
     processed = sorted(p.name for p in day_dir.glob("*_audio.jsonl"))
     processed.extend(sorted(p.name for p in day_dir.glob("*_screen.jsonl")))
 
-    # Find repairable (unprocessed) files - source media still in day directory
-    repairable = []
-    repairable.extend(sorted(p.name for p in day_dir.glob("*.flac")))
-    repairable.extend(sorted(p.name for p in day_dir.glob("*.m4a")))
-    repairable.extend(sorted(p.name for p in day_dir.glob("*.webm")))
-    repairable.extend(sorted(p.name for p in day_dir.glob("*.mp4")))
-    repairable.extend(sorted(p.name for p in day_dir.glob("*.mov")))
+    # Find unprocessed source media (still in day root)
+    unprocessed = []
+    unprocessed.extend(sorted(p.name for p in day_dir.glob("*_raw.flac")))
+    unprocessed.extend(sorted(p.name for p in day_dir.glob("*_raw.m4a")))
+    unprocessed.extend(sorted(p.name for p in day_dir.glob("*_screen.webm")))
+    unprocessed.extend(sorted(p.name for p in day_dir.glob("*_screen.mp4")))
+    unprocessed.extend(sorted(p.name for p in day_dir.glob("*_screen.mov")))
 
-    return {"raw": raw, "processed": processed, "repairable": repairable}
+    return {"processed": processed, "unprocessed": unprocessed}
 
 
 def main():

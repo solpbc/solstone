@@ -5,9 +5,9 @@ from PIL import Image
 
 from observe.see import (
     crop_frame_to_monitor,
+    decode_frames,
     draw_bounding_box,
     image_to_jpeg_bytes,
-    decode_frames,
 )
 
 
@@ -77,7 +77,11 @@ def test_decode_frames_duplicate_frame_id_ok():
     """Test decode_frames allows duplicate frame_ids (multi-monitor case)."""
     frames = [
         {"frame_id": 5, "timestamp": 1.0, "monitor": "DP-3"},
-        {"frame_id": 5, "timestamp": 1.0, "monitor": "HDMI-4"},  # Same frame, different monitor - OK!
+        {
+            "frame_id": 5,
+            "timestamp": 1.0,
+            "monitor": "HDMI-4",
+        },  # Same frame, different monitor - OK!
     ]
 
     # Should not raise ValueError for duplicates - they're valid for multi-monitor

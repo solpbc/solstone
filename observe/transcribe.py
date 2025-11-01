@@ -379,7 +379,9 @@ class Transcriber:
             # Extract timestamp from filename (represents START of recording window)
             time_part = raw_path.stem.split("_")[0]
             today = datetime.date.today().strftime("%Y%m%d")
-            base_dt = datetime.datetime.strptime(f"{today}_{time_part}", "%Y%m%d_%H%M%S")
+            base_dt = datetime.datetime.strptime(
+                f"{today}_{time_part}", "%Y%m%d_%H%M%S"
+            )
 
             # Convert segments to format for Gemini
             processed: List[Dict[str, object]] = []
@@ -498,10 +500,7 @@ class Transcriber:
             json_path.write_text("\n".join(jsonl_lines) + "\n")
             logging.info(f"Transcribed {raw_path} -> {json_path}")
 
-            crumb_builder = (
-                CrumbBuilder()
-                .add_file(str(self.prompt_path))
-            )
+            crumb_builder = CrumbBuilder().add_file(str(self.prompt_path))
             crumb_builder = crumb_builder.add_file(raw_path).add_model(MODEL)
             crumb_path = crumb_builder.commit(str(json_path))
             logging.info(f"Crumb saved to {crumb_path}")

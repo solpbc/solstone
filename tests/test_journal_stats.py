@@ -7,11 +7,17 @@ def test_scan_day(tmp_path, monkeypatch):
     journal = tmp_path
     day = journal / "20240101"
     day.mkdir()
-    (day / "123456_audio.flac").write_bytes(b"RIFF")
-    (day / "123456_monitor_1_diff.png").write_bytes(b"PNG")
-    (day / "123456_monitor_1_diff_box.json").write_text("{}")
-    (day / "123456_monitor_1_diff.json").write_text("{}")
-    (day / "123456_screen.md").write_text("hi")
+
+    # Create an audio jsonl file
+    (day / "123456_audio.jsonl").write_text(
+        '{"raw": "heard/123456_audio.flac"}\n'
+        '{"start": "10:00:00", "text": "hello"}\n'
+        '{"start": "10:01:00", "text": "world"}\n'
+    )
+
+    # Create an unprocessed file
+    (day / "123456_raw.flac").write_bytes(b"RIFF")
+
     (day / "entities.md").write_text("")
     (day / "topics").mkdir()
     (day / "topics" / "flow.md").write_text("")
@@ -33,34 +39,13 @@ def test_scan_day(tmp_path, monkeypatch):
     (day / "topics" / "meetings.json").write_text(json.dumps(data))
     monkeypatch.setenv("JOURNAL_PATH", str(journal))
     js = stats_mod.JournalStats()
-    js.scan_day("20240101", str(day))
-    assert js.days["20240101"].get("audio_flac", 0) == 0
-    assert js.days["20240101"]["repair_observe"] == 1
-    assert js.totals["diff_png"] == 0
+    day_data = js.scan_day("20240101", str(day))
+    js._apply_day_stats("20240101", day_data)
+    assert js.days["20240101"]["audio_sessions"] == 1
+    assert js.days["20240101"]["audio_segments"] == 2
+    assert js.days["20240101"]["unprocessed_files"] == 1
     assert js.topic_counts["meetings"] == 1
     assert js.heatmap[0][0] == 5
-
-
-def test_markdown(tmp_path, monkeypatch):
-    stats_mod = importlib.import_module("think.journal_stats")
-    journal = tmp_path
-    day = journal / "20240101"
-    day.mkdir()
-    (day / "123456_audio.flac").write_bytes(b"RIFF")
-    # Write JSONL format with empty metadata
-    (day / "123456_audio.jsonl").write_text("{}\n")
-    (day / "topics").mkdir()
-    (day / "topics" / "meetings.json").write_text(
-        json.dumps({"day": "20240101", "occurrences": []})
-    )
-    monkeypatch.setenv("JOURNAL_PATH", str(journal))
-    js = stats_mod.JournalStats()
-    js.scan(str(journal))
-    md = js.to_markdown()
-    assert "Days scanned: 1" in md
-    js.save_markdown(str(journal))
-    assert (journal / "summary.md").exists()
-    assert "Ponder processed" in md
 
 
 def test_token_usage(tmp_path, monkeypatch):
@@ -125,10 +110,16 @@ def test_token_usage(tmp_path, monkeypatch):
         },
     }
 
-    (tokens_dir / "1704067200000.json").write_text(json.dumps(token1))
-    (tokens_dir / "1704070800000.json").write_text(json.dumps(token2))
-    (tokens_dir / "1704074400000.json").write_text(json.dumps(token3))
-    (tokens_dir / "1704153600000.json").write_text(json.dumps(token4))
+    # Write tokens as JSONL format (one per line in daily file)
+    (tokens_dir / "20240101.jsonl").write_text(
+        json.dumps(token1)
+        + "\n"
+        + json.dumps(token2)
+        + "\n"
+        + json.dumps(token3)
+        + "\n"
+    )
+    (tokens_dir / "20240102.jsonl").write_text(json.dumps(token4) + "\n")
 
     monkeypatch.setenv("JOURNAL_PATH", str(journal))
     js = stats_mod.JournalStats()
@@ -159,22 +150,56 @@ def test_token_usage(tmp_path, monkeypatch):
     )  # 300 from day1 + 1000 from day2
     assert js.token_totals["claude-3-opus"]["input_tokens"] == 500
 
-    # Test markdown generation includes token usage
-    js2 = stats_mod.JournalStats()
-    js2.scan(str(journal))
-    md = js2.to_markdown()
-    assert "Token Usage by Model" in md
-    assert "gemini-2.5-flash" in md
-    assert "claude-3-opus" in md
-
     # Test JSON output includes token usage
-    data = js2.to_dict()
+    data = js.to_dict()
     assert "token_usage_by_day" in data
     assert "token_totals_by_model" in data
+    assert "total_audio_duration" in data
+    assert "total_screen_duration" in data
     assert (
         data["token_usage_by_day"]["20240101"]["gemini-2.5-flash"]["total_tokens"]
         == 495
     )
+
+
+def test_caching(tmp_path, monkeypatch):
+    """Test that per-day caching works correctly."""
+    stats_mod = importlib.import_module("think.journal_stats")
+    journal = tmp_path
+    day = journal / "20240101"
+    day.mkdir()
+
+    # Create an audio jsonl file
+    (day / "123456_audio.jsonl").write_text(
+        '{"raw": "heard/123456_audio.flac"}\n'
+        '{"start": "10:00:00", "text": "hello"}\n'
+        '{"start": "10:01:00", "text": "world"}\n'
+    )
+
+    monkeypatch.setenv("JOURNAL_PATH", str(journal))
+
+    # First scan - should create cache
+    js1 = stats_mod.JournalStats()
+    js1.scan(str(journal), verbose=False, use_cache=True)
+    assert js1.days["20240101"]["audio_sessions"] == 1
+    assert (day / "stats.json").exists()
+
+    # Load cache and verify contents
+    with open(day / "stats.json") as f:
+        cached = json.load(f)
+    assert cached["stats"]["audio_sessions"] == 1
+    assert cached["stats"]["audio_segments"] == 2
+
+    # Second scan - should use cache
+    js2 = stats_mod.JournalStats()
+    js2.scan(str(journal), verbose=False, use_cache=True)
+    assert js2.days["20240101"]["audio_sessions"] == 1
+    assert js2.days["20240101"]["audio_segments"] == 2
+
+    # Third scan with --no-cache - should re-scan
+    js3 = stats_mod.JournalStats()
+    js3.scan(str(journal), verbose=False, use_cache=False)
+    assert js3.days["20240101"]["audio_sessions"] == 1
 
 
 def test_token_usage_new_format(tmp_path, monkeypatch):
@@ -202,7 +227,8 @@ def test_token_usage_new_format(tmp_path, monkeypatch):
         },
     }
 
-    (tokens_dir / "1704067200000.json").write_text(json.dumps(token_new))
+    # Write token as JSONL format
+    (tokens_dir / "20240101.jsonl").write_text(json.dumps(token_new) + "\n")
 
     monkeypatch.setenv("JOURNAL_PATH", str(journal))
     js = stats_mod.JournalStats()
@@ -223,11 +249,3 @@ def test_token_usage_new_format(tmp_path, monkeypatch):
     assert js.token_totals["gemini-2.5-flash"]["input_tokens"] == 1716
     assert js.token_totals["gemini-2.5-flash"]["output_tokens"] == 3710
     assert js.token_totals["gemini-2.5-flash"]["reasoning_tokens"] == 4688
-
-    # Test reporting works with new format
-    md = js.to_markdown()
-    assert "Token Usage by Model" in md
-    assert "gemini-2.5-flash" in md
-    assert "1,716" in md  # input tokens formatted with commas
-    assert "3,710" in md  # output tokens formatted with commas
-    assert "Reasoning: 4,688" in md
