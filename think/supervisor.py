@@ -822,7 +822,7 @@ def main() -> None:
         logging.info("Caught KeyboardInterrupt, shutting down...")
     finally:
         logging.info("Stopping all processes...")
-        print("\nShutting down gracefully (this may take up to 15 seconds)...")
+        print("\nShutting down gracefully (this may take up to 15 seconds)...", flush=True)
         for managed in procs:
             name = managed.name
             proc = managed.process
@@ -834,10 +834,10 @@ def main() -> None:
                 pass
             try:
                 proc.wait(timeout=15)
-                print(" done")
+                print(" done", flush=True)
             except subprocess.TimeoutExpired:
                 logging.warning(f"{name} did not terminate gracefully, killing...")
-                print(f" timeout, forcing kill...")
+                print(f" timeout, forcing kill...", flush=True)
                 try:
                     proc.kill()
                     proc.wait(timeout=1)
@@ -845,7 +845,7 @@ def main() -> None:
                     pass
             managed.cleanup()
         logging.info("Supervisor shutdown complete.")
-        print("Shutdown complete.")
+        print("Shutdown complete.", flush=True)
 
 
 if __name__ == "__main__":
