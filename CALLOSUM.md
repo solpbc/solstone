@@ -83,6 +83,8 @@ conn.close()
 
 Agent execution events from the Muse cortex service.
 
+For detailed cortex tract implementation, agent lifecycle management, personas, MCP tools, backends, scheduling, and usage patterns, see [CORTEX.md](CORTEX.md).
+
 **Event types:** `request`, `start`, `thinking`, `tool_start`, `tool_end`, `finish`, `error`, `agent_updated`
 
 **Common fields (all events):**

@@ -1,33 +1,36 @@
 # Cortex API and Eventing
 
-The Cortex system manages AI agent execution through a file-based architecture. It acts as a process manager for agent instances, monitoring the journal's `agents/` directory for new requests and appending execution events to JSONL files.
+The Cortex system manages AI agent execution through the Callosum message bus with file-based persistence. It acts as a process manager for agent instances, receiving requests via Callosum and writing execution events to both JSONL files (for persistence) and the message bus (for real-time distribution).
+
+For details on the Callosum protocol and message format, see [CALLOSUM.md](CALLOSUM.md).
 
 ## Architecture
 
 ### Event Flow
-1. **Request Creation**: Client writes spawn request to `<timestamp>_pending.jsonl`
-2. **Agent Activation**: Client renames file to `<timestamp>_active.jsonl` (atomic handoff)
-3. **Agent Spawning**: Cortex detects new active file via watchdog and spawns agent process
+1. **Request Creation**: Client calls `cortex_request()` which broadcasts to Callosum (`tract="cortex"`, `event="request"`)
+2. **Request Reception**: Cortex receives message via Callosum callback and creates `<timestamp>_active.jsonl`
+3. **Agent Spawning**: Cortex spawns agent process via `muse-agents` with merged configuration
 4. **Event Emission**: Agents write JSON events to stdout (captured by Cortex)
-5. **Event Storage**: Cortex appends events to the active JSONL file with timestamps
+5. **Event Distribution**: Cortex appends events to JSONL file AND broadcasts to Callosum
 6. **Agent Completion**: Cortex renames file to `<timestamp>.jsonl` when agent finishes
 
 ### Key Components
-- **File Watching**: Cortex uses watchdog to monitor for new `*_active.jsonl` files
+- **Message Bus Integration**: Cortex connects to Callosum to receive requests and broadcast events
 - **Configuration Loading**: Cortex loads and merges persona configuration with request parameters
 - **Process Management**: Spawns agent subprocesses via the `muse-agents` command with merged configuration
 - **Event Capture**: Monitors agent stdout/stderr and appends to JSONL files
-- **Atomic Operations**: File renames provide race-free state transitions
+- **Dual Event Distribution**: Events go to both persistent files and real-time message bus
 - **NDJSON Input Mode**: Agent processes accept newline-delimited JSON via stdin containing the full merged configuration
 
 ### File States
-- `<timestamp>_pending.jsonl`: Request written by client, awaiting processing
 - `<timestamp>_active.jsonl`: Agent currently executing (Cortex is appending events)
-- `<timestamp>.jsonl`: Agent completed (contains full history)
+- `<timestamp>.jsonl`: Agent completed (contains full event history)
+
+**Note**: Files provide persistence and historical record, while Callosum provides real-time event distribution to all interested services.
 
 ## Request Format
 
-The first line of a request file must be a JSON object with `event: "request"`:
+Requests are created via `cortex_request()` from `muse.cortex_client`, which broadcasts to Callosum. The request message follows this format:
 
 ```json
 {
