@@ -19,8 +19,7 @@ from think import todo as todo_store
 from think.utils import setup_cli
 
 from . import state
-from .cortex_utils import start_cortex_event_watcher
-from .push import push_server
+from .callosum_bridge import register_websocket, start_callosum_bridge
 from .utils import (
     adjacent_days,
     build_occurrence_index,
@@ -36,13 +35,8 @@ from .views import home as home_view
 from .views import inbox as inbox_view
 from .views import register_views
 from .views import search as search_view
-from .views import tasks as tasks_view
 
-# isort: off
-from .task_runner import task_runner
-from .tasks import task_manager
-
-# isort: on
+# Old task system removed - now using Callosum for task execution
 
 import_page_view = import_module(".import", "convey.views")
 
@@ -132,13 +126,11 @@ def create_app(journal: str = "") -> Flask:
         return {"nav_badges": _resolve_nav_badges()}
 
     sock = Sock(app)
-    task_runner.register(sock)
-    push_server.register(sock)
+    register_websocket(sock)
 
     if journal:
         state.journal_root = journal
         os.environ.setdefault("JOURNAL_PATH", journal)
-        task_manager.load_cached()
         state.occurrences_index = build_occurrence_index(journal)
     return app
 
@@ -162,9 +154,6 @@ chat_history = chat_view.chat_history
 clear_history = chat_view.clear_history
 search_page = search_view.search_page
 import_page = import_page_view.import_page
-tasks_page = tasks_view.tasks_page
-tasks_list = tasks_view.tasks_list
-clear_old = tasks_view.clear_old
 admin_page = admin_view.admin_page
 calendar_occurrences = calendar_view.calendar_occurrences
 calendar_days = calendar_view.calendar_days
@@ -204,9 +193,6 @@ __all__ = [
     "login",
     "logout",
     "admin_page",
-    "tasks_page",
-    "tasks_list",
-    "clear_old",
     "format_date",
     "time_since",
     "stats_data",
@@ -258,10 +244,10 @@ def run_service(
         # WERKZEUG_RUN_MAIN is set to 'true' only in the child/main process
         should_start = not debug or os.environ.get("WERKZEUG_RUN_MAIN") == "true"
         if should_start:
-            logger.info("Starting Cortex event watcher")
-            start_cortex_event_watcher()
+            logger.info("Starting Callosum bridge")
+            start_callosum_bridge()
         else:
-            logger.debug("Skipping watcher start in reloader parent process")
+            logger.debug("Skipping bridge start in reloader parent process")
     app.run(host=host, port=port, debug=debug)
 
 

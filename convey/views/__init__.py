@@ -12,7 +12,6 @@ from . import (
     home,
     inbox,
     search,
-    tasks,
     todos,
 )
 
@@ -33,6 +32,5 @@ def register_views(app: Flask) -> None:
         chat_view.bp,
         agents.bp,
         import_view.bp,
-        tasks.bp,
     ]:
         app.register_blueprint(bp)

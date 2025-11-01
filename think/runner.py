@@ -128,6 +128,7 @@ class ManagedProcess:
         cmd: list[str],
         *,
         name: str | None = None,
+        log_name: str | None = None,
         env: dict | None = None,
     ) -> "ManagedProcess":
         """Spawn process with automatic output logging to daily health directory.
@@ -135,6 +136,7 @@ class ManagedProcess:
         Args:
             cmd: Command and arguments
             name: Process name for logging (defaults to cmd[0] basename)
+            log_name: Override log filename base (defaults to name)
             env: Optional environment variables (inherits parent env if not provided)
 
         Returns:
@@ -149,11 +151,18 @@ class ManagedProcess:
                 name="observer",
             )
             # Output automatically logs to: journal/{today}/health/observer.log
+
+            # Or with custom log filename:
+            managed = ManagedProcess.spawn(
+                ["think-importer", "file.txt"],
+                name="importer",
+                log_name="1730476800123",  # Logs to: 1730476800123.log
+            )
         """
         if name is None:
             name = Path(cmd[0]).name
 
-        log_writer = DailyLogWriter(name)
+        log_writer = DailyLogWriter(log_name or name)
 
         logger.info(f"Starting {name}: {' '.join(cmd)}")
 
@@ -288,6 +297,7 @@ def run_task(
     cmd: list[str],
     *,
     name: str | None = None,
+    log_name: str | None = None,
     timeout: float | None = None,
     env: dict | None = None,
 ) -> tuple[bool, int]:
@@ -299,6 +309,7 @@ def run_task(
     Args:
         cmd: Command and arguments
         name: Process name for logging (defaults to cmd[0] basename)
+        log_name: Override log filename base (defaults to name)
         timeout: Optional timeout in seconds
         env: Optional environment variables
 
@@ -313,11 +324,18 @@ def run_task(
         )
         if not success:
             logger.error(f"Summarize failed with code {code}")
+
+        # Or with custom log filename:
+        success, code = run_task(
+            ["think-importer", "file.txt"],
+            name="importer",
+            log_name="1730476800123",  # Logs to: 1730476800123.log
+        )
     """
     if name is None:
         name = Path(cmd[0]).name
 
-    managed = ManagedProcess.spawn(cmd, name=name, env=env)
+    managed = ManagedProcess.spawn(cmd, name=name, log_name=log_name, env=env)
     try:
         exit_code = managed.wait(timeout=timeout)
     except subprocess.TimeoutExpired:

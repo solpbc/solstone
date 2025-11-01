@@ -8,6 +8,7 @@ from typing import Any
 from flask import Blueprint, jsonify, render_template, request
 from werkzeug.utils import secure_filename
 
+from think.callosum import CallosumConnection
 from think.detect_created import detect_created
 from think.importer_utils import (
     archive_imported_results,
@@ -22,7 +23,6 @@ from think.importer_utils import (
 )
 
 from .. import state
-from ..task_runner import run_task
 
 bp = Blueprint("import_view", __name__, template_folder="../templates")
 
@@ -221,7 +221,7 @@ def import_list() -> Any:
             timestamp=timestamp,
         )
 
-        # Calculate status based on processing state and task manager
+        # Calculate status based on processing state
         # Default status
         import_data["status"] = "pending"
 
@@ -230,22 +230,12 @@ def import_list() -> Any:
         # If we have processing results, it's successful
         if import_data.get("processed"):
             import_data["status"] = "success"
-        # If task was started but no results
+        # If task was started but no results, check log file
         elif task_id:
-            # Check for task exit code by looking at task history
-            from convey.tasks import task_manager
-
-            task = task_manager.tasks.get(task_id)
-            if task:
-                if task.exit_code is not None and task.exit_code != 0:
-                    import_data["status"] = "failed"
-                elif task.exit_code == 0:
-                    import_data["status"] = "success"
-                else:
-                    import_data["status"] = "running"
-            else:
-                # Task was started but no longer in memory, likely failed
-                import_data["status"] = "failed"
+            # Check if task log exists to determine if it's running or failed
+            # Task logs are in {JOURNAL_PATH}/{day}/health/{task_id}.log
+            # For now, assume failed if no results (can enhance later with log checking)
+            import_data["status"] = "failed"
 
         imports.append(import_data)
 
@@ -333,8 +323,50 @@ def import_start() -> Any:
     ts = data.get("timestamp")
     if not path or not ts:
         return jsonify({"error": "missing params"}), 400
-    run_task("importer", f"{path}|{ts}")
-    return jsonify({"status": "ok"})
+
+    if not state.journal_root:
+        return jsonify({"error": "JOURNAL_PATH not set"}), 500
+
+    # Generate task ID
+    task_id = str(int(time.time() * 1000))
+
+    # Read import metadata to get domain and setting
+    try:
+        metadata = read_import_metadata(
+            journal_root=Path(state.journal_root), timestamp=ts
+        )
+    except Exception as e:
+        return jsonify({"error": f"Failed to read metadata: {str(e)}"}), 500
+
+    domain = metadata.get("domain")
+    setting = metadata.get("setting")
+
+    # Build command
+    cmd = ["think-importer", path, ts]
+    if domain:
+        cmd.extend(["--domain", domain])
+    if setting:
+        cmd.extend(["--setting", setting])
+
+    # Store task_id in metadata
+    try:
+        update_import_metadata_fields(
+            journal_root=Path(state.journal_root),
+            timestamp=ts,
+            updates={"task_id": task_id},
+        )
+    except Exception as e:
+        return jsonify({"error": f"Failed to update metadata: {str(e)}"}), 500
+
+    # Emit task request to Callosum
+    try:
+        client = CallosumConnection()
+        client.emit("task", "request", task_id=task_id, cmd=cmd)
+        client.close()
+    except Exception as e:
+        return jsonify({"error": f"Failed to submit task: {str(e)}"}), 500
+
+    return jsonify({"status": "ok", "task_id": task_id})
 
 
 @bp.route("/import/api/<timestamp>/rerun", methods=["POST"])
@@ -396,7 +428,34 @@ def import_rerun(timestamp: str) -> Any:
     # Archive previous processing results using utility function
     archive_imported_results(journal_root=journal_root, timestamp=timestamp)
 
-    # Run the importer task with the same timestamp
-    run_task("importer", f"{file_path}|{timestamp}")
+    # Generate task ID
+    task_id = str(int(time.time() * 1000))
 
-    return jsonify({"status": "ok", "domain": new_domain, "setting": new_setting})
+    # Build command
+    cmd = ["think-importer", file_path, timestamp]
+    if new_domain:
+        cmd.extend(["--domain", new_domain])
+    if new_setting:
+        cmd.extend(["--setting", new_setting])
+
+    # Store task_id in metadata
+    try:
+        update_import_metadata_fields(
+            journal_root=journal_root,
+            timestamp=timestamp,
+            updates={"task_id": task_id},
+        )
+    except Exception as e:
+        return jsonify({"error": f"Failed to update metadata: {str(e)}"}), 500
+
+    # Emit task request to Callosum
+    try:
+        client = CallosumConnection()
+        client.emit("task", "request", task_id=task_id, cmd=cmd)
+        client.close()
+    except Exception as e:
+        return jsonify({"error": f"Failed to submit task: {str(e)}"}), 500
+
+    return jsonify(
+        {"status": "ok", "domain": new_domain, "setting": new_setting, "task_id": task_id}
+    )

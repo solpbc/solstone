@@ -259,7 +259,7 @@ function loadImports(){
   });
 }
 
-function runTask(data){
+function runTask(taskId){
   const modal=document.getElementById('taskModal');
   const out=document.getElementById('taskOutput');
   const content=document.querySelector('#taskModal .modal-content');
@@ -270,9 +270,28 @@ function runTask(data){
   out.appendChild(spinner);
   const scroll=()=>{content.scrollTop=content.scrollHeight;};
   const addLine=html=>{spinner.remove();out.innerHTML+=html+'\n';out.appendChild(spinner);scroll();};
-  const ws=new WebSocket(`ws://${location.host}/ws/tasks`);
-  ws.onopen=()=>ws.send(JSON.stringify(data));
-  ws.onmessage=e=>{const msg=JSON.parse(e.data);if(msg.type==='stdout')addLine(msg.text);else if(msg.type==='stderr')addLine('<span style="color:red">'+msg.text+'</span>');else if(msg.type==='exit'){spinner.remove();out.innerHTML+='[exit '+msg.code+']\n';scroll();ws.close();}};
+
+  // Connect to /ws/events and filter for our task
+  const ws=new WebSocket(`ws://${location.host}/ws/events`);
+  ws.onmessage=e=>{
+    const msg=JSON.parse(e.data);
+    // Only process events for our task
+    if(msg.tract!=='task'||msg.task_id!==taskId)return;
+
+    if(msg.event==='start'){
+      addLine('Task started...');
+    }else if(msg.event==='finish'){
+      spinner.remove();
+      out.innerHTML+='[Task completed successfully]\n';
+      scroll();
+      ws.close();
+    }else if(msg.event==='error'){
+      spinner.remove();
+      out.innerHTML+='<span style="color:red">[Task failed: '+msg.error+']</span>\n';
+      scroll();
+      ws.close();
+    }
+  };
   ws.onclose=()=>{spinner.remove();loadImports();};
 }
 
@@ -303,17 +322,32 @@ startBtn.addEventListener('click', async () => {
       const errorData = await response.json().catch(() => ({}));
       throw new Error(errorData.error || 'Failed to save domain selection');
     }
+
+    // Start the import task
+    const startResponse = await fetch('{{ url_for('import_view.import_start') }}', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ path, timestamp: ts })
+    });
+
+    if (!startResponse.ok) {
+      const errorData = await startResponse.json().catch(() => ({}));
+      throw new Error(errorData.error || 'Failed to start import');
+    }
+
+    const result = await startResponse.json();
+    const taskId = result.task_id;
+
+    startBtn.disabled = false;
+    startBtn.textContent = originalText;
+    detectModal.style.display = 'none';
+    runTask(taskId);
   } catch (err) {
     startBtn.disabled = false;
     startBtn.textContent = originalText;
     if (window.showError && err instanceof Error) showError(err.message);
     return;
   }
-
-  startBtn.disabled = false;
-  startBtn.textContent = originalText;
-  detectModal.style.display = 'none';
-  runTask({ task: 'importer', day: path + '|' + ts, src: 'import' });
 });
 
 document.querySelectorAll('.close')[0].onclick=()=>{document.getElementById('detectModal').style.display='none';};

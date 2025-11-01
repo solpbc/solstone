@@ -14,8 +14,10 @@ from desktop_notifier import DesktopNotifier, Urgency
 from watchfiles import PythonFilter, awatch
 
 from muse.cortex_client import cortex_request
+from think.callosum import CallosumConnection
 from think.domains import get_domains
 from think.runner import ManagedProcess as RunnerManagedProcess
+from think.runner import run_task
 from think.utils import get_agents, setup_cli
 
 DEFAULT_THRESHOLD = 60
@@ -78,6 +80,12 @@ _scheduled_state = {
     "active_files": [],  # List of Path objects for current priority group
     "start_time": 0,  # When current group started
     "rescan_pending": False,  # Whether domain rescan needs to run
+}
+
+# State for task execution
+_task_state = {
+    "running_tasks": set(),  # Set of task_ids currently running
+    "lock": threading.Lock(),  # Lock for thread-safe task state access
 }
 
 # Directory to process mapping for auto-reload
@@ -426,6 +434,76 @@ def check_scheduled_agents() -> None:
         state["start_time"] = time.time()
 
 
+def _handle_task_request(message: dict) -> None:
+    """Handle incoming task request from Callosum."""
+    # Filter for task tract and request event
+    if message.get("tract") != "task" or message.get("event") != "request":
+        return
+
+    task_id = message.get("task_id")
+    cmd = message.get("cmd")
+
+    if not task_id or not cmd:
+        logging.error(f"Invalid task request: missing task_id or cmd: {message}")
+        return
+
+    # Check if task is already running
+    with _task_state["lock"]:
+        if task_id in _task_state["running_tasks"]:
+            logging.debug(f"Task {task_id} already running, skipping duplicate")
+            return
+        _task_state["running_tasks"].add(task_id)
+
+    # Spawn task in background thread
+    threading.Thread(
+        target=_run_task,
+        args=(task_id, cmd),
+        daemon=True,
+    ).start()
+
+
+def _run_task(task_id: str, cmd: list[str]) -> None:
+    """Execute a task and broadcast events to Callosum."""
+    callosum = CallosumConnection()
+
+    try:
+        # Emit start event
+        callosum.emit("task", "start", task_id=task_id, cmd=cmd)
+        logging.info(f"Starting task {task_id}: {' '.join(cmd)}")
+
+        # Run task with custom log name
+        success, exit_code = run_task(cmd, log_name=task_id)
+
+        # Emit finish or error event
+        if success:
+            callosum.emit("task", "finish", task_id=task_id, exit_code=exit_code)
+            logging.info(f"Task {task_id} finished successfully")
+        else:
+            callosum.emit(
+                "task",
+                "error",
+                task_id=task_id,
+                error=f"Task exited with code {exit_code}",
+                exit_code=exit_code,
+            )
+            logging.warning(f"Task {task_id} failed with exit code {exit_code}")
+
+    except Exception as e:
+        logging.exception(f"Task {task_id} encountered exception: {e}")
+        callosum.emit(
+            "task",
+            "error",
+            task_id=task_id,
+            error=str(e),
+            exit_code=-1,
+        )
+    finally:
+        # Remove from running tasks
+        with _task_state["lock"]:
+            _task_state["running_tasks"].discard(task_id)
+        callosum.close()
+
+
 def start_observers() -> list[ManagedProcess]:
     """Launch observe-gnome and observe-sense with output logging."""
     procs: list[ManagedProcess] = []
@@ -681,27 +759,42 @@ async def supervise(
     last_health_check = 0.0
     prev_stale: set[str] = set()
 
-    while (
-        not shutdown_requested
-    ):  # pragma: no cover - loop checked via unit tests by patching
-        # Check for runner exits first (immediate alert)
-        if procs:
-            await handle_runner_exits(procs, alert_mgr, command)
+    # Connect to Callosum to receive task requests
+    callosum = None
+    try:
+        callosum = CallosumConnection(callback=_handle_task_request)
+        callosum.connect()
+        logging.info("Supervisor connected to Callosum for task requests")
+    except Exception as e:
+        logging.warning(f"Failed to connect to Callosum: {e}")
 
-        # Check health periodically (interval-based timing)
-        last_health_check, prev_stale = await handle_health_checks(
-            last_health_check, interval, threshold, alert_mgr, command, prev_stale
-        )
+    try:
+        while (
+            not shutdown_requested
+        ):  # pragma: no cover - loop checked via unit tests by patching
+            # Check for runner exits first (immediate alert)
+            if procs:
+                await handle_runner_exits(procs, alert_mgr, command)
 
-        # Check for daily processing
-        if daily:
-            last_day = await handle_daily_tasks(last_day)
+            # Check health periodically (interval-based timing)
+            last_health_check, prev_stale = await handle_health_checks(
+                last_health_check, interval, threshold, alert_mgr, command, prev_stale
+            )
 
-        # Advance scheduled agent execution (non-blocking)
-        check_scheduled_agents()
+            # Check for daily processing
+            if daily:
+                last_day = await handle_daily_tasks(last_day)
 
-        # Sleep 1 second before next iteration (responsive to shutdown)
-        await asyncio.sleep(1)
+            # Advance scheduled agent execution (non-blocking)
+            check_scheduled_agents()
+
+            # Sleep 1 second before next iteration (responsive to shutdown)
+            await asyncio.sleep(1)
+    finally:
+        # Clean up Callosum connection
+        if callosum:
+            callosum.close()
+            logging.info("Supervisor disconnected from Callosum")
 
 
 def parse_args() -> argparse.ArgumentParser:
@@ -822,7 +915,9 @@ def main() -> None:
         logging.info("Caught KeyboardInterrupt, shutting down...")
     finally:
         logging.info("Stopping all processes...")
-        print("\nShutting down gracefully (this may take up to 15 seconds)...", flush=True)
+        print(
+            "\nShutting down gracefully (this may take up to 15 seconds)...", flush=True
+        )
         for managed in procs:
             name = managed.name
             proc = managed.process

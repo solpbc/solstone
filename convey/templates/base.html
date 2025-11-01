@@ -18,7 +18,6 @@
     <a data-nav-key="agents" href="{{ url_for('agents.agents_page') }}" class="{% if active=='agents' %}current{% endif %}" title="Agents">🚀<span class="nav-badge" aria-hidden="true"></span></a>
     <a data-nav-key="search" href="{{ url_for('search.search_page') }}" class="{% if active=='search' %}current{% endif %}" title="Search">🔍<span class="nav-badge" aria-hidden="true"></span></a>
     <a data-nav-key="import" href="{{ url_for('import_view.import_page') }}" class="{% if active=='import' %}current{% endif %}" title="Import">📥<span class="nav-badge" aria-hidden="true"></span></a>
-    <a data-nav-key="tasks" href="{{ url_for('tasks.tasks_page') }}" class="{% if active=='tasks' %}current{% endif %}" title="Tasks">⏳<span class="nav-badge" aria-hidden="true"></span></a>
     <a data-nav-key="admin" href="{{ url_for('admin.admin_page') }}" class="{% if active=='admin' %}current{% endif %}" title="Admin">⚙️<span class="nav-badge" aria-hidden="true"></span></a>
     <a data-nav-key="logout" href="{{ url_for('review.logout') }}" title="Logout">🔒<span class="nav-badge" aria-hidden="true"></span></a>
   </div>

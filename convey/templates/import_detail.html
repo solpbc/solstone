@@ -272,7 +272,7 @@ function loadDomains() {
 }
 
 // Run task with WebSocket output
-function runTask(taskData) {
+function runTask(taskId) {
   const modal = document.getElementById('taskModal');
   const out = document.getElementById('taskOutput');
   const content = document.querySelector('#taskModal .modal-content');
@@ -284,21 +284,28 @@ function runTask(taskData) {
   out.appendChild(spinner);
   const scroll = () => { content.scrollTop = content.scrollHeight; };
   const addLine = html => { spinner.remove(); out.innerHTML += html + '\n'; out.appendChild(spinner); scroll(); };
-  const ws = new WebSocket(`ws://${location.host}/ws/tasks`);
-  ws.onopen = () => ws.send(JSON.stringify(taskData));
+
+  // Connect to /ws/events and filter for our task
+  const ws = new WebSocket(`ws://${location.host}/ws/events`);
   ws.onmessage = e => {
     const msg = JSON.parse(e.data);
-    if (msg.type === 'stdout') addLine(msg.text);
-    else if (msg.type === 'stderr') addLine('<span style="color:red">' + msg.text + '</span>');
-    else if (msg.type === 'exit') {
+    // Only process events for our task
+    if (msg.tract !== 'task' || msg.task_id !== taskId) return;
+
+    if (msg.event === 'start') {
+      addLine('Task started...');
+    } else if (msg.event === 'finish') {
       spinner.remove();
-      out.innerHTML += '[exit ' + msg.code + ']\n';
+      out.innerHTML += '[Task completed successfully]\n';
       scroll();
       ws.close();
       // Reload page after successful re-run
-      if (msg.code === 0) {
-        setTimeout(() => location.reload(), 2000);
-      }
+      setTimeout(() => location.reload(), 2000);
+    } else if (msg.event === 'error') {
+      spinner.remove();
+      out.innerHTML += '<span style="color:red">[Task failed: ' + msg.error + ']</span>\n';
+      scroll();
+      ws.close();
     }
   };
   ws.onclose = () => { spinner.remove(); };
@@ -323,12 +330,8 @@ document.getElementById('rerunBtn').addEventListener('click', () => {
     .then(r => r.json())
     .then(result => {
       if (result.status === 'ok') {
-        // Run the task with WebSocket output
-        runTask({
-          task: 'importer',
-          day: importData.import_json.file_path + '|{{ timestamp }}',
-          src: 'import_rerun'
-        });
+        // Run the task with WebSocket output using task_id
+        runTask(result.task_id);
       } else {
         alert('Failed to start re-run: ' + (result.error || 'Unknown error'));
         btn.disabled = false;

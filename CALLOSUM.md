@@ -165,6 +165,61 @@ Non-JSON output from agent process (captured as info event).
 
 - `message` - The info message text
 
+## `"tract": "task"`
+
+Generic task execution events from the think.supervisor service.
+
+Supervisor spawns arbitrary long-running processes and broadcasts their lifecycle events.
+
+**Event types:** `request`, `start`, `finish`, `error`
+
+**Common fields (all events):**
+- `task_id` - Unique task identifier (timestamp-based, milliseconds)
+- `ts` - Timestamp in milliseconds
+
+**Event-specific fields:**
+
+### `request`
+Task request sent by client to initiate a task.
+
+Required:
+- `cmd` - Command and arguments as list (e.g., `["think-importer", "/path/to/file", "20251027_143000", "--domain", "work"]`)
+
+### `start`
+Task process has started executing.
+
+- `cmd` - The command that was executed
+- `pid` - Process ID (optional)
+
+### `finish`
+Task has completed successfully.
+
+- `exit_code` - Process exit code (typically 0)
+
+### `error`
+Task encountered an error or failed.
+
+- `error` - Error message
+- `exit_code` - Process exit code (non-zero)
+
+**Usage Example:**
+```python
+from think.callosum import CallosumConnection
+
+# Submit task request
+task_id = str(int(time.time() * 1000))
+client = CallosumConnection()
+client.emit(
+    "task",
+    "request",
+    task_id=task_id,
+    cmd=["think-importer", "/path/to/file", "20251027_143000", "--domain", "work"]
+)
+client.close()
+
+# Supervisor picks up request, spawns process, broadcasts start/finish/error events
+```
+
 ## `"tract": "indexer"` (future)
 
 Database indexing events from the think.indexer service.
