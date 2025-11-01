@@ -9,6 +9,17 @@ from flask import Blueprint, jsonify, render_template, request
 from werkzeug.utils import secure_filename
 
 from think.detect_created import detect_created
+from think.importer_utils import (
+    archive_imported_results,
+    build_import_info,
+    get_import_details,
+    list_import_timestamps,
+    read_import_metadata,
+    save_import_file,
+    save_import_text,
+    update_import_metadata_fields,
+    write_import_metadata,
+)
 
 from .. import state
 from ..task_runner import run_task
@@ -23,7 +34,6 @@ def import_page() -> str:
 
 @bp.route("/import/api/save", methods=["POST"])
 def import_save() -> Any:
-    import json
     from datetime import datetime
 
     if not state.journal_root:
@@ -95,18 +105,33 @@ def import_save() -> Any:
         else f"{datetime.fromtimestamp(timestamp_ms / 1000).strftime('%Y%m%d_%H%M%S')}"
     )
 
-    # Create import folder structure: imports/<timestamp>/<filename>
-    import_dir = Path(state.journal_root) / "imports" / folder_timestamp
-    import_dir.mkdir(parents=True, exist_ok=True)
-
-    # Save the actual file
-    file_path = import_dir / filename
+    # Save the actual file using utility function
     if upload:
-        upload.save(file_path)
-    else:
-        file_path.write_text(text, encoding="utf-8")
+        # Save uploaded file to temp location first, then move to import dir
+        import tempfile
 
-    # Save metadata to import.json in the same folder
+        with tempfile.NamedTemporaryFile(delete=False) as tmp:
+            upload.save(tmp.name)
+            temp_source = Path(tmp.name)
+
+        try:
+            file_path = save_import_file(
+                journal_root=Path(state.journal_root),
+                timestamp=folder_timestamp,
+                source_path=temp_source,
+                filename=filename,
+            )
+        finally:
+            temp_source.unlink(missing_ok=True)
+    else:
+        file_path = save_import_text(
+            journal_root=Path(state.journal_root),
+            timestamp=folder_timestamp,
+            content=text,
+            filename=filename,
+        )
+
+    # Build metadata dict
     metadata = {
         "original_filename": upload.filename if upload else "paste.txt",
         "upload_timestamp": timestamp_ms,
@@ -121,8 +146,12 @@ def import_save() -> Any:
         "file_path": str(file_path),  # Store the actual file path
     }
 
-    metadata_path = import_dir / "import.json"
-    metadata_path.write_text(json.dumps(metadata, indent=2), encoding="utf-8")
+    # Write metadata using utility function
+    write_import_metadata(
+        journal_root=Path(state.journal_root),
+        timestamp=folder_timestamp,
+        metadata=metadata,
+    )
 
     return jsonify(
         {
@@ -137,8 +166,6 @@ def import_save() -> Any:
 @bp.route("/import/api/domain", methods=["POST"])
 def import_update_metadata() -> Any:
     """Update stored metadata (domain/setting) for a saved import."""
-    import json
-
     if not state.journal_root:
         return jsonify({"error": "JOURNAL_PATH not set"}), 500
 
@@ -149,41 +176,23 @@ def import_update_metadata() -> Any:
 
     domain = data.get("domain", "").strip() or None
     setting = data.get("setting", "").strip() or None
-    file_path = Path(raw_path)
 
-    metadata_path = file_path.parent / "import.json"
-    if not metadata_path.exists():
-        legacy_path = Path(f"{raw_path}.json")
-        if legacy_path.exists():
-            metadata_path = legacy_path
-        else:
-            return jsonify({"error": "Import metadata not found"}), 404
+    # Extract timestamp from path
+    # Path format: .../imports/{timestamp}/{filename}
+    file_path = Path(raw_path)
+    timestamp = file_path.parent.name
 
     try:
-        metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+        # Use utility function to update metadata
+        metadata, updated = update_import_metadata_fields(
+            journal_root=Path(state.journal_root),
+            timestamp=timestamp,
+            updates={"domain": domain, "setting": setting},
+        )
+    except FileNotFoundError:
+        return jsonify({"error": "Import metadata not found"}), 404
     except Exception as exc:
-        return jsonify({"error": f"Failed to read import metadata: {exc}"}), 500
-
-    current_domain = metadata.get("domain")
-    domain_missing = "domain" not in metadata
-    current_setting = metadata.get("setting")
-    setting_missing = "setting" not in metadata
-
-    updated = False
-
-    if domain_missing or current_domain != domain:
-        metadata["domain"] = domain
-        updated = True
-
-    if setting_missing or current_setting != setting:
-        metadata["setting"] = setting
-        updated = True
-
-    if updated:
-        try:
-            metadata_path.write_text(json.dumps(metadata, indent=2), encoding="utf-8")
-        except Exception as exc:
-            return jsonify({"error": f"Failed to update metadata: {exc}"}), 500
+        return jsonify({"error": f"Failed to update metadata: {exc}"}), 500
 
     return jsonify(
         {
@@ -198,124 +207,45 @@ def import_update_metadata() -> Any:
 @bp.route("/import/api/list")
 def import_list() -> Any:
     """Get list of all imports with their metadata."""
-    import json
-    from datetime import datetime
-
-    imports = []
-
     if not state.journal_root:
         return jsonify([])
 
-    imports_dir = Path(state.journal_root) / "imports"
-    if not imports_dir.exists():
-        return jsonify([])
+    # Get all import timestamps using utility function
+    timestamps = list_import_timestamps(journal_root=Path(state.journal_root))
 
-    # Iterate through each import folder
-    for import_folder in imports_dir.iterdir():
-        if not import_folder.is_dir():
-            continue
+    # Build info for each import using utility function
+    imports = []
+    for timestamp in timestamps:
+        import_data = build_import_info(
+            journal_root=Path(state.journal_root),
+            timestamp=timestamp,
+        )
 
-        # Skip if it's not a timestamp folder
-        if not (import_folder.name.count("_") == 1 and len(import_folder.name) == 15):
-            continue
+        # Calculate status based on processing state and task manager
+        # Default status
+        import_data["status"] = "pending"
 
-        import_data = {
-            "timestamp": import_folder.name,
-            "created_at": import_folder.stat().st_ctime,
-            "created_at_iso": datetime.fromtimestamp(
-                import_folder.stat().st_ctime
-            ).isoformat(),
-        }
+        task_id = import_data.get("task_id")
 
-        # Read import.json if it exists
-        import_json = import_folder / "import.json"
-        task_id = None
-        if import_json.exists():
-            try:
-                with open(import_json, "r", encoding="utf-8") as f:
-                    import_meta = json.load(f)
-                    import_data["original_filename"] = import_meta.get(
-                        "original_filename", "Unknown"
-                    )
-                    import_data["file_size"] = import_meta.get("file_size", 0)
-                    import_data["mime_type"] = import_meta.get("mime_type", "")
-                    import_data["domain"] = import_meta.get("domain")
-                    import_data["setting"] = import_meta.get("setting")
-                    import_data["user_timestamp"] = import_meta.get("user_timestamp")
-                    task_id = import_meta.get("task_id")
-                    import_data["task_id"] = task_id
-                    # Use upload_timestamp if available for better sorting
-                    if "upload_timestamp" in import_meta:
-                        import_data["imported_at"] = (
-                            import_meta["upload_timestamp"] / 1000
-                        )  # Convert ms to seconds
-                    else:
-                        import_data["imported_at"] = import_folder.stat().st_ctime
-            except Exception:
-                import_data["imported_at"] = import_folder.stat().st_ctime
-        else:
-            import_data["imported_at"] = import_folder.stat().st_ctime
+        # If we have processing results, it's successful
+        if import_data.get("processed"):
+            import_data["status"] = "success"
+        # If task was started but no results
+        elif task_id:
+            # Check for task exit code by looking at task history
+            from convey.tasks import task_manager
 
-        # Check task status if we have a task_id
-        import_data["status"] = "pending"  # Default status
-
-        # Read imported.json if it exists (processing results)
-        imported_json = import_folder / "imported.json"
-        if imported_json.exists():
-            try:
-                with open(imported_json, "r", encoding="utf-8") as f:
-                    imported_meta = json.load(f)
-                    import_data["processed"] = True
-                    import_data["total_files_created"] = imported_meta.get(
-                        "total_files_created", 0
-                    )
-                    import_data["target_day"] = imported_meta.get("target_day")
-                    import_data["status"] = "success"  # Has imported.json = successful
-
-                    # Calculate duration from imported files
-                    if imported_meta.get("all_created_files"):
-                        files = imported_meta["all_created_files"]
-                        timestamps = []
-                        for file in files:
-                            # Extract timestamp from filename like "120000_imported_audio.jsonl"
-                            basename = Path(file).name
-                            if basename[:6].isdigit():
-                                timestamps.append(basename[:6])
-                        if timestamps:
-                            timestamps.sort()
-                            start_time = timestamps[0]
-                            end_time = timestamps[-1]
-                            # Convert to minutes
-                            start_h, start_m = int(start_time[:2]), int(start_time[2:4])
-                            end_h, end_m = int(end_time[:2]), int(end_time[2:4])
-                            duration_minutes = (end_h * 60 + end_m) - (
-                                start_h * 60 + start_m
-                            )
-                            if duration_minutes > 0:
-                                import_data["duration_minutes"] = duration_minutes
-            except Exception:
-                import_data["processed"] = False
-                # If task was started but no imported.json, it likely failed
-                if task_id:
+            task = task_manager.tasks.get(task_id)
+            if task:
+                if task.exit_code is not None and task.exit_code != 0:
                     import_data["status"] = "failed"
-        else:
-            import_data["processed"] = False
-            # Check if task was started but didn't produce results
-            if task_id:
-                # Check for task exit code by looking at task history
-                from convey.tasks import task_manager
-
-                task = task_manager.tasks.get(task_id)
-                if task:
-                    if task.exit_code is not None and task.exit_code != 0:
-                        import_data["status"] = "failed"
-                    elif task.exit_code == 0:
-                        import_data["status"] = "success"
-                    else:
-                        import_data["status"] = "running"
+                elif task.exit_code == 0:
+                    import_data["status"] = "success"
                 else:
-                    # Task was started but no longer in memory, likely failed
-                    import_data["status"] = "failed"
+                    import_data["status"] = "running"
+            else:
+                # Task was started but no longer in memory, likely failed
+                import_data["status"] = "failed"
 
         imports.append(import_data)
 
@@ -341,56 +271,18 @@ def import_detail(timestamp: str) -> str:
 @bp.route("/import/api/<timestamp>")
 def import_detail_api(timestamp: str) -> Any:
     """Get detailed data for a specific import."""
-    import json
-
     if not state.journal_root:
         return jsonify({"error": "JOURNAL_PATH not set"}), 500
 
-    import_dir = Path(state.journal_root) / "imports" / timestamp
-    if not import_dir.exists():
+    try:
+        # Use utility function to get all details
+        result = get_import_details(
+            journal_root=Path(state.journal_root),
+            timestamp=timestamp,
+        )
+        return jsonify(result)
+    except FileNotFoundError:
         return jsonify({"error": "Import not found"}), 404
-
-    result = {
-        "timestamp": timestamp,
-        "import_json": None,
-        "imported_json": None,
-        "revai_json": None,
-        "has_summary": False,
-    }
-
-    # Read import.json
-    import_json_path = import_dir / "import.json"
-    if import_json_path.exists():
-        try:
-            with open(import_json_path, "r", encoding="utf-8") as f:
-                result["import_json"] = json.load(f)
-        except Exception:
-            pass
-
-    # Read imported.json
-    imported_json_path = import_dir / "imported.json"
-    if imported_json_path.exists():
-        try:
-            with open(imported_json_path, "r", encoding="utf-8") as f:
-                result["imported_json"] = json.load(f)
-        except Exception:
-            pass
-
-    # Read revai.json
-    revai_json_path = import_dir / "revai.json"
-    if revai_json_path.exists():
-        try:
-            with open(revai_json_path, "r", encoding="utf-8") as f:
-                result["revai_json"] = json.load(f)
-        except Exception:
-            pass
-
-    # Check if summary.md exists
-    summary_path = import_dir / "summary.md"
-    if summary_path.exists():
-        result["has_summary"] = True
-
-    return jsonify(result)
 
 
 @bp.route("/import/api/<timestamp>/summary")
@@ -448,23 +340,21 @@ def import_start() -> Any:
 @bp.route("/import/api/<timestamp>/rerun", methods=["POST"])
 def import_rerun(timestamp: str) -> Any:
     """Re-run an import with optionally updated domain."""
-    import json
-
     if not state.journal_root:
         return jsonify({"error": "JOURNAL_PATH not set"}), 500
 
-    import_dir = Path(state.journal_root) / "imports" / timestamp
+    journal_root = Path(state.journal_root)
+
+    # Check if import exists
+    import_dir = journal_root / "imports" / timestamp
     if not import_dir.exists():
         return jsonify({"error": "Import not found"}), 404
 
-    # Read import metadata
-    import_json_path = import_dir / "import.json"
-    if not import_json_path.exists():
-        return jsonify({"error": "Import metadata not found"}), 404
-
+    # Read import metadata using utility function
     try:
-        with open(import_json_path, "r", encoding="utf-8") as f:
-            metadata = json.load(f)
+        metadata = read_import_metadata(journal_root=journal_root, timestamp=timestamp)
+    except FileNotFoundError:
+        return jsonify({"error": "Import metadata not found"}), 404
     except Exception as e:
         return jsonify({"error": f"Failed to read import metadata: {str(e)}"}), 500
 
@@ -477,36 +367,34 @@ def import_rerun(timestamp: str) -> Any:
     if not Path(file_path).exists():
         return jsonify({"error": "Original file no longer exists"}), 404
 
-    # Get new domain from request
+    # Get new domain/setting from request
     data = request.get_json(force=True)
     new_domain = data.get("domain", "").strip() or None
     new_setting = data.get("setting", "").strip() or None
 
-    # Update metadata with new domain/setting values if changed
+    # Check if values changed
     domain_changed = new_domain != metadata.get("domain")
     setting_changed = new_setting != metadata.get("setting")
 
+    # Update metadata with new values and rerun timestamp
     if domain_changed or setting_changed or "setting" not in metadata:
-        metadata["domain"] = new_domain
-        metadata["setting"] = new_setting
-        metadata["rerun_at"] = time.time() * 1000
-        metadata["rerun_datetime"] = datetime.datetime.now().isoformat()
-
+        updates = {
+            "domain": new_domain,
+            "setting": new_setting,
+            "rerun_at": time.time() * 1000,
+            "rerun_datetime": datetime.datetime.now().isoformat(),
+        }
         try:
-            with open(import_json_path, "w", encoding="utf-8") as f:
-                json.dump(metadata, f, indent=2)
+            update_import_metadata_fields(
+                journal_root=journal_root,
+                timestamp=timestamp,
+                updates=updates,
+            )
         except Exception as e:
             return jsonify({"error": f"Failed to update metadata: {str(e)}"}), 500
 
-    # Clear previous processing results to indicate re-run
-    imported_json_path = import_dir / "imported.json"
-    if imported_json_path.exists():
-        try:
-            # Archive the old results
-            archive_path = import_dir / f"imported.{int(time.time())}.json.bak"
-            imported_json_path.rename(archive_path)
-        except Exception:
-            pass  # Continue even if archiving fails
+    # Archive previous processing results using utility function
+    archive_imported_results(journal_root=journal_root, timestamp=timestamp)
 
     # Run the importer task with the same timestamp
     run_task("importer", f"{file_path}|{timestamp}")
