@@ -99,7 +99,7 @@ def str2bool(value: str) -> bool:
 
 
 def split_audio(path: str, out_dir: str, start: dt.datetime) -> list[str]:
-    """Split audio from ``path`` into 60s FLAC segments in ``out_dir``.
+    """Split audio from ``path`` into 5-minute FLAC segments in ``out_dir``.
 
     Returns:
         List of created file paths.
@@ -119,12 +119,12 @@ def split_audio(path: str, out_dir: str, start: dt.datetime) -> list[str]:
     result = subprocess.run(probe_cmd, capture_output=True, text=True, check=True)
     duration = float(result.stdout.strip())
 
-    # Calculate number of 60-second segments
-    num_segments = int(duration // 60) + (1 if duration % 60 > 0 else 0)
+    # Calculate number of 5-minute (300-second) segments
+    num_segments = int(duration // 300) + (1 if duration % 300 > 0 else 0)
 
     # Create each segment individually to ensure proper FLAC headers
     for idx in range(num_segments):
-        segment_start = idx * 60
+        segment_start = idx * 300
         ts = start + timedelta(seconds=segment_start)
         time_part = ts.strftime("%H%M%S")
         dest = os.path.join(out_dir, f"{time_part}_import_raw.flac")
@@ -136,7 +136,7 @@ def split_audio(path: str, out_dir: str, start: dt.datetime) -> list[str]:
             "-ss",
             str(segment_start),
             "-t",
-            "60",
+            "300",
             "-vn",
             "-ac",
             "1",
@@ -667,7 +667,7 @@ def main() -> None:
                 {
                     "type": "audio_segments",
                     "format": "import_raw.flac",
-                    "description": "60-second FLAC segments",
+                    "description": "5-minute FLAC segments",
                     "files": created_files,
                     "count": len(created_files),
                 }
