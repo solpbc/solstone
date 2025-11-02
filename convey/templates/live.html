@@ -1,0 +1,60 @@
+{% extends 'base.html' %}
+{% set title = 'Live Events' %}
+{% set active = 'live' %}
+{% block head %}
+<style>
+.container { padding: 0 1em; }
+.event-log {
+  height: calc(100vh - 150px);
+  overflow-y: auto;
+  font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
+  font-size: 13px;
+  border: 2px solid #ddd;
+  border-radius: 8px;
+  padding: 0.5em;
+  background: #fafafa;
+  margin-top: 1em;
+}
+.event-line {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  padding: 3px 0;
+  border-bottom: 1px solid #eee;
+  color: #333;
+}
+.event-line:last-child {
+  border-bottom: none;
+}
+.event-log:empty::before {
+  content: 'Waiting for events...';
+  color: #999;
+  font-style: italic;
+}
+</style>
+{% endblock %}
+{% block body %}
+<div class="container">
+  <h2>Live Events</h2>
+  <p>Real-time Callosum event stream (raw JSON, resets on navigation)</p>
+  <div id="eventLog" class="event-log"></div>
+</div>
+<script>
+(function(){
+  const logContainer = document.getElementById('eventLog');
+
+  function appendEvent(msg) {
+    const line = document.createElement('div');
+    line.className = 'event-line';
+    line.textContent = JSON.stringify(msg);
+    logContainer.appendChild(line);
+
+    // Auto-scroll to bottom
+    logContainer.scrollTop = logContainer.scrollHeight;
+  }
+
+  // Listen to all Callosum events
+  window.appEvents.listen('*', appendEvent);
+})();
+</script>
+{% endblock %}

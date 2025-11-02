@@ -11,6 +11,7 @@ from . import (
     domains,
     home,
     inbox,
+    live,
     search,
     todos,
 )
@@ -29,6 +30,7 @@ def register_views(app: Flask) -> None:
         calendar.bp,
         todos.bp,
         admin.bp,
+        live.bp,
         chat_view.bp,
         agents.bp,
         import_view.bp,
