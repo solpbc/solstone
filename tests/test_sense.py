@@ -30,17 +30,25 @@ def test_process_log_writer(tmp_path, monkeypatch):
     monkeypatch.setattr(runner, "_get_journal_path", lambda: tmp_path)
     monkeypatch.setattr(runner, "_current_day", lambda: "20241101")
 
-    writer = ProcessLogWriter("test")
+    ref = "1730476800000"
+    writer = ProcessLogWriter(ref, "test")
 
     writer.write("line 1\n")
     writer.write("line 2\n")
     writer.close()
 
-    log_path = tmp_path / "20241101" / "health" / "test.log"
+    # Log file uses {ref}_{name}.log format
+    log_path = tmp_path / "20241101" / "health" / f"{ref}_test.log"
     assert log_path.exists()
     content = log_path.read_text()
     assert "line 1\n" in content
     assert "line 2\n" in content
+
+    # Verify symlinks exist
+    day_symlink = tmp_path / "20241101" / "health" / "test.log"
+    assert day_symlink.is_symlink()
+    journal_symlink = tmp_path / "health" / "test.log"
+    assert journal_symlink.is_symlink()
 
 
 def test_process_log_writer_thread_safe(tmp_path, monkeypatch):
@@ -51,7 +59,8 @@ def test_process_log_writer_thread_safe(tmp_path, monkeypatch):
     monkeypatch.setattr(runner, "_get_journal_path", lambda: tmp_path)
     monkeypatch.setattr(runner, "_current_day", lambda: "20241101")
 
-    writer = ProcessLogWriter("test")
+    ref = "1730476800000"
+    writer = ProcessLogWriter(ref, "test")
 
     def write_lines(prefix):
         for i in range(10):
@@ -68,7 +77,8 @@ def test_process_log_writer_thread_safe(tmp_path, monkeypatch):
 
     writer.close()
 
-    log_path = tmp_path / "20241101" / "health" / "test.log"
+    # Log file uses {ref}_{name}.log format
+    log_path = tmp_path / "20241101" / "health" / f"{ref}_test.log"
     lines = log_path.read_text().split("\n")
     # Should have 50 lines (5 threads * 10 lines each)
     assert len([line for line in lines if line]) == 50
@@ -161,9 +171,10 @@ def test_file_sensor_spawn_handler(mock_popen, mock_day, mock_journal, tmp_path)
     args = mock_popen.call_args[0][0]
     assert args == ["echo", str(test_file)]
 
-    # Verify log file was created (now in daily health directory)
-    log_file = tmp_path / "20241101" / "health" / "sense_test:test.txt.log"
-    assert log_file.exists()
+    # Verify log file was created with {ref}_echo.log format
+    health_dir = tmp_path / "20241101" / "health"
+    log_files = list(health_dir.glob("*_echo.log"))
+    assert len(log_files) == 1, f"Expected 1 echo log file, found {len(log_files)}"
 
 
 def test_file_sensor_spawn_handler_duplicate(tmp_path, mock_callosum):
@@ -216,13 +227,15 @@ def test_file_sensor_spawn_handler_real_process(
     # Process should have completed and been removed from running dict
     assert test_file not in sensor.running
 
-    # Check log file contains output (now in daily health directory)
-    log_file = tmp_path / "20241101" / "health" / "sense_echo:test.txt.log"
-    assert log_file.exists()
-    log_content = log_file.read_text()
+    # Check log file contains output with {ref}_echo.log format
+    health_dir = tmp_path / "20241101" / "health"
+    log_files = list(health_dir.glob("*_echo.log"))
+    assert len(log_files) == 1, f"Expected 1 echo log file, found {len(log_files)}"
+
+    log_content = log_files[0].read_text()
     assert "hello" in log_content
-    # New format is [name:stream] not [handler:file:stream]
-    assert "[sense_echo:test.txt:stdout]" in log_content
+    # New format is [command_name:stream]
+    assert "[echo:stdout]" in log_content
 
 
 def test_file_sensor_spawn_handler_failing_process(tmp_path):

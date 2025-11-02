@@ -2,7 +2,13 @@
 """Unified process spawning and lifecycle management utilities.
 
 All subprocess output is automatically logged to:
-    {JOURNAL_PATH}/{YYYYMMDD}/health/{process_name}.log
+    {JOURNAL_PATH}/{YYYYMMDD}/health/{ref}_{process_name}.log
+
+Where process_name is derived from cmd[0] basename, and ref is a unique correlation ID.
+
+Symlinks provide stable access paths:
+    {JOURNAL_PATH}/{YYYYMMDD}/health/{process_name}.log (day-level symlink)
+    {JOURNAL_PATH}/health/{process_name}.log (journal-level symlink)
 
 Logs automatically roll over at midnight for long-running processes.
 """
@@ -36,12 +42,30 @@ def _current_day() -> str:
     return datetime.now().strftime("%Y%m%d")
 
 
-def _day_health_log_path(day: str, name: str) -> Path:
+def _day_health_log_path(day: str, ref: str, name: str) -> Path:
     """Build path to day health log.
 
-    Returns: {JOURNAL_PATH}/{day}/health/{name}.log
+    Returns: {JOURNAL_PATH}/{day}/health/{ref}_{name}.log
     """
-    return _get_journal_path() / day / "health" / f"{name}.log"
+    return _get_journal_path() / day / "health" / f"{ref}_{name}.log"
+
+
+def _atomic_symlink(link_path: Path, target: str) -> None:
+    """Create or update symlink atomically.
+
+    Args:
+        link_path: Path where symlink should be created
+        target: Target path (can be relative or absolute)
+    """
+    link_path.parent.mkdir(parents=True, exist_ok=True)
+    tmp_link = link_path.with_suffix(f".tmp{os.getpid()}")
+    try:
+        tmp_link.symlink_to(target)
+        tmp_link.replace(link_path)
+    finally:
+        # Clean up temp file if it still exists
+        if tmp_link.exists() or tmp_link.is_symlink():
+            tmp_link.unlink(missing_ok=True)
 
 
 def _format_log_line(prefix: str, stream: str, line: str) -> str:
@@ -63,22 +87,44 @@ def _format_log_line(prefix: str, stream: str, line: str) -> str:
 class DailyLogWriter:
     """Thread-safe log writer that automatically rolls over at midnight.
 
-    Writes to: {JOURNAL_PATH}/{YYYYMMDD}/health/{name}.log
+    Writes to: {JOURNAL_PATH}/{YYYYMMDD}/health/{ref}_{name}.log
 
-    When the day changes, automatically closes old file and opens new file.
+    Creates and maintains symlinks:
+    - {JOURNAL_PATH}/{YYYYMMDD}/health/{name}.log -> {ref}_{name}.log (day-level)
+    - {JOURNAL_PATH}/health/{name}.log -> {YYYYMMDD}/health/{ref}_{name}.log (journal-level)
+
+    When the day changes, automatically closes old file, opens new file, and updates symlinks.
     """
 
-    def __init__(self, name: str):
+    def __init__(self, ref: str, name: str):
+        self._ref = ref
         self._name = name
         self._lock = threading.Lock()
         self._current_day = _current_day()
         self._fh = self._open_log()
+        self._update_symlinks()
 
     def _open_log(self):
         """Open log file for current day."""
-        log_path = _day_health_log_path(self._current_day, self._name)
+        log_path = _day_health_log_path(self._current_day, self._ref, self._name)
         log_path.parent.mkdir(parents=True, exist_ok=True)
         return log_path.open("a", encoding="utf-8")
+
+    def _update_symlinks(self) -> None:
+        """Update day-level and journal-level symlinks to point to current log."""
+        journal = _get_journal_path()
+        day_health = journal / self._current_day / "health"
+        log_filename = f"{self._ref}_{self._name}.log"
+
+        # Day-level symlink: {YYYYMMDD}/health/{name}.log -> {ref}_{name}.log
+        day_symlink = day_health / f"{self._name}.log"
+        _atomic_symlink(day_symlink, log_filename)
+
+        # Journal-level symlink: health/{name}.log -> ../{YYYYMMDD}/health/{ref}_{name}.log
+        # Relative from journal/health/ to journal/{YYYYMMDD}/health/
+        journal_symlink = journal / "health" / f"{self._name}.log"
+        relative_target = f"../{self._current_day}/health/{log_filename}"
+        _atomic_symlink(journal_symlink, relative_target)
 
     def write(self, message: str) -> None:
         """Write message to log, handling day rollover."""
@@ -89,9 +135,11 @@ class DailyLogWriter:
                 # Close old log
                 if not self._fh.closed:
                     self._fh.close()
-                # Open new log
+                # Open new log for new day
                 self._current_day = day_now
                 self._fh = self._open_log()
+                # Update symlinks to point to new day's file
+                self._update_symlinks()
 
             # Write and flush
             self._fh.write(message)
@@ -106,7 +154,7 @@ class DailyLogWriter:
     @property
     def path(self) -> Path:
         """Get current log file path."""
-        return _day_health_log_path(self._current_day, self._name)
+        return _day_health_log_path(self._current_day, self._ref, self._name)
 
 
 @dataclass
@@ -114,7 +162,13 @@ class ManagedProcess:
     """Subprocess wrapper with automatic output logging and lifecycle management.
 
     All output is automatically logged to:
-        {JOURNAL_PATH}/{YYYYMMDD}/health/{name}.log
+        {JOURNAL_PATH}/{YYYYMMDD}/health/{ref}_{name}.log
+
+    Where name is derived from cmd[0] basename, and ref is a unique correlation ID.
+
+    Symlinks are automatically created and maintained:
+        {JOURNAL_PATH}/{YYYYMMDD}/health/{name}.log -> {ref}_{name}.log (day-level)
+        {JOURNAL_PATH}/health/{name}.log -> {YYYYMMDD}/health/{ref}_{name}.log (journal-level)
 
     Logs roll over automatically at midnight for long-running processes.
 
@@ -135,8 +189,6 @@ class ManagedProcess:
         cls,
         cmd: list[str],
         *,
-        name: str | None = None,
-        log_name: str | None = None,
         env: dict | None = None,
         ref: str | None = None,
     ) -> "ManagedProcess":
@@ -144,8 +196,6 @@ class ManagedProcess:
 
         Args:
             cmd: Command and arguments
-            name: Process name for logging (defaults to cmd[0] basename)
-            log_name: Override log filename base (defaults to name)
             env: Optional environment variables (inherits parent env if not provided)
             ref: Optional correlation ID (auto-generated if not provided)
 
@@ -156,28 +206,20 @@ class ManagedProcess:
             RuntimeError: If process fails to spawn
 
         Example:
-            managed = ManagedProcess.spawn(
-                ["observe-gnome", "-v"],
-                name="observer",
-            )
-            # Output automatically logs to: journal/{today}/health/observer.log
-
-            # Or with custom log filename:
-            managed = ManagedProcess.spawn(
-                ["think-importer", "file.txt"],
-                name="importer",
-                log_name="1730476800123",  # Logs to: 1730476800123.log
-            )
+            managed = ManagedProcess.spawn(["observe-gnome", "-v"])
+            # Logs to: {JOURNAL}/{YYYYMMDD}/health/{ref}_observe-gnome.log
+            # Symlinks: {YYYYMMDD}/health/observe-gnome.log (day-level)
+            #           health/observe-gnome.log (journal-level)
 
             # With explicit correlation ID:
             managed = ManagedProcess.spawn(
                 ["think-indexer", "--full"],
-                name="indexer",
-                ref="1730476800000",  # Use specific ref for correlation
+                ref="1730476800000",
             )
+            # Logs to: {JOURNAL}/{YYYYMMDD}/health/1730476800000_think-indexer.log
         """
-        if name is None:
-            name = Path(cmd[0]).name
+        # Derive name from command basename
+        name = Path(cmd[0]).name
 
         # Generate correlation ID (use provided ref, else timestamp)
         ref = ref if ref else str(int(time.time() * 1000))
@@ -188,7 +230,7 @@ class ManagedProcess:
         callosum = CallosumConnection()
         callosum.start()
 
-        log_writer = DailyLogWriter(log_name or name)
+        log_writer = DailyLogWriter(ref, name)
 
         logger.info(f"Starting {name}: {' '.join(cmd)}")
 
@@ -367,8 +409,6 @@ class ManagedProcess:
 def run_task(
     cmd: list[str],
     *,
-    name: str | None = None,
-    log_name: str | None = None,
     timeout: float | None = None,
     env: dict | None = None,
     ref: str | None = None,
@@ -376,12 +416,11 @@ def run_task(
     """Run a task to completion with automatic logging (blocking).
 
     Spawns process, waits for completion, cleans up resources.
-    Output is automatically logged to: {JOURNAL_PATH}/{YYYYMMDD}/health/{name}.log
+    Output is automatically logged to: {JOURNAL_PATH}/{YYYYMMDD}/health/{ref}_{name}.log
+    where name is derived from cmd[0] basename.
 
     Args:
         cmd: Command and arguments
-        name: Process name for logging (defaults to cmd[0] basename)
-        log_name: Override log filename base (defaults to name)
         timeout: Optional timeout in seconds
         env: Optional environment variables
         ref: Optional correlation ID (auto-generated if not provided)
@@ -392,45 +431,27 @@ def run_task(
     Example:
         success, code = run_task(
             ["think-summarize", "20241101"],
-            name="summarize",
             timeout=300,
         )
-        if not success:
-            logger.error(f"Summarize failed with code {code}")
-
-        # Or with custom log filename:
-        success, code = run_task(
-            ["think-importer", "file.txt"],
-            name="importer",
-            log_name="1730476800123",  # Logs to: 1730476800123.log
-        )
+        # Logs to: {JOURNAL}/{YYYYMMDD}/health/{ref}_think-summarize.log
 
         # With explicit correlation ID:
         success, code = run_task(
             ["think-indexer", "--full"],
-            name="indexer",
-            ref="1730476800000",  # Use specific ref for correlation
+            ref="1730476800000",
         )
+        # Logs to: {JOURNAL}/{YYYYMMDD}/health/1730476800000_think-indexer.log
     """
-    if name is None:
-        name = Path(cmd[0]).name
-
-    managed = ManagedProcess.spawn(
-        cmd,
-        name=name,
-        log_name=log_name,
-        env=env,
-        ref=ref,
-    )
+    managed = ManagedProcess.spawn(cmd, env=env, ref=ref)
     try:
         exit_code = managed.wait(timeout=timeout)
     except subprocess.TimeoutExpired:
-        logger.error(f"{name} timed out after {timeout}s, terminating...")
+        logger.error(f"{managed.name} timed out after {timeout}s, terminating...")
         exit_code = managed.terminate()
     finally:
         managed.cleanup()
 
     if exit_code != 0:
-        logger.warning(f"{name} exited with code {exit_code}")
+        logger.warning(f"{managed.name} exited with code {exit_code}")
 
     return (exit_code == 0, exit_code)

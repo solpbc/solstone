@@ -136,13 +136,15 @@ def test_run_dream(tmp_path, monkeypatch):
             return 0
 
     class DummyManagedProcess:
-        def __init__(self, cmd, name):
+        def __init__(self, cmd):
+            from pathlib import Path
+
             self.process = DummyProcess()
-            self.name = name
+            self.name = Path(cmd[0]).name  # Derive from cmd[0]
             self.cmd = cmd
             self.log_writer = DummyLogger()
             self._threads = []
-            spawn_calls["name"] = name
+            spawn_calls["name"] = self.name
             spawn_calls["cmd"] = cmd
 
         def wait(self, timeout=None):
@@ -158,8 +160,8 @@ def test_run_dream(tmp_path, monkeypatch):
         def close(self):
             self.closed = True
 
-    def fake_spawn(cmd, *, name=None, env=None):
-        return DummyManagedProcess(cmd, name)
+    def fake_spawn(cmd, *, env=None, ref=None):
+        return DummyManagedProcess(cmd)
 
     monkeypatch.setattr(runner_mod.ManagedProcess, "spawn", fake_spawn)
     monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
@@ -174,7 +176,7 @@ def test_run_dream(tmp_path, monkeypatch):
 
     assert mod.run_dream() is True
 
-    assert spawn_calls["name"] == "dream"
+    assert spawn_calls["name"] == "think-dream"  # Derived from cmd[0]
     assert spawn_calls["cmd"] == ["think-dream", "-v"]
     assert os.environ["JOURNAL_PATH"] == str(tmp_path)
     assert any("seconds" in m for m in messages)

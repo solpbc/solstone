@@ -14,7 +14,7 @@ def run_command(cmd: list[str], day: str) -> bool:
 
     # Use unified runner with automatic logging
     try:
-        success, exit_code = run_task(cmd, name=f"dream_{cmd_name}")
+        success, exit_code = run_task(cmd)
         if not success:
             logging.error(
                 "Command failed with exit code %s: %s", exit_code, " ".join(cmd)

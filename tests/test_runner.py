@@ -21,16 +21,14 @@ def journal_path(tmp_path):
 
 def test_managed_process_has_ref_and_pid(journal_path, mock_callosum):
     """Test that ManagedProcess exposes ref and pid."""
-    managed = ManagedProcess.spawn(
-        ["echo", "test"],
-        name="test-echo",
-    )
+    managed = ManagedProcess.spawn(["echo", "test"])
 
     # Verify ref and pid are accessible
     assert managed.ref is not None
     assert isinstance(managed.ref, str)
     assert managed.pid > 0
     assert isinstance(managed.pid, int)
+    assert managed.name == "echo"  # Derived from cmd[0]
 
     # Wait and cleanup
     managed.wait()
@@ -40,14 +38,11 @@ def test_managed_process_has_ref_and_pid(journal_path, mock_callosum):
 def test_managed_process_uses_ref_as_ref(journal_path, mock_callosum):
     """Test that ref becomes the ref when provided."""
     ref = "1730476800123"
-    managed = ManagedProcess.spawn(
-        ["echo", "test"],
-        name="test-echo",
-        ref=ref,
-    )
+    managed = ManagedProcess.spawn(["echo", "test"], ref=ref)
 
     # Verify ref matches ref
     assert managed.ref == ref
+    assert managed.name == "echo"
 
     # Wait and cleanup
     managed.wait()
@@ -63,10 +58,7 @@ def test_logs_tract_exec_event(journal_path, mock_callosum):
     listener.start(callback=lambda msg: received.append(msg))
 
     # Spawn process
-    managed = ManagedProcess.spawn(
-        ["echo", "hello"],
-        name="test-exec",
-    )
+    managed = ManagedProcess.spawn(["echo", "hello"])
 
     # Find exec event
     exec_events = [msg for msg in received if msg.get("event") == "exec"]
@@ -76,7 +68,7 @@ def test_logs_tract_exec_event(journal_path, mock_callosum):
     assert exec_event["tract"] == "logs"
     assert exec_event["event"] == "exec"
     assert exec_event["ref"] == managed.ref
-    assert exec_event["name"] == "test-exec"
+    assert exec_event["name"] == "echo"
     assert exec_event["pid"] == managed.pid
     assert exec_event["cmd"] == ["echo", "hello"]
     assert "log_path" in exec_event
@@ -96,10 +88,7 @@ def test_logs_tract_line_event(journal_path, mock_callosum):
     listener.start(callback=lambda msg: received.append(msg))
 
     # Spawn process that outputs text
-    managed = ManagedProcess.spawn(
-        ["echo", "hello logs tract"],
-        name="test-line",
-    )
+    managed = ManagedProcess.spawn(["echo", "hello logs tract"])
 
     # Wait for process and cleanup threads before checking events
     managed.wait()
@@ -114,7 +103,7 @@ def test_logs_tract_line_event(journal_path, mock_callosum):
     assert line_event["tract"] == "logs"
     assert line_event["event"] == "line"
     assert line_event["ref"] == managed.ref
-    assert line_event["name"] == "test-line"
+    assert line_event["name"] == "echo"
     assert line_event["pid"] == managed.pid
     assert line_event["stream"] in ["stdout", "stderr"]
     assert "line" in line_event
@@ -133,10 +122,7 @@ def test_logs_tract_exit_event(journal_path, mock_callosum):
     listener.start(callback=lambda msg: received.append(msg))
 
     # Spawn and wait for process
-    managed = ManagedProcess.spawn(
-        ["echo", "test"],
-        name="test-exit",
-    )
+    managed = ManagedProcess.spawn(["echo", "test"])
     managed.wait()
     managed.cleanup()
 
@@ -148,7 +134,7 @@ def test_logs_tract_exit_event(journal_path, mock_callosum):
     assert exit_event["tract"] == "logs"
     assert exit_event["event"] == "exit"
     assert exit_event["ref"] == managed.ref
-    assert exit_event["name"] == "test-exit"
+    assert exit_event["name"] == "echo"
     assert exit_event["pid"] == managed.pid
     assert exit_event["exit_code"] == 0
     assert "duration_ms" in exit_event
@@ -168,7 +154,7 @@ def test_logs_tract_all_events_have_common_fields(journal_path, mock_callosum):
     listener.start(callback=lambda msg: received.append(msg))
 
     # Run a process
-    managed = ManagedProcess.spawn(["echo", "test"], name="test-common")
+    managed = ManagedProcess.spawn(["echo", "test"])
     managed.wait()
     managed.cleanup()
 
@@ -183,7 +169,7 @@ def test_logs_tract_all_events_have_common_fields(journal_path, mock_callosum):
         assert "pid" in event
         assert "ts" in event  # Auto-added by Callosum
         assert event["ref"] == managed.ref
-        assert event["name"] == "test-common"
+        assert event["name"] == "echo"
         assert event["pid"] == managed.pid
 
     listener.stop()
@@ -198,10 +184,7 @@ def test_run_task_emits_logs_tract_events(journal_path, mock_callosum):
     listener.start(callback=lambda msg: received.append(msg))
 
     # Run task
-    success, exit_code = run_task(
-        ["echo", "run_task test"],
-        name="test-run-task",
-    )
+    success, exit_code = run_task(["echo", "run_task test"])
 
     # Verify success
     assert success is True
@@ -227,11 +210,7 @@ def test_ref_links_to_task_tract(journal_path, mock_callosum):
     listener.start(callback=lambda msg: received.append(msg))
 
     ref = "1730476800999"
-    managed = ManagedProcess.spawn(
-        ["echo", "linked"],
-        name="test-linked",
-        ref=ref,
-    )
+    managed = ManagedProcess.spawn(["echo", "linked"], ref=ref)
     managed.wait()
     managed.cleanup()
 
@@ -254,10 +233,7 @@ def test_error_exit_code_in_exit_event(journal_path, mock_callosum):
     listener.start(callback=lambda msg: received.append(msg))
 
     # Run process that exits with error
-    managed = ManagedProcess.spawn(
-        ["sh", "-c", "exit 42"],
-        name="test-error",
-    )
+    managed = ManagedProcess.spawn(["sh", "-c", "exit 42"])
     exit_code = managed.wait()
     managed.cleanup()
 
@@ -276,20 +252,27 @@ def test_error_exit_code_in_exit_event(journal_path, mock_callosum):
 
 def test_process_creates_health_log(journal_path, mock_callosum):
     """Test that process output is logged to health directory."""
-    managed = ManagedProcess.spawn(
-        ["echo", "logged output"],
-        name="test-log-file",
-    )
+    managed = ManagedProcess.spawn(["echo", "logged output"])
+    ref = managed.ref
     managed.wait()
     managed.cleanup()
 
-    # Verify log file was created
-    # Log should be in current day's health directory
+    # Verify log file was created with {ref}_{name}.log format
     from datetime import datetime
 
     day = datetime.now().strftime("%Y%m%d")
-    log_path = journal_path / day / "health" / "test-log-file.log"
+    log_path = journal_path / day / "health" / f"{ref}_echo.log"
 
     assert log_path.exists()
     content = log_path.read_text()
     assert "logged output" in content
+
+    # Verify day-level symlink exists
+    day_symlink = journal_path / day / "health" / "echo.log"
+    assert day_symlink.is_symlink()
+    assert day_symlink.resolve() == log_path.resolve()
+
+    # Verify journal-level symlink exists
+    journal_symlink = journal_path / "health" / "echo.log"
+    assert journal_symlink.is_symlink()
+    assert journal_symlink.resolve() == log_path.resolve()

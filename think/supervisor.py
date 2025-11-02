@@ -155,7 +155,6 @@ def _launch_process(
     cmd: list[str],
     *,
     restart: bool = False,
-    log_name: str | None = None,
     ref: str | None = None,
 ) -> ManagedProcess:
     """Launch process with automatic output logging and restart policy tracking."""
@@ -168,7 +167,7 @@ def _launch_process(
 
     # Use unified runner to spawn process
     try:
-        managed = RunnerManagedProcess.spawn(cmd, name=log_name or name, ref=ref)
+        managed = RunnerManagedProcess.spawn(cmd, ref=ref)
     except RuntimeError as exc:
         logging.error(str(exc))
         raise
@@ -270,20 +269,19 @@ async def clear_notification(alert_key: tuple) -> None:
         logging.error("Failed to clear notification: %s", exc)
 
 
-def run_subprocess_task(name: str, cmd: list[str], log_name: str | None = None) -> bool:
+def run_subprocess_task(name: str, cmd: list[str]) -> bool:
     """Run a subprocess task while mirroring output to a dedicated log.
 
     Args:
         name: Display name for the task
         cmd: Command and arguments to execute
-        log_name: Optional log filename (defaults to name)
 
     Returns:
         True when the subprocess exits successfully.
     """
     start = time.time()
     try:
-        managed = RunnerManagedProcess.spawn(cmd, name=log_name or name)
+        managed = RunnerManagedProcess.spawn(cmd)
         return_code = managed.wait()
     finally:
         managed.cleanup()
@@ -300,9 +298,7 @@ def run_dream() -> bool:
 
 def run_domain_rescan() -> bool:
     """Run ``think-indexer --rescan-domains`` while mirroring output to a dedicated log."""
-    return run_subprocess_task(
-        "domain_rescan", ["think-indexer", "--rescan-domains"], log_name="domain_rescan"
-    )
+    return run_subprocess_task("domain_rescan", ["think-indexer", "--rescan-domains"])
 
 
 def spawn_scheduled_agents() -> None:
@@ -493,11 +489,13 @@ def _run_task(ref: str, cmd: list[str]) -> None:
         logging.info(f"Starting task {ref}: {' '.join(cmd)}")
 
         # Spawn process and track it
-        managed = RunnerManagedProcess.spawn(cmd, log_name=ref, ref=ref)
+        managed = RunnerManagedProcess.spawn(cmd, ref=ref)
         _active_tasks[ref] = managed
 
         # Emit started event (runner already emits logs/exec, this is supervisor-level)
-        callosum.emit("supervisor", "started", service=service, pid=managed.pid, ref=ref)
+        callosum.emit(
+            "supervisor", "started", service=service, pid=managed.pid, ref=ref
+        )
 
         # Wait for completion (blocks)
         exit_code = managed.wait()
@@ -628,9 +626,7 @@ def list_running_tasks() -> list[str]:
     Returns:
         List of refs for tasks that are still running
     """
-    return [
-        ref for ref, managed in _active_tasks.items() if managed.is_running()
-    ]
+    return [ref for ref, managed in _active_tasks.items() if managed.is_running()]
 
 
 def collect_status(procs: list[ManagedProcess]) -> dict:
@@ -824,7 +820,6 @@ async def handle_runner_exits(
                     managed.name,
                     managed.cmd,
                     restart=True,
-                    log_name=managed.logger.path.stem,
                 )
             except Exception as exc:
                 logging.exception("Failed to restart %s: %s", managed.name, exc)
@@ -924,7 +919,9 @@ async def supervise(
         callosum = CallosumConnection()
         callosum.start(callback=_handle_callosum_message)
         _supervisor_callosum = callosum
-        logging.info("Supervisor connected to Callosum for task and supervisor requests")
+        logging.info(
+            "Supervisor connected to Callosum for task and supervisor requests"
+        )
     except Exception as e:
         logging.warning(f"Failed to start Callosum connection: {e}")
 
