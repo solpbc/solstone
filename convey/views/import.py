@@ -342,21 +342,25 @@ def import_start() -> Any:
 
         # Check if old directory exists
         if not old_import_dir.exists():
-            return jsonify(
-                {"error": f"Import directory not found for {original_timestamp}"}
-            ), 404
+            return (
+                jsonify(
+                    {"error": f"Import directory not found for {original_timestamp}"}
+                ),
+                404,
+            )
 
         # Check if target directory already exists
         if new_import_dir.exists():
-            return jsonify(
-                {"error": f"Import already exists for timestamp {ts}"}
-            ), 409
+            return jsonify({"error": f"Import already exists for timestamp {ts}"}), 409
 
         # Rename the directory
         try:
             old_import_dir.rename(new_import_dir)
         except Exception as e:
-            return jsonify({"error": f"Failed to rename import directory: {str(e)}"}), 500
+            return (
+                jsonify({"error": f"Failed to rename import directory: {str(e)}"}),
+                500,
+            )
 
         # Update path to point to new location
         path = str(new_import_dir / file_path.name)
@@ -366,9 +370,7 @@ def import_start() -> Any:
 
     # Read import metadata to get domain and setting
     try:
-        metadata = read_import_metadata(
-            journal_root=journal_root, timestamp=ts
-        )
+        metadata = read_import_metadata(journal_root=journal_root, timestamp=ts)
     except FileNotFoundError:
         return jsonify({"error": f"Import metadata not found for {ts}"}), 404
     except Exception as e:
@@ -383,7 +385,10 @@ def import_start() -> Any:
                 updates={"file_path": path},
             )
         except Exception as e:
-            return jsonify({"error": f"Failed to update file path in metadata: {str(e)}"}), 500
+            return (
+                jsonify({"error": f"Failed to update file path in metadata: {str(e)}"}),
+                500,
+            )
 
     domain = metadata.get("domain")
     setting = metadata.get("setting")
@@ -406,7 +411,7 @@ def import_start() -> Any:
         return jsonify({"error": f"Failed to update metadata: {str(e)}"}), 500
 
     # Emit task request to Callosum
-    if not callosum_send("task", "request", task_id=task_id, cmd=cmd):
+    if not callosum_send("supervisor", "request", ref=task_id, cmd=cmd):
         return jsonify({"error": "Failed to submit task"}), 500
 
     return jsonify({"status": "ok", "task_id": task_id})
@@ -492,7 +497,7 @@ def import_rerun(timestamp: str) -> Any:
         return jsonify({"error": f"Failed to update metadata: {str(e)}"}), 500
 
     # Emit task request to Callosum
-    if not callosum_send("task", "request", task_id=task_id, cmd=cmd):
+    if not callosum_send("supervisor", "request", ref=task_id, cmd=cmd):
         return jsonify({"error": "Failed to submit task"}), 500
 
     return jsonify(
