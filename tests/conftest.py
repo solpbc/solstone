@@ -1,6 +1,8 @@
 import importlib
 import sys
+import time
 import types
+from unittest.mock import Mock
 
 import numpy as np
 import pytest
@@ -397,3 +399,67 @@ def add_module_stubs(request, monkeypatch):
                 return False
 
         sys.modules["watchdog.observers"].Observer = Observer
+
+
+@pytest.fixture
+def mock_callosum(monkeypatch):
+    """Mock Callosum connections to capture emitted events without real I/O.
+
+    This fixture provides a MockCallosumConnection class that:
+    - Enforces the connect-before-emit requirement
+    - Broadcasts events to all listeners (like the real Callosum)
+    - Works without real socket connections
+
+    Usage:
+        def test_example(mock_callosum):
+            from think.callosum import CallosumConnection
+
+            received = []
+            listener = CallosumConnection(callback=lambda msg: received.append(msg))
+            listener.connect()
+
+            # Now emit events and they'll be captured in received
+    """
+    all_listeners = []
+
+    class MockCallosumConnection:
+        def __init__(self, callback=None, socket_path=None):
+            self.callback = callback
+            self.socket_path = socket_path
+            self.sock = None
+            self.receive_thread = None
+            if callback:
+                all_listeners.append(self)
+
+        def connect(self):
+            """Simulate successful connection."""
+            self.sock = Mock()
+            self.receive_thread = Mock()
+
+        def emit(self, tract, event, **kwargs):
+            """Emit event and broadcast to all listeners."""
+            # Enforce connect() requirement
+            if self.receive_thread is None:
+                raise RuntimeError("Must call connect() before emit()")
+
+            # Build message
+            msg = {"tract": tract, "event": event, **kwargs}
+            if "ts" not in msg:
+                msg["ts"] = int(time.time() * 1000)
+
+            # Broadcast to all listeners
+            for listener in all_listeners:
+                if listener.callback:
+                    listener.callback(msg)
+
+        def close(self):
+            """Close connection and remove from listeners."""
+            if self in all_listeners:
+                all_listeners.remove(self)
+            self.sock = None
+            self.receive_thread = None
+
+    # Patch both import locations
+    monkeypatch.setattr("think.runner.CallosumConnection", MockCallosumConnection)
+    monkeypatch.setattr("think.callosum.CallosumConnection", MockCallosumConnection)
+    monkeypatch.setattr("think.supervisor.CallosumConnection", MockCallosumConnection)

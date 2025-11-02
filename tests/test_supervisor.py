@@ -78,7 +78,7 @@ async def test_clear_notification(monkeypatch):
     assert len(cleared) == 1  # Still just one clear call
 
 
-def test_start_runners(tmp_path, monkeypatch):
+def test_start_runners(tmp_path, mock_callosum, monkeypatch):
     mod = importlib.import_module("think.supervisor")
 
     started = []
@@ -181,7 +181,7 @@ def test_run_dream(tmp_path, monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_supervise_logs_recovery(monkeypatch, caplog):
+async def test_supervise_logs_recovery(mock_callosum, monkeypatch, caplog):
     mod = importlib.reload(importlib.import_module("think.supervisor"))
     mod.shutdown_requested = False
 
