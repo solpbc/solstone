@@ -138,7 +138,6 @@ class ManagedProcess:
         name: str | None = None,
         log_name: str | None = None,
         env: dict | None = None,
-        emit_logs: bool = True,
         task_id: str | None = None,
     ) -> "ManagedProcess":
         """Spawn process with automatic output logging to daily health directory.
@@ -148,7 +147,6 @@ class ManagedProcess:
             name: Process name for logging (defaults to cmd[0] basename)
             log_name: Override log filename base (defaults to name)
             env: Optional environment variables (inherits parent env if not provided)
-            emit_logs: Emit process lifecycle events to Callosum logs tract (default: True)
             task_id: Optional task ID (used as process ID if provided)
 
         Returns:
@@ -185,8 +183,10 @@ class ManagedProcess:
         process_id = task_id if task_id else str(int(time.time() * 1000))
         start_time = time.time()
 
-        # Setup Callosum connection if emitting logs
-        callosum = CallosumConnection() if emit_logs else None
+        # Setup Callosum connection in background
+        # connect() retries indefinitely, so we don't block process startup
+        callosum = CallosumConnection()
+        threading.Thread(target=callosum.connect, daemon=True).start()
 
         log_writer = DailyLogWriter(log_name or name)
 
@@ -371,7 +371,6 @@ def run_task(
     log_name: str | None = None,
     timeout: float | None = None,
     env: dict | None = None,
-    emit_logs: bool = True,
     task_id: str | None = None,
 ) -> tuple[bool, int]:
     """Run a task to completion with automatic logging (blocking).
@@ -385,7 +384,6 @@ def run_task(
         log_name: Override log filename base (defaults to name)
         timeout: Optional timeout in seconds
         env: Optional environment variables
-        emit_logs: Emit process lifecycle events to Callosum logs tract (default: True)
         task_id: Optional task ID (used as process ID if provided)
 
     Returns:
@@ -422,7 +420,6 @@ def run_task(
         name=name,
         log_name=log_name,
         env=env,
-        emit_logs=emit_logs,
         task_id=task_id,
     )
     try:

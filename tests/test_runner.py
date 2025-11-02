@@ -53,7 +53,6 @@ def test_managed_process_has_process_id_and_pid(journal_path):
     managed = ManagedProcess.spawn(
         ["echo", "test"],
         name="test-echo",
-        emit_logs=False,  # No Callosum needed
     )
 
     # Verify process_id and pid are accessible
@@ -74,7 +73,6 @@ def test_managed_process_uses_task_id_as_process_id(journal_path):
         ["echo", "test"],
         name="test-echo",
         task_id=task_id,
-        emit_logs=False,
     )
 
     # Verify process_id matches task_id
@@ -258,32 +256,6 @@ def test_run_task_emits_logs_tract_events(journal_path, callosum_server):
     listener.close()
 
 
-def test_emit_logs_can_be_disabled(journal_path, callosum_server):
-    """Test that emit_logs=False prevents Callosum emissions."""
-    received = []
-    listener = CallosumConnection(callback=lambda msg: received.append(msg))
-    listener.connect()
-
-    time.sleep(0.1)
-
-    # Spawn process with logs disabled
-    managed = ManagedProcess.spawn(
-        ["echo", "silent"],
-        name="test-silent",
-        emit_logs=False,
-    )
-    managed.wait()
-    managed.cleanup()
-
-    time.sleep(0.2)
-
-    # Should not have received any logs tract events
-    logs_events = [msg for msg in received if msg.get("tract") == "logs"]
-    assert len(logs_events) == 0
-
-    listener.close()
-
-
 def test_task_id_links_to_task_tract(journal_path, callosum_server):
     """Test that providing task_id links logs to task tract."""
     received = []
@@ -349,7 +321,6 @@ def test_process_creates_health_log(journal_path):
     managed = ManagedProcess.spawn(
         ["echo", "logged output"],
         name="test-log-file",
-        emit_logs=False,
     )
     managed.wait()
     managed.cleanup()
