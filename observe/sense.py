@@ -20,6 +20,7 @@ from typing import Dict, List, Optional
 from watchdog.events import FileSystemEventHandler
 from watchdog.observers import Observer
 
+from think.callosum import CallosumConnection
 from think.runner import ManagedProcess as RunnerManagedProcess
 from think.runner import run_task
 from think.utils import day_path, setup_cli
@@ -62,6 +63,9 @@ class FileSensor:
         self.observer: Optional[Observer] = None
         self.current_day: Optional[str] = None
         self.running_flag = True
+
+        # Callosum connection for emitting detected events
+        self.callosum: Optional[CallosumConnection] = None
 
     def register(self, pattern: str, handler_name: str, command: List[str]):
         """
@@ -112,6 +116,24 @@ class FileSensor:
                     return
                 self.describe_running = True
 
+        # Generate correlation ID for this handler run
+        ref = str(int(time.time() * 1000))
+
+        # Emit detected event with file and ref
+        if self.callosum:
+            try:
+                rel_file = file_path.relative_to(self.journal_dir)
+            except ValueError:
+                rel_file = file_path
+
+            self.callosum.emit(
+                "observe",
+                "detected",
+                file=str(rel_file),
+                handler=handler_name,
+                ref=ref,
+            )
+
         # Replace {file} placeholder with actual file path
         cmd = [str(file_path) if arg == "{file}" else arg for arg in command]
 
@@ -125,7 +147,7 @@ class FileSensor:
         logger.info(f"Spawning {handler_name} for {file_path.name}: {' '.join(cmd)}")
 
         try:
-            managed = RunnerManagedProcess.spawn(cmd)
+            managed = RunnerManagedProcess.spawn(cmd, ref=ref)
         except RuntimeError as exc:
             logger.error(str(exc))
             # Release describe lock if this was a describe handler
@@ -225,6 +247,10 @@ class FileSensor:
     def start(self):
         """Start watching for new files with day rollover."""
 
+        # Start Callosum connection for emitting detected events
+        self.callosum = CallosumConnection()
+        self.callosum.start()
+
         class SensorEventHandler(FileSystemEventHandler):
             def __init__(self, sensor):
                 self.sensor = sensor
@@ -263,6 +289,10 @@ class FileSensor:
         if self.observer:
             self.observer.stop()
             self.observer.join()
+
+        # Stop Callosum connection
+        if self.callosum:
+            self.callosum.stop()
 
         # Gracefully terminate any running handler processes
         with self.lock:

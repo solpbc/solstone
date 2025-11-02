@@ -11,10 +11,13 @@ from __future__ import annotations
 import argparse
 import json
 import logging
+import os
 import sys
+import time
 from pathlib import Path
 
 from observe.utils import load_analysis_frames
+from think.callosum import callosum_send
 from think.entities import load_entity_names
 from think.models import GEMINI_FLASH, gemini_generate
 from think.utils import setup_cli
@@ -198,6 +201,8 @@ def reduce_analysis(jsonl_path: Path) -> int:
     int
         Exit code (0 success, 1 error)
     """
+    start_time = time.time()
+
     # Derive paths from JSONL
     analysis_path = jsonl_path
     summary_path = jsonl_path.parent / f"{jsonl_path.stem}.md"
@@ -267,6 +272,26 @@ def reduce_analysis(jsonl_path: Path) -> int:
         # Don't fail on crumb creation
 
     logger.info(f"Summary complete: {summary_path}")
+
+    # Emit completion event
+    journal_path = Path(os.getenv("JOURNAL_PATH", ""))
+    duration_ms = int((time.time() - start_time) * 1000)
+
+    try:
+        rel_input = analysis_path.relative_to(journal_path)
+        rel_output = summary_path.relative_to(journal_path)
+    except ValueError:
+        rel_input = analysis_path
+        rel_output = summary_path
+
+    callosum_send(
+        "observe",
+        "reduced",
+        input=str(rel_input),
+        output=str(rel_output),
+        duration_ms=duration_ms,
+    )
+
     return 0
 
 

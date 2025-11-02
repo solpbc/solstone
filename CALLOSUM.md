@@ -51,6 +51,16 @@ Callosum is a JSON-per-line message bus for real-time event distribution across 
 **Fields:** `ref`, `name`, `pid`, `cmd`, `stream`, `line`, `exit_code`, `duration_ms`, `log_path`
 **Purpose:** Real-time stdout/stderr streaming and process exit events
 
+### `observe` - Multimodal capture processing events
+**Source:** `observe/sense.py`, `observe/describe.py`, `observe/transcribe.py`, `observe/reduce.py`
+**Events:** `detected`, `described`, `transcribed`, `reduced`
+**Fields:**
+- `detected`: `file`, `handler`, `ref` - File detected and handler spawned
+- `described`/`transcribed`/`reduced`: `input`, `output`, `duration_ms` - Processing complete
+**Purpose:** Track observation pipeline from file detection through processing completion
+**Path Format:** Relative to `JOURNAL_PATH` (e.g., `20251102/163045_screen.webm`, `20251102/seen/163045_screen.webm`)
+**Correlation:** `detected.ref` matches `logs.exec.ref` for the same handler process
+
 ---
 
 ## Key Concepts

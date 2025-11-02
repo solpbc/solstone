@@ -13,7 +13,9 @@ import asyncio
 import io
 import json
 import logging
+import os
 import re
+import time
 from enum import Enum
 from pathlib import Path
 from typing import Dict, List, Optional
@@ -22,6 +24,7 @@ import av
 import numpy as np
 from PIL import Image
 
+from think.callosum import callosum_send
 from think.utils import setup_cli
 
 logger = logging.getLogger(__name__)
@@ -902,6 +905,9 @@ async def async_main():
 
     logger.info(f"Processing video: {video_path}")
 
+    start_time = time.time()
+    callosum = None
+
     try:
         processor = VideoProcessor(video_path)
 
@@ -916,6 +922,28 @@ async def async_main():
                 max_concurrent=args.jobs,
                 output_path=output_path,
             )
+
+            # Emit completion event
+            if output_path and output_path.exists():
+                journal_path = Path(os.getenv("JOURNAL_PATH", ""))
+                seen_path = video_path.parent / "seen" / video_path.name
+
+                try:
+                    rel_input = seen_path.relative_to(journal_path)
+                    rel_output = output_path.relative_to(journal_path)
+                except ValueError:
+                    rel_input = seen_path
+                    rel_output = output_path
+
+                duration_ms = int((time.time() - start_time) * 1000)
+
+                callosum_send(
+                    "observe",
+                    "described",
+                    input=str(rel_input),
+                    output=str(rel_output),
+                    duration_ms=duration_ms,
+                )
     except Exception as e:
         logger.error(f"Failed to process {video_path}: {e}", exc_info=True)
         raise

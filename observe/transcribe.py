@@ -9,6 +9,7 @@ import io
 import json
 import logging
 import os
+import time
 from pathlib import Path
 from typing import Dict, List
 
@@ -24,6 +25,7 @@ from observe.hear import (
     detect_speech,
     merge_streams,
 )
+from think.callosum import callosum_send
 from think.crumbs import CrumbBuilder
 from think.entities import load_entity_names
 from think.models import GEMINI_FLASH
@@ -516,6 +518,9 @@ class Transcriber:
             raw_path: Path to the raw audio file
             split: If True, process mic and system channels independently
         """
+        start_time = time.time()
+        callosum = None
+
         if split:
             # Split processing mode
             mic_json_path = self._get_json_path(raw_path, stream="mic")
@@ -556,6 +561,30 @@ class Transcriber:
 
             if success:
                 self._move_to_heard(raw_path)
+
+                # Emit completion events for split mode
+                journal_path = Path(os.getenv("JOURNAL_PATH", ""))
+                heard_path = raw_path.parent / "heard" / raw_path.name
+                duration_ms = int((time.time() - start_time) * 1000)
+
+                # Emit event for each stream that was processed
+                for stream in ["mic", "sys"]:
+                    json_path = self._get_json_path(raw_path, stream=stream)
+                    if json_path.exists():
+                        try:
+                            rel_input = heard_path.relative_to(journal_path)
+                            rel_output = json_path.relative_to(journal_path)
+                        except ValueError:
+                            rel_input = heard_path
+                            rel_output = json_path
+
+                        callosum_send(
+                            "observe",
+                            "transcribed",
+                            input=str(rel_input),
+                            output=str(rel_output),
+                            duration_ms=duration_ms,
+                        )
         else:
             # Standard merged processing
             # Skip if already processed
@@ -582,6 +611,26 @@ class Transcriber:
             success = self._transcribe(raw_path, segments)
             if success:
                 self._move_to_heard(raw_path)
+
+                # Emit completion event for standard mode
+                journal_path = Path(os.getenv("JOURNAL_PATH", ""))
+                heard_path = raw_path.parent / "heard" / raw_path.name
+                duration_ms = int((time.time() - start_time) * 1000)
+
+                try:
+                    rel_input = heard_path.relative_to(journal_path)
+                    rel_output = json_path.relative_to(journal_path)
+                except ValueError:
+                    rel_input = heard_path
+                    rel_output = json_path
+
+                callosum_send(
+                    "observe",
+                    "transcribed",
+                    input=str(rel_input),
+                    output=str(rel_output),
+                    duration_ms=duration_ms,
+                )
 
 
 def main():
