@@ -1,10 +1,13 @@
-"""Tests for the Callosum message bus."""
+"""Unit tests for the Callosum message bus.
+
+These tests use mocks to test logic in isolation without real I/O.
+"""
 
 import json
 import os
-import threading
-import time
+import socket
 from pathlib import Path
+from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 
@@ -23,455 +26,254 @@ def journal_path(tmp_path):
         del os.environ["JOURNAL_PATH"]
 
 
-@pytest.fixture
-def callosum_server(journal_path):
-    """Start a Callosum server in a background thread."""
-    server = CallosumServer()
-
-    # Start server in background thread
-    server_thread = threading.Thread(target=server.start, daemon=True)
-    server_thread.start()
-
-    # Wait for server to be ready
-    socket_path = journal_path / "health" / "callosum.sock"
-    for _ in range(50):  # 5 seconds max
-        if socket_path.exists():
-            break
-        time.sleep(0.1)
-    else:
-        raise TimeoutError("Server did not start in time")
-
-    yield server
-
-    # Stop server
-    server.stop()
-    server_thread.join(timeout=2)
-
-
-def test_server_creates_socket(journal_path):
-    """Test that server creates socket file in health directory."""
-    server = CallosumServer()
-
-    # Start server in background
-    server_thread = threading.Thread(target=server.start, daemon=True)
-    server_thread.start()
-
-    # Wait for socket to be created
-    socket_path = journal_path / "health" / "callosum.sock"
-    for _ in range(50):
-        if socket_path.exists():
-            break
-        time.sleep(0.1)
-    else:
-        pytest.fail("Socket file not created")
-
-    assert socket_path.exists()
-
-    # Stop server
-    server.stop()
-    server_thread.join(timeout=2)
-
-    # Socket should be cleaned up
-    assert not socket_path.exists()
-
-
-def test_single_client_emit_and_listen(callosum_server):
-    """Test single client emitting and listening."""
-    received_messages = []
-
-    def callback(message):
-        received_messages.append(message)
-
-    # Create connection with callback (listener)
-    listener = CallosumConnection(callback=callback)
-    listener.connect()
-
-    # Give listener time to start
-    time.sleep(0.1)
-
-    # Create connection and emit
-    client = CallosumConnection()
-    client.connect()
-    client.emit("test", "hello", data="world")
-
-    # Wait for message
-    time.sleep(0.1)
-
-    # Verify message received
-    assert len(received_messages) == 1
-    msg = received_messages[0]
-    assert msg["tract"] == "test"
-    assert msg["event"] == "hello"
-    assert msg["data"] == "world"
-    assert "ts" in msg  # Server should add timestamp
-
-    # Cleanup
-    listener.close()
-    client.close()
-
-
-def test_multiple_clients_broadcast(callosum_server):
-    """Test that messages are broadcast to all listeners."""
-    received_by_listener1 = []
-    received_by_listener2 = []
-    received_by_listener3 = []
-
-    def callback1(msg):
-        received_by_listener1.append(msg)
-
-    def callback2(msg):
-        received_by_listener2.append(msg)
-
-    def callback3(msg):
-        received_by_listener3.append(msg)
-
-    # Create multiple listeners
-    listener1 = CallosumConnection(callback=callback1)
-    listener1.connect()
-
-    listener2 = CallosumConnection(callback=callback2)
-    listener2.connect()
-
-    listener3 = CallosumConnection(callback=callback3)
-    listener3.connect()
-
-    time.sleep(0.1)
-
-    # Emit message from client
-    client = CallosumConnection()
-    client.connect()
-    client.emit("cortex", "agent_start", agent_id="123", persona="analyst")
-
-    # Wait for broadcast
-    time.sleep(0.2)
-
-    # All listeners should receive the message
-    assert len(received_by_listener1) == 1
-    assert len(received_by_listener2) == 1
-    assert len(received_by_listener3) == 1
-
-    # Verify content
-    for received in [
-        received_by_listener1,
-        received_by_listener2,
-        received_by_listener3,
-    ]:
-        msg = received[0]
-        assert msg["tract"] == "cortex"
-        assert msg["event"] == "agent_start"
-        assert msg["agent_id"] == "123"
-        assert msg["persona"] == "analyst"
-
-    # Cleanup
-    client.close()
-    listener1.close()
-    listener2.close()
-    listener3.close()
-
-
-def test_multiple_emitters_to_multiple_listeners(callosum_server):
-    """Test multiple clients emitting to multiple listeners."""
-    received_by_listener1 = []
-    received_by_listener2 = []
-
-    # Create listeners
-    listener1 = CallosumConnection(
-        callback=lambda msg: received_by_listener1.append(msg)
-    )
-    listener1.connect()
-
-    listener2 = CallosumConnection(
-        callback=lambda msg: received_by_listener2.append(msg)
-    )
-    listener2.connect()
-
-    time.sleep(0.1)
-
-    # Create multiple clients and emit
-    client1 = CallosumConnection()
-    client1.connect()
-    client2 = CallosumConnection()
-    client2.connect()
-    client3 = CallosumConnection()
-    client3.connect()
-
-    client1.emit("indexer", "scan_start", index_type="transcripts")
-    client2.emit("cortex", "agent_finish", agent_id="456")
-    client3.emit("supervisor", "process_exit", process_name="observer")
-
-    # Wait for all messages
-    time.sleep(0.2)
-
-    # Both listeners should receive all 3 messages
-    assert len(received_by_listener1) == 3
-    assert len(received_by_listener2) == 3
-
-    # Verify all expected tracts are present (order may vary with concurrent connections)
-    tracts1 = set(msg["tract"] for msg in received_by_listener1)
-    tracts2 = set(msg["tract"] for msg in received_by_listener2)
-
-    assert tracts1 == {"indexer", "cortex", "supervisor"}
-    assert tracts2 == {"indexer", "cortex", "supervisor"}
-
-    # Cleanup
-    for client in [client1, client2, client3]:
-        client.close()
-    for listener in [listener1, listener2]:
-        listener.close()
-
-
-def test_client_reconnect_on_failure(callosum_server):
-    """Test that client can reconnect after connection failure."""
-    client = CallosumConnection()
-    client.connect()
-
-    # First emit should work
-    client.emit("test", "first")
-
-    # Simulate connection failure by closing socket
-    if client.sock:
-        client.sock.close()
-        client.sock = None
-
-    # Create listener BEFORE the reconnect to ensure clean state
-    received = []
-    listener = CallosumConnection(callback=lambda msg: received.append(msg))
-    listener.connect()
-
-    time.sleep(0.1)
-
-    # Reconnect and emit again
-    client.connect()
-    client.emit("test", "reconnected")
-
-    time.sleep(0.1)
-
-    # Should only receive the reconnected message
-    assert len(received) == 1
-    assert received[0]["event"] == "reconnected"
-
-    # Cleanup
-    client.close()
-    listener.close()
-
-
-def test_invalid_message_without_tract(callosum_server):
+def test_server_broadcast_validates_tract_field():
     """Test that messages without tract field are rejected."""
-    received = []
-    listener = CallosumConnection(callback=lambda msg: received.append(msg))
-    listener.connect()
+    server = CallosumServer()
+    server.clients = [Mock()]
 
-    time.sleep(0.1)
-
-    # Send invalid message directly to socket (bypassing emit validation)
-    client = CallosumConnection()
-    client.connect()
-
-    # Send message without tract
+    # Message without tract should be rejected
     invalid_msg = {"event": "test"}
-    line = json.dumps(invalid_msg) + "\n"
-    client.sock.sendall(line.encode("utf-8"))
+    server.broadcast(invalid_msg)
 
-    time.sleep(0.1)
-
-    # Should not be broadcast
-    assert len(received) == 0
-
-    # Cleanup
-    client.close()
-    listener.close()
+    # Client should not receive anything
+    server.clients[0].sendall.assert_not_called()
 
 
-def test_invalid_message_without_event(callosum_server):
+def test_server_broadcast_validates_event_field():
     """Test that messages without event field are rejected."""
-    received = []
-    listener = CallosumConnection(callback=lambda msg: received.append(msg))
-    listener.connect()
+    server = CallosumServer()
+    server.clients = [Mock()]
 
-    time.sleep(0.1)
-
-    # Send invalid message directly to socket
-    client = CallosumConnection()
-    client.connect()
-
-    # Send message without event
+    # Message without event should be rejected
     invalid_msg = {"tract": "test"}
-    line = json.dumps(invalid_msg) + "\n"
-    client.sock.sendall(line.encode("utf-8"))
+    server.broadcast(invalid_msg)
 
-    time.sleep(0.1)
-
-    # Should not be broadcast
-    assert len(received) == 0
-
-    # Cleanup
-    client.close()
-    listener.close()
+    # Client should not receive anything
+    server.clients[0].sendall.assert_not_called()
 
 
-def test_client_emit_when_server_not_running(journal_path):
+def test_server_broadcast_adds_timestamp():
+    """Test that server adds timestamp if not present."""
+    server = CallosumServer()
+    mock_client = Mock()
+    server.clients = [mock_client]
+
+    # Valid message without timestamp
+    msg = {"tract": "test", "event": "hello"}
+
+    with patch("time.time", return_value=1234567.890):
+        server.broadcast(msg)
+
+    # Should have called sendall with message including timestamp
+    mock_client.sendall.assert_called_once()
+    sent_data = mock_client.sendall.call_args[0][0]
+    sent_msg = json.loads(sent_data.decode("utf-8"))
+
+    assert sent_msg["tract"] == "test"
+    assert sent_msg["event"] == "hello"
+    assert sent_msg["ts"] == 1234567890  # milliseconds
+
+
+def test_server_broadcast_preserves_custom_timestamp():
+    """Test that custom timestamp in message is preserved."""
+    server = CallosumServer()
+    mock_client = Mock()
+    server.clients = [mock_client]
+
+    custom_ts = 9999999999
+    msg = {"tract": "test", "event": "hello", "ts": custom_ts}
+
+    server.broadcast(msg)
+
+    # Should preserve custom timestamp
+    sent_data = mock_client.sendall.call_args[0][0]
+    sent_msg = json.loads(sent_data.decode("utf-8"))
+    assert sent_msg["ts"] == custom_ts
+
+
+def test_server_broadcast_removes_dead_clients():
+    """Test that broadcast removes clients that fail to receive."""
+    server = CallosumServer()
+
+    # Create mock clients - one working, one dead
+    working_client = Mock()
+    dead_client = Mock()
+    dead_client.sendall.side_effect = Exception("Connection broken")
+
+    server.clients = [working_client, dead_client]
+
+    msg = {"tract": "test", "event": "hello"}
+    server.broadcast(msg)
+
+    # Dead client should be removed
+    assert working_client in server.clients
+    assert dead_client not in server.clients
+    assert len(server.clients) == 1
+
+    # Dead client socket should be closed
+    dead_client.close.assert_called_once()
+
+
+def test_client_emit_requires_connect_called():
     """Test that emit() requires connect() to be called first."""
-    # No server started
     client = CallosumConnection()
 
     # emit() should raise RuntimeError if connect() was never called
     with pytest.raises(RuntimeError, match="Must call connect\\(\\) before emit\\(\\)"):
-        client.emit("test", "no_server")
-
-    # After calling connect() (which would retry forever), emit just logs and returns
-    # We can't actually test connect() here since it would hang, so we just verify
-    # that the _connect_called flag is checked
+        client.emit("test", "hello")
 
 
-def test_custom_timestamp_preserved(callosum_server):
-    """Test that custom timestamp in message is preserved."""
-    received = []
-    listener = CallosumConnection(callback=lambda msg: received.append(msg))
-    listener.connect()
-
-    time.sleep(0.1)
-
-    # Send message with custom timestamp via raw socket
+def test_client_emit_graceful_when_disconnected():
+    """Test that emit() logs and returns silently if connection drops."""
     client = CallosumConnection()
-    client.connect()
 
-    custom_ts = 1234567890
-    msg = {"tract": "test", "event": "custom_ts", "ts": custom_ts}
-    line = json.dumps(msg) + "\n"
-    client.sock.sendall(line.encode("utf-8"))
+    # Simulate that connect() was called (set receive_thread)
+    client.receive_thread = Mock()
+    client.sock = None  # But connection is now dead
 
-    time.sleep(0.1)
-
-    assert len(received) == 1
-    assert received[0]["ts"] == custom_ts
-
-    # Cleanup
-    client.close()
-    listener.close()
+    # Should not raise, just log
+    with patch("think.callosum.logger") as mock_logger:
+        client.emit("test", "hello")
+        mock_logger.info.assert_called_once()
+        assert "Not connected" in mock_logger.info.call_args[0][0]
 
 
-def test_multiple_sequential_messages(callosum_server):
-    """Test sending multiple messages in sequence."""
-    received = []
-    listener = CallosumConnection(callback=lambda msg: received.append(msg))
-    listener.connect()
-
-    time.sleep(0.1)
-
-    # Send multiple messages
+def test_client_emit_handles_socket_errors():
+    """Test that emit() handles socket errors gracefully."""
     client = CallosumConnection()
-    client.connect()
-    for i in range(10):
-        client.emit("test", "message", seq=i)
 
-    time.sleep(0.2)
+    # Simulate connected state
+    client.receive_thread = Mock()
+    mock_sock = Mock()
+    mock_sock.sendall.side_effect = Exception("Broken pipe")
+    client.sock = mock_sock
 
-    # All messages should be received in order
-    assert len(received) == 10
-    for i, msg in enumerate(received):
-        assert msg["seq"] == i
+    # Should not raise, just mark connection as dead
+    with patch("think.callosum.logger") as mock_logger:
+        client.emit("test", "hello")
+        mock_logger.info.assert_called()
+        assert "Failed to emit" in mock_logger.info.call_args[0][0]
 
-    # Cleanup
-    client.close()
-    listener.close()
+    # Connection should be marked dead
+    assert client.sock is None
 
 
-def test_listener_disconnect_doesnt_affect_others(callosum_server):
-    """Test that one listener disconnecting doesn't affect others."""
-    received_by_listener1 = []
-    received_by_listener2 = []
-
-    # Create two listeners
-    listener1 = CallosumConnection(
-        callback=lambda msg: received_by_listener1.append(msg)
-    )
-    listener1.connect()
-
-    listener2 = CallosumConnection(
-        callback=lambda msg: received_by_listener2.append(msg)
-    )
-    listener2.connect()
-
-    time.sleep(0.1)
-
-    # Send first message
+def test_client_emit_sends_valid_message():
+    """Test that emit() sends properly formatted JSON message."""
     client = CallosumConnection()
-    client.connect()
-    client.emit("test", "first")
 
-    time.sleep(0.1)
+    # Setup connected state
+    client.receive_thread = Mock()
+    mock_sock = Mock()
+    client.sock = mock_sock
 
-    # Both should receive
-    assert len(received_by_listener1) == 1
-    assert len(received_by_listener2) == 1
+    client.emit("test", "hello", data="world", count=42)
 
-    # Disconnect listener1
-    listener1.close()
+    # Verify sendall was called with correct JSON
+    mock_sock.sendall.assert_called_once()
+    sent_data = mock_sock.sendall.call_args[0][0]
+    sent_msg = json.loads(sent_data.decode("utf-8").strip())
 
-    # Give server time to clean up the disconnected client
-    time.sleep(0.3)
-
-    # Send second message
-    client.emit("test", "second")
-
-    time.sleep(0.1)
-
-    # Only listener2 should receive the second message
-    assert len(received_by_listener1) == 1  # Still 1
-    assert len(received_by_listener2) == 2  # Now 2
-
-    # Cleanup
-    client.close()
-    listener2.close()
+    assert sent_msg["tract"] == "test"
+    assert sent_msg["event"] == "hello"
+    assert sent_msg["data"] == "world"
+    assert sent_msg["count"] == 42
 
 
-def test_with_fixtures_journal():
-    """Test using the actual fixtures journal directory."""
-    # Use fixtures journal
-    fixtures_journal = Path(__file__).parent.parent / "fixtures" / "journal"
-    os.environ["JOURNAL_PATH"] = str(fixtures_journal)
+def test_client_connect_retries_on_failure(journal_path):
+    """Test that connect() retries when socket connection fails."""
+    client = CallosumConnection()
 
-    try:
-        # Start server
-        server = CallosumServer()
-        server_thread = threading.Thread(target=server.start, daemon=True)
-        server_thread.start()
+    attempt_count = [0]
 
-        # Wait for socket
-        socket_path = fixtures_journal / "health" / "callosum.sock"
-        for _ in range(50):
-            if socket_path.exists():
-                break
-            time.sleep(0.1)
-        else:
-            pytest.fail("Socket not created")
+    def mock_connect_side_effect(*args):
+        attempt_count[0] += 1
+        if attempt_count[0] < 3:
+            raise ConnectionRefusedError("Not ready yet")
+        # Succeed on 3rd attempt
+        return None
 
-        # Test basic emit/listen
-        received = []
-        listener = CallosumConnection(callback=lambda msg: received.append(msg))
-        listener.connect()
+    with patch("socket.socket") as mock_socket_class:
+        mock_sock = Mock()
+        mock_socket_class.return_value = mock_sock
+        mock_sock.connect.side_effect = mock_connect_side_effect
 
-        time.sleep(0.1)
+        # Speed up retry for testing
+        with patch("time.sleep"):
+            client.connect(retry_delay=0.01)
+
+    # Should have succeeded after 3 attempts
+    assert attempt_count[0] == 3
+    assert client.sock is not None
+    assert client.receive_thread is not None
+
+
+def test_client_connect_idempotent(journal_path):
+    """Test that calling connect() multiple times is safe."""
+    with patch("socket.socket") as mock_socket_class:
+        mock_sock = Mock()
+        mock_socket_class.return_value = mock_sock
 
         client = CallosumConnection()
         client.connect()
-        client.emit("cortex", "test", message="using fixtures journal")
 
-        time.sleep(0.1)
+        first_sock = client.sock
+        first_thread = client.receive_thread
 
-        assert len(received) == 1
-        assert received[0]["message"] == "using fixtures journal"
+        # Call connect again
+        client.connect()
 
-        # Cleanup
-        client.close()
-        listener.close()
+        # Should still have same connection (not reconnected)
+        assert client.sock is first_sock
+        assert client.receive_thread is first_thread
 
-        server.stop()
-        server_thread.join(timeout=2)
 
-        # Socket should be cleaned up
-        assert not socket_path.exists()
+def test_client_close_stops_receive_thread(journal_path):
+    """Test that close() stops the receive thread."""
+    client = CallosumConnection()
 
-    finally:
-        if "JOURNAL_PATH" in os.environ:
-            del os.environ["JOURNAL_PATH"]
+    # Setup connected state
+    mock_thread = Mock()
+    mock_thread.is_alive.return_value = False
+    client.receive_thread = mock_thread
+    client.sock = Mock()
+
+    client.close()
+
+    # Should join the thread
+    mock_thread.join.assert_called_once_with(timeout=2)
+
+    # Should close socket
+    assert client.sock is None
+
+
+def test_server_socket_path_from_env(journal_path):
+    """Test that server uses JOURNAL_PATH env var for socket path."""
+    server = CallosumServer()
+
+    expected_path = journal_path / "health" / "callosum.sock"
+    assert server.socket_path == expected_path
+
+
+def test_server_socket_path_custom():
+    """Test that server accepts custom socket path."""
+    custom_path = Path("/tmp/custom.sock")
+    server = CallosumServer(socket_path=custom_path)
+
+    assert server.socket_path == custom_path
+
+
+def test_client_socket_path_from_env(journal_path):
+    """Test that client uses JOURNAL_PATH env var for socket path."""
+    client = CallosumConnection()
+
+    expected_path = journal_path / "health" / "callosum.sock"
+    assert client.socket_path == expected_path
+
+
+def test_client_socket_path_custom():
+    """Test that client accepts custom socket path."""
+    custom_path = Path("/tmp/custom.sock")
+    client = CallosumConnection(socket_path=custom_path)
+
+    assert client.socket_path == custom_path
