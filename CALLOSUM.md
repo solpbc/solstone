@@ -70,6 +70,18 @@ Callosum is a JSON-per-line message bus for real-time event distribution across 
 **Path Format:** Relative to `JOURNAL_PATH` (e.g., `20251102/163045_screen.webm`, `20251102/seen/163045_screen.webm`)
 **Correlation:** `detected.ref` matches `logs.exec.ref` for the same handler process
 
+### `importer` - Media import and transcription processing
+**Source:** `think/importer.py`
+**Events:** `started`, `status`, `completed`, `error`
+**Fields:**
+- `started`: `import_id`, `input_file`, `file_type`, `day`, `domain`, `setting`, `options`, `stage`
+- `status`: `import_id`, `stage`, `elapsed_ms`, `stage_elapsed_ms` - Periodic progress (every 5s)
+- `completed`: `import_id`, `stage`, `duration_ms`, `total_files_created`, `output_files`, `metadata_file`, `stages_run`
+- `error`: `import_id`, `stage`, `error`, `duration_ms`, `partial_outputs`
+**Stages:** `initialization`, `transcribing`, `segmenting`, `summarizing`
+**Purpose:** Track media file import and transcription progress from start to completion
+**Correlation:** `import_id` correlates all events for a single import operation
+
 ---
 
 ## Key Concepts

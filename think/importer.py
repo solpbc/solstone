@@ -7,6 +7,8 @@ import re
 import string
 import subprocess
 import tempfile
+import threading
+import time
 import unicodedata
 from datetime import timedelta
 from pathlib import Path
@@ -17,6 +19,7 @@ from PIL.PngImagePlugin import PngInfo
 
 from observe.hear import load_transcript
 from observe.revai import convert_revai_to_sunstone, transcribe_file
+from think.callosum import CallosumConnection
 from think.detect_created import detect_created
 from think.detect_transcript import detect_transcript_json, detect_transcript_segment
 from think.models import GEMINI_PRO, gemini_generate
@@ -32,6 +35,54 @@ logger = logging.getLogger(__name__)
 MIN_THRESHOLD = 250
 TIME_RE = re.compile(r"\d{8}_\d{6}")
 _ALLOWED_ASCII = set(string.ascii_letters + string.punctuation + " ")
+
+# Importer tract state
+_callosum: CallosumConnection | None = None
+_import_id: str | None = None
+_current_stage: str = "initialization"
+_start_time: float = 0.0
+_stage_start_time: float = 0.0
+_stages_run: list[str] = []
+_status_thread: threading.Thread | None = None
+_status_running: bool = False
+
+
+def _get_relative_path(path: str) -> str:
+    """Get path relative to JOURNAL_PATH, or return as-is if not under JOURNAL_PATH."""
+    journal_path = os.getenv("JOURNAL_PATH", "")
+    if not journal_path:
+        return path
+    try:
+        return os.path.relpath(path, journal_path)
+    except ValueError:
+        return path
+
+
+def _set_stage(stage: str) -> None:
+    """Update current stage and track timing."""
+    global _current_stage, _stage_start_time
+    _current_stage = stage
+    _stage_start_time = time.monotonic()
+    if stage not in _stages_run:
+        _stages_run.append(stage)
+    logger.debug(f"Stage changed to: {stage}")
+
+
+def _status_emitter() -> None:
+    """Background thread that emits status events every 5 seconds."""
+    while _status_running:
+        if _callosum and _import_id:
+            elapsed_ms = int((time.monotonic() - _start_time) * 1000)
+            stage_elapsed_ms = int((time.monotonic() - _stage_start_time) * 1000)
+            _callosum.emit(
+                "importer",
+                "status",
+                import_id=_import_id,
+                stage=_current_stage,
+                elapsed_ms=elapsed_ms,
+                stage_elapsed_ms=stage_elapsed_ms,
+            )
+        time.sleep(5)
 
 
 def _build_import_payload(
@@ -536,6 +587,9 @@ def create_transcript_summary(
 
 
 def main() -> None:
+    global _callosum, _import_id, _current_stage, _start_time, _stage_start_time
+    global _stages_run, _status_thread, _status_running
+
     parser = argparse.ArgumentParser(description="Chunk a media file into the journal")
     parser.add_argument("media", help="Path to video or audio file")
     parser.add_argument(
@@ -578,8 +632,6 @@ def main() -> None:
     if extra and not args.timestamp:
         args.timestamp = extra[0]
 
-    journal = os.getenv("JOURNAL_PATH")
-
     # If no timestamp provided, detect it and show instruction
     if not args.timestamp:
         # Pass the original filename for better detection
@@ -602,6 +654,42 @@ def main() -> None:
     logger.info(f"Using provided timestamp: {args.timestamp}")
     day_dir = str(day_path(base_dt.strftime("%Y%m%d")))
 
+    # Initialize importer tract state
+    _import_id = args.timestamp
+    _start_time = time.monotonic()
+    _stage_start_time = _start_time
+    _current_stage = "initialization"
+    _stages_run = ["initialization"]
+
+    # Start Callosum connection
+    _callosum = CallosumConnection()
+    _callosum.start()
+
+    # Start status emitter thread
+    _status_running = True
+    _status_thread = threading.Thread(target=_status_emitter, daemon=True)
+    _status_thread.start()
+
+    # Emit started event
+    ext = os.path.splitext(args.media)[1].lower()
+    _callosum.emit(
+        "importer",
+        "started",
+        import_id=_import_id,
+        input_file=os.path.basename(args.media),
+        file_type=ext.lstrip("."),
+        day=base_dt.strftime("%Y%m%d"),
+        domain=args.domain,
+        setting=args.setting,
+        options={
+            "hear": args.hear,
+            "split": args.split,
+            "see": args.see,
+            "summarize": args.summarize,
+        },
+        stage=_current_stage,
+    )
+
     # Track all created files and processing metadata
     all_created_files = []
     audio_transcript_files = []  # Track audio transcript files for summarization
@@ -617,30 +705,12 @@ def main() -> None:
         "outputs": [],
     }
 
-    ext = os.path.splitext(args.media)[1].lower()
-    if ext in {".txt", ".md", ".pdf"}:
-        created_files = process_transcript(
-            args.media,
-            day_dir,
-            base_dt,
-            import_id=args.timestamp,
-            domain=args.domain,
-            setting=args.setting,
-        )
-        all_created_files.extend(created_files)
-        audio_transcript_files.extend(created_files)  # Track for summarization
-        processing_results["outputs"].append(
-            {
-                "type": "transcript",
-                "format": "imported_audio.json",
-                "description": "Transcript segments",
-                "files": created_files,
-                "count": len(created_files),
-            }
-        )
-    else:
-        if args.hear:
-            created_files, revai_json_data = audio_transcribe(
+    try:
+        if ext in {".txt", ".md", ".pdf"}:
+            # Set stage for transcript segmentation
+            _set_stage("segmenting")
+
+            created_files = process_transcript(
                 args.media,
                 day_dir,
                 base_dt,
@@ -652,104 +722,175 @@ def main() -> None:
             audio_transcript_files.extend(created_files)  # Track for summarization
             processing_results["outputs"].append(
                 {
-                    "type": "audio_transcript",
+                    "type": "transcript",
                     "format": "imported_audio.json",
-                    "description": "Rev AI transcription chunks",
-                    "files": created_files,
-                    "count": len(created_files),
-                    "transcription_service": "RevAI",
-                }
-            )
-        if args.split:
-            created_files = split_audio(args.media, day_dir, base_dt)
-            all_created_files.extend(created_files)
-            processing_results["outputs"].append(
-                {
-                    "type": "audio_segments",
-                    "format": "import_raw.flac",
-                    "description": "5-minute FLAC segments",
+                    "description": "Transcript segments",
                     "files": created_files,
                     "count": len(created_files),
                 }
             )
-        if args.see:
-            if has_video_stream(args.media):
-                created_files = process_video(
-                    args.media, day_dir, base_dt, args.see_sample
+        else:
+            if args.hear:
+                # Set stage for audio transcription
+                _set_stage("transcribing")
+
+                created_files, revai_json_data = audio_transcribe(
+                    args.media,
+                    day_dir,
+                    base_dt,
+                    import_id=args.timestamp,
+                    domain=args.domain,
+                    setting=args.setting,
                 )
+                all_created_files.extend(created_files)
+                audio_transcript_files.extend(created_files)  # Track for summarization
+                processing_results["outputs"].append(
+                    {
+                        "type": "audio_transcript",
+                        "format": "imported_audio.json",
+                        "description": "Rev AI transcription chunks",
+                        "files": created_files,
+                        "count": len(created_files),
+                        "transcription_service": "RevAI",
+                    }
+                )
+            if args.split:
+                created_files = split_audio(args.media, day_dir, base_dt)
                 all_created_files.extend(created_files)
                 processing_results["outputs"].append(
                     {
-                        "type": "video_frames",
-                        "format": "import_1_diff.png",
-                        "description": "Extracted video frames with changes",
+                        "type": "audio_segments",
+                        "format": "import_raw.flac",
+                        "description": "5-minute FLAC segments",
                         "files": created_files,
                         "count": len(created_files),
-                        "sampling_interval": args.see_sample,
                     }
                 )
-            else:
-                logger.info(
-                    f"No video stream found in {args.media}, skipping video processing"
-                )
+            if args.see:
+                if has_video_stream(args.media):
+                    created_files = process_video(
+                        args.media, day_dir, base_dt, args.see_sample
+                    )
+                    all_created_files.extend(created_files)
+                    processing_results["outputs"].append(
+                        {
+                            "type": "video_frames",
+                            "format": "import_1_diff.png",
+                            "description": "Extracted video frames with changes",
+                            "files": created_files,
+                            "count": len(created_files),
+                            "sampling_interval": args.see_sample,
+                        }
+                    )
+                else:
+                    logger.info(
+                        f"No video stream found in {args.media}, skipping video processing"
+                    )
 
-    # Complete processing metadata
-    processing_results["processing_completed"] = dt.datetime.now().isoformat()
-    processing_results["total_files_created"] = len(all_created_files)
-    processing_results["all_created_files"] = all_created_files
+        # Complete processing metadata
+        processing_results["processing_completed"] = dt.datetime.now().isoformat()
+        processing_results["total_files_created"] = len(all_created_files)
+        processing_results["all_created_files"] = all_created_files
 
-    # Get parent directory for saving metadata
-    media_path = Path(args.media)
-    import_dir = media_path.parent
+        # Get parent directory for saving metadata
+        media_path = Path(args.media)
+        import_dir = media_path.parent
 
-    # Save RevAI JSON if we have it
-    if revai_json_data:
-        revai_path = import_dir / "revai.json"
+        # Save RevAI JSON if we have it
+        if revai_json_data:
+            revai_path = import_dir / "revai.json"
+            try:
+                with open(revai_path, "w", encoding="utf-8") as f:
+                    json.dump(revai_json_data, f, indent=2)
+                logger.info(f"Saved raw RevAI transcription: {revai_path}")
+                processing_results["revai_json_path"] = str(revai_path)
+            except Exception as e:
+                logger.warning(f"Failed to save RevAI JSON: {e}")
+
+        # Write imported.json with all processing metadata
+        imported_path = import_dir / "imported.json"
         try:
-            with open(revai_path, "w", encoding="utf-8") as f:
-                json.dump(revai_json_data, f, indent=2)
-            logger.info(f"Saved raw RevAI transcription: {revai_path}")
-            processing_results["revai_json_path"] = str(revai_path)
+            with open(imported_path, "w", encoding="utf-8") as f:
+                json.dump(processing_results, f, indent=2)
+            logger.info(f"Saved import processing metadata: {imported_path}")
         except Exception as e:
-            logger.warning(f"Failed to save RevAI JSON: {e}")
+            logger.warning(f"Failed to save imported.json: {e}")
 
-    # Write imported.json with all processing metadata
-    imported_path = import_dir / "imported.json"
-    try:
-        with open(imported_path, "w", encoding="utf-8") as f:
-            json.dump(processing_results, f, indent=2)
-        logger.info(f"Saved import processing metadata: {imported_path}")
-    except Exception as e:
-        logger.warning(f"Failed to save imported.json: {e}")
+        # Update import.json with processing summary if it exists
+        import_metadata_path = import_dir / "import.json"
+        if import_metadata_path.exists():
+            try:
+                with open(import_metadata_path, "r", encoding="utf-8") as f:
+                    metadata = json.load(f)
+                metadata["processing_completed"] = processing_results[
+                    "processing_completed"
+                ]
+                metadata["total_files_created"] = processing_results[
+                    "total_files_created"
+                ]
+                metadata["imported_json_path"] = str(imported_path)
+                if revai_json_data:
+                    metadata["revai_json_path"] = str(revai_path)
+                with open(import_metadata_path, "w", encoding="utf-8") as f:
+                    json.dump(metadata, f, indent=2)
+                logger.info(f"Updated import metadata: {import_metadata_path}")
+            except Exception as e:
+                logger.warning(f"Failed to update import metadata: {e}")
 
-    # Update import.json with processing summary if it exists
-    import_metadata_path = import_dir / "import.json"
-    if import_metadata_path.exists():
-        try:
-            with open(import_metadata_path, "r", encoding="utf-8") as f:
-                metadata = json.load(f)
-            metadata["processing_completed"] = processing_results[
-                "processing_completed"
-            ]
-            metadata["total_files_created"] = processing_results["total_files_created"]
-            metadata["imported_json_path"] = str(imported_path)
-            if revai_json_data:
-                metadata["revai_json_path"] = str(revai_path)
-            with open(import_metadata_path, "w", encoding="utf-8") as f:
-                json.dump(metadata, f, indent=2)
-            logger.info(f"Updated import metadata: {import_metadata_path}")
-        except Exception as e:
-            logger.warning(f"Failed to update import metadata: {e}")
+        # Create Gemini Pro summary if requested and audio transcripts were created
+        if args.summarize and audio_transcript_files:
+            # Set stage for summarization
+            _set_stage("summarizing")
 
-    # Create Gemini Pro summary if requested and audio transcripts were created
-    if args.summarize and audio_transcript_files:
-        create_transcript_summary(
-            import_dir=import_dir,
-            audio_json_files=audio_transcript_files,
-            input_filename=os.path.basename(args.media),
-            timestamp=args.timestamp,
-            setting=args.setting,
+            create_transcript_summary(
+                import_dir=import_dir,
+                audio_json_files=audio_transcript_files,
+                input_filename=os.path.basename(args.media),
+                timestamp=args.timestamp,
+                setting=args.setting,
+            )
+
+        # Emit completed event
+        duration_ms = int((time.monotonic() - _start_time) * 1000)
+        output_files_relative = [_get_relative_path(f) for f in all_created_files]
+        metadata_file_relative = _get_relative_path(str(imported_path))
+
+        _callosum.emit(
+            "importer",
+            "completed",
+            import_id=_import_id,
+            stage=_current_stage,
+            duration_ms=duration_ms,
+            total_files_created=len(all_created_files),
+            output_files=output_files_relative,
+            metadata_file=metadata_file_relative,
+            stages_run=_stages_run,
         )
+
+    except Exception as e:
+        # Emit error event
+        duration_ms = int((time.monotonic() - _start_time) * 1000)
+        partial_outputs = [_get_relative_path(f) for f in all_created_files]
+
+        if _callosum:
+            _callosum.emit(
+                "importer",
+                "error",
+                import_id=_import_id,
+                stage=_current_stage,
+                error=str(e),
+                duration_ms=duration_ms,
+                partial_outputs=partial_outputs,
+            )
+
+        logger.error(f"Import failed: {e}")
+        raise
+
+    finally:
+        # Stop status thread
+        _status_running = False
+        if _status_thread:
+            _status_thread.join(timeout=6)
 
 
 if __name__ == "__main__":
