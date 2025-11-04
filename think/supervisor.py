@@ -1040,6 +1040,7 @@ def main() -> None:
     procs: list[ManagedProcess] = []
     # Start Callosum first - it's the message bus that other services depend on
     procs.append(start_callosum_server())
+    time.sleep(1)  # Give Callosum time to start listening
     if not args.no_observers:
         procs.extend(start_observers())
     if not args.no_cortex:
