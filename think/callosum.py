@@ -203,7 +203,6 @@ class CallosumConnection:
                     sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
                     sock.connect(str(self.socket_path))
                     sock.settimeout(0.1)  # Short timeout for responsive queue draining
-                    logger.info(f"Connected to Callosum at {self.socket_path}")
                 except Exception as e:
                     logger.info(f"Connection attempt failed: {e}")
                     if sock:
