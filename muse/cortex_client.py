@@ -100,10 +100,13 @@ def read_agent_events(agent_id: str) -> list[Dict[str, Any]]:
         raise ValueError("JOURNAL_PATH environment variable not set")
 
     agents_dir = Path(journal_path) / "agents"
-    agent_file = agents_dir / f"{agent_id}.jsonl"
 
+    # Check for completed agent first, then active if not found
+    agent_file = agents_dir / f"{agent_id}.jsonl"
     if not agent_file.exists():
-        raise FileNotFoundError(f"Agent log not found: {agent_file}")
+        agent_file = agents_dir / f"{agent_id}_active.jsonl"
+        if not agent_file.exists():
+            raise FileNotFoundError(f"Agent log not found: {agent_id}")
 
     events = []
     with open(agent_file, "r") as f:
