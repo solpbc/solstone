@@ -532,9 +532,9 @@ class CortexService:
 
                     # Broadcast event to Callosum
                     try:
-                        self.callosum.emit(
-                            "cortex", event.get("event", "unknown"), **event
-                        )
+                        event_copy = event.copy()
+                        event_type = event_copy.pop("event", "unknown")
+                        self.callosum.emit("cortex", event_type, **event_copy)
                     except Exception as e:
                         self.logger.info(f"Failed to broadcast event to Callosum: {e}")
 
