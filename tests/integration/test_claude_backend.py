@@ -65,11 +65,11 @@ def test_claude_backend_real_sdk():
     agents_dir = journal_dir / "agents"
     agents_dir.mkdir(exist_ok=True)
 
-    # Create test-domain directory for Claude backend
-    domains_dir = journal_dir / "domains"
-    domains_dir.mkdir(exist_ok=True)
-    test_domain_dir = domains_dir / "test-domain"
-    test_domain_dir.mkdir(exist_ok=True)
+    # Create test-facet directory for Claude backend
+    facets_dir = journal_dir / "facets"
+    facets_dir.mkdir(exist_ok=True)
+    test_facet_dir = facets_dir / "test-facet"
+    test_facet_dir.mkdir(exist_ok=True)
 
     # Create a temporary directory for task file
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -95,7 +95,7 @@ def test_claude_backend_real_sdk():
                 "persona": "default",
                 "model": CLAUDE_SONNET_4,
                 "max_tokens": 100,
-                "domain": "test-domain",  # Claude backend requires a domain
+                "facet": "test-facet",  # Claude backend requires a facet
             }
         )
 
@@ -211,18 +211,18 @@ def test_claude_backend_with_tool_calls():
     agents_dir = journal_dir / "agents"
     agents_dir.mkdir(exist_ok=True)
 
-    # Create test-domain directory for Claude backend
-    domains_dir = journal_dir / "domains"
-    domains_dir.mkdir(exist_ok=True)
-    test_domain_dir = domains_dir / "test-domain"
-    test_domain_dir.mkdir(exist_ok=True)
+    # Create test-facet directory for Claude backend
+    facets_dir = journal_dir / "facets"
+    facets_dir.mkdir(exist_ok=True)
+    test_facet_dir = facets_dir / "test-facet"
+    test_facet_dir.mkdir(exist_ok=True)
 
     # Create a temporary directory for task file
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
 
         # Create a test file to read
-        test_file = test_domain_dir / "test_file.txt"
+        test_file = test_facet_dir / "test_file.txt"
         test_file.write_text("Hello from test file!")
 
         # Prepare environment
@@ -244,7 +244,7 @@ def test_claude_backend_with_tool_calls():
                 "persona": "default",
                 "model": CLAUDE_SONNET_4,
                 "max_tokens": 200,
-                "domain": "test-domain",  # Claude backend requires a domain
+                "facet": "test-facet",  # Claude backend requires a facet
             }
         )
 
@@ -343,11 +343,11 @@ def test_claude_backend_with_thinking():
     agents_dir = journal_dir / "agents"
     agents_dir.mkdir(exist_ok=True)
 
-    # Create test-domain directory for Claude backend
-    domains_dir = journal_dir / "domains"
-    domains_dir.mkdir(exist_ok=True)
-    test_domain_dir = domains_dir / "test-domain"
-    test_domain_dir.mkdir(exist_ok=True)
+    # Create test-facet directory for Claude backend
+    facets_dir = journal_dir / "facets"
+    facets_dir.mkdir(exist_ok=True)
+    test_facet_dir = facets_dir / "test-facet"
+    test_facet_dir.mkdir(exist_ok=True)
 
     # Create a temporary directory for task file
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -373,7 +373,7 @@ def test_claude_backend_with_thinking():
                 "persona": "default",
                 "model": CLAUDE_SONNET_4,
                 "max_tokens": 200,
-                "domain": "test-domain",  # Claude backend requires a domain
+                "facet": "test-facet",  # Claude backend requires a facet
             }
         )
 

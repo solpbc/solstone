@@ -4,7 +4,7 @@ Callosum is a JSON-per-line message bus for real-time event distribution across 
 
 ## Protocol
 
-**Transport:** Unix domain socket at `$JOURNAL_PATH/health/callosum.sock`
+**Transport:** Unix facet socket at `$JOURNAL_PATH/health/callosum.sock`
 
 **Format:** Newline-delimited JSON. Broadcast to all connected clients.
 
@@ -74,7 +74,7 @@ Callosum is a JSON-per-line message bus for real-time event distribution across 
 **Source:** `think/importer.py`
 **Events:** `started`, `status`, `completed`, `error`
 **Fields:**
-- `started`: `import_id`, `input_file`, `file_type`, `day`, `domain`, `setting`, `options`, `stage`
+- `started`: `import_id`, `input_file`, `file_type`, `day`, `facet`, `setting`, `options`, `stage`
 - `status`: `import_id`, `stage`, `elapsed_ms`, `stage_elapsed_ms` - Periodic progress (every 5s)
 - `completed`: `import_id`, `stage`, `duration_ms`, `total_files_created`, `output_files`, `metadata_file`, `stages_run`
 - `error`: `import_id`, `stage`, `error`, `duration_ms`, `partial_outputs`

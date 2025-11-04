@@ -45,9 +45,9 @@ def send_message(
 
     Args:
         body: The message content (plain text or markdown)
-        from_type: Type of sender (agent/system/domain)
+        from_type: Type of sender (agent/system/facet)
         from_id: ID of the sender
-        context: Optional context dict with domain, matter, and/or day
+        context: Optional context dict with facet, matter, and/or day
 
     Returns:
         The message ID (e.g., "msg_1755450767962")
@@ -282,10 +282,10 @@ def main() -> None:
     send_parser = subparsers.add_parser("send", help="Send a new message")
     send_parser.add_argument("body", help="Message body")
     send_parser.add_argument(
-        "--from-type", default="system", help="Sender type (agent/system/domain)"
+        "--from-type", default="system", help="Sender type (agent/system/facet)"
     )
     send_parser.add_argument("--from-id", default="cli", help="Sender ID")
-    send_parser.add_argument("--domain", help="Domain context")
+    send_parser.add_argument("--facet", help="Facet context")
     send_parser.add_argument("--matter", help="Matter context")
     send_parser.add_argument("--day", help="Day context (YYYYMMDD)")
 
@@ -329,8 +329,8 @@ def main() -> None:
 
     if args.command == "send":
         context = {}
-        if args.domain:
-            context["domain"] = args.domain
+        if args.facet:
+            context["facet"] = args.facet
         if args.matter:
             context["matter"] = args.matter
         if args.day:

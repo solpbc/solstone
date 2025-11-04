@@ -102,7 +102,7 @@ def _list_items(item_type: str) -> list[dict[str, object]]:
                         "description": description,
                         "schedule": metadata.get("schedule"),
                         "priority": metadata.get("priority"),
-                        "multi_domain": metadata.get("multi_domain", False),
+                        "multi_facet": metadata.get("multi_facet", False),
                         "tools": metadata.get("tools"),
                         "backend": metadata.get("backend"),
                         "model": metadata.get("model"),
@@ -130,7 +130,7 @@ def preview_agent_prompt(persona: str) -> object:
             "persona": str,
             "title": str,
             "full_prompt": str,           # Combined instruction + extra_context
-            "example_invocation": str     # Example prompt for multi-domain agents
+            "example_invocation": str     # Example prompt for multi-facet agents
         }
     """
     try:
@@ -144,13 +144,13 @@ def preview_agent_prompt(persona: str) -> object:
         extra_context = config.get("extra_context", "")
         full_prompt = f"{instruction}\n\n---\n\n{extra_context}".strip()
 
-        # Generate example invocation for multi-domain agents
+        # Generate example invocation for multi-facet agents
         example_invocation = ""
-        if config.get("multi_domain"):
+        if config.get("multi_facet"):
             yesterday = (datetime.now()).strftime("%Y%m%d")  # Simplified for example
             example_invocation = (
-                f"You are processing domain 'personal' for yesterday ({yesterday}), "
-                f"use get_domain('personal') to load the correct context before starting."
+                f"You are processing facet 'personal' for yesterday ({yesterday}), "
+                f"use get_facet('personal') to load the correct context before starting."
             )
 
         return jsonify(
@@ -159,7 +159,7 @@ def preview_agent_prompt(persona: str) -> object:
                 "title": config.get("title", persona),
                 "full_prompt": full_prompt,
                 "example_invocation": example_invocation,
-                "multi_domain": config.get("multi_domain", False),
+                "multi_facet": config.get("multi_facet", False),
             }
         )
     except FileNotFoundError:
@@ -313,7 +313,7 @@ def _update_item(item_type: str, item_id: str, data: dict) -> tuple[dict, int]:
     schedule = data.get("schedule")  # Can be None, "daily", etc.
     priority = data.get("priority")  # Can be None or 0-99
     tools = data.get("tools")  # Can be None or comma-separated string
-    multi_domain = data.get("multi_domain")  # Can be None or boolean
+    multi_facet = data.get("multi_facet")  # Can be None or boolean
     backend = data.get("backend")  # Can be None or backend name
     model = data.get("model")  # Can be None or model name
 
@@ -350,8 +350,8 @@ def _update_item(item_type: str, item_id: str, data: dict) -> tuple[dict, int]:
                     item_config["priority"] = priority
                 if tools:
                     item_config["tools"] = tools
-                if multi_domain is not None and multi_domain:
-                    item_config["multi_domain"] = True
+                if multi_facet is not None and multi_facet:
+                    item_config["multi_facet"] = True
                 if backend:
                     item_config["backend"] = backend
                 if model:
@@ -381,13 +381,13 @@ def _update_item(item_type: str, item_id: str, data: dict) -> tuple[dict, int]:
                 elif "tools" in item_config:
                     del item_config["tools"]
 
-                # Multi-domain (boolean field)
-                if multi_domain is not None:
-                    if multi_domain:
-                        item_config["multi_domain"] = True
-                    elif "multi_domain" in item_config:
-                        del item_config["multi_domain"]
-                # Don't delete if multi_domain is None (not provided)
+                # Multi-facet (boolean field)
+                if multi_facet is not None:
+                    if multi_facet:
+                        item_config["multi_facet"] = True
+                    elif "multi_facet" in item_config:
+                        del item_config["multi_facet"]
+                # Don't delete if multi_facet is None (not provided)
 
                 # Backend
                 if backend:
@@ -624,6 +624,6 @@ def _get_pack_description(pack_name: str) -> str:
     descriptions = {
         "journal": "Core journal operations for searching and managing content",
         "todo": "Todo list management with add, remove, and complete operations",
-        "domains": "Domain-specific news and information retrieval",
+        "facets": "Facet-specific news and information retrieval",
     }
     return descriptions.get(pack_name, f"Tools for {pack_name} operations")

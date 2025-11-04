@@ -74,7 +74,7 @@ def test_write_and_read_import_metadata(temp_journal):
         "original_filename": "test.txt",
         "upload_timestamp": 1234567890000,
         "file_size": 1024,
-        "domain": "work",
+        "facet": "work",
     }
 
     # Write metadata
@@ -107,18 +107,18 @@ def test_update_import_metadata_fields(temp_journal):
     timestamp = "20250101_150000"
 
     # Create initial metadata
-    initial = {"original_filename": "test.txt", "domain": None}
+    initial = {"original_filename": "test.txt", "facet": None}
     write_import_metadata(temp_journal, timestamp, initial)
 
     # Update fields
     updated_metadata, was_modified = update_import_metadata_fields(
         journal_root=temp_journal,
         timestamp=timestamp,
-        updates={"domain": "personal", "setting": "home office"},
+        updates={"facet": "personal", "setting": "home office"},
     )
 
     assert was_modified is True
-    assert updated_metadata["domain"] == "personal"
+    assert updated_metadata["facet"] == "personal"
     assert updated_metadata["setting"] == "home office"
     assert updated_metadata["original_filename"] == "test.txt"
 
@@ -126,7 +126,7 @@ def test_update_import_metadata_fields(temp_journal):
     updated_metadata2, was_modified2 = update_import_metadata_fields(
         journal_root=temp_journal,
         timestamp=timestamp,
-        updates={"domain": "personal", "setting": "home office"},
+        updates={"facet": "personal", "setting": "home office"},
     )
 
     assert was_modified2 is False
@@ -257,7 +257,7 @@ def test_build_import_info(temp_journal):
         "file_size": 2048000,
         "mime_type": "audio/m4a",
         "upload_timestamp": 1704124800000,
-        "domain": "work",
+        "facet": "work",
         "setting": "meeting",
     }
     (import_dir / "import.json").write_text(
@@ -285,7 +285,7 @@ def test_build_import_info(temp_journal):
     assert info["original_filename"] == "recording.m4a"
     assert info["file_size"] == 2048000
     assert info["mime_type"] == "audio/m4a"
-    assert info["domain"] == "work"
+    assert info["facet"] == "work"
     assert info["setting"] == "meeting"
     assert info["processed"] is True
     assert info["total_files_created"] == 3

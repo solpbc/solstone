@@ -116,7 +116,7 @@
               <option value="" selected>Default (All Tools)</option>
               <option value="journal">Journal</option>
               <option value="todo">Todo</option>
-              <option value="domains">Domains</option>
+              <option value="facets">Facets</option>
             </select>
           </label>
           <small style="color: #666;">Hold Ctrl/Cmd to select multiple. Leave "Default" for all tools.</small>
@@ -186,10 +186,10 @@
         </div>
 
         <div class="metadata-item">
-          <label>Multi-Domain</label>
-          <div class="checkbox-wrapper" onclick="toggleMultiDomain()">
-            <input type="checkbox" id="modalMultiDomain" onclick="event.stopPropagation()" onchange="saveMetadata()">
-            <span>Run per domain</span>
+          <label>Multi-Facet</label>
+          <div class="checkbox-wrapper" onclick="toggleMultiFacet()">
+            <input type="checkbox" id="modalMultiFacet" onclick="event.stopPropagation()" onchange="saveMetadata()">
+            <span>Run per facet</span>
           </div>
         </div>
 
@@ -216,9 +216,9 @@
             <option value="">Default</option>
             <option value="journal">Journal</option>
             <option value="todo">Todo</option>
-            <option value="domains">Domains</option>
+            <option value="facets">Facets</option>
             <option value="journal,todo">Journal + Todo</option>
-            <option value="journal,domains">Journal + Domains</option>
+            <option value="journal,facets">Journal + Facets</option>
             <option value="custom">Custom...</option>
           </select>
           <input type="text" id="modalToolsCustom" placeholder="e.g., tool1,tool2"
@@ -337,7 +337,7 @@
     <div class="modal-body">
       <div id="previewContent" class="markdown-content preview-content"></div>
 
-      <!-- Example invocation (for multi-domain agents) -->
+      <!-- Example invocation (for multi-facet agents) -->
       <div id="exampleInvocation" class="example-invocation" style="display: none;">
         <h4>Example Invocation</h4>
         <div class="example-box"></div>

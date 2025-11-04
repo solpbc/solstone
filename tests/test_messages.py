@@ -33,7 +33,7 @@ def test_send_message(temp_journal):
         body="Test message content",
         from_type="agent",
         from_id="test_agent",
-        context={"domain": "test_domain", "day": "20250117"},
+        context={"facet": "test_facet", "day": "20250117"},
     )
 
     assert message_id.startswith("msg_")
@@ -51,7 +51,7 @@ def test_send_message(temp_journal):
     assert message["from"]["type"] == "agent"
     assert message["from"]["id"] == "test_agent"
     assert message["status"] == "unread"
-    assert message["context"]["domain"] == "test_domain"
+    assert message["context"]["facet"] == "test_facet"
     assert message["context"]["day"] == "20250117"
 
     # Check activity log
@@ -279,7 +279,7 @@ def test_fixtures_loading(monkeypatch):
     # Check archived fixture message
     archived_msg = get_message("msg_1735990000000")
     assert archived_msg is not None
-    assert archived_msg["from"]["type"] == "domain"
+    assert archived_msg["from"]["type"] == "facet"
     assert archived_msg["status"] == "archived"
 
     # Check unread count

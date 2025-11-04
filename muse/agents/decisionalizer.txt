@@ -9,7 +9,7 @@ From yesterday's "Top 10 Decision-Actions" list, you will:
 - `search_summaries(query, limit, day)` - Search topic summaries
 - `search_transcripts(query, day, limit)` - Search raw transcripts
 - `search_events(query, day)` - Find meetings and structured events
-- `search_news(query, day)` - Search domain news for announcements
+- `search_news(query, day)` - Search facet news for announcements
 - `get_resource(uri)` - Retrieve full transcripts or summaries
   - `journal://transcripts/full/{day}/{time}/{minutes}` - Full transcripts (audio + raw screen)
   - `journal://transcripts/audio/{day}/{time}/{minutes}` - Audio transcripts only

@@ -353,7 +353,7 @@ def load_transcript(
         Tuple of (metadata, entries, formatted_text) where:
         - metadata: Dict from first line. Native transcripts may have empty {}
                    or contain "topics"/"setting". Imported transcripts contain
-                   {"imported": {"id": "...", "domain": "...", ...}}.
+                   {"imported": {"id": "...", "facet": "...", ...}}.
                    On error, returns {"error": "message"}.
         - entries: List of entry dicts from subsequent lines, each with fields
                   like "start", "text", "source", etc. Returns None on error.
@@ -374,8 +374,8 @@ def load_transcript(
         metadata, entries, formatted_text = load_transcript("20250101/120000_imported_audio.jsonl")
         if entries is not None:
             import_id = metadata.get("imported", {}).get("id")
-            domain = metadata.get("imported", {}).get("domain")
-            print(f"Imported from {import_id} (domain: {domain})")
+            facet = metadata.get("imported", {}).get("facet")
+            print(f"Imported from {import_id} (facet: {facet})")
 
         # Check for topics/setting in native transcript
         metadata, entries, formatted_text = load_transcript(path)
@@ -516,8 +516,8 @@ def _format_transcript_entries(path: Path, metadata: dict, entries: list[dict]) 
     # Handle imported metadata specially
     if "imported" in metadata and isinstance(metadata["imported"], dict):
         imported = metadata["imported"]
-        if "domain" in imported:
-            header_parts.append(f"Domain: {imported['domain']}")
+        if "facet" in imported:
+            header_parts.append(f"Facet: {imported['facet']}")
         if "id" in imported:
             header_parts.append(f"Import ID: {imported['id']}")
 

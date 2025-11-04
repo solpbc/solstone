@@ -1,4 +1,4 @@
-"""Domain-specific utilities and tooling for the think module."""
+"""Facet-specific utilities and tooling for the think module."""
 
 import json
 import logging
@@ -59,20 +59,20 @@ def _get_actor_info(context: Context | None = None) -> tuple[str, str | None]:
 
 
 def log_action(
-    domain: str,
+    facet: str,
     day: str,
     action: str,
     params: dict[str, Any],
     context: Context | None = None,
 ) -> None:
-    """Log an MCP tool action to the domain's daily audit log.
+    """Log an MCP tool action to the facet's daily audit log.
 
-    Creates a JSONL log entry in domains/{domain}/logs/{day}.jsonl for tracking
+    Creates a JSONL log entry in facets/{facet}/logs/{day}.jsonl for tracking
     successful todo and entity modifications made via MCP tools. Automatically
     extracts actor identity from meta (stdio) or HTTP headers (HTTP transport).
 
     Args:
-        domain: Domain name where the action occurred
+        facet: Facet name where the action occurred
         day: Day in YYYYMMDD format when the action occurred
         action: Action type (e.g., "todo_add", "entity_attach")
         params: Dictionary of action-specific parameters
@@ -87,7 +87,7 @@ def log_action(
         raise RuntimeError("JOURNAL_PATH not set")
 
     # Build log file path
-    log_path = Path(journal) / "domains" / domain / "logs" / f"{day}.jsonl"
+    log_path = Path(journal) / "facets" / facet / "logs" / f"{day}.jsonl"
 
     # Ensure parent directory exists
     log_path.parent.mkdir(parents=True, exist_ok=True)
@@ -112,65 +112,65 @@ def log_action(
         f.write(json.dumps(entry, ensure_ascii=False) + "\n")
 
 
-def get_domains() -> dict[str, dict[str, object]]:
-    """Return available domains with metadata.
+def get_facets() -> dict[str, dict[str, object]]:
+    """Return available facets with metadata.
 
-    Each key is the domain name. The value contains the domain metadata
-    from domain.json including title, description, and the domain path.
+    Each key is the facet name. The value contains the facet metadata
+    from facet.json including title, description, and the facet path.
     """
     load_dotenv()
     journal = os.getenv("JOURNAL_PATH")
     if not journal:
         raise RuntimeError("JOURNAL_PATH not set")
 
-    domains_dir = Path(journal) / "domains"
-    domains: dict[str, dict[str, object]] = {}
+    facets_dir = Path(journal) / "facets"
+    facets: dict[str, dict[str, object]] = {}
 
-    if not domains_dir.exists():
-        return domains
+    if not facets_dir.exists():
+        return facets
 
-    for domain_path in sorted(domains_dir.iterdir()):
-        if not domain_path.is_dir():
+    for facet_path in sorted(facets_dir.iterdir()):
+        if not facet_path.is_dir():
             continue
 
-        domain_name = domain_path.name
-        domain_json = domain_path / "domain.json"
+        facet_name = facet_path.name
+        facet_json = facet_path / "facet.json"
 
-        if not domain_json.exists():
+        if not facet_json.exists():
             continue
 
         try:
-            with open(domain_json, "r", encoding="utf-8") as f:
-                domain_data = json.load(f)
+            with open(facet_json, "r", encoding="utf-8") as f:
+                facet_data = json.load(f)
 
-            if isinstance(domain_data, dict):
-                domain_info = {
-                    "path": str(domain_path),
-                    "title": domain_data.get("title", domain_name),
-                    "description": domain_data.get("description", ""),
-                    "color": domain_data.get("color", ""),
-                    "emoji": domain_data.get("emoji", ""),
-                    "disabled": domain_data.get("disabled", False),
+            if isinstance(facet_data, dict):
+                facet_info = {
+                    "path": str(facet_path),
+                    "title": facet_data.get("title", facet_name),
+                    "description": facet_data.get("description", ""),
+                    "color": facet_data.get("color", ""),
+                    "emoji": facet_data.get("emoji", ""),
+                    "disabled": facet_data.get("disabled", False),
                 }
 
-                domains[domain_name] = domain_info
+                facets[facet_name] = facet_info
         except Exception as exc:  # pragma: no cover - metadata optional
-            logging.debug("Error reading %s: %s", domain_json, exc)
+            logging.debug("Error reading %s: %s", facet_json, exc)
 
-    return domains
+    return facets
 
 
-def domain_summary(domain: str) -> str:
-    """Generate a nicely formatted markdown summary of a domain.
+def facet_summary(facet: str) -> str:
+    """Generate a nicely formatted markdown summary of a facet.
 
     Args:
-        domain: The domain name to summarize
+        facet: The facet name to summarize
 
     Returns:
-        Formatted markdown string with domain title, description, and entities
+        Formatted markdown string with facet title, description, and entities
 
     Raises:
-        FileNotFoundError: If the domain doesn't exist
+        FileNotFoundError: If the facet doesn't exist
         RuntimeError: If JOURNAL_PATH is not set
     """
     load_dotenv()
@@ -178,22 +178,22 @@ def domain_summary(domain: str) -> str:
     if not journal or journal == "":
         raise RuntimeError("JOURNAL_PATH not set")
 
-    domain_path = Path(journal) / "domains" / domain
-    if not domain_path.exists():
-        raise FileNotFoundError(f"Domain '{domain}' not found at {domain_path}")
+    facet_path = Path(journal) / "facets" / facet
+    if not facet_path.exists():
+        raise FileNotFoundError(f"Facet '{facet}' not found at {facet_path}")
 
-    # Load domain metadata
-    domain_json_path = domain_path / "domain.json"
-    if not domain_json_path.exists():
-        raise FileNotFoundError(f"domain.json not found for domain '{domain}'")
+    # Load facet metadata
+    facet_json_path = facet_path / "facet.json"
+    if not facet_json_path.exists():
+        raise FileNotFoundError(f"facet.json not found for facet '{facet}'")
 
-    with open(domain_json_path, "r", encoding="utf-8") as f:
-        domain_data = json.load(f)
+    with open(facet_json_path, "r", encoding="utf-8") as f:
+        facet_data = json.load(f)
 
     # Extract metadata
-    title = domain_data.get("title", domain)
-    description = domain_data.get("description", "")
-    color = domain_data.get("color", "")
+    title = facet_data.get("title", facet)
+    description = facet_data.get("description", "")
+    color = facet_data.get("color", "")
 
     # Build markdown summary
     lines = []
@@ -214,7 +214,7 @@ def domain_summary(domain: str) -> str:
     # Load entities if available using load_entities
     from think.entities import load_entities
 
-    entities = load_entities(domain)
+    entities = load_entities(facet)
     if entities:
         lines.append("## Entities")
         lines.append("")
@@ -239,19 +239,19 @@ def domain_summary(domain: str) -> str:
     return "\n".join(lines)
 
 
-def get_domain_news(
-    domain: str,
+def get_facet_news(
+    facet: str,
     *,
     cursor: Optional[str] = None,
     limit: int = 1,
     day: Optional[str] = None,
 ) -> dict[str, Any]:
-    """Return domain news entries grouped by day, newest first.
+    """Return facet news entries grouped by day, newest first.
 
     Parameters
     ----------
-    domain:
-        Domain name containing the news directory.
+    facet:
+        Facet name containing the news directory.
     cursor:
         Optional date string (``YYYYMMDD``). When provided, only news files with
         a date strictly earlier than the cursor are returned. This supports
@@ -274,7 +274,7 @@ def get_domain_news(
     if not journal:
         raise RuntimeError("JOURNAL_PATH not set")
 
-    news_dir = Path(journal) / "domains" / domain / "news"
+    news_dir = Path(journal) / "facets" / facet / "news"
     if not news_dir.exists():
         return {"days": [], "next_cursor": None, "has_more": False}
 
@@ -333,32 +333,32 @@ def get_domain_news(
     return {"days": days, "next_cursor": next_cursor, "has_more": has_more}
 
 
-def is_domain_disabled(domain: str) -> bool:
-    """Check if a domain is currently disabled.
+def is_facet_disabled(facet: str) -> bool:
+    """Check if a facet is currently disabled.
 
     Args:
-        domain: Domain name to check
+        facet: Facet name to check
 
     Returns:
-        True if domain is disabled, False if enabled or domain doesn't exist
+        True if facet is disabled, False if enabled or facet doesn't exist
     """
-    domains = get_domains()
-    if domain not in domains:
+    facets = get_facets()
+    if facet not in facets:
         return False
-    return bool(domains[domain].get("disabled", False))
+    return bool(facets[facet].get("disabled", False))
 
 
-def set_domain_disabled(domain: str, disabled: bool) -> None:
-    """Enable or disable a domain by updating domain.json.
+def set_facet_disabled(facet: str, disabled: bool) -> None:
+    """Enable or disable a facet by updating facet.json.
 
     Creates an audit log entry when the state changes.
 
     Args:
-        domain: Domain name to modify
+        facet: Facet name to modify
         disabled: True to disable, False to enable
 
     Raises:
-        FileNotFoundError: If domain doesn't exist
+        FileNotFoundError: If facet doesn't exist
         RuntimeError: If JOURNAL_PATH not set
     """
     load_dotenv()
@@ -366,42 +366,42 @@ def set_domain_disabled(domain: str, disabled: bool) -> None:
     if not journal:
         raise RuntimeError("JOURNAL_PATH not set")
 
-    domain_path = Path(journal) / "domains" / domain
-    if not domain_path.exists():
-        raise FileNotFoundError(f"Domain '{domain}' not found at {domain_path}")
+    facet_path = Path(journal) / "facets" / facet
+    if not facet_path.exists():
+        raise FileNotFoundError(f"Facet '{facet}' not found at {facet_path}")
 
-    domain_json_path = domain_path / "domain.json"
-    if not domain_json_path.exists():
-        raise FileNotFoundError(f"domain.json not found for domain '{domain}'")
+    facet_json_path = facet_path / "facet.json"
+    if not facet_json_path.exists():
+        raise FileNotFoundError(f"facet.json not found for facet '{facet}'")
 
     # Load current config
-    with open(domain_json_path, "r", encoding="utf-8") as f:
-        domain_data = json.load(f)
+    with open(facet_json_path, "r", encoding="utf-8") as f:
+        facet_data = json.load(f)
 
     # Check if state is actually changing
-    current_state = bool(domain_data.get("disabled", False))
+    current_state = bool(facet_data.get("disabled", False))
     if current_state == disabled:
         # No change needed
         return
 
     # Update disabled field
     if disabled:
-        domain_data["disabled"] = True
+        facet_data["disabled"] = True
     else:
         # Remove the field when enabling (cleaner for default case)
-        domain_data.pop("disabled", None)
+        facet_data.pop("disabled", None)
 
     # Write back atomically
     import tempfile
 
     temp_fd, temp_path = tempfile.mkstemp(
-        dir=domain_json_path.parent, suffix=".json", text=True
+        dir=facet_json_path.parent, suffix=".json", text=True
     )
     try:
         with os.fdopen(temp_fd, "w", encoding="utf-8") as f:
-            json.dump(domain_data, f, indent=2, ensure_ascii=False)
+            json.dump(facet_data, f, indent=2, ensure_ascii=False)
             f.write("\n")
-        os.replace(temp_path, domain_json_path)
+        os.replace(temp_path, facet_json_path)
     except Exception:
         # Clean up temp file on error
         try:
@@ -412,9 +412,9 @@ def set_domain_disabled(domain: str, disabled: bool) -> None:
 
     # Log the change
     today = datetime.now().strftime("%Y%m%d")
-    action = "domain_disable" if disabled else "domain_enable"
+    action = "facet_disable" if disabled else "facet_enable"
     log_action(
-        domain=domain,
+        facet=facet,
         day=today,
         action=action,
         params={"disabled": disabled},
@@ -422,11 +422,11 @@ def set_domain_disabled(domain: str, disabled: bool) -> None:
     )
 
 
-def domain_summaries(*, detailed_entities: bool = False) -> str:
-    """Generate a formatted list summary of all domains for use in agent prompts.
+def facet_summaries(*, detailed_entities: bool = False) -> str:
+    """Generate a formatted list summary of all facets for use in agent prompts.
 
-    Returns a markdown-formatted string with each domain as a list item including:
-    - Domain name and hashtag ID
+    Returns a markdown-formatted string with each facet as a list item including:
+    - Facet name and hashtag ID
     - Description
     - Entity names (if available)
 
@@ -439,7 +439,7 @@ def domain_summaries(*, detailed_entities: bool = False) -> str:
     Returns
     -------
     str
-        Formatted markdown string with all domains and their entities
+        Formatted markdown string with all facets and their entities
 
     Raises
     ------
@@ -448,28 +448,28 @@ def domain_summaries(*, detailed_entities: bool = False) -> str:
     """
     from think.entities import load_entities, load_entity_names
 
-    domains = get_domains()
-    if not domains:
-        return "No domains found."
+    facets = get_facets()
+    if not facets:
+        return "No facets found."
 
     lines = []
-    lines.append("## Available Domains\n")
+    lines.append("## Available Facets\n")
 
-    for domain_name, domain_info in sorted(domains.items()):
-        # Build domain header with name in parentheses
-        title = domain_info.get("title", domain_name)
-        description = domain_info.get("description", "")
+    for facet_name, facet_info in sorted(facets.items()):
+        # Build facet header with name in parentheses
+        title = facet_info.get("title", facet_name)
+        description = facet_info.get("description", "")
 
-        # Main list item for domain
-        lines.append(f"- **{title}** (`{domain_name}`)")
+        # Main list item for facet
+        lines.append(f"- **{title}** (`{facet_name}`)")
 
         if description:
             lines.append(f"  {description}")
 
-        # Load entities for this domain
+        # Load entities for this facet
         try:
             if detailed_entities:
-                entities = load_entities(domain_name)
+                entities = load_entities(facet_name)
                 if entities:
                     lines.append(f"  - **{title} Entities**:")
                     for entity in entities:
@@ -488,13 +488,13 @@ def domain_summaries(*, detailed_entities: bool = False) -> str:
                         else:
                             lines.append(f"    - {formatted_name}")
             else:
-                entity_names = load_entity_names(domain=domain_name)
+                entity_names = load_entity_names(facet=facet_name)
                 if entity_names:
                     lines.append(f"  - **{title} Entities**: {entity_names}")
         except Exception:
             # No entities file or error loading - that's fine, skip it
             pass
 
-        lines.append("")  # Empty line between domains
+        lines.append("")  # Empty line between facets
 
     return "\n".join(lines).strip()

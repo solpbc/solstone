@@ -412,20 +412,20 @@ def get_agent(persona: str = "default") -> dict:
     prompt_data = load_prompt(persona, base_dir=AGENT_DIR, include_journal=True)
     config["instruction"] = prompt_data.text
 
-    # Add runtime context (domains with entities)
+    # Add runtime context (facets with entities)
     extra_parts = []
 
-    # Add domains with their entities using unified summary
+    # Add facets with their entities using unified summary
     journal = os.getenv("JOURNAL_PATH")
     if journal:
         try:
-            from think.domains import domain_summaries
+            from think.facets import facet_summaries
 
-            domains_summary = domain_summaries()
-            if domains_summary and domains_summary != "No domains found.":
-                extra_parts.append(domains_summary)
+            facets_summary = facet_summaries()
+            if facets_summary and facets_summary != "No facets found.":
+                extra_parts.append(facets_summary)
         except Exception:
-            pass  # Ignore if domains can't be loaded
+            pass  # Ignore if facets can't be loaded
 
     # Add topics to agent instructions
     topics = get_topics()

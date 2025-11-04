@@ -29,7 +29,7 @@ def test_entities_agent_config(fixture_journal):
     assert config.get("schedule") == "daily"
     assert config.get("priority") == 25
     assert config.get("tools") == "journal, entities"
-    assert config.get("multi_domain") is True
+    assert config.get("multi_facet") is True
 
 
 def test_entities_review_agent_config(fixture_journal):
@@ -46,7 +46,7 @@ def test_entities_review_agent_config(fixture_journal):
     assert config.get("schedule") == "daily"
     assert config.get("priority") == 26
     assert config.get("tools") == "journal, entities"
-    assert config.get("multi_domain") is True
+    assert config.get("multi_facet") is True
 
 
 def test_entities_agent_instruction_content(fixture_journal):
@@ -75,19 +75,19 @@ def test_entities_review_agent_instruction_content(fixture_journal):
     assert "description" in instruction.lower()
 
 
-def test_agent_context_includes_entities_by_domain(fixture_journal):
-    """Test that agent context includes entities grouped by domain."""
+def test_agent_context_includes_entities_by_facet(fixture_journal):
+    """Test that agent context includes entities grouped by facet."""
     config = get_agent("entities")
 
-    # extra_context should contain domain summaries with entities
+    # extra_context should contain facet summaries with entities
     extra_context = config.get("extra_context", "")
-    assert "Available Domains" in extra_context
+    assert "Available Facets" in extra_context
 
-    # Should include domain names in backtick format
-    assert "`test-domain`" in extra_context or "`full-featured`" in extra_context
+    # Should include facet names in backtick format
+    assert "`test-facet`" in extra_context or "`full-featured`" in extra_context
 
-    # Should include entities from fixture domains
-    # fixtures/journal/domains/ contains various entities
+    # Should include entities from fixture facets
+    # fixtures/journal/facets/ contains various entities
     assert "Entities" in extra_context
 
     # Check for some known entities from the fixtures

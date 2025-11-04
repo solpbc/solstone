@@ -1,4 +1,4 @@
-"""Integration tests for the domain-scoped entities indexer."""
+"""Integration tests for the facet-scoped entities indexer."""
 
 import os
 import sqlite3
@@ -64,28 +64,28 @@ def test_env():
 
 @pytest.mark.integration
 def test_scan_finds_attached_entities(test_env):
-    """Test that scanning finds attached entities from domains/*/entities.jsonl."""
-    # Search for Alice Johnson (attached entity in personal domain)
+    """Test that scanning finds attached entities from facets/*/entities.jsonl."""
+    # Search for Alice Johnson (attached entity in personal facet)
     total, results = search_entities("Alice Johnson")
     assert total >= 1, "Should find at least one result for Alice Johnson"
 
     alice = next((r for r in results if "Alice" in r["metadata"]["name"]), None)
     assert alice is not None, "Should find Alice Johnson"
-    assert alice["metadata"]["domain"] == "personal"
+    assert alice["metadata"]["facet"] == "personal"
     assert alice["metadata"]["attached"] is True
     assert alice["metadata"]["day"] is None
 
 
 @pytest.mark.integration
 def test_scan_finds_detected_entities(test_env):
-    """Test that scanning finds detected entities from domains/*/entities/*.md."""
+    """Test that scanning finds detected entities from facets/*/entities/*.md."""
     # Search for Charlie Brown (detected entity in personal/entities/20250101.md)
     total, results = search_entities("Charlie Brown")
     assert total >= 1, "Should find at least one result for Charlie Brown"
 
     charlie = next((r for r in results if "Charlie" in r["metadata"]["name"]), None)
     assert charlie is not None, "Should find Charlie Brown"
-    assert charlie["metadata"]["domain"] == "personal"
+    assert charlie["metadata"]["facet"] == "personal"
     assert charlie["metadata"]["attached"] is False
     assert charlie["metadata"]["day"] == "20250101"
 
@@ -109,14 +109,14 @@ def test_attached_flag_correct(test_env):
 
 
 @pytest.mark.integration
-def test_search_filter_domain(test_env):
-    """Test that search_entities(domain='personal') filters to domain."""
-    total, results = search_entities("", domain="personal", limit=100)
+def test_search_filter_facet(test_env):
+    """Test that search_entities(facet='personal') filters to facet."""
+    total, results = search_entities("", facet="personal", limit=100)
 
     # Should find personal entities but not others
-    domains = {r["metadata"]["domain"] for r in results}
-    assert "personal" in domains
-    assert domains == {"personal"}, f"Should only find personal domain, got {domains}"
+    facets = {r["metadata"]["facet"] for r in results}
+    assert "personal" in facets
+    assert facets == {"personal"}, f"Should only find personal facet, got {facets}"
 
     # Verify we found some personal entities
     assert total >= 3, "Should find at least 3 personal entities"
@@ -180,14 +180,14 @@ def test_search_filter_name(test_env):
 @pytest.mark.integration
 def test_search_combined_filters(test_env):
     """Test combining multiple filters."""
-    # Search for Person entities in personal domain
-    total, results = search_entities("", domain="personal", etype="Person", limit=100)
+    # Search for Person entities in personal facet
+    total, results = search_entities("", facet="personal", etype="Person", limit=100)
 
-    # Should find Alice, Bob, Charlie, Diana (4 people in personal domain)
-    assert total >= 4, "Should find at least 4 Person entities in personal domain"
+    # Should find Alice, Bob, Charlie, Diana (4 people in personal facet)
+    assert total >= 4, "Should find at least 4 Person entities in personal facet"
 
     for r in results:
-        assert r["metadata"]["domain"] == "personal"
+        assert r["metadata"]["facet"] == "personal"
         assert r["metadata"]["type"] == "Person"
 
 
@@ -206,13 +206,13 @@ def test_fts_search_name_and_description(test_env):
 
 
 @pytest.mark.integration
-def test_cross_domain_independence(test_env):
-    """Test that same entity name can exist in multiple domains independently."""
-    # Acme Corp exists in personal domain
-    total, results = search_entities("Acme", domain="personal")
-    assert total >= 1, "Should find Acme Corp in personal domain"
+def test_cross_facet_independence(test_env):
+    """Test that same entity name can exist in multiple facets independently."""
+    # Acme Corp exists in personal facet
+    total, results = search_entities("Acme", facet="personal")
+    assert total >= 1, "Should find Acme Corp in personal facet"
     personal_acme = results[0]
-    assert personal_acme["metadata"]["domain"] == "personal"
+    assert personal_acme["metadata"]["facet"] == "personal"
 
 
 @pytest.mark.integration
@@ -233,14 +233,14 @@ def test_result_format(test_env):
 
     # Check metadata structure
     metadata = result["metadata"]
-    assert "domain" in metadata
+    assert "facet" in metadata
     assert "day" in metadata  # Can be None
     assert "type" in metadata
     assert "name" in metadata
     assert "attached" in metadata
 
     # Check ID format
-    # Format: {domain}/entities.jsonl:{name} or {domain}/entities/{day}.jsonl:{name}
+    # Format: {facet}/entities.jsonl:{name} or {facet}/entities/{day}.jsonl:{name}
     assert "/" in result["id"]
     assert ":" in result["id"]
 

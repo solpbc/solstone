@@ -10,7 +10,7 @@ from typing import Any
 from dotenv import load_dotenv
 from flask import Blueprint, jsonify, render_template, request
 
-from think.domains import get_domain_news, get_domains, set_domain_disabled
+from think.facets import get_facet_news, get_facets, set_facet_disabled
 from think.entities import (
     load_detected_entities_recent,
     load_entities,
@@ -22,37 +22,37 @@ from think.utils import get_topics
 from .. import state
 from ..utils import DATE_RE, adjacent_days, format_date
 
-bp = Blueprint("domains", __name__, template_folder="../templates")
+bp = Blueprint("facets", __name__, template_folder="../templates")
 
 
-@bp.route("/domains")
-def domains_page() -> str:
-    return render_template("domains.html", active="domains")
+@bp.route("/facets")
+def facets_page() -> str:
+    return render_template("facets.html", active="facets")
 
 
-@bp.route("/api/domains")
-def domains_list() -> Any:
-    """Return available domains with their metadata."""
-    return jsonify(get_domains())
+@bp.route("/api/facets")
+def facets_list() -> Any:
+    """Return available facets with their metadata."""
+    return jsonify(get_facets())
 
 
-@bp.route("/api/domains", methods=["POST"])
-def create_domain() -> Any:
-    """Create a new domain with the provided metadata."""
+@bp.route("/api/facets", methods=["POST"])
+def create_facet() -> Any:
+    """Create a new facet with the provided metadata."""
     data = request.get_json()
     if not data:
         return jsonify({"error": "No data provided"}), 400
 
-    domain_name = data.get("name", "").strip()
-    if not domain_name:
-        return jsonify({"error": "Domain name is required"}), 400
+    facet_name = data.get("name", "").strip()
+    if not facet_name:
+        return jsonify({"error": "Facet name is required"}), 400
 
-    # Validate domain name (basic alphanumeric + hyphens/underscores)
-    if not domain_name.replace("-", "").replace("_", "").isalnum():
+    # Validate facet name (basic alphanumeric + hyphens/underscores)
+    if not facet_name.replace("-", "").replace("_", "").isalnum():
         return (
             jsonify(
                 {
-                    "error": "Domain name must be alphanumeric with optional hyphens or underscores"
+                    "error": "Facet name must be alphanumeric with optional hyphens or underscores"
                 }
             ),
             400,
@@ -63,62 +63,62 @@ def create_domain() -> Any:
     if not journal:
         return jsonify({"error": "JOURNAL_PATH not set"}), 500
 
-    domain_path = Path(journal) / "domains" / domain_name
+    facet_path = Path(journal) / "facets" / facet_name
 
-    # Check if domain already exists
-    if domain_path.exists():
-        return jsonify({"error": "Domain already exists"}), 409
+    # Check if facet already exists
+    if facet_path.exists():
+        return jsonify({"error": "Facet already exists"}), 409
 
     try:
-        # Create domain directory
-        domain_path.mkdir(parents=True, exist_ok=True)
+        # Create facet directory
+        facet_path.mkdir(parents=True, exist_ok=True)
 
-        # Create domain.json
-        domain_data = {
-            "title": data.get("title", domain_name),
+        # Create facet.json
+        facet_data = {
+            "title": data.get("title", facet_name),
             "description": data.get("description", ""),
         }
 
         if data.get("color"):
-            domain_data["color"] = data["color"]
+            facet_data["color"] = data["color"]
         if data.get("emoji"):
-            domain_data["emoji"] = data["emoji"]
+            facet_data["emoji"] = data["emoji"]
 
-        domain_json = domain_path / "domain.json"
-        with open(domain_json, "w", encoding="utf-8") as f:
-            json.dump(domain_data, f, indent=2, ensure_ascii=False)
+        facet_json = facet_path / "facet.json"
+        with open(facet_json, "w", encoding="utf-8") as f:
+            json.dump(facet_data, f, indent=2, ensure_ascii=False)
 
         # Create empty entities.jsonl
-        entities_jsonl = domain_path / "entities.jsonl"
+        entities_jsonl = facet_path / "entities.jsonl"
         entities_jsonl.write_text("", encoding="utf-8")
 
-        return jsonify({"success": True, "domain": domain_name})
+        return jsonify({"success": True, "facet": facet_name})
 
     except Exception as e:
-        return jsonify({"error": f"Failed to create domain: {str(e)}"}), 500
+        return jsonify({"error": f"Failed to create facet: {str(e)}"}), 500
 
 
-@bp.route("/domains/<domain_name>")
-def domain_detail(domain_name: str) -> str:
-    """Display detailed view for a specific domain."""
-    domains = get_domains()
-    if domain_name not in domains:
+@bp.route("/facets/<facet_name>")
+def facet_detail(facet_name: str) -> str:
+    """Display detailed view for a specific facet."""
+    facets = get_facets()
+    if facet_name not in facets:
         return render_template("404.html"), 404
 
-    domain_data = domains[domain_name]
+    facet_data = facets[facet_name]
     today = date.today().strftime("%Y%m%d")
     return render_template(
-        "domain_detail.html",
-        domain_name=domain_name,
-        domain_data=domain_data,
+        "facet_detail.html",
+        facet_name=facet_name,
+        facet_data=facet_data,
         today=today,
-        active="domains",
+        active="facets",
     )
 
 
-@bp.route("/api/domains/<domain_name>", methods=["PUT"])
-def update_domain(domain_name: str) -> Any:
-    """Update an existing domain's metadata."""
+@bp.route("/api/facets/<facet_name>", methods=["PUT"])
+def update_facet(facet_name: str) -> Any:
+    """Update an existing facet's metadata."""
     data = request.get_json()
     if not data:
         return jsonify({"error": "No data provided"}), 400
@@ -128,15 +128,15 @@ def update_domain(domain_name: str) -> Any:
     if not journal:
         return jsonify({"error": "JOURNAL_PATH not set"}), 500
 
-    domain_path = Path(journal) / "domains" / domain_name
-    domain_json = domain_path / "domain.json"
+    facet_path = Path(journal) / "facets" / facet_name
+    facet_json = facet_path / "facet.json"
 
-    if not domain_json.exists():
-        return jsonify({"error": "Domain not found"}), 404
+    if not facet_json.exists():
+        return jsonify({"error": "Facet not found"}), 404
 
     try:
-        # Read existing domain.json
-        with open(domain_json, "r", encoding="utf-8") as f:
+        # Read existing facet.json
+        with open(facet_json, "r", encoding="utf-8") as f:
             existing_data = json.load(f)
 
         # Update only provided fields
@@ -155,46 +155,46 @@ def update_domain(domain_name: str) -> Any:
             else:
                 existing_data.pop("emoji", None)
 
-        # Write updated domain.json
-        with open(domain_json, "w", encoding="utf-8") as f:
+        # Write updated facet.json
+        with open(facet_json, "w", encoding="utf-8") as f:
             json.dump(existing_data, f, indent=2, ensure_ascii=False)
 
-        return jsonify({"success": True, "domain": domain_name})
+        return jsonify({"success": True, "facet": facet_name})
 
     except Exception as e:
-        return jsonify({"error": f"Failed to update domain: {str(e)}"}), 500
+        return jsonify({"error": f"Failed to update facet: {str(e)}"}), 500
 
 
-@bp.route("/api/domains/<domain_name>/toggle", methods=["POST"])
-def toggle_domain_state(domain_name: str) -> Any:
-    """Toggle domain enabled/disabled state for automated agent runs."""
-    domains = get_domains()
-    if domain_name not in domains:
-        return jsonify({"error": "Domain not found"}), 404
+@bp.route("/api/facets/<facet_name>/toggle", methods=["POST"])
+def toggle_facet_state(facet_name: str) -> Any:
+    """Toggle facet enabled/disabled state for automated agent runs."""
+    facets = get_facets()
+    if facet_name not in facets:
+        return jsonify({"error": "Facet not found"}), 404
 
     try:
         # Get current state
-        current_state = domains[domain_name].get("disabled", False)
+        current_state = facets[facet_name].get("disabled", False)
         new_state = not current_state
 
         # Update the state
-        set_domain_disabled(domain_name, new_state)
+        set_facet_disabled(facet_name, new_state)
 
         return jsonify(
             {
                 "success": True,
-                "domain": domain_name,
+                "facet": facet_name,
                 "disabled": new_state,
-                "message": f"Domain {'disabled' if new_state else 'enabled'}",
+                "message": f"Facet {'disabled' if new_state else 'enabled'}",
             }
         )
 
     except Exception as e:
-        return jsonify({"error": f"Failed to toggle domain state: {str(e)}"}), 500
+        return jsonify({"error": f"Failed to toggle facet state: {str(e)}"}), 500
 
 
-def get_domain_entities_data(domain_name: str) -> dict:
-    """Get entity data for a domain: attached and detected entities.
+def get_facet_entities_data(facet_name: str) -> dict:
+    """Get entity data for a facet: attached and detected entities.
 
     Returns:
         dict with keys:
@@ -202,13 +202,13 @@ def get_domain_entities_data(domain_name: str) -> dict:
             - detected: list of {"type": str, "name": str, "description": str, "count": int, "last_seen": str}
     """
     # Load attached entities (already returns list of dicts)
-    attached = load_entities(domain_name)
+    attached = load_entities(facet_name)
 
     # Query detected entities from indexer
     _, detected_results = search_entities(
         "",
         limit=1000,  # Get all detected entities
-        domain=domain_name,
+        facet=facet_name,
         attached=False,
         order="day",  # Most recent first
     )
@@ -235,19 +235,19 @@ def get_domain_entities_data(domain_name: str) -> dict:
     return {"attached": attached, "detected": detected}
 
 
-@bp.route("/api/domains/<domain_name>/entities")
-def get_domain_entities(domain_name: str) -> Any:
-    """Get entities for a specific domain (attached and detected)."""
+@bp.route("/api/facets/<facet_name>/entities")
+def get_facet_entities(facet_name: str) -> Any:
+    """Get entities for a specific facet (attached and detected)."""
     try:
-        data = get_domain_entities_data(domain_name)
+        data = get_facet_entities_data(facet_name)
         return jsonify(data)
     except Exception as e:
         return jsonify({"error": f"Failed to get entities: {str(e)}"}), 500
 
 
-@bp.route("/api/domains/<domain_name>/entities", methods=["POST"])
-def add_domain_entity(domain_name: str) -> Any:
-    """Add/attach an entity to a domain."""
+@bp.route("/api/facets/<facet_name>/entities", methods=["POST"])
+def add_facet_entity(facet_name: str) -> Any:
+    """Add/attach an entity to a facet."""
     data = request.get_json()
     if not data:
         return jsonify({"error": "No data provided"}), 400
@@ -263,18 +263,18 @@ def add_domain_entity(domain_name: str) -> Any:
 
     try:
         # Load existing attached entities
-        entities = load_entities(domain_name)
+        entities = load_entities(facet_name)
 
         # Check for duplicates
         for entity in entities:
             if entity.get("type") == etype and entity.get("name") == name:
-                return jsonify({"error": "Entity already exists in domain"}), 409
+                return jsonify({"error": "Entity already exists in facet"}), 409
 
         # Add new entity
         entities.append({"type": etype, "name": name, "description": desc})
 
         # Save back
-        save_entities(domain_name, entities)
+        save_entities(facet_name, entities)
 
         return jsonify({"success": True})
 
@@ -282,9 +282,9 @@ def add_domain_entity(domain_name: str) -> Any:
         return jsonify({"error": f"Failed to add entity: {str(e)}"}), 500
 
 
-@bp.route("/api/domains/<domain_name>/entities", methods=["DELETE"])
-def remove_domain_entity(domain_name: str) -> Any:
-    """Remove/detach an entity from a domain."""
+@bp.route("/api/facets/<facet_name>/entities", methods=["DELETE"])
+def remove_facet_entity(facet_name: str) -> Any:
+    """Remove/detach an entity from a facet."""
     data = request.get_json()
     if not data:
         return jsonify({"error": "No data provided"}), 400
@@ -297,7 +297,7 @@ def remove_domain_entity(domain_name: str) -> Any:
 
     try:
         # Load existing attached entities
-        entities = load_entities(domain_name)
+        entities = load_entities(facet_name)
 
         # Filter out the entity to remove
         filtered = [
@@ -308,10 +308,10 @@ def remove_domain_entity(domain_name: str) -> Any:
 
         # Check if anything was removed
         if len(filtered) == len(entities):
-            return jsonify({"error": "Entity not found in domain"}), 404
+            return jsonify({"error": "Entity not found in facet"}), 404
 
         # Save filtered list
-        save_entities(domain_name, filtered)
+        save_entities(facet_name, filtered)
 
         return jsonify({"success": True})
 
@@ -319,9 +319,9 @@ def remove_domain_entity(domain_name: str) -> Any:
         return jsonify({"error": f"Failed to remove entity: {str(e)}"}), 500
 
 
-@bp.route("/api/domains/<domain_name>/generate-description", methods=["POST"])
-def generate_domain_description(domain_name: str) -> Any:
-    """Generate a description for a domain using AI agent."""
+@bp.route("/api/facets/<facet_name>/generate-description", methods=["POST"])
+def generate_facet_description(facet_name: str) -> Any:
+    """Generate a description for a facet using AI agent."""
     data = request.get_json()
     if not data:
         return jsonify({"error": "No data provided"}), 400
@@ -338,19 +338,19 @@ def generate_domain_description(domain_name: str) -> Any:
     if not journal:
         return jsonify({"error": "JOURNAL_PATH not set"}), 500
 
-    domain_path = Path(journal) / "domains" / domain_name
-    if not domain_path.exists():
-        return jsonify({"error": "Domain not found"}), 404
+    facet_path = Path(journal) / "facets" / facet_name
+    if not facet_path.exists():
+        return jsonify({"error": "Facet not found"}), 404
 
     try:
-        # Get domain metadata
-        domains = get_domains()
-        domain_data = domains.get(domain_name, {})
+        # Get facet metadata
+        facets = get_facets()
+        facet_data = facets.get(facet_name, {})
 
         # Build context for the agent
         context_parts = [
-            f"Domain Name: {domain_name}",
-            f"Domain Title: {domain_data.get('title', domain_name)}",
+            f"Facet Name: {facet_name}",
+            f"Facet Title: {facet_data.get('title', facet_name)}",
         ]
 
         if current_description:
@@ -358,23 +358,23 @@ def generate_domain_description(domain_name: str) -> Any:
         else:
             context_parts.append("Current Description: (none)")
 
-        # Check if domain has entities using load_entity_names
+        # Check if facet has entities using load_entity_names
         from think.entities import load_entity_names
 
         try:
-            entity_names = load_entity_names(domain=domain_name)
+            entity_names = load_entity_names(facet=facet_name)
             if entity_names:
-                context_parts.append(f"Domain Entities: {entity_names}")
+                context_parts.append(f"Facet Entities: {entity_names}")
         except Exception:
             pass
 
         context = "\n".join(context_parts)
 
-        prompt = f"""Please generate a compelling, informative description for this domain based on the following context:
+        prompt = f"""Please generate a compelling, informative description for this facet based on the following context:
 
 {context}
 
-Generate a clear, engaging 1-2 sentence description that captures the essence and purpose of this domain. The description should help users understand what they'll find in this domain and be appropriate for a personal knowledge management system."""
+Generate a clear, engaging 1-2 sentence description that captures the essence and purpose of this facet. The description should help users understand what they'll find in this facet and be appropriate for a personal knowledge management system."""
 
         # Create agent request - events will be broadcast by shared watcher
         from pathlib import Path
@@ -383,7 +383,7 @@ Generate a clear, engaging 1-2 sentence description that captures the essence an
 
         agent_file = cortex_request(
             prompt=prompt,
-            persona="domain_describe",
+            persona="facet_describe",
             backend="google",
         )
 
@@ -396,8 +396,8 @@ Generate a clear, engaging 1-2 sentence description that captures the essence an
         return jsonify({"error": f"Failed to generate description: {str(e)}"}), 500
 
 
-@bp.route("/api/domains/<domain_name>/entities/description", methods=["PUT"])
-def update_entity_description(domain_name: str) -> Any:
+@bp.route("/api/facets/<facet_name>/entities/description", methods=["PUT"])
+def update_entity_description(facet_name: str) -> Any:
     """Update an entity's description."""
     data = request.get_json()
     if not data:
@@ -412,7 +412,7 @@ def update_entity_description(domain_name: str) -> Any:
 
     try:
         # Load existing attached entities
-        entities = load_entities(domain_name)
+        entities = load_entities(facet_name)
 
         # Find and update the entity
         updated = False
@@ -423,10 +423,10 @@ def update_entity_description(domain_name: str) -> Any:
                 break
 
         if not updated:
-            return jsonify({"error": "Entity not found in domain"}), 404
+            return jsonify({"error": "Entity not found in facet"}), 404
 
         # Save updated list
-        save_entities(domain_name, entities)
+        save_entities(facet_name, entities)
 
         return jsonify({"success": True})
 
@@ -434,8 +434,8 @@ def update_entity_description(domain_name: str) -> Any:
         return jsonify({"error": f"Failed to update entity description: {str(e)}"}), 500
 
 
-@bp.route("/api/domains/<domain_name>/entities/generate-description", methods=["POST"])
-def generate_entity_description(domain_name: str) -> Any:
+@bp.route("/api/facets/<facet_name>/entities/generate-description", methods=["POST"])
+def generate_entity_description(facet_name: str) -> Any:
     """Generate a description for an entity using AI agent."""
     data = request.get_json()
     if not data:
@@ -458,7 +458,7 @@ def generate_entity_description(domain_name: str) -> Any:
         context_parts = [
             f"Entity Type: {entity_type}",
             f"Entity Name: {entity_name}",
-            f"Domain: {domain_name}",
+            f"Facet: {facet_name}",
         ]
 
         if current_description:
@@ -481,7 +481,7 @@ Generate a clear, concise description (1-2 sentences) that captures what this {e
 
         agent_file = cortex_request(
             prompt=prompt,
-            persona="domain_describe",
+            persona="facet_describe",
             backend="google",
         )
 
@@ -497,8 +497,8 @@ Generate a clear, concise description (1-2 sentences) that captures what this {e
         )
 
 
-@bp.route("/api/domains/<domain_name>/entities/assist", methods=["POST"])
-def assist_entity_add(domain_name: str) -> Any:
+@bp.route("/api/facets/<facet_name>/entities/assist", methods=["POST"])
+def assist_entity_add(facet_name: str) -> Any:
     """Use entity_assist agent to quickly add an entity with AI-generated details."""
     data = request.get_json()
     if not data:
@@ -513,7 +513,7 @@ def assist_entity_add(domain_name: str) -> Any:
         from muse.cortex_client import cortex_request
 
         # Format prompt as specified by entity_assist agent
-        prompt = f"For the '{domain_name}' domain, this is the user's request to attach a new entity: {name}"
+        prompt = f"For the '{facet_name}' facet, this is the user's request to attach a new entity: {name}"
 
         # Create agent request - entity_assist persona already has backend configured
         agent_file = cortex_request(
@@ -530,9 +530,9 @@ def assist_entity_add(domain_name: str) -> Any:
         return jsonify({"error": f"Failed to start entity assistant: {str(e)}"}), 500
 
 
-@bp.route("/api/domains/<domain_name>/news")
-def get_domain_news_feed(domain_name: str) -> Any:
-    """Return paginated news entries for a domain."""
+@bp.route("/api/facets/<facet_name>/news")
+def get_facet_news_feed(facet_name: str) -> Any:
+    """Return paginated news entries for a facet."""
 
     cursor = request.args.get("cursor")
     day = request.args.get("day")
@@ -542,7 +542,7 @@ def get_domain_news_feed(domain_name: str) -> Any:
         limit = 5
 
     try:
-        news_payload = get_domain_news(domain_name, cursor=cursor, limit=limit, day=day)
+        news_payload = get_facet_news(facet_name, cursor=cursor, limit=limit, day=day)
         return jsonify(news_payload)
     except RuntimeError as exc:
         return jsonify({"error": str(exc)}), 500
@@ -550,53 +550,53 @@ def get_domain_news_feed(domain_name: str) -> Any:
         return jsonify({"error": f"Failed to load news: {str(exc)}"}), 500
 
 
-@bp.route("/domains/<domain_name>/entities/manage")
-def entity_manager(domain_name: str) -> str:
-    """Display entity management page for a domain."""
-    domains = get_domains()
-    if domain_name not in domains:
+@bp.route("/facets/<facet_name>/entities/manage")
+def entity_manager(facet_name: str) -> str:
+    """Display entity management page for a facet."""
+    facets = get_facets()
+    if facet_name not in facets:
         return render_template("404.html"), 404
 
     try:
         # Load attached entities
-        attached_entities = load_entities(domain_name)
+        attached_entities = load_entities(facet_name)
 
         # Load recent detected entities (last 30 days, excluding attached names/akas)
-        detected_entities = load_detected_entities_recent(domain_name, days=30)
+        detected_entities = load_detected_entities_recent(facet_name, days=30)
 
         return render_template(
             "entity_manager.html",
-            domain_name=domain_name,
+            facet_name=facet_name,
             attached_entities=attached_entities,
             detected_entities=detected_entities,
-            active="domains",
+            active="facets",
         )
     except Exception as e:
         return render_template("error.html", error=str(e)), 500
 
 
-@bp.route("/domains/<domain_name>/calendar/<day>")
-def domain_day(domain_name: str, day: str) -> str:
-    """Display calendar day view for a specific domain."""
+@bp.route("/facets/<facet_name>/calendar/<day>")
+def facet_day(facet_name: str, day: str) -> str:
+    """Display calendar day view for a specific facet."""
     # Validate date format
     if not re.fullmatch(DATE_RE.pattern, day):
         return "", 404
 
-    # Validate domain exists
-    domains = get_domains()
-    if domain_name not in domains:
+    # Validate facet exists
+    facets = get_facets()
+    if facet_name not in facets:
         return render_template("404.html"), 404
 
-    domain_data = domains[domain_name]
+    facet_data = facets[facet_name]
 
     # Get navigation dates
     prev_day, next_day = adjacent_days(state.journal_root, day)
     today_day = date.today().strftime("%Y%m%d")
     title = format_date(day)
 
-    # Load domain-filtered occurrences for this day
+    # Load facet-filtered occurrences for this day
     topics = get_topics()
-    _, results = search_events(query="", domain=domain_name, day=day, limit=1000)
+    _, results = search_events(query="", facet=facet_name, day=day, limit=1000)
 
     # Transform search results into timeline format
     occurrences = []
@@ -627,21 +627,21 @@ def domain_day(domain_name: str, day: str) -> str:
         occurrences.append(occurrence)
 
     return render_template(
-        "domain_day.html",
-        domain_name=domain_name,
-        domain_data=domain_data,
+        "facet_day.html",
+        facet_name=facet_name,
+        facet_data=facet_data,
         day=day,
         title=title,
         prev_day=prev_day,
         next_day=next_day,
         today_day=today_day,
         occurrences=occurrences,
-        active="domains",
+        active="facets",
     )
 
 
-@bp.route("/api/domains/<domain_name>/entities/manage/add-aka", methods=["POST"])
-def add_aka_from_detected(domain_name: str) -> Any:
+@bp.route("/api/facets/<facet_name>/entities/manage/add-aka", methods=["POST"])
+def add_aka_from_detected(facet_name: str) -> Any:
     """Add a detected entity name to an attached entity's aka list."""
     data = request.get_json()
     if not data:
@@ -655,7 +655,7 @@ def add_aka_from_detected(domain_name: str) -> Any:
 
     try:
         # Load attached entities
-        entities = load_entities(domain_name)
+        entities = load_entities(facet_name)
 
         # Find target entity
         target = None
@@ -678,7 +678,7 @@ def add_aka_from_detected(domain_name: str) -> Any:
             target["aka"] = aka_list
 
             # Save updated entities
-            save_entities(domain_name, entities)
+            save_entities(facet_name, entities)
 
             return jsonify({"success": True})
         else:
@@ -688,8 +688,8 @@ def add_aka_from_detected(domain_name: str) -> Any:
         return jsonify({"error": f"Failed to add aka: {str(e)}"}), 500
 
 
-@bp.route("/api/domains/<domain_name>/entities/manage/update-aka", methods=["POST"])
-def update_aka_list(domain_name: str) -> Any:
+@bp.route("/api/facets/<facet_name>/entities/manage/update-aka", methods=["POST"])
+def update_aka_list(facet_name: str) -> Any:
     """Update an attached entity's aka list directly."""
     data = request.get_json()
     if not data:
@@ -711,7 +711,7 @@ def update_aka_list(domain_name: str) -> Any:
             aka_list = []
 
         # Load attached entities
-        entities = load_entities(domain_name)
+        entities = load_entities(facet_name)
 
         # Find and update target entity
         target = None
@@ -730,7 +730,7 @@ def update_aka_list(domain_name: str) -> Any:
             target.pop("aka", None)
 
         # Save updated entities
-        save_entities(domain_name, entities)
+        save_entities(facet_name, entities)
 
         return jsonify({"success": True, "aka": aka_list})
 
@@ -738,8 +738,8 @@ def update_aka_list(domain_name: str) -> Any:
         return jsonify({"error": f"Failed to update aka list: {str(e)}"}), 500
 
 
-@bp.route("/api/domains/<domain_name>/entities/update", methods=["PUT"])
-def update_entity_full(domain_name: str) -> Any:
+@bp.route("/api/facets/<facet_name>/entities/update", methods=["PUT"])
+def update_entity_full(facet_name: str) -> Any:
     """Update entity name and AKA list."""
     data = request.get_json()
     if not data:
@@ -763,7 +763,7 @@ def update_entity_full(domain_name: str) -> Any:
             aka_list = []
 
         # Load attached entities
-        entities = load_entities(domain_name)
+        entities = load_entities(facet_name)
 
         # Find target entity
         target = None
@@ -798,7 +798,7 @@ def update_entity_full(domain_name: str) -> Any:
             target.pop("aka", None)
 
         # Save updated entities
-        save_entities(domain_name, entities)
+        save_entities(facet_name, entities)
 
         return jsonify({"success": True, "entity": target})
 
@@ -806,8 +806,8 @@ def update_entity_full(domain_name: str) -> Any:
         return jsonify({"error": f"Failed to update entity: {str(e)}"}), 500
 
 
-@bp.route("/api/domains/<domain_name>/entities/detected/preview")
-def preview_detected_entity_delete(domain_name: str) -> Any:
+@bp.route("/api/facets/<facet_name>/entities/detected/preview")
+def preview_detected_entity_delete(facet_name: str) -> Any:
     """Preview which days contain a detected entity before deletion."""
     entity_name = request.args.get("name", "").strip()
     if not entity_name:
@@ -819,7 +819,7 @@ def preview_detected_entity_delete(domain_name: str) -> Any:
         if not journal:
             return jsonify({"error": "JOURNAL_PATH not set"}), 500
 
-        entities_dir = Path(journal) / "domains" / domain_name / "entities"
+        entities_dir = Path(journal) / "facets" / facet_name / "entities"
         if not entities_dir.exists():
             return jsonify({"success": True, "days": []})
 
@@ -827,7 +827,7 @@ def preview_detected_entity_delete(domain_name: str) -> Any:
         found_days = []
         for day_file in sorted(entities_dir.glob("*.jsonl")):
             day = day_file.stem
-            entities = load_entities(domain_name, day)
+            entities = load_entities(facet_name, day)
 
             # Find all occurrences of this entity name (any type)
             for entity in entities:
@@ -846,8 +846,8 @@ def preview_detected_entity_delete(domain_name: str) -> Any:
         return jsonify({"error": f"Failed to preview entity: {str(e)}"}), 500
 
 
-@bp.route("/api/domains/<domain_name>/entities/detected", methods=["DELETE"])
-def delete_detected_entity(domain_name: str) -> Any:
+@bp.route("/api/facets/<facet_name>/entities/detected", methods=["DELETE"])
+def delete_detected_entity(facet_name: str) -> Any:
     """Delete a detected entity from all day files."""
     data = request.get_json()
     if not data:
@@ -863,7 +863,7 @@ def delete_detected_entity(domain_name: str) -> Any:
         if not journal:
             return jsonify({"error": "JOURNAL_PATH not set"}), 500
 
-        entities_dir = Path(journal) / "domains" / domain_name / "entities"
+        entities_dir = Path(journal) / "facets" / facet_name / "entities"
         if not entities_dir.exists():
             return jsonify({"success": True, "days_modified": []})
 
@@ -871,7 +871,7 @@ def delete_detected_entity(domain_name: str) -> Any:
         days_modified = []
         for day_file in sorted(entities_dir.glob("*.jsonl")):
             day = day_file.stem
-            entities = load_entities(domain_name, day)
+            entities = load_entities(facet_name, day)
 
             # Filter out entities matching this name (any type)
             original_count = len(entities)
@@ -879,7 +879,7 @@ def delete_detected_entity(domain_name: str) -> Any:
 
             # Only save if we actually removed something
             if len(filtered_entities) < original_count:
-                save_entities(domain_name, filtered_entities, day)
+                save_entities(facet_name, filtered_entities, day)
                 days_modified.append(day)
 
         return jsonify({"success": True, "days_modified": days_modified})

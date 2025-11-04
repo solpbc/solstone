@@ -12,7 +12,7 @@ from typing import Any, Iterable, Sequence
 
 from dotenv import load_dotenv
 
-from think.domains import get_domains
+from think.facets import get_facets
 
 __all__ = [
     "TodoChecklist",
@@ -29,7 +29,7 @@ __all__ = [
     "parse_item",
     "parse_items",
     "upcoming",
-    "get_domains_with_todos",
+    "get_facets_with_todos",
 ]
 
 TODO_ENTRY_RE = re.compile(r"^- \[( |x|X)\]\s?(.*)$")
@@ -70,7 +70,7 @@ class TodoChecklist:
     """In-memory representation of a day's todo checklist."""
 
     day: str
-    domain: str
+    facet: str
     path: Path
     entries: list[str]
     exists: bool
@@ -95,18 +95,18 @@ class TodoChecklist:
         return index, entry, completed, body
 
     @classmethod
-    def load(cls, day: str, domain: str) -> "TodoChecklist":
-        """Load checklist entries for ``day`` and ``domain``.
+    def load(cls, day: str, facet: str) -> "TodoChecklist":
+        """Load checklist entries for ``day`` and ``facet``.
 
         Args:
             day: Journal day in ``YYYYMMDD`` format.
-            domain: Domain name (e.g., "personal", "work").
+            facet: Facet name (e.g., "personal", "work").
 
         Returns:
             TodoChecklist instance with entries loaded from disk, or empty if file doesn't exist.
         """
 
-        path = todo_file_path(day, domain)
+        path = todo_file_path(day, facet)
 
         exists = path.is_file()
         if not exists:
@@ -115,7 +115,7 @@ class TodoChecklist:
             text = path.read_text(encoding="utf-8")
             entries = [line.rstrip("\n") for line in text.splitlines() if line.strip()]
 
-        return cls(day=day, domain=domain, path=path, entries=entries, exists=exists)
+        return cls(day=day, facet=facet, path=path, entries=entries, exists=exists)
 
     def save(self) -> None:
         """Persist the checklist back to disk, creating parent directories if needed."""
@@ -213,20 +213,20 @@ class TodoItem:
         }
 
 
-def todo_file_path(day: str, domain: str) -> Path:
-    """Return the absolute path to ``domains/{domain}/todos/{day}.md``.
+def todo_file_path(day: str, facet: str) -> Path:
+    """Return the absolute path to ``facets/{facet}/todos/{day}.md``.
 
     Args:
         day: Journal day in ``YYYYMMDD`` format.
-        domain: Domain name (e.g., "personal", "work").
+        facet: Facet name (e.g., "personal", "work").
 
     Returns:
-        Path to the domain-scoped todo file for the specified day.
+        Path to the facet-scoped todo file for the specified day.
     """
 
     load_dotenv()
     journal = os.getenv("JOURNAL_PATH", "journal")
-    return Path(journal) / "domains" / domain / "todos" / f"{day}.md"
+    return Path(journal) / "facets" / facet / "todos" / f"{day}.md"
 
 
 def format_numbered(entries: Sequence[str]) -> str:
@@ -332,12 +332,12 @@ def parse_items(entries: Iterable[str]) -> list[TodoItem]:
     return items
 
 
-def get_todos(day: str, domain: str) -> list[dict[str, Any]] | None:
-    """Load todos for ``day`` and ``domain`` returning checklist metadata dictionaries.
+def get_todos(day: str, facet: str) -> list[dict[str, Any]] | None:
+    """Load todos for ``day`` and ``facet`` returning checklist metadata dictionaries.
 
     Args:
         day: Journal day in ``YYYYMMDD`` format.
-        domain: Domain name (e.g., "personal", "work").
+        facet: Facet name (e.g., "personal", "work").
 
     Returns:
         List of parsed todo entries or ``None`` when the checklist does not
@@ -345,9 +345,9 @@ def get_todos(day: str, domain: str) -> list[dict[str, Any]] | None:
     """
 
     try:
-        checklist = TodoChecklist.load(day, domain)
+        checklist = TodoChecklist.load(day, facet)
     except OSError as exc:  # pragma: no cover - filesystem failure
-        logging.debug("Failed reading todos for %s/%s: %s", domain, day, exc)
+        logging.debug("Failed reading todos for %s/%s: %s", facet, day, exc)
         return None
 
     if not checklist.exists:
@@ -357,17 +357,17 @@ def get_todos(day: str, domain: str) -> list[dict[str, Any]] | None:
 
 
 def upcoming(
-    limit: int = 20, domain: str | None = None, *, today: str | None = None
+    limit: int = 20, facet: str | None = None, *, today: str | None = None
 ) -> str:
     """Return a markdown summary of upcoming todo entries.
 
     Args:
         limit: Maximum number of todo items to include.
-        domain: Optional domain filter. When ``None`` aggregates todos from all domains.
+        facet: Optional facet filter. When ``None`` aggregates todos from all facets.
         today: Optional ``YYYYMMDD`` override for the current day, useful for testing.
 
     Returns:
-        Markdown with sections per domain and day. Format is ``### {Domain Title}: YYYYMMDD``
+        Markdown with sections per facet and day. Format is ``### {Facet Title}: YYYYMMDD``
         followed by raw todo checklist lines. When no upcoming items exist the string
         ``"No upcoming todos."`` is returned.
     """
@@ -382,29 +382,29 @@ def upcoming(
 
     today_str = today if today is not None else datetime.now().strftime("%Y%m%d")
 
-    # Determine which domains to scan
-    domains_dir = root / "domains"
-    if not domains_dir.is_dir():
+    # Determine which facets to scan
+    facets_dir = root / "facets"
+    if not facets_dir.is_dir():
         return "No upcoming todos."
 
     try:
-        if domain is not None:
-            # Single domain mode
-            domain_paths = [(domain, domains_dir / domain)]
+        if facet is not None:
+            # Single facet mode
+            facet_paths = [(facet, facets_dir / facet)]
         else:
-            # All domains mode
-            domain_paths = [(d.name, d) for d in domains_dir.iterdir() if d.is_dir()]
+            # All facets mode
+            facet_paths = [(d.name, d) for d in facets_dir.iterdir() if d.is_dir()]
     except OSError:  # pragma: no cover - filesystem failure
         return "No upcoming todos."
 
-    if not domain_paths:
+    if not facet_paths:
         return "No upcoming todos."
 
-    # Collect all todos across domains
-    all_todos: list[tuple[str, str, list[str]]] = []  # (domain, day, lines)
+    # Collect all todos across facets
+    all_todos: list[tuple[str, str, list[str]]] = []  # (facet, day, lines)
 
-    for domain_name, domain_path in domain_paths:
-        todos_dir = domain_path / "todos"
+    for facet_name, facet_path in facet_paths:
+        todos_dir = facet_path / "todos"
         if not todos_dir.is_dir():
             continue
 
@@ -434,27 +434,27 @@ def upcoming(
 
             items = parse_items(lines)
             if items:
-                all_todos.append((domain_name, day, [item.raw for item in items]))
+                all_todos.append((facet_name, day, [item.raw for item in items]))
 
     if not all_todos:
         return "No upcoming todos."
 
-    # Sort by day, then domain
+    # Sort by day, then facet
     all_todos.sort(key=lambda x: (x[1], x[0]))
 
     # Build output sections
     remaining = limit
     sections: list[str] = []
 
-    for domain_name, day, lines in all_todos:
-        # Get domain title for better display
+    for facet_name, day, lines in all_todos:
+        # Get facet title for better display
         try:
-            domains = get_domains()
-            domain_title = domains.get(domain_name, {}).get(
-                "title", domain_name.title()
+            facets = get_facets()
+            facet_title = facets.get(facet_name, {}).get(
+                "title", facet_name.title()
             )
         except (RuntimeError, KeyError):
-            domain_title = domain_name.title()
+            facet_title = facet_name.title()
 
         day_lines: list[str] = []
         for line in lines:
@@ -464,7 +464,7 @@ def upcoming(
                 break
 
         if day_lines:
-            section = "\n".join([f"### {domain_title}: {day}"] + day_lines)
+            section = "\n".join([f"### {facet_title}: {day}"] + day_lines)
             sections.append(section)
 
         if remaining == 0:
@@ -476,35 +476,35 @@ def upcoming(
     return "\n\n".join(sections)
 
 
-def get_domains_with_todos(day: str) -> list[str]:
-    """Return a list of domain names that have todos for the given day.
+def get_facets_with_todos(day: str) -> list[str]:
+    """Return a list of facet names that have todos for the given day.
 
     Args:
         day: Journal day in ``YYYYMMDD`` format.
 
     Returns:
-        List of domain names that have todo files for the specified day.
-        Returns empty list if no domains have todos or if journal path is invalid.
+        List of facet names that have todo files for the specified day.
+        Returns empty list if no facets have todos or if journal path is invalid.
     """
 
     journal = os.getenv("JOURNAL_PATH", "journal")
     root = Path(journal)
-    domains_dir = root / "domains"
+    facets_dir = root / "facets"
 
-    if not domains_dir.is_dir():
+    if not facets_dir.is_dir():
         return []
 
-    domains_with_todos: list[str] = []
+    facets_with_todos: list[str] = []
 
     try:
-        for domain_dir in domains_dir.iterdir():
-            if not domain_dir.is_dir():
+        for facet_dir in facets_dir.iterdir():
+            if not facet_dir.is_dir():
                 continue
 
-            todo_path = domain_dir / "todos" / f"{day}.md"
+            todo_path = facet_dir / "todos" / f"{day}.md"
             if todo_path.is_file():
-                domains_with_todos.append(domain_dir.name)
+                facets_with_todos.append(facet_dir.name)
     except OSError:  # pragma: no cover - filesystem failure
         return []
 
-    return sorted(domains_with_todos)
+    return sorted(facets_with_todos)

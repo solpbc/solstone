@@ -46,9 +46,9 @@ def main() -> None:
         help="Scan journal and update all indexes",
     )
     parser.add_argument(
-        "--rescan-domains",
+        "--rescan-facets",
         action="store_true",
-        help="Scan domains/ directory and update entity and news indexes",
+        help="Scan facets/ directory and update entity and news indexes",
     )
     parser.add_argument(
         "--reset",
@@ -64,8 +64,8 @@ def main() -> None:
         help="Filter transcript results by source (e.g., 'mic', 'sys', 'monitor_1')",
     )
     parser.add_argument(
-        "--domain",
-        help="Filter news results by domain",
+        "--facet",
+        help="Filter news results by facet",
     )
     parser.add_argument(
         "-q",
@@ -77,26 +77,26 @@ def main() -> None:
 
     args = setup_cli(parser)
 
-    # Require either --rescan, --rescan-all, --rescan-domains, --reset, or -q
+    # Require either --rescan, --rescan-all, --rescan-facets, --reset, or -q
     if (
         not args.rescan
         and not args.rescan_all
-        and not args.rescan_domains
+        and not args.rescan_facets
         and not args.reset
         and args.query is None
     ):
         parser.print_help()
         return
 
-    # Validate --index is required unless using --rescan-all or --rescan-domains
+    # Validate --index is required unless using --rescan-all or --rescan-facets
     if (
         not args.rescan_all
-        and not args.rescan_domains
+        and not args.rescan_facets
         and not args.index
         and (args.rescan or args.reset or args.query is not None)
     ):
         parser.error(
-            "--index is required unless using --rescan-all or --rescan-domains"
+            "--index is required unless using --rescan-all or --rescan-facets"
         )
 
     journal = os.getenv("JOURNAL_PATH")
@@ -131,10 +131,10 @@ def main() -> None:
                 if changed:
                     journal_log(f"indexer {index_name} rescan ok")
 
-    if args.rescan_domains:
-        # Rescan only domain-based indexes
-        domain_indexes = ["entities", "news"]
-        for index_name in domain_indexes:
+    if args.rescan_facets:
+        # Rescan only facet-based indexes
+        facet_indexes = ["entities", "news"]
+        for index_name in facet_indexes:
             if index_name == "entities":
                 changed = scan_entities(journal, verbose=args.verbose)
                 if changed:
@@ -182,7 +182,7 @@ def main() -> None:
             query_kwargs = {"day": args.day}
         elif args.index == "news":
             search_func = search_news
-            query_kwargs = {"domain": args.domain, "day": args.day}
+            query_kwargs = {"facet": args.facet, "day": args.day}
         else:
             search_func = search_summaries
             query_kwargs = {}

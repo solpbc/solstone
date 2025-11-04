@@ -47,7 +47,7 @@ SCHEMAS = {
             day TEXT,
             idx INTEGER,
             topic TEXT,
-            domain TEXT,
+            facet TEXT,
             start TEXT,
             end TEXT,
             PRIMARY KEY(path, idx)
@@ -55,7 +55,7 @@ SCHEMAS = {
         """,
         "CREATE INDEX IF NOT EXISTS event_match_day_start_end ON event_match(day, start, end)",
         "CREATE INDEX IF NOT EXISTS event_match_day_topic ON event_match(day, topic)",
-        "CREATE INDEX IF NOT EXISTS event_match_day_domain ON event_match(day, domain)",
+        "CREATE INDEX IF NOT EXISTS event_match_day_facet ON event_match(day, facet)",
     ],
     "transcripts": [
         "CREATE TABLE IF NOT EXISTS files(path TEXT PRIMARY KEY, mtime INTEGER)",
@@ -71,7 +71,7 @@ SCHEMAS = {
         CREATE VIRTUAL TABLE IF NOT EXISTS entities USING fts5(
             name,
             description,
-            domain UNINDEXED,
+            facet UNINDEXED,
             day UNINDEXED,
             type UNINDEXED,
             attached UNINDEXED
@@ -83,7 +83,7 @@ SCHEMAS = {
         """
         CREATE VIRTUAL TABLE IF NOT EXISTS news_text USING fts5(
             content,
-            domain UNINDEXED,
+            facet UNINDEXED,
             day UNINDEXED
         )
         """,

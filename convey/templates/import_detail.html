@@ -153,8 +153,8 @@
   <div class="rerun-section" id="rerunSection" style="display:none;">
     <h3>Re-run Import</h3>
     <div class="rerun-controls">
-      <label for="domainSelect">Domain:</label>
-      <select id="domainSelect">
+      <label for="facetSelect">Facet:</label>
+      <select id="facetSelect">
         <option value="">None</option>
       </select>
       <label for="settingInput">Setting:</label>
@@ -162,7 +162,7 @@
       <button id="rerunBtn">Re-run Import</button>
     </div>
     <div class="rerun-note">
-      Re-running will overwrite the existing transcription results with new ones using the selected domain for improved entity recognition.
+      Re-running will overwrite the existing transcription results with new ones using the selected facet for improved entity recognition.
     </div>
   </div>
 </div>
@@ -269,15 +269,15 @@ function formatTimestamp(timestamp) {
 let importData = null;
 const settingInput = document.getElementById('settingInput');
 
-// Load domains for dropdown
-function loadDomains() {
-  fetch('{{ url_for("domains.domains_list") }}')
+// Load facets for dropdown
+function loadFacets() {
+  fetch('{{ url_for("facets.facets_list") }}')
     .then(r => r.json())
-    .then(domains => {
-      const select = document.getElementById('domainSelect');
-      const current = importData?.import_json?.domain || ''; // Use current domain from import
+    .then(facets => {
+      const select = document.getElementById('facetSelect');
+      const current = importData?.import_json?.facet || ''; // Use current facet from import
       select.innerHTML = '<option value="">None</option>';
-      Object.entries(domains).forEach(([name, data]) => {
+      Object.entries(facets).forEach(([name, data]) => {
         const opt = document.createElement('option');
         opt.value = name;
         opt.textContent = data.title || name;
@@ -325,7 +325,7 @@ function watchImportProgress(importId) {
 
 // Handle re-run button click
 document.getElementById('rerunBtn').addEventListener('click', () => {
-  const domain = document.getElementById('domainSelect').value;
+  const facet = document.getElementById('facetSelect').value;
   const setting = settingInput ? settingInput.value.trim() : '';
 
   if (confirm('This will re-run the import and overwrite existing transcription results. Continue?')) {
@@ -337,7 +337,7 @@ document.getElementById('rerunBtn').addEventListener('click', () => {
     fetch('{{ url_for("import_view.import_rerun", timestamp=timestamp) }}', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ domain: domain, setting: setting })
+      body: JSON.stringify({ facet: facet, setting: setting })
     })
     .then(r => r.json())
     .then(result => {
@@ -404,8 +404,8 @@ fetch('{{ url_for("import_view.import_detail_api", timestamp=timestamp) }}')
       overviewHtml += `<div class="info-label">Upload Time:</div><div class="info-value">${new Date(data.import_json.upload_datetime).toLocaleString()}</div>`;
       overviewHtml += `<div class="info-label">Detected Timestamp:</div><div class="info-value">${formatTimestamp(data.import_json.detected_timestamp) || 'Not detected'}</div>`;
       overviewHtml += `<div class="info-label">Import Timestamp:</div><div class="info-value">${formatTimestamp(data.import_json.user_timestamp)}</div>`;
-      if (data.import_json.domain) {
-        overviewHtml += `<div class="info-label">Domain:</div><div class="info-value">${data.import_json.domain}</div>`;
+      if (data.import_json.facet) {
+        overviewHtml += `<div class="info-label">Facet:</div><div class="info-value">${data.import_json.facet}</div>`;
       }
       if (data.import_json.setting) {
         overviewHtml += `<div class="info-label">Setting:</div><div class="info-value">${data.import_json.setting}</div>`;
@@ -469,8 +469,8 @@ fetch('{{ url_for("import_view.import_detail_api", timestamp=timestamp) }}')
         const rerunSection = document.getElementById('rerunSection');
         rerunSection.style.display = 'block';
         
-        // Load domains for the dropdown
-        loadDomains();
+        // Load facets for the dropdown
+        loadFacets();
       }
     }
   })

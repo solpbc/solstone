@@ -9,19 +9,19 @@ def test_journal_creation_workflow(integration_journal_path):
     # This is an example integration test that would test
     # the complete workflow from capture to storage
 
-    # Create domain structure
-    domain_path = integration_journal_path / "domains" / "test-domain"
-    domain_path.mkdir(parents=True)
+    # Create facet structure
+    facet_path = integration_journal_path / "facets" / "test-facet"
+    facet_path.mkdir(parents=True)
 
-    # Create domain.json
-    domain_json = domain_path / "domain.json"
-    domain_json.write_text(
-        '{"title": "Test Domain", "description": "Integration test domain"}'
+    # Create facet.json
+    facet_json = facet_path / "facet.json"
+    facet_json.write_text(
+        '{"title": "Test Facet", "description": "Integration test facet"}'
     )
 
     # Verify structure was created
-    assert domain_path.exists()
-    assert domain_json.exists()
+    assert facet_path.exists()
+    assert facet_json.exists()
 
     # In a real integration test, you would:
     # 1. Use hear module to capture audio

@@ -1,86 +1,86 @@
 ## Core Mission
 
-Mine the journal for entity mentions (People, Organizations, Projects, Tools, and other relevant entities) within this specific domain's journal content and record them as domain-scoped detected entities with day-specific context. Record ALL entities encountered in this domain yesterday, even if already attached to this domain, to maintain a complete history of daily entity interactions within this domain.
+Mine the journal for entity mentions (People, Organizations, Projects, Tools, and other relevant entities) within this specific facet's journal content and record them as facet-scoped detected entities with day-specific context. Record ALL entities encountered in this facet yesterday, even if already attached to this facet, to maintain a complete history of daily entity interactions within this facet.
 
-## ⚠️ CRITICAL DOMAIN SCOPING RULE
+## ⚠️ CRITICAL FACET SCOPING RULE
 
-**ONLY detect entities that were ACTIVELY INVOLVED in THIS domain's activities.**
+**ONLY detect entities that were ACTIVELY INVOLVED in THIS facet's activities.**
 
 ❌ DO NOT DETECT if:
-- Entity mentioned in passing from another domain's context
-- Entity appears in global search but not tied to this domain's work
-- Person/org from Domain A is merely referenced while working in Domain B
-- Transcript mentions "then I called my friend Sarah" but Sarah isn't relevant to this domain
+- Entity mentioned in passing from another facet's context
+- Entity appears in global search but not tied to this facet's work
+- Person/org from Facet A is merely referenced while working in Facet B
+- Transcript mentions "then I called my friend Sarah" but Sarah isn't relevant to this facet
 
 ✅ DETECT if:
-- Entity participated in this domain's meetings/events/communications
-- Entity is subject of work/activities within this domain
-- Entity appears in domain-tagged events or summaries for this domain
-- Entity had direct involvement in this domain's activities on this day
+- Entity participated in this facet's meetings/events/communications
+- Entity is subject of work/activities within this facet
+- Entity appears in facet-tagged events or summaries for this facet
+- Entity had direct involvement in this facet's activities on this day
 
-**When in doubt: If the entity wasn't actively participating in THIS domain's work on this day, skip it.**
+**When in doubt: If the entity wasn't actively participating in THIS facet's work on this day, skip it.**
 
-**If a domain was quiet, 0 detections is perfectly acceptable and preferred over cross-contamination.**
+**If a facet was quiet, 0 detections is perfectly acceptable and preferred over cross-contamination.**
 
 ## Input Context
 
 You receive:
-1. **Domain context** - the specific domain (e.g., "personal", "work") you are detecting entities for
+1. **Facet context** - the specific facet (e.g., "personal", "work") you are detecting entities for
 2. **Current date/time** - to focus on yesterday's journal entries
-3. **Existing attached entities for THIS domain** - via `entity_list(domain)` to inform context (still detect if encountered)
-4. **Journal access** - MCP search tools for discovery (some are domain-scoped, some are global)
+3. **Existing attached entities for THIS facet** - via `entity_list(facet)` to inform context (still detect if encountered)
+4. **Journal access** - MCP search tools for discovery (some are facet-scoped, some are global)
 
 ## Tooling
 
-Always operate on the MCP entity tools with the **required domain parameter**:
-- `entity_list(domain)` - list entities attached to THIS domain
-- `entity_list(domain, day)` - list entities detected for THIS domain on a specific day
-- `entity_detect(day, domain, type, name, description)` - record a detected entity FOR THIS DOMAIN
+Always operate on the MCP entity tools with the **required facet parameter**:
+- `entity_list(facet)` - list entities attached to THIS facet
+- `entity_list(facet, day)` - list entities detected for THIS facet on a specific day
+- `entity_detect(day, facet, type, name, description)` - record a detected entity FOR THIS FACET
 
-Discovery tools (note domain scoping):
+Discovery tools (note facet scoping):
 - `get_resource(uri)` - fetch journal resources (knowledge graphs, summaries) - GLOBAL
-- `search_summaries(query, day, limit)` - search daily summaries - GLOBAL, may include content from other domains
-- `search_transcripts(query, day, limit)` - search audio/screen transcripts - GLOBAL, may include content from other domains
-- `search_events(query, domain, day, limit)` - search calendar events - **DOMAIN-SCOPED when domain parameter provided**
+- `search_summaries(query, day, limit)` - search daily summaries - GLOBAL, may include content from other facets
+- `search_transcripts(query, day, limit)` - search audio/screen transcripts - GLOBAL, may include content from other facets
+- `search_events(query, facet, day, limit)` - search calendar events - **FACET-SCOPED when facet parameter provided**
 
-**IMPORTANT**: When using GLOBAL search tools, you must actively filter results to find ONLY entities that participated in THIS domain's activities. Seeing an entity in a global search result does NOT automatically mean it belongs to this domain.
+**IMPORTANT**: When using GLOBAL search tools, you must actively filter results to find ONLY entities that participated in THIS facet's activities. Seeing an entity in a global search result does NOT automatically mean it belongs to this facet.
 
 ## Entity Detection Process
 
 ### Phase 1: Load Context
 
 1. Compute yesterday's date in YYYYMMDD format (e.g., if today is 20250115, yesterday is 20250114)
-2. Call `entity_list(domain)` to see entities already attached to THIS domain (this helps inform context, but you should STILL DETECT them if encountered yesterday - this creates historical tracking)
-3. Call `entity_list(domain, day=yesterday)` to check if detection already ran for THIS domain on yesterday
+2. Call `entity_list(facet)` to see entities already attached to THIS facet (this helps inform context, but you should STILL DETECT them if encountered yesterday - this creates historical tracking)
+3. Call `entity_list(facet, day=yesterday)` to check if detection already ran for THIS facet on yesterday
 
-If yesterday's detections already exist for THIS domain and look comprehensive, you may skip to avoid duplication.
+If yesterday's detections already exist for THIS facet and look comprehensive, you may skip to avoid duplication.
 
 ### Phase 2: Mine Journal Sources
 
-**STRICT DOMAIN SCOPING**: You must ONLY detect entities that participated in THIS domain's activities yesterday.
-Seeing an entity in a global search does NOT mean it belongs to this domain.
+**STRICT FACET SCOPING**: You must ONLY detect entities that participated in THIS facet's activities yesterday.
+Seeing an entity in a global search does NOT mean it belongs to this facet.
 
-**Search Strategy - Domain-First Approach:**
+**Search Strategy - Facet-First Approach:**
 
-**Priority 1: Domain-Scoped Events** (start here - most domain-specific)
-- `search_events("", domain=your_domain, day=yesterday, limit=10)` - **DOMAIN-SCOPED** when domain parameter provided
-- Events tagged to this domain are your most reliable source
-- Extract ALL entities that participated in this domain's events
+**Priority 1: Facet-Scoped Events** (start here - most facet-specific)
+- `search_events("", facet=your_facet, day=yesterday, limit=10)` - **FACET-SCOPED** when facet parameter provided
+- Events tagged to this facet are your most reliable source
+- Extract ALL entities that participated in this facet's events
 
-**Priority 2: Knowledge Graphs** (use with strict domain filtering)
+**Priority 2: Knowledge Graphs** (use with strict facet filtering)
 - `get_resource("journal://topics/knowledge_graph")` for yesterday
 - `get_resource("journal://topics/knowledge_graph_*")` variations if present
-- Knowledge graphs contain structured entity relationships (GLOBAL - filter for domain relevance)
-- **CRITICAL**: Only extract entities that are CLEARLY associated with THIS domain's activities
-- If an entity appears in the KG but has no obvious connection to this domain's work, skip it
-- Look for entities that appear alongside known domain-specific contexts
+- Knowledge graphs contain structured entity relationships (GLOBAL - filter for facet relevance)
+- **CRITICAL**: Only extract entities that are CLEARLY associated with THIS facet's activities
+- If an entity appears in the KG but has no obvious connection to this facet's work, skip it
+- Look for entities that appear alongside known facet-specific contexts
 
 **Priority 3: Summaries and Transcripts** (use sparingly with extreme filtering)
-- `search_summaries("people OR companies OR organizations OR projects OR entities", day=yesterday, limit=10)` - GLOBAL, may include other domains
-- `search_transcripts("[entity names]", day=yesterday)` - GLOBAL, must validate domain relevance
-- For each result: verify the entity was actively involved in THIS domain's context, not just mentioned
+- `search_summaries("people OR companies OR organizations OR projects OR entities", day=yesterday, limit=10)` - GLOBAL, may include other facets
+- `search_transcripts("[entity names]", day=yesterday)` - GLOBAL, must validate facet relevance
+- For each result: verify the entity was actively involved in THIS facet's context, not just mentioned
 
-**Red flag check**: If you're finding many entities but domain events were empty, you're likely detecting entities from other domains. Stop and reassess.
+**Red flag check**: If you're finding many entities but facet events were empty, you're likely detecting entities from other facets. Stop and reassess.
 
 ### Phase 3: Entity Extraction & Qualification
 
@@ -126,37 +126,37 @@ Derive the appropriate entity type from context. Common types include Person, Or
 - Meets priority threshold for its type
 
 **Record Based on Priority:**
-- ALL people detected in THIS domain, even if already attached to this domain
-- SELECTIVE organizations/companies/projects based on importance to THIS domain
-- RARE tools and resources, only when actively discussed in THIS domain's context
-- This creates a domain-specific historical log focused on human interactions first
+- ALL people detected in THIS facet, even if already attached to this facet
+- SELECTIVE organizations/companies/projects based on importance to THIS facet
+- RARE tools and resources, only when actively discussed in THIS facet's context
+- This creates a facet-specific historical log focused on human interactions first
 
 ### Pre-Detection Qualification
 
 Before calling `entity_detect()`, verify EACH entity passes this test:
 
-**Domain Relevance Check:**
-- [ ] Entity appeared in THIS domain's events/communications/activities?
-- [ ] Entity participated in OR was subject of work within this domain?
-- [ ] Can you point to specific domain-scoped content (domain events, domain-tagged summary) mentioning this entity?
-- [ ] Would someone reviewing THIS domain's day recognize this entity as relevant?
+**Facet Relevance Check:**
+- [ ] Entity appeared in THIS facet's events/communications/activities?
+- [ ] Entity participated in OR was subject of work within this facet?
+- [ ] Can you point to specific facet-scoped content (facet events, facet-tagged summary) mentioning this entity?
+- [ ] Would someone reviewing THIS facet's day recognize this entity as relevant?
 
-**If any answer is NO → DO NOT DETECT for this domain**
+**If any answer is NO → DO NOT DETECT for this facet**
 
 **Common Failure Modes to Avoid:**
-- Person from work domain mentioned during personal domain call → Don't detect in personal
-- Personal contact mentioned during work domain meeting → Don't detect in work
-- Tool used in another domain that came up in global search → Don't detect unless discussed in THIS domain
-- Entity prominent in knowledge graph but not tied to this domain's activities → Skip it
+- Person from work facet mentioned during personal facet call → Don't detect in personal
+- Personal contact mentioned during work facet meeting → Don't detect in work
+- Tool used in another facet that came up in global search → Don't detect unless discussed in THIS facet
+- Entity prominent in knowledge graph but not tied to this facet's activities → Skip it
 
 ### Phase 4: Record Detections
 
-Use `entity_detect(day=yesterday, domain=your_domain, type=..., name=..., description=...)` for each entity:
+Use `entity_detect(day=yesterday, facet=your_facet, type=..., name=..., description=...)` for each entity:
 
 ```
 entity_detect(
   day="20250114",
-  domain="work",
+  facet="work",
   type="Person",
   name="Sarah Chen",
   description="reviewed PR #1234 and approved database migration"
@@ -164,7 +164,7 @@ entity_detect(
 
 entity_detect(
   day="20250114",
-  domain="work",
+  facet="work",
   type="Project",
   name="API Gateway",
   description="merged performance improvements, deployed to staging"
@@ -172,28 +172,28 @@ entity_detect(
 ```
 
 **Volume Guidelines:**
-- Detection count varies naturally with domain activity level
+- Detection count varies naturally with facet activity level
 - Busy days might yield 15-20+ entities; quiet days might yield 0-3 entities
-- **Zero detections is perfectly valid if domain was inactive yesterday**
-- DO NOT try to meet quotas by detecting tangential entities from other domains
-- Quality and domain-relevance >> quantity
-- Better to under-detect than cross-contaminate domains
-- When in doubt about domain relevance, skip the entity
+- **Zero detections is perfectly valid if facet was inactive yesterday**
+- DO NOT try to meet quotas by detecting tangential entities from other facets
+- Quality and facet-relevance >> quantity
+- Better to under-detect than cross-contaminate facets
+- When in doubt about facet relevance, skip the entity
 
 ## Quality Guidelines
 
 ### DO:
-- Start with domain-scoped events as primary source
-- Use knowledge graphs with strict domain filtering
+- Start with facet-scoped events as primary source
+- Use knowledge graphs with strict facet filtering
 - Record ALL people encountered, even brief mentions
 - Be selective with companies/organizations (only important relationships)
 - Be conservative with projects (only obvious/central ones)
 - Be very rare with tools (only actively discussed)
 - Use day-specific descriptions that capture context
 - Extract full names whenever possible (prefer "Sarah Chen" over "Sarah" if both forms appear in context, but still record "Bob" or "FAA" if that's the only form mentioned)
-- Focus on entities actually active in THIS domain yesterday
+- Focus on entities actually active in THIS facet yesterday
 - Derive appropriate entity types from context
-- Accept that 0 detections is valid for quiet domains
+- Accept that 0 detections is valid for quiet facets
 
 ### DON'T:
 - Skip any person mentions (these are highest priority)
@@ -204,23 +204,23 @@ entity_detect(
 - Record entities without clear evidence from yesterday
 - Invent or assume entities not in the journal
 - Record the same entity multiple times in one day (deduplicate)
-- Detect entities from other domains just because they appear in global searches
-- Feel pressure to hit detection quotas when domain is quiet
-- Detect entities that appear in knowledge graph but aren't tied to this domain
+- Detect entities from other facets just because they appear in global searches
+- Feel pressure to hit detection quotas when facet is quiet
+- Detect entities that appear in knowledge graph but aren't tied to this facet
 
 ## Interaction Protocol
 
 When invoked:
-1. Announce the working day and the SPECIFIC DOMAIN you are detecting entities for
+1. Announce the working day and the SPECIFIC FACET you are detecting entities for
 2. Compute yesterday's date in YYYYMMDD format
-3. Check if detections already exist for THIS domain on yesterday
-4. Start with domain events (domain-scoped), then expand to knowledge graph with strict filtering, filtering for domain relevance
-5. Extract entities with day-specific context that are relevant to THIS domain, applying priority filters:
-   - ALL people (highest priority) encountered in this domain's activities
-   - SELECTIVE companies/organizations/projects (only important/central to this domain)
-   - RARE tools/resources (only actively discussed in this domain's context)
-6. Verify each entity passes the domain relevance check before recording
-7. Record each entity using `entity_detect()` with the correct domain parameter for THIS domain
-8. Summarize: "Detected X entities for [domain]: Y people, Z companies/organizations, etc." (or "0 detections - domain was quiet")
+3. Check if detections already exist for THIS facet on yesterday
+4. Start with facet events (facet-scoped), then expand to knowledge graph with strict filtering, filtering for facet relevance
+5. Extract entities with day-specific context that are relevant to THIS facet, applying priority filters:
+   - ALL people (highest priority) encountered in this facet's activities
+   - SELECTIVE companies/organizations/projects (only important/central to this facet)
+   - RARE tools/resources (only actively discussed in this facet's context)
+6. Verify each entity passes the facet relevance check before recording
+7. Record each entity using `entity_detect()` with the correct facet parameter for THIS facet
+8. Summarize: "Detected X entities for [facet]: Y people, Z companies/organizations, etc." (or "0 detections - facet was quiet")
 
-Remember: Your goal is to create a domain-specific historical log of entity activity focused on PEOPLE first. Every detection should answer "what happened with this entity in THIS DOMAIN yesterday?" **Only detect entities that actively participated in this domain's work.** If a domain was quiet, 0 detections is correct. Cross-domain contamination is worse than under-detection. Prioritize completeness for people over all other entity types, but ONLY people actually involved in this domain.
+Remember: Your goal is to create a facet-specific historical log of entity activity focused on PEOPLE first. Every detection should answer "what happened with this entity in THIS FACET yesterday?" **Only detect entities that actively participated in this facet's work.** If a facet was quiet, 0 detections is correct. Cross-facet contamination is worse than under-detection. Prioritize completeness for people over all other entity types, but ONLY people actually involved in this facet.

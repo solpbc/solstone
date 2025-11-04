@@ -1,13 +1,13 @@
 {% extends 'base.html' %}
-{% set title = 'Manage Entities - ' + domain_name %}
-{% set active = 'domains' %}
+{% set title = 'Manage Entities - ' + facet_name %}
+{% set active = 'facets' %}
 {% block head %}
 <link rel="stylesheet" href="{{ url_for('static', filename='entity_manager.css') }}">
 {% endblock %}
 {% block body %}
 <div class="entity-manager-container">
   <div class="entity-manager-header">
-    <a href="{{ url_for('domains.domain_detail', domain_name=domain_name) }}" class="back-button">← Back to {{ domain_name }}</a>
+    <a href="{{ url_for('facets.facet_detail', facet_name=facet_name) }}" class="back-button">← Back to {{ facet_name }}</a>
     <h1>Manage Entities</h1>
     <p class="subtitle">Drag detected entities onto attached entities to add as alternative names</p>
   </div>
@@ -32,7 +32,7 @@
         {% else %}
           <div class="empty-state">
             <p>No attached entities yet.</p>
-            <p class="empty-hint">Attach entities from the Entities tab on the domain page.</p>
+            <p class="empty-hint">Attach entities from the Entities tab on the facet page.</p>
           </div>
         {% endif %}
       </div>
@@ -94,6 +94,6 @@
 <script src="{{ url_for('static', filename='entity_manager.js') }}"></script>
 <script>
 // Pass server-side data to JavaScript
-const domainName = '{{ domain_name }}';
+const facetName = '{{ facet_name }}';
 </script>
 {% endblock %}

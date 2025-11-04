@@ -21,9 +21,9 @@ Understanding these core concepts is essential for working with Sunstone:
 
 * **Journal**: Central data structure organized as `JOURNAL_PATH/YYYYMMDD/` directories. All captured data, transcripts, and analysis artifacts are stored here. See **JOURNAL.md** for detailed structure.
 
-* **Domains**: Project/context organization system (e.g., "work", "personal", "acme"). Domains group related content and provide scoped views of entities, tasks, and activities.
+* **Facets**: Project/context organization system (e.g., "work", "personal", "acme"). Facets group related content and provide scoped views of entities, tasks, and activities.
 
-* **Entities**: Extracted information (people, projects, concepts) tracked over time across transcripts and interactions. Entities are associated with domains and enable semantic navigation.
+* **Entities**: Extracted information (people, projects, concepts) tracked over time across transcripts and interactions. Entities are associated with facets and enable semantic navigation.
 
 * **Agents**: AI processors with configurable personas that analyze content, extract insights, and respond to queries. Managed by Cortex. See **CORTEX.md** for agent system architecture.
 
@@ -79,7 +79,7 @@ sunstone/
 
 **Data Organization**:
 * Everything organized under `JOURNAL_PATH/YYYYMMDD/` daily directories
-* Domains provide project-scoped organization and filtering
+* Facets provide project-scoped organization and filtering
 * Entities are extracted from transcripts and tracked across time
 * Indexer builds SQLite database for fast search and retrieval
 
@@ -105,7 +105,7 @@ os.environ["JOURNAL_PATH"] = "fixtures/journal"
 # Now all journal operations work with test data
 ```
 
-The `fixtures/journal/` directory contains a complete mock journal structure with sample domains, agents, transcripts, and indexed data for testing.
+The `fixtures/journal/` directory contains a complete mock journal structure with sample facets, agents, transcripts, and indexed data for testing.
 
 ---
 

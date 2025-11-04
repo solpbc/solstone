@@ -17,7 +17,7 @@ def test_todo_list_success_returns_numbered_markdown():
     load_mock.assert_called_once_with("20240101", "test")
     assert result == {
         "day": "20240101",
-        "domain": "test",
+        "facet": "test",
         "markdown": "1: - [ ] Investigate",
     }
     mock_checklist.numbered.assert_called_once_with()
@@ -29,17 +29,17 @@ def test_search_news_success():
         {
             "text": "AI breakthrough announced",
             "metadata": {
-                "domain": "tech",
+                "facet": "tech",
                 "day": "20250118",
-                "path": "domains/tech/news/20250118.md",
+                "path": "facets/tech/news/20250118.md",
             },
         },
         {
             "text": "Quarterly earnings report",
             "metadata": {
-                "domain": "finance",
+                "facet": "finance",
                 "day": "20250117",
-                "path": "domains/finance/news/20250117.md",
+                "path": "facets/finance/news/20250117.md",
             },
         },
     ]
@@ -54,22 +54,22 @@ def test_search_news_success():
     assert result["offset"] == 0
     assert len(result["results"]) == 2
     assert result["results"][0] == {
-        "domain": "tech",
+        "facet": "tech",
         "day": "20250118",
         "text": "AI breakthrough announced",
-        "path": "domains/tech/news/20250118.md",
+        "path": "facets/tech/news/20250118.md",
     }
 
 
 def test_search_news_with_filters():
-    """Test news search with domain and day filters."""
+    """Test news search with facet and day filters."""
     mock_results = [
         {
             "text": "Product launch news",
             "metadata": {
-                "domain": "work",
+                "facet": "work",
                 "day": "20250118",
-                "path": "domains/work/news/20250118.md",
+                "path": "facets/work/news/20250118.md",
             },
         },
     ]
@@ -77,12 +77,12 @@ def test_search_news_with_filters():
     with patch("muse.mcp_tools.search_news_impl") as mock_search:
         mock_search.return_value = (1, mock_results)
         result = mcp_tools.search_news(
-            "product", limit=10, offset=0, domain="work", day="20250118"
+            "product", limit=10, offset=0, facet="work", day="20250118"
         )
 
-    mock_search.assert_called_once_with("product", 10, 0, domain="work", day="20250118")
+    mock_search.assert_called_once_with("product", 10, 0, facet="work", day="20250118")
     assert result["total"] == 1
-    assert result["results"][0]["domain"] == "work"
+    assert result["results"][0]["facet"] == "work"
     assert result["results"][0]["day"] == "20250118"
 
 
@@ -113,8 +113,8 @@ def test_get_news_content_exists(tmp_path):
     """Test get_news_content resource when news file exists."""
     # Setup test environment
     journal_path = tmp_path / "journal"
-    domain_path = journal_path / "domains" / "tech"
-    news_dir = domain_path / "news"
+    facet_path = journal_path / "facets" / "tech"
+    news_dir = facet_path / "news"
     news_dir.mkdir(parents=True)
 
     news_file = news_dir / "20250118.md"
@@ -136,19 +136,19 @@ def test_get_news_content_exists(tmp_path):
 def test_get_news_content_missing_file(tmp_path):
     """Test get_news_content resource when news file doesn't exist."""
     journal_path = tmp_path / "journal"
-    domain_path = journal_path / "domains" / "tech"
-    domain_path.mkdir(parents=True)
+    facet_path = journal_path / "facets" / "tech"
+    facet_path.mkdir(parents=True)
 
     with patch.dict("os.environ", {"JOURNAL_PATH": str(journal_path)}):
         # Access the underlying function via the fn attribute
         resource = mcp_tools.get_news_content.fn("tech", "20250118")
 
     assert str(resource.uri) == "journal://news/tech/20250118"
-    assert resource.text == "No news recorded for 20250118 in domain 'tech'."
+    assert resource.text == "No news recorded for 20250118 in facet 'tech'."
 
 
-def test_get_news_content_missing_domain(tmp_path):
-    """Test get_news_content resource when domain doesn't exist."""
+def test_get_news_content_missing_facet(tmp_path):
+    """Test get_news_content resource when facet doesn't exist."""
     journal_path = tmp_path / "journal"
     journal_path.mkdir()
 
@@ -157,7 +157,7 @@ def test_get_news_content_missing_domain(tmp_path):
         resource = mcp_tools.get_news_content.fn("nonexistent", "20250118")
 
     assert str(resource.uri) == "journal://news/nonexistent/20250118"
-    assert resource.text == "Domain 'nonexistent' not found."
+    assert resource.text == "Facet 'nonexistent' not found."
 
 
 def test_entity_add_aka_success():
@@ -192,7 +192,7 @@ def test_entity_add_aka_success():
     assert "Postgres" in postgres["aka"]
 
     # Verify response
-    assert result["domain"] == "work"
+    assert result["facet"] == "work"
     assert "Added alias 'PG'" in result["message"]
     assert result["entity"]["aka"] == ["Postgres", "PG"]
 
@@ -221,7 +221,7 @@ def test_entity_add_aka_duplicate():
     mock_save.assert_not_called()
 
     # Verify response
-    assert result["domain"] == "work"
+    assert result["facet"] == "work"
     assert "already exists" in result["message"]
     assert result["entity"]["aka"] == ["Postgres", "PG"]
 
@@ -253,7 +253,7 @@ def test_entity_add_aka_initialize_aka_list():
     assert alice["aka"] == ["Ali"]
 
     # Verify response
-    assert result["domain"] == "personal"
+    assert result["facet"] == "personal"
     assert "Added alias 'Ali'" in result["message"]
     assert result["entity"]["aka"] == ["Ali"]
 
@@ -328,7 +328,7 @@ def test_entity_add_aka_skip_first_word():
     mock_save.assert_not_called()
 
     # Verify response indicates skip
-    assert result["domain"] == "personal"
+    assert result["facet"] == "personal"
     assert "first word" in result["message"]
     assert "skipped" in result["message"]
 

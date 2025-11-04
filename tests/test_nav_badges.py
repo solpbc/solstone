@@ -12,30 +12,30 @@ import convey.__init__ as convey_app
 def test_count_pending_todos_today_counts_incomplete(monkeypatch):
     """Unfinished todos should increment the nav badge count."""
 
-    def fake_get_domains_with_todos(day: str):
+    def fake_get_facets_with_todos(day: str):
         return ["personal", "work"]
 
-    def fake_get_todos(day: str, domain: str):
-        # Return different todos for each domain
-        if domain == "personal":
+    def fake_get_todos(day: str, facet: str):
+        # Return different todos for each facet
+        if facet == "personal":
             return [
                 {"completed": False, "cancelled": False},
                 {"completed": True, "cancelled": False},
             ]
-        elif domain == "work":
+        elif facet == "work":
             return [
                 {"completed": False, "cancelled": True},
             ]
         return []
 
     monkeypatch.setattr(
-        convey_app.todo_store, "get_domains_with_todos", fake_get_domains_with_todos
+        convey_app.todo_store, "get_facets_with_todos", fake_get_facets_with_todos
     )
     monkeypatch.setattr(convey_app.todo_store, "get_todos", fake_get_todos)
 
     count = convey_app._count_pending_todos_today()
 
-    # Should count only 1 incomplete, non-cancelled todo from personal domain
+    # Should count only 1 incomplete, non-cancelled todo from personal facet
     assert count == 1
 
 

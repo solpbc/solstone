@@ -1,8 +1,8 @@
 {
   "title": "Entity Detector",
-  "description": "Mines journal for entity mentions and records domain-scoped detections with day-specific context",
+  "description": "Mines journal for entity mentions and records facet-scoped detections with day-specific context",
   "schedule": "daily",
   "priority": 25,
   "tools": "journal, entities",
-  "multi_domain": true
+  "multi_facet": true
 }

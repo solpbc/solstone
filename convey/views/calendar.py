@@ -593,11 +593,11 @@ def calendar_stats() -> Any:
                 day_stats["has_transcripts"] = True
                 break
 
-        # Check for todos in any domain
-        from think.todo import get_domains_with_todos
+        # Check for todos in any facet
+        from think.todo import get_facets_with_todos
 
-        domains_with_todos = get_domains_with_todos(name)
-        if domains_with_todos:
+        facets_with_todos = get_facets_with_todos(name)
+        if facets_with_todos:
             day_stats["has_todos"] = True
 
         # Check for topics and count occurrences

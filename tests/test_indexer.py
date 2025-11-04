@@ -199,4 +199,4 @@ def test_search_raws_time_order(tmp_path):
 
 
 # test_entities_index removed - tested old behavior where top-level and day-level
-# entities were indexed. Now only domain-scoped entities are indexed.
+# entities were indexed. Now only facet-scoped entities are indexed.

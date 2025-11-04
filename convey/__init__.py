@@ -30,7 +30,7 @@ from .views import admin as admin_view
 from .views import agents as agents_view
 from .views import calendar as calendar_view
 from .views import chat as chat_view
-from .views import domains as domains_view
+from .views import facets as facets_view
 from .views import home as home_view
 from .views import inbox as inbox_view
 from .views import register_views
@@ -61,19 +61,19 @@ def _count_pending_todos_today() -> int:
 
     today = datetime.now().strftime("%Y%m%d")
     try:
-        # Get all domains that have todos for today
-        domains = todo_store.get_domains_with_todos(today)
+        # Get all facets that have todos for today
+        facets = todo_store.get_facets_with_todos(today)
     except (FileNotFoundError, RuntimeError, ValueError):
         return 0
 
-    if not domains:
+    if not facets:
         return 0
 
-    # Count pending todos across all domains
+    # Count pending todos across all facets
     count = 0
-    for domain in domains:
+    for facet in facets:
         try:
-            todos = todo_store.get_todos(today, domain)
+            todos = todo_store.get_todos(today, facet)
         except (FileNotFoundError, RuntimeError, ValueError):
             continue
         if not todos:
@@ -140,8 +140,8 @@ app = create_app()
 
 # Re-export commonly used callables
 home = home_view.home
-domains_page = domains_view.domains_page
-domains_list = domains_view.domains_list
+facets_page = facets_view.facets_page
+facets_list = facets_view.facets_list
 inbox_page = inbox_view.inbox_page
 get_messages = inbox_view.get_messages
 calendar = calendar_view.calendar_page
@@ -169,8 +169,8 @@ __all__ = [
     "app",
     "create_app",
     "home",
-    "domains_page",
-    "domains_list",
+    "facets_page",
+    "facets_list",
     "inbox_page",
     "get_messages",
     "calendar",

@@ -1,4 +1,4 @@
-"""Tests for domain news utilities."""
+"""Tests for facet news utilities."""
 
 import json
 from pathlib import Path
@@ -17,16 +17,16 @@ def _write_news_file(
     path.write_text(content, encoding="utf-8")
 
 
-def test_get_domain_news_orders_and_paginates(tmp_path):
-    """get_domain_news should return newest news first and support pagination."""
+def test_get_facet_news_orders_and_paginates(tmp_path):
+    """get_facet_news should return newest news first and support pagination."""
 
     journal_path = tmp_path / "journal"
-    domain_path = journal_path / "domains" / "test-domain"
-    news_dir = domain_path / "news"
+    facet_path = journal_path / "facets" / "test-facet"
+    news_dir = facet_path / "news"
     news_dir.mkdir(parents=True)
 
-    # Minimal domain metadata required by get_domain_news parent lookups
-    (domain_path / "domain.json").write_text(
+    # Minimal facet metadata required by get_facet_news parent lookups
+    (facet_path / "facet.json").write_text(
         json.dumps({"title": "Test"}), encoding="utf-8"
     )
 
@@ -40,7 +40,7 @@ def test_get_domain_news_orders_and_paginates(tmp_path):
         "2024-01-03 News",
         source="site.com",
         time="12:00",
-        body="Newest insight summary for the domain.",
+        body="Newest insight summary for the facet.",
     )
 
     _write_news_file(
@@ -48,7 +48,7 @@ def test_get_domain_news_orders_and_paginates(tmp_path):
         "2024-01-02 News",
         source="example.com",
         time="10:00",
-        body="Latest insight summary for the domain.",
+        body="Latest insight summary for the facet.",
     )
 
     _write_news_file(
@@ -56,13 +56,13 @@ def test_get_domain_news_orders_and_paginates(tmp_path):
         "2024-01-01 News",
         source="another.com",
         time="08:30",
-        body="Older summary entry for the domain.",
+        body="Older summary entry for the facet.",
     )
 
     with patch.dict("os.environ", {"JOURNAL_PATH": str(journal_path)}):
-        from think.domains import get_domain_news
+        from think.facets import get_facet_news
 
-        first_page = get_domain_news("test-domain")
+        first_page = get_facet_news("test-facet")
 
         assert first_page["days"], "First page should include at least one news day"
         assert first_page["days"][0]["date"] == "20240103"
@@ -73,14 +73,14 @@ def test_get_domain_news_orders_and_paginates(tmp_path):
         assert first_page["has_more"], "Expected additional pages"
         assert first_page["next_cursor"] == "20240103"
 
-        second_page = get_domain_news("test-domain", cursor=first_page["next_cursor"])
+        second_page = get_facet_news("test-facet", cursor=first_page["next_cursor"])
 
         assert second_page["days"], "Second page should include older news"
         assert second_page["days"][0]["date"] == "20240102"
         assert second_page["has_more"]
 
         # Test specific day retrieval
-        specific_day = get_domain_news("test-domain", day="20240102")
+        specific_day = get_facet_news("test-facet", day="20240102")
         assert len(specific_day["days"]) == 1
         assert specific_day["days"][0]["date"] == "20240102"
         assert "example.com" in specific_day["days"][0]["raw_content"]
@@ -88,7 +88,7 @@ def test_get_domain_news_orders_and_paginates(tmp_path):
         assert specific_day["has_more"] is False
 
         # Test non-existent day
-        no_day = get_domain_news("test-domain", day="20240199")
+        no_day = get_facet_news("test-facet", day="20240199")
         assert len(no_day["days"]) == 0
         assert no_day["next_cursor"] is None
         assert no_day["has_more"] is False

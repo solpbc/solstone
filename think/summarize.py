@@ -316,16 +316,16 @@ def main() -> None:
             print("JSON file exists but --force specified. Regenerating.")
 
         try:
-            # Load domain summaries and combine with topic-specific occurrence instructions
-            from think.domains import domain_summaries
+            # Load facet summaries and combine with topic-specific occurrence instructions
+            from think.facets import facet_summaries
 
-            domains_context = domain_summaries(detailed_entities=True)
+            facets_context = facet_summaries(detailed_entities=True)
 
-            # Combine domain summaries with topic-specific instructions
+            # Combine facet summaries with topic-specific instructions
             if extra_occ:
-                combined_instructions = f"{domains_context}\n\n{extra_occ}"
+                combined_instructions = f"{facets_context}\n\n{extra_occ}"
             else:
-                combined_instructions = domains_context
+                combined_instructions = facets_context
 
             occurrences = send_occurrence(
                 result,

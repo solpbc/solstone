@@ -8,6 +8,6 @@
   "body": "I've completed the analysis of the ML papers you requested. Here are the key findings:\n\n## Performance Optimization Techniques\n\n1. **Gradient Accumulation**: Can reduce memory usage by 40% with minimal impact on convergence\n2. **Mixed Precision Training**: Speeds up training by 2-3x on modern GPUs\n3. **Dynamic Batching**: Improves throughput by 25% for variable-length sequences\n\nWould you like me to create a detailed implementation plan for any of these techniques?",
   "status": "unread",
   "context": {
-    "domain": "ml_research"
+    "facet": "ml_research"
   }
 }

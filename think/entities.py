@@ -1,4 +1,4 @@
-"""Domain-scoped entity utilities for detected and attached entities."""
+"""Facet-scoped entity utilities for detected and attached entities."""
 
 import json
 import os
@@ -72,11 +72,11 @@ def parse_entity_file(
     return entities
 
 
-def entity_file_path(domain: str, day: Optional[str] = None) -> Path:
-    """Return path to entity file for a domain.
+def entity_file_path(facet: str, day: Optional[str] = None) -> Path:
+    """Return path to entity file for a facet.
 
     Args:
-        domain: Domain name (e.g., "personal", "work")
+        facet: Facet name (e.g., "personal", "work")
         day: Optional day in YYYYMMDD format for detected entities
 
     Returns:
@@ -90,21 +90,21 @@ def entity_file_path(domain: str, day: Optional[str] = None) -> Path:
     if not journal:
         raise RuntimeError("JOURNAL_PATH not set")
 
-    domain_path = Path(journal) / "domains" / domain
+    facet_path = Path(journal) / "facets" / facet
 
     if day is None:
         # Attached entities
-        return domain_path / "entities.jsonl"
+        return facet_path / "entities.jsonl"
     else:
         # Detected entities for specific day
-        return domain_path / "entities" / f"{day}.jsonl"
+        return facet_path / "entities" / f"{day}.jsonl"
 
 
-def load_entities(domain: str, day: Optional[str] = None) -> list[dict[str, Any]]:
-    """Load entities from domain entity file.
+def load_entities(facet: str, day: Optional[str] = None) -> list[dict[str, Any]]:
+    """Load entities from facet entity file.
 
     Args:
-        domain: Domain name
+        facet: Facet name
         day: Optional day in YYYYMMDD format for detected entities
 
     Returns:
@@ -114,24 +114,24 @@ def load_entities(domain: str, day: Optional[str] = None) -> list[dict[str, Any]
         >>> load_entities("personal")
         [{"type": "Person", "name": "John Smith", "description": "Friend from college"}]
     """
-    path = entity_file_path(domain, day)
+    path = entity_file_path(facet, day)
     return parse_entity_file(str(path))
 
 
 def save_entities(
-    domain: str, entities: list[dict[str, Any]], day: Optional[str] = None
+    facet: str, entities: list[dict[str, Any]], day: Optional[str] = None
 ) -> None:
-    """Save entities to domain entity file using atomic write.
+    """Save entities to facet entity file using atomic write.
 
     Args:
-        domain: Domain name
+        facet: Facet name
         entities: List of entity dictionaries (must have type, name, description keys)
         day: Optional day in YYYYMMDD format for detected entities
 
     Raises:
         RuntimeError: If JOURNAL_PATH is not set
     """
-    path = entity_file_path(domain, day)
+    path = entity_file_path(facet, day)
 
     # Create parent directory if needed
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -164,7 +164,7 @@ def save_entities(
 
 
 def update_entity(
-    domain: str,
+    facet: str,
     type: str,
     name: str,
     old_description: str,
@@ -174,7 +174,7 @@ def update_entity(
     """Update an entity's description after validating current state.
 
     Args:
-        domain: Domain name
+        facet: Facet name
         type: Entity type to match
         name: Entity name to match
         old_description: Current description (guard - must match)
@@ -185,7 +185,7 @@ def update_entity(
         ValueError: If entity not found or guard mismatch
         RuntimeError: If JOURNAL_PATH is not set
     """
-    entities = load_entities(domain, day)
+    entities = load_entities(facet, day)
 
     for entity in entities:
         if entity.get("type") == type and entity.get("name") == name:
@@ -196,17 +196,17 @@ def update_entity(
                     f"found '{current_desc}'"
                 )
             entity["description"] = new_description
-            save_entities(domain, entities, day)
+            save_entities(facet, entities, day)
             return
 
-    raise ValueError(f"Entity '{name}' of type '{type}' not found in domain '{domain}'")
+    raise ValueError(f"Entity '{name}' of type '{type}' not found in facet '{facet}'")
 
 
 def load_all_attached_entities() -> list[dict[str, Any]]:
-    """Load all attached entities from all domains with deduplication.
+    """Load all attached entities from all facets with deduplication.
 
-    Iterates domains in sorted (alphabetical) order. When the same entity
-    name appears in multiple domains, keeps the first occurrence.
+    Iterates facets in sorted (alphabetical) order. When the same entity
+    name appears in multiple facets, keeps the first occurrence.
 
     Returns:
         List of entity dictionaries, deduplicated by name
@@ -217,27 +217,27 @@ def load_all_attached_entities() -> list[dict[str, Any]]:
 
     Note:
         Used for agent context loading. Provides deterministic behavior
-        despite allowing independent entity descriptions across domains.
+        despite allowing independent entity descriptions across facets.
     """
     load_dotenv()
     journal = os.getenv("JOURNAL_PATH")
     if not journal:
         raise RuntimeError("JOURNAL_PATH not set")
 
-    domains_dir = Path(journal) / "domains"
-    if not domains_dir.exists():
+    facets_dir = Path(journal) / "facets"
+    if not facets_dir.exists():
         return []
 
     # Track seen names for deduplication
     seen_names = set()
     all_entities = []
 
-    # Process domains in sorted order for deterministic results
-    for domain_path in sorted(domains_dir.iterdir()):
-        if not domain_path.is_dir():
+    # Process facets in sorted order for deterministic results
+    for facet_path in sorted(facets_dir.iterdir()):
+        if not facet_path.is_dir():
             continue
 
-        entities_file = domain_path / "entities.jsonl"
+        entities_file = facet_path / "entities.jsonl"
         if not entities_file.exists():
             continue
 
@@ -254,7 +254,7 @@ def load_all_attached_entities() -> list[dict[str, Any]]:
 
 def load_entity_names(
     *,
-    domain: str | None = None,
+    facet: str | None = None,
     spoken: bool = False,
 ) -> str | list[str] | None:
     """Load entity names from entities.jsonl for AI transcription context.
@@ -264,9 +264,9 @@ def load_entity_names(
     semicolon-delimited string. When spoken=True, returns a list of shortened forms
     optimized for audio transcription.
 
-    When domain is None, loads and merges entities from ALL domains with
-    deduplication (first occurrence wins when same name appears in multiple domains).
-    Falls back to top-level entities.jsonl if no domains exist.
+    When facet is None, loads and merges entities from ALL facets with
+    deduplication (first occurrence wins when same name appears in multiple facets).
+    Falls back to top-level entities.jsonl if no facets exist.
 
     When spoken=True, uses uniform processing for all entity types:
     - Extracts first word from base name (without parentheses)
@@ -278,8 +278,8 @@ def load_entity_names(
       - "pytest" → ["pytest"]
 
     Args:
-        domain: Optional domain name. If provided, loads from domains/{domain}/entities.jsonl
-                If None, loads from ALL domains using load_all_attached_entities(),
+        facet: Optional facet name. If provided, loads from facets/{facet}/entities.jsonl
+                If None, loads from ALL facets using load_all_attached_entities(),
                 with fallback to top-level entities.jsonl for backward compatibility.
         spoken: If True, returns list of shortened forms for speech recognition.
                 If False, returns semicolon-delimited string of full names.
@@ -292,11 +292,11 @@ def load_entity_names(
     """
     # Load entities using existing utilities
     try:
-        if domain is None:
-            # Load from ALL domains with deduplication
+        if facet is None:
+            # Load from ALL facets with deduplication
             entities = load_all_attached_entities()
 
-            # Fallback to top-level entities.jsonl if no domain entities found
+            # Fallback to top-level entities.jsonl if no facet entities found
             if not entities:
                 from dotenv import load_dotenv
 
@@ -309,8 +309,8 @@ def load_entity_names(
                     if entities_path.is_file():
                         entities = parse_entity_file(str(entities_path))
         else:
-            # Load from specific domain
-            entities = load_entities(domain)
+            # Load from specific facet
+            entities = load_entities(facet)
     except RuntimeError:
         # JOURNAL_PATH not set
         return None
@@ -374,11 +374,11 @@ def load_entity_names(
         return spoken_names if spoken_names else None
 
 
-def load_detected_entities_recent(domain: str, days: int = 30) -> list[dict[str, Any]]:
+def load_detected_entities_recent(facet: str, days: int = 30) -> list[dict[str, Any]]:
     """Load detected entities from last N days, excluding attached entity names/akas.
 
     Args:
-        domain: Domain name
+        facet: Facet name
         days: Number of days to look back (default: 30)
 
     Returns:
@@ -392,7 +392,7 @@ def load_detected_entities_recent(domain: str, days: int = 30) -> list[dict[str,
     from datetime import datetime, timedelta
 
     # Load attached entities and build exclusion set
-    attached = load_entities(domain)
+    attached = load_entities(facet)
     excluded_names = set()
     for entity in attached:
         name = entity.get("name", "")
@@ -415,7 +415,7 @@ def load_detected_entities_recent(domain: str, days: int = 30) -> list[dict[str,
     while current <= end_date:
         day_str = current.strftime("%Y%m%d")
         try:
-            day_entities = load_entities(domain, day_str)
+            day_entities = load_entities(facet, day_str)
             for entity in day_entities:
                 name = entity.get("name", "")
                 # Skip if already seen, or if matches attached/aka

@@ -43,7 +43,7 @@ def import_save() -> Any:
 
     upload = request.files.get("file")
     text = request.form.get("text", "").strip()
-    domain = request.form.get("domain", "").strip() or None
+    facet = request.form.get("facet", "").strip() or None
     setting = request.form.get("setting", "").strip() or None
 
     # Generate timestamp for folder name
@@ -141,7 +141,7 @@ def import_save() -> Any:
         "user_timestamp": folder_timestamp,  # The timestamp used for the folder
         "file_size": file_path.stat().st_size if file_path.exists() else 0,
         "mime_type": upload.content_type if upload else "text/plain",
-        "domain": domain,  # Include selected domain
+        "facet": facet,  # Include selected facet
         "setting": setting,
         "file_path": str(file_path),  # Store the actual file path
     }
@@ -157,15 +157,15 @@ def import_save() -> Any:
         {
             "path": str(file_path),
             "timestamp": folder_timestamp,
-            "domain": domain,
+            "facet": facet,
             "setting": setting,
         }
     )
 
 
-@bp.route("/import/api/domain", methods=["POST"])
+@bp.route("/import/api/facet", methods=["POST"])
 def import_update_metadata() -> Any:
-    """Update stored metadata (domain/setting) for a saved import."""
+    """Update stored metadata (facet/setting) for a saved import."""
     if not state.journal_root:
         return jsonify({"error": "JOURNAL_PATH not set"}), 500
 
@@ -174,7 +174,7 @@ def import_update_metadata() -> Any:
     if not raw_path:
         return jsonify({"error": "Missing import path"}), 400
 
-    domain = data.get("domain", "").strip() or None
+    facet = data.get("facet", "").strip() or None
     setting = data.get("setting", "").strip() or None
 
     # Extract timestamp from path
@@ -187,7 +187,7 @@ def import_update_metadata() -> Any:
         metadata, updated = update_import_metadata_fields(
             journal_root=Path(state.journal_root),
             timestamp=timestamp,
-            updates={"domain": domain, "setting": setting},
+            updates={"facet": facet, "setting": setting},
         )
     except FileNotFoundError:
         return jsonify({"error": "Import metadata not found"}), 404
@@ -197,7 +197,7 @@ def import_update_metadata() -> Any:
     return jsonify(
         {
             "status": "ok",
-            "domain": domain,
+            "facet": facet,
             "setting": setting,
             "updated": updated,
         }
@@ -368,7 +368,7 @@ def import_start() -> Any:
         # Update file_path in metadata (need to update after reading)
         # We'll handle this after reading the metadata below
 
-    # Read import metadata to get domain and setting
+    # Read import metadata to get facet and setting
     try:
         metadata = read_import_metadata(journal_root=journal_root, timestamp=ts)
     except FileNotFoundError:
@@ -390,13 +390,13 @@ def import_start() -> Any:
                 500,
             )
 
-    domain = metadata.get("domain")
+    facet = metadata.get("facet")
     setting = metadata.get("setting")
 
     # Build command
     cmd = ["think-importer", path, ts]
-    if domain:
-        cmd.extend(["--domain", domain])
+    if facet:
+        cmd.extend(["--facet", facet])
     if setting:
         cmd.extend(["--setting", setting])
 
@@ -419,7 +419,7 @@ def import_start() -> Any:
 
 @bp.route("/import/api/<timestamp>/rerun", methods=["POST"])
 def import_rerun(timestamp: str) -> Any:
-    """Re-run an import with optionally updated domain."""
+    """Re-run an import with optionally updated facet."""
     if not state.journal_root:
         return jsonify({"error": "JOURNAL_PATH not set"}), 500
 
@@ -447,19 +447,19 @@ def import_rerun(timestamp: str) -> Any:
     if not Path(file_path).exists():
         return jsonify({"error": "Original file no longer exists"}), 404
 
-    # Get new domain/setting from request
+    # Get new facet/setting from request
     data = request.get_json(force=True)
-    new_domain = data.get("domain", "").strip() or None
+    new_facet = data.get("facet", "").strip() or None
     new_setting = data.get("setting", "").strip() or None
 
     # Check if values changed
-    domain_changed = new_domain != metadata.get("domain")
+    facet_changed = new_facet != metadata.get("facet")
     setting_changed = new_setting != metadata.get("setting")
 
     # Update metadata with new values and rerun timestamp
-    if domain_changed or setting_changed or "setting" not in metadata:
+    if facet_changed or setting_changed or "setting" not in metadata:
         updates = {
-            "domain": new_domain,
+            "facet": new_facet,
             "setting": new_setting,
             "rerun_at": time.time() * 1000,
             "rerun_datetime": datetime.datetime.now().isoformat(),
@@ -481,8 +481,8 @@ def import_rerun(timestamp: str) -> Any:
 
     # Build command
     cmd = ["think-importer", file_path, timestamp]
-    if new_domain:
-        cmd.extend(["--domain", new_domain])
+    if new_facet:
+        cmd.extend(["--facet", new_facet])
     if new_setting:
         cmd.extend(["--setting", new_setting])
 
@@ -503,7 +503,7 @@ def import_rerun(timestamp: str) -> Any:
     return jsonify(
         {
             "status": "ok",
-            "domain": new_domain,
+            "facet": new_facet,
             "setting": new_setting,
             "task_id": task_id,
         }

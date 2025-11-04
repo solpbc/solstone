@@ -49,7 +49,7 @@ def test_todo_generation_endpoint(client, monkeypatch, tmp_path):
 
         prompt = mock_request.call_args.kwargs["prompt"]
         assert "2024-01-01" in prompt
-        assert "domains/personal/todos/20240101.md" in prompt
+        assert "facets/personal/todos/20240101.md" in prompt
 
 
 def test_todo_generation_status_endpoint(client, monkeypatch, tmp_path):
@@ -78,7 +78,7 @@ def test_todo_generation_status_endpoint(client, monkeypatch, tmp_path):
 
     # Finished agent with todo file present
     (agents_dir / "agent_1.jsonl").write_text('{"event": "start"}\n', encoding="utf-8")
-    todo_file = Path(journal_root) / "domains" / "personal" / "todos"
+    todo_file = Path(journal_root) / "facets" / "personal" / "todos"
     todo_file.mkdir(parents=True)
     (todo_file / "20240101.md").write_text("- [ ] Example\n", encoding="utf-8")
 

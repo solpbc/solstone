@@ -142,9 +142,9 @@ function renderCards(items, containerId, itemType, createModalFunc) {
         badges.push(`<span class="metadata-badge priority"><span class="badge-icon">⚡</span>P${item.priority}</span>`);
       }
 
-      // Multi-domain badge
-      if (item.multi_domain) {
-        badges.push('<span class="metadata-badge multi-domain"><span class="badge-icon">🌐</span>Multi-Domain</span>');
+      // Multi-facet badge
+      if (item.multi_facet) {
+        badges.push('<span class="metadata-badge multi-facet"><span class="badge-icon">🌐</span>Multi-Facet</span>');
       }
 
       // Tools badge (simplified)
@@ -286,7 +286,7 @@ function viewItemDetails(itemId, itemType, event) {
     // Set defaults first
     document.getElementById('modalSchedule').checked = false;
     document.getElementById('modalPriority').value = '';
-    document.getElementById('modalMultiDomain').checked = false;
+    document.getElementById('modalMultiFacet').checked = false;
     document.getElementById('modalBackend').value = '';
     document.getElementById('modalModel').value = '';
     document.getElementById('modalTools').value = '';
@@ -299,8 +299,8 @@ function viewItemDetails(itemId, itemType, event) {
     if (item.priority !== undefined && item.priority !== null) {
       document.getElementById('modalPriority').value = item.priority;
     }
-    if (item.multi_domain) {
-      document.getElementById('modalMultiDomain').checked = true;
+    if (item.multi_facet) {
+      document.getElementById('modalMultiFacet').checked = true;
     }
     if (item.backend) {
       document.getElementById('modalBackend').value = item.backend;
@@ -471,10 +471,10 @@ async function saveMetadata(updates = {}) {
       requestBody.priority = parseInt(priority);
     }
 
-    // Multi-domain
-    const isMultiDomain = document.getElementById('modalMultiDomain').checked;
-    if (isMultiDomain) {
-      requestBody.multi_domain = true;
+    // Multi-facet
+    const isMultiFacet = document.getElementById('modalMultiFacet').checked;
+    if (isMultiFacet) {
+      requestBody.multi_facet = true;
     }
 
     // Backend
@@ -562,8 +562,8 @@ function toggleSchedule() {
   saveMetadata();
 }
 
-function toggleMultiDomain() {
-  const checkbox = document.getElementById('modalMultiDomain');
+function toggleMultiFacet() {
+  const checkbox = document.getElementById('modalMultiFacet');
   checkbox.checked = !checkbox.checked;
   saveMetadata();
 }
@@ -1660,9 +1660,9 @@ function openAgentPreview(personaId) {
       // Render markdown
       document.getElementById('previewContent').innerHTML = marked.parse(data.full_prompt);
 
-      // Show example invocation if multi-domain
+      // Show example invocation if multi-facet
       const exampleDiv = document.getElementById('exampleInvocation');
-      if (data.multi_domain && data.example_invocation) {
+      if (data.multi_facet && data.example_invocation) {
         exampleDiv.style.display = 'block';
         exampleDiv.querySelector('.example-box').textContent = data.example_invocation;
       } else {

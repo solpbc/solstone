@@ -185,7 +185,7 @@ def search_entities_api() -> Any:
         offset = 0
 
     # Extract parameters specific to entities search
-    domain = request.args.get("domain")
+    facet = request.args.get("facet")
     day = request.args.get("day")
     etype = request.args.get("type")
     name = request.args.get("name")
@@ -201,7 +201,7 @@ def search_entities_api() -> Any:
         query,
         limit,
         offset,
-        domain=domain,
+        facet=facet,
         day=day,
         etype=etype,
         name=name,
@@ -218,7 +218,7 @@ def search_entities_api() -> Any:
             "text": text,
             "name": meta.get("name", ""),
             "type": meta.get("type", ""),
-            "domain": meta.get("domain", ""),
+            "facet": meta.get("facet", ""),
             "day": meta.get("day"),
             "date": format_date(meta.get("day", "")) if meta.get("day") else "",
             "attached": meta.get("attached", False),

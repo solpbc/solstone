@@ -1,5 +1,5 @@
 {% extends 'base.html' %}
-{% set active = 'domains' %}
+{% set active = 'facets' %}
 {% block head %}
 <style>
 /* Modal styling */
@@ -10,30 +10,30 @@
 .occ-field strong { display:inline-block; width:90px; }
 .occ-desc { margin-top:0.5em; white-space:pre-wrap; }
 
-/* Domain header styling */
-.domain-header {
+/* Facet header styling */
+.facet-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
   margin-bottom: 1.5rem;
   padding-bottom: 1rem;
-  border-bottom: 3px solid {{ domain_data.color or '#6c757d' }};
+  border-bottom: 3px solid {{ facet_data.color or '#6c757d' }};
 }
 
-.domain-title {
+.facet-title {
   display: flex;
   align-items: center;
   gap: 0.5rem;
 }
 
-.domain-emoji {
+.facet-emoji {
   font-size: 1.5rem;
 }
 
-.domain-name {
+.facet-name {
   font-size: 1.2rem;
   font-weight: 600;
-  color: {{ domain_data.color or '#6c757d' }};
+  color: {{ facet_data.color or '#6c757d' }};
 }
 
 .day-title {
@@ -184,35 +184,35 @@
 {% endblock %}
 {% block body %}
 <div class="container">
-  <a href="{{ url_for('domains.domain_detail', domain_name=domain_name) }}" class="back-link">
-    ← Back to {{ domain_data.title or domain_name }}
+  <a href="{{ url_for('facets.facet_detail', facet_name=facet_name) }}" class="back-link">
+    ← Back to {{ facet_data.title or facet_name }}
   </a>
 
-  <div class="domain-header">
-    <div class="domain-title">
-      {% if domain_data.emoji %}
-      <span class="domain-emoji">{{ domain_data.emoji }}</span>
+  <div class="facet-header">
+    <div class="facet-title">
+      {% if facet_data.emoji %}
+      <span class="facet-emoji">{{ facet_data.emoji }}</span>
       {% endif %}
-      <span class="domain-name">{{ domain_data.title or domain_name }}</span>
+      <span class="facet-name">{{ facet_data.title or facet_name }}</span>
       <span class="day-title">
-        {% if prev_day %}<a href="{{ url_for('domains.domain_day', domain_name=domain_name, day=prev_day) }}" class="nav-arrows">◀</a>{% endif %}
+        {% if prev_day %}<a href="{{ url_for('facets.facet_day', facet_name=facet_name, day=prev_day) }}" class="nav-arrows">◀</a>{% endif %}
         {{ title }}
-        {% if next_day %}<a href="{{ url_for('domains.domain_day', domain_name=domain_name, day=next_day) }}" class="nav-arrows">▶</a>{% endif %}
+        {% if next_day %}<a href="{{ url_for('facets.facet_day', facet_name=facet_name, day=next_day) }}" class="nav-arrows">▶</a>{% endif %}
       </span>
     </div>
     <div class="calendar-nav">
       {% if prev_day %}
-        <a href="{{ url_for('domains.domain_day', domain_name=domain_name, day=prev_day) }}" class="nav-btn">←</a>
+        <a href="{{ url_for('facets.facet_day', facet_name=facet_name, day=prev_day) }}" class="nav-btn">←</a>
       {% endif %}
 
       {% if day == today_day %}
         <span class="nav-btn today disabled">Today</span>
       {% else %}
-        <a href="{{ url_for('domains.domain_day', domain_name=domain_name, day=today_day) }}" class="nav-btn today">Today</a>
+        <a href="{{ url_for('facets.facet_day', facet_name=facet_name, day=today_day) }}" class="nav-btn today">Today</a>
       {% endif %}
 
       {% if next_day %}
-        <a href="{{ url_for('domains.domain_day', domain_name=domain_name, day=next_day) }}" class="nav-btn">→</a>
+        <a href="{{ url_for('facets.facet_day', facet_name=facet_name, day=next_day) }}" class="nav-btn">→</a>
       {% endif %}
     </div>
   </div>
@@ -222,8 +222,8 @@
   {% else %}
     <div class="empty-state">
       <div class="empty-state-icon">📭</div>
-      <div class="empty-state-text">No activity for {{ domain_data.title or domain_name }} on this day</div>
-      <div class="empty-state-subtext">Try navigating to another day to see domain occurrences</div>
+      <div class="empty-state-text">No activity for {{ facet_data.title or facet_name }} on this day</div>
+      <div class="empty-state-subtext">Try navigating to another day to see facet occurrences</div>
     </div>
   {% endif %}
 

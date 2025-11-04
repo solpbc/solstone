@@ -89,14 +89,14 @@ def _build_import_payload(
     entries: list[dict],
     *,
     import_id: str,
-    domain: str | None = None,
+    facet: str | None = None,
     setting: str | None = None,
 ) -> dict:
     """Return structured payload for imported transcript chunks."""
 
     imported_meta: dict[str, str] = {"id": import_id}
-    if domain:
-        imported_meta["domain"] = domain
+    if facet:
+        imported_meta["facet"] = facet
     if setting:
         imported_meta["setting"] = setting
 
@@ -109,7 +109,7 @@ def _write_import_jsonl(
     *,
     import_id: str,
     raw_filename: str | None = None,
-    domain: str | None = None,
+    facet: str | None = None,
     setting: str | None = None,
 ) -> None:
     """Write imported transcript entries in JSONL format.
@@ -117,8 +117,8 @@ def _write_import_jsonl(
     First line contains imported metadata, subsequent lines contain entries.
     """
     imported_meta: dict[str, str] = {"id": import_id}
-    if domain:
-        imported_meta["domain"] = domain
+    if facet:
+        imported_meta["facet"] = facet
     if setting:
         imported_meta["setting"] = setting
 
@@ -278,7 +278,7 @@ def process_transcript(
     base_dt: dt.datetime,
     *,
     import_id: str,
-    domain: str | None = None,
+    facet: str | None = None,
     setting: str | None = None,
 ) -> list[str]:
     """Process a transcript file and write imported JSONL segments.
@@ -321,7 +321,7 @@ def process_transcript(
             absolute_entries,
             import_id=import_id,
             raw_filename=os.path.basename(path),
-            domain=domain,
+            facet=facet,
             setting=setting,
         )
         logger.info(f"Added transcript segment to journal: {json_path}")
@@ -336,7 +336,7 @@ def audio_transcribe(
     base_dt: dt.datetime,
     *,
     import_id: str,
-    domain: str | None = None,
+    facet: str | None = None,
     setting: str | None = None,
 ) -> tuple[list[str], dict]:
     """Transcribe audio using Rev AI and save 5-minute chunks as imported JSONL.
@@ -345,7 +345,7 @@ def audio_transcribe(
         path: Path to audio file
         day_dir: Directory to save chunks to
         base_dt: Base datetime for timestamps
-        domain: Optional domain name to extract entities from
+        facet: Optional facet name to extract entities from
         setting: Optional description of the setting to store with metadata
 
     Returns:
@@ -355,31 +355,31 @@ def audio_transcribe(
     media_path = Path(path)
     created_files = []
 
-    # Get domain entities if domain is specified
+    # Get facet entities if facet is specified
     entities = None
-    if domain:
+    if facet:
         try:
             from think.entities import load_entity_names
 
-            # Load entity names from domain-specific entities.jsonl (spoken mode for short forms)
-            entity_names = load_entity_names(domain=domain, spoken=True)
+            # Load entity names from facet-specific entities.jsonl (spoken mode for short forms)
+            entity_names = load_entity_names(facet=facet, spoken=True)
             if entity_names:
                 # entity_names is already a list in spoken mode
                 entities = _sanitize_entities(entity_names)
                 if entities:
                     logger.info(
-                        f"Using {len(entities)} entities from domain '{domain}' for transcription"
+                        f"Using {len(entities)} entities from facet '{facet}' for transcription"
                     )
                 else:
                     logger.info(
-                        f"Domain '{domain}' entities removed after sanitization"
+                        f"Facet '{facet}' entities removed after sanitization"
                     )
             else:
-                logger.info(f"No entities found for domain '{domain}'")
+                logger.info(f"No entities found for facet '{facet}'")
         except FileNotFoundError:
-            logger.info(f"Domain '{domain}' has no entities.jsonl file")
+            logger.info(f"Facet '{facet}' has no entities.jsonl file")
         except Exception as e:
-            logger.warning(f"Failed to load domain entities: {e}")
+            logger.warning(f"Failed to load facet entities: {e}")
 
     # Transcribe using Rev AI
     try:
@@ -458,7 +458,7 @@ def audio_transcribe(
             absolute_entries,
             import_id=import_id,
             raw_filename=os.path.basename(path),
-            domain=domain,
+            facet=facet,
             setting=setting,
         )
         logger.info(f"Added transcript chunk to journal: {json_path}")
@@ -617,10 +617,10 @@ def main() -> None:
         help="Video sampling interval in seconds",
     )
     parser.add_argument(
-        "--domain",
+        "--facet",
         type=str,
         default=None,
-        help="Domain name to use for entity extraction",
+        help="Facet name to use for entity extraction",
     )
     parser.add_argument(
         "--setting",
@@ -679,7 +679,7 @@ def main() -> None:
         input_file=os.path.basename(args.media),
         file_type=ext.lstrip("."),
         day=base_dt.strftime("%Y%m%d"),
-        domain=args.domain,
+        facet=args.facet,
         setting=args.setting,
         options={
             "hear": args.hear,
@@ -700,7 +700,7 @@ def main() -> None:
         "target_day_path": day_dir,
         "input_file": args.media,
         "processing_started": dt.datetime.now().isoformat(),
-        "domain": args.domain,
+        "facet": args.facet,
         "setting": args.setting,
         "outputs": [],
     }
@@ -715,7 +715,7 @@ def main() -> None:
                 day_dir,
                 base_dt,
                 import_id=args.timestamp,
-                domain=args.domain,
+                facet=args.facet,
                 setting=args.setting,
             )
             all_created_files.extend(created_files)
@@ -739,7 +739,7 @@ def main() -> None:
                     day_dir,
                     base_dt,
                     import_id=args.timestamp,
-                    domain=args.domain,
+                    facet=args.facet,
                     setting=args.setting,
                 )
                 all_created_files.extend(created_files)

@@ -56,7 +56,7 @@ def test_load_transcript_imported():
         file_path = Path(tmpdir) / "120000_imported_audio.jsonl"
 
         lines = [
-            json.dumps({"imported": {"id": "20240101_120000", "domain": "personal"}}),
+            json.dumps({"imported": {"id": "20240101_120000", "facet": "personal"}}),
             json.dumps({"start": "12:00:01", "text": "Imported entry"}),
         ]
         file_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
@@ -66,7 +66,7 @@ def test_load_transcript_imported():
         assert entries is not None
         assert "imported" in metadata
         assert metadata["imported"]["id"] == "20240101_120000"
-        assert metadata["imported"]["domain"] == "personal"
+        assert metadata["imported"]["facet"] == "personal"
         assert len(entries) == 1
         assert entries[0]["text"] == "Imported entry"
 
@@ -322,14 +322,14 @@ def test_load_transcript_formatted_text_minimal():
 
 
 def test_load_transcript_formatted_text_imported():
-    """Test formatted text of imported transcript with domain metadata."""
+    """Test formatted text of imported transcript with facet metadata."""
     with tempfile.TemporaryDirectory() as tmpdir:
         day_dir = Path(tmpdir) / "20250615"
         day_dir.mkdir()
         file_path = day_dir / "100500_imported_audio.jsonl"
 
         metadata = {
-            "imported": {"id": "abc123", "domain": "uavionix"},
+            "imported": {"id": "abc123", "facet": "uavionix"},
             "topics": ["discussion"],
         }
         entries = [
@@ -349,7 +349,7 @@ def test_load_transcript_formatted_text_imported():
 
         assert "Start: 2025-06-15 10:05am" in formatted_text
         assert "Topics: discussion" in formatted_text
-        assert "Domain: uavionix" in formatted_text
+        assert "Facet: uavionix" in formatted_text
         assert "Import ID: abc123" in formatted_text
         assert "[00:00:10] (mic) Speaker 1: Imported content" in formatted_text
 

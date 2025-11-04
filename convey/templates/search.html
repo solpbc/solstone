@@ -67,7 +67,7 @@ function parseQuery(q){
   let index = 'summaries';
   let type = '';
   let name = '';
-  let domain = '';
+  let facet = '';
   let attached = '';
   let order = '';
   let start = '';
@@ -84,8 +84,8 @@ function parseQuery(q){
       type = part.slice(5);
     } else if(part.startsWith('name:')){
       name = part.slice(5);
-    } else if(part.startsWith('domain:')){
-      domain = part.slice(7);
+    } else if(part.startsWith('facet:')){
+      facet = part.slice(7);
     } else if(part.startsWith('attached:')){
       attached = part.slice(9);
     } else if(part.startsWith('order:')){
@@ -98,7 +98,7 @@ function parseQuery(q){
       terms.push(part);
     }
   });
-  return {text: terms.join(' '), day, topic, index, type, name, domain, attached, order, start, end};
+  return {text: terms.join(' '), day, topic, index, type, name, facet, attached, order, start, end};
 }
   function getColor(topic){
     if(!topicColors[topic]){ topicColors[topic] = COLORS[colorIndex % COLORS.length]; colorIndex++; }
@@ -245,16 +245,16 @@ function parseQuery(q){
       };
       tdType.appendChild(typeLink);
 
-      const tdDomain = document.createElement('td');
-      const domainLink = document.createElement('a');
-      domainLink.textContent = item.domain;
-      domainLink.onclick = e => {
+      const tdFacet = document.createElement('td');
+      const facetLink = document.createElement('a');
+      facetLink.textContent = item.facet;
+      facetLink.onclick = e => {
         if(!(e.ctrlKey||e.metaKey||e.shiftKey)){
           e.preventDefault();
-          addFilter('domain', item.domain);
+          addFilter('facet', item.facet);
         }
       };
-      tdDomain.appendChild(domainLink);
+      tdFacet.appendChild(facetLink);
 
       const tdDay = document.createElement('td');
       if(item.day){
@@ -278,7 +278,7 @@ function parseQuery(q){
 
       tr.appendChild(tdName);
       tr.appendChild(tdType);
-      tr.appendChild(tdDomain);
+      tr.appendChild(tdFacet);
       tr.appendChild(tdDay);
       tr.appendChild(tdText);
 
@@ -291,7 +291,7 @@ function parseQuery(q){
     if(index==='events'){
       thead.innerHTML='<tr><th>Date</th><th>Topic</th><th>Start</th><th>Length</th><th>Summary</th></tr>';
     } else if(index==='entities'){
-      thead.innerHTML='<tr><th>Name</th><th>Type</th><th>Domain</th><th>Day</th><th>Description</th></tr>';
+      thead.innerHTML='<tr><th>Name</th><th>Type</th><th>Facet</th><th>Day</th><th>Description</th></tr>';
     } else if(index==='transcripts'){
       thead.innerHTML='<tr><th>Date</th><th>Time</th><th>Type</th><th class="preview-col">Preview</th></tr>';
     } else {
@@ -331,7 +331,7 @@ function doSearch(reset=true){
   if(parsed.index==='entities'){
     if(parsed.type) url.searchParams.set('type', parsed.type);
     if(parsed.name) url.searchParams.set('name', parsed.name);
-    if(parsed.domain) url.searchParams.set('domain', parsed.domain);
+    if(parsed.facet) url.searchParams.set('facet', parsed.facet);
     if(parsed.attached) url.searchParams.set('attached', parsed.attached);
     if(parsed.order) url.searchParams.set('order', parsed.order);
   }

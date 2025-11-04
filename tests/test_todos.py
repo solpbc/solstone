@@ -1,4 +1,4 @@
-"""Tests for the domain-scoped todo checklist system."""
+"""Tests for the facet-scoped todo checklist system."""
 
 from __future__ import annotations
 
@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 
 from think.todo import (
-    get_domains_with_todos,
+    get_facets_with_todos,
     get_todos,
     parse_item,
     parse_items,
@@ -22,9 +22,9 @@ def journal_root(tmp_path):
     return path
 
 
-def _write_todos(root: Path, domain: str, day: str, lines: list[str]) -> Path:
-    """Write todos to domains/{domain}/todos/{day}.md"""
-    todos_dir = root / "domains" / domain / "todos"
+def _write_todos(root: Path, facet: str, day: str, lines: list[str]) -> Path:
+    """Write todos to facets/{facet}/todos/{day}.md"""
+    todos_dir = root / "facets" / facet / "todos"
     todos_dir.mkdir(parents=True, exist_ok=True)
     todo_path = todos_dir / f"{day}.md"
     todo_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
@@ -58,7 +58,7 @@ def test_get_todos_parses_basic_fields(monkeypatch, journal_root):
     assert first["time"] == "10:30"
     assert first["completed"] is False
     assert first["text"] == "Merge analytics PR"
-    assert "domain" not in first  # domain field removed
+    assert "facet" not in first  # facet field removed
 
     second = todos[1]
     assert second["completed"] is True
@@ -191,9 +191,9 @@ def test_parse_items_maintains_sequential_index():
 
 def test_upcoming_groups_future_days(monkeypatch, journal_root):
     monkeypatch.setenv("JOURNAL_PATH", str(journal_root))
-    # Create domain structure
-    (journal_root / "domains" / "personal").mkdir(parents=True)
-    (journal_root / "domains" / "personal" / "domain.json").write_text(
+    # Create facet structure
+    (journal_root / "facets" / "personal").mkdir(parents=True)
+    (journal_root / "facets" / "personal" / "facet.json").write_text(
         '{"title": "Personal"}', encoding="utf-8"
     )
 
@@ -238,9 +238,9 @@ def test_upcoming_groups_future_days(monkeypatch, journal_root):
 
 def test_upcoming_respects_limit(monkeypatch, journal_root):
     monkeypatch.setenv("JOURNAL_PATH", str(journal_root))
-    # Create domain structure
-    (journal_root / "domains" / "work").mkdir(parents=True)
-    (journal_root / "domains" / "work" / "domain.json").write_text(
+    # Create facet structure
+    (journal_root / "facets" / "work").mkdir(parents=True)
+    (journal_root / "facets" / "work" / "facet.json").write_text(
         '{"title": "Work"}', encoding="utf-8"
     )
 
@@ -264,7 +264,7 @@ def test_upcoming_respects_limit(monkeypatch, journal_root):
 
 def test_upcoming_when_no_future_todos(monkeypatch, journal_root):
     monkeypatch.setenv("JOURNAL_PATH", str(journal_root))
-    (journal_root / "domains" / "personal").mkdir(parents=True)
+    (journal_root / "facets" / "personal").mkdir(parents=True)
 
     _write_todos(
         journal_root,
@@ -280,41 +280,41 @@ def test_upcoming_when_no_future_todos(monkeypatch, journal_root):
     assert result == "No upcoming todos."
 
 
-def test_upcoming_filters_by_domain(monkeypatch, journal_root):
+def test_upcoming_filters_by_facet(monkeypatch, journal_root):
     monkeypatch.setenv("JOURNAL_PATH", str(journal_root))
-    # Create multiple domains
-    for domain_name in ["personal", "work"]:
-        domain_dir = journal_root / "domains" / domain_name
-        domain_dir.mkdir(parents=True)
-        (domain_dir / "domain.json").write_text(
-            f'{{"title": "{domain_name.title()}"}}', encoding="utf-8"
+    # Create multiple facets
+    for facet_name in ["personal", "work"]:
+        facet_dir = journal_root / "facets" / facet_name
+        facet_dir.mkdir(parents=True)
+        (facet_dir / "facet.json").write_text(
+            f'{{"title": "{facet_name.title()}"}}', encoding="utf-8"
         )
 
     _write_todos(journal_root, "personal", "20240105", ["- [ ] Personal task"])
     _write_todos(journal_root, "work", "20240105", ["- [ ] Work task"])
 
-    # Test filtering by domain
-    result = upcoming(domain="personal", today="20240104")
+    # Test filtering by facet
+    result = upcoming(facet="personal", today="20240104")
     assert "Personal: 20240105" in result
     assert "Personal task" in result
     assert "Work task" not in result
 
 
-def test_upcoming_aggregates_all_domains(monkeypatch, journal_root):
+def test_upcoming_aggregates_all_facets(monkeypatch, journal_root):
     monkeypatch.setenv("JOURNAL_PATH", str(journal_root))
-    # Create multiple domains
-    for domain_name in ["personal", "work"]:
-        domain_dir = journal_root / "domains" / domain_name
-        domain_dir.mkdir(parents=True)
-        (domain_dir / "domain.json").write_text(
-            f'{{"title": "{domain_name.title()}"}}', encoding="utf-8"
+    # Create multiple facets
+    for facet_name in ["personal", "work"]:
+        facet_dir = journal_root / "facets" / facet_name
+        facet_dir.mkdir(parents=True)
+        (facet_dir / "facet.json").write_text(
+            f'{{"title": "{facet_name.title()}"}}', encoding="utf-8"
         )
 
     _write_todos(journal_root, "personal", "20240105", ["- [ ] Personal task"])
     _write_todos(journal_root, "work", "20240105", ["- [ ] Work task"])
 
-    # Test aggregation (domain=None)
-    result = upcoming(domain=None, today="20240104")
+    # Test aggregation (facet=None)
+    result = upcoming(facet=None, today="20240104")
     assert "Personal: 20240105" in result
     assert "Work: 20240105" in result
     assert "Personal task" in result
@@ -326,9 +326,9 @@ def test_append_entry_validates_parsing(monkeypatch, journal_root):
 
     monkeypatch.setenv("JOURNAL_PATH", str(journal_root))
 
-    # Create domain directory
-    domains_dir = journal_root / "domains" / "work"
-    domains_dir.mkdir(parents=True)
+    # Create facet directory
+    facets_dir = journal_root / "facets" / "work"
+    facets_dir.mkdir(parents=True)
 
     checklist = TodoChecklist.load("20240105", "work")
 
@@ -343,20 +343,20 @@ def test_append_entry_validates_parsing(monkeypatch, journal_root):
     assert items[0].time == "10:30"
 
 
-def test_get_domains_with_todos(monkeypatch, journal_root):
+def test_get_facets_with_todos(monkeypatch, journal_root):
     monkeypatch.setenv("JOURNAL_PATH", str(journal_root))
 
-    # Create todos in multiple domains
+    # Create todos in multiple facets
     _write_todos(journal_root, "personal", "20240105", ["- [ ] Personal task"])
     _write_todos(journal_root, "work", "20240105", ["- [ ] Work task"])
     _write_todos(journal_root, "hobby", "20240106", ["- [ ] Hobby task"])
 
-    # Test getting domains for a specific day
-    domains_20240105 = get_domains_with_todos("20240105")
-    assert sorted(domains_20240105) == ["personal", "work"]
+    # Test getting facets for a specific day
+    facets_20240105 = get_facets_with_todos("20240105")
+    assert sorted(facets_20240105) == ["personal", "work"]
 
-    domains_20240106 = get_domains_with_todos("20240106")
-    assert domains_20240106 == ["hobby"]
+    facets_20240106 = get_facets_with_todos("20240106")
+    assert facets_20240106 == ["hobby"]
 
-    domains_20240107 = get_domains_with_todos("20240107")
-    assert domains_20240107 == []
+    facets_20240107 = get_facets_with_todos("20240107")
+    assert facets_20240107 == []

@@ -94,15 +94,15 @@
   color: #9ca3af;
 }
 
-.domain-section {
+.facet-section {
   margin-bottom: 1.5rem;
 }
 
-.domain-section.collapsed .todo-list {
+.facet-section.collapsed .todo-list {
   display: none;
 }
 
-.domain-header {
+.facet-header {
   display: flex;
   align-items: center;
   gap: 0.5rem;
@@ -113,11 +113,11 @@
   user-select: none;
 }
 
-.domain-header:hover {
+.facet-header:hover {
   opacity: 0.8;
 }
 
-.domain-title {
+.facet-title {
   font-size: 0.875rem;
   font-weight: 600;
   text-transform: uppercase;
@@ -126,7 +126,7 @@
   color: #374151;
 }
 
-.domain-count {
+.facet-count {
   margin-left: auto;
   font-size: 1.1rem;
 }
@@ -315,20 +315,20 @@
       <input
         type="text"
         name="text"
-        placeholder="Add a todo... (use #domain)"
+        placeholder="Add a todo... (use #facet)"
         autocomplete="off"
         autofocus
       >
     </form>
   {% endif %}
 
-  {% if todos_by_domain %}
-    {% for domain_name, domain_todos in todos_by_domain.items() %}
-      {% set domain_info = domain_map.get(domain_name, {}) %}
-      {% set domain_title = domain_info.get('title', domain_name.title()) %}
-      {% set domain_color = domain_info.get('color', '#6b7280') %}
-      {% set incomplete_count = domain_todos | selectattr('completed', 'equalto', false) | list | length %}
-      {% set total_count = domain_todos | length %}
+  {% if todos_by_facet %}
+    {% for facet_name, facet_todos in todos_by_facet.items() %}
+      {% set facet_info = facet_map.get(facet_name, {}) %}
+      {% set facet_title = facet_info.get('title', facet_name.title()) %}
+      {% set facet_color = facet_info.get('color', '#6b7280') %}
+      {% set incomplete_count = facet_todos | selectattr('completed', 'equalto', false) | list | length %}
+      {% set total_count = facet_todos | length %}
       {% if incomplete_count == 0 %}
         {% set count_emoji = '✅' %}
       {% elif incomplete_count < 10 %}
@@ -337,18 +337,18 @@
         {% set count_emoji = '*️⃣' %}
       {% endif %}
 
-      <div class="domain-section" data-domain="{{ domain_name }}">
-        <div class="domain-header" style="border-color: {{ domain_color }};">
-          <h2 class="domain-title">{{ domain_title }}</h2>
-          <span class="domain-count">{{ count_emoji }}</span>
+      <div class="facet-section" data-facet="{{ facet_name }}">
+        <div class="facet-header" style="border-color: {{ facet_color }};">
+          <h2 class="facet-title">{{ facet_title }}</h2>
+          <span class="facet-count">{{ count_emoji }}</span>
         </div>
 
         <ul class="todo-list">
-          {% for item in domain_todos %}
+          {% for item in facet_todos %}
             <li class="todo-row {% if item.completed %}completed{% endif %}" data-todo-row>
               <form method="post" style="display: contents;">
                 <input type="hidden" name="action" value="{{ 'uncomplete' if item.completed else 'complete' }}">
-                <input type="hidden" name="domain" value="{{ domain_name }}">
+                <input type="hidden" name="facet" value="{{ facet_name }}">
                 <input type="hidden" name="index" value="{{ item.index }}">
                 <input type="hidden" name="guard" value="{{ item.raw }}">
                 <input
@@ -357,7 +357,7 @@
                   {% if item.completed %}checked{% endif %}
                   data-index="{{ item.index }}"
                   data-guard="{{ item.raw }}"
-                  data-domain="{{ domain_name }}"
+                  data-facet="{{ facet_name }}"
                   data-completed="{{ 'true' if item.completed else 'false' }}"
                 >
               </form>
@@ -368,7 +368,7 @@
                   title="{{ item.text }}"
                   data-index="{{ item.index }}"
                   data-guard="{{ item.raw }}"
-                  data-domain="{{ domain_name }}"
+                  data-facet="{{ facet_name }}"
                 >{{ item.text }}</span>
                 {% if item.time %}
                   <span class="todo-time">{{ item.time }}</span>
@@ -382,7 +382,7 @@
                   title="Move to another day"
                   data-index="{{ item.index }}"
                   data-guard="{{ item.raw }}"
-                  data-domain="{{ domain_name }}"
+                  data-facet="{{ facet_name }}"
                   data-current-day="{{ day }}"
                 >
                   📅
@@ -394,7 +394,7 @@
                   title="Remove"
                   data-index="{{ item.index }}"
                   data-guard="{{ item.raw }}"
-                  data-domain="{{ domain_name }}"
+                  data-facet="{{ facet_name }}"
                 >
                   🗑️
                 </button>
@@ -437,33 +437,33 @@ document.addEventListener('DOMContentLoaded', function() {
     }
   }
 
-  // Toggle domain collapse state
-  function toggleDomainCollapse(domainSection, collapse) {
-    const domain = domainSection.dataset.domain;
+  // Toggle facet collapse state
+  function toggleFacetCollapse(facetSection, collapse) {
+    const facet = facetSection.dataset.facet;
     const collapsedState = loadCollapsedState();
 
     if (collapse === undefined) {
       // Toggle
-      collapse = !domainSection.classList.contains('collapsed');
+      collapse = !facetSection.classList.contains('collapsed');
     }
 
     if (collapse) {
-      domainSection.classList.add('collapsed');
-      collapsedState[domain] = true;
+      facetSection.classList.add('collapsed');
+      collapsedState[facet] = true;
     } else {
-      domainSection.classList.remove('collapsed');
-      delete collapsedState[domain];
+      facetSection.classList.remove('collapsed');
+      delete collapsedState[facet];
     }
 
     saveCollapsedState(collapsedState);
   }
 
-  // Utility function to update domain count emoji
-  function updateDomainCount(domainSection) {
-    const countSpan = domainSection.querySelector('.domain-count');
+  // Utility function to update facet count emoji
+  function updateFacetCount(facetSection) {
+    const countSpan = facetSection.querySelector('.facet-count');
     if (!countSpan) return;
 
-    const todoRows = Array.from(domainSection.querySelectorAll('[data-todo-row]'));
+    const todoRows = Array.from(facetSection.querySelectorAll('[data-todo-row]'));
     const incompleteCount = todoRows.filter(row => !row.classList.contains('completed')).length;
 
     const emojis = ['0️⃣', '1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣', '6️⃣', '7️⃣', '8️⃣', '9️⃣'];
@@ -475,7 +475,7 @@ document.addEventListener('DOMContentLoaded', function() {
       countSpan.textContent = '✅';
       // Auto-collapse when all items are done
       if (!wasAllComplete) {
-        toggleDomainCollapse(domainSection, true);
+        toggleFacetCollapse(facetSection, true);
       }
     } else if (incompleteCount < 10) {
       countSpan.textContent = emojis[incompleteCount];
@@ -486,30 +486,30 @@ document.addEventListener('DOMContentLoaded', function() {
 
   // Initialize collapsed state from sessionStorage
   const collapsedState = loadCollapsedState();
-  document.querySelectorAll('.domain-section').forEach(section => {
-    const domain = section.dataset.domain;
+  document.querySelectorAll('.facet-section').forEach(section => {
+    const facet = section.dataset.facet;
 
-    // Check if all items in this domain are completed
-    const countSpan = section.querySelector('.domain-count');
+    // Check if all items in this facet are completed
+    const countSpan = section.querySelector('.facet-count');
     const isAllComplete = countSpan && countSpan.textContent === '✅';
 
     // Collapse if: (1) stored as collapsed, OR (2) all items are complete
-    if (collapsedState[domain] || isAllComplete) {
+    if (collapsedState[facet] || isAllComplete) {
       section.classList.add('collapsed');
-      if (isAllComplete && !collapsedState[domain]) {
+      if (isAllComplete && !collapsedState[facet]) {
         // Save the auto-collapsed state
-        collapsedState[domain] = true;
+        collapsedState[facet] = true;
         saveCollapsedState(collapsedState);
       }
     }
   });
 
-  // Setup click handlers for domain headers
-  document.querySelectorAll('.domain-header').forEach(header => {
+  // Setup click handlers for facet headers
+  document.querySelectorAll('.facet-header').forEach(header => {
     header.addEventListener('click', (e) => {
-      const domainSection = header.closest('.domain-section');
-      if (domainSection) {
-        toggleDomainCollapse(domainSection);
+      const facetSection = header.closest('.facet-section');
+      if (facetSection) {
+        toggleFacetCollapse(facetSection);
       }
     });
   });
@@ -541,7 +541,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
   }
 
-  async function moveTodo(targetDay, domain, index, guard, button) {
+  async function moveTodo(targetDay, facet, index, guard, button) {
     if (!targetDay) return;
 
     const originalText = button.textContent;
@@ -554,7 +554,7 @@ document.addEventListener('DOMContentLoaded', function() {
       const response = await fetch(moveEndpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ target_day: targetDay, domain, index, guard })
+        body: JSON.stringify({ target_day: targetDay, facet, index, guard })
       });
 
       const data = await response.json();
@@ -576,18 +576,18 @@ document.addEventListener('DOMContentLoaded', function() {
       todoRow.style.transition = 'opacity 0.2s ease-out';
       todoRow.style.opacity = '0';
       setTimeout(() => {
-        const domainSection = todoRow.closest('.domain-section');
+        const facetSection = todoRow.closest('.facet-section');
         todoRow.remove();
 
-        // Check if domain section is now empty and remove it if so
-        const todoList = domainSection?.querySelector('.todo-list');
+        // Check if facet section is now empty and remove it if so
+        const todoList = facetSection?.querySelector('.todo-list');
         if (todoList && todoList.children.length === 0) {
-          if (domainSection) {
-            domainSection.remove();
+          if (facetSection) {
+            facetSection.remove();
           }
-        } else if (domainSection) {
+        } else if (facetSection) {
           // Update the count emoji
-          updateDomainCount(domainSection);
+          updateFacetCount(facetSection);
         }
       }, 200);
     } catch (error) {
@@ -605,7 +605,7 @@ document.addEventListener('DOMContentLoaded', function() {
       // Read values fresh from dataset (they may have been updated after a delete)
       const index = parseInt(button.dataset.index, 10);
       const guard = button.dataset.guard;
-      const domain = button.dataset.domain;
+      const facet = button.dataset.facet;
       const currentDay = button.dataset.currentDay;
 
       // Create native date input positioned near the button
@@ -627,7 +627,7 @@ document.addEventListener('DOMContentLoaded', function() {
       dateInput.addEventListener('change', () => {
         const targetDay = inputValueToDay(dateInput.value);
         if (targetDay && targetDay !== currentDay) {
-          moveTodo(targetDay, domain, index, guard, button);
+          moveTodo(targetDay, facet, index, guard, button);
         }
         dateInput.remove();
       });
@@ -660,7 +660,7 @@ document.addEventListener('DOMContentLoaded', function() {
       // Read values fresh from dataset (they may have been updated after a delete)
       const index = parseInt(button.dataset.index, 10);
       const guard = button.dataset.guard;
-      const domain = button.dataset.domain;
+      const facet = button.dataset.facet;
 
       const todoRow = button.closest('[data-todo-row]');
       const originalText = button.textContent;
@@ -669,7 +669,7 @@ document.addEventListener('DOMContentLoaded', function() {
       try {
         const form = new FormData();
         form.append('action', 'remove');
-        form.append('domain', domain);
+        form.append('facet', facet);
         form.append('index', index);
         form.append('guard', guard);
 
@@ -683,14 +683,14 @@ document.addEventListener('DOMContentLoaded', function() {
           todoRow.style.transition = 'opacity 0.2s ease-out';
           todoRow.style.opacity = '0';
           setTimeout(() => {
-            const domainSection = todoRow.closest('.domain-section');
+            const facetSection = todoRow.closest('.facet-section');
             const removedIndex = index;
 
             todoRow.remove();
 
-            // Update indices of all subsequent items in this domain
-            if (domainSection) {
-              const allRows = Array.from(domainSection.querySelectorAll('[data-todo-row]'));
+            // Update indices of all subsequent items in this facet
+            if (facetSection) {
+              const allRows = Array.from(facetSection.querySelectorAll('[data-todo-row]'));
               allRows.forEach(row => {
                 const elementsWithIndex = row.querySelectorAll('[data-index]');
                 elementsWithIndex.forEach(el => {
@@ -711,15 +711,15 @@ document.addEventListener('DOMContentLoaded', function() {
               });
             }
 
-            // Check if domain section is now empty and remove it if so
-            const todoList = domainSection?.querySelector('.todo-list');
+            // Check if facet section is now empty and remove it if so
+            const todoList = facetSection?.querySelector('.todo-list');
             if (todoList && todoList.children.length === 0) {
-              if (domainSection) {
-                domainSection.remove();
+              if (facetSection) {
+                facetSection.remove();
               }
-            } else if (domainSection) {
+            } else if (facetSection) {
               // Update the count emoji
-              updateDomainCount(domainSection);
+              updateFacetCount(facetSection);
             }
           }, 200);
         } else {
@@ -745,7 +745,7 @@ document.addEventListener('DOMContentLoaded', function() {
       // Read values fresh from dataset (they may have been updated after a delete)
       const index = parseInt(checkbox.dataset.index, 10);
       const guard = checkbox.dataset.guard;
-      const domain = checkbox.dataset.domain;
+      const facet = checkbox.dataset.facet;
 
       const todoRow = checkbox.closest('[data-todo-row]');
       const wasChecked = checkbox.checked;
@@ -756,7 +756,7 @@ document.addEventListener('DOMContentLoaded', function() {
       try {
         const form = new FormData();
         form.append('action', isCompleted ? 'uncomplete' : 'complete');
-        form.append('domain', domain);
+        form.append('facet', facet);
         form.append('index', index);
         form.append('guard', guard);
 
@@ -793,10 +793,10 @@ document.addEventListener('DOMContentLoaded', function() {
           }
           updateRowGuards(todoRow, newGuard);
 
-          // Update domain count emoji
-          const domainSection = todoRow.closest('.domain-section');
-          if (domainSection) {
-            updateDomainCount(domainSection);
+          // Update facet count emoji
+          const facetSection = todoRow.closest('.facet-section');
+          if (facetSection) {
+            updateFacetCount(facetSection);
           }
         } else {
           // Revert on error
@@ -857,16 +857,16 @@ document.addEventListener('DOMContentLoaded', function() {
         // Read values fresh from dataset (they may have been updated after a delete)
         const index = parseInt(span.dataset.index, 10);
         const guard = span.dataset.guard;
-        const domain = span.dataset.domain;
+        const facet = span.dataset.facet;
 
-        // Check if text contains a domain hashtag
-        const domainMatch = newText.match(/#([a-z][a-z0-9_-]*)/i);
-        const hasDomainChange = domainMatch && domainMatch[1].toLowerCase() !== domain;
+        // Check if text contains a facet hashtag
+        const facetMatch = newText.match(/#([a-z][a-z0-9_-]*)/i);
+        const hasFacetChange = facetMatch && facetMatch[1].toLowerCase() !== facet;
 
         // Save via form submission
         const form = new FormData();
         form.append('action', 'edit');
-        form.append('domain', domain);
+        form.append('facet', facet);
         form.append('index', index);
         form.append('guard', guard);
         form.append('text', newText);
@@ -878,11 +878,11 @@ document.addEventListener('DOMContentLoaded', function() {
           });
 
           if (response.ok) {
-            if (hasDomainChange) {
-              // Domain changed, reload to show it in new location
+            if (hasFacetChange) {
+              // Facet changed, reload to show it in new location
               window.location.reload();
             } else {
-              // Same domain, just update the text in place
+              // Same facet, just update the text in place
               const cleanText = newText.replace(/#[a-z][a-z0-9_-]*/gi, '').trim();
               span.textContent = cleanText;
               span.title = cleanText;

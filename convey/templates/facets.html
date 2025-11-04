@@ -1,10 +1,10 @@
 {% extends 'base.html' %}
-{% set title = 'Domains' %}
-{% set active = 'domains' %}
+{% set title = 'Facets' %}
+{% set active = 'facets' %}
 {% block head %}
 <style>
 /* Layout */
-.domains-container {
+.facets-container {
   padding: 2em;
   max-width: 1400px;
   margin: 0 auto;
@@ -41,15 +41,15 @@ h1 {
   to { transform: rotate(360deg); }
 }
 
-/* Domains grid */
-.domains-grid {
+/* Facets grid */
+.facets-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
   gap: 1.5em;
   margin-bottom: 3em;
 }
 
-.domain-card {
+.facet-card {
   background: white;
   border-radius: 12px;
   padding: 1.5em;
@@ -61,7 +61,7 @@ h1 {
   min-height: 4em;
 }
 
-.domain-card.add-domain {
+.facet-card.add-facet {
   border: 2px dashed #ccc;
   background: #fafafa;
   display: flex;
@@ -73,13 +73,13 @@ h1 {
   font-weight: 500;
 }
 
-.domain-card.add-domain:hover {
+.facet-card.add-facet:hover {
   border-color: #667eea;
   color: #667eea;
   background: #f8f9ff;
 }
 
-.domain-card .edit-icon {
+.facet-card .edit-icon {
   position: absolute;
   top: 1em;
   right: 1em;
@@ -97,17 +97,17 @@ h1 {
   justify-content: center;
 }
 
-.domain-card:hover .edit-icon {
+.facet-card:hover .edit-icon {
   opacity: 1;
 }
 
-.domain-card .edit-icon:hover {
+.facet-card .edit-icon:hover {
   color: #333;
   background: transparent;
 }
 
 
-.domain-card .domain-emoji {
+.facet-card .facet-emoji {
   position: absolute;
   top: 0.5em;
   left: 0.5em;
@@ -116,21 +116,21 @@ h1 {
   line-height: 1;
 }
 
-.domain-card.has-emoji {
+.facet-card.has-emoji {
   padding-left: 3.5em;
 }
 
-.domain-card:hover {
+.facet-card:hover {
   transform: translateY(-2px);
   box-shadow: 0 6px 20px rgba(0,0,0,0.12);
 }
 
-.domain-card.disabled {
+.facet-card.disabled {
   opacity: 0.5;
   filter: grayscale(50%);
 }
 
-.domain-card h3 {
+.facet-card h3 {
   font-size: 1.2em;
   margin: 0 0 0.5em 0;
   padding-right: 2em;
@@ -142,18 +142,18 @@ h1 {
   text-align: right;
 }
 
-.domain-card.dark-background h3 {
+.facet-card.dark-background h3 {
   background: linear-gradient(135deg, #ffffff 0%, #f0f0f0 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
 }
 
-.domain-card.dark-background .edit-icon {
+.facet-card.dark-background .edit-icon {
   color: #ccc;
 }
 
-.domain-card.dark-background .edit-icon:hover {
+.facet-card.dark-background .edit-icon:hover {
   color: #fff;
 }
 
@@ -320,60 +320,60 @@ h1 {
 </style>
 {% endblock %}
 {% block body %}
-<div class="domains-container">
+<div class="facets-container">
   
   <div id="loading">
     <div class="spinner"></div>
-    <p>Loading domains...</p>
+    <p>Loading facets...</p>
   </div>
   
-  <div id="domains-content" style="display: none;">
-    <div class="domains-grid" id="domains-grid">
-      <!-- Domain cards will be inserted here -->
+  <div id="facets-content" style="display: none;">
+    <div class="facets-grid" id="facets-grid">
+      <!-- Facet cards will be inserted here -->
     </div>
     
     <div id="empty-state" class="empty-state" style="display: none;">
-      <h2>No domains found</h2>
-      <p>Create a domain by adding a folder to <code>&lt;journal&gt;/domains/&lt;domain-name&gt;/</code> with a <code>domain.json</code> file.</p>
+      <h2>No facets found</h2>
+      <p>Create a facet by adding a folder to <code>&lt;journal&gt;/facets/&lt;facet-name&gt;/</code> with a <code>facet.json</code> file.</p>
     </div>
   </div>
 </div>
 
-<!-- Domain Editor Modal -->
-<div id="domainModal" class="modal">
+<!-- Facet Editor Modal -->
+<div id="facetModal" class="modal">
   <div class="modal-content">
     <div class="modal-header">
-      <h2 id="modalTitle">Add Domain</h2>
+      <h2 id="modalTitle">Add Facet</h2>
       <span class="close">&times;</span>
     </div>
     <div id="errorContainer"></div>
-    <form id="domainForm">
+    <form id="facetForm">
       <div class="form-group">
-        <label for="domainTitle">Name</label>
-        <input type="text" id="domainTitle" name="title" required placeholder="e.g., Machine Learning Research">
+        <label for="facetTitle">Name</label>
+        <input type="text" id="facetTitle" name="title" required placeholder="e.g., Machine Learning Research">
       </div>
       <div class="form-group">
-        <label for="domainName">Handle</label>
-        <input type="text" id="domainName" name="name" required placeholder="e.g., machine_learning">
+        <label for="facetName">Handle</label>
+        <input type="text" id="facetName" name="name" required placeholder="e.g., machine_learning">
       </div>
-      <div class="form-group" id="domainDescriptionGroup">
-        <label for="domainDescription">Description</label>
-        <textarea id="domainDescription" name="description" placeholder="Brief description of this domain..."></textarea>
-      </div>
-      <div class="form-group">
-        <label for="domainEmoji">Emoji</label>
-        <input type="text" id="domainEmoji" name="emoji" placeholder="🧠" maxlength="2">
+      <div class="form-group" id="facetDescriptionGroup">
+        <label for="facetDescription">Description</label>
+        <textarea id="facetDescription" name="description" placeholder="Brief description of this facet..."></textarea>
       </div>
       <div class="form-group">
-        <label for="domainColor">Color</label>
+        <label for="facetEmoji">Emoji</label>
+        <input type="text" id="facetEmoji" name="emoji" placeholder="🧠" maxlength="2">
+      </div>
+      <div class="form-group">
+        <label for="facetColor">Color</label>
         <div class="color-input-group">
-          <input type="color" id="domainColor" name="color" value="#667eea">
-          <input type="text" id="domainColorHex" placeholder="#667eea" maxlength="7" pattern="^#[0-9A-Fa-f]{6}$">
+          <input type="color" id="facetColor" name="color" value="#667eea">
+          <input type="text" id="facetColorHex" placeholder="#667eea" maxlength="7" pattern="^#[0-9A-Fa-f]{6}$">
         </div>
       </div>
       <div class="form-actions">
         <button type="button" class="btn btn-secondary" id="cancelBtn">Cancel</button>
-        <button type="submit" class="btn btn-primary" id="saveBtn">Save Domain</button>
+        <button type="submit" class="btn btn-primary" id="saveBtn">Save Facet</button>
       </div>
     </form>
   </div>
@@ -395,94 +395,94 @@ function isColorDark(color) {
   return luminance < 0.5;
 }
 
-// Load domains data
-async function loadDomains() {
+// Load facets data
+async function loadFacets() {
   try {
-    const response = await fetch('{{ url_for('domains.domains_list') }}');
-    const domains = await response.json();
+    const response = await fetch('{{ url_for('facets.facets_list') }}');
+    const facets = await response.json();
     
     document.getElementById('loading').style.display = 'none';
-    document.getElementById('domains-content').style.display = 'block';
+    document.getElementById('facets-content').style.display = 'block';
     
-    const domainsGrid = document.getElementById('domains-grid');
+    const facetsGrid = document.getElementById('facets-grid');
     const emptyState = document.getElementById('empty-state');
     
     // Clear existing content
-    domainsGrid.innerHTML = '';
+    facetsGrid.innerHTML = '';
     
-    if (Object.keys(domains).length === 0) {
+    if (Object.keys(facets).length === 0) {
       emptyState.style.display = 'block';
     } else {
-      // Create domain cards
-      Object.entries(domains).forEach(([domainName, domainData]) => {
+      // Create facet cards
+      Object.entries(facets).forEach(([facetName, facetData]) => {
         const card = document.createElement('div');
-        card.className = 'domain-card';
+        card.className = 'facet-card';
 
         // Apply background color if provided
-        if (domainData.color) {
-          card.style.background = domainData.color;
+        if (facetData.color) {
+          card.style.background = facetData.color;
 
           // Add dark background class if color is dark
-          if (isColorDark(domainData.color)) {
+          if (isColorDark(facetData.color)) {
             card.classList.add('dark-background');
           }
         }
 
         // Add emoji if provided
-        if (domainData.emoji) {
+        if (facetData.emoji) {
           card.classList.add('has-emoji');
         }
 
-        // Add disabled class if domain is disabled
-        if (domainData.disabled) {
+        // Add disabled class if facet is disabled
+        if (facetData.disabled) {
           card.classList.add('disabled');
         }
         
         card.innerHTML = `
-          ${domainData.emoji ? `<div class="domain-emoji">${domainData.emoji}</div>` : ''}
-          <div class="edit-icon" title="Edit domain">⚙️</div>
-          <h3>${domainData.title || domainName}</h3>
+          ${facetData.emoji ? `<div class="facet-emoji">${facetData.emoji}</div>` : ''}
+          <div class="edit-icon" title="Edit facet">⚙️</div>
+          <h3>${facetData.title || facetName}</h3>
         `;
         
-        // Add click handler to navigate to domain detail view
+        // Add click handler to navigate to facet detail view
         card.addEventListener('click', (e) => {
           // Don't trigger if clicking the edit icon
           if (e.target.classList.contains('edit-icon')) {
             e.stopPropagation();
-            openEditModal(domainName, domainData);
+            openEditModal(facetName, facetData);
             return;
           }
-          // Navigate to domain detail view
-          window.location.href = `{{ url_for('domains.domains_page') }}/${domainName}`;
+          // Navigate to facet detail view
+          window.location.href = `{{ url_for('facets.facets_page') }}/${facetName}`;
         });
         
-        domainsGrid.appendChild(card);
+        facetsGrid.appendChild(card);
       });
     }
     
-    // Always add "Add Domain" card
+    // Always add "Add Facet" card
     const addCard = document.createElement('div');
-    addCard.className = 'domain-card add-domain';
-    addCard.innerHTML = '+ Add Domain';
+    addCard.className = 'facet-card add-facet';
+    addCard.innerHTML = '+ Add Facet';
     addCard.addEventListener('click', () => openAddModal());
-    domainsGrid.appendChild(addCard);
+    facetsGrid.appendChild(addCard);
     
   } catch (error) {
-    console.error('Error loading domains:', error);
-    document.getElementById('loading').innerHTML = '<p>Error loading domains</p>';
+    console.error('Error loading facets:', error);
+    document.getElementById('loading').innerHTML = '<p>Error loading facets</p>';
   }
 }
 
 // Modal functionality
-const modal = document.getElementById('domainModal');
+const modal = document.getElementById('facetModal');
 const closeBtn = document.querySelector('.close');
 const cancelBtn = document.getElementById('cancelBtn');
-const form = document.getElementById('domainForm');
+const form = document.getElementById('facetForm');
 const errorContainer = document.getElementById('errorContainer');
 
-const titleInput = document.getElementById('domainTitle');
-const nameInput = document.getElementById('domainName');
-const descriptionGroup = document.getElementById('domainDescriptionGroup');
+const titleInput = document.getElementById('facetTitle');
+const nameInput = document.getElementById('facetName');
+const descriptionGroup = document.getElementById('facetDescriptionGroup');
 
 function generateSlug(text) {
   return text.toLowerCase().replace(/[^a-z0-9\s]/g, '').trim().replace(/\s+/g, '_');
@@ -497,37 +497,37 @@ function updateSlug() {
 titleInput.addEventListener('input', updateSlug);
 
 let isEditMode = false;
-let editDomainName = '';
+let editFacetName = '';
 
 function openAddModal() {
   isEditMode = false;
-  editDomainName = '';
-  document.getElementById('modalTitle').textContent = 'Add Domain';
-  document.getElementById('saveBtn').textContent = 'Save Domain';
+  editFacetName = '';
+  document.getElementById('modalTitle').textContent = 'Add Facet';
+  document.getElementById('saveBtn').textContent = 'Save Facet';
   form.reset();
   nameInput.value = '';
   descriptionGroup.style.display = 'none';
-  document.getElementById('domainColor').value = '#667eea';
-  document.getElementById('domainColorHex').value = '#667EEA';
+  document.getElementById('facetColor').value = '#667eea';
+  document.getElementById('facetColorHex').value = '#667EEA';
   clearErrors();
   modal.style.display = 'block';
 }
 
-function openEditModal(domainName, domainData) {
+function openEditModal(facetName, facetData) {
   isEditMode = true;
-  editDomainName = domainName;
-  document.getElementById('modalTitle').textContent = 'Edit Domain';
-  document.getElementById('saveBtn').textContent = 'Update Domain';
+  editFacetName = facetName;
+  document.getElementById('modalTitle').textContent = 'Edit Facet';
+  document.getElementById('saveBtn').textContent = 'Update Facet';
 
   // Populate form
-  titleInput.value = domainData.title || domainName;
-  nameInput.value = domainName;
+  titleInput.value = facetData.title || facetName;
+  nameInput.value = facetName;
   descriptionGroup.style.display = 'block';
-  document.getElementById('domainDescription').value = domainData.description || '';
-  document.getElementById('domainEmoji').value = domainData.emoji || '';
-  const colorValue = domainData.color || '#667eea';
-  document.getElementById('domainColor').value = colorValue;
-  document.getElementById('domainColorHex').value = colorValue.toUpperCase();
+  document.getElementById('facetDescription').value = facetData.description || '';
+  document.getElementById('facetEmoji').value = facetData.emoji || '';
+  const colorValue = facetData.color || '#667eea';
+  document.getElementById('facetColor').value = colorValue;
+  document.getElementById('facetColorHex').value = colorValue.toUpperCase();
 
   clearErrors();
   modal.style.display = 'block';
@@ -538,8 +538,8 @@ function closeModal() {
   form.reset();
   nameInput.value = '';
   descriptionGroup.style.display = 'block';
-  document.getElementById('domainColor').value = '#667eea';
-  document.getElementById('domainColorHex').value = '#667EEA';
+  document.getElementById('facetColor').value = '#667eea';
+  document.getElementById('facetColorHex').value = '#667EEA';
   clearErrors();
 }
 
@@ -552,8 +552,8 @@ function showError(message) {
 }
 
 // Color input synchronization
-const colorPicker = document.getElementById('domainColor');
-const colorHex = document.getElementById('domainColorHex');
+const colorPicker = document.getElementById('facetColor');
+const colorHex = document.getElementById('facetColorHex');
 
 function updateColorHex() {
   colorHex.value = colorPicker.value.toUpperCase();
@@ -594,17 +594,17 @@ form.addEventListener('submit', async (e) => {
   const data = Object.fromEntries(formData.entries());
   
   // Use the hex input value if it's valid, otherwise use the color picker
-  const hexValue = document.getElementById('domainColorHex').value.trim();
+  const hexValue = document.getElementById('facetColorHex').value.trim();
   if (/^#[0-9A-Fa-f]{6}$/.test(hexValue)) {
     data.color = hexValue;
   } else {
-    data.color = document.getElementById('domainColor').value;
+    data.color = document.getElementById('facetColor').value;
   }
   
   try {
     let response;
     if (isEditMode) {
-      response = await fetch(`{{ url_for('domains.domains_list') }}/${editDomainName}`, {
+      response = await fetch(`{{ url_for('facets.facets_list') }}/${editFacetName}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -612,7 +612,7 @@ form.addEventListener('submit', async (e) => {
         body: JSON.stringify(data)
       });
     } else {
-      response = await fetch('{{ url_for('domains.domains_list') }}', {
+      response = await fetch('{{ url_for('facets.facets_list') }}', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -625,17 +625,17 @@ form.addEventListener('submit', async (e) => {
     
     if (response.ok && result.success) {
       closeModal();
-      loadDomains(); // Reload the domains view
+      loadFacets(); // Reload the facets view
     } else {
       showError(result.error || 'An error occurred');
     }
   } catch (error) {
-    console.error('Error saving domain:', error);
+    console.error('Error saving facet:', error);
     showError('Network error occurred');
   }
 });
 
-// Load domains when page loads
-document.addEventListener('DOMContentLoaded', loadDomains);
+// Load facets when page loads
+document.addEventListener('DOMContentLoaded', loadFacets);
 </script>
 {% endblock %}

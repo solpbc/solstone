@@ -14,7 +14,7 @@ from flask import (
     url_for,
 )
 
-from think.domains import get_domains
+from think.facets import get_facets
 from think.todo import (
     TodoChecklist,
     TodoEmptyTextError,
@@ -29,8 +29,8 @@ from ..utils import DATE_RE, adjacent_days, format_date
 bp = Blueprint("todos", __name__, template_folder="../templates")
 
 
-def _todo_path(day: str, domain: str) -> Path:
-    return Path(state.journal_root) / "domains" / domain / "todos" / f"{day}.md"
+def _todo_path(day: str, facet: str) -> Path:
+    return Path(state.journal_root) / "facets" / facet / "todos" / f"{day}.md"
 
 
 @bp.route("/todos")
@@ -52,49 +52,49 @@ def todos_day(day: str):  # type: ignore[override]
             if not text:
                 flash("Cannot add an empty todo", "error")
             else:
-                # Extract domain from hashtag (e.g., "#work" -> "work")
+                # Extract facet from hashtag (e.g., "#work" -> "work")
                 import re
 
-                domain_match = re.search(r"#([a-z][a-z0-9_-]*)", text, re.IGNORECASE)
-                if domain_match:
-                    domain = domain_match.group(1).lower()
+                facet_match = re.search(r"#([a-z][a-z0-9_-]*)", text, re.IGNORECASE)
+                if facet_match:
+                    facet = facet_match.group(1).lower()
                     # Remove the hashtag from the text
                     text = re.sub(
-                        r"\s*#" + re.escape(domain_match.group(1)) + r"\b",
+                        r"\s*#" + re.escape(facet_match.group(1)) + r"\b",
                         "",
                         text,
                         count=1,
                         flags=re.IGNORECASE,
                     ).strip()
 
-                    # Validate domain exists
+                    # Validate facet exists
                     try:
-                        domain_map = get_domains()
+                        facet_map = get_facets()
                     except Exception:
-                        domain_map = {}
+                        facet_map = {}
 
-                    if domain not in domain_map:
-                        flash(f"Domain #{domain} does not exist", "error")
+                    if facet not in facet_map:
+                        flash(f"Facet #{facet} does not exist", "error")
                         return redirect(url_for("todos.todos_day", day=day))
                 else:
                     # Default to personal if no hashtag
-                    domain = "personal"
+                    facet = "personal"
 
                 if not text:
                     flash("Cannot add an empty todo", "error")
                 else:
                     try:
-                        checklist = TodoChecklist.load(day, domain)
+                        checklist = TodoChecklist.load(day, facet)
                         checklist.append_entry(text)
                     except (TodoEmptyTextError, RuntimeError) as exc:
                         current_app.logger.debug(
-                            "Failed to append todo for %s/%s: %s", domain, day, exc
+                            "Failed to append todo for %s/%s: %s", facet, day, exc
                         )
                         flash("Unable to add todo right now", "error")
             return redirect(url_for("todos.todos_day", day=day))
 
-        # Get domain and index for other actions
-        domain = request.form.get("domain", "personal")
+        # Get facet and index for other actions
+        facet = request.form.get("facet", "personal")
         index_str = request.form.get("index")
         guard = request.form.get("guard", "").strip()
 
@@ -108,10 +108,10 @@ def todos_day(day: str):  # type: ignore[override]
             return redirect(url_for("todos.todos_day", day=day))
 
         try:
-            checklist = TodoChecklist.load(day, domain)
+            checklist = TodoChecklist.load(day, facet)
         except RuntimeError as exc:
             current_app.logger.debug(
-                "Failed to load checklist for %s/%s: %s", domain, day, exc
+                "Failed to load checklist for %s/%s: %s", facet, day, exc
             )
             flash("Todo list changed, please refresh and try again", "error")
             return redirect(url_for("todos.todos_day", day=day))
@@ -128,38 +128,38 @@ def todos_day(day: str):  # type: ignore[override]
 
                 text = request.form.get("text", "").strip()
 
-                # Check if text contains a domain hashtag
-                domain_match = re.search(r"#([a-z][a-z0-9_-]*)", text, re.IGNORECASE)
-                if domain_match:
-                    new_domain = domain_match.group(1).lower()
+                # Check if text contains a facet hashtag
+                facet_match = re.search(r"#([a-z][a-z0-9_-]*)", text, re.IGNORECASE)
+                if facet_match:
+                    new_facet = facet_match.group(1).lower()
                     # Remove the hashtag from the text
                     text = re.sub(
-                        r"\s*#" + re.escape(domain_match.group(1)) + r"\b",
+                        r"\s*#" + re.escape(facet_match.group(1)) + r"\b",
                         "",
                         text,
                         count=1,
                         flags=re.IGNORECASE,
                     ).strip()
 
-                    # Validate new domain exists
+                    # Validate new facet exists
                     try:
-                        domain_map = get_domains()
+                        facet_map = get_facets()
                     except Exception:
-                        domain_map = {}
+                        facet_map = {}
 
-                    if new_domain not in domain_map:
-                        flash(f"Domain #{new_domain} does not exist", "error")
+                    if new_facet not in facet_map:
+                        flash(f"Facet #{new_facet} does not exist", "error")
                         return redirect(url_for("todos.todos_day", day=day))
 
-                    # If domain changed, move the todo
-                    if new_domain != domain:
+                    # If facet changed, move the todo
+                    if new_facet != facet:
                         # Get the completed status before moving
                         _, source_entry, completed, _ = checklist._entry_components(
                             index, guard
                         )
 
-                        # Add to new domain
-                        new_checklist = TodoChecklist.load(day, new_domain)
+                        # Add to new facet
+                        new_checklist = TodoChecklist.load(day, new_facet)
                         new_checklist.append_entry(text)
                         new_index = len(new_checklist.entries)
                         new_guard = new_checklist.entries[new_index - 1]
@@ -168,12 +168,12 @@ def todos_day(day: str):  # type: ignore[override]
                         if completed:
                             new_checklist.mark_done(new_index, new_guard)
 
-                        # Remove from old domain
+                        # Remove from old facet
                         checklist.remove_entry(index, source_entry)
 
                         return redirect(url_for("todos.todos_day", day=day))
 
-                # No domain change, just update text
+                # No facet change, just update text
                 checklist.update_entry_text(index, guard, text)
             else:
                 flash("Unknown action", "error")
@@ -192,37 +192,37 @@ def todos_day(day: str):  # type: ignore[override]
 
         return redirect(url_for("todos.todos_day", day=day))
 
-    # Load todos from all domains
+    # Load todos from all facets
     try:
-        domain_map = get_domains()
+        facet_map = get_facets()
     except Exception as exc:  # pragma: no cover - metadata is optional
-        current_app.logger.debug("Failed to load domain metadata: %s", exc)
-        domain_map = {}
+        current_app.logger.debug("Failed to load facet metadata: %s", exc)
+        facet_map = {}
 
-    # Collect todos from each domain
-    todos_by_domain = {}
-    for domain_name in domain_map.keys():
-        domain_todos = get_todos(day, domain_name)
-        if domain_todos:
-            # Add domain info to each todo
-            for todo in domain_todos:
-                todo["domain"] = domain_name
-            todos_by_domain[domain_name] = domain_todos
+    # Collect todos from each facet
+    todos_by_facet = {}
+    for facet_name in facet_map.keys():
+        facet_todos = get_todos(day, facet_name)
+        if facet_todos:
+            # Add facet info to each todo
+            for todo in facet_todos:
+                todo["facet"] = facet_name
+            todos_by_facet[facet_name] = facet_todos
 
-    # Sort domains for initial page load:
-    # 1. Domains with incomplete items first, sorted by incomplete count (descending)
-    # 2. Fully completed domains last, sorted alphabetically
-    def domain_sort_key(item):
-        domain_name, domain_todos = item
-        incomplete_count = sum(1 for todo in domain_todos if not todo.get("completed"))
+    # Sort facets for initial page load:
+    # 1. Facets with incomplete items first, sorted by incomplete count (descending)
+    # 2. Fully completed facets last, sorted alphabetically
+    def facet_sort_key(item):
+        facet_name, facet_todos = item
+        incomplete_count = sum(1 for todo in facet_todos if not todo.get("completed"))
         all_complete = incomplete_count == 0
-        # Return tuple: (all_complete, -incomplete_count, domain_name)
+        # Return tuple: (all_complete, -incomplete_count, facet_name)
         # all_complete=False sorts before all_complete=True
         # -incomplete_count sorts higher counts first
-        # domain_name for alphabetical tie-breaking
-        return (all_complete, -incomplete_count, domain_name)
+        # facet_name for alphabetical tie-breaking
+        return (all_complete, -incomplete_count, facet_name)
 
-    sorted_todos_by_domain = dict(sorted(todos_by_domain.items(), key=domain_sort_key))
+    sorted_todos_by_facet = dict(sorted(todos_by_facet.items(), key=facet_sort_key))
 
     prev_day, next_day = adjacent_days(state.journal_root, day)
     today_day = date.today().strftime("%Y%m%d")
@@ -235,8 +235,8 @@ def todos_day(day: str):  # type: ignore[override]
         prev_day=prev_day,
         next_day=next_day,
         today_day=today_day,
-        todos_by_domain=sorted_todos_by_domain,
-        domain_map=domain_map,
+        todos_by_facet=sorted_todos_by_facet,
+        facet_map=facet_map,
     )
 
 
@@ -247,7 +247,7 @@ def move_todo(day: str):  # type: ignore[override]
 
     payload = request.get_json(silent=True) or {}
     target_day = (payload.get("target_day") or "").strip()
-    domain = (payload.get("domain") or "personal").strip()
+    facet = (payload.get("facet") or "personal").strip()
     index_value = payload.get("index")
     guard = (payload.get("guard") or "").strip()
 
@@ -275,10 +275,10 @@ def move_todo(day: str):  # type: ignore[override]
         )
 
     try:
-        source_checklist = TodoChecklist.load(day, domain)
+        source_checklist = TodoChecklist.load(day, facet)
     except RuntimeError as exc:
         current_app.logger.debug(
-            "Failed to load source todo list for %s/%s: %s", domain, day, exc
+            "Failed to load source todo list for %s/%s: %s", facet, day, exc
         )
         return (
             jsonify({"error": "Todo list changed, please refresh and try again."}),
@@ -286,10 +286,10 @@ def move_todo(day: str):  # type: ignore[override]
         )
 
     try:
-        target_checklist = TodoChecklist.load(target_day, domain)
+        target_checklist = TodoChecklist.load(target_day, facet)
     except RuntimeError as exc:
         current_app.logger.debug(
-            "Failed to load target todo list for %s/%s: %s", domain, target_day, exc
+            "Failed to load target todo list for %s/%s: %s", facet, target_day, exc
         )
         return jsonify({"error": "Unable to access target day."}), 500
 
@@ -347,13 +347,13 @@ def generate_todos(day: str):  # type: ignore[override]
         return "", 404
 
     payload = request.get_json(silent=True) or {}
-    domain = (payload.get("domain") or "personal").strip()
+    facet = (payload.get("facet") or "personal").strip()
 
     from muse.cortex_client import cortex_request
 
     day_date = datetime.strptime(day, "%Y%m%d")
     yesterday = (day_date - timedelta(days=1)).strftime("%Y%m%d")
-    yesterday_path = _todo_path(yesterday, domain)
+    yesterday_path = _todo_path(yesterday, facet)
 
     yesterday_content = ""
     if yesterday_path.exists():
@@ -362,17 +362,17 @@ def generate_todos(day: str):  # type: ignore[override]
         except OSError:
             yesterday_content = ""
 
-    prompt = f"""Generate a TODO checklist for {day_date.strftime('%Y-%m-%d')} in the {domain} domain.
+    prompt = f"""Generate a TODO checklist for {day_date.strftime('%Y-%m-%d')} in the {facet} facet.
 
 Current date/time: {datetime.now().strftime('%Y-%m-%d %H:%M')}
 Target day: {day_date.strftime('%Y-%m-%d')}
-Target domain: {domain}
-Target file: domains/{domain}/todos/{day}.md
+Target facet: {facet}
+Target file: facets/{facet}/todos/{day}.md
 
 Yesterday's todos content:
 {yesterday_content if yesterday_content else "(No todos recorded yesterday)"}
 
-Write the generated checklist to domains/{domain}/todos/{day}.md"""
+Write the generated checklist to facets/{facet}/todos/{day}.md"""
 
     try:
         active_file = cortex_request(
@@ -397,7 +397,7 @@ def todo_generation_status(day: str):  # type: ignore[override]
     if not DATE_RE.fullmatch(day):
         return "", 404
 
-    domain = request.args.get("domain", "personal")
+    facet = request.args.get("facet", "personal")
     agent_id = request.args.get("agent_id")
     if not agent_id and hasattr(state, "todo_generation_agents"):
         agent_id = state.todo_generation_agents.get(day)
@@ -407,7 +407,7 @@ def todo_generation_status(day: str):  # type: ignore[override]
 
     from muse.cortex_client import cortex_agents
 
-    todo_path = _todo_path(day, domain)
+    todo_path = _todo_path(day, facet)
 
     agents_dir = Path(state.journal_root) / "agents"
     agent_file = agents_dir / f"{agent_id}.jsonl"

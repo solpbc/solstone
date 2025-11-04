@@ -21,7 +21,7 @@ def test_write_import_jsonl_with_entries():
             str(json_path),
             entries,
             import_id="20240101_120000",
-            domain="test",
+            facet="test",
             setting="personal",
         )
 
@@ -36,7 +36,7 @@ def test_write_import_jsonl_with_entries():
         assert metadata == {
             "imported": {
                 "id": "20240101_120000",
-                "domain": "test",
+                "facet": "test",
                 "setting": "personal",
             }
         }
@@ -58,7 +58,7 @@ def test_write_import_jsonl_no_entries():
         json_path = Path(tmpdir) / "test_audio.jsonl"
 
         _write_import_jsonl(
-            str(json_path), [], import_id="20240101_120000", domain="test"
+            str(json_path), [], import_id="20240101_120000", facet="test"
         )
 
         # Read and verify JSONL format
@@ -69,7 +69,7 @@ def test_write_import_jsonl_no_entries():
 
         # Only line should be metadata
         metadata = json.loads(lines[0])
-        assert metadata == {"imported": {"id": "20240101_120000", "domain": "test"}}
+        assert metadata == {"imported": {"id": "20240101_120000", "facet": "test"}}
 
 
 def test_write_import_jsonl_minimal():

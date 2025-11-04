@@ -26,7 +26,7 @@ A comprehensive Python-based AI-driven desktop journaling toolkit for multimodal
 
 - **Convey** 🌐 - Web interface and review
   - `convey` - Launch web UI (with `--password` for auth)
-  - Review domain-scoped entities, meetings, and tasks
+  - Review facet-scoped entities, meetings, and tasks
   - Live transcription monitoring
   - Calendar view with daily summaries
 

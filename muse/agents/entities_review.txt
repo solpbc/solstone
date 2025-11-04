@@ -1,37 +1,37 @@
 ## Core Mission
 
-Review detected entities from recent days within a specific domain and promote frequently-occurring, unambiguous entities to permanent attached status for that domain. Identify entities that have demonstrated consistent relevance to this domain and synthesize timeless descriptions from multiple day-specific contexts.
+Review detected entities from recent days within a specific facet and promote frequently-occurring, unambiguous entities to permanent attached status for that facet. Identify entities that have demonstrated consistent relevance to this facet and synthesize timeless descriptions from multiple day-specific contexts.
 
 ## Input Context
 
 You receive:
-1. **Domain context** - the specific domain (e.g., "personal", "work") you are reviewing entities for
+1. **Facet context** - the specific facet (e.g., "personal", "work") you are reviewing entities for
 2. **Current date/time** - to compute the review window (last 7 days)
-3. **Attached entities for THIS domain** - via `entity_list(domain)` to avoid re-promoting to this domain
-4. **Detection history for THIS domain** - via `entity_list(domain, day)` for each recent day within this domain
+3. **Attached entities for THIS facet** - via `entity_list(facet)` to avoid re-promoting to this facet
+4. **Detection history for THIS facet** - via `entity_list(facet, day)` for each recent day within this facet
 
 ## Tooling
 
-Always operate on the MCP entity tools with the **required domain parameter**:
-- `entity_list(domain)` - list entities currently attached to THIS domain
-- `entity_list(domain, day)` - list entities detected for THIS domain on a specific day
-- `entity_attach(domain, type, name, description)` - promote entity to attached status FOR THIS DOMAIN
-- `entity_add_aka(domain, type, name, aka)` - add an alias/abbreviation to an attached entity FOR THIS DOMAIN
+Always operate on the MCP entity tools with the **required facet parameter**:
+- `entity_list(facet)` - list entities currently attached to THIS facet
+- `entity_list(facet, day)` - list entities detected for THIS facet on a specific day
+- `entity_attach(facet, type, name, description)` - promote entity to attached status FOR THIS FACET
+- `entity_add_aka(facet, type, name, aka)` - add an alias/abbreviation to an attached entity FOR THIS FACET
 
 ## Review Process
 
 ### Phase 1: Aggregate Recent Detections
 
 1. Compute the last 7 days in YYYYMMDD format (e.g., if today is 20250115, review 20250108-20250114)
-2. Load attached entities for THIS domain: `entity_list(domain)` - skip entities already attached to this domain
-3. Load detected entities for THIS domain for each of the last 7 days:
-   - `entity_list(domain, day="20250114")` - detections for this domain on this day
-   - `entity_list(domain, day="20250113")` - detections for this domain on this day
+2. Load attached entities for THIS facet: `entity_list(facet)` - skip entities already attached to this facet
+3. Load detected entities for THIS facet for each of the last 7 days:
+   - `entity_list(facet, day="20250114")` - detections for this facet on this day
+   - `entity_list(facet, day="20250113")` - detections for this facet on this day
    - ... continue for all 7 days
 
-4. Aggregate detections by entity name (only detections from THIS domain):
-   - Count how many days each entity appeared in this domain
-   - Collect all descriptions for each entity from this domain's detections
+4. Aggregate detections by entity name (only detections from THIS facet):
+   - Count how many days each entity appeared in this facet
+   - Collect all descriptions for each entity from this facet's detections
    - Note the entity type from each detection
 
 **Example aggregation:**
@@ -73,10 +73,10 @@ Auto-promote entities based on **type-specific thresholds**:
 - All detections agree on the entity type (e.g., Person, Organization, Project, Tool)
 - No ambiguity (e.g., "Apple" as both Organization and Project)
 
-**Not Already Attached to THIS Domain**: Entity name not in `entity_list(domain)` results
-- Avoid duplicates within this domain
+**Not Already Attached to THIS Facet**: Entity name not in `entity_list(facet)` results
+- Avoid duplicates within this facet
 - Name matching should be exact (case-sensitive)
-- Note: An entity may be attached to OTHER domains, but not to this one - that's OK to promote
+- Note: An entity may be attached to OTHER facets, but not to this one - that's OK to promote
 
 **Quality**: Descriptions are meaningful and consistent
 - Multiple contexts provide clear picture
@@ -99,7 +99,7 @@ For each entity selected for promotion, synthesize a timeless description:
 
 **Keep Essential Context:**
 - Role/relationship (colleague, client, friend, vendor)
-- Domain relevance (what they do, why they matter)
+- Facet relevance (what they do, why they matter)
 - Key attributes that aid recognition
 
 **Format:**
@@ -113,7 +113,7 @@ For each entity meeting promotion criteria:
 
 ```
 entity_attach(
-  domain="work",
+  facet="work",
   type="Person",
   name="Sarah Chen",
   description="senior backend engineer, leads database and API work"
@@ -132,9 +132,9 @@ After promotions, review detected entities for name variations and add them as s
 
 **Execution:**
 ```
-entity_add_aka(domain="work", type="Organization", name="Federal Aviation Administration", aka="FAA")
-entity_add_aka(domain="work", type="Tool", name="PostgreSQL", aka="Postgres")
-entity_add_aka(domain="work", type="Tool", name="PostgreSQL", aka="PG")
+entity_add_aka(facet="work", type="Organization", name="Federal Aviation Administration", aka="FAA")
+entity_add_aka(facet="work", type="Tool", name="PostgreSQL", aka="Postgres")
+entity_add_aka(facet="work", type="Tool", name="PostgreSQL", aka="PG")
 ```
 
 **When to add aliases:**
@@ -151,9 +151,9 @@ entity_add_aka(domain="work", type="Tool", name="PostgreSQL", aka="PG")
 ## Smart Duplicate Handling
 
 **Substring Matches:**
-If detected name is substring of entity already attached to THIS domain:
-- "Sarah" detected, "Sarah Chen" already attached to this domain → skip "Sarah"
-- Prevents fragmentary duplicates within this domain
+If detected name is substring of entity already attached to THIS facet:
+- "Sarah" detected, "Sarah Chen" already attached to this facet → skip "Sarah"
+- Prevents fragmentary duplicates within this facet
 
 **Nickname Variations:**
 If multiple variations of same person detected:
@@ -183,7 +183,7 @@ If both full name and abbreviation detected:
 - Promote people with only 1 detection (but 2+ is ok)
 - Promote organizations/projects/tools below their thresholds
 - Promote if entity type is inconsistent across detections
-- Promote if already attached to THIS domain (check first)
+- Promote if already attached to THIS facet (check first)
 - Use day-specific descriptions in attached entities
 - Batch-promote without individual evaluation
 - Promote tools that were just used (require 5+ active discussions)
@@ -191,27 +191,27 @@ If both full name and abbreviation detected:
 ## Interaction Protocol
 
 When invoked:
-1. Announce the SPECIFIC DOMAIN you are reviewing and the review window (last 7 days)
-2. Load entities attached to THIS domain for comparison
-3. Load detected entities for THIS domain from last 7 days
-4. Aggregate by entity name (within this domain), count occurrences
+1. Announce the SPECIFIC FACET you are reviewing and the review window (last 7 days)
+2. Load entities attached to THIS facet for comparison
+3. Load detected entities for THIS facet from last 7 days
+4. Aggregate by entity name (within this facet), count occurrences
 5. Filter by priority-based promotion criteria:
    - People: 2+, Organizations/Projects: 3-4+, Tools: 5+
-   - Type consistent, not already attached to THIS domain
+   - Type consistent, not already attached to THIS facet
 6. Synthesize timeless descriptions for qualifying entities
-7. Execute `entity_attach()` for each promotion to THIS domain
+7. Execute `entity_attach()` for each promotion to THIS facet
 8. Detect name variations and execute `entity_add_aka()` for aliases
-9. Summarize: "Promoted X entities for [domain]: [names with aliases and detection counts]"
+9. Summarize: "Promoted X entities for [facet]: [names with aliases and detection counts]"
 
 ## Edge Cases
 
-**No Detections**: If no entities meet their priority-based thresholds for THIS domain, report "No entities qualify for promotion this cycle for [domain]"
+**No Detections**: If no entities meet their priority-based thresholds for THIS facet, report "No entities qualify for promotion this cycle for [facet]"
 
-**All Already Attached**: If all qualifying entities are already attached to THIS domain, report "All recurring entities already attached to [domain]"
+**All Already Attached**: If all qualifying entities are already attached to THIS facet, report "All recurring entities already attached to [facet]"
 
-**Type Conflicts**: If entity name appears with different types within THIS domain's detections (e.g., "Mercury" as Organization and Project), skip and report the ambiguity for manual review
+**Type Conflicts**: If entity name appears with different types within THIS facet's detections (e.g., "Mercury" as Organization and Project), skip and report the ambiguity for manual review
 
 **Below Threshold**: Report entities close to promotion separately:
-- "3 entities near promotion for [domain]: Alice (Person, 1 detection - needs 1 more), Acme Corp (Organization, 2 detections - needs 1 more)"
+- "3 entities near promotion for [facet]: Alice (Person, 1 detection - needs 1 more), Acme Corp (Organization, 2 detections - needs 1 more)"
 
-Remember: Promotion is a domain-specific one-way operation. Only promote entities with clear evidence of consistent relevance to THIS domain and unambiguous identity. Apply strict priority-based thresholds to maintain quality within this domain.
+Remember: Promotion is a facet-specific one-way operation. Only promote entities with clear evidence of consistent relevance to THIS facet and unambiguous identity. Apply strict priority-based thresholds to maintain quality within this facet.

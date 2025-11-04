@@ -403,7 +403,7 @@ function addAka(targetEntity, sourceEntity) {
   confirmBtn.textContent = "Adding...";
   confirmBtn.disabled = true;
 
-  fetch(`/api/domains/${encodeURIComponent(domainName)}/entities/manage/add-aka`, {
+  fetch(`/api/facets/${encodeURIComponent(facetName)}/entities/manage/add-aka`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -463,7 +463,7 @@ function addAka(targetEntity, sourceEntity) {
 function updateAka(entityName, akaList) {
   const modal = document.getElementById("aka-edit-modal");
 
-  fetch(`/api/domains/${encodeURIComponent(domainName)}/entities/manage/update-aka`, {
+  fetch(`/api/facets/${encodeURIComponent(facetName)}/entities/manage/update-aka`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",

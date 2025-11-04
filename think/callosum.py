@@ -1,4 +1,4 @@
-"""Callosum: WebSocket-like broadcast message bus over Unix domain sockets.
+"""Callosum: WebSocket-like broadcast message bus over Unix facet sockets.
 
 Provides real-time event distribution across Sunstone services using a simple
 broadcast protocol. All messages require 'tract' and 'event' fields.
@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 
 
 class CallosumServer:
-    """Broadcast message bus over Unix domain socket."""
+    """Broadcast message bus over Unix facet socket."""
 
     def __init__(self, socket_path: Optional[Path] = None):
         if socket_path is None:
@@ -42,7 +42,7 @@ class CallosumServer:
         if self.socket_path.exists():
             self.socket_path.unlink()
 
-        # Create Unix domain socket
+        # Create Unix facet socket
         self.server_socket = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
         self.server_socket.bind(str(self.socket_path))
         self.server_socket.listen(5)

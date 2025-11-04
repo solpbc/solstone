@@ -58,7 +58,7 @@ async def run_agent(
     The config should include instruction text and all necessary parameters.
 
     Args:
-        config: Complete configuration dictionary including prompt, instruction, model, domain, etc.
+        config: Complete configuration dictionary including prompt, instruction, model, facet, etc.
         on_event: Optional event callback
     """
     # Extract values from unified config
@@ -73,10 +73,10 @@ async def run_agent(
     callback = JSONEventCallback(on_event)
 
     try:
-        # Require domain in config
-        domain = config.get("domain")
-        if not domain:
-            raise ValueError("config must include 'domain' value")
+        # Require facet in config
+        facet = config.get("facet")
+        if not facet:
+            raise ValueError("config must include 'facet' value")
 
         # Get journal path for file permissions
         load_dotenv()
@@ -84,10 +84,10 @@ async def run_agent(
         if not journal_path:
             raise RuntimeError("JOURNAL_PATH not set")
 
-        # Resolve domain path and ensure it exists
-        domain_path = os.path.join(journal_path, "domains", domain)
-        if not os.path.isdir(domain_path):
-            raise ValueError(f"Domain directory does not exist: {domain_path}")
+        # Resolve facet path and ensure it exists
+        facet_path = os.path.join(journal_path, "facets", facet)
+        if not os.path.isdir(facet_path):
+            raise ValueError(f"Facet directory does not exist: {facet_path}")
 
         # Extract instruction from config
         system_instruction = config.get("instruction", "")
@@ -99,8 +99,8 @@ async def run_agent(
                 "persona": persona,
                 "model": model,
                 "backend": "claude",
-                "domain": domain,
-                "domain_path": domain_path,
+                "facet": facet,
+                "facet_path": facet_path,
             }
         )
 
@@ -111,15 +111,15 @@ async def run_agent(
         options = ClaudeCodeOptions(
             system_prompt=system_instruction,
             model=model,
-            cwd=domain_path,  # Set working directory to the domain path
-            # Allow file operations and git commands in domain directory
+            cwd=facet_path,  # Set working directory to the facet path
+            # Allow file operations and git commands in facet directory
             allowed_tools=[
-                f"Read({domain_path}/**)",
-                f"Write({domain_path}/**)",
-                f"Edit({domain_path}/**)",
-                f"MultiEdit({domain_path}/**)",
-                f"LS({domain_path}/**)",
-                f"Glob({domain_path}/**)",
+                f"Read({facet_path}/**)",
+                f"Write({facet_path}/**)",
+                f"Edit({facet_path}/**)",
+                f"MultiEdit({facet_path}/**)",
+                f"LS({facet_path}/**)",
+                f"Glob({facet_path}/**)",
                 "Bash(git:*)",
                 "Bash(ls:*)",
                 "Bash(cat:*)",

@@ -8,8 +8,8 @@
       "end": "09:30:00",
       "title": "Team sync",
       "summary": "Daily standup",
-      "domain": "work",
-      "details": "Discussion about project status"
+      "details": "Discussion about project status",
+      "facet": "work"
     },
     {
       "type": "meeting",
@@ -18,8 +18,8 @@
       "end": "11:30:00",
       "title": "Client review with Acme Corp",
       "summary": "Demo of authentication module",
-      "domain": "work",
-      "details": "Present current progress on auth implementation"
+      "details": "Present current progress on auth implementation",
+      "facet": "work"
     },
     {
       "type": "meeting",
@@ -28,8 +28,8 @@
       "end": "15:00:00",
       "title": "Sprint planning",
       "summary": "Plan next sprint tasks",
-      "domain": "work",
-      "details": "Prioritize auth module completion and testing"
+      "details": "Prioritize auth module completion and testing",
+      "facet": "work"
     },
     {
       "type": "meeting",
@@ -38,8 +38,8 @@
       "end": "16:30:00",
       "title": "Architecture discussion",
       "summary": "Review system architecture",
-      "domain": "personal",
-      "details": "Discuss JWT implementation and security considerations"
+      "details": "Discuss JWT implementation and security considerations",
+      "facet": "personal"
     }
   ]
 }

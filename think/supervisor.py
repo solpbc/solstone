@@ -16,7 +16,7 @@ from desktop_notifier import DesktopNotifier, Urgency
 
 from muse.cortex_client import cortex_request
 from think.callosum import CallosumConnection, CallosumServer
-from think.domains import get_domains
+from think.facets import get_facets
 from think.runner import ManagedProcess as RunnerManagedProcess
 from think.utils import get_agents, setup_cli
 
@@ -78,7 +78,7 @@ _scheduled_state = {
     "pending_groups": [],  # List of (priority, [(persona_id, config, yesterday)])
     "active_files": [],  # List of Path objects for current priority group
     "start_time": 0,  # When current group started
-    "rescan_pending": False,  # Whether domain rescan needs to run
+    "rescan_pending": False,  # Whether facet rescan needs to run
 }
 
 # State for task execution
@@ -300,9 +300,9 @@ def run_dream() -> bool:
     return run_subprocess_task("dream", ["think-dream", "-v"])
 
 
-def run_domain_rescan() -> bool:
-    """Run ``think-indexer --rescan-domains`` while mirroring output to a dedicated log."""
-    return run_subprocess_task("domain_rescan", ["think-indexer", "--rescan-domains"])
+def run_facet_rescan() -> bool:
+    """Run ``think-indexer --rescan-facets`` while mirroring output to a dedicated log."""
+    return run_subprocess_task("facet_rescan", ["think-indexer", "--rescan-facets"])
 
 
 def spawn_scheduled_agents() -> None:
@@ -353,14 +353,14 @@ def check_scheduled_agents() -> None:
 
     # Nothing to do if no pending groups and no active agents
     if not state["pending_groups"] and not state["active_files"]:
-        # Check if domain rescan is pending
+        # Check if facet rescan is pending
         if state["rescan_pending"]:
-            logging.info("All agent groups completed, running domain rescan...")
+            logging.info("All agent groups completed, running facet rescan...")
             state["rescan_pending"] = False
-            if run_domain_rescan():
-                logging.info("Domain rescan completed successfully")
+            if run_facet_rescan():
+                logging.info("Facet rescan completed successfully")
             else:
-                logging.warning("Domain rescan failed or exited with error")
+                logging.warning("Facet rescan failed or exited with error")
         return
 
     # Check if current priority group is done
@@ -404,32 +404,32 @@ def check_scheduled_agents() -> None:
         active_files = []
         for persona_id, config, yesterday in agents_list:
             try:
-                # Check if this is a multi-domain agent
-                if config.get("multi_domain"):
-                    domains = get_domains()
-                    # Filter out disabled domains for automated runs
-                    enabled_domains = {
-                        k: v for k, v in domains.items() if not v.get("disabled", False)
+                # Check if this is a multi-facet agent
+                if config.get("multi_facet"):
+                    facets = get_facets()
+                    # Filter out disabled facets for automated runs
+                    enabled_facets = {
+                        k: v for k, v in facets.items() if not v.get("disabled", False)
                     }
-                    disabled_count = len(domains) - len(enabled_domains)
+                    disabled_count = len(facets) - len(enabled_facets)
                     if disabled_count > 0:
                         disabled_names = [
-                            k for k, v in domains.items() if v.get("disabled", False)
+                            k for k, v in facets.items() if v.get("disabled", False)
                         ]
                         logging.info(
-                            f"Skipping {disabled_count} disabled domain(s) for {persona_id}: "
+                            f"Skipping {disabled_count} disabled facet(s) for {persona_id}: "
                             f"{', '.join(disabled_names)}"
                         )
-                    for domain_name in enabled_domains.keys():
-                        logging.info(f"Spawning {persona_id} for domain: {domain_name}")
+                    for facet_name in enabled_facets.keys():
+                        logging.info(f"Spawning {persona_id} for facet: {facet_name}")
                         request_file = cortex_request(
-                            prompt=f"You are processing domain '{domain_name}' for yesterday ({yesterday}), use get_domain('{domain_name}') to load the correct context before starting.",
+                            prompt=f"You are processing facet '{facet_name}' for yesterday ({yesterday}), use get_facet('{facet_name}') to load the correct context before starting.",
                             persona=persona_id,
                         )
                         active_files.append(Path(request_file))
                         agent_id = Path(request_file).stem.replace("_active", "")
                         logging.info(
-                            f"Started {persona_id} for {domain_name} (ID: {agent_id})"
+                            f"Started {persona_id} for {facet_name} (ID: {agent_id})"
                         )
                 else:
                     # Regular single-instance agent

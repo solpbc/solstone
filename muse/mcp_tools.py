@@ -13,7 +13,7 @@ from fastmcp.resources import FileResource, TextResource
 
 from think import todo
 from think.cluster import cluster_range
-from think.domains import domain_summary, log_action
+from think.facets import facet_summary, log_action
 from think.entities import (
     is_valid_entity_type,
     load_entities,
@@ -56,7 +56,7 @@ TOOL_PACKS = {
         "search_transcripts",
         "search_events",
         "search_news",
-        "get_domain",
+        "get_facet",
         "send_message",
         "get_resource",
     ],
@@ -67,8 +67,8 @@ TOOL_PACKS = {
         "todo_done",
         "todo_upcoming",
     ],
-    "domains": [
-        "domain_news",
+    "facets": [
+        "facet_news",
     ],
     "entities": [
         "entity_list",
@@ -81,12 +81,12 @@ TOOL_PACKS = {
 
 
 @register_tool(annotations=HINTS)
-def todo_list(day: str, domain: str) -> dict[str, Any]:
-    """Return the numbered markdown checklist for ``day``'s todos in a specific domain.
+def todo_list(day: str, facet: str) -> dict[str, Any]:
+    """Return the numbered markdown checklist for ``day``'s todos in a specific facet.
 
     Args:
         day: Journal day in ``YYYYMMDD`` format.
-        domain: Domain name (e.g., "personal", "work").
+        facet: Facet name (e.g., "personal", "work").
 
     Returns:
         Dictionary containing the formatted ``markdown`` view with ``N:`` line
@@ -94,23 +94,23 @@ def todo_list(day: str, domain: str) -> dict[str, Any]:
     """
 
     try:
-        checklist = todo.TodoChecklist.load(day, domain)
-        return {"day": day, "domain": domain, "markdown": checklist.numbered()}
+        checklist = todo.TodoChecklist.load(day, facet)
+        return {"day": day, "facet": facet, "markdown": checklist.numbered()}
     except FileNotFoundError:
-        return {"error": f"No todos found for domain '{domain}' on day '{day}'"}
+        return {"error": f"No todos found for facet '{facet}' on day '{day}'"}
     except Exception as exc:  # pragma: no cover - unexpected failure
         return {"error": f"Failed to list todos: {exc}"}
 
 
 @register_tool(annotations=HINTS)
 def todo_add(
-    day: str, domain: str, line_number: int, text: str, context: Context | None = None
+    day: str, facet: str, line_number: int, text: str, context: Context | None = None
 ) -> dict[str, Any]:
     """Append a new unchecked todo entry using the next sequential line number.
 
     Args:
         day: The day this item is due on in ``YYYYMMDD`` format, must always be today or in the future.
-        domain: Domain name (e.g., "personal", "work").
+        facet: Facet name (e.g., "personal", "work").
         line_number: Expected next line value; must be ``current_count + 1``.
         text: Body of the todo item (stored after the ``- [ ]`` prefix).
 
@@ -136,16 +136,16 @@ def todo_add(
                 "suggestion": "use YYYYMMDD format (e.g., 20250104)",
             }
 
-        checklist = todo.TodoChecklist.load(day, domain)
+        checklist = todo.TodoChecklist.load(day, facet)
         checklist.add_entry(line_number, text)
         log_action(
-            domain,
+            facet,
             day,
             "todo_add",
             {"line_number": line_number, "text": text},
             context=context,
         )
-        return {"day": day, "domain": domain, "markdown": checklist.numbered()}
+        return {"day": day, "facet": facet, "markdown": checklist.numbered()}
     except RuntimeError as exc:
         return {"error": str(exc)}
     except todo.TodoLineNumberError as exc:
@@ -164,13 +164,13 @@ def todo_add(
 
 @register_tool(annotations=HINTS)
 def todo_remove(
-    day: str, domain: str, line_number: int, guard: str, context: Context | None = None
+    day: str, facet: str, line_number: int, guard: str, context: Context | None = None
 ) -> dict[str, Any]:
     """Delete an existing todo entry after verifying its current text.
 
     Args:
         day: Journal day in ``YYYYMMDD`` format.
-        domain: Domain name (e.g., "personal", "work").
+        facet: Facet name (e.g., "personal", "work").
         line_number: 1-based index of the entry to remove.
         guard: Full todo line (e.g., ``- [ ] Review logs``) expected on the numbered line.
 
@@ -180,20 +180,20 @@ def todo_remove(
     """
 
     try:
-        checklist = todo.TodoChecklist.load(day, domain)
+        checklist = todo.TodoChecklist.load(day, facet)
         checklist.remove_entry(line_number, guard)
         log_action(
-            domain,
+            facet,
             day,
             "todo_remove",
             {"line_number": line_number, "text": guard},
             context=context,
         )
-        return {"day": day, "domain": domain, "markdown": checklist.numbered()}
+        return {"day": day, "facet": facet, "markdown": checklist.numbered()}
     except FileNotFoundError:
         return {
-            "error": f"No todos found for domain '{domain}' on day '{day}'",
-            "suggestion": "verify the domain and day exist before removing todos",
+            "error": f"No todos found for facet '{facet}' on day '{day}'",
+            "suggestion": "verify the facet and day exist before removing todos",
         }
     except todo.TodoGuardMismatchError as exc:
         return {
@@ -213,13 +213,13 @@ def todo_remove(
 
 @register_tool(annotations=HINTS)
 def todo_done(
-    day: str, domain: str, line_number: int, guard: str, context: Context | None = None
+    day: str, facet: str, line_number: int, guard: str, context: Context | None = None
 ) -> dict[str, Any]:
     """Mark a todo entry as completed by switching its checkbox to ``[x]``.
 
     Args:
         day: Journal day in ``YYYYMMDD`` format.
-        domain: Domain name (e.g., "personal", "work").
+        facet: Facet name (e.g., "personal", "work").
         line_number: 1-based index of the entry to mark as done.
         guard: Full todo line (e.g., ``- [ ] Review logs``) expected on the numbered line.
 
@@ -229,20 +229,20 @@ def todo_done(
     """
 
     try:
-        checklist = todo.TodoChecklist.load(day, domain)
+        checklist = todo.TodoChecklist.load(day, facet)
         checklist.mark_done(line_number, guard)
         log_action(
-            domain,
+            facet,
             day,
             "todo_done",
             {"line_number": line_number, "text": guard},
             context=context,
         )
-        return {"day": day, "domain": domain, "markdown": checklist.numbered()}
+        return {"day": day, "facet": facet, "markdown": checklist.numbered()}
     except FileNotFoundError:
         return {
-            "error": f"No todos found for domain '{domain}' on day '{day}'",
-            "suggestion": "verify the domain and day exist before updating todos",
+            "error": f"No todos found for facet '{facet}' on day '{day}'",
+            "suggestion": "verify the facet and day exist before updating todos",
         }
     except todo.TodoGuardMismatchError as exc:
         return {
@@ -261,37 +261,37 @@ def todo_done(
 
 
 @register_tool(annotations=HINTS)
-def todo_upcoming(limit: int = 20, domain: str | None = None) -> dict[str, Any]:
+def todo_upcoming(limit: int = 20, facet: str | None = None) -> dict[str, Any]:
     """Return upcoming todos across future days as markdown sections.
 
-    This tool retrieves todos from future journal days, organized by domain and date.
+    This tool retrieves todos from future journal days, organized by facet and date.
     Use this before adding any todo with a scope beyond today to check if
     it has already been scheduled for another upcoming day, avoiding duplicates
     and ensuring proper task organization across the timeline.
 
     Args:
         limit: Maximum number of todos to return (default: 20)
-        domain: Optional domain filter. When None, aggregates todos from all domains.
-                When specified, only returns todos for that domain.
+        facet: Optional facet filter. When None, aggregates todos from all facets.
+                When specified, only returns todos for that facet.
 
     Returns:
         Dictionary containing:
         - limit: The limit value used for this query
-        - domain: The domain filter used (or None for all domains)
-        - markdown: Formatted markdown with todos grouped by domain and day, each section
-                   showing "Domain Title: YYYYMMDD" and its todo items
+        - facet: The facet filter used (or None for all facets)
+        - markdown: Formatted markdown with todos grouped by facet and day, each section
+                   showing "Facet Title: YYYYMMDD" and its todo items
         - error: Error message if the operation fails (only on exception)
 
     Examples:
-        - todo_upcoming()  # Return up to 20 upcoming todos from all domains
-        - todo_upcoming(limit=10)  # Return up to 10 upcoming todos from all domains
-        - todo_upcoming(domain="personal")  # Return personal domain todos only
-        - todo_upcoming(limit=50, domain="work")  # Return up to 50 work todos
+        - todo_upcoming()  # Return up to 20 upcoming todos from all facets
+        - todo_upcoming(limit=10)  # Return up to 10 upcoming todos from all facets
+        - todo_upcoming(facet="personal")  # Return personal facet todos only
+        - todo_upcoming(limit=50, facet="work")  # Return up to 50 work todos
     """
 
     try:
-        markdown = todo.upcoming(limit=limit, domain=domain)
-        return {"limit": limit, "domain": domain, "markdown": markdown}
+        markdown = todo.upcoming(limit=limit, facet=facet)
+        return {"limit": limit, "facet": facet, "markdown": markdown}
     except Exception as exc:  # pragma: no cover - unexpected failure
         return {"error": f"Failed to load upcoming todos: {exc}"}
 
@@ -432,7 +432,7 @@ def search_events(
     offset: int = 0,
     *,
     day: str | None = None,
-    domain: str | None = None,
+    facet: str | None = None,
     topic: str | None = None,
     start: str | None = None,
     end: str | None = None,
@@ -441,26 +441,26 @@ def search_events(
 
     This tool searches JSON event data generated from your daily summaries.
     Use it to find meetings, tasks, or other notable activities. Results may
-    be filtered by day, domain, topic, or a time range.
+    be filtered by day, facet, topic, or a time range.
 
     Args:
         query: Natural language search query (e.g., "team standup")
         limit: Optional maximum number of events to return (default: 5)
         offset: Optional number of results to skip for pagination (default: 0)
         day: Optional ``YYYYMMDD`` day to filter results
-        domain: Optional domain name to filter results by (e.g., "work", "personal")
+        facet: Optional facet name to filter results by (e.g., "work", "personal")
         topic: Optional topic name to filter by
         start: Optional start time to filter events starting on or after this ``HH:MM:SS`` time
         end: Optional end time to filter events ending on or before this ``HH:MM:SS`` time
 
     Returns:
-        Dictionary with ``limit``, ``offset`` and ``results`` list containing day, domain, topic,
+        Dictionary with ``limit``, ``offset`` and ``results`` list containing day, facet, topic,
         start/end times and short event summaries.
         Ordered by day and start time (most recent first).
 
     Examples:
         - search_events("sprint review")
-        - search_events("planning", domain="work")
+        - search_events("planning", facet="work")
         - search_events("planning", day="20240101", limit=10)
         - search_events("standup", limit=5, offset=10)
     """
@@ -471,7 +471,7 @@ def search_events(
             limit=limit,
             offset=offset,
             day=day,
-            domain=domain,
+            facet=facet,
             start=start,
             end=end,
             topic=topic,
@@ -484,7 +484,7 @@ def search_events(
             items.append(
                 {
                     "day": meta.get("day", ""),
-                    "domain": meta.get("domain", ""),
+                    "facet": meta.get("facet", ""),
                     "topic": meta.get("topic", ""),
                     "start": meta.get("start", ""),
                     "end": meta.get("end", ""),
@@ -507,21 +507,21 @@ def search_news(
     limit: int = 5,
     offset: int = 0,
     *,
-    domain: str | None = None,
+    facet: str | None = None,
     day: str | None = None,
 ) -> dict[str, Any]:
-    """Search domain news content using full-text search.
+    """Search facet news content using full-text search.
 
-    This tool searches through news markdown files stored in domain-specific
-    news directories (domains/<domain>/news/YYYYMMDD.md). Use this when looking
-    for news items, announcements, or domain-specific updates that have been
+    This tool searches through news markdown files stored in facet-specific
+    news directories (facets/<facet>/news/YYYYMMDD.md). Use this when looking
+    for news items, announcements, or facet-specific updates that have been
     captured in the journal.
 
     Args:
         query: Natural language search query (e.g., "product launch", "security update")
         limit: Optional maximum number of results to return (default: 5, max: 20)
         offset: Optional number of results to skip for pagination (default: 0)
-        domain: Optional domain name to filter results by (e.g., "ml_research", "work")
+        facet: Optional facet name to filter results by (e.g., "ml_research", "work")
         day: Optional day to filter results by in YYYYMMDD format
 
     Returns:
@@ -529,19 +529,19 @@ def search_news(
         - total: Total number of matching news items
         - limit: Current limit value used for this query
         - offset: Current offset value used for this query
-        - results: List of matching news items with domain, day, and text snippet,
+        - results: List of matching news items with facet, day, and text snippet,
                   ordered by relevance
 
     Examples:
         - search_news("product announcement")
-        - search_news("security", domain="work", limit=10)
+        - search_news("security", facet="work", limit=10)
         - search_news("ai breakthrough", day="20250118")
         - search_news("quarterly results", limit=5, offset=5)
     """
     try:
         kwargs = {}
-        if domain is not None:
-            kwargs["domain"] = domain
+        if facet is not None:
+            kwargs["facet"] = facet
         if day is not None:
             kwargs["day"] = day
 
@@ -552,7 +552,7 @@ def search_news(
             meta = r.get("metadata", {})
             items.append(
                 {
-                    "domain": meta.get("domain", ""),
+                    "facet": meta.get("facet", ""),
                     "day": meta.get("day", ""),
                     "text": r.get("text", ""),
                     "path": meta.get("path", ""),
@@ -568,41 +568,41 @@ def search_news(
 
 
 @register_tool(annotations=HINTS)
-def get_domain(domain: str) -> dict[str, Any]:
-    """Get a comprehensive summary of a domain including its metadata and entities.
+def get_facet(facet: str) -> dict[str, Any]:
+    """Get a comprehensive summary of a facet including its metadata and entities.
 
-    This tool generates a formatted markdown summary for a specified domain in the journal.
-    The summary includes the domain's title, description, and tracked entities.
-    Use this when you need an overview of a domain's current state and its associated entities.
+    This tool generates a formatted markdown summary for a specified facet in the journal.
+    The summary includes the facet's title, description, and tracked entities.
+    Use this when you need an overview of a facet's current state and its associated entities.
 
     Args:
-        domain: The domain name to retrieve the summary for
+        facet: The facet name to retrieve the summary for
 
     Returns:
         Dictionary containing:
-        - domain: The domain name that was queried
-        - summary: Formatted markdown text with the complete domain summary including:
-            - Domain title
-            - Domain description
+        - facet: The facet name that was queried
+        - summary: Formatted markdown text with the complete facet summary including:
+            - Facet title
+            - Facet description
             - List of tracked entities
 
     Examples:
-        - get_domain("personal")
-        - get_domain("work_projects")
-        - get_domain("research")
+        - get_facet("personal")
+        - get_facet("work_projects")
+        - get_facet("research")
 
     Raises:
-        If the domain doesn't exist or JOURNAL_PATH is not set, returns an error dictionary
+        If the facet doesn't exist or JOURNAL_PATH is not set, returns an error dictionary
         with an error message and suggestion for resolution.
     """
     try:
-        # Get the domain summary markdown
-        summary_text = domain_summary(domain)
-        return {"domain": domain, "summary": summary_text}
+        # Get the facet summary markdown
+        summary_text = facet_summary(facet)
+        return {"facet": facet, "summary": summary_text}
     except FileNotFoundError:
         return {
-            "error": f"Domain '{domain}' not found",
-            "suggestion": "verify the domain name exists or check JOURNAL_PATH is set correctly",
+            "error": f"Facet '{facet}' not found",
+            "suggestion": "verify the facet name exists or check JOURNAL_PATH is set correctly",
         }
     except RuntimeError as exc:
         return {
@@ -611,35 +611,35 @@ def get_domain(domain: str) -> dict[str, Any]:
         }
     except Exception as exc:
         return {
-            "error": f"Failed to get domain summary: {exc}",
-            "suggestion": "check that the domain exists and has valid metadata",
+            "error": f"Failed to get facet summary: {exc}",
+            "suggestion": "check that the facet exists and has valid metadata",
         }
 
 
 @register_tool(annotations=HINTS)
-def domain_news(domain: str, day: str, markdown: str | None = None) -> dict[str, Any]:
-    """Read or write news for a specific domain and day.
+def facet_news(facet: str, day: str, markdown: str | None = None) -> dict[str, Any]:
+    """Read or write news for a specific facet and day.
 
-    This tool manages domain-specific news stored in markdown files organized by date.
+    This tool manages facet-specific news stored in markdown files organized by date.
     When markdown content is provided, it writes/updates the news file for that day.
     When markdown is not provided, it reads and returns the existing news for that day.
-    News files are stored as `domains/<domain>/news/YYYYMMDD.md`.
+    News files are stored as `facets/<facet>/news/YYYYMMDD.md`.
 
     Args:
-        domain: The domain name to manage news for
+        facet: The facet name to manage news for
         day: The day in YYYYMMDD format
         markdown: Optional markdown content to write. If not provided, reads existing news.
                  Should follow the format with dated header and news entries with source/time.
 
     Returns:
         Dictionary containing either:
-        - domain, day, and news content when reading
-        - domain, day, and success message when writing
+        - facet, day, and news content when reading
+        - facet, day, and success message when writing
         - error and suggestion if operation fails
 
     Examples:
-        - domain_news("ml_research", "20250118")  # Read news for the day
-        - domain_news("work", "20250118", "# 2025-01-18 News...")  # Write news
+        - facet_news("ml_research", "20250118")  # Read news for the day
+        - facet_news("work", "20250118", "# 2025-01-18 News...")  # Write news
     """
     try:
         journal = os.getenv("JOURNAL_PATH")
@@ -647,17 +647,17 @@ def domain_news(domain: str, day: str, markdown: str | None = None) -> dict[str,
             raise RuntimeError("JOURNAL_PATH not set")
 
         journal_path = Path(journal)
-        domain_path = journal_path / "domains" / domain
+        facet_path = journal_path / "facets" / facet
 
-        # Check if domain exists
-        if not domain_path.exists():
+        # Check if facet exists
+        if not facet_path.exists():
             return {
-                "error": f"Domain '{domain}' not found",
-                "suggestion": "Create the domain first or check the domain name",
+                "error": f"Facet '{facet}' not found",
+                "suggestion": "Create the facet first or check the facet name",
             }
 
         # Ensure news directory exists
-        news_dir = domain_path / "news"
+        news_dir = facet_path / "news"
         news_dir.mkdir(exist_ok=True)
 
         # Path to the specific day's news file
@@ -667,21 +667,21 @@ def domain_news(domain: str, day: str, markdown: str | None = None) -> dict[str,
             # Write mode - save the markdown content
             news_file.write_text(markdown, encoding="utf-8")
             return {
-                "domain": domain,
+                "facet": facet,
                 "day": day,
-                "message": f"News for {day} saved successfully in domain '{domain}'",
+                "message": f"News for {day} saved successfully in facet '{facet}'",
             }
         else:
             # Read mode - return existing news or empty message
             if news_file.exists():
                 news_content = news_file.read_text(encoding="utf-8")
-                return {"domain": domain, "day": day, "news": news_content}
+                return {"facet": facet, "day": day, "news": news_content}
             else:
                 return {
-                    "domain": domain,
+                    "facet": facet,
                     "day": day,
                     "news": None,
-                    "message": f"No news recorded for {day} in domain '{domain}'",
+                    "message": f"No news recorded for {day} in facet '{facet}'",
                 }
 
     except RuntimeError as exc:
@@ -691,24 +691,24 @@ def domain_news(domain: str, day: str, markdown: str | None = None) -> dict[str,
         }
     except Exception as exc:
         return {
-            "error": f"Failed to process domain news: {exc}",
-            "suggestion": "check domain exists and has proper permissions",
+            "error": f"Failed to process facet news: {exc}",
+            "suggestion": "check facet exists and has proper permissions",
         }
 
 
 @register_tool(annotations=HINTS)
-def entity_list(domain: str, day: str | None = None) -> dict[str, Any]:
-    """List entities for a domain.
+def entity_list(facet: str, day: str | None = None) -> dict[str, Any]:
+    """List entities for a facet.
 
     Args:
-        domain: Domain name (e.g., "personal", "work")
+        facet: Facet name (e.g., "personal", "work")
         day: Optional day in YYYYMMDD format. If None, returns attached entities
              from entities.jsonl. If provided, returns detected entities from
              entities/YYYYMMDD.jsonl
 
     Returns:
         Dictionary containing:
-        - domain: The domain name
+        - facet: The facet name
         - day: The day (or None for attached entities)
         - count: Number of entities found
         - entities: List of entity objects with type, name, and description
@@ -718,10 +718,10 @@ def entity_list(domain: str, day: str | None = None) -> dict[str, Any]:
         - entity_list("personal", "20250101")  # List detected entities for a day
     """
     try:
-        entities = load_entities(domain, day)
+        entities = load_entities(facet, day)
 
         return {
-            "domain": domain,
+            "facet": facet,
             "day": day,
             "count": len(entities),
             "entities": entities,
@@ -734,36 +734,36 @@ def entity_list(domain: str, day: str | None = None) -> dict[str, Any]:
     except Exception as exc:
         return {
             "error": f"Failed to list entities: {exc}",
-            "suggestion": "check that the domain exists",
+            "suggestion": "check that the facet exists",
         }
 
 
 @register_tool(annotations=HINTS)
 def entity_detect(
     day: str,
-    domain: str,
+    facet: str,
     type: str,
     name: str,
     description: str,
     context: Context | None = None,
 ) -> dict[str, Any]:
-    """Record a detected entity for a specific day in a domain.
+    """Record a detected entity for a specific day in a facet.
 
     This tool adds an entity to the daily detected entities file at
-    domains/{domain}/entities/{day}.md. Detected entities are ephemeral
+    facets/{facet}/entities/{day}.md. Detected entities are ephemeral
     observations from a specific day that can later be promoted to attached
     entities if they appear frequently.
 
     Args:
         day: Day in YYYYMMDD format when entity was detected
-        domain: Domain name (e.g., "personal", "work")
+        facet: Facet name (e.g., "personal", "work")
         type: Entity type (Person, Company, Project, or Tool)
         name: Entity name (e.g., "John Smith", "Acme Corp")
         description: Day-specific description of the entity
 
     Returns:
         Dictionary containing:
-        - domain: The domain name
+        - facet: The facet name
         - day: The day
         - message: Success message
         - entity: The added entity details
@@ -781,7 +781,7 @@ def entity_detect(
             }
 
         # Load existing entities for the day
-        existing = load_entities(domain, day)
+        existing = load_entities(facet, day)
 
         # Check for duplicate
         for entity in existing:
@@ -793,9 +793,9 @@ def entity_detect(
 
         # Add new entity
         existing.append({"type": type, "name": name, "description": description})
-        save_entities(domain, existing, day)
+        save_entities(facet, existing, day)
         log_action(
-            domain,
+            facet,
             day,
             "entity_detect",
             {"type": type, "name": name, "description": description},
@@ -803,7 +803,7 @@ def entity_detect(
         )
 
         return {
-            "domain": domain,
+            "facet": facet,
             "day": day,
             "message": f"Entity '{name}' detected successfully",
             "entity": {"type": type, "name": name, "description": description},
@@ -816,29 +816,29 @@ def entity_detect(
     except Exception as exc:
         return {
             "error": f"Failed to detect entity: {exc}",
-            "suggestion": "check that the domain exists",
+            "suggestion": "check that the facet exists",
         }
 
 
 @register_tool(annotations=HINTS)
 def entity_attach(
-    domain: str, type: str, name: str, description: str, context: Context | None = None
+    facet: str, type: str, name: str, description: str, context: Context | None = None
 ) -> dict[str, Any]:
-    """Attach an entity permanently to a domain.
+    """Attach an entity permanently to a facet.
 
     This tool adds an entity to the persistent attached entities file at
-    domains/{domain}/entities.jsonl. Attached entities are long-term tracked
-    entities that appear in domain summaries and agent context.
+    facets/{facet}/entities.jsonl. Attached entities are long-term tracked
+    entities that appear in facet summaries and agent context.
 
     Args:
-        domain: Domain name (e.g., "personal", "work")
+        facet: Facet name (e.g., "personal", "work")
         type: Entity type (Person, Company, Project, or Tool)
         name: Entity name (e.g., "John Smith", "Acme Corp")
         description: Persistent description of the entity
 
     Returns:
         Dictionary containing:
-        - domain: The domain name
+        - facet: The facet name
         - message: Success message
         - entity: The attached entity details
 
@@ -855,24 +855,24 @@ def entity_attach(
             }
 
         # Load existing attached entities
-        existing = load_entities(domain, day=None)
+        existing = load_entities(facet, day=None)
 
         # Check for duplicate
         for entity in existing:
             if entity.get("type") == type and entity.get("name") == name:
                 return {
                     "error": f"Entity '{name}' of type '{type}' already attached",
-                    "suggestion": "entity already exists in attached list for this domain",
+                    "suggestion": "entity already exists in attached list for this facet",
                 }
 
         # Add new entity
         existing.append({"type": type, "name": name, "description": description})
-        save_entities(domain, existing, day=None)
+        save_entities(facet, existing, day=None)
 
         # Log to today's log since attached entities aren't day-scoped
         today = datetime.now().strftime("%Y%m%d")
         log_action(
-            domain,
+            facet,
             today,
             "entity_attach",
             {"type": type, "name": name, "description": description},
@@ -880,7 +880,7 @@ def entity_attach(
         )
 
         return {
-            "domain": domain,
+            "facet": facet,
             "message": f"Entity '{name}' attached successfully",
             "entity": {"type": type, "name": name, "description": description},
         }
@@ -892,13 +892,13 @@ def entity_attach(
     except Exception as exc:
         return {
             "error": f"Failed to attach entity: {exc}",
-            "suggestion": "check that the domain exists",
+            "suggestion": "check that the facet exists",
         }
 
 
 @register_tool(annotations=HINTS)
 def entity_update(
-    domain: str,
+    facet: str,
     type: str,
     name: str,
     old_description: str,
@@ -909,12 +909,12 @@ def entity_update(
     """Update an existing entity's description using guard-based validation.
 
     This tool modifies the description of an entity that's already tracked
-    in a domain. To prevent accidental overwrites, you must provide the current
+    in a facet. To prevent accidental overwrites, you must provide the current
     description as a guard value. If the guard doesn't match the current state,
     the operation fails with an error showing the actual current description.
 
     Args:
-        domain: Domain name (e.g., "personal", "work")
+        facet: Facet name (e.g., "personal", "work")
         type: Entity type (Person, Company, Project, or Tool)
         name: Entity name to update
         old_description: Current description (must match for safety)
@@ -925,7 +925,7 @@ def entity_update(
 
     Returns:
         Dictionary containing:
-        - domain: The domain name
+        - facet: The facet name
         - day: The day (or None for attached entities)
         - message: Success message
         - entity: The updated entity details
@@ -943,12 +943,12 @@ def entity_update(
                 "suggestion": "must be alphanumeric with spaces only, at least 3 characters long",
             }
 
-        update_entity(domain, type, name, old_description, new_description, day)
+        update_entity(facet, type, name, old_description, new_description, day)
 
         # Use provided day or today for logging
         log_day = day if day else datetime.now().strftime("%Y%m%d")
         log_action(
-            domain,
+            facet,
             log_day,
             "entity_update",
             {
@@ -961,7 +961,7 @@ def entity_update(
         )
 
         return {
-            "domain": domain,
+            "facet": facet,
             "day": day,
             "message": f"Entity '{name}' updated successfully",
             "entity": {"type": type, "name": name, "description": new_description},
@@ -986,13 +986,13 @@ def entity_update(
     except Exception as exc:
         return {
             "error": f"Failed to update entity: {exc}",
-            "suggestion": "check that the domain exists",
+            "suggestion": "check that the facet exists",
         }
 
 
 @register_tool(annotations=HINTS)
 def entity_add_aka(
-    domain: str, type: str, name: str, aka: str, context: Context | None = None
+    facet: str, type: str, name: str, aka: str, context: Context | None = None
 ) -> dict[str, Any]:
     """Add an alias (aka) to an attached entity.
 
@@ -1007,14 +1007,14 @@ def entity_add_aka(
     - Only meaningful aliases like nicknames, acronyms, or abbreviations are added
 
     Args:
-        domain: Domain name (e.g., "personal", "work")
+        facet: Facet name (e.g., "personal", "work")
         type: Entity type (Person, Company, Project, Tool, etc.)
         name: Entity name to update
         aka: Alias or acronym to add (e.g., "PG" for "PostgreSQL", "Jer" for "Jeremie Miller")
 
     Returns:
         Dictionary containing:
-        - domain: The domain name
+        - facet: The facet name
         - message: Success message indicating if aka was added, already existed, or was skipped
         - entity: The updated entity details including the aka list
 
@@ -1034,7 +1034,7 @@ def entity_add_aka(
             }
 
         # Load attached entities only
-        entities = load_entities(domain, day=None)
+        entities = load_entities(facet, day=None)
 
         # Find and update the entity
         for entity in entities:
@@ -1046,7 +1046,7 @@ def entity_add_aka(
                 first_word = base_name.split()[0] if base_name else None
                 if first_word and aka.lower() == first_word.lower():
                     return {
-                        "domain": domain,
+                        "facet": facet,
                         "message": f"Alias '{aka}' is already the first word of '{name}' (skipped)",
                         "entity": entity,
                     }
@@ -1059,7 +1059,7 @@ def entity_add_aka(
                 # Check if already present (dedup)
                 if aka in aka_list:
                     return {
-                        "domain": domain,
+                        "facet": facet,
                         "message": f"Alias '{aka}' already exists for entity '{name}'",
                         "entity": entity,
                     }
@@ -1069,12 +1069,12 @@ def entity_add_aka(
                 entity["aka"] = aka_list
 
                 # Save back atomically
-                save_entities(domain, entities, day=None)
+                save_entities(facet, entities, day=None)
 
                 # Log to today's log since attached entities aren't day-scoped
                 today = datetime.now().strftime("%Y%m%d")
                 log_action(
-                    domain,
+                    facet,
                     today,
                     "entity_add_aka",
                     {"type": type, "name": name, "aka": aka},
@@ -1082,7 +1082,7 @@ def entity_add_aka(
                 )
 
                 return {
-                    "domain": domain,
+                    "facet": facet,
                     "message": f"Added alias '{aka}' to entity '{name}'",
                     "entity": entity,
                 }
@@ -1090,7 +1090,7 @@ def entity_add_aka(
         # Entity not found
         return {
             "error": f"Entity '{name}' of type '{type}' not found in attached entities",
-            "suggestion": "verify the entity exists in the domain (only attached entities supported, not detected)",
+            "suggestion": "verify the entity exists in the facet (only attached entities supported, not detected)",
         }
 
     except RuntimeError as exc:
@@ -1101,7 +1101,7 @@ def entity_add_aka(
     except Exception as exc:
         return {
             "error": f"Failed to add aka: {exc}",
-            "suggestion": "check that the domain exists and is accessible",
+            "suggestion": "check that the facet exists and is accessible",
         }
 
 
@@ -1128,7 +1128,7 @@ def send_message(body: str) -> dict[str, Any]:
 
     Examples:
         - send_message("While analysing I found a potential security vulnerability")
-        - send_message("Daily summary ready for review in domain 'work_projects'")
+        - send_message("Daily summary ready for review in facet 'work_projects'")
         - send_message("Failed to process transcript for 20240115 - file corrupted")
         - send_message("Reminder: Review the pending PRs in the dashboard")
     """
@@ -1168,8 +1168,8 @@ async def get_resource(uri: str) -> object:
     - ``journal://transcripts/audio/{day}/{time}/{length}`` — audio transcripts only
     - ``journal://transcripts/screen/{day}/{time}/{length}`` — screen summaries only
     - ``journal://media/{day}/{name}`` — raw FLAC or PNG media files
-    - ``journal://todo/{domain}/{day}`` — domain-scoped todo checklist file
-    - ``journal://news/{domain}/{day}`` — domain news markdown for a specific day
+    - ``journal://todo/{facet}/{day}`` — facet-scoped todo checklist file
+    - ``journal://news/{facet}/{day}`` — facet news markdown for a specific day
 
     Args:
         uri: Resource URI to fetch.
@@ -1361,49 +1361,49 @@ def get_media(day: str, name: str) -> FileResource:
     )
 
 
-@mcp.resource("journal://todo/{domain}/{day}")
-def get_todo(domain: str, day: str) -> TextResource:
-    """Return the domain-scoped todo checklist for a specific day."""
+@mcp.resource("journal://todo/{facet}/{day}")
+def get_todo(facet: str, day: str) -> TextResource:
+    """Return the facet-scoped todo checklist for a specific day."""
 
-    todo_path = todo.todo_file_path(day, domain)
+    todo_path = todo.todo_file_path(day, facet)
 
     if not todo_path.is_file():
-        domain_path = todo_path.parents[1]  # domains/{domain}/todos
-        if not domain_path.is_dir():
-            text = f"No todos folder for domain '{domain}'."
+        facet_path = todo_path.parents[1]  # facets/{facet}/todos
+        if not facet_path.is_dir():
+            text = f"No todos folder for facet '{facet}'."
         else:
-            text = f"(No todos recorded for {day} in domain '{domain}'.)"
+            text = f"(No todos recorded for {day} in facet '{facet}'.)"
     else:
         text = todo_path.read_text(encoding="utf-8")
 
     return TextResource(
-        uri=f"journal://todo/{domain}/{day}",
-        name=f"Todos: {domain}/{day}",
-        description=f"Checklist entries for domain '{domain}' on {day}",
+        uri=f"journal://todo/{facet}/{day}",
+        name=f"Todos: {facet}/{day}",
+        description=f"Checklist entries for facet '{facet}' on {day}",
         mime_type="text/markdown",
         text=text,
     )
 
 
-@mcp.resource("journal://news/{domain}/{day}")
-def get_news_content(domain: str, day: str) -> TextResource:
-    """Return the news markdown content for a specific domain and day."""
+@mcp.resource("journal://news/{facet}/{day}")
+def get_news_content(facet: str, day: str) -> TextResource:
+    """Return the news markdown content for a specific facet and day."""
     journal = os.getenv("JOURNAL_PATH", "journal")
-    news_path = Path(journal) / "domains" / domain / "news" / f"{day}.md"
+    news_path = Path(journal) / "facets" / facet / "news" / f"{day}.md"
 
     if not news_path.is_file():
-        domain_path = news_path.parents[1]
-        if not domain_path.is_dir():
-            text = f"Domain '{domain}' not found."
+        facet_path = news_path.parents[1]
+        if not facet_path.is_dir():
+            text = f"Facet '{facet}' not found."
         else:
-            text = f"No news recorded for {day} in domain '{domain}'."
+            text = f"No news recorded for {day} in facet '{facet}'."
     else:
         text = news_path.read_text(encoding="utf-8")
 
     return TextResource(
-        uri=f"journal://news/{domain}/{day}",
-        name=f"News: {domain}/{day}",
-        description=f"News content for domain '{domain}' on {day}",
+        uri=f"journal://news/{facet}/{day}",
+        name=f"News: {facet}/{day}",
+        description=f"News content for facet '{facet}' on {day}",
         mime_type="text/markdown",
         text=text,
     )

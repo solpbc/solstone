@@ -535,7 +535,7 @@ function renderMessage(msg) {
   let contextHtml = '';
   if (msg.context) {
     const tags = [];
-    if (msg.context.domain) tags.push(`<span class="context-tag">📁 ${msg.context.domain}</span>`);
+    if (msg.context.facet) tags.push(`<span class="context-tag">📁 ${msg.context.facet}</span>`);
     if (msg.context.matter) tags.push(`<span class="context-tag">📌 ${msg.context.matter}</span>`);
     if (msg.context.day) tags.push(`<span class="context-tag">📅 ${msg.context.day}</span>`);
     if (tags.length > 0) {
@@ -585,8 +585,8 @@ async function openMessage(messageId) {
   const contextItems = document.getElementById('modalContextItems');
   if (message.context && Object.keys(message.context).length > 0) {
     contextItems.innerHTML = '';
-    if (message.context.domain) {
-      contextItems.innerHTML += `<span class="context-tag">📁 Domain: ${message.context.domain}</span>`;
+    if (message.context.facet) {
+      contextItems.innerHTML += `<span class="context-tag">📁 Facet: ${message.context.facet}</span>`;
     }
     if (message.context.matter) {
       contextItems.innerHTML += `<span class="context-tag">📌 Matter: ${message.context.matter}</span>`;

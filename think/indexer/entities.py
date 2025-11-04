@@ -19,27 +19,27 @@ def parse_entities(path: str) -> list[dict[str, Any]]:
 
 
 def find_entity_files(journal: str) -> Dict[str, str]:
-    """Map relative entity file paths to full paths for domain-scoped entities."""
+    """Map relative entity file paths to full paths for facet-scoped entities."""
     files: Dict[str, str] = {}
-    domains_dir = os.path.join(journal, "domains")
+    facets_dir = os.path.join(journal, "facets")
 
-    if not os.path.isdir(domains_dir):
+    if not os.path.isdir(facets_dir):
         return files
 
-    # Scan all directories in domains/ (not just those with domain.json)
-    for domain_name in os.listdir(domains_dir):
-        domain_path = os.path.join(domains_dir, domain_name)
-        if not os.path.isdir(domain_path):
+    # Scan all directories in facets/ (not just those with facet.json)
+    for facet_name in os.listdir(facets_dir):
+        facet_path = os.path.join(facets_dir, facet_name)
+        if not os.path.isdir(facet_path):
             continue
 
-        # Check for attached entities: domains/{domain}/entities.jsonl
-        attached_path = os.path.join(domain_path, "entities.jsonl")
+        # Check for attached entities: facets/{facet}/entities.jsonl
+        attached_path = os.path.join(facet_path, "entities.jsonl")
         if os.path.isfile(attached_path):
-            rel = os.path.join(domain_name, "entities.jsonl")
+            rel = os.path.join(facet_name, "entities.jsonl")
             files[rel] = attached_path
 
-        # Check for detected entities: domains/{domain}/entities/*.jsonl
-        detected_dir = os.path.join(domain_path, "entities")
+        # Check for detected entities: facets/{facet}/entities/*.jsonl
+        detected_dir = os.path.join(facet_path, "entities")
         if os.path.isdir(detected_dir):
             for filename in os.listdir(detected_dir):
                 if (
@@ -47,7 +47,7 @@ def find_entity_files(journal: str) -> Dict[str, str]:
                 ):  # YYYYMMDD.jsonl
                     day = filename[:-6]  # Remove .jsonl
                     if day.isdigit() and len(day) == 8:
-                        rel = os.path.join(domain_name, "entities", filename)
+                        rel = os.path.join(facet_name, "entities", filename)
                         files[rel] = os.path.join(detected_dir, filename)
 
     return files
@@ -56,17 +56,17 @@ def find_entity_files(journal: str) -> Dict[str, str]:
 def _index_entities(
     conn: sqlite3.Connection, rel: str, path: str, verbose: bool
 ) -> None:
-    """Index parsed entities from domain-scoped ``entities.jsonl`` file."""
+    """Index parsed entities from facet-scoped ``entities.jsonl`` file."""
     logger = logging.getLogger(__name__)
 
-    # Extract domain and day from relative path
-    # Format: {domain}/entities.jsonl or {domain}/entities/YYYYMMDD.jsonl
+    # Extract facet and day from relative path
+    # Format: {facet}/entities.jsonl or {facet}/entities/YYYYMMDD.jsonl
     parts = rel.split(os.sep)
-    domain = parts[0]
+    facet = parts[0]
     day = None
     attached = 1
 
-    if len(parts) == 3:  # {domain}/entities/YYYYMMDD.jsonl
+    if len(parts) == 3:  # {facet}/entities/YYYYMMDD.jsonl
         day = os.path.splitext(parts[2])[0]  # Remove .jsonl extension
         attached = 0
 
@@ -86,21 +86,21 @@ def _index_entities(
         name = entity.get("name", "")
         desc = entity.get("description", "")
         conn.execute(
-            "INSERT INTO entities(name, description, domain, day, type, attached) VALUES (?, ?, ?, ?, ?, ?)",
-            (name, desc, domain, day, etype, attached),
+            "INSERT INTO entities(name, description, facet, day, type, attached) VALUES (?, ?, ?, ?, ?, ?)",
+            (name, desc, facet, day, etype, attached),
         )
 
     if verbose:
         logger.info(
-            "  indexed %s entities (domain=%s, day=%s)",
+            "  indexed %s entities (facet=%s, day=%s)",
             len(entries),
-            domain,
+            facet,
             day or "attached",
         )
 
 
 def scan_entities(journal: str, verbose: bool = False) -> bool:
-    """Index entities from domain-scoped ``entities.jsonl`` files."""
+    """Index entities from facet-scoped ``entities.jsonl`` files."""
     logger = logging.getLogger(__name__)
     conn, _ = get_index(index="entities", journal=journal)
     files = find_entity_files(journal)
@@ -111,12 +111,12 @@ def scan_entities(journal: str, verbose: bool = False) -> bool:
     # Build delete SQL based on rel path structure
     def get_delete_sql(rel: str) -> str:
         parts = rel.split(os.sep)
-        domain = parts[0]
-        if len(parts) == 2:  # attached: {domain}/entities.jsonl
-            return f"DELETE FROM entities WHERE domain='{domain}' AND day IS NULL"
-        else:  # detected: {domain}/entities/YYYYMMDD.jsonl
+        facet = parts[0]
+        if len(parts) == 2:  # attached: {facet}/entities.jsonl
+            return f"DELETE FROM entities WHERE facet='{facet}' AND day IS NULL"
+        else:  # detected: {facet}/entities/YYYYMMDD.jsonl
             day = os.path.splitext(parts[2])[0]
-            return f"DELETE FROM entities WHERE domain='{domain}' AND day='{day}'"
+            return f"DELETE FROM entities WHERE facet='{facet}' AND day='{day}'"
 
     # Modified _scan_files logic to handle dynamic delete SQL per file
     # For now, use a list of possible delete patterns - we'll handle this in a custom scan
@@ -172,7 +172,7 @@ def search_entities(
     limit: int = 5,
     offset: int = 0,
     *,
-    domain: str | None = None,
+    facet: str | None = None,
     day: str | None = None,
     etype: str | None = None,
     name: str | None = None,
@@ -189,8 +189,8 @@ def search_entities(
         Maximum number of results to return
     offset : int
         Number of results to skip
-    domain : str, optional
-        Filter to specific domain
+    facet : str, optional
+        Filter to specific facet
     day : str, optional
         Filter to specific day (YYYYMMDD format)
     etype : str, optional
@@ -228,9 +228,9 @@ def search_entities(
         quoted = db.quote(" AND ".join(fts_parts))
         where_clause = f"entities MATCH {quoted}"
 
-    if domain:
-        where_clause += " AND domain=?"
-        params.append(domain)
+    if facet:
+        where_clause += " AND facet=?"
+        params.append(facet)
     if day:
         where_clause += " AND day=?"
         params.append(day)
@@ -253,7 +253,7 @@ def search_entities(
 
     cursor = conn.execute(
         f"""
-        SELECT name, description, domain, day, type, attached, bm25(entities) as rank
+        SELECT name, description, facet, day, type, attached, bm25(entities) as rank
         FROM entities WHERE {where_clause} ORDER BY {order_by} LIMIT ? OFFSET ?
         """,
         params + [limit, offset],
@@ -263,7 +263,7 @@ def search_entities(
     for (
         name_val,
         desc_val,
-        domain_val,
+        facet_val,
         day_val,
         type_val,
         attached_val,
@@ -271,16 +271,16 @@ def search_entities(
     ) in cursor.fetchall():
         # Build unique ID
         if day_val:
-            result_id = f"{domain_val}/entities/{day_val}.jsonl:{name_val}"
+            result_id = f"{facet_val}/entities/{day_val}.jsonl:{name_val}"
         else:
-            result_id = f"{domain_val}/entities.jsonl:{name_val}"
+            result_id = f"{facet_val}/entities.jsonl:{name_val}"
 
         results.append(
             {
                 "id": result_id,
                 "text": desc_val or name_val,
                 "metadata": {
-                    "domain": domain_val,
+                    "facet": facet_val,
                     "day": day_val,
                     "type": type_val,
                     "name": name_val,

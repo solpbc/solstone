@@ -45,11 +45,11 @@ def test_importer_text(tmp_path, monkeypatch):
 
     assert entries1 == [{"text": "seg1"}]
     assert metadata1["imported"]["id"] == "20240101_120000"
-    assert "domain" not in metadata1["imported"]
+    assert "facet" not in metadata1["imported"]
 
     assert entries2 == [{"text": "seg2"}]
     assert metadata2["imported"]["id"] == "20240101_120000"
-    assert "domain" not in metadata2["imported"]
+    assert "facet" not in metadata2["imported"]
 
 
 def test_importer_audio_transcribe(tmp_path, monkeypatch):
@@ -164,7 +164,7 @@ def test_audio_transcribe_sanitizes_entities(tmp_path, monkeypatch):
     audio_file = tmp_path / "test_audio.mp3"
     audio_file.write_bytes(b"fake audio content")
 
-    # Use fixtures journal for domain entities lookup
+    # Use fixtures journal for facet entities lookup
     from pathlib import Path
 
     fixtures_journal = Path(__file__).parent.parent / "fixtures" / "journal"
@@ -184,7 +184,7 @@ def test_audio_transcribe_sanitizes_entities(tmp_path, monkeypatch):
         str(tmp_path),
         dt.datetime(2024, 1, 1, 12, 0, 0),
         import_id="20240101_120000",
-        domain="acme",
+        facet="acme",
     )
 
     assert captured
@@ -205,7 +205,7 @@ def test_audio_transcribe_includes_import_metadata(tmp_path, monkeypatch):
     monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
 
     monkeypatch.setattr(
-        "think.domains.get_domains",
+        "think.facets.get_facets",
         lambda: {
             "uavionix": {
                 "entities": {"Person": ["Ryan Reed (R2)"]},
@@ -232,7 +232,7 @@ def test_audio_transcribe_includes_import_metadata(tmp_path, monkeypatch):
         str(tmp_path),
         dt.datetime(2024, 1, 1, 12, 0, 0),
         import_id="20240101_120000",
-        domain="uavionix",
+        facet="uavionix",
     )
 
     assert created_files
@@ -244,4 +244,4 @@ def test_audio_transcribe_includes_import_metadata(tmp_path, monkeypatch):
 
     assert entries[0]["text"] == "Test entry"
     assert metadata["imported"]["id"] == "20240101_120000"
-    assert metadata["imported"]["domain"] == "uavionix"
+    assert metadata["imported"]["facet"] == "uavionix"

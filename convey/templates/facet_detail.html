@@ -1,10 +1,10 @@
 {% extends 'base.html' %}
-{% set title = domain_data.title or domain_name %}
-{% set active = 'domains' %}
+{% set title = facet_data.title or facet_name %}
+{% set active = 'facets' %}
 {% block head %}
 <style>
-/* Domain header */
-.domain-header {
+/* Facet header */
+.facet-header {
   position: relative;
   width: 100%;
   padding: 3em 2em;
@@ -17,24 +17,24 @@
   box-sizing: border-box;
 }
 
-.domain-header.has-color {
-  background: var(--domain-color);
+.facet-header.has-color {
+  background: var(--facet-color);
 }
 
-.domain-header-content {
+.facet-header-content {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 0.5em;
 }
 
-.domain-header-left {
+.facet-header-left {
   display: flex;
   align-items: center;
   gap: 0.5em;
 }
 
-.domain-header-right {
+.facet-header-right {
   display: flex;
   align-items: center;
   gap: 1em;
@@ -111,12 +111,12 @@ input:checked + .toggle-slider:hover {
   background-color: rgba(76, 175, 80, 0.9);
 }
 
-.domain-header .domain-emoji {
+.facet-header .facet-emoji {
   font-size: 2.5em;
   opacity: 0.9;
 }
 
-.domain-header h1 {
+.facet-header h1 {
   margin: 0;
   font-size: 2.5em;
   font-weight: 700;
@@ -1012,21 +1012,21 @@ tr:hover .entity-delete-btn {
 {% endblock %}
 {% block body %}
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-<div class="domain-header{% if domain_data.color %} has-color{% endif %}"{% if domain_data.color %} style="--domain-color: {{ domain_data.color }}"{% endif %}>
-  <a href="{{ url_for('domains.domains_page') }}" class="back-button">← Back to Domains</a>
+<div class="facet-header{% if facet_data.color %} has-color{% endif %}"{% if facet_data.color %} style="--facet-color: {{ facet_data.color }}"{% endif %}>
+  <a href="{{ url_for('facets.facets_page') }}" class="back-button">← Back to Facets</a>
 
-  <div class="domain-header-content">
-    <div class="domain-header-left">
-      {% if domain_data.emoji %}
-      <div class="domain-emoji">{{ domain_data.emoji }}</div>
+  <div class="facet-header-content">
+    <div class="facet-header-left">
+      {% if facet_data.emoji %}
+      <div class="facet-emoji">{{ facet_data.emoji }}</div>
       {% endif %}
-      <h1>{{ domain_data.title or domain_name }}</h1>
+      <h1>{{ facet_data.title or facet_name }}</h1>
     </div>
-    <div class="domain-header-right">
+    <div class="facet-header-right">
       <div class="agents-toggle">
         <span class="agents-toggle-label">Agents</span>
         <label class="toggle-switch">
-          <input type="checkbox" id="agents-toggle-checkbox" {% if not domain_data.disabled %}checked{% endif %}>
+          <input type="checkbox" id="agents-toggle-checkbox" {% if not facet_data.disabled %}checked{% endif %}>
           <span class="toggle-slider"></span>
         </label>
       </div>
@@ -1039,14 +1039,14 @@ tr:hover .entity-delete-btn {
     <button class="tab-button active" data-tab="news">Newsletters</button>
     <button class="tab-button" data-tab="entities">Entities</button>
     <button class="tab-button" data-tab="description">Description</button>
-    <a href="{{ url_for('domains.entity_manager', domain_name=domain_name) }}" class="tab-link">
+    <a href="{{ url_for('facets.entity_manager', facet_name=facet_name) }}" class="tab-link">
       <span>Manage Entities</span>
       <svg class="gear-icon" width="16" height="16" viewBox="0 0 16 16" fill="currentColor" style="margin-left: 4px;">
         <path d="M8 4.754a3.246 3.246 0 1 0 0 6.492 3.246 3.246 0 0 0 0-6.492zM5.754 8a2.246 2.246 0 1 1 4.492 0 2.246 2.246 0 0 1-4.492 0z"/>
         <path d="M9.796 1.343c-.527-1.79-3.065-1.79-3.592 0l-.094.319a.873.873 0 0 1-1.255.52l-.292-.16c-1.64-.892-3.433.902-2.54 2.541l.159.292a.873.873 0 0 1-.52 1.255l-.319.094c-1.79.527-1.79 3.065 0 3.592l.319.094a.873.873 0 0 1 .52 1.255l-.16.292c-.892 1.64.901 3.434 2.541 2.54l.292-.159a.873.873 0 0 1 1.255.52l.094.319c.527 1.79 3.065 1.79 3.592 0l.094-.319a.873.873 0 0 1 1.255-.52l.292.16c1.64.893 3.434-.902 2.54-2.541l-.159-.292a.873.873 0 0 1 .52-1.255l.319-.094c1.79-.527 1.79-3.065 0-3.592l-.319-.094a.873.873 0 0 1-.52-1.255l.16-.292c.893-1.64-.902-3.433-2.541-2.54l-.292.159a.873.873 0 0 1-1.255-.52l-.094-.319z"/>
       </svg>
     </a>
-    <a href="{{ url_for('domains.domain_day', domain_name=domain_name, day=today) }}" class="tab-link" title="View Calendar">
+    <a href="{{ url_for('facets.facet_day', facet_name=facet_name, day=today) }}" class="tab-link" title="View Calendar">
       <span>Calendar</span>
       <svg class="gear-icon" width="16" height="16" viewBox="0 0 16 16" fill="currentColor" style="margin-left: 4px;">
         <path d="M3.5 0a.5.5 0 0 1 .5.5V1h8V.5a.5.5 0 0 1 1 0V1h1a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V3a2 2 0 0 1 2-2h1V.5a.5.5 0 0 1 .5-.5zM1 4v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V4H1z"/>
@@ -1058,7 +1058,7 @@ tr:hover .entity-delete-btn {
     <div class="loading" id="news-loading">Loading newsletters...</div>
     <div id="news-content" style="display: none;">
       <div id="news-empty" class="no-entities" style="display: none;">
-        <p>No newsletters recorded for this domain yet.</p>
+        <p>No newsletters recorded for this facet yet.</p>
       </div>
       <div class="news-days" id="news-days"></div>
       <div class="news-load-more" id="news-load-more-container" style="display: none;">
@@ -1070,7 +1070,7 @@ tr:hover .entity-delete-btn {
   <div id="entities-tab" class="tab-content">
     <div class="loading" id="entities-loading">Loading entities...</div>
     <div id="entities-content" style="display: none;">
-      <div class="entities-section" id="domain-entities-section">
+      <div class="entities-section" id="facet-entities-section">
         <div class="entities-container">
           <button class="add-entity-button" onclick="openEntityAssistInput()" title="Add new entity with AI assistance">
             <span>+</span>
@@ -1085,11 +1085,11 @@ tr:hover .entity-delete-btn {
                 <th class="entity-desc">Description</th>
               </tr>
             </thead>
-            <tbody id="domain-entities-tbody">
+            <tbody id="facet-entities-tbody">
             </tbody>
           </table>
-          <div id="no-domain-entities" class="no-entities" style="display: none;">
-            No entities added to this domain yet. Star entities below to add them.
+          <div id="no-facet-entities" class="no-entities" style="display: none;">
+            No entities added to this facet yet. Star entities below to add them.
           </div>
         </div>
       </div>
@@ -1125,16 +1125,16 @@ tr:hover .entity-delete-btn {
   </div>
   
   <div id="description-tab" class="tab-content">
-    {% if domain_data.description %}
+    {% if facet_data.description %}
     <div class="description-content has-description">
-      <p>{{ domain_data.description }}</p>
+      <p>{{ facet_data.description }}</p>
       <button class="btn btn-primary" onclick="openDescriptionEditor()">✏️ Edit Description</button>
     </div>
     {% else %}
     <div class="description-content no-description">
       <div class="placeholder">
         <h3>No description yet</h3>
-        <p>Add a description to help explain what this domain is about.</p>
+        <p>Add a description to help explain what this facet is about.</p>
         <button class="btn btn-primary" onclick="openDescriptionEditor()">✨ Add Description</button>
       </div>
     </div>
@@ -1147,10 +1147,10 @@ tr:hover .entity-delete-btn {
   <div class="description-modal-content">
     <span class="description-close">&times;</span>
     <div class="description-modal-header">
-      <h3 id="modal-title">Edit Domain Description</h3>
+      <h3 id="modal-title">Edit Facet Description</h3>
     </div>
     <div class="description-modal-body">
-      <textarea id="descriptionText" placeholder="Enter domain description..."></textarea>
+      <textarea id="descriptionText" placeholder="Enter facet description..."></textarea>
       <div class="description-buttons">
         <button id="generateBtn" class="generate-btn" title="Generate description with AI">
           <span class="generate-icon">✨</span>
@@ -1219,7 +1219,7 @@ tr:hover .entity-delete-btn {
 </div>
 
 <script>
-const domainName = '{{ domain_name }}';
+const facetName = '{{ facet_name }}';
 let entitiesData = null;
 let newsCursor = null;
 let newsInitialized = false;
@@ -1304,7 +1304,7 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 function loadEntities() {
-  fetch(`/api/domains/${encodeURIComponent(domainName)}/entities`)
+  fetch(`/api/facets/${encodeURIComponent(facetName)}/entities`)
     .then(response => {
       return response.json().then(data => ({ ok: response.ok, status: response.status, data }));
     })
@@ -1394,7 +1394,7 @@ function loadNews() {
   }
   params.append('days', '5');
 
-  fetch(`/api/domains/${encodeURIComponent(domainName)}/news?${params.toString()}`)
+  fetch(`/api/facets/${encodeURIComponent(facetName)}/news?${params.toString()}`)
     .then(response => response.json())
     .then(data => {
       if (data.error) {
@@ -1524,30 +1524,30 @@ function formatNewsDateKey(dateKey) {
 function renderEntities(searchTerm = '') {
   if (!entitiesData) return;
   
-  const domainTbody = document.getElementById('domain-entities-tbody');
+  const facetTbody = document.getElementById('facet-entities-tbody');
   const allTbody = document.getElementById('all-entities-tbody');
-  const noDomainEntities = document.getElementById('no-domain-entities');
+  const noFacetEntities = document.getElementById('no-facet-entities');
   
   // Clear existing content
-  domainTbody.innerHTML = '';
+  facetTbody.innerHTML = '';
   allTbody.innerHTML = '';
   
-  // Render domain entities
+  // Render facet entities
   const starredEntities = entitiesData.all_entities.filter(e => e.starred);
   if (starredEntities.length === 0) {
-    noDomainEntities.style.display = 'block';
-    document.getElementById('domain-entities-section').querySelector('table').style.display = 'none';
+    noFacetEntities.style.display = 'block';
+    document.getElementById('facet-entities-section').querySelector('table').style.display = 'none';
   } else {
-    noDomainEntities.style.display = 'none';
-    document.getElementById('domain-entities-section').querySelector('table').style.display = 'table';
+    noFacetEntities.style.display = 'none';
+    document.getElementById('facet-entities-section').querySelector('table').style.display = 'table';
     
     starredEntities.forEach(entity => {
       const row = createEntityRow(entity, true);
-      domainTbody.appendChild(row);
+      facetTbody.appendChild(row);
     });
   }
   
-  // Render non-starred entities only (filtering out domain entities)
+  // Render non-starred entities only (filtering out facet entities)
   const unstarredEntities = entitiesData.all_entities.filter(e => !e.starred);
 
   // Get set of attached entity names for filtering
@@ -1571,7 +1571,7 @@ function renderEntities(searchTerm = '') {
   });
 }
 
-function createEntityRow(entity, isDomainSection) {
+function createEntityRow(entity, isFacetSection) {
   const row = document.createElement('tr');
 
   const starCell = document.createElement('td');
@@ -1625,8 +1625,8 @@ function createEntityRow(entity, isDomainSection) {
     descCell.classList.add('no-entity-desc-cell');
   }
 
-  // Add delete button only for detected entities (not domain section)
-  if (!isDomainSection) {
+  // Add delete button only for detected entities (not facet section)
+  if (!isFacetSection) {
     const deleteBtn = document.createElement('span');
     deleteBtn.className = 'entity-delete-btn';
     deleteBtn.innerHTML = '🗑️';
@@ -1654,7 +1654,7 @@ function toggleEntityStar(entity, starButton) {
   starButton.style.opacity = '0.5';
   
   const method = wasStarred ? 'DELETE' : 'POST';
-  const url = `/api/domains/${encodeURIComponent(domainName)}/entities`;
+  const url = `/api/facets/${encodeURIComponent(facetName)}/entities`;
   
   fetch(url, {
     method: method,
@@ -1680,7 +1680,7 @@ function toggleEntityStar(entity, starButton) {
       // Get search input element
       const searchInput = document.getElementById('entity-search');
       
-      // If entity was just starred (added to domain) and there was a search term
+      // If entity was just starred (added to facet) and there was a search term
       if (!wasStarred && searchInput && searchInput.value.trim()) {
         // Clear the search box and refocus it
         searchInput.value = '';
@@ -1723,7 +1723,7 @@ function openDescriptionEditor() {
   const textarea = document.getElementById('descriptionText');
   
   // Set current description
-  const currentDesc = '{{ domain_data.description|replace("'", "\\'") }}' || '';
+  const currentDesc = '{{ facet_data.description|replace("'", "\\'") }}' || '';
   textarea.value = currentDesc;
   
   modal.style.display = 'block';
@@ -1772,7 +1772,7 @@ function saveDescription(description) {
   saveBtn.textContent = 'Saving...';
   saveBtn.disabled = true;
   
-  fetch(`/api/domains/${encodeURIComponent(domainName)}`, {
+  fetch(`/api/facets/${encodeURIComponent(facetName)}`, {
     method: 'PUT',
     headers: {
       'Content-Type': 'application/json'
@@ -1823,14 +1823,14 @@ function generateDescription() {
 
   const currentDescription = textarea.value.trim();
 
-  fetch(`/api/domains/${encodeURIComponent(domainName)}/generate-description`, {
+  fetch(`/api/facets/${encodeURIComponent(facetName)}/generate-description`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json'
     },
     body: JSON.stringify({
       current_description: currentDescription,
-      domain_name: domainName
+      facet_name: facetName
     })
   })
   .then(response => response.json())
@@ -1907,7 +1907,7 @@ function openEntityDescriptionEditor(entityType, entityName, currentDescription)
   textarea.focus();
 }
 
-// Override save function to handle both domain and entity descriptions
+// Override save function to handle both facet and entity descriptions
 function saveDescription(description) {
   const saveBtn = document.getElementById('saveBtn');
   const originalText = saveBtn.textContent;
@@ -1915,20 +1915,20 @@ function saveDescription(description) {
   saveBtn.textContent = 'Saving...';
   saveBtn.disabled = true;
   
-  // Determine if we're editing domain or entity description
+  // Determine if we're editing facet or entity description
   if (currentEntityType && currentEntityName) {
     // Save entity description
     saveEntityDescription(description);
   } else {
-    // Save domain description (original functionality)
-    saveDomainDescription(description);
+    // Save facet description (original functionality)
+    saveFacetDescription(description);
   }
 }
 
-function saveDomainDescription(description) {
+function saveFacetDescription(description) {
   const saveBtn = document.getElementById('saveBtn');
   
-  fetch(`/api/domains/${encodeURIComponent(domainName)}`, {
+  fetch(`/api/facets/${encodeURIComponent(facetName)}`, {
     method: 'PUT',
     headers: {
       'Content-Type': 'application/json'
@@ -1950,7 +1950,7 @@ function saveDomainDescription(description) {
         descContent.innerHTML = `
           <div class="placeholder">
             <h3>No description yet</h3>
-            <p>Add a description to help explain what this domain is about.</p>
+            <p>Add a description to help explain what this facet is about.</p>
             <button class="btn btn-primary" onclick="openDescriptionEditor()">✨ Add Description</button>
           </div>
         `;
@@ -1977,7 +1977,7 @@ function saveDomainDescription(description) {
 function saveEntityDescription(description) {
   const saveBtn = document.getElementById('saveBtn');
   
-  fetch(`/api/domains/${encodeURIComponent(domainName)}/entities/description`, {
+  fetch(`/api/facets/${encodeURIComponent(facetName)}/entities/description`, {
     method: 'PUT',
     headers: {
       'Content-Type': 'application/json'
@@ -2024,7 +2024,7 @@ function saveEntityDescription(description) {
   });
 }
 
-// Override generate function to handle both domain and entity descriptions
+// Override generate function to handle both facet and entity descriptions
 function generateDescription() {
   const generateBtn = document.getElementById('generateBtn');
   const textarea = document.getElementById('descriptionText');
@@ -2043,18 +2043,18 @@ function generateDescription() {
   
   if (currentEntityType && currentEntityName) {
     // Generate entity description
-    apiUrl = `/api/domains/${encodeURIComponent(domainName)}/entities/generate-description`;
+    apiUrl = `/api/facets/${encodeURIComponent(facetName)}/entities/generate-description`;
     payload = {
       type: currentEntityType,
       name: currentEntityName,
       current_description: currentDescription
     };
   } else {
-    // Generate domain description (original functionality)
-    apiUrl = `/api/domains/${encodeURIComponent(domainName)}/generate-description`;
+    // Generate facet description (original functionality)
+    apiUrl = `/api/facets/${encodeURIComponent(facetName)}/generate-description`;
     payload = {
       current_description: currentDescription,
-      domain_name: domainName
+      facet_name: facetName
     };
   }
   
@@ -2122,8 +2122,8 @@ function generateDescription() {
 function closeDescriptionEditor() {
   currentEntityType = null;
   currentEntityName = null;
-  document.getElementById('modal-title').textContent = 'Edit Domain Description';
-  document.getElementById('descriptionText').placeholder = 'Enter domain description...';
+  document.getElementById('modal-title').textContent = 'Edit Facet Description';
+  document.getElementById('descriptionText').placeholder = 'Enter facet description...';
   document.getElementById('descriptionModal').style.display = 'none';
 }
 
@@ -2131,7 +2131,7 @@ function closeDescriptionEditor() {
 let entityAssistAgentId = null;
 
 function openEntityAssistInput() {
-  const tbody = document.getElementById('domain-entities-tbody');
+  const tbody = document.getElementById('facet-entities-tbody');
 
   // Check if input row already exists
   if (document.querySelector('.entity-input-row')) {
@@ -2157,10 +2157,10 @@ function openEntityAssistInput() {
       inputRow.remove();
 
       // Show the no entities message if no entities
-      const tbody = document.getElementById('domain-entities-tbody');
+      const tbody = document.getElementById('facet-entities-tbody');
       if (tbody.children.length === 0) {
-        document.getElementById('no-domain-entities').style.display = 'block';
-        document.getElementById('domain-entities-section').querySelector('table').style.display = 'none';
+        document.getElementById('no-facet-entities').style.display = 'block';
+        document.getElementById('facet-entities-section').querySelector('table').style.display = 'none';
       }
     } else if (e.key === 'Enter') {
       e.preventDefault();
@@ -2178,9 +2178,9 @@ function openEntityAssistInput() {
   tbody.insertBefore(inputRow, tbody.firstChild);
 
   // Show table if hidden
-  const table = document.getElementById('domain-entities-section').querySelector('table');
+  const table = document.getElementById('facet-entities-section').querySelector('table');
   table.style.display = 'table';
-  document.getElementById('no-domain-entities').style.display = 'none';
+  document.getElementById('no-facet-entities').style.display = 'none';
 
   // Focus the input
   input.focus();
@@ -2220,11 +2220,11 @@ function submitEntityAssist(name) {
   generatingRow.appendChild(descCell);
 
   // Insert as first row
-  const tbody = document.getElementById('domain-entities-tbody');
+  const tbody = document.getElementById('facet-entities-tbody');
   tbody.insertBefore(generatingRow, tbody.firstChild);
 
   // Submit to backend
-  fetch(`/api/domains/${encodeURIComponent(domainName)}/entities/assist`, {
+  fetch(`/api/facets/${encodeURIComponent(facetName)}/entities/assist`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json'
@@ -2302,7 +2302,7 @@ function previewEntityDelete(entityName) {
   modal.style.display = 'block';
 
   // Fetch preview
-  fetch(`/api/domains/${encodeURIComponent(domainName)}/entities/detected/preview?name=${encodeURIComponent(entityName)}`)
+  fetch(`/api/facets/${encodeURIComponent(facetName)}/entities/detected/preview?name=${encodeURIComponent(entityName)}`)
     .then(response => response.json())
     .then(data => {
       if (data.error) {
@@ -2375,7 +2375,7 @@ function confirmEntityDelete() {
   confirmBtn.disabled = true;
   confirmBtn.textContent = 'Deleting...';
 
-  fetch(`/api/domains/${encodeURIComponent(domainName)}/entities/detected`, {
+  fetch(`/api/facets/${encodeURIComponent(facetName)}/entities/detected`, {
     method: 'DELETE',
     headers: {
       'Content-Type': 'application/json'
@@ -2448,7 +2448,7 @@ document.addEventListener('DOMContentLoaded', function() {
       // Disable toggle during request
       this.disabled = true;
 
-      fetch(`/api/domains/${encodeURIComponent(domainName)}/toggle`, {
+      fetch(`/api/facets/${encodeURIComponent(facetName)}/toggle`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -2458,7 +2458,7 @@ document.addEventListener('DOMContentLoaded', function() {
       .then(data => {
         if (data.success) {
           // Toggle successful
-          console.log(`Domain agents ${isEnabled ? 'enabled' : 'disabled'}`);
+          console.log(`Facet agents ${isEnabled ? 'enabled' : 'disabled'}`);
         } else {
           // Revert toggle on error
           this.checked = !isEnabled;
@@ -2560,7 +2560,7 @@ function saveEntityEdit() {
   saveBtn.disabled = true;
   saveBtn.textContent = 'Saving...';
 
-  fetch(`/api/domains/${encodeURIComponent(domainName)}/entities/update`, {
+  fetch(`/api/facets/${encodeURIComponent(facetName)}/entities/update`, {
     method: 'PUT',
     headers: {
       'Content-Type': 'application/json'

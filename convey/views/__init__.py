@@ -8,7 +8,7 @@ from . import (
     admin,
     agents,
     calendar,
-    domains,
+    facets,
     home,
     inbox,
     live,
@@ -24,7 +24,7 @@ import_view = import_module(".import", __name__)
 def register_views(app: Flask) -> None:
     for bp in [
         home.bp,
-        domains.bp,
+        facets.bp,
         inbox.bp,
         search.bp,
         calendar.bp,

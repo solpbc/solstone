@@ -135,7 +135,7 @@ def update_import_metadata_fields(
     Args:
         journal_root: Root journal directory
         timestamp: Import timestamp
-        updates: Dict of fields to update (e.g., {"domain": "foo", "setting": "bar"})
+        updates: Dict of fields to update (e.g., {"facet": "foo", "setting": "bar"})
 
     Returns:
         Tuple of (updated_metadata, was_modified)
@@ -358,7 +358,7 @@ def build_import_info(
                 )
                 import_data["file_size"] = import_meta.get("file_size", 0)
                 import_data["mime_type"] = import_meta.get("mime_type", "")
-                import_data["domain"] = import_meta.get("domain")
+                import_data["facet"] = import_meta.get("facet")
                 import_data["setting"] = import_meta.get("setting")
                 import_data["user_timestamp"] = import_meta.get("user_timestamp")
                 task_id = import_meta.get("task_id")

@@ -14,7 +14,7 @@ Analyze the full workday transcript to identify embryonic ideas, innovation spar
 
 ### 2. Creative Sparks & Ideation
 - **Spontaneous Ideas**: Off-hand comments about potential solutions or new approaches
-- **Cross-Domain Connections**: Moments when concepts from different fields intersect unexpectedly
+- **Cross-Facet Connections**: Moments when concepts from different fields intersect unexpectedly
 - **"What if" Explorations**: Hypothetical scenarios or thought experiments mentioned
 - **Adjacent Possibilities**: Ideas that build on existing work but point to new directions
 

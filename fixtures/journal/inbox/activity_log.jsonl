@@ -1,4 +1,4 @@
-{"timestamp": 1735990000000, "action": "received", "message_id": "msg_1735990000000", "from_type": "domain", "from_id": "project_alpha"}
+{"timestamp": 1735990000000, "action": "received", "message_id": "msg_1735990000000", "from_type": "facet", "from_id": "project_alpha"}
 {"timestamp": 1735991000000, "action": "read", "message_id": "msg_1735990000000"}
 {"timestamp": 1735992000000, "action": "archived", "message_id": "msg_1735990000000"}
 {"timestamp": 1736000000000, "action": "received", "message_id": "msg_1736000000000", "from_type": "agent", "from_id": "research_agent"}

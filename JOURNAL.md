@@ -6,7 +6,7 @@ This document describes the layout of a **journal** directory where all audio, s
 
 - `task_log.txt` – optional log of utility runs in `[epoch]\tmessage` format.
 - `config/journal.json` – user configuration for the journal (optional, see below).
-- `domains/` – domain-specific organization folders described below.
+- `facets/` – facet-specific organization folders described below.
 - `inbox/` – asynchronous messaging system for agent communications described below.
 - `YYYYMMDD/` – individual day folders described below.
 
@@ -78,21 +78,21 @@ f"That is {identity.pronouns.possessive} desk"     # "That is his desk"
 f"{identity.pronouns.subject} did it {identity.pronouns.reflexive}"  # "he did it himself"
 ```
 
-## Domain folders
+## Facet folders
 
-The `domains/` directory provides a way to organize journal content by scope or focus area. Each domain represents a cohesive grouping of related activities, projects, or areas of interest.
+The `facets/` directory provides a way to organize journal content by scope or focus area. Each facet represents a cohesive grouping of related activities, projects, or areas of interest.
 
-### Domain structure
+### Facet structure
 
-Each domain is organized as `domains/<domain>/` where `<domain>` is a descriptive short unique name. When referencing domains in the system, use hashtags (e.g., `#personal` for the "Personal Life" domain, `#ml_research` for "Machine Learning Research"). Each domain folder contains:
+Each facet is organized as `facets/<facet>/` where `<facet>` is a descriptive short unique name. When referencing facets in the system, use hashtags (e.g., `#personal` for the "Personal Life" facet, `#ml_research` for "Machine Learning Research"). Each facet folder contains:
 
-- `domain.json` – metadata file with domain title and description.
-- `entities.jsonl` – entities specific to this domain in JSONL format.
-- `news/` – daily news and updates relevant to the domain (optional).
+- `facet.json` – metadata file with facet title and description.
+- `entities.jsonl` – entities specific to this facet in JSONL format.
+- `news/` – daily news and updates relevant to the facet (optional).
 
-### Domain metadata
+### Facet metadata
 
-The `domain.json` file contains basic information about the domain:
+The `facet.json` file contains basic information about the facet:
 
 ```json
 {
@@ -104,24 +104,24 @@ The `domain.json` file contains basic information about the domain:
 ```
 
 Optional fields:
-- `color` – hex color code for the domain card background in the web UI
-- `emoji` – emoji icon displayed in the top-left of the domain card
+- `color` – hex color code for the facet card background in the web UI
+- `emoji` – emoji icon displayed in the top-left of the facet card
 
-### Domain Entities
+### Facet Entities
 
 Entities in Sunstone use a two-state system: **detected** (daily discoveries) and **attached** (promoted/persistent). This agent-driven architecture automatically identifies entities from journal content while allowing manual curation.
 
 #### Entity Storage Structure
 
 ```
-domains/{domain}/
+facets/{facet}/
   ├── entities.jsonl              # Attached entities (persistent)
   └── entities/YYYYMMDD.jsonl     # Daily detected entities
 ```
 
 #### Attached Entities
 
-The `entities.jsonl` file contains manually promoted entities that are persistently associated with the domain. These entities are loaded into agent context and appear in the domain UI as starred items.
+The `entities.jsonl` file contains manually promoted entities that are persistently associated with the facet. These entities are loaded into agent context and appear in the facet UI as starred items.
 
 Format example (JSONL - one JSON object per line):
 ```jsonl
@@ -160,13 +160,13 @@ Format matches attached entities (JSONL):
 3. **Promotion**: Entities with 3+ detections are auto-promoted to attached, or users manually promote via UI
 4. **Persistence**: Attached entities in `entities.jsonl` remain until manually removed
 
-#### Cross-Domain Behavior
+#### Cross-Facet Behavior
 
-The same entity name can exist in multiple domains with independent descriptions. Agents receive entity context from all domains, with alphabetically-first domain winning for name conflicts during aggregation.
+The same entity name can exist in multiple facets with independent descriptions. Agents receive entity context from all facets, with alphabetically-first facet winning for name conflicts during aggregation.
 
-### Domain News
+### Facet News
 
-The `news/` directory provides a chronological record of news, updates, and external developments relevant to the domain. This allows tracking of industry news, research updates, regulatory changes, or any external information that impacts the domain's focus area.
+The `news/` directory provides a chronological record of news, updates, and external developments relevant to the facet. This allows tracking of industry news, research updates, regulatory changes, or any external information that impacts the facet's focus area.
 
 #### News organization
 
@@ -198,8 +198,8 @@ Each news entry should include:
 - **Title** – concise headline as a level 2 heading
 - **Source** – origin of the news (website, journal, etc.)
 - **Time** – optional time of publication or discovery (HH:MM format)
-- **Summary** – brief description focusing on relevance to the domain
-- **Impact** – optional notes on how this affects domain work
+- **Summary** – brief description focusing on relevance to the facet
+- **Impact** – optional notes on how this affects facet work
 
 #### News metadata
 
@@ -216,15 +216,15 @@ Optionally, a `news.json` file can be maintained at the root of the news directo
 
 This allows for future automation of news gathering while maintaining manual curation quality.
 
-## Domain-Scoped Todos
+## Facet-Scoped Todos
 
-Todos are organized by domain in `domains/{domain}/todos/{day}.md` where each file stores a simple markdown checklist. Todos belong to a specific domain (e.g., "personal", "work", "research") and are completely separated by scope.
+Todos are organized by facet in `facets/{facet}/todos/{day}.md` where each file stores a simple markdown checklist. Todos belong to a specific facet (e.g., "personal", "work", "research") and are completely separated by scope.
 
 **File path pattern:**
 ```
-domains/personal/todos/20250110.md
-domains/work/todos/20250110.md
-domains/research/todos/20250112.md
+facets/personal/todos/20250110.md
+facets/work/todos/20250110.md
+facets/research/todos/20250112.md
 ```
 
 Each file is a flat list—no sections or headers—so the tools can treat every line as a single actionable entry.
@@ -251,11 +251,11 @@ Each file is a flat list—no sections or headers—so the tools can treat every
 - `(HH:MM)` – Optional time annotation for scheduled work (e.g., `(14:30)`)
 - `~~text~~` – Wrap any portion of the line to mark cancellation while keeping the original wording visible
 
-**Domain context:**
-- Domain is determined by the file location, not inline tags
-- Each domain has its own independent todo list for each day
-- Work todos (`domains/work/todos/`) are completely separate from personal todos (`domains/personal/todos/`)
-- No `#domain` tags are needed in the content since the domain context comes from the file path
+**Facet context:**
+- Facet is determined by the file location, not inline tags
+- Each facet has its own independent todo list for each day
+- Work todos (`facets/work/todos/`) are completely separate from personal todos (`facets/personal/todos/`)
+- No `#facet` tags are needed in the content since the facet context comes from the file path
 
 **Rules:**
 - Every checklist line becomes the source of truth for agent tools; external callers provide numbered views on demand rather than storing numbering in the file
@@ -264,14 +264,14 @@ Each file is a flat list—no sections or headers—so the tools can treat every
 - Use consistent phrasing so guard checks (which compare the full line) remain reliable
 
 **MCP Tool Access:**
-All todo operations require both `day` and `domain` parameters:
-- `todo_list(day, domain)` – view numbered checklist for a specific domain
-- `todo_add(day, domain, line_number, text)` – add new todo
-- `todo_done(day, domain, line_number, guard)` – mark complete
-- `todo_remove(day, domain, line_number, guard)` – remove entry
-- `todo_upcoming(limit, domain=None)` – view upcoming todos (optionally filtered by domain)
+All todo operations require both `day` and `facet` parameters:
+- `todo_list(day, facet)` – view numbered checklist for a specific facet
+- `todo_add(day, facet, line_number, text)` – add new todo
+- `todo_done(day, facet, line_number, guard)` – mark complete
+- `todo_remove(day, facet, line_number, guard)` – remove entry
+- `todo_upcoming(limit, facet=None)` – view upcoming todos (optionally filtered by facet)
 
-This domain-scoped structure provides true separation of concerns while keeping manual editing simple and enabling automated tools to manage tasks deterministically.
+This facet-scoped structure provides true separation of concerns while keeping manual editing simple and enabling automated tools to manage tasks deterministically.
 
 ## Inbox
 
@@ -308,7 +308,7 @@ Each message JSON file contains:
   "body": "Message content in plain text or markdown format",
   "status": "unread",
   "context": {
-    "domain": "ml_research",
+    "facet": "ml_research",
     "day": "20250117"
   }
 }
@@ -317,12 +317,12 @@ Each message JSON file contains:
 Required fields:
 - `id` – unique message identifier matching the filename
 - `timestamp` – epoch milliseconds when the message was created
-- `from` – sender information with `type` (agent/system/domain) and `id`
+- `from` – sender information with `type` (agent/system/facet) and `id`
 - `body` – message content as text or markdown
 - `status` – message state (unread/read/archived)
 
 Optional fields:
-- `context` – reference to related journal entities (domain, day)
+- `context` – reference to related journal entities (facet, day)
 
 ### Inbox activity log
 
@@ -366,7 +366,7 @@ Example transcript file:
 - `setting` – environment or context description, e.g., "workplace", "personal", "educational" (optional)
 - `imported` – object with import metadata for external files (optional):
   - `id` – unique import identifier
-  - `domain` – domain name for entity extraction
+  - `facet` – facet name for entity extraction
   - `setting` – contextual setting description
 
 **Transcript segments (subsequent lines):**
@@ -467,7 +467,7 @@ stored as `occurrences.json` inside each day folder.
       "end": "09:30:00",
       "title": "Team stand-up",
       "summary": "Status update with the engineering team",
-      "domain": "work",
+      "facet": "work",
       "work": true,
       "participants": ["Jeremie Miller", "Alice", "Bob"],
       "details": {...}
@@ -482,7 +482,7 @@ stored as `occurrences.json` inside each day folder.
 - **source** - the file the occurence was extracted from.
 - **start** and **end** – HH:MM:SS timestamps containing the occurence.
 - **title** and **summary** – short text for display and search.
-- **domain** – domain name the occurrence is associated with (e.g., "work", "personal", "ml_research").
+- **facet** – facet name the occurrence is associated with (e.g., "work", "personal", "ml_research").
 - **work** – boolean, work vs. personal classification when known.
 - **participants** – optional list of people or entities involved.
 - **details** – free-form string of other occurrence specific information.

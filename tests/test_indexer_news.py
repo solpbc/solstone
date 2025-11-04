@@ -24,39 +24,39 @@ def test_find_news_files(tmp_path):
     """Test that find_news_files discovers all news markdown files."""
     journal = tmp_path / "journal"
 
-    # Create news files for two domains
-    domain1 = journal / "domains" / "tech-news"
-    domain1_news = domain1 / "news"
-    domain1_news.mkdir(parents=True)
+    # Create news files for two facets
+    facet1 = journal / "facets" / "tech-news"
+    facet1_news = facet1 / "news"
+    facet1_news.mkdir(parents=True)
 
-    domain2 = journal / "domains" / "world-events"
-    domain2_news = domain2 / "news"
-    domain2_news.mkdir(parents=True)
+    facet2 = journal / "facets" / "world-events"
+    facet2_news = facet2 / "news"
+    facet2_news.mkdir(parents=True)
 
     # Create news files
-    (domain1_news / "20240101.md").write_text("Tech news 1")
-    (domain1_news / "20240102.md").write_text("Tech news 2")
-    (domain2_news / "20240103.md").write_text("World news 1")
+    (facet1_news / "20240101.md").write_text("Tech news 1")
+    (facet1_news / "20240102.md").write_text("Tech news 2")
+    (facet2_news / "20240103.md").write_text("World news 1")
 
     # Create non-news files that should be ignored
-    (domain1_news / "summary.txt").write_text("Not a news file")
-    (domain1_news / "draft.md").write_text("Not in YYYYMMDD format")
+    (facet1_news / "summary.txt").write_text("Not a news file")
+    (facet1_news / "draft.md").write_text("Not in YYYYMMDD format")
 
     files = find_news_files(str(journal))
 
     assert len(files) == 3
-    assert "domains/tech-news/news/20240101.md" in files
-    assert "domains/tech-news/news/20240102.md" in files
-    assert "domains/world-events/news/20240103.md" in files
-    assert "domains/tech-news/news/summary.txt" not in files
-    assert "domains/tech-news/news/draft.md" not in files
+    assert "facets/tech-news/news/20240101.md" in files
+    assert "facets/tech-news/news/20240102.md" in files
+    assert "facets/world-events/news/20240103.md" in files
+    assert "facets/tech-news/news/summary.txt" not in files
+    assert "facets/tech-news/news/draft.md" not in files
 
 
 def test_scan_news_indexes_content(tmp_path):
     """Test that scan_news properly indexes news content."""
     journal = tmp_path / "journal"
-    domain = journal / "domains" / "test-domain"
-    news_dir = domain / "news"
+    facet = journal / "facets" / "test-facet"
+    news_dir = facet / "news"
     news_dir.mkdir(parents=True)
 
     # Create news files
@@ -93,15 +93,15 @@ def test_scan_news_indexes_content(tmp_path):
         assert cursor.fetchone()[0] == 2
 
         # Verify content and metadata
-        cursor = conn.execute("SELECT content, domain, day FROM news_text ORDER BY day")
+        cursor = conn.execute("SELECT content, facet, day FROM news_text ORDER BY day")
         rows = cursor.fetchall()
 
         assert "Breaking News" in rows[0][0]
-        assert rows[0][1] == "test-domain"
+        assert rows[0][1] == "test-facet"
         assert rows[0][2] == "20240101"
 
         assert "Latest Update" in rows[1][0]
-        assert rows[1][1] == "test-domain"
+        assert rows[1][1] == "test-facet"
         assert rows[1][2] == "20240102"
 
         conn.close()
@@ -112,8 +112,8 @@ def test_scan_news_incremental(tmp_path):
     import time
 
     journal = tmp_path / "journal"
-    domain = journal / "domains" / "test-domain"
-    news_dir = domain / "news"
+    facet = journal / "facets" / "test-facet"
+    news_dir = facet / "news"
     news_dir.mkdir(parents=True)
 
     news_file = news_dir / "20240101.md"
@@ -162,8 +162,8 @@ def test_scan_news_incremental(tmp_path):
 def test_search_news_basic(tmp_path):
     """Test basic news search functionality."""
     journal = tmp_path / "journal"
-    domain = journal / "domains" / "tech-domain"
-    news_dir = domain / "news"
+    facet = journal / "facets" / "tech-facet"
+    news_dir = facet / "news"
     news_dir.mkdir(parents=True)
 
     _write_news_file(
@@ -189,7 +189,7 @@ def test_search_news_basic(tmp_path):
         total, results = search_news("artificial intelligence", limit=10)
         assert total == 1
         assert len(results) == 1
-        assert results[0]["metadata"]["domain"] == "tech-domain"
+        assert results[0]["metadata"]["facet"] == "tech-facet"
         assert results[0]["metadata"]["day"] == "20240101"
 
         # Search for climate content
@@ -200,21 +200,21 @@ def test_search_news_basic(tmp_path):
 
 
 def test_search_news_with_filters(tmp_path):
-    """Test news search with domain and day filters."""
+    """Test news search with facet and day filters."""
     journal = tmp_path / "journal"
 
-    # Create news for multiple domains
-    domain1 = journal / "domains" / "tech"
-    domain1_news = domain1 / "news"
-    domain1_news.mkdir(parents=True)
+    # Create news for multiple facets
+    facet1 = journal / "facets" / "tech"
+    facet1_news = facet1 / "news"
+    facet1_news.mkdir(parents=True)
 
-    domain2 = journal / "domains" / "finance"
-    domain2_news = domain2 / "news"
-    domain2_news.mkdir(parents=True)
+    facet2 = journal / "facets" / "finance"
+    facet2_news = facet2 / "news"
+    facet2_news.mkdir(parents=True)
 
-    # Tech domain news
+    # Tech facet news
     _write_news_file(
-        domain1_news / "20240101.md",
+        facet1_news / "20240101.md",
         "Tech News 1",
         source="tech.com",
         time="10:00",
@@ -222,16 +222,16 @@ def test_search_news_with_filters(tmp_path):
     )
 
     _write_news_file(
-        domain1_news / "20240102.md",
+        facet1_news / "20240102.md",
         "Tech News 2",
         source="tech.com",
         time="10:00",
         body="Latest technology market updates.",
     )
 
-    # Finance domain news
+    # Finance facet news
     _write_news_file(
-        domain2_news / "20240101.md",
+        facet2_news / "20240101.md",
         "Finance News",
         source="finance.com",
         time="11:00",
@@ -241,37 +241,37 @@ def test_search_news_with_filters(tmp_path):
     with patch.dict("os.environ", {"JOURNAL_PATH": str(journal)}):
         scan_news(str(journal))
 
-        # Search all domains for "market"
+        # Search all facets for "market"
         total, results = search_news("market", limit=10)
         assert total == 3
 
-        # Filter by tech domain
-        total, results = search_news("market", limit=10, domain="tech")
+        # Filter by tech facet
+        total, results = search_news("market", limit=10, facet="tech")
         assert total == 2
-        assert all(r["metadata"]["domain"] == "tech" for r in results)
+        assert all(r["metadata"]["facet"] == "tech" for r in results)
 
-        # Filter by finance domain
-        total, results = search_news("market", limit=10, domain="finance")
+        # Filter by finance facet
+        total, results = search_news("market", limit=10, facet="finance")
         assert total == 1
-        assert results[0]["metadata"]["domain"] == "finance"
+        assert results[0]["metadata"]["facet"] == "finance"
 
         # Filter by specific day
         total, results = search_news("market", limit=10, day="20240101")
         assert total == 2
         assert all(r["metadata"]["day"] == "20240101" for r in results)
 
-        # Filter by domain and day
-        total, results = search_news("market", limit=10, domain="tech", day="20240102")
+        # Filter by facet and day
+        total, results = search_news("market", limit=10, facet="tech", day="20240102")
         assert total == 1
-        assert results[0]["metadata"]["domain"] == "tech"
+        assert results[0]["metadata"]["facet"] == "tech"
         assert results[0]["metadata"]["day"] == "20240102"
 
 
 def test_search_news_pagination(tmp_path):
     """Test news search pagination."""
     journal = tmp_path / "journal"
-    domain = journal / "domains" / "news-domain"
-    news_dir = domain / "news"
+    facet = journal / "facets" / "news-facet"
+    news_dir = facet / "news"
     news_dir.mkdir(parents=True)
 
     # Create multiple news files with similar content
@@ -310,8 +310,8 @@ def test_search_news_pagination(tmp_path):
 def test_news_file_removal(tmp_path):
     """Test that deleted news files are removed from index."""
     journal = tmp_path / "journal"
-    domain = journal / "domains" / "test-domain"
-    news_dir = domain / "news"
+    facet = journal / "facets" / "test-facet"
+    news_dir = facet / "news"
     news_dir.mkdir(parents=True)
 
     news_file = news_dir / "20240101.md"

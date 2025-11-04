@@ -81,8 +81,8 @@ button:disabled { background:#ccc; color:#666; cursor:not-allowed; opacity:0.6; 
         <input id="timestampInput" />
       </div>
       <div class="confirm-field">
-        <label for="domainSelect">Domain</label>
-        <select id="domainSelect">
+        <label for="facetSelect">Facet</label>
+        <select id="facetSelect">
           <option value="">None</option>
         </select>
       </div>
@@ -112,7 +112,7 @@ tabs.forEach(t=>t.addEventListener('click', ()=>showTab(t.dataset.target)));
 const dropArea = document.getElementById('dropArea');
 const fileInput = document.getElementById('fileInput');
 const fileLabel = document.getElementById('fileLabel');
-const domainSelect = document.getElementById('domainSelect');
+const facetSelect = document.getElementById('facetSelect');
 const settingInput = document.getElementById('settingInput');
 const startBtn = document.getElementById('startBtn');
 let currentFile = null;
@@ -138,9 +138,9 @@ document.getElementById('importForm').onsubmit=e=>{
   } else {
     fd.append('text', document.getElementById('pasteText').value);
   }
-  // Add selected domain
-  const domain = domainSelect.value;
-  if(domain) fd.append('domain', domain);
+  // Add selected facet
+  const facet = facetSelect.value;
+  if(facet) fd.append('facet', facet);
   const settingValue = settingInput.value.trim();
   if(settingValue) fd.append('setting', settingValue);
   fetch('{{ url_for('import_view.import_save') }}', {method:'POST', body:fd})
@@ -167,8 +167,8 @@ document.getElementById('importForm').onsubmit=e=>{
 function showDetect(res){
   document.getElementById('timestampInput').value=res.timestamp||'';
   document.getElementById('savedPath').value=res.path;
-  if(res.domain !== undefined) {
-    domainSelect.value = res.domain || '';
+  if(res.facet !== undefined) {
+    facetSelect.value = res.facet || '';
   }
   settingInput.value = res.setting || '';
   document.getElementById('detectModal').style.display='block';
@@ -323,7 +323,7 @@ appEvents.listen('importer', msg => {
 startBtn.addEventListener('click', async () => {
   const ts = document.getElementById('timestampInput').value.trim();
   const path = document.getElementById('savedPath').value;
-  const domain = domainSelect.value;
+  const facet = facetSelect.value;
   const setting = settingInput.value.trim();
   const detectModal = document.getElementById('detectModal');
 
@@ -340,12 +340,12 @@ startBtn.addEventListener('click', async () => {
     const response = await fetch('{{ url_for('import_view.import_update_metadata') }}', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ path, domain, setting })
+      body: JSON.stringify({ path, facet, setting })
     });
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.error || 'Failed to save domain selection');
+      throw new Error(errorData.error || 'Failed to save facet selection');
     }
 
     // Start the import task
@@ -380,13 +380,13 @@ startBtn.addEventListener('click', async () => {
 document.querySelector('.close').onclick=()=>{document.getElementById('detectModal').style.display='none';};
 window.onclick=e=>{if(e.target==document.getElementById('detectModal'))document.getElementById('detectModal').style.display='none';};
 
-// Load domains for dropdown
-function loadDomains(){
-  fetch('{{ url_for('domains.domains_list') }}').then(r=>r.json()).then(domains=>{
-    const select=document.getElementById('domainSelect');
+// Load facets for dropdown
+function loadFacets(){
+  fetch('{{ url_for('facets.facets_list') }}').then(r=>r.json()).then(facets=>{
+    const select=document.getElementById('facetSelect');
     const current=select.value; // Preserve current selection
     select.innerHTML='<option value="">None</option>';
-    Object.entries(domains).forEach(([name,data])=>{
+    Object.entries(facets).forEach(([name,data])=>{
       const opt=document.createElement('option');
       opt.value=name;
       opt.textContent=data.title||name;
@@ -396,11 +396,11 @@ function loadDomains(){
   }).catch(()=>{/*ignore*/});
 }
 
-// Auto-select domain from URL fragment
+// Auto-select facet from URL fragment
 function checkUrlFragment(){
   const fragment = window.location.hash.substring(1); // Remove #
   if(fragment){
-    const select = document.getElementById('domainSelect');
+    const select = document.getElementById('facetSelect');
     const option = select.querySelector(`option[value="${fragment}"]`);
     if(option) {
       option.selected = true;
@@ -411,7 +411,7 @@ function checkUrlFragment(){
 }
 
 loadImports();
-loadDomains();
-setTimeout(checkUrlFragment, 100); // Wait for domains to load
+loadFacets();
+setTimeout(checkUrlFragment, 100); // Wait for facets to load
 </script>
 {% endblock %}

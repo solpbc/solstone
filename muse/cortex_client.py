@@ -27,7 +27,7 @@ def cortex_request(
         persona: Agent persona from think/agents/*.txt
         backend: AI backend - openai, google, anthropic, or claude
         handoff_from: Previous agent ID if this is a handoff request
-        config: Backend-specific configuration (model, max_tokens, domain for Claude)
+        config: Backend-specific configuration (model, max_tokens, facet for Claude)
         save: Optional filename to save result to in current day directory
 
     Returns:

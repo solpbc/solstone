@@ -24,7 +24,7 @@ def screenshot(
     Capture screenshot of a Convey view.
 
     Args:
-        route: The route to screenshot (e.g., "/", "/domains")
+        route: The route to screenshot (e.g., "/", "/facets")
         output_path: Where to save the screenshot (default: logs/screenshot.png)
         host: Server host (default: localhost)
         port: Server port (default: 8000)
@@ -57,7 +57,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(
         description="Capture screenshots of Convey web views"
     )
-    parser.add_argument("route", help="Route to screenshot (e.g., /, /domains)")
+    parser.add_argument("route", help="Route to screenshot (e.g., /, /facets)")
     parser.add_argument(
         "-o",
         "--output",

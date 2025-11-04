@@ -2,12 +2,12 @@
   "id": "msg_1735990000000",
   "timestamp": 1735990000000,
   "from": {
-    "type": "domain",
+    "type": "facet",
     "id": "project_alpha"
   },
   "body": "Weekly summary for Project Alpha:\n\n- 5 objectives completed\n- 2 new tasks created\n- 15 documents added\n\nGreat progress this week!",
   "status": "archived",
   "context": {
-    "domain": "project_alpha"
+    "facet": "project_alpha"
   }
 }

@@ -251,7 +251,7 @@ def test_monitor_stdout_with_handoff(cortex_service, mock_journal):
     cortex_service.running_agents[agent_id] = agent
     cortex_service.agent_handoffs[agent_id] = {
         "persona": "matter_editor",
-        "domain": "test",
+        "facet": "test",
     }
 
     with patch.object(cortex_service, "_spawn_handoff") as mock_handoff:
@@ -261,7 +261,7 @@ def test_monitor_stdout_with_handoff(cortex_service, mock_journal):
             mock_handoff.assert_called_once_with(
                 agent_id,
                 "Create matter",
-                {"persona": "matter_editor", "domain": "test"},
+                {"persona": "matter_editor", "facet": "test"},
             )
 
     assert agent_id not in cortex_service.agent_handoffs
@@ -393,7 +393,7 @@ def test_spawn_handoff(cortex_service, mock_journal):
     handoff = {
         "persona": "matter_editor",
         "backend": "claude",
-        "domain": "test",
+        "facet": "test",
         "max_turns": 5,
     }
 
@@ -409,7 +409,7 @@ def test_spawn_handoff(cortex_service, mock_journal):
             persona="matter_editor",
             backend="claude",
             handoff_from=parent_id,
-            config={"domain": "test", "max_turns": 5},
+            config={"facet": "test", "max_turns": 5},
         )
 
 

@@ -42,7 +42,7 @@ Requests are created via `cortex_request()` from `muse.cortex_client`, which bro
   "model": "gpt-4o",               // Optional: backend-specific override
   "max_tokens": 8192,               // Optional: token limit (if supported)
   "continue": "1234567890122",      // Optional: reuse prior run's conversation
-  "domain": "my-project",          // Required for Claude backend only
+  "facet": "my-project",          // Required for Claude backend only
   "save": "analysis.md",             // Optional: save result to file in day directory
   "day": "20250109",                  // Optional: YYYYMMDD format, defaults to current day
   "conversation_id": "abc123",       // Optional: resume OpenAI Agents session
@@ -233,7 +233,7 @@ When spawning an agent:
 3. Request parameters override persona defaults in the merged configuration
 4. The full configuration (including instruction text) is passed to the agent process
 
-Personas define specialized behaviors, tool usage patterns, and domain expertise. Available personas can be discovered using the `get_agents()` function or by listing files in the `muse/agents/` directory.
+Personas define specialized behaviors, tool usage patterns, and facet expertise. Available personas can be discovered using the `get_agents()` function or by listing files in the `muse/agents/` directory.
 
 ### Persona Configuration Options
 
@@ -243,17 +243,17 @@ The `.json` file for a persona can include:
 - `max_tokens`: Maximum response token limit
 - `tools`: MCP tools configuration (string or array)
   - String: Tool pack name (e.g., "default", "journal") - expanded via `get_tools()`
-  - Array: Explicit list of tool names (e.g., `["search_summaries", "get_domain"]`)
+  - Array: Explicit list of tool names (e.g., `["search_summaries", "get_facet"]`)
   - If omitted, defaults to "default" pack
 - `schedule`: Scheduling configuration for automated execution
   - `"daily"`: Run automatically at midnight each day
 - `priority`: Execution order for scheduled agents (integer, default: 50)
   - Lower numbers run first (e.g., priority 10 runs before priority 50)
   - Used to control the order when multiple agents have the same schedule
-- `multi_domain`: Boolean flag for domain-aware agents (default: false)
-  - When true, the agent is spawned once for each domain in the journal
-  - Each instance receives a domain-specific prompt with the domain name
-  - Useful for creating per-domain reports, newsletters, or analyses
+- `multi_facet`: Boolean flag for facet-aware agents (default: false)
+  - When true, the agent is spawned once for each facet in the journal
+  - Each instance receives a facet-specific prompt with the facet name
+  - Useful for creating per-facet reports, newsletters, or analyses
 
 ## MCP Tools Integration
 
@@ -261,7 +261,7 @@ The Model Context Protocol (MCP) provides tools for agent-journal interaction:
 
 ### Backend Support
 - **OpenAI, Anthropic, Google**: Full MCP tool support via HTTP transport
-- **Claude**: Uses filesystem tools instead; requires `domain` configuration in spawn request
+- **Claude**: Uses filesystem tools instead; requires `facet` configuration in spawn request
 
 ### Tool Discovery
 MCP tools are provided by the `muse.mcp_tools` FastMCP server, which:
@@ -279,8 +279,8 @@ The system supports multiple AI backends, each implementing the same event inter
 - **Anthropic** (`muse/anthropic.py`): Claude models with Anthropic SDK
 - **Claude** (`muse/claude.py`): Claude models via Claude Code SDK
   - Uses filesystem tools (Read, Write, Edit, etc.) instead of MCP
-  - Requires `domain` configuration specifying journal domain directory
-  - Operates within domain-scoped file permissions
+  - Requires `facet` configuration specifying journal facet directory
+  - Operates within facet-scoped file permissions
 
 All backends:
 - Emit JSON events to stdout (one per line)
@@ -298,21 +298,21 @@ Scheduled agents run in priority order (lower numbers first):
 2. Agents with the same priority run in alphabetical order by filename
 3. Each agent completes before the next begins
 
-### Multi-Domain Agents
-When an agent has `"multi_domain": true`:
-1. The agent is spawned once for each domain in `<journal>/domains/`
-2. Each instance receives a prompt including the domain name
-3. The agent should call `get_domain(domain_name)` to load domain context
-4. This enables per-domain reports, newsletters, and analyses
+### Multi-Facet Agents
+When an agent has `"multi_facet": true`:
+1. The agent is spawned once for each facet in `<journal>/facets/`
+2. Each instance receives a prompt including the facet name
+3. The agent should call `get_facet(facet_name)` to load facet context
+4. This enables per-facet reports, newsletters, and analyses
 
 Example configuration:
 ```json
 {
-  "title": "Domain Newsletter Generator",
+  "title": "Facet Newsletter Generator",
   "schedule": "daily",
   "priority": 10,
-  "multi_domain": true,
-  "tools": "journal,domains"
+  "multi_facet": true,
+  "tools": "journal,facets"
 }
 ```
 
