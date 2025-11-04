@@ -528,7 +528,7 @@ class CortexService:
                             "cortex", event.get("event", "unknown"), **event
                         )
                     except Exception as e:
-                        self.logger.debug(f"Failed to broadcast event to Callosum: {e}")
+                        self.logger.info(f"Failed to broadcast event to Callosum: {e}")
 
                     # Handle finish or error event
                     if event.get("event") in ["finish", "error"]:

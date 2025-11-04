@@ -205,7 +205,7 @@ class CallosumConnection:
                     sock.settimeout(0.1)  # Short timeout for responsive queue draining
                     logger.info(f"Connected to Callosum at {self.socket_path}")
                 except Exception as e:
-                    logger.debug(f"Connection attempt failed: {e}")
+                    logger.info(f"Connection attempt failed: {e}")
                     if sock:
                         try:
                             sock.close()
@@ -222,7 +222,7 @@ class CallosumConnection:
                         line = json.dumps(msg) + "\n"
                         sock.sendall(line.encode("utf-8"))
                     except Exception as e:
-                        logger.debug(f"Send failed, reconnecting: {e}")
+                        logger.info(f"Send failed, reconnecting: {e}")
                         try:
                             sock.close()
                         except Exception:
@@ -230,7 +230,7 @@ class CallosumConnection:
                         sock = None
                 else:
                     # Not connected, drop message
-                    logger.debug(
+                    logger.info(
                         f"Dropping message (not connected): "
                         f"{msg.get('tract')}/{msg.get('event')}"
                     )
@@ -267,7 +267,7 @@ class CallosumConnection:
                 except socket.timeout:
                     continue  # Normal, just loop back to drain queue
                 except Exception as e:
-                    logger.debug(f"Receive error: {e}")
+                    logger.info(f"Receive error: {e}")
                     try:
                         sock.close()
                     except Exception:
