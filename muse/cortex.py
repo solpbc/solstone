@@ -38,6 +38,7 @@ class AgentProcess:
         self.log_path = log_path
         self.stop_event = threading.Event()
         self.timeout_timer = None  # For timeout support
+        self.start_time = time.time()  # Track when agent started
 
     def is_running(self) -> bool:
         """Check if the agent process is still running."""
@@ -185,6 +186,13 @@ class CortexService:
         except Exception as e:
             self.logger.error(f"Failed to connect to Callosum: {e}")
             sys.exit(1)
+
+        # Start status emission thread
+        threading.Thread(
+            target=self._emit_periodic_status,
+            name="cortex-status",
+            daemon=True,
+        ).start()
 
         self.logger.info("Cortex service started, listening for agent requests")
 
@@ -787,6 +795,32 @@ class CortexService:
         with self.lock:
             for agent in self.running_agents.values():
                 agent.stop()
+
+    def _emit_periodic_status(self) -> None:
+        """Emit status events every 5 seconds (runs in background thread)."""
+        while not self.stop_event.is_set():
+            try:
+                with self.lock:
+                    agents = []
+                    for agent_id, agent_proc in self.running_agents.items():
+                        config = self.agent_requests.get(agent_id, {})
+                        agents.append({
+                            "agent_id": agent_id,
+                            "persona": config.get("persona", "unknown"),
+                            "backend": config.get("backend", "unknown"),
+                            "elapsed_seconds": int(time.time() - agent_proc.start_time),
+                        })
+
+                self.callosum.emit(
+                    "cortex",
+                    "status",
+                    running_agents=len(agents),
+                    agents=agents,
+                )
+            except Exception as e:
+                self.logger.debug(f"Status emission failed: {e}")
+
+            time.sleep(5)
 
     def get_status(self) -> Dict[str, Any]:
         """Get service status information."""

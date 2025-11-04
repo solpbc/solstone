@@ -36,7 +36,7 @@ Callosum is a JSON-per-line message bus for real-time event distribution across 
 
 ### `cortex` - Agent execution events
 **Source:** `muse/cortex.py`
-**Events:** `request`, `start`, `thinking`, `tool_start`, `tool_end`, `finish`, `error`, `agent_updated`, `info`
+**Events:** `request`, `start`, `thinking`, `tool_start`, `tool_end`, `finish`, `error`, `agent_updated`, `info`, `status`
 **Details:** See [CORTEX.md](CORTEX.md) for agent lifecycle, personas, and event schemas
 
 ### `supervisor` - Process lifecycle management
