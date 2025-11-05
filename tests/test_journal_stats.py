@@ -33,6 +33,7 @@ def test_scan_day(tmp_path, monkeypatch):
                 "work": True,
                 "participants": [],
                 "details": "",
+                "facet": "work",
             }
         ],
     }
@@ -45,6 +46,8 @@ def test_scan_day(tmp_path, monkeypatch):
     assert js.days["20240101"]["audio_segments"] == 2
     assert js.days["20240101"]["unprocessed_files"] == 1
     assert js.topic_counts["meetings"] == 1
+    assert js.facet_counts["work"] == 1
+    assert js.facet_minutes["work"] == 5.0
     assert js.heatmap[0][0] == 5
 
 

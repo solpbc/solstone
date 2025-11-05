@@ -25,6 +25,8 @@ class JournalStats:
         self.total_screen_duration = 0.0
         self.topic_counts: Counter[str] = Counter()
         self.topic_minutes: Counter[str] = Counter()
+        self.facet_counts: Counter[str] = Counter()
+        self.facet_minutes: Counter[str] = Counter()
         self.heatmap: list[list[float]] = [[0.0 for _ in range(24)] for _ in range(7)]
         # Token usage tracking: {day: {model: {token_type: count}}}
         self.token_usage: Dict[str, Dict[str, Dict[str, int]]] = {}
@@ -133,6 +135,12 @@ class JournalStats:
             self.topic_counts[topic] += data.get("count", 0)
             self.topic_minutes[topic] += data.get("minutes", 0.0)
 
+        # Apply facet data
+        facet_data = cached_data.get("facet_data", {})
+        for facet, data in facet_data.items():
+            self.facet_counts[facet] += data.get("count", 0)
+            self.facet_minutes[facet] += data.get("minutes", 0.0)
+
         # Apply heatmap data
         weekday = heatmap_data.get("weekday")
         hours = heatmap_data.get("hours", {})
@@ -150,6 +158,7 @@ class JournalStats:
 
         # Track topic data for cache
         topic_data = {}
+        facet_data = {}
         heatmap_hours = {}
 
         # --- Audio sessions ---
@@ -272,6 +281,14 @@ class JournalStats:
                         duration = end_sec - start_sec
                     topic_data[base]["minutes"] += duration / 60
 
+                    # Track facet occurrence if present
+                    facet = occ.get("facet")
+                    if facet:
+                        if facet not in facet_data:
+                            facet_data[facet] = {"count": 0, "minutes": 0.0}
+                        facet_data[facet]["count"] += 1
+                        facet_data[facet]["minutes"] += duration / 60
+
                     # Build heatmap hours for this day
                     cur = start_sec
                     while cur < end_sec:
@@ -293,6 +310,7 @@ class JournalStats:
         return {
             "stats": dict(stats),
             "topic_data": topic_data,
+            "facet_data": facet_data,
             "heatmap_data": {"weekday": weekday, "hours": heatmap_hours},
         }
 
@@ -432,6 +450,8 @@ class JournalStats:
             "total_screen_duration": self.total_screen_duration,
             "topic_counts": dict(self.topic_counts),
             "topic_minutes": {k: round(v, 2) for k, v in self.topic_minutes.items()},
+            "facet_counts": dict(self.facet_counts),
+            "facet_minutes": {k: round(v, 2) for k, v in self.facet_minutes.items()},
             "heatmap": self.heatmap,
             "token_usage_by_day": self.token_usage,
             "token_totals_by_model": self.token_totals,
