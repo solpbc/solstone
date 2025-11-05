@@ -804,19 +804,25 @@ class CortexService:
                     agents = []
                     for agent_id, agent_proc in self.running_agents.items():
                         config = self.agent_requests.get(agent_id, {})
-                        agents.append({
-                            "agent_id": agent_id,
-                            "persona": config.get("persona", "unknown"),
-                            "backend": config.get("backend", "unknown"),
-                            "elapsed_seconds": int(time.time() - agent_proc.start_time),
-                        })
+                        agents.append(
+                            {
+                                "agent_id": agent_id,
+                                "persona": config.get("persona", "unknown"),
+                                "backend": config.get("backend", "unknown"),
+                                "elapsed_seconds": int(
+                                    time.time() - agent_proc.start_time
+                                ),
+                            }
+                        )
 
-                self.callosum.emit(
-                    "cortex",
-                    "status",
-                    running_agents=len(agents),
-                    agents=agents,
-                )
+                # Only emit status when there are active agents
+                if agents:
+                    self.callosum.emit(
+                        "cortex",
+                        "status",
+                        running_agents=len(agents),
+                        agents=agents,
+                    )
             except Exception as e:
                 self.logger.debug(f"Status emission failed: {e}")
 
