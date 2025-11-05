@@ -176,43 +176,68 @@ class FileSensor:
 
     def _monitor_completion(self, handler_proc: HandlerProcess):
         """Monitor handler process and cleanup when done."""
-        exit_code = handler_proc.process.wait()
+        try:
+            exit_code = handler_proc.process.wait()
 
-        if exit_code == 0:
-            logger.info(
-                f"{handler_proc.handler_name} completed successfully for {handler_proc.file_path.name}"
-            )
+            if exit_code == 0:
+                logger.info(
+                    f"{handler_proc.handler_name} completed successfully for {handler_proc.file_path.name}"
+                )
 
-            # If describe completed successfully, run reduce
-            if handler_proc.handler_name == "describe":
-                self._run_reduce(handler_proc.file_path)
-        else:
-            logger.error(
-                f"{handler_proc.handler_name} failed with exit code {exit_code} for {handler_proc.file_path.name}"
-            )
+                # If describe completed successfully, run reduce
+                if handler_proc.handler_name == "describe":
+                    try:
+                        self._run_reduce(handler_proc.file_path)
+                    except Exception as exc:
+                        logger.error(
+                            f"Failed to run reduce for {handler_proc.file_path.name}: {exc}",
+                            exc_info=True,
+                        )
+            else:
+                logger.error(
+                    f"{handler_proc.handler_name} failed with exit code {exit_code} for {handler_proc.file_path.name}"
+                )
 
-        handler_proc.cleanup()
+            handler_proc.cleanup()
 
-        with self.lock:
-            if handler_proc.file_path in self.running:
-                del self.running[handler_proc.file_path]
-
-        # Process next queued describe if this was a describe handler
-        if handler_proc.handler_name == "describe":
-            next_file = None
             with self.lock:
-                self.describe_running = False
-                if self.describe_queue:
-                    next_file, queued_at = self.describe_queue.pop(0)
-                    logger.info(
-                        f"Starting queued describe for {next_file.name} ({len(self.describe_queue)} remaining)"
-                    )
+                if handler_proc.file_path in self.running:
+                    del self.running[handler_proc.file_path]
 
-            if next_file:
-                handler_info = self._match_pattern(next_file)
-                if handler_info:
-                    handler_name, command = handler_info
-                    self._spawn_handler(next_file, handler_name, command)
+            # Process next queued describe if this was a describe handler
+            if handler_proc.handler_name == "describe":
+                next_file = None
+                with self.lock:
+                    self.describe_running = False
+                    if self.describe_queue:
+                        next_file, queued_at = self.describe_queue.pop(0)
+                        logger.info(
+                            f"Starting queued describe for {next_file.name} ({len(self.describe_queue)} remaining)"
+                        )
+
+                if next_file:
+                    handler_info = self._match_pattern(next_file)
+                    if handler_info:
+                        handler_name, command = handler_info
+                        self._spawn_handler(next_file, handler_name, command)
+        except Exception as exc:
+            logger.error(
+                f"Unexpected error in monitor thread for {handler_proc.file_path.name}: {exc}",
+                exc_info=True,
+            )
+            # Ensure we always reset describe_running flag even on error
+            if handler_proc.handler_name == "describe":
+                with self.lock:
+                    self.describe_running = False
+                    if self.describe_queue:
+                        logger.warning(
+                            f"Handler crashed but {len(self.describe_queue)} items remain queued - will attempt to process"
+                        )
+                        next_file, queued_at = self.describe_queue.pop(0)
+                        handler_info = self._match_pattern(next_file)
+                        if handler_info:
+                            handler_name, command = handler_info
+                            self._spawn_handler(next_file, handler_name, command)
 
     def _run_reduce(self, video_path: Path):
         """Run reduce on the video file after describe completes."""
