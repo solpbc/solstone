@@ -26,6 +26,7 @@ class ServiceManager:
         self.running = True
         self.term = Terminal()
         self.status_message = ""
+        self.last_log_lines = {}  # Maps ref -> (stream, line) for most recent log
 
     def handle_event(self, message: dict) -> None:
         """Process Callosum events.
@@ -57,6 +58,20 @@ class ServiceManager:
                 service = message.get("service")
                 exit_code = message.get("exit_code", "?")
                 self.status_message = f"Stopped {service} (exit {exit_code})"
+
+        elif tract == "logs":
+            if event == "line":
+                ref = message.get("ref")
+                line = message.get("line", "")
+                stream = message.get("stream", "stdout")
+                if ref:
+                    self.last_log_lines[ref] = (stream, line)
+
+            elif event == "exit":
+                # Clean up log lines for exited processes
+                ref = message.get("ref")
+                if ref and ref in self.last_log_lines:
+                    del self.last_log_lines[ref]
 
     def format_uptime(self, seconds: int) -> str:
         """Format uptime in human-readable format.
@@ -99,9 +114,9 @@ class ServiceManager:
         output.append("")
 
         # Table header
-        header = f"  {'Service':<15} {'PID':<8} {'Uptime':<12} {'Ref':<10}"
+        header = f"  {'Service':<15} {'PID':<8} {'Uptime':<12} {'Ref':<10} {'Last Log'}"
         output.append(t.bold + header + t.normal)
-        output.append("─" * min(60, t.width))
+        output.append("─" * min(80, t.width))
 
         # Service rows
         if self.services:
@@ -112,12 +127,35 @@ class ServiceManager:
                 uptime = self.format_uptime(svc["uptime_seconds"])
                 ref = svc["ref"][:8] if len(svc["ref"]) > 8 else svc["ref"]
 
-                line = f"{indicator} {name:<15} {pid:<8} {uptime:<12} {ref:<10}"
+                # Get log line for this service
+                log_display = ""
+                log_color = ""
+                if svc["ref"] in self.last_log_lines:
+                    stream, log_line = self.last_log_lines[svc["ref"]]
+                    # Calculate available width: total - (fixed columns)
+                    # Fixed: "→ " (2) + name (15) + pid (8) + uptime (12) + ref (10) + spaces (4)
+                    fixed_width = 51
+                    available = max(0, t.width - fixed_width)
+
+                    # Truncate log line if needed
+                    if available > 0:
+                        if len(log_line) > available:
+                            log_display = log_line[: available - 3] + "..."
+                        else:
+                            log_display = log_line
+
+                        # Color code based on stream
+                        if stream == "stderr":
+                            log_color = t.red
+                        else:
+                            log_color = t.normal
+
+                line = f"{indicator} {name:<15} {pid:<8} {uptime:<12} {ref:<10} "
 
                 if i == self.selected:
-                    output.append(t.black_on_white(line))
+                    output.append(t.black_on_white(line + log_display))
                 else:
-                    output.append(line)
+                    output.append(line + log_color + log_display + t.normal)
         else:
             output.append(t.dim + "  No services running" + t.normal)
 
@@ -146,7 +184,7 @@ class ServiceManager:
             output.append("")
 
         # Help footer
-        output.append("─" * min(60, t.width))
+        output.append("─" * min(80, t.width))
         output.append(t.dim + "↑/↓: Navigate  k: Restart  q/Ctrl-C: Quit" + t.normal)
 
         return "\n".join(output)
