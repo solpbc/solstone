@@ -906,6 +906,12 @@ async def handle_health_checks(
         logging.warning(msg)
 
         stale_key = ("stale", tuple(sorted(stale_set)))
+
+        # Clear any previous stale notifications with different keys
+        for key in list(_notification_ids.keys()):
+            if key[0] == "stale" and key != stale_key:
+                await clear_notification(key)
+
         await alert_mgr.alert_if_ready(stale_key, msg, command)
 
         # Retain only alert state entries still relevant
