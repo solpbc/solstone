@@ -100,6 +100,9 @@ _managed_procs: list[ManagedProcess] = []
 _callosum_server: CallosumServer | None = None
 _callosum_thread: threading.Thread | None = None
 
+# Restart request tracking for SIGKILL enforcement
+_restart_requests: dict[str, tuple[float, subprocess.Popen]] = {}
+
 
 def _get_journal_path() -> Path:
     journal = os.getenv("JOURNAL_PATH")
@@ -572,6 +575,8 @@ def _handle_supervisor_request(message: dict) -> None:
             # Send SIGINT to trigger graceful shutdown
             try:
                 proc.process.send_signal(signal.SIGINT)
+                # Track restart request for SIGKILL enforcement
+                _restart_requests[service] = (time.time(), proc.process)
             except Exception as e:
                 logging.error(f"Failed to send SIGINT to {service}: {e}")
             return
@@ -691,23 +696,6 @@ def collect_status(procs: list[ManagedProcess]) -> dict:
     }
 
 
-async def emit_periodic_status(procs: list[ManagedProcess]) -> None:
-    """Emit task/status events every 5 seconds."""
-    callosum = CallosumConnection()
-    callosum.start()
-
-    while not shutdown_requested:
-        try:
-            # Collect and emit status
-            status = collect_status(procs)
-            callosum.emit("supervisor", "status", **status)
-
-        except Exception as e:
-            logging.debug(f"Status emission failed: {e}")
-
-        await asyncio.sleep(5)
-
-    callosum.stop()
 
 
 def start_observers() -> list[ManagedProcess]:
@@ -813,6 +801,9 @@ async def handle_runner_exits(
     await alert_mgr.alert_if_ready(exit_key, msg, command)
 
     for managed in exited:
+        # Clear any pending restart request for this service
+        _restart_requests.pop(managed.name, None)
+
         returncode = managed.process.returncode
         logging.info("%s exited with code %s", managed.name, returncode)
 
@@ -961,12 +952,27 @@ async def supervise(
     alert_mgr = AlertManager()
     last_day = datetime.now().date()
     last_health_check = 0.0
+    last_status_emit = 0.0
     prev_stale: set[str] = set()
 
     try:
         while (
             not shutdown_requested
         ):  # pragma: no cover - loop checked via unit tests by patching
+            # Check for restart timeouts (enforce SIGKILL after 15s)
+            for service, (start_time, proc) in list(_restart_requests.items()):
+                if proc.poll() is not None:  # Already exited
+                    _restart_requests.pop(service, None)
+                elif time.time() - start_time > 15:
+                    logging.warning(
+                        f"{service} did not exit within 15s after SIGINT, sending SIGKILL"
+                    )
+                    try:
+                        proc.kill()
+                    except Exception as e:
+                        logging.error(f"Failed to kill {service}: {e}")
+                    # Don't delete here - let handle_runner_exits clean up
+
             # Check for runner exits first (immediate alert)
             if procs:
                 await handle_runner_exits(procs, alert_mgr, command)
@@ -975,6 +981,17 @@ async def supervise(
             last_health_check, prev_stale = await handle_health_checks(
                 last_health_check, interval, threshold, alert_mgr, command, prev_stale
             )
+
+            # Emit status every 5 seconds
+            now = time.time()
+            if now - last_status_emit >= 5:
+                if _supervisor_callosum and procs:
+                    try:
+                        status = collect_status(procs)
+                        _supervisor_callosum.emit("supervisor", "status", **status)
+                    except Exception as e:
+                        logging.debug(f"Status emission failed: {e}")
+                last_status_emit = now
 
             # Check for daily processing
             if daily:
@@ -1103,23 +1120,15 @@ def main() -> None:
     logging.info(f"Started {len(procs)} processes, entering supervision loop")
 
     try:
-
-        async def run_supervisor():
-            """Run supervision loop."""
-            tasks = [
-                supervise(
-                    threshold=args.threshold,
-                    interval=args.interval,
-                    command=args.notify_cmd,
-                    daily=not args.no_daily,
-                    procs=procs if procs else None,
-                ),
-                emit_periodic_status(procs),
-            ]
-
-            await asyncio.gather(*tasks)
-
-        asyncio.run(run_supervisor())
+        asyncio.run(
+            supervise(
+                threshold=args.threshold,
+                interval=args.interval,
+                command=args.notify_cmd,
+                daily=not args.no_daily,
+                procs=procs if procs else None,
+            )
+        )
     except KeyboardInterrupt:
         logging.info("Caught KeyboardInterrupt, shutting down...")
     finally:
