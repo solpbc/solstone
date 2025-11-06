@@ -8,6 +8,7 @@ import argparse
 import asyncio
 from datetime import timedelta
 
+import psutil
 from blessed import Terminal
 
 from think.callosum import CallosumConnection
@@ -27,6 +28,8 @@ class ServiceManager:
         self.term = Terminal()
         self.status_message = ""
         self.last_log_lines = {}  # Maps ref -> (stream, line) for most recent log
+        self.cpu_cache = {}  # Maps pid -> last cpu_percent value
+        self.cpu_procs = {}  # Maps pid -> Process object for cpu tracking
 
     def handle_event(self, message: dict) -> None:
         """Process Callosum events.
@@ -42,6 +45,27 @@ class ServiceManager:
                 self.services = message.get("services", [])
                 self.crashed = message.get("crashed", [])
                 self.tasks = message.get("tasks", [])
+
+                # Poll CPU for current services
+                for svc in self.services:
+                    pid = svc["pid"]
+                    try:
+                        if pid not in self.cpu_procs:
+                            # First time seeing this PID - initialize tracking
+                            self.cpu_procs[pid] = psutil.Process(pid)
+                            self.cpu_procs[pid].cpu_percent(interval=None)  # Start
+                        else:
+                            # Get CPU % since last status update
+                            self.cpu_cache[pid] = self.cpu_procs[pid].cpu_percent(
+                                interval=None
+                            )
+                    except (psutil.NoSuchProcess, psutil.AccessDenied):
+                        # Clean up dead processes
+                        if pid in self.cpu_procs:
+                            del self.cpu_procs[pid]
+                        if pid in self.cpu_cache:
+                            del self.cpu_cache[pid]
+
                 # Keep selection in bounds
                 if self.selected >= len(self.services):
                     self.selected = max(0, len(self.services) - 1)
@@ -96,6 +120,36 @@ class ServiceManager:
             parts.append(f"{mins}m")
         return " ".join(parts)
 
+    def get_memory_mb(self, pid: int) -> str:
+        """Get process memory in MB, or '-' if unavailable.
+
+        Args:
+            pid: Process ID
+
+        Returns:
+            Memory usage in MB as integer, or "-" if unavailable
+        """
+        try:
+            process = psutil.Process(pid)
+            mem_bytes = process.memory_info().rss  # Resident Set Size
+            mem_mb = mem_bytes / (1024 * 1024)
+            return str(int(round(mem_mb)))
+        except (psutil.NoSuchProcess, psutil.AccessDenied):
+            return "-"
+
+    def get_cpu_percent(self, pid: int) -> str:
+        """Get cached CPU percentage, or '-' if unavailable.
+
+        Args:
+            pid: Process ID
+
+        Returns:
+            CPU percentage as integer, or "-" if unavailable
+        """
+        if pid in self.cpu_cache:
+            return f"{self.cpu_cache[pid]:.0f}"
+        return "-"
+
     def render(self) -> str:
         """Render the entire UI.
 
@@ -114,7 +168,7 @@ class ServiceManager:
         output.append("")
 
         # Table header
-        header = f"  {'Service':<15} {'PID':<8} {'Uptime':<12} {'Ref':<10} {'Last Log'}"
+        header = f"  {'Service':<15} {'PID':<8} {'Uptime':<12} {'MB':<8} {'%':<6} {'Last Log'}"
         output.append(t.bold + header + t.normal)
         output.append("─" * min(80, t.width))
 
@@ -125,7 +179,8 @@ class ServiceManager:
                 name = svc["name"][:14]
                 pid = str(svc["pid"])
                 uptime = self.format_uptime(svc["uptime_seconds"])
-                ref = svc["ref"][:8] if len(svc["ref"]) > 8 else svc["ref"]
+                memory = self.get_memory_mb(svc["pid"])
+                cpu = self.get_cpu_percent(svc["pid"])
 
                 # Get log line for this service
                 log_display = ""
@@ -133,8 +188,8 @@ class ServiceManager:
                 if svc["ref"] in self.last_log_lines:
                     stream, log_line = self.last_log_lines[svc["ref"]]
                     # Calculate available width: total - (fixed columns)
-                    # Fixed: "→ " (2) + name (15) + pid (8) + uptime (12) + ref (10) + spaces (4)
-                    fixed_width = 51
+                    # Fixed: "→ " (2) + name (15) + pid (8) + uptime (12) + memory (8) + cpu (6) + spaces (5)
+                    fixed_width = 56
                     available = max(0, t.width - fixed_width)
 
                     # Truncate log line if needed
@@ -150,7 +205,7 @@ class ServiceManager:
                         else:
                             log_color = t.normal
 
-                line = f"{indicator} {name:<15} {pid:<8} {uptime:<12} {ref:<10} "
+                line = f"{indicator} {name:<15} {pid:<8} {uptime:<12} {memory:>7}  {cpu:>5} "
 
                 if i == self.selected:
                     output.append(t.black_on_white(line + log_display))
@@ -185,7 +240,7 @@ class ServiceManager:
 
         # Help footer
         output.append("─" * min(80, t.width))
-        output.append(t.dim + "↑/↓: Navigate  k: Restart  q/Ctrl-C: Quit" + t.normal)
+        output.append(t.dim + "↑/↓: Navigate  r: Restart  q/Ctrl-C: Quit" + t.normal)
 
         return "\n".join(output)
 
@@ -218,7 +273,7 @@ class ServiceManager:
                             self.selected + 1,
                         )
                         self.status_message = ""
-                    elif key.lower() == "k":
+                    elif key.lower() == "r":
                         self.send_restart()
                     elif key.lower() == "q" or key.code == 3:  # q or Ctrl-C
                         self.running = False

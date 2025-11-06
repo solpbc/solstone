@@ -54,6 +54,7 @@ dependencies = [
     "pypdf",
     "watchfiles",
     "blessed>=1.20.0",
+    "psutil",
 ]
 
 [project.optional-dependencies]
