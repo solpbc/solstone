@@ -190,6 +190,23 @@ class Observer:
         if did_stop and previous_screencast_path:
             self.pending_finalization = previous_screencast_path
 
+        # Emit window_complete with what we saved this boundary
+        files = []
+        if self.threshold_hits >= MIN_HITS_FOR_SAVE:  # We saved audio
+            files.append(f"{time_part}_raw.flac")
+        if did_stop:  # We stopped a screencast (will be finalized soon)
+            files.append(f"{time_part}_screen.webm")
+
+        if files:
+            self.callosum.emit(
+                "observe",
+                "period",
+                day=date_part,
+                timestamp=time_part,
+                files=files,
+            )
+            logger.info(f"Period complete: {date_part}/{time_part} ({len(files)} files)")
+
     async def initialize_screencast(self) -> bool:
         """
         Start a new screencast recording.
@@ -217,9 +234,6 @@ class Observer:
 
     def emit_status(self):
         """Emit observe.status event with current state."""
-        if not self.callosum:
-            return
-
         # Calculate screencast info
         screencast_info = None
         if self.screencast_running and self.current_screencast_path:
@@ -457,9 +471,8 @@ class Observer:
         logger.info("Audio recording stopped")
 
         # Stop Callosum connection
-        if self.callosum:
-            self.callosum.stop()
-            logger.info("Callosum connection stopped")
+        self.callosum.stop()
+        logger.info("Callosum connection stopped")
 
 
 async def async_main(args):
