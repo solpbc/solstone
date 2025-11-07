@@ -11,6 +11,9 @@ from think.callosum import callosum_send
 
 logger = logging.getLogger(__name__)
 
+# Module-level state for monotonic timestamp generation
+_last_ts = 0
+
 
 def cortex_request(
     prompt: str,
@@ -42,13 +45,15 @@ def cortex_request(
     agents_dir = Path(journal_path) / "agents"
     agents_dir.mkdir(parents=True, exist_ok=True)
 
-    # Generate timestamp in milliseconds, ensuring uniqueness
+    # Generate monotonic timestamp in milliseconds, ensuring uniqueness
+    global _last_ts
     ts = int(time.time() * 1000)
-    while (agents_dir / f"{ts}_active.jsonl").exists() or (
-        agents_dir / f"{ts}.jsonl"
-    ).exists():
-        ts += 1
 
+    # If same or earlier than last used, increment to ensure uniqueness
+    if ts <= _last_ts:
+        ts = _last_ts + 1
+
+    _last_ts = ts
     agent_id = str(ts)
 
     # Build request object
