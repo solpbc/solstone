@@ -184,8 +184,9 @@ class Observer:
         self.start_at = time.time()  # Wall-clock for filenames
         self.start_at_mono = time.monotonic()  # Monotonic for elapsed
 
-        # Start new screencast if active
-        if is_active:
+        # Start new screencast if active AND screen not locked
+        # (is_active can be True due to audio activity even when locked)
+        if is_active and not self.cached_screen_locked:
             await self.initialize_screencast()
 
         # Queue previous screencast for finalization (file may not exist yet)
@@ -207,7 +208,9 @@ class Observer:
                 timestamp=time_part,
                 files=files,
             )
-            logger.info(f"Period complete: {date_part}/{time_part} ({len(files)} files)")
+            logger.info(
+                f"Period complete: {date_part}/{time_part} ({len(files)} files)"
+            )
 
     async def initialize_screencast(self) -> bool:
         """
@@ -336,9 +339,9 @@ class Observer:
         """Run the main observer loop."""
         logger.info(f"Starting observer loop (interval={self.interval}s)")
 
-        # Start screencast immediately if active
+        # Start screencast immediately if active and screen not locked
         is_active = await self.check_activity_status()
-        if is_active:
+        if is_active and not self.cached_screen_locked:
             await self.initialize_screencast()
 
         while self.running:
