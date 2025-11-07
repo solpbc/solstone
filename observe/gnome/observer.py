@@ -141,12 +141,14 @@ class Observer:
         Args:
             is_active: Whether system is currently active
         """
-        # Save audio if we have enough threshold hits
-        if self.threshold_hits >= MIN_HITS_FOR_SAVE:
-            if self.accumulated_audio_buffer.size > 0:
-                date_part, time_part = self.get_timestamp_parts(self.start_at)
-                day_dir = day_path(date_part)
+        # Get timestamp parts for this window
+        date_part, time_part = self.get_timestamp_parts(self.start_at)
+        day_dir = day_path(date_part)
 
+        # Save audio if we have enough threshold hits
+        did_save_audio = self.threshold_hits >= MIN_HITS_FOR_SAVE
+        if did_save_audio:
+            if self.accumulated_audio_buffer.size > 0:
                 flac_bytes = self.audio_recorder.create_flac_bytes(
                     self.accumulated_audio_buffer
                 )
@@ -192,7 +194,7 @@ class Observer:
 
         # Emit window_complete with what we saved this boundary
         files = []
-        if self.threshold_hits >= MIN_HITS_FOR_SAVE:  # We saved audio
+        if did_save_audio:  # We saved audio
             files.append(f"{time_part}_raw.flac")
         if did_stop:  # We stopped a screencast (will be finalized soon)
             files.append(f"{time_part}_screen.webm")
