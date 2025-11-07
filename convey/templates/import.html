@@ -234,13 +234,18 @@ function loadImports(){
       const targetDay = imp.target_day ? imp.target_day.replace(/(\d{4})(\d{2})(\d{2})/, '$1-$2-$3') : '-';
 
       // Determine status class and text based on new status field
-      let statusClass, statusText;
+      let statusClass, statusText, statusDetail = '';
       if (imp.status === 'success') {
         statusClass = 'success';
         statusText = 'Completed';
       } else if (imp.status === 'failed') {
         statusClass = 'failed';
         statusText = 'Failed';
+        // Show error message if available
+        if (imp.error) {
+          const errorStage = imp.error_stage ? ` (${capitalizeStage(imp.error_stage)})` : '';
+          statusDetail = `<div class="progress-detail">${imp.error}${errorStage}</div>`;
+        }
       } else if (imp.status === 'running') {
         statusClass = 'running';
         statusText = 'Running';
@@ -260,7 +265,7 @@ function loadImports(){
         html += '-';
       }
       html += `</td>`;
-      html += `<td class="status-cell"><span class="import-status ${statusClass}">${statusText}</span></td>`;
+      html += `<td class="status-cell"><span class="import-status ${statusClass}">${statusText}</span>${statusDetail}</td>`;
       html += `<td class="files-cell">${imp.total_files_created || 0}</td>`;
       html += `<td class="duration-cell">${formatDuration(imp.duration_minutes)}</td>`;
       html += '</tr>';

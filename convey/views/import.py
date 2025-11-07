@@ -226,16 +226,25 @@ def import_list() -> Any:
         import_data["status"] = "pending"
 
         task_id = import_data.get("task_id")
+        current_time = time.time()
+        import_age_seconds = current_time - import_data.get("imported_at", current_time)
+        import_timeout_seconds = 3600  # 1 hour
 
-        # If we have processing results, it's successful
-        if import_data.get("processed"):
-            import_data["status"] = "success"
-        # If task was started but no results, check log file
-        elif task_id:
-            # Check if task log exists to determine if it's running or failed
-            # Task logs are in {JOURNAL_PATH}/{day}/health/{task_id}.log
-            # For now, assume failed if no results (can enhance later with log checking)
+        # Check for error state first (imported.json exists with error field)
+        if import_data.get("error"):
             import_data["status"] = "failed"
+        # If we have processing results without error, it's successful
+        elif import_data.get("processed"):
+            import_data["status"] = "success"
+        # If task was started but no results yet, check if it timed out
+        elif task_id:
+            if import_age_seconds > import_timeout_seconds:
+                # Import is stuck/crashed - mark as failed
+                import_data["status"] = "failed"
+                import_data["error"] = "Import never completed"
+                import_data["error_stage"] = "timeout"
+            else:
+                import_data["status"] = "running"
 
         imports.append(import_data)
 

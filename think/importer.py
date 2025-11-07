@@ -866,10 +866,33 @@ def main() -> None:
         )
 
     except Exception as e:
-        # Emit error event
+        # Write error state to imported.json for persistent failure tracking
         duration_ms = int((time.monotonic() - _start_time) * 1000)
         partial_outputs = [_get_relative_path(f) for f in all_created_files]
 
+        media_path = Path(args.media)
+        import_dir = media_path.parent
+        imported_path = import_dir / "imported.json"
+
+        error_results = {
+            **processing_results,  # Include all the metadata we have
+            "processing_failed": dt.datetime.now().isoformat(),
+            "error": str(e),
+            "error_stage": _current_stage,
+            "duration_ms": duration_ms,
+            "total_files_created": len(all_created_files),
+            "all_created_files": all_created_files,
+            "stages_run": _stages_run,
+        }
+
+        try:
+            with open(imported_path, "w", encoding="utf-8") as f:
+                json.dump(error_results, f, indent=2)
+            logger.info(f"Saved error state: {imported_path}")
+        except Exception as write_err:
+            logger.warning(f"Failed to write error state: {write_err}")
+
+        # Emit error event
         if _callosum:
             _callosum.emit(
                 "importer",

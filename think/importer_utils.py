@@ -373,6 +373,8 @@ def build_import_info(
 
     # Read imported.json if it exists (processing results)
     import_data["processed"] = False
+    import_data["error"] = None
+    import_data["error_stage"] = None
     imported_json = import_dir / "imported.json"
     if imported_json.exists():
         try:
@@ -383,6 +385,11 @@ def build_import_info(
                     "total_files_created", 0
                 )
                 import_data["target_day"] = imported_meta.get("target_day")
+
+                # Check for error state
+                if "error" in imported_meta:
+                    import_data["error"] = imported_meta.get("error")
+                    import_data["error_stage"] = imported_meta.get("error_stage")
 
                 # Calculate duration from imported files
                 if imported_meta.get("all_created_files"):
