@@ -140,8 +140,9 @@ class VideoProcessor:
                     timestamp = frame.time if frame.time is not None else 0.0
                     frame_count += 1
 
-                    # Frame-level cache for PIL image (shared across monitors)
+                    # Frame-level cache for PIL image and grayscale (shared across monitors)
                     frame_pil = None
+                    frame_gray = None
 
                     # Process each monitor independently
                     for monitor_id, monitor_info in self.monitors.items():
@@ -179,9 +180,10 @@ class VideoProcessor:
                                 }
                             )
 
-                            # Store grayscale numpy array for comparison
-                            gray_arr = frame.to_ndarray(format="gray")
-                            last_qualified[monitor_id] = gray_arr
+                            # Store grayscale numpy array for comparison (compute once per frame)
+                            if frame_gray is None:
+                                frame_gray = frame.to_ndarray(format="gray")
+                            last_qualified[monitor_id] = frame_gray
 
                             logger.debug(
                                 f"Monitor {monitor_id}: First frame at {timestamp:.2f}s"
@@ -189,10 +191,13 @@ class VideoProcessor:
                             continue
 
                         # Compare current frame slice with last qualified numpy array
-                        current_gray = frame.to_ndarray(format="gray")
+                        # Compute grayscale once per frame (shared across monitors)
+                        if frame_gray is None:
+                            frame_gray = frame.to_ndarray(format="gray")
+
                         boxes = self._compare_monitor_slices(
                             last_qualified[monitor_id],
-                            current_gray,
+                            frame_gray,
                             x1,
                             y1,
                             x2,
@@ -240,7 +245,7 @@ class VideoProcessor:
                             self.qualified_frames[monitor_id].append(frame_data)
 
                             # Store grayscale numpy array for comparison
-                            last_qualified[monitor_id] = current_gray
+                            last_qualified[monitor_id] = frame_gray
 
                             logger.debug(
                                 f"Monitor {monitor_id}: Qualified frame at {timestamp:.2f}s "
@@ -251,6 +256,7 @@ class VideoProcessor:
                     if frame_pil is not None:
                         frame_pil.close()
                         frame_pil = None
+                    frame_gray = None
                     frame = None
 
                 logger.info(
@@ -340,6 +346,7 @@ class VideoProcessor:
         y1: int,
         x2: int,
         y2: int,
+        mad_threshold: float = 1.5,
     ) -> List[dict]:
         """
         Compare monitor regions between two grayscale numpy arrays.
@@ -352,6 +359,9 @@ class VideoProcessor:
             Second grayscale image (full frame)
         x1, y1, x2, y2 : int
             Monitor bounds to slice
+        mad_threshold : float
+            Mean Absolute Difference threshold for early bailout (default: 1.5)
+            If downsampled MAD is below this, skip expensive SSIM computation
 
         Returns
         -------
@@ -362,50 +372,80 @@ class VideoProcessor:
         monitor_slice1 = slice1[y1:y2, x1:x2]
         monitor_slice2 = slice2[y1:y2, x1:x2]
 
+        # Fast pre-filter: compute MAD on 1/4-scale downsampled images
+        # This is extremely fast (pure NumPy) and eliminates unchanged frames
+        small1 = monitor_slice1[::4, ::4].astype(np.int16)
+        small2 = monitor_slice2[::4, ::4].astype(np.int16)
+        mad = np.abs(small1 - small2).mean()
+
+        if mad < mad_threshold:
+            # No significant change detected - skip expensive SSIM
+            return []
+
         return self._compare_slices(monitor_slice1, monitor_slice2)
 
     def _compare_slices(
         self,
         slice1: np.ndarray,
         slice2: np.ndarray,
-        block_size: int = 128,
+        block_size: int = 160,
         ssim_threshold: float = 0.90,
         margin: int = 5,
+        downsample_factor: int = 4,
     ) -> List[dict]:
         """
         Compare two numpy array slices using block-based SSIM.
 
-        Adapted from observe/utils.py compare_frames to work with numpy arrays.
+        Downsamples before SSIM for speed, computes full SSIM map once,
+        then pools to blocks. Much faster than 200+ per-block SSIM calls.
         """
         from math import ceil
 
         from skimage.metrics import structural_similarity as ssim
 
-        height, width = slice1.shape
-        grid_rows = ceil(height / block_size)
-        grid_cols = ceil(width / block_size)
-        changed = [[False] * grid_cols for _ in range(grid_rows)]
+        # Store original dimensions for final boxing
+        H_orig, W_orig = slice1.shape
 
-        # Compute SSIM for each block
-        for i in range(grid_rows):
-            for j in range(grid_cols):
-                y0 = i * block_size
-                x0 = j * block_size
-                y1 = min(y0 + block_size, height)
-                x1 = min(x0 + block_size, width)
-                block1 = slice1[y0:y1, x0:x1]
-                block2 = slice2[y0:y1, x0:x1]
-                score, _ = ssim(block1, block2, full=True)
-                if score < ssim_threshold:
-                    changed[i][j] = True
+        # 1) Downsample by factor (e.g., 4x) for faster SSIM
+        small1 = slice1[::downsample_factor, ::downsample_factor]
+        small2 = slice2[::downsample_factor, ::downsample_factor]
 
-        # Group contiguous changed blocks
-        groups = self._group_changed_blocks(changed, grid_rows, grid_cols)
+        # 2) Convert to float32 in [0, 1] to avoid float64 upcasting
+        small1 = small1.astype(np.float32) / 255.0
+        small2 = small2.astype(np.float32) / 255.0
 
-        # Convert groups to bounding boxes
-        boxes = self._blocks_to_boxes(groups, block_size, width, height, margin)
+        # 3) Compute SSIM map once on downsampled images
+        _, ssim_map = ssim(
+            small1,
+            small2,
+            data_range=1.0,  # float32 in [0, 1]
+            full=True,
+            gaussian_weights=False,  # uniform window, matches previous behavior
+            use_sample_covariance=False,  # speed boost
+            channel_axis=None,  # grayscale
+        )
 
-        return boxes
+        H, W = ssim_map.shape
+        # Block size in downsampled space
+        block_size_down = block_size // downsample_factor
+        rows = ceil(H / block_size_down)
+        cols = ceil(W / block_size_down)
+
+        # 4) Pad to block grid for clean vectorized pooling
+        pad_h = rows * block_size_down - H
+        pad_w = cols * block_size_down - W
+        if pad_h or pad_w:
+            ssim_map = np.pad(ssim_map, ((0, pad_h), (0, pad_w)), mode="edge")
+
+        # 5) Vectorized block mean pooling
+        block_means = ssim_map.reshape(rows, block_size_down, cols, block_size_down).mean(
+            axis=(1, 3)
+        )
+        changed = (block_means < ssim_threshold).tolist()
+
+        # 6) Reuse existing grouping and boxing logic (uses original dimensions)
+        groups = self._group_changed_blocks(changed, rows, cols)
+        return self._blocks_to_boxes(groups, block_size, W_orig, H_orig, margin)
 
     def _group_changed_blocks(self, changed, grid_rows, grid_cols):
         """Group contiguous changed blocks using iterative DFS."""
