@@ -123,24 +123,29 @@ class CallosumServer:
         line = json.dumps(message) + "\n"
         data = line.encode("utf-8")
 
-        # Broadcast to all clients
+        # Snapshot the client list under lock
         with self.lock:
-            dead_clients = []
-            for client in self.clients:
-                try:
-                    client.sendall(data)
-                except Exception as e:
-                    logger.debug(f"Failed to send to client: {e}")
-                    dead_clients.append(client)
+            clients_to_send = list(self.clients)
 
-            # Clean up dead clients
-            for client in dead_clients:
-                if client in self.clients:
-                    self.clients.remove(client)
-                try:
-                    client.close()
-                except Exception:
-                    pass
+        # Broadcast to all clients (I/O outside the lock)
+        dead_clients = []
+        for client in clients_to_send:
+            try:
+                client.sendall(data)
+            except Exception as e:
+                logger.debug(f"Failed to send to client: {e}")
+                dead_clients.append(client)
+
+        # Clean up dead clients under lock
+        if dead_clients:
+            with self.lock:
+                for client in dead_clients:
+                    if client in self.clients:
+                        self.clients.remove(client)
+                    try:
+                        client.close()
+                    except Exception:
+                        pass
 
     def stop(self) -> None:
         """Stop the server."""
@@ -221,7 +226,7 @@ class CallosumConnection:
                         line = json.dumps(msg) + "\n"
                         sock.sendall(line.encode("utf-8"))
                     except Exception as e:
-                        logger.info(f"Send failed, reconnecting: {e}")
+                        logger.info(f"Send {e} for {msg.get('tract')}/{msg.get('event')}")
                         try:
                             sock.close()
                         except Exception:
