@@ -288,6 +288,7 @@ async def run_subprocess_task(name: str, cmd: list[str]) -> bool:
     Returns:
         True when the subprocess exits successfully.
     """
+
     def _blocking_run():
         start = time.time()
         try:
@@ -310,7 +311,9 @@ async def run_dream() -> bool:
 
 async def run_facet_rescan() -> bool:
     """Run ``think-indexer --rescan-facets`` while mirroring output to a dedicated log."""
-    return await run_subprocess_task("facet_rescan", ["think-indexer", "--rescan-facets"])
+    return await run_subprocess_task(
+        "facet_rescan", ["think-indexer", "--rescan-facets"]
+    )
 
 
 def spawn_scheduled_agents() -> None:
@@ -699,8 +702,6 @@ def collect_status(procs: list[ManagedProcess]) -> dict:
         "tasks": tasks,
         "stale_heartbeats": stale,
     }
-
-
 
 
 def start_observers() -> list[ManagedProcess]:
