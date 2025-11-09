@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import argparse
 import json
 import logging
@@ -200,6 +202,154 @@ def day_dirs() -> dict[str, str]:
             if os.path.isdir(path):
                 days[name] = path
     return days
+
+
+def period_name(name_or_path: str) -> str | None:
+    """Extract and validate period start time from a period name or path.
+
+    Periods can be in two formats:
+    - HHMMSS: Simple 6-digit timestamp (e.g., "143022")
+    - HHMMSS_LEN: Timestamp with duration suffix (e.g., "143022_300" for 5 minutes)
+
+    Parameters
+    ----------
+    name_or_path : str
+        Period name (e.g., "143022" or "143022_300") or full path containing period.
+
+    Returns
+    -------
+    str or None
+        HHMMSS string (6 digits) if valid period format, None otherwise.
+
+    Examples
+    --------
+    >>> period_name("143022")
+    "143022"
+    >>> period_name("143022_300")
+    "143022"
+    >>> period_name("/journal/20250109/143022_300/audio.jsonl")
+    "143022"
+    >>> period_name("invalid")
+    None
+
+    Usage
+    -----
+    # Validation (truthy check)
+    if period_name(item.name):
+        process(item)
+
+    # Extraction
+    time_part = period_name(item.name)
+    path = day_dir / time_part / "audio.jsonl"
+    """
+    # Extract just the period name if it's a path
+    if "/" in name_or_path or "\\" in name_or_path:
+        path_parts = Path(name_or_path).parts
+        # Look for YYYYMMDD/HHMMSS* pattern
+        for i, part in enumerate(path_parts):
+            if part.isdigit() and len(part) == 8 and i + 1 < len(path_parts):
+                name = path_parts[i + 1]
+                break
+        else:
+            return None
+    else:
+        name = name_or_path
+
+    # Simple format: HHMMSS (6 digits)
+    if name.isdigit() and len(name) == 6:
+        return name
+
+    # Extended format: HHMMSS_LEN
+    if "_" not in name:
+        return None
+
+    parts = name.split("_", 1)  # Split on first underscore only
+    if (
+        len(parts) == 2
+        and parts[0].isdigit()
+        and len(parts[0]) == 6
+        and parts[1].isdigit()
+    ):
+        return parts[0]
+
+    return None
+
+
+def period_parse(name_or_path: str) -> tuple[datetime.time | None, datetime.time | None]:
+    """Parse period to extract start and end times as datetime objects.
+
+    Parameters
+    ----------
+    name_or_path : str
+        Period name (e.g., "143022" or "143022_300") or full path containing period.
+
+    Returns
+    -------
+    tuple of (datetime.time or None, datetime.time or None)
+        Tuple of (start_time, end_time) where:
+        - start_time: datetime.time for HHMMSS
+        - end_time: datetime.time computed from start + LEN seconds, or None if no LEN
+        Returns (None, None) if not a valid period format.
+
+    Examples
+    --------
+    >>> period_parse("143022")
+    (datetime.time(14, 30, 22), None)
+    >>> period_parse("143022_300")  # 14:30:22 + 300 seconds = 14:35:22
+    (datetime.time(14, 30, 22), datetime.time(14, 35, 22))
+    >>> period_parse("/journal/20250109/143022_300/audio.jsonl")
+    (datetime.time(14, 30, 22), datetime.time(14, 35, 22))
+    >>> period_parse("invalid")
+    (None, None)
+    """
+    from datetime import timedelta
+
+    # Extract just the period name if it's a path
+    if "/" in name_or_path or "\\" in name_or_path:
+        path_parts = Path(name_or_path).parts
+        # Look for YYYYMMDD/HHMMSS* pattern
+        for i, part in enumerate(path_parts):
+            if part.isdigit() and len(part) == 8 and i + 1 < len(path_parts):
+                name = path_parts[i + 1]
+                break
+        else:
+            return (None, None)
+    else:
+        name = name_or_path
+
+    # Validate and extract HHMMSS
+    time_str = period_name(name)
+    if time_str is None:
+        return (None, None)
+
+    # Parse HHMMSS to datetime.time
+    try:
+        hour = int(time_str[0:2])
+        minute = int(time_str[2:4])
+        second = int(time_str[4:6])
+
+        # Validate ranges
+        if not (0 <= hour <= 23 and 0 <= minute <= 59 and 0 <= second <= 59):
+            return (None, None)
+
+        start_time = datetime.time(hour, minute, second)
+    except (ValueError, IndexError):
+        return (None, None)
+
+    # Parse LEN if present in original name
+    if "_" in name:
+        length_str = name.split("_", 1)[1]
+        try:
+            length_seconds = int(length_str)
+            # Compute end time by adding duration
+            start_dt = datetime.combine(datetime.today(), start_time)
+            end_dt = start_dt + timedelta(seconds=length_seconds)
+            end_time = end_dt.time()
+            return (start_time, end_time)
+        except ValueError:
+            return (None, None)
+
+    return (start_time, None)
 
 
 def get_config() -> dict[str, Any]:

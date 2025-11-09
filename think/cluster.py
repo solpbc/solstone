@@ -12,12 +12,6 @@ from observe.utils import load_analysis_frames
 
 from .utils import day_path, setup_cli
 
-TIME_RE = r"(\d{6})"
-AUDIO_PATTERN = re.compile(rf"^{TIME_RE}.*_audio\.jsonl$")
-SCREEN_SUMMARY_PATTERN = re.compile(rf"^{TIME_RE}_screen\.md$")
-SCREEN_JSONL_PATTERN = re.compile(rf"^{TIME_RE}_screen\.jsonl$")
-SCREEN_DIFF_PATTERN = re.compile(rf"^{TIME_RE}_([a-z]+)_(\d+)_diff\.json$")
-
 
 def _date_str(day_dir: str) -> str:
     base = os.path.basename(os.path.normpath(day_dir))
@@ -34,11 +28,12 @@ def _load_entries(
     day_path_obj = Path(day_dir)
 
     # Check timestamp subdirectories for transcript files
-    for item in day_path_obj.iterdir():
-        if not (item.is_dir() and item.name.isdigit() and len(item.name) == 6):
-            continue
+    from think.utils import period_name
 
-        time_part = item.name  # HHMMSS
+    for item in day_path_obj.iterdir():
+        time_part = period_name(item.name)
+        if not (item.is_dir() and time_part):
+            continue
 
         # Process audio transcripts
         if audio:
@@ -238,10 +233,12 @@ def cluster_scan(day: str) -> Tuple[List[Tuple[str, str]], List[Tuple[str, str]]
     day_path_obj = Path(day_dir)
 
     # Check timestamp subdirectories for transcript files
+    from think.utils import period_name
+
     for item in day_path_obj.iterdir():
-        if item.is_dir() and item.name.isdigit() and len(item.name) == 6:
-            # Found timestamp directory (HHMMSS)
-            time_part = item.name
+        time_part = period_name(item.name)
+        if item.is_dir() and time_part:
+            # Found period (HHMMSS)
             dt = datetime.strptime(date_str + time_part, "%Y%m%d%H%M%S")
             slot = dt.replace(
                 minute=dt.minute - (dt.minute % 15), second=0, microsecond=0

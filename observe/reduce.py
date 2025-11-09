@@ -65,18 +65,20 @@ def assemble_markdown(
     lines.append("# Frame Analyses")
     lines.append("")
 
-    # Extract base timestamp from video filename (HHMMSS)
-    # Expected format: HHMMSS_screen.ext
+    # Extract base timestamp from period directory (HHMMSS)
+    # Expected structure: YYYYMMDD/HHMMSS/screen.jsonl
     base_hour = base_minute = base_second = 0
     if video_path:
         try:
-            parts = video_path.stem.split("_")
-            if len(parts) >= 2:
-                base_time_str = parts[1]  # HHMMSS
-                base_hour = int(base_time_str[0:2])
-                base_minute = int(base_time_str[2:4])
-                base_second = int(base_time_str[4:6])
-        except (ValueError, IndexError):
+            from think.utils import period_name
+
+            # Get period name from parent directory
+            period = period_name(video_path.parent.name)
+            if period:
+                base_hour = int(period[0:2])
+                base_minute = int(period[2:4])
+                base_second = int(period[4:6])
+        except (ValueError, IndexError, AttributeError):
             pass
 
     # Check if multiple monitors present
