@@ -70,6 +70,11 @@ class FileSensor:
         # Track last status emission time
         self.last_status_emit = 0.0
 
+        # Track period processing: {period_key: {pending_files}}
+        self.period_files: Dict[str, set[Path]] = {}
+        # Track period start times: {period_key: start_timestamp}
+        self.period_start_time: Dict[str, float] = {}
+
     def register(self, pattern: str, handler_name: str, command: List[str]):
         """
         Register a handler for a file pattern.
@@ -85,7 +90,7 @@ class FileSensor:
     def _match_pattern(self, file_path: Path) -> Optional[tuple[str, List[str]]]:
         """Check if file matches any registered pattern."""
         # Ignore hidden files (temp recordings with dot prefix)
-        if file_path.name.startswith('.'):
+        if file_path.name.startswith("."):
             return None
 
         # Ignore files in subdirectories (periods, trash/)
@@ -111,6 +116,16 @@ class FileSensor:
             if file_path in self.running:
                 logger.debug(f"File {file_path.name} already being processed")
                 return
+
+            # Register file for period tracking
+            from think.utils import period_key
+
+            period = period_key(file_path.name)
+            if period:
+                if period not in self.period_files:
+                    self.period_files[period] = set()
+                    self.period_start_time[period] = time.time()
+                self.period_files[period].add(file_path)
 
             # Queue describe requests to ensure only one runs at a time
             if handler_name == "describe":
@@ -197,6 +212,9 @@ class FileSensor:
                             f"Failed to run reduce for {handler_proc.file_path.name}: {exc}",
                             exc_info=True,
                         )
+
+                # Check if period is fully observed
+                self._check_period_observed(handler_proc.file_path)
             else:
                 logger.error(
                     f"Handler failed with exit code {exit_code} for {handler_proc.file_path.name}"
@@ -231,6 +249,36 @@ class FileSensor:
                 if handler_info:
                     handler_name, command = handler_info
                     self._spawn_handler(next_file, handler_name, command)
+
+    def _check_period_observed(self, file_path: Path):
+        """Check if all files for this period have completed processing."""
+        from think.utils import period_key
+
+        period = period_key(file_path.name)
+        if not period:
+            return
+
+        with self.lock:
+            if period in self.period_files:
+                self.period_files[period].discard(file_path)
+
+                # If no more pending files, emit observed event
+                if not self.period_files[period]:
+                    # Calculate processing duration
+                    duration = int(time.time() - self.period_start_time[period])
+
+                    if self.callosum:
+                        self.callosum.emit(
+                            "observe",
+                            "observed",
+                            period=period,
+                            duration=duration,
+                        )
+                    logger.info(f"Period fully observed: {period} ({duration}s)")
+
+                    # Cleanup
+                    del self.period_files[period]
+                    del self.period_start_time[period]
 
     def _run_reduce(self, video_path: Path):
         """Run reduce on the video file after describe completes."""
@@ -368,14 +416,14 @@ class FileSensor:
                 if not event.is_directory:
                     path = Path(event.src_path)
                     # Ignore hidden files (temp recordings)
-                    if not path.name.startswith('.'):
+                    if not path.name.startswith("."):
                         self.sensor._handle_file(path)
 
             def on_moved(self, event):
                 if not event.is_directory:
                     path = Path(event.dest_path)
                     # Ignore hidden files (temp recordings)
-                    if not path.name.startswith('.'):
+                    if not path.name.startswith("."):
                         self.sensor._handle_file(path)
 
         event_handler = SensorEventHandler(self)
@@ -493,7 +541,9 @@ class FileSensor:
                 screen_md = period / "screen.md"
                 if screen_jsonl.exists() and not screen_md.exists():
                     # Register reduce as a handler task
-                    to_process.append((screen_jsonl, "reduce", ["observe-reduce", "{file}"]))
+                    to_process.append(
+                        (screen_jsonl, "reduce", ["observe-reduce", "{file}"])
+                    )
 
         if not to_process:
             logger.info(f"No unprocessed files found in {day_dir}")

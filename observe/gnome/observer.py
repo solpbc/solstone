@@ -57,8 +57,12 @@ class Observer:
         self.threshold_hits = 0
         self.accumulated_audio_buffer = np.array([], dtype=np.float32).reshape(0, 2)
         self.screencast_running = False
-        self.current_screencast_path = None  # Temp path (.HHMMSS.webm) of current screencast
-        self.pending_finalization = None  # Tuple of (temp_path, final_path) awaiting finalization
+        self.current_screencast_path = (
+            None  # Temp path (.HHMMSS.webm) of current screencast
+        )
+        self.pending_finalization = (
+            None  # Tuple of (temp_path, final_path) awaiting finalization
+        )
         self.last_screencast_size = 0  # Track file size for health checks
 
         # Activity status cache (updated each loop)
@@ -197,7 +201,7 @@ class Observer:
         if did_stop and previous_temp_path and previous_final_path:
             self.pending_finalization = (previous_temp_path, previous_final_path)
 
-        # Emit window_complete with what we saved this boundary
+        # Emit observing event with what we saved this boundary
         files = []
         if did_save_audio:  # We saved audio
             files.append(f"{time_part}_{duration}_audio.flac")
@@ -205,16 +209,14 @@ class Observer:
             files.append(f"{time_part}_{duration}_screen.webm")
 
         if files:
+            period = f"{time_part}_{duration}"
             self.callosum.emit(
                 "observe",
-                "period",
-                day=date_part,
-                timestamp=time_part,
+                "observing",
+                period=period,
                 files=files,
             )
-            logger.info(
-                f"Period complete: {date_part}/{time_part} ({len(files)} files)"
-            )
+            logger.info(f"Period observing: {period} ({len(files)} files)")
 
     async def initialize_screencast(self) -> bool:
         """
