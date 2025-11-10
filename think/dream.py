@@ -28,50 +28,84 @@ def run_command(cmd: list[str], day: str) -> bool:
         return False
 
 
-def build_commands(day: str, force: bool, verbose: bool = False) -> list[list[str]]:
+def build_commands(
+    day: str, force: bool, verbose: bool = False, period: str | None = None
+) -> list[list[str]]:
+    """Build processing commands for a day or specific period.
+
+    Args:
+        day: YYYYMMDD format
+        period: Optional HHMMSS_LEN format (e.g., "163045_300")
+        force: Overwrite existing files
+        verbose: Verbose logging
+    """
     commands: list[list[str]] = []
 
-    logging.info("Running repair routines for %s", day)
-    cmd = ["observe-sense", "--day", day]
-    if verbose:
-        cmd.append("-v")
-    commands.append(cmd)
+    # Determine target frequency and what to run
+    if period:
+        logging.info("Running period processing for %s/%s", day, period)
+        target_frequency = "period"
+        # No sense repair for periods (already processed during observation)
+    else:
+        logging.info("Running daily processing for %s", day)
+        target_frequency = "daily"
+        # Daily-only: repair routines
+        cmd = ["observe-sense", "--day", day]
+        if verbose:
+            cmd.append("-v")
+        commands.append(cmd)
 
+    # Run topics filtered by frequency
     topics = get_topics()
     for topic_name, topic_data in topics.items():
         # Skip disabled topics
         if topic_data.get("disabled", False):
             logging.info("Skipping disabled topic: %s", topic_name)
             continue
+
+        # Filter by frequency (defaults to "daily" if not specified)
+        topic_frequency = topic_data.get("frequency", "daily")
+        if topic_frequency != target_frequency:
+            continue
+
         cmd = ["think-summarize", day, "-f", topic_data["path"], "-p"]
+        if period:
+            cmd.extend(["--period", period])
         if verbose:
             cmd.append("--verbose")
         if force:
             cmd.append("--force")
         commands.append(cmd)
 
-    # Run journal stats at the end to update overall statistics
-    stats_cmd = ["think-journal-stats"]
-    if verbose:
-        stats_cmd.append("--verbose")
-    commands.append(stats_cmd)
-
-    # Rescan all indexes to pick up the new day's content
-    indexer_cmd = ["think-indexer", "--rescan-all"]
+    # Targeted indexing
+    indexer_cmd = ["think-indexer", "--rescan-all", "--day", day]
+    if period:
+        indexer_cmd.extend(["--period", period])
     if verbose:
         indexer_cmd.append("--verbose")
     commands.append(indexer_cmd)
+
+    # Daily-only: journal stats
+    if not period:
+        stats_cmd = ["think-journal-stats"]
+        if verbose:
+            stats_cmd.append("--verbose")
+        commands.append(stats_cmd)
 
     return commands
 
 
 def parse_args() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description="Run daily processing tasks on a journal day"
+        description="Run processing tasks on a journal day or period"
     )
     parser.add_argument(
         "--day",
         help="Day folder in YYYYMMDD format (defaults to yesterday)",
+    )
+    parser.add_argument(
+        "--period",
+        help="Period key in HHMMSS_LEN format (processes period topics only)",
     )
     parser.add_argument("--force", action="store_true", help="Overwrite existing files")
     return parser
@@ -92,7 +126,7 @@ def main() -> None:
     if not day_dir.is_dir():
         parser.error(f"Day folder not found: {day_dir}")
 
-    commands = build_commands(day, args.force, verbose=args.verbose)
+    commands = build_commands(day, args.force, verbose=args.verbose, period=args.period)
     success_count = 0
     fail_count = 0
     for cmd in commands:

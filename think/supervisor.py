@@ -934,10 +934,62 @@ async def handle_daily_tasks(last_day: datetime.date) -> datetime.date:
     return last_day
 
 
+def _handle_period_observed(message: dict) -> None:
+    """Handle period completion events from observe tract."""
+    if message.get("tract") != "observe" or message.get("event") != "observed":
+        return
+
+    period = message.get("period")  # e.g., "163045_300"
+    if not period:
+        logging.warning("observed event missing period field")
+        return
+
+    # Extract day from current date (period observed on same day)
+    day = datetime.now().strftime("%Y%m%d")
+
+    logging.info(f"Period observed: {day}/{period}, spawning processing...")
+
+    # Spawn agents configured for period schedule
+    agents = get_agents()
+    for persona_id, config in agents.items():
+        if config.get("schedule") == "period":
+            try:
+                cortex_request(
+                    prompt=f"Processing period {period} from {day}. Use available tools to analyze this specific recording window.",
+                    persona=persona_id,
+                )
+                logging.info(f"Spawned period agent: {persona_id}")
+            except Exception as e:
+                logging.error(f"Failed to spawn {persona_id}: {e}")
+
+    # Run dream in period mode (async, non-blocking)
+    threading.Thread(
+        target=_run_period_dream,
+        args=(day, period),
+        daemon=True,
+    ).start()
+
+
+def _run_period_dream(day: str, period: str) -> None:
+    """Run think-dream for a specific period."""
+    from think.runner import run_task
+
+    logging.info(f"Starting period dream: {day}/{period}")
+    success, exit_code = run_task(["think-dream", "--day", day, "--period", period])
+
+    if success:
+        logging.info(f"Period dream completed: {day}/{period}")
+    else:
+        logging.error(
+            f"Period dream failed with exit code {exit_code}: {day}/{period}"
+        )
+
+
 def _handle_callosum_message(message: dict) -> None:
     """Dispatch incoming Callosum messages to appropriate handlers."""
     _handle_task_request(message)
     _handle_supervisor_request(message)
+    _handle_period_observed(message)
 
 
 async def supervise(

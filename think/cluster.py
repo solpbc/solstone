@@ -280,6 +280,141 @@ def cluster(day: str) -> Tuple[str, int]:
     return markdown, len(entries)
 
 
+def cluster_period(day: str, period: str) -> Tuple[str, int]:
+    """Return Markdown summary for one period's JSON files and the number processed.
+
+    Args:
+        day: Day in YYYYMMDD format
+        period: Period key in HHMMSS_LEN format (e.g., "163045_300")
+
+    Returns:
+        (markdown, file_count) tuple
+    """
+    day_dir = str(day_path(day))
+    period_dir = Path(day_dir) / period
+
+    if not period_dir.is_dir():
+        return f"Period folder not found: {period_dir}", 0
+
+    # Load entries from this specific period directory
+    entries = _load_entries_from_period(str(period_dir), True, "summary")
+    if not entries:
+        return f"No audio or screen files found for period {period}", 0
+
+    groups = _group_entries(entries)
+    markdown = _groups_to_markdown(groups)
+    return markdown, len(entries)
+
+
+def _load_entries_from_period(
+    period_dir: str, audio: bool, screen_mode: Optional[str]
+) -> List[Dict[str, str]]:
+    """Load entries from a single period directory.
+
+    Args:
+        period_dir: Path to period directory (e.g., /path/to/20251109/163045_300)
+        audio: Whether to load audio transcripts
+        screen_mode: "summary" for screen.md, "raw" for screen.jsonl, None to skip
+
+    Returns:
+        List of entry dicts with timestamp, prefix, content, etc.
+    """
+    period_path = Path(period_dir)
+    entries: List[Dict[str, str]] = []
+
+    # Extract day and time from period directory path
+    day_dir = period_path.parent
+    date_str = _date_str(str(day_dir))
+    period_name = period_path.name
+
+    from think.utils import period_parse
+    start_time, _ = period_parse(period_name)
+    if not start_time:
+        return entries
+
+    # Process audio transcripts
+    if audio:
+        audio_files = [f for f in period_path.glob("*audio.jsonl") if f.is_file()]
+        for audio_file in audio_files:
+            from observe.hear import load_transcript
+
+            metadata, transcript_entries, formatted_text = load_transcript(
+                str(audio_file)
+            )
+            if transcript_entries is None:
+                print(
+                    f"Warning: Could not load transcript {audio_file.name}: {metadata.get('error')}",
+                    file=sys.stderr,
+                )
+                continue
+
+            day_date = datetime.strptime(date_str, "%Y%m%d").date()
+            timestamp = datetime.combine(day_date, start_time)
+            entries.append(
+                {
+                    "timestamp": timestamp,
+                    "prefix": "audio",
+                    "content": formatted_text,
+                    "monitor": None,
+                    "source": None,
+                    "id": None,
+                    "name": f"{period_name}/{audio_file.name}",
+                }
+            )
+
+    # Process screen summaries or transcripts
+    if screen_mode == "summary":
+        screen_md = period_path / "screen.md"
+        if screen_md.exists():
+            try:
+                content = screen_md.read_text()
+                day_date = datetime.strptime(date_str, "%Y%m%d").date()
+                timestamp = datetime.combine(day_date, start_time)
+                entries.append(
+                    {
+                        "timestamp": timestamp,
+                        "prefix": "screen",
+                        "content": content,
+                        "monitor": None,
+                        "source": None,
+                        "id": None,
+                        "name": f"{period_name}/screen.md",
+                    }
+                )
+            except Exception as e:
+                print(f"Warning: Could not read file screen.md: {e}", file=sys.stderr)
+
+    elif screen_mode == "raw":
+        screen_jsonl = period_path / "screen.jsonl"
+        if screen_jsonl.exists():
+            try:
+                frames = load_analysis_frames(screen_jsonl)
+                frames.sort(key=lambda f: f.get("timestamp", 0))
+
+                if frames:
+                    day_date = datetime.strptime(date_str, "%Y%m%d").date()
+                    timestamp = datetime.combine(day_date, start_time)
+                    entries.append(
+                        {
+                            "timestamp": timestamp,
+                            "prefix": "screen_jsonl",
+                            "content": json.dumps(frames, indent=2),
+                            "monitor": None,
+                            "source": None,
+                            "id": None,
+                            "name": f"{period_name}/screen.jsonl",
+                        }
+                    )
+            except Exception as e:
+                print(
+                    f"Warning: Could not read JSONL file screen.jsonl: {e}",
+                    file=sys.stderr,
+                )
+
+    entries.sort(key=lambda e: e["timestamp"])
+    return entries
+
+
 def cluster_range(
     day: str,
     start: str,

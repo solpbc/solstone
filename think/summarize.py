@@ -7,7 +7,7 @@ from dotenv import load_dotenv
 from google import genai
 from google.genai import types
 
-from think.cluster import cluster
+from think.cluster import cluster, cluster_period
 from think.crumbs import CrumbBuilder
 from think.models import GEMINI_FLASH, GEMINI_PRO, gemini_generate
 from think.utils import (
@@ -27,11 +27,31 @@ def _topic_basenames() -> list[str]:
     return sorted(get_topics().keys())
 
 
-def _output_paths(day_dir: os.PathLike[str], basename: str) -> tuple[Path, Path]:
-    """Return markdown and JSON output paths for ``basename`` in ``day_dir``."""
+def _output_paths(
+    day_dir: os.PathLike[str], basename: str, period: str | None = None
+) -> tuple[Path, Path]:
+    """Return markdown and JSON output paths for ``basename`` in ``day_dir``.
+
+    Args:
+        day_dir: Day directory path (YYYYMMDD)
+        basename: Topic basename
+        period: Optional period key (HHMMSS_LEN)
+
+    Returns:
+        (md_path, json_path) tuple
+        - Daily: YYYYMMDD/topics/{basename}.md
+        - Period: YYYYMMDD/{period}/{basename}.md
+    """
     day = Path(day_dir)
-    topic_dir = day / "topics"
-    return topic_dir / f"{basename}.md", topic_dir / f"{basename}.json"
+
+    if period:
+        # Period topics go directly in period directory
+        period_dir = day / period
+        return period_dir / f"{basename}.md", period_dir / f"{basename}.json"
+    else:
+        # Daily topics go in topics/ subdirectory
+        topic_dir = day / "topics"
+        return topic_dir / f"{basename}.md", topic_dir / f"{basename}.json"
 
 
 def scan_day(day: str) -> dict[str, list[str]]:
@@ -196,9 +216,17 @@ def main() -> None:
         action="store_true",
         help="Overwrite output file if it already exists",
     )
+    parser.add_argument(
+        "--period",
+        help="Period key in HHMMSS_LEN format (processes only this period within the day)",
+    )
     args = setup_cli(parser)
 
-    markdown, file_count = cluster(args.day)
+    # Choose clustering function based on mode
+    if args.period:
+        markdown, file_count = cluster_period(args.day, args.period)
+    else:
+        markdown, file_count = cluster(args.day)
     day_dir = str(day_path(args.day))
     topic_basename = Path(args.topic).stem
     topic_meta = get_topics().get(topic_basename, {})
@@ -237,9 +265,12 @@ def main() -> None:
             count_tokens(markdown, prompt, api_key, model)
             return
 
-        md_path, json_path = _output_paths(day_dir, topic_basename)
-        # Use day-only cache key so all topics share the same cached transcript
-        cache_display_name = f"{day}"
+        md_path, json_path = _output_paths(day_dir, topic_basename, period=args.period)
+        # Use cache key scoped to day or period
+        if args.period:
+            cache_display_name = f"{day}_{args.period}"
+        else:
+            cache_display_name = f"{day}"
 
         # Check if markdown file already exists
         md_exists = md_path.exists() and md_path.stat().st_size > 0
@@ -339,7 +370,15 @@ def main() -> None:
             print(f"Error: {e}")
             return
 
-        full_occurrence_obj = {"day": day, "occurrences": occurrences}
+        # Include period in occurrence JSON if in period mode
+        if args.period:
+            full_occurrence_obj = {
+                "day": day,
+                "period": args.period,
+                "occurrences": occurrences,
+            }
+        else:
+            full_occurrence_obj = {"day": day, "occurrences": occurrences}
 
         occ_result = json.dumps(full_occurrence_obj, indent=2)
 
