@@ -230,7 +230,7 @@ def period_key(name_or_path: str) -> str | None:
     >>> period_key("invalid")
     None
     """
-    pattern = r"\b(\d{6})(?:_(\d+))?\b"
+    pattern = r"\b(\d{6})(?:_(\d+))?(?:_|\b)"
     match = re.search(pattern, name_or_path)
     if match:
         time_part = match.group(1)
