@@ -31,10 +31,13 @@ logger = logging.getLogger(__name__)
 class HandlerProcess:
     """Manages a running handler subprocess with RunnerManagedProcess."""
 
-    def __init__(self, file_path: Path, managed: RunnerManagedProcess):
+    def __init__(
+        self, file_path: Path, managed: RunnerManagedProcess, handler_name: str
+    ):
         self.file_path = file_path
         self.managed = managed
         self.process = managed.process
+        self.handler_name = handler_name
 
     def cleanup(self):
         self.managed.cleanup()
@@ -179,7 +182,7 @@ class FileSensor:
                     self.current_describe_process = None
             return
 
-        handler_proc = HandlerProcess(file_path, managed)
+        handler_proc = HandlerProcess(file_path, managed, handler_name)
 
         with self.lock:
             self.running[file_path] = handler_proc
@@ -217,7 +220,8 @@ class FileSensor:
                 self._check_period_observed(handler_proc.file_path)
             else:
                 logger.error(
-                    f"Handler failed with exit code {exit_code} for {handler_proc.file_path.name}"
+                    f"{handler_proc.handler_name} failed for {handler_proc.file_path.name} "
+                    f"with exit code {exit_code} - see log {handler_proc.managed.ref}.log"
                 )
 
             handler_proc.cleanup()
