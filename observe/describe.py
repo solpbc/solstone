@@ -512,9 +512,12 @@ class VideoProcessor:
 
     def _move_to_period(self, media_path: Path) -> Path:
         """Move media file to its period and return new path."""
-        from observe.utils import extract_period_from_filename, extract_descriptive_suffix
+        from observe.utils import extract_descriptive_suffix
+        from think.utils import period_key
 
-        period = extract_period_from_filename(media_path.stem)
+        period = period_key(media_path.stem)
+        if period is None:
+            raise ValueError(f"Invalid media filename: {media_path.stem}")
         suffix = extract_descriptive_suffix(media_path.stem)
         period_dir = media_path.parent / period
         try:
@@ -946,9 +949,11 @@ async def async_main():
     output_path = None
     if not args.frames_only:
         # Extract period and create output in period
-        from observe.utils import extract_period_from_filename
+        from think.utils import period_key
 
-        period = extract_period_from_filename(video_path.stem)
+        period = period_key(video_path.stem)
+        if period is None:
+            parser.error(f"Invalid video filename: {video_path.stem} (must start with HHMMSS)")
         period_dir = video_path.parent / period
         period_dir.mkdir(exist_ok=True)
         output_path = period_dir / "screen.jsonl"

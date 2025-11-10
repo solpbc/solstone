@@ -11,57 +11,9 @@ from typing import Dict
 import av
 import numpy as np
 from skimage.metrics import structural_similarity as ssim
+from think.utils import period_key
 
 logger = logging.getLogger(__name__)
-
-
-def extract_period_from_filename(filename: str) -> str:
-    """
-    Extract period name from media filename.
-
-    Extracts HHMMSS or HHMMSS_LEN prefix from any filename, ignoring
-    descriptive suffixes. Works with any suffix after the period portion.
-
-    Parameters
-    ----------
-    filename : str
-        Filename stem (without extension), e.g., "143022_300_audio", "143022_screen",
-        or any variant with descriptive text after the period
-
-    Returns
-    -------
-    str
-        Period name in format "HHMMSS_LEN" or "HHMMSS"
-
-    Examples
-    --------
-    >>> extract_period_from_filename("143022_300_audio")
-    "143022_300"
-    >>> extract_period_from_filename("143022_300_screen")
-    "143022_300"
-    >>> extract_period_from_filename("143022_300_recording_mic")
-    "143022_300"
-    >>> extract_period_from_filename("143022_audio")
-    "143022"
-    >>> extract_period_from_filename("143022_screen")
-    "143022"
-    >>> extract_period_from_filename("143022_anything_else")
-    "143022"
-    """
-    parts = filename.split("_")
-
-    # Filename format: HHMMSS[_LEN][_descriptive_text...]
-    # First part must be 6-digit timestamp
-    if not parts or not parts[0].isdigit() or len(parts[0]) != 6:
-        raise ValueError(f"Invalid filename format: {filename} (must start with HHMMSS)")
-
-    # Check if second part is numeric duration suffix
-    if len(parts) >= 2 and parts[1].isdigit():
-        # Has duration suffix: HHMMSS_LEN[_...]
-        return f"{parts[0]}_{parts[1]}"
-    else:
-        # No duration suffix: HHMMSS[_...]
-        return parts[0]
 
 
 def extract_descriptive_suffix(filename: str) -> str:

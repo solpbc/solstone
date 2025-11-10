@@ -275,6 +275,41 @@ def period_name(name_or_path: str) -> str | None:
     return None
 
 
+def period_key(name_or_path: str) -> str | None:
+    """Extract full period key (HHMMSS or HHMMSS_LEN) from any path/filename.
+
+    Parameters
+    ----------
+    name_or_path : str
+        Period name, filename, or full path containing period.
+
+    Returns
+    -------
+    str or None
+        Full period key (HHMMSS or HHMMSS_LEN) if valid, None otherwise.
+
+    Examples
+    --------
+    >>> period_key("143022")
+    "143022"
+    >>> period_key("143022_300")
+    "143022_300"
+    >>> period_key("143022_300_summary.txt")
+    "143022_300"
+    >>> period_key("/journal/20250109/143022_300/audio.jsonl")
+    "143022_300"
+    >>> period_key("invalid")
+    None
+    """
+    pattern = r"\b(\d{6})(?:_(\d+))?\b"
+    match = re.search(pattern, name_or_path)
+    if match:
+        time_part = match.group(1)
+        len_part = match.group(2)
+        return f"{time_part}_{len_part}" if len_part else time_part
+    return None
+
+
 def period_parse(name_or_path: str) -> tuple[datetime.time | None, datetime.time | None]:
     """Parse period to extract start and end times as datetime objects.
 

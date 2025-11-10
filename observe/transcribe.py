@@ -163,9 +163,12 @@ class Transcriber:
 
     def _move_to_period(self, audio_path: Path) -> Path:
         """Move audio file to its period and return new path."""
-        from observe.utils import extract_period_from_filename, extract_descriptive_suffix
+        from observe.utils import extract_descriptive_suffix
+        from think.utils import period_key
 
-        period = extract_period_from_filename(audio_path.stem)
+        period = period_key(audio_path.stem)
+        if period is None:
+            raise ValueError(f"Invalid audio filename: {audio_path.stem}")
         suffix = extract_descriptive_suffix(audio_path.stem)
         period_dir = audio_path.parent / period
         try:
@@ -428,9 +431,11 @@ class Transcriber:
             audio_path: Path to the audio file (in day root)
             stream: Optional stream identifier ('mic' or 'sys') for split processing
         """
-        from observe.utils import extract_period_from_filename
+        from think.utils import period_key
 
-        period = extract_period_from_filename(audio_path.stem)
+        period = period_key(audio_path.stem)
+        if period is None:
+            raise ValueError(f"Invalid audio filename: {audio_path.stem}")
         period_dir = audio_path.parent / period
         period_dir.mkdir(exist_ok=True)
 
