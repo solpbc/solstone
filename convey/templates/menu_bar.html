@@ -1,0 +1,21 @@
+<!-- Menu Bar Component (left sidebar) -->
+<div class="menu-bar">
+  {% for app_name, app_data in apps.items() %}
+  <a href="/app/{{ app_name }}" class="menu-item{% if app == app_name %} current{% endif %}">
+    <span class="icon">{{ app_data['icon'] }}</span>
+    <span class="label">{{ app_data['label'] }}</span>
+  </a>
+  {% if app_data.get('submenu') %}
+  <div class="submenu">
+    {% for item in app_data['submenu'] %}
+    <a href="{{ item['path'] }}" class="submenu-item" {% if item.get('facet') %}data-facet="{{ item['facet'] }}"{% endif %}>
+      <span>{{ item['label'] }}</span>
+      {% if item.get('count') and item['count'] > 0 %}
+      <span class="submenu-badge">{{ item['count'] }}</span>
+      {% endif %}
+    </a>
+    {% endfor %}
+  </div>
+  {% endif %}
+  {% endfor %}
+</div>

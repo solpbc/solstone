@@ -1,0 +1,98 @@
+<!-- Status Pane Component -->
+<div class="status-pane">
+  <div class="status-pane-content">
+    <h3>WebSocket Status</h3>
+    <div style="display: flex; flex-direction: column; gap: 8px; font-size: 14px;">
+      <div>
+        <strong>Status:</strong> <span id="ws-status">Connecting...</span>
+      </div>
+      <div>
+        <strong>Uptime:</strong> <span id="ws-uptime">-</span>
+      </div>
+      <div>
+        <strong>Last message:</strong> <span id="ws-last-message">-</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// Status pane toggle logic
+(function(){
+  const statusIcon = document.querySelector('.facet-bar .status-icon');
+  const statusPane = document.querySelector('.status-pane');
+  let statusPaneOpen = false;
+
+  if (statusIcon && statusPane) {
+    statusIcon.addEventListener('click', (e) => {
+      e.stopPropagation();
+      statusPaneOpen = !statusPaneOpen;
+
+      if (statusPaneOpen) {
+        statusPane.classList.add('visible');
+      } else {
+        statusPane.classList.remove('visible');
+      }
+    });
+
+    // Close status pane when clicking outside
+    document.addEventListener('click', (e) => {
+      if (statusPaneOpen && statusPane && statusIcon &&
+          !statusIcon.contains(e.target) && !statusPane.contains(e.target)) {
+        statusPaneOpen = false;
+        statusPane.classList.remove('visible');
+      }
+    });
+  }
+
+  // Update status pane metrics
+  function updateStatusPane() {
+    if (!window.appEvents) return;
+
+    const metrics = window.appEvents.getMetrics();
+    const wsStatus = document.getElementById('ws-status');
+    const wsUptime = document.getElementById('ws-uptime');
+    const wsLastMessage = document.getElementById('ws-last-message');
+
+    if (wsStatus) {
+      wsStatus.textContent = metrics.connected ? '🟢 Connected' : '🔴 Disconnected';
+      wsStatus.style.color = metrics.connected ? '#10b981' : '#ef4444';
+    }
+
+    if (wsUptime) {
+      if (metrics.connected) {
+        const seconds = Math.floor(metrics.uptimeMs / 1000);
+        wsUptime.textContent = formatDuration(seconds);
+      } else {
+        wsUptime.textContent = '-';
+      }
+    }
+
+    if (wsLastMessage) {
+      if (metrics.lastMessageMs !== null) {
+        const seconds = Math.floor(metrics.lastMessageMs / 1000);
+        wsLastMessage.textContent = seconds === 0 ? 'Just now' : `${formatDuration(seconds)} ago`;
+      } else if (metrics.connected) {
+        wsLastMessage.textContent = 'No messages yet';
+      } else {
+        wsLastMessage.textContent = '-';
+      }
+    }
+  }
+
+  function formatDuration(seconds) {
+    if (seconds < 60) return `${seconds}s`;
+    const minutes = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    if (minutes < 60) return `${minutes}m ${secs}s`;
+    const hours = Math.floor(minutes / 60);
+    const mins = minutes % 60;
+    return `${hours}h ${mins}m`;
+  }
+
+  // Update status pane every second
+  setInterval(updateStatusPane, 1000);
+  // Initial update
+  setTimeout(updateStatusPane, 100);
+})();
+</script>
