@@ -6,6 +6,7 @@ and provides keyboard controls for restarting services.
 
 import argparse
 import asyncio
+import signal
 from datetime import datetime, timedelta
 
 import psutil
@@ -110,9 +111,29 @@ class ServiceManager:
 
             elif event == "line":
                 ref = message.get("ref")
+                name = message.get("name")
+                pid = message.get("pid")
                 line = message.get("line", "")
                 stream = message.get("stream", "stdout")
+
                 if ref:
+                    # Create task entry if we haven't seen it yet (missed exec event)
+                    if ref not in self.running_tasks and name and pid:
+                        self.running_tasks[ref] = {
+                            "ref": ref,
+                            "name": name,
+                            "pid": pid,
+                            "cmd": [],  # Unknown since we missed exec
+                            "start_time": datetime.now(),
+                        }
+                        # Initialize CPU tracking
+                        try:
+                            self.cpu_procs[pid] = psutil.Process(pid)
+                            self.cpu_procs[pid].cpu_percent(interval=None)
+                        except (psutil.NoSuchProcess, psutil.AccessDenied):
+                            pass
+
+                    # Store log line
                     self.last_log_lines[ref] = (datetime.now(), stream, line)
 
             elif event == "exit":
@@ -230,6 +251,50 @@ class ServiceManager:
         if pid in self.cpu_cache:
             return f"{self.cpu_cache[pid]:.0f}"
         return "-"
+
+    def cleanup_dead_tasks(self) -> None:
+        """Remove tasks whose PIDs are no longer valid.
+
+        This handles cases where:
+        - Process died without sending exit event (crash, kill -9, etc.)
+        - Exit event was lost or not received
+        - Process became a zombie
+        """
+        refs_to_remove = []
+
+        for ref, task in self.running_tasks.items():
+            pid = task["pid"]
+            try:
+                # Try to get process info - this will fail if PID is invalid
+                process = psutil.Process(pid)
+                # Check if process is a zombie
+                if process.status() == psutil.STATUS_ZOMBIE:
+                    refs_to_remove.append(ref)
+            except psutil.NoSuchProcess:
+                # Process no longer exists
+                refs_to_remove.append(ref)
+            except psutil.AccessDenied:
+                # We don't have permission - assume it's still running
+                pass
+
+        # Clean up dead tasks
+        for ref in refs_to_remove:
+            task = self.running_tasks[ref]
+            pid = task["pid"]
+            name = task["name"]
+
+            # Clean up CPU tracking
+            if pid in self.cpu_procs:
+                del self.cpu_procs[pid]
+            if pid in self.cpu_cache:
+                del self.cpu_cache[pid]
+
+            # Remove task
+            del self.running_tasks[ref]
+
+            # Clean up log lines
+            if ref in self.last_log_lines:
+                del self.last_log_lines[ref]
 
     def render_tasks_table(self) -> list[str]:
         """Render the running tasks table.
@@ -406,6 +471,9 @@ class ServiceManager:
         """Main event loop for the TUI."""
         self.callosum.start(callback=self.handle_event)
 
+        # Track iteration count for periodic timeout checks
+        iteration = 0
+
         with self.term.cbreak(), self.term.hidden_cursor():
             # Initial render
             print(self.render(), flush=True)
@@ -430,6 +498,11 @@ class ServiceManager:
                         self.running = False
                     elif key.code == 4:  # Ctrl-D
                         self.running = False
+
+                # Check for dead tasks every 5 seconds (50 iterations * 0.1s = 5s)
+                iteration += 1
+                if iteration % 50 == 0:
+                    self.cleanup_dead_tasks()
 
                 # Render on every iteration (includes callosum updates)
                 print(self.render(), flush=True)

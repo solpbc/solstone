@@ -201,7 +201,7 @@ class CallosumConnection:
         buffer = ""
         last_connect_attempt = 0.0
 
-        while not self.stop_event.is_set():
+        while True:
             # Try to connect if not connected (rate limited to 1/sec)
             if not sock and time.time() - last_connect_attempt > 1.0:
                 try:
@@ -241,7 +241,10 @@ class CallosumConnection:
                         f"{msg.get('tract')}/{msg.get('event')}"
                     )
             except queue.Empty:
-                pass  # Normal, continue to receive
+                # Queue is empty - check if we should exit
+                if self.stop_event.is_set():
+                    break
+                # Otherwise continue to receive
 
             # Receive incoming messages (only if connected)
             if sock:
@@ -313,12 +316,12 @@ class CallosumConnection:
             return False
 
     def stop(self) -> None:
-        """Stop background thread gracefully."""
+        """Stop background thread gracefully, draining queue first."""
         if not self.thread:
             return
 
         self.stop_event.set()
-        self.thread.join(timeout=2)
+        self.thread.join(timeout=0.5)
 
         if self.thread.is_alive():
             logger.warning("Background thread did not stop cleanly")
