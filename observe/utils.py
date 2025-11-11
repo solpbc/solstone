@@ -11,6 +11,7 @@ from typing import Dict
 import av
 import numpy as np
 from skimage.metrics import structural_similarity as ssim
+
 from think.utils import period_key
 
 logger = logging.getLogger(__name__)
@@ -51,7 +52,9 @@ def extract_descriptive_suffix(filename: str) -> str:
     # Filename format: HHMMSS[_LEN][_descriptive_text...]
     # First part must be 6-digit timestamp
     if not parts or not parts[0].isdigit() or len(parts[0]) != 6:
-        raise ValueError(f"Invalid filename format: {filename} (must start with HHMMSS)")
+        raise ValueError(
+            f"Invalid filename format: {filename} (must start with HHMMSS)"
+        )
 
     # Check if second part is numeric duration suffix
     if len(parts) >= 2 and parts[1].isdigit():

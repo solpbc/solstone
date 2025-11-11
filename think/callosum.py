@@ -226,7 +226,9 @@ class CallosumConnection:
                         line = json.dumps(msg) + "\n"
                         sock.sendall(line.encode("utf-8"))
                     except Exception as e:
-                        logger.info(f"Send {e} for {msg.get('tract')}/{msg.get('event')}")
+                        logger.info(
+                            f"Send {e} for {msg.get('tract')}/{msg.get('event')}"
+                        )
                         try:
                             sock.close()
                         except Exception:

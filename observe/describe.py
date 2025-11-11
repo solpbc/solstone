@@ -438,9 +438,9 @@ class VideoProcessor:
             ssim_map = np.pad(ssim_map, ((0, pad_h), (0, pad_w)), mode="edge")
 
         # 5) Vectorized block mean pooling
-        block_means = ssim_map.reshape(rows, block_size_down, cols, block_size_down).mean(
-            axis=(1, 3)
-        )
+        block_means = ssim_map.reshape(
+            rows, block_size_down, cols, block_size_down
+        ).mean(axis=(1, 3))
         changed = (block_means < ssim_threshold).tolist()
 
         # 6) Reuse existing grouping and boxing logic (uses original dimensions)
@@ -953,7 +953,9 @@ async def async_main():
 
         period = period_key(video_path.stem)
         if period is None:
-            parser.error(f"Invalid video filename: {video_path.stem} (must start with HHMMSS)")
+            parser.error(
+                f"Invalid video filename: {video_path.stem} (must start with HHMMSS)"
+            )
         period_dir = video_path.parent / period
         period_dir.mkdir(exist_ok=True)
         output_path = period_dir / "screen.jsonl"

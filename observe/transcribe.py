@@ -503,6 +503,7 @@ class Transcriber:
             # Add audio file reference to metadata
             # Path is relative to the JSONL file (both in same period directory)
             from observe.utils import extract_descriptive_suffix
+
             suffix = extract_descriptive_suffix(raw_path.stem)
             metadata["raw"] = f"{suffix}.flac"
 
@@ -538,7 +539,9 @@ class Transcriber:
 
             # Check if already processed
             if mic_json_path.exists() and sys_json_path.exists():
-                logging.info(f"Already processed (split), moving to timestamp dir: {raw_path}")
+                logging.info(
+                    f"Already processed (split), moving to timestamp dir: {raw_path}"
+                )
                 self._move_to_period(raw_path)
                 return
 
