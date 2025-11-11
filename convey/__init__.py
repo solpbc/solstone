@@ -1,4 +1,4 @@
-"""Utility web apps for reviewing convey data."""
+"""Web interface for navigating and interacting with journal data."""
 
 from __future__ import annotations
 
@@ -11,7 +11,7 @@ from datetime import datetime, timedelta
 from importlib import import_module
 from typing import Callable
 
-from flask import Flask, request
+from flask import Flask, request, url_for
 from flask_sock import Sock
 from jinja2 import ChoiceLoader, FileSystemLoader
 
@@ -22,12 +22,6 @@ from think.utils import setup_cli
 
 from . import state
 from .callosum_bridge import register_websocket, start_callosum_bridge
-from .utils import (
-    adjacent_days,
-    build_occurrence_index,
-    format_date,
-    time_since,
-)
 from .views import admin as admin_view
 from .views import agents as agents_view
 from .views import calendar as calendar_view
@@ -138,7 +132,7 @@ def _get_selected_facet() -> str | None:
 
 
 def create_app(journal: str = "") -> Flask:
-    """Create and configure the review Flask application."""
+    """Create and configure the Convey Flask application."""
     app = Flask(
         __name__,
         template_folder=os.path.join(os.path.dirname(__file__), "templates"),
@@ -149,10 +143,12 @@ def create_app(journal: str = "") -> Flask:
     # in apps/{name}/workspace.html instead of needing a templates/ subfolder
     convey_templates = os.path.join(os.path.dirname(__file__), "templates")
     apps_root = os.path.join(os.path.dirname(os.path.dirname(__file__)), "apps")
-    app.jinja_loader = ChoiceLoader([
-        FileSystemLoader(convey_templates),
-        FileSystemLoader(apps_root),
-    ])
+    app.jinja_loader = ChoiceLoader(
+        [
+            FileSystemLoader(convey_templates),
+            FileSystemLoader(apps_root),
+        ]
+    )
 
     app.secret_key = os.getenv("CONVEY_SECRET", "sunstone-secret")
     app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(days=30)
@@ -193,13 +189,36 @@ def create_app(journal: str = "") -> Flask:
             "selected_facet": selected_facet,
         }
 
+    @app.context_processor
+    def inject_vendor_helper() -> dict:
+        """Provide convenient vendor library helper for templates."""
+
+        def vendor_lib(library_name: str, file: str | None = None) -> str:
+            """Generate URL for vendor library.
+
+            Args:
+                library_name: Name of vendor library (e.g., 'marked')
+                file: Optional specific file, defaults to {library}.min.js
+
+            Returns:
+                URL to the vendor library file
+
+            Example:
+                {{ vendor_lib('marked') }}
+                → /static/vendor/marked/marked.min.js
+            """
+            if file is None:
+                file = f"{library_name}.min.js"
+            return url_for("static", filename=f"vendor/{library_name}/{file}")
+
+        return {"vendor_lib": vendor_lib}
+
     sock = Sock(app)
     register_websocket(sock)
 
     if journal:
         state.journal_root = journal
         os.environ.setdefault("JOURNAL_PATH", journal)
-        state.occurrences_index = build_occurrence_index(journal)
     return app
 
 
@@ -223,7 +242,6 @@ clear_history = chat_view.clear_history
 search_page = search_view.search_page
 import_page = import_page_view.import_page
 admin_page = admin_view.admin_page
-calendar_occurrences = calendar_view.calendar_occurrences
 calendar_days = calendar_view.calendar_days
 calendar_stats = calendar_view.calendar_stats
 calendar_transcript_page = calendar_view.calendar_transcript_page
@@ -251,21 +269,16 @@ __all__ = [
     "clear_history",
     "search_page",
     "import_page",
-    "calendar_occurrences",
     "calendar_days",
     "calendar_stats",
     "calendar_transcript_page",
     "calendar_transcript_ranges",
     "calendar_transcript_range",
-    "adjacent_days",
     "login",
     "logout",
     "admin_page",
-    "format_date",
-    "time_since",
     "stats_data",
     "journal_root",
-    "occurrences_index",
     "run_service",
 ]
 
@@ -273,22 +286,18 @@ __all__ = [
 def __getattr__(name: str):
     if name == "journal_root":
         return state.journal_root
-    if name == "occurrences_index":
-        return state.occurrences_index
     raise AttributeError(name)
 
 
 def __setattr__(name: str, value) -> None:
     if name == "journal_root":
         state.journal_root = value
-    elif name == "occurrences_index":
-        state.occurrences_index = value
     globals()[name] = value
 
 
 class _Module(types.ModuleType):
     def __setattr__(self, key, value):
-        if key in {"journal_root", "occurrences_index"}:
+        if key == "journal_root":
             setattr(state, key, value)
         super().__setattr__(key, value)
 
@@ -320,7 +329,7 @@ def run_service(
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Combined review web service")
+    parser = argparse.ArgumentParser(description="Convey web interface")
     parser.add_argument("--port", type=int, default=8000, help="Port to serve on")
     args = setup_cli(parser)
     journal = os.getenv("JOURNAL_PATH")

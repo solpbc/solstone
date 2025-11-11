@@ -3,15 +3,15 @@ import json
 
 
 def test_home_template_renders(tmp_path):
-    review = importlib.import_module("convey")
-    review.journal_root = str(tmp_path)
-    with review.app.test_request_context("/"):
-        html = review.home()
+    convey = importlib.import_module("convey")
+    convey.journal_root = str(tmp_path)
+    with convey.app.test_request_context("/"):
+        html = convey.home()
     assert "Journal Dashboard" in html
 
 
 def test_stats_api(tmp_path):
-    review = importlib.import_module("convey")
+    convey = importlib.import_module("convey")
     stats = {
         "days": {"20240101": {"activity": 1, "audio_sessions": 1}},
         "totals": {"audio_sessions": 1},
@@ -26,8 +26,8 @@ def test_stats_api(tmp_path):
         },
     }
     (tmp_path / "stats.json").write_text(json.dumps(stats))
-    review.journal_root = str(tmp_path)
-    with review.app.test_request_context("/api/stats"):
-        resp = review.stats_data()
+    convey.journal_root = str(tmp_path)
+    with convey.app.test_request_context("/api/stats"):
+        resp = convey.stats_data()
     assert resp.json["stats"] == stats
     assert "flow" in resp.json["topics"]

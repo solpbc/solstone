@@ -42,7 +42,7 @@
     </div>
   </div>
 </div>
-<script src="{{ url_for('review.static', filename='colors.js') }}"></script>
+<script src="{{ url_for('home.static', filename='colors.js') }}"></script>
 <script>
 let tabs = Array.from(document.querySelectorAll('.tab'));
 const contents = document.querySelectorAll('.content');
@@ -261,10 +261,10 @@ function openModal(idx){
 }
 
 function loadEvents(){
-  fetch('{{ url_for('calendar.calendar_occurrences') }}')
+  fetch('{{ url_for('calendar.calendar_day_occurrences', day=day) }}')
     .then(r => r.json())
     .then(d => {
-      events = d[day] || [];
+      events = d || [];
       const topicsList = renderEvents(events);
       orderTabs(topicsList);
       colorTabs();

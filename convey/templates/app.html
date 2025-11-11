@@ -4,11 +4,11 @@
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <title>{{ app_registry.apps[app].label }} - Sunstone</title>
-  <link rel="stylesheet" href="{{ url_for('review.static', filename='review.css') }}">
-  <link rel="stylesheet" href="{{ url_for('review.static', filename='app.css') }}">
+  <link rel="stylesheet" href="{{ url_for('home.static', filename='home.css') }}">
+  <link rel="stylesheet" href="{{ url_for('home.static', filename='app.css') }}">
 
   <!-- Error handling FIRST - catches all subsequent errors -->
-  <script src="{{ url_for('review.static', filename='error-handler.js') }}"></script>
+  <script src="{{ url_for('home.static', filename='error-handler.js') }}"></script>
 
   <!-- Embed facets data for immediate client-side access -->
   <script>
@@ -18,7 +18,7 @@
   </script>
 
   <!-- WebSocket connection for Callosum events -->
-  <script src="{{ url_for('review.static', filename='websocket.js') }}"></script>
+  <script src="{{ url_for('home.static', filename='websocket.js') }}"></script>
 
   <!-- Apply facet theme immediately to prevent flash -->
   {% if selected_facet %}
@@ -68,7 +68,7 @@
 </div>
 
 <!-- App JavaScript (includes AppServices framework) -->
-<script src="{{ url_for('review.static', filename='app.js') }}"></script>
+<script src="{{ url_for('home.static', filename='app.js') }}"></script>
 
 <!-- Load all app background services -->
 {% for app_name, app_instance in app_registry.apps.items() %}

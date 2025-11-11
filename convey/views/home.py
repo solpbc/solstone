@@ -31,7 +31,7 @@ def _get_password() -> str:
 
 
 bp = Blueprint(
-    "review",
+    "home",
     __name__,
     template_folder="../templates",
     static_folder="../static",
@@ -41,10 +41,10 @@ bp = Blueprint(
 @bp.before_app_request
 def require_login() -> Any:
     if request.endpoint in {
-        "review.login",
-        "review.static",
-        "review.stats_data",
-        "review.favicon",
+        "home.login",
+        "home.static",
+        "home.stats_data",
+        "home.favicon",
     }:
         return None
 
@@ -65,7 +65,7 @@ def require_login() -> Any:
 
     # Otherwise require session authentication
     if not session.get("logged_in"):
-        return redirect(url_for("review.login"))
+        return redirect(url_for("home.login"))
 
 
 @bp.route("/login", methods=["GET", "POST"])
@@ -87,7 +87,7 @@ def login() -> Any:
         if request.form.get("password") == password:
             session["logged_in"] = True
             session.permanent = True
-            return redirect(url_for("review.home"))
+            return redirect(url_for("home.home"))
         error = "Invalid password"
     return render_template("login.html", error=error, no_password=False)
 

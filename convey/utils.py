@@ -1,12 +1,10 @@
-import json
 import os
 import re
 import time
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Optional
 
-from think.models import GEMINI_FLASH, gemini_generate
-from think.utils import day_dirs, day_path, get_topics
+from think.utils import day_dirs
 
 DATE_RE = re.compile(r"\d{8}")
 
@@ -54,62 +52,3 @@ def time_since(epoch: int) -> str:
         return f"{days} day{'s' if days != 1 else ''} ago"
     weeks = days // 7
     return f"{weeks} week{'s' if weeks != 1 else ''} ago"
-
-
-def _combine(day: str, time_str: str) -> str:
-    """Return ISO timestamp string for ``day`` + ``time_str``."""
-
-    return f"{day[:4]}-{day[4:6]}-{day[6:]}T{time_str}"
-
-
-def build_occurrence_index(journal: str) -> Dict[str, List[Dict[str, Any]]]:
-    """Aggregate occurrences from all topic JSON files for each day."""
-
-    index: Dict[str, List[Dict[str, Any]]] = {}
-    for name, path in day_dirs().items():
-
-        occs: List[Dict[str, Any]] = []
-        topics_dir = os.path.join(path, "topics")
-        if not os.path.isdir(topics_dir):
-            continue
-        topics = get_topics()
-        for fname in os.listdir(topics_dir):
-            base, ext = os.path.splitext(fname)
-            if ext != ".json" or base not in topics:
-                continue
-            file_path = os.path.join(topics_dir, fname)
-            try:
-                with open(file_path, "r", encoding="utf-8") as f:
-                    data = json.load(f)
-                items = data.get("occurrences", []) if isinstance(data, dict) else data
-            except Exception:
-                continue
-            if not isinstance(items, list):
-                continue
-            topic_counts: Dict[str, int] = {}
-            topic = base
-            for occ in items:
-                count = topic_counts.get(topic, 0)
-                topic_counts[topic] = count + 1
-
-                o: Dict[str, Any] = {
-                    "title": occ.get("title", ""),
-                    "summary": occ.get("summary", ""),
-                    "subject": occ.get("subject", ""),
-                    "details": occ.get("details", occ.get("description", "")),
-                    "participants": occ.get("participants", []),
-                    "topic": topic,
-                    "color": topics[topic]["color"],
-                    "path": os.path.join(name, "topics", fname),
-                    "index": count,
-                }
-                if occ.get("start"):
-                    o["startTime"] = _combine(name, occ["start"])
-                if occ.get("end"):
-                    o["endTime"] = _combine(name, occ["end"])
-                occs.append(o)
-
-        if occs:
-            index[name] = occs
-
-    return index
