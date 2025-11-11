@@ -10,12 +10,7 @@ from flask import Blueprint, jsonify, render_template, request
 from think.utils import day_dirs, day_path
 
 from .. import state
-from ..utils import (
-    DATE_RE,
-    adjacent_days,
-    build_occurrence_index,
-    format_date,
-)
+from ..utils import DATE_RE, adjacent_days, format_date
 
 bp = Blueprint("calendar", __name__, template_folder="../templates")
 
@@ -74,6 +69,51 @@ def calendar_day(day: str) -> str:
         next_day=next_day,
         day=day,
     )
+
+
+@bp.route("/calendar/api/day/<day>/occurrences")
+def calendar_day_occurrences(day: str) -> Any:
+    """Return occurrences for a specific day using the events index."""
+    if not re.fullmatch(DATE_RE.pattern, day):
+        return "", 404
+
+    from think.indexer import search_events
+    from think.utils import get_topics
+
+    topics = get_topics()
+
+    # Use search_events to get all events for this day
+    _, results = search_events(query="", day=day, limit=1000)
+
+    # Transform search results into timeline format (same as facet_day)
+    occurrences = []
+    for result in results:
+        event = result.get("event", {})
+        metadata = result.get("metadata", {})
+        topic = metadata.get("topic", "other")
+
+        # Add topic color
+        topic_color = topics.get(topic, {}).get("color", "#6c757d")
+
+        occurrence = {
+            "title": event.get("title", ""),
+            "summary": event.get("summary", ""),
+            "subject": event.get("subject", ""),
+            "details": event.get("details", event.get("description", "")),
+            "participants": event.get("participants", []),
+            "topic": topic,
+            "color": topic_color,
+        }
+
+        # Convert time strings to ISO timestamps
+        if event.get("start"):
+            occurrence["startTime"] = f"{day[:4]}-{day[4:6]}-{day[6:]}T{event['start']}"
+        if event.get("end"):
+            occurrence["endTime"] = f"{day[:4]}-{day[4:6]}-{day[6:]}T{event['end']}"
+
+        occurrences.append(occurrence)
+
+    return jsonify(occurrences)
 
 
 @bp.route("/calendar/<day>/transcript")
@@ -480,88 +520,6 @@ def download_audio(day: str) -> Any:
         return jsonify({"error": f"Audio processing failed: {str(e)}"}), 500
     except Exception as e:
         return jsonify({"error": f"Unexpected error: {str(e)}"}), 500
-
-
-@bp.route("/calendar/api/occurrences")
-def calendar_occurrences() -> Any:
-    from datetime import date
-
-    today_str = date.today().strftime("%Y%m%d")
-
-    # Check if we need to rebuild or update the index
-    needs_rebuild = False
-    if not state.occurrences_index:
-        # No index exists yet
-        needs_rebuild = True
-    elif state.occurrences_index_date != today_str:
-        # Date has changed since last build - rebuild for simplicity
-        # Could optimize this to only add new days, but full rebuild ensures consistency
-        needs_rebuild = True
-
-    if needs_rebuild and state.journal_root:
-        state.occurrences_index = build_occurrence_index(state.journal_root)
-        state.occurrences_index_date = today_str
-        state.occurrences_index_days = set(state.occurrences_index.keys())
-    elif state.journal_root:
-        # Check for new days that aren't in the index yet (incremental update)
-        current_days = set(day_dirs().keys())
-
-        # Find new days not in the index
-        new_days = current_days - state.occurrences_index_days
-        if new_days:
-            # Load only the new days
-            from think.utils import get_topics
-
-            topics = get_topics()
-
-            for day in new_days:
-                day_directory = str(day_path(day))
-                topics_dir = os.path.join(day_directory, "topics")
-
-                if os.path.isdir(topics_dir):
-                    occs = []
-                    for fname in os.listdir(topics_dir):
-                        base, ext = os.path.splitext(fname)
-                        if ext != ".json" or base not in topics:
-                            continue
-                        file_path = os.path.join(topics_dir, fname)
-                        try:
-                            with open(file_path, "r", encoding="utf-8") as f:
-                                data = json.load(f)
-                            items = (
-                                data.get("occurrences", [])
-                                if isinstance(data, dict)
-                                else data
-                            )
-                        except Exception:
-                            continue
-                        if not isinstance(items, list):
-                            continue
-
-                        topic = base
-                        for occ in items:
-                            occs.append(
-                                {
-                                    "title": occ.get("title", ""),
-                                    "summary": occ.get("summary", ""),
-                                    "subject": occ.get("subject", ""),
-                                    "details": occ.get(
-                                        "details", occ.get("description", "")
-                                    ),
-                                    "participants": occ.get("participants", []),
-                                    "topic": topic,
-                                    "color": topics[topic]["color"],
-                                    "path": os.path.join(day, "topics", fname),
-                                }
-                            )
-
-                    if occs:
-                        state.occurrences_index[day] = occs
-
-                # Add to tracked days even if no occurrences (to avoid rechecking)
-                state.occurrences_index_days.add(day)
-
-    return jsonify(state.occurrences_index)
 
 
 @bp.route("/calendar/api/days")
