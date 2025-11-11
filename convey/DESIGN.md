@@ -13,16 +13,26 @@ This document defines the standardized design language and terminology for the C
 
 ## App System
 
-Apps are dynamically discovered from the `apps/` directory. Each app is a Python module implementing the `BaseApp` interface.
+Apps are dynamically discovered from the top-level `apps/` directory. Each app is a Python module implementing the `BaseApp` interface.
 
-**App Structure**
+**App File Structure**
+```
+apps/{name}/
+├── __init__.py              # App class with metadata
+├── routes.py                # Flask blueprint and route handlers
+└── templates/
+    ├── workspace.html       # Main content (required)
+    └── app_bar.html         # Bottom bar controls (optional)
+```
+
+**App Metadata**
 - Each app provides an icon, label, Flask blueprint, and workspace template
 - Apps optionally define submenu items, facet counts, and custom app-bar template
 - Apps automatically receive facet integration (facet pills and selection state)
 
 **App Methods**
-- `get_blueprint()` - Flask routes for the app
-- `get_workspace_template()` - Main content template path
+- `get_blueprint()` - Flask routes for the app (from routes.py)
+- `get_workspace_template()` - Main content template path (default: relative to blueprint template_folder)
 - `get_app_bar_template()` - Optional bottom bar template (return None to hide app-bar)
 - `get_submenu_items()` - Optional submenu with custom logic per app
 - `get_facet_counts()` - Optional badge counts for facet pills
@@ -116,3 +126,29 @@ Apps are dynamically discovered from the `apps/` directory. Each app is a Python
 **Responsive Facet Pills**
 - Pills collapse to icon-only from right-to-left when space constrained
 - Uses ResizeObserver to detect container width changes
+
+---
+
+## Implementation Status
+
+### Phase 0: Foundation (Complete)
+
+**Infrastructure Created:**
+- `apps/__init__.py` - BaseApp class and AppRegistry for plugin discovery
+- `convey/templates/app.html` - Main app container template with all UI components
+- Context processors for facet data and app registry injection
+- Package configuration in `pyproject.toml` to include apps package
+
+**Example App:**
+- `apps/home/` - Reference implementation demonstrating the pattern
+- Routes at `/app/home/` (new system) vs `/` (legacy system)
+- Both systems coexist during migration
+
+**Routes:**
+- Legacy views: `/`, `/facets`, `/calendar`, etc. (existing `convey/views/`)
+- New apps: `/app/{name}/` (plugin system via `apps/`)
+
+**Next Steps:**
+- Migrate existing views to apps one at a time
+- Each app follows the standardized structure with routes.py and templates
+- Legacy views can be deprecated after all apps are migrated

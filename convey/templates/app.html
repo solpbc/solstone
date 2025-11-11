@@ -1,0 +1,744 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>{{ app_registry.apps[app].label }} - Sunstone</title>
+  <link rel="stylesheet" href="{{ url_for('review.static', filename='review.css') }}">
+
+  <!-- Embed facets data for immediate client-side access -->
+  <script>
+    window.facetsData = {{ facets|tojson|safe }};
+    window.selectedFacetFromServer = {{ selected_facet|tojson|safe }};
+  </script>
+
+  <!-- Apply facet theme immediately to prevent flash -->
+  {% if selected_facet %}
+  {% set selected_facet_data = facets|selectattr("name", "equalto", selected_facet)|first %}
+  {% if selected_facet_data and selected_facet_data.color %}
+  <style>
+    :root {
+      --facet-color: {{ selected_facet_data.color }};
+      --facet-bg: {{ selected_facet_data.color }}1a;  /* 10% opacity */
+      --facet-border: {{ selected_facet_data.color }};
+    }
+  </style>
+  {% endif %}
+  {% endif %}
+
+  <style>
+body {
+  margin: 0;
+  padding: 0;
+  overflow-x: hidden;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
+.container {
+  padding: 0 1em;
+  margin-top: 60px;
+  margin-bottom: 1em;
+  margin-left: 1em;
+}
+
+/* Add bottom margin when app-bar is present */
+body.has-app-bar .container {
+  margin-bottom: 70px;
+}
+
+/* Facet Bar (top) */
+.facet-bar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  background: white;
+  border-bottom: 1px solid var(--facet-border, #e0e0e0);
+  z-index: 1000;
+  height: 60px;
+  padding: 12px 16px;
+  transition: border-bottom-color 0.3s ease;
+  overflow: visible;
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.facet-bar::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: var(--facet-bg, transparent);
+  transition: background-color 0.3s ease;
+  pointer-events: none;
+  z-index: -1;
+}
+
+.facet-bar #hamburger {
+  font-size: 24px;
+  cursor: pointer;
+  padding: 8px;
+  border-radius: 4px;
+  transition: background 0.2s;
+  user-select: none;
+  flex-shrink: 0;
+}
+
+.facet-bar #hamburger:hover {
+  background: rgba(0,0,0,0.05);
+}
+
+.facet-bar .app-icon {
+  font-size: 28px;
+  padding: 4px;
+  flex-shrink: 0;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: background 0.2s;
+  text-decoration: none;
+}
+
+.facet-bar .app-icon:hover {
+  background: rgba(0,0,0,0.05);
+}
+
+.facet-bar .status-icon {
+  font-size: 20px;
+  padding: 4px;
+  flex-shrink: 0;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: background 0.2s;
+  margin-left: auto;
+  position: relative;
+}
+
+.facet-bar .status-icon:hover {
+  background: rgba(0,0,0,0.05);
+}
+
+/* Status Pane */
+.status-pane {
+  position: fixed;
+  top: calc(60px + 4px);
+  right: 16px;
+  background: white;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  min-width: 280px;
+  max-width: 400px;
+  display: none;
+  z-index: 10000;
+}
+
+.status-pane.visible {
+  display: block;
+}
+
+.status-pane-content {
+  padding: 16px;
+}
+
+.status-pane-content h3 {
+  margin: 0 0 12px 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #333;
+}
+
+.status-pane-content p {
+  margin: 0;
+  font-size: 14px;
+  color: #666;
+}
+
+.facet-bar .facet-pills-container {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow-x: auto;
+  overflow-y: visible;
+  white-space: nowrap;
+  scrollbar-width: thin;
+  padding-top: 4px;
+  padding-bottom: 4px;
+}
+
+.facet-bar .facet-pills-container::-webkit-scrollbar {
+  height: 6px;
+}
+
+.facet-bar .facet-pills-container::-webkit-scrollbar-thumb {
+  background: #ccc;
+  border-radius: 3px;
+}
+
+/* Menu Bar (left sidebar) */
+.menu-bar {
+  position: fixed;
+  top: 60px;
+  left: -240px;
+  width: 240px;
+  bottom: 60px;
+  background: white;
+  border-right: 1px solid var(--facet-border, #e0e0e0);
+  z-index: 999;
+  transition: left 0.3s ease, border-right-color 0.3s ease;
+  overflow-y: auto;
+}
+
+.menu-bar::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: var(--facet-bg, transparent);
+  transition: background-color 0.3s ease;
+  pointer-events: none;
+  z-index: -1;
+}
+
+body.sidebar-open .menu-bar {
+  left: 0;
+}
+
+.menu-bar .menu-item {
+  padding: 8px 16px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  transition: background 0.2s;
+  border-bottom: none;
+  text-decoration: none;
+  color: inherit;
+}
+
+.menu-bar .menu-item:hover {
+  background: rgba(102, 126, 234, 0.1);
+}
+
+.menu-bar .menu-item.current {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  font-weight: 500;
+}
+
+.menu-bar .menu-item .icon {
+  font-size: 20px;
+  width: 24px;
+  text-align: center;
+}
+
+.menu-bar .menu-item .label {
+  font-size: 14px;
+}
+
+.menu-bar .submenu {
+  display: flex;
+  flex-direction: column;
+  background: rgba(0,0,0,0.03);
+  border-left: 2px solid rgba(102, 126, 234, 0.3);
+}
+
+.menu-bar .submenu-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 16px 6px 44px;
+  font-size: 13px;
+  color: inherit;
+  text-decoration: none;
+  transition: background 0.2s;
+  border-bottom: none;
+}
+
+.menu-bar .submenu-item:hover {
+  background: rgba(102, 126, 234, 0.1);
+}
+
+.menu-bar .submenu-badge {
+  display: inline-block;
+  background: #667eea;
+  color: white;
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 5px;
+  border-radius: 8px;
+  min-width: 18px;
+  text-align: center;
+  line-height: 1.2;
+  margin-left: auto;
+}
+
+.facet-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 8px 16px;
+  margin-right: 8px;
+  border-radius: 20px;
+  background: #f5f5f5;
+  border: 1px solid #ddd;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.2s ease;
+  user-select: none;
+  position: relative;
+}
+
+.facet-pill.icon-only {
+  padding: 8px;
+}
+
+.facet-pill.icon-only > span:not(.emoji-container) {
+  display: none;
+}
+
+.facet-pill.icon-only .emoji-container {
+  margin-right: 0;
+}
+
+.facet-pill:hover {
+  border-color: #999;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.facet-pill.selected {
+  border-color: #007bff;
+  font-weight: 500;
+  box-shadow: 0 2px 6px rgba(0,123,255,0.2);
+}
+
+.facet-pill .emoji-container {
+  position: relative;
+  font-size: 24px;
+  line-height: 1;
+  margin-right: 8px;
+  display: flex;
+  align-items: center;
+}
+
+.facet-pill .emoji {
+  display: block;
+}
+
+.facet-pill .facet-badge {
+  position: absolute;
+  bottom: 0;
+  right: -2px;
+  background: #667eea;
+  color: white;
+  font-size: 9px;
+  font-weight: 600;
+  padding: 1px 4px;
+  border-radius: 6px;
+  min-width: 14px;
+  text-align: center;
+  line-height: 1.3;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.2);
+}
+
+.facet-pill.selected .facet-badge {
+  background: #007bff;
+}
+
+/* App Bar (bottom) */
+.app-bar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: white;
+  border-top: 1px solid var(--facet-border, #e0e0e0);
+  z-index: 1000;
+  height: 60px;
+  display: flex;
+  align-items: center;
+  padding: 0 16px;
+  gap: 12px;
+  transition: border-top-color 0.3s ease;
+}
+
+.app-bar::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: var(--facet-bg, transparent);
+  transition: background-color 0.3s ease;
+  pointer-events: none;
+  z-index: -1;
+}
+
+/* Workspace content area */
+.workspace {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  overflow: hidden;
+}
+  </style>
+</head>
+<body{% if app_registry.apps[app].get_app_bar_template() %} class="has-app-bar"{% endif %}>
+<!-- Menu Bar (left sidebar) -->
+<div class="menu-bar">
+  {% for app_name, app_data in apps.items() %}
+  <a href="/app/{{ app_name }}" class="menu-item{% if app == app_name %} current{% endif %}">
+    <span class="icon">{{ app_data['icon'] }}</span>
+    <span class="label">{{ app_data['label'] }}</span>
+  </a>
+  {% if app_data.get('submenu') %}
+  <div class="submenu">
+    {% for item in app_data['submenu'] %}
+    <a href="{{ item['path'] }}" class="submenu-item" {% if item.get('facet') %}data-facet="{{ item['facet'] }}"{% endif %}>
+      <span>{{ item['label'] }}</span>
+      {% if item.get('count') and item['count'] > 0 %}
+      <span class="submenu-badge">{{ item['count'] }}</span>
+      {% endif %}
+    </a>
+    {% endfor %}
+  </div>
+  {% endif %}
+  {% endfor %}
+</div>
+
+<!-- Facet Bar (top) -->
+<div class="facet-bar">
+  <div id="hamburger">☰</div>
+  <div class="app-icon">{{ apps[app]['icon'] }}</div>
+  <div class="facet-pills-container"></div>
+  <div class="status-icon">🟢</div>
+</div>
+
+<!-- Status Pane -->
+<div class="status-pane">
+  <div class="status-pane-content">
+    <h3>System Status</h3>
+    <p>All services operational</p>
+  </div>
+</div>
+
+<!-- App Bar (bottom) - only render if app provides template -->
+{% set app_bar_template = app_registry.apps[app].get_app_bar_template() %}
+{% if app_bar_template %}
+<div class="app-bar">
+  <div class="workspace">
+    {% include app_bar_template %}
+  </div>
+</div>
+{% endif %}
+
+<!-- Main Content -->
+<div class="container">
+  {% include app_registry.apps[app].get_workspace_template() %}
+</div>
+
+<script>
+// Facet filtering state
+let activeFacets = [];
+let selectedFacet = null; // null means "All"
+
+// Save facet selection to cookie (server-driven)
+function saveSelectedFacetToCookie(facet) {
+  if (facet) {
+    const expires = new Date();
+    expires.setFullYear(expires.getFullYear() + 1);
+    document.cookie = `selectedFacet=${facet}; expires=${expires.toUTCString()}; path=/; SameSite=Lax`;
+  } else {
+    document.cookie = 'selectedFacet=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; SameSite=Lax';
+  }
+}
+
+// Convert hex color to rgba with opacity
+function hexToRgba(hex, alpha) {
+  if (!hex || hex.length < 6) return `rgba(128,128,128,${alpha})`;
+  const r = parseInt(hex.substring(1,3), 16);
+  const g = parseInt(hex.substring(3,5), 16);
+  const b = parseInt(hex.substring(5,7), 16);
+  return `rgba(${r},${g},${b},${alpha})`;
+}
+
+// Load facets from embedded data
+function loadFacetChooser() {
+  activeFacets = window.facetsData || [];
+
+  // Enrich facets with app-specific counts
+  const appCounts = {{ app_registry.apps[app].get_facet_counts(facets, selected_facet)|tojson|safe }};
+  activeFacets.forEach(facet => {
+    facet.count = appCounts[facet.name] || 0;
+  });
+
+  renderFacetChooser();
+}
+
+// Render facet pills in top bar
+function renderFacetChooser() {
+  const facetPillsContainer = document.querySelector('.facet-pills-container');
+  facetPillsContainer.innerHTML = '';
+
+  // Find selected facet data
+  const selectedFacetData = selectedFacet ? activeFacets.find(f => f.name === selectedFacet) : null;
+
+  // Apply theme by updating CSS variables
+  if (selectedFacetData && selectedFacetData.color) {
+    const color = selectedFacetData.color;
+    const bgColor = color + '1a';  // 10% opacity
+
+    document.documentElement.style.setProperty('--facet-color', color);
+    document.documentElement.style.setProperty('--facet-bg', bgColor);
+    document.documentElement.style.setProperty('--facet-border', color);
+  } else {
+    // Clear facet variables to use defaults
+    document.documentElement.style.removeProperty('--facet-color');
+    document.documentElement.style.removeProperty('--facet-bg');
+    document.documentElement.style.removeProperty('--facet-border');
+  }
+
+  // Facet pills
+  activeFacets.forEach(facet => {
+    const pill = document.createElement('div');
+    pill.className = 'facet-pill' + (selectedFacet === facet.name ? ' selected' : '');
+
+    if (facet.emoji) {
+      const emojiContainer = document.createElement('div');
+      emojiContainer.className = 'emoji-container';
+
+      const emoji = document.createElement('span');
+      emoji.className = 'emoji';
+      emoji.textContent = facet.emoji;
+      emojiContainer.appendChild(emoji);
+
+      // Add badge if count > 0
+      const count = facet.count || 0;
+      if (count > 0) {
+        const badge = document.createElement('span');
+        badge.className = 'facet-badge';
+        badge.textContent = count;
+        emojiContainer.appendChild(badge);
+      }
+
+      pill.appendChild(emojiContainer);
+    }
+
+    const title = document.createElement('span');
+    title.textContent = facet.title;
+    pill.appendChild(title);
+
+    // Apply color with opacity if facet is selected and has a color
+    if (selectedFacet === facet.name && facet.color) {
+      pill.style.background = hexToRgba(facet.color, 0.2);
+      pill.style.borderColor = facet.color;
+    }
+
+    pill.onclick = () => selectFacet(facet.name);
+    facetPillsContainer.appendChild(pill);
+  });
+}
+
+// Update selection styles without re-rendering
+function updateFacetSelection() {
+  const container = document.querySelector('.facet-pills-container');
+  const pills = container.querySelectorAll('.facet-pill');
+
+  // Find selected facet data
+  const selectedFacetData = selectedFacet ? activeFacets.find(f => f.name === selectedFacet) : null;
+
+  // Apply theme by updating CSS variables
+  if (selectedFacetData && selectedFacetData.color) {
+    const color = selectedFacetData.color;
+    const bgColor = color + '1a';  // 10% opacity
+
+    document.documentElement.style.setProperty('--facet-color', color);
+    document.documentElement.style.setProperty('--facet-bg', bgColor);
+    document.documentElement.style.setProperty('--facet-border', color);
+  } else {
+    // Clear facet variables to use defaults
+    document.documentElement.style.removeProperty('--facet-color');
+    document.documentElement.style.removeProperty('--facet-bg');
+    document.documentElement.style.removeProperty('--facet-border');
+  }
+
+  // Update pill selection states
+  pills.forEach((pill, index) => {
+    const facetName = activeFacets[index]?.name;
+
+    // Update selected class
+    if (selectedFacet === facetName) {
+      pill.classList.add('selected');
+
+      // Apply color styling if selected and has color
+      if (selectedFacetData && selectedFacetData.color) {
+        pill.style.background = hexToRgba(selectedFacetData.color, 0.2);
+        pill.style.borderColor = selectedFacetData.color;
+      } else {
+        pill.style.background = '';
+        pill.style.borderColor = '';
+      }
+    } else {
+      pill.classList.remove('selected');
+      pill.style.background = '';
+      pill.style.borderColor = '';
+    }
+  });
+}
+
+// Handle facet selection
+function selectFacet(facet) {
+  selectedFacet = facet;
+  saveSelectedFacetToCookie(facet);
+  updateFacetSelection();
+}
+
+// Toggle sidebar
+function toggleSidebar() {
+  document.body.classList.toggle('sidebar-open');
+}
+
+// Initialize facet selection from server
+selectedFacet = window.selectedFacetFromServer;
+
+// Load facet chooser
+loadFacetChooser();
+
+// Use ResizeObserver to collapse pills when container width changes
+const facetPillsContainer = document.querySelector('.facet-pills-container');
+
+if (facetPillsContainer) {
+  const resizeObserver = new ResizeObserver(() => {
+    collapseFacetPills();
+  });
+
+  resizeObserver.observe(facetPillsContainer);
+}
+
+function collapseFacetPills() {
+  const container = document.querySelector('.facet-pills-container');
+  const pills = Array.from(container.querySelectorAll('.facet-pill'));
+
+  if (!container || pills.length === 0) return;
+
+  // Reset all pills to full display
+  pills.forEach(pill => pill.classList.remove('icon-only'));
+
+  // Force a reflow to get accurate measurements
+  container.offsetWidth;
+
+  // Check if we're overflowing
+  const containerWidth = container.clientWidth;
+  let totalWidth = 0;
+
+  pills.forEach(pill => {
+    totalWidth += pill.offsetWidth + 8; // Include margin
+  });
+
+  // If overflowing, collapse pills from right to left
+  if (totalWidth > containerWidth) {
+    // Start from the end (right side) and collapse until we fit
+    for (let i = pills.length - 1; i >= 0; i--) {
+      const pill = pills[i];
+
+      pill.classList.add('icon-only');
+
+      // Force reflow and recalculate
+      container.offsetWidth;
+
+      totalWidth = 0;
+      pills.forEach(p => {
+        totalWidth += p.offsetWidth + 8;
+      });
+
+      // If we fit now, stop collapsing
+      if (totalWidth <= containerWidth) break;
+    }
+  }
+}
+
+// Initial collapse check after DOM settles
+setTimeout(collapseFacetPills, 0);
+
+// Hamburger menu interactions
+const hamburger = document.getElementById('hamburger');
+
+hamburger.addEventListener('click', (e) => {
+  e.stopPropagation();
+  toggleSidebar();
+});
+
+// App icon click - clear facet selection
+const appIcon = document.querySelector('.facet-bar .app-icon');
+
+if (appIcon) {
+  appIcon.addEventListener('click', (e) => {
+    selectedFacet = null;
+    saveSelectedFacetToCookie(null);
+    updateFacetSelection();
+  });
+}
+
+// Handle submenu items with data-facet attribute
+document.querySelectorAll('.submenu-item[data-facet]').forEach(item => {
+  item.addEventListener('click', (e) => {
+    e.preventDefault();
+    const facetName = item.getAttribute('data-facet');
+    const targetPath = item.getAttribute('href');
+
+    // Select the facet (sets cookie and updates UI)
+    selectFacet(facetName);
+
+    // Navigate to the path
+    window.location.href = targetPath;
+  });
+});
+
+// Status icon and pane
+const statusIcon = document.querySelector('.status-icon');
+const statusPane = document.querySelector('.status-pane');
+let statusPaneOpen = false;
+
+if (statusIcon && statusPane) {
+  statusIcon.addEventListener('click', (e) => {
+    e.stopPropagation();
+    statusPaneOpen = !statusPaneOpen;
+
+    if (statusPaneOpen) {
+      statusPane.classList.add('visible');
+    } else {
+      statusPane.classList.remove('visible');
+    }
+  });
+}
+
+// Close sidebar and status pane when clicking outside
+document.addEventListener('click', (e) => {
+  // Close sidebar
+  if (document.body.classList.contains('sidebar-open')) {
+    const menuBar = document.querySelector('.menu-bar');
+    const facetBar = document.querySelector('.facet-bar');
+    if (!menuBar.contains(e.target) && !facetBar.contains(e.target)) {
+      document.body.classList.remove('sidebar-open');
+    }
+  }
+
+  // Close status pane
+  if (statusPaneOpen && statusPane && statusIcon &&
+      !statusIcon.contains(e.target) && !statusPane.contains(e.target)) {
+    statusPaneOpen = false;
+    statusPane.classList.remove('visible');
+  }
+});
+</script>
+</body>
+</html>

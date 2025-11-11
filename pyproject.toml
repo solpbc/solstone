@@ -120,9 +120,10 @@ Documentation = "https://github.com/yourusername/sunstone/blob/main/README.md"
 "Bug Tracker" = "https://github.com/yourusername/sunstone/issues"
 
 [tool.setuptools.packages.find]
-include = ["think*", "convey*", "observe*", "muse*"]
+include = ["apps*", "think*", "convey*", "observe*", "muse*"]
 
 [tool.setuptools.package-data]
+apps = ["*/templates/*.html"]
 think = ["*.txt", "topics/*.txt"]
 muse = ["agents/*.txt", "agents/*.json"]
 observe = ["*.txt", "*.json"]

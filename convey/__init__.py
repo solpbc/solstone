@@ -11,9 +11,10 @@ from datetime import datetime, timedelta
 from importlib import import_module
 from typing import Callable
 
-from flask import Flask
+from flask import Flask, request
 from flask_sock import Sock
 
+from apps import AppRegistry
 from think import messages as message_store
 from think import todo as todo_store
 from think.utils import setup_cli
@@ -109,6 +110,32 @@ def _resolve_nav_badges() -> dict[str, int]:
     return badges
 
 
+def _get_facets_data() -> list[dict]:
+    """Get facets data for templates."""
+    from think.facets import get_facets
+
+    all_facets = get_facets()
+    active_facets = []
+
+    for name, data in all_facets.items():
+        if not data.get("disabled", False):
+            active_facets.append(
+                {
+                    "name": name,
+                    "title": data.get("title", name),
+                    "color": data.get("color", ""),
+                    "emoji": data.get("emoji", ""),
+                }
+            )
+
+    return active_facets
+
+
+def _get_selected_facet() -> str | None:
+    """Get the currently selected facet from cookie."""
+    return request.cookies.get("selectedFacet")
+
+
 def create_app(journal: str = "") -> Flask:
     """Create and configure the review Flask application."""
     app = Flask(
@@ -118,12 +145,42 @@ def create_app(journal: str = "") -> Flask:
     )
     app.secret_key = os.getenv("CONVEY_SECRET", "sunstone-secret")
     app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(days=30)
+
+    # Register legacy views
     register_views(app)
+
+    # Initialize and register app system
+    registry = AppRegistry()
+    registry.discover()
+    registry.register_blueprints(app)
 
     @app.context_processor
     def inject_nav_badges() -> dict[str, dict[str, int]]:
         """Expose nav badge counts to all templates."""
         return {"nav_badges": _resolve_nav_badges()}
+
+    @app.context_processor
+    def inject_app_context() -> dict:
+        """Inject app registry and facets context for new app system."""
+        facets = _get_facets_data()
+        selected_facet = _get_selected_facet()
+
+        # Build apps dict for menu-bar (includes submenu items)
+        apps_dict = {}
+        for app_instance in registry.apps.values():
+            submenu = app_instance.get_submenu_items(facets, selected_facet)
+            apps_dict[app_instance.name] = {
+                "icon": app_instance.icon,
+                "label": app_instance.label,
+                "submenu": submenu if submenu else None,
+            }
+
+        return {
+            "app_registry": registry,
+            "apps": apps_dict,
+            "facets": facets,
+            "selected_facet": selected_facet,
+        }
 
     sock = Sock(app)
     register_websocket(sock)
