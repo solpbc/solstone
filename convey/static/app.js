@@ -290,3 +290,398 @@
     init();
   }
 })();
+
+/**
+ * App Services Framework
+ * Global API for apps to register background services, update badges, and show notifications
+ */
+window.AppServices = {
+  services: {},
+
+  /**
+   * Register an app background service
+   * @param {string} appName - Name of the app
+   * @param {object} service - Service object with initialize() method
+   */
+  register(appName, service) {
+    this.services[appName] = service;
+    if (service.initialize) {
+      try {
+        service.initialize();
+      } catch (err) {
+        console.error(`[AppServices] Failed to initialize ${appName} service:`, err);
+      }
+    }
+  },
+
+  /**
+   * Update badge count for a facet or app
+   * @param {string} appName - Name of the app
+   * @param {string|null} facetName - Facet name, or null for app-level badge
+   * @param {number} count - Badge count (0 to hide)
+   */
+  updateBadge(appName, facetName, count) {
+    if (facetName) {
+      // Update facet pill badge
+      const facetPill = document.querySelector(`.facet-pill[data-facet="${facetName}"]`);
+      if (facetPill) {
+        let badge = facetPill.querySelector('.facet-badge');
+        if (!badge) {
+          badge = document.createElement('span');
+          badge.className = 'facet-badge';
+          const emojiContainer = facetPill.querySelector('.emoji-container');
+          if (emojiContainer) {
+            emojiContainer.appendChild(badge);
+          }
+        }
+        badge.textContent = count || '';
+        badge.style.display = count > 0 ? 'inline-block' : 'none';
+      }
+
+      // Update submenu badge for facet
+      const submenuItem = document.querySelector(
+        `.menu-item[data-app="${appName}"] .submenu-item[data-facet="${facetName}"]`
+      );
+      if (submenuItem) {
+        let badge = submenuItem.querySelector('.submenu-badge');
+        if (!badge) {
+          badge = document.createElement('span');
+          badge.className = 'submenu-badge';
+          submenuItem.appendChild(badge);
+        }
+        badge.textContent = count || '';
+        badge.style.display = count > 0 ? 'inline-block' : 'none';
+      }
+    } else {
+      // Update app-level badge in menu
+      const menuItem = document.querySelector(`.menu-item[data-app="${appName}"]`);
+      if (menuItem) {
+        let badge = menuItem.querySelector('.app-badge');
+        if (!badge) {
+          badge = document.createElement('span');
+          badge.className = 'app-badge';
+          const link = menuItem.querySelector('a') || menuItem;
+          link.appendChild(badge);
+        }
+        badge.textContent = count || '';
+        badge.style.display = count > 0 ? 'inline-block' : 'none';
+      }
+    }
+  },
+
+  /**
+   * Update submenu items for an app
+   * @param {string} appName - Name of the app
+   * @param {Array} items - Array of {label, path, facet?, count?} objects
+   */
+  updateSubmenu(appName, items) {
+    const submenu = document.querySelector(`.menu-item[data-app="${appName}"] .submenu`);
+    if (!submenu) return;
+
+    submenu.innerHTML = items.map(item => `
+      <div class="submenu-item" ${item.facet ? `data-facet="${item.facet}"` : ''}>
+        <a href="${item.path}">${this._escapeHtml(item.label)}</a>
+        ${item.count ? `<span class="submenu-badge">${item.count}</span>` : ''}
+      </div>
+    `).join('');
+  },
+
+  /**
+   * Notification system
+   */
+  notifications: {
+    _stack: [],
+    _nextId: 1,
+    _container: null,
+
+    /**
+     * Show a persistent notification card
+     * @param {object} options - {app, icon, title, message, action, dismissible, badge, autoDismiss}
+     * @returns {number} Notification ID
+     */
+    show(options) {
+      const notif = {
+        id: this._nextId++,
+        app: options.app || 'system',
+        icon: options.icon || '📬',
+        title: options.title || 'Notification',
+        message: options.message || '',
+        action: options.action || null,
+        dismissible: options.dismissible !== false,
+        badge: options.badge || null,
+        timestamp: Date.now(),
+        autoDismiss: options.autoDismiss || null
+      };
+
+      this._stack.push(notif);
+      this._render();
+
+      // Browser notification if permitted
+      if ('Notification' in window && Notification.permission === 'granted') {
+        new Notification(notif.title, {
+          body: notif.message,
+          icon: notif.icon,
+          tag: `${notif.app}-${notif.id}`
+        });
+      }
+
+      // Auto-dismiss timer
+      if (notif.autoDismiss) {
+        setTimeout(() => this.dismiss(notif.id), notif.autoDismiss);
+      }
+
+      return notif.id;
+    },
+
+    /**
+     * Dismiss a specific notification
+     * @param {number} id - Notification ID
+     */
+    dismiss(id) {
+      this._stack = this._stack.filter(n => n.id !== id);
+      this._render();
+    },
+
+    /**
+     * Dismiss all notifications for an app
+     * @param {string} appName - App name
+     */
+    dismissApp(appName) {
+      this._stack = this._stack.filter(n => n.app !== appName);
+      this._render();
+    },
+
+    /**
+     * Dismiss all notifications
+     */
+    dismissAll() {
+      this._stack = [];
+      this._render();
+    },
+
+    /**
+     * Get count of active notifications
+     * @returns {number}
+     */
+    count() {
+      return this._stack.length;
+    },
+
+    /**
+     * Update existing notification
+     * @param {number} id - Notification ID
+     * @param {object} options - Fields to update
+     */
+    update(id, options) {
+      const notif = this._stack.find(n => n.id === id);
+      if (!notif) return;
+
+      Object.assign(notif, options);
+      this._render();
+    },
+
+    /**
+     * Render notification cards
+     * @private
+     */
+    _render() {
+      if (!this._container) {
+        this._container = document.getElementById('notification-center');
+        if (!this._container) return;
+      }
+
+      // Limit to 5 most recent
+      const visible = this._stack.slice(-5);
+      const visibleIds = visible.map(n => n.id);
+
+      // Get existing card IDs
+      const existingCards = Array.from(this._container.querySelectorAll('.notification-card'));
+      const existingIds = existingCards.map(card => parseInt(card.getAttribute('data-id')));
+
+      // Remove cards that are no longer in visible stack
+      existingCards.forEach(card => {
+        const id = parseInt(card.getAttribute('data-id'));
+        if (!visibleIds.includes(id)) {
+          card.remove();
+        }
+      });
+
+      // Add or update cards
+      visible.forEach(n => {
+        let card = this._container.querySelector(`.notification-card[data-id="${n.id}"]`);
+
+        if (!card) {
+          // New card - create and animate
+          card = this._createCard(n);
+          this._container.appendChild(card);
+        } else {
+          // Existing card - update content (no animation)
+          this._updateCard(card, n);
+        }
+      });
+
+      // Start timestamp updater if not already running
+      if (visible.length > 0 && !this._updateInterval) {
+        this._updateInterval = setInterval(() => this._updateTimestamps(), 60000);
+      } else if (visible.length === 0 && this._updateInterval) {
+        clearInterval(this._updateInterval);
+        this._updateInterval = null;
+      }
+    },
+
+    /**
+     * Create a new notification card element
+     * @private
+     */
+    _createCard(n) {
+      const card = document.createElement('div');
+      card.className = 'notification-card';
+      card.setAttribute('data-id', n.id);
+      card.setAttribute('data-action', n.action || '');
+      card.setAttribute('data-app', n.app);
+
+      const relativeTime = this._getRelativeTime(n.timestamp);
+      card.innerHTML = `
+        <div class="notification-header">
+          <span class="notification-app-icon">${n.icon}</span>
+          <span class="notification-app-name">${window.AppServices._escapeHtml(n.app)}</span>
+          ${n.dismissible ? `<button class="notification-close" onclick="window.AppServices.notifications.dismiss(${n.id}); event.stopPropagation();">×</button>` : ''}
+        </div>
+        <div class="notification-body">
+          <div class="notification-title">${window.AppServices._escapeHtml(n.title)}</div>
+          ${n.message ? `<div class="notification-message">${window.AppServices._escapeHtml(n.message)}</div>` : ''}
+          ${n.badge ? `<span class="notification-badge">${n.badge}</span>` : ''}
+        </div>
+        <div class="notification-footer">
+          <span class="notification-time">${relativeTime}</span>
+        </div>
+      `;
+
+      // Add click handler if action exists
+      if (n.action) {
+        card.style.cursor = 'pointer';
+        card.onclick = (e) => {
+          if (!e.target.classList.contains('notification-close')) {
+            window.location.href = n.action;
+          }
+        };
+      }
+
+      return card;
+    },
+
+    /**
+     * Update existing notification card content
+     * @private
+     */
+    _updateCard(card, n) {
+      // Update title
+      const titleEl = card.querySelector('.notification-title');
+      if (titleEl) {
+        titleEl.textContent = n.title;
+      }
+
+      // Update message
+      const messageEl = card.querySelector('.notification-message');
+      if (n.message) {
+        if (messageEl) {
+          messageEl.textContent = n.message;
+        } else {
+          const bodyEl = card.querySelector('.notification-body');
+          const newMessage = document.createElement('div');
+          newMessage.className = 'notification-message';
+          newMessage.textContent = n.message;
+          bodyEl.insertBefore(newMessage, bodyEl.querySelector('.notification-badge'));
+        }
+      } else if (messageEl) {
+        messageEl.remove();
+      }
+
+      // Update badge
+      const badgeEl = card.querySelector('.notification-badge');
+      if (n.badge) {
+        if (badgeEl) {
+          badgeEl.textContent = n.badge;
+        } else {
+          const bodyEl = card.querySelector('.notification-body');
+          const newBadge = document.createElement('span');
+          newBadge.className = 'notification-badge';
+          newBadge.textContent = n.badge;
+          bodyEl.appendChild(newBadge);
+        }
+      } else if (badgeEl) {
+        badgeEl.remove();
+      }
+
+      // Update time
+      const timeEl = card.querySelector('.notification-time');
+      if (timeEl) {
+        timeEl.textContent = this._getRelativeTime(n.timestamp);
+      }
+
+      // Update action
+      card.setAttribute('data-action', n.action || '');
+      if (n.action) {
+        card.style.cursor = 'pointer';
+      } else {
+        card.style.cursor = 'default';
+      }
+    },
+
+    /**
+     * Update timestamps on visible notifications
+     * @private
+     */
+    _updateTimestamps() {
+      const cards = this._container?.querySelectorAll('.notification-card');
+      if (!cards) return;
+
+      cards.forEach(card => {
+        const id = parseInt(card.getAttribute('data-id'));
+        const notif = this._stack.find(n => n.id === id);
+        if (notif) {
+          const timeEl = card.querySelector('.notification-time');
+          if (timeEl) {
+            timeEl.textContent = this._getRelativeTime(notif.timestamp);
+          }
+        }
+      });
+    },
+
+    /**
+     * Get relative time string
+     * @private
+     */
+    _getRelativeTime(timestamp) {
+      const seconds = Math.floor((Date.now() - timestamp) / 1000);
+      if (seconds < 60) return 'just now';
+      const minutes = Math.floor(seconds / 60);
+      if (minutes < 60) return `${minutes}m ago`;
+      const hours = Math.floor(minutes / 60);
+      if (hours < 24) return `${hours}h ago`;
+      const days = Math.floor(hours / 24);
+      return `${days}d ago`;
+    }
+  },
+
+  /**
+   * Request browser notification permission
+   * @returns {Promise<string>} Permission state
+   */
+  async requestNotificationPermission() {
+    if ('Notification' in window && Notification.permission === 'default') {
+      return await Notification.requestPermission();
+    }
+    return Notification.permission;
+  },
+
+  /**
+   * Escape HTML to prevent XSS
+   * @private
+   */
+  _escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+  }
+};

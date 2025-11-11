@@ -1,0 +1,464 @@
+<style>
+.dev-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 2rem;
+}
+
+.dev-section {
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.dev-section h2 {
+  margin: 0 0 1rem 0;
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.dev-section p {
+  margin: 0 0 1rem 0;
+  color: #6b7280;
+  font-size: 0.9rem;
+}
+
+.dev-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.dev-button {
+  padding: 0.5rem 1rem;
+  background: #667eea;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 500;
+  transition: background 0.2s, transform 0.1s;
+}
+
+.dev-button:hover {
+  background: #5568d3;
+  transform: translateY(-1px);
+}
+
+.dev-button:active {
+  transform: translateY(0);
+}
+
+.dev-button.secondary {
+  background: #6b7280;
+}
+
+.dev-button.secondary:hover {
+  background: #4b5563;
+}
+
+.dev-button.danger {
+  background: #ef4444;
+}
+
+.dev-button.danger:hover {
+  background: #dc2626;
+}
+
+.dev-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  max-width: 500px;
+}
+
+.dev-form-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.dev-form-row label {
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: #374151;
+}
+
+.dev-form-row input,
+.dev-form-row textarea,
+.dev-form-row select {
+  padding: 0.5rem;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  font-size: 0.9rem;
+}
+
+.dev-form-row textarea {
+  resize: vertical;
+  min-height: 60px;
+}
+
+.dev-output {
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 4px;
+  padding: 1rem;
+  font-family: monospace;
+  font-size: 0.85rem;
+  color: #374151;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.dev-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.dev-stat {
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 4px;
+  padding: 1rem;
+  text-align: center;
+}
+
+.dev-stat-value {
+  font-size: 2rem;
+  font-weight: 600;
+  color: #667eea;
+}
+
+.dev-stat-label {
+  font-size: 0.75rem;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-top: 0.25rem;
+}
+</style>
+
+<div class="dev-container">
+  <h1>🛠️ Dev Tools - Notification Testing</h1>
+
+  <!-- Quick Tests -->
+  <div class="dev-section">
+    <h2>Quick Tests</h2>
+    <p>Click buttons to trigger different notification types</p>
+    <div class="dev-controls">
+      <button class="dev-button" onclick="testBasic()">Basic Notification</button>
+      <button class="dev-button" onclick="testWithBadge()">With Badge (5)</button>
+      <button class="dev-button" onclick="testAutoDismiss()">Auto-Dismiss (5s)</button>
+      <button class="dev-button" onclick="testNonDismissible()">Non-Dismissible</button>
+      <button class="dev-button" onclick="testLongMessage()">Long Message</button>
+      <button class="dev-button" onclick="testNoAction()">No Click Action</button>
+    </div>
+  </div>
+
+  <!-- Custom Notification -->
+  <div class="dev-section">
+    <h2>Custom Notification</h2>
+    <p>Build your own notification with custom parameters</p>
+    <div class="dev-form">
+      <div class="dev-form-row">
+        <label>App Name</label>
+        <input type="text" id="custom-app" value="dev" />
+      </div>
+      <div class="dev-form-row">
+        <label>Icon (emoji)</label>
+        <input type="text" id="custom-icon" value="🛠️" maxlength="2" />
+      </div>
+      <div class="dev-form-row">
+        <label>Title</label>
+        <input type="text" id="custom-title" value="Custom Notification" />
+      </div>
+      <div class="dev-form-row">
+        <label>Message</label>
+        <textarea id="custom-message">This is a custom notification message</textarea>
+      </div>
+      <div class="dev-form-row">
+        <label>Action URL</label>
+        <input type="text" id="custom-action" value="/app/dev" />
+      </div>
+      <div class="dev-form-row">
+        <label>Badge Count (0 = none)</label>
+        <input type="number" id="custom-badge" value="0" min="0" />
+      </div>
+      <div class="dev-form-row">
+        <label>Auto-Dismiss (ms, 0 = never)</label>
+        <input type="number" id="custom-autodismiss" value="0" min="0" step="1000" />
+      </div>
+      <div class="dev-form-row">
+        <label>
+          <input type="checkbox" id="custom-dismissible" checked /> Dismissible (show X button)
+        </label>
+      </div>
+      <button class="dev-button" onclick="testCustom()">Show Custom Notification</button>
+    </div>
+  </div>
+
+  <!-- Notification Management -->
+  <div class="dev-section">
+    <h2>Notification Management</h2>
+    <p>Test dismissing and managing notifications</p>
+    <div class="dev-controls">
+      <button class="dev-button secondary" onclick="updateLast()">Update Last Notification</button>
+      <button class="dev-button secondary" onclick="dismissLast()">Dismiss Last</button>
+      <button class="dev-button danger" onclick="dismissAll()">Dismiss All</button>
+      <button class="dev-button secondary" onclick="showStats()">Show Stats</button>
+    </div>
+    <div class="dev-stats" id="stats"></div>
+  </div>
+
+  <!-- Stress Test -->
+  <div class="dev-section">
+    <h2>Stress Test</h2>
+    <p>Generate multiple notifications to test stacking and performance</p>
+    <div class="dev-controls">
+      <button class="dev-button" onclick="spawnThree()">Spawn 3 Notifications</button>
+      <button class="dev-button" onclick="spawnTen()">Spawn 10 Notifications</button>
+      <button class="dev-button" onclick="spawnSequential()">Spawn Sequential (5s intervals)</button>
+    </div>
+  </div>
+
+  <!-- Console Log -->
+  <div class="dev-section">
+    <h2>Console Log</h2>
+    <p>Notification IDs and events</p>
+    <div class="dev-output" id="console"></div>
+  </div>
+</div>
+
+<script>
+let lastNotificationId = null;
+let sequentialTimer = null;
+
+// Helper to log to console
+function log(message) {
+  const consoleEl = document.getElementById('console');
+  const timestamp = new Date().toLocaleTimeString();
+  consoleEl.innerHTML = `[${timestamp}] ${message}<br>` + consoleEl.innerHTML;
+}
+
+// Quick Tests
+function testBasic() {
+  const id = window.AppServices.notifications.show({
+    app: 'dev',
+    icon: '🛠️',
+    title: 'Basic Notification',
+    message: 'This is a basic notification with all default settings',
+    action: '/app/dev'
+  });
+  lastNotificationId = id;
+  log(`Created basic notification (ID: ${id})`);
+}
+
+function testWithBadge() {
+  const id = window.AppServices.notifications.show({
+    app: 'dev',
+    icon: '🔔',
+    title: 'Notification with Badge',
+    message: 'This notification has a badge count',
+    badge: 5,
+    action: '/app/dev'
+  });
+  lastNotificationId = id;
+  log(`Created notification with badge (ID: ${id})`);
+}
+
+function testAutoDismiss() {
+  const id = window.AppServices.notifications.show({
+    app: 'dev',
+    icon: '⏱️',
+    title: 'Auto-Dismiss Test',
+    message: 'This notification will disappear after 5 seconds',
+    action: '/app/dev',
+    autoDismiss: 5000
+  });
+  lastNotificationId = id;
+  log(`Created auto-dismiss notification (ID: ${id})`);
+}
+
+function testNonDismissible() {
+  const id = window.AppServices.notifications.show({
+    app: 'dev',
+    icon: '🔒',
+    title: 'Non-Dismissible',
+    message: 'This notification has no X button',
+    dismissible: false,
+    action: '/app/dev'
+  });
+  lastNotificationId = id;
+  log(`Created non-dismissible notification (ID: ${id})`);
+}
+
+function testLongMessage() {
+  const id = window.AppServices.notifications.show({
+    app: 'dev',
+    icon: '📝',
+    title: 'Long Message Test',
+    message: 'This is a very long notification message that should be truncated with ellipsis after two lines to prevent the card from becoming too tall and taking up too much space in the notification center.',
+    action: '/app/dev'
+  });
+  lastNotificationId = id;
+  log(`Created long message notification (ID: ${id})`);
+}
+
+function testNoAction() {
+  const id = window.AppServices.notifications.show({
+    app: 'dev',
+    icon: '🚫',
+    title: 'No Click Action',
+    message: 'Clicking this card does nothing (no action URL)',
+    action: null
+  });
+  lastNotificationId = id;
+  log(`Created no-action notification (ID: ${id})`);
+}
+
+// Custom Notification
+function testCustom() {
+  const app = document.getElementById('custom-app').value;
+  const icon = document.getElementById('custom-icon').value;
+  const title = document.getElementById('custom-title').value;
+  const message = document.getElementById('custom-message').value;
+  const action = document.getElementById('custom-action').value || null;
+  const badge = parseInt(document.getElementById('custom-badge').value) || null;
+  const autoDismiss = parseInt(document.getElementById('custom-autodismiss').value) || null;
+  const dismissible = document.getElementById('custom-dismissible').checked;
+
+  const id = window.AppServices.notifications.show({
+    app,
+    icon,
+    title,
+    message,
+    action,
+    badge: badge > 0 ? badge : null,
+    autoDismiss: autoDismiss > 0 ? autoDismiss : null,
+    dismissible
+  });
+  lastNotificationId = id;
+  log(`Created custom notification (ID: ${id})`);
+}
+
+// Management
+function updateLast() {
+  if (!lastNotificationId) {
+    log('No notification to update');
+    return;
+  }
+
+  window.AppServices.notifications.update(lastNotificationId, {
+    title: 'Updated Notification',
+    message: 'This notification was updated!',
+    badge: 99
+  });
+  log(`Updated notification (ID: ${lastNotificationId})`);
+}
+
+function dismissLast() {
+  if (!lastNotificationId) {
+    log('No notification to dismiss');
+    return;
+  }
+
+  window.AppServices.notifications.dismiss(lastNotificationId);
+  log(`Dismissed notification (ID: ${lastNotificationId})`);
+  lastNotificationId = null;
+}
+
+function dismissAll() {
+  window.AppServices.notifications.dismissAll();
+  log('Dismissed all notifications');
+  lastNotificationId = null;
+}
+
+function showStats() {
+  const count = window.AppServices.notifications.count();
+  const statsEl = document.getElementById('stats');
+  statsEl.innerHTML = `
+    <div class="dev-stat">
+      <div class="dev-stat-value">${count}</div>
+      <div class="dev-stat-label">Active Notifications</div>
+    </div>
+    <div class="dev-stat">
+      <div class="dev-stat-value">${lastNotificationId || 'N/A'}</div>
+      <div class="dev-stat-label">Last ID</div>
+    </div>
+  `;
+  log(`Stats: ${count} active notifications`);
+}
+
+// Stress Tests
+function spawnThree() {
+  for (let i = 1; i <= 3; i++) {
+    setTimeout(() => {
+      const id = window.AppServices.notifications.show({
+        app: 'dev',
+        icon: '🚀',
+        title: `Notification ${i}/3`,
+        message: `Testing notification stacking (${i} of 3)`,
+        action: '/app/dev',
+        badge: i
+      });
+      log(`Spawned notification ${i}/3 (ID: ${id})`);
+    }, (i - 1) * 300);
+  }
+}
+
+function spawnTen() {
+  for (let i = 1; i <= 10; i++) {
+    setTimeout(() => {
+      const id = window.AppServices.notifications.show({
+        app: 'dev',
+        icon: '💥',
+        title: `Batch ${i}/10`,
+        message: `Testing max visible limit (only last 5 should show)`,
+        action: '/app/dev',
+        badge: i
+      });
+      log(`Spawned notification ${i}/10 (ID: ${id})`);
+    }, (i - 1) * 200);
+  }
+}
+
+function spawnSequential() {
+  if (sequentialTimer) {
+    clearInterval(sequentialTimer);
+    sequentialTimer = null;
+    log('Stopped sequential spawn');
+    return;
+  }
+
+  let count = 1;
+  sequentialTimer = setInterval(() => {
+    const id = window.AppServices.notifications.show({
+      app: 'dev',
+      icon: '⏰',
+      title: `Sequential #${count}`,
+      message: 'New notification every 5 seconds',
+      action: '/app/dev',
+      autoDismiss: 8000
+    });
+    log(`Sequential spawn #${count} (ID: ${id})`);
+    count++;
+
+    if (count > 10) {
+      clearInterval(sequentialTimer);
+      sequentialTimer = null;
+      log('Sequential spawn complete');
+    }
+  }, 5000);
+
+  log('Started sequential spawn (10 notifications, 5s intervals)');
+}
+
+// Initial log
+log('Dev Tools loaded - ready to test notifications');
+</script>

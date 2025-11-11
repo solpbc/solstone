@@ -18,7 +18,7 @@ window.AppServices.register('home', {
     // Log all events for debugging
     console.log('[Home Service] Event:', msg.tract, msg);
 
-    // Example: Show notification for specific events
+    // Example: Show notification card for specific events
     if (msg.tract === 'cortex' && msg.event === 'agent_complete') {
       this.notifyAgentComplete(msg);
     }
@@ -39,15 +39,14 @@ window.AppServices.register('home', {
     }
 
     const agentName = msg.agent || 'Agent';
-    window.AppServices.notify(
-      'Agent Complete',
-      `${agentName} finished processing`,
-      {
-        icon: '🤖',
-        tag: 'agent-complete',
-        duration: 4000
-      }
-    );
+    window.AppServices.notifications.show({
+      app: 'home',
+      icon: '🤖',
+      title: 'Agent Complete',
+      message: `${agentName} finished processing`,
+      action: '/app/home',
+      autoDismiss: 10000  // Auto-dismiss after 10 seconds
+    });
   },
 
   notifyDayIndexed(msg) {
@@ -56,15 +55,14 @@ window.AppServices.register('home', {
     }
 
     const day = msg.day || 'today';
-    window.AppServices.notify(
-      'Indexing Complete',
-      `${day} has been indexed`,
-      {
-        icon: '📇',
-        tag: 'day-indexed',
-        duration: 3000
-      }
-    );
+    window.AppServices.notifications.show({
+      app: 'home',
+      icon: '📇',
+      title: 'Indexing Complete',
+      message: `${day} has been indexed`,
+      action: '/app/home',
+      autoDismiss: 8000
+    });
   },
 
   notifyTaskComplete(msg) {
@@ -73,15 +71,14 @@ window.AppServices.register('home', {
     }
 
     const taskName = msg.task || 'Task';
-    window.AppServices.notify(
-      'Task Complete',
-      `${taskName} finished`,
-      {
-        icon: '✅',
-        tag: 'task-complete',
-        duration: 4000
-      }
-    );
+    window.AppServices.notifications.show({
+      app: 'home',
+      icon: '✅',
+      title: 'Task Complete',
+      message: `${taskName} finished`,
+      action: '/app/home',
+      autoDismiss: 10000
+    });
   },
 
   isCurrentApp() {

@@ -58,16 +58,48 @@ apps/{name}/templates/
 **Service Capabilities**
 - Listen to WebSocket events (Callosum tracts)
 - Update badge counts dynamically
-- Show browser or in-app notifications
+- Show persistent notification cards
 - Update submenu items in real-time
 - Run custom background logic
 
 **AppServices API**
+
+Core Methods:
 - `AppServices.register(appName, service)` - Register background service
 - `AppServices.updateBadge(appName, facetName, count)` - Update badge counts
 - `AppServices.updateSubmenu(appName, items)` - Update submenu items
-- `AppServices.notify(title, body, options)` - Show notification
 - `AppServices.requestNotificationPermission()` - Request browser notifications
+
+Notification System:
+- `AppServices.notifications.show(options)` - Show persistent notification card
+- `AppServices.notifications.dismiss(id)` - Dismiss specific notification
+- `AppServices.notifications.dismissApp(appName)` - Dismiss all for app
+- `AppServices.notifications.dismissAll()` - Dismiss all notifications
+- `AppServices.notifications.count()` - Get active notification count
+- `AppServices.notifications.update(id, options)` - Update notification
+
+**Notification Options**
+```javascript
+{
+  app: 'inbox',           // App name (required)
+  icon: '📬',             // Emoji icon (optional)
+  title: 'New Message',   // Title (required)
+  message: 'You have...', // Message body (optional)
+  action: '/app/inbox',   // Click action URL (optional)
+  badge: 5,               // Badge count (optional)
+  dismissible: true,      // Show X button (default: true)
+  autoDismiss: 10000      // Auto-dismiss ms (optional)
+}
+```
+
+**Notification Cards**
+- Persistent until dismissed or clicked
+- Stack vertically in top-right (max 5 visible)
+- Click card → navigate to action URL
+- Click X → dismiss immediately
+- Auto-dismiss optional per notification
+- Relative timestamps (e.g., "5m ago")
+- Also triggers browser notification if permitted
 
 **Service Registration**
 Services are automatically loaded and executed on page load. Each service runs in an isolated function scope and can listen to WebSocket events via `window.appEvents`.
@@ -82,11 +114,15 @@ window.AppServices.register('home', {
 
   handleCortexEvent(msg) {
     if (msg.event === 'agent_complete') {
-      window.AppServices.notify(
-        'Agent Complete',
-        `${msg.agent} finished processing`,
-        { icon: '🤖', duration: 4000 }
-      );
+      // Show persistent notification card
+      window.AppServices.notifications.show({
+        app: 'home',
+        icon: '🤖',
+        title: 'Agent Complete',
+        message: `${msg.agent} finished processing`,
+        action: '/app/home',
+        autoDismiss: 10000
+      });
     }
   }
 });
@@ -153,6 +189,23 @@ window.AppServices.register('home', {
 - Dropdown panel anchored below status-icon
 - Displays system health and service status information
 - Closes on outside click or icon re-click
+
+**`notification-center`**
+- Fixed position top-right below facet-bar
+- Displays persistent notification cards from apps
+- Cards stack vertically (max 5 visible)
+- Animated slide-in from right
+- Each card shows app icon, title, message, timestamp
+- Click card to navigate, click X to dismiss
+- Auto-dismiss optional per notification
+
+**`notification-card`**
+- Individual notification in notification-center
+- Contains header (icon, app name, close button)
+- Body with title, message, optional badge
+- Footer with relative timestamp
+- Hover effect shifts card left slightly
+- Dismissible or persistent based on options
 
 **`workspace`**
 - Main content area between facet-bar and app-bar
