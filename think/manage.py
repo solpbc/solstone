@@ -30,6 +30,7 @@ class ServiceManager:
         self.last_log_lines = {}  # Maps ref -> (timestamp, stream, line) for most recent log
         self.cpu_cache = {}  # Maps pid -> last cpu_percent value
         self.cpu_procs = {}  # Maps pid -> Process object for cpu tracking
+        self.running_tasks = {}  # Maps ref -> task info from logs tract
 
     def handle_event(self, message: dict) -> None:
         """Process Callosum events.
@@ -46,9 +47,11 @@ class ServiceManager:
                 self.crashed = message.get("crashed", [])
                 self.tasks = message.get("tasks", [])
 
-                # Poll CPU for current services
-                for svc in self.services:
-                    pid = svc["pid"]
+                # Poll CPU for current services and tasks
+                all_pids = [svc["pid"] for svc in self.services]
+                all_pids.extend([task["pid"] for task in self.running_tasks.values()])
+
+                for pid in all_pids:
                     try:
                         if pid not in self.cpu_procs:
                             # First time seeing this PID - initialize tracking
@@ -84,7 +87,28 @@ class ServiceManager:
                 self.status_message = f"Stopped {service} (exit {exit_code})"
 
         elif tract == "logs":
-            if event == "line":
+            if event == "exec":
+                # New process started via runner
+                ref = message.get("ref")
+                name = message.get("name")
+                pid = message.get("pid")
+                cmd = message.get("cmd", [])
+                if ref and name and pid:
+                    self.running_tasks[ref] = {
+                        "ref": ref,
+                        "name": name,
+                        "pid": pid,
+                        "cmd": cmd,
+                        "start_time": datetime.now(),
+                    }
+                    # Initialize CPU tracking for this task
+                    try:
+                        self.cpu_procs[pid] = psutil.Process(pid)
+                        self.cpu_procs[pid].cpu_percent(interval=None)  # Start tracking
+                    except (psutil.NoSuchProcess, psutil.AccessDenied):
+                        pass
+
+            elif event == "line":
                 ref = message.get("ref")
                 line = message.get("line", "")
                 stream = message.get("stream", "stdout")
@@ -92,10 +116,23 @@ class ServiceManager:
                     self.last_log_lines[ref] = (datetime.now(), stream, line)
 
             elif event == "exit":
-                # Clean up log lines for exited processes
+                # Process exited - clean up
                 ref = message.get("ref")
-                if ref and ref in self.last_log_lines:
-                    del self.last_log_lines[ref]
+                if ref:
+                    # Remove from running tasks
+                    if ref in self.running_tasks:
+                        # Clean up CPU tracking for this task's PID
+                        task = self.running_tasks[ref]
+                        pid = task["pid"]
+                        if pid in self.cpu_procs:
+                            del self.cpu_procs[pid]
+                        if pid in self.cpu_cache:
+                            del self.cpu_cache[pid]
+                        del self.running_tasks[ref]
+
+                    # Clean up log lines
+                    if ref in self.last_log_lines:
+                        del self.last_log_lines[ref]
 
     def format_uptime(self, seconds: int) -> str:
         """Format uptime in human-readable format.
@@ -141,6 +178,29 @@ class ServiceManager:
         else:
             return f"{total_seconds // 86400}d"
 
+    def format_runtime(self, start_time: datetime) -> str:
+        """Format task runtime in human-readable format.
+
+        Args:
+            start_time: When the task started
+
+        Returns:
+            Formatted string like "45s", "2m 15s", "1h 5m"
+        """
+        delta = datetime.now() - start_time
+        total_seconds = int(delta.total_seconds())
+
+        if total_seconds < 60:
+            return f"{total_seconds}s"
+        elif total_seconds < 3600:  # Less than 1 hour
+            mins = total_seconds // 60
+            secs = total_seconds % 60
+            return f"{mins}m {secs}s"
+        else:  # 1 hour or more
+            hours = total_seconds // 3600
+            mins = (total_seconds % 3600) // 60
+            return f"{hours}h {mins}m"
+
     def get_memory_mb(self, pid: int) -> str:
         """Get process memory in MB, or '-' if unavailable.
 
@@ -170,6 +230,70 @@ class ServiceManager:
         if pid in self.cpu_cache:
             return f"{self.cpu_cache[pid]:.0f}"
         return "-"
+
+    def render_tasks_table(self) -> list[str]:
+        """Render the running tasks table.
+
+        Returns:
+            List of output lines for the tasks table
+        """
+        if not self.running_tasks:
+            return []
+
+        t = self.term
+        output = []
+
+        # Section header
+        count = len(self.running_tasks)
+        output.append("")
+        output.append(t.bold + f"Running Tasks ({count})" + t.normal)
+        output.append("─" * min(80, t.width))
+
+        # Table header
+        header = f"  {'Task':<15} {'PID':<8} {'Runtime':<12} {'MB':<8} {'%':<6} {'Last':<6} {'Log'}"
+        output.append(t.bold + header + t.normal)
+
+        # Task rows (sorted by start time, oldest first)
+        tasks_sorted = sorted(
+            self.running_tasks.values(), key=lambda x: x["start_time"]
+        )
+
+        for task in tasks_sorted:
+            name = task["name"][:14]
+            pid = str(task["pid"])
+            runtime = self.format_runtime(task["start_time"])
+            memory = self.get_memory_mb(task["pid"])
+            cpu = self.get_cpu_percent(task["pid"])
+
+            # Get log line for this task
+            log_display = ""
+            log_color = ""
+            log_age = ""
+            ref = task["ref"]
+            if ref in self.last_log_lines:
+                timestamp, stream, log_line = self.last_log_lines[ref]
+                log_age = self.format_log_age(timestamp)
+                # Calculate available width for log text
+                # Fixed: "  " (2) + name (15) + pid (8) + runtime (12) + memory (8) + cpu (6) + age (6) + spaces (6)
+                fixed_width = 63
+                available = max(0, t.width - fixed_width)
+
+                if available > 0:
+                    if len(log_line) > available:
+                        log_display = log_line[: available - 3] + "..."
+                    else:
+                        log_display = log_line
+
+                    # Color code based on stream
+                    if stream == "stderr":
+                        log_color = t.red
+                    else:
+                        log_color = t.normal
+
+            line = f"  {name:<15} {pid:<8} {runtime:<12} {memory:>7}  {cpu:>5} {log_age:>5} "
+            output.append(line + log_color + log_display + t.normal)
+
+        return output
 
     def render(self) -> str:
         """Render the entire UI.
@@ -238,6 +362,10 @@ class ServiceManager:
             output.append(t.dim + "  No services running" + t.normal)
 
         output.append("")
+
+        # Running tasks table (from logs tract)
+        tasks_output = self.render_tasks_table()
+        output.extend(tasks_output)
 
         # Crashed services (if any)
         if self.crashed:
