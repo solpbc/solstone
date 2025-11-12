@@ -1,7 +1,3 @@
-{% extends 'base.html' %}
-{% set title = 'Live Dashboard' %}
-{% set active = 'live' %}
-{% block head %}
 <style>
 /* Live Dashboard Layout */
 .live-dashboard {
@@ -399,8 +395,7 @@
   font-style: italic;
 }
 </style>
-{% endblock %}
-{% block body %}
+
 <div class="live-dashboard">
   <!-- Vitals Bar -->
   <div class="vitals-bar">
@@ -940,4 +935,3 @@
   window.appEvents.listen('*', handleEvent);
 })();
 </script>
-{% endblock %}
