@@ -32,16 +32,10 @@ def search_summaries_api() -> Any:
     if not query:
         return jsonify({"total": 0, "results": []})
 
-    try:
-        limit = int(request.args.get("limit", 20))
-    except ValueError:
-        limit = 20
-    try:
-        offset = int(request.args.get("offset", 0))
-    except ValueError:
-        offset = 0
-
+    from ..utils import parse_pagination_params
     from think.utils import get_topics
+
+    limit, offset = parse_pagination_params(default_limit=20)
 
     topics = get_topics()
     day = request.args.get("day")
@@ -79,16 +73,10 @@ def search_events_api() -> Any:
     if not query:
         return jsonify({"total": 0, "results": []})
 
-    try:
-        limit = int(request.args.get("limit", 10))
-    except ValueError:
-        limit = 10
-    try:
-        offset = int(request.args.get("offset", 0))
-    except ValueError:
-        offset = 0
-
+    from ..utils import parse_pagination_params
     from think.utils import get_topics
+
+    limit, offset = parse_pagination_params(default_limit=10)
 
     topics = get_topics()
     day = request.args.get("day")
@@ -140,14 +128,9 @@ def search_transcripts_api() -> Any:
     if not query:
         return jsonify({"total": 0, "results": []})
 
-    try:
-        limit = int(request.args.get("limit", 20))
-    except ValueError:
-        limit = 20
-    try:
-        offset = int(request.args.get("offset", 0))
-    except ValueError:
-        offset = 0
+    from ..utils import parse_pagination_params
+
+    limit, offset = parse_pagination_params(default_limit=20)
 
     day = request.args.get("day")
     total, rows = search_transcripts(query, limit, offset, day=day)

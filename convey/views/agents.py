@@ -228,20 +228,14 @@ def agents_list() -> object:
 
 def _get_agents_list(agent_type: str) -> object:
     """Internal helper to get agents list."""
-    # Default limit depends on agent type - 20 for historical, 10 for live
-    default_limit = 20 if agent_type == "historical" else 10
-    limit = int(request.args.get("limit", default_limit))
-    offset = int(request.args.get("offset", 0))
-
-    # Validate parameters - cortex_agents already does this but let's be explicit
-    limit = max(1, min(limit, 100))  # Limit between 1-100
-    offset = max(0, offset)
-
-    # Get agents directly from cortex_agents function
     from muse.cortex_client import cortex_agents
     from think.utils import get_agents
 
-    from ..utils import time_since
+    from ..utils import parse_pagination_params, time_since
+
+    # Default limit depends on agent type - 20 for historical, 10 for live
+    default_limit = 20 if agent_type == "historical" else 10
+    limit, offset = parse_pagination_params(default_limit=default_limit, max_limit=100)
 
     # Get all agents using cortex_agents
     response = cortex_agents(limit=limit, offset=offset, agent_type=agent_type)

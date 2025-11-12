@@ -1,7 +1,9 @@
+import json
 import os
 import re
 import time
 from datetime import datetime
+from pathlib import Path
 from typing import Any, Optional
 
 from think.utils import day_dirs
@@ -86,3 +88,141 @@ def spawn_agent(
         backend=backend,
         config=config,
     )
+
+
+def parse_pagination_params(
+    default_limit: int = 20,
+    max_limit: int = 100,
+    min_limit: int = 1,
+) -> tuple[int, int]:
+    """Parse and validate pagination parameters from request.args.
+
+    Extracts limit and offset from Flask request.args, validates them,
+    and enforces bounds to prevent API abuse.
+
+    Args:
+        default_limit: Default value for limit if not provided or invalid
+        max_limit: Maximum allowed value for limit
+        min_limit: Minimum allowed value for limit
+
+    Returns:
+        (limit, offset) tuple with validated integers
+
+    Example:
+        limit, offset = parse_pagination_params(default_limit=20, max_limit=100)
+    """
+    from flask import request
+
+    # Parse limit with error handling
+    try:
+        limit = int(request.args.get("limit", default_limit))
+    except (ValueError, TypeError):
+        limit = default_limit
+
+    # Parse offset with error handling
+    try:
+        offset = int(request.args.get("offset", 0))
+    except (ValueError, TypeError):
+        offset = 0
+
+    # Enforce bounds
+    limit = max(min_limit, min(limit, max_limit))
+    offset = max(0, offset)
+
+    return limit, offset
+
+
+def load_json(path: str | Path) -> dict | list | None:
+    """Load JSON file with consistent error handling.
+
+    Args:
+        path: Path to JSON file (string or Path object)
+
+    Returns:
+        Parsed JSON data (dict or list), or None if file doesn't exist or can't be parsed
+
+    Example:
+        data = load_json("config.json")
+        if data:
+            print(data.get("key"))
+    """
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError, OSError):
+        return None
+
+
+def save_json(
+    path: str | Path,
+    data: dict | list,
+    indent: int = 2,
+    add_newline: bool = True,
+) -> bool:
+    """Save JSON file with consistent formatting.
+
+    Args:
+        path: Path to JSON file (string or Path object)
+        data: Data to serialize (dict or list)
+        indent: Indentation level (default: 2)
+        add_newline: Whether to add trailing newline for readability (default: True)
+
+    Returns:
+        True if successful, False otherwise
+
+    Example:
+        success = save_json("config.json", {"key": "value"})
+    """
+    try:
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(data, f, indent=indent, ensure_ascii=False)
+            if add_newline:
+                f.write("\n")
+        return True
+    except (OSError, TypeError):
+        return False
+
+
+def error_response(message: str, code: int = 400) -> tuple[Any, int]:
+    """Create a standard JSON error response.
+
+    Provides consistent error response format across all API endpoints.
+
+    Args:
+        message: Error message to return to client
+        code: HTTP status code (default: 400 Bad Request)
+
+    Returns:
+        Tuple of (jsonify response, status_code) ready for Flask return
+
+    Example:
+        return error_response("Invalid input", 400)
+        return error_response("Not found", 404)
+    """
+    from flask import jsonify
+
+    return jsonify({"error": message}), code
+
+
+def success_response(data: dict[str, Any] | None = None, code: int = 200) -> tuple[Any, int]:
+    """Create a standard JSON success response.
+
+    Provides consistent success response format across all API endpoints.
+
+    Args:
+        data: Optional dict of additional data to include in response
+        code: HTTP status code (default: 200 OK)
+
+    Returns:
+        Tuple of (jsonify response, status_code) ready for Flask return
+
+    Example:
+        return success_response()  # Returns {"success": True}
+        return success_response({"agent_id": "123"})  # Returns {"success": True, "agent_id": "123"}
+    """
+    from flask import jsonify
+
+    response_data = {"success": True}
+    if data:
+        response_data.update(data)
+    return jsonify(response_data), code

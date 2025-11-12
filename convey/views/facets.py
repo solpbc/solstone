@@ -38,30 +38,27 @@ def facets_list() -> Any:
 @bp.route("/api/facets", methods=["POST"])
 def create_facet() -> Any:
     """Create a new facet with the provided metadata."""
+    from ..utils import error_response, success_response
+
     data = request.get_json()
     if not data:
-        return jsonify({"error": "No data provided"}), 400
+        return error_response("No data provided")
 
     facet_name = data.get("name", "").strip()
     if not facet_name:
-        return jsonify({"error": "Facet name is required"}), 400
+        return error_response("Facet name is required")
 
     # Validate facet name (basic alphanumeric + hyphens/underscores)
     if not facet_name.replace("-", "").replace("_", "").isalnum():
-        return (
-            jsonify(
-                {
-                    "error": "Facet name must be alphanumeric with optional hyphens or underscores"
-                }
-            ),
-            400,
+        return error_response(
+            "Facet name must be alphanumeric with optional hyphens or underscores"
         )
 
     facet_path = Path(state.journal_root) / "facets" / facet_name
 
     # Check if facet already exists
     if facet_path.exists():
-        return jsonify({"error": "Facet already exists"}), 409
+        return error_response("Facet already exists", 409)
 
     try:
         # Create facet directory
@@ -78,18 +75,19 @@ def create_facet() -> Any:
         if data.get("emoji"):
             facet_data["emoji"] = data["emoji"]
 
+        from ..utils import save_json
+
         facet_json = facet_path / "facet.json"
-        with open(facet_json, "w", encoding="utf-8") as f:
-            json.dump(facet_data, f, indent=2, ensure_ascii=False)
+        save_json(facet_json, facet_data)
 
         # Create empty entities.jsonl
         entities_jsonl = facet_path / "entities.jsonl"
         entities_jsonl.write_text("", encoding="utf-8")
 
-        return jsonify({"success": True, "facet": facet_name})
+        return success_response({"facet": facet_name})
 
     except Exception as e:
-        return jsonify({"error": f"Failed to create facet: {str(e)}"}), 500
+        return error_response(f"Failed to create facet: {str(e)}", 500)
 
 
 @bp.route("/facets/<facet_name>")
@@ -124,9 +122,12 @@ def update_facet(facet_name: str) -> Any:
         return jsonify({"error": "Facet not found"}), 404
 
     try:
+        from ..utils import load_json, save_json
+
         # Read existing facet.json
-        with open(facet_json, "r", encoding="utf-8") as f:
-            existing_data = json.load(f)
+        existing_data = load_json(facet_json)
+        if not existing_data:
+            return jsonify({"error": "Failed to load facet data"}), 500
 
         # Update only provided fields
         if "title" in data:
@@ -145,8 +146,8 @@ def update_facet(facet_name: str) -> Any:
                 existing_data.pop("emoji", None)
 
         # Write updated facet.json
-        with open(facet_json, "w", encoding="utf-8") as f:
-            json.dump(existing_data, f, indent=2, ensure_ascii=False)
+        if not save_json(facet_json, existing_data):
+            return jsonify({"error": "Failed to save facet data"}), 500
 
         return jsonify({"success": True, "facet": facet_name})
 
