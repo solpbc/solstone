@@ -22,7 +22,6 @@ from think.utils import setup_cli
 
 from . import state
 from .bridge import register_websocket, start_bridge
-from .views import admin as admin_view
 from .views import agents as agents_view
 from .views import calendar as calendar_view
 from .views import chat as chat_view
@@ -240,7 +239,6 @@ chat_history = chat_view.chat_history
 clear_history = chat_view.clear_history
 search_page = search_view.search_page
 import_page = import_page_view.import_page
-admin_page = admin_view.admin_page
 calendar_days = calendar_view.calendar_days
 calendar_stats = calendar_view.calendar_stats
 calendar_transcript_page = calendar_view.calendar_transcript_page
@@ -275,7 +273,6 @@ __all__ = [
     "calendar_transcript_range",
     "login",
     "logout",
-    "admin_page",
     "stats_data",
     "journal_root",
     "run_service",

@@ -1,7 +1,3 @@
-{% extends 'base.html' %}
-{% set title = 'Admin' %}
-{% set active = 'admin' %}
-{% block head %}
 <style>
 .container { padding:0 1em; }
 button { padding:8px 16px; margin:0.5em 0; }
@@ -21,8 +17,7 @@ pre { background:#f5f5f5; padding:0.5em; }
 .config-status.error { background: #f8d7da; color: #721c24; display: block; }
 .config-status.saving { background: #d1ecf1; color: #0c5460; display: block; }
 </style>
-{% endblock %}
-{% block body %}
+
 <div class="container">
   <h2>Journal Configuration</h2>
   <div class="content" id="config">
@@ -138,13 +133,14 @@ pre { background:#f5f5f5; padding:0.5em; }
     </div>
   </div>
 </div>
+
 <script>
 let configData = null;
 let saveTimeout = null;
 
 // Config management functions
 function loadConfig(){
-  fetch('{{ url_for('admin.get_config') }}')
+  fetch('api/config')
     .then(r=>r.json())
     .then(data=>{
       configData = data;
@@ -153,7 +149,21 @@ function loadConfig(){
     })
     .catch(err=>{
       console.error('Error loading config:', err);
-      showConfigStatus('Error loading configuration', 'error');
+
+      // Show error notification
+      if (window.AppServices && window.AppServices.notifications) {
+        window.AppServices.notifications.show({
+          app: 'settings',
+          icon: '❌',
+          title: 'Load Failed',
+          message: 'Error loading configuration',
+          dismissible: true,
+          autoDismiss: 5000
+        });
+      } else {
+        // Fallback to inline status
+        showConfigStatus('Error loading configuration', 'error');
+      }
     });
 }
 
@@ -243,10 +253,8 @@ function saveConfig(){
     timezone: document.getElementById('config-timezone').value.trim()
   };
 
-  showConfigStatus('Saving...', 'saving');
-
-  // Save config first
-  fetch('{{ url_for('admin.update_config') }}', {
+  // Save config
+  fetch('api/config', {
     method: 'PUT',
     headers: {'Content-Type': 'application/json'},
     body: JSON.stringify({identity})
@@ -255,15 +263,43 @@ function saveConfig(){
   .then(data=>{
     if(data.success){
       configData = data.config;
-      showConfigStatus('Saved', 'success');
-      setTimeout(()=>hideConfigStatus(), 2000);
+
+      // Show success notification with auto-dismiss
+      if (window.AppServices && window.AppServices.notifications) {
+        window.AppServices.notifications.show({
+          app: 'settings',
+          icon: '✅',
+          title: 'Settings Saved',
+          message: 'Your configuration has been saved successfully',
+          dismissible: true,
+          autoDismiss: 3000
+        });
+      } else {
+        // Fallback to inline status
+        showConfigStatus('Saved', 'success');
+        setTimeout(()=>hideConfigStatus(), 2000);
+      }
     } else {
       throw new Error(data.error || 'Unknown error');
     }
   })
   .catch(err=>{
     console.error('Error saving config:', err);
-    showConfigStatus('Error: ' + (err.message || 'Error saving configuration'), 'error');
+
+    // Show error notification
+    if (window.AppServices && window.AppServices.notifications) {
+      window.AppServices.notifications.show({
+        app: 'settings',
+        icon: '❌',
+        title: 'Save Failed',
+        message: err.message || 'Error saving configuration',
+        dismissible: true,
+        autoDismiss: 5000
+      });
+    } else {
+      // Fallback to inline status
+      showConfigStatus('Error: ' + (err.message || 'Error saving configuration'), 'error');
+    }
   });
 }
 
@@ -281,4 +317,3 @@ function hideConfigStatus(){
 // Load config on page load
 loadConfig();
 </script>
-{% endblock %}

@@ -5,7 +5,6 @@ from importlib import import_module
 from flask import Flask
 
 from . import (
-    admin,
     agents,
     calendar,
     facets,
@@ -29,7 +28,6 @@ def register_views(app: Flask) -> None:
         search.bp,
         calendar.bp,
         todos.bp,
-        admin.bp,
         live.bp,
         chat_view.bp,
         agents.bp,

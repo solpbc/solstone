@@ -8,17 +8,22 @@ from flask import Blueprint, jsonify, render_template, request
 
 from think.utils import get_config as get_journal_config
 
-from .. import state
+from convey import state
 
-bp = Blueprint("admin", __name__, template_folder="../templates")
+settings_bp = Blueprint(
+    "settings",
+    __name__,
+    url_prefix="/app/settings",
+)
 
 
-@bp.route("/admin")
-def admin_page() -> str:
-    return render_template("admin.html", active="admin")
+@settings_bp.route("/")
+def index() -> str:
+    """Render the settings view."""
+    return render_template("app.html", app="settings")
 
 
-@bp.route("/admin/api/config")
+@settings_bp.route("/api/config")
 def get_config() -> Any:
     """Return the journal configuration."""
     try:
@@ -30,7 +35,7 @@ def get_config() -> Any:
         return jsonify({"error": str(e)}), 500
 
 
-@bp.route("/admin/api/config", methods=["PUT"])
+@settings_bp.route("/api/config", methods=["PUT"])
 def update_config() -> Any:
     """Update the journal configuration."""
     try:
