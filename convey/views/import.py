@@ -36,11 +36,6 @@ def import_page() -> str:
 def import_save() -> Any:
     from datetime import datetime
 
-    if not state.journal_root:
-        resp = jsonify({"error": "JOURNAL_PATH not set"})
-        resp.status_code = 500
-        return resp
-
     upload = request.files.get("file")
     text = request.form.get("text", "").strip()
     facet = request.form.get("facet", "").strip() or None
@@ -166,9 +161,6 @@ def import_save() -> Any:
 @bp.route("/import/api/facet", methods=["POST"])
 def import_update_metadata() -> Any:
     """Update stored metadata (facet/setting) for a saved import."""
-    if not state.journal_root:
-        return jsonify({"error": "JOURNAL_PATH not set"}), 500
-
     data = request.get_json(force=True)
     raw_path = data.get("path", "").strip()
     if not raw_path:
@@ -207,9 +199,6 @@ def import_update_metadata() -> Any:
 @bp.route("/import/api/list")
 def import_list() -> Any:
     """Get list of all imports with their metadata."""
-    if not state.journal_root:
-        return jsonify([])
-
     # Get all import timestamps using utility function
     timestamps = list_import_timestamps(journal_root=Path(state.journal_root))
 
@@ -257,9 +246,6 @@ def import_list() -> Any:
 @bp.route("/import/<timestamp>")
 def import_detail(timestamp: str) -> str:
     """Show detailed view of a specific import."""
-    if not state.journal_root:
-        return render_template("error.html", error="JOURNAL_PATH not set"), 500
-
     import_dir = Path(state.journal_root) / "imports" / timestamp
     if not import_dir.exists():
         return render_template("error.html", error="Import not found"), 404
@@ -270,9 +256,6 @@ def import_detail(timestamp: str) -> str:
 @bp.route("/import/api/<timestamp>")
 def import_detail_api(timestamp: str) -> Any:
     """Get detailed data for a specific import."""
-    if not state.journal_root:
-        return jsonify({"error": "JOURNAL_PATH not set"}), 500
-
     try:
         # Use utility function to get all details
         result = get_import_details(
@@ -287,9 +270,6 @@ def import_detail_api(timestamp: str) -> Any:
 @bp.route("/import/api/<timestamp>/summary")
 def import_summary_api(timestamp: str) -> Any:
     """Get the summary HTML for a specific import."""
-    if not state.journal_root:
-        return jsonify({"error": "JOURNAL_PATH not set"}), 500
-
     import_dir = Path(state.journal_root) / "imports" / timestamp
     if not import_dir.exists():
         return jsonify({"error": "Import not found"}), 404
@@ -332,9 +312,6 @@ def import_start() -> Any:
     ts = data.get("timestamp")
     if not path or not ts:
         return jsonify({"error": "missing params"}), 400
-
-    if not state.journal_root:
-        return jsonify({"error": "JOURNAL_PATH not set"}), 500
 
     # Generate task ID
     task_id = str(int(time.time() * 1000))
@@ -429,9 +406,6 @@ def import_start() -> Any:
 @bp.route("/import/api/<timestamp>/rerun", methods=["POST"])
 def import_rerun(timestamp: str) -> Any:
     """Re-run an import with optionally updated facet."""
-    if not state.journal_root:
-        return jsonify({"error": "JOURNAL_PATH not set"}), 500
-
     journal_root = Path(state.journal_root)
 
     # Check if import exists

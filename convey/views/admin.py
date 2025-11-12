@@ -38,17 +38,7 @@ def update_config() -> Any:
         if not data:
             return jsonify({"error": "No data provided"}), 400
 
-        # Get journal path from environment
-        import os
-
-        from dotenv import load_dotenv
-
-        load_dotenv()
-        journal = os.getenv("JOURNAL_PATH")
-        if not journal:
-            return jsonify({"error": "JOURNAL_PATH not set"}), 500
-
-        config_dir = Path(journal) / "config"
+        config_dir = Path(state.journal_root) / "config"
         config_dir.mkdir(parents=True, exist_ok=True)
 
         config_path = config_dir / "journal.json"

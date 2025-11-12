@@ -263,6 +263,10 @@ window.AppServices.register('home', {
 
 ## State & Behavior
 
+**Journal Path**
+- `state.journal_root` is always available and is the authoritative reference for the journal path
+- Use it directly in views without safety checks or environment variable lookups
+
 **Facet Selection**
 - Persisted via cookie, synchronized between facet pills and submenu items
 - Clicking app-icon clears selection

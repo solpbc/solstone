@@ -218,7 +218,6 @@ def create_app(journal: str = "") -> Flask:
 
     if journal:
         state.journal_root = journal
-        os.environ.setdefault("JOURNAL_PATH", journal)
     return app
 
 

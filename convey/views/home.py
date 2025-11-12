@@ -120,16 +120,15 @@ def stats_data() -> Any:
         "stats": {},
     }
 
-    if state.journal_root:
-        # Load stats.json
-        stats_path = os.path.join(state.journal_root, "stats.json")
-        if os.path.isfile(stats_path):
-            try:
-                with open(stats_path, "r", encoding="utf-8") as f:
-                    response["stats"] = json.load(f)
-            except Exception:
-                pass
+    # Load stats.json
+    stats_path = os.path.join(state.journal_root, "stats.json")
+    if os.path.isfile(stats_path):
+        try:
+            with open(stats_path, "r", encoding="utf-8") as f:
+                response["stats"] = json.load(f)
+        except Exception:
+            pass
 
-        response["topics"] = get_topics()
+    response["topics"] = get_topics()
 
     return jsonify(response)

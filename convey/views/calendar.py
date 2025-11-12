@@ -555,11 +555,6 @@ def calendar_active_facets() -> Any:
 @bp.route("/calendar/api/stats")
 def calendar_stats() -> Any:
     """Return lightweight stats for calendar display."""
-    import os
-
-    if not state.journal_root:
-        return jsonify({})
-
     # Get optional facet filter from query params
     facet_filter = request.args.get("facet", "")
 
