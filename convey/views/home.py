@@ -95,7 +95,7 @@ def login() -> Any:
 @bp.route("/logout")
 def logout() -> Any:
     session.pop("logged_in", None)
-    return redirect(url_for("review.login"))
+    return redirect(url_for("home.login"))
 
 
 @bp.route("/favicon.ico")

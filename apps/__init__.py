@@ -15,7 +15,8 @@ Naming Rules:
     - App directory names must use underscores (my_app), not hyphens (my-app)
     - App name = directory name (e.g., "my_app")
     - Blueprint variable must be named {app_name}_bp (e.g., my_app_bp)
-    - Blueprint name should match app name for url_for() consistency
+    - Blueprint names are automatically prefixed with "app:" to avoid conflicts
+      (e.g., "home" becomes "app:home", use url_for('app:home.index'))
     - URL prefix convention: /app/{app_name}
 
 app.json format (all optional):
@@ -226,6 +227,13 @@ class AppRegistry:
                 f"No blueprint found in apps.{app_name}.routes - "
                 f"expected variable named '{expected_bp_var}'"
             )
+
+        # Automatically prefix blueprint name with "app:" to avoid conflicts with core blueprints
+        original_name = blueprint.name
+        blueprint.name = f"app:{app_name}"
+        logger.debug(
+            f"Prefixed blueprint name: '{original_name}' -> '{blueprint.name}'"
+        )
 
         # Resolve template paths (relative to apps/ directory since that's in the loader)
         workspace_template = f"{app_name}/workspace.html"
