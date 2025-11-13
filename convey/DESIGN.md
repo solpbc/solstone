@@ -272,6 +272,9 @@ window.AppServices.register('home', {
 - Clicking app-icon clears selection
 - Updates CSS variables for theming (color, background, border)
 - Single source of truth via `selectFacet()` JavaScript function
+- Dispatches `facet.switch` CustomEvent when selection changes
+  - Apps can listen: `window.addEventListener('facet.switch', (e) => { ... })`
+  - Event detail includes: `{ facet: string|null, facetData: object|null }`
 
 **Active App**
 - Highlighted in menu-bar with `.current` class
