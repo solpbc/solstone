@@ -263,6 +263,84 @@ def get_model_provider(model: str) -> str:
         return "unknown"
 
 
+def calc_token_cost(token_data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    """Calculate cost for a token usage record.
+
+    Parameters
+    ----------
+    token_data : dict
+        Token usage record from journal logs with structure:
+        {
+            "model": "gemini-2.5-flash",
+            "usage": {
+                "input_tokens": 1500,
+                "output_tokens": 500,
+                "cached_tokens": 800,
+                "reasoning_tokens": 200,
+                ...
+            }
+        }
+
+    Returns
+    -------
+    dict or None
+        Cost breakdown:
+        {
+            "total_cost": 0.00123,
+            "input_cost": 0.00075,
+            "output_cost": 0.00048,
+            "currency": "USD"
+        }
+        Returns None if pricing unavailable or calculation fails.
+    """
+    try:
+        from genai_prices import Usage, calc_price
+
+        model = token_data.get("model")
+        usage_data = token_data.get("usage", {})
+
+        if not model or not usage_data:
+            return None
+
+        # Get provider ID
+        provider_id = get_model_provider(model)
+        if provider_id == "unknown":
+            return None
+
+        # Map our token fields to genai_prices Usage format
+        # Note: reasoning_tokens are included in output_tokens since genai-prices
+        # doesn't have a separate pricing tier for reasoning
+        input_tokens = usage_data.get("input_tokens", 0)
+        output_tokens = usage_data.get("output_tokens", 0)
+        cached_tokens = usage_data.get("cached_tokens", 0)
+
+        # Create Usage object
+        usage = Usage(
+            input_tokens=input_tokens,
+            output_tokens=output_tokens,
+            cache_read_tokens=cached_tokens if cached_tokens > 0 else None,
+        )
+
+        # Calculate price
+        result = calc_price(
+            usage=usage,
+            model_ref=model,
+            provider_id=provider_id,
+        )
+
+        # Return simplified cost breakdown
+        return {
+            "total_cost": float(result.total_price),
+            "input_cost": float(result.input_price),
+            "output_cost": float(result.output_price),
+            "currency": "USD",
+        }
+
+    except Exception:
+        # Silently fail if pricing unavailable
+        return None
+
+
 def _log_token_usage(response, model: str) -> None:
     """Log Gemini token usage to journal (legacy wrapper)."""
     if hasattr(response, "usage_metadata"):
@@ -435,4 +513,5 @@ __all__ = [
     "gemini_agenerate",
     "log_token_usage",
     "get_model_provider",
+    "calc_token_cost",
 ]
