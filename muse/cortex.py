@@ -538,6 +538,14 @@ class CortexService:
                     except Exception as e:
                         self.logger.info(f"Failed to broadcast event to Callosum: {e}")
 
+                    # Capture model from start event (needed for token usage logging)
+                    if event.get("event") == "start":
+                        model = event.get("model")
+                        if model:
+                            with self.lock:
+                                if agent.agent_id in self.agent_requests:
+                                    self.agent_requests[agent.agent_id]["model"] = model
+
                     # Handle finish or error event
                     if event.get("event") in ["finish", "error"]:
                         # Check for save and handoff (only on finish)
