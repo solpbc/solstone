@@ -1,14 +1,19 @@
 <style>
-.container { padding:0 1em; }
-#dropArea { border:2px dashed #999; padding:2em; text-align:center; margin-bottom:1em; cursor:pointer; }
+.import-workspace { padding: 1em; }
+.import-inputs { display: flex; gap: 1em; margin-bottom: 1em; }
+.import-section { flex: 1; display: flex; flex-direction: column; }
+#dropArea { border:2px dashed #999; padding:2em; text-align:center; cursor:pointer; flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 200px; }
 #dropArea.dragover { background:#eef; border-color:#333; }
-button { margin-top:1em; padding:6px 12px; }
-button:disabled { background:#ccc; color:#666; cursor:not-allowed; opacity:0.6; }
+#dropArea p { margin: 0 0 0.5em 0; }
+#fileLabel { margin-top: 0.5em; font-weight: bold; color: #333; }
+#pasteText { width:100%; flex: 1; min-height: 200px; padding: 0.5em; border: 2px solid #999; border-radius: 4px; font-family: monospace; font-size: 0.9em; resize: vertical; }
+#validateBtn { width: 100%; padding: 10px; font-size: 1em; font-weight: bold; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; margin-bottom: 1em; }
+#validateBtn:hover { background: #0056b3; }
+#validateBtn:disabled { background:#ccc; color:#666; cursor:not-allowed; opacity:0.6; }
+.spinner { display:inline-block; width:12px; height:12px; border:2px solid #ccc; border-top-color:#fff; border-radius:50%; animation:spin 1s linear infinite; margin-left:6px; }
 .modal { display:none; position:fixed; z-index:1000; left:0; top:0; width:100%; height:100%; background:rgba(0,0,0,0.5); }
 .modal-content { background:white; margin:5% auto; padding:1em; border-radius:8px; max-width:800px; max-height:80vh; overflow:auto; position:relative; }
 .close { position:absolute; top:10px; right:15px; cursor:pointer; font-size:24px; }
-.spinner { display:inline-block; width:12px; height:12px; border:2px solid #ccc; border-top-color:#333; border-radius:50%; animation:spin 1s linear infinite; margin-left:4px; }
-#taskOutput { white-space: pre-wrap; word-wrap: break-word; }
 .confirm-fields { display: flex; gap: 1em; flex-wrap: wrap; margin-top: 0.5em; }
 .confirm-field { display: flex; flex-direction: column; flex: 1 1 180px; min-width: 180px; }
 .confirm-field label { font-size: 0.9em; color: #666; margin-bottom: 0.25em; }
@@ -36,34 +41,31 @@ button:disabled { background:#ccc; color:#666; cursor:not-allowed; opacity:0.6; 
 .no-imports { color: #666; font-style: italic; padding: 2em; text-align: center; }
 
 @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
-
 @keyframes spin { to { transform:rotate(360deg); } }
 </style>
-<div class="container">
-  <div class="tabs">
-    <div class="tab active" data-target="media">Upload File</div>
-    <div class="tab" data-target="paste">Paste Text</div>
-  </div>
-  <form id="importForm">
-    <div class="content" id="media">
-      <div id="dropArea">
-        <p>Drag file here or click to select</p>
-        <input id="fileInput" type="file" style="display:none" />
-        <div id="fileLabel"></div>
+<div class="import-workspace">
+<form id="importForm">
+    <div class="import-inputs">
+      <div class="import-section">
+        <div id="dropArea">
+          <p>Drag file here or click to select</p>
+          <input id="fileInput" type="file" style="display:none" />
+          <div id="fileLabel"></div>
+        </div>
+      </div>
+      <div class="import-section">
+        <textarea id="pasteText" placeholder="Paste text here..."></textarea>
       </div>
     </div>
-    <div class="content" id="paste" style="display:none">
-      <textarea id="pasteText" placeholder="Paste text here" style="width:100%; min-height:300px;"></textarea>
-    </div>
-    <button type="submit" id="submitBtn">Submit</button>
+    <button type="submit" id="validateBtn">Validate</button>
   </form>
 
-  <div class="import-list">
-    <h2>Import History</h2>
-    <div id="importListContent">
-      <div class="no-imports">Loading imports...</div>
-    </div>
+<div class="import-list">
+  <h2>Import History</h2>
+  <div id="importListContent">
+    <div class="no-imports">Loading imports...</div>
   </div>
+</div>
 </div>
 
 <div id="detectModal" class="modal">
@@ -93,19 +95,10 @@ button:disabled { background:#ccc; color:#666; cursor:not-allowed; opacity:0.6; 
 </div>
 
 <script>
-const tabs = Array.from(document.querySelectorAll('.tab'));
-const contents = document.querySelectorAll('.content');
-let activeTab = 'media';
-function showTab(id){
-  tabs.forEach(t=>t.classList.toggle('active', t.dataset.target===id));
-  contents.forEach(c=>{c.style.display=c.id===id?'block':'none';});
-  activeTab = id;
-}
-tabs.forEach(t=>t.addEventListener('click', ()=>showTab(t.dataset.target)));
-
 const dropArea = document.getElementById('dropArea');
 const fileInput = document.getElementById('fileInput');
 const fileLabel = document.getElementById('fileLabel');
+const pasteText = document.getElementById('pasteText');
 const facetSelect = document.getElementById('facetSelect');
 const settingInput = document.getElementById('settingInput');
 const startBtn = document.getElementById('startBtn');
@@ -119,42 +112,52 @@ fileInput.onchange=e=>{currentFile=e.target.files[0];if(currentFile)fileLabel.te
 
 document.getElementById('importForm').onsubmit=e=>{
   e.preventDefault();
-  const submitBtn = document.getElementById('submitBtn');
-  const originalText = submitBtn.textContent;
+  const validateBtn = document.getElementById('validateBtn');
 
-  // Disable button and show processing state
-  submitBtn.disabled = true;
-  submitBtn.innerHTML = 'Processing<span class="spinner"></span>';
+  // Check that either file or text is provided
+  const hasFile = currentFile != null;
+  const hasText = pasteText.value.trim().length > 0;
+
+  if (!hasFile && !hasText) {
+    if(window.showError) showError('Please provide a file or paste text');
+    return;
+  }
+
+  // Disable button and show validating state
+  validateBtn.disabled = true;
+  validateBtn.innerHTML = 'Validating<span class="spinner"></span>';
 
   const fd=new FormData();
-  if(activeTab==='media'){
-    if(currentFile) fd.append('file', currentFile);
+  if(hasFile) {
+    fd.append('file', currentFile);
   } else {
-    fd.append('text', document.getElementById('pasteText').value);
+    fd.append('text', pasteText.value);
   }
-  // Add selected facet
+
+  // Add selected facet and setting if available
   const facet = facetSelect.value;
   if(facet) fd.append('facet', facet);
   const settingValue = settingInput.value.trim();
   if(settingValue) fd.append('setting', settingValue);
+
   fetch('/app/import/api/save', {method:'POST', body:fd})
     .then(async r=>{
       const d=await r.json();
       // Re-enable button
-      submitBtn.disabled = false;
-      submitBtn.textContent = originalText;
+      validateBtn.disabled = false;
+      validateBtn.textContent = 'Validate';
 
       if(!r.ok){
-        if(window.showError)showError(d.error||'Upload failed');
+        if(window.showError)showError(d.error||'Validation failed');
         return;
       }
       showDetect(d);
     })
     .catch(err=>{
       // Re-enable button on error
-      submitBtn.disabled = false;
-      submitBtn.textContent = originalText;
-      if(window.showError)showError('Upload failed');
+      validateBtn.disabled = false;
+      validateBtn.textContent = 'Validate';
+      if(window.showError)showError('Validation failed');
     });
 };
 
