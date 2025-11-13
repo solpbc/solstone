@@ -295,16 +295,16 @@
         }
       });
 
-      // Auto-dismiss when entering workspace (hover mode)
-      const workspace = document.querySelector('.workspace');
-      if (workspace) {
-        workspace.addEventListener('mouseenter', () => {
-          if (!isClickMode) {
-            clearTimeout(hideTimeout);
-            document.body.classList.remove('sidebar-open');
-          }
-        });
-      }
+      // Auto-dismiss when leaving menu (hover mode)
+      menuBar.addEventListener('mouseleave', () => {
+        if (!isClickMode) {
+          hideTimeout = setTimeout(() => {
+            if (!isClickMode) {
+              document.body.classList.remove('sidebar-open');
+            }
+          }, 200);
+        }
+      });
 
       // Click to toggle and lock menu (click mode)
       hamburger.addEventListener('click', (e) => {
