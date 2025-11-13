@@ -24,7 +24,7 @@ from think.importer_utils import (
 )
 
 import_bp = Blueprint(
-    "import",
+    "app:import",
     __name__,
     url_prefix="/app/import",
 )

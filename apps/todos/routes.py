@@ -26,7 +26,7 @@ from think.todo import (
 from convey import state
 from convey.utils import DATE_RE, adjacent_days, format_date
 
-todos_bp = Blueprint("todos", __name__, url_prefix="/app/todos")
+todos_bp = Blueprint("app:todos", __name__, url_prefix="/app/todos")
 
 
 def _todo_path(day: str, facet: str) -> Path:

@@ -5,7 +5,7 @@ from __future__ import annotations
 from flask import Blueprint, render_template
 
 home_bp = Blueprint(
-    "home",
+    "app:home",
     __name__,
     url_prefix="/app/home",
 )

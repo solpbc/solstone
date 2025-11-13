@@ -29,7 +29,7 @@ apps/{name}/
 **Naming Conventions**
 - App directory: `snake_case` (e.g., `my_app`, not `my-app`)
 - Blueprint variable: `{name}_bp` (e.g., `home_bp`, `inbox_bp`)
-- Blueprint name: Should match app name for `url_for()` consistency
+- Blueprint name: Must use `app:{name}` pattern (e.g., `"app:home"`, `"app:inbox"`)
 - URL prefix: `/app/{name}` (e.g., `/app/home`, `/app/inbox`)
 
 **Required Files**
@@ -39,7 +39,7 @@ apps/{name}/
    from flask import Blueprint, render_template
 
    home_bp = Blueprint(
-       "home",                    # Blueprint name (matches app name)
+       "app:home",                # Blueprint name (app:{name} pattern)
        __name__,
        url_prefix="/app/home",    # URL prefix
    )
@@ -225,7 +225,8 @@ window.AppServices.register('home', {
 
 **`app-icon`**
 - Displays currently active app icon in facet-bar
-- Clickable to clear facet selection and return to default view
+- Clickable to switch to all-facet mode (shows content from all facets)
+- In specific-facet mode, shows tooltip "Show all facets"
 
 **`status-icon`**
 - System status indicator in facet-bar (aligned right)
@@ -268,13 +269,18 @@ window.AppServices.register('home', {
 - Use it directly in views without safety checks or environment variable lookups
 
 **Facet Selection**
+- Three distinct modes:
+  - **all-facet mode**: No specific facet selected (facet = null), all pills light up with their colors
+  - **specific-facet mode**: One facet selected, only that pill highlights
+  - **facets-disabled**: App doesn't support facets (configuration flag)
 - Persisted via cookie, synchronized between facet pills and submenu items
-- Clicking app-icon clears selection
+- Clicking app-icon switches to all-facet mode
 - Updates CSS variables for theming (color, background, border)
 - Single source of truth via `selectFacet()` JavaScript function
 - Dispatches `facet.switch` CustomEvent when selection changes
   - Apps can listen: `window.addEventListener('facet.switch', (e) => { ... })`
   - Event detail includes: `{ facet: string|null, facetData: object|null }`
+  - When `facet` is null, app should show content from all facets
 
 **Active App**
 - Highlighted in menu-bar with `.current` class

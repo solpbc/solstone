@@ -3,7 +3,7 @@ from __future__ import annotations
 from flask import Blueprint, render_template
 
 live_bp = Blueprint(
-    "live",
+    "app:live",
     __name__,
     url_prefix="/app/live",
 )

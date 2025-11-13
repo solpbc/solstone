@@ -11,7 +11,7 @@
   <div class="nav-icons">
     <a id="homeIcon" data-nav-key="home" href="{{ url_for('home.home') }}" class="{% if active=='home' %}current{% endif %}" title="Home">🏠<span class="nav-badge" aria-hidden="true"></span></a>
     <a data-nav-key="facets" href="{{ url_for('facets.facets_page') }}" class="{% if active=='facets' %}current{% endif %}" title="Facets">🎯<span class="nav-badge" aria-hidden="true"></span></a>
-    <a data-nav-key="todos" href="{{ url_for('todos.todos_page') }}" class="{% if active=='todos' %}current{% endif %}" title="Todos">✅<span class="nav-badge" aria-hidden="true"></span></a>
+    <a data-nav-key="todos" href="{{ url_for('app:todos.todos_page') }}" class="{% if active=='todos' %}current{% endif %}" title="Todos">✅<span class="nav-badge" aria-hidden="true"></span></a>
     <a data-nav-key="inbox" href="{{ url_for('inbox.inbox_page') }}" class="{% if active=='inbox' %}current{% endif %}" title="Inbox">✉️<span class="nav-badge" aria-hidden="true"></span></a>
     <a data-nav-key="calendar" href="{{ url_for('calendar.calendar_page') }}" class="{% if active=='calendar' %}current{% endif %}" title="Calendar">📅<span class="nav-badge" aria-hidden="true"></span></a>
     <a data-nav-key="chat" href="{{ url_for('chat.chat_page') }}" class="{% if active=='chat' %}current{% endif %}" title="Chat">💬<span class="nav-badge" aria-hidden="true"></span></a>

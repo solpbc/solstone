@@ -15,8 +15,8 @@ Naming Rules:
     - App directory names must use underscores (my_app), not hyphens (my-app)
     - App name = directory name (e.g., "my_app")
     - Blueprint variable must be named {app_name}_bp (e.g., my_app_bp)
-    - Blueprint names are automatically prefixed with "app:" to avoid conflicts
-      (e.g., "home" becomes "app:home", use url_for('app:home.index'))
+    - Blueprint name must use "app:{name}" pattern for consistency
+      (e.g., Blueprint("app:home", ...), use url_for('app:home.index'))
     - URL prefix convention: /app/{app_name}
 
 app.json format (all optional):
@@ -217,13 +217,6 @@ class AppRegistry:
                             f"App '{app_name}': Blueprint variable '{attr_name}' should be '{expected_bp_var}'"
                         )
 
-                    # Warn if blueprint name doesn't match app name
-                    if blueprint.name != app_name:
-                        logger.warning(
-                            f"App '{app_name}': Blueprint name '{blueprint.name}' should match app name '{app_name}' "
-                            f"for url_for() consistency"
-                        )
-
                     break
 
         if not blueprint:
@@ -232,12 +225,13 @@ class AppRegistry:
                 f"expected variable named '{expected_bp_var}'"
             )
 
-        # Automatically prefix blueprint name with "app:" to avoid conflicts with core blueprints
-        original_name = blueprint.name
-        blueprint.name = f"app:{app_name}"
-        logger.debug(
-            f"Prefixed blueprint name: '{original_name}' -> '{blueprint.name}'"
-        )
+        # Verify blueprint name uses "app:{name}" pattern for consistency
+        expected_name = f"app:{app_name}"
+        if blueprint.name != expected_name:
+            raise ValueError(
+                f"App '{app_name}': Blueprint name must be '{expected_name}', "
+                f"got '{blueprint.name}'. Update Blueprint() declaration in routes.py"
+            )
 
         # Resolve template paths (relative to apps/ directory since that's in the loader)
         workspace_template = f"{app_name}/workspace.html"

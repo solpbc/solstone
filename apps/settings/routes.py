@@ -10,7 +10,7 @@ from convey import state
 from think.utils import get_config as get_journal_config
 
 settings_bp = Blueprint(
-    "settings",
+    "app:settings",
     __name__,
     url_prefix="/app/settings",
 )
