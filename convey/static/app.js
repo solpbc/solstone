@@ -184,6 +184,15 @@
     selectedFacet = facet;
     saveSelectedFacetToCookie(facet);
     updateFacetSelection();
+
+    // Dispatch custom event for apps to listen to facet changes
+    const facetData = facet ? activeFacets.find(f => f.name === facet) : null;
+    window.dispatchEvent(new CustomEvent('facet.switch', {
+      detail: {
+        facet: facet,
+        facetData: facetData
+      }
+    }));
   }
 
   // Collapse facet pills when container is too narrow
@@ -286,16 +295,16 @@
         }
       });
 
-      // Auto-dismiss when leaving menu (hover mode)
-      menuBar.addEventListener('mouseleave', () => {
-        if (!isClickMode) {
-          hideTimeout = setTimeout(() => {
-            if (!isClickMode) {
-              document.body.classList.remove('sidebar-open');
-            }
-          }, 200);
-        }
-      });
+      // Auto-dismiss when entering workspace (hover mode)
+      const workspace = document.querySelector('.workspace');
+      if (workspace) {
+        workspace.addEventListener('mouseenter', () => {
+          if (!isClickMode) {
+            clearTimeout(hideTimeout);
+            document.body.classList.remove('sidebar-open');
+          }
+        });
+      }
 
       // Click to toggle and lock menu (click mode)
       hamburger.addEventListener('click', (e) => {

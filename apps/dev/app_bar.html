@@ -1,0 +1,112 @@
+<style>
+.dev-app-bar-content {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 8px 0;
+}
+
+.dev-facet-display {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  font-size: 14px;
+  min-width: 200px;
+}
+
+.dev-facet-display.has-facet {
+  background: var(--facet-bg, #f9fafb);
+  border-color: var(--facet-color, #e5e7eb);
+}
+
+.dev-facet-label {
+  font-weight: 500;
+  color: #6b7280;
+  margin-right: 4px;
+}
+
+.dev-facet-value {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 500;
+  color: #1f2937;
+}
+
+.dev-facet-emoji {
+  font-size: 16px;
+}
+
+.dev-facet-name {
+  color: var(--facet-color, #667eea);
+}
+
+.dev-facet-none {
+  color: #9ca3af;
+  font-style: italic;
+}
+</style>
+
+<div class="dev-app-bar-content">
+  <div class="dev-facet-display{% if selected_facet %} has-facet{% endif %}">
+    <span class="dev-facet-label">Selected Facet:</span>
+    <span class="dev-facet-value" id="dev-current-facet">
+      {% if selected_facet %}
+        {% set selected_facet_data = facets|selectattr("name", "equalto", selected_facet)|first %}
+        {% if selected_facet_data %}
+          <span class="dev-facet-emoji">{{ selected_facet_data.emoji }}</span>
+          <span class="dev-facet-name">{{ selected_facet_data.title }}</span>
+        {% else %}
+          <span class="dev-facet-name">{{ selected_facet }}</span>
+        {% endif %}
+      {% else %}
+        <span class="dev-facet-none">None</span>
+      {% endif %}
+    </span>
+  </div>
+</div>
+
+<script>
+// Update facet display when facet selection changes
+(function() {
+  // Listen for facet.switch events
+  window.addEventListener('facet.switch', (e) => {
+    updateFacetDisplay(e.detail.facet, e.detail.facetData);
+  });
+
+  function updateFacetDisplay(facetName, facetData) {
+    const display = document.querySelector('.dev-facet-display');
+    const valueEl = document.getElementById('dev-current-facet');
+
+    if (!display || !valueEl) return;
+
+    if (!facetName) {
+      // No facet selected
+      display.classList.remove('has-facet');
+      valueEl.innerHTML = '<span class="dev-facet-none">None</span>';
+      return;
+    }
+
+    // Use provided facetData or fallback to window.facetsData
+    if (!facetData) {
+      facetData = window.facetsData?.find(f => f.name === facetName);
+    }
+
+    display.classList.add('has-facet');
+
+    if (facetData) {
+      valueEl.innerHTML = `
+        <span class="dev-facet-emoji">${facetData.emoji}</span>
+        <span class="dev-facet-name">${facetData.title}</span>
+      `;
+    } else {
+      valueEl.innerHTML = `<span class="dev-facet-name">${facetName}</span>`;
+    }
+  }
+})();
+</script>
