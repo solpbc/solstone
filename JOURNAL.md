@@ -8,6 +8,7 @@ This document describes the layout of a **journal** directory where all audio, s
 - `config/journal.json` – user configuration for the journal (optional, see below).
 - `facets/` – facet-specific organization folders described below.
 - `inbox/` – asynchronous messaging system for agent communications described below.
+- `tokens/` – token usage logs from AI model calls, organized by day (see below).
 - `YYYYMMDD/` – individual day folders described below.
 
 ## User configuration
@@ -339,6 +340,45 @@ Common actions include:
 - `read` – message marked as read
 - `archived` – message moved to archive
 - `deleted` – message removed
+
+## Token Usage
+
+The `tokens/` directory tracks token usage from all AI model calls across the system. Usage data is organized by day as `tokens/YYYYMMDD.jsonl` where each file contains JSON Lines entries for that day's API calls.
+
+### Token log format
+
+Each line in a token log file is a JSON object with the following structure:
+
+```json
+{
+  "timestamp": 1736812345.678,
+  "model": "gemini-2.5-flash",
+  "context": "agent.default.20250113_143022",
+  "usage": {
+    "input_tokens": 1500,
+    "output_tokens": 500,
+    "total_tokens": 2000,
+    "cached_tokens": 800,
+    "reasoning_tokens": 200
+  }
+}
+```
+
+Required fields:
+- `timestamp` – Unix timestamp (seconds with fractional milliseconds)
+- `model` – Model identifier (e.g., "gemini-2.5-flash", "gpt-5", "claude-sonnet-4-5")
+- `context` – Calling context (e.g., "agent.persona.agent_id" or "module.function:line")
+- `usage` – Token counts dictionary with normalized field names
+
+Usage fields (all optional depending on model capabilities):
+- `input_tokens` – Tokens in the prompt/input
+- `output_tokens` – Tokens in the response/output
+- `total_tokens` – Total tokens consumed
+- `cached_tokens` – Tokens served from cache (reduces cost)
+- `reasoning_tokens` – Tokens used for extended thinking/reasoning
+- `requests` – Number of API requests made (for batch operations)
+
+The logging system normalizes provider-specific formats (OpenAI, Gemini, Anthropic) into this unified schema for consistent cost tracking and analysis across all models.
 
 ## Day folder contents
 
