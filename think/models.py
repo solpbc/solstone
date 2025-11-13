@@ -130,7 +130,7 @@ def _validate_response(
 
 def log_token_usage(
     model: str,
-    usage: Dict[str, Any],
+    usage: Union[Dict[str, Any], Any],
     context: Optional[str] = None,
 ) -> None:
     """Log token usage to journal with unified schema.
@@ -139,14 +139,16 @@ def log_token_usage(
     ----------
     model : str
         Model name (e.g., "gpt-5", "gemini-2.5-flash")
-    usage : dict
-        Usage data in provider-specific format. Supports:
+    usage : dict or response object
+        Usage data in provider-specific format, OR a Gemini response object.
+        Dict formats supported:
         - OpenAI format: {input_tokens, output_tokens, total_tokens,
                          details: {input: {cached_tokens}, output: {reasoning_tokens}}}
         - Gemini format: {prompt_token_count, candidates_token_count,
                          cached_content_token_count, thoughts_token_count, total_token_count}
         - Unified format: {input_tokens, output_tokens, total_tokens,
                           cached_tokens, reasoning_tokens, requests}
+        Response objects: Gemini GenerateContentResponse with usage_metadata attribute
     context : str, optional
         Context string (e.g., "module.function:123" or "agent.persona.id").
         If None, auto-detects from call stack.
@@ -155,6 +157,26 @@ def log_token_usage(
         journal = os.getenv("JOURNAL_PATH")
         if not journal:
             return
+
+        # Extract from Gemini response object if needed
+        if hasattr(usage, "usage_metadata"):
+            try:
+                metadata = usage.usage_metadata
+                usage = {
+                    "prompt_token_count": getattr(metadata, "prompt_token_count", 0),
+                    "candidates_token_count": getattr(
+                        metadata, "candidates_token_count", 0
+                    ),
+                    "cached_content_token_count": getattr(
+                        metadata, "cached_content_token_count", 0
+                    ),
+                    "thoughts_token_count": getattr(
+                        metadata, "thoughts_token_count", 0
+                    ),
+                    "total_token_count": getattr(metadata, "total_token_count", 0),
+                }
+            except Exception:
+                return  # Can't extract, fail silently
 
         # Auto-detect calling context if not provided
         if context is None:
@@ -346,29 +368,6 @@ def calc_token_cost(token_data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         return None
 
 
-def _log_token_usage(response, model: str) -> None:
-    """Log Gemini token usage to journal (legacy wrapper)."""
-    if hasattr(response, "usage_metadata"):
-        try:
-            usage = response.usage_metadata
-            usage_dict = {
-                "prompt_token_count": getattr(usage, "prompt_token_count", 0),
-                "candidates_token_count": getattr(usage, "candidates_token_count", 0),
-                "cached_content_token_count": getattr(
-                    usage, "cached_content_token_count", 0
-                ),
-                "thoughts_token_count": getattr(usage, "thoughts_token_count", 0),
-                "total_token_count": getattr(usage, "total_token_count", 0),
-            }
-
-            # Use unified logging function
-            log_token_usage(model=model, usage=usage_dict)
-
-        except Exception:
-            # Silently fail - logging shouldn't break the main flow
-            pass
-
-
 def gemini_generate(
     contents: Union[str, List[Any], List[types.Content]],
     model: str = GEMINI_FLASH,
@@ -433,7 +432,7 @@ def gemini_generate(
     )
 
     text = _validate_response(response, max_output_tokens, thinking_budget)
-    _log_token_usage(response, model)
+    log_token_usage(model=model, usage=response)
     return text
 
 
@@ -501,7 +500,7 @@ async def gemini_agenerate(
     )
 
     text = _validate_response(response, max_output_tokens, thinking_budget)
-    _log_token_usage(response, model)
+    log_token_usage(model=model, usage=response)
     return text
 
 
