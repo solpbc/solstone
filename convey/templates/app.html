@@ -38,9 +38,9 @@
 {% include "menu_bar.html" %}
 
 <!-- Facet Bar (top) -->
-<div class="facet-bar{% if not app_registry.apps[app].facets_enabled %} facets-disabled{% endif %}">
+<div class="facet-bar{% if not app_registry.apps[app].facets_enabled %} facets-disabled{% elif not selected_facet %} all-facet-mode{% endif %}">
   <div id="hamburger">☰</div>
-  <div class="app-icon">{{ apps[app]['icon'] }}</div>
+  <div class="app-icon"{% if selected_facet %} title="Show all facets"{% endif %}>{{ apps[app]['icon'] }}</div>
   <div class="facet-pills-container"></div>
   <div class="status-icon">🟢</div>
 </div>

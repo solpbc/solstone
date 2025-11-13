@@ -1,0 +1,8 @@
+{
+    "title": "Activity Synthesis",
+    "description": "Real-time synthesis of each period to extract active tasks, progress states, and searchable context. Interprets audio and screen activity to reveal intent and framing not obvious from raw transcripts.",
+    "contains": "Free-form markdown analysis for each period capturing what's being worked on, progress states, facet associations, and context that makes periods discoverable through search.",
+    "occurrences": false,
+    "color": "#00bcd4",
+    "frequency": "period"
+}

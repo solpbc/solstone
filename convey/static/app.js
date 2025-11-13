@@ -80,7 +80,11 @@
       // When disabled, no pill gets 'selected' class - all look identical
       if (facetsDisabled) {
         pill.className = 'facet-pill';
+      } else if (!selectedFacet) {
+        // All-facet mode - all pills show as selected
+        pill.className = 'facet-pill selected';
       } else {
+        // Specific-facet mode - only selected pill highlights
         pill.className = 'facet-pill' + (selectedFacet === facet.name ? ' selected' : '');
       }
 
@@ -109,10 +113,18 @@
       title.textContent = facet.title;
       pill.appendChild(title);
 
-      // Apply color with opacity if facet is selected and has a color (only if facets enabled)
-      if (!facetsDisabled && selectedFacet === facet.name && facet.color) {
-        pill.style.background = hexToRgba(facet.color, 0.2);
-        pill.style.borderColor = facet.color;
+      // Apply color styling (only if facets enabled)
+      if (!facetsDisabled && facet.color) {
+        if (!selectedFacet) {
+          // All-facet mode - each pill lights up with its own color
+          pill.style.background = hexToRgba(facet.color, 0.2);
+          pill.style.borderColor = facet.color;
+          pill.style.boxShadow = `0 2px 6px ${hexToRgba(facet.color, 0.2)}`;
+        } else if (selectedFacet === facet.name) {
+          // Specific-facet mode - only selected pill colored
+          pill.style.background = hexToRgba(facet.color, 0.2);
+          pill.style.borderColor = facet.color;
+        }
       }
 
       pill.onclick = () => selectFacet(facet.name);
@@ -133,6 +145,26 @@
     // Find selected facet data
     const selectedFacetData = selectedFacet ? activeFacets.find(f => f.name === selectedFacet) : null;
 
+    // Update facet-bar class for all-facet mode
+    const facetBar = document.querySelector('.facet-bar');
+    if (facetBar && !facetsDisabled) {
+      if (!selectedFacet) {
+        facetBar.classList.add('all-facet-mode');
+      } else {
+        facetBar.classList.remove('all-facet-mode');
+      }
+    }
+
+    // Update app-icon tooltip
+    const appIcon = document.querySelector('.facet-bar .app-icon');
+    if (appIcon && !facetsDisabled) {
+      if (selectedFacet) {
+        appIcon.setAttribute('title', 'Show all facets');
+      } else {
+        appIcon.removeAttribute('title');
+      }
+    }
+
     // Apply theme by updating CSS variables (only if facets are enabled)
     if (!facetsDisabled && selectedFacetData && selectedFacetData.color) {
       const color = selectedFacetData.color;
@@ -142,7 +174,7 @@
       document.documentElement.style.setProperty('--facet-bg', bgColor);
       document.documentElement.style.setProperty('--facet-border', color);
     } else {
-      // Clear facet variables to use defaults
+      // Clear facet variables to use defaults (all-facet mode or no color)
       document.documentElement.style.removeProperty('--facet-color');
       document.documentElement.style.removeProperty('--facet-bg');
       document.documentElement.style.removeProperty('--facet-border');
@@ -150,15 +182,30 @@
 
     // Update pill selection states (only if facets enabled)
     pills.forEach((pill, index) => {
-      const facetName = activeFacets[index]?.name;
+      const facet = activeFacets[index];
+      const facetName = facet?.name;
 
       if (facetsDisabled) {
         // When disabled, ensure no pill has 'selected' class
         pill.classList.remove('selected');
         pill.style.background = '';
         pill.style.borderColor = '';
+        pill.style.boxShadow = '';
+      } else if (!selectedFacet) {
+        // All-facet mode - all pills light up with their own colors
+        pill.classList.add('selected');
+
+        if (facet && facet.color) {
+          pill.style.background = hexToRgba(facet.color, 0.2);
+          pill.style.borderColor = facet.color;
+          pill.style.boxShadow = `0 2px 6px ${hexToRgba(facet.color, 0.2)}`;
+        } else {
+          pill.style.background = '';
+          pill.style.borderColor = '';
+          pill.style.boxShadow = '';
+        }
       } else {
-        // Normal selection logic when facets enabled
+        // Specific-facet mode - only selected pill highlights
         if (selectedFacet === facetName) {
           pill.classList.add('selected');
 
@@ -166,14 +213,17 @@
           if (selectedFacetData && selectedFacetData.color) {
             pill.style.background = hexToRgba(selectedFacetData.color, 0.2);
             pill.style.borderColor = selectedFacetData.color;
+            pill.style.boxShadow = '';
           } else {
             pill.style.background = '';
             pill.style.borderColor = '';
+            pill.style.boxShadow = '';
           }
         } else {
           pill.classList.remove('selected');
           pill.style.background = '';
           pill.style.borderColor = '';
+          pill.style.boxShadow = '';
         }
       }
     });
@@ -334,13 +384,21 @@
       });
     }
 
-    // App icon click - clear facet selection
+    // App icon click - switch to all-facet mode
     const appIcon = document.querySelector('.facet-bar .app-icon');
     if (appIcon) {
       appIcon.addEventListener('click', (e) => {
         selectedFacet = null;
         saveSelectedFacetToCookie(null);
         updateFacetSelection();
+
+        // Dispatch facet.switch event for all-facet mode
+        window.dispatchEvent(new CustomEvent('facet.switch', {
+          detail: {
+            facet: null,
+            facetData: null
+          }
+        }));
       });
     }
 

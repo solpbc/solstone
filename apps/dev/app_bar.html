@@ -42,26 +42,37 @@
   font-size: 16px;
 }
 
-.dev-facet-none {
+.dev-facet-all {
+  color: #667eea;
+  font-weight: 600;
+}
+
+.dev-facet-mode {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
   color: #9ca3af;
-  font-style: italic;
+  margin-left: 8px;
 }
 </style>
 
 <div class="dev-app-bar-content">
   <div class="dev-facet-display{% if selected_facet %} has-facet{% endif %}">
-    <span class="dev-facet-label">Selected Facet:</span>
+    <span class="dev-facet-label">Facet Mode:</span>
     <span class="dev-facet-value" id="dev-current-facet">
       {% if selected_facet %}
         {% set selected_facet_data = facets|selectattr("name", "equalto", selected_facet)|first %}
         {% if selected_facet_data %}
           <span class="dev-facet-emoji">{{ selected_facet_data.emoji }}</span>
           <span class="dev-facet-name">{{ selected_facet_data.title }}</span>
+          <span class="dev-facet-mode">specific</span>
         {% else %}
           <span class="dev-facet-name">{{ selected_facet }}</span>
+          <span class="dev-facet-mode">specific</span>
         {% endif %}
       {% else %}
-        <span class="dev-facet-none">None</span>
+        <span class="dev-facet-all">All Facets</span>
+        <span class="dev-facet-mode">all-facet</span>
       {% endif %}
     </span>
   </div>
@@ -82,9 +93,12 @@
     if (!display || !valueEl) return;
 
     if (!facetName) {
-      // No facet selected
+      // All-facet mode
       display.classList.remove('has-facet');
-      valueEl.innerHTML = '<span class="dev-facet-none">None</span>';
+      valueEl.innerHTML = `
+        <span class="dev-facet-all">All Facets</span>
+        <span class="dev-facet-mode">all-facet</span>
+      `;
       return;
     }
 
@@ -99,9 +113,13 @@
       valueEl.innerHTML = `
         <span class="dev-facet-emoji">${facetData.emoji}</span>
         <span class="dev-facet-name">${facetData.title}</span>
+        <span class="dev-facet-mode">specific</span>
       `;
     } else {
-      valueEl.innerHTML = `<span class="dev-facet-name">${facetName}</span>`;
+      valueEl.innerHTML = `
+        <span class="dev-facet-name">${facetName}</span>
+        <span class="dev-facet-mode">specific</span>
+      `;
     }
   }
 })();
