@@ -23,23 +23,23 @@ from think.todo import (
     get_todos,
 )
 
-from .. import state
-from ..utils import DATE_RE, adjacent_days, format_date
+from convey import state
+from convey.utils import DATE_RE, adjacent_days, format_date
 
-bp = Blueprint("todos", __name__, template_folder="../templates")
+todos_bp = Blueprint("todos", __name__, url_prefix="/app/todos")
 
 
 def _todo_path(day: str, facet: str) -> Path:
     return Path(state.journal_root) / "facets" / facet / "todos" / f"{day}.md"
 
 
-@bp.route("/todos")
+@todos_bp.route("/")
 def todos_page() -> str:
     today = date.today().strftime("%Y%m%d")
-    return redirect(url_for("todos.todos_day", day=today))
+    return redirect(url_for("app:todos.todos_day", day=today))
 
 
-@bp.route("/todos/<day>", methods=["GET", "POST"])
+@todos_bp.route("/<day>", methods=["GET", "POST"])
 def todos_day(day: str):  # type: ignore[override]
     if not DATE_RE.fullmatch(day):
         return "", 404
@@ -75,7 +75,7 @@ def todos_day(day: str):  # type: ignore[override]
 
                     if facet not in facet_map:
                         flash(f"Facet #{facet} does not exist", "error")
-                        return redirect(url_for("todos.todos_day", day=day))
+                        return redirect(url_for("app:todos.todos_day", day=day))
                 else:
                     # Default to personal if no hashtag
                     facet = "personal"
@@ -91,7 +91,7 @@ def todos_day(day: str):  # type: ignore[override]
                             "Failed to append todo for %s/%s: %s", facet, day, exc
                         )
                         flash("Unable to add todo right now", "error")
-            return redirect(url_for("todos.todos_day", day=day))
+            return redirect(url_for("app:todos.todos_day", day=day))
 
         # Get facet and index for other actions
         facet = request.form.get("facet", "personal")
@@ -105,7 +105,7 @@ def todos_day(day: str):  # type: ignore[override]
 
         if not index:
             flash("Missing todo index", "error")
-            return redirect(url_for("todos.todos_day", day=day))
+            return redirect(url_for("app:todos.todos_day", day=day))
 
         try:
             checklist = TodoChecklist.load(day, facet)
@@ -114,7 +114,7 @@ def todos_day(day: str):  # type: ignore[override]
                 "Failed to load checklist for %s/%s: %s", facet, day, exc
             )
             flash("Todo list changed, please refresh and try again", "error")
-            return redirect(url_for("todos.todos_day", day=day))
+            return redirect(url_for("app:todos.todos_day", day=day))
 
         try:
             if action == "complete":
@@ -149,7 +149,7 @@ def todos_day(day: str):  # type: ignore[override]
 
                     if new_facet not in facet_map:
                         flash(f"Facet #{new_facet} does not exist", "error")
-                        return redirect(url_for("todos.todos_day", day=day))
+                        return redirect(url_for("app:todos.todos_day", day=day))
 
                     # If facet changed, move the todo
                     if new_facet != facet:
@@ -171,13 +171,13 @@ def todos_day(day: str):  # type: ignore[override]
                         # Remove from old facet
                         checklist.remove_entry(index, source_entry)
 
-                        return redirect(url_for("todos.todos_day", day=day))
+                        return redirect(url_for("app:todos.todos_day", day=day))
 
                 # No facet change, just update text
                 checklist.update_entry_text(index, guard, text)
             else:
                 flash("Unknown action", "error")
-                return redirect(url_for("todos.todos_day", day=day))
+                return redirect(url_for("app:todos.todos_day", day=day))
         except TodoEmptyTextError:
             flash("Cannot update todo to empty text", "error")
         except (TodoGuardMismatchError, TodoLineNumberError, IndexError, ValueError):
@@ -190,7 +190,7 @@ def todos_day(day: str):  # type: ignore[override]
         ):
             return jsonify({"status": "ok"})
 
-        return redirect(url_for("todos.todos_day", day=day))
+        return redirect(url_for("app:todos.todos_day", day=day))
 
     # Load todos from all facets
     try:
@@ -233,8 +233,8 @@ def todos_day(day: str):  # type: ignore[override]
     today_day = date.today().strftime("%Y%m%d")
 
     return render_template(
-        "todos.html",
-        active="todos",
+        "app.html",
+        app="todos",
         title=format_date(day),
         day=day,
         prev_day=prev_day,
@@ -245,7 +245,7 @@ def todos_day(day: str):  # type: ignore[override]
     )
 
 
-@bp.route("/todos/<day>/move", methods=["POST"])
+@todos_bp.route("/<day>/move", methods=["POST"])
 def move_todo(day: str):  # type: ignore[override]
     if not DATE_RE.fullmatch(day):
         return "", 404
@@ -275,7 +275,7 @@ def move_todo(day: str):  # type: ignore[override]
             {
                 "status": "noop",
                 "message": "Todo is already on that day.",
-                "redirect": url_for("todos.todos_day", day=day),
+                "redirect": url_for("app:todos.todos_day", day=day),
             }
         )
 
@@ -342,11 +342,11 @@ def move_todo(day: str):  # type: ignore[override]
             409,
         )
 
-    redirect_url = url_for("todos.todos_day", day=target_day)
+    redirect_url = url_for("app:todos.todos_day", day=target_day)
     return jsonify({"status": "ok", "redirect": redirect_url, "target_day": target_day})
 
 
-@bp.route("/todos/<day>/generate", methods=["POST"])
+@todos_bp.route("/<day>/generate", methods=["POST"])
 def generate_todos(day: str):  # type: ignore[override]
     if not DATE_RE.fullmatch(day):
         return "", 404
@@ -378,7 +378,7 @@ Yesterday's todos content:
 Write the generated checklist to facets/{facet}/todos/{day}.md"""
 
     try:
-        from ..utils import spawn_agent
+        from convey.utils import spawn_agent
 
         agent_id = spawn_agent(
             prompt=prompt,
@@ -396,7 +396,7 @@ Write the generated checklist to facets/{facet}/todos/{day}.md"""
     return jsonify({"agent_id": agent_id, "status": "started"})
 
 
-@bp.route("/todos/<day>/generation-status")
+@todos_bp.route("/<day>/generation-status")
 def todo_generation_status(day: str):  # type: ignore[override]
     if not DATE_RE.fullmatch(day):
         return "", 404
@@ -444,7 +444,7 @@ def todo_generation_status(day: str):  # type: ignore[override]
     return jsonify({"status": "unknown", "agent_id": agent_id})
 
 
-@bp.route("/todos/<day>/generate-weekly/<facet>", methods=["POST"])
+@todos_bp.route("/<day>/generate-weekly/<facet>", methods=["POST"])
 def generate_weekly_todos(day: str, facet: str):  # type: ignore[override]
     """Spawn todo_weekly agent for a specific facet."""
     if not DATE_RE.fullmatch(day):
@@ -462,7 +462,7 @@ Target file: facets/{facet}/todos/{day}.md
 Focus on surfacing the most important unfinished work from the past 7 days."""
 
     try:
-        from ..utils import spawn_agent
+        from convey.utils import spawn_agent
 
         agent_id = spawn_agent(
             prompt=prompt,

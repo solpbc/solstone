@@ -11,7 +11,6 @@ from . import (
     home,
     inbox,
     search,
-    todos,
 )
 
 chat_view = import_module(".chat", __name__)
@@ -24,7 +23,6 @@ def register_views(app: Flask) -> None:
         inbox.bp,
         search.bp,
         calendar.bp,
-        todos.bp,
         chat_view.bp,
         agents.bp,
     ]:
