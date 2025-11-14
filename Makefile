@@ -244,4 +244,4 @@ screenshot:
 			exit 1; \
 			;; \
 	esac; \
-	convey-screenshot $$RESTART_FLAG $(VIEW) $(if $(OUTPUT),-o $(OUTPUT))
+	convey-screenshot -v $$RESTART_FLAG $(VIEW) $(if $(OUTPUT),-o $(OUTPUT))

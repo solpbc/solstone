@@ -121,7 +121,7 @@ def wait_for_convey_restart(
                 # Service restarted successfully
                 callosum.stop()
                 # Small additional delay for Flask to fully bind port
-                time.sleep(0.5)
+                time.sleep(1.0)
                 return True, state["logs"]
 
         # Check again in 100ms

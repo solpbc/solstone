@@ -209,7 +209,7 @@ class CallosumConnection:
                     sock.connect(str(self.socket_path))
                     sock.settimeout(0.1)  # Short timeout for responsive queue draining
                 except Exception as e:
-                    logger.info(f"Connection attempt failed: {e}")
+                    logger.info(f"Connection attempt failed to {self.socket_path}: {e}")
                     if sock:
                         try:
                             sock.close()
