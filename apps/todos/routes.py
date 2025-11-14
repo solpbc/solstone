@@ -14,6 +14,8 @@ from flask import (
     url_for,
 )
 
+from convey import state
+from convey.utils import DATE_RE, adjacent_days, format_date
 from think.facets import get_facets
 from think.todo import (
     TodoChecklist,
@@ -22,9 +24,6 @@ from think.todo import (
     TodoLineNumberError,
     get_todos,
 )
-
-from convey import state
-from convey.utils import DATE_RE, adjacent_days, format_date
 
 todos_bp = Blueprint("app:todos", __name__, url_prefix="/app/todos")
 
