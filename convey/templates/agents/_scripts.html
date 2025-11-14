@@ -756,7 +756,7 @@ let totalAgents = 0;
 function buildRow(a, isHistorical = false) {
   const tr = document.createElement('tr');
   const short = a.prompt.length > 80 ? a.prompt.slice(0, 80) + '…' : a.prompt;
-  const chatLink = `{{ url_for('chat.chat_page') }}?agent=${a.id}`;
+  const chatLink = `{{ url_for('app:chat.chat_page') }}?agent=${a.id}`;
 
   // Status emoji
   const statusEmojis = {
