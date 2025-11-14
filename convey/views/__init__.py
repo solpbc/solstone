@@ -9,7 +9,6 @@ from . import (
     calendar,
     facets,
     home,
-    inbox,
     search,
 )
 
@@ -20,7 +19,6 @@ def register_views(app: Flask) -> None:
     for bp in [
         home.bp,
         facets.bp,
-        inbox.bp,
         search.bp,
         calendar.bp,
         chat_view.bp,

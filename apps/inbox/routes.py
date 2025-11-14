@@ -7,16 +7,20 @@ from flask import Blueprint, jsonify, render_template, request
 
 from think import messages
 
-bp = Blueprint("inbox", __name__, template_folder="../templates")
+inbox_bp = Blueprint(
+    "app:inbox",
+    __name__,
+    url_prefix="/app/inbox",
+)
 
 
-@bp.route("/inbox")
-def inbox_page() -> str:
+@inbox_bp.route("/")
+def index() -> str:
     """Render the inbox view."""
-    return render_template("inbox.html", active="inbox")
+    return render_template("app.html", app="inbox")
 
 
-@bp.route("/inbox/api/messages")
+@inbox_bp.route("/api/messages")
 def get_messages() -> Any:
     """Get messages from active or archived folder."""
     status = request.args.get("status", "active")
@@ -44,7 +48,7 @@ def get_messages() -> Any:
     )
 
 
-@bp.route("/inbox/api/message/<message_id>", methods=["GET"])
+@inbox_bp.route("/api/message/<message_id>", methods=["GET"])
 def get_message(message_id: str) -> Any:
     """Get a specific message by ID."""
     try:
@@ -61,7 +65,7 @@ def get_message(message_id: str) -> Any:
         return jsonify({"error": str(e)}), 500
 
 
-@bp.route("/inbox/api/message/<message_id>/read", methods=["POST"])
+@inbox_bp.route("/api/message/<message_id>/read", methods=["POST"])
 def mark_read(message_id: str) -> Any:
     """Mark a message as read."""
     try:
@@ -73,7 +77,7 @@ def mark_read(message_id: str) -> Any:
         return jsonify({"error": str(e)}), 500
 
 
-@bp.route("/inbox/api/message/<message_id>/archive", methods=["POST"])
+@inbox_bp.route("/api/message/<message_id>/archive", methods=["POST"])
 def archive_message(message_id: str) -> Any:
     """Archive a message by moving it from active to archived folder."""
     try:
@@ -85,7 +89,7 @@ def archive_message(message_id: str) -> Any:
         return jsonify({"error": str(e)}), 500
 
 
-@bp.route("/inbox/api/message/<message_id>/unarchive", methods=["POST"])
+@inbox_bp.route("/api/message/<message_id>/unarchive", methods=["POST"])
 def unarchive_message(message_id: str) -> Any:
     """Unarchive a message by moving it from archived to active folder."""
     try:

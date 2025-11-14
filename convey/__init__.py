@@ -27,7 +27,6 @@ from .views import calendar as calendar_view
 from .views import chat as chat_view
 from .views import facets as facets_view
 from .views import home as home_view
-from .views import inbox as inbox_view
 from .views import register_views
 from .views import search as search_view
 
@@ -82,7 +81,6 @@ def _count_pending_todos_today() -> int:
 BadgeProvider = Callable[[], int]
 
 NAV_BADGE_PROVIDERS: dict[str, BadgeProvider] = {
-    "inbox": message_store.get_unread_count,
     "todos": _count_pending_todos_today,
 }
 
@@ -224,8 +222,6 @@ app = create_app()
 home = home_view.home
 facets_page = facets_view.facets_page
 facets_list = facets_view.facets_list
-inbox_page = inbox_view.inbox_page
-get_messages = inbox_view.get_messages
 calendar = calendar_view.calendar_page
 calendar_day = calendar_view.calendar_day
 chat_page = chat_view.chat_page

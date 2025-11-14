@@ -1,13 +1,8 @@
-{% extends "base.html" %}
-{% set title = 'Inbox' %}
-{% set active = 'inbox' %}
-
-{% block head %}
 <style>
 .inbox-container {
-  width: 100%;
-  margin: 0;
-  padding: 1.5em 0 3em;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 1.5em 2em 3em;
 }
 
 .inbox-top {
@@ -414,7 +409,7 @@
 
 @media (max-width: 720px) {
   .inbox-container {
-    padding: 1em 0 2em;
+    padding: 1em 1em 2em;
   }
 
   .inbox-top {
@@ -423,9 +418,7 @@
   }
 }
 </style>
-{% endblock %}
 
-{% block body %}
 <div class="container inbox-container">
   <div class="inbox-top">
     <div class="tabs">
@@ -487,13 +480,13 @@ statusTabs.forEach(tab => {
 async function loadMessages() {
   const messageList = document.getElementById('messageList');
   messageList.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
-  
+
   try {
-    const response = await fetch(`/inbox/api/messages?status=${currentStatus}`);
+    const response = await fetch(`api/messages?status=${currentStatus}`);
     const data = await response.json();
-    
+
     currentMessages = data.messages;
-    
+
     // Update unread badge
     const unreadBadge = document.getElementById('unreadBadge');
     if (currentStatus === 'active') {
@@ -504,7 +497,7 @@ async function loadMessages() {
     } else {
       unreadBadge.hidden = true;
     }
-    
+
     // Render messages
     if (currentMessages.length === 0) {
       messageList.innerHTML = `
@@ -515,7 +508,7 @@ async function loadMessages() {
       `;
     } else {
       messageList.innerHTML = currentMessages.map(msg => renderMessage(msg)).join('');
-      
+
       // Add click handlers
       document.querySelectorAll('.message-item').forEach(item => {
         item.addEventListener('click', () => openMessage(item.dataset.messageId));
@@ -531,7 +524,7 @@ function renderMessage(msg) {
   const isUnread = msg.status === 'unread';
   const preview = msg.body.substring(0, 150).replace(/\n/g, ' ');
   const time = formatTime(msg.timestamp);
-  
+
   let contextHtml = '';
   if (msg.context) {
     const tags = [];
@@ -542,7 +535,7 @@ function renderMessage(msg) {
       contextHtml = `<div class="message-context">${tags.join('')}</div>`;
     }
   }
-  
+
   return `
     <div class="message-item ${isUnread ? 'unread' : ''}" data-message-id="${msg.id}">
       <div class="message-indicator"></div>
@@ -565,9 +558,9 @@ function renderMessage(msg) {
 async function openMessage(messageId) {
   const message = currentMessages.find(m => m.id === messageId);
   if (!message) return;
-  
+
   currentMessage = message;
-  
+
   // Update modal content
   document.getElementById('modalFrom').textContent = `${message.from.id} (${message.from.type})`;
   document.getElementById('modalTimestamp').textContent = new Date(message.timestamp).toLocaleString();
@@ -579,7 +572,7 @@ async function openMessage(messageId) {
   } else {
     modalMessage.innerHTML = '<p><em>Loading message...</em></p>';
   }
-  
+
   // Update context
   const contextDiv = document.getElementById('modalContext');
   const contextItems = document.getElementById('modalContextItems');
@@ -598,7 +591,7 @@ async function openMessage(messageId) {
   } else {
     contextDiv.style.display = 'none';
   }
-  
+
   // Update buttons
   const btnArchive = document.getElementById('btnArchive');
   const btnUnarchive = document.getElementById('btnUnarchive');
@@ -616,7 +609,7 @@ async function openMessage(messageId) {
 
   if (needsFetch) {
     try {
-      const response = await fetch(`/inbox/api/message/${messageId}`);
+      const response = await fetch(`api/message/${messageId}`);
       if (!response.ok) {
         throw new Error('Unable to load message');
       }
@@ -649,7 +642,7 @@ async function openMessage(messageId) {
 // Mark message as read
 async function markAsRead(messageId) {
   try {
-    await fetch(`/inbox/api/message/${messageId}/read`, { method: 'POST' });
+    await fetch(`api/message/${messageId}/read`, { method: 'POST' });
     // Update local state
     const msg = currentMessages.find(m => m.id === messageId);
     if (msg) msg.status = 'read';
@@ -663,9 +656,9 @@ async function markAsRead(messageId) {
 // Archive message
 async function archiveMessage() {
   if (!currentMessage) return;
-  
+
   try {
-    await fetch(`/inbox/api/message/${currentMessage.id}/archive`, { method: 'POST' });
+    await fetch(`api/message/${currentMessage.id}/archive`, { method: 'POST' });
     closeModal();
     loadMessages();
   } catch (error) {
@@ -676,9 +669,9 @@ async function archiveMessage() {
 // Unarchive message
 async function unarchiveMessage() {
   if (!currentMessage) return;
-  
+
   try {
-    await fetch(`/inbox/api/message/${currentMessage.id}/unarchive`, { method: 'POST' });
+    await fetch(`api/message/${currentMessage.id}/unarchive`, { method: 'POST' });
     closeModal();
     loadMessages();
   } catch (error) {
@@ -691,12 +684,12 @@ function formatTime(timestamp) {
   const date = new Date(timestamp);
   const now = new Date();
   const diff = now - date;
-  
+
   if (diff < 60000) return 'just now';
   if (diff < 3600000) return `${Math.floor(diff / 60000)} min ago`;
   if (diff < 86400000) return `${Math.floor(diff / 3600000)} hr ago`;
   if (diff < 604800000) return `${Math.floor(diff / 86400000)} days ago`;
-  
+
   return date.toLocaleDateString();
 }
 
@@ -720,4 +713,3 @@ window.addEventListener('click', (e) => {
 // Initial load
 loadMessages();
 </script>
-{% endblock %}
