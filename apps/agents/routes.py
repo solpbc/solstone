@@ -6,15 +6,19 @@ import os
 
 from flask import Blueprint, jsonify, render_template, request
 
-from .. import state
+from convey import state
 
-bp = Blueprint("agents", __name__, template_folder="../templates")
+agents_bp = Blueprint(
+    "app:agents",
+    __name__,
+    url_prefix="/app/agents",
+)
 
 
-@bp.route("/agents")
+@agents_bp.route("/")
 def agents_page() -> str:
     """Render the Agents view."""
-    return render_template("agents.html", active="agents")
+    return render_template("app.html", app="agents")
 
 
 def _list_items(item_type: str) -> list[dict[str, object]]:
@@ -115,13 +119,13 @@ def _list_items(item_type: str) -> list[dict[str, object]]:
     return items
 
 
-@bp.route("/agents/api/available")
+@agents_bp.route("/api/available")
 def available_agents() -> object:
     """Return list of available agent definitions from think/agents/."""
     return jsonify(_list_items("agents"))
 
 
-@bp.route("/agents/api/preview/<persona>")
+@agents_bp.route("/api/preview/<persona>")
 def preview_agent_prompt(persona: str) -> object:
     """Return the complete rendered prompt for an agent.
 
@@ -200,26 +204,26 @@ def _get_item_content(item_type: str, item_id: str) -> tuple[dict, int]:
         return {"error": str(e)}, 500
 
 
-@bp.route("/agents/api/content/<agent_id>")
+@agents_bp.route("/api/content/<agent_id>")
 def agent_content(agent_id: str) -> object:
     """Return the .txt content for an agent."""
     response, status = _get_item_content("agents", agent_id)
     return jsonify(response), status
 
 
-@bp.route("/agents/api/live")
+@agents_bp.route("/api/live")
 def agents_live() -> object:
     """Get list of only live/running agents."""
     return _get_agents_list("live")
 
 
-@bp.route("/agents/api/historical")
+@agents_bp.route("/api/historical")
 def agents_historical() -> object:
     """Get list of only historical/completed agents."""
     return _get_agents_list("historical")
 
 
-@bp.route("/agents/api/list")
+@agents_bp.route("/api/list")
 def agents_list() -> object:
     # Get type parameter (live, historical, or all)
     agent_type = request.args.get("type", "all")
@@ -231,7 +235,7 @@ def _get_agents_list(agent_type: str) -> object:
     from muse.cortex_client import cortex_agents
     from think.utils import get_agents
 
-    from ..utils import parse_pagination_params, time_since
+    from convey.utils import parse_pagination_params, time_since
 
     # Default limit depends on agent type - 20 for historical, 10 for live
     default_limit = 20 if agent_type == "historical" else 10
@@ -259,7 +263,7 @@ def _get_agents_list(agent_type: str) -> object:
     return jsonify(response)
 
 
-@bp.route("/agents/api/plan", methods=["POST"])
+@agents_bp.route("/api/plan", methods=["POST"])
 def create_plan() -> object:
     """Create a prompt from user input using the planner agent."""
     data = request.get_json()
@@ -410,7 +414,7 @@ def _update_item(item_type: str, item_id: str, data: dict) -> tuple[dict, int]:
         return {"error": str(e)}, 500
 
 
-@bp.route("/agents/api/update/<agent_id>", methods=["PUT"])
+@agents_bp.route("/api/update/<agent_id>", methods=["PUT"])
 def update_agent(agent_id: str) -> object:
     """Update an agent's title and content or create a new one."""
     data = request.get_json()
@@ -424,7 +428,7 @@ def update_agent(agent_id: str) -> object:
     return jsonify(response), status
 
 
-@bp.route("/agents/api/start", methods=["POST"])
+@agents_bp.route("/api/start", methods=["POST"])
 def start_agent() -> object:
     """Start a new agent with the given prompt and configuration."""
     data = request.get_json()
@@ -442,7 +446,7 @@ def start_agent() -> object:
     config = data.get("config", {})
 
     try:
-        from ..utils import spawn_agent
+        from convey.utils import spawn_agent
 
         # Create the agent request
         agent_id = spawn_agent(
@@ -458,20 +462,20 @@ def start_agent() -> object:
 
 
 # Topics API endpoints
-@bp.route("/agents/api/topics")
+@agents_bp.route("/api/topics")
 def available_topics() -> object:
     """Return list of available topic definitions from think/topics/."""
     return jsonify(_list_items("topics"))
 
 
-@bp.route("/agents/api/topics/content/<topic_id>")
+@agents_bp.route("/api/topics/content/<topic_id>")
 def topic_content(topic_id: str) -> object:
     """Return the .txt content for a topic."""
     response, status = _get_item_content("topics", topic_id)
     return jsonify(response), status
 
 
-@bp.route("/agents/api/topics/update/<topic_id>", methods=["PUT"])
+@agents_bp.route("/api/topics/update/<topic_id>", methods=["PUT"])
 def update_topic(topic_id: str) -> object:
     """Update a topic's title and content or create a new one."""
     data = request.get_json()
@@ -515,7 +519,7 @@ def update_topic(topic_id: str) -> object:
     return jsonify(response), status
 
 
-@bp.route("/agents/api/topics/toggle/<topic_id>", methods=["POST"])
+@agents_bp.route("/api/topics/toggle/<topic_id>", methods=["POST"])
 def toggle_topic(topic_id: str) -> object:
     """Toggle the disabled state of a topic."""
     topics_path = os.path.join(
@@ -543,7 +547,7 @@ def toggle_topic(topic_id: str) -> object:
         return jsonify({"error": str(e)}), 500
 
 
-@bp.route("/agents/api/tools")
+@agents_bp.route("/api/tools")
 def available_tools() -> object:
     """Return list of available MCP tools from muse.mcp_tools."""
     try:

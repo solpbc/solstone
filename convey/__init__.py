@@ -22,7 +22,6 @@ from think.utils import setup_cli
 
 from . import state
 from .bridge import register_websocket, start_bridge
-from .views import agents as agents_view
 from .views import calendar as calendar_view
 from .views import facets as facets_view
 from .views import home as home_view
@@ -222,8 +221,6 @@ facets_page = facets_view.facets_page
 facets_list = facets_view.facets_list
 calendar = calendar_view.calendar_page
 calendar_day = calendar_view.calendar_day
-agents_page = agents_view.agents_page
-agents_list = agents_view.agents_list
 calendar_days = calendar_view.calendar_days
 calendar_stats = calendar_view.calendar_stats
 calendar_transcript_page = calendar_view.calendar_transcript_page
@@ -241,8 +238,6 @@ __all__ = [
     "facets_list",
     "calendar",
     "calendar_day",
-    "agents_page",
-    "agents_list",
     "calendar_days",
     "calendar_stats",
     "calendar_transcript_page",

@@ -3,7 +3,6 @@ from __future__ import annotations
 from flask import Flask
 
 from . import (
-    agents,
     calendar,
     facets,
     home,
@@ -15,6 +14,5 @@ def register_views(app: Flask) -> None:
         home.bp,
         facets.bp,
         calendar.bp,
-        agents.bp,
     ]:
         app.register_blueprint(bp)
