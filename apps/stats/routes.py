@@ -6,9 +6,8 @@ from typing import Any
 
 from flask import Blueprint, jsonify, render_template
 
-from think.utils import get_topics
-
 from convey import state
+from think.utils import get_topics
 
 stats_bp = Blueprint(
     "app:stats",

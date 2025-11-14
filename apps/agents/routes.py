@@ -232,10 +232,9 @@ def agents_list() -> object:
 
 def _get_agents_list(agent_type: str) -> object:
     """Internal helper to get agents list."""
+    from convey.utils import parse_pagination_params, time_since
     from muse.cortex_client import cortex_agents
     from think.utils import get_agents
-
-    from convey.utils import parse_pagination_params, time_since
 
     # Default limit depends on agent type - 20 for historical, 10 for live
     default_limit = 20 if agent_type == "historical" else 10

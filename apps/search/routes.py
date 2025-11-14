@@ -8,15 +8,14 @@ from typing import Any
 import markdown  # type: ignore
 from flask import Blueprint, jsonify, render_template, request
 
+from convey import state
+from convey.utils import format_date
 from think.indexer import (
     search_entities,
     search_events,
     search_summaries,
     search_transcripts,
 )
-
-from convey import state
-from convey.utils import format_date
 
 search_bp = Blueprint(
     "app:search",
@@ -36,9 +35,8 @@ def search_summaries_api() -> Any:
     if not query:
         return jsonify({"total": 0, "results": []})
 
-    from think.utils import get_topics
-
     from convey.utils import parse_pagination_params
+    from think.utils import get_topics
 
     limit, offset = parse_pagination_params(default_limit=20)
 
@@ -78,9 +76,8 @@ def search_events_api() -> Any:
     if not query:
         return jsonify({"total": 0, "results": []})
 
-    from think.utils import get_topics
-
     from convey.utils import parse_pagination_params
+    from think.utils import get_topics
 
     limit, offset = parse_pagination_params(default_limit=10)
 

@@ -7,10 +7,9 @@ from typing import Any
 
 from flask import Blueprint, jsonify, render_template, request
 
-from think.utils import day_dirs, day_path
-
 from convey import state
 from convey.utils import DATE_RE, adjacent_days, format_date
+from think.utils import day_dirs, day_path
 
 calendar_bp = Blueprint(
     "app:calendar",
