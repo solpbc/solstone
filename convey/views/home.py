@@ -39,7 +39,6 @@ def require_login() -> Any:
     if request.endpoint in {
         "home.login",
         "home.static",
-        "home.stats_data",
         "home.favicon",
     }:
         return None
@@ -104,6 +103,5 @@ def favicon() -> Any:
 
 
 @bp.route("/")
-def home() -> str:
-    # Just render the template - all data loading happens client-side
-    return render_template("home.html", active="home")
+def home() -> Any:
+    return redirect(url_for("app:home.index"))

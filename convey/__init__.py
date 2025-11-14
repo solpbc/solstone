@@ -16,18 +16,13 @@ from flask_sock import Sock
 from jinja2 import ChoiceLoader, FileSystemLoader
 
 from apps import AppRegistry
-from think import messages as message_store
 from think import todo as todo_store
 from think.utils import setup_cli
 
 from . import state
 from .bridge import register_websocket, start_bridge
-from .views import calendar as calendar_view
-from .views import facets as facets_view
 from .views import home as home_view
 from .views import register_views
-
-# Old task system removed - now using Callosum for task execution
 
 logger = logging.getLogger(__name__)
 
@@ -144,7 +139,7 @@ def create_app(journal: str = "") -> Flask:
     app.secret_key = os.getenv("CONVEY_SECRET", "sunstone-secret")
     app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(days=30)
 
-    # Register legacy views
+    # Register core views (login, logout, root redirect)
     register_views(app)
 
     # Initialize and register app system
@@ -217,15 +212,6 @@ app = create_app()
 
 # Re-export commonly used callables
 home = home_view.home
-facets_page = facets_view.facets_page
-facets_list = facets_view.facets_list
-calendar = calendar_view.calendar_page
-calendar_day = calendar_view.calendar_day
-calendar_days = calendar_view.calendar_days
-calendar_stats = calendar_view.calendar_stats
-calendar_transcript_page = calendar_view.calendar_transcript_page
-calendar_transcript_ranges = calendar_view.calendar_transcript_ranges
-calendar_transcript_range = calendar_view.calendar_transcript_range
 login = home_view.login
 logout = home_view.logout
 
@@ -233,15 +219,6 @@ __all__ = [
     "app",
     "create_app",
     "home",
-    "facets_page",
-    "facets_list",
-    "calendar",
-    "calendar_day",
-    "calendar_days",
-    "calendar_stats",
-    "calendar_transcript_page",
-    "calendar_transcript_ranges",
-    "calendar_transcript_range",
     "login",
     "logout",
     "journal_root",

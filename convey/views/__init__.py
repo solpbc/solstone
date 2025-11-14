@@ -2,17 +2,8 @@ from __future__ import annotations
 
 from flask import Flask
 
-from . import (
-    calendar,
-    facets,
-    home,
-)
+from . import home
 
 
 def register_views(app: Flask) -> None:
-    for bp in [
-        home.bp,
-        facets.bp,
-        calendar.bp,
-    ]:
-        app.register_blueprint(bp)
+    app.register_blueprint(home.bp)
