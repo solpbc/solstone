@@ -1,7 +1,3 @@
-{% extends 'base.html' %}
-{% set title = 'Search' %}
-{% set active = 'search' %}
-{% block head %}
 <style>
 .container { padding: 0 1em; }
 #resultsTable { width:100%; border-collapse:collapse; margin-top:1em; }
@@ -12,8 +8,7 @@
 .slug-link { font-weight:bold; text-decoration:none; }
 .load-more { margin-top:1em; padding:6px 12px; background:#007bff; color:white; border:none; border-radius:4px; cursor:pointer; }
 </style>
-{% endblock %}
-{% block body %}
+
 <div class="container">
   <form id="searchForm" class="input-area">
     <input id="query" type="text" placeholder="Search" />
@@ -31,12 +26,13 @@
   </table>
   <button id="loadMore" class="load-more" style="display:none"></button>
 </div>
+
 <script src="{{ url_for('home.static', filename='colors.js') }}"></script>
 <script>
-const summariesUrl = '{{ url_for('search.search_summaries_api') }}';
-const eventsUrl = '{{ url_for('search.search_events_api') }}';
-const entitiesUrl = '{{ url_for('search.search_entities_api') }}';
-const transcriptsUrl = '{{ url_for('search.search_transcripts_api') }}';
+const summariesUrl = '{{ url_for('app:search.search_summaries_api') }}';
+const eventsUrl = '{{ url_for('app:search.search_events_api') }}';
+const entitiesUrl = '{{ url_for('app:search.search_entities_api') }}';
+const transcriptsUrl = '{{ url_for('app:search.search_transcripts_api') }}';
 const dayBase = '{{ url_for('calendar.calendar_day', day='') }}';
 const COLORS = window.CATEGORY_COLORS;
   let topicColors = {};
@@ -326,7 +322,7 @@ function doSearch(reset=true){
   url.searchParams.set('q', parsed.text);
   if(parsed.day) url.searchParams.set('day', parsed.day);
   if(parsed.topic && parsed.index!=='transcripts' && parsed.index!=='entities') url.searchParams.set('topic', parsed.topic);
-  
+
   // Add entity-specific parameters
   if(parsed.index==='entities'){
     if(parsed.type) url.searchParams.set('type', parsed.type);
@@ -335,13 +331,13 @@ function doSearch(reset=true){
     if(parsed.attached) url.searchParams.set('attached', parsed.attached);
     if(parsed.order) url.searchParams.set('order', parsed.order);
   }
-  
-  // Add event-specific parameters  
+
+  // Add event-specific parameters
   if(parsed.index==='events'){
     if(parsed.start) url.searchParams.set('start', parsed.start);
     if(parsed.end) url.searchParams.set('end', parsed.end);
   }
-  
+
   url.searchParams.set('limit', limit);
   url.searchParams.set('offset', offset);
   fetch(url)
@@ -376,4 +372,3 @@ document.querySelectorAll('.tab').forEach(tab => {
   });
 });
 </script>
-{% endblock %}

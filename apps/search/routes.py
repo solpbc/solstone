@@ -15,18 +15,22 @@ from think.indexer import (
     search_transcripts,
 )
 
-from .. import state
-from ..utils import format_date
+from convey import state
+from convey.utils import format_date
 
-bp = Blueprint("search", __name__, template_folder="../templates")
+search_bp = Blueprint(
+    "app:search",
+    __name__,
+    url_prefix="/app/search",
+)
 
 
-@bp.route("/search")
-def search_page() -> str:
-    return render_template("search.html", active="search")
+@search_bp.route("/")
+def index() -> str:
+    return render_template("app.html", app="search")
 
 
-@bp.route("/search/api/summaries")
+@search_bp.route("/api/summaries")
 def search_summaries_api() -> Any:
     query = request.args.get("q", "").strip()
     if not query:
@@ -34,7 +38,7 @@ def search_summaries_api() -> Any:
 
     from think.utils import get_topics
 
-    from ..utils import parse_pagination_params
+    from convey.utils import parse_pagination_params
 
     limit, offset = parse_pagination_params(default_limit=20)
 
@@ -68,7 +72,7 @@ def search_summaries_api() -> Any:
     return jsonify({"total": total, "results": results})
 
 
-@bp.route("/search/api/events")
+@search_bp.route("/api/events")
 def search_events_api() -> Any:
     query = request.args.get("q", "").strip()
     if not query:
@@ -76,7 +80,7 @@ def search_events_api() -> Any:
 
     from think.utils import get_topics
 
-    from ..utils import parse_pagination_params
+    from convey.utils import parse_pagination_params
 
     limit, offset = parse_pagination_params(default_limit=10)
 
@@ -124,13 +128,13 @@ def search_events_api() -> Any:
     return jsonify({"total": total, "results": results})
 
 
-@bp.route("/search/api/transcripts")
+@search_bp.route("/api/transcripts")
 def search_transcripts_api() -> Any:
     query = request.args.get("q", "").strip()
     if not query:
         return jsonify({"total": 0, "results": []})
 
-    from ..utils import parse_pagination_params
+    from convey.utils import parse_pagination_params
 
     limit, offset = parse_pagination_params(default_limit=20)
 
@@ -155,7 +159,7 @@ def search_transcripts_api() -> Any:
     return jsonify({"total": total, "results": results})
 
 
-@bp.route("/search/api/entities")
+@search_bp.route("/api/entities")
 def search_entities_api() -> Any:
     query = request.args.get("q", "").strip()
     # Allow empty query to return all entities
@@ -215,7 +219,7 @@ def search_entities_api() -> Any:
     return jsonify({"total": total, "results": results})
 
 
-@bp.route("/search/api/topic_detail")
+@search_bp.route("/api/topic_detail")
 def topic_detail() -> Any:
     path = request.args.get("path")
     if not path:
@@ -231,7 +235,7 @@ def topic_detail() -> Any:
     return jsonify({"text": text})
 
 
-@bp.route("/search/api/occurrence_detail")
+@search_bp.route("/api/occurrence_detail")
 def occurrence_detail() -> Any:
     path = request.args.get("path")
     idx = int(request.args.get("index", 0))

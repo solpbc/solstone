@@ -16,7 +16,7 @@
     <a data-nav-key="calendar" href="{{ url_for('calendar.calendar_page') }}" class="{% if active=='calendar' %}current{% endif %}" title="Calendar">📅<span class="nav-badge" aria-hidden="true"></span></a>
     <a data-nav-key="chat" href="{{ url_for('app:chat.chat_page') }}" class="{% if active=='chat' %}current{% endif %}" title="Chat">💬<span class="nav-badge" aria-hidden="true"></span></a>
     <a data-nav-key="agents" href="{{ url_for('agents.agents_page') }}" class="{% if active=='agents' %}current{% endif %}" title="Agents">🚀<span class="nav-badge" aria-hidden="true"></span></a>
-    <a data-nav-key="search" href="{{ url_for('search.search_page') }}" class="{% if active=='search' %}current{% endif %}" title="Search">🔍<span class="nav-badge" aria-hidden="true"></span></a>
+    <a data-nav-key="search" href="{{ url_for('app:search.index') }}" class="{% if active=='search' %}current{% endif %}" title="Search">🔍<span class="nav-badge" aria-hidden="true"></span></a>
     <a data-nav-key="logout" href="{{ url_for('home.logout') }}" title="Logout">🔒<span class="nav-badge" aria-hidden="true"></span></a>
   </div>
   <script>

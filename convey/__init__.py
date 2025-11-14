@@ -27,7 +27,6 @@ from .views import calendar as calendar_view
 from .views import facets as facets_view
 from .views import home as home_view
 from .views import register_views
-from .views import search as search_view
 
 # Old task system removed - now using Callosum for task execution
 
@@ -225,7 +224,6 @@ calendar = calendar_view.calendar_page
 calendar_day = calendar_view.calendar_day
 agents_page = agents_view.agents_page
 agents_list = agents_view.agents_list
-search_page = search_view.search_page
 calendar_days = calendar_view.calendar_days
 calendar_stats = calendar_view.calendar_stats
 calendar_transcript_page = calendar_view.calendar_transcript_page
@@ -245,7 +243,6 @@ __all__ = [
     "calendar_day",
     "agents_page",
     "agents_list",
-    "search_page",
     "calendar_days",
     "calendar_stats",
     "calendar_transcript_page",
