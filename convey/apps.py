@@ -11,6 +11,8 @@ def _get_facets_data() -> list[dict]:
     """Get facets data for templates."""
     from think.facets import get_facets
 
+    from .config import apply_facet_order, load_convey_config
+
     all_facets = get_facets()
     active_facets = []
 
@@ -25,12 +27,29 @@ def _get_facets_data() -> list[dict]:
                 }
             )
 
-    return active_facets
+    # Apply custom ordering from config
+    config = load_convey_config()
+    return apply_facet_order(active_facets, config)
 
 
 def _get_selected_facet() -> str | None:
-    """Get the currently selected facet from cookie."""
-    return request.cookies.get("selectedFacet")
+    """Get selected facet from cookie, syncing with config.
+
+    Cookie takes precedence - if it differs from config, update config.
+    If no cookie exists, use config value as default.
+    """
+    from .config import get_selected_facet, set_selected_facet
+
+    cookie_facet = request.cookies.get("selectedFacet")
+    config_facet = get_selected_facet()
+
+    # Sync: cookie takes precedence, update config if different
+    if cookie_facet is not None and cookie_facet != config_facet:
+        set_selected_facet(cookie_facet)
+        return cookie_facet
+
+    # No cookie: use config default
+    return cookie_facet if cookie_facet is not None else config_facet
 
 
 def register_app_context(app: Flask, registry: AppRegistry) -> None:
@@ -39,6 +58,8 @@ def register_app_context(app: Flask, registry: AppRegistry) -> None:
     @app.context_processor
     def inject_app_context() -> dict:
         """Inject app registry and facets context for new app system."""
+        from .config import apply_app_order, load_convey_config
+
         facets = _get_facets_data()
         selected_facet = _get_selected_facet()
 
@@ -51,6 +72,10 @@ def register_app_context(app: Flask, registry: AppRegistry) -> None:
                 "label": app_instance.label,
                 "submenu": submenu if submenu else None,
             }
+
+        # Apply custom ordering from config
+        config = load_convey_config()
+        apps_dict = apply_app_order(apps_dict, config)
 
         return {
             "app_registry": registry,

@@ -6,6 +6,7 @@ This document describes the layout of a **journal** directory where all audio, s
 
 - `task_log.txt` – optional log of utility runs in `[epoch]\tmessage` format.
 - `config/journal.json` – user configuration for the journal (optional, see below).
+- `config/convey.json` – Convey UI preferences (facet/app ordering, selected facet).
 - `facets/` – facet-specific organization folders described below.
 - `inbox/` – asynchronous messaging system for agent communications described below.
 - `tokens/` – token usage logs from AI model calls, organized by day (see below).
@@ -66,6 +67,18 @@ The `convey` block contains settings for the web application:
 
 Fields:
 - `password` (string) – Password for accessing the convey web application. When set, users must authenticate before accessing the journal interface.
+
+**UI Preferences:** The separate `config/convey.json` file stores UI/UX personalization (facet/app ordering, selected facet). All fields optional:
+
+```json
+{
+  "facets": {"order": ["work", "personal"], "selected": "work"},
+  "apps": {"order": ["home", "calendar", "todos"]}
+}
+```
+
+- `facets.order` – Custom facet ordering. `facets.selected` – Currently selected facet (auto-synced with browser).
+- `apps.order` – Custom app ordering in menu bar.
 
 #### Template usage examples
 

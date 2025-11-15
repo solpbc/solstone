@@ -15,6 +15,7 @@ from . import state
 from .apps import register_app_context
 from .bridge import register_websocket
 from .cli import run_service
+from .config import bp as config_bp
 from .root import bp as root_bp
 
 __all__ = [
@@ -47,6 +48,9 @@ def create_app(journal: str = "") -> Flask:
 
     # Register root blueprint (login, logout, /, favicon)
     app.register_blueprint(root_bp)
+
+    # Register config API blueprint
+    app.register_blueprint(config_bp)
 
     # Initialize and register app system
     registry = AppRegistry()
