@@ -50,5 +50,6 @@ def test_app_endpoint(app_name: str, convey_running):
     response = requests.get(url, timeout=5)
 
     assert response.status_code == 200, (
-        f"App '{app_name}' at {url} returned {response.status_code}"
+        f"App '{app_name}' at {url} returned {response.status_code}. "
+        "Always use 'make screenshot' to validate this failure"
     )
