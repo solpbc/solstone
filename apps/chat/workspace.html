@@ -1,7 +1,10 @@
 <style>
-body {height:100vh; overflow:hidden;}
-.container {height:100vh; display:flex; flex-direction:column; position:relative; padding:0 1em; box-sizing:border-box;}
-#messages {flex:1; overflow-y:auto; padding:1em; padding-bottom:1em; display:flex; flex-direction:column; min-height:0;}
+#messages {
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  padding: 1em;
+}
 .message {margin-bottom:0.75em; padding:0.75em 1em; border-radius:12px; max-width:75%; box-shadow:0 1px 3px rgba(0,0,0,0.1); animation:fadeInUp 0.3s ease-out; position:relative;}
 .from-user {background:linear-gradient(135deg, #667eea 0%, #764ba2 100%); color:white; align-self:flex-end; margin-left:20%;}
 .from-bot {background:#fff; border:1px solid #e0e0e0; align-self:flex-start; margin-right:20%;}
@@ -18,34 +21,24 @@ body {height:100vh; overflow:hidden;}
 .copy-user-btn-bottom button:hover {background:rgba(255,255,255,0.1); border-color:rgba(255,255,255,0.5); color:rgba(255,255,255,0.9);}
 .copy-user-btn-bottom button.copied {background:#4caf50; color:white; border-color:#4caf50;}
 @keyframes fadeInUp {from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:translateY(0);}}
-#messages .event-card{background:#fff4e5;border:1px solid #f0ad4e;border-radius:6px;padding:0.5em 0.75em;margin-bottom:0.75em;font-size:0.85em;max-width:80%;align-self:flex-start;cursor:help;}
+#messages .event-card{background:#fff4e5;border:1px solid #f0ad4e;border-radius:6px;padding:0.5em 0.75em;margin-bottom:0.75em;font-size:0.85em;max-width:80%;align-self:flex-start;cursor:help;transition:all 0.2s;}
+#messages .event-card:hover{background:#fff0d4;border-color:#e09e3a;transform:translateY(-1px);box-shadow:0 2px 4px rgba(0,0,0,0.1);}
 #messages .event-card a{text-decoration:none;color:#007bff;}
 #messages .event-card a:hover{text-decoration:underline;}
-#messages .tool-placard{background:#e3f2fd;border:1px solid #2196f3;border-radius:6px;padding:0.4em 0.6em;margin-bottom:0.5em;font-size:0.8em;max-width:60%;align-self:flex-start;cursor:help;}
+#messages .tool-placard{background:#e3f2fd;border:1px solid #2196f3;border-radius:6px;padding:0.4em 0.6em;margin-bottom:0.5em;font-size:0.8em;max-width:60%;align-self:flex-start;cursor:help;transition:all 0.2s;}
+#messages .tool-placard:hover{background:#d1e8fc;border-color:#1976d2;transform:translateY(-1px);}
 #messages .tool-placard .tool-name{font-weight:bold;color:#1976d2;}
 #messages .tool-placard .tool-status{font-size:0.9em;color:#666;margin-left:0.5em;}
 #messages .tool-placard.completed{background:#e8f5e9;border-color:#4caf50;}
+#messages .tool-placard.completed:hover{background:#d4f0d7;}
 #messages .tool-placard.completed .tool-name{color:#2e7d32;}
-#messages .agent-update{background:#fff3e0;border:1px solid #ff9800;border-radius:6px;padding:0.4em 0.6em;margin-bottom:0.5em;font-size:0.8em;max-width:60%;align-self:flex-start;color:#e65100;font-style:italic;}
-#messages .thinking-card{background:#f8f4ff;border:1px solid #9c27b0;border-radius:6px;padding:0.5em 0.75em;margin-bottom:0.75em;font-size:0.85em;max-width:80%;align-self:flex-start;cursor:pointer;}
-#messages .thinking-card:hover{background:#f3e5f5;}
+#messages .agent-update{background:#fff3e0;border:1px solid #ff9800;border-radius:6px;padding:0.4em 0.6em;margin-bottom:0.5em;font-size:0.8em;max-width:60%;align-self:flex-start;color:#e65100;font-style:italic;transition:all 0.2s;}
+#messages .agent-update:hover{background:#ffe8cc;}
+#messages .thinking-card{background:#f8f4ff;border:1px solid #9c27b0;border-radius:6px;padding:0.5em 0.75em;margin-bottom:0.75em;font-size:0.85em;max-width:80%;align-self:flex-start;cursor:pointer;transition:all 0.2s;}
+#messages .thinking-card:hover{background:#f3e5f5;transform:translateY(-1px);box-shadow:0 2px 4px rgba(0,0,0,0.05);}
 #messages .thinking-card .thinking-label{font-weight:bold;color:#7b1fa2;margin-bottom:0.25em;}
 #messages .thinking-card .thinking-content{color:#333;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 #messages .thinking-card.expanded .thinking-content{white-space:pre-wrap;overflow:visible;text-overflow:clip;}
-#drawer {display:none; border-top:1px solid #ddd; padding:0.5em; background:#fafafa;}
-.input-tray {background:#f8f9fa; border-top:1px solid #e0e0e0; padding:1em;}
-.input-area {display:flex; gap:0.5em; align-items:center;}
-#messageInput {flex:1; resize:none; border:1px solid #ddd; border-radius:20px; padding:0.75em 1em; font-family:inherit; font-size:14px; line-height:1.5; max-height:120px; min-height:42px;}
-#messageInput:focus {outline:none; border-color:#667eea;}
-#backendSelect {padding:0.75em 1em; border:1px solid #ddd; border-radius:20px; background:white; cursor:pointer; font-weight:500; height:42px; font-size:14px;}
-#backendSelect option[value="google"] {background:#4285f4; color:white;}
-#backendSelect option[value="openai"] {background:#10a37f; color:white;}
-#backendSelect option[value="anthropic"] {background:#764ba2; color:white;}
-.input-area button {padding:0.75em 1.2em; border:none; border-radius:20px; cursor:pointer; font-weight:500; transition:all 0.2s; height:42px; font-size:14px;}
-.input-area button[type="submit"] {background:#667eea; color:white;}
-.input-area button[type="submit"]:hover {background:#5a67d8; transform:translateY(-1px);}
-.input-area button[type="button"] {background:#e0e0e0; color:#333;}
-.input-area button[type="button"]:hover {background:#d0d0d0;}
 .message h1,.message h2,.message h3,.message h4,.message h5,.message h6 {margin:0.5em 0 0.3em 0;}
 .message p {margin:0.3em 0;}
 .message ul,.message ol {margin:0.3em 0; padding-left:1.5em;}
@@ -56,40 +49,15 @@ body {height:100vh; overflow:hidden;}
 .message pre code {background:none; padding:0;}
 .message blockquote {margin:0.5em 0; padding-left:1em; border-left:3px solid rgba(0,0,0,0.2);}
 .from-user blockquote {border-left-color:rgba(255,255,255,0.4);}
-.typing-indicator {display:none; align-self:flex-start; padding:0.75em 1em; background:#f0f0f0; border-radius:12px; margin-bottom:0.75em; max-width:80px;}
-.typing-indicator.show {display:flex; align-items:center; gap:4px; animation:fadeInUp 0.3s ease-out;}
-.typing-indicator span {width:8px; height:8px; background:#999; border-radius:50%; animation:typingBounce 1.4s infinite ease-in-out;}
-.typing-indicator span:nth-child(1) {animation-delay:-0.32s;}
-.typing-indicator span:nth-child(2) {animation-delay:-0.16s;}
 @keyframes typingBounce {0%,80%,100%{transform:scale(0.8);opacity:0.5;}40%{transform:scale(1);opacity:1;}}
-.activity-indicator {align-self:flex-start; padding:0.75em 1em; background:#f0f0f0; border-radius:12px; margin-bottom:0.75em; margin-top:0.5em; max-width:80px; display:none;}
+.activity-indicator {align-self:flex-start; padding:0.75em 1em; background:#f0f0f0; border-radius:12px; margin-bottom:0.5em; max-width:80px; display:none;}
 .activity-indicator.active {display:flex; align-items:center; gap:4px; animation:fadeInUp 0.3s ease-out;}
 .activity-indicator span {width:8px; height:8px; background:#999; border-radius:50%; animation:typingBounce 1.4s infinite ease-in-out;}
 .activity-indicator span:nth-child(1) {animation-delay:-0.32s;}
 .activity-indicator span:nth-child(2) {animation-delay:-0.16s;}
 </style>
 
-<div class="container">
-  <div id="messages">
-    <div class="typing-indicator" id="typingIndicator">
-      <span></span>
-      <span></span>
-      <span></span>
-    </div>
-  </div>
-  <div id="drawer">Attachments drawer</div>
-  <div class="input-tray">
-    <form id="inputArea" class="input-area">
-      <select id="backendSelect">
-        <option value="google">🔵 Google</option>
-        <option value="openai">🟢 OpenAI</option>
-        <option value="anthropic" selected>🟣 Claude</option>
-      </select>
-      <textarea id="messageInput" rows="1" placeholder="Send a message..."></textarea>
-      <button type="submit">Send</button>
-    </form>
-  </div>
-</div>
+<div id="messages"></div>
 
 <script src="{{ vendor_lib('marked') }}"></script>
 <script>
@@ -97,18 +65,45 @@ const sendUrl = '{{ url_for('app:chat.send_message') }}';
 const historyUrl = '{{ url_for('app:chat.chat_history') }}';
 const clearUrl = '{{ url_for('app:chat.clear_history') }}';
 const agentUrl = '{{ url_for('app:chat.agent_events', agent_id='AGENT_ID') }}';
-const form = document.getElementById('inputArea');
-const input = document.getElementById('messageInput');
 const messagesDiv = document.getElementById('messages');
-const backendSelect = document.getElementById('backendSelect');
 const searchBase = '{{ url_for('app:search.index') }}';
 
-// Fetch persona titles from API
-let personaTitles = {};
-fetch('/app/chat/api/personas')
-  .then(r => r.json())
-  .then(data => { personaTitles = data; })
-  .catch(err => console.error('Failed to load personas:', err));
+// Wait for app bar to load
+let form, input, backendToggle, currentBackend;
+
+function initAppBarControls() {
+  form = document.getElementById('chatInputForm');
+  input = document.getElementById('chatMessageInput');
+  backendToggle = document.getElementById('chatBackendToggle');
+  currentBackend = backendToggle.dataset.backend || 'anthropic';
+
+  // Backend toggle cycle: anthropic -> google -> openai -> anthropic
+  const backends = {
+    anthropic: { next: 'google', label: 'Claude' },
+    google: { next: 'openai', label: 'Gemini' },
+    openai: { next: 'anthropic', label: 'ChatGPT' }
+  };
+
+  backendToggle.addEventListener('click', () => {
+    const next = backends[currentBackend].next;
+    currentBackend = next;
+    backendToggle.dataset.backend = next;
+    backendToggle.textContent = backends[next].label;
+    backendToggle.title = `Click to change backend (current: ${backends[next].label})`;
+  });
+
+  // Setup form submission
+  setupFormHandlers();
+
+  input.focus();
+}
+
+// Initialize when DOM is ready
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initAppBarControls);
+} else {
+  initAppBarControls();
+}
 
 // Deduplication using agent_id:ts as key
 const processedEventIds = new Set();
@@ -160,12 +155,11 @@ function enrichEvent(event) {
 
 // Parse URL parameters
 const urlParams = new URLSearchParams(window.location.search);
-let currentPersona = urlParams.get('persona') || 'default';
 
 // Unified state management
 let currentAgentId = null;
 let isComplete = false;
-let headerInfo = null; // {persona, startTs, personaTitle, prompt}
+let headerInfo = null; // {startTs, prompt}
 
 // Create persistent activity indicator
 const activityIndicator = document.createElement('div');
@@ -194,20 +188,6 @@ function showActivityIndicator() {
   if (eventTimeout) {
     clearTimeout(eventTimeout);
     eventTimeout = null;
-  }
-}
-
-function hideActivityIndicator() {
-  // Only hide if agent is complete
-  if (isComplete) {
-    // Set a small delay before hiding to handle rapid event sequences
-    if (eventTimeout) {
-      clearTimeout(eventTimeout);
-    }
-    eventTimeout = setTimeout(() => {
-      activityIndicator.classList.remove('active');
-      eventProcessingActive = false;
-    }, 500);
   }
 }
 
@@ -358,16 +338,14 @@ function updateHeader() {
     header = document.createElement('div');
     header.id = 'chatHeader';
     header.style.cssText = 'background:#e3f2fd;border-bottom:2px solid #2196f3;padding:0.75rem 1rem;margin:0;color:#1565c0;text-align:center;font-size:0.95em;';
-    const container = document.querySelector('.container');
-    container.insertBefore(header, messagesDiv);
+    messagesDiv.parentElement.insertBefore(header, messagesDiv);
   }
 
-  const personaTitle = headerInfo.personaTitle || headerInfo.persona || 'Chat';
   const startDate = new Date(headerInfo.startTs);
   const timeStr = startDate.toLocaleTimeString('en-US', {hour: 'numeric', minute: '2-digit'});
   const dateStr = startDate.toLocaleDateString('en-US', {month: 'short', day: 'numeric'});
 
-  let headerText = `${personaTitle} • Started ${timeStr} on ${dateStr}`;
+  let headerText = `Chat • Started ${timeStr} on ${dateStr}`;
 
   // Add duration if complete
   if (isComplete && headerInfo.endTs) {
@@ -428,13 +406,10 @@ async function loadAgent(agentId) {
 
       // Check if we can continue the conversation
       const finishEvent = events.find(e => e.event === 'finish');
-      if (finishEvent && finishEvent.conversation_id) {
-        form.style.display = '';
+      if (finishEvent && finishEvent.conversation_id && input) {
         input.disabled = false;
         input.placeholder = 'Continue conversation...';
         input.dataset.continueAgent = agentId;
-      } else {
-        form.style.display = 'none';
       }
     }
 
@@ -443,14 +418,6 @@ async function loadAgent(agentId) {
   }
 }
 
-input.focus();
-
-input.addEventListener('keydown', e => {
-  if (e.key === 'Enter' && !e.shiftKey) {
-    e.preventDefault();
-    form.requestSubmit();
-  }
-});
 // Store raw markdown for each bot message
 const messageMarkdown = new WeakMap();
 
@@ -579,49 +546,60 @@ function reuseMessage(messageDiv) {
   const header = document.getElementById('chatHeader');
   if(header) header.remove();
 
-  // Show and enable the form
-  form.style.display = '';
-  input.disabled = false;
-  input.placeholder = 'Send a message...';
-
-  // Pre-fill the input with the message text
-  input.value = text;
-  input.focus();
-
-  // Auto-resize the textarea
-  input.style.height = 'auto';
-  input.style.height = input.scrollHeight + 'px';
-}
-document.getElementById('inputArea').onsubmit=async e=>{
-  e.preventDefault();
-  const text=input.value.trim();
-  if(!text)return;
-
-  input.value='';
-  input.disabled = true;
-
-  // Check if continuing from previous agent
-  const continueAgentId = input.dataset.continueAgent;
-  delete input.dataset.continueAgent;
-
-  const payload={message:text,backend:backendSelect.value,persona:currentPersona};
-  if(continueAgentId){
-    payload['continue']=continueAgentId;
-  }
-
-  const r=await fetch(sendUrl,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
-
-  if(r.ok){
-    const d=await r.json();
-    // Load the agent (will fetch initial events and subscribe to WebSocket)
-    await loadAgent(d.agent_id);
-  }else{
+  // Enable the form and pre-fill
+  if(input) {
     input.disabled = false;
-    let err='Error';
-    try{const d=await r.json();err=d.error||err;}catch{};
-    if(window.showError)showError(err);
+    input.placeholder = 'Send a message...';
+    input.value = text;
+    input.focus();
+
+    // Auto-resize the textarea
+    input.style.height = 'auto';
+    input.style.height = input.scrollHeight + 'px';
   }
-};
+}
+
+function setupFormHandlers() {
+  // Enter key to submit
+  input.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      form.requestSubmit();
+    }
+  });
+
+  // Form submission
+  form.onsubmit = async e => {
+    e.preventDefault();
+    const text = input.value.trim();
+    if (!text) return;
+
+    input.value = '';
+    input.disabled = true;
+
+    // Check if continuing from previous agent
+    const continueAgentId = input.dataset.continueAgent;
+    delete input.dataset.continueAgent;
+
+    const payload = { message: text, backend: currentBackend };
+    if (continueAgentId) {
+      payload['continue'] = continueAgentId;
+    }
+
+    const r = await fetch(sendUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+
+    if (r.ok) {
+      const d = await r.json();
+      // Load the agent (will fetch initial events and subscribe to WebSocket)
+      await loadAgent(d.agent_id);
+    } else {
+      input.disabled = false;
+      let err = 'Error';
+      try { const d = await r.json(); err = d.error || err; } catch { };
+      if (window.showError) showError(err);
+    }
+  };
+}
 
 async function loadHistory(){
   const r=await fetch(historyUrl);
@@ -639,8 +617,6 @@ function processEvent(event) {
     case 'start':
       // Set up header info and show user message
       headerInfo = {
-        persona: event.persona || 'default',
-        personaTitle: personaTitles[event.persona] || event.persona || 'Chat',
         startTs: event.ts,
         prompt: event.prompt
       };
@@ -679,7 +655,7 @@ function processEvent(event) {
       forceHideActivityIndicator();
 
       // Enable continuation if available
-      if(event.conversation_id){
+      if(event.conversation_id && input){
         input.disabled = false;
         input.placeholder = 'Continue conversation...';
         input.dataset.continueAgent = event.agent_id;
@@ -844,45 +820,6 @@ function createResourceCard(uri) {
 (function initChatControls(){
   if(chatControlsInitialized) return;
   chatControlsInitialized = true;
-
-  const clearButton = document.getElementById('clearBtn');
-  if(clearButton){
-    clearButton.onclick = async ()=>{
-      await fetch(clearUrl,{method:'POST'});
-      messagesDiv.innerHTML='';
-      Object.keys(toolPlacards).forEach(key => delete toolPlacards[key]);
-      messagesDiv.appendChild(activityIndicator);
-      previousAgent = null;
-      currentAgentId = null;
-      isComplete = false;
-      headerInfo = null;
-      forceHideActivityIndicator();
-      resetEventTracking();
-      input.focus();
-
-      // Remove header if it exists
-      const header = document.getElementById('chatHeader');
-      if(header) header.remove();
-    };
-  }
-
-  backendSelect.addEventListener('change', async ()=>{
-    await fetch(clearUrl,{method:'POST'});
-    messagesDiv.innerHTML='';
-    Object.keys(toolPlacards).forEach(key => delete toolPlacards[key]);
-    messagesDiv.appendChild(activityIndicator);
-    previousAgent = null;
-    currentAgentId = null;
-    isComplete = false;
-    headerInfo = null;
-    forceHideActivityIndicator();
-    resetEventTracking();
-    input.focus();
-
-    // Remove header if it exists
-    const header = document.getElementById('chatHeader');
-    if(header) header.remove();
-  });
 
   // Global WebSocket listener for cortex events
   appEvents.listen('cortex', e => {

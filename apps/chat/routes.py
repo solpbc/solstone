@@ -13,16 +13,6 @@ chat_bp = Blueprint(
 )
 
 
-@chat_bp.route("/api/personas")
-def get_personas() -> Any:
-    """Get available personas for chat."""
-    from think.utils import get_agents
-
-    agents = get_agents()
-    persona_titles = {aid: a["title"] for aid, a in agents.items()}
-    return jsonify(persona_titles)
-
-
 @chat_bp.route("/api/send", methods=["POST"])
 def send_message() -> Any:
     from convey import state
@@ -31,7 +21,6 @@ def send_message() -> Any:
     message = payload.get("message", "")
     attachments = payload.get("attachments", [])
     backend = payload.get("backend", state.chat_backend)
-    persona = payload.get("persona", "default")  # Get persona from request
     continue_agent_id = payload.get("continue")
 
     config: dict[str, Any] = {}
@@ -62,7 +51,7 @@ def send_message() -> Any:
         # Create agent request - events will be broadcast by shared watcher
         agent_id = spawn_agent(
             prompt=full_prompt,
-            persona=persona,
+            persona="default",
             backend=backend,
             config=config,
         )
