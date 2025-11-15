@@ -120,6 +120,8 @@ def main() -> None:
 
     logging.info("Starting sunstone command discovery")
 
+    journal_path = os.environ.get("JOURNAL_PATH", "not set")
+    print(f"JOURNAL_PATH={journal_path}\n")
     print("Scanning for available commands:\n")
     for name, desc, usage in discover_commands():
         if usage:
