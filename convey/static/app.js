@@ -271,12 +271,20 @@
   }
 
   // Collapse facet pills when container is too narrow
+  let collapseTimeout = null;
+  let isCollapsing = false;
+
   function collapseFacetPills() {
+    // Prevent re-entrant calls (avoid infinite loop)
+    if (isCollapsing) return;
+
     const container = document.querySelector('.facet-pills-container');
     if (!container) return;
 
     const pills = Array.from(container.querySelectorAll('.facet-pill'));
     if (pills.length === 0) return;
+
+    isCollapsing = true;
 
     // Reset all pills to full display
     pills.forEach(pill => pill.classList.remove('icon-only'));
@@ -312,6 +320,17 @@
         if (totalWidth <= containerWidth) break;
       }
     }
+
+    // Release lock after DOM has settled
+    setTimeout(() => {
+      isCollapsing = false;
+    }, 100);
+  }
+
+  // Debounced version for ResizeObserver
+  function debouncedCollapseFacetPills() {
+    clearTimeout(collapseTimeout);
+    collapseTimeout = setTimeout(collapseFacetPills, 50);
   }
 
   // Initialize
@@ -324,13 +343,13 @@
     const facetPillsContainer = document.querySelector('.facet-pills-container');
     if (facetPillsContainer) {
       const resizeObserver = new ResizeObserver(() => {
-        collapseFacetPills();
+        debouncedCollapseFacetPills();
       });
       resizeObserver.observe(facetPillsContainer);
     }
 
     // Initial collapse check after DOM settles
-    setTimeout(collapseFacetPills, 0);
+    setTimeout(debouncedCollapseFacetPills, 0);
 
     // Menu state tracking
     let isClickMode = false;

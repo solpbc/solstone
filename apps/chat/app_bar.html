@@ -77,20 +77,28 @@
 }
 </style>
 
-<textarea id="chatMessageInput" class="chat-message-input" rows="1" placeholder="Send a message..."></textarea>
-<button type="submit" id="chatSendBtn" class="chat-send-btn">Send</button>
-<button type="button" id="chatBackendToggle" class="chat-backend-toggle" data-backend="anthropic" title="Click to change backend">
-  Claude
-</button>
+<!-- Use display:contents to make form invisible to flexbox -->
+<form id="chatInputForm" style="display: contents;">
+  <textarea id="chatMessageInput" class="chat-message-input" rows="1" placeholder="Send a message..."></textarea>
+  <button type="submit" id="chatSendBtn" class="chat-send-btn">Send</button>
+  <button type="button" id="chatBackendToggle" class="chat-backend-toggle" data-backend="anthropic" title="Click to change backend">
+    Claude
+  </button>
+</form>
 
 <script>
 (function() {
-  const form = document.querySelector('.app-bar');
+  const form = document.getElementById('chatInputForm');
   const input = document.getElementById('chatMessageInput');
   const sendBtn = document.getElementById('chatSendBtn');
   const backendToggle = document.getElementById('chatBackendToggle');
 
-  // Form is now the app-bar itself, handle as form
+  if (!form || !input || !sendBtn || !backendToggle) {
+    console.error('Chat app bar elements not found');
+    return;
+  }
+
+  // Form submission
   form.addEventListener('submit', (e) => {
     e.preventDefault();
     const message = input.value.trim();
@@ -112,7 +120,7 @@
     .then(data => {
       if (data.success) {
         input.value = '';
-        // Message will appear via WebSocket
+        input.style.height = 'auto';
       } else {
         alert('Error: ' + (data.error || 'Unknown error'));
       }
@@ -148,7 +156,12 @@
     input.style.height = Math.min(input.scrollHeight, 120) + 'px';
   });
 
-  // Focus input on load
-  input.focus();
+  // FIXED: Only focus if nothing else is focused
+  // Use setTimeout to avoid focus stealing during page load
+  setTimeout(() => {
+    if (document.activeElement === document.body) {
+      input.focus();
+    }
+  }, 100);
 })();
 </script>
