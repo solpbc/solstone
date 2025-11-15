@@ -12,7 +12,7 @@
   <!-- Embed facets data for immediate client-side access -->
   <script>
     window.facetsData = {{ facets|tojson|safe }};
-    window.selectedFacetFromServer = {% if app_registry.apps[app].facets_enabled %}{{ selected_facet|tojson|safe }}{% else %}null{% endif %};
+    window.selectedFacet = {% if app_registry.apps[app].facets_enabled %}{{ selected_facet|tojson|safe }}{% else %}null{% endif %};
     window.appFacetCounts = {{ app_registry.apps[app].get_facet_counts(facets, selected_facet)|tojson|safe }};
   </script>
 

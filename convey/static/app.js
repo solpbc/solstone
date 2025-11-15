@@ -4,14 +4,18 @@
  *
  * Requires:
  * - window.facetsData - Array of facet objects from server
- * - window.selectedFacetFromServer - Currently selected facet name or null
+ * - window.selectedFacet - Currently selected facet name or null (initialized by server)
  * - window.appFacetCounts - Object mapping facet names to counts (injected per-app)
+ *
+ * Public API:
+ * - window.selectedFacet - Current facet selection (read/write)
+ * - window.selectFacet(name) - Change facet selection programmatically
+ * - 'facet.switch' event - Dispatched when selection changes
  */
 
 (function(){
   // Facet filtering state
   let activeFacets = [];
-  let selectedFacet = null; // null means "All"
   let previousFacet = null; // Track previous facet for toggle restoration
 
   // Save facet selection to cookie (server-driven)
@@ -58,7 +62,7 @@
     const facetsDisabled = document.querySelector('.facet-bar')?.classList.contains('facets-disabled');
 
     // Find selected facet data
-    const selectedFacetData = selectedFacet ? activeFacets.find(f => f.name === selectedFacet) : null;
+    const selectedFacetData = window.selectedFacet ? activeFacets.find(f => f.name === window.selectedFacet) : null;
 
     // Apply theme by updating CSS variables (only if facets are enabled)
     if (!facetsDisabled && selectedFacetData && selectedFacetData.color) {
@@ -81,12 +85,12 @@
       // When disabled, no pill gets 'selected' class - all look identical
       if (facetsDisabled) {
         pill.className = 'facet-pill';
-      } else if (!selectedFacet) {
+      } else if (!window.selectedFacet) {
         // All-facet mode - all pills show as selected
         pill.className = 'facet-pill selected';
       } else {
         // Specific-facet mode - only selected pill highlights
-        pill.className = 'facet-pill' + (selectedFacet === facet.name ? ' selected' : '');
+        pill.className = 'facet-pill' + (window.selectedFacet === facet.name ? ' selected' : '');
       }
 
       if (facet.emoji) {
@@ -116,12 +120,12 @@
 
       // Apply color styling (only if facets enabled)
       if (!facetsDisabled && facet.color) {
-        if (!selectedFacet) {
+        if (!window.selectedFacet) {
           // All-facet mode - each pill lights up with its own color
           pill.style.background = hexToRgba(facet.color, 0.2);
           pill.style.borderColor = facet.color;
           pill.style.boxShadow = `0 2px 6px ${hexToRgba(facet.color, 0.2)}`;
-        } else if (selectedFacet === facet.name) {
+        } else if (window.selectedFacet === facet.name) {
           // Specific-facet mode - only selected pill colored
           pill.style.background = hexToRgba(facet.color, 0.2);
           pill.style.borderColor = facet.color;
@@ -144,12 +148,12 @@
     const facetsDisabled = document.querySelector('.facet-bar')?.classList.contains('facets-disabled');
 
     // Find selected facet data
-    const selectedFacetData = selectedFacet ? activeFacets.find(f => f.name === selectedFacet) : null;
+    const selectedFacetData = window.selectedFacet ? activeFacets.find(f => f.name === window.selectedFacet) : null;
 
     // Update facet-bar class for all-facet mode
     const facetBar = document.querySelector('.facet-bar');
     if (facetBar && !facetsDisabled) {
-      if (!selectedFacet) {
+      if (!window.selectedFacet) {
         facetBar.classList.add('all-facet-mode');
       } else {
         facetBar.classList.remove('all-facet-mode');
@@ -182,7 +186,7 @@
         pill.style.background = '';
         pill.style.borderColor = '';
         pill.style.boxShadow = '';
-      } else if (!selectedFacet) {
+      } else if (!window.selectedFacet) {
         // All-facet mode - all pills light up with their own colors
         pill.classList.add('selected');
 
@@ -197,7 +201,7 @@
         }
       } else {
         // Specific-facet mode - only selected pill highlights
-        if (selectedFacet === facetName) {
+        if (window.selectedFacet === facetName) {
           pill.classList.add('selected');
 
           // Apply color styling if selected and has color
@@ -231,7 +235,7 @@
       return;
     }
 
-    if (!selectedFacet) {
+    if (!window.selectedFacet) {
       // All-facet mode active
       toggle.textContent = isHover ? '⚪' : '🔘';
       toggle.setAttribute('data-active', 'true');
@@ -247,11 +251,11 @@
   // Handle facet selection
   function selectFacet(facet) {
     // Save previous facet before changing (only when switching to all-facet mode)
-    if (facet === null && selectedFacet !== null) {
-      previousFacet = selectedFacet;
+    if (facet === null && window.selectedFacet !== null) {
+      previousFacet = window.selectedFacet;
     }
 
-    selectedFacet = facet;
+    window.selectedFacet = facet;
     saveSelectedFacetToCookie(facet);
     updateFacetSelection();
     updateAllFacetToggle();
@@ -312,9 +316,7 @@
 
   // Initialize
   function init() {
-    // Initialize facet selection from server
-    selectedFacet = window.selectedFacetFromServer;
-
+    // window.selectedFacet already initialized by server (see app.html)
     // Load facet chooser
     loadFacetChooser();
 
@@ -409,7 +411,7 @@
     const allFacetToggle = document.querySelector('.all-facet-toggle');
     if (allFacetToggle) {
       allFacetToggle.addEventListener('click', () => {
-        if (selectedFacet === null) {
+        if (window.selectedFacet === null) {
           // Currently in all-facet mode, switch to previous or first facet
           const targetFacet = previousFacet || (activeFacets.length > 0 ? activeFacets[0].name : null);
           if (targetFacet) {

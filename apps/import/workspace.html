@@ -166,7 +166,7 @@ function showDetect(res){
   document.getElementById('savedPath').value=res.path;
 
   // Default to currently selected facet from app framework if not specified
-  const defaultFacet = res.facet !== undefined ? res.facet : (window.selectedFacetFromServer || '');
+  const defaultFacet = res.facet !== undefined ? res.facet : (window.selectedFacet || '');
   facetSelect.value = defaultFacet;
 
   settingInput.value = res.setting || '';

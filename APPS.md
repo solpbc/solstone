@@ -83,6 +83,8 @@ The workspace template is included inside the app container (`app.html`).
 - `state.journal_root` - Path to journal directory
 - Any variables passed from route handler via `render_template(...)`
 
+**Note:** The server-side `selected_facet` is also available client-side as `window.selectedFacet` (see JavaScript APIs below).
+
 **Vendor Libraries:**
 - Use `{{ vendor_lib('marked') }}` for markdown rendering
 - See `convey/static/vendor/VENDOR.md` for available libraries
@@ -274,18 +276,20 @@ See **JOURNAL.md**, **CORTEX.md**, **CALLOSUM.md** for subsystem details.
 
 Defined in `convey/templates/app.html` (lines 13-17):
 - `window.facetsData` - Array of facet objects `[{name, title, color, emoji}, ...]`
-- `window.selectedFacetFromServer` - Current facet name or null
+- `window.selectedFacet` - Current facet name or null (see Facet Selection below)
 - `window.appFacetCounts` - Badge counts for current app `{"work": 5, "personal": 3}`
 
 ### Facet Selection
 
-The `facet.switch` CustomEvent is dispatched when facet selection changes.
-- Event detail: `{facet: 'work' or null, facetData: {name, title, color, emoji} or null}`
-- Function: `selectFacet(name)` - Switch to specific facet or all-facet mode (pass null)
+Apps can access and control facet selection through a uniform API:
+- `window.selectedFacet` - Current facet name or null (initialized by server, updated on change)
+- `window.selectFacet(name)` - Change selection programmatically
+- `facet.switch` CustomEvent - Dispatched when selection changes
+  - Event detail: `{facet: 'work' or null, facetData: {name, title, color, emoji} or null}`
 
 **Facet Modes:**
-- **all-facet mode**: `facet = null`, show content from all facets
-- **specific-facet mode**: `facet = "work"`, show only that facet's content
+- **all-facet mode**: `window.selectedFacet === null`, show content from all facets
+- **specific-facet mode**: `window.selectedFacet === "work"`, show only that facet's content
 - Selection persisted via cookie, synchronized across pills and submenu items
 
 **See implementation:** `convey/static/app.js` - Facet switching logic and event dispatch
