@@ -83,6 +83,7 @@ dev = [
     "pytest",
     "pytest-cov",
     "playwright>=1.40.0",
+    "requests",
 ]
 
 [project.scripts]
