@@ -779,7 +779,8 @@ def _dev_screen_frames(day: str, timestamp: str) -> Any:
         # Decode and cache all frames from the video
         cache_key = (day, timestamp)
         if cache_key not in _frame_cache and raw_video_path:
-            video_path = os.path.join(day_dir, raw_video_path)
+            # Video path is relative to period directory (e.g., "screen.webm")
+            video_path = os.path.join(period_dir, raw_video_path)
             if os.path.isfile(video_path):
                 # Use the new decode_frames utility
                 images = decode_frames(video_path, frames, annotate_boxes=True)

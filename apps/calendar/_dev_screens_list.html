@@ -1,0 +1,195 @@
+{# Screen debug viewer - list of screen.jsonl files for a day #}
+{% import 'macros.html' as macros %}
+
+<style>
+.screens-list {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+.screens-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 20px;
+  background: white;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.screens-table thead {
+  background: #f8f9fa;
+  border-bottom: 2px solid #dee2e6;
+}
+
+.screens-table th {
+  padding: 12px 16px;
+  text-align: left;
+  font-weight: 600;
+  color: #495057;
+}
+
+.screens-table td {
+  padding: 12px 16px;
+  border-top: 1px solid #dee2e6;
+}
+
+.screens-table tbody tr:hover {
+  background: #f8f9fa;
+}
+
+.screens-table a {
+  color: #007bff;
+  text-decoration: none;
+}
+
+.screens-table a:hover {
+  text-decoration: underline;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 60px 20px;
+  color: #6c757d;
+}
+
+.empty-state h2 {
+  font-size: 1.5em;
+  margin-bottom: 10px;
+}
+
+.loading {
+  text-align: center;
+  padding: 40px;
+  color: #6c757d;
+}
+
+.file-size {
+  color: #6c757d;
+  font-size: 0.9em;
+}
+
+.frame-count {
+  font-weight: 600;
+  color: #495057;
+}
+
+.dev-badge {
+  display: inline-block;
+  background: #ffc107;
+  color: #000;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 0.75em;
+  font-weight: 600;
+  margin-left: 8px;
+  vertical-align: middle;
+}
+</style>
+
+<div class="container">
+  {{ macros.day_heading(title,
+        prev_day and url_for('app:calendar._dev_calendar_screens_list', day=prev_day),
+        next_day and url_for('app:calendar._dev_calendar_screens_list', day=next_day),
+        url_for('app:calendar.calendar_transcript_page', day=day)) }}
+
+  <div class="screens-list">
+    <h2>
+      Screen Debug Viewer
+      <span class="dev-badge">DEV</span>
+    </h2>
+    <p style="color: #6c757d; margin-top: 8px;">
+      View raw screen.jsonl files and frame analysis data for {{ day }}.
+      <a href="{{ url_for('app:calendar.calendar_day', day=day) }}" style="margin-left: 8px;">← Back to day view</a>
+    </p>
+
+    <div id="loading" class="loading">
+      Loading screen files...
+    </div>
+
+    <div id="empty" class="empty-state" style="display: none;">
+      <h2>No screen files found</h2>
+      <p>No screen.jsonl files exist for this day.</p>
+    </div>
+
+    <table id="screensTable" class="screens-table" style="display: none;">
+      <thead>
+        <tr>
+          <th>Time</th>
+          <th>Frames</th>
+          <th>File Size</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody id="screensBody">
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+const day = '{{ day }}';
+
+function formatFileSize(bytes) {
+  if (bytes < 1024) return bytes + ' B';
+  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+  return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+}
+
+function loadScreenFiles() {
+  fetch(`/app/calendar/api/screen_files/${day}`)
+    .then(r => r.json())
+    .then(data => {
+      document.getElementById('loading').style.display = 'none';
+
+      if (!data.files || data.files.length === 0) {
+        document.getElementById('empty').style.display = 'block';
+        return;
+      }
+
+      const tbody = document.getElementById('screensBody');
+      const table = document.getElementById('screensTable');
+
+      data.files.forEach(file => {
+        const row = document.createElement('tr');
+
+        // Time column
+        const timeCell = document.createElement('td');
+        timeCell.textContent = file.human_time;
+        row.appendChild(timeCell);
+
+        // Frames column
+        const framesCell = document.createElement('td');
+        framesCell.className = 'frame-count';
+        framesCell.textContent = file.frame_count;
+        row.appendChild(framesCell);
+
+        // File size column
+        const sizeCell = document.createElement('td');
+        sizeCell.className = 'file-size';
+        sizeCell.textContent = formatFileSize(file.file_size);
+        row.appendChild(sizeCell);
+
+        // Actions column
+        const actionsCell = document.createElement('td');
+        const link = document.createElement('a');
+        link.href = `/app/calendar/${day}/screens/${file.timestamp}`;
+        link.textContent = 'View Frames →';
+        actionsCell.appendChild(link);
+        row.appendChild(actionsCell);
+
+        tbody.appendChild(row);
+      });
+
+      table.style.display = 'table';
+    })
+    .catch(err => {
+      console.error('Error loading screen files:', err);
+      document.getElementById('loading').innerHTML =
+        '<span style="color: red;">Error loading screen files</span>';
+    });
+}
+
+loadScreenFiles();
+</script>
