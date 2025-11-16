@@ -8,10 +8,9 @@ from typing import Any
 
 from flask import Blueprint, jsonify, render_template, request
 
+from convey import state
 from think.entities import load_entities, save_entities
 from think.indexer import search_entities
-
-from convey import state
 
 entities_bp = Blueprint(
     "app:entities",

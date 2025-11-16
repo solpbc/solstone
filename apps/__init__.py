@@ -236,7 +236,9 @@ class AppRegistry:
         else:
             # No routes.py - create a minimal blueprint
             blueprint = self._create_minimal_blueprint(app_name)
-            logger.debug(f"Created minimal blueprint for app '{app_name}' (no routes.py)")
+            logger.debug(
+                f"Created minimal blueprint for app '{app_name}' (no routes.py)"
+            )
 
         # Inject default index route if app doesn't define one
         self._inject_index_if_needed(blueprint, routes_module, app_name)
@@ -360,6 +362,7 @@ class AppRegistry:
             # No index function, inject default one using record() for deferred setup
             # Only inject if blueprint hasn't been registered yet
             if not blueprint._got_registered_once:
+
                 def index():
                     from flask import render_template
 
@@ -384,7 +387,9 @@ class AppRegistry:
         """
         for app in self.apps.values():
             if not app.blueprint:
-                logger.error(f"App '{app.name}' has no blueprint - this should not happen")
+                logger.error(
+                    f"App '{app.name}' has no blueprint - this should not happen"
+                )
                 continue
 
             try:
