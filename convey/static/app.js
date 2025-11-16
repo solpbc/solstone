@@ -381,6 +381,182 @@
       });
     }
 
+    // App ordering via drag-and-drop
+    if (menuBar) {
+      let draggedItem = null;
+      let touchedItem = null;
+      let touchDragActive = false;
+      let isDragging = false;
+
+      // Helper: Save app order to config
+      async function saveAppOrder() {
+        const menuItems = Array.from(menuBar.querySelectorAll('.menu-item'));
+        const order = menuItems.map(item => item.dataset.appName);
+
+        try {
+          const response = await fetch('/api/config/apps/order', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ order })
+          });
+
+          if (!response.ok) {
+            throw new Error('Failed to save app order');
+          }
+        } catch (error) {
+          console.error('Failed to save app order:', error);
+          if (window.AppServices?.notifications) {
+            window.AppServices.notifications.show({
+              app: 'system',
+              title: 'Failed to save app order',
+              message: error.message,
+              autoDismiss: 5000
+            });
+          }
+        }
+      }
+
+      // Prevent navigation if drag occurred
+      menuBar.addEventListener('click', (e) => {
+        if (isDragging) {
+          e.preventDefault();
+          isDragging = false;
+        }
+      }, true);
+
+      // Mouse drag-and-drop
+      menuBar.addEventListener('dragstart', (e) => {
+        const target = e.target.closest('.menu-item');
+        if (!target) return;
+
+        draggedItem = target;
+        isDragging = true;
+
+        target.classList.add('dragging');
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', '');
+      });
+
+      menuBar.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        const target = e.target.closest('.menu-item');
+        if (!target || target === draggedItem) return;
+
+        // Remove drag-over from all items
+        menuBar.querySelectorAll('.menu-item').forEach(item => item.classList.remove('drag-over'));
+        target.classList.add('drag-over');
+      });
+
+      menuBar.addEventListener('drop', (e) => {
+        e.preventDefault();
+
+        const target = e.target.closest('.menu-item');
+        if (!target || target === draggedItem) return;
+
+        // Reorder DOM
+        const menuItems = Array.from(menuBar.querySelectorAll('.menu-item'));
+        const draggedIndex = menuItems.indexOf(draggedItem);
+        const targetIndex = menuItems.indexOf(target);
+
+        if (draggedIndex < targetIndex) {
+          // Moving down: insert after target
+          menuBar.insertBefore(draggedItem, target.nextSibling);
+        } else {
+          // Moving up: insert before target
+          menuBar.insertBefore(draggedItem, target);
+        }
+
+        // Save order
+        saveAppOrder();
+      });
+
+      menuBar.addEventListener('dragend', (e) => {
+        const target = e.target.closest('.menu-item');
+        if (!target) return;
+
+        target.classList.remove('dragging');
+        menuBar.querySelectorAll('.menu-item').forEach(item => item.classList.remove('drag-over'));
+
+        draggedItem = null;
+
+        // Reset isDragging after a short delay to allow click prevention
+        setTimeout(() => { isDragging = false; }, 100);
+      });
+
+      // Touch drag-and-drop
+      menuBar.addEventListener('touchstart', (e) => {
+        const target = e.target.closest('.menu-item');
+        if (!target) return;
+
+        touchedItem = target;
+        touchDragActive = false;
+
+        // Wait 200ms to distinguish tap from drag
+        setTimeout(() => {
+          if (touchedItem === target) {
+            touchDragActive = true;
+            isDragging = true;
+            target.classList.add('dragging');
+          }
+        }, 200);
+      }, { passive: true });
+
+      menuBar.addEventListener('touchmove', (e) => {
+        if (!touchDragActive || !touchedItem) return;
+        e.preventDefault();
+
+        const touch = e.touches[0];
+        const elementAtPoint = document.elementFromPoint(touch.clientX, touch.clientY);
+        const target = elementAtPoint?.closest('.menu-item');
+
+        // Remove drag-over from all items
+        menuBar.querySelectorAll('.menu-item').forEach(item => item.classList.remove('drag-over'));
+
+        if (target && target !== touchedItem) {
+          target.classList.add('drag-over');
+        }
+      }, { passive: false });
+
+      menuBar.addEventListener('touchend', (e) => {
+        if (!touchDragActive || !touchedItem) {
+          touchedItem = null;
+          touchDragActive = false;
+          return;
+        }
+
+        const touch = e.changedTouches[0];
+        const elementAtPoint = document.elementFromPoint(touch.clientX, touch.clientY);
+        const target = elementAtPoint?.closest('.menu-item');
+
+        if (target && target !== touchedItem) {
+          // Reorder DOM
+          const menuItems = Array.from(menuBar.querySelectorAll('.menu-item'));
+          const draggedIndex = menuItems.indexOf(touchedItem);
+          const targetIndex = menuItems.indexOf(target);
+
+          if (draggedIndex < targetIndex) {
+            // Moving down: insert after target
+            menuBar.insertBefore(touchedItem, target.nextSibling);
+          } else {
+            // Moving up: insert before target
+            menuBar.insertBefore(touchedItem, target);
+          }
+
+          // Save order
+          saveAppOrder();
+        }
+
+        // Cleanup
+        touchedItem.classList.remove('dragging');
+        menuBar.querySelectorAll('.menu-item').forEach(item => item.classList.remove('drag-over'));
+        touchedItem = null;
+        touchDragActive = false;
+
+        // Reset isDragging after a short delay
+        setTimeout(() => { isDragging = false; }, 100);
+      }, { passive: true });
+    }
+
     // All-facet toggle click - toggle between all-facet and specific facet
     const allFacetToggle = document.querySelector('.all-facet-toggle');
     if (allFacetToggle) {

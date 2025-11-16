@@ -29,7 +29,8 @@ body {
 
 /* Add bottom margin when app-bar is present */
 body.has-app-bar .workspace {
-  margin-bottom: 70px;
+  /* Account for app bar height plus keyboard and safe area */
+  margin-bottom: calc(70px + env(safe-area-inset-bottom, 0px) + env(keyboard-inset-bottom, 0px));
 }
 
 /* Facet Bar (top) */
@@ -211,7 +212,8 @@ body.sidebar-open .facet-bar::after {
 
 /* When app bar is present, menu needs to stay above it */
 body.has-app-bar .menu-bar {
-  bottom: 60px;
+  /* Account for app bar height plus keyboard and safe area */
+  bottom: calc(60px + env(safe-area-inset-bottom, 0px) + env(keyboard-inset-bottom, 0px));
 }
 
 .menu-bar::before {
@@ -242,12 +244,22 @@ body.sidebar-open .menu-bar::before {
   padding: 8px 0;
   display: flex;
   align-items: center;
-  cursor: pointer;
+  cursor: grab;
   transition: background 0.2s;
   border-bottom: none;
   text-decoration: none;
   color: inherit;
   white-space: nowrap;
+  position: relative;
+}
+
+.menu-bar .menu-item.dragging {
+  opacity: 0.5;
+  cursor: grabbing;
+}
+
+.menu-bar .menu-item.drag-over {
+  border-top: 2px solid var(--facet-color);
 }
 
 .menu-bar .menu-item:hover {
@@ -414,12 +426,15 @@ body.sidebar-open .menu-bar::before {
   right: 0;
   background: white;
   z-index: 1000;
-  height: 60px;
+  /* Use min-height instead of fixed height to allow growth */
+  min-height: 60px;
+  box-sizing: border-box;
   display: flex;
   flex-direction: row;
   align-items: center;
   justify-content: center;
-  padding: 0 16px;
+  /* Padding: top right bottom left - bottom grows with keyboard and safe area */
+  padding: 0 16px calc(env(safe-area-inset-bottom, 0px) + env(keyboard-inset-bottom, 0px)) 16px;
   gap: 12px;
   overflow: hidden;
 }
