@@ -77,11 +77,15 @@ def register_app_context(app: Flask, registry: AppRegistry) -> None:
         config = load_convey_config()
         apps_dict = apply_app_order(apps_dict, config)
 
+        # Get starred apps list
+        starred_apps = config.get("apps", {}).get("starred", [])
+
         return {
             "app_registry": registry,
             "apps": apps_dict,
             "facets": facets,
             "selected_facet": selected_facet,
+            "starred_apps": starred_apps,
         }
 
     @app.context_processor

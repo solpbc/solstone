@@ -77,7 +77,7 @@ body.has-app-bar .workspace {
 
 /* When sidebar open, border only where workspace is visible */
 body.sidebar-open .facet-bar::after {
-  left: 240px;
+  left: 200px;
 }
 
 .facet-bar #hamburger {
@@ -201,8 +201,8 @@ body.sidebar-open .facet-bar::after {
   left: 0;
   width: 60px;
   bottom: 0;
-  background: transparent;
-  border-right: none;
+  background: white;
+  border-right: 1px solid var(--facet-border, #e0e0e0);
   z-index: 999;
   transition: width 0.3s ease, background 0.3s ease, border-right-color 0.3s ease, box-shadow 0.3s ease;
   overflow-x: hidden;
@@ -221,14 +221,14 @@ body.has-app-bar .menu-bar {
   left: 0;
   right: 0;
   bottom: 0;
-  background: transparent;
+  background: var(--facet-bg, transparent);
   transition: background-color 0.3s ease;
   pointer-events: none;
   z-index: -1;
 }
 
 body.sidebar-open .menu-bar {
-  width: 240px;
+  width: 200px;
   background: white;
   border-right: 1px solid var(--facet-border, #e0e0e0);
   box-shadow: 2px 0 8px rgba(0, 0, 0, 0.1);
@@ -242,16 +242,44 @@ body.sidebar-open .menu-bar::before {
   padding: 8px 0;
   display: flex;
   align-items: center;
-  cursor: grab;
-  transition: background 0.2s;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.3s ease, max-height 0.3s ease, opacity 0.3s ease, padding 0.3s ease;
   border-bottom: none;
   text-decoration: none;
   color: inherit;
   white-space: nowrap;
   position: relative;
+  overflow: hidden;
 }
 
-.menu-bar .menu-item.dragging {
+/* Hide unstarred apps when collapsed */
+.menu-bar .menu-item[data-starred="false"] {
+  max-height: 0;
+  opacity: 0;
+  padding-top: 0;
+  padding-bottom: 0;
+  pointer-events: none;
+}
+
+/* Always show current app, even if unstarred and collapsed */
+.menu-bar .menu-item[data-starred="false"].current {
+  max-height: 50px;
+  opacity: 1;
+  padding-top: 8px;
+  padding-bottom: 8px;
+  pointer-events: auto;
+}
+
+/* Show all apps when expanded */
+body.sidebar-open .menu-bar .menu-item[data-starred="false"] {
+  max-height: 50px;
+  opacity: 1;
+  padding-top: 8px;
+  padding-bottom: 8px;
+  pointer-events: auto;
+}
+
+body.sidebar-open .menu-bar .menu-item.dragging {
   opacity: 0.5;
   cursor: grabbing;
 }
@@ -279,7 +307,67 @@ body.sidebar-open .menu-bar::before {
 
 .menu-bar .menu-item .label {
   font-size: 14px;
-  padding-right: 16px;
+  padding-right: 4px;
+  flex: 1;
+}
+
+.menu-bar .menu-item .star-toggle {
+  display: none;
+  font-size: 16px;
+  padding: 0 4px;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.2s;
+  flex-shrink: 0;
+  user-select: none;
+  line-height: 20px;
+}
+
+body.sidebar-open .menu-bar .menu-item .star-toggle {
+  display: block;
+}
+
+/* Show star on hover or when starred */
+body.sidebar-open .menu-bar .menu-item:hover .star-toggle,
+.menu-bar .menu-item[data-starred="true"] .star-toggle {
+  opacity: 1;
+}
+
+.menu-bar .menu-item[data-starred="true"] .star-toggle {
+  color: #f59e0b;
+}
+
+/* Drag handle */
+.menu-bar .menu-item .drag-handle {
+  display: none;
+  font-size: 20px;
+  padding: 0 4px 0 2px;
+  cursor: grab;
+  opacity: 0;
+  transition: opacity 0.2s;
+  flex-shrink: 0;
+  user-select: none;
+  color: #999;
+  line-height: 20px;
+}
+
+body.sidebar-open .menu-bar .menu-item .drag-handle {
+  display: block;
+}
+
+body.sidebar-open .menu-bar .menu-item:hover .drag-handle {
+  opacity: 1;
+}
+
+body.sidebar-open .menu-bar .menu-item .drag-handle:active {
+  cursor: grabbing;
+}
+
+/* Visual separator after last starred app */
+.menu-bar .menu-item.last-starred {
+  border-bottom: 1px solid var(--facet-border, #e0e0e0);
+  padding-bottom: 12px;
+  margin-bottom: 8px;
 }
 
 .menu-bar .submenu {

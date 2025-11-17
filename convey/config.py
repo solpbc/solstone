@@ -118,32 +118,53 @@ def apply_facet_order(facets: list[dict], config: dict) -> list[dict]:
 def apply_app_order(apps: dict[str, Any], config: dict) -> dict[str, Any]:
     """Apply custom ordering from config to app dict.
 
+    Groups apps by starred status, then applies ordering within each group.
+    Starred apps appear first, followed by unstarred apps.
+
     Args:
         apps: Dict mapping app name to app data
-        config: Config dict with optional apps.order field
+        config: Config dict with optional apps.order and apps.starred fields
 
     Returns:
-        Reordered dict (ordered items first, then alphabetical remainder)
+        Reordered dict (starred apps first in order, then unstarred apps in order)
     """
     order = config.get("apps", {}).get("order", [])
-    if not order:
-        return apps
+    starred = set(config.get("apps", {}).get("starred", []))
 
-    # Build ordered dict
-    ordered_dict = {}
+    # Separate apps into starred and unstarred
+    starred_apps = {}
+    unstarred_apps = {}
 
-    # Ordered items first (if they exist)
-    for name in order:
-        if name in apps:
-            ordered_dict[name] = apps[name]
+    for name, data in apps.items():
+        if name in starred:
+            starred_apps[name] = data
+        else:
+            unstarred_apps[name] = data
 
-    # Remaining items alphabetically
-    ordered_names = set(order)
-    for name in sorted(apps.keys()):
-        if name not in ordered_names:
-            ordered_dict[name] = apps[name]
+    # Helper to order a subset of apps
+    def order_apps(app_dict: dict[str, Any], app_order: list[str]) -> dict[str, Any]:
+        ordered = {}
+        # Ordered items first (if they exist)
+        for name in app_order:
+            if name in app_dict:
+                ordered[name] = app_dict[name]
+        # Remaining items alphabetically
+        ordered_names = set(app_order)
+        for name in sorted(app_dict.keys()):
+            if name not in ordered_names:
+                ordered[name] = app_dict[name]
+        return ordered
 
-    return ordered_dict
+    # Order each group
+    ordered_starred = order_apps(starred_apps, order) if starred_apps else {}
+    ordered_unstarred = order_apps(unstarred_apps, order) if unstarred_apps else {}
+
+    # Combine: starred first, then unstarred
+    result = {}
+    result.update(ordered_starred)
+    result.update(ordered_unstarred)
+
+    return result
 
 
 def validate_config(config: dict[str, Any]) -> tuple[bool, str | None]:
@@ -192,6 +213,14 @@ def validate_config(config: dict[str, Any]) -> tuple[bool, str | None]:
                 return False, "apps.order must be an array"
             if not all(isinstance(name, str) for name in order):
                 return False, "apps.order must contain only strings"
+
+        # Validate apps.starred
+        if "starred" in apps_config:
+            starred = apps_config["starred"]
+            if not isinstance(starred, list):
+                return False, "apps.starred must be an array"
+            if not all(isinstance(name, str) for name in starred):
+                return False, "apps.starred must contain only strings"
 
     return True, None
 
@@ -346,6 +375,57 @@ def update_app_order() -> tuple[Any, int]:
     except Exception as e:
         logger.error(f"Failed to update app order: {e}", exc_info=True)
         return error_response("Failed to update app order", 500)
+
+
+@bp.route("/apps/star", methods=["POST"])
+def toggle_app_star() -> tuple[Any, int]:
+    """POST /api/config/apps/star - Toggle starred status of an app.
+
+    Request body: {"app": "calendar", "starred": true}
+
+    Returns:
+        JSON success/error response
+    """
+    try:
+        data = request.get_json()
+        if not data or "app" not in data or "starred" not in data:
+            return error_response(
+                "Request must include 'app' and 'starred' fields", 400
+            )
+
+        app_name = data["app"]
+        starred = data["starred"]
+
+        if not isinstance(app_name, str):
+            return error_response("'app' must be a string", 400)
+
+        if not isinstance(starred, bool):
+            return error_response("'starred' must be a boolean", 400)
+
+        # Load config and update apps.starred
+        config = load_convey_config()
+        if "apps" not in config:
+            config["apps"] = {}
+
+        starred_apps = set(config["apps"].get("starred", []))
+
+        if starred:
+            starred_apps.add(app_name)
+        else:
+            starred_apps.discard(app_name)
+
+        config["apps"]["starred"] = sorted(starred_apps)
+
+        # Save
+        success = save_convey_config(config)
+        if not success:
+            return error_response("Failed to save app starred status", 500)
+
+        return success_response({"app": app_name, "starred": starred})
+
+    except Exception as e:
+        logger.error(f"Failed to toggle app star: {e}", exc_info=True)
+        return error_response("Failed to toggle app starred status", 500)
 
 
 @bp.route("/facets/select", methods=["POST"])

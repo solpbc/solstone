@@ -290,7 +290,8 @@
       itemSelector,        // '.menu-item' or '.facet-pill'
       dataAttribute,       // 'appName' or 'facetName'
       onReorder,          // Callback with new order array
-      preventDefault      // Optional click prevention
+      preventDefault,     // Optional click prevention
+      constrainDrop       // Optional constraint function(draggedItem, targetItem, items) -> constrainedTarget
     } = config;
 
     let draggedItem = null;
@@ -326,6 +327,21 @@
 
     // Mouse drag-and-drop
     container.addEventListener('dragstart', (e) => {
+      // For menu items, only allow drag from the drag handle
+      if (itemSelector === '.menu-item') {
+        const dragHandle = e.target.closest('.drag-handle');
+        if (!dragHandle) {
+          e.preventDefault();
+          return;
+        }
+
+        // Only allow drag when sidebar is open
+        if (!document.body.classList.contains('sidebar-open')) {
+          e.preventDefault();
+          return;
+        }
+      }
+
       const target = e.target.closest(itemSelector);
       if (!target) return;
 
@@ -355,15 +371,22 @@
 
     container.addEventListener('dragover', (e) => {
       e.preventDefault();
-      const target = e.target.closest(itemSelector);
+      let target = e.target.closest(itemSelector);
       if (!target || target === draggedItem) return;
+
+      const items = Array.from(container.querySelectorAll(itemSelector));
+
+      // Apply constraint if provided
+      if (constrainDrop) {
+        target = constrainDrop(draggedItem, target, items);
+        if (!target || target === draggedItem) return;
+      }
 
       // Remove drag-over from all items
       container.querySelectorAll(itemSelector).forEach(item => item.classList.remove('drag-over'));
       target.classList.add('drag-over');
 
       // Live reordering: move the dragged item in DOM as we drag over targets
-      const items = Array.from(container.querySelectorAll(itemSelector));
       const draggedIndex = items.indexOf(draggedItem);
       const targetIndex = items.indexOf(target);
 
@@ -400,6 +423,19 @@
 
     // Touch drag-and-drop
     container.addEventListener('touchstart', (e) => {
+      // For menu items, only allow drag from the drag handle
+      if (itemSelector === '.menu-item') {
+        const dragHandle = e.target.closest('.drag-handle');
+        if (!dragHandle) {
+          return;
+        }
+
+        // Only allow drag when sidebar is open
+        if (!document.body.classList.contains('sidebar-open')) {
+          return;
+        }
+      }
+
       const target = e.target.closest(itemSelector);
       if (!target) return;
 
@@ -422,16 +458,22 @@
 
       const touch = e.touches[0];
       const elementAtPoint = document.elementFromPoint(touch.clientX, touch.clientY);
-      const target = elementAtPoint?.closest(itemSelector);
-
-      // Remove drag-over from all items
-      container.querySelectorAll(itemSelector).forEach(item => item.classList.remove('drag-over'));
+      let target = elementAtPoint?.closest(itemSelector);
 
       if (target && target !== touchedItem) {
+        const items = Array.from(container.querySelectorAll(itemSelector));
+
+        // Apply constraint if provided
+        if (constrainDrop) {
+          target = constrainDrop(touchedItem, target, items);
+          if (!target || target === touchedItem) return;
+        }
+
+        // Remove drag-over from all items
+        container.querySelectorAll(itemSelector).forEach(item => item.classList.remove('drag-over'));
         target.classList.add('drag-over');
 
         // Live reordering during touch drag
-        const items = Array.from(container.querySelectorAll(itemSelector));
         const draggedIndex = items.indexOf(touchedItem);
         const targetIndex = items.indexOf(target);
 
@@ -533,11 +575,133 @@
     collapseTimeout = setTimeout(collapseFacetPills, 50);
   }
 
+  // App starring state
+  let starredApps = [];
+
+  // Load starred apps from server-rendered data
+  function loadStarredApps() {
+    // Extract from menu items
+    const menuItems = document.querySelectorAll('.menu-item[data-starred="true"]');
+    starredApps = Array.from(menuItems).map(item => item.dataset.appName);
+  }
+
+  // Reorder menu items based on starred status
+  function reorderMenuItems() {
+    const menuBar = document.querySelector('.menu-bar');
+    if (!menuBar) return;
+
+    const menuItems = Array.from(menuBar.querySelectorAll('.menu-item'));
+
+    // Separate starred and unstarred items
+    const starredItems = menuItems.filter(item =>
+      starredApps.includes(item.dataset.appName)
+    );
+    const unstarredItems = menuItems.filter(item =>
+      !starredApps.includes(item.dataset.appName)
+    );
+
+    // Reorder: starred first, then unstarred
+    const orderedItems = [...starredItems, ...unstarredItems];
+
+    // Update DOM order
+    orderedItems.forEach(item => {
+      menuBar.appendChild(item);
+    });
+
+    // Update separator
+    updateLastStarredSeparator();
+  }
+
+  // Toggle star status for an app
+  async function toggleAppStar(appName) {
+    const isStarred = starredApps.includes(appName);
+    const newStarredStatus = !isStarred;
+
+    // Optimistically update UI
+    const menuItem = document.querySelector(`.menu-item[data-app-name="${appName}"]`);
+    if (!menuItem) return;
+
+    const starToggle = menuItem.querySelector('.star-toggle');
+    if (!starToggle) return;
+
+    // Update local state
+    if (newStarredStatus) {
+      starredApps.push(appName);
+    } else {
+      starredApps = starredApps.filter(name => name !== appName);
+    }
+
+    // Update DOM
+    menuItem.dataset.starred = newStarredStatus;
+    starToggle.textContent = newStarredStatus ? '★' : '☆';
+
+    // Reorder menu items to reflect new grouping
+    reorderMenuItems();
+
+    // Save to backend
+    try {
+      const response = await fetch('/api/config/apps/star', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ app: appName, starred: newStarredStatus })
+      });
+
+      if (!response.ok) throw new Error('Failed to save star status');
+
+      // No reload needed - DOM already updated
+
+    } catch (error) {
+      console.error('Failed to toggle app star:', error);
+      if (window.AppServices?.notifications) {
+        window.AppServices.notifications.show({
+          app: 'system',
+          title: 'Failed to save star status',
+          message: error.message,
+          autoDismiss: 5000
+        });
+      }
+
+      // Revert optimistic update on error
+      if (newStarredStatus) {
+        starredApps = starredApps.filter(name => name !== appName);
+      } else {
+        starredApps.push(appName);
+      }
+      menuItem.dataset.starred = !newStarredStatus;
+      starToggle.textContent = !newStarredStatus ? '★' : '☆';
+      reorderMenuItems();
+    }
+  }
+
+  // Update the last-starred class on menu items
+  function updateLastStarredSeparator() {
+    const menuItems = Array.from(document.querySelectorAll('.menu-item'));
+
+    // Remove all last-starred classes
+    menuItems.forEach(item => item.classList.remove('last-starred'));
+
+    // Find last starred item
+    let lastStarredIndex = -1;
+    menuItems.forEach((item, index) => {
+      if (item.dataset.starred === 'true') {
+        lastStarredIndex = index;
+      }
+    });
+
+    // Add class to last starred item
+    if (lastStarredIndex >= 0 && starredApps.length > 0) {
+      menuItems[lastStarredIndex].classList.add('last-starred');
+    }
+  }
+
   // Initialize
   function init() {
     // window.selectedFacet already initialized by server (see app.html)
     // Load facet chooser
     loadFacetChooser();
+
+    // Load starred apps
+    loadStarredApps();
 
     // Set up ResizeObserver to collapse pills when container width changes
     const facetPillsContainer = document.querySelector('.facet-pills-container');
@@ -611,22 +775,45 @@
           }
         }
       });
+
+      // Star toggle click handlers
+      menuBar.addEventListener('click', (e) => {
+        const starToggle = e.target.closest('.star-toggle');
+        if (starToggle) {
+          e.preventDefault();
+          e.stopPropagation();
+          const appName = starToggle.dataset.appName;
+          if (appName) {
+            toggleAppStar(appName);
+          }
+        }
+      });
     }
 
     // App ordering via drag-and-drop
     if (menuBar) {
-      // Helper: Save app order to config
+      // Helper: Save app order to config with starred/unstarred grouping
       async function saveAppOrder(order) {
         try {
+          // Separate into starred and unstarred groups
+          const starredOrder = order.filter(name => starredApps.includes(name));
+          const unstarredOrder = order.filter(name => !starredApps.includes(name));
+
+          // Combine: starred first, then unstarred
+          const finalOrder = [...starredOrder, ...unstarredOrder];
+
           const response = await fetch('/api/config/apps/order', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ order })
+            body: JSON.stringify({ order: finalOrder })
           });
 
           if (!response.ok) {
             throw new Error('Failed to save app order');
           }
+
+          // No reload needed - DOM already updated during drag
+
         } catch (error) {
           console.error('Failed to save app order:', error);
           if (window.AppServices?.notifications) {
@@ -640,13 +827,50 @@
         }
       }
 
-      // Setup drag-and-drop using shared helper
+      // Setup drag-and-drop using shared helper with boundary constraints
       setupDragDrop({
         container: menuBar,
         itemSelector: '.menu-item',
         dataAttribute: 'appName',
         preventDefault: true,
-        onReorder: saveAppOrder
+        onReorder: saveAppOrder,
+        // Constraint function: prevent crossing starred/unstarred boundary
+        constrainDrop: (draggedItem, targetItem, items) => {
+          const draggedApp = draggedItem.dataset.appName;
+          const targetApp = targetItem.dataset.appName;
+
+          const draggedIsStarred = starredApps.includes(draggedApp);
+          const targetIsStarred = starredApps.includes(targetApp);
+
+          // Find boundary index (first unstarred item)
+          const boundaryIndex = items.findIndex(item =>
+            !starredApps.includes(item.dataset.appName)
+          );
+
+          // If no boundary (all starred or all unstarred), allow any drop
+          if (boundaryIndex === -1 || boundaryIndex === 0) {
+            return targetItem;
+          }
+
+          // Get indices
+          const draggedIndex = items.indexOf(draggedItem);
+          const targetIndex = items.indexOf(targetItem);
+
+          // Prevent starred from going below boundary
+          if (draggedIsStarred && targetIndex >= boundaryIndex) {
+            // Clamp to last starred position
+            return items[boundaryIndex - 1];
+          }
+
+          // Prevent unstarred from going above boundary
+          if (!draggedIsStarred && targetIndex < boundaryIndex) {
+            // Clamp to first unstarred position
+            return items[boundaryIndex];
+          }
+
+          // Same group, allow drop
+          return targetItem;
+        }
       });
     }
 

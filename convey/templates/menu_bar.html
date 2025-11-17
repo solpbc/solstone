@@ -1,9 +1,21 @@
 <!-- Menu Bar Component (left sidebar) -->
 <div class="menu-bar">
+  {%- set app_names = apps.keys() | list -%}
+  {%- set last_starred_index = -1 -%}
+  {%- for i in range(app_names | length) -%}
+    {%- if app_names[i] in starred_apps -%}
+      {%- set last_starred_index = i -%}
+    {%- endif -%}
+  {%- endfor -%}
+
   {% for app_name, app_data in apps.items() %}
-  <a href="/app/{{ app_name }}" class="menu-item{% if app == app_name %} current{% endif %}" draggable="true" data-app-name="{{ app_name }}">
+  {%- set is_starred = app_name in starred_apps -%}
+  {%- set is_last_starred = loop.index0 == last_starred_index and starred_apps | length > 0 -%}
+  <a href="/app/{{ app_name }}" class="menu-item{% if app == app_name %} current{% endif %}{% if is_last_starred %} last-starred{% endif %}" data-app-name="{{ app_name }}" data-starred="{{ 'true' if is_starred else 'false' }}">
     <span class="icon">{{ app_data['icon'] }}</span>
     <span class="label">{{ app_data['label'] }}</span>
+    <span class="star-toggle" data-app-name="{{ app_name }}">{{ '★' if is_starred else '☆' }}</span>
+    <span class="drag-handle" draggable="true">⋮</span>
   </a>
   {# Submenus temporarily disabled - will be reimplemented differently #}
   {# {% if app_data.get('submenu') %}
