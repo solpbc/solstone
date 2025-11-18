@@ -140,6 +140,7 @@ def screenshot(
     port: int = 8000,
     width: int = 1440,
     height: int = 900,
+    script: str | None = None,
 ) -> None:
     """
     Capture screenshot of a Convey view.
@@ -151,6 +152,7 @@ def screenshot(
         port: Server port (default: 8000)
         width: Viewport width (default: 1440)
         height: Viewport height (default: 900)
+        script: Optional JavaScript to execute before taking screenshot
     """
     url = f"http://{host}:{port}{route}"
 
@@ -166,6 +168,12 @@ def screenshot(
 
         # Wait for page to be fully loaded
         page.wait_for_load_state("networkidle")
+
+        # Execute custom JavaScript if provided
+        if script:
+            page.evaluate(script)
+            # Small delay for script effects to render
+            page.wait_for_timeout(100)
 
         page.screenshot(path=output_path, full_page=True)
         browser.close()
@@ -188,6 +196,10 @@ def main() -> None:
     parser.add_argument("--port", type=int, default=8000, help="Server port")
     parser.add_argument("--width", type=int, default=1440, help="Viewport width")
     parser.add_argument("--height", type=int, default=900, help="Viewport height")
+    parser.add_argument(
+        "--script",
+        help="JavaScript to execute before taking screenshot",
+    )
     parser.add_argument(
         "--restart",
         action="store_true",
@@ -218,6 +230,7 @@ def main() -> None:
         port=args.port,
         width=args.width,
         height=args.height,
+        script=args.script,
     )
 
 

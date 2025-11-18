@@ -196,12 +196,13 @@ screenshot:
 	@if [ -z "$(VIEW)" ]; then \
 		echo "ERROR: VIEW parameter is required"; \
 		echo ""; \
-		echo "Usage: make screenshot VIEW=<route> RESTART=<0|1> [OUTPUT=path]"; \
+		echo "Usage: make screenshot VIEW=<route> RESTART=<0|1> [OUTPUT=path] [SCRIPT=\"js...\"]"; \
 		echo ""; \
 		echo "Parameters:"; \
 		echo "  VIEW     - Route to screenshot (e.g., /, /facets, /search)"; \
 		echo "  RESTART  - Required boolean (1/true/yes or 0/false/no)"; \
 		echo "  OUTPUT   - Optional output path (default: logs/screenshot.png)"; \
+		echo "  SCRIPT   - Optional JavaScript to execute before screenshot"; \
 		echo ""; \
 		echo "RESTART Guidelines:"; \
 		echo "  Use RESTART=1 when:"; \
@@ -215,12 +216,13 @@ screenshot:
 		echo "Examples:"; \
 		echo "  make screenshot VIEW=/ RESTART=1"; \
 		echo "  make screenshot VIEW=/facets RESTART=0 OUTPUT=screenshots/facets.png"; \
+		echo "  make screenshot VIEW=/ RESTART=0 SCRIPT=\"document.querySelector('nav').style.display='none'\""; \
 		exit 1; \
 	fi; \
 	if [ -z "$(RESTART)" ]; then \
 		echo "ERROR: RESTART parameter is required"; \
 		echo ""; \
-		echo "Usage: make screenshot VIEW=<route> RESTART=<0|1> [OUTPUT=path]"; \
+		echo "Usage: make screenshot VIEW=<route> RESTART=<0|1> [OUTPUT=path] [SCRIPT=\"js...\"]"; \
 		echo ""; \
 		echo "RESTART must be specified as a boolean:"; \
 		echo "  RESTART=1 (or true/yes)  - Restart convey service before screenshot"; \
@@ -244,4 +246,4 @@ screenshot:
 			exit 1; \
 			;; \
 	esac; \
-	unset JOURNAL_PATH && convey-screenshot -v $$RESTART_FLAG $(VIEW) $(if $(OUTPUT),-o $(OUTPUT))
+	unset JOURNAL_PATH && convey-screenshot -v $$RESTART_FLAG $(VIEW) $(if $(OUTPUT),-o $(OUTPUT)) $(if $(SCRIPT),--script "$(SCRIPT)")
