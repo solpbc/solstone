@@ -13,6 +13,17 @@
   --facet-color: #999;
   --facet-bg: transparent;
   --facet-border: #e0e0e0;
+
+  /* Layout dimensions */
+  --facet-bar-height: 60px;
+  --menu-bar-width-collapsed: 60px;
+  --menu-bar-width-expanded: 200px;
+  --app-bar-height: 60px;
+
+  /* Z-index hierarchy (increasing order) */
+  --z-bars: 100;          /* Facet bar, menu bar, app bar */
+  --z-modals: 200;        /* Modal overlays */
+  --z-notifications: 300; /* Notifications, status pane, error log */
 }
 
 body {
@@ -23,13 +34,13 @@ body {
 }
 
 .workspace {
-  margin-top: 60px;
-  margin-left: 60px;
+  margin-top: var(--facet-bar-height);
+  margin-left: var(--menu-bar-width-collapsed);
 }
 
 /* Add bottom margin when app-bar is present */
 body.has-app-bar .workspace {
-  margin-bottom: 70px;
+  margin-bottom: var(--app-bar-height);
 }
 
 /* Facet Bar (top) */
@@ -39,8 +50,8 @@ body.has-app-bar .workspace {
   left: 0;
   right: 0;
   background: white;
-  z-index: 1000;
-  height: 60px;
+  z-index: var(--z-bars);
+  height: var(--facet-bar-height);
   padding: 12px 16px;
   overflow: visible;
   white-space: nowrap;
@@ -67,7 +78,7 @@ body.has-app-bar .workspace {
   content: '';
   position: absolute;
   bottom: 0;
-  left: 60px;
+  left: var(--menu-bar-width-collapsed);
   right: 0;
   height: 1px;
   background: var(--facet-border, #e0e0e0);
@@ -77,7 +88,7 @@ body.has-app-bar .workspace {
 
 /* When sidebar open, border only where workspace is visible */
 body.sidebar-open .facet-bar::after {
-  left: 200px;
+  left: var(--menu-bar-width-expanded);
 }
 
 .facet-bar #hamburger {
@@ -131,7 +142,7 @@ body.sidebar-open .facet-bar::after {
 /* Status Pane */
 .status-pane {
   position: fixed;
-  top: calc(60px + 4px);
+  top: calc(var(--facet-bar-height) + 4px);
   right: 16px;
   background: white;
   border: 1px solid #e0e0e0;
@@ -140,7 +151,7 @@ body.sidebar-open .facet-bar::after {
   min-width: 280px;
   max-width: 400px;
   display: none;
-  z-index: 10000;
+  z-index: var(--z-notifications);
 }
 
 .status-pane.visible {
@@ -189,13 +200,13 @@ body.sidebar-open .facet-bar::after {
 /* Menu Bar (left sidebar) */
 .menu-bar {
   position: fixed;
-  top: 60px;
+  top: var(--facet-bar-height);
   left: 0;
-  width: 60px;
+  width: var(--menu-bar-width-collapsed);
   bottom: 0;
   background: white;
   border-right: none; /* No border on container - items have their own borders */
-  z-index: 999;
+  z-index: var(--z-bars);
   transition: width 0.3s ease, background 0.3s ease, box-shadow 0.3s ease;
   overflow-x: hidden;
   overflow-y: hidden; /* Always clip, never show scrollbar */
@@ -203,7 +214,7 @@ body.sidebar-open .facet-bar::after {
 
 /* When app bar is present, menu needs to stay above it */
 body.has-app-bar .menu-bar {
-  bottom: 60px;
+  bottom: var(--app-bar-height);
 }
 
 .menu-bar::before {
@@ -220,7 +231,7 @@ body.has-app-bar .menu-bar {
 }
 
 body.sidebar-open .menu-bar {
-  width: 200px;
+  width: var(--menu-bar-width-expanded);
   background: white;
   border-right: 1px solid var(--facet-border, #e0e0e0);
   box-shadow: 2px 0 8px rgba(0, 0, 0, 0.1);
@@ -293,7 +304,7 @@ body.sidebar-open .menu-bar .menu-item.dragging {
 
 .menu-bar .menu-item .icon {
   font-size: 20px;
-  width: 60px;
+  width: var(--menu-bar-width-collapsed);
   text-align: center;
   flex-shrink: 0;
 }
@@ -427,7 +438,7 @@ body.menu-icons-expanded .menu-bar .menu-item[data-starred="false"] {
 
 /* Keep sidebar narrow in vertical expansion (icons only) */
 body.menu-icons-expanded .menu-bar {
-  width: 60px;
+  width: var(--menu-bar-width-collapsed);
 }
 
 .facet-pill {
@@ -523,7 +534,7 @@ body.menu-icons-expanded .menu-bar {
   cursor: grabbing;
   transform: scale(1.05) rotate(2deg);
   box-shadow: 0 6px 16px rgba(0,0,0,0.2);
-  z-index: 1000;
+  z-index: calc(var(--z-bars) + 1); /* Above bars, below modals */
   transition: none; /* Disable transitions while dragging */
 }
 
@@ -550,8 +561,8 @@ body.menu-icons-expanded .menu-bar {
   bottom: 0;
   left: 0;
   right: 0;
-  z-index: 1000;
-  height: 60px;
+  z-index: var(--z-bars);
+  height: var(--app-bar-height);
   padding: 0 16px;
   display: flex;
   flex-direction: row;
@@ -600,17 +611,17 @@ body.menu-icons-expanded .menu-bar {
   max-height: 30vh;
   overflow-y: auto;
   border-top: 2px solid #ff3b30;
-  z-index: 9998;
+  z-index: var(--z-notifications);
   box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.5);
 }
 
 /* Notification Center */
 .notification-center {
   position: fixed;
-  top: 64px;
+  top: calc(var(--facet-bar-height) + 4px);
   right: 20px;
   width: 280px;
-  z-index: 9999;
+  z-index: var(--z-notifications);
   pointer-events: none;
   display: flex;
   flex-direction: column;
@@ -752,7 +763,7 @@ a.notification-card {
 /* Responsive */
 @media (max-width: 768px) {
   .notification-center {
-    top: 64px;
+    top: calc(var(--facet-bar-height) + 4px);
     right: 8px;
     left: 8px;
     width: auto;
@@ -767,7 +778,7 @@ a.notification-card {
 .modal {
   display: none;
   position: fixed;
-  z-index: 1000;
+  z-index: var(--z-modals);
   left: 0;
   top: 0;
   width: 100%;
