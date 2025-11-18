@@ -77,6 +77,7 @@ dev = [
     "isort",
     "mypy",
     "pytest",
+    "pytest-asyncio",
     "pytest-cov",
     "playwright>=1.40.0",
     "requests",
