@@ -125,12 +125,12 @@ def _aggregate_token_data(day: str) -> Dict[str, Any]:
             usage = entry.get("usage", {})
             context = entry.get("context", "unknown")
 
-            # Get token counts
-            input_tokens = usage.get("input_tokens", 0)
-            output_tokens = usage.get("output_tokens", 0)
-            cached_tokens = usage.get("cached_tokens", 0)
-            reasoning_tokens = usage.get("reasoning_tokens", 0)
-            total_entry_tokens = usage.get("total_tokens", 0)
+            # Get token counts (handle both missing keys and explicit None values)
+            input_tokens = usage.get("input_tokens", 0) or 0
+            output_tokens = usage.get("output_tokens", 0) or 0
+            cached_tokens = usage.get("cached_tokens", 0) or 0
+            reasoning_tokens = usage.get("reasoning_tokens", 0) or 0
+            total_entry_tokens = usage.get("total_tokens", 0) or 0
 
             # Calculate cost
             cost_data = calc_token_cost(entry)
