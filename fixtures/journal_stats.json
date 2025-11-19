@@ -10,8 +10,8 @@
       "repair_reduce": 1,
       "entities": 1,
       "repair_entity": 0,
-      "summaries_processed": 3,
-      "repair_summaries": 8,
+      "insights_processed": 3,
+      "insights_pending": 8,
       "audio_seconds": 0.0,
       "audio_bytes": 5,
       "image_bytes": 0,
@@ -28,8 +28,8 @@
     "repair_reduce": 1,
     "entities": 1,
     "repair_entity": 0,
-    "summaries_processed": 3,
-    "repair_summaries": 8
+    "insights_processed": 3,
+    "insights_pending": 8
   },
   "total_audio_seconds": 0.0,
   "total_audio_bytes": 5,
