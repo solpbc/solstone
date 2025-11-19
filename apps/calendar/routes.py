@@ -25,17 +25,17 @@ def calendar_day(day: str) -> str:
     day_dir = str(day_path(day))
     if not os.path.isdir(day_dir):
         return "", 404
-    from think.utils import get_topics
+    from think.utils import get_insights
 
-    topics = get_topics()
+    insights = get_insights()
     files = []
-    topics_dir = os.path.join(day_dir, "topics")
-    if os.path.isdir(topics_dir):
-        for name in sorted(os.listdir(topics_dir)):
+    insights_dir = os.path.join(day_dir, "insights")
+    if os.path.isdir(insights_dir):
+        for name in sorted(os.listdir(insights_dir)):
             base, ext = os.path.splitext(name)
-            if ext != ".md" or base not in topics:
+            if ext != ".md" or base not in insights:
                 continue
-            path = os.path.join(topics_dir, name)
+            path = os.path.join(insights_dir, name)
             try:
                 with open(path, "r", encoding="utf-8") as f:
                     text = f.read()
@@ -53,7 +53,7 @@ def calendar_day(day: str) -> str:
                     "label": label,
                     "html": html,
                     "topic": base,
-                    "color": topics[base]["color"],
+                    "color": insights[base]["color"],
                 }
             )
     title = format_date(day)
@@ -77,9 +77,9 @@ def calendar_day_occurrences(day: str) -> Any:
         return "", 404
 
     from think.indexer import search_events
-    from think.utils import get_topics
+    from think.utils import get_insights
 
-    topics = get_topics()
+    insights = get_insights()
 
     # Use search_events to get all events for this day
     _, results = search_events(query="", day=day, limit=1000)
@@ -92,7 +92,7 @@ def calendar_day_occurrences(day: str) -> Any:
         topic = metadata.get("topic", "other")
 
         # Add topic color
-        topic_color = topics.get(topic, {}).get("color", "#6c757d")
+        topic_color = insights.get(topic, {}).get("color", "#6c757d")
 
         occurrence = {
             "title": event.get("title", ""),
@@ -565,7 +565,7 @@ def calendar_stats() -> Any:
             "day": name,
             "has_transcripts": False,
             "has_todos": False,
-            "has_topics": False,
+            "has_insights": False,
             "occurrence_count": 0,
         }
 
@@ -583,9 +583,9 @@ def calendar_stats() -> Any:
                 # has_transcripts: check if any audio sessions exist
                 day_stats["has_transcripts"] = stats_obj.get("audio_sessions", 0) > 0
 
-                # has_topics: check if topics were processed or topic_data exists
-                day_stats["has_topics"] = (
-                    stats_obj.get("topics_processed", 0) > 0 or len(topic_data) > 0
+                # has_insights: check if insights were processed or topic_data exists
+                day_stats["has_insights"] = (
+                    stats_obj.get("insights_processed", 0) > 0 or len(topic_data) > 0
                 )
 
                 # occurrence_count: sum all topic occurrence counts

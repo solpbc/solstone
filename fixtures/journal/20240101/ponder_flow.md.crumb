@@ -1,6 +1,6 @@
 {
-  "generator": "think.summarize",
-  "output": "20240101/topics/flow.md",
+  "generator": "think.insight",
+  "output": "20240101/insights/flow.md",
   "generated_at": "2024-01-01T12:00:00Z",
-  "dependencies": [{"type": "file", "path": "think/topics/flow.txt", "mtime": 0}]
+  "dependencies": [{"type": "file", "path": "think/insights/flow.txt", "mtime": 0}]
 }

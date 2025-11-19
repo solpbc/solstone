@@ -4,7 +4,7 @@ import os
 from datetime import datetime, timedelta
 
 from think.runner import run_task
-from think.utils import day_log, day_path, get_topics, setup_cli
+from think.utils import day_log, day_path, get_insights, setup_cli
 
 
 def run_command(cmd: list[str], day: str) -> bool:
@@ -46,6 +46,7 @@ def build_commands(
         logging.info("Running segment processing for %s/%s", day, segment)
         target_frequency = "segment"
         # No sense repair for segments (already processed during observation)
+
     else:
         logging.info("Running daily processing for %s", day)
         target_frequency = "daily"
@@ -55,20 +56,20 @@ def build_commands(
             cmd.append("-v")
         commands.append(cmd)
 
-    # Run topics filtered by frequency
-    topics = get_topics()
-    for topic_name, topic_data in topics.items():
-        # Skip disabled topics
-        if topic_data.get("disabled", False):
-            logging.info("Skipping disabled topic: %s", topic_name)
+    # Run insights filtered by frequency
+    insights = get_insights()
+    for insight_name, insight_data in insights.items():
+        # Skip disabled insights
+        if insight_data.get("disabled", False):
+            logging.info("Skipping disabled insight: %s", insight_name)
             continue
 
         # Filter by frequency (defaults to "daily" if not specified)
-        topic_frequency = topic_data.get("frequency", "daily")
-        if topic_frequency != target_frequency:
+        insight_frequency = insight_data.get("frequency", "daily")
+        if insight_frequency != target_frequency:
             continue
 
-        cmd = ["think-summarize", day, "-f", topic_data["path"], "-p"]
+        cmd = ["think-insight", day, "-f", insight_data["path"], "-p"]
         if segment:
             cmd.extend(["--segment", segment])
         if verbose:

@@ -3,7 +3,7 @@
   "occurrences": [
     {
       "type": "meeting",
-      "source": "topics/meetings.md",
+      "source": "insights/meetings.md",
       "start": "09:00:00",
       "end": "09:30:00",
       "title": "Team sync",
@@ -13,7 +13,7 @@
     },
     {
       "type": "meeting",
-      "source": "topics/meetings.md",
+      "source": "insights/meetings.md",
       "start": "10:30:00",
       "end": "11:30:00",
       "title": "Client review with Acme Corp",
@@ -23,7 +23,7 @@
     },
     {
       "type": "meeting",
-      "source": "topics/meetings.md",
+      "source": "insights/meetings.md",
       "start": "14:00:00",
       "end": "15:00:00",
       "title": "Sprint planning",
@@ -33,7 +33,7 @@
     },
     {
       "type": "meeting",
-      "source": "topics/meetings.md",
+      "source": "insights/meetings.md",
       "start": "16:00:00",
       "end": "16:30:00",
       "title": "Architecture discussion",

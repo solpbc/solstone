@@ -22,7 +22,7 @@ from think.entities import (
 from think.facets import facet_summary, log_action
 from think.indexer import search_events as search_events_impl
 from think.indexer import search_news as search_news_impl
-from think.indexer import search_summaries as search_summaries_impl
+from think.indexer import search_insights as search_insights_impl
 from think.indexer import search_transcripts as search_transcripts_impl
 from think.messages import send_message as send_message_impl
 from think.utils import get_raw_file
@@ -52,7 +52,7 @@ def register_tool(*tool_args: Any, **tool_kwargs: Any) -> Callable[[F], F]:
 # Tool packs - logical groupings of tools
 TOOL_PACKS = {
     "journal": [
-        "search_summaries",
+        "search_insights",
         "search_transcripts",
         "search_events",
         "search_news",
@@ -297,7 +297,7 @@ def todo_upcoming(limit: int = 20, facet: str | None = None) -> dict[str, Any]:
 
 
 @register_tool(annotations=HINTS)
-def search_summaries(
+def search_insights(
     query: str,
     limit: int = 5,
     offset: int = 0,
@@ -305,9 +305,9 @@ def search_summaries(
     topic: str | None = None,
     day: str | None = None,
 ) -> dict[str, Any]:
-    """Search across journal topic summaries using semantic full-text search.
+    """Search across journal insight summaries using semantic full-text search.
 
-    This tool searches through pre-processed topic summaries that represent
+    This tool searches through pre-processed insight summaries that represent
     key themes and subjects from your journal entries. Use this when looking
     for high-level concepts, themes, or when you need an overview of topics
     discussed over time.
@@ -321,16 +321,16 @@ def search_summaries(
 
     Returns:
         Dictionary containing:
-        - total: Total number of matching topics
+        - total: Total number of matching insights
         - limit: Current limit value used for this query
         - offset: Current offset value used for this query
-        - results: List of matching topics with day, topic, and text excerpt, ordered by text relevance
+        - results: List of matching insights with day, topic, and text excerpt, ordered by text relevance
 
     Examples:
-        - search_summaries("machine learning projects")
-        - search_summaries("team retrospectives", limit=10)
-        - search_summaries("planning", topic="standup")
-        - search_summaries("meetings", day="20240101")
+        - search_insights("machine learning projects")
+        - search_insights("team retrospectives", limit=10)
+        - search_insights("planning", topic="standup")
+        - search_insights("meetings", day="20240101")
     """
     try:
         kwargs = {}
@@ -338,7 +338,7 @@ def search_summaries(
             kwargs["topic"] = topic
         if day is not None:
             kwargs["day"] = day
-        total, results = search_summaries_impl(query, limit, offset, **kwargs)
+        total, results = search_insights_impl(query, limit, offset, **kwargs)
 
         items = []
         for r in results:

@@ -446,7 +446,7 @@ const Dashboard = (function() {
       progressCard('Audio Processing', totals.audio_sessions || 0, totals.unprocessed_files || 0)
     );
     progressSection.appendChild(
-      progressCard('Topic Summaries', totals.topics_processed || 0, totals.topics_pending || 0)
+      progressCard('Insight Summaries', totals.insights_processed || 0, totals.insights_pending || 0)
     );
     
     // Token usage setup
@@ -510,12 +510,12 @@ const Dashboard = (function() {
         document.getElementById('topicsSection'),
         stats.topic_counts,
         stats.topic_minutes,
-        data.topics || {}
+        data.insights || {}
       );
     }
     
     // Render repairs if needed
-    const repairs = ['unprocessed_files', 'topics_pending'];
+    const repairs = ['unprocessed_files', 'insights_pending'];
     const hasRepairs = repairs.some(key => (totals[key] || 0) > 0);
 
     if (hasRepairs) {
@@ -528,7 +528,7 @@ const Dashboard = (function() {
       const repairGrid = alert.querySelector('#repairGrid');
       const repairLabels = {
         unprocessed_files: 'Unprocessed Media',
-        topics_pending: 'Topic Summaries'
+        insights_pending: 'Insight Summaries'
       };
 
       repairs.forEach(key => {

@@ -32,7 +32,7 @@ def test_occurrence_index(tmp_path):
         "occurrences": [
             {
                 "type": "meeting",
-                "source": "topics/meetings.md",
+                "source": "insights/meetings.md",
                 "start": "09:00:00",
                 "end": "09:30:00",
                 "title": "Standup",
@@ -41,9 +41,9 @@ def test_occurrence_index(tmp_path):
             }
         ],
     }
-    topics_dir = day / "topics"
-    topics_dir.mkdir()
-    (topics_dir / "meetings.json").write_text(json.dumps(data))
+    insights_dir = day / "insights"
+    insights_dir.mkdir()
+    (insights_dir / "meetings.json").write_text(json.dumps(data))
     mod.scan_events(str(journal), verbose=True)
     total, results = mod.search_events("Standup")
     assert total == 1
@@ -57,15 +57,15 @@ def test_ponder_index(tmp_path):
     os.environ["JOURNAL_PATH"] = str(journal)
     day = journal / "20240102"
     day.mkdir()
-    topics_dir = day / "topics"
-    topics_dir.mkdir()
-    (topics_dir / "files.md").write_text("This is a test sentence.\n")
-    mod.scan_summaries(str(journal), verbose=True)
-    total, results = mod.search_summaries("test")
+    insights_dir = day / "insights"
+    insights_dir.mkdir()
+    (insights_dir / "files.md").write_text("This is a test sentence.\n")
+    mod.scan_insights(str(journal), verbose=True)
+    total, results = mod.search_insights("test")
     assert total == 1
-    assert results and results[0]["metadata"]["path"] == "20240102/topics/files.md"
+    assert results and results[0]["metadata"]["path"] == "20240102/insights/files.md"
     assert total == 1
-    assert results and results[0]["metadata"]["path"] == "20240102/topics/files.md"
+    assert results and results[0]["metadata"]["path"] == "20240102/insights/files.md"
 
 
 def test_raw_index(tmp_path):
@@ -111,23 +111,23 @@ def test_index_caching(tmp_path):
     os.environ["JOURNAL_PATH"] = str(journal)
     day = journal / "20240104"
     day.mkdir()
-    topics_dir = day / "topics"
-    topics_dir.mkdir()
-    md = topics_dir / "files.md"
+    insights_dir = day / "insights"
+    insights_dir.mkdir()
+    md = insights_dir / "files.md"
     md.write_text("Cached sentence.\n")
 
     # First scan indexes the file
-    assert mod.scan_summaries(str(journal)) is True
+    assert mod.scan_insights(str(journal)) is True
 
     # Second scan without modification should be a no-op
-    assert mod.scan_summaries(str(journal)) is False
+    assert mod.scan_insights(str(journal)) is False
 
     # Modify file to trigger reindex
     import time as _time
 
     _time.sleep(1)
     md.write_text("Updated sentence.\n")
-    assert mod.scan_summaries(str(journal)) is True
+    assert mod.scan_insights(str(journal)) is True
 
 
 def test_search_raws_day(tmp_path):

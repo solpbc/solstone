@@ -7,7 +7,7 @@ import sqlite3
 from typing import Any, Dict, List
 
 from .core import _scan_files, get_index
-from .summaries import find_summary_files
+from .insights import find_insight_files
 
 
 def _index_events(conn: sqlite3.Connection, rel: str, path: str, verbose: bool) -> None:
@@ -50,7 +50,7 @@ def scan_events(journal: str, verbose: bool = False) -> bool:
     """Index event JSON files."""
     logger = logging.getLogger(__name__)
     conn, _ = get_index(index="events", journal=journal)
-    files = find_summary_files(journal, (".json",))
+    files = find_insight_files(journal, (".json",))
     if files:
         logger.info("\nIndexing %s event files...", len(files))
     changed = _scan_files(

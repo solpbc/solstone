@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Dict
 
 from observe.utils import load_analysis_frames
-from think.summarize import scan_day as summarize_scan_day
+from think.insight import scan_day as insight_scan_day
 from think.utils import day_dirs, setup_cli
 
 logger = logging.getLogger(__name__)
@@ -49,10 +49,10 @@ class JournalStats:
         files.extend(day_dir.glob("*_screen.mp4"))
         files.extend(day_dir.glob("*_screen.mov"))
 
-        topics = day_dir / "topics"
-        if topics.is_dir():
-            files.extend(topics.glob("*.json"))
-            files.extend(topics.glob("*.md"))
+        insights = day_dir / "insights"
+        if insights.is_dir():
+            files.extend(insights.glob("*.json"))
+            files.extend(insights.glob("*.md"))
 
         if not files:
             return 0.0
@@ -235,34 +235,34 @@ class JournalStats:
         unprocessed.extend(day_dir.glob("*_screen.mov"))
         stats["unprocessed_files"] = len(unprocessed)
 
-        # --- Topic summaries ---
-        summary_info = summarize_scan_day(day)
-        stats["topics_processed"] = len(summary_info["processed"])
-        stats["topics_pending"] = len(summary_info["repairable"])
+        # --- Insight summaries ---
+        insight_info = insight_scan_day(day)
+        stats["insights_processed"] = len(insight_info["processed"])
+        stats["insights_pending"] = len(insight_info["repairable"])
 
-        # --- Topic occurrences and heatmap ---
-        topics_dir = day_dir / "topics"
+        # --- Insight occurrences and heatmap ---
+        insights_dir = day_dir / "insights"
         weekday = datetime.strptime(day, "%Y%m%d").weekday()
 
-        if topics_dir.is_dir():
-            for fname in os.listdir(topics_dir):
+        if insights_dir.is_dir():
+            for fname in os.listdir(insights_dir):
                 base, ext = os.path.splitext(fname)
                 if ext != ".json":
                     continue
-                topic_file = topics_dir / fname
+                insight_file = insights_dir / fname
                 try:
-                    with open(topic_file, "r", encoding="utf-8") as f:
+                    with open(insight_file, "r", encoding="utf-8") as f:
                         data = json.load(f)
                 except json.JSONDecodeError as e:
-                    logger.warning(f"Invalid JSON in {topic_file}: {e}")
+                    logger.warning(f"Invalid JSON in {insight_file}: {e}")
                     continue
                 except (OSError, IOError) as e:
-                    logger.warning(f"Error reading {topic_file}: {e}")
+                    logger.warning(f"Error reading {insight_file}: {e}")
                     continue
 
                 items = data.get("occurrences", []) if isinstance(data, dict) else data
                 if not isinstance(items, list):
-                    logger.debug(f"No occurrences list in {topic_file}")
+                    logger.debug(f"No occurrences list in {insight_file}")
                     continue
 
                 # Initialize topic data
@@ -278,7 +278,7 @@ class JournalStats:
                         eh, em, es = map(int, end.split(":"))
                     except (ValueError, AttributeError, TypeError):
                         logger.debug(
-                            f"Invalid timestamp in {topic_file}: {start} - {end}"
+                            f"Invalid timestamp in {insight_file}: {start} - {end}"
                         )
                         continue
 

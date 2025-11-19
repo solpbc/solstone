@@ -21,8 +21,8 @@ def test_scan_day(tmp_path, monkeypatch):
     (day / "123456_raw.flac").write_bytes(b"RIFF")
 
     (day / "entities.md").write_text("")
-    (day / "topics").mkdir()
-    (day / "topics" / "flow.md").write_text("")
+    (day / "insights").mkdir()
+    (day / "insights" / "flow.md").write_text("")
     data = {
         "day": "20240101",
         "occurrences": [
@@ -39,7 +39,7 @@ def test_scan_day(tmp_path, monkeypatch):
             }
         ],
     }
-    (day / "topics" / "meetings.json").write_text(json.dumps(data))
+    (day / "insights" / "meetings.json").write_text(json.dumps(data))
     monkeypatch.setenv("JOURNAL_PATH", str(journal))
     js = stats_mod.JournalStats()
     day_data = js.scan_day("20240101", str(day))

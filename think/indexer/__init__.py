@@ -1,4 +1,4 @@
-"""Indexer package for summary outputs, events, transcripts, and entities.
+"""Indexer package for insights, events, transcripts, and entities.
 
 This module provides backward compatibility by re-exporting all the main
 functions from the sub-modules.
@@ -38,13 +38,13 @@ from .news import (
     search_news,
 )
 
-# Import from summaries
-from .summaries import (
-    TOPIC_BASENAMES,
-    TOPIC_DIR,
-    find_summary_files,
-    scan_summaries,
-    search_summaries,
+# Import from insights
+from .insights import (
+    INSIGHT_TYPES,
+    INSIGHTS_DIR,
+    find_insight_files,
+    scan_insights,
+    search_insights,
     split_sentences,
 )
 
@@ -66,12 +66,12 @@ __all__ = [
     "SCHEMAS",
     "get_index",
     "reset_index",
-    # Summaries
-    "TOPIC_BASENAMES",
-    "TOPIC_DIR",
-    "find_summary_files",
-    "scan_summaries",
-    "search_summaries",
+    # Insights
+    "INSIGHT_TYPES",
+    "INSIGHTS_DIR",
+    "find_insight_files",
+    "scan_insights",
+    "search_insights",
     "split_sentences",
     # Events
     "scan_events",

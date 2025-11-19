@@ -18,22 +18,22 @@ def copy_day(tmp_path: Path) -> Path:
             shutil.copytree(item, dest / item.name, dirs_exist_ok=True)
         else:
             shutil.copy2(item, dest / item.name)
-    topics = dest / "topics"
-    topics.mkdir(exist_ok=True)  # Allow existing directory
-    (topics / "flow.md").write_text("done")
+    insights = dest / "insights"
+    insights.mkdir(exist_ok=True)  # Allow existing directory
+    (insights / "flow.md").write_text("done")
     return dest
 
 
 def test_scan_day(tmp_path, monkeypatch):
-    mod = importlib.import_module("think.summarize")
+    mod = importlib.import_module("think.insight")
     day_dir = copy_day(tmp_path)
     monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
 
     info = mod.scan_day("20240101")
-    assert "topics/flow.md" in info["processed"]
-    assert "topics/media.md" in info["repairable"]
+    assert "insights/flow.md" in info["processed"]
+    assert "insights/media.md" in info["repairable"]
 
-    (day_dir / "topics" / "media.md").write_text("done")
+    (day_dir / "insights" / "media.md").write_text("done")
     info_after = mod.scan_day("20240101")
-    assert "topics/media.md" in info_after["processed"]
-    assert "topics/media.md" not in info_after["repairable"]
+    assert "insights/media.md" in info_after["processed"]
+    assert "insights/media.md" not in info_after["repairable"]

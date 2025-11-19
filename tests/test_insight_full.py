@@ -23,7 +23,7 @@ def copy_day(tmp_path: Path) -> Path:
 
 
 def test_ponder_main(tmp_path, monkeypatch):
-    mod = importlib.import_module("think.summarize")
+    mod = importlib.import_module("think.insight")
     day_dir = copy_day(tmp_path)
     prompt = tmp_path / "prompt.txt"
     prompt.write_text("prompt")
@@ -55,11 +55,11 @@ def test_ponder_main(tmp_path, monkeypatch):
     monkeypatch.setenv("GOOGLE_API_KEY", "x")
 
     monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
-    monkeypatch.setattr("sys.argv", ["think-ponder", "20240101", "-f", str(prompt)])
+    monkeypatch.setattr("sys.argv", ["think-insight", "20240101", "-f", str(prompt)])
     mod.main()
 
-    md = day_dir / "topics" / "prompt.md"
-    js = day_dir / "topics" / "prompt.json"
+    md = day_dir / "insights" / "prompt.md"
+    js = day_dir / "insights" / "prompt.json"
     assert md.read_text() == "summary"
     data = json.loads(js.read_text())
     assert data["day"] == "20240101"
@@ -71,12 +71,12 @@ def test_ponder_main(tmp_path, monkeypatch):
 
 
 def test_ponder_extra_instructions(tmp_path, monkeypatch):
-    mod = importlib.import_module("think.summarize")
+    mod = importlib.import_module("think.insight")
     day_dir = copy_day(tmp_path)
-    topic_file = Path(mod.__file__).resolve().parent / "topics" / "flow.txt"
+    insight_file = Path(mod.__file__).resolve().parent / "insights" / "flow.txt"
 
     # Remove existing flow.md to ensure mock content is used
-    flow_md = day_dir / "topics" / "flow.md"
+    flow_md = day_dir / "insights" / "flow.md"
     if flow_md.exists():
         flow_md.unlink()
 
@@ -107,37 +107,37 @@ def test_ponder_extra_instructions(tmp_path, monkeypatch):
     monkeypatch.setenv("GOOGLE_API_KEY", "x")
 
     monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
-    monkeypatch.setattr("sys.argv", ["think-ponder", "20240101", "-f", str(topic_file)])
+    monkeypatch.setattr("sys.argv", ["think-insight", "20240101", "-f", str(insight_file)])
     mod.main()
 
-    md = day_dir / "topics" / "flow.md"
-    js = day_dir / "topics" / "flow.json"
+    md = day_dir / "insights" / "flow.md"
+    js = day_dir / "insights" / "flow.json"
     assert md.read_text() == "summary"
     data = json.loads(js.read_text())
     assert data["day"] == "20240101"
     assert data["occurrences"]
-    # Facet summaries are prepended to topic-specific occurrence instructions
+    # Facet summaries are prepended to insight-specific occurrence instructions
     assert captured["extra"]
     assert captured["extra"].startswith("No facets found.")
 
 
 def test_ponder_skip_occurrences(tmp_path, monkeypatch):
-    mod = importlib.import_module("think.summarize")
+    mod = importlib.import_module("think.insight")
     day_dir = copy_day(tmp_path)
-    topic_file = Path(mod.__file__).resolve().parent / "topics" / "flow.txt"
+    insight_file = Path(mod.__file__).resolve().parent / "insights" / "flow.txt"
 
     # Remove existing flow.md to ensure mock content is used
-    flow_md = day_dir / "topics" / "flow.md"
+    flow_md = day_dir / "insights" / "flow.md"
     if flow_md.exists():
         flow_md.unlink()
 
-    def fake_get_topics():
+    def fake_get_insights():
         utils = importlib.import_module("think.utils")
-        topics = utils.get_topics()
-        topics["flow"]["occurrences"] = False
-        return topics
+        insights = utils.get_insights()
+        insights["flow"]["occurrences"] = False
+        return insights
 
-    monkeypatch.setattr(mod, "get_topics", fake_get_topics)
+    monkeypatch.setattr(mod, "get_insights", fake_get_insights)
     monkeypatch.setattr(
         mod,
         "send_markdown",
@@ -154,11 +154,11 @@ def test_ponder_skip_occurrences(tmp_path, monkeypatch):
     monkeypatch.setenv("GOOGLE_API_KEY", "x")
 
     monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
-    monkeypatch.setattr("sys.argv", ["think-ponder", "20240101", "-f", str(topic_file)])
+    monkeypatch.setattr("sys.argv", ["think-insight", "20240101", "-f", str(insight_file)])
     mod.main()
 
-    md = day_dir / "topics" / "flow.md"
-    js = day_dir / "topics" / "flow.json"
+    md = day_dir / "insights" / "flow.md"
+    js = day_dir / "insights" / "flow.json"
     assert md.read_text() == "summary"
     assert not js.exists()
     assert md.with_suffix(md.suffix + ".crumb").is_file()

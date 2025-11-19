@@ -13,7 +13,7 @@ from convey.utils import format_date
 from think.indexer import (
     search_entities,
     search_events,
-    search_summaries,
+    search_insights,
     search_transcripts,
 )
 
@@ -31,20 +31,20 @@ def search_summaries_api() -> Any:
         return jsonify({"total": 0, "results": []})
 
     from convey.utils import parse_pagination_params
-    from think.utils import get_topics
+    from think.utils import get_insights
 
     limit, offset = parse_pagination_params(default_limit=20)
 
-    topics = get_topics()
+    insights = get_insights()
     day = request.args.get("day")
     topic_filter = request.args.get("topic")
-    total, rows = search_summaries(query, limit, offset, day=day, topic=topic_filter)
+    total, rows = search_insights(query, limit, offset, day=day, topic=topic_filter)
     results = []
     for r in rows:
         meta = r.get("metadata", {})
         topic = meta.get("topic", "")
-        if topic.startswith("topics/"):
-            topic = topic[len("topics/") :]  # noqa: E203
+        if topic.startswith("insights/"):
+            topic = topic[len("insights/") :]  # noqa: E203
         if topic.endswith(".md"):
             topic = topic[:-3]
         text = r["text"]
@@ -56,7 +56,7 @@ def search_summaries_api() -> Any:
                 "day": meta.get("day", ""),
                 "date": format_date(meta.get("day", "")),
                 "topic": topic,
-                "color": topics.get(topic, {}).get("color"),
+                "color": insights.get(topic, {}).get("color"),
                 "text": markdown.markdown(text, extensions=["extra"]),
                 "score": r.get("score", 0.0),
             }
@@ -72,11 +72,11 @@ def search_events_api() -> Any:
         return jsonify({"total": 0, "results": []})
 
     from convey.utils import parse_pagination_params
-    from think.utils import get_topics
+    from think.utils import get_insights
 
     limit, offset = parse_pagination_params(default_limit=10)
 
-    topics = get_topics()
+    insights = get_insights()
     day = request.args.get("day")
     topic_filter = request.args.get("topic")
     total, rows = search_events(query, limit, offset, day=day, topic=topic_filter)
@@ -84,8 +84,8 @@ def search_events_api() -> Any:
     for r in rows:
         meta = r.get("metadata", {})
         topic = meta.get("topic", "")
-        if topic.startswith("topics/"):
-            topic = topic[len("topics/") :]  # noqa: E203
+        if topic.startswith("insights/"):
+            topic = topic[len("insights/") :]  # noqa: E203
         if topic.endswith(".md"):
             topic = topic[:-3]
         text = r.get("text", "")
@@ -109,7 +109,7 @@ def search_events_api() -> Any:
                 "day": meta.get("day", ""),
                 "date": format_date(meta.get("day", "")),
                 "topic": topic,
-                "color": topics.get(topic, {}).get("color"),
+                "color": insights.get(topic, {}).get("color"),
                 "start": start,
                 "length": length,
                 "text": markdown.markdown(text, extensions=["extra"]),

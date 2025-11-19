@@ -7,7 +7,7 @@ from typing import Any
 from flask import Blueprint, jsonify, render_template
 
 from convey import state
-from think.utils import get_topics
+from think.utils import get_insights
 
 stats_bp = Blueprint(
     "app:stats",
@@ -34,6 +34,6 @@ def stats_data() -> Any:
         except Exception:
             pass
 
-    response["topics"] = get_topics()
+    response["insights"] = get_insights()
 
     return jsonify(response)

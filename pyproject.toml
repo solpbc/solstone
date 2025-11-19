@@ -93,7 +93,7 @@ dev = [
 sunstone = "think.sunstone:main"
 convey = "convey.cli:main"
 convey-screenshot = "convey.screenshot:main"
-think-summarize = "think.summarize:main"
+think-insight = "think.insight:main"
 think-cluster = "think.cluster:main"
 think-planner = "think.planner:main"
 think-journal-stats = "think.journal_stats:main"
@@ -130,7 +130,7 @@ include = ["apps*", "think*", "convey*", "observe*", "muse*"]
 
 [tool.setuptools.package-data]
 apps = ["*/templates/*.html"]
-think = ["*.txt", "topics/*.txt"]
+think = ["*.txt", "insights/*.txt"]
 muse = ["agents/*.txt", "agents/*.json"]
 observe = ["*.txt", "*.json"]
 convey = [

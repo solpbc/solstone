@@ -16,7 +16,7 @@ INDEX_DIR = "indexer"
 
 # Mapping of index types to their SQLite filenames
 DB_NAMES = {
-    "summaries": "summaries.sqlite",
+    "insights": "insights.sqlite",
     "events": "events.sqlite",
     "transcripts": "transcripts.sqlite",
     "entities": "entities.sqlite",
@@ -25,10 +25,10 @@ DB_NAMES = {
 
 # SQL statements to create required tables per index
 SCHEMAS = {
-    "summaries": [
+    "insights": [
         "CREATE TABLE IF NOT EXISTS files(path TEXT PRIMARY KEY, mtime INTEGER)",
         """
-        CREATE VIRTUAL TABLE IF NOT EXISTS summaries_text USING fts5(
+        CREATE VIRTUAL TABLE IF NOT EXISTS insights_text USING fts5(
             sentence, path UNINDEXED, day UNINDEXED, topic UNINDEXED, position UNINDEXED
         )
         """,

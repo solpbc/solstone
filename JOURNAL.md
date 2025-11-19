@@ -578,7 +578,7 @@ Insight generation prompts extract time-based events from the day's transcripts�
   "occurrences": [
     {
       "type": "meeting",
-      "source": "topics/meetings.md",
+      "source": "insights/meetings.md",
       "start": "09:00:00",
       "end": "09:30:00",
       "title": "Team stand-up",
@@ -618,13 +618,13 @@ After all frames are processed, a segment insight (`screen.md`) is generated fro
 
 Post-processing generates day-level insights that synthesize all segments:
 
-- `topics/flow.md` – day overview and work rhythm analysis
-- `topics/knowledge_graph.md` – entity relationships and knowledge network
-- `topics/meetings.md` – meeting list used by the calendar web UI
-- Additional topic-based insights as configured in `think/topics/`
+- `insights/flow.md` – day overview and work rhythm analysis
+- `insights/knowledge_graph.md` – entity relationships and knowledge network
+- `insights/meetings.md` – meeting list used by the calendar web UI
+- Additional topic-based insights as configured in `think/insights/`
 
-Each insight type has a corresponding template in `think/topics/{name}.txt` that defines how the AI synthesizes extracts into narrative form.
+Each insight type has a corresponding template in `think/insights/{name}.txt` that defines how the AI synthesizes extracts into narrative form.
 
 #### Provenance
 
-Most insights are accompanied by a `.crumb` file capturing source dependencies and model information. See **CRUMBS.md** for the format specification. Example: `20250610/topics/flow.md.crumb`.
+Most insights are accompanied by a `.crumb` file capturing source dependencies and model information. See **CRUMBS.md** for the format specification. Example: `20250610/insights/flow.md.crumb`.

@@ -16,7 +16,7 @@ from timefhuman import timefhuman
 
 DATE_RE = re.compile(r"\d{8}")
 
-# Topic colors are now stored in each topic's JSON metadata file
+# Insight colors are now stored in each insight's JSON metadata file
 
 AGENT_DIR = Path(__file__).parent.parent / "muse" / "agents"
 
@@ -476,17 +476,17 @@ def setup_cli(parser: argparse.ArgumentParser, *, parse_known: bool = False):
     return (args, extra) if parse_known else args
 
 
-def get_topics() -> dict[str, dict[str, object]]:
-    """Return available topics with metadata.
+def get_insights() -> dict[str, dict[str, object]]:
+    """Return available insights with metadata.
 
-    Each key is the topic name. The value contains the ``path`` to the
+    Each key is the insight name. The value contains the ``path`` to the
     ``.txt`` file, the ``color`` from the metadata JSON, the file
     ``mtime`` and any keys loaded from a matching ``.json`` metadata file.
     """
 
-    topics_dir = Path(__file__).parent / "topics"
-    topics: dict[str, dict[str, object]] = {}
-    for txt_path in sorted(topics_dir.glob("*.txt")):
+    insights_dir = Path(__file__).parent / "insights"
+    insights: dict[str, dict[str, object]] = {}
+    for txt_path in sorted(insights_dir.glob("*.txt")):
         name = txt_path.stem
         mtime = int(txt_path.stat().st_mtime)
         info: dict[str, object] = {
@@ -508,8 +508,8 @@ def get_topics() -> dict[str, dict[str, object]]:
                 info["color"] = "#6c757d"  # Default gray color
         else:
             info["color"] = "#6c757d"  # Default gray color
-        topics[name] = info
-    return topics
+        insights[name] = info
+    return insights
 
 
 def get_agent(persona: str = "default") -> dict:
@@ -557,17 +557,17 @@ def get_agent(persona: str = "default") -> dict:
         except Exception:
             pass  # Ignore if facets can't be loaded
 
-    # Add topics to agent instructions
-    topics = get_topics()
-    if topics:
-        topics_list = []
-        for topic_name, info in sorted(topics.items()):
+    # Add insights to agent instructions
+    insights = get_insights()
+    if insights:
+        insights_list = []
+        for insight_name, info in sorted(insights.items()):
             desc = str(info.get("contains", "")).replace("\n", " ").strip()
             if desc:
-                topics_list.append(f"- `{topic_name}`: {desc}")
+                insights_list.append(f"- `{insight_name}`: {desc}")
             else:
-                topics_list.append(f"- `{topic_name}`")
-        extra_parts.append("## Available Topics\n" + "\n".join(topics_list))
+                insights_list.append(f"- `{insight_name}`")
+        extra_parts.append("## Available Insights\n" + "\n".join(insights_list))
 
     # Add current date/time
     now = datetime.now()

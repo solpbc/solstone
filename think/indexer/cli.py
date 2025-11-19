@@ -9,8 +9,8 @@ from think.utils import journal_log, setup_cli
 from .core import reset_index
 from .entities import scan_entities, search_entities
 from .events import scan_events, search_events
+from .insights import scan_insights, search_insights
 from .news import scan_news, search_news
-from .summaries import scan_summaries, search_summaries
 from .transcripts import scan_transcripts, search_transcripts
 
 
@@ -32,7 +32,7 @@ def main() -> None:
     )
     parser.add_argument(
         "--index",
-        choices=["summaries", "events", "transcripts", "entities", "news"],
+        choices=["insights", "events", "transcripts", "entities", "news"],
         help="Which index to operate on",
     )
     parser.add_argument(
@@ -114,7 +114,7 @@ def main() -> None:
 
     if args.rescan_all:
         # Rescan all indexes
-        indexes = ["summaries", "events", "transcripts", "entities", "news"]
+        indexes = ["insights", "events", "transcripts", "entities", "news"]
         for index_name in indexes:
             if index_name == "transcripts":
                 changed = scan_transcripts(journal, verbose=args.verbose)
@@ -124,8 +124,8 @@ def main() -> None:
                 changed = scan_events(journal, verbose=args.verbose)
                 if changed:
                     journal_log(f"indexer {index_name} rescan ok")
-            elif index_name == "summaries":
-                changed = scan_summaries(journal, verbose=args.verbose)
+            elif index_name == "insights":
+                changed = scan_insights(journal, verbose=args.verbose)
                 if changed:
                     journal_log(f"indexer {index_name} rescan ok")
             elif index_name == "entities":
@@ -161,10 +161,10 @@ def main() -> None:
             changed = scan_events(journal, verbose=args.verbose)
             if changed:
                 journal_log("indexer events rescan ok")
-        elif args.index == "summaries":
-            changed = scan_summaries(journal, verbose=args.verbose)
+        elif args.index == "insights":
+            changed = scan_insights(journal, verbose=args.verbose)
             if changed:
-                journal_log("indexer summaries rescan ok")
+                journal_log("indexer insights rescan ok")
         elif args.index == "entities":
             changed = scan_entities(journal, verbose=args.verbose)
             if changed:
@@ -192,7 +192,7 @@ def main() -> None:
             search_func = search_news
             query_kwargs = {"facet": args.facet, "day": args.day}
         else:
-            search_func = search_summaries
+            search_func = search_insights
             query_kwargs = {}
         if args.query:
             # Single query mode - run query and exit

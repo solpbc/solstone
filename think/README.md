@@ -14,7 +14,7 @@ All dependencies are listed in `pyproject.toml`.
 
 The package exposes several commands:
 
-- `think-summarize` builds a Markdown summary of a day's recordings using a Gemini prompt.
+- `think-insight` builds a Markdown summary of a day's recordings using a Gemini prompt.
 - `think-cluster` groups audio and screen JSON files into report sections. Use `--start` and
   `--length` to limit the report to a specific time range.
 - `think-dream` runs the above tools for a single day.
@@ -23,7 +23,7 @@ The package exposes several commands:
 - `muse-cortex` starts a WebSocket API server for managing AI agent instances.
 
 ```bash
-think-summarize YYYYMMDD [-f PROMPT] [-p] [-c] [--force] [-v]
+think-insight YYYYMMDD [-f PROMPT] [-p] [-c] [--force] [-v]
 think-cluster YYYYMMDD [--start HHMMSS --length MINUTES]
 think-dream [--day YYYYMMDD] [--force] [--rebuild]
 think-supervisor [--no-observers]
@@ -141,15 +141,15 @@ provide context and `history` exposes all messages seen during the session. The
 same code works with any implementation, allowing you to choose between OpenAI,
 Gemini or Claude at runtime.
 
-## Topic map keys
+## Insight map keys
 
-`think.utils.get_topics()` reads the prompt files under `think/topics` and
-returns a dictionary keyed by topic name. Each entry contains:
+`think.utils.get_insights()` reads the prompt files under `think/insights` and
+returns a dictionary keyed by insight name. Each entry contains:
 
 - `path` – the prompt text file path
 - `color` – UI color hex string
 - `mtime` – modification time of the `.txt` file
-- Any additional keys from the matching `<topic>.json` metadata file such as
+- Any additional keys from the matching `<insight>.json` metadata file such as
   `title`, `description` or `occurrences`
 
 ## Cortex API

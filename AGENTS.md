@@ -247,7 +247,7 @@ make clean-install # Clean and reinstall
 * **Journal Data**: Path from `JOURNAL_PATH` env var (set in `.env`)
 * **Config**: `.env` file in project root
 * **Agent Personas**: `muse/agents/*.txt` and `*.json`
-* **Topic Templates**: `think/topics/*.txt` and `*.json`
+* **Insight Templates**: `think/insights/*.txt` and `*.json`
 
 ### Getting Help
 * Run `make help` for available Make targets

@@ -24,14 +24,14 @@ def _list_items(item_type: str) -> list[dict[str, object]]:
     Returns:
         List of items with id, title, and description (and color for topics)
     """
-    # Special handling for topics to get colors from get_topics()
-    if item_type == "topics":
-        from think.utils import get_topics
+    # Special handling for insights to get colors from get_insights()
+    if item_type == "insights":
+        from think.utils import get_insights
 
-        topics = get_topics()
+        insights = get_insights()
         items: list[dict[str, object]] = []
 
-        for name, info in topics.items():
+        for name, info in insights.items():
             item = {
                 "id": name,
                 "title": info.get("title", name),
@@ -45,7 +45,7 @@ def _list_items(item_type: str) -> list[dict[str, object]]:
         return items
 
     # Standard handling for agents
-    # Agents are in muse/agents/, topics are in think/topics/
+    # Agents are in muse/agents/, insights are in think/insights/
     if item_type == "agents":
         items_path = os.path.join(
             os.path.dirname(os.path.dirname(__file__)), "..", "muse", item_type
@@ -176,7 +176,7 @@ def _get_item_content(item_type: str, item_id: str) -> tuple[dict, int]:
     Returns:
         Tuple of (response dict, status code)
     """
-    # Agents are in muse/agents/, topics are in think/topics/
+    # Agents are in muse/agents/, insights are in think/insights/
     if item_type == "agents":
         items_path = os.path.join(
             os.path.dirname(os.path.dirname(__file__)), "..", "muse", item_type
@@ -312,7 +312,7 @@ def _update_item(item_type: str, item_id: str, data: dict) -> tuple[dict, int]:
         return {"error": "Title and content are required"}, 400
 
     # Path to item files
-    # Agents are in muse/agents/, topics are in think/topics/
+    # Agents are in muse/agents/, insights are in think/insights/
     if item_type == "agents":
         items_path = os.path.join(
             os.path.dirname(os.path.dirname(__file__)), "..", "muse", item_type
@@ -454,88 +454,88 @@ def start_agent() -> object:
         return jsonify({"error": str(e)}), 500
 
 
-# Topics API endpoints
-@agents_bp.route("/api/topics")
-def available_topics() -> object:
-    """Return list of available topic definitions from think/topics/."""
-    return jsonify(_list_items("topics"))
+# Insights API endpoints
+@agents_bp.route("/api/insights")
+def available_insights() -> object:
+    """Return list of available insight definitions from think/insights/."""
+    return jsonify(_list_items("insights"))
 
 
-@agents_bp.route("/api/topics/content/<topic_id>")
-def topic_content(topic_id: str) -> object:
-    """Return the .txt content for a topic."""
-    response, status = _get_item_content("topics", topic_id)
+@agents_bp.route("/api/insights/content/<insight_id>")
+def insight_content(insight_id: str) -> object:
+    """Return the .txt content for an insight."""
+    response, status = _get_item_content("insights", insight_id)
     return jsonify(response), status
 
 
-@agents_bp.route("/api/topics/update/<topic_id>", methods=["PUT"])
-def update_topic(topic_id: str) -> object:
-    """Update a topic's title and content or create a new one."""
+@agents_bp.route("/api/insights/update/<insight_id>", methods=["PUT"])
+def update_insight(insight_id: str) -> object:
+    """Update an insight's title and content or create a new one."""
     data = request.get_json()
 
-    # Handle topic-specific fields
+    # Handle insight-specific fields
     if "color" in data:
         # Save color in JSON config
-        topics_path = os.path.join(
-            os.path.dirname(os.path.dirname(__file__)), "..", "think", "topics"
+        insights_path = os.path.join(
+            os.path.dirname(os.path.dirname(__file__)), "..", "think", "insights"
         )
-        json_path = os.path.join(topics_path, f"{topic_id}.json")
+        json_path = os.path.join(insights_path, f"{insight_id}.json")
 
-        topic_config = {}
+        insight_config = {}
         if os.path.isfile(json_path):
             with open(json_path, "r", encoding="utf-8") as f:
-                topic_config = json.load(f)
+                insight_config = json.load(f)
 
-        topic_config["color"] = data["color"]
+        insight_config["color"] = data["color"]
 
         with open(json_path, "w", encoding="utf-8") as f:
-            json.dump(topic_config, f, indent=4)
+            json.dump(insight_config, f, indent=4)
 
     if "disabled" in data:
         # Save disabled state in JSON config
-        topics_path = os.path.join(
-            os.path.dirname(os.path.dirname(__file__)), "..", "think", "topics"
+        insights_path = os.path.join(
+            os.path.dirname(os.path.dirname(__file__)), "..", "think", "insights"
         )
-        json_path = os.path.join(topics_path, f"{topic_id}.json")
+        json_path = os.path.join(insights_path, f"{insight_id}.json")
 
-        topic_config = {}
+        insight_config = {}
         if os.path.isfile(json_path):
             with open(json_path, "r", encoding="utf-8") as f:
-                topic_config = json.load(f)
+                insight_config = json.load(f)
 
-        topic_config["disabled"] = data["disabled"]
+        insight_config["disabled"] = data["disabled"]
 
         with open(json_path, "w", encoding="utf-8") as f:
-            json.dump(topic_config, f, indent=4)
+            json.dump(insight_config, f, indent=4)
 
-    response, status = _update_item("topics", topic_id, data)
+    response, status = _update_item("insights", insight_id, data)
     return jsonify(response), status
 
 
-@agents_bp.route("/api/topics/toggle/<topic_id>", methods=["POST"])
-def toggle_topic(topic_id: str) -> object:
-    """Toggle the disabled state of a topic."""
-    topics_path = os.path.join(
-        os.path.dirname(os.path.dirname(__file__)), "..", "think", "topics"
+@agents_bp.route("/api/insights/toggle/<insight_id>", methods=["POST"])
+def toggle_insight(insight_id: str) -> object:
+    """Toggle the disabled state of an insight."""
+    insights_path = os.path.join(
+        os.path.dirname(os.path.dirname(__file__)), "..", "think", "insights"
     )
-    json_path = os.path.join(topics_path, f"{topic_id}.json")
+    json_path = os.path.join(insights_path, f"{insight_id}.json")
 
     if not os.path.isfile(json_path):
-        return jsonify({"error": "Topic not found"}), 404
+        return jsonify({"error": "Insight not found"}), 404
 
     try:
         # Read existing JSON file
         with open(json_path, "r", encoding="utf-8") as f:
-            topic_config = json.load(f)
+            insight_config = json.load(f)
 
         # Toggle disabled state
-        topic_config["disabled"] = not topic_config.get("disabled", False)
+        insight_config["disabled"] = not insight_config.get("disabled", False)
 
         # Write back to file
         with open(json_path, "w", encoding="utf-8") as f:
-            json.dump(topic_config, f, indent=4)
+            json.dump(insight_config, f, indent=4)
 
-        return jsonify({"success": True, "disabled": topic_config["disabled"]})
+        return jsonify({"success": True, "disabled": insight_config["disabled"]})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 

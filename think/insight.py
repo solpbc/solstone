@@ -14,7 +14,7 @@ from think.utils import (
     PromptNotFoundError,
     day_log,
     day_path,
-    get_topics,
+    get_insights,
     load_prompt,
     setup_cli,
 )
@@ -22,9 +22,9 @@ from think.utils import (
 COMMON_SYSTEM_INSTRUCTION = "You are an expert productivity analyst tasked with analyzing a full workday transcript containing both audio conversations and screen activity data, segmented into 5-minute chunks. You will be given the transcripts and then following that you will have a detailed user request for how to process them.  Please follow those instructions carefully. Take time to consider all of the nuance of the interactions from the day, deeply think through how best to prioritize the most important aspects and understandings, formulate the best approach for each step of the analysis."
 
 
-def _topic_basenames() -> list[str]:
-    """Return available topic basenames under :data:`TOPICS`."""
-    return sorted(get_topics().keys())
+def _insight_basenames() -> list[str]:
+    """Return available insight basenames."""
+    return sorted(get_insights().keys())
 
 
 def _output_paths(
@@ -34,38 +34,38 @@ def _output_paths(
 
     Args:
         day_dir: Day directory path (YYYYMMDD)
-        basename: Topic basename
+        basename: Insight basename
         segment: Optional segment key (HHMMSS_LEN)
 
     Returns:
         (md_path, json_path) tuple
-        - Daily: YYYYMMDD/topics/{basename}.md
+        - Daily: YYYYMMDD/insights/{basename}.md
         - Segment: YYYYMMDD/{segment}/{basename}.md
     """
     day = Path(day_dir)
 
     if segment:
-        # Segment topics go directly in segment directory
+        # Segment insights go directly in segment directory
         segment_dir = day / segment
         return segment_dir / f"{basename}.md", segment_dir / f"{basename}.json"
     else:
-        # Daily topics go in topics/ subdirectory
-        topic_dir = day / "topics"
-        return topic_dir / f"{basename}.md", topic_dir / f"{basename}.json"
+        # Daily insights go in insights/ subdirectory
+        insights_dir = day / "insights"
+        return insights_dir / f"{basename}.md", insights_dir / f"{basename}.json"
 
 
 def scan_day(day: str) -> dict[str, list[str]]:
-    """Return lists of processed and pending summary markdown files."""
+    """Return lists of processed and pending insight markdown files."""
     day_dir = day_path(day)
-    summarized: list[str] = []
-    unsummarized: list[str] = []
-    for base in _topic_basenames():
+    processed: list[str] = []
+    pending: list[str] = []
+    for base in _insight_basenames():
         md_path, _ = _output_paths(day_dir, base)
         if md_path.exists():
-            summarized.append(os.path.join("topics", md_path.name))
+            processed.append(os.path.join("insights", md_path.name))
         else:
-            unsummarized.append(os.path.join("topics", md_path.name))
-    return {"processed": sorted(summarized), "repairable": sorted(unsummarized)}
+            pending.append(os.path.join("insights", md_path.name))
+    return {"processed": sorted(processed), "repairable": sorted(pending)}
 
 
 def count_tokens(markdown: str, prompt: str, api_key: str, model: str) -> None:
@@ -251,9 +251,9 @@ def main() -> None:
     else:
         markdown, file_count = cluster(args.day)
     day_dir = str(day_path(args.day))
-    topic_basename = Path(args.topic).stem
-    topic_meta = get_topics().get(topic_basename, {})
-    extra_occ = topic_meta.get("occurrences")
+    insight_basename = Path(args.topic).stem
+    insight_meta = get_insights().get(insight_basename, {})
+    extra_occ = insight_meta.get("occurrences")
     skip_occ = extra_occ is False
     success = False
 
@@ -266,15 +266,15 @@ def main() -> None:
         if not api_key:
             parser.error("GOOGLE_API_KEY not found in environment")
 
-        topic_path = Path(args.topic)
+        insight_path = Path(args.topic)
         try:
-            topic_prompt = load_prompt(
-                topic_path.stem, base_dir=topic_path.parent, include_journal=True
+            insight_prompt = load_prompt(
+                insight_path.stem, base_dir=insight_path.parent, include_journal=True
             )
         except PromptNotFoundError:
-            parser.error(f"Topic file not found: {topic_path}")
+            parser.error(f"Insight file not found: {insight_path}")
 
-        prompt = topic_prompt.text
+        prompt = insight_prompt.text
 
         model = GEMINI_PRO if args.pro else GEMINI_FLASH
         day = args.day
@@ -288,7 +288,7 @@ def main() -> None:
             count_tokens(markdown, prompt, api_key, model)
             return
 
-        md_path, json_path = _output_paths(day_dir, topic_basename, segment=args.segment)
+        md_path, json_path = _output_paths(day_dir, insight_basename, segment=args.segment)
         # Use cache key scoped to day or segment
         if args.segment:
             cache_display_name = f"{day}_{args.segment}"
@@ -334,7 +334,7 @@ def main() -> None:
 
             crumb_builder = (
                 CrumbBuilder()
-                .add_file(str(topic_prompt.path))
+                .add_file(str(insight_prompt.path))
                 .add_glob(os.path.join(day_dir, "*/audio.jsonl"))
                 .add_glob(os.path.join(day_dir, "*/*_audio.jsonl"))  # Split audio
                 .add_glob(os.path.join(day_dir, "*/screen.md"))
@@ -422,7 +422,7 @@ def main() -> None:
         success = True
 
     finally:
-        msg = f"summarize {topic_basename} {'ok' if success else 'failed'}"
+        msg = f"insight {insight_basename} {'ok' if success else 'failed'}"
         if args.force:
             msg += " --force"
         day_log(args.day, msg)
