@@ -526,6 +526,21 @@ body.menu-icons-expanded .menu-bar {
   box-shadow: none;
 }
 
+/* Muted facets - visually distinct but still interactive */
+.facet-pill.muted {
+  opacity: 0.6;
+  font-style: italic;
+  border-style: dashed;
+}
+
+.facet-pill.muted:hover {
+  opacity: 0.8;
+}
+
+.facet-pill.muted.selected {
+  opacity: 0.75;
+}
+
 /* App Bar (bottom) */
 .app-bar {
   position: fixed;

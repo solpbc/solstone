@@ -65,8 +65,24 @@ class App:
     # Dynamic hooks (optional)
     hooks: dict[str, Callable] = field(default_factory=dict)
 
-    # Facet support (optional, default True)
-    facets_enabled: bool = True
+    # Facet configuration (optional, default {})
+    # Can be bool (backwards compat) or dict with options:
+    #   - muted: Include facets marked as disabled in facet.json
+    facets_config: bool | dict = field(default_factory=dict)
+
+    def facets_enabled(self) -> bool:
+        """Check if facets are enabled for this app."""
+        if isinstance(self.facets_config, bool):
+            return self.facets_config
+        if isinstance(self.facets_config, dict):
+            return not self.facets_config.get("disabled", False)
+        return True
+
+    def show_muted_facets(self) -> bool:
+        """Check if muted/disabled facets should be shown."""
+        if isinstance(self.facets_config, dict):
+            return self.facets_config.get("muted", False)
+        return False
 
     def get_blueprint(self) -> Optional[Blueprint]:
         """Return Flask Blueprint with app routes, or None if app has no custom routes."""
@@ -167,7 +183,16 @@ class AppRegistry:
         # Get icon and label (with defaults)
         icon = metadata.get("icon", "📦")
         label = metadata.get("label", app_name.replace("_", " ").title())
-        facets_enabled = metadata.get("facets", True)
+
+        # Parse facets config: can be bool or dict
+        facets_raw = metadata.get("facets", {})
+        if isinstance(facets_raw, bool):
+            # Backwards compat: true means enabled, false means disabled
+            facets_config = facets_raw
+        elif isinstance(facets_raw, dict):
+            facets_config = facets_raw
+        else:
+            facets_config = {}
 
         # Import routes module and get blueprint (optional)
         blueprint = None
@@ -240,7 +265,7 @@ class AppRegistry:
             app_bar_template=app_bar_template,
             background_template=background_template,
             hooks=hooks,
-            facets_enabled=facets_enabled,
+            facets_config=facets_config,
         )
 
     def _load_metadata(self, app_path: Path) -> dict[str, Any]:

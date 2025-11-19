@@ -5,7 +5,31 @@ pre { background:#f5f5f5; padding:0.5em; }
 
 /* Config form styles */
 .config-section { max-width: 600px; margin-top: 1em; }
-.config-section h2 { color: #333; font-size: 1.5em; margin: 0 0 1.5em 0; font-weight: 600; }
+.config-section h2 { color: #333; font-size: 1.5em; margin: 0; font-weight: 600; }
+
+/* Facet header with toggle */
+.facet-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5em; }
+
+/* Toggle container */
+.toggle-container { display: flex; align-items: center; gap: 0.75em; }
+.toggle-label { font-weight: 600; font-size: 0.95em; color: #333; min-width: 60px; }
+
+/* Toggle switch */
+.toggle-switch { position: relative; display: inline-block; width: 52px; height: 28px; }
+.toggle-switch input { opacity: 0; width: 0; height: 0; }
+
+/* Slider background */
+.slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #28a745; transition: 0.3s; border-radius: 28px; }
+.slider:before { position: absolute; content: ""; height: 22px; width: 22px; left: 3px; bottom: 3px; background-color: white; transition: 0.3s; border-radius: 50%; box-shadow: 0 2px 4px rgba(0,0,0,0.2); }
+
+/* Checked state (muted) */
+input:checked + .slider { background-color: #6c757d; }
+input:checked + .slider:before { transform: translateX(24px); }
+
+/* Hover effects */
+.slider:hover { opacity: 0.9; }
+input:focus + .slider { box-shadow: 0 0 0 3px rgba(40, 167, 69, 0.2); }
+input:checked:focus + .slider { box-shadow: 0 0 0 3px rgba(108, 117, 125, 0.2); }
 .form-group { margin-bottom: 1.5em; }
 .form-group label { display: block; font-weight: 600; color: #333; margin-bottom: 0.5em; font-size: 0.95em; }
 .form-group input, .form-group textarea, .form-group select { width: 100%; padding: 0.6em 0.75em; border: 2px solid #ddd; border-radius: 8px; font-size: 0.95em; font-family: inherit; transition: border-color 0.2s, box-shadow 0.2s; box-sizing: border-box; }
@@ -195,7 +219,16 @@ pre { background:#f5f5f5; padding:0.5em; }
 
     <!-- Facet Configuration Section -->
     <div class="config-section" id="facetConfig" style="display:none;">
-      <h2>Facet Settings: <span id="facetName"></span></h2>
+      <div class="facet-header">
+        <h2>Facet Settings: <span id="facetName"></span></h2>
+        <div class="toggle-container">
+          <span class="toggle-label" id="toggleLabel">Active</span>
+          <label class="toggle-switch">
+            <input type="checkbox" id="mutedToggle">
+            <span class="slider"></span>
+          </label>
+        </div>
+      </div>
 
       <div class="form-group">
         <label>Title</label>
@@ -507,6 +540,10 @@ function populateFacetForm(facetName, config) {
   const color = config.color || '#667eea';
   document.getElementById('colorPreview').style.backgroundColor = color;
   document.getElementById('colorHexDisplay').textContent = color;
+
+  // Muted toggle
+  const isMuted = config.muted || false;
+  updateMutedToggle(isMuted);
 }
 
 // Helper: convert hex to rgba
@@ -516,6 +553,33 @@ function hexToRgba(hex, alpha) {
   const g = parseInt(hex.substring(3,5), 16);
   const b = parseInt(hex.substring(5,7), 16);
   return `rgba(${r},${g},${b},${alpha})`;
+}
+
+// Update muted toggle slider state
+function updateMutedToggle(isMuted) {
+  const toggleInput = document.getElementById('mutedToggle');
+  const toggleLabel = document.getElementById('toggleLabel');
+
+  toggleInput.checked = isMuted;
+  toggleLabel.textContent = isMuted ? 'Muted' : 'Active';
+}
+
+// Setup muted toggle
+function setupMutedToggle() {
+  const toggleInput = document.getElementById('mutedToggle');
+
+  toggleInput.addEventListener('change', () => {
+    const newMuted = toggleInput.checked;
+
+    // Update label
+    document.getElementById('toggleLabel').textContent = newMuted ? 'Muted' : 'Active';
+
+    // Update local config
+    currentFacetConfig.muted = newMuted;
+
+    // Save to backend
+    saveFacetField('muted', newMuted);
+  });
 }
 
 // Setup facet editing interactions
@@ -529,6 +593,9 @@ function setupFacetEditing() {
 
   // Color picker
   setupColorPicker();
+
+  // Muted toggle
+  setupMutedToggle();
 }
 
 // Setup double-tap editing

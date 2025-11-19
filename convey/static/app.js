@@ -93,6 +93,11 @@
         pill.className = 'facet-pill' + (window.selectedFacet === facet.name ? ' selected' : '');
       }
 
+      // Add muted class if facet is muted
+      if (facet.muted) {
+        pill.classList.add('muted');
+      }
+
       if (facet.emoji) {
         const emojiContainer = document.createElement('div');
         emojiContainer.className = 'emoji-container';

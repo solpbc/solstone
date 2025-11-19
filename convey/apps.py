@@ -7,29 +7,42 @@ from flask import Flask, request, url_for
 from apps import AppRegistry
 
 
-def _get_facets_data() -> list[dict]:
-    """Get facets data for templates."""
+def _get_facets_data(include_muted: bool = False) -> list[dict]:
+    """Get facets data for templates.
+
+    Args:
+        include_muted: If True, include facets marked as disabled
+
+    Returns:
+        List of facet dicts with name, title, color, emoji, and muted status
+    """
     from think.facets import get_facets
 
     from .config import apply_facet_order, load_convey_config
 
     all_facets = get_facets()
-    active_facets = []
+    facets_list = []
 
     for name, data in all_facets.items():
-        if not data.get("disabled", False):
-            active_facets.append(
-                {
-                    "name": name,
-                    "title": data.get("title", name),
-                    "color": data.get("color", ""),
-                    "emoji": data.get("emoji", ""),
-                }
-            )
+        is_muted = data.get("muted", False)
+
+        # Skip muted facets unless explicitly requested
+        if is_muted and not include_muted:
+            continue
+
+        facets_list.append(
+            {
+                "name": name,
+                "title": data.get("title", name),
+                "color": data.get("color", ""),
+                "emoji": data.get("emoji", ""),
+                "muted": is_muted,  # Include muted status for styling
+            }
+        )
 
     # Apply custom ordering from config
     config = load_convey_config()
-    return apply_facet_order(active_facets, config)
+    return apply_facet_order(facets_list, config)
 
 
 def _get_selected_facet() -> str | None:
@@ -60,7 +73,13 @@ def register_app_context(app: Flask, registry: AppRegistry) -> None:
         """Inject app registry and facets context for new app system."""
         from .config import apply_app_order, load_convey_config
 
-        facets = _get_facets_data()
+        # Determine if current app wants muted facets shown
+        current_app_name = request.path.split("/")[2] if "/app/" in request.path else None
+        include_muted = False
+        if current_app_name and current_app_name in registry.apps:
+            include_muted = registry.apps[current_app_name].show_muted_facets()
+
+        facets = _get_facets_data(include_muted=include_muted)
         selected_facet = _get_selected_facet()
 
         # Build apps dict for menu-bar

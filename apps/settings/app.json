@@ -1,5 +1,7 @@
 {
   "icon": "⚙️",
   "label": "Settings",
-  "facets": true
+  "facets": {
+    "muted": true
+  }
 }

@@ -12,7 +12,7 @@
   <!-- Embed facets data for immediate client-side access -->
   <script>
     window.facetsData = {{ facets|tojson|safe }};
-    window.selectedFacet = {% if app_registry.apps[app].facets_enabled %}{{ selected_facet|tojson|safe }}{% else %}null{% endif %};
+    window.selectedFacet = {% if app_registry.apps[app].facets_enabled() %}{{ selected_facet|tojson|safe }}{% else %}null{% endif %};
     window.appFacetCounts = {{ app_registry.apps[app].get_facet_counts(facets, selected_facet)|tojson|safe }};
   </script>
 
@@ -20,7 +20,7 @@
   <script src="{{ url_for('root.static', filename='websocket.js') }}"></script>
 
   <!-- Apply facet theme immediately to prevent flash -->
-  {% if selected_facet and app_registry.apps[app].facets_enabled %}
+  {% if selected_facet and app_registry.apps[app].facets_enabled() %}
   {% set selected_facet_data = facets|selectattr("name", "equalto", selected_facet)|first %}
   {% if selected_facet_data and selected_facet_data.color %}
   <style>
@@ -38,7 +38,7 @@
 {% include "menu_bar.html" %}
 
 <!-- Facet Bar (top) -->
-<div class="facet-bar{% if not app_registry.apps[app].facets_enabled %} facets-disabled{% elif not selected_facet %} all-facet-mode{% endif %}">
+<div class="facet-bar{% if not app_registry.apps[app].facets_enabled() %} facets-disabled{% elif not selected_facet %} all-facet-mode{% endif %}">
   <div id="hamburger">☰</div>
   <div class="all-facet-toggle"{% if not selected_facet %} data-active="true"{% endif %}>{% if selected_facet %}⚪{% else %}🔘{% endif %}</div>
   <div class="facet-pills-container"></div>
