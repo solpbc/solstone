@@ -1,6 +1,59 @@
 # Sunstone Journal Guide
 
-This document describes the layout of a **journal** directory where all audio, screen and analysis artifacts are stored. Each dated `YYYYMMDD` folder is referred to as a **day**, and within each day captured content is organized into **segments** (timestamped duration folders). Each segment folder uses the format `HHMMSS_LEN/` where `HHMMSS` is the start time and `LEN` is the duration in seconds. This folder name serves as the **segment key**, uniquely identifying the segment within a given day.
+This document describes the layout of a **journal** directory where all captures, extracts, and insights are stored. Each dated `YYYYMMDD` folder is referred to as a **day**, and within each day captured content is organized into **segments** (timestamped duration folders). Each segment folder uses the format `HHMMSS_LEN/` where `HHMMSS` is the start time and `LEN` is the duration in seconds. This folder name serves as the **segment key**, uniquely identifying the segment within a given day.
+
+## The Three-Layer Architecture
+
+Sunstone transforms raw recordings into actionable understanding through a three-layer pipeline:
+
+```
+┌─────────────────────────────────────┐
+│  LAYER 3: INSIGHTS                  │  Narrative summaries
+│  (Markdown files)                   │  "What it means"
+│  - topics/*.md (daily insights)     │
+│  - screen.md (segment insights)     │
+└─────────────────────────────────────┘
+         ↑ synthesized from
+┌─────────────────────────────────────┐
+│  LAYER 2: EXTRACTS                  │  Structured data
+│  (JSON/JSONL files)                 │  "What happened"
+│  - audio.jsonl (transcripts)        │
+│  - screen.jsonl (frame analysis)    │
+│  - occurrences.json (events)        │
+└─────────────────────────────────────┘
+         ↑ derived from
+┌─────────────────────────────────────┐
+│  LAYER 1: CAPTURES                  │  Raw recordings
+│  (Binary media files)               │  "What was recorded"
+│  - *.flac (audio)                   │
+│  - *.webm (video)                   │
+└─────────────────────────────────────┘
+```
+
+### Vocabulary Quick Reference
+
+**Pipeline Layers**
+
+| Term | Definition | Examples |
+|------|------------|----------|
+| **Capture** | Raw audio/video recording | `*.flac`, `*.webm` |
+| **Extract** | Structured data from captures | `*.jsonl`, `occurrences.json` |
+| **Insight** | AI-generated narrative summary | `topics/*.md`, `screen.md` |
+
+**Organization**
+
+| Term | Definition | Examples |
+|------|------------|----------|
+| **Day** | 24-hour activity directory | `20250119/` |
+| **Segment** | 5-minute time window | `143022_300/` (14:30:22, 5 min) |
+| **Facet** | Project/context scope | `#work`, `#personal` |
+
+**Extracted Data**
+
+| Term | Definition | Examples |
+|------|------------|----------|
+| **Entity** | Tracked person/project/concept | People, companies, tools |
+| **Occurrence** | Time-based event | Meetings, messages, files |
 
 ## Top level files
 
@@ -158,7 +211,7 @@ Each entity is a JSON object with required fields (`type`, `name`, `description`
 
 Daily entity detection files (`entities/YYYYMMDD.jsonl`) contain entities automatically discovered by agents from:
 - Journal transcripts and screen captures
-- Knowledge graphs and summaries
+- Knowledge graphs and insights
 - News feeds and external content
 
 Detected entities accumulate historical context over time. Entities appearing in multiple daily detections can be promoted to attached status through the web UI or MCP tools.
@@ -409,17 +462,45 @@ Within each day, captured content is organized into **segments** (timestamped du
 
 - `HHMMSS_LEN/` – Start time and duration in seconds (e.g., `143022_300/` for a 5-minute segment starting at 14:30:22)
 
-Audio capture tools write FLAC files and transcripts:
+Each segment progresses through the three-layer pipeline: captures are recorded, extracts are generated, and insights are synthesized.
 
-- `HHMMSS_LEN_*.flac` – audio files in day root (e.g., `143022_300_audio.flac`), moved to segment after transcription.
-- `HHMMSS_LEN/*.flac` – audio files moved here after processing, preserving descriptive suffix (e.g., `audio.flac`, `mic.flac`).
-- `HHMMSS_LEN/audio.jsonl` – transcript JSONL produced by transcription.
+### Layer 1: Captures
 
-Note: The descriptive portion after the segment (e.g., `_audio`, `_recording`) is preserved when files are moved into segment directories. Processing tools match files by extension only, ignoring the descriptive suffix.
+Captures are the original binary media files recorded by observation tools.
 
-### Audio transcript output
+#### Audio captures
 
-The transcript file (`*_audio.jsonl`) contains a metadata line followed by one JSON object per transcript segment.
+Audio files are initially written to the day root with the segment key prefix:
+
+- `HHMMSS_LEN_*.flac` – audio files in day root (e.g., `143022_300_audio.flac`)
+
+After transcription, audio files are moved into their segment folder:
+
+- `HHMMSS_LEN/*.flac` – audio files moved here after processing, preserving descriptive suffix (e.g., `audio.flac`, `mic.flac`)
+
+Note: The descriptive portion after the segment key (e.g., `_audio`, `_recording`) is preserved when files are moved into segment directories. Processing tools match files by extension only, ignoring the descriptive suffix.
+
+#### Screen captures
+
+Screen recordings follow the same pattern:
+
+- `HHMMSS_LEN_*.webm` – screencast video files in day root (e.g., `143022_300_screen.webm`)
+- `HHMMSS_LEN/*.webm` – video files moved here after analysis, preserving descriptive suffix (e.g., `screen.webm`, `monitor1.webm`)
+
+Videos contain monitor layout information in their metadata title field using the format:
+```
+DP-3:center,1920,0,5360,1440 HDMI-4:right,5360,219,7280,1299
+```
+
+Each monitor entry: `<monitor_name>:<position>,<x1>,<y1>,<x2>,<y2>` where coordinates define the monitor's bounding box in the combined virtual screen space.
+
+### Layer 2: Extracts
+
+Extracts are structured data files (JSON/JSONL) derived from captures through AI analysis.
+
+#### Audio transcript extracts
+
+The transcript file (`audio.jsonl`) contains a metadata line followed by one JSON object per transcript segment.
 
 Example transcript file:
 
@@ -445,27 +526,9 @@ Example transcript file:
 - `speaker` – speaker identifier, numeric or string (optional)
 - `description` – audio-impaired style description of tone, emotion, vocal quality (optional)
 
-Screen capture produces screencast videos with multi-monitor metadata:
+#### Screen frame extracts
 
-- `HHMMSS_LEN_*.webm` – screencast video files in day root (e.g., `143022_300_screen.webm`), moved to segment after analysis.
-- `HHMMSS_LEN/*.webm` – video files moved here after analysis, preserving descriptive suffix (e.g., `screen.webm`, `monitor1.webm`).
-- `HHMMSS_LEN/screen.jsonl` – vision analysis results in JSON Lines format.
-- `HHMMSS_LEN/screen.md` – human-readable markdown summary of the video.
-
-Note: Like audio files, the descriptive portion is preserved when files are moved into segment directories.
-
-### Screencast video format
-
-Videos contain monitor layout information in their metadata title field using the format:
-```
-DP-3:center,1920,0,5360,1440 HDMI-4:right,5360,219,7280,1299
-```
-
-Each monitor entry: `<monitor_name>:<position>,<x1>,<y1>,<x2>,<y2>` where coordinates define the monitor's bounding box in the combined virtual screen space.
-
-### Vision analysis output
-
-The analysis file (`*_screen.jsonl`) contains one JSON object per qualified frame. Frames qualify when they contain a changed region of at least 400×400 pixels, detected using block-based SSIM comparison.
+The analysis file (`screen.jsonl`) contains one JSON object per qualified frame. Frames qualify when they contain a changed region of at least 400×400 pixels, detected using block-based SSIM comparison.
 
 Example frame record:
 
@@ -505,27 +568,9 @@ The vision analysis uses multi-stage conditional processing:
 2. Text extraction triggered for categories: messaging, browsing, reading, productivity
 3. Meeting analysis triggered for meeting category, provides full-screen participant detection with entity recognition
 
-### Summary generation
+#### Occurrence extracts
 
-After all frames are processed, a markdown summary (`*_screen.md`) is generated from the analysis file. The summary provides a chronological narrative of the screencast, organizing frames by timestamp and including visual descriptions, extracted text, and meeting analysis where applicable.
-
-Post‑processing commands may generate additional analysis files, for example:
-
-- `topics/flow.md` – high level summary of the day.
-- `topics/knowledge_graph.md` – knowledge graph / network summary.
-- `topics/meetings.md` – meeting list used by the calendar web UI.
-- `task_log.txt` – log of tasks for that day in `[epoch]\tmessage` format.
-
-### Crumbs
-
-Most generated files are accompanied by a `.crumb` file capturing dependencies and model information. See `CRUMBS.md` for the format. Example: `20250610/topics/flow.md.crumb`.
-
-## Occurrence JSON
-
-Several `think/topics` prompts extract time based events from the day's
-transcripts—meetings, messages, follow ups, file activity and more.  To index
-these consistently the results can be normalised into an **occurrence** container
-stored as `occurrences.json` inside each day folder.
+Insight generation prompts extract time-based events from the day's transcripts—meetings, messages, follow-ups, file activity and more. These are normalized into an **occurrence** container stored as `occurrences.json` inside each day folder.
 
 ```json
 {
@@ -547,16 +592,39 @@ stored as `occurrences.json` inside each day folder.
 }
 ```
 
-### Common fields
-
+**Common fields:**
 - **type** – the kind of occurrence such as `meeting`, `message`, `file`, `followup`, `documentation`, `research`, `media`, etc.
-- **source** - the file the occurence was extracted from.
-- **start** and **end** – HH:MM:SS timestamps containing the occurence.
-- **title** and **summary** – short text for display and search.
-- **facet** – facet name the occurrence is associated with (e.g., "work", "personal", "ml_research").
-- **work** – boolean, work vs. personal classification when known.
-- **participants** – optional list of people or entities involved.
-- **details** – free-form string of other occurrence specific information.
+- **source** – the insight file the occurrence was extracted from
+- **start** and **end** – HH:MM:SS timestamps containing the occurrence
+- **title** and **summary** – short text for display and search
+- **facet** – facet name the occurrence is associated with (e.g., "work", "personal", "ml_research")
+- **work** – boolean, work vs. personal classification when known
+- **participants** – optional list of people or entities involved
+- **details** – free-form object with occurrence-specific information
 
-Each topic analysis can map its findings into this structure allowing the
-indexer to collect and search occurrences across all days.
+This structure allows the indexer to collect and search occurrences across all days.
+
+### Layer 3: Insights
+
+Insights are AI-generated markdown files that provide human-readable narratives synthesized from captures and extracts.
+
+#### Segment insights
+
+After all frames are processed, a segment insight (`screen.md`) is generated from the frame analysis extracts. This provides a chronological narrative of the screencast, organizing frames by timestamp and including visual descriptions, extracted text, and meeting analysis where applicable.
+
+- `HHMMSS_LEN/screen.md` – narrative summary of the segment's screen activity
+
+#### Daily insights
+
+Post-processing generates day-level insights that synthesize all segments:
+
+- `topics/flow.md` – day overview and work rhythm analysis
+- `topics/knowledge_graph.md` – entity relationships and knowledge network
+- `topics/meetings.md` – meeting list used by the calendar web UI
+- Additional topic-based insights as configured in `think/topics/`
+
+Each insight type has a corresponding template in `think/topics/{name}.txt` that defines how the AI synthesizes extracts into narrative form.
+
+#### Provenance
+
+Most insights are accompanied by a `.crumb` file capturing source dependencies and model information. See **CRUMBS.md** for the format specification. Example: `20250610/topics/flow.md.crumb`.
