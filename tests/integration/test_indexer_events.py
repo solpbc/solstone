@@ -120,9 +120,9 @@ def test_events_indexer_with_custom_events():
         },
     ]
 
-    # Write additional events file in topics directory with a valid topic name
+    # Write additional events file in insights directory with a valid topic name
     # Use "timeline" as it's a valid topic name
-    events_file = journal_path / "20240101" / "topics" / "timeline.json"
+    events_file = journal_path / "20240101" / "insights" / "timeline.json"
     events_file.parent.mkdir(exist_ok=True)
     # Wrap in occurrences structure as expected by the indexer
     events_json = {"day": "20240101", "occurrences": events_data}

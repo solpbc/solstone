@@ -414,7 +414,7 @@ def update_agent(agent_id: str) -> object:
 
     # Handle insights-specific fields (color, muted)
     if "color" in data or "disabled" in data:
-        # This is actually a topic update, not an agent
+        # This is actually an insight update, not an agent
         return jsonify({"error": "Invalid fields for agent update"}), 400
 
     response, status = _update_item("agents", agent_id, data)
