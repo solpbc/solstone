@@ -98,7 +98,7 @@ def update_facet_config(facet_name: str) -> Any:
             config = {}
 
         # Update allowed fields only
-        allowed_fields = ["title", "description", "color", "emoji", "disabled"]
+        allowed_fields = ["title", "description", "color", "emoji", "muted"]
         for field in allowed_fields:
             if field in data:
                 config[field] = data[field]

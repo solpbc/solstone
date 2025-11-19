@@ -121,6 +121,7 @@ The `facet.json` file contains basic information about the facet:
 Optional fields:
 - `color` – hex color code for the facet card background in the web UI
 - `emoji` – emoji icon displayed in the top-left of the facet card
+- `muted` – boolean flag to mute/hide the facet from views (default: false)
 
 ### Facet Entities
 

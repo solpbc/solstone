@@ -150,7 +150,7 @@ def get_facets() -> dict[str, dict[str, object]]:
                     "description": facet_data.get("description", ""),
                     "color": facet_data.get("color", ""),
                     "emoji": facet_data.get("emoji", ""),
-                    "disabled": facet_data.get("disabled", False),
+                    "muted": facet_data.get("muted", False),
                 }
 
                 facets[facet_name] = facet_info
@@ -333,29 +333,29 @@ def get_facet_news(
     return {"days": days, "next_cursor": next_cursor, "has_more": has_more}
 
 
-def is_facet_disabled(facet: str) -> bool:
-    """Check if a facet is currently disabled.
+def is_facet_muted(facet: str) -> bool:
+    """Check if a facet is currently muted.
 
     Args:
         facet: Facet name to check
 
     Returns:
-        True if facet is disabled, False if enabled or facet doesn't exist
+        True if facet is muted, False if unmuted or facet doesn't exist
     """
     facets = get_facets()
     if facet not in facets:
         return False
-    return bool(facets[facet].get("disabled", False))
+    return bool(facets[facet].get("muted", False))
 
 
-def set_facet_disabled(facet: str, disabled: bool) -> None:
-    """Enable or disable a facet by updating facet.json.
+def set_facet_muted(facet: str, muted: bool) -> None:
+    """Mute or unmute a facet by updating facet.json.
 
     Creates an audit log entry when the state changes.
 
     Args:
         facet: Facet name to modify
-        disabled: True to disable, False to enable
+        muted: True to mute, False to unmute
 
     Raises:
         FileNotFoundError: If facet doesn't exist
@@ -379,17 +379,17 @@ def set_facet_disabled(facet: str, disabled: bool) -> None:
         facet_data = json.load(f)
 
     # Check if state is actually changing
-    current_state = bool(facet_data.get("disabled", False))
-    if current_state == disabled:
+    current_state = bool(facet_data.get("muted", False))
+    if current_state == muted:
         # No change needed
         return
 
-    # Update disabled field
-    if disabled:
-        facet_data["disabled"] = True
+    # Update muted field
+    if muted:
+        facet_data["muted"] = True
     else:
-        # Remove the field when enabling (cleaner for default case)
-        facet_data.pop("disabled", None)
+        # Remove the field when unmuting (cleaner for default case)
+        facet_data.pop("muted", None)
 
     # Write back atomically
     import tempfile
@@ -412,12 +412,12 @@ def set_facet_disabled(facet: str, disabled: bool) -> None:
 
     # Log the change
     today = datetime.now().strftime("%Y%m%d")
-    action = "facet_disable" if disabled else "facet_enable"
+    action = "facet_mute" if muted else "facet_unmute"
     log_action(
         facet=facet,
         day=today,
         action=action,
-        params={"disabled": disabled},
+        params={"muted": muted},
         context=None,
     )
 
