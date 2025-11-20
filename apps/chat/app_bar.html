@@ -88,67 +88,12 @@
 
 <script>
 (function() {
-  const form = document.getElementById('chatInputForm');
   const input = document.getElementById('chatMessageInput');
-  const sendBtn = document.getElementById('chatSendBtn');
-  const backendToggle = document.getElementById('chatBackendToggle');
 
-  if (!form || !input || !sendBtn || !backendToggle) {
-    console.error('Chat app bar elements not found');
+  if (!input) {
+    console.error('Chat input not found');
     return;
   }
-
-  // Form submission
-  form.addEventListener('submit', (e) => {
-    e.preventDefault();
-    const message = input.value.trim();
-    if (!message) return;
-
-    sendBtn.disabled = true;
-    sendBtn.textContent = 'Sending...';
-
-    // Send message to chat endpoint
-    fetch('/app/chat/send', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        message: message,
-        backend: backendToggle.dataset.backend
-      })
-    })
-    .then(r => r.json())
-    .then(data => {
-      if (data.success) {
-        input.value = '';
-        input.style.height = 'auto';
-      } else {
-        alert('Error: ' + (data.error || 'Unknown error'));
-      }
-    })
-    .catch(err => {
-      console.error('Send error:', err);
-      alert('Failed to send message');
-    })
-    .finally(() => {
-      sendBtn.disabled = false;
-      sendBtn.textContent = 'Send';
-    });
-  });
-
-  // Backend toggle
-  const backends = [
-    { name: 'anthropic', label: 'Claude' },
-    { name: 'google', label: 'Gemini' },
-    { name: 'openai', label: 'GPT-4' }
-  ];
-  let currentBackendIndex = 0;
-
-  backendToggle.addEventListener('click', () => {
-    currentBackendIndex = (currentBackendIndex + 1) % backends.length;
-    const backend = backends[currentBackendIndex];
-    backendToggle.dataset.backend = backend.name;
-    backendToggle.textContent = backend.label;
-  });
 
   // Auto-resize textarea
   input.addEventListener('input', () => {
@@ -156,8 +101,7 @@
     input.style.height = Math.min(input.scrollHeight, 120) + 'px';
   });
 
-  // FIXED: Only focus if nothing else is focused
-  // Use setTimeout to avoid focus stealing during page load
+  // Focus input if nothing else is focused
   setTimeout(() => {
     if (document.activeElement === document.body) {
       input.focus();

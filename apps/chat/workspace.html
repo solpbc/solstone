@@ -3,57 +3,190 @@
   display: flex;
   flex-direction: column;
   overflow-y: auto;
+  overflow-x: hidden;
 }
-.message {margin-bottom:0.75em; padding:0.75em 1em; border-radius:12px; max-width:75%; box-shadow:0 1px 3px rgba(0,0,0,0.1); animation:fadeInUp 0.3s ease-out; position:relative;}
-.from-user {background:linear-gradient(135deg, #667eea 0%, #764ba2 100%); color:white; align-self:flex-end; margin-left:20%;}
-.from-bot {background:#fff; border:1px solid #e0e0e0; align-self:flex-start; margin-right:20%;}
-.copy-markdown-btn {position:absolute; top:0.5em; right:0.5em; background:rgba(0,0,0,0.05); border:1px solid rgba(0,0,0,0.1); border-radius:4px; padding:0.25em 0.5em; cursor:pointer; opacity:0; transition:opacity 0.2s; font-size:0.9em; color:#666;}
-.copy-markdown-btn:hover {background:rgba(0,0,0,0.1); color:#333;}
-.from-bot:hover .copy-markdown-btn {opacity:1;}
-.copy-markdown-btn.copied {background:#4caf50; color:white; border-color:#4caf50;}
-.copy-markdown-btn-bottom {position:relative; display:block; margin-bottom:0.75em; margin-top:-0.5em; margin-left:0; padding-left:0; text-align:left; align-self:flex-start; max-width:75%; margin-right:20%;}
-.copy-markdown-btn-bottom button {background:transparent; border:1px solid rgba(0,0,0,0.15); border-radius:6px; padding:0.4em 0.5em; cursor:pointer; font-size:1em; color:#666; transition:all 0.2s; line-height:1;}
-.copy-markdown-btn-bottom button:hover {background:rgba(0,0,0,0.05); border-color:rgba(0,0,0,0.25);}
-.copy-markdown-btn-bottom button.copied {background:#4caf50; color:white; border-color:#4caf50;}
-.copy-user-btn-bottom {position:relative; display:flex; gap:0.3em; justify-content:flex-end; margin-bottom:0.75em; margin-top:-0.5em; margin-right:0; padding-right:0; text-align:right; align-self:flex-end; max-width:75%; margin-left:20%;}
-.copy-user-btn-bottom button {background:transparent; border:1px solid rgba(255,255,255,0.3); border-radius:6px; padding:0.4em 0.5em; cursor:pointer; font-size:1em; color:rgba(255,255,255,0.7); transition:all 0.2s; line-height:1; display:inline-flex; align-items:center; justify-content:center;}
-.copy-user-btn-bottom button:hover {background:rgba(255,255,255,0.1); border-color:rgba(255,255,255,0.5); color:rgba(255,255,255,0.9);}
-.copy-user-btn-bottom button.copied {background:#4caf50; color:white; border-color:#4caf50;}
-@keyframes fadeInUp {from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:translateY(0);}}
-#messages .event-card{background:#fff4e5;border:1px solid #f0ad4e;border-radius:6px;padding:0.5em 0.75em;margin-bottom:0.75em;font-size:0.85em;max-width:80%;align-self:flex-start;cursor:help;transition:all 0.2s;}
-#messages .event-card:hover{background:#fff0d4;border-color:#e09e3a;transform:translateY(-1px);box-shadow:0 2px 4px rgba(0,0,0,0.1);}
-#messages .event-card a{text-decoration:none;color:#007bff;}
-#messages .event-card a:hover{text-decoration:underline;}
-#messages .tool-placard{background:#e3f2fd;border:1px solid #2196f3;border-radius:6px;padding:0.4em 0.6em;margin-bottom:0.5em;font-size:0.8em;max-width:60%;align-self:flex-start;cursor:help;transition:all 0.2s;}
-#messages .tool-placard:hover{background:#d1e8fc;border-color:#1976d2;transform:translateY(-1px);}
-#messages .tool-placard .tool-name{font-weight:bold;color:#1976d2;}
-#messages .tool-placard .tool-status{font-size:0.9em;color:#666;margin-left:0.5em;}
-#messages .tool-placard.completed{background:#e8f5e9;border-color:#4caf50;}
-#messages .tool-placard.completed:hover{background:#d4f0d7;}
-#messages .tool-placard.completed .tool-name{color:#2e7d32;}
-#messages .agent-update{background:#fff3e0;border:1px solid #ff9800;border-radius:6px;padding:0.4em 0.6em;margin-bottom:0.5em;font-size:0.8em;max-width:60%;align-self:flex-start;color:#e65100;font-style:italic;transition:all 0.2s;}
-#messages .agent-update:hover{background:#ffe8cc;}
-#messages .thinking-card{background:#f8f4ff;border:1px solid #9c27b0;border-radius:6px;padding:0.5em 0.75em;margin-bottom:0.75em;font-size:0.85em;max-width:80%;align-self:flex-start;cursor:pointer;transition:all 0.2s;}
-#messages .thinking-card:hover{background:#f3e5f5;transform:translateY(-1px);box-shadow:0 2px 4px rgba(0,0,0,0.05);}
-#messages .thinking-card .thinking-label{font-weight:bold;color:#7b1fa2;margin-bottom:0.25em;}
-#messages .thinking-card .thinking-content{color:#333;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-#messages .thinking-card.expanded .thinking-content{white-space:pre-wrap;overflow:visible;text-overflow:clip;}
-.message h1,.message h2,.message h3,.message h4,.message h5,.message h6 {margin:0.5em 0 0.3em 0;}
-.message p {margin:0.3em 0;}
-.message ul,.message ol {margin:0.3em 0; padding-left:1.5em;}
-.message code {background:rgba(0,0,0,0.1); padding:0.1em 0.3em; border-radius:3px; font-size:0.9em;}
-.from-user code {background:rgba(255,255,255,0.2);}
-.message pre {background:rgba(0,0,0,0.1); padding:0.5em; border-radius:4px; overflow-x:auto; margin:0.5em 0;}
-.from-user pre {background:rgba(255,255,255,0.15);}
-.message pre code {background:none; padding:0;}
-.message blockquote {margin:0.5em 0; padding-left:1em; border-left:3px solid rgba(0,0,0,0.2);}
-.from-user blockquote {border-left-color:rgba(255,255,255,0.4);}
-@keyframes typingBounce {0%,80%,100%{transform:scale(0.8);opacity:0.5;}40%{transform:scale(1);opacity:1;}}
-.activity-indicator {align-self:flex-start; padding:0.75em 1em; background:#f0f0f0; border-radius:12px; margin-bottom:0.5em; max-width:80px; display:none;}
-.activity-indicator.active {display:flex; align-items:center; gap:4px; animation:fadeInUp 0.3s ease-out;}
-.activity-indicator span {width:8px; height:8px; background:#999; border-radius:50%; animation:typingBounce 1.4s infinite ease-in-out;}
-.activity-indicator span:nth-child(1) {animation-delay:-0.32s;}
-.activity-indicator span:nth-child(2) {animation-delay:-0.16s;}
+
+/* Base message styles */
+.message {
+  margin-bottom: 0.75em;
+  padding: 0.75em 1em;
+  border-radius: 12px;
+  max-width: 75%;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+  animation: fadeInUp 0.3s ease-out;
+  position: relative;
+}
+
+/* User messages - use facet theme colors */
+.from-user {
+  background: var(--facet-color, #667eea);
+  color: white;
+  align-self: flex-end;
+  margin-left: 20%;
+}
+
+/* Bot messages */
+.from-bot {
+  background: #fff;
+  border: 1px solid #e0e0e0;
+  align-self: flex-start;
+  margin-right: 20%;
+}
+
+/* Action buttons - integrated into message, hover-only, small */
+.message-actions {
+  position: absolute;
+  bottom: 0.4em;
+  display: flex;
+  gap: 0.25em;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+.from-user .message-actions { left: 0.5em; }
+.from-bot .message-actions { right: 0.5em; }
+.message:hover .message-actions { opacity: 1; }
+
+.message-actions button {
+  background: transparent;
+  border: none;
+  padding: 0.2em;
+  cursor: pointer;
+  font-size: 0.7em;
+  opacity: 0.5;
+  transition: opacity 0.15s;
+  line-height: 1;
+}
+.message-actions button:hover { opacity: 1; }
+.from-user .message-actions button { color: rgba(255,255,255,0.9); }
+.from-bot .message-actions button { color: #666; }
+.message-actions button.copied { opacity: 1; color: #4caf50; }
+
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Event cards, tool placards, etc */
+#messages .event-card {
+  background: #fff4e5;
+  border: 1px solid #f0ad4e;
+  border-radius: 6px;
+  padding: 0.5em 0.75em;
+  margin-bottom: 0.75em;
+  font-size: 0.85em;
+  max-width: 80%;
+  align-self: flex-start;
+  cursor: help;
+  transition: all 0.2s;
+}
+#messages .event-card:hover {
+  background: #fff0d4;
+  border-color: #e09e3a;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+#messages .event-card a { text-decoration: none; color: #007bff; }
+#messages .event-card a:hover { text-decoration: underline; }
+
+#messages .tool-placard {
+  background: #e3f2fd;
+  border: 1px solid #2196f3;
+  border-radius: 6px;
+  padding: 0.4em 0.6em;
+  margin-bottom: 0.5em;
+  font-size: 0.8em;
+  max-width: 60%;
+  align-self: flex-start;
+  cursor: help;
+  transition: all 0.2s;
+}
+#messages .tool-placard:hover {
+  background: #d1e8fc;
+  border-color: #1976d2;
+  transform: translateY(-1px);
+}
+#messages .tool-placard .tool-name { font-weight: bold; color: #1976d2; }
+#messages .tool-placard .tool-status { font-size: 0.9em; color: #666; margin-left: 0.5em; }
+#messages .tool-placard.completed { background: #e8f5e9; border-color: #4caf50; }
+#messages .tool-placard.completed:hover { background: #d4f0d7; }
+#messages .tool-placard.completed .tool-name { color: #2e7d32; }
+
+#messages .agent-update {
+  background: #fff3e0;
+  border: 1px solid #ff9800;
+  border-radius: 6px;
+  padding: 0.4em 0.6em;
+  margin-bottom: 0.5em;
+  font-size: 0.8em;
+  max-width: 60%;
+  align-self: flex-start;
+  color: #e65100;
+  font-style: italic;
+  transition: all 0.2s;
+}
+#messages .agent-update:hover { background: #ffe8cc; }
+
+#messages .thinking-card {
+  background: #f8f4ff;
+  border: 1px solid #9c27b0;
+  border-radius: 6px;
+  padding: 0.5em 0.75em;
+  margin-bottom: 0.75em;
+  font-size: 0.85em;
+  max-width: 80%;
+  align-self: flex-start;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+#messages .thinking-card:hover {
+  background: #f3e5f5;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+#messages .thinking-card .thinking-label { font-weight: bold; color: #7b1fa2; margin-bottom: 0.25em; }
+#messages .thinking-card .thinking-content { color: #333; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#messages .thinking-card.expanded .thinking-content { white-space: pre-wrap; overflow: visible; text-overflow: clip; }
+
+/* Message content typography */
+.message h1, .message h2, .message h3, .message h4, .message h5, .message h6 { margin: 0.5em 0 0.3em 0; }
+.message p { margin: 0.3em 0; }
+.message ul, .message ol { margin: 0.3em 0; padding-left: 1.5em; }
+.message code { background: rgba(0,0,0,0.1); padding: 0.1em 0.3em; border-radius: 3px; font-size: 0.9em; }
+.from-user code { background: rgba(255,255,255,0.2); }
+.message pre { background: rgba(0,0,0,0.1); padding: 0.5em; border-radius: 4px; overflow-x: auto; margin: 0.5em 0; }
+.from-user pre { background: rgba(255,255,255,0.15); }
+.message pre code { background: none; padding: 0; }
+.message blockquote { margin: 0.5em 0; padding-left: 1em; border-left: 3px solid rgba(0,0,0,0.2); }
+.from-user blockquote { border-left-color: rgba(255,255,255,0.4); }
+
+/* Activity indicator - uses facet color */
+@keyframes typingBounce {
+  0%, 80%, 100% { transform: scale(0.8); opacity: 0.5; }
+  40% { transform: scale(1); opacity: 1; }
+}
+.activity-indicator {
+  align-self: flex-start;
+  padding: 0.5em 0.75em;
+  background: var(--facet-bg, #f0f0f0);
+  border-radius: 12px;
+  margin-bottom: 0.5em;
+  display: none;
+}
+.activity-indicator.active {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  animation: fadeInUp 0.3s ease-out;
+}
+.activity-indicator span {
+  width: 6px;
+  height: 6px;
+  background: var(--facet-color, #999);
+  border-radius: 50%;
+  animation: typingBounce 1.4s infinite ease-in-out;
+}
+.activity-indicator span:nth-child(1) { animation-delay: -0.32s; }
+.activity-indicator span:nth-child(2) { animation-delay: -0.16s; }
 </style>
 
 <div class="workspace-content">
@@ -63,11 +196,26 @@
 <script src="{{ vendor_lib('marked') }}"></script>
 <script>
 const sendUrl = '{{ url_for('app:chat.send_message') }}';
-const historyUrl = '{{ url_for('app:chat.chat_history') }}';
 const clearUrl = '{{ url_for('app:chat.clear_history') }}';
 const agentUrl = '{{ url_for('app:chat.agent_events', agent_id='AGENT_ID') }}';
 const messagesDiv = document.getElementById('messages');
 const searchBase = '{{ url_for('app:search.index') }}';
+
+// Simple error display - adds error message to chat
+function showError(message) {
+  const div = document.createElement('div');
+  div.className = 'message from-bot';
+  div.innerHTML = `<strong style="color:#c62828">Error:</strong> ${message}`;
+  messagesDiv.appendChild(div);
+  messagesDiv.scrollTop = messagesDiv.scrollHeight;
+
+  // Re-enable input so user can retry
+  if (input) {
+    input.disabled = false;
+    input.placeholder = 'Send a message...';
+    input.focus();
+  }
+}
 
 // Wait for app bar to load
 let form, input, backendToggle, currentBackend;
@@ -76,26 +224,28 @@ function initAppBarControls() {
   form = document.getElementById('chatInputForm');
   input = document.getElementById('chatMessageInput');
   backendToggle = document.getElementById('chatBackendToggle');
+
+  if (!form || !input || !backendToggle) {
+    console.error('Chat controls not found');
+    return;
+  }
+
   currentBackend = backendToggle.dataset.backend || 'anthropic';
 
-  // Backend toggle cycle: anthropic -> google -> openai -> anthropic
+  // Backend toggle cycle
   const backends = {
     anthropic: { next: 'google', label: 'Claude' },
     google: { next: 'openai', label: 'Gemini' },
-    openai: { next: 'anthropic', label: 'ChatGPT' }
+    openai: { next: 'anthropic', label: 'GPT-4' }
   };
 
   backendToggle.addEventListener('click', () => {
-    const next = backends[currentBackend].next;
-    currentBackend = next;
-    backendToggle.dataset.backend = next;
-    backendToggle.textContent = backends[next].label;
-    backendToggle.title = `Click to change backend (current: ${backends[next].label})`;
+    currentBackend = backends[currentBackend].next;
+    backendToggle.dataset.backend = currentBackend;
+    backendToggle.textContent = backends[currentBackend].label;
   });
 
-  // Setup form submission
   setupFormHandlers();
-
   input.focus();
 }
 
@@ -108,6 +258,7 @@ if (document.readyState === 'loading') {
 
 // Deduplication using agent_id:ts as key
 const processedEventIds = new Set();
+const MAX_EVENT_IDS = 500;
 
 function shouldSkipEvent(event) {
   if (!event || !event.agent_id || !event.ts) {
@@ -118,6 +269,12 @@ function shouldSkipEvent(event) {
     return true;
   }
   processedEventIds.add(eventKey);
+
+  // Prevent memory leak - clear old entries if too many
+  if (processedEventIds.size > MAX_EVENT_IDS) {
+    const entries = Array.from(processedEventIds);
+    entries.slice(0, 100).forEach(e => processedEventIds.delete(e));
+  }
   return false;
 }
 
@@ -157,10 +314,9 @@ function enrichEvent(event) {
 // Parse URL parameters
 const urlParams = new URLSearchParams(window.location.search);
 
-// Unified state management
+// State management
 let currentAgentId = null;
 let isComplete = false;
-let headerInfo = null; // {startTs, prompt}
 
 // Create persistent activity indicator
 const activityIndicator = document.createElement('div');
@@ -168,9 +324,6 @@ activityIndicator.className = 'activity-indicator';
 activityIndicator.id = 'activityIndicator';
 activityIndicator.innerHTML = '<span></span><span></span><span></span>';
 
-// Activity indicator state
-let eventProcessingActive = false;
-let eventTimeout = null;
 let chatControlsInitialized = false;
 
 function showActivityIndicator() {
@@ -178,28 +331,13 @@ function showActivityIndicator() {
     messagesDiv.appendChild(activityIndicator);
   }
   activityIndicator.classList.add('active');
-  eventProcessingActive = true;
-
-  // Auto-scroll to keep activity indicator in view
   requestAnimationFrame(() => {
     messagesDiv.scrollTop = messagesDiv.scrollHeight;
   });
-
-  // Clear any existing timeout
-  if (eventTimeout) {
-    clearTimeout(eventTimeout);
-    eventTimeout = null;
-  }
 }
 
 function forceHideActivityIndicator() {
-  // Force hide without delay
-  if (eventTimeout) {
-    clearTimeout(eventTimeout);
-    eventTimeout = null;
-  }
   activityIndicator.classList.remove('active');
-  eventProcessingActive = false;
 }
 
 function ensureActivityIndicatorAtBottom() {
@@ -217,7 +355,7 @@ function addEventCard(text, url, event){
   const a=document.createElement('a');
   a.href=url;
   a.textContent=text;
-  div.appendChild(a);  // This line was missing!
+  div.appendChild(a);
 
   // Add browser's built-in title attribute with formatted JSON
   if(event){
@@ -330,46 +468,10 @@ function addThinkingCard(summary, model){
   messagesDiv.scrollTop=messagesDiv.scrollHeight;
 }
 
-// Header management
-function updateHeader() {
-  if (!headerInfo) return;
-
-  let header = document.getElementById('chatHeader');
-  if (!header) {
-    header = document.createElement('div');
-    header.id = 'chatHeader';
-    header.style.cssText = 'background:#e3f2fd;border-bottom:2px solid #2196f3;padding:0.75rem 1rem;margin:0;color:#1565c0;text-align:center;font-size:0.95em;';
-    messagesDiv.parentElement.insertBefore(header, messagesDiv);
-  }
-
-  const startDate = new Date(headerInfo.startTs);
-  const timeStr = startDate.toLocaleTimeString('en-US', {hour: 'numeric', minute: '2-digit'});
-  const dateStr = startDate.toLocaleDateString('en-US', {month: 'short', day: 'numeric'});
-
-  let headerText = `Chat • Started ${timeStr} on ${dateStr}`;
-
-  // Add duration if complete
-  if (isComplete && headerInfo.endTs) {
-    const durationMs = headerInfo.endTs - headerInfo.startTs;
-    const seconds = Math.floor(durationMs / 1000);
-    const minutes = Math.floor(seconds / 60);
-    const remainingSeconds = seconds % 60;
-
-    if (minutes > 0) {
-      headerText += ` • Completed in ${minutes}m ${remainingSeconds}s`;
-    } else {
-      headerText += ` • Completed in ${seconds}s`;
-    }
-  }
-
-  header.textContent = headerText;
-}
-
-// Unified agent loading function
+// Agent loading function
 async function loadAgent(agentId) {
   currentAgentId = agentId;
   isComplete = false;
-  headerInfo = null;
   resetEventTracking();
 
   // Clear messages but keep activity indicator
@@ -429,89 +531,60 @@ function addMessage(text, cls, isHtml=false, rawMarkdown=null){
   // Use HTML for bot messages if provided, otherwise plain text
   if(isHtml && cls === 'from-bot'){
     div.innerHTML = text;
-
-    // Store raw markdown if provided
     if(rawMarkdown) {
       messageMarkdown.set(div, rawMarkdown);
     }
-
-    // Add top copy button for bot messages
-    const copyBtn = document.createElement('button');
-    copyBtn.className = 'copy-markdown-btn';
-    copyBtn.innerHTML = '📋';
-    copyBtn.onclick = (e) => {
-      e.stopPropagation();
-      copyMessageMarkdown(div, copyBtn);
-    };
-    div.appendChild(copyBtn);
   } else {
     div.textContent = text;
-
-    // Store plain text for user messages
     if(cls === 'from-user') {
       messageMarkdown.set(div, text);
     }
   }
 
-  messagesDiv.insertBefore(div, activityIndicator);
+  // Create action buttons container (integrated into message)
+  const actions = document.createElement('div');
+  actions.className = 'message-actions';
 
-  // Add bottom copy button AFTER the message div for bot messages
-  if(isHtml && cls === 'from-bot' && rawMarkdown){
-    const bottomCopyWrapper = document.createElement('div');
-    bottomCopyWrapper.className = 'copy-markdown-btn-bottom';
-    const bottomCopyBtn = document.createElement('button');
-    bottomCopyBtn.innerHTML = '📋';
-    bottomCopyBtn.title = 'Copy to clipboard';
-    bottomCopyBtn.onclick = (e) => {
-      e.stopPropagation();
-      copyMessageMarkdown(div, bottomCopyBtn);
-    };
-    bottomCopyWrapper.appendChild(bottomCopyBtn);
-    messagesDiv.insertBefore(bottomCopyWrapper, activityIndicator);
-  }
-
-  // Add bottom copy button for user messages
   if(cls === 'from-user'){
-    const userCopyWrapper = document.createElement('div');
-    userCopyWrapper.className = 'copy-user-btn-bottom';
-
-    // Recycle button (reuse message)
+    // Recycle button
     const recycleBtn = document.createElement('button');
     recycleBtn.innerHTML = '♻️';
-    recycleBtn.title = 'Reuse this message';
+    recycleBtn.title = 'Reuse';
     recycleBtn.onclick = (e) => {
       e.stopPropagation();
       reuseMessage(div);
     };
-    userCopyWrapper.appendChild(recycleBtn);
-
-    // Copy button
-    const userCopyBtn = document.createElement('button');
-    userCopyBtn.innerHTML = '📋';
-    userCopyBtn.title = 'Copy to clipboard';
-    userCopyBtn.onclick = (e) => {
-      e.stopPropagation();
-      copyMessageMarkdown(div, userCopyBtn);
-    };
-    userCopyWrapper.appendChild(userCopyBtn);
-
-    messagesDiv.insertBefore(userCopyWrapper, activityIndicator);
+    actions.appendChild(recycleBtn);
   }
 
+  // Copy button for all messages
+  const copyBtn = document.createElement('button');
+  copyBtn.innerHTML = '📋';
+  copyBtn.title = 'Copy';
+  copyBtn.onclick = (e) => {
+    e.stopPropagation();
+    copyMessageMarkdown(div, copyBtn);
+  };
+  actions.appendChild(copyBtn);
+
+  div.appendChild(actions);
+  messagesDiv.insertBefore(div, activityIndicator);
   ensureActivityIndicatorAtBottom();
   messagesDiv.scrollTop=messagesDiv.scrollHeight;
 }
 
 function copyMessageMarkdown(messageDiv, copyBtn) {
   const markdown = messageMarkdown.get(messageDiv);
-  if(!markdown) return;
+  if(!markdown) {
+    // Nothing to copy - brief feedback
+    copyBtn.innerHTML = '−';
+    setTimeout(() => { copyBtn.innerHTML = '📋'; }, 1000);
+    return;
+  }
 
   navigator.clipboard.writeText(markdown).then(() => {
-    // Show success feedback
     copyBtn.innerHTML = '✓';
     copyBtn.classList.add('copied');
-
-    // Reset after 2 seconds
     setTimeout(() => {
       copyBtn.innerHTML = '📋';
       copyBtn.classList.remove('copied');
@@ -519,9 +592,7 @@ function copyMessageMarkdown(messageDiv, copyBtn) {
   }).catch(err => {
     console.error('Failed to copy:', err);
     copyBtn.innerHTML = '❌';
-    setTimeout(() => {
-      copyBtn.innerHTML = '📋';
-    }, 2000);
+    setTimeout(() => { copyBtn.innerHTML = '📋'; }, 2000);
   });
 }
 
@@ -536,16 +607,11 @@ function reuseMessage(messageDiv) {
   previousAgent = null;
   currentAgentId = null;
   isComplete = false;
-  headerInfo = null;
   forceHideActivityIndicator();
   resetEventTracking();
 
   // Clear backend history
   fetch(clearUrl, {method:'POST'}).catch(err => console.error('Failed to clear history:', err));
-
-  // Remove header if it exists
-  const header = document.getElementById('chatHeader');
-  if(header) header.remove();
 
   // Enable the form and pre-fill
   if(input) {
@@ -602,26 +668,10 @@ function setupFormHandlers() {
   };
 }
 
-async function loadHistory(){
-  const r=await fetch(historyUrl);
-  if(!r.ok)return;
-  const d=await r.json();
-  for(const m of d.history){
-    addMessage(m.text,m.role==='user'?'from-user':'from-bot');
-  }
-}
-
-
-// Unified event handler for both live and historical events
+// Event handler for both live and historical events
 function processEvent(event) {
   switch(event.event) {
     case 'start':
-      // Set up header info and show user message
-      headerInfo = {
-        startTs: event.ts,
-        prompt: event.prompt
-      };
-      updateHeader();
       addMessage(event.prompt || '', 'from-user');
       break;
 
@@ -647,19 +697,18 @@ function processEvent(event) {
         addMessage(event.html, 'from-bot', true, event.rawMarkdown);
       }
 
-      // Mark as complete
       isComplete = true;
-      if (headerInfo) {
-        headerInfo.endTs = event.ts;
-        updateHeader();
-      }
       forceHideActivityIndicator();
 
-      // Enable continuation if available
-      if(event.conversation_id && input){
+      // Re-enable input
+      if(input){
         input.disabled = false;
-        input.placeholder = 'Continue conversation...';
-        input.dataset.continueAgent = event.agent_id;
+        if(event.conversation_id){
+          input.placeholder = 'Continue conversation...';
+          input.dataset.continueAgent = event.agent_id;
+        } else {
+          input.placeholder = 'Send a message...';
+        }
       }
       break;
 
@@ -669,13 +718,14 @@ function processEvent(event) {
         addMessage(event.html, 'from-bot', true, event.rawMarkdown);
       }
 
-      // Mark as complete (failed)
       isComplete = true;
-      if (headerInfo) {
-        headerInfo.endTs = event.ts;
-        updateHeader();
-      }
       forceHideActivityIndicator();
+
+      // Re-enable input so user can retry
+      if(input){
+        input.disabled = false;
+        input.placeholder = 'Send a message...';
+      }
       break;
   }
 }
