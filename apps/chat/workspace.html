@@ -187,6 +187,15 @@
 }
 .activity-indicator span:nth-child(1) { animation-delay: -0.32s; }
 .activity-indicator span:nth-child(2) { animation-delay: -0.16s; }
+
+/* Completion message for finished chats */
+.completion-message {
+  text-align: center;
+  padding: 1em;
+  color: #888;
+  font-size: 0.85em;
+  font-style: italic;
+}
 </style>
 
 <div class="workspace-content">
@@ -514,10 +523,35 @@ async function loadAgent(agentId, isContinuation = false) {
 
       // Check if we can continue the conversation
       const finishEvent = events.find(e => e.event === 'finish');
-      if (finishEvent && finishEvent.conversation_id && input) {
-        input.disabled = false;
-        input.placeholder = 'Continue conversation...';
-        input.dataset.continueAgent = agentId;
+      const startEvent = events.find(e => e.event === 'start');
+      const appBar = document.querySelector('.app-bar');
+
+      if (finishEvent && finishEvent.conversation_id) {
+        // Can continue - show app bar
+        if (appBar) appBar.style.display = '';
+        if (input) {
+          input.disabled = false;
+          input.placeholder = 'Continue conversation...';
+          input.dataset.continueAgent = agentId;
+        }
+      } else {
+        // Can't continue - hide app bar and show completion message
+        if (appBar) appBar.style.display = 'none';
+
+        // Add completion message
+        if (finishEvent && startEvent) {
+          const startTime = new Date(startEvent.ts);
+          const endTime = new Date(finishEvent.ts);
+          const runtime = ((endTime - startTime) / 1000).toFixed(1);
+          const dateStr = endTime.toLocaleString('en-US', {
+            month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit'
+          });
+
+          const completionDiv = document.createElement('div');
+          completionDiv.className = 'completion-message';
+          completionDiv.textContent = `Chat completed ${dateStr} after ${runtime}s`;
+          messagesDiv.appendChild(completionDiv);
+        }
       }
     }
 
