@@ -238,7 +238,7 @@ body.has-app-bar .menu-bar {
 
 body.sidebar-open .menu-bar {
   width: var(--menu-bar-width-expanded);
-  background: var(--facet-bg, white);
+  background: linear-gradient(var(--facet-bg, transparent), var(--facet-bg, transparent)), white;
   border-right: 1px solid var(--facet-border, #e0e0e0);
   box-shadow: 2px 0 8px rgba(0, 0, 0, 0.1);
   border-bottom-right-radius: 0; /* Remove rounded corner when expanded */
@@ -301,21 +301,18 @@ body:not(.sidebar-open) .menu-bar .menu-item {
   background: var(--facet-bg, white);
 }
 
-.menu-bar .menu-item:hover {
-  background: rgba(0,0,0,0.05);
-}
-
+/* Consistent active/hover state for menu items */
+.menu-bar .menu-item:hover,
 .menu-bar .menu-item.current {
-  font-weight: 500;
+  background: rgba(0, 0, 0, 0.05);
 }
 
-/* In expanded mode, only highlight on hover and current */
-body.sidebar-open .menu-bar .menu-item:hover {
-  background: var(--facet-bg);
-}
-
-body.sidebar-open .menu-bar .menu-item.current {
-  background: var(--facet-bg);
+/* When collapsed, layer the tint over facet background */
+body:not(.sidebar-open) .menu-bar .menu-item:hover,
+body:not(.sidebar-open) .menu-bar .menu-item.current {
+  background:
+    linear-gradient(rgba(0, 0, 0, 0.05), rgba(0, 0, 0, 0.05)),
+    var(--facet-bg, white);
 }
 
 .menu-bar .menu-item .icon {
