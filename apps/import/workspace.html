@@ -165,8 +165,9 @@ function showDetect(res){
   document.getElementById('savedPath').value=res.path;
 
   // Default to currently selected facet from app framework if not specified
-  const defaultFacet = res.facet !== undefined ? res.facet : (window.selectedFacet || '');
-  facetSelect.value = defaultFacet;
+  // res.facet may be null when server converts empty string to None
+  const defaultFacet = res.facet || window.selectedFacet || '';
+  loadFacets(defaultFacet);
 
   settingInput.value = res.setting || '';
   document.getElementById('detectModal').style.display='block';
@@ -384,9 +385,8 @@ document.querySelector('.close').onclick=()=>{document.getElementById('detectMod
 window.onclick=e=>{if(e.target==document.getElementById('detectModal'))document.getElementById('detectModal').style.display='none';};
 
 // Load facets for dropdown
-function loadFacets(){
+function loadFacets(defaultValue = null){
   const select=document.getElementById('facetSelect');
-  const current=select.value; // Preserve current selection
   select.innerHTML='<option value="">None</option>';
 
   // Use facets data from app framework
@@ -395,9 +395,13 @@ function loadFacets(){
     const opt=document.createElement('option');
     opt.value=facet.name;
     opt.textContent=facet.title || facet.name;
-    if(facet.name===current) opt.selected=true;
     select.appendChild(opt);
   });
+
+  // Set value after options exist
+  if (defaultValue !== null) {
+    select.value = defaultValue;
+  }
 }
 
 loadImports();
