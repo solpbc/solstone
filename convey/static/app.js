@@ -971,46 +971,6 @@ window.AppServices = {
   },
 
   /**
-   * Update badge count for a facet or app
-   * @param {string} appName - Name of the app
-   * @param {string|null} facetName - Facet name, or null for app-level badge
-   * @param {number} count - Badge count (0 to hide)
-   */
-  updateBadge(appName, facetName, count) {
-    if (facetName) {
-      // Update facet pill badge
-      const facetPill = document.querySelector(`.facet-pill[data-facet-name="${facetName}"]`);
-      if (facetPill) {
-        let badge = facetPill.querySelector('.facet-badge');
-        if (!badge) {
-          badge = document.createElement('span');
-          badge.className = 'facet-badge';
-          const emojiContainer = facetPill.querySelector('.emoji-container');
-          if (emojiContainer) {
-            emojiContainer.appendChild(badge);
-          }
-        }
-        badge.textContent = count || '';
-        badge.style.display = count > 0 ? '' : 'none';
-      }
-    } else {
-      // Update app-level badge in menu
-      const menuItem = document.querySelector(`.menu-item[data-app="${appName}"]`);
-      if (menuItem) {
-        let badge = menuItem.querySelector('.app-badge');
-        if (!badge) {
-          badge = document.createElement('span');
-          badge.className = 'app-badge';
-          const link = menuItem.querySelector('a') || menuItem;
-          link.appendChild(badge);
-        }
-        badge.textContent = count || '';
-        badge.style.display = count > 0 ? 'inline-block' : 'none';
-      }
-    }
-  },
-
-  /**
    * Notification system
    */
   notifications: {
@@ -1540,81 +1500,167 @@ window.AppServices = {
   },
 
   /**
-   * Badge system for app icon notifications
-   * Allows apps to display badge counts on their menu bar icons
+   * Badge system for app icons and facet pills
+   * Unified API with parallel app/facet namespaces
    */
   badges: {
-    _data: {},  // {appName: count}
-
     /**
-     * Set badge count for an app
-     * @param {string} appName - Name of the app
-     * @param {number} count - Badge count (0 or falsy to hide)
+     * App icon badges in the menu bar
      */
-    set(appName, count) {
-      if (count && count > 0) {
-        this._data[appName] = count;
-      } else {
+    app: {
+      _data: {},  // {appName: count}
+
+      /**
+       * Set badge count for an app
+       * @param {string} appName - Name of the app
+       * @param {number} count - Badge count (0 or falsy to hide)
+       */
+      set(appName, count) {
+        if (count && count > 0) {
+          this._data[appName] = count;
+        } else {
+          delete this._data[appName];
+        }
+        this._render(appName);
+      },
+
+      /**
+       * Clear badge for an app
+       * @param {string} appName - Name of the app
+       */
+      clear(appName) {
         delete this._data[appName];
+        this._render(appName);
+      },
+
+      /**
+       * Get badge count for an app
+       * @param {string} appName - Name of the app
+       * @returns {number} Badge count (0 if not set)
+       */
+      get(appName) {
+        return this._data[appName] || 0;
+      },
+
+      /**
+       * Render badge for an app
+       * @private
+       */
+      _render(appName) {
+        // Defer render if DOM not ready
+        if (document.readyState === 'loading') {
+          const self = this;
+          document.addEventListener('DOMContentLoaded', function() {
+            self._render(appName);
+          });
+          return;
+        }
+
+        const menuItem = document.querySelector(`.menu-item[data-app-name="${appName}"]`);
+        if (!menuItem) return;
+
+        // Find the icon container
+        const iconContainer = menuItem.querySelector('.icon');
+        if (!iconContainer) return;
+
+        // Remove existing badge
+        const existing = iconContainer.querySelector('.menu-badge');
+        if (existing) {
+          existing.remove();
+        }
+
+        // Get count for this app
+        const count = this._data[appName];
+        if (!count || count <= 0) return;
+
+        // Create badge element
+        const badge = document.createElement('span');
+        badge.className = 'menu-badge';
+        badge.textContent = count;
+
+        iconContainer.appendChild(badge);
       }
-      this._render(appName);
     },
 
     /**
-     * Clear badge for an app
-     * @param {string} appName - Name of the app
+     * Facet pill badges in the facet bar
      */
-    clear(appName) {
-      delete this._data[appName];
-      this._render(appName);
-    },
+    facet: {
+      _data: {},  // {facetName: count}
 
-    /**
-     * Get badge count for an app
-     * @param {string} appName - Name of the app
-     * @returns {number} Badge count (0 if not set)
-     */
-    get(appName) {
-      return this._data[appName] || 0;
-    },
+      /**
+       * Set badge count for a facet
+       * @param {string} facetName - Name of the facet
+       * @param {number} count - Badge count (0 or falsy to hide)
+       */
+      set(facetName, count) {
+        if (count && count > 0) {
+          this._data[facetName] = count;
+        } else {
+          delete this._data[facetName];
+        }
+        this._render(facetName);
+      },
 
-    /**
-     * Render badge for an app
-     * @private
-     */
-    _render(appName) {
-      // Defer render if DOM not ready
-      if (document.readyState === 'loading') {
-        const self = this;
-        document.addEventListener('DOMContentLoaded', function() {
-          self._render(appName);
-        });
-        return;
+      /**
+       * Clear badge for a facet
+       * @param {string} facetName - Name of the facet
+       */
+      clear(facetName) {
+        delete this._data[facetName];
+        this._render(facetName);
+      },
+
+      /**
+       * Get badge count for a facet
+       * @param {string} facetName - Name of the facet
+       * @returns {number} Badge count (0 if not set)
+       */
+      get(facetName) {
+        return this._data[facetName] || 0;
+      },
+
+      /**
+       * Render badge for a facet
+       * @private
+       */
+      _render(facetName) {
+        // Defer render if DOM not ready
+        if (document.readyState === 'loading') {
+          const self = this;
+          document.addEventListener('DOMContentLoaded', function() {
+            self._render(facetName);
+          });
+          return;
+        }
+
+        const facetPill = document.querySelector(`.facet-pill[data-facet-name="${facetName}"]`);
+        if (!facetPill) return;
+
+        let badge = facetPill.querySelector('.facet-badge');
+        const count = this._data[facetName];
+
+        if (!count || count <= 0) {
+          // Hide or remove badge
+          if (badge) {
+            badge.style.display = 'none';
+          }
+          return;
+        }
+
+        // Create badge if needed
+        if (!badge) {
+          badge = document.createElement('span');
+          badge.className = 'facet-badge';
+          const emojiContainer = facetPill.querySelector('.emoji-container');
+          if (emojiContainer) {
+            emojiContainer.appendChild(badge);
+          }
+        }
+
+        badge.textContent = count;
+        badge.style.display = '';
       }
-
-      const menuItem = document.querySelector(`.menu-item[data-app-name="${appName}"]`);
-      if (!menuItem) return;
-
-      // Find the icon container
-      const iconContainer = menuItem.querySelector('.icon');
-      if (!iconContainer) return;
-
-      // Remove existing badge
-      const existing = iconContainer.querySelector('.menu-badge');
-      if (existing) {
-        existing.remove();
-      }
-
-      // Get count for this app
-      const count = this._data[appName];
-      if (!count || count <= 0) return;
-
-      // Create badge element
-      const badge = document.createElement('span');
-      badge.className = 'menu-badge';
-      badge.textContent = count;
-
-      iconContainer.appendChild(badge);
     }
   }
 };

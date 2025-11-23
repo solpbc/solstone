@@ -9,9 +9,9 @@ AppServices.register('todos', {
       if (response.ok) {
         const data = await response.json();
         if (data.count > 0) {
-          AppServices.badges.set('todos', data.count);
+          AppServices.badges.app.set('todos', data.count);
         } else {
-          AppServices.badges.clear('todos');
+          AppServices.badges.app.clear('todos');
         }
       }
     } catch (err) {

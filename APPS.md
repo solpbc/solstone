@@ -176,14 +176,20 @@ JavaScript service that runs globally, even when app is not active.
 
 **Core Methods:**
 - `AppServices.register(appName, service)` - Register background service
-- `AppServices.updateBadge(appName, facetName, count)` - Update facet pill badge dynamically
 
-**Icon Badge Methods:**
-- `AppServices.badges.set(appName, count)` - Set app icon badge count
-- `AppServices.badges.clear(appName)` - Remove app icon badge
-- `AppServices.badges.get(appName)` - Get current badge count
+**Badge Methods:**
 
-Icon badges appear as red notification counts on menu bar app icons.
+App icon badges (menu bar):
+- `AppServices.badges.app.set(appName, count)` - Set app icon badge count
+- `AppServices.badges.app.clear(appName)` - Remove app icon badge
+- `AppServices.badges.app.get(appName)` - Get current badge count
+
+Facet pill badges (facet bar):
+- `AppServices.badges.facet.set(facetName, count)` - Set facet badge count
+- `AppServices.badges.facet.clear(facetName)` - Remove facet badge
+- `AppServices.badges.facet.get(facetName)` - Get current badge count
+
+Both badge types appear as red notification counts.
 
 **Notification Methods:**
 - `AppServices.notifications.show(options)` - Show persistent notification card
@@ -407,7 +413,7 @@ Pass `facet_counts` dict to `render_template()` to show initial badge counts on 
 facet_counts = {"work": 5, "personal": 3}
 return render_template("app.html", app="my_app", facet_counts=facet_counts)
 ```
-For client-side updates (e.g., after completing a todo), use `AppServices.updateBadge(appName, facetName, count)`.
+For client-side updates (e.g., after completing a todo), use `AppServices.badges.facet.set(facetName, count)`.
 
 See `apps/todos/routes.py:todos_day()` - Computes pending counts from already-loaded data.
 

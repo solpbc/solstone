@@ -340,15 +340,15 @@ document.addEventListener('DOMContentLoaded', function() {
   function updateBadgesFromResponse(data, facetName) {
     // Update facet pill badge
     if (typeof data.facet_count === 'number') {
-      AppServices.updateBadge('todos', facetName, data.facet_count);
+      AppServices.badges.facet.set(facetName, data.facet_count);
     }
 
     // Update app icon badge (only if viewing today)
     if (currentDay === todayDay && typeof data.total_count === 'number') {
       if (data.total_count > 0) {
-        AppServices.badges.set('todos', data.total_count);
+        AppServices.badges.app.set('todos', data.total_count);
       } else {
-        AppServices.badges.clear('todos');
+        AppServices.badges.app.clear('todos');
       }
     }
   }
@@ -1390,8 +1390,10 @@ document.addEventListener('DOMContentLoaded', function() {
       toggleFacetCollapse(facetSection, false);
     }
 
-    // Update badges from response
-    updateBadgesFromResponse(data, facetName);
+    // Update badges - the event should include counts if available
+    if (todo.facet_count !== undefined || todo.total_count !== undefined) {
+      updateBadgesFromResponse(todo, facetName);
+    }
 
     // Visual feedback - fast background fade
     li.style.backgroundColor = 'rgba(37, 99, 235, 0.15)';
