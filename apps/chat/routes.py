@@ -2,15 +2,42 @@ from __future__ import annotations
 
 import json
 import os
+import time
 from typing import Any
 
-from flask import Blueprint, jsonify, render_template, request
+from flask import Blueprint, jsonify, request
+
+from apps.utils import get_app_storage_path
+from convey.config import get_selected_facet
+from convey.utils import load_json, save_json
+from think.models import GEMINI_LITE, gemini_generate
 
 chat_bp = Blueprint(
     "app:chat",
     __name__,
     url_prefix="/app/chat",
 )
+
+TITLE_SYSTEM_INSTRUCTION = (
+    "Take the user provided text and come up with a three word title that "
+    "concisely but uniquely identifies the user's request for quick reference "
+    "and recall. Output only the three word title, nothing else."
+)
+
+
+def generate_chat_title(message: str) -> str:
+    """Generate a short title for a chat message using Gemini Flash Lite."""
+    try:
+        title = gemini_generate(
+            message,
+            model=GEMINI_LITE,
+            system_instruction=TITLE_SYSTEM_INSTRUCTION,
+            max_output_tokens=50,
+            timeout=10000,
+        ).strip()
+        return title if title else message.split("\n")[0][:30]
+    except Exception:
+        return message.split("\n")[0][:30]
 
 
 @chat_bp.route("/api/send", methods=["POST"])
@@ -56,6 +83,26 @@ def send_message() -> Any:
             config=config,
         )
 
+        # Save chat metadata to app storage
+        ts = int(time.time() * 1000)
+        facet = get_selected_facet()
+
+        # Generate title for new chats only (not continuations)
+        if continue_agent_id:
+            title = None  # Don't update title for continuations
+        else:
+            title = generate_chat_title(message)
+
+        chat_record = {
+            "agent_id": agent_id,
+            "ts": ts,
+            "facet": facet,
+            "title": title,
+        }
+        chats_dir = get_app_storage_path("chat", "chats")
+        chat_file = chats_dir / f"{agent_id}.json"
+        save_json(chat_file, chat_record)
+
         return jsonify(agent_id=agent_id)
     except Exception as e:
         resp = jsonify({"error": str(e)})
@@ -63,11 +110,22 @@ def send_message() -> Any:
         return resp
 
 
-@chat_bp.route("/api/history")
-def chat_history() -> Any:
-    """Return empty history since we use one-shot pattern with no persistence."""
+@chat_bp.route("/api/chats")
+def list_chats() -> Any:
+    """Return all saved chat metadata, sorted by timestamp descending."""
+    chats_dir = get_app_storage_path("chat", "chats", ensure_exists=False)
 
-    return jsonify(history=[])
+    chats = []
+    if chats_dir.exists():
+        for chat_file in chats_dir.glob("*.json"):
+            chat_data = load_json(chat_file)
+            if chat_data:
+                chats.append(chat_data)
+
+    # Sort by timestamp descending (most recent first)
+    chats.sort(key=lambda c: c.get("ts", 0), reverse=True)
+
+    return jsonify(chats=chats)
 
 
 @chat_bp.route("/api/agent/<agent_id>")

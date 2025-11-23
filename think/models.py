@@ -49,6 +49,7 @@ def _build_generate_config(
     json_output: bool,
     thinking_budget: Optional[int],
     cached_content: Optional[str],
+    timeout: Optional[int] = None,
 ) -> types.GenerateContentConfig:
     """Build the GenerateContentConfig.
 
@@ -76,6 +77,9 @@ def _build_generate_config(
 
     if cached_content:
         config_args["cached_content"] = cached_content
+
+    if timeout:
+        config_args["http_options"] = types.HttpOptions(timeout=timeout)
 
     return types.GenerateContentConfig(**config_args)
 
@@ -383,6 +387,7 @@ def gemini_generate(
     thinking_budget: Optional[int] = None,
     cached_content: Optional[str] = None,
     client: Optional[genai.Client] = None,
+    timeout: Optional[int] = None,
 ) -> str:
     """
     Simplified wrapper for genai.models.generate_content with common defaults.
@@ -413,6 +418,8 @@ def gemini_generate(
         Name of cached content to use
     client : genai.Client, optional
         Existing client to reuse. If not provided, creates a new one.
+    timeout : int, optional
+        Request timeout in milliseconds. Minimum is 10000 (10 seconds).
 
     Returns
     -------
@@ -428,6 +435,7 @@ def gemini_generate(
         json_output=json_output,
         thinking_budget=thinking_budget,
         cached_content=cached_content,
+        timeout=timeout,
     )
 
     response = client.models.generate_content(
@@ -451,6 +459,7 @@ async def gemini_agenerate(
     thinking_budget: Optional[int] = None,
     cached_content: Optional[str] = None,
     client: Optional[genai.Client] = None,
+    timeout: Optional[int] = None,
 ) -> str:
     """
     Async wrapper for genai.aio.models.generate_content with common defaults.
@@ -481,6 +490,8 @@ async def gemini_agenerate(
         Name of cached content to use
     client : genai.Client, optional
         Existing client to reuse. If not provided, creates a new one.
+    timeout : int, optional
+        Request timeout in milliseconds. Minimum is 10000 (10 seconds).
 
     Returns
     -------
@@ -496,6 +507,7 @@ async def gemini_agenerate(
         json_output=json_output,
         thinking_budget=thinking_budget,
         cached_content=cached_content,
+        timeout=timeout,
     )
 
     response = await client.aio.models.generate_content(

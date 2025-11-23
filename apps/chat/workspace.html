@@ -196,6 +196,69 @@
   font-size: 0.85em;
   font-style: italic;
 }
+
+/* Recent chats panel */
+.recent-chats-panel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 2em;
+  min-height: 200px;
+}
+
+.recent-chats-panel h3 {
+  margin: 0 0 1em 0;
+  color: #666;
+  font-weight: normal;
+  font-size: 0.9em;
+}
+
+.recent-chats-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5em;
+  width: 100%;
+  max-width: 500px;
+}
+
+.recent-chat-item {
+  display: flex;
+  flex-direction: column;
+  padding: 0.75em 1em;
+  background: #f8f9fa;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.recent-chat-item:hover {
+  background: #fff;
+  border-color: var(--facet-color, #667eea);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.recent-chat-time {
+  font-size: 0.75em;
+  color: #888;
+  margin-bottom: 0.25em;
+}
+
+.recent-chat-preview {
+  font-size: 0.85em;
+  color: #333;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.recent-chats-empty {
+  color: #888;
+  font-size: 0.85em;
+  font-style: italic;
+}
 </style>
 
 <div class="workspace-content">
@@ -207,8 +270,128 @@
 const sendUrl = '{{ url_for('app:chat.send_message') }}';
 const clearUrl = '{{ url_for('app:chat.clear_history') }}';
 const agentUrl = '{{ url_for('app:chat.agent_events', agent_id='AGENT_ID') }}';
+const chatsUrl = '{{ url_for('app:chat.list_chats') }}';
 const messagesDiv = document.getElementById('messages');
 const searchBase = '{{ url_for('app:search.index') }}';
+
+// Recent chats data
+let allChats = [];
+
+// Format timestamp as relative time
+function formatRelativeTime(ts) {
+  const now = Date.now();
+  const diff = now - ts;
+  const seconds = Math.floor(diff / 1000);
+  const minutes = Math.floor(seconds / 60);
+  const hours = Math.floor(minutes / 60);
+  const days = Math.floor(hours / 24);
+
+  if (days > 0) return `${days}d ago`;
+  if (hours > 0) return `${hours}h ago`;
+  if (minutes > 0) return `${minutes}m ago`;
+  return 'just now';
+}
+
+// Filter chats by selected facet
+function getFilteredChats(facet) {
+  let filtered = allChats;
+  if (facet !== null) {
+    filtered = allChats.filter(c => c.facet === facet);
+  }
+  return filtered.slice(0, 5);
+}
+
+// Render recent chats panel
+function renderRecentChats() {
+  const facet = window.selectedFacet;
+  const chats = getFilteredChats(facet);
+
+  const panel = document.createElement('div');
+  panel.className = 'recent-chats-panel';
+  panel.id = 'recentChatsPanel';
+
+  const title = document.createElement('h3');
+  title.textContent = 'Recent Chats';
+  panel.appendChild(title);
+
+  if (chats.length === 0) {
+    const empty = document.createElement('div');
+    empty.className = 'recent-chats-empty';
+    empty.textContent = 'No recent chats';
+    panel.appendChild(empty);
+  } else {
+    const list = document.createElement('div');
+    list.className = 'recent-chats-list';
+
+    for (const chat of chats) {
+      const item = document.createElement('div');
+      item.className = 'recent-chat-item';
+      item.onclick = () => loadRecentChat(chat.agent_id);
+
+      const time = document.createElement('div');
+      time.className = 'recent-chat-time';
+      time.textContent = formatRelativeTime(chat.ts);
+      item.appendChild(time);
+
+      const preview = document.createElement('div');
+      preview.className = 'recent-chat-preview';
+      preview.textContent = chat.title || '(no title)';
+      item.appendChild(preview);
+
+      list.appendChild(item);
+    }
+
+    panel.appendChild(list);
+  }
+
+  return panel;
+}
+
+// Load a recent chat and set up for continuation
+async function loadRecentChat(agentId) {
+  hideRecentChats();
+  await loadAgent(agentId);
+  messagesDiv.scrollTop = messagesDiv.scrollHeight;
+}
+
+// Show recent chats panel
+function showRecentChats() {
+  const existing = document.getElementById('recentChatsPanel');
+  if (existing) existing.remove();
+
+  const panel = renderRecentChats();
+  messagesDiv.appendChild(panel);
+}
+
+// Hide recent chats panel
+function hideRecentChats() {
+  const panel = document.getElementById('recentChatsPanel');
+  if (panel) panel.remove();
+}
+
+// Fetch all chats from backend
+async function fetchRecentChats() {
+  try {
+    const response = await fetch(chatsUrl);
+    if (response.ok) {
+      const data = await response.json();
+      allChats = data.chats || [];
+      // Show panel if no active chat
+      if (!currentAgentId) {
+        showRecentChats();
+      }
+    }
+  } catch (error) {
+    console.error('Failed to fetch recent chats:', error);
+  }
+}
+
+// Listen for facet changes to update recent chats
+document.addEventListener('facet.switch', () => {
+  if (!currentAgentId) {
+    showRecentChats();
+  }
+});
 
 // Simple error display - adds error message to chat
 function showError(message) {
@@ -680,6 +863,9 @@ function setupFormHandlers() {
     const text = input.value.trim();
     if (!text) return;
 
+    // Hide recent chats panel when sending a message
+    hideRecentChats();
+
     input.value = '';
     input.disabled = true;
 
@@ -937,5 +1123,8 @@ function createResourceCard(uri) {
 const agentParam = urlParams.get('agent');
 if (agentParam && /^\d+$/.test(agentParam)) {
   loadAgent(agentParam);
+} else {
+  // No agent specified - show recent chats
+  fetchRecentChats();
 }
 </script>
