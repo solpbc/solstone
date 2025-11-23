@@ -979,7 +979,7 @@ window.AppServices = {
   updateBadge(appName, facetName, count) {
     if (facetName) {
       // Update facet pill badge
-      const facetPill = document.querySelector(`.facet-pill[data-facet="${facetName}"]`);
+      const facetPill = document.querySelector(`.facet-pill[data-facet-name="${facetName}"]`);
       if (facetPill) {
         let badge = facetPill.querySelector('.facet-badge');
         if (!badge) {
@@ -991,7 +991,7 @@ window.AppServices = {
           }
         }
         badge.textContent = count || '';
-        badge.style.display = count > 0 ? 'inline-block' : 'none';
+        badge.style.display = count > 0 ? '' : 'none';
       }
     } else {
       // Update app-level badge in menu

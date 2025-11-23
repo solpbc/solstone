@@ -13,7 +13,7 @@
   <script>
     window.facetsData = {{ facets|tojson|safe }};
     window.selectedFacet = {% if app_registry.apps[app].facets_enabled() %}{{ selected_facet|tojson|safe }}{% else %}null{% endif %};
-    window.appFacetCounts = {{ app_registry.apps[app].get_facet_counts(facets, selected_facet)|tojson|safe }};
+    window.appFacetCounts = {{ facet_counts|default({})|tojson|safe }};
   </script>
 
   <!-- WebSocket connection for Callosum events -->

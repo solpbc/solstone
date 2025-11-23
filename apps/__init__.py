@@ -9,7 +9,6 @@ Directory Structure:
       background.html      # Optional: Background service
       app_bar.html         # Optional: Bottom bar
       app.json             # Optional: Metadata overrides
-      hooks.py             # Optional: Dynamic logic
 
 Naming Rules:
     - App directory names must use underscores (my_app), not hyphens (my-app)
@@ -25,10 +24,6 @@ app.json format (all optional):
       "label": "Custom Label"
     }
 
-hooks.py format (all functions optional):
-    def get_facet_counts(facets, selected_facet):
-        return {"facet_name": count}
-
 Apps are automatically discovered and registered.
 All apps are served at /app/{name} via shared handler.
 Apps with routes.py can define custom routes beyond the index route.
@@ -41,7 +36,7 @@ import json
 import logging
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Callable, Optional
+from typing import Any, Optional
 
 from flask import Blueprint
 
@@ -61,9 +56,6 @@ class App:
     workspace_template: str = ""
     app_bar_template: Optional[str] = None
     background_template: Optional[str] = None
-
-    # Dynamic hooks (optional)
-    hooks: dict[str, Callable] = field(default_factory=dict)
 
     # Facet configuration (optional, default {})
     # Can be bool (backwards compat) or dict with options:
@@ -100,26 +92,6 @@ class App:
         """Return path to background service template, or None."""
         return self.background_template
 
-    def get_facet_counts(
-        self, facets: list[dict], selected_facet: Optional[str] = None
-    ) -> dict[str, int]:
-        """Return badge counts for facet pills.
-
-        Calls hooks.get_facet_counts() if defined, otherwise returns empty dict.
-
-        Args:
-            facets: List of active facet dicts
-            selected_facet: Currently selected facet name, or None
-
-        Returns:
-            Dict mapping facet name to count, e.g.:
-            {"work": 5, "personal": 3, "acme": 12}
-        """
-        hook = self.hooks.get("get_facet_counts")
-        if hook:
-            return hook(facets, selected_facet)
-        return {}
-
 
 class AppRegistry:
     """Registry for discovering and managing Sunstone apps."""
@@ -135,7 +107,6 @@ class AppRegistry:
         2. Load app.json if present (for icon, label overrides)
         3. Import routes.py and get blueprint (optional - for custom routes)
         4. Check for background.html, app_bar.html (optional)
-        5. Import hooks.py if present (for dynamic logic)
         """
         apps_dir = Path(__file__).parent
 
@@ -253,9 +224,6 @@ class AppRegistry:
         if (app_path / "app_bar.html").exists():
             app_bar_template = f"{app_name}/app_bar.html"
 
-        # Load hooks (optional)
-        hooks = self._load_hooks(app_name, app_path)
-
         return App(
             name=app_name,
             icon=icon,
@@ -264,7 +232,6 @@ class AppRegistry:
             workspace_template=workspace_template,
             app_bar_template=app_bar_template,
             background_template=background_template,
-            hooks=hooks,
             facets_config=facets_config,
         )
 
@@ -285,34 +252,6 @@ class AppRegistry:
             except Exception as e:
                 logger.warning(f"Failed to load {metadata_file}: {e}")
         return {}
-
-    def _load_hooks(self, app_name: str, app_path: Path) -> dict[str, Callable]:
-        """Load hooks.py module if it exists.
-
-        Args:
-            app_name: Name of the app
-            app_path: Path to app directory
-
-        Returns:
-            Dict mapping hook name to callable
-        """
-        hooks_file = app_path / "hooks.py"
-        if not hooks_file.exists():
-            return {}
-
-        try:
-            hooks_module = importlib.import_module(f"apps.{app_name}.hooks")
-            hooks = {}
-
-            # Look for known hook functions
-            for hook_name in ["get_facet_counts"]:
-                if hasattr(hooks_module, hook_name):
-                    hooks[hook_name] = getattr(hooks_module, hook_name)
-
-            return hooks
-        except Exception as e:
-            logger.warning(f"Failed to load hooks for {app_name}: {e}")
-            return {}
 
     def _create_minimal_blueprint(self, app_name: str) -> Blueprint:
         """Create a minimal blueprint for apps without routes.py.

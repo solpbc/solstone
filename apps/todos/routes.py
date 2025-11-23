@@ -29,6 +29,35 @@ from think.todo import (
 todos_bp = Blueprint("app:todos", __name__, url_prefix="/app/todos")
 
 
+def _compute_badge_counts(day: str, facet: str) -> dict:
+    """Compute badge counts for a specific facet and total for today.
+
+    Returns dict with 'facet_count' and 'total_count'.
+    """
+    today = date.today().strftime("%Y%m%d")
+
+    # Get count for the specific facet
+    facet_todos = get_todos(day, facet)
+    facet_count = 0
+    if facet_todos:
+        facet_count = sum(1 for t in facet_todos if not t.get("completed"))
+
+    # Get total count across all facets for today (for app icon badge)
+    total_count = 0
+    if day == today:
+        try:
+            facet_map = get_facets()
+        except Exception:
+            facet_map = {}
+
+        for facet_name in facet_map.keys():
+            todos = get_todos(today, facet_name)
+            if todos:
+                total_count += sum(1 for t in todos if not t.get("completed"))
+
+    return {"facet_count": facet_count, "total_count": total_count}
+
+
 @todos_bp.route("/api/badge-count")
 def badge_count():
     """Get total pending todo count for today across all facets."""
@@ -121,6 +150,7 @@ def todos_day(day: str):  # type: ignore[override]
                                 r"\((\d{1,2}:\d{2})\)", new_guard
                             )
                             time_str = time_match.group(1) if time_match else None
+                            counts = _compute_badge_counts(day, facet)
                             return jsonify(
                                 {
                                     "status": "ok",
@@ -132,6 +162,7 @@ def todos_day(day: str):  # type: ignore[override]
                                         "time": time_str,
                                         "completed": False,
                                     },
+                                    **counts,
                                 }
                             )
                     except (TodoEmptyTextError, RuntimeError) as exc:
@@ -241,12 +272,13 @@ def todos_day(day: str):  # type: ignore[override]
         except (TodoGuardMismatchError, TodoLineNumberError, IndexError, ValueError):
             flash("Todo list changed, please refresh and try again", "error")
 
-        # If AJAX request, return JSON
+        # If AJAX request, return JSON with updated counts
         if (
             request.headers.get("X-Requested-With") == "XMLHttpRequest"
             or request.accept_mimetypes.accept_json
         ):
-            return jsonify({"status": "ok"})
+            counts = _compute_badge_counts(day, facet)
+            return jsonify({"status": "ok", **counts})
 
         return redirect(url_for("app:todos.todos_day", day=day))
 
@@ -290,6 +322,13 @@ def todos_day(day: str):  # type: ignore[override]
     prev_day, next_day = adjacent_days(state.journal_root, day)
     today_day = date.today().strftime("%Y%m%d")
 
+    # Compute facet counts for facet pill badges
+    facet_counts = {}
+    for facet_name, facet_todos in todos_by_facet.items():
+        pending = sum(1 for t in facet_todos if not t.get("completed"))
+        if pending > 0:
+            facet_counts[facet_name] = pending
+
     return render_template(
         "app.html",
         app="todos",
@@ -300,6 +339,7 @@ def todos_day(day: str):  # type: ignore[override]
         today_day=today_day,
         todos_by_facet=sorted_todos_by_facet,
         facet_map=facet_map,
+        facet_counts=facet_counts,
     )
 
 
@@ -401,7 +441,13 @@ def move_todo(day: str):  # type: ignore[override]
         )
 
     redirect_url = url_for("app:todos.todos_day", day=target_day)
-    return jsonify({"status": "ok", "redirect": redirect_url, "target_day": target_day})
+    counts = _compute_badge_counts(day, facet)
+    return jsonify({
+        "status": "ok",
+        "redirect": redirect_url,
+        "target_day": target_day,
+        **counts,
+    })
 
 
 @todos_bp.route("/<day>/generate", methods=["POST"])

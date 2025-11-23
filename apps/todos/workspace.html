@@ -336,17 +336,20 @@ document.addEventListener('DOMContentLoaded', function() {
   const storageKey = `todos_collapsed_${currentDay}`;
   const todayDay = {{ today_day | tojson }};
 
-  // Update the app icon badge when todos change
-  function updateAppBadge(delta) {
-    // Only update badge if we're viewing today's todos
-    if (currentDay !== todayDay) return;
+  // Update badges from server response
+  function updateBadgesFromResponse(data, facetName) {
+    // Update facet pill badge
+    if (typeof data.facet_count === 'number') {
+      AppServices.updateBadge('todos', facetName, data.facet_count);
+    }
 
-    const current = AppServices.badges.get('todos') || 0;
-    const newCount = Math.max(0, current + delta);
-    if (newCount > 0) {
-      AppServices.badges.set('todos', newCount);
-    } else {
-      AppServices.badges.clear('todos');
+    // Update app icon badge (only if viewing today)
+    if (currentDay === todayDay && typeof data.total_count === 'number') {
+      if (data.total_count > 0) {
+        AppServices.badges.set('todos', data.total_count);
+      } else {
+        AppServices.badges.clear('todos');
+      }
     }
   }
 
@@ -526,7 +529,6 @@ document.addEventListener('DOMContentLoaded', function() {
     button.textContent = '⏳';
 
     const todoRow = button.closest('[data-todo-row]');
-    const wasIncomplete = !todoRow.classList.contains('completed');
 
     try {
       const response = await fetch(moveEndpoint, {
@@ -562,10 +564,8 @@ document.addEventListener('DOMContentLoaded', function() {
           updateFacetCount(facetSection);
         }
 
-        // Update app badge if moved todo was incomplete
-        if (wasIncomplete) {
-          updateAppBadge(-1);
-        }
+        // Update badges from response
+        updateBadgesFromResponse(data, facet);
       }, 200);
     } catch (error) {
       alert('Network error - please try again');
@@ -640,7 +640,6 @@ document.addEventListener('DOMContentLoaded', function() {
       const facet = button.dataset.facet;
 
       const todoRow = button.closest('[data-todo-row]');
-      const wasIncomplete = !todoRow.classList.contains('completed');
       const originalText = button.textContent;
       button.disabled = true;
 
@@ -655,6 +654,8 @@ document.addEventListener('DOMContentLoaded', function() {
           method: 'POST',
           body: form
         });
+
+        const data = await response.json();
 
         if (response.ok) {
           // Remove the todo item from the DOM with a fade-out animation
@@ -694,10 +695,8 @@ document.addEventListener('DOMContentLoaded', function() {
               updateFacetCount(facetSection);
             }
 
-            // Update app badge if removed todo was incomplete
-            if (wasIncomplete) {
-              updateAppBadge(-1);
-            }
+            // Update badges from response
+            updateBadgesFromResponse(data, facet);
           }, 200);
         } else {
           alert('Failed to remove todo - please refresh and try again');
@@ -742,6 +741,8 @@ document.addEventListener('DOMContentLoaded', function() {
           body: form
         });
 
+        const data = await response.json();
+
         if (response.ok) {
           // Update state
           isCompleted = !isCompleted;
@@ -776,8 +777,8 @@ document.addEventListener('DOMContentLoaded', function() {
             updateFacetCount(facetSection);
           }
 
-          // Update app badge (complete = -1, uncomplete = +1)
-          updateAppBadge(isCompleted ? -1 : 1);
+          // Update badges from response
+          updateBadgesFromResponse(data, facet);
         } else {
           // Revert on error
           checkbox.checked = !wasChecked;
@@ -1017,6 +1018,8 @@ document.addEventListener('DOMContentLoaded', function() {
             body: form
           });
 
+          const data = await response.json();
+
           if (response.ok) {
             isCompleted = !isCompleted;
             checkbox.dataset.completed = isCompleted ? 'true' : 'false';
@@ -1043,8 +1046,8 @@ document.addEventListener('DOMContentLoaded', function() {
               updateFacetCount(facetSection);
             }
 
-            // Update app badge (complete = -1, uncomplete = +1)
-            updateAppBadge(isCompleted ? -1 : 1);
+            // Update badges from response
+            updateBadgesFromResponse(data, facet);
           } else {
             checkbox.checked = !wasChecked;
             alert('Failed to update todo - please refresh and try again');
@@ -1067,7 +1070,6 @@ document.addEventListener('DOMContentLoaded', function() {
         const index = parseInt(removeBtn.dataset.index, 10);
         const guard = removeBtn.dataset.guard;
         const facet = removeBtn.dataset.facet;
-        const wasIncomplete = !todoRow.classList.contains('completed');
         const originalText = removeBtn.textContent;
 
         removeBtn.disabled = true;
@@ -1083,6 +1085,8 @@ document.addEventListener('DOMContentLoaded', function() {
             method: 'POST',
             body: form
           });
+
+          const data = await response.json();
 
           if (response.ok) {
             todoRow.style.transition = 'opacity 0.2s ease-out';
@@ -1114,10 +1118,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 updateFacetCount(facetSection);
               }
 
-              // Update app badge if removed todo was incomplete
-              if (wasIncomplete) {
-                updateAppBadge(-1);
-              }
+              // Update badges from response
+              updateBadgesFromResponse(data, facet);
             }, 200);
           } else {
             alert('Failed to remove todo - please refresh and try again');
@@ -1388,8 +1390,8 @@ document.addEventListener('DOMContentLoaded', function() {
       toggleFacetCollapse(facetSection, false);
     }
 
-    // Update app badge (new todo is always incomplete)
-    updateAppBadge(1);
+    // Update badges from response
+    updateBadgesFromResponse(data, facetName);
 
     // Visual feedback - fast background fade
     li.style.backgroundColor = 'rgba(37, 99, 235, 0.15)';

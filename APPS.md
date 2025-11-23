@@ -36,7 +36,6 @@ apps/my_app/
 ├── workspace.html     # Required: Main content template
 ├── routes.py          # Optional: Flask blueprint (only if custom routes needed)
 ├── app.json          # Optional: Metadata (icon, label, facet support)
-├── hooks.py          # Optional: Dynamic badge logic
 ├── app_bar.html      # Optional: Bottom bar controls (forms, buttons)
 └── background.html   # Optional: Background JavaScript service
 ```
@@ -48,7 +47,6 @@ apps/my_app/
 | `workspace.html` | **Yes** | Main app content (rendered in container) |
 | `routes.py` | No | Flask blueprint for custom routes (API endpoints, forms, etc.) |
 | `app.json` | No | Icon, label, facet support overrides |
-| `hooks.py` | No | Facet badge counts |
 | `app_bar.html` | No | Bottom fixed bar for app controls |
 | `background.html` | No | Background service (WebSocket listeners) |
 
@@ -139,16 +137,7 @@ Override default icon, label, and facet support.
 
 **Examples:** `apps/home/app.json`, `apps/todos/app.json`, `apps/inbox/app.json`
 
-### 4. `hooks.py` - Dynamic Logic
-
-Provide facet badge counts that update dynamically.
-
-**Functions:**
-- `get_facet_counts(facets, selected_facet)` - Returns dict mapping facet name to count
-  - Used for badge counts on facet pills
-  - Useful for showing counts per facet (e.g., pending todos, unread messages)
-
-### 5. `app_bar.html` - Bottom Bar Controls
+### 4. `app_bar.html` - Bottom Bar Controls
 
 Fixed bottom bar for forms, buttons, date pickers, search boxes.
 
@@ -179,7 +168,7 @@ The component reads `day` and `app` from template context to construct navigatio
 
 **Implementation source:** `convey/templates/date_nav.html`
 
-### 6. `background.html` - Background Service
+### 5. `background.html` - Background Service
 
 JavaScript service that runs globally, even when app is not active.
 
@@ -187,7 +176,7 @@ JavaScript service that runs globally, even when app is not active.
 
 **Core Methods:**
 - `AppServices.register(appName, service)` - Register background service
-- `AppServices.updateBadge(appName, facetName, count)` - Update facet pill badge
+- `AppServices.updateBadge(appName, facetName, count)` - Update facet pill badge dynamically
 
 **Icon Badge Methods:**
 - `AppServices.badges.set(appName, count)` - Set app icon badge count
@@ -312,7 +301,7 @@ See **JOURNAL.md**, **CORTEX.md**, **CALLOSUM.md** for subsystem details.
 Defined in `convey/templates/app.html` (lines 13-17):
 - `window.facetsData` - Array of facet objects `[{name, title, color, emoji}, ...]`
 - `window.selectedFacet` - Current facet name or null (see Facet Selection below)
-- `window.appFacetCounts` - Badge counts for current app `{"work": 5, "personal": 3}`
+- `window.appFacetCounts` - Badge counts for current app `{"work": 5, "personal": 3}` (set via route's `facet_counts`)
 
 ### Facet Selection
 
@@ -412,6 +401,16 @@ See `apps/todos/routes.py:todos_day()` POST handler - Shows form processing, val
 ### Facet-Aware Queries
 See `apps/todos/routes.py:todos_day()` - Loads data per-facet when selected, or all facets when null.
 
+### Facet Pill Badges
+Pass `facet_counts` dict to `render_template()` to show initial badge counts on facet pills:
+```python
+facet_counts = {"work": 5, "personal": 3}
+return render_template("app.html", app="my_app", facet_counts=facet_counts)
+```
+For client-side updates (e.g., after completing a todo), use `AppServices.updateBadge(appName, facetName, count)`.
+
+See `apps/todos/routes.py:todos_day()` - Computes pending counts from already-loaded data.
+
 ---
 
 ## Debugging Tips
@@ -451,7 +450,7 @@ Use `current_app.logger` from Flask for debugging. See `apps/todos/routes.py` fo
 4. **Validate input** on all POST endpoints (use `error_response`)
 5. **Check facet selection** when loading facet-specific data
 6. **Use state.journal_root** for journal path (always available)
-7. **Provide hooks** if app has facet counts
+7. **Pass facet_counts** from routes if app has per-facet counts
 8. **Handle errors gracefully** with flash messages or JSON errors
 9. **Test facet switching** to ensure content updates correctly
 10. **Use background services** for WebSocket event handling
@@ -466,7 +465,7 @@ Study these reference implementations:
 - **`apps/home/`** - Minimal app (no routes.py, just workspace)
 - **`apps/dev/`** - Simple app (no routes.py, custom styling, submenu)
 - **`apps/live/`** - Minimal app (no routes.py, event dashboard)
-- **`apps/todos/`** - Full-featured (routes, forms, AJAX, icon badge)
+- **`apps/todos/`** - Full-featured (routes, forms, AJAX, icon badge, facet badges)
 - **`apps/inbox/`** - API-driven (custom routes, message management)
 - **`apps/search/`** - API-only (custom routes for search, no index route)
 - **`apps/tokens/`** - Navigation (index redirects to today, app bar with controls)
