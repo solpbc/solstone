@@ -2,7 +2,6 @@
 
 import json
 import os
-import time
 from pathlib import Path
 from typing import Any
 
@@ -29,7 +28,7 @@ def send_message(body: str) -> dict[str, Any]:
 
     Returns:
         Dictionary containing either:
-        - success: True and message_id if the message was sent successfully
+        - success: True and agent_id if the message was sent successfully
         - error: Error message if sending failed
 
     Examples:
@@ -40,35 +39,44 @@ def send_message(body: str) -> dict[str, Any]:
     """
     try:
         load_dotenv()
-        journal = os.getenv("JOURNAL_PATH")
-        if not journal:
+        journal_path = os.getenv("JOURNAL_PATH")
+        if not journal_path:
             return {
                 "error": "JOURNAL_PATH not set",
                 "suggestion": "ensure JOURNAL_PATH environment variable is configured",
             }
 
-        timestamp = int(time.time() * 1000)
+        # Create a synthetic agent (just the agent JSONL file)
+        from muse.cortex_client import create_synthetic_agent
 
-        message = {
-            "timestamp": timestamp,
+        agent_id = create_synthetic_agent(result=body)
+
+        # Create chat metadata for this message
+        # Extract title from first line (up to 50 chars)
+        title = body.split("\n")[0][:50].strip()
+        if len(body.split("\n")[0]) > 50:
+            title += "..."
+
+        chat_record = {
+            "agent_id": agent_id,
+            "ts": int(agent_id),  # agent_id is already the timestamp
             "from": {"type": "agent", "id": "mcp_tool"},
-            "body": body,
-            "status": "unread",
+            "title": title,
+            "unread": True,
         }
 
-        # Create inbox directory if it doesn't exist
-        inbox_dir = Path(journal) / "apps" / "chat" / "inbox"
-        inbox_dir.mkdir(parents=True, exist_ok=True)
+        # Save chat metadata
+        chats_dir = Path(journal_path) / "apps" / "chat" / "chats"
+        chats_dir.mkdir(parents=True, exist_ok=True)
+        chat_file = chats_dir / f"{agent_id}.json"
 
-        # Write message file (named by timestamp like cortex agents)
-        message_path = inbox_dir / f"{timestamp}.json"
-        with open(message_path, "w", encoding="utf-8") as f:
-            json.dump(message, f, indent=2)
+        with open(chat_file, "w", encoding="utf-8") as f:
+            json.dump(chat_record, f, indent=2)
 
         return {
             "success": True,
-            "timestamp": timestamp,
-            "message": f"Message sent successfully to inbox (timestamp: {timestamp})",
+            "agent_id": agent_id,
+            "message": f"Message sent successfully to inbox (agent_id: {agent_id})",
         }
     except Exception as exc:
         return {

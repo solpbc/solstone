@@ -1,0 +1,10 @@
+{
+  "agent_id": "1764019955580",
+  "ts": 1764019955580,
+  "from": {
+    "type": "agent",
+    "id": "mcp_tool"
+  },
+  "title": "Verify storage location test",
+  "unread": true
+}

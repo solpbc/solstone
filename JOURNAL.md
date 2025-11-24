@@ -388,21 +388,31 @@ Apps typically use `config.json` for journal-specific settings and create subdir
 
 ### Chat App Storage
 
-The chat app uses `apps/chat/` for persistent storage:
+The chat app uses `apps/chat/chats/` to store metadata for all conversations, including both interactive agent chats and synthetic agent messages (alerts/notifications from background processes).
 
-- `apps/chat/chats/` – metadata for agent conversations
-- `apps/chat/inbox/` – agent messages and notifications
-
-Agent messages are stored as `apps/chat/inbox/<timestamp>.json` files (timestamp in milliseconds, like cortex agents) with the following structure:
-
+**Chat metadata** (`apps/chat/chats/<agent_id>.json`):
 ```json
 {
-  "timestamp": 1755450767962,
-  "from": {"type": "agent", "id": "mcp_tool"},
-  "body": "Message content in markdown format",
-  "status": "unread"
+  "agent_id": "1755450767962",
+  "ts": 1755450767962,
+  "facet": "work",
+  "title": "Quick Math Question",
+  "unread": true
 }
 ```
+
+Optional fields:
+- `from` – Sender info for synthetic agents: `{"type": "agent", "id": "mcp_tool"}`
+- `unread` – Boolean flag for unread status (used for badge counts)
+- `archived` – Boolean flag for archived status
+
+**Synthetic agents** are created by background processes using `muse.cortex_client.create_synthetic_agent()`. These appear as completed agents in the chat interface but only contain a single `finish` event:
+
+```jsonl
+{"event": "finish", "result": "Message content in markdown format", "ts": 1755450767962}
+```
+
+This unified approach allows users to reply to any message via the chat continue feature, treating messages and agent outputs identically in the UI.
 
 See **APPS.md** for app storage utilities and access patterns.
 

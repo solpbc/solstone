@@ -18,12 +18,6 @@ chat_bp = Blueprint(
     url_prefix="/app/chat",
 )
 
-# TODO Phase 2: Add inbox API routes
-# - GET /api/inbox/messages - list messages (with status filter)
-# - GET /api/inbox/message/<timestamp> - get specific message
-# - POST /api/inbox/message/<timestamp>/read - mark as read
-# - POST /api/inbox/message/<timestamp>/archive - mark as archived
-# - GET /api/inbox/badge-count - get unread count for app badge
 
 TITLE_SYSTEM_INSTRUCTION = (
     "Take the user provided text and come up with a three word title that "
@@ -131,16 +125,20 @@ def list_chats() -> Any:
     chats_dir = get_app_storage_path("chat", "chats", ensure_exists=False)
 
     chats = []
+    unread_count = 0
+
     if chats_dir.exists():
         for chat_file in chats_dir.glob("*.json"):
             chat_data = load_json(chat_file)
             if chat_data:
                 chats.append(chat_data)
+                if chat_data.get("unread", False):
+                    unread_count += 1
 
     # Sort by timestamp descending (most recent first)
     chats.sort(key=lambda c: c.get("ts", 0), reverse=True)
 
-    return jsonify(chats=chats)
+    return jsonify(chats=chats, unread_count=unread_count)
 
 
 @chat_bp.route("/api/agent/<agent_id>")
@@ -173,3 +171,55 @@ def clear_history() -> Any:
     """No-op since we use one-shot pattern with no persistent state."""
 
     return jsonify(ok=True)
+
+
+@chat_bp.route("/api/chat/<agent_id>/read", methods=["POST"])
+def mark_chat_read(agent_id: str) -> Any:
+    """Mark a chat as read by updating its metadata.
+
+    Args:
+        agent_id: The agent/chat ID
+
+    Returns:
+        Success status or error
+    """
+    try:
+        chats_dir = get_app_storage_path("chat", "chats", ensure_exists=False)
+        chat_file = chats_dir / f"{agent_id}.json"
+
+        if not chat_file.exists():
+            resp = jsonify({"error": f"Chat not found: {agent_id}"})
+            resp.status_code = 404
+            return resp
+
+        # Load, update, and save
+        chat_data = load_json(chat_file)
+        if chat_data:
+            chat_data["unread"] = False
+            save_json(chat_file, chat_data)
+
+        return jsonify({"success": True})
+
+    except Exception as e:
+        resp = jsonify({"error": str(e)})
+        resp.status_code = 500
+        return resp
+
+
+@chat_bp.route("/api/badge-count")
+def badge_count() -> Any:
+    """Get count of unread chats for app badge.
+
+    Returns:
+        Dictionary with unread count
+    """
+    chats_dir = get_app_storage_path("chat", "chats", ensure_exists=False)
+
+    unread_count = 0
+    if chats_dir.exists():
+        for chat_file in chats_dir.glob("*.json"):
+            chat_data = load_json(chat_file)
+            if chat_data and chat_data.get("unread", False):
+                unread_count += 1
+
+    return jsonify({"count": unread_count})

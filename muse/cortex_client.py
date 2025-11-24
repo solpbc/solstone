@@ -88,6 +88,48 @@ def cortex_request(
     return agent_id
 
 
+def create_synthetic_agent(result: str) -> str:
+    """Create a synthetic agent with only a finish event.
+
+    This is used for system-generated messages that appear as completed agents
+    but don't have thinking/tool use steps. The agent file contains a single
+    finish event with the result.
+
+    Apps using this should create their own metadata/records as needed.
+
+    Args:
+        result: The message content (will be the finish event result)
+
+    Returns:
+        Agent ID (timestamp-based string)
+    """
+    journal_path = os.environ.get("JOURNAL_PATH")
+    if not journal_path:
+        raise ValueError("JOURNAL_PATH environment variable not set")
+
+    # Create agents directory if it doesn't exist
+    agents_dir = Path(journal_path) / "agents"
+    agents_dir.mkdir(parents=True, exist_ok=True)
+
+    # Generate unique monotonic timestamp
+    global _last_ts
+    ts = int(time.time() * 1000)
+    if ts <= _last_ts:
+        ts = _last_ts + 1
+    _last_ts = ts
+    agent_id = str(ts)
+
+    # Create agent file with single finish event
+    agent_file = agents_dir / f"{agent_id}.jsonl"
+    finish_event = {"event": "finish", "result": result, "ts": ts}
+
+    with open(agent_file, "w", encoding="utf-8") as f:
+        json.dump(finish_event, f)
+        f.write("\n")
+
+    return agent_id
+
+
 def read_agent_events(agent_id: str) -> list[Dict[str, Any]]:
     """Read all events from an agent's JSONL log file.
 

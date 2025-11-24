@@ -1,0 +1,10 @@
+{
+  "agent_id": "1764019602551",
+  "ts": 1764019602551,
+  "from": {
+    "type": "agent",
+    "id": "mcp_tool"
+  },
+  "title": "Clean separation test - cortex creates agent, chat...",
+  "unread": true
+}
