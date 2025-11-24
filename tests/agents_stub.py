@@ -39,14 +39,14 @@ def install_agents_stub():
             return StreamResult(DummyRunner.events_to_stream)
 
     class DummySession:
-        """Minimal async session used by WorkaroundConversations."""
+        """Minimal async session used by SQLiteSession."""
 
-        def __init__(self, *_, conversation_id=None, **__):
+        def __init__(self, *_, conversation_id=None, session_id=None, **__):
             self._items: list[dict] = []
-            # Upstream stores the conversation id on both attributes;
-            # mirror that so callers can inspect either one.
-            self.conversation_id = conversation_id
-            self._session_id = conversation_id
+            # Support both conversation_id and session_id parameters
+            self.session_id = session_id or conversation_id or "test-session"
+            self.conversation_id = self.session_id
+            self._session_id = self.session_id
 
         async def get_items(self, limit=None):
             if limit is None:

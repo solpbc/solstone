@@ -48,10 +48,8 @@ def send_message(body: str) -> dict[str, Any]:
             }
 
         timestamp = int(time.time() * 1000)
-        message_id = f"msg_{timestamp}"
 
         message = {
-            "id": message_id,
             "timestamp": timestamp,
             "from": {"type": "agent", "id": "mcp_tool"},
             "body": body,
@@ -62,15 +60,15 @@ def send_message(body: str) -> dict[str, Any]:
         inbox_dir = Path(journal) / "apps" / "chat" / "inbox"
         inbox_dir.mkdir(parents=True, exist_ok=True)
 
-        # Write message file
-        message_path = inbox_dir / f"{message_id}.json"
+        # Write message file (named by timestamp like cortex agents)
+        message_path = inbox_dir / f"{timestamp}.json"
         with open(message_path, "w", encoding="utf-8") as f:
             json.dump(message, f, indent=2)
 
         return {
             "success": True,
-            "message_id": message_id,
-            "message": f"Message sent successfully to inbox (ID: {message_id})",
+            "timestamp": timestamp,
+            "message": f"Message sent successfully to inbox (timestamp: {timestamp})",
         }
     except Exception as exc:
         return {

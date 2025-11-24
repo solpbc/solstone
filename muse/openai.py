@@ -21,10 +21,8 @@ from urllib.parse import urlparse, urlunparse
 
 from agents import (
     Agent,
-    OpenAIConversationsSession,
     Runner,
-    Session,
-    TResponseInputItem,
+    SQLiteSession,
 )
 from agents.items import (
     MessageOutputItem,
@@ -55,47 +53,30 @@ from think.models import GPT_5
 from .agents import JSONEventCallback, ThinkingEvent
 
 
-class WorkaroundConversations(Session):
-    """Workaround for OpenAI Conversations API item validation issues."""
+def _convert_turns_to_items(turns: list[dict]) -> list[dict]:
+    """Convert turn history to OpenAI SDK item format.
 
-    def __init__(self, inner: Session):
-        self.inner = inner
-        # The OpenAIConversationsSession stores the conversation_id as _session_id
-        # We need to expose it as conversation_id for compatibility
+    Args:
+        turns: List of dicts with 'role' and 'content' keys
 
-    @property
-    def conversation_id(self):
-        """Get conversation_id from inner session."""
-        # Try direct conversation_id first
-        if hasattr(self.inner, "conversation_id"):
-            return self.inner.conversation_id
-        # Fall back to _session_id (internal storage in OpenAIConversationsSession)
-        if hasattr(self.inner, "_session_id"):
-            return self.inner._session_id
-        return None
+    Returns:
+        List of items in SDK format with type/role/content structure
+    """
+    items = []
+    for turn in turns:
+        role = turn.get("role")
+        content = turn.get("content", "")
 
-    async def get_items(self, limit=None):
-        return await self.inner.get_items(limit=limit)
+        if role in ("user", "assistant") and content:
+            items.append(
+                {
+                    "type": "message",
+                    "role": role,
+                    "content": [{"type": "text", "text": content}],
+                }
+            )
 
-    async def add_items(self, items: list[TResponseInputItem]) -> None:
-        cleaned = []
-        for it in items:
-            if it.get("type") == "message" and it.get("role") in ("user", "assistant"):
-                parts = it.get("content") or []
-                text_parts = [
-                    p
-                    for p in parts
-                    if p.get("type") == "text" and isinstance(p.get("text"), str)
-                ]
-                if text_parts:
-                    cleaned.append(
-                        {"type": "message", "role": it["role"], "content": text_parts}
-                    )
-        if cleaned:
-            await self.inner.add_items(cleaned)
-
-    async def pop_item(self):
-        return await self.inner.pop_item()
+    return items
 
 
 # Default values are now handled internally
@@ -278,14 +259,27 @@ async def run_agent(
     # Accumulate streamed text chunks as a fallback (if final_output missing)
     streamed_text: list[str] = []
 
-    # Create base session
-    base_session = (
-        OpenAIConversationsSession(conversation_id=conversation_id_in)
-        if conversation_id_in
-        else OpenAIConversationsSession()
+    # Create session and load history if continuing conversation
+    session_id = conversation_id_in or config.get(
+        "agent_id", f"session-{int(time.time())}"
     )
-    # Wrap with workaround to filter invalid items
-    session = WorkaroundConversations(base_session)
+    session = SQLiteSession(session_id=session_id, db_path=":memory:")
+
+    # Load conversation history if continuing
+    if conversation_id_in:
+        from .agents import parse_agent_events_to_turns
+
+        turns = parse_agent_events_to_turns(conversation_id_in)
+        if turns:
+            items = _convert_turns_to_items(turns)
+            await session.add_items(items)
+    else:
+        # Fresh conversation - add extra_context as first user message if provided
+        if extra_context:
+            initial_items = _convert_turns_to_items(
+                [{"role": "user", "content": extra_context}]
+            )
+            await session.add_items(initial_items)
 
     try:
         # Handle MCP server context manager conditionally
@@ -306,7 +300,7 @@ async def run_agent(
             mcp_servers_list = [mcp_server] if mcp_server else []
             agent = Agent(
                 name="SunstoneCLI",
-                instructions=f"{system_instruction}\n\n{extra_context}".strip(),
+                instructions=system_instruction,
                 model=model,
                 model_settings=model_settings,
                 mcp_servers=mcp_servers_list,
@@ -444,16 +438,8 @@ async def run_agent(
             if not isinstance(final_text, str) or not final_text:
                 final_text = "".join(streamed_text)
 
-            # Get conversation_id from various possible sources
-            conversation_id_out = (
-                getattr(session, "conversation_id", None)
-                or getattr(
-                    session, "_session_id", None
-                )  # Internal field in OpenAIConversationsSession
-                or getattr(result, "conversation_id", None)
-                or getattr(result, "_session_id", None)
-                or conversation_id_in
-            )
+            # Get conversation_id from session
+            conversation_id_out = session.session_id
 
             # Extract usage information from result
             usage = getattr(getattr(result, "context_wrapper", None), "usage", None)

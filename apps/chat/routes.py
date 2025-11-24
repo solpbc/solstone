@@ -18,6 +18,13 @@ chat_bp = Blueprint(
     url_prefix="/app/chat",
 )
 
+# TODO Phase 2: Add inbox API routes
+# - GET /api/inbox/messages - list messages (with status filter)
+# - GET /api/inbox/message/<timestamp> - get specific message
+# - POST /api/inbox/message/<timestamp>/read - mark as read
+# - POST /api/inbox/message/<timestamp>/archive - mark as archived
+# - GET /api/inbox/badge-count - get unread count for app badge
+
 TITLE_SYSTEM_INSTRUCTION = (
     "Take the user provided text and come up with a three word title that "
     "concisely but uniquely identifies the user's request for quick reference "

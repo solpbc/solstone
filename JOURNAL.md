@@ -61,7 +61,6 @@ Sunstone transforms raw recordings into actionable understanding through a three
 - `config/journal.json` – user configuration for the journal (optional, see below).
 - `config/convey.json` – Convey UI preferences (facet/app ordering, selected facet).
 - `facets/` – facet-specific organization folders described below.
-- `inbox/` – asynchronous messaging system for agent communications described below.
 - `tokens/` – token usage logs from AI model calls, organized by day (see below).
 - `apps/` – app-specific storage for configuration and data (see below).
 - `YYYYMMDD/` – individual day folders described below.
@@ -342,73 +341,6 @@ All todo operations require both `day` and `facet` parameters:
 
 This facet-scoped structure provides true separation of concerns while keeping manual editing simple and enabling automated tools to manage tasks deterministically.
 
-## Inbox
-
-The `inbox/` directory provides an asynchronous messaging system where agents and automated processes can leave messages for user review. Messages are organized in active and archived subdirectories.
-
-### Inbox structure
-
-The inbox is organized as follows:
-
-- `inbox/active/` – directory containing unread and active messages
-- `inbox/archived/` – directory containing archived messages
-- `inbox/activity_log.jsonl` – chronological log of inbox activities
-
-### Message files
-
-Each message is stored as a single JSON file named `msg_<timestamp>.json` where `<timestamp>` is epoch milliseconds (e.g., `msg_1755450767962.json`).
-
-Message files can exist in either:
-- `inbox/active/msg_<timestamp>.json` – for active/unread messages
-- `inbox/archived/msg_<timestamp>.json` – for archived messages
-
-### Message format
-
-Each message JSON file contains:
-
-```json
-{
-  "id": "msg_1755450767962",
-  "timestamp": 1755450767962,
-  "from": {
-    "type": "agent",
-    "id": "research_agent"
-  },
-  "body": "Message content in plain text or markdown format",
-  "status": "unread",
-  "context": {
-    "facet": "ml_research",
-    "day": "20250117"
-  }
-}
-```
-
-Required fields:
-- `id` – unique message identifier matching the filename
-- `timestamp` – epoch milliseconds when the message was created
-- `from` – sender information with `type` (agent/system/facet) and `id`
-- `body` – message content as text or markdown
-- `status` – message state (unread/read/archived)
-
-Optional fields:
-- `context` – reference to related journal entities (facet, day)
-
-### Inbox activity log
-
-The `inbox/activity_log.jsonl` file tracks all inbox operations in JSON Lines format:
-
-```json
-{"timestamp": 1755450767962, "action": "received", "message_id": "msg_1755450767962", "from": "research_agent"}
-{"timestamp": 1755450768000, "action": "read", "message_id": "msg_1755450767962"}
-{"timestamp": 1755450769000, "action": "archived", "message_id": "msg_1755450767962"}
-```
-
-Common actions include:
-- `received` – new message created
-- `read` – message marked as read
-- `archived` – message moved to archive
-- `deleted` – message removed
-
 ## Token Usage
 
 The `tokens/` directory tracks token usage from all AI model calls across the system. Usage data is organized by day as `tokens/YYYYMMDD.jsonl` where each file contains JSON Lines entries for that day's API calls.
@@ -453,6 +385,24 @@ The logging system normalizes provider-specific formats (OpenAI, Gemini, Anthrop
 The `apps/` directory provides storage space for Convey apps to persist configuration, data, and artifacts specific to this journal. Each app has its own directory at `apps/<app_name>/` where it can maintain app-specific state independent of the application codebase.
 
 Apps typically use `config.json` for journal-specific settings and create subdirectories for data storage (e.g., `cache/`, `data/`, `logs/`). This is distinct from the app metadata file (`apps/<app>/app.json` in the codebase) which defines icon, label, and facet support across all journals.
+
+### Chat App Storage
+
+The chat app uses `apps/chat/` for persistent storage:
+
+- `apps/chat/chats/` – metadata for agent conversations
+- `apps/chat/inbox/` – agent messages and notifications
+
+Agent messages are stored as `apps/chat/inbox/<timestamp>.json` files (timestamp in milliseconds, like cortex agents) with the following structure:
+
+```json
+{
+  "timestamp": 1755450767962,
+  "from": {"type": "agent", "id": "mcp_tool"},
+  "body": "Message content in markdown format",
+  "status": "unread"
+}
+```
 
 See **APPS.md** for app storage utilities and access patterns.
 
