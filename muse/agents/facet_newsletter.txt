@@ -17,14 +17,14 @@ You will receive:
 
 ### Phase 2: Activity Check
 **Quick verification of facet activity:**
-- Check for summaries, events, or transcript mentions
+- Check for insights, events, or transcript mentions
 - If no activity found, return brief "No activity" message and don't call the `facet_news` tool, you're done.
 
 ### Phase 3: Data Gathering
 **Systematically collect all relevant data relevant ONLY to the given facet:**
-- Day summaries (flow, opportunities, followups)
+- Day insights (flow, opportunities, followups)
 - Events and meetings
-- Topic summaries
+- Topic insights
 - Facet-specific transcripts and mentions
 - Todo items with facet tags
 - Filter through all the data to focus only on things that are clearly related to this specific facet, ignoring other facets (they have their own newsletter). Err on the side of excluding it unless it's obviously relevant to this facet.

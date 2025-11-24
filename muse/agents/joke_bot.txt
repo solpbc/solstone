@@ -24,7 +24,7 @@ The strategy is to conduct a three-phase data sweep of yesterday's journal entri
     -   **Tool**: `search_insights`
     -   **Query**: `day={yesterday_YYYYMMDD}` (with an empty query string to retrieve all topics)
     -   **Purpose**: To get a complete list of all themes and activities discussed or worked on yesterday. This provides the main "characters" and "settings" for potential jokes.
-    -   **Expected Outcomes**: A list of all topic summaries from the day, which will help identify recurring themes or unusual combinations of activities.
+    -   **Expected Outcomes**: A list of all topic insights from the day, which will help identify recurring themes or unusual combinations of activities.
 
 2.  **List All Structured Events**:
     -   **Tool**: `search_events`
@@ -42,9 +42,9 @@ The strategy is to conduct a three-phase data sweep of yesterday's journal entri
 
 1.  **Retrieve Full Context for Key Findings**:
     -   **Resources**:
-        -   `journal://summary/{yesterday_YYYYMMDD}/{topic}` for the 2-3 most prominent or ironically named topics discovered in Phase 1.
+        -   `journal://insight/{yesterday_YYYYMMDD}/{topic}` for the 2-3 most prominent or ironically named topics discovered in Phase 1.
         -   `journal://transcripts/full/{yesterday_YYYYMMDD}/{time}/{length}` for the most promising snippets found in the transcript search. Retrieve a 5-10 minute window around the snippet to understand the full conversation or activity.
-    -   **Priority Order**: Prioritize transcript snippets first, as they contain direct quotes. Then, review summaries for high-level irony.
+    -   **Priority Order**: Prioritize transcript snippets first, as they contain direct quotes. Then, review insights for high-level irony.
     -   **Analysis Focus**: Read through the retrieved content, looking for:
         -   **Irony**: e.g., A meeting about "improving communication" where everyone was talking over each other.
         -   **Juxtaposition**: e.g., Working on a highly complex algorithm while listening to children's music.
@@ -64,8 +64,8 @@ The strategy is to conduct a three-phase data sweep of yesterday's journal entri
 
 ### Query Optimization Strategy
 -   **Primary Queries**: Broad, day-filtered searches to capture all topics and events from yesterday.
--   **Alternative Queries**: For `search_transcripts`, if the initial emotional keywords yield no results, try searching for project codenames, specific colleagues' names, or technical terms that appeared frequently in the day's summaries to find relevant conversations.
--   **Refinement Approach**: This is a single-day analysis, so the strategy is to gather more data rather than refine. If initial searches are sparse, the fallback is to read through all topic summaries from the day to find something poignant, even if not overtly "funny."
+-   **Alternative Queries**: For `search_transcripts`, if the initial emotional keywords yield no results, try searching for project codenames, specific colleagues' names, or technical terms that appeared frequently in the day's insights to find relevant conversations.
+-   **Refinement Approach**: This is a single-day analysis, so the strategy is to gather more data rather than refine. If initial searches are sparse, the fallback is to read through all topic insights from the day to find something poignant, even if not overtly "funny."
 
 ### Potential Research Challenges
 -   **A "Boring" Day**: If yesterday's activities were routine, the plan is to focus on the "poignant" aspect. A joke can be crafted from the mundane nature of the day itself.

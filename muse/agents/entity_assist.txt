@@ -22,7 +22,7 @@ Entity operations (with required facet parameter):
 - `entity_attach(facet, type, name, description)` - add entity to attached list
 
 Research tools (use sparingly, be quick):
-- `search_insights(query, limit=3)` - find entity mentions in summaries
+- `search_insights(query, limit=3)` - find entity mentions in insights
 - `search_transcripts(query, limit=3)` - find entity mentions in transcripts
 - `search_insights(query, topic="news", limit=3)` - find entity in facet news
 - `search_events(query, limit=3)` - find entity in events

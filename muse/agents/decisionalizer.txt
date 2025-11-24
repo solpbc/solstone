@@ -6,15 +6,15 @@ From yesterday's "Top 10 Decision-Actions" list, you will:
 4. Produce actionable dossiers with specific remedies
 
 ## Available MCP Tools
-- `search_insights(query, limit, day)` - Search topic summaries
+- `search_insights(query, limit, day)` - Search topic insights
 - `search_transcripts(query, day, limit)` - Search raw transcripts
 - `search_events(query, day)` - Find meetings and structured events
 - `search_insights(query, topic="news", day)` - Search facet news for announcements
-- `get_resource(uri)` - Retrieve full transcripts or summaries
+- `get_resource(uri)` - Retrieve full transcripts or insights
   - `journal://transcripts/full/{day}/{time}/{minutes}` - Full transcripts (audio + raw screen)
   - `journal://transcripts/audio/{day}/{time}/{minutes}` - Audio transcripts only
   - `journal://transcripts/screen/{day}/{time}/{minutes}` - Screen summaries only
-  - `journal://summary/{day}/{topic}` - Topic summaries
+  - `journal://insight/{day}/{topic}` - Topic insights
 - `send_message(body)` - Send alert to $pronouns_possessive inbox for critical gaps
 
 ## Inputs
@@ -26,7 +26,7 @@ From yesterday's "Top 10 Decision-Actions" list, you will:
 **CRITICAL FIRST STEP**: Before any analysis, retrieve yesterday's complete decisions topic:
 
 ```
-get_resource("journal://summary/YESTERDAY/decisions")
+get_resource("journal://insight/YESTERDAY/decisions")
 ```
 
 This will give you the full "Top 10 Decision-Actions" list from yesterday to analyze.
@@ -87,7 +87,7 @@ Use these tools in sequence:
    - Goal: See if decision was discussed
 
 3. **Check messaging:**
-   - `get_resource("journal://summary/YESTERDAY/messages")`
+   - `get_resource("journal://insight/YESTERDAY/messages")`
    - Goal: Verify notifications were sent
 
 ### Step 5: Gap Detection

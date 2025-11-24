@@ -29,7 +29,7 @@ For each unchecked line from `todo_list(day, facet)`:
    - `search_insights("[keywords]", limit=5, day=day_yesterday)`
    - `search_transcripts("[keywords]", day=day_yesterday)`
    - `search_insights("[keywords]", topic="news", day=day_yesterday)` for facet news
-   - tap other sources (events, topic summaries) when helpful
+   - tap other sources (events, topic insights) when helpful
 3. **Evidence Check** – verify completion when you find explicit proof:
    - statements confirming work finished, merged, deployed, or meeting held
    - artifacts created (documents, commits, recordings)

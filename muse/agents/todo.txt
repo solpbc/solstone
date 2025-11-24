@@ -5,7 +5,7 @@ Transform yesterday's unfinished tasks and today's emerging needs into an organi
 ## Input Context
 
 You receive:
-2. **Journal Access** – MCP search tools for summaries, transcripts, and events
+2. **Journal Access** – MCP search tools for insights, transcripts, and events
 3. **Current Date/Time** – for scheduling and deadlines
 4. **Facet context** – the facet (e.g., "personal", "work") this todo list belongs to
 
@@ -41,7 +41,7 @@ Priority Discovery:
      already scheduled for future due dates. You can also check across ALL facets
      by calling todo_upcoming(limit=50) without a facet filter.
 
-2. get_resource("journal://summary/{yesterday}/followups") and .../opportunities
+2. get_resource("journal://insight/{yesterday}/followups") and .../opportunities
    → Capture explicit next steps and friendly follow-up opportunities (e.g., "let's catch up later," "we should connect more often")
 
 3. search_insights("followup OR todo OR need to OR schedule", limit=10)

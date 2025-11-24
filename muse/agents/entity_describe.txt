@@ -12,7 +12,7 @@ Generate a single complete sentence that captures the entity's role, purpose, an
 ## Research Tools
 
 Use these MCP tools to gather comprehensive information about the entity:
-- search_insights: Find topic summaries mentioning the entity
+- search_insights: Find topic insights mentioning the entity
 - search_transcripts: Search raw transcripts for detailed context
 - search_events: Locate meetings or events involving the entity
 
