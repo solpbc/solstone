@@ -1,0 +1,43 @@
+{# Chat app background service - manages badge and submenu for unread messages #}
+{# Python code will pass unread_chats and unread_count via template context #}
+
+AppServices.register('chat', {
+  unreadCount: {{ unread_count|default(0) }},
+
+  initialize() {
+    // Set badge from server data
+    if (this.unreadCount > 0) {
+      AppServices.badges.app.set('chat', this.unreadCount);
+    }
+
+    // Set submenu from server data
+    {% if unread_chats %}
+    AppServices.submenus.set('chat', [
+      {% for chat in unread_chats %}
+      {
+        id: '{{ chat.agent_id }}',
+        label: {{ chat.title|tojson }},
+        href: '/app/chat?open={{ chat.agent_id }}',
+        badge: '●',
+        order: {{ loop.index0 }}
+      }{{ ',' if not loop.last else '' }}
+      {% endfor %}
+    ]);
+    {% endif %}
+  },
+
+  // Called from workspace when user marks message as read
+  markRead(agentId) {
+    this.unreadCount = Math.max(0, this.unreadCount - 1);
+
+    // Update badge
+    if (this.unreadCount > 0) {
+      AppServices.badges.app.set('chat', this.unreadCount);
+    } else {
+      AppServices.badges.app.clear('chat');
+    }
+
+    // Remove from submenu
+    AppServices.submenus.remove('chat', agentId);
+  }
+});

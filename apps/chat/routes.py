@@ -5,7 +5,7 @@ import os
 import time
 from typing import Any
 
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, jsonify, render_template, request
 
 from apps.utils import get_app_storage_path
 from convey.config import get_selected_facet
@@ -17,6 +17,34 @@ chat_bp = Blueprint(
     __name__,
     url_prefix="/app/chat",
 )
+
+
+@chat_bp.route("/")
+def index():
+    """Chat app index - computes unread data for background template."""
+    # Load unread chats for badge and submenu
+    chats_dir = get_app_storage_path("chat", "chats", ensure_exists=False)
+
+    unread_chats = []
+    unread_count = 0
+
+    if chats_dir.exists():
+        for chat_file in chats_dir.glob("*.json"):
+            chat_data = load_json(chat_file)
+            if chat_data and chat_data.get("unread"):
+                unread_chats.append(chat_data)
+                unread_count += 1
+
+    # Sort by timestamp desc, take top 10
+    unread_chats.sort(key=lambda c: c.get("ts", 0), reverse=True)
+    unread_chats = unread_chats[:10]
+
+    return render_template(
+        "app.html",
+        app="chat",
+        unread_chats=unread_chats,
+        unread_count=unread_count,
+    )
 
 
 TITLE_SYSTEM_INSTRUCTION = (
@@ -206,20 +234,3 @@ def mark_chat_read(agent_id: str) -> Any:
         return resp
 
 
-@chat_bp.route("/api/badge-count")
-def badge_count() -> Any:
-    """Get count of unread chats for app badge.
-
-    Returns:
-        Dictionary with unread count
-    """
-    chats_dir = get_app_storage_path("chat", "chats", ensure_exists=False)
-
-    unread_count = 0
-    if chats_dir.exists():
-        for chat_file in chats_dir.glob("*.json"):
-            chat_data = load_json(chat_file)
-            if chat_data and chat_data.get("unread", False):
-                unread_count += 1
-
-    return jsonify({"count": unread_count})

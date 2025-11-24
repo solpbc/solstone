@@ -259,6 +259,22 @@
   font-size: 0.85em;
   font-style: italic;
 }
+
+/* Unread styling */
+.recent-chat-item.unread {
+  background: #e3f2fd;
+  border-left: 3px solid #2196f3;
+  font-weight: 600;
+}
+
+.unread-indicator {
+  width: 8px;
+  height: 8px;
+  background: #2196f3;
+  border-radius: 50%;
+  display: inline-block;
+  margin-right: 8px;
+}
 </style>
 
 <div class="workspace-content">
@@ -298,7 +314,13 @@ function getFilteredChats(facet) {
   if (facet !== null) {
     filtered = allChats.filter(c => c.facet === facet);
   }
-  return filtered.slice(0, 5);
+  // Sort: unread first, then by timestamp
+  return filtered
+    .sort((a, b) => {
+      if (a.unread !== b.unread) return a.unread ? -1 : 1;
+      return b.ts - a.ts;
+    })
+    .slice(0, 5);
 }
 
 // Render recent chats panel
@@ -326,6 +348,12 @@ function renderRecentChats() {
     for (const chat of chats) {
       const item = document.createElement('div');
       item.className = 'recent-chat-item';
+      if (chat.unread) {
+        item.classList.add('unread');
+        const dot = document.createElement('span');
+        dot.className = 'unread-indicator';
+        item.appendChild(dot);
+      }
       item.onclick = () => loadRecentChat(chat.agent_id);
 
       const time = document.createElement('div');
@@ -351,6 +379,23 @@ function renderRecentChats() {
 async function loadRecentChat(agentId) {
   hideRecentChats();
   await loadAgent(agentId);
+
+  // Mark as read on server
+  try {
+    await fetch(`/app/chat/api/chat/${agentId}/read`, { method: 'POST' });
+
+    // Update local state
+    const chat = allChats.find(c => c.agent_id === agentId);
+    if (chat) chat.unread = false;
+
+    // Decrement badge and remove from submenu
+    if (window.AppServices?.services?.chat) {
+      window.AppServices.services.chat.markRead(agentId);
+    }
+  } catch (err) {
+    console.error('Failed to mark as read:', err);
+  }
+
   messagesDiv.scrollTop = messagesDiv.scrollHeight;
 }
 
@@ -443,9 +488,23 @@ function initAppBarControls() {
 
 // Initialize when DOM is ready
 if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', initAppBarControls);
+  document.addEventListener('DOMContentLoaded', () => {
+    initAppBarControls();
+    initUrlParams();
+  });
 } else {
   initAppBarControls();
+  initUrlParams();
+}
+
+// Check for URL parameters like ?open=<agent_id>
+function initUrlParams() {
+  const urlParams = new URLSearchParams(window.location.search);
+  const openAgentId = urlParams.get('open');
+  if (openAgentId) {
+    // Wait for chats to load, then open
+    setTimeout(() => loadRecentChat(openAgentId), 500);
+  }
 }
 
 // Deduplication using agent_id:ts as key
