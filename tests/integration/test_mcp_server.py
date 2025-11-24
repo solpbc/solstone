@@ -71,7 +71,7 @@ async def test_mcp_server_tool_registration(integration_journal_path):
         try:
             templates = await mcp.get_resource_templates()
             template_uris = [t.uriTemplate for t in templates]
-            assert any("journal://summary" in uri for uri in template_uris)
+            assert any("journal://insight" in uri for uri in template_uris)
             assert any("journal://transcripts" in uri for uri in template_uris)
         except AttributeError:
             # Older FastMCP version, skip resource check
@@ -79,7 +79,7 @@ async def test_mcp_server_tool_registration(integration_journal_path):
     else:
         # Verify key resources are present
         resource_uris = [r.uri for r in resources]
-        assert any("journal://summary" in uri for uri in resource_uris)
+        assert any("journal://insight" in uri for uri in resource_uris)
         assert any("journal://transcripts" in uri for uri in resource_uris)
 
 

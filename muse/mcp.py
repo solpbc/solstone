@@ -41,7 +41,6 @@ TOOL_PACKS = {
         "search_transcripts",
         "search_events",
         "get_facet",
-        "send_message",
         "get_resource",
     ],
     "todo": [
@@ -66,7 +65,7 @@ TOOL_PACKS = {
 
 # Import and register tool modules
 # These imports trigger the registration of tools via the @register_tool decorator
-from muse.tools import entities, facets, messaging, search, todo
+from muse.tools import entities, facets, search, todo
 
 # Register todo tools
 todo_list = register_tool(annotations=HINTS)(todo.todo_list)
@@ -91,12 +90,13 @@ entity_add_aka = register_tool(annotations=HINTS)(entities.entity_add_aka)
 get_facet = register_tool(annotations=HINTS)(facets.get_facet)
 facet_news = register_tool(annotations=HINTS)(facets.facet_news)
 
-# Register messaging tools
-send_message = register_tool(annotations=HINTS)(messaging.send_message)
-get_resource = register_tool(annotations=HINTS)(messaging.get_resource)
+# Register resource tool (get_resource moved from messaging)
+from muse.tools.messaging import get_resource as get_resource_impl
+
+get_resource = register_tool(annotations=HINTS)(get_resource_impl)
 
 # Import resource modules - these self-register via @mcp.resource decorators
-from muse.resources import media, summaries, todos, transcripts  # noqa: F401
+from muse.resources import insights, media, todos, transcripts  # noqa: F401
 
 
 # Phase 2: App-level tool discovery
