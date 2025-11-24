@@ -544,9 +544,9 @@ def toggle_insight(insight_id: str) -> object:
 
 @agents_bp.route("/api/tools")
 def available_tools() -> object:
-    """Return list of available MCP tools from muse.mcp_tools."""
+    """Return list of available MCP tools from muse.mcp."""
     try:
-        from muse.mcp_tools import TOOL_PACKS, mcp
+        from muse.mcp import TOOL_PACKS, mcp
 
         # Get all tools asynchronously
         async def get_all_tools():

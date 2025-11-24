@@ -1,17 +1,13 @@
 from unittest.mock import MagicMock, patch
 
-import muse.mcp_tools as mcp_tools
+import muse.mcp as mcp_tools
 
 
 def test_todo_list_success_returns_numbered_markdown():
     mock_checklist = MagicMock()
     mock_checklist.numbered.return_value = "1: - [ ] Investigate"
 
-    with patch.object(
-        mcp_tools.todo.TodoChecklist,
-        "load",
-        return_value=mock_checklist,
-    ) as load_mock:
+    with patch("think.todo.TodoChecklist.load", return_value=mock_checklist) as load_mock:
         result = mcp_tools.todo_list("20240101", "test")
 
     load_mock.assert_called_once_with("20240101", "test")
@@ -36,9 +32,9 @@ def test_entity_add_aka_success():
     ]
 
     with (
-        patch("muse.mcp_tools.load_entities") as mock_load,
-        patch("muse.mcp_tools.save_entities") as mock_save,
-        patch("muse.mcp_tools.is_valid_entity_type") as mock_validate,
+        patch("muse.tools.entities.load_entities") as mock_load,
+        patch("muse.tools.entities.save_entities") as mock_save,
+        patch("muse.tools.entities.is_valid_entity_type") as mock_validate,
     ):
         mock_validate.return_value = True
         mock_load.return_value = mock_entities
@@ -72,9 +68,9 @@ def test_entity_add_aka_duplicate():
     ]
 
     with (
-        patch("muse.mcp_tools.load_entities") as mock_load,
-        patch("muse.mcp_tools.save_entities") as mock_save,
-        patch("muse.mcp_tools.is_valid_entity_type") as mock_validate,
+        patch("muse.tools.entities.load_entities") as mock_load,
+        patch("muse.tools.entities.save_entities") as mock_save,
+        patch("muse.tools.entities.is_valid_entity_type") as mock_validate,
     ):
         mock_validate.return_value = True
         mock_load.return_value = mock_entities
@@ -100,9 +96,9 @@ def test_entity_add_aka_initialize_aka_list():
     ]
 
     with (
-        patch("muse.mcp_tools.load_entities") as mock_load,
-        patch("muse.mcp_tools.save_entities") as mock_save,
-        patch("muse.mcp_tools.is_valid_entity_type") as mock_validate,
+        patch("muse.tools.entities.load_entities") as mock_load,
+        patch("muse.tools.entities.save_entities") as mock_save,
+        patch("muse.tools.entities.is_valid_entity_type") as mock_validate,
     ):
         mock_validate.return_value = True
         mock_load.return_value = mock_entities
@@ -123,7 +119,7 @@ def test_entity_add_aka_initialize_aka_list():
 
 def test_entity_add_aka_invalid_type():
     """Test adding aka with invalid entity type."""
-    with patch("muse.mcp_tools.is_valid_entity_type") as mock_validate:
+    with patch("muse.tools.entities.is_valid_entity_type") as mock_validate:
         mock_validate.return_value = False
         result = mcp_tools.entity_add_aka("work", "XY", "PostgreSQL", "PG")
 
@@ -139,8 +135,8 @@ def test_entity_add_aka_entity_not_found():
     ]
 
     with (
-        patch("muse.mcp_tools.load_entities") as mock_load,
-        patch("muse.mcp_tools.is_valid_entity_type") as mock_validate,
+        patch("muse.tools.entities.load_entities") as mock_load,
+        patch("muse.tools.entities.is_valid_entity_type") as mock_validate,
     ):
         mock_validate.return_value = True
         mock_load.return_value = mock_entities
@@ -154,8 +150,8 @@ def test_entity_add_aka_entity_not_found():
 def test_entity_add_aka_runtime_error():
     """Test entity_add_aka when JOURNAL_PATH not set."""
     with (
-        patch("muse.mcp_tools.load_entities") as mock_load,
-        patch("muse.mcp_tools.is_valid_entity_type") as mock_validate,
+        patch("muse.tools.entities.load_entities") as mock_load,
+        patch("muse.tools.entities.is_valid_entity_type") as mock_validate,
     ):
         mock_validate.return_value = True
         mock_load.side_effect = RuntimeError("JOURNAL_PATH not set")
@@ -177,9 +173,9 @@ def test_entity_add_aka_skip_first_word():
     ]
 
     with (
-        patch("muse.mcp_tools.load_entities") as mock_load,
-        patch("muse.mcp_tools.save_entities") as mock_save,
-        patch("muse.mcp_tools.is_valid_entity_type") as mock_validate,
+        patch("muse.tools.entities.load_entities") as mock_load,
+        patch("muse.tools.entities.save_entities") as mock_save,
+        patch("muse.tools.entities.is_valid_entity_type") as mock_validate,
     ):
         mock_validate.return_value = True
         mock_load.return_value = mock_entities
@@ -207,9 +203,9 @@ def test_entity_add_aka_skip_first_word_case_insensitive():
     ]
 
     with (
-        patch("muse.mcp_tools.load_entities") as mock_load,
-        patch("muse.mcp_tools.save_entities") as mock_save,
-        patch("muse.mcp_tools.is_valid_entity_type") as mock_validate,
+        patch("muse.tools.entities.load_entities") as mock_load,
+        patch("muse.tools.entities.save_entities") as mock_save,
+        patch("muse.tools.entities.is_valid_entity_type") as mock_validate,
     ):
         mock_validate.return_value = True
         mock_load.return_value = mock_entities
@@ -233,9 +229,9 @@ def test_entity_add_aka_skip_first_word_with_parens():
     ]
 
     with (
-        patch("muse.mcp_tools.load_entities") as mock_load,
-        patch("muse.mcp_tools.save_entities") as mock_save,
-        patch("muse.mcp_tools.is_valid_entity_type") as mock_validate,
+        patch("muse.tools.entities.load_entities") as mock_load,
+        patch("muse.tools.entities.save_entities") as mock_save,
+        patch("muse.tools.entities.is_valid_entity_type") as mock_validate,
     ):
         mock_validate.return_value = True
         mock_load.return_value = mock_entities
@@ -259,9 +255,9 @@ def test_entity_add_aka_not_first_word():
     ]
 
     with (
-        patch("muse.mcp_tools.load_entities") as mock_load,
-        patch("muse.mcp_tools.save_entities") as mock_save,
-        patch("muse.mcp_tools.is_valid_entity_type") as mock_validate,
+        patch("muse.tools.entities.load_entities") as mock_load,
+        patch("muse.tools.entities.save_entities") as mock_save,
+        patch("muse.tools.entities.is_valid_entity_type") as mock_validate,
     ):
         mock_validate.return_value = True
         mock_load.return_value = mock_entities

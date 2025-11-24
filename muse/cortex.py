@@ -94,7 +94,7 @@ class CortexService:
         if self.mcp_thread and self.mcp_thread.is_alive():
             return
 
-        from muse.mcp_tools import mcp
+        from muse.mcp import mcp
 
         host = os.getenv("SUNSTONE_MCP_HOST", "127.0.0.1")
         port = int(os.getenv("SUNSTONE_MCP_PORT", "6270"))
@@ -269,7 +269,7 @@ class CortexService:
                 return
 
             # Load persona and merge with request
-            from muse.mcp_tools import get_tools
+            from muse.mcp import get_tools
             from think.utils import get_agent
 
             persona = request.get("persona", "default")

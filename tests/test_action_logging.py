@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from muse.mcp_tools import (
+from muse.mcp import (
     entity_attach,
     entity_detect,
     todo_add,

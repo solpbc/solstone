@@ -80,7 +80,9 @@ def send_message() -> Any:
 
         # Enhance prompt with facet focus if selected
         if facet:
-            full_prompt = f"Focus on the `{facet}` facet and answer this request: {full_prompt}"
+            full_prompt = (
+                f"Focus on the `{facet}` facet and answer this request: {full_prompt}"
+            )
 
         # Create agent request - events will be broadcast by shared watcher
         agent_id = spawn_agent(

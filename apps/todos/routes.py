@@ -442,12 +442,14 @@ def move_todo(day: str):  # type: ignore[override]
 
     redirect_url = url_for("app:todos.todos_day", day=target_day)
     counts = _compute_badge_counts(day, facet)
-    return jsonify({
-        "status": "ok",
-        "redirect": redirect_url,
-        "target_day": target_day,
-        **counts,
-    })
+    return jsonify(
+        {
+            "status": "ok",
+            "redirect": redirect_url,
+            "target_day": target_day,
+            **counts,
+        }
+    )
 
 
 @todos_bp.route("/<day>/generate", methods=["POST"])
