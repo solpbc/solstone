@@ -111,11 +111,22 @@
 let tabs = Array.from(document.querySelectorAll('.tab'));
 const contents = document.querySelectorAll('.content');
 const day = '{{ day }}';
-let events = [];
+let allEvents = [];  // Store all events from API
+let events = [];     // Filtered events for display
 const COLORS = window.CATEGORY_COLORS;
 let topicColors = {};
 // initialize colors from tab data
 tabs.forEach(t => { if(t.dataset.color){ topicColors[t.dataset.target] = t.dataset.color; } });
+
+function filterEventsByFacet(eventList) {
+  const facet = window.selectedFacet;
+  if (!facet) {
+    // All-facet mode: show all events
+    return eventList;
+  }
+  // Filter to only events matching selected facet
+  return eventList.filter(e => e.facet === facet);
+}
 
 function colorTabs(){
   tabs.forEach(t => {
@@ -313,6 +324,9 @@ function openModal(idx){
     const len = fmtLength(occ.startTime, occ.endTime);
     html += `<div class="occ-field"><strong>Started</strong> ${when} - ${len}</div>`;
   }
+  if(occ.facet){
+    html += `<div class="occ-field"><strong>Facet</strong> ${escapeHtml(occ.facet)}</div>`;
+  }
   if(Array.isArray(occ.participants) && occ.participants.length>1){
     html += `<div class="occ-field"><strong>Participants</strong> ${escapeHtml(occ.participants.join(', '))}</div>`;
   }
@@ -324,20 +338,30 @@ function openModal(idx){
   document.getElementById('eventModal').style.display='block';
 }
 
+function applyFacetFilter(){
+  events = filterEventsByFacet(allEvents);
+  const topicsList = renderEvents(events);
+  orderTabs(topicsList);
+  colorTabs();
+}
+
 function loadEvents(){
   fetch('/app/calendar/api/day/{{ day }}/occurrences')
     .then(r => r.json())
     .then(d => {
-      events = d || [];
-      const topicsList = renderEvents(events);
-      orderTabs(topicsList);
-      colorTabs();
+      allEvents = d || [];
+      applyFacetFilter();
       document.getElementById('eventsView').onclick = e => {
         const el = e.target.closest('.occ');
         if(el){ e.preventDefault(); openModal(parseInt(el.dataset.index)); }
       };
     });
 }
+
+// Listen for facet changes and re-filter events
+window.addEventListener('facet.switch', () => {
+  applyFacetFilter();
+});
 
 function showTab(id){
   tabs.forEach(x=>{x.classList.remove('active'); if(x.dataset.color) x.style.color=x.dataset.color;});

@@ -102,6 +102,7 @@ def calendar_day_occurrences(day: str) -> Any:
             "participants": event.get("participants", []),
             "topic": topic,
             "color": topic_color,
+            "facet": metadata.get("facet", ""),
         }
 
         # Convert time strings to ISO timestamps
@@ -780,11 +781,53 @@ def _dev_screen_frames(day: str, timestamp: str) -> Any:
                 # Use the new decode_frames utility
                 images = decode_frames(video_path, frames, annotate_boxes=True)
 
+                # Setup ArUco detector for tag overlay
+                import cv2
+                import numpy as np
+                from PIL import ImageDraw
+
+                dictionary = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_4X4_50)
+                params = cv2.aruco.DetectorParameters()
+                params.minMarkerPerimeterRate = 0.002
+                params.maxMarkerPerimeterRate = 8.0
+                params.adaptiveThreshWinSizeMin = 3
+                params.adaptiveThreshWinSizeMax = 23
+                params.cornerRefinementMethod = cv2.aruco.CORNER_REFINE_SUBPIX
+                aruco_detector = cv2.aruco.ArucoDetector(dictionary, params)
+
                 # Convert images to JPEG bytes and cache
                 _frame_cache[cache_key] = {}
                 for frame, img in zip(frames, images):
                     if img is not None:
                         frame_id = frame["frame_id"]
+
+                        # Detect ArUco tags and draw overlays
+                        img_array = np.array(img)
+                        gray = cv2.cvtColor(img_array, cv2.COLOR_RGB2GRAY)
+                        corners, ids, _ = aruco_detector.detectMarkers(gray)
+
+                        id_to_corners = {}
+                        if ids is not None:
+                            for cid, pts in zip(ids.flatten().tolist(), corners):
+                                id_to_corners[cid] = pts
+
+                        # Draw green boxes and ID labels
+                        if id_to_corners:
+                            draw = ImageDraw.Draw(img)
+                            for tag_id, pts in id_to_corners.items():
+                                # pts shape is (1, 4, 2) -> reshape to (4, 2)
+                                corners_2d = pts.reshape(4, 2).astype(int)
+                                # Draw polygon
+                                poly = [tuple(p) for p in corners_2d]
+                                poly.append(poly[0])  # close the polygon
+                                draw.line(poly, fill=(0, 255, 0), width=2)
+                                # Draw ID label
+                                cx = int(corners_2d[:, 0].mean())
+                                cy = int(corners_2d[:, 1].mean())
+                                draw.text(
+                                    (cx + 5, cy - 10), str(tag_id), fill=(0, 255, 0)
+                                )
+
                         jpeg_bytes = image_to_jpeg_bytes(img)
                         _frame_cache[cache_key][frame_id] = jpeg_bytes
                         img.close()
