@@ -929,5 +929,5 @@ a.notification-card {
 
 .corner-tag-tl { top: 0; left: 0; mask-image: url('tags/tag-6.png'); -webkit-mask-image: url('tags/tag-6.png'); }
 .corner-tag-tr { top: 0; right: 0; mask-image: url('tags/tag-7.png'); -webkit-mask-image: url('tags/tag-7.png'); }
-.corner-tag-bl { bottom: 0; left: 0; mask-image: url('tags/tag-4.png'); -webkit-mask-image: url('tags/tag-4.png'); }
-.corner-tag-br { bottom: 0; right: 0; mask-image: url('tags/tag-2.png'); -webkit-mask-image: url('tags/tag-2.png'); }
+.corner-tag-bl { bottom: 32px; left: 0; mask-image: url('tags/tag-4.png'); -webkit-mask-image: url('tags/tag-4.png'); }
+.corner-tag-br { bottom: 32px; right: 0; mask-image: url('tags/tag-2.png'); -webkit-mask-image: url('tags/tag-2.png'); }
