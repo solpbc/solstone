@@ -2,8 +2,9 @@
 """
 Generate ArUco marker PNG for corner tag detection.
 
-Creates DICT_4X4_50 markers at 2px/bit with a 2px transparent border.
-Output is 16x16px (6 bits × 2px = 12px core + 2px border on each side).
+Creates DICT_4X4_50 markers at 8px/bit with an 8px transparent border.
+Output is 64x64px (6 bits × 8px = 48px core + 8px border on each side).
+Higher resolution ensures crisp rendering on HiDPI/Retina displays.
 """
 
 import argparse
@@ -22,17 +23,19 @@ def generate_tag(marker_id: int, output_path: Path) -> None:
     """
     dictionary = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_4X4_50)
 
-    # 6 bits per side (4 data + 1 border each side), 2px per bit = 12px
-    cell_size = 2
+    # 6 bits per side (4 data + 1 border each side), 8px per bit = 48px
+    cell_size = 8
     bits_per_side = 6  # 4 data bits + 2 border bits
-    core_size = bits_per_side * cell_size  # 12px
+    core_size = bits_per_side * cell_size  # 48px
 
     # Generate the marker (white=255, black=0)
-    marker = cv2.aruco.generateImageMarker(dictionary, marker_id, core_size, borderBits=1)
+    marker = cv2.aruco.generateImageMarker(
+        dictionary, marker_id, core_size, borderBits=1
+    )
 
-    # Add 2px transparent border on all sides -> 16x16px final
-    border = 2
-    final_size = core_size + 2 * border  # 16px
+    # Add 8px transparent border on all sides -> 64x64px final
+    border = 8
+    final_size = core_size + 2 * border  # 64px
 
     # Create RGBA image with transparent background
     img = np.zeros((final_size, final_size, 4), dtype=np.uint8)

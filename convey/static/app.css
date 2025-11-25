@@ -923,6 +923,8 @@ a.notification-card {
   background: var(--facet-color);
   mask-size: contain;
   -webkit-mask-size: contain;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges; /* Firefox fallback */
 }
 
 .corner-tag-tl { top: 0; left: 0; mask-image: url('tags/tag-6.png'); -webkit-mask-image: url('tags/tag-6.png'); }
