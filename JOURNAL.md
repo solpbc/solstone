@@ -62,7 +62,7 @@ Sunstone transforms raw recordings into actionable understanding through a three
 - `config/convey.json` – Convey UI preferences (facet/app ordering, selected facet).
 - `facets/` – facet-specific organization folders described below.
 - `tokens/` – token usage logs from AI model calls, organized by day (see below).
-- `apps/` – app-specific storage for configuration and data (see below).
+- `apps/` – app-specific storage for configuration and data (distinct from codebase `apps/`, see below).
 - `YYYYMMDD/` – individual day folders described below.
 
 ## User configuration
@@ -351,7 +351,7 @@ Each line in a token log file is a JSON object with the following structure:
 
 ```json
 {
-  "timestamp": 1736812345.678,
+  "timestamp": 1736812345,
   "model": "gemini-2.5-flash",
   "context": "agent.default.20250113_143022",
   "usage": {
@@ -365,7 +365,7 @@ Each line in a token log file is a JSON object with the following structure:
 ```
 
 Required fields:
-- `timestamp` – Unix timestamp (seconds with fractional milliseconds)
+- `timestamp` – Unix timestamp in milliseconds
 - `model` – Model identifier (e.g., "gemini-2.5-flash", "gpt-5", "claude-sonnet-4-5")
 - `context` – Calling context (e.g., "agent.persona.agent_id" or "module.function:line")
 - `usage` – Token counts dictionary with normalized field names
@@ -514,7 +514,7 @@ Example frame record:
 - `timestamp` – time in seconds from video start
 - `monitor` – monitor identifier from video metadata
 - `monitor_position` – optional monitor position (e.g., "center", "left", "right")
-- `box_2d` – bounding box of changed region `[y_min, x_min, y_max, x_max]` relative to monitor
+- `box_2d` – bounding box of changed region `[x_min, y_min, x_max, y_max]` relative to monitor
 - `requests` – list of vision API requests made for this frame
 - `analysis` – categorization and visual description from initial analysis
 
