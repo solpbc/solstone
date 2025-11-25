@@ -64,10 +64,10 @@ def send_message(
         agent_id = create_synthetic_agent(result=body)
 
         # Create chat metadata for this message
-        # Extract title from first line (up to 50 chars)
-        title = body.split("\n")[0][:50].strip()
-        if len(body.split("\n")[0]) > 50:
-            title += "..."
+        # Generate title using Gemini (same as user-initiated chats)
+        from apps.chat.routes import generate_chat_title
+
+        title = generate_chat_title(body)
 
         # Extract caller's agent identity from context
         actor, caller_agent_id = _get_actor_info(context)
