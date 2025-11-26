@@ -425,3 +425,50 @@ def test_openai_tool_call_events(monkeypatch, tmp_path, capsys):
     assert events[-1]["event"] == "finish"
     assert events[-1]["result"] == "ok"
     assert DummyRunner.called
+
+
+def test_convert_turns_to_items_format():
+    """Test that _convert_turns_to_items uses correct Responses API content types.
+
+    Verifies the fix for the bug where content type was 'text' (Chat Completions API)
+    instead of 'input_text'/'output_text' (Responses API).
+    """
+    from muse.openai import _convert_turns_to_items
+
+    # Test user message uses input_text
+    user_turns = [{"role": "user", "content": "Hello, world!"}]
+    user_items = _convert_turns_to_items(user_turns)
+
+    assert len(user_items) == 1
+    assert user_items[0]["type"] == "message"
+    assert user_items[0]["role"] == "user"
+    assert user_items[0]["content"][0]["type"] == "input_text"
+    assert user_items[0]["content"][0]["text"] == "Hello, world!"
+
+    # Test assistant message uses output_text
+    assistant_turns = [{"role": "assistant", "content": "Hi there!"}]
+    assistant_items = _convert_turns_to_items(assistant_turns)
+
+    assert len(assistant_items) == 1
+    assert assistant_items[0]["type"] == "message"
+    assert assistant_items[0]["role"] == "assistant"
+    assert assistant_items[0]["content"][0]["type"] == "output_text"
+    assert assistant_items[0]["content"][0]["text"] == "Hi there!"
+
+    # Test mixed conversation
+    mixed_turns = [
+        {"role": "user", "content": "What is 2+2?"},
+        {"role": "assistant", "content": "4"},
+        {"role": "user", "content": "Thanks!"},
+    ]
+    mixed_items = _convert_turns_to_items(mixed_turns)
+
+    assert len(mixed_items) == 3
+    assert mixed_items[0]["content"][0]["type"] == "input_text"
+    assert mixed_items[1]["content"][0]["type"] == "output_text"
+    assert mixed_items[2]["content"][0]["type"] == "input_text"
+
+    # Test empty content is skipped
+    empty_turns = [{"role": "user", "content": ""}]
+    empty_items = _convert_turns_to_items(empty_turns)
+    assert len(empty_items) == 0

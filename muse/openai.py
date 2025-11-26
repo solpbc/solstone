@@ -68,11 +68,13 @@ def _convert_turns_to_items(turns: list[dict]) -> list[dict]:
         content = turn.get("content", "")
 
         if role in ("user", "assistant") and content:
+            # Responses API requires input_text for user, output_text for assistant
+            content_type = "input_text" if role == "user" else "output_text"
             items.append(
                 {
                     "type": "message",
                     "role": role,
-                    "content": [{"type": "text", "text": content}],
+                    "content": [{"type": content_type, "text": content}],
                 }
             )
 

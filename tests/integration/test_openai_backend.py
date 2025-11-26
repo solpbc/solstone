@@ -175,3 +175,82 @@ def test_openai_backend_with_reasoning():
     assert (
         "4" in result_text or "four" in result_text
     ), f"Expected '4' in response, got: {finish_event['result']}"
+
+
+@pytest.mark.integration
+@pytest.mark.requires_api
+def test_openai_backend_with_extra_context():
+    """Test OpenAI backend with extra_context to verify Responses API format.
+
+    This exercises the session.add_items() path that was broken when content type
+    was 'text' instead of 'input_text'. The key assertion is that we don't get
+    the 400 error about invalid content type.
+    """
+    fixtures_env, api_key, journal_path = get_fixtures_env()
+
+    if not fixtures_env:
+        pytest.skip("fixtures/.env not found")
+
+    if not api_key:
+        pytest.skip("OPENAI_API_KEY not found in fixtures/.env file")
+
+    if not journal_path:
+        pytest.skip("JOURNAL_PATH not found in fixtures/.env file")
+
+    # Prepare environment
+    env = os.environ.copy()
+    env["JOURNAL_PATH"] = journal_path
+    env["OPENAI_API_KEY"] = api_key
+
+    # Include extra_context like get_agent() does in production
+    # This exercises the _convert_turns_to_items() code path
+    ndjson_input = json.dumps(
+        {
+            "prompt": "What project was mentioned in the context above? Just the name.",
+            "backend": "openai",
+            "persona": "default",
+            "model": GPT_5_MINI,
+            "max_tokens": 50,
+            "disable_mcp": True,
+            "extra_context": "## Project Context\nYou are working on Project Moonshot.",
+        }
+    )
+
+    # Run the muse-agents command
+    cmd = ["muse-agents"]
+    result = subprocess.run(
+        cmd,
+        env=env,
+        input=ndjson_input,
+        capture_output=True,
+        text=True,
+        timeout=15,
+    )
+
+    # Parse stdout events
+    stdout_lines = result.stdout.strip().split("\n")
+    events = [json.loads(line) for line in stdout_lines if line]
+
+    # The critical check: no 400 error about invalid content type
+    # This was the original bug - using 'text' instead of 'input_text'
+    error_events = [e for e in events if e.get("event") == "error"]
+    for err in error_events:
+        error_msg = err.get("error", "")
+        assert (
+            "Invalid value: 'text'" not in error_msg
+        ), f"Got content type format error - regression! Error: {error_msg}"
+        assert (
+            "input_text" not in error_msg or "Supported values" not in error_msg
+        ), f"Got content type format error - regression! Error: {error_msg}"
+
+    # Verify we got past the format validation (start event was emitted)
+    start_events = [e for e in events if e.get("event") == "start"]
+    assert len(start_events) == 1, "Should have start event"
+
+    # If we get a finish event, verify the response references the context
+    finish_events = [e for e in events if e.get("event") == "finish"]
+    if finish_events:
+        result_text = finish_events[0].get("result", "").lower()
+        assert (
+            "moonshot" in result_text
+        ), f"Expected 'moonshot' in response, got: {finish_events[0].get('result')}"
