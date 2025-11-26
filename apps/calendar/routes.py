@@ -531,28 +531,6 @@ def calendar_days() -> Any:
     return jsonify(days)
 
 
-@calendar_bp.route("/api/facets/active")
-def calendar_active_facets() -> Any:
-    """Return list of active (non-disabled) facets for calendar filtering."""
-    from think.facets import get_facets
-
-    all_facets = get_facets()
-    active_facets = []
-
-    for name, data in all_facets.items():
-        if not data.get("disabled", False):
-            active_facets.append(
-                {
-                    "name": name,
-                    "title": data.get("title", name),
-                    "color": data.get("color", ""),
-                    "emoji": data.get("emoji", ""),
-                }
-            )
-
-    return jsonify(active_facets)
-
-
 @calendar_bp.route("/api/stats")
 def calendar_stats() -> Any:
     """Return lightweight stats for calendar display."""

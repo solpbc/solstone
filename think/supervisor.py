@@ -413,18 +413,18 @@ async def check_scheduled_agents() -> None:
                 # Check if this is a multi-facet agent
                 if config.get("multi_facet"):
                     facets = get_facets()
-                    # Filter out disabled facets for automated runs
+                    # Filter out muted facets for automated runs
                     enabled_facets = {
-                        k: v for k, v in facets.items() if not v.get("disabled", False)
+                        k: v for k, v in facets.items() if not v.get("muted", False)
                     }
-                    disabled_count = len(facets) - len(enabled_facets)
-                    if disabled_count > 0:
-                        disabled_names = [
-                            k for k, v in facets.items() if v.get("disabled", False)
+                    muted_count = len(facets) - len(enabled_facets)
+                    if muted_count > 0:
+                        muted_names = [
+                            k for k, v in facets.items() if v.get("muted", False)
                         ]
                         logging.info(
-                            f"Skipping {disabled_count} disabled facet(s) for {persona_id}: "
-                            f"{', '.join(disabled_names)}"
+                            f"Skipping {muted_count} muted facet(s) for {persona_id}: "
+                            f"{', '.join(muted_names)}"
                         )
                     for facet_name in enabled_facets.keys():
                         logging.info(f"Spawning {persona_id} for facet: {facet_name}")
