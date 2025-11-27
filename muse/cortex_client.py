@@ -133,6 +133,30 @@ def create_synthetic_agent(result: str) -> str:
     return agent_id
 
 
+def get_agent_status(agent_id: str) -> str:
+    """Get the status of a specific agent.
+
+    Args:
+        agent_id: The agent ID (timestamp)
+
+    Returns:
+        "completed" - Agent finished (*.jsonl exists)
+        "running" - Agent still active (*_active.jsonl exists)
+        "not_found" - No agent file exists
+    """
+    journal_path = os.environ.get("JOURNAL_PATH")
+    if not journal_path:
+        raise ValueError("JOURNAL_PATH environment variable not set")
+
+    agents_dir = Path(journal_path) / "agents"
+
+    if (agents_dir / f"{agent_id}.jsonl").exists():
+        return "completed"
+    if (agents_dir / f"{agent_id}_active.jsonl").exists():
+        return "running"
+    return "not_found"
+
+
 def read_agent_events(agent_id: str) -> list[Dict[str, Any]]:
     """Read all events from an agent's JSONL log file.
 
@@ -172,6 +196,74 @@ def read_agent_events(agent_id: str) -> list[Dict[str, Any]]:
                 continue
 
     return events
+
+
+def get_agent_thread(agent_id: str) -> list[str]:
+    """Get all agent IDs in a conversation thread, in chronological order.
+
+    Given any agent ID in a thread, walks backward to find the root,
+    then forward to collect all agents in the thread.
+
+    Args:
+        agent_id: Any agent ID in the thread
+
+    Returns:
+        List of agent IDs in chronological order (oldest first)
+
+    Raises:
+        FileNotFoundError: If the specified agent doesn't exist
+    """
+    # Walk backward to find the root
+    current = agent_id
+    seen = {current}
+
+    while True:
+        try:
+            events = read_agent_events(current)
+        except FileNotFoundError:
+            if current == agent_id:
+                raise  # Original agent not found
+            break  # Referenced agent doesn't exist, stop here
+
+        # Find continue_from in request event
+        request = next((e for e in events if e.get("event") == "request"), None)
+        if not request:
+            break
+
+        continue_from = request.get("continue_from")
+        if not continue_from or continue_from in seen:
+            break
+
+        seen.add(continue_from)
+        current = continue_from
+
+    root = current
+
+    # Walk forward from root to build the thread
+    thread = [root]
+    seen = {root}
+
+    while True:
+        try:
+            events = read_agent_events(thread[-1])
+        except FileNotFoundError:
+            break
+
+        # Find continue event(s) - take the first one for linear threads
+        continue_event = next(
+            (e for e in events if e.get("event") == "continue" and e.get("to")), None
+        )
+        if not continue_event:
+            break
+
+        next_agent = continue_event["to"]
+        if next_agent in seen:
+            break  # Prevent cycles
+
+        seen.add(next_agent)
+        thread.append(next_agent)
+
+    return thread
 
 
 def cortex_agents(

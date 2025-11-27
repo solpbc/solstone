@@ -184,16 +184,11 @@ def agent_events(agent_id: str) -> Any:
     Returns all events written to disk so far. For active agents, client
     should subscribe to WebSocket for real-time updates.
     """
-    from muse.cortex_client import read_agent_events
+    from muse.cortex_client import get_agent_status, read_agent_events
 
     try:
         events = read_agent_events(agent_id)
-
-        # Check if agent is complete (last event is finish or error)
-        is_complete = False
-        if events:
-            last_event = events[-1]
-            is_complete = last_event.get("event") in ("finish", "error")
+        is_complete = get_agent_status(agent_id) == "completed"
 
         return jsonify(events=events, is_complete=is_complete)
 

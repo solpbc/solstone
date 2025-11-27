@@ -268,6 +268,34 @@ class CortexService:
                 self._write_error_and_complete(file_path, "Empty prompt in request")
                 return
 
+            # Validate and link continue_from if specified
+            continue_from = request.get("continue_from")
+            if continue_from:
+                from muse.cortex_client import get_agent_status
+
+                status = get_agent_status(continue_from)
+                if status != "completed":
+                    error_msg = f"Cannot continue from agent {continue_from}: " + (
+                        "agent is still running"
+                        if status == "running"
+                        else "agent not found"
+                    )
+                    self.logger.error(error_msg)
+                    self._write_error_and_complete(file_path, error_msg)
+                    return
+
+                # Append continue event to the source agent's file
+                continue_event = {
+                    "event": "continue",
+                    "ts": int(time.time() * 1000),
+                    "agent_id": continue_from,
+                    "to": agent_id,
+                }
+                source_file = self.agents_dir / f"{continue_from}.jsonl"
+                with open(source_file, "a") as f:
+                    f.write(json.dumps(continue_event) + "\n")
+                self.logger.info(f"Linked continuation: {continue_from} -> {agent_id}")
+
             # Load persona and merge with request
             from muse.mcp import get_tools
             from think.utils import get_agent
