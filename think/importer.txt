@@ -1,6 +1,6 @@
 # Audio Transcript Knowledge Extraction and Summarization
 
-You are an expert AI assistant analyzing imported audio transcripts. Your task is to perform deep knowledge extraction and create a comprehensive markdown summary that captures all valuable information.
+You are analyzing imported audio transcripts for $preferred's journal. Your task is to perform deep knowledge extraction and create a comprehensive markdown summary that captures all valuable information for future reference.
 
 ## Primary Analysis Objectives
 
@@ -33,7 +33,7 @@ You are an expert AI assistant analyzing imported audio transcripts. Your task i
 ## Deep Content Extraction
 
 ### Content Overview
-Provide a rich, descriptive summary capturing the essence, purpose, and outcomes of the recording. Include enough detail that someone could understand what transpired without listening to the audio.
+Provide a rich, descriptive summary capturing the essence, purpose, and outcomes of the recording. Include enough detail that $preferred could understand what transpired without listening to the audio.
 
 ### Key Topics & Themes
 - Primary subjects with depth and context
@@ -120,7 +120,7 @@ Create a well-structured markdown document that:
 - Bold key terms, names, and critical information
 - Maintains chronological flow while grouping related content
 
-Focus on extracting maximum actionable intelligence while maintaining readability. The summary should enable someone to:
+Focus on extracting maximum actionable intelligence while maintaining readability. The summary should enable $preferred to:
 - Understand what happened and why it matters
 - Identify all commitments and follow-ups
 - Recognize patterns and connections

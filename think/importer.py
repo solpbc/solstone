@@ -479,6 +479,7 @@ def create_transcript_summary(
     input_filename: str,
     timestamp: str,
     setting: str | None = None,
+    facet: str | None = None,
 ) -> None:
     """Create a summary of all imported audio transcript files using Gemini Pro.
 
@@ -488,6 +489,7 @@ def create_transcript_summary(
         input_filename: Original media filename for context
         timestamp: Processing timestamp for context
         setting: Optional description of the setting to include in metadata
+        facet: Optional facet name to include context about entities and description
     """
     if not audio_json_files:
         logger.info("No audio transcript files to summarize")
@@ -524,13 +526,28 @@ def create_transcript_summary(
         logger.warning("No transcripts could be read for summarization")
         return
 
-    # Load the prompt from importer.txt
+    # Load the prompt from importer.txt (with journal preamble for identity context)
     try:
-        importer_prompt = load_prompt("importer", base_dir=Path(__file__).parent)
+        importer_prompt = load_prompt(
+            "importer", base_dir=Path(__file__).parent, include_journal=True
+        )
     except PromptNotFoundError as exc:
         logger.error(f"Failed to load importer prompt: {exc}")
         return
     importer_prompt_template = importer_prompt.text
+
+    # Add facet context if a facet is specified
+    facet_context = ""
+    if facet:
+        try:
+            from think.facets import facet_summary
+
+            facet_context = facet_summary(facet)
+            logger.info(f"Including facet context for '{facet}'")
+        except FileNotFoundError:
+            logger.warning(f"Facet '{facet}' not found, skipping facet context")
+        except Exception as e:
+            logger.warning(f"Failed to load facet context: {e}")
 
     # Add the context metadata to the prompt
     metadata_lines = [
@@ -542,8 +559,15 @@ def create_transcript_summary(
     ]
     if setting:
         metadata_lines.append(f"- Setting: {setting}")
+    if facet:
+        metadata_lines.append(f"- Facet: {facet}")
 
-    importer_prompt = importer_prompt_template + "\n".join(metadata_lines)
+    # Combine: template + facet context + metadata
+    prompt_parts = [importer_prompt_template]
+    if facet_context:
+        prompt_parts.append(f"\n\n## Facet Context\n{facet_context}")
+    prompt_parts.append("\n".join(metadata_lines))
+    importer_prompt = "".join(prompt_parts)
 
     # Format the transcript content for the user message
     user_message_parts = []
@@ -854,6 +878,7 @@ def main() -> None:
                 input_filename=os.path.basename(args.media),
                 timestamp=args.timestamp,
                 setting=args.setting,
+                facet=args.facet,
             )
 
         # Emit completed event
