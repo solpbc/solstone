@@ -419,8 +419,8 @@ fetch('/app/import/api/{{ timestamp }}')
         linksSection.style.display = 'block';
 
         let linksHtml = '';
-        linksHtml += `<div class="link-item">📅 <a href="/calendar/${data.imported_json.target_day}">View Day in Calendar</a></div>`;
-        linksHtml += `<div class="link-item">📝 <a href="/calendar/${data.imported_json.target_day}#transcript">View Transcript</a></div>`;
+        linksHtml += `<div class="link-item">📅 <a href="/app/calendar/${data.imported_json.target_day}">View Day in Calendar</a></div>`;
+        linksHtml += `<div class="link-item">💬 <a href="/app/transcripts/${data.imported_json.target_day}">View Transcript</a></div>`;
         quickLinks.innerHTML = linksHtml;
       }
 

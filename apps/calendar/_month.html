@@ -143,7 +143,7 @@ function createDayContent(dateStr, day) {
 
     // Transcript icon - only if transcripts exist
     if (stats.has_transcripts) {
-      html += `<a href='${dayBase}${dateStr}/transcript' title='Transcript'>💬</a>`;
+      html += `<a href='/app/transcripts/${dateStr}' title='Transcript'>💬</a>`;
     }
 
     html += `</div>`;

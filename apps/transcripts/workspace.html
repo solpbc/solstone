@@ -1,0 +1,833 @@
+{# Transcript viewer - dual-timeline interface #}
+
+<style>
+/* Transcripts app styles - all classes prefixed with .tr- to avoid conflicts */
+
+/*
+ * Layout context:
+ * - body.has-app-bar applies margin-bottom: 60px to .workspace
+ * - But app-bar is position:fixed at bottom:12px with height:60px (occupies 72px)
+ * - So workspace content can overlap app-bar by 12px
+ * - We fix this by setting explicit height that accounts for true clearance
+ *
+ * Height calculation:
+ * - 100vh (viewport)
+ * - minus 60px (facet-bar-height, workspace has margin-top for this)
+ * - minus 72px (app-bar: 60px height + 12px bottom offset)
+ * - minus 32px (our padding: 16px top + 16px bottom)
+ * = 100vh - 164px
+ */
+
+/* Lock workspace scrolling - content must fit, only .tr-panel scrolls */
+body.has-app-bar .workspace:has(.tr-wrap) {
+  overflow: hidden;
+  height: calc(100vh - var(--facet-bar-height) - 72px);
+  margin-bottom: 0;
+}
+
+/* Main container */
+.tr-wrap {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 16px 24px;
+  box-sizing: border-box;
+  height: 100%;
+  overflow: hidden;
+}
+
+.tr-card {
+  height: 100%;
+  background: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 1px 2px rgba(0,0,0,.04);
+  display: grid;
+  grid-template-columns: 180px 1fr 180px;
+  overflow: hidden;
+  border: 1px solid #e5e7eb;
+}
+
+/* Left timeline */
+.tr-timeline {
+  position: relative;
+  border-right: 1px solid #e5e7eb;
+  user-select: none;
+  height: 100%;
+  overflow: hidden;
+  touch-action: pan-y;
+}
+
+.tr-grid {
+  position: absolute;
+  inset: 0;
+}
+
+.tr-grid-hour {
+  position: absolute;
+  left: 0;
+  right: 0;
+  border-top: 1px solid #e5e7eb;
+}
+
+.tr-grid-quarter {
+  position: absolute;
+  left: 0;
+  right: 0;
+  border-top: 1px dashed #f3f4f6;
+}
+
+.tr-labels {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 64px;
+  background: #f9fafb;
+  border-right: 1px solid #e5e7eb;
+  pointer-events: none;
+}
+
+.tr-label {
+  position: absolute;
+  right: 0;
+  padding-right: 8px;
+  transform: translateY(-50%);
+  font-size: 11px;
+  color: #6b7280;
+}
+
+.tr-lane {
+  position: absolute;
+  left: 64px;
+  right: 0;
+  top: 0;
+  bottom: 0;
+}
+
+/* Selection box */
+.tr-sel-wrap {
+  position: absolute;
+  left: 58px;
+  right: 8px;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.tr-sel {
+  position: absolute;
+  left: -4px;
+  right: -4px;
+  height: 100%;
+  background: rgba(239, 246, 255, 0.7);
+  border: 1px solid #c7d2fe;
+  border-radius: 12px;
+  box-shadow: 0 1px 2px rgba(0,0,0,.06);
+  pointer-events: auto;
+  cursor: grab;
+  touch-action: none;
+}
+
+.tr-sel:active {
+  cursor: grabbing;
+}
+
+.tr-bumper {
+  position: absolute;
+  left: 40px;
+  right: 40px;
+  margin: auto;
+  height: 14px;
+  border: 1px solid #60a5fa;
+  border-radius: 999px;
+  background: #dbeafe;
+  cursor: ns-resize;
+  touch-action: none;
+}
+
+.tr-bumper-top {
+  top: -7px;
+}
+
+.tr-bumper-bottom {
+  bottom: -7px;
+}
+
+/* Segments lane (audio/screen indicators) */
+.tr-segments {
+  position: absolute;
+  left: 64px;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.tr-seg {
+  position: absolute;
+  width: 40px;
+  border-radius: 12px;
+  box-shadow: 0 1px 1px rgba(0,0,0,.04);
+}
+
+.tr-seg-audio {
+  background: rgba(134, 239, 172, 0.6);
+  border: 1px solid #86efac;
+}
+
+.tr-seg-screen {
+  background: rgba(253, 230, 138, 0.6);
+  border: 1px solid #facc15;
+}
+
+/* Right content panel */
+.tr-content {
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  height: 100%;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+.tr-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.tr-title {
+  font-size: 20px;
+  font-weight: 600;
+  margin: 0;
+}
+
+.tr-range-text {
+  color: #6b7280;
+  font-size: 14px;
+}
+
+.tr-controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.tr-checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.tr-btn {
+  padding: 8px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 12px;
+  background: #fff;
+  cursor: pointer;
+  font-size: 14px;
+  transition: background 0.15s;
+}
+
+.tr-btn:hover {
+  background: #f9fafb;
+}
+
+.tr-panel {
+  flex: 1;
+  border: 1px solid #e5e7eb;
+  border-radius: 16px;
+  padding: 16px;
+  overflow-y: auto;
+  min-height: 0;
+  overflow-x: hidden;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.tr-panel pre {
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+}
+
+.tr-panel code {
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+
+/* Right zoom timeline */
+.tr-zoom {
+  position: relative;
+  border-left: 1px solid #e5e7eb;
+  user-select: none;
+  height: 100%;
+  overflow: hidden;
+  display: none;
+  touch-action: pan-y;
+}
+
+.tr-zoom.tr-active {
+  display: block;
+}
+
+.tr-zoom-labels {
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 64px;
+  background: #f9fafb;
+  border-left: 1px solid #e5e7eb;
+  pointer-events: none;
+}
+
+.tr-zoom-label {
+  position: absolute;
+  left: 0;
+  padding-left: 8px;
+  transform: translateY(-50%);
+  font-size: 11px;
+  color: #6b7280;
+}
+
+.tr-zoom-lane {
+  position: absolute;
+  left: 0;
+  right: 64px;
+  top: 0;
+  bottom: 0;
+}
+
+.tr-zoom-marks {
+  position: absolute;
+  left: 8px;
+  right: 64px;
+  top: 0;
+  bottom: 0;
+  pointer-events: none;
+}
+
+.tr-mark {
+  position: absolute;
+  width: 40px;
+  height: 2px;
+  border-radius: 1px;
+}
+
+.tr-mark-audio {
+  background: #86efac;
+  left: 0;
+}
+
+.tr-mark-screen {
+  background: #facc15;
+  left: 48px;
+}
+
+.tr-zoom-sel-wrap {
+  position: absolute;
+  left: 8px;
+  right: 58px;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.tr-zoom-sel {
+  position: absolute;
+  left: -4px;
+  right: -4px;
+  height: 100%;
+  background: rgba(239, 246, 255, 0.4);
+  border: 1px solid #c7d2fe;
+  border-radius: 12px;
+  box-shadow: 0 1px 2px rgba(0,0,0,.06);
+  pointer-events: auto;
+  cursor: grab;
+  touch-action: none;
+}
+
+.tr-zoom-sel:active {
+  cursor: grabbing;
+}
+
+/* Dragging state */
+.tr-dragging {
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* Media rendering in panel */
+.tr-media-item {
+  margin-bottom: 24px;
+}
+
+.tr-media-time {
+  margin: 0 0 8px 0;
+  color: #374151;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.tr-media-item audio {
+  width: 100%;
+}
+
+.tr-media-item video,
+.tr-media-item img {
+  width: 100%;
+  height: auto;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+}
+</style>
+
+<div class="tr-wrap">
+  <div class="tr-card">
+    <!-- Left timeline -->
+    <div id="trTimeline" class="tr-timeline" aria-label="Day timeline (08:00-22:00)">
+      <div class="tr-grid" id="trGrid"></div>
+      <div class="tr-labels" id="trLabels"></div>
+      <div class="tr-lane"></div>
+      <div class="tr-segments" id="trSegments"></div>
+      <div class="tr-sel-wrap" id="trSelWrap">
+        <div class="tr-sel" data-handle="move">
+          <div class="tr-bumper tr-bumper-top" data-handle="start" title="Drag to adjust start"></div>
+          <div class="tr-bumper tr-bumper-bottom" data-handle="end" title="Drag to adjust end"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Center content -->
+    <div class="tr-content">
+      <div class="tr-header">
+        <div>
+          <h2 class="tr-title">Transcript Preview</h2>
+          <div class="tr-range-text" id="trRangeText">Selected range: 09:00 - 10:00</div>
+        </div>
+        <div class="tr-controls">
+          <label class="tr-checkbox-label">
+            <input type="checkbox" id="trAudioCheck" checked>
+            <span>Audio</span>
+          </label>
+          <label class="tr-checkbox-label">
+            <input type="checkbox" id="trScreenCheck" checked>
+            <span>Screen</span>
+          </label>
+          <button class="tr-btn" id="trLoadBtn">Load Transcript</button>
+          <button class="tr-btn" id="trMediaBtn" style="display:none">Load Media</button>
+          <button class="tr-btn" id="trDownloadBtn" style="display:none">Download Audio</button>
+        </div>
+      </div>
+      <div class="tr-panel" id="trPanel"></div>
+    </div>
+
+    <!-- Right zoom timeline -->
+    <div id="trZoom" class="tr-zoom" aria-label="Zoomed timeline">
+      <div class="tr-grid" id="trZoomGrid"></div>
+      <div class="tr-zoom-labels" id="trZoomLabels"></div>
+      <div class="tr-zoom-lane"></div>
+      <div class="tr-zoom-marks" id="trZoomMarks"></div>
+      <div class="tr-zoom-sel-wrap" id="trZoomSelWrap">
+        <div class="tr-zoom-sel" data-handle="zoom-move">
+          <div class="tr-bumper tr-bumper-top" data-handle="zoom-start" title="Drag to adjust start"></div>
+          <div class="tr-bumper tr-bumper-bottom" data-handle="zoom-end" title="Drag to adjust end"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+  const START = 8 * 60;
+  const END = 22 * 60;
+  const STEP = 15;
+  const DEFAULT_LEN = 60;
+  const MIN_LEN = 15;
+
+  const day = '{{ day }}';
+
+  // Elements
+  const timeline = document.getElementById('trTimeline');
+  const grid = document.getElementById('trGrid');
+  const labels = document.getElementById('trLabels');
+  const segments = document.getElementById('trSegments');
+  const selWrap = document.getElementById('trSelWrap');
+  const sel = selWrap.querySelector('.tr-sel');
+  const rangeText = document.getElementById('trRangeText');
+  const panel = document.getElementById('trPanel');
+  const loadBtn = document.getElementById('trLoadBtn');
+  const mediaBtn = document.getElementById('trMediaBtn');
+  const downloadBtn = document.getElementById('trDownloadBtn');
+  const audioCheck = document.getElementById('trAudioCheck');
+  const screenCheck = document.getElementById('trScreenCheck');
+
+  const zoom = document.getElementById('trZoom');
+  const zoomGrid = document.getElementById('trZoomGrid');
+  const zoomLabels = document.getElementById('trZoomLabels');
+  const zoomMarks = document.getElementById('trZoomMarks');
+  const zoomSelWrap = document.getElementById('trZoomSelWrap');
+  const zoomSel = zoomSelWrap.querySelector('.tr-zoom-sel');
+
+  // State
+  let height = timeline.clientHeight;
+  let ppm = height / (END - START);
+  let range = { start: 9 * 60, end: 10 * 60 };
+  let zoomRange = { start: 9 * 60, end: 9 * 60 + 15 };
+  let zoomHeight = zoom.clientHeight;
+  let zoomPpm = 0;
+  let zoomStart = range.start;
+  let zoomEnd = range.end;
+  let drag = null;
+
+  // Utilities
+  const y = (m) => (m - START) * ppm;
+  const mFromY = (py) => Math.max(START, Math.min(END, Math.round(py / ppm) + START));
+  const snap = (m) => Math.round(m / STEP) * STEP;
+  const hhmm = (m) => String(Math.floor(m / 60)).padStart(2, '0') + ':' + String(m % 60).padStart(2, '0');
+  const hhmmss = (m) => hhmm(m).replace(':', '') + '00';
+
+  const zoomY = (m) => (m - zoomStart) * zoomPpm;
+  const zoomMFromY = (py) => Math.max(zoomStart, Math.min(zoomEnd, Math.round(py / zoomPpm) + zoomStart));
+
+  function addSegment(type, startMin, endMin, column) {
+    const el = document.createElement('div');
+    el.className = 'tr-seg ' + (type === 'screen' ? 'tr-seg-screen' : 'tr-seg-audio');
+    el.style.top = y(startMin) + 'px';
+    el.style.height = Math.max(2, y(endMin) - y(startMin)) + 'px';
+    el.style.left = (column === 1 ? 56 : 8) + 'px';
+    segments.appendChild(el);
+  }
+
+  function buildGrid() {
+    grid.innerHTML = '';
+    labels.innerHTML = '';
+
+    for (let h = START / 60; h <= END / 60; h++) {
+      const hourLine = document.createElement('div');
+      hourLine.className = 'tr-grid-hour';
+      hourLine.style.top = y(h * 60) + 'px';
+      grid.appendChild(hourLine);
+
+      const lab = document.createElement('div');
+      lab.className = 'tr-label';
+      lab.style.top = y(h * 60) + 'px';
+      lab.textContent = String(h).padStart(2, '0') + ':00';
+      labels.appendChild(lab);
+
+      if (h < END / 60) {
+        [15, 30, 45].forEach(m => {
+          const q = document.createElement('div');
+          q.className = 'tr-grid-quarter';
+          q.style.top = y(h * 60 + m) + 'px';
+          grid.appendChild(q);
+        });
+      }
+    }
+  }
+
+  function render() {
+    selWrap.style.top = y(range.start) + 'px';
+    selWrap.style.height = (y(range.end) - y(range.start)) + 'px';
+    rangeText.textContent = 'Selected range: ' + hhmm(range.start) + ' - ' + hhmm(range.end);
+  }
+
+  function buildZoomGrid() {
+    zoomGrid.innerHTML = '';
+    zoomLabels.innerHTML = '';
+
+    for (let m = zoomStart; m <= zoomEnd; m++) {
+      if (m % 60 === 0) {
+        const line = document.createElement('div');
+        line.className = 'tr-grid-hour';
+        line.style.top = zoomY(m) + 'px';
+        zoomGrid.appendChild(line);
+      } else if (m % 15 === 0) {
+        const line = document.createElement('div');
+        line.className = 'tr-grid-quarter';
+        line.style.top = zoomY(m) + 'px';
+        zoomGrid.appendChild(line);
+      }
+
+      if (m % 15 === 0) {
+        const lab = document.createElement('div');
+        lab.className = 'tr-zoom-label';
+        lab.style.top = zoomY(m) + 'px';
+        lab.textContent = hhmm(m);
+        zoomLabels.appendChild(lab);
+      }
+    }
+  }
+
+  function renderZoom() {
+    zoomSelWrap.style.top = zoomY(zoomRange.start) + 'px';
+    zoomSelWrap.style.height = (zoomY(zoomRange.end) - zoomY(zoomRange.start)) + 'px';
+  }
+
+  function fetchZoomFiles() {
+    if (!zoom.classList.contains('tr-active')) return;
+
+    let type = null;
+    if (audioCheck.checked && !screenCheck.checked) type = 'audio';
+    else if (!audioCheck.checked && screenCheck.checked) type = 'screen';
+
+    const start = hhmmss(zoomStart);
+    const end = hhmmss(zoomEnd);
+
+    fetch(`/app/transcripts/api/raw_files/${day}?start=${start}&end=${end}${type ? '&type=' + type : ''}`)
+      .then(r => r.json())
+      .then(data => {
+        zoomMarks.innerHTML = '';
+        (data.files || []).forEach(f => {
+          const mark = document.createElement('div');
+          mark.className = 'tr-mark ' + (f.type === 'audio' ? 'tr-mark-audio' : 'tr-mark-screen');
+          mark.style.top = zoomY(f.minute) + 'px';
+          mark.title = `${f.time} - ${f.type}`;
+          zoomMarks.appendChild(mark);
+        });
+      })
+      .catch(() => {});
+  }
+
+  // Resize observers
+  new ResizeObserver(() => {
+    height = timeline.clientHeight;
+    ppm = height / (END - START);
+    buildGrid();
+    render();
+  }).observe(timeline);
+
+  new ResizeObserver(() => {
+    if (zoom.classList.contains('tr-active')) {
+      zoomHeight = zoom.clientHeight;
+      if (zoomEnd > zoomStart) {
+        zoomPpm = zoomHeight / (zoomEnd - zoomStart);
+        buildZoomGrid();
+        renderZoom();
+      }
+    }
+  }).observe(zoom);
+
+  // Initial render
+  buildGrid();
+  render();
+
+  // Load transcript ranges
+  fetch(`/app/transcripts/api/ranges/${day}`)
+    .then(r => r.json())
+    .then(data => {
+      (data.audio || []).forEach(rg => {
+        const [s, e] = rg.map(t => {
+          const [hh, mm] = t.split(':').map(Number);
+          return hh * 60 + mm;
+        });
+        addSegment('audio', s, e, 0);
+      });
+      (data.screen || []).forEach(rg => {
+        const [s, e] = rg.map(t => {
+          const [hh, mm] = t.split(':').map(Number);
+          return hh * 60 + mm;
+        });
+        addSegment('screen', s, e, 1);
+      });
+    });
+
+  // Click to set range
+  timeline.addEventListener('click', (e) => {
+    if (e.target.closest('.tr-sel')) return;
+    const box = timeline.getBoundingClientRect();
+    const py = e.clientY - box.top;
+    let mid = snap(mFromY(py));
+    let start = Math.max(START, Math.min(END - DEFAULT_LEN, mid - DEFAULT_LEN / 2));
+    start = snap(start);
+    range = { start, end: snap(start + DEFAULT_LEN) };
+    render();
+  });
+
+  // Drag handlers for main selection
+  function onPointerMove(ev) {
+    if (!drag) return;
+    ev.preventDefault();
+    const dy = ev.clientY - drag.y0;
+    const dMin = Math.round((dy / ppm) / STEP) * STEP;
+
+    if (drag.mode === 'move') {
+      const len = drag.r0.end - drag.r0.start;
+      let s = drag.r0.start + dMin;
+      s = Math.max(START, Math.min(END - len, s));
+      s = snap(s);
+      range = { start: s, end: snap(s + len) };
+    } else if (drag.mode === 'start') {
+      let s = drag.r0.start + dMin;
+      s = Math.max(START, Math.min(drag.r0.end - MIN_LEN, s));
+      range = { start: snap(s), end: snap(drag.r0.end) };
+    } else if (drag.mode === 'end') {
+      let e = drag.r0.end + dMin;
+      e = Math.min(END, Math.max(drag.r0.start + MIN_LEN, e));
+      range = { start: snap(drag.r0.start), end: snap(e) };
+    }
+    render();
+  }
+
+  function onPointerUp() {
+    drag = null;
+    document.body.classList.remove('tr-dragging');
+    window.removeEventListener('pointermove', onPointerMove);
+    window.removeEventListener('pointerup', onPointerUp);
+  }
+
+  function beginDrag(mode) {
+    return (ev) => {
+      ev.stopPropagation();
+      ev.preventDefault();
+      document.body.classList.add('tr-dragging');
+      drag = { mode, y0: ev.clientY, r0: { ...range } };
+      window.addEventListener('pointermove', onPointerMove);
+      window.addEventListener('pointerup', onPointerUp);
+    };
+  }
+
+  sel.addEventListener('pointerdown', beginDrag('move'));
+  sel.querySelector('[data-handle="start"]').addEventListener('pointerdown', beginDrag('start'));
+  sel.querySelector('[data-handle="end"]').addEventListener('pointerdown', beginDrag('end'));
+
+  // Zoom drag handlers
+  function beginZoomDrag(mode) {
+    return (ev) => {
+      if (!zoom.classList.contains('tr-active')) return;
+      ev.stopPropagation();
+      ev.preventDefault();
+      document.body.classList.add('tr-dragging');
+      const zoomDrag = { mode, y0: ev.clientY, r0: { ...zoomRange } };
+
+      const onZoomMove = (e) => {
+        e.preventDefault();
+        const dy = e.clientY - zoomDrag.y0;
+        const dMin = Math.round(dy / zoomPpm);
+
+        if (mode === 'zoom-move') {
+          const len = zoomDrag.r0.end - zoomDrag.r0.start;
+          let s = zoomDrag.r0.start + dMin;
+          s = Math.max(zoomStart, Math.min(zoomEnd - len, s));
+          zoomRange = { start: s, end: s + len };
+        } else if (mode === 'zoom-start') {
+          let s = zoomDrag.r0.start + dMin;
+          s = Math.max(zoomStart, Math.min(zoomDrag.r0.end - 1, s));
+          zoomRange = { start: s, end: zoomDrag.r0.end };
+        } else if (mode === 'zoom-end') {
+          let e = zoomDrag.r0.end + dMin;
+          e = Math.min(zoomEnd, Math.max(zoomDrag.r0.start + 1, e));
+          zoomRange = { start: zoomDrag.r0.start, end: e };
+        }
+        renderZoom();
+      };
+
+      const onZoomUp = () => {
+        document.body.classList.remove('tr-dragging');
+        window.removeEventListener('pointermove', onZoomMove);
+        window.removeEventListener('pointerup', onZoomUp);
+      };
+
+      window.addEventListener('pointermove', onZoomMove);
+      window.addEventListener('pointerup', onZoomUp);
+    };
+  }
+
+  zoomSel.addEventListener('pointerdown', beginZoomDrag('zoom-move'));
+  zoomSel.querySelector('[data-handle="zoom-start"]').addEventListener('pointerdown', beginZoomDrag('zoom-start'));
+  zoomSel.querySelector('[data-handle="zoom-end"]').addEventListener('pointerdown', beginZoomDrag('zoom-end'));
+
+  // Load transcript button
+  loadBtn.addEventListener('click', () => {
+    const start = hhmmss(range.start);
+    const end = hhmmss(range.end);
+    const audio = audioCheck.checked;
+    const screen = screenCheck.checked;
+
+    fetch(`/app/transcripts/api/content/${day}?start=${start}&end=${end}&audio=${audio}&screen=${screen}`)
+      .then(r => r.json())
+      .then(d => {
+        panel.innerHTML = d.html || '';
+        zoom.classList.add('tr-active');
+        mediaBtn.style.display = 'block';
+        downloadBtn.style.display = audio ? 'block' : 'none';
+        zoomStart = range.start;
+        zoomEnd = range.end;
+        zoomHeight = zoom.clientHeight;
+        zoomPpm = zoomHeight / (zoomEnd - zoomStart);
+        zoomRange = { start: zoomStart, end: Math.min(zoomStart + 15, zoomEnd) };
+        buildZoomGrid();
+        fetchZoomFiles();
+        renderZoom();
+      });
+  });
+
+  // Load media button
+  mediaBtn.addEventListener('click', () => {
+    const start = hhmmss(zoomRange.start);
+    const end = hhmmss(zoomRange.end);
+    let type = null;
+    if (audioCheck.checked && !screenCheck.checked) type = 'audio';
+    else if (!audioCheck.checked && screenCheck.checked) type = 'screen';
+
+    fetch(`/app/transcripts/api/media_files/${day}?start=${start}&end=${end}${type ? '&type=' + type : ''}`)
+      .then(r => r.json())
+      .then(data => renderMediaFiles(data.media || []))
+      .catch(() => {
+        panel.innerHTML = '<p>Error loading media files.</p>';
+      });
+  });
+
+  // Download audio button
+  downloadBtn.addEventListener('click', () => {
+    const start = hhmmss(zoomRange.start);
+    const end = hhmmss(zoomRange.end);
+    const url = `/app/transcripts/api/download_audio/${day}?start=${start}&end=${end}`;
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = '';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  });
+
+  // Update download button visibility on checkbox change
+  audioCheck.addEventListener('change', () => {
+    if (zoom.classList.contains('tr-active')) {
+      downloadBtn.style.display = audioCheck.checked ? 'block' : 'none';
+    }
+  });
+
+  function renderMediaFiles(files) {
+    if (files.length === 0) {
+      panel.innerHTML = '<p>No media files found in the selected time range.</p>';
+      return;
+    }
+
+    let html = '';
+    files.forEach(file => {
+      html += '<div class="tr-media-item">';
+      html += `<h4 class="tr-media-time">${file.human_time}</h4>`;
+
+      if (file.type === 'audio') {
+        html += `<audio controls><source src="${file.url}" type="${file.mime_type}">Your browser does not support audio.</audio>`;
+      } else if (file.type === 'screen') {
+        if (file.mime_type.startsWith('video/')) {
+          html += `<video controls><source src="${file.url}" type="${file.mime_type}">Your browser does not support video.</video>`;
+        } else {
+          html += `<img src="${file.url}" alt="Screenshot at ${file.human_time}">`;
+        }
+      }
+      html += '</div>';
+    });
+
+    panel.innerHTML = html;
+  }
+})();
+</script>
