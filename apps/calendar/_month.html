@@ -1,45 +1,92 @@
 {# Calendar month overview - integrated with app facet system #}
 
 <style>
-h1 { margin-bottom: 0.5em; }
+.calendar-container {
+  display: flex;
+  flex-direction: column;
+  /* Fill viewport minus facet bar (48px) and app bar (60px + 12px gap) */
+  height: calc(100vh - var(--facet-bar-height, 48px) - var(--app-bar-height, 60px) - 24px);
+  padding: 12px;
+  box-sizing: border-box;
+}
 
-#controls { display: flex; align-items: center; margin-bottom: 1em; gap: 6px; }
-#controls button { background:#007bff; color:white; border:none; padding:6px 12px; margin:0 6px; border-radius:4px; cursor:pointer; }
-#controls span { font-size:1.2em; font-weight:bold; }
-#calendar { width:100%; border-collapse:collapse; }
-#calendar th, #calendar td { width:14.28%; border:1px solid #e0e0e0; vertical-align:top; height:90px; padding:4px; position:relative; }
-#calendar th { background:#f8f9fa; }
-#calendar td.today { background:rgba(0,123,255,0.12); box-shadow:inset 0 0 0 2px #007bff; }
-.day-number { font-weight:bold; text-decoration:none; color:inherit; display:inline-block; }
-.missing { color:#ccc; }
-.day-actions {
-  position:absolute;
-  bottom:4px;
-  left:4px;
-  right:4px;
-  display:flex;
-  gap:3px;
-  justify-content:flex-start;
+#calendar {
+  width: 100%;
+  border-collapse: collapse;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
 }
-.day-actions a {
-  text-decoration:none;
-  font-size:18px;
-  padding:2px;
-  opacity:0.7;
-  transition:opacity 0.2s;
+
+#calendar thead {
+  flex-shrink: 0;
 }
-.day-actions a:hover {
-  opacity:1;
+
+#calendar tbody {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+#calendar tr {
+  display: flex;
+  flex: 1;
+}
+
+#calendar th, #calendar td {
+  flex: 1;
+  border: 1px solid #e0e0e0;
+  vertical-align: top;
+  padding: 4px;
+  position: relative;
+  min-height: 60px;
+  /* Heat map: intensity 0-1 controls facet color opacity */
+  background: color-mix(in srgb, var(--facet-color) calc(var(--intensity, 0) * 25%), transparent);
+}
+
+#calendar th {
+  background: #f8f9fa;
+  text-align: center;
+  padding: 8px 4px;
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#calendar td.today {
+  /* Layer blue tint on top of heat map */
+  background:
+    linear-gradient(rgba(0,123,255,0.15), rgba(0,123,255,0.15)),
+    color-mix(in srgb, var(--facet-color) calc(var(--intensity, 0) * 25%), transparent);
+  box-shadow: inset 0 0 0 2px #007bff;
+}
+
+.day-number {
+  font-weight: bold;
+  text-decoration: none;
+  color: inherit;
+  display: inline-block;
+}
+
+/* Empty/disabled day cells (zero events or no journal data) */
+#calendar td.empty {
+  background:
+    repeating-linear-gradient(45deg, transparent, transparent 4px, rgba(0,0,0,0.03) 4px, rgba(0,0,0,0.03) 8px),
+    color-mix(in srgb, var(--facet-color) calc(var(--intensity, 0) * 25%), transparent);
+}
+#calendar td.empty .day-number { opacity: 0.4; color: #999; }
+
+.event-count {
+  position: absolute;
+  bottom: 4px;
+  right: 6px;
+  font-size: 0.85em;
+  color: #666;
 }
 </style>
 
-<div class="workspace-content-wide">
-  <div id="controls">
-    <button id="prevMonth">&#8592;</button>
-    <span id="monthLabel"></span>
-    <button id="nextMonth">&#8594;</button>
-    <button id="todayBtn" style="margin-left:auto;">Today</button>
-  </div>
+<div class="calendar-container">
   <table id="calendar">
     <thead>
       <tr><th>Sun</th><th>Mon</th><th>Tue</th><th>Wed</th><th>Thu</th><th>Fri</th><th>Sat</th></tr>
@@ -52,50 +99,36 @@ h1 { margin-bottom: 0.5em; }
 let dayStats = {};
 let availableDays = new Set();
 const dayBase = '/app/calendar/';
-const todosBase = '/app/todos/';
 let months = [];
 let currentIndex = 0;
 const now = new Date();
 const CURRENT_YEAR_MONTH = generateYearMonth(now.getFullYear(), now.getMonth());
 const TODAY_DATE_STRING = CURRENT_YEAR_MONTH + String(now.getDate()).padStart(2,'0');
 
-// Get selected facet from cookie (set by facet-bar)
-function getSelectedFacet() {
-  const cookies = document.cookie.split(';');
-  for (let cookie of cookies) {
-    const [name, value] = cookie.trim().split('=');
-    if (name === 'selectedFacet') {
-      return value || null;
-    }
-  }
-  return null;
-}
+// App bar controls
+const monthLabel = document.getElementById('month-nav-label');
+const prevBtn = document.getElementById('month-nav-prev');
+const nextBtn = document.getElementById('month-nav-next');
+const todayBtn = document.getElementById('month-nav-today');
 
-// Listen for facet changes from facet-bar
-let selectedFacet = getSelectedFacet();
-window.addEventListener('facet.switch', (e) => {
-  selectedFacet = e.detail.facet;
-  loadData();
+// Track current displayed month for re-rendering on facet change
+let currentMonth = null;
+
+// Listen for facet changes from facet-bar - just re-render, no refetch needed
+window.addEventListener('facet.switch', () => {
+  if (currentMonth) {
+    renderMonth(currentMonth);
+  }
 });
 
-function loadData() {
-  // Build stats URL with facet filter if selected
-  let statsUrl = '/app/calendar/api/stats';
-  if (selectedFacet) {
-    statsUrl += `?facet=${encodeURIComponent(selectedFacet)}`;
-  }
-
-  const statsReq = fetch(statsUrl).then(r => {
-    if (!r.ok) throw new Error('Failed to fetch stats');
-    return r.json();
-  });
-  const daysReq = fetch('/app/calendar/api/days').then(r => {
-    if (!r.ok) throw new Error('Failed to fetch days');
-    return r.json();
-  });
-  Promise.all([statsReq, daysReq])
-    .then(([stats, days]) => {
-      dayStats = stats || {};
+function loadDays() {
+  // Fetch available days list (for month navigation and day links)
+  fetch('/app/calendar/api/days')
+    .then(r => {
+      if (!r.ok) throw new Error('Failed to fetch days');
+      return r.json();
+    })
+    .then(days => {
       availableDays = new Set(days || []);
       const monthSet = new Set(Array.from(availableDays).map(d => d.slice(0,6)));
       monthSet.add(CURRENT_YEAR_MONTH);
@@ -114,67 +147,92 @@ function loadData() {
     });
 }
 
+function loadMonthStats(ym) {
+  // Fetch stats for specific month (returns facet counts per day)
+  fetch(`/app/calendar/api/stats/${ym}`)
+    .then(r => {
+      if (!r.ok) throw new Error('Failed to fetch stats');
+      return r.json();
+    })
+    .then(stats => {
+      dayStats = stats || {};
+      currentMonth = ym;
+      renderMonth(ym);
+    })
+    .catch(err => {
+      console.error('Error loading month stats:', err);
+      dayStats = {};
+      currentMonth = ym;
+      renderMonth(ym);
+    });
+}
+
+// Get event count for a day based on selected facet
+function getDayCount(dateStr) {
+  const facetCounts = dayStats[dateStr] || {};
+  if (window.selectedFacet) {
+    return facetCounts[window.selectedFacet] || 0;
+  } else {
+    return Object.values(facetCounts).reduce((sum, c) => sum + c, 0);
+  }
+}
+
 function createDayContent(dateStr, day) {
-  const stats = dayStats[dateStr];
   const exists = availableDays.has(dateStr);
+  const count = getDayCount(dateStr);
 
   let html = '';
-
-  // Day number
-  if (exists) {
+  // Only link to days that exist AND have events
+  if (exists && count > 0) {
     html += `<a class='day-number' href='${dayBase}${dateStr}'>${day}</a>`;
+    html += `<span class='event-count'>${count}</span>`;
   } else {
-    html += `<span class='day-number missing'>${day}</span>`;
-  }
-
-  // Action icons
-  if (exists && stats) {
-    html += `<div class='day-actions'>`;
-
-    // Note/Topics icon - only if topics exist
-    if (stats.has_topics) {
-      html += `<a href='${dayBase}${dateStr}' title='Day Notes'>📝</a>`;
-    }
-
-    // Todos icon - only if todos exist
-    if (stats.has_todos) {
-      html += `<a href='${todosBase}${dateStr}' title='Todos'>✅</a>`;
-    }
-
-    // Transcript icon - only if transcripts exist
-    if (stats.has_transcripts) {
-      html += `<a href='/app/transcripts/${dateStr}' title='Transcript'>💬</a>`;
-    }
-
-    html += `</div>`;
+    html += `<span class='day-number'>${day}</span>`;
   }
 
   return html;
 }
 
 function showMonth(ym) {
+  // Update app bar label
   const year = parseInt(ym.slice(0,4));
   const month = parseInt(ym.slice(4)) - 1;
   const first = new Date(year, month, 1);
-  document.getElementById('monthLabel').textContent = first.toLocaleString('default',{month:'long', year:'numeric'});
+  if (monthLabel) {
+    monthLabel.textContent = first.toLocaleString('default', {month: 'long', year: 'numeric'});
+  }
 
   // Show/hide Today button based on current month
-  const todayBtn = document.getElementById('todayBtn');
-  if (ym === CURRENT_YEAR_MONTH) {
-    todayBtn.style.display = 'none';
-  } else {
-    todayBtn.style.display = 'block';
+  if (todayBtn) {
+    todayBtn.classList.toggle('hidden', ym === CURRENT_YEAR_MONTH);
+  }
+
+  // Load stats for this month (will call renderMonth when done)
+  loadMonthStats(ym);
+}
+
+function renderMonth(ym) {
+  const year = parseInt(ym.slice(0,4));
+  const month = parseInt(ym.slice(4)) - 1;
+  const daysInMonth = new Date(year, month+1, 0).getDate();
+
+  // Calculate max count for heat map scaling
+  let maxCount = 0;
+  for (let day = 1; day <= daysInMonth; day++) {
+    const dateStr = ym + String(day).padStart(2, '0');
+    maxCount = Math.max(maxCount, getDayCount(dateStr));
   }
 
   const tbody = document.querySelector('#calendar tbody');
   tbody.innerHTML='';
-  const startDay = first.getDay();
-  const daysInMonth = new Date(year, month+1, 0).getDate();
+  const startDay = new Date(year, month, 1).getDay();
   let row = document.createElement('tr');
 
   // Empty cells for days before month starts
   for(let i=0; i<startDay; i++){
-    row.appendChild(document.createElement('td'));
+    const td = document.createElement('td');
+    td.classList.add('empty');
+    row.appendChild(td);
   }
 
   // Days of the month
@@ -185,6 +243,17 @@ function showMonth(ym) {
     }
     const td = document.createElement('td');
     const dateStr = ym + String(day).padStart(2,'0');
+    const count = getDayCount(dateStr);
+
+    // Set heat map intensity (0-1)
+    const intensity = maxCount > 0 ? count / maxCount : 0;
+    td.style.setProperty('--intensity', intensity);
+
+    // Mark empty cells (no events or no journal data)
+    const exists = availableDays.has(dateStr);
+    if (count === 0 || !exists) {
+      td.classList.add('empty');
+    }
 
     td.innerHTML = createDayContent(dateStr, day);
 
@@ -197,7 +266,9 @@ function showMonth(ym) {
 
   // Fill remaining cells in last row
   while(row.children.length<7){
-    row.appendChild(document.createElement('td'));
+    const td = document.createElement('td');
+    td.classList.add('empty');
+    row.appendChild(td);
   }
   tbody.appendChild(row);
 }
@@ -235,19 +306,39 @@ function navigateMonth(direction) {
 }
 
 
-document.getElementById('prevMonth').onclick = () => navigateMonth(-1);
-document.getElementById('nextMonth').onclick = () => navigateMonth(1);
-document.getElementById('todayBtn').onclick = () => {
-  currentIndex = months.indexOf(CURRENT_YEAR_MONTH);
-  if (currentIndex === -1) {
-    // If current month not in list, add it
-    months.push(CURRENT_YEAR_MONTH);
-    months.sort();
+// Wire up app bar buttons
+if (prevBtn) prevBtn.onclick = () => navigateMonth(-1);
+if (nextBtn) nextBtn.onclick = () => navigateMonth(1);
+if (todayBtn) {
+  todayBtn.onclick = () => {
     currentIndex = months.indexOf(CURRENT_YEAR_MONTH);
+    if (currentIndex === -1) {
+      months.push(CURRENT_YEAR_MONTH);
+      months.sort();
+      currentIndex = months.indexOf(CURRENT_YEAR_MONTH);
+    }
+    showMonth(CURRENT_YEAR_MONTH);
+  };
+}
+
+// Keyboard shortcuts
+document.addEventListener('keydown', (e) => {
+  if (e.target.matches('input, textarea, select')) return;
+
+  if (e.key === 'ArrowLeft') {
+    e.preventDefault();
+    navigateMonth(-1);
   }
-  showMonth(CURRENT_YEAR_MONTH);
-};
+  if (e.key === 'ArrowRight') {
+    e.preventDefault();
+    navigateMonth(1);
+  }
+  if (e.key === 't' || e.key === 'T') {
+    e.preventDefault();
+    if (todayBtn) todayBtn.click();
+  }
+});
 
 // Load calendar data on page load
-loadData();
+loadDays();
 </script>

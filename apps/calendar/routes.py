@@ -5,7 +5,7 @@ import os
 import re
 from typing import Any
 
-from flask import Blueprint, jsonify, render_template, request
+from flask import Blueprint, jsonify, render_template
 
 from convey import state
 from convey.utils import DATE_RE, adjacent_days, format_date
@@ -124,22 +124,27 @@ def calendar_days() -> Any:
     return jsonify(days)
 
 
-@calendar_bp.route("/api/stats")
-def calendar_stats() -> Any:
-    """Return lightweight stats for calendar display."""
-    # Get optional facet filter from query params
-    facet_filter = request.args.get("facet", "")
+@calendar_bp.route("/api/stats/<month>")
+def calendar_stats(month: str) -> Any:
+    """Return event counts per facet for a specific month.
+
+    Args:
+        month: YYYYMM format month string
+
+    Returns:
+        JSON dict mapping day (YYYYMMDD) to facet counts dict.
+        Frontend handles filtering by selected facet or summing for all-facet mode.
+    """
+    # Validate month format (YYYYMM)
+    if not re.fullmatch(r"\d{6}", month):
+        return jsonify({"error": "Invalid month format, expected YYYYMM"}), 400
 
     stats = {}
 
     for name, path in day_dirs().items():
-        day_stats = {
-            "day": name,
-            "has_transcripts": False,
-            "has_todos": False,
-            "has_insights": False,
-            "occurrence_count": 0,
-        }
+        # Filter to only days in requested month
+        if not name.startswith(month):
+            continue
 
         # Try to load stats.json from day directory
         stats_file = os.path.join(path, "stats.json")
@@ -148,41 +153,16 @@ def calendar_stats() -> Any:
                 with open(stats_file, "r", encoding="utf-8") as f:
                     day_data = json.load(f)
 
-                # Extract stats
-                stats_obj = day_data.get("stats", {})
-                topic_data = day_data.get("topic_data", {})
-
-                # has_transcripts: check if any audio sessions exist
-                day_stats["has_transcripts"] = stats_obj.get("audio_sessions", 0) > 0
-
-                # has_insights: check if insights were processed or topic_data exists
-                day_stats["has_insights"] = (
-                    stats_obj.get("insights_processed", 0) > 0 or len(topic_data) > 0
-                )
-
-                # occurrence_count: sum all topic occurrence counts
-                day_stats["occurrence_count"] = sum(
-                    topic.get("count", 0) for topic in topic_data.values()
-                )
+                facet_data = day_data.get("facet_data", {})
+                # Extract just the counts per facet
+                stats[name] = {
+                    facet: data.get("count", 0) for facet, data in facet_data.items()
+                }
 
             except Exception:
-                # If stats.json can't be read, leave defaults (all False/0)
-                pass
-
-        # Check for todos - filter by facet if specified
-        from think.todo import get_facets_with_todos
-
-        facets_with_todos = get_facets_with_todos(name)
-        if facet_filter:
-            # Filter to specific facet
-            if facet_filter in facets_with_todos:
-                day_stats["has_todos"] = True
+                stats[name] = {}
         else:
-            # Show if any facet has todos
-            if facets_with_todos:
-                day_stats["has_todos"] = True
-
-        stats[name] = day_stats
+            stats[name] = {}
 
     return jsonify(stats)
 

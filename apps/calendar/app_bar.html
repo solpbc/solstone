@@ -1,4 +1,71 @@
 {% set current_view = view|default('month') %}
-{% if current_view != 'month' %}
+
+{% if current_view == 'month' %}
+{# Month navigation for calendar month view #}
+<style>
+.month-nav {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.month-nav-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.5rem 0.75rem;
+  background: #f3f4f6;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  color: #374151;
+  font-size: 1rem;
+  cursor: pointer;
+  text-decoration: none;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.month-nav-btn:hover {
+  background: #e5e7eb;
+  border-color: #9ca3af;
+}
+
+.month-nav-btn:active {
+  transform: scale(0.98);
+}
+
+.month-nav-btn.today {
+  background: #2563eb;
+  border-color: #2563eb;
+  color: white;
+  font-weight: 600;
+}
+
+.month-nav-btn.today:hover {
+  background: #1d4ed8;
+  border-color: #1d4ed8;
+}
+
+.month-nav-btn.today.hidden {
+  display: none;
+}
+
+.month-nav-label {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #374151;
+  min-width: 160px;
+  text-align: center;
+}
+</style>
+
+<div class="month-nav" id="month-nav">
+  <button class="month-nav-btn prev" id="month-nav-prev" title="Previous month (←)">←</button>
+  <span class="month-nav-label" id="month-nav-label"></span>
+  <button class="month-nav-btn next" id="month-nav-next" title="Next month (→)">→</button>
+  <button class="month-nav-btn today hidden" id="month-nav-today" title="Today (t)">Today</button>
+</div>
+
+{% else %}
+{# Day navigation for day view #}
 {% include 'date_nav.html' %}
 {% endif %}
