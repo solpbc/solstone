@@ -38,7 +38,7 @@ from .insights import (
     find_insight_files,
     scan_insights,
     search_insights,
-    split_sentences,
+    split_chunks,
 )
 
 # Import from transcripts
@@ -65,7 +65,7 @@ __all__ = [
     "find_insight_files",
     "scan_insights",
     "search_insights",
-    "split_sentences",
+    "split_chunks",
     # Events
     "scan_events",
     "search_events",

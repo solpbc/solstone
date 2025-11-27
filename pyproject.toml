@@ -36,7 +36,7 @@ dependencies = [
     "Flask[async]",
     "flask-sock",
     "Markdown",
-    "syntok",
+    "mistune",
 
     # Natural language time parsing
     "timefhuman",

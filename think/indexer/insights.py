@@ -7,10 +7,10 @@ import sqlite3
 from typing import Dict, List, Tuple
 
 import sqlite_utils
-from syntok import segmenter
 
 from think.utils import day_dirs, get_insights
 
+from .chunker import chunk_markdown, render_chunk
 from .core import _scan_files, get_index
 
 # Regex to match segment folder names (HHMMSS_LEN format)
@@ -21,18 +21,9 @@ INSIGHTS_DIR = os.path.join(os.path.dirname(__file__), "..", "insights")
 INSIGHT_TYPES = sorted(get_insights().keys())
 
 
-def split_sentences(text: str) -> List[str]:
-    """Return a list of cleaned sentences from markdown text."""
-    import re
-
-    cleaned = re.sub(r"^[*-]\s*", "", text, flags=re.MULTILINE)
-    sentences: List[str] = []
-    for paragraph in segmenter.process(cleaned):
-        for sentence in paragraph:
-            joined = "".join(str(t) for t in sentence).strip()
-            if joined:
-                sentences.append(joined)
-    return sentences
+def split_chunks(text: str) -> List[str]:
+    """Return a list of rendered markdown chunks from text."""
+    return [render_chunk(c) for c in chunk_markdown(text)]
 
 
 def find_insight_files(
@@ -101,16 +92,14 @@ def find_insight_files(
     return files
 
 
-def _index_sentences(
-    conn: sqlite3.Connection, rel: str, path: str, verbose: bool
-) -> None:
-    """Index sentences from an insight markdown file."""
+def _index_chunks(conn: sqlite3.Connection, rel: str, path: str, verbose: bool) -> None:
+    """Index chunks from an insight markdown file."""
     logger = logging.getLogger(__name__)
     with open(path, "r", encoding="utf-8") as f:
         text = f.read()
-    sentences = split_sentences(text)
+    chunks = split_chunks(text)
     if verbose:
-        logger.info("  indexed %s sentences", len(sentences))
+        logger.info("  indexed %s chunks", len(chunks))
 
     # Parse path to extract day and topic
     # Formats:
@@ -139,17 +128,17 @@ def _index_sentences(
         filename = parts[-1]
         topic = os.path.splitext(filename)[0]
 
-    for pos, sentence in enumerate(sentences):
+    for pos, chunk in enumerate(chunks):
         conn.execute(
             (
                 "INSERT INTO insights_text(sentence, path, day, topic, position) VALUES (?, ?, ?, ?, ?)"
             ),
-            (sentence, rel, day, topic, pos),
+            (chunk, rel, day, topic, pos),
         )
 
 
 def scan_insights(journal: str, verbose: bool = False) -> bool:
-    """Index sentences from insight markdown files."""
+    """Index chunks from insight markdown files."""
     logger = logging.getLogger(__name__)
     conn, _ = get_index(index="insights", journal=journal)
     files = find_insight_files(journal, (".md",))
@@ -159,7 +148,7 @@ def scan_insights(journal: str, verbose: bool = False) -> bool:
         conn,
         files,
         "DELETE FROM insights_text WHERE path=?",
-        _index_sentences,
+        _index_chunks,
         verbose,
     )
     if changed:
