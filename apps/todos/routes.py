@@ -14,6 +14,7 @@ from flask import (
     url_for,
 )
 
+from apps.utils import log_app_action
 from convey import state
 from convey.config import get_selected_facet
 from convey.utils import DATE_RE, adjacent_days, format_date
@@ -139,10 +140,19 @@ def todos_day(day: str):  # type: ignore[override]
                         checklist = TodoChecklist.load(day, facet)
                         checklist.append_entry(text)
 
+                        new_index = len(checklist.entries)
+                        new_guard = checklist.entries[new_index - 1]
+
+                        log_app_action(
+                            app="todos",
+                            facet=facet,
+                            action="todo_add",
+                            params={"text": text, "line_number": new_index},
+                            day=day,
+                        )
+
                         # If AJAX request, return JSON with new todo data
                         if is_ajax:
-                            new_index = len(checklist.entries)
-                            new_guard = checklist.entries[new_index - 1]
                             # Extract time if present (e.g., "14:30")
                             import re as time_re
 
@@ -206,12 +216,42 @@ def todos_day(day: str):  # type: ignore[override]
             return redirect(url_for("app:todos.todos_day", day=day))
 
         try:
+            # Extract text from guard for logging (guard format: "- [ ] text" or "- [x] text")
+            guard_text = guard[6:] if len(guard) > 6 else guard
+
             if action == "complete":
                 checklist.mark_done(index, guard)
+                log_app_action(
+                    app="todos",
+                    facet=facet,
+                    action="todo_complete",
+                    params={"line_number": index, "text": guard_text},
+                    day=day,
+                )
             elif action == "uncomplete":
                 checklist.mark_undone(index, guard)
+                log_app_action(
+                    app="todos",
+                    facet=facet,
+                    action="todo_uncomplete",
+                    params={"line_number": index, "text": guard_text},
+                    day=day,
+                )
             elif action == "remove":
+                # Capture completed status before removal
+                completed = guard.startswith("- [x]")
                 checklist.remove_entry(index, guard)
+                log_app_action(
+                    app="todos",
+                    facet=facet,
+                    action="todo_remove",
+                    params={
+                        "line_number": index,
+                        "text": guard_text,
+                        "completed": completed,
+                    },
+                    day=day,
+                )
             elif action == "edit":
                 import re
 
@@ -260,10 +300,35 @@ def todos_day(day: str):  # type: ignore[override]
                         # Remove from old facet
                         checklist.remove_entry(index, source_entry)
 
+                        log_app_action(
+                            app="todos",
+                            facet=facet,
+                            action="todo_edit",
+                            params={
+                                "line_number": index,
+                                "old_text": guard_text,
+                                "new_text": text,
+                                "old_facet": facet,
+                                "new_facet": new_facet,
+                            },
+                            day=day,
+                        )
+
                         return redirect(url_for("app:todos.todos_day", day=day))
 
                 # No facet change, just update text
                 checklist.update_entry_text(index, guard, text)
+                log_app_action(
+                    app="todos",
+                    facet=facet,
+                    action="todo_edit",
+                    params={
+                        "line_number": index,
+                        "old_text": guard_text,
+                        "new_text": text,
+                    },
+                    day=day,
+                )
             else:
                 flash("Unknown action", "error")
                 return redirect(url_for("app:todos.todos_day", day=day))
@@ -439,6 +504,20 @@ def move_todo(day: str):  # type: ignore[override]
             jsonify({"error": "Todo list changed, please refresh and try again."}),
             409,
         )
+
+    log_app_action(
+        app="todos",
+        facet=facet,
+        action="todo_move",
+        params={
+            "source_day": day,
+            "target_day": target_day,
+            "line_number": index,
+            "text": body,
+            "completed": completed,
+        },
+        day=day,
+    )
 
     redirect_url = url_for("app:todos.todos_day", day=target_day)
     counts = _compute_badge_counts(day, facet)

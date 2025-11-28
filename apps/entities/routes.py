@@ -8,6 +8,7 @@ from typing import Any
 
 from flask import Blueprint, jsonify, render_template, request
 
+from apps.utils import log_app_action
 from convey import state
 from think.entities import load_entities, save_entities
 from think.indexer import search_entities
@@ -102,6 +103,13 @@ def add_entity(facet_name: str) -> Any:
         # Save back
         save_entities(facet_name, entities)
 
+        log_app_action(
+            app="entities",
+            facet=facet_name,
+            action="entity_attach",
+            params={"type": etype, "name": name, "description": desc},
+        )
+
         return jsonify({"success": True})
 
     except Exception as e:
@@ -125,6 +133,16 @@ def remove_entity(facet_name: str) -> Any:
         # Load existing attached entities
         entities = load_entities(facet_name)
 
+        # Find the entity to capture its data before removal
+        removed_entity = None
+        for e in entities:
+            if e.get("type") == etype and e.get("name") == name:
+                removed_entity = e
+                break
+
+        if not removed_entity:
+            return jsonify({"error": "Entity not found in facet"}), 404
+
         # Filter out the entity to remove
         filtered = [
             e
@@ -132,12 +150,20 @@ def remove_entity(facet_name: str) -> Any:
             if not (e.get("type") == etype and e.get("name") == name)
         ]
 
-        # Check if anything was removed
-        if len(filtered) == len(entities):
-            return jsonify({"error": "Entity not found in facet"}), 404
-
         # Save filtered list
         save_entities(facet_name, filtered)
+
+        log_app_action(
+            app="entities",
+            facet=facet_name,
+            action="entity_detach",
+            params={
+                "type": etype,
+                "name": name,
+                "description": removed_entity.get("description", ""),
+                "aka": removed_entity.get("aka", []),
+            },
+        )
 
         return jsonify({"success": True})
 
@@ -184,6 +210,9 @@ def update_entity(facet_name: str) -> Any:
         if not target:
             return jsonify({"error": "Entity not found"}), 404
 
+        # Capture old values before modification
+        old_aka = target.get("aka", [])
+
         # Check if new name conflicts with existing entities (excluding current)
         if new_name != old_name:
             for i, entity in enumerate(entities):
@@ -206,6 +235,19 @@ def update_entity(facet_name: str) -> Any:
 
         # Save updated entities
         save_entities(facet_name, entities)
+
+        log_app_action(
+            app="entities",
+            facet=facet_name,
+            action="entity_update",
+            params={
+                "type": entity_type,
+                "old_name": old_name,
+                "new_name": new_name,
+                "old_aka": old_aka,
+                "new_aka": aka_list,
+            },
+        )
 
         return jsonify({"success": True, "entity": target})
 
@@ -231,10 +273,12 @@ def update_description(facet_name: str) -> Any:
         # Load existing attached entities
         entities = load_entities(facet_name)
 
-        # Find and update the entity
+        # Find and update the entity, capturing old description
         updated = False
+        old_description = ""
         for entity in entities:
             if entity.get("type") == entity_type and entity.get("name") == entity_name:
+                old_description = entity.get("description", "")
                 entity["description"] = new_description
                 updated = True
                 break
@@ -244,6 +288,18 @@ def update_description(facet_name: str) -> Any:
 
         # Save updated list
         save_entities(facet_name, entities)
+
+        log_app_action(
+            app="entities",
+            facet=facet_name,
+            action="entity_update_description",
+            params={
+                "type": entity_type,
+                "name": entity_name,
+                "old_description": old_description,
+                "new_description": new_description,
+            },
+        )
 
         return jsonify({"success": True})
 
@@ -391,9 +447,21 @@ def delete_detected(facet_name: str) -> Any:
 
         # Iterate through all day files and remove the entity
         days_modified = []
+        deleted_entries = []
         for day_file in sorted(entities_dir.glob("*.jsonl")):
             day = day_file.stem
             entities = load_entities(facet_name, day)
+
+            # Capture entities being removed before filtering
+            for e in entities:
+                if e.get("name") == entity_name:
+                    deleted_entries.append(
+                        {
+                            "day": day,
+                            "type": e.get("type", ""),
+                            "description": e.get("description", ""),
+                        }
+                    )
 
             # Filter out entities matching this name (any type)
             original_count = len(entities)
@@ -403,6 +471,17 @@ def delete_detected(facet_name: str) -> Any:
             if len(filtered_entities) < original_count:
                 save_entities(facet_name, filtered_entities, day)
                 days_modified.append(day)
+
+        if deleted_entries:
+            log_app_action(
+                app="entities",
+                facet=facet_name,
+                action="entity_delete_detected",
+                params={
+                    "name": entity_name,
+                    "deleted_entries": deleted_entries,
+                },
+            )
 
         return jsonify({"success": True, "days_modified": days_modified})
 

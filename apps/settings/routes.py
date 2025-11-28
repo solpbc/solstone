@@ -6,6 +6,7 @@ from typing import Any
 
 from flask import Blueprint, jsonify, render_template, request
 
+from apps.utils import log_app_action
 from convey import state
 from think.utils import get_config as get_journal_config
 
@@ -97,16 +98,30 @@ def update_facet_config(facet_name: str) -> Any:
         else:
             config = {}
 
-        # Update allowed fields only
+        # Track changes for logging
+        changed_fields = {}
         allowed_fields = ["title", "description", "color", "emoji", "muted"]
         for field in allowed_fields:
             if field in data:
-                config[field] = data[field]
+                old_value = config.get(field)
+                new_value = data[field]
+                if old_value != new_value:
+                    changed_fields[field] = {"old": old_value, "new": new_value}
+                config[field] = new_value
 
         # Write back to file
         with open(config_file, "w", encoding="utf-8") as f:
             json.dump(config, f, indent=2, ensure_ascii=False)
             f.write("\n")
+
+        # Log only if something actually changed
+        if changed_fields:
+            log_app_action(
+                app="settings",
+                facet=facet_name,
+                action="facet_update",
+                params={"changed_fields": changed_fields},
+            )
 
         return jsonify({"success": True, "facet": facet_name, "config": config})
     except Exception as e:
