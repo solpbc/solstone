@@ -2,7 +2,6 @@ import argparse
 import json
 import logging
 import os
-import re
 from collections import Counter
 from datetime import datetime
 from pathlib import Path
@@ -13,8 +12,6 @@ from think.insight import scan_day as insight_scan_day
 from think.utils import day_dirs, setup_cli
 
 logger = logging.getLogger(__name__)
-
-DATE_RE = re.compile(r"\d{8}")
 
 
 class JournalStats:
@@ -32,6 +29,10 @@ class JournalStats:
         self.token_usage: Dict[str, Dict[str, Dict[str, int]]] = {}
         # Total token usage by model: {model: {token_type: count}}
         self.token_totals: Dict[str, Dict[str, int]] = {}
+        # Per-day topic counts: {day: {topic: count}}
+        self.topic_counts_by_day: Dict[str, Dict[str, int]] = {}
+        # Per-day facet counts: {day: {facet: count}}
+        self.facet_counts_by_day: Dict[str, Dict[str, int]] = {}
 
     def _get_day_mtime(self, day_dir: Path) -> float:
         """Get latest modification time of files we scan."""
@@ -127,7 +128,7 @@ class JournalStats:
         counts_for_totals = {
             k: v
             for k, v in stats.items()
-            if k not in ("audio_duration", "screen_duration", "activity")
+            if k not in ("audio_duration", "screen_duration")
         }
         self.totals.update(counts_for_totals)
 
@@ -136,15 +137,27 @@ class JournalStats:
         self.total_screen_duration += stats.get("screen_duration", 0.0)
 
         # Apply topic data
+        day_topic_counts: Dict[str, int] = {}
         for topic, data in topic_data.items():
-            self.topic_counts[topic] += data.get("count", 0)
+            count = data.get("count", 0)
+            self.topic_counts[topic] += count
             self.topic_minutes[topic] += data.get("minutes", 0.0)
+            if count > 0:
+                day_topic_counts[topic] = count
+        if day_topic_counts:
+            self.topic_counts_by_day[day] = day_topic_counts
 
         # Apply facet data
         facet_data = cached_data.get("facet_data", {})
+        day_facet_counts: Dict[str, int] = {}
         for facet, data in facet_data.items():
-            self.facet_counts[facet] += data.get("count", 0)
+            count = data.get("count", 0)
+            self.facet_counts[facet] += count
             self.facet_minutes[facet] += data.get("minutes", 0.0)
+            if count > 0:
+                day_facet_counts[facet] = count
+        if day_facet_counts:
+            self.facet_counts_by_day[day] = day_facet_counts
 
         # Apply heatmap data
         weekday = heatmap_data.get("weekday")
@@ -314,7 +327,6 @@ class JournalStats:
         # --- Build return dict ---
         stats["audio_duration"] = audio_duration
         stats["screen_duration"] = screen_duration
-        stats["activity"] = stats["audio_sessions"] + stats["screen_sessions"]
 
         return {
             "stats": dict(stats),
@@ -459,8 +471,10 @@ class JournalStats:
             "total_screen_duration": self.total_screen_duration,
             "topic_counts": dict(self.topic_counts),
             "topic_minutes": {k: round(v, 2) for k, v in self.topic_minutes.items()},
+            "topic_counts_by_day": self.topic_counts_by_day,
             "facet_counts": dict(self.facet_counts),
             "facet_minutes": {k: round(v, 2) for k, v in self.facet_minutes.items()},
+            "facet_counts_by_day": self.facet_counts_by_day,
             "heatmap": self.heatmap,
             "token_usage_by_day": self.token_usage,
             "token_totals_by_model": self.token_totals,

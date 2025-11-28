@@ -277,46 +277,6 @@ h1 {
   color: #999;
 }
 
-/* Topics */
-.topics-section {
-  background: white;
-  border-radius: 12px;
-  padding: 2em;
-  box-shadow: 0 4px 15px rgba(0,0,0,0.08);
-  margin-bottom: 2em;
-}
-
-.topics-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 1em;
-  margin-top: 1.5em;
-}
-
-.topic-card {
-  background: #f8f8f8;
-  border-radius: 8px;
-  padding: 1em;
-  transition: all 0.2s;
-}
-
-.topic-card:hover {
-  transform: translateY(-2px);
-  background: #f0f0f0;
-}
-
-.topic-name {
-  font-weight: 600;
-  color: #333;
-  margin-bottom: 0.5em;
-}
-
-.topic-stats {
-  display: flex;
-  justify-content: space-between;
-  font-size: 0.85em;
-  color: #666;
-}
 
 /* Repair alert */
 .alert-repair {
@@ -461,7 +421,16 @@ h1 {
       <div id="heatmap"></div>
     </div>
 
-    <div id="topicsSection" class="topics-section"></div>
+    <div class="chart-section">
+      <h2>Facets (Last 30 Days)</h2>
+      <div class="chart" id="facetsChart"></div>
+    </div>
+
+    <div class="chart-section">
+      <h2>Events (Last 30 Days)</h2>
+      <div class="chart" id="eventsChart"></div>
+    </div>
+
     <div id="repairSection"></div>
   </div>
 </div>

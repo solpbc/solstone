@@ -19,23 +19,6 @@ const Dashboard = (function() {
     return elem;
   }
 
-  // Format numbers with appropriate units
-  function fmt(num, decimals = 1) {
-    const value = Number(num);
-    return value > 10 ? value.toFixed(0) : value.toFixed(decimals);
-  }
-
-  function fmtMinutes(min) {
-    const value = Number(min);
-    if (value >= 1440) {
-      return (value / 1440).toFixed(1) + 'd';
-    }
-    if (value >= 60) {
-      return Math.round(value / 60) + 'h';
-    }
-    return Math.round(value) + 'm';
-  }
-
   // Format token counts with Bil/Mil suffixes
   function fmtTokens(num) {
     const value = Number(num);
@@ -77,44 +60,6 @@ const Dashboard = (function() {
         el('span', {}, [`${repairable} pending`])
       ])
     ]);
-  }
-
-  // Build activity chart
-  function buildChart(container, data, config = {}) {
-    const {valueKey = 'value', unit = '', color = null, maxBars = 30} = config;
-    
-    if (!data.length) {
-      container.appendChild(
-        el('div', {className: 'empty-chart'}, ['No data available'])
-      );
-      return;
-    }
-
-    const chart = el('div', {className: 'bar-chart'});
-    const maxVal = Math.max(...data.map(d => d[valueKey])) || 1;
-    const skip = Math.ceil(data.length / maxBars);
-
-    data.forEach((d, i) => {
-      if (i % skip !== 0) return;
-      
-      const height = (d[valueKey] / maxVal) * 100;
-      const bar = el('div', {
-        className: 'bar',
-        style: color ? {height: `${height}%`, background: color} : {height: `${height}%`}
-      });
-      
-      bar.appendChild(el('div', {className: 'bar-label'}, [d.day || d.label]));
-      
-      if (d[valueKey] > 0) {
-        bar.appendChild(
-          el('div', {className: 'bar-value'}, [`${d[valueKey]}${unit}`])
-        );
-      }
-      
-      chart.appendChild(bar);
-    });
-
-    container.appendChild(chart);
   }
 
   // Build stacked token chart
@@ -363,34 +308,132 @@ const Dashboard = (function() {
     container.appendChild(heatmap);
   }
 
-  // Build topics grid
-  function buildTopics(container, counts, minutes, meta = {}) {
-    const names = Object.keys(counts);
-    if (!names.length) {
-      container.style.display = 'none';
+  // Generate consistent colors for categories
+  function getCategoryColor(index, total) {
+    // Use a palette of distinct colors
+    const palette = [
+      '#667eea', '#764ba2', '#e91e63', '#00bcd4', '#4caf50',
+      '#ff9800', '#9c27b0', '#3f51b5', '#009688', '#ff5722',
+      '#795548', '#607d8b', '#8bc34a', '#ffc107', '#673ab7'
+    ];
+    return palette[index % palette.length];
+  }
+
+  // Build stacked category chart (for Events or Facets)
+  function buildStackedCategoryChart(container, countsByDay, meta = {}) {
+    container.innerHTML = '';
+
+    if (!countsByDay || Object.keys(countsByDay).length === 0) {
+      container.appendChild(
+        el('div', {className: 'empty-chart'}, ['No data available'])
+      );
       return;
     }
-    
-    container.style.display = 'block';
-    const sorted = names.sort((a, b) => counts[b] - counts[a]);
-    const grid = el('div', {className: 'topics-grid'});
-    
-    sorted.forEach(name => {
-      const info = meta[name] || {};
-      const title = info.title || name;
-      const color = info.color || null;
-      const card = el('div', {className: 'topic-card'}, [
-        el('div', {className: 'topic-name', style: color ? {color} : {}}, [title]),
-        el('div', {className: 'topic-stats'}, [
-          el('span', {}, [String(counts[name])]),
-          el('span', {}, [fmtMinutes(minutes[name] || 0)])
-        ])
-      ]);
-      grid.appendChild(card);
+
+    // Get last 30 days sorted
+    const days = Object.keys(countsByDay).sort().slice(-30);
+    if (!days.length) {
+      container.appendChild(
+        el('div', {className: 'empty-chart'}, ['No data available'])
+      );
+      return;
+    }
+
+    // Collect all unique categories across all days
+    const allCategories = new Set();
+    days.forEach(day => {
+      Object.keys(countsByDay[day] || {}).forEach(cat => allCategories.add(cat));
     });
-    
-    container.appendChild(el('h2', {}, ['Topics']));
-    container.appendChild(grid);
+    const categories = Array.from(allCategories).sort();
+
+    if (!categories.length) {
+      container.appendChild(
+        el('div', {className: 'empty-chart'}, ['No data available'])
+      );
+      return;
+    }
+
+    // Assign colors to categories
+    const categoryColors = {};
+    categories.forEach((cat, i) => {
+      const info = meta[cat] || {};
+      categoryColors[cat] = info.color || getCategoryColor(i, categories.length);
+    });
+
+    // Calculate max total for scaling
+    let maxTotal = 0;
+    const chartData = days.map(day => {
+      const dayCounts = countsByDay[day] || {};
+      const total = Object.values(dayCounts).reduce((sum, c) => sum + c, 0);
+      maxTotal = Math.max(maxTotal, total);
+      return { day, counts: dayCounts, total };
+    });
+
+    if (maxTotal === 0) {
+      container.appendChild(
+        el('div', {className: 'empty-chart'}, ['No data available'])
+      );
+      return;
+    }
+
+    const chart = el('div', {className: 'bar-chart'});
+
+    chartData.forEach(d => {
+      const height = (d.total / maxTotal) * 100;
+      const bar = el('div', {
+        className: 'bar',
+        style: {height: `${height}%`, background: 'transparent', overflow: 'visible'}
+      });
+
+      // Create stacked segments
+      const stack = el('div', {className: 'bar-stack', style: {height: '100%'}});
+
+      // Build tooltip showing breakdown
+      const tooltipParts = [`${d.day.slice(4, 6)}/${d.day.slice(6, 8)}`];
+
+      if (d.total > 0) {
+        // Stack segments from top to bottom (reverse order for visual stacking)
+        categories.slice().reverse().forEach(cat => {
+          const count = d.counts[cat] || 0;
+          if (count > 0) {
+            const pct = (count / d.total) * 100;
+            const info = meta[cat] || {};
+            const title = info.title || cat;
+            stack.appendChild(el('div', {
+              className: 'stack-segment',
+              style: {
+                height: `${pct}%`,
+                background: categoryColors[cat]
+              }
+            }));
+            tooltipParts.push(`${title}: ${count}`);
+          }
+        });
+      }
+
+      bar.appendChild(stack);
+
+      if (d.total > 0) {
+        bar.appendChild(el('div', {className: 'bar-value'}, [String(d.total)]));
+        bar.setAttribute('title', tooltipParts.join('\n'));
+      }
+
+      chart.appendChild(bar);
+    });
+
+    container.appendChild(chart);
+
+    // Add legend
+    const legend = el('div', {className: 'token-legend'});
+    categories.forEach(cat => {
+      const info = meta[cat] || {};
+      const title = info.title || cat;
+      legend.appendChild(el('div', {className: 'legend-item'}, [
+        el('div', {className: 'legend-color', style: {background: categoryColors[cat]}}),
+        title
+      ]));
+    });
+    container.appendChild(legend);
   }
 
   // Main render function
@@ -412,7 +455,7 @@ const Dashboard = (function() {
       document.getElementById('notice').appendChild(
         el('div', {className: 'alert alert-warning'}, [
           el('strong', {}, ['No data available. ']),
-          'Run journal_stats.py to generate statistics.'
+          'Run think-journal-stats to generate statistics.'
         ])
       );
       return;
@@ -503,16 +546,20 @@ const Dashboard = (function() {
     if (stats.heatmap) {
       buildHeatmap(document.getElementById('heatmap'), stats.heatmap);
     }
-    
-    // Render topics
-    if (stats.topic_counts && Object.keys(stats.topic_counts).length > 0) {
-      buildTopics(
-        document.getElementById('topicsSection'),
-        stats.topic_counts,
-        stats.topic_minutes,
-        data.insights || {}
-      );
-    }
+
+    // Render Facets stacked bar chart
+    buildStackedCategoryChart(
+      document.getElementById('facetsChart'),
+      stats.facet_counts_by_day || {},
+      {}  // No special metadata for facets
+    );
+
+    // Render Events stacked bar chart
+    buildStackedCategoryChart(
+      document.getElementById('eventsChart'),
+      stats.topic_counts_by_day || {},
+      data.insights || {}  // Use insight metadata for titles/colors
+    );
     
     // Render repairs if needed
     const repairs = ['unprocessed_files', 'insights_pending'];
