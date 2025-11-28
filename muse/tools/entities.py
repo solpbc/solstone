@@ -16,7 +16,7 @@ from think.entities import (
     save_entities,
     update_entity,
 )
-from think.facets import log_action
+from think.facets import log_tool_action
 
 
 def entity_list(facet: str, day: str | None = None) -> dict[str, Any]:
@@ -115,12 +115,12 @@ def entity_detect(
         # Add new entity
         existing.append({"type": type, "name": name, "description": description})
         save_entities(facet, existing, day)
-        log_action(
-            facet,
-            day,
-            "entity_detect",
-            {"type": type, "name": name, "description": description},
+        log_tool_action(
+            facet=facet,
+            action="entity_detect",
+            params={"type": type, "name": name, "description": description},
             context=context,
+            day=day,
         )
 
         return {
@@ -190,12 +190,10 @@ def entity_attach(
         save_entities(facet, existing, day=None)
 
         # Log to today's log since attached entities aren't day-scoped
-        today = datetime.now().strftime("%Y%m%d")
-        log_action(
-            facet,
-            today,
-            "entity_attach",
-            {"type": type, "name": name, "description": description},
+        log_tool_action(
+            facet=facet,
+            action="entity_attach",
+            params={"type": type, "name": name, "description": description},
             context=context,
         )
 
@@ -264,19 +262,17 @@ def entity_update(
 
         update_entity(facet, type, name, old_description, new_description, day)
 
-        # Use provided day or today for logging
-        log_day = day if day else datetime.now().strftime("%Y%m%d")
-        log_action(
-            facet,
-            log_day,
-            "entity_update",
-            {
+        log_tool_action(
+            facet=facet,
+            action="entity_update",
+            params={
                 "type": type,
                 "name": name,
                 "old_description": old_description,
                 "new_description": new_description,
             },
             context=context,
+            day=day,
         )
 
         return {
@@ -388,12 +384,10 @@ def entity_add_aka(
                 save_entities(facet, entities, day=None)
 
                 # Log to today's log since attached entities aren't day-scoped
-                today = datetime.now().strftime("%Y%m%d")
-                log_action(
-                    facet,
-                    today,
-                    "entity_add_aka",
-                    {"type": type, "name": name, "aka": aka},
+                log_tool_action(
+                    facet=facet,
+                    action="entity_add_aka",
+                    params={"type": type, "name": name, "aka": aka},
                     context=context,
                 )
 

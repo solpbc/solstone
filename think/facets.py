@@ -58,25 +58,28 @@ def _get_actor_info(context: Context | None = None) -> tuple[str, str | None]:
         return "mcp", None
 
 
-def log_action(
+def _write_action_log(
     facet: str,
-    day: str,
     action: str,
     params: dict[str, Any],
-    context: Context | None = None,
+    source: str,
+    actor: str,
+    day: str | None = None,
+    agent_id: str | None = None,
 ) -> None:
-    """Log an MCP tool action to the facet's daily audit log.
+    """Write action to the facet's daily audit log.
 
-    Creates a JSONL log entry in facets/{facet}/logs/{day}.jsonl for tracking
-    successful todo and entity modifications made via MCP tools. Automatically
-    extracts actor identity from meta (stdio) or HTTP headers (HTTP transport).
+    Internal function that writes JSONL log entries to facets/{facet}/logs/{day}.jsonl.
+    Use log_tool_action() for MCP tools or log_app_action() for web apps.
 
     Args:
         facet: Facet name where the action occurred
-        day: Day in YYYYMMDD format when the action occurred
         action: Action type (e.g., "todo_add", "entity_attach")
         params: Dictionary of action-specific parameters
-        context: Optional FastMCP context for extracting meta
+        source: Origin type - "tool" for MCP agents, "app" for web UI
+        actor: For tools: persona name. For apps: app name
+        day: Day in YYYYMMDD format (defaults to today)
+        agent_id: Optional agent ID (only for tool actions)
 
     Raises:
         RuntimeError: If JOURNAL_PATH is not set
@@ -86,18 +89,19 @@ def log_action(
     if not journal:
         raise RuntimeError("JOURNAL_PATH not set")
 
+    if day is None:
+        day = datetime.now().strftime("%Y%m%d")
+
     # Build log file path
     log_path = Path(journal) / "facets" / facet / "logs" / f"{day}.jsonl"
 
     # Ensure parent directory exists
     log_path.parent.mkdir(parents=True, exist_ok=True)
 
-    # Get actor info from meta or HTTP headers
-    actor, agent_id = _get_actor_info(context)
-
     # Create log entry
     entry = {
         "timestamp": datetime.now(timezone.utc).isoformat(),
+        "source": source,
         "actor": actor,
         "action": action,
         "params": params,
@@ -110,6 +114,41 @@ def log_action(
     # Append to log file
     with open(log_path, "a", encoding="utf-8") as f:
         f.write(json.dumps(entry, ensure_ascii=False) + "\n")
+
+
+def log_tool_action(
+    facet: str,
+    action: str,
+    params: dict[str, Any],
+    context: Context | None = None,
+    day: str | None = None,
+) -> None:
+    """Log an agent-initiated action from an MCP tool.
+
+    Creates a JSONL log entry in facets/{facet}/logs/{day}.jsonl for tracking
+    successful modifications made via MCP tools. Automatically extracts actor
+    identity (persona) from FastMCP context.
+
+    Args:
+        facet: Facet name where the action occurred
+        action: Action type (e.g., "todo_add", "entity_attach")
+        params: Dictionary of action-specific parameters
+        context: Optional FastMCP context for extracting persona/agent_id
+        day: Day in YYYYMMDD format (defaults to today)
+
+    Raises:
+        RuntimeError: If JOURNAL_PATH is not set
+    """
+    actor, agent_id = _get_actor_info(context)
+    _write_action_log(
+        facet=facet,
+        action=action,
+        params=params,
+        source="tool",
+        actor=actor,
+        day=day,
+        agent_id=agent_id,
+    )
 
 
 def get_facets() -> dict[str, dict[str, object]]:
@@ -411,14 +450,11 @@ def set_facet_muted(facet: str, muted: bool) -> None:
         raise
 
     # Log the change
-    today = datetime.now().strftime("%Y%m%d")
     action = "facet_mute" if muted else "facet_unmute"
-    log_action(
+    log_tool_action(
         facet=facet,
-        day=today,
         action=action,
         params={"muted": muted},
-        context=None,
     )
 
 

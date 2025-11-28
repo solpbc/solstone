@@ -1,6 +1,7 @@
 """Utility functions for Convey app storage in journal."""
 
 import re
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -92,3 +93,45 @@ def save_app_config(
     storage_path = get_app_storage_path(app_name, ensure_exists=True)
     config_path = storage_path / "config.json"
     return save_json(config_path, config)
+
+
+def log_app_action(
+    app: str,
+    facet: str,
+    action: str,
+    params: dict[str, Any],
+    day: str | None = None,
+) -> None:
+    """Log a user-initiated action from a Convey app.
+
+    Creates a JSONL log entry in facets/{facet}/logs/{day}.jsonl for tracking
+    user actions made through the web UI.
+
+    Args:
+        app: App name where action originated (e.g., "entities", "todos")
+        facet: Facet where action occurred
+        action: Action type (e.g., "entity_add", "todo_complete")
+        params: Action-specific parameters to record
+        day: Day in YYYYMMDD format (defaults to today)
+
+    Example:
+        log_app_action(
+            app="entities",
+            facet="work",
+            action="entity_add",
+            params={"type": "Person", "name": "Alice"},
+        )
+    """
+    from think.facets import _write_action_log
+
+    if day is None:
+        day = datetime.now().strftime("%Y%m%d")
+
+    _write_action_log(
+        facet=facet,
+        action=action,
+        params=params,
+        source="app",
+        actor=app,
+        day=day,
+    )

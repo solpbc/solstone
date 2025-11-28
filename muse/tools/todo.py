@@ -10,7 +10,7 @@ from typing import Any
 from fastmcp import Context
 
 from think import todo
-from think.facets import log_action
+from think.facets import log_tool_action
 
 
 def todo_list(day: str, facet: str) -> dict[str, Any]:
@@ -69,12 +69,12 @@ def todo_add(
 
         checklist = todo.TodoChecklist.load(day, facet)
         checklist.add_entry(line_number, text)
-        log_action(
-            facet,
-            day,
-            "todo_add",
-            {"line_number": line_number, "text": text},
+        log_tool_action(
+            facet=facet,
+            action="todo_add",
+            params={"line_number": line_number, "text": text},
             context=context,
+            day=day,
         )
         return {"day": day, "facet": facet, "markdown": checklist.numbered()}
     except RuntimeError as exc:
@@ -112,12 +112,12 @@ def todo_remove(
     try:
         checklist = todo.TodoChecklist.load(day, facet)
         checklist.remove_entry(line_number, guard)
-        log_action(
-            facet,
-            day,
-            "todo_remove",
-            {"line_number": line_number, "text": guard},
+        log_tool_action(
+            facet=facet,
+            action="todo_remove",
+            params={"line_number": line_number, "text": guard},
             context=context,
+            day=day,
         )
         return {"day": day, "facet": facet, "markdown": checklist.numbered()}
     except FileNotFoundError:
@@ -160,12 +160,12 @@ def todo_done(
     try:
         checklist = todo.TodoChecklist.load(day, facet)
         checklist.mark_done(line_number, guard)
-        log_action(
-            facet,
-            day,
-            "todo_done",
-            {"line_number": line_number, "text": guard},
+        log_tool_action(
+            facet=facet,
+            action="todo_done",
+            params={"line_number": line_number, "text": guard},
             context=context,
+            day=day,
         )
         return {"day": day, "facet": facet, "markdown": checklist.numbered()}
     except FileNotFoundError:

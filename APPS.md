@@ -303,6 +303,18 @@ from apps.utils import get_app_storage_path, load_app_config, save_app_config
 
 **See source:** `apps/utils.py` for implementation details
 
+### Action Logging
+
+Apps that modify user data should log actions for audit trail purposes:
+
+```python
+from apps.utils import log_app_action
+```
+
+- `log_app_action(app, facet, action, params, day=None)` - Log user-initiated action
+
+Use `{domain}_{verb}` naming for actions (e.g., `entity_add`, `todo_complete`). Log after successful mutations, not attempts.
+
 ---
 
 ## Think Module Integration
