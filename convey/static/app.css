@@ -992,3 +992,11 @@ a.notification-card {
 .corner-tag-tr { top: 0; right: 0; mask-image: url('tags/tag-7.png'); -webkit-mask-image: url('tags/tag-7.png'); }
 .corner-tag-bl { bottom: 32px; left: 0; mask-image: url('tags/tag-4.png'); -webkit-mask-image: url('tags/tag-4.png'); }
 .corner-tag-br { bottom: 32px; right: 0; mask-image: url('tags/tag-2.png'); -webkit-mask-image: url('tags/tag-2.png'); }
+
+/* ========================================
+ * Privacy Blur
+ * Blurs page content when window loses focus
+ * ======================================== */
+body.privacy-blur > *:not(.corner-tags) {
+  filter: blur(5px);
+}

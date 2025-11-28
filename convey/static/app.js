@@ -1668,3 +1668,25 @@ window.AppServices = {
     }
   }
 };
+
+/**
+ * Privacy Blur
+ * Blurs page content when window loses focus for privacy
+ */
+(function() {
+  function onBlur() {
+    document.body.classList.add('privacy-blur');
+  }
+
+  function onFocus() {
+    document.body.classList.remove('privacy-blur');
+  }
+
+  window.addEventListener('blur', onBlur);
+  window.addEventListener('focus', onFocus);
+
+  // Handle initial state (page may load while window is not focused)
+  if (!document.hasFocus()) {
+    document.body.classList.add('privacy-blur');
+  }
+})();
