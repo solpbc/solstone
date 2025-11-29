@@ -18,6 +18,22 @@ def pytest_configure(config):
     )
 
 
+def pytest_collection_modifyitems(config, items):
+    """Skip tests that require claude_code_sdk if it's not installed."""
+    try:
+        import claude_code_sdk  # noqa: F401
+
+        sdk_available = True
+    except ImportError:
+        sdk_available = False
+
+    if not sdk_available:
+        skip_claude = pytest.mark.skip(reason="claude_code_sdk not installed")
+        for item in items:
+            if "requires_claude_sdk" in item.keywords:
+                item.add_marker(skip_claude)
+
+
 @pytest.fixture(scope="session")
 def integration_journal_path(tmp_path_factory):
     """Create a temporary journal path for integration tests."""

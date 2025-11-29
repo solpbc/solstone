@@ -5,6 +5,7 @@ import sys
 from types import SimpleNamespace
 
 from tests.agents_stub import install_agents_stub
+from think.models import GPT_5
 
 
 async def run_main(mod, argv, stdin_data=None):
@@ -52,7 +53,7 @@ def test_openai_main(monkeypatch, tmp_path, capsys):
     assert isinstance(events[0]["ts"], int)
     assert events[0]["prompt"] == "hello"
     assert events[0]["persona"] == "default"
-    assert events[0]["model"] == "gpt-5"
+    assert events[0]["model"] == GPT_5
     assert events[-1]["event"] == "finish"
     assert isinstance(events[-1]["ts"], int)
     assert events[-1]["result"] == "ok"
@@ -111,7 +112,7 @@ def test_openai_thinking_events(monkeypatch, tmp_path, capsys):
     thinking_events = [e for e in events if e["event"] == "thinking"]
     assert len(thinking_events) == 1
     assert thinking_events[0]["summary"] == "I need to think about this step by step."
-    assert thinking_events[0]["model"] == "gpt-5"
+    assert thinking_events[0]["model"] == GPT_5
     assert isinstance(thinking_events[0]["ts"], int)
 
     assert events[-1]["event"] == "finish"
@@ -186,7 +187,7 @@ def test_openai_outfile(monkeypatch, tmp_path, capsys):
     assert isinstance(events[0]["ts"], int)
     assert events[0]["prompt"] == "hello"
     assert events[0]["persona"] == "default"
-    assert events[0]["model"] == "gpt-5"
+    assert events[0]["model"] == GPT_5
     assert events[-1]["event"] == "finish"
     assert isinstance(events[-1]["ts"], int)
     assert events[-1]["result"] == "ok"
@@ -242,7 +243,7 @@ def test_openai_thinking_events_stdout(monkeypatch, tmp_path, capsys):
     thinking_events = [e for e in events if e["event"] == "thinking"]
     assert len(thinking_events) == 1
     assert thinking_events[0]["summary"] == "I need to think about this step by step."
-    assert thinking_events[0]["model"] == "gpt-5"
+    assert thinking_events[0]["model"] == GPT_5
     assert isinstance(thinking_events[0]["ts"], int)
 
     assert events[-1]["event"] == "finish"
@@ -348,7 +349,7 @@ def test_openai_thinking_events_error(monkeypatch, tmp_path, capsys):
     thinking_events = [e for e in events if e["event"] == "thinking"]
     assert len(thinking_events) == 1
     assert thinking_events[0]["summary"] == "I need to think about this step by step."
-    assert thinking_events[0]["model"] == "gpt-5"
+    assert thinking_events[0]["model"] == GPT_5
     assert isinstance(thinking_events[0]["ts"], int)
 
     assert events[-1]["event"] == "finish"
