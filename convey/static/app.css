@@ -69,6 +69,11 @@
   box-sizing: border-box;
 }
 
+/* Reserve scrollbar space to prevent layout shift on navigation */
+html {
+  scrollbar-gutter: stable;
+}
+
 /* Default theme (when no facet is selected) */
 :root {
   --facet-color: #999;
