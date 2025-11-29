@@ -100,6 +100,40 @@ input:checked:focus + .slider { box-shadow: 0 0 0 3px rgba(108, 117, 125, 0.2); 
 .save-color-btn { width: 100%; padding: 0.75em 1.5em; background: #667eea; color: white; border: none; border-radius: 8px; font-size: 1em; font-weight: 600; cursor: pointer; transition: background 0.2s; }
 .save-color-btn:hover { background: #5568d3; }
 .save-color-btn:active { transform: scale(0.98); }
+
+/* Two-column layout for facet config */
+.settings-layout { display: flex; gap: 2em; }
+.settings-main { flex: 1; min-width: 0; }
+.settings-sidebar { width: 340px; flex-shrink: 0; }
+@media (max-width: 900px) {
+  .settings-layout { flex-direction: column; }
+  .settings-sidebar { width: 100%; }
+}
+
+/* Action log panel */
+.log-panel { background: #fafafa; border: 1px solid #e0e0e0; border-radius: 8px; }
+.log-header { padding: 0.75em 1em; border-bottom: 1px solid #e0e0e0; font-weight: 600; font-size: 0.9em; color: #555; }
+.log-entries { padding: 0.5em 0; }
+.log-empty { padding: 2em 1em; text-align: center; color: #999; font-size: 0.9em; }
+
+/* Day separator */
+.log-day { display: flex; align-items: center; gap: 0.75em; padding: 0.5em 1em; margin: 0.25em 0; }
+.log-day-line { flex: 1; height: 1px; background: #ddd; }
+.log-day-label { font-size: 0.75em; color: #888; font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px; }
+
+/* Log entry row */
+.log-row { display: flex; align-items: center; gap: 0.5em; padding: 0.35em 1em; font-size: 0.85em; }
+.log-row:hover { background: #f0f0f0; }
+.log-icon { cursor: default; font-size: 0.9em; }
+.log-action { color: #333; font-weight: 500; }
+.log-actor { color: #888; font-size: 0.9em; }
+.log-actor::before { content: "•"; margin-right: 0.5em; color: #ccc; }
+
+/* Load more button */
+.log-more { padding: 0.5em 1em; text-align: center; border-top: 1px solid #e0e0e0; }
+.log-more-btn { background: none; border: none; color: #667eea; cursor: pointer; font-size: 0.85em; padding: 0.5em 1em; border-radius: 4px; transition: background 0.2s; }
+.log-more-btn:hover { background: rgba(102, 126, 234, 0.1); }
+.log-more-btn:disabled { color: #ccc; cursor: default; }
 </style>
 
 <div class="workspace-content">
@@ -217,51 +251,69 @@ input:checked:focus + .slider { box-shadow: 0 0 0 3px rgba(108, 117, 125, 0.2); 
     </div>
 
     <!-- Facet Configuration Section -->
-    <div class="config-section" id="facetConfig" style="display:none;">
-      <div class="facet-header">
-        <h2>Facet Settings: <span id="facetName"></span></h2>
-        <div class="toggle-container">
-          <span class="toggle-label" id="toggleLabel">Active</span>
-          <label class="toggle-switch">
-            <input type="checkbox" id="mutedToggle">
-            <span class="slider"></span>
-          </label>
+    <div id="facetConfig" style="display:none;">
+      <div class="settings-layout">
+        <div class="settings-main">
+          <div class="config-section">
+            <div class="facet-header">
+              <h2>Facet Settings: <span id="facetName"></span></h2>
+              <div class="toggle-container">
+                <span class="toggle-label" id="toggleLabel">Active</span>
+                <label class="toggle-switch">
+                  <input type="checkbox" id="mutedToggle">
+                  <span class="slider"></span>
+                </label>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label>Title</label>
+              <div class="editable-field" id="facetTitleField" data-facet-field="title">
+                <span class="field-display" id="facetTitleDisplay">Loading...</span>
+                <input type="text" class="field-input" id="facetTitleInput" style="display:none;">
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label>Description</label>
+              <div class="editable-field" id="facetDescField" data-facet-field="description">
+                <span class="field-display" id="facetDescDisplay">No description set</span>
+                <textarea class="field-input" id="facetDescInput" rows="3" style="display:none;"></textarea>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label>Icon</label>
+              <div class="emoji-picker-container">
+                <div class="emoji-display" id="emojiDisplay">📦</div>
+                <input type="text" id="emojiInput" class="emoji-input" maxlength="4" placeholder="Paste emoji here" style="display:none;">
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label>Theme Color</label>
+              <div class="color-picker-trigger" id="colorTrigger">
+                <div class="color-preview" id="colorPreview"></div>
+                <span id="colorHexDisplay">#667eea</span>
+              </div>
+            </div>
+
+            <div id="facet-config-status" class="config-status"></div>
+          </div>
+        </div>
+
+        <div class="settings-sidebar">
+          <div class="log-panel">
+            <div class="log-header">Action Log</div>
+            <div class="log-entries" id="logEntries">
+              <div class="log-empty">Loading...</div>
+            </div>
+            <div class="log-more" id="logMore" style="display:none;">
+              <button class="log-more-btn" id="logMoreBtn">Load older ▼</button>
+            </div>
+          </div>
         </div>
       </div>
-
-      <div class="form-group">
-        <label>Title</label>
-        <div class="editable-field" id="facetTitleField" data-facet-field="title">
-          <span class="field-display" id="facetTitleDisplay">Loading...</span>
-          <input type="text" class="field-input" id="facetTitleInput" style="display:none;">
-        </div>
-      </div>
-
-      <div class="form-group">
-        <label>Description</label>
-        <div class="editable-field" id="facetDescField" data-facet-field="description">
-          <span class="field-display" id="facetDescDisplay">No description set</span>
-          <textarea class="field-input" id="facetDescInput" rows="3" style="display:none;"></textarea>
-        </div>
-      </div>
-
-      <div class="form-group">
-        <label>Icon</label>
-        <div class="emoji-picker-container">
-          <div class="emoji-display" id="emojiDisplay">📦</div>
-          <input type="text" id="emojiInput" class="emoji-input" maxlength="4" placeholder="Paste emoji here" style="display:none;">
-        </div>
-      </div>
-
-      <div class="form-group">
-        <label>Theme Color</label>
-        <div class="color-picker-trigger" id="colorTrigger">
-          <div class="color-preview" id="colorPreview"></div>
-          <span id="colorHexDisplay">#667eea</span>
-        </div>
-      </div>
-
-      <div id="facet-config-status" class="config-status"></div>
     </div>
   </div>
 </div>
@@ -490,6 +542,11 @@ window.addEventListener('facet.switch', (e) => {
     // Facet selected: show ONLY facet settings
     identityConfig.style.display = 'none';
     facetConfig.style.display = 'block';
+
+    // Reset log panel state
+    document.getElementById('logEntries').innerHTML = '<div class="log-empty">Loading...</div>';
+    document.getElementById('logMore').style.display = 'none';
+
     loadFacetConfig(facet);
   } else {
     // All-facet mode: show ONLY journal settings
@@ -511,6 +568,9 @@ async function loadFacetConfig(facetName) {
     currentFacetConfig = data.config;
     populateFacetForm(facetName, data.config);
     setupFacetEditing();
+
+    // Load action logs
+    loadLogs(facetName);
   } catch (err) {
     console.error('Error loading facet config:', err);
     showFacetStatus('Error loading facet configuration', 'error');
@@ -872,6 +932,107 @@ function hideFacetStatus() {
   const status = document.getElementById('facet-config-status');
   status.className = 'config-status';
 }
+
+// ========== ACTION LOG PANEL ==========
+let logNextCursor = null;
+
+function loadLogs(facetName, cursor = null) {
+  const url = cursor
+    ? `/app/settings/api/facet/${facetName}/logs?cursor=${cursor}`
+    : `/app/settings/api/facet/${facetName}/logs`;
+
+  fetch(url)
+    .then(r => r.json())
+    .then(data => {
+      renderLogDay(data, cursor === null);
+      logNextCursor = data.next_cursor;
+
+      // Show/hide load more button
+      const moreBtn = document.getElementById('logMore');
+      moreBtn.style.display = logNextCursor ? 'block' : 'none';
+    })
+    .catch(err => {
+      console.error('Error loading logs:', err);
+      if (!cursor) {
+        document.getElementById('logEntries').innerHTML =
+          '<div class="log-empty">Error loading logs</div>';
+      }
+    });
+}
+
+function renderLogDay(data, isFirst) {
+  const container = document.getElementById('logEntries');
+
+  // Handle empty state
+  if (!data.day || data.entries.length === 0) {
+    if (isFirst) {
+      container.innerHTML = '<div class="log-empty">No actions logged</div>';
+    }
+    return;
+  }
+
+  // Clear loading message on first load
+  if (isFirst) {
+    container.innerHTML = '';
+  }
+
+  // Add day separator
+  const dayLabel = formatLogDay(data.day);
+  const daySep = document.createElement('div');
+  daySep.className = 'log-day';
+  daySep.innerHTML = `<span class="log-day-line"></span><span class="log-day-label">${dayLabel}</span><span class="log-day-line"></span>`;
+  container.appendChild(daySep);
+
+  // Add entries
+  data.entries.forEach(entry => {
+    const row = document.createElement('div');
+    row.className = 'log-row';
+
+    const source = entry.source || 'tool';
+    const icon = source === 'tool' ? '🤖' : '👤';
+    const timeStr = formatLogTime(entry.timestamp);
+    const paramsJson = JSON.stringify(entry.params, null, 2);
+
+    row.innerHTML = `<span class="log-icon" title="${timeStr}">${icon}</span><span class="log-action" title="${escapeHtml(paramsJson)}">${entry.action}</span><span class="log-actor">${entry.actor}</span>`;
+    container.appendChild(row);
+  });
+}
+
+function formatLogDay(day) {
+  const today = new Date();
+  const todayStr = today.getFullYear().toString() +
+    (today.getMonth() + 1).toString().padStart(2, '0') +
+    today.getDate().toString().padStart(2, '0');
+
+  const yesterday = new Date(today);
+  yesterday.setDate(yesterday.getDate() - 1);
+  const yesterdayStr = yesterday.getFullYear().toString() +
+    (yesterday.getMonth() + 1).toString().padStart(2, '0') +
+    yesterday.getDate().toString().padStart(2, '0');
+
+  if (day === todayStr) return 'Today';
+  if (day === yesterdayStr) return 'Yesterday';
+
+  // Format as "Nov 27"
+  const d = new Date(day.slice(0, 4) + '-' + day.slice(4, 6) + '-' + day.slice(6, 8));
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
+function formatLogTime(timestamp) {
+  const d = new Date(timestamp);
+  return d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
+}
+
+function escapeHtml(str) {
+  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+// Setup load more button
+document.getElementById('logMoreBtn').addEventListener('click', () => {
+  if (logNextCursor && window.selectedFacet) {
+    loadLogs(window.selectedFacet, logNextCursor);
+  }
+});
 
 // Initialize visibility based on current facet selection
 const identityConfig = document.getElementById('identityConfig');

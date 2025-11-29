@@ -126,3 +126,61 @@ def update_facet_config(facet_name: str) -> Any:
         return jsonify({"success": True, "facet": facet_name, "config": config})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+
+@settings_bp.route("/api/facet/<facet_name>/logs")
+def get_facet_logs(facet_name: str) -> Any:
+    """Get action logs for a facet, one day at a time.
+
+    Query params:
+        cursor: Optional YYYYMMDD - load the day before this date
+
+    Returns:
+        {day, entries, next_cursor} where next_cursor is null if no more days
+    """
+    import re
+
+    logs_dir = Path(state.journal_root) / "facets" / facet_name / "logs"
+
+    if not logs_dir.exists():
+        return jsonify({"day": None, "entries": [], "next_cursor": None})
+
+    # Find all log files sorted newest first
+    log_files = sorted(
+        [f for f in logs_dir.iterdir() if re.fullmatch(r"\d{8}\.jsonl", f.name)],
+        key=lambda f: f.stem,
+        reverse=True,
+    )
+
+    if not log_files:
+        return jsonify({"day": None, "entries": [], "next_cursor": None})
+
+    # Apply cursor filter if provided
+    cursor = request.args.get("cursor")
+    if cursor:
+        log_files = [f for f in log_files if f.stem < cursor]
+
+    if not log_files:
+        return jsonify({"day": None, "entries": [], "next_cursor": None})
+
+    # Load the first (newest) day
+    target_file = log_files[0]
+    day = target_file.stem
+    entries = []
+
+    try:
+        with open(target_file, "r", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if line:
+                    entries.append(json.loads(line))
+    except Exception:
+        pass
+
+    # Reverse to show newest first within the day
+    entries.reverse()
+
+    # Determine next cursor
+    next_cursor = log_files[1].stem if len(log_files) > 1 else None
+
+    return jsonify({"day": day, "entries": entries, "next_cursor": next_cursor})
