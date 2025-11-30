@@ -192,7 +192,7 @@ window.MonthPicker = (function() {
   // Event handlers
   function handleClick(e) {
     const day = e.target.closest('.mp-day');
-    if (day && !day.classList.contains('mp-other')) {
+    if (day && !day.classList.contains('mp-other') && !day.classList.contains('mp-empty')) {
       const dateStr = day.dataset.day;
       if (dateStr) {
         window.location.href = `/app/${app}/${dateStr}`;
@@ -212,7 +212,9 @@ window.MonthPicker = (function() {
   function handleClickOutside(e) {
     if (!isVisible) return;
     const dateNav = document.querySelector('.date-nav');
-    if (dateNav && !dateNav.contains(e.target)) {
+    const facetBar = document.querySelector('.facet-bar');
+    // Only close if clicking outside both date-nav and facet-bar
+    if (dateNav && !dateNav.contains(e.target) && (!facetBar || !facetBar.contains(e.target))) {
       hide();
     }
   }

@@ -406,21 +406,23 @@ body.menu-full .facet-bar::after {
   background: color-mix(in srgb, var(--facet-color) calc(var(--intensity, 0) * 30%), transparent);
 }
 
-.mp-day:hover:not(.mp-other) {
+.mp-day:hover:not(.mp-other):not(.mp-empty) {
   background: color-mix(in srgb, var(--facet-color) 40%, transparent);
 }
 
-/* Empty days - striped pattern */
+/* Empty days - striped pattern, not clickable */
 .mp-day.mp-empty {
   background:
-    repeating-linear-gradient(45deg, transparent, transparent 2px, rgba(0,0,0,0.03) 2px, rgba(0,0,0,0.03) 4px),
+    repeating-linear-gradient(45deg, transparent, transparent 3px, rgba(0,0,0,0.07) 3px, rgba(0,0,0,0.07) 6px),
     color-mix(in srgb, var(--facet-color) calc(var(--intensity, 0) * 30%), transparent);
   color: #999;
+  cursor: default;
 }
 
-/* Other month days (leading/trailing) */
+/* Other month days (leading/trailing) - same striped pattern */
 .mp-day.mp-other {
-  visibility: hidden;
+  background: repeating-linear-gradient(45deg, transparent, transparent 3px, rgba(0,0,0,0.07) 3px, rgba(0,0,0,0.07) 6px);
+  cursor: default;
 }
 
 /* Today indicator */
