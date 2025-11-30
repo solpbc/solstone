@@ -2,9 +2,9 @@
 {# Requires: day (YYYYMMDD), day_formatted ("Sat Nov 29"), app (app name) #}
 {% if day %}
 <div class="date-nav">
-  <button class="date-nav-arrow" id="date-nav-prev" title="Previous day (←)">‹</button>
-  <span class="date-nav-label" id="date-nav-label" title="Pick date">{{ day_formatted }}</span>
-  <button class="date-nav-arrow" id="date-nav-next" title="Next day (→)">›</button>
+  <button class="date-nav-arrow" id="date-nav-prev" title="Previous (←)">‹</button>
+  <span class="date-nav-label" id="date-nav-label" title="Open month picker">{{ day_formatted }}</span>
+  <button class="date-nav-arrow" id="date-nav-next" title="Next (→)">›</button>
   <div class="month-picker"></div>
 </div>
 
@@ -39,6 +39,7 @@
 
   // Register calendar data provider (if calendar app)
   if (app === 'calendar') {
+    MonthPicker.registerDaysEndpoint('/app/calendar/api/days');
     MonthPicker.registerDataProvider('calendar', async (month, facet) => {
       const resp = await fetch(`/app/calendar/api/stats/${month}`);
       if (!resp.ok) return {};

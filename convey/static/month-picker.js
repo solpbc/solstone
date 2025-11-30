@@ -14,12 +14,11 @@ window.MonthPicker = (function() {
 
   // External elements (set during init)
   let labelEl = null;
-  let prevBtn = null;
-  let nextBtn = null;
 
   // Cache: {YYYYMM: {data, facet}}
   const cache = {};
   const providers = {};
+  let daysEndpoint = null;  // Per-app endpoint for available days
 
   // Constants
   const TODAY = getToday();
@@ -70,8 +69,9 @@ window.MonthPicker = (function() {
 
   // Data fetching
   async function fetchAvailableDays() {
+    if (!daysEndpoint) return;
     try {
-      const resp = await fetch('/app/calendar/api/days');
+      const resp = await fetch(daysEndpoint);
       if (resp.ok) {
         const days = await resp.json();
         availableDays = new Set(days || []);
@@ -233,8 +233,6 @@ window.MonthPicker = (function() {
 
     container = document.querySelector(options.container || '.month-picker');
     labelEl = document.getElementById('date-nav-label');
-    prevBtn = document.getElementById('date-nav-prev');
-    nextBtn = document.getElementById('date-nav-next');
 
     if (labelEl) {
       dayLabel = labelEl.textContent;
@@ -284,6 +282,10 @@ window.MonthPicker = (function() {
     providers[appName] = fn;
   }
 
+  function registerDaysEndpoint(endpoint) {
+    daysEndpoint = endpoint;
+  }
+
   return {
     init,
     show,
@@ -291,6 +293,7 @@ window.MonthPicker = (function() {
     toggle,
     isOpen: () => isVisible,
     navigateMonth,
-    registerDataProvider
+    registerDataProvider,
+    registerDaysEndpoint
   };
 })();

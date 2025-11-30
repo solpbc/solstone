@@ -294,18 +294,6 @@ body.menu-full .facet-bar::after {
   color: #111827;
 }
 
-.date-nav input[type="date"] {
-  /* Hide but position under the label so picker appears centered */
-  position: absolute;
-  left: 50%;
-  top: 100%;
-  transform: translateX(-50%);
-  opacity: 0;
-  width: 0;
-  height: 0;
-  pointer-events: none;
-}
-
 .date-nav-label {
   flex: 1;
   text-align: center;
