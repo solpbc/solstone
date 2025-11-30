@@ -1,6 +1,7 @@
 from unittest.mock import MagicMock, patch
 
 import muse.mcp as mcp_tools
+from apps.todos import tools as todo_tools
 
 
 def test_todo_list_success_returns_numbered_markdown():
@@ -10,7 +11,7 @@ def test_todo_list_success_returns_numbered_markdown():
     with patch(
         "think.todo.TodoChecklist.load", return_value=mock_checklist
     ) as load_mock:
-        result = mcp_tools.todo_list("20240101", "test")
+        result = todo_tools.todo_list("20240101", "test")
 
     load_mock.assert_called_once_with("20240101", "test")
     assert result == {

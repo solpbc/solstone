@@ -3,11 +3,10 @@
 from __future__ import annotations
 
 from datetime import datetime
-from pathlib import Path
 
 import pytest
 
-from muse import mcp as mcp_tools
+from apps.todos import tools as todo_tools
 
 
 def call_tool(tool, *args, **kwargs):
@@ -43,7 +42,7 @@ def test_todo_list_returns_numbered_view(todo_env):
 
     day, facet, _ = todo_env(["- [ ] First item", "- [ ] Second item"])
 
-    result = call_tool(mcp_tools.todo_list, day, facet)
+    result = call_tool(todo_tools.todo_list, day, facet)
 
     assert result == {
         "day": day,
@@ -58,7 +57,7 @@ def test_todo_add_requires_next_line(todo_env):
     day, facet, _ = todo_env(["- [ ] First item"])
 
     result = call_tool(
-        mcp_tools.todo_add, day, facet, line_number=1, text="Second item"
+        todo_tools.todo_add, day, facet, line_number=1, text="Second item"
     )
 
     assert result["error"] == "line number 1 must match the next available line"
@@ -70,7 +69,7 @@ def test_todo_add_appends_entry(todo_env):
     day, facet, todo_path = todo_env(["- [ ] First item"])
 
     result = call_tool(
-        mcp_tools.todo_add, day, facet, line_number=2, text="Second item"
+        todo_tools.todo_add, day, facet, line_number=2, text="Second item"
     )
 
     assert result == {
@@ -95,7 +94,7 @@ def test_todo_add_creates_missing_day(tmp_path, monkeypatch):
     facets_dir.mkdir(parents=True)
 
     result = call_tool(
-        mcp_tools.todo_add,
+        todo_tools.todo_add,
         day,
         facet,
         line_number=1,
@@ -120,7 +119,7 @@ def test_todo_remove_validates_guard(todo_env):
     day, facet, _ = todo_env(["- [ ] First item", "- [ ] Second item"])
 
     result = call_tool(
-        mcp_tools.todo_remove, day, facet, line_number=2, guard="- [ ] Other"
+        todo_tools.todo_remove, day, facet, line_number=2, guard="- [ ] Other"
     )
 
     assert result["error"] == "guard text does not match current todo"
@@ -132,7 +131,7 @@ def test_todo_remove_updates_file(todo_env):
     day, facet, todo_path = todo_env(["- [ ] First item", "- [ ] Second item"])
 
     result = call_tool(
-        mcp_tools.todo_remove, day, facet, line_number=2, guard="- [ ] Second item"
+        todo_tools.todo_remove, day, facet, line_number=2, guard="- [ ] Second item"
     )
 
     assert result == {"day": day, "facet": facet, "markdown": "1: - [ ] First item"}
@@ -145,7 +144,7 @@ def test_todo_done_marks_complete(todo_env):
     day, facet, todo_path = todo_env(["- [ ] First item", "- [ ] Second item"])
 
     result = call_tool(
-        mcp_tools.todo_done, day, facet, line_number=2, guard="- [ ] Second item"
+        todo_tools.todo_done, day, facet, line_number=2, guard="- [ ] Second item"
     )
 
     assert result == {
@@ -163,7 +162,7 @@ def test_todo_add_validates_empty_text(todo_env):
 
     day, facet, _ = todo_env([])
 
-    result = call_tool(mcp_tools.todo_add, day, facet, 1, "")
+    result = call_tool(todo_tools.todo_add, day, facet, 1, "")
 
     assert "error" in result
     assert "todo text cannot be empty" in result["error"]

@@ -7,13 +7,8 @@ from pathlib import Path
 
 import pytest
 
-from muse.mcp import (
-    entity_attach,
-    entity_detect,
-    todo_add,
-    todo_done,
-    todo_remove,
-)
+from apps.todos.tools import todo_add, todo_done, todo_remove
+from muse.mcp import entity_attach, entity_detect
 
 
 @pytest.fixture

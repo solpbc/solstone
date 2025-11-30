@@ -44,13 +44,6 @@ TOOL_PACKS: dict[str, list[str]] = {
         "get_facet",
         "get_resource",
     ],
-    "todo": [
-        "todo_list",
-        "todo_add",
-        "todo_remove",
-        "todo_done",
-        "todo_upcoming",
-    ],
     "facets": [
         "facet_news",
     ],
@@ -67,14 +60,7 @@ TOOL_PACKS: dict[str, list[str]] = {
 
 # Import and register tool modules
 # These imports trigger the registration of tools via the @register_tool decorator
-from muse.tools import entities, facets, search, todo
-
-# Register todo tools
-todo_list = register_tool(annotations=HINTS)(todo.todo_list)
-todo_add = register_tool(annotations=HINTS)(todo.todo_add)
-todo_remove = register_tool(annotations=HINTS)(todo.todo_remove)
-todo_done = register_tool(annotations=HINTS)(todo.todo_done)
-todo_upcoming = register_tool(annotations=HINTS)(todo.todo_upcoming)
+from muse.tools import entities, facets, search
 
 # Register search tools
 search_insights = register_tool(annotations=HINTS)(search.search_insights)
@@ -98,7 +84,7 @@ from muse.tools.messaging import get_resource as get_resource_impl
 get_resource = register_tool(annotations=HINTS)(get_resource_impl)
 
 # Import resource modules - these self-register via @mcp.resource decorators
-from muse.resources import insights, media, todos, transcripts  # noqa: F401
+from muse.resources import insights, media, transcripts  # noqa: F401
 
 
 # Phase 2: App-level tool discovery

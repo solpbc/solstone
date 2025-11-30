@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from muse import mcp as mcp_tools
+from apps.todos import tools as todo_tools
 
 
 def call_tool(tool, *args, **kwargs):
@@ -38,7 +38,7 @@ def test_todo_tool_pack_round_trip(tmp_path, monkeypatch):
 
     monkeypatch.setenv("JOURNAL_PATH", str(journal_copy))
 
-    list_result = call_tool(mcp_tools.todo_list, day, facet)
+    list_result = call_tool(todo_tools.todo_list, day, facet)
     assert list_result == {
         "day": day,
         "facet": facet,
@@ -46,7 +46,7 @@ def test_todo_tool_pack_round_trip(tmp_path, monkeypatch):
     }
 
     add_result = call_tool(
-        mcp_tools.todo_add, day, facet, line_number=2, text="Follow up task"
+        todo_tools.todo_add, day, facet, line_number=2, text="Follow up task"
     )
     # Check for error first
     if "error" in add_result:
@@ -57,7 +57,7 @@ def test_todo_tool_pack_round_trip(tmp_path, monkeypatch):
     ]
 
     done_result = call_tool(
-        mcp_tools.todo_done, day, facet, line_number=2, guard="- [ ] Follow up task"
+        todo_tools.todo_done, day, facet, line_number=2, guard="- [ ] Follow up task"
     )
     assert done_result["markdown"].splitlines() == [
         "1: - [ ] Fixture task",
@@ -65,7 +65,7 @@ def test_todo_tool_pack_round_trip(tmp_path, monkeypatch):
     ]
 
     removed_done = call_tool(
-        mcp_tools.todo_remove, day, facet, line_number=2, guard="- [x] Follow up task"
+        todo_tools.todo_remove, day, facet, line_number=2, guard="- [x] Follow up task"
     )
     assert removed_done == {
         "day": day,
@@ -74,7 +74,7 @@ def test_todo_tool_pack_round_trip(tmp_path, monkeypatch):
     }
 
     empty_result = call_tool(
-        mcp_tools.todo_remove, day, facet, line_number=1, guard="- [ ] Fixture task"
+        todo_tools.todo_remove, day, facet, line_number=1, guard="- [ ] Fixture task"
     )
     assert empty_result == {
         "day": day,

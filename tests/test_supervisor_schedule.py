@@ -18,7 +18,7 @@ async def test_spawn_scheduled_agents(mock_get_agents, mock_cortex_request):
 
     # Mock agents with one scheduled and one not
     mock_get_agents.return_value = {
-        "todo": {
+        "todos:todo": {
             "title": "TODO Task Manager",
             "schedule": "daily",
             "backend": "openai",
@@ -48,10 +48,10 @@ async def test_spawn_scheduled_agents(mock_get_agents, mock_cortex_request):
     # Should spawn 2 agents (todo and another_daily)
     assert mock_cortex_request.call_count == 2
 
-    # Check first request call (todo) - now simplified
+    # Check first request call (todos:todo) - now simplified
     first_call = mock_cortex_request.call_args_list[0]
-    assert first_call[1]["persona"] == "todo"
-    assert "Running daily scheduled task for todo" in first_call[1]["prompt"]
+    assert first_call[1]["persona"] == "todos:todo"
+    assert "Running daily scheduled task for todos:todo" in first_call[1]["prompt"]
 
     # Check second request call (another_daily) - now simplified
     second_call = mock_cortex_request.call_args_list[1]

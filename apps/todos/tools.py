@@ -1,18 +1,32 @@
-"""MCP tools for todo management.
+"""MCP tools and resources for todo management.
 
-Note: These functions are registered as MCP tools by muse/mcp.py
-They can also be imported and called directly for testing or internal use.
+This module provides the todo MCP tools and resource handler for the todos app.
+Tools are auto-discovered and registered via the @register_tool decorator.
+The resource is registered via @mcp.resource decorator.
 """
 
 from datetime import datetime
 from typing import Any
 
 from fastmcp import Context
+from fastmcp.resources import TextResource
 
+from muse.mcp import HINTS, mcp, register_tool
 from think import todo
 from think.facets import log_tool_action
 
+# Declare tool pack - creates the "todo" pack with all todo tools
+TOOL_PACKS = {
+    "todo": ["todo_list", "todo_add", "todo_remove", "todo_done", "todo_upcoming"],
+}
 
+
+# -----------------------------------------------------------------------------
+# MCP Tools
+# -----------------------------------------------------------------------------
+
+
+@register_tool(annotations=HINTS)
 def todo_list(day: str, facet: str) -> dict[str, Any]:
     """Return the numbered markdown checklist for ``day``'s todos in a specific facet.
 
@@ -34,6 +48,7 @@ def todo_list(day: str, facet: str) -> dict[str, Any]:
         return {"error": f"Failed to list todos: {exc}"}
 
 
+@register_tool(annotations=HINTS)
 def todo_add(
     day: str, facet: str, line_number: int, text: str, context: Context | None = None
 ) -> dict[str, Any]:
@@ -93,6 +108,7 @@ def todo_add(
         return {"error": f"Failed to add todo: {exc}"}
 
 
+@register_tool(annotations=HINTS)
 def todo_remove(
     day: str, facet: str, line_number: int, guard: str, context: Context | None = None
 ) -> dict[str, Any]:
@@ -141,6 +157,7 @@ def todo_remove(
         return {"error": f"Failed to remove todo: {exc}"}
 
 
+@register_tool(annotations=HINTS)
 def todo_done(
     day: str, facet: str, line_number: int, guard: str, context: Context | None = None
 ) -> dict[str, Any]:
@@ -189,6 +206,7 @@ def todo_done(
         return {"error": f"Failed to complete todo: {exc}"}
 
 
+@register_tool(annotations=HINTS)
 def todo_upcoming(limit: int = 20, facet: str | None = None) -> dict[str, Any]:
     """Return upcoming todos across future days as markdown sections.
 
@@ -222,3 +240,32 @@ def todo_upcoming(limit: int = 20, facet: str | None = None) -> dict[str, Any]:
         return {"limit": limit, "facet": facet, "markdown": markdown}
     except Exception as exc:  # pragma: no cover - unexpected failure
         return {"error": f"Failed to load upcoming todos: {exc}"}
+
+
+# -----------------------------------------------------------------------------
+# MCP Resource
+# -----------------------------------------------------------------------------
+
+
+@mcp.resource("journal://todo/{facet}/{day}")
+def get_todo(facet: str, day: str) -> TextResource:
+    """Return the facet-scoped todo checklist for a specific day."""
+
+    todo_path = todo.todo_file_path(day, facet)
+
+    if not todo_path.is_file():
+        facet_path = todo_path.parents[1]  # facets/{facet}/todos
+        if not facet_path.is_dir():
+            text = f"No todos folder for facet '{facet}'."
+        else:
+            text = f"(No todos recorded for {day} in facet '{facet}'.)"
+    else:
+        text = todo_path.read_text(encoding="utf-8")
+
+    return TextResource(
+        uri=f"journal://todo/{facet}/{day}",
+        name=f"Todos: {facet}/{day}",
+        description=f"Checklist entries for facet '{facet}' on {day}",
+        mime_type="text/markdown",
+        text=text,
+    )
