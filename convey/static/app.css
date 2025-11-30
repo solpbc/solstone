@@ -86,6 +86,7 @@ html {
   --menu-bar-width-full: 200px;
   --app-bar-height: 60px;
   --date-nav-height: 40px;
+  --status-pane-width: 280px;
 
   /* Z-index hierarchy (increasing order) */
   --z-bars: 100;          /* Facet bar, menu bar, app bar */
@@ -185,7 +186,7 @@ body.menu-full .facet-bar::after {
 
 /* When status pane open, stop border before it */
 body:has(.status-pane.visible) .facet-bar::after {
-  right: 280px;  /* Status pane width */
+  right: var(--status-pane-width);
 }
 
 .facet-bar #hamburger {
@@ -445,7 +446,7 @@ body:has(.status-pane.visible) .facet-bar::after {
   position: fixed;
   top: var(--facet-bar-height);
   right: 0;
-  width: 280px;
+  width: var(--status-pane-width);
   background: white;
   border-left: 1px solid var(--facet-border, #e0e0e0);
   border-bottom: 1px solid var(--facet-border, #e0e0e0);
@@ -476,7 +477,6 @@ body:has(.status-pane.visible) .facet-bar::after {
   pointer-events: none;
   z-index: -1;
 }
-
 
 .status-pane-content {
   padding: 16px;

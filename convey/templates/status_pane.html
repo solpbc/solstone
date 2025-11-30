@@ -93,6 +93,7 @@
     if (!container || !window.AppServices?.notifications) return;
 
     const history = window.AppServices.notifications.getHistory();
+    const escape = window.AppServices._escapeHtml;
 
     if (history.length === 0) {
       container.innerHTML = '<span style="color: #9ca3af;">No recent activity</span>';
@@ -100,37 +101,25 @@
     }
 
     container.innerHTML = history.map(n => {
-      const timeAgo = formatTimeAgo(n.timestamp);
-      const escaped = (s) => s ? s.replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;') : '';
+      const timeAgo = window.AppServices.notifications._getRelativeTime(n.timestamp);
 
       if (n.action) {
-        return `<a href="${escaped(n.action)}" style="display: flex; align-items: center; gap: 8px; padding: 6px 8px; margin: 0 -8px; border-radius: 4px; text-decoration: none; color: inherit; transition: background 0.15s;"
+        return `<a href="${escape(n.action)}" style="display: flex; align-items: center; gap: 8px; padding: 6px 8px; margin: 0 -8px; border-radius: 4px; text-decoration: none; color: inherit; transition: background 0.15s;"
           onmouseover="this.style.background='rgba(0,0,0,0.05)'"
           onmouseout="this.style.background=''"
-          ${n.facet ? `onclick="window.selectFacet && window.selectFacet('${escaped(n.facet)}')"` : ''}>
-          <span style="font-size: 16px; flex-shrink: 0;">${n.icon}</span>
-          <span style="flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${escaped(n.title)}</span>
+          ${n.facet ? `onclick="window.selectFacet && window.selectFacet('${escape(n.facet)}')"` : ''}>
+          <span style="font-size: 16px; flex-shrink: 0;">${escape(n.icon)}</span>
+          <span style="flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${escape(n.title)}</span>
           <span style="color: #9ca3af; font-size: 11px; flex-shrink: 0;">${timeAgo}</span>
         </a>`;
       } else {
         return `<div style="display: flex; align-items: center; gap: 8px; padding: 6px 8px; margin: 0 -8px;">
-          <span style="font-size: 16px; flex-shrink: 0;">${n.icon}</span>
-          <span style="flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${escaped(n.title)}</span>
+          <span style="font-size: 16px; flex-shrink: 0;">${escape(n.icon)}</span>
+          <span style="flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${escape(n.title)}</span>
           <span style="color: #9ca3af; font-size: 11px; flex-shrink: 0;">${timeAgo}</span>
         </div>`;
       }
     }).join('');
-  }
-
-  function formatTimeAgo(timestamp) {
-    const seconds = Math.floor((Date.now() - timestamp) / 1000);
-    if (seconds < 60) return 'now';
-    const minutes = Math.floor(seconds / 60);
-    if (minutes < 60) return `${minutes}m`;
-    const hours = Math.floor(minutes / 60);
-    if (hours < 24) return `${hours}h`;
-    const days = Math.floor(hours / 24);
-    return `${days}d`;
   }
 
   function formatDuration(seconds) {
