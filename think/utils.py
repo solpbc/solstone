@@ -581,6 +581,31 @@ def get_insights() -> dict[str, dict[str, object]]:
     return insights
 
 
+def _resolve_agent_path(persona: str) -> tuple[Path, str]:
+    """Resolve agent persona to directory path and agent name.
+
+    Parameters
+    ----------
+    persona:
+        Agent key - either system agent name (e.g., "default") or
+        app-namespaced agent (e.g., "chat:helper").
+
+    Returns
+    -------
+    tuple[Path, str]
+        (agent_directory, agent_name) tuple.
+    """
+    if ":" in persona:
+        # App agent: "chat:helper" -> apps/chat/agents/helper
+        app, agent_name = persona.split(":", 1)
+        agent_dir = Path(__file__).parent.parent / "apps" / app / "agents"
+    else:
+        # System agent: "default" -> muse/agents/default
+        agent_dir = AGENT_DIR
+        agent_name = persona
+    return agent_dir, agent_name
+
+
 def get_agent(persona: str = "default", facet: str | None = None) -> dict:
     """Return complete agent configuration for a persona.
 
@@ -589,7 +614,8 @@ def get_agent(persona: str = "default", facet: str | None = None) -> dict:
     Parameters
     ----------
     persona:
-        Name of the persona to load from agents/ directory.
+        Name of the persona to load. Can be a system agent name (e.g., "default")
+        or an app-namespaced agent (e.g., "chat:helper" for apps/chat/agents/helper).
     facet:
         Optional facet name to focus on. When provided, includes detailed
         information for just this facet (with full entity details) instead
@@ -602,17 +628,20 @@ def get_agent(persona: str = "default", facet: str | None = None) -> dict:
     """
     config = {}
 
+    # Resolve agent path based on namespace
+    agent_dir, agent_name = _resolve_agent_path(persona)
+
     # Load JSON config if exists
-    json_path = AGENT_DIR / f"{persona}.json"
+    json_path = agent_dir / f"{agent_name}.json"
     if json_path.exists():
         with open(json_path, "r", encoding="utf-8") as f:
             config = json.load(f)
 
     # Load instruction text
-    txt_path = AGENT_DIR / f"{persona}.txt"
+    txt_path = agent_dir / f"{agent_name}.txt"
     if not txt_path.exists():
         raise FileNotFoundError(f"Agent persona not found: {persona}")
-    prompt_data = load_prompt(persona, base_dir=AGENT_DIR, include_journal=True)
+    prompt_data = load_prompt(agent_name, base_dir=agent_dir, include_journal=True)
     config["instruction"] = prompt_data.text
 
     # Add runtime context (facets with entities)
@@ -789,31 +818,53 @@ def get_raw_file(day: str, name: str) -> tuple[str, str, Any]:
 
 
 def get_agents() -> dict[str, dict[str, Any]]:
-    """Load agent metadata from think/agents directory.
+    """Load agent metadata from system and app directories.
+
+    Scans both system agents (muse/agents/) and app agents (apps/*/agents/).
+    System agents use simple keys like "default", while app agents are
+    namespaced as "app:agent" (e.g., "chat:helper").
 
     Returns:
-        Dictionary mapping agent IDs to their metadata including:
+        Dictionary mapping agent keys to their metadata including:
         - title: Display title for the agent
+        - source: "system" or "app"
+        - app: App name (only for app agents)
         - All configuration fields from get_agent()
     """
     agents = {}
-    agents_path = AGENT_DIR
 
-    if not agents_path.exists():
-        return agents
+    # System agents from muse/agents/
+    if AGENT_DIR.exists():
+        for txt_path in sorted(AGENT_DIR.glob("*.txt")):
+            agent_id = txt_path.stem
+            try:
+                config = get_agent(agent_id)
+                config["title"] = config.get("title", agent_id)
+                config["source"] = "system"
+                agents[agent_id] = config
+            except Exception:
+                pass  # Skip agents that can't be loaded
 
-    for txt_path in sorted(agents_path.glob("*.txt")):
-        agent_id = txt_path.stem
-        try:
-            # Use get_agent to load full configuration
-            config = get_agent(agent_id)
-            # Extract title for compatibility
-            title = config.get("title", agent_id)
-            # Return the config itself as the agent metadata
-            agents[agent_id] = config
-            agents[agent_id]["title"] = title
-        except Exception:
-            # Skip agents that can't be loaded
-            pass
+    # App agents from apps/*/agents/
+    apps_dir = Path(__file__).parent.parent / "apps"
+    if apps_dir.is_dir():
+        for app_path in sorted(apps_dir.iterdir()):
+            if not app_path.is_dir() or app_path.name.startswith("_"):
+                continue
+            agents_dir = app_path / "agents"
+            if not agents_dir.is_dir():
+                continue
+            app_name = app_path.name
+            for txt_path in sorted(agents_dir.glob("*.txt")):
+                agent_name = txt_path.stem
+                key = f"{app_name}:{agent_name}"
+                try:
+                    config = get_agent(key)
+                    config["title"] = config.get("title", agent_name)
+                    config["source"] = "app"
+                    config["app"] = app_name
+                    agents[key] = config
+                except Exception:
+                    pass  # Skip agents that can't be loaded
 
     return agents

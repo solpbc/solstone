@@ -36,9 +36,11 @@ apps/my_app/
 ├── workspace.html     # Required: Main content template
 ├── routes.py          # Optional: Flask blueprint (only if custom routes needed)
 ├── tools.py           # Optional: MCP tool extensions (auto-discovered)
-├── app.json          # Optional: Metadata (icon, label, facet support)
-├── app_bar.html      # Optional: Bottom bar controls (forms, buttons)
-└── background.html   # Optional: Background JavaScript service
+├── app.json           # Optional: Metadata (icon, label, facet support)
+├── app_bar.html       # Optional: Bottom bar controls (forms, buttons)
+├── background.html    # Optional: Background JavaScript service
+├── insights/          # Optional: Custom insight prompts (auto-discovered)
+└── agents/            # Optional: Custom agent personas (auto-discovered)
 ```
 
 ### File Purposes
@@ -51,6 +53,8 @@ apps/my_app/
 | `app.json` | No | Icon, label, facet support overrides |
 | `app_bar.html` | No | Bottom fixed bar for app controls |
 | `background.html` | No | Background service (WebSocket listeners) |
+| `insights/` | No | Custom insight prompts with `.txt` + `.json` pairs |
+| `agents/` | No | Custom agent personas with `.txt` + `.json` pairs |
 
 ---
 
@@ -297,6 +301,24 @@ Define custom insight prompts that integrate with Sunstone's insight generation 
 **Reference implementations:**
 - System insight templates: `think/insights/*.txt` and `*.json`
 - Discovery logic: `think/utils.py` - `get_insights()`, `get_insight_topic()`
+
+---
+
+### 8. `agents/` - App Agents
+
+Define custom agent personas that integrate with Sunstone's Cortex agent system.
+
+**Key Points:**
+- Create `agents/` directory with `.txt` (prompt) + `.json` (metadata) file pairs
+- App agents are automatically discovered alongside system agents
+- Keys are namespaced as `{app}:{agent}` (e.g., `my_app:helper`)
+- Agents inherit all system agent capabilities (tools, scheduling, handoffs, multi-facet)
+
+**Metadata format:** Same schema as system agents in `muse/agents/*.json` - includes `title`, `backend`, `model`, `tools`, `schedule`, `priority`, and `multi_facet` fields. See **CORTEX.md** for agent configuration details.
+
+**Reference implementations:**
+- System agent examples: `muse/agents/*.txt` and `*.json`
+- Discovery logic: `think/utils.py` - `get_agents()`, `get_agent()`
 
 ---
 
