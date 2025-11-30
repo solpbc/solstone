@@ -12,7 +12,7 @@ from fastmcp import Context
 from fastmcp.resources import TextResource
 
 from muse.mcp import HINTS, mcp, register_tool
-from think import todo
+from apps.todos import todo
 from think.facets import log_tool_action
 
 # Declare tool pack - creates the "todo" pack with all todo tools

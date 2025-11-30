@@ -19,7 +19,7 @@ from convey import state
 from convey.config import get_selected_facet
 from convey.utils import DATE_RE, adjacent_days, format_date, format_date_short
 from think.facets import get_facets
-from think.todo import (
+from apps.todos.todo import (
     TodoChecklist,
     TodoEmptyTextError,
     TodoGuardMismatchError,

@@ -409,7 +409,7 @@ Available functions from the `think` module:
 `think/facets.py`: `get_facets()` - Returns dict of facet configurations
 
 ### Todos
-`think/todo.py`:
+`apps/todos/todo.py`:
 - `get_todos(day, facet)` - Get todo list for day and facet
 - `TodoChecklist` class - Load and manipulate todo markdown files
 

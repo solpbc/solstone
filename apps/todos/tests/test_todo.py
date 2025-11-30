@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from think.todo import (
+from apps.todos.todo import (
     get_facets_with_todos,
     get_todos,
     parse_item,
@@ -322,7 +322,7 @@ def test_upcoming_aggregates_all_facets(monkeypatch, journal_root):
 
 
 def test_append_entry_validates_parsing(monkeypatch, journal_root):
-    from think.todo import TodoChecklist
+    from apps.todos.todo import TodoChecklist
 
     monkeypatch.setenv("JOURNAL_PATH", str(journal_root))
 
