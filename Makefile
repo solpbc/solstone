@@ -1,7 +1,7 @@
 # Sunstone Makefile
 # Python-based AI-driven desktop journaling toolkit
 
-.PHONY: install deps test lint format check clean dev full all
+.PHONY: install deps test test-apps test-app lint format check clean dev full all
 
 # Default target - install package in editable mode
 all: install
@@ -38,15 +38,34 @@ dev: pyproject.toml
 	@touch .package-installed
 	@touch .deps-installed
 
-# Run tests (excluding integration tests)
+# Run core tests (excluding integration and app tests)
 test: .deps-installed
-	@echo "Running tests..."
-	pytest -q --cov=. --ignore=tests/integration
+	@echo "Running core tests..."
+	pytest tests/ -q --cov=. --ignore=tests/integration
 
-# Run tests with verbose output (excluding integration tests)
+# Run core tests with verbose output
 test-verbose: .deps-installed
-	@echo "Running tests with verbose output..."
-	pytest -v --cov=. --cov-report=term-missing --ignore=tests/integration
+	@echo "Running core tests with verbose output..."
+	pytest tests/ -v --cov=. --cov-report=term-missing --ignore=tests/integration
+
+# Run app tests
+test-apps: .deps-installed
+	@echo "Running app tests..."
+	pytest apps/ -q
+
+# Run app tests with verbose output
+test-apps-verbose: .deps-installed
+	@echo "Running app tests with verbose output..."
+	pytest apps/ -v
+
+# Run specific app tests
+test-app: .deps-installed
+	@if [ -z "$(APP)" ]; then \
+		echo "Usage: make test-app APP=<app_name>"; \
+		echo "Example: make test-app APP=todos"; \
+		exit 1; \
+	fi
+	pytest apps/$(APP)/tests/ -v
 
 # Run specific test file or pattern
 test-only: .deps-installed
@@ -77,10 +96,10 @@ test-integration-only: .deps-installed
 	fi
 	pytest tests/integration/$(TEST)
 
-# Run all tests (unit + integration)
+# Run all tests (core + apps + integration)
 test-all: .deps-installed
-	@echo "Running all tests (unit + integration)..."
-	pytest tests/ -v --cov=.
+	@echo "Running all tests (core + apps + integration)..."
+	pytest tests/ -v --cov=. && pytest apps/ -v --cov=. --cov-append
 
 # Auto-format code
 format: .deps-installed
@@ -147,9 +166,10 @@ watch:
 	@command -v ptw >/dev/null 2>&1 || { echo "Installing pytest-watch..."; pip install pytest-watch; }
 	ptw -- -q
 
-# Generate coverage report (excluding integration tests)
+# Generate coverage report (core + apps, excluding core integration tests)
 coverage: .deps-installed
-	pytest --cov=. --cov-report=html --cov-report=term --ignore=tests/integration
+	pytest tests/ --cov=. --cov-report=html --cov-report=term --ignore=tests/integration
+	pytest apps/ --cov=. --cov-report=html --cov-report=term --cov-append
 	@echo "Coverage report generated in htmlcov/index.html"
 
 # Update dependencies to latest versions

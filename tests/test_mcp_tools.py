@@ -1,25 +1,6 @@
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import muse.mcp as mcp_tools
-from apps.todos import tools as todo_tools
-
-
-def test_todo_list_success_returns_numbered_markdown():
-    mock_checklist = MagicMock()
-    mock_checklist.numbered.return_value = "1: - [ ] Investigate"
-
-    with patch(
-        "think.todo.TodoChecklist.load", return_value=mock_checklist
-    ) as load_mock:
-        result = todo_tools.todo_list("20240101", "test")
-
-    load_mock.assert_called_once_with("20240101", "test")
-    assert result == {
-        "day": "20240101",
-        "facet": "test",
-        "markdown": "1: - [ ] Investigate",
-    }
-    mock_checklist.numbered.assert_called_once_with()
 
 
 def test_entity_add_aka_success():

@@ -40,7 +40,8 @@ apps/my_app/
 ├── app_bar.html       # Optional: Bottom bar controls (forms, buttons)
 ├── background.html    # Optional: Background JavaScript service
 ├── insights/          # Optional: Custom insight prompts (auto-discovered)
-└── agents/            # Optional: Custom agent personas (auto-discovered)
+├── agents/            # Optional: Custom agent personas (auto-discovered)
+└── tests/             # Optional: App-specific tests (run via make test-apps)
 ```
 
 ### File Purposes
@@ -55,6 +56,7 @@ apps/my_app/
 | `background.html` | No | Background service (WebSocket listeners) |
 | `insights/` | No | Custom insight prompts with `.txt` + `.json` pairs |
 | `agents/` | No | Custom agent personas with `.txt` + `.json` pairs |
+| `tests/` | No | App-specific tests with self-contained fixtures |
 
 ---
 
@@ -320,6 +322,32 @@ Define custom agent personas that integrate with Sunstone's Cortex agent system.
 **Reference implementations:**
 - System agent examples: `muse/agents/*.txt` and `*.json`
 - Discovery logic: `think/utils.py` - `get_agents()`, `get_agent()`
+
+---
+
+### 9. `tests/` - App Tests
+
+Apps can include their own tests that are discovered and run separately from core tests.
+
+**Key Points:**
+- Create `tests/` directory with `conftest.py` and `test_*.py` files
+- App fixtures should be self-contained (only use pytest builtins like `tmp_path`, `monkeypatch`)
+- Tests run via `make test-apps` (all apps) or `make test-app APP=my_app`
+- Integration tests can use `@pytest.mark.integration` but live in the same flat structure
+
+**Directory structure:**
+```
+apps/my_app/tests/
+├── __init__.py
+├── conftest.py      # Self-contained fixtures
+├── test_tools.py    # Tool tests
+└── test_routes.py   # Route tests
+```
+
+**Reference implementations:**
+- Fixture patterns: `apps/todos/tests/conftest.py`
+- Tool testing: `apps/todos/tests/test_tools.py`
+- Logging tests: `apps/todos/tests/test_logging.py`
 
 ---
 
