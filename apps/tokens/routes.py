@@ -330,7 +330,7 @@ def api_days():
     tokens_dir = Path(state.journal_root) / "tokens"
 
     if not tokens_dir.exists():
-        return jsonify({"days": []})
+        return jsonify([])
 
     days = []
     for log_file in tokens_dir.glob("*.jsonl"):
@@ -338,5 +338,41 @@ def api_days():
         if DATE_RE.fullmatch(day):
             days.append(day)
 
-    days.sort(reverse=True)
-    return jsonify({"days": days})
+    days.sort()
+    return jsonify(days)
+
+
+@tokens_bp.route("/api/stats/<month>")
+def api_stats(month: str):
+    """Return token cost for each day in a specific month.
+
+    Args:
+        month: YYYYMM format month string
+
+    Returns:
+        JSON dict mapping day (YYYYMMDD) to cost in dollars.
+        Tokens app is not facet-aware, so returns simple {day: cost} mapping.
+    """
+    import re
+
+    if not re.fullmatch(r"\d{6}", month):
+        return jsonify({"error": "Invalid month format, expected YYYYMM"}), 400
+
+    tokens_dir = Path(state.journal_root) / "tokens"
+    if not tokens_dir.exists():
+        return jsonify({})
+
+    stats: dict[str, float] = {}
+
+    for log_file in tokens_dir.glob(f"{month}*.jsonl"):
+        day = log_file.stem
+        if not DATE_RE.fullmatch(day):
+            continue
+
+        # Get aggregated data for this day
+        data = _aggregate_token_data(day)
+        cost = data["total"]["cost"]
+        if cost > 0:
+            stats[day] = cost
+
+    return jsonify(stats)

@@ -11,7 +11,7 @@ from flask import Blueprint, jsonify, redirect, render_template, request, url_fo
 
 from convey import state
 from convey.utils import DATE_RE, adjacent_days, format_date, format_date_short
-from think.utils import day_path
+from think.utils import day_dirs, day_path
 
 transcripts_bp = Blueprint(
     "app:transcripts",
@@ -377,3 +377,50 @@ def download_audio(day: str) -> Any:
         return jsonify({"error": f"Audio processing failed: {str(e)}"}), 500
     except Exception as e:
         return jsonify({"error": f"Unexpected error: {str(e)}"}), 500
+
+
+@transcripts_bp.route("/api/days")
+def api_days():
+    """Return list of days that have transcript data."""
+    from think.cluster import cluster_scan
+
+    days_with_transcripts = []
+
+    for day_name in day_dirs().keys():
+        audio_ranges, screen_ranges = cluster_scan(day_name)
+        if audio_ranges or screen_ranges:
+            days_with_transcripts.append(day_name)
+
+    return jsonify(sorted(days_with_transcripts))
+
+
+@transcripts_bp.route("/api/stats/<month>")
+def api_stats(month: str):
+    """Return transcript range counts for each day in a specific month.
+
+    Args:
+        month: YYYYMM format month string
+
+    Returns:
+        JSON dict mapping day (YYYYMMDD) to transcript range count.
+        Transcripts app is not facet-aware, so returns simple {day: count} mapping.
+    """
+    if not re.fullmatch(r"\d{6}", month):
+        return jsonify({"error": "Invalid month format, expected YYYYMM"}), 400
+
+    from think.cluster import cluster_scan
+
+    stats: dict[str, int] = {}
+
+    for day_name in day_dirs().keys():
+        # Filter to only days in requested month
+        if not day_name.startswith(month):
+            continue
+
+        audio_ranges, screen_ranges = cluster_scan(day_name)
+        # Count total ranges (audio + screen, but unique time slots)
+        total_ranges = len(audio_ranges) + len(screen_ranges)
+        if total_ranges > 0:
+            stats[day_name] = total_ranges
+
+    return jsonify(stats)

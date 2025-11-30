@@ -78,6 +78,74 @@ def badge_count():
     return jsonify({"count": total})
 
 
+@todos_bp.route("/api/days")
+def api_days():
+    """Return list of days that have todo files across all facets."""
+    days_set = set()
+
+    try:
+        facet_map = get_facets()
+    except Exception:
+        facet_map = {}
+
+    journal_root = Path(state.journal_root)
+    for facet_name in facet_map.keys():
+        todos_dir = journal_root / "facets" / facet_name / "todos"
+        if todos_dir.exists():
+            for todo_file in todos_dir.glob("*.md"):
+                # Extract day from filename (YYYYMMDD.md)
+                day = todo_file.stem
+                if DATE_RE.fullmatch(day):
+                    days_set.add(day)
+
+    return jsonify(sorted(days_set))
+
+
+@todos_bp.route("/api/stats/<month>")
+def api_stats(month: str):
+    """Return todo counts per facet for a specific month.
+
+    Args:
+        month: YYYYMM format month string
+
+    Returns:
+        JSON dict mapping day (YYYYMMDD) to facet counts dict.
+        Count is number of todos (both complete and incomplete) for that day.
+    """
+    import re
+
+    if not re.fullmatch(r"\d{6}", month):
+        return jsonify({"error": "Invalid month format, expected YYYYMM"}), 400
+
+    try:
+        facet_map = get_facets()
+    except Exception:
+        facet_map = {}
+
+    stats: dict[str, dict[str, int]] = {}
+    journal_root = Path(state.journal_root)
+
+    for facet_name in facet_map.keys():
+        todos_dir = journal_root / "facets" / facet_name / "todos"
+        if not todos_dir.exists():
+            continue
+
+        for todo_file in todos_dir.glob(f"{month}*.md"):
+            day = todo_file.stem
+            if not DATE_RE.fullmatch(day):
+                continue
+
+            # Count todos in file
+            facet_todos = get_todos(day, facet_name)
+            if facet_todos:
+                count = len(facet_todos)
+                if day not in stats:
+                    stats[day] = {}
+                stats[day][facet_name] = count
+
+    return jsonify(stats)
+
+
 def _todo_path(day: str, facet: str) -> Path:
     return Path(state.journal_root) / "facets" / facet / "todos" / f"{day}.md"
 

@@ -8,11 +8,11 @@ from datetime import date
 from typing import Any
 
 import markdown
-from flask import Blueprint, redirect, render_template, url_for
+from flask import Blueprint, jsonify, redirect, render_template, url_for
 
 from convey import state
 from convey.utils import DATE_RE, adjacent_days, format_date, format_date_short
-from think.utils import day_path, get_insight_topic, get_insights
+from think.utils import day_dirs, day_path, get_insight_topic, get_insights
 
 insights_bp = Blueprint(
     "app:insights",
@@ -104,3 +104,50 @@ def insights_day(day: str) -> str:
         day=day,
         day_formatted=format_date_short(day),
     )
+
+
+@insights_bp.route("/api/days")
+def api_days():
+    """Return list of days that have insight files."""
+    days_with_insights = []
+
+    for day_name, day_dir in day_dirs().items():
+        insights_dir = os.path.join(day_dir, "insights")
+        if os.path.isdir(insights_dir):
+            # Check if there are any .md files
+            md_files = [f for f in os.listdir(insights_dir) if f.endswith(".md")]
+            if md_files:
+                days_with_insights.append(day_name)
+
+    return jsonify(sorted(days_with_insights))
+
+
+@insights_bp.route("/api/stats/<month>")
+def api_stats(month: str):
+    """Return insight counts for each day in a specific month.
+
+    Args:
+        month: YYYYMM format month string
+
+    Returns:
+        JSON dict mapping day (YYYYMMDD) to insight file count.
+        Insights app is not facet-aware, so returns simple {day: count} mapping.
+    """
+    if not re.fullmatch(r"\d{6}", month):
+        return jsonify({"error": "Invalid month format, expected YYYYMM"}), 400
+
+    stats: dict[str, int] = {}
+
+    for day_name, day_dir in day_dirs().items():
+        # Filter to only days in requested month
+        if not day_name.startswith(month):
+            continue
+
+        insights_dir = os.path.join(day_dir, "insights")
+        if os.path.isdir(insights_dir):
+            # Count .md files
+            md_files = [f for f in os.listdir(insights_dir) if f.endswith(".md")]
+            if md_files:
+                stats[day_name] = len(md_files)
+
+    return jsonify(stats)

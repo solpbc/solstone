@@ -37,7 +37,7 @@
     window.location.href = `${baseUrl}${day}`;
   }
 
-  // Register calendar data provider (if calendar app)
+  // Register per-app data providers for month picker
   if (app === 'calendar') {
     MonthPicker.registerDaysEndpoint('/app/calendar/api/days');
     MonthPicker.registerDataProvider('calendar', async (month, facet) => {
@@ -51,6 +51,52 @@
           : Object.values(facetCounts).reduce((a, b) => a + b, 0);
       }
       return result;
+    });
+  }
+
+  if (app === 'todos') {
+    MonthPicker.registerDaysEndpoint('/app/todos/api/days');
+    MonthPicker.registerDataProvider('todos', async (month, facet) => {
+      const resp = await fetch(`/app/todos/api/stats/${month}`);
+      if (!resp.ok) return {};
+      const raw = await resp.json();
+      const result = {};
+      for (const [day, facetCounts] of Object.entries(raw)) {
+        result[day] = facet
+          ? (facetCounts[facet] || 0)
+          : Object.values(facetCounts).reduce((a, b) => a + b, 0);
+      }
+      return result;
+    });
+  }
+
+  if (app === 'tokens') {
+    MonthPicker.registerDaysEndpoint('/app/tokens/api/days');
+    MonthPicker.registerDataProvider('tokens', async (month, facet) => {
+      // Tokens is not facet-aware, returns {day: cost}
+      const resp = await fetch(`/app/tokens/api/stats/${month}`);
+      if (!resp.ok) return {};
+      return await resp.json();
+    });
+  }
+
+  if (app === 'insights') {
+    MonthPicker.registerDaysEndpoint('/app/insights/api/days');
+    MonthPicker.registerDataProvider('insights', async (month, facet) => {
+      // Insights is not facet-aware, returns {day: insight_count}
+      const resp = await fetch(`/app/insights/api/stats/${month}`);
+      if (!resp.ok) return {};
+      return await resp.json();
+    });
+  }
+
+  if (app === 'transcripts') {
+    MonthPicker.registerDaysEndpoint('/app/transcripts/api/days');
+    MonthPicker.registerDataProvider('transcripts', async (month, facet) => {
+      // Transcripts is not facet-aware, returns {day: range_count}
+      const resp = await fetch(`/app/transcripts/api/stats/${month}`);
+      if (!resp.ok) return {};
+      return await resp.json();
     });
   }
 
