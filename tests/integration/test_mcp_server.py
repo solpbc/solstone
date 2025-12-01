@@ -297,3 +297,59 @@ async def test_mcp_server_multiple_tool_calls(integration_journal_path):
             assert not result1.isError
             assert not result2.isError
             assert not result3.isError
+
+
+@pytest.mark.integration
+@pytest.mark.asyncio
+async def test_mcp_get_resource_tool(integration_journal_path):
+    """Test the get_resource tool can fetch journal resources.
+
+    This verifies that the Context injection works correctly and
+    resources can be fetched via the tool wrapper.
+    """
+    os.environ["JOURNAL_PATH"] = str(integration_journal_path)
+
+    # Setup test data - create a todo resource to fetch
+    facet = "resource-test"
+    day = "20991231"
+
+    facets_dir = integration_journal_path / "facets" / facet
+    facets_dir.mkdir(parents=True, exist_ok=True)
+
+    facet_json = facets_dir / "facet.json"
+    facet_json.write_text(
+        json.dumps({"title": "Resource Test", "description": "Test get_resource"}),
+        encoding="utf-8",
+    )
+
+    todos_dir = facets_dir / "todos"
+    todos_dir.mkdir(exist_ok=True)
+    todo_file = todos_dir / f"{day}.md"
+    todo_file.write_text(
+        "- [ ] Test resource fetch\n- [x] Already done\n", encoding="utf-8"
+    )
+
+    server_params = StdioServerParameters(
+        command="muse-mcp-tools",
+        args=["--transport", "stdio"],
+        env={**os.environ, "JOURNAL_PATH": str(integration_journal_path)},
+    )
+
+    async with stdio_client(server_params) as (read, write):
+        async with ClientSession(read, write) as session:
+            await session.initialize()
+
+            # Call get_resource to fetch the todo resource
+            result = await session.call_tool(
+                "get_resource",
+                arguments={"uri": f"journal://todo/{facet}/{day}"},
+            )
+
+            # Verify success
+            assert not result.isError, f"get_resource failed: {result.content}"
+            assert len(result.content) > 0
+
+            # The result should contain the todo content
+            result_text = result.content[0].text
+            assert "Test resource fetch" in result_text
+            assert "Already done" in result_text
