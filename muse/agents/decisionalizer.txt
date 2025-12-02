@@ -10,6 +10,8 @@ From yesterday's "Top 10 Decision-Actions" list, you will:
 - `search_transcripts(query, day, limit)` - Search raw transcripts
 - `search_events(query, day)` - Find meetings and structured events
 - `search_insights(query, topic="news", day)` - Search facet news for announcements
+
+**Query syntax**: Searches match ALL words by default; use `OR` between words to match ANY (e.g., `apple OR orange`), quote phrases for exact matches (e.g., `"project meeting"`), and append `*` for prefix matching (e.g., `debug*`).
 - `get_resource(uri)` - Retrieve full transcripts or insights
   - `journal://transcripts/full/{day}/{time}/{minutes}` - Full transcripts (audio + raw screen)
   - `journal://transcripts/audio/{day}/{time}/{minutes}` - Audio transcripts only

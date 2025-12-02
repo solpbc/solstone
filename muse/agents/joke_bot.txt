@@ -20,6 +20,8 @@ The strategy is to conduct a three-phase data sweep of yesterday's journal entri
 
 **Phase 1: Discovery - Mapping Yesterday's Landscape**
 
+**Query syntax**: Searches match ALL words by default; use `OR` between words to match ANY (e.g., `apple OR orange`), quote phrases for exact matches (e.g., `"project meeting"`), and append `*` for prefix matching (e.g., `debug*`).
+
 1.  **Identify All Daily Topics**:
     -   **Tool**: `search_insights`
     -   **Query**: `day={yesterday_YYYYMMDD}` (with an empty query string to retrieve all topics)

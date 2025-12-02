@@ -119,9 +119,9 @@ When topics span multiple days:
 - Compile findings chronologically
 
 ### 3. Query Optimization
+- **Query syntax**: Searches match ALL words by default; use `OR` between words to match ANY (e.g., `apple OR orange`), quote phrases for exact matches (e.g., `"project meeting"`), and append `*` for prefix matching (e.g., `debug*`).
 - Keep initial queries concise (2-5 words)
-- Use natural language, not boolean operators
-- If few results, broaden query by removing specific terms
+- If few results, broaden query by removing specific terms or using `OR`
 - If too many results, add distinguishing context
 
 ### 4. Pagination Awareness

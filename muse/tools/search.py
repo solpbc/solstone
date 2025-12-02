@@ -27,7 +27,8 @@ def search_insights(
     discussed over time.
 
     Args:
-        query: Natural language search query (e.g., "meetings product launch")
+        query: Search query. Words are AND'd by default; use OR to match any
+            (e.g., "apple OR orange"), quotes for exact phrases, * for prefix match.
         limit: Optional maximum number of results to return (default: 5, max: 20)
         offset: Optional number of results to skip for pagination (default: 0)
         topic: Optional topic name to filter results by
@@ -89,7 +90,8 @@ def search_transcripts(
     to recall exact wording, short snippets, or visual context from given dates.
 
     Args:
-        query: Natural language search query (e.g., "error message")
+        query: Search query. Words are AND'd by default; use OR to match any
+            (e.g., "apple OR orange"), quotes for exact phrases, * for prefix match.
         day: Optional specific day to search in ``YYYYMMDD`` format
         start_date: Optional start date for range search in ``YYYYMMDD`` format
         end_date: Optional end date for range search in ``YYYYMMDD`` format
@@ -156,7 +158,8 @@ def search_events(
     be filtered by day, facet, topic, or a time range.
 
     Args:
-        query: Natural language search query (e.g., "team standup")
+        query: Search query. Words are AND'd by default; use OR to match any
+            (e.g., "apple OR orange"), quotes for exact phrases, * for prefix match.
         limit: Optional maximum number of events to return (default: 5)
         offset: Optional number of results to skip for pagination (default: 0)
         day: Optional ``YYYYMMDD`` day to filter results
