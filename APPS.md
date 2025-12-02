@@ -171,20 +171,15 @@ The component reads `day` and `app` from template context to construct navigatio
 
 **Month Picker:**
 
-Apps with `date_nav: true` get a month picker dropdown when clicking the date label. To show day-level data indicators (heat map):
+Apps with `date_nav: true` get a month picker dropdown when clicking the date label. The heat map is auto-configured using a convention-based API:
 
-```javascript
-MonthPicker.registerDataProvider('my_app', async (month, facet) => {
-  // Return {YYYYMMDD: count} for days with data
-  const resp = await fetch(`/app/my_app/api/stats/${month}`);
-  return resp.json();
-});
-```
+**Required endpoint:** `/app/{app_name}/api/stats/{month}` (YYYYMM format)
 
-Without a provider, the picker shows a plain calendar grid.
+**Response format** (auto-detected):
+- Simple: `{YYYYMMDD: count}` - used as-is
+- Facet-aware: `{YYYYMMDD: {facet: count}}` - filtered by selected facet
 
-**Reference implementations:**
-- Date navigation: `apps/todos/app_bar.html`, `apps/transcripts/app_bar.html`
+Days with data (count > 0) are clickable; empty days are grayed out.
 
 **Implementation source:** `convey/templates/date_nav.html`, `convey/static/month-picker.js`
 

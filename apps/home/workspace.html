@@ -365,16 +365,6 @@
     }
   });
 
-  // Register month picker data provider
-  if (typeof MonthPicker !== 'undefined') {
-    MonthPicker.registerDaysEndpoint('/app/home/api/days');
-    MonthPicker.registerDataProvider('home', async (month, facet) => {
-      const resp = await fetch(`/app/home/api/stats/${month}`);
-      if (!resp.ok) return {};
-      return await resp.json();
-    });
-  }
-
   // Load on init
   loadSummary();
 })();
