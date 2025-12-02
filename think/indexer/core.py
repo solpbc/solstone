@@ -21,6 +21,7 @@ def sanitize_fts_query(query: str) -> str:
         result = result.replace('"', "")
     return result
 
+
 # Common regex patterns
 DATE_RE = re.compile(r"\d{8}")
 

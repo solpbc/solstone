@@ -14,11 +14,6 @@ from flask import (
     url_for,
 )
 
-from apps.utils import log_app_action
-from convey import state
-from convey.config import get_selected_facet
-from convey.utils import DATE_RE, adjacent_days, format_date, format_date_short
-from think.facets import get_facets
 from apps.todos.todo import (
     TodoChecklist,
     TodoEmptyTextError,
@@ -26,6 +21,11 @@ from apps.todos.todo import (
     TodoLineNumberError,
     get_todos,
 )
+from apps.utils import log_app_action
+from convey import state
+from convey.config import get_selected_facet
+from convey.utils import DATE_RE, adjacent_days, format_date, format_date_short
+from think.facets import get_facets
 
 todos_bp = Blueprint("app:todos", __name__, url_prefix="/app/todos")
 
