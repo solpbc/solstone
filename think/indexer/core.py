@@ -6,6 +6,8 @@ import sqlite3
 import time
 from typing import Callable, Dict, List, Union
 
+from think.utils import day_dirs, day_path
+
 
 def sanitize_fts_query(query: str) -> str:
     """Sanitize query for FTS5: keep alphanumeric, spaces, quotes, apostrophes, and *.
@@ -18,8 +20,6 @@ def sanitize_fts_query(query: str) -> str:
     if result.count('"') % 2:
         result = result.replace('"', "")
     return result
-
-from think.utils import day_dirs, day_path
 
 # Common regex patterns
 DATE_RE = re.compile(r"\d{8}")

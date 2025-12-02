@@ -2,8 +2,6 @@ import importlib
 import json
 import os
 
-import pytest
-
 from think.indexer import sanitize_fts_query
 
 
