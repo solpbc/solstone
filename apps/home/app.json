@@ -1,4 +1,5 @@
 {
   "icon": "🏠",
-  "label": "Home"
+  "label": "Home",
+  "date_nav": true
 }

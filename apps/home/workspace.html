@@ -1,30 +1,381 @@
 <div class="workspace-content">
-  <h1>Home Dashboard</h1>
-  <p>Welcome to Sunstone! This is the new app-based navigation system.</p>
+  <div class="home-loading" id="home-loading">Loading dashboard...</div>
 
-  <div class="placeholder">
-    <p><em>Dashboard content will be migrated here in Phase 1.</em></p>
+  <div class="home-dashboard" id="home-dashboard" style="display: none;">
+    <!-- Top row: Todos and Events -->
+    <div class="home-grid">
+      <div class="home-card" id="todos-card">
+        <h2 class="home-card-title">Todos</h2>
+        <div class="home-card-content" id="todos-content">
+          <div class="home-empty">No todos</div>
+        </div>
+      </div>
+
+      <div class="home-card" id="events-card">
+        <h2 class="home-card-title">Events</h2>
+        <div class="home-card-content" id="events-content">
+          <div class="home-empty">No events</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Entities row -->
+    <div class="home-card" id="entities-card">
+      <h2 class="home-card-title">Detected Entities</h2>
+      <div class="home-card-content" id="entities-content">
+        <div class="home-empty">No entities detected</div>
+      </div>
+    </div>
+
+    <!-- News row -->
+    <div class="home-card" id="news-card" style="display: none;">
+      <h2 class="home-card-title">News</h2>
+      <div class="home-card-content" id="news-content"></div>
+    </div>
   </div>
 </div>
 
 <style>
-
-h1 {
-  font-size: 2.5em;
-  margin-bottom: 0.5em;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
-
-.placeholder {
-  background: white;
-  border-radius: 12px;
-  padding: 2em;
-  box-shadow: 0 4px 15px rgba(0,0,0,0.08);
-  margin-top: 2em;
+.home-loading {
   text-align: center;
+  padding: 4em;
   color: #666;
 }
+
+.home-dashboard {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.home-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
+@media (max-width: 640px) {
+  .home-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.home-card {
+  background: white;
+  border-radius: 8px;
+  padding: 1rem 1.25rem;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+  min-width: 0;
+  overflow: hidden;
+}
+
+.home-card-title {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #6b7280;
+  margin: 0 0 0.75rem 0;
+}
+
+.home-card-content {
+  font-size: 0.95rem;
+  color: #374151;
+}
+
+.home-empty {
+  color: #9ca3af;
+  font-style: italic;
+}
+
+/* Todo list styles - matches todos app */
+.home-todo-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.home-todo-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.1rem 0;
+  border-bottom: 1px solid #f3f4f6;
+}
+
+.home-todo-item:last-child {
+  border-bottom: none;
+}
+
+.home-todo-item.completed {
+  opacity: 0.6;
+}
+
+.home-todo-checkbox {
+  flex-shrink: 0;
+  width: 1.25rem;
+  height: 1.25rem;
+  accent-color: #2563eb;
+  pointer-events: none;
+}
+
+.home-todo-text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #111827;
+  font-size: 0.95rem;
+}
+
+.home-todo-item.completed .home-todo-text {
+  text-decoration: line-through;
+  color: #6b7280;
+}
+
+/* Event bar chart styles */
+.home-event-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.home-event-row {
+  position: relative;
+  padding: 0.35rem 0.5rem;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.home-event-bar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  background: var(--facet-color, #6b7280);
+  opacity: 0.15;
+  border-radius: 4px;
+}
+
+.home-event-label {
+  position: relative;
+  z-index: 1;
+  text-transform: capitalize;
+}
+
+/* Entity tag styles */
+.home-entity-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.home-entity-tag {
+  background: var(--facet-bg, #f3f4f6);
+  border: 1px solid var(--facet-color, #e5e7eb);
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.85rem;
+}
+
+/* News preview */
+.home-news-preview {
+  color: #4b5563;
+  line-height: 1.5;
+}
 </style>
+
+<script>
+(function() {
+  const currentDay = '{{ day }}';
+  let summaryData = null;
+
+  function renderTodos(data, facet) {
+    const container = document.getElementById('todos-content');
+    let todos = [];
+
+    if (facet) {
+      const facetData = data.facets[facet];
+      todos = facetData ? facetData.todos : [];
+    } else {
+      // Aggregate todos across all facets
+      for (const facetName of Object.keys(data.facets)) {
+        const facetTodos = data.facets[facetName].todos || [];
+        todos = todos.concat(facetTodos);
+      }
+    }
+
+    if (todos.length === 0) {
+      container.innerHTML = '<div class="home-empty">No todos</div>';
+      return;
+    }
+
+    // Sort: pending first, then completed
+    todos.sort((a, b) => {
+      if (a.completed === b.completed) return 0;
+      return a.completed ? 1 : -1;
+    });
+
+    container.innerHTML = `
+      <ul class="home-todo-list">
+        ${todos.map(todo => `
+          <li class="home-todo-item ${todo.completed ? 'completed' : ''}">
+            <input type="checkbox" class="home-todo-checkbox" ${todo.completed ? 'checked' : ''} disabled>
+            <span class="home-todo-text" title="${escapeHtml(todo.text)}">${escapeHtml(todo.text)}</span>
+          </li>
+        `).join('')}
+      </ul>
+    `;
+  }
+
+  function renderEvents(data, facet) {
+    const container = document.getElementById('events-content');
+    let eventsByTopic;
+
+    if (facet) {
+      const facetData = data.facets[facet];
+      eventsByTopic = facetData ? facetData.events_by_topic : {};
+    } else {
+      eventsByTopic = data.totals.events_by_topic || {};
+    }
+
+    const topics = Object.keys(eventsByTopic);
+    if (topics.length === 0) {
+      container.innerHTML = '<div class="home-empty">No events</div>';
+      return;
+    }
+
+    // Sort by count descending
+    topics.sort((a, b) => eventsByTopic[b] - eventsByTopic[a]);
+
+    // Find max count for scaling
+    const maxCount = Math.max(...topics.map(t => eventsByTopic[t]));
+
+    container.innerHTML = `
+      <div class="home-event-list">
+        ${topics.map(topic => {
+          const count = eventsByTopic[topic];
+          const percent = maxCount > 0 ? (count / maxCount) * 100 : 0;
+          return `
+            <div class="home-event-row">
+              <div class="home-event-bar" style="width: ${percent}%"></div>
+              <span class="home-event-label">${topic}</span>
+            </div>
+          `;
+        }).join('')}
+      </div>
+    `;
+  }
+
+  function renderEntities(data, facet) {
+    const container = document.getElementById('entities-content');
+    let entities = [];
+
+    if (facet) {
+      const facetData = data.facets[facet];
+      entities = facetData ? facetData.entities : [];
+    } else {
+      // Aggregate entities across all facets, dedupe
+      const seen = new Set();
+      for (const facetName of Object.keys(data.facets)) {
+        const facetEntities = data.facets[facetName].entities || [];
+        for (const e of facetEntities) {
+          if (!seen.has(e)) {
+            seen.add(e);
+            entities.push(e);
+          }
+        }
+      }
+    }
+
+    if (entities.length === 0) {
+      container.innerHTML = '<div class="home-empty">No entities detected</div>';
+      return;
+    }
+
+    container.innerHTML = `
+      <div class="home-entity-list">
+        ${entities.map(e => `<span class="home-entity-tag">${escapeHtml(e)}</span>`).join('')}
+      </div>
+    `;
+  }
+
+  function renderNews(data, facet) {
+    const card = document.getElementById('news-card');
+    const container = document.getElementById('news-content');
+    let newsPreview = null;
+
+    if (facet) {
+      const facetData = data.facets[facet];
+      newsPreview = facetData ? facetData.news_preview : null;
+    } else {
+      // Show first news preview found across facets
+      for (const facetName of Object.keys(data.facets)) {
+        const preview = data.facets[facetName].news_preview;
+        if (preview) {
+          newsPreview = preview;
+          break;
+        }
+      }
+    }
+
+    if (!newsPreview) {
+      card.style.display = 'none';
+      return;
+    }
+
+    card.style.display = 'block';
+    container.innerHTML = `<div class="home-news-preview">${escapeHtml(newsPreview)}</div>`;
+  }
+
+  function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+  }
+
+  function renderDashboard(data, facet) {
+    renderTodos(data, facet);
+    renderEvents(data, facet);
+    renderEntities(data, facet);
+    renderNews(data, facet);
+  }
+
+  async function loadSummary() {
+    try {
+      const response = await fetch(`/app/home/api/summary/${currentDay}`);
+      if (!response.ok) throw new Error('Failed to load');
+      summaryData = await response.json();
+
+      document.getElementById('home-loading').style.display = 'none';
+      document.getElementById('home-dashboard').style.display = 'flex';
+
+      renderDashboard(summaryData, window.selectedFacet);
+    } catch (error) {
+      console.error('Failed to load home summary:', error);
+      document.getElementById('home-loading').textContent = 'Failed to load dashboard';
+    }
+  }
+
+  // Listen for facet changes
+  window.addEventListener('facet.switch', (e) => {
+    if (summaryData) {
+      renderDashboard(summaryData, e.detail.facet);
+    }
+  });
+
+  // Register month picker data provider
+  if (typeof MonthPicker !== 'undefined') {
+    MonthPicker.registerDaysEndpoint('/app/home/api/days');
+    MonthPicker.registerDataProvider('home', async (month, facet) => {
+      const resp = await fetch(`/app/home/api/stats/${month}`);
+      if (!resp.ok) return {};
+      return await resp.json();
+    });
+  }
+
+  // Load on init
+  loadSummary();
+})();
+</script>
