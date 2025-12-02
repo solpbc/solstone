@@ -15,6 +15,7 @@ import os
 import sys
 import time
 from pathlib import Path
+from typing import Any
 
 from observe.utils import load_analysis_frames
 from think.callosum import callosum_send
@@ -45,8 +46,6 @@ def format_screen(
             - chunks: List of {"timestamp": int, "markdown": str} dicts, one per frame
             - meta: Dict with optional "header" and "error" keys
     """
-    from typing import Any
-
     ctx = context or {}
     file_path = ctx.get("file_path")
     entity_names = ctx.get("entity_names", "")

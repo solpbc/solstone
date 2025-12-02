@@ -2,80 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import numpy as np
 from PIL import Image
-
-# Historical note: This border detection function was previously used in describe.py
-# to detect and handle blue borders in screencast frames. The implementation would:
-# 1. Fast pre-check for pure blue (0,0,255) pixels in each frame
-# 2. If found, call detect_border() to get border bounding box
-# 3. Check if change box still met 400x400px threshold after subtracting border area
-# 4. Censor (black out) the border region in frames sent to vision analysis
-# 5. Store censor_coords in output for reference
-# This feature was removed in favor of simpler processing - the complexity of tracking
-# border coordinates through the processing pipeline and qualification logic outweighed
-# the benefits. If re-implementing, consider: frame-level caching of border detection,
-# intersection calculation between change boxes and border boxes, and threading
-# censor_coords through _frame_to_bytes(), process_with_vision(), and output.
-
-
-def detect_border(
-    im: Image.Image,
-    color: tuple[int, int, int],
-    *,
-    min_length: int = 100,
-    border: int = 3,
-    tolerance: int = 0,
-) -> tuple[int, int, int, int]:
-    """Detect a coloured border and return the bounding box coordinates.
-
-    Parameters
-    ----------
-    im : Image.Image
-        Image to analyse.
-    color : tuple[int, int, int]
-        RGB values of the border colour to detect.
-    min_length : int, optional
-        Minimum number of matching pixels per side, by default 100.
-    border : int, optional
-        Expected thickness of the border in pixels, by default 3.
-    tolerance : int, optional
-        Allowed deviation per channel for colour matching, by default 0.
-
-    Returns
-    -------
-    tuple[int, int, int, int]
-        Bounding box as ``(y_min, x_min, y_max, x_max)``.
-    """
-    arr = np.asarray(im)
-    r, g, b = color
-    mask = np.logical_and.reduce(
-        [
-            np.abs(arr[..., 0] - r) <= tolerance,
-            np.abs(arr[..., 1] - g) <= tolerance,
-            np.abs(arr[..., 2] - b) <= tolerance,
-        ]
-    )
-
-    col_hits = mask.sum(0)
-    row_hits = mask.sum(1)
-
-    cols = np.where(col_hits >= min_length)[0]
-    rows = np.where(row_hits >= min_length)[0]
-    if cols.size == 0 or rows.size == 0:
-        raise ValueError("No border detected")
-
-    def first_last(groups):
-        groups = np.split(groups, np.where(np.diff(groups) != 1)[0] + 1)
-        groups = [g for g in groups if g.size == border]
-        if not groups:
-            raise ValueError("Border not thick enough")
-        return groups[0][0], groups[-1][-1]
-
-    x_min, x_max = first_last(cols)
-    y_min, y_max = first_last(rows)
-
-    return int(y_min), int(x_min), int(y_max), int(x_max)
 
 
 def crop_frame_to_monitor(image: Image.Image, monitor_bounds: dict) -> Image.Image:
@@ -248,7 +175,6 @@ def decode_frames(
 
 
 __all__ = [
-    "detect_border",
     "crop_frame_to_monitor",
     "draw_bounding_box",
     "image_to_jpeg_bytes",

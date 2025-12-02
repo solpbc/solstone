@@ -443,61 +443,11 @@ class VideoProcessor:
         ).mean(axis=(1, 3))
         changed = (block_means < ssim_threshold).tolist()
 
-        # 6) Reuse existing grouping and boxing logic (uses original dimensions)
-        groups = self._group_changed_blocks(changed, rows, cols)
-        return self._blocks_to_boxes(groups, block_size, W_orig, H_orig, margin)
+        # 6) Reuse shared grouping and boxing logic from utils (uses original dimensions)
+        from observe.utils import _blocks_to_boxes, _group_changed_blocks
 
-    def _group_changed_blocks(self, changed, grid_rows, grid_cols):
-        """Group contiguous changed blocks using iterative DFS."""
-        groups = []
-        visited = [[False] * grid_cols for _ in range(grid_rows)]
-
-        def dfs(i, j, group):
-            stack = [(i, j)]
-            while stack:
-                ci, cj = stack.pop()
-                if ci < 0 or ci >= grid_rows or cj < 0 or cj >= grid_cols:
-                    continue
-                if visited[ci][cj] or not changed[ci][cj]:
-                    continue
-                visited[ci][cj] = True
-                group.append((ci, cj))
-                for ni, nj in [(ci - 1, cj), (ci + 1, cj), (ci, cj - 1), (ci, cj + 1)]:
-                    stack.append((ni, nj))
-
-        for i in range(grid_rows):
-            for j in range(grid_cols):
-                if changed[i][j] and not visited[i][j]:
-                    group = []
-                    dfs(i, j, group)
-                    groups.append(group)
-
-        return groups
-
-    def _blocks_to_boxes(self, groups, block_size, width, height, margin):
-        """Convert groups of changed blocks to bounding boxes."""
-        boxes = []
-        for group in groups:
-            min_x = width
-            min_y = height
-            max_x = 0
-            max_y = 0
-            for i, j in group:
-                x0 = j * block_size
-                y0 = i * block_size
-                x1 = min(x0 + block_size, width)
-                y1 = min(y0 + block_size, height)
-                min_x = min(min_x, x0)
-                min_y = min(min_y, y0)
-                max_x = max(max_x, x1)
-                max_y = max(max_y, y1)
-            # Add margin
-            min_x = max(0, min_x - margin)
-            min_y = max(0, min_y - margin)
-            max_x = min(width, max_x + margin)
-            max_y = min(height, max_y + margin)
-            boxes.append({"box_2d": [min_y, min_x, max_y, max_x]})
-        return boxes
+        groups = _group_changed_blocks(changed, rows, cols)
+        return _blocks_to_boxes(groups, block_size, W_orig, H_orig, margin)
 
     def _user_contents(self, prompt: str, image, entities: bool = False) -> list:
         """Build contents list with optional entity context."""
@@ -981,7 +931,6 @@ async def async_main():
     logger.info(f"Processing video: {video_path}")
 
     start_time = time.time()
-    callosum = None
 
     try:
         processor = VideoProcessor(video_path)

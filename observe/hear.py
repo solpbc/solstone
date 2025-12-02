@@ -4,19 +4,21 @@ from __future__ import annotations
 
 import gc
 import io
+import json
 import logging
 import os
+import re
 import signal
 import threading
 import time
+from datetime import datetime
+from pathlib import Path
 from queue import Queue
-from typing import List, Optional, Tuple
+from typing import Any, List, Optional, Tuple
 
 import numpy as np
 import soundfile as sf
 from silero_vad import get_speech_timestamps
-
-from observe.detect import input_detect
 
 # Constants
 SAMPLE_RATE = 16000
@@ -34,6 +36,8 @@ class AudioRecorder:
 
     def detect(self):
         """Detect microphone and system audio devices."""
+        from observe.detect import input_detect
+
         mic, loopback = input_detect()
         if mic is None or loopback is None:
             logging.error(f"Detection failed: mic {mic} sys {loopback}")
@@ -383,11 +387,6 @@ def load_transcript(
             topics = metadata.get("topics")
             setting = metadata.get("setting")
     """
-    import json
-    import re
-    from datetime import datetime
-    from pathlib import Path
-
     try:
         path = Path(file_path)
         if not path.exists():
@@ -476,11 +475,6 @@ def format_audio(
             - chunks: List of {"timestamp": int, "markdown": str} dicts
             - meta: Dict with optional "header" and "error" keys
     """
-    import re
-    from datetime import datetime
-    from pathlib import Path
-    from typing import Any
-
     ctx = context or {}
     file_path = ctx.get("file_path")
 
@@ -500,8 +494,6 @@ def format_audio(
     # Build meta dict with optional error
     meta: dict[str, Any] = {}
     if skipped_count > 0:
-        import logging
-
         logger = logging.getLogger(__name__)
         error_msg = f"Skipped {skipped_count} entries missing 'start' field"
         if file_path:

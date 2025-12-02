@@ -530,7 +530,6 @@ class Transcriber:
             split: If True, process mic and system channels independently
         """
         start_time = time.time()
-        callosum = None
 
         if split:
             # Split processing mode

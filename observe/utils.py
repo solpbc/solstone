@@ -3,7 +3,6 @@
 import json
 import logging
 import re
-from datetime import datetime
 from math import ceil
 from pathlib import Path
 from typing import Dict
