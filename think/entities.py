@@ -4,6 +4,7 @@ import json
 import os
 import re
 import tempfile
+import time
 from pathlib import Path
 from typing import Any, Optional
 
@@ -125,7 +126,8 @@ def save_entities(
 
     Args:
         facet: Facet name
-        entities: List of entity dictionaries (must have type, name, description keys)
+        entities: List of entity dictionaries (must have type, name, description keys;
+                  attached entities may also have attached_at, updated_at timestamps)
         day: Optional day in YYYYMMDD format for detected entities
 
     Raises:
@@ -173,6 +175,8 @@ def update_entity(
 ) -> None:
     """Update an entity's description after validating current state.
 
+    Sets updated_at timestamp to current time on successful update.
+
     Args:
         facet: Facet name
         type: Entity type to match
@@ -196,6 +200,7 @@ def update_entity(
                     f"found '{current_desc}'"
                 )
             entity["description"] = new_description
+            entity["updated_at"] = int(time.time() * 1000)
             save_entities(facet, entities, day)
             return
 

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import time
 from pathlib import Path
 from typing import Any
 
@@ -24,7 +25,8 @@ def get_facet_entities_data(facet_name: str) -> dict:
 
     Returns:
         dict with keys:
-            - attached: list of {"type": str, "name": str, "description": str}
+            - attached: list of entity dicts with type, name, description,
+                        and optional attached_at, updated_at timestamps
             - detected: list of {"type": str, "name": str, "description": str, "count": int, "last_seen": str}
     """
     # Load attached entities (already returns list of dicts)
@@ -71,8 +73,17 @@ def add_entity(facet_name: str) -> Any:
             if entity.get("type") == etype and entity.get("name") == name:
                 return jsonify({"error": "Entity already exists in facet"}), 409
 
-        # Add new entity
-        entities.append({"type": etype, "name": name, "description": desc})
+        # Add new entity with timestamps
+        now = int(time.time() * 1000)
+        entities.append(
+            {
+                "type": etype,
+                "name": name,
+                "description": desc,
+                "attached_at": now,
+                "updated_at": now,
+            }
+        )
 
         # Save back
         save_entities(facet_name, entities)
@@ -206,6 +217,7 @@ def update_entity(facet_name: str) -> Any:
             target["aka"] = aka_list
         else:
             target.pop("aka", None)
+        target["updated_at"] = int(time.time() * 1000)
 
         # Save updated entities
         save_entities(facet_name, entities)
@@ -254,6 +266,7 @@ def update_description(facet_name: str) -> Any:
             if entity.get("type") == entity_type and entity.get("name") == entity_name:
                 old_description = entity.get("description", "")
                 entity["description"] = new_description
+                entity["updated_at"] = int(time.time() * 1000)
                 updated = True
                 break
 

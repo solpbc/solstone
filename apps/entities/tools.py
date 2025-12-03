@@ -5,6 +5,7 @@ Tools are auto-discovered and registered via the @register_tool decorator.
 """
 
 import re
+import time
 from typing import Any
 
 from fastmcp import Context
@@ -50,7 +51,8 @@ def entity_list(facet: str, day: str | None = None) -> dict[str, Any]:
         - facet: The facet name
         - day: The day (or None for attached entities)
         - count: Number of entities found
-        - entities: List of entity objects with type, name, and description
+        - entities: List of entity objects with type, name, description
+                    (attached entities may also have attached_at, updated_at)
 
     Examples:
         - entity_list("personal")  # List attached entities
@@ -169,6 +171,8 @@ def entity_attach(
     facets/{facet}/entities.jsonl. Attached entities are long-term tracked
     entities that appear in facet summaries and agent context.
 
+    Sets attached_at and updated_at timestamps on the new entity.
+
     Args:
         facet: Facet name (e.g., "personal", "work")
         type: Entity type (Person, Company, Project, or Tool)
@@ -179,7 +183,7 @@ def entity_attach(
         Dictionary containing:
         - facet: The facet name
         - message: Success message
-        - entity: The attached entity details
+        - entity: The attached entity details (type, name, description)
 
     Examples:
         - entity_attach("personal", "Person", "Alice", "Close friend from college")
@@ -204,8 +208,17 @@ def entity_attach(
                     "suggestion": "entity already exists in attached list for this facet",
                 }
 
-        # Add new entity
-        existing.append({"type": type, "name": name, "description": description})
+        # Add new entity with timestamps
+        now = int(time.time() * 1000)
+        existing.append(
+            {
+                "type": type,
+                "name": name,
+                "description": description,
+                "attached_at": now,
+                "updated_at": now,
+            }
+        )
         save_entities(facet, existing, day=None)
 
         # Log to today's log since attached entities aren't day-scoped
@@ -400,6 +413,7 @@ def entity_add_aka(
                 # Add the new aka
                 aka_list.append(aka)
                 entity["aka"] = aka_list
+                entity["updated_at"] = int(time.time() * 1000)
 
                 # Save back atomically
                 save_entities(facet, entities, day=None)

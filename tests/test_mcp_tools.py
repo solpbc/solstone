@@ -260,3 +260,61 @@ def test_entity_add_aka_not_first_word():
     assert "Jer" in jeremie["aka"]
 
     assert "Added alias 'Jer'" in result["message"]
+
+
+def test_entity_add_aka_sets_updated_at():
+    """Test that entity_add_aka sets updated_at timestamp."""
+    mock_entities = [
+        {
+            "type": "Tool",
+            "name": "PostgreSQL",
+            "description": "Database system",
+            "attached_at": 1700000000000,
+            "updated_at": 1700000000000,
+        },
+    ]
+
+    with (
+        patch("apps.entities.tools.load_entities") as mock_load,
+        patch("apps.entities.tools.save_entities") as mock_save,
+        patch("apps.entities.tools.is_valid_entity_type") as mock_validate,
+    ):
+        mock_validate.return_value = True
+        mock_load.return_value = mock_entities
+        entity_tools.entity_add_aka("work", "Tool", "PostgreSQL", "PG")
+
+    mock_save.assert_called_once()
+    saved_entities = mock_save.call_args[0][1]
+    postgres = next(e for e in saved_entities if e["name"] == "PostgreSQL")
+
+    # updated_at should be newer than original
+    assert postgres["updated_at"] > 1700000000000
+    # attached_at should remain unchanged
+    assert postgres["attached_at"] == 1700000000000
+
+
+def test_entity_attach_sets_timestamps():
+    """Test that entity_attach sets both attached_at and updated_at."""
+    with (
+        patch("apps.entities.tools.load_entities") as mock_load,
+        patch("apps.entities.tools.save_entities") as mock_save,
+        patch("apps.entities.tools.is_valid_entity_type") as mock_validate,
+    ):
+        mock_validate.return_value = True
+        mock_load.return_value = []
+        entity_tools.entity_attach("work", "Tool", "PostgreSQL", "Database system")
+
+    mock_save.assert_called_once()
+    saved_entities = mock_save.call_args[0][1]
+    postgres = next(e for e in saved_entities if e["name"] == "PostgreSQL")
+
+    # Both timestamps should be set
+    assert "attached_at" in postgres
+    assert "updated_at" in postgres
+    # Should be recent (within last minute)
+    import time
+
+    now = int(time.time() * 1000)
+    assert now - postgres["attached_at"] < 60000
+    # Initially both should be equal
+    assert postgres["attached_at"] == postgres["updated_at"]

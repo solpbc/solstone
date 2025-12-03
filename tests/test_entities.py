@@ -453,3 +453,41 @@ def test_load_detected_entities_recent_type_name_key(fixture_journal, tmp_path):
     names_and_types = {(e["type"], e["name"]) for e in detected}
     assert ("Person", "Mercury") in names_and_types
     assert ("Project", "Mercury") in names_and_types
+
+
+def test_timestamp_preservation(fixture_journal, tmp_path):
+    """Test that attached_at and updated_at timestamps are preserved through save/load."""
+    facet_path = tmp_path / "facets" / "test_facet"
+    facet_path.mkdir(parents=True)
+    os.environ["JOURNAL_PATH"] = str(tmp_path)
+
+    # Save entities with timestamps
+    test_entities = [
+        {
+            "type": "Person",
+            "name": "Alice",
+            "description": "Test person",
+            "attached_at": 1700000000000,
+            "updated_at": 1700000001000,
+        },
+        {
+            "type": "Company",
+            "name": "Acme",
+            "description": "Test company",
+            "attached_at": 1700000002000,
+            "updated_at": 1700000002000,
+        },
+    ]
+    save_entities("test_facet", test_entities)
+
+    # Load them back
+    loaded = load_entities("test_facet")
+    assert len(loaded) == 2
+
+    alice = next(e for e in loaded if e.get("name") == "Alice")
+    assert alice["attached_at"] == 1700000000000
+    assert alice["updated_at"] == 1700000001000
+
+    acme = next(e for e in loaded if e.get("name") == "Acme")
+    assert acme["attached_at"] == 1700000002000
+    assert acme["updated_at"] == 1700000002000
