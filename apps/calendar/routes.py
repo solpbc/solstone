@@ -338,22 +338,19 @@ def _dev_screen_frames(day: str, timestamp: str) -> Any:
                             for cid, pts in zip(ids.flatten().tolist(), corners):
                                 id_to_corners[cid] = pts
 
-                        # Draw green boxes and ID labels
-                        if id_to_corners:
+                        # Draw black rectangle if all 4 corner tags detected
+                        # Tag IDs: 6=TL, 7=TR, 4=BL, 2=BR
+                        # ArUco corner order: [TL, TR, BR, BL]
+                        corner_tags = {6, 7, 4, 2}
+                        if corner_tags.issubset(id_to_corners.keys()):
                             draw = ImageDraw.Draw(img)
-                            for tag_id, pts in id_to_corners.items():
-                                # pts shape is (1, 4, 2) -> reshape to (4, 2)
-                                corners_2d = pts.reshape(4, 2).astype(int)
-                                # Draw polygon
-                                poly = [tuple(p) for p in corners_2d]
-                                poly.append(poly[0])  # close the polygon
-                                draw.line(poly, fill=(0, 255, 0), width=2)
-                                # Draw ID label
-                                cx = int(corners_2d[:, 0].mean())
-                                cy = int(corners_2d[:, 1].mean())
-                                draw.text(
-                                    (cx + 5, cy - 10), str(tag_id), fill=(0, 255, 0)
-                                )
+                            # Extract outer corners from each tag
+                            tl = id_to_corners[6].reshape(4, 2)[0]  # TL tag, TL corner
+                            tr = id_to_corners[7].reshape(4, 2)[1]  # TR tag, TR corner
+                            br = id_to_corners[2].reshape(4, 2)[2]  # BR tag, BR corner
+                            bl = id_to_corners[4].reshape(4, 2)[3]  # BL tag, BL corner
+                            poly = [tuple(tl), tuple(tr), tuple(br), tuple(bl)]
+                            draw.polygon(poly, fill=(0, 0, 0))
 
                         jpeg_bytes = image_to_jpeg_bytes(img)
                         _frame_cache[cache_key][frame_id] = jpeg_bytes
