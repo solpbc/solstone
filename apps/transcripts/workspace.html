@@ -5,24 +5,19 @@
 
 /*
  * Layout context:
- * - body.has-app-bar applies margin-bottom: 60px to .workspace
- * - But app-bar is position:fixed at bottom:12px with height:60px (occupies 72px)
- * - So workspace content can overlap app-bar by 12px
- * - We fix this by setting explicit height that accounts for true clearance
+ * - No app-bar for transcripts app
+ * - Just need to account for facet-bar-height at top
  *
  * Height calculation:
  * - 100vh (viewport)
  * - minus 60px (facet-bar-height, workspace has margin-top for this)
- * - minus 72px (app-bar: 60px height + 12px bottom offset)
  * - minus 32px (our padding: 16px top + 16px bottom)
- * = 100vh - 164px
  */
 
 /* Lock workspace scrolling - content must fit, only .tr-panel scrolls */
-body.has-app-bar .workspace:has(.tr-wrap) {
+.workspace:has(.tr-wrap) {
   overflow: hidden;
-  height: calc(100vh - var(--facet-bar-height) - 72px);
-  margin-bottom: 0;
+  height: calc(100vh - var(--facet-bar-height));
 }
 
 /* Main container */
@@ -38,12 +33,9 @@ body.has-app-bar .workspace:has(.tr-wrap) {
 .tr-card {
   height: 100%;
   background: #ffffff;
-  border-radius: 12px;
-  box-shadow: 0 1px 2px rgba(0,0,0,.04);
   display: grid;
-  grid-template-columns: 180px 1fr 180px;
+  grid-template-columns: 180px 100px 1fr;
   overflow: hidden;
-  border: 1px solid #e5e7eb;
 }
 
 /* Left timeline */
@@ -54,11 +46,16 @@ body.has-app-bar .workspace:has(.tr-wrap) {
   height: 100%;
   overflow: hidden;
   touch-action: pan-y;
+  padding: 12px 0;
+  box-sizing: border-box;
 }
 
 .tr-grid {
   position: absolute;
-  inset: 0;
+  top: 12px;
+  bottom: 12px;
+  left: 0;
+  right: 0;
 }
 
 .tr-grid-hour {
@@ -78,8 +75,8 @@ body.has-app-bar .workspace:has(.tr-wrap) {
 .tr-labels {
   position: absolute;
   left: 0;
-  top: 0;
-  bottom: 0;
+  top: 12px;
+  bottom: 12px;
   width: 64px;
   background: #f9fafb;
   border-right: 1px solid #e5e7eb;
@@ -99,8 +96,8 @@ body.has-app-bar .workspace:has(.tr-wrap) {
   position: absolute;
   left: 64px;
   right: 0;
-  top: 0;
-  bottom: 0;
+  top: 12px;
+  bottom: 12px;
 }
 
 /* Selection box */
@@ -156,8 +153,8 @@ body.has-app-bar .workspace:has(.tr-wrap) {
   position: absolute;
   left: 64px;
   right: 0;
-  top: 0;
-  bottom: 0;
+  top: 12px;
+  bottom: 12px;
   pointer-events: none;
   z-index: 1;
 }
@@ -261,99 +258,106 @@ body.has-app-bar .workspace:has(.tr-wrap) {
   word-wrap: break-word;
 }
 
-/* Right zoom timeline */
+/* Middle zoom timeline (segment selector) */
 .tr-zoom {
   position: relative;
-  border-left: 1px solid #e5e7eb;
+  border-right: 1px solid #e5e7eb;
   user-select: none;
   height: 100%;
   overflow: hidden;
-  display: none;
-  touch-action: pan-y;
-}
-
-.tr-zoom.tr-active {
-  display: block;
+  padding: 12px 0;
+  box-sizing: border-box;
 }
 
 .tr-zoom-labels {
   position: absolute;
-  right: 0;
-  top: 0;
-  bottom: 0;
-  width: 64px;
+  left: 0;
+  top: 12px;
+  bottom: 12px;
+  width: 40px;
   background: #f9fafb;
-  border-left: 1px solid #e5e7eb;
+  border-right: 1px solid #e5e7eb;
   pointer-events: none;
 }
 
 .tr-zoom-label {
   position: absolute;
-  left: 0;
-  padding-left: 8px;
+  right: 0;
+  padding-right: 6px;
   transform: translateY(-50%);
-  font-size: 11px;
+  font-size: 10px;
   color: #6b7280;
+}
+
+.tr-zoom-grid {
+  position: absolute;
+  top: 12px;
+  bottom: 12px;
+  left: 0;
+  right: 0;
 }
 
 .tr-zoom-lane {
   position: absolute;
+  left: 40px;
+  right: 0;
+  top: 12px;
+  bottom: 12px;
+}
+
+.tr-zoom-segments {
+  position: absolute;
+  left: 44px;
+  right: 4px;
+  top: 12px;
+  bottom: 12px;
+}
+
+/* Segment pills in zoom view */
+.tr-zoom-pill {
+  position: absolute;
   left: 0;
-  right: 64px;
-  top: 0;
-  bottom: 0;
+  right: 0;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  box-shadow: 0 1px 2px rgba(0,0,0,.08);
 }
 
-.tr-zoom-marks {
+.tr-zoom-pill:hover {
+  filter: brightness(0.95);
+  box-shadow: 0 2px 4px rgba(0,0,0,.12);
+}
+
+.tr-zoom-pill.tr-active {
+  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.5), 0 2px 4px rgba(0,0,0,.12);
+}
+
+.tr-zoom-pill-audio {
+  background: linear-gradient(135deg, rgba(134, 239, 172, 0.8), rgba(134, 239, 172, 0.6));
+  border: 1px solid #86efac;
+}
+
+.tr-zoom-pill-screen {
+  background: linear-gradient(135deg, rgba(253, 230, 138, 0.8), rgba(253, 230, 138, 0.6));
+  border: 1px solid #facc15;
+}
+
+.tr-zoom-pill-both {
+  background: linear-gradient(to right, rgba(134, 239, 172, 0.75), rgba(194, 234, 155, 0.7) 50%, rgba(253, 230, 138, 0.75));
+  border: 1px solid #bef264;
+}
+
+.tr-zoom-empty {
   position: absolute;
-  left: 8px;
-  right: 64px;
-  top: 0;
-  bottom: 0;
-  pointer-events: none;
-}
-
-.tr-mark {
-  position: absolute;
-  width: 40px;
-  height: 2px;
-  border-radius: 1px;
-}
-
-.tr-mark-audio {
-  background: #86efac;
-  left: 0;
-}
-
-.tr-mark-screen {
-  background: #facc15;
-  left: 48px;
-}
-
-.tr-zoom-sel-wrap {
-  position: absolute;
-  left: 8px;
-  right: 58px;
-  pointer-events: none;
-  z-index: 2;
-}
-
-.tr-zoom-sel {
-  position: absolute;
-  left: -4px;
-  right: -4px;
-  height: 100%;
-  background: rgba(239, 246, 255, 0.4);
-  border: 1px solid #c7d2fe;
-  border-radius: 12px;
-  box-shadow: 0 1px 2px rgba(0,0,0,.06);
-  pointer-events: auto;
-  cursor: grab;
-  touch-action: none;
-}
-
-.tr-zoom-sel:active {
-  cursor: grabbing;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #9ca3af;
+  font-size: 12px;
+  text-align: center;
+  padding: 16px;
 }
 
 /* Dragging state */
@@ -403,12 +407,20 @@ body.has-app-bar .workspace:has(.tr-wrap) {
       </div>
     </div>
 
-    <!-- Center content -->
+    <!-- Middle zoom timeline -->
+    <div class="tr-zoom" id="trZoom">
+      <div class="tr-zoom-grid" id="trZoomGrid"></div>
+      <div class="tr-zoom-labels" id="trZoomLabels"></div>
+      <div class="tr-zoom-lane"></div>
+      <div class="tr-zoom-segments" id="trZoomSegments"></div>
+    </div>
+
+    <!-- Right content panel -->
     <div class="tr-content">
       <div class="tr-header">
         <div>
           <h2 class="tr-title">Transcript Preview</h2>
-          <div class="tr-range-text" id="trRangeText">Selected range: 09:00 - 10:00</div>
+          <div class="tr-range-text" id="trRangeText">Select a segment to view</div>
         </div>
         <div class="tr-controls">
           <label class="tr-checkbox-label">
@@ -419,26 +431,11 @@ body.has-app-bar .workspace:has(.tr-wrap) {
             <input type="checkbox" id="trScreenCheck" checked>
             <span>Screen</span>
           </label>
-          <button class="tr-btn" id="trLoadBtn">Load Transcript</button>
           <button class="tr-btn" id="trMediaBtn" style="display:none">Load Media</button>
           <button class="tr-btn" id="trDownloadBtn" style="display:none">Download Audio</button>
         </div>
       </div>
       <div class="tr-panel" id="trPanel"></div>
-    </div>
-
-    <!-- Right zoom timeline -->
-    <div id="trZoom" class="tr-zoom" aria-label="Zoomed timeline">
-      <div class="tr-grid" id="trZoomGrid"></div>
-      <div class="tr-zoom-labels" id="trZoomLabels"></div>
-      <div class="tr-zoom-lane"></div>
-      <div class="tr-zoom-marks" id="trZoomMarks"></div>
-      <div class="tr-zoom-sel-wrap" id="trZoomSelWrap">
-        <div class="tr-zoom-sel" data-handle="zoom-move">
-          <div class="tr-bumper tr-bumper-top" data-handle="zoom-start" title="Drag to adjust start"></div>
-          <div class="tr-bumper tr-bumper-bottom" data-handle="zoom-end" title="Drag to adjust end"></div>
-        </div>
-      </div>
     </div>
   </div>
 </div>
@@ -453,56 +450,61 @@ body.has-app-bar .workspace:has(.tr-wrap) {
 
   const day = '{{ day }}';
 
-  // Elements
+  // Elements - main timeline
   const timeline = document.getElementById('trTimeline');
   const grid = document.getElementById('trGrid');
   const labels = document.getElementById('trLabels');
-  const segments = document.getElementById('trSegments');
+  const segmentsLane = document.getElementById('trSegments');
   const selWrap = document.getElementById('trSelWrap');
   const sel = selWrap.querySelector('.tr-sel');
+
+  // Elements - zoom timeline
+  const zoom = document.getElementById('trZoom');
+  const zoomGrid = document.getElementById('trZoomGrid');
+  const zoomLabels = document.getElementById('trZoomLabels');
+  const zoomSegments = document.getElementById('trZoomSegments');
+
+  // Elements - content panel
   const rangeText = document.getElementById('trRangeText');
   const panel = document.getElementById('trPanel');
-  const loadBtn = document.getElementById('trLoadBtn');
   const mediaBtn = document.getElementById('trMediaBtn');
   const downloadBtn = document.getElementById('trDownloadBtn');
   const audioCheck = document.getElementById('trAudioCheck');
   const screenCheck = document.getElementById('trScreenCheck');
 
-  const zoom = document.getElementById('trZoom');
-  const zoomGrid = document.getElementById('trZoomGrid');
-  const zoomLabels = document.getElementById('trZoomLabels');
-  const zoomMarks = document.getElementById('trZoomMarks');
-  const zoomSelWrap = document.getElementById('trZoomSelWrap');
-  const zoomSel = zoomSelWrap.querySelector('.tr-zoom-sel');
-
   // State
   let height = timeline.clientHeight;
   let ppm = height / (END - START);
   let range = { start: 9 * 60, end: 10 * 60 };
-  let zoomRange = { start: 9 * 60, end: 9 * 60 + 15 };
+  let drag = null;
+  let allSegments = [];
+  let selectedSegment = null;
+
+  // Zoom state
   let zoomHeight = zoom.clientHeight;
   let zoomPpm = 0;
-  let zoomStart = range.start;
-  let zoomEnd = range.end;
-  let drag = null;
 
   // Utilities
   const y = (m) => (m - START) * ppm;
   const mFromY = (py) => Math.max(START, Math.min(END, Math.round(py / ppm) + START));
   const snap = (m) => Math.round(m / STEP) * STEP;
   const hhmm = (m) => String(Math.floor(m / 60)).padStart(2, '0') + ':' + String(m % 60).padStart(2, '0');
-  const hhmmss = (m) => hhmm(m).replace(':', '') + '00';
 
-  const zoomY = (m) => (m - zoomStart) * zoomPpm;
-  const zoomMFromY = (py) => Math.max(zoomStart, Math.min(zoomEnd, Math.round(py / zoomPpm) + zoomStart));
+  // Zoom utilities - map minutes to pixels within the zoomed range
+  const zoomY = (m) => (m - range.start) * zoomPpm;
 
-  function addSegment(type, startMin, endMin, column) {
+  function parseTime(timeStr) {
+    const [hh, mm] = timeStr.split(':').map(Number);
+    return hh * 60 + mm;
+  }
+
+  function addSegmentIndicator(type, startMin, endMin, column) {
     const el = document.createElement('div');
     el.className = 'tr-seg ' + (type === 'screen' ? 'tr-seg-screen' : 'tr-seg-audio');
     el.style.top = y(startMin) + 'px';
     el.style.height = Math.max(2, y(endMin) - y(startMin)) + 'px';
     el.style.left = (column === 1 ? 56 : 8) + 'px';
-    segments.appendChild(el);
+    segmentsLane.appendChild(el);
   }
 
   function buildGrid() {
@@ -532,113 +534,198 @@ body.has-app-bar .workspace:has(.tr-wrap) {
     }
   }
 
-  function render() {
+  function renderTimeline() {
     selWrap.style.top = y(range.start) + 'px';
     selWrap.style.height = (y(range.end) - y(range.start)) + 'px';
-    rangeText.textContent = 'Selected range: ' + hhmm(range.start) + ' - ' + hhmm(range.end);
   }
 
   function buildZoomGrid() {
     zoomGrid.innerHTML = '';
     zoomLabels.innerHTML = '';
 
-    for (let m = zoomStart; m <= zoomEnd; m++) {
+    const rangeLen = range.end - range.start;
+    // Determine label interval based on range length
+    let labelInterval = 5; // default 5 min
+    if (rangeLen > 120) labelInterval = 15;
+    else if (rangeLen > 60) labelInterval = 10;
+
+    for (let m = range.start; m <= range.end; m++) {
+      const yPos = zoomY(m);
+
       if (m % 60 === 0) {
         const line = document.createElement('div');
         line.className = 'tr-grid-hour';
-        line.style.top = zoomY(m) + 'px';
+        line.style.top = yPos + 'px';
         zoomGrid.appendChild(line);
       } else if (m % 15 === 0) {
         const line = document.createElement('div');
         line.className = 'tr-grid-quarter';
-        line.style.top = zoomY(m) + 'px';
+        line.style.top = yPos + 'px';
         zoomGrid.appendChild(line);
       }
 
-      if (m % 15 === 0) {
+      if (m % labelInterval === 0) {
         const lab = document.createElement('div');
         lab.className = 'tr-zoom-label';
-        lab.style.top = zoomY(m) + 'px';
+        lab.style.top = yPos + 'px';
         lab.textContent = hhmm(m);
         zoomLabels.appendChild(lab);
       }
     }
   }
 
-  function renderZoom() {
-    zoomSelWrap.style.top = zoomY(zoomRange.start) + 'px';
-    zoomSelWrap.style.height = (zoomY(zoomRange.end) - zoomY(zoomRange.start)) + 'px';
+  function filterSegmentsInRange() {
+    return allSegments.filter(seg => {
+      const segStart = parseTime(seg.start);
+      const segEnd = parseTime(seg.end);
+      return segEnd > range.start && segStart < range.end;
+    });
   }
 
-  function fetchZoomFiles() {
-    if (!zoom.classList.contains('tr-active')) return;
+  function buildZoomSegments() {
+    const filtered = filterSegmentsInRange();
+    zoomSegments.innerHTML = '';
 
-    let type = null;
-    if (audioCheck.checked && !screenCheck.checked) type = 'audio';
-    else if (!audioCheck.checked && screenCheck.checked) type = 'screen';
+    if (filtered.length === 0) {
+      const empty = document.createElement('div');
+      empty.className = 'tr-zoom-empty';
+      empty.textContent = 'No segments in selected range';
+      zoomSegments.appendChild(empty);
+      return;
+    }
 
-    const start = hhmmss(zoomStart);
-    const end = hhmmss(zoomEnd);
+    filtered.forEach(seg => {
+      const segStart = parseTime(seg.start);
+      const segEnd = parseTime(seg.end);
 
-    fetch(`/app/transcripts/api/raw_files/${day}?start=${start}&end=${end}${type ? '&type=' + type : ''}`)
+      // Clamp to visible range
+      const visStart = Math.max(segStart, range.start);
+      const visEnd = Math.min(segEnd, range.end);
+
+      const pill = document.createElement('div');
+      pill.className = 'tr-zoom-pill';
+
+      // Determine pill type based on content
+      const hasAudio = seg.types.includes('audio');
+      const hasScreen = seg.types.includes('screen');
+      if (hasAudio && hasScreen) {
+        pill.classList.add('tr-zoom-pill-both');
+      } else if (hasAudio) {
+        pill.classList.add('tr-zoom-pill-audio');
+      } else {
+        pill.classList.add('tr-zoom-pill-screen');
+      }
+
+      if (selectedSegment && selectedSegment.key === seg.key) {
+        pill.classList.add('tr-active');
+      }
+
+      pill.style.top = zoomY(visStart) + 'px';
+      pill.style.height = Math.max(4, zoomY(visEnd) - zoomY(visStart)) + 'px';
+      pill.title = `${seg.start} - ${seg.end}`;
+      pill.dataset.key = seg.key;
+
+      pill.addEventListener('click', () => selectSegment(seg));
+      zoomSegments.appendChild(pill);
+    });
+  }
+
+  function selectSegment(seg) {
+    selectedSegment = seg;
+
+    // Update active state in zoom view
+    zoomSegments.querySelectorAll('.tr-zoom-pill').forEach(pill => {
+      pill.classList.toggle('tr-active', pill.dataset.key === seg.key);
+    });
+
+    // Update range text
+    rangeText.textContent = `${seg.start} - ${seg.end}`;
+
+    // Show buttons based on segment types
+    const hasAudio = seg.types.includes('audio');
+    mediaBtn.style.display = 'block';
+    downloadBtn.style.display = hasAudio ? 'block' : 'none';
+
+    // Load transcript content
+    loadSegmentContent(seg);
+  }
+
+  function loadSegmentContent(seg) {
+    const audio = audioCheck.checked;
+    const screen = screenCheck.checked;
+
+    // Convert HH:MM to HHMMSS format
+    const start = seg.start.replace(':', '') + '00';
+    const end = seg.end.replace(':', '') + '00';
+
+    fetch(`/app/transcripts/api/content/${day}?start=${start}&end=${end}&audio=${audio}&screen=${screen}`)
       .then(r => r.json())
-      .then(data => {
-        zoomMarks.innerHTML = '';
-        (data.files || []).forEach(f => {
-          const mark = document.createElement('div');
-          mark.className = 'tr-mark ' + (f.type === 'audio' ? 'tr-mark-audio' : 'tr-mark-screen');
-          mark.style.top = zoomY(f.minute) + 'px';
-          mark.title = `${f.time} - ${f.type}`;
-          zoomMarks.appendChild(mark);
-        });
+      .then(d => {
+        panel.innerHTML = d.html || '';
       })
-      .catch(() => {});
+      .catch(() => {
+        panel.innerHTML = '<p>Error loading transcript.</p>';
+      });
+  }
+
+  function updateZoom() {
+    zoomHeight = zoom.clientHeight - 24; // account for padding
+    const rangeLen = range.end - range.start;
+    if (rangeLen > 0) {
+      zoomPpm = zoomHeight / rangeLen;
+      buildZoomGrid();
+      buildZoomSegments();
+    }
   }
 
   // Resize observers
+  // Account for 12px padding top and bottom
+  const PADDING = 24;
+
   new ResizeObserver(() => {
-    height = timeline.clientHeight;
+    height = timeline.clientHeight - PADDING;
     ppm = height / (END - START);
     buildGrid();
-    render();
+    renderTimeline();
   }).observe(timeline);
 
   new ResizeObserver(() => {
-    if (zoom.classList.contains('tr-active')) {
-      zoomHeight = zoom.clientHeight;
-      if (zoomEnd > zoomStart) {
-        zoomPpm = zoomHeight / (zoomEnd - zoomStart);
-        buildZoomGrid();
-        renderZoom();
-      }
+    zoomHeight = zoom.clientHeight - PADDING;
+    const rangeLen = range.end - range.start;
+    if (rangeLen > 0) {
+      zoomPpm = zoomHeight / rangeLen;
+      buildZoomGrid();
+      buildZoomSegments();
     }
   }).observe(zoom);
 
   // Initial render
   buildGrid();
-  render();
+  renderTimeline();
 
-  // Load transcript ranges
+  // Load transcript ranges for timeline visualization
   fetch(`/app/transcripts/api/ranges/${day}`)
     .then(r => r.json())
     .then(data => {
       (data.audio || []).forEach(rg => {
-        const [s, e] = rg.map(t => {
-          const [hh, mm] = t.split(':').map(Number);
-          return hh * 60 + mm;
-        });
-        addSegment('audio', s, e, 0);
+        const [s, e] = rg.map(parseTime);
+        addSegmentIndicator('audio', s, e, 0);
       });
       (data.screen || []).forEach(rg => {
-        const [s, e] = rg.map(t => {
-          const [hh, mm] = t.split(':').map(Number);
-          return hh * 60 + mm;
-        });
-        addSegment('screen', s, e, 1);
+        const [s, e] = rg.map(parseTime);
+        addSegmentIndicator('screen', s, e, 1);
       });
     });
 
-  // Click to set range
+  // Load segments for the zoom view
+  fetch(`/app/transcripts/api/segments/${day}`)
+    .then(r => r.json())
+    .then(data => {
+      allSegments = data.segments || [];
+      updateZoom();
+    });
+
+  // Click on timeline to set range
   timeline.addEventListener('click', (e) => {
     if (e.target.closest('.tr-sel')) return;
     const box = timeline.getBoundingClientRect();
@@ -647,7 +734,8 @@ body.has-app-bar .workspace:has(.tr-wrap) {
     let start = Math.max(START, Math.min(END - DEFAULT_LEN, mid - DEFAULT_LEN / 2));
     start = snap(start);
     range = { start, end: snap(start + DEFAULT_LEN) };
-    render();
+    renderTimeline();
+    updateZoom();
   });
 
   // Drag handlers for main selection
@@ -672,7 +760,8 @@ body.has-app-bar .workspace:has(.tr-wrap) {
       e = Math.min(END, Math.max(drag.r0.start + MIN_LEN, e));
       range = { start: snap(drag.r0.start), end: snap(e) };
     }
-    render();
+    renderTimeline();
+    updateZoom();
   }
 
   function onPointerUp() {
@@ -697,81 +786,12 @@ body.has-app-bar .workspace:has(.tr-wrap) {
   sel.querySelector('[data-handle="start"]').addEventListener('pointerdown', beginDrag('start'));
   sel.querySelector('[data-handle="end"]').addEventListener('pointerdown', beginDrag('end'));
 
-  // Zoom drag handlers
-  function beginZoomDrag(mode) {
-    return (ev) => {
-      if (!zoom.classList.contains('tr-active')) return;
-      ev.stopPropagation();
-      ev.preventDefault();
-      document.body.classList.add('tr-dragging');
-      const zoomDrag = { mode, y0: ev.clientY, r0: { ...zoomRange } };
-
-      const onZoomMove = (e) => {
-        e.preventDefault();
-        const dy = e.clientY - zoomDrag.y0;
-        const dMin = Math.round(dy / zoomPpm);
-
-        if (mode === 'zoom-move') {
-          const len = zoomDrag.r0.end - zoomDrag.r0.start;
-          let s = zoomDrag.r0.start + dMin;
-          s = Math.max(zoomStart, Math.min(zoomEnd - len, s));
-          zoomRange = { start: s, end: s + len };
-        } else if (mode === 'zoom-start') {
-          let s = zoomDrag.r0.start + dMin;
-          s = Math.max(zoomStart, Math.min(zoomDrag.r0.end - 1, s));
-          zoomRange = { start: s, end: zoomDrag.r0.end };
-        } else if (mode === 'zoom-end') {
-          let e = zoomDrag.r0.end + dMin;
-          e = Math.min(zoomEnd, Math.max(zoomDrag.r0.start + 1, e));
-          zoomRange = { start: zoomDrag.r0.start, end: e };
-        }
-        renderZoom();
-      };
-
-      const onZoomUp = () => {
-        document.body.classList.remove('tr-dragging');
-        window.removeEventListener('pointermove', onZoomMove);
-        window.removeEventListener('pointerup', onZoomUp);
-      };
-
-      window.addEventListener('pointermove', onZoomMove);
-      window.addEventListener('pointerup', onZoomUp);
-    };
-  }
-
-  zoomSel.addEventListener('pointerdown', beginZoomDrag('zoom-move'));
-  zoomSel.querySelector('[data-handle="zoom-start"]').addEventListener('pointerdown', beginZoomDrag('zoom-start'));
-  zoomSel.querySelector('[data-handle="zoom-end"]').addEventListener('pointerdown', beginZoomDrag('zoom-end'));
-
-  // Load transcript button
-  loadBtn.addEventListener('click', () => {
-    const start = hhmmss(range.start);
-    const end = hhmmss(range.end);
-    const audio = audioCheck.checked;
-    const screen = screenCheck.checked;
-
-    fetch(`/app/transcripts/api/content/${day}?start=${start}&end=${end}&audio=${audio}&screen=${screen}`)
-      .then(r => r.json())
-      .then(d => {
-        panel.innerHTML = d.html || '';
-        zoom.classList.add('tr-active');
-        mediaBtn.style.display = 'block';
-        downloadBtn.style.display = audio ? 'block' : 'none';
-        zoomStart = range.start;
-        zoomEnd = range.end;
-        zoomHeight = zoom.clientHeight;
-        zoomPpm = zoomHeight / (zoomEnd - zoomStart);
-        zoomRange = { start: zoomStart, end: Math.min(zoomStart + 15, zoomEnd) };
-        buildZoomGrid();
-        fetchZoomFiles();
-        renderZoom();
-      });
-  });
-
   // Load media button
   mediaBtn.addEventListener('click', () => {
-    const start = hhmmss(zoomRange.start);
-    const end = hhmmss(zoomRange.end);
+    if (!selectedSegment) return;
+
+    const start = selectedSegment.start.replace(':', '') + '00';
+    const end = selectedSegment.end.replace(':', '') + '00';
     let type = null;
     if (audioCheck.checked && !screenCheck.checked) type = 'audio';
     else if (!audioCheck.checked && screenCheck.checked) type = 'screen';
@@ -786,8 +806,10 @@ body.has-app-bar .workspace:has(.tr-wrap) {
 
   // Download audio button
   downloadBtn.addEventListener('click', () => {
-    const start = hhmmss(zoomRange.start);
-    const end = hhmmss(zoomRange.end);
+    if (!selectedSegment) return;
+
+    const start = selectedSegment.start.replace(':', '') + '00';
+    const end = selectedSegment.end.replace(':', '') + '00';
     const url = `/app/transcripts/api/download_audio/${day}?start=${start}&end=${end}`;
     const link = document.createElement('a');
     link.href = url;
@@ -797,16 +819,23 @@ body.has-app-bar .workspace:has(.tr-wrap) {
     document.body.removeChild(link);
   });
 
-  // Update download button visibility on checkbox change
+  // Reload transcript when checkboxes change
   audioCheck.addEventListener('change', () => {
-    if (zoom.classList.contains('tr-active')) {
-      downloadBtn.style.display = audioCheck.checked ? 'block' : 'none';
+    if (selectedSegment) {
+      loadSegmentContent(selectedSegment);
+      downloadBtn.style.display = audioCheck.checked && selectedSegment.types.includes('audio') ? 'block' : 'none';
+    }
+  });
+
+  screenCheck.addEventListener('change', () => {
+    if (selectedSegment) {
+      loadSegmentContent(selectedSegment);
     }
   });
 
   function renderMediaFiles(files) {
     if (files.length === 0) {
-      panel.innerHTML = '<p>No media files found in the selected time range.</p>';
+      panel.innerHTML = '<p>No media files found in the selected segment.</p>';
       return;
     }
 

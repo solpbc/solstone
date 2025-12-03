@@ -263,6 +263,72 @@ def cluster_scan(day: str) -> Tuple[List[Tuple[str, str]], List[Tuple[str, str]]
     return audio_ranges, screen_ranges
 
 
+def cluster_segments(day: str) -> List[Dict[str, any]]:
+    """Return individual recording segments for a day with their content types.
+
+    Unlike ``cluster_scan()`` which collapses segments into 15-minute ranges,
+    this returns actual segment directories with their precise times.
+
+    Args:
+        day: Day folder in ``YYYYMMDD`` format.
+
+    Returns:
+        List of dicts with segment info:
+        - key: segment directory name (HHMMSS_LEN format)
+        - start: start time as HH:MM
+        - end: end time as HH:MM
+        - types: list of content types present ("audio", "screen", or both)
+    """
+    from think.utils import segment_parse
+
+    day_dir = str(day_path(day))
+    if not os.path.isdir(day_dir):
+        return []
+
+    day_path_obj = Path(day_dir)
+    segments: List[Dict[str, any]] = []
+
+    for item in day_path_obj.iterdir():
+        start_time, end_time = segment_parse(item.name)
+        if not (item.is_dir() and start_time):
+            continue
+
+        types = []
+        # Check for audio transcripts
+        if (item / "audio.jsonl").exists() or any(item.glob("*_audio.jsonl")):
+            types.append("audio")
+
+        # Check for screen content
+        if (item / "screen.md").exists() or (item / "screen.jsonl").exists():
+            types.append("screen")
+
+        if not types:
+            continue
+
+        start_str = start_time.strftime("%H:%M")
+        if end_time:
+            end_str = end_time.strftime("%H:%M")
+        else:
+            # Default to start + 5 minutes if no duration
+            from datetime import timedelta
+
+            end_dt = datetime.combine(datetime.min, start_time) + timedelta(minutes=5)
+            end_str = end_dt.strftime("%H:%M")
+
+        segments.append(
+            {
+                "key": item.name,
+                "start": start_str,
+                "end": end_str,
+                "types": types,
+            }
+        )
+
+    # Sort by start time
+    segments.sort(key=lambda s: s["start"])
+    return segments
+
+
 def cluster(day: str) -> Tuple[str, int]:
     """Return Markdown summary for one day's JSON files and the number processed."""
 

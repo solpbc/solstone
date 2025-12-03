@@ -59,6 +59,21 @@ def transcript_ranges(day: str) -> Any:
     return jsonify({"audio": audio_ranges, "screen": screen_ranges})
 
 
+@transcripts_bp.route("/api/segments/<day>")
+def transcript_segments(day: str) -> Any:
+    """Return individual recording segments for a day.
+
+    Returns list of segments with their content types for the segment selector UI.
+    """
+    if not re.fullmatch(DATE_RE.pattern, day):
+        return "", 404
+
+    from think.cluster import cluster_segments
+
+    segments = cluster_segments(day)
+    return jsonify({"segments": segments})
+
+
 @transcripts_bp.route("/api/content/<day>")
 def transcript_content(day: str) -> Any:
     """Return transcript markdown HTML for the selected range."""
