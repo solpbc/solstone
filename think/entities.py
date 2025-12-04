@@ -518,10 +518,7 @@ def format_entities(
     # Build header
     if is_detected and day_str:
         # Format day as YYYY-MM-DD for readability
-        try:
-            formatted_day = f"{day_str[:4]}-{day_str[4:6]}-{day_str[6:8]}"
-        except (IndexError, ValueError):
-            formatted_day = day_str
+        formatted_day = f"{day_str[:4]}-{day_str[4:6]}-{day_str[6:8]}"
         header_title = f"# Detected Entities: {facet_name} ({formatted_day})\n"
     else:
         header_title = f"# Attached Entities: {facet_name}\n"

@@ -922,3 +922,136 @@ class TestFormatEntities:
 
         assert "Detected Entities: personal" in meta["header"]
         assert "2025-12-01" in meta["header"]
+
+
+class TestFormatTodos:
+    """Tests for the todos formatter."""
+
+    def test_get_formatter_todos(self):
+        """Test pattern matching for todos/*.jsonl."""
+        from think.formatters import get_formatter
+
+        formatter = get_formatter("facets/personal/todos/20240101.jsonl")
+        assert formatter is not None
+        assert formatter.__name__ == "format_todos"
+
+    def test_format_todos_basic(self):
+        """Test basic todos formatting with fixture file."""
+        from think.formatters import format_file
+
+        path = Path(os.environ["JOURNAL_PATH"]) / "facets/personal/todos/20240101.jsonl"
+        chunks, meta = format_file(path)
+
+        assert len(chunks) == 4  # 4 items in fixture
+        assert "header" in meta
+        assert "Todos: personal" in meta["header"]
+        assert "2024-01-01" in meta["header"]
+        assert "4 items" in meta["header"]
+
+    def test_format_todos_direct(self):
+        """Test format_todos function directly."""
+        from apps.todos.todo import format_todos
+
+        entries = [
+            {"text": "Do something", "completed": False},
+            {"text": "Done task", "completed": True},
+        ]
+
+        chunks, meta = format_todos(entries)
+
+        assert len(chunks) == 2
+        assert "* [ ] Do something" in chunks[0]["markdown"]
+        assert "* [x] Done task" in chunks[1]["markdown"]
+
+    def test_format_todos_list_item_prefix(self):
+        """Test that all items have * prefix for markdown list."""
+        from apps.todos.todo import format_todos
+
+        entries = [
+            {"text": "Task one", "completed": False},
+            {"text": "Task two", "completed": True},
+            {"text": "Cancelled", "cancelled": True},
+        ]
+
+        chunks, meta = format_todos(entries)
+
+        assert len(chunks) == 3
+        for chunk in chunks:
+            assert chunk["markdown"].startswith("* ")
+
+    def test_format_todos_completed_cancelled_display(self):
+        """Test checkbox and strikethrough rendering."""
+        from apps.todos.todo import format_todos
+
+        entries = [
+            {"text": "Incomplete", "completed": False},
+            {"text": "Complete", "completed": True},
+            {"text": "Cancelled", "cancelled": True},
+        ]
+
+        chunks, meta = format_todos(entries)
+
+        assert "[ ] Incomplete" in chunks[0]["markdown"]
+        assert "[x] Complete" in chunks[1]["markdown"]
+        assert "~~[cancelled] Cancelled~~" in chunks[2]["markdown"]
+
+    def test_format_todos_with_time(self):
+        """Test formatting with time annotation."""
+        from apps.todos.todo import format_todos
+
+        entries = [{"text": "Meeting", "time": "14:00", "completed": False}]
+
+        chunks, meta = format_todos(entries)
+
+        assert len(chunks) == 1
+        assert "Meeting (14:00)" in chunks[0]["markdown"]
+
+    def test_format_todos_header_facet_from_path(self):
+        """Test that facet name and day are extracted from file path."""
+        from apps.todos.todo import format_todos
+
+        entries = [{"text": "Test", "completed": False}]
+        context = {"file_path": "/journal/facets/work/todos/20251215.jsonl"}
+
+        chunks, meta = format_todos(entries, context)
+
+        assert "Todos: work" in meta["header"]
+        assert "2025-12-15" in meta["header"]
+
+    def test_format_todos_skipped_entries_error(self):
+        """Test that entries without 'text' field are skipped and reported."""
+        from apps.todos.todo import format_todos
+
+        entries = [
+            {"text": "Valid", "completed": False},
+            {"invalid": "no text"},
+            {"also_invalid": True},
+        ]
+
+        chunks, meta = format_todos(entries)
+
+        assert len(chunks) == 1
+        assert "error" in meta
+        assert "Skipped 2 entries" in meta["error"]
+        assert "text" in meta["error"]
+
+    def test_format_todos_timestamp_fallback(self):
+        """Test timestamp fallback: updated_at -> created_at -> file mtime."""
+        from apps.todos.todo import format_todos
+
+        # Entry with updated_at takes priority
+        entries_updated = [
+            {"text": "Test", "updated_at": 1700000000000, "created_at": 1600000000000}
+        ]
+        chunks, _ = format_todos(entries_updated)
+        assert chunks[0]["timestamp"] == 1700000000000
+
+        # Entry with only created_at
+        entries_created = [{"text": "Test", "created_at": 1600000000000}]
+        chunks, _ = format_todos(entries_created)
+        assert chunks[0]["timestamp"] == 1600000000000
+
+        # Entry with neither uses 0 (no file context)
+        entries_none = [{"text": "Test"}]
+        chunks, _ = format_todos(entries_none)
+        assert chunks[0]["timestamp"] == 0

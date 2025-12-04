@@ -37,25 +37,42 @@ FORMATTERS: dict[str, tuple[str, str]] = {
     "agents/*.jsonl": ("muse.cortex", "format_agent"),
     "facets/*/entities/*.jsonl": ("think.entities", "format_entities"),
     "facets/*/entities.jsonl": ("think.entities", "format_entities"),
+    "facets/*/todos/*.jsonl": ("apps.todos.todo", "format_todos"),
     "*/screen.jsonl": ("observe.reduce", "format_screen"),
     "*/*_audio.jsonl": ("observe.hear", "format_audio"),
     "*/audio.jsonl": ("observe.hear", "format_audio"),
 }
 
 
-def get_formatter(journal_path: str) -> Callable | None:
-    """Return formatter function for a journal-relative path.
+def get_formatter(file_path: str) -> Callable | None:
+    """Return formatter function for a file path.
+
+    Matches against registered glob patterns. For absolute paths not under
+    JOURNAL_PATH, tries progressively shorter path suffixes to find a match.
 
     Args:
-        journal_path: Path relative to JOURNAL_PATH (e.g., "20250115/120000_300/screen.jsonl")
+        file_path: Path to match (journal-relative or absolute)
 
     Returns:
         Formatter function or None if no pattern matches
     """
+    # Try the path as-is first
     for pattern, (module_path, func_name) in FORMATTERS.items():
-        if fnmatch.fnmatch(journal_path, pattern):
+        if fnmatch.fnmatch(file_path, pattern):
             module = import_module(module_path)
             return getattr(module, func_name)
+
+    # For absolute paths, try progressively shorter suffixes
+    # e.g., /home/user/data/agents/123.jsonl -> agents/123.jsonl
+    if os.path.isabs(file_path):
+        parts = Path(file_path).parts
+        for i in range(1, len(parts)):
+            suffix = str(Path(*parts[i:]))
+            for pattern, (module_path, func_name) in FORMATTERS.items():
+                if fnmatch.fnmatch(suffix, pattern):
+                    module = import_module(module_path)
+                    return getattr(module, func_name)
+
     return None
 
 

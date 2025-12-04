@@ -560,3 +560,91 @@ def get_facets_with_todos(day: str) -> list[str]:
         return []
 
     return sorted(facets_with_todos)
+
+
+def format_todos(
+    entries: list[dict],
+    context: dict | None = None,
+) -> tuple[list[dict], dict]:
+    """Format todo JSONL entries to markdown chunks.
+
+    This is the formatter function used by the formatters registry.
+
+    Args:
+        entries: Raw JSONL entries (one todo item per line)
+        context: Optional context with:
+            - file_path: Path to JSONL file (for extracting facet name and day)
+
+    Returns:
+        Tuple of (chunks, meta) where:
+            - chunks: List of {"timestamp": int, "markdown": str} dicts, one per item
+            - meta: Dict with optional "header" and "error" keys
+    """
+    ctx = context or {}
+    file_path = ctx.get("file_path")
+    meta: dict[str, Any] = {}
+    chunks: list[dict[str, Any]] = []
+    skipped_count = 0
+
+    # Extract facet name and day from path
+    facet_name = "unknown"
+    day_str: str | None = None
+    file_mtime_ms = 0
+
+    if file_path:
+        file_path = Path(file_path)
+
+        # Get file modification time as fallback timestamp (in milliseconds)
+        try:
+            file_mtime_ms = int(file_path.stat().st_mtime * 1000)
+        except (OSError, ValueError):
+            pass
+
+        # Extract facet name from path
+        # Pattern: facets/{facet}/todos/{day}.jsonl
+        path_str = str(file_path)
+        facet_match = re.search(r"facets/([^/]+)/todos", path_str)
+        if facet_match:
+            facet_name = facet_match.group(1)
+
+        # Extract day from filename
+        if file_path.stem.isdigit() and len(file_path.stem) == 8:
+            day_str = file_path.stem
+
+    # Build header
+    if day_str:
+        formatted_day = f"{day_str[:4]}-{day_str[4:6]}-{day_str[6:8]}"
+        header_title = f"# Todos: {facet_name} ({formatted_day})"
+    else:
+        header_title = f"# Todos: {facet_name}"
+
+    item_count = len(entries)
+    meta["header"] = f"{header_title}\n\n{item_count} items"
+
+    # Format each todo item as a chunk
+    for i, entry in enumerate(entries):
+        # Skip entries without text field
+        if "text" not in entry:
+            skipped_count += 1
+            continue
+
+        # Create TodoItem using existing from_jsonl
+        item = TodoItem.from_jsonl(entry, i + 1)
+
+        # Determine timestamp: updated_at -> created_at -> file mtime
+        ts = item.updated_at or item.created_at or file_mtime_ms
+
+        # Format as list item using existing display_line
+        markdown = f"* {item.display_line()}"
+
+        chunks.append({"timestamp": ts, "markdown": markdown})
+
+    # Report skipped entries
+    if skipped_count > 0:
+        error_msg = f"Skipped {skipped_count} entries missing 'text' field"
+        if file_path:
+            error_msg += f" in {file_path}"
+        meta["error"] = error_msg
+        logging.info(error_msg)
+
+    return chunks, meta
