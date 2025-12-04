@@ -756,8 +756,7 @@ class TestFormatEntities:
         from think.formatters import format_file
 
         path = (
-            Path(os.environ["JOURNAL_PATH"])
-            / "facets/personal/entities/20250101.jsonl"
+            Path(os.environ["JOURNAL_PATH"]) / "facets/personal/entities/20250101.jsonl"
         )
         chunks, meta = format_file(path)
 

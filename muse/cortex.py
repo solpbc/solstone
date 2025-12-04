@@ -859,10 +859,12 @@ def format_agent(
         if event_type == "agent_updated":
             agent_name = entry.get("agent")
             if agent_name:
-                chunks.append({
-                    "timestamp": ts,
-                    "markdown": f"*Switched to agent: {agent_name}*\n",
-                })
+                chunks.append(
+                    {
+                        "timestamp": ts,
+                        "markdown": f"*Switched to agent: {agent_name}*\n",
+                    }
+                )
             continue
 
         if event_type == "thinking":
@@ -876,10 +878,12 @@ def format_agent(
                 for line in content.split("\n"):
                     lines.append(f"> {line}")
                 lines.append("")
-                chunks.append({
-                    "timestamp": ts,
-                    "markdown": "\n".join(lines),
-                })
+                chunks.append(
+                    {
+                        "timestamp": ts,
+                        "markdown": "\n".join(lines),
+                    }
+                )
             continue
 
         if event_type == "tool_start":
@@ -901,10 +905,12 @@ def format_agent(
                     "*Tool call in progress...*",
                     "",
                 ]
-                chunks.append({
-                    "timestamp": ts,
-                    "markdown": "\n".join(lines),
-                })
+                chunks.append(
+                    {
+                        "timestamp": ts,
+                        "markdown": "\n".join(lines),
+                    }
+                )
             continue
 
         if event_type == "tool_end":
@@ -931,28 +937,34 @@ def format_agent(
             ]
 
             if args:
-                lines.extend([
-                    "**Args:**",
-                    "```json",
-                    json.dumps(args, indent=2),
-                    "```",
-                    "",
-                ])
+                lines.extend(
+                    [
+                        "**Args:**",
+                        "```json",
+                        json.dumps(args, indent=2),
+                        "```",
+                        "",
+                    ]
+                )
 
             if result_str:
                 truncated = truncate_result(result_str)
-                lines.extend([
-                    "**Result:**",
-                    "```",
-                    truncated,
-                    "```",
-                    "",
-                ])
+                lines.extend(
+                    [
+                        "**Result:**",
+                        "```",
+                        truncated,
+                        "```",
+                        "",
+                    ]
+                )
 
-            chunks.append({
-                "timestamp": start_ts,
-                "markdown": "\n".join(lines),
-            })
+            chunks.append(
+                {
+                    "timestamp": start_ts,
+                    "markdown": "\n".join(lines),
+                }
+            )
             continue
 
         if event_type == "error":
@@ -965,26 +977,32 @@ def format_agent(
                 "",
             ]
             if trace:
-                lines.extend([
-                    "**Trace:**",
-                    "```",
-                    trace[:1000] if len(trace) > 1000 else trace,
-                    "```",
-                    "",
-                ])
-            chunks.append({
-                "timestamp": ts,
-                "markdown": "\n".join(lines),
-            })
+                lines.extend(
+                    [
+                        "**Trace:**",
+                        "```",
+                        trace[:1000] if len(trace) > 1000 else trace,
+                        "```",
+                        "",
+                    ]
+                )
+            chunks.append(
+                {
+                    "timestamp": ts,
+                    "markdown": "\n".join(lines),
+                }
+            )
             continue
 
         if event_type == "info":
             message = entry.get("message", "")
             if message:
-                chunks.append({
-                    "timestamp": ts,
-                    "markdown": f"*{ts_to_time(ts)} - Info:* {message}\n",
-                })
+                chunks.append(
+                    {
+                        "timestamp": ts,
+                        "markdown": f"*{ts_to_time(ts)} - Info:* {message}\n",
+                    }
+                )
             continue
 
         if event_type == "finish":
@@ -995,18 +1013,22 @@ def format_agent(
                 result,
                 "",
             ]
-            chunks.append({
-                "timestamp": ts,
-                "markdown": "\n".join(lines),
-            })
+            chunks.append(
+                {
+                    "timestamp": ts,
+                    "markdown": "\n".join(lines),
+                }
+            )
             continue
 
         if event_type == "continue":
             to_agent = entry.get("to", "unknown")
-            chunks.append({
-                "timestamp": ts,
-                "markdown": f"*Continued in agent: {to_agent}*\n",
-            })
+            chunks.append(
+                {
+                    "timestamp": ts,
+                    "markdown": f"*Continued in agent: {to_agent}*\n",
+                }
+            )
             continue
 
         # Unknown event type - skip
@@ -1022,18 +1044,22 @@ def format_agent(
             "",
         ]
         if args:
-            lines.extend([
-                "**Args:**",
-                "```json",
-                json.dumps(args, indent=2),
-                "```",
-                "",
-            ])
+            lines.extend(
+                [
+                    "**Args:**",
+                    "```json",
+                    json.dumps(args, indent=2),
+                    "```",
+                    "",
+                ]
+            )
         lines.append("*Tool call did not complete*\n")
-        chunks.append({
-            "timestamp": start_ts,
-            "markdown": "\n".join(lines),
-        })
+        chunks.append(
+            {
+                "timestamp": start_ts,
+                "markdown": "\n".join(lines),
+            }
+        )
 
     # Build header from request/start events
     header_lines = []

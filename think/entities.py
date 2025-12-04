@@ -592,9 +592,11 @@ def format_entities(
 
         lines.append("")
 
-        chunks.append({
-            "timestamp": ts,
-            "markdown": "\n".join(lines),
-        })
+        chunks.append(
+            {
+                "timestamp": ts,
+                "markdown": "\n".join(lines),
+            }
+        )
 
     return chunks, meta
