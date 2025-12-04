@@ -1,27 +1,11 @@
 import json
-import os
 import re
 import time
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Optional
 
-from think.utils import day_dirs
-
 DATE_RE = re.compile(r"\d{8}")
-
-
-def adjacent_days(journal: str, day: str) -> tuple[Optional[str], Optional[str]]:
-    """Return previous and next day folder names if they exist."""
-    if not journal or not os.path.isdir(journal):
-        return None, None
-    days = sorted(day_dirs())
-    if day not in days:
-        return None, None
-    idx = days.index(day)
-    prev_day = days[idx - 1] if idx > 0 else None
-    next_day = days[idx + 1] if idx < len(days) - 1 else None
-    return prev_day, next_day
 
 
 def format_date(date_str: str) -> str:

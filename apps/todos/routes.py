@@ -23,7 +23,7 @@ from apps.todos.todo import (
 from apps.utils import log_app_action
 from convey import state
 from convey.config import get_selected_facet
-from convey.utils import DATE_RE, adjacent_days, format_date
+from convey.utils import DATE_RE, format_date
 from think.facets import get_facets
 
 todos_bp = Blueprint("app:todos", __name__, url_prefix="/app/todos")
@@ -417,7 +417,6 @@ def todos_day(day: str):  # type: ignore[override]
 
     sorted_todos_by_facet = dict(sorted(todos_by_facet.items(), key=facet_sort_key))
 
-    prev_day, next_day = adjacent_days(state.journal_root, day)
     today_day = date.today().strftime("%Y%m%d")
 
     # Compute facet counts for facet pill badges
@@ -430,8 +429,6 @@ def todos_day(day: str):  # type: ignore[override]
     return render_template(
         "app.html",
         title=format_date(day),
-        prev_day=prev_day,
-        next_day=next_day,
         today_day=today_day,
         todos_by_facet=sorted_todos_by_facet,
         facet_map=facet_map,

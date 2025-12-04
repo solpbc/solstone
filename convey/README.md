@@ -39,7 +39,7 @@ convey/
   __init__.py        - Flask app factory, app registry, context processors
   state.py           - global state (journal_root, chat_backend)
   bridge.py          - Callosum WebSocket bridge for real-time events
-  utils.py           - shared helpers (adjacent_days, spawn_agent, etc.)
+  utils.py           - shared helpers (format_date, spawn_agent, etc.)
   screenshot.py      - screenshot utility for testing
   views/
       __init__.py    - blueprint registration

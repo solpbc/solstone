@@ -11,7 +11,7 @@ import markdown
 from flask import Blueprint, jsonify, redirect, render_template, url_for
 
 from convey import state
-from convey.utils import DATE_RE, adjacent_days, format_date
+from convey.utils import DATE_RE, format_date
 from think.utils import day_dirs, day_path, get_insight_topic, get_insights
 
 insights_bp = Blueprint(
@@ -92,14 +92,11 @@ def insights_day(day: str) -> str:
             )
 
     title = format_date(day)
-    prev_day, next_day = adjacent_days(state.journal_root, day)
 
     return render_template(
         "app.html",
         title=title,
         files=files,
-        prev_day=prev_day,
-        next_day=next_day,
     )
 
 

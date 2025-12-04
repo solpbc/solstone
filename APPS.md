@@ -353,8 +353,7 @@ Available in `convey/utils.py`:
 - `success_response(data=None, code=200)` - Standard JSON success response
 - `parse_pagination_params(default_limit, max_limit, min_limit)` - Extract and validate limit/offset from request.args
 
-### Date Navigation
-- `adjacent_days(journal, day)` - Get previous and next day folders (returns tuple or None)
+### Date Formatting
 - `format_date(date_str)` - Format YYYYMMDD as "Wednesday January 14th"
 
 ### Agent Spawning
@@ -509,7 +508,7 @@ Main stylesheet `convey/static/app.css` provides base components. Review for ava
 ## Common Patterns
 
 ### Date-Based Navigation
-See `apps/todos/routes.py:todos_day()` - Shows date validation, `adjacent_days()`, `format_date()`, and passing navigation to template.
+See `apps/todos/routes.py:todos_day()` - Shows date validation and `format_date()` usage. Day navigation is handled automatically by the date_nav component.
 
 ### AJAX Endpoints
 See `apps/todos/routes.py:move_todo()` - Shows JSON parsing, validation, `error_response()`, `success_response()`.
