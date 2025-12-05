@@ -45,7 +45,6 @@ def _get_day_summary(day: str) -> dict[str, Any]:
             "todos_completed": 0,
             "events": 0,
             "entities": 0,
-            "has_news": False,
         },
     }
 
@@ -99,14 +98,14 @@ def _get_day_summary(day: str) -> dict[str, Any]:
 
         # News preview
         try:
-            news = get_facet_news(facet_name, day=day, limit=1)
-            if news:
-                content = news[0].get("content", "")
+            news = get_facet_news(facet_name, day=day)
+            days = news.get("days", [])
+            if days:
+                content = days[0].get("raw_content", "")
                 if content:
                     facet_data["news_preview"] = content[:150] + (
                         "..." if len(content) > 150 else ""
                     )
-                    result["totals"]["has_news"] = True
         except Exception:
             pass
 
