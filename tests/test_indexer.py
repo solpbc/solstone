@@ -101,6 +101,140 @@ def test_occurrence_index(tmp_path):
     assert total == 1
     assert results and results[0]["metadata"]["day"] == "20240101"
     assert results[0]["event"]["title"] == "Standup"
+    # Occurrences should have occurred=True
+    assert results[0]["metadata"]["occurred"] is True
+
+
+def test_anticipation_index(tmp_path):
+    """Test that anticipations are indexed with occurred=False and by event date."""
+    mod = importlib.import_module("think.indexer")
+    journal = tmp_path
+    os.environ["JOURNAL_PATH"] = str(journal)
+
+    # Create day directory where schedule.json is captured
+    day = journal / "20240101"
+    day.mkdir()
+    insights_dir = day / "insights"
+    insights_dir.mkdir()
+
+    # Create anticipations data - events scheduled for future dates
+    data = {
+        "day": "20240101",
+        "anticipations": [
+            {
+                "type": "meeting",
+                "date": "2024-01-05",
+                "start": "09:00:00",
+                "end": "10:00:00",
+                "title": "Project kickoff",
+                "summary": "Initial project meeting",
+                "work": True,
+                "participants": ["Alice", "Bob"],
+                "facet": "work",
+                "details": "Virtual meeting",
+            },
+            {
+                "type": "deadline",
+                "date": "2024-01-10",
+                "start": None,
+                "end": None,
+                "title": "Q1 Planning Due",
+                "summary": "Submit planning document",
+                "work": True,
+                "participants": [],
+                "facet": "work",
+                "details": "Full day deadline",
+            },
+        ],
+    }
+    (insights_dir / "schedule.json").write_text(json.dumps(data))
+
+    mod.scan_events(str(journal), verbose=True)
+
+    # Search for anticipations by text
+    total, results = mod.search_events("kickoff")
+    assert total == 1
+    assert results[0]["event"]["title"] == "Project kickoff"
+    # Anticipations should have occurred=False
+    assert results[0]["metadata"]["occurred"] is False
+    # Anticipations are indexed by their event date, not capture date
+    assert results[0]["metadata"]["day"] == "20240105"
+
+    # Search by event date (the date the event is scheduled for)
+    total, results = mod.search_events("", day="20240110")
+    assert total == 1
+    assert results[0]["event"]["title"] == "Q1 Planning Due"
+    assert results[0]["metadata"]["occurred"] is False
+
+    # Filter by occurred status
+    total, results = mod.search_events("", occurred=False)
+    assert total == 2  # Both anticipations
+
+    total, results = mod.search_events("", occurred=True)
+    assert total == 0  # No occurrences in this test
+
+
+def test_mixed_occurrences_and_anticipations(tmp_path):
+    """Test that occurrences and anticipations can coexist in the index."""
+    mod = importlib.import_module("think.indexer")
+    journal = tmp_path
+    os.environ["JOURNAL_PATH"] = str(journal)
+
+    day = journal / "20240101"
+    day.mkdir()
+    insights_dir = day / "insights"
+    insights_dir.mkdir()
+
+    # Create occurrences (what happened today)
+    occurrences_data = {
+        "day": "20240101",
+        "occurrences": [
+            {
+                "type": "meeting",
+                "start": "09:00:00",
+                "end": "09:30:00",
+                "title": "Morning standup",
+                "summary": "Team sync",
+                "facet": "work",
+            }
+        ],
+    }
+    (insights_dir / "meetings.json").write_text(json.dumps(occurrences_data))
+
+    # Create anticipations (what's scheduled for future)
+    anticipations_data = {
+        "day": "20240101",
+        "anticipations": [
+            {
+                "type": "meeting",
+                "date": "2024-01-05",
+                "start": "14:00:00",
+                "end": "15:00:00",
+                "title": "Client demo",
+                "summary": "Product demonstration",
+                "facet": "work",
+            }
+        ],
+    }
+    (insights_dir / "schedule.json").write_text(json.dumps(anticipations_data))
+
+    mod.scan_events(str(journal), verbose=True)
+
+    # All events should be searchable
+    total, _ = mod.search_events("")
+    assert total == 2
+
+    # Filter to only occurrences
+    total, results = mod.search_events("", occurred=True)
+    assert total == 1
+    assert results[0]["event"]["title"] == "Morning standup"
+    assert results[0]["metadata"]["day"] == "20240101"
+
+    # Filter to only anticipations
+    total, results = mod.search_events("", occurred=False)
+    assert total == 1
+    assert results[0]["event"]["title"] == "Client demo"
+    assert results[0]["metadata"]["day"] == "20240105"  # Indexed by event date
 
 
 def test_ponder_index(tmp_path):

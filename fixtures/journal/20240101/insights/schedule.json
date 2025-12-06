@@ -1,0 +1,41 @@
+{
+  "day": "20240101",
+  "anticipations": [
+    {
+      "type": "meeting",
+      "date": "2024-01-05",
+      "start": "09:00:00",
+      "end": "10:00:00",
+      "title": "Project kickoff",
+      "summary": "Initial meeting to discuss project goals and timeline.",
+      "work": true,
+      "participants": ["Alice", "Bob"],
+      "facet": "work",
+      "details": "Virtual meeting. Prepare presentation slides."
+    },
+    {
+      "type": "deadline",
+      "date": "2024-01-10",
+      "start": null,
+      "end": null,
+      "title": "Q1 Planning Document Due",
+      "summary": "Submit quarterly planning document to leadership.",
+      "work": true,
+      "participants": [],
+      "facet": "work",
+      "details": "No specific time. Full day deadline."
+    },
+    {
+      "type": "appointment",
+      "date": "2024-01-15",
+      "start": "14:30:00",
+      "end": "15:00:00",
+      "title": "Dentist appointment",
+      "summary": "Regular dental checkup.",
+      "work": false,
+      "participants": [],
+      "facet": "personal",
+      "details": "Downtown dental clinic."
+    }
+  ]
+}

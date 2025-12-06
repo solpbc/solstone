@@ -35,7 +35,7 @@ def test_ponder_main(tmp_path, monkeypatch):
     )
     captured = {}
 
-    def fake_send_occurrence(*args, **kwargs):
+    def fake_send_extraction(*args, **kwargs):
         captured["extra"] = kwargs.get("extra_instructions")
         return [
             {
@@ -50,7 +50,7 @@ def test_ponder_main(tmp_path, monkeypatch):
             }
         ]
 
-    monkeypatch.setattr(mod, "send_occurrence", fake_send_occurrence)
+    monkeypatch.setattr(mod, "send_extraction", fake_send_extraction)
     monkeypatch.setattr(mod, "load_dotenv", lambda: True)
     monkeypatch.setenv("GOOGLE_API_KEY", "x")
 
@@ -87,7 +87,7 @@ def test_ponder_extra_instructions(tmp_path, monkeypatch):
     )
     captured = {}
 
-    def fake_send_occurrence(*args, **kwargs):
+    def fake_send_extraction(*args, **kwargs):
         captured["extra"] = kwargs.get("extra_instructions")
         return [
             {
@@ -102,7 +102,7 @@ def test_ponder_extra_instructions(tmp_path, monkeypatch):
             }
         ]
 
-    monkeypatch.setattr(mod, "send_occurrence", fake_send_occurrence)
+    monkeypatch.setattr(mod, "send_extraction", fake_send_extraction)
     monkeypatch.setattr(mod, "load_dotenv", lambda: True)
     monkeypatch.setenv("GOOGLE_API_KEY", "x")
 
@@ -147,11 +147,11 @@ def test_ponder_skip_occurrences(tmp_path, monkeypatch):
     )
     called = {}
 
-    def fake_send_occurrence(*args, **kwargs):
+    def fake_send_extraction(*args, **kwargs):
         called["called"] = True
         return []
 
-    monkeypatch.setattr(mod, "send_occurrence", fake_send_occurrence)
+    monkeypatch.setattr(mod, "send_extraction", fake_send_extraction)
     monkeypatch.setattr(mod, "load_dotenv", lambda: True)
     monkeypatch.setenv("GOOGLE_API_KEY", "x")
 

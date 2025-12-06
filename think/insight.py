@@ -161,27 +161,34 @@ def send_markdown(
         )
 
 
-def send_occurrence(
+def send_extraction(
     markdown: str,
     prompt: str,
     api_key: str,
     model: str,
     extra_instructions: str | None = None,
-) -> object:
-    """Send markdown to generate occurrence data and return parsed JSON.
+) -> list:
+    """Extract structured JSON events from markdown summary.
+
+    Used for both occurrences (past events) and anticipations (future events).
 
     Parameters
     ----------
     markdown:
-        Markdown summary to convert into occurrences.
+        Markdown summary to extract events from.
     prompt:
-        System instruction guiding the model.
+        System instruction guiding the extraction.
     api_key:
         Google API key for authentication.
     model:
         Gemini model name.
     extra_instructions:
         Optional additional instructions prepended to ``markdown``.
+
+    Returns
+    -------
+    list
+        Array of extracted event objects.
     """
     contents = [markdown]
     if extra_instructions:
@@ -198,14 +205,14 @@ def send_occurrence(
     )
 
     try:
-        occurrences = json.loads(response_text)
+        events = json.loads(response_text)
     except json.JSONDecodeError as e:
         raise ValueError(f"Invalid JSON response: {e}: {response_text[:100]}")
 
-    if not isinstance(occurrences, list):
+    if not isinstance(events, list):
         raise ValueError(f"Response is not an array: {response_text[:100]}")
 
-    return occurrences
+    return events
 
 
 def main() -> None:
@@ -274,6 +281,7 @@ def main() -> None:
 
     extra_occ = insight_meta.get("occurrences")
     skip_occ = extra_occ is False
+    do_anticipations = insight_meta.get("anticipations") is True
     success = False
 
     # Choose clustering function based on mode
@@ -368,48 +376,56 @@ def main() -> None:
             crumb_path = crumb_builder.commit(str(md_path))
             print(f"Crumb saved to: {crumb_path}")
 
-        if skip_occ:
-            print('"occurrences" set to false; skipping occurrence generation')
+        if skip_occ and not do_anticipations:
+            print('"occurrences" set to false; skipping JSON generation')
             success = True
             return
 
-        # Create a corresponding occurrence JSON from the markdown summary
+        # Determine which prompt to use: anticipations or occurrences
+        if do_anticipations:
+            prompt_name = "anticipate"
+            array_key = "anticipations"
+        else:
+            prompt_name = "summarize"
+            array_key = "occurrences"
+
+        # Load the appropriate extraction prompt
         try:
-            occ_prompt_content = load_prompt(
-                "summarize", base_dir=Path(__file__).parent, include_journal=True
+            extraction_prompt_content = load_prompt(
+                prompt_name, base_dir=Path(__file__).parent, include_journal=True
             )
         except PromptNotFoundError as exc:
             print(exc)
             return
 
-        occ_prompt = occ_prompt_content.text.replace("DAY", day)
+        extraction_prompt = extraction_prompt_content.text
 
-        occ_output_path = json_path
-        json_exists = occ_output_path.exists() and occ_output_path.stat().st_size > 0
+        json_output_path = json_path
+        json_exists = json_output_path.exists() and json_output_path.stat().st_size > 0
 
         if json_exists and not args.force:
             print(
-                f"JSON file already exists: {occ_output_path}. Use --force to overwrite."
+                f"JSON file already exists: {json_output_path}. Use --force to overwrite."
             )
             return
         elif json_exists and args.force:
             print("JSON file exists but --force specified. Regenerating.")
 
         try:
-            # Load facet summaries and combine with topic-specific occurrence instructions
+            # Load facet summaries and combine with topic-specific instructions
             from think.facets import facet_summaries
 
             facets_context = facet_summaries(detailed_entities=True)
 
             # Combine facet summaries with topic-specific instructions
-            if extra_occ:
+            if extra_occ and not do_anticipations:
                 combined_instructions = f"{facets_context}\n\n{extra_occ}"
             else:
                 combined_instructions = facets_context
 
-            occurrences = send_occurrence(
+            events = send_extraction(
                 result,
-                occ_prompt,
+                extraction_prompt,
                 api_key,
                 model,
                 extra_instructions=combined_instructions,
@@ -418,32 +434,32 @@ def main() -> None:
             print(f"Error: {e}")
             return
 
-        # Include segment in occurrence JSON if in segment mode
+        # Build output JSON with appropriate array key
         if args.segment:
-            full_occurrence_obj = {
+            full_obj = {
                 "day": day,
                 "segment": args.segment,
-                "occurrences": occurrences,
+                array_key: events,
             }
         else:
-            full_occurrence_obj = {"day": day, "occurrences": occurrences}
+            full_obj = {"day": day, array_key: events}
 
-        occ_result = json.dumps(full_occurrence_obj, indent=2)
+        json_result = json.dumps(full_obj, indent=2)
 
-        os.makedirs(occ_output_path.parent, exist_ok=True)
-        with open(occ_output_path, "w") as f:
-            f.write(occ_result)
+        os.makedirs(json_output_path.parent, exist_ok=True)
+        with open(json_output_path, "w") as f:
+            f.write(json_result)
 
-        print(f"Results saved to: {occ_output_path}")
+        print(f"Results saved to: {json_output_path}")
 
-        occ_crumb_builder = (
+        json_crumb_builder = (
             CrumbBuilder()
-            .add_file(str(occ_prompt_content.path))
+            .add_file(str(extraction_prompt_content.path))
             .add_file(md_path)
             .add_model(model)
         )
-        occ_crumb_path = occ_crumb_builder.commit(str(occ_output_path))
-        print(f"Crumb saved to: {occ_crumb_path}")
+        json_crumb_path = json_crumb_builder.commit(str(json_output_path))
+        print(f"Crumb saved to: {json_crumb_path}")
         success = True
 
     finally:

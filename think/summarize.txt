@@ -20,7 +20,7 @@ Extract events from a Markdown summary generated from daily transcripts and conv
 - **work** – boolean classification: `true` for work-related, `false` for personal or not work related
 - **participants** – optional list of people or entities involved (empty array if none)
 - **facet** – required facet identifier; use the facet name/ID from Available Facets context that best matches the occurrence based on entities, subject matter, or context
-- **details** – free-form string capturing all additional context, specifics, outcomes, or other relevant information from the orignal document that is not covered already by the other fields
+- **details** – free-form string capturing all additional context, specifics, outcomes, or other relevant information from the original document that is not covered already by the other fields
 
 ## Output Format
 Return a JSON array of occurrences only. Each occurrence must include all required fields.

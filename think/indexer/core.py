@@ -62,12 +62,14 @@ SCHEMAS = {
             facet TEXT,
             start TEXT,
             end TEXT,
+            occurred INTEGER DEFAULT 1,
             PRIMARY KEY(path, idx)
         )
         """,
         "CREATE INDEX IF NOT EXISTS event_match_day_start_end ON event_match(day, start, end)",
         "CREATE INDEX IF NOT EXISTS event_match_day_topic ON event_match(day, topic)",
         "CREATE INDEX IF NOT EXISTS event_match_day_facet ON event_match(day, facet)",
+        "CREATE INDEX IF NOT EXISTS event_match_occurred ON event_match(occurred)",
     ],
     "transcripts": [
         "CREATE TABLE IF NOT EXISTS files(path TEXT PRIMARY KEY, mtime INTEGER)",
