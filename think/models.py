@@ -22,8 +22,20 @@ CLAUDE_SONNET_4 = "claude-sonnet-4-5"
 CLAUDE_HAIKU_4 = "claude-haiku-4-5"
 
 
-def _get_or_create_client(client: Optional[genai.Client]) -> genai.Client:
-    """Get existing client or create new one."""
+def get_or_create_client(client: Optional[genai.Client] = None) -> genai.Client:
+    """Get existing client or create new one.
+
+    Parameters
+    ----------
+    client : genai.Client, optional
+        Existing client to reuse. If not provided, creates a new one
+        using GOOGLE_API_KEY from environment.
+
+    Returns
+    -------
+    genai.Client
+        The provided client or a newly created one.
+    """
     if client is None:
         load_dotenv()
         api_key = os.getenv("GOOGLE_API_KEY")
@@ -49,7 +61,7 @@ def _build_generate_config(
     json_output: bool,
     thinking_budget: Optional[int],
     cached_content: Optional[str],
-    timeout: Optional[int] = None,
+    timeout_s: Optional[float] = None,
 ) -> types.GenerateContentConfig:
     """Build the GenerateContentConfig.
 
@@ -78,8 +90,10 @@ def _build_generate_config(
     if cached_content:
         config_args["cached_content"] = cached_content
 
-    if timeout:
-        config_args["http_options"] = types.HttpOptions(timeout=timeout)
+    if timeout_s:
+        # Convert seconds to milliseconds for the SDK
+        timeout_ms = int(timeout_s * 1000)
+        config_args["http_options"] = types.HttpOptions(timeout=timeout_ms)
 
     return types.GenerateContentConfig(**config_args)
 
@@ -197,7 +211,7 @@ def log_token_usage(
                 line_num = caller_frame.f_lineno
 
                 # Clean up module name
-                for prefix in ["think.", "hear.", "see.", "convey.", "muse."]:
+                for prefix in ["think.", "observe.", "convey.", "muse."]:
                     if module_name.startswith(prefix):
                         module_name = module_name[len(prefix) :]
                         break
@@ -387,7 +401,7 @@ def gemini_generate(
     thinking_budget: Optional[int] = None,
     cached_content: Optional[str] = None,
     client: Optional[genai.Client] = None,
-    timeout: Optional[int] = None,
+    timeout_s: Optional[float] = None,
 ) -> str:
     """
     Simplified wrapper for genai.models.generate_content with common defaults.
@@ -418,15 +432,15 @@ def gemini_generate(
         Name of cached content to use
     client : genai.Client, optional
         Existing client to reuse. If not provided, creates a new one.
-    timeout : int, optional
-        Request timeout in milliseconds. Minimum is 10000 (10 seconds).
+    timeout_s : float, optional
+        Request timeout in seconds.
 
     Returns
     -------
     str
         Response text from the model
     """
-    client = _get_or_create_client(client)
+    client = get_or_create_client(client)
     contents = _normalize_contents(contents)
     config = _build_generate_config(
         temperature=temperature,
@@ -435,7 +449,7 @@ def gemini_generate(
         json_output=json_output,
         thinking_budget=thinking_budget,
         cached_content=cached_content,
-        timeout=timeout,
+        timeout_s=timeout_s,
     )
 
     response = client.models.generate_content(
@@ -459,7 +473,7 @@ async def gemini_agenerate(
     thinking_budget: Optional[int] = None,
     cached_content: Optional[str] = None,
     client: Optional[genai.Client] = None,
-    timeout: Optional[int] = None,
+    timeout_s: Optional[float] = None,
 ) -> str:
     """
     Async wrapper for genai.aio.models.generate_content with common defaults.
@@ -490,15 +504,15 @@ async def gemini_agenerate(
         Name of cached content to use
     client : genai.Client, optional
         Existing client to reuse. If not provided, creates a new one.
-    timeout : int, optional
-        Request timeout in milliseconds. Minimum is 10000 (10 seconds).
+    timeout_s : float, optional
+        Request timeout in seconds.
 
     Returns
     -------
     str
         Response text from the model
     """
-    client = _get_or_create_client(client)
+    client = get_or_create_client(client)
     contents = _normalize_contents(contents)
     config = _build_generate_config(
         temperature=temperature,
@@ -507,7 +521,7 @@ async def gemini_agenerate(
         json_output=json_output,
         thinking_budget=thinking_budget,
         cached_content=cached_content,
-        timeout=timeout,
+        timeout_s=timeout_s,
     )
 
     response = await client.aio.models.generate_content(
@@ -530,6 +544,8 @@ __all__ = [
     "GPT_5_NANO",
     "CLAUDE_OPUS_4",
     "CLAUDE_SONNET_4",
+    "CLAUDE_HAIKU_4",
+    "get_or_create_client",
     "gemini_generate",
     "gemini_agenerate",
     "log_token_usage",

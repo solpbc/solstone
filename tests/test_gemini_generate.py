@@ -412,3 +412,50 @@ async def test_gemini_agenerate_token_logging(mock_client_class):
         assert log_data["usage"]["cached_tokens"] == 50
         assert log_data["usage"]["reasoning_tokens"] == 20
         assert log_data["usage"]["total_tokens"] == 370
+
+
+@patch.dict(os.environ, {"GOOGLE_API_KEY": "test_key"})
+@patch("think.models.genai.Client")
+def test_gemini_generate_with_timeout(mock_client_class):
+    """Test gemini_generate with timeout_s parameter."""
+    # Setup mock
+    mock_client = MagicMock()
+    mock_client_class.return_value = mock_client
+
+    mock_response = MagicMock()
+    mock_response.text = "Response"
+    mock_response.usage_metadata = None
+    mock_client.models.generate_content.return_value = mock_response
+
+    # Call with timeout_s (seconds)
+    gemini_generate("Test prompt", timeout_s=30)
+
+    # Verify config has http_options with timeout in milliseconds
+    call_args = mock_client.models.generate_content.call_args
+    config = call_args[1]["config"]
+    assert config.http_options is not None
+    assert config.http_options.timeout == 30000  # 30 seconds = 30000 ms
+
+
+@pytest.mark.asyncio
+@patch.dict(os.environ, {"GOOGLE_API_KEY": "test_key"})
+@patch("think.models.genai.Client")
+async def test_gemini_agenerate_with_timeout(mock_client_class):
+    """Test gemini_agenerate with timeout_s parameter."""
+    # Setup mock
+    mock_client = MagicMock()
+    mock_client_class.return_value = mock_client
+
+    mock_response = MagicMock()
+    mock_response.text = "Async response"
+    mock_response.usage_metadata = None
+    mock_client.aio.models.generate_content = AsyncMock(return_value=mock_response)
+
+    # Call with timeout_s (seconds)
+    await gemini_agenerate("Test prompt", timeout_s=60.5)
+
+    # Verify config has http_options with timeout in milliseconds
+    call_args = mock_client.aio.models.generate_content.call_args
+    config = call_args[1]["config"]
+    assert config.http_options is not None
+    assert config.http_options.timeout == 60500  # 60.5 seconds = 60500 ms

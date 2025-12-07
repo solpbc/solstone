@@ -46,7 +46,7 @@ def test_gemini_request_custom_attributes():
 
 @pytest.mark.asyncio
 @patch("think.batch.gemini_agenerate", new_callable=AsyncMock)
-@patch("think.batch._get_or_create_client")
+@patch("think.batch.get_or_create_client")
 async def test_gemini_batch_basic(mock_get_client, mock_agenerate):
     """Test basic batch execution with single request."""
     # Setup mocks
@@ -81,7 +81,7 @@ async def test_gemini_batch_basic(mock_get_client, mock_agenerate):
 
 @pytest.mark.asyncio
 @patch("think.batch.gemini_agenerate", new_callable=AsyncMock)
-@patch("think.batch._get_or_create_client")
+@patch("think.batch.get_or_create_client")
 async def test_gemini_batch_multiple_requests(mock_get_client, mock_agenerate):
     """Test batch with multiple requests."""
     mock_client = MagicMock()
@@ -125,7 +125,7 @@ async def test_gemini_batch_multiple_requests(mock_get_client, mock_agenerate):
 
 @pytest.mark.asyncio
 @patch("think.batch.gemini_agenerate", new_callable=AsyncMock)
-@patch("think.batch._get_or_create_client")
+@patch("think.batch.get_or_create_client")
 async def test_gemini_batch_error_handling(mock_get_client, mock_agenerate):
     """Test that errors are captured in request.error."""
     mock_client = MagicMock()
@@ -153,7 +153,7 @@ async def test_gemini_batch_error_handling(mock_get_client, mock_agenerate):
 
 @pytest.mark.asyncio
 @patch("think.batch.gemini_agenerate", new_callable=AsyncMock)
-@patch("think.batch._get_or_create_client")
+@patch("think.batch.get_or_create_client")
 async def test_gemini_batch_dynamic_adding(mock_get_client, mock_agenerate):
     """Test adding requests dynamically during iteration."""
     mock_client = MagicMock()
@@ -189,7 +189,7 @@ async def test_gemini_batch_dynamic_adding(mock_get_client, mock_agenerate):
 
 @pytest.mark.asyncio
 @patch("think.batch.gemini_agenerate", new_callable=AsyncMock)
-@patch("think.batch._get_or_create_client")
+@patch("think.batch.get_or_create_client")
 async def test_gemini_batch_retry_pattern(mock_get_client, mock_agenerate):
     """Test retry pattern - add failed request back with different model."""
     mock_client = MagicMock()
@@ -234,7 +234,7 @@ async def test_gemini_batch_retry_pattern(mock_get_client, mock_agenerate):
 
 @pytest.mark.asyncio
 @patch("think.batch.gemini_agenerate", new_callable=AsyncMock)
-@patch("think.batch._get_or_create_client")
+@patch("think.batch.get_or_create_client")
 async def test_gemini_batch_factory_method(mock_get_client, mock_agenerate):
     """Test that batch.create() factory method works correctly."""
     mock_client = MagicMock()
@@ -260,7 +260,7 @@ async def test_gemini_batch_factory_method(mock_get_client, mock_agenerate):
 
 @pytest.mark.asyncio
 @patch("think.batch.gemini_agenerate", new_callable=AsyncMock)
-@patch("think.batch._get_or_create_client")
+@patch("think.batch.get_or_create_client")
 async def test_gemini_batch_can_add_after_draining(mock_get_client, mock_agenerate):
     """Test that adding after draining works (reusable batch)."""
     mock_client = MagicMock()
@@ -296,7 +296,7 @@ async def test_gemini_batch_can_add_after_draining(mock_get_client, mock_agenera
 
 @pytest.mark.asyncio
 @patch("think.batch.gemini_agenerate", new_callable=AsyncMock)
-@patch("think.batch._get_or_create_client")
+@patch("think.batch.get_or_create_client")
 async def test_gemini_batch_empty_batch(mock_get_client, mock_agenerate):
     """Test that empty batch (no requests) completes immediately."""
     mock_client = MagicMock()
@@ -313,7 +313,7 @@ async def test_gemini_batch_empty_batch(mock_get_client, mock_agenerate):
 
 @pytest.mark.asyncio
 @patch("think.batch.gemini_agenerate", new_callable=AsyncMock)
-@patch("think.batch._get_or_create_client")
+@patch("think.batch.get_or_create_client")
 async def test_gemini_batch_concurrency_limit(mock_get_client, mock_agenerate):
     """Test that semaphore limits concurrent requests."""
     mock_client = MagicMock()
@@ -358,7 +358,7 @@ async def test_gemini_batch_concurrency_limit(mock_get_client, mock_agenerate):
 
 @pytest.mark.asyncio
 @patch("think.batch.gemini_agenerate", new_callable=AsyncMock)
-@patch("think.batch._get_or_create_client")
+@patch("think.batch.get_or_create_client")
 async def test_gemini_batch_update_method(mock_get_client, mock_agenerate):
     """Test batch.update() method for modifying and re-adding requests."""
     mock_client = MagicMock()
@@ -411,3 +411,43 @@ async def test_gemini_batch_update_method(mock_get_client, mock_agenerate):
 
     # Verify custom attribute was set
     assert req.custom_field == "test_value"
+
+
+def test_gemini_request_with_timeout():
+    """Test GeminiRequest can be created with timeout_s parameter."""
+    req = GeminiRequest(contents="Test prompt", timeout_s=30)
+    assert req.timeout_s == 30
+
+    req2 = GeminiRequest(contents="Test prompt", timeout_s=60.5)
+    assert req2.timeout_s == 60.5
+
+    # Default is None
+    req3 = GeminiRequest(contents="Test prompt")
+    assert req3.timeout_s is None
+
+
+@pytest.mark.asyncio
+@patch("think.batch.gemini_agenerate", new_callable=AsyncMock)
+@patch("think.batch.get_or_create_client")
+async def test_gemini_batch_timeout_passthrough(mock_get_client, mock_agenerate):
+    """Test that timeout_s is passed through to gemini_agenerate."""
+    mock_client = MagicMock()
+    mock_get_client.return_value = mock_client
+    mock_agenerate.return_value = "Response"
+
+    batch = GeminiBatch(max_concurrent=5)
+
+    # Create request with timeout_s
+    req = batch.create(contents="Test prompt", timeout_s=45)
+    batch.add(req)
+
+    results = []
+    async for completed_req in batch.drain_batch():
+        results.append(completed_req)
+
+    assert len(results) == 1
+
+    # Verify timeout_s was passed to gemini_agenerate
+    mock_agenerate.assert_called_once()
+    call_kwargs = mock_agenerate.call_args[1]
+    assert call_kwargs["timeout_s"] == 45

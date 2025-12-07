@@ -239,10 +239,10 @@ async def test_gemini_batch_client_reuse():
     """Test that client is reused across requests in batch."""
     from google import genai
 
-    from think.models import _get_or_create_client
+    from think.models import get_or_create_client
 
     # Create shared client
-    client = _get_or_create_client(None)
+    client = get_or_create_client()
 
     # Use it in batch
     batch = GeminiBatch(max_concurrent=2, client=client)

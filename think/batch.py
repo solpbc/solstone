@@ -21,7 +21,7 @@ from typing import Any, List, Optional, Union
 
 from google import genai
 
-from think.models import GEMINI_FLASH, _get_or_create_client, gemini_agenerate
+from think.models import GEMINI_FLASH, gemini_agenerate, get_or_create_client
 
 
 class GeminiRequest:
@@ -48,6 +48,7 @@ class GeminiRequest:
         json_output: bool = False,
         thinking_budget: Optional[int] = None,
         cached_content: Optional[str] = None,
+        timeout_s: Optional[float] = None,
     ):
         self.contents = contents
         self.model = model
@@ -57,6 +58,7 @@ class GeminiRequest:
         self.json_output = json_output
         self.thinking_budget = thinking_budget
         self.cached_content = cached_content
+        self.timeout_s = timeout_s
 
         # Populated after execution
         self.response: Optional[str] = None
@@ -101,7 +103,7 @@ class GeminiBatch:
             Shared client to reuse. If not provided, creates a new one.
         """
         self.max_concurrent = max_concurrent
-        self.client = _get_or_create_client(client)
+        self.client = get_or_create_client(client)
         self.semaphore = asyncio.Semaphore(max_concurrent)
         self.result_queue: asyncio.Queue = asyncio.Queue()
         self.pending_tasks: set = set()
@@ -116,6 +118,7 @@ class GeminiBatch:
         json_output: bool = False,
         thinking_budget: Optional[int] = None,
         cached_content: Optional[str] = None,
+        timeout_s: Optional[float] = None,
     ) -> GeminiRequest:
         """
         Create a new GeminiRequest.
@@ -137,6 +140,7 @@ class GeminiBatch:
             json_output=json_output,
             thinking_budget=thinking_budget,
             cached_content=cached_content,
+            timeout_s=timeout_s,
         )
 
     def add(self, request: GeminiRequest) -> None:
@@ -238,6 +242,7 @@ class GeminiBatch:
                     thinking_budget=request.thinking_budget,
                     cached_content=request.cached_content,
                     client=self.client,
+                    timeout_s=request.timeout_s,
                 )
                 request.duration = time.time() - start_time
                 request.response = response

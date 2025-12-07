@@ -85,7 +85,7 @@ def generate_chat_title(message: str) -> str:
             model=GEMINI_LITE,
             system_instruction=TITLE_SYSTEM_INSTRUCTION,
             max_output_tokens=50,
-            timeout=10000,
+            timeout_s=10,
         ).strip()
         return title if title else message.split("\n")[0][:30]
     except Exception:
