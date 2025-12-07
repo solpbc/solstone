@@ -689,7 +689,7 @@ def get_agent(persona: str = "default", facet: str | None = None) -> dict:
         time_str = now_local.strftime("%A, %B %d, %Y at %I:%M %p %Z")
     except Exception:
         time_str = now.strftime("%A, %B %d, %Y at %I:%M %p")
-    extra_parts.append(f"## Current Date and Time\n{time_str}")
+    extra_parts.append(f"## Current Date and Time\nToday is {time_str}")
 
     if extra_parts:
         config["extra_context"] = "\n\n".join(extra_parts).strip()
