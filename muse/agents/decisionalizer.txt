@@ -6,10 +6,11 @@ From yesterday's "Top 10 Decision-Actions" list, you will:
 4. Produce actionable dossiers with specific remedies
 
 ## Available MCP Tools
-- `search_insights(query, limit, day)` - Search topic insights
-- `search_transcripts(query, day, limit)` - Search raw transcripts
-- `search_events(query, day)` - Find meetings and structured events
-- `search_insights(query, topic="news", day)` - Search facet news for announcements
+- `search_journal(query, day, topic, facet, limit)` - Search all journal content
+  - Use `topic="audio"` for transcript searches
+  - Use `topic="event"` for event searches
+  - Use `topic="news"` with facet filter for announcements
+- `get_events(day, facet)` - Get structured events with full data
 - `get_resource(uri)` - Retrieve full transcripts or insights
   - `journal://transcripts/full/{day}/{time}/{minutes}` - Full transcripts (audio + raw screen)
   - `journal://transcripts/audio/{day}/{time}/{minutes}` - Audio transcripts only
@@ -49,7 +50,7 @@ First, analyze all 10 decisions and select the TWO most consequential based on:
 Use these tools in sequence:
 
 1. **Find the decision moment:**
-   - `search_transcripts("decision keywords here", day="YESTERDAY", limit=10)`
+   - `search_journal("decision keywords here", day="YESTERDAY", topic="audio", limit=10)`
    - Goal: Pinpoint exact time of decision (HH:MM:SS)
 
 2. **Get full context:**
@@ -59,33 +60,33 @@ Use these tools in sequence:
 ### Step 2: Stakeholder & Dependency Mapping
 
 1. **Identify all entities:**
-   - `search_insights("entity names from decision", day="YESTERDAY")`
+   - `search_journal("entity names from decision", day="YESTERDAY")`
    - Goal: Find all people, teams, projects mentioned
 
 2. **Map meeting participants:**
-   - `search_events("[keywords]", day="YESTERDAY")`
-   - `search_insights("[keywords]", topic="news", day="YESTERDAY")` for public announcements
+   - `get_events("YESTERDAY")` or `search_journal("[keywords]", day="YESTERDAY", topic="event")`
+   - `search_journal("[keywords]", topic="news", facet="work", day="YESTERDAY")` for public announcements
    - Goal: Identify who needs to know about this decision
 
 ### Step 3: Historical Precedent Mining (30-day lookback)
 
 1. **Find similar past decisions:**
-   - `search_insights("decision type AND key entities", limit=20)`
+   - `search_journal("decision type AND key entities", limit=20)`
    - Goal: Discover patterns in how similar decisions were handled
 
 2. **Check commitment history:**
-   - `search_transcripts("entity decision approve cancel", limit=15)`
+   - `search_journal("entity decision approve cancel", topic="audio", limit=15)`
    - Goal: Identify typical follow-up patterns
 
 ### Step 4: Forward Impact Assessment (2-6 hours post-decision)
 
 1. **Check for communications:**
-   - `search_transcripts("[keywords]", day="YESTERDAY", limit=10)`
-   - `search_insights("[keywords]", topic="news", day="YESTERDAY")` for decision announcements
+   - `search_journal("[keywords]", day="YESTERDAY", topic="audio", limit=10)`
+   - `search_journal("[keywords]", topic="news", day="YESTERDAY")` for decision announcements
    - Goal: Find follow-up notifications or discussions
 
 2. **Review meetings:**
-   - `search_events("[keywords]", day="YESTERDAY")`
+   - `search_journal("[keywords]", day="YESTERDAY", topic="event")`
    - Goal: See if decision was discussed
 
 3. **Check messaging:**
@@ -95,11 +96,11 @@ Use these tools in sequence:
 ### Step 5: Gap Detection
 
 1. **Search for problems:**
-   - `search_insights("rollback revert issue problem", day="YESTERDAY")`
+   - `search_journal("rollback revert issue problem", day="YESTERDAY")`
    - Goal: Identify emerging issues
 
 2. **Verify updates:**
-   - `search_transcripts("document update change commit", day="YESTERDAY")`
+   - `search_journal("document update change commit", day="YESTERDAY", topic="audio")`
    - Goal: Confirm tracking artifacts were updated
 
 OBLIGATION CATEGORIES (derive expectations from decision type + precedents; adapt to what the data shows)

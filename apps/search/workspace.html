@@ -102,9 +102,7 @@
 
 <script src="{{ url_for('root.static', filename='colors.js') }}"></script>
 <script>
-const insightsUrl = '{{ url_for('app:search.search_insights_api') }}';
-const eventsUrl = '{{ url_for('app:search.search_events_api') }}';
-const transcriptsUrl = '{{ url_for('app:search.search_transcripts_api') }}';
+const searchUrl = '{{ url_for('app:search.search_journal_api') }}';
 const dayBase = '{{ url_for('app:calendar.calendar_day', day='') }}';
 const COLORS = window.CATEGORY_COLORS;
   let topicColors = {};
@@ -300,18 +298,18 @@ function doSearch(reset=true){
   if(reset){ offset = 0; topicColors = {}; colorIndex=0; document.querySelector('#resultsTable tbody').innerHTML=''; }
   setHeaders(parsed.index);
   updateTabs(parsed.index);
-  let api = insightsUrl;
-  if(parsed.index==='events') api = eventsUrl;
-  else if(parsed.index==='transcripts') api = transcriptsUrl;
-  const url = new URL(api, window.location.origin);
+
+  const url = new URL(searchUrl, window.location.origin);
   url.searchParams.set('q', parsed.text);
   if(parsed.day) url.searchParams.set('day', parsed.day);
-  if(parsed.topic && parsed.index!=='transcripts') url.searchParams.set('topic', parsed.topic);
 
-  // Add event-specific parameters
+  // Set topic filter based on selected index
   if(parsed.index==='events'){
-    if(parsed.start) url.searchParams.set('start', parsed.start);
-    if(parsed.end) url.searchParams.set('end', parsed.end);
+    url.searchParams.set('topic', 'event');
+  } else if(parsed.index==='transcripts'){
+    url.searchParams.set('topic', parsed.topic || 'audio');
+  } else if(parsed.topic){
+    url.searchParams.set('topic', parsed.topic);
   }
 
   url.searchParams.set('limit', limit);

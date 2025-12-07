@@ -107,9 +107,9 @@ Emitted when a tool execution begins.
   "event": "tool_start",
   "ts": 1234567890123,
   "agent_id": "1234567890123",
-  "tool": "search_insights",
+  "tool": "search_journal",
   "args": {"query": "search terms", "limit": 10},
-  "call_id": "search_insights-1"
+  "call_id": "search_journal-1"
 }
 ```
 
@@ -120,10 +120,10 @@ Emitted when a tool execution completes.
   "event": "tool_end",
   "ts": 1234567890123,
   "agent_id": "1234567890123",
-  "tool": "search_insights",
+  "tool": "search_journal",
   "args": {"query": "search terms"},
   "result": ["result", "array", "or", "object"],
-  "call_id": "search_insights-1"
+  "call_id": "search_journal-1"
 }
 ```
 

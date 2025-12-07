@@ -5,6 +5,69 @@ import os
 
 import pytest
 
+from think.indexer import sanitize_fts_query
+
+
+class TestSanitizeFtsQuery:
+    """Tests for FTS5 query sanitization."""
+
+    def test_simple_words(self):
+        """Simple words pass through unchanged."""
+        assert sanitize_fts_query("foo bar baz") == "foo bar baz"
+
+    def test_preserves_or_operator(self):
+        """OR operator is preserved."""
+        assert sanitize_fts_query("foo OR bar") == "foo OR bar"
+
+    def test_preserves_and_operator(self):
+        """AND operator is preserved."""
+        assert sanitize_fts_query("foo AND bar") == "foo AND bar"
+
+    def test_preserves_not_operator(self):
+        """NOT operator is preserved."""
+        assert sanitize_fts_query("foo NOT bar") == "foo NOT bar"
+
+    def test_preserves_asterisk_prefix_match(self):
+        """Asterisk for prefix matching is preserved."""
+        assert sanitize_fts_query("test*") == "test*"
+
+    def test_preserves_quoted_phrases(self):
+        """Quoted phrases are preserved."""
+        assert sanitize_fts_query('"public benefit"') == '"public benefit"'
+
+    def test_complex_query_with_or_and_quotes(self):
+        """Complex query with OR and quoted phrases."""
+        result = sanitize_fts_query('sunstone OR pbc OR "public benefit"')
+        assert result == 'sunstone OR pbc OR "public benefit"'
+
+    def test_dot_replaced_with_space(self):
+        """Dots are replaced with spaces."""
+        assert sanitize_fts_query("config.json") == "config json"
+
+    def test_colon_replaced_with_space(self):
+        """Colons are replaced with spaces."""
+        assert sanitize_fts_query("foo:bar") == "foo bar"
+
+    def test_special_chars_replaced_with_space(self):
+        """Various special characters are replaced with spaces."""
+        assert sanitize_fts_query("a@b#c$d") == "a b c d"
+
+    def test_preserves_apostrophe(self):
+        """Apostrophes in contractions are preserved."""
+        assert sanitize_fts_query("what's up") == "what's up"
+
+    def test_unbalanced_quote_removed(self):
+        """Unbalanced quotes are removed entirely."""
+        assert sanitize_fts_query('"unbalanced') == "unbalanced"
+
+    def test_unbalanced_quote_removes_all(self):
+        """When quotes are unbalanced, all quotes are removed."""
+        assert sanitize_fts_query('foo "bar" baz "qux') == "foo bar baz qux"
+
+    def test_balanced_quotes_preserved(self):
+        """Balanced quotes are kept."""
+        assert sanitize_fts_query('"foo" "bar"') == '"foo" "bar"'
+
 
 @pytest.fixture
 def journal_fixture(tmp_path):

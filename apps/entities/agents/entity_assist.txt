@@ -22,10 +22,10 @@ Entity operations (with required facet parameter):
 - `entity_attach(facet, type, name, description)` - add entity to attached list
 
 Research tools (use sparingly, be quick):
-- `search_insights(query, limit=3)` - find entity mentions in insights
-- `search_transcripts(query, limit=3)` - find entity mentions in transcripts
-- `search_insights(query, topic="news", limit=3)` - find entity in facet news
-- `search_events(query, limit=3)` - find entity in events
+- `search_journal(query, limit=3)` - find entity mentions in all journal content
+- `search_journal(query, topic="audio", limit=3)` - find entity in transcripts
+- `search_journal(query, topic="news", limit=3)` - find entity in facet news
+- `get_events(day)` - find entity in events for a specific day
 
 ## Quick Addition Process
 
@@ -57,10 +57,10 @@ If entity name already exists, consider if anything in the request implies the n
 ### Step 3: Quick Research
 
 Execute a few targeted searches based on type:
-- **Person**: `search_insights("{name}", limit=3)` or `search_events("{name}", limit=3)`
-- **Organization/Company**: `search_insights("{name}", topic="news", limit=3)` or `search_insights("{name}", limit=3)`
-- **Project**: `search_insights("{name}", limit=3)`
-- **Tool**: `search_insights("{name}", limit=3)`
+- **Person**: `search_journal("{name}", limit=3)` or `search_journal("{name}", topic="event", limit=3)`
+- **Organization/Company**: `search_journal("{name}", topic="news", limit=3)` or `search_journal("{name}", limit=3)`
+- **Project**: `search_journal("{name}", limit=3)`
+- **Tool**: `search_journal("{name}", limit=3)`
 
 **Research goals:**
 - Confirm the entity is real and relevant

@@ -1081,7 +1081,7 @@ class TestFormatEvents:
 
     def test_format_events_direct(self):
         """Test format_events function directly."""
-        from think.indexer.events import format_events
+        from think.events import format_events
 
         entries = [
             {
@@ -1113,7 +1113,7 @@ class TestFormatEvents:
 
     def test_format_events_anticipation_labels(self):
         """Test that anticipations use 'Planned', 'Scheduled', 'Expected' labels."""
-        from think.indexer.events import format_events
+        from think.events import format_events
 
         entries = [
             {
@@ -1136,7 +1136,7 @@ class TestFormatEvents:
 
     def test_format_events_occurrence_no_created_on(self):
         """Test that occurrences do NOT show 'Created on' or 'Planned' prefix."""
-        from think.indexer.events import format_events
+        from think.events import format_events
 
         entries = [
             {
@@ -1160,7 +1160,7 @@ class TestFormatEvents:
 
     def test_format_events_header_facet_from_path(self):
         """Test that facet name and day are extracted from file path."""
-        from think.indexer.events import format_events
+        from think.events import format_events
 
         entries = [{"type": "task", "title": "Test", "occurred": True}]
         context = {"file_path": "/journal/facets/personal/events/20251215.jsonl"}
@@ -1171,7 +1171,7 @@ class TestFormatEvents:
 
     def test_format_events_timestamp_calculation(self):
         """Test that timestamp is calculated from day + start time."""
-        from think.indexer.events import format_events
+        from think.events import format_events
 
         entries = [
             {
@@ -1196,7 +1196,7 @@ class TestFormatEvents:
 
     def test_format_events_skipped_entries_error(self):
         """Test that entries without 'title' field are skipped and reported."""
-        from think.indexer.events import format_events
+        from think.events import format_events
 
         entries = [
             {"type": "meeting", "title": "Valid", "occurred": True},
@@ -1213,7 +1213,7 @@ class TestFormatEvents:
 
     def test_format_events_mixed_occurred_anticipated(self):
         """Test header counts for mixed occurred/anticipated events."""
-        from think.indexer.events import format_events
+        from think.events import format_events
 
         entries = [
             {"type": "meeting", "title": "Past event", "occurred": True},
@@ -1228,7 +1228,7 @@ class TestFormatEvents:
 
     def test_format_events_time_display_24h(self):
         """Test that times are displayed in 24-hour format without seconds."""
-        from think.indexer.events import format_events
+        from think.events import format_events
 
         entries = [
             {
@@ -1248,7 +1248,7 @@ class TestFormatEvents:
 
     def test_format_events_with_details(self):
         """Test that details field is included in output."""
-        from think.indexer.events import format_events
+        from think.events import format_events
 
         entries = [
             {

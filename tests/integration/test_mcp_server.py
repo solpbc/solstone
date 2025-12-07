@@ -56,8 +56,8 @@ async def test_mcp_server_tool_registration(integration_journal_path):
         param_names = [p.name if hasattr(p, "name") else p for p in tool_params]
         assert "day" in param_names
 
-    assert "search_insights" in tools
-    assert tools["search_insights"].name == "search_insights"
+    assert "search_journal" in tools
+    assert tools["search_journal"].name == "search_journal"
 
     assert "entity_list" in tools
     assert tools["entity_list"].name == "entity_list"
@@ -138,8 +138,8 @@ async def test_mcp_server_stdio_e2e(integration_journal_path):
             # Verify key tools are present from each module
             assert "todo_list" in tool_names, "todo tool missing"
             assert "todo_add" in tool_names, "todo tool missing"
-            assert "search_insights" in tool_names, "search tool missing"
-            assert "search_transcripts" in tool_names, "search tool missing"
+            assert "search_journal" in tool_names, "search tool missing"
+            assert "get_events" in tool_names, "events tool missing"
             assert "entity_list" in tool_names, "entity tool missing"
             assert "entity_attach" in tool_names, "entity tool missing"
             assert "get_facet" in tool_names, "facet tool missing"
@@ -147,10 +147,10 @@ async def test_mcp_server_stdio_e2e(integration_journal_path):
             assert "send_message" in tool_names, "messaging tool missing"
             assert "get_resource" in tool_names, "messaging tool missing"
 
-            # Verify we have the expected number of tools (17 core tools)
+            # Verify we have the expected number of tools (15 core tools after unification)
             assert (
-                len(tool_names) >= 17
-            ), f"Expected at least 17 tools, got {len(tool_names)}"
+                len(tool_names) >= 15
+            ), f"Expected at least 15 tools, got {len(tool_names)}"
 
             # Test 2: Call a tool (todo_list)
             result = await session.call_tool(
@@ -177,9 +177,9 @@ async def test_mcp_server_stdio_e2e(integration_journal_path):
             # which are dynamically resolved. This is expected behavior.
 
             # Test 4: Call another tool to verify different module
-            # Call search_insights to test search module
+            # Call search_journal to test search module
             search_result = await session.call_tool(
-                "search_insights",
+                "search_journal",
                 arguments={"query": "test", "limit": 1},
             )
 
@@ -280,9 +280,9 @@ async def test_mcp_server_multiple_tool_calls(integration_journal_path):
             # Empty todos returns "0: (no todos)", not an error
             assert "markdown" in data1
 
-            # Call 2: Search insights
+            # Call 2: Search journal
             result2 = await session.call_tool(
-                "search_insights", arguments={"query": "test", "limit": 5}
+                "search_journal", arguments={"query": "test", "limit": 5}
             )
             data2 = json.loads(result2.content[0].text)
             assert "results" in data2

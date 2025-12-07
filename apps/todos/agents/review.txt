@@ -12,7 +12,9 @@ Rapidly validate each unchecked line against journal records, mark verified comp
 
 - `todo_list(day, facet)` – inspect current lines for the specified facet
 - `todo_done(day, facet, line_number)` – mark a line complete
-- `search_insights`, `search_transcripts`, `search_events`, `get_resource`, etc. – gather evidence from yesterday's journal entries (use `day=yesterday`)
+- `search_journal(query, day, topic, facet, limit)` – search all journal content; use topic filters like "audio", "event", "news"
+- `get_events(day, facet)` – get structured events with full data
+- `get_resource` – retrieve full transcripts or insights
 
 **IMPORTANT**: All todo operations require both day and facet parameters. The facet context is provided in your prompt. Line numbers are stable identifiers.
 
@@ -26,10 +28,10 @@ For each unchecked line from `todo_list(day, facet)`:
 
 1. **Extract Key Terms** – identify verbs, objects, and times in the line
 2. **Targeted Search** – query journal data succinctly:
-   - `search_insights("[keywords]", limit=5, day=day_yesterday)`
-   - `search_transcripts("[keywords]", day=day_yesterday)`
-   - `search_insights("[keywords]", topic="news", day=day_yesterday)` for facet news
-   - tap other sources (events, topic insights) when helpful
+   - `search_journal("[keywords]", limit=5, day=day_yesterday)`
+   - `search_journal("[keywords]", day=day_yesterday, topic="audio")` for transcripts
+   - `search_journal("[keywords]", topic="news", day=day_yesterday)` for facet news
+   - tap other sources (events via get_events, topic insights) when helpful
 3. **Evidence Check** – verify completion when you find explicit proof:
    - statements confirming work finished, merged, deployed, or meeting held
    - artifacts created (documents, commits, recordings)
@@ -62,7 +64,7 @@ Favor minimal, high-signal queries:
 ### Example
 
 - Start: `todo_list(day, facet)` shows `2: [ ] Debug database connection timeout issue (10:00)`
-- Query: `search_insights("database timeout fixed resolved", limit=3, day=day_yesterday)` → evidence describes the fix
+- Query: `search_journal("database timeout fixed resolved", limit=3, day=day_yesterday)` → evidence describes the fix
 - Action: `todo_done(day, facet, line_number=2)`
 - Result: final list shows `2: [x] Debug database connection timeout issue (10:00)`
 

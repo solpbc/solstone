@@ -9,8 +9,8 @@ The research will first build a complete picture of yesterday's activities, then
 ### Research Strategy
 The strategy is to conduct a three-phase data sweep of yesterday's journal entries. We will start broad to understand the day's main themes and then narrow our focus to find specific, quote-worthy, or event-specific details that have comedic potential.
 
-1.  **Broad Overview**: Use `search_insights` and `search_events` to get a complete list of all topics and structured activities from yesterday. This creates a high-level map of the day.
-2.  **Detailed Search**: Use `search_transcripts` with a set of keywords related to emotion, humor, and conflict (e.g., "frustrating", "ridiculous", "error", "lol") to pinpoint specific moments of interest.
+1.  **Broad Overview**: Use `search_journal` with day filter to get a complete list of all topics and structured activities from yesterday. This creates a high-level map of the day.
+2.  **Detailed Search**: Use `search_journal` with topic="audio" and keywords related to emotion, humor, and conflict (e.g., "frustrating", "ridiculous", "error", "lol") to pinpoint specific moments of interest.
 3.  **Contextual Analysis**: Use `get_resource` to pull the full context for the most promising findings from the previous phases. This raw material will be analyzed for comedic elements like irony, juxtaposition, or absurdity.
 4.  **Creative Synthesis & Delivery**: The final phase involves brainstorming joke concepts from the analyzed material, selecting the best one, and delivering it via `send_message`.
 
@@ -23,20 +23,20 @@ The strategy is to conduct a three-phase data sweep of yesterday's journal entri
 **Query syntax**: Searches match ALL words by default; use `OR` between words to match ANY (e.g., `apple OR orange`), quote phrases for exact matches (e.g., `"project meeting"`), and append `*` for prefix matching (e.g., `debug*`).
 
 1.  **Identify All Daily Topics**:
-    -   **Tool**: `search_insights`
-    -   **Query**: `day={yesterday_YYYYMMDD}` (with an empty query string to retrieve all topics)
+    -   **Tool**: `search_journal`
+    -   **Parameters**: `day={yesterday_YYYYMMDD}` (with an empty query string to retrieve all topics)
     -   **Purpose**: To get a complete list of all themes and activities discussed or worked on yesterday. This provides the main "characters" and "settings" for potential jokes.
     -   **Expected Outcomes**: A list of all topic insights from the day, which will help identify recurring themes or unusual combinations of activities.
 
 2.  **List All Structured Events**:
-    -   **Tool**: `search_events`
+    -   **Tool**: `get_events`
     -   **Parameters**: `day={yesterday_YYYYMMDD}`
     -   **Purpose**: To identify all formal meetings, calls, or tasks. Corporate jargon, meeting mishaps, or task-related struggles are excellent sources of humor.
     -   **Expected Outcomes**: A timeline of the day's key events, such as "Project Phoenix Sync," "API Debugging Session," or "Team Standup."
 
 3.  **Find Emotionally Charged Moments**:
-    -   **Tool**: `search_transcripts`
-    -   **Parameters**: `day={yesterday_YYYYMMDD}`, `query="this is ridiculous" OR "I'm so confused" OR "why is this not working" OR "error" OR "hilarious" OR "lol"`
+    -   **Tool**: `search_journal`
+    -   **Parameters**: `day={yesterday_YYYYMMDD}`, `topic="audio"`, `query="this is ridiculous" OR "I'm so confused" OR "why is this not working" OR "error" OR "hilarious" OR "lol"`
     -   **Purpose**: To find specific quotes or screen interactions that indicate frustration, confusion, or amusement. These raw emotional moments are often the most poignant and funny.
     -   **Expected Outcomes**: A list of specific timestamps and text snippets that can be investigated further for their comedic context.
 
@@ -66,7 +66,7 @@ The strategy is to conduct a three-phase data sweep of yesterday's journal entri
 
 ### Query Optimization Strategy
 -   **Primary Queries**: Broad, day-filtered searches to capture all topics and events from yesterday.
--   **Alternative Queries**: For `search_transcripts`, if the initial emotional keywords yield no results, try searching for project codenames, specific colleagues' names, or technical terms that appeared frequently in the day's insights to find relevant conversations.
+-   **Alternative Queries**: For `search_journal` with topic="audio", if the initial emotional keywords yield no results, try searching for project codenames, specific colleagues' names, or technical terms that appeared frequently in the day's insights to find relevant conversations.
 -   **Refinement Approach**: This is a single-day analysis, so the strategy is to gather more data rather than refine. If initial searches are sparse, the fallback is to read through all topic insights from the day to find something poignant, even if not overtly "funny."
 
 ### Potential Research Challenges

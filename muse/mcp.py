@@ -38,9 +38,8 @@ def register_tool(*tool_args: Any, **tool_kwargs: Any) -> Callable[[F], F]:
 # Apps can extend existing packs or create new ones via TOOL_PACKS in their tools.py
 TOOL_PACKS: dict[str, list[str]] = {
     "journal": [
-        "search_insights",
-        "search_transcripts",
-        "search_events",
+        "search_journal",
+        "get_events",
         "get_facet",
         "get_resource",
     ],
@@ -56,9 +55,8 @@ TOOL_PACKS: dict[str, list[str]] = {
 from muse.tools import facets, search
 
 # Register search tools
-search_insights = register_tool(annotations=HINTS)(search.search_insights)
-search_transcripts = register_tool(annotations=HINTS)(search.search_transcripts)
-search_events = register_tool(annotations=HINTS)(search.search_events)
+search_journal = register_tool(annotations=HINTS)(search.search_journal)
+get_events = register_tool(annotations=HINTS)(search.get_events)
 
 # Register facet tools
 get_facet = register_tool(annotations=HINTS)(facets.get_facet)

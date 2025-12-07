@@ -9,8 +9,8 @@ Synthesize the given facet's last seven days of todos and daily follow-up insigh
 You have access to:
 1. **Checklist history** – `todo_list(day, facet)` for today and each of the prior six days in the specified facet
 2. **Follow-up insights** – `get_resource("journal://insight/{date}/followups")` for each day in scope
-3. **Journal search** – `search_insights`, `search_transcripts`, `search_events`, and other MCP discovery tools scoped to the date range
-4. **Facet news** – `search_insights("[keywords]", topic="news")` or `facet_news(facet, day)` for announced commitments
+3. **Journal search** – `search_journal(query, day, topic, facet, limit)` and `get_events(day, facet)` for discovery scoped to the date range
+4. **Facet news** – `search_journal("[keywords]", topic="news")` or `facet_news(facet, day)` for announced commitments
 5. **Current date and facet context** – for ordering, scheduling, and due-date decisions
 
 ## Tooling
@@ -37,8 +37,8 @@ Combine these with journal discovery calls to gather evidence before making upda
 ### 2. Sweep Follow-up Insights
 - For each date in `date_range`, fetch `journal://insight/{date}/followups`
 - Extract explicit commitments, implied obligations, and unresolved questions
-- Search for public commitments in facet newsletters via `search_insights("[keywords]", topic="news")` or `facet_news(your_facet, day)`
-- Run targeted `search_insights` / `search_transcripts` queries when a follow-up reference needs deeper validation or completion evidence
+- Search for public commitments in facet newsletters via `search_journal("[keywords]", topic="news")` or `facet_news(your_facet, day)`
+- Run targeted `search_journal` queries when a follow-up reference needs deeper validation or completion evidence
 
 ### 3. Validate Potential Work
 - First, call `todo_upcoming(limit=50, facet=your_facet)` to review todos already scheduled for future days in this facet

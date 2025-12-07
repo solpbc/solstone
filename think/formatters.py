@@ -61,7 +61,7 @@ FORMATTERS: dict[str, tuple[str, str]] = {
     "agents/*.jsonl": ("muse.cortex", "format_agent"),
     "facets/*/entities/*.jsonl": ("think.entities", "format_entities"),
     "facets/*/entities.jsonl": ("think.entities", "format_entities"),
-    "facets/*/events/*.jsonl": ("think.indexer.events", "format_events"),
+    "facets/*/events/*.jsonl": ("think.events", "format_events"),
     "facets/*/todos/*.jsonl": ("apps.todos.todo", "format_todos"),
     "*/screen.jsonl": ("observe.reduce", "format_screen"),
     "*/*_audio.jsonl": ("observe.hear", "format_audio"),

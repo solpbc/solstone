@@ -19,8 +19,18 @@ search_bp = Blueprint(
 )
 
 
-@search_bp.route("/api/insights")
-def search_insights_api() -> Any:
+@search_bp.route("/api/search")
+def search_journal_api() -> Any:
+    """Unified journal search endpoint.
+
+    Query parameters:
+        q: Search query (required)
+        limit: Max results (default 20)
+        offset: Pagination offset (default 0)
+        day: Filter by YYYYMMDD day
+        topic: Filter by topic (e.g., "audio", "screen", "event", "flow")
+        facet: Filter by facet name
+    """
     query = request.args.get("q", "").strip()
     if not query:
         return jsonify({"total": 0, "results": []})
@@ -32,111 +42,48 @@ def search_insights_api() -> Any:
 
     insights = get_insights()
     day = request.args.get("day")
-    topic_filter = request.args.get("topic")
+    topic = request.args.get("topic")
+    facet = request.args.get("facet")
 
-    # Search journal, excluding transcript/event topics to get insights
-    total, rows = search_journal(query, limit, offset, day=day, topic=topic_filter)
-
-    results = []
-    for r in rows:
-        meta = r.get("metadata", {})
-        topic = meta.get("topic", "")
-        # Skip non-insight content types
-        if topic in ("audio", "screen", "event", "todo") or topic.startswith("entity:"):
-            continue
-        text = r["text"]
-        words = text.split()
-        if len(words) > 100:
-            text = " ".join(words[:100]) + " ..."
-        results.append(
-            {
-                "day": meta.get("day", ""),
-                "date": format_date(meta.get("day", "")),
-                "topic": topic,
-                "color": insights.get(topic, {}).get("color"),
-                "text": markdown.markdown(text, extensions=["extra"]),
-                "score": r.get("score", 0.0),
-            }
-        )
-
-    return jsonify({"total": total, "results": results})
-
-
-@search_bp.route("/api/events")
-def search_events_api() -> Any:
-    query = request.args.get("q", "").strip()
-    if not query:
-        return jsonify({"total": 0, "results": []})
-
-    from convey.utils import parse_pagination_params
-    from think.utils import get_insights
-
-    limit, offset = parse_pagination_params(default_limit=10)
-
-    insights = get_insights()
-    day = request.args.get("day")
-
-    # Search events only
-    total, rows = search_journal(query, limit, offset, day=day, topic="event")
+    total, rows = search_journal(query, limit, offset, day=day, topic=topic, facet=facet)
 
     results = []
     for r in rows:
         meta = r.get("metadata", {})
+        result_topic = meta.get("topic", "")
         text = r.get("text", "")
-        words = text.split()
-        if len(words) > 100:
-            text = " ".join(words[:100]) + " ..."
-        facet = meta.get("facet", "")
-        results.append(
-            {
-                "day": meta.get("day", ""),
-                "date": format_date(meta.get("day", "")),
-                "topic": "event",
-                "facet": facet,
-                "color": insights.get("event", {}).get("color"),
-                "text": markdown.markdown(text, extensions=["extra"]),
-                "score": r.get("score", 0.0),
-            }
-        )
 
-    return jsonify({"total": total, "results": results})
-
-
-@search_bp.route("/api/transcripts")
-def search_transcripts_api() -> Any:
-    query = request.args.get("q", "").strip()
-    if not query:
-        return jsonify({"total": 0, "results": []})
-
-    from convey.utils import parse_pagination_params
-
-    limit, offset = parse_pagination_params(default_limit=20)
-
-    day = request.args.get("day")
-    topic = request.args.get("topic")  # "audio" or "screen"
-
-    # Search transcripts (audio and screen topics)
-    # If no topic specified, search both audio and screen by not filtering
-    if topic:
-        total, rows = search_journal(query, limit, offset, day=day, topic=topic)
-    else:
-        # Search audio first, could extend to search both
-        total, rows = search_journal(query, limit, offset, day=day, topic="audio")
-
-    results = []
-    for r in rows:
-        meta = r.get("metadata", {})
-        text = r.get("text", "")
-        preview = re.sub(r"[^A-Za-z0-9]+", " ", text)
-        preview = re.sub(r"\s+", " ", preview).strip()
-        results.append(
-            {
-                "day": meta.get("day", ""),
-                "date": format_date(meta.get("day", "")),
-                "topic": meta.get("topic", ""),
-                "preview": preview,
-            }
-        )
+        # Format text based on topic type
+        if result_topic in ("audio", "screen"):
+            # Transcript-style: clean preview
+            preview = re.sub(r"[^A-Za-z0-9]+", " ", text)
+            preview = re.sub(r"\s+", " ", preview).strip()
+            results.append(
+                {
+                    "day": meta.get("day", ""),
+                    "date": format_date(meta.get("day", "")),
+                    "topic": result_topic,
+                    "facet": meta.get("facet", ""),
+                    "preview": preview,
+                    "score": r.get("score", 0.0),
+                }
+            )
+        else:
+            # Insight/event-style: markdown rendered
+            words = text.split()
+            if len(words) > 100:
+                text = " ".join(words[:100]) + " ..."
+            results.append(
+                {
+                    "day": meta.get("day", ""),
+                    "date": format_date(meta.get("day", "")),
+                    "topic": result_topic,
+                    "facet": meta.get("facet", ""),
+                    "color": insights.get(result_topic, {}).get("color"),
+                    "text": markdown.markdown(text, extensions=["extra"]),
+                    "score": r.get("score", 0.0),
+                }
+            )
 
     return jsonify({"total": total, "results": results})
 

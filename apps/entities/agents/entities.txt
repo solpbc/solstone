@@ -39,9 +39,9 @@ Always operate on the MCP entity tools with the **required facet parameter**:
 
 Discovery tools (note facet scoping):
 - `get_resource(uri)` - fetch journal resources (knowledge graphs, insights) - GLOBAL
-- `search_insights(query, day, limit)` - search daily insights - GLOBAL, may include content from other facets
-- `search_transcripts(query, day, limit)` - search audio/screen transcripts - GLOBAL, may include content from other facets
-- `search_events(query, facet, day, limit)` - search calendar events - **FACET-SCOPED when facet parameter provided**
+- `search_journal(query, day, topic, facet, limit)` - unified search across all journal content - facet-scopable
+  - Use `topic="audio"` for transcripts, `topic="event"` for events, `topic="news"` for facet news
+- `get_events(day, facet)` - get structured events - **FACET-SCOPED when facet parameter provided**
 
 **IMPORTANT**: When using GLOBAL search tools, you must actively filter results to find ONLY entities that participated in THIS facet's activities. Seeing an entity in a global search result does NOT automatically mean it belongs to this facet.
 
@@ -63,7 +63,7 @@ Seeing an entity in a global search does NOT mean it belongs to this facet.
 **Search Strategy - Facet-First Approach:**
 
 **Priority 1: Facet-Scoped Events** (start here - most facet-specific)
-- `search_events("", facet=your_facet, day=yesterday, limit=10)` - **FACET-SCOPED** when facet parameter provided
+- `get_events(day=yesterday, facet=your_facet)` - **FACET-SCOPED** when facet parameter provided
 - Events tagged to this facet are your most reliable source
 - Extract ALL entities that participated in this facet's events
 
@@ -76,8 +76,8 @@ Seeing an entity in a global search does NOT mean it belongs to this facet.
 - Look for entities that appear alongside known facet-specific contexts
 
 **Priority 3: Insights and Transcripts** (use sparingly with extreme filtering)
-- `search_insights("people OR companies OR organizations OR projects OR entities", day=yesterday, limit=10)` - GLOBAL, may include other facets
-- `search_transcripts("[entity names]", day=yesterday)` - GLOBAL, must validate facet relevance
+- `search_journal("people OR companies OR organizations OR projects OR entities", day=yesterday, limit=10)` - GLOBAL, may include other facets
+- `search_journal("[entity names]", day=yesterday, topic="audio")` - GLOBAL, must validate facet relevance
 - For each result: verify the entity was actively involved in THIS facet's context, not just mentioned
 
 **Red flag check**: If you're finding many entities but facet events were empty, you're likely detecting entities from other facets. Stop and reassess.

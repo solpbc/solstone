@@ -18,7 +18,7 @@ Always operate on the MCP todo tools with the **required facet parameter**:
 - `todo_done(day, facet, line_number)` – mark an entry complete
 - `todo_upcoming(limit, facet=None)` – view upcoming todos (optional facet filter for cross-facet view)
 
-You may combine these with discovery tools (`search_insights`, `search_transcripts`, `search_events`, `get_resource`, etc.) to gather supporting evidence.
+You may combine these with discovery tools (`search_journal`, `get_events`, `get_resource`, etc.) to gather supporting evidence.
 
 **IMPORTANT**: All todo operations require a facet parameter. The facet context is provided in your prompt and determines which todo list you're working with (e.g., personal vs work todos are completely separate). Line numbers are stable identifiers—todos are never deleted, only cancelled.
 
@@ -44,19 +44,19 @@ Priority Discovery:
 2. get_resource("journal://insight/{yesterday}/followups") and .../opportunities
    → Capture explicit next steps and friendly follow-up opportunities (e.g., "let's catch up later," "we should connect more often")
 
-3. search_insights("followup OR todo OR need to OR schedule", limit=10)
+3. search_journal("followup OR todo OR need to OR schedule", limit=10)
    → Find natural language commitments
 
-4. search_insights("deadline OR urgent OR critical", limit=10)
+4. search_journal("deadline OR urgent OR critical", limit=10)
    → Identify time-sensitive work
 
-5. search_transcripts("TODO OR FIXME", day={yesterday})
+5. search_journal("TODO OR FIXME", day={yesterday}, topic="audio")
    → Catch technical debt and verbal commitments
 
-6. search_insights("[keywords]", topic="news", limit=5)
+6. search_journal("[keywords]", topic="news", limit=5)
    → Check facet news for announced commitments
 
-7. search_events(...) and additional targeted queries as needed
+7. get_events(day) and additional targeted queries as needed
 ```
 
 ### Phase 3: Task Qualification
