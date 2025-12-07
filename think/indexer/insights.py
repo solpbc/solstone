@@ -6,9 +6,9 @@ import re
 import sqlite3
 from typing import Dict, List, Tuple
 
+from think.insights import chunk_markdown, render_chunk
 from think.utils import day_dirs, get_insight_topic, get_insights
 
-from .chunker import chunk_markdown, render_chunk
 from .core import _scan_files, get_index, sanitize_fts_query
 
 # Regex to match segment folder names (HHMMSS_LEN format)
@@ -18,11 +18,6 @@ SEGMENT_RE = re.compile(r"^\d{6}_\d+$")
 def _get_insight_topics() -> set[str]:
     """Return set of valid insight topic filenames (filesystem names)."""
     return {get_insight_topic(key) for key in get_insights().keys()}
-
-
-def split_chunks(text: str) -> List[str]:
-    """Return a list of rendered markdown chunks from text."""
-    return [render_chunk(c) for c in chunk_markdown(text)]
 
 
 def find_event_files(journal: str) -> Dict[str, str]:
@@ -135,7 +130,7 @@ def _index_chunks(conn: sqlite3.Connection, rel: str, path: str, verbose: bool) 
     logger = logging.getLogger(__name__)
     with open(path, "r", encoding="utf-8") as f:
         text = f.read()
-    chunks = split_chunks(text)
+    chunks = [render_chunk(c) for c in chunk_markdown(text)]
     if verbose:
         logger.info("  indexed %s chunks", len(chunks))
 

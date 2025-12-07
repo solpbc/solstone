@@ -1174,8 +1174,18 @@ class TestFormatEvents:
         from think.indexer.events import format_events
 
         entries = [
-            {"type": "meeting", "title": "Morning", "start": "09:00:00", "occurred": True},
-            {"type": "meeting", "title": "Afternoon", "start": "14:30:00", "occurred": True},
+            {
+                "type": "meeting",
+                "title": "Morning",
+                "start": "09:00:00",
+                "occurred": True,
+            },
+            {
+                "type": "meeting",
+                "title": "Afternoon",
+                "start": "14:30:00",
+                "occurred": True,
+            },
         ]
         context = {"file_path": "/journal/facets/work/events/20240101.jsonl"}
 
@@ -1254,3 +1264,140 @@ class TestFormatEvents:
 
         assert "Sprint planning" in chunks[0]["markdown"]
         assert "Discussed Q1 roadmap" in chunks[0]["markdown"]
+
+
+class TestFormatInsight:
+    """Tests for the markdown insight formatter."""
+
+    def test_get_formatter_markdown(self):
+        """Test pattern matching for .md files."""
+        from think.formatters import get_formatter
+
+        formatter = get_formatter("20240101/insights/flow.md")
+        assert formatter is not None
+        assert formatter.__name__ == "format_insight"
+
+    def test_get_formatter_segment_screen_md(self):
+        """Test pattern matching for segment screen.md files."""
+        from think.formatters import get_formatter
+
+        formatter = get_formatter("20240101/123456/screen.md")
+        assert formatter is not None
+        assert formatter.__name__ == "format_insight"
+
+    def test_get_formatter_nested_md(self):
+        """Test pattern matching for deeply nested .md files."""
+        from think.formatters import get_formatter
+
+        formatter = get_formatter("facets/work/news/20240101.md")
+        assert formatter is not None
+        assert formatter.__name__ == "format_insight"
+
+    def test_format_insight_basic(self):
+        """Test basic markdown formatting."""
+        from think.insights import format_insight
+
+        text = "# Hello\n\nThis is a paragraph.\n"
+        chunks, meta = format_insight(text)
+
+        assert len(chunks) == 1
+        assert "# Hello" in chunks[0]["markdown"]
+        assert "This is a paragraph" in chunks[0]["markdown"]
+        assert meta == {}
+
+    def test_format_insight_multiple_chunks(self):
+        """Test that lists are split into multiple chunks."""
+        from think.insights import format_insight
+
+        text = "# List\n\n- Item one\n- Item two\n- Item three\n"
+        chunks, meta = format_insight(text)
+
+        assert len(chunks) == 3
+        for chunk in chunks:
+            assert "# List" in chunk["markdown"]
+
+    def test_format_insight_no_timestamp(self):
+        """Test that markdown chunks don't have timestamp key."""
+        from think.insights import format_insight
+
+        text = "# Test\n\nSome content.\n"
+        chunks, meta = format_insight(text)
+
+        assert len(chunks) == 1
+        assert "markdown" in chunks[0]
+        assert "timestamp" not in chunks[0]
+
+    def test_format_insight_preserves_headers(self):
+        """Test that each chunk includes its header context."""
+        from think.insights import format_insight
+
+        text = "# Top\n\n## Section\n\nParagraph content.\n"
+        chunks, meta = format_insight(text)
+
+        assert len(chunks) == 1
+        assert "# Top" in chunks[0]["markdown"]
+        assert "## Section" in chunks[0]["markdown"]
+        assert "Paragraph content" in chunks[0]["markdown"]
+
+    def test_format_insight_definition_list(self):
+        """Test that definition lists stay as single chunk."""
+        from think.insights import format_insight
+
+        text = "# Info\n\n- **Name:** Alice\n- **Role:** Engineer\n"
+        chunks, meta = format_insight(text)
+
+        # Definition list stays together
+        assert len(chunks) == 1
+        assert "**Name:** Alice" in chunks[0]["markdown"]
+        assert "**Role:** Engineer" in chunks[0]["markdown"]
+
+    def test_format_insight_table_rows(self):
+        """Test that table rows become separate chunks."""
+        from think.insights import format_insight
+
+        text = """# Data
+
+| Name | Value |
+|------|-------|
+| A    | 1     |
+| B    | 2     |
+"""
+        chunks, meta = format_insight(text)
+
+        assert len(chunks) == 2
+        # Each chunk should have the header
+        for chunk in chunks:
+            assert "# Data" in chunk["markdown"]
+            assert "| Name | Value |" in chunk["markdown"]
+
+    def test_format_insight_code_block(self):
+        """Test that code blocks become chunks."""
+        from think.insights import format_insight
+
+        text = "# Code\n\n```python\nprint('hello')\n```\n"
+        chunks, meta = format_insight(text)
+
+        assert len(chunks) == 1
+        assert "```python" in chunks[0]["markdown"]
+        assert "print('hello')" in chunks[0]["markdown"]
+
+    def test_format_file_markdown(self):
+        """Test format_file with a markdown file."""
+        from think.formatters import format_file
+
+        path = Path(os.environ["JOURNAL_PATH"]) / "20240101/insights/flow.md"
+        chunks, meta = format_file(path)
+
+        assert len(chunks) > 0
+        assert all("markdown" in c for c in chunks)
+        assert meta == {}
+
+    def test_load_markdown(self):
+        """Test load_markdown utility."""
+        from think.formatters import load_markdown
+
+        path = Path(os.environ["JOURNAL_PATH"]) / "20240101/insights/flow.md"
+        text = load_markdown(path)
+
+        assert isinstance(text, str)
+        assert len(text) > 0

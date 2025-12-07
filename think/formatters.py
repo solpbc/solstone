@@ -1,21 +1,27 @@
-"""JSONL to Markdown formatters framework.
+"""Formatters framework for JSONL and Markdown files.
 
-This module provides a registry-based system for converting JSONL files
-to structured markdown chunks. Each formatter is a plain function that
-lives near its source domain code.
+This module provides a registry-based system for converting structured files
+to markdown chunks. Each formatter is a plain function that lives near its
+source domain code.
+
+Supported file types:
+    - JSONL (.jsonl): Parsed as JSON lines, passed as list[dict] to formatter
+    - Markdown (.md): Read as text, passed as str to formatter
 
 Output contract: All formatters return tuple[list[dict], dict] where:
-    - list[dict]: Timestamp-ordered chunks, each with:
-        - timestamp: int (unix timestamp or segment offset)
+    - list[dict]: Chunks, each with:
         - markdown: str (formatted markdown for this chunk)
+        - timestamp: int (optional - unix timestamp or segment offset)
     - dict: Metadata about the formatting with optional keys:
         - header: str - Optional header markdown (metadata summary, context, etc.)
         - error: str - Optional error/warning message (e.g., skipped entries)
 
-Formatters receive the raw JSONL entries and are responsible for:
+JSONL formatters receive list[dict] entries and are responsible for:
     - Extracting metadata from entries (typically first line)
     - Building header from metadata if applicable
     - Formatting content entries into chunks
+
+Markdown formatters receive str text and perform semantic chunking.
 """
 
 import argparse
@@ -34,6 +40,7 @@ from dotenv import load_dotenv
 # Order matters: first match wins, so place specific patterns before general ones
 # Note: agents/*_active.jsonl is excluded - only completed agents are formatted
 FORMATTERS: dict[str, tuple[str, str]] = {
+    # JSONL formatters
     "agents/*.jsonl": ("muse.cortex", "format_agent"),
     "facets/*/entities/*.jsonl": ("think.entities", "format_entities"),
     "facets/*/entities.jsonl": ("think.entities", "format_entities"),
@@ -42,6 +49,8 @@ FORMATTERS: dict[str, tuple[str, str]] = {
     "*/screen.jsonl": ("observe.reduce", "format_screen"),
     "*/*_audio.jsonl": ("observe.hear", "format_audio"),
     "*/audio.jsonl": ("observe.hear", "format_audio"),
+    # Markdown formatter (semantic chunking)
+    "**/*.md": ("think.insights", "format_insight"),
 }
 
 
@@ -99,19 +108,34 @@ def load_jsonl(file_path: str | Path) -> list[dict[str, Any]]:
     return entries
 
 
+def load_markdown(file_path: str | Path) -> str:
+    """Load text from a markdown file.
+
+    Args:
+        file_path: Absolute path to markdown file
+
+    Returns:
+        File contents as string
+    """
+    with open(file_path, "r", encoding="utf-8") as f:
+        return f.read()
+
+
 def format_file(
     file_path: str | Path,
     context: dict[str, Any] | None = None,
 ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
-    """Load JSONL, detect formatter, return formatted chunks and metadata.
+    """Load file, detect formatter, return formatted chunks and metadata.
+
+    Supports both JSONL and Markdown files. File type is detected by extension.
 
     Args:
-        file_path: Absolute path to JSONL file
+        file_path: Absolute path to file (.jsonl or .md)
         context: Optional context dict passed to formatter
 
     Returns:
         Tuple of (chunks, meta) where:
-            - chunks: List of {"timestamp": int, "markdown": str} dicts
+            - chunks: List of dicts with "markdown" key (and optional "timestamp")
             - meta: Dict with optional "header" and "error" keys
 
     Raises:
@@ -138,13 +162,44 @@ def format_file(
     if formatter is None:
         raise ValueError(f"No formatter found for: {rel_path}")
 
-    entries = load_jsonl(file_path)
+    # Load file based on extension
+    if file_path.suffix == ".md":
+        content = load_markdown(file_path)
+    else:
+        content = load_jsonl(file_path)
 
     # Build context with file path info
     ctx = context or {}
     ctx.setdefault("file_path", file_path)
 
-    return formatter(entries, ctx)
+    return formatter(content, ctx)
+
+
+def _format_chunk_summary(chunks: list[dict], raw_chunks: list[dict] | None) -> None:
+    """Print human-readable chunk summary (for markdown files with raw chunks)."""
+    print(f"Total chunks: {len(chunks)}\n")
+    for i, chunk in enumerate(chunks):
+        # Use raw chunk data if available, otherwise extract from markdown
+        if raw_chunks and i < len(raw_chunks):
+            c = raw_chunks[i]
+            chunk_type = c.get("type", "unknown")
+            header_path = c.get("header_path", [])
+            intro = c.get("intro")
+            preview = c.get("preview", "")
+        else:
+            chunk_type = "chunk"
+            header_path = []
+            intro = None
+            preview = chunk.get("markdown", "")[:70]
+
+        path = " > ".join(f"H{h['level']}:{h['text']}" for h in header_path)
+        print(f"#{i:3d} [{chunk_type:13s}]")
+        if path:
+            print(f"      path: {path}")
+        if intro:
+            print(f"      intro: \"{intro[:60]}{'...' if len(intro) > 60 else ''}\"")
+        print(f"      {preview[:70]}{'...' if len(preview) > 70 else ''}")
+        print()
 
 
 def main() -> None:
@@ -152,13 +207,26 @@ def main() -> None:
     from think.utils import setup_cli
 
     parser = argparse.ArgumentParser(
-        description="Convert JSONL files to formatted markdown"
+        description="Convert JSONL or Markdown files to formatted chunks"
     )
-    parser.add_argument("file", help="Path to JSONL file")
+    parser.add_argument("file", help="Path to JSONL or Markdown file")
+    parser.add_argument(
+        "-f",
+        "--format",
+        choices=["json", "markdown", "summary"],
+        default="json",
+        help="Output format (default: json)",
+    )
+    parser.add_argument(
+        "-i",
+        "--index",
+        type=int,
+        help="Show only the chunk at this index",
+    )
     parser.add_argument(
         "--join",
         action="store_true",
-        help="Output concatenated markdown instead of JSON chunks",
+        help="Output concatenated markdown (shorthand for --format=markdown)",
     )
     parser.add_argument(
         "--context",
@@ -166,6 +234,10 @@ def main() -> None:
         help="JSON string of context to pass to formatter",
     )
     args = setup_cli(parser)
+
+    # --join is shorthand for --format=markdown
+    if args.join:
+        args.format = "markdown"
 
     try:
         context = json.loads(args.context) if args.context else None
@@ -179,13 +251,36 @@ def main() -> None:
         print(f"Error: {e}", file=sys.stderr)
         sys.exit(1)
 
-    if args.join:
+    # For summary format on markdown files, get raw chunks with metadata
+    raw_chunks = None
+    if args.format == "summary" and args.file.endswith(".md"):
+        from think.insights import chunk_markdown
+
+        text = load_markdown(args.file)
+        raw_chunks = chunk_markdown(text)
+
+    # Filter to single chunk if requested
+    if args.index is not None:
+        if 0 <= args.index < len(chunks):
+            chunks = [chunks[args.index]]
+            if raw_chunks:
+                raw_chunks = [raw_chunks[args.index]]
+        else:
+            print(
+                f"Error: Index {args.index} out of range (0-{len(chunks) - 1})",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+
+    if args.format == "markdown":
         # Output concatenated markdown with header first
         parts = []
         if meta.get("header"):
             parts.append(meta["header"])
         parts.extend(chunk["markdown"] for chunk in chunks)
         print("\n".join(parts))
+    elif args.format == "summary":
+        _format_chunk_summary(chunks, raw_chunks)
     else:
         # Output JSON object with metadata and chunks
         print(json.dumps({"meta": meta, "chunks": chunks}, indent=2))
