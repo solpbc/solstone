@@ -1,14 +1,13 @@
 from __future__ import annotations
 
 import re
-from collections import defaultdict
 from typing import Any
 
 from flask import Blueprint, jsonify, request
 
 from convey.utils import format_date
 from think.facets import get_facets
-from think.indexer.journal import search_journal
+from think.indexer.journal import search_counts, search_journal
 
 search_bp = Blueprint(
     "app:search",
@@ -54,11 +53,9 @@ def _parse_facet_filter() -> str | None:
     return request.args.get("facet", "").strip() or None
 
 
-def _parse_topic_filters() -> list[str] | None:
-    """Parse topic filters from request args (comma-separated)."""
-    topics_param = request.args.get("topics", "").strip()
-    filters = [t.strip() for t in topics_param.split(",") if t.strip()]
-    return filters or None
+def _parse_topic_filter() -> str | None:
+    """Parse single topic filter from request args."""
+    return request.args.get("topic", "").strip() or None
 
 
 def _highlight_query_terms(text: str, query: str) -> str:
@@ -129,8 +126,8 @@ def search_journal_api() -> Any:
         q: Search query (required)
         limit: Max results per day (default 5)
         offset: Day offset for pagination (default 0)
-        facet: Filter by facet name (optional)
-        topics: Comma-separated topic filter (optional)
+        facet: Filter by facet name (optional, empty string for no-facet items)
+        topic: Filter by single topic (optional)
 
     Returns:
         JSON with:
@@ -145,64 +142,41 @@ def search_journal_api() -> Any:
     results_per_day = int(request.args.get("limit", 5))
     day_offset = int(request.args.get("offset", 0))
     facet_filter = _parse_facet_filter()
-    topic_filters = _parse_topic_filters()
+    topic_filter = _parse_topic_filter()
 
     # Load facet metadata for enriching results
     facets_map = get_facets()
 
-    # First, get all results to compute aggregations
-    # We fetch more to enable grouping and counts
-    total, all_rows = search_journal(
-        query,
-        limit=500,  # Reasonable cap for aggregation
-        offset=0,
-        facet=facet_filter,
-        topic=None,  # We filter topics client-side for multi-select
-    )
+    # Get aggregation counts efficiently (lightweight query, no content)
+    # First get unfiltered counts for sidebar display
+    base_counts = search_counts(query)
+    facet_counts = dict(base_counts["facets"])
+    topic_counts = dict(base_counts["topics"])
 
-    # Compute facet/topic counts BEFORE filtering (for sidebar)
-    facet_counts: dict[str, int] = defaultdict(int)
-    topic_counts: dict[str, int] = defaultdict(int)
-    for r in all_rows:
-        meta = r.get("metadata", {})
-        f = meta.get("facet", "")
-        t = meta.get("topic", "")
-        if f:
-            facet_counts[f] += 1
-        if t:
-            topic_counts[t] += 1
+    # Get filtered counts for results
+    filtered_counts = search_counts(query, facet=facet_filter, topic=topic_filter)
+    day_counts = dict(filtered_counts["days"])
 
-    # Filter by topics if specified (after computing counts)
-    if topic_filters:
-        all_rows = [
-            r for r in all_rows if r.get("metadata", {}).get("topic") in topic_filters
-        ]
-
-    # Group results by day
-    by_day: dict[str, list[dict]] = defaultdict(list)
-    for r in all_rows:
-        day = r.get("metadata", {}).get("day", "")
-        if day:
-            by_day[day].append(r)
-
-    # Sort days descending (most recent first)
-    sorted_days = sorted(by_day.keys(), reverse=True)
+    # Determine which days to show (sorted descending)
+    sorted_days = sorted(day_counts.keys(), reverse=True)
 
     # Apply day pagination
     paginated_days = sorted_days[day_offset : day_offset + 20]
 
-    # Build day groups with capped results
+    # Fetch results for each paginated day
     days_response = []
     for day in paginated_days:
-        day_results = by_day[day]
-        total_in_day = len(day_results)
+        _, day_results = search_journal(
+            query,
+            limit=results_per_day,
+            offset=0,
+            day=day,
+            facet=facet_filter,
+            topic=topic_filter,
+        )
+        total_in_day = day_counts.get(day, 0)
 
-        # Cap results per day
-        capped_results = day_results[:results_per_day]
-
-        formatted_results = [
-            _format_result(r, query, facets_map) for r in capped_results
-        ]
+        formatted_results = [_format_result(r, query, facets_map) for r in day_results]
 
         days_response.append(
             {
@@ -215,7 +189,7 @@ def search_journal_api() -> Any:
             }
         )
 
-    # Build facet list for sidebar with counts
+    # Build facet list for sidebar with counts (unfiltered counts for discovery)
     facets_list = []
     for name, data in facets_map.items():
         if data.get("muted"):
@@ -232,7 +206,7 @@ def search_journal_api() -> Any:
     # Sort by count descending
     facets_list.sort(key=lambda x: x["count"], reverse=True)
 
-    # Build topic list for sidebar
+    # Build topic list for sidebar (unfiltered counts for discovery)
     topics_list = []
     for topic, count in sorted(topic_counts.items(), key=lambda x: -x[1]):
         topics_list.append(
@@ -246,7 +220,7 @@ def search_journal_api() -> Any:
 
     return jsonify(
         {
-            "total": len(all_rows),
+            "total": filtered_counts["total"],
             "total_days": len(sorted_days),
             "showing_days": len(days_response),
             "days": days_response,
@@ -266,7 +240,7 @@ def day_results_api() -> Any:
         offset: Result offset within the day (default 0)
         limit: Max results (default 20)
         facet: Facet filter (optional)
-        topics: Comma-separated topic filter (optional)
+        topic: Single topic filter (optional)
     """
     query = request.args.get("q", "").strip()
     day = request.args.get("day", "").strip()
@@ -276,27 +250,25 @@ def day_results_api() -> Any:
     offset = int(request.args.get("offset", 0))
     limit = int(request.args.get("limit", 20))
     facet_filter = _parse_facet_filter()
-    topic_filters = _parse_topic_filters()
+    topic_filter = _parse_topic_filter()
 
     facets_map = get_facets()
 
-    # Search within the specific day
-    total, rows = search_journal(
+    # Get total count for this day with filters
+    counts = search_counts(query, day=day, facet=facet_filter, topic=topic_filter)
+    total_in_day = counts["total"]
+
+    # Fetch paginated results
+    _, rows = search_journal(
         query,
-        limit=200,  # Get all for this day
-        offset=0,
+        limit=limit,
+        offset=offset,
         day=day,
         facet=facet_filter,
+        topic=topic_filter,
     )
 
-    # Filter by topics
-    if topic_filters:
-        rows = [r for r in rows if r.get("metadata", {}).get("topic") in topic_filters]
-
-    total_in_day = len(rows)
-    paginated = rows[offset : offset + limit]
-
-    formatted = [_format_result(r, query, facets_map) for r in paginated]
+    formatted = [_format_result(r, query, facets_map) for r in rows]
 
     return jsonify(
         {

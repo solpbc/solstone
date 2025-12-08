@@ -51,8 +51,7 @@
   font-weight: 500;
 }
 
-.filter-item input[type="radio"],
-.filter-item input[type="checkbox"] {
+.filter-item input[type="radio"] {
   margin: 0;
   accent-color: #2563eb;
 }
@@ -368,7 +367,7 @@
   // State
   let currentQuery = '';
   let currentFacet = '';
-  let currentTopics = new Set();
+  let currentTopic = '';
   let dayOffset = 0;
 
   // DOM elements
@@ -389,17 +388,12 @@
     const hashParams = new URLSearchParams(window.location.hash.slice(1));
     const q = hashParams.get('q') || '';
     const f = hashParams.get('facet') || '';
-    const t = hashParams.get('topics') || '';
-    const newTopics = new Set(t ? t.split(',') : []);
+    const t = hashParams.get('topic') || '';
 
-    // Check if topics changed (compare sets)
-    const topicsChanged = currentTopics.size !== newTopics.size ||
-      ![...currentTopics].every(x => newTopics.has(x));
-
-    if (q !== currentQuery || f !== currentFacet || topicsChanged) {
+    if (q !== currentQuery || f !== currentFacet || t !== currentTopic) {
       currentQuery = q;
       currentFacet = f;
-      currentTopics = newTopics;
+      currentTopic = t;
       queryInput.value = q;
 
       if (q) {
@@ -412,7 +406,7 @@
     const params = new URLSearchParams();
     if (currentQuery) params.set('q', currentQuery);
     if (currentFacet) params.set('facet', currentFacet);
-    if (currentTopics.size > 0) params.set('topics', Array.from(currentTopics).join(','));
+    if (currentTopic) params.set('topic', currentTopic);
     window.location.hash = params.toString();
   }
 
@@ -448,7 +442,7 @@
     url.searchParams.set('q', currentQuery);
     url.searchParams.set('offset', dayOffset);
     if (currentFacet) url.searchParams.set('facet', currentFacet);
-    if (currentTopics.size > 0) url.searchParams.set('topics', Array.from(currentTopics).join(','));
+    if (currentTopic) url.searchParams.set('topic', currentTopic);
 
     fetch(url)
       .then(r => r.json())
@@ -510,13 +504,18 @@
       };
     });
 
-    // Render topic filters
-    let topicHtml = '';
+    // Render topic filters (radio buttons for single-select)
+    let topicHtml = `
+      <label class="filter-item ${!currentTopic ? 'active' : ''}">
+        <input type="radio" name="topic" value="" ${!currentTopic ? 'checked' : ''}>
+        <span class="filter-label">All</span>
+      </label>
+    `;
     for (const t of topics) {
-      const isChecked = currentTopics.size === 0 || currentTopics.has(t.name);
+      const isActive = currentTopic === t.name;
       topicHtml += `
-        <label class="filter-item ${isChecked ? 'active' : ''}">
-          <input type="checkbox" value="${escapeHtml(t.name)}" ${isChecked ? 'checked' : ''}>
+        <label class="filter-item ${isActive ? 'active' : ''}">
+          <input type="radio" name="topic" value="${escapeHtml(t.name)}" ${isActive ? 'checked' : ''}>
           <span class="filter-icon">${t.icon}</span>
           <span class="filter-label">${escapeHtml(t.label)}</span>
           <span class="filter-count">${t.count}</span>
@@ -526,24 +525,12 @@
     topicList.innerHTML = topicHtml;
 
     // Add topic change handlers
-    topicList.querySelectorAll('input[type="checkbox"]').forEach(input => {
+    topicList.querySelectorAll('input[type="radio"]').forEach(input => {
       input.onchange = function() {
-        const allCheckboxes = topicList.querySelectorAll('input[type="checkbox"]');
-        const checkedBoxes = topicList.querySelectorAll('input[type="checkbox"]:checked');
-
-        // If all or none are checked, treat as "all"
-        if (checkedBoxes.length === allCheckboxes.length || checkedBoxes.length === 0) {
-          currentTopics = new Set();
-        } else {
-          currentTopics = new Set(Array.from(checkedBoxes).map(cb => cb.value));
-        }
-
-        // Update active states
+        currentTopic = this.value;
         topicList.querySelectorAll('.filter-item').forEach(item => {
-          const cb = item.querySelector('input');
-          item.classList.toggle('active', cb.checked);
+          item.classList.toggle('active', item.querySelector('input').value === currentTopic);
         });
-
         updateHash();
         doSearch(true);
       };
@@ -646,7 +633,7 @@
     url.searchParams.set('offset', currentOffset);
     url.searchParams.set('limit', 20);
     if (currentFacet) url.searchParams.set('facet', currentFacet);
-    if (currentTopics.size > 0) url.searchParams.set('topics', Array.from(currentTopics).join(','));
+    if (currentTopic) url.searchParams.set('topic', currentTopic);
 
     fetch(url)
       .then(r => r.json())
@@ -687,7 +674,7 @@
   }
 
   function updateLoadMoreButton(data) {
-    totalDays = data.total_days;
+    const totalDays = data.total_days;
     const shownDays = dayOffset + data.showing_days;
 
     if (shownDays < totalDays) {
