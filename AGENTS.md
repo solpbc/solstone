@@ -215,7 +215,7 @@ make check-all   # Format, lint, and test (run before commit)
 * **Conciseness & Maintainability**: Clear code over clever code
 * **Security**: Never expose secrets, validate/sanitize all inputs
 * **Performance**: Profile before optimizing
-* **Git**: Small focused commits, descriptive branch names
+* **Git**: Small focused commits, descriptive branch names. Run git commands directly (not `git -C`) since you're already in the repo.
 
 ---
 
