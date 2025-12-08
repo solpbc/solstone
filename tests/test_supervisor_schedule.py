@@ -34,11 +34,8 @@ async def test_spawn_scheduled_agents(mock_get_agents, mock_cortex_request):
         },
     }
 
-    # Mock cortex_request to return file paths
-    mock_cortex_request.side_effect = [
-        "/test/journal/agents/123456789_active.jsonl",
-        "/test/journal/agents/987654321_active.jsonl",
-    ]
+    # Mock cortex_request to return agent IDs
+    mock_cortex_request.side_effect = ["123456789", "987654321"]
 
     # Call the functions (prepare then execute)
     with patch.dict(os.environ, {"JOURNAL_PATH": "/test/journal"}, clear=True):

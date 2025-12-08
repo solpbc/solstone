@@ -258,7 +258,7 @@ class CortexService:
             # Validate request format
             if request.get("event") != "request":
                 self._write_error_and_complete(file_path, "Invalid request format")
-                self.logger.error(f"Invalid request format: missing 'request' event")
+                self.logger.error("Invalid request format: missing 'request' event")
                 return
 
             # Validate prompt early
@@ -726,7 +726,7 @@ class CortexService:
             extra_config = handoff_config or None
 
             # Use cortex_request to create the handoff agent
-            active_path = cortex_request(
+            agent_id = cortex_request(
                 prompt=prompt,
                 persona=persona,
                 backend=backend,
@@ -734,7 +734,7 @@ class CortexService:
                 config=extra_config,
             )
 
-            self.logger.info(f"Spawned handoff agent {active_path} from {parent_id}")
+            self.logger.info(f"Spawned handoff agent {agent_id} from {parent_id}")
 
         except Exception as e:
             self.logger.error(f"Failed to spawn handoff agent: {e}")
@@ -813,7 +813,7 @@ def format_agent(
     from datetime import datetime
     from typing import Any
 
-    ctx = context or {}
+    _ = context  # Reserved for future context support
     meta: dict[str, Any] = {}
     chunks: list[dict[str, Any]] = []
     skipped_count = 0

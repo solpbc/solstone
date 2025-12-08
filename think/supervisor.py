@@ -391,6 +391,9 @@ async def check_scheduled_agents() -> None:
         priority, agents_list = state["pending_groups"].pop(0)
         logging.info(f"Starting priority {priority} agents ({len(agents_list)} agents)")
 
+        # Get agents directory for tracking active files
+        agents_dir = _get_journal_path() / "agents"
+
         active_files = []
         for persona_id, config, yesterday in agents_list:
             try:
@@ -412,23 +415,21 @@ async def check_scheduled_agents() -> None:
                         )
                     for facet_name in enabled_facets.keys():
                         logging.info(f"Spawning {persona_id} for facet: {facet_name}")
-                        request_file = cortex_request(
+                        agent_id = cortex_request(
                             prompt=f"You are processing facet '{facet_name}' for yesterday ({yesterday}), use get_facet('{facet_name}') to load the correct context before starting.",
                             persona=persona_id,
                         )
-                        active_files.append(Path(request_file))
-                        agent_id = Path(request_file).stem.replace("_active", "")
+                        active_files.append(agents_dir / f"{agent_id}_active.jsonl")
                         logging.info(
                             f"Started {persona_id} for {facet_name} (ID: {agent_id})"
                         )
                 else:
                     # Regular single-instance agent
-                    request_file = cortex_request(
+                    agent_id = cortex_request(
                         prompt=f"Running daily scheduled task for {persona_id}, yesterday was {yesterday}.",
                         persona=persona_id,
                     )
-                    active_files.append(Path(request_file))
-                    agent_id = Path(request_file).stem.replace("_active", "")
+                    active_files.append(agents_dir / f"{agent_id}_active.jsonl")
                     logging.info(f"Started {persona_id} agent (ID: {agent_id})")
             except Exception as e:
                 logging.error(f"Failed to spawn {persona_id}: {e}")
