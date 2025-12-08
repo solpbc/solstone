@@ -19,7 +19,7 @@ Sunstone transforms raw recordings into actionable understanding through a three
 │  (JSON/JSONL files)                 │  "What happened"
 │  - audio.jsonl (transcripts)        │
 │  - screen.jsonl (frame analysis)    │
-│  - occurrences.json (events)        │
+│  - events/*.jsonl (per-facet)       │
 └─────────────────────────────────────┘
          ↑ derived from
 ┌─────────────────────────────────────┐
@@ -37,7 +37,7 @@ Sunstone transforms raw recordings into actionable understanding through a three
 | Term | Definition | Examples |
 |------|------------|----------|
 | **Capture** | Raw audio/video recording | `*.flac`, `*.webm` |
-| **Extract** | Structured data from captures | `*.jsonl`, `occurrences.json` |
+| **Extract** | Structured data from captures | `*.jsonl` |
 | **Insight** | AI-generated narrative summary | `insights/*.md`, `screen.md` |
 
 **Organization**
@@ -522,41 +522,33 @@ The vision analysis uses multi-stage conditional processing:
 2. Text extraction triggered for categories: messaging, browsing, reading, productivity
 3. Meeting analysis triggered for meeting category, provides full-screen participant detection with entity recognition
 
-#### Occurrence extracts
+#### Event extracts
 
-Insight generation prompts extract time-based events from the day's transcripts—meetings, messages, follow-ups, file activity and more. These are normalized into an **occurrence** container stored as `occurrences.json` inside each day folder.
+Insight generation extracts time-based events from the day's transcripts—meetings, messages, follow-ups, file activity and more. Events are stored per-facet in JSONL files at `facets/{facet}/events/{day}.jsonl`.
 
-```json
-{
-  "day": "YYYYMMDD",
-  "occurrences": [
-    {
-      "type": "meeting",
-      "source": "insights/meetings.md",
-      "start": "09:00:00",
-      "end": "09:30:00",
-      "title": "Team stand-up",
-      "summary": "Status update with the engineering team",
-      "facet": "work",
-      "work": true,
-      "participants": ["Jeremie Miller", "Alice", "Bob"],
-      "details": {...}
-    }
-  ]
-}
+There are two types of events:
+- **Occurrences** – events that happened on the capture day (`occurred: true`)
+- **Anticipations** – future scheduled events extracted from calendar views (`occurred: false`)
+
+```jsonl
+{"type": "meeting", "start": "09:00:00", "end": "09:30:00", "title": "Team stand-up", "summary": "Status update with the engineering team", "work": true, "participants": ["Jeremie Miller", "Alice", "Bob"], "facet": "work", "topic": "meetings", "occurred": true, "source": "20250101/insights/meetings.md", "details": "Sprint planning discussion"}
+{"type": "deadline", "date": "2025-01-15", "start": null, "end": null, "title": "Project milestone", "summary": "Q1 deliverable due", "work": true, "participants": [], "facet": "work", "topic": "schedule", "occurred": false, "source": "20250101/insights/schedule.md", "details": "Final review before release"}
 ```
 
 **Common fields:**
-- **type** – the kind of occurrence such as `meeting`, `message`, `file`, `followup`, `documentation`, `research`, `media`, etc.
-- **source** – the insight file the occurrence was extracted from
-- **start** and **end** – HH:MM:SS timestamps containing the occurrence
+- **type** – event kind: `meeting`, `message`, `file`, `followup`, `documentation`, `research`, `media`, `deadline`, `appointment`, etc.
+- **start** and **end** – HH:MM:SS timestamps (or `null` for anticipations without specific times)
+- **date** – ISO date YYYY-MM-DD (anticipations only, indicates scheduled date)
 - **title** and **summary** – short text for display and search
-- **facet** – facet name the occurrence is associated with (e.g., "work", "personal", "ml_research")
-- **work** – boolean, work vs. personal classification when known
+- **facet** – facet name the event belongs to (required)
+- **topic** – source insight type (e.g., "meetings", "schedule", "flow")
+- **occurred** – `true` for occurrences, `false` for anticipations
+- **source** – path to the insight file that generated this event
+- **work** – boolean, work vs. personal classification
 - **participants** – optional list of people or entities involved
-- **details** – free-form object with occurrence-specific information
+- **details** – free-form string with additional context
 
-This structure allows the indexer to collect and search occurrences across all days.
+This structure allows the indexer to collect and search events across all facets and days.
 
 ### Layer 3: Insights
 

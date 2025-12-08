@@ -457,7 +457,7 @@ def main() -> None:
             return
 
         # Determine which prompt to use: anticipations or occurrences
-        prompt_name = "anticipate" if do_anticipations else "summarize"
+        prompt_name = "anticipation" if do_anticipations else "occurrence"
 
         # Load the appropriate extraction prompt
         try:

@@ -46,9 +46,9 @@ def calendar_day(day: str) -> str:
     )
 
 
-@calendar_bp.route("/api/day/<day>/occurrences")
-def calendar_day_occurrences(day: str) -> Any:
-    """Return occurrences for a specific day using the events index."""
+@calendar_bp.route("/api/day/<day>/events")
+def calendar_day_events(day: str) -> Any:
+    """Return events for a specific day from facet event logs."""
     if not re.fullmatch(DATE_RE.pattern, day):
         return "", 404
 
@@ -58,15 +58,15 @@ def calendar_day_occurrences(day: str) -> Any:
     insights = get_insights()
 
     # Get full event objects from source files
-    events = get_events(day)
+    raw_events = get_events(day)
 
     # Transform events into timeline format
-    occurrences = []
-    for event in events:
+    result = []
+    for event in raw_events:
         topic = event.get("topic", "other")
         topic_color = insights.get(topic, {}).get("color", "#6c757d")
 
-        occurrence = {
+        formatted = {
             "title": event.get("title", ""),
             "summary": event.get("summary", ""),
             "subject": event.get("subject", ""),
@@ -79,13 +79,13 @@ def calendar_day_occurrences(day: str) -> Any:
 
         # Convert time strings to ISO timestamps
         if event.get("start"):
-            occurrence["startTime"] = f"{day[:4]}-{day[4:6]}-{day[6:]}T{event['start']}"
+            formatted["startTime"] = f"{day[:4]}-{day[4:6]}-{day[6:]}T{event['start']}"
         if event.get("end"):
-            occurrence["endTime"] = f"{day[:4]}-{day[4:6]}-{day[6:]}T{event['end']}"
+            formatted["endTime"] = f"{day[:4]}-{day[4:6]}-{day[6:]}T{event['end']}"
 
-        occurrences.append(occurrence)
+        result.append(formatted)
 
-    return jsonify(occurrences)
+    return jsonify(result)
 
 
 @calendar_bp.route("/api/stats/<month>")

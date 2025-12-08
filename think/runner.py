@@ -430,10 +430,10 @@ def run_task(
 
     Example:
         success, code = run_task(
-            ["think-summarize", "20241101"],
+            ["think-insight", "20241101", "-f", "flow"],
             timeout=300,
         )
-        # Logs to: {JOURNAL}/{YYYYMMDD}/health/{ref}_think-summarize.log
+        # Logs to: {JOURNAL}/{YYYYMMDD}/health/{ref}_think-insight.log
 
         # With explicit correlation ID:
         success, code = run_task(

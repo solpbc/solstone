@@ -9,7 +9,7 @@ from think.utils import day_log, day_path, get_insights, setup_cli
 
 def run_command(cmd: list[str], day: str) -> bool:
     logging.info("==> %s", " ".join(cmd))
-    # Extract command name for logging (e.g., "think-summarize" -> "summarize")
+    # Extract command name for logging (e.g., "think-insight" -> "insight")
     cmd_name = cmd[0].replace("think-", "").replace("-", "_")
 
     # Use unified runner with automatic logging

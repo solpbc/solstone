@@ -286,7 +286,7 @@
   }
 
   function loadEvents() {
-    fetch(`/app/calendar/api/day/${day}/occurrences`)
+    fetch(`/app/calendar/api/day/${day}/events`)
       .then(r => r.json())
       .then(d => {
         allEvents = d || [];
