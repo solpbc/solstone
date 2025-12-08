@@ -6,10 +6,12 @@ From yesterday's "Top 10 Decision-Actions" list, you will:
 4. Produce actionable dossiers with specific remedies
 
 ## Available MCP Tools
-- `search_journal(query, day, topic, facet, limit)` - Search all journal content
+- `search_journal(query, day, day_from, day_to, topic, facet, limit)` - Search all journal content
   - Use `topic="audio"` for transcript searches
   - Use `topic="event"` for event searches
   - Use `topic="news"` with facet filter for announcements
+  - Use `day_from`/`day_to` for date ranges (e.g., 30-day lookback)
+  - Returns `counts` with facet/topic/day aggregations for discovery
 - `get_events(day, facet)` - Get structured events with full data
 - `get_resource(uri)` - Retrieve full transcripts or insights
   - `journal://transcripts/full/{day}/{time}/{minutes}` - Full transcripts (audio + raw screen)

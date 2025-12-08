@@ -301,10 +301,20 @@ def sanitize_fts_query(query: str) -> str:
 def _build_where_clause(
     query: str,
     day: str | None = None,
+    day_from: str | None = None,
+    day_to: str | None = None,
     facet: str | None = None,
     topic: str | None = None,
 ) -> tuple[str, list[Any]]:
     """Build WHERE clause and params for FTS5 search.
+
+    Args:
+        query: FTS5 search query
+        day: Filter by exact day (YYYYMMDD) - mutually exclusive with day_from/day_to
+        day_from: Filter by date range start (YYYYMMDD, inclusive)
+        day_to: Filter by date range end (YYYYMMDD, inclusive)
+        facet: Filter by facet name
+        topic: Filter by topic
 
     Returns:
         Tuple of (where_clause, params)
@@ -320,6 +330,13 @@ def _build_where_clause(
     if day:
         where_clause += " AND day=?"
         params.append(day)
+    elif day_from or day_to:
+        if day_from:
+            where_clause += " AND day>=?"
+            params.append(day_from)
+        if day_to:
+            where_clause += " AND day<=?"
+            params.append(day_to)
     if facet:
         where_clause += " AND facet=?"
         params.append(facet)
@@ -336,6 +353,8 @@ def search_journal(
     offset: int = 0,
     *,
     day: str | None = None,
+    day_from: str | None = None,
+    day_to: str | None = None,
     facet: str | None = None,
     topic: str | None = None,
 ) -> tuple[int, list[dict[str, Any]]]:
@@ -346,7 +365,9 @@ def search_journal(
             quotes for exact phrases, * for prefix match. Empty string returns all.
         limit: Maximum results to return
         offset: Number of results to skip for pagination
-        day: Filter by day (YYYYMMDD)
+        day: Filter by exact day (YYYYMMDD) - mutually exclusive with day_from/day_to
+        day_from: Filter by date range start (YYYYMMDD, inclusive)
+        day_to: Filter by date range end (YYYYMMDD, inclusive)
         facet: Filter by facet name
         topic: Filter by topic (e.g., "flow", "audio", "event")
 
@@ -358,7 +379,9 @@ def search_journal(
             - score: BM25 relevance score
     """
     conn, _ = get_journal_index()
-    where_clause, params = _build_where_clause(query, day, facet, topic)
+    where_clause, params = _build_where_clause(
+        query, day, day_from, day_to, facet, topic
+    )
 
     # Get total count
     total = conn.execute(
@@ -400,6 +423,8 @@ def search_counts(
     query: str,
     *,
     day: str | None = None,
+    day_from: str | None = None,
+    day_to: str | None = None,
     facet: str | None = None,
     topic: str | None = None,
 ) -> dict[str, Any]:
@@ -409,7 +434,9 @@ def search_counts(
 
     Args:
         query: FTS5 search query (empty string for all)
-        day: Filter by day (YYYYMMDD)
+        day: Filter by exact day (YYYYMMDD) - mutually exclusive with day_from/day_to
+        day_from: Filter by date range start (YYYYMMDD, inclusive)
+        day_to: Filter by date range end (YYYYMMDD, inclusive)
         facet: Filter by facet name
         topic: Filter by topic
 
@@ -423,7 +450,9 @@ def search_counts(
     from collections import Counter
 
     conn, _ = get_journal_index()
-    where_clause, params = _build_where_clause(query, day, facet, topic)
+    where_clause, params = _build_where_clause(
+        query, day, day_from, day_to, facet, topic
+    )
 
     rows = conn.execute(
         f"SELECT facet, topic, day FROM chunks WHERE {where_clause}", params

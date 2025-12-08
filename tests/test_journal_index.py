@@ -357,3 +357,127 @@ def test_search_journal_pagination(journal_fixture):
         ids1 = {r["id"] for r in results1}
         ids2 = {r["id"] for r in results2}
         assert ids1 != ids2
+
+
+def test_search_journal_date_range(journal_fixture):
+    """Test filtering search by date range."""
+    from think.indexer.journal import scan_journal, search_journal
+
+    scan_journal(str(journal_fixture))
+
+    # Search with date range that includes our test day
+    total, results = search_journal("", day_from="20240101", day_to="20240101")
+    assert total >= 1
+    for r in results:
+        assert r["metadata"]["day"] == "20240101"
+
+    # Search with date range that excludes our test day
+    total, results = search_journal("", day_from="20240102", day_to="20240105")
+    assert total == 0
+
+
+def test_search_counts_date_range(journal_fixture):
+    """Test search_counts with date range filtering."""
+    from think.indexer.journal import scan_journal, search_counts
+
+    scan_journal(str(journal_fixture))
+
+    # Counts with date range including test data
+    counts = search_counts("", day_from="20240101", day_to="20240101")
+    assert counts["total"] >= 1
+    assert "20240101" in counts["days"]
+
+    # Counts with date range excluding test data
+    counts = search_counts("", day_from="20240102", day_to="20240105")
+    assert counts["total"] == 0
+
+
+def test_mcp_search_journal_returns_counts():
+    """Test MCP wrapper returns counts aggregation."""
+    from muse.tools.search import search_journal
+
+    # Use fixtures journal
+    os.environ["JOURNAL_PATH"] = "fixtures/journal"
+
+    result = search_journal("test")
+
+    # Should have counts structure
+    assert "counts" in result
+    counts = result["counts"]
+    assert "facets" in counts
+    assert "topics" in counts
+    assert "recent_days" in counts
+    assert "top_days" in counts
+    assert "bucketed_days" in counts
+
+    # recent_days should have 7 entries (including zeros)
+    assert len(counts["recent_days"]) == 7
+
+
+def test_mcp_search_journal_returns_query_echo():
+    """Test MCP wrapper returns query echo."""
+    from muse.tools.search import search_journal
+
+    os.environ["JOURNAL_PATH"] = "fixtures/journal"
+
+    result = search_journal("test query", facet="work", topic="audio")
+
+    assert "query" in result
+    assert result["query"]["text"] == "test query"
+    assert result["query"]["filters"]["facet"] == "work"
+    assert result["query"]["filters"]["topic"] == "audio"
+
+
+def test_mcp_search_journal_results_include_path():
+    """Test MCP wrapper results include path and idx."""
+    from muse.tools.search import search_journal
+
+    os.environ["JOURNAL_PATH"] = "fixtures/journal"
+
+    result = search_journal("")
+
+    if result.get("results"):
+        item = result["results"][0]
+        assert "path" in item
+        assert "idx" in item
+
+
+def test_bucket_day_counts():
+    """Test day bucketing logic."""
+    from datetime import datetime, timedelta
+
+    from muse.tools.search import _bucket_day_counts
+
+    today = datetime.now()
+
+    # Create test data with various dates
+    day_counts = {}
+
+    # Add recent days (within last 7 days)
+    for i in range(3):
+        d = (today - timedelta(days=i)).strftime("%Y%m%d")
+        day_counts[d] = 5 + i
+
+    # Add older days (more than 7 days ago)
+    for i in range(10, 25):
+        d = (today - timedelta(days=i)).strftime("%Y%m%d")
+        day_counts[d] = 2
+
+    result = _bucket_day_counts(day_counts)
+
+    # recent_days should have 7 entries
+    assert len(result["recent_days"]) == 7
+
+    # top_days should have entries
+    assert len(result["top_days"]) > 0
+
+    # bucketed_days should have entries for older days
+    assert len(result["bucketed_days"]) > 0
+
+    # Bucketed day keys should be in YYYYMMDD-YYYYMMDD format
+    for key in result["bucketed_days"]:
+        assert "-" in key
+        parts = key.split("-")
+        assert len(parts) == 2
+        assert len(parts[0]) == 8
+        assert len(parts[1]) == 8

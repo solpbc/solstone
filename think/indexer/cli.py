@@ -13,7 +13,9 @@ from .journal import (
 )
 
 
-def _format_count_column(items: list[tuple[str, int]], total: int, top_n: int) -> list[str]:
+def _format_count_column(
+    items: list[tuple[str, int]], total: int, top_n: int
+) -> list[str]:
     """Format a column of count items with overflow indicator."""
     lines = [f"{name} ({count})" for name, count in items[:top_n]]
     if total > top_n:
@@ -33,13 +35,16 @@ def _display_counts(counts: dict[str, Any], top_n: int = 5) -> None:
     # Build columns
     facet_col = _format_count_column(facets.most_common(top_n), len(facets), top_n)
     topic_col = _format_count_column(topics.most_common(top_n), len(topics), top_n)
-    day_col = _format_count_column(sorted(days.items(), reverse=True)[:top_n], len(days), top_n)
+    day_col = _format_count_column(
+        sorted(days.items(), reverse=True)[:top_n], len(days), top_n
+    )
 
     # Header and rows
     print(f"{'Facet':<20} {'Topic':<20} {'Day':<20}")
     print("-" * 60)
 
     from itertools import zip_longest
+
     for f, t, d in zip_longest(facet_col, topic_col, day_col, fillvalue=""):
         print(f"{f:<20} {t:<20} {d:<20}")
 
@@ -86,7 +91,15 @@ def main() -> None:
     )
     parser.add_argument(
         "--day",
-        help="Filter search results by YYYYMMDD day",
+        help="Filter search results by exact YYYYMMDD day",
+    )
+    parser.add_argument(
+        "--day-from",
+        help="Filter search results by date range start (YYYYMMDD, inclusive)",
+    )
+    parser.add_argument(
+        "--day-to",
+        help="Filter search results by date range end (YYYYMMDD, inclusive)",
     )
     parser.add_argument(
         "--facet",
@@ -144,6 +157,10 @@ def main() -> None:
         query_kwargs: dict[str, Any] = {}
         if args.day:
             query_kwargs["day"] = args.day
+        if getattr(args, "day_from", None):
+            query_kwargs["day_from"] = args.day_from
+        if getattr(args, "day_to", None):
+            query_kwargs["day_to"] = args.day_to
         if args.facet:
             query_kwargs["facet"] = args.facet
         if args.topic:

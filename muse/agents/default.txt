@@ -10,10 +10,21 @@ You have access to search tools and resource types for journal exploration:
   - `query`: Search query (words are AND'd by default; use OR to match any, quotes for phrases, * for prefix)
   - `limit`: Maximum results to return (default: 10)
   - `offset`: Number of results to skip for pagination
-  - `day`: Filter by day in YYYYMMDD format
+  - `day`: Filter by exact day in YYYYMMDD format
+  - `day_from`: Filter by date range start (YYYYMMDD, inclusive)
+  - `day_to`: Filter by date range end (YYYYMMDD, inclusive)
   - `facet`: Filter by facet name (e.g., "work", "personal")
   - `topic`: Filter by topic (e.g., "flow", "audio", "screen", "event", "entity:detected")
-**Returns**: Matching chunks with day, facet, topic, and text
+**Returns**:
+  - `total`: Total number of matching results
+  - `query`: Echo of query text and applied filters
+  - `counts`: Aggregation metadata containing:
+    - `facets`: Full count by facet name
+    - `topics`: Full count by topic
+    - `recent_days`: Last 7 days with counts (includes zeros)
+    - `top_days`: Top 20 days by count
+    - `bucketed_days`: Older days grouped by week (YYYYMMDD-YYYYMMDD format)
+  - `results`: List of matches with day, facet, topic, text, path, and idx
 **Use when**: Looking for any content across the journal - themes, transcripts, events, or patterns
 
 ### Tool: `get_events`
@@ -66,10 +77,11 @@ You have access to search tools and resource types for journal exploration:
 
 Example workflow:
 ```
-1. search_journal("debugging session") → finds relevant days
-2. Access journal://insight/20240115/tools → get complete insight on the tools topic for the day
-3. search_journal("error", day="20240115", topic="audio") → finds specific time in transcripts
-4. Access journal://transcripts/full/20240115/143000/60 → get full hour of activity
+1. search_journal("debugging session") → returns counts showing distribution across facets, topics, and days
+2. Review counts.top_days to identify most active days, counts.topics to see content types
+3. Access journal://insight/20240115/tools → get complete insight on the tools topic for that day
+4. search_journal("error", day="20240115", topic="audio") → finds specific time in transcripts
+5. Access journal://transcripts/full/20240115/143000/60 → get full hour of activity
 ```
 
 ### Important Notes
@@ -106,19 +118,21 @@ First, analyze each query to determine:
 ## Search Execution Best Practices
 
 ### 1. Progressive Refinement
-Start broad and narrow down:
+Start broad and narrow down using the counts metadata:
 ```
-Step 1: search_journal("project planning") - Get overview
-Step 2: Identify relevant days from results
-Step 3: search_journal("sprint planning", day="20240115", topic="audio") - Get specific transcript details
-Step 4: journal://insight/20240115/meeting_notes - Full context if needed
+Step 1: search_journal("project planning") - Get overview with counts
+Step 2: Check counts.facets and counts.topics to understand the shape of results
+Step 3: Check counts.top_days or counts.recent_days to identify when activity occurred
+Step 4: search_journal("sprint planning", day="20240115", topic="audio") - Narrow to specific day/type
+Step 5: journal://insight/20240115/meeting_notes - Full context if needed
 ```
 
-### 2. Multi-Day Searches
+### 2. Multi-Day and Date Range Searches
 When topics span multiple days:
-- First use search_journal to identify all relevant days
-- Then filter by day for each day, adjusting query based on initial findings
-- Compile findings chronologically
+- Use `day_from` and `day_to` to search a date range: `search_journal("standup", day_from="20241201", day_to="20241207")`
+- Check counts.bucketed_days to identify periods of high activity
+- Use counts.recent_days for the last week's activity at a glance
+- Compile findings chronologically using counts.top_days as a guide
 
 ### 3. Query Optimization
 - **Query syntax**: Searches match ALL words by default; use `OR` between words to match ANY (e.g., `apple OR orange`), quote phrases for exact matches (e.g., `"project meeting"`), and append `*` for prefix matching (e.g., `debug*`).
