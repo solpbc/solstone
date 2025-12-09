@@ -10,7 +10,7 @@ from flask import Blueprint, jsonify, redirect, render_template, url_for
 
 from convey import state
 from convey.utils import DATE_RE, format_date
-from think.utils import day_dirs, day_path
+from think.utils import day_path
 
 calendar_bp = Blueprint(
     "app:calendar",
@@ -94,6 +94,9 @@ def calendar_day_events(day: str) -> Any:
 def calendar_stats(month: str) -> Any:
     """Return event counts per facet for a specific month.
 
+    Scans event files directly (including future dates) rather than relying
+    on cached stats.json files which only exist for past days.
+
     Args:
         month: YYYYMM format month string
 
@@ -101,35 +104,13 @@ def calendar_stats(month: str) -> Any:
         JSON dict mapping day (YYYYMMDD) to facet counts dict.
         Frontend handles filtering by selected facet or summing for all-facet mode.
     """
+    from think.events import get_month_event_counts
+
     # Validate month format (YYYYMM)
     if not re.fullmatch(r"\d{6}", month):
         return jsonify({"error": "Invalid month format, expected YYYYMM"}), 400
 
-    stats = {}
-
-    for name, path in day_dirs().items():
-        # Filter to only days in requested month
-        if not name.startswith(month):
-            continue
-
-        # Try to load stats.json from day directory
-        stats_file = os.path.join(path, "stats.json")
-        if os.path.isfile(stats_file):
-            try:
-                with open(stats_file, "r", encoding="utf-8") as f:
-                    day_data = json.load(f)
-
-                facet_data = day_data.get("facet_data", {})
-                # Extract just the counts per facet
-                stats[name] = {
-                    facet: data.get("count", 0) for facet, data in facet_data.items()
-                }
-
-            except Exception:
-                stats[name] = {}
-        else:
-            stats[name] = {}
-
+    stats = get_month_event_counts(month)
     return jsonify(stats)
 
 

@@ -1,14 +1,19 @@
-"""Event formatting for the journal index.
+"""Event formatting and utilities for the journal.
 
-This module provides the formatter function for converting event JSONL
-entries to markdown chunks for the unified journal index.
+This module provides:
+- Formatter function for converting event JSONL entries to markdown chunks
+- Utilities for scanning event files and counting by facet
 """
 
+import json
 import logging
+import os
 import re
 from datetime import datetime
 from pathlib import Path
 from typing import Any
+
+from dotenv import load_dotenv
 
 
 def format_events(
@@ -153,3 +158,67 @@ def format_events(
         logging.info(error_msg)
 
     return chunks, meta
+
+
+def get_month_event_counts(month: str) -> dict[str, dict[str, int]]:
+    """Get event counts per day per facet for a month by scanning event files.
+
+    Scans facets/*/events/*.jsonl files directly, which includes future dates
+    that don't yet have day directories.
+
+    Args:
+        month: YYYYMM format month string
+
+    Returns:
+        Dict mapping day (YYYYMMDD) to facet counts dict.
+        Example: {"20250115": {"work": 3, "personal": 1}, ...}
+    """
+    load_dotenv()
+    journal = os.getenv("JOURNAL_PATH")
+    if not journal:
+        return {}
+
+    facets_dir = Path(journal) / "facets"
+    if not facets_dir.is_dir():
+        return {}
+
+    stats: dict[str, dict[str, int]] = {}
+
+    for facet_path in facets_dir.iterdir():
+        if not facet_path.is_dir():
+            continue
+
+        facet_name = facet_path.name
+        events_dir = facet_path / "events"
+        if not events_dir.is_dir():
+            continue
+
+        # Scan all JSONL files matching the requested month
+        for events_file in events_dir.glob(f"{month}*.jsonl"):
+            day = events_file.stem
+            if not re.fullmatch(r"\d{8}", day):
+                continue
+
+            try:
+                count = 0
+                with open(events_file, "r", encoding="utf-8") as f:
+                    for line in f:
+                        line = line.strip()
+                        if not line:
+                            continue
+                        try:
+                            event = json.loads(line)
+                            if event.get("title"):
+                                count += 1
+                        except json.JSONDecodeError:
+                            continue
+
+                if count > 0:
+                    if day not in stats:
+                        stats[day] = {}
+                    stats[day][facet_name] = count
+
+            except (OSError, IOError):
+                continue
+
+    return stats

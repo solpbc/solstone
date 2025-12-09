@@ -1,5 +1,6 @@
 {
   "icon": "📅",
   "label": "Calendar",
-  "date_nav": true
+  "date_nav": true,
+  "allow_future_dates": true
 }
