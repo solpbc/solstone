@@ -342,11 +342,25 @@ def spawn_scheduled_agents() -> None:
         logging.error(f"Failed to prepare scheduled agents: {e}")
 
 
+def _run_full_rescan() -> None:
+    """Run full index rescan in background thread."""
+    from think.runner import run_task
+
+    logging.info("Starting full index rescan after daily tasks completed")
+    success, exit_code = run_task(["think-indexer", "--rescan-full"])
+
+    if success:
+        logging.info("Full index rescan completed")
+    else:
+        logging.error(f"Full index rescan failed with exit code {exit_code}")
+
+
 async def check_scheduled_agents() -> None:
     """Check and advance scheduled agent execution (non-blocking).
 
     Called from the main supervise loop to incrementally process priority groups.
-    Each priority group completes before the next begins.
+    Each priority group completes before the next begins. When all groups complete,
+    triggers a full index rescan.
     """
     state = _scheduled_state
 
@@ -363,7 +377,6 @@ async def check_scheduled_agents() -> None:
 
         if all_done:
             logging.info("Priority group completed")
-            state["active_files"] = []
         elif timed_out:
             # List unfinished agents
             unfinished = [
@@ -376,9 +389,14 @@ async def check_scheduled_agents() -> None:
                 f"Priority group timed out after 600s, proceeding to next group. "
                 f"Unfinished agents: {unfinished_str}"
             )
-            state["active_files"] = []
         else:
             return  # Still running, check again next iteration
+
+        # Group finished (either completed or timed out)
+        state["active_files"] = []
+        if not state["pending_groups"]:
+            # All daily tasks complete - run full rescan
+            threading.Thread(target=_run_full_rescan, daemon=True).start()
 
     # Check for shutdown before starting next group
     if shutdown_requested:

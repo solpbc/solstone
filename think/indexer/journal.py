@@ -213,18 +213,45 @@ def _index_file(
         )
 
 
-def scan_journal(journal: str, verbose: bool = False) -> bool:
-    """Scan and index all journal content.
+def _is_historical_day(rel_path: str) -> bool:
+    """Check if path is in a historical YYYYMMDD directory (before today).
+
+    Returns True for paths like "20240101/..." where the date is before today.
+    Returns False for non-day paths (facets/, imports/, apps/) or today/future.
+    """
+    from datetime import datetime
+
+    if not rel_path or "/" not in rel_path:
+        return False
+
+    first_part = rel_path.split("/")[0]
+    if not DATE_RE.match(first_part):
+        return False  # Not a day directory
+
+    today = datetime.now().strftime("%Y%m%d")
+    return first_part < today
+
+
+def scan_journal(journal: str, verbose: bool = False, full: bool = False) -> bool:
+    """Scan and index journal content.
 
     Args:
         journal: Path to journal root directory
         verbose: If True, log detailed progress
+        full: If True, scan all files. If False (default), exclude historical
+            YYYYMMDD directories (before today) for lighter incremental scans.
 
     Returns:
         True if any files were indexed or removed
     """
     conn, db_path = get_journal_index(journal)
     files = find_formattable_files(journal)
+
+    # Light mode: exclude historical day directories
+    if not full:
+        files = {
+            rel: path for rel, path in files.items() if not _is_historical_day(rel)
+        }
 
     if not files:
         logger.info("No files to index")
@@ -267,11 +294,14 @@ def scan_journal(journal: str, verbose: bool = False) -> bool:
         # Update file mtime
         conn.execute("REPLACE INTO files(path, mtime) VALUES (?, ?)", (rel, mtime))
 
-    # Remove files that no longer exist
-    removed = set(db_mtimes) - set(files)
-    for rel in removed:
-        conn.execute("DELETE FROM chunks WHERE path=?", (rel,))
-        conn.execute("DELETE FROM files WHERE path=?", (rel,))
+    # Remove files that no longer exist (only in full mode to avoid
+    # deleting historical content that's outside light mode's scan scope)
+    removed: set[str] = set()
+    if full:
+        removed = set(db_mtimes) - set(files)
+        for rel in removed:
+            conn.execute("DELETE FROM chunks WHERE path=?", (rel,))
+            conn.execute("DELETE FROM files WHERE path=?", (rel,))
 
     if to_index or removed:
         conn.commit()

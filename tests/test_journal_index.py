@@ -307,6 +307,39 @@ def test_index_caching(journal_fixture):
     assert changed is False
 
 
+def test_is_historical_day():
+    """Test _is_historical_day helper function."""
+    from think.indexer.journal import _is_historical_day
+
+    # Non-day paths are never historical
+    assert _is_historical_day("facets/work/events/20240101.jsonl") is False
+    assert _is_historical_day("imports/123/summary.md") is False
+    assert _is_historical_day("apps/home/insights/foo.md") is False
+
+    # Future dates are not historical
+    assert _is_historical_day("29991231/insights/flow.md") is False
+
+    # Path without slash is not historical
+    assert _is_historical_day("20240101") is False
+    assert _is_historical_day("") is False
+
+    # Day paths before today are historical (tested with a very old date)
+    assert _is_historical_day("20000101/insights/flow.md") is True
+
+
+def test_scan_journal_full_mode(journal_fixture):
+    """Test full mode includes all files including historical days."""
+    from think.indexer.journal import scan_journal, search_journal
+
+    # Full scan should include everything
+    changed = scan_journal(str(journal_fixture), full=True)
+    assert changed is True
+
+    # Should find content from historical day
+    total, results = search_journal("project alpha")
+    assert total >= 1
+
+
 def test_find_formattable_files(journal_fixture):
     """Test file discovery function."""
     from think.formatters import find_formattable_files

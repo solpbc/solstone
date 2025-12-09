@@ -78,10 +78,8 @@ def build_commands(
             cmd.append("--force")
         commands.append(cmd)
 
-    # Targeted indexing
-    indexer_cmd = ["think-indexer", "--rescan-all", "--day", day]
-    if segment:
-        indexer_cmd.extend(["--segment", segment])
+    # Re-index (light mode: excludes historical days, mtime-cached)
+    indexer_cmd = ["think-indexer", "--rescan"]
     if verbose:
         indexer_cmd.append("--verbose")
     commands.append(indexer_cmd)

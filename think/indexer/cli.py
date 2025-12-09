@@ -82,7 +82,12 @@ def main() -> None:
     parser.add_argument(
         "--rescan",
         action="store_true",
-        help="Scan journal and update the index",
+        help="Scan and update index (light mode: today + facets/imports/apps, excludes historical days)",
+    )
+    parser.add_argument(
+        "--rescan-full",
+        action="store_true",
+        help="Full rescan including all historical day directories",
     )
     parser.add_argument(
         "--reset",
@@ -141,15 +146,20 @@ def main() -> None:
 
     journal = os.getenv("JOURNAL_PATH")
 
-    if not args.rescan and not args.reset and args.query is None:
+    if (
+        not args.rescan
+        and not args.rescan_full
+        and not args.reset
+        and args.query is None
+    ):
         parser.print_help()
         return
 
     if args.reset:
         reset_journal_index(journal)
 
-    if args.rescan:
-        changed = scan_journal(journal, verbose=args.verbose)
+    if args.rescan or args.rescan_full:
+        changed = scan_journal(journal, verbose=args.verbose, full=args.rescan_full)
         if changed:
             journal_log("indexer journal rescan ok")
 
