@@ -185,8 +185,9 @@ def _index_file(
 
     metadata = parse_path_metadata(rel)
     day = metadata["day"]
-    facet = metadata["facet"]
-    base_topic = metadata["topic"]
+    # Normalize facet and topic to lowercase for case-insensitive filtering
+    facet = metadata["facet"].lower()
+    base_topic = metadata["topic"].lower()
 
     if verbose:
         logger.info(
@@ -369,10 +370,10 @@ def _build_where_clause(
             params.append(day_to)
     if facet:
         where_clause += " AND facet=?"
-        params.append(facet)
+        params.append(facet.lower())
     if topic:
         where_clause += " AND topic=?"
-        params.append(topic)
+        params.append(topic.lower())
 
     return where_clause, params
 
@@ -529,7 +530,7 @@ def get_events(
             continue
 
         facet_name = facet_dir.name
-        if facet and facet_name != facet:
+        if facet and facet_name.lower() != facet.lower():
             continue
 
         events_file = facet_dir / "events" / f"{day}.jsonl"

@@ -209,6 +209,42 @@ def test_search_journal_filter_by_topic(journal_fixture):
         assert r["metadata"]["topic"] == "event"
 
 
+def test_search_journal_facet_case_insensitive(journal_fixture):
+    """Test facet filtering is case-insensitive."""
+    from think.indexer.journal import scan_journal, search_journal
+
+    scan_journal(str(journal_fixture))
+
+    # Search with uppercase facet filter should find lowercase-indexed data
+    total_upper, results_upper = search_journal("", facet="WORK")
+    total_lower, _ = search_journal("", facet="work")
+    total_mixed, _ = search_journal("", facet="Work")
+
+    assert total_upper == total_lower == total_mixed
+    assert total_upper >= 1
+    # All results should have lowercase facet in metadata
+    for r in results_upper:
+        assert r["metadata"]["facet"] == "work"
+
+
+def test_search_journal_topic_case_insensitive(journal_fixture):
+    """Test topic filtering is case-insensitive."""
+    from think.indexer.journal import scan_journal, search_journal
+
+    scan_journal(str(journal_fixture))
+
+    # Search with uppercase topic filter should find lowercase-indexed data
+    total_upper, results_upper = search_journal("", topic="EVENT")
+    total_lower, _ = search_journal("", topic="event")
+    total_mixed, _ = search_journal("", topic="Event")
+
+    assert total_upper == total_lower == total_mixed
+    assert total_upper >= 1
+    # All results should have lowercase topic in metadata
+    for r in results_upper:
+        assert r["metadata"]["topic"] == "event"
+
+
 def test_get_events(journal_fixture):
     """Test get_events returns structured event data."""
     from think.indexer.journal import get_events
