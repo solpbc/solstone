@@ -1641,9 +1641,16 @@ window.AppServices = {
 
 /**
  * Privacy Blur
- * Blurs page content when window loses focus for privacy
+ * Blurs page content when window loses focus for privacy.
+ * Disabled on mobile devices where overlapping windows don't exist.
  */
 (function() {
+  // Detect mobile: no hover capability or touch device with narrow viewport
+  const isMobile = window.matchMedia('(hover: none)').matches ||
+                   (navigator.maxTouchPoints > 0 && window.innerWidth < 1024);
+
+  if (isMobile) return;
+
   function onBlur() {
     document.body.classList.add('privacy-blur');
   }

@@ -1240,7 +1240,7 @@ a.notification-card {
 
 /* ========================================
  * Privacy Blur
- * Blurs page content when window loses focus
+ * Blurs page content when window loses focus (desktop only)
  * ======================================== */
 body.privacy-blur > *:not(.corner-tags) {
   filter: blur(5px);
