@@ -183,6 +183,7 @@ class ManagedProcess:
     ref: str
     _start_time: float
     _callosum: CallosumConnection | None
+    _owns_callosum: bool = True
 
     @classmethod
     def spawn(
@@ -191,6 +192,7 @@ class ManagedProcess:
         *,
         env: dict | None = None,
         ref: str | None = None,
+        callosum: CallosumConnection | None = None,
     ) -> "ManagedProcess":
         """Spawn process with automatic output logging to daily health directory.
 
@@ -198,6 +200,7 @@ class ManagedProcess:
             cmd: Command and arguments
             env: Optional environment variables (inherits parent env if not provided)
             ref: Optional correlation ID (auto-generated if not provided)
+            callosum: Optional shared CallosumConnection (creates new one if not provided)
 
         Returns:
             ManagedProcess instance
@@ -225,10 +228,11 @@ class ManagedProcess:
         ref = ref if ref else str(int(time.time() * 1000))
         start_time = time.time()
 
-        # Setup Callosum connection
-        # start() manages connection in background thread
-        callosum = CallosumConnection()
-        callosum.start()
+        # Use provided callosum or create new one
+        owns_callosum = callosum is None
+        if owns_callosum:
+            callosum = CallosumConnection()
+            callosum.start()
 
         log_writer = DailyLogWriter(ref, name)
 
@@ -245,7 +249,7 @@ class ManagedProcess:
             )
         except Exception as exc:
             log_writer.close()
-            if callosum:
+            if owns_callosum and callosum:
                 callosum.stop()
             raise RuntimeError(f"Failed to spawn {name}: {exc}") from exc
 
@@ -308,6 +312,7 @@ class ManagedProcess:
             ref=ref,
             _start_time=start_time,
             _callosum=callosum,
+            _owns_callosum=owns_callosum,
         )
 
     def wait(self, timeout: float | None = None) -> int:
@@ -393,7 +398,9 @@ class ManagedProcess:
                 cmd=self.cmd,
                 log_path=str(self.log_writer.path),
             )
-            self._callosum.stop()
+            # Only stop callosum if we created it (not shared)
+            if self._owns_callosum:
+                self._callosum.stop()
 
     @property
     def pid(self) -> int:
@@ -412,6 +419,7 @@ def run_task(
     timeout: float | None = None,
     env: dict | None = None,
     ref: str | None = None,
+    callosum: CallosumConnection | None = None,
 ) -> tuple[bool, int]:
     """Run a task to completion with automatic logging (blocking).
 
@@ -424,6 +432,7 @@ def run_task(
         timeout: Optional timeout in seconds
         env: Optional environment variables
         ref: Optional correlation ID (auto-generated if not provided)
+        callosum: Optional shared CallosumConnection (creates new one if not provided)
 
     Returns:
         (success, exit_code) tuple where success = (exit_code == 0)
@@ -442,7 +451,7 @@ def run_task(
         )
         # Logs to: {JOURNAL}/{YYYYMMDD}/health/1730476800000_think-indexer.log
     """
-    managed = ManagedProcess.spawn(cmd, env=env, ref=ref)
+    managed = ManagedProcess.spawn(cmd, env=env, ref=ref, callosum=callosum)
     try:
         exit_code = managed.wait(timeout=timeout)
     except subprocess.TimeoutExpired:

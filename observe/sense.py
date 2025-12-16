@@ -173,7 +173,7 @@ class FileSensor:
         logger.info(f"Spawning {handler_name} for {file_path.name}: {' '.join(cmd)}")
 
         try:
-            managed = RunnerManagedProcess.spawn(cmd, ref=ref)
+            managed = RunnerManagedProcess.spawn(cmd, ref=ref, callosum=self.callosum)
         except RuntimeError as exc:
             logger.error(str(exc))
             # Release describe lock if this was a describe handler
@@ -308,7 +308,7 @@ class FileSensor:
         logger.info(f"Running reduce for {day}/{segment}")
 
         # Use unified runner with automatic logging and timeout
-        success, exit_code = run_task(cmd, timeout=300)  # 5 minute timeout
+        success, exit_code = run_task(cmd, timeout=300, callosum=self.callosum)
 
         if success:
             logger.info(f"Reduce completed successfully for {day}/{segment}")
@@ -495,8 +495,6 @@ class FileSensor:
                 )
 
         # Wait up to 5 seconds for processes to terminate gracefully
-        import signal
-
         deadline = time.time() + 5
         for handler_proc in running_handlers:
             try:

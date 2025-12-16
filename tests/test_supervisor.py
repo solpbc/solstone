@@ -161,7 +161,7 @@ async def test_run_dream(tmp_path, monkeypatch):
         def close(self):
             self.closed = True
 
-    def fake_spawn(cmd, *, env=None, ref=None):
+    def fake_spawn(cmd, *, env=None, ref=None, callosum=None):
         return DummyManagedProcess(cmd)
 
     monkeypatch.setattr(runner_mod.ManagedProcess, "spawn", fake_spawn)

@@ -171,9 +171,11 @@ def _launch_process(
     # Generate ref if not provided
     ref = ref if ref else str(int(time.time() * 1000))
 
-    # Use unified runner to spawn process
+    # Use unified runner to spawn process (share supervisor's callosum)
     try:
-        managed = RunnerManagedProcess.spawn(cmd, ref=ref)
+        managed = RunnerManagedProcess.spawn(
+            cmd, ref=ref, callosum=_supervisor_callosum
+        )
     except RuntimeError as exc:
         logging.error(str(exc))
         raise
@@ -288,7 +290,7 @@ async def run_subprocess_task(name: str, cmd: list[str]) -> bool:
     def _blocking_run():
         start = time.time()
         try:
-            managed = RunnerManagedProcess.spawn(cmd)
+            managed = RunnerManagedProcess.spawn(cmd, callosum=_supervisor_callosum)
             return_code = managed.wait()
         finally:
             managed.cleanup()
@@ -347,7 +349,9 @@ def _run_full_rescan() -> None:
     from think.runner import run_task
 
     logging.info("Starting full index rescan after daily tasks completed")
-    success, exit_code = run_task(["think-indexer", "--rescan-full"])
+    success, exit_code = run_task(
+        ["think-indexer", "--rescan-full"], callosum=_supervisor_callosum
+    )
 
     if success:
         logging.info("Full index rescan completed")
@@ -501,8 +505,8 @@ def _run_task(ref: str, cmd: list[str]) -> None:
 
         logging.info(f"Starting task {ref}: {' '.join(cmd)}")
 
-        # Spawn process and track it
-        managed = RunnerManagedProcess.spawn(cmd, ref=ref)
+        # Spawn process and track it (share callosum for logs events)
+        managed = RunnerManagedProcess.spawn(cmd, ref=ref, callosum=callosum)
         _active_tasks[ref] = managed
 
         # Emit started event (runner already emits logs/exec, this is supervisor-level)
@@ -972,7 +976,8 @@ def _run_segment_dream(day: str, segment: str) -> None:
 
     logging.info(f"Starting segment dream: {day}/{segment}")
     success, exit_code = run_task(
-        ["think-dream", "-v", "--day", day, "--segment", segment]
+        ["think-dream", "-v", "--day", day, "--segment", segment],
+        callosum=_supervisor_callosum,
     )
 
     if success:
