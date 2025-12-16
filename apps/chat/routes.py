@@ -234,11 +234,21 @@ def chat_events(chat_id: str) -> Any:
     if thread:
         is_complete = get_agent_status(thread[-1]) == "completed"
 
+    # Find the backend used by the last agent in the thread
+    last_backend = None
+    if thread:
+        last_agent_id = thread[-1]
+        for event in reversed(all_events):
+            if event.get("agent_id") == last_agent_id and event.get("event") == "start":
+                last_backend = event.get("backend")
+                break
+
     return jsonify(
         events=all_events,
         chat=chat,
         thread=thread,
         is_complete=is_complete,
+        last_backend=last_backend,
     )
 
 

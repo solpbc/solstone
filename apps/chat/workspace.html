@@ -437,6 +437,24 @@ function showError(message) {
 // Wait for app bar to load
 let form, input, backendToggle, currentBackend;
 
+// Backend configuration - module scope for use by setBackend and click handler
+const backends = {
+  anthropic: { next: 'google', label: 'Claude' },
+  google: { next: 'openai', label: 'Gemini' },
+  openai: { next: 'anthropic', label: 'GPT-4' }
+};
+
+/**
+ * Update backend toggle to a specific backend.
+ * @param {string} backend - Backend key (anthropic, google, openai)
+ */
+function setBackend(backend) {
+  if (!backend || !backends[backend] || !backendToggle) return;
+  currentBackend = backend;
+  backendToggle.dataset.backend = backend;
+  backendToggle.textContent = backends[backend].label;
+}
+
 function initAppBarControls() {
   form = document.getElementById('chatInputForm');
   input = document.getElementById('chatMessageInput');
@@ -448,13 +466,6 @@ function initAppBarControls() {
   }
 
   currentBackend = backendToggle.dataset.backend || 'anthropic';
-
-  // Backend toggle cycle
-  const backends = {
-    anthropic: { next: 'google', label: 'Claude' },
-    google: { next: 'openai', label: 'Gemini' },
-    openai: { next: 'anthropic', label: 'GPT-4' }
-  };
 
   backendToggle.addEventListener('click', () => {
     currentBackend = backends[currentBackend].next;
@@ -675,6 +686,11 @@ async function loadChat(chatId) {
     const events = data.events || [];
     currentThread = data.thread || [chatId];
     isComplete = data.is_complete || false;
+
+    // Update backend toggle to match last used backend in this chat
+    if (data.last_backend) {
+      setBackend(data.last_backend);
+    }
 
     // Update star button based on chat's bookmark status
     updateStarButton(data.chat?.bookmarked || null);
