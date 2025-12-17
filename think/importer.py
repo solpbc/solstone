@@ -22,6 +22,8 @@ from observe.revai import convert_revai_to_sunstone, transcribe_file
 from think.callosum import CallosumConnection
 from think.detect_created import detect_created
 from think.detect_transcript import detect_transcript_json, detect_transcript_segment
+from think.facets import get_facets
+from think.importer_utils import save_import_file, write_import_metadata
 from think.models import GEMINI_PRO, gemini_generate
 from think.utils import PromptNotFoundError, day_path, load_prompt, setup_cli
 
@@ -83,24 +85,6 @@ def _status_emitter() -> None:
                 stage_elapsed_ms=stage_elapsed_ms,
             )
         time.sleep(5)
-
-
-def _build_import_payload(
-    entries: list[dict],
-    *,
-    import_id: str,
-    facet: str | None = None,
-    setting: str | None = None,
-) -> dict:
-    """Return structured payload for imported transcript chunks."""
-
-    imported_meta: dict[str, str] = {"id": import_id}
-    if facet:
-        imported_meta["facet"] = facet
-    if setting:
-        imported_meta["setting"] = setting
-
-    return {"imported": imported_meta, "entries": entries}
 
 
 def _write_import_jsonl(
@@ -241,8 +225,12 @@ def _sanitize_entities(entities: list[str]) -> list[str]:
 
 
 def has_video_stream(path: str) -> bool:
-    """Check if a media file contains video streams."""
-    # TODO: Implement video stream detection
+    """Check if a media file contains video streams.
+
+    Note: This is a placeholder for future video import support.
+    Currently always returns False, so video processing is skipped.
+    """
+    # TODO: Implement video stream detection using ffprobe
     return False
 
 
@@ -250,6 +238,9 @@ def process_video(
     path: str, out_dir: str, start: dt.datetime, sample_s: float
 ) -> list[str]:
     """Process video frames and extract changes.
+
+    Note: This is a placeholder for future video import support.
+    Would extract keyframes at sample_s intervals and detect visual changes.
 
     Returns:
         List of created file paths.
@@ -620,6 +611,123 @@ def create_transcript_summary(
         pass
 
 
+# MIME type mapping for import metadata
+_MIME_TYPES = {
+    ".m4a": "audio/mp4",
+    ".mp3": "audio/mpeg",
+    ".wav": "audio/wav",
+    ".flac": "audio/flac",
+    ".ogg": "audio/ogg",
+    ".mp4": "video/mp4",
+    ".webm": "video/webm",
+    ".mov": "video/quicktime",
+    ".txt": "text/plain",
+    ".md": "text/markdown",
+    ".pdf": "application/pdf",
+}
+
+
+def _is_in_imports(media_path: str) -> bool:
+    """Check if file path is already under {JOURNAL_PATH}/imports/."""
+    journal = os.getenv("JOURNAL_PATH", "")
+    if not journal:
+        return False
+    imports_dir = os.path.join(journal, "imports")
+    abs_media = os.path.abspath(media_path)
+    abs_imports = os.path.abspath(imports_dir)
+    return abs_media.startswith(abs_imports + os.sep)
+
+
+def _setup_import(
+    media_path: str,
+    timestamp: str,
+    facet: str | None,
+    setting: str | None,
+    detection_result: dict | None,
+) -> str:
+    """Copy file to imports/ and write metadata. Returns new file path."""
+    journal = os.getenv("JOURNAL_PATH")
+    if not journal:
+        raise RuntimeError("JOURNAL_PATH not set")
+
+    journal_root = Path(journal)
+    import_dir = journal_root / "imports" / timestamp
+
+    # Check for conflict
+    if import_dir.exists():
+        raise SystemExit(
+            f"Error: Import already exists for timestamp {timestamp}\n"
+            f"Use a different timestamp or delete: {import_dir}"
+        )
+
+    # Copy file to imports/
+    filename = os.path.basename(media_path)
+    new_path = save_import_file(
+        journal_root=journal_root,
+        timestamp=timestamp,
+        source_path=Path(media_path),
+        filename=filename,
+    )
+
+    # Build metadata matching app structure
+    now_ms = int(time.time() * 1000)
+    ext = os.path.splitext(filename)[1].lower()
+    metadata = {
+        "original_filename": filename,
+        "upload_timestamp": now_ms,
+        "upload_datetime": dt.datetime.fromtimestamp(now_ms / 1000).isoformat(),
+        "detection_result": detection_result,
+        "detected_timestamp": timestamp,
+        "user_timestamp": timestamp,
+        "file_size": new_path.stat().st_size if new_path.exists() else 0,
+        "mime_type": _MIME_TYPES.get(ext, "application/octet-stream"),
+        "facet": facet,
+        "setting": setting,
+        "file_path": str(new_path),
+    }
+
+    write_import_metadata(
+        journal_root=journal_root,
+        timestamp=timestamp,
+        metadata=metadata,
+    )
+
+    logger.info(f"Copied to journal: {new_path}")
+    return str(new_path)
+
+
+def _format_timestamp_display(timestamp: str) -> str:
+    """Format timestamp for human-readable display."""
+    try:
+        dt_obj = dt.datetime.strptime(timestamp, "%Y%m%d_%H%M%S")
+        return dt_obj.strftime("%a %b %d %Y, %-I:%M %p")
+    except ValueError:
+        return timestamp
+
+
+def _print_facets_help(facets: dict, media_path: str, timestamp: str) -> None:
+    """Print available facets and suggested command."""
+    print("\nAvailable facets:")
+    max_name = max(len(name) for name in facets.keys())
+    for name, info in sorted(facets.items()):
+        title = info.get("title", name)
+        print(f"  {name:<{max_name}}  {title}")
+
+    print(f"\nAdd --facet <name>:")
+    print(f"  think-importer {media_path} --timestamp {timestamp} --facet <name>")
+
+
+def _print_setting_help(media_path: str, timestamp: str, facet: str) -> None:
+    """Print setting requirement and suggested command."""
+    print("\nSetting is required (describes the context of this recording).")
+    print("Examples: 'Team standup meeting', 'Jer lunch with Joe', 'Conference talk'")
+    print(f"\nAdd --setting <description>:")
+    print(
+        f"  think-importer {media_path} --timestamp {timestamp} "
+        f'--facet {facet} --setting "description"'
+    )
+
+
 def main() -> None:
     global _callosum, _import_id, _current_stage, _start_time, _stage_start_time
     global _stages_run, _status_thread, _status_running
@@ -666,15 +774,25 @@ def main() -> None:
     if extra and not args.timestamp:
         args.timestamp = extra[0]
 
+    # Track detection result for metadata
+    detection_result = None
+
     # If no timestamp provided, detect it and show instruction
     if not args.timestamp:
         # Pass the original filename for better detection
-        result = detect_created(
+        detection_result = detect_created(
             args.media, original_filename=os.path.basename(args.media)
         )
-        if result and result.get("day") and result.get("time"):
-            detected_timestamp = f"{result['day']}_{result['time']}"
-            print(f"Detected: --timestamp {detected_timestamp}")
+        if (
+            detection_result
+            and detection_result.get("day")
+            and detection_result.get("time")
+        ):
+            detected_timestamp = f"{detection_result['day']}_{detection_result['time']}"
+            display = _format_timestamp_display(detected_timestamp)
+            print(f"Detected timestamp: {detected_timestamp} ({display})")
+            print(f"\nRun:")
+            print(f"  think-importer {args.media} --timestamp {detected_timestamp}")
             return
         else:
             raise SystemExit(
@@ -683,6 +801,30 @@ def main() -> None:
 
     if not TIME_RE.fullmatch(args.timestamp):
         raise SystemExit("timestamp must be in YYYYMMDD_HHMMSS format")
+
+    # Check if file needs setup (not already in imports/)
+    needs_setup = not _is_in_imports(args.media)
+
+    # Check facet requirement (only for files not already in imports/)
+    if needs_setup and not args.facet:
+        facets = get_facets()
+        if facets:
+            _print_facets_help(facets, args.media, args.timestamp)
+            return
+        # No facets configured - proceed without
+
+    # Check setting requirement (only for files not already in imports/)
+    if needs_setup and not args.setting and args.facet:
+        _print_setting_help(args.media, args.timestamp, args.facet)
+        return
+
+    # Copy to imports/ if file is not already there
+    if needs_setup:
+        print("Copying to journal...")
+        args.media = _setup_import(
+            args.media, args.timestamp, args.facet, args.setting, detection_result
+        )
+        print("Starting import...")
 
     base_dt = dt.datetime.strptime(args.timestamp, "%Y%m%d_%H%M%S")
     logger.info(f"Using provided timestamp: {args.timestamp}")
