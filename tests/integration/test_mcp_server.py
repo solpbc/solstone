@@ -329,8 +329,10 @@ async def test_mcp_get_resource_tool(integration_journal_path):
     todo_file = todos_dir / f"{day}.jsonl"
     # JSONL format: one JSON object per line
     todo_file.write_text(
-        json.dumps({"text": "Test resource fetch"}) + "\n"
-        + json.dumps({"text": "Already done", "completed": True}) + "\n",
+        json.dumps({"text": "Test resource fetch"})
+        + "\n"
+        + json.dumps({"text": "Already done", "completed": True})
+        + "\n",
         encoding="utf-8",
     )
 

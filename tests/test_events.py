@@ -53,9 +53,7 @@ def test_get_month_event_counts_future_dates(tmp_path, monkeypatch):
 
     # Future events (anticipated)
     (work_events / "20251215.jsonl").write_text(
-        json.dumps(
-            {"title": "Holiday party", "start": "18:00:00", "occurred": False}
-        )
+        json.dumps({"title": "Holiday party", "start": "18:00:00", "occurred": False})
         + "\n"
     )
     (work_events / "20251220.jsonl").write_text(
