@@ -15,6 +15,7 @@ from muse.cortex_client import (
     get_agent_thread,
 )
 from think.callosum import CallosumServer
+from think.models import GPT_5
 
 
 @pytest.fixture
@@ -64,7 +65,7 @@ def test_cortex_request_broadcasts_to_callosum(tmp_path, monkeypatch, callosum_s
         prompt="Test prompt",
         persona="default",
         backend="openai",
-        config={"model": "gpt-4o"},
+        config={"model": GPT_5},
     )
 
     time.sleep(0.2)
@@ -77,7 +78,7 @@ def test_cortex_request_broadcasts_to_callosum(tmp_path, monkeypatch, callosum_s
     assert msg["prompt"] == "Test prompt"
     assert msg["persona"] == "default"
     assert msg["backend"] == "openai"
-    assert msg["model"] == "gpt-4o"
+    assert msg["model"] == GPT_5
     assert msg["agent_id"] == agent_id
     assert "ts" in msg
 

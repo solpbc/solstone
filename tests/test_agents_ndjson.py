@@ -8,6 +8,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from think.models import GPT_5
+
 
 @pytest.fixture
 def mock_journal(tmp_path, monkeypatch):
@@ -59,7 +61,7 @@ def test_ndjson_single_request(mock_journal, monkeypatch, capsys):
             "prompt": "What is 2+2?",
             "backend": "openai",
             "persona": "default",
-            "model": "gpt-4o",
+            "model": GPT_5,
             "max_tokens": 100,
             "mcp_server_url": "http://localhost:5175/mcp",
         }
@@ -104,7 +106,7 @@ def test_ndjson_single_request(mock_journal, monkeypatch, capsys):
     assert start_event["event"] == "start"
     assert start_event["prompt"] == "What is 2+2?"
     assert start_event["backend"] == "openai"
-    assert start_event["model"] == "gpt-4o"  # Model comes from config
+    assert start_event["model"] == GPT_5  # Model comes from config
 
     finish_events = [e for e in events if e["event"] == "finish"]
     assert finish_events
@@ -225,7 +227,7 @@ def test_ndjson_missing_prompt(mock_journal, monkeypatch, capsys):
     ndjson_input = json.dumps(
         {
             "backend": "openai",
-            "model": "gpt-4o",
+            "model": GPT_5,
             # Missing 'prompt' field
         }
     )

@@ -7,6 +7,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from think.models import GPT_5
+
 
 @pytest.fixture
 def mock_journal(tmp_path, monkeypatch):
@@ -90,7 +92,7 @@ def test_spawn_agent(mock_timer, mock_thread, mock_popen, cortex_service, mock_j
         "prompt": "Test prompt",
         "backend": "openai",
         "persona": "default",
-        "model": "gpt-4",
+        "model": GPT_5,
     }
 
     cortex_service._spawn_agent(
@@ -115,7 +117,7 @@ def test_spawn_agent(mock_timer, mock_thread, mock_popen, cortex_service, mock_j
     assert ndjson["prompt"] == "Test prompt"
     assert ndjson["backend"] == "openai"
     assert ndjson["persona"] == "default"
-    assert ndjson["model"] == "gpt-4"
+    assert ndjson["model"] == GPT_5
 
     # Check stdin was closed
     mock_process.stdin.close.assert_called_once()

@@ -6,6 +6,7 @@ import types
 from types import SimpleNamespace
 
 from tests.agents_stub import install_agents_stub
+from think.models import GEMINI_FLASH
 
 
 async def run_main(mod, argv, stdin_data=None):
@@ -100,7 +101,7 @@ def test_google_thinking_events(monkeypatch, tmp_path, capsys):
     thinking_events = [e for e in events if e["event"] == "thinking"]
     assert len(thinking_events) == 1
     assert thinking_events[0]["summary"] == "I need to analyze this step by step."
-    assert thinking_events[0]["model"] == "gemini-2.5-flash"
+    assert thinking_events[0]["model"] == GEMINI_FLASH
     assert isinstance(thinking_events[0]["ts"], int)
 
     assert events[-1]["event"] == "finish"
