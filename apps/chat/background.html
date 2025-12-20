@@ -80,17 +80,16 @@ AppServices.register('chat', {
   async handleCortexEvent(e) {
     if (e.event !== 'finish' && e.event !== 'error') return;
 
-    // Skip if user is actively viewing this chat
-    // Note: for new chats, agent_id = chat_id; for continuations, user is viewing so we skip
-    if (this.activeChatId === e.agent_id) return;
-
-    // Check if this is a chat (for new chats, agent_id = chat_id)
+    // Find chat by agent_id (handles both new chats and continuations)
     try {
-      const resp = await fetch(`/app/chat/api/chat/${e.agent_id}`);
-      if (!resp.ok) return; // Not a chat or continuation agent
+      const resp = await fetch(`/app/chat/api/agent/${e.agent_id}/chat`);
+      if (!resp.ok) return; // Not a chat agent
 
       const chat = await resp.json();
-      const chatId = chat.chat_id || chat.agent_id;
+      const chatId = chat.chat_id;
+
+      // Skip if user is actively viewing this chat
+      if (this.activeChatId === chatId) return;
 
       // Skip if already processed (chat already has unread flag from send_message)
       if (chat.unread) return;

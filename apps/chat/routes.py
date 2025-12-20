@@ -14,6 +14,32 @@ from think.models import GEMINI_LITE, gemini_generate
 
 logger = logging.getLogger(__name__)
 
+
+def normalize_chat(chat_data: dict, fallback_id: str | None = None) -> dict:
+    """Normalize a chat record to ensure required fields exist.
+
+    Handles legacy records that may be missing chat_id or thread.
+
+    Args:
+        chat_data: Raw chat record dict
+        fallback_id: ID to use if chat_id/agent_id missing (e.g., filename stem)
+
+    Returns:
+        Normalized chat dict with chat_id and thread guaranteed
+    """
+    # Ensure chat_id exists
+    if "chat_id" not in chat_data:
+        chat_data["chat_id"] = chat_data.get("agent_id", fallback_id)
+
+    # Ensure thread exists
+    if "thread" not in chat_data:
+        legacy_id = chat_data.get("agent_id", chat_data.get("chat_id"))
+        if legacy_id:
+            chat_data["thread"] = [legacy_id]
+
+    return chat_data
+
+
 chat_bp = Blueprint(
     "app:chat",
     __name__,
@@ -35,9 +61,7 @@ def _load_all_chats() -> tuple[list[dict], int]:
         for chat_file in chats_dir.glob("*.json"):
             chat_data = load_json(chat_file)
             if chat_data:
-                # Normalize: ensure chat_id is available (handles legacy records)
-                if "chat_id" not in chat_data:
-                    chat_data["chat_id"] = chat_data.get("agent_id", chat_file.stem)
+                normalize_chat(chat_data, chat_file.stem)
                 chats.append(chat_data)
                 if chat_data.get("unread"):
                     unread_count += 1
@@ -111,7 +135,8 @@ def send_message() -> Any:
         chat_file = chats_dir / f"{continue_chat}.json"
         if chat_file.exists():
             existing_chat = load_json(chat_file)
-            if existing_chat and existing_chat.get("thread"):
+            if existing_chat:
+                normalize_chat(existing_chat, continue_chat)
                 # Continue from the last agent in the thread
                 last_agent = existing_chat["thread"][-1]
                 config["continue_from"] = last_agent
@@ -216,8 +241,8 @@ def chat_events(chat_id: str) -> Any:
         resp.status_code = 500
         return resp
 
-    # Get thread from chat record, with fallback for legacy records
-    thread = chat.get("thread", [chat.get("agent_id", chat_id)])
+    normalize_chat(chat, chat_id)
+    thread = chat["thread"]
 
     # Hydrate events from all agents in the thread
     all_events = []
@@ -277,6 +302,40 @@ def get_chat(chat_id: str) -> Any:
         return resp
 
     return jsonify(chat_data)
+
+
+@chat_bp.route("/api/agent/<agent_id>/chat")
+def find_chat_by_agent(agent_id: str) -> Any:
+    """Find the chat that contains a given agent_id in its thread.
+
+    This is used by the background service to find which chat a completion
+    event belongs to, since continuation agents have different IDs than
+    the chat itself.
+
+    Args:
+        agent_id: The agent ID to search for
+
+    Returns:
+        Chat metadata JSON or 404 if not found in any thread
+    """
+    chats_dir = get_app_storage_path("chat", "chats", ensure_exists=False)
+
+    if not chats_dir.exists():
+        resp = jsonify({"error": "No chats found"})
+        resp.status_code = 404
+        return resp
+
+    # Search all chats for one containing this agent_id in its thread
+    for chat_file in chats_dir.glob("*.json"):
+        chat_data = load_json(chat_file)
+        if chat_data:
+            normalize_chat(chat_data, chat_file.stem)
+            if agent_id in chat_data.get("thread", []):
+                return jsonify(chat_data)
+
+    resp = jsonify({"error": f"No chat found containing agent: {agent_id}"})
+    resp.status_code = 404
+    return resp
 
 
 @chat_bp.route("/api/chat/<chat_id>/read", methods=["POST"])
@@ -394,9 +453,7 @@ def list_bookmarks() -> Any:
                         # Filter by facet if specified
                         if facet is not None and chat_data.get("facet") != facet:
                             continue
-                        # Normalize chat_id
-                        if "chat_id" not in chat_data:
-                            chat_data["chat_id"] = link.stem
+                        normalize_chat(chat_data, link.stem)
                         bookmarks.append(chat_data)
 
     # Sort by bookmarked timestamp, newest first

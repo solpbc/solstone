@@ -73,7 +73,8 @@ def send_message(
         actor, caller_agent_id = _get_actor_info(context)
 
         chat_record = {
-            "agent_id": agent_id,
+            "chat_id": agent_id,
+            "thread": [agent_id],
             "ts": int(agent_id),  # agent_id is already the timestamp
             "from": {"type": "agent", "id": caller_agent_id or "mcp_tool"},
             "title": title,
