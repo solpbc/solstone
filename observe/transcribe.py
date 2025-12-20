@@ -21,12 +21,10 @@ from silero_vad import load_silero_vad
 
 from observe.hear import (
     SAMPLE_RATE,
-    calculate_mic_overlap,
     detect_speech,
     merge_streams,
 )
 from think.callosum import callosum_send
-from think.crumbs import CrumbBuilder
 from think.entities import load_entity_names
 from think.models import GEMINI_FLASH
 from think.utils import (
@@ -512,11 +510,6 @@ class Transcriber:
             jsonl_lines.extend(json.dumps(item) for item in transcript_items)
             json_path.write_text("\n".join(jsonl_lines) + "\n")
             logging.info(f"Transcribed {raw_path} -> {json_path}")
-
-            crumb_builder = CrumbBuilder().add_file(str(self.prompt_path))
-            crumb_builder = crumb_builder.add_file(raw_path).add_model(MODEL)
-            crumb_path = crumb_builder.commit(str(json_path))
-            logging.info(f"Crumb saved to {crumb_path}")
             return True
         except Exception as e:
             logging.error(f"Failed to transcribe {raw_path}: {e}", exc_info=True)

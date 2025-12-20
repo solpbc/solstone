@@ -61,7 +61,6 @@ def test_ponder_main(tmp_path, monkeypatch):
 
     md = day_dir / "insights" / "prompt.md"
     assert md.read_text() == "summary"
-    assert md.with_suffix(md.suffix + ".crumb").is_file()
     # Events now go to facets/{facet}/events/YYYYMMDD.jsonl
     events_file = tmp_path / "facets" / "work" / "events" / "20240101.jsonl"
     assert events_file.exists()
@@ -170,6 +169,4 @@ def test_ponder_skip_occurrences(tmp_path, monkeypatch):
     js = day_dir / "insights" / "flow.json"
     assert md.read_text() == "summary"
     assert not js.exists()
-    assert md.with_suffix(md.suffix + ".crumb").is_file()
-    assert not js.with_suffix(js.suffix + ".crumb").exists()
     assert "called" not in called

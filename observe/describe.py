@@ -14,7 +14,6 @@ import io
 import json
 import logging
 import os
-import re
 import time
 from enum import Enum
 from pathlib import Path
@@ -482,31 +481,6 @@ class VideoProcessor:
             logger.error(f"Failed to move {media_path} to segment: {exc}")
             return media_path
 
-    def _create_crumb(
-        self,
-        output_path: Path,
-        moved_video_path: Path,
-        used_prompts: set,
-        used_models: set,
-    ) -> None:
-        """Create crumb file for the analysis output."""
-        from think.crumbs import CrumbBuilder
-
-        crumb_builder = CrumbBuilder()
-        crumb_builder.add_file(moved_video_path)
-
-        # Add prompt files that were used
-        observe_dir = Path(__file__).parent
-        for prompt_file in sorted(used_prompts):
-            crumb_builder.add_file(observe_dir / prompt_file)
-
-        # Add models that were used
-        for model in sorted(used_models):
-            crumb_builder.add_model(model)
-
-        crumb_path = crumb_builder.commit(str(output_path))
-        logger.info(f"Crumb saved to {crumb_path}")
-
     async def process_with_vision(
         self,
         use_prompt: str = "describe_json.txt",
@@ -526,11 +500,7 @@ class VideoProcessor:
             Path to write JSONL output (default: {video_stem}.jsonl)
         """
         from think.batch import GeminiBatch
-        from think.models import GEMINI_FLASH, GEMINI_LITE
-
-        # Track prompts and models used for crumb file
-        used_prompts = {use_prompt}
-        used_models = set()
+        from think.models import GEMINI_LITE
 
         # Load prompt templates
         prompt_path = Path(__file__).parent / use_prompt
@@ -677,7 +647,6 @@ class VideoProcessor:
                 # Check for meeting analysis
                 if visible_category == "meeting":
                     logger.info(f"Frame {req.frame_id}: Triggering meeting analysis")
-                    used_prompts.add("describe_meeting.txt")
                     # Load full frame from cached bytes
                     full_image = Image.open(io.BytesIO(req.full_bytes))
 
@@ -713,7 +682,6 @@ class VideoProcessor:
                     logger.info(
                         f"Frame {req.frame_id}: Triggering text extraction for category '{visible_category}'"
                     )
-                    used_prompts.add("describe_text.txt")
                     # Load crop image from cached bytes
                     crop_img = Image.open(io.BytesIO(req.crop_bytes))
 
@@ -773,10 +741,6 @@ class VideoProcessor:
             if req.request_type == RequestType.DESCRIBE_TEXT and req.response:
                 result["extracted_text"] = req.response
 
-            # Track model usage
-            if req.model_used:
-                used_models.add(req.model_used)
-
             # Write to file and optionally to stdout
             result_line = json.dumps(result)
             if output_file:
@@ -825,15 +789,14 @@ class VideoProcessor:
                 f"All {total_frames} frame(s) failed vision analysis after retries"
             )
         else:
-            # At least some frames succeeded - move to segment and create crumb
+            # At least some frames succeeded - move to segment
             if failed_frames > 0:
                 logger.warning(
                     f"{failed_frames}/{total_frames} frame(s) failed processing. "
                     f"Moving video to segment anyway."
                 )
             if output_path:
-                moved_path = self._move_to_segment(self.video_path)
-                self._create_crumb(output_path, moved_path, used_prompts, used_models)
+                self._move_to_segment(self.video_path)
 
         # Clear qualified_frames to free memory
         for monitor_id in self.qualified_frames:

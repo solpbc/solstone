@@ -8,7 +8,6 @@ from google import genai
 from google.genai import types
 
 from think.cluster import cluster, cluster_period
-from think.crumbs import CrumbBuilder
 from think.models import GEMINI_FLASH, GEMINI_PRO, gemini_generate
 from think.utils import (
     PromptNotFoundError,
@@ -429,23 +428,6 @@ def main() -> None:
             with open(md_path, "w") as f:
                 f.write(result)
             print(f"Results saved to: {md_path}")
-
-            crumb_builder = (
-                CrumbBuilder()
-                .add_file(str(insight_prompt.path))
-                .add_glob(os.path.join(day_dir, "*/audio.jsonl"))
-                .add_glob(os.path.join(day_dir, "*/*_audio.jsonl"))  # Split audio
-            )
-            if args.segment:
-                # Segment insights use raw screen data
-                crumb_builder.add_glob(os.path.join(day_dir, "*/screen.jsonl"))
-                crumb_builder.add_glob(os.path.join(day_dir, "*/*_screen.jsonl"))
-            else:
-                # Daily insights use segment insight summaries
-                crumb_builder.add_glob(os.path.join(day_dir, "*/*.md"))
-            crumb_builder.add_model(model)
-            crumb_path = crumb_builder.commit(str(md_path))
-            print(f"Crumb saved to: {crumb_path}")
 
         if skip_occ and not do_anticipations:
             print('"occurrences" set to false; skipping event extraction')

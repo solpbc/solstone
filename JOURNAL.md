@@ -653,7 +653,3 @@ Post-processing generates day-level insights in the `insights/` directory that s
 - `insights/_<app>_<topic>.md` – app-registered insights (e.g., `_chat_sentiment.md`)
 
 Each insight type has a corresponding template file (`{name}.txt`) that defines how the AI synthesizes extracts into narrative form. The set of generated insights depends on the templates configured in the system.
-
-#### Provenance
-
-Most insights are accompanied by a `.crumb` file capturing source dependencies and model information. See **CRUMBS.md** for the format specification. Example: `20250610/insights/flow.md.crumb`.

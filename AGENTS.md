@@ -31,8 +31,6 @@ Understanding these core concepts is essential for working with Sunstone:
 
 * **Indexer**: Builds and maintains SQLite database from journal data, enabling fast search and retrieval. Indexes transcripts, summaries, entities, and events.
 
-* **Crumbs**: JSON transcript format with timestamps, speaker attribution, and metadata. See **CRUMBS.md** for specification.
-
 ---
 
 ## 🏗️ Project Structure
@@ -59,7 +57,6 @@ sunstone/
 ├── JOURNAL.md      # Journal directory structure documentation
 ├── README.md       # Project overview and quick start
 ├── APPS.md         # App development guide
-├── CRUMBS.md       # Crumb file format specification
 ├── CORTEX.md       # Agent system documentation
 ├── CALLOSUM.md     # Callosum connection system documentation
 └── AGENTS.md       # Development guidelines (this file)
@@ -194,7 +191,7 @@ make check-all   # Format, lint, and test (run before commit)
 * Update README files for new functionality
 * Code comments explain "why" not "what"
 * Function signatures should include type hints; highlight gaps when touching older modules
-* **See subsystem docs**: JOURNAL.md, APPS.md, CORTEX.md, CALLOSUM.md, CRUMBS.md, DOCTOR.md
+* **See subsystem docs**: JOURNAL.md, APPS.md, CORTEX.md, CALLOSUM.md, DOCTOR.md
 * **App/UI work**: APPS.md is required reading before modifying anything under `apps/` (where HTML/JS lives)
 
 ---
@@ -254,5 +251,5 @@ make clean-install # Clean and reinstall
 ### Getting Help
 * Run `sunstone` for CLI command list
 * Check **DOCTOR.md** for debugging and diagnostics
-* Check **JOURNAL.md**, **APPS.md**, **CORTEX.md**, **CALLOSUM.md**, **CRUMBS.md** for subsystem details
+* Check **JOURNAL.md**, **APPS.md**, **CORTEX.md**, **CALLOSUM.md** for subsystem details
 * Review test files in `tests/` for usage examples

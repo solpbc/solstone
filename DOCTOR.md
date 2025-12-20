@@ -206,4 +206,3 @@ socat - UNIX-CONNECT:$JOURNAL_PATH/health/callosum.sock
 - [JOURNAL.md](JOURNAL.md) - Directory structure and file formats
 - [CORTEX.md](CORTEX.md) - Agent system, events, personas
 - [CALLOSUM.md](CALLOSUM.md) - Message bus protocol
-- [CRUMBS.md](CRUMBS.md) - Transcript format

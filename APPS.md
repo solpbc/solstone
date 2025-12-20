@@ -597,6 +597,5 @@ Browse `apps/*/` directories for reference implementations. Apps range in comple
 - **JOURNAL.md** - Journal directory structure and data organization
 - **CORTEX.md** - Agent system architecture and spawning agents
 - **CALLOSUM.md** - Message bus protocol and WebSocket events
-- **CRUMBS.md** - Transcript format specification
 
 For Flask documentation, see [https://flask.palletsprojects.com/](https://flask.palletsprojects.com/)

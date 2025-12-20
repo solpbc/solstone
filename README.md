@@ -145,7 +145,6 @@ See the [Makefile](Makefile) for all available commands or run `make help`.
 ## 📚 Documentation
 
 - [JOURNAL.md](JOURNAL.md) - Journal directory structure and data organization
-- [CRUMBS.md](CRUMBS.md) - Crumb file format for tracking AI token generation
 - [AGENTS.md](AGENTS.md) - Development guidelines and coding standards
 - [CORTEX.md](CORTEX.md) - Agent system documentation
 
