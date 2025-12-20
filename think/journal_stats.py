@@ -41,6 +41,7 @@ class JournalStats:
         files.extend(day_dir.glob("*/audio.jsonl"))
         files.extend(day_dir.glob("*/*_audio.jsonl"))  # Split audio files
         files.extend(day_dir.glob("*/screen.jsonl"))
+        files.extend(day_dir.glob("*/*_screen.jsonl"))  # Split screen files
         files.extend(day_dir.glob("*/raw.flac"))
         files.extend(day_dir.glob("*/screen.webm"))
         # Check day root for unprocessed files
@@ -216,8 +217,10 @@ class JournalStats:
                 logger.warning(f"Unexpected error processing {jsonl_file}: {e}")
 
         # --- Screen sessions ---
-        # Check timestamp subdirectories for screen files
-        for jsonl_file in sorted(day_dir.glob("*/screen.jsonl")):
+        # Check timestamp subdirectories for screen files (screen.jsonl, *_screen.jsonl)
+        screen_files = list(day_dir.glob("*/screen.jsonl"))
+        screen_files.extend(day_dir.glob("*/*_screen.jsonl"))
+        for jsonl_file in sorted(screen_files):
             stats["screen_sessions"] += 1
 
             try:

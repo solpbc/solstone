@@ -32,7 +32,7 @@ def _process_segment(
         segment_path: Path to segment directory
         date_str: Date in YYYYMMDD format
         audio: Whether to load audio transcripts
-        screen: Whether to load raw screen data from screen.jsonl
+        screen: Whether to load raw screen data from *screen.jsonl files
         insights: Whether to load insight summaries from *.md files
 
     Returns:
@@ -84,10 +84,10 @@ def _process_segment(
                 }
             )
 
-    # Process raw screen data from screen.jsonl
+    # Process raw screen data from screen.jsonl and *_screen.jsonl
     if screen:
-        screen_jsonl = segment_path / "screen.jsonl"
-        if screen_jsonl.exists():
+        screen_files = list(segment_path.glob("*screen.jsonl"))
+        for screen_jsonl in screen_files:
             try:
                 content = format_screen_text(screen_jsonl)
                 if content:
@@ -99,12 +99,12 @@ def _process_segment(
                             "segment_end": segment_end,
                             "prefix": "screen",
                             "content": content,
-                            "name": f"{segment_path.name}/screen.jsonl",
+                            "name": f"{segment_path.name}/{screen_jsonl.name}",
                         }
                     )
             except Exception as e:  # pragma: no cover - warning only
                 print(
-                    f"Warning: Could not read JSONL file screen.jsonl: {e}",
+                    f"Warning: Could not read JSONL file {screen_jsonl.name}: {e}",
                     file=sys.stderr,
                 )
 
@@ -281,7 +281,7 @@ def cluster_scan(day: str) -> Tuple[List[Tuple[str, str]], List[Tuple[str, str]]
                 audio_slots.add(slot)
 
             # Check for screen content
-            if (item / "screen.jsonl").exists():
+            if (item / "screen.jsonl").exists() or any(item.glob("*_screen.jsonl")):
                 screen_slots.add(slot)
 
     audio_ranges = _slots_to_ranges(sorted(audio_slots))
@@ -325,7 +325,7 @@ def cluster_segments(day: str) -> List[Dict[str, any]]:
             types.append("audio")
 
         # Check for screen content
-        if (item / "screen.jsonl").exists():
+        if (item / "screen.jsonl").exists() or any(item.glob("*_screen.jsonl")):
             types.append("screen")
 
         if not types:
@@ -410,7 +410,7 @@ def _load_entries_from_segment(
     Args:
         segment_dir: Path to segment directory (e.g., /path/to/20251109/163045_300)
         audio: Whether to load audio transcripts
-        screen: Whether to load raw screen data from screen.jsonl
+        screen: Whether to load raw screen data from *screen.jsonl files
         insights: Whether to load insight summaries from *.md files
 
     Returns:
@@ -451,7 +451,7 @@ def cluster_range(
         start: Start time in HHMMSS format
         end: End time in HHMMSS format
         audio: Whether to include audio transcripts
-        screen: Whether to include raw screen data from screen.jsonl
+        screen: Whether to include raw screen data from *screen.jsonl files
         insights: Whether to include insight summaries from *.md files
     """
 
@@ -489,7 +489,7 @@ def get_entries_for_range(
         start: Start time in HHMMSS format
         end: End time in HHMMSS format
         audio: Whether to include audio transcripts
-        screen: Whether to include raw screen data from screen.jsonl
+        screen: Whether to include raw screen data from *screen.jsonl files
         insights: Whether to include insight summaries from *.md files
 
     Returns:

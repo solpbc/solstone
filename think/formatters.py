@@ -114,6 +114,7 @@ FORMATTERS: dict[str, tuple[str, str]] = {
     "facets/*/entities.jsonl": ("think.entities", "format_entities"),
     "facets/*/events/*.jsonl": ("think.events", "format_events"),
     "facets/*/todos/*.jsonl": ("apps.todos.todo", "format_todos"),
+    "*/*_screen.jsonl": ("observe.screen", "format_screen"),
     "*/screen.jsonl": ("observe.screen", "format_screen"),
     "*/*_audio.jsonl": ("observe.hear", "format_audio"),
     "*/audio.jsonl": ("observe.hear", "format_audio"),
@@ -235,13 +236,14 @@ def find_formattable_files(journal: str) -> dict[str, str]:
                 rel = f"{day}/{entry.name}/{md_file.name}"
                 files[rel] = str(md_file)
 
-            # Segment JSONL: audio.jsonl, screen.jsonl, *_audio.jsonl
+            # Segment JSONL: audio.jsonl, screen.jsonl, *_audio.jsonl, *_screen.jsonl
             for jsonl_file in entry.glob("*.jsonl"):
                 name = jsonl_file.name
                 if (
                     name == "audio.jsonl"
                     or name == "screen.jsonl"
                     or name.endswith("_audio.jsonl")
+                    or name.endswith("_screen.jsonl")
                 ):
                     rel = f"{day}/{entry.name}/{name}"
                     files[rel] = str(jsonl_file)

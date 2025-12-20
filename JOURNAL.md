@@ -17,8 +17,8 @@ Sunstone transforms raw recordings into actionable understanding through a three
 ┌─────────────────────────────────────┐
 │  LAYER 2: EXTRACTS                  │  Structured data
 │  (JSON/JSONL files)                 │  "What happened"
-│  - audio.jsonl (transcripts)        │
-│  - screen.jsonl (frame analysis)    │
+│  - audio.jsonl, *_audio.jsonl       │
+│  - screen.jsonl, *_screen.jsonl     │
 │  - events/*.jsonl (per-facet)       │
 └─────────────────────────────────────┘
          ↑ derived from
@@ -568,7 +568,7 @@ Example transcript file:
 
 #### Screen frame extracts
 
-The analysis file (`screen.jsonl`) contains one JSON object per qualified frame. Frames qualify when they contain a changed region of at least 400×400 pixels, detected using block-based SSIM comparison.
+Screen analysis files (`screen.jsonl` or `*_screen.jsonl`) contain one JSON object per qualified frame. Multiple screen files per segment are supported for multi-source setups (e.g., `monitor_1_screen.jsonl`, `wayland_screen.jsonl`). Frames qualify when they contain a changed region of at least 400×400 pixels, detected using block-based SSIM comparison.
 
 Example frame record:
 

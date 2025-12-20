@@ -569,10 +569,9 @@ def scan_day(day_dir: Path) -> dict[str, list[str]]:
             # Check for audio.jsonl and split audio files
             for audio_file in segment.glob("*audio.jsonl"):
                 processed.append(f"{segment.name}/{audio_file.name}")
-            # Check for screen.jsonl
-            screen_jsonl = segment / "screen.jsonl"
-            if screen_jsonl.exists():
-                processed.append(f"{segment.name}/screen.jsonl")
+            # Check for screen.jsonl and split screen files
+            for screen_file in segment.glob("*screen.jsonl"):
+                processed.append(f"{segment.name}/{screen_file.name}")
 
     processed.sort()
 

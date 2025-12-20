@@ -144,7 +144,10 @@ def _dev_calendar_screens_list(day: str) -> str:
 
 
 @calendar_bp.route("/<day>/screens/<timestamp>")
-def _dev_calendar_screens_detail(day: str, timestamp: str) -> str:
+@calendar_bp.route("/<day>/screens/<timestamp>/<filename>")
+def _dev_calendar_screens_detail(
+    day: str, timestamp: str, filename: str = "screen.jsonl"
+) -> str:
     """Render detail view for a specific screen.jsonl file."""
     if not re.fullmatch(DATE_RE.pattern, day):
         return "", 404
@@ -153,13 +156,17 @@ def _dev_calendar_screens_detail(day: str, timestamp: str) -> str:
     if not segment_key(timestamp):
         return "", 404
 
+    # Validate filename matches *screen.jsonl pattern
+    if not filename.endswith("screen.jsonl"):
+        return "", 404
+
     day_dir = str(day_path(day))
     if not os.path.isdir(day_dir):
         return "", 404
 
     # Check if the screen.jsonl file exists in segment
     segment_dir = os.path.join(day_dir, timestamp)
-    jsonl_path = os.path.join(segment_dir, "screen.jsonl")
+    jsonl_path = os.path.join(segment_dir, filename)
     if not os.path.isfile(jsonl_path):
         return "", 404
 
@@ -170,18 +177,21 @@ def _dev_calendar_screens_detail(day: str, timestamp: str) -> str:
         view="_dev_screens_detail",
         title=title,
         timestamp=timestamp,
+        filename=filename,
     )
 
 
 @calendar_bp.route("/api/screen_files/<day>")
 def _dev_screen_files(day: str) -> Any:
-    """Return list of screen.jsonl files for a day."""
+    """Return list of *screen.jsonl files for a day."""
     if not re.fullmatch(DATE_RE.pattern, day):
         return "", 404
 
     day_dir = str(day_path(day))
     if not os.path.isdir(day_dir):
         return jsonify({"files": []})
+
+    from glob import glob
 
     from think.utils import segment_key
 
@@ -190,9 +200,10 @@ def _dev_screen_files(day: str) -> Any:
     for item in sorted(os.listdir(day_dir)):
         item_path = os.path.join(day_dir, item)
         if os.path.isdir(item_path) and segment_key(item):
-            # Found segment, check for screen.jsonl
-            jsonl_path = os.path.join(item_path, "screen.jsonl")
-            if os.path.isfile(jsonl_path):
+            # Found segment, check for *screen.jsonl files
+            screen_files = glob(os.path.join(item_path, "*screen.jsonl"))
+            for jsonl_path in sorted(screen_files):
+                filename = os.path.basename(jsonl_path)
                 timestamp = item
 
                 # Count frames (excluding header line)
@@ -211,7 +222,7 @@ def _dev_screen_files(day: str) -> Any:
                 from datetime import datetime
 
                 try:
-                    time_obj = datetime.strptime(timestamp, "%H%M%S")
+                    time_obj = datetime.strptime(timestamp[:6], "%H%M%S")
                     human_time = time_obj.strftime("%I:%M:%S %p").lstrip("0")
                 except Exception:
                     human_time = timestamp
@@ -219,6 +230,7 @@ def _dev_screen_files(day: str) -> Any:
                 files.append(
                     {
                         "timestamp": timestamp,
+                        "filename": filename,
                         "human_time": human_time,
                         "frame_count": frame_count,
                         "file_size": file_size,
@@ -229,7 +241,8 @@ def _dev_screen_files(day: str) -> Any:
 
 
 @calendar_bp.route("/api/screen_frames/<day>/<timestamp>")
-def _dev_screen_frames(day: str, timestamp: str) -> Any:
+@calendar_bp.route("/api/screen_frames/<day>/<timestamp>/<filename>")
+def _dev_screen_frames(day: str, timestamp: str, filename: str = "screen.jsonl") -> Any:
     """Return all frame records and pre-cache decoded frames from video."""
     if not re.fullmatch(DATE_RE.pattern, day):
         return "", 404
@@ -238,9 +251,13 @@ def _dev_screen_frames(day: str, timestamp: str) -> Any:
     if not segment_key(timestamp):
         return "", 404
 
+    # Validate filename matches *screen.jsonl pattern
+    if not filename.endswith("screen.jsonl"):
+        return "", 404
+
     day_dir = str(day_path(day))
     segment_dir = os.path.join(day_dir, timestamp)
-    jsonl_path = os.path.join(segment_dir, "screen.jsonl")
+    jsonl_path = os.path.join(segment_dir, filename)
 
     if not os.path.isfile(jsonl_path):
         return "", 404
@@ -261,7 +278,7 @@ def _dev_screen_frames(day: str, timestamp: str) -> Any:
             raw_video_path = all_frames[0].get("raw")
 
         # Decode and cache all frames from the video
-        cache_key = (day, timestamp)
+        cache_key = (day, timestamp, filename)
         if cache_key not in _frame_cache and raw_video_path:
             # Video path is relative to segment directory (e.g., "screen.webm")
             video_path = os.path.join(segment_dir, raw_video_path)

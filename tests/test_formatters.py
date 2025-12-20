@@ -44,6 +44,20 @@ class TestRegistry:
         assert formatter is not None
         assert formatter.__name__ == "format_audio"
 
+    def test_get_formatter_split_screen(self):
+        """Test pattern matching for *_screen.jsonl files."""
+        from think.formatters import get_formatter
+
+        # Monitor-specific screen
+        formatter = get_formatter("20240101/123456_300/monitor_1_screen.jsonl")
+        assert formatter is not None
+        assert formatter.__name__ == "format_screen"
+
+        # Other suffixed screen files
+        formatter = get_formatter("20240101/123456_300/wayland_screen.jsonl")
+        assert formatter is not None
+        assert formatter.__name__ == "format_screen"
+
     def test_get_formatter_no_match(self):
         """Test that unmatched patterns return None."""
         from think.formatters import get_formatter

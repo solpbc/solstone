@@ -212,3 +212,69 @@ def test_cluster_range_with_screen(tmp_path, monkeypatch):
     # Should NOT include insight content
     assert "Screen summary insight" not in result
     assert "### screen summary" not in result
+
+
+def test_cluster_range_with_multiple_screen_files(tmp_path, monkeypatch):
+    """Test cluster_range loads multiple *_screen.jsonl files per segment."""
+    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+    day_dir = day_path("20240101")
+
+    mod = importlib.import_module("think.cluster")
+
+    # Create segment with multiple screen files (like multi-monitor setup)
+    segment = day_dir / "100000_300"
+    segment.mkdir()
+    (segment / "screen.jsonl").write_text(
+        '{"raw": "screen.webm"}\n'
+        '{"timestamp": 10, "analysis": {"visible": "code_editor", '
+        '"visual_description": "Primary monitor with VS Code"}}\n'
+    )
+    (segment / "monitor_2_screen.jsonl").write_text(
+        '{"raw": "monitor_2.webm"}\n'
+        '{"timestamp": 10, "analysis": {"visible": "browser", '
+        '"visual_description": "Secondary monitor with documentation"}}\n'
+    )
+
+    # Test screen=True returns data from both screen files
+    result = mod.cluster_range(
+        "20240101", "100000", "100500", audio=False, screen=True, insights=False
+    )
+
+    # Should include content from both screen files
+    assert "Primary monitor with VS Code" in result
+    assert "Secondary monitor with documentation" in result
+
+
+def test_cluster_scan_with_split_screen(tmp_path, monkeypatch):
+    """Test cluster_scan detects *_screen.jsonl files."""
+    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+    day_dir = day_path("20240101")
+
+    mod = importlib.import_module("think.cluster")
+
+    # Create segment with only *_screen.jsonl (no screen.jsonl)
+    (day_dir / "100000").mkdir()
+    (day_dir / "100000" / "monitor_1_screen.jsonl").write_text('{"raw": "m1.webm"}\n')
+
+    audio_ranges, screen_ranges = mod.cluster_scan("20240101")
+
+    # Should detect the segment as having screen content
+    assert screen_ranges == [("10:00", "10:15")]
+
+
+def test_cluster_segments_with_split_screen(tmp_path, monkeypatch):
+    """Test cluster_segments detects *_screen.jsonl files."""
+    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+    day_dir = day_path("20240101")
+
+    mod = importlib.import_module("think.cluster")
+
+    # Create segment with only *_screen.jsonl (no screen.jsonl)
+    (day_dir / "100000_300").mkdir()
+    (day_dir / "100000_300" / "wayland_screen.jsonl").write_text('{"raw": "w.webm"}\n')
+
+    segments = mod.cluster_segments("20240101")
+
+    assert len(segments) == 1
+    assert segments[0]["key"] == "100000_300"
+    assert "screen" in segments[0]["types"]
