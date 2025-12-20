@@ -563,7 +563,7 @@ Example transcript file:
 
 #### Screen frame extracts
 
-Screen analysis files (`screen.jsonl` or `*_screen.jsonl`) contain one JSON object per qualified frame. Multiple screen files per segment are supported for multi-source setups (e.g., `monitor_1_screen.jsonl`, `wayland_screen.jsonl`). Frames qualify when they contain a changed region of at least 400×400 pixels, detected using block-based SSIM comparison.
+Screen analysis files use per-monitor naming: `<position>_<connector>_screen.jsonl` (e.g., `center_DP-3_screen.jsonl`, `left_HDMI-1_screen.jsonl`). For single-monitor setups, the file is simply `screen.jsonl`. Each file contains one JSON object per qualified frame. Frames qualify when they contain a changed region of at least 400×400 pixels, detected using block-based SSIM comparison.
 
 Example frame record:
 
@@ -571,8 +571,6 @@ Example frame record:
 {
   "frame_id": 123,
   "timestamp": 45.67,
-  "monitor": "DP-3",
-  "monitor_position": "center",
   "box_2d": [100, 200, 500, 600],
   "requests": [
     {"type": "describe_json", "model": "gemini-2.0-flash-lite", "duration": 0.5}
@@ -587,9 +585,7 @@ Example frame record:
 **Common fields:**
 - `frame_id` – sequential frame number in the video
 - `timestamp` – time in seconds from video start
-- `monitor` – monitor identifier from video metadata
-- `monitor_position` – optional monitor position (e.g., "center", "left", "right")
-- `box_2d` – bounding box of changed region `[x_min, y_min, x_max, y_max]` relative to monitor
+- `box_2d` – bounding box of changed region `[x_min, y_min, x_max, y_max]`
 - `requests` – list of vision API requests made for this frame
 - `analysis` – categorization and visual description from initial analysis
 
