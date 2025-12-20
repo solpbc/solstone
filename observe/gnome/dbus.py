@@ -1,24 +1,15 @@
 """GNOME Shell and Mutter DBus interface primitives."""
 
-import io
 import os
-import tempfile
-import time
 
 import gi
 from dbus_next.aio import MessageBus
-from dbus_next.constants import BusType
 
 gi.require_version("Gdk", "4.0")  # noqa: E402
 gi.require_version("Gtk", "4.0")  # noqa: E402
 from gi.repository import Gdk, Gtk  # noqa: E402
-from PIL import Image  # noqa: E402
 
 # DBus service constants
-SCREENSHOT_BUS = "org.gnome.Shell.Screenshot"
-SCREENSHOT_PATH = "/org/gnome/Shell/Screenshot"
-SCREENSHOT_IFACE = "org.gnome.Shell.Screenshot"
-
 IDLE_MONITOR_BUS = "org.gnome.Mutter.IdleMonitor"
 IDLE_MONITOR_PATH = "/org/gnome/Mutter/IdleMonitor/Core"
 IDLE_MONITOR_IFACE = "org.gnome.Mutter.IdleMonitor"
@@ -30,31 +21,6 @@ SCREENSAVER_IFACE = "org.gnome.ScreenSaver"
 DISPLAY_CONFIG_BUS = "org.gnome.Mutter.DisplayConfig"
 DISPLAY_CONFIG_PATH = "/org/gnome/Mutter/DisplayConfig"
 DISPLAY_CONFIG_IFACE = "org.gnome.Mutter.DisplayConfig"
-
-# Global timestamp for the last screenshot (in seconds)
-last_screenshot_timestamp = 0
-
-
-async def take_screenshot(bus: MessageBus) -> bytes:
-    """
-    Take a screenshot via GNOME Shell DBus interface.
-
-    Args:
-        bus: Connected DBus session bus
-
-    Returns:
-        Screenshot image data as bytes (PNG format)
-    """
-    introspection = await bus.introspect(SCREENSHOT_BUS, SCREENSHOT_PATH)
-    proxy_obj = bus.get_proxy_object(SCREENSHOT_BUS, SCREENSHOT_PATH, introspection)
-    interface = proxy_obj.get_interface(SCREENSHOT_IFACE)
-    temp_path = os.path.join(tempfile.gettempdir(), "screenshot.png")
-    # Call the Screenshot method (non-interactive, no flash)
-    await interface.call_screenshot(False, False, temp_path)
-    with open(temp_path, "rb") as f:
-        screenshot_bytes = f.read()
-    os.remove(temp_path)
-    return screenshot_bytes
 
 
 async def get_idle_time_ms(bus: MessageBus) -> int:
@@ -157,48 +123,3 @@ def get_monitor_geometries() -> list[dict]:
 
     # Assign position labels using shared algorithm
     return assign_monitor_positions(geometries)
-
-
-async def screen_snap_async(skip_if_locked: bool = True) -> list[Image.Image]:
-    """
-    Take a screenshot and split it into per-monitor images.
-
-    Only captures if user is active (not idle since last screenshot).
-    Skips if screen is locked or in power save mode.
-
-    Args:
-        skip_if_locked: Skip screenshot if screen locked/blanked (default: True)
-
-    Returns:
-        List of PIL Images, one per monitor (empty list if skipped)
-    """
-    global last_screenshot_timestamp
-    now = time.time()
-    bus = await MessageBus(bus_type=BusType.SESSION).connect()
-
-    # Check if screen is locked or in power save mode
-    if skip_if_locked:
-        locked = await is_screen_locked(bus)
-        power_save = await is_power_save_active(bus)
-        if locked or power_save:
-            # Screen is locked or blanked, skip screenshot but update heartbeat
-            return []
-
-    if last_screenshot_timestamp:
-        idle_time_ms = await get_idle_time_ms(bus)
-        elapsed = now - last_screenshot_timestamp
-        if (idle_time_ms / 1000) > elapsed:
-            # User has been idle since before the last screenshot.
-            return []
-
-    # Take the screenshot for all monitors.
-    screenshot_data = await take_screenshot(bus)
-    im = Image.open(io.BytesIO(screenshot_data))
-    geometries = get_monitor_geometries()
-    monitor_images = []
-    for geom_info in geometries:
-        box = tuple(geom_info["box"])  # [x, y, x+w, y+h]
-        monitor_img = im.crop(box)
-        monitor_images.append(monitor_img)
-    last_screenshot_timestamp = now
-    return monitor_images
