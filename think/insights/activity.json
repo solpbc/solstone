@@ -1,7 +1,7 @@
 {
     "title": "Activity Synthesis",
-    "description": "Real-time synthesis of each segment to extract active tasks, progress states, and searchable context. Interprets audio and screen activity to reveal intent and framing not obvious from raw transcripts.",
-    "contains": "Free-form markdown analysis for each segment capturing what's being worked on, progress states, facet associations, and context that makes segments discoverable through search.",
+    "description": "Interprets each segment to extract meaning, intent, and searchability. Focuses on the 'why' behind actions - tasks, progress states, facets, and keywords for discovery.",
+    "contains": "Concise interpretive summary with task names, progress states (blocked/exploring/deciding/making headway), facet associations, and searchable keywords. Brief and scannable.",
     "occurrences": false,
     "color": "#00bcd4",
     "frequency": "segment"

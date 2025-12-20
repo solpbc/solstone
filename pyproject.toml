@@ -120,7 +120,6 @@ observe-gnome = "observe.gnome.observer:main"
 observe-macos = "observe.macos.observer:main"
 observe-transcribe = "observe.transcribe:main"
 observe-describe = "observe.describe:main"
-observe-reduce = "observe.reduce:main"
 observe-sense = "observe.sense:main"
 think-formatter = "think.formatters:main"
 

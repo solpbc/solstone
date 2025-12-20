@@ -2,56 +2,45 @@
 
 ## Objective
 
-Analyze this segment to synthesize what's actually happening and what matters for future searchability. Transform raw audio transcript and screen activity into interpreted understanding that reveals intent, progress, and context not obvious from the literal recordings.
+Interpret this segment to extract **meaning and searchability**. Your job is NOT to describe what happened (that's captured elsewhere) but to synthesize the underlying intent, progress, and context that makes this segment findable and understandable later.
 
 ## Core Focus
 
-This is NOT about repeating what was said or describing what was visible—that's already captured in the transcript. Instead, interpret and synthesize to extract:
-
-### Active Tasks & Goals
-What is the person really trying to accomplish? Look beyond literal actions to understand the underlying intentions. Synthesize from both conversation topics and visible work to identify the current focuses. Multiple tasks may be in play or transitions may occur.
+### Tasks & Intent
+What is the person really trying to accomplish? Look beyond literal actions to understand the underlying goals. Name the tasks concretely (e.g., "debugging the OAuth refresh flow" not "working on code").
 
 ### Progress States
-What are the working states across activities?
-- **Making headway**: Clear progress, solutions emerging, things flowing
-- **Blocked**: Stuck on errors, waiting for something, can't proceed
-- **Exploring**: Investigating options, researching, trying things out
-- **Deciding**: Weighing alternatives, discussing trade-offs, making choices
+Characterize each task's working state:
+- **Making headway**: Clear progress, solutions emerging
+- **Blocked**: Stuck on errors, waiting, can't proceed
+- **Exploring**: Investigating options, researching
+- **Deciding**: Weighing alternatives, making choices
 
-### Searchable Context
-What framing makes this segment findable later? Extract the kind of context that helps answer future queries like:
-- "When was I working on that authentication bug?"
-- "What did I commit to doing after talking to Alice?"
-- "When did I decide to refactor that module?"
-- "What was blocking me on the API integration?"
+### Facet Associations
+**Required**: Identify which facet(s) this segment relates to. Every segment belongs to at least one facet. If work spans multiple facets, list all.
 
-Include project names, problem descriptions, key decisions, and relationships between the work and people/tools/goals.
-
-## Analysis Approach
-
-**Work with available data**: Segments may have audio only, screen only, or both. Use what's present:
-- Audio reveals: conversations, commitments, thinking-aloud, discussions, tone
-- Screen shows: what tools/files are active, code being written, commands run, apps visible
-
-**Interpret, don't repeat**: Transform raw observations into understanding. Be specific and concrete about what's being worked on, not vague descriptions.
-
-**Always identify facets**: Determine which facet or facets this segment's activities relate to. If work spans multiple facets, mention all relevant ones. Facets provide critical context for organizing and searching this segment later.
+### Searchable Keywords
+What terms would someone use to find this segment later? Include:
+- Project/feature names
+- Problem descriptions ("authentication bug", "memory leak")
+- Key decisions made
+- People involved and their roles
+- Tools or technologies central to the work
 
 ## Output Format
 
-Write free-form markdown in whatever style best captures the segment. This could be:
-- Narrative paragraphs describing the flow of work
-- Bulleted lists of parallel activities
-- Structured sections if multiple distinct focuses exist
-- Brief notes if the segment is straightforward
-- Separate and group things by facet where possible
+Write **concise, scannable markdown**. Aim for brevity - a few paragraphs or bullet points, not a detailed narrative. Structure flexibly based on content:
 
-Adapt your format to the content. What matters is capturing the synthesis clearly and making the segment discoverable.
+- Group by facet when multiple are present
+- Note context switches and why they occurred
+- Highlight blockers or breakthroughs
+- Include emotional/energy state if notable (frustrated, energized, scattered)
 
-## Special Considerations
+## What NOT to Include
 
-- If coding/technical work is present, be specific about what's being built/fixed/refactored
-- If multiple tasks are visible (context switches), note the transitions
-- Emotional state or energy level may be relevant if observable (frustrated, energized, focused, scattered)
+- Detailed chronological account of screen activity
+- Exact commands, code excerpts, file contents
+- Entity lists
+- Time-by-time breakdown
 
-Remember: Your synthesis should make this segment discoverable and understandable in ways the raw transcript and screen descriptions cannot achieve alone.
+Remember: This synthesis should make the segment **discoverable through search** and **quickly understandable** without reading the full transcript.

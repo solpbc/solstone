@@ -22,7 +22,6 @@ from watchdog.observers import Observer
 
 from think.callosum import CallosumConnection
 from think.runner import ManagedProcess as RunnerManagedProcess
-from think.runner import run_task
 from think.utils import day_path, setup_cli
 
 logger = logging.getLogger(__name__)
@@ -206,16 +205,6 @@ class FileSensor:
                     f"Handler completed successfully for {handler_proc.file_path.name}"
                 )
 
-                # If describe completed successfully, run reduce
-                if handler_proc is self.current_describe_process:
-                    try:
-                        self._run_reduce(handler_proc.file_path)
-                    except Exception as exc:
-                        logger.error(
-                            f"Failed to run reduce for {handler_proc.file_path.name}: {exc}",
-                            exc_info=True,
-                        )
-
                 # Check if segment is fully observed
                 self._check_segment_observed(handler_proc.file_path)
             else:
@@ -283,37 +272,6 @@ class FileSensor:
                     # Cleanup
                     del self.segment_files[segment]
                     del self.segment_start_time[segment]
-
-    def _run_reduce(self, video_path: Path):
-        """Run reduce on the video file after describe completes."""
-        from think.utils import segment_key
-
-        # Extract day and segment from video path
-        # Expected structure: journal_dir/YYYYMMDD/HHMMSS_LEN_suffix.webm
-        day = video_path.parent.name  # YYYYMMDD
-        segment = segment_key(video_path.stem)  # HHMMSS or HHMMSS_LEN
-
-        if not segment:
-            logger.error(f"Cannot extract segment from {video_path.stem}")
-            return
-
-        cmd = ["observe-reduce", "--day", day, "--segment", segment]
-
-        # Add verbose/debug flags if set
-        if self.debug:
-            cmd.append("-d")
-        elif self.verbose:
-            cmd.append("-v")
-
-        logger.info(f"Running reduce for {day}/{segment}")
-
-        # Use unified runner with automatic logging and timeout
-        success, exit_code = run_task(cmd, timeout=300, callosum=self.callosum)
-
-        if success:
-            logger.info(f"Reduce completed successfully for {day}/{segment}")
-        else:
-            logger.warning(f"Reduce failed for {day}/{segment} (exit code {exit_code})")
 
     def _handle_file(self, file_path: Path):
         """Route file to appropriate handler."""
@@ -522,8 +480,6 @@ class FileSensor:
         moved to segments (HHMMSS/). This approach handles incomplete
         processing gracefully by re-running even if output files exist.
 
-        Also finds JSONL files without corresponding MD files and runs reduce on them.
-
         Args:
             day: Day in YYYYMMDD format
             max_jobs: Maximum number of concurrent processing jobs
@@ -541,23 +497,6 @@ class FileSensor:
                 if handler_info:
                     handler_name, command = handler_info
                     to_process.append((file_path, handler_name, command))
-
-        # Find incomplete reduces (screen.jsonl files in segments without corresponding screen.md)
-        for segment in day_dir.iterdir():
-            from think.utils import segment_key
-
-            if segment.is_dir() and segment_key(segment.name):
-                screen_jsonl = segment / "screen.jsonl"
-                screen_md = segment / "screen.md"
-                if screen_jsonl.exists() and not screen_md.exists():
-                    # Register reduce as a handler task with semantic args
-                    to_process.append(
-                        (
-                            screen_jsonl,
-                            "reduce",
-                            ["observe-reduce", "--day", day, "--segment", segment.name],
-                        )
-                    )
 
         if not to_process:
             logger.info(f"No unprocessed files found in {day_dir}")

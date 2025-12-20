@@ -53,15 +53,15 @@ Callosum is a JSON-per-line message bus for real-time event distribution across 
 **Purpose:** Real-time stdout/stderr streaming and process exit events
 
 ### `observe` - Multimodal capture processing events
-**Source:** `observe/gnome/observer.py`, `observe/sense.py`, `observe/describe.py`, `observe/transcribe.py`, `observe/reduce.py`
-**Events:** `status`, `observing`, `detected`, `described`, `transcribed`, `reduced`, `observed`
+**Source:** `observe/gnome/observer.py`, `observe/sense.py`, `observe/describe.py`, `observe/transcribe.py`
+**Events:** `status`, `observing`, `detected`, `described`, `transcribed`, `observed`
 **Fields:**
 - `status`: Periodic state (every 5s, only when active)
   - From `observer.py`: `screencast`, `audio`, `activity` - Live capture state
   - From `sense.py`: `describe`, `transcribe` - Processing pipeline state (with `running`/`queued` sub-fields)
 - `observing`: `segment`, `files` - Recording window boundary crossed with saved files
 - `detected`: `file`, `handler`, `ref` - File detected and handler spawned
-- `described`/`transcribed`/`reduced`: `input`, `output`, `duration_ms` - Processing complete
+- `described`/`transcribed`: `input`, `output`, `duration_ms` - Processing complete
 - `observed`: `segment`, `duration` - All files for segment fully processed
 **Purpose:** Track observation pipeline from live capture state through processing completion
 **Path Format:** Relative to `JOURNAL_PATH` (e.g., `20251102/163045_screen.webm`, `20251102/seen/163045_screen.webm`)

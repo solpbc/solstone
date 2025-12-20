@@ -162,7 +162,7 @@ class TestFormatScreen:
 
     def test_format_screen_basic(self):
         """Test basic screen formatting."""
-        from observe.reduce import format_screen
+        from observe.screen import format_screen
 
         entries = [
             {
@@ -183,7 +183,7 @@ class TestFormatScreen:
 
     def test_format_screen_with_entity_context(self):
         """Test screen formatting with entity context."""
-        from observe.reduce import format_screen
+        from observe.screen import format_screen
 
         entries = [{"timestamp": 0, "analysis": {"visible": "browser"}}]
         context = {"entity_names": "Alice, Bob", "include_entity_context": True}
@@ -196,7 +196,7 @@ class TestFormatScreen:
 
     def test_format_screen_without_entity_context(self):
         """Test screen formatting without entity context."""
-        from observe.reduce import format_screen
+        from observe.screen import format_screen
 
         entries = [{"timestamp": 0, "analysis": {"visible": "browser"}}]
         context = {"include_entity_context": False}
@@ -208,7 +208,7 @@ class TestFormatScreen:
 
     def test_format_screen_multiple_monitors(self):
         """Test screen formatting with multiple monitors."""
-        from observe.reduce import format_screen
+        from observe.screen import format_screen
 
         entries = [
             {"timestamp": 0, "monitor": "0", "analysis": {}},
@@ -228,7 +228,7 @@ class TestFormatScreen:
 
     def test_format_screen_meeting_analysis(self):
         """Test screen formatting with meeting analysis."""
-        from observe.reduce import format_screen
+        from observe.screen import format_screen
 
         entries = [
             {
@@ -245,7 +245,7 @@ class TestFormatScreen:
 
     def test_format_screen_extracts_metadata(self):
         """Test that metadata line is extracted and not treated as a frame."""
-        from observe.reduce import format_screen
+        from observe.screen import format_screen
 
         entries = [
             {"raw": "screen.webm"},  # Metadata line
@@ -260,7 +260,7 @@ class TestFormatScreen:
 
     def test_format_screen_skipped_entries_error(self):
         """Test that skipped entries are reported in meta.error."""
-        from observe.reduce import format_screen
+        from observe.screen import format_screen
 
         entries = [
             {"raw": "screen.webm"},  # Metadata
@@ -403,36 +403,6 @@ class TestFormatAudio:
         assert "error" in meta
         assert "Skipped 2 entries" in meta["error"]
         assert "start" in meta["error"]
-
-
-class TestAssembleMarkdownBackwardCompat:
-    """Tests for backward compatibility of assemble_markdown wrapper."""
-
-    def test_assemble_markdown_returns_string(self):
-        """Test that assemble_markdown still returns a string."""
-        from observe.reduce import assemble_markdown
-
-        frames = [
-            {"timestamp": 0, "analysis": {"visible": "code"}},
-            {"timestamp": 5, "analysis": {"visible": "browser"}},
-        ]
-
-        result = assemble_markdown(frames)
-
-        assert isinstance(result, str)
-        assert "Frame Analyses" in result
-        assert "**Category:** code" in result
-        assert "**Category:** browser" in result
-
-    def test_assemble_markdown_with_entity_names(self):
-        """Test assemble_markdown with entity_names parameter."""
-        from observe.reduce import assemble_markdown
-
-        frames = [{"timestamp": 0, "analysis": {}}]
-        result = assemble_markdown(frames, entity_names="Alice, Bob")
-
-        assert "Entity Context" in result
-        assert "Alice, Bob" in result
 
 
 class TestLoadTranscriptBackwardCompat:
@@ -1503,7 +1473,7 @@ class TestFormatterIndexerMetadata:
 
     def test_format_screen_returns_indexer(self):
         """Test format_screen returns indexer with topic."""
-        from observe.reduce import format_screen
+        from observe.screen import format_screen
 
         entries = [{"timestamp": 0, "analysis": {"visible": "code"}}]
         chunks, meta = format_screen(entries)

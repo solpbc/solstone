@@ -114,7 +114,7 @@ FORMATTERS: dict[str, tuple[str, str]] = {
     "facets/*/entities.jsonl": ("think.entities", "format_entities"),
     "facets/*/events/*.jsonl": ("think.events", "format_events"),
     "facets/*/todos/*.jsonl": ("apps.todos.todo", "format_todos"),
-    "*/screen.jsonl": ("observe.reduce", "format_screen"),
+    "*/screen.jsonl": ("observe.screen", "format_screen"),
     "*/*_audio.jsonl": ("observe.hear", "format_audio"),
     "*/audio.jsonl": ("observe.hear", "format_audio"),
     # Markdown formatter (semantic chunking)

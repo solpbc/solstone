@@ -7,7 +7,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any, Dict, List, Set, Tuple
 
-from observe.reduce import format_screen_text
+from observe.screen import format_screen_text
 
 from .utils import day_path, setup_cli
 

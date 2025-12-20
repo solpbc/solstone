@@ -197,12 +197,12 @@ def add_module_stubs(request, monkeypatch):
         sys.modules["observe.utils"] = utils_mod
         observe_pkg = sys.modules.get("observe")
         setattr(observe_pkg, "utils", utils_mod)
-    if "observe.reduce" not in sys.modules:
-        # Import the real module for format_screen and assemble_markdown
-        reduce_mod = importlib.import_module("observe.reduce")
-        sys.modules["observe.reduce"] = reduce_mod
+    if "observe.screen" not in sys.modules:
+        # Import the real module for format_screen
+        screen_mod = importlib.import_module("observe.screen")
+        sys.modules["observe.screen"] = screen_mod
         observe_pkg = sys.modules.get("observe")
-        setattr(observe_pkg, "reduce", reduce_mod)
+        setattr(observe_pkg, "screen", screen_mod)
     if "gi" not in sys.modules:
         gi_mod = types.ModuleType("gi")
         gi_mod.require_version = lambda *a, **k: None
