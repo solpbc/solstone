@@ -64,7 +64,7 @@ Callosum is a JSON-per-line message bus for real-time event distribution across 
 - `described`/`transcribed`: `input`, `output`, `duration_ms` - Processing complete
 - `observed`: `segment`, `duration` - All files for segment fully processed
 **Purpose:** Track observation pipeline from live capture state through processing completion
-**Path Format:** Relative to `JOURNAL_PATH` (e.g., `20251102/163045_screen.webm`, `20251102/seen/163045_screen.webm`)
+**Path Format:** Relative to `JOURNAL_PATH` (e.g., `20251102/163045_300_center_DP-3_screen.webm` for multi-monitor recordings)
 **Correlation:** `detected.ref` matches `logs.exec.ref` for the same handler process; `observed.segment` groups all files from same capture window
 
 ### `importer` - Media import and transcription processing

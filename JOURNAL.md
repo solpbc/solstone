@@ -522,17 +522,12 @@ Note: The descriptive portion after the segment key (e.g., `_audio`, `_recording
 
 #### Screen captures
 
-Screen recordings follow the same pattern:
+Screen recordings use per-monitor files with position and connector in the filename:
 
-- `HHMMSS_LEN_*.webm` – screencast video files in day root (e.g., `143022_300_screen.webm`)
-- `HHMMSS_LEN/*.webm` – video files moved here after analysis, preserving descriptive suffix (e.g., `screen.webm`, `monitor1.webm`)
+- `HHMMSS_LEN_<position>_<connector>_screen.webm` – screencast video files in day root (e.g., `143022_300_center_DP-3_screen.webm`)
+- `HHMMSS_LEN/<position>_<connector>_screen.webm` – video files moved here after analysis (e.g., `center_DP-3_screen.webm`)
 
-Videos contain monitor layout information in their metadata title field using the format:
-```
-DP-3:center,1920,0,5360,1440 HDMI-4:right,5360,219,7280,1299
-```
-
-Each monitor entry: `<monitor_name>:<position>,<x1>,<y1>,<x2>,<y2>` where coordinates define the monitor's bounding box in the combined virtual screen space.
+For multi-monitor setups, each monitor produces a separate file. Position labels include: `center`, `left`, `right`, `top`, `bottom`, and combinations like `left-top`.
 
 ### Layer 2: Extracts
 

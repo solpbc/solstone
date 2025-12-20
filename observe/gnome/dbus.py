@@ -1,13 +1,11 @@
 """GNOME Shell and Mutter DBus interface primitives."""
 
-import asyncio
 import io
 import os
 import tempfile
 import time
 
 import gi
-from dbus_next import Variant
 from dbus_next.aio import MessageBus
 from dbus_next.constants import BusType
 
@@ -32,11 +30,6 @@ SCREENSAVER_IFACE = "org.gnome.ScreenSaver"
 DISPLAY_CONFIG_BUS = "org.gnome.Mutter.DisplayConfig"
 DISPLAY_CONFIG_PATH = "/org/gnome/Mutter/DisplayConfig"
 DISPLAY_CONFIG_IFACE = "org.gnome.Mutter.DisplayConfig"
-
-SCREENCAST_BUS = "org.gnome.Shell.Screencast"
-SCREENCAST_PATH = "/org/gnome/Shell/Screencast"
-SCREENCAST_IFACE = "org.gnome.Shell.Screencast"
-
 
 # Global timestamp for the last screenshot (in seconds)
 last_screenshot_timestamp = 0
@@ -123,47 +116,6 @@ async def is_power_save_active(bus: MessageBus) -> bool:
     except Exception:
         # Property or service not available -> assume not blanked
         return False
-
-
-async def start_screencast(
-    bus: MessageBus, out_path: str, framerate: int = 1, draw_cursor: bool = True
-) -> tuple[bool, str]:
-    """
-    Start GNOME Shell screencast recording.
-
-    Args:
-        bus: Connected DBus session bus
-        out_path: Output file path
-        framerate: Frames per second (default: 1)
-        draw_cursor: Whether to draw mouse cursor (default: True)
-
-    Returns:
-        Tuple of (success: bool, resolved_path: str)
-    """
-    introspection = await bus.introspect(SCREENCAST_BUS, SCREENCAST_PATH)
-    obj = bus.get_proxy_object(SCREENCAST_BUS, SCREENCAST_PATH, introspection)
-    iface = obj.get_interface(SCREENCAST_IFACE)
-
-    options = {
-        "framerate": Variant("u", int(framerate)),
-        "draw-cursor": Variant("b", bool(draw_cursor)),
-    }
-
-    ok, resolved = await iface.call_screencast(out_path, options)
-    return bool(ok), resolved
-
-
-async def stop_screencast(bus: MessageBus) -> None:
-    """
-    Stop active GNOME Shell screencast recording.
-
-    Args:
-        bus: Connected DBus session bus
-    """
-    introspection = await bus.introspect(SCREENCAST_BUS, SCREENCAST_PATH)
-    obj = bus.get_proxy_object(SCREENCAST_BUS, SCREENCAST_PATH, introspection)
-    iface = obj.get_interface(SCREENCAST_IFACE)
-    await iface.call_stop_screencast()
 
 
 def get_monitor_geometries() -> list[dict]:
