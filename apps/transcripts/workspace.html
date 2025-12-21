@@ -373,6 +373,147 @@ body.has-date-nav .workspace:has(.tr-wrap) {
   border: 1px solid #e5e7eb;
   border-radius: 8px;
 }
+
+/* Screenshot gallery */
+.tr-screenshots {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 16px;
+}
+
+.tr-screenshot-item {
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  overflow: hidden;
+  cursor: pointer;
+  transition: box-shadow 0.15s, transform 0.15s;
+}
+
+.tr-screenshot-item:hover {
+  box-shadow: 0 4px 12px rgba(0,0,0,.1);
+  transform: translateY(-2px);
+}
+
+.tr-screenshot-img {
+  width: 100%;
+  aspect-ratio: 16/9;
+  object-fit: cover;
+  display: block;
+}
+
+.tr-screenshot-meta {
+  padding: 8px 12px;
+  font-size: 12px;
+  color: #6b7280;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.tr-screenshot-badge {
+  background: #dbeafe;
+  color: #1d4ed8;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 500;
+}
+
+.tr-screenshot-badge-monitor {
+  background: #f3e8ff;
+  color: #7c3aed;
+}
+
+.tr-screenshot-empty {
+  text-align: center;
+  color: #9ca3af;
+  padding: 48px 24px;
+}
+
+/* Screenshot modal */
+.tr-screenshot-modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.85);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.tr-screenshot-modal img {
+  max-width: calc(95vw - 120px);
+  max-height: 95vh;
+  object-fit: contain;
+  border-radius: 8px;
+  cursor: zoom-out;
+}
+
+.tr-modal-nav {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 48px;
+  height: 48px;
+  background: rgba(255,255,255,0.15);
+  border: none;
+  border-radius: 50%;
+  color: #fff;
+  font-size: 24px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s;
+}
+
+.tr-modal-nav:hover {
+  background: rgba(255,255,255,0.3);
+}
+
+.tr-modal-nav:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.tr-modal-prev {
+  left: 20px;
+}
+
+.tr-modal-next {
+  right: 20px;
+}
+
+.tr-modal-close {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  width: 40px;
+  height: 40px;
+  background: rgba(255,255,255,0.15);
+  border: none;
+  border-radius: 50%;
+  color: #fff;
+  font-size: 20px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.tr-modal-close:hover {
+  background: rgba(255,255,255,0.3);
+}
+
+.tr-modal-counter {
+  position: absolute;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  color: rgba(255,255,255,0.7);
+  font-size: 14px;
+}
 </style>
 
 <div class="tr-wrap">
@@ -414,6 +555,7 @@ body.has-date-nav .workspace:has(.tr-wrap) {
             <span>Screen</span>
           </label>
           <button class="tr-btn" id="trMediaBtn" style="display:none">Load Media</button>
+          <button class="tr-btn" id="trScreenshotsBtn" style="display:none">Screenshots</button>
           <button class="tr-btn" id="trDownloadBtn" style="display:none">Download Audio</button>
         </div>
       </div>
@@ -450,6 +592,7 @@ body.has-date-nav .workspace:has(.tr-wrap) {
   const rangeText = document.getElementById('trRangeText');
   const panel = document.getElementById('trPanel');
   const mediaBtn = document.getElementById('trMediaBtn');
+  const screenshotsBtn = document.getElementById('trScreenshotsBtn');
   const downloadBtn = document.getElementById('trDownloadBtn');
   const audioCheck = document.getElementById('trAudioCheck');
   const screenCheck = document.getElementById('trScreenCheck');
@@ -625,7 +768,9 @@ body.has-date-nav .workspace:has(.tr-wrap) {
 
     // Show buttons based on segment types
     const hasAudio = seg.types.includes('audio');
+    const hasScreen = seg.types.includes('screen');
     mediaBtn.style.display = 'block';
+    screenshotsBtn.style.display = hasScreen ? 'block' : 'none';
     downloadBtn.style.display = hasAudio ? 'block' : 'none';
 
     // Load transcript content
@@ -794,6 +939,164 @@ body.has-date-nav .workspace:has(.tr-wrap) {
     link.click();
     document.body.removeChild(link);
   });
+
+  // Screenshots button
+  screenshotsBtn.addEventListener('click', () => {
+    if (!selectedSegment) return;
+
+    panel.innerHTML = '<p>Loading screenshots...</p>';
+
+    fetch(`/app/transcripts/api/screen_frames/${day}/${selectedSegment.key}`)
+      .then(r => r.json())
+      .then(data => {
+        // Filter to frames with >1 requests (enhanced analysis)
+        const frames = (data.frames || []).filter(f => f.requests && f.requests.length > 1);
+        renderScreenshots(frames, selectedSegment.key);
+      })
+      .catch(() => {
+        panel.innerHTML = '<p>Error loading screenshots.</p>';
+      });
+  });
+
+  // Track current screenshots for modal navigation
+  let currentScreenshots = [];
+
+  function renderScreenshots(frames, segmentKey) {
+    if (frames.length === 0) {
+      panel.innerHTML = '<div class="tr-screenshot-empty"><p>No screenshots with enhanced analysis in this segment.</p></div>';
+      currentScreenshots = [];
+      return;
+    }
+
+    // Build screenshot data for navigation
+    currentScreenshots = frames.map(frame => ({
+      url: `/app/transcripts/api/screen_frame/${day}/${segmentKey}/${frame.filename}/${frame.frame_id}`,
+      timestamp: frame.timestamp,
+      monitor: frame.monitor,
+      analysisType: getAnalysisType(frame)
+    }));
+
+    let html = '<div class="tr-screenshots">';
+    currentScreenshots.forEach((shot, idx) => {
+      const timestamp = formatTimestamp(shot.timestamp);
+      const monitorPos = getMonitorPosition(shot.monitor);
+
+      html += `<div class="tr-screenshot-item" data-idx="${idx}">`;
+      html += `<img class="tr-screenshot-img" src="${shot.url}" alt="Screenshot at ${timestamp}" loading="lazy">`;
+      html += `<div class="tr-screenshot-meta">`;
+      html += `<span>${timestamp}</span>`;
+      html += `<span>`;
+      if (monitorPos) {
+        html += `<span class="tr-screenshot-badge tr-screenshot-badge-monitor">${monitorPos}</span> `;
+      }
+      if (shot.analysisType) {
+        html += `<span class="tr-screenshot-badge">${shot.analysisType}</span>`;
+      }
+      html += `</span>`;
+      html += `</div></div>`;
+    });
+    html += '</div>';
+
+    panel.innerHTML = html;
+
+    // Add click handlers for lightbox
+    panel.querySelectorAll('.tr-screenshot-item').forEach(item => {
+      item.addEventListener('click', () => {
+        openScreenshotModal(parseInt(item.dataset.idx, 10));
+      });
+    });
+  }
+
+  function formatTimestamp(seconds) {
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins}:${String(secs).padStart(2, '0')}`;
+  }
+
+  function getAnalysisType(frame) {
+    if (!frame.requests || frame.requests.length <= 1) return null;
+    // Check request types beyond initial describe_json
+    for (const req of frame.requests) {
+      if (req.type === 'describe_meeting') return 'Meeting';
+      if (req.type === 'describe_text') return 'Text';
+    }
+    return 'Enhanced';
+  }
+
+  function getMonitorPosition(monitor) {
+    if (!monitor) return null;
+    // Extract position from monitor string (e.g., "center_DP-3" -> "Center")
+    const pos = monitor.split('_')[0];
+    if (!pos) return null;
+    // Capitalize first letter
+    return pos.charAt(0).toUpperCase() + pos.slice(1);
+  }
+
+  function openScreenshotModal(startIdx) {
+    let currentIdx = startIdx;
+
+    const modal = document.createElement('div');
+    modal.className = 'tr-screenshot-modal';
+    document.body.appendChild(modal);
+
+    function updateModal() {
+      const shot = currentScreenshots[currentIdx];
+      const total = currentScreenshots.length;
+      const hasPrev = currentIdx > 0;
+      const hasNext = currentIdx < total - 1;
+
+      modal.innerHTML = `
+        <button class="tr-modal-close" title="Close (Esc)">&times;</button>
+        <button class="tr-modal-nav tr-modal-prev" ${hasPrev ? '' : 'disabled'} title="Previous (←)">&#8249;</button>
+        <img src="${shot.url}" alt="Screenshot">
+        <button class="tr-modal-nav tr-modal-next" ${hasNext ? '' : 'disabled'} title="Next (→)">&#8250;</button>
+        <div class="tr-modal-counter">${currentIdx + 1} / ${total}</div>
+      `;
+
+      // Button handlers
+      modal.querySelector('.tr-modal-close').addEventListener('click', closeModal);
+      modal.querySelector('img').addEventListener('click', closeModal);
+
+      const prevBtn = modal.querySelector('.tr-modal-prev');
+      const nextBtn = modal.querySelector('.tr-modal-next');
+
+      prevBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (currentIdx > 0) {
+          currentIdx--;
+          updateModal();
+        }
+      });
+
+      nextBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (currentIdx < total - 1) {
+          currentIdx++;
+          updateModal();
+        }
+      });
+    }
+
+    function closeModal() {
+      modal.remove();
+      document.removeEventListener('keydown', handleKeys);
+    }
+
+    function handleKeys(e) {
+      if (e.key === 'Escape') {
+        closeModal();
+      } else if (e.key === 'ArrowLeft' && currentIdx > 0) {
+        currentIdx--;
+        updateModal();
+      } else if (e.key === 'ArrowRight' && currentIdx < currentScreenshots.length - 1) {
+        currentIdx++;
+        updateModal();
+      }
+    }
+
+    document.addEventListener('keydown', handleKeys);
+    updateModal();
+  }
 
   // Reload transcript when checkboxes change
   audioCheck.addEventListener('change', () => {

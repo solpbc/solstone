@@ -5,6 +5,7 @@ from __future__ import annotations
 import os
 import re
 from datetime import date, datetime
+from glob import glob
 from typing import Any
 
 from flask import Blueprint, jsonify, redirect, render_template, request, url_for
@@ -13,6 +14,13 @@ from convey import state
 from convey.utils import DATE_RE, format_date
 from think.cluster import cluster_range, cluster_scan, cluster_segments
 from think.utils import day_dirs, day_path
+
+# Single-segment screenshot cache (flushed when different segment requested)
+_screen_cache: dict = {
+    "segment": None,  # (day, segment_key) tuple or None
+    "frames": {},  # {(filename, frame_id): jpeg_bytes}
+    "metadata": [],  # List of frame records with monitor info
+}
 
 transcripts_bp = Blueprint(
     "app:transcripts",
@@ -68,11 +76,9 @@ def transcript_content(day: str) -> Any:
     if not re.fullmatch(DATE_RE.pattern, day):
         return "", 404
 
-    from think.utils import segment_key
-
     start = request.args.get("start", "")
     end = request.args.get("end", "")
-    if not segment_key(start) or not segment_key(end):
+    if not re.fullmatch(r"\d{6}", start) or not re.fullmatch(r"\d{6}", end):
         return "", 400
 
     audio_enabled = request.args.get("audio", "true").lower() == "true"
@@ -113,11 +119,11 @@ def media_files(day: str) -> Any:
         return "", 404
 
     from think.cluster import get_entries_for_range
-    from think.utils import get_raw_file, segment_key
+    from think.utils import get_raw_file
 
     start = request.args.get("start", "")
     end = request.args.get("end", "")
-    if not segment_key(start) or not segment_key(end):
+    if not re.fullmatch(r"\d{6}", start) or not re.fullmatch(r"\d{6}", end):
         return "", 400
 
     file_type = request.args.get("type", None)
@@ -188,11 +194,9 @@ def download_audio(day: str) -> Any:
     if not re.fullmatch(DATE_RE.pattern, day):
         return "", 404
 
-    from think.utils import segment_key
-
     start = request.args.get("start", "")
     end = request.args.get("end", "")
-    if not segment_key(start) or not segment_key(end):
+    if not re.fullmatch(r"\d{6}", start) or not re.fullmatch(r"\d{6}", end):
         return "", 400
 
     import subprocess
@@ -334,3 +338,145 @@ def api_stats(month: str):
             stats[day_name] = total_ranges
 
     return jsonify(stats)
+
+
+@transcripts_bp.route("/api/screen_frames/<day>/<segment_key>")
+def screen_frames(day: str, segment_key: str) -> Any:
+    """Load and cache all screen frames for a segment, return metadata.
+
+    Flushes cache if a different segment is requested. Returns frame metadata
+    for all monitors - frontend filters which frames to display.
+    """
+    if not re.fullmatch(DATE_RE.pattern, day):
+        return "", 404
+
+    from think.utils import segment_key as validate_segment_key
+
+    if not validate_segment_key(segment_key):
+        return "", 404
+
+    day_dir = str(day_path(day))
+    segment_dir = os.path.join(day_dir, segment_key)
+    if not os.path.isdir(segment_dir):
+        return "", 404
+
+    # Check if we already have this segment cached
+    cache_key = (day, segment_key)
+    if _screen_cache["segment"] == cache_key:
+        return jsonify({"frames": _screen_cache["metadata"]})
+
+    # Flush cache and load new segment
+    _screen_cache["segment"] = cache_key
+    _screen_cache["frames"] = {}
+    _screen_cache["metadata"] = []
+
+    # Find all *screen.jsonl files in segment
+    screen_files = glob(os.path.join(segment_dir, "*screen.jsonl"))
+    if not screen_files:
+        return jsonify({"frames": []})
+
+    from observe.see import decode_frames, image_to_jpeg_bytes
+    from observe.utils import load_analysis_frames
+
+    all_metadata = []
+
+    for jsonl_path in sorted(screen_files):
+        filename = os.path.basename(jsonl_path)
+        # Extract monitor name from filename (e.g., "center_DP-3_screen.jsonl" -> "center_DP-3")
+        monitor = (
+            filename.replace("_screen.jsonl", "") if filename != "screen.jsonl" else ""
+        )
+
+        try:
+            all_frames = load_analysis_frames(jsonl_path)
+
+            # First line is header with {"raw": "path"}, frames have frame_id
+            frames = [f for f in all_frames if "frame_id" in f]
+            if not frames:
+                continue
+
+            # Get video path from header
+            raw_video_path = None
+            if (
+                all_frames
+                and "raw" in all_frames[0]
+                and "frame_id" not in all_frames[0]
+            ):
+                raw_video_path = all_frames[0].get("raw")
+
+            if not raw_video_path:
+                continue
+
+            video_path = os.path.join(segment_dir, raw_video_path)
+            if not os.path.isfile(video_path):
+                continue
+
+            # Decode all frames from video
+            images = decode_frames(video_path, frames, annotate_boxes=True)
+
+            # Cache JPEG bytes and build metadata
+            for frame, img in zip(frames, images):
+                if img is None:
+                    continue
+
+                frame_id = frame["frame_id"]
+                jpeg_bytes = image_to_jpeg_bytes(img)
+                _screen_cache["frames"][(filename, frame_id)] = jpeg_bytes
+                img.close()
+
+                # Build metadata for frontend
+                meta = {
+                    "frame_id": frame_id,
+                    "filename": filename,
+                    "monitor": monitor,
+                    "timestamp": frame.get("timestamp", 0),
+                    "box_2d": frame.get("box_2d"),
+                    "requests": frame.get("requests", []),
+                    "analysis": frame.get("analysis"),
+                }
+                all_metadata.append(meta)
+
+        except Exception:
+            # Skip files that fail to load
+            continue
+
+    # Sort by timestamp
+    all_metadata.sort(key=lambda f: f["timestamp"])
+    _screen_cache["metadata"] = all_metadata
+
+    return jsonify({"frames": all_metadata})
+
+
+@transcripts_bp.route("/api/screen_frame/<day>/<segment_key>/<filename>/<int:frame_id>")
+def screen_frame(day: str, segment_key: str, filename: str, frame_id: int) -> Any:
+    """Serve a cached frame image as JPEG."""
+    if not re.fullmatch(DATE_RE.pattern, day):
+        return "", 404
+
+    from think.utils import segment_key as validate_segment_key
+
+    if not validate_segment_key(segment_key):
+        return "", 404
+
+    # Validate filename pattern
+    if not filename.endswith("screen.jsonl"):
+        return "", 404
+
+    # Check cache matches requested segment
+    cache_key = (day, segment_key)
+    if _screen_cache["segment"] != cache_key:
+        return jsonify({"error": "Segment not cached. Load frames list first."}), 404
+
+    # Look up frame in cache
+    frame_key = (filename, frame_id)
+    if frame_key not in _screen_cache["frames"]:
+        return jsonify({"error": "Frame not found in cache."}), 404
+
+    import io
+
+    from flask import send_file
+
+    jpeg_bytes = _screen_cache["frames"][frame_key]
+    buffer = io.BytesIO(jpeg_bytes)
+    buffer.seek(0)
+    return send_file(buffer, mimetype="image/jpeg")
