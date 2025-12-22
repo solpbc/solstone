@@ -322,9 +322,10 @@ class Transcriber:
     def _get_json_path(self, audio_path: Path) -> Path:
         """Generate the corresponding JSONL path in timestamp directory.
 
-        For split audio files (mic_audio.flac, sys_audio.flac), generates
-        corresponding JSONL names (mic_audio.jsonl, sys_audio.jsonl).
-        For regular stereo files (*_audio.flac), generates audio.jsonl.
+        Maps audio filename suffix to JSONL name:
+        - audio.flac -> audio.jsonl
+        - mic_audio.flac -> mic_audio.jsonl
+        - <source>_audio.flac -> <source>_audio.jsonl
         """
         from observe.utils import extract_descriptive_suffix
         from think.utils import segment_key
@@ -337,7 +338,6 @@ class Transcriber:
 
         # Derive JSON filename from audio filename suffix
         suffix = extract_descriptive_suffix(audio_path.stem)
-        # suffix is like "audio", "mic_audio", or "sys_audio"
         return segment_dir / f"{suffix}.jsonl"
 
     def _get_embeddings_dir(self, audio_path: Path) -> Path:
@@ -419,13 +419,11 @@ class Transcriber:
             suffix = extract_descriptive_suffix(raw_path.stem)
             metadata["raw"] = f"{suffix}.flac"
 
-            # Determine source from filename for split audio files
-            # mic_audio -> "mic", sys_audio -> "sys", audio -> None
+            # Extract source from <source>_audio pattern
+            # mic_audio -> "mic", sys_audio -> "sys", phone_audio -> "phone", etc.
             source = None
-            if suffix.startswith("mic_"):
-                source = "mic"
-            elif suffix.startswith("sys_"):
-                source = "sys"
+            if suffix.endswith("_audio") and suffix != "audio":
+                source = suffix[:-6]  # Remove "_audio" suffix
 
             # Add source field to transcript items for split files
             if source:
