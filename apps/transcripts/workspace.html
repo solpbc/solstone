@@ -496,6 +496,39 @@ body.has-date-nav .workspace:has(.tr-wrap) {
   color: #9ca3af;
   padding: 48px 24px;
 }
+
+/* Markdown content styling within screen entries */
+.tr-entry-desc h3 {
+  display: none; /* Hide timestamp header - already shown in time column */
+}
+
+.tr-entry-desc p {
+  margin: 4px 0;
+}
+
+.tr-entry-desc strong {
+  color: #1f2937;
+}
+
+.tr-entry-desc pre {
+  background: #f3f4f6;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  padding: 8px 12px;
+  margin: 8px 0;
+  overflow-x: auto;
+  font-size: 12px;
+}
+
+.tr-entry-desc code {
+  font-family: ui-monospace, monospace;
+  font-size: 12px;
+}
+
+.tr-entry-desc pre code {
+  background: none;
+  padding: 0;
+}
 </style>
 
 <div class="tr-wrap">
@@ -543,6 +576,7 @@ body.has-date-nav .workspace:has(.tr-wrap) {
   </div>
 </div>
 
+<script src="{{ vendor_lib('marked') }}"></script>
 <script>
 (() => {
   const START = 8 * 60;
@@ -731,8 +765,13 @@ body.has-date-nav .workspace:has(.tr-wrap) {
     });
   }
 
-  function selectSegment(seg) {
+  function selectSegment(seg, updateHash = true) {
     selectedSegment = seg;
+
+    // Update URL hash for shareable links
+    if (updateHash) {
+      history.replaceState(null, '', `#${seg.key}`);
+    }
 
     // Update active state in zoom view
     zoomSegments.querySelectorAll('.tr-zoom-pill').forEach(pill => {
@@ -805,9 +844,6 @@ body.has-date-nav .workspace:has(.tr-wrap) {
         html += '</div></div>';
 
       } else if (chunk.type === 'screen') {
-        const analysis = chunk.source_ref?.analysis || {};
-        const category = analysis.visible || 'screen';
-        const desc = analysis.visual_description || '';
         const monitor = chunk.source_ref?.monitor || '';
         const thumbUrl = chunk.thumb_url;
 
@@ -821,14 +857,15 @@ body.has-date-nav .workspace:has(.tr-wrap) {
         }
 
         html += '<div class="tr-entry-desc">';
-        html += '<div>';
+        // Monitor badge
         if (monitor) {
           const monitorPos = getMonitorPosition(monitor);
           if (monitorPos) html += `<span class="tr-entry-badge tr-entry-badge-monitor">${monitorPos}</span>`;
         }
-        html += `<span class="tr-entry-badge">${category}</span>`;
-        html += '</div>';
-        if (desc) html += `<p style="margin:4px 0 0">${escapeHtml(desc)}</p>`;
+        // Render formatted markdown content
+        if (chunk.markdown) {
+          html += marked.parse(chunk.markdown);
+        }
         html += '</div>';
 
         html += '</div></div>';
@@ -949,7 +986,37 @@ body.has-date-nav .workspace:has(.tr-wrap) {
     .then(data => {
       allSegments = data.segments || [];
       updateZoom();
+
+      // Check for hash fragment to auto-select segment
+      const hash = window.location.hash.slice(1);
+      if (hash) {
+        const seg = allSegments.find(s => s.key === hash);
+        if (seg) {
+          // Adjust range to include the segment
+          const segStart = parseTime(seg.start);
+          const segEnd = parseTime(seg.end);
+          const rangeLen = range.end - range.start;
+          const segMid = (segStart + segEnd) / 2;
+          let newStart = snap(Math.max(START, segMid - rangeLen / 2));
+          newStart = Math.min(newStart, END - rangeLen);
+          range = { start: newStart, end: newStart + rangeLen };
+          renderTimeline();
+          updateZoom();
+          selectSegment(seg, false);
+        }
+      }
     });
+
+  // Handle browser back/forward
+  window.addEventListener('hashchange', () => {
+    const hash = window.location.hash.slice(1);
+    if (hash) {
+      const seg = allSegments.find(s => s.key === hash);
+      if (seg && (!selectedSegment || selectedSegment.key !== hash)) {
+        selectSegment(seg, false);
+      }
+    }
+  });
 
   // Click on timeline to set range
   timeline.addEventListener('click', (e) => {
