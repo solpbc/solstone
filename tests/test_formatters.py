@@ -1551,6 +1551,36 @@ class TestFormatterSourceKey:
         assert chunks[0]["source"] is entry
         assert chunks[0]["source"]["text"] == "Hello"
 
+    def test_format_audio_string_speaker(self):
+        """Test format_audio handles string speaker labels from diarization."""
+        from observe.hear import format_audio
+
+        entries = [
+            {"start": "00:00:01", "speaker": "Speaker 1", "text": "Hello"},
+            {"start": "00:00:05", "speaker": "Speaker 2", "text": "Hi there"},
+        ]
+        chunks, meta = format_audio(entries)
+
+        assert len(chunks) == 2
+        # String speakers should be used directly (no "Speaker" prefix added)
+        assert "Speaker 1:" in chunks[0]["markdown"]
+        assert "Speaker 2:" in chunks[1]["markdown"]
+
+    def test_format_audio_int_speaker(self):
+        """Test format_audio handles integer speaker labels (legacy format)."""
+        from observe.hear import format_audio
+
+        entries = [
+            {"start": "00:00:01", "speaker": 1, "text": "Hello"},
+            {"start": "00:00:05", "speaker": 2, "text": "Hi there"},
+        ]
+        chunks, meta = format_audio(entries)
+
+        assert len(chunks) == 2
+        # Integer speakers should get "Speaker" prefix
+        assert "Speaker 1:" in chunks[0]["markdown"]
+        assert "Speaker 2:" in chunks[1]["markdown"]
+
     def test_format_screen_returns_source(self):
         """Test format_screen returns source with original frame."""
         from observe.screen import format_screen

@@ -63,7 +63,7 @@ dependencies = [
 full = [
     "soundcard",
     "soundfile",
-    "silero-vad",
+    "pyannote.audio",
     "deepfilternet",
     "torch",
     "scipy",

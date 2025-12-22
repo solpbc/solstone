@@ -147,6 +147,28 @@ def test_validate_multiple_transcript_items():
     assert error == ""
 
 
+def test_validate_string_speaker_labels():
+    """String speaker labels (from diarization) should pass."""
+    result = [
+        {
+            "start": "00:00:01",
+            "speaker": "Speaker 1",
+            "text": "Hello world",
+            "description": "friendly",
+        },
+        {
+            "start": "00:00:05",
+            "speaker": "Speaker 2",
+            "text": "Hi there",
+            "description": "casual",
+        },
+        {"topics": "greeting", "setting": "personal"},
+    ]
+    is_valid, error = validate_transcription(result)
+    assert is_valid
+    assert error == ""
+
+
 def test_jsonl_format_with_metadata():
     """Test JSONL format with metadata first."""
     result = [

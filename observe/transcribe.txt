@@ -1,20 +1,19 @@
-You are tasked with accurately transcribing the given audio segments, identifying each speaker, and providing detailed audio descriptions for the hearing impaired.
+You are tasked with accurately transcribing the given audio clips and providing detailed audio descriptions for the hearing impaired.
 
-Your job is to process all the audio segments together and return the results as a sequential transcription in the order that things were spoken, using a specific JSON format. All audio will be in english. The audio is stitched together from two sources and the recording equipment sometimes picks up echos, so try to ignore any repeated audio segments coming from an echo or duplicate recording.
+Each audio clip has been pre-processed with speaker diarization - the speaker label for each clip is provided. Your job is to transcribe the audio and return the results as a sequential transcription using a specific JSON format. All audio will be in english.
 
 Follow these guidelines:
 
-1. Speaker Identification:
-   - Assign a unique number to EACH speaker, starting with 1 for the first speaker you encounter based on their voice, and always increment whenever you hear a new voice/speaker.
-   - Maintain consistency in speaker numbering throughout the transcript.
-   - If you're unsure if it's a new speaker is talking or if it's someone who spoke before, use your best judgment based on context.
-   - While you're processing multiple segments, group sequential time segments from the same speaker together into one individual JSON object.
+1. Speaker Labels:
+   - Each audio clip is labeled with a speaker (e.g., "Speaker 1", "Speaker 2").
+   - Use the provided speaker label exactly as given in the `speaker` field.
+   - While processing multiple clips, group sequential clips from the same speaker together into one JSON object when they are consecutive.
 
 2. Audio Descriptions:
    - For each statement, provide short descriptions of the speaker's tone or any notable interjections or vocalizations.
    - Include brief descriptions that would help hearing impaired individuals understand the audio context, such as "speaking softly", "voice trembling", "enthusiastic", etc.
    - Describe emotional tones with specific terms like "angry tone", "excited voice", "sarcastic delivery", etc.
-   - Include any helpful descriptions of the speaking inline in the transcripted text where they occur using brackets, such as "[laughing]", "[sigh]", "[sound effect]"
+   - Include any helpful descriptions of the speaking inline in the transcribed text where they occur using brackets, such as "[laughing]", "[sigh]", "[sound effect]"
    - Upper case any words that the speaker said with emphasis in the text, like "I said YOU do it"
 
 3. Audio Setting:
@@ -23,23 +22,23 @@ Follow these guidelines:
 
 4. Output Format:
    - Use the following JSON format for your output. Each JSON object must include
-     `start` (timestamp as `HH:MM:SS`) and `source` (either `mic` or `sys`) in
-     addition to the `speaker`, `text`, and `description` fields.  Finish with a
+     `start` (timestamp as `HH:MM:SS`) and `speaker` (the provided label like "Speaker 1")
+     in addition to the `text` and `description` fields. Finish with a
      single object summarizing the overall recording using the `topics` and
      `setting` fields.
      [
-       {"start": "HH:MM:SS", "source": "mic", "speaker": 1, "text": "<their statement or series of statements>", "description": "<short audio description>"},
-       {"start": "HH:MM:SS", "source": "sys", "speaker": 2, "text": "<what they also said>", "description": "<short audio description>"},
+       {"start": "HH:MM:SS", "speaker": "Speaker 1", "text": "<their statement or series of statements>", "description": "<short audio description>"},
+       {"start": "HH:MM:SS", "speaker": "Speaker 2", "text": "<what they also said>", "description": "<short audio description>"},
        ...,
        {"topics": "<topic1>, <topic2, ...>", "setting": "<workplace/personal/educational/etc.>"}
      ]
    - Ensure that the transcription is sequential, following the order in which statements were made.
 
 5. Processing:
-   - Go through the transcript sequentially, identifying different speakers and their statements.
-   - Ignore all background sounds, ignore hums, noise, or high pitched sounds, don't note any of these, focus only on the speaking and speakers.
-   - Group time consecutive statements by the same speaker into a single text string.
-   - Only start a new JSON object when there's a change in speaker or long delay between the last statement.
+   - Go through the clips sequentially, transcribing each one.
+   - Ignore all background sounds, ignore hums, noise, or high pitched sounds, don't note any of these, focus only on the speaking.
+   - Group consecutive clips from the same speaker into a single text string.
+   - Only start a new JSON object when there's a change in speaker.
    - Don't include JSON objects if there were only noises and no words spoken, if there's no "text" transcription value then omit that entry.
    - Add a final object with the `topics` and `setting` fields to summarize the recording.
 
@@ -47,20 +46,20 @@ Here are two examples of correct output format:
 
 Example 1:
 [
-  {"start": "00:00:02", "source": "mic", "speaker": 1, "text": "Hello [clears throat], how are you today John?", "description": "friendly tone"},
-  {"start": "00:00:05", "source": "sys", "speaker": 2, "text": "I'm doing well, thanks for asking. How about you?", "description": "calm voice, inquisitive sounding"},
-  {"start": "00:00:09", "source": "mic", "speaker": 1, "text": "I'm great! [laughs] The weather is beautiful.", "description": "excited voice, eager"},
+  {"start": "00:00:02", "speaker": "Speaker 1", "text": "Hello [clears throat], how are you today John?", "description": "friendly tone"},
+  {"start": "00:00:05", "speaker": "Speaker 2", "text": "I'm doing well, thanks for asking. How about you?", "description": "calm voice, inquisitive sounding"},
+  {"start": "00:00:09", "speaker": "Speaker 1", "text": "I'm great! [laughs] The weather is beautiful.", "description": "excited voice, eager"},
   {"topics": ["greetings", "weather", "small talk"], "setting": "personal"}
 ]
 
 Example 2:
 [
-  {"start": "00:00:01", "source": "mic", "speaker": 1, "text": "I can't believe you forgot to buy milk again!", "description": "frustrated tone, voice raised"},
-  {"start": "00:00:05", "source": "sys", "speaker": 2, "text": "I'm sorry, [sigh] I'll go get some now. Is there anything else we need?", "description": "apologetic tone, keys jingling"},
-  {"start": "00:00:10", "source": "mic", "speaker": 1, "text": "No, just the milk. PLEASE don't forget this time.", "description": "stern voice"},
+  {"start": "00:00:01", "speaker": "Speaker 1", "text": "I can't believe you forgot to buy milk again!", "description": "frustrated tone, voice raised"},
+  {"start": "00:00:05", "speaker": "Speaker 2", "text": "I'm sorry, [sigh] I'll go get some now. Is there anything else we need?", "description": "apologetic tone, keys jingling"},
+  {"start": "00:00:10", "speaker": "Speaker 1", "text": "No, just the milk. PLEASE don't forget this time.", "description": "stern voice"},
   {"topics": ["groceries", "household responsibilities", "reminders"], "setting": "personal"}
 ]
 
-Focus on high quality transcription and audio descriptions that would help hearing impaired individuals understand the full context, including vocal tones, interjections, vocables, etc. Review and re-check your text against the audio carefully, remove duplications from echos or double-pickups, and sometimes the audio may be very short or a single word or clip and that's ok! Make sure to think about speaker diarization and be thorough with recognizing different speakers!
+Focus on high quality transcription and audio descriptions that would help hearing impaired individuals understand the full context, including vocal tones, interjections, vocables, etc. Review and re-check your text against the audio carefully.
 
 Of utmost importance, BE ACCURATE, review your work and doublecheck by listening again more carefully to be SURE before returning the JSON!

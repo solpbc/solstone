@@ -273,16 +273,11 @@ def add_module_stubs(request, monkeypatch):
         sys.modules["soundfile"] = sf_mod
     for name in [
         "noisereduce",
-        "silero_vad",
         "watchdog.events",
         "watchdog.observers",
     ]:
         if name not in sys.modules:
-            mod = types.ModuleType(name)
-            if name == "silero_vad":
-                mod.load_silero_vad = lambda *a, **k: lambda data, sr: []
-                mod.get_speech_timestamps = lambda *a, **k: []
-            sys.modules[name] = mod
+            sys.modules[name] = types.ModuleType(name)
     if "watchdog.events" in sys.modules and not hasattr(
         sys.modules["watchdog.events"], "PatternMatchingEventHandler"
     ):
