@@ -41,15 +41,17 @@ def test_write_import_jsonl_with_entries():
             }
         }
 
-        # Second line should be first entry
+        # Second line should be first entry with source="import"
         entry1 = json.loads(lines[1])
         assert entry1["start"] == "00:00:01"
         assert entry1["text"] == "Hello world"
+        assert entry1["source"] == "import"
 
-        # Third line should be second entry
+        # Third line should be second entry with source="import"
         entry2 = json.loads(lines[2])
         assert entry2["start"] == "00:00:05"
         assert entry2["text"] == "How are you?"
+        assert entry2["source"] == "import"
 
 
 def test_write_import_jsonl_no_entries():
@@ -91,7 +93,8 @@ def test_write_import_jsonl_minimal():
         metadata = json.loads(lines[0])
         assert metadata == {"imported": {"id": "20240101_120000"}}
 
-        # Second line should be entry
+        # Second line should be entry with source="import"
         entry = json.loads(lines[1])
         assert entry["start"] == "00:00:01"
         assert entry["text"] == "Test"
+        assert entry["source"] == "import"

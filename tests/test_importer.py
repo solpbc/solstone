@@ -18,8 +18,18 @@ def test_importer_text(tmp_path, monkeypatch):
     monkeypatch.setattr(
         mod, "detect_created", lambda p: {"day": "20240101", "time": "120000"}
     )
-    monkeypatch.setattr(mod, "detect_transcript_segment", lambda t: ["seg1", "seg2"])
-    monkeypatch.setattr(mod, "detect_transcript_json", lambda t: [{"text": t}])
+
+    # Mock segment detection: returns (start_at, text) tuples with absolute times
+    def mock_detect_segment(text, start_time):
+        return [("12:00:00", "seg1"), ("12:05:00", "seg2")]
+
+    monkeypatch.setattr(mod, "detect_transcript_segment", mock_detect_segment)
+
+    # Mock JSON conversion: returns entries with absolute timestamps
+    def mock_detect_json(text, segment_start):
+        return [{"start": segment_start, "speaker": "Unknown", "text": text}]
+
+    monkeypatch.setattr(mod, "detect_transcript_json", mock_detect_json)
 
     # Mock gemini_generate to prevent real API calls during summarization
     monkeypatch.setattr(mod, "gemini_generate", lambda **kwargs: "Mocked summary")
@@ -31,8 +41,10 @@ def test_importer_text(tmp_path, monkeypatch):
     mod.main()
 
     day_dir = day_path("20240101")
+    # Duration: seg1 starts at 12:00:00, seg2 at 12:05:00 = 300s duration
+    # Last segment (seg2) defaults to 5s since no audio duration
     f1 = day_dir / "120000_300" / "imported_audio.jsonl"
-    f2 = day_dir / "120500_300" / "imported_audio.jsonl"
+    f2 = day_dir / "120500_5" / "imported_audio.jsonl"
 
     # Read JSONL format: first line is metadata, subsequent lines are entries
     lines1 = f1.read_text().strip().split("\n")
@@ -43,11 +55,16 @@ def test_importer_text(tmp_path, monkeypatch):
     metadata2 = json.loads(lines2[0])
     entries2 = [json.loads(line) for line in lines2[1:]]
 
-    assert entries1 == [{"text": "seg1"}]
+    # Output has absolute timestamps from segment detection and source="import"
+    assert entries1 == [
+        {"start": "12:00:00", "speaker": "Unknown", "text": "seg1", "source": "import"}
+    ]
     assert metadata1["imported"]["id"] == "20240101_120000"
     assert "facet" not in metadata1["imported"]
 
-    assert entries2 == [{"text": "seg2"}]
+    assert entries2 == [
+        {"start": "12:05:00", "speaker": "Unknown", "text": "seg2", "source": "import"}
+    ]
     assert metadata2["imported"]["id"] == "20240101_120000"
     assert "facet" not in metadata2["imported"]
 

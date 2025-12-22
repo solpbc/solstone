@@ -31,8 +31,16 @@ def number_lines(text: str) -> tuple[str, List[str]]:
     return numbered, lines
 
 
-def parse_line_numbers(json_text: str, num_lines: int) -> List[int]:
-    """Validate and return line numbers parsed from ``json_text``."""
+def parse_segment_boundaries(json_text: str, num_lines: int) -> List[dict]:
+    """Validate and return segment boundaries from ``json_text``.
+
+    Args:
+        json_text: JSON array of {"start_at": "HH:MM:SS", "line": N} objects
+        num_lines: Total number of lines in the transcript
+
+    Returns:
+        List of boundary dicts with "start_at" and "line" keys
+    """
     try:
         data = json.loads(json_text)
     except json.JSONDecodeError as exc:  # pragma: no cover - network errors
@@ -43,49 +51,86 @@ def parse_line_numbers(json_text: str, num_lines: int) -> List[int]:
         logging.error("JSON response is not a non-empty list")
         raise ValueError("expected non-empty list")
 
-    line_numbers: List[int] = []
-    last = 0
+    boundaries: List[dict] = []
+    last_line = 0
     for item in data:
-        if not isinstance(item, int):
-            logging.error(f"Invalid line number type: {type(item)}")
-            raise ValueError("line numbers must be integers")
-        if item <= last or item < 1 or item > num_lines:
+        if not isinstance(item, dict):
+            logging.error(f"Invalid boundary type: {type(item)}")
+            raise ValueError("boundaries must be objects")
+
+        if "start_at" not in item or "line" not in item:
+            logging.error(f"Missing required fields in boundary: {item}")
+            raise ValueError("boundary must have 'start_at' and 'line' fields")
+
+        line = item["line"]
+        start_at = item["start_at"]
+
+        if (
+            not isinstance(line, int)
+            or line <= last_line
+            or line < 1
+            or line > num_lines
+        ):
             logging.error(
-                f"Invalid line number: {item} (last: {last}, max: {num_lines})"
+                f"Invalid line number: {line} (last: {last_line}, max: {num_lines})"
             )
             raise ValueError("invalid line number")
-        line_numbers.append(item)
-        last = item
 
-    logging.info(
-        f"Successfully parsed {len(line_numbers)} segment boundaries: {line_numbers}"
-    )
-    return line_numbers
+        if not isinstance(start_at, str):
+            logging.error(f"Invalid start_at type: {type(start_at)}")
+            raise ValueError("start_at must be a string")
+
+        boundaries.append({"start_at": start_at, "line": line})
+        last_line = line
+
+    logging.info(f"Successfully parsed {len(boundaries)} segment boundaries")
+    return boundaries
 
 
-def segments_from_lines(lines: List[str], line_numbers: List[int]) -> List[str]:
-    """Return transcript segments split at ``line_numbers``."""
-    segments: List[str] = []
-    segment_start = 1
+def segments_from_boundaries(
+    lines: List[str], boundaries: List[dict]
+) -> List[tuple[str, str]]:
+    """Return transcript segments split at boundaries.
 
-    for segment_boundary in line_numbers:
-        if segment_boundary == 1:
-            continue
-        # Create segment from current start up to (but not including) the boundary
-        segment_lines = lines[segment_start - 1 : segment_boundary - 1]  # noqa: E203
-        segments.append("\n".join(segment_lines).strip())
-        segment_start = segment_boundary
+    Args:
+        lines: Original transcript lines
+        boundaries: List of {"start_at": "HH:MM:SS", "line": N} dicts
 
-    # Add final segment from last boundary to end
-    final_segment_lines = lines[segment_start - 1 :]  # noqa: E203
-    segments.append("\n".join(final_segment_lines).strip())
+    Returns:
+        List of (start_at, text) tuples for each segment
+    """
+    segments: List[tuple[str, str]] = []
+
+    for idx, boundary in enumerate(boundaries):
+        start_at = boundary["start_at"]
+        start_line = boundary["line"]
+
+        # Determine end line (next boundary or end of file)
+        if idx + 1 < len(boundaries):
+            end_line = boundaries[idx + 1]["line"]
+            segment_lines = lines[start_line - 1 : end_line - 1]  # noqa: E203
+        else:
+            segment_lines = lines[start_line - 1 :]  # noqa: E203
+
+        text = "\n".join(segment_lines).strip()
+        segments.append((start_at, text))
 
     logging.info(f"Created {len(segments)} transcript segments")
     return segments
 
 
-def detect_transcript_segment(text: str, api_key: Optional[str] = None) -> List[str]:
-    """Return transcript segments for ``text`` using Gemini."""
+def detect_transcript_segment(
+    text: str, start_time: str, api_key: Optional[str] = None
+) -> List[tuple[str, str]]:
+    """Return transcript segments with absolute timestamps using Gemini.
+
+    Args:
+        text: The transcript text to segment
+        start_time: Absolute start time in HH:MM:SS format
+
+    Returns:
+        List of (start_at, text) tuples where start_at is absolute HH:MM:SS
+    """
 
     if api_key is None:
         load_dotenv()
@@ -95,12 +140,14 @@ def detect_transcript_segment(text: str, api_key: Optional[str] = None) -> List[
             raise RuntimeError("GOOGLE_API_KEY not set")
 
     numbered, lines = number_lines(text)
+    # Prepend START_TIME for the prompt
+    contents = f"START_TIME: {start_time}\n{numbered}"
     logging.info(
-        f"Starting transcript segmentation with Gemini for: {numbered[:100]}..."
+        f"Starting transcript segmentation with Gemini (start: {start_time})..."
     )
 
     response_text = gemini_generate(
-        contents=numbered,
+        contents=contents,
         model=GEMINI_FLASH,
         temperature=0.3,
         max_output_tokens=4096,
@@ -110,16 +157,26 @@ def detect_transcript_segment(text: str, api_key: Optional[str] = None) -> List[
     )
 
     logging.info(f"Received response from Gemini: {response_text}")
-    line_numbers = parse_line_numbers(response_text, len(lines))
-    segments = segments_from_lines(lines, line_numbers)
+    boundaries = parse_segment_boundaries(response_text, len(lines))
+    segments = segments_from_boundaries(lines, boundaries)
 
     return segments
 
 
-def detect_transcript_json(text: str, api_key: Optional[str] = None) -> Optional[list]:
-    """Return transcript ``text`` converted to JSON using Gemini."""
+def detect_transcript_json(
+    text: str, segment_start: str, api_key: Optional[str] = None
+) -> Optional[list]:
+    """Return transcript ``text`` converted to JSON using Gemini.
+
+    Args:
+        text: The transcript segment text
+        segment_start: Absolute start time of this segment in HH:MM:SS format
+
+    Returns:
+        List of transcript entries with absolute timestamps
+    """
     logging.info(
-        f"Starting transcript JSON conversion with Gemini for text: {text[:100]}..."
+        f"Starting transcript JSON conversion (segment_start: {segment_start})..."
     )
 
     if api_key is None:
@@ -129,8 +186,11 @@ def detect_transcript_json(text: str, api_key: Optional[str] = None) -> Optional
             logging.error("GOOGLE_API_KEY not found in environment")
             raise RuntimeError("GOOGLE_API_KEY not set")
 
+    # Prepend SEGMENT_START for the prompt
+    contents = f"SEGMENT_START: {segment_start}\n{text}"
+
     response_text = gemini_generate(
-        contents=text,
+        contents=contents,
         model=GEMINI_FLASH,
         temperature=0.3,
         max_output_tokens=8192,
@@ -153,6 +213,6 @@ __all__ = [
     "detect_transcript_segment",
     "detect_transcript_json",
     "number_lines",
-    "parse_line_numbers",
-    "segments_from_lines",
+    "parse_segment_boundaries",
+    "segments_from_boundaries",
 ]

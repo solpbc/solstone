@@ -105,6 +105,7 @@ def _write_import_jsonl(
     """Write imported transcript entries in JSONL format.
 
     First line contains imported metadata, subsequent lines contain entries.
+    Each entry gets source="import" added to match the imported_audio.jsonl convention.
     """
     imported_meta: dict[str, str] = {"id": import_id}
     if facet:
@@ -120,9 +121,13 @@ def _write_import_jsonl(
     if raw_filename:
         metadata["raw"] = f"../../imports/{import_id}/{raw_filename}"
 
-    # Write JSONL: metadata first, then entries
+    # Write JSONL: metadata first, then entries with source field
     jsonl_lines = [json.dumps(metadata)]
-    jsonl_lines.extend(json.dumps(entry) for entry in entries)
+    for entry in entries:
+        # Add source field if not already present (skip metadata entries like topics/setting)
+        if "text" in entry and "source" not in entry:
+            entry = {**entry, "source": "import"}
+        jsonl_lines.append(json.dumps(entry))
 
     with open(file_path, "w", encoding="utf-8") as f:
         f.write("\n".join(jsonl_lines) + "\n")
@@ -273,6 +278,12 @@ def _read_transcript(path: str) -> str:
     raise ValueError("unsupported transcript format")
 
 
+def _time_to_seconds(time_str: str) -> int:
+    """Convert HH:MM:SS time string to seconds from midnight."""
+    h, m, s = map(int, time_str.split(":"))
+    return h * 3600 + m * 60 + s
+
+
 def process_transcript(
     path: str,
     day_dir: str,
@@ -281,49 +292,75 @@ def process_transcript(
     import_id: str,
     facet: str | None = None,
     setting: str | None = None,
+    audio_duration: int | None = None,
 ) -> list[str]:
     """Process a transcript file and write imported JSONL segments.
+
+    Args:
+        path: Path to transcript file
+        day_dir: Journal day directory
+        base_dt: Base datetime for the import
+        import_id: Import identifier
+        facet: Optional facet name
+        setting: Optional setting description
+        audio_duration: Optional total audio duration in seconds (for last segment)
 
     Returns:
         List of created file paths.
     """
     created_files = []
     text = _read_transcript(path)
-    segments = detect_transcript_segment(text)
-    for idx, seg in enumerate(segments):
-        json_data = detect_transcript_json(seg)
+
+    # Get start time from base_dt for segmentation
+    start_time = base_dt.strftime("%H:%M:%S")
+
+    # Get segments with their absolute start times
+    segments = detect_transcript_segment(text, start_time)
+
+    for idx, (start_at, seg_text) in enumerate(segments):
+        # Convert segment text to structured JSON with absolute timestamps
+        json_data = detect_transcript_json(seg_text, start_at)
         if not json_data:
             continue
-        ts = base_dt + timedelta(minutes=idx * 5)
-        time_part = ts.strftime("%H%M%S")
 
-        # Create segment directory with 5-minute (300 second) duration suffix
-        segment_name = f"{time_part}_300"
+        # Parse absolute time for segment directory name
+        time_part = start_at.replace(":", "")  # "12:05:30" -> "120530"
+
+        # Compute segment duration from absolute times
+        start_seconds = _time_to_seconds(start_at)
+        if idx + 1 < len(segments):
+            next_start_at, _ = segments[idx + 1]
+            next_seconds = _time_to_seconds(next_start_at)
+            duration = next_seconds - start_seconds
+        else:
+            # Last segment: use remaining audio duration or default +5s
+            if audio_duration:
+                # audio_duration is total length, start_seconds is time-of-day
+                # Need to calculate offset from recording start
+                recording_start_seconds = _time_to_seconds(start_time)
+                segment_offset = start_seconds - recording_start_seconds
+                duration = audio_duration - segment_offset
+            else:
+                duration = 5
+
+        # Negative duration indicates corrupted/invalid timestamp data
+        if duration < 0:
+            raise ValueError(
+                f"Invalid segment duration: {duration}s for segment at {time_part}. "
+                "Timestamps may be out of order or audio_duration is incorrect."
+            )
+
+        # Ensure minimum duration of 1 second
+        duration = max(1, duration)
+
+        segment_name = f"{time_part}_{duration}"
         ts_dir = os.path.join(day_dir, segment_name)
         os.makedirs(ts_dir, exist_ok=True)
         json_path = os.path.join(ts_dir, "imported_audio.jsonl")
 
-        # Ensure timestamps are absolute
-        # Text transcripts might have relative timestamps (00:00:00, 00:01:23)
-        # Convert them to absolute times based on the segment's base time
-        absolute_entries = []
-        for entry in json_data:
-            entry_copy = entry.copy()
-            if "start" in entry_copy:
-                # Parse timestamp
-                start_str = entry_copy["start"]
-                h, m, s = map(int, start_str.split(":"))
-                relative_seconds = h * 3600 + m * 60 + s
-
-                # Convert to absolute timestamp based on this segment's time
-                absolute_dt = ts + timedelta(seconds=relative_seconds)
-                entry_copy["start"] = absolute_dt.strftime("%H:%M:%S")
-
-            absolute_entries.append(entry_copy)
-
         _write_import_jsonl(
             json_path,
-            absolute_entries,
+            json_data,
             import_id=import_id,
             raw_filename=os.path.basename(path),
             facet=facet,
