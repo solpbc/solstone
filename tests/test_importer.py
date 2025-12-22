@@ -1,10 +1,58 @@
 import datetime as dt
 import importlib
 import json
+import subprocess
 from pathlib import Path
 from unittest.mock import patch
 
 from think.utils import day_path
+
+
+def test_slice_audio_segment(tmp_path):
+    """Test slice_audio_segment extracts audio with stream copy."""
+    mod = importlib.import_module("think.importer")
+
+    source = tmp_path / "source.mp3"
+    source.write_bytes(b"fake audio")
+    output = tmp_path / "segment.mp3"
+
+    # Mock subprocess.run to simulate successful ffmpeg
+    with patch("subprocess.run") as mock_run:
+        mock_run.return_value = None
+
+        result = mod.slice_audio_segment(str(source), str(output), 0, 300)
+
+        assert result == str(output)
+        # First call should use -c:a copy
+        call_args = mock_run.call_args_list[0][0][0]
+        assert "-c:a" in call_args
+        assert "copy" in call_args
+
+
+def test_slice_audio_segment_fallback(tmp_path):
+    """Test slice_audio_segment falls back to re-encode on copy failure."""
+    mod = importlib.import_module("think.importer")
+
+    source = tmp_path / "source.mp3"
+    source.write_bytes(b"fake audio")
+    output = tmp_path / "segment.mp3"
+
+    # First call (copy) fails, second call (re-encode) succeeds
+    call_count = [0]
+
+    def mock_run(cmd, *args, **kwargs):
+        call_count[0] += 1
+        if call_count[0] == 1:
+            # First call (stream copy) fails
+            raise subprocess.CalledProcessError(1, cmd)
+        # Second call (re-encode) succeeds
+        return None
+
+    with patch("subprocess.run", side_effect=mock_run):
+        result = mod.slice_audio_segment(str(source), str(output), 0, 300)
+
+        assert result == str(output)
+        assert call_count[0] == 2  # Both attempts were made
 
 
 def test_importer_text(tmp_path, monkeypatch):
@@ -124,23 +172,25 @@ def test_importer_audio_transcribe(tmp_path, monkeypatch):
     with patch("think.importer.transcribe_file") as mock_transcribe:
         mock_transcribe.return_value = mock_revai_response
 
-        # Run with --hear option
-        monkeypatch.setattr(
-            "sys.argv",
-            [
-                "think-importer",
-                str(audio_file),
-                "--timestamp",
-                "20240101_120000",
-                "--hear",
-                "true",
-                "--see",
-                "false",
-                "--split",
-                "false",
-            ],
-        )
-        mod.main()
+        # Mock slice_audio_segment to avoid needing real ffmpeg
+        with patch("think.importer.slice_audio_segment") as mock_slice:
+            mock_slice.return_value = str(
+                tmp_path / "120000_300" / "imported_audio.mp3"
+            )
+
+            # Run with --hear option
+            monkeypatch.setattr(
+                "sys.argv",
+                [
+                    "think-importer",
+                    str(audio_file),
+                    "--timestamp",
+                    "20240101_120000",
+                    "--hear",
+                    "true",
+                ],
+            )
+            mod.main()
 
     # Check that the files were created correctly
     day_dir = day_path("20240101")
@@ -156,6 +206,7 @@ def test_importer_audio_transcribe(tmp_path, monkeypatch):
     entries1 = [json.loads(line) for line in lines1[1:]]
 
     assert metadata1["imported"]["id"] == "20240101_120000"
+    assert metadata1["raw"] == "imported_audio.mp3"  # Local audio slice
     assert len(entries1) == 2
     assert entries1[0]["text"] == "Hello world."
     assert entries1[0]["speaker"] == 1  # Rev uses 0-based, we use 1-based
@@ -169,6 +220,7 @@ def test_importer_audio_transcribe(tmp_path, monkeypatch):
     entries2 = [json.loads(line) for line in lines2[1:]]
 
     assert metadata2["imported"]["id"] == "20240101_120000"
+    assert metadata2["raw"] == "imported_audio.mp3"  # Local audio slice
     assert len(entries2) == 1
     assert entries2[0]["text"] == "Second chunk."
     assert entries2[0]["speaker"] == 2
@@ -243,6 +295,12 @@ def test_audio_transcribe_includes_import_metadata(tmp_path, monkeypatch):
             }
         ],
     )
+    # Mock slice_audio_segment to avoid needing real ffmpeg
+    monkeypatch.setattr(
+        mod,
+        "slice_audio_segment",
+        lambda *_: str(tmp_path / "120000_300" / "imported_audio.mp3"),
+    )
 
     created_files, _ = mod.audio_transcribe(
         str(audio_file),
@@ -254,11 +312,16 @@ def test_audio_transcribe_includes_import_metadata(tmp_path, monkeypatch):
 
     assert created_files
 
+    # Find the JSONL file (filter out audio files)
+    jsonl_files = [f for f in created_files if f.endswith(".jsonl")]
+    assert jsonl_files
+
     # Read JSONL format: first line is metadata, subsequent lines are entries
-    lines = Path(created_files[0]).read_text().strip().split("\n")
+    lines = Path(jsonl_files[0]).read_text().strip().split("\n")
     metadata = json.loads(lines[0])
     entries = [json.loads(line) for line in lines[1:]]
 
     assert entries[0]["text"] == "Test entry"
     assert metadata["imported"]["id"] == "20240101_120000"
     assert metadata["imported"]["facet"] == "uavionix"
+    assert metadata["raw"] == "imported_audio.mp3"  # Local audio slice

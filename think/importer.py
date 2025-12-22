@@ -6,16 +6,11 @@ import os
 import re
 import string
 import subprocess
-import tempfile
 import threading
 import time
 import unicodedata
 from datetime import timedelta
 from pathlib import Path
-
-import cv2
-from PIL import Image
-from PIL.PngImagePlugin import PngInfo
 
 from observe.hear import load_transcript
 from observe.revai import convert_revai_to_sunstone, transcribe_file
@@ -40,7 +35,6 @@ except Exception:  # pragma: no cover - optional dependency
 
 logger = logging.getLogger(__name__)
 
-MIN_THRESHOLD = 250
 TIME_RE = re.compile(r"\d{8}_\d{6}")
 _ALLOWED_ASCII = set(string.ascii_letters + string.punctuation + " ")
 
@@ -99,6 +93,7 @@ def _write_import_jsonl(
     *,
     import_id: str,
     raw_filename: str | None = None,
+    raw_is_local: bool = False,
     facet: str | None = None,
     setting: str | None = None,
 ) -> None:
@@ -106,6 +101,15 @@ def _write_import_jsonl(
 
     First line contains imported metadata, subsequent lines contain entries.
     Each entry gets source="import" added to match the imported_audio.jsonl convention.
+
+    Args:
+        file_path: Path to write JSONL file
+        entries: List of transcript entries
+        import_id: Import identifier
+        raw_filename: Audio file name (local filename or imports/ relative path)
+        raw_is_local: If True, raw_filename is in the segment dir (no imports/ prefix)
+        facet: Optional facet name
+        setting: Optional setting description
     """
     imported_meta: dict[str, str] = {"id": import_id}
     if facet:
@@ -117,9 +121,13 @@ def _write_import_jsonl(
     metadata: dict[str, object] = {"imported": imported_meta}
 
     # Add raw audio file reference if provided
-    # Path is relative from timestamp directory (YYYYMMDD/HHMMSS/) to imports directory
     if raw_filename:
-        metadata["raw"] = f"../../imports/{import_id}/{raw_filename}"
+        if raw_is_local:
+            # Local file in segment directory
+            metadata["raw"] = raw_filename
+        else:
+            # Path is relative from segment directory to imports directory
+            metadata["raw"] = f"../../imports/{import_id}/{raw_filename}"
 
     # Write JSONL: metadata first, then entries with source field
     jsonl_lines = [json.dumps(metadata)]
@@ -144,64 +152,63 @@ def str2bool(value: str) -> bool:
     raise argparse.ArgumentTypeError("boolean value expected")
 
 
-def split_audio(path: str, out_dir: str, start: dt.datetime) -> list[str]:
-    """Split audio from ``path`` into 5-minute FLAC segments in ``out_dir``.
+def slice_audio_segment(
+    source_path: str,
+    output_path: str,
+    start_seconds: float,
+    duration_seconds: float,
+) -> str:
+    """Extract an audio segment from source file, preserving original format.
+
+    Uses stream copy for lossless extraction when possible.
+
+    Args:
+        source_path: Path to source audio file
+        output_path: Path for output segment file
+        start_seconds: Start offset in seconds
+        duration_seconds: Duration to extract in seconds
 
     Returns:
-        List of created file paths.
+        Output path on success
+
+    Raises:
+        subprocess.CalledProcessError: If ffmpeg fails
     """
-    created_files = []
-    # First, get the duration of the input file
-    probe_cmd = [
-        "ffprobe",
-        "-v",
-        "quiet",
-        "-show_entries",
-        "format=duration",
-        "-of",
-        "csv=p=0",
-        path,
+    cmd = [
+        "ffmpeg",
+        "-ss",
+        str(start_seconds),
+        "-i",
+        source_path,
+        "-t",
+        str(duration_seconds),
+        "-vn",  # No video
+        "-c:a",
+        "copy",  # Stream copy for lossless extraction
+        "-y",  # Overwrite output
+        output_path,
     ]
-    result = subprocess.run(probe_cmd, capture_output=True, text=True, check=True)
-    duration = float(result.stdout.strip())
-
-    # Calculate number of 5-minute (300-second) segments
-    num_segments = int(duration // 300) + (1 if duration % 300 > 0 else 0)
-
-    # Create each segment individually to ensure proper FLAC headers
-    for idx in range(num_segments):
-        segment_start = idx * 300
-        ts = start + timedelta(seconds=segment_start)
-        time_part = ts.strftime("%H%M%S")
-        dest = os.path.join(out_dir, f"{time_part}_import_raw.flac")
-
-        cmd = [
+    try:
+        subprocess.run(cmd, check=True, capture_output=True, text=True)
+    except subprocess.CalledProcessError:
+        # Fallback: re-encode if stream copy fails (some formats don't support it)
+        logger.debug(f"Stream copy failed, re-encoding: {output_path}")
+        cmd_reencode = [
             "ffmpeg",
-            "-i",
-            path,
             "-ss",
-            str(segment_start),
+            str(start_seconds),
+            "-i",
+            source_path,
             "-t",
-            "300",
+            str(duration_seconds),
             "-vn",
-            "-ac",
-            "1",
-            "-ar",
-            "16000",
-            "-c:a",
-            "flac",
-            "-y",  # Overwrite output files
-            dest,
+            "-y",
+            output_path,
         ]
-        try:
-            subprocess.run(cmd, check=True, capture_output=True, text=True)
-        except subprocess.CalledProcessError as e:
-            logger.error(f"ffmpeg failed for segment {idx}: {e.stderr}")
-            raise
-        logger.info(f"Added audio segment to journal: {dest}")
-        created_files.append(dest)
+        subprocess.run(cmd_reencode, check=True, capture_output=True, text=True)
 
-    return created_files
+    logger.info(f"Created audio segment: {output_path}")
+    return output_path
 
 
 def _sanitize_entities(entities: list[str]) -> list[str]:
@@ -233,31 +240,6 @@ def _sanitize_entities(entities: list[str]) -> list[str]:
         sanitized.append(filtered)
 
     return sanitized
-
-
-def has_video_stream(path: str) -> bool:
-    """Check if a media file contains video streams.
-
-    Note: This is a placeholder for future video import support.
-    Currently always returns False, so video processing is skipped.
-    """
-    # TODO: Implement video stream detection using ffprobe
-    return False
-
-
-def process_video(
-    path: str, out_dir: str, start: dt.datetime, sample_s: float
-) -> list[str]:
-    """Process video frames and extract changes.
-
-    Note: This is a placeholder for future video import support.
-    Would extract keyframes at sample_s intervals and detect visual changes.
-
-    Returns:
-        List of created file paths.
-    """
-    # TODO: Implement video frame processing and change detection
-    return []
 
 
 def _read_transcript(path: str) -> str:
@@ -467,7 +449,10 @@ def audio_transcribe(
     if current_chunk:
         chunks.append((chunk_start_time, current_chunk))
 
-    # Save each chunk as a separate JSONL file
+    # Get source file extension for audio slices
+    source_ext = media_path.suffix.lower()
+
+    # Save each chunk as a separate JSONL file with audio slice
     for chunk_index, chunk_entries in chunks:
         # Calculate timestamp for this chunk
         ts = base_dt + timedelta(minutes=chunk_index * 5)
@@ -478,6 +463,20 @@ def audio_transcribe(
         ts_dir = os.path.join(day_dir, segment_name)
         os.makedirs(ts_dir, exist_ok=True)
         json_path = os.path.join(ts_dir, "imported_audio.jsonl")
+
+        # Extract audio slice for this segment
+        audio_filename = f"imported_audio{source_ext}"
+        audio_path = os.path.join(ts_dir, audio_filename)
+        start_seconds = chunk_index * 300
+        # Use 300s duration - ffmpeg handles EOF gracefully for last chunk
+        duration = 300
+
+        try:
+            slice_audio_segment(path, audio_path, start_seconds, duration)
+            created_files.append(audio_path)
+        except subprocess.CalledProcessError as e:
+            logger.warning(f"Failed to slice audio segment: {e}")
+            audio_filename = None
 
         # Convert relative timestamps to absolute timestamps
         # Rev AI returns timestamps relative to start of file (00:00:00, 00:00:06, etc.)
@@ -497,11 +496,13 @@ def audio_transcribe(
             absolute_entries.append(entry_copy)
 
         # Save the chunk with absolute timestamps
+        # raw points to local audio slice (or None if slicing failed)
         _write_import_jsonl(
             json_path,
             absolute_entries,
             import_id=import_id,
-            raw_filename=os.path.basename(path),
+            raw_filename=audio_filename,
+            raw_is_local=True,
             facet=facet,
             setting=setting,
         )
@@ -523,7 +524,7 @@ def create_transcript_summary(
 
     Args:
         import_dir: Directory where the summary will be saved
-        audio_json_files: List of paths to _imported_audio.json files
+        audio_json_files: List of paths to imported_audio.jsonl files
         input_filename: Original media filename for context
         timestamp: Processing timestamp for context
         setting: Optional description of the setting to include in metadata
@@ -756,7 +757,7 @@ def _print_facets_help(facets: dict, media_path: str, timestamp: str) -> None:
         title = info.get("title", name)
         print(f"  {name:<{max_name}}  {title}")
 
-    print(f"\nAdd --facet <name>:")
+    print("\nAdd --facet <name>:")
     print(f"  think-importer {media_path} --timestamp {timestamp} --facet <name>")
 
 
@@ -764,7 +765,7 @@ def _print_setting_help(media_path: str, timestamp: str, facet: str) -> None:
     """Print setting requirement and suggested command."""
     print("\nSetting is required (describes the context of this recording).")
     print("Examples: 'Team standup meeting', 'Jer lunch with Joe', 'Conference talk'")
-    print(f"\nAdd --setting <description>:")
+    print("\nAdd --setting <description>:")
     print(
         f"  think-importer {media_path} --timestamp {timestamp} "
         f'--facet {facet} --setting "description"'
@@ -781,12 +782,6 @@ def main() -> None:
         "--timestamp", help="Timestamp YYYYMMDD_HHMMSS for journal entry"
     )
     parser.add_argument(
-        "--see", type=str2bool, default=True, help="Process video stream"
-    )
-    parser.add_argument(
-        "--split", type=str2bool, default=False, help="Split audio stream into segments"
-    )
-    parser.add_argument(
         "--hear", type=str2bool, default=True, help="Transcribe audio using Rev AI"
     )
     parser.add_argument(
@@ -794,12 +789,6 @@ def main() -> None:
         type=str2bool,
         default=True,
         help="Create summary.md using Gemini Pro for audio transcripts",
-    )
-    parser.add_argument(
-        "--see-sample",
-        type=float,
-        default=5.0,
-        help="Video sampling interval in seconds",
     )
     parser.add_argument(
         "--facet",
@@ -834,7 +823,7 @@ def main() -> None:
             detected_timestamp = f"{detection_result['day']}_{detection_result['time']}"
             display = _format_timestamp_display(detected_timestamp)
             print(f"Detected timestamp: {detected_timestamp} ({display})")
-            print(f"\nRun:")
+            print("\nRun:")
             print(f"  think-importer {args.media} --timestamp {detected_timestamp}")
             return
         else:
@@ -903,8 +892,6 @@ def main() -> None:
         setting=args.setting,
         options={
             "hear": args.hear,
-            "split": args.split,
-            "see": args.see,
             "summarize": args.summarize,
         },
         stage=_current_stage,
@@ -943,7 +930,7 @@ def main() -> None:
             processing_results["outputs"].append(
                 {
                     "type": "transcript",
-                    "format": "imported_audio.json",
+                    "format": "imported_audio.jsonl",
                     "description": "Transcript segments",
                     "files": created_files,
                     "count": len(created_files),
@@ -967,45 +954,13 @@ def main() -> None:
                 processing_results["outputs"].append(
                     {
                         "type": "audio_transcript",
-                        "format": "imported_audio.json",
+                        "format": "imported_audio.jsonl",
                         "description": "Rev AI transcription chunks",
                         "files": created_files,
                         "count": len(created_files),
                         "transcription_service": "RevAI",
                     }
                 )
-            if args.split:
-                created_files = split_audio(args.media, day_dir, base_dt)
-                all_created_files.extend(created_files)
-                processing_results["outputs"].append(
-                    {
-                        "type": "audio_segments",
-                        "format": "import_raw.flac",
-                        "description": "5-minute FLAC segments",
-                        "files": created_files,
-                        "count": len(created_files),
-                    }
-                )
-            if args.see:
-                if has_video_stream(args.media):
-                    created_files = process_video(
-                        args.media, day_dir, base_dt, args.see_sample
-                    )
-                    all_created_files.extend(created_files)
-                    processing_results["outputs"].append(
-                        {
-                            "type": "video_frames",
-                            "format": "import_1_diff.png",
-                            "description": "Extracted video frames with changes",
-                            "files": created_files,
-                            "count": len(created_files),
-                            "sampling_interval": args.see_sample,
-                        }
-                    )
-                else:
-                    logger.info(
-                        f"No video stream found in {args.media}, skipping video processing"
-                    )
 
         # Complete processing metadata
         processing_results["processing_completed"] = dt.datetime.now().isoformat()
@@ -1081,9 +1036,11 @@ def main() -> None:
             # Set stage for summarization
             _set_stage("summarizing")
 
+            # Filter to only JSONL files (exclude audio slices)
+            jsonl_files = [f for f in audio_transcript_files if f.endswith(".jsonl")]
             create_transcript_summary(
                 import_dir=import_dir,
-                audio_json_files=audio_transcript_files,
+                audio_json_files=jsonl_files,
                 input_filename=os.path.basename(args.media),
                 timestamp=args.timestamp,
                 setting=args.setting,
