@@ -342,38 +342,113 @@ body.has-date-nav .workspace:has(.tr-wrap) {
   inset: 0;
   background: rgba(0,0,0,0.85);
   display: flex;
-  align-items: center;
-  justify-content: center;
   z-index: 1000;
 }
 
-.tr-screenshot-modal img {
-  max-width: 95vw;
-  max-height: 95vh;
-  object-fit: contain;
-  border-radius: 8px;
-  cursor: zoom-out;
+.tr-modal-nav {
+  width: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: rgba(255,255,255,0.4);
+  transition: all 0.15s;
+  flex-shrink: 0;
+}
+
+.tr-modal-nav:hover {
+  background: rgba(255,255,255,0.1);
+  color: rgba(255,255,255,0.9);
+}
+
+.tr-modal-nav.disabled {
+  cursor: default;
+  color: rgba(255,255,255,0.15);
+  pointer-events: none;
+}
+
+.tr-modal-nav svg {
+  width: 24px;
+  height: 24px;
+}
+
+.tr-modal-center {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.tr-modal-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 20px;
+  flex-shrink: 0;
+}
+
+.tr-modal-badge {
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  background: rgba(255,255,255,0.15);
+  color: #fff;
+}
+
+.tr-modal-badge-monitor {
+  background: rgba(124, 58, 237, 0.3);
+  color: #c4b5fd;
+}
+
+.tr-modal-badge-category {
+  background: rgba(59, 130, 246, 0.3);
+  color: #93c5fd;
 }
 
 .tr-modal-close {
-  position: absolute;
-  top: 20px;
-  right: 20px;
-  width: 40px;
-  height: 40px;
+  margin-left: auto;
+  width: 36px;
+  height: 36px;
   background: rgba(255,255,255,0.15);
   border: none;
   border-radius: 50%;
   color: #fff;
-  font-size: 20px;
+  font-size: 18px;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
+  flex-shrink: 0;
 }
 
 .tr-modal-close:hover {
   background: rgba(255,255,255,0.3);
+}
+
+.tr-modal-img-wrap {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 0;
+  padding: 0 20px;
+}
+
+.tr-modal-img-wrap img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  border-radius: 8px;
+}
+
+.tr-modal-description {
+  padding: 12px 20px 20px;
+  color: rgba(255,255,255,0.8);
+  font-size: 14px;
+  line-height: 1.5;
+  text-align: center;
+  flex-shrink: 0;
 }
 
 /* Unified timeline view */
@@ -711,6 +786,10 @@ body.has-date-nav .workspace:has(.tr-wrap) {
   let zoomHeight = zoom.clientHeight;
   let zoomPpm = 0;
 
+  // Modal state - all screen frames for navigation
+  let allScreenFrames = [];
+  let currentFrameIndex = -1;
+
   // Utilities
   const y = (m) => (m - START) * ppm;
   const mFromY = (py) => Math.max(START, Math.min(END, Math.round(py / ppm) + START));
@@ -908,6 +987,10 @@ body.has-date-nav .workspace:has(.tr-wrap) {
       return true;
     });
 
+    // Build flat list of all screen frames for modal navigation
+    allScreenFrames = chunks.filter(c => c.type === 'screen');
+    currentFrameIndex = -1;
+
     if (chunks.length === 0) {
       panel.innerHTML = '<div class="tr-unified-empty"><p>No entries to display. Enable Audio or Screen above.</p></div>';
       return;
@@ -971,7 +1054,8 @@ body.has-date-nav .workspace:has(.tr-wrap) {
         thumb.style.cursor = 'pointer';
         thumb.addEventListener('click', (e) => {
           e.stopPropagation();
-          openImageModal(thumb.src);
+          const frameIdx = parseInt(entry.dataset.frameIdx, 10);
+          if (!isNaN(frameIdx)) openImageModal(frameIdx);
         });
       }
     });
@@ -986,8 +1070,8 @@ body.has-date-nav .workspace:has(.tr-wrap) {
     // Add click handlers for group grid items to open modal
     panel.querySelectorAll('.tr-group-item').forEach(item => {
       item.addEventListener('click', () => {
-        const img = item.querySelector('img');
-        if (img) openImageModal(img.src);
+        const frameIdx = parseInt(item.dataset.frameIdx, 10);
+        if (!isNaN(frameIdx)) openImageModal(frameIdx);
       });
     });
   }
@@ -1030,6 +1114,11 @@ body.has-date-nav .workspace:has(.tr-wrap) {
     return result;
   }
 
+  function findFrameIndex(chunk) {
+    // Find this chunk's index in allScreenFrames by matching thumb_url
+    return allScreenFrames.findIndex(f => f.thumb_url === chunk.thumb_url);
+  }
+
   function renderScreenGroup(group, idx) {
     const count = group.entries.length;
     const timeRange = group.startTime === group.endTime
@@ -1051,9 +1140,10 @@ body.has-date-nav .workspace:has(.tr-wrap) {
       const analysis = entry.source_ref?.analysis || {};
       const category = analysis.visible || 'unknown';
       const description = analysis.visual_description || category;
+      const frameIdx = findFrameIndex(entry);
 
       if (thumbUrl) {
-        html += `<div class="tr-group-item" title="${escapeHtml(description)}">`;
+        html += `<div class="tr-group-item" data-frame-idx="${frameIdx}" title="${escapeHtml(description)}">`;
         html += `<img src="${thumbUrl}" alt="${escapeHtml(category)}" loading="lazy">`;
         html += `<span class="tr-group-item-badge">${escapeHtml(category)}</span>`;
         html += '</div>';
@@ -1069,8 +1159,9 @@ body.has-date-nav .workspace:has(.tr-wrap) {
     const timeStr = chunk.time || '';
     const monitor = chunk.source_ref?.monitor || '';
     const thumbUrl = chunk.thumb_url;
+    const frameIdx = findFrameIndex(chunk);
 
-    let html = `<div class="tr-entry tr-entry-screen" data-idx="${idx}" data-type="screen">`;
+    let html = `<div class="tr-entry tr-entry-screen" data-idx="${idx}" data-frame-idx="${frameIdx}" data-type="screen">`;
     html += `<div class="tr-entry-time">${timeStr}</div>`;
     html += '<div class="tr-entry-content">';
 
@@ -1101,26 +1192,78 @@ body.has-date-nav .workspace:has(.tr-wrap) {
       .replace(/"/g, '&quot;');
   }
 
-  function openImageModal(src) {
+  function openImageModal(frameIndex) {
+    if (frameIndex < 0 || frameIndex >= allScreenFrames.length) return;
+
+    currentFrameIndex = frameIndex;
+
     const modal = document.createElement('div');
     modal.className = 'tr-screenshot-modal';
-    modal.innerHTML = `
-      <button class="tr-modal-close" title="Close (Esc)">&times;</button>
-      <img src="${src}" alt="Screenshot">
-    `;
-    document.body.appendChild(modal);
+    modal.id = 'trImageModal';
+
+    const updateModalContent = () => {
+      const f = allScreenFrames[currentFrameIndex];
+      const monitor = f.source_ref?.monitor || '';
+      const monitorPos = getMonitorPosition(monitor);
+      const analysis = f.source_ref?.analysis || {};
+      const category = analysis.visible || '';
+      const description = analysis.visual_description || '';
+      const hasPrev = currentFrameIndex > 0;
+      const hasNext = currentFrameIndex < allScreenFrames.length - 1;
+
+      modal.innerHTML = `
+        <div class="tr-modal-nav${hasPrev ? '' : ' disabled'}" data-dir="prev" title="Previous frame (Left arrow)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg>
+        </div>
+        <div class="tr-modal-center">
+          <div class="tr-modal-header">
+            ${monitorPos ? `<span class="tr-modal-badge tr-modal-badge-monitor">${monitorPos}</span>` : ''}
+            ${category ? `<span class="tr-modal-badge tr-modal-badge-category">${escapeHtml(category)}</span>` : ''}
+            <button class="tr-modal-close" title="Close (Esc)">&times;</button>
+          </div>
+          <div class="tr-modal-img-wrap">
+            <img src="${f.thumb_url}" alt="Screenshot">
+          </div>
+          ${description ? `<div class="tr-modal-description">${escapeHtml(description)}</div>` : ''}
+        </div>
+        <div class="tr-modal-nav${hasNext ? '' : ' disabled'}" data-dir="next" title="Next frame (Right arrow)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
+        </div>
+      `;
+    };
+
+    const navigateFrame = (delta) => {
+      const newIndex = currentFrameIndex + delta;
+      if (newIndex >= 0 && newIndex < allScreenFrames.length) {
+        currentFrameIndex = newIndex;
+        updateModalContent();
+      }
+    };
 
     const closeModal = () => {
       modal.remove();
       document.removeEventListener('keydown', handleKeys);
+      currentFrameIndex = -1;
     };
 
     const handleKeys = (e) => {
       if (e.key === 'Escape') closeModal();
+      else if (e.key === 'ArrowLeft') { e.preventDefault(); navigateFrame(-1); }
+      else if (e.key === 'ArrowRight') { e.preventDefault(); navigateFrame(1); }
     };
 
-    modal.querySelector('.tr-modal-close').addEventListener('click', closeModal);
-    modal.querySelector('img').addEventListener('click', closeModal);
+    // Event delegation for modal clicks
+    modal.addEventListener('click', (e) => {
+      const target = e.target.closest('.tr-modal-close, .tr-modal-nav:not(.disabled)');
+      if (!target) return;
+      if (target.classList.contains('tr-modal-close')) closeModal();
+      else if (target.classList.contains('tr-modal-nav')) {
+        navigateFrame(target.dataset.dir === 'prev' ? -1 : 1);
+      }
+    });
+
+    document.body.appendChild(modal);
+    updateModalContent();
     document.addEventListener('keydown', handleKeys);
   }
 
