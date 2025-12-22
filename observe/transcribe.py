@@ -1,4 +1,4 @@
-"""Transcribe audio files from observe using Gemini with VAD segmentation."""
+"""Transcribe audio files using Gemini with speaker diarization."""
 
 from __future__ import annotations
 
@@ -13,17 +13,12 @@ import time
 from pathlib import Path
 from typing import Dict, List
 
-import av
 import numpy as np
 import soundfile as sf
 from google import genai
-from silero_vad import load_silero_vad
 
-from observe.hear import (
-    SAMPLE_RATE,
-    detect_speech,
-    merge_streams,
-)
+from observe.diarize import DiarizationError, diarize, save_speaker_embeddings
+from observe.hear import SAMPLE_RATE
 from think.callosum import callosum_send
 from think.entities import load_entity_names
 from think.models import GEMINI_FLASH
@@ -35,11 +30,10 @@ from think.utils import (
 
 # Constants
 MODEL = GEMINI_FLASH
-MIN_SPEECH_SECONDS = 1.0
 
 USER_PROMPT = (
     "Process the provided audio clips and output your professional accurate "
-    "transcription in the specified JSON format, each clip may contain one or more speakers."
+    "transcription in the specified JSON format."
 )
 
 
@@ -103,25 +97,33 @@ def validate_transcription(result: list) -> tuple[bool, str]:
     return True, ""
 
 
-def transcribe_segments(
+def transcribe_turns(
     client,
     model: str,
     prompt_text: str,
-    entities_text: str,
-    segments: List[Dict[str, object]],
+    context_text: str,
+    turns: List[Dict[str, object]],
 ) -> dict:
-    """Send audio segments to Gemini and return the parsed JSON result."""
+    """Send audio turns to Gemini and return the parsed JSON result.
+
+    Args:
+        client: Gemini client
+        model: Model name
+        prompt_text: System prompt
+        context_text: Entity and speaker context
+        turns: List of turn dicts with "start", "end", "speaker", "bytes"
+    """
     from google.genai import types
 
     from think.models import gemini_generate
 
-    contents = [entities_text, USER_PROMPT]
-    for seg in segments:
+    contents = [context_text, USER_PROMPT]
+    for turn in turns:
         contents.append(
-            f"This clip starts at {seg['start']} and the source is '{seg['source']}':"
+            f"This clip starts at {turn['start']} and is spoken by '{turn['speaker']}':"
         )
         contents.append(
-            types.Part.from_bytes(data=seg["bytes"], mime_type="audio/flac")
+            types.Part.from_bytes(data=turn["bytes"], mime_type="audio/flac")
         )
 
     response_text = gemini_generate(
@@ -157,8 +159,6 @@ class Transcriber:
         self.prompt_path = prompt_data.path
         self.prompt_text = prompt_data.text
 
-        self.vad_model = load_silero_vad()
-
     def _move_to_segment(self, audio_path: Path) -> Path:
         """Move audio file to its segment and return new path."""
         from observe.utils import extract_descriptive_suffix
@@ -179,256 +179,154 @@ class Transcriber:
             logging.error("Failed to move %s to segment: %s", audio_path, exc)
             return audio_path
 
-    def _process_audio(
-        self, raw_path: Path, split: bool = False
-    ) -> List[Dict[str, object]] | Dict[str, List[Dict[str, object]]] | None:
-        """Process audio file and return segments for transcription.
+    def _prepare_audio(self, raw_path: Path) -> Path:
+        """Prepare audio file for diarization, converting if needed.
 
-        Args:
-            raw_path: Path to the raw audio file
-            split: If True, return dict with 'mic' and 'sys' keys for split processing
+        Returns path to a file suitable for diarization (mono or stereo FLAC/WAV).
+        For m4a files, converts to temporary FLAC.
+        """
+        import av
+
+        if raw_path.suffix.lower() != ".m4a":
+            return raw_path
+
+        logging.info(f"Converting m4a to FLAC for diarization: {raw_path}")
+
+        container = av.open(str(raw_path))
+        audio_streams = list(container.streams.audio)
+
+        if len(audio_streams) == 0:
+            container.close()
+            raise ValueError(f"No audio streams found in {raw_path}")
+
+        # Decode to mono for diarization
+        stream = audio_streams[0]
+        resampler = av.audio.resampler.AudioResampler(
+            format="flt", layout="mono", rate=SAMPLE_RATE
+        )
+        chunks = []
+        for frame in container.decode(stream):
+            for out_frame in resampler.resample(frame):
+                arr = out_frame.to_ndarray()
+                chunks.append(arr)
+
+        container.close()
+
+        if not chunks:
+            raise ValueError(f"No audio data decoded from {raw_path}")
+
+        combined = np.concatenate(chunks, axis=1).flatten()
+
+        # Write to temporary FLAC in same directory
+        temp_path = raw_path.with_suffix(".tmp.flac")
+        audio_int16 = (np.clip(combined, -1.0, 1.0) * 32767).astype(np.int16)
+        sf.write(temp_path, audio_int16, SAMPLE_RATE, format="FLAC")
+
+        return temp_path
+
+    def _process_audio(
+        self, raw_path: Path
+    ) -> tuple[List[Dict[str, object]], np.ndarray, list[str]] | None:
+        """Process audio file with diarization and return turns for transcription.
 
         Returns:
-            If split=False: List of segments for merged processing
-            If split=True: Dict with 'mic' and 'sys' keys containing their segments
-            None on error
+            Tuple of (turns, embeddings, speakers) or None on error
+            - turns: List of dicts with "start" (HH:MM:SS), "speaker", "bytes"
+            - embeddings: numpy array (num_turns, 256)
+            - speakers: List of unique speaker labels
         """
         try:
-            # Handle different audio formats
-            if raw_path.suffix.lower() == ".m4a":
-                logging.info(f"Converting m4a to numpy for processing: {raw_path}")
+            # Prepare audio (convert m4a if needed)
+            audio_path = self._prepare_audio(raw_path)
+            is_temp = audio_path != raw_path
 
-                # Open container and check for audio tracks
-                container = av.open(str(raw_path))
-                audio_streams = list(container.streams.audio)
+            try:
+                # Run diarization
+                diarization_turns, embeddings, timings = diarize(audio_path)
+            finally:
+                # Clean up temp file if created
+                if is_temp and audio_path.exists():
+                    audio_path.unlink()
 
-                if len(audio_streams) == 0:
-                    logging.error(f"No audio streams found in {raw_path}")
-                    return None
+            if not diarization_turns:
+                logging.info(f"No speech detected in {raw_path}")
+                return [], np.array([]), []
 
-                logging.info(
-                    f"Found {len(audio_streams)} audio stream(s) in {raw_path}"
-                )
-                for s in audio_streams:
-                    logging.info(
-                        f"  Stream {s.index}: {s.codec_context.name}, "
-                        f"{s.codec_context.channels} ch, {s.codec_context.sample_rate} Hz"
-                    )
-
-                # Decode function for a single stream to mono
-                def decode_stream_to_mono(container, stream, target_rate=SAMPLE_RATE):
-                    """Decode a stream to mono float32 at target sample rate."""
-                    resampler = av.audio.resampler.AudioResampler(
-                        format="flt", layout="mono", rate=target_rate
-                    )
-                    chunks = []
-                    for frame in container.decode(stream):
-                        for out_frame in resampler.resample(frame):
-                            # to_ndarray() returns shape (channels, samples)
-                            arr = out_frame.to_ndarray()
-                            chunks.append(arr)
-
-                    if not chunks:
-                        return np.zeros(0, dtype=np.float32)
-
-                    # Concatenate along samples axis and flatten to 1D
-                    combined = np.concatenate(chunks, axis=1)
-                    return combined.flatten()  # Ensure 1D mono
-
-                def decode_stream_stereo(container, stream, target_rate=SAMPLE_RATE):
-                    """Decode a stream to stereo float32 at target sample rate."""
-                    resampler = av.audio.resampler.AudioResampler(
-                        format="flt", layout="stereo", rate=target_rate
-                    )
-                    chunks = []
-                    for frame in container.decode(stream):
-                        for out_frame in resampler.resample(frame):
-                            # to_ndarray() returns shape (channels, samples)
-                            arr = out_frame.to_ndarray()
-                            chunks.append(arr)
-
-                    if not chunks:
-                        return np.zeros((2, 0), dtype=np.float32)
-
-                    # Concatenate along samples axis: shape (2, samples)
-                    combined = np.concatenate(chunks, axis=1)
-                    # Transpose to (samples, 2) to match soundfile format
-                    return combined.T
-
-                # Handle based on number of tracks and channels
-                if len(audio_streams) == 1:
-                    stream = audio_streams[0]
-                    channels = stream.codec_context.channels
-
-                    if channels >= 2:
-                        # Single track with stereo/multichannel - process like normal FLAC
-                        logging.info(
-                            f"Single track with {channels} channels, processing as stereo"
-                        )
-                        container.seek(0)
-                        data = decode_stream_stereo(container, stream)
-                        sr = SAMPLE_RATE
-                    else:
-                        # Single track, mono
-                        logging.info("Single track mono, processing as mono")
-                        container.seek(0)
-                        data = decode_stream_to_mono(container, stream)
-                        sr = SAMPLE_RATE
-
-                elif len(audio_streams) >= 2:
-                    # Multiple tracks - track 0 = system, track 1 = mic
-                    logging.info(
-                        "Multiple tracks detected, treating as system (track 0) "
-                        "and mic (track 1)"
-                    )
-
-                    # Decode track 0 (system)
-                    container.seek(0)
-                    sys_data = decode_stream_to_mono(container, audio_streams[0])
-
-                    # Decode track 1 (mic)
-                    container.seek(0)
-                    mic_data = decode_stream_to_mono(container, audio_streams[1])
-
-                    # Ensure same length (pad shorter one with zeros)
-                    max_len = max(len(sys_data), len(mic_data))
-                    if len(sys_data) < max_len:
-                        sys_data = np.pad(sys_data, (0, max_len - len(sys_data)))
-                    if len(mic_data) < max_len:
-                        mic_data = np.pad(mic_data, (0, max_len - len(mic_data)))
-
-                    # Stack into stereo array: shape (samples, 2)
-                    # data[:, 0] = mic, data[:, 1] = system
-                    data = np.column_stack([mic_data, sys_data])
-                    sr = SAMPLE_RATE
-
-                container.close()
-            else:
-                # Direct read for FLAC and other formats supported by soundfile
-                data, sr = sf.read(raw_path, dtype="float32")
-
-            mic_ranges: List[tuple[float, float]] = []
-
-            # Handle split processing for dual-channel audio
-            if split and data.ndim == 2:
-                logging.info(
-                    f"Split mode: processing mic and system channels independently for {raw_path}"
-                )
-                mic_data = data[:, 0]
-                sys_data = data[:, 1]
-
-                # Run VAD on each stream separately
-                mic_segments, _ = detect_speech(
-                    self.vad_model, "mic", mic_data, no_stash=True
-                )
-                sys_segments, _ = detect_speech(
-                    self.vad_model, "sys", sys_data, no_stash=True
-                )
-
-                # Extract timestamp from filename (represents START of recording window)
-                time_part = raw_path.stem.split("_")[0]
-                today = datetime.date.today().strftime("%Y%m%d")
-                base_dt = datetime.datetime.strptime(
-                    f"{today}_{time_part}", "%Y%m%d_%H%M%S"
-                )
-
-                # Convert segments to format for Gemini
-                result = {}
-                for source, segments_list in [
-                    ("mic", mic_segments),
-                    ("sys", sys_segments),
-                ]:
-                    processed: List[Dict[str, object]] = []
-                    for seg in segments_list:
-                        start_dt = base_dt + datetime.timedelta(seconds=seg["offset"])
-                        start_str = start_dt.strftime("%H:%M:%S")
-                        audio_int16 = (np.clip(seg["data"], -1.0, 1.0) * 32767).astype(
-                            np.int16
-                        )
-                        buf = io.BytesIO()
-                        sf.write(buf, audio_int16, SAMPLE_RATE, format="FLAC")
-                        processed.append(
-                            {
-                                "start": start_str,
-                                "source": source,
-                                "bytes": buf.getvalue(),
-                            }
-                        )
-                    result[source] = processed
-
-                    # Output segment map in verbose mode
-                    segment_map = " ".join(
-                        f"{seg['start']}:{seg['source']}" for seg in processed
-                    )
-                    logging.info(
-                        f"Processed {raw_path} ({source}): {len(processed)} segments"
-                    )
-                    logging.info(f"Segment map ({source}): {segment_map}")
-
-                return result
-
-            # Standard merged processing
-            if data.ndim == 1:
-                merged = data
-                logging.info(
-                    f"Single channel audio detected in {raw_path}, no mic data."
-                )
-            else:
-                logging.info(
-                    f"Dual channel audio detected in {raw_path}, merging channels."
-                )
-                mic_data = data[:, 0]
-                sys_data = data[:, 1]
-                merged, mic_ranges = merge_streams(sys_data, mic_data, sr)
-
-            # VAD segmentation - process complete file (no_stash=True)
-            segments, _ = detect_speech(
-                self.vad_model, "mix", merged, mic_ranges, no_stash=True
+            logging.info(
+                f"Diarization complete: {len(diarization_turns)} turns, "
+                f"{timings['total']:.1f}s total time"
             )
 
-            # Extract timestamp from filename (represents START of recording window)
+            # Load audio for extracting turn clips
+            data, sr = sf.read(raw_path, dtype="float32")
+            if data.ndim == 2:
+                # Mix to mono for clips
+                data = data.mean(axis=1)
+
+            # Extract timestamp from filename
             time_part = raw_path.stem.split("_")[0]
             today = datetime.date.today().strftime("%Y%m%d")
             base_dt = datetime.datetime.strptime(
                 f"{today}_{time_part}", "%Y%m%d_%H%M%S"
             )
 
-            # Convert segments to format for Gemini
+            # Convert diarization turns to format for transcription
             processed: List[Dict[str, object]] = []
-            for seg in segments:
-                start_dt = base_dt + datetime.timedelta(seconds=seg["offset"])
+            speakers_seen: set[str] = set()
+
+            for turn in diarization_turns:
+                start_sec = turn["start"]
+                end_sec = turn["end"]
+                speaker = turn["speaker"]
+                speakers_seen.add(speaker)
+
+                # Calculate timestamp
+                start_dt = base_dt + datetime.timedelta(seconds=start_sec)
                 start_str = start_dt.strftime("%H:%M:%S")
-                audio_int16 = (np.clip(seg["data"], -1.0, 1.0) * 32767).astype(np.int16)
+
+                # Extract audio segment
+                start_idx = int(start_sec * sr)
+                end_idx = int(end_sec * sr)
+                segment_data = data[start_idx:end_idx]
+
+                # Convert to FLAC bytes
+                audio_int16 = (np.clip(segment_data, -1.0, 1.0) * 32767).astype(
+                    np.int16
+                )
                 buf = io.BytesIO()
-                sf.write(buf, audio_int16, SAMPLE_RATE, format="FLAC")
-                source = "mic" if seg.get("mic") else "sys"
+                sf.write(buf, audio_int16, sr, format="FLAC")
+
                 processed.append(
                     {
                         "start": start_str,
-                        "source": source,
+                        "speaker": speaker,
                         "bytes": buf.getvalue(),
                     }
                 )
 
-            # Output segment map in verbose mode
-            segment_map = " ".join(
-                f"{seg['start']}:{seg['source']}" for seg in processed
+            speakers = sorted(speakers_seen)
+            logging.info(
+                f"Processed {raw_path}: {len(processed)} turns, "
+                f"speakers: {', '.join(speakers)}"
             )
-            logging.info(f"Processed {raw_path}: {len(processed)} segments")
-            logging.info(f"Segment map: {segment_map}")
 
-            return processed
+            return processed, embeddings, speakers
+
+        except DiarizationError as e:
+            logging.error(f"Diarization failed for {raw_path}: {e}")
+            raise SystemExit(1) from e
         except Exception as e:
             logging.error(f"Error processing {raw_path}: {e}", exc_info=True)
             return None
 
-    def _get_json_path(self, audio_path: Path, stream: str | None = None) -> Path:
+    def _get_json_path(self, audio_path: Path) -> Path:
         """Generate the corresponding JSONL path in timestamp directory.
 
-        Args:
-            audio_path: Path to the audio file (in day root)
-            stream: Optional stream identifier ('mic' or 'sys') for split processing
+        For split audio files (mic_audio.flac, sys_audio.flac), generates
+        corresponding JSONL names (mic_audio.jsonl, sys_audio.jsonl).
+        For regular stereo files (*_audio.flac), generates audio.jsonl.
         """
+        from observe.utils import extract_descriptive_suffix
         from think.utils import segment_key
 
         segment = segment_key(audio_path.stem)
@@ -437,42 +335,59 @@ class Transcriber:
         segment_dir = audio_path.parent / segment
         segment_dir.mkdir(exist_ok=True)
 
-        # Generate simple filename within segment
-        if stream:
-            json_name = f"{stream}_audio.jsonl"
-        else:
-            json_name = "audio.jsonl"
+        # Derive JSON filename from audio filename suffix
+        suffix = extract_descriptive_suffix(audio_path.stem)
+        # suffix is like "audio", "mic_audio", or "sys_audio"
+        return segment_dir / f"{suffix}.jsonl"
 
-        return segment_dir / json_name
+    def _get_embeddings_dir(self, audio_path: Path) -> Path:
+        """Get directory for storing speaker embeddings."""
+        from observe.utils import extract_descriptive_suffix
+        from think.utils import segment_key
+
+        segment = segment_key(audio_path.stem)
+        if segment is None:
+            raise ValueError(f"Invalid audio filename: {audio_path.stem}")
+        suffix = extract_descriptive_suffix(audio_path.stem)
+        segment_dir = audio_path.parent / segment
+
+        return segment_dir / suffix
 
     def _transcribe(
         self,
         raw_path: Path,
-        segments: List[Dict[str, object]],
-        stream: str | None = None,
+        turns: List[Dict[str, object]],
+        speakers: list[str],
     ) -> bool:
-        """Transcribe segments using Gemini and save JSONL.
+        """Transcribe turns using Gemini and save JSONL.
 
         Args:
             raw_path: Path to the raw audio file
-            segments: List of audio segments to transcribe
-            stream: Optional stream identifier ('mic' or 'sys') for split processing
+            turns: List of audio turns to transcribe
+            speakers: List of speaker labels to pass to Gemini
         """
-        json_path = self._get_json_path(raw_path, stream=stream)
+        json_path = self._get_json_path(raw_path)
 
         try:
+            # Build context with entities and speaker labels
+            context_parts = []
+
             entity_names = load_entity_names(spoken=True)
             if entity_names:
                 entities_str = ", ".join(entity_names)
-                entities_text = f"Known entities: {entities_str}"
-            else:
-                entities_text = ""
+                context_parts.append(f"Known entities: {entities_str}")
+
+            if speakers:
+                speakers_str = ", ".join(speakers)
+                context_parts.append(f"Speaker labels to use: {speakers_str}")
+
+            context_text = "\n".join(context_parts)
 
             # Try transcription with validation and retry logic
             result = None
             for attempt in range(2):
-                result = transcribe_segments(
-                    self.client, MODEL, self.prompt_text, entities_text, segments
+                result = transcribe_turns(
+                    self.client, MODEL, self.prompt_text, context_text, turns
                 )
 
                 # Validate the result
@@ -499,11 +414,23 @@ class Transcriber:
                     transcript_items = result[:-1]
 
             # Add audio file reference to metadata
-            # Path is relative to the JSONL file (both in same segment directory)
             from observe.utils import extract_descriptive_suffix
 
             suffix = extract_descriptive_suffix(raw_path.stem)
             metadata["raw"] = f"{suffix}.flac"
+
+            # Determine source from filename for split audio files
+            # mic_audio -> "mic", sys_audio -> "sys", audio -> None
+            source = None
+            if suffix.startswith("mic_"):
+                source = "mic"
+            elif suffix.startswith("sys_"):
+                source = "sys"
+
+            # Add source field to transcript items for split files
+            if source:
+                for item in transcript_items:
+                    item["source"] = source
 
             # Write JSONL format: metadata first, then transcript items
             jsonl_lines = [json.dumps(metadata)]
@@ -515,138 +442,70 @@ class Transcriber:
             logging.error(f"Failed to transcribe {raw_path}: {e}", exc_info=True)
             return False
 
-    def _handle_raw(self, raw_path: Path, split: bool = False) -> None:
-        """Process a raw audio file.
-
-        Args:
-            raw_path: Path to the raw audio file
-            split: If True, process mic and system channels independently
-        """
+    def _handle_raw(self, raw_path: Path) -> None:
+        """Process a raw audio file."""
         start_time = time.time()
 
-        if split:
-            # Split processing mode
-            mic_json_path = self._get_json_path(raw_path, stream="mic")
-            sys_json_path = self._get_json_path(raw_path, stream="sys")
+        # Skip if already processed
+        json_path = self._get_json_path(raw_path)
+        if json_path.exists():
+            logging.info(f"Already processed, moving to timestamp dir: {raw_path}")
+            self._move_to_segment(raw_path)
+            return
 
-            # Check if already processed
-            if mic_json_path.exists() and sys_json_path.exists():
-                logging.info(
-                    f"Already processed (split), moving to timestamp dir: {raw_path}"
-                )
-                self._move_to_segment(raw_path)
-                return
+        # Process audio with diarization
+        result = self._process_audio(raw_path)
+        if result is None:
+            raise SystemExit(1)
 
-            # Process audio in split mode
-            segments_dict = self._process_audio(raw_path, split=True)
-            if segments_dict is None:
-                raise SystemExit(1)
+        turns, embeddings, speakers = result
 
-            # Process each stream
-            success = True
-            any_segments = False
-            for stream, segments in segments_dict.items():
-                if len(segments) == 0:
-                    logging.info(
-                        f"No speech segments detected in {stream} for {raw_path}"
-                    )
-                    continue
+        # Skip if no speech detected
+        if len(turns) == 0:
+            logging.info(f"No speech detected in {raw_path}, removing file")
+            raw_path.unlink()
+            return
 
-                any_segments = True
-                if not self._transcribe(raw_path, segments, stream=stream):
-                    success = False
+        # Transcribe
+        success = self._transcribe(raw_path, turns, speakers)
+        if success:
+            moved_path = self._move_to_segment(raw_path)
 
-            # If no streams had any speech, delete the file
-            if not any_segments:
-                logging.info(
-                    f"No speech segments detected in any stream for {raw_path}, removing file"
-                )
-                raw_path.unlink()
-                return
+            # Save speaker embeddings
+            if embeddings.size > 0:
+                embeddings_dir = self._get_embeddings_dir(raw_path)
+                # Need to reconstruct turn list with speaker info for embedding save
+                turn_info = [{"speaker": t["speaker"]} for t in turns]
+                save_speaker_embeddings(embeddings_dir, turn_info, embeddings)
 
-            if success:
-                moved_path = self._move_to_segment(raw_path)
+            # Emit completion event
+            journal_path = Path(os.getenv("JOURNAL_PATH", ""))
+            duration_ms = int((time.time() - start_time) * 1000)
 
-                # Emit completion events for split mode
-                journal_path = Path(os.getenv("JOURNAL_PATH", ""))
-                duration_ms = int((time.time() - start_time) * 1000)
+            try:
+                rel_input = moved_path.relative_to(journal_path)
+                rel_output = json_path.relative_to(journal_path)
+            except ValueError:
+                rel_input = moved_path
+                rel_output = json_path
 
-                # Emit event for each stream that was processed
-                for stream in ["mic", "sys"]:
-                    json_path = self._get_json_path(raw_path, stream=stream)
-                    if json_path.exists():
-                        try:
-                            rel_input = moved_path.relative_to(journal_path)
-                            rel_output = json_path.relative_to(journal_path)
-                        except ValueError:
-                            rel_input = moved_path
-                            rel_output = json_path
-
-                        callosum_send(
-                            "observe",
-                            "transcribed",
-                            input=str(rel_input),
-                            output=str(rel_output),
-                            duration_ms=duration_ms,
-                        )
-        else:
-            # Standard merged processing
-            # Skip if already processed
-            json_path = self._get_json_path(raw_path)
-            if json_path.exists():
-                logging.info(f"Already processed, moving to timestamp dir: {raw_path}")
-                self._move_to_segment(raw_path)
-                return
-
-            # Process audio
-            segments = self._process_audio(raw_path, split=False)
-            if segments is None:
-                raise SystemExit(1)
-
-            # Skip if no speech detected
-            if len(segments) == 0:
-                logging.info(
-                    f"No speech segments detected in {raw_path}, removing file"
-                )
-                raw_path.unlink()
-                return
-
-            # Transcribe
-            success = self._transcribe(raw_path, segments)
-            if success:
-                moved_path = self._move_to_segment(raw_path)
-
-                # Emit completion event for standard mode
-                journal_path = Path(os.getenv("JOURNAL_PATH", ""))
-                duration_ms = int((time.time() - start_time) * 1000)
-
-                try:
-                    rel_input = moved_path.relative_to(journal_path)
-                    rel_output = json_path.relative_to(journal_path)
-                except ValueError:
-                    rel_input = moved_path
-                    rel_output = json_path
-
-                callosum_send(
-                    "observe",
-                    "transcribed",
-                    input=str(rel_input),
-                    output=str(rel_output),
-                    duration_ms=duration_ms,
-                )
+            callosum_send(
+                "observe",
+                "transcribed",
+                input=str(rel_input),
+                output=str(rel_output),
+                duration_ms=duration_ms,
+            )
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Transcribe audio files using Gemini")
+    parser = argparse.ArgumentParser(
+        description="Transcribe audio files using Gemini with speaker diarization"
+    )
     parser.add_argument(
         "audio_path",
         type=str,
         help="Path to audio file to process (.flac or .m4a)",
-    )
-    parser.add_argument(
-        "--split",
-        action="store_true",
-        help="Process mic and system channels independently into separate JSONL files",
     )
     args = setup_cli(parser)
 
@@ -673,13 +532,9 @@ def main():
         )
 
     logging.info(f"Processing audio: {audio_path}")
-    if args.split:
-        logging.info(
-            "Split mode enabled: processing mic and system channels independently"
-        )
 
     transcriber = Transcriber(journal, api_key)
-    transcriber._handle_raw(audio_path, split=args.split)
+    transcriber._handle_raw(audio_path)
 
 
 if __name__ == "__main__":
