@@ -529,6 +529,98 @@ body.has-date-nav .workspace:has(.tr-wrap) {
   background: none;
   padding: 0;
 }
+
+/* Basic frame groups - collapsed by default */
+.tr-group {
+  border-left: 3px solid #e5e7eb;
+  border-radius: 8px;
+  margin: 4px 0;
+  background: #fafafa;
+}
+
+.tr-group-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.tr-group-header:hover {
+  background: #f3f4f6;
+}
+
+.tr-group-chevron {
+  width: 16px;
+  height: 16px;
+  color: #9ca3af;
+  transition: transform 0.15s;
+  flex-shrink: 0;
+}
+
+.tr-group.expanded .tr-group-chevron {
+  transform: rotate(90deg);
+}
+
+.tr-group-time {
+  font-size: 12px;
+  color: #6b7280;
+  font-family: monospace;
+  flex-shrink: 0;
+}
+
+.tr-group-count {
+  font-size: 12px;
+  color: #9ca3af;
+}
+
+.tr-group-grid {
+  display: none;
+  padding: 8px 12px 12px;
+  gap: 8px;
+  grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+}
+
+.tr-group.expanded .tr-group-grid {
+  display: grid;
+}
+
+.tr-group-item {
+  position: relative;
+  cursor: pointer;
+  border-radius: 6px;
+  overflow: hidden;
+  border: 1px solid #e5e7eb;
+  transition: box-shadow 0.15s;
+}
+
+.tr-group-item:hover {
+  box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+}
+
+.tr-group-item img {
+  width: 100%;
+  aspect-ratio: 16/9;
+  object-fit: cover;
+  display: block;
+}
+
+.tr-group-item-badge {
+  position: absolute;
+  bottom: 4px;
+  left: 4px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 9px;
+  font-weight: 500;
+  background: rgba(0,0,0,0.6);
+  color: #fff;
+  max-width: calc(100% - 8px);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 </style>
 
 <div class="tr-wrap">
@@ -821,6 +913,9 @@ body.has-date-nav .workspace:has(.tr-wrap) {
       return;
     }
 
+    // Group sequential basic screen frames together
+    const displayItems = groupBasicScreenFrames(chunks);
+
     let html = '<div class="tr-unified">';
 
     // Audio player section (if we have audio)
@@ -832,43 +927,21 @@ body.has-date-nav .workspace:has(.tr-wrap) {
       html += '</div></div>';
     }
 
-    // Entries
-    chunks.forEach((chunk, idx) => {
-      const timeStr = chunk.time || '';
-
-      if (chunk.type === 'audio') {
-        html += `<div class="tr-entry tr-entry-audio" data-idx="${idx}" data-type="audio" data-timestamp="${chunk.timestamp}">`;
+    // Render items (chunks or groups)
+    displayItems.forEach((item, idx) => {
+      if (item.type === 'screen-group') {
+        // Render collapsed group of basic frames
+        html += renderScreenGroup(item, idx);
+      } else if (item.type === 'audio') {
+        const timeStr = item.time || '';
+        html += `<div class="tr-entry tr-entry-audio" data-idx="${idx}" data-type="audio" data-timestamp="${item.timestamp}">`;
         html += `<div class="tr-entry-time">${timeStr}</div>`;
         html += '<div class="tr-entry-content">';
-        html += `<div class="tr-entry-text">${escapeHtml(chunk.markdown)}</div>`;
+        html += `<div class="tr-entry-text">${escapeHtml(item.markdown)}</div>`;
         html += '</div></div>';
-
-      } else if (chunk.type === 'screen') {
-        const monitor = chunk.source_ref?.monitor || '';
-        const thumbUrl = chunk.thumb_url;
-
-        html += `<div class="tr-entry tr-entry-screen" data-idx="${idx}" data-type="screen">`;
-        html += `<div class="tr-entry-time">${timeStr}</div>`;
-        html += '<div class="tr-entry-content">';
-
-        // Thumbnail on left if available
-        if (thumbUrl) {
-          html += `<img class="tr-entry-thumb" src="${thumbUrl}" alt="Frame at ${timeStr}" loading="lazy">`;
-        }
-
-        html += '<div class="tr-entry-desc">';
-        // Monitor badge
-        if (monitor) {
-          const monitorPos = getMonitorPosition(monitor);
-          if (monitorPos) html += `<span class="tr-entry-badge tr-entry-badge-monitor">${monitorPos}</span>`;
-        }
-        // Render formatted markdown content
-        if (chunk.markdown) {
-          html += marked.parse(chunk.markdown);
-        }
-        html += '</div>';
-
-        html += '</div></div>';
+      } else if (item.type === 'screen') {
+        // Enhanced screen frame - render fully
+        html += renderEnhancedScreenEntry(item, idx);
       }
     });
 
@@ -883,7 +956,6 @@ body.has-date-nav .workspace:has(.tr-wrap) {
       entry.addEventListener('click', () => {
         if (segmentAudioEl && segmentData?.audio_file) {
           const timestamp = parseInt(entry.dataset.timestamp, 10);
-          // timestamp is unix ms, need to convert to offset from segment start
           const baseTimestamp = chunks[0]?.timestamp || timestamp;
           const offsetSec = (timestamp - baseTimestamp) / 1000;
           segmentAudioEl.currentTime = Math.max(0, offsetSec);
@@ -892,7 +964,7 @@ body.has-date-nav .workspace:has(.tr-wrap) {
       });
     });
 
-    // Add click handlers for screen entries to open modal
+    // Add click handlers for enhanced screen entries to open modal
     panel.querySelectorAll('.tr-entry-screen').forEach(entry => {
       const thumb = entry.querySelector('.tr-entry-thumb');
       if (thumb) {
@@ -903,6 +975,121 @@ body.has-date-nav .workspace:has(.tr-wrap) {
         });
       }
     });
+
+    // Add click handlers for group headers to expand/collapse
+    panel.querySelectorAll('.tr-group-header').forEach(header => {
+      header.addEventListener('click', () => {
+        header.parentElement.classList.toggle('expanded');
+      });
+    });
+
+    // Add click handlers for group grid items to open modal
+    panel.querySelectorAll('.tr-group-item').forEach(item => {
+      item.addEventListener('click', () => {
+        const img = item.querySelector('img');
+        if (img) openImageModal(img.src);
+      });
+    });
+  }
+
+  function groupBasicScreenFrames(chunks) {
+    // Group sequential basic screen frames, keep audio and enhanced screens separate
+    const result = [];
+    let currentGroup = null;
+
+    for (const chunk of chunks) {
+      const isBasicScreen = chunk.type === 'screen' && chunk.basic === true;
+
+      if (isBasicScreen) {
+        // Add to current group or start new one
+        if (!currentGroup) {
+          currentGroup = {
+            type: 'screen-group',
+            entries: [],
+            startTime: chunk.time,
+            endTime: chunk.time
+          };
+        }
+        currentGroup.entries.push(chunk);
+        currentGroup.endTime = chunk.time;
+      } else {
+        // Flush any pending group
+        if (currentGroup) {
+          result.push(currentGroup);
+          currentGroup = null;
+        }
+        result.push(chunk);
+      }
+    }
+
+    // Flush final group
+    if (currentGroup) {
+      result.push(currentGroup);
+    }
+
+    return result;
+  }
+
+  function renderScreenGroup(group, idx) {
+    const count = group.entries.length;
+    const timeRange = group.startTime === group.endTime
+      ? group.startTime
+      : `${group.startTime} - ${group.endTime}`;
+    const countText = count === 1 ? '1 frame' : `${count} frames`;
+
+    let html = `<div class="tr-group" data-idx="${idx}">`;
+    html += '<div class="tr-group-header">';
+    html += `<svg class="tr-group-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>`;
+    html += `<span class="tr-group-time">${timeRange}</span>`;
+    html += `<span class="tr-group-count">${countText}</span>`;
+    html += '</div>';
+
+    // Grid of thumbnails (hidden until expanded)
+    html += '<div class="tr-group-grid">';
+    for (const entry of group.entries) {
+      const thumbUrl = entry.thumb_url;
+      const analysis = entry.source_ref?.analysis || {};
+      const category = analysis.visible || 'unknown';
+      const description = analysis.visual_description || category;
+
+      if (thumbUrl) {
+        html += `<div class="tr-group-item" title="${escapeHtml(description)}">`;
+        html += `<img src="${thumbUrl}" alt="${escapeHtml(category)}" loading="lazy">`;
+        html += `<span class="tr-group-item-badge">${escapeHtml(category)}</span>`;
+        html += '</div>';
+      }
+    }
+    html += '</div>';
+
+    html += '</div>';
+    return html;
+  }
+
+  function renderEnhancedScreenEntry(chunk, idx) {
+    const timeStr = chunk.time || '';
+    const monitor = chunk.source_ref?.monitor || '';
+    const thumbUrl = chunk.thumb_url;
+
+    let html = `<div class="tr-entry tr-entry-screen" data-idx="${idx}" data-type="screen">`;
+    html += `<div class="tr-entry-time">${timeStr}</div>`;
+    html += '<div class="tr-entry-content">';
+
+    if (thumbUrl) {
+      html += `<img class="tr-entry-thumb" src="${thumbUrl}" alt="Frame at ${timeStr}" loading="lazy">`;
+    }
+
+    html += '<div class="tr-entry-desc">';
+    if (monitor) {
+      const monitorPos = getMonitorPosition(monitor);
+      if (monitorPos) html += `<span class="tr-entry-badge tr-entry-badge-monitor">${monitorPos}</span>`;
+    }
+    if (chunk.markdown) {
+      html += marked.parse(chunk.markdown);
+    }
+    html += '</div>';
+
+    html += '</div></div>';
+    return html;
   }
 
   function escapeHtml(str) {

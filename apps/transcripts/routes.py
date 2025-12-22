@@ -368,6 +368,11 @@ def segment_content(day: str, segment_key: str) -> Any:
                 ):
                     thumb_url = f"/app/transcripts/api/screen_frame/{day}/{segment_key}/{filename}/{frame_id}"
 
+                # Basic frames have <= 1 vision request (just DESCRIBE_JSON)
+                # Enhanced frames have > 1 (added text extraction or meeting analysis)
+                requests = source.get("requests", [])
+                is_basic = len(requests) <= 1
+
                 chunks.append(
                     {
                         "type": "screen",
@@ -382,6 +387,7 @@ def segment_content(day: str, segment_key: str) -> Any:
                             "analysis": source.get("analysis"),
                         },
                         "thumb_url": thumb_url,
+                        "basic": is_basic,
                     }
                 )
         except Exception:
