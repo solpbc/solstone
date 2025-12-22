@@ -5,11 +5,8 @@ from __future__ import annotations
 import io
 import os
 import re
-import subprocess
-import tempfile
-from datetime import date, datetime
+from datetime import date
 from glob import glob
-from pathlib import Path
 from typing import Any
 
 from flask import (
@@ -17,26 +14,18 @@ from flask import (
     jsonify,
     redirect,
     render_template,
-    request,
     send_file,
     url_for,
 )
 
 from convey import state
 from convey.utils import DATE_RE, format_date
+from observe.hear import format_audio
+from observe.screen import format_screen
 from observe.see import decode_frames, image_to_jpeg_bytes
 from observe.utils import load_analysis_frames
-from think.cluster import (
-    cluster_range,
-    cluster_scan,
-    cluster_segments,
-    get_entries_for_range,
-)
-from think.utils import (
-    day_dirs,
-    day_path,
-    get_raw_file,
-)
+from think.cluster import cluster_scan, cluster_segments
+from think.utils import day_dirs, day_path
 from think.utils import segment_key as validate_segment_key
 
 # Regex for HHMMSS time format validation
@@ -97,83 +86,6 @@ def transcript_segments(day: str) -> Any:
     return jsonify({"segments": segments})
 
 
-@transcripts_bp.route("/api/content/<day>")
-def transcript_content(day: str) -> Any:
-    """Return transcript markdown HTML for the selected range."""
-    if not re.fullmatch(DATE_RE.pattern, day):
-        return "", 404
-
-    start = request.args.get("start", "")
-    end = request.args.get("end", "")
-    if not TIME_RE.fullmatch(start) or not TIME_RE.fullmatch(end):
-        return "", 400
-
-    audio = request.args.get("audio", "true").lower() == "true"
-    screen = request.args.get("screen", "true").lower() == "true"
-
-    if not audio and not screen:
-        markdown_text = "*Please select at least one source (Audio or Screen)*"
-    else:
-        markdown_text = cluster_range(
-            day, start, end, audio=audio, screen=screen, insights=False
-        )
-
-    try:
-        import markdown
-
-        html_output = markdown.markdown(markdown_text, extensions=["extra", "nl2br"])
-    except Exception:
-        import html as html_mod
-
-        html_output = f"<pre>{html_mod.escape(markdown_text)}</pre>"
-
-    return jsonify({"html": html_output})
-
-
-@transcripts_bp.route("/api/media_files/<day>")
-def media_files(day: str) -> Any:
-    """Return actual media files for embedding in the selected range."""
-    if not re.fullmatch(DATE_RE.pattern, day):
-        return "", 404
-
-    start = request.args.get("start", "")
-    end = request.args.get("end", "")
-    if not TIME_RE.fullmatch(start) or not TIME_RE.fullmatch(end):
-        return "", 400
-
-    file_type = request.args.get("type", None)
-    audio = file_type != "screen"
-    screen = file_type != "audio"
-    entries = get_entries_for_range(day, start, end, audio=audio, screen=screen)
-
-    media = []
-    for e in entries:
-        try:
-            rel_path, mime_type, metadata = get_raw_file(day, e["name"])
-            file_url = (
-                f"/app/transcripts/api/serve_file/{day}/{rel_path.replace('/', '__')}"
-            )
-            file_type_str = "audio" if e["prefix"] == "audio" else "screen"
-            human_time = e["timestamp"].strftime("%I:%M:%S %p").lstrip("0")
-
-            media.append(
-                {
-                    "url": file_url,
-                    "type": file_type_str,
-                    "mime_type": mime_type,
-                    "time": e["timestamp"].strftime("%H:%M:%S"),
-                    "human_time": human_time,
-                    "timestamp": e["timestamp"].isoformat(),
-                    "metadata": metadata,
-                }
-            )
-        except Exception:
-            continue
-
-    media.sort(key=lambda x: x["timestamp"])
-    return jsonify({"media": media})
-
-
 @transcripts_bp.route("/api/serve_file/<day>/<path:encoded_path>")
 def serve_file(day: str, encoded_path: str) -> Any:
     """Serve actual media files for embedding."""
@@ -195,108 +107,6 @@ def serve_file(day: str, encoded_path: str) -> Any:
 
     except Exception:
         return "", 404
-
-
-def _build_ffmpeg_cmd(
-    input_args: list[str],
-    output_path: str,
-    title: str,
-    year: int,
-    time_range: str,
-) -> list[str]:
-    """Build ffmpeg command with common encoding and metadata options."""
-    return [
-        "ffmpeg",
-        *input_args,
-        "-c:a",
-        "libmp3lame",
-        "-b:a",
-        "192k",
-        "-metadata",
-        f"title={title}",
-        "-metadata",
-        "album=Sunstone Journal",
-        "-metadata",
-        f"date={year}",
-        "-metadata",
-        f"comment=Time range: {time_range}",
-        "-y",
-        output_path,
-    ]
-
-
-@transcripts_bp.route("/api/download_audio/<day>")
-def download_audio(day: str) -> Any:
-    """Download concatenated MP3 of audio files for a time range."""
-    if not re.fullmatch(DATE_RE.pattern, day):
-        return "", 404
-
-    start = request.args.get("start", "")
-    end = request.args.get("end", "")
-    if not TIME_RE.fullmatch(start) or not TIME_RE.fullmatch(end):
-        return "", 400
-
-    day_dir = str(day_path(day))
-    if not os.path.isdir(day_dir):
-        return jsonify({"error": "Day directory not found"}), 404
-
-    entries = get_entries_for_range(day, start, end, audio=True, screen=False)
-
-    audio_files = []
-    for e in entries:
-        if e.get("prefix") == "audio":
-            try:
-                rel_path, _, _ = get_raw_file(day, e["name"])
-                flac_path = os.path.join(day_dir, rel_path)
-                if os.path.isfile(flac_path):
-                    audio_files.append(flac_path)
-            except Exception:
-                continue
-
-    if not audio_files:
-        return jsonify({"error": "No audio files found in the selected range"}), 404
-
-    # Format times for filename and metadata
-    start_dt = datetime.strptime(start, "%H%M%S")
-    end_dt = datetime.strptime(end, "%H%M%S")
-    filename = f"sunstone_{day}_{start[:4]}-{end[:4]}.mp3"
-
-    date_obj = datetime.strptime(day, "%Y%m%d")
-    date_formatted = date_obj.strftime("%B %d, %Y")
-    time_range = f"{start_dt.strftime('%I:%M %p')} - {end_dt.strftime('%I:%M %p')}"
-    title = f"Sunstone Recording - {date_formatted} {time_range}"
-
-    try:
-        with tempfile.TemporaryDirectory() as temp_dir:
-            temp_path = Path(temp_dir)
-            output_mp3 = temp_path / filename
-
-            if len(audio_files) == 1:
-                input_args = ["-i", audio_files[0]]
-            else:
-                concat_file = temp_path / "concat.txt"
-                with open(concat_file, "w") as f:
-                    for flac_file in audio_files:
-                        escaped_path = str(flac_file).replace("'", "'\\''")
-                        f.write(f"file '{escaped_path}'\n")
-                input_args = ["-f", "concat", "-safe", "0", "-i", str(concat_file)]
-
-            cmd = _build_ffmpeg_cmd(
-                input_args, str(output_mp3), title, date_obj.year, time_range
-            )
-            subprocess.run(cmd, check=True, capture_output=True)
-
-            return send_file(
-                str(output_mp3),
-                mimetype="audio/mpeg",
-                as_attachment=True,
-                download_name=filename,
-            )
-
-    except subprocess.CalledProcessError as e:
-        return jsonify({"error": f"Audio processing failed: {str(e)}"}), 500
-    except Exception as e:
-        return jsonify({"error": f"Unexpected error: {str(e)}"}), 500
 
 
 @transcripts_bp.route("/api/stats/<month>")
@@ -327,28 +137,27 @@ def api_stats(month: str):
     return jsonify(stats)
 
 
-@transcripts_bp.route("/api/screen_frames/<day>/<segment_key>")
-def screen_frames(day: str, segment_key: str) -> Any:
-    """Load and cache all screen frames for a segment, return metadata.
+def _populate_screen_cache(day: str, segment_key: str) -> list[dict]:
+    """Load and cache all screen frames for a segment.
 
-    Flushes cache if a different segment is requested. Returns frame metadata
-    for all monitors - frontend filters which frames to display.
+    Populates the global _screen_cache with decoded JPEG frames and returns
+    frame metadata. If already cached for this segment, returns cached metadata.
+
+    Args:
+        day: Day in YYYYMMDD format
+        segment_key: Segment directory name (HHMMSS_LEN format)
+
+    Returns:
+        List of frame metadata dicts with keys: frame_id, filename, monitor,
+        timestamp, box_2d, requests, analysis
     """
-    if not re.fullmatch(DATE_RE.pattern, day):
-        return "", 404
-
-    if not validate_segment_key(segment_key):
-        return "", 404
-
     day_dir = str(day_path(day))
     segment_dir = os.path.join(day_dir, segment_key)
-    if not os.path.isdir(segment_dir):
-        return "", 404
 
     # Check if we already have this segment cached
     cache_key = (day, segment_key)
     if _screen_cache["segment"] == cache_key:
-        return jsonify({"frames": _screen_cache["metadata"]})
+        return _screen_cache["metadata"]
 
     # Flush cache and load new segment
     _screen_cache["segment"] = cache_key
@@ -358,7 +167,7 @@ def screen_frames(day: str, segment_key: str) -> Any:
     # Find all *screen.jsonl files in segment
     screen_files = glob(os.path.join(segment_dir, "*screen.jsonl"))
     if not screen_files:
-        return jsonify({"frames": []})
+        return []
 
     all_metadata = []
 
@@ -426,7 +235,168 @@ def screen_frames(day: str, segment_key: str) -> Any:
     all_metadata.sort(key=lambda f: f["timestamp"])
     _screen_cache["metadata"] = all_metadata
 
-    return jsonify({"frames": all_metadata})
+    return all_metadata
+
+
+def _load_jsonl(path: str) -> list[dict]:
+    """Load JSONL file and return list of entries."""
+    import json
+
+    entries = []
+    with open(path, "r") as f:
+        for line in f:
+            line = line.strip()
+            if line:
+                entries.append(json.loads(line))
+    return entries
+
+
+def _format_time_from_offset(segment_key: str, offset_sec: float) -> str:
+    """Convert segment start + offset to HH:MM:SS format."""
+    from think.utils import segment_parse
+
+    start_time, _ = segment_parse(segment_key)
+    if not start_time:
+        return ""
+
+    total_sec = start_time.hour * 3600 + start_time.minute * 60 + start_time.second
+    total_sec += int(offset_sec)
+
+    h = total_sec // 3600
+    m = (total_sec % 3600) // 60
+    s = total_sec % 60
+    return f"{h:02d}:{m:02d}:{s:02d}"
+
+
+@transcripts_bp.route("/api/segment/<day>/<segment_key>")
+def segment_content(day: str, segment_key: str) -> Any:
+    """Return unified timeline of audio and screen entries for a segment.
+
+    Uses format_audio() and format_screen() to get chunks with source data,
+    then merges chronologically for unified display.
+
+    Returns JSON with:
+        - chunks: List of entries sorted by timestamp, each with:
+            - type: "audio" or "screen"
+            - time: formatted wall-clock time (HH:MM:SS)
+            - timestamp: unix ms for ordering
+            - markdown: formatted content
+            - source_ref: key fields from source for media lookup
+        - audio_file: URL to segment audio file (if exists)
+        - segment_key: segment directory name
+    """
+    if not re.fullmatch(DATE_RE.pattern, day):
+        return "", 404
+
+    if not validate_segment_key(segment_key):
+        return "", 404
+
+    day_dir = str(day_path(day))
+    segment_dir = os.path.join(day_dir, segment_key)
+    if not os.path.isdir(segment_dir):
+        return "", 404
+
+    chunks: list[dict] = []
+    audio_file_url = None
+
+    # Process audio files
+    audio_files = glob(os.path.join(segment_dir, "*audio.jsonl"))
+    for audio_path in sorted(audio_files):
+        try:
+            entries = _load_jsonl(audio_path)
+            formatted_chunks, meta = format_audio(entries, {"file_path": audio_path})
+
+            # Find the raw audio file from metadata (first entry without "start")
+            raw_audio = None
+            for entry in entries:
+                if "start" not in entry and "raw" in entry:
+                    raw_audio = entry["raw"]
+                    break
+
+            if raw_audio:
+                rel_path = f"{segment_key}/{raw_audio}"
+                audio_file_url = f"/app/transcripts/api/serve_file/{day}/{rel_path.replace('/', '__')}"
+
+            for chunk in formatted_chunks:
+                source = chunk.get("source", {})
+                # Audio has start time in HH:MM:SS format
+                time_str = source.get("start", "")
+                chunks.append(
+                    {
+                        "type": "audio",
+                        "time": time_str,
+                        "timestamp": chunk.get("timestamp", 0),
+                        "markdown": chunk.get("markdown", ""),
+                        "source_ref": {
+                            "start": time_str,
+                            "source": source.get("source"),
+                            "speaker": source.get("speaker"),
+                        },
+                    }
+                )
+        except Exception:
+            continue
+
+    # Process screen files - also populate cache for thumbnails
+    _populate_screen_cache(day, segment_key)
+
+    screen_files = glob(os.path.join(segment_dir, "*screen.jsonl"))
+    for screen_path in sorted(screen_files):
+        try:
+            entries = _load_jsonl(screen_path)
+            formatted_chunks, meta = format_screen(entries, {"file_path": screen_path})
+
+            filename = os.path.basename(screen_path)
+            monitor = (
+                filename.replace("_screen.jsonl", "")
+                if filename != "screen.jsonl"
+                else ""
+            )
+
+            for chunk in formatted_chunks:
+                source = chunk.get("source", {})
+                frame_id = source.get("frame_id")
+                offset = source.get("timestamp", 0)
+
+                # Calculate wall-clock time from segment start + offset
+                time_str = _format_time_from_offset(segment_key, offset)
+
+                # Build thumbnail URL if frame_id exists and is cached
+                thumb_url = None
+                if frame_id is not None and (filename, frame_id) in _screen_cache.get(
+                    "frames", {}
+                ):
+                    thumb_url = f"/app/transcripts/api/screen_frame/{day}/{segment_key}/{filename}/{frame_id}"
+
+                chunks.append(
+                    {
+                        "type": "screen",
+                        "time": time_str,
+                        "timestamp": chunk.get("timestamp", 0),
+                        "markdown": chunk.get("markdown", ""),
+                        "source_ref": {
+                            "frame_id": frame_id,
+                            "filename": filename,
+                            "monitor": monitor,
+                            "offset": offset,
+                            "analysis": source.get("analysis"),
+                        },
+                        "thumb_url": thumb_url,
+                    }
+                )
+        except Exception:
+            continue
+
+    # Sort all chunks by timestamp
+    chunks.sort(key=lambda c: c["timestamp"])
+
+    return jsonify(
+        {
+            "chunks": chunks,
+            "audio_file": audio_file_url,
+            "segment_key": segment_key,
+        }
+    )
 
 
 @transcripts_bp.route("/api/screen_frame/<day>/<segment_key>/<filename>/<int:frame_id>")

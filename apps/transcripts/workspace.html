@@ -213,20 +213,6 @@ body.has-date-nav .workspace:has(.tr-wrap) {
   font-size: 14px;
 }
 
-.tr-btn {
-  padding: 8px 12px;
-  border: 1px solid #d1d5db;
-  border-radius: 12px;
-  background: #fff;
-  cursor: pointer;
-  font-size: 14px;
-  transition: background 0.15s;
-}
-
-.tr-btn:hover {
-  background: #f9fafb;
-}
-
 .tr-panel {
   flex: 1;
   border: 1px solid #e5e7eb;
@@ -350,88 +336,7 @@ body.has-date-nav .workspace:has(.tr-wrap) {
   -webkit-user-select: none;
 }
 
-/* Media rendering in panel */
-.tr-media-item {
-  margin-bottom: 24px;
-}
-
-.tr-media-time {
-  margin: 0 0 8px 0;
-  color: #374151;
-  font-size: 14px;
-  font-weight: 500;
-}
-
-.tr-media-item audio {
-  width: 100%;
-}
-
-.tr-media-item video,
-.tr-media-item img {
-  width: 100%;
-  height: auto;
-  border: 1px solid #e5e7eb;
-  border-radius: 8px;
-}
-
-/* Screenshot gallery */
-.tr-screenshots {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 16px;
-}
-
-.tr-screenshot-item {
-  background: #f9fafb;
-  border: 1px solid #e5e7eb;
-  border-radius: 12px;
-  overflow: hidden;
-  cursor: pointer;
-  transition: box-shadow 0.15s, transform 0.15s;
-}
-
-.tr-screenshot-item:hover {
-  box-shadow: 0 4px 12px rgba(0,0,0,.1);
-  transform: translateY(-2px);
-}
-
-.tr-screenshot-img {
-  width: 100%;
-  aspect-ratio: 16/9;
-  object-fit: cover;
-  display: block;
-}
-
-.tr-screenshot-meta {
-  padding: 8px 12px;
-  font-size: 12px;
-  color: #6b7280;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.tr-screenshot-badge {
-  background: #dbeafe;
-  color: #1d4ed8;
-  padding: 2px 6px;
-  border-radius: 4px;
-  font-size: 10px;
-  font-weight: 500;
-}
-
-.tr-screenshot-badge-monitor {
-  background: #f3e8ff;
-  color: #7c3aed;
-}
-
-.tr-screenshot-empty {
-  text-align: center;
-  color: #9ca3af;
-  padding: 48px 24px;
-}
-
-/* Screenshot modal */
+/* Image modal */
 .tr-screenshot-modal {
   position: fixed;
   inset: 0;
@@ -443,46 +348,11 @@ body.has-date-nav .workspace:has(.tr-wrap) {
 }
 
 .tr-screenshot-modal img {
-  max-width: calc(95vw - 120px);
+  max-width: 95vw;
   max-height: 95vh;
   object-fit: contain;
   border-radius: 8px;
   cursor: zoom-out;
-}
-
-.tr-modal-nav {
-  position: absolute;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 48px;
-  height: 48px;
-  background: rgba(255,255,255,0.15);
-  border: none;
-  border-radius: 50%;
-  color: #fff;
-  font-size: 24px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: background 0.15s;
-}
-
-.tr-modal-nav:hover {
-  background: rgba(255,255,255,0.3);
-}
-
-.tr-modal-nav:disabled {
-  opacity: 0.3;
-  cursor: not-allowed;
-}
-
-.tr-modal-prev {
-  left: 20px;
-}
-
-.tr-modal-next {
-  right: 20px;
 }
 
 .tr-modal-close {
@@ -506,13 +376,125 @@ body.has-date-nav .workspace:has(.tr-wrap) {
   background: rgba(255,255,255,0.3);
 }
 
-.tr-modal-counter {
-  position: absolute;
-  bottom: 20px;
-  left: 50%;
-  transform: translateX(-50%);
-  color: rgba(255,255,255,0.7);
+/* Unified timeline view */
+.tr-unified {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.tr-audio-players {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 12px;
+  background: #f9fafb;
+  border-radius: 12px;
+  border: 1px solid #e5e7eb;
+}
+
+.tr-audio-player {
+  flex: 1;
+  min-width: 200px;
+}
+
+.tr-audio-player audio {
+  width: 100%;
+}
+
+.tr-audio-player-label {
+  font-size: 11px;
+  color: #6b7280;
+  margin-bottom: 4px;
+}
+
+.tr-entry {
+  display: flex;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.tr-entry:hover {
+  background: #f9fafb;
+}
+
+.tr-entry-audio {
+  border-left: 3px solid #86efac;
+}
+
+.tr-entry-screen {
+  border-left: 3px solid #facc15;
+}
+
+.tr-entry-time {
+  flex-shrink: 0;
+  width: 48px;
+  font-size: 12px;
+  color: #6b7280;
+  font-family: monospace;
+}
+
+.tr-entry-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.tr-entry-text {
   font-size: 14px;
+  line-height: 1.4;
+}
+
+.tr-entry-meta {
+  font-size: 11px;
+  color: #9ca3af;
+  margin-top: 2px;
+}
+
+.tr-entry-thumb {
+  flex-shrink: 0;
+  width: 120px;
+  height: 68px;
+  border-radius: 6px;
+  object-fit: cover;
+  border: 1px solid #e5e7eb;
+}
+
+.tr-entry-screen .tr-entry-content {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.tr-entry-desc {
+  flex: 1;
+  font-size: 13px;
+  color: #374151;
+  line-height: 1.4;
+}
+
+.tr-entry-badge {
+  display: inline-block;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 500;
+  background: #dbeafe;
+  color: #1d4ed8;
+  margin-right: 6px;
+}
+
+.tr-entry-badge-monitor {
+  background: #f3e8ff;
+  color: #7c3aed;
+}
+
+.tr-unified-empty {
+  text-align: center;
+  color: #9ca3af;
+  padding: 48px 24px;
 }
 </style>
 
@@ -554,9 +536,6 @@ body.has-date-nav .workspace:has(.tr-wrap) {
             <input type="checkbox" id="trScreenCheck" checked>
             <span>Screen</span>
           </label>
-          <button class="tr-btn" id="trMediaBtn" style="display:none">Load Media</button>
-          <button class="tr-btn" id="trScreenshotsBtn" style="display:none">Screenshots</button>
-          <button class="tr-btn" id="trDownloadBtn" style="display:none">Download Audio</button>
         </div>
       </div>
       <div class="tr-panel" id="trPanel"></div>
@@ -591,9 +570,6 @@ body.has-date-nav .workspace:has(.tr-wrap) {
   // Elements - content panel
   const rangeText = document.getElementById('trRangeText');
   const panel = document.getElementById('trPanel');
-  const mediaBtn = document.getElementById('trMediaBtn');
-  const screenshotsBtn = document.getElementById('trScreenshotsBtn');
-  const downloadBtn = document.getElementById('trDownloadBtn');
   const audioCheck = document.getElementById('trAudioCheck');
   const screenCheck = document.getElementById('trScreenCheck');
 
@@ -766,33 +742,162 @@ body.has-date-nav .workspace:has(.tr-wrap) {
     // Update range text
     rangeText.textContent = `${seg.start} - ${seg.end}`;
 
-    // Show buttons based on segment types
-    const hasAudio = seg.types.includes('audio');
-    const hasScreen = seg.types.includes('screen');
-    mediaBtn.style.display = 'block';
-    screenshotsBtn.style.display = hasScreen ? 'block' : 'none';
-    downloadBtn.style.display = hasAudio ? 'block' : 'none';
-
     // Load transcript content
     loadSegmentContent(seg);
   }
 
+  // Unified timeline state
+  let segmentData = null;
+  let segmentAudioEl = null;
+
   function loadSegmentContent(seg) {
-    const audio = audioCheck.checked;
-    const screen = screenCheck.checked;
+    const showAudio = audioCheck.checked;
+    const showScreen = screenCheck.checked;
 
-    // Convert HH:MM to HHMMSS format
-    const start = seg.start.replace(':', '') + '00';
-    const end = seg.end.replace(':', '') + '00';
+    // Clear old data and show loading message immediately
+    segmentData = null;
+    panel.innerHTML = '<div class="tr-unified-empty"><p>Loading segment...</p></div>';
 
-    fetch(`/app/transcripts/api/content/${day}?start=${start}&end=${end}&audio=${audio}&screen=${screen}`)
+    // Use new unified segment endpoint
+    fetch(`/app/transcripts/api/segment/${day}/${seg.key}`)
       .then(r => r.json())
-      .then(d => {
-        panel.innerHTML = d.html || '';
+      .then(data => {
+        segmentData = data;
+        renderSegmentTimeline(data, showAudio, showScreen);
       })
       .catch(() => {
         panel.innerHTML = '<p>Error loading transcript.</p>';
       });
+  }
+
+  function renderSegmentTimeline(data, showAudio, showScreen) {
+    const chunks = (data.chunks || []).filter(c => {
+      if (c.type === 'audio' && !showAudio) return false;
+      if (c.type === 'screen' && !showScreen) return false;
+      return true;
+    });
+
+    if (chunks.length === 0) {
+      panel.innerHTML = '<div class="tr-unified-empty"><p>No entries to display. Enable Audio or Screen above.</p></div>';
+      return;
+    }
+
+    let html = '<div class="tr-unified">';
+
+    // Audio player section (if we have audio)
+    if (data.audio_file && showAudio) {
+      html += '<div class="tr-audio-players">';
+      html += '<div class="tr-audio-player">';
+      html += '<div class="tr-audio-player-label">Segment Audio</div>';
+      html += `<audio id="trSegmentAudio" controls preload="metadata"><source src="${data.audio_file}" type="audio/flac">Your browser does not support audio.</audio>`;
+      html += '</div></div>';
+    }
+
+    // Entries
+    chunks.forEach((chunk, idx) => {
+      const timeStr = chunk.time || '';
+
+      if (chunk.type === 'audio') {
+        html += `<div class="tr-entry tr-entry-audio" data-idx="${idx}" data-type="audio" data-timestamp="${chunk.timestamp}">`;
+        html += `<div class="tr-entry-time">${timeStr}</div>`;
+        html += '<div class="tr-entry-content">';
+        html += `<div class="tr-entry-text">${escapeHtml(chunk.markdown)}</div>`;
+        html += '</div></div>';
+
+      } else if (chunk.type === 'screen') {
+        const analysis = chunk.source_ref?.analysis || {};
+        const category = analysis.visible || 'screen';
+        const desc = analysis.visual_description || '';
+        const monitor = chunk.source_ref?.monitor || '';
+        const thumbUrl = chunk.thumb_url;
+
+        html += `<div class="tr-entry tr-entry-screen" data-idx="${idx}" data-type="screen">`;
+        html += `<div class="tr-entry-time">${timeStr}</div>`;
+        html += '<div class="tr-entry-content">';
+
+        // Thumbnail on left if available
+        if (thumbUrl) {
+          html += `<img class="tr-entry-thumb" src="${thumbUrl}" alt="Frame at ${timeStr}" loading="lazy">`;
+        }
+
+        html += '<div class="tr-entry-desc">';
+        html += '<div>';
+        if (monitor) {
+          const monitorPos = getMonitorPosition(monitor);
+          if (monitorPos) html += `<span class="tr-entry-badge tr-entry-badge-monitor">${monitorPos}</span>`;
+        }
+        html += `<span class="tr-entry-badge">${category}</span>`;
+        html += '</div>';
+        if (desc) html += `<p style="margin:4px 0 0">${escapeHtml(desc)}</p>`;
+        html += '</div>';
+
+        html += '</div></div>';
+      }
+    });
+
+    html += '</div>';
+    panel.innerHTML = html;
+
+    // Get audio element reference
+    segmentAudioEl = document.getElementById('trSegmentAudio');
+
+    // Add click handlers for audio entries to seek
+    panel.querySelectorAll('.tr-entry-audio').forEach(entry => {
+      entry.addEventListener('click', () => {
+        if (segmentAudioEl && segmentData?.audio_file) {
+          const timestamp = parseInt(entry.dataset.timestamp, 10);
+          // timestamp is unix ms, need to convert to offset from segment start
+          const baseTimestamp = chunks[0]?.timestamp || timestamp;
+          const offsetSec = (timestamp - baseTimestamp) / 1000;
+          segmentAudioEl.currentTime = Math.max(0, offsetSec);
+          segmentAudioEl.play();
+        }
+      });
+    });
+
+    // Add click handlers for screen entries to open modal
+    panel.querySelectorAll('.tr-entry-screen').forEach(entry => {
+      const thumb = entry.querySelector('.tr-entry-thumb');
+      if (thumb) {
+        thumb.style.cursor = 'pointer';
+        thumb.addEventListener('click', (e) => {
+          e.stopPropagation();
+          openImageModal(thumb.src);
+        });
+      }
+    });
+  }
+
+  function escapeHtml(str) {
+    if (!str) return '';
+    return str
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
+  function openImageModal(src) {
+    const modal = document.createElement('div');
+    modal.className = 'tr-screenshot-modal';
+    modal.innerHTML = `
+      <button class="tr-modal-close" title="Close (Esc)">&times;</button>
+      <img src="${src}" alt="Screenshot">
+    `;
+    document.body.appendChild(modal);
+
+    const closeModal = () => {
+      modal.remove();
+      document.removeEventListener('keydown', handleKeys);
+    };
+
+    const handleKeys = (e) => {
+      if (e.key === 'Escape') closeModal();
+    };
+
+    modal.querySelector('.tr-modal-close').addEventListener('click', closeModal);
+    modal.querySelector('img').addEventListener('click', closeModal);
+    document.addEventListener('keydown', handleKeys);
   }
 
   function updateZoom() {
@@ -907,122 +1012,6 @@ body.has-date-nav .workspace:has(.tr-wrap) {
   sel.querySelector('[data-handle="start"]').addEventListener('pointerdown', beginDrag('start'));
   sel.querySelector('[data-handle="end"]').addEventListener('pointerdown', beginDrag('end'));
 
-  // Load media button
-  mediaBtn.addEventListener('click', () => {
-    if (!selectedSegment) return;
-
-    const start = selectedSegment.start.replace(':', '') + '00';
-    const end = selectedSegment.end.replace(':', '') + '00';
-    let type = null;
-    if (audioCheck.checked && !screenCheck.checked) type = 'audio';
-    else if (!audioCheck.checked && screenCheck.checked) type = 'screen';
-
-    fetch(`/app/transcripts/api/media_files/${day}?start=${start}&end=${end}${type ? '&type=' + type : ''}`)
-      .then(r => r.json())
-      .then(data => renderMediaFiles(data.media || []))
-      .catch(() => {
-        panel.innerHTML = '<p>Error loading media files.</p>';
-      });
-  });
-
-  // Download audio button
-  downloadBtn.addEventListener('click', () => {
-    if (!selectedSegment) return;
-
-    const start = selectedSegment.start.replace(':', '') + '00';
-    const end = selectedSegment.end.replace(':', '') + '00';
-    const url = `/app/transcripts/api/download_audio/${day}?start=${start}&end=${end}`;
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = '';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  });
-
-  // Screenshots button
-  screenshotsBtn.addEventListener('click', () => {
-    if (!selectedSegment) return;
-
-    panel.innerHTML = '<p>Loading screenshots...</p>';
-
-    fetch(`/app/transcripts/api/screen_frames/${day}/${selectedSegment.key}`)
-      .then(r => r.json())
-      .then(data => {
-        // Filter to frames with >1 requests (enhanced analysis)
-        const frames = (data.frames || []).filter(f => f.requests && f.requests.length > 1);
-        renderScreenshots(frames, selectedSegment.key);
-      })
-      .catch(() => {
-        panel.innerHTML = '<p>Error loading screenshots.</p>';
-      });
-  });
-
-  // Track current screenshots for modal navigation
-  let currentScreenshots = [];
-
-  function renderScreenshots(frames, segmentKey) {
-    if (frames.length === 0) {
-      panel.innerHTML = '<div class="tr-screenshot-empty"><p>No screenshots with enhanced analysis in this segment.</p></div>';
-      currentScreenshots = [];
-      return;
-    }
-
-    // Build screenshot data for navigation
-    currentScreenshots = frames.map(frame => ({
-      url: `/app/transcripts/api/screen_frame/${day}/${segmentKey}/${frame.filename}/${frame.frame_id}`,
-      timestamp: frame.timestamp,
-      monitor: frame.monitor,
-      analysisType: getAnalysisType(frame)
-    }));
-
-    let html = '<div class="tr-screenshots">';
-    currentScreenshots.forEach((shot, idx) => {
-      const timestamp = formatTimestamp(shot.timestamp);
-      const monitorPos = getMonitorPosition(shot.monitor);
-
-      html += `<div class="tr-screenshot-item" data-idx="${idx}">`;
-      html += `<img class="tr-screenshot-img" src="${shot.url}" alt="Screenshot at ${timestamp}" loading="lazy">`;
-      html += `<div class="tr-screenshot-meta">`;
-      html += `<span>${timestamp}</span>`;
-      html += `<span>`;
-      if (monitorPos) {
-        html += `<span class="tr-screenshot-badge tr-screenshot-badge-monitor">${monitorPos}</span> `;
-      }
-      if (shot.analysisType) {
-        html += `<span class="tr-screenshot-badge">${shot.analysisType}</span>`;
-      }
-      html += `</span>`;
-      html += `</div></div>`;
-    });
-    html += '</div>';
-
-    panel.innerHTML = html;
-
-    // Add click handlers for lightbox
-    panel.querySelectorAll('.tr-screenshot-item').forEach(item => {
-      item.addEventListener('click', () => {
-        openScreenshotModal(parseInt(item.dataset.idx, 10));
-      });
-    });
-  }
-
-  function formatTimestamp(seconds) {
-    const mins = Math.floor(seconds / 60);
-    const secs = Math.floor(seconds % 60);
-    return `${mins}:${String(secs).padStart(2, '0')}`;
-  }
-
-  function getAnalysisType(frame) {
-    if (!frame.requests || frame.requests.length <= 1) return null;
-    // Check request types beyond initial describe_json
-    for (const req of frame.requests) {
-      if (req.type === 'describe_meeting') return 'Meeting';
-      if (req.type === 'describe_text') return 'Text';
-    }
-    return 'Enhanced';
-  }
-
   function getMonitorPosition(monitor) {
     if (!monitor) return null;
     // Extract position from monitor string (e.g., "center_DP-3" -> "Center")
@@ -1032,110 +1021,18 @@ body.has-date-nav .workspace:has(.tr-wrap) {
     return pos.charAt(0).toUpperCase() + pos.slice(1);
   }
 
-  function openScreenshotModal(startIdx) {
-    let currentIdx = startIdx;
-
-    const modal = document.createElement('div');
-    modal.className = 'tr-screenshot-modal';
-    document.body.appendChild(modal);
-
-    function updateModal() {
-      const shot = currentScreenshots[currentIdx];
-      const total = currentScreenshots.length;
-      const hasPrev = currentIdx > 0;
-      const hasNext = currentIdx < total - 1;
-
-      modal.innerHTML = `
-        <button class="tr-modal-close" title="Close (Esc)">&times;</button>
-        <button class="tr-modal-nav tr-modal-prev" ${hasPrev ? '' : 'disabled'} title="Previous (←)">&#8249;</button>
-        <img src="${shot.url}" alt="Screenshot">
-        <button class="tr-modal-nav tr-modal-next" ${hasNext ? '' : 'disabled'} title="Next (→)">&#8250;</button>
-        <div class="tr-modal-counter">${currentIdx + 1} / ${total}</div>
-      `;
-
-      // Button handlers
-      modal.querySelector('.tr-modal-close').addEventListener('click', closeModal);
-      modal.querySelector('img').addEventListener('click', closeModal);
-
-      const prevBtn = modal.querySelector('.tr-modal-prev');
-      const nextBtn = modal.querySelector('.tr-modal-next');
-
-      prevBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        if (currentIdx > 0) {
-          currentIdx--;
-          updateModal();
-        }
-      });
-
-      nextBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        if (currentIdx < total - 1) {
-          currentIdx++;
-          updateModal();
-        }
-      });
-    }
-
-    function closeModal() {
-      modal.remove();
-      document.removeEventListener('keydown', handleKeys);
-    }
-
-    function handleKeys(e) {
-      if (e.key === 'Escape') {
-        closeModal();
-      } else if (e.key === 'ArrowLeft' && currentIdx > 0) {
-        currentIdx--;
-        updateModal();
-      } else if (e.key === 'ArrowRight' && currentIdx < currentScreenshots.length - 1) {
-        currentIdx++;
-        updateModal();
-      }
-    }
-
-    document.addEventListener('keydown', handleKeys);
-    updateModal();
-  }
-
-  // Reload transcript when checkboxes change
+  // Re-render when checkboxes change (use cached data)
   audioCheck.addEventListener('change', () => {
-    if (selectedSegment) {
-      loadSegmentContent(selectedSegment);
-      downloadBtn.style.display = audioCheck.checked && selectedSegment.types.includes('audio') ? 'block' : 'none';
+    if (selectedSegment && segmentData) {
+      renderSegmentTimeline(segmentData, audioCheck.checked, screenCheck.checked);
     }
   });
 
   screenCheck.addEventListener('change', () => {
-    if (selectedSegment) {
-      loadSegmentContent(selectedSegment);
+    if (selectedSegment && segmentData) {
+      renderSegmentTimeline(segmentData, audioCheck.checked, screenCheck.checked);
     }
   });
 
-  function renderMediaFiles(files) {
-    if (files.length === 0) {
-      panel.innerHTML = '<p>No media files found in the selected segment.</p>';
-      return;
-    }
-
-    let html = '';
-    files.forEach(file => {
-      html += '<div class="tr-media-item">';
-      html += `<h4 class="tr-media-time">${file.human_time}</h4>`;
-
-      if (file.type === 'audio') {
-        html += `<audio controls><source src="${file.url}" type="${file.mime_type}">Your browser does not support audio.</audio>`;
-      } else if (file.type === 'screen') {
-        if (file.mime_type.startsWith('video/')) {
-          html += `<video controls><source src="${file.url}" type="${file.mime_type}">Your browser does not support video.</video>`;
-        } else {
-          html += `<img src="${file.url}" alt="Screenshot at ${file.human_time}">`;
-        }
-      }
-      html += '</div>';
-    });
-
-    panel.innerHTML = html;
-  }
 })();
 </script>
