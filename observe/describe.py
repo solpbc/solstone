@@ -3,7 +3,11 @@
 Describe screencast videos by detecting significant frame changes.
 
 Processes per-monitor screencast files (.webm/.mp4/.mov), detects changes using
-RMS-based comparison, and sends full frames to Gemini for analysis.
+RMS-based comparison, and sends frames to Gemini for multi-stage analysis:
+
+1. Initial categorization identifies primary/secondary regions with bounding boxes
+2. Follow-up analysis (text extraction or meeting analysis) uses cropped regions
+   based on category, or full frame when both regions need the same analysis type
 """
 
 from __future__ import annotations
@@ -26,6 +30,9 @@ from think.callosum import callosum_send
 from think.utils import setup_cli
 
 logger = logging.getLogger(__name__)
+
+# Minimum box size in pixels for follow-up processing
+MIN_BOX_SIZE = 300
 
 
 class RequestType(Enum):
@@ -228,6 +235,99 @@ class VideoProcessor:
         img.save(buf, format="PNG", compress_level=1)
         return buf.getvalue()
 
+    def _denormalize_box(
+        self, box_2d: List[int], img_width: int, img_height: int
+    ) -> tuple:
+        """
+        Convert 0-1000 normalized coords to pixel coords.
+
+        Parameters
+        ----------
+        box_2d : List[int]
+            Normalized coordinates [y0, x0, y1, x1] in 0-1000 range
+        img_width : int
+            Image width in pixels
+        img_height : int
+            Image height in pixels
+
+        Returns
+        -------
+        tuple
+            Pixel coordinates (y0, x0, y1, x1)
+        """
+        y0, x0, y1, x1 = box_2d
+        return (
+            int(y0 * img_height / 1000),
+            int(x0 * img_width / 1000),
+            int(y1 * img_height / 1000),
+            int(x1 * img_width / 1000),
+        )
+
+    def _box_qualifies(self, box_pixels: tuple) -> bool:
+        """
+        Check if denormalized box is >MIN_BOX_SIZE in both dimensions.
+
+        Parameters
+        ----------
+        box_pixels : tuple
+            Pixel coordinates (y0, x0, y1, x1)
+
+        Returns
+        -------
+        bool
+            True if box qualifies for follow-up processing
+        """
+        y0, x0, y1, x1 = box_pixels
+        width = x1 - x0
+        height = y1 - y0
+        return width > MIN_BOX_SIZE and height > MIN_BOX_SIZE
+
+    def _crop_to_box(self, img: Image.Image, box_pixels: tuple) -> Image.Image:
+        """
+        Crop PIL Image using denormalized pixel coords.
+
+        Parameters
+        ----------
+        img : Image.Image
+            Source image to crop
+        box_pixels : tuple
+            Pixel coordinates (y0, x0, y1, x1)
+
+        Returns
+        -------
+        Image.Image
+            Cropped image
+        """
+        y0, x0, y1, x1 = box_pixels
+        # Clamp to image bounds
+        x0 = max(0, min(x0, img.width))
+        x1 = max(0, min(x1, img.width))
+        y0 = max(0, min(y0, img.height))
+        y1 = max(0, min(y1, img.height))
+        # PIL crop uses (left, upper, right, lower) = (x0, y0, x1, y1)
+        return img.crop((x0, y0, x1, y1))
+
+    def _get_follow_up_prompt(self, category: str) -> Optional[str]:
+        """
+        Map category to follow-up prompt type.
+
+        Parameters
+        ----------
+        category : str
+            Category from initial analysis
+
+        Returns
+        -------
+        Optional[str]
+            "meeting", "text", or None if no follow-up needed
+        """
+        if category == "meeting":
+            return "meeting"
+        text_categories = CONFIG.get("text_extraction_categories", [])
+        if category in text_categories:
+            return "text"
+        return None
+
     def _user_contents(self, prompt: str, image, entities: bool = False) -> list:
         """Build contents list with optional entity context."""
         contents = [prompt]
@@ -280,7 +380,7 @@ class VideoProcessor:
             Path to write JSONL output (when None, no output file is written)
         """
         from think.batch import GeminiBatch
-        from think.models import GEMINI_LITE
+        from think.models import GEMINI_FLASH
 
         # Load prompt templates
         prompt_path = Path(__file__).parent / use_prompt
@@ -331,7 +431,7 @@ class VideoProcessor:
                     "Analyze this screenshot frame from a screencast recording.",
                     frame_img,
                 ),
-                model=GEMINI_LITE,
+                model=GEMINI_FLASH,
                 system_instruction=system_instruction,
                 json_output=True,
                 temperature=0.7,
@@ -347,8 +447,11 @@ class VideoProcessor:
             req.request_type = RequestType.DESCRIBE_JSON
             req.json_analysis = None  # Will store the JSON analysis result
             req.meeting_analysis = None  # Will store meeting analysis if applicable
+            req.extracted_text = None  # Will store text extraction if applicable
             req.requests = []  # Track all requests for this frame
             req.initial_image = frame_img  # Keep reference to close after completion
+            req.pending_follow_ups = 0  # Track how many follow-ups are pending
+            req.follow_up_source = None  # "primary", "secondary", or "full"
 
             batch.add(req)
 
@@ -361,9 +464,15 @@ class VideoProcessor:
         total_frames = 0
         failed_frames = 0
 
+        # Track frames by frame_id for merging follow-up results
+        frame_results = {}  # frame_id -> result dict
+
         # Stream results as they complete, with retry logic
         async for req in batch.drain_batch():
-            total_frames += 1
+            # Only count initial DESCRIBE_JSON requests as frames (not follow-ups)
+            if req.request_type == RequestType.DESCRIBE_JSON:
+                total_frames += 1
+
             # Check for errors
             has_error = bool(req.error)
             error_msg = req.error
@@ -386,6 +495,9 @@ class VideoProcessor:
                     except json.JSONDecodeError as e:
                         has_error = True
                         error_msg = f"Invalid JSON response: {e}"
+                elif req.request_type == RequestType.DESCRIBE_TEXT:
+                    # Store text extraction result
+                    req.extracted_text = req.response
 
             # Retry logic (up to 5 attempts total, so 4 retries)
             if has_error and req.retry_count < 4:
@@ -396,8 +508,8 @@ class VideoProcessor:
                 )
                 continue  # Don't output, wait for retry result
 
-            # Track failure after all retries exhausted
-            if has_error:
+            # Track failure after all retries exhausted (only for initial requests)
+            if has_error and req.request_type == RequestType.DESCRIBE_JSON:
                 failed_frames += 1
 
             # Record this request's result (after retries are done)
@@ -408,6 +520,8 @@ class VideoProcessor:
             }
             if req.retry_count > 0:
                 request_record["retries"] = req.retry_count
+            if req.follow_up_source:
+                request_record["source"] = req.follow_up_source
 
             req.requests.append(request_record)
 
@@ -419,77 +533,214 @@ class VideoProcessor:
             )
 
             if should_process_further:
-                visible_category = req.json_analysis.get("visible", "")
+                # Extract primary and secondary regions
+                primary = req.json_analysis.get("primary", {})
+                secondary = req.json_analysis.get("secondary", False)
 
-                # Check for meeting analysis
-                if visible_category == "meeting":
-                    logger.info(f"Frame {req.frame_id}: Triggering meeting analysis")
-                    # Reload frame image from cached bytes (already full frame)
-                    meeting_img = Image.open(io.BytesIO(req.frame_bytes))
+                # Load full frame for potential processing
+                full_img = Image.open(io.BytesIO(req.frame_bytes))
+                img_width, img_height = full_img.width, full_img.height
 
-                    batch.update(
-                        req,
-                        contents=self._user_contents(
-                            "Analyze this meeting screenshot.",
-                            meeting_img,
-                            entities=True,
-                        ),
-                        model=GEMINI_LITE,
-                        system_instruction=meeting_system_instruction,
-                        json_output=True,
-                        max_output_tokens=10240,
-                        thinking_budget=6144,
+                # Analyze primary region
+                primary_prompt_type = None
+                primary_box_pixels = None
+                if primary and primary.get("box_2d"):
+                    primary_box_pixels = self._denormalize_box(
+                        primary["box_2d"], img_width, img_height
                     )
-                    # Don't close yet - batch needs it for encoding
-                    # Store reference for cleanup later
-                    req.meeting_image = meeting_img
+                    if self._box_qualifies(primary_box_pixels):
+                        primary_prompt_type = self._get_follow_up_prompt(
+                            primary.get("category", "")
+                        )
 
-                    # Close initial image since DESCRIBE_JSON is complete
-                    if hasattr(req, "initial_image") and req.initial_image:
-                        req.initial_image.close()
-                        req.initial_image = None
+                # Analyze secondary region
+                secondary_prompt_type = None
+                secondary_box_pixels = None
+                if (
+                    secondary
+                    and isinstance(secondary, dict)
+                    and secondary.get("box_2d")
+                ):
+                    secondary_box_pixels = self._denormalize_box(
+                        secondary["box_2d"], img_width, img_height
+                    )
+                    if self._box_qualifies(secondary_box_pixels):
+                        secondary_prompt_type = self._get_follow_up_prompt(
+                            secondary.get("category", "")
+                        )
 
-                    req.request_type = RequestType.DESCRIBE_MEETING
-                    req.retry_count = 0
-                    continue  # Don't output yet, wait for meeting analysis
+                # Determine follow-up strategy
+                follow_ups = []
 
-                # Check for text extraction
-                text_categories = CONFIG.get("text_extraction_categories", [])
-                if visible_category in text_categories:
+                if primary_prompt_type and secondary_prompt_type:
+                    if primary_prompt_type == secondary_prompt_type:
+                        # Same prompt type - use full frame, single call
+                        follow_ups.append((primary_prompt_type, full_img, "full"))
+                        logger.info(
+                            f"Frame {req.frame_id}: Single {primary_prompt_type} follow-up (full frame)"
+                        )
+                    else:
+                        # Different prompt types - parallel cropped calls
+                        primary_img = self._crop_to_box(full_img, primary_box_pixels)
+                        secondary_img = self._crop_to_box(
+                            full_img, secondary_box_pixels
+                        )
+                        follow_ups.append((primary_prompt_type, primary_img, "primary"))
+                        follow_ups.append(
+                            (secondary_prompt_type, secondary_img, "secondary")
+                        )
+                        logger.info(
+                            f"Frame {req.frame_id}: Parallel follow-ups - "
+                            f"primary={primary_prompt_type}, secondary={secondary_prompt_type}"
+                        )
+                elif primary_prompt_type:
+                    # Only primary needs follow-up
+                    primary_img = self._crop_to_box(full_img, primary_box_pixels)
+                    follow_ups.append((primary_prompt_type, primary_img, "primary"))
                     logger.info(
-                        f"Frame {req.frame_id}: Triggering text extraction for category '{visible_category}'"
+                        f"Frame {req.frame_id}: {primary_prompt_type} follow-up (primary)"
                     )
-                    # Reload frame image from cached bytes
-                    text_img = Image.open(io.BytesIO(req.frame_bytes))
+                elif secondary_prompt_type:
+                    # Only secondary needs follow-up
+                    secondary_img = self._crop_to_box(full_img, secondary_box_pixels)
+                    follow_ups.append(
+                        (secondary_prompt_type, secondary_img, "secondary")
+                    )
+                    logger.info(
+                        f"Frame {req.frame_id}: {secondary_prompt_type} follow-up (secondary)"
+                    )
 
-                    # Update request for text extraction and re-add
-                    batch.update(
-                        req,
-                        contents=self._user_contents(
-                            "Extract text from this screenshot frame.",
-                            text_img,
-                            entities=True,
-                        ),
-                        model=GEMINI_LITE,
-                        system_instruction=text_system_instruction,
-                        json_output=False,
-                        max_output_tokens=8192,
-                        thinking_budget=4096,
-                    )
-                    # Don't close yet - batch needs it for encoding
-                    # Store reference for cleanup later
-                    req.text_image = text_img
+                # Create follow-up requests
+                if follow_ups:
+                    req.pending_follow_ups = len(follow_ups)
 
                     # Close initial image since DESCRIBE_JSON is complete
                     if hasattr(req, "initial_image") and req.initial_image:
                         req.initial_image.close()
                         req.initial_image = None
 
-                    req.request_type = RequestType.DESCRIBE_TEXT
-                    req.retry_count = 0
-                    continue  # Don't output yet, wait for text extraction
+                    for i, (prompt_type, img, source) in enumerate(follow_ups):
+                        if i == 0:
+                            # Reuse original request for first follow-up
+                            follow_req = req
+                        else:
+                            # Create new request for additional follow-ups
+                            follow_req = batch.create(contents=[])
+                            # Copy essential metadata
+                            follow_req.frame_id = req.frame_id
+                            follow_req.timestamp = req.timestamp
+                            follow_req.frame_bytes = req.frame_bytes
+                            follow_req.json_analysis = req.json_analysis
+                            follow_req.meeting_analysis = req.meeting_analysis
+                            follow_req.extracted_text = req.extracted_text
+                            follow_req.requests = req.requests
+                            follow_req.pending_follow_ups = req.pending_follow_ups
 
-            # Final output - this frame is complete
+                        follow_req.follow_up_source = source
+                        follow_req.retry_count = 0
+
+                        if prompt_type == "meeting":
+                            batch.update(
+                                follow_req,
+                                contents=self._user_contents(
+                                    "Analyze this meeting screenshot.",
+                                    img,
+                                    entities=True,
+                                ),
+                                model=GEMINI_FLASH,
+                                system_instruction=meeting_system_instruction,
+                                json_output=True,
+                                max_output_tokens=10240,
+                                thinking_budget=6144,
+                            )
+                            follow_req.request_type = RequestType.DESCRIBE_MEETING
+                            follow_req.follow_up_image = img
+                        else:  # text
+                            batch.update(
+                                follow_req,
+                                contents=self._user_contents(
+                                    "Extract text from this screenshot frame.",
+                                    img,
+                                    entities=True,
+                                ),
+                                model=GEMINI_FLASH,
+                                system_instruction=text_system_instruction,
+                                json_output=False,
+                                max_output_tokens=8192,
+                                thinking_budget=4096,
+                            )
+                            follow_req.request_type = RequestType.DESCRIBE_TEXT
+                            follow_req.follow_up_image = img
+
+                    # Close full_img if we're not using it directly
+                    if not any(source == "full" for _, _, source in follow_ups):
+                        full_img.close()
+
+                    continue  # Don't output yet, wait for follow-ups
+                else:
+                    # No follow-ups needed, close full_img
+                    full_img.close()
+
+            # Handle follow-up completion for parallel requests
+            if req.request_type in (
+                RequestType.DESCRIBE_MEETING,
+                RequestType.DESCRIBE_TEXT,
+            ):
+                # Store result in frame_results for merging
+                if req.frame_id not in frame_results:
+                    frame_results[req.frame_id] = {
+                        "frame_id": req.frame_id,
+                        "timestamp": req.timestamp,
+                        "requests": req.requests,
+                        "analysis": req.json_analysis,
+                        "pending": req.pending_follow_ups,
+                    }
+                    if has_error:
+                        frame_results[req.frame_id]["error"] = error_msg
+
+                result = frame_results[req.frame_id]
+
+                # Merge this follow-up's result
+                if req.meeting_analysis:
+                    result["meeting_analysis"] = req.meeting_analysis
+                if req.extracted_text:
+                    result["extracted_text"] = req.extracted_text
+
+                # Update requests list (avoid duplicates by using shared list)
+                result["requests"] = req.requests
+
+                # Decrement pending count
+                result["pending"] -= 1
+
+                # Close follow-up image
+                if hasattr(req, "follow_up_image") and req.follow_up_image:
+                    req.follow_up_image.close()
+                    req.follow_up_image = None
+
+                # If all follow-ups complete, output the result
+                if result["pending"] <= 0:
+                    del result["pending"]  # Remove internal tracking field
+
+                    # Write to file and optionally to stdout
+                    result_line = json.dumps(result)
+                    if output_file:
+                        output_file.write(result_line + "\n")
+                        output_file.flush()
+                    if logger.isEnabledFor(logging.DEBUG):
+                        print(result_line, flush=True)
+
+                    # Clean up frame_results entry
+                    del frame_results[req.frame_id]
+
+                    # Aggressively clear heavy fields
+                    req.frame_bytes = None
+                    req.json_analysis = None
+                    req.meeting_analysis = None
+                    req.extracted_text = None
+
+                continue
+
+            # Final output for frames with no follow-ups (DESCRIBE_JSON only)
             result = {
                 "frame_id": req.frame_id,
                 "timestamp": req.timestamp,
@@ -504,14 +755,6 @@ class VideoProcessor:
             if req.json_analysis:
                 result["analysis"] = req.json_analysis
 
-            # Add meeting analysis if we have it (from DESCRIBE_MEETING)
-            if req.meeting_analysis:
-                result["meeting_analysis"] = req.meeting_analysis
-
-            # Add extracted text if we have it (from DESCRIBE_TEXT)
-            if req.request_type == RequestType.DESCRIBE_TEXT and req.response:
-                result["extracted_text"] = req.response
-
             # Write to file and optionally to stdout
             result_line = json.dumps(result)
             if output_file:
@@ -524,17 +767,12 @@ class VideoProcessor:
             if hasattr(req, "initial_image") and req.initial_image:
                 req.initial_image.close()
                 req.initial_image = None
-            if hasattr(req, "meeting_image") and req.meeting_image:
-                req.meeting_image.close()
-                req.meeting_image = None
-            if hasattr(req, "text_image") and req.text_image:
-                req.text_image.close()
-                req.text_image = None
 
             # Aggressively clear heavy fields now that request is finalized
             req.frame_bytes = None
             req.json_analysis = None
             req.meeting_analysis = None
+            req.extracted_text = None
 
         # Close output file
         if output_file:

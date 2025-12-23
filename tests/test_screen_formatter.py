@@ -11,15 +11,24 @@ def test_format_screen_extracts_segment_from_directory():
     frames = [
         {
             "timestamp": 0,
-            "analysis": {"visible": "code", "visual_description": "Editing Python"},
+            "analysis": {
+                "primary": {"category": "code"},
+                "visual_description": "Editing Python",
+            },
         },
         {
             "timestamp": 30,
-            "analysis": {"visible": "terminal", "visual_description": "Running tests"},
+            "analysis": {
+                "primary": {"category": "terminal"},
+                "visual_description": "Running tests",
+            },
         },
         {
             "timestamp": 120,
-            "analysis": {"visible": "browser", "visual_description": "Reading docs"},
+            "analysis": {
+                "primary": {"category": "browser"},
+                "visual_description": "Reading docs",
+            },
         },
     ]
 
@@ -48,11 +57,14 @@ def test_format_screen_handles_segment_with_duration_suffix():
     frames = [
         {
             "timestamp": 0,
-            "analysis": {"visible": "code", "visual_description": "Code"},
+            "analysis": {"primary": {"category": "code"}, "visual_description": "Code"},
         },
         {
             "timestamp": 60,
-            "analysis": {"visible": "terminal", "visual_description": "Terminal"},
+            "analysis": {
+                "primary": {"category": "terminal"},
+                "visual_description": "Terminal",
+            },
         },
     ]
 
@@ -77,11 +89,14 @@ def test_format_screen_handles_no_file_path():
     frames = [
         {
             "timestamp": 0,
-            "analysis": {"visible": "code", "visual_description": "Code"},
+            "analysis": {"primary": {"category": "code"}, "visual_description": "Code"},
         },
         {
             "timestamp": 3600,
-            "analysis": {"visible": "browser", "visual_description": "Browser"},
+            "analysis": {
+                "primary": {"category": "browser"},
+                "visual_description": "Browser",
+            },
         },
     ]
 
@@ -100,11 +115,17 @@ def test_format_screen_header_includes_monitor_info():
     frames = [
         {
             "timestamp": 0,
-            "analysis": {"visible": "code", "visual_description": "Editing code"},
+            "analysis": {
+                "primary": {"category": "code"},
+                "visual_description": "Editing code",
+            },
         },
         {
             "timestamp": 30,
-            "analysis": {"visible": "browser", "visual_description": "Documentation"},
+            "analysis": {
+                "primary": {"category": "browser"},
+                "visual_description": "Documentation",
+            },
         },
     ]
 
@@ -127,7 +148,10 @@ def test_format_screen_plain_screen_no_monitor_info():
     frames = [
         {
             "timestamp": 0,
-            "analysis": {"visible": "code", "visual_description": "Editing code"},
+            "analysis": {
+                "primary": {"category": "code"},
+                "visual_description": "Editing code",
+            },
         },
     ]
 
@@ -148,7 +172,7 @@ def test_format_screen_includes_entity_context():
     frames = [
         {
             "timestamp": 0,
-            "analysis": {"visible": "code", "visual_description": "Code"},
+            "analysis": {"primary": {"category": "code"}, "visual_description": "Code"},
         },
     ]
 
@@ -172,7 +196,7 @@ def test_format_screen_includes_extracted_text():
         {
             "timestamp": 0,
             "analysis": {
-                "visible": "terminal",
+                "primary": {"category": "terminal"},
                 "visual_description": "Terminal window",
             },
             "extracted_text": "$ python test.py\nAll tests passed",
@@ -198,11 +222,17 @@ def test_format_screen_returns_chunks_with_timestamps():
     frames = [
         {
             "timestamp": 0,
-            "analysis": {"visible": "code", "visual_description": "Frame 1"},
+            "analysis": {
+                "primary": {"category": "code"},
+                "visual_description": "Frame 1",
+            },
         },
         {
             "timestamp": 30,
-            "analysis": {"visible": "terminal", "visual_description": "Frame 2"},
+            "analysis": {
+                "primary": {"category": "terminal"},
+                "visual_description": "Frame 2",
+            },
         },
     ]
 
@@ -220,7 +250,7 @@ def test_format_screen_returns_indexer_metadata():
     frames = [
         {
             "timestamp": 0,
-            "analysis": {"visible": "code", "visual_description": "Test"},
+            "analysis": {"primary": {"category": "code"}, "visual_description": "Test"},
         },
     ]
 

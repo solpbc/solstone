@@ -1,28 +1,67 @@
-# Screenshot Context Analysis
+# Desktop Screenshot Context Analysis
 
-You are analyzing a desktop screenshot from a screencast recording.
+You are analyzing a full desktop screenshot to identify the types of applications and content visible.
 
-Respond with JSON describing the context:
+Respond with JSON describing the visual context and your best estimation of the appropriate category/categories.
 
 ```json
 {
-  "visual_description": "<2 sentences describing what you see>",
-  "visible": "<pick the most appropriate category: terminal|code|messaging|meeting|browsing|reading|media|gaming|productivity>"
+  "visual_description": "<1–2 sentences describing what is visible>",
+  "primary": {
+    "category": "<use a valid category from below>",
+    "box_2d": [y0, x0, y1, x1]
+  },
+  "secondary": false | {
+    "category": "<use a valid category from below>",
+    "box_2d": [y0, x0, y1, x1]
+  }
 }
 ```
 
 ## Field Notes
 
-- **visual_description**: Describe what you see in 2 good sentences for someone who is visually impaired. Describe the visual elements, layout, and content - don't transcribe text verbatim.
-- **visible**: Pick the single most appropriate category for what is visible in the focus area
-  - **terminal**: Command line interfaces
-  - **code**: Code editors and IDEs
-  - **messaging**: Chat, email, Slack, Discord, iMessage, Messages, any chat or messaging view
-  - **meeting**: Video calls and conferencing such as Zoom, Webex, Meet, Teams, etc
-  - **browsing**: General web browsing, social media posts, shopping
-  - **reading**: Documents, articles, PDFs, documentation
-  - **media**: Videos, video players, Youtube, social media images and videos
-  - **gaming**: Any games or playing a game
-  - **productivity**: Spreadsheets, presentations, word processors, calendars, any other workplace activities and tools
+### visual_description
 
-Keep responses concise and accurate.
+* Describe the **overall desktop view** in **1–2 sentences** for a visually impaired user.
+* Focus on layout, window arrangement, and types of content.
+* Do **not** transcribe text verbatim.
+
+### primary
+
+* Represents the **dominant or user-focused application/window** on the desktop.
+* Typically the largest, foreground, or task-relevant window.
+* **category**: Use a valid category from the list below.
+* **box_2d**:
+
+  * Pixel coordinates relative to the full screenshot
+  * Format: `[y0, x0, y1, x1]`
+  * Must **fully enclose** the primary application or content area
+
+### secondary
+
+* Represents a **clearly distinct secondary application/window**, if present.
+* Set **secondary** to `false` if:
+  * One application occupies essentially the entire screen, or
+  * Other windows are background-only or not meaningfully relevant
+* If another category is present choose the largest most visible one:
+  * **category**: Use a valid category from the list below
+  * **box_2d**: Must fully enclose the secondary application or content area
+* The secondary bounding box should not significantly overlap the primary bounding box.
+
+### Categories
+
+* **terminal**: Command-line interfaces or shells
+* **code**: Code editors and IDEs
+* **messaging**: Chat, email, Slack, Discord, etc.
+* **meeting**: Video conferencing tools
+* **browsing**: Web browsing, social media, shopping
+* **reading**: Documents, articles, PDFs, documentation
+* **media**: Video or image viewing
+* **gaming**: Games or game interfaces
+* **productivity**: Spreadsheets, documents, presentations, calendars, task tools
+
+## General Instructions
+
+* Bounding boxes must be accurate and conservative (fully containing windows).
+* Prefer correctness and clarity over exhaustiveness.
+* Output **only valid JSON**.

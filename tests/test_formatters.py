@@ -181,7 +181,10 @@ class TestFormatScreen:
         entries = [
             {
                 "timestamp": 5,
-                "analysis": {"visible": "code", "visual_description": "Python code"},
+                "analysis": {
+                    "primary": {"category": "code"},
+                    "visual_description": "Python code",
+                },
                 "extracted_text": "def hello():\n    pass",
             }
         ]
@@ -199,7 +202,7 @@ class TestFormatScreen:
         """Test screen formatting with entity context."""
         from observe.screen import format_screen
 
-        entries = [{"timestamp": 0, "analysis": {"visible": "browser"}}]
+        entries = [{"timestamp": 0, "analysis": {"primary": {"category": "browser"}}}]
         context = {"entity_names": "Alice, Bob", "include_entity_context": True}
 
         chunks, meta = format_screen(entries, context)
@@ -212,7 +215,7 @@ class TestFormatScreen:
         """Test screen formatting without entity context."""
         from observe.screen import format_screen
 
-        entries = [{"timestamp": 0, "analysis": {"visible": "browser"}}]
+        entries = [{"timestamp": 0, "analysis": {"primary": {"category": "browser"}}}]
         context = {"include_entity_context": False}
 
         chunks, meta = format_screen(entries, context)
@@ -260,7 +263,7 @@ class TestFormatScreen:
 
         entries = [
             {"raw": "screen.webm"},  # Metadata line
-            {"timestamp": 5, "analysis": {"visible": "code"}},
+            {"timestamp": 5, "analysis": {"primary": {"category": "code"}}},
         ]
 
         chunks, meta = format_screen(entries)
@@ -1486,7 +1489,7 @@ class TestFormatterIndexerMetadata:
         """Test format_screen returns indexer with topic."""
         from observe.screen import format_screen
 
-        entries = [{"timestamp": 0, "analysis": {"visible": "code"}}]
+        entries = [{"timestamp": 0, "analysis": {"primary": {"category": "code"}}}]
         chunks, meta = format_screen(entries)
 
         assert "indexer" in meta
@@ -1587,7 +1590,7 @@ class TestFormatterSourceKey:
 
         frame = {
             "timestamp": 5,
-            "analysis": {"visible": "code"},
+            "analysis": {"primary": {"category": "code"}},
             "extra_field": "value",
         }
         entries = [frame]

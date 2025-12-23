@@ -146,7 +146,12 @@ def format_screen(
         # Add analysis if present
         analysis = frame.get("analysis", {})
         if analysis:
-            category = analysis.get("visible", "unknown")
+            # Extract category from primary region, fall back to legacy visible field
+            primary = analysis.get("primary", {})
+            if primary:
+                category = primary.get("category", "unknown")
+            else:
+                category = analysis.get("visible", "unknown")
             description = analysis.get("visual_description", "")
 
             lines.append(f"**Category:** {category}")
