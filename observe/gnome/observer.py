@@ -22,6 +22,7 @@ from dbus_next.constants import BusType
 
 from observe.gnome.dbus import (
     get_idle_time_ms,
+    is_power_save_active,
     is_screen_locked,
     is_sink_muted,
 )
@@ -67,6 +68,7 @@ class Observer:
         self.cached_idle_time_ms = 0
         self.cached_screen_locked = False
         self.cached_is_muted = False
+        self.cached_power_save = False
 
         # Mute state at segment start (determines save format)
         self.segment_is_muted = False
@@ -103,18 +105,20 @@ class Observer:
         Check system activity status and cache values.
 
         Returns:
-            True if user is active (not idle and screen unlocked, OR has audio activity)
+            True if user is active (not idle/locked/power-save, OR has audio activity)
         """
         idle_time = await get_idle_time_ms(self.bus)
         screen_locked = await is_screen_locked(self.bus)
+        power_save = await is_power_save_active(self.bus)
         sink_muted = await is_sink_muted()
 
         # Cache values for status events
         self.cached_idle_time_ms = idle_time
         self.cached_screen_locked = screen_locked
         self.cached_is_muted = sink_muted
+        self.cached_power_save = power_save
 
-        is_idle = (idle_time > IDLE_THRESHOLD_MS) or screen_locked
+        is_idle = (idle_time > IDLE_THRESHOLD_MS) or screen_locked or power_save
         has_audio_activity = self.threshold_hits >= MIN_HITS_FOR_SAVE
         is_active = (not is_idle) or has_audio_activity
 
@@ -360,6 +364,7 @@ class Observer:
             "idle_time_ms": self.cached_idle_time_ms,
             "screen_locked": self.cached_screen_locked,
             "sink_muted": self.cached_is_muted,
+            "power_save": self.cached_power_save,
         }
 
         self.callosum.emit(

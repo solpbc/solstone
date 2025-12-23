@@ -10,7 +10,7 @@ A comprehensive Python-based AI-driven desktop journaling toolkit for multimodal
 ### Core Modules
 
 - **Observe** 👁️👂 - Multimodal capture and analysis
-  - `observe-gnome` - Screenshot monitoring on Linux/GNOME
+  - `observe-gnome` - Screencast monitoring on Linux/GNOME
   - `observe-describe` - Analyzes visual changes with AI
   - `observe-transcribe` - Transcribes audio with AI APIs
   - `observe-sense` - Unified observation coordination

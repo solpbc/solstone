@@ -641,13 +641,23 @@
     // Screencast
     if (obs.screencast) {
       const recording = obs.screencast.recording;
-      if (recording && obs.screencast.file) {
+      if (recording) {
+        const streams = obs.screencast.streams || [];
         const elapsed = obs.screencast.window_elapsed_seconds || 0;
-        elements.screencastStatus.textContent = `${elapsed}s`;
+        const streamCount = streams.length;
+        const label = streamCount === 1 ? 'monitor' : 'monitors';
+        elements.screencastStatus.textContent = `${elapsed}s (${streamCount} ${label})`;
+        if (streamCount > 0) {
+          elements.screencastDetail.textContent = streams
+            .map(s => `${s.position || 'unknown'} ${s.connector || 'unknown'}`)
+            .join(', ');
+        } else {
+          elements.screencastDetail.textContent = '';
+        }
       } else {
         elements.screencastStatus.textContent = 'Idle';
+        elements.screencastDetail.textContent = '';
       }
-      elements.screencastDetail.textContent = '';
     }
 
     // Audio
@@ -660,7 +670,13 @@
     // Activity
     if (obs.activity) {
       const idleMs = obs.activity.idle_time_ms || 0;
-      elements.activityStatus.textContent = `Idle: ${Math.floor(idleMs/1000)}s`;
+      if (obs.activity.power_save) {
+        elements.activityStatus.textContent = 'Power save';
+      } else if (obs.activity.screen_locked) {
+        elements.activityStatus.textContent = 'Locked';
+      } else {
+        elements.activityStatus.textContent = `Idle: ${Math.floor(idleMs/1000)}s`;
+      }
       elements.activityDetail.textContent = '';
     }
 
