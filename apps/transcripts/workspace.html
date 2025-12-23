@@ -814,16 +814,14 @@ body.has-date-nav .workspace:has(.tr-wrap) {
   let currentFrameIndex = -1;
 
   // ========================================
-  // FrameCapture - Client-side video frame decoder
+  // FrameCapture - Client-side thumbnail + on-demand full frame decoder
   // ========================================
   class FrameCapture {
     constructor() {
-      // Map of video URL -> { video, ready, width, height }
+      // Map of video URL -> { video, ready, width, height, thumbs }
       this.videos = new Map();
-      // Frame cache: "url|timestamp" -> ImageBitmap
-      this.frameCache = new Map();
-      // Pending capture promises for deduplication
-      this.pending = new Map();
+      // Pending thumbnail promises per frame
+      this.pendingThumbs = new Map();
     }
 
     // Load video and wait for metadata
@@ -852,96 +850,208 @@ body.has-date-nav .workspace:has(.tr-wrap) {
         video.src = url;
       });
 
-      this.videos.set(url, { video, ready: false, width: 0, height: 0, promise });
+      this.videos.set(url, {
+        video,
+        ready: false,
+        width: 0,
+        height: 0,
+        promise,
+        thumbs: new Map()
+      });
       return promise;
     }
 
-    // Preload multiple videos
-    preloadVideos(urls) {
-      return Promise.all(urls.map(url => this.loadVideo(url).catch(() => null)));
-    }
-
-    // Clear all loaded videos
-    clear() {
-      for (const entry of this.videos.values()) {
-        entry.video.src = '';
-        entry.video.load();
-      }
-      this.videos.clear();
-      this.frameCache.clear();
-      this.pending.clear();
-    }
-
-    // Capture frame at timestamp, optionally draw to canvas
-    async captureFrame(videoUrl, timestamp, options = {}) {
-      const cacheKey = `${videoUrl}|${timestamp}`;
-
-      // Check cache first
-      if (this.frameCache.has(cacheKey)) {
-        return this.frameCache.get(cacheKey);
-      }
-
-      // Deduplicate concurrent requests for same frame
-      if (this.pending.has(cacheKey)) {
-        return this.pending.get(cacheKey);
-      }
-
-      const capturePromise = this._doCapture(videoUrl, timestamp, cacheKey);
-      this.pending.set(cacheKey, capturePromise);
-
-      try {
-        return await capturePromise;
-      } finally {
-        this.pending.delete(cacheKey);
-      }
-    }
-
-    async _doCapture(videoUrl, timestamp, cacheKey) {
-      const entry = await this.loadVideo(videoUrl);
-      const video = entry.video;
-
-      // Seek to timestamp
+    async _seekTo(video, timestamp) {
       return new Promise((resolve, reject) => {
         const onSeeked = () => {
           video.removeEventListener('seeked', onSeeked);
           video.removeEventListener('error', onError);
-
-          // Create ImageBitmap from video frame
-          createImageBitmap(video)
-            .then(bitmap => {
-              this.frameCache.set(cacheKey, bitmap);
-              resolve(bitmap);
-            })
-            .catch(reject);
+          resolve();
         };
-
         const onError = () => {
           video.removeEventListener('seeked', onSeeked);
           video.removeEventListener('error', onError);
           reject(new Error('Video seek failed'));
         };
-
         video.addEventListener('seeked', onSeeked);
         video.addEventListener('error', onError);
         video.currentTime = timestamp;
       });
     }
 
-    // Draw frame to canvas with optional annotations
-    async drawToCanvas(canvas, videoUrl, timestamp, options = {}) {
+    async captureThumbnail(videoUrl, frameId, width, height) {
+      const entry = await this.loadVideo(videoUrl);
+      const cacheKey = `${videoUrl}|${frameId}`;
+
+      if (entry.thumbs.has(frameId)) {
+        return entry.thumbs.get(frameId);
+      }
+
+      if (this.pendingThumbs.has(cacheKey)) {
+        return this.pendingThumbs.get(cacheKey);
+      }
+
+      const pending = (async () => {
+        const video = entry.video;
+        const timestamp = Math.max(0, frameId - 1);
+        await this._seekTo(video, timestamp);
+
+        let bitmap = null;
+        try {
+          if (width && height) {
+            bitmap = await createImageBitmap(video, {
+              resizeWidth: width,
+              resizeHeight: height,
+              resizeQuality: 'high'
+            });
+          } else {
+            bitmap = await createImageBitmap(video);
+          }
+        } catch (err) {
+          bitmap = await createImageBitmap(video);
+        }
+
+        const canvas = document.createElement('canvas');
+        canvas.width = width || bitmap.width;
+        canvas.height = height || bitmap.height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+        if (bitmap && typeof bitmap.close === 'function') {
+          bitmap.close();
+        }
+        entry.thumbs.set(frameId, canvas);
+        return canvas;
+      })();
+
+      this.pendingThumbs.set(cacheKey, pending);
+      try {
+        return await pending;
+      } finally {
+        this.pendingThumbs.delete(cacheKey);
+      }
+    }
+
+    async captureFullFrame(videoUrl, frameId) {
+      const entry = await this.loadVideo(videoUrl);
+      const video = entry.video;
+      const timestamp = Math.max(0, frameId - 1);
+      await this._seekTo(video, timestamp);
+      return createImageBitmap(video);
+    }
+
+    async prefetchThumbnails(videoUrl, frameIds, onProgress = null) {
+      if (!frameIds || frameIds.length === 0) return null;
+
+      const sorted = [...new Set(frameIds)].sort((a, b) => a - b);
+      for (let i = 0; i < sorted.length; i += 1) {
+        const frameId = sorted[i];
+        await this.captureThumbnail(videoUrl, frameId, 120, 68);
+        if (onProgress) onProgress(i + 1, sorted.length);
+      }
+
+      return this.videos.get(videoUrl);
+    }
+
+    // Clear all loaded videos and cached thumbnails
+    clear() {
+      for (const entry of this.videos.values()) {
+        entry.thumbs.clear();
+        entry.video.src = '';
+        entry.video.load();
+      }
+      this.videos.clear();
+      this.pendingThumbs.clear();
+    }
+
+    // Draw thumbnail to canvas with optional annotations
+    async drawThumbnail(canvas, videoUrl, frameId, options = {}) {
       const { boxCoords, participants, width, height } = options;
 
       try {
-        const bitmap = await this.captureFrame(videoUrl, timestamp);
+        const thumb = await this.captureThumbnail(videoUrl, frameId, width, height);
+        if (!thumb) {
+          canvas.classList.remove('loading');
+          return false;
+        }
 
-        // Set canvas size
-        canvas.width = width || bitmap.width;
-        canvas.height = height || bitmap.height;
+        canvas.width = width || thumb.width;
+        canvas.height = height || thumb.height;
+
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(thumb, 0, 0, canvas.width, canvas.height);
+
+        if (boxCoords && boxCoords.length === 4) {
+          const [xMin, yMin, xMax, yMax] = boxCoords;
+          const scaleX = canvas.width / thumb.width;
+          const scaleY = canvas.height / thumb.height;
+
+          ctx.strokeStyle = '#ef4444';
+          ctx.lineWidth = 3;
+          ctx.strokeRect(
+            xMin * scaleX,
+            yMin * scaleY,
+            (xMax - xMin) * scaleX,
+            (yMax - yMin) * scaleY
+          );
+        }
+
+        if (participants && participants.length > 0) {
+          for (const p of participants) {
+            const x = (p.left / 100) * canvas.width;
+            const y = (p.top / 100) * canvas.height;
+            const w = (p.width / 100) * canvas.width;
+            const h = (p.height / 100) * canvas.height;
+
+            const colors = {
+              speaking: '#fbbf24',
+              active: '#4ade80',
+              muted: '#f87171',
+              presenting: '#60a5fa',
+              unknown: '#9ca3af'
+            };
+            ctx.strokeStyle = colors[p.status] || colors.unknown;
+            ctx.lineWidth = 2;
+            ctx.setLineDash([5, 5]);
+            ctx.strokeRect(x, y, w, h);
+            ctx.setLineDash([]);
+
+            const labelY = y + h + 16;
+            ctx.font = '11px system-ui, sans-serif';
+            const textWidth = ctx.measureText(p.name).width;
+            ctx.fillStyle = colors[p.status] || colors.unknown;
+            ctx.fillRect(x, y + h + 2, textWidth + 8, 16);
+
+            ctx.fillStyle = '#000';
+            ctx.fillText(p.name, x + 4, labelY - 3);
+          }
+        }
+
+        canvas.classList.remove('loading');
+        return true;
+      } catch (err) {
+        canvas.classList.remove('loading');
+        console.warn('Thumbnail draw failed:', err);
+        return false;
+      }
+    }
+
+    // Draw full-resolution frame to canvas (no caching)
+    async drawFull(canvas, videoUrl, frameId, options = {}) {
+      const { boxCoords, participants } = options;
+
+      try {
+        const bitmap = await this.captureFullFrame(videoUrl, frameId);
+        if (!bitmap) {
+          canvas.classList.remove('loading');
+          return false;
+        }
+
+        canvas.width = bitmap.width;
+        canvas.height = bitmap.height;
 
         const ctx = canvas.getContext('2d');
         ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
 
-        // Draw bounding box if provided (box_2d is [x_min, y_min, x_max, y_max])
         if (boxCoords && boxCoords.length === 4) {
           const [xMin, yMin, xMax, yMax] = boxCoords;
           const scaleX = canvas.width / bitmap.width;
@@ -957,7 +1067,6 @@ body.has-date-nav .workspace:has(.tr-wrap) {
           );
         }
 
-        // Draw participant boxes if provided
         if (participants && participants.length > 0) {
           for (const p of participants) {
             const x = (p.left / 100) * canvas.width;
@@ -965,7 +1074,6 @@ body.has-date-nav .workspace:has(.tr-wrap) {
             const w = (p.width / 100) * canvas.width;
             const h = (p.height / 100) * canvas.height;
 
-            // Status-based colors
             const colors = {
               speaking: '#fbbf24',
               active: '#4ade80',
@@ -979,24 +1087,25 @@ body.has-date-nav .workspace:has(.tr-wrap) {
             ctx.strokeRect(x, y, w, h);
             ctx.setLineDash([]);
 
-            // Label background
             const labelY = y + h + 16;
             ctx.font = '11px system-ui, sans-serif';
             const textWidth = ctx.measureText(p.name).width;
             ctx.fillStyle = colors[p.status] || colors.unknown;
             ctx.fillRect(x, y + h + 2, textWidth + 8, 16);
 
-            // Label text
             ctx.fillStyle = '#000';
             ctx.fillText(p.name, x + 4, labelY - 3);
           }
         }
 
+        if (bitmap && typeof bitmap.close === 'function') {
+          bitmap.close();
+        }
         canvas.classList.remove('loading');
         return true;
       } catch (err) {
         canvas.classList.remove('loading');
-        console.warn('Frame capture failed:', err);
+        console.warn('Full frame draw failed:', err);
         return false;
       }
     }
@@ -1179,29 +1288,97 @@ body.has-date-nav .workspace:has(.tr-wrap) {
   function loadSegmentContent(seg) {
     const showAudio = audioCheck.checked;
     const showScreen = screenCheck.checked;
+    const segmentToken = seg.key;
 
     // Clear old data, videos, and show loading message immediately
     segmentData = null;
     currentVideoFiles = {};
     frameCapture.clear();
-    panel.innerHTML = '<div class="tr-unified-empty"><p>Loading segment...</p></div>';
+    panel.innerHTML = '<div class="tr-unified-empty"><p id="trLoadingStatus">Loading segment...</p></div>';
 
     // Use new unified segment endpoint
     fetch(`/app/transcripts/api/segment/${day}/${seg.key}`)
       .then(r => r.json())
       .then(data => {
+        if (selectedSegment && selectedSegment.key !== segmentToken) {
+          return;
+        }
         segmentData = data;
         currentVideoFiles = data.video_files || {};
 
-        // Preload all videos for this segment
-        const videoUrls = Object.values(currentVideoFiles);
-        if (videoUrls.length > 0) {
-          frameCapture.preloadVideos(videoUrls).then(() => {
+        const nonBasicByVideo = new Map();
+        (data.chunks || []).forEach(chunk => {
+          if (chunk.type !== 'screen') return;
+          if (chunk.basic === true) return;
+          const filename = chunk.source_ref?.filename;
+          const frameId = chunk.source_ref?.frame_id;
+          if (!filename || !frameId) return;
+          if (!nonBasicByVideo.has(filename)) {
+            nonBasicByVideo.set(filename, new Set());
+          }
+          nonBasicByVideo.get(filename).add(frameId);
+        });
+
+        const totalFrames = Array.from(nonBasicByVideo.values()).reduce(
+          (sum, frames) => sum + frames.size,
+          0
+        );
+        const perVideoProgress = new Map();
+        let lastStatusUpdate = 0;
+
+        const updateLoadingStatus = (done) => {
+          const statusEl = document.getElementById('trLoadingStatus');
+          if (!statusEl) return;
+          if (!totalFrames) {
+            statusEl.textContent = 'Loading segment...';
+            return;
+          }
+          const decoded = Array.from(perVideoProgress.values()).reduce((sum, count) => sum + count, 0);
+          const pct = Math.min(100, Math.round((decoded / totalFrames) * 100));
+          statusEl.textContent = done
+            ? 'Rendering transcript...'
+            : `Decoding key frames ${decoded}/${totalFrames} (${pct}%)...`;
+        };
+
+        const makeProgressHandler = (videoUrl) => (count) => {
+          const now = Date.now();
+          perVideoProgress.set(videoUrl, count);
+          if (now - lastStatusUpdate > 150) {
+            lastStatusUpdate = now;
+            updateLoadingStatus(false);
+          }
+        };
+
+        updateLoadingStatus(false);
+
+        const decodeJobs = [];
+        Object.entries(currentVideoFiles).forEach(([filename, url]) => {
+          const frameIds = Array.from(nonBasicByVideo.get(filename) || []);
+          if (frameIds.length > 0) {
+            decodeJobs.push(frameCapture.prefetchThumbnails(url, frameIds, makeProgressHandler(url)));
+          }
+        });
+
+        if (decodeJobs.length === 0) {
+          renderSegmentTimeline(data, showAudio, showScreen);
+          return;
+        }
+
+        Promise.all(decodeJobs)
+          .then(() => {
+            if (selectedSegment && selectedSegment.key !== segmentToken) {
+              return;
+            }
+            updateLoadingStatus(true);
+            renderSegmentTimeline(data, showAudio, showScreen);
+          })
+          .catch(() => {
+            if (selectedSegment && selectedSegment.key !== segmentToken) {
+              return;
+            }
+            updateLoadingStatus(true);
             renderSegmentTimeline(data, showAudio, showScreen);
           });
-        } else {
-          renderSegmentTimeline(data, showAudio, showScreen);
-        }
       })
       .catch(() => {
         panel.innerHTML = '<p>Error loading transcript.</p>';
@@ -1328,17 +1505,17 @@ body.has-date-nav .workspace:has(.tr-wrap) {
   // Load a single canvas thumbnail
   function loadCanvasThumbnail(canvas) {
     const videoUrl = canvas.dataset.videoUrl;
-    const timestamp = parseFloat(canvas.dataset.timestamp);
+    const frameId = parseInt(canvas.dataset.frameId, 10);
     const boxCoordsStr = canvas.dataset.boxCoords;
     const boxCoords = boxCoordsStr ? JSON.parse(boxCoordsStr) : null;
 
-    if (!videoUrl || isNaN(timestamp)) {
+    if (!videoUrl || isNaN(frameId)) {
       canvas.classList.remove('loading');
       return;
     }
 
     // Draw at thumbnail size (120x68)
-    frameCapture.drawToCanvas(canvas, videoUrl, timestamp, {
+    frameCapture.drawThumbnail(canvas, videoUrl, frameId, {
       boxCoords,
       width: 120,
       height: 68
@@ -1416,16 +1593,16 @@ body.has-date-nav .workspace:has(.tr-wrap) {
     html += '<div class="tr-group-grid">';
     for (const entry of group.entries) {
       const videoUrl = getVideoUrlForChunk(entry);
-      const timestamp = entry.source_ref?.offset || 0;
+      const frameId = entry.source_ref?.frame_id;
       const boxCoords = entry.source_ref?.box_2d;
       const analysis = entry.source_ref?.analysis || {};
       const category = analysis.visible || 'unknown';
       const description = analysis.visual_description || category;
       const frameIdx = findFrameIndex(entry);
 
-      if (videoUrl) {
+      if (videoUrl && frameId) {
         html += `<div class="tr-group-item" data-frame-idx="${frameIdx}" title="${escapeHtml(description)}">`;
-        html += `<canvas class="loading" data-video-url="${escapeHtml(videoUrl)}" data-timestamp="${timestamp}"`;
+        html += `<canvas class="loading" data-video-url="${escapeHtml(videoUrl)}" data-frame-id="${frameId}"`;
         if (boxCoords) html += ` data-box-coords='${JSON.stringify(boxCoords)}'`;
         html += `></canvas>`;
         html += `<span class="tr-group-item-badge">${escapeHtml(category)}</span>`;
@@ -1442,7 +1619,7 @@ body.has-date-nav .workspace:has(.tr-wrap) {
     const timeStr = chunk.time || '';
     const monitor = chunk.source_ref?.monitor || '';
     const videoUrl = getVideoUrlForChunk(chunk);
-    const timestamp = chunk.source_ref?.offset || 0;
+    const frameId = chunk.source_ref?.frame_id;
     const boxCoords = chunk.source_ref?.box_2d;
     const frameIdx = findFrameIndex(chunk);
 
@@ -1450,8 +1627,8 @@ body.has-date-nav .workspace:has(.tr-wrap) {
     html += `<div class="tr-entry-time">${timeStr}</div>`;
     html += '<div class="tr-entry-content">';
 
-    if (videoUrl) {
-      html += `<canvas class="tr-entry-thumb loading" data-video-url="${escapeHtml(videoUrl)}" data-timestamp="${timestamp}"`;
+    if (videoUrl && frameId) {
+      html += `<canvas class="tr-entry-thumb loading" data-video-url="${escapeHtml(videoUrl)}" data-frame-id="${frameId}"`;
       if (boxCoords) html += ` data-box-coords='${JSON.stringify(boxCoords)}'`;
       html += `></canvas>`;
     }
@@ -1522,11 +1699,11 @@ body.has-date-nav .workspace:has(.tr-wrap) {
       // Draw frame to modal canvas
       const canvas = modal.querySelector('#trModalCanvas');
       const videoUrl = getVideoUrlForChunk(f);
-      const timestamp = f.source_ref?.offset || 0;
+      const frameId = f.source_ref?.frame_id;
       const boxCoords = f.source_ref?.box_2d;
 
-      if (videoUrl) {
-        frameCapture.drawToCanvas(canvas, videoUrl, timestamp, {
+      if (videoUrl && frameId) {
+        frameCapture.drawFull(canvas, videoUrl, frameId, {
           boxCoords,
           participants
           // No width/height - use full resolution
