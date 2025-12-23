@@ -4,7 +4,7 @@ This module provides speaker diarization (who spoke when) using the pyannote
 community pipeline, along with per-turn speaker embeddings for future
 speaker identification.
 
-Requires HF_TOKEN environment variable for HuggingFace authentication.
+Requires HUGGINGFACE_API_KEY environment variable for HuggingFace authentication.
 """
 
 from __future__ import annotations
@@ -36,12 +36,12 @@ def get_hf_token() -> str:
     """Get HuggingFace token from environment.
 
     Raises:
-        DiarizationError: If HF_TOKEN is not set.
+        DiarizationError: If HUGGINGFACE_API_KEY is not set.
     """
-    token = os.environ.get("HF_TOKEN") or os.environ.get("HUGGINGFACE_API_KEY")
+    token = os.environ.get("HUGGINGFACE_API_KEY") or os.environ.get("HF_TOKEN")
     if not token:
         raise DiarizationError(
-            "HF_TOKEN environment variable required. "
+            "HUGGINGFACE_API_KEY environment variable required. "
             "Get your token at https://huggingface.co/settings/tokens"
         )
     return token
