@@ -856,9 +856,17 @@ body.has-date-nav .workspace:has(.tr-wrap) {
         width: 0,
         height: 0,
         promise,
-        thumbs: new Map()
+        thumbs: new Map(),
+        queue: Promise.resolve()
       });
       return promise;
+    }
+
+    async _withVideoQueue(videoUrl, task) {
+      const entry = await this.loadVideo(videoUrl);
+      const run = entry.queue.then(task, task);
+      entry.queue = run.catch(() => {});
+      return run;
     }
 
     async _seekTo(video, timestamp) {
@@ -891,7 +899,7 @@ body.has-date-nav .workspace:has(.tr-wrap) {
         return this.pendingThumbs.get(cacheKey);
       }
 
-      const pending = (async () => {
+      const pending = this._withVideoQueue(videoUrl, async () => {
         const video = entry.video;
         const timestamp = Math.max(0, frameId - 1);
         await this._seekTo(video, timestamp);
@@ -921,7 +929,7 @@ body.has-date-nav .workspace:has(.tr-wrap) {
         }
         entry.thumbs.set(frameId, canvas);
         return canvas;
-      })();
+      });
 
       this.pendingThumbs.set(cacheKey, pending);
       try {
@@ -932,11 +940,13 @@ body.has-date-nav .workspace:has(.tr-wrap) {
     }
 
     async captureFullFrame(videoUrl, frameId) {
-      const entry = await this.loadVideo(videoUrl);
-      const video = entry.video;
-      const timestamp = Math.max(0, frameId - 1);
-      await this._seekTo(video, timestamp);
-      return createImageBitmap(video);
+      return this._withVideoQueue(videoUrl, async () => {
+        const entry = await this.loadVideo(videoUrl);
+        const video = entry.video;
+        const timestamp = Math.max(0, frameId - 1);
+        await this._seekTo(video, timestamp);
+        return createImageBitmap(video);
+      });
     }
 
     async prefetchThumbnails(videoUrl, frameIds, onProgress = null) {
@@ -965,7 +975,7 @@ body.has-date-nav .workspace:has(.tr-wrap) {
 
     // Draw thumbnail to canvas with optional annotations
     async drawThumbnail(canvas, videoUrl, frameId, options = {}) {
-      const { boxCoords, participants, width, height } = options;
+      const { width, height } = options;
 
       try {
         const thumb = await this.captureThumbnail(videoUrl, frameId, width, height);
@@ -979,52 +989,6 @@ body.has-date-nav .workspace:has(.tr-wrap) {
 
         const ctx = canvas.getContext('2d');
         ctx.drawImage(thumb, 0, 0, canvas.width, canvas.height);
-
-        if (boxCoords && boxCoords.length === 4) {
-          const [xMin, yMin, xMax, yMax] = boxCoords;
-          const scaleX = canvas.width / thumb.width;
-          const scaleY = canvas.height / thumb.height;
-
-          ctx.strokeStyle = '#ef4444';
-          ctx.lineWidth = 3;
-          ctx.strokeRect(
-            xMin * scaleX,
-            yMin * scaleY,
-            (xMax - xMin) * scaleX,
-            (yMax - yMin) * scaleY
-          );
-        }
-
-        if (participants && participants.length > 0) {
-          for (const p of participants) {
-            const x = (p.left / 100) * canvas.width;
-            const y = (p.top / 100) * canvas.height;
-            const w = (p.width / 100) * canvas.width;
-            const h = (p.height / 100) * canvas.height;
-
-            const colors = {
-              speaking: '#fbbf24',
-              active: '#4ade80',
-              muted: '#f87171',
-              presenting: '#60a5fa',
-              unknown: '#9ca3af'
-            };
-            ctx.strokeStyle = colors[p.status] || colors.unknown;
-            ctx.lineWidth = 2;
-            ctx.setLineDash([5, 5]);
-            ctx.strokeRect(x, y, w, h);
-            ctx.setLineDash([]);
-
-            const labelY = y + h + 16;
-            ctx.font = '11px system-ui, sans-serif';
-            const textWidth = ctx.measureText(p.name).width;
-            ctx.fillStyle = colors[p.status] || colors.unknown;
-            ctx.fillRect(x, y + h + 2, textWidth + 8, 16);
-
-            ctx.fillStyle = '#000';
-            ctx.fillText(p.name, x + 4, labelY - 3);
-          }
-        }
 
         canvas.classList.remove('loading');
         return true;
@@ -1052,51 +1016,7 @@ body.has-date-nav .workspace:has(.tr-wrap) {
         const ctx = canvas.getContext('2d');
         ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
 
-        if (boxCoords && boxCoords.length === 4) {
-          const [xMin, yMin, xMax, yMax] = boxCoords;
-          const scaleX = canvas.width / bitmap.width;
-          const scaleY = canvas.height / bitmap.height;
-
-          ctx.strokeStyle = '#ef4444';
-          ctx.lineWidth = 3;
-          ctx.strokeRect(
-            xMin * scaleX,
-            yMin * scaleY,
-            (xMax - xMin) * scaleX,
-            (yMax - yMin) * scaleY
-          );
-        }
-
-        if (participants && participants.length > 0) {
-          for (const p of participants) {
-            const x = (p.left / 100) * canvas.width;
-            const y = (p.top / 100) * canvas.height;
-            const w = (p.width / 100) * canvas.width;
-            const h = (p.height / 100) * canvas.height;
-
-            const colors = {
-              speaking: '#fbbf24',
-              active: '#4ade80',
-              muted: '#f87171',
-              presenting: '#60a5fa',
-              unknown: '#9ca3af'
-            };
-            ctx.strokeStyle = colors[p.status] || colors.unknown;
-            ctx.lineWidth = 2;
-            ctx.setLineDash([5, 5]);
-            ctx.strokeRect(x, y, w, h);
-            ctx.setLineDash([]);
-
-            const labelY = y + h + 16;
-            ctx.font = '11px system-ui, sans-serif';
-            const textWidth = ctx.measureText(p.name).width;
-            ctx.fillStyle = colors[p.status] || colors.unknown;
-            ctx.fillRect(x, y + h + 2, textWidth + 8, 16);
-
-            ctx.fillStyle = '#000';
-            ctx.fillText(p.name, x + 4, labelY - 3);
-          }
-        }
+        this._applyOverlays(ctx, canvas, bitmap.width, bitmap.height, boxCoords, participants);
 
         if (bitmap && typeof bitmap.close === 'function') {
           bitmap.close();
@@ -1107,6 +1027,54 @@ body.has-date-nav .workspace:has(.tr-wrap) {
         canvas.classList.remove('loading');
         console.warn('Full frame draw failed:', err);
         return false;
+      }
+    }
+
+    _applyOverlays(ctx, canvas, sourceWidth, sourceHeight, boxCoords, participants) {
+      if (boxCoords && boxCoords.length === 4) {
+        const [xMin, yMin, xMax, yMax] = boxCoords;
+        const scaleX = canvas.width / sourceWidth;
+        const scaleY = canvas.height / sourceHeight;
+
+        ctx.strokeStyle = '#ef4444';
+        ctx.lineWidth = 3;
+        ctx.strokeRect(
+          xMin * scaleX,
+          yMin * scaleY,
+          (xMax - xMin) * scaleX,
+          (yMax - yMin) * scaleY
+        );
+      }
+
+      if (participants && participants.length > 0) {
+        for (const p of participants) {
+          const x = (p.left / 100) * canvas.width;
+          const y = (p.top / 100) * canvas.height;
+          const w = (p.width / 100) * canvas.width;
+          const h = (p.height / 100) * canvas.height;
+
+          const colors = {
+            speaking: '#fbbf24',
+            active: '#4ade80',
+            muted: '#f87171',
+            presenting: '#60a5fa',
+            unknown: '#9ca3af'
+          };
+          ctx.strokeStyle = colors[p.status] || colors.unknown;
+          ctx.lineWidth = 2;
+          ctx.setLineDash([5, 5]);
+          ctx.strokeRect(x, y, w, h);
+          ctx.setLineDash([]);
+
+          const labelY = y + h + 16;
+          ctx.font = '11px system-ui, sans-serif';
+          const textWidth = ctx.measureText(p.name).width;
+          ctx.fillStyle = colors[p.status] || colors.unknown;
+          ctx.fillRect(x, y + h + 2, textWidth + 8, 16);
+
+          ctx.fillStyle = '#000';
+          ctx.fillText(p.name, x + 4, labelY - 3);
+        }
       }
     }
   }
@@ -1284,6 +1252,7 @@ body.has-date-nav .workspace:has(.tr-wrap) {
   let segmentData = null;
   let segmentAudioEl = null;
   let currentVideoFiles = {}; // filename -> video URL mapping
+  let groupEntriesByIdx = new Map();
 
   function loadSegmentContent(seg) {
     const showAudio = audioCheck.checked;
@@ -1403,6 +1372,7 @@ body.has-date-nav .workspace:has(.tr-wrap) {
 
     // Group sequential basic screen frames together
     const displayItems = groupBasicScreenFrames(chunks);
+    groupEntriesByIdx = new Map();
 
     let html = '<div class="tr-unified">';
 
@@ -1418,6 +1388,7 @@ body.has-date-nav .workspace:has(.tr-wrap) {
     // Render items (chunks or groups)
     displayItems.forEach((item, idx) => {
       if (item.type === 'screen-group') {
+        groupEntriesByIdx.set(idx, item.entries || []);
         // Render collapsed group of basic frames
         html += renderScreenGroup(item, idx);
       } else if (item.type === 'audio') {
@@ -1468,7 +1439,14 @@ body.has-date-nav .workspace:has(.tr-wrap) {
     // Add click handlers for group headers to expand/collapse
     panel.querySelectorAll('.tr-group-header').forEach(header => {
       header.addEventListener('click', () => {
-        header.parentElement.classList.toggle('expanded');
+        const groupEl = header.parentElement;
+        const isExpanded = groupEl.classList.toggle('expanded');
+        if (!isExpanded) return;
+        if (groupEl.dataset.prefetched === 'true') return;
+        const groupIdx = parseInt(groupEl.dataset.idx, 10);
+        if (isNaN(groupIdx)) return;
+        const entries = groupEntriesByIdx.get(groupIdx) || [];
+        prefetchGroupThumbnails(entries, groupEl);
       });
     });
 
@@ -1482,6 +1460,33 @@ body.has-date-nav .workspace:has(.tr-wrap) {
 
     // Set up lazy loading for canvas thumbnails using IntersectionObserver
     setupLazyCanvasLoading();
+  }
+
+  function prefetchGroupThumbnails(entries, groupEl) {
+    const frameIdsByVideo = new Map();
+    for (const entry of entries) {
+      const filename = entry.source_ref?.filename;
+      const frameId = entry.source_ref?.frame_id;
+      if (!filename || !frameId) continue;
+      if (!frameIdsByVideo.has(filename)) {
+        frameIdsByVideo.set(filename, new Set());
+      }
+      frameIdsByVideo.get(filename).add(frameId);
+    }
+
+    const jobs = [];
+    for (const [filename, frameIds] of frameIdsByVideo.entries()) {
+      const url = currentVideoFiles[filename];
+      if (!url) continue;
+      jobs.push(frameCapture.prefetchThumbnails(url, Array.from(frameIds)));
+    }
+
+    if (jobs.length > 0) {
+      groupEl.dataset.prefetched = 'true';
+      Promise.all(jobs).finally(() => {
+        setupLazyCanvasLoading();
+      });
+    }
   }
 
   // Lazy load canvas thumbnails when they become visible
