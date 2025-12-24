@@ -133,7 +133,7 @@ def test_cluster_period_uses_raw_screen(tmp_path, monkeypatch):
     # Raw screen.jsonl with frame analysis (what cluster_period should use)
     (segment / "screen.jsonl").write_text(
         '{"raw": "screen.webm"}\n'
-        '{"timestamp": 10, "analysis": {"primary": {"category": "code_editor"}, '
+        '{"timestamp": 10, "analysis": {"primary": "code_editor", '
         '"visual_description": "VS Code with Python file"}}\n'
     )
     # Also create screen.md (insight) to verify it's NOT used by cluster_period
@@ -170,7 +170,7 @@ def test_cluster_range_with_insights(tmp_path, monkeypatch):
     # Also create screen.jsonl to verify it's NOT used when insights=True, screen=False
     (segment / "screen.jsonl").write_text(
         '{"raw": "screen.webm"}\n'
-        '{"timestamp": 10, "analysis": {"primary": {"category": "code_editor"}}}\n'
+        '{"timestamp": 10, "analysis": {"primary": "code_editor"}}\n'
     )
 
     # Test insights=True returns *.md summaries, not raw screen data
@@ -200,7 +200,7 @@ def test_cluster_range_with_screen(tmp_path, monkeypatch):
     segment.mkdir()
     (segment / "screen.jsonl").write_text(
         '{"raw": "screen.webm"}\n'
-        '{"timestamp": 10, "analysis": {"primary": {"category": "code_editor"}}}\n'
+        '{"timestamp": 10, "analysis": {"primary": "code_editor"}}\n'
     )
     (segment / "screen.md").write_text("Screen summary insight")
 
@@ -228,12 +228,12 @@ def test_cluster_range_with_multiple_screen_files(tmp_path, monkeypatch):
     segment.mkdir()
     (segment / "screen.jsonl").write_text(
         '{"raw": "screen.webm"}\n'
-        '{"timestamp": 10, "analysis": {"primary": {"category": "code_editor"}, '
+        '{"timestamp": 10, "analysis": {"primary": "code_editor", '
         '"visual_description": "Primary monitor with VS Code"}}\n'
     )
     (segment / "monitor_2_screen.jsonl").write_text(
         '{"raw": "monitor_2.webm"}\n'
-        '{"timestamp": 10, "analysis": {"primary": {"category": "browser"}, '
+        '{"timestamp": 10, "analysis": {"primary": "browser", '
         '"visual_description": "Secondary monitor with documentation"}}\n'
     )
 

@@ -5,9 +5,8 @@ Describe screencast videos by detecting significant frame changes.
 Processes per-monitor screencast files (.webm/.mp4/.mov), detects changes using
 RMS-based comparison, and sends frames to Gemini for multi-stage analysis:
 
-1. Initial categorization identifies primary/secondary regions with bounding boxes
-2. Follow-up analysis (text extraction or meeting analysis) uses cropped regions
-   based on category, or full frame when both regions need the same analysis type
+1. Initial categorization identifies primary/secondary app categories
+2. Follow-up analysis (text extraction or meeting analysis) based on category
 """
 
 from __future__ import annotations
@@ -30,9 +29,6 @@ from think.callosum import callosum_send
 from think.utils import setup_cli
 
 logger = logging.getLogger(__name__)
-
-# Minimum box size in pixels for follow-up processing
-MIN_BOX_SIZE = 300
 
 
 class RequestType(Enum):
@@ -235,78 +231,6 @@ class VideoProcessor:
         img.save(buf, format="PNG", compress_level=1)
         return buf.getvalue()
 
-    def _denormalize_box(
-        self, box_2d: List[int], img_width: int, img_height: int
-    ) -> tuple:
-        """
-        Convert 0-1000 normalized coords to pixel coords.
-
-        Parameters
-        ----------
-        box_2d : List[int]
-            Normalized coordinates [y0, x0, y1, x1] in 0-1000 range
-        img_width : int
-            Image width in pixels
-        img_height : int
-            Image height in pixels
-
-        Returns
-        -------
-        tuple
-            Pixel coordinates (y0, x0, y1, x1)
-        """
-        y0, x0, y1, x1 = box_2d
-        return (
-            int(y0 * img_height / 1000),
-            int(x0 * img_width / 1000),
-            int(y1 * img_height / 1000),
-            int(x1 * img_width / 1000),
-        )
-
-    def _box_qualifies(self, box_pixels: tuple) -> bool:
-        """
-        Check if denormalized box is >MIN_BOX_SIZE in both dimensions.
-
-        Parameters
-        ----------
-        box_pixels : tuple
-            Pixel coordinates (y0, x0, y1, x1)
-
-        Returns
-        -------
-        bool
-            True if box qualifies for follow-up processing
-        """
-        y0, x0, y1, x1 = box_pixels
-        width = x1 - x0
-        height = y1 - y0
-        return width > MIN_BOX_SIZE and height > MIN_BOX_SIZE
-
-    def _crop_to_box(self, img: Image.Image, box_pixels: tuple) -> Image.Image:
-        """
-        Crop PIL Image using denormalized pixel coords.
-
-        Parameters
-        ----------
-        img : Image.Image
-            Source image to crop
-        box_pixels : tuple
-            Pixel coordinates (y0, x0, y1, x1)
-
-        Returns
-        -------
-        Image.Image
-            Cropped image
-        """
-        y0, x0, y1, x1 = box_pixels
-        # Clamp to image bounds
-        x0 = max(0, min(x0, img.width))
-        x1 = max(0, min(x1, img.width))
-        y0 = max(0, min(y0, img.height))
-        y1 = max(0, min(y1, img.height))
-        # PIL crop uses (left, upper, right, lower) = (x0, y0, x1, y1)
-        return img.crop((x0, y0, x1, y1))
-
     def _get_follow_up_prompt(self, category: str) -> Optional[str]:
         """
         Map category to follow-up prompt type.
@@ -380,7 +304,7 @@ class VideoProcessor:
             Path to write JSONL output (when None, no output file is written)
         """
         from think.batch import GeminiBatch
-        from think.models import GEMINI_FLASH
+        from think.models import GEMINI_FLASH, GEMINI_LITE
 
         # Load prompt templates
         prompt_path = Path(__file__).parent / use_prompt
@@ -431,12 +355,12 @@ class VideoProcessor:
                     "Analyze this screenshot frame from a screencast recording.",
                     frame_img,
                 ),
-                model=GEMINI_FLASH,
+                model=GEMINI_LITE,
                 system_instruction=system_instruction,
                 json_output=True,
                 temperature=0.7,
-                max_output_tokens=3072,
-                thinking_budget=2048,
+                max_output_tokens=1024,
+                thinking_budget=1024,
             )
 
             # Attach metadata for tracking (store bytes, not PIL images)
@@ -451,7 +375,7 @@ class VideoProcessor:
             req.requests = []  # Track all requests for this frame
             req.initial_image = frame_img  # Keep reference to close after completion
             req.pending_follow_ups = 0  # Track how many follow-ups are pending
-            req.follow_up_source = None  # "primary", "secondary", or "full"
+            req.follow_up_source = None  # "primary" or "secondary"
 
             batch.add(req)
 
@@ -533,85 +457,63 @@ class VideoProcessor:
             )
 
             if should_process_further:
-                # Extract primary and secondary regions
-                primary = req.json_analysis.get("primary", {})
-                secondary = req.json_analysis.get("secondary", False)
+                # Extract categories from new simplified format
+                primary = req.json_analysis.get("primary", "")
+                secondary = req.json_analysis.get("secondary", "none")
+                overlap = req.json_analysis.get("overlap", True)
 
-                # Load full frame for potential processing
-                full_img = Image.open(io.BytesIO(req.frame_bytes))
-                img_width, img_height = full_img.width, full_img.height
+                # Determine follow-up types
+                primary_prompt_type = self._get_follow_up_prompt(primary)
+                secondary_prompt_type = (
+                    self._get_follow_up_prompt(secondary)
+                    if secondary != "none"
+                    else None
+                )
 
-                # Analyze primary region
-                primary_prompt_type = None
-                primary_box_pixels = None
-                if primary and primary.get("box_2d"):
-                    primary_box_pixels = self._denormalize_box(
-                        primary["box_2d"], img_width, img_height
-                    )
-                    if self._box_qualifies(primary_box_pixels):
-                        primary_prompt_type = self._get_follow_up_prompt(
-                            primary.get("category", "")
-                        )
-
-                # Analyze secondary region
-                secondary_prompt_type = None
-                secondary_box_pixels = None
-                if (
-                    secondary
-                    and isinstance(secondary, dict)
-                    and secondary.get("box_2d")
-                ):
-                    secondary_box_pixels = self._denormalize_box(
-                        secondary["box_2d"], img_width, img_height
-                    )
-                    if self._box_qualifies(secondary_box_pixels):
-                        secondary_prompt_type = self._get_follow_up_prompt(
-                            secondary.get("category", "")
-                        )
-
-                # Determine follow-up strategy
+                # Build follow-up list with category context for focus guidance
+                # Each entry: (prompt_type, source, focus_categories, ignore_category)
+                # Primary always triggers if it has a follow-up type
+                # Secondary triggers only if overlap=false AND different type
                 follow_ups = []
 
-                if primary_prompt_type and secondary_prompt_type:
-                    if primary_prompt_type == secondary_prompt_type:
-                        # Same prompt type - use full frame, single call
-                        follow_ups.append((primary_prompt_type, full_img, "full"))
-                        logger.info(
-                            f"Frame {req.frame_id}: Single {primary_prompt_type} follow-up (full frame)"
+                has_secondary = secondary != "none"
+                same_follow_up_type = (
+                    primary_prompt_type
+                    and secondary_prompt_type
+                    and primary_prompt_type == secondary_prompt_type
+                )
+
+                if primary_prompt_type:
+                    if same_follow_up_type:
+                        # Both categories need same follow-up - focus on both
+                        follow_ups.append(
+                            (primary_prompt_type, "primary", [primary, secondary], None)
+                        )
+                    elif has_secondary:
+                        # Different types - focus on primary, ignore secondary
+                        follow_ups.append(
+                            (primary_prompt_type, "primary", [primary], secondary)
                         )
                     else:
-                        # Different prompt types - parallel cropped calls
-                        primary_img = self._crop_to_box(full_img, primary_box_pixels)
-                        secondary_img = self._crop_to_box(
-                            full_img, secondary_box_pixels
-                        )
-                        follow_ups.append((primary_prompt_type, primary_img, "primary"))
+                        # No secondary - no focus guidance needed
                         follow_ups.append(
-                            (secondary_prompt_type, secondary_img, "secondary")
+                            (primary_prompt_type, "primary", [primary], None)
                         )
-                        logger.info(
-                            f"Frame {req.frame_id}: Parallel follow-ups - "
-                            f"primary={primary_prompt_type}, secondary={secondary_prompt_type}"
-                        )
-                elif primary_prompt_type:
-                    # Only primary needs follow-up
-                    primary_img = self._crop_to_box(full_img, primary_box_pixels)
-                    follow_ups.append((primary_prompt_type, primary_img, "primary"))
-                    logger.info(
-                        f"Frame {req.frame_id}: {primary_prompt_type} follow-up (primary)"
-                    )
-                elif secondary_prompt_type:
-                    # Only secondary needs follow-up
-                    secondary_img = self._crop_to_box(full_img, secondary_box_pixels)
+
+                if (
+                    not overlap
+                    and secondary_prompt_type
+                    and secondary_prompt_type != primary_prompt_type
+                ):
+                    # Secondary needs different follow-up - focus on it, ignore primary
                     follow_ups.append(
-                        (secondary_prompt_type, secondary_img, "secondary")
-                    )
-                    logger.info(
-                        f"Frame {req.frame_id}: {secondary_prompt_type} follow-up (secondary)"
+                        (secondary_prompt_type, "secondary", [secondary], primary)
                     )
 
-                # Create follow-up requests
+                # Create follow-up requests (all use full frame)
                 if follow_ups:
+                    # Load full frame for follow-up processing
+                    full_img = Image.open(io.BytesIO(req.frame_bytes))
                     req.pending_follow_ups = len(follow_ups)
 
                     # Close initial image since DESCRIBE_JSON is complete
@@ -619,7 +521,9 @@ class VideoProcessor:
                         req.initial_image.close()
                         req.initial_image = None
 
-                    for i, (prompt_type, img, source) in enumerate(follow_ups):
+                    for i, (prompt_type, source, focus_cats, ignore_cat) in enumerate(
+                        follow_ups
+                    ):
                         if i == 0:
                             # Reuse original request for first follow-up
                             follow_req = req
@@ -639,12 +543,25 @@ class VideoProcessor:
                         follow_req.follow_up_source = source
                         follow_req.retry_count = 0
 
+                        # Build focus guidance suffix
+                        focus_suffix = ""
+                        if len(focus_cats) > 1:
+                            # Multiple categories to focus on (same follow-up type)
+                            cats_str = " and ".join(focus_cats)
+                            focus_suffix = f" Focus on both the {cats_str} content."
+                        elif ignore_cat:
+                            # Single category, ignore the other
+                            focus_suffix = (
+                                f" Focus on the {focus_cats[0]} content, "
+                                f"not the {ignore_cat} content."
+                            )
+
                         if prompt_type == "meeting":
                             batch.update(
                                 follow_req,
                                 contents=self._user_contents(
-                                    "Analyze this meeting screenshot.",
-                                    img,
+                                    f"Analyze this meeting screenshot.{focus_suffix}",
+                                    full_img,
                                     entities=True,
                                 ),
                                 model=GEMINI_FLASH,
@@ -654,13 +571,12 @@ class VideoProcessor:
                                 thinking_budget=6144,
                             )
                             follow_req.request_type = RequestType.DESCRIBE_MEETING
-                            follow_req.follow_up_image = img
                         else:  # text
                             batch.update(
                                 follow_req,
                                 contents=self._user_contents(
-                                    "Extract text from this screenshot frame.",
-                                    img,
+                                    f"Extract text from this screenshot.{focus_suffix}",
+                                    full_img,
                                     entities=True,
                                 ),
                                 model=GEMINI_FLASH,
@@ -670,16 +586,16 @@ class VideoProcessor:
                                 thinking_budget=4096,
                             )
                             follow_req.request_type = RequestType.DESCRIBE_TEXT
-                            follow_req.follow_up_image = img
 
-                    # Close full_img if we're not using it directly
-                    if not any(source == "full" for _, _, source in follow_ups):
-                        full_img.close()
+                    logger.info(
+                        f"Frame {req.frame_id}: {len(follow_ups)} follow-up(s) - "
+                        f"{', '.join(pt for pt, _ , _, _ in follow_ups)}"
+                    )
+
+                    # Close full_img after all follow-up requests are created
+                    full_img.close()
 
                     continue  # Don't output yet, wait for follow-ups
-                else:
-                    # No follow-ups needed, close full_img
-                    full_img.close()
 
             # Handle follow-up completion for parallel requests
             if req.request_type in (
@@ -711,11 +627,6 @@ class VideoProcessor:
 
                 # Decrement pending count
                 result["pending"] -= 1
-
-                # Close follow-up image
-                if hasattr(req, "follow_up_image") and req.follow_up_image:
-                    req.follow_up_image.close()
-                    req.follow_up_image = None
 
                 # If all follow-ups complete, output the result
                 if result["pending"] <= 0:

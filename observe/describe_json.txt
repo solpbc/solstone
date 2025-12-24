@@ -1,67 +1,26 @@
-# Desktop Screenshot Context Analysis
+You have one job: identify the primary foreground and (if present) secondary app categories in this desktop screenshot, and return ONLY this JSON:
 
-You are analyzing a full desktop screenshot to identify the types of applications and content visible.
-
-Respond with JSON describing the visual context and your best estimation of the appropriate category/categories.
-
-```json
 {
-  "visual_description": "<1–2 sentences describing what is visible>",
-  "primary": {
-    "category": "<use a valid category from below>",
-    "box_2d": [y0, x0, y1, x1]
-  },
-  "secondary": false | {
-    "category": "<use a valid category from below>",
-    "box_2d": [y0, x0, y1, x1]
-  }
+  "visual_description":"<1–2 sentences describing what is visible>",
+  "primary": "<largest and most visible app category>",
+  "secondary": "<second most visible app category or 'none'>",
+  "overlap": <boolean, does the primary overlap or cover the secondary, or is it fully standalone and separate>
 }
-```
 
-## Field Notes
+Rules:
+- For visual_description summarize the **overall desktop view** in **1–2 sentences** for a visually impaired user, focus on layout, window arrangement, and types of content.
+- For the most visible primary foreground app choose the best category from the list below.
+- Set "secondary" to "none" and "overlap" to true if the primary effectively fills the screen or no distinct second category/window is visible.
+- Set overlap to true if the primary app overlaps, covers, clips, or obscures the secondary in any way.
+- Only set a category for secondary if it is very visible and occupies more than 30% of the screen.
 
-### visual_description
-
-* Describe the **overall desktop view** in **1–2 sentences** for a visually impaired user.
-* Focus on layout, window arrangement, and types of content.
-* Do **not** transcribe text verbatim.
-
-### primary
-
-* Represents the **dominant or user-focused application/window** on the desktop.
-* Typically the largest, foreground, or task-relevant window.
-* **category**: Use a valid category from the list below.
-* **box_2d**:
-
-  * Pixel coordinates relative to the full screenshot
-  * Format: `[y0, x0, y1, x1]`
-  * Must **fully enclose** the primary application or content area
-
-### secondary
-
-* Represents a **clearly distinct secondary application/window**, if present.
-* Set **secondary** to `false` if:
-  * One application occupies essentially the entire screen, or
-  * Other windows are background-only or not meaningfully relevant
-* If another category is present choose the largest most visible one:
-  * **category**: Use a valid category from the list below
-  * **box_2d**: Must fully enclose the secondary application or content area
-* The secondary bounding box should not significantly overlap the primary bounding box.
-
-### Categories
-
-* **terminal**: Command-line interfaces or shells
-* **code**: Code editors and IDEs
-* **messaging**: Chat, email, Slack, Discord, etc.
-* **meeting**: Video conferencing tools
-* **browsing**: Web browsing, social media, shopping
-* **reading**: Documents, articles, PDFs, documentation
-* **media**: Video or image viewing
-* **gaming**: Games or game interfaces
-* **productivity**: Spreadsheets, documents, presentations, calendars, task tools
-
-## General Instructions
-
-* Bounding boxes must be accurate and conservative (fully containing windows).
-* Prefer correctness and clarity over exhaustiveness.
-* Output **only valid JSON**.
+Categories (choose one):
+- terminal: Command line interfaces, logs, shell
+- code: Code editors and IDEs
+- messaging: Chat or email apps (Slack, Discord, Messages/iMessage, Gmail, etc.)
+- meeting: Video calls/conferencing (Zoom, Meet, Teams, Webex, etc.)
+- browsing: General web browsing, social feeds, shopping
+- reading: Documents, articles, PDFs, documentation
+- media: Video players/streams, YouTube, image/video-heavy feeds
+- gaming: Video games, puzzles, idle games
+- productivity: Spreadsheets, slides, document editors, calendars, task and issue tracking tools, other workplace desktop or web apps and professional tools

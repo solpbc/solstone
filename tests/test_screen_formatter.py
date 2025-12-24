@@ -12,21 +12,21 @@ def test_format_screen_extracts_segment_from_directory():
         {
             "timestamp": 0,
             "analysis": {
-                "primary": {"category": "code"},
+                "primary": "code",
                 "visual_description": "Editing Python",
             },
         },
         {
             "timestamp": 30,
             "analysis": {
-                "primary": {"category": "terminal"},
+                "primary": "terminal",
                 "visual_description": "Running tests",
             },
         },
         {
             "timestamp": 120,
             "analysis": {
-                "primary": {"category": "browser"},
+                "primary": "browser",
                 "visual_description": "Reading docs",
             },
         },
@@ -57,12 +57,12 @@ def test_format_screen_handles_segment_with_duration_suffix():
     frames = [
         {
             "timestamp": 0,
-            "analysis": {"primary": {"category": "code"}, "visual_description": "Code"},
+            "analysis": {"primary": "code", "visual_description": "Code"},
         },
         {
             "timestamp": 60,
             "analysis": {
-                "primary": {"category": "terminal"},
+                "primary": "terminal",
                 "visual_description": "Terminal",
             },
         },
@@ -89,12 +89,12 @@ def test_format_screen_handles_no_file_path():
     frames = [
         {
             "timestamp": 0,
-            "analysis": {"primary": {"category": "code"}, "visual_description": "Code"},
+            "analysis": {"primary": "code", "visual_description": "Code"},
         },
         {
             "timestamp": 3600,
             "analysis": {
-                "primary": {"category": "browser"},
+                "primary": "browser",
                 "visual_description": "Browser",
             },
         },
@@ -116,14 +116,14 @@ def test_format_screen_header_includes_monitor_info():
         {
             "timestamp": 0,
             "analysis": {
-                "primary": {"category": "code"},
+                "primary": "code",
                 "visual_description": "Editing code",
             },
         },
         {
             "timestamp": 30,
             "analysis": {
-                "primary": {"category": "browser"},
+                "primary": "browser",
                 "visual_description": "Documentation",
             },
         },
@@ -149,7 +149,7 @@ def test_format_screen_plain_screen_no_monitor_info():
         {
             "timestamp": 0,
             "analysis": {
-                "primary": {"category": "code"},
+                "primary": "code",
                 "visual_description": "Editing code",
             },
         },
@@ -172,7 +172,7 @@ def test_format_screen_includes_entity_context():
     frames = [
         {
             "timestamp": 0,
-            "analysis": {"primary": {"category": "code"}, "visual_description": "Code"},
+            "analysis": {"primary": "code", "visual_description": "Code"},
         },
     ]
 
@@ -196,7 +196,7 @@ def test_format_screen_includes_extracted_text():
         {
             "timestamp": 0,
             "analysis": {
-                "primary": {"category": "terminal"},
+                "primary": "terminal",
                 "visual_description": "Terminal window",
             },
             "extracted_text": "$ python test.py\nAll tests passed",
@@ -223,14 +223,14 @@ def test_format_screen_returns_chunks_with_timestamps():
         {
             "timestamp": 0,
             "analysis": {
-                "primary": {"category": "code"},
+                "primary": "code",
                 "visual_description": "Frame 1",
             },
         },
         {
             "timestamp": 30,
             "analysis": {
-                "primary": {"category": "terminal"},
+                "primary": "terminal",
                 "visual_description": "Frame 2",
             },
         },
@@ -250,7 +250,7 @@ def test_format_screen_returns_indexer_metadata():
     frames = [
         {
             "timestamp": 0,
-            "analysis": {"primary": {"category": "code"}, "visual_description": "Test"},
+            "analysis": {"primary": "code", "visual_description": "Test"},
         },
     ]
 
