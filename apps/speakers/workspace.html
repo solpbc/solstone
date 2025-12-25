@@ -1,0 +1,676 @@
+{# Speaker voiceprint management #}
+
+<style>
+/* Speakers app styles - all classes prefixed with .spk- */
+
+.spk-wrap {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 16px 24px;
+}
+
+.spk-layout {
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  gap: 24px;
+  min-height: 400px;
+}
+
+/* Segment list panel */
+.spk-segments {
+  background: #fff;
+  border-radius: 12px;
+  border: 1px solid #e5e7eb;
+  overflow: hidden;
+}
+
+.spk-segments-header {
+  padding: 12px 16px;
+  border-bottom: 1px solid #e5e7eb;
+  font-weight: 600;
+  font-size: 14px;
+  color: #374151;
+}
+
+.spk-segments-list {
+  max-height: 500px;
+  overflow-y: auto;
+}
+
+.spk-segment {
+  padding: 12px 16px;
+  border-bottom: 1px solid #f3f4f6;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.spk-segment:hover {
+  background: #f9fafb;
+}
+
+.spk-segment.active {
+  background: #eff6ff;
+  border-left: 3px solid #3b82f6;
+}
+
+.spk-segment-time {
+  font-weight: 500;
+  font-size: 14px;
+  color: #1f2937;
+}
+
+.spk-segment-meta {
+  font-size: 12px;
+  color: #6b7280;
+  margin-top: 4px;
+}
+
+.spk-segment-speakers {
+  display: flex;
+  gap: 6px;
+  margin-top: 6px;
+  flex-wrap: wrap;
+}
+
+.spk-speaker-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  background: #e5e7eb;
+  border-radius: 12px;
+  font-size: 11px;
+  color: #4b5563;
+}
+
+.spk-empty {
+  padding: 24px;
+  text-align: center;
+  color: #9ca3af;
+  font-size: 14px;
+}
+
+/* Detail panel */
+.spk-detail {
+  background: #fff;
+  border-radius: 12px;
+  border: 1px solid #e5e7eb;
+  padding: 20px;
+}
+
+.spk-detail-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.spk-detail-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.spk-audio-player {
+  margin-bottom: 20px;
+}
+
+.spk-audio-player audio {
+  width: 100%;
+}
+
+/* Match table */
+.spk-matches {
+  margin-top: 16px;
+}
+
+.spk-matches-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #374151;
+  margin-bottom: 12px;
+}
+
+.spk-match-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.spk-match-table th,
+.spk-match-table td {
+  padding: 10px 12px;
+  text-align: left;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.spk-match-table th {
+  background: #f9fafb;
+  font-weight: 500;
+  color: #6b7280;
+}
+
+.spk-match-table td:first-child {
+  font-weight: 500;
+}
+
+.spk-score {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-family: monospace;
+  font-size: 12px;
+}
+
+.spk-score-high {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.spk-score-med {
+  background: #fef9c3;
+  color: #854d0e;
+}
+
+.spk-score-low {
+  background: #f3f4f6;
+  color: #6b7280;
+}
+
+.spk-no-match {
+  color: #9ca3af;
+  font-style: italic;
+}
+
+/* Actions */
+.spk-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.spk-select {
+  padding: 6px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 13px;
+  background: #fff;
+  min-width: 150px;
+}
+
+.spk-btn {
+  padding: 6px 14px;
+  border: none;
+  border-radius: 6px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.spk-btn-primary {
+  background: #3b82f6;
+  color: #fff;
+}
+
+.spk-btn-primary:hover {
+  background: #2563eb;
+}
+
+.spk-btn-primary:disabled {
+  background: #93c5fd;
+  cursor: not-allowed;
+}
+
+.spk-btn-secondary {
+  background: #f3f4f6;
+  color: #374151;
+}
+
+.spk-btn-secondary:hover {
+  background: #e5e7eb;
+}
+
+/* Create entity form */
+.spk-create-form {
+  margin-top: 16px;
+  padding: 16px;
+  background: #f9fafb;
+  border-radius: 8px;
+  border: 1px solid #e5e7eb;
+}
+
+.spk-form-row {
+  margin-bottom: 12px;
+}
+
+.spk-form-row label {
+  display: block;
+  font-size: 12px;
+  font-weight: 500;
+  color: #6b7280;
+  margin-bottom: 4px;
+}
+
+.spk-form-row input,
+.spk-form-row select {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 13px;
+}
+
+.spk-form-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+/* Status messages */
+.spk-status {
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 13px;
+  margin-top: 12px;
+}
+
+.spk-status-success {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.spk-status-error {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+/* Facet indicator */
+.spk-facet-badge {
+  display: inline-block;
+  padding: 4px 10px;
+  background: var(--facet-bg, #e5e7eb);
+  border: 1px solid var(--facet-color, #d1d5db);
+  border-radius: 16px;
+  font-size: 12px;
+  color: var(--facet-color, #6b7280);
+}
+</style>
+
+<div class="spk-wrap">
+  <div class="spk-layout">
+    <!-- Segment list -->
+    <div class="spk-segments">
+      <div class="spk-segments-header">
+        Segments with Speakers
+      </div>
+      <div class="spk-segments-list" id="spkSegmentList">
+        <div class="spk-empty">Loading...</div>
+      </div>
+    </div>
+
+    <!-- Detail panel -->
+    <div class="spk-detail" id="spkDetail">
+      <div class="spk-empty">
+        Select a segment to view speaker matches
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+  const day = '{{ day }}';
+  const segmentList = document.getElementById('spkSegmentList');
+  const detailPanel = document.getElementById('spkDetail');
+
+  let segments = [];
+  let selectedSegment = null;
+
+  // Load segments on page load
+  loadSegments();
+
+  // Listen for facet changes
+  window.addEventListener('facet.switch', () => {
+    if (selectedSegment) {
+      loadSegmentDetail(selectedSegment);
+    }
+  });
+
+  function loadSegments() {
+    fetch(`/app/speakers/api/segments/${day}`)
+      .then(r => r.json())
+      .then(data => {
+        segments = data.segments || [];
+        renderSegmentList();
+      })
+      .catch(() => {
+        segmentList.innerHTML = '<div class="spk-empty">Failed to load segments</div>';
+      });
+  }
+
+  function renderSegmentList() {
+    if (segments.length === 0) {
+      segmentList.innerHTML = '<div class="spk-empty">No segments with speaker embeddings found for this day</div>';
+      return;
+    }
+
+    segmentList.innerHTML = segments.map(seg => `
+      <div class="spk-segment${selectedSegment?.key === seg.key ? ' active' : ''}" data-key="${seg.key}">
+        <div class="spk-segment-time">${seg.start} - ${seg.end}</div>
+        <div class="spk-segment-meta">${formatDuration(seg.duration)}</div>
+        <div class="spk-segment-speakers">
+          ${seg.speakers.map(s => `<span class="spk-speaker-badge">${escapeHtml(s)}</span>`).join('')}
+        </div>
+      </div>
+    `).join('');
+
+    // Add click handlers
+    segmentList.querySelectorAll('.spk-segment').forEach(el => {
+      el.addEventListener('click', () => {
+        const seg = segments.find(s => s.key === el.dataset.key);
+        if (seg) selectSegment(seg);
+      });
+    });
+  }
+
+  function selectSegment(seg) {
+    selectedSegment = seg;
+    renderSegmentList();
+    loadSegmentDetail(seg);
+  }
+
+  function loadSegmentDetail(seg) {
+    detailPanel.innerHTML = '<div class="spk-empty">Loading...</div>';
+
+    fetch(`/app/speakers/api/segment/${day}/${seg.key}`)
+      .then(r => r.json())
+      .then(data => {
+        if (data.error) {
+          detailPanel.innerHTML = `<div class="spk-empty">${escapeHtml(data.error)}</div>`;
+          return;
+        }
+        renderSegmentDetail(seg, data);
+      })
+      .catch(() => {
+        detailPanel.innerHTML = '<div class="spk-empty">Failed to load segment details</div>';
+      });
+  }
+
+  function renderSegmentDetail(seg, data) {
+    const { speakers, all_entities, audio_file, facet } = data;
+
+    let html = `
+      <div class="spk-detail-header">
+        <div class="spk-detail-title">${seg.start} - ${seg.end}</div>
+        <span class="spk-facet-badge">${escapeHtml(facet)}</span>
+      </div>
+    `;
+
+    // Audio player
+    if (audio_file) {
+      html += `
+        <div class="spk-audio-player">
+          <audio controls preload="metadata">
+            <source src="${audio_file}" type="audio/flac">
+          </audio>
+        </div>
+      `;
+    }
+
+    // Speakers and matches
+    if (speakers.length === 0) {
+      html += '<div class="spk-empty">No speaker embeddings found</div>';
+    } else {
+      html += '<div class="spk-matches">';
+      html += '<div class="spk-matches-title">Speaker Matches</div>';
+
+      speakers.forEach((speaker, idx) => {
+        html += renderSpeakerCard(speaker, all_entities, facet, seg, idx);
+      });
+
+      html += '</div>';
+    }
+
+    detailPanel.innerHTML = html;
+
+    // Add event handlers
+    setupEventHandlers(seg, facet);
+  }
+
+  function renderSpeakerCard(speaker, allEntities, facet, seg, idx) {
+    const matches = Object.entries(speaker.matches || {})
+      .sort((a, b) => b[1] - a[1]);
+
+    let html = `
+      <div class="spk-speaker-card" data-speaker="${escapeHtml(speaker.label)}" data-idx="${idx}">
+        <table class="spk-match-table">
+          <thead>
+            <tr>
+              <th>${escapeHtml(speaker.label)}</th>
+              <th>Match Score</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody>
+    `;
+
+    if (matches.length === 0) {
+      html += `
+        <tr>
+          <td colspan="2"><span class="spk-no-match">No matches above threshold</span></td>
+          <td>
+            <div class="spk-actions">
+              <select class="spk-select spk-entity-select">
+                <option value="">Assign to entity...</option>
+                ${allEntities.map(e => `<option value="${escapeHtml(e)}">${escapeHtml(e)}</option>`).join('')}
+                <option value="__new__">+ Create new entity</option>
+              </select>
+              <button class="spk-btn spk-btn-primary spk-assign-btn" disabled>Assign</button>
+            </div>
+          </td>
+        </tr>
+      `;
+    } else {
+      matches.forEach((match, i) => {
+        const [entityName, score] = match;
+        const scoreClass = score >= 0.7 ? 'high' : score >= 0.5 ? 'med' : 'low';
+        const scorePct = Math.round(score * 100);
+
+        html += `
+          <tr>
+            <td>${escapeHtml(entityName)}</td>
+            <td><span class="spk-score spk-score-${scoreClass}">${scorePct}%</span></td>
+            <td>
+              ${i === 0 ? `
+                <div class="spk-actions">
+                  <select class="spk-select spk-entity-select">
+                    <option value="">Assign to entity...</option>
+                    ${allEntities.map(e => `<option value="${escapeHtml(e)}"${e === entityName ? ' selected' : ''}>${escapeHtml(e)}</option>`).join('')}
+                    <option value="__new__">+ Create new entity</option>
+                  </select>
+                  <button class="spk-btn spk-btn-primary spk-assign-btn" disabled>Assign</button>
+                </div>
+              ` : ''}
+            </td>
+          </tr>
+        `;
+      });
+    }
+
+    html += `
+          </tbody>
+        </table>
+        <div class="spk-create-form-container" style="display: none;"></div>
+        <div class="spk-status-container"></div>
+      </div>
+    `;
+
+    return html;
+  }
+
+  function setupEventHandlers(seg, facet) {
+    // Entity select change
+    detailPanel.querySelectorAll('.spk-entity-select').forEach(select => {
+      select.addEventListener('change', () => {
+        const card = select.closest('.spk-speaker-card');
+        const assignBtn = card.querySelector('.spk-assign-btn');
+        const formContainer = card.querySelector('.spk-create-form-container');
+
+        if (select.value === '__new__') {
+          assignBtn.disabled = true;
+          formContainer.style.display = 'block';
+          formContainer.innerHTML = renderCreateForm();
+          setupCreateFormHandlers(card, seg, facet);
+        } else {
+          formContainer.style.display = 'none';
+          formContainer.innerHTML = '';
+          assignBtn.disabled = !select.value;
+        }
+      });
+    });
+
+    // Assign button click
+    detailPanel.querySelectorAll('.spk-assign-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const card = btn.closest('.spk-speaker-card');
+        const speakerLabel = card.dataset.speaker;
+        const entityName = card.querySelector('.spk-entity-select').value;
+
+        if (!entityName || entityName === '__new__') return;
+
+        saveVoiceprint(facet, entityName, seg.key, speakerLabel, card);
+      });
+    });
+  }
+
+  function renderCreateForm() {
+    return `
+      <div class="spk-create-form">
+        <div class="spk-form-row">
+          <label>Entity Name</label>
+          <input type="text" class="spk-new-name" placeholder="e.g., John Smith">
+        </div>
+        <div class="spk-form-row">
+          <label>Type</label>
+          <select class="spk-new-type">
+            <option value="Person">Person</option>
+            <option value="Contact">Contact</option>
+          </select>
+        </div>
+        <div class="spk-form-row">
+          <label>Description (optional)</label>
+          <input type="text" class="spk-new-desc" placeholder="e.g., Colleague from work">
+        </div>
+        <div class="spk-form-actions">
+          <button class="spk-btn spk-btn-secondary spk-cancel-create">Cancel</button>
+          <button class="spk-btn spk-btn-primary spk-confirm-create">Create & Save Voiceprint</button>
+        </div>
+      </div>
+    `;
+  }
+
+  function setupCreateFormHandlers(card, seg, facet) {
+    const formContainer = card.querySelector('.spk-create-form-container');
+    const select = card.querySelector('.spk-entity-select');
+    const speakerLabel = card.dataset.speaker;
+
+    formContainer.querySelector('.spk-cancel-create').addEventListener('click', () => {
+      formContainer.style.display = 'none';
+      formContainer.innerHTML = '';
+      select.value = '';
+    });
+
+    formContainer.querySelector('.spk-confirm-create').addEventListener('click', () => {
+      const name = formContainer.querySelector('.spk-new-name').value.trim();
+      const type = formContainer.querySelector('.spk-new-type').value;
+      const desc = formContainer.querySelector('.spk-new-desc').value.trim();
+
+      if (!name) {
+        showStatus(card, 'Please enter an entity name', 'error');
+        return;
+      }
+
+      createEntityWithVoiceprint(facet, type, name, desc, seg.key, speakerLabel, card);
+    });
+  }
+
+  function saveVoiceprint(facet, entityName, segmentKey, speakerLabel, card) {
+    fetch('/app/speakers/api/save-voiceprint', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        facet,
+        entity_name: entityName,
+        day,
+        segment_key: segmentKey,
+        speaker_label: speakerLabel,
+      }),
+    })
+      .then(r => r.json())
+      .then(data => {
+        if (data.error) {
+          showStatus(card, data.error, 'error');
+        } else {
+          showStatus(card, `Voiceprint saved to ${entityName}`, 'success');
+          // Reload to refresh matches
+          setTimeout(() => loadSegmentDetail(selectedSegment), 1500);
+        }
+      })
+      .catch(() => {
+        showStatus(card, 'Failed to save voiceprint', 'error');
+      });
+  }
+
+  function createEntityWithVoiceprint(facet, type, name, description, segmentKey, speakerLabel, card) {
+    fetch('/app/speakers/api/create-entity-voiceprint', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        facet,
+        type,
+        name,
+        description,
+        day,
+        segment_key: segmentKey,
+        speaker_label: speakerLabel,
+      }),
+    })
+      .then(r => r.json())
+      .then(data => {
+        if (data.error) {
+          showStatus(card, data.error, 'error');
+        } else {
+          showStatus(card, `Created entity "${name}" with voiceprint`, 'success');
+          // Hide form and reload
+          const formContainer = card.querySelector('.spk-create-form-container');
+          formContainer.style.display = 'none';
+          formContainer.innerHTML = '';
+          setTimeout(() => loadSegmentDetail(selectedSegment), 1500);
+        }
+      })
+      .catch(() => {
+        showStatus(card, 'Failed to create entity', 'error');
+      });
+  }
+
+  function showStatus(card, message, type) {
+    const container = card.querySelector('.spk-status-container');
+    container.innerHTML = `<div class="spk-status spk-status-${type}">${escapeHtml(message)}</div>`;
+    setTimeout(() => { container.innerHTML = ''; }, 3000);
+  }
+
+  function formatDuration(seconds) {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    if (mins === 0) return `${secs}s`;
+    return secs > 0 ? `${mins}m ${secs}s` : `${mins}m`;
+  }
+
+  function escapeHtml(str) {
+    if (!str) return '';
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+})();
+</script>
