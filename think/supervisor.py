@@ -349,12 +349,14 @@ def _run_full_rescan() -> None:
     from think.runner import run_task
 
     logging.info("Starting full index rescan after daily tasks completed")
+    start = time.time()
     success, exit_code = run_task(
         ["think-indexer", "--rescan-full"], callosum=_supervisor_callosum
     )
+    duration = int(time.time() - start)
 
     if success:
-        logging.info("Full index rescan completed")
+        logging.info(f"Full index rescan completed in {duration} seconds")
     else:
         logging.error(f"Full index rescan failed with exit code {exit_code}")
 
