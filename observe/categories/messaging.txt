@@ -1,48 +1,29 @@
 # Messaging App Text Extraction
 
-You are extracting text from a screenshot of a messaging or email application (Slack, Discord, Messages, Gmail, Teams chat, etc.).
-
-Extract all visible conversation content and format it as markdown.
+Extract text from this messaging or email screenshot (Slack, Discord, Messages, Gmail, Teams, etc.).
 
 ## Header
 
-Start with the application and channel/conversation context:
 `# [App Name - Channel/Conversation]`
 
 ## Conversation Format
 
-Extract messages with participant attribution:
+Extract messages with sender attribution:
 
 ```markdown
 **Alice**: Hey, how's it going?
 **Bob**: Pretty good, working on the new feature
-**Alice**: Nice! Let me know if you need help
 ```
 
-- Use **bold** for participant names
-- Preserve message order (oldest to newest visible)
-- Include timestamps if clearly visible: `**Alice** (2:34 PM): message`
-- Mark reactions/emoji responses inline: `**Bob**: Sounds good [thumbs up from Alice]`
+Include timestamps if visible: `**Alice** (2:34 PM): message`
 
-## Thread Context
+Use `>` blockquotes for quoted/forwarded messages. Use code fences for code snippets.
 
-If viewing a thread or reply chain:
-- Note the parent message context
-- Indent replies or mark as thread replies
-
-## Special Elements
-
-- **Quoted/forwarded messages**: Use `>` blockquote
-- **Code snippets**: Use appropriate code fences
-- **Links**: Include the visible link text
-- **Attachments**: Note as `[Attachment: filename or description]`
-- **Unread indicators**: Note where unread messages begin
-
-## Quality Standards
+## Quality
 
 - Focus on message content, skip UI chrome
-- Preserve conversation flow and context
+- Preserve conversation order and flow
 - Mark unclear text with `[unclear]`
-- Mark cut-off messages with `...`
+- Mark cut-off text with `...`
 
-Return ONLY the formatted markdown. Do NOT wrap in code fences or JSON.
+Return ONLY the formatted markdown.

@@ -1,57 +1,25 @@
 # Productivity App Text Extraction
 
-You are extracting text from a screenshot of productivity software (spreadsheets, slides, calendars, task managers, issue trackers, project management tools).
-
-Extract all visible content with appropriate structure as markdown.
+Extract text from this productivity screenshot (spreadsheets, slides, calendars, task managers, issue trackers, project management tools).
 
 ## Header
 
-Start with the application and context:
 `# [App Name - Document/View Title]`
 
-## Spreadsheet Content
+## Content Focus
 
-For spreadsheet views:
-- Use markdown tables for visible data
-- Note column/row headers
-- Include cell formulas if visible: `=SUM(A1:A10)`
-- Note selected cells or ranges
+Extract all visible data with appropriate structure:
 
-```markdown
-| Name | Status | Due Date |
-|------|--------|----------|
-| Task 1 | Done | 2024-01-15 |
-| Task 2 | In Progress | 2024-01-20 |
-```
+- **Tables/Spreadsheets**: Use markdown tables, include headers
+- **Calendars**: Include event times and titles (`**9:00 AM** - Team Standup`)
+- **Tasks/Issues**: Include title, status, assignee, and due date if visible
+- **Slides**: Use `##` for slide titles, bullets for content
 
-## Presentation Slides
-
-For slide content:
-- `##` for slide title
-- Bullet points for slide content
-- Note speaker notes if visible
-- Describe images/charts: `*[Chart: Sales by Quarter]*`
-
-## Calendar Views
-
-For calendar content:
-- Note the date range visible
-- List events with times: `**9:00 AM** - Team Standup`
-- Include event details if expanded
-
-## Task/Issue Trackers
-
-For project management views:
-- Task/issue titles and IDs
-- Status, assignee, priority
-- Due dates and labels
-- Preserve board/list structure
-
-## Quality Standards
+## Quality
 
 - Preserve data relationships and hierarchy
 - Include key metadata (dates, statuses, assignees)
 - Mark unclear text with `[unclear]`
-- Mark cut-off content with `...`
+- Mark cut-off text with `...`
 
-Return ONLY the formatted markdown. Do NOT wrap in code fences or JSON.
+Return ONLY the formatted markdown.
