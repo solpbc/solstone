@@ -4,7 +4,6 @@ from pathlib import Path
 
 from observe.screen import (
     CATEGORIES,
-    _discover_categories,
     _load_category_formatter,
     format_screen,
     format_screen_text,
@@ -410,20 +409,19 @@ def test_format_screen_handles_multiple_categories():
     assert "| Task | Status |" in markdown
 
 
-def test_categories_list():
-    """Test that CATEGORIES includes expected values."""
-    assert "meeting" in CATEGORIES
-    assert "messaging" in CATEGORIES
-    assert "browsing" in CATEGORIES
-    assert "reading" in CATEGORIES
-    assert "productivity" in CATEGORIES
-
-
-def test_discover_categories_finds_json_files():
-    """Test that _discover_categories finds categories from .json files."""
-    categories = _discover_categories()
-    # Should find categories defined by .json files in describe/
-    assert len(categories) > 0
-    assert "meeting" in categories
-    # Should be sorted
-    assert categories == sorted(categories)
+def test_categories_includes_all_expected():
+    """Test that CATEGORIES includes all expected values."""
+    expected = [
+        "terminal",
+        "code",
+        "messaging",
+        "meeting",
+        "browsing",
+        "reading",
+        "media",
+        "gaming",
+        "productivity",
+    ]
+    for cat in expected:
+        assert cat in CATEGORIES, f"Expected category {cat} not found"
+    assert len(CATEGORIES) == 9

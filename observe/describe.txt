@@ -15,12 +15,4 @@ Rules:
 - Only set a category for secondary if it is very visible and occupies more than 30% of the screen.
 
 Categories (choose one):
-- terminal: Command line interfaces, logs, shell
-- code: Code editors and IDEs
-- messaging: Chat or email apps (Slack, Discord, Messages/iMessage, Gmail, etc.)
-- meeting: Video calls/conferencing (Zoom, Meet, Teams, Webex, etc.)
-- browsing: General web browsing, social feeds, shopping
-- reading: Documents, articles, PDFs, documentation
-- media: Video players/streams, YouTube, image/video-heavy feeds
-- gaming: Video games, puzzles, idle games
-- productivity: Spreadsheets, slides, document editors, calendars, task and issue tracking tools, other workplace desktop or web apps and professional tools
+${CATEGORIES}

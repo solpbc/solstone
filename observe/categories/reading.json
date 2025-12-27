@@ -1,3 +1,5 @@
 {
+  "description": "Documents, articles, PDFs, documentation",
+  "followup": true,
   "output": "markdown"
 }

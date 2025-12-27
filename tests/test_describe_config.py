@@ -1,109 +1,132 @@
-"""Tests for observe/describe.py category prompt discovery."""
+"""Tests for observe/describe.py category discovery and configuration."""
 
-from pathlib import Path
-from unittest.mock import patch
-
-import pytest
-
-# Import the processor module
 from observe import describe as describe_module
 
 
-def test_category_prompts_discovered():
-    """Test that category prompts are discovered on import."""
-    CATEGORY_PROMPTS = describe_module.CATEGORY_PROMPTS
+def test_categories_discovered():
+    """Test that categories are discovered on import."""
+    CATEGORIES = describe_module.CATEGORIES
 
-    # Should have discovered some category prompts
-    assert len(CATEGORY_PROMPTS) > 0
-    # Meeting should be one of them
-    assert "meeting" in CATEGORY_PROMPTS
+    # Should have discovered all 9 categories
+    assert len(CATEGORIES) == 9
 
-
-def test_category_prompts_have_required_fields():
-    """Test that discovered categories have required metadata."""
-    CATEGORY_PROMPTS = describe_module.CATEGORY_PROMPTS
-
-    for category, metadata in CATEGORY_PROMPTS.items():
-        # Each category should have 'output' and 'prompt' fields
-        assert "output" in metadata, f"Category {category} missing 'output' field"
-        assert "prompt" in metadata, f"Category {category} missing 'prompt' field"
-        # Output should be 'json' or 'markdown'
-        assert metadata["output"] in (
-            "json",
-            "markdown",
-        ), f"Category {category} has invalid output: {metadata['output']}"
-        # Prompt should be non-empty string
-        assert isinstance(metadata["prompt"], str)
-        assert len(metadata["prompt"]) > 0
+    # All expected categories should be present
+    expected = [
+        "terminal",
+        "code",
+        "messaging",
+        "meeting",
+        "browsing",
+        "reading",
+        "media",
+        "gaming",
+        "productivity",
+    ]
+    for cat in expected:
+        assert cat in CATEGORIES, f"Expected category {cat} not found"
 
 
-def test_meeting_category_is_json():
-    """Test that meeting category outputs JSON."""
-    CATEGORY_PROMPTS = describe_module.CATEGORY_PROMPTS
+def test_categories_have_required_fields():
+    """Test that all categories have required metadata."""
+    CATEGORIES = describe_module.CATEGORIES
 
-    assert "meeting" in CATEGORY_PROMPTS
-    assert CATEGORY_PROMPTS["meeting"]["output"] == "json"
+    for category, metadata in CATEGORIES.items():
+        # Every category must have description
+        assert "description" in metadata, f"Category {category} missing 'description'"
+        assert isinstance(metadata["description"], str)
+        assert len(metadata["description"]) > 0
+
+        # Every category should have followup field (defaulted if not set)
+        assert "followup" in metadata, f"Category {category} missing 'followup'"
+        assert isinstance(metadata["followup"], bool)
+
+        # Every category should have output field (defaulted if not set)
+        assert "output" in metadata, f"Category {category} missing 'output'"
+        assert metadata["output"] in ("json", "markdown")
+
+        # Every category should have model field (mapped from iq)
+        assert "model" in metadata, f"Category {category} missing 'model'"
 
 
-def test_text_categories_are_markdown():
-    """Test that text-based categories output markdown."""
-    CATEGORY_PROMPTS = describe_module.CATEGORY_PROMPTS
+def test_followup_categories_have_prompts():
+    """Test that categories with followup=true have prompt loaded."""
+    CATEGORIES = describe_module.CATEGORIES
+
+    for category, metadata in CATEGORIES.items():
+        if metadata["followup"]:
+            assert (
+                "prompt" in metadata
+            ), f"Category {category} has followup=true but no prompt"
+            assert isinstance(metadata["prompt"], str)
+            assert len(metadata["prompt"]) > 0
+
+
+def test_non_followup_categories():
+    """Test that non-followup categories don't have prompts."""
+    CATEGORIES = describe_module.CATEGORIES
+
+    non_followup = ["terminal", "code", "media", "gaming"]
+    for category in non_followup:
+        assert category in CATEGORIES
+        assert CATEGORIES[category]["followup"] is False
+        assert "prompt" not in CATEGORIES[category]
+
+
+def test_meeting_category_config():
+    """Test that meeting category has correct configuration."""
+    CATEGORIES = describe_module.CATEGORIES
+
+    assert "meeting" in CATEGORIES
+    meeting = CATEGORIES["meeting"]
+    assert meeting["followup"] is True
+    assert meeting["output"] == "json"
+    assert meeting["iq"] == "flash"  # Meeting needs flash for complex JSON output
+
+
+def test_text_categories_config():
+    """Test that text-based categories have correct configuration."""
+    CATEGORIES = describe_module.CATEGORIES
 
     text_categories = ["messaging", "browsing", "reading", "productivity"]
     for category in text_categories:
-        if category in CATEGORY_PROMPTS:
-            assert (
-                CATEGORY_PROMPTS[category]["output"] == "markdown"
-            ), f"Category {category} should output markdown"
+        assert category in CATEGORIES
+        cat_meta = CATEGORIES[category]
+        assert cat_meta["followup"] is True
+        assert cat_meta["output"] == "markdown"
+
+    # Messaging uses flash for better text extraction
+    assert CATEGORIES["messaging"]["iq"] == "flash"
+    # Others default to lite
+    for category in ["browsing", "reading", "productivity"]:
+        assert CATEGORIES[category].get("iq", "lite") == "lite"
 
 
-def test_discover_category_prompts_with_missing_dir(tmp_path):
-    """Test that discovery handles missing directory gracefully."""
-    _discover_category_prompts = describe_module._discover_category_prompts
+def test_categorization_prompt_built():
+    """Test that categorization prompt is built correctly."""
+    prompt = describe_module.CATEGORIZATION_PROMPT
 
-    with patch.object(describe_module, "Path") as mock_path:
-        # Mock to point to non-existent directory
-        mock_describe_dir = tmp_path / "nonexistent"
-        mock_path.return_value.parent.__truediv__.return_value = mock_describe_dir
+    # Should contain all category descriptions
+    for category, metadata in describe_module.CATEGORIES.items():
+        assert f"- {category}:" in prompt
+        assert metadata["description"] in prompt
 
-        result = _discover_category_prompts()
-        assert result == {}
-
-
-def test_discover_category_prompts_with_valid_dir(tmp_path):
-    """Test that discovery works with valid category files."""
-    _discover_category_prompts = describe_module._discover_category_prompts
-
-    # Create test category directory
-    categories_dir = tmp_path / "categories"
-    categories_dir.mkdir()
-
-    # Create test category files
-    (categories_dir / "test.json").write_text('{"output": "markdown"}')
-    (categories_dir / "test.txt").write_text("Test prompt content")
-
-    with patch.object(describe_module, "Path") as mock_path:
-        mock_path.return_value.parent.__truediv__.return_value = categories_dir
-
-        result = _discover_category_prompts()
-        assert "test" in result
-        assert result["test"]["output"] == "markdown"
-        assert result["test"]["prompt"] == "Test prompt content"
+    # Should have the template structure
+    assert "primary" in prompt
+    assert "secondary" in prompt
+    assert "overlap" in prompt
+    assert "Categories (choose one):" in prompt
 
 
-def test_discover_category_prompts_skips_incomplete(tmp_path):
-    """Test that discovery skips categories without matching txt file."""
-    _discover_category_prompts = describe_module._discover_category_prompts
+def test_categorization_prompt_alphabetical():
+    """Test that categories in prompt are alphabetically ordered."""
+    prompt = describe_module.CATEGORIZATION_PROMPT
 
-    # Create test category directory
-    categories_dir = tmp_path / "categories"
-    categories_dir.mkdir()
+    # Extract category lines from prompt
+    lines = prompt.split("\n")
+    category_lines = [l for l in lines if l.startswith("- ") and ":" in l]
 
-    # Create JSON without matching txt
-    (categories_dir / "incomplete.json").write_text('{"output": "json"}')
+    # Extract category names
+    categories = [l.split(":")[0].replace("- ", "") for l in category_lines]
 
-    with patch.object(describe_module, "Path") as mock_path:
-        mock_path.return_value.parent.__truediv__.return_value = categories_dir
-
-        result = _discover_category_prompts()
-        assert "incomplete" not in result
+    # Should be sorted
+    assert categories == sorted(categories)

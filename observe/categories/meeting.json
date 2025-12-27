@@ -1,3 +1,6 @@
 {
-  "output": "json"
+  "description": "Video calls/conferencing (Zoom, Meet, Teams, Webex, etc.)",
+  "followup": true,
+  "output": "json",
+  "iq": "flash"
 }

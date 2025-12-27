@@ -57,45 +57,116 @@ def _segment_and_suffix(media_path: Path) -> tuple[str, str]:
     return segment, suffix
 
 
-def _discover_category_prompts() -> dict[str, dict]:
+def _discover_categories() -> dict[str, dict]:
     """
-    Discover available category prompts from categories/ directory.
+    Discover all categories from categories/ directory.
 
-    Each category has a .txt prompt and .json metadata file.
+    Each category has a .json metadata file with:
+    - description (required): Single-line description for categorization prompt
+    - followup (optional, default: false): Whether to run follow-up analysis
+    - output (optional, default: "markdown"): Response format if followup=true
+    - iq (optional, default: "lite"): Model tier for follow-up ("lite", "flash", "pro")
+
+    If followup=true, a matching .txt file contains the follow-up prompt.
 
     Returns
     -------
     dict[str, dict]
-        Mapping of category name to metadata (including 'prompt' text)
+        Mapping of category name to metadata (including 'prompt' if followup=true)
     """
-    describe_dir = Path(__file__).parent / "categories"
-    if not describe_dir.exists():
-        logger.warning(f"Category prompts directory not found: {describe_dir}")
+    from think.models import GEMINI_FLASH, GEMINI_LITE, GEMINI_PRO
+
+    # Map iq values to model constants
+    iq_to_model = {
+        "lite": GEMINI_LITE,
+        "flash": GEMINI_FLASH,
+        "pro": GEMINI_PRO,
+    }
+
+    categories_dir = Path(__file__).parent / "categories"
+    if not categories_dir.exists():
+        logger.warning(f"Categories directory not found: {categories_dir}")
         return {}
 
     categories = {}
-    for json_path in describe_dir.glob("*.json"):
+    for json_path in categories_dir.glob("*.json"):
         category = json_path.stem
-        txt_path = describe_dir / f"{category}.txt"
-
-        if not txt_path.exists():
-            logger.warning(f"Missing prompt file for category {category}: {txt_path}")
-            continue
 
         try:
             with open(json_path) as f:
                 metadata = json.load(f)
-            metadata["prompt"] = txt_path.read_text()
+
+            # Validate required field
+            if "description" not in metadata:
+                logger.warning(f"Category {category} missing 'description' field")
+                continue
+
+            # Apply defaults
+            metadata.setdefault("followup", False)
+            metadata.setdefault("output", "markdown")
+            metadata.setdefault("iq", "lite")
+
+            # Map iq to model constant
+            iq = metadata["iq"]
+            if iq not in iq_to_model:
+                logger.warning(
+                    f"Category {category} has invalid iq '{iq}', using 'lite'"
+                )
+                iq = "lite"
+            metadata["model"] = iq_to_model[iq]
+
+            # Load prompt if followup is enabled
+            if metadata["followup"]:
+                txt_path = categories_dir / f"{category}.txt"
+                if not txt_path.exists():
+                    logger.warning(
+                        f"Category {category} has followup=true but no {category}.txt"
+                    )
+                    continue
+                metadata["prompt"] = txt_path.read_text()
+
             categories[category] = metadata
-            logger.debug(f"Loaded category prompt: {category}")
+            logger.debug(
+                f"Loaded category: {category} (followup={metadata['followup']})"
+            )
+
         except Exception as e:
             logger.warning(f"Failed to load category {category}: {e}")
 
     return categories
 
 
-# Discover category prompts at module level
-CATEGORY_PROMPTS = _discover_category_prompts()
+def _build_categorization_prompt() -> str:
+    """
+    Build the categorization prompt from template and discovered categories.
+
+    Returns
+    -------
+    str
+        Complete prompt with category list substituted
+    """
+    template_path = Path(__file__).parent / "describe.txt"
+    if not template_path.exists():
+        raise FileNotFoundError(f"Prompt template not found: {template_path}")
+
+    template = template_path.read_text()
+
+    # Build category list (alphabetical order)
+    category_lines = []
+    for name in sorted(CATEGORIES.keys()):
+        description = CATEGORIES[name]["description"]
+        category_lines.append(f"- {name}: {description}")
+
+    category_list = "\n".join(category_lines)
+
+    return template.replace("${CATEGORIES}", category_list)
+
+
+# Discover categories at module level
+CATEGORIES = _discover_categories()
+
+# Build categorization prompt from template
+CATEGORIZATION_PROMPT = _build_categorization_prompt()
 
 
 class VideoProcessor:
@@ -254,9 +325,9 @@ class VideoProcessor:
         img.save(buf, format="PNG", compress_level=1)
         return buf.getvalue()
 
-    def _get_category_prompt(self, category: str) -> Optional[dict]:
+    def _get_category_metadata(self, category: str) -> Optional[dict]:
         """
-        Get category prompt metadata if available.
+        Get category metadata if follow-up is enabled.
 
         Parameters
         ----------
@@ -266,9 +337,12 @@ class VideoProcessor:
         Returns
         -------
         Optional[dict]
-            Category metadata with 'prompt' and 'output' keys, or None if no follow-up
+            Category metadata with 'prompt', 'output', 'model' keys, or None if no follow-up
         """
-        return CATEGORY_PROMPTS.get(category)
+        cat_meta = CATEGORIES.get(category)
+        if cat_meta and cat_meta.get("followup"):
+            return cat_meta
+        return None
 
     def _user_contents(self, prompt: str, image, entities: bool = False) -> list:
         """Build contents list with optional entity context."""
@@ -299,7 +373,6 @@ class VideoProcessor:
 
     async def process_with_vision(
         self,
-        use_prompt: str = "describe.txt",
         max_concurrent: int = 10,
         output_path: Optional[Path] = None,
     ) -> None:
@@ -308,22 +381,16 @@ class VideoProcessor:
 
         Parameters
         ----------
-        use_prompt : str
-            Prompt template filename to use (default: describe.txt)
         max_concurrent : int
             Maximum number of concurrent API requests (default: 10)
         output_path : Optional[Path]
             Path to write JSONL output (when None, no output file is written)
         """
         from think.batch import GeminiBatch
-        from think.models import GEMINI_FLASH, GEMINI_LITE
+        from think.models import GEMINI_LITE
 
-        # Load primary categorization prompt
-        prompt_path = Path(__file__).parent / use_prompt
-        if not prompt_path.exists():
-            raise FileNotFoundError(f"Prompt template not found: {prompt_path}")
-
-        system_instruction = prompt_path.read_text()
+        # Use dynamically built categorization prompt
+        system_instruction = CATEGORIZATION_PROMPT
 
         # Process video to get qualified frames (synchronous)
         qualified_frames = self.process()
@@ -411,7 +478,7 @@ class VideoProcessor:
                 elif req.request_type == RequestType.CATEGORY:
                     # Handle category-specific follow-up result
                     category = req.follow_up_category
-                    cat_meta = self._get_category_prompt(category)
+                    cat_meta = self._get_category_metadata(category)
                     if cat_meta and cat_meta.get("output") == "json":
                         try:
                             result = json.loads(req.response)
@@ -462,16 +529,16 @@ class VideoProcessor:
                 secondary = req.json_analysis.get("secondary", "none")
                 overlap = req.json_analysis.get("overlap", True)
 
-                # Determine which categories have follow-up prompts
-                primary_meta = self._get_category_prompt(primary)
+                # Determine which categories have follow-up enabled
+                primary_meta = self._get_category_metadata(primary)
                 secondary_meta = (
-                    self._get_category_prompt(secondary)
+                    self._get_category_metadata(secondary)
                     if secondary != "none"
                     else None
                 )
 
-                # Build follow-up list: each category with a prompt gets a follow-up
-                # Primary always triggers if it has a prompt
+                # Build follow-up list: each category with followup=true gets analyzed
+                # Primary always triggers if followup is enabled
                 # Secondary triggers only if overlap=false
                 follow_ups = []
 
@@ -518,7 +585,7 @@ class VideoProcessor:
                                 full_img,
                                 entities=True,
                             ),
-                            model=GEMINI_FLASH,
+                            model=cat_meta["model"],
                             system_instruction=cat_meta["prompt"],
                             json_output=is_json,
                             max_output_tokens=10240 if is_json else 8192,
@@ -680,12 +747,6 @@ async def async_main():
         help="Path to video file to process",
     )
     parser.add_argument(
-        "--prompt",
-        type=str,
-        default="describe.txt",
-        help="Prompt template to use (default: describe.txt)",
-    )
-    parser.add_argument(
         "-j",
         "--jobs",
         type=int,
@@ -734,7 +795,6 @@ async def async_main():
         else:
             # New behavior: process with vision analysis
             await processor.process_with_vision(
-                use_prompt=args.prompt,
                 max_concurrent=args.jobs,
                 output_path=output_path,
             )

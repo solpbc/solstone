@@ -1,3 +1,5 @@
 {
+  "description": "General web browsing, social feeds, shopping",
+  "followup": true,
   "output": "markdown"
 }

@@ -15,30 +15,16 @@ from importlib import import_module
 from pathlib import Path
 from typing import Any, Callable
 
+from observe.describe import CATEGORIES
 from observe.utils import load_analysis_frames, parse_screen_filename
 
 logger = logging.getLogger(__name__)
 
+# Re-export CATEGORIES for consumers that import from screen
+__all__ = ["CATEGORIES", "format_screen", "format_screen_text"]
+
 # Cache for discovered category formatters
 _formatter_cache: dict[str, Callable | None] = {}
-
-
-def _discover_categories() -> list[str]:
-    """Discover available categories from observe/categories/ directory.
-
-    Categories are defined by .json metadata files in the describe/ package.
-
-    Returns:
-        List of category names (e.g., ["meeting", "messaging", ...])
-    """
-    describe_dir = Path(__file__).parent / "categories"
-    if not describe_dir.exists():
-        return []
-    return sorted(p.stem for p in describe_dir.glob("*.json"))
-
-
-# Discover categories at module load time
-CATEGORIES = _discover_categories()
 
 
 def _load_category_formatter(category: str) -> Callable | None:

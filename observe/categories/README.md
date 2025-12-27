@@ -1,28 +1,36 @@
 # Screen Description Categories
 
-This directory contains category prompts and formatters for vision analysis of screencast frames.
+This directory contains category definitions for vision analysis of screencast frames.
 
 ## Adding a New Category
 
-Each category requires 2-3 files:
+Each category requires a `.json` file with metadata, and optionally a `.txt` prompt file for follow-up analysis.
 
 ### 1. `<category>.json` (required)
 
-Metadata specifying the output format:
+Defines the category and its behavior:
 
 ```json
 {
-  "output": "markdown"
+  "description": "One-line description for categorization prompt",
+  "followup": true,
+  "output": "markdown",
+  "iq": "lite"
 }
 ```
 
-Set `"output": "json"` if the prompt produces structured JSON.
+| Field | Required | Default | Description |
+|-------|----------|---------|-------------|
+| `description` | Yes | - | Single-line description used in the categorization prompt |
+| `followup` | No | `false` | Whether to run follow-up analysis for this category |
+| `output` | No | `"markdown"` | Response format: `"json"` or `"markdown"` |
+| `iq` | No | `"lite"` | Model tier: `"lite"`, `"flash"`, or `"pro"` |
 
-### 2. `<category>.txt` (required)
+### 2. `<category>.txt` (required if `followup: true`)
 
-The vision prompt template sent to the model. Should instruct the model to:
+The vision prompt template sent to the model for detailed analysis. Should instruct the model to:
 - Analyze the screenshot for this specific category
-- Return content in the format specified by `.json` (markdown or JSON)
+- Return content in the format specified by `output` (markdown or JSON)
 
 ### 3. `<category>.py` (optional)
 
@@ -50,20 +58,10 @@ def format(content: Any, context: dict) -> str:
     return "**Header:**\n\nFormatted content..."
 ```
 
-## Current Categories
-
-| Category | Output | Formatter | Description |
-|----------|--------|-----------|-------------|
-| meeting | json | ✓ | Video conferencing with participants |
-| messaging | markdown | - | Chat and email apps |
-| browsing | markdown | - | Web browsing content |
-| reading | markdown | - | Documents and PDFs |
-| productivity | markdown | - | Spreadsheets, calendars, etc. |
-
 ## How It Works
 
-1. `observe/describe.py` runs initial categorization to identify primary/secondary categories
-2. For categories with prompts here, a follow-up request extracts detailed content
-3. Results are stored in JSONL under the category name (e.g., `"meeting": {...}`)
-4. `observe/screen.py` formats JSONL to markdown, using custom formatters when available
-5. The formatter also supports legacy keys (`meeting_analysis`, `extracted_text`) for older data
+1. `observe/describe.py` discovers all `.json` files and builds the categorization prompt dynamically
+2. Initial categorization identifies primary/secondary categories from the screenshot
+3. For categories with `followup: true`, a follow-up request extracts detailed content using the `.txt` prompt
+4. Results are stored in JSONL under the category name (e.g., `"meeting": {...}`)
+5. `observe/screen.py` formats JSONL to markdown, using custom formatters when available
