@@ -144,14 +144,13 @@ See the [Makefile](Makefile) for all available commands or run `make help`.
 
 ## 📚 Documentation
 
-- [JOURNAL.md](JOURNAL.md) - Journal directory structure and data organization
 - [AGENTS.md](AGENTS.md) - Development guidelines and coding standards
-- [CORTEX.md](CORTEX.md) - Agent system documentation
-
-### Package Documentation
-- [observe/README.md](observe/README.md) - Multimodal capture and analysis details
-- [think/README.md](think/README.md) - Data processing and AI analysis details
-- [convey/README.md](convey/README.md) - Web interface usage and features
+- [docs/](docs/) - All other documentation:
+  - [JOURNAL.md](docs/JOURNAL.md) - Journal directory structure and data organization
+  - [CORTEX.md](docs/CORTEX.md) - Agent system documentation
+  - [OBSERVE.md](docs/OBSERVE.md) - Multimodal capture and analysis
+  - [THINK.md](docs/THINK.md) - Data processing and AI analysis
+  - [CONVEY.md](docs/CONVEY.md) - Web interface and app development
 
 ## 🤝 Contributing
 

@@ -19,17 +19,17 @@ The project uses a modular architecture where each package can operate independe
 
 Understanding these core concepts is essential for working with Sunstone:
 
-* **Journal**: Central data structure organized as `JOURNAL_PATH/YYYYMMDD/` directories. All captured data, transcripts, and analysis artifacts are stored here. See **JOURNAL.md** for detailed structure.
+* **Journal**: Central data structure organized as `JOURNAL_PATH/YYYYMMDD/` directories. All captured data, transcripts, and analysis artifacts are stored here. See [docs/JOURNAL.md](docs/JOURNAL.md).
 
 * **Facets**: Project/context organization system (e.g., "work", "personal", "acme"). Facets group related content and provide scoped views of entities, tasks, and activities.
 
 * **Entities**: Extracted information (people, projects, concepts) tracked over time across transcripts and interactions. Entities are associated with facets and enable semantic navigation.
 
-* **Agents**: AI processors with configurable personas that analyze content, extract insights, and respond to queries. Managed by Cortex. See **CORTEX.md** for agent system architecture.
+* **Agents**: AI processors with configurable personas that analyze content, extract insights, and respond to queries. See [docs/CORTEX.md](docs/CORTEX.md).
 
-* **Callosum**: Message bus that enables asynchronous communication between components (observe, think, convey, cortex). Uses file-based persistence. See **CALLOSUM.md** for protocol details.
+* **Callosum**: Message bus that enables asynchronous communication between components. See [docs/CALLOSUM.md](docs/CALLOSUM.md).
 
-* **Indexer**: Builds and maintains SQLite database from journal data, enabling fast search and retrieval. Indexes transcripts, summaries, entities, and events.
+* **Indexer**: Builds and maintains SQLite database from journal data, enabling fast search and retrieval.
 
 ---
 
@@ -39,30 +39,18 @@ Understanding these core concepts is essential for working with Sunstone:
 sunstone/
 ├── observe/        # Multimodal capture & AI analysis
 ├── think/          # Data post-processing & AI analysis
-│   ├── indexer/    # Database indexing subsystem
-│   └── insights/   # Insight generation templates
 ├── convey/         # Web app frontend & backend
-│   ├── static/     # JavaScript and CSS assets
-│   ├── templates/  # Jinja2 HTML templates
-│   └── root.py     # Core Flask routes (app-specific views live in apps/, see APPS.md)
-├── apps/           # Convey app extensions
+├── apps/           # Convey app extensions (see docs/APPS.md)
 ├── muse/           # AI agent system and MCP tooling
-│   └── agents/     # Agent system prompts and configs
-├── tests/          # Comprehensive pytest test suites
-│   └── integration/# Integration test suite
-├── fixtures/       # Test data and examples
-│   └── journal/    # Mock journal structure for testing
-├── Makefile        # Build and development automation
-├── pyproject.toml  # Package configuration and dependencies
-├── JOURNAL.md      # Journal directory structure documentation
-├── README.md       # Project overview and quick start
-├── APPS.md         # App development guide
-├── CORTEX.md       # Agent system documentation
-├── CALLOSUM.md     # Callosum connection system documentation
-└── AGENTS.md       # Development guidelines (this file)
+├── tests/          # Pytest test suites
+├── fixtures/       # Test data (mock journal)
+├── docs/           # All documentation (*.md files)
+├── AGENTS.md       # Development guidelines (this file)
+├── CLAUDE.md       # Symlink to AGENTS.md for Claude Code
+└── README.md       # Project overview
 ```
 
-> Note: `fixtures/` is a data directory backing tests/ and intentionally lacks `__init__.py`.
+Each package has a README.md symlink pointing to its documentation in `docs/`.
 
 ### Package Organization
 
@@ -194,8 +182,8 @@ make check-all   # Format, lint, and test (run before commit)
 * Update README files for new functionality
 * Code comments explain "why" not "what"
 * Function signatures should include type hints; highlight gaps when touching older modules
-* **See subsystem docs**: JOURNAL.md, APPS.md, CORTEX.md, CALLOSUM.md, DOCTOR.md
-* **App/UI work**: APPS.md is required reading before modifying anything under `apps/` (where HTML/JS lives)
+* **All docs in `docs/`**: JOURNAL.md, APPS.md, CORTEX.md, CALLOSUM.md, DOCTOR.md, etc.
+* **App/UI work**: [docs/APPS.md](docs/APPS.md) is required reading before modifying `apps/`
 
 ---
 
@@ -254,6 +242,6 @@ make clean-install # Clean and reinstall
 
 ### Getting Help
 * Run `sunstone` for CLI command list
-* Check **DOCTOR.md** for debugging and diagnostics
-* Check **JOURNAL.md**, **APPS.md**, **CORTEX.md**, **CALLOSUM.md** for subsystem details
+* Check [docs/DOCTOR.md](docs/DOCTOR.md) for debugging and diagnostics
+* Browse `docs/` for all subsystem documentation
 * Review test files in `tests/` for usage examples

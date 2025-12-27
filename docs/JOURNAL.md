@@ -454,7 +454,7 @@ Optional fields:
 
 This unified approach allows users to reply to any message via the chat continue feature, treating messages and agent outputs identically in the UI.
 
-See **APPS.md** for app storage utilities and access patterns.
+See [APPS.md](APPS.md) for app storage utilities and access patterns.
 
 ## Imported Audio
 

@@ -96,7 +96,7 @@ The workspace template is included inside the app container (`app.html`).
 
 **Vendor Libraries:**
 - Use `{{ vendor_lib('marked') }}` for markdown rendering
-- See `convey/static/vendor/VENDOR.md` for available libraries
+- See [VENDOR.md](VENDOR.md) for available libraries
 
 **Reference implementations:**
 - Minimal: `apps/home/workspace.html` (simple content)
@@ -244,7 +244,7 @@ Submenus appear as hover pop-outs on menu bar icons. Items support `id`, `label`
 - `listen(tract, callback)` - Listen to specific tract ('cortex', 'indexer', 'observe', etc.)
 - `listen('*', callback)` - Listen to all events
 - Messages have structure: `{tract: 'cortex', event: 'agent_complete', ...data}`
-- See **CALLOSUM.md** for event protocol details
+- See [CALLOSUM.md](CALLOSUM.md) for event protocol details
 
 **Reference implementations:**
 - `apps/todos/background.html` - App icon badge with API fetch
@@ -312,7 +312,7 @@ Define custom agent personas that integrate with Sunstone's Cortex agent system.
 - Keys are namespaced as `{app}:{agent}` (e.g., `my_app:helper`)
 - Agents inherit all system agent capabilities (tools, scheduling, handoffs, multi-facet)
 
-**Metadata format:** Same schema as system agents in `muse/agents/*.json` - includes `title`, `backend`, `model`, `tools`, `schedule`, `priority`, and `multi_facet` fields. See **CORTEX.md** for agent configuration details.
+**Metadata format:** Same schema as system agents in `muse/agents/*.json` - includes `title`, `backend`, `model`, `tools`, `schedule`, `priority`, and `multi_facet` fields. See [CORTEX.md](CORTEX.md) for agent configuration details.
 
 **Reference implementations:**
 - System agent examples: `muse/agents/*.txt` and `*.json`
@@ -408,7 +408,7 @@ Available functions from the `think` module:
 ### Entities
 `think/entities.py`: `get_entities(facet)` - Get entities for facet
 
-See **JOURNAL.md**, **CORTEX.md**, **CALLOSUM.md** for subsystem details.
+See [JOURNAL.md](JOURNAL.md), [CORTEX.md](CORTEX.md), [CALLOSUM.md](CALLOSUM.md) for subsystem details.
 
 ---
 
@@ -444,7 +444,7 @@ Apps can access and control facet selection through a uniform API:
 
 **Common tracts:** `cortex`, `indexer`, `observe`, `task`
 
-See **CALLOSUM.md** for complete event protocol.
+See [CALLOSUM.md](CALLOSUM.md) for complete event protocol.
 
 ---
 
@@ -593,9 +593,9 @@ Browse `apps/*/` directories for reference implementations. Apps range in comple
 - **`convey/templates/app.html`** - Main app container template
 - **`convey/static/app.js`** - AppServices framework
 - **`convey/static/websocket.js`** - WebSocket event system
-- **CLAUDE.md** - Project development guidelines and standards
-- **JOURNAL.md** - Journal directory structure and data organization
-- **CORTEX.md** - Agent system architecture and spawning agents
-- **CALLOSUM.md** - Message bus protocol and WebSocket events
+- [../AGENTS.md](../AGENTS.md) - Project development guidelines and standards
+- [JOURNAL.md](JOURNAL.md) - Journal directory structure and data organization
+- [CORTEX.md](CORTEX.md) - Agent system architecture and spawning agents
+- [CALLOSUM.md](CALLOSUM.md) - Message bus protocol and WebSocket events
 
 For Flask documentation, see [https://flask.palletsprojects.com/](https://flask.palletsprojects.com/)
