@@ -355,6 +355,21 @@ def main() -> None:
         markdown, file_count = cluster(args.day)
     day_dir = str(day_path(args.day))
 
+    # Prepend input context note for sparse/empty days
+    if file_count == 0:
+        input_note = (
+            "**Input Note:** No recordings for this day - likely a holiday, "
+            "weekend, or offline day. This is normal. Generate concise "
+            "acknowledgment rather than detailed analysis.\n\n"
+        )
+        markdown = input_note + markdown
+    elif file_count < 3:
+        input_note = (
+            "**Input Note:** Limited recordings for this day. "
+            "Scale analysis to available input.\n\n"
+        )
+        markdown = input_note + markdown
+
     try:
 
         load_dotenv()

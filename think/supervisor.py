@@ -18,7 +18,7 @@ from muse.cortex_client import cortex_request
 from think.callosum import CallosumConnection, CallosumServer
 from think.facets import get_active_facets, get_facets
 from think.runner import ManagedProcess as RunnerManagedProcess
-from think.utils import get_agents, setup_cli
+from think.utils import day_input_summary, get_agents, setup_cli
 
 DEFAULT_THRESHOLD = 60
 CHECK_INTERVAL = 30
@@ -422,6 +422,7 @@ async def check_scheduled_agents() -> None:
         # yesterday is the same for all agents in the group (YYYY-MM-DD format)
         yesterday = agents_list[0][2] if agents_list else ""
         yesterday_yyyymmdd = yesterday.replace("-", "")
+        input_summary = day_input_summary(yesterday_yyyymmdd)
         facets = get_facets()
         enabled_facets = {k: v for k, v in facets.items() if not v.get("muted", False)}
         active_facets = get_active_facets(yesterday_yyyymmdd)
@@ -454,7 +455,7 @@ async def check_scheduled_agents() -> None:
 
                         logging.info(f"Spawning {persona_id} for facet: {facet_name}")
                         agent_id = cortex_request(
-                            prompt=f"You are processing facet '{facet_name}' for yesterday ({yesterday}), use get_facet('{facet_name}') to load the correct context before starting.",
+                            prompt=f"Processing facet '{facet_name}' for yesterday ({yesterday}): {input_summary}. Use get_facet('{facet_name}') to load context.",
                             persona=persona_id,
                         )
                         active_files.append(agents_dir / f"{agent_id}_active.jsonl")
@@ -464,7 +465,7 @@ async def check_scheduled_agents() -> None:
                 else:
                     # Regular single-instance agent
                     agent_id = cortex_request(
-                        prompt=f"Running daily scheduled task for {persona_id}, yesterday was {yesterday}.",
+                        prompt=f"Running daily scheduled task. Yesterday ({yesterday}): {input_summary}.",
                         persona=persona_id,
                     )
                     active_files.append(agents_dir / f"{agent_id}_active.jsonl")

@@ -410,6 +410,58 @@ def journal_log(message: str) -> None:
         _append_task_log(journal, message)
 
 
+def day_input_summary(day: str) -> str:
+    """Return a human-readable summary of recording data available for a day.
+
+    Uses cluster_segments() to detect recording segments and computes
+    total duration from segment keys (HHMMSS_LEN format).
+
+    Parameters
+    ----------
+    day:
+        Day in YYYYMMDD format.
+
+    Returns
+    -------
+    str
+        Human-readable summary like "No recordings", "Light activity: 2 segments,
+        ~3 minutes", or "18 segments, ~7.5 hours".
+    """
+    from think.cluster import cluster_segments
+
+    segments = cluster_segments(day)
+
+    if not segments:
+        return "No recordings"
+
+    # Compute total duration from segment keys (HHMMSS_LEN format)
+    total_seconds = 0
+    for seg in segments:
+        key = seg.get("key", "")
+        if "_" in key:
+            parts = key.split("_")
+            if len(parts) >= 2 and parts[1].isdigit():
+                total_seconds += int(parts[1])
+
+    # Format duration
+    if total_seconds < 60:
+        duration_str = f"~{total_seconds} seconds"
+    elif total_seconds < 3600:
+        minutes = total_seconds / 60
+        duration_str = f"~{minutes:.0f} minutes"
+    else:
+        hours = total_seconds / 3600
+        duration_str = f"~{hours:.1f} hours"
+
+    segment_count = len(segments)
+
+    # Categorize activity level
+    if segment_count < 5 or total_seconds < 1800:  # < 5 segments or < 30 min
+        return f"Light activity: {segment_count} segment{'s' if segment_count != 1 else ''}, {duration_str}"
+    else:
+        return f"{segment_count} segments, {duration_str}"
+
+
 def touch_health(name: str) -> None:
     """Update the journal's ``name`` heartbeat file.
 

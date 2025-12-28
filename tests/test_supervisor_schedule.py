@@ -9,10 +9,13 @@ import pytest
 from think.supervisor import spawn_scheduled_agents
 
 
+@patch("think.supervisor.day_input_summary")
 @patch("think.supervisor.cortex_request")
 @patch("think.supervisor.get_agents")
 @pytest.mark.asyncio
-async def test_spawn_scheduled_agents(mock_get_agents, mock_cortex_request):
+async def test_spawn_scheduled_agents(
+    mock_get_agents, mock_cortex_request, mock_input_summary
+):
     """Test that scheduled agents are spawned correctly via Cortex."""
     from think.supervisor import check_scheduled_agents
 
@@ -37,6 +40,9 @@ async def test_spawn_scheduled_agents(mock_get_agents, mock_cortex_request):
     # Mock cortex_request to return agent IDs
     mock_cortex_request.side_effect = ["123456789", "987654321"]
 
+    # Mock input summary
+    mock_input_summary.return_value = "No recordings"
+
     # Call the functions (prepare then execute)
     with patch.dict(os.environ, {"JOURNAL_PATH": "/test/journal"}, clear=True):
         spawn_scheduled_agents()
@@ -45,15 +51,17 @@ async def test_spawn_scheduled_agents(mock_get_agents, mock_cortex_request):
     # Should spawn 2 agents (todo and another_daily)
     assert mock_cortex_request.call_count == 2
 
-    # Check first request call (todos:todo) - now simplified
+    # Check first request call (todos:todo) - includes input summary
     first_call = mock_cortex_request.call_args_list[0]
     assert first_call[1]["persona"] == "todos:todo"
-    assert "Running daily scheduled task for todos:todo" in first_call[1]["prompt"]
+    assert "Running daily scheduled task" in first_call[1]["prompt"]
+    assert "No recordings" in first_call[1]["prompt"]
 
-    # Check second request call (another_daily) - now simplified
+    # Check second request call (another_daily) - includes input summary
     second_call = mock_cortex_request.call_args_list[1]
     assert second_call[1]["persona"] == "another_daily"
-    assert "Running daily scheduled task for another_daily" in second_call[1]["prompt"]
+    assert "Running daily scheduled task" in second_call[1]["prompt"]
+    assert "No recordings" in second_call[1]["prompt"]
 
 
 @patch("think.supervisor.check_scheduled_agents")
