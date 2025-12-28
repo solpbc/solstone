@@ -250,13 +250,15 @@ class Transcriber:
 
         try:
             # Run diarization
-            diarization_turns, embeddings, timings, overlaps = diarize(audio_path)
+            diarization_turns, speaker_embeddings, timings, overlaps = diarize(
+                audio_path
+            )
 
             if not diarization_turns:
                 logging.info(f"No speech detected in {raw_path}")
                 return {
                     "turns": [],
-                    "embeddings": np.array([]),
+                    "speaker_embeddings": {},
                     "speakers": [],
                     "diarization": {
                         "turns": [],
@@ -335,7 +337,7 @@ class Transcriber:
 
             return {
                 "turns": processed,
-                "embeddings": embeddings,
+                "speaker_embeddings": speaker_embeddings,
                 "speakers": speakers,
                 "diarization": {
                     "turns": diarization_turns,
@@ -499,7 +501,7 @@ class Transcriber:
             raise SystemExit(1)
 
         turns = result["turns"]
-        embeddings = result["embeddings"]
+        speaker_embeddings = result["speaker_embeddings"]
         speakers = result["speakers"]
         diarization_data = result["diarization"]
 
@@ -519,11 +521,9 @@ class Transcriber:
                 final_path = self._move_to_segment(raw_path)
 
             # Save speaker embeddings
-            if embeddings.size > 0:
+            if speaker_embeddings:
                 embeddings_dir = self._get_embeddings_dir(raw_path)
-                # Need to reconstruct turn list with speaker info for embedding save
-                turn_info = [{"speaker": t["speaker"]} for t in turns]
-                save_speaker_embeddings(embeddings_dir, turn_info, embeddings)
+                save_speaker_embeddings(embeddings_dir, speaker_embeddings)
 
             # Emit completion event
             journal_path = Path(os.getenv("JOURNAL_PATH", ""))

@@ -1,8 +1,8 @@
 """Speaker diarization using pyannote pipeline with embedding extraction.
 
 This module provides speaker diarization (who spoke when) using the pyannote
-community pipeline, along with per-turn speaker embeddings for future
-speaker identification.
+speaker-diarization-3.1 pipeline, along with per-turn speaker embeddings for
+future speaker identification.
 
 Requires HUGGINGFACE_API_KEY environment variable for HuggingFace authentication.
 """
@@ -18,7 +18,6 @@ import numpy as np
 import soundfile as sf
 
 PIPELINE_ID = "pyannote/speaker-diarization-3.1"
-EMB_MODEL_ID = "pyannote/wespeaker-voxceleb-resnet34-LM"
 
 # Built-in parameters
 SEGMENTATION_STEP = 0.2  # 0.1 = 90% overlap (default), 0.2 = 80% overlap (2x faster)
@@ -49,25 +48,28 @@ def get_hf_token() -> str:
 
 def diarize(
     audio_path: Path,
-) -> tuple[list[dict], np.ndarray, dict, list[dict]]:
-    """Run speaker diarization and extract per-turn embeddings.
+) -> tuple[list[dict], dict[str, np.ndarray], dict, list[dict]]:
+    """Run speaker diarization and extract per-speaker embeddings.
+
+    Uses exclusive diarization (no overlapping speech in turns) for cleaner
+    transcription segments. Overlapping speech regions are reported separately.
 
     Args:
         audio_path: Path to audio file (FLAC, WAV, etc.)
 
     Returns:
-        Tuple of (turns, embeddings, timings, overlaps) where:
+        Tuple of (turns, speaker_embeddings, timings, overlaps) where:
         - turns: List of dicts with "start", "end", "speaker" keys
           Speaker labels are human-readable: "Speaker 1", "Speaker 2", etc.
-        - embeddings: numpy array of shape (num_turns, 256)
+          Uses exclusive diarization (no overlapping segments).
+        - speaker_embeddings: Dict mapping speaker labels to embedding arrays
         - timings: Dict with timing information for each stage
         - overlaps: List of dicts with "start", "end" keys for overlapping speech
 
     Raises:
         DiarizationError: If diarization fails (missing token, access denied, etc.)
     """
-    from pyannote.audio import Inference, Model, Pipeline
-    from pyannote.core import Segment
+    from pyannote.audio import Inference, Pipeline
 
     hf_token = get_hf_token()
     timings: dict[str, float] = {}
@@ -75,14 +77,13 @@ def diarize(
 
     # Get audio info
     info = sf.info(input_path)
-    audio_duration = info.duration
-    logging.info(f"Diarizing: {audio_path.name} ({audio_duration:.1f}s)")
+    logging.info(f"Diarizing: {audio_path.name} ({info.duration:.1f}s)")
 
     # Load pipeline
     logging.info("Loading diarization pipeline...")
     t0 = time.perf_counter()
     try:
-        pipeline = Pipeline.from_pretrained(PIPELINE_ID, use_auth_token=hf_token)
+        pipeline = Pipeline.from_pretrained(PIPELINE_ID, token=hf_token)
     except Exception as e:
         if "403" in str(e) or "gated" in str(e).lower():
             raise DiarizationError(
@@ -130,11 +131,14 @@ def diarize(
     timings["diarization"] = time.perf_counter() - t0
     logging.info(f"  Diarization: {timings['diarization']:.2f}s")
 
-    # Extract turns and map speaker labels to human-readable names
+    # Extract turns from exclusive diarization (no overlapping segments)
+    # and map speaker labels to human-readable names
     raw_turns: list[dict] = []
     speaker_map: dict[str, str] = {}  # SPEAKER_00 -> Speaker 1
 
-    for turn, _, speaker in diarization.itertracks(yield_label=True):
+    for turn, _, speaker in diarization.exclusive_speaker_diarization.itertracks(
+        yield_label=True
+    ):
         if speaker not in speaker_map:
             speaker_map[speaker] = f"Speaker {len(speaker_map) + 1}"
         raw_turns.append(
@@ -145,8 +149,8 @@ def diarize(
             }
         )
 
-    # Extract overlapping speech regions
-    overlap_timeline = diarization.get_overlap()
+    # Extract overlapping speech regions from regular diarization
+    overlap_timeline = diarization.speaker_diarization.get_overlap()
     overlaps: list[dict] = [
         {"start": float(seg.start), "end": float(seg.end)} for seg in overlap_timeline
     ]
@@ -157,7 +161,7 @@ def diarize(
     if not raw_turns:
         logging.info("No speech detected.")
         timings["total"] = timings["pipeline_load"] + timings["diarization"]
-        return [], np.array([]), timings, overlaps
+        return [], {}, timings, overlaps
 
     n_speakers = len(speaker_map)
     logging.info(f"  Found {len(raw_turns)} turns, {n_speakers} speakers")
@@ -173,83 +177,48 @@ def diarize(
     if not turns:
         logging.info("No turns remaining after filtering.")
         timings["total"] = timings["pipeline_load"] + timings["diarization"]
-        return [], np.array([]), timings, overlaps
+        return [], {}, timings, overlaps
 
-    # Load embedding model
-    logging.info("Loading embedding model...")
-    t0 = time.perf_counter()
-    emb_model = Model.from_pretrained(EMB_MODEL_ID, use_auth_token=hf_token)
-    if torch.cuda.is_available():
-        emb_model.to(torch.device("cuda"))
-    emb_infer = Inference(emb_model, window="whole")
-    timings["emb_model_load"] = time.perf_counter() - t0
+    # Extract per-speaker embeddings from pipeline output
+    # Embeddings are indexed by speaker order matching exclusive_speaker_diarization.labels()
+    speaker_embeddings: dict[str, np.ndarray] = {}
+    if diarization.speaker_embeddings is not None:
+        labels = diarization.exclusive_speaker_diarization.labels()
+        for idx, raw_label in enumerate(labels):
+            if raw_label in speaker_map and idx < len(diarization.speaker_embeddings):
+                emb = diarization.speaker_embeddings[idx]
+                # Normalize for cosine similarity
+                emb = emb / (np.linalg.norm(emb) + 1e-8)
+                speaker_embeddings[speaker_map[raw_label]] = emb.astype(np.float32)
+        logging.info(f"  Extracted embeddings for {len(speaker_embeddings)} speakers")
 
-    # Extract embeddings for each turn
-    logging.info(f"Extracting embeddings for {len(turns)} turns...")
-    t0 = time.perf_counter()
-    emb_list: list[np.ndarray] = []
+    timings["total"] = timings["pipeline_load"] + timings["diarization"]
 
-    for i, turn in enumerate(turns):
-        try:
-            emb_vec = emb_infer.crop(input_path, Segment(turn["start"], turn["end"]))
-            if emb_vec.ndim > 1:
-                emb_vec = emb_vec.mean(axis=0)
-            emb_list.append(emb_vec.astype(np.float32))
-        except Exception as e:
-            logging.warning(f"Failed to extract embedding for turn {i}: {e}")
-            emb_list.append(np.zeros(256, dtype=np.float32))
-
-        if (i + 1) % 20 == 0:
-            logging.info(f"  Embedded {i + 1}/{len(turns)} turns")
-
-    embeddings = np.stack(emb_list, axis=0)
-    timings["embedding"] = time.perf_counter() - t0
-    logging.info(f"  Embeddings: {timings['embedding']:.2f}s ({embeddings.shape})")
-
-    timings["total"] = (
-        timings["pipeline_load"]
-        + timings["diarization"]
-        + timings["emb_model_load"]
-        + timings["embedding"]
-    )
-
-    return turns, embeddings, timings, overlaps
+    return turns, speaker_embeddings, timings, overlaps
 
 
 def save_speaker_embeddings(
     output_dir: Path,
-    turns: list[dict],
-    embeddings: np.ndarray,
+    speaker_embeddings: dict[str, np.ndarray],
 ) -> list[Path]:
-    """Save per-speaker mean embeddings to NPZ files.
+    """Save per-speaker embeddings to NPZ files.
 
     Args:
         output_dir: Directory to save embeddings (e.g., segment_dir/audio_stem/)
-        turns: List of turn dicts with "speaker" key
-        embeddings: Array of shape (num_turns, 256)
+        speaker_embeddings: Dict mapping speaker labels to embedding arrays
 
     Returns:
         List of paths to saved NPZ files
     """
+    if not speaker_embeddings:
+        return []
+
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    # Group embeddings by speaker
-    speaker_embeddings: dict[str, list[np.ndarray]] = {}
-    for turn, emb in zip(turns, embeddings):
-        speaker = turn["speaker"]
-        if speaker not in speaker_embeddings:
-            speaker_embeddings[speaker] = []
-        speaker_embeddings[speaker].append(emb)
-
-    # Save mean embedding per speaker
     saved_paths: list[Path] = []
-    for speaker, embs in speaker_embeddings.items():
-        mean_emb = np.mean(embs, axis=0).astype(np.float32)
-        # Normalize for cosine similarity
-        mean_emb = mean_emb / (np.linalg.norm(mean_emb) + 1e-8)
-
+    for speaker, embedding in speaker_embeddings.items():
         emb_path = output_dir / f"{speaker}.npz"
-        np.savez_compressed(emb_path, embedding=mean_emb)
+        np.savez_compressed(emb_path, embedding=embedding)
         saved_paths.append(emb_path)
         logging.info(f"  Saved embedding: {emb_path}")
 
