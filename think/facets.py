@@ -591,3 +591,128 @@ def facet_summaries(*, detailed_entities: bool = False) -> str:
         lines.append("")  # Empty line between facets
 
     return "\n".join(lines).strip()
+
+
+def format_logs(
+    entries: list[dict],
+    context: dict | None = None,
+) -> tuple[list[dict], dict]:
+    """Format action log JSONL entries to markdown chunks.
+
+    This is the formatter function used by the formatters registry.
+
+    Args:
+        entries: Raw JSONL entries (one action log per line)
+        context: Optional context with:
+            - file_path: Path to JSONL file (for extracting facet name and day)
+
+    Returns:
+        Tuple of (chunks, meta) where:
+            - chunks: List of dicts with keys:
+                - timestamp: int (unix ms)
+                - markdown: str
+                - source: dict (original log entry)
+            - meta: Dict with optional "header" and "error" keys
+    """
+    ctx = context or {}
+    file_path = ctx.get("file_path")
+    meta: dict[str, Any] = {}
+    chunks: list[dict[str, Any]] = []
+    skipped_count = 0
+
+    # Extract facet name and day from path
+    facet_name = "unknown"
+    day_str: str | None = None
+
+    if file_path:
+        file_path = Path(file_path)
+
+        # Extract facet name from path: facets/{facet}/logs/YYYYMMDD.jsonl
+        path_str = str(file_path)
+        facet_match = re.search(r"facets/([^/]+)/logs", path_str)
+        if facet_match:
+            facet_name = facet_match.group(1)
+
+        # Extract day from filename
+        if file_path.stem.isdigit() and len(file_path.stem) == 8:
+            day_str = file_path.stem
+
+    # Build header
+    if day_str:
+        formatted_day = f"{day_str[:4]}-{day_str[4:6]}-{day_str[6:8]}"
+        meta["header"] = f"# Action Log: {facet_name} ({formatted_day})"
+    else:
+        meta["header"] = f"# Action Log: {facet_name}"
+
+    # Format each log entry as a chunk
+    for entry in entries:
+        # Skip entries without action field
+        action = entry.get("action")
+        if not action:
+            skipped_count += 1
+            continue
+
+        # Parse timestamp
+        ts = 0
+        timestamp_str = entry.get("timestamp", "")
+        time_display = ""
+        if timestamp_str:
+            try:
+                dt = datetime.fromisoformat(timestamp_str)
+                ts = int(dt.timestamp() * 1000)
+                time_display = dt.strftime("%H:%M:%S")
+            except (ValueError, TypeError):
+                pass
+
+        # Extract fields
+        source = entry.get("source", "unknown")
+        actor = entry.get("actor", "unknown")
+        params = entry.get("params", {})
+        agent_id = entry.get("agent_id")
+
+        # Format action name for display (e.g., "todo_add" -> "Todo Add")
+        action_display = action.replace("_", " ").title()
+
+        # Build markdown
+        lines = [f"### {action_display} by {actor}", ""]
+
+        # Metadata line
+        meta_parts = [f"**Source:** {source}"]
+        if time_display:
+            meta_parts.append(f"**Time:** {time_display}")
+        lines.append(" | ".join(meta_parts))
+
+        # Agent link if present
+        if agent_id:
+            lines.append(f"**Agent:** [{agent_id}](/app/agents/{agent_id})")
+
+        lines.append("")
+
+        # Parameters
+        if params and isinstance(params, dict):
+            lines.append("**Parameters:**")
+            for key, value in params.items():
+                # Format value - truncate long strings
+                if isinstance(value, str) and len(value) > 100:
+                    value = value[:100] + "..."
+                lines.append(f"- {key}: {value}")
+            lines.append("")
+
+        chunks.append(
+            {
+                "timestamp": ts,
+                "markdown": "\n".join(lines),
+                "source": entry,
+            }
+        )
+
+    # Report skipped entries
+    if skipped_count > 0:
+        error_msg = f"Skipped {skipped_count} entries missing 'action' field"
+        meta["error"] = error_msg
+        logging.info(error_msg)
+
+    # Indexer metadata - topic is "action" for action logs
+    meta["indexer"] = {"topic": "action"}
+
+    return chunks, meta

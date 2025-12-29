@@ -115,6 +115,7 @@ FORMATTERS: dict[str, tuple[str, str]] = {
     "facets/*/entities.jsonl": ("think.entities", "format_entities"),
     "facets/*/events/*.jsonl": ("think.events", "format_events"),
     "facets/*/todos/*.jsonl": ("apps.todos.todo", "format_todos"),
+    "facets/*/logs/*.jsonl": ("think.facets", "format_logs"),
     "*/*_screen.jsonl": ("observe.screen", "format_screen"),
     "*/screen.jsonl": ("observe.screen", "format_screen"),
     "*/*_audio.jsonl": ("observe.hear", "format_audio"),
@@ -200,7 +201,7 @@ def find_formattable_files(journal: str) -> dict[str, str]:
     Locations scanned:
     - Daily insights: YYYYMMDD/insights/*.md
     - Segment content: YYYYMMDD/HHMMSS*/*.md, *.jsonl
-    - Facet content: facets/*/events/*.jsonl, entities/, todos/, news/
+    - Facet content: facets/*/events/*.jsonl, entities/, todos/, news/, logs/
     - Import summaries: imports/*/summary.md
     - App insights: apps/*/insights/*.md
 
@@ -290,6 +291,13 @@ def find_formattable_files(journal: str) -> dict[str, str]:
                 for md_file in news_dir.glob("*.md"):
                     rel = f"facets/{facet_name}/news/{md_file.name}"
                     files[rel] = str(md_file)
+
+            # Action logs: facets/*/logs/*.jsonl
+            logs_dir = facet_dir / "logs"
+            if logs_dir.is_dir():
+                for jsonl_file in logs_dir.glob("*.jsonl"):
+                    rel = f"facets/{facet_name}/logs/{jsonl_file.name}"
+                    files[rel] = str(jsonl_file)
 
     # Import summaries: imports/*/summary.md
     imports_dir = journal_path / "imports"

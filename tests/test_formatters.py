@@ -1673,3 +1673,223 @@ class TestFormatterSourceKey:
         # Without path context, base_timestamp_ms is 0, so offsets are in ms
         assert chunks[0]["timestamp"] == 0
         assert chunks[1]["timestamp"] == 1000  # 1 second = 1000ms
+
+
+class TestFormatLogs:
+    """Tests for the action logs formatter."""
+
+    def test_get_formatter_logs(self):
+        """Test pattern matching for logs/*.jsonl."""
+        from think.formatters import get_formatter
+
+        formatter = get_formatter("facets/work/logs/20240101.jsonl")
+        assert formatter is not None
+        assert formatter.__name__ == "format_logs"
+
+    def test_format_logs_basic(self):
+        """Test basic action log formatting."""
+        from think.facets import format_logs
+
+        entries = [
+            {
+                "timestamp": "2025-12-16T07:33:05.135587+00:00",
+                "source": "tool",
+                "actor": "todos:todo",
+                "action": "todo_add",
+                "params": {"line_number": 1, "text": "Test task"},
+            }
+        ]
+
+        chunks, meta = format_logs(entries)
+
+        assert len(chunks) == 1
+        assert "Todo Add by todos:todo" in chunks[0]["markdown"]
+        assert "**Source:** tool" in chunks[0]["markdown"]
+        assert "**Time:** 07:33:05" in chunks[0]["markdown"]
+        assert "**Parameters:**" in chunks[0]["markdown"]
+        assert "- line_number: 1" in chunks[0]["markdown"]
+        assert "- text: Test task" in chunks[0]["markdown"]
+
+    def test_format_logs_with_agent_id(self):
+        """Test that agent_id renders as a link."""
+        from think.facets import format_logs
+
+        entries = [
+            {
+                "timestamp": "2025-12-16T07:33:05.135587+00:00",
+                "source": "tool",
+                "actor": "mcp",
+                "action": "entity_attach",
+                "params": {"type": "Person", "name": "Alice"},
+                "agent_id": "1765870373972",
+            }
+        ]
+
+        chunks, meta = format_logs(entries)
+
+        assert len(chunks) == 1
+        assert (
+            "**Agent:** [1765870373972](/app/agents/1765870373972)"
+            in chunks[0]["markdown"]
+        )
+
+    def test_format_logs_missing_action(self):
+        """Test that entries without action are skipped."""
+        from think.facets import format_logs
+
+        entries = [
+            {
+                "timestamp": "2025-12-16T07:33:05.135587+00:00",
+                "source": "tool",
+                "actor": "mcp",
+                "action": "todo_add",
+                "params": {},
+            },
+            {
+                "timestamp": "2025-12-16T07:34:00.000000+00:00",
+                "source": "tool",
+                "actor": "mcp",
+                # Missing action
+                "params": {},
+            },
+        ]
+
+        chunks, meta = format_logs(entries)
+
+        assert len(chunks) == 1
+        assert "error" in meta
+        assert "Skipped 1 entries" in meta["error"]
+        assert "action" in meta["error"]
+
+    def test_format_logs_returns_indexer(self):
+        """Test format_logs returns indexer with topic 'action'."""
+        from think.facets import format_logs
+
+        entries = [
+            {
+                "timestamp": "2025-12-16T07:33:05.135587+00:00",
+                "source": "tool",
+                "actor": "mcp",
+                "action": "todo_add",
+                "params": {},
+            }
+        ]
+
+        chunks, meta = format_logs(entries)
+
+        assert "indexer" in meta
+        assert meta["indexer"]["topic"] == "action"
+
+    def test_format_logs_header_with_path(self):
+        """Test that header includes facet name and day from path."""
+        from think.facets import format_logs
+
+        entries = [
+            {
+                "timestamp": "2025-12-16T07:33:05.135587+00:00",
+                "source": "app",
+                "actor": "todos",
+                "action": "todo_complete",
+                "params": {},
+            }
+        ]
+        context = {"file_path": "/journal/facets/work/logs/20251216.jsonl"}
+
+        chunks, meta = format_logs(entries, context)
+
+        assert "header" in meta
+        assert "Action Log: work" in meta["header"]
+        assert "2025-12-16" in meta["header"]
+
+    def test_format_logs_returns_source(self):
+        """Test format_logs returns source with original entry."""
+        from think.facets import format_logs
+
+        entry = {
+            "timestamp": "2025-12-16T07:33:05.135587+00:00",
+            "source": "tool",
+            "actor": "mcp",
+            "action": "todo_add",
+            "params": {"text": "Test"},
+            "extra_field": "custom_value",
+        }
+        entries = [entry]
+
+        chunks, meta = format_logs(entries)
+
+        assert len(chunks) == 1
+        assert "source" in chunks[0]
+        assert chunks[0]["source"] is entry
+        assert chunks[0]["source"]["extra_field"] == "custom_value"
+
+    def test_format_logs_timestamp_parsing(self):
+        """Test that ISO timestamps are converted to unix ms."""
+        from think.facets import format_logs
+
+        entries = [
+            {
+                "timestamp": "2025-12-16T07:33:05.135587+00:00",
+                "source": "tool",
+                "actor": "mcp",
+                "action": "todo_add",
+                "params": {},
+            },
+            {
+                "timestamp": "2025-12-16T07:34:00.000000+00:00",
+                "source": "tool",
+                "actor": "mcp",
+                "action": "todo_done",
+                "params": {},
+            },
+        ]
+
+        chunks, meta = format_logs(entries)
+
+        assert len(chunks) == 2
+        # Second entry should have higher timestamp
+        assert chunks[1]["timestamp"] > chunks[0]["timestamp"]
+        # First timestamp should be approximately 1734336785135 (for 2025-12-16T07:33:05)
+        assert chunks[0]["timestamp"] > 1700000000000
+
+    def test_format_logs_truncates_long_params(self):
+        """Test that long param values are truncated."""
+        from think.facets import format_logs
+
+        long_text = "x" * 200
+
+        entries = [
+            {
+                "timestamp": "2025-12-16T07:33:05.135587+00:00",
+                "source": "tool",
+                "actor": "mcp",
+                "action": "todo_add",
+                "params": {"text": long_text},
+            }
+        ]
+
+        chunks, meta = format_logs(entries)
+
+        assert len(chunks) == 1
+        # Should truncate to 100 chars + "..."
+        assert ("x" * 100 + "...") in chunks[0]["markdown"]
+        assert ("x" * 150) not in chunks[0]["markdown"]
+
+    def test_format_logs_action_display_formatting(self):
+        """Test that action names are formatted nicely."""
+        from think.facets import format_logs
+
+        entries = [
+            {
+                "timestamp": "2025-12-16T07:33:05.135587+00:00",
+                "source": "tool",
+                "actor": "mcp",
+                "action": "entity_update_description",
+                "params": {},
+            }
+        ]
+
+        chunks, meta = format_logs(entries)
+
+        assert len(chunks) == 1
+        # "entity_update_description" should become "Entity Update Description"
+        assert "Entity Update Description by mcp" in chunks[0]["markdown"]
