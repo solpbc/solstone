@@ -7,6 +7,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict
 
+from observe.sense import scan_day as sense_scan_day
 from observe.utils import VIDEO_EXTENSIONS, load_analysis_frames
 from think.insight import scan_day as insight_scan_day
 from think.utils import day_dirs, setup_cli
@@ -37,19 +38,14 @@ class JournalStats:
     def _get_day_mtime(self, day_dir: Path) -> float:
         """Get latest modification time of files we scan."""
         files = []
-        # Check timestamp subdirectories for processed files
-        files.extend(day_dir.glob("*/audio.jsonl"))
-        files.extend(day_dir.glob("*/*_audio.jsonl"))  # Split audio files
-        files.extend(day_dir.glob("*/screen.jsonl"))
-        files.extend(day_dir.glob("*/*_screen.jsonl"))  # Split screen files
-        files.extend(day_dir.glob("*/raw.flac"))
+        # Check segment subdirectories for processed files
+        files.extend(day_dir.glob("*/*audio.jsonl"))
+        files.extend(day_dir.glob("*/*screen.jsonl"))
+        # Check day root for unprocessed media files
+        files.extend(day_dir.glob("*.flac"))
+        files.extend(day_dir.glob("*.m4a"))
         for ext in VIDEO_EXTENSIONS:
-            files.extend(day_dir.glob(f"*/screen{ext}"))
-        # Check day root for unprocessed files
-        files.extend(day_dir.glob("*_raw.flac"))
-        files.extend(day_dir.glob("*_raw.m4a"))
-        for ext in VIDEO_EXTENSIONS:
-            files.extend(day_dir.glob(f"*_screen{ext}"))
+            files.extend(day_dir.glob(f"*{ext}"))
 
         insights = day_dir / "insights"
         if insights.is_dir():
@@ -243,12 +239,9 @@ class JournalStats:
             except Exception as e:
                 logger.warning(f"Unexpected error processing {jsonl_file}: {e}")
 
-        # --- Unprocessed files ---
-        unprocessed = list(day_dir.glob("*_raw.flac"))
-        unprocessed.extend(day_dir.glob("*_raw.m4a"))
-        for ext in VIDEO_EXTENSIONS:
-            unprocessed.extend(day_dir.glob(f"*_screen{ext}"))
-        stats["unprocessed_files"] = len(unprocessed)
+        # --- Pending segments (unprocessed media files) ---
+        sense_info = sense_scan_day(day_dir)
+        stats["pending_segments"] = sense_info["pending_segments"]
 
         # --- Insight summaries ---
         insight_info = insight_scan_day(day)

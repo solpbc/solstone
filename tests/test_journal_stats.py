@@ -17,8 +17,9 @@ def test_scan_day(tmp_path, monkeypatch):
         '{"start": "10:01:00", "text": "world"}\n'
     )
 
-    # Create an unprocessed file (remains in day root)
-    (day / "123456_300_raw.flac").write_bytes(b"RIFF")
+    # Create unprocessed media files (remain in day root, will be moved to segment on processing)
+    (day / "123456_300_audio.flac").write_bytes(b"RIFF")
+    (day / "123456_300_center_DP-1_screen.webm").write_bytes(b"WEBM")
 
     (day / "entities.md").write_text("")
     (day / "insights").mkdir()
@@ -49,7 +50,9 @@ def test_scan_day(tmp_path, monkeypatch):
     js._apply_day_stats("20240101", day_data)
     assert js.days["20240101"]["audio_sessions"] == 1
     assert js.days["20240101"]["audio_segments"] == 2
-    assert js.days["20240101"]["unprocessed_files"] == 1
+    assert (
+        js.days["20240101"]["pending_segments"] == 1
+    )  # Both files belong to same segment
     assert js.topic_counts["meetings"] == 1
     assert js.facet_counts["work"] == 1
     assert js.facet_minutes["work"] == 5.0

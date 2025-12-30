@@ -550,7 +550,7 @@ class FileSensor:
         logger.info("Batch processing complete")
 
 
-def scan_day(day_dir: Path) -> dict[str, list[str]]:
+def scan_day(day_dir: Path) -> dict:
     """Scan a day directory for processed and unprocessed files.
 
     Args:
@@ -560,11 +560,15 @@ def scan_day(day_dir: Path) -> dict[str, list[str]]:
         Dictionary with:
         - "processed": List of JSONL output files in segments (HHMMSS_LEN/audio.jsonl, etc)
         - "unprocessed": List of unprocessed source media files in day root
+        - "pending_segments": Count of unique segments with pending files
     """
     # Find processed output files in segments (HHMMSS_LEN/)
     from think.utils import segment_key
 
     processed = []
+    if not day_dir.exists():
+        return {"processed": [], "unprocessed": [], "pending_segments": 0}
+
     for segment in day_dir.iterdir():
         if segment.is_dir() and segment_key(segment.name):
             # Check for audio JSONL files (audio.jsonl, mic_audio.jsonl, etc.)
@@ -584,7 +588,18 @@ def scan_day(day_dir: Path) -> dict[str, list[str]]:
     for ext in VIDEO_EXTENSIONS:
         unprocessed.extend(sorted(p.name for p in day_dir.glob(f"*{ext}")))
 
-    return {"processed": processed, "unprocessed": unprocessed}
+    # Count unique segments with pending files
+    pending_segment_keys = set()
+    for filename in unprocessed:
+        key = segment_key(filename)
+        if key:
+            pending_segment_keys.add(key)
+
+    return {
+        "processed": processed,
+        "unprocessed": unprocessed,
+        "pending_segments": len(pending_segment_keys),
+    }
 
 
 def main():

@@ -486,7 +486,7 @@ const Dashboard = (function() {
     const progressSection = document.getElementById('progressSection');
     progressSection.innerHTML = ''; // Clear existing content
     progressSection.appendChild(
-      progressCard('Audio Processing', totals.audio_sessions || 0, totals.unprocessed_files || 0)
+      progressCard('Audio Processing', totals.audio_sessions || 0, totals.pending_segments || 0)
     );
     progressSection.appendChild(
       progressCard('Insight Summaries', totals.insights_processed || 0, totals.insights_pending || 0)
@@ -562,7 +562,7 @@ const Dashboard = (function() {
     );
     
     // Render repairs if needed
-    const repairs = ['unprocessed_files', 'insights_pending'];
+    const repairs = ['pending_segments', 'insights_pending'];
     const hasRepairs = repairs.some(key => (totals[key] || 0) > 0);
 
     if (hasRepairs) {
@@ -574,7 +574,7 @@ const Dashboard = (function() {
 
       const repairGrid = alert.querySelector('#repairGrid');
       const repairLabels = {
-        unprocessed_files: 'Unprocessed Media',
+        pending_segments: 'Pending Segments',
         insights_pending: 'Insight Summaries'
       };
 

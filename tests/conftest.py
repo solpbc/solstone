@@ -124,68 +124,8 @@ def add_module_stubs(request, monkeypatch):
         observe_pkg = sys.modules.get("observe")
         setattr(observe_pkg, "hear", hear_mod)
     if "observe.sense" not in sys.modules:
-        sense_mod = types.ModuleType("observe.sense")
-
-        def scan_day(day_dir):
-            # Stub matching real scan_day behavior:
-            # - "raw": processed files in segments
-            # - "processed": output JSON files in segments
-            # - "repairable": source media files in day root without matching segment
-            from pathlib import Path
-
-            day_path = Path(day_dir)
-            raw_files = []
-            processed_files = []
-            repairable_files = []
-
-            if day_path.is_dir():
-                from think.utils import segment_key
-
-                # Find raw (processed) files in segments (HHMMSS_LEN/)
-                for item in day_path.iterdir():
-                    if item.is_dir() and segment_key(item.name):
-                        # Found segment
-                        for p in item.glob("*.flac"):
-                            raw_files.append(f"{item.name}/{p.name}")
-                        for p in item.glob("*.m4a"):
-                            raw_files.append(f"{item.name}/{p.name}")
-                        for p in item.glob("*.webm"):
-                            raw_files.append(f"{item.name}/{p.name}")
-                        for p in item.glob("*.mp4"):
-                            raw_files.append(f"{item.name}/{p.name}")
-
-                # Find processed output files in segments
-                for item in day_path.iterdir():
-                    if item.is_dir() and segment_key(item.name):
-                        for p in item.glob("*audio.jsonl"):
-                            processed_files.append(f"{item.name}/{p.name}")
-                        for p in item.glob("*screen.jsonl"):
-                            processed_files.append(f"{item.name}/{p.name}")
-
-                # Find repairable files (source media in root without matching segment)
-                for audio_ext in ["*.flac", "*.m4a"]:
-                    for p in day_path.glob(audio_ext):
-                        seg = segment_key(p.stem)
-                        if seg:
-                            segment_dir = day_path / seg
-                            if not segment_dir.exists():
-                                repairable_files.append(p.name)
-
-                for video_ext in ["*.webm", "*.mp4"]:
-                    for p in day_path.glob(video_ext):
-                        seg = segment_key(p.stem)
-                        if seg:
-                            segment_dir = day_path / seg
-                            if not segment_dir.exists():
-                                repairable_files.append(p.name)
-
-            return {
-                "raw": raw_files,
-                "processed": processed_files,
-                "repairable": repairable_files,
-            }
-
-        sense_mod.scan_day = scan_day
+        # Import the real module - it has minimal dependencies
+        sense_mod = importlib.import_module("observe.sense")
         sys.modules["observe.sense"] = sense_mod
         observe_pkg = sys.modules.get("observe")
         setattr(observe_pkg, "sense", sense_mod)
