@@ -18,10 +18,9 @@ from pathlib import Path
 
 from observe.macos.activity import (
     get_idle_time_ms,
-    get_monitor_metadata_string,
     is_screen_locked,
 )
-from observe.macos.screencapture import ScreenCaptureKitManager
+from observe.macos.screencapture import AudioInfo, DisplayInfo, ScreenCaptureKitManager
 from think.callosum import CallosumConnection
 from think.utils import day_path, setup_cli
 
@@ -51,11 +50,12 @@ class MacOSObserver:
         self.start_at = time.time()  # Wall-clock for filenames
         self.start_at_mono = time.monotonic()  # Monotonic for elapsed calculations
         self.capture_running = False
-        self.current_output_base = None  # Base path for current capture
-        self.pending_finalization = (
-            None  # Tuple of (temp_base, final_video, final_audio)
-        )
-        self.last_video_size = 0  # Track file size for health checks
+
+        # Multi-display tracking (similar to GNOME observer)
+        self.current_displays: list[DisplayInfo] = []
+        self.current_audio: AudioInfo | None = None
+        self.pending_finalization: list[tuple[str, str]] | None = None
+        self.last_video_sizes: dict[str, int] = {}
 
         # Activity status cache (updated each loop)
         self.cached_is_active = False
@@ -144,23 +144,23 @@ class MacOSObserver:
         # 3. Emit via Callosum
         logger.warning("emit_status() not yet implemented")
 
-    async def finalize_capture(
-        self, temp_base: Path, final_video: Path, final_audio: Path
-    ):
+    def finalize_screencast(self, temp_path: str, final_path: str):
         """
-        Add monitor metadata to video and rename files from temp to final paths.
+        Rename capture file from temp to final path.
 
         Args:
-            temp_base: Temporary base path (e.g., /path/.HHMMSS)
-            final_video: Final video path (e.g., /path/HHMMSS_300_screen.mov)
-            final_audio: Final audio path (e.g., /path/HHMMSS_300_audio.m4a)
+            temp_path: Temporary file path
+            final_path: Final destination path
         """
-        # TODO: Implement finalization
-        # 1. Check if temp files exist
-        # 2. Get monitor metadata string
-        # 3. Call screencapture.finalize() to add metadata and rename
-        # 4. Log success/failure
-        logger.warning("finalize_capture() not yet implemented")
+        if not os.path.exists(temp_path):
+            logger.warning(f"Capture file not found: {temp_path}")
+            return
+
+        try:
+            os.replace(temp_path, final_path)
+            logger.info(f"Finalized: {final_path}")
+        except OSError as e:
+            logger.error(f"Failed to rename {temp_path} to {final_path}: {e}")
 
     async def main_loop(self):
         """Run the main observer loop."""

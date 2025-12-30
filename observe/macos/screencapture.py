@@ -1,16 +1,51 @@
 """ScreenCaptureKit integration via sck-cli subprocess.
 
 This module manages the sck-cli subprocess lifecycle for video and audio capture
-on macOS using ScreenCaptureKit.
+on macOS using ScreenCaptureKit. sck-cli captures all displays simultaneously
+and outputs JSONL metadata to stdout with display geometry information.
 """
 
+import json
 import logging
 import os
+import signal
 import subprocess
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
 
+from observe.utils import assign_monitor_positions
+
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class DisplayInfo:
+    """Information about a single display's recording."""
+
+    display_id: int
+    position: str
+    x: int
+    y: int
+    width: int
+    height: int
+    temp_path: str
+
+    def final_name(self, time_part: str, duration: int) -> str:
+        """Generate the final filename for this display's video."""
+        return f"{time_part}_{duration}_{self.position}_{self.display_id}_screen.mov"
+
+
+@dataclass
+class AudioInfo:
+    """Information about the audio recording."""
+
+    temp_path: str
+    tracks: list[str]
+
+    def final_name(self, time_part: str, duration: int) -> str:
+        """Generate the final filename for audio."""
+        return f"{time_part}_{duration}_audio.m4a"
 
 
 class ScreenCaptureKitManager:
@@ -18,7 +53,8 @@ class ScreenCaptureKitManager:
     Manages sck-cli subprocess for synchronized video and audio capture.
 
     Wraps the sck-cli tool to provide lifecycle management, handles process
-    monitoring, and manages output file finalization with metadata.
+    monitoring, parses JSONL output for display geometry, and manages output
+    file finalization.
     """
 
     def __init__(self, sck_cli_path: str = "sck-cli"):
@@ -30,19 +66,22 @@ class ScreenCaptureKitManager:
         """
         self.sck_cli_path = sck_cli_path
         self.process: Optional[subprocess.Popen] = None
-        self.current_output_base: Optional[str] = None
+        self.displays: list[DisplayInfo] = []
+        self.audio: Optional[AudioInfo] = None
+        self.output_base: Optional[Path] = None
 
     def start(
         self,
         output_base: Path,
         duration: int,
         frame_rate: float = 1.0,
-    ) -> bool:
+    ) -> tuple[list[DisplayInfo], Optional[AudioInfo]]:
         """
-        Start video and audio capture to temporary files.
+        Start video and audio capture.
 
         Launches sck-cli as a subprocess with the specified parameters.
-        Files are written to output_base.mov and output_base.m4a.
+        Parses JSONL output from stdout to get display geometry information.
+        Files are written to output_base_<displayID>.mov and output_base.m4a.
 
         Args:
             output_base: Base path for output files (without extension)
@@ -50,23 +89,134 @@ class ScreenCaptureKitManager:
             frame_rate: Frame rate in Hz (default: 1.0)
 
         Returns:
-            True if subprocess started successfully, False otherwise
+            Tuple of (list of DisplayInfo, AudioInfo or None)
+
+        Raises:
+            RuntimeError: If sck-cli fails to start or returns no displays
 
         Example:
             >>> manager = ScreenCaptureKitManager()
             >>> day_dir = Path("journal/20250101")
             >>> output_base = day_dir / ".120000"  # Hidden temp file
-            >>> manager.start(output_base, duration=300, frame_rate=1.0)
-            True
+            >>> displays, audio = manager.start(output_base, duration=300)
         """
-        # TODO: Implement subprocess launch
-        # Command: sck-cli <output_base> -r <frame_rate> -l <duration>
-        # Store process handle in self.process
-        # Store output_base in self.current_output_base
-        # Check if sck-cli is available in PATH
-        # Handle launch errors and log appropriately
-        logger.warning("start() not yet implemented")
-        return False
+        self.output_base = output_base
+
+        # Build command
+        cmd = [
+            self.sck_cli_path,
+            str(output_base),
+            "-r",
+            str(frame_rate),
+            "-l",
+            str(duration),
+        ]
+
+        logger.info(f"Starting sck-cli: {' '.join(cmd)}")
+
+        try:
+            self.process = subprocess.Popen(
+                cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+            )
+        except FileNotFoundError:
+            raise RuntimeError(f"sck-cli not found at: {self.sck_cli_path}")
+        except Exception as e:
+            raise RuntimeError(f"Failed to start sck-cli: {e}")
+
+        # Read JSONL metadata from stdout (sck-cli outputs this immediately)
+        # Each line is either a display info or audio info
+        displays_raw = []
+        audio_info = None
+
+        # Read lines until we get all metadata (sck-cli outputs then starts capture)
+        # We need to read non-blocking since the process keeps running
+        try:
+            for line in self.process.stdout:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    data = json.loads(line)
+                    if data.get("type") == "display":
+                        displays_raw.append(data)
+                    elif data.get("type") == "audio":
+                        audio_info = data
+                except json.JSONDecodeError:
+                    # Not JSON, might be a log message - ignore
+                    pass
+
+                # sck-cli outputs all metadata before starting capture
+                # Once we have both displays and audio (or displays only if no audio)
+                # we can stop reading. But we also need to not block forever.
+                # Actually, sck-cli flushes stdout after metadata, so readline
+                # will return empty when no more data. But process is still running.
+                # We break after getting audio info or when stdout blocks.
+                if audio_info is not None:
+                    break
+        except Exception as e:
+            logger.warning(f"Error reading sck-cli stdout: {e}")
+
+        if not displays_raw:
+            self.stop()
+            raise RuntimeError("sck-cli returned no display information")
+
+        # Convert raw display data to monitor format for position assignment
+        monitors = []
+        for d in displays_raw:
+            x = int(d.get("x", 0))
+            y = int(d.get("y", 0))
+            width = int(d.get("width", 0))
+            height = int(d.get("height", 0))
+            monitors.append(
+                {
+                    "id": str(d["displayID"]),
+                    "box": [x, y, x + width, y + height],
+                    "_raw": d,
+                }
+            )
+
+        # Assign position labels based on geometry
+        monitors = assign_monitor_positions(monitors)
+
+        # Build DisplayInfo objects
+        self.displays = []
+        for mon in monitors:
+            raw = mon["_raw"]
+            self.displays.append(
+                DisplayInfo(
+                    display_id=raw["displayID"],
+                    position=mon["position"],
+                    x=mon["box"][0],
+                    y=mon["box"][1],
+                    width=mon["box"][2] - mon["box"][0],
+                    height=mon["box"][3] - mon["box"][1],
+                    temp_path=raw["filename"],
+                )
+            )
+
+        # Build AudioInfo if present
+        if audio_info:
+            tracks = [t["name"] for t in audio_info.get("tracks", [])]
+            self.audio = AudioInfo(
+                temp_path=audio_info["filename"],
+                tracks=tracks,
+            )
+        else:
+            self.audio = None
+
+        logger.info(f"sck-cli started with {len(self.displays)} display(s)")
+        for display in self.displays:
+            logger.info(
+                f"  Display {display.display_id}: {display.position} "
+                f"({display.width}x{display.height}) -> {display.temp_path}"
+            )
+        if self.audio:
+            logger.info(f"  Audio: {self.audio.temp_path} ({self.audio.tracks})")
+
+        return self.displays, self.audio
 
     def stop(self) -> None:
         """
@@ -74,18 +224,24 @@ class ScreenCaptureKitManager:
 
         Sends SIGTERM to the sck-cli process and waits for it to finish writing
         files properly. This ensures video and audio files are finalized correctly.
-
-        Example:
-            >>> manager.stop()
-            # sck-cli receives SIGTERM and finishes writing files
         """
-        # TODO: Implement graceful shutdown
-        # 1. Check if self.process exists and is running
-        # 2. Send SIGTERM signal
-        # 3. Wait with timeout (e.g., 5 seconds) for process to complete
-        # 4. If timeout, send SIGKILL as fallback
-        # 5. Clean up process handle
-        logger.warning("stop() not yet implemented")
+        if self.process is None:
+            return
+
+        if self.process.poll() is None:
+            logger.info("Stopping sck-cli...")
+            try:
+                self.process.send_signal(signal.SIGTERM)
+                try:
+                    self.process.wait(timeout=5)
+                except subprocess.TimeoutExpired:
+                    logger.warning("sck-cli did not exit cleanly, killing")
+                    self.process.kill()
+                    self.process.wait()
+            except Exception as e:
+                logger.warning(f"Error stopping sck-cli: {e}")
+
+        self.process = None
 
     def is_running(self) -> bool:
         """
@@ -93,80 +249,100 @@ class ScreenCaptureKitManager:
 
         Returns:
             True if subprocess is active, False otherwise
-
-        Example:
-            >>> if manager.is_running():
-            ...     print("Capture in progress")
         """
-        # TODO: Implement process status check
-        # Check if self.process is not None and self.process.poll() is None
-        return False
+        if self.process is None:
+            return False
+        return self.process.poll() is None
 
     def finalize(
         self,
-        temp_base: Path,
-        final_video_path: Path,
-        final_audio_path: Path,
-        monitor_metadata: str,
-    ) -> tuple[bool, bool]:
+        output_dir: Path,
+        time_part: str,
+        duration: int,
+    ) -> tuple[list[str], Optional[str]]:
         """
-        Finalize capture files: add metadata and rename to final paths.
+        Rename capture files from temp to final paths.
 
-        Takes temporary output files from sck-cli, adds monitor geometry metadata
-        to the video file, and renames both files to their final destinations with
-        duration in the filename.
+        Takes temporary output files from sck-cli and renames them to their
+        final destinations with duration and position in the filename.
 
         Args:
-            temp_base: Base path of temporary files (without extension)
-            final_video_path: Final path for video file (HHMMSS_DURATION_screen.mov)
-            final_audio_path: Final path for audio file (HHMMSS_DURATION_audio.m4a)
-            monitor_metadata: Monitor geometry string to embed in video metadata
+            output_dir: Directory for final output files
+            time_part: Timestamp string (HHMMSS)
+            duration: Actual capture duration in seconds
 
         Returns:
-            Tuple of (video_success, audio_success) booleans
+            Tuple of (list of video filenames, audio filename or None)
 
         Example:
-            >>> metadata = "0:center,0,0,1920,1080"
-            >>> manager.finalize(
-            ...     Path("journal/20250101/.120000"),
-            ...     Path("journal/20250101/120000_300_screen.mov"),
-            ...     Path("journal/20250101/120000_300_audio.m4a"),
-            ...     metadata
+            >>> video_files, audio_file = manager.finalize(
+            ...     Path("journal/20250101"),
+            ...     "120000",
+            ...     300
             ... )
-            (True, True)
-
-        Notes:
-            - Uses ffmpeg or similar to update video metadata
-            - Atomically renames files to avoid partial writes
-            - Logs errors if files are missing or operations fail
+            >>> print(video_files)
+            ['120000_300_center_1_screen.mov', '120000_300_right_2_screen.mov']
         """
-        # TODO: Implement file finalization
-        # 1. Check if temp files exist (temp_base.mov, temp_base.m4a)
-        # 2. Add monitor metadata to video title:
-        #    - Use ffmpeg: `ffmpeg -i input.mov -metadata title="..." -c copy output.mov`
-        #    - Or use PyObjC AVFoundation APIs to modify metadata
-        # 3. Atomically rename temp_base.mov -> final_video_path
-        # 4. Atomically rename temp_base.m4a -> final_audio_path
-        # 5. Return success status for each file
-        # 6. Handle errors gracefully (missing files, permission issues, etc.)
-        logger.warning("finalize() not yet implemented")
-        return False, False
+        video_files = []
+        audio_file = None
+
+        # Finalize video files
+        for display in self.displays:
+            if not os.path.exists(display.temp_path):
+                logger.warning(f"Video file not found: {display.temp_path}")
+                continue
+
+            final_name = display.final_name(time_part, duration)
+            final_path = output_dir / final_name
+
+            try:
+                os.replace(display.temp_path, final_path)
+                video_files.append(final_name)
+                logger.info(f"Finalized video: {final_path}")
+            except OSError as e:
+                logger.error(
+                    f"Failed to rename {display.temp_path} to {final_path}: {e}"
+                )
+
+        # Finalize audio file
+        if self.audio and os.path.exists(self.audio.temp_path):
+            final_name = self.audio.final_name(time_part, duration)
+            final_path = output_dir / final_name
+
+            try:
+                os.replace(self.audio.temp_path, final_path)
+                audio_file = final_name
+                logger.info(f"Finalized audio: {final_path}")
+            except OSError as e:
+                logger.error(
+                    f"Failed to rename {self.audio.temp_path} to {final_path}: {e}"
+                )
+
+        # Clear state
+        self.displays = []
+        self.audio = None
+        self.output_base = None
+
+        return video_files, audio_file
 
     def get_output_size(self) -> int:
         """
-        Get the current size of the video output file.
+        Get the total size of all video output files.
 
-        Used for health checks to verify the file is growing during capture.
+        Used for health checks to verify files are growing during capture.
 
         Returns:
-            File size in bytes, or 0 if file doesn't exist or not capturing
-
-        Example:
-            >>> size = manager.get_output_size()
-            >>> print(f"Captured {size / 1024 / 1024:.1f} MB so far")
+            Total file size in bytes, or 0 if not capturing
         """
-        # TODO: Implement file size check
-        # Check if self.current_output_base exists
-        # Check if .mov file exists and return its size
-        # Return 0 if not found or not capturing
-        return 0
+        if not self.displays:
+            return 0
+
+        total = 0
+        for display in self.displays:
+            try:
+                if os.path.exists(display.temp_path):
+                    total += os.path.getsize(display.temp_path)
+            except OSError:
+                pass
+
+        return total

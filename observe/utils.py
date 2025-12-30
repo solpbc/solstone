@@ -147,36 +147,42 @@ def segment_and_suffix(media_path: Path) -> tuple[str, str]:
 
 def parse_screen_filename(filename: str) -> tuple[str, str]:
     """
-    Parse position and connector from a per-monitor screen filename.
+    Parse position and connector/displayID from a per-monitor screen filename.
 
     Handles both pre-move filenames (with segment prefix) and post-move filenames
-    (in segment directory without prefix).
+    (in segment directory without prefix). Works with both GNOME connector IDs
+    (e.g., "DP-3") and macOS displayIDs (e.g., "1").
 
     Parameters
     ----------
     filename : str
         Filename stem (without extension), e.g.:
-        - "143022_300_center_DP-3_screen" (pre-move, in day root)
-        - "center_DP-3_screen" (post-move, in segment directory)
+        - "143022_300_center_DP-3_screen" (GNOME pre-move)
+        - "143022_300_center_1_screen" (macOS pre-move)
+        - "center_DP-3_screen" (GNOME post-move)
+        - "center_1_screen" (macOS post-move)
 
     Returns
     -------
     tuple[str, str]
-        (position, connector) tuple, e.g., ("center", "DP-3")
+        (position, connector) tuple, e.g., ("center", "DP-3") or ("center", "1")
         Returns ("unknown", "unknown") if pattern doesn't match
 
     Examples
     --------
     >>> parse_screen_filename("143022_300_center_DP-3_screen")
     ("center", "DP-3")
+    >>> parse_screen_filename("143022_300_center_1_screen")
+    ("center", "1")
     >>> parse_screen_filename("center_DP-3_screen")
     ("center", "DP-3")
+    >>> parse_screen_filename("center_1_screen")
+    ("center", "1")
     >>> parse_screen_filename("143022_300_screen")
-    ("unknown", "unknown")
-    >>> parse_screen_filename("screen")
     ("unknown", "unknown")
     """
     # Pattern 1: HHMMSS_LEN_position_connector_screen (pre-move)
+    # Connector can be alphanumeric with hyphens (GNOME: DP-3) or just numeric (macOS: 1)
     match = re.match(r"^\d{6}_\d+_([a-z-]+)_([A-Za-z0-9-]+)_screen$", filename)
     if match:
         return match.group(1), match.group(2)
