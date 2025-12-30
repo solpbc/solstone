@@ -2,6 +2,8 @@
 
 import json
 import os
+import shutil
+import tempfile
 import threading
 import time
 from pathlib import Path
@@ -14,13 +16,21 @@ from muse.cortex_client import (
     get_agent_status,
     get_agent_thread,
 )
-from think.callosum import CallosumServer
+from think.callosum import CallosumConnection, CallosumServer
 from think.models import GPT_5
 
 
 @pytest.fixture
-def callosum_server(tmp_path, monkeypatch):
-    """Start a Callosum server for testing."""
+def callosum_server(monkeypatch):
+    """Start a Callosum server for testing.
+
+    Uses a short temp path in /tmp to avoid Unix socket path length limits
+    (~104 chars on macOS). pytest's tmp_path creates paths that are too long.
+    """
+    # Create short temp dir to avoid Unix socket path length limits
+    tmp_dir = tempfile.mkdtemp(dir="/tmp", prefix="callosum_")
+    tmp_path = Path(tmp_dir)
+
     monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
     (tmp_path / "agents").mkdir(parents=True, exist_ok=True)
 
@@ -37,28 +47,37 @@ def callosum_server(tmp_path, monkeypatch):
     else:
         pytest.fail("Callosum server did not start in time")
 
-    yield server
+    yield tmp_path
 
     server.stop()
     server_thread.join(timeout=2)
+    shutil.rmtree(tmp_dir, ignore_errors=True)
 
 
-def test_cortex_request_broadcasts_to_callosum(tmp_path, monkeypatch, callosum_server):
-    """Test that cortex_request broadcasts request to Callosum."""
-    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+@pytest.fixture
+def callosum_listener(callosum_server):
+    """Provide a CallosumConnection listener that collects received messages.
 
-    # Listen for broadcasts
-    received_messages = []
+    Yields (messages, listener) where messages is a list that accumulates
+    all broadcast messages received during the test.
+    """
+    messages = []
 
     def callback(msg):
-        received_messages.append(msg)
-
-    from think.callosum import CallosumConnection
+        messages.append(msg)
 
     listener = CallosumConnection()
     listener.start(callback=callback)
+    time.sleep(0.1)  # Allow connection to establish
 
-    time.sleep(0.1)
+    yield messages
+
+    listener.stop()
+
+
+def test_cortex_request_broadcasts_to_callosum(callosum_listener):
+    """Test that cortex_request broadcasts request to Callosum."""
+    messages = callosum_listener
 
     # Create a request
     agent_id = cortex_request(
@@ -71,8 +90,8 @@ def test_cortex_request_broadcasts_to_callosum(tmp_path, monkeypatch, callosum_s
     time.sleep(0.2)
 
     # Verify broadcast was received
-    assert len(received_messages) == 1
-    msg = received_messages[0]
+    assert len(messages) == 1
+    msg = messages[0]
     assert msg["tract"] == "cortex"
     assert msg["event"] == "request"
     assert msg["prompt"] == "Test prompt"
@@ -82,12 +101,10 @@ def test_cortex_request_broadcasts_to_callosum(tmp_path, monkeypatch, callosum_s
     assert msg["agent_id"] == agent_id
     assert "ts" in msg
 
-    listener.stop()
 
-
-def test_cortex_request_returns_agent_id(tmp_path, monkeypatch, callosum_server):
+def test_cortex_request_returns_agent_id(callosum_server):
     """Test that cortex_request returns agent_id string."""
-    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+    _ = callosum_server  # Needed for side effects only
 
     agent_id = cortex_request(prompt="Test", persona="default", backend="openai")
 
@@ -97,22 +114,11 @@ def test_cortex_request_returns_agent_id(tmp_path, monkeypatch, callosum_server)
     assert len(agent_id) == 13  # Millisecond timestamp
 
 
-def test_cortex_request_with_handoff(tmp_path, monkeypatch, callosum_server):
+def test_cortex_request_with_handoff(callosum_listener):
     """Test cortex_request with handoff_from parameter."""
-    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+    messages = callosum_listener
 
-    received_messages = []
-
-    def callback(msg):
-        received_messages.append(msg)
-
-    from think.callosum import CallosumConnection
-
-    listener = CallosumConnection()
-    listener.start(callback=callback)
-    time.sleep(0.1)
-
-    agent_id = cortex_request(
+    cortex_request(
         prompt="Continue analysis",
         persona="reviewer",
         backend="anthropic",
@@ -121,16 +127,14 @@ def test_cortex_request_with_handoff(tmp_path, monkeypatch, callosum_server):
 
     time.sleep(0.2)
 
-    msg = received_messages[0]
+    msg = messages[0]
     assert msg["handoff_from"] == "1234567890000"
     assert msg["persona"] == "reviewer"
 
-    listener.stop()
 
-
-def test_cortex_request_unique_agent_ids(tmp_path, monkeypatch, callosum_server):
+def test_cortex_request_unique_agent_ids(callosum_server):
     """Test that cortex_request generates unique agent IDs."""
-    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+    _ = callosum_server  # Needed for side effects only
 
     agent_ids = []
     for i in range(3):
@@ -146,6 +150,7 @@ def test_cortex_request_unique_agent_ids(tmp_path, monkeypatch, callosum_server)
 
 def test_cortex_request_no_journal_path(callosum_server):
     """Test cortex_request fails without JOURNAL_PATH."""
+    _ = callosum_server  # Needed for side effects only
     old_path = os.environ.pop("JOURNAL_PATH", None)
     try:
         with pytest.raises(
