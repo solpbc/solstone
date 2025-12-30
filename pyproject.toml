@@ -64,10 +64,7 @@ dependencies = [
 full = [
     "soundcard",
     "soundfile",
-    "pyannote.audio",
-    "deepfilternet",
-    "torch",
-    "scipy",
+    "pyannote.audio>=4,<5",
     "opencv-python",
     "PyGObject",
     "watchdog",
