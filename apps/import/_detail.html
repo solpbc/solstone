@@ -67,23 +67,6 @@
 .summary-loading .spinner { display: inline-block; width: 16px; height: 16px; border: 2px solid #ccc; border-top-color: #007bff; border-radius: 50%; animation: spin 0.8s linear infinite; margin-left: 8px; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
-/* Re-run section */
-.rerun-section { margin-top: 2em; padding: 1em; background: #f0f8ff; border: 1px solid #007bff; border-radius: 4px; }
-.rerun-section h3 { margin-top: 0; color: #007bff; }
-.rerun-controls { display: flex; align-items: center; gap: 1em; margin-top: 1em; }
-.rerun-controls label { font-weight: bold; }
-.rerun-controls select { padding: 6px 10px; border: 1px solid #ddd; border-radius: 4px; background: white; min-width: 150px; }
-.rerun-controls button { padding: 8px 16px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; }
-.rerun-controls button:hover { background: #0056b3; }
-.rerun-controls button:disabled { background: #ccc; cursor: not-allowed; opacity: 0.6; }
-.rerun-note { font-size: 0.9em; color: #666; margin-top: 0.5em; font-style: italic; }
-
-/* Progress display */
-.progress-banner { display: none; background: #e7f3ff; border: 1px solid #007bff; border-radius: 4px; padding: 1em; margin: 1em 0; }
-.progress-banner.active { display: block; }
-.progress-stage { font-weight: bold; color: #007bff; margin-bottom: 0.5em; }
-.progress-timing { font-size: 0.9em; color: #666; }
-.progress-spinner { display: inline-block; width: 12px; height: 12px; border: 2px solid #007bff; border-top-color: transparent; border-radius: 50%; animation: spin 1s linear infinite; margin-left: 6px; }
   </style>
 
 <div class="import-detail-content">
@@ -136,27 +119,6 @@
       <div class="summary-loading">
         Loading summary<span class="spinner"></span>
       </div>
-    </div>
-  </div>
-
-  <div class="progress-banner" id="progressBanner">
-    <div class="progress-stage" id="progressStage">Processing<span class="progress-spinner"></span></div>
-    <div class="progress-timing" id="progressTiming"></div>
-  </div>
-
-  <div class="rerun-section" id="rerunSection" style="display:none;">
-    <h3>Re-run Import</h3>
-    <div class="rerun-controls">
-      <label for="facetSelect">Facet:</label>
-      <select id="facetSelect">
-        <option value="">None</option>
-      </select>
-      <label for="settingInput">Setting:</label>
-      <input id="settingInput" placeholder="e.g. Jer lunch with Joe" />
-      <button id="rerunBtn">Re-run Import</button>
-    </div>
-    <div class="rerun-note">
-      Re-running will overwrite the existing transcription results with new ones using the selected facet for improved entity recognition.
     </div>
   </div>
 </div>
@@ -229,24 +191,6 @@ function formatFileSize(bytes) {
   return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
 }
 
-// Format elapsed time
-function formatElapsed(ms) {
-  if (!ms) return '0s';
-  const totalSeconds = Math.floor(ms / 1000);
-  const mins = Math.floor(totalSeconds / 60);
-  const secs = totalSeconds % 60;
-  if (mins > 0) {
-    return `${mins}m ${secs}s`;
-  }
-  return `${secs}s`;
-}
-
-// Capitalize stage name
-function capitalizeStage(stage) {
-  if (!stage) return '';
-  return stage.charAt(0).toUpperCase() + stage.slice(1);
-}
-
 // Format timestamp
 function formatTimestamp(timestamp) {
   if (!timestamp) return '-';
@@ -259,103 +203,10 @@ function formatTimestamp(timestamp) {
   return timestamp;
 }
 
-// Global variable to store import data
-let importData = null;
-const settingInput = document.getElementById('settingInput');
-
-// Load facets for dropdown using app framework data
-function loadFacets() {
-  const select = document.getElementById('facetSelect');
-  const current = importData?.import_json?.facet || ''; // Use current facet from import
-  select.innerHTML = '<option value="">None</option>';
-
-  const facets = window.facetsData || [];
-  facets.forEach(facet => {
-    const opt = document.createElement('option');
-    opt.value = facet.name;
-    opt.textContent = facet.title || facet.name;
-    if (facet.name === current) opt.selected = true;
-    select.appendChild(opt);
-  });
-}
-
-// Show progress banner and listen for importer events
-function watchImportProgress(importId) {
-  const progressBanner = document.getElementById('progressBanner');
-  const progressStage = document.getElementById('progressStage');
-  const progressTiming = document.getElementById('progressTiming');
-
-  progressBanner.classList.add('active');
-  progressStage.innerHTML = 'Starting<span class="progress-spinner"></span>';
-  progressTiming.textContent = '';
-
-  // Listen for importer events for this import
-  const cleanup = window.appEvents.listen('importer', msg => {
-    if (msg.import_id !== importId) return;
-
-    if (msg.event === 'started') {
-      progressStage.innerHTML = `${capitalizeStage(msg.stage)}<span class="progress-spinner"></span>`;
-    } else if (msg.event === 'status') {
-      const stageTime = formatElapsed(msg.stage_elapsed_ms);
-      const totalTime = formatElapsed(msg.elapsed_ms);
-      progressStage.innerHTML = `${capitalizeStage(msg.stage)}<span class="progress-spinner"></span>`;
-      progressTiming.textContent = `${stageTime} (${totalTime} total)`;
-    } else if (msg.event === 'completed') {
-      progressStage.innerHTML = '✓ Completed';
-      progressTiming.textContent = `Total time: ${formatElapsed(msg.duration_ms)}`;
-      cleanup();
-      // Reload page after successful completion
-      setTimeout(() => location.reload(), 2000);
-    } else if (msg.event === 'error') {
-      progressStage.innerHTML = '✗ Failed';
-      progressTiming.textContent = `Error: ${msg.error || 'Unknown error'}`;
-      cleanup();
-    }
-  });
-}
-
-// Handle re-run button click
-document.getElementById('rerunBtn').addEventListener('click', () => {
-  const facet = document.getElementById('facetSelect').value;
-  const setting = settingInput ? settingInput.value.trim() : '';
-
-  if (confirm('This will re-run the import and overwrite existing transcription results. Continue?')) {
-    const btn = document.getElementById('rerunBtn');
-    btn.disabled = true;
-    btn.textContent = 'Starting...';
-
-    // Call the re-run endpoint
-    fetch('/app/import/api/{{ timestamp }}/rerun', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ facet: facet, setting: setting })
-    })
-    .then(r => r.json())
-    .then(result => {
-      if (result.status === 'ok') {
-        btn.disabled = false;
-        btn.textContent = 'Re-run Import';
-        // Watch progress using importer events with timestamp as import_id
-        watchImportProgress('{{ timestamp }}');
-      } else {
-        alert('Failed to start re-run: ' + (result.error || 'Unknown error'));
-        btn.disabled = false;
-        btn.textContent = 'Re-run Import';
-      }
-    })
-    .catch(err => {
-      alert('Failed to start re-run: ' + err);
-      btn.disabled = false;
-      btn.textContent = 'Re-run Import';
-    });
-  }
-});
-
 // Load import details
 fetch('/app/import/api/{{ timestamp }}')
   .then(r => r.json())
   .then(data => {
-    importData = data; // Store globally
     // Update header metadata
     const metaDiv = document.getElementById('importMeta');
     if (data.import_json) {
@@ -400,9 +251,6 @@ fetch('/app/import/api/{{ timestamp }}')
       }
       if (data.import_json.setting) {
         overviewHtml += `<div class="info-label">Setting:</div><div class="info-value">${data.import_json.setting}</div>`;
-      }
-      if (settingInput) {
-        settingInput.value = data.import_json.setting || '';
       }
     }
 
@@ -451,18 +299,6 @@ fetch('/app/import/api/{{ timestamp }}')
     if (data.has_summary) {
       const summaryTab = document.getElementById('summaryTab');
       summaryTab.style.display = 'block';
-    }
-
-    // Show re-run section if import is completed or failed and file exists
-    if (data.import_json && data.import_json.file_path) {
-      // Show re-run section for completed or failed imports
-      if (data.imported_json || (data.import_json.task_id && !data.imported_json)) {
-        const rerunSection = document.getElementById('rerunSection');
-        rerunSection.style.display = 'block';
-
-        // Load facets for the dropdown
-        loadFacets();
-      }
     }
   })
   .catch(err => {

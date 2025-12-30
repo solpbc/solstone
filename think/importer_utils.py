@@ -1,13 +1,12 @@
 """Utility functions for import operations.
 
 This module contains reusable logic for managing imports in the journal,
-extracted from convey/views/import.py to be usable in CLI tools and other contexts.
+extracted from apps/import/routes.py to be usable in CLI tools and other contexts.
 """
 
 from __future__ import annotations
 
 import json
-import time
 from pathlib import Path
 
 # ============================================================================
@@ -465,32 +464,3 @@ def get_import_details(
         result["has_summary"] = True
 
     return result
-
-
-# ============================================================================
-# Re-run Support
-# ============================================================================
-
-
-def archive_imported_results(
-    journal_root: Path,
-    timestamp: str,
-) -> None:
-    """Archive imported.json to timestamped backup before re-run.
-
-    Args:
-        journal_root: Root journal directory
-        timestamp: Import timestamp
-    """
-    import_dir = journal_root / "imports" / timestamp
-    imported_json_path = import_dir / "imported.json"
-
-    if not imported_json_path.exists():
-        return
-
-    try:
-        # Archive the old results
-        archive_path = import_dir / f"imported.{int(time.time())}.json.bak"
-        imported_json_path.rename(archive_path)
-    except Exception:
-        pass  # Continue even if archiving fails

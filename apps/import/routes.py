@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import datetime
 import time
 from pathlib import Path
 from typing import Any
@@ -12,7 +11,6 @@ from convey import state
 from think.callosum import callosum_send
 from think.detect_created import detect_created
 from think.importer_utils import (
-    archive_imported_results,
     build_import_info,
     get_import_details,
     list_import_timestamps,
@@ -403,93 +401,3 @@ def import_start() -> Any:
         return jsonify({"error": "Failed to submit task"}), 500
 
     return jsonify({"status": "ok", "task_id": task_id})
-
-
-@import_bp.route("/api/<timestamp>/rerun", methods=["POST"])
-def import_rerun(timestamp: str) -> Any:
-    """Re-run an import with optionally updated facet."""
-    journal_root = Path(state.journal_root)
-
-    # Check if import exists
-    import_dir = journal_root / "imports" / timestamp
-    if not import_dir.exists():
-        return jsonify({"error": "Import not found"}), 404
-
-    # Read import metadata using utility function
-    try:
-        metadata = read_import_metadata(journal_root=journal_root, timestamp=timestamp)
-    except FileNotFoundError:
-        return jsonify({"error": "Import metadata not found"}), 404
-    except Exception as e:
-        return jsonify({"error": f"Failed to read import metadata: {str(e)}"}), 500
-
-    # Get file path from metadata
-    file_path = metadata.get("file_path")
-    if not file_path:
-        return jsonify({"error": "File path not found in metadata"}), 500
-
-    # Check if file still exists
-    if not Path(file_path).exists():
-        return jsonify({"error": "Original file no longer exists"}), 404
-
-    # Get new facet/setting from request
-    data = request.get_json(force=True)
-    new_facet = data.get("facet", "").strip() or None
-    new_setting = data.get("setting", "").strip() or None
-
-    # Check if values changed
-    facet_changed = new_facet != metadata.get("facet")
-    setting_changed = new_setting != metadata.get("setting")
-
-    # Update metadata with new values and rerun timestamp
-    if facet_changed or setting_changed or "setting" not in metadata:
-        updates = {
-            "facet": new_facet,
-            "setting": new_setting,
-            "rerun_at": time.time() * 1000,
-            "rerun_datetime": datetime.datetime.now().isoformat(),
-        }
-        try:
-            update_import_metadata_fields(
-                journal_root=journal_root,
-                timestamp=timestamp,
-                updates=updates,
-            )
-        except Exception as e:
-            return jsonify({"error": f"Failed to update metadata: {str(e)}"}), 500
-
-    # Archive previous processing results using utility function
-    archive_imported_results(journal_root=journal_root, timestamp=timestamp)
-
-    # Generate task ID
-    task_id = str(int(time.time() * 1000))
-
-    # Build command
-    cmd = ["think-importer", file_path, timestamp]
-    if new_facet:
-        cmd.extend(["--facet", new_facet])
-    if new_setting:
-        cmd.extend(["--setting", new_setting])
-
-    # Store task_id in metadata
-    try:
-        update_import_metadata_fields(
-            journal_root=journal_root,
-            timestamp=timestamp,
-            updates={"task_id": task_id},
-        )
-    except Exception as e:
-        return jsonify({"error": f"Failed to update metadata: {str(e)}"}), 500
-
-    # Emit task request to Callosum
-    if not callosum_send("supervisor", "request", ref=task_id, cmd=cmd):
-        return jsonify({"error": "Failed to submit task"}), 500
-
-    return jsonify(
-        {
-            "status": "ok",
-            "facet": new_facet,
-            "setting": new_setting,
-            "task_id": task_id,
-        }
-    )

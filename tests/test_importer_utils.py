@@ -7,7 +7,6 @@ from pathlib import Path
 import pytest
 
 from think.importer_utils import (
-    archive_imported_results,
     build_import_info,
     calculate_duration_from_files,
     get_import_details,
@@ -320,35 +319,3 @@ def test_get_import_details_not_found(temp_journal):
     """Test getting details for non-existent import."""
     with pytest.raises(FileNotFoundError):
         get_import_details(temp_journal, "20250101_999999")
-
-
-def test_archive_imported_results(temp_journal):
-    """Test archiving imported.json before re-run."""
-    timestamp = "20250101_210000"
-    import_dir = temp_journal / "imports" / timestamp
-    import_dir.mkdir(parents=True)
-
-    # Create imported.json
-    imported_path = import_dir / "imported.json"
-    imported_path.write_text('{"test": "data"}', encoding="utf-8")
-
-    # Archive it
-    archive_imported_results(temp_journal, timestamp)
-
-    # Original should be gone
-    assert not imported_path.exists()
-
-    # Archive should exist
-    archives = list(import_dir.glob("imported.*.json.bak"))
-    assert len(archives) == 1
-    assert archives[0].read_text(encoding="utf-8") == '{"test": "data"}'
-
-
-def test_archive_imported_results_no_file(temp_journal):
-    """Test archiving when imported.json doesn't exist (should be no-op)."""
-    timestamp = "20250101_220000"
-    import_dir = temp_journal / "imports" / timestamp
-    import_dir.mkdir(parents=True)
-
-    # Should not raise error
-    archive_imported_results(temp_journal, timestamp)
