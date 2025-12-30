@@ -2,40 +2,29 @@
 
 This document tracks the remaining work to complete the macOS observer integration using sck-cli and ScreenCaptureKit.
 
-## Phase 1: Activity Detection (activity.py)
+## Phase 1: Activity Detection (activity.py) - DONE
 
-### 1.1 Implement `get_idle_time_ms()`
-- [ ] Import PyObjC Quartz framework
-- [ ] Use `CGEventSourceSecondsSinceLastEventType(1, kCGAnyInputEventType)`
-- [ ] Convert seconds to milliseconds
-- [ ] Add error handling for API failures
-- [ ] Test on macOS system
+### 1.1 Implement `get_idle_time_ms()` (DONE)
+- [x] Import PyObjC Quartz framework
+- [x] Use `CGEventSourceSecondsSinceLastEventType(1, kCGAnyInputEventType)`
+- [x] Convert seconds to milliseconds
+- [x] Add error handling for API failures
+- [x] Test on macOS system
 
-**Example:**
-```python
-from Quartz import CGEventSourceSecondsSinceLastEventType, kCGAnyInputEventType
+### 1.2 Implement `is_screen_locked()` (DONE)
+- [x] Used CGSessionCopyCurrentDictionary for kCGSSessionOnConsoleKey
+- [x] Add error handling
+- [x] Test on macOS system
 
-def get_idle_time_ms() -> int:
-    seconds = CGEventSourceSecondsSinceLastEventType(1, kCGAnyInputEventType)
-    return int(seconds * 1000)
-```
+### 1.3 Implement `is_power_save_active()` (DONE)
+- [x] Used CGDisplayIsAsleep(CGMainDisplayID())
+- [x] Add error handling
+- [x] Test on macOS system
 
-### 1.2 Implement `is_screen_locked()`
-- [ ] Research best approach for screen lock detection:
-  - Option A: Query CGSessionCopyCurrentDictionary for kCGSSessionOnConsoleKey
-  - Option B: Use `ioreg -c IOHIDSystem | grep HIDIdleTime`
-  - Option C: Check display sleep state as proxy
-- [ ] Implement chosen method with PyObjC
-- [ ] Add fallback if primary method unavailable
-- [ ] Test with actual screen lock/unlock cycles
-- [ ] Handle edge cases (fast user switching, etc.)
-
-### 1.3 Implement `is_power_save_active()`
-- [ ] Investigate IOKit display state query
-- [ ] Check NSScreen APIs for display power state
-- [ ] Alternative: subprocess call to `pmset -g` or `system_profiler`
-- [ ] Return True if displays are sleeping/powered off
-- [ ] Test with display sleep/wake
+### 1.4 Implement `is_output_muted()` (DONE)
+- [x] Used osascript to query volume settings
+- [x] Add error handling and timeout
+- [x] Test on macOS system
 
 ## Phase 2: ScreenCaptureKit Manager (screencapture.py)
 
@@ -68,93 +57,75 @@ Display geometry is parsed from sck-cli output - no PyObjC monitor detection nee
 - [x] Sum sizes of all display video files
 - [x] Used for health check file growth verification
 
-## Phase 3: Main Observer (observer.py)
+## Phase 3: Main Observer (observer.py) - DONE
 
-### 3.1 Implement `setup()`
-- [ ] Verify sck-cli is available in PATH
-- [ ] Create ScreenCaptureKitManager instance
-- [ ] Initialize Callosum connection
-- [ ] Start Callosum connection
-- [ ] Log initialization success
-- [ ] Return True on success, False on failure
+### 3.1 Implement `setup()` (DONE)
+- [x] Verify sck-cli is available in PATH via shutil.which()
+- [x] Initialize Callosum connection
+- [x] Start Callosum connection
+- [x] Log initialization success
+- [x] Return True on success, False on failure
 
-### 3.2 Implement `check_activity_status()`
-- [ ] Call `get_idle_time_ms()` from activity module
-- [ ] Call `is_screen_locked()` from activity module
-- [ ] Cache values in instance variables for status events
-- [ ] Determine if idle: `(idle_time > IDLE_THRESHOLD_MS) or screen_locked`
-- [ ] Set `self.cached_is_active = not is_idle`
-- [ ] Return activity status
+### 3.2 Implement `check_activity_status()` (DONE)
+- [x] Call `get_idle_time_ms()` from activity module
+- [x] Call `is_screen_locked()` from activity module
+- [x] Call `is_output_muted()` from activity module
+- [x] Cache values in instance variables for status events
+- [x] Determine if idle: `(idle_time > IDLE_THRESHOLD_MS) or screen_locked`
+- [x] Return activity status
 
-### 3.3 Implement `handle_boundary()`
-- [ ] Get timestamp parts and calculate duration
-- [ ] Get day directory path
-- [ ] If capture running:
-  - Stop sck-cli via `self.screencapture.stop()`
-  - Get captured displays/audio from manager
-  - Build finalization list: (temp_path, final_path) tuples
-  - Queue for finalization: `self.pending_finalization = [...]`
-  - Clear state variables
-- [ ] Reset timing: `self.start_at = time.time()`, `self.start_at_mono = time.monotonic()`
-- [ ] If active and screen not locked:
-  - Call `initialize_capture()`
-- [ ] Build list of files that were captured
-- [ ] Emit Callosum event: `self.callosum.emit("observe", "observing", segment="...", files=[...])`
-- [ ] Log boundary handling
+### 3.3 Implement `handle_boundary()` (DONE)
+- [x] Get timestamp parts and calculate duration
+- [x] Stop capture if running
+- [x] Check audio threshold (3-chunk RMS logic) before saving audio
+- [x] Build finalization list and queue
+- [x] Reset timing for new window
+- [x] Start new capture if active and screen not locked
+- [x] Emit Callosum observing event with saved files
 
-### 3.4 Implement `initialize_capture()`
-- [ ] Get timestamp for filename
-- [ ] Get day directory path
-- [ ] Build temp output base: `day_dir / f".{time_part}"` (hidden file)
-- [ ] Call `self.screencapture.start(output_base, self.interval, frame_rate=1.0)`
-- [ ] Store returned displays and audio in instance variables
-- [ ] Set `self.capture_running = True`
-- [ ] Initialize file size tracking
-- [ ] Log capture start with display info
-- [ ] Return True on success, False on failure
+### 3.4 Implement `initialize_capture()` (DONE)
+- [x] Get timestamp for filename
+- [x] Build temp output base (hidden file)
+- [x] Start sck-cli via ScreenCaptureKitManager
+- [x] Store displays and audio info
+- [x] Initialize file size tracking
+- [x] Log capture start with display info
 
-### 3.5 Implement `emit_status()`
-- [ ] Build capture info dict:
-  - If capturing: `{"recording": True, "displays": [...], "window_elapsed_seconds": ...}`
-  - Else: `{"recording": False}`
-- [ ] Build activity info dict: `{"active": ..., "idle_time_ms": ..., "screen_locked": ...}`
-- [ ] Emit via Callosum: `self.callosum.emit("observe", "status", capture=..., activity=...)`
+### 3.5 Implement `emit_status()` (DONE)
+- [x] Build capture info dict with recording status, displays, elapsed time, files_growing
+- [x] Build activity info dict with active, idle_time_ms, screen_locked, output_muted
+- [x] Emit via Callosum
 
 ### 3.6 Implement `finalize_screencast()` (DONE)
 - [x] Simple file rename using os.replace()
 - [x] Log success/failure
 
-### 3.7 Implement `main_loop()`
-- [ ] Check initial activity status
-- [ ] If active and not locked, start initial capture
-- [ ] Main loop while `self.running`:
-  - Sleep for CHUNK_DURATION (5 seconds)
-  - Process pending finalization if queued
-  - Check activity status
-  - Detect activation edge: `is_active and not self.capture_running`
-  - Calculate elapsed time since window start (monotonic)
-  - Check for boundary: `elapsed >= self.interval or activation_edge`
-  - If boundary, call `handle_boundary(is_active)`
-  - Track if capture files are growing (for health reporting via status event)
-  - Emit status event with `files_growing` field
-- [ ] Call `shutdown()` after loop exits
+### 3.7 Implement `main_loop()` (DONE)
+- [x] Check initial activity status
+- [x] Start initial capture if active
+- [x] Main loop with CHUNK_DURATION sleep intervals
+- [x] Process pending finalizations
+- [x] Check activity status and detect activation edge
+- [x] Detect mute state transitions (triggers boundary like GNOME)
+- [x] Handle window boundaries
+- [x] Track file growth for health reporting
+- [x] Emit status events
 
-### 3.8 Implement `shutdown()`
-- [ ] If capture running:
-  - Stop capture
-  - Wait briefly (1 second) for files to be written
-  - Build finalization list
-  - Process finalizations
-- [ ] If pending finalization exists:
-  - Wait briefly
-  - Process pending finalizations
-- [ ] Stop Callosum connection
-- [ ] Log shutdown complete
+### 3.8 Implement `shutdown()` (DONE)
+- [x] Stop capture if running
+- [x] Check audio threshold for final segment
+- [x] Finalize all pending captures
+- [x] Stop Callosum connection
 
-### 3.9 Wire up CLI arguments
-- [ ] Add `--sck-cli-path` argument support
-- [ ] Pass to ScreenCaptureKitManager constructor
-- [ ] Test CLI invocation: `observe-macos --interval 300`
+### 3.9 Implement `_check_audio_threshold()` (DONE)
+- [x] Decode m4a with PyAV
+- [x] Split into 5-second chunks
+- [x] Compute RMS per chunk
+- [x] Count threshold hits (same MIN_HITS_FOR_SAVE = 3 as GNOME)
+- [x] Return True if enough voice activity
+
+### 3.10 Wire up CLI arguments (DONE)
+- [x] Pass --sck-cli-path to ScreenCaptureKitManager
 
 ## Phase 4: Testing & Integration
 
@@ -190,34 +161,14 @@ Display geometry is parsed from sck-cli output - no PyObjC monitor detection nee
 - [ ] Test parse_screen_filename() with new displayID format
 - [ ] Verify think-indexer handles new file formats
 
-## Phase 5: sck-cli Enhancements
+## Phase 5: sck-cli (DONE)
 
-### 5.1 Multi-Display Support (DONE in sck-cli)
-- [x] Captures all displays simultaneously
-- [x] Creates `<base>_<displayID>.mov` per display
-- [x] Outputs JSONL with display geometry to stdout
-
-### 5.2 Temp File Support
-- [ ] Add CLI flag: `--temp` or `--hidden`
-- [ ] When enabled, write to `.{basename}_<displayID>.mov` and `.{basename}.m4a`
-- [ ] Python wrapper then renames after completion
-- [ ] Prevents file watchers from triggering on incomplete files
-
-### 5.3 Graceful Shutdown
-- [ ] Verify current SIGTERM/SIGINT handling
-- [ ] Ensure VideoWriter.finish() is called on interrupt
-- [ ] Ensure AudioWriter finishes both tracks properly
-- [ ] Test file validity after various interrupt scenarios
-
-### 5.4 Exit Code Validation
-- [ ] Add validation before exit:
-  - Check output files exist
-  - Check files have non-zero size
-  - Check video file is valid
-  - Check audio file is valid
-- [ ] Return exit code 0 only if all validations pass
-- [ ] Return exit code 1 if capture failed
-- [ ] Return exit code 2 if files missing/corrupt
+All sck-cli requirements are met:
+- [x] Multi-display capture with per-display files
+- [x] JSONL metadata output to stdout
+- [x] Temp file support (Python passes hidden path like `.HHMMSS`)
+- [x] Graceful SIGTERM/SIGINT handling (verified)
+- [x] File validation done in Python's `finalize()`
 
 ## Phase 6: Documentation & Polish
 

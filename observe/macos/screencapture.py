@@ -7,7 +7,6 @@ and outputs JSONL metadata to stdout with display geometry information.
 
 import json
 import logging
-import os
 import signal
 import subprocess
 from dataclasses import dataclass
@@ -253,96 +252,3 @@ class ScreenCaptureKitManager:
         if self.process is None:
             return False
         return self.process.poll() is None
-
-    def finalize(
-        self,
-        output_dir: Path,
-        time_part: str,
-        duration: int,
-    ) -> tuple[list[str], Optional[str]]:
-        """
-        Rename capture files from temp to final paths.
-
-        Takes temporary output files from sck-cli and renames them to their
-        final destinations with duration and position in the filename.
-
-        Args:
-            output_dir: Directory for final output files
-            time_part: Timestamp string (HHMMSS)
-            duration: Actual capture duration in seconds
-
-        Returns:
-            Tuple of (list of video filenames, audio filename or None)
-
-        Example:
-            >>> video_files, audio_file = manager.finalize(
-            ...     Path("journal/20250101"),
-            ...     "120000",
-            ...     300
-            ... )
-            >>> print(video_files)
-            ['120000_300_center_1_screen.mov', '120000_300_right_2_screen.mov']
-        """
-        video_files = []
-        audio_file = None
-
-        # Finalize video files
-        for display in self.displays:
-            if not os.path.exists(display.temp_path):
-                logger.warning(f"Video file not found: {display.temp_path}")
-                continue
-
-            final_name = display.final_name(time_part, duration)
-            final_path = output_dir / final_name
-
-            try:
-                os.replace(display.temp_path, final_path)
-                video_files.append(final_name)
-                logger.info(f"Finalized video: {final_path}")
-            except OSError as e:
-                logger.error(
-                    f"Failed to rename {display.temp_path} to {final_path}: {e}"
-                )
-
-        # Finalize audio file
-        if self.audio and os.path.exists(self.audio.temp_path):
-            final_name = self.audio.final_name(time_part, duration)
-            final_path = output_dir / final_name
-
-            try:
-                os.replace(self.audio.temp_path, final_path)
-                audio_file = final_name
-                logger.info(f"Finalized audio: {final_path}")
-            except OSError as e:
-                logger.error(
-                    f"Failed to rename {self.audio.temp_path} to {final_path}: {e}"
-                )
-
-        # Clear state
-        self.displays = []
-        self.audio = None
-        self.output_base = None
-
-        return video_files, audio_file
-
-    def get_output_size(self) -> int:
-        """
-        Get the total size of all video output files.
-
-        Used for health checks to verify files are growing during capture.
-
-        Returns:
-            Total file size in bytes, or 0 if not capturing
-        """
-        if not self.displays:
-            return 0
-
-        total = 0
-        for display in self.displays:
-            try:
-                if os.path.exists(display.temp_path):
-                    total += os.path.getsize(display.temp_path)
-            except OSError:
-                pass
-
-        return total

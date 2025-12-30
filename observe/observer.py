@@ -24,7 +24,9 @@ def main() -> None:
     elif platform == "linux":
         from observe.gnome.observer import main as platform_main
     else:
-        print(f"Error: Observer not available for platform '{platform}'", file=sys.stderr)
+        print(
+            f"Error: Observer not available for platform '{platform}'", file=sys.stderr
+        )
         print("Supported platforms: macOS (darwin), Linux", file=sys.stderr)
         sys.exit(1)
 
