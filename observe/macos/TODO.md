@@ -176,11 +176,8 @@ def get_idle_time_ms() -> int:
   - Calculate elapsed time since window start (monotonic)
   - Check for boundary: `elapsed >= self.interval or activation_edge`
   - If boundary, call `handle_boundary(is_active)`
-  - Touch health files:
-    - `touch_health("hear")` - audio always captured when recording
-    - `touch_health("see")` - video captured when active
-  - Verify video file is growing if capturing (health check)
-  - Emit status event
+  - Track if capture files are growing (for health reporting via status event)
+  - Emit status event with `screencast.files_growing` field (supervisor derives health from this)
 - [ ] Call `shutdown()` after loop exits
 
 ### 3.8 Implement `shutdown()`

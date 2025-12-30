@@ -23,7 +23,7 @@ from observe.macos.activity import (
 )
 from observe.macos.screencapture import ScreenCaptureKitManager
 from think.callosum import CallosumConnection
-from think.utils import day_path, setup_cli, touch_health
+from think.utils import day_path, setup_cli
 
 logger = logging.getLogger(__name__)
 

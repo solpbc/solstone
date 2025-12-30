@@ -29,7 +29,7 @@ from observe.gnome.dbus import (
 from observe.gnome.screencast import Screencaster, StreamInfo
 from observe.hear import AudioRecorder
 from think.callosum import CallosumConnection
-from think.utils import day_path, setup_cli, touch_health
+from think.utils import day_path, setup_cli
 
 logger = logging.getLogger(__name__)
 
@@ -72,6 +72,9 @@ class Observer:
 
         # Mute state at segment start (determines save format)
         self.segment_is_muted = False
+
+        # Health tracking - whether screencast files are actively growing
+        self.files_growing = False
 
     async def setup(self):
         """Initialize audio devices and DBus connection."""
@@ -348,9 +351,10 @@ class Observer:
                 "recording": True,
                 "streams": streams_info,
                 "window_elapsed_seconds": elapsed,
+                "files_growing": self.files_growing,
             }
         else:
-            screencast_info = {"recording": False}
+            screencast_info = {"recording": False, "files_growing": False}
 
         # Audio info
         audio_info = {
@@ -494,15 +498,8 @@ class Observer:
                 )
                 await self.handle_boundary(is_active)
 
-            # Touch health for audio processing (always)
-            touch_health("hear")
-
-            # Touch health for screencast based on file existence and growth
-            if not is_active:
-                # Healthy not to record when idle/locked
-                touch_health("see")
-            elif self.screencast_running and self.current_streams:
-                # Check if ANY recording file exists and is growing
+            # Check if screencast files are actively growing (for health reporting)
+            if self.screencast_running and self.current_streams:
                 any_growing = False
                 for stream in self.current_streams:
                     if os.path.exists(stream.temp_path):
@@ -511,11 +508,11 @@ class Observer:
                         if current_size > last_size:
                             any_growing = True
                             self.last_screencast_sizes[stream.temp_path] = current_size
+                self.files_growing = any_growing
+            else:
+                self.files_growing = False
 
-                if any_growing:
-                    touch_health("see")
-
-            # Emit status event
+            # Emit status event (supervisor derives health from this)
             self.emit_status()
 
         # Cleanup on exit

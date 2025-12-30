@@ -8,20 +8,77 @@ import time
 import pytest
 
 
-def test_check_health(tmp_path, monkeypatch):
+def test_check_health():
+    """Test health checking based on observe.status events."""
     mod = importlib.import_module("think.supervisor")
-    health = tmp_path / "health"
-    health.mkdir()
-    for name in ("see.up", "hear.up"):
-        (health / name).write_text("x")
-    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
-    assert mod.check_health(threshold=90) == []
 
-    old = time.time() - 100
-    for hb in health.iterdir():
-        os.utime(hb, (old, old))
-    stale = mod.check_health(threshold=90)
+    # Reset state for clean test
+    mod._observe_status_state["last_ts"] = 0.0
+    mod._observe_status_state["activity_active"] = False
+    mod._observe_status_state["screencast_recording"] = False
+    mod._observe_status_state["files_growing"] = False
+
+    # No status received yet - both should be stale
+    stale = mod.check_health(threshold=60)
     assert sorted(stale) == ["hear", "see"]
+
+    # Simulate receiving a status event (user inactive)
+    mod._observe_status_state["last_ts"] = time.time()
+    mod._observe_status_state["activity_active"] = False
+    stale = mod.check_health(threshold=60)
+    assert stale == []  # Healthy - inactive means OK not to record
+
+    # User active but not recording - see should be stale
+    mod._observe_status_state["activity_active"] = True
+    mod._observe_status_state["screencast_recording"] = False
+    stale = mod.check_health(threshold=60)
+    assert stale == ["see"]
+
+    # User active, recording, but files not growing - see should be stale
+    mod._observe_status_state["screencast_recording"] = True
+    mod._observe_status_state["files_growing"] = False
+    stale = mod.check_health(threshold=60)
+    assert stale == ["see"]
+
+    # User active, recording, files growing - all healthy
+    mod._observe_status_state["files_growing"] = True
+    stale = mod.check_health(threshold=60)
+    assert stale == []
+
+    # Status became stale (old timestamp)
+    mod._observe_status_state["last_ts"] = time.time() - 100
+    stale = mod.check_health(threshold=60)
+    assert sorted(stale) == ["hear", "see"]
+
+
+def test_handle_observe_status():
+    """Test that observe.status events update health state."""
+    mod = importlib.import_module("think.supervisor")
+
+    # Reset state
+    mod._observe_status_state["last_ts"] = 0.0
+    mod._observe_status_state["activity_active"] = False
+    mod._observe_status_state["screencast_recording"] = False
+    mod._observe_status_state["files_growing"] = False
+
+    # Simulate observe.status message
+    message = {
+        "tract": "observe",
+        "event": "status",
+        "activity": {"active": True},
+        "screencast": {"recording": True, "files_growing": True},
+    }
+    mod._handle_observe_status(message)
+
+    assert mod._observe_status_state["last_ts"] > 0
+    assert mod._observe_status_state["activity_active"] is True
+    assert mod._observe_status_state["screencast_recording"] is True
+    assert mod._observe_status_state["files_growing"] is True
+
+    # Non-observe messages should be ignored
+    old_ts = mod._observe_status_state["last_ts"]
+    mod._handle_observe_status({"tract": "supervisor", "event": "status"})
+    assert mod._observe_status_state["last_ts"] == old_ts
 
 
 @pytest.mark.asyncio

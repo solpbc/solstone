@@ -462,24 +462,6 @@ def day_input_summary(day: str) -> str:
         return f"{segment_count} segments, {duration_str}"
 
 
-def touch_health(name: str) -> None:
-    """Update the journal's ``name`` heartbeat file.
-
-    The journal path is read from ``JOURNAL_PATH`` in the environment.
-    """
-    load_dotenv()
-    journal = os.getenv("JOURNAL_PATH")
-    if not journal:
-        return
-    path = Path(journal) / "health" / f"{name}.up"
-    try:
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.touch()
-        logging.getLogger(__name__).debug(f"Health touched: {name}")
-    except Exception:
-        pass
-
-
 def setup_cli(parser: argparse.ArgumentParser, *, parse_known: bool = False):
     """Parse command line arguments and configure logging.
 

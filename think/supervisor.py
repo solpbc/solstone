@@ -100,6 +100,14 @@ _callosum_thread: threading.Thread | None = None
 # Restart request tracking for SIGKILL enforcement
 _restart_requests: dict[str, tuple[float, subprocess.Popen]] = {}
 
+# Observe status state for health monitoring (updated from observe.status events)
+_observe_status_state: dict = {
+    "last_ts": 0.0,  # Timestamp of last observe.status event
+    "activity_active": False,  # Whether user is active (not idle/locked)
+    "screencast_recording": False,  # Whether screencast is running
+    "files_growing": False,  # Whether screencast files are growing
+}
+
 
 def _get_journal_path() -> Path:
     journal = os.getenv("JOURNAL_PATH")
@@ -206,19 +214,36 @@ def _launch_process(
 
 
 def check_health(threshold: int = DEFAULT_THRESHOLD) -> list[str]:
-    """Return a list of stale heartbeat names."""
+    """Return a list of stale heartbeat names based on observe.status events.
+
+    Health is derived from the last observe.status Callosum event:
+    - hear: Stale if no status received within threshold
+    - see: Stale if active AND (not recording OR files not growing)
+    """
     now = time.time()
     stale: list[str] = []
-    health_dir = _get_journal_path() / "health"
-    for name in ("see", "hear"):
-        path = health_dir / f"{name}.up"
-        try:
-            mtime = path.stat().st_mtime
-        except FileNotFoundError:
-            stale.append(name)
-            continue
-        if now - mtime > threshold:
-            stale.append(name)
+
+    last_ts = _observe_status_state["last_ts"]
+    status_age = now - last_ts
+
+    # If no recent status, both are stale
+    if status_age > threshold:
+        return ["hear", "see"]
+
+    # hear is healthy if we're receiving status events (audio always runs)
+    # (already passed the threshold check above)
+
+    # see health depends on activity state
+    activity_active = _observe_status_state["activity_active"]
+    screencast_recording = _observe_status_state["screencast_recording"]
+    files_growing = _observe_status_state["files_growing"]
+
+    if activity_active:
+        # User is active - screencast should be recording and files growing
+        if not screencast_recording or not files_growing:
+            stale.append("see")
+    # If not active (idle/locked/power-save), it's healthy not to record
+
     return stale
 
 
@@ -1005,11 +1030,28 @@ def _run_segment_dream(day: str, segment: str) -> None:
         )
 
 
+def _handle_observe_status(message: dict) -> None:
+    """Handle observe.status events for health monitoring."""
+    if message.get("tract") != "observe" or message.get("event") != "status":
+        return
+
+    # Update observe status state for health checking
+    _observe_status_state["last_ts"] = time.time()
+
+    activity = message.get("activity", {})
+    _observe_status_state["activity_active"] = activity.get("active", False)
+
+    screencast = message.get("screencast", {})
+    _observe_status_state["screencast_recording"] = screencast.get("recording", False)
+    _observe_status_state["files_growing"] = screencast.get("files_growing", False)
+
+
 def _handle_callosum_message(message: dict) -> None:
     """Dispatch incoming Callosum messages to appropriate handlers."""
     _handle_task_request(message)
     _handle_supervisor_request(message)
     _handle_segment_observed(message)
+    _handle_observe_status(message)
 
 
 async def supervise(
@@ -1019,8 +1061,9 @@ async def supervise(
     daily: bool = True,
     procs: list[ManagedProcess] | None = None,
 ) -> None:
-    """Monitor heartbeat files and alert when they become stale.
+    """Monitor health via Callosum events and alert when stale.
 
+    Health is derived from observe.status events (see check_health()).
     Main supervision loop runs at 1-second intervals for responsiveness.
     Subsystems manage their own timing (health checks every interval seconds,
     scheduled agents check continuously but only advance when ready).

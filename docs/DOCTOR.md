@@ -18,9 +18,6 @@ export JOURNAL_PATH=$(grep JOURNAL_PATH .env | cut -d= -f2)
 # Check if supervisor services are running
 pgrep -af "observe-gnome|observe-sense|think-supervisor"
 
-# Check heartbeat freshness (should be recent)
-ls -la $JOURNAL_PATH/health/*.up
-
 # Check Callosum socket exists
 ls -la $JOURNAL_PATH/health/callosum.sock
 
@@ -30,8 +27,8 @@ ls $JOURNAL_PATH/$(date +%Y%m%d)/agents/*_active.jsonl 2>/dev/null
 
 **Healthy state:**
 - All three processes running
-- `.up` files modified within last 60 seconds
 - `callosum.sock` exists
+- `supervisor.status` events show no stale heartbeats
 - No `_active.jsonl` files older than a few minutes
 
 ---
@@ -75,22 +72,24 @@ ls -la $JOURNAL_PATH/$(date +%Y%m%d)/health/
 
 ## Health Signals
 
-### Heartbeat Files
+Health is derived from `observe.status` Callosum events (emitted every 5 seconds):
 
-| File | Updated by | Meaning |
-|------|------------|---------|
-| `health/see.up` | Observer | Screen capture active |
-| `health/hear.up` | Observer | Audio capture active |
+| Signal | Healthy when | Stale when |
+|--------|--------------|------------|
+| `hear` | Status received within threshold | No status for 60+ seconds |
+| `see` | User idle OR (recording AND files growing) | User active AND (not recording OR files not growing) |
 
-Staleness threshold: 60 seconds (configurable). Supervisor checks these and alerts if stale.
+Staleness threshold: 60 seconds (configurable via `--threshold`).
 
 ### Callosum Status Events
 
 Services emit periodic status to Callosum (every 5 seconds when active):
 
-- `observe.status` - Capture state (screencast, audio, activity)
+- `observe.status` - Capture state (screencast, audio, activity, files_growing)
 - `cortex.status` - Running agents list
 - `supervisor.status` - Service health, stale heartbeats
+
+The supervisor derives health from `observe.status` events and includes `stale_heartbeats` in its own status.
 
 See [CALLOSUM.md](CALLOSUM.md) Tract Registry for event schemas.
 
@@ -132,11 +131,11 @@ See [CORTEX.md](CORTEX.md) for complete event schemas and agent configuration.
 ### Observer not capturing
 
 ```bash
-# Check heartbeats
-ls -la $JOURNAL_PATH/health/*.up
-
 # Check observer log for errors
 tail -50 $JOURNAL_PATH/health/observe-gnome.log | grep -i error
+
+# Check if observer is emitting status (supervisor.status will show stale_heartbeats)
+# Health is derived from observe.status Callosum events
 ```
 
 Causes: DBus issues, screencast permissions, audio device unavailable.
