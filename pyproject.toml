@@ -118,6 +118,7 @@ observe-macos = "observe.macos.observer:main"
 observe-transcribe = "observe.transcribe:main"
 observe-describe = "observe.describe:main"
 observe-sense = "observe.sense:main"
+observe-tmux = "observe.tmux.observer:main"
 think-formatter = "think.formatters:main"
 
 [project.urls]
