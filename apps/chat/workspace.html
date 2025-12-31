@@ -88,6 +88,24 @@
 #messages .event-card a { text-decoration: none; color: #007bff; }
 #messages .event-card a:hover { text-decoration: underline; }
 
+/* Shared pill styles for tool params */
+#messages .tool-params { margin-left: 0.5em; display: inline; }
+#messages .tool-param {
+  display: inline-block;
+  background: rgba(0,0,0,0.08);
+  border-radius: 3px;
+  padding: 0.1em 0.4em;
+  margin-left: 0.3em;
+  font-size: 0.9em;
+}
+/* Event card pill colors */
+#messages .event-card .tool-param { color: #805500; }
+#messages .event-card .tool-param .param-label { color: #a06000; }
+/* Tool placard pill colors */
+#messages .tool-placard .tool-param { color: #555; }
+#messages .tool-placard .tool-param .param-label { color: #888; }
+#messages .tool-placard.completed .tool-param { background: rgba(0,0,0,0.06); }
+
 #messages .tool-placard {
   background: #e3f2fd;
   border: 1px solid #2196f3;
@@ -107,21 +125,9 @@
 }
 #messages .tool-placard .tool-name { font-weight: bold; color: #1976d2; }
 #messages .tool-placard .tool-status { font-size: 0.9em; color: #666; margin-left: 0.5em; }
-#messages .tool-placard .tool-params { margin-left: 0.5em; display: inline; }
-#messages .tool-placard .tool-param {
-  display: inline-block;
-  background: rgba(0,0,0,0.08);
-  border-radius: 3px;
-  padding: 0.1em 0.4em;
-  margin-left: 0.3em;
-  font-size: 0.9em;
-  color: #555;
-}
-#messages .tool-placard .tool-param .param-label { color: #888; }
 #messages .tool-placard.completed { background: #e8f5e9; border-color: #4caf50; }
 #messages .tool-placard.completed:hover { background: #d4f0d7; }
 #messages .tool-placard.completed .tool-name { color: #2e7d32; }
-#messages .tool-placard.completed .tool-param { background: rgba(0,0,0,0.06); }
 
 #messages .agent-update {
   background: #fff3e0;
@@ -931,13 +937,17 @@ function ensureActivityIndicatorAtBottom() {
   }
 }
 
-function addEventCard(text, url, event){
+function addEventCard(text, url, event, params){
   const div=document.createElement('div');
   div.className='event-card';
   const a=document.createElement('a');
   a.href=url;
   a.textContent=text;
   div.appendChild(a);
+
+  // Add parameter pills if provided
+  const pills = createParamPills(params);
+  if (pills) div.appendChild(pills);
 
   // Add browser's built-in title attribute with formatted JSON
   if(event){
@@ -994,6 +1004,24 @@ function formatToolParams(args) {
   return params;
 }
 
+// Create a span containing parameter pills from params array
+function createParamPills(params) {
+  if (!params || params.length === 0) return null;
+  const paramsSpan = document.createElement('span');
+  paramsSpan.className = 'tool-params';
+  params.forEach(p => {
+    const pill = document.createElement('span');
+    pill.className = 'tool-param';
+    const label = document.createElement('span');
+    label.className = 'param-label';
+    label.textContent = p.label + ': ';
+    pill.appendChild(label);
+    pill.appendChild(document.createTextNode(p.value));
+    paramsSpan.appendChild(pill);
+  });
+  return paramsSpan;
+}
+
 function addToolPlacard(toolName, event, callId){
   const div=document.createElement('div');
   div.className='tool-placard';
@@ -1005,22 +1033,8 @@ function addToolPlacard(toolName, event, callId){
 
   // Add parameter pills if args present
   const args = event && event.args;
-  const params = formatToolParams(args);
-  if (params.length > 0) {
-    const paramsSpan = document.createElement('span');
-    paramsSpan.className = 'tool-params';
-    params.forEach(p => {
-      const pill = document.createElement('span');
-      pill.className = 'tool-param';
-      const label = document.createElement('span');
-      label.className = 'param-label';
-      label.textContent = p.label + ': ';
-      pill.appendChild(label);
-      pill.appendChild(document.createTextNode(p.value));
-      paramsSpan.appendChild(pill);
-    });
-    div.appendChild(paramsSpan);
-  }
+  const pills = createParamPills(formatToolParams(args));
+  if (pills) div.appendChild(pills);
 
   const statusSpan=document.createElement('span');
   statusSpan.className='tool-status';
@@ -1320,17 +1334,11 @@ function handleToolStart(event) {
 
   // Handle search tools with special event cards
   if(args && args.query) {
-    // Extract date from query if present (format: YYYYMMDD or YYYY-MM-DD)
-    let dateStr = '';
-    const dateMatch = args.query.match(/\b(\d{8}|\d{4}-\d{2}-\d{2})\b/);
-    if(dateMatch) {
-      const dateRaw = dateMatch[1].replace(/-/g, '');
-      dateStr = ` on ${formatDay(dateRaw)}`;
-    }
-
     const url = searchBase + '#q=' + encodeURIComponent(args.query);
-    const searchText = `Searching for "${args.query}"${dateStr}`;
-    addEventCard(searchText, url, event);
+    const searchText = `Searching for "${args.query}"`;
+    // Get filter params (excluding query since it's already in the text)
+    const params = formatToolParams(args).filter(p => p.label !== 'query');
+    addEventCard(searchText, url, event, params);
     return;
   }
 
