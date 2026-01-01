@@ -1,8 +1,7 @@
 {
     "title": "Meeting Speakers",
-    "description": "Detects video meetings in the segment and extracts participant names from screen and conversation.",
+    "description": "Detects meetings in the segment and extracts participant names from screen and conversation.",
     "frequency": "segment",
     "occurrences": "For each meeting detected, extract start/end times and the list of participant names. If segment spans two meetings, create separate occurrences.",
-    "contains": "Meeting detection with time bounds and participant name lists extracted from visible participant panels and conversation.",
     "color": "#ff5722"
 }

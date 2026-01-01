@@ -2,11 +2,11 @@
 
 ## Objective
 
-Identify meetings in this segment and extract participant names. This output feeds into occurrence extraction to populate meeting participant lists.
+Identify meetings and multi-person discussions in this segment and extract possible participant names.
 
 ## Input Types
 
-### With Screen Activity (Live Capture)
+### With Screen Activity
 
 A meeting is detected when screen activity shows a video conferencing application:
 - Zoom, Google Meet, Microsoft Teams, Webex, or similar
@@ -14,25 +14,27 @@ A meeting is detected when screen activity shows a video conferencing applicatio
 - Meeting controls or UI elements present
 
 Extract participant names from:
-1. **Visible participant list/panel** on screen (highest confidence)
+1. **Visible participant list/panel** on screen
 2. **Names spoken in conversation** - direct address ("Thanks, Sarah"), mentions ("John was saying...")
 3. **Self-introductions** ("Hi, I'm Alex from...")
 
-### Audio Only (Import)
+### Audio Only
 
 When no screen activity is present, a meeting is detected when audio shows:
 - Multiple speakers with conversational turn-taking
 - Meeting-style patterns: agenda items, discussion, decisions, action items
 - Professional/work context evident from topics
+- Personal discussions amongst friends or family
 
 Extract names from:
 1. **Names spoken in conversation** - direct address and mentions
 2. **Self-introductions**
-3. **Setting/topics metadata** if available from transcription
+3. **Any setting metadata** if available from transcription
+4. **Facet** if given, possible entities based on the given facet
 
 ## Boundary Detection
 
-If the segment spans two distinct meetings (one ending, another starting):
+If the segment spans two distinct meetings with different participants (one ending, another starting):
 - Look for farewell patterns followed by new greetings
 - Different participant set appears
 - Significant topic shift with new introductions
@@ -41,37 +43,21 @@ Report each meeting separately with its own time range and participants.
 
 ## Output Format
 
-Structure your output clearly for occurrence extraction:
-
-### Meeting Detection
-
-State whether meeting(s) were detected and the detection basis:
-- **Detected**: Yes / No
-- **Source**: Screen (video call UI visible) / Audio-only (conversation patterns)
-
-### Meeting 1
+Structure your output as clean well formatted markdown with the following information included:
 
 - **Time**: HH:MM:SS - HH:MM:SS
 - **Platform**: Zoom / Meet / Teams / etc. (if visible, omit for audio-only)
 - **Participants**:
-  - Name (evidence: where/how detected)
-  - Name (evidence: where/how detected)
+  - Speaker Name
+  - Another Speaker Name
 
-### Meeting 2 (if segment contains two meetings)
-
-Same structure as above.
+Your result may have 0, 1, or 2 of the above sections. Our goal is to identify all the possible speakers based on the evidence.
 
 ## What to Ignore
 
 - Podcasts, videos, or streaming content being watched
 - Music or background audio
-- Single-speaker recordings without meeting context
-- Phone calls (no video conferencing UI)
 
 ## No Meeting Case
 
-If no meeting is detected, output:
-
-### Meeting Detection
-- **Detected**: No
-- **Reason**: [Brief explanation - e.g., "No video call UI visible, single speaker only"]
+If no meeting is detected, output just "No meetings detected"
