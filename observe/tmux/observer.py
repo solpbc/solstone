@@ -3,7 +3,8 @@
 Tmux terminal observer for journaling.
 
 Polls tmux for active sessions and captures terminal content from the active
-window's panes. Creates 5-minute segments with JSONL output.
+window's panes. Outputs tmux_{session}_screen.jsonl files in screen.jsonl-
+compatible format for unified formatting and indexing.
 """
 
 import argparse
@@ -247,34 +248,63 @@ class TmuxObserver:
         return hashlib.md5(content.encode()).hexdigest()
 
     def result_to_dict(self, result: CaptureResult, ts: float) -> dict:
-        """Convert CaptureResult to JSON-serializable dict."""
+        """Convert CaptureResult to JSON-serializable dict.
+
+        Output format matches screen.jsonl structure from observe-describe:
+        - frame_id: Capture sequence number
+        - timestamp: Seconds since segment start
+        - requests: Empty list (no AI processing)
+        - analysis: Category info with templated visual_description
+        - tmux: All terminal-specific data
+        """
         self.capture_id += 1
+
+        # Calculate relative timestamp from segment start
+        relative_ts = ts - self.start_at
+
+        # Build visual description from tmux info
+        pane_count = len(result.panes)
+        pane_word = "pane" if pane_count == 1 else "panes"
+        visual_description = (
+            f"Terminal session '{result.session}' with {pane_count} {pane_word} "
+            f"in window '{result.window.name}'"
+        )
+
         return {
-            "id": self.capture_id,
-            "ts": ts,
-            "session": result.session,
-            "window": {
-                "id": result.window.id,
-                "index": result.window.index,
-                "name": result.window.name,
+            "frame_id": self.capture_id,
+            "timestamp": relative_ts,
+            "requests": [],
+            "analysis": {
+                "visual_description": visual_description,
+                "primary": "tmux",
+                "secondary": "none",
+                "overlap": False,
             },
-            "windows": [
-                {"id": w.id, "index": w.index, "name": w.name, "active": w.active}
-                for w in result.windows
-            ],
-            "panes": [
-                {
-                    "id": p.id,
-                    "index": p.index,
-                    "left": p.left,
-                    "top": p.top,
-                    "width": p.width,
-                    "height": p.height,
-                    "active": p.active,
-                    "content": p.content,
-                }
-                for p in result.panes
-            ],
+            "tmux": {
+                "session": result.session,
+                "window": {
+                    "id": result.window.id,
+                    "index": result.window.index,
+                    "name": result.window.name,
+                },
+                "windows": [
+                    {"id": w.id, "index": w.index, "name": w.name, "active": w.active}
+                    for w in result.windows
+                ],
+                "panes": [
+                    {
+                        "id": p.id,
+                        "index": p.index,
+                        "left": p.left,
+                        "top": p.top,
+                        "width": p.width,
+                        "height": p.height,
+                        "active": p.active,
+                        "content": p.content,
+                    }
+                    for p in result.panes
+                ],
+            },
         }
 
     def poll_and_capture(self) -> list[dict]:
@@ -311,7 +341,11 @@ class TmuxObserver:
         return new_captures
 
     def handle_boundary(self):
-        """Write accumulated captures to segment JSONL and reset."""
+        """Write accumulated captures to segment JSONL files and reset.
+
+        Writes one file per session: tmux_{session}_screen.jsonl
+        Format matches screen.jsonl for unified formatting/indexing.
+        """
         if not self.captures:
             logger.info("No captures in segment, skipping write")
             self.reset_segment()
@@ -327,24 +361,33 @@ class TmuxObserver:
         segment_dir = day_path(date_part) / segment_key
         segment_dir.mkdir(parents=True, exist_ok=True)
 
-        output_path = segment_dir / "tmux.jsonl"
+        # Group captures by session
+        by_session: dict[str, list[dict]] = {}
+        for capture in self.captures:
+            session = capture.get("tmux", {}).get("session", "unknown")
+            if session not in by_session:
+                by_session[session] = []
+            by_session[session].append(capture)
 
-        # Write JSONL: metadata header + captures
-        with open(output_path, "w") as f:
-            # Header with metadata
-            header = {
-                "captures": len(self.captures),
-                "sessions": sorted(self.sessions_seen),
-            }
-            f.write(json.dumps(header) + "\n")
+        # Write one file per session
+        files_written = []
+        for session, captures in by_session.items():
+            # Sanitize session name for filename
+            safe_session = session.replace("/", "_").replace(" ", "_")
+            filename = f"tmux_{safe_session}_screen.jsonl"
+            output_path = segment_dir / filename
 
-            # Write each capture
-            for capture in self.captures:
-                f.write(json.dumps(capture) + "\n")
+            with open(output_path, "w") as f:
+                # Header matching screen.jsonl format
+                header = {"raw": filename}
+                f.write(json.dumps(header) + "\n")
 
-        logger.info(
-            f"Wrote {len(self.captures)} captures to {output_path}"
-        )
+                # Write each capture
+                for capture in captures:
+                    f.write(json.dumps(capture) + "\n")
+
+            files_written.append(filename)
+            logger.info(f"Wrote {len(captures)} captures to {output_path}")
 
         # Emit event
         if self.callosum:
@@ -354,6 +397,7 @@ class TmuxObserver:
                 segment=segment_key,
                 captures=len(self.captures),
                 sessions=sorted(self.sessions_seen),
+                files=files_written,
             )
 
         self.reset_segment()

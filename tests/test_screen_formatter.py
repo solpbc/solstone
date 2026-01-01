@@ -421,7 +421,56 @@ def test_categories_includes_all_expected():
         "media",
         "gaming",
         "productivity",
+        "tmux",
     ]
     for cat in expected:
         assert cat in CATEGORIES, f"Expected category {cat} not found"
-    assert len(CATEGORIES) == 9
+    assert len(CATEGORIES) == 10
+
+
+def test_tmux_formatter_output():
+    """Test that tmux formatter produces expected markdown."""
+    from observe.categories.tmux import format as tmux_format
+
+    content = {
+        "session": "main",
+        "window": {"id": "@1", "index": 0, "name": "bash"},
+        "panes": [
+            {
+                "id": "%1",
+                "index": 0,
+                "active": True,
+                "content": "$ ls -la\n\x1b[32mtotal 42\x1b[0m\ndrwxr-xr-x 2 user",
+            },
+        ],
+    }
+
+    result = tmux_format(content, {})
+
+    assert "**Tmux** (main:bash)" in result
+    assert "```" in result
+    # ANSI codes should be stripped
+    assert "\x1b[32m" not in result
+    assert "total 42" in result
+    assert "$ ls -la" in result
+
+
+def test_tmux_formatter_multiple_panes():
+    """Test tmux formatter labels multiple panes."""
+    from observe.categories.tmux import format as tmux_format
+
+    content = {
+        "session": "dev",
+        "window": {"name": "work"},
+        "panes": [
+            {"index": 0, "active": True, "content": "pane zero"},
+            {"index": 1, "active": False, "content": "pane one"},
+        ],
+    }
+
+    result = tmux_format(content, {})
+
+    assert "**Pane 0 (active):**" in result
+    assert "**Pane 1:**" in result
+    assert "pane zero" in result
+    assert "pane one" in result
