@@ -198,9 +198,8 @@ make check-all   # Format, lint, and test (run before commit)
 ## Dependencies Management
 
 * **Minimize Dependencies**: Use standard library when possible
-* **Production**: Add to `dependencies` in `pyproject.toml`
-* **Development**: Add to `[project.optional-dependencies]` dev section
-* **Installation**: `make install` (basic), `make dev` (with dev tools), `make full` (all optional)
+* **All Dependencies**: Add to `dependencies` in `pyproject.toml`
+* **Installation**: `make install` or `pip install -e .` (includes everything)
 
 ---
 
@@ -220,7 +219,7 @@ make check-all   # Format, lint, and test (run before commit)
 ### Common Commands
 ```bash
 # Development setup
-make dev            # Install with dev dependencies
+make install       # Install package (includes all deps)
 make test          # Run unit tests
 make format        # Format code
 make lint          # Check code quality

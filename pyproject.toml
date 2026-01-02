@@ -17,6 +17,7 @@ classifiers = [
     "Intended Audience :: Developers",
     "License :: OSI Approved :: GNU Affero General Public License v3",
     "Operating System :: POSIX :: Linux",
+    "Operating System :: MacOS :: MacOS X",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
@@ -42,8 +43,13 @@ dependencies = [
     "timefhuman",
     "Pillow",
     "numpy",
-    "PyGObject",
-    "dbus-next",
+    # Linux-only: GNOME/GTK integration
+    "PyGObject; sys_platform == 'linux'",
+    "dbus-next; sys_platform == 'linux'",
+    # macOS-only: PyObjC for activity detection
+    "pyobjc-core; sys_platform == 'darwin'",
+    "pyobjc-framework-Cocoa; sys_platform == 'darwin'",
+    "pyobjc-framework-Quartz; sys_platform == 'darwin'",
     "desktop-notifier",
     "av",
 
@@ -58,27 +64,21 @@ dependencies = [
     "psutil",
     "tzlocal",
     "python-slugify",
-]
 
-[project.optional-dependencies]
-full = [
+    # Audio processing
     "soundcard",
     "soundfile",
     "pyannote.audio>=4,<5",
-    "scipy",
+    "scipy",  # Required by pyannote internals
+
+    # Media processing
     "opencv-python",
-    "PyGObject",
     "watchdog",
+
+    # Additional AI SDKs
     "claude-agent-sdk>=0.1.0",
-]
 
-macos = [
-    "pyobjc-core",
-    "pyobjc-framework-Cocoa",
-    "pyobjc-framework-Quartz",
-]
-
-dev = [
+    # Development tools
     "black",
     "flake8",
     "isort",
