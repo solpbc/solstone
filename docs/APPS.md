@@ -155,34 +155,11 @@ Fixed bottom bar for forms, buttons, date pickers, search boxes.
 - Only rendered when app provides this template
 - Great for persistent input controls across views
 
-**Date Navigator Component:**
+**Date Navigation:**
 
-For apps with day-based navigation, include the shared date navigator:
+Enable via `"date_nav": true` in `app.json` (not via includes). This renders a `← Date →` control with month picker. Requires `/app/{app_name}/api/stats/{month}` endpoint returning `{YYYYMMDD: count}` or `{YYYYMMDD: {facet: count}}`.
 
-```html
-&#123;% include 'date_nav.html' %&#125;
-```
-
-This provides a unified `← Date →` control with:
-- Previous/next day buttons
-- Month picker dropdown (click date label)
-- Keyboard shortcuts: ←/→ arrows, `t` for today
-
-The `day` and `app` variables are auto-injected from the URL by the context processor.
-
-**Month Picker:**
-
-Apps with `date_nav: true` get a month picker dropdown when clicking the date label. The heat map is auto-configured using a convention-based API:
-
-**Required endpoint:** `/app/{app_name}/api/stats/{month}` (YYYYMM format)
-
-**Response format** (auto-detected):
-- Simple: `{YYYYMMDD: count}` - used as-is
-- Facet-aware: `{YYYYMMDD: {facet: count}}` - filtered by selected facet
-
-Days with data (count > 0) are clickable; empty days are grayed out.
-
-**Implementation source:** `convey/templates/date_nav.html`, `convey/static/month-picker.js`
+Keyboard shortcuts: `←`/`→` for day navigation, `t` for today.
 
 ### 5. `background.html` - Background Service
 
