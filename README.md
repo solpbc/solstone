@@ -1,4 +1,4 @@
-<img src="logo.png" alt="solstone Logo" width="300">
+<img src="docs/static/logo.png" alt="solstone Logo" width="300">
 
 # solstone
 
