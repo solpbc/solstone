@@ -14,15 +14,22 @@ def test_check_health():
 
     # Reset state for clean test
     mod._observe_status_state["last_ts"] = 0.0
+    mod._observe_status_state["ever_received"] = False
     mod._observe_status_state["activity_active"] = False
     mod._observe_status_state["screencast_recording"] = False
     mod._observe_status_state["files_growing"] = False
 
-    # No status received yet - both should be stale
+    # Startup grace period: no status ever received - returns healthy (no alerts)
+    stale = mod.check_health(threshold=60)
+    assert stale == []  # Grace period - don't alert until first status received
+
+    # After first status received, stale timestamp triggers alerts
+    mod._observe_status_state["ever_received"] = True
+    mod._observe_status_state["last_ts"] = 0.0  # Very old timestamp
     stale = mod.check_health(threshold=60)
     assert sorted(stale) == ["hear", "see"]
 
-    # Simulate receiving a status event (user inactive)
+    # Simulate receiving a fresh status event (user inactive)
     mod._observe_status_state["last_ts"] = time.time()
     mod._observe_status_state["activity_active"] = False
     stale = mod.check_health(threshold=60)
@@ -57,6 +64,7 @@ def test_handle_observe_status():
 
     # Reset state
     mod._observe_status_state["last_ts"] = 0.0
+    mod._observe_status_state["ever_received"] = False
     mod._observe_status_state["activity_active"] = False
     mod._observe_status_state["screencast_recording"] = False
     mod._observe_status_state["files_growing"] = False
@@ -71,6 +79,7 @@ def test_handle_observe_status():
     mod._handle_observe_status(message)
 
     assert mod._observe_status_state["last_ts"] > 0
+    assert mod._observe_status_state["ever_received"] is True  # Grace period ended
     assert mod._observe_status_state["activity_active"] is True
     assert mod._observe_status_state["screencast_recording"] is True
     assert mod._observe_status_state["files_growing"] is True

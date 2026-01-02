@@ -103,6 +103,7 @@ _restart_requests: dict[str, tuple[float, subprocess.Popen]] = {}
 # Observe status state for health monitoring (updated from observe.status events)
 _observe_status_state: dict = {
     "last_ts": 0.0,  # Timestamp of last observe.status event
+    "ever_received": False,  # Whether we've received at least one status event
     "activity_active": False,  # Whether user is active (not idle/locked)
     "screencast_recording": False,  # Whether screencast is running
     "files_growing": False,  # Whether screencast files are growing
@@ -219,7 +220,14 @@ def check_health(threshold: int = DEFAULT_THRESHOLD) -> list[str]:
     Health is derived from the last observe.status Callosum event:
     - hear: Stale if no status received within threshold
     - see: Stale if active AND (not recording OR files not growing)
+
+    During startup grace period (before first status event received),
+    returns empty list to avoid false alerts while observer is starting.
     """
+    # Grace period: don't alert until we've received at least one status event
+    if not _observe_status_state["ever_received"]:
+        return []
+
     now = time.time()
     stale: list[str] = []
 
@@ -1038,6 +1046,7 @@ def _handle_observe_status(message: dict) -> None:
 
     # Update observe status state for health checking
     _observe_status_state["last_ts"] = time.time()
+    _observe_status_state["ever_received"] = True
 
     activity = message.get("activity", {})
     _observe_status_state["activity_active"] = activity.get("active", False)
