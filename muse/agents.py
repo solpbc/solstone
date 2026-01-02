@@ -315,7 +315,7 @@ async def main_async() -> None:
                     continue
 
                 # Extract backend to route to correct module
-                backend = config.get("backend", "openai")
+                backend = config.get("backend", "google")
 
                 # Set OpenAI key if needed
                 if backend == "openai":
