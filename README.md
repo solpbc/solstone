@@ -10,7 +10,7 @@ A Python-based desktop journaling toolkit that captures screen and audio activit
 
 ## Platform Support
 
-- Linux (GNOME/X11 with PipeWire)
+- Linux
 - macOS
 
 ## Key Capabilities
@@ -37,7 +37,7 @@ observe (capture) --> think (analyze) --> convey (view)
 ## Requirements
 
 - Python 3.10 or later
-- At least one AI API key (Google, OpenAI, or Anthropic)
+- AI API keys (Google, OpenAI, or Anthropic)
 - Platform-specific dependencies for screen/audio capture
 
 ## Quick Start
@@ -59,9 +59,7 @@ observe (capture) --> think (analyze) --> convey (view)
    ```
 
 4. Launch the web interface:
-   ```bash
-   convey
-   ```
+   http://localhost:8000/
 
 ## Documentation
 
