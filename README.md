@@ -4,7 +4,7 @@
 
 Navigate Life Intelligently
 
-solstone is an open source project maintained by sol pbc.
+solstone is an open source project maintained by [sol pbc](https://solpbc.org).
 
 A Python-based desktop journaling toolkit that captures screen and audio activity, processes it with AI, and provides intelligent navigation through a web interface. All data is organized in a local journal directory with daily folders, enabling temporal analysis and full ownership of your information.
 

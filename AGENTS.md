@@ -115,6 +115,14 @@ The `fixtures/journal/` directory contains a complete mock journal structure wit
 * **Type Hints**: Should be included on function signatures (legacy helpers may still need updates)
 * **File Structure**: Constants → helpers → classes → main/CLI
 
+### File Headers
+All source files must begin with a license and copyright header:
+```
+# SPDX-License-Identifier: AGPL-3.0-only
+# Copyright (c) 2026 sol pbc
+```
+Use `//` comments for JavaScript files.
+
 ---
 
 ## Testing & Quality Assurance
