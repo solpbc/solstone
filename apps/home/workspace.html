@@ -1,6 +1,14 @@
 <div class="workspace-content">
   <div class="home-loading" id="home-loading">Loading dashboard...</div>
 
+  <!-- Empty journal state (no facets) -->
+  <div class="home-empty-journal" id="home-empty-journal" style="display: none;">
+    <div class="empty-journal-icon">📓</div>
+    <h2>Welcome to your journal</h2>
+    <p>Get started by creating your first facet to organize your content.</p>
+    <a href="/app/settings" class="empty-journal-btn">Go to Settings</a>
+  </div>
+
   <div class="home-dashboard" id="home-dashboard" style="display: none;">
     <!-- Top row: Todos and Events -->
     <div class="home-grid">
@@ -40,6 +48,42 @@
   text-align: center;
   padding: 4em;
   color: #666;
+}
+
+/* Empty journal state */
+.home-empty-journal {
+  text-align: center;
+  padding: 4em 2em;
+  max-width: 400px;
+  margin: 2em auto;
+}
+.home-empty-journal .empty-journal-icon {
+  font-size: 4em;
+  margin-bottom: 0.25em;
+}
+.home-empty-journal h2 {
+  margin: 0 0 0.5em 0;
+  font-size: 1.5em;
+  font-weight: 600;
+  color: #333;
+}
+.home-empty-journal p {
+  margin: 0 0 1.5em 0;
+  color: #666;
+  line-height: 1.5;
+}
+.home-empty-journal .empty-journal-btn {
+  display: inline-block;
+  padding: 0.75em 1.5em;
+  background: #007bff;
+  color: white;
+  text-decoration: none;
+  border-radius: 8px;
+  font-weight: 600;
+  transition: background 0.2s;
+}
+.home-empty-journal .empty-journal-btn:hover {
+  background: #0056b3;
 }
 
 .home-dashboard {
@@ -383,6 +427,14 @@
   }
 
   async function loadSummary() {
+    // Check if journal has no facets
+    const hasFacets = window.facetsData && window.facetsData.length > 0;
+    if (!hasFacets) {
+      document.getElementById('home-loading').style.display = 'none';
+      document.getElementById('home-empty-journal').style.display = 'block';
+      return;
+    }
+
     try {
       const response = await fetch(`/app/home/api/summary/${currentDay}`);
       if (!response.ok) throw new Error('Failed to load');

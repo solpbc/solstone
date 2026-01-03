@@ -134,10 +134,30 @@ input:checked:focus + .slider { box-shadow: 0 0 0 3px rgba(108, 117, 125, 0.2); 
 .log-more-btn { background: none; border: none; color: #667eea; cursor: pointer; font-size: 0.85em; padding: 0.5em 1em; border-radius: 4px; transition: background 0.2s; }
 .log-more-btn:hover { background: rgba(102, 126, 234, 0.1); }
 .log-more-btn:disabled { color: #ccc; cursor: default; }
+
+/* Setup section for first-run onboarding */
+.setup-section { max-width: 600px; margin-bottom: 2em; padding: 1.5em; background: linear-gradient(135deg, #007bff08 0%, #007bff15 100%); border: 2px solid #007bff30; border-radius: 12px; }
+.setup-section h2 { color: #333; font-size: 1.4em; margin: 0 0 0.5em 0; font-weight: 600; }
+.setup-section p { color: #555; margin: 0 0 1.25em 0; line-height: 1.5; }
+.setup-btn { display: inline-flex; align-items: center; gap: 0.5em; padding: 0.75em 1.5em; background: #007bff; color: white; border: none; border-radius: 8px; font-size: 1em; font-weight: 600; cursor: pointer; transition: background 0.2s, transform 0.1s; }
+.setup-btn:hover { background: #0056b3; }
+.setup-btn:active { transform: scale(0.98); }
+.setup-btn .btn-icon { font-size: 1.2em; }
+.setup-btn:disabled { opacity: 0.7; cursor: not-allowed; }
 </style>
 
 <div class="workspace-content">
   <div id="config">
+    <!-- Setup Section (shown when no facets exist) -->
+    <div class="setup-section" id="setupSection" style="display: none;">
+      <h2>Welcome to solstone</h2>
+      <p>Create your first facet to start organizing your journal. Facets help you separate different areas of your life.</p>
+      <button class="setup-btn" id="createPersonalBtn">
+        <span class="btn-icon">🏠</span>
+        <span>Create Personal Facet</span>
+      </button>
+    </div>
+
     <!-- Identity Section (shown in all-facet mode) -->
     <div class="config-section" id="identityConfig">
       <h2>Journal Configuration</h2>
@@ -1034,6 +1054,64 @@ document.getElementById('logMoreBtn').addEventListener('click', () => {
   }
 });
 
+// ========== SETUP SECTION (First-run onboarding) ==========
+const setupSection = document.getElementById('setupSection');
+const createPersonalBtn = document.getElementById('createPersonalBtn');
+
+function checkShowSetup() {
+  // Show setup section if no facets exist
+  const hasFacets = window.facetsData && window.facetsData.length > 0;
+  if (!hasFacets && !window.selectedFacet) {
+    setupSection.style.display = 'block';
+  } else {
+    setupSection.style.display = 'none';
+  }
+}
+
+async function createPersonalFacet() {
+  createPersonalBtn.disabled = true;
+  createPersonalBtn.querySelector('span:last-child').textContent = 'Creating...';
+
+  try {
+    const response = await fetch('/app/settings/api/facet', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        title: 'Personal',
+        emoji: '🏠',
+        color: '#007bff'
+      })
+    });
+
+    const data = await response.json();
+
+    if (data.success) {
+      // Auto-select the new facet and reload
+      document.cookie = `selectedFacet=${data.facet}; path=/; SameSite=Lax`;
+      window.location.href = '/app/home';
+    } else {
+      throw new Error(data.error || 'Failed to create facet');
+    }
+  } catch (err) {
+    console.error('Error creating personal facet:', err);
+    createPersonalBtn.disabled = false;
+    createPersonalBtn.querySelector('span:last-child').textContent = 'Create Personal Facet';
+
+    if (window.AppServices && window.AppServices.notifications) {
+      window.AppServices.notifications.show({
+        app: 'settings',
+        icon: '❌',
+        title: 'Creation Failed',
+        message: err.message || 'Error creating facet',
+        dismissible: true,
+        autoDismiss: 5000
+      });
+    }
+  }
+}
+
+createPersonalBtn.addEventListener('click', createPersonalFacet);
+
 // Initialize visibility based on current facet selection
 const identityConfig = document.getElementById('identityConfig');
 const facetConfig = document.getElementById('facetConfig');
@@ -1042,11 +1120,13 @@ if (window.selectedFacet) {
   // Facet selected: show ONLY facet settings
   identityConfig.style.display = 'none';
   facetConfig.style.display = 'block';
+  setupSection.style.display = 'none';
   loadFacetConfig(window.selectedFacet);
 } else {
-  // All-facet mode: show ONLY journal settings
+  // All-facet mode: show journal settings and maybe setup
   identityConfig.style.display = 'block';
   facetConfig.style.display = 'none';
+  checkShowSetup();
 }
 
 // Load config on page load

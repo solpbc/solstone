@@ -71,6 +71,8 @@ def create_facet() -> Any:
 
     Accepts JSON with:
         title: Display title (required)
+        emoji: Icon emoji (optional, default: "📦")
+        color: Hex color (optional, default: "#667eea")
 
     The facet name (slug) is auto-generated from the title.
     """
@@ -82,6 +84,10 @@ def create_facet() -> Any:
         title = data.get("title", "").strip()
         if not title:
             return jsonify({"error": "Title is required"}), 400
+
+        # Optional fields with defaults
+        emoji = data.get("emoji", "📦")
+        color = data.get("color", "#667eea")
 
         # Generate slug from title: lowercase, replace spaces/special chars with hyphens
         slug = re.sub(r"[^a-z0-9]+", "-", title.lower())
@@ -107,8 +113,8 @@ def create_facet() -> Any:
         config = {
             "title": title,
             "description": "",
-            "color": "#667eea",
-            "emoji": "📦",
+            "color": color,
+            "emoji": emoji,
         }
 
         config_file = facet_path / "facet.json"
@@ -121,7 +127,7 @@ def create_facet() -> Any:
             app="settings",
             facet=slug,
             action="facet_create",
-            params={"title": title},
+            params={"title": title, "emoji": emoji, "color": color},
         )
 
         return jsonify({"success": True, "facet": slug, "config": config}), 201

@@ -18,6 +18,7 @@ from flask import (
     url_for,
 )
 
+from think.facets import get_facets
 from think.utils import get_config
 
 
@@ -109,5 +110,14 @@ def favicon() -> Any:
 
 @bp.route("/")
 def index() -> Any:
-    """Root redirect to home app."""
+    """Root redirect - to settings if no facets, otherwise home."""
+    try:
+        facets = get_facets()
+    except Exception:
+        facets = {}
+
+    if not facets:
+        # New journal - direct to settings for initial setup
+        return redirect(url_for("app:settings.index"))
+
     return redirect(url_for("app:home.index"))
