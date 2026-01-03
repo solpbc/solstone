@@ -298,11 +298,88 @@ def test_file_sensor_stop():
     with tempfile.TemporaryDirectory() as tmpdir:
         sensor = FileSensor(Path(tmpdir))
 
-        # Mock observer
-        sensor.observer = MagicMock()
+        # Mock callosum
+        sensor.callosum = MagicMock()
 
         sensor.stop()
 
         assert sensor.running_flag is False
-        sensor.observer.stop.assert_called_once()
-        sensor.observer.join.assert_called_once()
+        sensor.callosum.stop.assert_called_once()
+
+
+def test_file_sensor_handle_callosum_message(tmp_path):
+    """Test handling of observe.observing Callosum events."""
+    with patch.object(FileSensor, "_handle_file") as mock_handle:
+        # Create journal/day structure
+        day_dir = tmp_path / "20250101"
+        day_dir.mkdir()
+
+        sensor = FileSensor(tmp_path)
+        sensor.register("*.flac", "transcribe", ["echo", "{file}"])
+        sensor.register("*.webm", "describe", ["echo", "{file}"])
+
+        # Create test files
+        audio_file = day_dir / "143022_300_audio.flac"
+        audio_file.write_text("audio content")
+        video_file = day_dir / "143022_300_screen.webm"
+        video_file.write_text("video content")
+
+        # Simulate observing event
+        message = {
+            "tract": "observe",
+            "event": "observing",
+            "day": "20250101",
+            "segment": "143022_300",
+            "files": ["143022_300_audio.flac", "143022_300_screen.webm"],
+        }
+
+        sensor._handle_callosum_message(message)
+
+        # Should have called _handle_file for each file
+        assert mock_handle.call_count == 2
+        called_paths = [call[0][0] for call in mock_handle.call_args_list]
+        assert audio_file in called_paths
+        assert video_file in called_paths
+
+        # Should have pre-registered segment tracking
+        assert "143022_300" in sensor.segment_files
+        assert audio_file in sensor.segment_files["143022_300"]
+        assert video_file in sensor.segment_files["143022_300"]
+        assert "143022_300" in sensor.segment_start_time
+
+
+def test_file_sensor_handle_callosum_message_ignores_other_events(tmp_path):
+    """Test that non-observing events are ignored."""
+    with patch.object(FileSensor, "_handle_file") as mock_handle:
+        sensor = FileSensor(tmp_path)
+
+        # Simulate a different event type
+        message = {
+            "tract": "observe",
+            "event": "status",
+            "some_data": "value",
+        }
+
+        sensor._handle_callosum_message(message)
+
+        # Should not call _handle_file
+        mock_handle.assert_not_called()
+
+
+def test_file_sensor_handle_callosum_message_invalid_event(tmp_path):
+    """Test that invalid observing events are handled gracefully."""
+    with patch.object(FileSensor, "_handle_file") as mock_handle:
+        sensor = FileSensor(tmp_path)
+
+        # Simulate event missing required fields
+        message = {
+            "tract": "observe",
+            "event": "observing",
+            "segment": "143022_300",
+            # missing 'day' and 'files'
+        }
+
+        sensor._handle_callosum_message(message)
+
+        # Should not call _handle_file
+        mock_handle.assert_not_called()

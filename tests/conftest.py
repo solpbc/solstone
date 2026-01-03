@@ -199,46 +199,9 @@ def add_module_stubs(request, monkeypatch):
         sys.modules["soundfile"] = sf_mod
     for name in [
         "noisereduce",
-        "watchdog.events",
-        "watchdog.observers",
     ]:
         if name not in sys.modules:
             sys.modules[name] = types.ModuleType(name)
-    if "watchdog.events" in sys.modules and not hasattr(
-        sys.modules["watchdog.events"], "PatternMatchingEventHandler"
-    ):
-
-        class FileSystemEventHandler:
-            pass
-
-        class PatternMatchingEventHandler:
-            pass
-
-        sys.modules["watchdog.events"].FileSystemEventHandler = FileSystemEventHandler
-        sys.modules["watchdog.events"].PatternMatchingEventHandler = (
-            PatternMatchingEventHandler
-        )
-    if "watchdog.observers" in sys.modules and not hasattr(
-        sys.modules["watchdog.observers"], "Observer"
-    ):
-
-        class Observer:
-            def schedule(self, *a, **k):
-                pass
-
-            def start(self):
-                pass
-
-            def stop(self):
-                pass
-
-            def join(self, *a, **k):
-                pass
-
-            def is_alive(self):
-                return False
-
-        sys.modules["watchdog.observers"].Observer = Observer
 
 
 @pytest.fixture

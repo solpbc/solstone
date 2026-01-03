@@ -38,6 +38,7 @@ from observe.gnome.activity import (
 from observe.hear import AudioRecorder
 from observe.linux.audio import is_sink_muted
 from observe.linux.screencast import Screencaster, StreamInfo
+from observe.remote import RemoteClient
 from observe.tmux.capture import TmuxCapture, write_captures_jsonl
 from think.callosum import CallosumConnection
 from think.utils import day_path, setup_cli
@@ -63,14 +64,16 @@ MODE_TMUX = "tmux"
 class Observer:
     """Unified audio and screencast/tmux observer."""
 
-    def __init__(self, interval: int = 300):
+    def __init__(self, interval: int = 300, remote_url: str | None = None):
         self.interval = interval
+        self.remote_url = remote_url
         self.audio_recorder = AudioRecorder()
         self.screencaster = Screencaster()
         self.tmux_capture = TmuxCapture()
         self.bus: MessageBus | None = None
         self.running = True
         self.callosum: CallosumConnection | None = None
+        self.remote_client: RemoteClient | None = None
 
         # State tracking
         self.start_at = time.time()  # Wall-clock for filenames
@@ -131,10 +134,15 @@ class Observer:
         else:
             logger.info("Tmux not available (will only use screencast)")
 
-        # Start Callosum connection for status events
-        self.callosum = CallosumConnection()
-        self.callosum.start()
-        logger.info("Callosum connection started")
+        # Start Callosum connection for status events (or remote client)
+        if self.remote_url:
+            self.remote_client = RemoteClient(self.remote_url)
+            self.remote_client.start()
+            logger.info(f"Remote client started: {self.remote_url[:50]}...")
+        else:
+            self.callosum = CallosumConnection()
+            self.callosum.start()
+            logger.info("Callosum connection started")
 
         return True
 
@@ -347,15 +355,30 @@ class Observer:
 
         if files:
             segment = f"{time_part}_{duration}"
-            self.callosum.emit(
-                "observe",
-                "observing",
-                segment=segment,
-                files=files,
-                host=_HOST,
-                platform=_PLATFORM,
-            )
-            logger.info(f"Segment observing: {segment} ({len(files)} files)")
+
+            if self.remote_client:
+                # Remote mode: upload files to remote server
+                file_paths = [day_dir / f for f in files]
+                if self.remote_client.upload_and_cleanup(
+                    date_part, segment, file_paths
+                ):
+                    logger.info(f"Segment uploaded: {segment} ({len(files)} files)")
+                else:
+                    logger.error(
+                        f"Segment upload failed: {segment} - files kept locally"
+                    )
+            elif self.callosum:
+                # Local mode: emit to local Callosum
+                self.callosum.emit(
+                    "observe",
+                    "observing",
+                    day=date_part,
+                    segment=segment,
+                    files=files,
+                    host=_HOST,
+                    platform=_PLATFORM,
+                )
+                logger.info(f"Segment observing: {segment} ({len(files)} files)")
 
     async def initialize_screencast(self) -> bool:
         """
@@ -477,17 +500,31 @@ class Observer:
             "tmux_active": self.cached_tmux_active,
         }
 
-        self.callosum.emit(
-            "observe",
-            "status",
-            mode=self.current_mode,
-            screencast=screencast_info,
-            tmux=tmux_info,
-            audio=audio_info,
-            activity=activity_info,
-            host=_HOST,
-            platform=_PLATFORM,
-        )
+        # Emit to remote or local Callosum
+        if self.remote_client:
+            self.remote_client.emit(
+                "observe",
+                "status",
+                mode=self.current_mode,
+                screencast=screencast_info,
+                tmux=tmux_info,
+                audio=audio_info,
+                activity=activity_info,
+                host=_HOST,
+                platform=_PLATFORM,
+            )
+        elif self.callosum:
+            self.callosum.emit(
+                "observe",
+                "status",
+                mode=self.current_mode,
+                screencast=screencast_info,
+                tmux=tmux_info,
+                audio=audio_info,
+                activity=activity_info,
+                host=_HOST,
+                platform=_PLATFORM,
+            )
 
     def finalize_screencast(self, temp_path: str, final_path: str):
         """
@@ -703,15 +740,21 @@ class Observer:
         self.audio_recorder.stop_recording()
         logger.info("Audio recording stopped")
 
-        # Stop Callosum connection
-        if self.callosum:
+        # Stop Callosum or remote client
+        if self.remote_client:
+            self.remote_client.stop()
+            logger.info("Remote client stopped")
+        elif self.callosum:
             self.callosum.stop()
             logger.info("Callosum connection stopped")
 
 
 async def async_main(args):
     """Async entry point."""
-    observer = Observer(interval=args.interval)
+    observer = Observer(
+        interval=args.interval,
+        remote_url=getattr(args, "remote", None),
+    )
 
     # Setup signal handlers
     loop = asyncio.get_running_loop()
@@ -752,6 +795,11 @@ def main():
         default=300,
         help="Duration per screencast window in seconds (default: 300 = 5 minutes).",
     )
+    parser.add_argument(
+        "--remote",
+        type=str,
+        help="Remote server URL for uploading segments (e.g., https://server:5000/app/remote/ingest/KEY)",
+    )
     args = setup_cli(parser)
 
     # Verify journal path exists
@@ -759,6 +807,10 @@ def main():
     if not journal or not os.path.exists(journal):
         logger.error(f"JOURNAL_PATH not set or does not exist: {journal}")
         sys.exit(1)
+
+    # Log remote mode if enabled
+    if args.remote:
+        logger.info(f"Remote mode enabled: {args.remote[:50]}...")
 
     # Run async main
     try:

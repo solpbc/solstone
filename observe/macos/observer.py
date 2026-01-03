@@ -287,6 +287,7 @@ class MacOSObserver:
             self.callosum.emit(
                 "observe",
                 "observing",
+                day=date_part,
                 segment=segment,
                 files=saved_files,
                 host=_HOST,

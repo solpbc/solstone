@@ -2,10 +2,11 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 # Copyright (c) 2026 sol pbc
 
-"""File-based processor dispatcher for observe subsystem.
+"""Event-based processor dispatcher for observe subsystem.
 
-Watches day directories for new files and spawns appropriate handler processes,
-capturing their stdout/stderr to log files like supervisor.py does for runners.
+Listens for observe.observing Callosum events and spawns appropriate handler
+processes, capturing their stdout/stderr to log files like supervisor.py does
+for runners. Batch mode (--day) uses file-based scanning for historical days.
 """
 
 from __future__ import annotations
@@ -16,12 +17,8 @@ import os
 import subprocess
 import threading
 import time
-from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Optional
-
-from watchdog.events import FileSystemEventHandler
-from watchdog.observers import Observer
+from typing import Any, Dict, List, Optional
 
 from observe.utils import VIDEO_EXTENSIONS
 from think.callosum import CallosumConnection
@@ -47,7 +44,7 @@ class HandlerProcess:
 
 
 class FileSensor:
-    """Pattern-based file watcher that spawns handler processes."""
+    """Event-driven sensor that spawns handler processes for media files."""
 
     def __init__(self, journal_dir: Path, verbose: bool = False, debug: bool = False):
         self.journal_dir = journal_dir
@@ -66,11 +63,9 @@ class FileSensor:
         self.describe_queue: List[tuple[Path, float]] = []
         self.current_describe_process: Optional[HandlerProcess] = None
 
-        self.observer: Optional[Observer] = None
-        self.current_day: Optional[str] = None
         self.running_flag = True
 
-        # Callosum connection for emitting detected events
+        # Callosum connection for receiving events and emitting status
         self.callosum: Optional[CallosumConnection] = None
 
         # Track last status emission time
@@ -279,16 +274,55 @@ class FileSensor:
 
     def _handle_file(self, file_path: Path):
         """Route file to appropriate handler."""
-        # Small delay to ensure file is fully written
-        time.sleep(0.1)
-
         if not file_path.exists():
+            logger.warning(f"File not found, skipping: {file_path}")
             return
 
         handler_info = self._match_pattern(file_path)
         if handler_info:
             handler_name, command = handler_info
             self._spawn_handler(file_path, handler_name, command)
+
+    def _handle_callosum_message(self, message: Dict[str, Any]):
+        """Handle incoming Callosum messages, filtering for observe.observing events."""
+        tract = message.get("tract")
+        event = message.get("event")
+
+        if tract != "observe" or event != "observing":
+            return
+
+        # Extract event fields
+        day = message.get("day")
+        segment = message.get("segment")
+        files = message.get("files", [])
+
+        if not day or not segment or not files:
+            logger.warning(
+                f"Invalid observing event: missing day/segment/files: {message}"
+            )
+            return
+
+        logger.info(f"Received observing event: {day}/{segment} ({len(files)} files)")
+
+        # Build full paths for all files in this segment
+        day_dir = self.journal_dir / day
+        file_paths = [day_dir / filename for filename in files]
+
+        # Pre-register segment tracking with complete file list
+        # This ensures segment completion is tracked correctly even if some files
+        # don't match patterns or fail to process
+        with self.lock:
+            if segment not in self.segment_files:
+                self.segment_files[segment] = set()
+                self.segment_start_time[segment] = time.time()
+            for file_path in file_paths:
+                # Only track files that will be processed (match a pattern)
+                if self._match_pattern(file_path):
+                    self.segment_files[segment].add(file_path)
+
+        # Process each file
+        for file_path in file_paths:
+            self._handle_file(file_path)
 
     def _emit_status(self):
         """Emit observe.status event with current processing state (only when active)."""
@@ -376,47 +410,14 @@ class FileSensor:
                 self.callosum.emit("observe", "status", **status)
 
     def start(self):
-        """Start watching for new files with day rollover."""
+        """Start listening for observe.observing Callosum events."""
 
-        # Start Callosum connection for emitting detected events
+        # Start Callosum connection with callback for receiving events
         self.callosum = CallosumConnection()
-        self.callosum.start()
-
-        class SensorEventHandler(FileSystemEventHandler):
-            def __init__(self, sensor):
-                self.sensor = sensor
-
-            def on_created(self, event):
-                if not event.is_directory:
-                    path = Path(event.src_path)
-                    # Ignore hidden files (temp recordings)
-                    if not path.name.startswith("."):
-                        self.sensor._handle_file(path)
-
-            def on_moved(self, event):
-                if not event.is_directory:
-                    path = Path(event.dest_path)
-                    # Ignore hidden files (temp recordings)
-                    if not path.name.startswith("."):
-                        self.sensor._handle_file(path)
-
-        event_handler = SensorEventHandler(self)
+        self.callosum.start(callback=self._handle_callosum_message)
+        logger.info("Listening for observe.observing events via Callosum")
 
         while self.running_flag:
-            today_str = datetime.now().strftime("%Y%m%d")
-            day_dir = day_path()
-
-            if day_dir.exists() and (self.current_day != today_str):
-                if self.observer:
-                    logger.info("Day rollover, stopping old observer")
-                    self.observer.stop()
-                    self.observer.join()
-
-                self.observer = Observer()
-                self.observer.schedule(event_handler, str(day_dir), recursive=False)
-                self.observer.start()
-                self.current_day = today_str
-                logger.info(f"Watching {day_dir}")
 
             # Emit status every 5 seconds if there's activity
             now = time.time()
@@ -427,11 +428,8 @@ class FileSensor:
             time.sleep(1)
 
     def stop(self):
-        """Stop watching and cleanup running processes."""
+        """Stop listening and cleanup running processes."""
         self.running_flag = False
-        if self.observer:
-            self.observer.stop()
-            self.observer.join()
 
         # Stop Callosum connection
         if self.callosum:
@@ -644,8 +642,8 @@ def main():
         )
         sensor.process_day(args.day, max_jobs=args.jobs)
     else:
-        # Watch mode: monitor for new files
-        logger.info("Starting observe sensor in watch mode...")
+        # Event mode: listen for Callosum events
+        logger.info("Starting observe sensor in event mode...")
         try:
             sensor.start()
         except KeyboardInterrupt:

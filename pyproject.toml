@@ -73,7 +73,6 @@ dependencies = [
 
     # Media processing
     "opencv-python",
-    "watchdog",
 
     # Additional AI SDKs
     "claude-agent-sdk>=0.1.0",
