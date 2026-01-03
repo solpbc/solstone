@@ -41,6 +41,7 @@ CHUNK_DURATION = 5  # seconds
 RMS_THRESHOLD = 0.01
 MIN_HITS_FOR_SAVE = 3
 SAMPLE_RATE = 48000  # Standard audio sample rate
+STALL_THRESHOLD_CHUNKS = 3  # Exit after this many chunks with no file growth
 
 # Host identification for multi-host scenarios
 _HOST = socket.gethostname()
@@ -86,6 +87,9 @@ class MacOSObserver:
 
         # Health tracking
         self.files_growing = False
+        self.stalled_chunks = (
+            0  # Consecutive chunks with no file growth while capturing
+        )
 
     async def setup(self):
         """Initialize ScreenCaptureKit and Callosum connection."""
@@ -266,6 +270,7 @@ class MacOSObserver:
             self.current_displays = []
             self.current_audio = None
             self.last_video_sizes = {}
+            self.stalled_chunks = 0
 
             if finalizations:
                 self.pending_finalization = finalizations
@@ -323,6 +328,7 @@ class MacOSObserver:
         self.current_audio = audio
         self.capture_running = True
         self.last_video_sizes = {d.temp_path: 0 for d in displays}
+        self.stalled_chunks = 0
 
         logger.info(f"Started capture with {len(displays)} display(s)")
         for display in displays:
@@ -504,8 +510,21 @@ class MacOSObserver:
                             any_growing = True
                             self.last_video_sizes[display.temp_path] = current_size
                 self.files_growing = any_growing
+
+                # Fail-fast: exit if capture stalled (files not growing)
+                if any_growing:
+                    self.stalled_chunks = 0
+                else:
+                    self.stalled_chunks += 1
+                    if self.stalled_chunks >= STALL_THRESHOLD_CHUNKS:
+                        logger.error(
+                            f"Capture stalled for {self.stalled_chunks} chunks "
+                            f"({self.stalled_chunks * CHUNK_DURATION}s), exiting"
+                        )
+                        self.running = False
             else:
                 self.files_growing = False
+                self.stalled_chunks = 0
 
             # Emit status event
             self.emit_status()

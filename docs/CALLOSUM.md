@@ -57,7 +57,7 @@ Callosum is a JSON-per-line message bus for real-time event distribution across 
 **Events:** `status`, `observing`, `detected`, `described`, `transcribed`, `observed`
 **Fields:**
 - `status`: Periodic state (every 5s while running)
-  - From `observer.py`: `screencast`, `audio`, `activity` - Live capture state
+  - From `observer.py`: `screencast`, `audio`, `activity` - Live capture state (for UI/debugging)
     - `screencast.files_growing` - Whether recording files are actively being written
   - From `sense.py`: `describe`, `transcribe` - Processing pipeline state (with `running`/`queued` sub-fields)
 - `observing`: `day`, `segment`, `files` - Recording window boundary crossed with saved files

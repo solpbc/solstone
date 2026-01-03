@@ -104,12 +104,11 @@ _callosum_thread: threading.Thread | None = None
 _restart_requests: dict[str, tuple[float, subprocess.Popen]] = {}
 
 # Observe status state for health monitoring (updated from observe.status events)
+# Health is now simple: if observer is running, it sends status events.
+# If it has problems, it exits and gets restarted (fail-fast model).
 _observe_status_state: dict = {
     "last_ts": 0.0,  # Timestamp of last observe.status event
     "ever_received": False,  # Whether we've received at least one status event
-    "activity_active": False,  # Whether user is active (not idle/locked)
-    "screencast_recording": False,  # Whether screencast is running
-    "files_growing": False,  # Whether screencast files are growing
 }
 
 
@@ -220,42 +219,26 @@ def _launch_process(
 def check_health(threshold: int = DEFAULT_THRESHOLD) -> list[str]:
     """Return a list of stale heartbeat names based on observe.status events.
 
-    Health is derived from the last observe.status Callosum event:
-    - hear: Stale if no status received within threshold
-    - see: Stale if active AND (not recording OR files not growing)
+    Health model is simple: if observer is running, it sends status events.
+    If it has problems, it exits and supervisor restarts it (fail-fast).
 
-    During startup grace period (before first status event received),
-    returns empty list to avoid false alerts while observer is starting.
+    Returns ["hear", "see"] if no status received within threshold,
+    empty list otherwise. During startup grace period (before first
+    status event received), returns empty list to avoid false alerts.
     """
     # Grace period: don't alert until we've received at least one status event
     if not _observe_status_state["ever_received"]:
         return []
 
     now = time.time()
-    stale: list[str] = []
-
     last_ts = _observe_status_state["last_ts"]
-    status_age = now - last_ts
 
-    # If no recent status, both are stale
-    if status_age > threshold:
+    # If no recent status, observer is not running - both stale
+    if now - last_ts > threshold:
         return ["hear", "see"]
 
-    # hear is healthy if we're receiving status events (audio always runs)
-    # (already passed the threshold check above)
-
-    # see health depends on activity state
-    activity_active = _observe_status_state["activity_active"]
-    screencast_recording = _observe_status_state["screencast_recording"]
-    files_growing = _observe_status_state["files_growing"]
-
-    if activity_active:
-        # User is active - screencast should be recording and files growing
-        if not screencast_recording or not files_growing:
-            stale.append("see")
-    # If not active (idle/locked/power-save), it's healthy not to record
-
-    return stale
+    # Receiving status means observer is healthy
+    return []
 
 
 def _get_notifier() -> DesktopNotifier:
@@ -1043,20 +1026,17 @@ def _run_segment_dream(day: str, segment: str) -> None:
 
 
 def _handle_observe_status(message: dict) -> None:
-    """Handle observe.status events for health monitoring."""
+    """Handle observe.status events for health monitoring.
+
+    Just tracks that we received a status event. The observer is responsible
+    for exiting if it's unhealthy (fail-fast model), so receiving status
+    means it's working.
+    """
     if message.get("tract") != "observe" or message.get("event") != "status":
         return
 
-    # Update observe status state for health checking
     _observe_status_state["last_ts"] = time.time()
     _observe_status_state["ever_received"] = True
-
-    activity = message.get("activity", {})
-    _observe_status_state["activity_active"] = activity.get("active", False)
-
-    screencast = message.get("screencast", {})
-    _observe_status_state["screencast_recording"] = screencast.get("recording", False)
-    _observe_status_state["files_growing"] = screencast.get("files_growing", False)
 
 
 def _handle_callosum_message(message: dict) -> None:

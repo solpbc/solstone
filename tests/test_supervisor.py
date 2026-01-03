@@ -12,15 +12,16 @@ import pytest
 
 
 def test_check_health():
-    """Test health checking based on observe.status events."""
+    """Test health checking based on observe.status event freshness.
+
+    Health model is simple: if observer is running, it sends status events.
+    If it has problems, it exits and supervisor restarts it (fail-fast).
+    """
     mod = importlib.import_module("think.supervisor")
 
     # Reset state for clean test
     mod._observe_status_state["last_ts"] = 0.0
     mod._observe_status_state["ever_received"] = False
-    mod._observe_status_state["activity_active"] = False
-    mod._observe_status_state["screencast_recording"] = False
-    mod._observe_status_state["files_growing"] = False
 
     # Startup grace period: no status ever received - returns healthy (no alerts)
     stale = mod.check_health(threshold=60)
@@ -32,60 +33,35 @@ def test_check_health():
     stale = mod.check_health(threshold=60)
     assert sorted(stale) == ["hear", "see"]
 
-    # Simulate receiving a fresh status event (user inactive)
+    # Fresh status event means healthy (observer is running)
     mod._observe_status_state["last_ts"] = time.time()
-    mod._observe_status_state["activity_active"] = False
     stale = mod.check_health(threshold=60)
-    assert stale == []  # Healthy - inactive means OK not to record
+    assert stale == []  # Healthy - receiving status events
 
-    # User active but not recording - see should be stale
-    mod._observe_status_state["activity_active"] = True
-    mod._observe_status_state["screencast_recording"] = False
-    stale = mod.check_health(threshold=60)
-    assert stale == ["see"]
-
-    # User active, recording, but files not growing - see should be stale
-    mod._observe_status_state["screencast_recording"] = True
-    mod._observe_status_state["files_growing"] = False
-    stale = mod.check_health(threshold=60)
-    assert stale == ["see"]
-
-    # User active, recording, files growing - all healthy
-    mod._observe_status_state["files_growing"] = True
-    stale = mod.check_health(threshold=60)
-    assert stale == []
-
-    # Status became stale (old timestamp)
+    # Status became stale (old timestamp) - observer stopped sending
     mod._observe_status_state["last_ts"] = time.time() - 100
     stale = mod.check_health(threshold=60)
     assert sorted(stale) == ["hear", "see"]
 
 
 def test_handle_observe_status():
-    """Test that observe.status events update health state."""
+    """Test that observe.status events update health state.
+
+    Handler just tracks event freshness - observer is responsible for
+    exiting if it's unhealthy (fail-fast model).
+    """
     mod = importlib.import_module("think.supervisor")
 
     # Reset state
     mod._observe_status_state["last_ts"] = 0.0
     mod._observe_status_state["ever_received"] = False
-    mod._observe_status_state["activity_active"] = False
-    mod._observe_status_state["screencast_recording"] = False
-    mod._observe_status_state["files_growing"] = False
 
-    # Simulate observe.status message
-    message = {
-        "tract": "observe",
-        "event": "status",
-        "activity": {"active": True},
-        "screencast": {"recording": True, "files_growing": True},
-    }
+    # Simulate observe.status message (only tract/event are required)
+    message = {"tract": "observe", "event": "status"}
     mod._handle_observe_status(message)
 
     assert mod._observe_status_state["last_ts"] > 0
     assert mod._observe_status_state["ever_received"] is True  # Grace period ended
-    assert mod._observe_status_state["activity_active"] is True
-    assert mod._observe_status_state["screencast_recording"] is True
-    assert mod._observe_status_state["files_growing"] is True
 
     # Non-observe messages should be ignored
     old_ts = mod._observe_status_state["last_ts"]

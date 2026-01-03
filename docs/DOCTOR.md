@@ -72,12 +72,14 @@ ls -la $JOURNAL_PATH/$(date +%Y%m%d)/health/
 
 ## Health Signals
 
-Health is derived from `observe.status` Callosum events (emitted every 5 seconds):
+Health uses a **fail-fast model**: observers exit if they detect problems, and supervisor restarts them. Health is simply whether the observer is running and sending status events.
 
 | Signal | Healthy when | Stale when |
 |--------|--------------|------------|
 | `hear` | Status received within threshold | No status for 60+ seconds |
-| `see` | User idle OR (recording AND files growing) | User active AND (not recording OR files not growing) |
+| `see` | Status received within threshold | No status for 60+ seconds |
+
+Both signals track the same thing: is the observer alive and communicating? If the observer has capture problems (e.g., screencast files not growing), it exits gracefully and supervisor restarts it.
 
 Staleness threshold: 60 seconds (configurable via `--threshold`).
 
@@ -89,7 +91,7 @@ Services emit periodic status to Callosum (every 5 seconds when active):
 - `cortex.status` - Running agents list
 - `supervisor.status` - Service health, stale heartbeats
 
-The supervisor derives health from `observe.status` events and includes `stale_heartbeats` in its own status.
+The supervisor checks for `observe.status` event freshness and includes `stale_heartbeats` in its own status.
 
 See [CALLOSUM.md](CALLOSUM.md) Tract Registry for event schemas.
 
