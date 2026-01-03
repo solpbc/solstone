@@ -77,6 +77,7 @@ class ScreenCaptureKitManager:
         self.displays: list[DisplayInfo] = []
         self.audio: Optional[AudioInfo] = None
         self._output_threads: list[threading.Thread] = []
+        self._exit_logged: bool = False
 
     def start(
         self,
@@ -119,6 +120,7 @@ class ScreenCaptureKitManager:
         ]
 
         logger.info(f"Starting sck-cli: {' '.join(cmd)}")
+        self._exit_logged = False
 
         try:
             self.process = subprocess.Popen(
@@ -272,11 +274,13 @@ class ScreenCaptureKitManager:
             try:
                 self.process.send_signal(signal.SIGTERM)
                 try:
-                    self.process.wait(timeout=5)
+                    exit_code = self.process.wait(timeout=5)
+                    logger.info(f"sck-cli stopped with exit code {exit_code}")
                 except subprocess.TimeoutExpired:
                     logger.warning("sck-cli did not exit cleanly, killing")
                     self.process.kill()
-                    self.process.wait()
+                    exit_code = self.process.wait()
+                    logger.info(f"sck-cli killed with exit code {exit_code}")
             except Exception as e:
                 logger.warning(f"Error stopping sck-cli: {e}")
 
@@ -322,4 +326,10 @@ class ScreenCaptureKitManager:
         """
         if self.process is None:
             return False
-        return self.process.poll() is None
+        exit_code = self.process.poll()
+        if exit_code is not None:
+            if not self._exit_logged:
+                logger.info(f"sck-cli exited with code {exit_code}")
+                self._exit_logged = True
+            return False
+        return True
