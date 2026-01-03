@@ -102,12 +102,13 @@ def test_gemini_generate_json_output():
         os.environ["JOURNAL_PATH"] = journal_path
 
     # Test JSON output mode
+    # Note: Gemini 3 uses implicit thinking which consumes part of max_output_tokens
     response = gemini_generate(
         "Create a JSON object with fields 'name' (value: 'test') and 'number' (value: 42)",
         model=GEMINI_FLASH,
         json_output=True,
         temperature=0.1,
-        max_output_tokens=100,
+        max_output_tokens=500,
     )
 
     assert response is not None
@@ -420,12 +421,13 @@ async def test_gemini_agenerate_json_output():
         os.environ["JOURNAL_PATH"] = journal_path
 
     # Test async JSON output mode
+    # Note: Gemini 3 uses implicit thinking which consumes part of max_output_tokens
     response = await gemini_agenerate(
         "Create a JSON object with fields 'status' (value: 'success') and 'value' (value: 100)",
         model=GEMINI_FLASH,
         json_output=True,
         temperature=0.1,
-        max_output_tokens=100,
+        max_output_tokens=500,
     )
 
     assert response is not None
