@@ -89,7 +89,12 @@ def test_upload_segment_success(mock_session, tmp_path):
     # Check the call arguments
     call_args = mock_session.post.call_args
     assert call_args[0][0] == "https://server/ingest/key"
-    assert call_args[1]["data"] == {"day": "20250103", "segment": "120000_300"}
+    # Verify required fields (host/platform are also sent but vary by machine)
+    data = call_args[1]["data"]
+    assert data["day"] == "20250103"
+    assert data["segment"] == "120000_300"
+    assert "host" in data
+    assert "platform" in data
 
 
 def test_upload_segment_retry_on_failure(mock_session, tmp_path):

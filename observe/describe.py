@@ -392,6 +392,12 @@ class VideoProcessor:
 
             suffix = extract_descriptive_suffix(self.video_path.stem)
             metadata = {"raw": f"{suffix}{self.video_path.suffix}"}
+
+            # Add remote origin if set (from sense.py for remote observer uploads)
+            remote = os.getenv("REMOTE_NAME")
+            if remote:
+                metadata["remote"] = remote
+
             output_file.write(json.dumps(metadata) + "\n")
             output_file.flush()
 
@@ -760,8 +766,9 @@ async def async_main():
         except ValueError as exc:
             parser.error(str(exc))
 
-        # Set segment key for token usage logging
-        os.environ["SEGMENT_KEY"] = segment
+        # Use segment from env (set by sense.py) or use derived value
+        if not os.getenv("SEGMENT_KEY"):
+            os.environ["SEGMENT_KEY"] = segment
 
         segment_dir = video_path.parent / segment
         segment_dir.mkdir(exist_ok=True)

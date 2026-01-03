@@ -22,7 +22,6 @@ import datetime
 import logging
 import os
 import signal
-import socket
 import sys
 import time
 
@@ -38,7 +37,7 @@ from observe.gnome.activity import (
 from observe.hear import AudioRecorder
 from observe.linux.audio import is_sink_muted
 from observe.linux.screencast import Screencaster, StreamInfo
-from observe.remote import RemoteClient
+from observe.remote import HOST, PLATFORM, RemoteClient
 from observe.tmux.capture import TmuxCapture, write_captures_jsonl
 from think.callosum import CallosumConnection
 from think.utils import day_path, setup_cli
@@ -52,9 +51,6 @@ MIN_HITS_FOR_SAVE = 3
 CHUNK_DURATION = 5  # seconds
 STALL_THRESHOLD_CHUNKS = 3  # Exit after this many chunks with no file growth
 
-# Host identification for multi-host scenarios
-_HOST = socket.gethostname()
-_PLATFORM = "linux"
 
 # Capture modes
 MODE_IDLE = "idle"
@@ -380,8 +376,8 @@ class Observer:
                     day=date_part,
                     segment=segment,
                     files=files,
-                    host=_HOST,
-                    platform=_PLATFORM,
+                    host=HOST,
+                    platform=PLATFORM,
                 )
                 logger.info(f"Segment observing: {segment} ({len(files)} files)")
 
@@ -516,8 +512,8 @@ class Observer:
                 tmux=tmux_info,
                 audio=audio_info,
                 activity=activity_info,
-                host=_HOST,
-                platform=_PLATFORM,
+                host=HOST,
+                platform=PLATFORM,
             )
         elif self.callosum:
             self.callosum.emit(
@@ -528,8 +524,8 @@ class Observer:
                 tmux=tmux_info,
                 audio=audio_info,
                 activity=activity_info,
-                host=_HOST,
-                platform=_PLATFORM,
+                host=HOST,
+                platform=PLATFORM,
             )
 
     def finalize_screencast(self, temp_path: str, final_path: str):

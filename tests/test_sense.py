@@ -346,6 +346,7 @@ def test_file_sensor_handle_callosum_message(tmp_path):
         assert audio_file in sensor.segment_files["143022_300"]
         assert video_file in sensor.segment_files["143022_300"]
         assert "143022_300" in sensor.segment_start_time
+        assert sensor.segment_day["143022_300"] == "20250101"
 
 
 def test_file_sensor_handle_callosum_message_ignores_other_events(tmp_path):
@@ -383,3 +384,50 @@ def test_file_sensor_handle_callosum_message_invalid_event(tmp_path):
 
         # Should not call _handle_file
         mock_handle.assert_not_called()
+
+
+def test_file_sensor_segment_observed_includes_day(tmp_path, mock_callosum):
+    """Test that observe.observed event includes day field."""
+    from think.callosum import CallosumConnection
+
+    # Create journal/day structure
+    day_dir = tmp_path / "20250101"
+    day_dir.mkdir()
+
+    sensor = FileSensor(tmp_path)
+    sensor.register("*.flac", "transcribe", ["echo", "{file}"])
+
+    # Set up callosum on sensor to capture emitted events
+    emitted_events = []
+    sensor.callosum = CallosumConnection()
+    sensor.callosum.start(callback=lambda msg: emitted_events.append(msg))
+
+    # Create test file
+    audio_file = day_dir / "143022_300_audio.flac"
+    audio_file.write_text("audio content")
+
+    # Simulate observing event to set up segment tracking
+    message = {
+        "tract": "observe",
+        "event": "observing",
+        "day": "20250101",
+        "segment": "143022_300",
+        "files": ["143022_300_audio.flac"],
+    }
+    sensor._handle_callosum_message(message)
+
+    # Wait for handler to complete
+    time.sleep(0.5)
+
+    # Check that segment_day was cleaned up (handler completed)
+    assert "143022_300" not in sensor.segment_day
+
+    # Check observe.observed event was emitted with day field
+    observed_events = [
+        e
+        for e in emitted_events
+        if e.get("tract") == "observe" and e.get("event") == "observed"
+    ]
+    assert len(observed_events) == 1
+    assert observed_events[0].get("day") == "20250101"
+    assert observed_events[0].get("segment") == "143022_300"

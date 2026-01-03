@@ -24,7 +24,7 @@ from flask import Blueprint, jsonify, request
 from werkzeug.utils import secure_filename
 
 from apps.utils import get_app_storage_path
-from convey import emit, state
+from convey import emit
 from think.utils import day_path
 
 logger = logging.getLogger(__name__)
@@ -220,9 +220,11 @@ def ingest_upload(key: str) -> Any:
     if not remote.get("enabled", True):
         return jsonify({"error": "Remote disabled"}), 403
 
-    # Get segment and day from form
+    # Get segment, day, and host info from form
     segment = request.form.get("segment", "").strip()
     day = request.form.get("day", "").strip()
+    host = request.form.get("host", "").strip()
+    platform = request.form.get("platform", "").strip()
 
     if not segment:
         return jsonify({"error": "Missing segment"}), 400
@@ -286,14 +288,18 @@ def ingest_upload(key: str) -> Any:
     _save_remote(remote)
 
     # Emit observe.observing event to local Callosum
-    emit(
-        "observe",
-        "observing",
-        segment=segment,
-        day=day,
-        files=saved_files,
-        remote=remote.get("name", "unknown"),
-    )
+    # Include host/platform from remote observer if provided
+    event_fields = {
+        "segment": segment,
+        "day": day,
+        "files": saved_files,
+        "remote": remote.get("name", "unknown"),
+    }
+    if host:
+        event_fields["host"] = host
+    if platform:
+        event_fields["platform"] = platform
+    emit("observe", "observing", **event_fields)
 
     logger.info(
         f"Received {len(saved_files)} files for {day}/{segment} from {remote.get('name')}"

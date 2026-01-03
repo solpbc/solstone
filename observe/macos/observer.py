@@ -16,7 +16,6 @@ import logging
 import os
 import shutil
 import signal
-import socket
 import sys
 import time
 
@@ -30,6 +29,7 @@ from observe.macos.activity import (
     is_screen_locked,
 )
 from observe.macos.screencapture import AudioInfo, DisplayInfo, ScreenCaptureKitManager
+from observe.remote import HOST, PLATFORM
 from think.callosum import CallosumConnection
 from think.utils import day_path, setup_cli
 
@@ -42,10 +42,6 @@ RMS_THRESHOLD = 0.01
 MIN_HITS_FOR_SAVE = 3
 SAMPLE_RATE = 48000  # Standard audio sample rate
 STALL_THRESHOLD_CHUNKS = 3  # Exit after this many chunks with no file growth
-
-# Host identification for multi-host scenarios
-_HOST = socket.gethostname()
-_PLATFORM = "darwin"
 
 
 class MacOSObserver:
@@ -295,8 +291,8 @@ class MacOSObserver:
                 day=date_part,
                 segment=segment,
                 files=saved_files,
-                host=_HOST,
-                platform=_PLATFORM,
+                host=HOST,
+                platform=PLATFORM,
             )
             logger.info(f"Segment observing: {segment} ({len(saved_files)} files)")
 
@@ -415,8 +411,8 @@ class MacOSObserver:
             tmux=tmux_info,
             audio=audio_info,
             activity=activity_info,
-            host=_HOST,
-            platform=_PLATFORM,
+            host=HOST,
+            platform=PLATFORM,
         )
 
     def finalize_screencast(self, temp_path: str, final_path: str):

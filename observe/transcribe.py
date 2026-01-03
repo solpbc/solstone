@@ -469,6 +469,11 @@ class Transcriber:
 
             metadata["raw"] = f"{suffix}.flac"
 
+            # Add remote origin if set (from sense.py for remote observer uploads)
+            remote = os.getenv("REMOTE_NAME")
+            if remote:
+                metadata["remote"] = remote
+
             # Add diarization data if provided
             if diarization_data:
                 metadata["diarization"] = {
@@ -509,9 +514,9 @@ class Transcriber:
         """
         start_time = time.time()
 
-        # Set segment key for token usage logging
-        segment = get_segment_key(raw_path)
-        if segment:
+        # Use segment from env (set by sense.py) or derive from path
+        segment = os.getenv("SEGMENT_KEY") or get_segment_key(raw_path)
+        if segment and not os.getenv("SEGMENT_KEY"):
             os.environ["SEGMENT_KEY"] = segment
 
         # Skip if already processed (unless redo mode)

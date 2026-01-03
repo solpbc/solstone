@@ -12,7 +12,9 @@ This module provides functionality for:
 from __future__ import annotations
 
 import logging
+import platform
 import queue
+import socket
 import threading
 import time
 from pathlib import Path
@@ -20,6 +22,11 @@ from pathlib import Path
 import requests
 
 logger = logging.getLogger(__name__)
+
+# Host identification (captured once at module load)
+# Exported for use by platform observers
+HOST = socket.gethostname()
+PLATFORM = platform.system().lower()  # "linux", "darwin", "windows"
 
 # Retry configuration
 MAX_RETRIES = 3
@@ -155,10 +162,15 @@ class RemoteClient:
                     logger.error("No valid files to upload")
                     return False
 
-                # Send request
+                # Send request with host/platform for event emission
                 response = self.session.post(
                     self.remote_url,
-                    data={"day": day, "segment": segment},
+                    data={
+                        "day": day,
+                        "segment": segment,
+                        "host": HOST,
+                        "platform": PLATFORM,
+                    },
                     files=files_data,
                     timeout=UPLOAD_TIMEOUT,
                 )

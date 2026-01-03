@@ -75,6 +75,12 @@ class FileSensor:
         self.segment_files: Dict[str, set[Path]] = {}
         # Track segment start times: {segment_key: start_timestamp}
         self.segment_start_time: Dict[str, float] = {}
+        # Track segment day: {segment_key: day_string}
+        self.segment_day: Dict[str, str] = {}
+        # Track batch origin: {segment_key: True} for segments from batch mode
+        self.segment_batch: Dict[str, bool] = {}
+        # Track remote origin: {segment_key: remote_name} for remote observer segments
+        self.segment_remote: Dict[str, str] = {}
 
     def register(self, pattern: str, handler_name: str, command: List[str]):
         """
@@ -110,22 +116,58 @@ class FileSensor:
                 return handler_info
         return None
 
-    def _spawn_handler(self, file_path: Path, handler_name: str, command: List[str]):
-        """Spawn a handler process for the file."""
+    def _spawn_handler(
+        self,
+        file_path: Path,
+        handler_name: str,
+        command: List[str],
+        day: Optional[str] = None,
+        batch: bool = False,
+        segment: Optional[str] = None,
+        remote: Optional[str] = None,
+    ):
+        """Spawn a handler process for the file.
+
+        Args:
+            file_path: Path to the file to process
+            handler_name: Name of the handler (e.g., "describe", "transcribe")
+            command: Command template with {file} placeholder
+            day: Day string (YYYYMMDD), extracted from path if not provided
+            batch: Whether this is from batch processing mode
+            segment: Segment key for SEGMENT_KEY env var
+            remote: Remote name for REMOTE_NAME env var
+        """
+        # Extract day from path if not provided (journal_dir/YYYYMMDD/file.ext)
+        if day is None:
+            try:
+                rel_path = file_path.relative_to(self.journal_dir)
+                if len(rel_path.parts) >= 1:
+                    day = rel_path.parts[0]
+            except ValueError:
+                pass
+
+        # Extract segment from filename if not provided
+        if segment is None:
+            from think.utils import segment_key as get_segment_key
+
+            segment = get_segment_key(file_path.name)
+
         with self.lock:
             # Skip if already processing this file
             if file_path in self.running:
                 logger.debug(f"File {file_path.name} already being processed")
                 return
 
-            # Register file for segment tracking
-            from think.utils import segment_key
-
-            segment = segment_key(file_path.name)
+            # Register file for segment tracking (segment already extracted above)
             if segment:
                 if segment not in self.segment_files:
                     self.segment_files[segment] = set()
                     self.segment_start_time[segment] = time.time()
+                    if day:
+                        self.segment_day[segment] = day
+                    # Track batch origin for observed event
+                    if batch:
+                        self.segment_batch[segment] = True
                 self.segment_files[segment].add(file_path)
 
             # Queue describe requests to ensure only one runs at a time
@@ -170,8 +212,17 @@ class FileSensor:
         # Use unified runner to spawn process with automatic logging
         logger.info(f"Spawning {handler_name} for {file_path.name}: {' '.join(cmd)}")
 
+        # Build environment with segment/remote context for handlers
+        env = os.environ.copy()
+        if segment:
+            env["SEGMENT_KEY"] = segment
+        if remote:
+            env["REMOTE_NAME"] = remote
+
         try:
-            managed = RunnerManagedProcess.spawn(cmd, ref=ref, callosum=self.callosum)
+            managed = RunnerManagedProcess.spawn(
+                cmd, ref=ref, callosum=self.callosum, env=env
+            )
         except RuntimeError as exc:
             logger.error(str(exc))
             # Release describe lock if this was a describe handler
@@ -258,22 +309,48 @@ class FileSensor:
                 if not self.segment_files[segment]:
                     # Calculate processing duration
                     duration = int(time.time() - self.segment_start_time[segment])
+                    day = self.segment_day.get(segment)
+                    batch = self.segment_batch.get(segment, False)
+                    remote = self.segment_remote.get(segment)
 
                     if self.callosum:
-                        self.callosum.emit(
-                            "observe",
-                            "observed",
-                            segment=segment,
-                            duration=duration,
-                        )
-                    logger.info(f"Segment fully observed: {segment} ({duration}s)")
+                        event_fields = {
+                            "segment": segment,
+                            "day": day,
+                            "duration": duration,
+                        }
+                        if batch:
+                            event_fields["batch"] = True
+                        if remote:
+                            event_fields["remote"] = remote
+                        self.callosum.emit("observe", "observed", **event_fields)
+                    logger.info(
+                        f"Segment fully observed: {day}/{segment} ({duration}s)"
+                    )
 
                     # Cleanup
                     del self.segment_files[segment]
                     del self.segment_start_time[segment]
+                    if segment in self.segment_day:
+                        del self.segment_day[segment]
+                    if segment in self.segment_batch:
+                        del self.segment_batch[segment]
+                    if segment in self.segment_remote:
+                        del self.segment_remote[segment]
 
-    def _handle_file(self, file_path: Path):
-        """Route file to appropriate handler."""
+    def _handle_file(
+        self,
+        file_path: Path,
+        segment: Optional[str] = None,
+        remote: Optional[str] = None,
+    ):
+        """Route file to appropriate handler.
+
+        Args:
+            file_path: Path to the file to process
+            segment: Optional segment key for SEGMENT_KEY env var
+            remote: Optional remote name for REMOTE_NAME env var
+        """
         if not file_path.exists():
             logger.warning(f"File not found, skipping: {file_path}")
             return
@@ -281,7 +358,9 @@ class FileSensor:
         handler_info = self._match_pattern(file_path)
         if handler_info:
             handler_name, command = handler_info
-            self._spawn_handler(file_path, handler_name, command)
+            self._spawn_handler(
+                file_path, handler_name, command, segment=segment, remote=remote
+            )
 
     def _handle_callosum_message(self, message: Dict[str, Any]):
         """Handle incoming Callosum messages, filtering for observe.observing events."""
@@ -295,6 +374,7 @@ class FileSensor:
         day = message.get("day")
         segment = message.get("segment")
         files = message.get("files", [])
+        remote = message.get("remote")  # Optional: set for remote observer uploads
 
         if not day or not segment or not files:
             logger.warning(
@@ -315,14 +395,17 @@ class FileSensor:
             if segment not in self.segment_files:
                 self.segment_files[segment] = set()
                 self.segment_start_time[segment] = time.time()
+                self.segment_day[segment] = day
+                if remote:
+                    self.segment_remote[segment] = remote
             for file_path in file_paths:
                 # Only track files that will be processed (match a pattern)
                 if self._match_pattern(file_path):
                     self.segment_files[segment].add(file_path)
 
-        # Process each file
+        # Process each file (pass segment context for env vars)
         for file_path in file_paths:
-            self._handle_file(file_path)
+            self._handle_file(file_path, segment=segment, remote=remote)
 
     def _emit_status(self):
         """Emit observe.status event with current processing state (only when active)."""
@@ -522,10 +605,12 @@ class FileSensor:
         semaphore = threading.Semaphore(max_jobs)
         completion_events = {}
 
-        def process_with_limit(file_path, handler_name, command):
+        def process_with_limit(file_path, handler_name, command, day):
             """Process a single file with semaphore-controlled concurrency."""
             with semaphore:
-                self._spawn_handler(file_path, handler_name, command)
+                self._spawn_handler(
+                    file_path, handler_name, command, day=day, batch=True
+                )
                 # Wait for this specific file to complete
                 while file_path in self.running:
                     time.sleep(0.5)
@@ -538,7 +623,7 @@ class FileSensor:
             completion_events[file_path] = threading.Event()
             thread = threading.Thread(
                 target=process_with_limit,
-                args=(file_path, handler_name, command),
+                args=(file_path, handler_name, command, day),
                 daemon=False,
             )
             thread.start()
