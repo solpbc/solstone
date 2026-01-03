@@ -10,8 +10,7 @@ from typing import Any
 from flask import Blueprint, jsonify, render_template, request
 from werkzeug.utils import secure_filename
 
-from convey import state
-from think.callosum import callosum_send
+from convey import emit, state
 from think.detect_created import detect_created
 from think.importer_utils import (
     build_import_info,
@@ -399,8 +398,7 @@ def import_start() -> Any:
     except Exception as e:
         return jsonify({"error": f"Failed to update metadata: {str(e)}"}), 500
 
-    # Emit task request to Callosum
-    if not callosum_send("supervisor", "request", ref=task_id, cmd=cmd):
-        return jsonify({"error": "Failed to submit task"}), 500
+    # Emit task request to Callosum (non-blocking, drops if disconnected)
+    emit("supervisor", "request", ref=task_id, cmd=cmd)
 
     return jsonify({"status": "ok", "task_id": task_id})

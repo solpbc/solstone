@@ -413,7 +413,7 @@ Apps can access and control facet selection through a uniform API:
 
 **See implementation:** `convey/static/app.js` - Facet switching logic and event dispatch
 
-### WebSocket Events
+### WebSocket Events (Client-Side)
 
 `window.appEvents` API defined in `convey/static/websocket.js`:
 - `listen(tract, callback)` - Subscribe to specific tract or '*' for all events
@@ -422,6 +422,30 @@ Apps can access and control facet selection through a uniform API:
 **Common tracts:** `cortex`, `indexer`, `observe`, `task`
 
 See [CALLOSUM.md](CALLOSUM.md) for complete event protocol.
+
+### Server-Side Events
+
+Emit Callosum events from route handlers using `convey.emit()`:
+
+```python
+from convey import emit
+
+@my_bp.route("/action", methods=["POST"])
+def handle_action():
+    # ... process request ...
+
+    # Emit event (non-blocking, drops if disconnected)
+    emit("my_app", "action_complete", item_id=123, status="success")
+
+    return jsonify({"status": "ok"})
+```
+
+**Behavior:**
+- Non-blocking: queues message for background thread
+- If Callosum disconnected, message is dropped (with debug logging)
+- Returns `True` if queued, `False` if bridge not started or queue full
+
+**Reference implementations:** `apps/import/routes.py`, `apps/remote/routes.py`
 
 ---
 

@@ -16,13 +16,14 @@ from apps import AppRegistry
 
 from . import state
 from .apps import register_app_context
-from .bridge import register_websocket
+from .bridge import emit, register_websocket
 from .cli import run_service
 from .config import bp as config_bp
 from .root import bp as root_bp
 
 __all__ = [
     "create_app",
+    "emit",
     "run_service",
 ]
 

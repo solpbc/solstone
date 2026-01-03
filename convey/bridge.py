@@ -1,10 +1,10 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 # Copyright (c) 2026 sol pbc
 
-"""Bridge between Callosum message bus and WebSocket clients.
+"""Bidirectional bridge between Callosum message bus and WebSocket clients.
 
-Listens to all Callosum events (cortex, task, indexer, etc.) and broadcasts them
-to connected WebSocket clients.
+Receives Callosum events and broadcasts them to connected WebSocket clients.
+Also provides emit() for route handlers to send events via the shared connection.
 """
 
 from __future__ import annotations
@@ -73,14 +73,33 @@ def start_bridge() -> None:
             _CALLOSUM_CONNECTION = None
 
 
-def stop_bridge(timeout: float = 5.0) -> None:
-    """Stop listening for Callosum events."""
+def stop_bridge() -> None:
+    """Stop the Callosum bridge."""
     global _CALLOSUM_CONNECTION
     with _WATCH_LOCK:
         if _CALLOSUM_CONNECTION:
             _CALLOSUM_CONNECTION.stop()
             _CALLOSUM_CONNECTION = None
             logger.info("Callosum bridge stopped")
+
+
+def emit(tract: str, event: str, **fields) -> bool:
+    """Emit event via shared Callosum connection.
+
+    Non-blocking: queues message for background thread to send.
+    If disconnected, message is dropped (with debug logging).
+
+    Args:
+        tract: Event category/namespace
+        event: Event type
+        **fields: Additional event fields
+
+    Returns:
+        True if queued successfully, False if bridge not started or queue full
+    """
+    if _CALLOSUM_CONNECTION:
+        return _CALLOSUM_CONNECTION.emit(tract, event, **fields)
+    return False
 
 
 def register_websocket(sock: Sock, path: str = "/ws/events") -> None:
