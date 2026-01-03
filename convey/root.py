@@ -46,6 +46,9 @@ def require_login() -> Any:
         "root.login",
         "root.static",
         "root.favicon",
+        # Remote ingest endpoints use key-based auth, not session
+        "app:remote.ingest_upload",
+        "app:remote.ingest_event",
     }:
         return None
 
