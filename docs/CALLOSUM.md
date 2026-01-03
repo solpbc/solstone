@@ -66,6 +66,7 @@ Callosum is a JSON-per-line message bus for real-time event distribution across 
 - `described`/`transcribed`: `input`, `output`, `duration_ms` - Processing complete
 - `observed`: `day`, `segment`, `duration` - All files for segment fully processed
   - Batch mode (--day) events include `batch=true` to indicate non-live origin
+  - Remote events include `remote` (remote name)
 - Observer events (`status`, `observing`) include `host` (hostname) and `platform` ("linux"/"darwin") for multi-host support
 **Purpose:** Track observation pipeline from live capture state through processing completion
 **Health Model:** Fail-fast - observers exit if capture stalls (e.g., files not growing). Supervisor checks event freshness only.
