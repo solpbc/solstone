@@ -151,6 +151,16 @@
 
       facetPillsContainer.appendChild(pill);
     });
+
+    // Add "+" button to create new facets (only if facets enabled)
+    if (!facetsDisabled) {
+      const addButton = document.createElement('div');
+      addButton.className = 'facet-add-pill';
+      addButton.textContent = '+';
+      addButton.title = 'Create new facet';
+      addButton.onclick = () => openFacetCreateModal();
+      facetPillsContainer.appendChild(addButton);
+    }
   }
 
   // Update selection styles without re-rendering
@@ -873,6 +883,172 @@
 
   // Expose selectFacet globally for notifications and other services
   window.selectFacet = selectFacet;
+
+  // ========== FACET CREATION MODAL ==========
+
+  // Create modal element (once)
+  function ensureFacetCreateModal() {
+    if (document.getElementById('facetCreateModal')) return;
+
+    const modal = document.createElement('div');
+    modal.id = 'facetCreateModal';
+    modal.className = 'facet-create-modal';
+    modal.innerHTML = `
+      <div class="facet-create-content">
+        <h3>Create New Facet</h3>
+        <div class="facet-create-field">
+          <label for="facetCreateTitle">Title</label>
+          <input type="text" id="facetCreateTitle" placeholder="e.g., Work Projects" autofocus>
+          <div class="facet-create-slug" id="facetCreateSlug"></div>
+          <div class="facet-create-error" id="facetCreateError"></div>
+        </div>
+        <div class="facet-create-buttons">
+          <button class="facet-create-cancel" id="facetCreateCancel">Cancel</button>
+          <button class="facet-create-submit" id="facetCreateSubmit" disabled>Create</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(modal);
+
+    // Wire up events
+    const titleInput = document.getElementById('facetCreateTitle');
+    const slugDisplay = document.getElementById('facetCreateSlug');
+    const submitBtn = document.getElementById('facetCreateSubmit');
+    const cancelBtn = document.getElementById('facetCreateCancel');
+    const errorDisplay = document.getElementById('facetCreateError');
+
+    // Live slug generation as user types
+    titleInput.addEventListener('input', () => {
+      const title = titleInput.value.trim();
+      const slug = titleToSlug(title);
+      if (slug) {
+        slugDisplay.textContent = slug;
+        slugDisplay.classList.add('has-slug');
+      } else {
+        slugDisplay.textContent = '';
+        slugDisplay.classList.remove('has-slug');
+      }
+      submitBtn.disabled = !slug;
+      errorDisplay.classList.remove('visible');
+    });
+
+    // Enter to submit
+    titleInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !submitBtn.disabled) {
+        e.preventDefault();
+        submitFacetCreate();
+      } else if (e.key === 'Escape') {
+        closeFacetCreateModal();
+      }
+    });
+
+    // Cancel button
+    cancelBtn.addEventListener('click', closeFacetCreateModal);
+
+    // Submit button
+    submitBtn.addEventListener('click', submitFacetCreate);
+
+    // Click outside to close
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) {
+        closeFacetCreateModal();
+      }
+    });
+  }
+
+  // Convert title to slug (kebab-case)
+  function titleToSlug(title) {
+    if (!title) return '';
+    return title
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '');
+  }
+
+  // Open the modal
+  function openFacetCreateModal() {
+    ensureFacetCreateModal();
+    const modal = document.getElementById('facetCreateModal');
+    const titleInput = document.getElementById('facetCreateTitle');
+    const slugDisplay = document.getElementById('facetCreateSlug');
+    const submitBtn = document.getElementById('facetCreateSubmit');
+    const errorDisplay = document.getElementById('facetCreateError');
+
+    // Reset form
+    titleInput.value = '';
+    slugDisplay.textContent = '';
+    slugDisplay.classList.remove('has-slug');
+    submitBtn.disabled = true;
+    errorDisplay.classList.remove('visible');
+
+    modal.classList.add('visible');
+    titleInput.focus();
+  }
+
+  // Close the modal
+  function closeFacetCreateModal() {
+    const modal = document.getElementById('facetCreateModal');
+    if (modal) {
+      modal.classList.remove('visible');
+    }
+  }
+
+  // Submit facet creation
+  async function submitFacetCreate() {
+    const titleInput = document.getElementById('facetCreateTitle');
+    const submitBtn = document.getElementById('facetCreateSubmit');
+    const errorDisplay = document.getElementById('facetCreateError');
+
+    const title = titleInput.value.trim();
+    if (!title) return;
+
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Creating...';
+
+    try {
+      const response = await fetch('/app/settings/api/facet', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to create facet');
+      }
+
+      // Success - close modal, select new facet, navigate to settings
+      closeFacetCreateModal();
+
+      // Add new facet to local data
+      const newFacet = {
+        name: data.facet,
+        title: data.config.title,
+        color: data.config.color,
+        emoji: data.config.emoji,
+        muted: false,
+        count: 0
+      };
+      activeFacets.push(newFacet);
+      window.facetsData = activeFacets;
+
+      // Re-render facet bar
+      renderFacetChooser();
+
+      // Select the new facet
+      selectFacet(data.facet);
+
+      // Navigate to settings app to customize
+      window.location.href = '/app/settings';
+
+    } catch (error) {
+      errorDisplay.textContent = error.message;
+      errorDisplay.classList.add('visible');
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Create';
+    }
+  }
 
   // Run initialization when DOM is ready
   if (document.readyState === 'loading') {

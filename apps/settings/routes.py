@@ -4,10 +4,11 @@
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 from typing import Any
 
-from flask import Blueprint, jsonify, render_template, request
+from flask import Blueprint, jsonify, request
 
 from apps.utils import log_app_action
 from convey import state
@@ -60,6 +61,71 @@ def update_config() -> Any:
         return jsonify({"success": True, "config": config})
     except RuntimeError as e:
         return jsonify({"error": str(e)}), 500
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@settings_bp.route("/api/facet", methods=["POST"])
+def create_facet() -> Any:
+    """Create a new facet.
+
+    Accepts JSON with:
+        title: Display title (required)
+
+    The facet name (slug) is auto-generated from the title.
+    """
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({"error": "No data provided"}), 400
+
+        title = data.get("title", "").strip()
+        if not title:
+            return jsonify({"error": "Title is required"}), 400
+
+        # Generate slug from title: lowercase, replace spaces/special chars with hyphens
+        slug = re.sub(r"[^a-z0-9]+", "-", title.lower())
+        slug = slug.strip("-")  # Remove leading/trailing hyphens
+
+        if not slug:
+            return (
+                jsonify({"error": "Title must contain at least one letter or number"}),
+                400,
+            )
+
+        # Check for conflicts with existing facets
+        from think.facets import get_facets
+
+        existing = get_facets()
+        if slug in existing:
+            return jsonify({"error": f"Facet '{slug}' already exists"}), 409
+
+        # Create facet directory and config
+        facet_path = Path(state.journal_root) / "facets" / slug
+        facet_path.mkdir(parents=True, exist_ok=True)
+
+        config = {
+            "title": title,
+            "description": "",
+            "color": "#667eea",
+            "emoji": "📦",
+        }
+
+        config_file = facet_path / "facet.json"
+        with open(config_file, "w", encoding="utf-8") as f:
+            json.dump(config, f, indent=2, ensure_ascii=False)
+            f.write("\n")
+
+        # Log the creation
+        log_app_action(
+            app="settings",
+            facet=slug,
+            action="facet_create",
+            params={"title": title},
+        )
+
+        return jsonify({"success": True, "facet": slug, "config": config}), 201
+
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
@@ -141,8 +207,6 @@ def get_facet_logs(facet_name: str) -> Any:
     Returns:
         {day, entries, next_cursor} where next_cursor is null if no more days
     """
-    import re
-
     logs_dir = Path(state.journal_root) / "facets" / facet_name / "logs"
 
     if not logs_dir.exists():
