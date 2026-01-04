@@ -7,11 +7,13 @@ Provides endpoints for:
 - Managing remote observer registrations (UI)
 - Receiving file uploads from remote observers (ingest)
 - Relaying events from remote observers to local Callosum
+- Retrieving segment upload history for sync verification
 """
 
 from __future__ import annotations
 
 import base64
+import hashlib
 import json
 import logging
 import random
@@ -240,6 +242,106 @@ def api_get_key(key_prefix: str) -> Any:
     )
 
 
+# === Sync history helpers ===
+
+
+def _compute_sha256(path: Path) -> str:
+    """Compute SHA256 hash of a file.
+
+    Args:
+        path: Path to file
+
+    Returns:
+        Hex-encoded SHA256 hash
+    """
+    sha256 = hashlib.sha256()
+    with open(path, "rb") as f:
+        for chunk in iter(lambda: f.read(65536), b""):
+            sha256.update(chunk)
+    return sha256.hexdigest()
+
+
+def _get_hist_dir(key_prefix: str, ensure_exists: bool = True) -> Path:
+    """Get the history directory for a remote.
+
+    Args:
+        key_prefix: First 8 chars of remote key
+        ensure_exists: Create directory if it doesn't exist (default: True)
+
+    Returns:
+        Path to apps/remote/remotes/<key_prefix>/hist/
+    """
+    return get_app_storage_path(
+        "remote", "remotes", key_prefix, "hist", ensure_exists=ensure_exists
+    )
+
+
+def _append_sync_record(key_prefix: str, day: str, record: dict) -> None:
+    """Append a sync record to the history file.
+
+    Args:
+        key_prefix: First 8 chars of remote key
+        day: Day string (YYYYMMDD)
+        record: Sync record to append
+    """
+    hist_dir = _get_hist_dir(key_prefix)
+    hist_path = hist_dir / f"{day}.jsonl"
+    with open(hist_path, "a", encoding="utf-8") as f:
+        f.write(json.dumps(record, ensure_ascii=False) + "\n")
+
+
+def _load_sync_history(key_prefix: str, day: str) -> list[dict]:
+    """Load sync history for a remote on a given day.
+
+    Args:
+        key_prefix: First 8 chars of remote key
+        day: Day string (YYYYMMDD)
+
+    Returns:
+        List of sync records, empty if file doesn't exist
+    """
+    hist_dir = _get_hist_dir(key_prefix, ensure_exists=False)
+    hist_path = hist_dir / f"{day}.jsonl"
+    if not hist_path.exists():
+        return []
+
+    records = []
+    try:
+        with open(hist_path, encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if line:
+                    records.append(json.loads(line))
+    except (json.JSONDecodeError, OSError) as e:
+        logger.warning(f"Failed to load sync history {hist_path}: {e}")
+    return records
+
+
+def _find_by_inode(day_dir: Path, inode: int) -> Path | None:
+    """Find a file by inode in the day directory.
+
+    Searches recursively for a file with the given inode.
+
+    Args:
+        day_dir: Path to day directory
+        inode: Inode number to search for
+
+    Returns:
+        Path to file if found, None otherwise
+    """
+    try:
+        for path in day_dir.rglob("*"):
+            if path.is_file():
+                try:
+                    if path.stat().st_ino == inode:
+                        return path
+                except OSError:
+                    continue
+    except OSError:
+        pass
+    return None
+
+
 # === Segment collision helpers ===
 
 # Maximum attempts to find available segment key
@@ -459,35 +561,65 @@ def ingest_upload(key: str) -> Any:
 
     # Save files with adjusted segment key in filenames
     saved_files = []
+    file_records = []  # For sync history
     total_bytes = 0
 
     for upload in files:
         if not upload.filename:
             continue
 
-        # Secure the filename
-        filename = secure_filename(upload.filename)
-        if not filename:
+        # Secure the filename - preserve original for history
+        submitted_filename = secure_filename(upload.filename)
+        if not submitted_filename:
             continue
 
         # Replace original segment with adjusted segment in filename
-        if original_segment != segment and original_segment in filename:
-            filename = filename.replace(original_segment, segment, 1)
+        written_filename = submitted_filename
+        if original_segment != segment and original_segment in submitted_filename:
+            written_filename = submitted_filename.replace(original_segment, segment, 1)
 
-        target_path = target_dir / filename
+        target_path = target_dir / written_filename
 
         # Save file
         try:
             upload.save(target_path)
-            saved_files.append(filename)
-            total_bytes += target_path.stat().st_size
-            logger.info(f"Saved {filename} to {target_dir}")
+            stat = target_path.stat()
+            file_size = stat.st_size
+            file_inode = stat.st_ino
+
+            saved_files.append(written_filename)
+            total_bytes += file_size
+
+            # Compute SHA256 and record file info for sync history
+            file_sha256 = _compute_sha256(target_path)
+            file_records.append(
+                {
+                    "submitted": submitted_filename,
+                    "written": written_filename,
+                    "inode": file_inode,
+                    "size": file_size,
+                    "sha256": file_sha256,
+                }
+            )
+
+            logger.info(f"Saved {written_filename} to {target_dir}")
         except OSError as e:
-            logger.error(f"Failed to save {filename}: {e}")
-            return jsonify({"error": f"Failed to save {filename}"}), 500
+            logger.error(f"Failed to save {written_filename}: {e}")
+            return jsonify({"error": f"Failed to save {written_filename}"}), 500
 
     if not saved_files:
         return jsonify({"error": "No valid files saved"}), 400
+
+    # Write sync history record
+    key_prefix = key[:8]
+    sync_record = {
+        "ts": int(time.time() * 1000),
+        "segment": segment,
+        "files": file_records,
+    }
+    if segment != original_segment:
+        sync_record["segment_original"] = original_segment
+    _append_sync_record(key_prefix, day, sync_record)
 
     # Update remote stats
     remote["last_seen"] = int(time.time() * 1000)
@@ -568,3 +700,110 @@ def ingest_event(key: str) -> Any:
         _save_remote(remote)
 
     return jsonify({"status": "ok"})
+
+
+@remote_bp.route("/ingest/<key>/segments/<day>")
+def ingest_segments(key: str, day: str) -> Any:
+    """List uploaded segments for a day with file verification.
+
+    Returns JSON array of segments with file status:
+    - present: File exists at recorded path
+    - relocated: File found at different path (by inode)
+    - missing: File not found
+
+    Args:
+        key: Remote authentication key
+        day: Day string (YYYYMMDD)
+    """
+    # Validate key
+    remote = _load_remote(key)
+    if not remote:
+        return jsonify({"error": "Invalid key"}), 401
+
+    if remote.get("revoked", False):
+        return jsonify({"error": "Remote revoked"}), 403
+
+    if not remote.get("enabled", True):
+        return jsonify({"error": "Remote disabled"}), 403
+
+    # Validate day format (YYYYMMDD)
+    if not re.match(r"^\d{8}$", day):
+        return jsonify({"error": "Invalid day format"}), 400
+
+    # Load sync history for this remote/day
+    key_prefix = key[:8]
+    records = _load_sync_history(key_prefix, day)
+
+    if not records:
+        return jsonify([])
+
+    # Get day directory for file verification
+    target_dir = day_path(day)
+
+    # Build response grouped by segment, deduplicating by sha256
+    # Later records overwrite earlier ones (most recent upload wins)
+    segments: dict[str, dict] = {}
+
+    for record in records:
+        segment = record.get("segment", "")
+        segment_original = record.get("segment_original")
+
+        if segment not in segments:
+            segments[segment] = {
+                "key": segment,
+                "files_by_sha": {},  # Keyed by sha256 for deduplication
+            }
+            if segment_original:
+                segments[segment]["original_key"] = segment_original
+
+        # Check each file's status
+        for file_rec in record.get("files", []):
+            written = file_rec.get("written", "")
+            submitted = file_rec.get("submitted", "")
+            inode = file_rec.get("inode")
+            size = file_rec.get("size", 0)
+            sha256 = file_rec.get("sha256", "")
+
+            file_info = {
+                "name": written,
+                "size": size,
+                "sha256": sha256,
+            }
+
+            # Include submitted_name only if different
+            if submitted != written:
+                file_info["submitted_name"] = submitted
+
+            # Check file status
+            recorded_path = target_dir / written
+            if recorded_path.exists():
+                file_info["status"] = "present"
+            elif inode and target_dir.exists():
+                # Try to find by inode
+                relocated = _find_by_inode(target_dir, inode)
+                if relocated:
+                    file_info["status"] = "relocated"
+                    file_info["current_path"] = str(relocated.relative_to(target_dir))
+                else:
+                    file_info["status"] = "missing"
+            else:
+                file_info["status"] = "missing"
+
+            # Deduplicate by sha256 - later uploads overwrite earlier
+            segments[segment]["files_by_sha"][sha256] = file_info
+
+    # Convert files_by_sha dicts to lists and sort by segment key
+    result = []
+    for segment_data in sorted(segments.values(), key=lambda s: s["key"]):
+        result.append(
+            {
+                "key": segment_data["key"],
+                **(
+                    {"original_key": segment_data["original_key"]}
+                    if "original_key" in segment_data
+                    else {}
+                ),
+                "files": list(segment_data["files_by_sha"].values()),
+            }
+        )
+    return jsonify(result)

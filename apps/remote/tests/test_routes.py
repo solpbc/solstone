@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import io
+import json
 
 
 def test_api_list_empty(remote_env):
@@ -722,3 +723,438 @@ def test_ingest_stats_use_adjusted_segment(remote_env):
         last_segment != "120000_300"
         or (day_dir / f"{last_segment}_audio.flac").exists()
     )
+
+
+# === Sync history tests ===
+
+
+def test_compute_sha256(remote_env):
+    """Test SHA256 computation."""
+    from apps.remote.routes import _compute_sha256
+
+    env = remote_env()
+    test_file = env.journal / "test.txt"
+    test_file.write_bytes(b"hello world")
+
+    sha = _compute_sha256(test_file)
+    # SHA256 of "hello world"
+    assert sha == "b94d27b9934d3e08a52e52d7da7dabfac484efe37a5380ee9088f7ace2efcde9"
+
+
+def test_ingest_creates_sync_history(remote_env):
+    """Test that ingest creates sync history record."""
+    env = remote_env()
+
+    # Create a remote
+    resp = env.client.post(
+        "/app/remote/api/create",
+        json={"name": "history-test"},
+        content_type="application/json",
+    )
+    data = resp.get_json()
+    key = data["key"]
+    key_prefix = data["key_prefix"]
+
+    # Upload a file
+    test_data = b"test audio content for history"
+    resp = env.client.post(
+        f"/app/remote/ingest/{key}",
+        data={
+            "day": "20250103",
+            "segment": "120000_300",
+            "files": (io.BytesIO(test_data), "120000_300_audio.flac"),
+        },
+    )
+    assert resp.status_code == 200
+
+    # Check history file exists
+    hist_path = (
+        env.journal
+        / "apps"
+        / "remote"
+        / "remotes"
+        / key_prefix
+        / "hist"
+        / "20250103.jsonl"
+    )
+    assert hist_path.exists()
+
+    # Load and verify history
+    with open(hist_path) as f:
+        record = json.loads(f.readline())
+
+    assert record["segment"] == "120000_300"
+    assert "segment_original" not in record  # No collision
+    assert len(record["files"]) == 1
+
+    file_rec = record["files"][0]
+    assert file_rec["submitted"] == "120000_300_audio.flac"
+    assert file_rec["written"] == "120000_300_audio.flac"
+    assert file_rec["size"] == len(test_data)
+    assert len(file_rec["sha256"]) == 64  # SHA256 hex length
+    assert file_rec["inode"] > 0
+
+
+def test_ingest_history_with_collision(remote_env):
+    """Test that sync history records collision adjustment."""
+    env = remote_env()
+
+    # Create a remote
+    resp = env.client.post(
+        "/app/remote/api/create",
+        json={"name": "collision-history-test"},
+        content_type="application/json",
+    )
+    data = resp.get_json()
+    key = data["key"]
+    key_prefix = data["key_prefix"]
+
+    # Create conflicting file
+    day_dir = env.journal / "20250103"
+    day_dir.mkdir(parents=True)
+    (day_dir / "120000_300_audio.flac").write_bytes(b"existing")
+
+    # Upload with same segment key
+    test_data = b"new audio content"
+    resp = env.client.post(
+        f"/app/remote/ingest/{key}",
+        data={
+            "day": "20250103",
+            "segment": "120000_300",
+            "files": (io.BytesIO(test_data), "120000_300_audio.flac"),
+        },
+    )
+    assert resp.status_code == 200
+
+    # Load history
+    hist_path = (
+        env.journal
+        / "apps"
+        / "remote"
+        / "remotes"
+        / key_prefix
+        / "hist"
+        / "20250103.jsonl"
+    )
+    with open(hist_path) as f:
+        record = json.loads(f.readline())
+
+    # Should record original segment
+    assert record["segment_original"] == "120000_300"
+    assert record["segment"] != "120000_300"
+
+    # File names should reflect adjustment
+    file_rec = record["files"][0]
+    assert file_rec["submitted"] == "120000_300_audio.flac"
+    assert file_rec["written"] != "120000_300_audio.flac"
+    assert record["segment"] in file_rec["written"]
+
+
+def test_segments_endpoint_empty(remote_env):
+    """Test segments endpoint returns empty for no uploads."""
+    env = remote_env()
+
+    # Create a remote
+    resp = env.client.post(
+        "/app/remote/api/create",
+        json={"name": "segments-empty-test"},
+        content_type="application/json",
+    )
+    key = resp.get_json()["key"]
+
+    # Query segments - should be empty
+    resp = env.client.get(f"/app/remote/ingest/{key}/segments/20250103")
+    assert resp.status_code == 200
+    assert resp.get_json() == []
+
+
+def test_segments_endpoint_invalid_key(remote_env):
+    """Test segments endpoint rejects invalid key."""
+    env = remote_env()
+
+    resp = env.client.get("/app/remote/ingest/invalid-key/segments/20250103")
+    assert resp.status_code == 401
+
+
+def test_segments_endpoint_invalid_day(remote_env):
+    """Test segments endpoint validates day format."""
+    env = remote_env()
+
+    # Create a remote
+    resp = env.client.post(
+        "/app/remote/api/create",
+        json={"name": "segments-day-test"},
+        content_type="application/json",
+    )
+    key = resp.get_json()["key"]
+
+    resp = env.client.get(f"/app/remote/ingest/{key}/segments/2025-01-03")
+    assert resp.status_code == 400
+    assert "Invalid day format" in resp.get_json()["error"]
+
+
+def test_segments_endpoint_lists_uploads(remote_env):
+    """Test segments endpoint lists uploaded segments."""
+    env = remote_env()
+
+    # Create a remote
+    resp = env.client.post(
+        "/app/remote/api/create",
+        json={"name": "segments-list-test"},
+        content_type="application/json",
+    )
+    key = resp.get_json()["key"]
+
+    # Upload a file
+    test_data = b"test audio content"
+    resp = env.client.post(
+        f"/app/remote/ingest/{key}",
+        data={
+            "day": "20250103",
+            "segment": "120000_300",
+            "files": (io.BytesIO(test_data), "120000_300_audio.flac"),
+        },
+    )
+    assert resp.status_code == 200
+
+    # Query segments
+    resp = env.client.get(f"/app/remote/ingest/{key}/segments/20250103")
+    assert resp.status_code == 200
+    data = resp.get_json()
+
+    assert len(data) == 1
+    segment = data[0]
+    assert segment["key"] == "120000_300"
+    assert "original_key" not in segment  # No collision
+    assert len(segment["files"]) == 1
+
+    file_info = segment["files"][0]
+    assert file_info["name"] == "120000_300_audio.flac"
+    assert file_info["size"] == len(test_data)
+    assert len(file_info["sha256"]) == 64
+    assert file_info["status"] == "present"
+    assert "submitted_name" not in file_info  # Same as written
+
+
+def test_segments_endpoint_shows_collision(remote_env):
+    """Test segments endpoint shows collision info."""
+    env = remote_env()
+
+    # Create a remote
+    resp = env.client.post(
+        "/app/remote/api/create",
+        json={"name": "segments-collision-test"},
+        content_type="application/json",
+    )
+    key = resp.get_json()["key"]
+
+    # Create conflicting file
+    day_dir = env.journal / "20250103"
+    day_dir.mkdir(parents=True)
+    (day_dir / "120000_300_audio.flac").write_bytes(b"existing")
+
+    # Upload with collision
+    test_data = b"new audio"
+    resp = env.client.post(
+        f"/app/remote/ingest/{key}",
+        data={
+            "day": "20250103",
+            "segment": "120000_300",
+            "files": (io.BytesIO(test_data), "120000_300_audio.flac"),
+        },
+    )
+    assert resp.status_code == 200
+
+    # Query segments
+    resp = env.client.get(f"/app/remote/ingest/{key}/segments/20250103")
+    data = resp.get_json()
+
+    assert len(data) == 1
+    segment = data[0]
+    assert segment["key"] != "120000_300"
+    assert segment["original_key"] == "120000_300"
+
+    file_info = segment["files"][0]
+    assert file_info["submitted_name"] == "120000_300_audio.flac"
+    assert file_info["name"] != "120000_300_audio.flac"
+    assert file_info["status"] == "present"
+
+
+def test_segments_endpoint_missing_file(remote_env):
+    """Test segments endpoint reports missing files."""
+    env = remote_env()
+
+    # Create a remote
+    resp = env.client.post(
+        "/app/remote/api/create",
+        json={"name": "segments-missing-test"},
+        content_type="application/json",
+    )
+    key = resp.get_json()["key"]
+
+    # Upload a file
+    test_data = b"test audio"
+    resp = env.client.post(
+        f"/app/remote/ingest/{key}",
+        data={
+            "day": "20250103",
+            "segment": "120000_300",
+            "files": (io.BytesIO(test_data), "120000_300_audio.flac"),
+        },
+    )
+    assert resp.status_code == 200
+
+    # Delete the file
+    (env.journal / "20250103" / "120000_300_audio.flac").unlink()
+
+    # Query segments
+    resp = env.client.get(f"/app/remote/ingest/{key}/segments/20250103")
+    data = resp.get_json()
+
+    assert len(data) == 1
+    file_info = data[0]["files"][0]
+    assert file_info["status"] == "missing"
+
+
+def test_segments_endpoint_relocated_file(remote_env):
+    """Test segments endpoint detects relocated files by inode."""
+    env = remote_env()
+
+    # Create a remote
+    resp = env.client.post(
+        "/app/remote/api/create",
+        json={"name": "segments-relocate-test"},
+        content_type="application/json",
+    )
+    key = resp.get_json()["key"]
+
+    # Upload a file
+    test_data = b"test audio for relocation"
+    resp = env.client.post(
+        f"/app/remote/ingest/{key}",
+        data={
+            "day": "20250103",
+            "segment": "120000_300",
+            "files": (io.BytesIO(test_data), "120000_300_audio.flac"),
+        },
+    )
+    assert resp.status_code == 200
+
+    # Move the file to a subdirectory (simulating indexer moving it)
+    day_dir = env.journal / "20250103"
+    segment_dir = day_dir / "120000_300"
+    segment_dir.mkdir()
+    original_path = day_dir / "120000_300_audio.flac"
+    new_path = segment_dir / "audio.flac"
+    original_path.rename(new_path)
+
+    # Query segments - should detect relocation by inode
+    resp = env.client.get(f"/app/remote/ingest/{key}/segments/20250103")
+    data = resp.get_json()
+
+    assert len(data) == 1
+    file_info = data[0]["files"][0]
+    assert file_info["status"] == "relocated"
+    assert file_info["current_path"] == "120000_300/audio.flac"
+
+
+def test_find_by_inode(remote_env):
+    """Test _find_by_inode helper."""
+    from apps.remote.routes import _find_by_inode
+
+    env = remote_env()
+    day_dir = env.journal / "20250103"
+    day_dir.mkdir(parents=True)
+
+    # Create a file and get its inode
+    test_file = day_dir / "test.txt"
+    test_file.write_bytes(b"hello")
+    inode = test_file.stat().st_ino
+
+    # Should find it at original location
+    found = _find_by_inode(day_dir, inode)
+    assert found == test_file
+
+    # Move to subdirectory
+    subdir = day_dir / "subdir"
+    subdir.mkdir()
+    new_path = subdir / "renamed.txt"
+    test_file.rename(new_path)
+
+    # Should still find by inode
+    found = _find_by_inode(day_dir, inode)
+    assert found == new_path
+
+    # Non-existent inode returns None
+    found = _find_by_inode(day_dir, 999999999)
+    assert found is None
+
+
+def test_segments_endpoint_revoked_key(remote_env):
+    """Test segments endpoint rejects revoked key."""
+    env = remote_env()
+
+    # Create and revoke a remote
+    resp = env.client.post(
+        "/app/remote/api/create",
+        json={"name": "segments-revoked-test"},
+        content_type="application/json",
+    )
+    data = resp.get_json()
+    key = data["key"]
+    key_prefix = data["key_prefix"]
+
+    env.client.delete(f"/app/remote/api/{key_prefix}")
+
+    # Query segments - should be rejected
+    resp = env.client.get(f"/app/remote/ingest/{key}/segments/20250103")
+    assert resp.status_code == 403
+    assert "Remote revoked" in resp.get_json()["error"]
+
+
+def test_segments_endpoint_deduplicates_by_sha256(remote_env):
+    """Test that duplicate file uploads are deduplicated by sha256."""
+    env = remote_env()
+
+    # Create a remote
+    resp = env.client.post(
+        "/app/remote/api/create",
+        json={"name": "segments-dedup-test"},
+        content_type="application/json",
+    )
+    key = resp.get_json()["key"]
+
+    # Upload a file
+    test_data = b"test audio content"
+    resp = env.client.post(
+        f"/app/remote/ingest/{key}",
+        data={
+            "day": "20250103",
+            "segment": "120000_300",
+            "files": (io.BytesIO(test_data), "120000_300_audio.flac"),
+        },
+    )
+    assert resp.status_code == 200
+
+    # Upload the same file again (same content = same sha256)
+    resp = env.client.post(
+        f"/app/remote/ingest/{key}",
+        data={
+            "day": "20250103",
+            "segment": "120000_300",
+            "files": (io.BytesIO(test_data), "120000_300_audio.flac"),
+        },
+    )
+    assert resp.status_code == 200
+
+    # Query segments - should have only one file entry (deduplicated)
+    resp = env.client.get(f"/app/remote/ingest/{key}/segments/20250103")
+    data = resp.get_json()
+
+    # Should have 2 segments (one original, one collision-adjusted)
+    assert len(data) == 2
+
+    # Each should have exactly 1 file (deduplicated by sha256)
+    for segment in data:
+        assert len(segment["files"]) == 1
+        assert segment["files"][0]["status"] == "present"
