@@ -18,7 +18,7 @@ The package exposes several commands:
 - `think-cluster` groups audio and screen JSON files into report sections. Use `--start` and
   `--length` to limit the report to a specific time range.
 - `think-dream` runs the above tools for a single day.
-- `think-supervisor` monitors observation heartbeats. Use `--no-observers` to skip starting them automatically.
+- `think-supervisor` monitors observation heartbeats. Use `--no-observers` to disable local capture (sense still runs for remote uploads and imports).
 - `muse-mcp-tools` starts an MCP server exposing search capabilities for both summary text and raw transcripts.
 - `muse-cortex` starts a WebSocket API server for managing AI agent instances.
 

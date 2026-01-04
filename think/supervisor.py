@@ -111,6 +111,9 @@ _observe_status_state: dict = {
     "ever_received": False,  # Whether we've received at least one status event
 }
 
+# Track whether observer was started (for health check conditioning)
+_observer_enabled: bool = True
+
 
 def _get_journal_path() -> Path:
     journal = os.getenv("JOURNAL_PATH")
@@ -225,7 +228,14 @@ def check_health(threshold: int = DEFAULT_THRESHOLD) -> list[str]:
     Returns ["hear", "see"] if no status received within threshold,
     empty list otherwise. During startup grace period (before first
     status event received), returns empty list to avoid false alerts.
+
+    When observer is disabled (--no-observers), always returns empty list
+    since there's no local capture to monitor.
     """
+    # Skip health checks if observer was not started
+    if not _observer_enabled:
+        return []
+
     # Grace period: don't alert until we've received at least one status event
     if not _observe_status_state["ever_received"]:
         return []
@@ -742,16 +752,14 @@ def collect_status(procs: list[ManagedProcess]) -> dict:
     }
 
 
-def start_observers() -> list[ManagedProcess]:
-    """Launch observer (platform-detected) and observe-sense with output logging."""
-    procs: list[ManagedProcess] = []
-    commands = {
-        "observer": ["observer", "-v"],
-        "sense": ["observe-sense", "-v"],
-    }
-    for name, cmd in commands.items():
-        procs.append(_launch_process(name, cmd, restart=True))
-    return procs
+def start_observer() -> ManagedProcess:
+    """Launch platform-detected observer with output logging."""
+    return _launch_process("observer", ["observer", "-v"], restart=True)
+
+
+def start_sense() -> ManagedProcess:
+    """Launch observe-sense with output logging."""
+    return _launch_process("sense", ["observe-sense", "-v"], restart=True)
 
 
 def start_callosum_in_process() -> CallosumServer:
@@ -1132,7 +1140,7 @@ def parse_args() -> argparse.ArgumentParser:
     parser.add_argument(
         "--no-observers",
         action="store_true",
-        help="Do not automatically start observer and observe-sense",
+        help="Do not start local observer (sense still runs for remote/imports)",
     )
     parser.add_argument(
         "--no-daily",
@@ -1194,8 +1202,9 @@ def main() -> None:
 
     logging.info("Supervisor starting...")
 
-    global _managed_procs, _supervisor_callosum
+    global _managed_procs, _supervisor_callosum, _observer_enabled
     procs: list[ManagedProcess] = []
+    _observer_enabled = not args.no_observers
 
     # Start Callosum in-process first - it's the message bus that other services depend on
     try:
@@ -1214,8 +1223,11 @@ def main() -> None:
         logging.warning(f"Failed to start Callosum connection: {e}")
 
     # Now start other services (their startup events will be captured)
+    # Sense always runs (handles remote uploads and imports)
+    procs.append(start_sense())
+    # Observer only runs if not disabled (local capture)
     if not args.no_observers:
-        procs.extend(start_observers())
+        procs.append(start_observer())
     if not args.no_cortex:
         procs.append(start_cortex_server())
     if not args.no_convey:

@@ -19,6 +19,9 @@ def test_check_health():
     """
     mod = importlib.import_module("think.supervisor")
 
+    # Ensure observer is enabled for this test
+    mod._observer_enabled = True
+
     # Reset state for clean test
     mod._observe_status_state["last_ts"] = 0.0
     mod._observe_status_state["ever_received"] = False
@@ -42,6 +45,20 @@ def test_check_health():
     mod._observe_status_state["last_ts"] = time.time() - 100
     stale = mod.check_health(threshold=60)
     assert sorted(stale) == ["hear", "see"]
+
+
+def test_check_health_observer_disabled(monkeypatch):
+    """Test that health checks are skipped when observer is disabled (--no-observers)."""
+    mod = importlib.import_module("think.supervisor")
+
+    # Simulate --no-observers mode (monkeypatch auto-restores after test)
+    monkeypatch.setattr(mod, "_observer_enabled", False)
+
+    # Even with stale status, should return empty (no health alerts)
+    mod._observe_status_state["ever_received"] = True
+    mod._observe_status_state["last_ts"] = 0.0  # Very stale
+    stale = mod.check_health(threshold=60)
+    assert stale == []  # No alerts when observer disabled
 
 
 def test_handle_observe_status():
@@ -123,7 +140,8 @@ async def test_clear_notification(monkeypatch):
     assert len(cleared) == 1  # Still just one clear call
 
 
-def test_start_runners(tmp_path, mock_callosum, monkeypatch):
+def test_start_observer_and_sense(tmp_path, mock_callosum, monkeypatch):
+    """Test that start_observer() and start_sense() launch their respective processes."""
     mod = importlib.import_module("think.supervisor")
 
     started = []
@@ -156,10 +174,16 @@ def test_start_runners(tmp_path, mock_callosum, monkeypatch):
     monkeypatch.setattr(mod.subprocess, "Popen", fake_popen)
     monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
 
-    procs = mod.start_observers()
-    assert len(procs) == 2
+    # Test start_observer()
+    observer_proc = mod.start_observer()
+    assert observer_proc is not None
     assert any(cmd == ["observer", "-v"] for cmd, _, _ in started)
+
+    # Test start_sense()
+    sense_proc = mod.start_sense()
+    assert sense_proc is not None
     assert any(cmd == ["observe-sense", "-v"] for cmd, _, _ in started)
+
     # Check that stdout and stderr capture pipes
     for cmd, stdout, stderr in started:
         assert stdout == subprocess.PIPE
