@@ -62,7 +62,7 @@ def _get_actor_info(context: Context | None = None) -> tuple[str, str | None]:
 
 
 def _write_action_log(
-    facet: str,
+    facet: str | None,
     action: str,
     params: dict[str, Any],
     source: str,
@@ -70,13 +70,16 @@ def _write_action_log(
     day: str | None = None,
     agent_id: str | None = None,
 ) -> None:
-    """Write action to the facet's daily audit log.
+    """Write action to the daily audit log.
 
-    Internal function that writes JSONL log entries to facets/{facet}/logs/{day}.jsonl.
+    Internal function that writes JSONL log entries. When facet is provided,
+    writes to facets/{facet}/logs/{day}.jsonl. When facet is None, writes to
+    config/actions/{day}.jsonl for journal-level actions.
+
     Use log_tool_action() for MCP tools or log_app_action() for web apps.
 
     Args:
-        facet: Facet name where the action occurred
+        facet: Facet name where the action occurred, or None for journal-level
         action: Action type (e.g., "todo_add", "entity_attach")
         params: Dictionary of action-specific parameters
         source: Origin type - "tool" for MCP agents, "app" for web UI
@@ -95,8 +98,11 @@ def _write_action_log(
     if day is None:
         day = datetime.now().strftime("%Y%m%d")
 
-    # Build log file path
-    log_path = Path(journal) / "facets" / facet / "logs" / f"{day}.jsonl"
+    # Build log file path based on whether facet is provided
+    if facet is not None:
+        log_path = Path(journal) / "facets" / facet / "logs" / f"{day}.jsonl"
+    else:
+        log_path = Path(journal) / "config" / "actions" / f"{day}.jsonl"
 
     # Ensure parent directory exists
     log_path.parent.mkdir(parents=True, exist_ok=True)
@@ -110,6 +116,10 @@ def _write_action_log(
         "params": params,
     }
 
+    # Add facet only if provided
+    if facet is not None:
+        entry["facet"] = facet
+
     # Add agent_id only if available
     if agent_id is not None:
         entry["agent_id"] = agent_id
@@ -120,7 +130,7 @@ def _write_action_log(
 
 
 def log_tool_action(
-    facet: str,
+    facet: str | None,
     action: str,
     params: dict[str, Any],
     context: Context | None = None,
@@ -128,12 +138,16 @@ def log_tool_action(
 ) -> None:
     """Log an agent-initiated action from an MCP tool.
 
-    Creates a JSONL log entry in facets/{facet}/logs/{day}.jsonl for tracking
-    successful modifications made via MCP tools. Automatically extracts actor
-    identity (persona) from FastMCP context.
+    Creates a JSONL log entry for tracking successful modifications made via
+    MCP tools. Automatically extracts actor identity (persona) from FastMCP
+    context.
+
+    When facet is provided, writes to facets/{facet}/logs/{day}.jsonl.
+    When facet is None, writes to config/actions/{day}.jsonl for journal-level
+    actions (settings changes, system operations, etc.).
 
     Args:
-        facet: Facet name where the action occurred
+        facet: Facet name where the action occurred, or None for journal-level
         action: Action type (e.g., "todo_add", "entity_attach")
         params: Dictionary of action-specific parameters
         context: Optional FastMCP context for extracting persona/agent_id
@@ -603,6 +617,8 @@ def format_logs(
     """Format action log JSONL entries to markdown chunks.
 
     This is the formatter function used by the formatters registry.
+    Handles both facet-scoped logs (facets/{facet}/logs/) and journal-level
+    logs (config/actions/).
 
     Args:
         entries: Raw JSONL entries (one action log per line)
@@ -624,17 +640,22 @@ def format_logs(
     skipped_count = 0
 
     # Extract facet name and day from path
-    facet_name = "unknown"
+    facet_name: str | None = None
     day_str: str | None = None
+    is_journal_level = False
 
     if file_path:
         file_path = Path(file_path)
-
-        # Extract facet name from path: facets/{facet}/logs/YYYYMMDD.jsonl
         path_str = str(file_path)
-        facet_match = re.search(r"facets/([^/]+)/logs", path_str)
-        if facet_match:
-            facet_name = facet_match.group(1)
+
+        # Check for journal-level logs: config/actions/YYYYMMDD.jsonl
+        if "config/actions" in path_str or "config\\actions" in path_str:
+            is_journal_level = True
+        else:
+            # Extract facet name from path: facets/{facet}/logs/YYYYMMDD.jsonl
+            facet_match = re.search(r"facets/([^/]+)/logs", path_str)
+            if facet_match:
+                facet_name = facet_match.group(1)
 
         # Extract day from filename
         if file_path.stem.isdigit() and len(file_path.stem) == 8:
@@ -643,9 +664,19 @@ def format_logs(
     # Build header
     if day_str:
         formatted_day = f"{day_str[:4]}-{day_str[4:6]}-{day_str[6:8]}"
-        meta["header"] = f"# Action Log: {facet_name} ({formatted_day})"
+        if is_journal_level:
+            meta["header"] = f"# Journal Action Log ({formatted_day})"
+        elif facet_name:
+            meta["header"] = f"# Action Log: {facet_name} ({formatted_day})"
+        else:
+            meta["header"] = f"# Action Log ({formatted_day})"
     else:
-        meta["header"] = f"# Action Log: {facet_name}"
+        if is_journal_level:
+            meta["header"] = "# Journal Action Log"
+        elif facet_name:
+            meta["header"] = f"# Action Log: {facet_name}"
+        else:
+            meta["header"] = "# Action Log"
 
     # Format each log entry as a chunk
     for entry in entries:

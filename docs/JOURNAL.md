@@ -60,6 +60,7 @@ solstone transforms raw recordings into actionable understanding through a three
 - `task_log.txt` – optional log of utility runs in `[epoch]\tmessage` format.
 - `config/journal.json` – user configuration for the journal (optional, see below).
 - `config/convey.json` – Convey UI preferences (facet/app ordering, selected facet).
+- `config/actions/` – journal-level action logs (see below).
 - `facets/` – facet-specific organization folders described below.
 - `tokens/` – token usage logs from AI model calls, organized by day (see below).
 - `apps/` – app-specific storage for configuration and data (distinct from codebase `apps/`, see below).
@@ -349,13 +350,32 @@ All todo operations require both `day` and `facet` parameters:
 
 This facet-scoped structure provides true separation of concerns while enabling automated tools to manage tasks deterministically.
 
-## Facet Action Logs
+## Action Logs
 
-The `logs/` directory within each facet records an audit trail of MCP tool calls and actions. Logs are organized by day as `facets/{facet}/logs/YYYYMMDD.jsonl`.
+Action logs record an audit trail of user-initiated actions and MCP tool calls. There are two types:
 
-### Log entry format
+- **Journal-level logs** (`config/actions/`) – actions not tied to a specific facet (settings changes, remote observer management)
+- **Facet-scoped logs** (`facets/{facet}/logs/`) – actions within a specific facet (todos, entities)
 
-Each line is a JSON object recording an action:
+### Journal Action Logs
+
+The `config/actions/` directory records journal-level actions. Logs are organized by day as `config/actions/YYYYMMDD.jsonl`.
+
+```json
+{
+  "timestamp": "2025-12-16T07:33:05.135587+00:00",
+  "source": "app",
+  "actor": "settings",
+  "action": "identity_update",
+  "params": {
+    "changed_fields": {"name": {"old": "John", "new": "John Doe"}}
+  }
+}
+```
+
+### Facet Action Logs
+
+The `logs/` directory within each facet records facet-scoped actions. Logs are organized by day as `facets/{facet}/logs/YYYYMMDD.jsonl`.
 
 ```json
 {
@@ -367,17 +387,22 @@ Each line is a JSON object recording an action:
     "line_number": 1,
     "text": "Review project proposal"
   },
+  "facet": "work",
   "agent_id": "1765870373972"
 }
 ```
 
-Fields:
+### Log Entry Fields
+
+Both log types share the same structure:
+
 - `timestamp` – ISO 8601 timestamp of the action
-- `source` – Origin type (e.g., "tool" for MCP tool calls)
-- `actor` – Tool or component that performed the action (e.g., "todos:todo", "mcp")
-- `action` – Action name (e.g., "todo_add", "entity_add_aka")
-- `params` – Parameters passed to the action
-- `agent_id` – Optional agent ID if action was triggered by an agent
+- `source` – Origin type: "app" for web UI, "tool" for MCP tools
+- `actor` – App or tool name that performed the action
+- `action` – Action name (e.g., "todo_add", "identity_update")
+- `params` – Action-specific parameters
+- `facet` – Facet name (only present in facet-scoped logs)
+- `agent_id` – Agent ID (only present for MCP tool actions)
 
 These logs enable auditing, debugging, and potential rollback of automated actions.
 

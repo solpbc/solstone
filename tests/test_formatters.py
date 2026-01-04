@@ -1475,6 +1475,15 @@ class TestExtractPathMetadata:
         assert meta["facet"] == ""
         assert meta["topic"] == "myapp:custom"
 
+    def test_config_actions(self):
+        """Test journal-level action log path extraction."""
+        from think.formatters import extract_path_metadata
+
+        meta = extract_path_metadata("config/actions/20240101.jsonl")
+        assert meta["day"] == "20240101"
+        assert meta["facet"] == ""
+        assert meta["topic"] == ""
+
 
 class TestFormatterIndexerMetadata:
     """Tests verifying formatters return indexer metadata."""
@@ -1896,3 +1905,34 @@ class TestFormatLogs:
         assert len(chunks) == 1
         # "entity_update_description" should become "Entity Update Description"
         assert "Entity Update Description by mcp" in chunks[0]["markdown"]
+
+    def test_get_formatter_journal_level_logs(self):
+        """Test pattern matching for config/actions/*.jsonl."""
+        from think.formatters import get_formatter
+
+        formatter = get_formatter("config/actions/20240101.jsonl")
+        assert formatter is not None
+        assert formatter.__name__ == "format_logs"
+
+    def test_format_logs_journal_level_header(self):
+        """Test that journal-level logs have appropriate header."""
+        from think.facets import format_logs
+
+        entries = [
+            {
+                "timestamp": "2025-12-16T07:33:05.135587+00:00",
+                "source": "app",
+                "actor": "settings",
+                "action": "identity_update",
+                "params": {"name": "Test User"},
+            }
+        ]
+        context = {"file_path": "/journal/config/actions/20251216.jsonl"}
+
+        chunks, meta = format_logs(entries, context)
+
+        assert "header" in meta
+        assert "Journal Action Log" in meta["header"]
+        assert "2025-12-16" in meta["header"]
+        # Should NOT contain a facet name
+        assert ":" not in meta["header"] or "Journal" in meta["header"]

@@ -23,7 +23,7 @@ from typing import Any
 from flask import Blueprint, jsonify, request
 from werkzeug.utils import secure_filename
 
-from apps.utils import get_app_storage_path
+from apps.utils import get_app_storage_path, log_app_action
 from convey import emit
 from think.utils import day_path
 
@@ -82,17 +82,14 @@ def _save_remote(data: dict) -> bool:
         return False
 
 
-def _delete_remote(key: str) -> bool:
-    """Delete remote by key."""
-    remotes_dir = _get_remotes_dir()
-    remote_path = remotes_dir / f"{key[:8]}.json"
-    try:
-        if remote_path.exists():
-            remote_path.unlink()
-            return True
+def _revoke_remote(key: str) -> bool:
+    """Revoke remote by key (soft-delete)."""
+    remote = _load_remote(key)
+    if not remote:
         return False
-    except OSError:
-        return False
+    remote["revoked"] = True
+    remote["revoked_at"] = int(time.time() * 1000)
+    return _save_remote(remote)
 
 
 def _list_remotes() -> list[dict]:
@@ -129,6 +126,8 @@ def api_list() -> Any:
                 "last_seen": r.get("last_seen"),
                 "last_segment": r.get("last_segment"),
                 "enabled": r.get("enabled", True),
+                "revoked": r.get("revoked", False),
+                "revoked_at": r.get("revoked_at"),
                 "stats": r.get("stats", {}),
             }
         )
@@ -163,6 +162,14 @@ def api_create() -> Any:
     if not _save_remote(remote_data):
         return jsonify({"error": "Failed to save remote"}), 500
 
+    # Log observer creation (journal-level, no facet)
+    log_app_action(
+        app="remote",
+        facet=None,
+        action="observer_create",
+        params={"name": name, "key_prefix": key[:8]},
+    )
+
     # Build ingest URL
     ingest_url = f"/app/remote/ingest/{key}"
 
@@ -178,7 +185,7 @@ def api_create() -> Any:
 
 @remote_bp.route("/api/<key_prefix>", methods=["DELETE"])
 def api_delete(key_prefix: str) -> Any:
-    """Delete/revoke a remote by key prefix."""
+    """Revoke a remote by key prefix (soft-delete)."""
     # Find remote by prefix
     remotes_dir = _get_remotes_dir()
     remote_path = remotes_dir / f"{key_prefix}.json"
@@ -189,13 +196,47 @@ def api_delete(key_prefix: str) -> Any:
         with open(remote_path) as f:
             data = json.load(f)
         key = data.get("key", "")
+        name = data.get("name", "")
     except (json.JSONDecodeError, OSError):
         return jsonify({"error": "Failed to read remote"}), 500
 
-    if not _delete_remote(key):
-        return jsonify({"error": "Failed to delete remote"}), 500
+    if not _revoke_remote(key):
+        return jsonify({"error": "Failed to revoke remote"}), 500
+
+    # Log observer revocation (journal-level, no facet)
+    log_app_action(
+        app="remote",
+        facet=None,
+        action="observer_revoke",
+        params={"name": name, "key_prefix": key_prefix},
+    )
 
     return jsonify({"status": "ok"})
+
+
+@remote_bp.route("/api/<key_prefix>/key")
+def api_get_key(key_prefix: str) -> Any:
+    """Get full key and ingest URL for a remote."""
+    # Find remote by prefix
+    remotes_dir = _get_remotes_dir()
+    remote_path = remotes_dir / f"{key_prefix}.json"
+    if not remote_path.exists():
+        return jsonify({"error": "Remote not found"}), 404
+
+    try:
+        with open(remote_path) as f:
+            data = json.load(f)
+    except (json.JSONDecodeError, OSError):
+        return jsonify({"error": "Failed to read remote"}), 500
+
+    key = data.get("key", "")
+    return jsonify(
+        {
+            "key": key,
+            "name": data.get("name", ""),
+            "ingest_url": f"/app/remote/ingest/{key}",
+        }
+    )
 
 
 # === Ingest API (key-protected) ===
@@ -216,6 +257,9 @@ def ingest_upload(key: str) -> Any:
     remote = _load_remote(key)
     if not remote:
         return jsonify({"error": "Invalid key"}), 401
+
+    if remote.get("revoked", False):
+        return jsonify({"error": "Remote revoked"}), 403
 
     if not remote.get("enabled", True):
         return jsonify({"error": "Remote disabled"}), 403
@@ -327,6 +371,9 @@ def ingest_event(key: str) -> Any:
     remote = _load_remote(key)
     if not remote:
         return jsonify({"error": "Invalid key"}), 401
+
+    if remote.get("revoked", False):
+        return jsonify({"error": "Remote revoked"}), 403
 
     if not remote.get("enabled", True):
         return jsonify({"error": "Remote disabled"}), 403

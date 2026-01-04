@@ -92,6 +92,11 @@ def extract_path_metadata(rel_path: str) -> dict[str, str]:
         import_id = parts[1]
         day = import_id.split("_")[0] if "_" in import_id else import_id[:8]
 
+    # Extract day from config/actions/YYYYMMDD.jsonl (journal-level logs)
+    if parts[0] == "config" and len(parts) >= 3 and parts[1] == "actions":
+        if _DATE_RE.match(basename):
+            day = basename
+
     # Derive topic for markdown files only
     if is_markdown:
         if parts[0] == "facets" and len(parts) >= 4 and parts[2] == "news":
@@ -114,6 +119,7 @@ def extract_path_metadata(rel_path: str) -> dict[str, str]:
 FORMATTERS: dict[str, tuple[str, str]] = {
     # JSONL formatters
     "agents/*.jsonl": ("muse.cortex", "format_agent"),
+    "config/actions/*.jsonl": ("think.facets", "format_logs"),
     "facets/*/entities/*.jsonl": ("think.entities", "format_entities"),
     "facets/*/entities.jsonl": ("think.entities", "format_entities"),
     "facets/*/events/*.jsonl": ("think.events", "format_events"),

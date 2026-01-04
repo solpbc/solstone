@@ -46,17 +46,34 @@ def update_config() -> Any:
 
         config_path = config_dir / "journal.json"
 
-        # Load existing config using shared utility
+        # Load existing config twice - once for comparison, once for modification
+        old_config = get_journal_config()
         config = get_journal_config()
+
+        # Track changes for logging
+        changed_fields = {}
 
         # Update the identity section with provided data
         if "identity" in data:
+            old_identity = old_config.get("identity", {})
+            for key, value in data["identity"].items():
+                if old_identity.get(key) != value:
+                    changed_fields[key] = {"old": old_identity.get(key), "new": value}
             config["identity"].update(data["identity"])
 
         # Write back to file
         with open(config_path, "w", encoding="utf-8") as f:
             json.dump(config, f, indent=2, ensure_ascii=False)
             f.write("\n")
+
+        # Log if something changed (journal-level, no facet)
+        if changed_fields:
+            log_app_action(
+                app="settings",
+                facet=None,
+                action="identity_update",
+                params={"changed_fields": changed_fields},
+            )
 
         return jsonify({"success": True, "config": config})
     except RuntimeError as e:
@@ -203,20 +220,18 @@ def update_facet_config(facet_name: str) -> Any:
         return jsonify({"error": str(e)}), 500
 
 
-@settings_bp.route("/api/facet/<facet_name>/logs")
-def get_facet_logs(facet_name: str) -> Any:
-    """Get action logs for a facet, one day at a time.
+def _get_logs_from_dir(logs_dir: Path, cursor: str | None) -> dict:
+    """Load action logs from a directory, one day at a time.
 
-    Query params:
+    Args:
+        logs_dir: Path to logs directory containing YYYYMMDD.jsonl files
         cursor: Optional YYYYMMDD - load the day before this date
 
     Returns:
-        {day, entries, next_cursor} where next_cursor is null if no more days
+        Dict with {day, entries, next_cursor}
     """
-    logs_dir = Path(state.journal_root) / "facets" / facet_name / "logs"
-
     if not logs_dir.exists():
-        return jsonify({"day": None, "entries": [], "next_cursor": None})
+        return {"day": None, "entries": [], "next_cursor": None}
 
     # Find all log files sorted newest first
     log_files = sorted(
@@ -226,15 +241,14 @@ def get_facet_logs(facet_name: str) -> Any:
     )
 
     if not log_files:
-        return jsonify({"day": None, "entries": [], "next_cursor": None})
+        return {"day": None, "entries": [], "next_cursor": None}
 
     # Apply cursor filter if provided
-    cursor = request.args.get("cursor")
     if cursor:
         log_files = [f for f in log_files if f.stem < cursor]
 
     if not log_files:
-        return jsonify({"day": None, "entries": [], "next_cursor": None})
+        return {"day": None, "entries": [], "next_cursor": None}
 
     # Load the first (newest) day
     target_file = log_files[0]
@@ -256,4 +270,37 @@ def get_facet_logs(facet_name: str) -> Any:
     # Determine next cursor
     next_cursor = log_files[1].stem if len(log_files) > 1 else None
 
-    return jsonify({"day": day, "entries": entries, "next_cursor": next_cursor})
+    return {"day": day, "entries": entries, "next_cursor": next_cursor}
+
+
+@settings_bp.route("/api/logs")
+def get_journal_logs() -> Any:
+    """Get journal-level action logs, one day at a time.
+
+    These are actions not tied to a specific facet, such as settings changes,
+    remote observer management, and other journal-wide operations.
+
+    Query params:
+        cursor: Optional YYYYMMDD - load the day before this date
+
+    Returns:
+        {day, entries, next_cursor} where next_cursor is null if no more days
+    """
+    logs_dir = Path(state.journal_root) / "config" / "actions"
+    cursor = request.args.get("cursor")
+    return jsonify(_get_logs_from_dir(logs_dir, cursor))
+
+
+@settings_bp.route("/api/facet/<facet_name>/logs")
+def get_facet_logs(facet_name: str) -> Any:
+    """Get action logs for a facet, one day at a time.
+
+    Query params:
+        cursor: Optional YYYYMMDD - load the day before this date
+
+    Returns:
+        {day, entries, next_cursor} where next_cursor is null if no more days
+    """
+    logs_dir = Path(state.journal_root) / "facets" / facet_name / "logs"
+    cursor = request.args.get("cursor")
+    return jsonify(_get_logs_from_dir(logs_dir, cursor))

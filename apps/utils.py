@@ -100,29 +100,41 @@ def save_app_config(
 
 def log_app_action(
     app: str,
-    facet: str,
+    facet: str | None,
     action: str,
     params: dict[str, Any],
     day: str | None = None,
 ) -> None:
     """Log a user-initiated action from a Convey app.
 
-    Creates a JSONL log entry in facets/{facet}/logs/{day}.jsonl for tracking
-    user actions made through the web UI.
+    Creates a JSONL log entry for tracking user actions made through the web UI.
+
+    When facet is provided, writes to facets/{facet}/logs/{day}.jsonl.
+    When facet is None, writes to config/actions/{day}.jsonl for journal-level
+    actions (settings changes, remote observer management, etc.).
 
     Args:
         app: App name where action originated (e.g., "entities", "todos")
-        facet: Facet where action occurred
+        facet: Facet where action occurred, or None for journal-level actions
         action: Action type (e.g., "entity_add", "todo_complete")
         params: Action-specific parameters to record
         day: Day in YYYYMMDD format (defaults to today)
 
-    Example:
+    Examples:
+        # Facet-scoped action
         log_app_action(
             app="entities",
             facet="work",
             action="entity_add",
             params={"type": "Person", "name": "Alice"},
+        )
+
+        # Journal-level action (no facet)
+        log_app_action(
+            app="remote",
+            facet=None,
+            action="observer_create",
+            params={"name": "laptop"},
         )
     """
     from think.facets import _write_action_log

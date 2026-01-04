@@ -366,7 +366,18 @@ from apps.utils import log_app_action
 
 - `log_app_action(app, facet, action, params, day=None)` - Log user-initiated action
 
-Use `{domain}_{verb}` naming for actions (e.g., `entity_add`, `todo_complete`). Log after successful mutations, not attempts.
+**Parameters:**
+- `app` - App name where action originated
+- `facet` - Facet where action occurred, or `None` for journal-level actions
+- `action` - Action type using `{domain}_{verb}` naming (e.g., `entity_add`, `todo_complete`)
+- `params` - Action-specific parameters dict
+- `day` - Optional day in YYYYMMDD format (defaults to today)
+
+**Facet-scoped vs journal-level:**
+- Pass a facet name for facet-specific actions (todos, entities, etc.)
+- Pass `facet=None` for journal-level actions (settings, remote observers, etc.)
+
+Log after successful mutations, not attempts.
 
 ---
 
