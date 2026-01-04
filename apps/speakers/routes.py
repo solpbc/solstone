@@ -24,6 +24,7 @@ from flask import (
     url_for,
 )
 
+from apps.utils import log_app_action
 from convey import state
 from convey.utils import DATE_RE, error_response, format_date, success_response
 from think.entities import (
@@ -379,6 +380,20 @@ def api_save_voiceprint() -> Any:
     # Save voiceprint
     try:
         emb_path = _save_voiceprint_to_entity(facet, entity_name, day, segment_key, emb)
+
+        # Log action (facet-scoped since voiceprints are tied to entities)
+        log_app_action(
+            app="speakers",
+            facet=facet,
+            action="voiceprint_save",
+            params={
+                "entity_name": entity_name,
+                "day": day,
+                "segment_key": segment_key,
+                "speaker_label": speaker_label,
+            },
+        )
+
         return success_response({"path": str(emb_path)})
     except Exception as e:
         logger.exception("Failed to save voiceprint for %s", entity_name)
@@ -435,6 +450,21 @@ def api_create_entity_voiceprint() -> Any:
     # Save voiceprint
     try:
         emb_path = _save_voiceprint_to_entity(facet, entity_name, day, segment_key, emb)
+
+        # Log action (facet-scoped since entities are facet-scoped)
+        log_app_action(
+            app="speakers",
+            facet=facet,
+            action="entity_voiceprint_create",
+            params={
+                "entity_name": entity_name,
+                "entity_type": entity_type,
+                "day": day,
+                "segment_key": segment_key,
+                "speaker_label": speaker_label,
+            },
+        )
+
         return success_response(
             {"entity": new_entity, "voiceprint_path": str(emb_path)}
         )

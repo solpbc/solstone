@@ -9,6 +9,7 @@ import os
 
 from flask import Blueprint, jsonify, request
 
+from apps.utils import log_app_action
 from convey import state
 
 agents_bp = Blueprint(
@@ -432,7 +433,11 @@ def _update_item(item_type: str, item_id: str, data: dict) -> tuple[dict, int]:
         item_name = item_type[
             :-1
         ].title()  # 'agents' -> 'Agent', 'insights' -> 'Insight'
-        return {"success": True, "message": f"{item_name} {action} successfully"}, 200
+        return {
+            "success": True,
+            "message": f"{item_name} {action} successfully",
+            "is_new": is_new,
+        }, 200
     except Exception as e:
         return {"error": str(e)}, 500
 
@@ -448,6 +453,17 @@ def update_agent(agent_id: str) -> object:
         return jsonify({"error": "Invalid fields for agent update"}), 400
 
     response, status = _update_item("agents", agent_id, data)
+
+    # Log successful agent create/update (journal-level since agents are global)
+    if status == 200 and response.get("success"):
+        action = "agent_create" if response.get("is_new") else "agent_update"
+        log_app_action(
+            app="agents",
+            facet=None,
+            action=action,
+            params={"agent_id": agent_id, "title": data.get("title", "")},
+        )
+
     return jsonify(response), status
 
 
@@ -539,6 +555,17 @@ def update_insight(insight_id: str) -> object:
             json.dump(insight_config, f, indent=4)
 
     response, status = _update_item("insights", insight_id, data)
+
+    # Log successful insight create/update (journal-level since insights are global)
+    if status == 200 and response.get("success"):
+        action = "insight_create" if response.get("is_new") else "insight_update"
+        log_app_action(
+            app="agents",
+            facet=None,
+            action=action,
+            params={"insight_id": insight_id, "title": data.get("title", "")},
+        )
+
     return jsonify(response), status
 
 
@@ -564,6 +591,17 @@ def toggle_insight(insight_id: str) -> object:
         # Write back to file
         with open(json_path, "w", encoding="utf-8") as f:
             json.dump(insight_config, f, indent=4)
+
+        # Log the toggle (journal-level since insights are global)
+        log_app_action(
+            app="agents",
+            facet=None,
+            action="insight_toggle",
+            params={
+                "insight_id": insight_id,
+                "disabled": insight_config["disabled"],
+            },
+        )
 
         return jsonify({"success": True, "disabled": insight_config["disabled"]})
     except Exception as e:
