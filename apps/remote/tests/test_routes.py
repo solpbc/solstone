@@ -6,7 +6,6 @@
 from __future__ import annotations
 
 import io
-import json
 
 
 def test_api_list_empty(remote_env):
@@ -86,25 +85,29 @@ def test_api_list_shows_created_remote(remote_env):
 
 
 def test_api_delete_remote(remote_env):
-    """Test deleting a remote."""
+    """Test revoking a remote (soft-delete)."""
     env = remote_env()
 
     # Create a remote
     resp = env.client.post(
         "/app/remote/api/create",
-        json={"name": "to-delete"},
+        json={"name": "to-revoke"},
         content_type="application/json",
     )
     key_prefix = resp.get_json()["key_prefix"]
 
-    # Delete it
+    # Revoke it
     resp = env.client.delete(f"/app/remote/api/{key_prefix}")
     assert resp.status_code == 200
     assert resp.get_json()["status"] == "ok"
 
-    # List should be empty
+    # List should still show it, but marked as revoked
     resp = env.client.get("/app/remote/api/list")
-    assert resp.get_json() == []
+    remotes = resp.get_json()
+    assert len(remotes) == 1
+    assert remotes[0]["key_prefix"] == key_prefix
+    assert remotes[0]["revoked"] is True
+    assert remotes[0]["revoked_at"] is not None
 
 
 def test_api_delete_nonexistent(remote_env):
@@ -342,3 +345,93 @@ def test_ingest_event_missing_tract(remote_env):
     )
     assert resp.status_code == 400
     assert "Missing tract or event" in resp.get_json()["error"]
+
+
+def test_ingest_revoked_key(remote_env):
+    """Test that ingest rejects revoked keys."""
+    env = remote_env()
+
+    # Create and revoke a remote
+    resp = env.client.post(
+        "/app/remote/api/create",
+        json={"name": "revoked-test"},
+        content_type="application/json",
+    )
+    data = resp.get_json()
+    key = data["key"]
+    key_prefix = data["key_prefix"]
+
+    resp = env.client.delete(f"/app/remote/api/{key_prefix}")
+    assert resp.status_code == 200
+
+    # Try to upload - should fail
+    test_data = b"test content"
+    resp = env.client.post(
+        f"/app/remote/ingest/{key}",
+        data={
+            "day": "20250103",
+            "segment": "120000_300",
+            "files": (io.BytesIO(test_data), "audio.flac"),
+        },
+    )
+    assert resp.status_code == 403
+    assert "Remote revoked" in resp.get_json()["error"]
+
+
+def test_ingest_event_revoked_key(remote_env):
+    """Test that event relay rejects revoked keys."""
+    env = remote_env()
+
+    # Create and revoke a remote
+    resp = env.client.post(
+        "/app/remote/api/create",
+        json={"name": "revoked-event-test"},
+        content_type="application/json",
+    )
+    data = resp.get_json()
+    key = data["key"]
+    key_prefix = data["key_prefix"]
+
+    resp = env.client.delete(f"/app/remote/api/{key_prefix}")
+    assert resp.status_code == 200
+
+    # Try to send event - should fail
+    resp = env.client.post(
+        f"/app/remote/ingest/{key}/event",
+        json={"tract": "observe", "event": "status"},
+        content_type="application/json",
+    )
+    assert resp.status_code == 403
+    assert "Remote revoked" in resp.get_json()["error"]
+
+
+def test_api_get_key(remote_env):
+    """Test retrieving full key for a remote."""
+    env = remote_env()
+
+    # Create a remote
+    resp = env.client.post(
+        "/app/remote/api/create",
+        json={"name": "key-test"},
+        content_type="application/json",
+    )
+    create_data = resp.get_json()
+    key = create_data["key"]
+    key_prefix = create_data["key_prefix"]
+
+    # Get the key
+    resp = env.client.get(f"/app/remote/api/{key_prefix}/key")
+    assert resp.status_code == 200
+
+    data = resp.get_json()
+    assert data["key"] == key
+    assert data["name"] == "key-test"
+    assert data["ingest_url"] == f"/app/remote/ingest/{key}"
+
+
+def test_api_get_key_nonexistent(remote_env):
+    """Test getting key for nonexistent remote returns 404."""
+    env = remote_env()
+
+    resp = env.client.get("/app/remote/api/nonexistent/key")
+    assert resp.status_code == 404
