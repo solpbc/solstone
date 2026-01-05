@@ -14,62 +14,12 @@ VIDEO_EXTENSIONS = (".webm", ".mp4", ".mov")
 AUDIO_EXTENSIONS = (".flac", ".ogg", ".m4a")
 
 
-def extract_descriptive_suffix(filename: str) -> str:
-    """
-    Extract descriptive suffix from media filename.
-
-    Returns the portion after the segment (HHMMSS_LEN), preserving
-    the descriptive information for the final filename in the segment directory.
-
-    Parameters
-    ----------
-    filename : str
-        Filename stem (without extension), e.g., "143022_300_audio"
-
-    Returns
-    -------
-    str
-        Descriptive suffix (e.g., "audio", "screen", "mic_sys"), or "raw" if none
-
-    Examples
-    --------
-    >>> extract_descriptive_suffix("143022_300_audio")
-    "audio"
-    >>> extract_descriptive_suffix("143022_300_screen")
-    "screen"
-    >>> extract_descriptive_suffix("143022_300_mic_sys")
-    "mic_sys"
-    >>> extract_descriptive_suffix("143022_300")
-    "raw"
-    """
-    parts = filename.split("_")
-
-    # Filename format: HHMMSS_LEN[_descriptive_text...]
-    # First part must be 6-digit timestamp
-    if not parts or not parts[0].isdigit() or len(parts[0]) != 6:
-        raise ValueError(
-            f"Invalid filename format: {filename} (must start with HHMMSS)"
-        )
-
-    # Second part must be numeric duration suffix
-    if len(parts) < 2 or not parts[1].isdigit():
-        raise ValueError(
-            f"Invalid filename format: {filename} (must have HHMMSS_LEN format)"
-        )
-
-    # HHMMSS_LEN_suffix... - join remaining parts as descriptive suffix
-    if len(parts) > 2:
-        return "_".join(parts[2:])
-    else:
-        return "raw"
-
-
 def get_segment_key(media_path: Path) -> str | None:
     """
     Extract segment key from a media file path.
 
-    Checks parent directory first (for files already in segment dirs),
-    then falls back to filename stem (for files in day root).
+    For the new model, files are always in segment directories (HHMMSS_LEN/).
+    The segment key is the parent directory name.
 
     Parameters
     ----------
@@ -85,33 +35,26 @@ def get_segment_key(media_path: Path) -> str | None:
     --------
     >>> get_segment_key(Path("/journal/20250101/143022_300/audio.flac"))
     "143022_300"
-    >>> get_segment_key(Path("/journal/20250101/143022_300_audio.flac"))
-    "143022_300"
     >>> get_segment_key(Path("/journal/20250101/random.txt"))
     None
     """
     from think.utils import segment_key
 
-    # Check if parent directory is a segment (file already moved)
-    parent_segment = segment_key(media_path.parent.name)
-    if parent_segment:
-        return parent_segment
-
-    # Check if filename contains segment (file in day root)
-    return segment_key(media_path.stem)
+    # Segment key is the parent directory name
+    return segment_key(media_path.parent.name)
 
 
 def segment_and_suffix(media_path: Path) -> tuple[str, str]:
     """
     Extract segment key and descriptive suffix from a media file path.
 
-    Handles both files in day root (YYYYMMDD/HHMMSS_LEN_suffix.ext) and
-    files already in segment directories (YYYYMMDD/HHMMSS_LEN/suffix.ext).
+    For the new model, files are always in segment directories.
+    The segment key is the parent directory name, suffix is the file stem.
 
     Parameters
     ----------
     media_path : Path
-        Path to media file (audio or video)
+        Path to media file (audio or video) in a segment directory
 
     Returns
     -------
@@ -121,50 +64,42 @@ def segment_and_suffix(media_path: Path) -> tuple[str, str]:
     Raises
     ------
     ValueError
-        If the path doesn't contain a valid segment key
+        If the parent directory is not a valid segment
 
     Examples
     --------
-    >>> segment_and_suffix(Path("/journal/20250101/143022_300_audio.flac"))
-    ("143022_300", "audio")
     >>> segment_and_suffix(Path("/journal/20250101/143022_300/audio.flac"))
     ("143022_300", "audio")
+    >>> segment_and_suffix(Path("/journal/20250101/143022_300/center_DP-3_screen.webm"))
+    ("143022_300", "center_DP-3_screen")
     """
     from think.utils import segment_key
 
-    # Check if parent directory is a segment (file already moved)
-    parent_segment = segment_key(media_path.parent.name)
-    if parent_segment:
-        # File is in segment dir - stem is the suffix
-        return parent_segment, media_path.stem
-
-    # File is in day root - extract segment from filename
-    segment = segment_key(media_path.stem)
+    # Segment key is the parent directory name
+    segment = segment_key(media_path.parent.name)
     if segment is None:
         raise ValueError(
-            f"Invalid media filename: {media_path.stem} (must contain HHMMSS_LEN)"
+            f"File not in segment directory: {media_path} "
+            f"(parent {media_path.parent.name} is not HHMMSS_LEN format)"
         )
 
-    suffix = extract_descriptive_suffix(media_path.stem)
-    return segment, suffix
+    # Suffix is the file stem
+    return segment, media_path.stem
 
 
 def parse_screen_filename(filename: str) -> tuple[str, str]:
     """
     Parse position and connector/displayID from a per-monitor screen filename.
 
-    Handles both pre-move filenames (with segment prefix) and post-move filenames
-    (in segment directory without prefix). Works with both GNOME connector IDs
-    (e.g., "DP-3") and macOS displayIDs (e.g., "1").
+    Files are in segment directories with format: position_connector_screen.ext
+    Works with both GNOME connector IDs (e.g., "DP-3") and macOS displayIDs (e.g., "1").
 
     Parameters
     ----------
     filename : str
         Filename stem (without extension), e.g.:
-        - "143022_300_center_DP-3_screen" (GNOME pre-move)
-        - "143022_300_center_1_screen" (macOS pre-move)
-        - "center_DP-3_screen" (GNOME post-move)
-        - "center_1_screen" (macOS post-move)
+        - "center_DP-3_screen" (GNOME)
+        - "center_1_screen" (macOS)
 
     Returns
     -------
@@ -174,24 +109,15 @@ def parse_screen_filename(filename: str) -> tuple[str, str]:
 
     Examples
     --------
-    >>> parse_screen_filename("143022_300_center_DP-3_screen")
-    ("center", "DP-3")
-    >>> parse_screen_filename("143022_300_center_1_screen")
-    ("center", "1")
     >>> parse_screen_filename("center_DP-3_screen")
     ("center", "DP-3")
     >>> parse_screen_filename("center_1_screen")
     ("center", "1")
-    >>> parse_screen_filename("143022_300_screen")
-    ("unknown", "unknown")
+    >>> parse_screen_filename("left_HDMI-1_screen")
+    ("left", "HDMI-1")
     """
-    # Pattern 1: HHMMSS_LEN_position_connector_screen (pre-move)
+    # Pattern: position_connector_screen
     # Connector can be alphanumeric with hyphens (GNOME: DP-3) or just numeric (macOS: 1)
-    match = re.match(r"^\d{6}_\d+_([a-z-]+)_([A-Za-z0-9-]+)_screen$", filename)
-    if match:
-        return match.group(1), match.group(2)
-
-    # Pattern 2: position_connector_screen (post-move, in segment directory)
     match = re.match(r"^([a-z-]+)_([A-Za-z0-9-]+)_screen$", filename)
     if match:
         return match.group(1), match.group(2)

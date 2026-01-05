@@ -68,8 +68,10 @@ class MacOSObserver:
         # Multi-display tracking (similar to Linux observer)
         self.current_displays: list[DisplayInfo] = []
         self.current_audio: AudioInfo | None = None
-        self.pending_finalization: list[tuple[str, str]] | None = None
         self.last_video_sizes: dict[str, int] = {}
+
+        # Draft folder for current segment (HHMMSS_draft/)
+        self.draft_dir: str | None = None
 
         # Activity status cache (updated each loop)
         self.cached_is_active = False
@@ -222,42 +224,56 @@ class MacOSObserver:
         """
         Handle window boundary rollover.
 
+        Closes the current draft folder, renames files to simple names,
+        renames folder to final segment name, and emits the observing event.
+
         Args:
             is_active: Whether system is currently active
         """
+        from pathlib import Path
+
         # Get timestamp parts for this window and calculate duration
         date_part, time_part = self.get_timestamp_parts(self.start_at)
         duration = int(time.time() - self.start_at)
         day_dir = day_path(date_part)
+        segment_key = f"{time_part}_{duration}"
 
         saved_files: list[str] = []
-        finalizations: list[tuple[str, str]] = []
 
         if self.capture_running:
             logger.info("Stopping previous capture")
             self.screencapture.stop()
             self.capture_running = False
 
-            # Build finalization list for video files
+            # Rename video files to simple names in draft folder
             for display in self.current_displays:
-                if os.path.exists(display.temp_path):
-                    final_name = display.final_name(time_part, duration)
-                    final_path = str(day_dir / final_name)
-                    finalizations.append((display.temp_path, final_path))
-                    saved_files.append(final_name)
-
-            # Check audio threshold before including in finalization
-            if self.current_audio and os.path.exists(self.current_audio.temp_path):
-                if self._check_audio_threshold(self.current_audio.temp_path):
-                    final_name = self.current_audio.final_name(time_part, duration)
-                    final_path = str(day_dir / final_name)
-                    finalizations.append((self.current_audio.temp_path, final_path))
-                    saved_files.append(final_name)
-                    logger.info(f"Audio passed threshold check, saving: {final_name}")
-                else:
-                    # Delete the temp audio file
+                if os.path.exists(display.file_path):
+                    # Simple name: position_displayID_screen.mov
+                    simple_name = f"{display.position}_{display.display_id}_screen.mov"
+                    simple_path = Path(self.draft_dir) / simple_name
                     try:
-                        os.remove(self.current_audio.temp_path)
+                        os.rename(display.file_path, simple_path)
+                        saved_files.append(simple_name)
+                    except OSError as e:
+                        logger.error(f"Failed to rename {display.file_path}: {e}")
+
+            # Check audio threshold and rename if passing
+            if self.current_audio and os.path.exists(self.current_audio.file_path):
+                if self._check_audio_threshold(self.current_audio.file_path):
+                    simple_name = "audio.m4a"
+                    simple_path = Path(self.draft_dir) / simple_name
+                    try:
+                        os.rename(self.current_audio.file_path, simple_path)
+                        saved_files.append(simple_name)
+                        logger.info(
+                            f"Audio passed threshold check, saving: {simple_name}"
+                        )
+                    except OSError as e:
+                        logger.error(f"Failed to rename audio: {e}")
+                else:
+                    # Delete the audio file
+                    try:
+                        os.remove(self.current_audio.file_path)
                         logger.info("Audio below threshold, discarded")
                     except OSError as e:
                         logger.warning(f"Failed to remove audio file: {e}")
@@ -268,8 +284,26 @@ class MacOSObserver:
             self.last_video_sizes = {}
             self.stalled_chunks = 0
 
-            if finalizations:
-                self.pending_finalization = finalizations
+        # Rename draft folder to final segment name (atomic handoff)
+        if self.draft_dir and saved_files:
+            final_segment_dir = str(day_dir / segment_key)
+            try:
+                os.rename(self.draft_dir, final_segment_dir)
+                logger.info(
+                    f"Segment finalized: {self.draft_dir} -> {final_segment_dir}"
+                )
+            except OSError as e:
+                logger.error(f"Failed to rename draft folder: {e}")
+                saved_files = []  # Don't emit event if rename failed
+        elif self.draft_dir and not saved_files:
+            # No files to save, remove empty draft folder
+            try:
+                os.rmdir(self.draft_dir)
+                logger.debug(f"Removed empty draft folder: {self.draft_dir}")
+            except OSError:
+                pass  # May have other files, ignore
+
+        self.draft_dir = None
 
         # Reset timing for new window
         self.start_at = time.time()
@@ -278,39 +312,59 @@ class MacOSObserver:
         # Update segment mute state
         self.segment_is_muted = self.cached_is_muted
 
-        # Start new capture if active and screen not locked
+        # Start new capture if active and screen not locked (creates new draft folder)
         if is_active and not self.cached_screen_locked:
             self.initialize_capture()
 
         # Emit observing event with saved files
         if saved_files and self.callosum:
-            segment = f"{time_part}_{duration}"
             self.callosum.emit(
                 "observe",
                 "observing",
                 day=date_part,
-                segment=segment,
+                segment=segment_key,
                 files=saved_files,
                 host=HOST,
                 platform=PLATFORM,
             )
-            logger.info(f"Segment observing: {segment} ({len(saved_files)} files)")
+            logger.info(f"Segment observing: {segment_key} ({len(saved_files)} files)")
+
+    def _create_draft_folder(self) -> str:
+        """
+        Create a draft folder for the current segment.
+
+        Returns:
+            Path to the draft folder (YYYYMMDD/HHMMSS_draft/)
+        """
+        date_part, time_part = self.get_timestamp_parts(self.start_at)
+        day_dir = day_path(date_part)
+
+        # Create draft folder: YYYYMMDD/HHMMSS_draft/
+        draft_name = f"{time_part}_draft"
+        draft_path = str(day_dir / draft_name)
+        os.makedirs(draft_path, exist_ok=True)
+
+        self.draft_dir = draft_path
+        logger.debug(f"Created draft folder: {draft_path}")
+        return draft_path
 
     def initialize_capture(self) -> bool:
         """
         Start a new screencast and audio recording.
 
+        Creates a draft folder and starts sck-cli recording.
+
         Returns:
             True if capture started successfully, False otherwise
         """
-        date_part, time_part = self.get_timestamp_parts(self.start_at)
-        day_dir = day_path(date_part)
+        from pathlib import Path
 
-        # Ensure day directory exists
-        day_dir.mkdir(parents=True, exist_ok=True)
+        # Create draft folder for this segment
+        draft_path = self._create_draft_folder()
 
-        # Build temp output base (hidden file)
-        output_base = day_dir / f".{time_part}"
+        # Build output base for sck-cli (inside draft folder)
+        # sck-cli will create files like: draft/capture_1.mov, draft/capture.m4a
+        output_base = Path(draft_path) / "capture"
 
         try:
             displays, audio = self.screencapture.start(
@@ -323,16 +377,16 @@ class MacOSObserver:
         self.current_displays = displays
         self.current_audio = audio
         self.capture_running = True
-        self.last_video_sizes = {d.temp_path: 0 for d in displays}
+        self.last_video_sizes = {d.file_path: 0 for d in displays}
         self.stalled_chunks = 0
 
         logger.info(f"Started capture with {len(displays)} display(s)")
         for display in displays:
             logger.info(
-                f"  Display {display.display_id}: {display.position} -> {display.temp_path}"
+                f"  Display {display.display_id}: {display.position} -> {display.file_path}"
             )
         if audio:
-            logger.info(f"  Audio: {audio.temp_path}")
+            logger.info(f"  Audio: {audio.file_path}")
 
         return True
 
@@ -361,12 +415,12 @@ class MacOSObserver:
             for display in self.current_displays:
                 try:
                     rel_file = (
-                        os.path.relpath(display.temp_path, journal_path)
+                        os.path.relpath(display.file_path, journal_path)
                         if journal_path
-                        else display.temp_path
+                        else display.file_path
                     )
                 except ValueError:
-                    rel_file = display.temp_path
+                    rel_file = display.file_path
 
                 streams_info.append(
                     {
@@ -415,24 +469,6 @@ class MacOSObserver:
             platform=PLATFORM,
         )
 
-    def finalize_screencast(self, temp_path: str, final_path: str):
-        """
-        Rename capture file from temp to final path.
-
-        Args:
-            temp_path: Temporary file path
-            final_path: Final destination path
-        """
-        if not os.path.exists(temp_path):
-            logger.warning(f"Capture file not found: {temp_path}")
-            return
-
-        try:
-            os.replace(temp_path, final_path)
-            logger.info(f"Finalized: {final_path}")
-        except OSError as e:
-            logger.error(f"Failed to rename {temp_path} to {final_path}: {e}")
-
     async def main_loop(self):
         """Run the main observer loop."""
         logger.info(f"Starting observer loop (interval={self.interval}s)")
@@ -450,15 +486,6 @@ class MacOSObserver:
         while self.running:
             # Sleep for chunk duration
             await asyncio.sleep(CHUNK_DURATION)
-
-            # Process pending finalizations
-            if self.pending_finalization:
-                for temp_path, final_path in self.pending_finalization:
-                    if os.path.exists(temp_path):
-                        self.finalize_screencast(temp_path, final_path)
-                    else:
-                        logger.warning(f"Pending file not found: {temp_path}")
-                self.pending_finalization = None
 
             # Check activity status
             is_active = self.check_activity_status()
@@ -499,12 +526,12 @@ class MacOSObserver:
             if self.capture_running and self.current_displays:
                 any_growing = False
                 for display in self.current_displays:
-                    if os.path.exists(display.temp_path):
-                        current_size = os.path.getsize(display.temp_path)
-                        last_size = self.last_video_sizes.get(display.temp_path, 0)
+                    if os.path.exists(display.file_path):
+                        current_size = os.path.getsize(display.file_path)
+                        last_size = self.last_video_sizes.get(display.file_path, 0)
                         if current_size > last_size:
                             any_growing = True
-                            self.last_video_sizes[display.temp_path] = current_size
+                            self.last_video_sizes[display.file_path] = current_size
                 self.files_growing = any_growing
 
                 # Fail-fast: exit if capture stalled (files not growing)
@@ -531,6 +558,8 @@ class MacOSObserver:
 
     async def shutdown(self):
         """Clean shutdown of observer."""
+        from pathlib import Path
+
         # Stop capture if running
         if self.capture_running:
             logger.info("Stopping capture for shutdown")
@@ -543,36 +572,67 @@ class MacOSObserver:
             date_part, time_part = self.get_timestamp_parts(self.start_at)
             duration = int(time.time() - self.start_at)
             day_dir = day_path(date_part)
+            segment_key = f"{time_part}_{duration}"
 
-            # Finalize video files
+            saved_files: list[str] = []
+
+            # Rename video files to simple names in draft folder
             for display in self.current_displays:
-                if os.path.exists(display.temp_path):
-                    final_name = display.final_name(time_part, duration)
-                    final_path = str(day_dir / final_name)
-                    self.finalize_screencast(display.temp_path, final_path)
+                if os.path.exists(display.file_path):
+                    simple_name = f"{display.position}_{display.display_id}_screen.mov"
+                    simple_path = Path(self.draft_dir) / simple_name
+                    try:
+                        os.rename(display.file_path, simple_path)
+                        saved_files.append(simple_name)
+                    except OSError as e:
+                        logger.error(f"Failed to rename {display.file_path}: {e}")
 
-            # Check and finalize audio if threshold met
-            if self.current_audio and os.path.exists(self.current_audio.temp_path):
-                if self._check_audio_threshold(self.current_audio.temp_path):
-                    final_name = self.current_audio.final_name(time_part, duration)
-                    final_path = str(day_dir / final_name)
-                    self.finalize_screencast(self.current_audio.temp_path, final_path)
+            # Check and rename audio if threshold met
+            if self.current_audio and os.path.exists(self.current_audio.file_path):
+                if self._check_audio_threshold(self.current_audio.file_path):
+                    simple_name = "audio.m4a"
+                    simple_path = Path(self.draft_dir) / simple_name
+                    try:
+                        os.rename(self.current_audio.file_path, simple_path)
+                        saved_files.append(simple_name)
+                    except OSError as e:
+                        logger.error(f"Failed to rename audio: {e}")
                 else:
                     try:
-                        os.remove(self.current_audio.temp_path)
+                        os.remove(self.current_audio.file_path)
                         logger.info("Final audio below threshold, discarded")
                     except OSError:
                         pass
 
-            self.capture_running = False
+            # Rename draft folder to final segment name
+            if self.draft_dir and saved_files:
+                final_segment_dir = str(day_dir / segment_key)
+                try:
+                    os.rename(self.draft_dir, final_segment_dir)
+                    logger.info(f"Segment finalized: {segment_key}")
 
-        # Process any remaining pending finalizations
-        if self.pending_finalization:
-            await asyncio.sleep(0.5)
-            for temp_path, final_path in self.pending_finalization:
-                if os.path.exists(temp_path):
-                    self.finalize_screencast(temp_path, final_path)
-            self.pending_finalization = None
+                    # Emit observing event for final segment
+                    if self.callosum:
+                        self.callosum.emit(
+                            "observe",
+                            "observing",
+                            day=date_part,
+                            segment=segment_key,
+                            files=saved_files,
+                            host=HOST,
+                            platform=PLATFORM,
+                        )
+                except OSError as e:
+                    logger.error(f"Failed to rename draft folder: {e}")
+            elif self.draft_dir:
+                # No files, clean up draft folder
+                try:
+                    os.rmdir(self.draft_dir)
+                except OSError:
+                    pass
+
+            self.draft_dir = None
+            self.capture_running = False
 
         # Stop Callosum connection
         if self.callosum:

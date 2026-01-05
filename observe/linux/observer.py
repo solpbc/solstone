@@ -81,9 +81,11 @@ class Observer:
         # Mode tracking (replaces screencast_running boolean)
         self.current_mode = MODE_IDLE
 
+        # Draft folder for current segment (HHMMSS_draft/)
+        self.draft_dir: str | None = None
+
         # Multi-file screencast tracking
         self.current_streams: list[StreamInfo] = []
-        self.pending_finalizations: list[tuple[str, str]] | None = None
         self.last_screencast_sizes: dict[str, int] = {}
 
         # Tmux capture tracking
@@ -212,24 +214,24 @@ class Observer:
         time_part = dt.strftime("%H%M%S")
         return date_part, time_part
 
-    def _save_audio_segment(
-        self, day_dir, time_part: str, duration: int, is_muted: bool
-    ) -> list[str]:
+    def _save_audio_segment(self, segment_dir: str, is_muted: bool) -> list[str]:
         """
-        Save accumulated audio buffer to disk.
+        Save accumulated audio buffer to segment directory.
 
         Args:
-            day_dir: Path to the day directory
-            time_part: Timestamp string (HHMMSS)
-            duration: Segment duration in seconds
+            segment_dir: Path to the segment directory (YYYYMMDD/HHMMSS_LEN/)
             is_muted: Whether to save as split mono files (muted) or stereo (unmuted)
 
         Returns:
             List of saved filenames (empty if nothing saved)
         """
+        from pathlib import Path
+
         if self.accumulated_audio_buffer.size == 0:
             logger.warning("No audio buffer to save")
             return []
+
+        segment_path = Path(segment_dir)
 
         if is_muted:
             # Split mode: save mic and sys as separate mono files
@@ -239,11 +241,11 @@ class Observer:
             mic_bytes = self.audio_recorder.create_mono_flac_bytes(mic_data)
             sys_bytes = self.audio_recorder.create_mono_flac_bytes(sys_data)
 
-            mic_name = f"{time_part}_{duration}_mic_audio.flac"
-            sys_name = f"{time_part}_{duration}_sys_audio.flac"
+            mic_name = "mic_audio.flac"
+            sys_name = "sys_audio.flac"
 
-            mic_path = day_dir / mic_name
-            sys_path = day_dir / sys_name
+            mic_path = segment_path / mic_name
+            sys_path = segment_path / sys_name
 
             with open(mic_path, "wb") as f:
                 f.write(mic_bytes)
@@ -257,8 +259,8 @@ class Observer:
             flac_bytes = self.audio_recorder.create_flac_bytes(
                 self.accumulated_audio_buffer
             )
-            audio_name = f"{time_part}_{duration}_audio.flac"
-            flac_path = day_dir / audio_name
+            audio_name = "audio.flac"
+            flac_path = segment_path / audio_name
 
             with open(flac_path, "wb") as f:
                 f.write(flac_bytes)
@@ -270,20 +272,39 @@ class Observer:
         """
         Handle window boundary rollover.
 
+        Closes the current draft folder, renames it to final segment name,
+        and emits the observing event.
+
         Args:
             new_mode: The mode for the new segment
         """
+        from pathlib import Path
+
         # Get timestamp parts for this window and calculate duration
         date_part, time_part = self.get_timestamp_parts(self.start_at)
         duration = int(time.time() - self.start_at)
         day_dir = day_path(date_part)
 
-        # Save audio if we have enough threshold hits
+        # Stop screencast first (closes file handles)
+        stopped_streams: list[StreamInfo] = []
+        screen_files: list[str] = []
+
+        if self.current_mode == MODE_SCREENCAST:
+            logger.info("Stopping previous screencast")
+            stopped_streams = await self.screencaster.stop()
+            self.current_streams = []
+            self.last_screencast_sizes = {}
+            self.stalled_chunks = 0
+
+            # Collect screen filenames (files are already in draft dir with final names)
+            screen_files = [stream.filename for stream in stopped_streams]
+
+        # Save audio if we have enough threshold hits (to draft dir)
         did_save_audio = self.threshold_hits >= MIN_HITS_FOR_SAVE
         audio_files: list[str] = []
-        if did_save_audio:
+        if did_save_audio and self.draft_dir:
             audio_files = self._save_audio_segment(
-                day_dir, time_part, duration, self.segment_is_muted
+                self.draft_dir, self.segment_is_muted
             )
             if audio_files:
                 logger.info(
@@ -298,40 +319,44 @@ class Observer:
         self.accumulated_audio_buffer = np.array([], dtype=np.float32).reshape(0, 2)
         self.threshold_hits = 0
 
-        # Handle screencast rollover (if we were in screencast mode)
-        stopped_streams: list[StreamInfo] = []
-        screen_files: list[str] = []
-
-        if self.current_mode == MODE_SCREENCAST:
-            logger.info("Stopping previous screencast")
-            stopped_streams = await self.screencaster.stop()
-            self.current_streams = []
-            self.last_screencast_sizes = {}
-            self.stalled_chunks = 0
-
-            # Build finalization list and file names
-            finalizations = []
-            for stream in stopped_streams:
-                final_name = stream.final_name(time_part, duration)
-                final_path = str(day_dir / final_name)
-                finalizations.append((stream.temp_path, final_path))
-                screen_files.append(final_name)
-
-            if finalizations:
-                self.pending_finalizations = finalizations
-
-        # Handle tmux capture save (if we were in tmux mode)
+        # Handle tmux capture save (to draft dir)
         tmux_files: list[str] = []
-        if self.current_mode == MODE_TMUX and self.tmux_captures:
-            segment_key = f"{time_part}_{duration}"
-            segment_dir = day_dir / segment_key
-            tmux_files = write_captures_jsonl(self.tmux_captures, segment_dir)
+        if self.current_mode == MODE_TMUX and self.tmux_captures and self.draft_dir:
+            # write_captures_jsonl expects a Path and creates it if needed
+            # Draft dir already exists
+            tmux_files = write_captures_jsonl(self.tmux_captures, Path(self.draft_dir))
 
         # Reset tmux state
         self.tmux_captures = []
         self.tmux_capture_id = 0
         self.tmux_sessions_seen = set()
         self.tmux_capture.reset_hashes()
+
+        # Collect all files saved in this segment
+        files = audio_files + screen_files + tmux_files
+        segment_key = f"{time_part}_{duration}"
+
+        # Rename draft folder to final segment name (atomic handoff)
+        if self.draft_dir and files:
+            final_segment_dir = str(day_dir / segment_key)
+            try:
+                os.rename(self.draft_dir, final_segment_dir)
+                logger.info(
+                    f"Segment finalized: {self.draft_dir} -> {final_segment_dir}"
+                )
+            except OSError as e:
+                logger.error(f"Failed to rename draft folder: {e}")
+                # Files stay in draft folder, won't be processed
+                files = []
+        elif self.draft_dir and not files:
+            # No files to save, remove empty draft folder
+            try:
+                os.rmdir(self.draft_dir)
+                logger.debug(f"Removed empty draft folder: {self.draft_dir}")
+            except OSError:
+                pass  # May have other files, ignore
+
+        self.draft_dir = None
 
         # Reset timing for new window
         self.start_at = time.time()  # Wall-clock for filenames
@@ -344,46 +369,68 @@ class Observer:
         old_mode = self.current_mode
         self.current_mode = new_mode
 
-        # Start new capture based on mode
+        # Start new capture based on mode (creates new draft folder)
         if new_mode == MODE_SCREENCAST and not self.cached_screen_locked:
             await self.initialize_screencast()
+        elif new_mode == MODE_TMUX or new_mode == MODE_IDLE:
+            # Create draft folder for audio/tmux even without screencast
+            self._create_draft_folder()
         # MODE_TMUX doesn't need initialization, captures happen in main loop
 
         logger.info(f"Mode transition: {old_mode} -> {new_mode}")
 
         # Emit observing event with what we saved this boundary
-        files = audio_files + screen_files + tmux_files
-
         if files:
-            segment = f"{time_part}_{duration}"
-
             if self.remote_client:
                 # Remote mode: upload files to remote server
-                file_paths = [day_dir / f for f in files]
+                segment_dir = day_dir / segment_key
+                file_paths = [segment_dir / f for f in files]
                 if self.remote_client.upload_and_cleanup(
-                    date_part, segment, file_paths
+                    date_part, segment_key, file_paths
                 ):
-                    logger.info(f"Segment uploaded: {segment} ({len(files)} files)")
+                    logger.info(f"Segment uploaded: {segment_key} ({len(files)} files)")
                 else:
                     logger.error(
-                        f"Segment upload failed: {segment} - files kept locally"
+                        f"Segment upload failed: {segment_key} - files kept locally"
                     )
             elif self.callosum:
                 # Local mode: emit to local Callosum
+                # Files are now simple names (e.g., "audio.flac" not "143022_300_audio.flac")
                 self.callosum.emit(
                     "observe",
                     "observing",
                     day=date_part,
-                    segment=segment,
+                    segment=segment_key,
                     files=files,
                     host=HOST,
                     platform=PLATFORM,
                 )
-                logger.info(f"Segment observing: {segment} ({len(files)} files)")
+                logger.info(f"Segment observing: {segment_key} ({len(files)} files)")
+
+    def _create_draft_folder(self) -> str:
+        """
+        Create a draft folder for the current segment.
+
+        Returns:
+            Path to the draft folder (YYYYMMDD/HHMMSS_draft/)
+        """
+        date_part, time_part = self.get_timestamp_parts(self.start_at)
+        day_dir = day_path(date_part)
+
+        # Create draft folder: YYYYMMDD/HHMMSS_draft/
+        draft_name = f"{time_part}_draft"
+        draft_path = str(day_dir / draft_name)
+        os.makedirs(draft_path, exist_ok=True)
+
+        self.draft_dir = draft_path
+        logger.debug(f"Created draft folder: {draft_path}")
+        return draft_path
 
     async def initialize_screencast(self) -> bool:
         """
         Start a new screencast recording.
+
+        Creates a draft folder and starts GStreamer recording to it.
 
         Returns:
             True if screencast started successfully, False otherwise.
@@ -391,12 +438,12 @@ class Observer:
         Raises:
             RuntimeError: If recording fails to start (caller should exit).
         """
-        date_part, time_part = self.get_timestamp_parts(self.start_at)
-        day_dir = day_path(date_part)
+        # Create draft folder for this segment
+        draft_path = self._create_draft_folder()
 
         try:
             streams = await self.screencaster.start(
-                str(day_dir), time_part, framerate=1, draw_cursor=True
+                draft_path, framerate=1, draw_cursor=True
             )
         except RuntimeError as e:
             logger.error(f"Failed to start screencast: {e}")
@@ -407,12 +454,12 @@ class Observer:
             raise RuntimeError("No streams available")
 
         self.current_streams = streams
-        self.last_screencast_sizes = {s.temp_path: 0 for s in streams}
+        self.last_screencast_sizes = {s.file_path: 0 for s in streams}
         self.stalled_chunks = 0
 
         logger.info(f"Started screencast with {len(streams)} stream(s)")
         for stream in streams:
-            logger.info(f"  {stream.position} ({stream.connector}): {stream.temp_path}")
+            logger.info(f"  {stream.position} ({stream.connector}): {stream.file_path}")
 
         return True
 
@@ -451,12 +498,12 @@ class Observer:
             for stream in self.current_streams:
                 try:
                     rel_file = (
-                        os.path.relpath(stream.temp_path, journal_path)
+                        os.path.relpath(stream.file_path, journal_path)
                         if journal_path
-                        else stream.temp_path
+                        else stream.file_path
                     )
                 except ValueError:
-                    rel_file = stream.temp_path
+                    rel_file = stream.file_path
 
                 streams_info.append(
                     {
@@ -528,24 +575,6 @@ class Observer:
                 platform=PLATFORM,
             )
 
-    def finalize_screencast(self, temp_path: str, final_path: str):
-        """
-        Rename screencast from temp to final path.
-
-        Args:
-            temp_path: Temporary hidden path (.HHMMSS_position_connector.webm)
-            final_path: Final destination path (HHMMSS_LEN_position_connector_screen.webm)
-        """
-        if not os.path.exists(temp_path):
-            logger.warning(f"Screencast file not found: {temp_path}")
-            return
-
-        try:
-            os.replace(temp_path, final_path)
-            logger.info(f"Finalized screencast: {final_path}")
-        except OSError as e:
-            logger.error(f"Failed to rename {temp_path} to {final_path}: {e}")
-
     async def main_loop(self):
         """Run the main observer loop."""
         logger.info(f"Starting observer loop (interval={self.interval}s)")
@@ -555,7 +584,7 @@ class Observer:
         self.segment_is_muted = self.cached_is_muted  # Sync initial mute state
         self.current_mode = new_mode
 
-        # Start initial capture based on mode
+        # Start initial capture based on mode (creates draft folder)
         if new_mode == MODE_SCREENCAST and not self.cached_screen_locked:
             try:
                 await self.initialize_screencast()
@@ -563,21 +592,15 @@ class Observer:
                 # Failed to start screencast, exit
                 self.running = False
                 return
+        else:
+            # Create draft folder for audio/tmux even without screencast
+            self._create_draft_folder()
 
         logger.info(f"Initial mode: {self.current_mode}")
 
         while self.running:
             # Sleep for chunk duration
             await asyncio.sleep(CHUNK_DURATION)
-
-            # Process pending screencast finalizations
-            if self.pending_finalizations:
-                for temp_path, final_path in self.pending_finalizations:
-                    if os.path.exists(temp_path):
-                        self.finalize_screencast(temp_path, final_path)
-                    else:
-                        logger.warning(f"Pending screencast not found: {temp_path}")
-                self.pending_finalizations = None
 
             # Check activity status and determine new mode
             new_mode = await self.check_activity_status()
@@ -588,21 +611,9 @@ class Observer:
                 and not self.screencaster.is_healthy()
             ):
                 logger.warning("Screencast recording failed, stopping gracefully")
-                stopped_streams = await self.screencaster.stop()
+                await self.screencaster.stop()
 
-                # Finalize whatever we have
-                if stopped_streams:
-                    date_part, time_part = self.get_timestamp_parts(self.start_at)
-                    duration = int(time.time() - self.start_at)
-                    day_dir = day_path(date_part)
-
-                    for stream in stopped_streams:
-                        if os.path.exists(stream.temp_path):
-                            final_path = str(
-                                day_dir / stream.final_name(time_part, duration)
-                            )
-                            self.finalize_screencast(stream.temp_path, final_path)
-
+                # Files are already in draft folder, will be finalized at next boundary
                 self.current_streams = []
                 self.last_screencast_sizes = {}
                 self.stalled_chunks = 0
@@ -667,12 +678,12 @@ class Observer:
             if self.current_mode == MODE_SCREENCAST and self.current_streams:
                 any_growing = False
                 for stream in self.current_streams:
-                    if os.path.exists(stream.temp_path):
-                        current_size = os.path.getsize(stream.temp_path)
-                        last_size = self.last_screencast_sizes.get(stream.temp_path, 0)
+                    if os.path.exists(stream.file_path):
+                        current_size = os.path.getsize(stream.file_path)
+                        last_size = self.last_screencast_sizes.get(stream.file_path, 0)
                         if current_size > last_size:
                             any_growing = True
-                            self.last_screencast_sizes[stream.temp_path] = current_size
+                            self.last_screencast_sizes[stream.file_path] = current_size
                 self.files_growing = any_growing
 
                 # Fail-fast: exit if screencast stalled (files not growing)
@@ -699,58 +710,75 @@ class Observer:
 
     async def shutdown(self):
         """Clean shutdown of observer."""
+        from pathlib import Path
+
         # Get timestamp parts for final save
         date_part, time_part = self.get_timestamp_parts(self.start_at)
         duration = int(time.time() - self.start_at)
         day_dir = day_path(date_part)
 
-        # Save final audio if threshold met
-        if self.threshold_hits >= MIN_HITS_FOR_SAVE:
+        # Stop screencast first (closes file handles)
+        stopped_streams: list[StreamInfo] = []
+        if self.current_mode == MODE_SCREENCAST:
+            logger.info("Stopping screencast for shutdown")
+            stopped_streams = await self.screencaster.stop()
+            # Brief delay for files to be flushed
+            await asyncio.sleep(0.5)
+
+        # Save final audio if threshold met (to draft dir)
+        audio_files: list[str] = []
+        if self.threshold_hits >= MIN_HITS_FOR_SAVE and self.draft_dir:
             audio_files = self._save_audio_segment(
-                day_dir, time_part, duration, self.segment_is_muted
+                self.draft_dir, self.segment_is_muted
             )
             if audio_files:
                 logger.info(f"Saved final audio: {len(audio_files)} file(s)")
 
-        # Stop screencast if running
-        if self.current_mode == MODE_SCREENCAST:
-            logger.info("Stopping screencast for shutdown")
-            stopped_streams = await self.screencaster.stop()
-
-            if stopped_streams:
-                # Brief delay for files to be written
-                await asyncio.sleep(0.5)
-
-                for stream in stopped_streams:
-                    if os.path.exists(stream.temp_path):
-                        final_path = str(
-                            day_dir / stream.final_name(time_part, duration)
-                        )
-                        self.finalize_screencast(stream.temp_path, final_path)
-                    else:
-                        logger.warning(
-                            f"Screencast file not found after shutdown: {stream.temp_path}"
-                        )
-
-        # Save tmux captures if in tmux mode
-        if self.current_mode == MODE_TMUX and self.tmux_captures:
-            segment_key = f"{time_part}_{duration}"
-            segment_dir = day_dir / segment_key
-            tmux_files = write_captures_jsonl(self.tmux_captures, segment_dir)
+        # Save tmux captures if in tmux mode (to draft dir)
+        tmux_files: list[str] = []
+        if self.current_mode == MODE_TMUX and self.tmux_captures and self.draft_dir:
+            tmux_files = write_captures_jsonl(self.tmux_captures, Path(self.draft_dir))
             if tmux_files:
                 logger.info(f"Saved final tmux captures: {len(tmux_files)} file(s)")
 
-        # Process any remaining pending finalizations
-        if self.pending_finalizations:
-            await asyncio.sleep(0.5)
-            for temp_path, final_path in self.pending_finalizations:
-                if os.path.exists(temp_path):
-                    self.finalize_screencast(temp_path, final_path)
-                else:
-                    logger.warning(
-                        f"Pending screencast not found after shutdown: {temp_path}"
+        # Collect all files and finalize segment
+        screen_files = [stream.filename for stream in stopped_streams]
+        files = audio_files + screen_files + tmux_files
+        segment_key = f"{time_part}_{duration}"
+
+        if self.draft_dir and files:
+            final_segment_dir = str(day_dir / segment_key)
+            try:
+                os.rename(self.draft_dir, final_segment_dir)
+                logger.info(f"Final segment: {self.draft_dir} -> {final_segment_dir}")
+
+                # Emit final observing event
+                if self.remote_client:
+                    segment_dir = day_dir / segment_key
+                    file_paths = [segment_dir / f for f in files]
+                    self.remote_client.upload_and_cleanup(
+                        date_part, segment_key, file_paths
                     )
-            self.pending_finalizations = None
+                elif self.callosum:
+                    self.callosum.emit(
+                        "observe",
+                        "observing",
+                        day=date_part,
+                        segment=segment_key,
+                        files=files,
+                        host=HOST,
+                        platform=PLATFORM,
+                    )
+            except OSError as e:
+                logger.error(f"Failed to rename final draft folder: {e}")
+        elif self.draft_dir:
+            # No files, remove empty draft folder
+            try:
+                os.rmdir(self.draft_dir)
+            except OSError:
+                pass
+
+        self.draft_dir = None
 
         # Stop audio recorder
         self.audio_recorder.stop_recording()

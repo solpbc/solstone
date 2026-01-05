@@ -54,11 +54,12 @@ class StreamInfo:
     y: int
     width: int
     height: int
-    temp_path: str
+    file_path: str  # Final path in segment directory
 
-    def final_name(self, time_part: str, duration: int) -> str:
-        """Generate the final filename for this stream."""
-        return f"{time_part}_{duration}_{self.position}_{self.connector}_screen.webm"
+    @property
+    def filename(self) -> str:
+        """Return just the filename for event payloads."""
+        return os.path.basename(self.file_path)
 
 
 def _get_restore_token_path() -> Path:
@@ -233,17 +234,18 @@ class Screencaster:
 
     async def start(
         self,
-        base_path: str,
-        timestamp: str,
+        output_dir: str,
         framerate: int = 1,
         draw_cursor: bool = True,
     ) -> list[StreamInfo]:
         """
         Start screencast recording for all monitors.
 
+        Files are written directly to output_dir with final names (position_connector_screen.webm).
+        The output_dir is typically a draft segment directory that will be renamed on completion.
+
         Args:
-            base_path: Directory for output files
-            timestamp: Timestamp prefix for temp files (HHMMSS format)
+            output_dir: Directory for output files (e.g., YYYYMMDD/HHMMSS_draft/)
             framerate: Frames per second (default: 1)
             draw_cursor: Whether to draw mouse cursor (default: True)
 
@@ -373,10 +375,9 @@ class Screencaster:
             position = info["position_label"]
             connector = info["connector"]
 
-            # Temp file: .HHMMSS_position_connector.webm
-            temp_path = os.path.join(
-                base_path, f".{timestamp}_{position}_{connector}.webm"
-            )
+            # Final file path: position_connector_screen.webm
+            # Written directly to output_dir (draft segment directory)
+            file_path = os.path.join(output_dir, f"{position}_{connector}_screen.webm")
 
             stream_obj = StreamInfo(
                 node_id=node_id,
@@ -386,7 +387,7 @@ class Screencaster:
                 y=info["y"],
                 width=info["width"],
                 height=info["height"],
-                temp_path=temp_path,
+                file_path=file_path,
             )
             self.streams.append(stream_obj)
 
@@ -397,11 +398,11 @@ class Screencaster:
                 f"videorate ! video/x-raw,framerate={framerate}/1 ! "
                 f"videoconvert ! vp8enc end-usage=cq cq-level=4 max-quantizer=15 "
                 f"keyframe-max-dist=30 static-threshold=100 ! webmmux ! "
-                f"filesink location={temp_path}"
+                f"filesink location={file_path}"
             )
             pipeline_parts.append(branch)
 
-            logger.info(f"  Stream {node_id}: {position} ({connector}) -> {temp_path}")
+            logger.info(f"  Stream {node_id}: {position} ({connector}) -> {file_path}")
 
         pipeline_str = " ".join(pipeline_parts)
         cmd = ["gst-launch-1.0", "-e"] + pipeline_str.split()
@@ -439,7 +440,7 @@ class Screencaster:
         Stop screencast recording gracefully.
 
         Returns:
-            List of StreamInfo with temp_path for finalization.
+            List of StreamInfo with file_path for the recorded files.
         """
         streams = self.streams.copy()
 

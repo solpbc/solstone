@@ -148,52 +148,56 @@ class TestAssignMonitorPositions:
 
 
 class TestParseScreenFilename:
-    """Test screen filename parsing for per-monitor files."""
+    """Test screen filename parsing for per-monitor files.
+
+    Files are now always in segment directories with simple names:
+    position_connector_screen.webm (e.g., center_DP-3_screen.webm)
+    """
 
     def test_standard_format(self):
         """Parse standard per-monitor filename."""
-        position, connector = parse_screen_filename("143022_300_center_DP-3_screen")
+        position, connector = parse_screen_filename("center_DP-3_screen")
         assert position == "center"
         assert connector == "DP-3"
 
     def test_left_position(self):
         """Parse left position filename."""
-        position, connector = parse_screen_filename("120000_600_left_HDMI-1_screen")
+        position, connector = parse_screen_filename("left_HDMI-1_screen")
         assert position == "left"
         assert connector == "HDMI-1"
 
     def test_compound_position(self):
         """Parse compound position like left-top."""
-        position, connector = parse_screen_filename("090000_300_left-top_DP-1_screen")
+        position, connector = parse_screen_filename("left-top_DP-1_screen")
         assert position == "left-top"
         assert connector == "DP-1"
 
+    def test_macos_numeric_display_id(self):
+        """Parse macOS numeric display ID."""
+        position, connector = parse_screen_filename("center_1_screen")
+        assert position == "center"
+        assert connector == "1"
+
     def test_simple_screen_filename(self):
         """Simple screen filename without position returns unknown."""
-        position, connector = parse_screen_filename("143022_300_screen")
+        position, connector = parse_screen_filename("screen")
         assert position == "unknown"
         assert connector == "unknown"
 
     def test_audio_filename(self):
         """Audio filename returns unknown."""
-        position, connector = parse_screen_filename("143022_300_audio")
+        position, connector = parse_screen_filename("audio")
         assert position == "unknown"
         assert connector == "unknown"
 
-    def test_post_move_format(self):
-        """Parse post-move filename (in segment directory, no HHMMSS_LEN prefix)."""
-        position, connector = parse_screen_filename("center_DP-3_screen")
-        assert position == "center"
-        assert connector == "DP-3"
-
-    def test_post_move_left_top(self):
-        """Parse post-move filename with compound position."""
-        position, connector = parse_screen_filename("left-top_HDMI-2_screen")
-        assert position == "left-top"
+    def test_right_position(self):
+        """Parse right position filename."""
+        position, connector = parse_screen_filename("right_HDMI-2_screen")
+        assert position == "right"
         assert connector == "HDMI-2"
 
-    def test_plain_screen(self):
-        """Plain 'screen' filename returns unknown."""
-        position, connector = parse_screen_filename("screen")
-        assert position == "unknown"
-        assert connector == "unknown"
+    def test_compound_left_bottom(self):
+        """Parse compound left-bottom position."""
+        position, connector = parse_screen_filename("left-bottom_DP-2_screen")
+        assert position == "left-bottom"
+        assert connector == "DP-2"

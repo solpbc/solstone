@@ -28,7 +28,7 @@ from typing import List, Optional
 import av
 from PIL import Image, ImageChops, ImageStat
 
-from observe.utils import segment_and_suffix
+from observe.utils import get_segment_key
 from think.callosum import callosum_send
 from think.utils import setup_cli
 
@@ -340,22 +340,6 @@ class VideoProcessor:
         contents.append(image)
         return contents
 
-    def _move_to_segment(self, media_path: Path) -> Path:
-        """Move media file to its segment and return new path."""
-        segment, suffix = segment_and_suffix(media_path)
-        segment_dir = media_path.parent / segment
-        try:
-            segment_dir.mkdir(exist_ok=True)
-            # Preserve the original extension
-            ext = media_path.suffix
-            new_path = segment_dir / f"{suffix}{ext}"
-            media_path.rename(new_path)
-            logger.info(f"Moved {media_path} to {segment_dir}")
-            return new_path
-        except Exception as exc:
-            logger.error(f"Failed to move {media_path} to segment: {exc}")
-            return media_path
-
     async def process_with_vision(
         self,
         max_concurrent: int = 10,
@@ -388,10 +372,8 @@ class VideoProcessor:
 
         # Write metadata header to JSONL file with actual video filename
         if output_file:
-            from observe.utils import extract_descriptive_suffix
-
-            suffix = extract_descriptive_suffix(self.video_path.stem)
-            metadata = {"raw": f"{suffix}{self.video_path.suffix}"}
+            # Files are in segment directories, filename is simple (e.g., center_DP-3_screen.webm)
+            metadata = {"raw": self.video_path.name}
 
             # Add remote origin if set (from sense.py for remote observer uploads)
             remote = os.getenv("REMOTE_NAME")
@@ -682,7 +664,7 @@ class VideoProcessor:
         all_failed = total_frames > 0 and failed_frames == total_frames
 
         if all_failed:
-            # Don't move video to segment - leave for retry
+            # Leave video for retry (already in segment dir)
             error_detail = (
                 f"Error details in {output_path}" if output_path else "No output file"
             )
@@ -695,15 +677,10 @@ class VideoProcessor:
             raise RuntimeError(
                 f"All {total_frames} frame(s) failed vision analysis after retries"
             )
-        else:
-            # At least some frames succeeded - move to segment
-            if failed_frames > 0:
-                logger.warning(
-                    f"{failed_frames}/{total_frames} frame(s) failed processing. "
-                    f"Moving video to segment anyway."
-                )
-            if output_path:
-                self._move_to_segment(self.video_path)
+        elif failed_frames > 0:
+            logger.warning(
+                f"{failed_frames}/{total_frames} frame(s) failed processing."
+            )
 
         # Clear qualified_frames to free memory
         self.qualified_frames.clear()
@@ -737,7 +714,7 @@ async def async_main():
     parser.add_argument(
         "video_path",
         type=str,
-        help="Path to video file to process",
+        help="Path to video file in segment directory",
     )
     parser.add_argument(
         "-j",
@@ -751,31 +728,36 @@ async def async_main():
         action="store_true",
         help="Only output frame metadata without vision analysis",
     )
+    parser.add_argument(
+        "--redo",
+        action="store_true",
+        help="Reprocess file, overwriting existing outputs",
+    )
     args = setup_cli(parser)
 
     video_path = Path(args.video_path)
     if not video_path.exists():
         parser.error(f"Video file not found: {video_path}")
 
-    # Determine output path and warn if overwriting
+    # Files must be in segment directories (YYYYMMDD/HHMMSS_LEN/)
+    segment = get_segment_key(video_path)
+    if segment is None:
+        parser.error(
+            f"Video file must be in a segment directory (HHMMSS_LEN/), "
+            f"but parent is: {video_path.parent.name}"
+        )
+
+    # Determine output path
     output_path = None
-    segment = None
-    suffix = None
     if not args.frames_only:
-        # Extract segment and suffix for output naming
-        try:
-            segment, suffix = segment_and_suffix(video_path)
-        except ValueError as exc:
-            parser.error(str(exc))
+        # Output JSONL in same directory, same stem (e.g., center_DP-3_screen.jsonl)
+        output_path = video_path.with_suffix(".jsonl")
 
-        # Use segment from env (set by sense.py) or use derived value
-        if not os.getenv("SEGMENT_KEY"):
-            os.environ["SEGMENT_KEY"] = segment
+        # Skip if already processed (unless redo mode)
+        if not args.redo and output_path.exists():
+            logger.info(f"Already processed: {video_path}")
+            return
 
-        segment_dir = video_path.parent / segment
-        segment_dir.mkdir(exist_ok=True)
-        # Output JSONL matches input filename pattern (e.g., center_DP-3_screen.jsonl)
-        output_path = segment_dir / f"{suffix}.jsonl"
         if output_path.exists():
             logger.warning(f"Overwriting existing analysis file: {output_path}")
 
@@ -800,22 +782,18 @@ async def async_main():
             # Emit completion event
             if output_path and output_path.exists():
                 journal_path = Path(os.getenv("JOURNAL_PATH", ""))
-                # Moved path is in segment: YYYYMMDD/HHMMSS_LEN/suffix.webm
-                moved_path = (
-                    video_path.parent / segment / f"{suffix}{video_path.suffix}"
-                )
 
                 try:
-                    rel_input = moved_path.relative_to(journal_path)
+                    rel_input = video_path.relative_to(journal_path)
                     rel_output = output_path.relative_to(journal_path)
                 except ValueError:
-                    rel_input = moved_path
+                    rel_input = video_path
                     rel_output = output_path
 
                 duration_ms = int((time.time() - start_time) * 1000)
 
-                # Extract day from video path (video_path.parent is day dir)
-                day = video_path.parent.name
+                # Extract day from video path (grandparent is day dir)
+                day = video_path.parent.parent.name
 
                 event_fields = {
                     "input": str(rel_input),

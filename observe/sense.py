@@ -100,12 +100,11 @@ class FileSensor:
         if file_path.name.startswith("."):
             return None
 
-        # Ignore files in subdirectories (segments, trash/)
-        # Expected structure: journal_dir/YYYYMMDD/file.ext (2 parts from journal_dir)
-        # Reject: journal_dir/YYYYMMDD/HHMMSS_LEN/file.ext (3+ parts from journal_dir)
+        # Files should be in segment directories: journal_dir/YYYYMMDD/HHMMSS_LEN/file.ext
+        # Expected structure: 3 parts from journal_dir
         try:
             rel_path = file_path.relative_to(self.journal_dir)
-            if len(rel_path.parts) != 2:
+            if len(rel_path.parts) != 3:
                 return None
         except ValueError:
             # File not under journal directory
@@ -128,29 +127,27 @@ class FileSensor:
     ):
         """Spawn a handler process for the file.
 
+        Files are expected to be in segment directories: YYYYMMDD/HHMMSS_LEN/file.ext
+
         Args:
-            file_path: Path to the file to process
+            file_path: Path to the file to process (in segment directory)
             handler_name: Name of the handler (e.g., "describe", "transcribe")
             command: Command template with {file} placeholder
             day: Day string (YYYYMMDD), extracted from path if not provided
             batch: Whether this is from batch processing mode
-            segment: Segment key for SEGMENT_KEY env var
+            segment: Segment key, extracted from path if not provided
             remote: Remote name for REMOTE_NAME env var
         """
-        # Extract day from path if not provided (journal_dir/YYYYMMDD/file.ext)
-        if day is None:
-            try:
-                rel_path = file_path.relative_to(self.journal_dir)
-                if len(rel_path.parts) >= 1:
+        # Extract day and segment from path: journal_dir/YYYYMMDD/HHMMSS_LEN/file.ext
+        try:
+            rel_path = file_path.relative_to(self.journal_dir)
+            if len(rel_path.parts) >= 2:
+                if day is None:
                     day = rel_path.parts[0]
-            except ValueError:
-                pass
-
-        # Extract segment from filename if not provided
-        if segment is None:
-            from think.utils import segment_key as get_segment_key
-
-            segment = get_segment_key(file_path.name)
+                if segment is None:
+                    segment = rel_path.parts[1]
+        except ValueError:
+            pass
 
         with self.lock:
             # Skip if already processing this file
@@ -185,12 +182,6 @@ class FileSensor:
         # Generate correlation ID for this handler run
         ref = str(int(time.time() * 1000))
 
-        # Create segment directory before emitting detected event
-        # This ensures the directory exists for event logging
-        if day and segment:
-            segment_dir = self.journal_dir / day / segment
-            segment_dir.mkdir(exist_ok=True)
-
         # Emit detected event with file and ref
         if self.callosum:
             try:
@@ -223,10 +214,8 @@ class FileSensor:
         # Use unified runner to spawn process with automatic logging
         logger.info(f"Spawning {handler_name} for {file_path.name}: {' '.join(cmd)}")
 
-        # Build environment with segment/remote context for handlers
+        # Build environment with remote context for handlers
         env = os.environ.copy()
-        if segment:
-            env["SEGMENT_KEY"] = segment
         if remote:
             env["REMOTE_NAME"] = remote
 
@@ -306,9 +295,9 @@ class FileSensor:
 
     def _check_segment_observed(self, file_path: Path):
         """Check if all files for this segment have completed processing."""
-        from think.utils import segment_key
+        from observe.utils import get_segment_key
 
-        segment = segment_key(file_path.name)
+        segment = get_segment_key(file_path)
         if not segment:
             return
 
@@ -359,7 +348,7 @@ class FileSensor:
 
         Args:
             file_path: Path to the file to process
-            segment: Optional segment key for SEGMENT_KEY env var
+            segment: Optional segment key for tracking
             remote: Optional remote name for REMOTE_NAME env var
         """
         if not file_path.exists():
@@ -396,8 +385,9 @@ class FileSensor:
         logger.info(f"Received observing event: {day}/{segment} ({len(files)} files)")
 
         # Build full paths for all files in this segment
-        day_dir = self.journal_dir / day
-        file_paths = [day_dir / filename for filename in files]
+        # Files are in segment directories: YYYYMMDD/HHMMSS_LEN/filename
+        segment_dir = self.journal_dir / day / segment
+        file_paths = [segment_dir / filename for filename in files]
 
         # Pre-register segment tracking with complete file list
         # This ensures segment completion is tracked correctly even if some files
@@ -572,23 +562,35 @@ class FileSensor:
     def process_day(self, day: str, max_jobs: int = 1):
         """Process all matching unprocessed files from a specific day directory.
 
-        Files are considered unprocessed if the source media file has not been
-        moved to segments (HHMMSS/). This approach handles incomplete
-        processing gracefully by re-running even if output files exist.
+        Files are in segment directories (HHMMSS_LEN/). A file is considered
+        unprocessed if it has no corresponding .jsonl output file.
 
         Args:
             day: Day in YYYYMMDD format
             max_jobs: Maximum number of concurrent processing jobs
         """
+        from think.utils import segment_key
+
         day_dir = day_path(day)
         if not day_dir.exists():
             logger.error(f"Day directory not found: {day_dir}")
             return
 
-        # Find all matching unprocessed files (not yet moved to segments)
+        # Find all matching unprocessed files in segment directories
         to_process = []
-        for file_path in day_dir.iterdir():
-            if file_path.is_file():
+        for segment_dir in day_dir.iterdir():
+            if not segment_dir.is_dir() or not segment_key(segment_dir.name):
+                continue
+
+            for file_path in segment_dir.iterdir():
+                if not file_path.is_file():
+                    continue
+
+                # Check if output JSONL exists (already processed)
+                output_path = file_path.with_suffix(".jsonl")
+                if output_path.exists():
+                    continue
+
                 handler_info = self._match_pattern(file_path)
                 if handler_info:
                     handler_name, command = handler_info
@@ -650,47 +652,57 @@ class FileSensor:
 def scan_day(day_dir: Path) -> dict:
     """Scan a day directory for processed and unprocessed files.
 
+    Files are in segment directories (HHMMSS_LEN/). A file is considered
+    processed if it has a corresponding .jsonl output file.
+
     Args:
         day_dir: Path to day directory (YYYYMMDD)
 
     Returns:
         Dictionary with:
         - "processed": List of JSONL output files in segments (HHMMSS_LEN/audio.jsonl, etc)
-        - "unprocessed": List of unprocessed source media files in day root
+        - "unprocessed": List of unprocessed source media files in segments
         - "pending_segments": Count of unique segments with pending files
     """
-    # Find processed output files in segments (HHMMSS_LEN/)
     from think.utils import segment_key
 
     processed = []
+    unprocessed = []
+    pending_segment_keys = set()
+
     if not day_dir.exists():
         return {"processed": [], "unprocessed": [], "pending_segments": 0}
 
     for segment in day_dir.iterdir():
-        if segment.is_dir() and segment_key(segment.name):
-            # Check for audio JSONL files (audio.jsonl, mic_audio.jsonl, etc.)
-            for audio_file in segment.glob("*audio.jsonl"):
-                processed.append(f"{segment.name}/{audio_file.name}")
-            # Check for screen JSONL files (screen.jsonl, etc.)
-            for screen_file in segment.glob("*screen.jsonl"):
-                processed.append(f"{segment.name}/{screen_file.name}")
+        if not segment.is_dir() or not segment_key(segment.name):
+            continue
+
+        # Check each file in the segment
+        for file_path in segment.iterdir():
+            if not file_path.is_file():
+                continue
+
+            # JSONL files are outputs
+            if file_path.suffix == ".jsonl":
+                processed.append(f"{segment.name}/{file_path.name}")
+                continue
+
+            # Check if media file has corresponding JSONL (processed)
+            if (
+                file_path.suffix.lower() in VIDEO_EXTENSIONS
+                or file_path.suffix.lower()
+                in (
+                    ".flac",
+                    ".m4a",
+                )
+            ):
+                output_path = file_path.with_suffix(".jsonl")
+                if not output_path.exists():
+                    unprocessed.append(f"{segment.name}/{file_path.name}")
+                    pending_segment_keys.add(segment.name)
 
     processed.sort()
-
-    # Find unprocessed source media (still in day root, not yet moved to segments)
-    # Match by extension only - any descriptive suffix is allowed
-    unprocessed = []
-    unprocessed.extend(sorted(p.name for p in day_dir.glob("*.flac")))
-    unprocessed.extend(sorted(p.name for p in day_dir.glob("*.m4a")))
-    for ext in VIDEO_EXTENSIONS:
-        unprocessed.extend(sorted(p.name for p in day_dir.glob(f"*{ext}")))
-
-    # Count unique segments with pending files
-    pending_segment_keys = set()
-    for filename in unprocessed:
-        key = segment_key(filename)
-        if key:
-            pending_segment_keys.add(key)
+    unprocessed.sort()
 
     return {
         "processed": processed,
@@ -722,12 +734,12 @@ def main():
 
     sensor = FileSensor(journal, verbose=args.verbose, debug=args.debug)
 
-    # Register handlers - match by extension, ignore descriptive suffix
-    # Audio files: any HHMMSS_*.flac or HHMMSS_*.m4a in day root
+    # Register handlers - match by extension
+    # Audio files in segment directories
     sensor.register("*.flac", "transcribe", ["observe-transcribe", "{file}"])
     sensor.register("*.m4a", "transcribe", ["observe-transcribe", "{file}"])
 
-    # Video files: any HHMMSS_*.webm, HHMMSS_*.mp4, HHMMSS_*.mov in day root
+    # Video files in segment directories
     for ext in VIDEO_EXTENSIONS:
         sensor.register(f"*{ext}", "describe", ["observe-describe", "{file}"])
 

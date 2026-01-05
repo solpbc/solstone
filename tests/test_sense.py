@@ -115,35 +115,41 @@ def test_file_sensor_register():
 
 
 def test_file_sensor_match_pattern():
-    """Test pattern matching logic."""
+    """Test pattern matching logic.
+
+    Files are expected to be in segment directories: journal/YYYYMMDD/HHMMSS_LEN/file.ext
+    """
     with tempfile.TemporaryDirectory() as tmpdir:
-        # Create journal/day structure
+        # Create journal/day/segment structure
         journal_dir = Path(tmpdir)
         day_dir = journal_dir / "20250101"
-        day_dir.mkdir()
+        segment_dir = day_dir / "123456_300"
+        segment_dir.mkdir(parents=True)
 
         sensor = FileSensor(journal_dir)
         sensor.register("*.webm", "describe", ["echo", "{file}"])
-        sensor.register("*_raw.flac", "transcribe", ["cat", "{file}"])
+        sensor.register("*.flac", "transcribe", ["cat", "{file}"])
 
-        # Should match - files in day directory
-        webm_file = day_dir / "test.webm"
+        # Should match - files in segment directory
+        webm_file = segment_dir / "center_DP-3_screen.webm"
         assert sensor._match_pattern(webm_file) is not None
         assert sensor._match_pattern(webm_file)[0] == "describe"
 
-        flac_file = day_dir / "123456_300_raw.flac"
+        flac_file = segment_dir / "audio.flac"
         assert sensor._match_pattern(flac_file) is not None
         assert sensor._match_pattern(flac_file)[0] == "transcribe"
 
         # Should not match - wrong extension
-        txt_file = day_dir / "test.txt"
+        txt_file = segment_dir / "test.txt"
         assert sensor._match_pattern(txt_file) is None
 
-        # Should not match - in segment
-        segment_dir = day_dir / "123456_300"
-        segment_dir.mkdir()
-        segment_file = segment_dir / "audio.jsonl"
-        assert sensor._match_pattern(segment_file) is None
+        # Should not match - file in day root (not in segment dir)
+        day_root_file = day_dir / "orphan.webm"
+        assert sensor._match_pattern(day_root_file) is None
+
+        # Should not match - jsonl output file
+        jsonl_file = segment_dir / "audio.jsonl"
+        assert sensor._match_pattern(jsonl_file) is None
 
 
 @patch("think.runner._get_journal_path")
@@ -261,14 +267,15 @@ def test_file_sensor_spawn_handler_failing_process(tmp_path):
 def test_file_sensor_handle_file(tmp_path):
     """Test file handling dispatches to correct handler."""
     with patch.object(FileSensor, "_spawn_handler") as mock_spawn:
-        # Create journal/day structure
+        # Create journal/day/segment structure
         day_dir = tmp_path / "20250101"
-        day_dir.mkdir()
+        segment_dir = day_dir / "143022_300"
+        segment_dir.mkdir(parents=True)
 
         sensor = FileSensor(tmp_path)
         sensor.register("*.webm", "describe", ["echo", "{file}"])
 
-        test_file = day_dir / "test.webm"
+        test_file = segment_dir / "center_DP-3_screen.webm"
         test_file.write_text("content")
 
         sensor._handle_file(test_file)
@@ -310,27 +317,28 @@ def test_file_sensor_stop():
 def test_file_sensor_handle_callosum_message(tmp_path):
     """Test handling of observe.observing Callosum events."""
     with patch.object(FileSensor, "_handle_file") as mock_handle:
-        # Create journal/day structure
+        # Create journal/day/segment structure
         day_dir = tmp_path / "20250101"
-        day_dir.mkdir()
+        segment_dir = day_dir / "143022_300"
+        segment_dir.mkdir(parents=True)
 
         sensor = FileSensor(tmp_path)
         sensor.register("*.flac", "transcribe", ["echo", "{file}"])
         sensor.register("*.webm", "describe", ["echo", "{file}"])
 
-        # Create test files
-        audio_file = day_dir / "143022_300_audio.flac"
+        # Create test files with simple names in segment directory
+        audio_file = segment_dir / "audio.flac"
         audio_file.write_text("audio content")
-        video_file = day_dir / "143022_300_screen.webm"
+        video_file = segment_dir / "center_DP-3_screen.webm"
         video_file.write_text("video content")
 
-        # Simulate observing event
+        # Simulate observing event with simple filenames
         message = {
             "tract": "observe",
             "event": "observing",
             "day": "20250101",
             "segment": "143022_300",
-            "files": ["143022_300_audio.flac", "143022_300_screen.webm"],
+            "files": ["audio.flac", "center_DP-3_screen.webm"],
         }
 
         sensor._handle_callosum_message(message)
@@ -390,9 +398,10 @@ def test_file_sensor_segment_observed_includes_day(tmp_path, mock_callosum):
     """Test that observe.observed event includes day field."""
     from think.callosum import CallosumConnection
 
-    # Create journal/day structure
+    # Create journal/day/segment structure
     day_dir = tmp_path / "20250101"
-    day_dir.mkdir()
+    segment_dir = day_dir / "143022_300"
+    segment_dir.mkdir(parents=True)
 
     sensor = FileSensor(tmp_path)
     sensor.register("*.flac", "transcribe", ["echo", "{file}"])
@@ -402,17 +411,17 @@ def test_file_sensor_segment_observed_includes_day(tmp_path, mock_callosum):
     sensor.callosum = CallosumConnection()
     sensor.callosum.start(callback=lambda msg: emitted_events.append(msg))
 
-    # Create test file
-    audio_file = day_dir / "143022_300_audio.flac"
+    # Create test file with simple name in segment directory
+    audio_file = segment_dir / "audio.flac"
     audio_file.write_text("audio content")
 
-    # Simulate observing event to set up segment tracking
+    # Simulate observing event to set up segment tracking (simple filenames)
     message = {
         "tract": "observe",
         "event": "observing",
         "day": "20250101",
         "segment": "143022_300",
-        "files": ["143022_300_audio.flac"],
+        "files": ["audio.flac"],
     }
     sensor._handle_callosum_message(message)
 

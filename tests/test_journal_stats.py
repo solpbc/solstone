@@ -11,7 +11,7 @@ def test_scan_day(tmp_path, monkeypatch):
     day = journal / "20240101"
     day.mkdir()
 
-    # Create an audio jsonl file in segment directory
+    # Create an audio jsonl file in segment directory (already processed)
     ts_dir = day / "123456_300"
     ts_dir.mkdir()
     (ts_dir / "audio.jsonl").write_text(
@@ -20,9 +20,11 @@ def test_scan_day(tmp_path, monkeypatch):
         '{"start": "10:01:00", "text": "world"}\n'
     )
 
-    # Create unprocessed media files (remain in day root, will be moved to segment on processing)
-    (day / "123456_300_audio.flac").write_bytes(b"RIFF")
-    (day / "123456_300_center_DP-1_screen.webm").write_bytes(b"WEBM")
+    # Create unprocessed media files in a second segment directory (no jsonl output yet)
+    ts_dir2 = day / "134500_300"
+    ts_dir2.mkdir()
+    (ts_dir2 / "audio.flac").write_bytes(b"RIFF")
+    (ts_dir2 / "center_DP-1_screen.webm").write_bytes(b"WEBM")
 
     (day / "entities.md").write_text("")
     (day / "insights").mkdir()

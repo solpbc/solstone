@@ -16,7 +16,6 @@ import subprocess
 import threading
 import time
 from dataclasses import dataclass
-from pathlib import Path
 from typing import Optional
 
 from observe.utils import assign_monitor_positions
@@ -37,23 +36,15 @@ class DisplayInfo:
     y: int
     width: int
     height: int
-    temp_path: str
-
-    def final_name(self, time_part: str, duration: int) -> str:
-        """Generate the final filename for this display's video."""
-        return f"{time_part}_{duration}_{self.position}_{self.display_id}_screen.mov"
+    file_path: str  # Path where sck-cli writes the file
 
 
 @dataclass
 class AudioInfo:
     """Information about the audio recording."""
 
-    temp_path: str
+    file_path: str  # Path where sck-cli writes the file
     tracks: list[str]
-
-    def final_name(self, time_part: str, duration: int) -> str:
-        """Generate the final filename for audio."""
-        return f"{time_part}_{duration}_audio.m4a"
 
 
 class ScreenCaptureKitManager:
@@ -61,8 +52,7 @@ class ScreenCaptureKitManager:
     Manages sck-cli subprocess for synchronized video and audio capture.
 
     Wraps the sck-cli tool to provide lifecycle management, handles process
-    monitoring, parses JSONL output for display geometry, and manages output
-    file finalization.
+    monitoring, and parses JSONL output for display geometry.
     """
 
     def __init__(self, sck_cli_path: str = "sck-cli"):
@@ -105,8 +95,8 @@ class ScreenCaptureKitManager:
 
         Example:
             >>> manager = ScreenCaptureKitManager()
-            >>> day_dir = Path("journal/20250101")
-            >>> output_base = day_dir / ".120000"  # Hidden temp file
+            >>> draft_dir = Path("journal/20250101/120000_draft")
+            >>> output_base = draft_dir / "capture"
             >>> displays, audio = manager.start(output_base, duration=300)
         """
         # Build command
@@ -218,7 +208,7 @@ class ScreenCaptureKitManager:
                     y=mon["box"][1],
                     width=mon["box"][2] - mon["box"][0],
                     height=mon["box"][3] - mon["box"][1],
-                    temp_path=raw["filename"],
+                    file_path=raw["filename"],
                 )
             )
 
@@ -226,7 +216,7 @@ class ScreenCaptureKitManager:
         if audio_info:
             tracks = [t["name"] for t in audio_info.get("tracks", [])]
             self.audio = AudioInfo(
-                temp_path=audio_info["filename"],
+                file_path=audio_info["filename"],
                 tracks=tracks,
             )
         else:
@@ -236,10 +226,10 @@ class ScreenCaptureKitManager:
         for display in self.displays:
             logger.info(
                 f"  Display {display.display_id}: {display.position} "
-                f"({display.width}x{display.height}) -> {display.temp_path}"
+                f"({display.width}x{display.height}) -> {display.file_path}"
             )
         if self.audio:
-            logger.info(f"  Audio: {self.audio.temp_path} ({self.audio.tracks})")
+            logger.info(f"  Audio: {self.audio.file_path} ({self.audio.tracks})")
 
         # Start background threads to log remaining stdout/stderr in real-time
         self._output_threads = [
