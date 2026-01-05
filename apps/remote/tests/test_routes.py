@@ -264,8 +264,8 @@ def test_ingest_success(remote_env):
     assert data["files"] == ["test_audio.flac"]
     assert data["bytes"] == len(test_data)
 
-    # Verify file was written
-    expected_file = env.journal / "20250103" / "test_audio.flac"
+    # Verify file was written (in segment directory)
+    expected_file = env.journal / "20250103" / "120000_300" / "test_audio.flac"
     assert expected_file.exists()
     assert expected_file.read_bytes() == test_data
 
@@ -499,17 +499,20 @@ def test_segment_exists_with_directory(remote_env):
     assert _segment_exists(day_dir, "120001_300") is False
 
 
-def test_segment_exists_with_files(remote_env):
-    """Test _segment_exists detects files with segment prefix."""
+def test_segment_exists_checks_directory(remote_env):
+    """Test _segment_exists only checks for segment directory."""
     from apps.remote.routes import _segment_exists
 
     env = remote_env()
     day_dir = env.journal / "20250103"
     day_dir.mkdir(parents=True)
 
-    # Create a file with segment prefix
+    # File with segment prefix doesn't count - only directories
     (day_dir / "120000_300_audio.flac").write_bytes(b"test")
+    assert _segment_exists(day_dir, "120000_300") is False
 
+    # Create a segment directory
+    (day_dir / "120000_300").mkdir()
     assert _segment_exists(day_dir, "120000_300") is True
     assert _segment_exists(day_dir, "120001_300") is False
 
@@ -545,8 +548,8 @@ def test_find_available_segment_with_conflict(remote_env):
     day_dir = env.journal / "20250103"
     day_dir.mkdir(parents=True)
 
-    # Create conflicting file
-    (day_dir / "120000_300_audio.flac").write_bytes(b"test")
+    # Create conflicting segment directory
+    (day_dir / "120000_300").mkdir()
 
     result = _find_available_segment(day_dir, "120000_300")
 
@@ -568,8 +571,8 @@ def test_find_available_segment_with_limited_attempts(remote_env):
     day_dir = env.journal / "20250103"
     day_dir.mkdir(parents=True)
 
-    # Create conflicting file
-    (day_dir / "120000_300_audio.flac").write_bytes(b"test")
+    # Create conflicting segment directory
+    (day_dir / "120000_300").mkdir()
 
     # With max_attempts=0, should return None immediately (no attempts allowed)
     result = _find_available_segment(day_dir, "120000_300", max_attempts=0)
@@ -618,10 +621,11 @@ def test_ingest_collision_adjusts_segment(remote_env):
     )
     key = resp.get_json()["key"]
 
-    # Create a conflicting file
+    # Create a conflicting segment directory
     day_dir = env.journal / "20250103"
     day_dir.mkdir(parents=True)
-    (day_dir / "120000_300_audio.flac").write_bytes(b"existing")
+    (day_dir / "120000_300").mkdir()
+    (day_dir / "120000_300" / "audio.flac").write_bytes(b"existing")
 
     # Upload with same segment key
     test_data = b"new audio content"
@@ -638,14 +642,18 @@ def test_ingest_collision_adjusts_segment(remote_env):
     data = resp.get_json()
     assert data["status"] == "ok"
 
-    # The filename should have been adjusted
+    # The segment key should have been adjusted, file is stripped of prefix
     saved_file = data["files"][0]
-    assert saved_file != "120000_300_audio.flac"
-    assert "_audio.flac" in saved_file
+    assert saved_file == "audio.flac"
 
-    # Verify both files exist
-    assert (day_dir / "120000_300_audio.flac").exists()  # Original
-    assert (day_dir / saved_file).exists()  # New adjusted
+    # Verify both segments exist
+    assert (day_dir / "120000_300" / "audio.flac").exists()  # Original
+    # New one is in adjusted segment directory (not 120000_300)
+    adjusted_segments = [
+        d for d in day_dir.iterdir() if d.is_dir() and d.name != "120000_300"
+    ]
+    assert len(adjusted_segments) == 1
+    assert (adjusted_segments[0] / "audio.flac").exists()
 
 
 def test_ingest_no_collision_preserves_segment(remote_env):
@@ -660,7 +668,7 @@ def test_ingest_no_collision_preserves_segment(remote_env):
     )
     key = resp.get_json()["key"]
 
-    # Upload without any conflicting files
+    # Upload without any conflicting segment directory
     test_data = b"audio content"
     resp = env.client.post(
         f"/app/remote/ingest/{key}",
@@ -674,10 +682,10 @@ def test_ingest_no_collision_preserves_segment(remote_env):
     assert resp.status_code == 200
     data = resp.get_json()
     assert data["status"] == "ok"
-    assert data["files"] == ["120000_300_audio.flac"]
+    assert data["files"] == ["audio.flac"]  # Segment prefix stripped
 
-    # Verify file saved with original name
-    expected_file = env.journal / "20250103" / "120000_300_audio.flac"
+    # Verify file saved in segment directory
+    expected_file = env.journal / "20250103" / "120000_300" / "audio.flac"
     assert expected_file.exists()
 
 
@@ -693,10 +701,10 @@ def test_ingest_stats_use_adjusted_segment(remote_env):
     )
     key = resp.get_json()["key"]
 
-    # Create a conflicting file
+    # Create a conflicting segment directory
     day_dir = env.journal / "20250103"
     day_dir.mkdir(parents=True)
-    (day_dir / "120000_300_audio.flac").write_bytes(b"existing")
+    (day_dir / "120000_300").mkdir()
 
     # Upload with same segment key
     test_data = b"new audio"
@@ -715,14 +723,12 @@ def test_ingest_stats_use_adjusted_segment(remote_env):
     resp = env.client.get("/app/remote/api/list")
     remotes = resp.get_json()
     assert len(remotes) == 1
-    # The stored segment should be different from original
     last_segment = remotes[0]["last_segment"]
     assert last_segment is not None
     # It should be adjusted (not the original conflicting one)
-    assert (
-        last_segment != "120000_300"
-        or (day_dir / f"{last_segment}_audio.flac").exists()
-    )
+    assert last_segment != "120000_300"
+    # The adjusted segment directory should exist
+    assert (day_dir / last_segment).exists()
 
 
 # === Sync history tests ===
@@ -789,7 +795,7 @@ def test_ingest_creates_sync_history(remote_env):
 
     file_rec = record["files"][0]
     assert file_rec["submitted"] == "120000_300_audio.flac"
-    assert file_rec["written"] == "120000_300_audio.flac"
+    assert file_rec["written"] == "audio.flac"  # Segment prefix stripped
     assert file_rec["size"] == len(test_data)
     assert len(file_rec["sha256"]) == 64  # SHA256 hex length
     assert file_rec["inode"] > 0
@@ -809,10 +815,10 @@ def test_ingest_history_with_collision(remote_env):
     key = data["key"]
     key_prefix = data["key_prefix"]
 
-    # Create conflicting file
+    # Create conflicting segment directory
     day_dir = env.journal / "20250103"
     day_dir.mkdir(parents=True)
-    (day_dir / "120000_300_audio.flac").write_bytes(b"existing")
+    (day_dir / "120000_300").mkdir()
 
     # Upload with same segment key
     test_data = b"new audio content"
@@ -843,11 +849,10 @@ def test_ingest_history_with_collision(remote_env):
     assert record["segment_original"] == "120000_300"
     assert record["segment"] != "120000_300"
 
-    # File names should reflect adjustment
+    # File names should reflect stripping of segment prefix
     file_rec = record["files"][0]
     assert file_rec["submitted"] == "120000_300_audio.flac"
-    assert file_rec["written"] != "120000_300_audio.flac"
-    assert record["segment"] in file_rec["written"]
+    assert file_rec["written"] == "audio.flac"  # Segment prefix stripped
 
 
 def test_segments_endpoint_empty(remote_env):
@@ -925,15 +930,18 @@ def test_segments_endpoint_lists_uploads(remote_env):
     assert len(data) == 1
     segment = data[0]
     assert segment["key"] == "120000_300"
+    assert segment["observed"] is False  # Not yet processed
     assert "original_key" not in segment  # No collision
     assert len(segment["files"]) == 1
 
     file_info = segment["files"][0]
-    assert file_info["name"] == "120000_300_audio.flac"
+    assert file_info["name"] == "audio.flac"  # Segment prefix stripped
     assert file_info["size"] == len(test_data)
     assert len(file_info["sha256"]) == 64
     assert file_info["status"] == "present"
-    assert "submitted_name" not in file_info  # Same as written
+    assert (
+        file_info["submitted_name"] == "120000_300_audio.flac"
+    )  # Original name preserved
 
 
 def test_segments_endpoint_shows_collision(remote_env):
@@ -948,10 +956,10 @@ def test_segments_endpoint_shows_collision(remote_env):
     )
     key = resp.get_json()["key"]
 
-    # Create conflicting file
+    # Create conflicting segment directory
     day_dir = env.journal / "20250103"
     day_dir.mkdir(parents=True)
-    (day_dir / "120000_300_audio.flac").write_bytes(b"existing")
+    (day_dir / "120000_300").mkdir()
 
     # Upload with collision
     test_data = b"new audio"
@@ -976,7 +984,7 @@ def test_segments_endpoint_shows_collision(remote_env):
 
     file_info = segment["files"][0]
     assert file_info["submitted_name"] == "120000_300_audio.flac"
-    assert file_info["name"] != "120000_300_audio.flac"
+    assert file_info["name"] == "audio.flac"  # Segment prefix stripped
     assert file_info["status"] == "present"
 
 
@@ -1004,8 +1012,8 @@ def test_segments_endpoint_missing_file(remote_env):
     )
     assert resp.status_code == 200
 
-    # Delete the file
-    (env.journal / "20250103" / "120000_300_audio.flac").unlink()
+    # Delete the file (now in segment directory with stripped name)
+    (env.journal / "20250103" / "120000_300" / "audio.flac").unlink()
 
     # Query segments
     resp = env.client.get(f"/app/remote/ingest/{key}/segments/20250103")
@@ -1040,12 +1048,11 @@ def test_segments_endpoint_relocated_file(remote_env):
     )
     assert resp.status_code == 200
 
-    # Move the file to a subdirectory (simulating indexer moving it)
+    # Move the file to a different name (simulating some file reorganization)
     day_dir = env.journal / "20250103"
     segment_dir = day_dir / "120000_300"
-    segment_dir.mkdir()
-    original_path = day_dir / "120000_300_audio.flac"
-    new_path = segment_dir / "audio.flac"
+    original_path = segment_dir / "audio.flac"
+    new_path = segment_dir / "renamed_audio.flac"
     original_path.rename(new_path)
 
     # Query segments - should detect relocation by inode
@@ -1055,7 +1062,7 @@ def test_segments_endpoint_relocated_file(remote_env):
     assert len(data) == 1
     file_info = data[0]["files"][0]
     assert file_info["status"] == "relocated"
-    assert file_info["current_path"] == "120000_300/audio.flac"
+    assert file_info["current_path"] == "120000_300/renamed_audio.flac"
 
 
 def test_find_by_inode(remote_env):
@@ -1158,3 +1165,82 @@ def test_segments_endpoint_deduplicates_by_sha256(remote_env):
     for segment in data:
         assert len(segment["files"]) == 1
         assert segment["files"][0]["status"] == "present"
+
+
+def test_segments_endpoint_shows_observed_status(remote_env):
+    """Test that segments endpoint includes observed status."""
+    env = remote_env()
+
+    # Create a remote
+    resp = env.client.post(
+        "/app/remote/api/create",
+        json={"name": "observed-test"},
+        content_type="application/json",
+    )
+    data = resp.get_json()
+    key = data["key"]
+    key_prefix = data["key_prefix"]
+
+    # Upload a file
+    test_data = b"test audio content"
+    resp = env.client.post(
+        f"/app/remote/ingest/{key}",
+        data={
+            "day": "20250103",
+            "segment": "120000_300",
+            "files": (io.BytesIO(test_data), "120000_300_audio.flac"),
+        },
+    )
+    assert resp.status_code == 200
+
+    # Query segments - should show observed: false
+    resp = env.client.get(f"/app/remote/ingest/{key}/segments/20250103")
+    data = resp.get_json()
+    assert len(data) == 1
+    assert data[0]["observed"] is False
+
+    # Manually add an observed record to simulate event handler
+    hist_dir = env.journal / "apps" / "remote" / "remotes" / key_prefix / "hist"
+    hist_dir.mkdir(parents=True, exist_ok=True)
+    hist_path = hist_dir / "20250103.jsonl"
+    with open(hist_path, "a") as f:
+        f.write('{"ts": 1704312345000, "type": "observed", "segment": "120000_300"}\n')
+
+    # Query again - should now show observed: true
+    resp = env.client.get(f"/app/remote/ingest/{key}/segments/20250103")
+    data = resp.get_json()
+    assert len(data) == 1
+    assert data[0]["observed"] is True
+
+
+def test_api_list_includes_segments_observed_stat(remote_env):
+    """Test that api_list includes segments_observed stat."""
+    env = remote_env()
+
+    # Create a remote
+    resp = env.client.post(
+        "/app/remote/api/create",
+        json={"name": "stats-test"},
+        content_type="application/json",
+    )
+    data = resp.get_json()
+    key_prefix = data["key_prefix"]
+
+    # Initially no segments_observed
+    resp = env.client.get("/app/remote/api/list")
+    data = resp.get_json()
+    assert len(data) == 1
+    assert "segments_observed" not in data[0]["stats"]
+
+    # Manually add segments_observed stat
+    remote_path = env.journal / "apps" / "remote" / "remotes" / f"{key_prefix}.json"
+    with open(remote_path) as f:
+        remote_data = json.load(f)
+    remote_data["stats"]["segments_observed"] = 5
+    with open(remote_path, "w") as f:
+        json.dump(remote_data, f)
+
+    # Should now show in list
+    resp = env.client.get("/app/remote/api/list")
+    data = resp.get_json()
+    assert data[0]["stats"]["segments_observed"] == 5

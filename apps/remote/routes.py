@@ -30,6 +30,15 @@ from apps.utils import get_app_storage_path, log_app_action
 from convey import emit
 from think.utils import day_path
 
+from .utils import (
+    append_history_record,
+    get_remotes_dir,
+    list_remotes,
+    load_history,
+    load_remote,
+    save_remote,
+)
+
 logger = logging.getLogger(__name__)
 
 remote_bp = Blueprint(
@@ -47,68 +56,14 @@ def _generate_key() -> str:
     return base64.urlsafe_b64encode(secrets.token_bytes(KEY_BYTES)).decode().rstrip("=")
 
 
-def _get_remotes_dir() -> Path:
-    """Get the remotes storage directory."""
-    return get_app_storage_path("remote", "remotes", ensure_exists=True)
-
-
-def _load_remote(key: str) -> dict | None:
-    """Load remote metadata by key."""
-    remotes_dir = _get_remotes_dir()
-    # Use first 8 chars of key as filename for readability
-    remote_path = remotes_dir / f"{key[:8]}.json"
-    if not remote_path.exists():
-        return None
-    try:
-        with open(remote_path) as f:
-            data = json.load(f)
-        # Verify full key matches
-        if data.get("key") != key:
-            return None
-        return data
-    except (json.JSONDecodeError, OSError):
-        return None
-
-
-def _save_remote(data: dict) -> bool:
-    """Save remote metadata."""
-    key = data.get("key")
-    if not key:
-        return False
-    remotes_dir = _get_remotes_dir()
-    remote_path = remotes_dir / f"{key[:8]}.json"
-    try:
-        with open(remote_path, "w") as f:
-            json.dump(data, f, indent=2)
-        return True
-    except OSError:
-        return False
-
-
 def _revoke_remote(key: str) -> bool:
     """Revoke remote by key (soft-delete)."""
-    remote = _load_remote(key)
+    remote = load_remote(key)
     if not remote:
         return False
     remote["revoked"] = True
     remote["revoked_at"] = int(time.time() * 1000)
-    return _save_remote(remote)
-
-
-def _list_remotes() -> list[dict]:
-    """List all registered remotes."""
-    remotes_dir = _get_remotes_dir()
-    remotes = []
-    for remote_path in remotes_dir.glob("*.json"):
-        try:
-            with open(remote_path) as f:
-                data = json.load(f)
-            remotes.append(data)
-        except (json.JSONDecodeError, OSError):
-            continue
-    # Sort by created_at descending
-    remotes.sort(key=lambda x: x.get("created_at", 0), reverse=True)
-    return remotes
+    return save_remote(remote)
 
 
 # === Management API (session-protected) ===
@@ -117,7 +72,7 @@ def _list_remotes() -> list[dict]:
 @remote_bp.route("/api/list")
 def api_list() -> Any:
     """List all registered remotes."""
-    remotes = _list_remotes()
+    remotes = list_remotes()
     # Sanitize output - don't expose full keys
     result = []
     for r in remotes:
@@ -162,7 +117,7 @@ def api_create() -> Any:
         },
     }
 
-    if not _save_remote(remote_data):
+    if not save_remote(remote_data):
         return jsonify({"error": "Failed to save remote"}), 500
 
     # Log observer creation (journal-level, no facet)
@@ -190,7 +145,7 @@ def api_create() -> Any:
 def api_delete(key_prefix: str) -> Any:
     """Revoke a remote by key prefix (soft-delete)."""
     # Find remote by prefix
-    remotes_dir = _get_remotes_dir()
+    remotes_dir = get_remotes_dir()
     remote_path = remotes_dir / f"{key_prefix}.json"
     if not remote_path.exists():
         return jsonify({"error": "Remote not found"}), 404
@@ -221,7 +176,7 @@ def api_delete(key_prefix: str) -> Any:
 def api_get_key(key_prefix: str) -> Any:
     """Get full key and ingest URL for a remote."""
     # Find remote by prefix
-    remotes_dir = _get_remotes_dir()
+    remotes_dir = get_remotes_dir()
     remote_path = remotes_dir / f"{key_prefix}.json"
     if not remote_path.exists():
         return jsonify({"error": "Remote not found"}), 404
@@ -259,62 +214,6 @@ def _compute_sha256(path: Path) -> str:
         for chunk in iter(lambda: f.read(65536), b""):
             sha256.update(chunk)
     return sha256.hexdigest()
-
-
-def _get_hist_dir(key_prefix: str, ensure_exists: bool = True) -> Path:
-    """Get the history directory for a remote.
-
-    Args:
-        key_prefix: First 8 chars of remote key
-        ensure_exists: Create directory if it doesn't exist (default: True)
-
-    Returns:
-        Path to apps/remote/remotes/<key_prefix>/hist/
-    """
-    return get_app_storage_path(
-        "remote", "remotes", key_prefix, "hist", ensure_exists=ensure_exists
-    )
-
-
-def _append_sync_record(key_prefix: str, day: str, record: dict) -> None:
-    """Append a sync record to the history file.
-
-    Args:
-        key_prefix: First 8 chars of remote key
-        day: Day string (YYYYMMDD)
-        record: Sync record to append
-    """
-    hist_dir = _get_hist_dir(key_prefix)
-    hist_path = hist_dir / f"{day}.jsonl"
-    with open(hist_path, "a", encoding="utf-8") as f:
-        f.write(json.dumps(record, ensure_ascii=False) + "\n")
-
-
-def _load_sync_history(key_prefix: str, day: str) -> list[dict]:
-    """Load sync history for a remote on a given day.
-
-    Args:
-        key_prefix: First 8 chars of remote key
-        day: Day string (YYYYMMDD)
-
-    Returns:
-        List of sync records, empty if file doesn't exist
-    """
-    hist_dir = _get_hist_dir(key_prefix, ensure_exists=False)
-    hist_path = hist_dir / f"{day}.jsonl"
-    if not hist_path.exists():
-        return []
-
-    records = []
-    try:
-        with open(hist_path, encoding="utf-8") as f:
-            for line in f:
-                line = line.strip()
-                if line:
-                    records.append(json.loads(line))
-    except (json.JSONDecodeError, OSError) as e:
-        logger.warning(f"Failed to load sync history {hist_path}: {e}")
-    return records
 
 
 def _find_by_inode(day_dir: Path, inode: int) -> Path | None:
@@ -392,15 +291,10 @@ def _segment_exists(day_dir: Path, segment: str) -> bool:
         segment: Segment key in HHMMSS_LEN format
 
     Returns:
-        True if segment directory or files with segment prefix exist
+        True if segment directory exists
     """
     # Check for segment directory
-    if (day_dir / segment).exists():
-        return True
-    # Check for files starting with segment key
-    if list(day_dir.glob(f"{segment}_*")):
-        return True
-    return False
+    return (day_dir / segment).exists()
 
 
 def _find_available_segment(
@@ -445,6 +339,25 @@ def _find_available_segment(
             return modified
 
     return None  # Exhausted attempts
+
+
+def _strip_segment_prefix(filename: str, segment: str) -> str:
+    """Strip segment prefix from filename if present.
+
+    Handles old-style prefixed filenames (e.g., "143022_300_audio.flac")
+    and returns simple names (e.g., "audio.flac").
+
+    Args:
+        filename: Original filename (may have segment prefix)
+        segment: Segment key (HHMMSS_LEN)
+
+    Returns:
+        Simple filename without segment prefix
+    """
+    prefix = f"{segment}_"
+    if filename.startswith(prefix):
+        return filename[len(prefix) :]
+    return filename
 
 
 def _save_to_failed(day_dir: Path, files: list, segment: str) -> Path:
@@ -492,7 +405,7 @@ def ingest_upload(key: str) -> Any:
     Writes files to journal and emits observe.observing event.
     """
     # Validate key
-    remote = _load_remote(key)
+    remote = load_remote(key)
     if not remote:
         return jsonify({"error": "Invalid key"}), 401
 
@@ -527,12 +440,12 @@ def ingest_upload(key: str) -> Any:
         return jsonify({"error": "No files uploaded"}), 400
 
     # Ensure day directory exists
-    target_dir = day_path(day)
-    target_dir.mkdir(parents=True, exist_ok=True)
+    day_dir = day_path(day)
+    day_dir.mkdir(parents=True, exist_ok=True)
 
     # Find available segment key (may differ from original if collision)
     original_segment = segment
-    available_segment = _find_available_segment(target_dir, segment)
+    available_segment = _find_available_segment(day_dir, segment)
 
     if available_segment is None:
         # Exhausted attempts, save to failed directory
@@ -540,13 +453,13 @@ def ingest_upload(key: str) -> Any:
             f"No available segment slot for {day}/{segment} from "
             f"{remote.get('name')} after {MAX_SEGMENT_ATTEMPTS} attempts"
         )
-        failed_dir = _save_to_failed(target_dir, files, segment)
+        failed_dir = _save_to_failed(day_dir, files, segment)
         return (
             jsonify(
                 {
                     "status": "failed",
                     "error": f"No available segment slot after {MAX_SEGMENT_ATTEMPTS} attempts",
-                    "failed_path": str(failed_dir.relative_to(target_dir.parent)),
+                    "failed_path": str(failed_dir.relative_to(day_dir.parent)),
                 }
             ),
             507,
@@ -559,7 +472,11 @@ def ingest_upload(key: str) -> Any:
             f"for remote {remote.get('name')}"
         )
 
-    # Save files with adjusted segment key in filenames
+    # Create segment directory for files
+    segment_dir = day_dir / segment
+    segment_dir.mkdir(parents=True, exist_ok=True)
+
+    # Save files with simple names (strip any segment prefix)
     saved_files = []
     file_records = []  # For sync history
     total_bytes = 0
@@ -573,12 +490,11 @@ def ingest_upload(key: str) -> Any:
         if not submitted_filename:
             continue
 
-        # Replace original segment with adjusted segment in filename
-        written_filename = submitted_filename
-        if original_segment != segment and original_segment in submitted_filename:
-            written_filename = submitted_filename.replace(original_segment, segment, 1)
+        # Strip segment prefix from filename if present (for backward compat with old clients)
+        # e.g., "143022_300_audio.flac" -> "audio.flac"
+        simple_filename = _strip_segment_prefix(submitted_filename, original_segment)
 
-        target_path = target_dir / written_filename
+        target_path = segment_dir / simple_filename
 
         # Save file
         try:
@@ -587,7 +503,7 @@ def ingest_upload(key: str) -> Any:
             file_size = stat.st_size
             file_inode = stat.st_ino
 
-            saved_files.append(written_filename)
+            saved_files.append(simple_filename)
             total_bytes += file_size
 
             # Compute SHA256 and record file info for sync history
@@ -595,17 +511,17 @@ def ingest_upload(key: str) -> Any:
             file_records.append(
                 {
                     "submitted": submitted_filename,
-                    "written": written_filename,
+                    "written": simple_filename,
                     "inode": file_inode,
                     "size": file_size,
                     "sha256": file_sha256,
                 }
             )
 
-            logger.info(f"Saved {written_filename} to {target_dir}")
+            logger.info(f"Saved {simple_filename} to {segment_dir}")
         except OSError as e:
-            logger.error(f"Failed to save {written_filename}: {e}")
-            return jsonify({"error": f"Failed to save {written_filename}"}), 500
+            logger.error(f"Failed to save {simple_filename}: {e}")
+            return jsonify({"error": f"Failed to save {simple_filename}"}), 500
 
     if not saved_files:
         return jsonify({"error": "No valid files saved"}), 400
@@ -619,7 +535,7 @@ def ingest_upload(key: str) -> Any:
     }
     if segment != original_segment:
         sync_record["segment_original"] = original_segment
-    _append_sync_record(key_prefix, day, sync_record)
+    append_history_record(key_prefix, day, sync_record)
 
     # Update remote stats
     remote["last_seen"] = int(time.time() * 1000)
@@ -630,7 +546,7 @@ def ingest_upload(key: str) -> Any:
     remote["stats"]["bytes_received"] = (
         remote["stats"].get("bytes_received", 0) + total_bytes
     )
-    _save_remote(remote)
+    save_remote(remote)
 
     # Emit observe.observing event to local Callosum
     # Include host/platform from remote observer if provided
@@ -669,7 +585,7 @@ def ingest_event(key: str) -> Any:
     - ...additional fields
     """
     # Validate key
-    remote = _load_remote(key)
+    remote = load_remote(key)
     if not remote:
         return jsonify({"error": "Invalid key"}), 401
 
@@ -697,7 +613,7 @@ def ingest_event(key: str) -> Any:
     # Update last_seen on status events
     if tract == "observe" and event == "status":
         remote["last_seen"] = int(time.time() * 1000)
-        _save_remote(remote)
+        save_remote(remote)
 
     return jsonify({"status": "ok"})
 
@@ -716,7 +632,7 @@ def ingest_segments(key: str, day: str) -> Any:
         day: Day string (YYYYMMDD)
     """
     # Validate key
-    remote = _load_remote(key)
+    remote = load_remote(key)
     if not remote:
         return jsonify({"error": "Invalid key"}), 401
 
@@ -732,19 +648,26 @@ def ingest_segments(key: str, day: str) -> Any:
 
     # Load sync history for this remote/day
     key_prefix = key[:8]
-    records = _load_sync_history(key_prefix, day)
+    records = load_history(key_prefix, day)
 
     if not records:
         return jsonify([])
 
     # Get day directory for file verification
-    target_dir = day_path(day)
+    day_dir = day_path(day)
 
     # Build response grouped by segment, deduplicating by sha256
     # Later records overwrite earlier ones (most recent upload wins)
     segments: dict[str, dict] = {}
+    observed_segments: set[str] = set()  # Track which segments have been observed
 
     for record in records:
+        # Handle "observed" record type (from event handler)
+        record_type = record.get("type", "upload")
+        if record_type == "observed":
+            observed_segments.add(record.get("segment", ""))
+            continue
+
         segment = record.get("segment", "")
         segment_original = record.get("segment_original")
 
@@ -774,16 +697,17 @@ def ingest_segments(key: str, day: str) -> Any:
             if submitted != written:
                 file_info["submitted_name"] = submitted
 
-            # Check file status
-            recorded_path = target_dir / written
+            # Check file status - files are now in segment directories
+            segment_dir = day_dir / segment
+            recorded_path = segment_dir / written
             if recorded_path.exists():
                 file_info["status"] = "present"
-            elif inode and target_dir.exists():
+            elif inode and day_dir.exists():
                 # Try to find by inode
-                relocated = _find_by_inode(target_dir, inode)
+                relocated = _find_by_inode(day_dir, inode)
                 if relocated:
                     file_info["status"] = "relocated"
-                    file_info["current_path"] = str(relocated.relative_to(target_dir))
+                    file_info["current_path"] = str(relocated.relative_to(day_dir))
                 else:
                     file_info["status"] = "missing"
             else:
@@ -795,15 +719,13 @@ def ingest_segments(key: str, day: str) -> Any:
     # Convert files_by_sha dicts to lists and sort by segment key
     result = []
     for segment_data in sorted(segments.values(), key=lambda s: s["key"]):
-        result.append(
-            {
-                "key": segment_data["key"],
-                **(
-                    {"original_key": segment_data["original_key"]}
-                    if "original_key" in segment_data
-                    else {}
-                ),
-                "files": list(segment_data["files_by_sha"].values()),
-            }
-        )
+        segment_key = segment_data["key"]
+        entry = {
+            "key": segment_key,
+            "observed": segment_key in observed_segments,
+            "files": list(segment_data["files_by_sha"].values()),
+        }
+        if "original_key" in segment_data:
+            entry["original_key"] = segment_data["original_key"]
+        result.append(entry)
     return jsonify(result)
