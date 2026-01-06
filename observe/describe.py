@@ -427,6 +427,7 @@ class VideoProcessor:
 
         # Track frames by frame_id for merging follow-up results
         frame_results = {}  # frame_id -> result dict
+        frame_images = {}  # frame_id -> PIL Image (for follow-up cleanup)
 
         # Stream results as they complete, with retry logic
         async for req in batch.drain_batch():
@@ -526,6 +527,9 @@ class VideoProcessor:
                     full_img = Image.open(io.BytesIO(req.frame_bytes))
                     req.pending_follow_ups = len(follow_ups)
 
+                    # Store image in frame_images for cleanup (single reference)
+                    frame_images[req.frame_id] = full_img
+
                     # Close initial image since DESCRIBE is complete
                     if hasattr(req, "initial_image") and req.initial_image:
                         req.initial_image.close()
@@ -570,7 +574,7 @@ class VideoProcessor:
                         f"{', '.join(cat for cat, _ in follow_ups)}"
                     )
 
-                    full_img.close()
+                    # Don't close full_img here - requests are async and need it open
                     continue  # Don't output yet, wait for follow-ups
 
             # Handle follow-up completion for parallel requests
@@ -615,6 +619,11 @@ class VideoProcessor:
 
                     # Clean up frame_results entry
                     del frame_results[req.frame_id]
+
+                    # Close follow-up image now that all requests are done
+                    if req.frame_id in frame_images:
+                        frame_images[req.frame_id].close()
+                        del frame_images[req.frame_id]
 
                     # Aggressively clear heavy fields
                     req.frame_bytes = None
