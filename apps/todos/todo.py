@@ -34,6 +34,7 @@ __all__ = [
     "validate_line_number",
     "upcoming",
     "get_facets_with_todos",
+    "get_todo_days_in_range",
 ]
 
 # Regex for extracting time annotation from text
@@ -563,6 +564,41 @@ def get_facets_with_todos(day: str) -> list[str]:
         return []
 
     return sorted(facets_with_todos)
+
+
+def get_todo_days_in_range(facet: str, day_from: str, day_to: str) -> list[str]:
+    """Return a sorted list of days with todos in the given range for a facet.
+
+    Args:
+        facet: Facet name (e.g., "personal", "work").
+        day_from: Start day in ``YYYYMMDD`` format (inclusive).
+        day_to: End day in ``YYYYMMDD`` format (inclusive).
+
+    Returns:
+        Sorted list of day strings (YYYYMMDD) that have todo files within the range.
+        Returns empty list if no todos exist or journal path is invalid.
+    """
+    journal = os.getenv("JOURNAL_PATH", "journal")
+    todos_dir = Path(journal) / "facets" / facet / "todos"
+
+    if not todos_dir.is_dir():
+        return []
+
+    days: list[str] = []
+
+    try:
+        for f in todos_dir.iterdir():
+            if not f.is_file() or f.suffix != ".jsonl":
+                continue
+            stem = f.stem
+            if len(stem) != 8 or not stem.isdigit():
+                continue
+            if day_from <= stem <= day_to:
+                days.append(stem)
+    except OSError:  # pragma: no cover - filesystem failure
+        return []
+
+    return sorted(days)
 
 
 def format_todos(

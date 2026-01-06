@@ -30,21 +30,90 @@ TOOL_PACKS = {
 
 
 @register_tool(annotations=HINTS)
-def todo_list(day: str, facet: str) -> dict[str, Any]:
-    """Return the numbered todo checklist for ``day``'s todos in a specific facet.
+def todo_list(day: str, facet: str, day_to: str | None = None) -> dict[str, Any]:
+    """Return the numbered todo checklist for a day or date range in a specific facet.
 
     Args:
-        day: Journal day in ``YYYYMMDD`` format.
+        day: Journal day in ``YYYYMMDD`` format (start of range if day_to provided).
         facet: Facet name (e.g., "personal", "work").
+        day_to: Optional end day in ``YYYYMMDD`` format for range queries (inclusive).
 
     Returns:
         Dictionary containing the formatted ``markdown`` view with ``N:`` line
         prefixes. Cancelled items are shown with strikethrough to maintain
         sequential line numbering for ``todo_add`` operations.
+
+        For range queries, includes ``day_to`` in response and markdown is grouped
+        by day with ``### YYYYMMDD`` headers. Days with no todos are omitted.
+
+    Examples:
+        - todo_list("20250101", "work")  # Single day
+        - todo_list("20250101", "work", "20250107")  # Week range
     """
     try:
-        checklist = todo.TodoChecklist.load(day, facet)
-        return {"day": day, "facet": facet, "markdown": checklist.display()}
+        # Validate day format
+        try:
+            datetime.strptime(day, "%Y%m%d")
+        except ValueError:
+            return {
+                "error": f"Invalid day format '{day}'",
+                "suggestion": "use YYYYMMDD format (e.g., 20250104)",
+            }
+
+        # Single day mode (no day_to)
+        if day_to is None:
+            checklist = todo.TodoChecklist.load(day, facet)
+            return {"day": day, "facet": facet, "markdown": checklist.display()}
+
+        # Validate day_to format
+        try:
+            datetime.strptime(day_to, "%Y%m%d")
+        except ValueError:
+            return {
+                "error": f"Invalid day_to format '{day_to}'",
+                "suggestion": "use YYYYMMDD format (e.g., 20250107)",
+            }
+
+        # Validate range order
+        if day > day_to:
+            return {
+                "error": f"day '{day}' must be before or equal to day_to '{day_to}'",
+                "suggestion": f"swap the values: todo_list('{day_to}', '{facet}', '{day}')",
+            }
+
+        # Same day treated as single day (no headers)
+        if day == day_to:
+            checklist = todo.TodoChecklist.load(day, facet)
+            return {"day": day, "facet": facet, "markdown": checklist.display()}
+
+        # Range mode: find all todo files in range
+        days_with_todos = todo.get_todo_days_in_range(facet, day, day_to)
+
+        if not days_with_todos:
+            return {
+                "day": day,
+                "day_to": day_to,
+                "facet": facet,
+                "markdown": "No todos in range.",
+            }
+
+        # Build markdown with day headers
+        sections: list[str] = []
+        for day_str in days_with_todos:
+            checklist = todo.TodoChecklist.load(day_str, facet)
+            if checklist.items:
+                section = f"### {day_str}\n{checklist.display()}"
+                sections.append(section)
+
+        markdown = "\n\n".join(sections) if sections else "No todos in range."
+
+        return {
+            "day": day,
+            "day_to": day_to,
+            "facet": facet,
+            "markdown": markdown,
+        }
+
     except FileNotFoundError:
         return {"error": f"No todos found for facet '{facet}' on day '{day}'"}
     except Exception as exc:  # pragma: no cover - unexpected failure

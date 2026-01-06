@@ -240,3 +240,126 @@ def test_todo_tool_pack_round_trip(tmp_path, monkeypatch):
     assert len(lines) == 2
     assert json.loads(lines[0])["cancelled"] is True
     assert json.loads(lines[1])["cancelled"] is True
+
+
+# -----------------------------------------------------------------------------
+# todo_list range tests
+# -----------------------------------------------------------------------------
+
+
+def test_todo_list_range_multiple_days(tmp_path, monkeypatch):
+    """todo_list with day_to should return todos grouped by day."""
+    facet = "work"
+    todos_dir = tmp_path / "facets" / facet / "todos"
+    todos_dir.mkdir(parents=True)
+    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+
+    # Create todos for multiple days
+    (todos_dir / "20250101.jsonl").write_text('{"text": "New Year task"}\n')
+    (todos_dir / "20250103.jsonl").write_text(
+        '{"text": "Task A"}\n{"text": "Task B", "completed": true}\n'
+    )
+    (todos_dir / "20250105.jsonl").write_text('{"text": "Weekend task"}\n')
+
+    result = call_tool(todo_tools.todo_list, "20250101", facet, "20250105")
+
+    assert result["day"] == "20250101"
+    assert result["day_to"] == "20250105"
+    assert result["facet"] == facet
+    assert "### 20250101" in result["markdown"]
+    assert "New Year task" in result["markdown"]
+    assert "### 20250103" in result["markdown"]
+    assert "Task A" in result["markdown"]
+    assert "Task B" in result["markdown"]
+    assert "### 20250105" in result["markdown"]
+    assert "Weekend task" in result["markdown"]
+
+
+def test_todo_list_range_empty(tmp_path, monkeypatch):
+    """todo_list with day_to should return empty message when no todos in range."""
+    facet = "work"
+    todos_dir = tmp_path / "facets" / facet / "todos"
+    todos_dir.mkdir(parents=True)
+    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+
+    result = call_tool(todo_tools.todo_list, "20250101", facet, "20250107")
+
+    assert result["day"] == "20250101"
+    assert result["day_to"] == "20250107"
+    assert result["markdown"] == "No todos in range."
+
+
+def test_todo_list_range_swapped_error(tmp_path, monkeypatch):
+    """todo_list should error when day > day_to with helpful suggestion."""
+    facet = "work"
+    todos_dir = tmp_path / "facets" / facet / "todos"
+    todos_dir.mkdir(parents=True)
+    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+
+    result = call_tool(todo_tools.todo_list, "20250107", facet, "20250101")
+
+    assert "error" in result
+    assert "must be before or equal to" in result["error"]
+    assert "suggestion" in result
+    assert "swap" in result["suggestion"]
+
+
+def test_todo_list_range_same_day_no_headers(todo_env):
+    """todo_list with day == day_to should behave like single day (no headers)."""
+    day, facet, _ = todo_env([{"text": "Single day task"}])
+
+    result = call_tool(todo_tools.todo_list, day, facet, day)
+
+    # Should be same as single-day format (no day_to in response, no headers)
+    assert result == {
+        "day": day,
+        "facet": facet,
+        "markdown": "1: [ ] Single day task",
+    }
+    assert "day_to" not in result
+    assert "###" not in result["markdown"]
+
+
+def test_todo_list_range_includes_cancelled(tmp_path, monkeypatch):
+    """todo_list range should include cancelled items with strikethrough."""
+    facet = "work"
+    todos_dir = tmp_path / "facets" / facet / "todos"
+    todos_dir.mkdir(parents=True)
+    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+
+    (todos_dir / "20250101.jsonl").write_text(
+        '{"text": "Active"}\n{"text": "Cancelled", "cancelled": true}\n'
+    )
+
+    result = call_tool(todo_tools.todo_list, "20250101", facet, "20250103")
+
+    assert "1: [ ] Active" in result["markdown"]
+    assert "2: ~~[cancelled] Cancelled~~" in result["markdown"]
+
+
+def test_todo_list_invalid_day_format(tmp_path, monkeypatch):
+    """todo_list should error on invalid day format."""
+    facet = "work"
+    todos_dir = tmp_path / "facets" / facet / "todos"
+    todos_dir.mkdir(parents=True)
+    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+
+    result = call_tool(todo_tools.todo_list, "not-a-date", facet)
+
+    assert "error" in result
+    assert "Invalid day format" in result["error"]
+    assert "suggestion" in result
+
+
+def test_todo_list_invalid_day_to_format(tmp_path, monkeypatch):
+    """todo_list should error on invalid day_to format."""
+    facet = "work"
+    todos_dir = tmp_path / "facets" / facet / "todos"
+    todos_dir.mkdir(parents=True)
+    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+
+    result = call_tool(todo_tools.todo_list, "20250101", facet, "bad-date")
+
+    assert "error" in result
+    assert "Invalid day_to format" in result["error"]
+    assert "suggestion" in result
