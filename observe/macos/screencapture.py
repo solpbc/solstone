@@ -16,6 +16,7 @@ import subprocess
 import threading
 import time
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Optional
 
 from observe.utils import assign_monitor_positions

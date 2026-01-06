@@ -535,22 +535,27 @@ Captures are the original binary media files recorded by observation tools.
 
 #### Audio captures
 
-Audio files are initially written to the day root with the segment key prefix:
+Audio files are initially written to the day root with the segment key prefix (Linux) or directly to segment folders (macOS):
 
-- `HHMMSS_LEN_*.flac` – audio files in day root (e.g., `143022_300_audio.flac`)
+- **Linux**: `HHMMSS_LEN_*.flac` – audio files in day root (e.g., `143022_300_audio.flac`)
+- **macOS**: `HHMMSS_LEN/audio.m4a` – audio files written directly to segment folder
 
 After transcription, audio files are moved into their segment folder:
 
-- `HHMMSS_LEN/*.flac` – audio files moved here after processing, preserving descriptive suffix (e.g., `audio.flac`, `mic.flac`)
+- `HHMMSS_LEN/*.flac` or `*.m4a` – audio files moved here after processing, preserving descriptive suffix (e.g., `audio.flac`, `audio.m4a`, `mic.flac`)
 
 Note: The descriptive portion after the segment key (e.g., `_audio`, `_recording`) is preserved when files are moved into segment directories. Processing tools match files by extension only, ignoring the descriptive suffix.
 
 #### Screen captures
 
-Screen recordings use per-monitor files with position and connector in the filename:
+Screen recordings use per-monitor files with position and connector/displayID in the filename:
 
-- `HHMMSS_LEN_<position>_<connector>_screen.webm` – screencast video files in day root (e.g., `143022_300_center_DP-3_screen.webm`)
-- `HHMMSS_LEN/<position>_<connector>_screen.webm` – video files moved here after analysis (e.g., `center_DP-3_screen.webm`)
+- **Linux**: `HHMMSS_LEN_<position>_<connector>_screen.webm` – screencast video files in day root (e.g., `143022_300_center_DP-3_screen.webm`)
+- **macOS**: `HHMMSS_LEN/<position>_<displayID>_screen.mov` – video files written directly to segment folder (e.g., `center_1_screen.mov`)
+
+After analysis, files are in their segment folder:
+
+- `HHMMSS_LEN/<position>_<connector>_screen.webm` or `*.mov` – video files (e.g., `center_DP-3_screen.webm`, `center_1_screen.mov`)
 
 For multi-monitor setups, each monitor produces a separate file. Position labels include: `center`, `left`, `right`, `top`, `bottom`, and combinations like `left-top`.
 

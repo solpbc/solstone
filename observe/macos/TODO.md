@@ -60,9 +60,12 @@ Tracks remaining work for the macOS observer integration.
 ## Reference
 
 ### File Naming Convention
-- **Video**: `HHMMSS_LEN_position_displayID_screen.mov` (e.g., `120000_300_center_1_screen.mov`)
-- **Audio**: `HHMMSS_LEN_audio.m4a` (e.g., `120000_300_audio.m4a`)
-- **Temp files**: `.HHMMSS_displayID.mov`, `.HHMMSS.m4a` (hidden during capture)
+
+Files are stored in segment directories: `YYYYMMDD/HHMMSS_LEN/`
+
+- **Video**: `position_displayID_screen.mov` (e.g., `center_1_screen.mov`)
+- **Audio**: `audio.m4a`
+- **Draft folder**: `HHMMSS_draft/` during capture, renamed to `HHMMSS_LEN/` on completion
 
 ### Differences from Linux Observer
 - **Audio threshold**: macOS checks at boundary (post-capture), Linux checks real-time

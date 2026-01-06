@@ -18,6 +18,7 @@ import shutil
 import signal
 import sys
 import time
+from pathlib import Path
 
 import av
 import numpy as np
@@ -212,6 +213,80 @@ class MacOSObserver:
             if container is not None:
                 container.close()
 
+    def _finalize_segment(self) -> tuple[str, str, list[str]]:
+        """
+        Finalize current segment by renaming files and folder.
+
+        Renames video files to simple names, checks audio threshold and
+        renames/deletes accordingly, then renames draft folder to final name.
+
+        Returns:
+            Tuple of (date_part, segment_key, saved_files)
+        """
+        # Get timestamp parts for this window and calculate duration
+        date_part, time_part = self.get_timestamp_parts(self.start_at)
+        duration = int(time.time() - self.start_at)
+        day_dir = day_path(date_part)
+        segment_key = f"{time_part}_{duration}"
+
+        saved_files: list[str] = []
+
+        # Rename video files to simple names in draft folder
+        for display in self.current_displays:
+            if os.path.exists(display.file_path):
+                # Simple name: position_displayID_screen.mov
+                simple_name = f"{display.position}_{display.display_id}_screen.mov"
+                simple_path = Path(self.draft_dir) / simple_name
+                try:
+                    os.rename(display.file_path, simple_path)
+                    saved_files.append(simple_name)
+                except OSError as e:
+                    logger.error(f"Failed to rename {display.file_path}: {e}")
+
+        # Check audio threshold and rename if passing
+        if self.current_audio and os.path.exists(self.current_audio.file_path):
+            if self._check_audio_threshold(self.current_audio.file_path):
+                simple_name = "audio.m4a"
+                simple_path = Path(self.draft_dir) / simple_name
+                try:
+                    os.rename(self.current_audio.file_path, simple_path)
+                    saved_files.append(simple_name)
+                    logger.info(f"Audio passed threshold check, saving: {simple_name}")
+                except OSError as e:
+                    logger.error(f"Failed to rename audio: {e}")
+            else:
+                # Delete the audio file
+                try:
+                    os.remove(self.current_audio.file_path)
+                    logger.info("Audio below threshold, discarded")
+                except OSError as e:
+                    logger.warning(f"Failed to remove audio file: {e}")
+
+        # Clear capture state
+        self.current_displays = []
+        self.current_audio = None
+
+        # Rename draft folder to final segment name (atomic handoff)
+        if self.draft_dir and saved_files:
+            final_segment_dir = str(day_dir / segment_key)
+            try:
+                os.rename(self.draft_dir, final_segment_dir)
+                logger.info(f"Segment finalized: {segment_key}")
+            except OSError as e:
+                logger.error(f"Failed to rename draft folder: {e}")
+                saved_files = []  # Don't emit event if rename failed
+        elif self.draft_dir:
+            # No files to save, remove empty draft folder
+            try:
+                os.rmdir(self.draft_dir)
+                logger.debug(f"Removed empty draft folder: {self.draft_dir}")
+            except OSError:
+                pass  # May have other files, ignore
+
+        self.draft_dir = None
+
+        return date_part, segment_key, saved_files
+
     def handle_boundary(self, is_active: bool):
         """
         Handle window boundary rollover.
@@ -222,14 +297,8 @@ class MacOSObserver:
         Args:
             is_active: Whether system is currently active
         """
-        from pathlib import Path
-
-        # Get timestamp parts for this window and calculate duration
-        date_part, time_part = self.get_timestamp_parts(self.start_at)
-        duration = int(time.time() - self.start_at)
-        day_dir = day_path(date_part)
-        segment_key = f"{time_part}_{duration}"
-
+        date_part = ""
+        segment_key = ""
         saved_files: list[str] = []
 
         if self.capture_running:
@@ -237,63 +306,8 @@ class MacOSObserver:
             self.screencapture.stop()
             self.capture_running = False
 
-            # Rename video files to simple names in draft folder
-            for display in self.current_displays:
-                if os.path.exists(display.file_path):
-                    # Simple name: position_displayID_screen.mov
-                    simple_name = f"{display.position}_{display.display_id}_screen.mov"
-                    simple_path = Path(self.draft_dir) / simple_name
-                    try:
-                        os.rename(display.file_path, simple_path)
-                        saved_files.append(simple_name)
-                    except OSError as e:
-                        logger.error(f"Failed to rename {display.file_path}: {e}")
-
-            # Check audio threshold and rename if passing
-            if self.current_audio and os.path.exists(self.current_audio.file_path):
-                if self._check_audio_threshold(self.current_audio.file_path):
-                    simple_name = "audio.m4a"
-                    simple_path = Path(self.draft_dir) / simple_name
-                    try:
-                        os.rename(self.current_audio.file_path, simple_path)
-                        saved_files.append(simple_name)
-                        logger.info(
-                            f"Audio passed threshold check, saving: {simple_name}"
-                        )
-                    except OSError as e:
-                        logger.error(f"Failed to rename audio: {e}")
-                else:
-                    # Delete the audio file
-                    try:
-                        os.remove(self.current_audio.file_path)
-                        logger.info("Audio below threshold, discarded")
-                    except OSError as e:
-                        logger.warning(f"Failed to remove audio file: {e}")
-
-            # Clear state
-            self.current_displays = []
-            self.current_audio = None
-
-        # Rename draft folder to final segment name (atomic handoff)
-        if self.draft_dir and saved_files:
-            final_segment_dir = str(day_dir / segment_key)
-            try:
-                os.rename(self.draft_dir, final_segment_dir)
-                logger.info(
-                    f"Segment finalized: {self.draft_dir} -> {final_segment_dir}"
-                )
-            except OSError as e:
-                logger.error(f"Failed to rename draft folder: {e}")
-                saved_files = []  # Don't emit event if rename failed
-        elif self.draft_dir and not saved_files:
-            # No files to save, remove empty draft folder
-            try:
-                os.rmdir(self.draft_dir)
-                logger.debug(f"Removed empty draft folder: {self.draft_dir}")
-            except OSError:
-                pass  # May have other files, ignore
-
-        self.draft_dir = None
+            # Finalize segment (rename files and folder)
+            date_part, segment_key, saved_files = self._finalize_segment()
 
         # Reset timing for new window
         self.start_at = time.time()
@@ -347,7 +361,6 @@ class MacOSObserver:
         Returns:
             True if capture started successfully, False otherwise
         """
-        from pathlib import Path
 
         # Create draft folder for this segment
         draft_path = self._create_draft_folder()
@@ -518,81 +531,30 @@ class MacOSObserver:
 
     async def shutdown(self):
         """Clean shutdown of observer."""
-        from pathlib import Path
 
         # Stop capture if running
         if self.capture_running:
             logger.info("Stopping capture for shutdown")
             self.screencapture.stop()
+            self.capture_running = False
 
             # Brief delay for files to be written
             await asyncio.sleep(0.5)
 
-            # Get timestamp parts for finalization
-            date_part, time_part = self.get_timestamp_parts(self.start_at)
-            duration = int(time.time() - self.start_at)
-            day_dir = day_path(date_part)
-            segment_key = f"{time_part}_{duration}"
+            # Finalize segment (rename files and folder)
+            date_part, segment_key, saved_files = self._finalize_segment()
 
-            saved_files: list[str] = []
-
-            # Rename video files to simple names in draft folder
-            for display in self.current_displays:
-                if os.path.exists(display.file_path):
-                    simple_name = f"{display.position}_{display.display_id}_screen.mov"
-                    simple_path = Path(self.draft_dir) / simple_name
-                    try:
-                        os.rename(display.file_path, simple_path)
-                        saved_files.append(simple_name)
-                    except OSError as e:
-                        logger.error(f"Failed to rename {display.file_path}: {e}")
-
-            # Check and rename audio if threshold met
-            if self.current_audio and os.path.exists(self.current_audio.file_path):
-                if self._check_audio_threshold(self.current_audio.file_path):
-                    simple_name = "audio.m4a"
-                    simple_path = Path(self.draft_dir) / simple_name
-                    try:
-                        os.rename(self.current_audio.file_path, simple_path)
-                        saved_files.append(simple_name)
-                    except OSError as e:
-                        logger.error(f"Failed to rename audio: {e}")
-                else:
-                    try:
-                        os.remove(self.current_audio.file_path)
-                        logger.info("Final audio below threshold, discarded")
-                    except OSError:
-                        pass
-
-            # Rename draft folder to final segment name
-            if self.draft_dir and saved_files:
-                final_segment_dir = str(day_dir / segment_key)
-                try:
-                    os.rename(self.draft_dir, final_segment_dir)
-                    logger.info(f"Segment finalized: {segment_key}")
-
-                    # Emit observing event for final segment
-                    if self.callosum:
-                        self.callosum.emit(
-                            "observe",
-                            "observing",
-                            day=date_part,
-                            segment=segment_key,
-                            files=saved_files,
-                            host=HOST,
-                            platform=PLATFORM,
-                        )
-                except OSError as e:
-                    logger.error(f"Failed to rename draft folder: {e}")
-            elif self.draft_dir:
-                # No files, clean up draft folder
-                try:
-                    os.rmdir(self.draft_dir)
-                except OSError:
-                    pass
-
-            self.draft_dir = None
-            self.capture_running = False
+            # Emit observing event for final segment
+            if saved_files and self.callosum:
+                self.callosum.emit(
+                    "observe",
+                    "observing",
+                    day=date_part,
+                    segment=segment_key,
+                    files=saved_files,
+                    host=HOST,
+                    platform=PLATFORM,
+                )
 
         # Stop Callosum connection
         if self.callosum:
