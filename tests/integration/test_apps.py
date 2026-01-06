@@ -27,7 +27,7 @@ def get_app_names() -> list[str]:
 
     Returns app names for all apps with workspace.html.
     """
-    project_root = Path(__file__).parent.parent
+    project_root = Path(__file__).parent.parent.parent
     apps_dir = project_root / "apps"
 
     app_names = []

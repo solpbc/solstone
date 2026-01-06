@@ -16,3 +16,4 @@ fixtures/journal/tokens/*.json
 *.log
 config*.py
 .installed
+.full-installed
