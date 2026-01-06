@@ -136,21 +136,6 @@ def test_entity_add_aka_entity_not_found():
     assert "suggestion" in result
 
 
-def test_entity_add_aka_runtime_error():
-    """Test entity_add_aka when JOURNAL_PATH not set."""
-    with (
-        patch("apps.entities.tools.load_entities") as mock_load,
-        patch("apps.entities.tools.is_valid_entity_type") as mock_validate,
-    ):
-        mock_validate.return_value = True
-        mock_load.side_effect = RuntimeError("JOURNAL_PATH not set")
-        result = entity_tools.entity_add_aka("work", "Tool", "PostgreSQL", "PG")
-
-    assert "error" in result
-    assert "JOURNAL_PATH not set" in result["error"]
-    assert "suggestion" in result
-
-
 def test_entity_add_aka_skip_first_word():
     """Test that adding first word of entity name as aka is silently skipped."""
     mock_entities = [

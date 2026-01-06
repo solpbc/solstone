@@ -16,8 +16,6 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from dotenv import load_dotenv
-
 from think.utils import get_journal
 
 

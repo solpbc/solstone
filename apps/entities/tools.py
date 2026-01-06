@@ -70,11 +70,6 @@ def entity_list(facet: str, day: str | None = None) -> dict[str, Any]:
             "count": len(entities),
             "entities": entities,
         }
-    except RuntimeError as exc:
-        return {
-            "error": str(exc),
-            "suggestion": "ensure JOURNAL_PATH environment variable is set",
-        }
     except Exception as exc:
         return {
             "error": f"Failed to list entities: {exc}",
@@ -151,11 +146,6 @@ def entity_detect(
             "day": day,
             "message": f"Entity '{name}' detected successfully",
             "entity": {"type": type, "name": name, "description": description},
-        }
-    except RuntimeError as exc:
-        return {
-            "error": str(exc),
-            "suggestion": "ensure JOURNAL_PATH environment variable is set",
         }
     except Exception as exc:
         return {
@@ -266,11 +256,6 @@ def entity_attach(
             "message": f"Entity '{name}' attached successfully",
             "entity": {"type": type, "name": name, "description": description},
         }
-    except RuntimeError as exc:
-        return {
-            "error": str(exc),
-            "suggestion": "ensure JOURNAL_PATH environment variable is set",
-        }
     except Exception as exc:
         return {
             "error": f"Failed to attach entity: {exc}",
@@ -357,11 +342,6 @@ def entity_update(
         return {
             "error": error_msg,
             "suggestion": "verify the entity exists and try again",
-        }
-    except RuntimeError as exc:
-        return {
-            "error": str(exc),
-            "suggestion": "ensure JOURNAL_PATH environment variable is set",
         }
     except Exception as exc:
         return {
@@ -470,11 +450,6 @@ def entity_add_aka(
             "suggestion": "verify the entity exists in the facet (only attached entities supported, not detected)",
         }
 
-    except RuntimeError as exc:
-        return {
-            "error": str(exc),
-            "suggestion": "ensure JOURNAL_PATH environment variable is set",
-        }
     except Exception as exc:
         return {
             "error": f"Failed to add aka: {exc}",

@@ -1227,11 +1227,7 @@ def handle_shutdown(signum, frame):
 def main() -> None:
     parser = parse_args()
     args = setup_cli(parser)
-    try:
-        journal_path = _get_journal_path()
-    except RuntimeError:
-        parser.error("JOURNAL_PATH not set")
-        return
+    journal_path = _get_journal_path()
 
     log_level = logging.DEBUG if args.debug else logging.INFO
     log_path = journal_path / "health" / "supervisor.log"

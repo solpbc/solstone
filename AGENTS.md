@@ -176,7 +176,7 @@ make check-all   # Format, lint, and test (run before commit)
 ### Environment Management
 * **JOURNAL_PATH**: The live journal path is stored in `.env`. To access it:
   - **Shell/CLI**: Run `grep JOURNAL_PATH .env` to get the path, then use it directly
-  - **Python CLI tools**: Call `setup_cli()` first, or manually use `load_dotenv()`
+  - **Python**: Use `get_journal()` from `think.utils` - it handles `.env` loading and auto-creates a platform-specific default if unset
 * **API Keys**: Store in `.env` file, never commit to repository
 * **Entry Points**: Use command names (e.g., `think-indexer`) NOT `python -m ...`
 

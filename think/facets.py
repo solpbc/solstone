@@ -11,7 +11,6 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Optional
 
-from dotenv import load_dotenv
 from fastmcp import Context
 from fastmcp.server.dependencies import get_http_headers
 

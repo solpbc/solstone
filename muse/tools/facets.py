@@ -120,11 +120,6 @@ def facet_news(facet: str, day: str, markdown: str | None = None) -> dict[str, A
                     "message": f"No news recorded for {day} in facet '{facet}'",
                 }
 
-    except RuntimeError as exc:
-        return {
-            "error": str(exc),
-            "suggestion": "ensure JOURNAL_PATH environment variable is set",
-        }
     except Exception as exc:
         return {
             "error": f"Failed to process facet news: {exc}",

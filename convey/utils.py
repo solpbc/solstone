@@ -103,7 +103,7 @@ def spawn_agent(
         agent_id string (timestamp-based)
 
     Raises:
-        ValueError: If JOURNAL_PATH not set or config invalid
+        ValueError: If config is invalid
         Exception: On agent spawn failure
     """
     from muse.cortex_client import cortex_request

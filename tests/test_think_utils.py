@@ -169,7 +169,7 @@ def test_load_entity_names_uses_default_path_when_env_var_unset(monkeypatch):
     # Ensure JOURNAL_PATH is not set
     monkeypatch.delenv("JOURNAL_PATH", raising=False)
     # Mock load_dotenv to prevent it from loading a .env file
-    monkeypatch.setattr("think.entities.load_dotenv", lambda: None)
+    monkeypatch.setattr("think.utils.load_dotenv", lambda: None)
 
     # With get_journal() fallback, this will use the platform default path
     # The result depends on whether entities exist there

@@ -13,7 +13,6 @@ import time
 from pathlib import Path
 from typing import Any, Optional
 
-from dotenv import load_dotenv
 from slugify import slugify
 
 from think.utils import get_journal

@@ -27,8 +27,6 @@ def get_config() -> Any:
     try:
         config = get_journal_config()
         return jsonify(config)
-    except RuntimeError as e:
-        return jsonify({"error": str(e)}), 500
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
@@ -76,8 +74,6 @@ def update_config() -> Any:
             )
 
         return jsonify({"success": True, "config": config})
-    except RuntimeError as e:
-        return jsonify({"error": str(e)}), 500
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 

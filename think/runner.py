@@ -34,7 +34,7 @@ logger = logging.getLogger(__name__)
 
 
 def _get_journal_path() -> Path:
-    """Get JOURNAL_PATH from environment."""
+    """Return the journal path (auto-creates if needed)."""
     return Path(get_journal())
 
 

@@ -31,7 +31,6 @@ from claude_agent_sdk import (
     UserMessage,
     query,
 )
-from dotenv import load_dotenv
 
 from think.models import CLAUDE_SONNET_4
 from think.utils import get_journal
