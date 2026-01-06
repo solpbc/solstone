@@ -776,13 +776,19 @@ def start_callosum_in_process() -> CallosumServer:
     server = CallosumServer()
     _callosum_server = server
 
+    # Pre-delete stale socket to avoid race condition where the ready check
+    # passes due to an old socket file before the server thread deletes it
+    socket_path = server.socket_path
+    socket_path.parent.mkdir(parents=True, exist_ok=True)
+    if socket_path.exists():
+        socket_path.unlink()
+
     # Start server in background thread (server.start() is blocking)
     thread = threading.Thread(target=server.start, daemon=False, name="callosum-server")
     thread.start()
     _callosum_thread = thread
 
     # Wait for socket to be ready (with timeout)
-    socket_path = server.socket_path
     for _ in range(50):  # Wait up to 500ms
         if socket_path.exists():
             logging.info(f"Callosum server started on {socket_path}")
