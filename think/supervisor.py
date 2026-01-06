@@ -115,6 +115,13 @@ _observe_status_state: dict = {
 # Track whether observer was started (for health check conditioning)
 _observer_enabled: bool = True
 
+# State for daily processing (dream runs in background, agents wait for completion)
+_daily_state = {
+    "dream_running": False,  # True while dream subprocess is active
+    "dream_completed": False,  # True after dream finishes (reset each day)
+    "last_day": None,  # Track which day we last processed
+}
+
 
 def _get_journal_path() -> Path:
     journal = os.getenv("JOURNAL_PATH")
@@ -302,39 +309,6 @@ async def clear_notification(alert_key: tuple) -> None:
 
     except Exception as exc:  # pragma: no cover - system issues
         logging.error("Failed to clear notification: %s", exc)
-
-
-async def run_subprocess_task(name: str, cmd: list[str]) -> bool:
-    """Run a subprocess task while mirroring output to a dedicated log.
-
-    Runs the subprocess in a thread to avoid blocking the async event loop.
-
-    Args:
-        name: Display name for the task
-        cmd: Command and arguments to execute
-
-    Returns:
-        True when the subprocess exits successfully.
-    """
-
-    def _blocking_run():
-        start = time.time()
-        try:
-            managed = RunnerManagedProcess.spawn(cmd, callosum=_supervisor_callosum)
-            return_code = managed.wait()
-        finally:
-            managed.cleanup()
-
-        duration = int(time.time() - start)
-        logging.info(f"{name} finished in {duration} seconds")
-        return return_code == 0
-
-    return await asyncio.to_thread(_blocking_run)
-
-
-async def run_dream() -> bool:
-    """Run ``think.dream`` while mirroring output to a dedicated log."""
-    return await run_subprocess_task("dream", ["think-dream", "-v"])
 
 
 def spawn_scheduled_agents() -> None:
@@ -614,9 +588,17 @@ def _handle_supervisor_request(message: dict) -> None:
         logging.error("Invalid restart request: missing service")
         return
 
-    # Find and signal the process
+    # Find the process
     for proc in _managed_procs:
-        if proc.name == service and proc.process.poll() is None:
+        if proc.name == service:
+            # Check if process is still running
+            if proc.process.poll() is not None:
+                # Already exited - ignore, supervision loop will auto-restart
+                logging.debug(
+                    f"Ignoring restart for {service}: already exited, awaiting auto-restart"
+                )
+                return
+
             logging.info(f"Restart requested for {service}, sending SIGINT...")
 
             # Emit restarting event
@@ -638,7 +620,7 @@ def _handle_supervisor_request(message: dict) -> None:
                 logging.error(f"Failed to send SIGINT to {service}: {e}")
             return
 
-    logging.warning(f"Cannot restart {service}: not found or not running")
+    logging.warning(f"Cannot restart {service}: not found in managed processes")
 
 
 def cancel_task(ref: str) -> bool:
@@ -975,14 +957,50 @@ async def handle_health_checks(
     return now, stale_set
 
 
-async def handle_daily_tasks(last_day: datetime.date) -> datetime.date:
-    """Run daily processing (dream + scheduled agents). Returns new last_day."""
+def _run_daily_dream() -> None:
+    """Run daily think-dream in background thread, update state on completion."""
+    from think.runner import run_task
+
+    logging.info("Starting daily dream processing...")
+    success, exit_code = run_task(
+        ["think-dream", "-v"],
+        callosum=_supervisor_callosum,
+    )
+
+    # Update state on completion
+    _daily_state["dream_running"] = False
+
+    if success:
+        logging.info("Daily dream completed successfully")
+        _daily_state["dream_completed"] = True
+        spawn_scheduled_agents()
+    else:
+        logging.error(f"Daily dream failed with exit code {exit_code}")
+        # dream_completed stays False, so scheduled agents won't run
+
+
+def handle_daily_tasks() -> None:
+    """Check for day change and spawn daily dream if needed (non-blocking).
+
+    Dream runs in a background thread so the supervision loop continues.
+    Scheduled agents are spawned after dream completes successfully.
+    """
     today = datetime.now().date()
-    if today != last_day:
-        if await run_dream():
-            spawn_scheduled_agents()
-        return today
-    return last_day
+
+    # Check if day changed
+    if today != _daily_state["last_day"]:
+        # Reset state for new day
+        _daily_state["last_day"] = today
+        _daily_state["dream_completed"] = False
+
+        # Don't start new dream if one is already running (edge case)
+        if _daily_state["dream_running"]:
+            logging.warning("Day changed but dream already running, skipping")
+            return
+
+        # Spawn dream in background thread
+        _daily_state["dream_running"] = True
+        threading.Thread(target=_run_daily_dream, daemon=True).start()
 
 
 def _handle_segment_observed(message: dict) -> None:
@@ -1111,7 +1129,6 @@ async def supervise(
     scheduled agents check continuously but only advance when ready).
     """
     alert_mgr = AlertManager()
-    last_day = datetime.now().date()
     last_health_check = 0.0
     last_status_emit = 0.0
     prev_stale: set[str] = set()
@@ -1154,9 +1171,9 @@ async def supervise(
                         logging.debug(f"Status emission failed: {e}")
                 last_status_emit = now
 
-            # Check for daily processing
+            # Check for daily processing (non-blocking, spawns dream in background)
             if daily:
-                last_day = await handle_daily_tasks(last_day)
+                handle_daily_tasks()
 
             # Advance scheduled agent execution (non-blocking)
             await check_scheduled_agents()

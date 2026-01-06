@@ -204,6 +204,33 @@ def add_module_stubs(request, monkeypatch):
             sys.modules[name] = types.ModuleType(name)
 
 
+@pytest.fixture(autouse=True)
+def reset_supervisor_daily_state():
+    """Reset supervisor _daily_state before/after tests to prevent cross-test pollution.
+
+    This prevents background threads spawned by one test from affecting other tests.
+    """
+    try:
+        from think.supervisor import _daily_state
+
+        # Reset before test
+        _daily_state["dream_running"] = False
+        _daily_state["dream_completed"] = False
+        _daily_state["last_day"] = None
+    except ImportError:
+        pass  # supervisor not loaded yet
+    yield
+    try:
+        from think.supervisor import _daily_state
+
+        # Reset after test
+        _daily_state["dream_running"] = False
+        _daily_state["dream_completed"] = False
+        _daily_state["last_day"] = None
+    except ImportError:
+        pass
+
+
 @pytest.fixture
 def mock_callosum(monkeypatch):
     """Mock Callosum connections to capture emitted events without real I/O.

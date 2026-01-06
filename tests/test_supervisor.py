@@ -191,68 +191,6 @@ def test_start_observer_and_sense(tmp_path, mock_callosum, monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_run_dream(tmp_path, monkeypatch):
-    mod = importlib.import_module("think.supervisor")
-    runner_mod = importlib.import_module("think.runner")
-
-    spawn_calls = {}
-
-    class DummyProcess:
-        def __init__(self):
-            self.pid = 12345
-            self.returncode = 0
-
-        def wait(self, timeout=None):
-            return 0
-
-    class DummyManagedProcess:
-        def __init__(self, cmd):
-            from pathlib import Path
-
-            self.process = DummyProcess()
-            self.name = Path(cmd[0]).name  # Derive from cmd[0]
-            self.cmd = cmd
-            self.log_writer = DummyLogger()
-            self._threads = []
-            spawn_calls["name"] = self.name
-            spawn_calls["cmd"] = cmd
-
-        def wait(self, timeout=None):
-            return 0
-
-        def cleanup(self):
-            self.log_writer.close()
-
-    class DummyLogger:
-        def __init__(self):
-            self.closed = False
-
-        def close(self):
-            self.closed = True
-
-    def fake_spawn(cmd, *, env=None, ref=None, callosum=None):
-        return DummyManagedProcess(cmd)
-
-    monkeypatch.setattr(runner_mod.ManagedProcess, "spawn", fake_spawn)
-    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
-
-    times = iter([0, 1])
-    monkeypatch.setattr(mod.time, "time", lambda: next(times))
-
-    messages = []
-    monkeypatch.setattr(
-        mod.logging, "info", lambda msg, *a: messages.append(msg % a if a else msg)
-    )
-
-    assert await mod.run_dream() is True
-
-    assert spawn_calls["name"] == "think-dream"  # Derived from cmd[0]
-    assert spawn_calls["cmd"] == ["think-dream", "-v"]
-    assert os.environ["JOURNAL_PATH"] == str(tmp_path)
-    assert any("seconds" in m for m in messages)
-
-
-@pytest.mark.asyncio
 async def test_supervise_logs_recovery(mock_callosum, monkeypatch, caplog):
     mod = importlib.reload(importlib.import_module("think.supervisor"))
     mod.shutdown_requested = False
@@ -284,11 +222,15 @@ async def test_supervise_logs_recovery(mock_callosum, monkeypatch, caplog):
     async def fake_check_scheduled_agents():
         pass
 
+    def fake_handle_daily_tasks():
+        pass
+
     monkeypatch.setattr(mod, "check_runner_exits", lambda procs: [])
     monkeypatch.setattr(mod, "check_health", fake_check_health)
     monkeypatch.setattr(mod, "send_notification", fake_send_notification)
     monkeypatch.setattr(mod, "clear_notification", fake_clear_notification)
     monkeypatch.setattr(mod, "check_scheduled_agents", fake_check_scheduled_agents)
+    monkeypatch.setattr(mod, "handle_daily_tasks", fake_handle_daily_tasks)
     monkeypatch.setattr(mod.time, "time", fake_time)
     monkeypatch.setattr(mod.asyncio, "sleep", fake_sleep)
 
