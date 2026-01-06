@@ -440,3 +440,96 @@ def test_file_sensor_segment_observed_includes_day(tmp_path, mock_callosum):
     assert len(observed_events) == 1
     assert observed_events[0].get("day") == "20250101"
     assert observed_events[0].get("segment") == "143022_300"
+
+
+def test_delete_outputs_screen(tmp_path):
+    """Test delete_outputs with screen type."""
+    from observe.sense import delete_outputs
+
+    # Create journal/day/segment structure
+    day_dir = tmp_path / "20250101"
+    segment_dir = day_dir / "143022_300"
+    segment_dir.mkdir(parents=True)
+
+    # Create source files and outputs
+    (segment_dir / "center_DP-3_screen.webm").write_text("video")
+    (segment_dir / "center_DP-3_screen.jsonl").write_text('{"raw": "test"}')
+    (segment_dir / "audio.flac").write_text("audio")
+    (segment_dir / "audio.jsonl").write_text('{"raw": "test"}')
+
+    # Delete screen outputs
+    deleted = delete_outputs(day_dir, "screen")
+
+    assert len(deleted) == 1
+    assert deleted[0].name == "center_DP-3_screen.jsonl"
+    assert not (segment_dir / "center_DP-3_screen.jsonl").exists()
+    assert (segment_dir / "audio.jsonl").exists()  # Audio untouched
+
+
+def test_delete_outputs_audio(tmp_path):
+    """Test delete_outputs with audio type."""
+    from observe.sense import delete_outputs
+
+    # Create journal/day/segment structure
+    day_dir = tmp_path / "20250101"
+    segment_dir = day_dir / "143022_300"
+    segment_dir.mkdir(parents=True)
+
+    # Create source files and outputs
+    (segment_dir / "center_DP-3_screen.webm").write_text("video")
+    (segment_dir / "center_DP-3_screen.jsonl").write_text('{"raw": "test"}')
+    (segment_dir / "audio.flac").write_text("audio")
+    (segment_dir / "audio.jsonl").write_text('{"raw": "test"}')
+
+    # Delete audio outputs
+    deleted = delete_outputs(day_dir, "audio")
+
+    assert len(deleted) == 1
+    assert deleted[0].name == "audio.jsonl"
+    assert not (segment_dir / "audio.jsonl").exists()
+    assert (segment_dir / "center_DP-3_screen.jsonl").exists()  # Screen untouched
+
+
+def test_delete_outputs_dry_run(tmp_path):
+    """Test delete_outputs with dry_run=True."""
+    from observe.sense import delete_outputs
+
+    # Create journal/day/segment structure
+    day_dir = tmp_path / "20250101"
+    segment_dir = day_dir / "143022_300"
+    segment_dir.mkdir(parents=True)
+
+    # Create source files and outputs
+    (segment_dir / "screen.webm").write_text("video")
+    (segment_dir / "screen.jsonl").write_text('{"raw": "test"}')
+
+    # Dry run should return files but not delete
+    deleted = delete_outputs(day_dir, "screen", dry_run=True)
+
+    assert len(deleted) == 1
+    assert (segment_dir / "screen.jsonl").exists()  # Still exists
+
+
+def test_delete_outputs_segment_filter(tmp_path):
+    """Test delete_outputs with segment filter."""
+    from observe.sense import delete_outputs
+
+    # Create journal/day/segments structure
+    day_dir = tmp_path / "20250101"
+    segment1 = day_dir / "143022_300"
+    segment2 = day_dir / "150022_300"
+    segment1.mkdir(parents=True)
+    segment2.mkdir(parents=True)
+
+    # Create outputs in both segments
+    (segment1 / "screen.webm").write_text("video")
+    (segment1 / "screen.jsonl").write_text('{"raw": "test"}')
+    (segment2 / "screen.webm").write_text("video")
+    (segment2 / "screen.jsonl").write_text('{"raw": "test"}')
+
+    # Delete only from segment1
+    deleted = delete_outputs(day_dir, "screen", segment_filter="143022_300")
+
+    assert len(deleted) == 1
+    assert not (segment1 / "screen.jsonl").exists()
+    assert (segment2 / "screen.jsonl").exists()  # Other segment untouched

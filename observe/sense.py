@@ -20,7 +20,7 @@ import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from observe.utils import VIDEO_EXTENSIONS
+from observe.utils import AUDIO_EXTENSIONS, VIDEO_EXTENSIONS
 from think.callosum import CallosumConnection
 from think.runner import ManagedProcess as RunnerManagedProcess
 from think.utils import day_path, setup_cli
@@ -559,7 +559,9 @@ class FileSensor:
         with self.lock:
             self.running.clear()
 
-    def process_day(self, day: str, max_jobs: int = 1):
+    def process_day(
+        self, day: str, max_jobs: int = 1, segment_filter: Optional[str] = None
+    ):
         """Process all matching unprocessed files from a specific day directory.
 
         Files are in segment directories (HHMMSS_LEN/). A file is considered
@@ -568,6 +570,7 @@ class FileSensor:
         Args:
             day: Day in YYYYMMDD format
             max_jobs: Maximum number of concurrent processing jobs
+            segment_filter: Optional segment key to filter (HHMMSS_LEN format)
         """
         from think.utils import segment_key
 
@@ -580,6 +583,10 @@ class FileSensor:
         to_process = []
         for segment_dir in day_dir.iterdir():
             if not segment_dir.is_dir() or not segment_key(segment_dir.name):
+                continue
+
+            # Apply segment filter if specified
+            if segment_filter and segment_dir.name != segment_filter:
                 continue
 
             for file_path in segment_dir.iterdir():
@@ -649,6 +656,76 @@ class FileSensor:
         logger.info("Batch processing complete")
 
 
+def delete_outputs(
+    day_dir: Path,
+    reprocess_type: str,
+    segment_filter: Optional[str] = None,
+    dry_run: bool = False,
+) -> list[Path]:
+    """Delete existing output files to force reprocessing.
+
+    Args:
+        day_dir: Path to day directory (YYYYMMDD)
+        reprocess_type: Type of outputs to delete ("screen", "audio", or "all")
+        segment_filter: Optional segment key to filter (HHMMSS_LEN format)
+        dry_run: If True, don't delete, just return what would be deleted
+
+    Returns:
+        List of paths that were (or would be) deleted
+    """
+    from think.utils import segment_key
+
+    deleted = []
+
+    if not day_dir.exists():
+        return deleted
+
+    for segment in day_dir.iterdir():
+        if not segment.is_dir() or not segment_key(segment.name):
+            continue
+
+        # Apply segment filter if specified
+        if segment_filter and segment.name != segment_filter:
+            continue
+
+        for file_path in segment.iterdir():
+            if not file_path.is_file() or file_path.suffix != ".jsonl":
+                continue
+
+            stem = file_path.stem.lower()
+
+            # Determine if this output matches the reprocess type
+            should_delete = False
+            if reprocess_type == "all":
+                # Delete all outputs that have a corresponding source file
+                # Check for video source
+                for ext in VIDEO_EXTENSIONS:
+                    if (segment / f"{file_path.stem}{ext}").exists():
+                        should_delete = True
+                        break
+                # Check for audio source
+                for ext in AUDIO_EXTENSIONS:
+                    if (segment / f"{file_path.stem}{ext}").exists():
+                        should_delete = True
+                        break
+            elif reprocess_type == "screen":
+                # Screen outputs end with _screen or are just screen
+                if stem.endswith("_screen") or stem == "screen":
+                    should_delete = True
+            elif reprocess_type == "audio":
+                # Audio outputs end with _audio or are just audio
+                if stem.endswith("_audio") or stem == "audio":
+                    should_delete = True
+
+            if should_delete:
+                deleted.append(file_path)
+                if not dry_run:
+                    file_path.unlink()
+                    logger.info(f"Deleted: {file_path.relative_to(day_dir.parent)}")
+
+    return deleted
+
+
 def scan_day(day_dir: Path) -> dict:
     """Scan a day directory for processed and unprocessed files.
 
@@ -690,11 +767,7 @@ def scan_day(day_dir: Path) -> dict:
             # Check if media file has corresponding JSONL (processed)
             if (
                 file_path.suffix.lower() in VIDEO_EXTENSIONS
-                or file_path.suffix.lower()
-                in (
-                    ".flac",
-                    ".m4a",
-                )
+                or file_path.suffix.lower() in AUDIO_EXTENSIONS
             ):
                 output_path = file_path.with_suffix(".jsonl")
                 if not output_path.exists():
@@ -726,11 +799,42 @@ def main():
         default=1,
         help="Max concurrent processing jobs when using --day (default: 1)",
     )
+    parser.add_argument(
+        "--reprocess",
+        type=str,
+        choices=["screen", "audio", "all"],
+        help="Delete existing outputs and reprocess (requires --day)",
+    )
+    parser.add_argument(
+        "--segment",
+        type=str,
+        help="Filter to specific segment (HHMMSS_LEN format, requires --day)",
+    )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Show what would be deleted/processed without making changes",
+    )
     args = setup_cli(parser)
 
     journal = Path(os.getenv("JOURNAL_PATH", ""))
     if not journal.is_dir():
         parser.error("JOURNAL_PATH not set or invalid")
+
+    # Validate argument combinations
+    if args.reprocess and not args.day:
+        parser.error("--reprocess requires --day")
+    if args.segment and not args.day:
+        parser.error("--segment requires --day")
+    if args.dry_run and not args.reprocess:
+        parser.error("--dry-run requires --reprocess")
+
+    # Validate segment format if provided
+    if args.segment:
+        from think.utils import segment_key
+
+        if not segment_key(args.segment):
+            parser.error(f"--segment must be HHMMSS_LEN format, got: {args.segment}")
 
     sensor = FileSensor(journal, verbose=args.verbose, debug=args.debug)
 
@@ -744,11 +848,35 @@ def main():
         sensor.register(f"*{ext}", "describe", ["observe-describe", "{file}"])
 
     if args.day:
+        day_dir = day_path(args.day)
+
+        # Handle reprocess mode
+        if args.reprocess:
+            deleted = delete_outputs(
+                day_dir,
+                args.reprocess,
+                segment_filter=args.segment,
+                dry_run=args.dry_run,
+            )
+
+            if args.dry_run:
+                if deleted:
+                    logger.info(f"Would delete {len(deleted)} output file(s):")
+                    for path in deleted:
+                        logger.info(f"  {path.relative_to(journal)}")
+                else:
+                    logger.info("No files to delete")
+                return
+            else:
+                logger.info(f"Deleted {len(deleted)} output file(s)")
+
         # Batch mode: process specific day
+        segment_msg = f" (segment: {args.segment})" if args.segment else ""
         logger.info(
-            f"Processing files from day {args.day} with {args.jobs} concurrent jobs"
+            f"Processing files from day {args.day}{segment_msg} "
+            f"with {args.jobs} concurrent jobs"
         )
-        sensor.process_day(args.day, max_jobs=args.jobs)
+        sensor.process_day(args.day, max_jobs=args.jobs, segment_filter=args.segment)
     else:
         # Event mode: listen for Callosum events
         logger.info("Starting observe sensor in event mode...")
