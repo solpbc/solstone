@@ -247,6 +247,7 @@ make clean-install # Clean and reinstall
 * **Config**: `.env` file in project root
 * **Agent Personas**: `muse/agents/*.txt` and `*.json`
 * **Insight Templates**: `think/insights/*.txt` and `*.json`
+* **Scratch Space**: `scratch/` - git-ignored local workspace for temporary scripts, one-off migrations, debug logs, screenshots, etc.
 
 ### Getting Help
 * Run `solstone` for CLI command list
