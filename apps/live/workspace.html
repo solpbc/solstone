@@ -86,6 +86,10 @@
   font-size: 0.85em;
 }
 
+.service-dot.crashed {
+  background: rgba(248, 113, 113, 0.3);
+}
+
 .status-indicator {
   width: 8px;
   height: 8px;
@@ -134,6 +138,15 @@
   animation: pulse 2s infinite;
 }
 
+.live-badge.idle {
+  background: #6b7280;
+  animation: none;
+}
+
+.live-badge.tmux {
+  background: #8b5cf6;
+}
+
 @keyframes pulse {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.6; }
@@ -141,7 +154,7 @@
 
 .observe-content {
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
+  grid-template-columns: repeat(6, 1fr);
   gap: 1em;
 }
 
@@ -169,6 +182,61 @@
   font-size: 0.85em;
   color: #6b7280;
   padding-left: 1em;
+}
+
+/* Remote Observers Card */
+.remotes-card {
+  background: white;
+  border-radius: 12px;
+  padding: 1.5em;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  border-left: 4px solid #8b5cf6;
+}
+
+.remotes-card.hidden {
+  display: none;
+}
+
+.remotes-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 1em;
+}
+
+.remote-card {
+  background: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%);
+  border-radius: 8px;
+  padding: 1em;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4em;
+  border: 2px solid transparent;
+}
+
+.remote-card.active {
+  background: linear-gradient(135deg, #ede9fe 0%, #ddd6fe 100%);
+  border-color: #8b5cf6;
+}
+
+.remote-card.stale {
+  background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+  border-color: #f59e0b;
+}
+
+.remote-card-name {
+  font-size: 0.95em;
+  font-weight: 600;
+  color: #111827;
+}
+
+.remote-card-host {
+  font-size: 0.8em;
+  color: #6b7280;
+}
+
+.remote-card-status {
+  font-size: 0.85em;
+  color: #374151;
 }
 
 /* Activity Grids Container */
@@ -229,19 +297,14 @@
   border-color: #3b82f6;
 }
 
-.activity-card.agent-finished {
-  background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%);
-  border-color: #10b981;
-}
-
-.activity-card.agent-error {
-  background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
-  border-color: #ef4444;
-}
-
 .activity-card.import-active {
   background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
   border-color: #f59e0b;
+}
+
+.activity-card.import-error {
+  background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
+  border-color: #ef4444;
 }
 
 .activity-card-id {
@@ -265,6 +328,14 @@
   display: flex;
   align-items: center;
   gap: 0.3em;
+}
+
+.activity-card-error {
+  font-size: 0.75em;
+  color: #dc2626;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .activity-card-elapsed {
@@ -381,18 +452,21 @@
   border-bottom: none;
 }
 
+.event-line.error {
+  color: #dc2626;
+  background: #fef2f2;
+}
+
 .event-log:empty::before {
   content: 'Waiting for events...';
   color: #9ca3af;
   font-style: italic;
 }
 
-/* Empty States */
-.empty-state {
-  text-align: center;
-  padding: 2em;
-  color: #9ca3af;
-  font-style: italic;
+/* Stale heartbeats list */
+.stale-list {
+  font-size: 0.85em;
+  opacity: 0.9;
 }
 </style>
 
@@ -401,7 +475,7 @@
   <div class="vitals-bar">
     <div class="vitals-header">
       <div class="vitals-title">
-        ⚡ SYSTEM VITALS
+        SYSTEM VITALS
       </div>
       <div class="vitals-status" id="vitalsStatus">
         <span class="status-indicator active"></span>
@@ -418,6 +492,12 @@
               <span>Waiting...</span>
             </div>
           </div>
+        </div>
+      </div>
+      <div class="vitals-section">
+        <div class="vitals-label">Agents</div>
+        <div class="vitals-value" id="agentsValue">
+          <span>0 running</span>
         </div>
       </div>
       <div class="vitals-section">
@@ -439,40 +519,54 @@
   <div class="observe-card">
     <div class="card-header">
       <div class="card-title">
-        👁️ OBSERVATION STATUS
+        OBSERVATION STATUS
       </div>
-      <div class="live-badge">
-        <span class="status-indicator active"></span>
-        <span>Live</span>
+      <div class="live-badge idle" id="observeModeBadge">
+        <span id="observeModeLabel">Waiting...</span>
       </div>
     </div>
     <div class="observe-content">
       <div class="observe-section">
-        <div class="observe-section-title">🎥 Screencast</div>
+        <div class="observe-section-title">Screencast</div>
         <div class="observe-section-value" id="screencastStatus">Waiting...</div>
         <div class="observe-section-detail" id="screencastDetail"></div>
       </div>
       <div class="observe-section">
-        <div class="observe-section-title">🎤 Audio</div>
+        <div class="observe-section-title">Tmux</div>
+        <div class="observe-section-value" id="tmuxStatus">Waiting...</div>
+        <div class="observe-section-detail" id="tmuxDetail"></div>
+      </div>
+      <div class="observe-section">
+        <div class="observe-section-title">Audio</div>
         <div class="observe-section-value" id="audioStatus">Waiting...</div>
         <div class="observe-section-detail" id="audioDetail"></div>
       </div>
       <div class="observe-section">
-        <div class="observe-section-title">💻 Activity</div>
+        <div class="observe-section-title">Activity</div>
         <div class="observe-section-value" id="activityStatus">Waiting...</div>
         <div class="observe-section-detail" id="activityDetail"></div>
       </div>
       <div class="observe-section">
-        <div class="observe-section-title">🎬 Describe</div>
+        <div class="observe-section-title">Describe</div>
         <div class="observe-section-value" id="describeStatus">Idle</div>
         <div class="observe-section-detail" id="describeDetail"></div>
       </div>
       <div class="observe-section">
-        <div class="observe-section-title">🎙️ Transcribe</div>
+        <div class="observe-section-title">Transcribe</div>
         <div class="observe-section-value" id="transcribeStatus">Idle</div>
         <div class="observe-section-detail" id="transcribeDetail"></div>
       </div>
     </div>
+  </div>
+
+  <!-- Remote Observers Card -->
+  <div class="remotes-card hidden" id="remotesCard">
+    <div class="card-header">
+      <div class="card-title">
+        REMOTE OBSERVERS
+      </div>
+    </div>
+    <div class="remotes-grid" id="remotesGrid"></div>
   </div>
 
   <!-- Activity Grids -->
@@ -480,7 +574,7 @@
     <!-- Cortex Agents -->
     <div class="activity-section hidden" id="cortexSection">
       <div class="activity-section-header">
-        🤖 AGENTS
+        AGENTS
       </div>
       <div class="activity-grid" id="cortexGrid"></div>
     </div>
@@ -488,7 +582,7 @@
     <!-- Importers -->
     <div class="activity-section hidden" id="importerSection">
       <div class="activity-section-header">
-        📥 IMPORTS
+        IMPORTS
       </div>
       <div class="activity-grid" id="importerGrid"></div>
     </div>
@@ -497,11 +591,11 @@
   <!-- Events Card -->
   <div class="events-card" id="eventsCard">
     <div class="events-header">
-      <div class="events-title">📜 EVENTS</div>
+      <div class="events-title">EVENTS</div>
       <div class="events-controls">
         <span class="missed-count" id="missedCount" style="display: none;"></span>
         <button class="pause-btn" id="pauseBtn">
-          <span>⏸</span>
+          <span>||</span>
           <span>Pause</span>
         </button>
       </div>
@@ -514,13 +608,18 @@
 (function(){
   // State management
   const state = {
-    services: new Map(),
+    services: new Map(),        // Running services
+    crashed: new Map(),         // Crashed services (separate from running)
     tasks: [],
     health: null,
     agents: new Map(),
+    agentCount: 0,              // Quick count from cortex.status
     imports: new Map(),
+    remotes: new Map(),         // Remote observer status by host
     observe: {
+      mode: null,               // Current observe mode
       screencast: null,
+      tmux: null,
       audio: null,
       activity: null,
       describe: null,
@@ -533,11 +632,16 @@
   // DOM elements
   const elements = {
     serviceDots: document.getElementById('serviceDots'),
+    agentsValue: document.getElementById('agentsValue'),
     tasksValue: document.getElementById('tasksValue'),
     healthValue: document.getElementById('healthValue'),
     vitalsStatus: document.getElementById('vitalsStatus'),
+    observeModeBadge: document.getElementById('observeModeBadge'),
+    observeModeLabel: document.getElementById('observeModeLabel'),
     screencastStatus: document.getElementById('screencastStatus'),
     screencastDetail: document.getElementById('screencastDetail'),
+    tmuxStatus: document.getElementById('tmuxStatus'),
+    tmuxDetail: document.getElementById('tmuxDetail'),
     audioStatus: document.getElementById('audioStatus'),
     audioDetail: document.getElementById('audioDetail'),
     activityStatus: document.getElementById('activityStatus'),
@@ -546,6 +650,8 @@
     describeDetail: document.getElementById('describeDetail'),
     transcribeStatus: document.getElementById('transcribeStatus'),
     transcribeDetail: document.getElementById('transcribeDetail'),
+    remotesCard: document.getElementById('remotesCard'),
+    remotesGrid: document.getElementById('remotesGrid'),
     cortexSection: document.getElementById('cortexSection'),
     cortexGrid: document.getElementById('cortexGrid'),
     importerSection: document.getElementById('importerSection'),
@@ -557,19 +663,15 @@
   };
 
   // Utility functions
-  function formatDuration(ms) {
-    const seconds = Math.floor(ms / 1000);
+  function formatElapsed(seconds) {
     if (seconds < 60) return `${seconds}s`;
     const minutes = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return `${minutes}m ${secs}s`;
   }
 
-  function formatElapsed(seconds) {
-    if (seconds < 60) return `${seconds}s`;
-    const minutes = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${minutes}m ${secs}s`;
+  function formatDuration(ms) {
+    return formatElapsed(Math.floor(ms / 1000));
   }
 
   function truncate(str, len) {
@@ -581,34 +683,81 @@
     return String(id).slice(-4);
   }
 
+  // Client-side elapsed time updater
+  let elapsedTimer = null;
+  function startElapsedTimer() {
+    if (elapsedTimer) return;
+    elapsedTimer = setInterval(() => {
+      // Update agent elapsed times based on start timestamp
+      let needsUpdate = false;
+      const now = Date.now();
+      state.agents.forEach((agent, id) => {
+        if (agent.startTs && agent.event !== 'finish' && agent.event !== 'error') {
+          agent.elapsed_seconds = Math.floor((now - agent.startTs) / 1000);
+          needsUpdate = true;
+        }
+      });
+      if (needsUpdate) {
+        updateCortexGrid();
+      }
+    }, 1000);
+  }
+
   // Update vitals bar
   function updateVitals() {
-    // Services
-    if (state.services.size > 0) {
-      const servicesHtml = Array.from(state.services.entries()).map(([name, info]) => {
-        const statusClass = info.crashed ? 'crashed' : 'active';
+    // Combine running and crashed services
+    const allServices = [];
+
+    // Running services first
+    state.services.forEach((info, name) => {
+      allServices.push({ name, info, crashed: false });
+    });
+
+    // Then crashed services
+    state.crashed.forEach((info, name) => {
+      allServices.push({ name, info, crashed: true });
+    });
+
+    if (allServices.length > 0) {
+      const servicesHtml = allServices.map(({ name, info, crashed }) => {
+        const statusClass = crashed ? 'crashed' : 'active';
+        const dotClass = crashed ? 'service-dot crashed' : 'service-dot';
+        const restartInfo = crashed && info.restart_attempts ? ` (${info.restart_attempts}x)` : '';
         return `
-          <div class="service-dot">
+          <div class="${dotClass}">
             <span class="status-indicator ${statusClass}"></span>
-            <span>${name}</span>
+            <span>${name}${restartInfo}</span>
           </div>
         `;
       }).join('');
       elements.serviceDots.innerHTML = servicesHtml;
     }
 
+    // Agents count
+    elements.agentsValue.innerHTML = `<span>${state.agentCount} running</span>`;
+
     // Tasks
     const taskCount = state.tasks.length;
     elements.tasksValue.innerHTML = `<span>${taskCount} active</span>`;
 
-    // Health
+    // Health with stale heartbeat names
     if (state.health) {
-      const staleCount = state.health.stale_heartbeats?.length || 0;
+      const staleHeartbeats = state.health.stale_heartbeats || [];
+      const staleCount = staleHeartbeats.length;
+      const hasCrashed = state.crashed.size > 0;
+
       if (staleCount > 0) {
-        elements.healthValue.innerHTML = `<span style="color: #f59e0b;">⚠️ ${staleCount} stale</span>`;
+        const staleNames = staleHeartbeats.join(', ');
+        elements.healthValue.innerHTML = `
+          <span style="color: #f59e0b;">! ${staleCount} stale</span>
+          <span class="stale-list">(${staleNames})</span>
+        `;
         updateVitalsStatus('warning');
+      } else if (hasCrashed) {
+        elements.healthValue.innerHTML = `<span style="color: #f87171;">! Services crashed</span>`;
+        updateVitalsStatus('error');
       } else {
-        elements.healthValue.innerHTML = `<span>✓ All heartbeats OK</span>`;
+        elements.healthValue.innerHTML = `<span>OK</span>`;
         updateVitalsStatus('ok');
       }
     }
@@ -634,9 +783,33 @@
     }
   }
 
+  // Update observe mode badge
+  function updateObserveMode() {
+    const mode = state.observe.mode;
+    const badge = elements.observeModeBadge;
+    const label = elements.observeModeLabel;
+
+    if (mode === 'screencast') {
+      badge.className = 'live-badge';
+      label.textContent = 'Recording';
+    } else if (mode === 'tmux') {
+      badge.className = 'live-badge tmux';
+      label.textContent = 'Tmux';
+    } else if (mode === 'idle') {
+      badge.className = 'live-badge idle';
+      label.textContent = 'Idle';
+    } else {
+      badge.className = 'live-badge idle';
+      label.textContent = 'Waiting...';
+    }
+  }
+
   // Update observe card
   function updateObserve() {
     const obs = state.observe;
+
+    // Update mode badge
+    updateObserveMode();
 
     // Screencast
     if (obs.screencast) {
@@ -660,10 +833,29 @@
       }
     }
 
+    // Tmux
+    if (obs.tmux) {
+      if (obs.tmux.capturing) {
+        const captures = obs.tmux.captures || 0;
+        const sessions = obs.tmux.sessions || [];
+        const elapsed = obs.tmux.window_elapsed_seconds || 0;
+        elements.tmuxStatus.textContent = `${elapsed}s (${captures} captures)`;
+        if (sessions.length > 0) {
+          elements.tmuxDetail.textContent = sessions.join(', ');
+        } else {
+          elements.tmuxDetail.textContent = '';
+        }
+      } else {
+        elements.tmuxStatus.textContent = 'Idle';
+        elements.tmuxDetail.textContent = '';
+      }
+    }
+
     // Audio
     if (obs.audio) {
       const hits = obs.audio.threshold_hits || 0;
-      elements.audioStatus.textContent = `${hits} threshold hits`;
+      const willSave = obs.audio.will_save ? ' (saving)' : '';
+      elements.audioStatus.textContent = `${hits} hits${willSave}`;
       elements.audioDetail.textContent = '';
     }
 
@@ -674,38 +866,71 @@
         elements.activityStatus.textContent = 'Power save';
       } else if (obs.activity.screen_locked) {
         elements.activityStatus.textContent = 'Locked';
+      } else if (obs.activity.tmux_active) {
+        elements.activityStatus.textContent = 'Tmux active';
+      } else if (obs.activity.sink_muted) {
+        elements.activityStatus.textContent = 'Muted';
       } else {
         elements.activityStatus.textContent = `Idle: ${Math.floor(idleMs/1000)}s`;
       }
       elements.activityDetail.textContent = '';
     }
 
-    // Describe
-    if (obs.describe) {
-      const running = obs.describe.running ? 1 : 0;
-      const queued = obs.describe.queued ? obs.describe.queued.length : 0;
+    // Helper for describe/transcribe status (running is an object {file, ref}, not array)
+    function updateProcessorStatus(processor, statusEl, detailEl) {
+      if (!processor) return;
 
-      if (queued > 0) {
-        elements.describeStatus.textContent = `Queued: ${queued}`;
-      } else if (running > 0) {
-        elements.describeStatus.textContent = 'Running';
+      const isRunning = !!processor.running;
+      const queued = processor.queued?.length || 0;
+
+      if (isRunning && queued > 0) {
+        statusEl.textContent = `Running (+${queued} queued)`;
+      } else if (isRunning) {
+        statusEl.textContent = 'Running';
+      } else if (queued > 0) {
+        statusEl.textContent = `Queued: ${queued}`;
       } else {
-        elements.describeStatus.textContent = 'Idle';
+        statusEl.textContent = 'Idle';
       }
-      elements.describeDetail.textContent = '';
+
+      // Show current file being processed
+      if (isRunning && processor.running.file) {
+        const file = processor.running.file.split('/').pop();
+        detailEl.textContent = truncate(file, 30);
+      } else {
+        detailEl.textContent = '';
+      }
     }
 
-    // Transcribe
-    if (obs.transcribe) {
-      const running = obs.transcribe.running ? obs.transcribe.running.length : 0;
+    updateProcessorStatus(obs.describe, elements.describeStatus, elements.describeDetail);
+    updateProcessorStatus(obs.transcribe, elements.transcribeStatus, elements.transcribeDetail);
+  }
 
-      if (running > 0) {
-        elements.transcribeStatus.textContent = `Running: ${running}`;
-      } else {
-        elements.transcribeStatus.textContent = 'Idle';
-      }
-      elements.transcribeDetail.textContent = '';
+  // Update remote observers
+  function updateRemotes() {
+    if (state.remotes.size === 0) {
+      elements.remotesCard.classList.add('hidden');
+      return;
     }
+
+    elements.remotesCard.classList.remove('hidden');
+    const now = Date.now();
+
+    const html = Array.from(state.remotes.values()).map(info => {
+      // Consider stale if no update in 30 seconds
+      const isStale = (now - info.lastSeen) > 30000;
+      const cardClass = isStale ? 'remote-card stale' : 'remote-card active';
+
+      return `
+        <div class="${cardClass}">
+          <div class="remote-card-name">${info.name}</div>
+          <div class="remote-card-host">${info.platform}</div>
+          <div class="remote-card-status">${info.mode}${isStale ? ' (stale)' : ''}</div>
+        </div>
+      `;
+    }).join('');
+
+    elements.remotesGrid.innerHTML = html;
   }
 
   // Update cortex grid
@@ -720,20 +945,16 @@
     elements.cortexSection.classList.remove('hidden');
 
     const html = activeAgents.map(agent => {
-      const cardClass = agent.event === 'error' ? 'agent-error' :
-                       agent.event === 'finish' ? 'agent-finished' : 'agent-active';
-      const stateIcon = agent.event === 'thinking' ? '⟳' :
-                       agent.event === 'tool_start' || agent.event === 'tool_end' ? '🛠️' :
-                       agent.event === 'finish' ? '✓' :
-                       agent.event === 'error' ? '❌' : '○';
+      const stateIcon = agent.event === 'thinking' ? '~' :
+                       (agent.event === 'tool_start' || agent.event === 'tool_end') ? '#' : 'o';
       const elapsed = agent.elapsed_seconds ? formatElapsed(agent.elapsed_seconds) : '0s';
 
       return `
-        <div class="activity-card ${cardClass}" data-agent-id="${agent.agent_id}">
+        <div class="activity-card agent-active" data-agent-id="${agent.agent_id}">
           <div class="activity-card-id">...${getAgentId(agent.agent_id)}</div>
           <div class="activity-card-name">${agent.persona || 'default'}</div>
           <div class="activity-card-state">${stateIcon} ${agent.event || 'unknown'}</div>
-          <div class="activity-card-elapsed">⏱️ ${elapsed}</div>
+          <div class="activity-card-elapsed">${elapsed}</div>
           <div class="activity-card-backend">${agent.backend || 'unknown'}</div>
         </div>
       `;
@@ -744,7 +965,7 @@
 
   // Update importer grid
   function updateImporterGrid() {
-    const activeImports = Array.from(state.imports.values()).filter(i => i.event !== 'completed' && i.event !== 'error');
+    const activeImports = Array.from(state.imports.values()).filter(i => i.event !== 'completed');
 
     if (activeImports.length === 0) {
       elements.importerSection.classList.add('hidden');
@@ -754,20 +975,28 @@
     elements.importerSection.classList.remove('hidden');
 
     const html = activeImports.map(imp => {
+      const isError = imp.event === 'error';
+      const cardClass = isError ? 'import-error' : 'import-active';
       const progress = imp.stage === 'initialization' ? 25 :
                       imp.stage === 'transcribing' ? 50 :
                       imp.stage === 'segmenting' ? 75 : 90;
       const elapsed = imp.elapsed_ms ? formatDuration(imp.elapsed_ms) : '0s';
 
+      let errorHtml = '';
+      if (isError && imp.error) {
+        errorHtml = `<div class="activity-card-error">${truncate(imp.error, 40)}</div>`;
+      }
+
       return `
-        <div class="activity-card import-active" data-import-id="${imp.import_id}">
+        <div class="activity-card ${cardClass}" data-import-id="${imp.import_id}">
           <div class="activity-card-id">...${getAgentId(imp.import_id)}</div>
           <div class="activity-card-name">${truncate(imp.input_file || 'import', 20)}</div>
-          <div class="activity-card-state">${imp.stage || 'processing'}</div>
+          <div class="activity-card-state">${isError ? '! ' : ''}${imp.stage || 'processing'}</div>
+          ${errorHtml}
           <div class="activity-card-progress">
             <div class="activity-card-progress-bar" style="width: ${progress}%"></div>
           </div>
-          <div class="activity-card-elapsed">⏱️ ${elapsed}</div>
+          <div class="activity-card-elapsed">${elapsed}</div>
           <div class="activity-card-backend">${imp.file_type || 'unknown'}</div>
         </div>
       `;
@@ -783,14 +1012,14 @@
     if (state.eventsPaused) {
       // Paused
       elements.pauseBtn.classList.add('paused');
-      elements.pauseBtn.innerHTML = '<span>▶</span><span>Resume</span>';
+      elements.pauseBtn.innerHTML = '<span>|></span><span>Resume</span>';
       elements.eventsCard.classList.add('paused');
       state.missedEvents = 0;
       elements.missedCount.style.display = 'none';
     } else {
       // Resumed
       elements.pauseBtn.classList.remove('paused');
-      elements.pauseBtn.innerHTML = '<span>⏸</span><span>Pause</span>';
+      elements.pauseBtn.innerHTML = '<span>||</span><span>Pause</span>';
       elements.eventsCard.classList.remove('paused');
       state.missedEvents = 0;
       elements.missedCount.style.display = 'none';
@@ -808,6 +1037,12 @@
 
     const line = document.createElement('div');
     line.className = 'event-line';
+
+    // Highlight error events
+    if (msg.event === 'error' || (msg.event === 'exit' && msg.exit_code !== 0)) {
+      line.className = 'event-line error';
+    }
+
     line.textContent = JSON.stringify(msg);
     elements.eventLog.appendChild(line);
 
@@ -823,12 +1058,22 @@
   // Event handlers by tract
   function handleSupervisorEvent(msg) {
     if (msg.event === 'status') {
-      // Update services
+      // Update running services
       if (msg.services) {
         state.services.clear();
         msg.services.forEach(svc => {
           state.services.set(svc.name, svc);
         });
+      }
+
+      // Update crashed services (separate array)
+      if (msg.crashed) {
+        state.crashed.clear();
+        msg.crashed.forEach(svc => {
+          state.crashed.set(svc.name, svc);
+        });
+      } else {
+        state.crashed.clear();
       }
 
       // Update tasks
@@ -844,41 +1089,69 @@
   }
 
   function handleCortexEvent(msg) {
-    const agentId = msg.agent_id;
-    if (!agentId) return;
-
+    // Handle status event first (no agent_id at top level)
     if (msg.event === 'status') {
+      // Update agent count for vitals
+      state.agentCount = msg.running_agents || 0;
+
       // Status event contains array of agents
       if (msg.agents) {
+        // Clear agents not in status (they finished)
+        const activeIds = new Set(msg.agents.map(a => a.agent_id));
+        state.agents.forEach((_, id) => {
+          if (!activeIds.has(id)) {
+            state.agents.delete(id);
+          }
+        });
+
+        // Update/add agents from status
         msg.agents.forEach(agent => {
+          const existing = state.agents.get(agent.agent_id) || {};
           state.agents.set(agent.agent_id, {
+            ...existing,
             agent_id: agent.agent_id,
             persona: agent.persona,
             backend: agent.backend,
             elapsed_seconds: agent.elapsed_seconds,
-            event: 'thinking' // Assume thinking if in status
+            event: existing.event || 'thinking'
           });
         });
       }
-    } else {
-      // Individual agent event
-      const existing = state.agents.get(agentId) || {};
-      state.agents.set(agentId, {
-        ...existing,
-        agent_id: agentId,
-        persona: msg.persona || existing.persona,
-        backend: msg.backend || existing.backend,
-        event: msg.event,
-        ts: msg.ts
-      });
 
-      // Remove finished/error agents after delay
-      if (msg.event === 'finish' || msg.event === 'error') {
-        setTimeout(() => {
-          state.agents.delete(agentId);
-          updateCortexGrid();
-        }, 5000);
-      }
+      updateVitals();
+      updateCortexGrid();
+      return;
+    }
+
+    // Individual agent events require agent_id
+    const agentId = msg.agent_id;
+    if (!agentId) return;
+
+    // Track start time for client-side elapsed updates
+    const existing = state.agents.get(agentId) || {};
+    const startTs = msg.event === 'start' ? msg.ts : existing.startTs;
+
+    state.agents.set(agentId, {
+      ...existing,
+      agent_id: agentId,
+      persona: msg.persona || existing.persona,
+      backend: msg.backend || existing.backend,
+      event: msg.event,
+      ts: msg.ts,
+      startTs: startTs
+    });
+
+    // Start elapsed timer when first agent appears
+    if (state.agents.size > 0) {
+      startElapsedTimer();
+    }
+
+    // Remove finished/error agents after delay
+    if (msg.event === 'finish' || msg.event === 'error') {
+      setTimeout(() => {
+        state.agents.delete(agentId);
+        updateCortexGrid();
+      }, 5000);
     }
 
     updateCortexGrid();
@@ -886,11 +1159,28 @@
 
   function handleObserveEvent(msg) {
     if (msg.event === 'status') {
-      state.observe.screencast = msg.screencast;
-      state.observe.audio = msg.audio;
-      state.observe.activity = msg.activity;
-      state.observe.describe = msg.describe;
-      state.observe.transcribe = msg.transcribe;
+      // Check if this is from a remote observer (has "remote" field added by relay)
+      const remote = msg.remote;
+      if (remote) {
+        // Track remote observer
+        state.remotes.set(remote, {
+          name: remote,
+          platform: msg.platform || 'unknown',
+          mode: msg.mode || 'unknown',
+          lastSeen: Date.now()
+        });
+        updateRemotes();
+      }
+
+      // Update local observe state (merge fields, don't overwrite all)
+      if (msg.mode !== undefined) state.observe.mode = msg.mode;
+      if (msg.screencast !== undefined) state.observe.screencast = msg.screencast;
+      if (msg.tmux !== undefined) state.observe.tmux = msg.tmux;
+      if (msg.audio !== undefined) state.observe.audio = msg.audio;
+      if (msg.activity !== undefined) state.observe.activity = msg.activity;
+      if (msg.describe !== undefined) state.observe.describe = msg.describe;
+      if (msg.transcribe !== undefined) state.observe.transcribe = msg.transcribe;
+
       updateObserve();
     }
   }
@@ -916,7 +1206,7 @@
         elapsed_ms: msg.elapsed_ms,
         event: 'status'
       });
-    } else if (msg.event === 'completed' || msg.event === 'error') {
+    } else if (msg.event === 'completed') {
       const existing = state.imports.get(importId) || {};
       state.imports.set(importId, {
         ...existing,
@@ -928,10 +1218,26 @@
         state.imports.delete(importId);
         updateImporterGrid();
       }, 5000);
+    } else if (msg.event === 'error') {
+      const existing = state.imports.get(importId) || {};
+      state.imports.set(importId, {
+        ...existing,
+        event: 'error',
+        error: msg.error || 'Unknown error'
+      });
+
+      // Keep error visible longer
+      setTimeout(() => {
+        state.imports.delete(importId);
+        updateImporterGrid();
+      }, 15000);
     }
 
     updateImporterGrid();
   }
+
+  // Logs events are displayed in the event log via appendEvent
+  // Error highlighting is handled there based on event type
 
   // Main event handler
   function handleEvent(msg) {
@@ -942,6 +1248,7 @@
     else if (tract === 'cortex') handleCortexEvent(msg);
     else if (tract === 'observe') handleObserveEvent(msg);
     else if (tract === 'importer') handleImporterEvent(msg);
+    // logs tract events are displayed in event log via appendEvent
   }
 
   // Event listeners
