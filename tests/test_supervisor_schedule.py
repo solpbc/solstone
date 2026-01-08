@@ -47,7 +47,7 @@ async def test_spawn_scheduled_agents(
 
     # Call the functions (prepare then execute)
     with patch.dict(os.environ, {"JOURNAL_PATH": str(tmp_path)}, clear=True):
-        spawn_scheduled_agents()
+        spawn_scheduled_agents("20250101")
         await check_scheduled_agents()
 
     # Should spawn 2 agents (todo and another_daily)
@@ -81,14 +81,14 @@ def test_run_daily_dream_spawns_agents_on_success(
     # Mock run_task to return success
     mock_run_task.return_value = (True, 0)
 
-    _run_daily_dream()
+    _run_daily_dream("20250101")
 
     # Verify state was updated
     assert _daily_state["dream_running"] is False
     assert _daily_state["dream_completed"] is True
 
-    # Verify spawn_scheduled_agents was called
-    mock_spawn_scheduled.assert_called_once()
+    # Verify spawn_scheduled_agents was called with the day
+    mock_spawn_scheduled.assert_called_once_with("20250101")
 
 
 @patch("think.runner.run_task")
@@ -106,7 +106,7 @@ def test_run_daily_dream_skips_agents_on_failure(
     # Mock run_task to return failure
     mock_run_task.return_value = (False, 1)
 
-    _run_daily_dream()
+    _run_daily_dream("20250101")
 
     # Verify state was updated
     assert _daily_state["dream_running"] is False
@@ -131,9 +131,10 @@ def test_handle_daily_tasks_spawns_dream_on_day_change(mock_callosum):
     spawned_threads = []
 
     class MockThread:
-        def __init__(self, target, daemon=False):
-            spawned_threads.append(target)
+        def __init__(self, target, args=None, daemon=False):
+            spawned_threads.append((target, args))
             self.target = target
+            self.args = args
 
         def start(self):
             pass  # Don't actually start the thread
@@ -143,8 +144,10 @@ def test_handle_daily_tasks_spawns_dream_on_day_change(mock_callosum):
             mock_datetime.now.return_value.date.return_value = date(2025, 1, 2)
             handle_daily_tasks()
 
-    # Verify a thread was spawned
+    # Verify a thread was spawned with the correct day argument
     assert len(spawned_threads) == 1
+    target, args = spawned_threads[0]
+    assert args == ("20250101",)  # The previous day (last_day) is processed
     assert _daily_state["dream_running"] is True
     assert _daily_state["last_day"] == date(2025, 1, 2)
 
@@ -165,8 +168,8 @@ def test_handle_daily_tasks_no_spawn_same_day(mock_callosum):
     spawned_threads = []
 
     class MockThread:
-        def __init__(self, target, daemon=False):
-            spawned_threads.append(target)
+        def __init__(self, target, args=None, daemon=False):
+            spawned_threads.append((target, args))
 
         def start(self):
             pass

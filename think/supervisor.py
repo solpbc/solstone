@@ -7,13 +7,12 @@ import argparse
 import asyncio
 import json
 import logging
-import os
 import signal
 import subprocess
 import threading
 import time
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import datetime
 from pathlib import Path
 
 from desktop_notifier import DesktopNotifier, Urgency
@@ -77,7 +76,7 @@ class AlertManager:
 
 # State for scheduled agent execution
 _scheduled_state = {
-    "pending_groups": [],  # List of (priority, [(persona_id, config, yesterday)])
+    "pending_groups": [],  # List of (priority, [(persona_id, config, day)])
     "active_files": [],  # List of Path objects for current priority group
     "start_time": 0,  # When current group started
 }
@@ -308,11 +307,15 @@ async def clear_notification(alert_key: tuple) -> None:
         logging.error("Failed to clear notification: %s", exc)
 
 
-def spawn_scheduled_agents() -> None:
-    """Prepare scheduled agents grouped by priority for sequential execution."""
+def spawn_scheduled_agents(day: str) -> None:
+    """Prepare scheduled agents grouped by priority for sequential execution.
+
+    Args:
+        day: Target day in YYYYMMDD format (the day being processed)
+    """
     try:
-        # Calculate yesterday's date
-        yesterday = (datetime.now().date() - timedelta(days=1)).strftime("%Y-%m-%d")
+        # Convert YYYYMMDD to YYYY-MM-DD for agent prompts
+        day_formatted = f"{day[:4]}-{day[4:6]}-{day[6:8]}"
 
         agents = get_agents()
 
@@ -327,7 +330,7 @@ def spawn_scheduled_agents() -> None:
         _scheduled_state["pending_groups"] = [
             (
                 priority,
-                [(persona_id, config, yesterday) for persona_id, config in agents_list],
+                [(persona_id, config, day_formatted) for persona_id, config in agents_list],
             )
             for priority, agents_list in sorted(priority_groups.items())
         ]
@@ -338,11 +341,11 @@ def spawn_scheduled_agents() -> None:
             len(agents_list) for _, agents_list in _scheduled_state["pending_groups"]
         )
         logging.info(
-            f"Prepared {len(_scheduled_state['pending_groups'])} priority groups "
-            f"with {total_agents} total agents"
+            f"Spawning {total_agents} scheduled agents for {day} "
+            f"in {len(_scheduled_state['pending_groups'])} priority groups"
         )
     except Exception as e:
-        logging.error(f"Failed to prepare scheduled agents: {e}")
+        logging.error(f"Failed to prepare scheduled agents for {day}: {e}")
 
 
 def _run_full_rescan() -> None:
@@ -420,16 +423,16 @@ async def check_scheduled_agents() -> None:
         agents_dir = _get_journal_path() / "agents"
 
         # Pre-compute shared data for multi-facet agents (same for all agents in group)
-        # yesterday is the same for all agents in the group (YYYY-MM-DD format)
-        yesterday = agents_list[0][2] if agents_list else ""
-        yesterday_yyyymmdd = yesterday.replace("-", "")
-        input_summary = day_input_summary(yesterday_yyyymmdd)
+        # day is the same for all agents in the group (YYYY-MM-DD format)
+        day = agents_list[0][2] if agents_list else ""
+        day_yyyymmdd = day.replace("-", "")
+        input_summary = day_input_summary(day_yyyymmdd)
         facets = get_facets()
         enabled_facets = {k: v for k, v in facets.items() if not v.get("muted", False)}
-        active_facets = get_active_facets(yesterday_yyyymmdd)
+        active_facets = get_active_facets(day_yyyymmdd)
 
         active_files = []
-        for persona_id, config, yesterday in agents_list:
+        for persona_id, config, day in agents_list:
             try:
                 # Check if this is a multi-facet agent
                 if config.get("multi_facet"):
@@ -450,13 +453,13 @@ async def check_scheduled_agents() -> None:
                         if not always_run and facet_name not in active_facets:
                             logging.info(
                                 f"Skipping {persona_id} for {facet_name}: "
-                                f"no activity on {yesterday}"
+                                f"no activity on {day}"
                             )
                             continue
 
                         logging.info(f"Spawning {persona_id} for facet: {facet_name}")
                         agent_id = cortex_request(
-                            prompt=f"Processing facet '{facet_name}' for yesterday ({yesterday}): {input_summary}. Use get_facet('{facet_name}') to load context.",
+                            prompt=f"Processing facet '{facet_name}' for {day}: {input_summary}. Use get_facet('{facet_name}') to load context.",
                             persona=persona_id,
                         )
                         active_files.append(agents_dir / f"{agent_id}_active.jsonl")
@@ -466,7 +469,7 @@ async def check_scheduled_agents() -> None:
                 else:
                     # Regular single-instance agent
                     agent_id = cortex_request(
-                        prompt=f"Running daily scheduled task. Yesterday ({yesterday}): {input_summary}.",
+                        prompt=f"Running daily scheduled task for {day}: {input_summary}.",
                         persona=persona_id,
                     )
                     active_files.append(agents_dir / f"{agent_id}_active.jsonl")
@@ -965,13 +968,17 @@ async def handle_health_checks(
     return now, stale_set
 
 
-def _run_daily_dream() -> None:
-    """Run daily think-dream in background thread, update state on completion."""
+def _run_daily_dream(day: str) -> None:
+    """Run daily think-dream in background thread, update state on completion.
+
+    Args:
+        day: Target day in YYYYMMDD format
+    """
     from think.runner import run_task
 
-    logging.info("Starting daily dream processing...")
+    logging.info(f"Running think-dream for {day}...")
     success, exit_code = run_task(
-        ["think-dream", "-v"],
+        ["think-dream", "-v", "--day", day],
         callosum=_supervisor_callosum,
     )
 
@@ -979,36 +986,54 @@ def _run_daily_dream() -> None:
     _daily_state["dream_running"] = False
 
     if success:
-        logging.info("Daily dream completed successfully")
+        logging.info(f"Daily dream completed for {day}")
         _daily_state["dream_completed"] = True
-        spawn_scheduled_agents()
+        spawn_scheduled_agents(day)
     else:
-        logging.error(f"Daily dream failed with exit code {exit_code}")
+        logging.error(f"Daily dream failed for {day} with exit code {exit_code}")
         # dream_completed stays False, so scheduled agents won't run
 
 
 def handle_daily_tasks() -> None:
     """Check for day change and spawn daily dream if needed (non-blocking).
 
-    Dream runs in a background thread so the supervision loop continues.
+    Dream only triggers when the day actually changes during runtime (at midnight).
+    The supervisor initializes last_day on startup, so restarts don't trigger dream.
     Scheduled agents are spawned after dream completes successfully.
     """
     today = datetime.now().date()
 
-    # Check if day changed
+    # Only trigger when day actually changes (at midnight)
     if today != _daily_state["last_day"]:
-        # Reset state for new day
+        # The day that just ended is what we process
+        prev_day = _daily_state["last_day"]
+
+        # Guard against None (e.g., module reloaded without going through main())
+        if prev_day is None:
+            logging.warning("Daily state not initialized, skipping daily processing")
+            _daily_state["last_day"] = today
+            return
+
+        prev_day_str = prev_day.strftime("%Y%m%d")
+
+        # Update state for new day
         _daily_state["last_day"] = today
         _daily_state["dream_completed"] = False
 
         # Don't start new dream if one is already running (edge case)
         if _daily_state["dream_running"]:
-            logging.warning("Day changed but dream already running, skipping")
+            logging.warning(
+                f"Day changed to {today} but dream already running, skipping {prev_day_str}"
+            )
             return
 
-        # Spawn dream in background thread
+        logging.info(f"Day changed to {today}, starting daily processing for {prev_day_str}")
+
+        # Spawn dream in background thread with target day
         _daily_state["dream_running"] = True
-        threading.Thread(target=_run_daily_dream, daemon=True).start()
+        threading.Thread(
+            target=_run_daily_dream, args=(prev_day_str,), daemon=True
+        ).start()
 
 
 def _handle_segment_observed(message: dict) -> None:
@@ -1314,7 +1339,12 @@ def main() -> None:
     # Make procs accessible to restart handler
     _managed_procs = procs
 
+    # Initialize daily state to today - dream only triggers at midnight when day changes
+    _daily_state["last_day"] = datetime.now().date()
+
     logging.info(f"Started {len(procs)} processes, entering supervision loop")
+    if not args.no_daily:
+        logging.info("Daily processing scheduled for midnight")
 
     try:
         asyncio.run(
