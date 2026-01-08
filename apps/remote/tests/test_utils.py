@@ -12,6 +12,7 @@ import pytest
 from apps.remote.utils import (
     append_history_record,
     find_remote_by_name,
+    find_segment_by_sha256,
     get_hist_dir,
     get_remotes_dir,
     increment_stat,
@@ -215,3 +216,127 @@ class TestIncrementStat:
         """increment_stat handles missing remote gracefully."""
         # Should not raise
         increment_stat("nonexistent", "segments_observed")
+
+
+class TestFindSegmentBySha256:
+    """Tests for find_segment_by_sha256."""
+
+    def test_no_history_returns_no_match(self, storage_env):
+        """Returns (None, empty set) when no history exists."""
+        segment, matched = find_segment_by_sha256(
+            "testkey1", "20250103", {"sha256_abc"}
+        )
+        assert segment is None
+        assert matched == set()
+
+    def test_full_match_returns_segment(self, storage_env):
+        """Returns segment key when all SHA256s match."""
+        # Create history with segment upload
+        append_history_record(
+            "testkey1",
+            "20250103",
+            {
+                "segment": "120000_300",
+                "files": [
+                    {"sha256": "sha256_aaa", "written": "audio.flac"},
+                    {"sha256": "sha256_bbb", "written": "screen.mp4"},
+                ],
+            },
+        )
+
+        segment, matched = find_segment_by_sha256(
+            "testkey1", "20250103", {"sha256_aaa", "sha256_bbb"}
+        )
+        assert segment == "120000_300"
+        assert matched == {"sha256_aaa", "sha256_bbb"}
+
+    def test_partial_match_returns_matched_set(self, storage_env):
+        """Returns (None, matched set) when only some SHA256s match."""
+        append_history_record(
+            "testkey1",
+            "20250103",
+            {
+                "segment": "120000_300",
+                "files": [
+                    {"sha256": "sha256_aaa", "written": "audio.flac"},
+                ],
+            },
+        )
+
+        # Request includes one matching and one new
+        segment, matched = find_segment_by_sha256(
+            "testkey1", "20250103", {"sha256_aaa", "sha256_new"}
+        )
+        assert segment is None
+        assert matched == {"sha256_aaa"}
+
+    def test_no_match_returns_empty_set(self, storage_env):
+        """Returns (None, empty set) when no SHA256s match."""
+        append_history_record(
+            "testkey1",
+            "20250103",
+            {
+                "segment": "120000_300",
+                "files": [
+                    {"sha256": "sha256_aaa", "written": "audio.flac"},
+                ],
+            },
+        )
+
+        segment, matched = find_segment_by_sha256(
+            "testkey1", "20250103", {"sha256_xxx", "sha256_yyy"}
+        )
+        assert segment is None
+        assert matched == set()
+
+    def test_skips_observed_records(self, storage_env):
+        """Ignores records with type field (e.g., 'observed')."""
+        # Upload record
+        append_history_record(
+            "testkey1",
+            "20250103",
+            {
+                "segment": "120000_300",
+                "files": [
+                    {"sha256": "sha256_aaa", "written": "audio.flac"},
+                ],
+            },
+        )
+        # Observed record
+        append_history_record(
+            "testkey1",
+            "20250103",
+            {
+                "type": "observed",
+                "segment": "120000_300",
+            },
+        )
+
+        segment, matched = find_segment_by_sha256(
+            "testkey1", "20250103", {"sha256_aaa"}
+        )
+        assert segment == "120000_300"
+        assert matched == {"sha256_aaa"}
+
+    def test_subset_match_returns_segment(self, storage_env):
+        """Returns segment when incoming is subset of existing files."""
+        # Segment has 3 files
+        append_history_record(
+            "testkey1",
+            "20250103",
+            {
+                "segment": "120000_300",
+                "files": [
+                    {"sha256": "sha256_aaa", "written": "audio.flac"},
+                    {"sha256": "sha256_bbb", "written": "screen.mp4"},
+                    {"sha256": "sha256_ccc", "written": "transcript.json"},
+                ],
+            },
+        )
+
+        # Request only 2 of the 3 files (subset)
+        segment, matched = find_segment_by_sha256(
+            "testkey1", "20250103", {"sha256_aaa", "sha256_bbb"}
+        )
+        assert segment == "120000_300"
+        assert matched == {"sha256_aaa", "sha256_bbb"}

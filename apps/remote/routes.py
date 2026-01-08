@@ -32,6 +32,7 @@ from think.utils import day_path
 
 from .utils import (
     append_history_record,
+    find_segment_by_sha256,
     get_remotes_dir,
     list_remotes,
     load_history,
@@ -200,20 +201,16 @@ def api_get_key(key_prefix: str) -> Any:
 # === Sync history helpers ===
 
 
-def _compute_sha256(path: Path) -> str:
-    """Compute SHA256 hash of a file.
+def _compute_sha256_bytes(data: bytes) -> str:
+    """Compute SHA256 hash of bytes.
 
     Args:
-        path: Path to file
+        data: Bytes to hash
 
     Returns:
         Hex-encoded SHA256 hash
     """
-    sha256 = hashlib.sha256()
-    with open(path, "rb") as f:
-        for chunk in iter(lambda: f.read(65536), b""):
-            sha256.update(chunk)
-    return sha256.hexdigest()
+    return hashlib.sha256(data).hexdigest()
 
 
 def _find_by_inode(day_dir: Path, inode: int) -> Path | None:
@@ -360,7 +357,9 @@ def _strip_segment_prefix(filename: str, segment: str) -> str:
     return filename
 
 
-def _save_to_failed(day_dir: Path, files: list, segment: str) -> Path:
+def _save_to_failed(
+    day_dir: Path, file_data: list[tuple[str, str, bytes, str]], segment: str
+) -> Path:
     """Save files to failed directory for manual review.
 
     Files are saved with their original segment key (not adjusted) since
@@ -368,7 +367,7 @@ def _save_to_failed(day_dir: Path, files: list, segment: str) -> Path:
 
     Args:
         day_dir: Path to day directory
-        files: List of file upload objects from request
+        file_data: List of (submitted_filename, simple_filename, content, sha256) tuples
         segment: Original segment key (used in directory name)
 
     Returns:
@@ -378,14 +377,9 @@ def _save_to_failed(day_dir: Path, files: list, segment: str) -> Path:
     failed_dir = day_dir / "remote" / "failed" / segment / str(int(time.time() * 1000))
     failed_dir.mkdir(parents=True, exist_ok=True)
 
-    for upload in files:
-        if not upload.filename:
-            continue
-        filename = secure_filename(upload.filename)
-        if not filename:
-            continue
-        target_path = failed_dir / filename
-        upload.save(target_path)
+    for submitted_filename, _simple_filename, content, _sha256 in file_data:
+        target_path = failed_dir / submitted_filename
+        target_path.write_bytes(content)
 
     return failed_dir
 
@@ -403,6 +397,11 @@ def ingest_upload(key: str) -> Any:
     - files: One or more media files
 
     Writes files to journal and emits observe.observing event.
+
+    Returns status:
+    - "ok": New segment accepted
+    - "duplicate": All files already received (no processing triggered)
+    - "collision": New segment saved with adjusted key (directory conflict)
     """
     # Validate key
     remote = load_remote(key)
@@ -439,6 +438,62 @@ def ingest_upload(key: str) -> Any:
     if not files:
         return jsonify({"error": "No files uploaded"}), 400
 
+    key_prefix = key[:8]
+
+    # Read file contents into memory and compute SHA256 before saving
+    # This allows duplicate detection without writing to disk
+    file_data = []  # List of (submitted_filename, simple_filename, content, sha256)
+    for upload in files:
+        if not upload.filename:
+            continue
+
+        submitted_filename = secure_filename(upload.filename)
+        if not submitted_filename:
+            continue
+
+        # Strip segment prefix from filename if present
+        simple_filename = _strip_segment_prefix(submitted_filename, segment)
+
+        # Read content and compute SHA256
+        content = upload.read()
+        sha256 = _compute_sha256_bytes(content)
+
+        file_data.append((submitted_filename, simple_filename, content, sha256))
+
+    if not file_data:
+        return jsonify({"error": "No valid files uploaded"}), 400
+
+    # Check for duplicate submission by SHA256
+    incoming_sha256s = {fd[3] for fd in file_data}
+    existing_segment, matched_sha256s = find_segment_by_sha256(
+        key_prefix, day, incoming_sha256s
+    )
+
+    if existing_segment:
+        # Full duplicate - all files already exist in an existing segment
+        logger.info(
+            f"Duplicate segment rejected: {day}/{segment} from {remote.get('name')} "
+            f"(matches existing {existing_segment})"
+        )
+
+        # Update last_seen and increment duplicates_rejected stat
+        remote["last_seen"] = int(time.time() * 1000)
+        remote["stats"]["duplicates_rejected"] = (
+            remote["stats"].get("duplicates_rejected", 0) + 1
+        )
+        save_remote(remote)
+
+        return jsonify(
+            {
+                "status": "duplicate",
+                "existing_segment": existing_segment,
+                "message": "All files already received",
+            }
+        )
+
+    # Log partial match context if some files already exist
+    partial_match = bool(matched_sha256s)
+
     # Ensure day directory exists
     day_dir = day_path(day)
     day_dir.mkdir(parents=True, exist_ok=True)
@@ -453,7 +508,7 @@ def ingest_upload(key: str) -> Any:
             f"No available segment slot for {day}/{segment} from "
             f"{remote.get('name')} after {MAX_SEGMENT_ATTEMPTS} attempts"
         )
-        failed_dir = _save_to_failed(day_dir, files, segment)
+        failed_dir = _save_to_failed(day_dir, file_data, segment)
         return (
             jsonify(
                 {
@@ -476,29 +531,16 @@ def ingest_upload(key: str) -> Any:
     segment_dir = day_dir / segment
     segment_dir.mkdir(parents=True, exist_ok=True)
 
-    # Save files with simple names (strip any segment prefix)
+    # Save files from memory to disk
     saved_files = []
-    file_records = []  # For sync history
+    file_records = []
     total_bytes = 0
 
-    for upload in files:
-        if not upload.filename:
-            continue
-
-        # Secure the filename - preserve original for history
-        submitted_filename = secure_filename(upload.filename)
-        if not submitted_filename:
-            continue
-
-        # Strip segment prefix from filename if present (for backward compat with old clients)
-        # e.g., "143022_300_audio.flac" -> "audio.flac"
-        simple_filename = _strip_segment_prefix(submitted_filename, original_segment)
-
+    for submitted_filename, simple_filename, content, sha256 in file_data:
         target_path = segment_dir / simple_filename
 
-        # Save file
         try:
-            upload.save(target_path)
+            target_path.write_bytes(content)
             stat = target_path.stat()
             file_size = stat.st_size
             file_inode = stat.st_ino
@@ -506,15 +548,13 @@ def ingest_upload(key: str) -> Any:
             saved_files.append(simple_filename)
             total_bytes += file_size
 
-            # Compute SHA256 and record file info for sync history
-            file_sha256 = _compute_sha256(target_path)
             file_records.append(
                 {
                     "submitted": submitted_filename,
                     "written": simple_filename,
                     "inode": file_inode,
                     "size": file_size,
-                    "sha256": file_sha256,
+                    "sha256": sha256,
                 }
             )
 
@@ -527,7 +567,6 @@ def ingest_upload(key: str) -> Any:
         return jsonify({"error": "No valid files saved"}), 400
 
     # Write sync history record
-    key_prefix = key[:8]
     sync_record = {
         "ts": int(time.time() * 1000),
         "segment": segment,
@@ -535,6 +574,9 @@ def ingest_upload(key: str) -> Any:
     }
     if segment != original_segment:
         sync_record["segment_original"] = original_segment
+    if partial_match:
+        # Log which SHA256s matched existing files (for debugging/audit)
+        sync_record["partial_match_sha256s"] = list(matched_sha256s)
     append_history_record(key_prefix, day, sync_record)
 
     # Update remote stats
@@ -566,9 +608,16 @@ def ingest_upload(key: str) -> Any:
         f"Received {len(saved_files)} files for {day}/{segment} from {remote.get('name')}"
     )
 
+    # Determine response status
+    if segment != original_segment:
+        status = "collision"
+    else:
+        status = "ok"
+
     return jsonify(
         {
-            "status": "ok",
+            "status": status,
+            "segment": segment,
             "files": saved_files,
             "bytes": total_bytes,
         }

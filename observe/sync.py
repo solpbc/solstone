@@ -384,6 +384,36 @@ class SyncService:
 
         logger.info(f"Processing segment: {day}/{segment}")
 
+        # Check if already confirmed on server before uploading
+        # This handles crash recovery where we have a pending record but server already has it
+        with self._lock:
+            self._current_segment = seg_info
+            self._current_state = "checking"
+            self._confirm_attempt = 0
+
+        if self._check_confirmation(day, segment, expected_sha256s):
+            logger.info(
+                f"Segment already confirmed on server: {day}/{segment}, skipping upload"
+            )
+            # Write confirmed record and cleanup
+            record = {
+                "ts": int(time.time() * 1000),
+                "segment": segment,
+                "status": "confirmed",
+            }
+            append_sync_record(day, record)
+
+            segment_dir = day_path(day) / segment
+            file_paths = [segment_dir / f["name"] for f in seg_info.files]
+            existing_files = [p for p in file_paths if p.exists()]
+            self._cleanup_segment(day, segment, existing_files)
+
+            with self._lock:
+                self._last_confirmed = f"{day}/{segment}"
+                self._current_segment = None
+                self._current_state = None
+            return
+
         while not self._stop_event.is_set():
             # Upload
             with self._lock:

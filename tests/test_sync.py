@@ -411,3 +411,107 @@ def test_sync_service_startup_with_pending(sync_journal, monkeypatch):
             assert mock_client.upload_segment.called
 
             service.stop()
+
+
+def test_process_segment_skips_upload_if_already_confirmed(sync_journal, monkeypatch):
+    """Test that segment already on server is skipped without upload."""
+    from observe.sync import SegmentInfo, SyncService
+
+    journal = sync_journal["path"]
+    day = sync_journal["day"]
+    monkeypatch.setenv("JOURNAL_PATH", str(journal))
+
+    # Create SegmentInfo
+    seg_info = SegmentInfo(
+        day=day,
+        segment="120000_300",
+        files=[
+            {"name": "audio.flac", "sha256": "abc123"},
+            {"name": "screen.webm", "sha256": "def456"},
+        ],
+    )
+
+    with patch("observe.sync.CallosumConnection") as mock_callosum_class:
+        mock_callosum = MagicMock()
+        mock_callosum_class.return_value = mock_callosum
+
+        with patch("observe.sync.RemoteClient") as mock_client_class:
+            mock_client = MagicMock()
+            mock_session = MagicMock()
+
+            # Simulate server already has the segment with matching SHA256
+            server_response = MagicMock()
+            server_response.status_code = 200
+            server_response.json.return_value = [
+                {
+                    "key": "120000_300",
+                    "files": [
+                        {"name": "audio.flac", "sha256": "abc123"},
+                        {"name": "screen.webm", "sha256": "def456"},
+                    ],
+                }
+            ]
+            mock_session.get.return_value = server_response
+            mock_client.session = mock_session
+            mock_client.upload_segment = MagicMock(return_value=True)
+            mock_client_class.return_value = mock_client
+
+            service = SyncService("https://server/ingest/key")
+
+            # Call _process_segment directly (internal method)
+            service._process_segment(seg_info)
+
+            # Upload should NOT have been called (already confirmed)
+            mock_client.upload_segment.assert_not_called()
+
+
+def test_process_segment_uploads_if_not_on_server(sync_journal, monkeypatch):
+    """Test that segment not on server is uploaded."""
+    from observe.sync import SegmentInfo, SyncService
+
+    journal = sync_journal["path"]
+    day = sync_journal["day"]
+    monkeypatch.setenv("JOURNAL_PATH", str(journal))
+
+    seg_info = SegmentInfo(
+        day=day,
+        segment="120000_300",
+        files=[
+            {"name": "audio.flac", "sha256": "abc123"},
+        ],
+    )
+
+    with patch("observe.sync.CallosumConnection") as mock_callosum_class:
+        mock_callosum = MagicMock()
+        mock_callosum_class.return_value = mock_callosum
+
+        with patch("observe.sync.RemoteClient") as mock_client_class:
+            mock_client = MagicMock()
+            mock_session = MagicMock()
+
+            # First call: server doesn't have segment (pre-check)
+            # Second call: server has segment (post-upload confirm)
+            responses = [
+                MagicMock(status_code=200, json=MagicMock(return_value=[])),
+                MagicMock(
+                    status_code=200,
+                    json=MagicMock(
+                        return_value=[
+                            {
+                                "key": "120000_300",
+                                "files": [{"name": "audio.flac", "sha256": "abc123"}],
+                            }
+                        ]
+                    ),
+                ),
+            ]
+            mock_session.get.side_effect = responses
+            mock_client.session = mock_session
+            mock_client.upload_segment = MagicMock(return_value=True)
+            mock_client_class.return_value = mock_client
+
+            service = SyncService("https://server/ingest/key")
+            service._process_segment(seg_info)
+
+            # Upload SHOULD have been called
+            mock_client.upload_segment.assert_called_once()

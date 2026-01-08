@@ -581,29 +581,28 @@ def test_find_available_segment_with_limited_attempts(remote_env):
 
 def test_save_to_failed_creates_directory(remote_env):
     """Test _save_to_failed creates failed directory structure."""
-    from io import BytesIO
-
-    from werkzeug.datastructures import FileStorage
-
     from apps.remote.routes import _save_to_failed
 
     env = remote_env()
     day_dir = env.journal / "20250103"
     day_dir.mkdir(parents=True)
 
-    # Create mock file uploads
-    files = [
-        FileStorage(stream=BytesIO(b"audio data"), filename="120000_300_audio.flac"),
-        FileStorage(stream=BytesIO(b"video data"), filename="120000_300_screen.webm"),
+    # Create mock file_data tuples: (submitted_filename, simple_filename, content, sha256)
+    file_data = [
+        ("120000_300_audio.flac", "audio.flac", b"audio data", "sha256_audio"),
+        ("120000_300_screen.webm", "screen.webm", b"video data", "sha256_video"),
     ]
 
-    failed_dir = _save_to_failed(day_dir, files, "120000_300")
+    failed_dir = _save_to_failed(day_dir, file_data, "120000_300")
 
     # Verify structure includes segment key
     assert failed_dir.exists()
     assert "remote/failed/120000_300/" in str(failed_dir)
     assert (failed_dir / "120000_300_audio.flac").exists()
     assert (failed_dir / "120000_300_screen.webm").exists()
+    # Verify actual content was written
+    assert (failed_dir / "120000_300_audio.flac").read_bytes() == b"audio data"
+    assert (failed_dir / "120000_300_screen.webm").read_bytes() == b"video data"
 
 
 # === Integration tests for collision handling ===
@@ -640,7 +639,7 @@ def test_ingest_collision_adjusts_segment(remote_env):
 
     assert resp.status_code == 200
     data = resp.get_json()
-    assert data["status"] == "ok"
+    assert data["status"] == "collision"  # New status indicates adjustment
 
     # The segment key should have been adjusted, file is stripped of prefix
     saved_file = data["files"][0]
@@ -732,19 +731,6 @@ def test_ingest_stats_use_adjusted_segment(remote_env):
 
 
 # === Sync history tests ===
-
-
-def test_compute_sha256(remote_env):
-    """Test SHA256 computation."""
-    from apps.remote.routes import _compute_sha256
-
-    env = remote_env()
-    test_file = env.journal / "test.txt"
-    test_file.write_bytes(b"hello world")
-
-    sha = _compute_sha256(test_file)
-    # SHA256 of "hello world"
-    assert sha == "b94d27b9934d3e08a52e52d7da7dabfac484efe37a5380ee9088f7ace2efcde9"
 
 
 def test_ingest_creates_sync_history(remote_env):
@@ -1120,7 +1106,11 @@ def test_segments_endpoint_revoked_key(remote_env):
 
 
 def test_segments_endpoint_deduplicates_by_sha256(remote_env):
-    """Test that duplicate file uploads are deduplicated by sha256."""
+    """Test that duplicate file uploads are rejected (not duplicated on disk).
+
+    With duplicate detection enabled, re-uploading the same content returns
+    status='duplicate' and the segment is not written again.
+    """
     env = remote_env()
 
     # Create a remote
@@ -1142,8 +1132,10 @@ def test_segments_endpoint_deduplicates_by_sha256(remote_env):
         },
     )
     assert resp.status_code == 200
+    assert resp.get_json()["status"] == "ok"
 
     # Upload the same file again (same content = same sha256)
+    # With duplicate detection, this should be rejected
     resp = env.client.post(
         f"/app/remote/ingest/{key}",
         data={
@@ -1153,18 +1145,17 @@ def test_segments_endpoint_deduplicates_by_sha256(remote_env):
         },
     )
     assert resp.status_code == 200
+    assert resp.get_json()["status"] == "duplicate"
 
-    # Query segments - should have only one file entry (deduplicated)
+    # Query segments - should have only one segment (duplicate was rejected)
     resp = env.client.get(f"/app/remote/ingest/{key}/segments/20250103")
     data = resp.get_json()
 
-    # Should have 2 segments (one original, one collision-adjusted)
-    assert len(data) == 2
-
-    # Each should have exactly 1 file (deduplicated by sha256)
-    for segment in data:
-        assert len(segment["files"]) == 1
-        assert segment["files"][0]["status"] == "present"
+    # Should have 1 segment (duplicate rejected, not 2 segments)
+    assert len(data) == 1
+    assert data[0]["key"] == "120000_300"
+    assert len(data[0]["files"]) == 1
+    assert data[0]["files"][0]["status"] == "present"
 
 
 def test_segments_endpoint_shows_observed_status(remote_env):
@@ -1244,3 +1235,305 @@ def test_api_list_includes_segments_observed_stat(remote_env):
     resp = env.client.get("/app/remote/api/list")
     data = resp.get_json()
     assert data[0]["stats"]["segments_observed"] == 5
+
+
+# === Duplicate detection tests ===
+
+
+def test_ingest_duplicate_segment_returns_duplicate_status(remote_env):
+    """Test that re-submitting identical files returns duplicate status."""
+    env = remote_env()
+
+    # Create a remote
+    resp = env.client.post(
+        "/app/remote/api/create",
+        json={"name": "duplicate-test"},
+        content_type="application/json",
+    )
+    key = resp.get_json()["key"]
+
+    # First upload
+    test_data = b"test audio content for duplicate test"
+    resp = env.client.post(
+        f"/app/remote/ingest/{key}",
+        data={
+            "day": "20250103",
+            "segment": "120000_300",
+            "files": (io.BytesIO(test_data), "audio.flac"),
+        },
+    )
+    assert resp.status_code == 200
+    data = resp.get_json()
+    assert data["status"] == "ok"
+    first_segment = data["segment"]
+
+    # Second upload with identical content
+    resp = env.client.post(
+        f"/app/remote/ingest/{key}",
+        data={
+            "day": "20250103",
+            "segment": "120000_300",
+            "files": (io.BytesIO(test_data), "audio.flac"),
+        },
+    )
+    assert resp.status_code == 200
+    data = resp.get_json()
+    assert data["status"] == "duplicate"
+    assert data["existing_segment"] == first_segment
+    assert "message" in data
+
+
+def test_ingest_duplicate_does_not_emit_event(remote_env, monkeypatch):
+    """Test that duplicate submission does not emit observe.observing event."""
+    from unittest.mock import MagicMock
+
+    env = remote_env()
+
+    # Mock emit
+    import apps.remote.routes as routes_module
+
+    emit_mock = MagicMock()
+    monkeypatch.setattr(routes_module, "emit", emit_mock)
+
+    # Create a remote
+    resp = env.client.post(
+        "/app/remote/api/create",
+        json={"name": "no-event-test"},
+        content_type="application/json",
+    )
+    key = resp.get_json()["key"]
+
+    test_data = b"test audio for event test"
+
+    # First upload - should emit
+    resp = env.client.post(
+        f"/app/remote/ingest/{key}",
+        data={
+            "day": "20250103",
+            "segment": "120000_300",
+            "files": (io.BytesIO(test_data), "audio.flac"),
+        },
+    )
+    assert resp.status_code == 200
+    assert emit_mock.call_count == 1
+
+    # Second upload - should NOT emit
+    resp = env.client.post(
+        f"/app/remote/ingest/{key}",
+        data={
+            "day": "20250103",
+            "segment": "120000_300",
+            "files": (io.BytesIO(test_data), "audio.flac"),
+        },
+    )
+    assert resp.status_code == 200
+    assert resp.get_json()["status"] == "duplicate"
+    assert emit_mock.call_count == 1  # No new emit
+
+
+def test_ingest_duplicate_increments_duplicates_rejected_stat(remote_env):
+    """Test that duplicate submission increments duplicates_rejected stat."""
+    env = remote_env()
+
+    # Create a remote
+    resp = env.client.post(
+        "/app/remote/api/create",
+        json={"name": "dup-stat-test"},
+        content_type="application/json",
+    )
+    key = resp.get_json()["key"]
+
+    test_data = b"test audio for stat test"
+
+    # First upload
+    resp = env.client.post(
+        f"/app/remote/ingest/{key}",
+        data={
+            "day": "20250103",
+            "segment": "120000_300",
+            "files": (io.BytesIO(test_data), "audio.flac"),
+        },
+    )
+    assert resp.status_code == 200
+
+    # Check stats - no duplicates_rejected yet
+    resp = env.client.get("/app/remote/api/list")
+    stats = resp.get_json()[0]["stats"]
+    assert stats.get("duplicates_rejected", 0) == 0
+
+    # Submit duplicate
+    resp = env.client.post(
+        f"/app/remote/ingest/{key}",
+        data={
+            "day": "20250103",
+            "segment": "120000_300",
+            "files": (io.BytesIO(test_data), "audio.flac"),
+        },
+    )
+    assert resp.status_code == 200
+    assert resp.get_json()["status"] == "duplicate"
+
+    # Check stats - should have 1 duplicate rejected
+    resp = env.client.get("/app/remote/api/list")
+    stats = resp.get_json()[0]["stats"]
+    assert stats["duplicates_rejected"] == 1
+
+
+def test_ingest_partial_duplicate_creates_new_segment(remote_env):
+    """Test that partial duplicate (some files match) creates new segment."""
+    env = remote_env()
+
+    # Create a remote
+    resp = env.client.post(
+        "/app/remote/api/create",
+        json={"name": "partial-dup-test"},
+        content_type="application/json",
+    )
+    key = resp.get_json()["key"]
+
+    audio_data = b"test audio content"
+    screen_data = b"test screen content"
+    new_screen_data = b"different screen content"
+
+    # First upload with audio and screen
+    resp = env.client.post(
+        f"/app/remote/ingest/{key}",
+        data={
+            "day": "20250103",
+            "segment": "120000_300",
+        },
+        content_type="multipart/form-data",
+    )
+    # Add files manually for multipart
+    resp = env.client.post(
+        f"/app/remote/ingest/{key}",
+        data={
+            "day": "20250103",
+            "segment": "120000_300",
+            "files": [
+                (io.BytesIO(audio_data), "audio.flac"),
+                (io.BytesIO(screen_data), "screen.mp4"),
+            ],
+        },
+    )
+    assert resp.status_code == 200
+    first_data = resp.get_json()
+    assert first_data["status"] == "ok"
+    first_segment = first_data["segment"]
+
+    # Second upload with same audio but different screen
+    resp = env.client.post(
+        f"/app/remote/ingest/{key}",
+        data={
+            "day": "20250103",
+            "segment": "120000_300",
+            "files": [
+                (io.BytesIO(audio_data), "audio.flac"),
+                (io.BytesIO(new_screen_data), "screen.mp4"),
+            ],
+        },
+    )
+    assert resp.status_code == 200
+    second_data = resp.get_json()
+    # Should be collision (new segment) not duplicate
+    assert second_data["status"] in ("ok", "collision")
+    # Should be a different segment (collision resolution)
+    assert second_data["segment"] != first_segment
+
+
+def test_ingest_partial_match_logged_in_history(remote_env):
+    """Test that partial SHA256 matches are logged in history record."""
+    env = remote_env()
+
+    # Create a remote
+    resp = env.client.post(
+        "/app/remote/api/create",
+        json={"name": "partial-log-test"},
+        content_type="application/json",
+    )
+    data = resp.get_json()
+    key = data["key"]
+    key_prefix = data["key_prefix"]
+
+    audio_data = b"test audio for partial log"
+
+    # First upload
+    resp = env.client.post(
+        f"/app/remote/ingest/{key}",
+        data={
+            "day": "20250103",
+            "segment": "120000_300",
+            "files": (io.BytesIO(audio_data), "audio.flac"),
+        },
+    )
+    assert resp.status_code == 200
+
+    # Second upload with same audio but new additional file
+    new_data = b"brand new file"
+    resp = env.client.post(
+        f"/app/remote/ingest/{key}",
+        data={
+            "day": "20250103",
+            "segment": "120000_300",
+            "files": [
+                (io.BytesIO(audio_data), "audio.flac"),
+                (io.BytesIO(new_data), "new_file.txt"),
+            ],
+        },
+    )
+    assert resp.status_code == 200
+
+    # Load history and check for partial_match_sha256s in latest record
+    hist_path = (
+        env.journal
+        / "apps"
+        / "remote"
+        / "remotes"
+        / key_prefix
+        / "hist"
+        / "20250103.jsonl"
+    )
+    with open(hist_path) as f:
+        records = [json.loads(line) for line in f if line.strip()]
+
+    # Should have 2 upload records
+    upload_records = [r for r in records if "type" not in r]
+    assert len(upload_records) == 2
+
+    # The second record should have partial_match_sha256s
+    assert "partial_match_sha256s" in upload_records[1]
+    assert len(upload_records[1]["partial_match_sha256s"]) == 1
+
+
+def test_ingest_returns_collision_status_when_adjusted(remote_env):
+    """Test that collision resolution returns status='collision'."""
+    env = remote_env()
+
+    # Create a remote
+    resp = env.client.post(
+        "/app/remote/api/create",
+        json={"name": "collision-status-test"},
+        content_type="application/json",
+    )
+    key = resp.get_json()["key"]
+
+    # Create existing segment directory
+    day_dir = env.journal / "20250103"
+    day_dir.mkdir(parents=True)
+    (day_dir / "120000_300").mkdir()
+    (day_dir / "120000_300" / "existing.txt").write_bytes(b"existing content")
+
+    # Upload - will need collision resolution
+    test_data = b"new content"
+    resp = env.client.post(
+        f"/app/remote/ingest/{key}",
+        data={
+            "day": "20250103",
+            "segment": "120000_300",
+            "files": (io.BytesIO(test_data), "audio.flac"),
+        },
+    )
+    assert resp.status_code == 200
+    data = resp.get_json()
+    assert data["status"] == "collision"
+    assert data["segment"] != "120000_300"  # Adjusted

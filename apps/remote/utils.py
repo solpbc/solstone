@@ -181,3 +181,58 @@ def increment_stat(key_prefix: str, stat_name: str) -> None:
             json.dump(data, f, indent=2)
     except (json.JSONDecodeError, OSError, KeyError) as e:
         logger.warning(f"Failed to update {stat_name} for {key_prefix}: {e}")
+
+
+def find_segment_by_sha256(
+    key_prefix: str, day: str, file_sha256s: set[str]
+) -> tuple[str | None, set[str]]:
+    """Find existing segment with matching file SHA256 signatures.
+
+    Searches history records for the given day to find a segment where
+    all provided SHA256 hashes match existing files.
+
+    Args:
+        key_prefix: First 8 chars of remote key
+        day: Day string (YYYYMMDD)
+        file_sha256s: Set of SHA256 hashes to match
+
+    Returns:
+        Tuple of (segment_key, matched_sha256s):
+        - If full match: (segment_key, all sha256s)
+        - If partial match: (None, set of matching sha256s)
+        - If no match: (None, empty set)
+    """
+    records = load_history(key_prefix, day)
+    if not records:
+        return None, set()
+
+    # Build map of sha256 -> segment for all upload records
+    sha256_to_segment: dict[str, str] = {}
+    segment_sha256s: dict[str, set[str]] = {}
+
+    for record in records:
+        # Skip non-upload records (e.g., "observed" type)
+        if record.get("type"):
+            continue
+
+        segment = record.get("segment", "")
+        if not segment:
+            continue
+
+        if segment not in segment_sha256s:
+            segment_sha256s[segment] = set()
+
+        for file_rec in record.get("files", []):
+            sha256 = file_rec.get("sha256", "")
+            if sha256:
+                sha256_to_segment[sha256] = segment
+                segment_sha256s[segment].add(sha256)
+
+    # Check for full match - all incoming sha256s exist in a single segment
+    for segment, existing_sha256s in segment_sha256s.items():
+        if file_sha256s and file_sha256s.issubset(existing_sha256s):
+            return segment, file_sha256s
+
+    # Check for partial match - some sha256s already exist
+    matched = file_sha256s & set(sha256_to_segment.keys())
+    return None, matched
