@@ -11,6 +11,7 @@ Extract events from a Markdown summary generated from daily transcripts and conv
 4. **Infer missing details** reasonably when context provides clues
 5. **Assign facets** - for every occurrence, always choose the best matching facet from the Available Facets context. Use the facet name/ID (e.g., `facet_name`) based on entities mentioned, subject matter, or context. This field is required.
 6. **Return only valid JSON** - no commentary, explanations, or wrapper objects
+7. **Handle empty sources** - if the source indicates no events occurred (e.g., "No meetings detected"), return an empty array: `[]`
 
 ## Occurrence Fields
 - **type** – the kind of occurrence such as `meeting`, `message`, `file`, `followup`, `documentation`, `research`, `media`, etc.

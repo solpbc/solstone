@@ -11,6 +11,7 @@ Extract future scheduled events from a Markdown summary and convert them into st
 4. **Handle uncertainty gracefully** - use `null` for start/end times when not specified
 5. **Assign facets** - for every anticipation, choose the best matching facet from the Available Facets context. This field is required.
 6. **Return only valid JSON** - no commentary, explanations, or wrapper objects
+7. **Handle empty sources** - if the source indicates no future events, return an empty array: `[]`
 
 ## Anticipation Fields
 - **type** – the kind of event such as `meeting`, `deadline`, `appointment`, `event`, `travel`, `reminder`, etc.

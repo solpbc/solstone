@@ -3,6 +3,7 @@
 
 import argparse
 import json
+import logging
 import os
 from pathlib import Path
 
@@ -225,6 +226,26 @@ def send_markdown(
         )
 
 
+# Minimum content length for meaningful event extraction
+MIN_EXTRACTION_CHARS = 50
+
+
+def _should_skip_extraction(result: str) -> bool:
+    """Check if result is too minimal for meaningful event extraction.
+
+    When insight generation returns very short content (e.g., "No meetings detected"),
+    there's nothing substantive to extract. Skipping extraction in these cases
+    avoids unnecessary API calls and prevents hallucination from entity context.
+
+    Args:
+        result: The markdown result from send_markdown().
+
+    Returns:
+        True if extraction should be skipped, False otherwise.
+    """
+    return len(result.strip()) < MIN_EXTRACTION_CHARS
+
+
 def send_extraction(
     markdown: str,
     prompt: str,
@@ -359,15 +380,18 @@ def main() -> None:
         markdown, file_count = cluster(args.day)
     day_dir = str(day_path(args.day))
 
-    # Prepend input context note for sparse/empty days
-    if file_count == 0:
-        input_note = (
-            "**Input Note:** No recordings for this day - likely a holiday, "
-            "weekend, or offline day. This is normal. Generate concise "
-            "acknowledgment rather than detailed analysis.\n\n"
+    # Skip insight generation when there's nothing to analyze
+    if file_count == 0 or len(markdown.strip()) < MIN_EXTRACTION_CHARS:
+        logging.info(
+            "Insufficient input (files=%d, chars=%d), skipping insight generation",
+            file_count,
+            len(markdown.strip()),
         )
-        markdown = input_note + markdown
-    elif file_count < 3:
+        day_log(args.day, f"insight {get_insight_topic(topic_arg)} skipped (no input)")
+        return
+
+    # Prepend input context note for limited recordings
+    if file_count < 3:
         input_note = (
             "**Input Note:** Limited recordings for this day. "
             "Scale analysis to available input.\n\n"
@@ -448,6 +472,16 @@ def main() -> None:
 
         if skip_occ and not do_anticipations:
             print('"occurrences" set to false; skipping event extraction')
+            success = True
+            return
+
+        # Skip extraction for minimal content (prevents hallucination from entity context)
+        if _should_skip_extraction(result):
+            logging.info(
+                "Minimal content (%d chars < %d), skipping event extraction",
+                len(result.strip()),
+                MIN_EXTRACTION_CHARS,
+            )
             success = True
             return
 
