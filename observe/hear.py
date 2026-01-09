@@ -440,7 +440,7 @@ def format_audio(
         if source:
             entry_parts.append(f"({source})")
 
-        # Speaker - handle both int (legacy) and string (diarization) formats
+        # Speaker - handle both int and string formats (optional, for legacy transcripts)
         speaker = entry.get("speaker")
         if speaker is not None:
             if isinstance(speaker, int):

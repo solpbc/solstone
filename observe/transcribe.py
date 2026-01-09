@@ -1,410 +1,356 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 # Copyright (c) 2026 sol pbc
 
-"""Transcribe audio files using Gemini with speaker diarization."""
+"""Transcribe audio files using faster-whisper with sentence-level embeddings.
+
+Transcription pipeline:
+- Transcribes audio using faster-whisper with word timestamps
+- Re-segments by sentence boundaries (not acoustic pauses)
+- Generates voice embeddings for each sentence using resemblyzer
+- Outputs JSONL format compatible with format_audio() in observe/hear.py
+
+Output files:
+- <stem>.jsonl: Transcript with HH:MM:SS timestamps
+- <stem>.npz: Sentence-level voice embeddings indexed by segment id
+"""
 
 from __future__ import annotations
 
 import argparse
 import datetime
-import faulthandler
-import io
 import json
 import logging
 import os
 import time
 from pathlib import Path
-from typing import Dict, List
 
+import librosa
 import numpy as np
-import soundfile as sf
-from google import genai
 
-from observe.diarize import DiarizationError, diarize, save_speaker_embeddings
 from observe.utils import (
     SAMPLE_RATE,
-    get_output_dir,
     get_segment_key,
     prepare_audio_file,
 )
 from think.callosum import callosum_send
 from think.entities import load_entity_names
-from think.models import GEMINI_FLASH
-from think.utils import PromptNotFoundError, get_journal, load_prompt, setup_cli
+from think.utils import get_journal, setup_cli
 
-# Constants
-MODEL = GEMINI_FLASH
+# Default model for faster-whisper
+DEFAULT_MODEL = "medium.en"
 
-USER_PROMPT = (
-    "Process the provided audio clips and output your professional accurate "
-    "transcription in the specified JSON format."
-)
+# Minimum segment duration for embedding (seconds)
+MIN_SEGMENT_DURATION = 0.3
 
-
-def validate_transcription(result: list) -> tuple[bool, str]:
-    """Validate transcription result format.
-
-    Returns:
-        Tuple of (is_valid, error_message)
-    """
-    if not isinstance(result, list):
-        return False, "Result is not a list"
-
-    if len(result) == 0:
-        # Empty result is OK
-        return True, ""
-
-    # Check if last item is metadata (has topics/setting, no "start" field)
-    last_item = result[-1]
-    if not isinstance(last_item, dict):
-        return False, "Last item is not a dictionary"
-
-    # Metadata is identified by having "topics" or "setting" and no "start"
-    has_metadata = "start" not in last_item and (
-        "topics" in last_item or "setting" in last_item
-    )
-
-    # Determine which items to validate as transcript entries
-    items_to_check = result[:-1] if has_metadata else result
-
-    # It's OK to have no transcript items (only metadata or empty)
-    for idx, item in enumerate(items_to_check):
-        if not isinstance(item, dict):
-            return False, f"Item {idx} is not a dictionary"
-
-        if "start" not in item:
-            return False, f"Item {idx} missing 'start' field"
-
-        # Validate timestamp format (HH:MM:SS)
-        start = item["start"]
-        if not isinstance(start, str):
-            return False, f"Item {idx} 'start' is not a string"
-
-        try:
-            parts = start.split(":")
-            if len(parts) != 3:
-                return False, f"Item {idx} 'start' not in HH:MM:SS format"
-            hours, minutes, seconds = parts
-            int(hours)
-            int(minutes)
-            int(seconds)
-        except (ValueError, AttributeError):
-            return False, f"Item {idx} 'start' has invalid timestamp: {start}"
-
-        # Validate text field exists and is string
-        if "text" not in item:
-            return False, f"Item {idx} missing 'text' field"
-
-        if not isinstance(item.get("text"), str):
-            return False, f"Item {idx} 'text' is not a string"
-
-    return True, ""
+# Sentence-ending punctuation marks
+SENTENCE_ENDINGS = frozenset(".?!")
 
 
-def transcribe_turns(
-    client,
-    model: str,
-    prompt_text: str,
-    context_text: str,
-    turns: List[Dict[str, object]],
-) -> list:
-    """Send audio turns to Gemini and return the parsed JSON result.
+def resegment_by_sentences(segments: list[dict]) -> list[dict]:
+    """Re-segment transcript by sentence boundaries instead of acoustic pauses.
+
+    Whisper segments on speech pauses (VAD-driven), but we want segments aligned
+    to sentence boundaries (punctuation-driven). This function flattens all words
+    and re-segments based on sentence-ending punctuation.
 
     Args:
-        client: Gemini client
-        model: Model name
-        prompt_text: System prompt
-        context_text: Entity and speaker context
-        turns: List of turn dicts with "start", "speaker", "bytes"
+        segments: List of segment dicts with 'words' containing word-level data
+
+    Returns:
+        New list of segments aligned to sentence boundaries
     """
-    from google.genai import types
+    # Flatten all words from all segments
+    all_words = []
+    for seg in segments:
+        all_words.extend(seg.get("words", []))
 
-    from think.models import gemini_generate
+    if not all_words:
+        return segments
 
-    contents = [context_text, USER_PROMPT]
-    for turn in turns:
-        contents.append(
-            f"This clip starts at {turn['start']} and is spoken by '{turn['speaker']}':"
-        )
-        contents.append(
-            types.Part.from_bytes(data=turn["bytes"], mime_type="audio/flac")
-        )
+    # Build new segments based on sentence-ending punctuation
+    new_segments = []
+    current_words = []
 
-    response_text = gemini_generate(
-        contents=contents,
-        model=model,
-        temperature=0.3,
-        max_output_tokens=8192 * 3,
-        thinking_budget=8192,
-        system_instruction=prompt_text,
-        json_output=True,
-        client=client,
-    )
-    result = json.loads(response_text)
-    logging.info("Transcription result: %s", json.dumps(result, indent=2))
-    return result
+    for word in all_words:
+        current_words.append(word)
+
+        # Check if word ends with sentence-ending punctuation
+        word_text = word.get("word", "").strip()
+        if word_text and word_text[-1] in SENTENCE_ENDINGS:
+            # Complete this segment
+            new_segments.append(_build_segment(len(new_segments) + 1, current_words))
+            current_words = []
+
+    # Handle any remaining words (incomplete final sentence)
+    if current_words:
+        new_segments.append(_build_segment(len(new_segments) + 1, current_words))
+
+    return new_segments
+
+
+def _build_segment(segment_id: int, words: list[dict]) -> dict:
+    """Build a segment dict from a list of words.
+
+    Args:
+        segment_id: Sequential segment ID
+        words: List of word dicts with 'word', 'start', 'end', 'probability'
+
+    Returns:
+        Segment dict with id, start, end, text, words
+    """
+    # Join words - Whisper includes leading spaces in word text
+    text = "".join(w.get("word", "") for w in words).strip()
+
+    return {
+        "id": segment_id,
+        "start": words[0]["start"],
+        "end": words[-1]["end"],
+        "text": text,
+        "words": words,
+    }
+
+
+def _seconds_to_timestamp(seconds: float) -> str:
+    """Convert seconds to HH:MM:SS format."""
+    h = int(seconds // 3600)
+    m = int((seconds % 3600) // 60)
+    s = int(seconds % 60)
+    return f"{h:02d}:{m:02d}:{s:02d}"
 
 
 class Transcriber:
-    def __init__(
-        self,
-        api_key: str,
-        prompt_name: str = "transcribe",
-    ):
-        self.client = genai.Client(api_key=api_key)
+    """Transcribes audio using faster-whisper and generates sentence embeddings."""
 
-        try:
-            prompt_data = load_prompt(prompt_name, base_dir=Path(__file__).parent)
-        except PromptNotFoundError as exc:
-            raise SystemExit(str(exc)) from exc
+    def __init__(self, model_size: str = DEFAULT_MODEL):
+        """Initialize transcriber with models.
 
-        self.prompt_text = prompt_data.text
-
-    def _prepare_audio(self, raw_path: Path) -> Path:
-        """Prepare audio file for diarization, converting if needed.
-
-        Returns path to a file suitable for diarization (mono or stereo FLAC/WAV).
-        For m4a files, converts to temporary FLAC, mixing all audio streams.
+        Args:
+            model_size: faster-whisper model size (e.g., "medium.en", "small.en")
         """
-        return prepare_audio_file(raw_path, SAMPLE_RATE)
+        from faster_whisper import WhisperModel
+        from resemblyzer import VoiceEncoder
 
-    def _process_audio(self, raw_path: Path) -> dict | None:
-        """Process audio file with diarization and return turns for transcription.
+        logging.info(f"Loading faster-whisper model ({model_size})...")
+        t0 = time.perf_counter()
+        self.whisper_model = WhisperModel(model_size, device="cpu", compute_type="int8")
+        logging.info(f"  Whisper loaded in {time.perf_counter() - t0:.2f}s")
 
-        Returns:
-            Dict with keys or None on error:
-            - turns: List of dicts with "start" (HH:MM:SS), "speaker", "bytes"
-            - embeddings: numpy array (num_turns, 256)
-            - speakers: List of unique speaker labels
-            - diarization: Dict with raw diarization data for metadata storage
-              - turns: List of dicts with "start", "end" (floats), "speaker"
-              - overlaps: List of dicts with "start", "end" (floats)
-              - timings: Dict with timing info
-        """
-        # Prepare audio (convert m4a if needed)
-        audio_path = self._prepare_audio(raw_path)
-        is_temp = audio_path != raw_path
+        logging.info("Loading resemblyzer VoiceEncoder...")
+        t0 = time.perf_counter()
+        self.voice_encoder = VoiceEncoder(device="cpu")
+        logging.info(f"  VoiceEncoder loaded in {time.perf_counter() - t0:.2f}s")
 
-        try:
-            # Run diarization
-            diarization_turns, speaker_embeddings, timings, overlaps = diarize(
-                audio_path
-            )
+        self.model_size = model_size
 
-            if not diarization_turns:
-                logging.info(f"No speech detected in {raw_path}")
-                return {
-                    "turns": [],
-                    "speaker_embeddings": {},
-                    "speakers": [],
-                    "diarization": {
-                        "turns": [],
-                        "overlaps": overlaps,
-                        "timings": timings,
-                    },
-                }
+    def _get_jsonl_path(self, audio_path: Path) -> Path:
+        """Generate the corresponding JSONL path.
 
-            logging.info(
-                f"Diarization complete: {len(diarization_turns)} turns, "
-                f"{timings['total']:.1f}s total time"
-            )
-
-            # Load audio for extracting turn clips
-            data, sr = sf.read(audio_path, dtype="float32")
-            if data.ndim == 2:
-                # Mix to mono for clips
-                data = data.mean(axis=1)
-
-            # Extract date and time based on path structure
-            # Files are always in segment directories: YYYYMMDD/HHMMSS_LEN/audio.flac
-            segment = get_segment_key(raw_path)
-            time_part = segment.split("_")[0] if segment else "000000"
-            day_str = raw_path.parent.parent.name
-
-            base_dt = datetime.datetime.strptime(
-                f"{day_str}_{time_part}", "%Y%m%d_%H%M%S"
-            )
-
-            # Convert diarization turns to format for transcription
-            processed: List[Dict[str, object]] = []
-            speakers_seen: set[str] = set()
-
-            for turn in diarization_turns:
-                start_sec = turn["start"]
-                end_sec = turn["end"]
-                speaker = turn["speaker"]
-                speakers_seen.add(speaker)
-
-                # Calculate timestamp
-                start_dt = base_dt + datetime.timedelta(seconds=start_sec)
-                start_str = start_dt.strftime("%H:%M:%S")
-
-                # Extract audio segment
-                start_idx = int(start_sec * sr)
-                end_idx = int(end_sec * sr)
-                segment_data = data[start_idx:end_idx]
-
-                # Convert to FLAC bytes
-                audio_int16 = (np.clip(segment_data, -1.0, 1.0) * 32767).astype(
-                    np.int16
-                )
-                buf = io.BytesIO()
-                sf.write(buf, audio_int16, sr, format="FLAC")
-
-                processed.append(
-                    {
-                        "start": start_str,
-                        "speaker": speaker,
-                        "bytes": buf.getvalue(),
-                    }
-                )
-
-            speakers = sorted(speakers_seen)
-            logging.info(
-                f"Processed {raw_path}: {len(processed)} turns, "
-                f"speakers: {', '.join(speakers)}"
-            )
-
-            return {
-                "turns": processed,
-                "speaker_embeddings": speaker_embeddings,
-                "speakers": speakers,
-                "diarization": {
-                    "turns": diarization_turns,
-                    "overlaps": overlaps,
-                    "timings": timings,
-                },
-            }
-
-        except DiarizationError as e:
-            logging.error(f"Diarization failed for {raw_path}: {e}")
-            raise SystemExit(1) from e
-        except Exception as e:
-            logging.error(f"Error processing {raw_path}: {e}", exc_info=True)
-            return None
-        finally:
-            # Clean up temp file if created
-            if is_temp and audio_path.exists():
-                audio_path.unlink()
-
-    def _get_json_path(self, audio_path: Path) -> Path:
-        """Generate the corresponding JSONL path in segment directory.
-
-        Files are always in segment directories:
-        YYYYMMDD/HHMMSS_LEN/audio.flac -> YYYYMMDD/HHMMSS_LEN/audio.jsonl
+        E.g., YYYYMMDD/HHMMSS_LEN/audio.flac -> YYYYMMDD/HHMMSS_LEN/audio.jsonl
         """
         return audio_path.with_suffix(".jsonl")
 
-    def _get_embeddings_dir(self, audio_path: Path) -> Path:
-        """Get directory for storing speaker embeddings."""
-        return get_output_dir(audio_path)
+    def _get_embeddings_path(self, audio_path: Path) -> Path:
+        """Generate the corresponding embeddings path.
 
-    def _transcribe(
-        self,
-        raw_path: Path,
-        turns: List[Dict[str, object]],
-        speakers: list[str],
-        diarization_data: dict | None = None,
-    ) -> bool:
-        """Transcribe turns using Gemini and save JSONL.
+        E.g., YYYYMMDD/HHMMSS_LEN/audio.flac -> YYYYMMDD/HHMMSS_LEN/audio.npz
+        """
+        return audio_path.with_suffix(".npz")
+
+    def _transcribe(self, audio_path: Path, initial_prompt: str | None) -> list[dict]:
+        """Transcribe audio using faster-whisper.
 
         Args:
-            raw_path: Path to the raw audio file
-            turns: List of audio turns to transcribe
-            speakers: List of speaker labels to pass to Gemini
-            diarization_data: Optional dict with raw diarization data to include
-                in metadata (turns, overlaps, timings)
+            audio_path: Path to audio file (FLAC)
+            initial_prompt: Optional prompt with entity names for context
+
+        Returns:
+            List of sentence-aligned segments with word-level data
         """
-        json_path = self._get_json_path(raw_path)
+        logging.info(f"Transcribing {audio_path.name}...")
+        t0 = time.perf_counter()
 
-        try:
-            # Build context with entities and speaker labels
-            context_parts = []
+        # Build transcribe kwargs
+        transcribe_kwargs = {
+            "language": "en",
+            "vad_filter": True,
+            "beam_size": 5,
+            "word_timestamps": True,
+        }
+        if initial_prompt:
+            transcribe_kwargs["initial_prompt"] = initial_prompt
 
-            entity_names = load_entity_names(spoken=True)
-            if entity_names:
-                entities_str = ", ".join(entity_names)
-                context_parts.append(f"Known entities: {entities_str}")
+        segments_gen, _ = self.whisper_model.transcribe(
+            str(audio_path),
+            **transcribe_kwargs,
+        )
 
-            if speakers:
-                speakers_str = ", ".join(speakers)
-                context_parts.append(f"Speaker labels to use: {speakers_str}")
+        # Consume generator and build output
+        segment_list = []
+        for seg in segments_gen:
+            words = []
+            if seg.words:
+                for w in seg.words:
+                    words.append(
+                        {
+                            "word": w.word,
+                            "start": w.start,
+                            "end": w.end,
+                            "probability": w.probability,
+                        }
+                    )
 
-            context_text = "\n".join(context_parts)
-
-            # Try transcription with validation and retry logic
-            for attempt in range(2):
-                result = transcribe_turns(
-                    self.client, MODEL, self.prompt_text, context_text, turns
-                )
-
-                # Validate the result
-                is_valid, error_msg = validate_transcription(result)
-                if is_valid:
-                    break
-
-                # Log validation failure
-                if attempt == 0:
-                    logging.info(f"Validation failed (retrying): {error_msg}")
-                else:
-                    logging.info(f"Validation failed on retry: {error_msg}")
-                    return False
-
-            # Extract metadata and transcript items
-            metadata = {}
-            transcript_items = result
-            if result and isinstance(result[-1], dict):
-                last_item = result[-1]
-                if "start" not in last_item and (
-                    "topics" in last_item or "setting" in last_item
-                ):
-                    metadata = last_item
-                    transcript_items = result[:-1]
-
-            # Add audio file reference to metadata
-            # Files are in segment directories, stem is the suffix (e.g., "audio")
-            metadata["raw"] = f"{raw_path.stem}{raw_path.suffix}"
-
-            # Add remote origin if set (from sense.py for remote observer uploads)
-            remote = os.getenv("REMOTE_NAME")
-            if remote:
-                metadata["remote"] = remote
-
-            # Add diarization data if provided
-            if diarization_data:
-                metadata["diarization"] = {
-                    "turns": diarization_data.get("turns", []),
-                    "overlaps": diarization_data.get("overlaps", []),
-                    "timings": diarization_data.get("timings", {}),
-                    "speakers": speakers,
+            segment_list.append(
+                {
+                    "id": seg.id,
+                    "start": seg.start,
+                    "end": seg.end,
+                    "text": seg.text.strip(),
+                    "words": words,
                 }
+            )
 
-            # Extract source from <source>_audio pattern
-            # mic_audio -> "mic", sys_audio -> "sys", phone_audio -> "phone", etc.
-            source = None
-            suffix = raw_path.stem
-            if suffix.endswith("_audio") and suffix != "audio":
-                source = suffix[:-6]  # Remove "_audio" suffix
+        transcribe_time = time.perf_counter() - t0
 
-            # Add source field to transcript items for split files
-            if source:
-                for item in transcript_items:
-                    item["source"] = source
+        # Get duration from last segment or 0
+        duration = max((s["end"] for s in segment_list), default=0)
 
-            # Write JSONL format: metadata first, then transcript items
-            jsonl_lines = [json.dumps(metadata)]
-            jsonl_lines.extend(json.dumps(item) for item in transcript_items)
-            json_path.write_text("\n".join(jsonl_lines) + "\n")
-            logging.info(f"Transcribed {raw_path} -> {json_path}")
-            return True
+        logging.info(
+            f"  Transcribed {len(segment_list)} segments, "
+            f"{duration:.1f}s audio in {transcribe_time:.2f}s "
+            f"(RTF: {transcribe_time / max(duration, 0.1):.3f}x)"
+        )
+
+        # Re-segment by sentence boundaries instead of acoustic pauses
+        whisper_segments = len(segment_list)
+        sentence_segments = resegment_by_sentences(segment_list)
+        logging.info(
+            f"  Re-segmented {whisper_segments} acoustic segments "
+            f"to {len(sentence_segments)} sentences"
+        )
+
+        return sentence_segments
+
+    def _embed_segments(
+        self, audio_path: Path, segments: list[dict]
+    ) -> dict[str, np.ndarray] | None:
+        """Generate voice embeddings for each sentence segment.
+
+        Args:
+            audio_path: Path to audio file
+            segments: List of sentence segments from _transcribe()
+
+        Returns:
+            Dict with embedding data or None on error:
+            - embeddings: (N, 256) float32 array
+            - segment_ids: (N,) int32 array of segment IDs
+        """
+        try:
+            # Load audio
+            logging.info("Loading audio for embeddings...")
+            t0 = time.perf_counter()
+            wav, _ = librosa.load(str(audio_path), sr=SAMPLE_RATE)
+            logging.info(f"  Audio loaded in {time.perf_counter() - t0:.2f}s")
+
+            # Filter segments by duration
+            valid_segments = [
+                s for s in segments if s["end"] - s["start"] >= MIN_SEGMENT_DURATION
+            ]
+
+            if not valid_segments:
+                logging.info("No segments with sufficient duration for embedding")
+                return None
+
+            logging.info(f"Embedding {len(valid_segments)} segments...")
+            t0 = time.perf_counter()
+
+            embeddings = []
+            segment_ids = []
+            skipped = 0
+
+            for seg in valid_segments:
+                start_sample = int(seg["start"] * SAMPLE_RATE)
+                end_sample = int(seg["end"] * SAMPLE_RATE)
+                segment_audio = wav[start_sample:end_sample]
+
+                # Skip if too short after slicing
+                if len(segment_audio) < int(MIN_SEGMENT_DURATION * SAMPLE_RATE):
+                    skipped += 1
+                    continue
+
+                try:
+                    emb = self.voice_encoder.embed_utterance(segment_audio)
+                    embeddings.append(emb)
+                    segment_ids.append(seg["id"])
+                except Exception:
+                    skipped += 1
+                    continue
+
+            embed_time = time.perf_counter() - t0
+
+            if not embeddings:
+                logging.warning("No embeddings generated")
+                return None
+
+            logging.info(
+                f"  Embedded {len(embeddings)} segments "
+                f"(skipped {skipped}) in {embed_time:.2f}s"
+            )
+
+            return {
+                "embeddings": np.array(embeddings, dtype=np.float32),
+                "segment_ids": np.array(segment_ids, dtype=np.int32),
+            }
+
         except Exception as e:
-            logging.error(f"Failed to transcribe {raw_path}: {e}", exc_info=True)
-            return False
+            logging.error(f"Embedding failed for {audio_path}: {e}", exc_info=True)
+            return None
+
+    def _segments_to_jsonl(
+        self,
+        segments: list[dict],
+        raw_filename: str,
+        base_datetime: datetime.datetime,
+        source: str | None = None,
+        remote: str | None = None,
+    ) -> list[str]:
+        """Convert segments to JSONL lines.
+
+        Args:
+            segments: List of sentence segments
+            raw_filename: Original audio filename for metadata
+            base_datetime: Base datetime for timestamp calculation
+            source: Optional source label (e.g., "mic", "sys")
+            remote: Optional remote name for metadata
+
+        Returns:
+            List of JSON strings (metadata line first, then entries)
+        """
+        # Build metadata line
+        metadata = {"raw": raw_filename}
+        if remote:
+            metadata["remote"] = remote
+
+        lines = [json.dumps(metadata)]
+
+        # Build entry lines
+        for seg in segments:
+            # Calculate absolute timestamp
+            seg_dt = base_datetime + datetime.timedelta(seconds=seg["start"])
+            timestamp_str = seg_dt.strftime("%H:%M:%S")
+
+            entry = {
+                "start": timestamp_str,
+                "text": seg["text"],
+            }
+            if source:
+                entry["source"] = source
+
+            lines.append(json.dumps(entry))
+
+        return lines
 
     def _handle_raw(self, raw_path: Path, redo: bool = False) -> None:
         """Process a raw audio file.
-
-        Files are expected to be in segment directories (YYYYMMDD/HHMMSS_LEN/).
 
         Args:
             raw_path: Path to audio file in segment directory
@@ -412,38 +358,73 @@ class Transcriber:
         """
         start_time = time.time()
 
-        # Derive segment from path (parent dir is segment dir)
+        # Derive segment from path
         segment = get_segment_key(raw_path)
 
         # Skip if already processed (unless redo mode)
-        json_path = self._get_json_path(raw_path)
-        if not redo and json_path.exists():
+        jsonl_path = self._get_jsonl_path(raw_path)
+        if not redo and jsonl_path.exists():
             logging.info(f"Already processed: {raw_path}")
             return
 
-        # Process audio with diarization
-        result = self._process_audio(raw_path)
-        if result is None:
-            raise SystemExit(1)
+        # Prepare audio (convert M4A if needed)
+        audio_path = prepare_audio_file(raw_path, SAMPLE_RATE)
+        is_temp = audio_path != raw_path
 
-        turns = result["turns"]
-        speaker_embeddings = result["speaker_embeddings"]
-        speakers = result["speakers"]
-        diarization_data = result["diarization"]
+        # Get remote name once for use in metadata and events
+        remote = os.getenv("REMOTE_NAME")
 
-        # Skip if no speech detected
-        if len(turns) == 0:
-            logging.info(f"No speech detected in {raw_path}, removing file")
-            raw_path.unlink()
-            return
+        try:
+            # Load entity names for initial prompt
+            entity_names = load_entity_names(spoken=True)
+            initial_prompt = None
+            if entity_names:
+                initial_prompt = ", ".join(entity_names)
+                logging.info(f"Using {len(entity_names)} entity names as prompt hints")
 
-        # Transcribe
-        success = self._transcribe(raw_path, turns, speakers, diarization_data)
-        if success:
-            # Save speaker embeddings
-            if speaker_embeddings:
-                embeddings_dir = self._get_embeddings_dir(raw_path)
-                save_speaker_embeddings(embeddings_dir, speaker_embeddings)
+            # Transcribe with faster-whisper
+            segments = self._transcribe(audio_path, initial_prompt)
+
+            # Skip if no speech detected
+            if not segments:
+                logging.info(f"No speech detected in {raw_path}, removing file")
+                raw_path.unlink()
+                return
+
+            # Extract date and time from path structure
+            # Files are always in segment directories: YYYYMMDD/HHMMSS_LEN/audio.flac
+            time_part = segment.split("_")[0] if segment else "000000"
+            day_str = raw_path.parent.parent.name
+
+            base_dt = datetime.datetime.strptime(
+                f"{day_str}_{time_part}", "%Y%m%d_%H%M%S"
+            )
+
+            # Extract source from <source>_audio pattern
+            # mic_audio -> "mic", sys_audio -> "sys", etc.
+            source = None
+            suffix = raw_path.stem
+            if suffix.endswith("_audio") and suffix != "audio":
+                source = suffix[:-6]  # Remove "_audio" suffix
+
+            # Convert to JSONL format
+            raw_filename = f"{raw_path.stem}{raw_path.suffix}"
+            jsonl_lines = self._segments_to_jsonl(
+                segments, raw_filename, base_dt, source, remote
+            )
+
+            # Write JSONL
+            jsonl_path.write_text("\n".join(jsonl_lines) + "\n")
+            logging.info(f"Transcribed {raw_path} -> {jsonl_path}")
+
+            # Generate and save embeddings
+            embeddings_data = self._embed_segments(audio_path, segments)
+            if embeddings_data:
+                embeddings_path = self._get_embeddings_path(raw_path)
+                np.savez_compressed(embeddings_path, **embeddings_data)
+                logging.info(f"Saved embeddings: {embeddings_path}")
+            else:
+                logging.warning(f"No embeddings generated for {raw_path}")
 
             # Emit completion event
             journal_path = Path(get_journal())
@@ -451,10 +432,10 @@ class Transcriber:
 
             try:
                 rel_input = raw_path.relative_to(journal_path)
-                rel_output = json_path.relative_to(journal_path)
+                rel_output = jsonl_path.relative_to(journal_path)
             except ValueError:
                 rel_input = raw_path
-                rel_output = json_path
+                rel_output = jsonl_path
 
             # Extract day from audio path (grandparent is day dir)
             day = raw_path.parent.parent.name
@@ -468,24 +449,22 @@ class Transcriber:
                 event_fields["day"] = day
             if segment:
                 event_fields["segment"] = segment
-            remote = os.getenv("REMOTE_NAME")
             if remote:
                 event_fields["remote"] = remote
             callosum_send("observe", "transcribed", **event_fields)
 
-            # Run interpret pipeline (faster-whisper + embeddings) after transcribe
-            try:
-                from observe.interpret import Interpreter
-
-                interpreter = Interpreter()
-                interpreter._handle_raw(raw_path, redo=redo)
-            except Exception as e:
-                logging.warning(f"Interpret failed for {raw_path}: {e}")
+        except Exception as e:
+            logging.error(f"Failed to transcribe {raw_path}: {e}", exc_info=True)
+            raise SystemExit(1) from e
+        finally:
+            # Clean up temp file if created
+            if is_temp and audio_path.exists():
+                audio_path.unlink()
 
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Transcribe audio files using Gemini with speaker diarization"
+        description="Transcribe audio files using faster-whisper with sentence embeddings"
     )
     parser.add_argument(
         "audio_path",
@@ -498,12 +477,6 @@ def main():
         help="Reprocess file, overwriting existing outputs",
     )
     args = setup_cli(parser)
-
-    api_key = os.getenv("GOOGLE_API_KEY")
-    if not api_key:
-        raise SystemExit("Error: GOOGLE_API_KEY not found in environment.")
-
-    faulthandler.enable()
 
     audio_path = Path(args.audio_path)
     if not audio_path.exists():
@@ -526,7 +499,7 @@ def main():
 
     logging.info(f"Processing audio: {audio_path}")
 
-    transcriber = Transcriber(api_key)
+    transcriber = Transcriber()
     transcriber._handle_raw(audio_path, redo=args.redo)
 
 

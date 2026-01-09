@@ -9,7 +9,7 @@ Multimodal capture and AI-powered analysis of desktop activity.
 | `observer` | Screen and audio capture (auto-detects platform) |
 | `observe-linux` | Screen and audio capture on Linux (direct) |
 | `observe-macos` | Screen and audio capture on macOS (direct) |
-| `observe-transcribe` | Audio transcription with speaker diarization |
+| `observe-transcribe` | Audio transcription with faster-whisper |
 | `observe-describe` | Visual analysis of screen recordings |
 | `observe-sense` | Unified observation coordination |
 
@@ -56,14 +56,14 @@ Mode transitions trigger segment boundaries (like mute transitions do).
 - **gnome/activity.py** - GNOME-specific activity detection (idle, lock, power save)
 - **tmux/capture.py** - Tmux capture library (integrated into Linux observer for fallback capture)
 - **sense.py** - File watcher that dispatches transcription and description jobs
-- **transcribe.py** - Audio processing with Whisper/Rev.ai and pyannote diarization
+- **transcribe.py** - Audio transcription with faster-whisper and sentence-level embeddings
 - **describe.py** - Vision analysis with Gemini, category-based prompts
 - **categories/** - Category-specific prompts for screen content (see [SCREEN_CATEGORIES.md](SCREEN_CATEGORIES.md))
 
 ## Output Formats
 
 See [JOURNAL.md](JOURNAL.md) for detailed extract schemas:
-- Audio transcripts: `audio.jsonl` with speaker turns and timestamps
+- Audio transcripts: `audio.jsonl` with timestamps (speaker detection not included)
 - Screen analysis: `screen.jsonl` with frame-by-frame categorization
 
 ## Configuration

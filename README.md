@@ -16,7 +16,7 @@ A Python-based desktop journaling toolkit that captures screen and audio activit
 ## Key Capabilities
 
 - **Multimodal Capture** - Screen recording and audio capture with automatic segmentation
-- **AI Transcription** - Speaker-diarized audio transcription with multiple backend support
+- **AI Transcription** - Audio transcription with faster-whisper and voice embeddings
 - **Visual Analysis** - AI-powered screen content categorization and extraction
 - **Intelligent Insights** - Automated daily summaries, meeting detection, and entity extraction
 - **Facet Organization** - Group content by project or context (work, personal, etc.)

@@ -329,7 +329,7 @@ class TestFindSegmentBySha256:
                 "files": [
                     {"sha256": "sha256_aaa", "written": "audio.flac"},
                     {"sha256": "sha256_bbb", "written": "screen.mp4"},
-                    {"sha256": "sha256_ccc", "written": "transcript.json"},
+                    {"sha256": "sha256_ccc", "written": "audio.jsonl"},
                 ],
             },
         )

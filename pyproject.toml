@@ -69,8 +69,6 @@ dependencies = [
     # Audio processing
     "soundcard",
     "soundfile",
-    "pyannote.audio>=4,<5",
-    "scipy",  # Required by pyannote internals
     "faster-whisper>=1.0.0",
     "resemblyzer>=0.1.0",
     "librosa>=0.10.0",
@@ -118,7 +116,6 @@ observer = "observe.observer:main"
 observe-linux = "observe.linux.observer:main"
 observe-macos = "observe.macos.observer:main"
 observe-transcribe = "observe.transcribe:main"
-observe-interpret = "observe.interpret:main"
 observe-describe = "observe.describe:main"
 observe-sense = "observe.sense:main"
 observe-sync = "observe.sync:main"

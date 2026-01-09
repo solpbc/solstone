@@ -119,28 +119,6 @@ ANTHROPIC_API_KEY=your-key-here
 
 ---
 
-## Speaker Diarization (HuggingFace)
-
-Required for audio transcription with speaker identification.
-
-1. Create a [HuggingFace account](https://huggingface.co/join)
-
-2. Go to [Settings > Access Tokens](https://huggingface.co/settings/tokens)
-
-3. Click "Create new token" with read access
-
-4. **Accept the model license** - visit [pyannote/speaker-diarization-3.1](https://huggingface.co/pyannote/speaker-diarization-3.1) and click "Agree and access repository"
-
-5. Add the token to `.env`:
-
-```
-HUGGINGFACE_API_KEY=your-token-here
-```
-
-**Note:** The first transcription will download ~1GB of model files.
-
----
-
 ## Rev.ai for Imports (Optional)
 
 For transcribing imported audio files (meetings, voice memos, etc.).

@@ -570,31 +570,24 @@ The transcript file (`audio.jsonl`) contains a metadata line followed by one JSO
 Example transcript file:
 
 ```jsonl
-{"raw": "audio.flac", "topics": ["authentication", "testing", "planning"], "setting": "workplace"}
-{"start": "00:00:01", "source": "mic", "speaker": 1, "text": "So we need to finalize the authentication module today.", "description": "professional tone"}
-{"start": "00:00:15", "source": "sys", "speaker": "Alice", "text": "I agree. [clears throat] Let's make sure we have proper unit tests.", "description": "thoughtful, slightly hesitant"}
+{"raw": "audio.flac"}
+{"start": "00:00:01", "source": "mic", "text": "So we need to finalize the authentication module today."}
+{"start": "00:00:15", "source": "sys", "text": "I agree. Let's make sure we have proper unit tests."}
 ```
 
 **Metadata line (first line):**
 - `raw` – path to processed audio file (required)
-- `topics` – array of conversation topics extracted by the model (optional)
-- `setting` – environment or context description, e.g., "workplace", "personal", "educational" (optional)
+- `remote` – remote name if transcribed from a remote source (optional)
 - `imported` – object with import metadata for external files (optional):
   - `id` – unique import identifier
   - `facet` – facet name for entity extraction
   - `setting` – contextual setting description
-- `diarization` – object with raw diarization data from pyannote (optional):
-  - `turns` – array of speaker turns with `start`, `end` (floats in seconds), `speaker`
-  - `overlaps` – array of overlapping speech regions with `start`, `end` (floats in seconds)
-  - `timings` – object with processing durations: `pipeline_load`, `diarization`, `emb_model_load`, `embedding`, `total`
-  - `speakers` – array of unique speaker labels (e.g., ["Speaker 1", "Speaker 2"])
 
 **Transcript segments (subsequent lines):**
 - `start` – timestamp in HH:MM:SS format (required)
-- `text` – transcribed text with inline vocalizations in brackets like "[laughs]", "[sigh]" (required)
+- `text` – transcribed text (required)
 - `source` – audio source: "mic" or "sys" (optional)
-- `speaker` – speaker identifier, numeric or string (optional)
-- `description` – audio-impaired style description of tone, emotion, vocal quality (optional)
+- `speaker` – speaker identifier, numeric or string (optional, not currently populated)
 
 #### Screen frame extracts
 

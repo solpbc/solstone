@@ -25,25 +25,6 @@ VIDEO_EXTENSIONS = (".webm", ".mp4", ".mov")
 AUDIO_EXTENSIONS = (".flac", ".ogg", ".m4a")
 
 
-def get_output_dir(audio_path: Path) -> Path:
-    """Get output directory for audio processing artifacts.
-
-    For audio files in segment directories, returns <segment>/<stem>/ folder.
-    E.g., 20250101/120000_300/audio.flac -> 20250101/120000_300/audio/
-
-    Parameters
-    ----------
-    audio_path : Path
-        Path to audio file in segment directory
-
-    Returns
-    -------
-    Path
-        Output directory path (parent / stem)
-    """
-    return audio_path.parent / audio_path.stem
-
-
 def prepare_audio_file(raw_path: Path, sample_rate: int = SAMPLE_RATE) -> Path:
     """Prepare audio file for processing, converting M4A if needed.
 
