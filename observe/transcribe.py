@@ -21,8 +21,12 @@ import soundfile as sf
 from google import genai
 
 from observe.diarize import DiarizationError, diarize, save_speaker_embeddings
-from observe.hear import SAMPLE_RATE
-from observe.utils import get_segment_key
+from observe.utils import (
+    SAMPLE_RATE,
+    get_output_dir,
+    get_segment_key,
+    prepare_audio_file,
+)
 from think.callosum import callosum_send
 from think.entities import load_entity_names
 from think.models import GEMINI_FLASH
@@ -161,75 +165,8 @@ class Transcriber:
 
         Returns path to a file suitable for diarization (mono or stereo FLAC/WAV).
         For m4a files, converts to temporary FLAC, mixing all audio streams.
-
-        M4A files from sck-cli contain two mono streams: track 0 = system audio,
-        track 1 = microphone. Both are decoded and mixed together.
         """
-        import av
-
-        if raw_path.suffix.lower() != ".m4a":
-            return raw_path
-
-        logging.info(f"Converting m4a to FLAC for diarization: {raw_path}")
-
-        # First pass: count streams
-        container = av.open(str(raw_path))
-        num_streams = len(list(container.streams.audio))
-        container.close()
-
-        if num_streams == 0:
-            raise ValueError(f"No audio streams found in {raw_path}")
-
-        # Decode each stream separately (PyAV requires fresh container per stream)
-        # sck-cli produces: track 0 = system audio, track 1 = microphone
-        stream_data = []
-        for stream_idx in range(num_streams):
-            container = av.open(str(raw_path))
-            stream = list(container.streams.audio)[stream_idx]
-
-            resampler = av.audio.resampler.AudioResampler(
-                format="flt", layout="mono", rate=SAMPLE_RATE
-            )
-            chunks = []
-            for frame in container.decode(stream):
-                for out_frame in resampler.resample(frame):
-                    arr = out_frame.to_ndarray()
-                    chunks.append(arr)
-
-            container.close()
-
-            if chunks:
-                combined = np.concatenate(chunks, axis=1).flatten()
-                stream_data.append(combined)
-                logging.info(
-                    f"  Stream {stream_idx}: {len(combined)} samples "
-                    f"({len(combined) / SAMPLE_RATE:.1f}s)"
-                )
-
-        if not stream_data:
-            raise ValueError(f"No audio data decoded from {raw_path}")
-
-        # Mix all streams together
-        if len(stream_data) == 1:
-            mixed = stream_data[0]
-        else:
-            # Pad shorter streams to match longest
-            max_len = max(len(s) for s in stream_data)
-            padded = []
-            for s in stream_data:
-                if len(s) < max_len:
-                    s = np.pad(s, (0, max_len - len(s)), mode="constant")
-                padded.append(s)
-            # Average all streams
-            mixed = np.mean(padded, axis=0)
-            logging.info(f"  Mixed {len(stream_data)} streams -> {len(mixed)} samples")
-
-        # Write to temporary FLAC in same directory
-        temp_path = raw_path.with_suffix(".tmp.flac")
-        audio_int16 = (np.clip(mixed, -1.0, 1.0) * 32767).astype(np.int16)
-        sf.write(temp_path, audio_int16, SAMPLE_RATE, format="FLAC")
-
-        return temp_path
+        return prepare_audio_file(raw_path, SAMPLE_RATE)
 
     def _process_audio(self, raw_path: Path) -> dict | None:
         """Process audio file with diarization and return turns for transcription.
@@ -359,12 +296,8 @@ class Transcriber:
         return audio_path.with_suffix(".jsonl")
 
     def _get_embeddings_dir(self, audio_path: Path) -> Path:
-        """Get directory for storing speaker embeddings.
-
-        Files are always in segment directories:
-        YYYYMMDD/HHMMSS_LEN/audio.flac -> YYYYMMDD/HHMMSS_LEN/audio/
-        """
-        return audio_path.parent / audio_path.stem
+        """Get directory for storing speaker embeddings."""
+        return get_output_dir(audio_path)
 
     def _transcribe(
         self,
@@ -562,8 +495,6 @@ def main():
         raise SystemExit("Error: GOOGLE_API_KEY not found in environment.")
 
     faulthandler.enable()
-
-    journal = Path(get_journal())
 
     audio_path = Path(args.audio_path)
     if not audio_path.exists():

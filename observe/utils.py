@@ -11,12 +11,132 @@ import re
 import time
 from pathlib import Path
 
+import numpy as np
+import soundfile as sf
+
 from think.utils import day_path
 
 logger = logging.getLogger(__name__)
 
+# Standard sample rate for audio processing
+SAMPLE_RATE = 16000
+
 VIDEO_EXTENSIONS = (".webm", ".mp4", ".mov")
 AUDIO_EXTENSIONS = (".flac", ".ogg", ".m4a")
+
+
+def get_output_dir(audio_path: Path) -> Path:
+    """Get output directory for audio processing artifacts.
+
+    For audio files in segment directories, returns <segment>/<stem>/ folder.
+    E.g., 20250101/120000_300/audio.flac -> 20250101/120000_300/audio/
+
+    Parameters
+    ----------
+    audio_path : Path
+        Path to audio file in segment directory
+
+    Returns
+    -------
+    Path
+        Output directory path (parent / stem)
+    """
+    return audio_path.parent / audio_path.stem
+
+
+def prepare_audio_file(raw_path: Path, sample_rate: int = SAMPLE_RATE) -> Path:
+    """Prepare audio file for processing, converting M4A if needed.
+
+    Returns path to a file suitable for transcription/embedding (mono FLAC).
+    For M4A files, converts to temporary FLAC, mixing all audio streams.
+
+    M4A files from sck-cli contain two mono streams: track 0 = system audio,
+    track 1 = microphone. Both are decoded and mixed together.
+
+    Parameters
+    ----------
+    raw_path : Path
+        Path to audio file (.flac or .m4a)
+    sample_rate : int
+        Target sample rate (default: 16000)
+
+    Returns
+    -------
+    Path
+        Path to audio file ready for processing. For .flac files, returns
+        the original path. For .m4a files, returns path to temporary .flac
+        file that caller should delete after use.
+
+    Raises
+    ------
+    ValueError
+        If no audio streams found in M4A file
+    """
+    import av
+
+    if raw_path.suffix.lower() != ".m4a":
+        return raw_path
+
+    logger.info(f"Converting m4a to FLAC: {raw_path}")
+
+    # First pass: count streams
+    container = av.open(str(raw_path))
+    num_streams = len(list(container.streams.audio))
+    container.close()
+
+    if num_streams == 0:
+        raise ValueError(f"No audio streams found in {raw_path}")
+
+    # Decode each stream separately (PyAV requires fresh container per stream)
+    # sck-cli produces: track 0 = system audio, track 1 = microphone
+    stream_data = []
+    for stream_idx in range(num_streams):
+        container = av.open(str(raw_path))
+        stream = list(container.streams.audio)[stream_idx]
+
+        resampler = av.audio.resampler.AudioResampler(
+            format="flt", layout="mono", rate=sample_rate
+        )
+        chunks = []
+        for frame in container.decode(stream):
+            for out_frame in resampler.resample(frame):
+                arr = out_frame.to_ndarray()
+                chunks.append(arr)
+
+        container.close()
+
+        if chunks:
+            combined = np.concatenate(chunks, axis=1).flatten()
+            stream_data.append(combined)
+            logger.info(
+                f"  Stream {stream_idx}: {len(combined)} samples "
+                f"({len(combined) / sample_rate:.1f}s)"
+            )
+
+    if not stream_data:
+        raise ValueError(f"No audio data decoded from {raw_path}")
+
+    # Mix all streams together
+    if len(stream_data) == 1:
+        mixed = stream_data[0]
+    else:
+        # Pad shorter streams to match longest
+        max_len = max(len(s) for s in stream_data)
+        padded = []
+        for s in stream_data:
+            if len(s) < max_len:
+                s = np.pad(s, (0, max_len - len(s)), mode="constant")
+            padded.append(s)
+        # Average all streams
+        mixed = np.mean(padded, axis=0)
+        logger.info(f"  Mixed {len(stream_data)} streams -> {len(mixed)} samples")
+
+    # Write to temporary FLAC in same directory
+    temp_path = raw_path.with_suffix(".tmp.flac")
+    audio_int16 = (np.clip(mixed, -1.0, 1.0) * 32767).astype(np.int16)
+    sf.write(temp_path, audio_int16, sample_rate, format="FLAC")
+
+    return temp_path
 
 
 def get_segment_key(media_path: Path) -> str | None:

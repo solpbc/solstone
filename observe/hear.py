@@ -22,8 +22,9 @@ from typing import Any
 import numpy as np
 import soundfile as sf
 
+from observe.utils import SAMPLE_RATE
+
 # Constants
-SAMPLE_RATE = 16000
 BLOCK_SIZE = 1024
 
 
