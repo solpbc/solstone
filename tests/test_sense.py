@@ -16,7 +16,6 @@ from observe.sense import FileSensor, HandlerProcess, HandlerQueue, QueuedItem
 from think.runner import DailyLogWriter as ProcessLogWriter
 from think.runner import _format_log_line
 
-
 # --- QueuedItem Tests ---
 
 

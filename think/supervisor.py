@@ -330,7 +330,10 @@ def spawn_scheduled_agents(day: str) -> None:
         _scheduled_state["pending_groups"] = [
             (
                 priority,
-                [(persona_id, config, day_formatted) for persona_id, config in agents_list],
+                [
+                    (persona_id, config, day_formatted)
+                    for persona_id, config in agents_list
+                ],
             )
             for priority, agents_list in sorted(priority_groups.items())
         ]
@@ -1027,7 +1030,9 @@ def handle_daily_tasks() -> None:
             )
             return
 
-        logging.info(f"Day changed to {today}, starting daily processing for {prev_day_str}")
+        logging.info(
+            f"Day changed to {today}, starting daily processing for {prev_day_str}"
+        )
 
         # Spawn dream in background thread with target day
         _daily_state["dream_running"] = True
