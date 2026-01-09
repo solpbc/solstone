@@ -1273,7 +1273,13 @@ body.has-date-nav .workspace:has(.tr-wrap) {
           return;
         }
         segmentData = data;
-        currentVideoFiles = data.video_files || {};
+        currentVideoFiles = showScreen ? (data.video_files || {}) : {};
+
+        // Skip keyframe prefetching when screen is disabled
+        if (!showScreen) {
+          renderSegmentTimeline(data, showAudio, showScreen);
+          return;
+        }
 
         const nonBasicByVideo = new Map();
         (data.chunks || []).forEach(chunk => {
@@ -1913,6 +1919,10 @@ body.has-date-nav .workspace:has(.tr-wrap) {
 
   screenCheck.addEventListener('change', () => {
     if (selectedSegment && segmentData) {
+      // Restore video files when screen is re-enabled
+      if (screenCheck.checked && Object.keys(currentVideoFiles).length === 0) {
+        currentVideoFiles = segmentData.video_files || {};
+      }
       renderSegmentTimeline(segmentData, audioCheck.checked, screenCheck.checked);
     }
   });
