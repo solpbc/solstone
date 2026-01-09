@@ -33,13 +33,16 @@ from observe.utils import (
     prepare_audio_file,
 )
 from think.callosum import callosum_send
-from think.entities import load_entity_names
 from think.utils import get_config, get_journal, setup_cli
 
 # Default transcription settings
 DEFAULT_MODEL = "medium.en"
 DEFAULT_DEVICE = "auto"
 DEFAULT_COMPUTE = "default"
+
+# Style prompt to establish punctuation pattern for Whisper
+# Whisper is autoregressive and can get stuck in "no-punctuation mode" without this
+STYLE_PROMPT = "Okay, let's get started. Here's what we've been working on."
 
 # Minimum segment duration for embedding (seconds)
 MIN_SEGMENT_DURATION = 0.3
@@ -110,14 +113,6 @@ def _build_segment(segment_id: int, words: list[dict]) -> dict:
         "text": text,
         "words": words,
     }
-
-
-def _seconds_to_timestamp(seconds: float) -> str:
-    """Convert seconds to HH:MM:SS format."""
-    h = int(seconds // 3600)
-    m = int((seconds % 3600) // 60)
-    s = int(seconds % 60)
-    return f"{h:02d}:{m:02d}:{s:02d}"
 
 
 class Transcriber:
@@ -423,15 +418,8 @@ class Transcriber:
         remote = os.getenv("REMOTE_NAME")
 
         try:
-            # Load entity names for initial prompt
-            entity_names = load_entity_names(spoken=True)
-            initial_prompt = None
-            if entity_names:
-                initial_prompt = ", ".join(entity_names)
-                logging.info(f"Using {len(entity_names)} entity names as prompt hints")
-
             # Transcribe with faster-whisper
-            segments = self._transcribe(audio_path, initial_prompt)
+            segments = self._transcribe(audio_path, STYLE_PROMPT)
 
             # Skip if no speech detected - safe to delete since _transcribe() already
             # validated that VAD also detected minimal speech (raises RuntimeError otherwise)

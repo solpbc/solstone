@@ -19,7 +19,6 @@ from observe.transcribe import (
     MIN_SEGMENT_DURATION,
     SENTENCE_ENDINGS,
     _build_segment,
-    _seconds_to_timestamp,
     resegment_by_sentences,
 )
 from observe.utils import prepare_audio_file
@@ -212,22 +211,6 @@ class TestBuildSegment:
         assert seg["end"] == 1.0
         assert seg["text"] == "Hello world"
         assert seg["words"] == words
-
-
-class TestSecondsToTimestamp:
-    """Test timestamp conversion."""
-
-    def test_simple_seconds(self):
-        """Should convert simple seconds to HH:MM:SS."""
-        assert _seconds_to_timestamp(0) == "00:00:00"
-        assert _seconds_to_timestamp(5) == "00:00:05"
-        assert _seconds_to_timestamp(65) == "00:01:05"
-        assert _seconds_to_timestamp(3661) == "01:01:01"
-
-    def test_fractional_seconds(self):
-        """Should truncate fractional seconds."""
-        assert _seconds_to_timestamp(5.9) == "00:00:05"
-        assert _seconds_to_timestamp(65.5) == "00:01:05"
 
 
 class TestConstants:
