@@ -34,10 +34,12 @@ from observe.utils import (
 )
 from think.callosum import callosum_send
 from think.entities import load_entity_names
-from think.utils import get_journal, setup_cli
+from think.utils import get_config, get_journal, setup_cli
 
-# Default model for faster-whisper
+# Default transcription settings
 DEFAULT_MODEL = "medium.en"
+DEFAULT_DEVICE = "auto"
+DEFAULT_COMPUTE = "default"
 
 # Minimum segment duration for embedding (seconds)
 MIN_SEGMENT_DURATION = 0.3
@@ -121,30 +123,29 @@ def _seconds_to_timestamp(seconds: float) -> str:
 class Transcriber:
     """Transcribes audio using faster-whisper and generates sentence embeddings."""
 
-    def __init__(self, model_size: str = DEFAULT_MODEL, force_cpu: bool = False):
+    def __init__(
+        self,
+        model_size: str = DEFAULT_MODEL,
+        device: str = DEFAULT_DEVICE,
+        compute_type: str = DEFAULT_COMPUTE,
+    ):
         """Initialize transcriber with models.
 
         Args:
             model_size: faster-whisper model size (e.g., "medium.en", "small.en")
-            force_cpu: If True, force CPU mode (for benchmarking). Otherwise auto-detect.
+            device: Device for inference ("auto", "cpu", "cuda")
+            compute_type: Compute type ("float32", "float16", "int8", "default")
         """
         from faster_whisper import WhisperModel
         from resemblyzer import VoiceEncoder
 
-        # Device selection: auto-detect GPU unless forced to CPU
-        if force_cpu:
-            whisper_device = "cpu"
-            whisper_compute = "int8"
-            encoder_device = "cpu"
-        else:
-            whisper_device = "auto"
-            whisper_compute = "default"
-            encoder_device = None  # VoiceEncoder auto-detects when None
+        # VoiceEncoder follows whisper device: None auto-detects CUDA, "cpu" forces CPU
+        encoder_device = None if device in ("auto", "cuda") else "cpu"
 
         logging.info(f"Loading faster-whisper model ({model_size})...")
         t0 = time.perf_counter()
         self.whisper_model = WhisperModel(
-            model_size, device=whisper_device, compute_type=whisper_compute
+            model_size, device=device, compute_type=compute_type
         )
         whisper_actual_device = self.whisper_model.model.device
         whisper_actual_compute = self.whisper_model.model.compute_type
@@ -186,6 +187,9 @@ class Transcriber:
 
         Returns:
             List of sentence-aligned segments with word-level data
+
+        Raises:
+            RuntimeError: If VAD detected speech but transcription produced no segments
         """
         logging.info(f"Transcribing {audio_path.name}...")
         t0 = time.perf_counter()
@@ -200,7 +204,7 @@ class Transcriber:
         if initial_prompt:
             transcribe_kwargs["initial_prompt"] = initial_prompt
 
-        segments_gen, _ = self.whisper_model.transcribe(
+        segments_gen, info = self.whisper_model.transcribe(
             str(audio_path),
             **transcribe_kwargs,
         )
@@ -235,10 +239,25 @@ class Transcriber:
         # Get duration from last segment or 0
         duration = max((s["end"] for s in segment_list), default=0)
 
+        # Sanity check: if VAD detected speech but we got no segments, something is wrong
+        # This protects against silent transcription failures (e.g., CUDA errors)
+        vad_detected_speech = (
+            info.duration_after_vad > 1.0
+        )  # More than 1 second of speech
+        if vad_detected_speech and not segment_list:
+            raise RuntimeError(
+                f"VAD detected {info.duration_after_vad:.1f}s of speech "
+                f"(from {info.duration:.1f}s total) but transcription produced 0 segments. "
+                f"This indicates a transcription failure, not silence."
+            )
+
+        # Log transcription stats including VAD info
+        vad_removed = info.duration - info.duration_after_vad
         logging.info(
             f"  Transcribed {len(segment_list)} segments, "
-            f"{duration:.1f}s audio in {transcribe_time:.2f}s "
-            f"(RTF: {transcribe_time / max(duration, 0.1):.3f}x)"
+            f"{duration:.1f}s speech in {transcribe_time:.2f}s "
+            f"(VAD: {info.duration:.1f}s -> {info.duration_after_vad:.1f}s, "
+            f"removed {vad_removed:.1f}s, RTF: {transcribe_time / max(duration, 0.1):.3f}x)"
         )
 
         # Re-segment by sentence boundaries instead of acoustic pauses
@@ -406,7 +425,8 @@ class Transcriber:
             # Transcribe with faster-whisper
             segments = self._transcribe(audio_path, initial_prompt)
 
-            # Skip if no speech detected
+            # Skip if no speech detected - safe to delete since _transcribe() already
+            # validated that VAD also detected minimal speech (raises RuntimeError otherwise)
             if not segments:
                 logging.info(f"No speech detected in {raw_path}, removing file")
                 raw_path.unlink()
@@ -500,7 +520,12 @@ def main():
     parser.add_argument(
         "--cpu",
         action="store_true",
-        help="Force CPU mode (for benchmarking, disables GPU auto-detection)",
+        help="Force CPU mode (overrides config, uses int8 compute)",
+    )
+    parser.add_argument(
+        "--model",
+        type=str,
+        help=f"Whisper model to use (overrides config, default: {DEFAULT_MODEL})",
     )
     args = setup_cli(parser)
 
@@ -523,9 +548,25 @@ def main():
             f"but parent is: {audio_path.parent.name}"
         )
 
+    # Load transcription settings from journal config
+    config = get_config()
+    transcribe_config = config.get("transcribe", {})
+
+    # Determine settings: CLI args override config, config overrides defaults
+    if args.cpu:
+        device = "cpu"
+        compute_type = "int8"
+    else:
+        device = transcribe_config.get("device", DEFAULT_DEVICE)
+        compute_type = transcribe_config.get("compute_type", DEFAULT_COMPUTE)
+
+    model = args.model or transcribe_config.get("model", DEFAULT_MODEL)
+
     logging.info(f"Processing audio: {audio_path}")
 
-    transcriber = Transcriber(force_cpu=args.cpu)
+    transcriber = Transcriber(
+        model_size=model, device=device, compute_type=compute_type
+    )
     transcriber._handle_raw(audio_path, redo=args.redo)
 
 

@@ -13,6 +13,9 @@ import pytest
 import soundfile as sf
 
 from observe.transcribe import (
+    DEFAULT_COMPUTE,
+    DEFAULT_DEVICE,
+    DEFAULT_MODEL,
     MIN_SEGMENT_DURATION,
     SENTENCE_ENDINGS,
     _build_segment,
@@ -240,6 +243,12 @@ class TestConstants:
     def test_min_segment_duration(self):
         """MIN_SEGMENT_DURATION should be positive."""
         assert MIN_SEGMENT_DURATION > 0
+
+    def test_default_transcription_settings(self):
+        """Default transcription settings should be valid."""
+        assert DEFAULT_MODEL == "medium.en"
+        assert DEFAULT_DEVICE == "auto"
+        assert DEFAULT_COMPUTE == "default"
 
 
 class TestPrepareAudioFile:

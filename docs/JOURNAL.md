@@ -150,6 +150,27 @@ f"That is {identity.pronouns.possessive} desk"     # "That is his desk"
 f"{identity.pronouns.subject} did it {identity.pronouns.reflexive}"  # "he did it himself"
 ```
 
+### Transcribe configuration
+
+The `transcribe` block configures audio transcription settings for `observe-transcribe`:
+
+```json
+{
+  "transcribe": {
+    "device": "auto",
+    "model": "medium.en",
+    "compute_type": "default"
+  }
+}
+```
+
+Fields:
+- `device` (string) – Device for inference: `"auto"` (detect GPU, fall back to CPU), `"cpu"`, or `"cuda"`. Default: `"auto"`.
+- `model` (string) – Whisper model to use (e.g., `"tiny.en"`, `"base.en"`, `"small.en"`, `"medium.en"`, `"large-v3-turbo"`, `"distil-large-v3"`). Default: `"medium.en"`.
+- `compute_type` (string) – Compute precision: `"default"` (auto-select: float16 on GPU, float32 on CPU), `"float32"` (most compatible), `"float16"` (faster on most GPUs), `"int8"` (fastest on CPU). Default: `"default"`.
+
+These settings can be overridden via CLI flags: `--cpu` forces CPU mode with int8, `--model MODEL` overrides the model.
+
 ## Facet folders
 
 The `facets/` directory provides a way to organize journal content by scope or focus area. Each facet represents a cohesive grouping of related activities, projects, or areas of interest.
