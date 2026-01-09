@@ -473,6 +473,15 @@ class Transcriber:
                 event_fields["remote"] = remote
             callosum_send("observe", "transcribed", **event_fields)
 
+            # Run interpret pipeline (faster-whisper + embeddings) after transcribe
+            try:
+                from observe.interpret import Interpreter
+
+                interpreter = Interpreter()
+                interpreter._handle_raw(raw_path, redo=redo)
+            except Exception as e:
+                logging.warning(f"Interpret failed for {raw_path}: {e}")
+
 
 def main():
     parser = argparse.ArgumentParser(
