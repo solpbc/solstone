@@ -211,3 +211,238 @@ class TestMinWordDuration:
         assert len(filtered) == 2
         assert filtered[0]["word"] == "Hello"
         assert filtered[1]["word"] == "world"
+
+
+class TestResegmentBySentences:
+    """Test sentence-based resegmentation of Whisper output."""
+
+    def test_merges_fragments_into_sentence(self):
+        """Multiple Whisper segments forming one sentence should merge."""
+        from observe.interpret import resegment_by_sentences
+
+        # Simulates Whisper splitting "I think I can do it." across 3 segments
+        transcript = {
+            "info": {"model": "medium.en"},
+            "raw": "audio.flac",
+            "segments": [
+                {
+                    "id": 1,
+                    "start": 0.0,
+                    "end": 1.0,
+                    "text": "I think",
+                    "words": [
+                        {"word": " I", "start": 0.0, "end": 0.3, "probability": 0.9},
+                        {"word": " think", "start": 0.3, "end": 1.0, "probability": 0.9},
+                    ],
+                },
+                {
+                    "id": 2,
+                    "start": 1.5,
+                    "end": 2.5,
+                    "text": "I can",
+                    "words": [
+                        {"word": " I", "start": 1.5, "end": 1.8, "probability": 0.9},
+                        {"word": " can", "start": 1.8, "end": 2.5, "probability": 0.9},
+                    ],
+                },
+                {
+                    "id": 3,
+                    "start": 3.0,
+                    "end": 4.0,
+                    "text": "do it.",
+                    "words": [
+                        {"word": " do", "start": 3.0, "end": 3.3, "probability": 0.9},
+                        {"word": " it.", "start": 3.3, "end": 4.0, "probability": 0.9},
+                    ],
+                },
+            ],
+        }
+
+        result = resegment_by_sentences(transcript)
+
+        assert len(result["segments"]) == 1
+        seg = result["segments"][0]
+        assert seg["id"] == 1
+        assert seg["start"] == 0.0
+        assert seg["end"] == 4.0
+        assert seg["text"] == "I think I can do it."
+        assert len(seg["words"]) == 6
+
+    def test_splits_on_period(self):
+        """Segments should split on period."""
+        from observe.interpret import resegment_by_sentences
+
+        transcript = {
+            "info": {},
+            "raw": "audio.flac",
+            "segments": [
+                {
+                    "id": 1,
+                    "start": 0.0,
+                    "end": 5.0,
+                    "text": "Hello. World.",
+                    "words": [
+                        {"word": " Hello.", "start": 0.0, "end": 1.0, "probability": 0.9},
+                        {"word": " World.", "start": 2.0, "end": 3.0, "probability": 0.9},
+                    ],
+                },
+            ],
+        }
+
+        result = resegment_by_sentences(transcript)
+
+        assert len(result["segments"]) == 2
+        assert result["segments"][0]["text"] == "Hello."
+        assert result["segments"][1]["text"] == "World."
+
+    def test_splits_on_question_mark(self):
+        """Segments should split on question mark."""
+        from observe.interpret import resegment_by_sentences
+
+        transcript = {
+            "info": {},
+            "raw": "audio.flac",
+            "segments": [
+                {
+                    "id": 1,
+                    "start": 0.0,
+                    "end": 3.0,
+                    "text": "How are you? Good.",
+                    "words": [
+                        {"word": " How", "start": 0.0, "end": 0.3, "probability": 0.9},
+                        {"word": " are", "start": 0.3, "end": 0.6, "probability": 0.9},
+                        {"word": " you?", "start": 0.6, "end": 1.0, "probability": 0.9},
+                        {"word": " Good.", "start": 2.0, "end": 3.0, "probability": 0.9},
+                    ],
+                },
+            ],
+        }
+
+        result = resegment_by_sentences(transcript)
+
+        assert len(result["segments"]) == 2
+        assert result["segments"][0]["text"] == "How are you?"
+        assert result["segments"][1]["text"] == "Good."
+
+    def test_splits_on_exclamation(self):
+        """Segments should split on exclamation mark."""
+        from observe.interpret import resegment_by_sentences
+
+        transcript = {
+            "info": {},
+            "raw": "audio.flac",
+            "segments": [
+                {
+                    "id": 1,
+                    "start": 0.0,
+                    "end": 2.0,
+                    "text": "Wow! Amazing.",
+                    "words": [
+                        {"word": " Wow!", "start": 0.0, "end": 0.5, "probability": 0.9},
+                        {"word": " Amazing.", "start": 1.0, "end": 2.0, "probability": 0.9},
+                    ],
+                },
+            ],
+        }
+
+        result = resegment_by_sentences(transcript)
+
+        assert len(result["segments"]) == 2
+        assert result["segments"][0]["text"] == "Wow!"
+        assert result["segments"][1]["text"] == "Amazing."
+
+    def test_handles_incomplete_final_sentence(self):
+        """Final sentence without punctuation should still be captured."""
+        from observe.interpret import resegment_by_sentences
+
+        transcript = {
+            "info": {},
+            "raw": "audio.flac",
+            "segments": [
+                {
+                    "id": 1,
+                    "start": 0.0,
+                    "end": 3.0,
+                    "text": "First sentence. And then",
+                    "words": [
+                        {"word": " First", "start": 0.0, "end": 0.3, "probability": 0.9},
+                        {
+                            "word": " sentence.",
+                            "start": 0.3,
+                            "end": 1.0,
+                            "probability": 0.9,
+                        },
+                        {"word": " And", "start": 1.5, "end": 1.8, "probability": 0.9},
+                        {"word": " then", "start": 1.8, "end": 2.0, "probability": 0.9},
+                    ],
+                },
+            ],
+        }
+
+        result = resegment_by_sentences(transcript)
+
+        assert len(result["segments"]) == 2
+        assert result["segments"][0]["text"] == "First sentence."
+        assert result["segments"][1]["text"] == "And then"
+
+    def test_preserves_info_and_raw(self):
+        """Info and raw fields should be preserved."""
+        from observe.interpret import resegment_by_sentences
+
+        transcript = {
+            "info": {"model": "medium.en", "duration": 10.0},
+            "raw": "audio.flac",
+            "segments": [
+                {
+                    "id": 1,
+                    "start": 0.0,
+                    "end": 1.0,
+                    "text": "Test.",
+                    "words": [
+                        {"word": " Test.", "start": 0.0, "end": 1.0, "probability": 0.9}
+                    ],
+                }
+            ],
+        }
+
+        result = resegment_by_sentences(transcript)
+
+        assert result["info"] == {"model": "medium.en", "duration": 10.0}
+        assert result["raw"] == "audio.flac"
+
+    def test_empty_segments_returns_unchanged(self):
+        """Empty segments should return transcript unchanged."""
+        from observe.interpret import resegment_by_sentences
+
+        transcript = {"info": {}, "raw": "audio.flac", "segments": []}
+
+        result = resegment_by_sentences(transcript)
+
+        assert result == transcript
+
+    def test_segment_timestamps_from_words(self):
+        """Segment start/end should come from first/last word."""
+        from observe.interpret import resegment_by_sentences
+
+        transcript = {
+            "info": {},
+            "raw": "audio.flac",
+            "segments": [
+                {
+                    "id": 1,
+                    "start": 0.0,
+                    "end": 10.0,  # Original segment end
+                    "text": "Hello world.",
+                    "words": [
+                        {"word": " Hello", "start": 2.5, "end": 3.0, "probability": 0.9},
+                        {"word": " world.", "start": 3.5, "end": 4.2, "probability": 0.9},
+                    ],
+                },
+            ],
+        }
+
+        result = resegment_by_sentences(transcript)
+
+        seg = result["segments"][0]
+        assert seg["start"] == 2.5  # From first word
+        assert seg["end"] == 4.2  # From last word

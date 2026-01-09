@@ -5,11 +5,12 @@
 
 Phase 1 of the new transcription pipeline:
 - Transcribes audio using faster-whisper with word timestamps
+- Re-segments by sentence boundaries (not acoustic pauses)
 - Generates voice embeddings for each word using resemblyzer
 - Saves intermediate output for Phase 2 speaker correlation
 
 Output files are saved to <day>/<segment>/<stem>/:
-- transcript.json: Full faster-whisper output with word-level timestamps
+- transcript.json: Sentence-aligned segments with word-level timestamps
 - embeddings.npz: Voice embeddings indexed by word start time
 """
 
@@ -39,6 +40,77 @@ DEFAULT_MODEL = "medium.en"
 
 # Minimum word duration for embedding (seconds)
 MIN_WORD_DURATION = 0.1
+
+# Sentence-ending punctuation marks
+SENTENCE_ENDINGS = frozenset(".?!")
+
+
+def resegment_by_sentences(transcript: dict) -> dict:
+    """Re-segment transcript by sentence boundaries instead of acoustic pauses.
+
+    Whisper segments on speech pauses (VAD-driven), but we want segments aligned
+    to sentence boundaries (punctuation-driven). This function flattens all words
+    and re-segments based on sentence-ending punctuation.
+
+    Args:
+        transcript: Transcript dict with 'segments' containing word-level data
+
+    Returns:
+        New transcript dict with segments aligned to sentence boundaries
+    """
+    # Flatten all words from all segments
+    all_words = []
+    for seg in transcript.get("segments", []):
+        all_words.extend(seg.get("words", []))
+
+    if not all_words:
+        return transcript
+
+    # Build new segments based on sentence-ending punctuation
+    new_segments = []
+    current_words = []
+
+    for word in all_words:
+        current_words.append(word)
+
+        # Check if word ends with sentence-ending punctuation
+        word_text = word.get("word", "").strip()
+        if word_text and word_text[-1] in SENTENCE_ENDINGS:
+            # Complete this segment
+            new_segments.append(_build_segment(len(new_segments) + 1, current_words))
+            current_words = []
+
+    # Handle any remaining words (incomplete final sentence)
+    if current_words:
+        new_segments.append(_build_segment(len(new_segments) + 1, current_words))
+
+    # Return new transcript with resegmented data
+    return {
+        **transcript,
+        "segments": new_segments,
+    }
+
+
+def _build_segment(segment_id: int, words: list[dict]) -> dict:
+    """Build a segment dict from a list of words.
+
+    Args:
+        segment_id: Sequential segment ID
+        words: List of word dicts with 'word', 'start', 'end', 'probability'
+
+    Returns:
+        Segment dict with id, start, end, text, words
+    """
+    # Join words - Whisper includes leading spaces in word text
+    text = "".join(w.get("word", "") for w in words).strip()
+
+    return {
+        "id": segment_id,
+        "start": words[0]["start"],
+        "end": words[-1]["end"],
+        "text": text,
+        "words": words,
+    }
 
 
 class Interpreter:
@@ -129,7 +201,7 @@ class Interpreter:
                 f"(RTF: {transcribe_time / max(duration, 0.1):.3f}x)"
             )
 
-            return {
+            transcript = {
                 "info": {
                     "language": info.language,
                     "probability": info.language_probability,
@@ -140,6 +212,16 @@ class Interpreter:
                 "raw": f"{audio_path.stem}{audio_path.suffix}",
                 "segments": segment_list,
             }
+
+            # Re-segment by sentence boundaries instead of acoustic pauses
+            whisper_segments = len(segment_list)
+            transcript = resegment_by_sentences(transcript)
+            logging.info(
+                f"  Re-segmented {whisper_segments} acoustic segments "
+                f"to {len(transcript['segments'])} sentences"
+            )
+
+            return transcript
 
         except Exception as e:
             logging.error(f"Transcription failed for {audio_path}: {e}", exc_info=True)
