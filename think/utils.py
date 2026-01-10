@@ -80,7 +80,11 @@ def _flatten_identity_to_template_vars(identity: dict[str, Any]) -> dict[str, st
 
 
 def load_prompt(
-    name: str, base_dir: str | Path | None = None, *, include_journal: bool = False
+    name: str,
+    base_dir: str | Path | None = None,
+    *,
+    include_journal: bool = False,
+    context: dict[str, Any] | None = None,
 ) -> PromptContent:
     """Return the text contents and path for a ``.txt`` prompt file.
 
@@ -89,6 +93,10 @@ def load_prompt(
     - Top-level fields: $name, $preferred, $bio, $timezone
     - Nested fields with underscores: $pronouns_possessive, $pronouns_subject
     - Uppercase-first versions: $Pronouns_possessive, $Name, $Bio
+
+    Callers can provide additional context variables via the ``context`` parameter.
+    Context variables override identity variables if there's a name collision.
+    Uppercase-first versions are automatically created for context variables.
 
     Parameters
     ----------
@@ -100,7 +108,12 @@ def load_prompt(
         of this module when not provided.
     include_journal:
         If True, prepends the content of ``think/journal.txt`` to the requested
-        prompt. Defaults to False.
+        prompt. Defaults to False. Context variables are passed through to the
+        journal template as well.
+    context:
+        Optional dictionary of additional template variables. Values are converted
+        to strings. For each key, an uppercase-first version is also created
+        (e.g., ``{"day": "20250110"}`` adds both ``$day`` and ``$Day``).
 
     Returns
     -------
@@ -126,6 +139,14 @@ def load_prompt(
         identity = config.get("identity", {})
         template_vars = _flatten_identity_to_template_vars(identity)
 
+        # Merge caller-provided context (overrides identity vars if collision)
+        if context:
+            for key, value in context.items():
+                str_value = str(value)
+                template_vars[key] = str_value
+                # Add uppercase-first version
+                template_vars[key.capitalize()] = str_value.capitalize()
+
         # Use safe_substitute to avoid errors for undefined variables
         template = Template(text)
         text = template.safe_substitute(template_vars)
@@ -135,7 +156,7 @@ def load_prompt(
 
     # Prepend journal content if requested
     if include_journal and name != "journal":
-        journal_content = load_prompt("journal")
+        journal_content = load_prompt("journal", context=context)
         text = f"{journal_content.text}\n\n{text}"
 
     return PromptContent(text=text, path=prompt_path)

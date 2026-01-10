@@ -171,3 +171,97 @@ def test_load_prompt_include_journal(mock_journal_with_config, mock_prompt_dir):
     assert "Journal Guardian" in result.text or "Your Role" in result.text
     # Original prompt content should follow
     assert "This is a plain prompt without any variables." in result.text
+
+
+def test_load_prompt_with_custom_context(mock_journal_with_config, mock_prompt_dir):
+    """Test that custom context variables are substituted."""
+    # Create a prompt with context variables
+    context_prompt = """Day: $day
+Segment: $segment
+Custom value: $custom_value"""
+    (mock_prompt_dir / "context_test.txt").write_text(context_prompt)
+
+    result = load_prompt(
+        "context_test",
+        base_dir=mock_prompt_dir,
+        context={"day": "20250110", "segment": "143022_300", "custom_value": "hello"},
+    )
+
+    assert "Day: 20250110" in result.text
+    assert "Segment: 143022_300" in result.text
+    assert "Custom value: hello" in result.text
+
+
+def test_load_prompt_context_uppercase_versions(mock_journal_with_config, mock_prompt_dir):
+    """Test that uppercase-first versions are created for context variables."""
+    context_prompt = """lowercase: $topic
+Uppercase: $Topic"""
+    (mock_prompt_dir / "uppercase_test.txt").write_text(context_prompt)
+
+    result = load_prompt(
+        "uppercase_test",
+        base_dir=mock_prompt_dir,
+        context={"topic": "meetings"},
+    )
+
+    assert "lowercase: meetings" in result.text
+    assert "Uppercase: Meetings" in result.text
+
+
+def test_load_prompt_context_overrides_identity(mock_journal_with_config, mock_prompt_dir):
+    """Test that context variables override identity variables."""
+    override_prompt = "Name: $name"
+    (mock_prompt_dir / "override_test.txt").write_text(override_prompt)
+
+    # Without context, should use identity name
+    result_default = load_prompt("override_test", base_dir=mock_prompt_dir)
+    assert "Name: Test User" in result_default.text
+
+    # With context, should override
+    result_override = load_prompt(
+        "override_test",
+        base_dir=mock_prompt_dir,
+        context={"name": "Custom Name"},
+    )
+    assert "Name: Custom Name" in result_override.text
+
+
+def test_load_prompt_context_with_include_journal(mock_journal_with_config, mock_prompt_dir):
+    """Test that context variables flow through to journal.txt."""
+    # The journal.txt uses $name which should come from identity,
+    # but if we pass a context with $name it should override
+    result = load_prompt(
+        "plain",
+        base_dir=mock_prompt_dir,
+        include_journal=True,
+        context={"name": "Override Name"},
+    )
+
+    # Journal content should have the overridden name
+    assert "Override Name" in result.text
+
+
+def test_load_prompt_context_stringifies_values(mock_journal_with_config, mock_prompt_dir):
+    """Test that non-string context values are converted to strings."""
+    stringify_prompt = "Number: $count, Bool: $flag"
+    (mock_prompt_dir / "stringify_test.txt").write_text(stringify_prompt)
+
+    result = load_prompt(
+        "stringify_test",
+        base_dir=mock_prompt_dir,
+        context={"count": 42, "flag": True},
+    )
+
+    assert "Number: 42" in result.text
+    assert "Bool: True" in result.text
+
+
+def test_load_prompt_empty_context(mock_journal_with_config, mock_prompt_dir):
+    """Test that empty context dict behaves same as None.
+
+    Note: mock_journal_with_config needed for get_config() call in load_prompt.
+    """
+    result_none = load_prompt("plain", base_dir=mock_prompt_dir, context=None)
+    result_empty = load_prompt("plain", base_dir=mock_prompt_dir, context={})
+
+    assert result_none.text == result_empty.text
