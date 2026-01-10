@@ -49,6 +49,7 @@ def require_login() -> Any:
         # Remote ingest endpoints use key-based auth, not session
         "app:remote.ingest_upload",
         "app:remote.ingest_event",
+        "app:remote.ingest_segments",
     }:
         return None
 
