@@ -33,44 +33,92 @@ def get_config() -> Any:
 
 @settings_bp.route("/api/config", methods=["PUT"])
 def update_config() -> Any:
-    """Update the journal configuration."""
+    """Update the journal configuration.
+
+    Accepts JSON with a 'section' key indicating which config section to update,
+    and a 'data' key containing the fields to update. Supported sections:
+    - identity: User profile (name, preferred, bio, pronouns, aliases, etc.)
+    - models: AI model selection (insights, observations, agents)
+    - transcribe: Transcription settings (device, model, compute_type)
+    - convey: Web app settings (password)
+    """
     try:
-        data = request.get_json()
-        if not data:
+        request_data = request.get_json()
+        if not request_data:
             return jsonify({"error": "No data provided"}), 400
+
+        section = request_data.get("section")
+        data = request_data.get("data", {})
+
+        # Backward compatibility: if no section specified but identity key exists
+        if not section and "identity" in request_data:
+            section = "identity"
+            data = request_data["identity"]
+
+        if not section:
+            return jsonify({"error": "No section specified"}), 400
+
+        # Define allowed fields per section
+        allowed_sections = {
+            "identity": [
+                "name",
+                "preferred",
+                "bio",
+                "pronouns",
+                "aliases",
+                "email_addresses",
+                "timezone",
+            ],
+            "models": ["insights", "observations", "agents"],
+            "transcribe": ["device", "model", "compute_type"],
+            "convey": ["password"],
+        }
+
+        if section not in allowed_sections:
+            return jsonify({"error": f"Unknown section: {section}"}), 400
 
         config_dir = Path(state.journal_root) / "config"
         config_dir.mkdir(parents=True, exist_ok=True)
-
         config_path = config_dir / "journal.json"
 
-        # Load existing config twice - once for comparison, once for modification
+        # Load existing config
         old_config = get_journal_config()
         config = get_journal_config()
 
+        # Ensure section exists
+        if section not in config:
+            config[section] = {}
+
         # Track changes for logging
         changed_fields = {}
+        old_section = old_config.get(section, {})
 
-        # Update the identity section with provided data
-        if "identity" in data:
-            old_identity = old_config.get("identity", {})
-            for key, value in data["identity"].items():
-                if old_identity.get(key) != value:
-                    changed_fields[key] = {"old": old_identity.get(key), "new": value}
-            config["identity"].update(data["identity"])
+        # Update only allowed fields
+        for key in allowed_sections[section]:
+            if key in data:
+                new_value = data[key]
+                old_value = old_section.get(key)
+                if old_value != new_value:
+                    changed_fields[key] = {"old": old_value, "new": new_value}
+                config[section][key] = new_value
 
         # Write back to file
         with open(config_path, "w", encoding="utf-8") as f:
             json.dump(config, f, indent=2, ensure_ascii=False)
             f.write("\n")
 
-        # Log if something changed (journal-level, no facet)
+        # Log if something changed (don't log password changes for security)
         if changed_fields:
+            log_fields = changed_fields
+            if section == "convey" and "password" in log_fields:
+                # Don't log actual password values
+                log_fields = {"password": {"old": "***", "new": "***"}}
+
             log_app_action(
                 app="settings",
                 facet=None,
-                action="identity_update",
-                params={"changed_fields": changed_fields},
+                action=f"{section}_update",
+                params={"changed_fields": log_fields},
             )
 
         return jsonify({"success": True, "config": config})

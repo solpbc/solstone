@@ -1,184 +1,728 @@
 <style>
-button { padding:8px 16px; margin:0.5em 0; }
-pre { background:#f5f5f5; padding:0.5em; }
-
-/* Config form styles */
-.config-section { max-width: 600px; margin-top: 1em; }
-.config-section h2 { color: #333; font-size: 1.5em; margin: 0; font-weight: 600; }
-
-/* Facet header with toggle */
-.facet-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5em; }
-
-/* Toggle container */
-.toggle-container { display: flex; align-items: center; gap: 0.75em; }
-.toggle-label { font-weight: 600; font-size: 0.95em; color: #333; min-width: 60px; }
-
-/* Toggle switch */
-.toggle-switch { position: relative; display: inline-block; width: 52px; height: 28px; }
-.toggle-switch input { opacity: 0; width: 0; height: 0; }
-
-/* Slider background */
-.slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #28a745; transition: 0.3s; border-radius: 28px; }
-.slider:before { position: absolute; content: ""; height: 22px; width: 22px; left: 3px; bottom: 3px; background-color: white; transition: 0.3s; border-radius: 50%; box-shadow: 0 2px 4px rgba(0,0,0,0.2); }
-
-/* Checked state (muted) */
-input:checked + .slider { background-color: #6c757d; }
-input:checked + .slider:before { transform: translateX(24px); }
-
-/* Hover effects */
-.slider:hover { opacity: 0.9; }
-input:focus + .slider { box-shadow: 0 0 0 3px rgba(40, 167, 69, 0.2); }
-input:checked:focus + .slider { box-shadow: 0 0 0 3px rgba(108, 117, 125, 0.2); }
-.form-group { margin-bottom: 1.5em; }
-.form-group label { display: block; font-weight: 600; color: #333; margin-bottom: 0.5em; font-size: 0.95em; }
-.form-group input, .form-group textarea, .form-group select { width: 100%; padding: 0.6em 0.75em; border: 2px solid #ddd; border-radius: 8px; font-size: 0.95em; font-family: inherit; transition: border-color 0.2s, box-shadow 0.2s; box-sizing: border-box; }
-.form-group input:focus, .form-group textarea:focus, .form-group select:focus { outline: none; border-color: #667eea; box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1); }
-.form-group textarea { resize: vertical; min-height: 60px; }
-.form-group small { display: block; margin-top: 0.3em; color: #666; font-size: 0.85em; line-height: 1.4; }
-.config-status { margin-top: 1em; padding: 0.75em 1em; border-radius: 8px; font-size: 0.9em; font-weight: 500; display: none; }
-.config-status.success { background: #d4edda; color: #155724; display: block; }
-.config-status.error { background: #f8d7da; color: #721c24; display: block; }
-.config-status.saving { background: #d1ecf1; color: #0c5460; display: block; }
-
-/* Facet section (no separator needed since it shows exclusively) */
-#facetConfig { margin-top: 0; }
-
-/* Editable field pattern (double-tap to edit) */
-.editable-field { min-height: 2.5em; display: flex; align-items: center; }
-.editable-field .field-display { cursor: pointer; padding: 0.6em 0.75em; border: 2px solid transparent; border-radius: 8px; transition: all 0.2s; flex: 1; min-height: 2.5em; display: flex; align-items: center; }
-.editable-field .field-display:hover { background: #f5f5f5; border-color: #ddd; }
-.editable-field .field-input { width: 100%; padding: 0.6em 0.75em; border: 2px solid var(--facet-color, #667eea); border-radius: 8px; font-size: 0.95em; font-family: inherit; }
-.editable-field .field-input:focus { outline: none; box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1); }
-
-/* Emoji picker */
-.emoji-picker-container { display: flex; flex-direction: column; gap: 0.75em; }
-.emoji-display { font-size: 3em; cursor: pointer; display: inline-block; padding: 0.2em 0.3em; border-radius: 12px; transition: all 0.2s; user-select: none; width: fit-content; }
-.emoji-display:hover { transform: scale(1.1); background: #f5f5f5; }
-.emoji-input { width: 100%; max-width: 200px; padding: 0.6em 0.75em; border: 2px solid #ddd; border-radius: 8px; font-size: 1.2em; text-align: center; }
-.emoji-input:focus { outline: none; border-color: #667eea; box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1); }
-
-/* Color picker trigger */
-.color-picker-trigger { display: flex; align-items: center; gap: 1em; cursor: pointer; padding: 0.6em 0.75em; border: 2px solid #ddd; border-radius: 8px; width: fit-content; transition: all 0.2s; }
-.color-picker-trigger:hover { background: #f5f5f5; border-color: #999; }
-.color-preview { width: 40px; height: 40px; border-radius: 8px; border: 2px solid #ddd; }
-.color-picker-trigger span { font-family: monospace; font-size: 1em; font-weight: 600; }
-
-/* Color picker modal */
-.color-modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); }
-.color-modal-content { background: white; margin: 5% auto; padding: 2em; border-radius: 12px; max-width: 500px; box-shadow: 0 4px 20px rgba(0,0,0,0.3); position: relative; }
-.color-close { position: absolute; right: 1em; top: 1em; font-size: 2em; font-weight: bold; color: #999; cursor: pointer; line-height: 1; transition: color 0.2s; }
-.color-close:hover { color: #333; }
-.color-modal h3 { margin: 0 0 1.5em 0; color: #333; }
-.color-modal h4 { margin: 1.5em 0 0.75em 0; color: #333; font-size: 1em; }
-
-/* Color swatches grid */
-.color-swatches { display: grid; grid-template-columns: repeat(6, 1fr); gap: 0.75em; margin-bottom: 1.5em; }
-.color-swatch { width: 100%; aspect-ratio: 1; border-radius: 8px; cursor: pointer; border: 3px solid transparent; transition: all 0.2s; }
-.color-swatch:hover { transform: scale(1.1); border-color: #333; }
-.color-swatch.selected { border-color: #000; box-shadow: 0 0 0 2px #fff, 0 0 0 5px #000; }
-
-/* Custom color input */
-.custom-color { margin-bottom: 1.5em; }
-.custom-color label { display: block; font-weight: 600; margin-bottom: 0.5em; color: #333; }
-.color-input-group { display: flex; gap: 0.75em; align-items: center; }
-.custom-color input[type="color"] { width: 60px; height: 45px; padding: 0.2em; border: 2px solid #ddd; border-radius: 8px; cursor: pointer; }
-.custom-color input[type="color"]:focus { outline: none; border-color: #667eea; box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1); }
-.custom-color input[type="text"] { flex: 1; padding: 0.6em 0.75em; border: 2px solid #ddd; border-radius: 8px; font-family: monospace; font-size: 1em; }
-.custom-color input[type="text"]:focus { outline: none; border-color: #667eea; box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1); }
-
-/* Preview section */
-.color-preview-section { padding: 1em; background: #f8f8f8; border-radius: 8px; margin-bottom: 1.5em; }
-.settings-preview { margin-top: 2em; padding: 1.5em; background: #f8f8f8; border-radius: 8px; }
-.settings-preview label { display: block; font-weight: 600; margin-bottom: 1em; color: #333; }
-
-/* Facet pill preview */
-.preview-pill, .modal-preview-pill { display: inline-flex; align-items: center; gap: 0.5em; padding: 0.6em 1.2em; border-radius: 20px; border: 2px solid #667eea; background: rgba(102, 126, 234, 0.1); font-weight: 500; font-size: 1em; }
-.preview-emoji, .modal-preview-emoji { font-size: 1.3em; }
-.preview-title, .modal-preview-title { color: #667eea; }
-
-/* Save button */
-.save-color-btn { width: 100%; padding: 0.75em 1.5em; background: #667eea; color: white; border: none; border-radius: 8px; font-size: 1em; font-weight: 600; cursor: pointer; transition: background 0.2s; }
-.save-color-btn:hover { background: #5568d3; }
-.save-color-btn:active { transform: scale(0.98); }
-
-/* Two-column layout for facet config */
-.settings-layout { display: flex; gap: 2em; }
-.settings-main { flex: 1; min-width: 0; }
-.settings-sidebar { width: 340px; flex-shrink: 0; }
-@media (max-width: 900px) {
-  .settings-layout { flex-direction: column; }
-  .settings-sidebar { width: 100%; }
+/* Settings app - vertical nav layout */
+.settings-wrap {
+  display: flex;
+  min-height: calc(100vh - var(--facet-bar-height, 60px) - 40px);
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 1em;
+  gap: 2em;
 }
 
-/* Action log panel */
-.log-panel { background: #fafafa; border: 1px solid #e0e0e0; border-radius: 8px; }
-.log-header { padding: 0.75em 1em; border-bottom: 1px solid #e0e0e0; font-weight: 600; font-size: 0.9em; color: #555; }
-.log-entries { padding: 0.5em 0; }
-.log-empty { padding: 2em 1em; text-align: center; color: #999; font-size: 0.9em; }
+/* Left navigation */
+.settings-nav {
+  width: 200px;
+  flex-shrink: 0;
+}
 
-/* Day separator */
-.log-day { display: flex; align-items: center; gap: 0.75em; padding: 0.5em 1em; margin: 0.25em 0; }
-.log-day-line { flex: 1; height: 1px; background: #ddd; }
-.log-day-label { font-size: 0.75em; color: #888; font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px; }
+.settings-nav-group {
+  margin-bottom: 1.5em;
+}
 
-/* Log entry row */
-.log-row { display: flex; align-items: center; gap: 0.5em; padding: 0.35em 1em; font-size: 0.85em; }
-.log-row:hover { background: #f0f0f0; }
-.log-icon { cursor: default; font-size: 0.9em; }
-.log-action { color: #333; font-weight: 500; }
-.log-actor { color: #888; font-size: 0.9em; }
-.log-actor::before { content: "•"; margin-right: 0.5em; color: #ccc; }
+.settings-nav-label {
+  font-size: 0.75em;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #888;
+  padding: 0 0.75em;
+  margin-bottom: 0.5em;
+}
 
-/* Load more button */
-.log-more { padding: 0.5em 1em; text-align: center; border-top: 1px solid #e0e0e0; }
-.log-more-btn { background: none; border: none; color: #667eea; cursor: pointer; font-size: 0.85em; padding: 0.5em 1em; border-radius: 4px; transition: background 0.2s; }
-.log-more-btn:hover { background: rgba(102, 126, 234, 0.1); }
-.log-more-btn:disabled { color: #ccc; cursor: default; }
+.settings-nav-item {
+  display: block;
+  width: 100%;
+  padding: 0.6em 0.75em;
+  border: none;
+  background: none;
+  text-align: left;
+  font-size: 0.95em;
+  color: #333;
+  cursor: pointer;
+  border-radius: 6px;
+  transition: background 0.15s;
+}
 
-/* Setup section for first-run onboarding */
-.setup-section { max-width: 600px; margin-bottom: 2em; padding: 1.5em; background: linear-gradient(135deg, #007bff08 0%, #007bff15 100%); border: 2px solid #007bff30; border-radius: 12px; }
-.setup-section h2 { color: #333; font-size: 1.4em; margin: 0 0 0.5em 0; font-weight: 600; }
-.setup-section p { color: #555; margin: 0 0 1.25em 0; line-height: 1.5; }
-.setup-btn { display: inline-flex; align-items: center; gap: 0.5em; padding: 0.75em 1.5em; background: #007bff; color: white; border: none; border-radius: 8px; font-size: 1em; font-weight: 600; cursor: pointer; transition: background 0.2s, transform 0.1s; }
-.setup-btn:hover { background: #0056b3; }
-.setup-btn:active { transform: scale(0.98); }
-.setup-btn .btn-icon { font-size: 1.2em; }
-.setup-btn:disabled { opacity: 0.7; cursor: not-allowed; }
+.settings-nav-item:hover {
+  background: #f0f0f0;
+}
+
+.settings-nav-item.active {
+  background: var(--facet-bg, #e8f0fe);
+  color: var(--facet-color, #1a73e8);
+  font-weight: 500;
+}
+
+/* Mobile nav dropdown */
+.settings-nav-mobile {
+  display: none;
+  margin-bottom: 1em;
+}
+
+.settings-nav-select {
+  width: 100%;
+  padding: 0.75em 1em;
+  font-size: 1em;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  background: white;
+  cursor: pointer;
+}
+
+/* Right content panel */
+.settings-content {
+  flex: 1;
+  min-width: 0;
+  max-width: 600px;
+}
+
+.settings-section {
+  display: none;
+}
+
+.settings-section.active {
+  display: block;
+  animation: fadeIn 0.2s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.settings-section h2 {
+  font-size: 1.4em;
+  font-weight: 600;
+  color: #333;
+  margin: 0 0 0.5em 0;
+}
+
+.settings-section-desc {
+  color: #666;
+  font-size: 0.9em;
+  margin-bottom: 1.5em;
+  line-height: 1.4;
+}
+
+/* Form fields */
+.settings-field {
+  margin-bottom: 1.5em;
+}
+
+.settings-field label {
+  display: block;
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 0.4em;
+  font-size: 0.95em;
+}
+
+.settings-field input,
+.settings-field textarea,
+.settings-field select {
+  width: 100%;
+  padding: 0.6em 0.75em;
+  border: 2px solid #ddd;
+  border-radius: 8px;
+  font-size: 0.95em;
+  font-family: inherit;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  box-sizing: border-box;
+}
+
+.settings-field input:focus,
+.settings-field textarea:focus,
+.settings-field select:focus {
+  outline: none;
+  border-color: var(--facet-color, #667eea);
+  box-shadow: 0 0 0 3px var(--facet-bg, rgba(102, 126, 234, 0.1));
+}
+
+.settings-field textarea {
+  resize: vertical;
+  min-height: 60px;
+}
+
+.settings-field small {
+  display: block;
+  margin-top: 0.3em;
+  color: #666;
+  font-size: 0.85em;
+  line-height: 1.4;
+}
+
+/* Password field with toggle */
+.password-wrap {
+  position: relative;
+}
+
+.password-wrap input {
+  padding-right: 3em;
+}
+
+.password-toggle {
+  position: absolute;
+  right: 0.5em;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  padding: 0.5em;
+  cursor: pointer;
+  color: #666;
+  font-size: 1.1em;
+}
+
+.password-toggle:hover {
+  color: #333;
+}
+
+/* Facet appearance section */
+.facet-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5em;
+}
+
+.toggle-container {
+  display: flex;
+  align-items: center;
+  gap: 0.75em;
+}
+
+.toggle-label {
+  font-weight: 600;
+  font-size: 0.95em;
+  color: #333;
+  min-width: 60px;
+}
+
+.toggle-switch {
+  position: relative;
+  display: inline-block;
+  width: 52px;
+  height: 28px;
+}
+
+.toggle-switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #28a745;
+  transition: 0.3s;
+  border-radius: 28px;
+}
+
+.slider:before {
+  position: absolute;
+  content: "";
+  height: 22px;
+  width: 22px;
+  left: 3px;
+  bottom: 3px;
+  background-color: white;
+  transition: 0.3s;
+  border-radius: 50%;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+
+input:checked + .slider {
+  background-color: #6c757d;
+}
+
+input:checked + .slider:before {
+  transform: translateX(24px);
+}
+
+/* Editable fields (double-tap to edit) */
+.editable-field {
+  min-height: 2.5em;
+  display: flex;
+  align-items: center;
+}
+
+.editable-field .field-display {
+  cursor: pointer;
+  padding: 0.6em 0.75em;
+  border: 2px solid transparent;
+  border-radius: 8px;
+  transition: all 0.2s;
+  flex: 1;
+  min-height: 2.5em;
+  display: flex;
+  align-items: center;
+}
+
+.editable-field .field-display:hover {
+  background: #f5f5f5;
+  border-color: #ddd;
+}
+
+.editable-field .field-input {
+  width: 100%;
+  padding: 0.6em 0.75em;
+  border: 2px solid var(--facet-color, #667eea);
+  border-radius: 8px;
+  font-size: 0.95em;
+  font-family: inherit;
+}
+
+/* Emoji picker */
+.emoji-display {
+  font-size: 3em;
+  cursor: pointer;
+  display: inline-block;
+  padding: 0.2em 0.3em;
+  border-radius: 12px;
+  transition: all 0.2s;
+  user-select: none;
+  width: fit-content;
+}
+
+.emoji-display:hover {
+  transform: scale(1.1);
+  background: #f5f5f5;
+}
+
+.emoji-input {
+  width: 100%;
+  max-width: 200px;
+  padding: 0.6em 0.75em;
+  border: 2px solid #ddd;
+  border-radius: 8px;
+  font-size: 1.2em;
+  text-align: center;
+}
+
+/* Color picker */
+.color-picker-trigger {
+  display: flex;
+  align-items: center;
+  gap: 1em;
+  cursor: pointer;
+  padding: 0.6em 0.75em;
+  border: 2px solid #ddd;
+  border-radius: 8px;
+  width: fit-content;
+  transition: all 0.2s;
+}
+
+.color-picker-trigger:hover {
+  background: #f5f5f5;
+  border-color: #999;
+}
+
+.color-preview {
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  border: 2px solid #ddd;
+}
+
+.color-picker-trigger span {
+  font-family: monospace;
+  font-size: 1em;
+  font-weight: 600;
+}
+
+/* Color picker modal */
+.color-modal {
+  display: none;
+  position: fixed;
+  z-index: 1000;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0,0,0,0.5);
+}
+
+.color-modal-content {
+  background: white;
+  margin: 5% auto;
+  padding: 2em;
+  border-radius: 12px;
+  max-width: 500px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+  position: relative;
+}
+
+.color-close {
+  position: absolute;
+  right: 1em;
+  top: 1em;
+  font-size: 2em;
+  font-weight: bold;
+  color: #999;
+  cursor: pointer;
+  line-height: 1;
+}
+
+.color-close:hover {
+  color: #333;
+}
+
+.color-modal h3 {
+  margin: 0 0 1.5em 0;
+  color: #333;
+}
+
+.color-swatches {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 0.75em;
+  margin-bottom: 1.5em;
+}
+
+.color-swatch {
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: 8px;
+  cursor: pointer;
+  border: 3px solid transparent;
+  transition: all 0.2s;
+}
+
+.color-swatch:hover {
+  transform: scale(1.1);
+  border-color: #333;
+}
+
+.color-swatch.selected {
+  border-color: #000;
+  box-shadow: 0 0 0 2px #fff, 0 0 0 5px #000;
+}
+
+.custom-color {
+  margin-bottom: 1.5em;
+}
+
+.custom-color label {
+  display: block;
+  font-weight: 600;
+  margin-bottom: 0.5em;
+  color: #333;
+}
+
+.color-input-group {
+  display: flex;
+  gap: 0.75em;
+  align-items: center;
+}
+
+.custom-color input[type="color"] {
+  width: 60px;
+  height: 45px;
+  padding: 0.2em;
+  border: 2px solid #ddd;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.custom-color input[type="text"] {
+  flex: 1;
+  padding: 0.6em 0.75em;
+  border: 2px solid #ddd;
+  border-radius: 8px;
+  font-family: monospace;
+  font-size: 1em;
+}
+
+.color-preview-section {
+  padding: 1em;
+  background: #f8f8f8;
+  border-radius: 8px;
+  margin-bottom: 1.5em;
+}
+
+.color-preview-section h4 {
+  margin: 0 0 0.75em 0;
+  color: #333;
+  font-size: 0.9em;
+}
+
+.modal-preview-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5em;
+  padding: 0.6em 1.2em;
+  border-radius: 20px;
+  border: 2px solid #667eea;
+  background: rgba(102, 126, 234, 0.1);
+  font-weight: 500;
+}
+
+.modal-preview-emoji {
+  font-size: 1.3em;
+}
+
+.save-color-btn {
+  width: 100%;
+  padding: 0.75em 1.5em;
+  background: var(--facet-color, #667eea);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 1em;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.save-color-btn:hover {
+  opacity: 0.9;
+}
+
+/* Activity log */
+.log-panel {
+  background: #fafafa;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+}
+
+.log-header {
+  padding: 0.75em 1em;
+  border-bottom: 1px solid #e0e0e0;
+  font-weight: 600;
+  font-size: 0.9em;
+  color: #555;
+}
+
+.log-entries {
+  padding: 0.5em 0;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.log-empty {
+  padding: 2em 1em;
+  text-align: center;
+  color: #999;
+  font-size: 0.9em;
+}
+
+.log-day {
+  display: flex;
+  align-items: center;
+  gap: 0.75em;
+  padding: 0.5em 1em;
+  margin: 0.25em 0;
+}
+
+.log-day-line {
+  flex: 1;
+  height: 1px;
+  background: #ddd;
+}
+
+.log-day-label {
+  font-size: 0.75em;
+  color: #888;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.log-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5em;
+  padding: 0.35em 1em;
+  font-size: 0.85em;
+}
+
+.log-row:hover {
+  background: #f0f0f0;
+}
+
+.log-icon {
+  font-size: 0.9em;
+}
+
+.log-action {
+  color: #333;
+  font-weight: 500;
+}
+
+.log-actor {
+  color: #888;
+  font-size: 0.9em;
+}
+
+.log-actor::before {
+  content: "\2022";
+  margin-right: 0.5em;
+  color: #ccc;
+}
+
+.log-more {
+  padding: 0.5em 1em;
+  text-align: center;
+  border-top: 1px solid #e0e0e0;
+}
+
+.log-more-btn {
+  background: none;
+  border: none;
+  color: var(--facet-color, #667eea);
+  cursor: pointer;
+  font-size: 0.85em;
+  padding: 0.5em 1em;
+  border-radius: 4px;
+}
+
+.log-more-btn:hover {
+  background: var(--facet-bg, rgba(102, 126, 234, 0.1));
+}
+
+.log-more-btn:disabled {
+  color: #ccc;
+  cursor: default;
+}
+
+/* Setup section */
+.setup-section {
+  padding: 1.5em;
+  background: linear-gradient(135deg, #007bff08 0%, #007bff15 100%);
+  border: 2px solid #007bff30;
+  border-radius: 12px;
+  margin-bottom: 1.5em;
+}
+
+.setup-section h3 {
+  color: #333;
+  font-size: 1.2em;
+  margin: 0 0 0.5em 0;
+}
+
+.setup-section p {
+  color: #555;
+  margin: 0 0 1em 0;
+  line-height: 1.5;
+}
+
+.setup-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5em;
+  padding: 0.75em 1.5em;
+  background: #007bff;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 1em;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.setup-btn:hover {
+  background: #0056b3;
+}
+
+.setup-btn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .settings-wrap {
+    flex-direction: column;
+    gap: 1em;
+  }
+
+  .settings-nav {
+    display: none;
+  }
+
+  .settings-nav-mobile {
+    display: block;
+  }
+
+  .settings-content {
+    max-width: none;
+  }
+}
 </style>
 
-<div class="workspace-content">
-  <div id="config">
-    <!-- Setup Section (shown when no facets exist) -->
-    <div class="setup-section" id="setupSection" style="display: none;">
-      <h2>Welcome to solstone</h2>
-      <p>Create your first facet to start organizing your journal. Facets help you separate different areas of your life.</p>
-      <button class="setup-btn" id="createPersonalBtn">
-        <span class="btn-icon">🏠</span>
-        <span>Create Personal Facet</span>
-      </button>
-    </div>
+<div class="settings-wrap">
+  <!-- Mobile nav dropdown -->
+  <div class="settings-nav-mobile">
+    <select class="settings-nav-select" id="navSelect">
+      <optgroup label="Journal">
+        <option value="profile">Profile</option>
+        <option value="models">AI Models</option>
+        <option value="system">System</option>
+        <option value="security">Security</option>
+      </optgroup>
+      <optgroup label="Facet" id="navSelectFacetGroup" style="display:none">
+        <option value="facet-appearance">Appearance</option>
+        <option value="facet-activity">Activity</option>
+      </optgroup>
+    </select>
+  </div>
 
-    <!-- Identity Section (shown in all-facet mode) -->
-    <div class="config-section" id="identityConfig">
-      <h2>Journal Configuration</h2>
-      <div class="form-group">
-        <label for="config-name">Full Name</label>
-        <input type="text" id="config-name" data-field="name" placeholder="Your full name">
+  <!-- Desktop nav sidebar -->
+  <nav class="settings-nav" id="settingsNav">
+    <div class="settings-nav-group">
+      <div class="settings-nav-label">Journal</div>
+      <button class="settings-nav-item active" data-section="profile">Profile</button>
+      <button class="settings-nav-item" data-section="models">AI Models</button>
+      <button class="settings-nav-item" data-section="system">System</button>
+      <button class="settings-nav-item" data-section="security">Security</button>
+    </div>
+    <div class="settings-nav-group" id="facetNavGroup" style="display:none">
+      <div class="settings-nav-label" id="facetNavLabel">Facet</div>
+      <button class="settings-nav-item" data-section="facet-appearance">Appearance</button>
+      <button class="settings-nav-item" data-section="facet-activity">Activity</button>
+    </div>
+  </nav>
+
+  <!-- Content panels -->
+  <div class="settings-content">
+    <!-- Profile Section -->
+    <section class="settings-section active" id="section-profile">
+      <h2>Profile</h2>
+      <p class="settings-section-desc">Your identity information used in AI templates and transcription.</p>
+
+      <!-- Setup prompt (shown when no facets) -->
+      <div class="setup-section" id="setupSection" style="display:none">
+        <h3>Welcome to solstone</h3>
+        <p>Create your first facet to start organizing your journal.</p>
+        <button class="setup-btn" id="createPersonalBtn">Create Personal Facet</button>
+      </div>
+
+      <div class="settings-field">
+        <label for="field-name">Full Name</label>
+        <input type="text" id="field-name" data-section="identity" data-key="name" placeholder="Your full name">
         <small>Your full legal or formal name</small>
       </div>
-      <div class="form-group">
-        <label for="config-preferred">Preferred Name</label>
-        <input type="text" id="config-preferred" data-field="preferred" placeholder="Your preferred name">
+
+      <div class="settings-field">
+        <label for="field-preferred">Preferred Name</label>
+        <input type="text" id="field-preferred" data-section="identity" data-key="preferred" placeholder="Your preferred name">
         <small>Preferred name or nickname to be used when addressing you</small>
       </div>
-      <div class="form-group">
-        <label for="config-bio">Bio</label>
-        <textarea id="config-bio" data-field="bio" placeholder="e.g., a software engineer interested in AI" rows="2"></textarea>
-        <small>Brief description of yourself used in AI templates (e.g., "a software engineer interested in AI")</small>
+
+      <div class="settings-field">
+        <label for="field-bio">Bio</label>
+        <textarea id="field-bio" data-section="identity" data-key="bio" rows="2" placeholder="e.g., a software engineer interested in AI"></textarea>
+        <small>Brief description of yourself used in AI templates</small>
       </div>
-      <div class="form-group">
-        <label for="config-pronouns">Pronouns</label>
-        <select id="config-pronouns" data-field="pronouns">
+
+      <div class="settings-field">
+        <label for="field-pronouns">Pronouns</label>
+        <select id="field-pronouns" data-section="identity" data-key="pronouns">
           <option value="">Select pronouns...</option>
           <option value="she/her/her/herself">she/her/hers/herself</option>
           <option value="he/him/his/himself">he/him/his/himself</option>
@@ -187,57 +731,42 @@ input:checked:focus + .slider { box-shadow: 0 0 0 3px rgba(108, 117, 125, 0.2); 
           <option value="xe/xem/xyr/xemself">xe/xem/xyrs/xemself</option>
           <option value="it/it/its/itself">it/its/its/itself</option>
         </select>
-        <small>Select a pronoun set for use in templates (subject/object/possessive/reflexive)</small>
+        <small>Pronouns for use in templates (subject/object/possessive/reflexive)</small>
       </div>
-      <div class="form-group">
-        <label for="config-aliases">Aliases</label>
-        <input type="text" id="config-aliases" data-field="aliases" placeholder="e.g., nickname1, nickname2">
-        <small>Comma-separated alternative names or nicknames that may appear in transcripts</small>
+
+      <div class="settings-field">
+        <label for="field-aliases">Aliases</label>
+        <input type="text" id="field-aliases" data-section="identity" data-key="aliases" placeholder="e.g., nickname1, nickname2">
+        <small>Comma-separated alternative names that may appear in transcripts</small>
       </div>
-      <div class="form-group">
-        <label for="config-emails">Email Addresses</label>
-        <input type="text" id="config-emails" data-field="email_addresses" placeholder="e.g., work@company.com, personal@example.com">
+
+      <div class="settings-field">
+        <label for="field-emails">Email Addresses</label>
+        <input type="text" id="field-emails" data-section="identity" data-key="email_addresses" placeholder="e.g., work@company.com, personal@example.com">
         <small>Comma-separated email addresses for participant detection</small>
       </div>
-      <div class="form-group">
-        <label for="config-timezone">Home Timezone</label>
-        <input type="text" id="config-timezone" data-field="timezone" list="timezone-list" placeholder="e.g., America/New_York">
+
+      <div class="settings-field">
+        <label for="field-timezone">Home Timezone</label>
+        <input type="text" id="field-timezone" data-section="identity" data-key="timezone" list="timezone-list" placeholder="e.g., America/New_York">
         <datalist id="timezone-list">
-          <option value="UTC">
-          <option value="GMT">
           <option value="America/New_York">
           <option value="America/Chicago">
           <option value="America/Denver">
-          <option value="America/Phoenix">
           <option value="America/Los_Angeles">
+          <option value="America/Phoenix">
           <option value="America/Anchorage">
           <option value="America/Honolulu">
           <option value="America/Toronto">
           <option value="America/Vancouver">
-          <option value="America/Montreal">
           <option value="America/Mexico_City">
           <option value="America/Sao_Paulo">
-          <option value="America/Buenos_Aires">
-          <option value="America/Santiago">
-          <option value="America/Bogota">
-          <option value="America/Lima">
           <option value="Europe/London">
           <option value="Europe/Paris">
           <option value="Europe/Berlin">
-          <option value="Europe/Rome">
-          <option value="Europe/Madrid">
           <option value="Europe/Amsterdam">
-          <option value="Europe/Brussels">
-          <option value="Europe/Zurich">
-          <option value="Europe/Vienna">
-          <option value="Europe/Stockholm">
-          <option value="Europe/Oslo">
-          <option value="Europe/Copenhagen">
-          <option value="Europe/Helsinki">
-          <option value="Europe/Prague">
-          <option value="Europe/Warsaw">
-          <option value="Europe/Athens">
-          <option value="Europe/Istanbul">
+          <option value="Europe/Madrid">
+          <option value="Europe/Rome">
           <option value="Europe/Moscow">
           <option value="Asia/Tokyo">
           <option value="Asia/Shanghai">
@@ -246,95 +775,172 @@ input:checked:focus + .slider { box-shadow: 0 0 0 3px rgba(108, 117, 125, 0.2); 
           <option value="Asia/Seoul">
           <option value="Asia/Kolkata">
           <option value="Asia/Dubai">
-          <option value="Asia/Bangkok">
-          <option value="Asia/Manila">
-          <option value="Asia/Jakarta">
-          <option value="Asia/Taipei">
-          <option value="Asia/Jerusalem">
-          <option value="Asia/Riyadh">
-          <option value="Asia/Tehran">
           <option value="Australia/Sydney">
           <option value="Australia/Melbourne">
-          <option value="Australia/Brisbane">
-          <option value="Australia/Perth">
-          <option value="Australia/Adelaide">
           <option value="Pacific/Auckland">
-          <option value="Pacific/Fiji">
-          <option value="Africa/Cairo">
-          <option value="Africa/Johannesburg">
-          <option value="Africa/Lagos">
-          <option value="Africa/Nairobi">
+          <option value="UTC">
         </datalist>
-        <small>IANA timezone identifier - type to search or select from list</small>
+        <small>IANA timezone identifier</small>
       </div>
-      <div id="config-status" class="config-status"></div>
-    </div>
+    </section>
 
-    <!-- Facet Configuration Section -->
-    <div id="facetConfig" style="display:none;">
-      <div class="settings-layout">
-        <div class="settings-main">
-          <div class="config-section">
-            <div class="facet-header">
-              <h2>Facet Settings: <span id="facetName"></span></h2>
-              <div class="toggle-container">
-                <span class="toggle-label" id="toggleLabel">Active</span>
-                <label class="toggle-switch">
-                  <input type="checkbox" id="mutedToggle">
-                  <span class="slider"></span>
-                </label>
-              </div>
-            </div>
+    <!-- AI Models Section -->
+    <section class="settings-section" id="section-models">
+      <h2>AI Models</h2>
+      <p class="settings-section-desc">Choose which Gemini model to use for different tasks. Higher-tier models are more capable but cost more.</p>
 
-            <div class="form-group">
-              <label>Title</label>
-              <div class="editable-field" id="facetTitleField" data-facet-field="title">
-                <span class="field-display" id="facetTitleDisplay">Loading...</span>
-                <input type="text" class="field-input" id="facetTitleInput" style="display:none;">
-              </div>
-            </div>
+      <div class="settings-field">
+        <label for="field-model-insights">Insights</label>
+        <select id="field-model-insights" data-section="models" data-key="insights">
+          <option value="lite">Lite - Fastest, lowest cost</option>
+          <option value="flash" selected>Flash - Balanced (default)</option>
+          <option value="pro">Pro - Most capable</option>
+        </select>
+        <small>Model for generating insights from transcripts</small>
+      </div>
 
-            <div class="form-group">
-              <label>Description</label>
-              <div class="editable-field" id="facetDescField" data-facet-field="description">
-                <span class="field-display" id="facetDescDisplay">No description set</span>
-                <textarea class="field-input" id="facetDescInput" rows="3" style="display:none;"></textarea>
-              </div>
-            </div>
+      <div class="settings-field">
+        <label for="field-model-observations">Observations</label>
+        <select id="field-model-observations" data-section="models" data-key="observations">
+          <option value="lite">Lite - Fastest, lowest cost</option>
+          <option value="flash" selected>Flash - Balanced (default)</option>
+          <option value="pro">Pro - Most capable</option>
+        </select>
+        <small>Model for screen capture descriptions and audio summaries</small>
+      </div>
 
-            <div class="form-group">
-              <label>Icon</label>
-              <div class="emoji-picker-container">
-                <div class="emoji-display" id="emojiDisplay">📦</div>
-                <input type="text" id="emojiInput" class="emoji-input" maxlength="4" placeholder="Paste emoji here" style="display:none;">
-              </div>
-            </div>
+      <div class="settings-field">
+        <label for="field-model-agents">Agents</label>
+        <select id="field-model-agents" data-section="models" data-key="agents">
+          <option value="lite">Lite - Fastest, lowest cost</option>
+          <option value="flash" selected>Flash - Balanced (default)</option>
+          <option value="pro">Pro - Most capable</option>
+        </select>
+        <small>Model for AI agent conversations</small>
+      </div>
+    </section>
 
-            <div class="form-group">
-              <label>Theme Color</label>
-              <div class="color-picker-trigger" id="colorTrigger">
-                <div class="color-preview" id="colorPreview"></div>
-                <span id="colorHexDisplay">#667eea</span>
-              </div>
-            </div>
+    <!-- System Section -->
+    <section class="settings-section" id="section-system">
+      <h2>System</h2>
+      <p class="settings-section-desc">Transcription and processing settings.</p>
 
-            <div id="facet-config-status" class="config-status"></div>
-          </div>
+      <div class="settings-field">
+        <label for="field-transcribe-device">Transcription Device</label>
+        <select id="field-transcribe-device" data-section="transcribe" data-key="device">
+          <option value="auto" selected>Auto - Detect GPU if available</option>
+          <option value="cpu">CPU - Use processor only</option>
+          <option value="cuda">CUDA - Force NVIDIA GPU</option>
+        </select>
+        <small>Hardware to use for Whisper transcription</small>
+      </div>
+
+      <div class="settings-field">
+        <label for="field-transcribe-model">Transcription Model</label>
+        <select id="field-transcribe-model" data-section="transcribe" data-key="model">
+          <option value="tiny.en">Tiny - Fastest</option>
+          <option value="base.en">Base</option>
+          <option value="small.en">Small</option>
+          <option value="medium.en" selected>Medium (default)</option>
+          <option value="large-v3-turbo">Large v3 Turbo</option>
+          <option value="distil-large-v3">Distil Large v3</option>
+        </select>
+        <small>Whisper model size - larger is more accurate but slower</small>
+      </div>
+
+      <div class="settings-field">
+        <label for="field-transcribe-compute">Compute Type</label>
+        <select id="field-transcribe-compute" data-section="transcribe" data-key="compute_type">
+          <option value="default" selected>Default - Auto-select</option>
+          <option value="float32">Float32 - Highest precision</option>
+          <option value="float16">Float16 - Balanced</option>
+          <option value="int8">Int8 - Fastest</option>
+        </select>
+        <small>Numeric precision for transcription</small>
+      </div>
+    </section>
+
+    <!-- Security Section -->
+    <section class="settings-section" id="section-security">
+      <h2>Security</h2>
+      <p class="settings-section-desc">Authentication and access control.</p>
+
+      <div class="settings-field">
+        <label for="field-password">Web Password</label>
+        <div class="password-wrap">
+          <input type="password" id="field-password" data-section="convey" data-key="password" placeholder="Enter password to protect web access">
+          <button type="button" class="password-toggle" id="passwordToggle" title="Show password">
+            <span id="passwordToggleIcon">&#128065;</span>
+          </button>
         </div>
+        <small>Set a password to protect the web interface. Leave empty to allow unauthenticated localhost access.</small>
+      </div>
+    </section>
 
-        <div class="settings-sidebar">
-          <div class="log-panel">
-            <div class="log-header">Action Log</div>
-            <div class="log-entries" id="logEntries">
-              <div class="log-empty">Loading...</div>
-            </div>
-            <div class="log-more" id="logMore" style="display:none;">
-              <button class="log-more-btn" id="logMoreBtn">Load older ▼</button>
-            </div>
-          </div>
+    <!-- Facet Appearance Section -->
+    <section class="settings-section" id="section-facet-appearance" data-requires-facet>
+      <div class="facet-header">
+        <h2>Appearance</h2>
+        <div class="toggle-container">
+          <span class="toggle-label" id="toggleLabel">Active</span>
+          <label class="toggle-switch">
+            <input type="checkbox" id="mutedToggle">
+            <span class="slider"></span>
+          </label>
         </div>
       </div>
-    </div>
+      <p class="settings-section-desc">Customize how this facet appears in the interface.</p>
+
+      <div class="settings-field">
+        <label>Title</label>
+        <div class="editable-field" id="facetTitleField">
+          <span class="field-display" id="facetTitleDisplay">Loading...</span>
+          <input type="text" class="field-input" id="facetTitleInput" style="display:none">
+        </div>
+        <small>Double-click to edit</small>
+      </div>
+
+      <div class="settings-field">
+        <label>Description</label>
+        <div class="editable-field" id="facetDescField">
+          <span class="field-display" id="facetDescDisplay">No description set</span>
+          <textarea class="field-input" id="facetDescInput" rows="3" style="display:none"></textarea>
+        </div>
+        <small>Double-click to edit</small>
+      </div>
+
+      <div class="settings-field">
+        <label>Icon</label>
+        <div class="emoji-display" id="emojiDisplay">&#128230;</div>
+        <input type="text" id="emojiInput" class="emoji-input" maxlength="4" placeholder="Paste emoji" style="display:none">
+        <small>Click to change emoji</small>
+      </div>
+
+      <div class="settings-field">
+        <label>Theme Color</label>
+        <div class="color-picker-trigger" id="colorTrigger">
+          <div class="color-preview" id="colorPreview"></div>
+          <span id="colorHexDisplay">#667eea</span>
+        </div>
+        <small>Click to choose a color</small>
+      </div>
+    </section>
+
+    <!-- Facet Activity Section -->
+    <section class="settings-section" id="section-facet-activity" data-requires-facet>
+      <h2>Activity</h2>
+      <p class="settings-section-desc">Recent actions and changes to this facet.</p>
+
+      <div class="log-panel">
+        <div class="log-header">Action Log</div>
+        <div class="log-entries" id="logEntries">
+          <div class="log-empty">Loading...</div>
+        </div>
+        <div class="log-more" id="logMore" style="display:none">
+          <button class="log-more-btn" id="logMoreBtn">Load older</button>
+        </div>
+      </div>
+    </section>
   </div>
 </div>
 
@@ -343,619 +949,426 @@ input:checked:focus + .slider { box-shadow: 0 0 0 3px rgba(108, 117, 125, 0.2); 
   <div class="color-modal-content">
     <span class="color-close">&times;</span>
     <h3>Choose Theme Color</h3>
-
-    <div class="color-swatches" id="colorSwatches">
-      <!-- Color swatches will be populated by JavaScript -->
-    </div>
-
+    <div class="color-swatches" id="colorSwatches"></div>
     <div class="custom-color">
-      <label for="customColorInput">Custom Color:</label>
+      <label>Custom Color:</label>
       <div class="color-input-group">
         <input type="color" id="customColorPicker" value="#667eea">
         <input type="text" id="customColorInput" placeholder="#667eea" maxlength="7">
       </div>
     </div>
-
     <div class="color-preview-section">
       <h4>Preview</h4>
-      <div class="facet-pill modal-preview-pill" id="modalPreview">
-        <span class="emoji modal-preview-emoji" id="modalPreviewEmoji">📦</span>
-        <span class="modal-preview-title" id="modalPreviewTitle">Facet Name</span>
+      <div class="modal-preview-pill" id="modalPreview">
+        <span class="modal-preview-emoji" id="modalPreviewEmoji">&#128230;</span>
+        <span class="modal-preview-title" id="modalPreviewTitle">Facet</span>
       </div>
     </div>
-
     <button class="save-color-btn" id="saveColorBtn">Apply Color</button>
   </div>
 </div>
 
 <script>
+// ========== STATE ==========
 let configData = null;
+let facetConfig = null;
 let saveTimeout = null;
+let logNextCursor = null;
 
-// Config management functions
-function loadConfig(){
-  fetch('api/config')
-    .then(r=>r.json())
-    .then(data=>{
-      configData = data;
-      populateConfigForm(data);
-      setupConfigAutoSave();
-    })
-    .catch(err=>{
-      console.error('Error loading config:', err);
+// ========== NAVIGATION ==========
+function switchSection(sectionId) {
+  // Update nav items
+  document.querySelectorAll('.settings-nav-item').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.section === sectionId);
+  });
 
-      // Show error notification
-      if (window.AppServices && window.AppServices.notifications) {
-        window.AppServices.notifications.show({
-          app: 'settings',
-          icon: '❌',
-          title: 'Load Failed',
-          message: 'Error loading configuration',
-          dismissible: true,
-          autoDismiss: 5000
-        });
-      } else {
-        // Fallback to inline status
-        showConfigStatus('Error loading configuration', 'error');
-      }
-    });
-}
+  // Update mobile select
+  document.getElementById('navSelect').value = sectionId;
 
-function populateConfigForm(data){
-  const identity = data.identity || {};
-  document.getElementById('config-name').value = identity.name || '';
-  document.getElementById('config-preferred').value = identity.preferred || '';
-  document.getElementById('config-bio').value = identity.bio || '';
+  // Show/hide sections
+  document.querySelectorAll('.settings-section').forEach(section => {
+    section.classList.toggle('active', section.id === 'section-' + sectionId);
+  });
 
-  // Handle pronouns - match dropdown option to saved structure
-  const pronouns = identity.pronouns || {};
-  if (pronouns.subject && pronouns.object && pronouns.possessive && pronouns.reflexive) {
-    const key = `${pronouns.subject}/${pronouns.object}/${pronouns.possessive}/${pronouns.reflexive}`;
-    document.getElementById('config-pronouns').value = key;
-  } else {
-    document.getElementById('config-pronouns').value = '';
-  }
-
-  document.getElementById('config-aliases').value = Array.isArray(identity.aliases) ? identity.aliases.join(', ') : '';
-  document.getElementById('config-emails').value = Array.isArray(identity.email_addresses) ? identity.email_addresses.join(', ') : '';
-
-  // Auto-detect timezone if not set
-  const timezoneInput = document.getElementById('config-timezone');
-  if (!identity.timezone || identity.timezone === '') {
-    try {
-      const detectedTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
-      if (detectedTz) {
-        timezoneInput.value = detectedTz;
-        // Auto-save the detected timezone
-        setTimeout(() => saveConfig(), 500);
-      }
-    } catch (e) {
-      console.warn('Could not auto-detect timezone:', e);
-      timezoneInput.value = '';
+  // Load facet data if switching to facet section
+  if (sectionId.startsWith('facet-') && window.selectedFacet) {
+    if (!facetConfig) {
+      loadFacetConfig(window.selectedFacet);
     }
-  } else {
-    timezoneInput.value = identity.timezone;
+    if (sectionId === 'facet-activity') {
+      loadLogs(window.selectedFacet);
+    }
   }
 }
 
-function setupConfigAutoSave(){
-  const inputs = document.querySelectorAll('#config input[data-field], #config select[data-field], #config textarea[data-field]');
-  inputs.forEach(input=>{
-    input.addEventListener('blur', ()=>saveConfigField(input));
-    input.addEventListener('change', ()=>{
-      saveConfigField(input);
-    });
-    if (input.tagName !== 'TEXTAREA') {
-      input.addEventListener('keydown', e=>{
-        if(e.key==='Enter'){
-          e.preventDefault();
-          saveConfigField(input);
-        }
-      });
+// Desktop nav clicks
+document.querySelectorAll('.settings-nav-item').forEach(btn => {
+  btn.addEventListener('click', () => switchSection(btn.dataset.section));
+});
+
+// Mobile select change
+document.getElementById('navSelect').addEventListener('change', (e) => {
+  switchSection(e.target.value);
+});
+
+// Update facet nav visibility
+function updateFacetNav() {
+  const hasFacet = !!window.selectedFacet;
+  const facetNavGroup = document.getElementById('facetNavGroup');
+  const facetNavLabel = document.getElementById('facetNavLabel');
+  const navSelectFacetGroup = document.getElementById('navSelectFacetGroup');
+
+  facetNavGroup.style.display = hasFacet ? 'block' : 'none';
+  navSelectFacetGroup.style.display = hasFacet ? 'block' : 'none';
+
+  if (hasFacet && window.facetsData) {
+    const facet = window.facetsData.find(f => f.name === window.selectedFacet);
+    if (facet) {
+      facetNavLabel.textContent = facet.title || window.selectedFacet;
+    }
+  }
+
+  // Hide sections that require facet if none selected
+  document.querySelectorAll('[data-requires-facet]').forEach(el => {
+    if (!hasFacet && el.classList.contains('active')) {
+      switchSection('profile');
     }
   });
 }
-
-function saveConfigField(input){
-  clearTimeout(saveTimeout);
-  saveTimeout = setTimeout(()=>saveConfig(), 500);
-}
-
-function saveConfig(){
-  // Parse selected pronoun set into structured format
-  const pronounValue = document.getElementById('config-pronouns').value;
-  let pronouns = {subject: '', object: '', possessive: '', reflexive: ''};
-  if (pronounValue) {
-    const parts = pronounValue.split('/');
-    if (parts.length === 4) {
-      pronouns = {
-        subject: parts[0],
-        object: parts[1],
-        possessive: parts[2],
-        reflexive: parts[3]
-      };
-    }
-  }
-
-  const identity = {
-    name: document.getElementById('config-name').value.trim(),
-    preferred: document.getElementById('config-preferred').value.trim(),
-    bio: document.getElementById('config-bio').value.trim(),
-    pronouns: pronouns,
-    aliases: document.getElementById('config-aliases').value.split(',').map(s=>s.trim()).filter(s=>s),
-    email_addresses: document.getElementById('config-emails').value.split(',').map(s=>s.trim()).filter(s=>s),
-    timezone: document.getElementById('config-timezone').value.trim()
-  };
-
-  // Save config
-  fetch('api/config', {
-    method: 'PUT',
-    headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({identity})
-  })
-  .then(r=>r.json())
-  .then(data=>{
-    if(data.success){
-      configData = data.config;
-
-      // Show success notification with auto-dismiss
-      if (window.AppServices && window.AppServices.notifications) {
-        window.AppServices.notifications.show({
-          app: 'settings',
-          icon: '✅',
-          title: 'Settings Saved',
-          message: 'Your configuration has been saved successfully',
-          dismissible: true,
-          autoDismiss: 3000
-        });
-      } else {
-        // Fallback to inline status
-        showConfigStatus('Saved', 'success');
-        setTimeout(()=>hideConfigStatus(), 2000);
-      }
-    } else {
-      throw new Error(data.error || 'Unknown error');
-    }
-  })
-  .catch(err=>{
-    console.error('Error saving config:', err);
-
-    // Show error notification
-    if (window.AppServices && window.AppServices.notifications) {
-      window.AppServices.notifications.show({
-        app: 'settings',
-        icon: '❌',
-        title: 'Save Failed',
-        message: err.message || 'Error saving configuration',
-        dismissible: true,
-        autoDismiss: 5000
-      });
-    } else {
-      // Fallback to inline status
-      showConfigStatus('Error: ' + (err.message || 'Error saving configuration'), 'error');
-    }
-  });
-}
-
-function showConfigStatus(msg, type){
-  const status = document.getElementById('config-status');
-  status.textContent = msg;
-  status.className = 'config-status ' + type;
-}
-
-function hideConfigStatus(){
-  const status = document.getElementById('config-status');
-  status.className = 'config-status';
-}
-
-// ========== FACET CONFIGURATION ==========
-let currentFacetConfig = null;
-let facetSaveTimeout = null;
 
 // Listen for facet switches
 window.addEventListener('facet.switch', (e) => {
-  const facet = e.detail.facet;
-  const identityConfig = document.getElementById('identityConfig');
-  const facetConfig = document.getElementById('facetConfig');
-
-  if (facet) {
-    // Facet selected: show ONLY facet settings
-    identityConfig.style.display = 'none';
-    facetConfig.style.display = 'block';
-
-    // Reset log panel state
-    document.getElementById('logEntries').innerHTML = '<div class="log-empty">Loading...</div>';
-    document.getElementById('logMore').style.display = 'none';
-
-    loadFacetConfig(facet);
-  } else {
-    // All-facet mode: show ONLY journal settings
-    identityConfig.style.display = 'block';
-    facetConfig.style.display = 'none';
+  facetConfig = null; // Reset so it reloads
+  updateFacetNav();
+  // If currently viewing a facet section, reload
+  const activeSection = document.querySelector('.settings-section.active');
+  if (activeSection && activeSection.dataset.requiresFacet !== undefined && e.detail.facet) {
+    loadFacetConfig(e.detail.facet);
+    if (activeSection.id === 'section-facet-activity') {
+      loadLogs(e.detail.facet);
+    }
   }
 });
 
-// Load facet configuration
+// ========== CONFIG LOADING ==========
+async function loadConfig() {
+  try {
+    const response = await fetch('api/config');
+    configData = await response.json();
+    populateFields(configData);
+    checkShowSetup();
+  } catch (err) {
+    console.error('Error loading config:', err);
+    notify('error', 'Load Failed', 'Error loading configuration');
+  }
+}
+
+function populateFields(config) {
+  // Identity fields
+  const identity = config.identity || {};
+  setValue('field-name', identity.name || '');
+  setValue('field-preferred', identity.preferred || '');
+  setValue('field-bio', identity.bio || '');
+  setValue('field-aliases', Array.isArray(identity.aliases) ? identity.aliases.join(', ') : '');
+  setValue('field-emails', Array.isArray(identity.email_addresses) ? identity.email_addresses.join(', ') : '');
+
+  // Pronouns (convert object to string key)
+  const pronouns = identity.pronouns || {};
+  if (pronouns.subject && pronouns.object && pronouns.possessive && pronouns.reflexive) {
+    setValue('field-pronouns', `${pronouns.subject}/${pronouns.object}/${pronouns.possessive}/${pronouns.reflexive}`);
+  }
+
+  // Timezone - auto-detect if empty
+  if (!identity.timezone) {
+    try {
+      const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      setValue('field-timezone', tz);
+      saveField('identity', 'timezone', tz);
+    } catch (e) {}
+  } else {
+    setValue('field-timezone', identity.timezone);
+  }
+
+  // Models
+  const models = config.models || {};
+  setValue('field-model-insights', models.insights || 'flash');
+  setValue('field-model-observations', models.observations || 'flash');
+  setValue('field-model-agents', models.agents || 'flash');
+
+  // Transcribe
+  const transcribe = config.transcribe || {};
+  setValue('field-transcribe-device', transcribe.device || 'auto');
+  setValue('field-transcribe-model', transcribe.model || 'medium.en');
+  setValue('field-transcribe-compute', transcribe.compute_type || 'default');
+
+  // Convey (password)
+  const convey = config.convey || {};
+  setValue('field-password', convey.password || '');
+}
+
+function setValue(id, value) {
+  const el = document.getElementById(id);
+  if (el) el.value = value;
+}
+
+// ========== GENERIC FIELD SAVING ==========
+function setupAutoSave() {
+  document.querySelectorAll('[data-section][data-key]').forEach(el => {
+    el.addEventListener('change', () => handleFieldChange(el));
+    el.addEventListener('blur', () => handleFieldChange(el));
+  });
+}
+
+function handleFieldChange(el) {
+  const section = el.dataset.section;
+  const key = el.dataset.key;
+  let value = el.value;
+
+  // Transform special fields
+  if (key === 'aliases' || key === 'email_addresses') {
+    value = value.split(',').map(s => s.trim()).filter(s => s);
+  } else if (key === 'pronouns' && value) {
+    const parts = value.split('/');
+    if (parts.length === 4) {
+      value = { subject: parts[0], object: parts[1], possessive: parts[2], reflexive: parts[3] };
+    } else {
+      value = { subject: '', object: '', possessive: '', reflexive: '' };
+    }
+  }
+
+  saveField(section, key, value);
+}
+
+function saveField(section, key, value) {
+  clearTimeout(saveTimeout);
+  saveTimeout = setTimeout(async () => {
+    try {
+      const response = await fetch('api/config', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ section, data: { [key]: value } })
+      });
+      const result = await response.json();
+      if (result.success) {
+        configData = result.config;
+        notify('success', 'Saved', 'Settings updated');
+      } else {
+        throw new Error(result.error);
+      }
+    } catch (err) {
+      console.error('Save error:', err);
+      notify('error', 'Save Failed', err.message);
+    }
+  }, 500);
+}
+
+// ========== FACET CONFIG ==========
 async function loadFacetConfig(facetName) {
   try {
     const response = await fetch(`/app/settings/api/facet/${facetName}`);
     const data = await response.json();
+    if (data.error) throw new Error(data.error);
 
-    if (data.error) {
-      throw new Error(data.error);
-    }
-
-    currentFacetConfig = data.config;
+    facetConfig = data.config;
     populateFacetForm(facetName, data.config);
     setupFacetEditing();
-
-    // Load action logs
-    loadLogs(facetName);
   } catch (err) {
     console.error('Error loading facet config:', err);
-    showFacetStatus('Error loading facet configuration', 'error');
+    notify('error', 'Load Failed', 'Error loading facet configuration');
   }
 }
 
-// Populate facet form with data
 function populateFacetForm(facetName, config) {
-  document.getElementById('facetName').textContent = facetName;
-
-  // Title
   const title = config.title || facetName;
   document.getElementById('facetTitleDisplay').textContent = title;
   document.getElementById('facetTitleInput').value = title;
 
-  // Description
-  const description = config.description || 'No description set';
-  document.getElementById('facetDescDisplay').textContent = description;
+  const desc = config.description || 'No description set';
+  document.getElementById('facetDescDisplay').textContent = desc;
   document.getElementById('facetDescInput').value = config.description || '';
 
-  // Emoji
-  const emoji = config.emoji || '📦';
-  document.getElementById('emojiDisplay').textContent = emoji;
+  document.getElementById('emojiDisplay').textContent = config.emoji || '\uD83D\uDCE6';
 
-  // Color
   const color = config.color || '#667eea';
   document.getElementById('colorPreview').style.backgroundColor = color;
   document.getElementById('colorHexDisplay').textContent = color;
 
-  // Muted toggle
   const isMuted = config.muted || false;
-  updateMutedToggle(isMuted);
+  document.getElementById('mutedToggle').checked = isMuted;
+  document.getElementById('toggleLabel').textContent = isMuted ? 'Muted' : 'Active';
 }
 
-// Helper: convert hex to rgba
-function hexToRgba(hex, alpha) {
-  if (!hex || hex.length < 6) return `rgba(128,128,128,${alpha})`;
-  const r = parseInt(hex.substring(1,3), 16);
-  const g = parseInt(hex.substring(3,5), 16);
-  const b = parseInt(hex.substring(5,7), 16);
-  return `rgba(${r},${g},${b},${alpha})`;
-}
-
-// Update muted toggle slider state
-function updateMutedToggle(isMuted) {
-  const toggleInput = document.getElementById('mutedToggle');
-  const toggleLabel = document.getElementById('toggleLabel');
-
-  toggleInput.checked = isMuted;
-  toggleLabel.textContent = isMuted ? 'Muted' : 'Active';
-}
-
-// Setup muted toggle
-function setupMutedToggle() {
-  const toggleInput = document.getElementById('mutedToggle');
-
-  toggleInput.addEventListener('change', () => {
-    const newMuted = toggleInput.checked;
-
-    // Update label
-    document.getElementById('toggleLabel').textContent = newMuted ? 'Muted' : 'Active';
-
-    // Update local config
-    currentFacetConfig.muted = newMuted;
-
-    // Save to backend
-    saveFacetField('muted', newMuted);
-  });
-}
-
-// Setup facet editing interactions
 function setupFacetEditing() {
-  // Double-tap editing for title and description
   setupDoubleTapEdit('facetTitleField', 'facetTitleDisplay', 'facetTitleInput', 'title');
   setupDoubleTapEdit('facetDescField', 'facetDescDisplay', 'facetDescInput', 'description');
-
-  // Emoji picker
   setupEmojiPicker();
-
-  // Color picker
   setupColorPicker();
-
-  // Muted toggle
   setupMutedToggle();
 }
 
-// Setup double-tap editing
 function setupDoubleTapEdit(fieldId, displayId, inputId, configKey) {
-  const field = document.getElementById(fieldId);
   const display = document.getElementById(displayId);
   const input = document.getElementById(inputId);
-
   let tapTimeout = null;
 
-  display.addEventListener('click', () => {
+  display.onclick = () => {
     if (!tapTimeout) {
       tapTimeout = setTimeout(() => tapTimeout = null, 300);
     } else {
       clearTimeout(tapTimeout);
       tapTimeout = null;
-      // Double-tap detected - enable editing
       display.style.display = 'none';
       input.style.display = 'block';
       input.focus();
       input.select();
     }
-  });
+  };
 
-  // Save on blur
-  input.addEventListener('blur', () => {
+  input.onblur = () => {
     const value = input.value.trim();
-    if (configKey === 'description' || value) {  // Description can be empty
-      display.textContent = value || (configKey === 'description' ? 'No description set' : currentFacetConfig.title);
+    if (configKey === 'description' || value) {
+      display.textContent = value || (configKey === 'description' ? 'No description set' : facetConfig.title);
       display.style.display = 'flex';
       input.style.display = 'none';
-
-      // Save to backend
       saveFacetField(configKey, value);
     } else {
-      // Revert if empty (for title)
       input.value = display.textContent;
       display.style.display = 'flex';
       input.style.display = 'none';
     }
-  });
+  };
 
-  // Save on Enter (not for textarea)
   if (input.tagName !== 'TEXTAREA') {
-    input.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') {
-        e.preventDefault();
-        input.blur();
-      }
-    });
+    input.onkeydown = (e) => {
+      if (e.key === 'Enter') { e.preventDefault(); input.blur(); }
+    };
   }
 }
 
-// Setup emoji picker
 function setupEmojiPicker() {
-  const emojiDisplay = document.getElementById('emojiDisplay');
-  const emojiInput = document.getElementById('emojiInput');
+  const display = document.getElementById('emojiDisplay');
+  const input = document.getElementById('emojiInput');
 
-  emojiDisplay.addEventListener('click', () => {
-    emojiInput.style.display = 'block';
-    emojiInput.focus();
-    emojiInput.select();
-  });
+  display.onclick = () => {
+    input.style.display = 'block';
+    input.focus();
+  };
 
-  emojiInput.addEventListener('blur', () => {
-    const value = emojiInput.value.trim();
-    if (value && isEmoji(value)) {
-      emojiDisplay.textContent = value;
+  input.onblur = () => {
+    const value = input.value.trim();
+    if (value && /\p{Emoji}/u.test(value)) {
+      display.textContent = value;
       saveFacetField('emoji', value);
-      emojiInput.style.display = 'none';
-      emojiInput.value = '';
-    } else if (value) {
-      showFacetStatus('Please enter a valid emoji', 'error');
-      setTimeout(() => hideFacetStatus(), 2000);
-    } else {
-      emojiInput.style.display = 'none';
     }
-  });
+    input.style.display = 'none';
+    input.value = '';
+  };
 
-  emojiInput.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      emojiInput.blur();
-    }
-  });
+  input.onkeydown = (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); input.blur(); }
+  };
 }
 
-// Check if string contains emoji
-function isEmoji(str) {
-  return /\p{Emoji}/u.test(str);
-}
-
-// Setup color picker
 function setupColorPicker() {
   const modal = document.getElementById('colorPickerModal');
   const trigger = document.getElementById('colorTrigger');
   const closeBtn = document.querySelector('.color-close');
   const saveBtn = document.getElementById('saveColorBtn');
-  const swatchesContainer = document.getElementById('colorSwatches');
-  const customColorPicker = document.getElementById('customColorPicker');
-  const customInput = document.getElementById('customColorInput');
+  const swatches = document.getElementById('colorSwatches');
+  const picker = document.getElementById('customColorPicker');
+  const hexInput = document.getElementById('customColorInput');
 
-  let selectedColor = currentFacetConfig.color || '#667eea';
+  let selectedColor = '#667eea';
 
-  // Populate color swatches
-  const colors = window.CATEGORY_COLORS || [
-    '#007bff','#28a745','#17a2b8','#ffc107','#6f42c1','#fd7e14',
-    '#e83e8c','#6c757d','#20c997','#ff5722','#9c27b0','#795548'
-  ];
+  // Populate swatches
+  const colors = ['#007bff','#28a745','#17a2b8','#ffc107','#6f42c1','#fd7e14','#e83e8c','#6c757d','#20c997','#ff5722','#9c27b0','#795548'];
+  swatches.innerHTML = colors.map(c => `<div class="color-swatch" data-color="${c}" style="background:${c}"></div>`).join('');
 
-  swatchesContainer.innerHTML = '';
-  colors.forEach(color => {
-    const swatch = document.createElement('div');
-    swatch.className = 'color-swatch';
-    swatch.style.backgroundColor = color;
-    swatch.dataset.color = color;
-    swatch.addEventListener('click', () => selectColorSwatch(color));
-    swatchesContainer.appendChild(swatch);
-  });
+  swatches.onclick = (e) => {
+    if (e.target.classList.contains('color-swatch')) {
+      selectedColor = e.target.dataset.color;
+      updateColorUI(selectedColor);
+    }
+  };
 
-  // Open modal
-  trigger.addEventListener('click', () => {
-    selectedColor = currentFacetConfig.color || '#667eea';
-    customColorPicker.value = selectedColor;
-    customInput.value = selectedColor;
-    updateModalPreview(selectedColor);
-    updateSwatchSelection(selectedColor);
+  trigger.onclick = () => {
+    selectedColor = facetConfig?.color || '#667eea';
+    updateColorUI(selectedColor);
     modal.style.display = 'block';
-  });
+  };
 
-  // Close modal
-  closeBtn.addEventListener('click', () => {
-    modal.style.display = 'none';
-  });
+  closeBtn.onclick = () => modal.style.display = 'none';
+  window.onclick = (e) => { if (e.target === modal) modal.style.display = 'none'; };
 
-  window.addEventListener('click', (e) => {
-    if (e.target === modal) {
-      modal.style.display = 'none';
+  picker.oninput = () => { selectedColor = picker.value; updateColorUI(selectedColor); };
+  hexInput.oninput = () => {
+    if (/^#[0-9A-Fa-f]{6}$/.test(hexInput.value)) {
+      selectedColor = hexInput.value;
+      updateColorUI(selectedColor);
     }
-  });
+  };
 
-  // Swatch selection
-  function selectColorSwatch(color) {
-    selectedColor = color;
-    customColorPicker.value = color;
-    customInput.value = color;
-    updateModalPreview(color);
-    updateSwatchSelection(color);
-  }
-
-  // HTML color picker input
-  customColorPicker.addEventListener('input', (e) => {
-    const value = e.target.value;
-    selectedColor = value;
-    customInput.value = value;
-    updateModalPreview(value);
-    updateSwatchSelection(value);
-  });
-
-  // Custom hex text input
-  customInput.addEventListener('input', (e) => {
-    const value = e.target.value.trim();
-    if (/^#[0-9A-Fa-f]{6}$/.test(value)) {
-      selectedColor = value;
-      customColorPicker.value = value;
-      updateModalPreview(value);
-      updateSwatchSelection(value);
-    }
-  });
-
-  // Update modal preview
-  function updateModalPreview(color) {
-    const preview = document.getElementById('modalPreview');
-    const emoji = document.getElementById('emojiDisplay').textContent;
-    const title = document.getElementById('facetTitleDisplay').textContent;
-
-    document.getElementById('modalPreviewEmoji').textContent = emoji;
-    document.getElementById('modalPreviewTitle').textContent = title;
-    preview.style.borderColor = color;
-    preview.style.backgroundColor = hexToRgba(color, 0.1);
-    document.querySelector('.modal-preview-title').style.color = color;
-  }
-
-  // Update swatch selection visual
-  function updateSwatchSelection(color) {
-    document.querySelectorAll('.color-swatch').forEach(swatch => {
-      if (swatch.dataset.color.toLowerCase() === color.toLowerCase()) {
-        swatch.classList.add('selected');
-      } else {
-        swatch.classList.remove('selected');
-      }
-    });
-  }
-
-  // Save color
-  saveBtn.addEventListener('click', () => {
+  saveBtn.onclick = () => {
     if (/^#[0-9A-Fa-f]{6}$/.test(selectedColor)) {
       document.getElementById('colorPreview').style.backgroundColor = selectedColor;
       document.getElementById('colorHexDisplay').textContent = selectedColor;
       saveFacetField('color', selectedColor);
       modal.style.display = 'none';
+    }
+  };
+
+  function updateColorUI(color) {
+    picker.value = color;
+    hexInput.value = color;
+    document.querySelectorAll('.color-swatch').forEach(s => {
+      s.classList.toggle('selected', s.dataset.color.toLowerCase() === color.toLowerCase());
+    });
+    // Update preview
+    const preview = document.getElementById('modalPreview');
+    preview.style.borderColor = color;
+    preview.style.backgroundColor = color + '1a';
+    document.getElementById('modalPreviewTitle').style.color = color;
+    document.getElementById('modalPreviewEmoji').textContent = document.getElementById('emojiDisplay').textContent;
+    document.getElementById('modalPreviewTitle').textContent = document.getElementById('facetTitleDisplay').textContent;
+  }
+}
+
+function setupMutedToggle() {
+  const toggle = document.getElementById('mutedToggle');
+  toggle.onchange = () => {
+    const muted = toggle.checked;
+    document.getElementById('toggleLabel').textContent = muted ? 'Muted' : 'Active';
+    saveFacetField('muted', muted);
+  };
+}
+
+async function saveFacetField(field, value) {
+  if (!window.selectedFacet) return;
+
+  try {
+    const response = await fetch(`/app/settings/api/facet/${window.selectedFacet}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ [field]: value })
+    });
+    const result = await response.json();
+    if (result.success) {
+      facetConfig = result.config;
+      notify('success', 'Saved', 'Facet updated');
+      // Reload to update sidebar
+      if (field === 'title' || field === 'emoji' || field === 'color' || field === 'muted') {
+        setTimeout(() => window.location.reload(), 500);
+      }
     } else {
-      showFacetStatus('Please enter a valid hex color (e.g., #667eea)', 'error');
+      throw new Error(result.error);
     }
-  });
+  } catch (err) {
+    console.error('Save error:', err);
+    notify('error', 'Save Failed', err.message);
+  }
 }
 
-// Save facet field with debounce
-function saveFacetField(field, value) {
-  clearTimeout(facetSaveTimeout);
-  facetSaveTimeout = setTimeout(async () => {
-    const facetName = window.selectedFacet;
-    if (!facetName) return;
-
-    try {
-      const response = await fetch(`/app/settings/api/facet/${facetName}`, {
-        method: 'PUT',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({[field]: value})
-      });
-
-      const data = await response.json();
-
-      if (data.success) {
-        currentFacetConfig = data.config;
-
-        // Show success notification
-        if (window.AppServices && window.AppServices.notifications) {
-          window.AppServices.notifications.show({
-            app: 'settings',
-            icon: '✅',
-            title: 'Facet Updated',
-            message: `${field.charAt(0).toUpperCase() + field.slice(1)} saved successfully`,
-            dismissible: true,
-            autoDismiss: 2000
-          });
-        } else {
-          showFacetStatus('Saved', 'success');
-          setTimeout(() => hideFacetStatus(), 2000);
-        }
-
-        // Trigger facet data refresh in parent app
-        if (window.location) {
-          window.location.reload();
-        }
-      } else {
-        throw new Error(data.error || 'Save failed');
-      }
-    } catch (err) {
-      console.error('Error saving facet field:', err);
-      if (window.AppServices && window.AppServices.notifications) {
-        window.AppServices.notifications.show({
-          app: 'settings',
-          icon: '❌',
-          title: 'Save Failed',
-          message: err.message || 'Error saving facet configuration',
-          dismissible: true,
-          autoDismiss: 5000
-        });
-      } else {
-        showFacetStatus('Error: ' + err.message, 'error');
-      }
-    }
-  }, 500);
-}
-
-// Status display helpers
-function showFacetStatus(msg, type) {
-  const status = document.getElementById('facet-config-status');
-  status.textContent = msg;
-  status.className = 'config-status ' + type;
-}
-
-function hideFacetStatus() {
-  const status = document.getElementById('facet-config-status');
-  status.className = 'config-status';
-}
-
-// ========== ACTION LOG PANEL ==========
-let logNextCursor = null;
-
+// ========== ACTIVITY LOG ==========
 function loadLogs(facetName, cursor = null) {
   const url = cursor
     ? `/app/settings/api/facet/${facetName}/logs?cursor=${cursor}`
@@ -964,18 +1377,14 @@ function loadLogs(facetName, cursor = null) {
   fetch(url)
     .then(r => r.json())
     .then(data => {
-      renderLogDay(data, cursor === null);
+      renderLogDay(data, !cursor);
       logNextCursor = data.next_cursor;
-
-      // Show/hide load more button
-      const moreBtn = document.getElementById('logMore');
-      moreBtn.style.display = logNextCursor ? 'block' : 'none';
+      document.getElementById('logMore').style.display = logNextCursor ? 'block' : 'none';
     })
     .catch(err => {
       console.error('Error loading logs:', err);
       if (!cursor) {
-        document.getElementById('logEntries').innerHTML =
-          '<div class="log-empty">Error loading logs</div>';
+        document.getElementById('logEntries').innerHTML = '<div class="log-empty">Error loading logs</div>';
       }
     });
 }
@@ -983,152 +1392,110 @@ function loadLogs(facetName, cursor = null) {
 function renderLogDay(data, isFirst) {
   const container = document.getElementById('logEntries');
 
-  // Handle empty state
-  if (!data.day || data.entries.length === 0) {
-    if (isFirst) {
-      container.innerHTML = '<div class="log-empty">No actions logged</div>';
-    }
+  if (!data.day || !data.entries.length) {
+    if (isFirst) container.innerHTML = '<div class="log-empty">No actions logged</div>';
     return;
   }
 
-  // Clear loading message on first load
-  if (isFirst) {
-    container.innerHTML = '';
-  }
+  if (isFirst) container.innerHTML = '';
 
-  // Add day separator
+  // Day separator
   const dayLabel = formatLogDay(data.day);
-  const daySep = document.createElement('div');
-  daySep.className = 'log-day';
-  daySep.innerHTML = `<span class="log-day-line"></span><span class="log-day-label">${dayLabel}</span><span class="log-day-line"></span>`;
-  container.appendChild(daySep);
+  container.innerHTML += `<div class="log-day"><span class="log-day-line"></span><span class="log-day-label">${dayLabel}</span><span class="log-day-line"></span></div>`;
 
-  // Add entries
+  // Entries
   data.entries.forEach(entry => {
-    const row = document.createElement('div');
-    row.className = 'log-row';
-
-    const source = entry.source || 'tool';
-    const icon = source === 'tool' ? '🤖' : '👤';
-    const timeStr = formatLogTime(entry.timestamp);
-    const paramsJson = JSON.stringify(entry.params, null, 2);
-
-    row.innerHTML = `<span class="log-icon" title="${timeStr}">${icon}</span><span class="log-action" title="${escapeHtml(paramsJson)}">${entry.action}</span><span class="log-actor">${entry.actor}</span>`;
-    container.appendChild(row);
+    const icon = entry.source === 'tool' ? '\uD83E\uDD16' : '\uD83D\uDC64';
+    container.innerHTML += `<div class="log-row"><span class="log-icon">${icon}</span><span class="log-action">${entry.action}</span><span class="log-actor">${entry.actor}</span></div>`;
   });
 }
 
 function formatLogDay(day) {
   const today = new Date();
-  const todayStr = today.getFullYear().toString() +
-    (today.getMonth() + 1).toString().padStart(2, '0') +
-    today.getDate().toString().padStart(2, '0');
-
+  const todayStr = today.toISOString().slice(0,10).replace(/-/g,'');
   const yesterday = new Date(today);
   yesterday.setDate(yesterday.getDate() - 1);
-  const yesterdayStr = yesterday.getFullYear().toString() +
-    (yesterday.getMonth() + 1).toString().padStart(2, '0') +
-    yesterday.getDate().toString().padStart(2, '0');
+  const yesterdayStr = yesterday.toISOString().slice(0,10).replace(/-/g,'');
 
   if (day === todayStr) return 'Today';
   if (day === yesterdayStr) return 'Yesterday';
 
-  // Format as "Nov 27"
-  const d = new Date(day.slice(0, 4) + '-' + day.slice(4, 6) + '-' + day.slice(6, 8));
+  const d = new Date(day.slice(0,4) + '-' + day.slice(4,6) + '-' + day.slice(6,8));
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
-function formatLogTime(timestamp) {
-  const d = new Date(timestamp);
-  return d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
-}
-
-function escapeHtml(str) {
-  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-}
-
-// Setup load more button
-document.getElementById('logMoreBtn').addEventListener('click', () => {
+document.getElementById('logMoreBtn').onclick = () => {
   if (logNextCursor && window.selectedFacet) {
     loadLogs(window.selectedFacet, logNextCursor);
   }
-});
+};
 
-// ========== SETUP SECTION (First-run onboarding) ==========
-const setupSection = document.getElementById('setupSection');
-const createPersonalBtn = document.getElementById('createPersonalBtn');
-
+// ========== SETUP / FIRST-RUN ==========
 function checkShowSetup() {
-  // Show setup section if no facets exist
   const hasFacets = window.facetsData && window.facetsData.length > 0;
-  if (!hasFacets && !window.selectedFacet) {
-    setupSection.style.display = 'block';
-  } else {
-    setupSection.style.display = 'none';
-  }
+  document.getElementById('setupSection').style.display = hasFacets ? 'none' : 'block';
 }
 
-async function createPersonalFacet() {
-  createPersonalBtn.disabled = true;
-  createPersonalBtn.querySelector('span:last-child').textContent = 'Creating...';
+document.getElementById('createPersonalBtn').onclick = async () => {
+  const btn = document.getElementById('createPersonalBtn');
+  btn.disabled = true;
+  btn.textContent = 'Creating...';
 
   try {
     const response = await fetch('/app/settings/api/facet', {
       method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({
-        title: 'Personal',
-        emoji: '🏠',
-        color: '#007bff'
-      })
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title: 'Personal', emoji: '\uD83C\uDFE0', color: '#007bff' })
     });
-
     const data = await response.json();
-
     if (data.success) {
-      // Auto-select the new facet and reload
       document.cookie = `selectedFacet=${data.facet}; path=/; SameSite=Lax`;
       window.location.href = '/app/home';
     } else {
-      throw new Error(data.error || 'Failed to create facet');
+      throw new Error(data.error);
     }
   } catch (err) {
-    console.error('Error creating personal facet:', err);
-    createPersonalBtn.disabled = false;
-    createPersonalBtn.querySelector('span:last-child').textContent = 'Create Personal Facet';
+    console.error('Error creating facet:', err);
+    btn.disabled = false;
+    btn.textContent = 'Create Personal Facet';
+    notify('error', 'Creation Failed', err.message);
+  }
+};
 
-    if (window.AppServices && window.AppServices.notifications) {
-      window.AppServices.notifications.show({
-        app: 'settings',
-        icon: '❌',
-        title: 'Creation Failed',
-        message: err.message || 'Error creating facet',
-        dismissible: true,
-        autoDismiss: 5000
-      });
-    }
+// ========== PASSWORD TOGGLE ==========
+document.getElementById('passwordToggle').onclick = () => {
+  const input = document.getElementById('field-password');
+  const icon = document.getElementById('passwordToggleIcon');
+  if (input.type === 'password') {
+    input.type = 'text';
+    icon.innerHTML = '&#128064;'; // eye with line
+  } else {
+    input.type = 'password';
+    icon.innerHTML = '&#128065;'; // eye
+  }
+};
+
+// ========== NOTIFICATIONS ==========
+function notify(type, title, message) {
+  if (window.AppServices?.notifications) {
+    window.AppServices.notifications.show({
+      app: 'settings',
+      icon: type === 'success' ? '\u2705' : '\u274C',
+      title,
+      message,
+      dismissible: true,
+      autoDismiss: type === 'success' ? 2000 : 5000
+    });
   }
 }
 
-createPersonalBtn.addEventListener('click', createPersonalFacet);
-
-// Initialize visibility based on current facet selection
-const identityConfig = document.getElementById('identityConfig');
-const facetConfig = document.getElementById('facetConfig');
-
-if (window.selectedFacet) {
-  // Facet selected: show ONLY facet settings
-  identityConfig.style.display = 'none';
-  facetConfig.style.display = 'block';
-  setupSection.style.display = 'none';
-  loadFacetConfig(window.selectedFacet);
-} else {
-  // All-facet mode: show journal settings and maybe setup
-  identityConfig.style.display = 'block';
-  facetConfig.style.display = 'none';
-  checkShowSetup();
-}
-
-// Load config on page load
+// ========== INIT ==========
+updateFacetNav();
 loadConfig();
+setupAutoSave();
+
+// If facet is selected on load, load its config
+if (window.selectedFacet) {
+  loadFacetConfig(window.selectedFacet);
+}
 </script>
