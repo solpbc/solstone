@@ -366,12 +366,14 @@ async def run_agent(
                 if cache_read:
                     usage_dict["cached_tokens"] = cache_read
 
-            callback.emit({
-                "event": "finish",
-                "result": final_text,
-                "usage": usage_dict,
-                "ts": int(time.time() * 1000),
-            })
+            callback.emit(
+                {
+                    "event": "finish",
+                    "result": final_text,
+                    "usage": usage_dict,
+                    "ts": int(time.time() * 1000),
+                }
+            )
             return final_text
     except Exception as exc:
         callback.emit(
