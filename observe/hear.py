@@ -453,6 +453,9 @@ def format_audio(
         # Text
         text = entry.get("text", "")
 
+        # Audio description (tone, delivery cues)
+        description = entry.get("description", "")
+
         # Combine into markdown
         prefix = " ".join(entry_parts).strip()
         if prefix:
@@ -461,6 +464,10 @@ def format_audio(
             markdown = text
         else:
             continue  # Skip empty entries
+
+        # Append description in italics if present
+        if description:
+            markdown = f"{markdown} *({description})*"
 
         chunks.append(
             {

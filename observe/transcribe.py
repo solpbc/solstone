@@ -6,12 +6,16 @@
 Transcription pipeline:
 - Transcribes audio using faster-whisper with word timestamps
 - Re-segments by sentence boundaries (not acoustic pauses)
+- Enriches with Gemini Lite for topics, setting, and audio descriptions (optional)
 - Generates voice embeddings for each sentence using resemblyzer
 - Outputs JSONL format compatible with format_audio() in observe/hear.py
 
 Output files:
-- <stem>.jsonl: Transcript with HH:MM:SS timestamps
+- <stem>.jsonl: Transcript with HH:MM:SS timestamps, topics, setting, descriptions
 - <stem>.npz: Sentence-level voice embeddings indexed by segment id
+
+Configuration (journal config):
+- transcribe.enrich: Enable/disable Gemini Lite enrichment (default: true)
 """
 
 from __future__ import annotations
@@ -351,6 +355,7 @@ class Transcriber:
         base_datetime: datetime.datetime,
         source: str | None = None,
         remote: str | None = None,
+        enrichment: dict | None = None,
     ) -> list[str]:
         """Convert segments to JSONL lines.
 
@@ -360,6 +365,8 @@ class Transcriber:
             base_datetime: Base datetime for timestamp calculation
             source: Optional source label (e.g., "mic", "sys")
             remote: Optional remote name for metadata
+            enrichment: Optional enrichment data with topics, setting, and
+                per-segment descriptions
 
         Returns:
             List of JSON strings (metadata line first, then entries)
@@ -374,10 +381,22 @@ class Transcriber:
         if remote:
             metadata["remote"] = remote
 
+        # Add enrichment metadata if available
+        if enrichment:
+            if "topics" in enrichment:
+                metadata["topics"] = enrichment["topics"]
+            if "setting" in enrichment:
+                metadata["setting"] = enrichment["setting"]
+
         lines = [json.dumps(metadata)]
 
+        # Get descriptions list from enrichment (positional matching)
+        descriptions = []
+        if enrichment and "descriptions" in enrichment:
+            descriptions = enrichment["descriptions"]
+
         # Build entry lines
-        for seg in segments:
+        for i, seg in enumerate(segments):
             # Calculate absolute timestamp
             seg_dt = base_datetime + datetime.timedelta(seconds=seg["start"])
             timestamp_str = seg_dt.strftime("%H:%M:%S")
@@ -388,6 +407,10 @@ class Transcriber:
             }
             if source:
                 entry["source"] = source
+
+            # Add description from enrichment by position
+            if i < len(descriptions) and descriptions[i]:
+                entry["description"] = descriptions[i]
 
             lines.append(json.dumps(entry))
 
@@ -452,10 +475,19 @@ class Transcriber:
             if suffix.endswith("_audio") and suffix != "audio":
                 source = suffix[:-6]  # Remove "_audio" suffix
 
+            # Run enrichment if enabled in config
+            enrichment = None
+            config = get_config()
+            enrich_enabled = config.get("transcribe", {}).get("enrich", True)
+            if enrich_enabled:
+                from observe.enrich import enrich_transcript
+
+                enrichment = enrich_transcript(audio_path, segments)
+
             # Convert to JSONL format
             raw_filename = f"{raw_path.stem}{raw_path.suffix}"
             jsonl_lines = self._segments_to_jsonl(
-                segments, raw_filename, base_dt, source, remote
+                segments, raw_filename, base_dt, source, remote, enrichment
             )
 
             # Write JSONL

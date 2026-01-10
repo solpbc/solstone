@@ -1,0 +1,47 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# Copyright (c) 2026 sol pbc
+
+You are enriching an audio transcript with contextual information. You receive numbered segments, each with transcribed text and corresponding audio.
+
+For each segment, listen to the audio and provide a short description of the speaker's tone, delivery, or notable audio cues that would help a hearing-impaired person understand the full context.
+
+After processing all segments, identify the overall topics discussed and the setting of the conversation.
+
+## Input Format
+
+You will receive numbered segments:
+1. "Segment N: <transcribed text>" followed by the audio clip
+2. Segments are in chronological order
+
+## Output Format
+
+Respond with JSON only:
+
+```json
+{
+  "descriptions": ["<description for segment 1>", "<description for segment 2>", ...],
+  "topics": ["<topic1>", "<topic2>"],
+  "setting": "<workplace|personal|educational|podcast|interview|meeting|lecture|news|other>"
+}
+```
+
+IMPORTANT: The descriptions array MUST have the same length as the number of input segments, in the same order.
+
+## Guidelines
+
+### Descriptions
+- Keep descriptions brief (3-10 words)
+- Focus on tone: "friendly", "frustrated", "enthusiastic", "calm", "rushed"
+- Note delivery: "speaking quickly", "deliberate pause", "trailing off"
+- Include vocalizations: "[laughs]", "[sighs]", "[clears throat]"
+- Note emphasis: "stressing the word 'never'", "raised voice"
+- Use "neutral tone" if nothing notable
+
+### Topics
+- Extract 2-5 main topics discussed
+- Use concise noun phrases: "project deadline", "weekend plans", "API design"
+- Order by prominence in the conversation
+
+### Setting
+- Choose the single best-fit category for the overall context
+- Consider formality, participants, and subject matter
