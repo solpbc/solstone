@@ -337,11 +337,21 @@ def update_entity(
     raise ValueError(f"Entity '{name}' of type '{type}' not found in facet '{facet}'")
 
 
-def load_all_attached_entities() -> list[dict[str, Any]]:
+def load_all_attached_entities(
+    *,
+    sort_by: str | None = None,
+    limit: int | None = None,
+) -> list[dict[str, Any]]:
     """Load all attached entities from all facets with deduplication.
 
     Iterates facets in sorted (alphabetical) order. When the same entity
     name appears in multiple facets, keeps the first occurrence.
+
+    Args:
+        sort_by: Optional field to sort by. Currently supports "last_seen"
+                 which sorts by recency (entities without the field go to end).
+        limit: Optional maximum number of entities to return (applied after
+               deduplication and sorting).
 
     Returns:
         List of entity dictionaries, deduplicated by name
@@ -349,6 +359,9 @@ def load_all_attached_entities() -> list[dict[str, Any]]:
     Example:
         >>> load_all_attached_entities()
         [{"type": "Person", "name": "John Smith", "description": "Friend from college"}, ...]
+
+        >>> load_all_attached_entities(sort_by="last_seen", limit=20)
+        # Returns 20 most recently seen entities
 
     Note:
         Used for agent context loading. Provides deterministic behavior
@@ -359,8 +372,8 @@ def load_all_attached_entities() -> list[dict[str, Any]]:
         return []
 
     # Track seen names for deduplication
-    seen_names = set()
-    all_entities = []
+    seen_names: set[str] = set()
+    all_entities: list[dict[str, Any]] = []
 
     # Process facets in sorted order for deterministic results
     for facet_path in sorted(facets_dir.iterdir()):
@@ -382,7 +395,74 @@ def load_all_attached_entities() -> list[dict[str, Any]]:
                 seen_names.add(name)
                 all_entities.append(entity)
 
+    # Sort if requested
+    if sort_by == "last_seen":
+        # Sort by last_seen descending; entities without it go to end
+        all_entities.sort(
+            key=lambda e: e.get("last_seen", ""),
+            reverse=True,
+        )
+
+    # Apply limit if requested
+    if limit is not None and limit > 0:
+        all_entities = all_entities[:limit]
+
     return all_entities
+
+
+def _extract_spoken_names(entities: list[dict[str, Any]]) -> list[str]:
+    """Extract spoken-form names from entity list.
+
+    Extracts shortened forms optimized for audio transcription:
+    - First word from base name (without parentheses)
+    - All items from within parentheses (comma-separated)
+
+    Examples:
+        - "Ryan Reed (R2)" → ["Ryan", "R2"]
+        - "Federal Aviation Administration (FAA)" → ["Federal", "FAA"]
+        - "Acme Corp" → ["Acme"]
+
+    Args:
+        entities: List of entity dictionaries with "name" and optional "aka" fields
+
+    Returns:
+        List of unique spoken names, preserving insertion order
+    """
+    spoken_names: list[str] = []
+
+    def add_name_variants(name: str) -> None:
+        """Extract and add first word + parenthetical items from a name."""
+        if not name:
+            return
+
+        # Get base name (without parens) and extract first word
+        base_name = re.sub(r"\s*\([^)]+\)", "", name).strip()
+        first_word = base_name.split()[0] if base_name else None
+
+        # Add first word
+        if first_word and first_word not in spoken_names:
+            spoken_names.append(first_word)
+
+        # Extract and add all items from parens (comma-separated)
+        paren_match = re.search(r"\(([^)]+)\)", name)
+        if paren_match:
+            paren_items = [item.strip() for item in paren_match.group(1).split(",")]
+            for item in paren_items:
+                if item and item not in spoken_names:
+                    spoken_names.append(item)
+
+    for entity in entities:
+        name = entity.get("name", "")
+        if name:
+            add_name_variants(name)
+
+        # Process aka list with same logic
+        aka_list = entity.get("aka", [])
+        if isinstance(aka_list, list):
+            for aka_name in aka_list:
+                add_name_variants(aka_name)
+
+    return spoken_names
 
 
 def load_entity_names(
@@ -452,41 +532,45 @@ def load_entity_names(
         return "; ".join(entity_names) if entity_names else None
     else:
         # Spoken mode: list of shortened forms
-        spoken_names = []
-
-        def add_name_variants(name: str) -> None:
-            """Extract and add first word + parenthetical items from a name."""
-            if not name:
-                return
-
-            # Get base name (without parens) and extract first word
-            base_name = re.sub(r"\s*\([^)]+\)", "", name).strip()
-            first_word = base_name.split()[0] if base_name else None
-
-            # Add first word
-            if first_word and first_word not in spoken_names:
-                spoken_names.append(first_word)
-
-            # Extract and add all items from parens (comma-separated)
-            paren_match = re.search(r"\(([^)]+)\)", name)
-            if paren_match:
-                paren_items = [item.strip() for item in paren_match.group(1).split(",")]
-                for item in paren_items:
-                    if item and item not in spoken_names:
-                        spoken_names.append(item)
-
-        for entity in entities:
-            name = entity.get("name", "")
-            if name:
-                add_name_variants(name)
-
-            # Process aka list with same logic
-            aka_list = entity.get("aka", [])
-            if isinstance(aka_list, list):
-                for aka_name in aka_list:
-                    add_name_variants(aka_name)
-
+        spoken_names = _extract_spoken_names(entities)
         return spoken_names if spoken_names else None
+
+
+def load_recent_entity_names(*, limit: int = 20) -> str | None:
+    """Load recently active entity names for Whisper transcription prompt.
+
+    Returns spoken-form names from the most recently seen entities across all
+    facets, formatted for use as an initial prompt to Whisper. Names are grouped
+    with commas every 5 words to avoid biasing Whisper toward excessive comma use.
+
+    Args:
+        limit: Maximum number of entities to include (default 20)
+
+    Returns:
+        Formatted string like "Alice Bob R2 Acme FAA, Charlie David Eve Frank
+        George, ..." with a period at the end, or None if no entities found.
+
+    Example:
+        >>> load_recent_entity_names(limit=10)
+        "Alice Bob R2 Acme FAA, Charlie David Eve Frank George."
+    """
+    # Get most recently seen entities
+    entities = load_all_attached_entities(sort_by="last_seen", limit=limit)
+    if not entities:
+        return None
+
+    # Extract spoken names
+    spoken_names = _extract_spoken_names(entities)
+    if not spoken_names:
+        return None
+
+    # Format: 5 words then comma, period at end
+    groups = []
+    for i in range(0, len(spoken_names), 5):
+        group = spoken_names[i : i + 5]
+        groups.append(" ".join(group))
+
+    return ", ".join(groups) + "."
 
 
 def find_matching_attached_entity(

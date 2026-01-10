@@ -15,6 +15,7 @@ from think.entities import (
     load_all_attached_entities,
     load_detected_entities_recent,
     load_entities,
+    load_recent_entity_names,
     normalize_entity_name,
     parse_knowledge_graph_entities,
     rename_entity_folder,
@@ -227,6 +228,184 @@ def test_load_all_attached_entities_deduplication(fixture_journal, tmp_path):
     assert len(john_smiths) == 1
     # Should be from facet1 (alphabetically first)
     assert john_smiths[0]["description"] == "Description from facet1"
+
+
+def test_load_all_attached_entities_sort_by_last_seen(fixture_journal, tmp_path):
+    """Test sorting entities by last_seen."""
+    facet_path = tmp_path / "facets" / "test_facet"
+    facet_path.mkdir(parents=True)
+    os.environ["JOURNAL_PATH"] = str(tmp_path)
+
+    # Create entities with varying last_seen values
+    entities = [
+        {"type": "Person", "name": "Old Entity", "description": "No last_seen"},
+        {
+            "type": "Person",
+            "name": "Recent Entity",
+            "description": "Most recent",
+            "last_seen": "20260108",
+        },
+        {
+            "type": "Person",
+            "name": "Middle Entity",
+            "description": "Middle",
+            "last_seen": "20260105",
+        },
+    ]
+    save_entities("test_facet", entities)
+
+    # Load with sorting
+    result = load_all_attached_entities(sort_by="last_seen")
+
+    # Most recent should be first, no last_seen should be last
+    assert result[0]["name"] == "Recent Entity"
+    assert result[1]["name"] == "Middle Entity"
+    assert result[2]["name"] == "Old Entity"
+
+
+def test_load_all_attached_entities_limit(fixture_journal, tmp_path):
+    """Test limiting number of entities returned."""
+    facet_path = tmp_path / "facets" / "test_facet"
+    facet_path.mkdir(parents=True)
+    os.environ["JOURNAL_PATH"] = str(tmp_path)
+
+    # Create 5 entities
+    entities = [
+        {"type": "Person", "name": f"Entity {i}", "description": f"Desc {i}"}
+        for i in range(5)
+    ]
+    save_entities("test_facet", entities)
+
+    # Load with limit
+    result = load_all_attached_entities(limit=3)
+    assert len(result) == 3
+
+
+def test_load_all_attached_entities_sort_and_limit(fixture_journal, tmp_path):
+    """Test sorting and limiting together."""
+    facet_path = tmp_path / "facets" / "test_facet"
+    facet_path.mkdir(parents=True)
+    os.environ["JOURNAL_PATH"] = str(tmp_path)
+
+    # Create entities with last_seen
+    entities = [
+        {"type": "Person", "name": "A", "last_seen": "20260101"},
+        {"type": "Person", "name": "B", "last_seen": "20260108"},
+        {"type": "Person", "name": "C", "last_seen": "20260105"},
+        {"type": "Person", "name": "D", "last_seen": "20260103"},
+    ]
+    save_entities("test_facet", entities)
+
+    # Get top 2 most recent
+    result = load_all_attached_entities(sort_by="last_seen", limit=2)
+    assert len(result) == 2
+    assert result[0]["name"] == "B"  # 20260108
+    assert result[1]["name"] == "C"  # 20260105
+
+
+# Tests for load_recent_entity_names
+
+
+def test_load_recent_entity_names_basic(fixture_journal, tmp_path):
+    """Test basic functionality of load_recent_entity_names."""
+    facet_path = tmp_path / "facets" / "test_facet"
+    facet_path.mkdir(parents=True)
+    os.environ["JOURNAL_PATH"] = str(tmp_path)
+
+    # Create entities with last_seen
+    entities = [
+        {"type": "Person", "name": "Alice Johnson", "last_seen": "20260108"},
+        {"type": "Company", "name": "Acme Corp", "last_seen": "20260107"},
+    ]
+    save_entities("test_facet", entities)
+
+    result = load_recent_entity_names()
+
+    # Should contain spoken forms with period at end
+    assert result is not None
+    assert result.endswith(".")
+    assert "Alice" in result
+    assert "Acme" in result
+
+
+def test_load_recent_entity_names_formatting(fixture_journal, tmp_path):
+    """Test that names are grouped with commas every 5 words."""
+    facet_path = tmp_path / "facets" / "test_facet"
+    facet_path.mkdir(parents=True)
+    os.environ["JOURNAL_PATH"] = str(tmp_path)
+
+    # Create 10 entities to get multiple groups
+    entities = [
+        {"type": "Person", "name": f"Name{i}", "last_seen": f"202601{i:02d}"}
+        for i in range(10, 0, -1)  # Descending so we get predictable order
+    ]
+    save_entities("test_facet", entities)
+
+    result = load_recent_entity_names(limit=10)
+
+    # Should have comma separation and period at end
+    assert result is not None
+    assert result.endswith(".")
+    # With 10 single-word names, should have exactly 1 comma (5 + 5)
+    assert result.count(",") == 1
+
+
+def test_load_recent_entity_names_empty(fixture_journal, tmp_path):
+    """Test with no entities returns None."""
+    facet_path = tmp_path / "facets" / "test_facet"
+    facet_path.mkdir(parents=True)
+    os.environ["JOURNAL_PATH"] = str(tmp_path)
+
+    result = load_recent_entity_names()
+    assert result is None
+
+
+def test_load_recent_entity_names_with_aka(fixture_journal, tmp_path):
+    """Test that aka values are included in spoken names."""
+    facet_path = tmp_path / "facets" / "test_facet"
+    facet_path.mkdir(parents=True)
+    os.environ["JOURNAL_PATH"] = str(tmp_path)
+
+    entities = [
+        {
+            "type": "Person",
+            "name": "Robert Johnson",
+            "aka": ["Bob", "Bobby"],
+            "last_seen": "20260108",
+        },
+    ]
+    save_entities("test_facet", entities)
+
+    result = load_recent_entity_names()
+
+    assert result is not None
+    assert "Robert" in result
+    assert "Bob" in result
+    assert "Bobby" in result
+
+
+def test_load_recent_entity_names_respects_limit(fixture_journal, tmp_path):
+    """Test that limit parameter is respected."""
+    facet_path = tmp_path / "facets" / "test_facet"
+    facet_path.mkdir(parents=True)
+    os.environ["JOURNAL_PATH"] = str(tmp_path)
+
+    # Create 30 entities
+    entities = [
+        {"type": "Person", "name": f"Person{i}", "last_seen": f"202601{i:02d}"}
+        for i in range(1, 31)
+    ]
+    save_entities("test_facet", entities)
+
+    # Request only 5
+    result = load_recent_entity_names(limit=5)
+
+    assert result is not None
+    # Most recent 5 should be included (Person30, Person29, Person28, Person27, Person26)
+    assert "Person30" in result
+    assert "Person26" in result
+    # Earlier ones should not be included
+    assert "Person1" not in result
 
 
 def test_aka_field_preservation(fixture_journal, tmp_path):
@@ -1231,7 +1410,12 @@ def test_touch_entities_from_activity_basic(tmp_path):
     # Create attached entities
     attached = [
         {"type": "Person", "name": "Alice Johnson", "description": "Test"},
-        {"type": "Person", "name": "Robert Smith", "description": "Test", "aka": ["Bob"]},
+        {
+            "type": "Person",
+            "name": "Robert Smith",
+            "description": "Test",
+            "aka": ["Bob"],
+        },
     ]
     save_entities("test_facet", attached)
 
@@ -1293,7 +1477,12 @@ def test_touch_entities_from_activity_deduplicates(tmp_path):
     os.environ["JOURNAL_PATH"] = str(tmp_path)
 
     attached = [
-        {"type": "Person", "name": "Robert Smith", "description": "Test", "aka": ["Bob"]},
+        {
+            "type": "Person",
+            "name": "Robert Smith",
+            "description": "Test",
+            "aka": ["Bob"],
+        },
     ]
     save_entities("test_facet", attached)
 

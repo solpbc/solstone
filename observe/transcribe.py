@@ -33,6 +33,7 @@ from observe.utils import (
     prepare_audio_file,
 )
 from think.callosum import callosum_send
+from think.entities import load_recent_entity_names
 from think.utils import get_config, get_journal, setup_cli
 
 # Default transcription settings
@@ -418,8 +419,15 @@ class Transcriber:
         remote = os.getenv("REMOTE_NAME")
 
         try:
+            # Build prompt with recent entity names for context
+            recent_names = load_recent_entity_names()
+            if recent_names:
+                prompt = f"{recent_names} {STYLE_PROMPT}"
+            else:
+                prompt = STYLE_PROMPT
+
             # Transcribe with faster-whisper
-            segments = self._transcribe(audio_path, STYLE_PROMPT)
+            segments = self._transcribe(audio_path, prompt)
 
             # Skip if no speech detected - safe to delete since _transcribe() already
             # validated that VAD also detected minimal speech (raises RuntimeError otherwise)
