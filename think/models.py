@@ -68,6 +68,45 @@ TIER_NAMES = {
     "lite": TIER_LITE,
 }
 
+# ---------------------------------------------------------------------------
+# Context defaults: context pattern -> tier
+#
+# These define the default tier for each context when not overridden in config.
+# Patterns support glob-style matching (fnmatch).
+#
+# NAMING CONVENTION:
+#   {module}.{feature}[.{operation}]
+#
+# Examples:
+#   - observe.describe.frame    -> observe module, describe feature, frame operation
+#   - observe.enrich            -> observe module, enrich feature (no sub-operation)
+#   - insight.*                 -> insight module, all features (wildcard)
+#   - app.chat.title            -> apps module, chat app, title operation
+#
+# When adding new contexts:
+#   1. Use module prefix matching the package (observe, think, app, muse)
+#   2. Add specific operations as suffixes when granular control is needed
+#   3. Use wildcards sparingly - prefer explicit entries for clarity
+#   4. If not listed here, context falls back to DEFAULT_TIER (FLASH)
+# ---------------------------------------------------------------------------
+
+CONTEXT_DEFAULTS: Dict[str, int] = {
+    # Observe pipeline
+    "observe.describe.frame": TIER_LITE,  # Initial categorization
+    "observe.describe.*": TIER_LITE,  # Category follow-ups
+    "observe.detect.segment": TIER_FLASH,  # Transcript segmentation
+    "observe.detect.json": TIER_FLASH,  # JSON conversion
+    "observe.enrich": TIER_LITE,  # Audio enrichment
+    "observe.summarize": TIER_FLASH,  # Import summarization
+    # Insight pipeline
+    "insight.*": TIER_FLASH,  # All insights default to flash
+    # Utilities
+    "detect.created": TIER_LITE,  # File metadata detection
+    "planner.generate": TIER_FLASH,  # Agent planning
+    # Apps
+    "app.chat.title": TIER_LITE,  # Title generation
+}
+
 
 def _resolve_model(provider: str, tier: int, config_models: Dict[str, Any]) -> str:
     """Resolve tier to model string for a given provider.
@@ -176,8 +215,28 @@ def resolve_provider(context: str) -> tuple[str, str]:
                 matches.sort(key=lambda x: x[0], reverse=True)
                 _, _, match_config = matches[0]
 
-    # No context match - use defaults
+    # No context match - check CONTEXT_DEFAULTS for this context
     if match_config is None:
+        # Check for matching context default (exact match first, then glob)
+        context_tier = None
+        if context:
+            if context in CONTEXT_DEFAULTS:
+                context_tier = CONTEXT_DEFAULTS[context]
+            else:
+                # Check glob patterns
+                matches = []
+                for pattern, tier in CONTEXT_DEFAULTS.items():
+                    if fnmatch.fnmatch(context, pattern):
+                        specificity = len(pattern.split("*")[0])
+                        matches.append((specificity, tier))
+                if matches:
+                    matches.sort(key=lambda x: x[0], reverse=True)
+                    context_tier = matches[0][1]
+
+        if context_tier is not None:
+            model = _resolve_model(default_provider, context_tier, config_models)
+            return (default_provider, model)
+
         return (default_provider, default_model)
 
     # Resolve provider (from match or default)
@@ -354,8 +413,8 @@ def log_token_usage(
         pass
 
 
-def get_model_provider(model: str) -> str:
-    """Get the provider name from a model identifier.
+def _get_model_provider(model: str) -> str:
+    """Get the provider name from a model identifier (internal helper).
 
     Parameters
     ----------
@@ -419,7 +478,7 @@ def calc_token_cost(token_data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
             return None
 
         # Get provider ID
-        provider_id = get_model_provider(model)
+        provider_id = _get_model_provider(model)
         if provider_id == "unknown":
             return None
 
@@ -765,11 +824,12 @@ __all__ = [
     "TIER_FLASH",
     "TIER_LITE",
     "TIER_NAMES",
-    # Provider defaults
+    # Provider and context defaults
     "PROVIDER_DEFAULTS",
+    "CONTEXT_DEFAULTS",
     "DEFAULT_PROVIDER",
     "DEFAULT_TIER",
-    # Model constants
+    # Model constants (prefer using generate() with context instead)
     "GEMINI_PRO",
     "GEMINI_FLASH",
     "GEMINI_LITE",
@@ -781,11 +841,10 @@ __all__ = [
     "CLAUDE_HAIKU_4",
     # Functions
     "resolve_provider",
-    "gemini_generate",
-    "gemini_agenerate",
+    "gemini_generate",  # Prefer generate() for new code
+    "gemini_agenerate",  # Prefer agenerate() for new code
     "generate",
     "agenerate",
     "log_token_usage",
-    "get_model_provider",
     "calc_token_cost",
 ]

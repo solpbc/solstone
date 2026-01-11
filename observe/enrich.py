@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 # Copyright (c) 2026 sol pbc
 
-"""Enrich audio transcripts with contextual information using Gemini Lite.
+"""Enrich audio transcripts with contextual information using LLM analysis.
 
 Takes Whisper transcript segments paired with audio clips and extracts:
 - Per-segment corrected text (fixing transcription errors)
@@ -25,7 +25,7 @@ from google.genai import types
 
 from observe.utils import SAMPLE_RATE
 from think.entities import load_recent_entity_names
-from think.models import GEMINI_LITE, gemini_generate
+from think.models import generate
 from think.utils import load_prompt
 
 logger = logging.getLogger(__name__)
@@ -76,10 +76,10 @@ def enrich_transcript(
     audio_path: Path,
     segments: list[dict],
 ) -> dict | None:
-    """Enrich transcript segments with audio context using Gemini Lite.
+    """Enrich transcript segments with audio context using LLM analysis.
 
-    Sends numbered segments with text and audio clips to Gemini to extract
-    corrected text, per-segment descriptions, and overall topics/setting.
+    Sends numbered segments with text and audio clips to extract corrected
+    text, per-segment descriptions, and overall topics/setting.
 
     Args:
         audio_path: Path to audio file (FLAC)
@@ -123,18 +123,17 @@ def enrich_transcript(
                 types.Part.from_bytes(data=audio_bytes, mime_type="audio/flac")
             )
 
-        # Call Gemini Lite
-        logger.info(f"Enriching {len(segments)} segments with Gemini Lite...")
+        # Call LLM (tier defaults to LITE via CONTEXT_DEFAULTS)
+        logger.info(f"Enriching {len(segments)} segments...")
         t0 = time.perf_counter()
 
-        response_text = gemini_generate(
+        response_text = generate(
             contents=contents,
-            model=GEMINI_LITE,
+            context="observe.enrich",
             temperature=0.3,
             max_output_tokens=8192,
             thinking_budget=4096,
             json_output=True,
-            context="observe.enrich",
         )
 
         result = json.loads(response_text)

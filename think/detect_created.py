@@ -13,9 +13,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
-from dotenv import load_dotenv
-
-from .models import GEMINI_LITE, gemini_generate
+from .models import generate
 from .utils import load_prompt
 
 
@@ -51,26 +49,17 @@ def _debug_write_content(content: str, path: str) -> None:
 
 
 def detect_created(
-    path: str, api_key: Optional[str] = None, original_filename: Optional[str] = None
+    path: str, original_filename: Optional[str] = None
 ) -> Optional[dict]:
-    """Return creation time information for *path* using Gemini.
+    """Return creation time information for *path* using configured provider.
 
     Parameters
     ----------
     path : str
         Path to the file to analyze
-    api_key : Optional[str]
-        Google API key for Gemini
     original_filename : Optional[str]
         Original filename if path is a temporary file
     """
-
-    if api_key is None:
-        load_dotenv()
-        api_key = os.getenv("GOOGLE_API_KEY")
-        if not api_key:
-            raise RuntimeError("GOOGLE_API_KEY not set")
-
     metadata = _extract_metadata(path)
 
     # Use original filename in header if provided, otherwise use the actual path
@@ -97,15 +86,14 @@ def detect_created(
     # Debug: write content to temp file
     _debug_write_content(markdown, path)
 
-    response_text = gemini_generate(
+    response_text = generate(
         contents=markdown,
-        model=GEMINI_LITE,
+        context="detect.created",
         temperature=0.3,
         max_output_tokens=256,
         thinking_budget=4096,
         system_instruction=_load_system_prompt(),
         json_output=True,
-        context="detect.created",
     )
 
     try:
@@ -140,7 +128,7 @@ def main():
     from .utils import setup_cli
 
     parser = argparse.ArgumentParser(
-        description="Detect creation time information from media file metadata using Gemini"
+        description="Detect creation time information from media file metadata"
     )
     parser.add_argument("file_path", help="Path to the media file to analyze")
 

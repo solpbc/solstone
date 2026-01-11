@@ -22,7 +22,7 @@ from think.detect_created import detect_created
 from think.detect_transcript import detect_transcript_json, detect_transcript_segment
 from think.facets import get_facets
 from think.importer_utils import save_import_file, write_import_metadata
-from think.models import gemini_generate, resolve_provider
+from think.models import generate
 from think.utils import (
     PromptNotFoundError,
     day_path,
@@ -522,7 +522,7 @@ def create_transcript_summary(
     setting: str | None = None,
     facet: str | None = None,
 ) -> None:
-    """Create a summary of all imported audio transcript files using Gemini Pro.
+    """Create a summary of all imported audio transcript files using LLM analysis.
 
     Args:
         import_dir: Directory where the summary will be saved
@@ -622,19 +622,15 @@ def create_transcript_summary(
     user_message = "\n".join(user_message_parts)
 
     try:
-        logger.info(
-            f"Creating summary with Gemini for {len(all_transcripts)} transcript segments"
-        )
+        logger.info(f"Creating summary for {len(all_transcripts)} transcript segments")
 
-        # Generate summary using Gemini
-        _, model = resolve_provider("observe.summarize")
-        response_text = gemini_generate(
+        # Generate summary using configured provider
+        response_text = generate(
             contents=user_message,
-            model=model,
+            context="observe.summarize",
             temperature=0.3,
             max_output_tokens=8192 * 4,
             system_instruction=importer_prompt,
-            context="observe.summarize",
         )
 
         # Save the summary
@@ -785,7 +781,7 @@ def main() -> None:
         "--summarize",
         type=str2bool,
         default=True,
-        help="Create summary.md using Gemini Pro for audio transcripts",
+        help="Create summary.md for audio transcripts",
     )
     parser.add_argument(
         "--facet",
@@ -1028,7 +1024,7 @@ def main() -> None:
             )
             logger.info(f"Emitted observe.observed for segment: {day}/{seg}")
 
-        # Create Gemini Pro summary if requested and audio transcripts were created
+        # Create summary if requested and audio transcripts were created
         if args.summarize and audio_transcript_files:
             # Set stage for summarization
             _set_stage("summarizing")

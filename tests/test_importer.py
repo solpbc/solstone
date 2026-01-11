@@ -82,8 +82,8 @@ def test_importer_text(tmp_path, monkeypatch):
 
     monkeypatch.setattr(mod, "detect_transcript_json", mock_detect_json)
 
-    # Mock gemini_generate to prevent real API calls during summarization
-    monkeypatch.setattr(mod, "gemini_generate", lambda **kwargs: "Mocked summary")
+    # Mock generate to prevent real API calls during summarization
+    monkeypatch.setattr(mod, "generate", lambda **kwargs: "Mocked summary")
 
     monkeypatch.setattr(
         "sys.argv",
@@ -168,8 +168,8 @@ def test_importer_audio_transcribe(tmp_path, monkeypatch):
 
     monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
 
-    # Mock gemini_generate to prevent real API calls during summarization
-    monkeypatch.setattr(mod, "gemini_generate", lambda **kwargs: "Mocked summary")
+    # Mock generate to prevent real API calls during summarization
+    monkeypatch.setattr(mod, "generate", lambda **kwargs: "Mocked summary")
 
     # Mock the transcribe_file function
     with patch("think.importer.transcribe_file") as mock_transcribe:

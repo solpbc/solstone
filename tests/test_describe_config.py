@@ -33,8 +33,13 @@ def test_categories_have_required_fields():
         assert "output" in metadata, f"Category {category} missing 'output'"
         assert metadata["output"] in ("json", "markdown")
 
-        # Every category should have model field (mapped from iq)
-        assert "model" in metadata, f"Category {category} missing 'model'"
+        # Every category should have context field (for provider resolution)
+        assert "context" in metadata, f"Category {category} missing 'context'"
+        assert metadata["context"].startswith("observe.describe.")
+
+        # Every category should have iq field (tier name)
+        assert "iq" in metadata, f"Category {category} missing 'iq'"
+        assert metadata["iq"] in ("lite", "flash", "pro")
 
 
 def test_followup_categories_have_prompts():

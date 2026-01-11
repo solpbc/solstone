@@ -6,10 +6,12 @@
 Describe screencast videos by detecting significant frame changes.
 
 Processes per-monitor screencast files (.webm/.mp4/.mov), detects changes using
-RMS-based comparison, and sends frames to Gemini for multi-stage analysis:
+RMS-based comparison, and sends frames for multi-stage LLM analysis:
 
 1. Initial categorization identifies primary/secondary app categories
 2. Follow-up analysis (text extraction or meeting analysis) based on category
+
+Note: Uses GeminiBatch for async batch processing (Google-specific).
 """
 
 from __future__ import annotations
@@ -60,11 +62,6 @@ def _discover_categories() -> dict[str, dict]:
     dict[str, dict]
         Mapping of category name to metadata (including 'prompt' if followup=true)
     """
-    from think.models import PROVIDER_DEFAULTS, TIER_NAMES, resolve_provider
-
-    # Get configured default for observations
-    _, default_model = resolve_provider("observe.describe")
-
     categories_dir = Path(__file__).parent / "categories"
     if not categories_dir.exists():
         logger.warning(f"Categories directory not found: {categories_dir}")
@@ -87,20 +84,14 @@ def _discover_categories() -> dict[str, dict]:
             metadata.setdefault("followup", False)
             metadata.setdefault("output", "markdown")
 
-            # Map iq to model using tier system
-            if "iq" in metadata:
-                iq = metadata["iq"]
-                if iq not in TIER_NAMES:
-                    logger.warning(
-                        f"Category {category} has invalid iq '{iq}', using config default"
-                    )
-                    metadata["model"] = default_model
-                else:
-                    # Use tier to get Google model (observe uses Google)
-                    tier = TIER_NAMES[iq]
-                    metadata["model"] = PROVIDER_DEFAULTS["google"][tier]
-            else:
-                metadata["model"] = default_model
+            # Store the category context for later resolution
+            # The model will be resolved at runtime via generate()
+            metadata["context"] = f"observe.describe.{category}"
+
+            # Store iq for informational purposes (actual tier comes from CONTEXT_DEFAULTS
+            # or config override, but category iq can influence CONTEXT_DEFAULTS registration)
+            if "iq" not in metadata:
+                metadata["iq"] = "lite"  # Default tier for categories
 
             # Load prompt if followup is enabled
             if metadata["followup"]:
@@ -378,7 +369,7 @@ class VideoProcessor:
             Path to write JSONL output (when None, no output file is written)
         """
         from think.batch import GeminiBatch
-        from think.models import GEMINI_LITE
+        from think.models import resolve_provider
 
         # Use dynamically built categorization prompt
         system_instruction = CATEGORIZATION_PROMPT
@@ -405,6 +396,9 @@ class VideoProcessor:
             output_file.write(json.dumps(metadata) + "\n")
             output_file.flush()
 
+        # Resolve model for frame description (tier comes from CONTEXT_DEFAULTS)
+        _, frame_model = resolve_provider("observe.describe.frame")
+
         # Create vision requests for all qualified frames
         for frame_data in qualified_frames:
             # Load frame image from bytes - keep it open until request completes
@@ -415,7 +409,7 @@ class VideoProcessor:
                     "Analyze this screenshot frame from a screencast recording.",
                     frame_img,
                 ),
-                model=GEMINI_LITE,
+                model=frame_model,
                 system_instruction=system_instruction,
                 json_output=True,
                 temperature=0.7,
@@ -580,6 +574,9 @@ class VideoProcessor:
                         # Determine output format from metadata
                         is_json = cat_meta.get("output") == "json"
 
+                        # Resolve model for this category context
+                        _, cat_model = resolve_provider(cat_meta["context"])
+
                         batch.update(
                             follow_req,
                             contents=self._user_contents(
@@ -587,12 +584,12 @@ class VideoProcessor:
                                 full_img,
                                 entities=True,
                             ),
-                            model=cat_meta["model"],
+                            model=cat_model,
                             system_instruction=cat_meta["prompt"],
                             json_output=is_json,
                             max_output_tokens=10240 if is_json else 8192,
                             thinking_budget=6144 if is_json else 4096,
-                            context=f"observe.describe.{category}",
+                            context=cat_meta["context"],
                         )
 
                     logger.info(

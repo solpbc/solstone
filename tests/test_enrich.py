@@ -67,7 +67,7 @@ class TestEnrichTranscript:
     """Test the main enrichment function."""
 
     @patch("observe.enrich._load_entity_names")
-    @patch("observe.enrich.gemini_generate")
+    @patch("observe.enrich.generate")
     @patch("observe.enrich.librosa.load")
     def test_returns_enrichment_data(self, mock_load, mock_generate, mock_entities):
         """Should return enrichment dict on success."""
@@ -110,7 +110,7 @@ class TestEnrichTranscript:
         assert result["setting"] == "workplace"
 
     @patch("observe.enrich._load_entity_names")
-    @patch("observe.enrich.gemini_generate")
+    @patch("observe.enrich.generate")
     @patch("observe.enrich.librosa.load")
     def test_returns_none_on_api_error(self, mock_load, mock_generate, mock_entities):
         """Should return None if Gemini call fails."""
@@ -127,7 +127,7 @@ class TestEnrichTranscript:
         assert result is None
 
     @patch("observe.enrich._load_entity_names")
-    @patch("observe.enrich.gemini_generate")
+    @patch("observe.enrich.generate")
     @patch("observe.enrich.librosa.load")
     def test_returns_none_on_invalid_response(
         self, mock_load, mock_generate, mock_entities
@@ -155,7 +155,7 @@ class TestEnrichTranscript:
         assert result is None
 
     @patch("observe.enrich._load_entity_names")
-    @patch("observe.enrich.gemini_generate")
+    @patch("observe.enrich.generate")
     @patch("observe.enrich.librosa.load")
     def test_builds_interleaved_content(self, mock_load, mock_generate, mock_entities):
         """Should send numbered text labels and audio clips interleaved."""
@@ -181,7 +181,7 @@ class TestEnrichTranscript:
 
         enrich_transcript(Path("/fake/audio.flac"), segments)
 
-        # Verify gemini_generate was called
+        # Verify generate was called
         assert mock_generate.called
         call_kwargs = mock_generate.call_args.kwargs
         contents = call_kwargs.get("contents") or mock_generate.call_args.args[0]

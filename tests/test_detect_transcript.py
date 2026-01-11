@@ -72,12 +72,12 @@ def test_detect_transcript_segment(monkeypatch):
     mod = importlib.import_module("think.detect_transcript")
 
     # Mock returns new format with start_at and line
-    def mock_gemini_generate(**kwargs):
+    def mock_generate(**kwargs):
         return (
             '[{"start_at": "14:30:00", "line": 1}, {"start_at": "14:35:00", "line": 3}]'
         )
 
-    monkeypatch.setattr("think.detect_transcript.gemini_generate", mock_gemini_generate)
+    monkeypatch.setattr("think.detect_transcript.generate", mock_generate)
 
     # Now requires start_time argument
     result = mod.detect_transcript_segment("a\nb\nc\nd", "14:30:00")

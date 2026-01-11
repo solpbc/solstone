@@ -11,7 +11,7 @@ from typing import Optional
 
 from dotenv import load_dotenv
 
-from .models import GEMINI_FLASH, gemini_generate
+from .models import generate
 from .utils import load_prompt, setup_cli
 
 
@@ -60,36 +60,28 @@ def _load_prompt() -> str:
     return base_prompt
 
 
-def generate_plan(
-    request: str, *, api_key: Optional[str] = None, model: str = GEMINI_FLASH
-) -> str:
-    """Return a detailed agent plan for ``request`` using Gemini."""
-    if api_key is None:
-        load_dotenv()
-        api_key = os.getenv("GOOGLE_API_KEY")
-        if not api_key:
-            raise RuntimeError("GOOGLE_API_KEY not set")
-
-    return gemini_generate(
+def generate_plan(request: str) -> str:
+    """Return a detailed agent plan for ``request`` using configured provider."""
+    return generate(
         contents=request,
-        model=model,
+        context="planner.generate",
         temperature=0.3,
         max_output_tokens=4096,
         thinking_budget=4096,
         system_instruction=_load_prompt(),
-        context="planner.generate",
     )
 
 
 def parse_args() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="Generate an agent plan with Gemini")
+    parser = argparse.ArgumentParser(
+        description="Generate an agent plan using configured provider"
+    )
     parser.add_argument(
         "task",
         nargs="?",
         help="Path to .txt file with the request or '-' for stdin",
     )
     parser.add_argument("-q", "--query", help="Request text directly")
-    parser.add_argument("--model", default=GEMINI_FLASH, help="Gemini model to use")
     return parser
 
 
@@ -107,7 +99,7 @@ def main() -> None:
             parser.error(f"File not found: {args.task}")
         request = Path(args.task).read_text(encoding="utf-8")
 
-    plan = generate_plan(request, model=args.model)
+    plan = generate_plan(request)
     print(plan)
 
 

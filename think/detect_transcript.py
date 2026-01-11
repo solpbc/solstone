@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 # Copyright (c) 2026 sol pbc
 
-"""Transcript segmentation utilities using Gemini."""
+"""Transcript segmentation utilities using LLM analysis."""
 
 from __future__ import annotations
 
@@ -10,7 +10,7 @@ import logging
 from pathlib import Path
 from typing import List, Optional
 
-from .models import gemini_generate, resolve_provider
+from .models import generate
 from .utils import load_prompt
 
 
@@ -120,7 +120,7 @@ def segments_from_boundaries(
 
 
 def detect_transcript_segment(text: str, start_time: str) -> List[tuple[str, str]]:
-    """Return transcript segments with absolute timestamps using Gemini.
+    """Return transcript segments with absolute timestamps using LLM analysis.
 
     Args:
         text: The transcript text to segment
@@ -132,23 +132,19 @@ def detect_transcript_segment(text: str, start_time: str) -> List[tuple[str, str
     numbered, lines = number_lines(text)
     # Prepend START_TIME for the prompt
     contents = f"START_TIME: {start_time}\n{numbered}"
-    logging.info(
-        f"Starting transcript segmentation with Gemini (start: {start_time})..."
-    )
+    logging.info(f"Starting transcript segmentation (start: {start_time})...")
 
-    _, model = resolve_provider("observe.detect.segment")
-    response_text = gemini_generate(
+    response_text = generate(
         contents=contents,
-        model=model,
+        context="observe.detect.segment",
         temperature=0.3,
         max_output_tokens=4096,
         thinking_budget=8192,
         system_instruction=_load_segment_prompt(),
         json_output=True,
-        context="observe.detect.segment",
     )
 
-    logging.info(f"Received response from Gemini: {response_text}")
+    logging.info(f"Received segmentation response: {response_text}")
     boundaries = parse_segment_boundaries(response_text, len(lines))
     segments = segments_from_boundaries(lines, boundaries)
 
@@ -156,7 +152,7 @@ def detect_transcript_segment(text: str, start_time: str) -> List[tuple[str, str
 
 
 def detect_transcript_json(text: str, segment_start: str) -> Optional[list]:
-    """Return transcript ``text`` converted to JSON using Gemini.
+    """Return transcript ``text`` converted to JSON using LLM analysis.
 
     Args:
         text: The transcript segment text
@@ -172,25 +168,23 @@ def detect_transcript_json(text: str, segment_start: str) -> Optional[list]:
     # Prepend SEGMENT_START for the prompt
     contents = f"SEGMENT_START: {segment_start}\n{text}"
 
-    _, model = resolve_provider("observe.detect.json")
-    response_text = gemini_generate(
+    response_text = generate(
         contents=contents,
-        model=model,
+        context="observe.detect.json",
         temperature=0.3,
         max_output_tokens=8192,
         thinking_budget=8192,
         system_instruction=_load_json_prompt(),
         json_output=True,
-        context="observe.detect.json",
     )
 
-    logging.info(f"Received response from Gemini: {response_text[:100]}")
+    logging.info(f"Received JSON conversion response: {response_text[:100]}")
     try:
         result = json.loads(response_text)
         logging.info("Successfully converted transcript to JSON")
         return result
     except json.JSONDecodeError:
-        logging.error("Failed to parse JSON response from Gemini")
+        logging.error("Failed to parse JSON response from LLM")
         return None
 
 

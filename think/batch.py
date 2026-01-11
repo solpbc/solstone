@@ -27,6 +27,11 @@ from google import genai
 from muse.google import get_or_create_client
 from think.models import GEMINI_FLASH, gemini_agenerate
 
+# Note: This module is Google-specific for async batch processing.
+# Callers should use resolve_provider() to get the model and pass it explicitly.
+# The GEMINI_FLASH default is a fallback for cases where context-based
+# resolution isn't needed.
+
 
 class GeminiRequest:
     """

@@ -13,7 +13,7 @@ from flask import Blueprint, jsonify, render_template, request
 from apps.utils import get_app_storage_path
 from convey.config import get_selected_facet
 from convey.utils import load_json, save_json
-from think.models import GEMINI_LITE, gemini_generate
+from think.models import generate
 
 logger = logging.getLogger(__name__)
 
@@ -134,15 +134,14 @@ def _get_backend_key_name(backend: str) -> str:
 
 
 def generate_chat_title(message: str) -> str:
-    """Generate a short title for a chat message using Gemini Flash Lite."""
+    """Generate a short title for a chat message using configured provider."""
     try:
-        title = gemini_generate(
-            message,
-            model=GEMINI_LITE,
+        title = generate(
+            contents=message,
+            context="app.chat.title",
             system_instruction=TITLE_SYSTEM_INSTRUCTION,
             max_output_tokens=50,
             timeout_s=10,
-            context="app.chat.title",
         ).strip()
         return title if title else message.split("\n")[0][:30]
     except Exception:

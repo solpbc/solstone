@@ -11,7 +11,7 @@ from google import genai
 from google.genai import types
 
 from think.cluster import cluster, cluster_period
-from think.models import gemini_generate, resolve_provider
+from think.models import generate
 from think.utils import (
     PromptNotFoundError,
     day_log,
@@ -193,22 +193,33 @@ def send_markdown(
     markdown: str,
     prompt: str,
     api_key: str,
-    model: str,
     cache_display_name: str | None = None,
     insight_key: str | None = None,
 ) -> str:
-    # Build context for token logging
-    context = f"insight.{insight_key}.markdown" if insight_key else None
+    # Build context for provider routing and token logging
+    context = f"insight.{insight_key}.markdown" if insight_key else "insight.unknown"
 
     # Try to use cache if display name provided
+    # Note: caching is Google-specific, so we check provider first
+    from think.models import resolve_provider
+
+    provider, model = resolve_provider(context)
+
     client = None
     cache_name = None
-    if cache_display_name:
+    if cache_display_name and provider == "google":
         client = genai.Client(api_key=api_key)
         cache_name = _get_or_create_cache(client, model, cache_display_name, markdown)
 
     if cache_name:
-        # Cache available: content already in cache, just send prompt
+        # Cache hit: content already in cache, just send prompt.
+        # ARCHITECTURE NOTE: We use gemini_generate() directly here because:
+        # 1. Content caching (cached_content param) is a Google-specific feature
+        # 2. The unified generate() API doesn't support provider-specific features
+        # 3. The cache was created with a specific Google model, so we must use it
+        # This is an intentional exception to the unified API pattern.
+        from think.models import gemini_generate
+
         return gemini_generate(
             contents=[prompt],
             model=model,
@@ -220,15 +231,14 @@ def send_markdown(
             context=context,
         )
     else:
-        # No cache: send markdown + prompt with system instruction
-        return gemini_generate(
+        # No cache: use unified generate()
+        return generate(
             contents=[markdown, prompt],
-            model=model,
+            context=context,
             temperature=0.3,
             max_output_tokens=8192 * 6,
             thinking_budget=8192 * 3,
             system_instruction=COMMON_SYSTEM_INSTRUCTION,
-            context=context,
         )
 
 
@@ -255,7 +265,6 @@ def _should_skip_extraction(result: str) -> bool:
 def send_extraction(
     markdown: str,
     prompt: str,
-    model: str,
     extra_instructions: str | None = None,
     insight_key: str | None = None,
 ) -> list:
@@ -269,8 +278,6 @@ def send_extraction(
         Markdown summary to extract events from.
     prompt:
         System instruction guiding the extraction.
-    model:
-        Gemini model name.
     extra_instructions:
         Optional additional instructions prepended to ``markdown``.
     insight_key:
@@ -281,22 +288,21 @@ def send_extraction(
     list
         Array of extracted event objects.
     """
-    # Build context for token logging
-    context = f"insight.{insight_key}.extraction" if insight_key else None
+    # Build context for provider routing and token logging
+    context = f"insight.{insight_key}.extraction" if insight_key else "insight.unknown"
 
     contents = [markdown]
     if extra_instructions:
         contents.insert(0, extra_instructions)
 
-    response_text = gemini_generate(
+    response_text = generate(
         contents=contents,
-        model=model,
+        context=context,
         temperature=0.3,
         max_output_tokens=8192 * 6,
         thinking_budget=8192 * 3,
         system_instruction=prompt,
         json_output=True,
-        context=context,
     )
 
     try:
@@ -418,6 +424,9 @@ def main() -> None:
 
         prompt = insight_prompt.text
 
+        # Resolve provider for display (routing happens inside send_markdown)
+        from think.models import resolve_provider
+
         _, model = resolve_provider(f"insight.{insight_key}")
         day = args.day
         size_kb = len(markdown.encode("utf-8")) / 1024
@@ -450,7 +459,6 @@ def main() -> None:
                 markdown,
                 prompt,
                 api_key,
-                model,
                 cache_display_name=cache_display_name,
                 insight_key=insight_key,
             )
@@ -459,7 +467,6 @@ def main() -> None:
                 markdown,
                 prompt,
                 api_key,
-                model,
                 cache_display_name=cache_display_name,
                 insight_key=insight_key,
             )
@@ -520,7 +527,6 @@ def main() -> None:
             events = send_extraction(
                 result,
                 extraction_prompt,
-                model,
                 extra_instructions=combined_instructions,
                 insight_key=insight_key,
             )
