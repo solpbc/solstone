@@ -2,42 +2,39 @@
 # Copyright (c) 2026 sol pbc
 
 """
-Async batch processing for Gemini API requests.
+Async batch processing for LLM API requests.
 
-Provides GeminiBatch for concurrent execution of multiple Gemini API calls
+Provides Batch for concurrent execution of multiple LLM API calls
 with dynamic request queuing and result streaming via async iterator.
+Routes requests to providers based on context via the unified agenerate() API.
 
 Example:
-    batch = GeminiBatch(max_concurrent=5)
+    batch = Batch(max_concurrent=5)
 
-    req = batch.create(contents="What is 2+2?")
+    req = batch.create(contents="What is 2+2?", context="myapp.calc")
     req.my_id = "calc1"
     batch.add(req)
 
     async for req in batch.drain_batch():
         print(f"{req.my_id}: {req.response}")
+
+Provider-specific features:
+    - client: Optional client for connection reuse (Google only, others use singletons)
+    - cached_content: Content caching (Google only)
 """
 
 import asyncio
 import time
 from typing import Any, List, Optional, Union
 
-from google import genai
-
-from muse.google import get_or_create_client
-from think.models import GEMINI_FLASH, gemini_agenerate
-
-# Note: This module is Google-specific for async batch processing.
-# Callers should use resolve_provider() to get the model and pass it explicitly.
-# The GEMINI_FLASH default is a fallback for cases where context-based
-# resolution isn't needed.
+from think.models import agenerate
 
 
-class GeminiRequest:
+class BatchRequest:
     """
-    Mutable request object for a single Gemini API call.
+    Mutable request object for a single LLM API call.
 
-    Core attributes are passed to gemini_agenerate(). Callers can add
+    Core attributes are passed to agenerate(). Callers can add
     arbitrary attributes for tracking (e.g., frame_id, stage, etc).
 
     After execution, these attributes are populated:
@@ -50,7 +47,8 @@ class GeminiRequest:
     def __init__(
         self,
         contents: Union[str, List[Any]],
-        model: str = GEMINI_FLASH,
+        context: str,
+        model: Optional[str] = None,
         temperature: float = 0.3,
         max_output_tokens: int = 8192 * 2,
         system_instruction: Optional[str] = None,
@@ -58,9 +56,9 @@ class GeminiRequest:
         thinking_budget: Optional[int] = None,
         cached_content: Optional[str] = None,
         timeout_s: Optional[float] = None,
-        context: Optional[str] = None,
     ):
         self.contents = contents
+        self.context = context
         self.model = model
         self.temperature = temperature
         self.max_output_tokens = max_output_tokens
@@ -69,31 +67,30 @@ class GeminiRequest:
         self.thinking_budget = thinking_budget
         self.cached_content = cached_content
         self.timeout_s = timeout_s
-        self.context = context
 
         # Populated after execution
         self.response: Optional[str] = None
         self.error: Optional[str] = None
         self.duration: float = 0.0
-        self.model_used: str = model
+        self.model_used: str = model or ""
 
 
-class GeminiBatch:
+class Batch:
     """
-    Async batch processor for Gemini API requests.
+    Async batch processor for LLM API requests.
 
     Manages concurrent execution with dynamic request queuing and result
-    streaming via async iterator pattern.
+    streaming via async iterator pattern. Routes to providers via agenerate().
 
     Example:
-        batch = GeminiBatch(max_concurrent=5)
+        batch = Batch(max_concurrent=5)
 
         # Add requests
-        req1 = batch.create(contents="What is 2+2?")
+        req1 = batch.create(contents="What is 2+2?", context="myapp.calc")
         req1.task_id = "calc1"
         batch.add(req1)
 
-        req2 = batch.create(contents="What is 3+3?")
+        req2 = batch.create(contents="What is 3+3?", context="myapp.calc")
         req2.task_id = "calc2"
         batch.add(req2)
 
@@ -102,7 +99,7 @@ class GeminiBatch:
             print(f"{req.task_id}: {req.response}")
     """
 
-    def __init__(self, max_concurrent: int = 5, client: Optional[genai.Client] = None):
+    def __init__(self, max_concurrent: int = 5, client: Any = None):
         """
         Initialize batch processor.
 
@@ -110,11 +107,13 @@ class GeminiBatch:
         ----------
         max_concurrent : int
             Maximum number of concurrent API requests (default: 5)
-        client : genai.Client, optional
-            Shared client to reuse. If not provided, creates a new one.
+        client : Any, optional
+            Provider client for connection reuse. Passed through to backend.
+            Google: genai.Client instance for connection pooling
+            Other providers: Ignored (they use internal singletons)
         """
         self.max_concurrent = max_concurrent
-        self.client = get_or_create_client(client)
+        self.client = client
         self.semaphore = asyncio.Semaphore(max_concurrent)
         self.result_queue: asyncio.Queue = asyncio.Queue()
         self.pending_tasks: set = set()
@@ -122,7 +121,8 @@ class GeminiBatch:
     def create(
         self,
         contents: Union[str, List[Any]],
-        model: str = GEMINI_FLASH,
+        context: str,
+        model: Optional[str] = None,
         temperature: float = 0.3,
         max_output_tokens: int = 8192 * 2,
         system_instruction: Optional[str] = None,
@@ -130,21 +130,30 @@ class GeminiBatch:
         thinking_budget: Optional[int] = None,
         cached_content: Optional[str] = None,
         timeout_s: Optional[float] = None,
-        context: Optional[str] = None,
-    ) -> GeminiRequest:
+    ) -> BatchRequest:
         """
-        Create a new GeminiRequest.
+        Create a new BatchRequest.
 
         Convenience factory method. Caller can add arbitrary attributes
         to the returned request before calling add().
 
+        Parameters
+        ----------
+        contents : str or List
+            The content to send to the model
+        context : str
+            Context string for provider routing (e.g., "observe.describe.frame")
+        model : str, optional
+            Model override. If not provided, resolved from context.
+
         Returns
         -------
-        GeminiRequest
+        BatchRequest
             New request object ready to be customized and added
         """
-        return GeminiRequest(
+        return BatchRequest(
             contents=contents,
+            context=context,
             model=model,
             temperature=temperature,
             max_output_tokens=max_output_tokens,
@@ -153,10 +162,9 @@ class GeminiBatch:
             thinking_budget=thinking_budget,
             cached_content=cached_content,
             timeout_s=timeout_s,
-            context=context,
         )
 
-    def add(self, request: GeminiRequest) -> None:
+    def add(self, request: BatchRequest) -> None:
         """
         Add request to batch for execution.
 
@@ -166,13 +174,13 @@ class GeminiBatch:
 
         Parameters
         ----------
-        request : GeminiRequest
+        request : BatchRequest
             Request to execute
         """
         task = asyncio.create_task(self._execute_request(request))
         self.pending_tasks.add(task)
 
-    def update(self, request: GeminiRequest, **kwargs) -> None:
+    def update(self, request: BatchRequest, **kwargs) -> None:
         """
         Update request attributes and re-add to batch for execution.
 
@@ -181,7 +189,7 @@ class GeminiBatch:
 
         Parameters
         ----------
-        request : GeminiRequest
+        request : BatchRequest
             Request to update and re-execute
         **kwargs
             Any attributes to update on the request object
@@ -190,7 +198,6 @@ class GeminiBatch:
         -------
         >>> batch.update(
         ...     req,
-        ...     model=GEMINI_FLASH,
         ...     contents="New prompt",
         ...     temperature=0.8,
         ...     custom_attr="foo"
@@ -233,40 +240,53 @@ class GeminiBatch:
         while not self.is_drained():
             await asyncio.sleep(0.1)
 
-    async def _execute_request(self, request: GeminiRequest) -> None:
+    async def _execute_request(self, request: BatchRequest) -> None:
         """
         Execute a single request and put result in queue.
 
         Parameters
         ----------
-        request : GeminiRequest
+        request : BatchRequest
             Request to execute (will be modified in place)
         """
+        start_time = time.time()
         try:
             async with self.semaphore:
-                start_time = time.time()
-                response = await gemini_agenerate(
+                # Build kwargs for provider-specific options
+                kwargs: dict = {}
+                if self.client is not None:
+                    kwargs["client"] = self.client
+                if request.cached_content is not None:
+                    kwargs["cached_content"] = request.cached_content
+                if request.model is not None:
+                    kwargs["model"] = request.model
+
+                response = await agenerate(
                     contents=request.contents,
-                    model=request.model,
+                    context=request.context,
                     temperature=request.temperature,
                     max_output_tokens=request.max_output_tokens,
                     system_instruction=request.system_instruction,
                     json_output=request.json_output,
                     thinking_budget=request.thinking_budget,
-                    cached_content=request.cached_content,
-                    client=self.client,
                     timeout_s=request.timeout_s,
-                    context=request.context,
+                    **kwargs,
                 )
                 request.duration = time.time() - start_time
                 request.response = response
                 request.error = None
+
+                # Track which model was actually used
+                if request.model:
+                    request.model_used = request.model
+                else:
+                    # Model was resolved from context - we don't have easy access
+                    # to what was resolved, so leave as empty string
+                    pass
         except Exception as e:
             request.duration = time.time() - start_time
             request.response = None
             request.error = str(e)
-
-        request.model_used = request.model
 
         # Put completed request in result queue
         await self.result_queue.put(request)
@@ -284,7 +304,7 @@ class GeminiBatch:
 
         Yields
         ------
-        GeminiRequest
+        BatchRequest
             Completed request with response/error populated
 
         Example
@@ -311,4 +331,4 @@ class GeminiBatch:
                 continue
 
 
-__all__ = ["GeminiRequest", "GeminiBatch"]
+__all__ = ["BatchRequest", "Batch"]

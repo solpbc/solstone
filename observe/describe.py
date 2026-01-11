@@ -11,7 +11,7 @@ RMS-based comparison, and sends frames for multi-stage LLM analysis:
 1. Initial categorization identifies primary/secondary app categories
 2. Follow-up analysis (text extraction or meeting analysis) based on category
 
-Note: Uses GeminiBatch for async batch processing (Google-specific).
+Uses Batch for async batch processing with provider routing via context.
 """
 
 from __future__ import annotations
@@ -368,7 +368,7 @@ class VideoProcessor:
         output_path : Optional[Path]
             Path to write JSONL output (when None, no output file is written)
         """
-        from think.batch import GeminiBatch
+        from think.batch import Batch
         from think.models import resolve_provider
 
         # Use dynamically built categorization prompt
@@ -378,7 +378,7 @@ class VideoProcessor:
         qualified_frames = self.process()
 
         # Create batch processor
-        batch = GeminiBatch(max_concurrent=max_concurrent)
+        batch = Batch(max_concurrent=max_concurrent)
 
         # Open output file if specified
         output_file = open(output_path, "w") if output_path else None
@@ -409,13 +409,13 @@ class VideoProcessor:
                     "Analyze this screenshot frame from a screencast recording.",
                     frame_img,
                 ),
+                context="observe.describe.frame",
                 model=frame_model,
                 system_instruction=system_instruction,
                 json_output=True,
                 temperature=0.7,
                 max_output_tokens=1024,
                 thinking_budget=1024,
-                context="observe.describe.frame",
             )
 
             # Attach metadata for tracking (store bytes, not PIL images)
@@ -557,7 +557,8 @@ class VideoProcessor:
                         if i == 0:
                             follow_req = req
                         else:
-                            follow_req = batch.create(contents=[])
+                            # Placeholder - context/contents updated via batch.update()
+                            follow_req = batch.create(contents=[], context=cat_meta["context"])
                             follow_req.frame_id = req.frame_id
                             follow_req.timestamp = req.timestamp
                             follow_req.frame_bytes = req.frame_bytes

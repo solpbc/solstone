@@ -458,8 +458,8 @@ def log_token_usage(
         pass
 
 
-def _get_model_provider(model: str) -> str:
-    """Get the provider name from a model identifier (internal helper).
+def get_model_provider(model: str) -> str:
+    """Get the provider name from a model identifier.
 
     Parameters
     ----------
@@ -523,7 +523,7 @@ def calc_token_cost(token_data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
             return None
 
         # Get provider ID
-        provider_id = _get_model_provider(model)
+        provider_id = get_model_provider(model)
         if provider_id == "unknown":
             return None
 
@@ -763,8 +763,12 @@ def generate(
     ValueError
         If the resolved provider is not supported.
     """
+    # Allow model override via kwargs (used by callers with explicit model selection)
+    model_override = kwargs.pop("model", None)
 
     provider, model = resolve_provider(context)
+    if model_override:
+        model = model_override
 
     if provider == "google":
         from muse.google import generate as backend_generate
@@ -837,8 +841,12 @@ async def agenerate(
     ValueError
         If the resolved provider is not supported.
     """
+    # Allow model override via kwargs (used by Batch for explicit model selection)
+    model_override = kwargs.pop("model", None)
 
     provider, model = resolve_provider(context)
+    if model_override:
+        model = model_override
 
     if provider == "google":
         from muse.google import agenerate as backend_agenerate
@@ -868,28 +876,30 @@ __all__ = [
     "TIER_PRO",
     "TIER_FLASH",
     "TIER_LITE",
-    "TIER_NAMES",
-    # Provider and context defaults
+    "DEFAULT_TIER",
+    # Provider configuration
+    "DEFAULT_PROVIDER",
     "PROVIDER_DEFAULTS",
     "CONTEXT_DEFAULTS",
-    "DEFAULT_PROVIDER",
-    "DEFAULT_TIER",
     # Model constants (prefer using generate() with context instead)
-    "GEMINI_PRO",
     "GEMINI_FLASH",
     "GEMINI_LITE",
+    "GEMINI_PRO",
     "GPT_5",
     "GPT_5_MINI",
     "GPT_5_NANO",
     "CLAUDE_OPUS_4",
     "CLAUDE_SONNET_4",
     "CLAUDE_HAIKU_4",
-    # Functions
-    "resolve_provider",
-    "gemini_generate",  # Prefer generate() for new code
-    "gemini_agenerate",  # Prefer agenerate() for new code
+    # Unified API (preferred for new code)
     "generate",
     "agenerate",
+    "resolve_provider",
+    # Google-specific API (for caching and direct access)
+    "gemini_generate",
+    "gemini_agenerate",
+    # Utilities
     "log_token_usage",
     "calc_token_cost",
+    "get_model_provider",
 ]

@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 # Copyright (c) 2026 sol pbc
 
-"""Integration tests for GeminiBatch with real Gemini API."""
+"""Integration tests for Batch with real LLM APIs."""
 
 import asyncio
 import os
@@ -11,23 +11,35 @@ from pathlib import Path
 
 import pytest
 
-from think.batch import GeminiBatch
+from think.batch import Batch
 from think.models import GEMINI_FLASH, GEMINI_LITE
+
+
+# Default context for integration tests - uses Google provider
+TEST_CONTEXT = "test.batch.integration"
 
 
 @pytest.mark.asyncio
 @pytest.mark.integration
 @pytest.mark.requires_api
-async def test_gemini_batch_basic_execution():
+async def test_batch_basic_execution():
     """Test basic batch execution with real API."""
-    batch = GeminiBatch(max_concurrent=3)
+    batch = Batch(max_concurrent=3)
 
     # Add simple requests
-    req1 = batch.create(contents="What is 2+2? Reply with just the number.")
+    req1 = batch.create(
+        contents="What is 2+2? Reply with just the number.",
+        context=TEST_CONTEXT,
+        model=GEMINI_FLASH,
+    )
     req1.id = "calc1"
     batch.add(req1)
 
-    req2 = batch.create(contents="What is 3+3? Reply with just the number.")
+    req2 = batch.create(
+        contents="What is 3+3? Reply with just the number.",
+        context=TEST_CONTEXT,
+        model=GEMINI_FLASH,
+    )
     req2.id = "calc2"
     batch.add(req2)
 
@@ -59,13 +71,17 @@ async def test_gemini_batch_basic_execution():
 @pytest.mark.asyncio
 @pytest.mark.integration
 @pytest.mark.requires_api
-async def test_gemini_batch_concurrent_timing():
+async def test_batch_concurrent_timing():
     """Test that concurrent execution is actually faster than sequential."""
     # Sequential baseline
     start = time.time()
-    batch_seq = GeminiBatch(max_concurrent=1)
+    batch_seq = Batch(max_concurrent=1)
     for i in range(3):
-        req = batch_seq.create(contents=f"Count to {i+1}. Reply with just the number.")
+        req = batch_seq.create(
+            contents=f"Count to {i+1}. Reply with just the number.",
+            context=TEST_CONTEXT,
+            model=GEMINI_FLASH,
+        )
         batch_seq.add(req)
 
     seq_results = []
@@ -75,9 +91,13 @@ async def test_gemini_batch_concurrent_timing():
 
     # Concurrent execution
     start = time.time()
-    batch_conc = GeminiBatch(max_concurrent=3)
+    batch_conc = Batch(max_concurrent=3)
     for i in range(3):
-        req = batch_conc.create(contents=f"Count to {i+1}. Reply with just the number.")
+        req = batch_conc.create(
+            contents=f"Count to {i+1}. Reply with just the number.",
+            context=TEST_CONTEXT,
+            model=GEMINI_FLASH,
+        )
         batch_conc.add(req)
 
     conc_results = []
@@ -97,12 +117,14 @@ async def test_gemini_batch_concurrent_timing():
 @pytest.mark.asyncio
 @pytest.mark.integration
 @pytest.mark.requires_api
-async def test_gemini_batch_json_output():
+async def test_batch_json_output():
     """Test batch with JSON output mode."""
-    batch = GeminiBatch(max_concurrent=2)
+    batch = Batch(max_concurrent=2)
 
     req = batch.create(
         contents='Return a JSON object with "result": 10',
+        context=TEST_CONTEXT,
+        model=GEMINI_FLASH,
         json_output=True,
     )
     req.id = "json_test"
@@ -121,15 +143,23 @@ async def test_gemini_batch_json_output():
 @pytest.mark.asyncio
 @pytest.mark.integration
 @pytest.mark.requires_api
-async def test_gemini_batch_different_models():
+async def test_batch_different_models():
     """Test batch with different models."""
-    batch = GeminiBatch(max_concurrent=2)
+    batch = Batch(max_concurrent=2)
 
-    req1 = batch.create(contents="Say 'flash'", model=GEMINI_FLASH)
+    req1 = batch.create(
+        contents="Say 'flash'",
+        context=TEST_CONTEXT,
+        model=GEMINI_FLASH,
+    )
     req1.model_type = "flash"
     batch.add(req1)
 
-    req2 = batch.create(contents="Say 'lite'", model=GEMINI_LITE)
+    req2 = batch.create(
+        contents="Say 'lite'",
+        context=TEST_CONTEXT,
+        model=GEMINI_LITE,
+    )
     req2.model_type = "lite"
     batch.add(req2)
 
@@ -148,12 +178,16 @@ async def test_gemini_batch_different_models():
 @pytest.mark.asyncio
 @pytest.mark.integration
 @pytest.mark.requires_api
-async def test_gemini_batch_dynamic_adding():
+async def test_batch_dynamic_adding():
     """Test multi-stage pattern - add stage 2 based on stage 1 results."""
-    batch = GeminiBatch(max_concurrent=3)
+    batch = Batch(max_concurrent=3)
 
     # Stage 1: Initial requests
-    req1 = batch.create(contents="What is 5+5? Just the number.")
+    req1 = batch.create(
+        contents="What is 5+5? Just the number.",
+        context=TEST_CONTEXT,
+        model=GEMINI_FLASH,
+    )
     req1.stage = "stage1"
     req1.value = 5
     batch.add(req1)
@@ -168,7 +202,9 @@ async def test_gemini_batch_dynamic_adding():
             # Add stage 2 request based on result
             if not stage2_added:
                 req2 = batch.create(
-                    contents=f"Previous answer was {req.response}. Double it. Just the number."
+                    contents=f"Previous answer was {req.response}. Double it. Just the number.",
+                    context=TEST_CONTEXT,
+                    model=GEMINI_FLASH,
                 )
                 req2.stage = "stage2"
                 batch.add(req2)
@@ -181,14 +217,18 @@ async def test_gemini_batch_dynamic_adding():
 @pytest.mark.asyncio
 @pytest.mark.integration
 @pytest.mark.requires_api
-async def test_gemini_batch_token_logging():
+async def test_batch_token_logging():
     """Test that token logging works with batch execution."""
     with tempfile.TemporaryDirectory() as tmpdir:
         os.environ["JOURNAL_PATH"] = tmpdir
 
-        batch = GeminiBatch(max_concurrent=2)
+        batch = Batch(max_concurrent=2)
 
-        req = batch.create(contents="Say hello")
+        req = batch.create(
+            contents="Say hello",
+            context=TEST_CONTEXT,
+            model=GEMINI_FLASH,
+        )
         batch.add(req)
 
         results = []
@@ -206,13 +246,15 @@ async def test_gemini_batch_token_logging():
 @pytest.mark.asyncio
 @pytest.mark.integration
 @pytest.mark.requires_api
-async def test_gemini_batch_error_recovery():
+async def test_batch_error_recovery():
     """Test retry pattern with real API (simulate by using invalid then valid)."""
-    batch = GeminiBatch(max_concurrent=2)
+    batch = Batch(max_concurrent=2)
 
     # This might error or succeed depending on model - just test the pattern
     req1 = batch.create(
         contents="What is 1+1? Reply with just the number.",
+        context=TEST_CONTEXT,
+        model=GEMINI_FLASH,
         max_output_tokens=5,  # Very small, might cause issues
     )
     req1.attempt = 1
@@ -225,6 +267,8 @@ async def test_gemini_batch_error_recovery():
             if not retried:
                 req2 = batch.create(
                     contents="What is 1+1? Reply with just the number.",
+                    context=TEST_CONTEXT,
+                    model=GEMINI_FLASH,
                     max_output_tokens=100,  # Normal size
                 )
                 req2.attempt = 2
@@ -238,22 +282,28 @@ async def test_gemini_batch_error_recovery():
 @pytest.mark.asyncio
 @pytest.mark.integration
 @pytest.mark.requires_api
-async def test_gemini_batch_client_reuse():
-    """Test that client is reused across requests in batch."""
-    from google import genai
-
+async def test_batch_client_reuse():
+    """Test that client is reused across requests in batch (Google-specific)."""
     from muse.google import get_or_create_client
 
     # Create shared client
     client = get_or_create_client()
 
-    # Use it in batch
-    batch = GeminiBatch(max_concurrent=2, client=client)
+    # Use it in batch - client is passed through to Google backend
+    batch = Batch(max_concurrent=2, client=client)
 
-    req1 = batch.create(contents="Say 'first'")
+    req1 = batch.create(
+        contents="Say 'first'",
+        context=TEST_CONTEXT,
+        model=GEMINI_FLASH,
+    )
     batch.add(req1)
 
-    req2 = batch.create(contents="Say 'second'")
+    req2 = batch.create(
+        contents="Say 'second'",
+        context=TEST_CONTEXT,
+        model=GEMINI_FLASH,
+    )
     batch.add(req2)
 
     results = []
@@ -270,11 +320,15 @@ async def test_gemini_batch_client_reuse():
 @pytest.mark.asyncio
 @pytest.mark.integration
 @pytest.mark.requires_api
-async def test_gemini_batch_custom_attributes_preserved():
+async def test_batch_custom_attributes_preserved():
     """Test that custom attributes added to requests are preserved."""
-    batch = GeminiBatch(max_concurrent=2)
+    batch = Batch(max_concurrent=2)
 
-    req = batch.create(contents="What is 10+10? Just the number.")
+    req = batch.create(
+        contents="What is 10+10? Just the number.",
+        context=TEST_CONTEXT,
+        model=GEMINI_FLASH,
+    )
     req.frame_id = 42
     req.monitor = "DP-3"
     req.metadata = {"foo": "bar", "nested": {"baz": 123}}
