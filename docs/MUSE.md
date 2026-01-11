@@ -30,7 +30,7 @@ Cortex (orchestrator)
 | Anthropic | `muse/providers/anthropic.py` | Claude via Anthropic SDK |
 | Claude | `muse/claude.py` | Claude Code SDK with filesystem tools |
 
-Each provider implements `run_agent(config, on_event)` for agent execution with MCP tools and event streaming.
+Providers implement `generate()`, `agenerate()`, and `run_agent()` functions. See [PROVIDERS.md](PROVIDERS.md) for implementation details.
 
 ## Key Components
 
@@ -38,8 +38,8 @@ Each provider implements `run_agent(config, on_event)` for agent execution with 
 - **cortex_client.py** - Client functions: `cortex_request()`, `cortex_agents()`
 - **mcp.py** - FastMCP server with journal search tools
 - **agents.py** - CLI entry point and shared event types
-- **models.py** - Provider routing, model constants, token logging
-- **batch.py** - Async batch processing for LLM requests
+- **models.py** - Unified `generate()`/`agenerate()` API, provider routing, token logging
+- **batch.py** - `Batch` class for concurrent LLM requests with dynamic queuing
 
 ## Agent Personas
 
@@ -47,6 +47,7 @@ System prompts in `muse/agents/*.txt` with metadata in matching `.json` files. A
 
 ## Documentation
 
+- [PROVIDERS.md](PROVIDERS.md) - Provider implementation guide
 - [CORTEX.md](CORTEX.md) - Full API, event schemas, request format
 - [CALLOSUM.md](CALLOSUM.md) - Message bus protocol
 - [THINK.md](THINK.md) - Cortex usage examples
