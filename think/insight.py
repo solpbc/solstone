@@ -213,22 +213,16 @@ def send_markdown(
 
     if cache_name:
         # Cache hit: content already in cache, just send prompt.
-        # ARCHITECTURE NOTE: We use gemini_generate() directly here because:
-        # 1. Content caching (cached_content param) is a Google-specific feature
-        # 2. The unified generate() API doesn't support provider-specific features
-        # 3. The cache was created with a specific Google model, so we must use it
-        # This is an intentional exception to the unified API pattern.
-        from think.models import gemini_generate
-
-        return gemini_generate(
+        # Google-specific params (cached_content, client) are passed via kwargs.
+        return generate(
             contents=[prompt],
-            model=model,
+            context=context,
             temperature=0.3,
             max_output_tokens=8192 * 6,
             thinking_budget=8192 * 3,
+            model=model,
             cached_content=cache_name,
             client=client,
-            context=context,
         )
     else:
         # No cache: use unified generate()

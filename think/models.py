@@ -61,13 +61,6 @@ PROVIDER_DEFAULTS: Dict[str, Dict[int, str]] = {
 DEFAULT_PROVIDER = "google"
 DEFAULT_TIER = TIER_FLASH
 
-# Mapping from tier names to tier constants
-TIER_NAMES = {
-    "pro": TIER_PRO,
-    "flash": TIER_FLASH,
-    "lite": TIER_LITE,
-}
-
 # ---------------------------------------------------------------------------
 # Context defaults: context pattern -> {tier, label, group}
 #
@@ -566,150 +559,6 @@ def calc_token_cost(token_data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         return None
 
 
-def gemini_generate(
-    contents: Union[str, List[Any]],
-    model: str = GEMINI_FLASH,
-    temperature: float = 0.3,
-    max_output_tokens: int = 8192 * 2,
-    system_instruction: Optional[str] = None,
-    json_output: bool = False,
-    thinking_budget: Optional[int] = None,
-    cached_content: Optional[str] = None,
-    client: Optional[Any] = None,
-    timeout_s: Optional[float] = None,
-    context: Optional[str] = None,
-) -> str:
-    """
-    Convenience wrapper for Google Gemini generation with common defaults.
-
-    Delegates to muse.google.generate().
-
-    Parameters
-    ----------
-    contents : str or List
-        The content to send to the model. Can be:
-        - A string (will be converted to a list with one string)
-        - A list of strings, types.Part objects, or mixed content
-        - A list of types.Content objects for complex conversations
-    model : str
-        Model name to use (default: GEMINI_FLASH)
-    temperature : float
-        Temperature for generation (default: 0.3)
-    max_output_tokens : int
-        Maximum tokens for the model's response output (default: 8192 * 2).
-        Note: This is the output budget only. The total token budget sent to
-        Gemini's API is computed as max_output_tokens + thinking_budget.
-    system_instruction : str, optional
-        System instruction for the model
-    json_output : bool
-        Whether to request JSON response format (default: False)
-    thinking_budget : int, optional
-        Token budget for model thinking. When set, the total token budget
-        becomes max_output_tokens + thinking_budget.
-    cached_content : str, optional
-        Name of cached content to use
-    client : genai.Client, optional
-        Existing client to reuse. If not provided, creates a new one.
-    timeout_s : float, optional
-        Request timeout in seconds.
-    context : str, optional
-        Context string for token usage logging (e.g., "insight.decisions.markdown").
-        If not provided, auto-detects from call stack.
-
-    Returns
-    -------
-    str
-        Response text from the model
-    """
-    from muse.google import generate as google_generate
-
-    return google_generate(
-        contents=contents,
-        model=model,
-        temperature=temperature,
-        max_output_tokens=max_output_tokens,
-        system_instruction=system_instruction,
-        json_output=json_output,
-        thinking_budget=thinking_budget,
-        timeout_s=timeout_s,
-        context=context,
-        cached_content=cached_content,
-        client=client,
-    )
-
-
-async def gemini_agenerate(
-    contents: Union[str, List[Any]],
-    model: str = GEMINI_FLASH,
-    temperature: float = 0.3,
-    max_output_tokens: int = 8192 * 2,
-    system_instruction: Optional[str] = None,
-    json_output: bool = False,
-    thinking_budget: Optional[int] = None,
-    cached_content: Optional[str] = None,
-    client: Optional[Any] = None,
-    timeout_s: Optional[float] = None,
-    context: Optional[str] = None,
-) -> str:
-    """
-    Async wrapper for Google Gemini generation with common defaults.
-
-    Delegates to muse.google.agenerate().
-
-    Parameters
-    ----------
-    contents : str or List
-        The content to send to the model. Can be:
-        - A string (will be converted to a list with one string)
-        - A list of strings, types.Part objects, or mixed content
-        - A list of types.Content objects for complex conversations
-    model : str
-        Model name to use (default: GEMINI_FLASH)
-    temperature : float
-        Temperature for generation (default: 0.3)
-    max_output_tokens : int
-        Maximum tokens for the model's response output (default: 8192 * 2).
-        Note: This is the output budget only. The total token budget sent to
-        Gemini's API is computed as max_output_tokens + thinking_budget.
-    system_instruction : str, optional
-        System instruction for the model
-    json_output : bool
-        Whether to request JSON response format (default: False)
-    thinking_budget : int, optional
-        Token budget for model thinking. When set, the total token budget
-        becomes max_output_tokens + thinking_budget.
-    cached_content : str, optional
-        Name of cached content to use
-    client : genai.Client, optional
-        Existing client to reuse. If not provided, creates a new one.
-    timeout_s : float, optional
-        Request timeout in seconds.
-    context : str, optional
-        Context string for token usage logging (e.g., "insight.decisions.markdown").
-        If not provided, auto-detects from call stack.
-
-    Returns
-    -------
-    str
-        Response text from the model
-    """
-    from muse.google import agenerate as google_agenerate
-
-    return await google_agenerate(
-        contents=contents,
-        model=model,
-        temperature=temperature,
-        max_output_tokens=max_output_tokens,
-        system_instruction=system_instruction,
-        json_output=json_output,
-        thinking_budget=thinking_budget,
-        timeout_s=timeout_s,
-        context=context,
-        cached_content=cached_content,
-        client=client,
-    )
-
-
 # ---------------------------------------------------------------------------
 # Unified generate/agenerate with provider routing
 # ---------------------------------------------------------------------------
@@ -872,32 +721,18 @@ async def agenerate(
 
 
 __all__ = [
-    # Tier constants
-    "TIER_PRO",
-    "TIER_FLASH",
-    "TIER_LITE",
-    "DEFAULT_TIER",
     # Provider configuration
+    "DEFAULT_TIER",
     "DEFAULT_PROVIDER",
-    "PROVIDER_DEFAULTS",
     "CONTEXT_DEFAULTS",
-    # Model constants (prefer using generate() with context instead)
+    # Model constants (used by muse backends for defaults)
     "GEMINI_FLASH",
-    "GEMINI_LITE",
-    "GEMINI_PRO",
     "GPT_5",
-    "GPT_5_MINI",
-    "GPT_5_NANO",
-    "CLAUDE_OPUS_4",
     "CLAUDE_SONNET_4",
-    "CLAUDE_HAIKU_4",
-    # Unified API (preferred for new code)
+    # Unified API
     "generate",
     "agenerate",
     "resolve_provider",
-    # Google-specific API (for caching and direct access)
-    "gemini_generate",
-    "gemini_agenerate",
     # Utilities
     "log_token_usage",
     "calc_token_cost",
