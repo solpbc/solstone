@@ -451,6 +451,8 @@ Apps can access and control facet selection through a uniform API:
 - **specific-facet mode**: `window.selectedFacet === "work"`, show only that facet's content
 - Selection persisted via cookie, synchronized across facet pills
 
+**UX Tip:** Apps should provide visual indication when in all-facet mode vs showing a specific facet. For example, group items by facet, show facet badges/colors on items, or display a subtle "All facets" label. This helps users understand the scope of what they're viewing.
+
 **See implementation:** `convey/static/app.js` - Facet switching logic and event dispatch
 
 ### WebSocket Events (Client-Side)
