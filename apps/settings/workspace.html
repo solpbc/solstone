@@ -684,6 +684,7 @@ input:checked + .slider:before {
       <optgroup label="Journal">
         <option value="profile">Profile</option>
         <option value="models">AI Models</option>
+        <option value="apikeys">API Keys</option>
         <option value="system">System</option>
         <option value="security">Security</option>
       </optgroup>
@@ -700,6 +701,7 @@ input:checked + .slider:before {
       <div class="settings-nav-label">Journal</div>
       <button class="settings-nav-item active" data-section="profile">Profile</button>
       <button class="settings-nav-item" data-section="models">AI Models</button>
+      <button class="settings-nav-item" data-section="apikeys">API Keys</button>
       <button class="settings-nav-item" data-section="system">System</button>
       <button class="settings-nav-item" data-section="security">Security</button>
     </div>
@@ -839,6 +841,56 @@ input:checked + .slider:before {
           <option value="pro">Pro - Most capable</option>
         </select>
         <small>Model for AI agent conversations</small>
+      </div>
+    </section>
+
+    <!-- API Keys Section -->
+    <section class="settings-section" id="section-apikeys">
+      <h2>API Keys</h2>
+      <p class="settings-section-desc">Configure API keys for AI providers. Keys are stored in your journal config.</p>
+
+      <div class="settings-field">
+        <label for="field-env-google">Google AI (Gemini)</label>
+        <div class="password-wrap">
+          <input type="password" id="field-env-google" data-section="env" data-key="GOOGLE_API_KEY" placeholder="Enter API key">
+          <button type="button" class="password-toggle" data-toggle="field-env-google" title="Show key">
+            <span>&#128065;</span>
+          </button>
+        </div>
+        <small>Primary backend for transcription and insights. <a href="https://aistudio.google.com/apikey" target="_blank">Get key</a></small>
+      </div>
+
+      <div class="settings-field">
+        <label for="field-env-openai">OpenAI</label>
+        <div class="password-wrap">
+          <input type="password" id="field-env-openai" data-section="env" data-key="OPENAI_API_KEY" placeholder="Enter API key">
+          <button type="button" class="password-toggle" data-toggle="field-env-openai" title="Show key">
+            <span>&#128065;</span>
+          </button>
+        </div>
+        <small>Alternative backend for chat and agents. <a href="https://platform.openai.com/api-keys" target="_blank">Get key</a></small>
+      </div>
+
+      <div class="settings-field">
+        <label for="field-env-anthropic">Anthropic</label>
+        <div class="password-wrap">
+          <input type="password" id="field-env-anthropic" data-section="env" data-key="ANTHROPIC_API_KEY" placeholder="Enter API key">
+          <button type="button" class="password-toggle" data-toggle="field-env-anthropic" title="Show key">
+            <span>&#128065;</span>
+          </button>
+        </div>
+        <small>Alternative backend for chat and agents. <a href="https://console.anthropic.com/settings/keys" target="_blank">Get key</a></small>
+      </div>
+
+      <div class="settings-field">
+        <label for="field-env-revai">Rev.ai</label>
+        <div class="password-wrap">
+          <input type="password" id="field-env-revai" data-section="env" data-key="REVAI_ACCESS_TOKEN" placeholder="Enter access token">
+          <button type="button" class="password-toggle" data-toggle="field-env-revai" title="Show token">
+            <span>&#128065;</span>
+          </button>
+        </div>
+        <small>Audio transcription for imported files. <a href="https://www.rev.ai/access_token" target="_blank">Get token</a></small>
       </div>
     </section>
 
@@ -1126,6 +1178,41 @@ function populateFields(config) {
   // Convey (password)
   const convey = config.convey || {};
   setValue('field-password', convey.password || '');
+
+  // Env (API keys) - show status indicators, values are masked as booleans
+  const env = config.env || {};
+  updateEnvStatus('field-env-google', env.GOOGLE_API_KEY);
+  updateEnvStatus('field-env-openai', env.OPENAI_API_KEY);
+  updateEnvStatus('field-env-anthropic', env.ANTHROPIC_API_KEY);
+  updateEnvStatus('field-env-revai', env.REVAI_ACCESS_TOKEN);
+}
+
+function updateEnvStatus(fieldId, isConfigured) {
+  const field = document.getElementById(fieldId);
+  if (!field) return;
+
+  // Update placeholder to indicate status
+  if (isConfigured) {
+    field.placeholder = 'Key configured (enter new value to replace)';
+  } else {
+    field.placeholder = 'Enter API key';
+  }
+
+  // Update label with status indicator
+  const label = field.closest('.settings-field')?.querySelector('label');
+  if (label) {
+    // Remove existing status indicator
+    const existingStatus = label.querySelector('.key-status');
+    if (existingStatus) existingStatus.remove();
+
+    if (isConfigured) {
+      const status = document.createElement('span');
+      status.className = 'key-status';
+      status.textContent = ' \u2713';
+      status.style.color = '#28a745';
+      label.appendChild(status);
+    }
+  }
 }
 
 function setValue(id, value) {
@@ -1158,10 +1245,15 @@ function handleFieldChange(el) {
     }
   }
 
-  // Skip save if value unchanged
-  const currentValue = configData?.[section]?.[key];
-  if (JSON.stringify(currentValue) === JSON.stringify(value)) {
-    return;
+  // Skip save if value unchanged (except env fields which are masked)
+  if (section !== 'env') {
+    const currentValue = configData?.[section]?.[key];
+    if (JSON.stringify(currentValue) === JSON.stringify(value)) {
+      return;
+    }
+  } else {
+    // For env fields, skip if empty (user didn't enter anything)
+    if (!value) return;
   }
 
   saveField(el, section, key, value);
@@ -1180,6 +1272,12 @@ function saveField(el, section, key, value) {
       if (result.success) {
         configData = result.config;
         showFieldStatus(el, 'saved');
+
+        // For env fields, clear the input and update status indicator
+        if (section === 'env') {
+          el.value = '';
+          updateEnvStatus(el.id, true);
+        }
       } else {
         throw new Error(result.error);
       }
@@ -1548,18 +1646,24 @@ document.getElementById('createPersonalBtn').onclick = async () => {
   }
 };
 
-// ========== PASSWORD TOGGLE ==========
-document.getElementById('passwordToggle').onclick = () => {
-  const input = document.getElementById('field-password');
-  const icon = document.getElementById('passwordToggleIcon');
-  if (input.type === 'password') {
-    input.type = 'text';
-    icon.innerHTML = '&#128064;'; // eye with line
-  } else {
-    input.type = 'password';
-    icon.innerHTML = '&#128065;'; // eye
-  }
-};
+// ========== PASSWORD/KEY TOGGLE ==========
+// Handle all password toggle buttons (password field + API key fields)
+document.querySelectorAll('.password-toggle').forEach(btn => {
+  btn.onclick = () => {
+    const targetId = btn.dataset.toggle || 'field-password';
+    const input = document.getElementById(targetId);
+    const icon = btn.querySelector('span');
+    if (input && icon) {
+      if (input.type === 'password') {
+        input.type = 'text';
+        icon.innerHTML = '&#128064;'; // eye with line
+      } else {
+        input.type = 'password';
+        icon.innerHTML = '&#128065;'; // eye
+      }
+    }
+  };
+});
 
 // ========== NOTIFICATIONS ==========
 function notifyError(title, message) {

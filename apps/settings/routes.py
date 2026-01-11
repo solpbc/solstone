@@ -23,9 +23,16 @@ settings_bp = Blueprint(
 
 @settings_bp.route("/api/config")
 def get_config() -> Any:
-    """Return the journal configuration."""
+    """Return the journal configuration.
+
+    The env section is masked for security - returns boolean indicating
+    whether each key is configured rather than the actual values.
+    """
     try:
         config = get_journal_config()
+        # Mask env values - return True/False for whether key is set
+        if "env" in config:
+            config["env"] = {k: bool(v) for k, v in config["env"].items()}
         return jsonify(config)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -41,6 +48,7 @@ def update_config() -> Any:
     - models: AI model selection (insights, observations, agents)
     - transcribe: Transcription settings (device, model, compute_type)
     - convey: Web app settings (password)
+    - env: API keys (GOOGLE_API_KEY, ANTHROPIC_API_KEY, OPENAI_API_KEY, REVAI_ACCESS_TOKEN)
     """
     try:
         request_data = request.get_json()
@@ -72,6 +80,12 @@ def update_config() -> Any:
             "models": ["insights", "observations", "agents"],
             "transcribe": ["device", "model", "compute_type"],
             "convey": ["password"],
+            "env": [
+                "GOOGLE_API_KEY",
+                "ANTHROPIC_API_KEY",
+                "OPENAI_API_KEY",
+                "REVAI_ACCESS_TOKEN",
+            ],
         }
 
         if section not in allowed_sections:
@@ -107,12 +121,15 @@ def update_config() -> Any:
             json.dump(config, f, indent=2, ensure_ascii=False)
             f.write("\n")
 
-        # Log if something changed (don't log password changes for security)
+        # Log if something changed (don't log sensitive values)
         if changed_fields:
             log_fields = changed_fields
             if section == "convey" and "password" in log_fields:
                 # Don't log actual password values
                 log_fields = {"password": {"old": "***", "new": "***"}}
+            elif section == "env":
+                # Don't log actual API key values
+                log_fields = {k: {"old": "***", "new": "***"} for k in changed_fields}
 
             log_app_action(
                 app="settings",
@@ -120,6 +137,10 @@ def update_config() -> Any:
                 action=f"{section}_update",
                 params={"changed_fields": log_fields},
             )
+
+        # Mask env values in response
+        if "env" in config:
+            config["env"] = {k: bool(v) for k, v in config["env"].items()}
 
         return jsonify({"success": True, "config": config})
     except Exception as e:
