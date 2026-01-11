@@ -18,26 +18,28 @@ Cortex (orchestrator)
    ├── MCP HTTP server (tools)
    └── Agent subprocess management
           ↓
-   Backend runners (openai, google, anthropic, claude)
+   Providers (openai, google, anthropic, claude)
 ```
 
-## Agent Backends
+## Providers
 
-| Backend | Module | Features |
-|---------|--------|----------|
-| OpenAI | `muse/openai.py` | GPT models via Agents SDK |
-| Google | `muse/google.py` | Gemini models |
-| Anthropic | `muse/anthropic.py` | Claude via Anthropic SDK |
+| Provider | Module | Features |
+|----------|--------|----------|
+| OpenAI | `muse/providers/openai.py` | GPT models via Agents SDK |
+| Google | `muse/providers/google.py` | Gemini models |
+| Anthropic | `muse/providers/anthropic.py` | Claude via Anthropic SDK |
 | Claude | `muse/claude.py` | Claude Code SDK with filesystem tools |
 
-All backends implement `AgentSession` with `run()` and `add_history()` methods.
+Each provider implements `run_agent(config, on_event)` for agent execution with MCP tools and event streaming.
 
 ## Key Components
 
 - **cortex.py** - Central agent manager, file watcher, event distribution
 - **cortex_client.py** - Client functions: `cortex_request()`, `cortex_agents()`
 - **mcp.py** - FastMCP server with journal search tools
-- **agents.py** - CLI and shared `AgentSession` interface
+- **agents.py** - CLI entry point and shared event types
+- **models.py** - Provider routing, model constants, token logging
+- **batch.py** - Async batch processing for LLM requests
 
 ## Agent Personas
 
