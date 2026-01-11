@@ -192,7 +192,9 @@ Custom value: $custom_value"""
     assert "Custom value: hello" in result.text
 
 
-def test_load_prompt_context_uppercase_versions(mock_journal_with_config, mock_prompt_dir):
+def test_load_prompt_context_uppercase_versions(
+    mock_journal_with_config, mock_prompt_dir
+):
     """Test that uppercase-first versions are created for context variables."""
     context_prompt = """lowercase: $topic
 Uppercase: $Topic"""
@@ -208,7 +210,9 @@ Uppercase: $Topic"""
     assert "Uppercase: Meetings" in result.text
 
 
-def test_load_prompt_context_overrides_identity(mock_journal_with_config, mock_prompt_dir):
+def test_load_prompt_context_overrides_identity(
+    mock_journal_with_config, mock_prompt_dir
+):
     """Test that context variables override identity variables."""
     override_prompt = "Name: $name"
     (mock_prompt_dir / "override_test.txt").write_text(override_prompt)
@@ -226,7 +230,9 @@ def test_load_prompt_context_overrides_identity(mock_journal_with_config, mock_p
     assert "Name: Custom Name" in result_override.text
 
 
-def test_load_prompt_context_with_include_journal(mock_journal_with_config, mock_prompt_dir):
+def test_load_prompt_context_with_include_journal(
+    mock_journal_with_config, mock_prompt_dir
+):
     """Test that context variables flow through to journal.txt."""
     # The journal.txt uses $name which should come from identity,
     # but if we pass a context with $name it should override
@@ -241,7 +247,9 @@ def test_load_prompt_context_with_include_journal(mock_journal_with_config, mock
     assert "Override Name" in result.text
 
 
-def test_load_prompt_context_stringifies_values(mock_journal_with_config, mock_prompt_dir):
+def test_load_prompt_context_stringifies_values(
+    mock_journal_with_config, mock_prompt_dir
+):
     """Test that non-string context values are converted to strings."""
     stringify_prompt = "Number: $count, Bool: $flag"
     (mock_prompt_dir / "stringify_test.txt").write_text(stringify_prompt)
