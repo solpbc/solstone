@@ -138,6 +138,28 @@ Fields:
 - `apps.order` – Custom app ordering in menu bar.
 - `apps.starred` – Apps to show in the quick-access starred section.
 
+### Environment variables
+
+The `env` block provides fallback values for environment variables. These are loaded at CLI startup and used when the corresponding variable is not set in the shell or `.env` file:
+
+```json
+{
+  "env": {
+    "GOOGLE_API_KEY": "your-google-api-key",
+    "ANTHROPIC_API_KEY": "your-anthropic-api-key",
+    "OPENAI_API_KEY": "your-openai-api-key",
+    "REVAI_ACCESS_TOKEN": "your-revai-token"
+  }
+}
+```
+
+**Precedence order** (highest to lowest):
+1. Shell environment variables
+2. `.env` file in project root
+3. Journal config `env` section
+
+This allows storing API keys in the journal config as an alternative to `.env`, which can be useful when the journal is synced across machines or when you want to keep all configuration in one place.
+
 #### Template usage examples
 
 The structured pronoun format enables proper pronoun usage in generated text and agent responses:

@@ -3,15 +3,17 @@
 
 """Tests for think.utils module."""
 
+import argparse
 import json
 import os
+import sys
 import tempfile
 from pathlib import Path
 
 import pytest
 
 from think.entities import load_entity_names
-from think.utils import segment_key
+from think.utils import segment_key, setup_cli
 
 
 def write_entities_jsonl(path: Path, entities: list[tuple[str, str, str]] | list[dict]):
@@ -569,3 +571,99 @@ def test_segment_key_edge_cases():
     assert segment_key("prefix 143022_300 suffix") == "143022_300"
     # Multiple potential matches (should match first)
     assert segment_key("143022_300 and 150000_600") == "143022_300"
+
+
+class TestSetupCliConfigEnv:
+    """Tests for config env injection via setup_cli()."""
+
+    @pytest.fixture
+    def cli_env(self, monkeypatch, tmp_path):
+        """Set up a journal with config and mock sys.argv for setup_cli tests.
+
+        Returns a helper function to write config and run setup_cli.
+        """
+        monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+        monkeypatch.setattr(sys, "argv", ["test"])
+
+        def write_config_and_run(config: dict | None = None):
+            """Write config to journal and run setup_cli."""
+            if config is not None:
+                config_dir = tmp_path / "config"
+                config_dir.mkdir(exist_ok=True)
+                config_file = config_dir / "journal.json"
+                config_file.write_text(json.dumps(config))
+
+            parser = argparse.ArgumentParser()
+            setup_cli(parser)
+
+        return write_config_and_run
+
+    def test_config_env_injected_into_os_environ(self, monkeypatch, cli_env):
+        """Test that config env values are injected into os.environ."""
+        monkeypatch.delenv("TEST_API_KEY", raising=False)
+        monkeypatch.delenv("ANOTHER_VAR", raising=False)
+
+        cli_env(
+            {
+                "identity": {"name": "Test"},
+                "env": {
+                    "TEST_API_KEY": "from_config",
+                    "ANOTHER_VAR": "also_from_config",
+                },
+            }
+        )
+
+        assert os.environ.get("TEST_API_KEY") == "from_config"
+        assert os.environ.get("ANOTHER_VAR") == "also_from_config"
+
+    def test_shell_env_takes_precedence_over_config(self, monkeypatch, cli_env):
+        """Test that shell/dotenv values are not overridden by config."""
+        monkeypatch.setenv("EXISTING_VAR", "from_shell")
+
+        cli_env(
+            {
+                "identity": {"name": "Test"},
+                "env": {"EXISTING_VAR": "from_config"},
+            }
+        )
+
+        assert os.environ.get("EXISTING_VAR") == "from_shell"
+
+    def test_empty_shell_env_allows_config_override(self, monkeypatch, cli_env):
+        """Test that empty shell env values are overridden by config."""
+        monkeypatch.setenv("EMPTY_VAR", "")
+
+        cli_env(
+            {
+                "identity": {"name": "Test"},
+                "env": {"EMPTY_VAR": "from_config"},
+            }
+        )
+
+        assert os.environ.get("EMPTY_VAR") == "from_config"
+
+    def test_missing_env_section_is_safe(self, cli_env):
+        """Test that missing env section in config doesn't cause errors."""
+        cli_env({"identity": {"name": "Test"}})
+
+    def test_missing_config_file_is_safe(self, cli_env):
+        """Test that missing config file doesn't cause errors."""
+        cli_env(None)  # No config file
+
+    def test_config_env_converts_non_string_values(self, monkeypatch, cli_env):
+        """Test that non-string config values are converted to strings."""
+        monkeypatch.delenv("INT_VAR", raising=False)
+        monkeypatch.delenv("BOOL_VAR", raising=False)
+
+        cli_env(
+            {
+                "identity": {"name": "Test"},
+                "env": {
+                    "INT_VAR": 42,
+                    "BOOL_VAR": True,
+                },
+            }
+        )
+
+        assert os.environ.get("INT_VAR") == "42"
+        assert os.environ.get("BOOL_VAR") == "True"
