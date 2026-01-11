@@ -399,6 +399,45 @@ class FileSensor:
                         item.file_path, handler_name, command, remote=item.remote
                     )
 
+    def _emit_segment_observed(self, segment: str, note: str = ""):
+        """Emit observe.observed event and cleanup segment tracking.
+
+        Must be called while holding self.lock.
+
+        Args:
+            segment: Segment key (HHMMSS_LEN format)
+            note: Optional note for log message (e.g., "no handlers")
+        """
+        duration = int(time.time() - self.segment_start_time[segment])
+        day = self.segment_day.get(segment)
+        batch = self.segment_batch.get(segment, False)
+        remote = self.segment_remote.get(segment)
+
+        if self.callosum:
+            event_fields = {
+                "segment": segment,
+                "day": day,
+                "duration": duration,
+            }
+            if batch:
+                event_fields["batch"] = True
+            if remote:
+                event_fields["remote"] = remote
+            self.callosum.emit("observe", "observed", **event_fields)
+
+        note_str = f" ({note})" if note else ""
+        logger.info(f"Segment fully observed{note_str}: {day}/{segment} ({duration}s)")
+
+        # Cleanup segment tracking
+        del self.segment_files[segment]
+        del self.segment_start_time[segment]
+        if segment in self.segment_day:
+            del self.segment_day[segment]
+        if segment in self.segment_batch:
+            del self.segment_batch[segment]
+        if segment in self.segment_remote:
+            del self.segment_remote[segment]
+
     def _check_segment_observed(self, file_path: Path):
         """Check if all files for this segment have completed processing."""
         from observe.utils import get_segment_key
@@ -413,36 +452,7 @@ class FileSensor:
 
                 # If no more pending files, emit observed event
                 if not self.segment_files[segment]:
-                    # Calculate processing duration
-                    duration = int(time.time() - self.segment_start_time[segment])
-                    day = self.segment_day.get(segment)
-                    batch = self.segment_batch.get(segment, False)
-                    remote = self.segment_remote.get(segment)
-
-                    if self.callosum:
-                        event_fields = {
-                            "segment": segment,
-                            "day": day,
-                            "duration": duration,
-                        }
-                        if batch:
-                            event_fields["batch"] = True
-                        if remote:
-                            event_fields["remote"] = remote
-                        self.callosum.emit("observe", "observed", **event_fields)
-                    logger.info(
-                        f"Segment fully observed: {day}/{segment} ({duration}s)"
-                    )
-
-                    # Cleanup
-                    del self.segment_files[segment]
-                    del self.segment_start_time[segment]
-                    if segment in self.segment_day:
-                        del self.segment_day[segment]
-                    if segment in self.segment_batch:
-                        del self.segment_batch[segment]
-                    if segment in self.segment_remote:
-                        del self.segment_remote[segment]
+                    self._emit_segment_observed(segment)
 
     def _handle_file(
         self,
@@ -513,6 +523,12 @@ class FileSensor:
         # Process each file (pass segment context for env vars)
         for file_path in file_paths:
             self._handle_file(file_path, segment=segment, remote=remote)
+
+        # If no files matched any handler patterns, emit observed immediately
+        # (e.g., tmux-only segments with just .jsonl files)
+        with self.lock:
+            if segment in self.segment_files and not self.segment_files[segment]:
+                self._emit_segment_observed(segment, note="no handlers")
 
     def _emit_status(self):
         """Emit observe.status event with current processing state (only when active)."""

@@ -568,6 +568,58 @@ def test_file_sensor_segment_observed_includes_day(tmp_path, mock_callosum):
     assert observed_events[0].get("segment") == "143022_300"
 
 
+def test_file_sensor_segment_observed_no_handlers(tmp_path, mock_callosum):
+    """Test that observe.observed is emitted immediately for segments with no matching handlers.
+
+    This covers the case of tmux-only segments where files like .jsonl don't match
+    any registered patterns (*.flac, *.webm, etc.).
+    """
+    from think.callosum import CallosumConnection
+
+    # Create journal/day/segment structure
+    day_dir = tmp_path / "20250101"
+    segment_dir = day_dir / "143022_300"
+    segment_dir.mkdir(parents=True)
+
+    sensor = FileSensor(tmp_path)
+    # Only register handlers for audio/video (not .jsonl)
+    sensor.register("*.flac", "transcribe", ["echo", "{file}"])
+    sensor.register("*.webm", "describe", ["echo", "{file}"])
+
+    # Set up callosum on sensor to capture emitted events
+    emitted_events = []
+    sensor.callosum = CallosumConnection()
+    sensor.callosum.start(callback=lambda msg: emitted_events.append(msg))
+
+    # Create test file that doesn't match any pattern (like tmux captures)
+    jsonl_file = segment_dir / "tmux_0_screen.jsonl"
+    jsonl_file.write_text('{"content": "terminal output"}')
+
+    # Simulate observing event with only .jsonl file
+    message = {
+        "tract": "observe",
+        "event": "observing",
+        "day": "20250101",
+        "segment": "143022_300",
+        "files": ["tmux_0_screen.jsonl"],
+    }
+    sensor._handle_callosum_message(message)
+
+    # Segment tracking should be cleaned up immediately (no handlers to wait for)
+    assert "143022_300" not in sensor.segment_files
+    assert "143022_300" not in sensor.segment_day
+
+    # Check observe.observed event was emitted immediately
+    observed_events = [
+        e
+        for e in emitted_events
+        if e.get("tract") == "observe" and e.get("event") == "observed"
+    ]
+    assert len(observed_events) == 1
+    assert observed_events[0].get("day") == "20250101"
+    assert observed_events[0].get("segment") == "143022_300"
+
+
 def test_delete_outputs_screen(tmp_path):
     """Test delete_outputs with screen type."""
     from observe.sense import delete_outputs
