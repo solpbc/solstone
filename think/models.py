@@ -69,10 +69,15 @@ TIER_NAMES = {
 }
 
 # ---------------------------------------------------------------------------
-# Context defaults: context pattern -> tier
+# Context defaults: context pattern -> {tier, label, group}
 #
 # These define the default tier for each context when not overridden in config.
 # Patterns support glob-style matching (fnmatch).
+#
+# Each entry contains:
+#   - tier: Default tier (TIER_PRO, TIER_FLASH, TIER_LITE)
+#   - label: Human-readable name for settings UI
+#   - group: Category for grouping in settings UI
 #
 # NAMING CONVENTION:
 #   {module}.{feature}[.{operation}]
@@ -90,21 +95,61 @@ TIER_NAMES = {
 #   4. If not listed here, context falls back to DEFAULT_TIER (FLASH)
 # ---------------------------------------------------------------------------
 
-CONTEXT_DEFAULTS: Dict[str, int] = {
-    # Observe pipeline
-    "observe.describe.frame": TIER_LITE,  # Initial categorization
-    "observe.describe.*": TIER_LITE,  # Category follow-ups
-    "observe.detect.segment": TIER_FLASH,  # Transcript segmentation
-    "observe.detect.json": TIER_FLASH,  # JSON conversion
-    "observe.enrich": TIER_LITE,  # Audio enrichment
-    "observe.summarize": TIER_FLASH,  # Import summarization
-    # Insight pipeline
-    "insight.*": TIER_FLASH,  # All insights default to flash
-    # Utilities
-    "detect.created": TIER_LITE,  # File metadata detection
-    "planner.generate": TIER_FLASH,  # Agent planning
-    # Apps
-    "app.chat.title": TIER_LITE,  # Title generation
+CONTEXT_DEFAULTS: Dict[str, Dict[str, Any]] = {
+    # Observe pipeline - screen and audio capture processing
+    "observe.describe.frame": {
+        "tier": TIER_LITE,
+        "label": "Screen Analysis",
+        "group": "Observe",
+    },
+    "observe.describe.*": {
+        "tier": TIER_LITE,
+        "label": "Screen Categories",
+        "group": "Observe",
+    },
+    "observe.detect.segment": {
+        "tier": TIER_FLASH,
+        "label": "Transcript Segmentation",
+        "group": "Observe",
+    },
+    "observe.detect.json": {
+        "tier": TIER_FLASH,
+        "label": "JSON Conversion",
+        "group": "Observe",
+    },
+    "observe.enrich": {
+        "tier": TIER_LITE,
+        "label": "Audio Enrichment",
+        "group": "Observe",
+    },
+    "observe.summarize": {
+        "tier": TIER_FLASH,
+        "label": "Import Summary",
+        "group": "Observe",
+    },
+    # Insight pipeline - daily analysis and summaries
+    "insight.*": {
+        "tier": TIER_FLASH,
+        "label": "Daily Insights",
+        "group": "Think",
+    },
+    # Utilities - miscellaneous processing tasks
+    "detect.created": {
+        "tier": TIER_LITE,
+        "label": "File Date Detection",
+        "group": "Think",
+    },
+    "planner.generate": {
+        "tier": TIER_FLASH,
+        "label": "Agent Planning",
+        "group": "Think",
+    },
+    # Apps - application-specific contexts
+    "app.chat.title": {
+        "tier": TIER_LITE,
+        "label": "Chat Titles",
+        "group": "Apps",
+    },
 }
 
 
@@ -221,14 +266,14 @@ def resolve_provider(context: str) -> tuple[str, str]:
         context_tier = None
         if context:
             if context in CONTEXT_DEFAULTS:
-                context_tier = CONTEXT_DEFAULTS[context]
+                context_tier = CONTEXT_DEFAULTS[context]["tier"]
             else:
                 # Check glob patterns
                 matches = []
-                for pattern, tier in CONTEXT_DEFAULTS.items():
+                for pattern, ctx_default in CONTEXT_DEFAULTS.items():
                     if fnmatch.fnmatch(context, pattern):
                         specificity = len(pattern.split("*")[0])
-                        matches.append((specificity, tier))
+                        matches.append((specificity, ctx_default["tier"]))
                 if matches:
                     matches.sort(key=lambda x: x[0], reverse=True)
                     context_tier = matches[0][1]

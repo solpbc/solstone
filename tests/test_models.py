@@ -9,6 +9,7 @@ from think.models import (
     CLAUDE_HAIKU_4,
     CLAUDE_OPUS_4,
     CLAUDE_SONNET_4,
+    CONTEXT_DEFAULTS,
     DEFAULT_PROVIDER,
     DEFAULT_TIER,
     GEMINI_FLASH,
@@ -191,6 +192,42 @@ def test_tier_constants():
     assert TIER_LITE == 3
     assert DEFAULT_TIER == TIER_FLASH
     assert DEFAULT_PROVIDER == "google"
+
+
+def test_context_defaults_structure():
+    """Test CONTEXT_DEFAULTS has required fields for each entry."""
+    required_keys = {"tier", "label", "group"}
+
+    for context, config in CONTEXT_DEFAULTS.items():
+        assert isinstance(config, dict), f"{context} should be a dict"
+        assert required_keys <= set(config.keys()), (
+            f"{context} missing keys: {required_keys - set(config.keys())}"
+        )
+        assert config["tier"] in (TIER_PRO, TIER_FLASH, TIER_LITE), (
+            f"{context} has invalid tier: {config['tier']}"
+        )
+        assert isinstance(config["label"], str) and config["label"], (
+            f"{context} has invalid label: {config['label']}"
+        )
+        assert isinstance(config["group"], str) and config["group"], (
+            f"{context} has invalid group: {config['group']}"
+        )
+
+
+def test_context_defaults_known_entries():
+    """Test specific known CONTEXT_DEFAULTS entries."""
+    # Verify some known entries exist with correct values
+    assert "observe.describe.frame" in CONTEXT_DEFAULTS
+    assert CONTEXT_DEFAULTS["observe.describe.frame"]["tier"] == TIER_LITE
+    assert CONTEXT_DEFAULTS["observe.describe.frame"]["group"] == "Observe"
+
+    assert "insight.*" in CONTEXT_DEFAULTS
+    assert CONTEXT_DEFAULTS["insight.*"]["tier"] == TIER_FLASH
+    assert CONTEXT_DEFAULTS["insight.*"]["group"] == "Think"
+
+    assert "app.chat.title" in CONTEXT_DEFAULTS
+    assert CONTEXT_DEFAULTS["app.chat.title"]["tier"] == TIER_LITE
+    assert CONTEXT_DEFAULTS["app.chat.title"]["group"] == "Apps"
 
 
 def test_provider_defaults_structure():

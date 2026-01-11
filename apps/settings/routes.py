@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import copy
 import json
 import re
 from pathlib import Path
@@ -144,6 +145,218 @@ def update_config() -> Any:
             config["env"] = {k: bool(v) for k, v in config["env"].items()}
 
         return jsonify({"success": True, "config": config})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+# ---------------------------------------------------------------------------
+# Providers API
+# ---------------------------------------------------------------------------
+
+VALID_PROVIDERS = {"google", "openai", "anthropic"}
+VALID_TIERS = {1, 2, 3}
+
+# Map env key names to provider names
+PROVIDER_API_KEYS = {
+    "google": "GOOGLE_API_KEY",
+    "openai": "OPENAI_API_KEY",
+    "anthropic": "ANTHROPIC_API_KEY",
+}
+
+
+@settings_bp.route("/api/providers")
+def get_providers() -> Any:
+    """Return providers configuration with context defaults and API key status.
+
+    Returns:
+        - default: Current default provider and tier
+        - contexts: Configured context overrides from journal.json
+        - context_defaults: CONTEXT_DEFAULTS with labels/groups for UI
+        - api_keys: Boolean status for each provider's API key
+    """
+    try:
+        from think.models import (
+            CONTEXT_DEFAULTS,
+            DEFAULT_PROVIDER,
+            DEFAULT_TIER,
+        )
+
+        config = get_journal_config()
+        providers_config = config.get("providers", {})
+        env_config = config.get("env", {})
+
+        # Get default settings
+        default = providers_config.get("default", {})
+        default_provider = default.get("provider", DEFAULT_PROVIDER)
+        default_tier = default.get("tier", DEFAULT_TIER)
+
+        # Get context overrides from config
+        contexts = providers_config.get("contexts", {})
+
+        # Build context defaults with metadata for UI
+        context_defaults = {}
+        for pattern, ctx_config in CONTEXT_DEFAULTS.items():
+            context_defaults[pattern] = {
+                "tier": ctx_config["tier"],
+                "label": ctx_config["label"],
+                "group": ctx_config["group"],
+            }
+
+        # Check API key status for each provider
+        api_keys = {}
+        for provider, env_key in PROVIDER_API_KEYS.items():
+            api_keys[provider] = bool(env_config.get(env_key))
+
+        return jsonify({
+            "default": {
+                "provider": default_provider,
+                "tier": default_tier,
+            },
+            "contexts": contexts,
+            "context_defaults": context_defaults,
+            "api_keys": api_keys,
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@settings_bp.route("/api/providers", methods=["PUT"])
+def update_providers() -> Any:
+    """Update providers configuration.
+
+    Accepts JSON with optional keys:
+        - default: {provider, tier} - Set default provider and/or tier
+        - contexts: {pattern: {provider?, tier?} | null} - Set or clear context overrides
+
+    Setting a context to null removes the override.
+    """
+    try:
+        from think.models import CONTEXT_DEFAULTS
+
+        request_data = request.get_json()
+        if not request_data:
+            return jsonify({"error": "No data provided"}), 400
+
+        config_dir = Path(state.journal_root) / "config"
+        config_dir.mkdir(parents=True, exist_ok=True)
+        config_path = config_dir / "journal.json"
+
+        # Load existing config
+        config = get_journal_config()
+        old_providers = copy.deepcopy(config.get("providers", {}))
+
+        # Ensure providers section exists
+        if "providers" not in config:
+            config["providers"] = {}
+
+        changed_fields = {}
+
+        # Handle default updates
+        if "default" in request_data:
+            default_data = request_data["default"]
+            if "default" not in config["providers"]:
+                config["providers"]["default"] = {}
+
+            old_default = old_providers.get("default", {})
+
+            # Validate and update provider
+            if "provider" in default_data:
+                provider = default_data["provider"]
+                if provider not in VALID_PROVIDERS:
+                    return jsonify({
+                        "error": f"Invalid provider: {provider}. "
+                        f"Must be one of: {', '.join(sorted(VALID_PROVIDERS))}"
+                    }), 400
+                if old_default.get("provider") != provider:
+                    changed_fields["default.provider"] = {
+                        "old": old_default.get("provider"),
+                        "new": provider,
+                    }
+                config["providers"]["default"]["provider"] = provider
+
+            # Validate and update tier
+            if "tier" in default_data:
+                tier = default_data["tier"]
+                if tier not in VALID_TIERS:
+                    return jsonify({
+                        "error": f"Invalid tier: {tier}. Must be 1, 2, or 3."
+                    }), 400
+                if old_default.get("tier") != tier:
+                    changed_fields["default.tier"] = {
+                        "old": old_default.get("tier"),
+                        "new": tier,
+                    }
+                config["providers"]["default"]["tier"] = tier
+
+        # Handle context overrides
+        if "contexts" in request_data:
+            contexts_data = request_data["contexts"]
+            if "contexts" not in config["providers"]:
+                config["providers"]["contexts"] = {}
+
+            old_contexts = old_providers.get("contexts", {})
+
+            for pattern, ctx_config in contexts_data.items():
+                # Validate pattern exists in CONTEXT_DEFAULTS
+                if pattern not in CONTEXT_DEFAULTS:
+                    return jsonify({
+                        "error": f"Unknown context pattern: {pattern}"
+                    }), 400
+
+                old_ctx = old_contexts.get(pattern)
+
+                # null means remove the override
+                if ctx_config is None:
+                    if pattern in config["providers"]["contexts"]:
+                        changed_fields[f"contexts.{pattern}"] = {
+                            "old": old_ctx,
+                            "new": None,
+                        }
+                        del config["providers"]["contexts"][pattern]
+                    continue
+
+                # Validate provider if specified
+                if "provider" in ctx_config:
+                    provider = ctx_config["provider"]
+                    if provider not in VALID_PROVIDERS:
+                        return jsonify({
+                            "error": f"Invalid provider for {pattern}: {provider}"
+                        }), 400
+
+                # Validate tier if specified
+                if "tier" in ctx_config:
+                    tier = ctx_config["tier"]
+                    if tier not in VALID_TIERS:
+                        return jsonify({
+                            "error": f"Invalid tier for {pattern}: {tier}"
+                        }), 400
+
+                # Only store if there's something to override
+                if ctx_config:
+                    if old_ctx != ctx_config:
+                        changed_fields[f"contexts.{pattern}"] = {
+                            "old": old_ctx,
+                            "new": ctx_config,
+                        }
+                    config["providers"]["contexts"][pattern] = ctx_config
+
+        # Write back to file
+        with open(config_path, "w", encoding="utf-8") as f:
+            json.dump(config, f, indent=2, ensure_ascii=False)
+            f.write("\n")
+
+        # Log if something changed
+        if changed_fields:
+            log_app_action(
+                app="settings",
+                facet=None,
+                action="providers_update",
+                params={"changed_fields": changed_fields},
+            )
+
+        # Return updated providers config
+        return get_providers()
+
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 

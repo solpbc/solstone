@@ -612,6 +612,181 @@ input:checked + .slider:before {
   cursor: default;
 }
 
+/* Providers section */
+.provider-row {
+  display: flex;
+  gap: 1em;
+  margin-bottom: 1em;
+}
+
+.provider-row .settings-field {
+  flex: 1;
+  margin-bottom: 0;
+}
+
+.provider-key-warning {
+  display: flex;
+  align-items: center;
+  gap: 0.5em;
+  margin-top: 0.5em;
+  padding: 0.5em 0.75em;
+  background: #fff8dc;
+  border: 1px solid #ffd700;
+  border-radius: 6px;
+  font-size: 0.85em;
+  color: #856404;
+}
+
+.provider-key-warning a {
+  color: #0066cc;
+  text-decoration: none;
+}
+
+.provider-key-warning a:hover {
+  text-decoration: underline;
+}
+
+/* Context overrides collapsible section */
+.context-overrides {
+  margin-top: 2em;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.context-overrides-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75em 1em;
+  background: #f8f8f8;
+  cursor: pointer;
+  user-select: none;
+  border-bottom: 1px solid transparent;
+  transition: background 0.15s;
+}
+
+.context-overrides-header:hover {
+  background: #f0f0f0;
+}
+
+.context-overrides.expanded .context-overrides-header {
+  border-bottom-color: #e0e0e0;
+}
+
+.context-overrides-title {
+  font-weight: 600;
+  font-size: 0.95em;
+  color: #333;
+}
+
+.context-overrides-toggle {
+  font-size: 0.8em;
+  color: #666;
+  transition: transform 0.2s;
+}
+
+.context-overrides.expanded .context-overrides-toggle {
+  transform: rotate(180deg);
+}
+
+.context-overrides-body {
+  display: none;
+  padding: 1em;
+}
+
+.context-overrides.expanded .context-overrides-body {
+  display: block;
+}
+
+.context-group {
+  margin-bottom: 1.5em;
+}
+
+.context-group:last-child {
+  margin-bottom: 0;
+}
+
+.context-group-label {
+  font-size: 0.75em;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #888;
+  margin-bottom: 0.5em;
+  padding-left: 0.25em;
+}
+
+.context-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75em;
+  padding: 0.5em 0.5em;
+  border-radius: 6px;
+  margin-bottom: 0.25em;
+}
+
+.context-item:hover {
+  background: #f5f5f5;
+}
+
+.context-label {
+  flex: 1;
+  font-size: 0.9em;
+  color: #333;
+}
+
+.context-value {
+  display: flex;
+  align-items: center;
+  gap: 0.5em;
+}
+
+.context-inherited {
+  font-size: 0.85em;
+  color: #888;
+  font-style: italic;
+}
+
+.context-override-badge {
+  font-size: 0.75em;
+  padding: 0.2em 0.5em;
+  background: var(--facet-bg, #e8f0fe);
+  color: var(--facet-color, #1a73e8);
+  border-radius: 4px;
+  font-weight: 500;
+}
+
+.context-select {
+  padding: 0.3em 0.5em;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 0.85em;
+  background: white;
+  min-width: 80px;
+}
+
+.context-reset {
+  background: none;
+  border: none;
+  color: #888;
+  cursor: pointer;
+  font-size: 0.9em;
+  padding: 0.2em 0.4em;
+  border-radius: 4px;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.context-item:hover .context-reset {
+  opacity: 1;
+}
+
+.context-reset:hover {
+  color: #d32f2f;
+  background: #ffebee;
+}
+
 /* Setup section */
 .setup-section {
   padding: 1.5em;
@@ -683,7 +858,7 @@ input:checked + .slider:before {
     <select class="settings-nav-select" id="navSelect">
       <optgroup label="Journal">
         <option value="profile">Profile</option>
-        <option value="models">AI Models</option>
+        <option value="providers">Providers</option>
         <option value="apikeys">API Keys</option>
         <option value="system">System</option>
         <option value="security">Security</option>
@@ -700,7 +875,7 @@ input:checked + .slider:before {
     <div class="settings-nav-group">
       <div class="settings-nav-label">Journal</div>
       <button class="settings-nav-item active" data-section="profile">Profile</button>
-      <button class="settings-nav-item" data-section="models">AI Models</button>
+      <button class="settings-nav-item" data-section="providers">Providers</button>
       <button class="settings-nav-item" data-section="apikeys">API Keys</button>
       <button class="settings-nav-item" data-section="system">System</button>
       <button class="settings-nav-item" data-section="security">Security</button>
@@ -808,39 +983,46 @@ input:checked + .slider:before {
       </div>
     </section>
 
-    <!-- AI Models Section -->
-    <section class="settings-section" id="section-models">
-      <h2>AI Models</h2>
-      <p class="settings-section-desc">Choose which Gemini model to use for different tasks. Higher-tier models are more capable but cost more.</p>
+    <!-- Providers Section -->
+    <section class="settings-section" id="section-providers">
+      <h2>Providers</h2>
+      <p class="settings-section-desc">Configure which AI provider and model tier to use. Higher tiers are more capable but cost more.</p>
 
-      <div class="settings-field">
-        <label for="field-model-insights">Insights</label>
-        <select id="field-model-insights" data-section="models" data-key="insights">
-          <option value="lite">Lite - Fastest, lowest cost</option>
-          <option value="flash" selected>Flash - Balanced (default)</option>
-          <option value="pro">Pro - Most capable</option>
-        </select>
-        <small>Model for generating insights from transcripts</small>
+      <div class="provider-row">
+        <div class="settings-field">
+          <label for="field-provider">Default Provider</label>
+          <select id="field-provider">
+            <option value="google">Google (Gemini)</option>
+            <option value="openai">OpenAI (GPT)</option>
+            <option value="anthropic">Anthropic (Claude)</option>
+          </select>
+        </div>
+        <div class="settings-field">
+          <label for="field-tier">Default Tier</label>
+          <select id="field-tier">
+            <option value="1">Pro - Most capable</option>
+            <option value="2">Flash - Balanced</option>
+            <option value="3">Lite - Fastest</option>
+          </select>
+        </div>
       </div>
-
-      <div class="settings-field">
-        <label for="field-model-observations">Observations</label>
-        <select id="field-model-observations" data-section="models" data-key="observations">
-          <option value="lite">Lite - Fastest, lowest cost</option>
-          <option value="flash" selected>Flash - Balanced (default)</option>
-          <option value="pro">Pro - Most capable</option>
-        </select>
-        <small>Model for screen capture descriptions and audio summaries</small>
+      <div id="providerKeyWarning" class="provider-key-warning" style="display:none">
+        <span>&#9888;</span>
+        <span>API key not configured for this provider.</span>
+        <a href="#" id="providerKeyLink">Configure in API Keys</a>
       </div>
+      <small id="providerStatus">Loading...</small>
 
-      <div class="settings-field">
-        <label for="field-model-agents">Agents</label>
-        <select id="field-model-agents" data-section="models" data-key="agents">
-          <option value="lite">Lite - Fastest, lowest cost</option>
-          <option value="flash" selected>Flash - Balanced (default)</option>
-          <option value="pro">Pro - Most capable</option>
-        </select>
-        <small>Model for AI agent conversations</small>
+      <!-- Context Overrides -->
+      <div class="context-overrides" id="contextOverrides">
+        <div class="context-overrides-header" id="contextOverridesHeader">
+          <span class="context-overrides-title">Context Overrides</span>
+          <span class="context-overrides-toggle">&#9660;</span>
+        </div>
+        <div class="context-overrides-body" id="contextOverridesBody">
+          <p style="color:#666;font-size:0.9em;margin:0 0 1em 0">Override provider or tier for specific tasks. Unset values inherit from defaults.</p>
+          <div id="contextGroups">Loading...</div>
+        </div>
       </div>
     </section>
 
@@ -1162,12 +1344,6 @@ function populateFields(config) {
   } else {
     setValue('field-timezone', identity.timezone);
   }
-
-  // Models
-  const models = config.models || {};
-  setValue('field-model-insights', models.insights || 'flash');
-  setValue('field-model-observations', models.observations || 'flash');
-  setValue('field-model-agents', models.agents || 'flash');
 
   // Transcribe
   const transcribe = config.transcribe || {};
@@ -1695,9 +1871,215 @@ function promptReload() {
   }
 }
 
+// ========== PROVIDERS ==========
+let providersData = null;
+
+async function loadProviders() {
+  try {
+    const response = await fetch('api/providers');
+    providersData = await response.json();
+    if (providersData.error) throw new Error(providersData.error);
+    populateProviders(providersData);
+  } catch (err) {
+    console.error('Error loading providers:', err);
+    document.getElementById('providerStatus').textContent = 'Error loading providers';
+  }
+}
+
+function populateProviders(data) {
+  // Set default provider and tier
+  document.getElementById('field-provider').value = data.default.provider;
+  document.getElementById('field-tier').value = data.default.tier;
+
+  // Update API key warning
+  updateProviderKeyWarning(data.default.provider, data.api_keys);
+
+  // Update status text
+  document.getElementById('providerStatus').textContent = '';
+
+  // Populate context overrides
+  renderContextGroups(data);
+}
+
+function updateProviderKeyWarning(provider, apiKeys) {
+  const warning = document.getElementById('providerKeyWarning');
+  const link = document.getElementById('providerKeyLink');
+
+  if (!apiKeys[provider]) {
+    warning.style.display = 'flex';
+    link.onclick = (e) => {
+      e.preventDefault();
+      switchSection('apikeys');
+    };
+  } else {
+    warning.style.display = 'none';
+  }
+}
+
+function renderContextGroups(data) {
+  const container = document.getElementById('contextGroups');
+  const contexts = data.context_defaults;
+  const overrides = data.contexts || {};
+
+  // Group by group name
+  const groups = {};
+  for (const [pattern, ctx] of Object.entries(contexts)) {
+    const group = ctx.group;
+    if (!groups[group]) groups[group] = [];
+    groups[group].push({ pattern, ...ctx });
+  }
+
+  // Render groups
+  let html = '';
+  for (const [groupName, items] of Object.entries(groups)) {
+    html += `<div class="context-group">`;
+    html += `<div class="context-group-label">${groupName}</div>`;
+
+    for (const item of items) {
+      const override = overrides[item.pattern];
+      const hasOverride = !!override;
+
+      html += `<div class="context-item" data-pattern="${item.pattern}">`;
+      html += `<span class="context-label">${item.label}</span>`;
+      html += `<div class="context-value">`;
+
+      // Provider select
+      html += `<select class="context-select context-provider" data-pattern="${item.pattern}">`;
+      html += `<option value="">Inherit</option>`;
+      html += `<option value="google" ${override?.provider === 'google' ? 'selected' : ''}>Google</option>`;
+      html += `<option value="openai" ${override?.provider === 'openai' ? 'selected' : ''}>OpenAI</option>`;
+      html += `<option value="anthropic" ${override?.provider === 'anthropic' ? 'selected' : ''}>Anthropic</option>`;
+      html += `</select>`;
+
+      // Tier select
+      html += `<select class="context-select context-tier" data-pattern="${item.pattern}">`;
+      html += `<option value="">Inherit</option>`;
+      html += `<option value="1" ${override?.tier === 1 ? 'selected' : ''}>Pro</option>`;
+      html += `<option value="2" ${override?.tier === 2 ? 'selected' : ''}>Flash</option>`;
+      html += `<option value="3" ${override?.tier === 3 ? 'selected' : ''}>Lite</option>`;
+      html += `</select>`;
+
+      // Reset button (only shown if has override)
+      if (hasOverride) {
+        html += `<button class="context-reset" data-pattern="${item.pattern}" title="Reset to default">&times;</button>`;
+      }
+
+      html += `</div></div>`;
+    }
+    html += `</div>`;
+  }
+
+  container.innerHTML = html;
+  setupContextEventListeners();
+}
+
+function setupContextEventListeners() {
+  // Provider select changes
+  document.querySelectorAll('.context-provider').forEach(select => {
+    select.addEventListener('change', () => {
+      const pattern = select.dataset.pattern;
+      const tierSelect = document.querySelector(`.context-tier[data-pattern="${pattern}"]`);
+      saveContextOverride(pattern, select.value || null, tierSelect.value ? parseInt(tierSelect.value) : null);
+    });
+  });
+
+  // Tier select changes
+  document.querySelectorAll('.context-tier').forEach(select => {
+    select.addEventListener('change', () => {
+      const pattern = select.dataset.pattern;
+      const providerSelect = document.querySelector(`.context-provider[data-pattern="${pattern}"]`);
+      saveContextOverride(pattern, providerSelect.value || null, select.value ? parseInt(select.value) : null);
+    });
+  });
+
+  // Reset buttons
+  document.querySelectorAll('.context-reset').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const pattern = btn.dataset.pattern;
+      saveContextOverride(pattern, null, null, true);
+    });
+  });
+}
+
+async function saveContextOverride(pattern, provider, tier, remove = false) {
+  try {
+    const contexts = {};
+    if (remove) {
+      contexts[pattern] = null;
+    } else if (provider || tier) {
+      contexts[pattern] = {};
+      if (provider) contexts[pattern].provider = provider;
+      if (tier) contexts[pattern].tier = tier;
+    } else {
+      // Both empty means remove
+      contexts[pattern] = null;
+    }
+
+    const response = await fetch('api/providers', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ contexts })
+    });
+    const result = await response.json();
+    if (result.error) throw new Error(result.error);
+
+    providersData = result;
+    renderContextGroups(result);
+  } catch (err) {
+    console.error('Error saving context override:', err);
+    notifyError('Save Failed', err.message);
+  }
+}
+
+// Default provider/tier change handlers
+document.getElementById('field-provider').addEventListener('change', async () => {
+  const provider = document.getElementById('field-provider').value;
+  try {
+    const response = await fetch('api/providers', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ default: { provider } })
+    });
+    const result = await response.json();
+    if (result.error) throw new Error(result.error);
+
+    providersData = result;
+    updateProviderKeyWarning(provider, result.api_keys);
+    showFieldStatus(document.getElementById('field-provider'), 'saved');
+  } catch (err) {
+    console.error('Error saving provider:', err);
+    showFieldStatus(document.getElementById('field-provider'), 'error', err.message);
+  }
+});
+
+document.getElementById('field-tier').addEventListener('change', async () => {
+  const tier = parseInt(document.getElementById('field-tier').value);
+  try {
+    const response = await fetch('api/providers', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ default: { tier } })
+    });
+    const result = await response.json();
+    if (result.error) throw new Error(result.error);
+
+    providersData = result;
+    showFieldStatus(document.getElementById('field-tier'), 'saved');
+  } catch (err) {
+    console.error('Error saving tier:', err);
+    showFieldStatus(document.getElementById('field-tier'), 'error', err.message);
+  }
+});
+
+// Context overrides collapsible toggle
+document.getElementById('contextOverridesHeader').addEventListener('click', () => {
+  document.getElementById('contextOverrides').classList.toggle('expanded');
+});
+
 // ========== INIT ==========
 updateFacetNav();
 loadConfig();
+loadProviders();
 setupAutoSave();
 
 // If facet is selected on load, load its config
