@@ -193,28 +193,81 @@ Fields:
 
 These settings can be overridden via CLI flags: `--cpu` forces CPU mode with int8, `--model MODEL` overrides the model.
 
-### Models configuration
+### Providers configuration
 
-The `models` block configures the default Gemini model for different processing groupings:
+The `providers` block enables fine-grained control over which LLM provider and model is used for different contexts. This supports a tier-based system where you can specify capability levels (pro/flash/lite) rather than specific model names.
 
 ```json
 {
-  "models": {
-    "insights": "flash",
-    "observations": "flash",
-    "agents": "flash"
+  "providers": {
+    "default": {
+      "provider": "google",
+      "tier": 2
+    },
+    "contexts": {
+      "observe.*": {"provider": "google", "tier": 3},
+      "insight.*": {"tier": 1},
+      "agent.helper": {"provider": "openai", "model": "gpt-5-mini"}
+    },
+    "models": {
+      "google": {
+        "1": "gemini-3-pro-preview",
+        "2": "gemini-3-flash-preview",
+        "3": "gemini-2.5-flash-lite"
+      }
+    }
   }
 }
 ```
 
-Fields:
-- `insights` (string) – Model for insight generation (`think-insight`). Default: `"flash"`.
-- `observations` (string) – Model for screen analysis (`observe-describe`) and audio import summaries. Default: `"flash"`.
-- `agents` (string) – Model for AI agents (`muse-agents`). Default: `"flash"`.
+#### Tier system
 
-Valid values: `"lite"`, `"flash"`, `"pro"`. These map to the current Gemini model tiers.
+Tiers provide a provider-agnostic way to specify model capability levels:
 
-CLI flags and request-level model parameters override these defaults. For example, `think-insight --pro` uses the Pro model regardless of configuration.
+| Tier | Name  | Description |
+|------|-------|-------------|
+| 1    | pro   | Highest capability, best for complex reasoning |
+| 2    | flash | Balanced performance and cost (default) |
+| 3    | lite  | Fastest and cheapest, for simple tasks |
+
+System defaults map tiers to models for each provider:
+
+| Provider   | Tier 1 (pro)         | Tier 2 (flash)          | Tier 3 (lite)         |
+|------------|----------------------|-------------------------|-----------------------|
+| google     | gemini-3-pro-preview | gemini-3-flash-preview  | gemini-2.5-flash-lite |
+| openai     | gpt-5.2              | gpt-5-mini              | gpt-5-nano            |
+| anthropic  | claude-opus-4-5      | claude-sonnet-4-5       | claude-haiku-4-5      |
+
+If a requested tier is unavailable for a provider, the system falls back to more capable tiers (e.g., tier 3 → tier 2 → tier 1).
+
+#### Context matching
+
+Contexts are matched in order of specificity:
+1. **Exact match** – `"insight.meetings"` matches only that exact context
+2. **Glob pattern** – `"observe.*"` matches any context starting with `observe.`
+3. **Default** – Falls back to the `default` configuration
+
+#### Configuration options
+
+**default** – Global defaults applied when no context matches:
+- `provider` (string) – Provider name: `"google"`, `"openai"`, or `"anthropic"`. Default: `"google"`.
+- `tier` (integer) – Tier number (1-3). Default: `2` (flash).
+- `model` (string) – Explicit model name (overrides tier if specified).
+
+**contexts** – Context-specific overrides. Each key is a context pattern, value is:
+- `provider` (string) – Override provider (optional, inherits from default).
+- `tier` (integer) – Tier number (optional).
+- `model` (string) – Explicit model name (optional, overrides tier).
+
+**models** – Per-provider tier overrides. Maps provider name to tier-model mappings:
+```json
+{
+  "google": {"1": "gemini-3-pro-preview", "2": "gemini-3-flash-preview"},
+  "openai": {"2": "gpt-5-mini-custom"}
+}
+```
+
+Note: Tier keys in JSON must be strings (`"1"`, `"2"`, `"3"`) since JSON doesn't support integer keys.
 
 ## Facet folders
 

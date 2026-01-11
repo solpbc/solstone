@@ -45,10 +45,12 @@ def update_config() -> Any:
     Accepts JSON with a 'section' key indicating which config section to update,
     and a 'data' key containing the fields to update. Supported sections:
     - identity: User profile (name, preferred, bio, pronouns, aliases, etc.)
-    - models: AI model selection (insights, observations, agents)
     - transcribe: Transcription settings (device, model, compute_type)
     - convey: Web app settings (password)
     - env: API keys (GOOGLE_API_KEY, ANTHROPIC_API_KEY, OPENAI_API_KEY, REVAI_ACCESS_TOKEN)
+
+    Note: Model/provider configuration is done via the 'providers' section in
+    journal.json. See docs/JOURNAL.md for the providers config format.
     """
     try:
         request_data = request.get_json()
@@ -77,7 +79,6 @@ def update_config() -> Any:
                 "email_addresses",
                 "timezone",
             ],
-            "models": ["insights", "observations", "agents"],
             "transcribe": ["device", "model", "compute_type"],
             "convey": ["password"],
             "env": [

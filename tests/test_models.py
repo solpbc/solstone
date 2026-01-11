@@ -3,20 +3,24 @@
 
 """Tests for think.models module."""
 
-import os
-
 import pytest
 
 from think.models import (
     CLAUDE_HAIKU_4,
     CLAUDE_OPUS_4,
     CLAUDE_SONNET_4,
+    DEFAULT_PROVIDER,
+    DEFAULT_TIER,
     GEMINI_FLASH,
     GEMINI_LITE,
     GEMINI_PRO,
     GPT_5,
     GPT_5_MINI,
     GPT_5_NANO,
+    PROVIDER_DEFAULTS,
+    TIER_FLASH,
+    TIER_LITE,
+    TIER_PRO,
     calc_token_cost,
     get_model_provider,
     resolve_provider,
@@ -162,7 +166,8 @@ def test_resolve_provider_default(use_fixtures_journal):
     """Test that default provider is returned for unknown context."""
     provider, model = resolve_provider("unknown.context")
     assert provider == "google"
-    assert model == "gemini-3-flash-preview"
+    # Default tier is 2, which is overridden in fixture config to custom model
+    assert model == "gemini-custom-flash-test"
 
 
 def test_resolve_provider_exact_match(use_fixtures_journal):
@@ -206,5 +211,143 @@ def test_resolve_provider_no_config(monkeypatch, tmp_path):
     monkeypatch.setenv("JOURNAL_PATH", str(empty_journal))
 
     provider, model = resolve_provider("anything")
+    assert provider == "google"
+    assert model == GEMINI_FLASH
+
+
+# ---------------------------------------------------------------------------
+# Tier system tests
+# ---------------------------------------------------------------------------
+
+
+def test_tier_constants():
+    """Test tier constant values."""
+    assert TIER_PRO == 1
+    assert TIER_FLASH == 2
+    assert TIER_LITE == 3
+    assert DEFAULT_TIER == TIER_FLASH
+    assert DEFAULT_PROVIDER == "google"
+
+
+def test_provider_defaults_structure():
+    """Test PROVIDER_DEFAULTS contains all providers and tiers."""
+    assert "google" in PROVIDER_DEFAULTS
+    assert "openai" in PROVIDER_DEFAULTS
+    assert "anthropic" in PROVIDER_DEFAULTS
+
+    for provider in PROVIDER_DEFAULTS:
+        assert TIER_PRO in PROVIDER_DEFAULTS[provider]
+        assert TIER_FLASH in PROVIDER_DEFAULTS[provider]
+        assert TIER_LITE in PROVIDER_DEFAULTS[provider]
+
+
+def test_provider_defaults_models():
+    """Test PROVIDER_DEFAULTS maps to correct model constants."""
+    assert PROVIDER_DEFAULTS["google"][TIER_PRO] == GEMINI_PRO
+    assert PROVIDER_DEFAULTS["google"][TIER_FLASH] == GEMINI_FLASH
+    assert PROVIDER_DEFAULTS["google"][TIER_LITE] == GEMINI_LITE
+
+    assert PROVIDER_DEFAULTS["openai"][TIER_PRO] == GPT_5
+    assert PROVIDER_DEFAULTS["openai"][TIER_FLASH] == GPT_5_MINI
+    assert PROVIDER_DEFAULTS["openai"][TIER_LITE] == GPT_5_NANO
+
+    assert PROVIDER_DEFAULTS["anthropic"][TIER_PRO] == CLAUDE_OPUS_4
+    assert PROVIDER_DEFAULTS["anthropic"][TIER_FLASH] == CLAUDE_SONNET_4
+    assert PROVIDER_DEFAULTS["anthropic"][TIER_LITE] == CLAUDE_HAIKU_4
+
+
+def test_resolve_provider_tier_based(use_fixtures_journal):
+    """Test tier-based resolution."""
+    # test.tier has tier: 1 (pro)
+    provider, model = resolve_provider("test.tier")
+    assert provider == "google"
+    assert model == GEMINI_PRO
+
+
+def test_resolve_provider_tier_inherit_provider(use_fixtures_journal):
+    """Test tier with inherited provider from default."""
+    # test.tier.inherit has tier: 3 only, should inherit google from default
+    provider, model = resolve_provider("test.tier.inherit")
+    assert provider == "google"
+    assert model == GEMINI_LITE
+
+
+def test_resolve_provider_tier_with_provider(use_fixtures_journal):
+    """Test tier with explicit provider."""
+    # test.tier.override has provider: openai, tier: 2
+    provider, model = resolve_provider("test.tier.override")
+    assert provider == "openai"
+    assert model == GPT_5_MINI
+
+
+def test_resolve_provider_tier_glob(use_fixtures_journal):
+    """Test tier-based glob pattern matching."""
+    # observe.* now uses tier: 3 instead of explicit model
+    provider, model = resolve_provider("observe.describe.frame")
+    assert provider == "google"
+    assert model == GEMINI_LITE
+
+
+def test_resolve_provider_model_overrides_tier(use_fixtures_journal):
+    """Test that explicit model takes precedence over tier."""
+    # test.openai has explicit model, not tier
+    provider, model = resolve_provider("test.openai")
+    assert provider == "openai"
+    assert model == "gpt-5-mini"
+
+
+def test_resolve_provider_default_tier(use_fixtures_journal):
+    """Test default uses tier-based resolution with config override."""
+    # Default is tier: 2, which is overridden in config to custom model
+    provider, model = resolve_provider("unknown.context")
+    assert provider == "google"
+    assert model == "gemini-custom-flash-test"
+
+
+def test_resolve_provider_config_model_override(use_fixtures_journal):
+    """Test that config models section overrides system defaults."""
+    # test.config.override uses tier: 2, which is overridden in config
+    provider, model = resolve_provider("test.config.override")
+    assert provider == "google"
+    # Should use the custom model from config, not system default GEMINI_FLASH
+    assert model == "gemini-custom-flash-test"
+    assert model != GEMINI_FLASH
+
+
+def test_resolve_provider_tier_fallback_to_system_default(use_fixtures_journal):
+    """Test that tiers not in config fall back to system defaults."""
+    # test.tier uses tier: 1 (pro), which is NOT overridden in config
+    # Should fall back to system default GEMINI_PRO
+    provider, model = resolve_provider("test.tier")
+    assert provider == "google"
+    assert model == GEMINI_PRO
+
+
+def test_resolve_provider_invalid_tier(use_fixtures_journal, monkeypatch, tmp_path):
+    """Test that invalid tier values fall back to default tier."""
+    import json
+
+    # Create a config with an invalid tier
+    config_dir = tmp_path / "config"
+    config_dir.mkdir()
+    config = {
+        "providers": {
+            "default": {"provider": "google", "tier": 2},
+            "contexts": {
+                "test.invalid": {"provider": "google", "tier": 99},
+                "test.string": {"provider": "google", "tier": "flash"},
+            },
+        }
+    }
+    (config_dir / "journal.json").write_text(json.dumps(config))
+    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+
+    # Invalid tier 99 should fall back to default tier (2)
+    provider, model = resolve_provider("test.invalid")
+    assert provider == "google"
+    assert model == GEMINI_FLASH  # tier 2 system default
+
+    # String tier should also fall back
+    provider, model = resolve_provider("test.string")
     assert provider == "google"
     assert model == GEMINI_FLASH

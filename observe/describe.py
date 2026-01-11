@@ -60,7 +60,7 @@ def _discover_categories() -> dict[str, dict]:
     dict[str, dict]
         Mapping of category name to metadata (including 'prompt' if followup=true)
     """
-    from think.models import GEMINI_MODEL_NAMES, resolve_provider
+    from think.models import PROVIDER_DEFAULTS, TIER_NAMES, resolve_provider
 
     # Get configured default for observations
     _, default_model = resolve_provider("observe.describe")
@@ -87,16 +87,18 @@ def _discover_categories() -> dict[str, dict]:
             metadata.setdefault("followup", False)
             metadata.setdefault("output", "markdown")
 
-            # Map iq to model constant, using configured default when not specified
+            # Map iq to model using tier system
             if "iq" in metadata:
                 iq = metadata["iq"]
-                if iq not in GEMINI_MODEL_NAMES:
+                if iq not in TIER_NAMES:
                     logger.warning(
                         f"Category {category} has invalid iq '{iq}', using config default"
                     )
                     metadata["model"] = default_model
                 else:
-                    metadata["model"] = GEMINI_MODEL_NAMES[iq]
+                    # Use tier to get Google model (observe uses Google)
+                    tier = TIER_NAMES[iq]
+                    metadata["model"] = PROVIDER_DEFAULTS["google"][tier]
             else:
                 metadata["model"] = default_model
 

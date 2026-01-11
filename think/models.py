@@ -4,6 +4,7 @@
 import fnmatch
 import inspect
 import json
+import logging
 import os
 import time
 from pathlib import Path
@@ -11,16 +12,21 @@ from typing import Any, Dict, List, Optional, Union
 
 from think.utils import get_config, get_journal
 
-GEMINI_FLASH = "gemini-3-flash-preview"
-GEMINI_PRO = "gemini-3-pro-preview"
-GEMINI_LITE = "gemini-2.5-flash-lite"
+# ---------------------------------------------------------------------------
+# Tier constants
+# ---------------------------------------------------------------------------
 
-# Mapping from config string names to model constants
-GEMINI_MODEL_NAMES = {
-    "lite": GEMINI_LITE,
-    "flash": GEMINI_FLASH,
-    "pro": GEMINI_PRO,
-}
+TIER_PRO = 1
+TIER_FLASH = 2
+TIER_LITE = 3
+
+# ---------------------------------------------------------------------------
+# Model constants
+# ---------------------------------------------------------------------------
+
+GEMINI_PRO = "gemini-3-pro-preview"
+GEMINI_FLASH = "gemini-3-flash-preview"
+GEMINI_LITE = "gemini-2.5-flash-lite"
 
 GPT_5 = "gpt-5.2"
 GPT_5_MINI = "gpt-5-mini"
@@ -30,12 +36,98 @@ CLAUDE_OPUS_4 = "claude-opus-4-5"
 CLAUDE_SONNET_4 = "claude-sonnet-4-5"
 CLAUDE_HAIKU_4 = "claude-haiku-4-5"
 
+# ---------------------------------------------------------------------------
+# System defaults: provider -> tier -> model
+# ---------------------------------------------------------------------------
+
+PROVIDER_DEFAULTS: Dict[str, Dict[int, str]] = {
+    "google": {
+        TIER_PRO: GEMINI_PRO,
+        TIER_FLASH: GEMINI_FLASH,
+        TIER_LITE: GEMINI_LITE,
+    },
+    "openai": {
+        TIER_PRO: GPT_5,
+        TIER_FLASH: GPT_5_MINI,
+        TIER_LITE: GPT_5_NANO,
+    },
+    "anthropic": {
+        TIER_PRO: CLAUDE_OPUS_4,
+        TIER_FLASH: CLAUDE_SONNET_4,
+        TIER_LITE: CLAUDE_HAIKU_4,
+    },
+}
+
+DEFAULT_PROVIDER = "google"
+DEFAULT_TIER = TIER_FLASH
+
+# Mapping from tier names to tier constants
+TIER_NAMES = {
+    "pro": TIER_PRO,
+    "flash": TIER_FLASH,
+    "lite": TIER_LITE,
+}
+
+
+def _resolve_model(provider: str, tier: int, config_models: Dict[str, Any]) -> str:
+    """Resolve tier to model string for a given provider.
+
+    Checks config overrides first, then falls back to system defaults.
+    If requested tier is unavailable, falls back to more capable tiers
+    (3→2→1, i.e., lite→flash→pro).
+
+    Parameters
+    ----------
+    provider
+        Provider name ("google", "openai", "anthropic").
+    tier
+        Tier number (1=pro, 2=flash, 3=lite).
+    config_models
+        The "models" section from providers config, mapping provider to tier overrides.
+
+    Returns
+    -------
+    str
+        Model identifier string.
+    """
+    # Check config overrides first
+    provider_overrides = config_models.get(provider, {})
+
+    # Try requested tier, then fall back to more capable tiers (lower numbers)
+    for t in [tier, tier - 1, tier - 2] if tier > 1 else [tier]:
+        if t < 1:
+            continue
+
+        # Check config override (tier as string key in JSON)
+        tier_key = str(t)
+        if tier_key in provider_overrides:
+            return provider_overrides[tier_key]
+
+        # Check system defaults
+        provider_defaults = PROVIDER_DEFAULTS.get(provider, {})
+        if t in provider_defaults:
+            return provider_defaults[t]
+
+    # Ultimate fallback: system default for provider at DEFAULT_TIER
+    provider_defaults = PROVIDER_DEFAULTS.get(
+        provider, PROVIDER_DEFAULTS[DEFAULT_PROVIDER]
+    )
+    return provider_defaults.get(DEFAULT_TIER, GEMINI_FLASH)
+
 
 def resolve_provider(context: str) -> tuple[str, str]:
     """Resolve context to provider and model based on configuration.
 
     Matches context against configured contexts using exact match first,
     then glob patterns (via fnmatch), falling back to defaults.
+
+    Supports both explicit model strings and tier-based routing:
+    - {"provider": "google", "model": "gemini-3-flash-preview"} - explicit model
+    - {"provider": "google", "tier": 2} - tier-based (2=flash)
+    - {"tier": 1} - tier only, inherits provider from default
+
+    The "models" section in providers config allows overriding which model
+    is used for each tier per provider.
 
     Parameters
     ----------
@@ -50,42 +142,64 @@ def resolve_provider(context: str) -> tuple[str, str]:
     """
     config = get_config()
     providers = config.get("providers", {})
+    config_models = providers.get("models", {})
 
     # Get defaults
-    default = providers.get("default", {"provider": "google", "model": GEMINI_FLASH})
-    default_provider = default.get("provider", "google")
-    default_model = default.get("model", GEMINI_FLASH)
+    default = providers.get("default", {})
+    default_provider = default.get("provider", DEFAULT_PROVIDER)
+    default_tier = default.get("tier", DEFAULT_TIER)
+
+    # Handle explicit "model" key in default (overrides tier-based resolution)
+    if "model" in default and "tier" not in default:
+        default_model = default["model"]
+    else:
+        default_model = _resolve_model(default_provider, default_tier, config_models)
 
     contexts = providers.get("contexts", {})
-    if not contexts or not context:
+
+    # Find matching context config
+    match_config: Optional[Dict[str, Any]] = None
+
+    if context and contexts:
+        # Check for exact match first
+        if context in contexts:
+            match_config = contexts[context]
+        else:
+            # Check glob patterns - most specific (longest non-wildcard prefix) wins
+            matches = []
+            for pattern, ctx_config in contexts.items():
+                if fnmatch.fnmatch(context, pattern):
+                    specificity = len(pattern.split("*")[0])
+                    matches.append((specificity, pattern, ctx_config))
+
+            if matches:
+                matches.sort(key=lambda x: x[0], reverse=True)
+                _, _, match_config = matches[0]
+
+    # No context match - use defaults
+    if match_config is None:
         return (default_provider, default_model)
 
-    # Check for exact match first
-    if context in contexts:
-        match = contexts[context]
-        return (
-            match.get("provider", default_provider),
-            match.get("model", default_model),
-        )
+    # Resolve provider (from match or default)
+    provider = match_config.get("provider", default_provider)
 
-    # Check glob patterns - most specific (longest non-wildcard prefix) wins
-    matches = []
-    for pattern, match_config in contexts.items():
-        if fnmatch.fnmatch(context, pattern):
-            # Calculate specificity: length of pattern before first wildcard
-            specificity = len(pattern.split("*")[0])
-            matches.append((specificity, pattern, match_config))
+    # Resolve model: explicit model takes precedence over tier
+    if "model" in match_config:
+        model = match_config["model"]
+    elif "tier" in match_config:
+        tier = match_config["tier"]
+        # Validate tier
+        if not isinstance(tier, int) or tier < 1 or tier > 3:
+            logging.getLogger(__name__).warning(
+                "Invalid tier %r in context %r, using default", tier, context
+            )
+            tier = default_tier
+        model = _resolve_model(provider, tier, config_models)
+    else:
+        # No model or tier specified - use default tier
+        model = _resolve_model(provider, default_tier, config_models)
 
-    if matches:
-        # Sort by specificity descending, take the most specific match
-        matches.sort(key=lambda x: x[0], reverse=True)
-        _, _, match_config = matches[0]
-        return (
-            match_config.get("provider", default_provider),
-            match_config.get("model", default_model),
-        )
-
-    return (default_provider, default_model)
+    return (provider, model)
 
 
 def log_token_usage(
@@ -362,9 +476,9 @@ def gemini_generate(
     context: Optional[str] = None,
 ) -> str:
     """
-    Simplified wrapper for Google Gemini generation with common defaults.
+    Convenience wrapper for Google Gemini generation with common defaults.
 
-    This is a backward-compatibility wrapper that delegates to muse.google.generate().
+    Delegates to muse.google.generate().
 
     Parameters
     ----------
@@ -436,7 +550,7 @@ async def gemini_agenerate(
     """
     Async wrapper for Google Gemini generation with common defaults.
 
-    This is a backward-compatibility wrapper that delegates to muse.google.agenerate().
+    Delegates to muse.google.agenerate().
 
     Parameters
     ----------
@@ -646,16 +760,26 @@ async def agenerate(
 
 
 __all__ = [
+    # Tier constants
+    "TIER_PRO",
+    "TIER_FLASH",
+    "TIER_LITE",
+    "TIER_NAMES",
+    # Provider defaults
+    "PROVIDER_DEFAULTS",
+    "DEFAULT_PROVIDER",
+    "DEFAULT_TIER",
+    # Model constants
     "GEMINI_PRO",
     "GEMINI_FLASH",
     "GEMINI_LITE",
-    "GEMINI_MODEL_NAMES",
     "GPT_5",
     "GPT_5_MINI",
     "GPT_5_NANO",
     "CLAUDE_OPUS_4",
     "CLAUDE_SONNET_4",
     "CLAUDE_HAIKU_4",
+    # Functions
     "resolve_provider",
     "gemini_generate",
     "gemini_agenerate",

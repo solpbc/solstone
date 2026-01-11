@@ -18,12 +18,21 @@
   "providers": {
     "default": {
       "provider": "google",
-      "model": "gemini-3-flash-preview"
+      "tier": 2
     },
     "contexts": {
       "test.openai": {"provider": "openai", "model": "gpt-5-mini"},
       "test.anthropic": {"provider": "anthropic", "model": "claude-sonnet-4-5"},
-      "observe.*": {"provider": "google", "model": "gemini-2.5-flash-lite"}
+      "test.tier": {"provider": "google", "tier": 1},
+      "test.tier.inherit": {"tier": 3},
+      "test.tier.override": {"provider": "openai", "tier": 2},
+      "test.config.override": {"provider": "google", "tier": 2},
+      "observe.*": {"provider": "google", "tier": 3}
+    },
+    "models": {
+      "google": {
+        "2": "gemini-custom-flash-test"
+      }
     }
   },
   "env": {
