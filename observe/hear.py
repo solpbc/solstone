@@ -450,8 +450,8 @@ def format_audio(
         else:
             entry_parts.append("")
 
-        # Text
-        text = entry.get("text", "")
+        # Text - prefer corrected text if available
+        text = entry.get("corrected") or entry.get("text", "")
 
         # Audio description (tone, delivery cues)
         description = entry.get("description", "")
