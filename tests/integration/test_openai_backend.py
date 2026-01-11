@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 # Copyright (c) 2026 sol pbc
 
-"""Integration test for OpenAI backend with real API calls."""
+"""Integration test for OpenAI provider with real API calls."""
 
 import json
 import os
@@ -31,8 +31,8 @@ def get_fixtures_env():
 
 @pytest.mark.integration
 @pytest.mark.requires_api
-def test_openai_backend_basic():
-    """Test OpenAI backend with basic prompt, no MCP."""
+def test_openai_provider_basic():
+    """Test OpenAI provider with basic prompt, no MCP."""
     fixtures_env, api_key, journal_path = get_fixtures_env()
 
     if not fixtures_env:
@@ -53,7 +53,7 @@ def test_openai_backend_basic():
     ndjson_input = json.dumps(
         {
             "prompt": "what is 1+1? Just give me the number.",
-            "backend": "openai",
+            "provider": "openai",
             "persona": "default",
             "model": GPT_5_MINI,  # Use cheap model for testing
             "max_tokens": 100,
@@ -120,8 +120,8 @@ def test_openai_backend_basic():
 
 @pytest.mark.integration
 @pytest.mark.requires_api
-def test_openai_backend_with_reasoning():
-    """Test OpenAI backend with reasoning model (o1-mini if available)."""
+def test_openai_provider_with_reasoning():
+    """Test OpenAI provider with reasoning model (o1-mini if available)."""
     fixtures_env, api_key, journal_path = get_fixtures_env()
 
     if not fixtures_env:
@@ -142,7 +142,7 @@ def test_openai_backend_with_reasoning():
     ndjson_input = json.dumps(
         {
             "prompt": "What is the square root of 16? Just the number please.",
-            "backend": "openai",
+            "provider": "openai",
             "persona": "default",
             "model": GPT_5_MINI,
             "max_tokens": 200,
@@ -182,8 +182,8 @@ def test_openai_backend_with_reasoning():
 
 @pytest.mark.integration
 @pytest.mark.requires_api
-def test_openai_backend_with_extra_context():
-    """Test OpenAI backend with extra_context to verify Responses API format.
+def test_openai_provider_with_extra_context():
+    """Test OpenAI provider with extra_context to verify Responses API format.
 
     This exercises the session.add_items() path that was broken when content type
     was 'text' instead of 'input_text'. The key assertion is that we don't get
@@ -210,7 +210,7 @@ def test_openai_backend_with_extra_context():
     ndjson_input = json.dumps(
         {
             "prompt": "What project was mentioned in the context above? Just the name.",
-            "backend": "openai",
+            "provider": "openai",
             "persona": "default",
             "model": GPT_5_MINI,
             "max_tokens": 50,

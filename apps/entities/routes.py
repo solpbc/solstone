@@ -392,7 +392,7 @@ Generate a clear, concise description (1-2 sentences) that captures what this {e
         agent_id = spawn_agent(
             prompt=prompt,
             persona="facet_describe",
-            backend="google",
+            provider="google",
         )
 
         return jsonify({"success": True, "agent_id": agent_id})
@@ -421,7 +421,7 @@ def assist_add(facet_name: str) -> Any:
         # Format prompt as specified by entity_assist agent
         prompt = f"For the '{facet_name}' facet, this is the user's request to attach a new entity: {name}"
 
-        # Create agent request - entity_assist persona already has backend configured
+        # Create agent request - entity_assist persona already has provider configured
         agent_id = spawn_agent(
             prompt=prompt,
             persona="entities:entity_assist",

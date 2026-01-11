@@ -1,4 +1,4 @@
 {
   "title": "System Diagnostics",
-  "backend": "claude"
+  "provider": "claude"
 }

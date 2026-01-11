@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 # Copyright (c) 2026 sol pbc
 
-"""Integration test for Google backend with real API calls."""
+"""Integration test for Google provider with real API calls."""
 
 import json
 import os
@@ -31,8 +31,8 @@ def get_fixtures_env():
 
 @pytest.mark.integration
 @pytest.mark.requires_api
-def test_google_backend_basic():
-    """Test Google backend with basic prompt, no MCP."""
+def test_google_provider_basic():
+    """Test Google provider with basic prompt, no MCP."""
     fixtures_env, api_key, journal_path = get_fixtures_env()
 
     if not fixtures_env:
@@ -53,7 +53,7 @@ def test_google_backend_basic():
     ndjson_input = json.dumps(
         {
             "prompt": "what is 1+1? Just give me the number.",
-            "backend": "google",
+            "provider": "google",
             "persona": "default",
             "max_tokens": 100,
             "disable_mcp": True,
@@ -122,8 +122,8 @@ def test_google_backend_basic():
 
 @pytest.mark.integration
 @pytest.mark.requires_api
-def test_google_backend_with_thinking():
-    """Test Google backend with thinking enabled."""
+def test_google_provider_with_thinking():
+    """Test Google provider with thinking enabled."""
     fixtures_env, api_key, journal_path = get_fixtures_env()
 
     if not fixtures_env:
@@ -144,7 +144,7 @@ def test_google_backend_with_thinking():
     ndjson_input = json.dumps(
         {
             "prompt": "What is the square root of 16? Just the number please.",
-            "backend": "google",
+            "provider": "google",
             "persona": "default",
             "model": GEMINI_PRO,  # Pro model for thinking
             "max_tokens": 200,

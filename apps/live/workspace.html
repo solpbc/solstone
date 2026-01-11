@@ -344,7 +344,7 @@
   margin-top: auto;
 }
 
-.activity-card-backend {
+.activity-card-provider {
   font-size: 0.75em;
   color: #6b7280;
   text-transform: uppercase;
@@ -955,7 +955,7 @@
           <div class="activity-card-name">${agent.persona || 'default'}</div>
           <div class="activity-card-state">${stateIcon} ${agent.event || 'unknown'}</div>
           <div class="activity-card-elapsed">${elapsed}</div>
-          <div class="activity-card-backend">${agent.backend || 'unknown'}</div>
+          <div class="activity-card-provider">${agent.provider || 'unknown'}</div>
         </div>
       `;
     }).join('');
@@ -997,7 +997,7 @@
             <div class="activity-card-progress-bar" style="width: ${progress}%"></div>
           </div>
           <div class="activity-card-elapsed">${elapsed}</div>
-          <div class="activity-card-backend">${imp.file_type || 'unknown'}</div>
+          <div class="activity-card-provider">${imp.file_type || 'unknown'}</div>
         </div>
       `;
     }).join('');
@@ -1111,7 +1111,7 @@
             ...existing,
             agent_id: agent.agent_id,
             persona: agent.persona,
-            backend: agent.backend,
+            provider: agent.provider,
             elapsed_seconds: agent.elapsed_seconds,
             event: existing.event || 'thinking'
           });
@@ -1135,7 +1135,7 @@
       ...existing,
       agent_id: agentId,
       persona: msg.persona || existing.persona,
-      backend: msg.backend || existing.backend,
+      provider: msg.provider || existing.provider,
       event: msg.event,
       ts: msg.ts,
       startTs: startTs

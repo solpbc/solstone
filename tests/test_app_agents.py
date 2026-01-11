@@ -42,7 +42,7 @@ def app_with_agent(tmp_path, monkeypatch):
         json.dumps(
             {
                 "title": "My Test Helper",
-                "backend": "openai",
+                "provider": "openai",
                 "tools": "journal",
                 "schedule": "daily",
                 "priority": 42,

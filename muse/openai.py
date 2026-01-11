@@ -196,7 +196,7 @@ async def run_agent(
             "prompt": prompt,
             "persona": config.get("persona", "default"),
             "model": model,
-            "backend": "openai",
+            "provider": "openai",
             "ts": _now_ms(),
         }
     )

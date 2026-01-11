@@ -721,15 +721,15 @@ class CortexService:
             # Operate on a copy so callers keep their original config untouched.
             handoff_config = copy.deepcopy(handoff)
 
-            # Determine prompt/backends/persona before pruning extra keys.
+            # Determine prompt/provider/persona before pruning extra keys.
             prompt = handoff_config.pop("prompt", None) or result
             persona = handoff_config.pop("persona", None) or "default"
-            backend = handoff_config.pop("backend", None)
-            if backend is None:
+            provider = handoff_config.pop("provider", None)
+            if provider is None:
                 with self.lock:
-                    backend = self.agent_requests.get(parent_id, {}).get("backend")
-            if backend is None:
-                backend = "openai"
+                    provider = self.agent_requests.get(parent_id, {}).get("provider")
+            if provider is None:
+                provider = "openai"
 
             # Ensure we do not propagate parent handoff metadata.
             handoff_config.pop("handoff", None)
@@ -749,7 +749,7 @@ class CortexService:
             agent_id = cortex_request(
                 prompt=prompt,
                 persona=persona,
-                backend=backend,
+                provider=provider,
                 handoff_from=parent_id,
                 config=extra_config,
             )
@@ -784,7 +784,7 @@ class CortexService:
                             {
                                 "agent_id": agent_id,
                                 "persona": config.get("persona", "unknown"),
-                                "backend": config.get("backend", "unknown"),
+                                "provider": config.get("provider", "unknown"),
                                 "elapsed_seconds": int(
                                     time.time() - agent_proc.start_time
                                 ),
@@ -1097,12 +1097,12 @@ def format_agent(
             header_lines.append(f"**Prompt:** {prompt}\n")
 
         persona = request_event.get("persona", "default")
-        backend = request_event.get("backend", "")
+        provider = request_event.get("provider", "")
         model = start_event.get("model", "") if start_event else ""
 
         meta_parts = [f"**Persona:** {persona}"]
-        if backend:
-            meta_parts.append(f"**Backend:** {backend}")
+        if provider:
+            meta_parts.append(f"**Provider:** {provider}")
         if model:
             meta_parts.append(f"**Model:** {model}")
         header_lines.append(" | ".join(meta_parts) + "\n")

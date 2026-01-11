@@ -107,7 +107,7 @@ See [CALLOSUM.md](CALLOSUM.md) Tract Registry for event schemas.
 
 **Event sequence** (JSONL, one event per line):
 
-1. `request` - Initial spawn request (prompt, backend, persona)
+1. `request` - Initial spawn request (prompt, provider, persona)
 2. `start` - Agent began execution (model info)
 3. `tool_start`/`tool_end` - Tool calls (paired by `call_id`)
 4. `thinking` - Model reasoning (if supported)

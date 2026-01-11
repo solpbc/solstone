@@ -494,42 +494,42 @@ function showError(message, enableInput = true) {
 }
 
 // Wait for app bar to load
-let form, input, backendToggle, currentBackend;
+let form, input, providerToggle, currentProvider;
 
-// Backend configuration - module scope for use by setBackend and click handler
-const backends = {
+// Provider configuration - module scope for use by setProvider and click handler
+const providers = {
   anthropic: { next: 'google', label: 'Claude' },
   google: { next: 'openai', label: 'Gemini' },
   openai: { next: 'anthropic', label: 'GPT' }
 };
 
 /**
- * Update backend toggle to a specific backend.
- * @param {string} backend - Backend key (anthropic, google, openai)
+ * Update provider toggle to a specific provider.
+ * @param {string} provider - Provider key (anthropic, google, openai)
  */
-function setBackend(backend) {
-  if (!backend || !backends[backend] || !backendToggle) return;
-  currentBackend = backend;
-  backendToggle.dataset.backend = backend;
-  backendToggle.textContent = backends[backend].label;
+function setProvider(provider) {
+  if (!provider || !providers[provider] || !providerToggle) return;
+  currentProvider = provider;
+  providerToggle.dataset.provider = provider;
+  providerToggle.textContent = providers[provider].label;
 }
 
 function initAppBarControls() {
   form = document.getElementById('chatInputForm');
   input = document.getElementById('chatMessageInput');
-  backendToggle = document.getElementById('chatBackendToggle');
+  providerToggle = document.getElementById('chatProviderToggle');
 
-  if (!form || !input || !backendToggle) {
+  if (!form || !input || !providerToggle) {
     console.error('Chat controls not found');
     return;
   }
 
-  currentBackend = backendToggle.dataset.backend;
+  currentProvider = providerToggle.dataset.provider;
 
-  backendToggle.addEventListener('click', () => {
-    currentBackend = backends[currentBackend].next;
-    backendToggle.dataset.backend = currentBackend;
-    backendToggle.textContent = backends[currentBackend].label;
+  providerToggle.addEventListener('click', () => {
+    currentProvider = providers[currentProvider].next;
+    providerToggle.dataset.provider = currentProvider;
+    providerToggle.textContent = providers[currentProvider].label;
   });
 
   // Bookmark toggle
@@ -750,9 +750,9 @@ async function loadChat(chatId) {
     isComplete = data.is_complete || false;
     canContinue = data.can_continue || false;
 
-    // Update backend toggle to match last used backend in this chat
-    if (data.last_backend) {
-      setBackend(data.last_backend);
+    // Update provider toggle to match last used provider in this chat
+    if (data.last_provider) {
+      setProvider(data.last_provider);
     }
 
     // Update star button based on chat's bookmark status
@@ -851,7 +851,7 @@ async function retryChat(chatId) {
     const response = await fetch(`/app/chat/api/chat/${chatId}/retry`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ backend: currentBackend })
+      body: JSON.stringify({ provider: currentProvider })
     });
 
     if (!response.ok) {
@@ -1360,7 +1360,7 @@ function setupFormHandlers() {
     const continueChatId = input.dataset.continueChat;
     delete input.dataset.continueChat;
 
-    const payload = { message: text, backend: currentBackend };
+    const payload = { message: text, provider: currentProvider };
     if (continueChatId) {
       payload['continue_chat'] = continueChatId;
     }

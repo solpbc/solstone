@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 # Copyright (c) 2026 sol pbc
 
-"""Integration test for Claude backend with SDK integration."""
+"""Integration test for Claude provider with SDK integration."""
 
 import json
 import os
@@ -102,8 +102,8 @@ def handle_error_event(finish_event: dict):
 
 @pytest.mark.integration
 @pytest.mark.requires_claude_sdk
-def test_claude_backend_real_sdk():
-    """Test Claude backend with real SDK call if Claude Code CLI is available."""
+def test_claude_provider_real_sdk():
+    """Test Claude provider with real SDK call if Claude Code CLI is available."""
     fixtures_env, journal_path = get_fixtures_env()
     if not fixtures_env:
         pytest.skip("fixtures/.env not found")
@@ -117,7 +117,7 @@ def test_claude_backend_real_sdk():
     ndjson_input = json.dumps(
         {
             "prompt": "what is 2+2? Just give me the number.",
-            "backend": "claude",
+            "provider": "claude",
             "persona": "default",
             "model": CLAUDE_SONNET_4,
             "max_tokens": 100,
@@ -146,8 +146,8 @@ def test_claude_backend_real_sdk():
     assert start_event["prompt"] == "what is 2+2? Just give me the number."
     assert start_event["model"] == CLAUDE_SONNET_4
     assert start_event["persona"] == "default"
-    assert start_event["backend"] == "claude"
-    # Claude backend now emits journal_path instead of facet
+    assert start_event["provider"] == "claude"
+    # Claude provider now emits journal_path instead of facet
     assert "journal_path" in start_event
     if "ts" in start_event:
         assert isinstance(start_event["ts"], int)
@@ -175,8 +175,8 @@ def test_claude_backend_real_sdk():
 
 @pytest.mark.integration
 @pytest.mark.requires_claude_sdk
-def test_claude_backend_with_tool_calls():
-    """Test Claude backend with tool calls (read-only file access)."""
+def test_claude_provider_with_tool_calls():
+    """Test Claude provider with tool calls (read-only file access)."""
     fixtures_env, journal_path = get_fixtures_env()
     if not fixtures_env:
         pytest.skip("fixtures/.env not found")
@@ -195,7 +195,7 @@ def test_claude_backend_with_tool_calls():
         ndjson_input = json.dumps(
             {
                 "prompt": f"Read the file at {test_file} and tell me what it says.",
-                "backend": "claude",
+                "provider": "claude",
                 "persona": "default",
                 "model": CLAUDE_SONNET_4,
                 "max_tokens": 200,
@@ -231,8 +231,8 @@ def test_claude_backend_with_tool_calls():
 
 @pytest.mark.integration
 @pytest.mark.requires_claude_sdk
-def test_claude_backend_with_thinking():
-    """Test Claude backend thinking/reasoning events."""
+def test_claude_provider_with_thinking():
+    """Test Claude provider thinking/reasoning events."""
     fixtures_env, journal_path = get_fixtures_env()
     if not fixtures_env:
         pytest.skip("fixtures/.env not found")
@@ -246,7 +246,7 @@ def test_claude_backend_with_thinking():
     ndjson_input = json.dumps(
         {
             "prompt": "Think step by step: If I have 3 apples and give away 1, how many do I have left? Just give the number.",
-            "backend": "claude",
+            "provider": "claude",
             "persona": "default",
             "model": CLAUDE_SONNET_4,
             "max_tokens": 200,

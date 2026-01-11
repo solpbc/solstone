@@ -87,7 +87,7 @@ def test_cortex_request_broadcasts_to_callosum(callosum_listener):
     agent_id = cortex_request(
         prompt="Test prompt",
         persona="default",
-        backend="openai",
+        provider="openai",
         config={"model": GPT_5},
     )
 
@@ -100,7 +100,7 @@ def test_cortex_request_broadcasts_to_callosum(callosum_listener):
     assert msg["event"] == "request"
     assert msg["prompt"] == "Test prompt"
     assert msg["persona"] == "default"
-    assert msg["backend"] == "openai"
+    assert msg["provider"] == "openai"
     assert msg["model"] == GPT_5
     assert msg["agent_id"] == agent_id
     assert "ts" in msg
@@ -110,7 +110,7 @@ def test_cortex_request_returns_agent_id(callosum_server):
     """Test that cortex_request returns agent_id string."""
     _ = callosum_server  # Needed for side effects only
 
-    agent_id = cortex_request(prompt="Test", persona="default", backend="openai")
+    agent_id = cortex_request(prompt="Test", persona="default", provider="openai")
 
     # Verify agent_id is a string timestamp
     assert isinstance(agent_id, str)
@@ -125,7 +125,7 @@ def test_cortex_request_with_handoff(callosum_listener):
     cortex_request(
         prompt="Continue analysis",
         persona="reviewer",
-        backend="anthropic",
+        provider="anthropic",
         handoff_from="1234567890000",
     )
 
@@ -143,7 +143,7 @@ def test_cortex_request_unique_agent_ids(callosum_server):
     agent_ids = []
     for i in range(3):
         agent_id = cortex_request(
-            prompt=f"Test {i}", persona="default", backend="openai"
+            prompt=f"Test {i}", persona="default", provider="openai"
         )
         agent_ids.append(agent_id)
         time.sleep(0.002)
@@ -201,7 +201,7 @@ def test_cortex_agents_with_active(tmp_path, monkeypatch):
                 "ts": ts1,
                 "prompt": "Task 1",
                 "persona": "default",
-                "backend": "openai",
+                "provider": "openai",
             },
             f,
         )
@@ -215,7 +215,7 @@ def test_cortex_agents_with_active(tmp_path, monkeypatch):
                 "ts": ts2,
                 "prompt": "Task 2",
                 "persona": "tester",
-                "backend": "google",
+                "provider": "google",
             },
             f,
         )
@@ -245,7 +245,7 @@ def test_cortex_agents_with_completed(tmp_path, monkeypatch):
                 "ts": ts1,
                 "prompt": "Old task",
                 "persona": "reviewer",
-                "backend": "anthropic",
+                "provider": "anthropic",
             },
             f,
         )

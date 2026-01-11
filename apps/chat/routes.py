@@ -100,11 +100,11 @@ TITLE_SYSTEM_INSTRUCTION = (
 )
 
 
-def _get_backend_api_key(backend: str) -> str | None:
-    """Get the API key name for a backend and check if it's set.
+def _get_provider_api_key(provider: str) -> str | None:
+    """Get the API key name for a provider and check if it's set.
 
     Args:
-        backend: The backend name (openai, anthropic, google)
+        provider: The provider name (openai, anthropic, google)
 
     Returns:
         The API key value if set, None otherwise
@@ -113,15 +113,15 @@ def _get_backend_api_key(backend: str) -> str | None:
         "openai": "OPENAI_API_KEY",
         "anthropic": "ANTHROPIC_API_KEY",
     }
-    key_name = key_names.get(backend, "GOOGLE_API_KEY")
+    key_name = key_names.get(provider, "GOOGLE_API_KEY")
     return os.getenv(key_name)
 
 
-def _get_backend_key_name(backend: str) -> str:
-    """Get the environment variable name for a backend's API key.
+def _get_provider_key_name(provider: str) -> str:
+    """Get the environment variable name for a provider's API key.
 
     Args:
-        backend: The backend name (openai, anthropic, google)
+        provider: The provider name (openai, anthropic, google)
 
     Returns:
         The environment variable name
@@ -130,7 +130,7 @@ def _get_backend_key_name(backend: str) -> str:
         "openai": "OPENAI_API_KEY",
         "anthropic": "ANTHROPIC_API_KEY",
     }
-    return key_names.get(backend, "GOOGLE_API_KEY")
+    return key_names.get(provider, "GOOGLE_API_KEY")
 
 
 def generate_chat_title(message: str) -> str:
@@ -153,11 +153,11 @@ def send_message() -> Any:
     payload = request.get_json(force=True)
     message = payload.get("message", "")
     attachments = payload.get("attachments", [])
-    backend = payload.get("backend")
+    provider = payload.get("provider")
     continue_chat = payload.get("continue_chat")  # chat_id to continue
 
-    if not backend:
-        resp = jsonify({"error": "backend is required"})
+    if not provider:
+        resp = jsonify({"error": "provider is required"})
         resp.status_code = 400
         return resp
 
@@ -177,8 +177,8 @@ def send_message() -> Any:
         except FileNotFoundError:
             pass  # Chat exists but agent file missing - treat as new
 
-    if not _get_backend_api_key(backend):
-        key_name = _get_backend_key_name(backend)
+    if not _get_provider_api_key(provider):
+        key_name = _get_provider_key_name(provider)
         resp = jsonify({"error": f"{key_name} not set"})
         resp.status_code = 500
         return resp
@@ -203,7 +203,7 @@ def send_message() -> Any:
         agent_id = spawn_agent(
             prompt=full_prompt,
             persona="default",
-            backend=backend,
+            provider=provider,
             config=config,
         )
 
@@ -293,13 +293,13 @@ def chat_events(chat_id: str) -> Any:
             end_state = get_agent_end_state(thread[-1])
             can_continue = end_state == "finish"
 
-    # Find the backend used by the last agent in the thread
-    last_backend = None
+    # Find the provider used by the last agent in the thread
+    last_provider = None
     if thread:
         last_agent_id = thread[-1]
         for event in reversed(all_events):
             if event.get("agent_id") == last_agent_id and event.get("event") == "start":
-                last_backend = event.get("backend")
+                last_provider = event.get("provider")
                 break
 
     return jsonify(
@@ -309,7 +309,7 @@ def chat_events(chat_id: str) -> Any:
         is_complete=is_complete,
         end_state=end_state,
         can_continue=can_continue,
-        last_backend=last_backend,
+        last_provider=last_provider,
     )
 
 
@@ -403,7 +403,7 @@ def retry_chat(chat_id: str) -> Any:
     """Retry the last failed message in a chat.
 
     Reads the last agent's prompt and spawns a new agent with the same prompt,
-    continuing from the errored agent. Uses the backend specified in the request.
+    continuing from the errored agent. Uses the provider specified in the request.
 
     Args:
         chat_id: The chat ID
@@ -418,10 +418,10 @@ def retry_chat(chat_id: str) -> Any:
     )
 
     payload = request.get_json(force=True) if request.data else {}
-    backend = payload.get("backend")
+    provider = payload.get("provider")
 
-    if not backend:
-        resp = jsonify({"error": "backend is required"})
+    if not provider:
+        resp = jsonify({"error": "provider is required"})
         resp.status_code = 400
         return resp
 
@@ -473,8 +473,8 @@ def retry_chat(chat_id: str) -> Any:
         return resp
 
     # Validate API key
-    if not _get_backend_api_key(backend):
-        key_name = _get_backend_key_name(backend)
+    if not _get_provider_api_key(provider):
+        key_name = _get_provider_key_name(provider)
         resp = jsonify({"error": f"{key_name} not set"})
         resp.status_code = 500
         return resp
@@ -494,7 +494,7 @@ def retry_chat(chat_id: str) -> Any:
         agent_id = spawn_agent(
             prompt=prompt,
             persona="default",
-            backend=backend,
+            provider=provider,
             config=config,
         )
 

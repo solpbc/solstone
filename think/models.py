@@ -620,15 +620,15 @@ def generate(
         model = model_override
 
     if provider == "google":
-        from muse.google import generate as backend_generate
+        from muse.google import generate as provider_generate
     elif provider == "openai":
-        from muse.openai import generate as backend_generate
+        from muse.openai import generate as provider_generate
     elif provider == "anthropic":
-        from muse.anthropic import generate as backend_generate
+        from muse.anthropic import generate as provider_generate
     else:
         raise ValueError(f"Unsupported provider: {provider}")
 
-    return backend_generate(
+    return provider_generate(
         contents=contents,
         model=model,
         temperature=temperature,
@@ -698,15 +698,15 @@ async def agenerate(
         model = model_override
 
     if provider == "google":
-        from muse.google import agenerate as backend_agenerate
+        from muse.google import agenerate as provider_agenerate
     elif provider == "openai":
-        from muse.openai import agenerate as backend_agenerate
+        from muse.openai import agenerate as provider_agenerate
     elif provider == "anthropic":
-        from muse.anthropic import agenerate as backend_agenerate
+        from muse.anthropic import agenerate as provider_agenerate
     else:
         raise ValueError(f"Unsupported provider: {provider}")
 
-    return await backend_agenerate(
+    return await provider_agenerate(
         contents=contents,
         model=model,
         temperature=temperature,

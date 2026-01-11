@@ -191,7 +191,7 @@
   color: #388e3c;
 }
 
-.metadata-badge.backend {
+.metadata-badge.provider {
   background: #fce4ec;
   color: #c2185b;
 }
@@ -1482,8 +1482,8 @@ tr.clickable-row:hover {
         </div>
 
         <div class="metadata-item">
-          <label>Backend</label>
-          <select id="modalBackend" onchange="saveMetadata()">
+          <label>Provider</label>
+          <select id="modalProvider" onchange="saveMetadata()">
             <option value="">Default</option>
             <option value="openai">OpenAI</option>
             <option value="anthropic">Anthropic</option>
@@ -1580,8 +1580,8 @@ tr.clickable-row:hover {
         </p>
 
         <div class="config-section">
-          <label for="agentBackend">Agent Backend</label>
-          <select id="agentBackend">
+          <label for="agentProvider">Agent Provider</label>
+          <select id="agentProvider">
             <option value="openai">OpenAI</option>
             <option value="anthropic">Anthropic</option>
             <option value="google">Google</option>
@@ -1803,9 +1803,9 @@ function renderCards(items, containerId, itemType, createModalFunc) {
         }
       }
 
-      // Backend badge
-      if (item.backend) {
-        badges.push(`<span class="metadata-badge backend"><span class="badge-icon">🤖</span>${item.backend}</span>`);
+      // Provider badge
+      if (item.provider) {
+        badges.push(`<span class="metadata-badge provider"><span class="badge-icon">🤖</span>${item.provider}</span>`);
       }
 
       if (badges.length > 0) {
@@ -1933,7 +1933,7 @@ function viewItemDetails(itemId, itemType, event) {
     document.getElementById('modalSchedule').checked = false;
     document.getElementById('modalPriority').value = '';
     document.getElementById('modalMultiFacet').checked = false;
-    document.getElementById('modalBackend').value = '';
+    document.getElementById('modalProvider').value = '';
     document.getElementById('modalModel').value = '';
     document.getElementById('modalTools').value = '';
     document.getElementById('modalToolsCustom').style.display = 'none';
@@ -1948,8 +1948,8 @@ function viewItemDetails(itemId, itemType, event) {
     if (item.multi_facet) {
       document.getElementById('modalMultiFacet').checked = true;
     }
-    if (item.backend) {
-      document.getElementById('modalBackend').value = item.backend;
+    if (item.provider) {
+      document.getElementById('modalProvider').value = item.provider;
     }
     if (item.model) {
       document.getElementById('modalModel').value = item.model;
@@ -2123,10 +2123,10 @@ async function saveMetadata(updates = {}) {
       requestBody.multi_facet = true;
     }
 
-    // Backend
-    const backend = document.getElementById('modalBackend').value;
-    if (backend) {
-      requestBody.backend = backend;
+    // Provider
+    const provider = document.getElementById('modalProvider').value;
+    if (provider) {
+      requestBody.provider = provider;
     }
 
     // Model
@@ -2311,7 +2311,7 @@ async function startAgent() {
     return;
   }
 
-  const backend = document.getElementById('agentBackend').value;
+  const provider = document.getElementById('agentProvider').value;
   const model = document.getElementById('agentModel').value.trim();
   const maxTokens = parseInt(document.getElementById('maxTokens').value) || 0;
   const persona = document.getElementById('agentPersona').value;
@@ -2333,7 +2333,7 @@ async function startAgent() {
       },
       body: JSON.stringify({
         prompt: prompt,
-        backend: backend,
+        provider: provider,
         config: config,
         persona: persona
       })
@@ -2443,7 +2443,7 @@ function buildRow(a) {
   restartBtn.dataset.agentId = a.id;
   restartBtn.dataset.prompt = a.prompt;
   restartBtn.dataset.persona = a.persona;
-  restartBtn.dataset.backend = a.model;
+  restartBtn.dataset.provider = a.provider;
 
   restartBtn.onclick = (e) => {
     e.stopPropagation();
@@ -2555,14 +2555,14 @@ async function restartAgent(buttonElement) {
   const agentId = buttonElement.dataset.agentId;
   const prompt = buttonElement.dataset.prompt;
   const persona = buttonElement.dataset.persona;
-  const backend = buttonElement.dataset.backend;
+  const provider = buttonElement.dataset.provider;
 
   // Confirmation dialog
   const confirmed = confirm(
     `Are you sure you want to restart this agent?\n\n` +
     `Prompt: ${prompt.substring(0, 100)}${prompt.length > 100 ? '...' : ''}\n` +
     `Agent: ${persona}\n` +
-    `Backend: ${backend}\n\n` +
+    `Provider: ${provider}\n\n` +
     `This will create a new agent run with the same configuration.`
   );
 
@@ -2578,7 +2578,7 @@ async function restartAgent(buttonElement) {
       },
       body: JSON.stringify({
         prompt: prompt,
-        backend: backend,
+        provider: provider,
         persona: persona,
         config: {}
       })

@@ -92,7 +92,7 @@ from think.callosum import CallosumConnection
 agent_id = cortex_request(
     prompt="Your task here",
     persona="default",
-    backend="openai"  # or "google", "anthropic", "claude"
+    provider="openai"  # or "google", "anthropic", "claude"
 )
 
 # Watch for agent events via Callosum
@@ -116,7 +116,7 @@ watcher.close()
 The `muse-agents` command is primarily used internally by Cortex. For testing purposes, it can be invoked directly:
 
 ```bash
-muse-agents [TASK_FILE] [--backend PROVIDER] [--model MODEL] [--max-tokens N] [-o OUT_FILE]
+muse-agents [TASK_FILE] [--provider PROVIDER] [--model MODEL] [--max-tokens N] [-o OUT_FILE]
 ```
 
 The provider can be ``openai`` (default), ``google`` or ``anthropic``. Set the corresponding API key environment variable (`OPENAI_API_KEY`,
@@ -126,7 +126,7 @@ The provider can be ``openai`` (default), ``google`` or ``anthropic``. Set the c
 
 The `AgentSession` context manager powers all the CLIs. Use
 `muse.openai.AgentSession`, `muse.google.AgentSession` or
-`muse.anthropic.AgentSession` depending on the backend. The shared
+`muse.anthropic.AgentSession` depending on the provider. The shared
 `BaseAgentSession` interface lives in `muse.agents`:
 
 ```python
@@ -167,7 +167,7 @@ from muse.cortex_client import cortex_request, cortex_agents
 request_file = cortex_request(
     prompt="Your prompt",
     persona="default",
-    backend="openai"
+    provider="openai"
 )
 
 # List running and completed agents

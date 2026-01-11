@@ -214,7 +214,7 @@ async def run_agent(
                 "prompt": prompt,
                 "persona": persona,
                 "model": model,
-                "backend": "anthropic",
+                "provider": "anthropic",
             }
         )
 

@@ -291,7 +291,7 @@ Define custom agent personas that integrate with solstone's Cortex agent system.
 - Keys are namespaced as `{app}:{agent}` (e.g., `my_app:helper`)
 - Agents inherit all system agent capabilities (tools, scheduling, handoffs, multi-facet)
 
-**Metadata format:** Same schema as system agents in `muse/agents/*.json` - includes `title`, `backend`, `model`, `tools`, `schedule`, `priority`, and `multi_facet` fields. See [CORTEX.md](CORTEX.md) for agent configuration details.
+**Metadata format:** Same schema as system agents in `muse/agents/*.json` - includes `title`, `provider`, `model`, `tools`, `schedule`, `priority`, and `multi_facet` fields. See [CORTEX.md](CORTEX.md) for agent configuration details.
 
 **Reference implementations:**
 - System agent examples: `muse/agents/*.txt` and `*.json`
@@ -363,7 +363,7 @@ Available in `convey/utils.py`:
 - `format_date(date_str)` - Format YYYYMMDD as "Wednesday January 14th"
 
 ### Agent Spawning
-- `spawn_agent(prompt, persona, backend, config)` - Spawn Cortex agent, returns agent_id
+- `spawn_agent(prompt, persona, provider, config)` - Spawn Cortex agent, returns agent_id
 
 ### JSON Utilities
 - `load_json(path)` - Load JSON file with error handling (returns None on error)

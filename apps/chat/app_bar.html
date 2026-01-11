@@ -17,7 +17,7 @@
   border-color: #667eea;
 }
 
-.chat-backend-toggle {
+.chat-provider-toggle {
   margin-left: auto;
   padding: 0.75em 1em;
   background: transparent;
@@ -31,23 +31,23 @@
   color: #666;
 }
 
-.chat-backend-toggle:hover {
+.chat-provider-toggle:hover {
   background: #f5f5f5;
   border-color: #999;
   color: #333;
 }
 
-.chat-backend-toggle[data-backend="anthropic"] {
+.chat-provider-toggle[data-provider="anthropic"] {
   color: #764ba2;
   border-color: #764ba2;
 }
 
-.chat-backend-toggle[data-backend="google"] {
+.chat-provider-toggle[data-provider="google"] {
   color: #4285f4;
   border-color: #4285f4;
 }
 
-.chat-backend-toggle[data-backend="openai"] {
+.chat-provider-toggle[data-provider="openai"] {
   color: #10a37f;
   border-color: #10a37f;
 }
@@ -84,7 +84,7 @@
 <!-- Use display:contents to make form invisible to flexbox -->
 <form id="chatInputForm" style="display: contents;">
   <textarea id="chatMessageInput" class="chat-message-input" rows="1" placeholder="Send a message..."></textarea>
-  <button type="button" id="chatBackendToggle" class="chat-backend-toggle" data-backend="google" title="Click to change backend">
+  <button type="button" id="chatProviderToggle" class="chat-provider-toggle" data-provider="google" title="Click to change provider">
     Gemini
   </button>
   <button type="button" id="chatBookmarkToggle" class="chat-bookmark-toggle unbookmarked" title="Bookmark this chat" style="display: none;">☆</button>

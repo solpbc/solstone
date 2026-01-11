@@ -26,7 +26,7 @@ async def test_spawn_scheduled_agents(
         "todos:todo": {
             "title": "TODO Task Manager",
             "schedule": "daily",
-            "backend": "openai",
+            "provider": "openai",
             "model": "gpt-4",
         },
         "default": {

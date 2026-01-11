@@ -86,7 +86,7 @@ def test_google_thinking_events(monkeypatch, tmp_path, capsys):
     ndjson_input = json.dumps(
         {
             "prompt": "hello",
-            "backend": "google",
+            "provider": "google",
             "disable_mcp": True,
         }
     )

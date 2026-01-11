@@ -106,7 +106,7 @@ def _list_items(item_type: str) -> list[dict[str, object]]:
                         "priority": metadata.get("priority"),
                         "multi_facet": metadata.get("multi_facet", False),
                         "tools": metadata.get("tools"),
-                        "backend": metadata.get("backend"),
+                        "provider": metadata.get("provider"),
                         "model": metadata.get("model"),
                     }
                 )
@@ -334,7 +334,7 @@ def _update_item(item_type: str, item_id: str, data: dict) -> tuple[dict, int]:
     priority = data.get("priority")  # Can be None or 0-99
     tools = data.get("tools")  # Can be None or comma-separated string
     multi_facet = data.get("multi_facet")  # Can be None or boolean
-    backend = data.get("backend")  # Can be None or backend name
+    provider = data.get("provider")  # Can be None or provider name
     model = data.get("model")  # Can be None or model name
 
     if not new_title or not new_content:
@@ -372,8 +372,8 @@ def _update_item(item_type: str, item_id: str, data: dict) -> tuple[dict, int]:
                     item_config["tools"] = tools
                 if multi_facet is not None and multi_facet:
                     item_config["multi_facet"] = True
-                if backend:
-                    item_config["backend"] = backend
+                if provider:
+                    item_config["provider"] = provider
                 if model:
                     item_config["model"] = model
         else:
@@ -409,11 +409,11 @@ def _update_item(item_type: str, item_id: str, data: dict) -> tuple[dict, int]:
                         del item_config["multi_facet"]
                 # Don't delete if multi_facet is None (not provided)
 
-                # Backend
-                if backend:
-                    item_config["backend"] = backend
-                elif "backend" in item_config:
-                    del item_config["backend"]
+                # Provider
+                if provider:
+                    item_config["provider"] = provider
+                elif "provider" in item_config:
+                    del item_config["provider"]
 
                 # Model
                 if model:
@@ -480,7 +480,7 @@ def start_agent() -> object:
 
     if not prompt_value:
         return jsonify({"error": "Prompt is required"}), 400
-    backend = data.get("backend", "openai")
+    provider = data.get("provider", "openai")
     persona = data.get("persona", "default")
     config = data.get("config", {})
 
@@ -491,7 +491,7 @@ def start_agent() -> object:
         agent_id = spawn_agent(
             prompt=prompt_value,
             persona=persona,
-            backend=backend,
+            provider=provider,
             config=config,
         )
 

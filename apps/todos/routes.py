@@ -584,7 +584,7 @@ Write the generated checklist to facets/{facet}/todos/{day}.jsonl"""
         agent_id = spawn_agent(
             prompt=prompt,
             persona="todos:todo",
-            backend="openai",
+            provider="openai",
             config={},
         )
     except Exception as exc:  # pragma: no cover - network/agent failure
@@ -668,7 +668,7 @@ Focus on surfacing the most important unfinished work from the past 7 days."""
         agent_id = spawn_agent(
             prompt=prompt,
             persona="todos:weekly",
-            backend="openai",
+            provider="openai",
             config={},
         )
     except Exception as exc:  # pragma: no cover - network/agent failure

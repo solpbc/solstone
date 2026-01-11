@@ -22,7 +22,7 @@ _last_ts = 0
 def cortex_request(
     prompt: str,
     persona: str,
-    backend: Optional[str] = None,
+    provider: Optional[str] = None,
     handoff_from: Optional[str] = None,
     config: Optional[Dict[str, Any]] = None,
     save: Optional[str] = None,
@@ -32,9 +32,9 @@ def cortex_request(
     Args:
         prompt: The task or question for the agent
         persona: Agent persona - system (e.g., "default") or app-qualified (e.g., "entities:entity_assist")
-        backend: AI backend - openai, google, anthropic, or claude
+        provider: AI provider - openai, google, anthropic, or claude
         handoff_from: Previous agent ID if this is a handoff request
-        config: Backend-specific configuration (model, max_tokens, facet for Claude)
+        config: Provider-specific configuration (model, max_tokens, facet for Claude)
         save: Optional filename to save result to in current day directory
 
     Returns:
@@ -64,7 +64,7 @@ def cortex_request(
         "ts": ts,
         "agent_id": agent_id,
         "prompt": prompt,
-        "backend": backend,
+        "provider": provider,
         "persona": persona,
     }
 
@@ -378,9 +378,7 @@ def cortex_agents(
                     "start": request.get("ts", 0),
                     "status": status,
                     "prompt": request.get("prompt", ""),
-                    "model": request.get(
-                        "backend", "openai"
-                    ),  # Backend is the model provider
+                    "provider": request.get("provider", "openai"),
                 }
 
                 # For completed agents, find finish event to calculate runtime

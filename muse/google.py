@@ -436,7 +436,7 @@ async def run_agent(
                 "prompt": prompt,
                 "persona": persona,
                 "model": model,
-                "backend": "google",
+                "provider": "google",
             }
         )
 

@@ -490,7 +490,7 @@ class TestFormatAgent:
                 "agent_id": "test123",
                 "prompt": "Hello world",
                 "persona": "default",
-                "backend": "openai",
+                "provider": "openai",
             },
             {
                 "event": "start",

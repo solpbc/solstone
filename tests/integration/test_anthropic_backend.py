@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 # Copyright (c) 2026 sol pbc
 
-"""Integration test for Anthropic backend with real API calls."""
+"""Integration test for Anthropic provider with real API calls."""
 
 import json
 import os
@@ -31,8 +31,8 @@ def get_fixtures_env():
 
 @pytest.mark.integration
 @pytest.mark.requires_api
-def test_anthropic_backend_basic():
-    """Test Anthropic backend with basic prompt, no MCP."""
+def test_anthropic_provider_basic():
+    """Test Anthropic provider with basic prompt, no MCP."""
     fixtures_env, api_key, journal_path = get_fixtures_env()
 
     if not fixtures_env:
@@ -53,7 +53,7 @@ def test_anthropic_backend_basic():
     ndjson_input = json.dumps(
         {
             "prompt": "what is 1+1? Just give me the number.",
-            "backend": "anthropic",
+            "provider": "anthropic",
             "persona": "default",
             "max_tokens": 100,
             "disable_mcp": True,
@@ -134,8 +134,8 @@ def test_anthropic_backend_basic():
 
 @pytest.mark.integration
 @pytest.mark.requires_api
-def test_anthropic_backend_with_thinking():
-    """Test Anthropic backend with thinking enabled."""
+def test_anthropic_provider_with_thinking():
+    """Test Anthropic provider with thinking enabled."""
     fixtures_env, api_key, journal_path = get_fixtures_env()
 
     if not fixtures_env:
@@ -156,7 +156,7 @@ def test_anthropic_backend_with_thinking():
     ndjson_input = json.dumps(
         {
             "prompt": "What is the square root of 16? Just the number please.",
-            "backend": "anthropic",
+            "provider": "anthropic",
             "persona": "default",
             "model": CLAUDE_SONNET_4,
             "max_tokens": 2048,

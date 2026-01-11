@@ -93,7 +93,7 @@ def test_spawn_agent(mock_timer, mock_thread, mock_popen, cortex_service, mock_j
         "event": "request",
         "ts": 123456789,
         "prompt": "Test prompt",
-        "backend": "openai",
+        "provider": "openai",
         "persona": "default",
         "model": GPT_5,
     }
@@ -118,7 +118,7 @@ def test_spawn_agent(mock_timer, mock_thread, mock_popen, cortex_service, mock_j
     ndjson = json.loads(written_data.strip())
     assert ndjson["event"] == "request"
     assert ndjson["prompt"] == "Test prompt"
-    assert ndjson["backend"] == "openai"
+    assert ndjson["provider"] == "openai"
     assert ndjson["persona"] == "default"
     assert ndjson["model"] == GPT_5
 
@@ -156,7 +156,7 @@ def test_spawn_agent_with_handoff_from(mock_popen, cortex_service, mock_journal)
         "event": "request",
         "ts": 123456789,
         "prompt": "Test",
-        "backend": "openai",
+        "provider": "openai",
         "persona": "default",
         "handoff_from": "parent123",
     }
@@ -397,7 +397,7 @@ def test_spawn_handoff(cortex_service, mock_journal):
     result = "Create a new matter for AI research"
     handoff = {
         "persona": "matter_editor",
-        "backend": "claude",
+        "provider": "claude",
         "facet": "test",
         "max_turns": 5,
     }
@@ -412,7 +412,7 @@ def test_spawn_handoff(cortex_service, mock_journal):
         mock_request.assert_called_once_with(
             prompt=result,
             persona="matter_editor",
-            backend="claude",
+            provider="claude",
             handoff_from=parent_id,
             config={"facet": "test", "max_turns": 5},
         )
@@ -434,7 +434,7 @@ def test_spawn_handoff_with_explicit_prompt(cortex_service, mock_journal):
         mock_request.assert_called_once_with(
             prompt="Review this analysis",  # Uses explicit prompt
             persona="reviewer",
-            backend="openai",
+            provider="openai",
             handoff_from=parent_id,
             config=None,
         )

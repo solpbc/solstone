@@ -99,7 +99,7 @@ def display_event(
 def build_agent_config(
     prompt: str,
     persona: str = "default",
-    backend: Optional[str] = None,
+    provider: Optional[str] = None,
     **overrides: Any,
 ) -> Dict[str, Any]:
     """Build merged agent configuration from persona and overrides.
@@ -112,9 +112,9 @@ def build_agent_config(
     # Load persona configuration
     config = get_agent(persona)
 
-    # Apply backend override if specified
-    if backend:
-        config["backend"] = backend
+    # Apply provider override if specified
+    if provider:
+        config["provider"] = provider
 
     # Apply any additional overrides
     config.update({k: v for k, v in overrides.items() if v is not None})
@@ -155,7 +155,7 @@ def build_agent_config(
 def run_via_cortex(
     prompt: str,
     persona: str = "default",
-    backend: Optional[str] = None,
+    provider: Optional[str] = None,
     timeout: float = 300.0,
     verbose: bool = False,
     json_output: bool = False,
@@ -167,8 +167,8 @@ def run_via_cortex(
     from muse.cortex_client import cortex_request
 
     # Submit request to Cortex
-    config = {"backend": backend} if backend else {}
-    agent_id = cortex_request(prompt, persona, backend=backend, config=config)
+    config = {"provider": provider} if provider else {}
+    agent_id = cortex_request(prompt, persona, provider=provider, config=config)
 
     # Track state
     result_text: Optional[str] = None
@@ -220,7 +220,7 @@ def run_via_cortex(
 def run_direct(
     prompt: str,
     persona: str = "default",
-    backend: Optional[str] = None,
+    provider: Optional[str] = None,
     verbose: bool = False,
     json_output: bool = False,
 ) -> str:
@@ -229,10 +229,10 @@ def run_direct(
     Returns the result text.
     """
     # Build config
-    config = build_agent_config(prompt, persona, backend)
+    config = build_agent_config(prompt, persona, provider)
 
-    # Determine backend
-    backend_name = config.get("backend", "openai")
+    # Determine provider
+    provider_name = config.get("provider", "openai")
 
     # Create event callback
     result_holder: Dict[str, Any] = {"result": None, "error": None}
@@ -244,18 +244,18 @@ def run_direct(
         elif event.get("event") == "error":
             result_holder["error"] = event.get("error", "Unknown error")
 
-    # Route to appropriate backend
-    if backend_name == "google":
-        from muse import google as backend_mod
-    elif backend_name == "anthropic":
-        from muse import anthropic as backend_mod
-    elif backend_name == "claude":
-        from muse import claude as backend_mod
+    # Route to appropriate provider
+    if provider_name == "google":
+        from muse import google as provider_mod
+    elif provider_name == "anthropic":
+        from muse import anthropic as provider_mod
+    elif provider_name == "claude":
+        from muse import claude as provider_mod
     else:
-        from muse import openai as backend_mod
+        from muse import openai as provider_mod
 
     # Run the agent
-    asyncio.run(backend_mod.run_agent(config=config, on_event=on_event))
+    asyncio.run(provider_mod.run_agent(config=config, on_event=on_event))
 
     if result_holder["error"]:
         raise RuntimeError(result_holder["error"])
@@ -286,7 +286,7 @@ Examples:
         "-p", "--persona", default="default", help="Agent persona (default: default)"
     )
     parser.add_argument(
-        "-b", "--backend", help="Override backend (openai, anthropic, google, claude)"
+        "-b", "--provider", help="Override provider (openai, anthropic, google, claude)"
     )
     parser.add_argument(
         "--direct", action="store_true", help="Run directly, bypass Cortex"
@@ -319,7 +319,7 @@ Examples:
             result = run_direct(
                 prompt,
                 persona=args.persona,
-                backend=args.backend,
+                provider=args.provider,
                 verbose=args.verbose,
                 json_output=args.json,
             )
@@ -327,7 +327,7 @@ Examples:
             result = run_via_cortex(
                 prompt,
                 persona=args.persona,
-                backend=args.backend,
+                provider=args.provider,
                 timeout=args.timeout,
                 verbose=args.verbose,
                 json_output=args.json,

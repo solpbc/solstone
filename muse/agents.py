@@ -55,7 +55,7 @@ class StartEvent(TypedDict):
     prompt: str
     persona: str
     model: str
-    backend: str
+    provider: str
 
 
 class FinishEvent(TypedDict):
@@ -314,31 +314,31 @@ async def main_async() -> None:
                     )
                     continue
 
-                # Extract backend to route to correct module
-                backend = config.get("backend", "google")
+                # Extract provider to route to correct module
+                provider = config.get("provider", "google")
 
                 # Set OpenAI key if needed
-                if backend == "openai":
+                if provider == "openai":
                     api_key = os.getenv("OPENAI_API_KEY", "")
                     if api_key:
                         from agents import set_default_openai_key
 
                         set_default_openai_key(api_key)
 
-                app_logger.debug(f"Processing request: backend={backend}")
+                app_logger.debug(f"Processing request: provider={provider}")
 
-                # Route to appropriate backend
-                if backend == "google":
-                    from . import google as backend_mod
-                elif backend == "anthropic":
-                    from . import anthropic as backend_mod
-                elif backend == "claude":
-                    from . import claude as backend_mod
+                # Route to appropriate provider
+                if provider == "google":
+                    from . import google as provider_mod
+                elif provider == "anthropic":
+                    from . import anthropic as provider_mod
+                elif provider == "claude":
+                    from . import claude as provider_mod
                 else:
-                    from . import openai as backend_mod
+                    from . import openai as provider_mod
 
-                # Pass complete config to backend
-                await backend_mod.run_agent(
+                # Pass complete config to provider
+                await provider_mod.run_agent(
                     config=config,
                     on_event=emit_event,
                 )

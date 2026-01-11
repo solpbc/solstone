@@ -44,7 +44,7 @@ def test_openai_main(monkeypatch, tmp_path, capsys):
     ndjson_input = json.dumps(
         {
             "prompt": "hello",
-            "backend": "openai",
+            "provider": "openai",
             "mcp_server_url": "http://localhost:5173/mcp",
         }
     )
@@ -97,7 +97,7 @@ def test_openai_thinking_events(monkeypatch, tmp_path, capsys):
     ndjson_input = json.dumps(
         {
             "prompt": "hello",
-            "backend": "openai",
+            "provider": "openai",
             "mcp_server_url": "http://localhost:5173/mcp",
         }
     )
@@ -141,7 +141,7 @@ def test_openai_mcp_headers(monkeypatch, tmp_path):
     ndjson_input = json.dumps(
         {
             "prompt": "audit headers",
-            "backend": "openai",
+            "provider": "openai",
             "persona": "investigator",
             "agent_id": "999",
             "mcp_server_url": "http://localhost:5173/mcp",
@@ -176,7 +176,7 @@ def test_openai_outfile(monkeypatch, tmp_path, capsys):
     ndjson_input = json.dumps(
         {
             "prompt": "hello",
-            "backend": "openai",
+            "provider": "openai",
             "mcp_server_url": "http://localhost:5173/mcp",
         }
     )
@@ -228,7 +228,7 @@ def test_openai_thinking_events_stdout(monkeypatch, tmp_path, capsys):
     ndjson_input = json.dumps(
         {
             "prompt": "hello",
-            "backend": "openai",
+            "provider": "openai",
             "mcp_server_url": "http://localhost:5173/mcp",
         }
     )
@@ -286,7 +286,7 @@ def test_openai_outfile_error(monkeypatch, tmp_path, capsys):
     ndjson_input = json.dumps(
         {
             "prompt": "hello",
-            "backend": "openai",
+            "provider": "openai",
             "mcp_server_url": "http://localhost:5173/mcp",
         }
     )
@@ -334,7 +334,7 @@ def test_openai_thinking_events_error(monkeypatch, tmp_path, capsys):
     ndjson_input = json.dumps(
         {
             "prompt": "hello",
-            "backend": "openai",
+            "provider": "openai",
             "mcp_server_url": "http://localhost:5173/mcp",
         }
     )
@@ -396,7 +396,7 @@ def test_openai_tool_call_events(monkeypatch, tmp_path, capsys):
     ndjson_input = json.dumps(
         {
             "prompt": "hello",
-            "backend": "openai",
+            "provider": "openai",
             "mcp_server_url": "http://localhost:5173/mcp",
         }
     )

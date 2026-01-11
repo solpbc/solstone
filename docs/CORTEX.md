@@ -37,9 +37,9 @@ Requests are created via `cortex_request()` from `muse.cortex_client`, which bro
   "event": "request",
   "ts": 1234567890123,              // Required: millisecond timestamp (must match filename)
   "prompt": "Analyze this code for security issues",  // Required: the task or question
-  "backend": "openai",              // Required: openai, google, anthropic, or claude
+  "provider": "openai",              // Required: openai, google, anthropic, or claude
   "persona": "default",              // Optional: agent persona from muse/agents/*.txt
-  "model": "gpt-4o",               // Optional: backend-specific override
+  "model": "gpt-4o",               // Optional: provider-specific override
   "max_tokens": 8192,               // Optional: token limit (if supported)
   "disable_mcp": false,             // Optional: disable MCP tools for this request
   "continue_from": "1234567890122",  // Optional: continue from previous agent
@@ -53,27 +53,27 @@ Requests are created via `cortex_request()` from `muse.cortex_client`, which bro
   "handoff": {                       // Optional: chain to another agent on completion
     "persona": "reviewer",
     "prompt": "Review the analysis",
-    "backend": "openai"
+    "provider": "openai"
   },
   "handoff_from": "1234567890122"   // Optional: present when spawned via handoff
 }
 ```
 
-All backend overrides (for example `model`, `max_tokens`, `disable_mcp`) are supplied as
-top-level keys to keep the schema flat and aligned with the agent backends.
+All provider overrides (for example `model`, `max_tokens`, `disable_mcp`) are supplied as
+top-level keys to keep the schema flat and aligned with the agent providers.
 
 ### Conversation Continuations
 
-All backends (Anthropic, OpenAI, Google) support continuing conversations from previous
+All providers (Anthropic, OpenAI, Google) support continuing conversations from previous
 agent runs. Include a `continue_from` field in your request with the `<timestamp>`
-identifier of any completed agent run. The backend will load the conversation history
+identifier of any completed agent run. The provider will load the conversation history
 from the agent's event log and continue from where it left off. This works seamlessly
-across all backends - you can even switch backends mid-conversation (e.g., start with
+across all providers - you can even switch providers mid-conversation (e.g., start with
 OpenAI, continue with Anthropic).
 
 ## Agent Event Format
 
-All subsequent lines are JSON objects with `event` and millisecond `ts` fields. The `ts` field is automatically added by Cortex if not provided by the backend. Additionally, Cortex automatically adds an `agent_id` field (matching the timestamp from the filename) to all events for tracking purposes.
+All subsequent lines are JSON objects with `event` and millisecond `ts` fields. The `ts` field is automatically added by Cortex if not provided by the provider. Additionally, Cortex automatically adds an `agent_id` field (matching the timestamp from the filename) to all events for tracking purposes.
 
 ### request
 The initial spawn request (first line of file, written by client).
@@ -83,7 +83,7 @@ The initial spawn request (first line of file, written by client).
   "ts": 1234567890123,
   "agent_id": "1234567890123",
   "prompt": "User's task or question",
-  "backend": "openai",
+  "provider": "openai",
   "persona": "default",
   "save": "output.md",
   "day": "20250109",
@@ -165,7 +165,7 @@ Emitted when the agent run completes successfully.
   "handoff": {                     // Optional: triggers next agent
     "prompt": "Continue with next task",
     "persona": "specialist",
-    "backend": "openai"
+    "provider": "openai"
   }
 }
 ```
@@ -220,7 +220,7 @@ Agents can transfer control to other agents for specialized tasks. When an agent
 
 - The `finish` event may include a `handoff` field specifying the next agent
 - The subsequent request includes `handoff_from` with the originating agent ID
-- Handoff agents automatically inherit the parent agent's configuration (backend, model, etc.) unless explicitly overridden
+- Handoff agents automatically inherit the parent agent's configuration (provider, model, etc.) unless explicitly overridden
 - This enables multi-step workflows and agent specialization with consistent configuration
 
 ## Agent Personas
@@ -240,8 +240,8 @@ Personas define specialized behaviors, tool usage patterns, and facet expertise.
 ### Persona Configuration Options
 
 The `.json` file for a persona can include:
-- `backend`: Default backend (openai, google, anthropic, claude)
-- `model`: Default model name for the backend
+- `provider`: Default provider (openai, google, anthropic, claude)
+- `model`: Default model name for the provider
 - `max_tokens`: Maximum response token limit
 - `tools`: MCP tools configuration (string or array)
   - String: Comma-separated pack names (e.g., `"journal"`, `"journal, todo"`) - expanded via `get_tools()`
@@ -280,9 +280,9 @@ MCP tools are provided by the `muse.mcp_tools` FastMCP server, which:
 - Exposes journal search and retrieval capabilities
 - Available tools can be discovered via the MCP service endpoint
 
-## Agent Backends
+## Agent Providers
 
-The system supports multiple AI backends, each implementing the same event interface:
+The system supports multiple AI providers, each implementing the same event interface:
 
 - **OpenAI** (`muse/openai.py`): GPT models with OpenAI Agents SDK
 - **Google** (`muse/google.py`): Gemini models with Google AI SDK
@@ -292,7 +292,7 @@ The system supports multiple AI backends, each implementing the same event inter
   - Requires `facet` configuration specifying journal facet directory
   - Operates within facet-scoped file permissions
 
-All backends:
+All providers:
 - Emit JSON events to stdout (one per line)
 - Are spawned as subprocesses by Cortex
 - Use consistent event structures across providers
