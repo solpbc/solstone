@@ -55,6 +55,7 @@ def test_google_provider_basic():
             "prompt": "what is 1+1? Just give me the number.",
             "provider": "google",
             "persona": "default",
+            "model": GEMINI_FLASH,
             "max_tokens": 100,
             "disable_mcp": True,
         }

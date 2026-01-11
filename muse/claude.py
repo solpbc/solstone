@@ -110,8 +110,9 @@ async def run_agent(
                 "prompt": prompt,
                 "persona": persona,
                 "model": model,
-                "backend": "claude",
+                "provider": "claude",
                 "journal_path": journal_path,
+                "ts": int(time.time() * 1000),
             }
         )
 
