@@ -55,26 +55,45 @@ def _get_client():
 
 These functions handle direct LLM text generation. The unified API in `muse/models.py` routes requests to provider-specific implementations.
 
+**Function signature:**
+```python
+def generate(
+    contents: Union[str, List[Any]],
+    model: str,
+    temperature: float = 0.3,
+    max_output_tokens: int = 8192 * 2,
+    system_instruction: Optional[str] = None,
+    json_output: bool = False,
+    thinking_budget: Optional[int] = None,
+    timeout_s: Optional[float] = None,
+    context: Optional[str] = None,
+    **kwargs: Any,
+) -> str:
+```
+
+The `agenerate()` function has the same signature but is `async`.
+
+**Parameter details:**
+
+| Parameter | Notes |
+|-----------|-------|
+| `contents` | String, list of strings, or list with mixed content. For vision-capable providers (currently Google only), can include PIL Image objects. Other providers stringify non-text content. |
+| `model` | Already resolved by routing - providers don't need to handle model selection. |
+| `max_output_tokens` | Response token limit. Note: Google internally adds `thinking_budget` to this for total budget calculation. |
+| `system_instruction` | System prompt. Providers handle this per their API (separate field, prepended message, etc.). |
+| `json_output` | Request JSON response. Google uses `response_mime_type`, Anthropic/OpenAI use response format or system instruction. |
+| `thinking_budget` | Token budget for reasoning/thinking. Only Google and Anthropic (certain models) support this - others should silently ignore. |
+| `timeout_s` | Request timeout in seconds. Convert to provider's expected format (e.g., Google uses milliseconds internally). |
+| `context` | For token logging attribution only - not used in generation. |
+| `**kwargs` | Absorb unknown kwargs for forward compatibility. Provider-specific options (e.g., `cached_content` for Google) pass through here. |
+
 **Key responsibilities:**
-- Accept the common parameter set (see `muse/models.py` `generate()` signature)
+- Accept the common parameter set shown above
 - Return the response text as a string
 - Call `log_token_usage()` after successful generation
 - Handle provider-specific response parsing and validation
 
-**Important notes:**
-- The `model` parameter arrives already resolved - providers don't do routing
-- The `context` parameter is for token logging attribution only
-- Absorb unknown kwargs via `**kwargs` to maintain forward compatibility
-- Provider-specific features (e.g., `cached_content` for Google) are passed through kwargs
-
-**Handling optional features:**
-
-Some parameters are provider-specific:
-- `thinking_budget`: Supported by Google (via ThinkingConfig) and Anthropic (certain models)
-- `json_output`: Google uses `response_mime_type`, Anthropic adds system instruction
-- `cached_content`: Google-only content caching
-
-Providers should gracefully ignore unsupported parameters.
+**Important:** Providers should gracefully ignore unsupported parameters rather than raising errors.
 
 ## run_agent()
 
@@ -113,6 +132,18 @@ Providers must emit events via the `on_event` callback. See `muse/agents.py` for
 | `ErrorEvent` | Error occurs |
 
 Use `JSONEventCallback` from `muse/agents.py` to wrap the callback and auto-add timestamps.
+
+**Finish event format:**
+
+The `finish` event must include the result text and should include usage for token tracking:
+```python
+callback.emit({
+    "event": "finish",
+    "result": final_text,
+    "usage": usage_dict,  # Same format as token logging
+    "ts": int(time.time() * 1000),
+})
+```
 
 **Error handling pattern:**
 
@@ -157,14 +188,46 @@ All generation calls must log token usage for cost tracking.
 ```python
 from muse.models import log_token_usage
 
+log_token_usage(model=model, usage=usage_dict, context=context)
+```
+
+**Usage dict format:**
+
+Providers should build a usage dict from their response. The normalized format is:
+```python
+usage_dict = {
+    "input_tokens": 1500,      # Required
+    "output_tokens": 500,      # Required
+    "total_tokens": 2000,      # Required
+    "cached_tokens": 800,      # Optional: cache hits
+    "reasoning_tokens": 200,   # Optional: thinking/reasoning tokens
+}
+```
+
+Provider-specific extraction examples:
+```python
+# OpenAI / OpenAI-compatible
+usage_dict = {
+    "input_tokens": response.usage.prompt_tokens,
+    "output_tokens": response.usage.completion_tokens,
+    "total_tokens": response.usage.total_tokens,
+}
+
+# Anthropic
+usage_dict = {
+    "input_tokens": response.usage.input_tokens,
+    "output_tokens": response.usage.output_tokens,
+    "total_tokens": response.usage.input_tokens + response.usage.output_tokens,
+}
+
+# Google (can pass response object directly)
 log_token_usage(model=model, usage=response, context=context)
 ```
 
 **Key points:**
 - Call after successful generation
-- `usage` can be provider-specific format or response object - `log_token_usage()` normalizes it
+- `log_token_usage()` normalizes various formats automatically
 - `context` enables attribution to specific features/operations
-- See `muse/models.py` `log_token_usage()` for supported formats
 
 ## Context & Routing
 
@@ -228,18 +291,53 @@ See existing test files for patterns:
 
 Run integration tests with: `make test-integration`
 
+## Batch Processing
+
+The `Batch` class in `muse/batch.py` automatically works with all providers via the unified `agenerate()` API. No provider-specific batch implementation is needed - just ensure your `agenerate()` works correctly.
+
+## OpenAI-Compatible Providers
+
+For providers with OpenAI-compatible APIs (e.g., DigitalOcean, Azure OpenAI, local LLMs), you can leverage the OpenAI SDK with a custom base URL:
+
+```python
+from openai import OpenAI
+
+client = OpenAI(
+    api_key=os.getenv("MYPROVIDER_API_KEY"),
+    base_url="https://api.myprovider.com/v1",
+)
+```
+
+This allows reusing much of the OpenAI provider's patterns for request/response handling.
+
 ## Checklist for New Providers
 
-1. Create `muse/providers/<name>.py` with `__all__` exports
-2. Implement `generate()`, `agenerate()`, `run_agent()`
-3. Add model constants to `muse/models.py` (e.g., `MYPROVIDER_PRO`)
-4. Add provider to `PROVIDER_DEFAULTS` in `muse/models.py`
-5. Add routing cases in `muse/models.py`:
+**Core implementation:**
+1. Create `muse/providers/<name>.py` with `__all__ = ["generate", "agenerate", "run_agent"]`
+2. Implement `generate()`, `agenerate()`, `run_agent()` following signatures above
+
+**Model constants** in `muse/models.py`:
+3. Add model constants using the pattern `{PROVIDER}_{TIER}` (e.g., `DO_LLAMA_70B`, `DO_MISTRAL_NEMO`)
+   - Existing examples: `GEMINI_FLASH`, `GPT_5`, `CLAUDE_SONNET_4`
+4. Add provider tier mappings to `PROVIDER_DEFAULTS` dict
+5. Update `get_model_provider()` to detect your models by prefix (critical for cost tracking)
+
+**Routing:**
+6. Add `elif provider == "<name>"` cases in `muse/models.py`:
    - `generate()` function (around line 622)
    - `agenerate()` function (around line 700)
-6. Add routing case in `muse/agents.py` `main_async()`
-7. Add API key to `apps/settings/routes.py` `PROVIDER_API_KEYS`
-8. Add API key UI field in `apps/settings/workspace.html`
-9. Create unit tests in `tests/test_<name>.py`
-10. Create integration tests in `tests/integration/test_<name>_backend.py`
-11. Update `muse/providers/__init__.py` docstring
+7. Add routing case in `muse/agents.py` `main_async()` (around line 331)
+
+**Settings UI:**
+8. Add API key to `apps/settings/routes.py` `PROVIDER_API_KEYS` dict
+9. Add API key UI field in `apps/settings/workspace.html`
+
+**Testing:**
+10. Create unit tests in `tests/test_<name>.py`
+11. Create integration tests in `tests/integration/test_<name>_backend.py`
+12. Add test contexts to `fixtures/journal/config/journal.json`
+
+**Documentation:**
+13. Update `muse/providers/__init__.py` docstring
+14. Update `docs/MUSE.md` providers table
+15. Update `docs/CORTEX.md` valid provider values
