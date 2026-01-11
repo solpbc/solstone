@@ -7,11 +7,8 @@ from __future__ import annotations
 
 import json
 import logging
-import os
 from pathlib import Path
 from typing import List, Optional
-
-from dotenv import load_dotenv
 
 from .models import gemini_generate, resolve_provider
 from .utils import load_prompt
@@ -122,9 +119,7 @@ def segments_from_boundaries(
     return segments
 
 
-def detect_transcript_segment(
-    text: str, start_time: str, api_key: Optional[str] = None
-) -> List[tuple[str, str]]:
+def detect_transcript_segment(text: str, start_time: str) -> List[tuple[str, str]]:
     """Return transcript segments with absolute timestamps using Gemini.
 
     Args:
@@ -134,14 +129,6 @@ def detect_transcript_segment(
     Returns:
         List of (start_at, text) tuples where start_at is absolute HH:MM:SS
     """
-
-    if api_key is None:
-        load_dotenv()
-        api_key = os.getenv("GOOGLE_API_KEY")
-        if not api_key:
-            logging.error("GOOGLE_API_KEY not found in environment")
-            raise RuntimeError("GOOGLE_API_KEY not set")
-
     numbered, lines = number_lines(text)
     # Prepend START_TIME for the prompt
     contents = f"START_TIME: {start_time}\n{numbered}"
@@ -168,9 +155,7 @@ def detect_transcript_segment(
     return segments
 
 
-def detect_transcript_json(
-    text: str, segment_start: str, api_key: Optional[str] = None
-) -> Optional[list]:
+def detect_transcript_json(text: str, segment_start: str) -> Optional[list]:
     """Return transcript ``text`` converted to JSON using Gemini.
 
     Args:
@@ -183,13 +168,6 @@ def detect_transcript_json(
     logging.info(
         f"Starting transcript JSON conversion (segment_start: {segment_start})..."
     )
-
-    if api_key is None:
-        load_dotenv()
-        api_key = os.getenv("GOOGLE_API_KEY")
-        if not api_key:
-            logging.error("GOOGLE_API_KEY not found in environment")
-            raise RuntimeError("GOOGLE_API_KEY not set")
 
     # Prepend SEGMENT_START for the prompt
     contents = f"SEGMENT_START: {segment_start}\n{text}"

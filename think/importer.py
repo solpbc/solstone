@@ -654,7 +654,7 @@ def create_transcript_summary(
         logger.info(f"Created transcript summary: {summary_path}")
 
     except Exception as e:
-        logger.error(f"Failed to create summary with Gemini Pro: {e}")
+        logger.error(f"Failed to create summary: {e}")
         # Don't fail the entire import process if summarization fails
         pass
 

@@ -11,7 +11,7 @@ from google import genai
 from google.genai import types
 
 from think.cluster import cluster, cluster_period
-from think.models import GEMINI_PRO, gemini_generate, resolve_provider
+from think.models import gemini_generate, resolve_provider
 from think.utils import (
     PromptNotFoundError,
     day_log,
@@ -327,12 +327,6 @@ def main() -> None:
         help="Insight key (e.g., 'activity', 'chat:sentiment') or path to .txt file",
     )
     parser.add_argument(
-        "-p",
-        "--pro",
-        action="store_true",
-        help="Use the gemini 2.5 pro model",
-    )
-    parser.add_argument(
         "-c",
         "--count",
         action="store_true",
@@ -424,8 +418,7 @@ def main() -> None:
 
         prompt = insight_prompt.text
 
-        _, default_model = resolve_provider(f"insight.{insight_key}")
-        model = GEMINI_PRO if args.pro else default_model
+        _, model = resolve_provider(f"insight.{insight_key}")
         day = args.day
         size_kb = len(markdown.encode("utf-8")) / 1024
 

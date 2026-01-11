@@ -24,7 +24,8 @@ from typing import Any, List, Optional, Union
 
 from google import genai
 
-from think.models import GEMINI_FLASH, gemini_agenerate, get_or_create_client
+from muse.google import get_or_create_client
+from think.models import GEMINI_FLASH, gemini_agenerate
 
 
 class GeminiRequest:

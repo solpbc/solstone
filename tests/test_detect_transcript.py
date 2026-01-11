@@ -80,7 +80,7 @@ def test_detect_transcript_segment(monkeypatch):
     monkeypatch.setattr("think.detect_transcript.gemini_generate", mock_gemini_generate)
 
     # Now requires start_time argument
-    result = mod.detect_transcript_segment("a\nb\nc\nd", "14:30:00", api_key="x")
+    result = mod.detect_transcript_segment("a\nb\nc\nd", "14:30:00")
 
     # Returns list of (start_at, text) tuples
     assert result == [("14:30:00", "a\nb"), ("14:35:00", "c\nd")]

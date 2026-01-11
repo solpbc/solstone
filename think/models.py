@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 # Copyright (c) 2026 sol pbc
 
+import fnmatch
 import inspect
 import json
 import os
@@ -8,7 +9,7 @@ import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
-from think.utils import get_journal
+from think.utils import get_config, get_journal
 
 GEMINI_FLASH = "gemini-3-flash-preview"
 GEMINI_PRO = "gemini-3-pro-preview"
@@ -47,10 +48,6 @@ def resolve_provider(context: str) -> tuple[str, str]:
         (provider_name, model) tuple. Provider is one of "google", "openai",
         "anthropic". Model is the full model identifier string.
     """
-    import fnmatch
-
-    from think.utils import get_config
-
     config = get_config()
     providers = config.get("providers", {})
 
@@ -89,27 +86,6 @@ def resolve_provider(context: str) -> tuple[str, str]:
         )
 
     return (default_provider, default_model)
-
-
-def get_or_create_client(client: Optional[Any] = None) -> Any:
-    """Get existing Gemini client or create new one.
-
-    This is a backward-compatibility wrapper that delegates to muse.google.
-
-    Parameters
-    ----------
-    client : genai.Client, optional
-        Existing client to reuse. If not provided, creates a new one
-        using GOOGLE_API_KEY from environment.
-
-    Returns
-    -------
-    genai.Client
-        The provided client or a newly created one.
-    """
-    from muse.google import get_or_create_client as _get_or_create_client
-
-    return _get_or_create_client(client)
 
 
 def log_token_usage(
@@ -680,7 +656,7 @@ __all__ = [
     "CLAUDE_OPUS_4",
     "CLAUDE_SONNET_4",
     "CLAUDE_HAIKU_4",
-    "get_or_create_client",
+    "resolve_provider",
     "gemini_generate",
     "gemini_agenerate",
     "generate",
