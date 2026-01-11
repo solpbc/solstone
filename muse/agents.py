@@ -329,13 +329,13 @@ async def main_async() -> None:
 
                 # Route to appropriate provider
                 if provider == "google":
-                    from . import google as provider_mod
+                    from .providers import google as provider_mod
                 elif provider == "anthropic":
-                    from . import anthropic as provider_mod
+                    from .providers import anthropic as provider_mod
                 elif provider == "claude":
                     from . import claude as provider_mod
                 else:
-                    from . import openai as provider_mod
+                    from .providers import openai as provider_mod
 
                 # Pass complete config to provider
                 await provider_mod.run_agent(

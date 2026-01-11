@@ -121,8 +121,8 @@ def test_claude_main(monkeypatch, tmp_path, capsys):
     _setup_anthropic_stub(monkeypatch)
     _setup_fastmcp_stub(monkeypatch)
     install_agents_stub()
-    sys.modules.pop("muse.anthropic", None)
-    importlib.reload(importlib.import_module("muse.anthropic"))
+    sys.modules.pop("muse.providers.anthropic", None)
+    importlib.reload(importlib.import_module("muse.providers.anthropic"))
     mod = importlib.reload(importlib.import_module("muse.agents"))
 
     journal = tmp_path / "journal"
@@ -161,8 +161,8 @@ def test_claude_outfile(monkeypatch, tmp_path, capsys):
     _setup_anthropic_stub(monkeypatch)
     _setup_fastmcp_stub(monkeypatch)
     install_agents_stub()
-    sys.modules.pop("muse.anthropic", None)
-    importlib.reload(importlib.import_module("muse.anthropic"))
+    sys.modules.pop("muse.providers.anthropic", None)
+    importlib.reload(importlib.import_module("muse.providers.anthropic"))
     mod = importlib.reload(importlib.import_module("muse.agents"))
 
     journal = tmp_path / "journal"
@@ -210,8 +210,8 @@ def test_claude_thinking_events(monkeypatch, tmp_path, capsys):
     _setup_anthropic_stub(monkeypatch, with_thinking=True)
     _setup_fastmcp_stub(monkeypatch)
     install_agents_stub()
-    sys.modules.pop("muse.anthropic", None)
-    importlib.reload(importlib.import_module("muse.anthropic"))
+    sys.modules.pop("muse.providers.anthropic", None)
+    importlib.reload(importlib.import_module("muse.providers.anthropic"))
     mod = importlib.reload(importlib.import_module("muse.agents"))
 
     journal = tmp_path / "journal"
@@ -249,8 +249,8 @@ def test_claude_outfile_error(monkeypatch, tmp_path, capsys):
     _setup_anthropic_stub(monkeypatch, error=True)
     _setup_fastmcp_stub(monkeypatch)
     install_agents_stub()
-    sys.modules.pop("muse.anthropic", None)
-    importlib.reload(importlib.import_module("muse.anthropic"))
+    sys.modules.pop("muse.providers.anthropic", None)
+    importlib.reload(importlib.import_module("muse.providers.anthropic"))
     mod = importlib.reload(importlib.import_module("muse.agents"))
 
     journal = tmp_path / "journal"

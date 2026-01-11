@@ -59,10 +59,16 @@ def mock_all_providers(monkeypatch):
 
     This ensures tests are not fragile to changes in default provider.
     """
-    for provider_name in ("openai", "anthropic", "google", "claude"):
+    # Mock providers in muse.providers (google, openai, anthropic)
+    for provider_name in ("openai", "anthropic", "google"):
         mock_module = MagicMock()
         mock_module.run_agent = mock_run_agent
-        monkeypatch.setitem(sys.modules, f"muse.{provider_name}", mock_module)
+        monkeypatch.setitem(sys.modules, f"muse.providers.{provider_name}", mock_module)
+
+    # Mock claude which is still in muse/ (not a full provider)
+    mock_module = MagicMock()
+    mock_module.run_agent = mock_run_agent
+    monkeypatch.setitem(sys.modules, "muse.claude", mock_module)
 
     monkeypatch.setitem(sys.modules, "agents", MagicMock())
 

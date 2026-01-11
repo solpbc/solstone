@@ -246,13 +246,13 @@ def run_direct(
 
     # Route to appropriate provider
     if provider_name == "google":
-        from muse import google as provider_mod
+        from muse.providers import google as provider_mod
     elif provider_name == "anthropic":
-        from muse import anthropic as provider_mod
+        from muse.providers import anthropic as provider_mod
     elif provider_name == "claude":
         from muse import claude as provider_mod
     else:
-        from muse import openai as provider_mod
+        from muse.providers import openai as provider_mod
 
     # Run the agent
     asyncio.run(provider_mod.run_agent(config=config, on_event=on_event))

@@ -2,9 +2,9 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 # Copyright (c) 2026 sol pbc
 
-"""Anthropic Claude backed agent implementation.
+"""Anthropic Claude provider agent implementation.
 
-This module provides the Anthropic Claude backend for the ``muse-agents`` CLI.
+This module provides the Anthropic Claude provider for the ``muse-agents`` CLI.
 """
 
 from __future__ import annotations
@@ -22,7 +22,7 @@ from anthropic.types import MessageParam, ToolParam, ToolUseBlock
 from think.models import CLAUDE_SONNET_4
 from think.utils import create_mcp_client
 
-from .agents import JSONEventCallback, ThinkingEvent
+from ..agents import JSONEventCallback, ThinkingEvent
 
 # Default values are now handled internally
 _DEFAULT_MODEL = CLAUDE_SONNET_4
@@ -226,7 +226,7 @@ async def run_agent(
         continue_from = config.get("continue_from")
         if continue_from:
             # Load previous conversation history using shared function
-            from .agents import parse_agent_events_to_turns
+            from ..agents import parse_agent_events_to_turns
 
             messages = parse_agent_events_to_turns(continue_from)
             # Add new prompt as continuation

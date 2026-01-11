@@ -14,7 +14,6 @@ import pytest
 from think.batch import Batch
 from think.models import GEMINI_FLASH, GEMINI_LITE
 
-
 # Default context for integration tests - uses Google provider
 TEST_CONTEXT = "test.batch.integration"
 
@@ -284,7 +283,7 @@ async def test_batch_error_recovery():
 @pytest.mark.requires_api
 async def test_batch_client_reuse():
     """Test that client is reused across requests in batch (Google-specific)."""
-    from muse.google import get_or_create_client
+    from muse.providers.google import get_or_create_client
 
     # Create shared client
     client = get_or_create_client()

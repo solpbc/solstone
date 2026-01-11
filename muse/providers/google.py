@@ -2,9 +2,9 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 # Copyright (c) 2026 sol pbc
 
-"""Gemini backend for agents and direct LLM generation.
+"""Gemini provider for agents and direct LLM generation.
 
-This module provides the Google Gemini backend for the ``muse-agents`` CLI
+This module provides the Google Gemini provider for the ``muse-agents`` CLI
 and standardized generate/agenerate functions for direct LLM calls.
 """
 
@@ -23,7 +23,7 @@ from google.genai import types
 from think.models import GEMINI_FLASH, resolve_provider
 from think.utils import create_mcp_client
 
-from .agents import JSONEventCallback, ThinkingEvent
+from ..agents import JSONEventCallback, ThinkingEvent
 
 _DEFAULT_MAX_TOKENS = 8192
 _DEFAULT_MODEL = GEMINI_FLASH
@@ -448,7 +448,7 @@ async def run_agent(
         continue_from = config.get("continue_from")
         if continue_from:
             # Load previous conversation history using shared function
-            from .agents import parse_agent_events_to_turns
+            from ..agents import parse_agent_events_to_turns
 
             turns = parse_agent_events_to_turns(continue_from)
             # Convert to Google's format

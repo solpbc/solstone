@@ -3,7 +3,7 @@
 # Copyright (c) 2026 sol pbc
 
 """
-OpenAI-backed agent implementation for the solstone `muse-agents` CLI.
+OpenAI provider agent implementation for the solstone `muse-agents` CLI.
 
 - Connects to a local MCP server over Streamable HTTP
 - Runs an agent with streaming to surface tool args/results and (when available) reasoning summaries
@@ -52,7 +52,7 @@ except Exception:  # pragma: no cover
 
 from think.models import GPT_5
 
-from .agents import JSONEventCallback, ThinkingEvent
+from ..agents import JSONEventCallback, ThinkingEvent
 
 
 def _convert_turns_to_items(turns: list[dict]) -> list[dict]:
@@ -88,7 +88,7 @@ _DEFAULT_MODEL = GPT_5
 _DEFAULT_MAX_TOKENS = 16384
 _DEFAULT_MAX_TURNS = 64
 
-LOG = logging.getLogger("muse.openai")
+LOG = logging.getLogger("muse.providers.openai")
 
 
 def _now_ms() -> int:
@@ -263,7 +263,7 @@ async def run_agent(
 
     # Load conversation history if continuing
     if continue_from:
-        from .agents import parse_agent_events_to_turns
+        from ..agents import parse_agent_events_to_turns
 
         turns = parse_agent_events_to_turns(continue_from)
         if turns:

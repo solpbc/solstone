@@ -122,24 +122,16 @@ muse-agents [TASK_FILE] [--provider PROVIDER] [--model MODEL] [--max-tokens N] [
 The provider can be ``openai`` (default), ``google`` or ``anthropic``. Set the corresponding API key environment variable (`OPENAI_API_KEY`,
 `GOOGLE_API_KEY` or `ANTHROPIC_API_KEY`) along with `JOURNAL_PATH`.
 
-### Common interface
+### Provider modules
 
-The `AgentSession` context manager powers all the CLIs. Use
-`muse.openai.AgentSession`, `muse.google.AgentSession` or
-`muse.anthropic.AgentSession` depending on the provider. The shared
-`BaseAgentSession` interface lives in `muse.agents`:
+Each provider lives in `muse/providers/` and exposes a common interface:
 
-```python
-async with AgentSession() as agent:
-    agent.add_history("user", "previous message")
-    result = await agent.run("new request")
-    print(agent.history)
-```
+- `generate()` - Sync text generation
+- `agenerate()` - Async text generation
+- `run_agent()` - Agent execution with MCP tools and event streaming
 
-`run()` returns the final text result. `add_history()` queues prior messages to
-provide context and `history` exposes all messages seen during the session. The
-same code works with any implementation, allowing you to choose between OpenAI,
-Gemini or Claude at runtime.
+For direct LLM calls, use `think.models.generate()` or `think.models.agenerate()`
+which automatically routes to the configured provider based on context.
 
 ## Insight map keys
 
