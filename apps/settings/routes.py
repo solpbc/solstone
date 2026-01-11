@@ -175,7 +175,7 @@ def get_providers() -> Any:
         - api_keys: Boolean status for each provider's API key
     """
     try:
-        from think.models import (
+        from muse.models import (
             CONTEXT_DEFAULTS,
             DEFAULT_PROVIDER,
             DEFAULT_TIER,
@@ -207,15 +207,17 @@ def get_providers() -> Any:
         for provider, env_key in PROVIDER_API_KEYS.items():
             api_keys[provider] = bool(env_config.get(env_key))
 
-        return jsonify({
-            "default": {
-                "provider": default_provider,
-                "tier": default_tier,
-            },
-            "contexts": contexts,
-            "context_defaults": context_defaults,
-            "api_keys": api_keys,
-        })
+        return jsonify(
+            {
+                "default": {
+                    "provider": default_provider,
+                    "tier": default_tier,
+                },
+                "contexts": contexts,
+                "context_defaults": context_defaults,
+                "api_keys": api_keys,
+            }
+        )
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
@@ -231,7 +233,7 @@ def update_providers() -> Any:
     Setting a context to null removes the override.
     """
     try:
-        from think.models import CONTEXT_DEFAULTS
+        from muse.models import CONTEXT_DEFAULTS
 
         request_data = request.get_json()
         if not request_data:
@@ -263,10 +265,15 @@ def update_providers() -> Any:
             if "provider" in default_data:
                 provider = default_data["provider"]
                 if provider not in VALID_PROVIDERS:
-                    return jsonify({
-                        "error": f"Invalid provider: {provider}. "
-                        f"Must be one of: {', '.join(sorted(VALID_PROVIDERS))}"
-                    }), 400
+                    return (
+                        jsonify(
+                            {
+                                "error": f"Invalid provider: {provider}. "
+                                f"Must be one of: {', '.join(sorted(VALID_PROVIDERS))}"
+                            }
+                        ),
+                        400,
+                    )
                 if old_default.get("provider") != provider:
                     changed_fields["default.provider"] = {
                         "old": old_default.get("provider"),
@@ -278,9 +285,12 @@ def update_providers() -> Any:
             if "tier" in default_data:
                 tier = default_data["tier"]
                 if tier not in VALID_TIERS:
-                    return jsonify({
-                        "error": f"Invalid tier: {tier}. Must be 1, 2, or 3."
-                    }), 400
+                    return (
+                        jsonify(
+                            {"error": f"Invalid tier: {tier}. Must be 1, 2, or 3."}
+                        ),
+                        400,
+                    )
                 if old_default.get("tier") != tier:
                     changed_fields["default.tier"] = {
                         "old": old_default.get("tier"),
@@ -299,9 +309,10 @@ def update_providers() -> Any:
             for pattern, ctx_config in contexts_data.items():
                 # Validate pattern exists in CONTEXT_DEFAULTS
                 if pattern not in CONTEXT_DEFAULTS:
-                    return jsonify({
-                        "error": f"Unknown context pattern: {pattern}"
-                    }), 400
+                    return (
+                        jsonify({"error": f"Unknown context pattern: {pattern}"}),
+                        400,
+                    )
 
                 old_ctx = old_contexts.get(pattern)
 
@@ -319,17 +330,21 @@ def update_providers() -> Any:
                 if "provider" in ctx_config:
                     provider = ctx_config["provider"]
                     if provider not in VALID_PROVIDERS:
-                        return jsonify({
-                            "error": f"Invalid provider for {pattern}: {provider}"
-                        }), 400
+                        return (
+                            jsonify(
+                                {"error": f"Invalid provider for {pattern}: {provider}"}
+                            ),
+                            400,
+                        )
 
                 # Validate tier if specified
                 if "tier" in ctx_config:
                     tier = ctx_config["tier"]
                     if tier not in VALID_TIERS:
-                        return jsonify({
-                            "error": f"Invalid tier for {pattern}: {tier}"
-                        }), 400
+                        return (
+                            jsonify({"error": f"Invalid tier for {pattern}: {tier}"}),
+                            400,
+                        )
 
                 # Only store if there's something to override
                 if ctx_config:

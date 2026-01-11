@@ -11,7 +11,6 @@ from typing import Optional
 
 from dotenv import load_dotenv
 
-from .models import generate
 from .utils import load_prompt, setup_cli
 
 
@@ -62,6 +61,8 @@ def _load_prompt() -> str:
 
 def generate_plan(request: str) -> str:
     """Return a detailed agent plan for ``request`` using configured provider."""
+    from muse.models import generate
+
     return generate(
         contents=request,
         context="planner.generate",

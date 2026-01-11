@@ -15,6 +15,7 @@ import unicodedata
 from datetime import timedelta
 from pathlib import Path
 
+from muse.models import generate
 from observe.hear import load_transcript
 from observe.revai import convert_revai_to_solstone, transcribe_file
 from think.callosum import CallosumConnection
@@ -22,7 +23,6 @@ from think.detect_created import detect_created
 from think.detect_transcript import detect_transcript_json, detect_transcript_segment
 from think.facets import get_facets
 from think.importer_utils import save_import_file, write_import_metadata
-from think.models import generate
 from think.utils import (
     PromptNotFoundError,
     day_path,

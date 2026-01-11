@@ -11,8 +11,8 @@ from pathlib import Path
 
 import pytest
 
-from think.batch import Batch
-from think.models import GEMINI_FLASH, GEMINI_LITE
+from muse.batch import Batch
+from muse.models import GEMINI_FLASH, GEMINI_LITE
 
 # Default context for integration tests - uses Google provider
 TEST_CONTEXT = "test.batch.integration"

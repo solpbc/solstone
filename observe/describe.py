@@ -368,8 +368,8 @@ class VideoProcessor:
         output_path : Optional[Path]
             Path to write JSONL output (when None, no output file is written)
         """
-        from think.batch import Batch
-        from think.models import resolve_provider
+        from muse.batch import Batch
+        from muse.models import resolve_provider
 
         # Use dynamically built categorization prompt
         system_instruction = CATEGORIZATION_PROMPT
@@ -558,7 +558,9 @@ class VideoProcessor:
                             follow_req = req
                         else:
                             # Placeholder - context/contents updated via batch.update()
-                            follow_req = batch.create(contents=[], context=cat_meta["context"])
+                            follow_req = batch.create(
+                                contents=[], context=cat_meta["context"]
+                            )
                             follow_req.frame_id = req.frame_id
                             follow_req.timestamp = req.timestamp
                             follow_req.frame_bytes = req.frame_bytes

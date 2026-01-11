@@ -11,7 +11,7 @@ from pathlib import Path
 import pytest
 from dotenv import load_dotenv
 
-from think.models import CLAUDE_SONNET_4
+from muse.models import CLAUDE_SONNET_4
 
 # --- Shared Test Helpers ---
 

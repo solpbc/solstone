@@ -7,8 +7,8 @@ import json
 import sys
 from types import SimpleNamespace
 
+from muse.models import GPT_5
 from tests.agents_stub import install_agents_stub
-from think.models import GPT_5
 
 
 async def run_main(mod, argv, stdin_data=None):

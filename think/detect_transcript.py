@@ -10,7 +10,6 @@ import logging
 from pathlib import Path
 from typing import List, Optional
 
-from .models import generate
 from .utils import load_prompt
 
 
@@ -134,6 +133,8 @@ def detect_transcript_segment(text: str, start_time: str) -> List[tuple[str, str
     contents = f"START_TIME: {start_time}\n{numbered}"
     logging.info(f"Starting transcript segmentation (start: {start_time})...")
 
+    from muse.models import generate
+
     response_text = generate(
         contents=contents,
         context="observe.detect.segment",
@@ -167,6 +168,8 @@ def detect_transcript_json(text: str, segment_start: str) -> Optional[list]:
 
     # Prepend SEGMENT_START for the prompt
     contents = f"SEGMENT_START: {segment_start}\n{text}"
+
+    from muse.models import generate
 
     response_text = generate(
         contents=contents,

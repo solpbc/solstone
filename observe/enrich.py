@@ -23,9 +23,9 @@ import numpy as np
 import soundfile as sf
 from google.genai import types
 
+from muse.models import generate
 from observe.utils import SAMPLE_RATE
 from think.entities import load_recent_entity_names
-from think.models import generate
 from think.utils import load_prompt
 
 logger = logging.getLogger(__name__)

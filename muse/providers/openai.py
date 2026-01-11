@@ -50,7 +50,7 @@ except Exception:  # pragma: no cover
 
 # Agent configuration is now loaded via get_agent() in cortex.py
 
-from think.models import GPT_5
+from muse.models import GPT_5
 
 from ..agents import JSONEventCallback, ThinkingEvent
 
@@ -598,7 +598,7 @@ def generate(
     str
         Response text from the model.
     """
-    from think.models import log_token_usage
+    from muse.models import log_token_usage
 
     client = _get_openai_client()
     messages = _convert_contents_to_messages(contents, system_instruction)
@@ -676,7 +676,7 @@ async def agenerate(
     str
         Response text from the model.
     """
-    from think.models import log_token_usage
+    from muse.models import log_token_usage
 
     client = _get_async_openai_client()
     messages = _convert_contents_to_messages(contents, system_instruction)

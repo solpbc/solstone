@@ -10,8 +10,8 @@ from pathlib import Path
 from google import genai
 from google.genai import types
 
+from muse.models import generate
 from think.cluster import cluster, cluster_period
-from think.models import generate
 from think.utils import (
     PromptNotFoundError,
     day_log,
@@ -201,7 +201,7 @@ def send_markdown(
 
     # Try to use cache if display name provided
     # Note: caching is Google-specific, so we check provider first
-    from think.models import resolve_provider
+    from muse.models import resolve_provider
 
     provider, model = resolve_provider(context)
 
@@ -419,7 +419,7 @@ def main() -> None:
         prompt = insight_prompt.text
 
         # Resolve provider for display (routing happens inside send_markdown)
-        from think.models import resolve_provider
+        from muse.models import resolve_provider
 
         _, model = resolve_provider(f"insight.{insight_key}")
         day = args.day

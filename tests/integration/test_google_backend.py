@@ -11,7 +11,7 @@ from pathlib import Path
 import pytest
 from dotenv import load_dotenv
 
-from think.models import GEMINI_FLASH, GEMINI_PRO
+from muse.models import GEMINI_FLASH, GEMINI_PRO
 
 
 def get_fixtures_env():

@@ -13,7 +13,7 @@ from flask import Blueprint, jsonify, render_template, request
 from apps.utils import get_app_storage_path
 from convey.config import get_selected_facet
 from convey.utils import load_json, save_json
-from think.models import generate
+from muse.models import generate
 
 logger = logging.getLogger(__name__)
 

@@ -11,7 +11,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from think.models import GPT_5
+from muse.models import GPT_5
 
 
 @pytest.fixture

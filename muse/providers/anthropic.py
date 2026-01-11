@@ -19,7 +19,7 @@ from typing import Any, Callable, Dict, Optional
 from anthropic import AsyncAnthropic
 from anthropic.types import MessageParam, ToolParam, ToolUseBlock
 
-from think.models import CLAUDE_SONNET_4
+from muse.models import CLAUDE_SONNET_4
 from think.utils import create_mcp_client
 
 from ..agents import JSONEventCallback, ThinkingEvent
@@ -496,7 +496,7 @@ def generate(
     str
         Response text from the model.
     """
-    from think.models import log_token_usage
+    from muse.models import log_token_usage
 
     client = _get_anthropic_client()
     messages = _convert_contents_to_messages(contents)
@@ -588,7 +588,7 @@ async def agenerate(
     str
         Response text from the model.
     """
-    from think.models import log_token_usage
+    from muse.models import log_token_usage
 
     client = _get_async_anthropic_client()
     messages = _convert_contents_to_messages(contents)

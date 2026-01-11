@@ -5,7 +5,7 @@
 
 import pytest
 
-from think.models import (
+from muse.models import (
     CLAUDE_HAIKU_4,
     CLAUDE_OPUS_4,
     CLAUDE_SONNET_4,
@@ -200,18 +200,20 @@ def test_context_defaults_structure():
 
     for context, config in CONTEXT_DEFAULTS.items():
         assert isinstance(config, dict), f"{context} should be a dict"
-        assert required_keys <= set(config.keys()), (
-            f"{context} missing keys: {required_keys - set(config.keys())}"
-        )
-        assert config["tier"] in (TIER_PRO, TIER_FLASH, TIER_LITE), (
-            f"{context} has invalid tier: {config['tier']}"
-        )
-        assert isinstance(config["label"], str) and config["label"], (
-            f"{context} has invalid label: {config['label']}"
-        )
-        assert isinstance(config["group"], str) and config["group"], (
-            f"{context} has invalid group: {config['group']}"
-        )
+        assert required_keys <= set(
+            config.keys()
+        ), f"{context} missing keys: {required_keys - set(config.keys())}"
+        assert config["tier"] in (
+            TIER_PRO,
+            TIER_FLASH,
+            TIER_LITE,
+        ), f"{context} has invalid tier: {config['tier']}"
+        assert (
+            isinstance(config["label"], str) and config["label"]
+        ), f"{context} has invalid label: {config['label']}"
+        assert (
+            isinstance(config["group"], str) and config["group"]
+        ), f"{context} has invalid group: {config['group']}"
 
 
 def test_context_defaults_known_entries():

@@ -130,7 +130,7 @@ Each provider lives in `muse/providers/` and exposes a common interface:
 - `agenerate()` - Async text generation
 - `run_agent()` - Agent execution with MCP tools and event streaming
 
-For direct LLM calls, use `think.models.generate()` or `think.models.agenerate()`
+For direct LLM calls, use `muse.models.generate()` or `muse.models.agenerate()`
 which automatically routes to the configured provider based on context.
 
 ## Insight map keys

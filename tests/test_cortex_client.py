@@ -20,8 +20,8 @@ from muse.cortex_client import (
     get_agent_status,
     get_agent_thread,
 )
+from muse.models import GPT_5
 from think.callosum import CallosumConnection, CallosumServer
-from think.models import GPT_5
 
 
 @pytest.fixture

@@ -27,7 +27,7 @@ import asyncio
 import time
 from typing import Any, List, Optional, Union
 
-from think.models import agenerate
+from .models import agenerate
 
 
 class BatchRequest:

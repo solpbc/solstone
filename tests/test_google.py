@@ -8,8 +8,8 @@ import sys
 import types
 from types import SimpleNamespace
 
+from muse.models import GEMINI_FLASH
 from tests.agents_stub import install_agents_stub
-from think.models import GEMINI_FLASH
 
 
 async def run_main(mod, argv, stdin_data=None):

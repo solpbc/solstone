@@ -11,7 +11,7 @@ from pathlib import Path
 import pytest
 from dotenv import load_dotenv
 
-from think.models import GPT_5_MINI
+from muse.models import GPT_5_MINI
 
 
 def get_fixtures_env():

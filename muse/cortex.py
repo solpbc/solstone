@@ -512,7 +512,7 @@ class CortexService:
                             usage_data = event.get("usage")
                             if usage_data and original_request:
                                 try:
-                                    from think.models import log_token_usage
+                                    from muse.models import log_token_usage
 
                                     model = original_request.get("model", "unknown")
                                     persona = original_request.get("persona", "unknown")

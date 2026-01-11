@@ -13,7 +13,6 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
-from .models import generate
 from .utils import load_prompt
 
 
@@ -85,6 +84,8 @@ def detect_created(
 
     # Debug: write content to temp file
     _debug_write_content(markdown, path)
+
+    from muse.models import generate
 
     response_text = generate(
         contents=markdown,

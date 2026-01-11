@@ -20,7 +20,7 @@ from dotenv import load_dotenv
 from google import genai
 from google.genai import types
 
-from think.models import GEMINI_FLASH, resolve_provider
+from muse.models import GEMINI_FLASH, resolve_provider
 from think.utils import create_mcp_client
 
 from ..agents import JSONEventCallback, ThinkingEvent
@@ -207,7 +207,7 @@ def generate(
     str
         Response text from the model.
     """
-    from think.models import log_token_usage
+    from muse.models import log_token_usage
 
     cached_content = kwargs.get("cached_content")
     client = kwargs.get("client")
@@ -279,7 +279,7 @@ async def agenerate(
     str
         Response text from the model.
     """
-    from think.models import log_token_usage
+    from muse.models import log_token_usage
 
     cached_content = kwargs.get("cached_content")
     client = kwargs.get("client")

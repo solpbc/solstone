@@ -32,7 +32,7 @@ from claude_agent_sdk import (
     query,
 )
 
-from think.models import CLAUDE_SONNET_4
+from muse.models import CLAUDE_SONNET_4
 from think.utils import get_journal
 
 from .agents import JSONEventCallback, ThinkingEvent
