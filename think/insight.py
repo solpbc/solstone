@@ -11,7 +11,7 @@ from google import genai
 from google.genai import types
 
 from think.cluster import cluster, cluster_period
-from think.models import GEMINI_PRO, gemini_generate
+from think.models import GEMINI_PRO, gemini_generate, resolve_provider
 from think.utils import (
     PromptNotFoundError,
     day_log,
@@ -19,7 +19,6 @@ from think.utils import (
     get_insight_topic,
     get_insights,
     get_journal,
-    get_model_for,
     load_prompt,
     setup_cli,
 )
@@ -425,7 +424,8 @@ def main() -> None:
 
         prompt = insight_prompt.text
 
-        model = GEMINI_PRO if args.pro else get_model_for("insights")
+        _, default_model = resolve_provider(f"insight.{insight_key}")
+        model = GEMINI_PRO if args.pro else default_model
         day = args.day
         size_kb = len(markdown.encode("utf-8")) / 1024
 

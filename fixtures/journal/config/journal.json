@@ -15,20 +15,15 @@
   "convey": {
     "password": "test123"
   },
-  "models": {
-    "insights": "flash",
-    "observations": "flash",
-    "agents": "flash"
-  },
   "providers": {
     "default": {
       "provider": "google",
       "model": "gemini-3-flash-preview"
     },
-    "prefixes": {
+    "contexts": {
       "test.openai": {"provider": "openai", "model": "gpt-5-mini"},
       "test.anthropic": {"provider": "anthropic", "model": "claude-sonnet-4-5"},
-      "describe.*": {"provider": "google", "model": "gemini-2.5-flash-lite"}
+      "observe.*": {"provider": "google", "model": "gemini-2.5-flash-lite"}
     }
   },
   "env": {

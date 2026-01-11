@@ -19,8 +19,8 @@ from think.models import (
     GPT_5_NANO,
     calc_token_cost,
     get_model_provider,
+    resolve_provider,
 )
-from think.utils import resolve_provider
 
 
 def test_get_model_provider_gemini():
@@ -174,13 +174,13 @@ def test_resolve_provider_exact_match(use_fixtures_journal):
 
 def test_resolve_provider_glob_match(use_fixtures_journal):
     """Test that glob pattern matching works."""
-    # describe.* pattern should match
-    provider, model = resolve_provider("describe.frame")
+    # observe.* pattern should match
+    provider, model = resolve_provider("observe.describe.frame")
     assert provider == "google"
     assert model == "gemini-2.5-flash-lite"
 
     # Also matches with other suffixes
-    provider, model = resolve_provider("describe.meeting")
+    provider, model = resolve_provider("observe.enrich")
     assert provider == "google"
     assert model == "gemini-2.5-flash-lite"
 

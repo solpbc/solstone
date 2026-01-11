@@ -20,8 +20,8 @@ from dotenv import load_dotenv
 from google import genai
 from google.genai import types
 
-from think.models import GEMINI_FLASH
-from think.utils import create_mcp_client, get_model_for
+from think.models import GEMINI_FLASH, resolve_provider
+from think.utils import create_mcp_client
 
 from .agents import JSONEventCallback, ThinkingEvent
 
@@ -314,7 +314,8 @@ async def agenerate(
 
 def _get_default_model() -> str:
     """Return the configured default model for agents."""
-    return get_model_for("agents")
+    _, model = resolve_provider("agent.default")
+    return model
 
 
 class ToolLoggingHooks:

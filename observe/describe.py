@@ -60,11 +60,10 @@ def _discover_categories() -> dict[str, dict]:
     dict[str, dict]
         Mapping of category name to metadata (including 'prompt' if followup=true)
     """
-    from think.models import GEMINI_MODEL_NAMES
-    from think.utils import get_model_for
+    from think.models import GEMINI_MODEL_NAMES, resolve_provider
 
     # Get configured default for observations
-    default_model = get_model_for("observations")
+    _, default_model = resolve_provider("observe.describe")
 
     categories_dir = Path(__file__).parent / "categories"
     if not categories_dir.exists():
@@ -140,7 +139,9 @@ def _build_categorization_prompt() -> str:
     category_list = "\n".join(category_lines)
 
     return load_prompt(
-        "describe", base_dir=Path(__file__).parent, context={"categories": category_list}
+        "describe",
+        base_dir=Path(__file__).parent,
+        context={"categories": category_list},
     ).text
 
 
@@ -418,7 +419,7 @@ class VideoProcessor:
                 temperature=0.7,
                 max_output_tokens=1024,
                 thinking_budget=1024,
-                context="describe.frame",
+                context="observe.describe.frame",
             )
 
             # Attach metadata for tracking (store bytes, not PIL images)
@@ -589,7 +590,7 @@ class VideoProcessor:
                             json_output=is_json,
                             max_output_tokens=10240 if is_json else 8192,
                             thinking_budget=6144 if is_json else 4096,
-                            context=f"describe.{category}",
+                            context=f"observe.describe.{category}",
                         )
 
                     logger.info(

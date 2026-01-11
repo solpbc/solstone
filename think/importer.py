@@ -22,12 +22,11 @@ from think.detect_created import detect_created
 from think.detect_transcript import detect_transcript_json, detect_transcript_segment
 from think.facets import get_facets
 from think.importer_utils import save_import_file, write_import_metadata
-from think.models import gemini_generate
+from think.models import gemini_generate, resolve_provider
 from think.utils import (
     PromptNotFoundError,
     day_path,
     get_journal,
-    get_model_for,
     load_prompt,
     segment_key,
     setup_cli,
@@ -628,13 +627,14 @@ def create_transcript_summary(
         )
 
         # Generate summary using Gemini
+        _, model = resolve_provider("observe.summarize")
         response_text = gemini_generate(
             contents=user_message,
-            model=get_model_for("observations"),
+            model=model,
             temperature=0.3,
             max_output_tokens=8192 * 4,
             system_instruction=importer_prompt,
-            context="import.summary",
+            context="observe.summarize",
         )
 
         # Save the summary

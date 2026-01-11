@@ -30,6 +30,67 @@ CLAUDE_SONNET_4 = "claude-sonnet-4-5"
 CLAUDE_HAIKU_4 = "claude-haiku-4-5"
 
 
+def resolve_provider(context: str) -> tuple[str, str]:
+    """Resolve context to provider and model based on configuration.
+
+    Matches context against configured contexts using exact match first,
+    then glob patterns (via fnmatch), falling back to defaults.
+
+    Parameters
+    ----------
+    context
+        Context string (e.g., "observe.describe.frame", "insight.meetings").
+
+    Returns
+    -------
+    tuple[str, str]
+        (provider_name, model) tuple. Provider is one of "google", "openai",
+        "anthropic". Model is the full model identifier string.
+    """
+    import fnmatch
+
+    from think.utils import get_config
+
+    config = get_config()
+    providers = config.get("providers", {})
+
+    # Get defaults
+    default = providers.get("default", {"provider": "google", "model": GEMINI_FLASH})
+    default_provider = default.get("provider", "google")
+    default_model = default.get("model", GEMINI_FLASH)
+
+    contexts = providers.get("contexts", {})
+    if not contexts or not context:
+        return (default_provider, default_model)
+
+    # Check for exact match first
+    if context in contexts:
+        match = contexts[context]
+        return (
+            match.get("provider", default_provider),
+            match.get("model", default_model),
+        )
+
+    # Check glob patterns - most specific (longest non-wildcard prefix) wins
+    matches = []
+    for pattern, match_config in contexts.items():
+        if fnmatch.fnmatch(context, pattern):
+            # Calculate specificity: length of pattern before first wildcard
+            specificity = len(pattern.split("*")[0])
+            matches.append((specificity, pattern, match_config))
+
+    if matches:
+        # Sort by specificity descending, take the most specific match
+        matches.sort(key=lambda x: x[0], reverse=True)
+        _, _, match_config = matches[0]
+        return (
+            match_config.get("provider", default_provider),
+            match_config.get("model", default_model),
+        )
+
+    return (default_provider, default_model)
+
+
 def get_or_create_client(client: Optional[Any] = None) -> Any:
     """Get existing Gemini client or create new one.
 
@@ -508,7 +569,6 @@ def generate(
     ValueError
         If the resolved provider is not supported.
     """
-    from think.utils import resolve_provider
 
     provider, model = resolve_provider(context)
 
@@ -583,7 +643,6 @@ async def agenerate(
     ValueError
         If the resolved provider is not supported.
     """
-    from think.utils import resolve_provider
 
     provider, model = resolve_provider(context)
 

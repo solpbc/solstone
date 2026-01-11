@@ -106,7 +106,9 @@ def enrich_transcript(
 
         # Build interleaved content: numbered text label + audio clip for each segment
         prompt_content = load_prompt(
-            "enrich", base_dir=Path(__file__).parent, context={"entity_names": entity_names}
+            "enrich",
+            base_dir=Path(__file__).parent,
+            context={"entity_names": entity_names},
         )
         contents: list = [prompt_content.text]
 
@@ -132,6 +134,7 @@ def enrich_transcript(
             max_output_tokens=8192,
             thinking_budget=4096,
             json_output=True,
+            context="observe.enrich",
         )
 
         result = json.loads(response_text)

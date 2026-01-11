@@ -8,8 +8,7 @@ import os
 
 import pytest
 
-from think.models import GEMINI_FLASH, GEMINI_LITE, GEMINI_PRO
-from think.utils import get_config, get_model_for
+from think.utils import get_config
 
 
 @pytest.fixture
@@ -178,63 +177,3 @@ def test_get_config_with_fixtures():
     assert isinstance(config["identity"]["email_addresses"], list)
     assert isinstance(config["identity"]["timezone"], str)
     assert isinstance(config["identity"]["bio"], str)
-
-
-def test_get_model_for_default(tmp_path, monkeypatch):
-    """Test get_model_for returns GEMINI_FLASH when no config exists."""
-    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
-
-    assert get_model_for("insights") == GEMINI_FLASH
-    assert get_model_for("observations") == GEMINI_FLASH
-    assert get_model_for("agents") == GEMINI_FLASH
-
-
-def test_get_model_for_configured(tmp_path, monkeypatch):
-    """Test get_model_for returns configured model values."""
-    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
-
-    config_dir = tmp_path / "config"
-    config_dir.mkdir()
-
-    config_data = {
-        "models": {
-            "insights": "pro",
-            "observations": "lite",
-            "agents": "flash",
-        }
-    }
-
-    config_file = config_dir / "journal.json"
-    with open(config_file, "w") as f:
-        json.dump(config_data, f)
-
-    assert get_model_for("insights") == GEMINI_PRO
-    assert get_model_for("observations") == GEMINI_LITE
-    assert get_model_for("agents") == GEMINI_FLASH
-
-
-def test_get_model_for_invalid_value(tmp_path, monkeypatch):
-    """Test get_model_for falls back to GEMINI_FLASH for invalid values."""
-    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
-
-    config_dir = tmp_path / "config"
-    config_dir.mkdir()
-
-    config_data = {
-        "models": {
-            "insights": "invalid_model",
-        }
-    }
-
-    config_file = config_dir / "journal.json"
-    with open(config_file, "w") as f:
-        json.dump(config_data, f)
-
-    assert get_model_for("insights") == GEMINI_FLASH
-
-
-def test_get_model_for_unknown_grouping(tmp_path, monkeypatch):
-    """Test get_model_for returns GEMINI_FLASH for unknown groupings."""
-    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
-
-    assert get_model_for("unknown_grouping") == GEMINI_FLASH
