@@ -8,10 +8,6 @@ import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
-from dotenv import load_dotenv
-from google import genai
-from google.genai import types
-
 from think.utils import get_journal
 
 GEMINI_FLASH = "gemini-3-flash-preview"
@@ -34,8 +30,10 @@ CLAUDE_SONNET_4 = "claude-sonnet-4-5"
 CLAUDE_HAIKU_4 = "claude-haiku-4-5"
 
 
-def get_or_create_client(client: Optional[genai.Client] = None) -> genai.Client:
-    """Get existing client or create new one.
+def get_or_create_client(client: Optional[Any] = None) -> Any:
+    """Get existing Gemini client or create new one.
+
+    This is a backward-compatibility wrapper that delegates to muse.google.
 
     Parameters
     ----------
@@ -48,114 +46,9 @@ def get_or_create_client(client: Optional[genai.Client] = None) -> genai.Client:
     genai.Client
         The provided client or a newly created one.
     """
-    if client is None:
-        load_dotenv()
-        api_key = os.getenv("GOOGLE_API_KEY")
-        if not api_key:
-            raise ValueError("GOOGLE_API_KEY not found in environment")
-        client = genai.Client(api_key=api_key)
-    return client
+    from muse.google import get_or_create_client as _get_or_create_client
 
-
-def _normalize_contents(
-    contents: Union[str, List[Any], List[types.Content]],
-) -> List[Any]:
-    """Normalize contents to list format."""
-    if isinstance(contents, str):
-        return [contents]
-    return contents
-
-
-def _build_generate_config(
-    temperature: float,
-    max_output_tokens: int,
-    system_instruction: Optional[str],
-    json_output: bool,
-    thinking_budget: Optional[int],
-    cached_content: Optional[str],
-    timeout_s: Optional[float] = None,
-) -> types.GenerateContentConfig:
-    """Build the GenerateContentConfig.
-
-    Note: Gemini's max_output_tokens is actually the total budget (thinking + output).
-    We compute this internally: total = max_output_tokens + thinking_budget.
-    """
-    # Compute total tokens: output + thinking budget
-    total_tokens = max_output_tokens + (thinking_budget or 0)
-
-    config_args = {
-        "temperature": temperature,
-        "max_output_tokens": total_tokens,
-    }
-
-    if system_instruction:
-        config_args["system_instruction"] = system_instruction
-
-    if json_output:
-        config_args["response_mime_type"] = "application/json"
-
-    if thinking_budget:
-        config_args["thinking_config"] = types.ThinkingConfig(
-            thinking_budget=thinking_budget
-        )
-
-    if cached_content:
-        config_args["cached_content"] = cached_content
-
-    if timeout_s:
-        # Convert seconds to milliseconds for the SDK
-        timeout_ms = int(timeout_s * 1000)
-        config_args["http_options"] = types.HttpOptions(timeout=timeout_ms)
-
-    return types.GenerateContentConfig(**config_args)
-
-
-def _validate_response(
-    response, max_output_tokens: int, thinking_budget: Optional[int] = None
-) -> str:
-    """Validate response and extract text."""
-    if response is None or response.text is None:
-        # Try to extract text from candidates if available
-        if response and hasattr(response, "candidates") and response.candidates:
-            candidate = response.candidates[0]
-
-            # Check for finish reason to understand why we got no text
-            if hasattr(candidate, "finish_reason"):
-                finish_reason = str(candidate.finish_reason)
-                if "MAX_TOKENS" in finish_reason:
-                    total_tokens = max_output_tokens + (thinking_budget or 0)
-                    raise ValueError(
-                        f"Model hit token limit ({total_tokens} total = {max_output_tokens} output + "
-                        f"{thinking_budget or 0} thinking) before producing output. "
-                        f"Try increasing max_output_tokens or reducing thinking_budget."
-                    )
-                elif "SAFETY" in finish_reason:
-                    raise ValueError(
-                        f"Response blocked by safety filters: {finish_reason}"
-                    )
-                elif "STOP" not in finish_reason:
-                    raise ValueError(f"Response failed with reason: {finish_reason}")
-
-            # Try to extract text from parts if available
-            if (
-                hasattr(candidate, "content")
-                and hasattr(candidate.content, "parts")
-                and candidate.content.parts
-            ):
-                for part in candidate.content.parts:
-                    if hasattr(part, "text") and part.text:
-                        return part.text
-
-        # If we still don't have text, raise an error with details
-        error_msg = "No text in response"
-        if response:
-            if hasattr(response, "candidates") and not response.candidates:
-                error_msg = "No candidates in response"
-            elif hasattr(response, "prompt_feedback"):
-                error_msg = f"Response issue: {response.prompt_feedback}"
-        raise ValueError(error_msg)
-
-    return response.text
+    return _get_or_create_client(client)
 
 
 def log_token_usage(
@@ -419,7 +312,7 @@ def calc_token_cost(token_data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
 
 
 def gemini_generate(
-    contents: Union[str, List[Any], List[types.Content]],
+    contents: Union[str, List[Any]],
     model: str = GEMINI_FLASH,
     temperature: float = 0.3,
     max_output_tokens: int = 8192 * 2,
@@ -427,16 +320,18 @@ def gemini_generate(
     json_output: bool = False,
     thinking_budget: Optional[int] = None,
     cached_content: Optional[str] = None,
-    client: Optional[genai.Client] = None,
+    client: Optional[Any] = None,
     timeout_s: Optional[float] = None,
     context: Optional[str] = None,
 ) -> str:
     """
-    Simplified wrapper for genai.models.generate_content with common defaults.
+    Simplified wrapper for Google Gemini generation with common defaults.
+
+    This is a backward-compatibility wrapper that delegates to muse.google.generate().
 
     Parameters
     ----------
-    contents : str, List, or List[types.Content]
+    contents : str or List
         The content to send to the model. Can be:
         - A string (will be converted to a list with one string)
         - A list of strings, types.Part objects, or mixed content
@@ -471,31 +366,25 @@ def gemini_generate(
     str
         Response text from the model
     """
-    client = get_or_create_client(client)
-    contents = _normalize_contents(contents)
-    config = _build_generate_config(
+    from muse.google import generate as google_generate
+
+    return google_generate(
+        contents=contents,
+        model=model,
         temperature=temperature,
         max_output_tokens=max_output_tokens,
         system_instruction=system_instruction,
         json_output=json_output,
         thinking_budget=thinking_budget,
-        cached_content=cached_content,
         timeout_s=timeout_s,
+        context=context,
+        cached_content=cached_content,
+        client=client,
     )
-
-    response = client.models.generate_content(
-        model=model,
-        contents=contents,
-        config=config,
-    )
-
-    text = _validate_response(response, max_output_tokens, thinking_budget)
-    log_token_usage(model=model, usage=response, context=context)
-    return text
 
 
 async def gemini_agenerate(
-    contents: Union[str, List[Any], List[types.Content]],
+    contents: Union[str, List[Any]],
     model: str = GEMINI_FLASH,
     temperature: float = 0.3,
     max_output_tokens: int = 8192 * 2,
@@ -503,16 +392,18 @@ async def gemini_agenerate(
     json_output: bool = False,
     thinking_budget: Optional[int] = None,
     cached_content: Optional[str] = None,
-    client: Optional[genai.Client] = None,
+    client: Optional[Any] = None,
     timeout_s: Optional[float] = None,
     context: Optional[str] = None,
 ) -> str:
     """
-    Async wrapper for genai.aio.models.generate_content with common defaults.
+    Async wrapper for Google Gemini generation with common defaults.
+
+    This is a backward-compatibility wrapper that delegates to muse.google.agenerate().
 
     Parameters
     ----------
-    contents : str, List, or List[types.Content]
+    contents : str or List
         The content to send to the model. Can be:
         - A string (will be converted to a list with one string)
         - A list of strings, types.Part objects, or mixed content
@@ -547,27 +438,176 @@ async def gemini_agenerate(
     str
         Response text from the model
     """
-    client = get_or_create_client(client)
-    contents = _normalize_contents(contents)
-    config = _build_generate_config(
+    from muse.google import agenerate as google_agenerate
+
+    return await google_agenerate(
+        contents=contents,
+        model=model,
         temperature=temperature,
         max_output_tokens=max_output_tokens,
         system_instruction=system_instruction,
         json_output=json_output,
         thinking_budget=thinking_budget,
-        cached_content=cached_content,
         timeout_s=timeout_s,
+        context=context,
+        cached_content=cached_content,
+        client=client,
     )
 
-    response = await client.aio.models.generate_content(
-        model=model,
+
+# ---------------------------------------------------------------------------
+# Unified generate/agenerate with provider routing
+# ---------------------------------------------------------------------------
+
+
+def generate(
+    contents: Union[str, List[Any]],
+    context: str,
+    temperature: float = 0.3,
+    max_output_tokens: int = 8192 * 2,
+    system_instruction: Optional[str] = None,
+    json_output: bool = False,
+    thinking_budget: Optional[int] = None,
+    timeout_s: Optional[float] = None,
+    **kwargs: Any,
+) -> str:
+    """Generate text using the configured provider for the given context.
+
+    Routes the request to the appropriate backend (Google, OpenAI, or Anthropic)
+    based on the providers configuration in journal.json.
+
+    Parameters
+    ----------
+    contents : str or List
+        The content to send to the model.
+    context : str
+        Context string for routing and token logging (e.g., "insight.meetings").
+        This is required and determines which provider/model to use.
+    temperature : float
+        Temperature for generation (default: 0.3).
+    max_output_tokens : int
+        Maximum tokens for the model's response output.
+    system_instruction : str, optional
+        System instruction for the model.
+    json_output : bool
+        Whether to request JSON response format.
+    thinking_budget : int, optional
+        Token budget for model thinking (ignored by providers that don't support it).
+    timeout_s : float, optional
+        Request timeout in seconds.
+    **kwargs
+        Additional provider-specific options passed through to the backend.
+
+    Returns
+    -------
+    str
+        Response text from the model.
+
+    Raises
+    ------
+    ValueError
+        If the resolved provider is not supported.
+    """
+    from think.utils import resolve_provider
+
+    provider, model = resolve_provider(context)
+
+    if provider == "google":
+        from muse.google import generate as backend_generate
+    elif provider == "openai":
+        from muse.openai import generate as backend_generate
+    elif provider == "anthropic":
+        from muse.anthropic import generate as backend_generate
+    else:
+        raise ValueError(f"Unsupported provider: {provider}")
+
+    return backend_generate(
         contents=contents,
-        config=config,
+        model=model,
+        temperature=temperature,
+        max_output_tokens=max_output_tokens,
+        system_instruction=system_instruction,
+        json_output=json_output,
+        thinking_budget=thinking_budget,
+        timeout_s=timeout_s,
+        context=context,
+        **kwargs,
     )
 
-    text = _validate_response(response, max_output_tokens, thinking_budget)
-    log_token_usage(model=model, usage=response, context=context)
-    return text
+
+async def agenerate(
+    contents: Union[str, List[Any]],
+    context: str,
+    temperature: float = 0.3,
+    max_output_tokens: int = 8192 * 2,
+    system_instruction: Optional[str] = None,
+    json_output: bool = False,
+    thinking_budget: Optional[int] = None,
+    timeout_s: Optional[float] = None,
+    **kwargs: Any,
+) -> str:
+    """Async generate text using the configured provider for the given context.
+
+    Routes the request to the appropriate backend (Google, OpenAI, or Anthropic)
+    based on the providers configuration in journal.json.
+
+    Parameters
+    ----------
+    contents : str or List
+        The content to send to the model.
+    context : str
+        Context string for routing and token logging (e.g., "insight.meetings").
+        This is required and determines which provider/model to use.
+    temperature : float
+        Temperature for generation (default: 0.3).
+    max_output_tokens : int
+        Maximum tokens for the model's response output.
+    system_instruction : str, optional
+        System instruction for the model.
+    json_output : bool
+        Whether to request JSON response format.
+    thinking_budget : int, optional
+        Token budget for model thinking (ignored by providers that don't support it).
+    timeout_s : float, optional
+        Request timeout in seconds.
+    **kwargs
+        Additional provider-specific options passed through to the backend.
+
+    Returns
+    -------
+    str
+        Response text from the model.
+
+    Raises
+    ------
+    ValueError
+        If the resolved provider is not supported.
+    """
+    from think.utils import resolve_provider
+
+    provider, model = resolve_provider(context)
+
+    if provider == "google":
+        from muse.google import agenerate as backend_agenerate
+    elif provider == "openai":
+        from muse.openai import agenerate as backend_agenerate
+    elif provider == "anthropic":
+        from muse.anthropic import agenerate as backend_agenerate
+    else:
+        raise ValueError(f"Unsupported provider: {provider}")
+
+    return await backend_agenerate(
+        contents=contents,
+        model=model,
+        temperature=temperature,
+        max_output_tokens=max_output_tokens,
+        system_instruction=system_instruction,
+        json_output=json_output,
+        thinking_budget=thinking_budget,
+        timeout_s=timeout_s,
+        context=context,
+        **kwargs,
+    )
 
 
 __all__ = [
@@ -584,6 +624,8 @@ __all__ = [
     "get_or_create_client",
     "gemini_generate",
     "gemini_agenerate",
+    "generate",
+    "agenerate",
     "log_token_usage",
     "get_model_provider",
     "calc_token_cost",

@@ -172,8 +172,25 @@ def add_module_stubs(request, monkeypatch):
     class MockContent:
         pass
 
+    # Mock config builders
+    class MockHttpOptions:
+        def __init__(self, **k):
+            self.timeout = k.get("timeout")
+
+    class MockThinkingConfig:
+        def __init__(self, **k):
+            self.thinking_budget = k.get("thinking_budget")
+
+    class MockGenerateContentConfig:
+        def __init__(self, **k):
+            for key, value in k.items():
+                setattr(self, key, value)
+
     genai_mod.types = types.SimpleNamespace(
-        GenerateContentConfig=lambda **k: None, Content=MockContent
+        GenerateContentConfig=MockGenerateContentConfig,
+        Content=MockContent,
+        HttpOptions=MockHttpOptions,
+        ThinkingConfig=MockThinkingConfig,
     )
     google_mod.genai = genai_mod
     sys.modules["google"] = google_mod

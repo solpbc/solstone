@@ -459,6 +459,67 @@ def get_model_for(grouping: str) -> str:
     return GEMINI_MODEL_NAMES.get(model_name, GEMINI_FLASH)
 
 
+def resolve_provider(context: str) -> tuple[str, str]:
+    """Resolve context to provider and model based on configuration.
+
+    Matches context against configured prefixes using exact match first,
+    then glob patterns (via fnmatch), falling back to defaults.
+
+    Parameters
+    ----------
+    context
+        Context string (e.g., "describe.frame", "insight.meetings").
+
+    Returns
+    -------
+    tuple[str, str]
+        (provider_name, model) tuple. Provider is one of "google", "openai",
+        "anthropic". Model is the full model identifier string.
+    """
+    import fnmatch
+
+    from think.models import GEMINI_FLASH
+
+    config = get_config()
+    providers = config.get("providers", {})
+
+    # Get defaults
+    default = providers.get("default", {"provider": "google", "model": GEMINI_FLASH})
+    default_provider = default.get("provider", "google")
+    default_model = default.get("model", GEMINI_FLASH)
+
+    prefixes = providers.get("prefixes", {})
+    if not prefixes or not context:
+        return (default_provider, default_model)
+
+    # Check for exact match first
+    if context in prefixes:
+        match = prefixes[context]
+        return (
+            match.get("provider", default_provider),
+            match.get("model", default_model),
+        )
+
+    # Check glob patterns - most specific (longest non-wildcard prefix) wins
+    matches = []
+    for pattern, match_config in prefixes.items():
+        if fnmatch.fnmatch(context, pattern):
+            # Calculate specificity: length of pattern before first wildcard
+            specificity = len(pattern.split("*")[0])
+            matches.append((specificity, pattern, match_config))
+
+    if matches:
+        # Sort by specificity descending, take the most specific match
+        matches.sort(key=lambda x: x[0], reverse=True)
+        _, _, match_config = matches[0]
+        return (
+            match_config.get("provider", default_provider),
+            match_config.get("model", default_model),
+        )
+
+    return (default_provider, default_model)
+
+
 def _append_task_log(dir_path: str | Path, message: str) -> None:
     """Append ``message`` to ``task_log.txt`` inside ``dir_path``."""
     path = Path(dir_path) / "task_log.txt"
@@ -537,9 +598,10 @@ def setup_cli(parser: argparse.ArgumentParser, *, parse_known: bool = False):
 
     The parser will be extended with ``-v``/``--verbose`` and ``-d``/``--debug`` flags.
     The journal path is resolved via get_journal() which loads .env and auto-creates
-    a default path if needed. The parsed arguments are returned. If ``parse_known``
-    is ``True`` a tuple of ``(args, extra)`` is returned using
-    :func:`argparse.ArgumentParser.parse_known_args`.
+    a default path if needed. Environment variables from the journal config's ``env``
+    section are loaded as fallbacks for any keys not already set in the shell or .env.
+    The parsed arguments are returned. If ``parse_known`` is ``True`` a tuple of
+    ``(args, extra)`` is returned using :func:`argparse.ArgumentParser.parse_known_args`.
     """
     parser.add_argument(
         "-v", "--verbose", action="store_true", help="Enable verbose output"
@@ -564,6 +626,13 @@ def setup_cli(parser: argparse.ArgumentParser, *, parse_known: bool = False):
 
     # Initialize journal path (may auto-create default)
     get_journal()
+
+    # Load config env as fallback for missing environment variables
+    # Precedence: shell env > .env file > journal config env
+    config = get_config()
+    for key, value in config.get("env", {}).items():
+        if not os.environ.get(key):  # Only set if missing or empty
+            os.environ[key] = str(value)
 
     return (args, extra) if parse_known else args
 

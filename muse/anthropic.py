@@ -26,6 +26,20 @@ from .agents import JSONEventCallback, ThinkingEvent
 
 # Default values are now handled internally
 _DEFAULT_MODEL = CLAUDE_SONNET_4
+
+# Model prefixes that support extended thinking
+_THINKING_MODEL_PREFIXES = (
+    "claude-opus-4",
+    "claude-sonnet-4",
+    "claude-sonnet-3-7",
+)
+
+
+def _supports_thinking(model: str) -> bool:
+    """Check if a model supports extended thinking."""
+    return any(model.startswith(prefix) for prefix in _THINKING_MODEL_PREFIXES)
+
+
 _DEFAULT_MAX_TOKENS = 8096 * 2
 
 
@@ -247,16 +261,11 @@ async def run_agent(
                 while True:
                     # Configure thinking for supported models
                     thinking_config = None
-                    if model in [
-                        "claude-opus-4-20250514",
-                        "claude-sonnet-4-20250514",
-                        "claude-sonnet-3-7-20241124",
-                    ]:
-                        if max_tokens >= 2048:
-                            thinking_config = {
-                                "type": "enabled",
-                                "budget_tokens": min(10000, max_tokens - 1000),
-                            }
+                    if _supports_thinking(model) and max_tokens >= 2048:
+                        thinking_config = {
+                            "type": "enabled",
+                            "budget_tokens": min(10000, max_tokens - 1000),
+                        }
 
                     # Only include tools parameter if we have tools
                     create_params = {
@@ -310,16 +319,11 @@ async def run_agent(
             # No MCP tools - single response only
             # Configure thinking for supported models
             thinking_config = None
-            if model in [
-                "claude-opus-4-20250514",
-                "claude-sonnet-4-20250514",
-                "claude-sonnet-3-7-20241124",
-            ]:
-                if max_tokens >= 2048:
-                    thinking_config = {
-                        "type": "enabled",
-                        "budget_tokens": min(10000, max_tokens - 1000),
-                    }
+            if _supports_thinking(model) and max_tokens >= 2048:
+                thinking_config = {
+                    "type": "enabled",
+                    "budget_tokens": min(10000, max_tokens - 1000),
+                }
 
             # Create params without tools parameter when MCP is disabled
             create_params = {
@@ -347,30 +351,11 @@ async def run_agent(
                     }
                     callback.emit(thinking_event)
 
-            # Extract usage from response
-            usage_dict = None
-            if hasattr(response, "usage") and response.usage:
-                usage = response.usage
-                input_tokens = getattr(usage, "input_tokens", 0)
-                output_tokens = getattr(usage, "output_tokens", 0)
-                usage_dict = {
-                    "input_tokens": input_tokens,
-                    "output_tokens": output_tokens,
-                    "total_tokens": input_tokens + output_tokens,
-                }
-                # Add cache tokens if available and non-zero
-                cache_creation = getattr(usage, "cache_creation_input_tokens", None)
-                if cache_creation:
-                    usage_dict["cache_creation_tokens"] = cache_creation
-                cache_read = getattr(usage, "cache_read_input_tokens", None)
-                if cache_read:
-                    usage_dict["cached_tokens"] = cache_read
-
             callback.emit(
                 {
                     "event": "finish",
                     "result": final_text,
-                    "usage": usage_dict,
+                    "usage": _extract_usage_dict(response),
                     "ts": int(time.time() * 1000),
                 }
             )
@@ -387,6 +372,274 @@ async def run_agent(
         raise
 
 
+# ---------------------------------------------------------------------------
+# Standardized generate/agenerate functions
+# ---------------------------------------------------------------------------
+
+
+def _extract_usage_dict(response: Any) -> Optional[Dict[str, Any]]:
+    """Extract usage dict from Anthropic response.
+
+    Returns normalized usage dict or None if usage unavailable.
+    """
+    if not hasattr(response, "usage") or not response.usage:
+        return None
+
+    usage = response.usage
+    input_tokens = getattr(usage, "input_tokens", 0)
+    output_tokens = getattr(usage, "output_tokens", 0)
+    usage_dict: Dict[str, Any] = {
+        "input_tokens": input_tokens,
+        "output_tokens": output_tokens,
+        "total_tokens": input_tokens + output_tokens,
+    }
+    # Add cache tokens if available and non-zero
+    cache_creation = getattr(usage, "cache_creation_input_tokens", None)
+    if cache_creation:
+        usage_dict["cache_creation_tokens"] = cache_creation
+    cache_read = getattr(usage, "cache_read_input_tokens", None)
+    if cache_read:
+        usage_dict["cached_tokens"] = cache_read
+    return usage_dict
+
+
+# Cache for Anthropic clients
+_anthropic_client = None
+_async_anthropic_client = None
+
+
+def _get_anthropic_client():
+    """Get or create sync Anthropic client."""
+    global _anthropic_client
+    if _anthropic_client is None:
+        from anthropic import Anthropic
+        from dotenv import load_dotenv
+
+        load_dotenv()
+        api_key = os.getenv("ANTHROPIC_API_KEY")
+        if not api_key:
+            raise ValueError("ANTHROPIC_API_KEY not found in environment")
+        _anthropic_client = Anthropic(api_key=api_key)
+    return _anthropic_client
+
+
+def _get_async_anthropic_client():
+    """Get or create async Anthropic client."""
+    global _async_anthropic_client
+    if _async_anthropic_client is None:
+        from dotenv import load_dotenv
+
+        load_dotenv()
+        api_key = os.getenv("ANTHROPIC_API_KEY")
+        if not api_key:
+            raise ValueError("ANTHROPIC_API_KEY not found in environment")
+        _async_anthropic_client = AsyncAnthropic(api_key=api_key)
+    return _async_anthropic_client
+
+
+def _convert_contents_to_messages(contents: Any) -> list[MessageParam]:
+    """Convert contents to Anthropic messages format."""
+    # Handle different content formats
+    if isinstance(contents, str):
+        return [{"role": "user", "content": contents}]
+    elif isinstance(contents, list):
+        # Check if it's already in messages format
+        if contents and isinstance(contents[0], dict) and "role" in contents[0]:
+            return contents
+        else:
+            # List of content parts - combine into single user message
+            combined = "\n".join(str(c) for c in contents)
+            return [{"role": "user", "content": combined}]
+    else:
+        return [{"role": "user", "content": str(contents)}]
+
+
+def generate(
+    contents: Any,
+    model: str = _DEFAULT_MODEL,
+    temperature: float = 0.3,
+    max_output_tokens: int = 8192 * 2,
+    system_instruction: Optional[str] = None,
+    json_output: bool = False,
+    thinking_budget: Optional[int] = None,
+    timeout_s: Optional[float] = None,
+    context: Optional[str] = None,
+    **kwargs: Any,
+) -> str:
+    """Generate text using Anthropic Claude.
+
+    Parameters
+    ----------
+    contents : str or List
+        The content to send to the model.
+    model : str
+        Model name to use.
+    temperature : float
+        Temperature for generation.
+    max_output_tokens : int
+        Maximum tokens for the model's response output.
+    system_instruction : str, optional
+        System instruction for the model.
+    json_output : bool
+        Whether to request JSON response format (via system instruction).
+    thinking_budget : int, optional
+        Token budget for thinking (supported on some models).
+    timeout_s : float, optional
+        Request timeout in seconds.
+    context : str, optional
+        Context string for token usage logging.
+    **kwargs
+        Additional Anthropic-specific options (ignored).
+
+    Returns
+    -------
+    str
+        Response text from the model.
+    """
+    from think.models import log_token_usage
+
+    client = _get_anthropic_client()
+    messages = _convert_contents_to_messages(contents)
+
+    # Handle JSON output by adding to system instruction
+    system = system_instruction or ""
+    if json_output:
+        json_instruction = "Respond with valid JSON only. No explanation or markdown."
+        system = f"{system}\n\n{json_instruction}" if system else json_instruction
+
+    # Build request kwargs
+    request_kwargs: Dict[str, Any] = {
+        "model": model,
+        "max_tokens": max_output_tokens,
+        "messages": messages,
+    }
+
+    if system:
+        request_kwargs["system"] = system
+
+    # Note: Anthropic doesn't support temperature with thinking enabled
+    # Configure thinking if budget is provided
+    if thinking_budget and thinking_budget > 0:
+        request_kwargs["thinking"] = {
+            "type": "enabled",
+            "budget_tokens": thinking_budget,
+        }
+    else:
+        request_kwargs["temperature"] = temperature
+
+    if timeout_s:
+        request_kwargs["timeout"] = timeout_s
+
+    response = client.messages.create(**request_kwargs)
+
+    # Extract text from response
+    text = ""
+    for block in response.content:
+        if getattr(block, "type", None) == "text":
+            text += block.text
+
+    # Log token usage
+    usage_dict = _extract_usage_dict(response)
+    if usage_dict:
+        log_token_usage(model=model, usage=usage_dict, context=context)
+
+    return text
+
+
+async def agenerate(
+    contents: Any,
+    model: str = _DEFAULT_MODEL,
+    temperature: float = 0.3,
+    max_output_tokens: int = 8192 * 2,
+    system_instruction: Optional[str] = None,
+    json_output: bool = False,
+    thinking_budget: Optional[int] = None,
+    timeout_s: Optional[float] = None,
+    context: Optional[str] = None,
+    **kwargs: Any,
+) -> str:
+    """Async generate text using Anthropic Claude.
+
+    Parameters
+    ----------
+    contents : str or List
+        The content to send to the model.
+    model : str
+        Model name to use.
+    temperature : float
+        Temperature for generation.
+    max_output_tokens : int
+        Maximum tokens for the model's response output.
+    system_instruction : str, optional
+        System instruction for the model.
+    json_output : bool
+        Whether to request JSON response format (via system instruction).
+    thinking_budget : int, optional
+        Token budget for thinking (supported on some models).
+    timeout_s : float, optional
+        Request timeout in seconds.
+    context : str, optional
+        Context string for token usage logging.
+    **kwargs
+        Additional Anthropic-specific options (ignored).
+
+    Returns
+    -------
+    str
+        Response text from the model.
+    """
+    from think.models import log_token_usage
+
+    client = _get_async_anthropic_client()
+    messages = _convert_contents_to_messages(contents)
+
+    # Handle JSON output by adding to system instruction
+    system = system_instruction or ""
+    if json_output:
+        json_instruction = "Respond with valid JSON only. No explanation or markdown."
+        system = f"{system}\n\n{json_instruction}" if system else json_instruction
+
+    # Build request kwargs
+    request_kwargs: Dict[str, Any] = {
+        "model": model,
+        "max_tokens": max_output_tokens,
+        "messages": messages,
+    }
+
+    if system:
+        request_kwargs["system"] = system
+
+    # Note: Anthropic doesn't support temperature with thinking enabled
+    # Configure thinking if budget is provided
+    if thinking_budget and thinking_budget > 0:
+        request_kwargs["thinking"] = {
+            "type": "enabled",
+            "budget_tokens": thinking_budget,
+        }
+    else:
+        request_kwargs["temperature"] = temperature
+
+    if timeout_s:
+        request_kwargs["timeout"] = timeout_s
+
+    response = await client.messages.create(**request_kwargs)
+
+    # Extract text from response
+    text = ""
+    for block in response.content:
+        if getattr(block, "type", None) == "text":
+            text += block.text
+
+    # Log token usage
+    usage_dict = _extract_usage_dict(response)
+    if usage_dict:
+        log_token_usage(model=model, usage=usage_dict, context=context)
+
+    return text
+
+
 __all__ = [
     "run_agent",
+    "generate",
+    "agenerate",
 ]

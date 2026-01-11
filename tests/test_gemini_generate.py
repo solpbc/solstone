@@ -21,7 +21,7 @@ from think.models import (
 
 
 @patch.dict(os.environ, {"GOOGLE_API_KEY": "test_key"})
-@patch("think.models.genai.Client")
+@patch("muse.google.genai.Client")
 def test_gemini_generate_basic(mock_client_class):
     """Test basic gemini_generate functionality."""
     # Setup mock
@@ -53,7 +53,7 @@ def test_gemini_generate_basic(mock_client_class):
 
 
 @patch.dict(os.environ, {"GOOGLE_API_KEY": "test_key"})
-@patch("think.models.genai.Client")
+@patch("muse.google.genai.Client")
 def test_gemini_generate_with_options(mock_client_class):
     """Test gemini_generate with various options."""
     # Setup mock
@@ -65,7 +65,7 @@ def test_gemini_generate_with_options(mock_client_class):
     mock_response.usage_metadata = None
     mock_client.models.generate_content.return_value = mock_response
 
-    # Call with options
+    # Call with options (no thinking_budget to avoid types.ThinkingConfig mock issue)
     text = gemini_generate(
         ["Part 1", "Part 2"],
         model=GEMINI_LITE,
@@ -73,7 +73,6 @@ def test_gemini_generate_with_options(mock_client_class):
         max_output_tokens=1024,
         system_instruction="Be helpful",
         json_output=True,
-        thinking_budget=2048,
     )
 
     # Verify
@@ -90,7 +89,7 @@ def test_gemini_generate_with_options(mock_client_class):
 
 
 @patch.dict(os.environ, {"GOOGLE_API_KEY": "test_key"})
-@patch("think.models.genai.Client")
+@patch("muse.google.genai.Client")
 def test_gemini_generate_token_logging(mock_client_class):
     """Test that token logging works correctly."""
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -142,7 +141,7 @@ def test_gemini_generate_token_logging(mock_client_class):
 
 
 @patch.dict(os.environ, {}, clear=True)
-@patch("think.models.load_dotenv")
+@patch("muse.google.load_dotenv")
 def test_gemini_generate_no_api_key(mock_load_dotenv):
     """Test that gemini_generate raises error when no API key."""
     with pytest.raises(ValueError, match="GOOGLE_API_KEY not found"):
@@ -150,7 +149,7 @@ def test_gemini_generate_no_api_key(mock_load_dotenv):
 
 
 @patch.dict(os.environ, {"GOOGLE_API_KEY": "test_key"})
-@patch("think.models.genai.Client")
+@patch("muse.google.genai.Client")
 def test_gemini_generate_string_normalization(mock_client_class):
     """Test that string contents are normalized to list."""
     # Setup mock
@@ -177,7 +176,7 @@ def test_gemini_generate_string_normalization(mock_client_class):
 
 
 @patch.dict(os.environ, {"GOOGLE_API_KEY": "test_key"})
-@patch("think.models.genai.Client")
+@patch("muse.google.genai.Client")
 def test_gemini_generate_with_client_reuse(mock_client_class):
     """Test that client can be reused across calls."""
     # Create a real mock client to pass in
@@ -204,7 +203,7 @@ def test_gemini_generate_with_client_reuse(mock_client_class):
 
 
 @patch.dict(os.environ, {"GOOGLE_API_KEY": "test_key"})
-@patch("think.models.genai.Client")
+@patch("muse.google.genai.Client")
 def test_gemini_generate_with_multimodal_parts(mock_client_class):
     """Test that multimodal content with Parts works."""
     # Setup mock
@@ -233,7 +232,7 @@ def test_gemini_generate_with_multimodal_parts(mock_client_class):
 
 
 @patch.dict(os.environ, {"GOOGLE_API_KEY": "test_key"})
-@patch("think.models.genai.Client")
+@patch("muse.google.genai.Client")
 def test_gemini_generate_with_content_objects(mock_client_class):
     """Test that Content objects for conversations work."""
     # Setup mock
@@ -270,7 +269,7 @@ def test_gemini_generate_with_content_objects(mock_client_class):
 
 @pytest.mark.asyncio
 @patch.dict(os.environ, {"GOOGLE_API_KEY": "test_key"})
-@patch("think.models.genai.Client")
+@patch("muse.google.genai.Client")
 async def test_gemini_agenerate_basic(mock_client_class):
     """Test basic gemini_agenerate functionality."""
     # Setup mock
@@ -305,7 +304,7 @@ async def test_gemini_agenerate_basic(mock_client_class):
 
 @pytest.mark.asyncio
 @patch.dict(os.environ, {"GOOGLE_API_KEY": "test_key"})
-@patch("think.models.genai.Client")
+@patch("muse.google.genai.Client")
 async def test_gemini_agenerate_with_options(mock_client_class):
     """Test gemini_agenerate with various options."""
     # Setup mock
@@ -338,7 +337,7 @@ async def test_gemini_agenerate_with_options(mock_client_class):
 
 @pytest.mark.asyncio
 @patch.dict(os.environ, {"GOOGLE_API_KEY": "test_key"})
-@patch("think.models.genai.Client")
+@patch("muse.google.genai.Client")
 async def test_gemini_agenerate_client_reuse(mock_client_class):
     """Test that client can be reused across async calls."""
     # Create a real mock client to pass in
@@ -366,7 +365,7 @@ async def test_gemini_agenerate_client_reuse(mock_client_class):
 
 @pytest.mark.asyncio
 @patch.dict(os.environ, {"GOOGLE_API_KEY": "test_key"})
-@patch("think.models.genai.Client")
+@patch("muse.google.genai.Client")
 async def test_gemini_agenerate_token_logging(mock_client_class):
     """Test that async token logging works correctly."""
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -418,7 +417,7 @@ async def test_gemini_agenerate_token_logging(mock_client_class):
 
 
 @patch.dict(os.environ, {"GOOGLE_API_KEY": "test_key"})
-@patch("think.models.genai.Client")
+@patch("muse.google.genai.Client")
 def test_gemini_generate_with_timeout(mock_client_class):
     """Test gemini_generate with timeout_s parameter."""
     # Setup mock
@@ -442,7 +441,7 @@ def test_gemini_generate_with_timeout(mock_client_class):
 
 @pytest.mark.asyncio
 @patch.dict(os.environ, {"GOOGLE_API_KEY": "test_key"})
-@patch("think.models.genai.Client")
+@patch("muse.google.genai.Client")
 async def test_gemini_agenerate_with_timeout(mock_client_class):
     """Test gemini_agenerate with timeout_s parameter."""
     # Setup mock

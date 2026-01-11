@@ -2,9 +2,10 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 # Copyright (c) 2026 sol pbc
 
-"""Gemini backed agent implementation.
+"""Gemini backend for agents and direct LLM generation.
 
-This module provides the Google Gemini backend for the ``muse-agents`` CLI.
+This module provides the Google Gemini backend for the ``muse-agents`` CLI
+and standardized generate/agenerate functions for direct LLM calls.
 """
 
 from __future__ import annotations
@@ -13,16 +14,302 @@ import logging
 import os
 import time
 import traceback
-from typing import Any, Callable, Dict, Optional
+from typing import Any, Callable, Dict, List, Optional, Union
 
+from dotenv import load_dotenv
 from google import genai
 from google.genai import types
 
+from think.models import GEMINI_FLASH
 from think.utils import create_mcp_client, get_model_for
 
 from .agents import JSONEventCallback, ThinkingEvent
 
 _DEFAULT_MAX_TOKENS = 8192
+_DEFAULT_MODEL = GEMINI_FLASH
+
+
+# ---------------------------------------------------------------------------
+# Client and helper functions for generate/agenerate
+# ---------------------------------------------------------------------------
+
+
+def get_or_create_client(client: Optional[genai.Client] = None) -> genai.Client:
+    """Get existing client or create new one.
+
+    Parameters
+    ----------
+    client : genai.Client, optional
+        Existing client to reuse. If not provided, creates a new one
+        using GOOGLE_API_KEY from environment.
+
+    Returns
+    -------
+    genai.Client
+        The provided client or a newly created one.
+    """
+    if client is None:
+        load_dotenv()
+        api_key = os.getenv("GOOGLE_API_KEY")
+        if not api_key:
+            raise ValueError("GOOGLE_API_KEY not found in environment")
+        client = genai.Client(api_key=api_key)
+    return client
+
+
+def _normalize_contents(
+    contents: Union[str, List[Any], List[types.Content]],
+) -> List[Any]:
+    """Normalize contents to list format."""
+    if isinstance(contents, str):
+        return [contents]
+    return contents
+
+
+def _build_generate_config(
+    temperature: float,
+    max_output_tokens: int,
+    system_instruction: Optional[str],
+    json_output: bool,
+    thinking_budget: Optional[int],
+    cached_content: Optional[str],
+    timeout_s: Optional[float] = None,
+) -> types.GenerateContentConfig:
+    """Build the GenerateContentConfig.
+
+    Note: Gemini's max_output_tokens is actually the total budget (thinking + output).
+    We compute this internally: total = max_output_tokens + thinking_budget.
+    """
+    # Compute total tokens: output + thinking budget
+    total_tokens = max_output_tokens + (thinking_budget or 0)
+
+    config_args: Dict[str, Any] = {
+        "temperature": temperature,
+        "max_output_tokens": total_tokens,
+    }
+
+    if system_instruction:
+        config_args["system_instruction"] = system_instruction
+
+    if json_output:
+        config_args["response_mime_type"] = "application/json"
+
+    if thinking_budget:
+        config_args["thinking_config"] = types.ThinkingConfig(
+            thinking_budget=thinking_budget
+        )
+
+    if cached_content:
+        config_args["cached_content"] = cached_content
+
+    if timeout_s:
+        # Convert seconds to milliseconds for the SDK
+        timeout_ms = int(timeout_s * 1000)
+        config_args["http_options"] = types.HttpOptions(timeout=timeout_ms)
+
+    return types.GenerateContentConfig(**config_args)
+
+
+def _validate_response(
+    response: Any, max_output_tokens: int, thinking_budget: Optional[int] = None
+) -> str:
+    """Validate response and extract text."""
+    if response is None or response.text is None:
+        # Try to extract text from candidates if available
+        if response and hasattr(response, "candidates") and response.candidates:
+            candidate = response.candidates[0]
+
+            # Check for finish reason to understand why we got no text
+            if hasattr(candidate, "finish_reason"):
+                finish_reason = str(candidate.finish_reason)
+                if "MAX_TOKENS" in finish_reason:
+                    total_tokens = max_output_tokens + (thinking_budget or 0)
+                    raise ValueError(
+                        f"Model hit token limit ({total_tokens} total = {max_output_tokens} output + "
+                        f"{thinking_budget or 0} thinking) before producing output. "
+                        f"Try increasing max_output_tokens or reducing thinking_budget."
+                    )
+                elif "SAFETY" in finish_reason:
+                    raise ValueError(
+                        f"Response blocked by safety filters: {finish_reason}"
+                    )
+                elif "STOP" not in finish_reason:
+                    raise ValueError(f"Response failed with reason: {finish_reason}")
+
+            # Try to extract text from parts if available
+            if (
+                hasattr(candidate, "content")
+                and hasattr(candidate.content, "parts")
+                and candidate.content.parts
+            ):
+                for part in candidate.content.parts:
+                    if hasattr(part, "text") and part.text:
+                        return part.text
+
+        # If we still don't have text, raise an error with details
+        error_msg = "No text in response"
+        if response:
+            if hasattr(response, "candidates") and not response.candidates:
+                error_msg = "No candidates in response"
+            elif hasattr(response, "prompt_feedback"):
+                error_msg = f"Response issue: {response.prompt_feedback}"
+        raise ValueError(error_msg)
+
+    return response.text
+
+
+# ---------------------------------------------------------------------------
+# Standardized generate/agenerate functions
+# ---------------------------------------------------------------------------
+
+
+def generate(
+    contents: Union[str, List[Any]],
+    model: str = _DEFAULT_MODEL,
+    temperature: float = 0.3,
+    max_output_tokens: int = 8192 * 2,
+    system_instruction: Optional[str] = None,
+    json_output: bool = False,
+    thinking_budget: Optional[int] = None,
+    timeout_s: Optional[float] = None,
+    context: Optional[str] = None,
+    **kwargs: Any,
+) -> str:
+    """Generate text using Google Gemini.
+
+    Parameters
+    ----------
+    contents : str or List
+        The content to send to the model.
+    model : str
+        Model name to use.
+    temperature : float
+        Temperature for generation.
+    max_output_tokens : int
+        Maximum tokens for the model's response output.
+    system_instruction : str, optional
+        System instruction for the model.
+    json_output : bool
+        Whether to request JSON response format.
+    thinking_budget : int, optional
+        Token budget for model thinking.
+    timeout_s : float, optional
+        Request timeout in seconds.
+    context : str, optional
+        Context string for token usage logging.
+    **kwargs
+        Additional Google-specific options:
+        - cached_content: Name of cached content to use
+        - client: Existing genai.Client to reuse
+
+    Returns
+    -------
+    str
+        Response text from the model.
+    """
+    from think.models import log_token_usage
+
+    cached_content = kwargs.get("cached_content")
+    client = kwargs.get("client")
+
+    client = get_or_create_client(client)
+    contents = _normalize_contents(contents)
+    config = _build_generate_config(
+        temperature=temperature,
+        max_output_tokens=max_output_tokens,
+        system_instruction=system_instruction,
+        json_output=json_output,
+        thinking_budget=thinking_budget,
+        cached_content=cached_content,
+        timeout_s=timeout_s,
+    )
+
+    response = client.models.generate_content(
+        model=model,
+        contents=contents,
+        config=config,
+    )
+
+    text = _validate_response(response, max_output_tokens, thinking_budget)
+    log_token_usage(model=model, usage=response, context=context)
+    return text
+
+
+async def agenerate(
+    contents: Union[str, List[Any]],
+    model: str = _DEFAULT_MODEL,
+    temperature: float = 0.3,
+    max_output_tokens: int = 8192 * 2,
+    system_instruction: Optional[str] = None,
+    json_output: bool = False,
+    thinking_budget: Optional[int] = None,
+    timeout_s: Optional[float] = None,
+    context: Optional[str] = None,
+    **kwargs: Any,
+) -> str:
+    """Async generate text using Google Gemini.
+
+    Parameters
+    ----------
+    contents : str or List
+        The content to send to the model.
+    model : str
+        Model name to use.
+    temperature : float
+        Temperature for generation.
+    max_output_tokens : int
+        Maximum tokens for the model's response output.
+    system_instruction : str, optional
+        System instruction for the model.
+    json_output : bool
+        Whether to request JSON response format.
+    thinking_budget : int, optional
+        Token budget for model thinking.
+    timeout_s : float, optional
+        Request timeout in seconds.
+    context : str, optional
+        Context string for token usage logging.
+    **kwargs
+        Additional Google-specific options:
+        - cached_content: Name of cached content to use
+        - client: Existing genai.Client to reuse
+
+    Returns
+    -------
+    str
+        Response text from the model.
+    """
+    from think.models import log_token_usage
+
+    cached_content = kwargs.get("cached_content")
+    client = kwargs.get("client")
+
+    client = get_or_create_client(client)
+    contents = _normalize_contents(contents)
+    config = _build_generate_config(
+        temperature=temperature,
+        max_output_tokens=max_output_tokens,
+        system_instruction=system_instruction,
+        json_output=json_output,
+        thinking_budget=thinking_budget,
+        cached_content=cached_content,
+        timeout_s=timeout_s,
+    )
+
+    response = await client.aio.models.generate_content(
+        model=model,
+        contents=contents,
+        config=config,
+    )
+
+    text = _validate_response(response, max_output_tokens, thinking_budget)
+    log_token_usage(model=model, usage=response, context=context)
+    return text
+
+
+# ---------------------------------------------------------------------------
+# Agent functions
+# ---------------------------------------------------------------------------
 
 
 def _get_default_model() -> str:
@@ -317,4 +604,7 @@ async def run_agent(
 
 __all__ = [
     "run_agent",
+    "generate",
+    "agenerate",
+    "get_or_create_client",
 ]

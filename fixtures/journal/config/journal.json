@@ -19,5 +19,19 @@
     "insights": "flash",
     "observations": "flash",
     "agents": "flash"
+  },
+  "providers": {
+    "default": {
+      "provider": "google",
+      "model": "gemini-3-flash-preview"
+    },
+    "prefixes": {
+      "test.openai": {"provider": "openai", "model": "gpt-5-mini"},
+      "test.anthropic": {"provider": "anthropic", "model": "claude-sonnet-4-5"},
+      "describe.*": {"provider": "google", "model": "gemini-2.5-flash-lite"}
+    }
+  },
+  "env": {
+    "TEST_CONFIG_ENV_VAR": "from_config"
   }
 }

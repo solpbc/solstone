@@ -83,10 +83,10 @@ def _convert_turns_to_items(turns: list[dict]) -> list[dict]:
     return items
 
 
-# Default values are now handled internally
-_DEFAULT_MODEL = os.getenv("OPENAI_AGENT_MODEL", GPT_5)
-_DEFAULT_MAX_TOKENS = int(os.getenv("OPENAI_AGENT_MAX_TOKENS", "16384"))
-_DEFAULT_MAX_TURNS = int(os.getenv("OPENAI_AGENT_MAX_TURNS", "64"))
+# Default values
+_DEFAULT_MODEL = GPT_5
+_DEFAULT_MAX_TOKENS = 16384
+_DEFAULT_MAX_TURNS = 64
 
 LOG = logging.getLogger("muse.openai")
 
@@ -488,6 +488,232 @@ async def run_agent(
         pass
 
 
+# ---------------------------------------------------------------------------
+# Standardized generate/agenerate functions
+# ---------------------------------------------------------------------------
+
+# Cache for OpenAI clients
+_openai_client = None
+_async_openai_client = None
+
+
+def _get_openai_client():
+    """Get or create sync OpenAI client."""
+    global _openai_client
+    if _openai_client is None:
+        import openai
+        from dotenv import load_dotenv
+
+        load_dotenv()
+        api_key = os.getenv("OPENAI_API_KEY")
+        if not api_key:
+            raise ValueError("OPENAI_API_KEY not found in environment")
+        _openai_client = openai.OpenAI(api_key=api_key)
+    return _openai_client
+
+
+def _get_async_openai_client():
+    """Get or create async OpenAI client."""
+    global _async_openai_client
+    if _async_openai_client is None:
+        import openai
+        from dotenv import load_dotenv
+
+        load_dotenv()
+        api_key = os.getenv("OPENAI_API_KEY")
+        if not api_key:
+            raise ValueError("OPENAI_API_KEY not found in environment")
+        _async_openai_client = openai.AsyncOpenAI(api_key=api_key)
+    return _async_openai_client
+
+
+def _convert_contents_to_messages(
+    contents: Any,
+    system_instruction: Optional[str] = None,
+) -> list[dict]:
+    """Convert contents to OpenAI messages format."""
+    messages = []
+
+    # Add system message if provided
+    if system_instruction:
+        messages.append({"role": "system", "content": system_instruction})
+
+    # Handle different content formats
+    if isinstance(contents, str):
+        messages.append({"role": "user", "content": contents})
+    elif isinstance(contents, list):
+        # Check if it's a list of messages or a list of content parts
+        if contents and isinstance(contents[0], dict) and "role" in contents[0]:
+            # Already in messages format
+            messages.extend(contents)
+        else:
+            # List of content parts - combine into single user message
+            combined = "\n".join(str(c) for c in contents)
+            messages.append({"role": "user", "content": combined})
+    else:
+        messages.append({"role": "user", "content": str(contents)})
+
+    return messages
+
+
+def generate(
+    contents: Any,
+    model: str = GPT_5,
+    temperature: float = 0.3,
+    max_output_tokens: int = 8192 * 2,
+    system_instruction: Optional[str] = None,
+    json_output: bool = False,
+    thinking_budget: Optional[int] = None,
+    timeout_s: Optional[float] = None,
+    context: Optional[str] = None,
+    **kwargs: Any,
+) -> str:
+    """Generate text using OpenAI.
+
+    Parameters
+    ----------
+    contents : str or List
+        The content to send to the model.
+    model : str
+        Model name to use.
+    temperature : float
+        Temperature for generation.
+    max_output_tokens : int
+        Maximum tokens for the model's response output.
+    system_instruction : str, optional
+        System instruction for the model.
+    json_output : bool
+        Whether to request JSON response format.
+    thinking_budget : int, optional
+        Ignored - OpenAI doesn't support thinking budget.
+    timeout_s : float, optional
+        Request timeout in seconds.
+    context : str, optional
+        Context string for token usage logging.
+    **kwargs
+        Additional OpenAI-specific options (ignored).
+
+    Returns
+    -------
+    str
+        Response text from the model.
+    """
+    from think.models import log_token_usage
+
+    client = _get_openai_client()
+    messages = _convert_contents_to_messages(contents, system_instruction)
+
+    # Build request kwargs
+    request_kwargs: Dict[str, Any] = {
+        "model": model,
+        "messages": messages,
+        "temperature": temperature,
+        "max_tokens": max_output_tokens,
+    }
+
+    if json_output:
+        request_kwargs["response_format"] = {"type": "json_object"}
+
+    if timeout_s:
+        request_kwargs["timeout"] = timeout_s
+
+    response = client.chat.completions.create(**request_kwargs)
+
+    # Extract text
+    text = response.choices[0].message.content or ""
+
+    # Log token usage
+    if response.usage:
+        usage_dict = {
+            "input_tokens": response.usage.prompt_tokens,
+            "output_tokens": response.usage.completion_tokens,
+            "total_tokens": response.usage.total_tokens,
+        }
+        log_token_usage(model=model, usage=usage_dict, context=context)
+
+    return text
+
+
+async def agenerate(
+    contents: Any,
+    model: str = GPT_5,
+    temperature: float = 0.3,
+    max_output_tokens: int = 8192 * 2,
+    system_instruction: Optional[str] = None,
+    json_output: bool = False,
+    thinking_budget: Optional[int] = None,
+    timeout_s: Optional[float] = None,
+    context: Optional[str] = None,
+    **kwargs: Any,
+) -> str:
+    """Async generate text using OpenAI.
+
+    Parameters
+    ----------
+    contents : str or List
+        The content to send to the model.
+    model : str
+        Model name to use.
+    temperature : float
+        Temperature for generation.
+    max_output_tokens : int
+        Maximum tokens for the model's response output.
+    system_instruction : str, optional
+        System instruction for the model.
+    json_output : bool
+        Whether to request JSON response format.
+    thinking_budget : int, optional
+        Ignored - OpenAI doesn't support thinking budget.
+    timeout_s : float, optional
+        Request timeout in seconds.
+    context : str, optional
+        Context string for token usage logging.
+    **kwargs
+        Additional OpenAI-specific options (ignored).
+
+    Returns
+    -------
+    str
+        Response text from the model.
+    """
+    from think.models import log_token_usage
+
+    client = _get_async_openai_client()
+    messages = _convert_contents_to_messages(contents, system_instruction)
+
+    # Build request kwargs
+    request_kwargs: Dict[str, Any] = {
+        "model": model,
+        "messages": messages,
+        "temperature": temperature,
+        "max_tokens": max_output_tokens,
+    }
+
+    if json_output:
+        request_kwargs["response_format"] = {"type": "json_object"}
+
+    if timeout_s:
+        request_kwargs["timeout"] = timeout_s
+
+    response = await client.chat.completions.create(**request_kwargs)
+
+    # Extract text
+    text = response.choices[0].message.content or ""
+
+    # Log token usage
+    if response.usage:
+        usage_dict = {
+            "input_tokens": response.usage.prompt_tokens,
+            "output_tokens": response.usage.completion_tokens,
+            "total_tokens": response.usage.total_tokens,
+        }
+        log_token_usage(model=model, usage=usage_dict, context=context)
+
+    return text
+
+
 __all__ = [
     "run_agent",
+    "generate",
+    "agenerate",
 ]
