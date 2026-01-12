@@ -92,33 +92,33 @@ CONTEXT_DEFAULTS: Dict[str, Dict[str, Any]] = {
     # Observe pipeline - screen and audio capture processing
     "observe.describe.frame": {
         "tier": TIER_LITE,
-        "label": "Screen Analysis",
+        "label": "Screen Categorization",
         "group": "Observe",
     },
     "observe.describe.*": {
-        "tier": TIER_LITE,
-        "label": "Screen Categories",
+        "tier": TIER_FLASH,
+        "label": "Screen Transcription",
         "group": "Observe",
     },
     "observe.detect.segment": {
         "tier": TIER_FLASH,
-        "label": "Transcript Segmentation",
-        "group": "Observe",
+        "label": "Segmentation",
+        "group": "Import",
     },
     "observe.detect.json": {
         "tier": TIER_FLASH,
-        "label": "JSON Conversion",
-        "group": "Observe",
+        "label": "Normalization",
+        "group": "Import",
     },
     "observe.enrich": {
-        "tier": TIER_LITE,
+        "tier": TIER_FLASH,
         "label": "Audio Enrichment",
         "group": "Observe",
     },
     "observe.summarize": {
         "tier": TIER_FLASH,
-        "label": "Import Summary",
-        "group": "Observe",
+        "label": "Summarization",
+        "group": "Import",
     },
     # Insight pipeline - daily analysis and summaries
     "insight.*": {
@@ -129,18 +129,18 @@ CONTEXT_DEFAULTS: Dict[str, Dict[str, Any]] = {
     # Utilities - miscellaneous processing tasks
     "detect.created": {
         "tier": TIER_LITE,
-        "label": "File Date Detection",
-        "group": "Think",
+        "label": "Date Detection",
+        "group": "Import",
     },
     "planner.generate": {
         "tier": TIER_FLASH,
-        "label": "Agent Planning",
+        "label": "Agent Prompt Generation",
         "group": "Think",
     },
     # Apps - application-specific contexts
     "app.chat.title": {
         "tier": TIER_LITE,
-        "label": "Chat Titles",
+        "label": "Chat Title Generation",
         "group": "Apps",
     },
 }
