@@ -312,6 +312,7 @@ def segment_content(day: str, segment_key: str) -> Any:
                             "box_2d": box_2d,
                             "analysis": source.get("analysis"),
                             "participants": participants if participants else None,
+                            "aruco": source.get("aruco"),
                         },
                         "basic": is_basic,
                     }

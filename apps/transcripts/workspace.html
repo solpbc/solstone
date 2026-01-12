@@ -975,7 +975,7 @@ body.has-date-nav .workspace:has(.tr-wrap) {
 
     // Draw thumbnail to canvas with optional annotations
     async drawThumbnail(canvas, videoUrl, frameId, options = {}) {
-      const { width, height } = options;
+      const { width, height, aruco } = options;
 
       try {
         const thumb = await this.captureThumbnail(videoUrl, frameId, width, height);
@@ -990,6 +990,14 @@ body.has-date-nav .workspace:has(.tr-wrap) {
         const ctx = canvas.getContext('2d');
         ctx.drawImage(thumb, 0, 0, canvas.width, canvas.height);
 
+        // Apply aruco mask overlay if present
+        // Note: thumb is at target size, so sourceWidth/Height = canvas dimensions
+        if (aruco) {
+          // Get original video dimensions for proper scaling
+          const entry = await this.loadVideo(videoUrl);
+          this._applyOverlays(ctx, canvas, entry.width, entry.height, { aruco });
+        }
+
         canvas.classList.remove('loading');
         return true;
       } catch (err) {
@@ -1001,7 +1009,7 @@ body.has-date-nav .workspace:has(.tr-wrap) {
 
     // Draw full-resolution frame to canvas (no caching)
     async drawFull(canvas, videoUrl, frameId, options = {}) {
-      const { boxCoords, participants } = options;
+      const { boxCoords, participants, aruco } = options;
 
       try {
         const bitmap = await this.captureFullFrame(videoUrl, frameId);
@@ -1016,7 +1024,7 @@ body.has-date-nav .workspace:has(.tr-wrap) {
         const ctx = canvas.getContext('2d');
         ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
 
-        this._applyOverlays(ctx, canvas, bitmap.width, bitmap.height, boxCoords, participants);
+        this._applyOverlays(ctx, canvas, bitmap.width, bitmap.height, { boxCoords, participants, aruco });
 
         if (bitmap && typeof bitmap.close === 'function') {
           bitmap.close();
@@ -1030,7 +1038,50 @@ body.has-date-nav .workspace:has(.tr-wrap) {
       }
     }
 
-    _applyOverlays(ctx, canvas, sourceWidth, sourceHeight, boxCoords, participants) {
+    // Compute mask polygon from ArUco corner tag markers
+    // Corner tag IDs: 6=TL, 7=TR, 2=BR, 4=BL
+    // Each marker has corners in order [TL, TR, BR, BL]
+    _computeArucoMaskPolygon(aruco) {
+      if (!aruco || !aruco.masked || !aruco.markers) return null;
+
+      const cornerTagIds = { 6: 0, 7: 1, 2: 2, 4: 3 }; // id -> which corner to use
+      const tagCorners = {};
+
+      for (const marker of aruco.markers) {
+        if (marker.id in cornerTagIds && marker.corners?.length === 4) {
+          const cornerIdx = cornerTagIds[marker.id];
+          tagCorners[marker.id] = marker.corners[cornerIdx];
+        }
+      }
+
+      // Need all 4 corner tags
+      if (!(6 in tagCorners && 7 in tagCorners && 2 in tagCorners && 4 in tagCorners)) {
+        return null;
+      }
+
+      // Return polygon: TL, TR, BR, BL
+      return [tagCorners[6], tagCorners[7], tagCorners[2], tagCorners[4]];
+    }
+
+    _applyOverlays(ctx, canvas, sourceWidth, sourceHeight, options = {}) {
+      const { boxCoords, participants, aruco } = options;
+
+      // Apply ArUco mask first (so other overlays draw on top)
+      const maskPolygon = this._computeArucoMaskPolygon(aruco);
+      if (maskPolygon) {
+        const scaleX = canvas.width / sourceWidth;
+        const scaleY = canvas.height / sourceHeight;
+
+        ctx.fillStyle = '#000000';
+        ctx.beginPath();
+        ctx.moveTo(maskPolygon[0][0] * scaleX, maskPolygon[0][1] * scaleY);
+        for (let i = 1; i < maskPolygon.length; i++) {
+          ctx.lineTo(maskPolygon[i][0] * scaleX, maskPolygon[i][1] * scaleY);
+        }
+        ctx.closePath();
+        ctx.fill();
+      }
+
       if (boxCoords && boxCoords.length === 4) {
         const [xMin, yMin, xMax, yMax] = boxCoords;
         const scaleX = canvas.width / sourceWidth;
@@ -1519,6 +1570,8 @@ body.has-date-nav .workspace:has(.tr-wrap) {
     const frameId = parseInt(canvas.dataset.frameId, 10);
     const boxCoordsStr = canvas.dataset.boxCoords;
     const boxCoords = boxCoordsStr ? JSON.parse(boxCoordsStr) : null;
+    const arucoStr = canvas.dataset.aruco;
+    const aruco = arucoStr ? JSON.parse(arucoStr) : null;
 
     if (!videoUrl || isNaN(frameId)) {
       canvas.classList.remove('loading');
@@ -1528,6 +1581,7 @@ body.has-date-nav .workspace:has(.tr-wrap) {
     // Draw at thumbnail size (120x68)
     frameCapture.drawThumbnail(canvas, videoUrl, frameId, {
       boxCoords,
+      aruco,
       width: 120,
       height: 68
     });
@@ -1606,6 +1660,7 @@ body.has-date-nav .workspace:has(.tr-wrap) {
       const videoUrl = getVideoUrlForChunk(entry);
       const frameId = entry.source_ref?.frame_id;
       const boxCoords = entry.source_ref?.box_2d;
+      const aruco = entry.source_ref?.aruco;
       const analysis = entry.source_ref?.analysis || {};
       const category = analysis.primary || 'unknown';
       const description = analysis.visual_description || category;
@@ -1615,6 +1670,7 @@ body.has-date-nav .workspace:has(.tr-wrap) {
         html += `<div class="tr-group-item" data-frame-idx="${frameIdx}" title="${escapeHtml(description)}">`;
         html += `<canvas class="loading" data-video-url="${escapeHtml(videoUrl)}" data-frame-id="${frameId}"`;
         if (boxCoords) html += ` data-box-coords='${JSON.stringify(boxCoords)}'`;
+        if (aruco) html += ` data-aruco='${JSON.stringify(aruco)}'`;
         html += `></canvas>`;
         html += `<span class="tr-group-item-badge">${escapeHtml(category)}</span>`;
         html += '</div>';
@@ -1632,6 +1688,7 @@ body.has-date-nav .workspace:has(.tr-wrap) {
     const videoUrl = getVideoUrlForChunk(chunk);
     const frameId = chunk.source_ref?.frame_id;
     const boxCoords = chunk.source_ref?.box_2d;
+    const aruco = chunk.source_ref?.aruco;
     const frameIdx = findFrameIndex(chunk);
 
     let html = `<div class="tr-entry tr-entry-screen" data-idx="${idx}" data-frame-idx="${frameIdx}" data-type="screen">`;
@@ -1641,6 +1698,7 @@ body.has-date-nav .workspace:has(.tr-wrap) {
     if (videoUrl && frameId) {
       html += `<canvas class="tr-entry-thumb loading" data-video-url="${escapeHtml(videoUrl)}" data-frame-id="${frameId}"`;
       if (boxCoords) html += ` data-box-coords='${JSON.stringify(boxCoords)}'`;
+      if (aruco) html += ` data-aruco='${JSON.stringify(aruco)}'`;
       html += `></canvas>`;
     }
 
@@ -1712,12 +1770,13 @@ body.has-date-nav .workspace:has(.tr-wrap) {
       const videoUrl = getVideoUrlForChunk(f);
       const frameId = f.source_ref?.frame_id;
       const boxCoords = f.source_ref?.box_2d;
+      const aruco = f.source_ref?.aruco;
 
       if (videoUrl && frameId) {
         frameCapture.drawFull(canvas, videoUrl, frameId, {
           boxCoords,
-          participants
-          // No width/height - use full resolution
+          participants,
+          aruco
         });
       } else {
         canvas.classList.remove('loading');
