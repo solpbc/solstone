@@ -164,8 +164,10 @@ def entity_attach(
     facets/{facet}/entities.jsonl. Attached entities are long-term tracked
     entities that appear in facet summaries and agent context.
 
-    If a previously detached entity with the same type+name exists,
-    re-activates it instead of creating a duplicate.
+    If the entity was previously detached (removed by the user), this tool
+    will return an error - the user intentionally removed it, so agents
+    should not re-attach it automatically. Users can re-attach manually
+    via the web UI if they change their mind.
 
     Sets attached_at and updated_at timestamps on the new entity.
 
@@ -180,7 +182,6 @@ def entity_attach(
         - facet: The facet name
         - message: Success message
         - entity: The attached entity details (type, name, description)
-        - reattached: True if a detached entity was re-activated
 
     Examples:
         - entity_attach("personal", "Person", "Alice", "Close friend from college")
@@ -201,28 +202,15 @@ def entity_attach(
         for entity in existing:
             if entity.get("type") == type and entity.get("name") == name:
                 if entity.get("detached"):
-                    # Re-activate detached entity
-                    entity.pop("detached", None)
-                    entity["updated_at"] = int(time.time() * 1000)
-                    entity["description"] = description
-                    save_entities(facet, existing, day=None)
-
-                    log_tool_action(
-                        facet=facet,
-                        action="entity_reattach",
-                        params={"type": type, "name": name, "description": description},
-                        context=context,
-                    )
-
+                    # User intentionally removed this entity - don't re-attach
                     return {
-                        "facet": facet,
-                        "message": f"Entity '{name}' re-attached successfully",
-                        "entity": {
-                            "type": type,
-                            "name": name,
-                            "description": description,
-                        },
-                        "reattached": True,
+                        "error": f"Entity '{name}' was previously removed by the user",
+                        "suggestion": (
+                            "The user intentionally detached this entity from the "
+                            f"'{facet}' facet. Either it's the wrong facet for this "
+                            "entity, or it's not important to them. Do not attempt "
+                            "to re-attach it."
+                        ),
                     }
                 else:
                     return {

@@ -306,3 +306,38 @@ def test_entity_attach_sets_timestamps():
     assert now - postgres["attached_at"] < 60000
     # Initially both should be equal
     assert postgres["attached_at"] == postgres["updated_at"]
+
+
+def test_entity_attach_blocks_detached_entity():
+    """Test that entity_attach returns error for detached (user-removed) entities."""
+    # Entity was previously attached but user removed it (detached=True)
+    mock_entities = [
+        {
+            "type": "Person",
+            "name": "Bob Smith",
+            "description": "Former contact",
+            "detached": True,
+            "attached_at": 1700000000000,
+            "updated_at": 1700000001000,
+        },
+    ]
+
+    with (
+        patch("apps.entities.tools.load_entities") as mock_load,
+        patch("apps.entities.tools.save_entities") as mock_save,
+        patch("apps.entities.tools.is_valid_entity_type") as mock_validate,
+    ):
+        mock_validate.return_value = True
+        mock_load.return_value = mock_entities
+        result = entity_tools.entity_attach(
+            "work", "Person", "Bob Smith", "Trying to re-add"
+        )
+
+    # Should return error, not re-attach
+    assert "error" in result
+    assert "previously removed" in result["error"]
+    assert "suggestion" in result
+    assert "intentionally" in result["suggestion"].lower()
+
+    # Should NOT have saved anything
+    mock_save.assert_not_called()
