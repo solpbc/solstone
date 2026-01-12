@@ -30,13 +30,10 @@ def _get_token_log_path(day: str) -> Path:
 
 
 def _parse_context_prefix(context: str) -> str:
-    """Extract first two parts of context (e.g., 'agent.default.123' -> 'agent.default')."""
+    """Return full context string for grouping."""
     if not context:
         return "unknown"
-    parts = context.split(".")
-    if len(parts) >= 2:
-        return f"{parts[0]}.{parts[1]}"
-    return parts[0] if parts else "unknown"
+    return context
 
 
 def _aggregate_token_data(day: str) -> Dict[str, Any]:
