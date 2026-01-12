@@ -284,9 +284,9 @@ MCP tools are provided by the `muse.mcp_tools` FastMCP server, which:
 
 The system supports multiple AI providers, each implementing the same event interface:
 
-- **OpenAI** (`muse/openai.py`): GPT models with OpenAI Agents SDK
-- **Google** (`muse/google.py`): Gemini models with Google AI SDK
-- **Anthropic** (`muse/anthropic.py`): Claude models with Anthropic SDK
+- **OpenAI** (`muse/providers/openai.py`): GPT models with OpenAI Agents SDK
+- **Google** (`muse/providers/google.py`): Gemini models with Google AI SDK
+- **Anthropic** (`muse/providers/anthropic.py`): Claude models with Anthropic SDK
 - **Claude** (`muse/claude.py`): Claude models via Claude Code SDK
   - Uses filesystem tools (Read, Write, Edit, etc.) instead of MCP
   - Requires `facet` configuration specifying journal facet directory
