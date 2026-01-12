@@ -13,6 +13,11 @@
 .settings-nav {
   width: 200px;
   flex-shrink: 0;
+  position: sticky;
+  top: calc(var(--facet-bar-height, 60px) + 1em);
+  align-self: flex-start;
+  max-height: calc(100vh - var(--facet-bar-height, 60px) - 2em);
+  overflow-y: auto;
 }
 
 .settings-nav-group {
@@ -48,9 +53,9 @@
 }
 
 .settings-nav-item.active {
-  background: var(--facet-bg, #e8f0fe);
-  color: var(--facet-color, #1a73e8);
-  font-weight: 500;
+  background: var(--facet-color, #1a73e8);
+  color: white;
+  font-weight: 600;
 }
 
 /* Mobile nav dropdown */
@@ -171,6 +176,21 @@
 
 .settings-field small.status-fade {
   opacity: 0;
+}
+
+/* API key status indicators */
+.key-status {
+  font-weight: normal;
+  margin-left: 0.3em;
+}
+
+.key-status-journal {
+  color: #28a745;
+}
+
+.key-status-system {
+  color: #6c757d;
+  font-size: 0.85em;
 }
 
 /* Password field with toggle */
@@ -742,21 +762,6 @@ input:checked + .slider:before {
   gap: 0.5em;
 }
 
-.context-inherited {
-  font-size: 0.85em;
-  color: #888;
-  font-style: italic;
-}
-
-.context-override-badge {
-  font-size: 0.75em;
-  padding: 0.2em 0.5em;
-  background: var(--facet-bg, #e8f0fe);
-  color: var(--facet-color, #1a73e8);
-  border-radius: 4px;
-  font-weight: 500;
-}
-
 .context-select {
   padding: 0.3em 0.5em;
   border: 1px solid #ddd;
@@ -764,6 +769,11 @@ input:checked + .slider:before {
   font-size: 0.85em;
   background: white;
   min-width: 80px;
+}
+
+.context-action {
+  width: 1.5em;
+  text-align: center;
 }
 
 .context-reset {
@@ -785,6 +795,16 @@ input:checked + .slider:before {
 .context-reset:hover {
   color: #d32f2f;
   background: #ffebee;
+}
+
+.context-saved {
+  color: #28a745;
+  opacity: 1;
+  transition: opacity 0.3s;
+}
+
+.context-saved.fade {
+  opacity: 0;
 }
 
 /* Setup section */
@@ -996,14 +1016,16 @@ input:checked + .slider:before {
             <option value="openai">OpenAI (GPT)</option>
             <option value="anthropic">Anthropic (Claude)</option>
           </select>
+          <small></small>
         </div>
         <div class="settings-field">
           <label for="field-tier">Default Tier</label>
           <select id="field-tier">
-            <option value="1">Pro - Most capable</option>
-            <option value="2">Flash - Balanced</option>
-            <option value="3">Lite - Fastest</option>
+            <option value="1">Best - Most capable</option>
+            <option value="2">Average - Balanced</option>
+            <option value="3">Fast - Lightweight</option>
           </select>
+          <small></small>
         </div>
       </div>
       <div id="providerKeyWarning" class="provider-key-warning" style="display:none">
@@ -1013,14 +1035,14 @@ input:checked + .slider:before {
       </div>
       <small id="providerStatus">Loading...</small>
 
-      <!-- Context Overrides -->
+      <!-- Detailed Tasks -->
       <div class="context-overrides" id="contextOverrides">
         <div class="context-overrides-header" id="contextOverridesHeader">
-          <span class="context-overrides-title">Context Overrides</span>
+          <span class="context-overrides-title">Detailed Tasks</span>
           <span class="context-overrides-toggle">&#9660;</span>
         </div>
         <div class="context-overrides-body" id="contextOverridesBody">
-          <p style="color:#666;font-size:0.9em;margin:0 0 1em 0">Override provider or tier for specific tasks. Unset values inherit from defaults.</p>
+          <p style="color:#666;font-size:0.9em;margin:0 0 1em 0">Override provider or tier for specific tasks. Unset values use defaults.</p>
           <div id="contextGroups">Loading...</div>
         </div>
       </div>
@@ -1355,21 +1377,25 @@ function populateFields(config) {
   const convey = config.convey || {};
   setValue('field-password', convey.password || '');
 
-  // Env (API keys) - show status indicators, values are masked as booleans
+  // Env (API keys) - show status indicators
+  // env = journal config status, system_env = shell/.env status
   const env = config.env || {};
-  updateEnvStatus('field-env-google', env.GOOGLE_API_KEY);
-  updateEnvStatus('field-env-openai', env.OPENAI_API_KEY);
-  updateEnvStatus('field-env-anthropic', env.ANTHROPIC_API_KEY);
-  updateEnvStatus('field-env-revai', env.REVAI_ACCESS_TOKEN);
+  const sysEnv = config.system_env || {};
+  updateEnvStatus('field-env-google', env.GOOGLE_API_KEY, sysEnv.GOOGLE_API_KEY);
+  updateEnvStatus('field-env-openai', env.OPENAI_API_KEY, sysEnv.OPENAI_API_KEY);
+  updateEnvStatus('field-env-anthropic', env.ANTHROPIC_API_KEY, sysEnv.ANTHROPIC_API_KEY);
+  updateEnvStatus('field-env-revai', env.REVAI_ACCESS_TOKEN, sysEnv.REVAI_ACCESS_TOKEN);
 }
 
-function updateEnvStatus(fieldId, isConfigured) {
+function updateEnvStatus(fieldId, isJournalConfigured, isSystemConfigured) {
   const field = document.getElementById(fieldId);
   if (!field) return;
 
   // Update placeholder to indicate status
-  if (isConfigured) {
+  if (isJournalConfigured) {
     field.placeholder = 'Key configured (enter new value to replace)';
+  } else if (isSystemConfigured) {
+    field.placeholder = 'Key available from system environment';
   } else {
     field.placeholder = 'Enter API key';
   }
@@ -1381,11 +1407,15 @@ function updateEnvStatus(fieldId, isConfigured) {
     const existingStatus = label.querySelector('.key-status');
     if (existingStatus) existingStatus.remove();
 
-    if (isConfigured) {
+    if (isJournalConfigured) {
       const status = document.createElement('span');
-      status.className = 'key-status';
+      status.className = 'key-status key-status-journal';
       status.textContent = ' \u2713';
-      status.style.color = '#28a745';
+      label.appendChild(status);
+    } else if (isSystemConfigured) {
+      const status = document.createElement('span');
+      status.className = 'key-status key-status-system';
+      status.textContent = ' (system)';
       label.appendChild(status);
     }
   }
@@ -1452,7 +1482,7 @@ function saveField(el, section, key, value) {
         // For env fields, clear the input and update status indicator
         if (section === 'env') {
           el.value = '';
-          updateEnvStatus(el.id, true);
+          updateEnvStatus(el.id, true, true);
         }
       } else {
         throw new Error(result.error);
@@ -1920,6 +1950,7 @@ function renderContextGroups(data) {
   const container = document.getElementById('contextGroups');
   const contexts = data.context_defaults;
   const overrides = data.contexts || {};
+  const defaultTier = data.default.tier;
 
   // Group by group name
   const groups = {};
@@ -1938,6 +1969,9 @@ function renderContextGroups(data) {
     for (const item of items) {
       const override = overrides[item.pattern];
       const hasOverride = !!override;
+      // Check if built-in tier differs from user's default tier
+      const builtInTier = item.tier;
+      const showBuiltIn = !override?.tier && builtInTier !== defaultTier;
 
       html += `<div class="context-item" data-pattern="${item.pattern}">`;
       html += `<span class="context-label">${item.label}</span>`;
@@ -1945,24 +1979,26 @@ function renderContextGroups(data) {
 
       // Provider select
       html += `<select class="context-select context-provider" data-pattern="${item.pattern}">`;
-      html += `<option value="">Inherit</option>`;
+      html += `<option value="">Default</option>`;
       html += `<option value="google" ${override?.provider === 'google' ? 'selected' : ''}>Google</option>`;
       html += `<option value="openai" ${override?.provider === 'openai' ? 'selected' : ''}>OpenAI</option>`;
       html += `<option value="anthropic" ${override?.provider === 'anthropic' ? 'selected' : ''}>Anthropic</option>`;
       html += `</select>`;
 
-      // Tier select
+      // Tier select - show built-in tier if it differs from default
       html += `<select class="context-select context-tier" data-pattern="${item.pattern}">`;
-      html += `<option value="">Inherit</option>`;
-      html += `<option value="1" ${override?.tier === 1 ? 'selected' : ''}>Pro</option>`;
-      html += `<option value="2" ${override?.tier === 2 ? 'selected' : ''}>Flash</option>`;
-      html += `<option value="3" ${override?.tier === 3 ? 'selected' : ''}>Lite</option>`;
+      html += `<option value="">Default</option>`;
+      html += `<option value="1" ${override?.tier === 1 || (showBuiltIn && builtInTier === 1) ? 'selected' : ''}>Best</option>`;
+      html += `<option value="2" ${override?.tier === 2 || (showBuiltIn && builtInTier === 2) ? 'selected' : ''}>Average</option>`;
+      html += `<option value="3" ${override?.tier === 3 || (showBuiltIn && builtInTier === 3) ? 'selected' : ''}>Fast</option>`;
       html += `</select>`;
 
-      // Reset button (only shown if has override)
+      // Action area (reset button or save indicator)
+      html += `<span class="context-action" data-pattern="${item.pattern}">`;
       if (hasOverride) {
         html += `<button class="context-reset" data-pattern="${item.pattern}" title="Reset to default">&times;</button>`;
       }
+      html += `</span>`;
 
       html += `</div></div>`;
     }
@@ -2024,7 +2060,34 @@ async function saveContextOverride(pattern, provider, tier, remove = false) {
     if (result.error) throw new Error(result.error);
 
     providersData = result;
-    renderContextGroups(result);
+
+    // Show save feedback and update action area
+    const actionArea = document.querySelector(`.context-action[data-pattern="${pattern}"]`);
+    if (actionArea) {
+      const hasOverride = !!(result.contexts && result.contexts[pattern]);
+      if (remove) {
+        // Re-render needed when resetting to restore built-in tier selection
+        renderContextGroups(result);
+      } else {
+        // Show checkmark, then update to show/hide reset button
+        actionArea.innerHTML = `<span class="context-saved">\u2713</span>`;
+        setTimeout(() => {
+          const saved = actionArea.querySelector('.context-saved');
+          if (saved) saved.classList.add('fade');
+          setTimeout(() => {
+            if (hasOverride) {
+              actionArea.innerHTML = `<button class="context-reset" data-pattern="${pattern}" title="Reset to default">&times;</button>`;
+              // Re-attach click handler for the new reset button
+              actionArea.querySelector('.context-reset')?.addEventListener('click', () => {
+                saveContextOverride(pattern, null, null, true);
+              });
+            } else {
+              actionArea.innerHTML = '';
+            }
+          }, 300);
+        }, 1000);
+      }
+    }
   } catch (err) {
     console.error('Error saving context override:', err);
     notifyError('Save Failed', err.message);

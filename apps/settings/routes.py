@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import copy
 import json
+import os
 import re
 from pathlib import Path
 from typing import Any
@@ -22,18 +23,35 @@ settings_bp = Blueprint(
 )
 
 
+# API keys that can be configured in the env section
+# Used for system env checks and allowed env fields validation
+API_KEY_ENV_VARS = [
+    "GOOGLE_API_KEY",
+    "ANTHROPIC_API_KEY",
+    "OPENAI_API_KEY",
+    "REVAI_ACCESS_TOKEN",
+]
+
+
 @settings_bp.route("/api/config")
 def get_config() -> Any:
     """Return the journal configuration.
 
     The env section is masked for security - returns boolean indicating
     whether each key is configured rather than the actual values.
+
+    Also returns system_env with boolean status for keys available from
+    the system environment (shell env + .env file).
     """
     try:
         config = get_journal_config()
-        # Mask env values - return True/False for whether key is set
+        # Mask env values - return True/False for whether key is set in journal config
         if "env" in config:
             config["env"] = {k: bool(v) for k, v in config["env"].items()}
+
+        # Add system_env - keys available from os.getenv (shell + .env)
+        config["system_env"] = {k: bool(os.getenv(k)) for k in API_KEY_ENV_VARS}
+
         return jsonify(config)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -82,12 +100,7 @@ def update_config() -> Any:
             ],
             "transcribe": ["device", "model", "compute_type"],
             "convey": ["password"],
-            "env": [
-                "GOOGLE_API_KEY",
-                "ANTHROPIC_API_KEY",
-                "OPENAI_API_KEY",
-                "REVAI_ACCESS_TOKEN",
-            ],
+            "env": API_KEY_ENV_VARS,
         }
 
         if section not in allowed_sections:
@@ -183,7 +196,6 @@ def get_providers() -> Any:
 
         config = get_journal_config()
         providers_config = config.get("providers", {})
-        env_config = config.get("env", {})
 
         # Get default settings
         default = providers_config.get("default", {})
@@ -202,10 +214,11 @@ def get_providers() -> Any:
                 "group": ctx_config["group"],
             }
 
-        # Check API key status for each provider
+        # Check API key status for each provider using os.getenv()
+        # This reflects the true runtime availability (shell env + .env + journal config)
         api_keys = {}
         for provider, env_key in PROVIDER_API_KEYS.items():
-            api_keys[provider] = bool(env_config.get(env_key))
+            api_keys[provider] = bool(os.getenv(env_key))
 
         return jsonify(
             {
