@@ -449,6 +449,15 @@ body.has-date-nav .workspace:has(.tr-wrap) {
   animation: tr-pulse 1.5s ease-in-out infinite;
 }
 
+.tr-modal-img-wrap canvas.tr-masked-canvas {
+  cursor: pointer;
+}
+
+.tr-modal-badge-masked {
+  background: rgba(239, 68, 68, 0.3);
+  color: #fca5a5;
+}
+
 .tr-modal-description {
   padding: 12px 20px 20px;
   color: rgba(255,255,255,0.8);
@@ -973,9 +982,9 @@ body.has-date-nav .workspace:has(.tr-wrap) {
       this.pendingThumbs.clear();
     }
 
-    // Draw thumbnail to canvas with optional annotations
+    // Draw thumbnail to canvas (no overlays - those are only for full frame view)
     async drawThumbnail(canvas, videoUrl, frameId, options = {}) {
-      const { width, height, aruco } = options;
+      const { width, height } = options;
 
       try {
         const thumb = await this.captureThumbnail(videoUrl, frameId, width, height);
@@ -989,14 +998,6 @@ body.has-date-nav .workspace:has(.tr-wrap) {
 
         const ctx = canvas.getContext('2d');
         ctx.drawImage(thumb, 0, 0, canvas.width, canvas.height);
-
-        // Apply aruco mask overlay if present
-        // Note: thumb is at target size, so sourceWidth/Height = canvas dimensions
-        if (aruco) {
-          // Get original video dimensions for proper scaling
-          const entry = await this.loadVideo(videoUrl);
-          this._applyOverlays(ctx, canvas, entry.width, entry.height, { aruco });
-        }
 
         canvas.classList.remove('loading');
         return true;
@@ -1065,13 +1066,12 @@ body.has-date-nav .workspace:has(.tr-wrap) {
 
     _applyOverlays(ctx, canvas, sourceWidth, sourceHeight, options = {}) {
       const { boxCoords, participants, aruco } = options;
+      const scaleX = canvas.width / sourceWidth;
+      const scaleY = canvas.height / sourceHeight;
 
       // Apply ArUco mask first (so other overlays draw on top)
       const maskPolygon = this._computeArucoMaskPolygon(aruco);
       if (maskPolygon) {
-        const scaleX = canvas.width / sourceWidth;
-        const scaleY = canvas.height / sourceHeight;
-
         ctx.fillStyle = '#000000';
         ctx.beginPath();
         ctx.moveTo(maskPolygon[0][0] * scaleX, maskPolygon[0][1] * scaleY);
@@ -1084,9 +1084,6 @@ body.has-date-nav .workspace:has(.tr-wrap) {
 
       if (boxCoords && boxCoords.length === 4) {
         const [xMin, yMin, xMax, yMax] = boxCoords;
-        const scaleX = canvas.width / sourceWidth;
-        const scaleY = canvas.height / sourceHeight;
-
         ctx.strokeStyle = '#ef4444';
         ctx.lineWidth = 3;
         ctx.strokeRect(
@@ -1568,20 +1565,14 @@ body.has-date-nav .workspace:has(.tr-wrap) {
   function loadCanvasThumbnail(canvas) {
     const videoUrl = canvas.dataset.videoUrl;
     const frameId = parseInt(canvas.dataset.frameId, 10);
-    const boxCoordsStr = canvas.dataset.boxCoords;
-    const boxCoords = boxCoordsStr ? JSON.parse(boxCoordsStr) : null;
-    const arucoStr = canvas.dataset.aruco;
-    const aruco = arucoStr ? JSON.parse(arucoStr) : null;
 
     if (!videoUrl || isNaN(frameId)) {
       canvas.classList.remove('loading');
       return;
     }
 
-    // Draw at thumbnail size (120x68)
+    // Draw at thumbnail size (120x68) - no overlays on thumbnails
     frameCapture.drawThumbnail(canvas, videoUrl, frameId, {
-      boxCoords,
-      aruco,
       width: 120,
       height: 68
     });
@@ -1659,8 +1650,6 @@ body.has-date-nav .workspace:has(.tr-wrap) {
     for (const entry of group.entries) {
       const videoUrl = getVideoUrlForChunk(entry);
       const frameId = entry.source_ref?.frame_id;
-      const boxCoords = entry.source_ref?.box_2d;
-      const aruco = entry.source_ref?.aruco;
       const analysis = entry.source_ref?.analysis || {};
       const category = analysis.primary || 'unknown';
       const description = analysis.visual_description || category;
@@ -1668,10 +1657,7 @@ body.has-date-nav .workspace:has(.tr-wrap) {
 
       if (videoUrl && frameId) {
         html += `<div class="tr-group-item" data-frame-idx="${frameIdx}" title="${escapeHtml(description)}">`;
-        html += `<canvas class="loading" data-video-url="${escapeHtml(videoUrl)}" data-frame-id="${frameId}"`;
-        if (boxCoords) html += ` data-box-coords='${JSON.stringify(boxCoords)}'`;
-        if (aruco) html += ` data-aruco='${JSON.stringify(aruco)}'`;
-        html += `></canvas>`;
+        html += `<canvas class="loading" data-video-url="${escapeHtml(videoUrl)}" data-frame-id="${frameId}"></canvas>`;
         html += `<span class="tr-group-item-badge">${escapeHtml(category)}</span>`;
         html += '</div>';
       }
@@ -1687,8 +1673,6 @@ body.has-date-nav .workspace:has(.tr-wrap) {
     const monitor = chunk.source_ref?.monitor || '';
     const videoUrl = getVideoUrlForChunk(chunk);
     const frameId = chunk.source_ref?.frame_id;
-    const boxCoords = chunk.source_ref?.box_2d;
-    const aruco = chunk.source_ref?.aruco;
     const frameIdx = findFrameIndex(chunk);
 
     let html = `<div class="tr-entry tr-entry-screen" data-idx="${idx}" data-frame-idx="${frameIdx}" data-type="screen">`;
@@ -1696,10 +1680,7 @@ body.has-date-nav .workspace:has(.tr-wrap) {
     html += '<div class="tr-entry-content">';
 
     if (videoUrl && frameId) {
-      html += `<canvas class="tr-entry-thumb loading" data-video-url="${escapeHtml(videoUrl)}" data-frame-id="${frameId}"`;
-      if (boxCoords) html += ` data-box-coords='${JSON.stringify(boxCoords)}'`;
-      if (aruco) html += ` data-aruco='${JSON.stringify(aruco)}'`;
-      html += `></canvas>`;
+      html += `<canvas class="tr-entry-thumb loading" data-video-url="${escapeHtml(videoUrl)}" data-frame-id="${frameId}"></canvas>`;
     }
 
     html += '<div class="tr-entry-desc">';
@@ -1729,10 +1710,29 @@ body.has-date-nav .workspace:has(.tr-wrap) {
     if (frameIndex < 0 || frameIndex >= allScreenFrames.length) return;
 
     currentFrameIndex = frameIndex;
+    let maskHidden = false; // Track if user has revealed masked content
 
     const modal = document.createElement('div');
     modal.className = 'tr-screenshot-modal';
     modal.id = 'trImageModal';
+
+    const drawFrame = (canvas, f, showMask) => {
+      const videoUrl = getVideoUrlForChunk(f);
+      const frameId = f.source_ref?.frame_id;
+      const boxCoords = f.source_ref?.box_2d;
+      const aruco = f.source_ref?.aruco;
+      const participants = f.source_ref?.participants || [];
+
+      if (videoUrl && frameId) {
+        frameCapture.drawFull(canvas, videoUrl, frameId, {
+          boxCoords,
+          participants,
+          aruco: showMask ? aruco : null // Pass null to skip mask
+        });
+      } else {
+        canvas.classList.remove('loading');
+      }
+    };
 
     const updateModalContent = () => {
       const f = allScreenFrames[currentFrameIndex];
@@ -1741,7 +1741,8 @@ body.has-date-nav .workspace:has(.tr-wrap) {
       const analysis = f.source_ref?.analysis || {};
       const category = analysis.primary || '';
       const description = analysis.visual_description || '';
-      const participants = f.source_ref?.participants || [];
+      const aruco = f.source_ref?.aruco;
+      const isMasked = aruco?.masked && !maskHidden;
       const hasPrev = currentFrameIndex > 0;
       const hasNext = currentFrameIndex < allScreenFrames.length - 1;
 
@@ -1753,10 +1754,11 @@ body.has-date-nav .workspace:has(.tr-wrap) {
           <div class="tr-modal-header">
             ${monitorPos ? `<span class="tr-modal-badge tr-modal-badge-monitor">${monitorPos}</span>` : ''}
             ${category ? `<span class="tr-modal-badge tr-modal-badge-category">${escapeHtml(category)}</span>` : ''}
+            ${isMasked ? '<span class="tr-modal-badge tr-modal-badge-masked" title="Click image to reveal">Masked</span>' : ''}
             <button class="tr-modal-close" title="Close (Esc)">&times;</button>
           </div>
           <div class="tr-modal-img-wrap">
-            <canvas id="trModalCanvas" class="loading"></canvas>
+            <canvas id="trModalCanvas" class="loading${isMasked ? ' tr-masked-canvas' : ''}"></canvas>
           </div>
           ${description ? `<div class="tr-modal-description">${escapeHtml(description)}</div>` : ''}
         </div>
@@ -1767,19 +1769,19 @@ body.has-date-nav .workspace:has(.tr-wrap) {
 
       // Draw frame to modal canvas
       const canvas = modal.querySelector('#trModalCanvas');
-      const videoUrl = getVideoUrlForChunk(f);
-      const frameId = f.source_ref?.frame_id;
-      const boxCoords = f.source_ref?.box_2d;
-      const aruco = f.source_ref?.aruco;
+      drawFrame(canvas, f, !maskHidden);
 
-      if (videoUrl && frameId) {
-        frameCapture.drawFull(canvas, videoUrl, frameId, {
-          boxCoords,
-          participants,
-          aruco
+      // Add click-to-reveal handler for masked frames
+      if (aruco?.masked) {
+        canvas.addEventListener('click', () => {
+          if (!maskHidden) {
+            maskHidden = true;
+            canvas.classList.remove('tr-masked-canvas');
+            canvas.classList.add('loading');
+            modal.querySelector('.tr-modal-badge-masked')?.remove();
+            drawFrame(canvas, f, false);
+          }
         });
-      } else {
-        canvas.classList.remove('loading');
       }
     };
 
@@ -1787,6 +1789,7 @@ body.has-date-nav .workspace:has(.tr-wrap) {
       const newIndex = currentFrameIndex + delta;
       if (newIndex >= 0 && newIndex < allScreenFrames.length) {
         currentFrameIndex = newIndex;
+        maskHidden = false; // Reset mask state when navigating
         updateModalContent();
       }
     };
