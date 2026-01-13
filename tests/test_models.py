@@ -23,6 +23,7 @@ from muse.models import (
     TIER_LITE,
     TIER_PRO,
     calc_token_cost,
+    get_context_registry,
     resolve_provider,
 )
 
@@ -354,3 +355,89 @@ def test_resolve_provider_invalid_tier(use_fixtures_journal, monkeypatch, tmp_pa
     provider, model = resolve_provider("test.string")
     assert provider == "google"
     assert model == GEMINI_FLASH
+
+
+# ---------------------------------------------------------------------------
+# Dynamic context registry tests
+# ---------------------------------------------------------------------------
+
+
+def test_context_registry_includes_static_defaults():
+    """Test that registry includes all static CONTEXT_DEFAULTS entries."""
+    registry = get_context_registry()
+
+    # All static defaults should be in registry
+    for context in CONTEXT_DEFAULTS:
+        assert context in registry, f"Static default {context} not in registry"
+        assert registry[context]["tier"] == CONTEXT_DEFAULTS[context]["tier"]
+
+
+def test_context_registry_includes_categories():
+    """Test that registry includes discovered category contexts."""
+    registry = get_context_registry()
+
+    # Should have category entries (from observe/categories/*.json)
+    category_contexts = [k for k in registry if k.startswith("observe.describe.")]
+
+    # Should have more than just the static entries (frame and wildcard)
+    assert len(category_contexts) > 2, "Should discover category contexts"
+
+    # Each category context should have required fields
+    for context in category_contexts:
+        if context == "observe.describe.*":
+            continue  # Skip wildcard
+        assert "tier" in registry[context]
+        assert "label" in registry[context]
+        assert "group" in registry[context]
+        assert registry[context]["tier"] in (TIER_PRO, TIER_FLASH, TIER_LITE)
+
+
+def test_context_registry_includes_agents():
+    """Test that registry includes discovered agent contexts."""
+    registry = get_context_registry()
+
+    # Should have agent entries (from muse/agents/*.json and apps/*/agents/*.json)
+    agent_contexts = [k for k in registry if k.startswith("agent.")]
+
+    # Should have more than just the fallback pattern
+    assert len(agent_contexts) > 1, "Should discover agent contexts"
+
+    # Should have system agents
+    system_agents = [k for k in agent_contexts if k.startswith("agent.system.")]
+    assert len(system_agents) > 0, "Should discover system agents"
+
+    # Should have app agents
+    app_agents = [
+        k
+        for k in agent_contexts
+        if k.startswith("agent.")
+        and not k.startswith("agent.system.")
+        and k != "agent.*"
+    ]
+    assert len(app_agents) > 0, "Should discover app agents"
+
+
+def test_context_registry_structure():
+    """Test that all registry entries have required fields."""
+    registry = get_context_registry()
+    required_keys = {"tier", "label", "group"}
+
+    for context, config in registry.items():
+        assert isinstance(config, dict), f"{context} should be a dict"
+        assert required_keys <= set(
+            config.keys()
+        ), f"{context} missing keys: {required_keys - set(config.keys())}"
+        assert config["tier"] in (
+            TIER_PRO,
+            TIER_FLASH,
+            TIER_LITE,
+        ), f"{context} has invalid tier: {config['tier']}"
+
+
+def test_context_registry_is_cached():
+    """Test that registry is built once and cached."""
+    registry1 = get_context_registry()
+    registry2 = get_context_registry()
+
+    # Should return the same object (cached)
+    assert registry1 is registry2

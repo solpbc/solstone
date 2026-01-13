@@ -4,5 +4,6 @@
   "schedule": "daily",
   "priority": 26,
   "tools": "journal, entities",
-  "multi_facet": true
+  "multi_facet": true,
+  "group": "Entities"
 }

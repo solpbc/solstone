@@ -53,6 +53,9 @@ def _discover_categories() -> dict[str, dict]:
     - description (required): Single-line description for categorization prompt
     - followup (optional, default: false): Whether to run follow-up analysis
     - output (optional, default: "markdown"): Response format if followup=true
+    - tier (optional, default: 2): Model tier for this category (1=pro, 2=flash, 3=lite)
+    - label (optional): Human-readable name for settings UI
+    - group (optional, default: "Screen Analysis"): Category for grouping in settings UI
 
     If followup=true, a matching .txt file contains the follow-up prompt.
 
@@ -79,9 +82,17 @@ def _discover_categories() -> dict[str, dict]:
                 logger.warning(f"Category {category} missing 'description' field")
                 continue
 
-            # Apply defaults
+            # Apply defaults for observation settings
             metadata.setdefault("followup", False)
             metadata.setdefault("output", "markdown")
+
+            # Apply defaults for tier routing
+            # tier: 1=pro, 2=flash, 3=lite (default: flash)
+            metadata.setdefault("tier", 2)
+            # label: Human-readable name (default: title-cased category name)
+            metadata.setdefault("label", category.replace("_", " ").title())
+            # group: Settings UI grouping (default: Screen Analysis)
+            metadata.setdefault("group", "Screen Analysis")
 
             # Store the category context for later resolution
             # The model will be resolved at runtime via generate()

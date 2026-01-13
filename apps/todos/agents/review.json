@@ -3,5 +3,6 @@
   "description": "Validates checklist entries against journal evidence and marks items complete via MCP todo tools.",
   "tools": "journal, todo",
   "multi_facet": true,
-  "schedule": "daily"
+  "schedule": "daily",
+  "group": "Todos"
 }

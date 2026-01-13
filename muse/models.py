@@ -81,13 +81,21 @@ DEFAULT_TIER = TIER_FLASH
 #   - insight.*                 -> insight module, all features (wildcard)
 #   - app.chat.title            -> apps module, chat app, title operation
 #
+# DYNAMIC DISCOVERY:
+#   Categories (observe/categories/*.json) and agents (muse/agents/*.json,
+#   apps/*/agents/*.json) can express tier/label/group in their JSON configs.
+#   These are discovered at runtime and merged with the static defaults below.
+#
 # When adding new contexts:
 #   1. Use module prefix matching the package (observe, think, app, muse)
 #   2. Add specific operations as suffixes when granular control is needed
 #   3. Use wildcards sparingly - prefer explicit entries for clarity
 #   4. If not listed here, context falls back to DEFAULT_TIER (FLASH)
+#   5. For categories/agents, prefer adding tier/label/group to JSON configs
 # ---------------------------------------------------------------------------
 
+# Static context defaults - non-discoverable contexts only
+# Categories and agents express their own tier/label/group in JSON configs
 CONTEXT_DEFAULTS: Dict[str, Dict[str, Any]] = {
     # Observe pipeline - screen and audio capture processing
     "observe.describe.frame": {
@@ -95,6 +103,7 @@ CONTEXT_DEFAULTS: Dict[str, Dict[str, Any]] = {
         "label": "Screen Categorization",
         "group": "Observe",
     },
+    # Fallback for categories without explicit tier in their JSON
     "observe.describe.*": {
         "tier": TIER_FLASH,
         "label": "Screen Transcription",
@@ -143,19 +152,139 @@ CONTEXT_DEFAULTS: Dict[str, Dict[str, Any]] = {
         "label": "Chat Title Generation",
         "group": "Apps",
     },
-    # Agent runs - AI agent execution via Cortex
+    # Fallback for agents without explicit tier in their JSON
     "agent.*": {
         "tier": TIER_FLASH,
-        "label": "Agent Runs",
-        "group": "Muse",
+        "label": "Other Agents",
+        "group": "Agents",
     },
 }
+
+
+# ---------------------------------------------------------------------------
+# Dynamic context discovery
+# ---------------------------------------------------------------------------
+
+# Cached context registry (built lazily on first use)
+_context_registry: Optional[Dict[str, Dict[str, Any]]] = None
+
+
+def _discover_agent_contexts() -> Dict[str, Dict[str, Any]]:
+    """Discover agent context defaults from JSON config files.
+
+    Scans system agents (muse/agents/*.json) and app agents (apps/*/agents/*.json)
+    for tier/label/group metadata. This is a lightweight scan that only reads
+    the JSON metadata, not the full agent configuration.
+
+    Returns
+    -------
+    Dict[str, Dict[str, Any]]
+        Mapping of context patterns to {tier, label, group} dicts.
+        Context patterns are: agent.system.{name} or agent.{app}.{name}
+    """
+    contexts = {}
+
+    # System agents from muse/agents/
+    agents_dir = Path(__file__).parent / "agents"
+    if agents_dir.exists():
+        for json_path in agents_dir.glob("*.json"):
+            agent_name = json_path.stem
+            try:
+                with open(json_path, "r", encoding="utf-8") as f:
+                    config = json.load(f)
+
+                context = f"agent.system.{agent_name}"
+                contexts[context] = {
+                    "tier": config.get("tier", TIER_FLASH),
+                    "label": config.get("label", config.get("title", agent_name)),
+                    "group": config.get("group", "Agents"),
+                }
+            except Exception:
+                pass  # Skip agents that can't be loaded
+
+    # App agents from apps/*/agents/
+    apps_dir = Path(__file__).parent.parent / "apps"
+    if apps_dir.is_dir():
+        for app_path in apps_dir.iterdir():
+            if not app_path.is_dir() or app_path.name.startswith("_"):
+                continue
+            agents_subdir = app_path / "agents"
+            if not agents_subdir.is_dir():
+                continue
+            app_name = app_path.name
+            for json_path in agents_subdir.glob("*.json"):
+                agent_name = json_path.stem
+                try:
+                    with open(json_path, "r", encoding="utf-8") as f:
+                        config = json.load(f)
+
+                    context = f"agent.{app_name}.{agent_name}"
+                    contexts[context] = {
+                        "tier": config.get("tier", TIER_FLASH),
+                        "label": config.get("label", config.get("title", agent_name)),
+                        "group": config.get("group", "Agents"),
+                    }
+                except Exception:
+                    pass  # Skip agents that can't be loaded
+
+    return contexts
+
+
+def _build_context_registry() -> Dict[str, Dict[str, Any]]:
+    """Build complete context registry from static defaults and discovered configs.
+
+    Merges:
+    1. Static CONTEXT_DEFAULTS (non-discoverable contexts)
+    2. Category contexts from observe/describe.py CATEGORIES
+    3. Agent contexts from _discover_agent_contexts()
+
+    Returns
+    -------
+    Dict[str, Dict[str, Any]]
+        Complete context registry mapping patterns to {tier, label, group}.
+    """
+    # Start with static defaults
+    registry = dict(CONTEXT_DEFAULTS)
+
+    # Merge category contexts (lazy import to avoid circular dependency)
+    try:
+        from observe.describe import CATEGORIES
+
+        for category, metadata in CATEGORIES.items():
+            context = metadata.get("context", f"observe.describe.{category}")
+            registry[context] = {
+                "tier": metadata.get("tier", TIER_FLASH),
+                "label": metadata.get("label", category.replace("_", " ").title()),
+                "group": metadata.get("group", "Screen Analysis"),
+            }
+    except ImportError:
+        pass  # observe module not available
+
+    # Merge agent contexts
+    agent_contexts = _discover_agent_contexts()
+    registry.update(agent_contexts)
+
+    return registry
+
+
+def get_context_registry() -> Dict[str, Dict[str, Any]]:
+    """Get the complete context registry, building it lazily on first use.
+
+    Returns
+    -------
+    Dict[str, Dict[str, Any]]
+        Complete context registry mapping patterns to {tier, label, group}.
+    """
+    global _context_registry
+    if _context_registry is None:
+        _context_registry = _build_context_registry()
+    return _context_registry
 
 
 def _resolve_tier(context: str) -> int:
     """Resolve context to tier number.
 
-    Checks journal config contexts first, then CONTEXT_DEFAULTS with glob matching.
+    Checks journal config contexts first, then dynamic context registry with glob matching.
 
     Parameters
     ----------
@@ -167,28 +296,29 @@ def _resolve_tier(context: str) -> int:
     int
         Tier number (1=pro, 2=flash, 3=lite).
     """
-    import fnmatch
-
     from think.utils import get_config
 
     journal_config = get_config()
     providers_config = journal_config.get("providers", {})
     contexts = providers_config.get("contexts", {})
 
+    # Get dynamic context registry (includes static defaults + discovered categories/agents)
+    registry = get_context_registry()
+
     # Check journal config contexts first (exact match)
     if context in contexts:
         return contexts[context].get("tier", DEFAULT_TIER)
 
-    # Check CONTEXT_DEFAULTS (exact match)
-    if context in CONTEXT_DEFAULTS:
-        return CONTEXT_DEFAULTS[context]["tier"]
+    # Check context registry (exact match)
+    if context in registry:
+        return registry[context]["tier"]
 
     # Check glob patterns in both
     for pattern, ctx_config in contexts.items():
         if fnmatch.fnmatch(context, pattern):
             return ctx_config.get("tier", DEFAULT_TIER)
 
-    for pattern, ctx_default in CONTEXT_DEFAULTS.items():
+    for pattern, ctx_default in registry.items():
         if fnmatch.fnmatch(context, pattern):
             return ctx_default["tier"]
 
@@ -330,17 +460,20 @@ def resolve_provider(context: str) -> tuple[str, str]:
                 matches.sort(key=lambda x: x[0], reverse=True)
                 _, _, match_config = matches[0]
 
-    # No context match - check CONTEXT_DEFAULTS for this context
+    # No context match - check dynamic context registry for this context
     if match_config is None:
+        # Get dynamic context registry (includes static defaults + discovered categories/agents)
+        registry = get_context_registry()
+
         # Check for matching context default (exact match first, then glob)
         context_tier = None
         if context:
-            if context in CONTEXT_DEFAULTS:
-                context_tier = CONTEXT_DEFAULTS[context]["tier"]
+            if context in registry:
+                context_tier = registry[context]["tier"]
             else:
                 # Check glob patterns
                 matches = []
-                for pattern, ctx_default in CONTEXT_DEFAULTS.items():
+                for pattern, ctx_default in registry.items():
                     if fnmatch.fnmatch(context, pattern):
                         specificity = len(pattern.split("*")[0])
                         matches.append((specificity, ctx_default["tier"]))
@@ -794,6 +927,7 @@ __all__ = [
     "DEFAULT_TIER",
     "DEFAULT_PROVIDER",
     "CONTEXT_DEFAULTS",
+    "get_context_registry",
     # Model constants (used by muse backends for defaults)
     "GEMINI_FLASH",
     "GPT_5",

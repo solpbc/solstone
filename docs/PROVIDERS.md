@@ -234,12 +234,20 @@ log_token_usage(model=model, usage=response, context=context)
 Context strings determine provider and model selection. Providers receive already-resolved models, but understanding the system helps:
 
 **Context naming convention:** `{module}.{feature}[.{operation}]`
-- Examples: `observe.enrich`, `insight.meetings`, `app.chat.title`
+
+**Dynamic discovery:** Categories and agents can express their own tier/label/group in their JSON configs:
+- Categories: `observe/categories/*.json` - add `tier`, `label`, `group` fields
+- System agents: `muse/agents/*.json` - add `tier`, `label`, `group` fields
+- App agents: `apps/*/agents/*.json` - add `tier`, `label`, `group` fields
+
+These are discovered at runtime and merged with static defaults. Use `get_context_registry()` to get the complete context map including discovered entries.
+
+See `CONTEXT_DEFAULTS` in `muse/models.py` for static context patterns (non-discoverable contexts like `observe.detect.*`, `insight.*`).
 
 **Resolution** (handled by `muse/models.py` `resolve_provider()`):
 1. Exact match in journal.json `providers.contexts`
 2. Glob pattern match (fnmatch) with specificity ranking
-3. Built-in `CONTEXT_DEFAULTS` in `muse/models.py`
+3. Dynamic context registry (static defaults + discovered categories/agents)
 4. Default provider/tier from config
 
 Providers don't implement routing - they receive the resolved model.

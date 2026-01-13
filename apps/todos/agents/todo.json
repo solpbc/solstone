@@ -4,5 +4,6 @@
   "schedule": "daily",
   "priority": 20,
   "tools": "journal, todo",
-  "multi_facet": true
+  "multi_facet": true,
+  "group": "Todos"
 }
