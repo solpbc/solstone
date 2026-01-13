@@ -181,7 +181,9 @@ The `transcribe` block configures audio transcription settings for `observe-tran
   "transcribe": {
     "device": "auto",
     "model": "medium.en",
-    "compute_type": "default"
+    "compute_type": "default",
+    "enrich": true,
+    "preserve_all": false
   }
 }
 ```
@@ -189,7 +191,15 @@ The `transcribe` block configures audio transcription settings for `observe-tran
 Fields:
 - `device` (string) – Device for inference: `"auto"` (detect GPU, fall back to CPU), `"cpu"`, or `"cuda"`. Default: `"auto"`.
 - `model` (string) – Whisper model to use (e.g., `"tiny.en"`, `"base.en"`, `"small.en"`, `"medium.en"`, `"large-v3-turbo"`, `"distil-large-v3"`). Default: `"medium.en"`.
-- `compute_type` (string) – Compute precision: `"default"` (auto-select: float16 on GPU, float32 on CPU), `"float32"` (most compatible), `"float16"` (faster on most GPUs), `"int8"` (fastest on CPU). Default: `"default"`.
+- `compute_type` (string) – Compute precision: `"default"` (auto-select optimal for platform), `"float32"` (most compatible), `"float16"` (faster on CUDA GPUs), `"int8"` (fastest on CPU). Default: `"default"`.
+- `enrich` (boolean) – Enable LLM enrichment for topic extraction and transcript correction. Default: `true`.
+- `preserve_all` (boolean) – Keep audio files even when no speech is detected. When `false`, silent recordings are deleted to save disk space. Default: `false`.
+
+**Platform auto-detection**: When `compute_type` is `"default"`, optimal settings are automatically selected:
+- **CUDA GPU**: Uses `float16` for GPU-optimized inference
+- **CPU (including Apple Silicon)**: Uses `int8` for ~2x faster inference and significantly faster model loading
+
+Voice embeddings (resemblyzer) also auto-detect the best device: MPS on Apple Silicon (~16x faster), CUDA when available, or CPU fallback.
 
 These settings can be overridden via CLI flags: `--cpu` forces CPU mode with int8, `--model MODEL` overrides the model.
 

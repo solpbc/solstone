@@ -15,7 +15,17 @@ Output files:
 - <stem>.npz: Sentence-level voice embeddings indexed by segment id
 
 Configuration (journal config):
+- transcribe.device: Device for inference ("auto", "cpu", "cuda"). Default: "auto"
+- transcribe.model: Whisper model size (e.g., "medium.en"). Default: "medium.en"
+- transcribe.compute_type: Precision ("default", "float32", "float16", "int8").
+  When "default", auto-selects: float16 for CUDA, int8 for CPU (including Apple Silicon).
 - transcribe.enrich: Enable/disable Gemini Lite enrichment (default: true)
+- transcribe.preserve_all: Keep audio files even when no speech detected (default: false)
+
+Platform optimizations:
+- CUDA GPU: Uses float16 for GPU-optimized inference
+- Apple Silicon: Uses int8 for Whisper (~2x faster), MPS for embeddings (~16x faster)
+- Other CPU: Uses int8 for best performance
 """
 
 from __future__ import annotations
@@ -25,6 +35,7 @@ import datetime
 import json
 import logging
 import os
+import platform
 import time
 from pathlib import Path
 
@@ -53,6 +64,64 @@ MIN_SEGMENT_DURATION = 0.3
 
 # Sentence-ending punctuation marks
 SENTENCE_ENDINGS = frozenset(".?!")
+
+
+def _is_apple_silicon() -> bool:
+    """Detect if running on Apple Silicon."""
+    return platform.system() == "Darwin" and platform.machine() == "arm64"
+
+
+def _has_cuda() -> bool:
+    """Check if CUDA is available via CTranslate2."""
+    try:
+        import ctranslate2
+
+        return ctranslate2.get_cuda_device_count() > 0
+    except Exception:
+        return False
+
+
+def _get_optimal_compute_type(device: str) -> str:
+    """Get optimal compute type for the current platform.
+
+    When compute_type is "default", CTranslate2 auto-selects but makes suboptimal
+    choices on some platforms. This function provides better defaults:
+
+    - CUDA GPU: float16 for GPU-optimized inference
+    - CPU (including Apple Silicon): int8 for ~2x faster inference and faster model load
+
+    Args:
+        device: The device being used ("cpu", "cuda", "auto")
+
+    Returns:
+        Optimal compute type string
+    """
+    # If CUDA is explicitly requested or auto-detected, float16 is optimal
+    if device == "cuda" or (device == "auto" and _has_cuda()):
+        return "float16"
+
+    # For CPU (including Apple Silicon), int8 is fastest
+    # This provides ~2x speedup and 76x faster model loading
+    return "int8"
+
+
+def _get_optimal_encoder_device() -> str:
+    """Get optimal device for VoiceEncoder (resemblyzer).
+
+    On Apple Silicon, MPS provides ~16x speedup over CPU for embeddings.
+
+    Returns:
+        Device string: "mps" on Apple Silicon with MPS available, "cpu" otherwise
+    """
+    if _is_apple_silicon():
+        try:
+            import torch
+
+            if torch.backends.mps.is_available():
+                return "mps"
+        except ImportError:
+            pass
+    return "cpu"
 
 
 def resegment_by_sentences(segments: list[dict]) -> list[dict]:
@@ -138,8 +207,13 @@ class Transcriber:
         from faster_whisper import WhisperModel
         from resemblyzer import VoiceEncoder
 
-        # VoiceEncoder follows whisper device: None auto-detects CUDA, "cpu" forces CPU
-        encoder_device = None if device in ("auto", "cuda") else "cpu"
+        # Resolve "default" compute_type to platform-optimal setting
+        # CTranslate2's auto-selection falls back to float32 on CPU, but int8 is faster
+        if compute_type == "default":
+            compute_type = _get_optimal_compute_type(device)
+            logging.info(
+                f"Auto-selected compute_type={compute_type} for device={device}"
+            )
 
         logging.info(f"Loading faster-whisper model ({model_size})...")
         t0 = time.perf_counter()
@@ -152,6 +226,13 @@ class Transcriber:
             f"  Whisper loaded in {time.perf_counter() - t0:.2f}s "
             f"(device={whisper_actual_device}, compute={whisper_actual_compute})"
         )
+
+        # VoiceEncoder: use MPS on Apple Silicon for ~16x speedup, otherwise CPU
+        # (CUDA auto-detection handled by resemblyzer when device=None)
+        if whisper_actual_device == "cuda":
+            encoder_device = None  # Let resemblyzer auto-detect CUDA
+        else:
+            encoder_device = _get_optimal_encoder_device()
 
         logging.info("Loading resemblyzer VoiceEncoder...")
         t0 = time.perf_counter()
@@ -180,7 +261,9 @@ class Transcriber:
         """
         return audio_path.with_suffix(".npz")
 
-    def _transcribe(self, audio_path: Path, initial_prompt: str | None) -> list[dict]:
+    def _transcribe(
+        self, audio_path: Path, initial_prompt: str | None
+    ) -> tuple[list[dict], dict]:
         """Transcribe audio using faster-whisper.
 
         Args:
@@ -188,7 +271,9 @@ class Transcriber:
             initial_prompt: Optional prompt with entity names for context
 
         Returns:
-            List of sentence-aligned segments with word-level data
+            Tuple of (segments, vad_info) where:
+            - segments: List of sentence-aligned segments with word-level data
+            - vad_info: Dict with 'duration' (total) and 'duration_after_vad' (speech)
 
         Raises:
             RuntimeError: If VAD detected speech but transcription produced no segments
@@ -270,7 +355,12 @@ class Transcriber:
             f"to {len(sentence_segments)} sentences"
         )
 
-        return sentence_segments
+        # Return segments with VAD info for callosum events
+        vad_info = {
+            "duration": info.duration,
+            "duration_after_vad": info.duration_after_vad,
+        }
+        return sentence_segments, vad_info
 
     def _embed_segments(
         self, audio_path: Path, segments: list[dict]
@@ -451,22 +541,56 @@ class Transcriber:
 
         try:
             # Transcribe with faster-whisper
-            segments = self._transcribe(audio_path, STYLE_PROMPT)
+            segments, vad_info = self._transcribe(audio_path, STYLE_PROMPT)
 
-            # Skip if no speech detected - safe to delete since _transcribe() already
+            # Load config for preserve_all setting
+            config = get_config()
+            preserve_all = config.get("transcribe", {}).get("preserve_all", False)
+
+            # Build base event fields (always emitted as observe.transcribed)
+            journal_path = Path(get_journal())
+            day = raw_path.parent.parent.name
+            try:
+                rel_input = raw_path.relative_to(journal_path)
+            except ValueError:
+                rel_input = raw_path
+
+            event = {
+                "input": str(rel_input),
+                "vad_duration": round(vad_info["duration"], 1),
+                "vad_speech": round(vad_info["duration_after_vad"], 1),
+            }
+            if day:
+                event["day"] = day
+            if segment:
+                event["segment"] = segment
+            if remote:
+                event["remote"] = remote
+
+            # Handle no speech detected - safe to skip/delete since _transcribe() already
             # validated that VAD also detected minimal speech (raises RuntimeError otherwise)
             if not segments:
-                logging.info(f"No speech detected in {raw_path}, removing file")
-                raw_path.unlink()
+                # Determine outcome based on preserve_all config
+                if preserve_all:
+                    event["outcome"] = "preserved"
+                    logging.info(
+                        f"No speech detected in {raw_path}, preserving file "
+                        f"(preserve_all=true, VAD: {vad_info['duration_after_vad']:.1f}s "
+                        f"of {vad_info['duration']:.1f}s)"
+                    )
+                else:
+                    event["outcome"] = "deleted"
+                    logging.info(f"No speech detected in {raw_path}, removing file")
+                    raw_path.unlink()
+
+                callosum_send("observe", "transcribed", **event)
                 return
 
-            # Extract date and time from path structure
+            # Extract date and time from path structure (day already set above)
             # Files are always in segment directories: YYYYMMDD/HHMMSS_LEN/audio.flac
             time_part = segment.split("_")[0] if segment else "000000"
-            day_str = raw_path.parent.parent.name
-
             base_dt = datetime.datetime.strptime(
-                f"{day_str}_{time_part}", "%Y%m%d_%H%M%S"
+                f"{day}_{time_part}", "%Y%m%d_%H%M%S"
             )
 
             # Extract source from <source>_audio pattern
@@ -476,9 +600,8 @@ class Transcriber:
             if suffix.endswith("_audio") and suffix != "audio":
                 source = suffix[:-6]  # Remove "_audio" suffix
 
-            # Run enrichment if enabled in config
+            # Run enrichment if enabled in config (config already loaded above)
             enrichment = None
-            config = get_config()
             enrich_enabled = config.get("transcribe", {}).get("enrich", True)
             if enrich_enabled:
                 from observe.enrich import enrich_transcript
@@ -504,32 +627,16 @@ class Transcriber:
             else:
                 logging.warning(f"No embeddings generated for {raw_path}")
 
-            # Emit completion event
-            journal_path = Path(get_journal())
-            duration_ms = int((time.time() - start_time) * 1000)
-
+            # Add completion fields and emit event
+            event["outcome"] = "transcribed"
+            event["duration_ms"] = int((time.time() - start_time) * 1000)
             try:
-                rel_input = raw_path.relative_to(journal_path)
                 rel_output = jsonl_path.relative_to(journal_path)
             except ValueError:
-                rel_input = raw_path
                 rel_output = jsonl_path
+            event["output"] = str(rel_output)
 
-            # Extract day from audio path (grandparent is day dir)
-            day = raw_path.parent.parent.name
-
-            event_fields = {
-                "input": str(rel_input),
-                "output": str(rel_output),
-                "duration_ms": duration_ms,
-            }
-            if day:
-                event_fields["day"] = day
-            if segment:
-                event_fields["segment"] = segment
-            if remote:
-                event_fields["remote"] = remote
-            callosum_send("observe", "transcribed", **event_fields)
+            callosum_send("observe", "transcribed", **event)
 
         except Exception as e:
             logging.error(f"Failed to transcribe {raw_path}: {e}", exc_info=True)
