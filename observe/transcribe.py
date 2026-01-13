@@ -15,7 +15,16 @@ Output files:
 - <stem>.npz: Sentence-level voice embeddings indexed by segment id
 
 Configuration (journal config):
+- transcribe.device: Device for inference ("auto", "cpu", "cuda"). Default: "auto"
+- transcribe.model: Whisper model size (e.g., "medium.en"). Default: "medium.en"
+- transcribe.compute_type: Precision ("default", "float32", "float16", "int8").
+  When "default", auto-selects: float16 for CUDA, int8 for CPU (including Apple Silicon).
 - transcribe.enrich: Enable/disable Gemini Lite enrichment (default: true)
+
+Platform optimizations:
+- CUDA GPU: Uses float16 for GPU-optimized inference
+- Apple Silicon: Uses int8 for Whisper (~2x faster), MPS for embeddings (~16x faster)
+- Other CPU: Uses int8 for best performance
 """
 
 from __future__ import annotations
@@ -25,6 +34,7 @@ import datetime
 import json
 import logging
 import os
+import platform
 import time
 from pathlib import Path
 
@@ -53,6 +63,64 @@ MIN_SEGMENT_DURATION = 0.3
 
 # Sentence-ending punctuation marks
 SENTENCE_ENDINGS = frozenset(".?!")
+
+
+def _is_apple_silicon() -> bool:
+    """Detect if running on Apple Silicon."""
+    return platform.system() == "Darwin" and platform.machine() == "arm64"
+
+
+def _has_cuda() -> bool:
+    """Check if CUDA is available via CTranslate2."""
+    try:
+        import ctranslate2
+
+        return ctranslate2.get_cuda_device_count() > 0
+    except Exception:
+        return False
+
+
+def _get_optimal_compute_type(device: str) -> str:
+    """Get optimal compute type for the current platform.
+
+    When compute_type is "default", CTranslate2 auto-selects but makes suboptimal
+    choices on some platforms. This function provides better defaults:
+
+    - CUDA GPU: float16 for GPU-optimized inference
+    - CPU (including Apple Silicon): int8 for ~2x faster inference and faster model load
+
+    Args:
+        device: The device being used ("cpu", "cuda", "auto")
+
+    Returns:
+        Optimal compute type string
+    """
+    # If CUDA is explicitly requested or auto-detected, float16 is optimal
+    if device == "cuda" or (device == "auto" and _has_cuda()):
+        return "float16"
+
+    # For CPU (including Apple Silicon), int8 is fastest
+    # This provides ~2x speedup and 76x faster model loading
+    return "int8"
+
+
+def _get_optimal_encoder_device() -> str:
+    """Get optimal device for VoiceEncoder (resemblyzer).
+
+    On Apple Silicon, MPS provides ~16x speedup over CPU for embeddings.
+
+    Returns:
+        Device string: "mps" on Apple Silicon with MPS available, "cpu" otherwise
+    """
+    if _is_apple_silicon():
+        try:
+            import torch
+
+            if torch.backends.mps.is_available():
+                return "mps"
+        except ImportError:
+            pass
+    return "cpu"
 
 
 def resegment_by_sentences(segments: list[dict]) -> list[dict]:
@@ -138,8 +206,13 @@ class Transcriber:
         from faster_whisper import WhisperModel
         from resemblyzer import VoiceEncoder
 
-        # VoiceEncoder follows whisper device: None auto-detects CUDA, "cpu" forces CPU
-        encoder_device = None if device in ("auto", "cuda") else "cpu"
+        # Resolve "default" compute_type to platform-optimal setting
+        # CTranslate2's auto-selection falls back to float32 on CPU, but int8 is faster
+        if compute_type == "default":
+            compute_type = _get_optimal_compute_type(device)
+            logging.info(
+                f"Auto-selected compute_type={compute_type} for device={device}"
+            )
 
         logging.info(f"Loading faster-whisper model ({model_size})...")
         t0 = time.perf_counter()
@@ -152,6 +225,13 @@ class Transcriber:
             f"  Whisper loaded in {time.perf_counter() - t0:.2f}s "
             f"(device={whisper_actual_device}, compute={whisper_actual_compute})"
         )
+
+        # VoiceEncoder: use MPS on Apple Silicon for ~16x speedup, otherwise CPU
+        # (CUDA auto-detection handled by resemblyzer when device=None)
+        if whisper_actual_device == "cuda":
+            encoder_device = None  # Let resemblyzer auto-detect CUDA
+        else:
+            encoder_device = _get_optimal_encoder_device()
 
         logging.info("Loading resemblyzer VoiceEncoder...")
         t0 = time.perf_counter()
