@@ -25,7 +25,7 @@ The package exposes several commands:
 ```bash
 think-insight YYYYMMDD [-f PROMPT] [-p] [-c] [--force] [-v]
 think-cluster YYYYMMDD [--start HHMMSS --length MINUTES]
-think-dream [--day YYYYMMDD] [--force] [--rebuild]
+think-dream [--day YYYYMMDD] [--segment HHMMSS_LEN] [--force] [--skip-insights] [--skip-agents]
 think-supervisor [--no-observers]
 muse-mcp-tools [--transport http] [--port PORT] [--path PATH]
 muse-cortex [--host HOST] [--port PORT] [--path PATH]

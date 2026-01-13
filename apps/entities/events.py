@@ -16,17 +16,21 @@ from think.facets import get_facets
 logger = logging.getLogger(__name__)
 
 
-@on_event("daily", "dream_completed")
+@on_event("dream", "insights_completed")
 def update_entity_activity(ctx: EventContext) -> None:
     """Update last_seen for entities mentioned in today's knowledge graph.
 
-    Triggered after dream processing completes. Parses the knowledge graph
+    Triggered after insight processing completes. Parses the knowledge graph
     for entity names and updates last_seen on matching attached entities
     across all facets.
     """
+    # Only process daily mode (knowledge graph is a daily insight)
+    if ctx.msg.get("mode") != "daily":
+        return
+
     day = ctx.msg.get("day")
     if not day:
-        logger.warning("dream_completed event missing day field")
+        logger.warning("insights_completed event missing day field")
         return
 
     # Parse entity names from knowledge graph

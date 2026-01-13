@@ -285,9 +285,6 @@ async def test_supervise_logs_recovery(mock_callosum, monkeypatch, caplog):
     async def fake_sleep(_):
         pass
 
-    async def fake_check_scheduled_agents():
-        pass
-
     def fake_handle_daily_tasks():
         pass
 
@@ -295,7 +292,6 @@ async def test_supervise_logs_recovery(mock_callosum, monkeypatch, caplog):
     monkeypatch.setattr(mod, "check_health", fake_check_health)
     monkeypatch.setattr(mod, "send_notification", fake_send_notification)
     monkeypatch.setattr(mod, "clear_notification", fake_clear_notification)
-    monkeypatch.setattr(mod, "check_scheduled_agents", fake_check_scheduled_agents)
     monkeypatch.setattr(mod, "handle_daily_tasks", fake_handle_daily_tasks)
     monkeypatch.setattr(mod.time, "time", fake_time)
     monkeypatch.setattr(mod.asyncio, "sleep", fake_sleep)

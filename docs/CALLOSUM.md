@@ -85,12 +85,18 @@ Callosum is a JSON-per-line message bus for real-time event distribution across 
 **Purpose:** Track media file import and transcription progress from start to completion
 **Correlation:** `import_id` correlates all events for a single import operation
 
-### `daily` - Daily processing lifecycle
-**Source:** `think/dream.py`, `think/supervisor.py`
-**Events:** `started`, `dream_started`, `dream_command`, `dream_completed`, `agents_started`, `group_started`, `agent_spawned`, `group_completed`, `agents_completed`, `indexing_started`, `indexing_completed`, `completed`
-**Fields:** `day`, `segment`, `command`, `persona`, `agent_id`, `priority`, `success`, `failed`, `duration_ms`
-**Purpose:** Track daily processing from dream through scheduled agents to final indexing
-**Correlation:** `day` (YYYYMMDD) correlates all events for a single day's processing
+### `dream` - Dream processing lifecycle
+**Source:** `think/dream.py`
+**Events:** `started`, `command`, `insights_completed`, `agents_started`, `group_started`, `group_completed`, `agents_completed`, `completed`
+**Fields:**
+- `mode` - Processing mode: "daily" or "segment"
+- `day` - Day being processed (YYYYMMDD)
+- `segment` - Segment key (only present when mode="segment")
+- `command`, `index`, `total` - Command execution details
+- `priority`, `count`, `completed`, `timed_out` - Agent group details
+- `success`, `failed`, `duration_ms` - Phase completion metrics
+**Purpose:** Track dream processing from insights through scheduled agents
+**Correlation:** `day` + `segment` (when present) correlates all events for a single processing run
 
 ---
 

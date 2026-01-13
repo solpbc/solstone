@@ -20,10 +20,18 @@ def test_main_runs(tmp_path, monkeypatch):
     journal = copy_journal(tmp_path)
     monkeypatch.setenv("JOURNAL_PATH", str(journal))
     called = []
-    monkeypatch.setattr(mod, "run_command", lambda cmd, day: called.append(cmd))
+
+    def mock_run_command(cmd, day):
+        called.append(cmd)
+        return True  # Return success
+
+    monkeypatch.setattr(mod, "run_command", mock_run_command)
+    # Also mock run_daily_agents to avoid agent execution
+    monkeypatch.setattr(mod, "run_daily_agents", lambda day: (0, 0))
     monkeypatch.setattr("think.utils.load_dotenv", lambda: True)
     monkeypatch.setattr(
-        "sys.argv", ["think-dream", "--day", "20240101", "--force", "--verbose"]
+        "sys.argv",
+        ["think-dream", "--day", "20240101", "--force", "--verbose", "--skip-agents"],
     )
     mod.main()
     assert any(c[0] == "observe-sense" for c in called)

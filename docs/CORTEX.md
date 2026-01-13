@@ -320,7 +320,7 @@ All providers:
 
 ## Scheduled Agents
 
-The supervisor automatically runs agents with `"schedule": "daily"` at midnight each day:
+Agents with `"schedule": "daily"` run automatically via `think-dream` at midnight each day:
 
 ### Execution Order
 Scheduled agents run in priority order (lower numbers first):
@@ -366,6 +366,6 @@ The `think-supervisor` command provides process management for the Cortex ecosys
 - Starts and monitors the MCP tools HTTP server
 - Handles process restarts on failure
 - Monitors system health indicators
-- Executes scheduled agents at midnight each day
+- Triggers `think-dream` at midnight for daily processing (insights + agents)
 
 This is distinct from agent lifecycle management, which Cortex handles internally through file state transitions.
