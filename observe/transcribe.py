@@ -589,9 +589,7 @@ class Transcriber:
             # Extract date and time from path structure (day already set above)
             # Files are always in segment directories: YYYYMMDD/HHMMSS_LEN/audio.flac
             time_part = segment.split("_")[0] if segment else "000000"
-            base_dt = datetime.datetime.strptime(
-                f"{day}_{time_part}", "%Y%m%d_%H%M%S"
-            )
+            base_dt = datetime.datetime.strptime(f"{day}_{time_part}", "%Y%m%d_%H%M%S")
 
             # Extract source from <source>_audio pattern
             # mic_audio -> "mic", sys_audio -> "sys", etc.
