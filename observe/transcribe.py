@@ -20,6 +20,7 @@ Configuration (journal config):
 - transcribe.compute_type: Precision ("default", "float32", "float16", "int8").
   When "default", auto-selects: float16 for CUDA, int8 for CPU (including Apple Silicon).
 - transcribe.enrich: Enable/disable Gemini Lite enrichment (default: true)
+- transcribe.preserve_all: Keep audio files even when no speech detected (default: false)
 
 Platform optimizations:
 - CUDA GPU: Uses float16 for GPU-optimized inference
@@ -260,7 +261,9 @@ class Transcriber:
         """
         return audio_path.with_suffix(".npz")
 
-    def _transcribe(self, audio_path: Path, initial_prompt: str | None) -> list[dict]:
+    def _transcribe(
+        self, audio_path: Path, initial_prompt: str | None
+    ) -> tuple[list[dict], dict]:
         """Transcribe audio using faster-whisper.
 
         Args:
@@ -268,7 +271,9 @@ class Transcriber:
             initial_prompt: Optional prompt with entity names for context
 
         Returns:
-            List of sentence-aligned segments with word-level data
+            Tuple of (segments, vad_info) where:
+            - segments: List of sentence-aligned segments with word-level data
+            - vad_info: Dict with 'duration' (total) and 'duration_after_vad' (speech)
 
         Raises:
             RuntimeError: If VAD detected speech but transcription produced no segments
@@ -350,7 +355,12 @@ class Transcriber:
             f"to {len(sentence_segments)} sentences"
         )
 
-        return sentence_segments
+        # Return segments with VAD info for callosum events
+        vad_info = {
+            "duration": info.duration,
+            "duration_after_vad": info.duration_after_vad,
+        }
+        return sentence_segments, vad_info
 
     def _embed_segments(
         self, audio_path: Path, segments: list[dict]
@@ -531,22 +541,56 @@ class Transcriber:
 
         try:
             # Transcribe with faster-whisper
-            segments = self._transcribe(audio_path, STYLE_PROMPT)
+            segments, vad_info = self._transcribe(audio_path, STYLE_PROMPT)
 
-            # Skip if no speech detected - safe to delete since _transcribe() already
+            # Load config for preserve_all setting
+            config = get_config()
+            preserve_all = config.get("transcribe", {}).get("preserve_all", False)
+
+            # Build base event fields (always emitted as observe.transcribed)
+            journal_path = Path(get_journal())
+            day = raw_path.parent.parent.name
+            try:
+                rel_input = raw_path.relative_to(journal_path)
+            except ValueError:
+                rel_input = raw_path
+
+            event = {
+                "input": str(rel_input),
+                "vad_duration": round(vad_info["duration"], 1),
+                "vad_speech": round(vad_info["duration_after_vad"], 1),
+            }
+            if day:
+                event["day"] = day
+            if segment:
+                event["segment"] = segment
+            if remote:
+                event["remote"] = remote
+
+            # Handle no speech detected - safe to skip/delete since _transcribe() already
             # validated that VAD also detected minimal speech (raises RuntimeError otherwise)
             if not segments:
-                logging.info(f"No speech detected in {raw_path}, removing file")
-                raw_path.unlink()
+                # Determine outcome based on preserve_all config
+                if preserve_all:
+                    event["outcome"] = "preserved"
+                    logging.info(
+                        f"No speech detected in {raw_path}, preserving file "
+                        f"(preserve_all=true, VAD: {vad_info['duration_after_vad']:.1f}s "
+                        f"of {vad_info['duration']:.1f}s)"
+                    )
+                else:
+                    event["outcome"] = "deleted"
+                    logging.info(f"No speech detected in {raw_path}, removing file")
+                    raw_path.unlink()
+
+                callosum_send("observe", "transcribed", **event)
                 return
 
-            # Extract date and time from path structure
+            # Extract date and time from path structure (day already set above)
             # Files are always in segment directories: YYYYMMDD/HHMMSS_LEN/audio.flac
             time_part = segment.split("_")[0] if segment else "000000"
-            day_str = raw_path.parent.parent.name
-
             base_dt = datetime.datetime.strptime(
-                f"{day_str}_{time_part}", "%Y%m%d_%H%M%S"
+                f"{day}_{time_part}", "%Y%m%d_%H%M%S"
             )
 
             # Extract source from <source>_audio pattern
@@ -556,9 +600,8 @@ class Transcriber:
             if suffix.endswith("_audio") and suffix != "audio":
                 source = suffix[:-6]  # Remove "_audio" suffix
 
-            # Run enrichment if enabled in config
+            # Run enrichment if enabled in config (config already loaded above)
             enrichment = None
-            config = get_config()
             enrich_enabled = config.get("transcribe", {}).get("enrich", True)
             if enrich_enabled:
                 from observe.enrich import enrich_transcript
@@ -584,32 +627,16 @@ class Transcriber:
             else:
                 logging.warning(f"No embeddings generated for {raw_path}")
 
-            # Emit completion event
-            journal_path = Path(get_journal())
-            duration_ms = int((time.time() - start_time) * 1000)
-
+            # Add completion fields and emit event
+            event["outcome"] = "transcribed"
+            event["duration_ms"] = int((time.time() - start_time) * 1000)
             try:
-                rel_input = raw_path.relative_to(journal_path)
                 rel_output = jsonl_path.relative_to(journal_path)
             except ValueError:
-                rel_input = raw_path
                 rel_output = jsonl_path
+            event["output"] = str(rel_output)
 
-            # Extract day from audio path (grandparent is day dir)
-            day = raw_path.parent.parent.name
-
-            event_fields = {
-                "input": str(rel_input),
-                "output": str(rel_output),
-                "duration_ms": duration_ms,
-            }
-            if day:
-                event_fields["day"] = day
-            if segment:
-                event_fields["segment"] = segment
-            if remote:
-                event_fields["remote"] = remote
-            callosum_send("observe", "transcribed", **event_fields)
+            callosum_send("observe", "transcribed", **event)
 
         except Exception as e:
             logging.error(f"Failed to transcribe {raw_path}: {e}", exc_info=True)
