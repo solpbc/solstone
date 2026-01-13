@@ -3,6 +3,7 @@
 
 import argparse
 import logging
+import sys
 import time
 from datetime import datetime, timedelta
 
@@ -76,7 +77,7 @@ def build_commands(
         if insight_frequency != target_frequency:
             continue
 
-        cmd = ["think-insight", day, "-f", insight_data["path"], "-p"]
+        cmd = ["think-insight", day, "-f", insight_data["path"]]
         if segment:
             cmd.extend(["--segment", segment])
         if verbose:
@@ -198,6 +199,10 @@ def main() -> None:
         if args.force:
             msg += " --force"
         day_log(day, msg)
+
+        if fail_count > 0:
+            logging.error(f"{fail_count} insight(s) failed, exiting with error")
+            sys.exit(1)
     finally:
         _callosum.stop()
 
