@@ -45,6 +45,7 @@ def test_openai_main(monkeypatch, tmp_path, capsys):
         {
             "prompt": "hello",
             "provider": "openai",
+            "model": GPT_5,
             "mcp_server_url": "http://localhost:5173/mcp",
         }
     )
@@ -98,6 +99,7 @@ def test_openai_thinking_events(monkeypatch, tmp_path, capsys):
         {
             "prompt": "hello",
             "provider": "openai",
+            "model": GPT_5,
             "mcp_server_url": "http://localhost:5173/mcp",
         }
     )
@@ -142,6 +144,7 @@ def test_openai_mcp_headers(monkeypatch, tmp_path):
         {
             "prompt": "audit headers",
             "provider": "openai",
+            "model": GPT_5,
             "persona": "investigator",
             "agent_id": "999",
             "mcp_server_url": "http://localhost:5173/mcp",
@@ -177,6 +180,7 @@ def test_openai_outfile(monkeypatch, tmp_path, capsys):
         {
             "prompt": "hello",
             "provider": "openai",
+            "model": GPT_5,
             "mcp_server_url": "http://localhost:5173/mcp",
         }
     )
@@ -229,6 +233,7 @@ def test_openai_thinking_events_stdout(monkeypatch, tmp_path, capsys):
         {
             "prompt": "hello",
             "provider": "openai",
+            "model": GPT_5,
             "mcp_server_url": "http://localhost:5173/mcp",
         }
     )
@@ -287,6 +292,7 @@ def test_openai_outfile_error(monkeypatch, tmp_path, capsys):
         {
             "prompt": "hello",
             "provider": "openai",
+            "model": GPT_5,
             "mcp_server_url": "http://localhost:5173/mcp",
         }
     )
@@ -335,6 +341,7 @@ def test_openai_thinking_events_error(monkeypatch, tmp_path, capsys):
         {
             "prompt": "hello",
             "provider": "openai",
+            "model": GPT_5,
             "mcp_server_url": "http://localhost:5173/mcp",
         }
     )
@@ -397,6 +404,7 @@ def test_openai_tool_call_events(monkeypatch, tmp_path, capsys):
         {
             "prompt": "hello",
             "provider": "openai",
+            "model": GPT_5,
             "mcp_server_url": "http://localhost:5173/mcp",
         }
     )

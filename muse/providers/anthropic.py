@@ -194,7 +194,11 @@ async def run_agent(
     if not prompt:
         raise ValueError("Missing 'prompt' in config")
 
-    model = config.get("model", _DEFAULT_MODEL)
+    # Model is required - Cortex always provides it via resolve_provider()
+    model = config.get("model")
+    if not model:
+        raise ValueError("Missing 'model' in config - should be set by Cortex")
+
     max_tokens = config.get("max_tokens", _DEFAULT_MAX_TOKENS)
     disable_mcp = config.get("disable_mcp", False)
     persona = config.get("persona", "default")

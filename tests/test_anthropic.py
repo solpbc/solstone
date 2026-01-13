@@ -137,6 +137,7 @@ def test_claude_main(monkeypatch, tmp_path, capsys):
         {
             "prompt": "hello",
             "provider": "anthropic",
+            "model": CLAUDE_SONNET_4,
             "mcp_server_url": "http://localhost:5173/mcp",
         }
     )
@@ -177,6 +178,7 @@ def test_claude_outfile(monkeypatch, tmp_path, capsys):
         {
             "prompt": "hello",
             "provider": "anthropic",
+            "model": CLAUDE_SONNET_4,
             "mcp_server_url": "http://localhost:5173/mcp",
         }
     )
@@ -226,6 +228,7 @@ def test_claude_thinking_events(monkeypatch, tmp_path, capsys):
         {
             "prompt": "hello",
             "provider": "anthropic",
+            "model": CLAUDE_SONNET_4,
             "mcp_server_url": "http://localhost:5173/mcp",
         }
     )
@@ -265,6 +268,7 @@ def test_claude_outfile_error(monkeypatch, tmp_path, capsys):
         {
             "prompt": "hello",
             "provider": "anthropic",
+            "model": CLAUDE_SONNET_4,
             "mcp_server_url": "http://localhost:5173/mcp",
         }
     )

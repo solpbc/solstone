@@ -91,6 +91,8 @@ async def run_agent(
     if not prompt:
         raise ValueError("Missing 'prompt' in config")
 
+    # Model has a default for Claude Code SDK since it bypasses tier-based resolution
+    # Cortex sets provider="claude" but doesn't set model for this special case
     model = config.get("model", _DEFAULT_MODEL)
     max_turns = config.get("max_turns", 32)
     persona = config.get("persona", "default")

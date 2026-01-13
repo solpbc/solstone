@@ -85,6 +85,7 @@ def test_google_main(monkeypatch, tmp_path, capsys):
         {
             "prompt": "hello",
             "provider": "google",
+            "model": GEMINI_FLASH,
             "disable_mcp": True,
         }
     )
@@ -123,6 +124,7 @@ def test_google_outfile(monkeypatch, tmp_path, capsys):
         {
             "prompt": "hello",
             "provider": "google",
+            "model": GEMINI_FLASH,
             "disable_mcp": True,
         }
     )
@@ -175,6 +177,7 @@ def test_google_outfile_error(monkeypatch, tmp_path, capsys):
         {
             "prompt": "hello",
             "provider": "google",
+            "model": GEMINI_FLASH,
             "mcp_server_url": "http://localhost:5175/mcp",
         }
     )

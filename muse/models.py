@@ -689,6 +689,8 @@ def generate(
     ValueError
         If the resolved provider is not supported.
     """
+    from muse.providers import get_provider_module
+
     # Allow model override via kwargs (used by callers with explicit model selection)
     model_override = kwargs.pop("model", None)
 
@@ -696,16 +698,10 @@ def generate(
     if model_override:
         model = model_override
 
-    if provider == "google":
-        from muse.providers.google import generate as provider_generate
-    elif provider == "openai":
-        from muse.providers.openai import generate as provider_generate
-    elif provider == "anthropic":
-        from muse.providers.anthropic import generate as provider_generate
-    else:
-        raise ValueError(f"Unsupported provider: {provider}")
+    # Get provider module via registry (raises ValueError for unknown providers)
+    provider_mod = get_provider_module(provider)
 
-    return provider_generate(
+    return provider_mod.generate(
         contents=contents,
         model=model,
         temperature=temperature,
@@ -767,6 +763,8 @@ async def agenerate(
     ValueError
         If the resolved provider is not supported.
     """
+    from muse.providers import get_provider_module
+
     # Allow model override via kwargs (used by Batch for explicit model selection)
     model_override = kwargs.pop("model", None)
 
@@ -774,16 +772,10 @@ async def agenerate(
     if model_override:
         model = model_override
 
-    if provider == "google":
-        from muse.providers.google import agenerate as provider_agenerate
-    elif provider == "openai":
-        from muse.providers.openai import agenerate as provider_agenerate
-    elif provider == "anthropic":
-        from muse.providers.anthropic import agenerate as provider_agenerate
-    else:
-        raise ValueError(f"Unsupported provider: {provider}")
+    # Get provider module via registry (raises ValueError for unknown providers)
+    provider_mod = get_provider_module(provider)
 
-    return await provider_agenerate(
+    return await provider_mod.agenerate(
         contents=contents,
         model=model,
         temperature=temperature,

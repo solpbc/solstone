@@ -54,6 +54,7 @@ def test_anthropic_provider_basic():
         {
             "prompt": "what is 1+1? Just give me the number.",
             "provider": "anthropic",
+            "model": CLAUDE_SONNET_4,
             "persona": "default",
             "max_tokens": 100,
             "disable_mcp": True,

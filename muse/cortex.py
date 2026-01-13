@@ -545,7 +545,14 @@ class CortexService:
 
                                     model = original_request.get("model", "unknown")
                                     persona = original_request.get("persona", "unknown")
-                                    context = f"agent.{persona}.{agent.agent_id}"
+
+                                    # Build context in same format as model resolution:
+                                    # agent.{app}.{name} where app="system" for system agents
+                                    if ":" in persona:
+                                        app, name = persona.split(":", 1)
+                                    else:
+                                        app, name = "system", persona
+                                    context = f"agent.{app}.{name}"
 
                                     # Extract segment from config env if set
                                     config = original_request.get("config", {})

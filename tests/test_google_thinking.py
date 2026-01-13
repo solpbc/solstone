@@ -87,6 +87,7 @@ def test_google_thinking_events(monkeypatch, tmp_path, capsys):
         {
             "prompt": "hello",
             "provider": "google",
+            "model": GEMINI_FLASH,
             "disable_mcp": True,
         }
     )

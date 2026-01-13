@@ -20,7 +20,7 @@ from dotenv import load_dotenv
 from google import genai
 from google.genai import types
 
-from muse.models import GEMINI_FLASH, resolve_provider
+from muse.models import GEMINI_FLASH
 from think.utils import create_mcp_client
 
 from ..agents import JSONEventCallback, ThinkingEvent
@@ -312,12 +312,6 @@ async def agenerate(
 # ---------------------------------------------------------------------------
 
 
-def _get_default_model() -> str:
-    """Return the configured default model for agents."""
-    _, model = resolve_provider("agent.default")
-    return model
-
-
 class ToolLoggingHooks:
     """Wrap ``session.call_tool`` to emit events."""
 
@@ -417,7 +411,11 @@ async def run_agent(
     if not prompt:
         raise ValueError("Missing 'prompt' in config")
 
-    model = config.get("model") or _get_default_model()
+    # Model is required - Cortex always provides it via resolve_provider()
+    model = config.get("model")
+    if not model:
+        raise ValueError("Missing 'model' in config - should be set by Cortex")
+
     max_tokens = config.get("max_tokens", _DEFAULT_MAX_TOKENS)
     disable_mcp = config.get("disable_mcp", False)
     persona = config.get("persona", "default")

@@ -266,15 +266,16 @@ def run_direct(
         elif event.get("event") == "error":
             result_holder["error"] = event.get("error", "Unknown error")
 
-    # Route to appropriate provider
-    if provider_name == "google":
-        from muse.providers import google as provider_mod
-    elif provider_name == "anthropic":
-        from muse.providers import anthropic as provider_mod
-    elif provider_name == "claude":
+    # Route to appropriate provider using registry
+    from muse.providers import PROVIDER_REGISTRY, get_provider_module
+
+    if provider_name == "claude":
         from muse import claude as provider_mod
+    elif provider_name in PROVIDER_REGISTRY:
+        provider_mod = get_provider_module(provider_name)
     else:
-        from muse.providers import openai as provider_mod
+        valid = ", ".join(sorted(PROVIDER_REGISTRY.keys()) + ["claude"])
+        raise ValueError(f"Unknown provider: {provider_name!r}. Valid providers: {valid}")
 
     # Run the agent
     asyncio.run(provider_mod.run_agent(config=config, on_event=on_event))

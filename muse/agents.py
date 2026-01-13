@@ -135,17 +135,6 @@ class JSONEventWriter:
                 pass
 
 
-def _journal_emit(event: Event) -> None:
-    """Emit event to stdout for cortex to capture."""
-    # No longer manages files - just ensure event goes to stdout
-    pass
-
-
-def _close_journal_writer() -> None:
-    """No-op - cortex manages all file handles."""
-    pass
-
-
 class JSONEventCallback:
     """Emit JSON events via a callback."""
 
@@ -264,7 +253,6 @@ __all__ = [
     "ThinkingEvent",
     "Event",
     "JSONEventWriter",
-    "JournalEventWriter",
     "JSONEventCallback",
     "format_tool_summary",
     "parse_agent_events_to_turns",
@@ -315,6 +303,8 @@ async def main_async() -> None:
                     continue
 
                 # Extract provider to route to correct module
+                from .providers import PROVIDER_REGISTRY, get_provider_module
+
                 provider = config.get("provider", "google")
 
                 # Set OpenAI key if needed
@@ -327,15 +317,18 @@ async def main_async() -> None:
 
                 app_logger.debug(f"Processing request: provider={provider}")
 
-                # Route to appropriate provider
-                if provider == "google":
-                    from .providers import google as provider_mod
-                elif provider == "anthropic":
-                    from .providers import anthropic as provider_mod
-                elif provider == "claude":
+                # Route to appropriate provider module
+                # "claude" is a special case (Claude Code SDK) handled separately
+                if provider == "claude":
                     from . import claude as provider_mod
+                elif provider in PROVIDER_REGISTRY:
+                    provider_mod = get_provider_module(provider)
                 else:
-                    from .providers import openai as provider_mod
+                    # Explicit error for unknown providers
+                    valid = ", ".join(sorted(PROVIDER_REGISTRY.keys()) + ["claude"])
+                    raise ValueError(
+                        f"Unknown provider: {provider!r}. Valid providers: {valid}"
+                    )
 
                 # Pass complete config to provider
                 await provider_mod.run_agent(
