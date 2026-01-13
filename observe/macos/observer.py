@@ -163,43 +163,52 @@ class MacOSObserver:
                 logger.warning(f"No audio streams in {audio_path}")
                 return False
 
-            stream = audio_streams[0]
-            sample_rate = stream.rate or SAMPLE_RATE
+            # Check ALL audio streams - pass if ANY has enough voice activity
+            # Stream 0 is typically system audio, stream 1 is microphone
+            for stream_idx, stream in enumerate(audio_streams):
+                sample_rate = stream.rate or SAMPLE_RATE
 
-            # Decode audio and collect samples
-            samples = []
-            for frame in container.decode(stream):
-                arr = frame.to_ndarray()
-                # Convert to mono if stereo (average channels)
-                if arr.ndim > 1:
-                    arr = arr.mean(axis=0)
-                samples.append(arr.flatten())
+                # Decode audio and collect samples for this stream
+                samples = []
+                container.seek(0)  # Reset to start for each stream
+                for packet in container.demux(stream):
+                    for frame in packet.decode():
+                        arr = frame.to_ndarray()
+                        # Convert to mono if stereo (average channels)
+                        if arr.ndim > 1:
+                            arr = arr.mean(axis=0)
+                        samples.append(arr.flatten())
 
-            if not samples:
-                logger.warning(f"No audio samples decoded from {audio_path}")
-                return False
-
-            # Concatenate all samples
-            all_samples = np.concatenate(samples)
-
-            # Split into CHUNK_DURATION (5 second) chunks and count threshold hits
-            chunk_samples = int(sample_rate * CHUNK_DURATION)
-            threshold_hits = 0
-
-            for i in range(0, len(all_samples), chunk_samples):
-                chunk = all_samples[i : i + chunk_samples]
-                if len(chunk) == 0:
+                if not samples:
                     continue
 
-                # Compute RMS for this chunk
-                rms = float(np.sqrt(np.mean(chunk**2)))
-                if rms > RMS_THRESHOLD:
-                    threshold_hits += 1
+                # Concatenate all samples
+                all_samples = np.concatenate(samples)
 
-            logger.debug(
-                f"Audio threshold check: {threshold_hits}/{MIN_HITS_FOR_SAVE} hits"
-            )
-            return threshold_hits >= MIN_HITS_FOR_SAVE
+                # Split into CHUNK_DURATION (5 second) chunks and count threshold hits
+                chunk_samples = int(sample_rate * CHUNK_DURATION)
+                threshold_hits = 0
+
+                for i in range(0, len(all_samples), chunk_samples):
+                    chunk = all_samples[i : i + chunk_samples]
+                    if len(chunk) == 0:
+                        continue
+
+                    # Compute RMS for this chunk
+                    rms = float(np.sqrt(np.mean(chunk**2)))
+                    if rms > RMS_THRESHOLD:
+                        threshold_hits += 1
+
+                logger.debug(
+                    f"Audio threshold check stream {stream_idx}: "
+                    f"{threshold_hits}/{MIN_HITS_FOR_SAVE} hits"
+                )
+
+                if threshold_hits >= MIN_HITS_FOR_SAVE:
+                    return True
+
+            # No stream passed threshold
+            return False
 
         except Exception as e:
             logger.warning(f"Error checking audio threshold for {audio_path}: {e}")
