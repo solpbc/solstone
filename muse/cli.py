@@ -275,7 +275,9 @@ def run_direct(
         provider_mod = get_provider_module(provider_name)
     else:
         valid = ", ".join(sorted(PROVIDER_REGISTRY.keys()) + ["claude"])
-        raise ValueError(f"Unknown provider: {provider_name!r}. Valid providers: {valid}")
+        raise ValueError(
+            f"Unknown provider: {provider_name!r}. Valid providers: {valid}"
+        )
 
     # Run the agent
     asyncio.run(provider_mod.run_agent(config=config, on_event=on_event))
