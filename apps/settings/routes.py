@@ -98,7 +98,7 @@ def update_config() -> Any:
                 "email_addresses",
                 "timezone",
             ],
-            "transcribe": ["device", "model", "compute_type"],
+            "transcribe": ["device", "model", "compute_type", "enrich", "preserve_all"],
             "convey": ["password"],
             "env": API_KEY_ENV_VARS,
         }

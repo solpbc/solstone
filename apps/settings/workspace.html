@@ -286,6 +286,15 @@ input:checked + .slider:before {
   transform: translateX(24px);
 }
 
+/* Positive toggle: green when checked (for enable/active states) */
+.toggle-switch.toggle-positive .slider {
+  background-color: #6c757d;
+}
+
+.toggle-switch.toggle-positive input:checked + .slider {
+  background-color: #28a745;
+}
+
 /* Editable fields (double-tap to edit) */
 .editable-field {
   min-height: 2.5em;
@@ -1136,6 +1145,28 @@ input:checked + .slider:before {
         </select>
         <small>Numeric precision for transcription</small>
       </div>
+
+      <div class="settings-field">
+        <div class="toggle-container" style="justify-content: flex-start; gap: 1em;">
+          <label class="toggle-switch toggle-positive">
+            <input type="checkbox" id="field-transcribe-enrich" data-section="transcribe" data-key="enrich">
+            <span class="slider"></span>
+          </label>
+          <label for="field-transcribe-enrich" class="toggle-label" style="cursor: pointer;">Enrich Transcripts</label>
+        </div>
+        <small>Use AI to extract topics, correct transcription errors, and add descriptions</small>
+      </div>
+
+      <div class="settings-field">
+        <div class="toggle-container" style="justify-content: flex-start; gap: 1em;">
+          <label class="toggle-switch toggle-positive">
+            <input type="checkbox" id="field-transcribe-preserve" data-section="transcribe" data-key="preserve_all">
+            <span class="slider"></span>
+          </label>
+          <label for="field-transcribe-preserve" class="toggle-label" style="cursor: pointer;">Preserve Silent Recordings</label>
+        </div>
+        <small>Keep audio files even when no speech is detected</small>
+      </div>
     </section>
 
     <!-- Security Section -->
@@ -1372,6 +1403,9 @@ function populateFields(config) {
   setValue('field-transcribe-device', transcribe.device || 'auto');
   setValue('field-transcribe-model', transcribe.model || 'medium.en');
   setValue('field-transcribe-compute', transcribe.compute_type || 'default');
+  // enrich defaults to true when not set
+  document.getElementById('field-transcribe-enrich').checked = transcribe.enrich !== false;
+  document.getElementById('field-transcribe-preserve').checked = transcribe.preserve_all || false;
 
   // Convey (password)
   const convey = config.convey || {};
@@ -1437,7 +1471,7 @@ function setupAutoSave() {
 function handleFieldChange(el) {
   const section = el.dataset.section;
   const key = el.dataset.key;
-  let value = el.value;
+  let value = el.type === 'checkbox' ? el.checked : el.value;
 
   // Transform special fields
   if (key === 'aliases' || key === 'email_addresses') {
