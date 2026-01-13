@@ -1,4 +1,5 @@
 {
   "icon": "📊",
-  "label": "Stats"
+  "label": "Stats",
+  "facets": {"disabled": true}
 }

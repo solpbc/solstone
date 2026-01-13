@@ -1,5 +1,5 @@
 {
   "icon": "📡",
   "label": "Remote",
-  "facets": false
+  "facets": {"disabled": true}
 }

@@ -1,5 +1,6 @@
 {
   "icon": "📜",
   "label": "Transcripts",
-  "date_nav": true
+  "date_nav": true,
+  "facets": {"disabled": true}
 }
