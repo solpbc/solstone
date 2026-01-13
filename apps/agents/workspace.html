@@ -191,11 +191,6 @@
   color: #388e3c;
 }
 
-.metadata-badge.provider {
-  background: #fce4ec;
-  color: #c2185b;
-}
-
 .metadata-badge .badge-icon {
   font-size: 0.9rem;
 }
@@ -1482,23 +1477,6 @@ tr.clickable-row:hover {
         </div>
 
         <div class="metadata-item">
-          <label>Provider</label>
-          <select id="modalProvider" onchange="saveMetadata()">
-            <option value="">Default</option>
-            <option value="openai">OpenAI</option>
-            <option value="anthropic">Anthropic</option>
-            <option value="google">Google</option>
-            <option value="claude">Claude</option>
-          </select>
-        </div>
-
-        <div class="metadata-item">
-          <label>Model</label>
-          <input type="text" id="modalModel" placeholder="Auto"
-                 onblur="saveMetadata()" onkeydown="if(event.key === 'Escape') this.blur();">
-        </div>
-
-        <div class="metadata-item">
           <label>Tools</label>
           <select id="modalTools" onchange="saveMetadata()">
             <option value="">Default</option>
@@ -1578,20 +1556,6 @@ tr.clickable-row:hover {
         <p style="font-size: 0.9rem; color: #666; margin-bottom: 1rem;">
           <em>Note: Prompt generation uses Gemini. Configuration below applies to agent execution.</em>
         </p>
-
-        <div class="config-section">
-          <label for="agentProvider">Agent Provider</label>
-          <select id="agentProvider">
-            <option value="openai">OpenAI</option>
-            <option value="anthropic">Anthropic</option>
-            <option value="google">Google</option>
-          </select>
-        </div>
-
-        <div class="config-section">
-          <label for="agentModel">Model (optional)</label>
-          <input type="text" id="agentModel" placeholder="Leave empty for default">
-        </div>
 
         <div class="config-section">
           <label for="maxTokens">Max Tokens</label>
@@ -1803,11 +1767,6 @@ function renderCards(items, containerId, itemType, createModalFunc) {
         }
       }
 
-      // Provider badge
-      if (item.provider) {
-        badges.push(`<span class="metadata-badge provider"><span class="badge-icon">🤖</span>${item.provider}</span>`);
-      }
-
       if (badges.length > 0) {
         metadataHtml = `<div class="agent-metadata">${badges.join('')}</div>`;
       }
@@ -1933,8 +1892,6 @@ function viewItemDetails(itemId, itemType, event) {
     document.getElementById('modalSchedule').checked = false;
     document.getElementById('modalPriority').value = '';
     document.getElementById('modalMultiFacet').checked = false;
-    document.getElementById('modalProvider').value = '';
-    document.getElementById('modalModel').value = '';
     document.getElementById('modalTools').value = '';
     document.getElementById('modalToolsCustom').style.display = 'none';
 
@@ -1947,12 +1904,6 @@ function viewItemDetails(itemId, itemType, event) {
     }
     if (item.multi_facet) {
       document.getElementById('modalMultiFacet').checked = true;
-    }
-    if (item.provider) {
-      document.getElementById('modalProvider').value = item.provider;
-    }
-    if (item.model) {
-      document.getElementById('modalModel').value = item.model;
     }
     if (item.tools) {
       const toolsSelect = document.getElementById('modalTools');
@@ -2121,18 +2072,6 @@ async function saveMetadata(updates = {}) {
     const isMultiFacet = document.getElementById('modalMultiFacet').checked;
     if (isMultiFacet) {
       requestBody.multi_facet = true;
-    }
-
-    // Provider
-    const provider = document.getElementById('modalProvider').value;
-    if (provider) {
-      requestBody.provider = provider;
-    }
-
-    // Model
-    const model = document.getElementById('modalModel').value.trim();
-    if (model) {
-      requestBody.model = model;
     }
 
     // Tools
@@ -2311,14 +2250,11 @@ async function startAgent() {
     return;
   }
 
-  const provider = document.getElementById('agentProvider').value;
-  const model = document.getElementById('agentModel').value.trim();
   const maxTokens = parseInt(document.getElementById('maxTokens').value) || 0;
   const persona = document.getElementById('agentPersona').value;
 
   // Build config object
   const config = {};
-  if (model) config.model = model;
   if (maxTokens) config.max_tokens = maxTokens;
 
   const startBtn = document.getElementById('startAgentBtn');
@@ -2333,7 +2269,6 @@ async function startAgent() {
       },
       body: JSON.stringify({
         prompt: prompt,
-        provider: provider,
         config: config,
         persona: persona
       })
@@ -2443,7 +2378,6 @@ function buildRow(a) {
   restartBtn.dataset.agentId = a.id;
   restartBtn.dataset.prompt = a.prompt;
   restartBtn.dataset.persona = a.persona;
-  restartBtn.dataset.provider = a.provider;
 
   restartBtn.onclick = (e) => {
     e.stopPropagation();
@@ -2555,14 +2489,12 @@ async function restartAgent(buttonElement) {
   const agentId = buttonElement.dataset.agentId;
   const prompt = buttonElement.dataset.prompt;
   const persona = buttonElement.dataset.persona;
-  const provider = buttonElement.dataset.provider;
 
   // Confirmation dialog
   const confirmed = confirm(
     `Are you sure you want to restart this agent?\n\n` +
     `Prompt: ${prompt.substring(0, 100)}${prompt.length > 100 ? '...' : ''}\n` +
-    `Agent: ${persona}\n` +
-    `Provider: ${provider}\n\n` +
+    `Agent: ${persona}\n\n` +
     `This will create a new agent run with the same configuration.`
   );
 
@@ -2578,7 +2510,6 @@ async function restartAgent(buttonElement) {
       },
       body: JSON.stringify({
         prompt: prompt,
-        provider: provider,
         persona: persona,
         config: {}
       })

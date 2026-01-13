@@ -18,8 +18,7 @@ import asyncio
 import json
 import sys
 import threading
-import time
-from typing import Any, Callable, Dict, Optional, TextIO
+from typing import Any, Dict, Optional, TextIO
 
 from think.callosum import CallosumConnection
 from think.utils import setup_cli
@@ -107,14 +106,11 @@ def build_agent_config(
     Mirrors the config building logic in cortex.py for consistency.
     """
     from muse.mcp import get_tools
+    from muse.models import resolve_model_for_provider, resolve_provider
     from think.utils import get_agent
 
     # Load persona configuration
     config = get_agent(persona)
-
-    # Apply provider override if specified
-    if provider:
-        config["provider"] = provider
 
     # Apply any additional overrides
     config.update({k: v for k, v in overrides.items() if v is not None})
@@ -122,6 +118,32 @@ def build_agent_config(
     # Set prompt
     config["prompt"] = prompt
     config["persona"] = persona
+
+    # Resolve provider and model from context
+    # Context format: agent.{app}.{name} where app="system" for system agents
+    if ":" in persona:
+        app, name = persona.split(":", 1)
+    else:
+        app, name = "system", persona
+    agent_context = f"agent.{app}.{name}"
+
+    # Check for claude: true flag (special case for Claude Code SDK)
+    if config.get("claude"):
+        config["provider"] = "claude"
+        # Claude SDK doesn't need model - it uses its own
+    else:
+        # Resolve default provider and model from context
+        default_provider, model = resolve_provider(agent_context)
+
+        # Provider can be overridden by parameter or persona config
+        final_provider = provider or config.get("provider") or default_provider
+
+        # If provider was overridden, re-resolve model for that provider
+        if final_provider != default_provider:
+            model = resolve_model_for_provider(agent_context, final_provider)
+
+        config["provider"] = final_provider
+        config["model"] = model
 
     # Expand tools if it's a string (tool pack name)
     tools_config = config.get("tools")

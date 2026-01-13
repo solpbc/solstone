@@ -37,9 +37,8 @@ Requests are created via `cortex_request()` from `muse.cortex_client`, which bro
   "event": "request",
   "ts": 1234567890123,              // Required: millisecond timestamp (must match filename)
   "prompt": "Analyze this code for security issues",  // Required: the task or question
-  "provider": "openai",              // Required: openai, google, anthropic, or claude
   "persona": "default",              // Optional: agent persona from muse/agents/*.txt
-  "model": "gpt-4o",               // Optional: provider-specific override
+  "provider": "openai",              // Optional: override provider (openai, google, anthropic)
   "max_tokens": 8192,               // Optional: token limit (if supported)
   "disable_mcp": false,             // Optional: disable MCP tools for this request
   "continue_from": "1234567890122",  // Optional: continue from previous agent
@@ -59,8 +58,9 @@ Requests are created via `cortex_request()` from `muse.cortex_client`, which bro
 }
 ```
 
-All provider overrides (for example `model`, `max_tokens`, `disable_mcp`) are supplied as
-top-level keys to keep the schema flat and aligned with the agent providers.
+The model is automatically resolved based on the agent context (`agent.{app}.{persona}`)
+and the configured tier in `journal.json`. Provider can optionally be overridden at
+request time, which will resolve the appropriate model for that provider at the same tier.
 
 ### Conversation Continuations
 
@@ -240,8 +240,9 @@ Personas define specialized behaviors, tool usage patterns, and facet expertise.
 ### Persona Configuration Options
 
 The `.json` file for a persona can include:
-- `provider`: Default provider (openai, google, anthropic, claude)
-- `model`: Default model name for the provider
+- `claude`: Boolean flag to use Claude Code SDK instead of API providers
+  - When true, uses filesystem tools instead of MCP; requires `facet` in request
+  - This flag is NOT inherited by handoff agents
 - `max_tokens`: Maximum response token limit
 - `tools`: MCP tools configuration (string or array)
   - String: Comma-separated pack names (e.g., `"journal"`, `"journal, todo"`) - expanded via `get_tools()`
@@ -264,6 +265,25 @@ The `.json` file for a persona can include:
   - Request-level `env` overrides persona defaults
   - Inherited by handoff agents unless explicitly overridden
   - Note: `JOURNAL_PATH` cannot be overridden (always set by Cortex)
+
+### Model Resolution
+
+Models are resolved automatically based on context and tier:
+1. Each agent has a context pattern: `agent.{app}.{persona}` (e.g., `agent.system.default`)
+2. The context determines the tier (pro/flash/lite) from `journal.json` or system defaults
+3. The tier + provider determines the actual model to use
+
+This allows controlling model selection via tier configuration rather than hardcoding models:
+```json
+{
+  "providers": {
+    "contexts": {
+      "agent.system.doctor": {"tier": 1},
+      "agent.*": {"tier": 2}
+    }
+  }
+}
+```
 
 ## MCP Tools Integration
 

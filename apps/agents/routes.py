@@ -106,8 +106,6 @@ def _list_items(item_type: str) -> list[dict[str, object]]:
                         "priority": metadata.get("priority"),
                         "multi_facet": metadata.get("multi_facet", False),
                         "tools": metadata.get("tools"),
-                        "provider": metadata.get("provider"),
-                        "model": metadata.get("model"),
                     }
                 )
             except Exception:
@@ -334,8 +332,6 @@ def _update_item(item_type: str, item_id: str, data: dict) -> tuple[dict, int]:
     priority = data.get("priority")  # Can be None or 0-99
     tools = data.get("tools")  # Can be None or comma-separated string
     multi_facet = data.get("multi_facet")  # Can be None or boolean
-    provider = data.get("provider")  # Can be None or provider name
-    model = data.get("model")  # Can be None or model name
 
     if not new_title or not new_content:
         return {"error": "Title and content are required"}, 400
@@ -372,10 +368,6 @@ def _update_item(item_type: str, item_id: str, data: dict) -> tuple[dict, int]:
                     item_config["tools"] = tools
                 if multi_facet is not None and multi_facet:
                     item_config["multi_facet"] = True
-                if provider:
-                    item_config["provider"] = provider
-                if model:
-                    item_config["model"] = model
         else:
             # Update existing JSON file
             with open(json_path, "r", encoding="utf-8") as f:
@@ -409,17 +401,9 @@ def _update_item(item_type: str, item_id: str, data: dict) -> tuple[dict, int]:
                         del item_config["multi_facet"]
                 # Don't delete if multi_facet is None (not provided)
 
-                # Provider
-                if provider:
-                    item_config["provider"] = provider
-                elif "provider" in item_config:
-                    del item_config["provider"]
-
-                # Model
-                if model:
-                    item_config["model"] = model
-                elif "model" in item_config:
-                    del item_config["model"]
+                # Remove legacy provider/model fields if present
+                item_config.pop("provider", None)
+                item_config.pop("model", None)
 
         # Write JSON file
         with open(json_path, "w", encoding="utf-8") as f:
@@ -480,18 +464,16 @@ def start_agent() -> object:
 
     if not prompt_value:
         return jsonify({"error": "Prompt is required"}), 400
-    provider = data.get("provider", "openai")
     persona = data.get("persona", "default")
     config = data.get("config", {})
 
     try:
         from convey.utils import spawn_agent
 
-        # Create the agent request
+        # Create the agent request (provider resolved from context)
         agent_id = spawn_agent(
             prompt=prompt_value,
             persona=persona,
-            provider=provider,
             config=config,
         )
 

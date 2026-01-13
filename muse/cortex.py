@@ -313,6 +313,35 @@ class CortexService:
             config.update({k: v for k, v in request.items() if v is not None})
             config["agent_id"] = agent_id
 
+            # Resolve provider and model from context
+            # Context format: agent.{app}.{name} where app="system" for system agents
+            from muse.models import resolve_model_for_provider, resolve_provider
+
+            if ":" in persona:
+                app, name = persona.split(":", 1)
+            else:
+                app, name = "system", persona
+            agent_context = f"agent.{app}.{name}"
+
+            # Check for claude: true flag (special case for Claude Code SDK)
+            if config.get("claude"):
+                config["provider"] = "claude"
+                # Claude SDK doesn't need model - it uses its own
+            else:
+                # Resolve default provider and model from context
+                default_provider, model = resolve_provider(agent_context)
+
+                # Provider can be overridden by request or persona config
+                # Model is always resolved from context tier + final provider
+                provider = config.get("provider") or default_provider
+
+                # If provider was overridden, re-resolve model for that provider
+                if provider != default_provider:
+                    model = resolve_model_for_provider(agent_context, provider)
+
+                config["provider"] = provider
+                config["model"] = model
+
             # Capture handoff configuration for post-run processing while
             # leaving it in the merged config for logging transparency.
             handoff_config = config.get("handoff")
@@ -724,16 +753,17 @@ class CortexService:
             # Determine prompt/provider/persona before pruning extra keys.
             prompt = handoff_config.pop("prompt", None) or result
             persona = handoff_config.pop("persona", None) or "default"
-            provider = handoff_config.pop("provider", None)
-            if provider is None:
-                with self.lock:
-                    provider = self.agent_requests.get(parent_id, {}).get("provider")
-            if provider is None:
-                provider = "openai"
 
-            # Ensure we do not propagate parent handoff metadata.
+            # Provider can be explicitly set in handoff config, otherwise let
+            # the handoff persona resolve its own provider from context
+            provider = handoff_config.pop("provider", None)
+
+            # Ensure we do not propagate parent handoff metadata or claude flag.
+            # Each persona must declare claude: true in its own config.
             handoff_config.pop("handoff", None)
             handoff_config.pop("handoff_from", None)
+            handoff_config.pop("claude", None)
+            handoff_config.pop("model", None)
 
             # Inherit env from parent if not explicitly set in handoff config
             if "env" not in handoff_config:

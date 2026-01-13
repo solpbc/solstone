@@ -96,8 +96,8 @@ def spawn_agent(
     Args:
         prompt: The task or question for the agent
         persona: Agent persona - system (e.g., "default") or app-qualified (e.g., "entities:entity_assist")
-        provider: AI provider - openai, google, anthropic, or claude
-        config: Provider-specific configuration (model, max_tokens, facet, continue, etc.)
+        provider: Optional provider override (openai, google, anthropic)
+        config: Additional configuration (max_tokens, facet, continue_from, etc.)
 
     Returns:
         agent_id string (timestamp-based)

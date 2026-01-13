@@ -431,10 +431,11 @@ def test_spawn_handoff_with_explicit_prompt(cortex_service, mock_journal):
         cortex_service._spawn_handoff(parent_id, result, handoff)
 
         # Check cortex_request was called with explicit prompt
+        # Provider is None when not explicitly set - let the persona resolve its own
         mock_request.assert_called_once_with(
             prompt="Review this analysis",  # Uses explicit prompt
             persona="reviewer",
-            provider="openai",
+            provider=None,
             handoff_from=parent_id,
             config=None,
         )

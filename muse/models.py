@@ -143,7 +143,56 @@ CONTEXT_DEFAULTS: Dict[str, Dict[str, Any]] = {
         "label": "Chat Title Generation",
         "group": "Apps",
     },
+    # Agent runs - AI agent execution via Cortex
+    "agent.*": {
+        "tier": TIER_FLASH,
+        "label": "Agent Runs",
+        "group": "Muse",
+    },
 }
+
+
+def _resolve_tier(context: str) -> int:
+    """Resolve context to tier number.
+
+    Checks journal config contexts first, then CONTEXT_DEFAULTS with glob matching.
+
+    Parameters
+    ----------
+    context
+        Context string (e.g., "agent.system.default", "insight.meetings").
+
+    Returns
+    -------
+    int
+        Tier number (1=pro, 2=flash, 3=lite).
+    """
+    import fnmatch
+
+    from think.utils import get_config
+
+    journal_config = get_config()
+    providers_config = journal_config.get("providers", {})
+    contexts = providers_config.get("contexts", {})
+
+    # Check journal config contexts first (exact match)
+    if context in contexts:
+        return contexts[context].get("tier", DEFAULT_TIER)
+
+    # Check CONTEXT_DEFAULTS (exact match)
+    if context in CONTEXT_DEFAULTS:
+        return CONTEXT_DEFAULTS[context]["tier"]
+
+    # Check glob patterns in both
+    for pattern, ctx_config in contexts.items():
+        if fnmatch.fnmatch(context, pattern):
+            return ctx_config.get("tier", DEFAULT_TIER)
+
+    for pattern, ctx_default in CONTEXT_DEFAULTS.items():
+        if fnmatch.fnmatch(context, pattern):
+            return ctx_default["tier"]
+
+    return DEFAULT_TIER
 
 
 def _resolve_model(provider: str, tier: int, config_models: Dict[str, Any]) -> str:
@@ -190,6 +239,34 @@ def _resolve_model(provider: str, tier: int, config_models: Dict[str, Any]) -> s
         provider, PROVIDER_DEFAULTS[DEFAULT_PROVIDER]
     )
     return provider_defaults.get(DEFAULT_TIER, GEMINI_FLASH)
+
+
+def resolve_model_for_provider(context: str, provider: str) -> str:
+    """Resolve model for a specific provider based on context tier.
+
+    Use this when provider is overridden from the default - resolves the
+    appropriate model for the given provider at the context's tier.
+
+    Parameters
+    ----------
+    context
+        Context string (e.g., "agent.system.default").
+    provider
+        Provider name ("google", "openai", "anthropic").
+
+    Returns
+    -------
+    str
+        Model identifier string for the provider at the context's tier.
+    """
+    from think.utils import get_config
+
+    tier = _resolve_tier(context)
+    journal_config = get_config()
+    providers_config = journal_config.get("providers", {})
+    config_models = providers_config.get("models", {})
+
+    return _resolve_model(provider, tier, config_models)
 
 
 def resolve_provider(context: str) -> tuple[str, str]:
