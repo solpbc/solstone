@@ -14,8 +14,7 @@ Defines the category and its behavior:
 {
   "description": "One-line description for categorization prompt",
   "followup": true,
-  "output": "markdown",
-  "iq": "lite"
+  "output": "markdown"
 }
 ```
 
@@ -24,7 +23,8 @@ Defines the category and its behavior:
 | `description` | Yes | - | Single-line description used in the categorization prompt |
 | `followup` | No | `false` | Whether to run follow-up analysis for this category |
 | `output` | No | `"markdown"` | Response format: `"json"` or `"markdown"` |
-| `iq` | No | `"lite"` | Model tier: `"lite"`, `"flash"`, or `"pro"` |
+
+Model selection is handled via the providers configuration in `journal.json`. Each category uses the context pattern `observe.describe.<category>` for routing. See [JOURNAL.md](JOURNAL.md) for details on configuring providers per context.
 
 ### 2. `<category>.txt` (required if `followup: true`)
 

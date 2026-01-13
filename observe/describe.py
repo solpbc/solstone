@@ -53,7 +53,6 @@ def _discover_categories() -> dict[str, dict]:
     - description (required): Single-line description for categorization prompt
     - followup (optional, default: false): Whether to run follow-up analysis
     - output (optional, default: "markdown"): Response format if followup=true
-    - iq (optional, default: "lite"): Model tier for follow-up ("lite", "flash", "pro")
 
     If followup=true, a matching .txt file contains the follow-up prompt.
 
@@ -87,11 +86,6 @@ def _discover_categories() -> dict[str, dict]:
             # Store the category context for later resolution
             # The model will be resolved at runtime via generate()
             metadata["context"] = f"observe.describe.{category}"
-
-            # Store iq for informational purposes (actual tier comes from CONTEXT_DEFAULTS
-            # or config override, but category iq can influence CONTEXT_DEFAULTS registration)
-            if "iq" not in metadata:
-                metadata["iq"] = "lite"  # Default tier for categories
 
             # Load prompt if followup is enabled
             if metadata["followup"]:

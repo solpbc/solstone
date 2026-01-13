@@ -37,10 +37,6 @@ def test_categories_have_required_fields():
         assert "context" in metadata, f"Category {category} missing 'context'"
         assert metadata["context"].startswith("observe.describe.")
 
-        # Every category should have iq field (tier name)
-        assert "iq" in metadata, f"Category {category} missing 'iq'"
-        assert metadata["iq"] in ("lite", "flash", "pro")
-
 
 def test_followup_categories_have_prompts():
     """Test that categories with followup=true have prompt loaded."""

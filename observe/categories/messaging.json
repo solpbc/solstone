@@ -1,6 +1,5 @@
 {
   "description": "Chat or email apps (Slack, Discord, Messages/iMessage, Gmail, etc.)",
   "followup": true,
-  "output": "markdown",
-  "iq": "flash"
+  "output": "markdown"
 }
