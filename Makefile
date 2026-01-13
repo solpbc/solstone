@@ -10,6 +10,8 @@ all: install
 .installed: pyproject.toml
 	@echo "Installing package in editable mode..."
 	pip install -e .
+	@echo "Updating genai-prices to latest (for current model pricing)..."
+	pip install --upgrade genai-prices
 	@touch .installed
 
 # Install package in editable mode
