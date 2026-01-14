@@ -86,7 +86,7 @@ def create_archive(day: str, output_path: Path | None = None) -> Path:
 
     Args:
         day: Day in YYYYMMDD format
-        output_path: Optional output path (default: {day}_{hostname}.tgz)
+        output_path: Optional output path (default: scratch/{day}_{hostname}.tgz)
 
     Returns:
         Path to created archive
@@ -117,9 +117,11 @@ def create_archive(day: str, output_path: Path | None = None) -> Path:
         segment_dir = day_dir / segment
         manifest["segments"][segment] = _build_segment_manifest(segment_dir)
 
-    # Determine output path
+    # Determine output path (default: scratch/ in project root)
     if output_path is None:
-        output_path = Path(f"{day}_{_get_hostname()}.tgz")
+        scratch_dir = Path(__file__).parent.parent / "scratch"
+        scratch_dir.mkdir(exist_ok=True)
+        output_path = scratch_dir / f"{day}_{_get_hostname()}.tgz"
 
     # Create archive
     logger.info(f"Creating archive: {output_path}")
@@ -383,7 +385,7 @@ def main() -> None:
         "--output",
         "-o",
         type=Path,
-        help="Output archive path (default: {day}_{hostname}.tgz)",
+        help="Output archive path (default: scratch/{day}_{hostname}.tgz)",
     )
 
     # Import subcommand
