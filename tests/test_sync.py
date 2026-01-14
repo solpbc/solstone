@@ -6,6 +6,7 @@
 from unittest.mock import MagicMock, patch
 
 import pytest
+import requests
 
 
 @pytest.fixture
@@ -515,3 +516,125 @@ def test_process_segment_uploads_if_not_on_server(sync_journal, monkeypatch):
 
             # Upload SHOULD have been called
             mock_client.upload_segment.assert_called_once()
+
+
+class TestCheckRemoteHealth:
+    """Tests for check_remote_health() function."""
+
+    def test_health_check_success(self):
+        """Test successful health check returns True with connection info."""
+        from observe.sync import check_remote_health
+
+        with patch("observe.sync.requests.get") as mock_get:
+            mock_response = MagicMock()
+            mock_response.status_code = 200
+            mock_get.return_value = mock_response
+
+            success, message = check_remote_health(
+                "http://server.local:8000/app/remote/ingest/abc12345xyz"
+            )
+
+            assert success is True
+            assert "server.local:8000" in message
+            assert "abc12345" in message  # Key prefix
+
+    def test_health_check_invalid_key(self):
+        """Test 401 response returns False with appropriate message."""
+        from observe.sync import check_remote_health
+
+        with patch("observe.sync.requests.get") as mock_get:
+            mock_response = MagicMock()
+            mock_response.status_code = 401
+            mock_get.return_value = mock_response
+
+            success, message = check_remote_health(
+                "http://server.local:8000/app/remote/ingest/badkey"
+            )
+
+            assert success is False
+            assert "401" in message or "Invalid key" in message
+
+    def test_health_check_revoked_key(self):
+        """Test 403 response returns False with error details."""
+        from observe.sync import check_remote_health
+
+        with patch("observe.sync.requests.get") as mock_get:
+            mock_response = MagicMock()
+            mock_response.status_code = 403
+            mock_response.text = '{"error": "Remote revoked"}'
+            mock_response.json.return_value = {"error": "Remote revoked"}
+            mock_get.return_value = mock_response
+
+            success, message = check_remote_health(
+                "http://server.local:8000/app/remote/ingest/revokedkey"
+            )
+
+            assert success is False
+            assert "403" in message or "revoked" in message.lower()
+
+    def test_health_check_403_non_json_body(self):
+        """Test 403 with non-JSON body doesn't crash."""
+        from observe.sync import check_remote_health
+
+        with patch("observe.sync.requests.get") as mock_get:
+            mock_response = MagicMock()
+            mock_response.status_code = 403
+            mock_response.text = "Forbidden"
+            mock_response.json.side_effect = requests.exceptions.JSONDecodeError(
+                "", "", 0
+            )
+            mock_get.return_value = mock_response
+
+            success, message = check_remote_health(
+                "http://server.local:8000/app/remote/ingest/badkey"
+            )
+
+            assert success is False
+            assert "403" in message
+
+    def test_health_check_connection_refused(self):
+        """Test connection refused returns False with clear message."""
+        from observe.sync import check_remote_health
+
+        with patch("observe.sync.requests.get") as mock_get:
+            mock_get.side_effect = requests.exceptions.ConnectionError(
+                "Connection refused"
+            )
+
+            success, message = check_remote_health(
+                "http://server.local:8000/app/remote/ingest/key123"
+            )
+
+            assert success is False
+            assert "refused" in message.lower() or "connection" in message.lower()
+
+    def test_health_check_timeout(self):
+        """Test timeout returns False with timeout message."""
+        from observe.sync import check_remote_health
+
+        with patch("observe.sync.requests.get") as mock_get:
+            mock_get.side_effect = requests.exceptions.Timeout("timed out")
+
+            success, message = check_remote_health(
+                "http://server.local:8000/app/remote/ingest/key123",
+                timeout=5.0,
+            )
+
+            assert success is False
+            assert "timeout" in message.lower()
+
+    def test_health_check_host_not_found(self):
+        """Test DNS failure returns False with host not found message."""
+        from observe.sync import check_remote_health
+
+        with patch("observe.sync.requests.get") as mock_get:
+            mock_get.side_effect = requests.exceptions.ConnectionError(
+                "Name or service not known"
+            )
+
+            success, message = check_remote_health(
+                "http://nonexistent.invalid/app/remote/ingest/key123"
+            )
+
+            assert success is False
+            assert "not found" in message.lower() or "connection" in message.lower()

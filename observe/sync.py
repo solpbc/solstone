@@ -20,8 +20,10 @@ import socket
 import threading
 import time
 from dataclasses import dataclass
+from datetime import datetime
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlparse
 
 import requests
 
@@ -40,6 +42,72 @@ PLATFORM = platform.system().lower()
 MAX_RETRIES = 3
 RETRY_BACKOFF = [1, 5, 15]  # seconds
 UPLOAD_TIMEOUT = 300  # 5 minutes for large files
+HEALTH_CHECK_TIMEOUT = 10  # seconds for startup health check
+
+
+def check_remote_health(
+    remote_url: str, timeout: float = HEALTH_CHECK_TIMEOUT
+) -> tuple[bool, str]:
+    """Check if remote server is reachable and key is valid.
+
+    Hits the segments endpoint to verify connectivity and authentication.
+    Intended to be called at startup before launching sync service.
+
+    Args:
+        remote_url: Full URL to remote ingest endpoint (including key)
+                   e.g., "https://server:5000/app/remote/ingest/abc123..."
+        timeout: Request timeout in seconds (default: 10)
+
+    Returns:
+        Tuple of (success, message):
+        - (True, "Connected to host:port (key: prefix)") on success
+        - (False, "error description") on failure
+    """
+    # Parse URL for readable logging
+    remote_url = remote_url.rstrip("/")
+    try:
+        parsed = urlparse(remote_url)
+        host = parsed.netloc or parsed.hostname or "unknown"
+        # Extract key from path: /app/remote/ingest/KEY -> KEY[:8]
+        path_parts = parsed.path.split("/")
+        key_prefix = path_parts[-1][:8] if path_parts else "unknown"
+    except Exception:
+        host = "unknown"
+        key_prefix = "unknown"
+
+    # Build segments endpoint URL with today's date
+    today = datetime.now().strftime("%Y%m%d")
+    segments_url = f"{remote_url}/segments/{today}"
+
+    try:
+        response = requests.get(segments_url, timeout=timeout)
+
+        if response.status_code == 200:
+            return (True, f"Connected to {host} (key: {key_prefix})")
+        elif response.status_code == 401:
+            return (False, f"Invalid key (401) - check remote URL")
+        elif response.status_code == 403:
+            try:
+                error = response.json().get("error", "forbidden")
+            except Exception:
+                error = "forbidden"
+            return (False, f"Key rejected (403): {error}")
+        else:
+            return (False, f"Unexpected response ({response.status_code}) from {host}")
+
+    except requests.exceptions.Timeout:
+        return (False, f"Connection timeout after {timeout}s to {host}")
+    except requests.exceptions.ConnectionError as e:
+        # Extract cleaner error message
+        err_str = str(e)
+        if "Connection refused" in err_str:
+            return (False, f"Connection refused: {host}")
+        elif "Name or service not known" in err_str or "getaddrinfo failed" in err_str:
+            return (False, f"Host not found: {host}")
+        else:
+            return (False, f"Connection error: {host}")
+    except Exception as e:
+        return (False, f"Health check failed: {e}")
 
 
 class RemoteClient:

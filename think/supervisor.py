@@ -17,6 +17,7 @@ from pathlib import Path
 
 from desktop_notifier import DesktopNotifier, Urgency
 
+from observe.sync import check_remote_health
 from think.callosum import CallosumConnection, CallosumServer
 from think.runner import ManagedProcess as RunnerManagedProcess
 from think.utils import get_journal, setup_cli
@@ -1128,8 +1129,14 @@ def main() -> None:
 
     # Now start other services (their startup events will be captured)
     if is_remote_mode:
-        # Remote mode: sync service handles upload/confirm instead of sense
-        logging.info(f"Remote mode enabled: {args.remote[:50]}...")
+        # Remote mode: verify remote server is reachable before starting sync
+        logging.info("Remote mode: checking server connectivity...")
+        success, message = check_remote_health(args.remote)
+        if not success:
+            logging.error(f"Remote health check failed: {message}")
+            stop_callosum_in_process()
+            parser.error(f"Remote server not available: {message}")
+        logging.info(f"Remote server verified: {message}")
         procs.append(start_sync(args.remote))
         # Observer runs unless disabled
         if not args.no_observers:
