@@ -441,108 +441,21 @@ def test_api_get_key_nonexistent(remote_env):
 # === Segment collision helper tests ===
 
 
-def test_randomize_segment_produces_valid_output():
-    """Test that _randomize_segment produces valid segment keys."""
-    from apps.remote.routes import _randomize_segment
-
-    result = _randomize_segment("120000_300")
-
-    # Result is either None (boundary hit) or a valid segment
-    if result is not None:
-        assert "_" in result
-        time_part, dur_part = result.split("_")
-        assert len(time_part) == 6
-        assert time_part.isdigit()
-        assert dur_part.isdigit()
-        assert int(dur_part) > 0
-
-
-def test_randomize_segment_never_produces_invalid_time():
-    """Test that _randomize_segment never produces times outside 00:00:00-23:59:59."""
-    from apps.remote.routes import _randomize_segment
-
-    # Test at boundaries - should return None or valid, never invalid
-    for segment in ["000000_300", "235959_300"]:
-        for _ in range(20):
-            result = _randomize_segment(segment)
-            if result is not None:
-                time_part = result.split("_")[0]
-                hours = int(time_part[:2])
-                assert 0 <= hours <= 23
-
-
-def test_randomize_segment_never_produces_zero_duration():
-    """Test that _randomize_segment never produces duration <= 0."""
-    from apps.remote.routes import _randomize_segment
-
-    # Test at duration boundary
-    for _ in range(20):
-        result = _randomize_segment("120000_1")
-        if result is not None:
-            dur = int(result.split("_")[1])
-            assert dur > 0
-
-
-def test_segment_exists_with_directory(remote_env):
-    """Test _segment_exists detects existing segment directory."""
-    from apps.remote.routes import _segment_exists
-
-    env = remote_env()
-    day_dir = env.journal / "20250103"
-    day_dir.mkdir(parents=True)
-
-    # Create a segment directory
-    segment_dir = day_dir / "120000_300"
-    segment_dir.mkdir()
-
-    assert _segment_exists(day_dir, "120000_300") is True
-    assert _segment_exists(day_dir, "120001_300") is False
-
-
-def test_segment_exists_checks_directory(remote_env):
-    """Test _segment_exists only checks for segment directory."""
-    from apps.remote.routes import _segment_exists
-
-    env = remote_env()
-    day_dir = env.journal / "20250103"
-    day_dir.mkdir(parents=True)
-
-    # File with segment prefix doesn't count - only directories
-    (day_dir / "120000_300_audio.flac").write_bytes(b"test")
-    assert _segment_exists(day_dir, "120000_300") is False
-
-    # Create a segment directory
-    (day_dir / "120000_300").mkdir()
-    assert _segment_exists(day_dir, "120000_300") is True
-    assert _segment_exists(day_dir, "120001_300") is False
-
-
-def test_segment_exists_empty_directory(remote_env):
-    """Test _segment_exists returns False for empty directory."""
-    from apps.remote.routes import _segment_exists
-
-    env = remote_env()
-    day_dir = env.journal / "20250103"
-    day_dir.mkdir(parents=True)
-
-    assert _segment_exists(day_dir, "120000_300") is False
-
-
 def test_find_available_segment_no_conflict(remote_env):
-    """Test _find_available_segment returns original when no conflict."""
-    from apps.remote.routes import _find_available_segment
+    """Test find_available_segment returns original when no conflict."""
+    from observe.utils import find_available_segment
 
     env = remote_env()
     day_dir = env.journal / "20250103"
     day_dir.mkdir(parents=True)
 
-    result = _find_available_segment(day_dir, "120000_300")
+    result = find_available_segment(day_dir, "120000_300")
     assert result == "120000_300"
 
 
 def test_find_available_segment_with_conflict(remote_env):
-    """Test _find_available_segment finds alternative when conflict exists."""
-    from apps.remote.routes import _find_available_segment
+    """Test find_available_segment finds alternative when conflict exists."""
+    from observe.utils import find_available_segment
 
     env = remote_env()
     day_dir = env.journal / "20250103"
@@ -551,7 +464,7 @@ def test_find_available_segment_with_conflict(remote_env):
     # Create conflicting segment directory
     (day_dir / "120000_300").mkdir()
 
-    result = _find_available_segment(day_dir, "120000_300")
+    result = find_available_segment(day_dir, "120000_300")
 
     # Should find a different segment
     assert result is not None
@@ -564,8 +477,8 @@ def test_find_available_segment_with_conflict(remote_env):
 
 
 def test_find_available_segment_with_limited_attempts(remote_env):
-    """Test _find_available_segment respects max_attempts limit."""
-    from apps.remote.routes import _find_available_segment
+    """Test find_available_segment respects max_attempts limit."""
+    from observe.utils import find_available_segment
 
     env = remote_env()
     day_dir = env.journal / "20250103"
@@ -575,7 +488,7 @@ def test_find_available_segment_with_limited_attempts(remote_env):
     (day_dir / "120000_300").mkdir()
 
     # With max_attempts=0, should return None immediately (no attempts allowed)
-    result = _find_available_segment(day_dir, "120000_300", max_attempts=0)
+    result = find_available_segment(day_dir, "120000_300", max_attempts=0)
     assert result is None
 
 

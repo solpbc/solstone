@@ -42,14 +42,14 @@ def sync_journal(tmp_path):
     return {"path": journal, "day": day}
 
 
-def test_compute_sha256(sync_journal):
+def test_compute_file_sha256(sync_journal):
     """Test SHA256 computation."""
-    from observe.sync import compute_sha256
+    from observe.utils import compute_file_sha256
 
     journal = sync_journal["path"]
     day = sync_journal["day"]
     test_file = journal / day / "120000_300" / "audio.flac"
-    sha = compute_sha256(test_file)
+    sha = compute_file_sha256(test_file)
 
     # Just verify it's a valid SHA256 hex string
     assert len(sha) == 64

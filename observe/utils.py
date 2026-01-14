@@ -4,9 +4,11 @@
 """Utilities for working with media files (audio and video) and shared observer helpers."""
 
 import datetime
+import hashlib
 import json
 import logging
 import os
+import random
 import re
 import time
 from pathlib import Path
@@ -437,3 +439,136 @@ def create_draft_folder(start_at: float) -> str:
     os.makedirs(draft_path, exist_ok=True)
 
     return draft_path
+
+
+# -----------------------------------------------------------------------------
+# Segment deconfliction utilities (shared between remote app and transfer)
+# -----------------------------------------------------------------------------
+
+# Maximum attempts to find available segment key
+MAX_SEGMENT_ATTEMPTS = 100
+
+
+def _randomize_segment(segment: str) -> str | None:
+    """Apply random +/-1 to either time or duration component.
+
+    Internal helper for find_available_segment.
+
+    Args:
+        segment: Segment key in HHMMSS_LEN format
+
+    Returns:
+        Modified segment key, or None if modification would be invalid
+        (crosses midnight in either direction, or duration would be <= 0)
+    """
+    time_part, duration_str = segment.split("_")
+    h = int(time_part[:2])
+    m = int(time_part[2:4])
+    s = int(time_part[4:6])
+    dur = int(duration_str)
+
+    modify_time = random.choice([True, False])
+    delta = random.choice([1, -1])
+
+    if modify_time:
+        # Modify time component
+        total_seconds = h * 3600 + m * 60 + s + delta
+        if total_seconds < 0 or total_seconds >= 86400:
+            return None  # Would cross midnight
+        h = total_seconds // 3600
+        m = (total_seconds % 3600) // 60
+        s = total_seconds % 60
+    else:
+        # Modify duration component
+        dur = dur + delta
+        if dur <= 0:
+            return None  # Duration can't be zero or negative
+
+    return f"{h:02d}{m:02d}{s:02d}_{dur}"
+
+
+def _segment_exists(day_dir: Path, segment: str) -> bool:
+    """Check if segment key is already in use.
+
+    Internal helper for find_available_segment.
+
+    Args:
+        day_dir: Path to day directory
+        segment: Segment key in HHMMSS_LEN format
+
+    Returns:
+        True if segment directory exists
+    """
+    return (day_dir / segment).exists()
+
+
+def find_available_segment(
+    day_dir: Path, segment: str, max_attempts: int = MAX_SEGMENT_ATTEMPTS
+) -> str | None:
+    """Find an available segment key using random modifications.
+
+    Uses a random walk approach: each attempt randomly modifies either
+    the time or duration by +/-1, exploring the space around the original.
+
+    Args:
+        day_dir: Path to day directory
+        segment: Original segment key in HHMMSS_LEN format
+        max_attempts: Maximum modification attempts before giving up
+
+    Returns:
+        Available segment key (may be original or modified), or None if
+        no available slot found after max_attempts
+    """
+    # Check if original is available
+    if not _segment_exists(day_dir, segment):
+        return segment
+
+    current = segment
+    tried = {segment}
+
+    for _ in range(max_attempts):
+        modified = _randomize_segment(current)
+
+        if modified is None:
+            # Invalid modification (hit boundary), try again from same position
+            continue
+
+        current = modified  # Always move to valid position
+
+        if modified in tried:
+            continue  # Already checked, don't recheck filesystem
+
+        tried.add(modified)
+
+        if not _segment_exists(day_dir, modified):
+            return modified
+
+    return None  # Exhausted attempts
+
+
+def compute_file_sha256(file_path: Path) -> str:
+    """Compute SHA256 hash of a file.
+
+    Args:
+        file_path: Path to the file
+
+    Returns:
+        Hex-encoded SHA256 hash
+    """
+    sha256 = hashlib.sha256()
+    with open(file_path, "rb") as f:
+        for chunk in iter(lambda: f.read(65536), b""):
+            sha256.update(chunk)
+    return sha256.hexdigest()
+
+
+def compute_bytes_sha256(data: bytes) -> str:
+    """Compute SHA256 hash of bytes.
+
+    Args:
+        data: Bytes to hash
+
+    Returns:
+        Hex-encoded SHA256 hash
+    """
+    return hashlib.sha256(data).hexdigest()

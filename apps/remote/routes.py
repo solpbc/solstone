@@ -13,10 +13,8 @@ Provides endpoints for:
 from __future__ import annotations
 
 import base64
-import hashlib
 import json
 import logging
-import random
 import re
 import secrets
 import time
@@ -28,6 +26,11 @@ from werkzeug.utils import secure_filename
 
 from apps.utils import get_app_storage_path, log_app_action
 from convey import emit
+from observe.utils import (
+    MAX_SEGMENT_ATTEMPTS,
+    compute_bytes_sha256,
+    find_available_segment,
+)
 from think.utils import day_path
 
 from .utils import (
@@ -201,18 +204,6 @@ def api_get_key(key_prefix: str) -> Any:
 # === Sync history helpers ===
 
 
-def _compute_sha256_bytes(data: bytes) -> str:
-    """Compute SHA256 hash of bytes.
-
-    Args:
-        data: Bytes to hash
-
-    Returns:
-        Hex-encoded SHA256 hash
-    """
-    return hashlib.sha256(data).hexdigest()
-
-
 def _find_by_inode(day_dir: Path, inode: int) -> Path | None:
     """Find a file by inode in the day directory.
 
@@ -239,103 +230,6 @@ def _find_by_inode(day_dir: Path, inode: int) -> Path | None:
 
 
 # === Segment collision helpers ===
-
-# Maximum attempts to find available segment key
-MAX_SEGMENT_ATTEMPTS = 100
-
-
-def _randomize_segment(segment: str) -> str | None:
-    """Apply random +/-1 to either time or duration component.
-
-    Args:
-        segment: Segment key in HHMMSS_LEN format
-
-    Returns:
-        Modified segment key, or None if modification would be invalid
-        (crosses midnight in either direction, or duration would be <= 0)
-    """
-    time_part, duration_str = segment.split("_")
-    h = int(time_part[:2])
-    m = int(time_part[2:4])
-    s = int(time_part[4:6])
-    dur = int(duration_str)
-
-    modify_time = random.choice([True, False])
-    delta = random.choice([1, -1])
-
-    if modify_time:
-        # Modify time component
-        total_seconds = h * 3600 + m * 60 + s + delta
-        if total_seconds < 0 or total_seconds >= 86400:
-            return None  # Would cross midnight
-        h = total_seconds // 3600
-        m = (total_seconds % 3600) // 60
-        s = total_seconds % 60
-    else:
-        # Modify duration component
-        dur = dur + delta
-        if dur <= 0:
-            return None  # Duration can't be zero or negative
-
-    return f"{h:02d}{m:02d}{s:02d}_{dur}"
-
-
-def _segment_exists(day_dir: Path, segment: str) -> bool:
-    """Check if segment key is already in use.
-
-    Args:
-        day_dir: Path to day directory
-        segment: Segment key in HHMMSS_LEN format
-
-    Returns:
-        True if segment directory exists
-    """
-    # Check for segment directory
-    return (day_dir / segment).exists()
-
-
-def _find_available_segment(
-    day_dir: Path, segment: str, max_attempts: int = MAX_SEGMENT_ATTEMPTS
-) -> str | None:
-    """Find an available segment key using random modifications.
-
-    Uses a random walk approach: each attempt randomly modifies either
-    the time or duration by +/-1, exploring the space around the original.
-
-    Args:
-        day_dir: Path to day directory
-        segment: Original segment key in HHMMSS_LEN format
-        max_attempts: Maximum modification attempts before giving up
-
-    Returns:
-        Available segment key (may be original or modified), or None if
-        no available slot found after max_attempts
-    """
-    # Check if original is available
-    if not _segment_exists(day_dir, segment):
-        return segment
-
-    current = segment
-    tried = {segment}
-
-    for _ in range(max_attempts):
-        modified = _randomize_segment(current)
-
-        if modified is None:
-            # Invalid modification (hit boundary), try again from same position
-            continue
-
-        current = modified  # Always move to valid position
-
-        if modified in tried:
-            continue  # Already checked, don't recheck filesystem
-
-        tried.add(modified)
-
-        if not _segment_exists(day_dir, modified):
-            return modified
-
-    return None  # Exhausted attempts
 
 
 def _strip_segment_prefix(filename: str, segment: str) -> str:
@@ -456,7 +350,7 @@ def ingest_upload(key: str) -> Any:
 
         # Read content and compute SHA256
         content = upload.read()
-        sha256 = _compute_sha256_bytes(content)
+        sha256 = compute_bytes_sha256(content)
 
         file_data.append((submitted_filename, simple_filename, content, sha256))
 
@@ -500,7 +394,7 @@ def ingest_upload(key: str) -> Any:
 
     # Find available segment key (may differ from original if collision)
     original_segment = segment
-    available_segment = _find_available_segment(day_dir, segment)
+    available_segment = find_available_segment(day_dir, segment)
 
     if available_segment is None:
         # Exhausted attempts, save to failed directory

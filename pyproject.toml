@@ -120,6 +120,7 @@ observe-transcribe = "observe.transcribe:main"
 observe-describe = "observe.describe:main"
 observe-sense = "observe.sense:main"
 observe-sync = "observe.sync:main"
+observe-transfer = "observe.transfer:main"
 think-formatter = "think.formatters:main"
 
 [project.urls]

@@ -12,7 +12,6 @@ State is persisted in YYYYMMDD/health/sync.jsonl files for crash recovery.
 from __future__ import annotations
 
 import argparse
-import hashlib
 import json
 import logging
 import platform
@@ -28,6 +27,8 @@ import requests
 
 from think.callosum import CallosumConnection
 from think.utils import day_path, setup_cli
+
+from .utils import compute_file_sha256
 
 logger = logging.getLogger(__name__)
 
@@ -148,15 +149,6 @@ class SegmentInfo:
     day: str
     segment: str
     files: list[dict]  # [{name, sha256}, ...]
-
-
-def compute_sha256(path: Path) -> str:
-    """Compute SHA256 hash of a file."""
-    sha256 = hashlib.sha256()
-    with open(path, "rb") as f:
-        for chunk in iter(lambda: f.read(65536), b""):
-            sha256.update(chunk)
-    return sha256.hexdigest()
 
 
 def get_sync_state_path(day: str) -> Path:
@@ -336,7 +328,7 @@ class SyncService:
         for filename in files:
             file_path = segment_dir / filename
             if file_path.exists():
-                sha = compute_sha256(file_path)
+                sha = compute_file_sha256(file_path)
                 file_info.append({"name": filename, "sha256": sha})
             else:
                 logger.warning(f"File not found: {file_path}")
