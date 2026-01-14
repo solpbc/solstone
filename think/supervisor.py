@@ -1169,7 +1169,8 @@ def main() -> None:
     _daily_state["last_day"] = datetime.now().date()
 
     logging.info(f"Started {len(procs)} processes, entering supervision loop")
-    if not args.no_daily:
+    daily_enabled = not args.no_daily and not _is_remote_mode
+    if daily_enabled:
         logging.info("Daily processing scheduled for midnight")
 
     try:
@@ -1177,7 +1178,7 @@ def main() -> None:
             supervise(
                 threshold=args.threshold,
                 interval=args.interval,
-                daily=not args.no_daily,
+                daily=daily_enabled,
                 procs=procs if procs else None,
             )
         )
