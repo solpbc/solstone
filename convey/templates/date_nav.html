@@ -2,9 +2,14 @@
 {# Both day and app are auto-extracted from URL by context processor #}
 {% if day %}
 <div class="date-nav">
-  <button class="date-nav-arrow" id="date-nav-prev" title="Previous (←)">‹</button>
+  <div class="date-nav-left">
+    <button class="date-nav-arrow" id="date-nav-prev" title="Previous (←)">‹</button>
+  </div>
   <span class="date-nav-label" id="date-nav-label" title="Open month picker">{{ day|format_date_short }}</span>
-  <button class="date-nav-arrow" id="date-nav-next" title="Next (→)">›</button>
+  <div class="date-nav-right">
+    <button class="date-nav-today" id="date-nav-today" title="Jump to Today (T)">T</button>
+    <button class="date-nav-arrow" id="date-nav-next" title="Next (→)">›</button>
+  </div>
   <div class="month-picker"></div>
 </div>
 
@@ -24,13 +29,6 @@
     return date.getFullYear() +
       String(date.getMonth() + 1).padStart(2, '0') +
       String(date.getDate()).padStart(2, '0');
-  }
-
-  function getTodayDay() {
-    const now = new Date();
-    return now.getFullYear() +
-      String(now.getMonth() + 1).padStart(2, '0') +
-      String(now.getDate()).padStart(2, '0');
   }
 
   function navigate(day) {
@@ -92,6 +90,11 @@
     }
   });
 
+  // Today button
+  document.getElementById('date-nav-today').addEventListener('click', () => {
+    navigate(MonthPicker.getToday());
+  });
+
   // Keyboard shortcuts
   document.addEventListener('keydown', (e) => {
     if (e.target.matches('input, textarea, select')) return;
@@ -114,7 +117,7 @@
     }
     if (e.key === 't' || e.key === 'T') {
       e.preventDefault();
-      navigate(getTodayDay());
+      navigate(MonthPicker.getToday());
     }
   });
 })();

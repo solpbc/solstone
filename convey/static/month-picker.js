@@ -293,6 +293,7 @@ window.MonthPicker = (function() {
     toggle,
     isOpen: () => isVisible,
     navigateMonth,
-    registerDataProvider
+    registerDataProvider,
+    getToday
   };
 })();
