@@ -1102,3 +1102,165 @@ def format_entities(
     meta["indexer"] = {"topic": topic}
 
     return chunks, meta
+
+
+# -----------------------------------------------------------------------------
+# Entity Observations
+# -----------------------------------------------------------------------------
+
+
+class ObservationNumberError(Exception):
+    """Raised when observation_number doesn't match expected value."""
+
+    def __init__(self, expected: int, actual: int):
+        self.expected = expected
+        self.actual = actual
+        super().__init__(
+            f"Observation number mismatch: expected {expected}, got {actual}"
+        )
+
+
+def observations_file_path(facet: str, name: str) -> Path:
+    """Return path to observations file for an entity.
+
+    Observations are stored in the entity's enrichment folder:
+    facets/{facet}/entities/{normalized_name}/observations.jsonl
+
+    Args:
+        facet: Facet name (e.g., "personal", "work")
+        name: Entity name (will be normalized)
+
+    Returns:
+        Path to observations.jsonl file
+
+    Raises:
+        ValueError: If name normalizes to empty string
+    """
+    folder = entity_folder_path(facet, name)
+    return folder / "observations.jsonl"
+
+
+def load_observations(facet: str, name: str) -> list[dict[str, Any]]:
+    """Load observations for an entity.
+
+    Args:
+        facet: Facet name
+        name: Entity name
+
+    Returns:
+        List of observation dictionaries with content, observed_at, source_day keys.
+        Returns empty list if file doesn't exist.
+
+    Example:
+        >>> load_observations("work", "Alice Johnson")
+        [{"content": "Prefers async communication", "observed_at": 1736784000000, "source_day": "20250113"}]
+    """
+    path = observations_file_path(facet, name)
+
+    if not path.exists():
+        return []
+
+    observations = []
+    with open(path, "r", encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                data = json.loads(line)
+                observations.append(data)
+            except json.JSONDecodeError:
+                continue  # Skip malformed lines
+
+    return observations
+
+
+def save_observations(
+    facet: str, name: str, observations: list[dict[str, Any]]
+) -> None:
+    """Save observations to entity's observations file using atomic write.
+
+    Args:
+        facet: Facet name
+        name: Entity name
+        observations: List of observation dictionaries
+    """
+    path = observations_file_path(facet, name)
+
+    # Create parent directory (entity folder) if needed
+    path.parent.mkdir(parents=True, exist_ok=True)
+
+    # Format observations as JSONL
+    lines = []
+    for obs in observations:
+        lines.append(json.dumps(obs, ensure_ascii=False) + "\n")
+
+    # Atomic write using temp file + rename
+    fd, temp_path = tempfile.mkstemp(
+        dir=path.parent, prefix=".observations_", suffix=".tmp"
+    )
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            f.writelines(lines)
+        os.replace(temp_path, path)
+    except Exception:
+        # Clean up temp file on error
+        try:
+            os.unlink(temp_path)
+        except Exception:
+            pass
+        raise
+
+
+def add_observation(
+    facet: str,
+    name: str,
+    content: str,
+    observation_number: int,
+    source_day: str | None = None,
+) -> dict[str, Any]:
+    """Add an observation to an entity with guard validation.
+
+    Similar to todo_add, requires the caller to provide the expected next
+    observation number (current count + 1) to prevent stale writes.
+
+    Args:
+        facet: Facet name
+        name: Entity name
+        content: The observation text
+        observation_number: Expected next number; must be current_count + 1
+        source_day: Optional day (YYYYMMDD) when observation was made
+
+    Returns:
+        Dictionary with updated observations list and count
+
+    Raises:
+        ObservationNumberError: If observation_number doesn't match expected
+        ValueError: If content is empty
+
+    Example:
+        >>> add_observation("work", "Alice", "Prefers morning meetings", 1, "20250113")
+        {"observations": [...], "count": 1}
+    """
+    content = content.strip()
+    if not content:
+        raise ValueError("Observation content cannot be empty")
+
+    observations = load_observations(facet, name)
+    expected = len(observations) + 1
+
+    if observation_number != expected:
+        raise ObservationNumberError(expected, observation_number)
+
+    # Create new observation
+    observation = {
+        "content": content,
+        "observed_at": int(time.time() * 1000),
+    }
+    if source_day:
+        observation["source_day"] = source_day
+
+    observations.append(observation)
+    save_observations(facet, name, observations)
+
+    return {"observations": observations, "count": len(observations)}

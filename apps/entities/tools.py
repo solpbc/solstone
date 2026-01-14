@@ -15,8 +15,11 @@ from fastmcp import Context
 
 from muse.mcp import HINTS, register_tool
 from think.entities import (
+    ObservationNumberError,
+    add_observation,
     is_valid_entity_type,
     load_entities,
+    load_observations,
     save_entities,
     update_entity,
 )
@@ -30,8 +33,35 @@ TOOL_PACKS = {
         "entity_attach",
         "entity_update",
         "entity_add_aka",
+        "entity_observations",
+        "entity_observe",
     ],
 }
+
+
+# -----------------------------------------------------------------------------
+# Helpers
+# -----------------------------------------------------------------------------
+
+
+def _find_attached_entity(
+    facet: str, entity_type: str, name: str
+) -> dict[str, Any] | None:
+    """Find an attached entity by type and name.
+
+    Args:
+        facet: Facet name
+        entity_type: Entity type (Person, Company, etc.)
+        name: Entity name
+
+    Returns:
+        The entity dict if found, None otherwise.
+    """
+    entities = load_entities(facet, day=None)
+    for entity in entities:
+        if entity.get("type") == entity_type and entity.get("name") == name:
+            return entity
+    return None
 
 
 # -----------------------------------------------------------------------------
@@ -442,4 +472,167 @@ def entity_add_aka(
         return {
             "error": f"Failed to add aka: {exc}",
             "suggestion": "check that the facet exists and is accessible",
+        }
+
+
+@register_tool(annotations=HINTS)
+def entity_observations(facet: str, type: str, name: str) -> dict[str, Any]:
+    """List observations for an attached entity.
+
+    Observations are durable factoids about an entity that accumulate over time.
+    They capture useful information like preferences, expertise, relationships,
+    and biographical facts that help with future interactions.
+
+    IMPORTANT: You must call this tool before using entity_observe() to add
+    new observations. The count returned is required for the guard validation.
+
+    Args:
+        facet: Facet name (e.g., "personal", "work")
+        type: Entity type (Person, Company, Project, Tool, etc.)
+        name: Entity name to get observations for
+
+    Returns:
+        Dictionary containing:
+        - facet: The facet name
+        - type: The entity type
+        - name: The entity name
+        - count: Number of observations (use count+1 as observation_number in entity_observe)
+        - observations: List of observation objects with content, observed_at, and optional source_day
+
+    Examples:
+        - entity_observations("work", "Person", "Alice Johnson")
+        - entity_observations("personal", "Tool", "PostgreSQL")
+    """
+    try:
+        # Validate entity type
+        if not is_valid_entity_type(type):
+            return {
+                "error": f"Invalid entity type '{type}'",
+                "suggestion": "must be alphanumeric with spaces only, at least 3 characters long",
+            }
+
+        # Verify entity exists in attached entities
+        if not _find_attached_entity(facet, type, name):
+            return {
+                "error": f"Entity '{name}' of type '{type}' not found in attached entities",
+                "suggestion": "verify the entity exists in the facet (only attached entities have observations)",
+            }
+
+        observations = load_observations(facet, name)
+
+        return {
+            "facet": facet,
+            "type": type,
+            "name": name,
+            "count": len(observations),
+            "observations": observations,
+        }
+    except Exception as exc:
+        return {
+            "error": f"Failed to list observations: {exc}",
+            "suggestion": "check that the facet and entity exist",
+        }
+
+
+@register_tool(annotations=HINTS)
+def entity_observe(
+    facet: str,
+    type: str,
+    name: str,
+    content: str,
+    observation_number: int,
+    source_day: str | None = None,
+    context: Context | None = None,
+) -> dict[str, Any]:
+    """Add an observation to an attached entity with guard validation.
+
+    Observations are durable factoids about entities - preferences, expertise,
+    relationships, schedules, biographical facts, etc. They should be useful
+    for future interactions and NOT be day-specific activity logs.
+
+    Good observations:
+    - "Prefers async communication over meetings"
+    - "Works PST timezone, typically available after 10am"
+    - "Has deep expertise in distributed systems and Rust"
+    - "Reports to Sarah Chen on the platform team"
+
+    Bad observations (use entity_detect for these):
+    - "Discussed API migration today" (day-specific activity)
+    - "Sent contract for review" (ephemeral action)
+
+    IMPORTANT: You must call entity_observations() first to get the current
+    count. The observation_number must equal count + 1 to prevent stale writes.
+
+    Args:
+        facet: Facet name (e.g., "personal", "work")
+        type: Entity type (Person, Company, Project, Tool, etc.)
+        name: Entity name to add observation to
+        content: The observation text (should be a durable factoid)
+        observation_number: Expected next number; must be current count + 1
+        source_day: Optional day (YYYYMMDD) when this was observed
+
+    Returns:
+        Dictionary containing:
+        - facet: The facet name
+        - type: The entity type
+        - name: The entity name
+        - message: Success message
+        - count: Updated observation count
+        - observations: Updated list of observations
+
+    Examples:
+        - entity_observe("work", "Person", "Alice", "Prefers morning meetings", 1)
+        - entity_observe("work", "Person", "Alice", "Expert in Kubernetes", 2, "20250113")
+    """
+    try:
+        # Validate entity type
+        if not is_valid_entity_type(type):
+            return {
+                "error": f"Invalid entity type '{type}'",
+                "suggestion": "must be alphanumeric with spaces only, at least 3 characters long",
+            }
+
+        # Verify entity exists in attached entities
+        if not _find_attached_entity(facet, type, name):
+            return {
+                "error": f"Entity '{name}' of type '{type}' not found in attached entities",
+                "suggestion": "verify the entity exists in the facet (only attached entities have observations)",
+            }
+
+        result = add_observation(facet, name, content, observation_number, source_day)
+
+        log_tool_action(
+            facet=facet,
+            action="entity_observe",
+            params={
+                "type": type,
+                "name": name,
+                "content": content,
+                "observation_number": observation_number,
+            },
+            context=context,
+        )
+
+        return {
+            "facet": facet,
+            "type": type,
+            "name": name,
+            "message": f"Observation added to '{name}'",
+            "count": result["count"],
+            "observations": result["observations"],
+        }
+    except ObservationNumberError as exc:
+        return {
+            "error": str(exc),
+            "suggestion": f"call entity_observations() first, then retry with observation_number={exc.expected}",
+        }
+    except ValueError as exc:
+        return {
+            "error": str(exc),
+            "suggestion": "provide a non-empty observation",
+        }
+    except Exception as exc:
+        return {
+            "error": f"Failed to add observation: {exc}",
+            "suggestion": "check that the facet and entity exist",
         }

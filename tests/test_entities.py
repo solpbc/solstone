@@ -8,6 +8,8 @@ import os
 import pytest
 
 from think.entities import (
+    ObservationNumberError,
+    add_observation,
     ensure_entity_folder,
     entity_file_path,
     entity_folder_path,
@@ -15,11 +17,14 @@ from think.entities import (
     load_all_attached_entities,
     load_detected_entities_recent,
     load_entities,
+    load_observations,
     load_recent_entity_names,
     normalize_entity_name,
+    observations_file_path,
     parse_knowledge_graph_entities,
     rename_entity_folder,
     save_entities,
+    save_observations,
     touch_entities_from_activity,
     touch_entity,
 )
@@ -1495,3 +1500,155 @@ def test_touch_entities_from_activity_deduplicates(tmp_path):
     assert len(result["matched"]) == 2
     assert len(result["updated"]) == 1
     assert "Robert Smith" in result["updated"]
+
+
+# Tests for entity observations
+
+
+def test_observations_file_path(fixture_journal, tmp_path):
+    """Test observations file path generation."""
+    os.environ["JOURNAL_PATH"] = str(tmp_path)
+
+    path = observations_file_path("personal", "Alice Johnson")
+    expected = (
+        tmp_path
+        / "facets"
+        / "personal"
+        / "entities"
+        / "alice_johnson"
+        / "observations.jsonl"
+    )
+    assert path == expected
+
+
+def test_load_observations_empty(fixture_journal, tmp_path):
+    """Test loading observations for entity with no observations."""
+    os.environ["JOURNAL_PATH"] = str(tmp_path)
+
+    # No file exists yet
+    observations = load_observations("personal", "Alice Johnson")
+    assert observations == []
+
+
+def test_save_and_load_observations(fixture_journal, tmp_path):
+    """Test saving and loading observations."""
+    os.environ["JOURNAL_PATH"] = str(tmp_path)
+
+    # Save observations
+    test_observations = [
+        {
+            "content": "Prefers morning meetings",
+            "observed_at": 1700000000000,
+            "source_day": "20250113",
+        },
+        {"content": "Expert in Kubernetes", "observed_at": 1700000001000},
+    ]
+    save_observations("personal", "Alice Johnson", test_observations)
+
+    # Load them back
+    loaded = load_observations("personal", "Alice Johnson")
+    assert len(loaded) == 2
+    assert loaded[0]["content"] == "Prefers morning meetings"
+    assert loaded[0]["observed_at"] == 1700000000000
+    assert loaded[0]["source_day"] == "20250113"
+    assert loaded[1]["content"] == "Expert in Kubernetes"
+
+
+def test_add_observation_success(fixture_journal, tmp_path):
+    """Test adding observation with correct guard."""
+    os.environ["JOURNAL_PATH"] = str(tmp_path)
+
+    # First observation (observation_number=1 for empty list)
+    result = add_observation(
+        "personal", "Alice", "Prefers async communication", 1, "20250113"
+    )
+    assert result["count"] == 1
+    assert len(result["observations"]) == 1
+    assert result["observations"][0]["content"] == "Prefers async communication"
+    assert result["observations"][0]["source_day"] == "20250113"
+    assert "observed_at" in result["observations"][0]
+
+    # Second observation (observation_number=2)
+    result = add_observation("personal", "Alice", "Works PST timezone", 2)
+    assert result["count"] == 2
+    assert len(result["observations"]) == 2
+
+    # Verify persistence
+    loaded = load_observations("personal", "Alice")
+    assert len(loaded) == 2
+
+
+def test_add_observation_guard_failure(fixture_journal, tmp_path):
+    """Test adding observation with wrong guard fails."""
+    os.environ["JOURNAL_PATH"] = str(tmp_path)
+
+    # First observation
+    add_observation("personal", "Alice", "First observation", 1)
+
+    # Try to add with wrong observation_number (should be 2, not 1)
+    with pytest.raises(ObservationNumberError) as exc_info:
+        add_observation("personal", "Alice", "Second observation", 1)
+
+    assert exc_info.value.expected == 2
+    assert exc_info.value.actual == 1
+
+
+def test_add_observation_empty_content(fixture_journal, tmp_path):
+    """Test adding observation with empty content fails."""
+    os.environ["JOURNAL_PATH"] = str(tmp_path)
+
+    with pytest.raises(ValueError, match="cannot be empty"):
+        add_observation("personal", "Alice", "", 1)
+
+    with pytest.raises(ValueError, match="cannot be empty"):
+        add_observation("personal", "Alice", "   ", 1)
+
+
+def test_observations_with_entity_rename(fixture_journal, tmp_path):
+    """Test that observations are preserved when entity folder is renamed."""
+    os.environ["JOURNAL_PATH"] = str(tmp_path)
+
+    # Create entity folder and add observations
+    ensure_entity_folder("work", "Alice Johnson")
+    add_observation("work", "Alice Johnson", "Test observation", 1)
+
+    # Verify observation exists
+    observations = load_observations("work", "Alice Johnson")
+    assert len(observations) == 1
+
+    # Rename entity folder
+    result = rename_entity_folder("work", "Alice Johnson", "Alice Smith")
+    assert result is True
+
+    # Old name should have no observations (folder moved)
+    old_observations = load_observations("work", "Alice Johnson")
+    assert old_observations == []
+
+    # New name should have observations
+    new_observations = load_observations("work", "Alice Smith")
+    assert len(new_observations) == 1
+    assert new_observations[0]["content"] == "Test observation"
+
+
+def test_observations_atomic_write(fixture_journal, tmp_path):
+    """Test that observations are written atomically."""
+    os.environ["JOURNAL_PATH"] = str(tmp_path)
+
+    # Save observations
+    test_observations = [
+        {"content": "Test 1", "observed_at": 1700000000000},
+        {"content": "Test 2", "observed_at": 1700000001000},
+    ]
+    save_observations("personal", "Bob", test_observations)
+
+    # Verify file exists at expected location
+    path = observations_file_path("personal", "Bob")
+    assert path.exists()
+
+    # Verify JSONL format
+    import json
+
+    lines = path.read_text().strip().split("\n")
+    assert len(lines) == 2
+    for line in lines:
+        assert json.loads(line)  # Should not raise
