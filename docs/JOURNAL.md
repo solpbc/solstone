@@ -330,19 +330,22 @@ facets/{facet}/
 
 The `entities.jsonl` file contains manually promoted entities that are persistently associated with the facet. These entities are loaded into agent context and appear in the facet UI as starred items.
 
+**Entity names must be unique within a facet** (regardless of type). The `id` field provides a stable slug identifier for programmatic references.
+
 Format example (JSONL - one JSON object per line):
 ```jsonl
-{"type": "Person", "name": "Alice Johnson", "description": "Lead engineer on the API project", "aka": ["Ali", "AJ"]}
-{"type": "Company", "name": "TechCorp", "description": "Primary client for consulting work", "tier": "enterprise", "aka": ["TC", "TechCo"]}
-{"type": "Project", "name": "API Optimization", "description": "Performance improvement initiative", "status": "active", "priority": "high"}
-{"type": "Tool", "name": "PostgreSQL", "description": "Database system used in production", "version": "16.0", "aka": ["Postgres", "PG"]}
+{"id": "alice_johnson", "type": "Person", "name": "Alice Johnson", "description": "Lead engineer on the API project", "aka": ["Ali", "AJ"]}
+{"id": "techcorp", "type": "Company", "name": "TechCorp", "description": "Primary client for consulting work", "tier": "enterprise", "aka": ["TC", "TechCo"]}
+{"id": "api_optimization", "type": "Project", "name": "API Optimization", "description": "Performance improvement initiative", "status": "active", "priority": "high"}
+{"id": "postgresql", "type": "Tool", "name": "PostgreSQL", "description": "Database system used in production", "version": "16.0", "aka": ["Postgres", "PG"]}
 ```
 
 Entity types are flexible and user-defined. Common examples: `Person`, `Company`, `Project`, `Tool`, `Location`, `Event`. Type names must be alphanumeric with spaces, minimum 3 characters.
 
-Each entity is a JSON object with required fields (`type`, `name`, `description`) and optional custom fields for extensibility (e.g., `status`, `priority`, `tags`, `contact`, etc.). Custom fields are preserved throughout the system.
+Each entity is a JSON object with required fields (`id`, `type`, `name`, `description`) and optional custom fields for extensibility (e.g., `status`, `priority`, `tags`, `contact`, etc.). Custom fields are preserved throughout the system.
 
-**Standard optional fields:**
+**Standard fields:**
+- `id` (string) – Stable slug identifier derived from name (e.g., "alice_johnson" for "Alice Johnson"). Used for folder paths, URLs, and MCP tool references. Automatically regenerated when name changes.
 - `aka` (array of strings) – Alternative names, nicknames, or acronyms for the entity. Used in audio transcription to improve entity recognition.
 - `detached` (boolean) – When `true`, marks the entity as soft-deleted. Detached entities remain in the file but are hidden from UI and excluded from agent context. This preserves entity history and allows re-attachment without data loss.
 - `attached_at` (integer) – Unix timestamp in milliseconds when entity was first attached.

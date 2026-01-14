@@ -1,4 +1,3 @@
-{"type": "Number", "name": "123", "description": "Test numeric entity"}
-{"type": "Organization", "name": "Test Initiative (TI)", "description": "Test organization"}
-{"type": "Person", "name": "Test Person (TP)", "description": "Test engineer"}
-{"type": "Person", "name": "Test Person (TP)", "description": "Duplicate entry for testing"}
+{"id": "123", "type": "Number", "name": "123", "description": "Test numeric entity"}
+{"id": "test_initiative_ti", "type": "Organization", "name": "Test Initiative (TI)", "description": "Test organization"}
+{"id": "test_person_tp", "type": "Person", "name": "Test Person (TP)", "description": "Test engineer"}

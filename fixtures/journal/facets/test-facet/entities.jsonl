@@ -1,10 +1,10 @@
-{"type": "Company", "name": "Acme Corp", "description": "Main client", "status": "active", "revenue": "high"}
-{"type": "Company", "name": "Tech Solutions Inc", "description": "Partner company", "status": "active"}
-{"type": "Person", "name": "Bob Wilson", "description": "QA engineer", "role": "engineer", "team": "qa"}
-{"type": "Person", "name": "Jane Doe", "description": "Project manager", "role": "manager", "team": "product"}
-{"type": "Person", "name": "John Smith", "description": "Lead developer on the project", "role": "lead", "team": "engineering", "skills": ["python", "javascript"]}
-{"type": "Project", "name": "API Optimization", "description": "Performance improvement initiative", "status": "in-progress", "priority": "high"}
-{"type": "Project", "name": "Dashboard Redesign", "description": "UI/UX overhaul project", "status": "planning", "priority": "medium"}
-{"type": "Tool", "name": "Docker", "description": "Container platform", "version": "24.0", "url": "https://docker.com"}
-{"type": "Tool", "name": "PostgreSQL", "description": "Database system", "version": "16.0"}
-{"type": "Tool", "name": "Visual Studio Code", "description": "Primary IDE", "version": "1.85"}
+{"id": "acme_corp", "type": "Company", "name": "Acme Corp", "description": "Main client", "status": "active", "revenue": "high"}
+{"id": "tech_solutions_inc", "type": "Company", "name": "Tech Solutions Inc", "description": "Partner company", "status": "active"}
+{"id": "bob_wilson", "type": "Person", "name": "Bob Wilson", "description": "QA engineer", "role": "engineer", "team": "qa"}
+{"id": "jane_doe", "type": "Person", "name": "Jane Doe", "description": "Project manager", "role": "manager", "team": "product"}
+{"id": "john_smith", "type": "Person", "name": "John Smith", "description": "Lead developer on the project", "role": "lead", "team": "engineering", "skills": ["python", "javascript"]}
+{"id": "api_optimization", "type": "Project", "name": "API Optimization", "description": "Performance improvement initiative", "status": "in-progress", "priority": "high"}
+{"id": "dashboard_redesign", "type": "Project", "name": "Dashboard Redesign", "description": "UI/UX overhaul project", "status": "planning", "priority": "medium"}
+{"id": "docker", "type": "Tool", "name": "Docker", "description": "Container platform", "version": "24.0", "url": "https://docker.com"}
+{"id": "postgresql", "type": "Tool", "name": "PostgreSQL", "description": "Database system", "version": "16.0"}
+{"id": "visual_studio_code", "type": "Tool", "name": "Visual Studio Code", "description": "Primary IDE", "version": "1.85"}

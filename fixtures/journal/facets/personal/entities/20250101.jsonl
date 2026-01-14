@@ -1,2 +1,2 @@
-{"type": "Person", "name": "Charlie Brown", "description": "Met at coffee shop"}
-{"type": "Project", "name": "Home Renovation", "description": "Kitchen remodel project"}
+{"id": "charlie_brown", "type": "Person", "name": "Charlie Brown", "description": "Met at coffee shop"}
+{"id": "home_renovation", "type": "Project", "name": "Home Renovation", "description": "Kitchen remodel project"}

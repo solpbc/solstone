@@ -28,12 +28,17 @@ def is_valid_entity_type(etype: str) -> bool:
     )
 
 
-# Maximum length for normalized entity folder names before truncation
-MAX_ENTITY_FOLDER_NAME_LENGTH = 200
+# Maximum length for entity slug before truncation
+MAX_ENTITY_SLUG_LENGTH = 200
 
 
-def normalize_entity_name(name: str) -> str:
-    """Normalize entity name to filesystem-safe folder name.
+def entity_slug(name: str) -> str:
+    """Generate a stable slug identifier for an entity name.
+
+    The slug is used as:
+    - The `id` field stored in entity records
+    - Folder names for entity enrichment data
+    - URL-safe programmatic references
 
     Uses python-slugify to convert names to lowercase with underscores.
     Long names are truncated with a hash suffix to ensure uniqueness.
@@ -42,32 +47,36 @@ def normalize_entity_name(name: str) -> str:
         name: Entity name (e.g., "Alice Johnson", "Acme Corp")
 
     Returns:
-        Normalized folder name (e.g., "alice_johnson", "acme_corp")
+        Slug identifier (e.g., "alice_johnson", "acme_corp")
 
     Examples:
-        >>> normalize_entity_name("Alice Johnson")
+        >>> entity_slug("Alice Johnson")
         'alice_johnson'
-        >>> normalize_entity_name("O'Brien")
+        >>> entity_slug("O'Brien")
         'o_brien'
-        >>> normalize_entity_name("AT&T")
+        >>> entity_slug("AT&T")
         'at_t'
-        >>> normalize_entity_name("José García")
+        >>> entity_slug("José García")
         'jose_garcia'
     """
     if not name or not name.strip():
         return ""
 
     # Use slugify with underscore separator
-    normalized = slugify(name, separator="_")
+    slug = slugify(name, separator="_")
 
     # Handle very long names - truncate and add hash suffix
-    if len(normalized) > MAX_ENTITY_FOLDER_NAME_LENGTH:
+    if len(slug) > MAX_ENTITY_SLUG_LENGTH:
         # Create hash of full name for uniqueness
         name_hash = hashlib.md5(name.encode()).hexdigest()[:8]
         # Truncate and append hash
-        normalized = normalized[: MAX_ENTITY_FOLDER_NAME_LENGTH - 9] + "_" + name_hash
+        slug = slug[: MAX_ENTITY_SLUG_LENGTH - 9] + "_" + name_hash
 
-    return normalized
+    return slug
+
+
+# Backwards compatibility alias
+normalize_entity_name = entity_slug
 
 
 def entity_folder_path(facet: str, name: str) -> Path:
@@ -75,19 +84,19 @@ def entity_folder_path(facet: str, name: str) -> Path:
 
     Args:
         facet: Facet name (e.g., "personal", "work")
-        name: Entity name (will be normalized)
+        name: Entity name (will be slugified)
 
     Returns:
-        Path to facets/{facet}/entities/{normalized_name}/
+        Path to facets/{facet}/entities/{entity_slug}/
 
     Raises:
-        ValueError: If name normalizes to empty string
+        ValueError: If name slugifies to empty string
     """
-    normalized = normalize_entity_name(name)
-    if not normalized:
-        raise ValueError(f"Entity name '{name}' normalizes to empty string")
+    slug = entity_slug(name)
+    if not slug:
+        raise ValueError(f"Entity name '{name}' slugifies to empty string")
 
-    return Path(get_journal()) / "facets" / facet / "entities" / normalized
+    return Path(get_journal()) / "facets" / facet / "entities" / slug
 
 
 def ensure_entity_folder(facet: str, name: str) -> Path:
@@ -95,13 +104,13 @@ def ensure_entity_folder(facet: str, name: str) -> Path:
 
     Args:
         facet: Facet name (e.g., "personal", "work")
-        name: Entity name (will be normalized)
+        name: Entity name (will be slugified)
 
     Returns:
         Path to the created/existing folder
 
     Raises:
-        ValueError: If name normalizes to empty string
+        ValueError: If name slugifies to empty string
     """
     folder = entity_folder_path(facet, name)
     folder.mkdir(parents=True, exist_ok=True)
@@ -120,16 +129,16 @@ def rename_entity_folder(facet: str, old_name: str, new_name: str) -> bool:
 
     Returns:
         True if folder was renamed, False if old folder didn't exist
-        or names normalize to the same value
+        or names slugify to the same value
 
     Raises:
-        ValueError: If either name normalizes to empty string
+        ValueError: If either name slugifies to empty string
         OSError: If rename fails (e.g., target exists)
     """
     old_folder = entity_folder_path(facet, old_name)
     new_folder = entity_folder_path(facet, new_name)
 
-    # No rename needed if normalized names are the same
+    # No rename needed if slugified names are the same
     if old_folder == new_folder:
         return False
 
@@ -151,16 +160,19 @@ def parse_entity_file(
     This is the low-level file parsing function used by all entity loading code.
     Each line in the file should be a JSON object with type, name, and description fields.
 
+    Generates `id` field (slug) for entities that don't have one, enabling
+    lazy migration of existing entity files.
+
     Args:
         file_path: Absolute path to entities.jsonl file
         validate_types: If True, filters out invalid entity types (default: True)
 
     Returns:
-        List of entity dictionaries with type, name, and description keys
+        List of entity dictionaries with id, type, name, and description keys
 
     Example:
         >>> parse_entity_file("/path/to/entities.jsonl")
-        [{"type": "Person", "name": "John Smith", "description": "Friend from college"}]
+        [{"id": "john_smith", "type": "Person", "name": "John Smith", "description": "Friend from college"}]
     """
     if not os.path.isfile(file_path):
         return []
@@ -181,8 +193,17 @@ def parse_entity_file(
                 if validate_types and not is_valid_entity_type(etype):
                     continue
 
+                # Generate id from name if not present (lazy migration)
+                entity_id = data.get("id") or entity_slug(name)
+
                 # Preserve all fields from JSON, ensuring core fields exist
-                entity = {"type": etype, "name": name, "description": desc}
+                # Put id first for readability in JSONL output
+                entity = {
+                    "id": entity_id,
+                    "type": etype,
+                    "name": name,
+                    "description": desc,
+                }
                 # Add any additional fields from the JSON
                 for key, value in data.items():
                     if key not in entity:
@@ -249,16 +270,50 @@ def save_entities(
 ) -> None:
     """Save entities to facet entity file using atomic write.
 
+    Ensures all entities have an `id` field (generates from name if missing).
+    For attached entities (day=None), validates name uniqueness within the facet.
+
     Args:
         facet: Facet name
         entities: List of entity dictionaries (must have type, name, description keys;
-                  attached entities may also have attached_at, updated_at timestamps)
+                  attached entities may also have id, attached_at, updated_at timestamps)
         day: Optional day in YYYYMMDD format for detected entities
+
+    Raises:
+        ValueError: If duplicate names found in attached entities (day=None)
     """
     path = entity_file_path(facet, day)
 
     # Create parent directory if needed
     path.parent.mkdir(parents=True, exist_ok=True)
+
+    # Ensure id field is present and validate uniqueness for attached entities
+    seen_names: set[str] = set()
+    seen_ids: set[str] = set()
+
+    for entity in entities:
+        name = entity.get("name", "")
+
+        # Always compute expected id from name (id should match name slug)
+        expected_id = entity_slug(name)
+
+        # Set or update id to match expected
+        if entity.get("id") != expected_id:
+            entity["id"] = expected_id
+
+        # Validate uniqueness for attached entities only
+        if day is None:
+            name_lower = name.lower()
+            if name_lower in seen_names:
+                raise ValueError(f"Duplicate entity name '{name}' in facet '{facet}'")
+            seen_names.add(name_lower)
+
+            if expected_id in seen_ids:
+                raise ValueError(
+                    f"Duplicate entity id '{expected_id}' in facet '{facet}' "
+                    f"(names may slugify to same value)"
+                )
+            seen_ids.add(expected_id)
 
     # Sort entities by type, then name for consistency
     sorted_entities = sorted(
@@ -287,25 +342,26 @@ def save_entities(
         raise
 
 
-def update_entity(
+def update_entity_description(
     facet: str,
-    type: str,
     name: str,
     old_description: str,
     new_description: str,
     day: Optional[str] = None,
-) -> None:
+) -> dict[str, Any]:
     """Update an entity's description after validating current state.
 
     Sets updated_at timestamp to current time on successful update.
 
     Args:
         facet: Facet name
-        type: Entity type to match
-        name: Entity name to match
+        name: Entity name to match (unique within facet)
         old_description: Current description (guard - must match)
         new_description: New description to set
         day: Optional day for detected entities
+
+    Returns:
+        The updated entity dict
 
     Raises:
         ValueError: If entity not found or guard mismatch
@@ -322,7 +378,7 @@ def update_entity(
         # Skip detached entities when searching
         if entity.get("detached"):
             continue
-        if entity.get("type") == type and entity.get("name") == name:
+        if entity.get("name") == name:
             current_desc = entity.get("description", "")
             if current_desc != old_description:
                 raise ValueError(
@@ -332,9 +388,9 @@ def update_entity(
             entity["description"] = new_description
             entity["updated_at"] = int(time.time() * 1000)
             save_entities(facet, entities, day)
-            return
+            return entity
 
-    raise ValueError(f"Entity '{name}' of type '{type}' not found in facet '{facet}'")
+    raise ValueError(f"Entity '{name}' not found in facet '{facet}'")
 
 
 def load_all_attached_entities(
@@ -573,14 +629,14 @@ def find_matching_attached_entity(
     """Find an attached entity matching a detected name.
 
     Uses tiered matching strategy (in order of precedence):
-    1. Exact name or aka match
-    2. Case-insensitive name or aka match
-    3. Normalized (slugified) name match
+    1. Exact name, id, or aka match
+    2. Case-insensitive name, id, or aka match
+    3. Slugified query match against id
     4. First-word match (unambiguous only, min 3 chars)
     5. Fuzzy match using rapidfuzz (score >= threshold)
 
     Args:
-        detected_name: Name of detected entity to match
+        detected_name: Name, id (slug), or aka to search for
         attached_entities: List of attached entity dicts to search
         fuzzy_threshold: Minimum score (0-100) for fuzzy matching (default: 90)
 
@@ -588,21 +644,23 @@ def find_matching_attached_entity(
         Matched entity dict, or None if no match found
 
     Example:
-        >>> attached = [{"name": "Robert Johnson", "aka": ["Bob", "Bobby"]}]
+        >>> attached = [{"id": "robert_johnson", "name": "Robert Johnson", "aka": ["Bob", "Bobby"]}]
         >>> find_matching_attached_entity("Bob", attached)
-        {"name": "Robert Johnson", "aka": ["Bob", "Bobby"]}
+        {"id": "robert_johnson", "name": "Robert Johnson", "aka": ["Bob", "Bobby"]}
+        >>> find_matching_attached_entity("robert_johnson", attached)
+        {"id": "robert_johnson", "name": "Robert Johnson", "aka": ["Bob", "Bobby"]}
     """
     if not detected_name or not attached_entities:
         return None
 
     detected_lower = detected_name.lower()
-    detected_normalized = normalize_entity_name(detected_name)
+    detected_slug = entity_slug(detected_name)
 
     # Build lookup structures for efficient matching
-    # Maps lowercase name/aka -> entity
+    # Maps exact name/id/aka -> entity
     exact_map: dict[str, dict[str, Any]] = {}
-    # Maps normalized name -> entity
-    normalized_map: dict[str, dict[str, Any]] = {}
+    # Maps id -> entity for slug matching
+    id_map: dict[str, dict[str, Any]] = {}
     # Maps lowercase first word -> list of entities (for ambiguity detection)
     first_word_map: dict[str, list[dict[str, Any]]] = {}
     # All candidate strings for fuzzy matching -> entity
@@ -610,15 +668,25 @@ def find_matching_attached_entity(
 
     for entity in attached_entities:
         name = entity.get("name", "")
+        entity_id = entity.get("id", "")
         if not name:
             continue
 
         name_lower = name.lower()
-        name_normalized = normalize_entity_name(name)
 
-        # Tier 1 & 2: Exact and case-insensitive
+        # Tier 1 & 2: Exact and case-insensitive for name
         exact_map[name] = entity
         exact_map[name_lower] = entity
+
+        # Also add id to exact map (compute from name if not present)
+        if entity_id:
+            exact_map[entity_id] = entity
+            id_map[entity_id] = entity
+        else:
+            # Compute slug from name for entities without id
+            name_slug = entity_slug(name)
+            if name_slug:
+                id_map[name_slug] = entity
 
         # Also add akas
         aka_list = entity.get("aka", [])
@@ -627,10 +695,6 @@ def find_matching_attached_entity(
                 if aka:
                     exact_map[aka] = entity
                     exact_map[aka.lower()] = entity
-
-        # Tier 3: Normalized
-        if name_normalized:
-            normalized_map[name_normalized] = entity
 
         # Tier 4: First word
         first_word = name.split()[0].lower() if name else ""
@@ -646,7 +710,7 @@ def find_matching_attached_entity(
                 if aka:
                     fuzzy_candidates[aka] = entity
 
-    # Tier 1: Exact match
+    # Tier 1: Exact match (name, id, or aka)
     if detected_name in exact_map:
         return exact_map[detected_name]
 
@@ -654,9 +718,9 @@ def find_matching_attached_entity(
     if detected_lower in exact_map:
         return exact_map[detected_lower]
 
-    # Tier 3: Normalized match
-    if detected_normalized and detected_normalized in normalized_map:
-        return normalized_map[detected_normalized]
+    # Tier 3: Slugified query match against id
+    if detected_slug and detected_slug in id_map:
+        return id_map[detected_slug]
 
     # Tier 4: First-word match (only if unambiguous)
     if len(detected_name) >= 3:
@@ -683,6 +747,94 @@ def find_matching_attached_entity(
             pass
 
     return None
+
+
+def resolve_entity(
+    facet: str,
+    query: str,
+    fuzzy_threshold: int = 90,
+) -> tuple[dict[str, Any] | None, list[dict[str, Any]] | None]:
+    """Resolve an entity query to a single attached entity.
+
+    This is the primary entry point for MCP tools to look up entities.
+    Accepts any form of entity reference (name, id/slug, aka) and resolves
+    to a single unambiguous entity.
+
+    Uses tiered matching strategy:
+    1. Exact name, id, or aka match
+    2. Case-insensitive match
+    3. Slugified query match against id
+    4. First-word match (only if unambiguous)
+    5. Fuzzy match (if single result above threshold)
+
+    Args:
+        facet: Facet name (e.g., "personal", "work")
+        query: Name, id (slug), or aka to search for
+        fuzzy_threshold: Minimum score (0-100) for fuzzy matching (default: 90)
+
+    Returns:
+        Tuple of (entity, candidates):
+        - If found: (entity_dict, None)
+        - If not found: (None, list of closest candidates)
+        - If ambiguous: (None, list of matching candidates)
+
+    Examples:
+        >>> entity, _ = resolve_entity("work", "Alice Johnson")
+        >>> entity, _ = resolve_entity("work", "alice_johnson")  # by id
+        >>> entity, _ = resolve_entity("work", "Ali")  # by aka
+        >>> _, candidates = resolve_entity("work", "unknown")  # not found
+    """
+    if not query or not query.strip():
+        return None, []
+
+    # Load attached entities (excluding detached)
+    entities = load_entities(facet, day=None, include_detached=False)
+    if not entities:
+        return None, []
+
+    # Try to find a match
+    match = find_matching_attached_entity(query, entities, fuzzy_threshold)
+    if match:
+        return match, None
+
+    # No match found - find closest candidates for error message
+    # Get top fuzzy matches as suggestions
+    candidates: list[dict[str, Any]] = []
+
+    try:
+        from rapidfuzz import fuzz, process
+
+        # Build candidate strings
+        fuzzy_candidates: dict[str, dict[str, Any]] = {}
+        for entity in entities:
+            name = entity.get("name", "")
+            if name:
+                fuzzy_candidates[name] = entity
+            aka_list = entity.get("aka", [])
+            if isinstance(aka_list, list):
+                for aka in aka_list:
+                    if aka:
+                        fuzzy_candidates[aka] = entity
+
+        # Get top 3 matches regardless of threshold
+        results = process.extract(
+            query,
+            fuzzy_candidates.keys(),
+            scorer=fuzz.token_sort_ratio,
+            limit=3,
+        )
+        seen_names: set[str] = set()
+        for matched_str, _score, _index in results:
+            entity = fuzzy_candidates[matched_str]
+            name = entity.get("name", "")
+            if name and name not in seen_names:
+                seen_names.add(name)
+                candidates.append(entity)
+    except ImportError:
+        # rapidfuzz not available, return first few entities as candidates
+        candidates = entities[:3]
+
+    return None, candidates
 
 
 def touch_entity(facet: str, name: str, day: str) -> bool:
@@ -1053,8 +1205,9 @@ def format_entities(
             lines.append("*(No description available)*")
         lines.append("")
 
-        # Additional fields (skip core fields, timestamp fields, and detached flag)
+        # Additional fields (skip core fields, timestamp fields, id, and detached flag)
         skip_fields = {
+            "id",
             "type",
             "name",
             "description",
@@ -1124,17 +1277,17 @@ def observations_file_path(facet: str, name: str) -> Path:
     """Return path to observations file for an entity.
 
     Observations are stored in the entity's enrichment folder:
-    facets/{facet}/entities/{normalized_name}/observations.jsonl
+    facets/{facet}/entities/{entity_slug}/observations.jsonl
 
     Args:
         facet: Facet name (e.g., "personal", "work")
-        name: Entity name (will be normalized)
+        name: Entity name (will be slugified)
 
     Returns:
         Path to observations.jsonl file
 
     Raises:
-        ValueError: If name normalizes to empty string
+        ValueError: If name slugifies to empty string
     """
     folder = entity_folder_path(facet, name)
     return folder / "observations.jsonl"

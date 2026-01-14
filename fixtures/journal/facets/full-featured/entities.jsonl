@@ -1,3 +1,3 @@
-{"type": "Entity 1", "name": "First test entity", "description": ""}
-{"type": "Entity 2", "name": "Second test entity", "description": ""}
-{"type": "Entity 3", "name": "Third test entity with description", "description": ""}
+{"id": "first_test_entity", "type": "Entity 1", "name": "First test entity", "description": ""}
+{"id": "second_test_entity", "type": "Entity 2", "name": "Second test entity", "description": ""}
+{"id": "third_test_entity_with_description", "type": "Entity 3", "name": "Third test entity with description", "description": ""}

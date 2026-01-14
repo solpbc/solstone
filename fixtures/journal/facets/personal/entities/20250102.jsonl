@@ -1,2 +1,2 @@
-{"type": "Company", "name": "City Fitness", "description": "Local gym"}
-{"type": "Person", "name": "Diana Prince", "description": "Yoga instructor"}
+{"id": "city_fitness", "type": "Company", "name": "City Fitness", "description": "Local gym"}
+{"id": "diana_prince", "type": "Person", "name": "Diana Prince", "description": "Yoga instructor"}

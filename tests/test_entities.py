@@ -956,7 +956,7 @@ def test_entity_folder_path_empty_name(fixture_journal, tmp_path):
     """Test entity folder path with empty name raises ValueError."""
     os.environ["JOURNAL_PATH"] = str(tmp_path)
 
-    with pytest.raises(ValueError, match="normalizes to empty string"):
+    with pytest.raises(ValueError, match="slugifies to empty string"):
         entity_folder_path("personal", "")
 
 

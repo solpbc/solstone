@@ -1,3 +1,3 @@
-{"type": "Company", "name": "Acme Corp", "description": "Local tech startup", "tags": ["tech", "startup"], "founded": "2020"}
-{"type": "Person", "name": "Alice Johnson", "description": "Close friend from college", "tags": ["friend"], "contact": "alice@example.com"}
-{"type": "Person", "name": "Bob Smith", "description": "Neighbor", "relationship": "neighbor", "since": "2022"}
+{"id": "acme_corp", "type": "Company", "name": "Acme Corp", "description": "Local tech startup", "tags": ["tech", "startup"], "founded": "2020"}
+{"id": "alice_johnson", "type": "Person", "name": "Alice Johnson", "description": "Close friend from college", "tags": ["friend"], "contact": "alice@example.com"}
+{"id": "bob_smith", "type": "Person", "name": "Bob Smith", "description": "Neighbor", "relationship": "neighbor", "since": "2022"}

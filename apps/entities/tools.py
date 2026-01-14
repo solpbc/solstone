@@ -20,8 +20,9 @@ from think.entities import (
     is_valid_entity_type,
     load_entities,
     load_observations,
+    resolve_entity,
     save_entities,
-    update_entity,
+    update_entity_description,
 )
 from think.facets import log_tool_action
 
@@ -44,24 +45,39 @@ TOOL_PACKS = {
 # -----------------------------------------------------------------------------
 
 
-def _find_attached_entity(
-    facet: str, entity_type: str, name: str
-) -> dict[str, Any] | None:
-    """Find an attached entity by type and name.
+def _resolve_or_error(
+    facet: str, name: str
+) -> tuple[dict[str, Any] | None, dict | None]:
+    """Resolve entity name to entity dict, or return error response.
+
+    Uses resolve_entity() to find an entity by name, id, or aka.
+    Returns (entity, None) on success, or (None, error_dict) on failure.
 
     Args:
         facet: Facet name
-        entity_type: Entity type (Person, Company, etc.)
-        name: Entity name
+        name: Entity name, id (slug), or aka to search for
 
     Returns:
-        The entity dict if found, None otherwise.
+        Tuple of (entity, error_response):
+        - If found: (entity_dict, None)
+        - If not found: (None, error_dict with "error" and "suggestion" keys)
     """
-    entities = load_entities(facet, day=None)
-    for entity in entities:
-        if entity.get("type") == entity_type and entity.get("name") == name:
-            return entity
-    return None
+    entity, candidates = resolve_entity(facet, name)
+
+    if entity:
+        return entity, None
+
+    # Build helpful error message with candidates
+    if candidates:
+        names = [c.get("name", "") for c in candidates[:3]]
+        suggestion = f"Did you mean: {', '.join(names)}?"
+    else:
+        suggestion = "verify the entity exists in the facet"
+
+    return None, {
+        "error": f"Entity '{name}' not found in attached entities",
+        "suggestion": suggestion,
+    }
 
 
 # -----------------------------------------------------------------------------
@@ -152,11 +168,11 @@ def entity_detect(
         # Load existing entities for the day
         existing = load_entities(facet, day)
 
-        # Check for duplicate
+        # Check for duplicate by name only (consistent with attached entity uniqueness)
         for entity in existing:
-            if entity.get("type") == type and entity.get("name") == name:
+            if entity.get("name") == name:
                 return {
-                    "error": f"Entity '{name}' of type '{type}' already detected for {day}",
+                    "error": f"Entity '{name}' already detected for {day}",
                     "suggestion": "entity already exists in detected list for this day",
                 }
 
@@ -194,6 +210,8 @@ def entity_attach(
     facets/{facet}/entities.jsonl. Attached entities are long-term tracked
     entities that appear in facet summaries and agent context.
 
+    Entity names must be unique within a facet (regardless of type).
+
     If the entity was previously detached (removed by the user), this tool
     will return an error - the user intentionally removed it, so agents
     should not re-attach it automatically. Users can re-attach manually
@@ -204,14 +222,14 @@ def entity_attach(
     Args:
         facet: Facet name (e.g., "personal", "work")
         type: Entity type (Person, Company, Project, or Tool)
-        name: Entity name (e.g., "John Smith", "Acme Corp")
+        name: Entity name (e.g., "John Smith", "Acme Corp") - must be unique in facet
         description: Persistent description of the entity
 
     Returns:
         Dictionary containing:
         - facet: The facet name
         - message: Success message
-        - entity: The attached entity details (type, name, description)
+        - entity: The attached entity details (id, type, name, description)
 
     Examples:
         - entity_attach("personal", "Person", "Alice", "Close friend from college")
@@ -228,9 +246,9 @@ def entity_attach(
         # Load ALL attached entities including detached ones
         existing = load_entities(facet, day=None, include_detached=True)
 
-        # Check for existing entity (active or detached)
+        # Check for existing entity by name (active or detached)
         for entity in existing:
-            if entity.get("type") == type and entity.get("name") == name:
+            if entity.get("name") == name:
                 if entity.get("detached"):
                     # User intentionally removed this entity - don't re-attach
                     return {
@@ -244,11 +262,11 @@ def entity_attach(
                     }
                 else:
                     return {
-                        "error": f"Entity '{name}' of type '{type}' already attached",
-                        "suggestion": "entity already exists in attached list for this facet",
+                        "error": f"Entity '{name}' already attached to facet",
+                        "suggestion": "entity names must be unique within a facet",
                     }
 
-        # Add new entity with timestamps
+        # Add new entity with timestamps (id will be generated by save_entities)
         now = int(time.time() * 1000)
         existing.append(
             {
@@ -284,7 +302,6 @@ def entity_attach(
 @register_tool(annotations=HINTS)
 def entity_update(
     facet: str,
-    type: str,
     name: str,
     old_description: str,
     new_description: str,
@@ -298,10 +315,14 @@ def entity_update(
     description as a guard value. If the guard doesn't match the current state,
     the operation fails with an error showing the actual current description.
 
+    The name parameter accepts any form of entity reference:
+    - Exact formal name: "Alice Johnson"
+    - Entity id (slug): "alice_johnson"
+    - Alias (aka): "Ali"
+
     Args:
         facet: Facet name (e.g., "personal", "work")
-        type: Entity type (Person, Company, Project, or Tool)
-        name: Entity name to update
+        name: Entity name, id, or aka to update
         old_description: Current description (must match for safety)
         new_description: New description to replace it with
         day: Optional day in YYYYMMDD format for detected entities.
@@ -316,26 +337,31 @@ def entity_update(
         - entity: The updated entity details
 
     Examples:
-        - entity_update("personal", "Person", "Alice", "Met at conference", "Close colleague from tech conference")
-        - entity_update("work", "Company", "Acme", "New client", "Key client since Q1 2025")
-        - entity_update("personal", "Person", "Bob", "Friend", "College roommate", day="20250101")
+        - entity_update("personal", "Alice", "Met at conference", "Close colleague from tech conference")
+        - entity_update("work", "acme_corp", "New client", "Key client since Q1 2025")
+        - entity_update("personal", "Bob", "Friend", "College roommate", day="20250101")
     """
     try:
-        # Validate entity type
-        if not is_valid_entity_type(type):
-            return {
-                "error": f"Invalid entity type '{type}'",
-                "suggestion": "must be alphanumeric with spaces only, at least 3 characters long",
-            }
+        # For attached entities, resolve name to find exact entity name
+        if day is None:
+            entity, error = _resolve_or_error(facet, name)
+            if error:
+                return error
+            # Use the resolved entity's canonical name
+            resolved_name = entity.get("name", name)
+        else:
+            # For detected entities, use name directly (no resolution)
+            resolved_name = name
 
-        update_entity(facet, type, name, old_description, new_description, day)
+        updated = update_entity_description(
+            facet, resolved_name, old_description, new_description, day
+        )
 
         log_tool_action(
             facet=facet,
             action="entity_update",
             params={
-                "type": type,
-                "name": name,
+                "name": resolved_name,
                 "old_description": old_description,
                 "new_description": new_description,
             },
@@ -346,8 +372,8 @@ def entity_update(
         return {
             "facet": facet,
             "day": day,
-            "message": f"Entity '{name}' updated successfully",
-            "entity": {"type": type, "name": name, "description": new_description},
+            "message": f"Entity '{resolved_name}' updated successfully",
+            "entity": updated,
         }
     except ValueError as exc:
         error_msg = str(exc)
@@ -370,7 +396,7 @@ def entity_update(
 
 @register_tool(annotations=HINTS)
 def entity_add_aka(
-    facet: str, type: str, name: str, aka: str, context: Context | None = None
+    facet: str, name: str, aka: str, context: Context | None = None
 ) -> dict[str, Any]:
     """Add an alias (aka) to an attached entity.
 
@@ -379,6 +405,11 @@ def entity_add_aka(
     and search. Duplicates are automatically prevented - if the alias already exists,
     the operation succeeds with a notification message.
 
+    The name parameter accepts any form of entity reference:
+    - Exact formal name: "Jeremie Miller"
+    - Entity id (slug): "jeremie_miller"
+    - Existing alias (aka): "Jer"
+
     Special handling:
     - First-word aliases are automatically skipped (e.g., "Jeremie" for "Jeremie Miller")
     - This avoids redundancy since first words are already extracted for transcription
@@ -386,8 +417,7 @@ def entity_add_aka(
 
     Args:
         facet: Facet name (e.g., "personal", "work")
-        type: Entity type (Person, Company, Project, Tool, etc.)
-        name: Entity name to update
+        name: Entity name, id, or aka to update
         aka: Alias or acronym to add (e.g., "PG" for "PostgreSQL", "Jer" for "Jeremie Miller")
 
     Returns:
@@ -397,75 +427,68 @@ def entity_add_aka(
         - entity: The updated entity details including the aka list
 
     Examples:
-        - entity_add_aka("work", "Tool", "PostgreSQL", "Postgres")  # Added
-        - entity_add_aka("work", "Tool", "PostgreSQL", "PG")  # Added
-        - entity_add_aka("personal", "Person", "Jeremie Miller", "Jer")  # Added
-        - entity_add_aka("personal", "Person", "Jeremie Miller", "Jeremie")  # Skipped (first word)
-        - entity_add_aka("work", "Organization", "Anthropic PBC", "Anthropic")  # Skipped (first word)
+        - entity_add_aka("work", "PostgreSQL", "Postgres")  # Added
+        - entity_add_aka("work", "postgresql", "PG")  # By id, added
+        - entity_add_aka("personal", "Jeremie Miller", "Jer")  # Added
+        - entity_add_aka("personal", "jeremie_miller", "Jeremie")  # Skipped (first word)
     """
     try:
-        # Validate entity type
-        if not is_valid_entity_type(type):
+        # Resolve entity by name, id, or aka
+        entity, error = _resolve_or_error(facet, name)
+        if error:
+            return error
+
+        resolved_name = entity.get("name", "")
+
+        # Check if aka is just the first word of the entity name (silently ignore)
+        base_name = re.sub(r"\s*\([^)]+\)", "", resolved_name).strip()
+        first_word = base_name.split()[0] if base_name else None
+        if first_word and aka.lower() == first_word.lower():
             return {
-                "error": f"Invalid entity type '{type}'",
-                "suggestion": "must be alphanumeric with spaces only, at least 3 characters long",
+                "facet": facet,
+                "message": f"Alias '{aka}' is already the first word of '{resolved_name}' (skipped)",
+                "entity": entity,
             }
 
-        # Load attached entities only
-        entities = load_entities(facet, day=None)
+        # Get or initialize aka list
+        aka_list = entity.get("aka", [])
+        if not isinstance(aka_list, list):
+            aka_list = []
 
-        # Find and update the entity
-        for entity in entities:
-            if entity.get("type") == type and entity.get("name") == name:
-                # Check if aka is just the first word of the entity name (silently ignore)
-                base_name = re.sub(r"\s*\([^)]+\)", "", name).strip()
-                first_word = base_name.split()[0] if base_name else None
-                if first_word and aka.lower() == first_word.lower():
-                    return {
-                        "facet": facet,
-                        "message": f"Alias '{aka}' is already the first word of '{name}' (skipped)",
-                        "entity": entity,
-                    }
+        # Check if already present (dedup)
+        if aka in aka_list:
+            return {
+                "facet": facet,
+                "message": f"Alias '{aka}' already exists for entity '{resolved_name}'",
+                "entity": entity,
+            }
 
-                # Get or initialize aka list
-                aka_list = entity.get("aka", [])
-                if not isinstance(aka_list, list):
-                    aka_list = []
-
-                # Check if already present (dedup)
-                if aka in aka_list:
-                    return {
-                        "facet": facet,
-                        "message": f"Alias '{aka}' already exists for entity '{name}'",
-                        "entity": entity,
-                    }
-
-                # Add the new aka
+        # Add the new aka - need to load all entities to save
+        entities = load_entities(facet, day=None, include_detached=True)
+        updated_entity = None
+        for e in entities:
+            if e.get("name") == resolved_name:
                 aka_list.append(aka)
-                entity["aka"] = aka_list
-                entity["updated_at"] = int(time.time() * 1000)
+                e["aka"] = aka_list
+                e["updated_at"] = int(time.time() * 1000)
+                updated_entity = e
+                break
 
-                # Save back atomically
-                save_entities(facet, entities, day=None)
+        # Save back atomically
+        save_entities(facet, entities, day=None)
 
-                # Log to today's log since attached entities aren't day-scoped
-                log_tool_action(
-                    facet=facet,
-                    action="entity_add_aka",
-                    params={"type": type, "name": name, "aka": aka},
-                    context=context,
-                )
+        # Log to today's log since attached entities aren't day-scoped
+        log_tool_action(
+            facet=facet,
+            action="entity_add_aka",
+            params={"name": resolved_name, "aka": aka},
+            context=context,
+        )
 
-                return {
-                    "facet": facet,
-                    "message": f"Added alias '{aka}' to entity '{name}'",
-                    "entity": entity,
-                }
-
-        # Entity not found
         return {
-            "error": f"Entity '{name}' of type '{type}' not found in attached entities",
-            "suggestion": "verify the entity exists in the facet (only attached entities supported, not detected)",
+            "facet": facet,
+            "message": f"Added alias '{aka}' to entity '{resolved_name}'",
+            "entity": updated_entity,
         }
 
     except Exception as exc:
@@ -476,7 +499,7 @@ def entity_add_aka(
 
 
 @register_tool(annotations=HINTS)
-def entity_observations(facet: str, type: str, name: str) -> dict[str, Any]:
+def entity_observations(facet: str, name: str) -> dict[str, Any]:
     """List observations for an attached entity.
 
     Observations are durable factoids about an entity that accumulate over time.
@@ -486,44 +509,38 @@ def entity_observations(facet: str, type: str, name: str) -> dict[str, Any]:
     IMPORTANT: You must call this tool before using entity_observe() to add
     new observations. The count returned is required for the guard validation.
 
+    The name parameter accepts any form of entity reference:
+    - Exact formal name: "Alice Johnson"
+    - Entity id (slug): "alice_johnson"
+    - Alias (aka): "Ali"
+
     Args:
         facet: Facet name (e.g., "personal", "work")
-        type: Entity type (Person, Company, Project, Tool, etc.)
-        name: Entity name to get observations for
+        name: Entity name, id, or aka to get observations for
 
     Returns:
         Dictionary containing:
         - facet: The facet name
-        - type: The entity type
-        - name: The entity name
+        - entity: The resolved entity details
         - count: Number of observations (use count+1 as observation_number in entity_observe)
         - observations: List of observation objects with content, observed_at, and optional source_day
 
     Examples:
-        - entity_observations("work", "Person", "Alice Johnson")
-        - entity_observations("personal", "Tool", "PostgreSQL")
+        - entity_observations("work", "Alice Johnson")
+        - entity_observations("personal", "postgresql")  # by id
     """
     try:
-        # Validate entity type
-        if not is_valid_entity_type(type):
-            return {
-                "error": f"Invalid entity type '{type}'",
-                "suggestion": "must be alphanumeric with spaces only, at least 3 characters long",
-            }
+        # Resolve entity by name, id, or aka
+        entity, error = _resolve_or_error(facet, name)
+        if error:
+            return error
 
-        # Verify entity exists in attached entities
-        if not _find_attached_entity(facet, type, name):
-            return {
-                "error": f"Entity '{name}' of type '{type}' not found in attached entities",
-                "suggestion": "verify the entity exists in the facet (only attached entities have observations)",
-            }
-
-        observations = load_observations(facet, name)
+        resolved_name = entity.get("name", "")
+        observations = load_observations(facet, resolved_name)
 
         return {
             "facet": facet,
-            "type": type,
-            "name": name,
+            "entity": entity,
             "count": len(observations),
             "observations": observations,
         }
@@ -537,7 +554,6 @@ def entity_observations(facet: str, type: str, name: str) -> dict[str, Any]:
 @register_tool(annotations=HINTS)
 def entity_observe(
     facet: str,
-    type: str,
     name: str,
     content: str,
     observation_number: int,
@@ -563,10 +579,14 @@ def entity_observe(
     IMPORTANT: You must call entity_observations() first to get the current
     count. The observation_number must equal count + 1 to prevent stale writes.
 
+    The name parameter accepts any form of entity reference:
+    - Exact formal name: "Alice Johnson"
+    - Entity id (slug): "alice_johnson"
+    - Alias (aka): "Ali"
+
     Args:
         facet: Facet name (e.g., "personal", "work")
-        type: Entity type (Person, Company, Project, Tool, etc.)
-        name: Entity name to add observation to
+        name: Entity name, id, or aka to add observation to
         content: The observation text (should be a durable factoid)
         observation_number: Expected next number; must be current count + 1
         source_day: Optional day (YYYYMMDD) when this was observed
@@ -574,39 +594,32 @@ def entity_observe(
     Returns:
         Dictionary containing:
         - facet: The facet name
-        - type: The entity type
-        - name: The entity name
+        - entity: The resolved entity details
         - message: Success message
         - count: Updated observation count
         - observations: Updated list of observations
 
     Examples:
-        - entity_observe("work", "Person", "Alice", "Prefers morning meetings", 1)
-        - entity_observe("work", "Person", "Alice", "Expert in Kubernetes", 2, "20250113")
+        - entity_observe("work", "Alice", "Prefers morning meetings", 1)
+        - entity_observe("work", "alice_johnson", "Expert in Kubernetes", 2, "20250113")
     """
     try:
-        # Validate entity type
-        if not is_valid_entity_type(type):
-            return {
-                "error": f"Invalid entity type '{type}'",
-                "suggestion": "must be alphanumeric with spaces only, at least 3 characters long",
-            }
+        # Resolve entity by name, id, or aka
+        entity, error = _resolve_or_error(facet, name)
+        if error:
+            return error
 
-        # Verify entity exists in attached entities
-        if not _find_attached_entity(facet, type, name):
-            return {
-                "error": f"Entity '{name}' of type '{type}' not found in attached entities",
-                "suggestion": "verify the entity exists in the facet (only attached entities have observations)",
-            }
+        resolved_name = entity.get("name", "")
 
-        result = add_observation(facet, name, content, observation_number, source_day)
+        result = add_observation(
+            facet, resolved_name, content, observation_number, source_day
+        )
 
         log_tool_action(
             facet=facet,
             action="entity_observe",
             params={
-                "type": type,
-                "name": name,
+                "name": resolved_name,
                 "content": content,
                 "observation_number": observation_number,
             },
@@ -615,9 +628,8 @@ def entity_observe(
 
         return {
             "facet": facet,
-            "type": type,
-            "name": name,
-            "message": f"Observation added to '{name}'",
+            "entity": entity,
+            "message": f"Observation added to '{resolved_name}'",
             "count": result["count"],
             "observations": result["observations"],
         }

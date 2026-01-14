@@ -1,2 +1,2 @@
-{"type": "Project", "name": "API Gateway", "description": "Microservices gateway"}
-{"type": "Tool", "name": "pytest", "description": "Testing framework"}
+{"id": "api_gateway", "type": "Project", "name": "API Gateway", "description": "Microservices gateway"}
+{"id": "pytest", "type": "Tool", "name": "pytest", "description": "Testing framework"}
