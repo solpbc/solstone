@@ -37,6 +37,7 @@ Understanding these core concepts is essential for working with solstone:
 
 ```
 solstone/
+├── sol.py          # Unified CLI entry point (run: sol <command>)
 ├── observe/        # Multimodal capture & AI analysis
 ├── think/          # Data post-processing & AI analysis
 ├── convey/         # Web app frontend & backend
@@ -78,7 +79,9 @@ Each package has a README.md symlink pointing to its documentation in `docs/`.
 * Agents process via `muse-agents` command with persona configurations
 
 **Command Reference**:
-See `pyproject.toml` `[project.scripts]` for the authoritative, current list of CLI entry points (e.g., `solstone`, `think-*`, `observe-*`, `muse-*`, `convey*`).
+The unified CLI is `sol`. Run `sol` to see status and available commands. Use `sol <command>` for subcommands or `sol <module.path>` for direct module access.
+
+Individual entry points (`think-*`, `observe-*`, `muse-*`, `convey*`) are also available - see `pyproject.toml` `[project.scripts]`.
 
 ---
 
@@ -250,7 +253,7 @@ make clean-install # Clean and reinstall
 * **Scratch Space**: `scratch/` - git-ignored local workspace for temporary scripts, one-off migrations, debug logs, screenshots, etc.
 
 ### Getting Help
-* Run `solstone` for CLI command list
+* Run `sol` for status and CLI command list
 * Check [docs/DOCTOR.md](docs/DOCTOR.md) for debugging and diagnostics
 * Browse `docs/` for all subsystem documentation
 * Review test files in `tests/` for usage examples

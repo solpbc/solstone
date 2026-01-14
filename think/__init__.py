@@ -4,13 +4,11 @@
 from .detect_created import detect_created
 from .detect_transcript import detect_transcript_json, detect_transcript_segment
 from .planner import generate_plan
-from .solstone import main as solstone_main
 
 # Cluster functions not re-exported here to avoid circular imports
 # Import directly from think.cluster where needed
 
 __all__ = [
-    "solstone_main",
     "detect_created",
     "detect_transcript_segment",
     "detect_transcript_json",

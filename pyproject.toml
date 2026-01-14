@@ -93,7 +93,7 @@ dependencies = [
 ]
 
 [project.scripts]
-solstone = "think.solstone:main"
+sol = "sol:main"
 convey = "convey.cli:main"
 convey-restart = "convey.restart:main"
 convey-screenshot = "convey.screenshot:main"
@@ -112,7 +112,6 @@ think-detect-created = "think.detect_created:main"
 think-manage = "think.manage:main"
 muse-cortex = "muse.cortex:main"
 think-callosum = "think.callosum:main"
-think-messages = "think.messages:main"
 observer = "observe.observer:main"
 observe-linux = "observe.linux.observer:main"
 observe-macos = "observe.macos.observer:main"
@@ -131,6 +130,9 @@ Documentation = "https://github.com/solpbc/solstone/blob/main/README.md"
 
 [tool.setuptools.packages.find]
 include = ["apps*", "think*", "convey*", "observe*", "muse*"]
+
+[tool.setuptools]
+py-modules = ["sol"]
 
 [tool.setuptools.package-data]
 apps = ["*/templates/*.html"]
