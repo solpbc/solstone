@@ -222,28 +222,31 @@ def add_module_stubs(request, monkeypatch):
 
 
 @pytest.fixture(autouse=True)
-def reset_supervisor_daily_state():
-    """Reset supervisor _daily_state before/after tests to prevent cross-test pollution.
+def reset_supervisor_state():
+    """Reset supervisor module state before/after tests to prevent cross-test pollution.
 
-    This prevents background threads spawned by one test from affecting other tests.
+    This prevents background threads spawned by one test from affecting other tests,
+    and ensures mode flags don't leak between tests.
     """
     try:
-        from think.supervisor import _daily_state
+        import think.supervisor as mod
 
         # Reset before test
-        _daily_state["dream_running"] = False
-        _daily_state["dream_completed"] = False
-        _daily_state["last_day"] = None
+        mod._daily_state["dream_running"] = False
+        mod._daily_state["dream_completed"] = False
+        mod._daily_state["last_day"] = None
+        mod._is_remote_mode = False
     except ImportError:
         pass  # supervisor not loaded yet
     yield
     try:
-        from think.supervisor import _daily_state
+        import think.supervisor as mod
 
         # Reset after test
-        _daily_state["dream_running"] = False
-        _daily_state["dream_completed"] = False
-        _daily_state["last_day"] = None
+        mod._daily_state["dream_running"] = False
+        mod._daily_state["dream_completed"] = False
+        mod._daily_state["last_day"] = None
+        mod._is_remote_mode = False
     except ImportError:
         pass
 

@@ -117,3 +117,37 @@ def test_run_daily_processing_failure(mock_callosum):
     # Verify state was updated
     assert _daily_state["dream_running"] is False
     assert _daily_state["dream_completed"] is False  # Stays False on failure
+
+
+def test_handle_daily_tasks_skipped_in_remote_mode(mock_callosum):
+    """Test that handle_daily_tasks skips entirely in remote mode."""
+    import think.supervisor as mod
+    from think.supervisor import _daily_state, handle_daily_tasks
+
+    # Reset state to a previous day (would normally trigger dream)
+    _daily_state["last_day"] = date(2025, 1, 1)
+    _daily_state["dream_running"] = False
+    _daily_state["dream_completed"] = False
+
+    spawned_threads = []
+
+    class MockThread:
+        def __init__(self, target, args=None, daemon=False):
+            spawned_threads.append((target, args))
+
+        def start(self):
+            pass
+
+    # Enable remote mode (fixture resets after test)
+    mod._is_remote_mode = True
+
+    with patch("think.supervisor.threading.Thread", MockThread):
+        with patch("think.supervisor.datetime") as mock_datetime:
+            mock_datetime.now.return_value.date.return_value = date(2025, 1, 2)
+            handle_daily_tasks()
+
+    # Verify no thread was spawned (remote mode skips daily processing)
+    assert len(spawned_threads) == 0
+    # State should be unchanged (early return before any state updates)
+    assert _daily_state["last_day"] == date(2025, 1, 1)
+    assert _daily_state["dream_running"] is False

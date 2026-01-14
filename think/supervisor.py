@@ -106,6 +106,9 @@ _observe_status_state: dict = {
 # Track whether observer was started (for health check conditioning)
 _observer_enabled: bool = True
 
+# Track whether running in remote mode (upload-only, no local processing)
+_is_remote_mode: bool = False
+
 # State for daily processing (dream runs in background, agents wait for completion)
 _daily_state = {
     "dream_running": False,  # True while dream subprocess is active
@@ -820,7 +823,13 @@ def handle_daily_tasks() -> None:
     Dream only triggers when the day actually changes during runtime (at midnight).
     The supervisor initializes last_day on startup, so restarts don't trigger dream.
     Scheduled agents are spawned after dream completes successfully.
+
+    Skipped in remote mode (no local data to process).
     """
+    # Remote mode: no local processing, data is on the server
+    if _is_remote_mode:
+        return
+
     today = datetime.now().date()
 
     # Only trigger when day actually changes (at midnight)
@@ -1104,12 +1113,12 @@ def main() -> None:
 
     logging.info("Supervisor starting...")
 
-    global _managed_procs, _supervisor_callosum, _observer_enabled
+    global _managed_procs, _supervisor_callosum, _observer_enabled, _is_remote_mode
     procs: list[ManagedProcess] = []
 
     # Remote mode: run sync instead of local sense/observer
-    is_remote_mode = bool(args.remote)
-    _observer_enabled = not args.no_observers and not is_remote_mode
+    _is_remote_mode = bool(args.remote)
+    _observer_enabled = not args.no_observers
 
     # Start Callosum in-process first - it's the message bus that other services depend on
     try:
@@ -1128,7 +1137,7 @@ def main() -> None:
         logging.warning(f"Failed to start Callosum connection: {e}")
 
     # Now start other services (their startup events will be captured)
-    if is_remote_mode:
+    if _is_remote_mode:
         # Remote mode: verify remote server is reachable before starting sync
         logging.info("Remote mode: checking server connectivity...")
         success, message = check_remote_health(args.remote)
@@ -1147,9 +1156,10 @@ def main() -> None:
         # Observer only runs if not disabled (local capture)
         if not args.no_observers:
             procs.append(start_observer())
-    if not args.no_cortex:
+    # Cortex and Convey only run in local mode (remote has no data to serve)
+    if not _is_remote_mode and not args.no_cortex:
         procs.append(start_cortex_server())
-    if not args.no_convey:
+    if not _is_remote_mode and not args.no_convey:
         procs.append(start_convey_server(verbose=args.verbose, debug=args.debug))
 
     # Make procs accessible to restart handler
