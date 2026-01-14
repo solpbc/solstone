@@ -283,6 +283,7 @@ def run_daily_agents(day: str) -> tuple[int, int]:
                         agent_id = cortex_request(
                             prompt=f"Processing facet '{facet_name}' for {day_formatted}: {input_summary}. Use get_facet('{facet_name}') to load context.",
                             persona=persona_id,
+                            config={"facet": facet_name},
                         )
                         spawned_ids.append(agent_id)
                         logging.info(

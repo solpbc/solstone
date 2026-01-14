@@ -295,6 +295,7 @@ def cortex_agents(
     limit: int = 10,
     offset: int = 0,
     agent_type: str = "all",
+    facet: Optional[str] = None,
 ) -> Dict[str, Any]:
     """List agents from the journal with pagination and filtering.
 
@@ -302,6 +303,8 @@ def cortex_agents(
         limit: Maximum number of agents to return (1-100)
         offset: Number of agents to skip
         agent_type: Filter by "live", "historical", or "all"
+        facet: Optional facet to filter by. If provided, only returns agents
+               that were run in this facet context. None means no filtering.
 
     Returns:
         Dictionary with agents list and pagination info
@@ -371,6 +374,13 @@ def cortex_agents(
                 if request.get("event") != "request":
                     continue
 
+                # Extract facet from request
+                agent_facet = request.get("facet")
+
+                # Filter by facet if specified
+                if facet is not None and agent_facet != facet:
+                    continue
+
                 # Extract basic info
                 agent_info = {
                     "id": agent_id,
@@ -379,6 +389,7 @@ def cortex_agents(
                     "status": status,
                     "prompt": request.get("prompt", ""),
                     "provider": request.get("provider", "openai"),
+                    "facet": agent_facet,
                 }
 
                 # For completed agents, find finish event to calculate runtime

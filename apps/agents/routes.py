@@ -258,19 +258,33 @@ def agent_run(agent_id: str) -> object:
 
 @agents_bp.route("/api/list")
 def agents_list() -> object:
-    """Get list of completed agent runs with pagination."""
+    """Get list of completed agent runs with pagination.
+
+    Query params:
+        limit: Max results per page (default 20, max 100)
+        offset: Number of results to skip
+        facet: Optional facet to filter by. If provided, only returns agents
+               that were run in this facet context.
+    """
     from convey.utils import parse_pagination_params, time_since
     from muse.cortex_client import cortex_agents
+    from think.facets import get_facets
     from think.utils import get_agents
 
     limit, offset = parse_pagination_params(default_limit=20, max_limit=100)
 
-    # Get completed agents from journal
-    response = cortex_agents(limit=limit, offset=offset, agent_type="historical")
+    # Get optional facet filter from query params
+    facet_filter = request.args.get("facet")
 
-    # Load agent titles for display
+    # Get completed agents from journal
+    response = cortex_agents(
+        limit=limit, offset=offset, agent_type="historical", facet=facet_filter
+    )
+
+    # Load agent titles and facet info for display
     agents_meta = get_agents()
     persona_titles = {aid: a["title"] for aid, a in agents_meta.items()}
+    facets = get_facets()
 
     # Format agents for display
     for agent in response.get("agents", []):
@@ -279,6 +293,10 @@ def agents_list() -> object:
         agent["since"] = (
             time_since(agent["start"] / 1000) if agent.get("start") else "unknown"
         )
+        # Add facet color for display
+        agent_facet = agent.get("facet")
+        if agent_facet and agent_facet in facets:
+            agent["facet_color"] = facets[agent_facet].get("color")
 
     return jsonify(response)
 
@@ -466,6 +484,12 @@ def start_agent() -> object:
         return jsonify({"error": "Prompt is required"}), 400
     persona = data.get("persona", "default")
     config = data.get("config", {})
+
+    # Include selected facet in config for context (read from cookie)
+    # Only set if not already provided in config (preserves restart behavior)
+    facet = request.cookies.get("selectedFacet")
+    if facet and "facet" not in config:
+        config["facet"] = facet
 
     try:
         from convey.utils import spawn_agent

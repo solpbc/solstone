@@ -2366,6 +2366,11 @@ function buildRow(a) {
     <td title="${a.prompt}">${short}</td>
   `;
 
+  // Add facet color indicator when in all-facet mode
+  if (!window.selectedFacet && a.facet_color) {
+    tr.style.borderLeft = `4px solid ${a.facet_color}`;
+  }
+
   // Add restart button cell
   const restartCell = document.createElement('td');
   restartCell.style.textAlign = 'center';
@@ -2378,6 +2383,7 @@ function buildRow(a) {
   restartBtn.dataset.agentId = a.id;
   restartBtn.dataset.prompt = a.prompt;
   restartBtn.dataset.persona = a.persona;
+  restartBtn.dataset.facet = a.facet || '';
 
   restartBtn.onclick = (e) => {
     e.stopPropagation();
@@ -2399,7 +2405,14 @@ function buildRow(a) {
 
 function loadAgentSessions(page = 0) {
   const offset = page * pageSize;
-  fetch(`{{ url_for('app:agents.agents_list') }}?limit=${pageSize}&offset=${offset}`)
+  let url = `{{ url_for('app:agents.agents_list') }}?limit=${pageSize}&offset=${offset}`;
+
+  // Add facet filter if a specific facet is selected
+  if (window.selectedFacet) {
+    url += `&facet=${encodeURIComponent(window.selectedFacet)}`;
+  }
+
+  fetch(url)
     .then(r => {
       if (!r.ok) {
         throw new Error(`HTTP ${r.status}: ${r.statusText}`);
@@ -2489,6 +2502,7 @@ async function restartAgent(buttonElement) {
   const agentId = buttonElement.dataset.agentId;
   const prompt = buttonElement.dataset.prompt;
   const persona = buttonElement.dataset.persona;
+  const facet = buttonElement.dataset.facet;
 
   // Confirmation dialog
   const confirmed = confirm(
@@ -2502,6 +2516,12 @@ async function restartAgent(buttonElement) {
     return;
   }
 
+  // Build config with original facet if it had one
+  const config = {};
+  if (facet) {
+    config.facet = facet;
+  }
+
   try {
     const response = await fetch('{{ url_for('app:agents.start_agent') }}', {
       method: 'POST',
@@ -2511,7 +2531,7 @@ async function restartAgent(buttonElement) {
       body: JSON.stringify({
         prompt: prompt,
         persona: persona,
-        config: {}
+        config: config
       })
     });
 
@@ -3187,6 +3207,13 @@ document.getElementById('agentRunModal').addEventListener('click', function(e) {
   if (e.target === this) {
     closeAgentRunModal();
   }
+});
+
+// Reload agent sessions when facet selection changes
+document.addEventListener('facet.switch', function() {
+  // Reset to first page when switching facets
+  currentPage = 0;
+  loadAgentSessions(0);
 });
 
 // Initialize - Load completed runs on page load
