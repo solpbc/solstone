@@ -160,8 +160,8 @@ def run_vad(
     duration = len(audio) / SAMPLE_RATE
 
     # Run Silero VAD with default options
-    # threshold=0.5 for speech start, min_silence_duration_ms=2000
-    vad_options = VadOptions()
+    # threshold=0.5 for speech start, min_silence_duration_ms=1000
+    vad_options = VadOptions(min_silence_duration_ms=1000)
     speech_chunks = get_speech_timestamps(audio, vad_options, sampling_rate=SAMPLE_RATE)
 
     # Calculate speech duration and extract segment boundaries
