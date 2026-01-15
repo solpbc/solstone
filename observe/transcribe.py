@@ -50,7 +50,13 @@ from observe.utils import (
     get_segment_key,
     prepare_audio_file,
 )
-from observe.vad import VadResult, run_vad
+from observe.vad import (
+    AudioReduction,
+    VadResult,
+    reduce_audio,
+    restore_segment_timestamps,
+    run_vad,
+)
 from think.callosum import callosum_send
 from think.utils import get_config, get_journal, setup_cli
 
@@ -512,7 +518,12 @@ class Transcriber:
         return lines
 
     def _handle_raw(
-        self, raw_path: Path, vad_result: VadResult, redo: bool = False
+        self,
+        raw_path: Path,
+        vad_result: VadResult,
+        redo: bool = False,
+        reduction: AudioReduction | None = None,
+        reduced_audio: np.ndarray | None = None,
     ) -> None:
         """Process a raw audio file with pre-computed VAD.
 
@@ -520,7 +531,11 @@ class Transcriber:
             raw_path: Path to audio file in segment directory
             vad_result: Pre-computed VAD result from run_vad()
             redo: If True, skip "already processed" check
+            reduction: Optional AudioReduction mapping for timestamp restoration
+            reduced_audio: Optional reduced audio buffer (used if reduction provided)
         """
+        import soundfile as sf
+
         start_time = time.time()
 
         # Derive segment from path
@@ -532,16 +547,29 @@ class Transcriber:
             logging.info(f"Already processed: {raw_path}")
             return
 
-        # Prepare audio (convert M4A if needed)
-        audio_path = prepare_audio_file(raw_path, SAMPLE_RATE)
-        is_temp = audio_path != raw_path
+        # Prepare audio for processing
+        # If we have a reduced audio buffer, write it to temp file (avoids redundant M4A decode)
+        # Otherwise, convert M4A if needed
+        reduced_temp_path: Path | None = None
+        if reduced_audio is not None:
+            # Write reduced buffer to temp file for downstream operations
+            reduced_temp_path = raw_path.with_suffix(".reduced.flac")
+            audio_int16 = (np.clip(reduced_audio, -1.0, 1.0) * 32767).astype(np.int16)
+            sf.write(reduced_temp_path, audio_int16, SAMPLE_RATE, format="FLAC")
+            processing_audio = reduced_temp_path
+            audio_path = raw_path  # Keep reference for cleanup logic
+            is_temp = False  # No M4A conversion temp file
+        else:
+            audio_path = prepare_audio_file(raw_path, SAMPLE_RATE)
+            is_temp = audio_path != raw_path
+            processing_audio = audio_path
 
         # Get remote name once for use in metadata and events
         remote = os.getenv("REMOTE_NAME")
 
         try:
             # Transcribe with faster-whisper using pre-computed VAD
-            segments = self._transcribe(audio_path, vad_result, STYLE_PROMPT)
+            segments = self._transcribe(processing_audio, vad_result, STYLE_PROMPT)
 
             # Load config for preserve_all setting
             config = get_config()
@@ -599,14 +627,27 @@ class Transcriber:
                 source = suffix[:-6]  # Remove "_audio" suffix
 
             # Run enrichment if enabled in config (config already loaded above)
+            # Use processing_audio (reduced if available) for consistent timestamps
             enrichment = None
             enrich_enabled = config.get("transcribe", {}).get("enrich", True)
             if enrich_enabled:
                 from observe.enrich import enrich_transcript
 
-                enrichment = enrich_transcript(audio_path, segments)
+                enrichment = enrich_transcript(processing_audio, segments)
 
-            # Convert to JSONL format
+            # Generate embeddings before timestamp restoration
+            # Use processing_audio (reduced if available) for consistent timestamps
+            embeddings_data = self._embed_segments(processing_audio, segments)
+
+            # Restore original timestamps if audio was reduced
+            if reduction:
+                segments = restore_segment_timestamps(segments, reduction)
+                logging.info(
+                    f"  Restored timestamps from reduced audio "
+                    f"({reduction.reduced_duration:.1f}s -> {reduction.original_duration:.1f}s)"
+                )
+
+            # Convert to JSONL format (now with original timestamps)
             raw_filename = f"{raw_path.stem}{raw_path.suffix}"
             jsonl_lines = self._segments_to_jsonl(
                 segments, raw_filename, base_dt, source, remote, enrichment
@@ -616,8 +657,7 @@ class Transcriber:
             jsonl_path.write_text("\n".join(jsonl_lines) + "\n")
             logging.info(f"Transcribed {raw_path} -> {jsonl_path}")
 
-            # Generate and save embeddings
-            embeddings_data = self._embed_segments(audio_path, segments)
+            # Save embeddings
             if embeddings_data:
                 embeddings_path = self._get_embeddings_path(raw_path)
                 np.savez_compressed(embeddings_path, **embeddings_data)
@@ -640,9 +680,11 @@ class Transcriber:
             logging.error(f"Failed to transcribe {raw_path}: {e}", exc_info=True)
             raise SystemExit(1) from e
         finally:
-            # Clean up temp file if created
+            # Clean up temp files
             if is_temp and audio_path.exists():
                 audio_path.unlink()
+            if reduced_temp_path and reduced_temp_path.exists():
+                reduced_temp_path.unlink()
 
 
 def main():
@@ -748,7 +790,11 @@ def main():
         callosum_send("observe", "transcribed", **event)
         return
 
-    # Stage 2: Load Whisper and transcribe (only if speech detected)
+    # Stage 2: Reduce audio by trimming long silence gaps (>2s)
+    # This optimization works with any STT backend
+    reduced_audio, reduction = reduce_audio(audio_path, vad_result)
+
+    # Stage 3: Load Whisper and transcribe (only if speech detected)
     if args.cpu:
         device = "cpu"
         compute_type = "int8"
@@ -761,7 +807,13 @@ def main():
     transcriber = Transcriber(
         model_size=model, device=device, compute_type=compute_type
     )
-    transcriber._handle_raw(audio_path, vad_result, redo=args.redo)
+    transcriber._handle_raw(
+        audio_path,
+        vad_result,
+        redo=args.redo,
+        reduction=reduction,
+        reduced_audio=reduced_audio,
+    )
 
 
 if __name__ == "__main__":

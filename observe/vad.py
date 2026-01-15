@@ -6,18 +6,113 @@
 Provides a standalone VAD stage that can be run before transcription to:
 - Filter out silent/low-speech audio files early (before loading heavy STT models)
 - Provide speech duration metrics for logging and events
+- Reduce audio by trimming long silence gaps (>2s trimmed to 2s with 1s buffers)
 
 Uses Silero VAD via faster-whisper's bundled implementation.
+
+Audio Reduction:
+When there are long gaps (>2s) between speech segments, the audio can be
+"reduced" by trimming those gaps to a maximum of 2s (1s buffer on each side).
+This creates a shorter audio file that any STT backend can process more
+efficiently. A mapping is preserved to restore original timestamps after
+transcription.
 """
 
 from __future__ import annotations
 
 import logging
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
+import numpy as np
+
 from observe.utils import SAMPLE_RATE
+
+# Minimum silence gap to reduce (seconds)
+MIN_GAP_TO_REDUCE = 2.0
+
+# Buffer to keep on each side of trimmed gap (seconds)
+GAP_BUFFER = 1.0
+
+
+@dataclass
+class SpeechSegment:
+    """A segment of speech with original and reduced timestamps.
+
+    Attributes:
+        original_start: Start time in original audio (seconds)
+        original_end: End time in original audio (seconds)
+        reduced_start: Start time in reduced audio (seconds)
+        reduced_end: End time in reduced audio (seconds)
+    """
+
+    original_start: float
+    original_end: float
+    reduced_start: float
+    reduced_end: float
+
+
+@dataclass
+class AudioReduction:
+    """Mapping between reduced and original audio timestamps.
+
+    Contains the speech segments that were preserved and provides methods
+    to restore original timestamps from reduced timestamps.
+
+    Attributes:
+        segments: List of speech segments with both original and reduced times
+        original_duration: Duration of original audio (seconds)
+        reduced_duration: Duration of reduced audio (seconds)
+    """
+
+    segments: list[SpeechSegment] = field(default_factory=list)
+    original_duration: float = 0.0
+    reduced_duration: float = 0.0
+
+    def restore_timestamp(self, reduced_time: float) -> float:
+        """Convert a timestamp from reduced audio to original audio time.
+
+        Args:
+            reduced_time: Timestamp in reduced audio (seconds)
+
+        Returns:
+            Corresponding timestamp in original audio (seconds)
+        """
+        # Handle timestamps before first segment (in leading buffer region)
+        if self.segments:
+            first = self.segments[0]
+            if reduced_time < first.reduced_start:
+                # Map offset from first segment back to original leading region
+                offset = first.reduced_start - reduced_time
+                return first.original_start - offset
+
+        for seg in self.segments:
+            if seg.reduced_start <= reduced_time <= seg.reduced_end:
+                # Linear mapping within segment
+                offset = reduced_time - seg.reduced_start
+                return seg.original_start + offset
+
+            # Check if in gap between this segment and next
+            # (gaps are preserved at reduced size, map to middle of original gap)
+            seg_idx = self.segments.index(seg)
+            if seg_idx < len(self.segments) - 1:
+                next_seg = self.segments[seg_idx + 1]
+                if seg.reduced_end < reduced_time < next_seg.reduced_start:
+                    # In the reduced gap - map proportionally to original gap
+                    reduced_gap = next_seg.reduced_start - seg.reduced_end
+                    original_gap = next_seg.original_start - seg.original_end
+                    gap_progress = (reduced_time - seg.reduced_end) / reduced_gap
+                    return seg.original_end + (gap_progress * original_gap)
+
+        # After all segments - extrapolate from last segment
+        if self.segments:
+            last = self.segments[-1]
+            offset = reduced_time - last.reduced_end
+            return last.original_end + offset
+
+        # No segments - return as-is
+        return reduced_time
 
 
 @dataclass
@@ -28,11 +123,13 @@ class VadResult:
         duration: Total audio duration in seconds
         speech_duration: Duration of detected speech in seconds
         has_speech: Whether speech duration meets minimum threshold
+        speech_segments: List of (start, end) tuples for each speech segment
     """
 
     duration: float
     speech_duration: float
     has_speech: bool
+    speech_segments: list[tuple[float, float]] = field(default_factory=list)
 
 
 def run_vad(
@@ -50,7 +147,7 @@ def run_vad(
         min_speech_seconds: Minimum speech duration to set has_speech=True
 
     Returns:
-        VadResult with duration info and has_speech flag
+        VadResult with duration info, has_speech flag, and speech segment boundaries
     """
     from faster_whisper.audio import decode_audio
     from faster_whisper.vad import VadOptions, get_speech_timestamps
@@ -67,9 +164,15 @@ def run_vad(
     vad_options = VadOptions()
     speech_chunks = get_speech_timestamps(audio, vad_options, sampling_rate=SAMPLE_RATE)
 
-    # Calculate speech duration from chunks
+    # Calculate speech duration and extract segment boundaries
     speech_samples = sum(chunk["end"] - chunk["start"] for chunk in speech_chunks)
     speech_duration = speech_samples / SAMPLE_RATE
+
+    # Convert sample indices to time boundaries
+    speech_segments = [
+        (chunk["start"] / SAMPLE_RATE, chunk["end"] / SAMPLE_RATE)
+        for chunk in speech_chunks
+    ]
 
     has_speech = speech_duration >= min_speech_seconds
 
@@ -84,4 +187,186 @@ def run_vad(
         duration=duration,
         speech_duration=speech_duration,
         has_speech=has_speech,
+        speech_segments=speech_segments,
     )
+
+
+def reduce_audio(
+    audio_path: Path,
+    vad_result: VadResult,
+) -> tuple[np.ndarray | None, AudioReduction | None]:
+    """Reduce audio by trimming long silence gaps.
+
+    Gaps longer than MIN_GAP_TO_REDUCE (2s) are trimmed to 2s total
+    (GAP_BUFFER of 1s on each side). This creates a shorter audio buffer
+    that any STT backend can process more efficiently.
+
+    Args:
+        audio_path: Path to original audio file
+        vad_result: VAD result with speech segment boundaries
+
+    Returns:
+        Tuple of (reduced_audio_array, reduction_mapping):
+        - If no reduction needed (no gaps > 2s), returns (None, None)
+        - Otherwise returns the reduced audio numpy array and the mapping
+    """
+    from faster_whisper.audio import decode_audio
+
+    if not vad_result.speech_segments:
+        return None, None
+
+    # Calculate gaps between speech segments
+    gaps_to_reduce = []
+    for i in range(len(vad_result.speech_segments) - 1):
+        current_end = vad_result.speech_segments[i][1]
+        next_start = vad_result.speech_segments[i + 1][0]
+        gap = next_start - current_end
+        if gap > MIN_GAP_TO_REDUCE:
+            gaps_to_reduce.append((i, current_end, next_start, gap))
+
+    # Also check leading silence (before first speech)
+    first_start = vad_result.speech_segments[0][0]
+    if first_start > MIN_GAP_TO_REDUCE:
+        gaps_to_reduce.insert(0, (-1, 0.0, first_start, first_start))
+
+    # Check trailing silence (after last speech)
+    last_end = vad_result.speech_segments[-1][1]
+    trailing_gap = vad_result.duration - last_end
+    if trailing_gap > MIN_GAP_TO_REDUCE:
+        gaps_to_reduce.append(
+            (
+                len(vad_result.speech_segments) - 1,
+                last_end,
+                vad_result.duration,
+                trailing_gap,
+            )
+        )
+
+    if not gaps_to_reduce:
+        logging.info("  No gaps > 2s to reduce")
+        return None, None
+
+    # Load audio for reduction
+    audio = decode_audio(str(audio_path), sampling_rate=SAMPLE_RATE)
+
+    # Build reduced audio by copying segments and trimmed gaps
+    reduced_chunks = []
+    reduction_segments = []
+    current_reduced_time = 0.0
+
+    # Process each speech segment and the gap after it
+    for i, (seg_start, seg_end) in enumerate(vad_result.speech_segments):
+        # Handle leading gap (before first segment)
+        if i == 0 and first_start > MIN_GAP_TO_REDUCE:
+            # Keep only GAP_BUFFER before first speech
+            buffer_start_sample = int((seg_start - GAP_BUFFER) * SAMPLE_RATE)
+            seg_start_sample = int(seg_start * SAMPLE_RATE)
+            reduced_chunks.append(audio[buffer_start_sample:seg_start_sample])
+            current_reduced_time = GAP_BUFFER
+        elif i == 0:
+            # Keep all leading audio (gap <= 2s)
+            seg_start_sample = int(seg_start * SAMPLE_RATE)
+            reduced_chunks.append(audio[:seg_start_sample])
+            current_reduced_time = seg_start
+
+        # Copy speech segment
+        seg_start_sample = int(seg_start * SAMPLE_RATE)
+        seg_end_sample = int(seg_end * SAMPLE_RATE)
+        reduced_chunks.append(audio[seg_start_sample:seg_end_sample])
+
+        # Record mapping for this speech segment
+        seg_duration = seg_end - seg_start
+        reduction_segments.append(
+            SpeechSegment(
+                original_start=seg_start,
+                original_end=seg_end,
+                reduced_start=current_reduced_time,
+                reduced_end=current_reduced_time + seg_duration,
+            )
+        )
+        current_reduced_time += seg_duration
+
+        # Handle gap after this segment
+        if i < len(vad_result.speech_segments) - 1:
+            next_start = vad_result.speech_segments[i + 1][0]
+            gap = next_start - seg_end
+
+            if gap > MIN_GAP_TO_REDUCE:
+                # Trim to 2s: keep GAP_BUFFER after current segment and GAP_BUFFER before next
+                after_sample = int((seg_end + GAP_BUFFER) * SAMPLE_RATE)
+                before_sample = int((next_start - GAP_BUFFER) * SAMPLE_RATE)
+                reduced_chunks.append(audio[seg_end_sample:after_sample])
+                reduced_chunks.append(
+                    audio[before_sample : int(next_start * SAMPLE_RATE)]
+                )
+                current_reduced_time += 2 * GAP_BUFFER  # 2s total gap
+            else:
+                # Keep full gap
+                gap_end_sample = int(next_start * SAMPLE_RATE)
+                reduced_chunks.append(audio[seg_end_sample:gap_end_sample])
+                current_reduced_time += gap
+
+    # Handle trailing gap
+    if trailing_gap > MIN_GAP_TO_REDUCE:
+        # Keep only GAP_BUFFER at start of trailing gap
+        trail_sample = int((last_end + GAP_BUFFER) * SAMPLE_RATE)
+        reduced_chunks.append(audio[int(last_end * SAMPLE_RATE) : trail_sample])
+        current_reduced_time += GAP_BUFFER
+    else:
+        # Keep all trailing audio
+        reduced_chunks.append(audio[int(last_end * SAMPLE_RATE) :])
+        current_reduced_time += trailing_gap
+
+    # Concatenate reduced audio
+    reduced_audio = np.concatenate(reduced_chunks)
+    reduced_duration = len(reduced_audio) / SAMPLE_RATE
+
+    reduction = AudioReduction(
+        segments=reduction_segments,
+        original_duration=vad_result.duration,
+        reduced_duration=reduced_duration,
+    )
+
+    time_saved = vad_result.duration - reduced_duration
+    logging.info(
+        f"  Reduced audio: {vad_result.duration:.1f}s -> {reduced_duration:.1f}s "
+        f"(saved {time_saved:.1f}s, {len(gaps_to_reduce)} gaps trimmed)"
+    )
+
+    return reduced_audio, reduction
+
+
+def restore_segment_timestamps(
+    segments: list[dict],
+    reduction: AudioReduction,
+) -> list[dict]:
+    """Restore original timestamps to segments transcribed from reduced audio.
+
+    Args:
+        segments: List of segment dicts with 'start', 'end', and optionally 'words'
+        reduction: AudioReduction mapping from reduce_audio()
+
+    Returns:
+        New list of segments with timestamps restored to original audio time
+    """
+    restored = []
+    for seg in segments:
+        new_seg = seg.copy()
+
+        # Restore segment-level timestamps
+        new_seg["start"] = reduction.restore_timestamp(seg["start"])
+        new_seg["end"] = reduction.restore_timestamp(seg["end"])
+
+        # Restore word-level timestamps if present
+        if "words" in seg and seg["words"]:
+            new_words = []
+            for word in seg["words"]:
+                new_word = word.copy()
+                new_word["start"] = reduction.restore_timestamp(word["start"])
+                new_word["end"] = reduction.restore_timestamp(word["end"])
+                new_words.append(new_word)
+            new_seg["words"] = new_words
+
+        restored.append(new_seg)
+
+    return restored
