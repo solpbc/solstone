@@ -4,11 +4,12 @@
 """Transcribe audio files using faster-whisper with sentence-level embeddings.
 
 Transcription pipeline:
-- Transcribes audio using faster-whisper with word timestamps
-- Re-segments by sentence boundaries (not acoustic pauses)
-- Enriches with Gemini Lite for topics, setting, and audio descriptions (optional)
-- Generates voice embeddings for each sentence using resemblyzer
-- Outputs JSONL format compatible with format_audio() in observe/hear.py
+1. VAD stage: Run Silero VAD to detect speech and filter silent files early
+2. Transcription: Transcribe speech segments using faster-whisper with word timestamps
+3. Sentence re-segmentation: Re-segment by punctuation boundaries (not acoustic pauses)
+4. Enrichment: Extract topics, setting, and audio descriptions via Gemini Lite (optional)
+5. Embeddings: Generate voice embeddings for each sentence using resemblyzer
+6. Output: JSONL format compatible with format_audio() in observe/hear.py
 
 Output files:
 - <stem>.jsonl: Transcript with HH:MM:SS timestamps, topics, setting, descriptions
@@ -21,6 +22,8 @@ Configuration (journal config):
   When "default", auto-selects: float16 for CUDA, int8 for CPU (including Apple Silicon).
 - transcribe.enrich: Enable/disable Gemini Lite enrichment (default: true)
 - transcribe.preserve_all: Keep audio files even when no speech detected (default: false)
+- transcribe.min_speech_seconds: Minimum speech duration to proceed with transcription.
+  Files with less speech are filtered early, before loading the Whisper model. Default: 1.0
 
 Platform optimizations:
 - CUDA GPU: Uses float16 for GPU-optimized inference
@@ -47,6 +50,7 @@ from observe.utils import (
     get_segment_key,
     prepare_audio_file,
 )
+from observe.vad import VadResult, run_vad
 from think.callosum import callosum_send
 from think.utils import get_config, get_journal, setup_cli
 
@@ -54,6 +58,7 @@ from think.utils import get_config, get_journal, setup_cli
 DEFAULT_MODEL = "medium.en"
 DEFAULT_DEVICE = "auto"
 DEFAULT_COMPUTE = "default"
+DEFAULT_MIN_SPEECH_SECONDS = 1.0
 
 # Style prompt to establish punctuation pattern for Whisper
 # Whisper is autoregressive and can get stuck in "no-punctuation mode" without this
@@ -262,18 +267,20 @@ class Transcriber:
         return audio_path.with_suffix(".npz")
 
     def _transcribe(
-        self, audio_path: Path, initial_prompt: str | None
-    ) -> tuple[list[dict], dict]:
-        """Transcribe audio using faster-whisper.
+        self,
+        audio_path: Path,
+        vad_result: VadResult,
+        initial_prompt: str | None = None,
+    ) -> list[dict]:
+        """Transcribe audio using faster-whisper with VAD filtering.
 
         Args:
             audio_path: Path to audio file (FLAC)
+            vad_result: Pre-computed VAD result (used for sanity check)
             initial_prompt: Optional prompt with entity names for context
 
         Returns:
-            Tuple of (segments, vad_info) where:
-            - segments: List of sentence-aligned segments with word-level data
-            - vad_info: Dict with 'duration' (total) and 'duration_after_vad' (speech)
+            List of sentence-aligned segments with word-level data
 
         Raises:
             RuntimeError: If VAD detected speech but transcription produced no segments
@@ -281,7 +288,7 @@ class Transcriber:
         logging.info(f"Transcribing {audio_path.name}...")
         t0 = time.perf_counter()
 
-        # Build transcribe kwargs
+        # Build transcribe kwargs - let faster-whisper run its own VAD
         transcribe_kwargs = {
             "language": "en",
             "vad_filter": True,
@@ -328,23 +335,18 @@ class Transcriber:
 
         # Sanity check: if VAD detected speech but we got no segments, something is wrong
         # This protects against silent transcription failures (e.g., CUDA errors)
-        vad_detected_speech = (
-            info.duration_after_vad > 1.0
-        )  # More than 1 second of speech
-        if vad_detected_speech and not segment_list:
+        if vad_result.has_speech and not segment_list:
             raise RuntimeError(
-                f"VAD detected {info.duration_after_vad:.1f}s of speech "
-                f"(from {info.duration:.1f}s total) but transcription produced 0 segments. "
-                f"This indicates a transcription failure, not silence."
+                f"VAD detected {vad_result.speech_duration:.1f}s of speech "
+                f"(from {vad_result.duration:.1f}s total) but transcription produced "
+                f"0 segments. This indicates a transcription failure, not silence."
             )
 
-        # Log transcription stats including VAD info
-        vad_removed = info.duration - info.duration_after_vad
+        # Log transcription stats
         logging.info(
             f"  Transcribed {len(segment_list)} segments, "
             f"{duration:.1f}s speech in {transcribe_time:.2f}s "
-            f"(VAD: {info.duration:.1f}s -> {info.duration_after_vad:.1f}s, "
-            f"removed {vad_removed:.1f}s, RTF: {transcribe_time / max(duration, 0.1):.3f}x)"
+            f"(RTF: {transcribe_time / max(duration, 0.1):.3f}x)"
         )
 
         # Re-segment by sentence boundaries instead of acoustic pauses
@@ -355,12 +357,7 @@ class Transcriber:
             f"to {len(sentence_segments)} sentences"
         )
 
-        # Return segments with VAD info for callosum events
-        vad_info = {
-            "duration": info.duration,
-            "duration_after_vad": info.duration_after_vad,
-        }
-        return sentence_segments, vad_info
+        return sentence_segments
 
     def _embed_segments(
         self, audio_path: Path, segments: list[dict]
@@ -514,11 +511,14 @@ class Transcriber:
 
         return lines
 
-    def _handle_raw(self, raw_path: Path, redo: bool = False) -> None:
-        """Process a raw audio file.
+    def _handle_raw(
+        self, raw_path: Path, vad_result: VadResult, redo: bool = False
+    ) -> None:
+        """Process a raw audio file with pre-computed VAD.
 
         Args:
             raw_path: Path to audio file in segment directory
+            vad_result: Pre-computed VAD result from run_vad()
             redo: If True, skip "already processed" check
         """
         start_time = time.time()
@@ -540,8 +540,8 @@ class Transcriber:
         remote = os.getenv("REMOTE_NAME")
 
         try:
-            # Transcribe with faster-whisper
-            segments, vad_info = self._transcribe(audio_path, STYLE_PROMPT)
+            # Transcribe with faster-whisper using pre-computed VAD
+            segments = self._transcribe(audio_path, vad_result, STYLE_PROMPT)
 
             # Load config for preserve_all setting
             config = get_config()
@@ -557,8 +557,8 @@ class Transcriber:
 
             event = {
                 "input": str(rel_input),
-                "vad_duration": round(vad_info["duration"], 1),
-                "vad_speech": round(vad_info["duration_after_vad"], 1),
+                "vad_duration": round(vad_result.duration, 1),
+                "vad_speech": round(vad_result.speech_duration, 1),
             }
             if day:
                 event["day"] = day
@@ -575,11 +575,11 @@ class Transcriber:
                     event["outcome"] = "preserved"
                     logging.info(
                         f"No speech detected in {raw_path}, preserving file "
-                        f"(preserve_all=true, VAD: {vad_info['duration_after_vad']:.1f}s "
-                        f"of {vad_info['duration']:.1f}s)"
+                        f"(preserve_all=true, VAD: {vad_result.speech_duration:.1f}s "
+                        f"of {vad_result.duration:.1f}s)"
                     )
                 else:
-                    event["outcome"] = "deleted"
+                    event["outcome"] = "filtered"
                     logging.info(f"No speech detected in {raw_path}, removing file")
                     raw_path.unlink()
 
@@ -684,7 +684,8 @@ def main():
         )
 
     # Files must be in segment directories (YYYYMMDD/HHMMSS_LEN/)
-    if get_segment_key(audio_path) is None:
+    segment = get_segment_key(audio_path)
+    if segment is None:
         parser.error(
             f"Audio file must be in a segment directory (HHMMSS_LEN/), "
             f"but parent is: {audio_path.parent.name}"
@@ -694,7 +695,60 @@ def main():
     config = get_config()
     transcribe_config = config.get("transcribe", {})
 
-    # Determine settings: CLI args override config, config overrides defaults
+    # Get min_speech_seconds threshold
+    min_speech_seconds = transcribe_config.get(
+        "min_speech_seconds", DEFAULT_MIN_SPEECH_SECONDS
+    )
+    preserve_all = transcribe_config.get("preserve_all", False)
+
+    logging.info(f"Processing audio: {audio_path}")
+
+    # Stage 1: Run VAD to detect speech (lightweight, before loading Whisper)
+    vad_result = run_vad(audio_path, min_speech_seconds=min_speech_seconds)
+
+    # Early exit if no speech detected (skip loading heavy Whisper model)
+    if not vad_result.has_speech:
+        # Build event for early filtering
+        journal_path = Path(get_journal())
+        day = audio_path.parent.parent.name
+        try:
+            rel_input = audio_path.relative_to(journal_path)
+        except ValueError:
+            rel_input = audio_path
+
+        remote = os.getenv("REMOTE_NAME")
+        event = {
+            "input": str(rel_input),
+            "vad_duration": round(vad_result.duration, 1),
+            "vad_speech": round(vad_result.speech_duration, 1),
+        }
+        if day:
+            event["day"] = day
+        if segment:
+            event["segment"] = segment
+        if remote:
+            event["remote"] = remote
+
+        if preserve_all:
+            event["outcome"] = "preserved"
+            logging.info(
+                f"Insufficient speech in {audio_path}, preserving file "
+                f"(preserve_all=true, VAD: {vad_result.speech_duration:.1f}s "
+                f"of {vad_result.duration:.1f}s, threshold: {min_speech_seconds:.1f}s)"
+            )
+        else:
+            event["outcome"] = "filtered"
+            logging.info(
+                f"Insufficient speech in {audio_path}, removing file "
+                f"(VAD: {vad_result.speech_duration:.1f}s of {vad_result.duration:.1f}s, "
+                f"threshold: {min_speech_seconds:.1f}s)"
+            )
+            audio_path.unlink()
+
+        callosum_send("observe", "transcribed", **event)
+        return
+
+    # Stage 2: Load Whisper and transcribe (only if speech detected)
     if args.cpu:
         device = "cpu"
         compute_type = "int8"
@@ -704,12 +758,10 @@ def main():
 
     model = args.model or transcribe_config.get("model", DEFAULT_MODEL)
 
-    logging.info(f"Processing audio: {audio_path}")
-
     transcriber = Transcriber(
         model_size=model, device=device, compute_type=compute_type
     )
-    transcriber._handle_raw(audio_path, redo=args.redo)
+    transcriber._handle_raw(audio_path, vad_result, redo=args.redo)
 
 
 if __name__ == "__main__":

@@ -15,6 +15,7 @@ import soundfile as sf
 from observe.transcribe import (
     DEFAULT_COMPUTE,
     DEFAULT_DEVICE,
+    DEFAULT_MIN_SPEECH_SECONDS,
     DEFAULT_MODEL,
     MIN_SEGMENT_DURATION,
     SENTENCE_ENDINGS,
@@ -232,6 +233,7 @@ class TestConstants:
         assert DEFAULT_MODEL == "medium.en"
         assert DEFAULT_DEVICE == "auto"
         assert DEFAULT_COMPUTE == "default"
+        assert DEFAULT_MIN_SPEECH_SECONDS == 1.0
 
 
 class TestPrepareAudioFile:
