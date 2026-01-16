@@ -15,17 +15,22 @@ Output files:
 - <stem>.jsonl: Transcript with HH:MM:SS timestamps, topics, setting, descriptions
 - <stem>.npz: Sentence-level voice embeddings indexed by segment id
 
-Configuration (journal config):
-- transcribe.device: Device for inference ("auto", "cpu", "cuda"). Default: "auto"
-- transcribe.model: Whisper model size (e.g., "medium.en"). Default: "medium.en"
-- transcribe.compute_type: Precision ("default", "float32", "float16", "int8").
-  When "default", auto-selects: float16 for CUDA, int8 for CPU (including Apple Silicon).
+Configuration (journal config transcribe section):
+- transcribe.backend: STT backend ("whisper", "revai"). Default: "whisper"
 - transcribe.enrich: Enable/disable LLM enrichment (default: true)
 - transcribe.preserve_all: Keep audio files even when no speech detected (default: false)
-- transcribe.min_speech_seconds: Minimum speech duration to proceed with transcription.
-  Files with less speech are filtered early, before loading the STT model. Default: 1.0
+- transcribe.min_speech_seconds: Minimum speech duration to proceed. Default: 1.0
 
-Platform optimizations:
+Whisper backend settings (transcribe.whisper):
+- device: Device for inference ("auto", "cpu", "cuda"). Default: "auto"
+- model: Whisper model size (e.g., "medium.en"). Default: "medium.en"
+- compute_type: Precision ("default", "float32", "float16", "int8"). Default: "default"
+  Auto-selects: float16 for CUDA, int8 for CPU (including Apple Silicon).
+
+Rev.ai backend settings (transcribe.revai):
+- model: Rev.ai transcriber ("fusion", "machine", "low_cost"). Default: "fusion"
+
+Platform optimizations (Whisper):
 - CUDA GPU: Uses float16 for GPU-optimized inference
 - Apple Silicon: Uses int8 for Whisper (~2x faster), MPS for embeddings (~16x faster)
 - Other CPU: Uses int8 for best performance
@@ -573,8 +578,7 @@ def main():
         "--backend",
         type=str,
         choices=list(BACKEND_REGISTRY.keys()),
-        default=DEFAULT_BACKEND,
-        help=f"STT backend to use (default: {DEFAULT_BACKEND})",
+        help=f"STT backend to use (overrides config, default: {DEFAULT_BACKEND})",
     )
     args = setup_cli(parser)
 
@@ -640,21 +644,36 @@ def main():
     # Stage 2: Reduce audio by trimming long silence gaps (>2s)
     reduced_audio, reduction = reduce_audio(audio_path, vad_result)
 
-    # Stage 3: Build backend config
-    if args.cpu:
-        device = "cpu"
-        compute_type = "int8"
+    # Stage 3: Determine backend and build backend config
+    # CLI --backend flag overrides config, otherwise use config or default
+    backend = args.backend or transcribe_config.get("backend", DEFAULT_BACKEND)
+
+    # Get backend-specific config from nested structure
+    if backend == "whisper":
+        whisper_config = transcribe_config.get("whisper", {})
+        if args.cpu:
+            device = "cpu"
+            compute_type = "int8"
+        else:
+            device = whisper_config.get("device", DEFAULT_DEVICE)
+            compute_type = whisper_config.get("compute_type", DEFAULT_COMPUTE)
+        model = args.model or whisper_config.get("model", DEFAULT_MODEL)
+        backend_config = {
+            "model": model,
+            "device": device,
+            "compute_type": compute_type,
+        }
+    elif backend == "revai":
+        from observe.transcribe.revai import DEFAULT_MODEL as REVAI_DEFAULT_MODEL
+
+        revai_config = transcribe_config.get("revai", {})
+        model = revai_config.get("model", REVAI_DEFAULT_MODEL)
+        backend_config = {
+            "model": model,
+        }
     else:
-        device = transcribe_config.get("device", DEFAULT_DEVICE)
-        compute_type = transcribe_config.get("compute_type", DEFAULT_COMPUTE)
-
-    model = args.model or transcribe_config.get("model", DEFAULT_MODEL)
-
-    backend_config = {
-        "model": model,
-        "device": device,
-        "compute_type": compute_type,
-    }
+        # Unknown backend - let get_backend() raise the error
+        backend_config = {}
 
     # Stage 4: Process audio with STT backend
     process_audio(
@@ -664,7 +683,7 @@ def main():
         redo=args.redo,
         reduction=reduction,
         reduced_audio=reduced_audio,
-        backend=args.backend,
+        backend=backend,
     )
 
 

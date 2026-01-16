@@ -675,6 +675,13 @@ input:checked + .slider:before {
   text-decoration: underline;
 }
 
+/* Backend settings fieldsets */
+.backend-settings {
+  border: none;
+  padding: 0;
+  margin: 0.5em 0 0 0;
+}
+
 /* Context overrides collapsible section */
 .context-overrides {
   margin-top: 2em;
@@ -889,7 +896,7 @@ input:checked + .slider:before {
         <option value="profile">Profile</option>
         <option value="providers">Providers</option>
         <option value="apikeys">API Keys</option>
-        <option value="system">System</option>
+        <option value="transcription">Transcription</option>
         <option value="security">Security</option>
       </optgroup>
       <optgroup label="Facet" id="navSelectFacetGroup" style="display:none">
@@ -906,7 +913,7 @@ input:checked + .slider:before {
       <button class="settings-nav-item active" data-section="profile">Profile</button>
       <button class="settings-nav-item" data-section="providers">Providers</button>
       <button class="settings-nav-item" data-section="apikeys">API Keys</button>
-      <button class="settings-nav-item" data-section="system">System</button>
+      <button class="settings-nav-item" data-section="transcription">Transcription</button>
       <button class="settings-nav-item" data-section="security">Security</button>
     </div>
     <div class="settings-nav-group" id="facetNavGroup" style="display:none">
@@ -1107,46 +1114,79 @@ input:checked + .slider:before {
       </div>
     </section>
 
-    <!-- System Section -->
-    <section class="settings-section" id="section-system">
-      <h2>System</h2>
-      <p class="settings-section-desc">Transcription and processing settings.</p>
+    <!-- Transcription Section -->
+    <section class="settings-section" id="section-transcription">
+      <h2>Transcription</h2>
+      <p class="settings-section-desc">Speech-to-text backend and processing settings.</p>
 
       <div class="settings-field">
-        <label for="field-transcribe-device">Transcription Device</label>
-        <select id="field-transcribe-device" data-section="transcribe" data-key="device">
-          <option value="auto" selected>Auto - Detect GPU if available</option>
-          <option value="cpu">CPU - Use processor only</option>
-          <option value="cuda">CUDA - Force NVIDIA GPU</option>
+        <label for="field-transcribe-backend">Backend</label>
+        <select id="field-transcribe-backend">
+          <option value="whisper">Whisper - Local processing</option>
+          <option value="revai">Rev.ai - Cloud with speaker diarization</option>
         </select>
-        <small>Hardware to use for Whisper transcription</small>
+        <small>Speech-to-text engine to use for transcription</small>
       </div>
 
-      <div class="settings-field">
-        <label for="field-transcribe-model">Transcription Model</label>
-        <select id="field-transcribe-model" data-section="transcribe" data-key="model">
-          <option value="tiny.en">Tiny - Fastest</option>
-          <option value="base.en">Base</option>
-          <option value="small.en">Small</option>
-          <option value="medium.en" selected>Medium (default)</option>
-          <option value="large-v3-turbo">Large v3 Turbo</option>
-          <option value="distil-large-v3">Distil Large v3</option>
-        </select>
-        <small>Whisper model size - larger is more accurate but slower</small>
+      <!-- Rev.ai API key warning -->
+      <div id="revaiKeyWarning" class="provider-key-warning" style="display:none">
+        <span>&#9888;</span>
+        <span>Rev.ai API key not configured.</span>
+        <a href="#" id="revaiKeyLink">Configure in API Keys</a>
       </div>
 
-      <div class="settings-field">
-        <label for="field-transcribe-compute">Compute Type</label>
-        <select id="field-transcribe-compute" data-section="transcribe" data-key="compute_type">
-          <option value="default" selected>Default - Auto-select</option>
-          <option value="float32">Float32 - Highest precision</option>
-          <option value="float16">Float16 - Balanced</option>
-          <option value="int8">Int8 - Fastest</option>
-        </select>
-        <small>Numeric precision for transcription</small>
-      </div>
+      <!-- Whisper-specific settings -->
+      <fieldset id="whisper-settings" class="backend-settings">
+        <div class="settings-field">
+          <label for="field-whisper-device">Device</label>
+          <select id="field-whisper-device">
+            <option value="auto" selected>Auto - Detect GPU if available</option>
+            <option value="cpu">CPU - Use processor only</option>
+            <option value="cuda">CUDA - Force NVIDIA GPU</option>
+          </select>
+          <small>Hardware to use for local transcription</small>
+        </div>
 
-      <div class="settings-field">
+        <div class="settings-field">
+          <label for="field-whisper-model">Model</label>
+          <select id="field-whisper-model">
+            <option value="tiny.en">Tiny - Fastest</option>
+            <option value="base.en">Base</option>
+            <option value="small.en">Small</option>
+            <option value="medium.en" selected>Medium (default)</option>
+            <option value="large-v3-turbo">Large v3 Turbo</option>
+            <option value="distil-large-v3">Distil Large v3</option>
+          </select>
+          <small>Model size - larger is more accurate but slower</small>
+        </div>
+
+        <div class="settings-field">
+          <label for="field-whisper-compute">Compute Type</label>
+          <select id="field-whisper-compute">
+            <option value="default" selected>Default - Auto-select</option>
+            <option value="float32">Float32 - Highest precision</option>
+            <option value="float16">Float16 - Balanced</option>
+            <option value="int8">Int8 - Fastest</option>
+          </select>
+          <small>Numeric precision for inference</small>
+        </div>
+      </fieldset>
+
+      <!-- Rev.ai-specific settings -->
+      <fieldset id="revai-settings" class="backend-settings" style="display:none">
+        <div class="settings-field">
+          <label for="field-revai-model">Model</label>
+          <select id="field-revai-model">
+            <option value="fusion" selected>Fusion - Best quality (default)</option>
+            <option value="machine">Machine - Fast automated</option>
+            <option value="low_cost">Low Cost - Budget option</option>
+          </select>
+          <small>Rev.ai transcription model</small>
+        </div>
+      </fieldset>
+
+      <!-- Shared settings -->
+      <div class="settings-field" style="margin-top: 1.5em;">
         <div class="toggle-container" style="justify-content: flex-start; gap: 1em;">
           <label class="toggle-switch toggle-positive">
             <input type="checkbox" id="field-transcribe-enrich" data-section="transcribe" data-key="enrich">
@@ -1392,18 +1432,29 @@ function populateFields(config) {
     try {
       const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
       setValue('field-timezone', tz);
-      saveField('identity', 'timezone', tz);
+      saveField(null, 'identity', 'timezone', tz);
     } catch (e) {}
   } else {
     setValue('field-timezone', identity.timezone);
   }
 
-  // Transcribe
+  // Transcribe - now with nested backend configs
   const transcribe = config.transcribe || {};
-  setValue('field-transcribe-device', transcribe.device || 'auto');
-  setValue('field-transcribe-model', transcribe.model || 'medium.en');
-  setValue('field-transcribe-compute', transcribe.compute_type || 'default');
-  // enrich defaults to true when not set
+  const backend = transcribe.backend || 'whisper';
+  setValue('field-transcribe-backend', backend);
+  switchTranscribeBackend(backend, config);
+
+  // Whisper settings (nested)
+  const whisper = transcribe.whisper || {};
+  setValue('field-whisper-device', whisper.device || 'auto');
+  setValue('field-whisper-model', whisper.model || 'medium.en');
+  setValue('field-whisper-compute', whisper.compute_type || 'default');
+
+  // Rev.ai settings (nested)
+  const revai = transcribe.revai || {};
+  setValue('field-revai-model', revai.model || 'fusion');
+
+  // Shared settings - enrich defaults to true when not set
   document.getElementById('field-transcribe-enrich').checked = transcribe.enrich !== false;
   document.getElementById('field-transcribe-preserve').checked = transcribe.preserve_all || false;
 
@@ -1511,10 +1562,10 @@ function saveField(el, section, key, value) {
       const result = await response.json();
       if (result.success) {
         configData = result.config;
-        showFieldStatus(el, 'saved');
+        if (el) showFieldStatus(el, 'saved');
 
         // For env fields, clear the input and update status indicator
-        if (section === 'env') {
+        if (el && section === 'env') {
           el.value = '';
           updateEnvStatus(el.id, true, true);
         }
@@ -1523,7 +1574,7 @@ function saveField(el, section, key, value) {
       }
     } catch (err) {
       console.error('Save error:', err);
-      showFieldStatus(el, 'error', err.message);
+      if (el) showFieldStatus(el, 'error', err.message);
     }
   }, 500);
 }
@@ -2171,6 +2222,102 @@ document.getElementById('field-tier').addEventListener('change', async () => {
 // Context overrides collapsible toggle
 document.getElementById('contextOverridesHeader').addEventListener('click', () => {
   document.getElementById('contextOverrides').classList.toggle('expanded');
+});
+
+// ========== TRANSCRIPTION ==========
+function switchTranscribeBackend(backend, config) {
+  // Show/hide backend-specific fieldsets
+  document.getElementById('whisper-settings').style.display = backend === 'whisper' ? 'block' : 'none';
+  document.getElementById('revai-settings').style.display = backend === 'revai' ? 'block' : 'none';
+
+  // Show Rev.ai API key warning if needed
+  const sysEnv = config?.system_env || {};
+  const env = config?.env || {};
+  const hasRevaiKey = sysEnv.REVAI_ACCESS_TOKEN || env.REVAI_ACCESS_TOKEN;
+  const warning = document.getElementById('revaiKeyWarning');
+  if (warning) {
+    warning.style.display = (backend === 'revai' && !hasRevaiKey) ? 'flex' : 'none';
+  }
+}
+
+// Backend selector change handler
+document.getElementById('field-transcribe-backend').addEventListener('change', async (e) => {
+  const backend = e.target.value;
+  switchTranscribeBackend(backend, configData);
+
+  try {
+    const response = await fetch('api/config', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ section: 'transcribe', data: { backend } })
+    });
+    const result = await response.json();
+    if (result.success) {
+      configData = result.config;
+      showFieldStatus(e.target, 'saved');
+    } else {
+      throw new Error(result.error);
+    }
+  } catch (err) {
+    console.error('Error saving backend:', err);
+    showFieldStatus(e.target, 'error', err.message);
+  }
+});
+
+// Rev.ai key warning link
+document.getElementById('revaiKeyLink')?.addEventListener('click', (e) => {
+  e.preventDefault();
+  switchSection('apikeys');
+});
+
+// Whisper settings change handlers
+['field-whisper-device', 'field-whisper-model', 'field-whisper-compute'].forEach(id => {
+  document.getElementById(id)?.addEventListener('change', async (e) => {
+    const key = id === 'field-whisper-device' ? 'device' :
+                id === 'field-whisper-model' ? 'model' : 'compute_type';
+    const value = e.target.value;
+
+    try {
+      const response = await fetch('api/config', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ section: 'transcribe', data: { whisper: { [key]: value } } })
+      });
+      const result = await response.json();
+      if (result.success) {
+        configData = result.config;
+        showFieldStatus(e.target, 'saved');
+      } else {
+        throw new Error(result.error);
+      }
+    } catch (err) {
+      console.error('Error saving whisper setting:', err);
+      showFieldStatus(e.target, 'error', err.message);
+    }
+  });
+});
+
+// Rev.ai settings change handlers
+document.getElementById('field-revai-model')?.addEventListener('change', async (e) => {
+  const value = e.target.value;
+
+  try {
+    const response = await fetch('api/config', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ section: 'transcribe', data: { revai: { model: value } } })
+    });
+    const result = await response.json();
+    if (result.success) {
+      configData = result.config;
+      showFieldStatus(e.target, 'saved');
+    } else {
+      throw new Error(result.error);
+    }
+  } catch (err) {
+    console.error('Error saving revai setting:', err);
+    showFieldStatus(e.target, 'error', err.message);
+  }
 });
 
 // ========== INIT ==========

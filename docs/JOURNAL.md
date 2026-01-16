@@ -179,29 +179,41 @@ The `transcribe` block configures audio transcription settings for `observe-tran
 ```json
 {
   "transcribe": {
-    "device": "auto",
-    "model": "medium.en",
-    "compute_type": "default",
+    "backend": "whisper",
     "enrich": true,
-    "preserve_all": false
+    "preserve_all": false,
+    "whisper": {
+      "device": "auto",
+      "model": "medium.en",
+      "compute_type": "default"
+    },
+    "revai": {
+      "model": "fusion"
+    }
   }
 }
 ```
 
-Fields:
-- `device` (string) – Device for inference: `"auto"` (detect GPU, fall back to CPU), `"cpu"`, or `"cuda"`. Default: `"auto"`.
-- `model` (string) – Whisper model to use (e.g., `"tiny.en"`, `"base.en"`, `"small.en"`, `"medium.en"`, `"large-v3-turbo"`, `"distil-large-v3"`). Default: `"medium.en"`.
-- `compute_type` (string) – Compute precision: `"default"` (auto-select optimal for platform), `"float32"` (most compatible), `"float16"` (faster on CUDA GPUs), `"int8"` (fastest on CPU). Default: `"default"`.
+**Top-level fields:**
+- `backend` (string) – STT backend to use: `"whisper"` (local processing) or `"revai"` (cloud with speaker diarization). Default: `"whisper"`.
 - `enrich` (boolean) – Enable LLM enrichment for topic extraction and transcript correction. Default: `true`.
 - `preserve_all` (boolean) – Keep audio files even when no speech is detected. When `false`, silent recordings are deleted to save disk space. Default: `false`.
 
-**Platform auto-detection**: When `compute_type` is `"default"`, optimal settings are automatically selected:
+**Whisper backend settings** (`transcribe.whisper`):
+- `device` (string) – Device for inference: `"auto"` (detect GPU, fall back to CPU), `"cpu"`, or `"cuda"`. Default: `"auto"`.
+- `model` (string) – Whisper model to use (e.g., `"tiny.en"`, `"base.en"`, `"small.en"`, `"medium.en"`, `"large-v3-turbo"`, `"distil-large-v3"`). Default: `"medium.en"`.
+- `compute_type` (string) – Compute precision: `"default"` (auto-select optimal for platform), `"float32"` (most compatible), `"float16"` (faster on CUDA GPUs), `"int8"` (fastest on CPU). Default: `"default"`.
+
+**Rev.ai backend settings** (`transcribe.revai`):
+- `model` (string) – Rev.ai transcriber model: `"fusion"` (best quality), `"machine"` (fast automated), or `"low_cost"`. Default: `"fusion"`.
+
+**Platform auto-detection** (Whisper): When `compute_type` is `"default"`, optimal settings are automatically selected:
 - **CUDA GPU**: Uses `float16` for GPU-optimized inference
 - **CPU (including Apple Silicon)**: Uses `int8` for ~2x faster inference and significantly faster model loading
 
 Voice embeddings (resemblyzer) also auto-detect the best device: MPS on Apple Silicon (~16x faster), CUDA when available, or CPU fallback.
 
-These settings can be overridden via CLI flags: `--cpu` forces CPU mode with int8, `--model MODEL` overrides the model.
+CLI flags can override settings: `--backend` selects the backend, `--cpu` forces CPU mode with int8 (Whisper only), `--model MODEL` overrides the Whisper model.
 
 ### Providers configuration
 

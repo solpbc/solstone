@@ -15,6 +15,18 @@
   "convey": {
     "password": "test123"
   },
+  "transcribe": {
+    "backend": "whisper",
+    "enrich": true,
+    "whisper": {
+      "device": "auto",
+      "model": "medium.en",
+      "compute_type": "default"
+    },
+    "revai": {
+      "model": "fusion"
+    }
+  },
   "providers": {
     "default": {
       "provider": "google",

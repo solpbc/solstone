@@ -88,6 +88,7 @@ def update_config() -> Any:
             return jsonify({"error": "No section specified"}), 400
 
         # Define allowed fields per section
+        # For transcribe, we have flat fields plus nested backend configs
         allowed_sections = {
             "identity": [
                 "name",
@@ -98,9 +99,15 @@ def update_config() -> Any:
                 "email_addresses",
                 "timezone",
             ],
-            "transcribe": ["device", "model", "compute_type", "enrich", "preserve_all"],
+            "transcribe": ["backend", "enrich", "preserve_all"],
             "convey": ["password"],
             "env": API_KEY_ENV_VARS,
+        }
+
+        # Nested config schemas for transcribe backends
+        transcribe_nested = {
+            "whisper": ["device", "model", "compute_type"],
+            "revai": ["model"],
         }
 
         if section not in allowed_sections:
@@ -130,6 +137,26 @@ def update_config() -> Any:
                 if old_value != new_value:
                     changed_fields[key] = {"old": old_value, "new": new_value}
                 config[section][key] = new_value
+
+        # Handle nested backend configs for transcribe section
+        if section == "transcribe":
+            for backend_key, allowed_keys in transcribe_nested.items():
+                if backend_key in data and isinstance(data[backend_key], dict):
+                    # Ensure nested dict exists
+                    if backend_key not in config[section]:
+                        config[section][backend_key] = {}
+                    old_backend = old_section.get(backend_key, {})
+                    # Update only allowed nested fields
+                    for nested_key in allowed_keys:
+                        if nested_key in data[backend_key]:
+                            new_value = data[backend_key][nested_key]
+                            old_value = old_backend.get(nested_key)
+                            if old_value != new_value:
+                                changed_fields[f"{backend_key}.{nested_key}"] = {
+                                    "old": old_value,
+                                    "new": new_value,
+                                }
+                            config[section][backend_key][nested_key] = new_value
 
         # Write back to file
         with open(config_path, "w", encoding="utf-8") as f:

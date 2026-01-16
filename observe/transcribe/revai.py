@@ -13,8 +13,10 @@ Unlike the local Whisper backend, Rev.ai:
 - Processes asynchronously (submit job, poll, fetch)
 
 Configuration keys (passed in config dict):
-- language: ISO language code (default: "en")
 - model: Rev transcriber ("fusion", "machine", "low_cost"). Default: "fusion"
+
+Additional options (CLI only, not exposed in settings UI):
+- language: ISO language code (default: "en")
 - diarization_type: Diarization quality ("standard", "premium"). Default: "premium"
 - forced_alignment: Improve per-word timestamps (default: False)
 - speakers_count: Hint for total unique speakers (optional)
@@ -96,6 +98,7 @@ def submit_job(
     headers = {"Authorization": f"Bearer {token}"}
 
     # Build options from config
+    # Note: Settings UI only exposes 'model', but CLI supports all options
     # Validate model - use default if not a valid Rev.ai model (e.g., whisper model passed)
     model = config.get("model", DEFAULT_MODEL)
     if model not in VALID_MODELS:
