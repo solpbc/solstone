@@ -17,8 +17,7 @@ from pathlib import Path
 
 from muse.models import generate
 from observe.hear import load_transcript
-from observe.revai import convert_revai_to_solstone
-from observe.transcribe.revai import transcribe_file
+from observe.transcribe.revai import convert_to_segments, transcribe_file
 from think.callosum import CallosumConnection
 from think.detect_created import detect_created
 from think.detect_transcript import detect_transcript_json, detect_transcript_segment
@@ -418,26 +417,24 @@ def audio_transcribe(
         logger.error(f"Failed to transcribe audio: {e}")
         raise
 
-    # Convert to solstone format (per-speaker segmentation for imports)
-    solstone_transcript = convert_revai_to_solstone(revai_json, per_speaker=True)
+    # Convert to segments (per-speaker, with float timestamps)
+    segments = convert_to_segments(revai_json)
 
-    if not solstone_transcript:
+    if not segments:
         logger.warning("No transcript entries found")
         return created_files, revai_json
 
-    # Group entries into 5-minute chunks
+    # Group segments into 5-minute chunks based on float start times
     chunks = []
     current_chunk = []
     chunk_start_time = None
 
-    for entry in solstone_transcript:
-        # Parse the timestamp from the entry
-        start_str = entry.get("start", "00:00:00")
-        h, m, s = map(int, start_str.split(":"))
-        entry_seconds = h * 3600 + m * 60 + s
+    for seg in segments:
+        # Use float seconds directly (no string parsing needed)
+        start_seconds = int(seg.get("start", 0.0))
 
         # Determine which 5-minute chunk this belongs to
-        chunk_index = entry_seconds // 300  # 300 seconds = 5 minutes
+        chunk_index = start_seconds // 300  # 300 seconds = 5 minutes
 
         # If this is a new chunk, save the previous one
         if chunk_start_time is not None and chunk_index != chunk_start_time:
@@ -448,7 +445,7 @@ def audio_transcribe(
         elif chunk_start_time is None:
             chunk_start_time = chunk_index
 
-        current_chunk.append(entry)
+        current_chunk.append(seg)
 
     # Don't forget the last chunk
     if current_chunk:
@@ -483,22 +480,29 @@ def audio_transcribe(
             logger.warning(f"Failed to slice audio segment: {e}")
             audio_filename = None
 
-        # Convert relative timestamps to absolute timestamps
-        # Rev AI returns timestamps relative to start of file (00:00:00, 00:00:06, etc.)
-        # We need to convert them to absolute times based on base_dt
+        # Convert segments to entries with absolute timestamps
         absolute_entries = []
-        for entry in chunk_entries:
-            entry_copy = entry.copy()
-            if "start" in entry_copy:
-                # Parse relative timestamp from Rev AI
-                h, m, s = map(int, entry_copy["start"].split(":"))
-                relative_seconds = h * 3600 + m * 60 + s
+        for seg in chunk_entries:
+            # Convert float seconds to absolute HH:MM:SS
+            relative_seconds = seg.get("start", 0.0)
+            absolute_dt = base_dt + timedelta(seconds=relative_seconds)
 
-                # Convert to absolute timestamp
-                absolute_dt = base_dt + timedelta(seconds=relative_seconds)
-                entry_copy["start"] = absolute_dt.strftime("%H:%M:%S")
+            entry = {
+                "start": absolute_dt.strftime("%H:%M:%S"),
+                "source": "import",
+                "speaker": seg.get("speaker", 1),
+                "text": seg.get("text", ""),
+            }
 
-            absolute_entries.append(entry_copy)
+            # Add description based on confidence
+            confidence = seg.get("confidence")
+            if confidence is not None:
+                if confidence < 0.7:
+                    entry["description"] = "low confidence"
+                elif confidence > 0.95:
+                    entry["description"] = "clear"
+
+            absolute_entries.append(entry)
 
         # Save the chunk with absolute timestamps
         # raw points to local audio slice (or None if slicing failed)

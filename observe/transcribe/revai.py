@@ -14,19 +14,7 @@ Unlike the local Whisper backend, Rev.ai:
 
 Configuration keys (passed in config dict):
 - model: Rev transcriber ("fusion", "machine", "low_cost"). Default: "fusion"
-
-Additional options (CLI only, not exposed in settings UI):
-- language: ISO language code (default: "en")
-- diarization_type: Diarization quality ("standard", "premium"). Default: "premium"
-- forced_alignment: Improve per-word timestamps (default: False)
-- speakers_count: Hint for total unique speakers (optional)
-- speaker_channels_count: For multichannel files (optional)
-- remove_disfluencies: Remove ums/uhs (default: False)
-- filter_profanity: Replace profanities (default: False)
-- skip_punctuation: Disable punctuation (default: False)
-- entities: Custom vocabulary terms (optional list)
-- poll_interval: Seconds between status polls (default: 2.5)
-- timeout: Overall timeout in seconds (default: 1800)
+- entities: Custom vocabulary terms for improved recognition (optional list)
 
 Environment:
 - REVAI_ACCESS_TOKEN or REV_ACCESS_TOKEN: API access token (required)
@@ -57,7 +45,7 @@ DEFAULT_POLL_INTERVAL = 2.5
 DEFAULT_TIMEOUT = 1800  # 30 minutes
 
 # Valid Rev.ai transcriber models
-VALID_MODELS = frozenset({"fusion", "machine", "low_cost", "human"})
+VALID_MODELS = frozenset({"fusion", "machine", "low_cost"})
 
 
 def _get_token() -> str:

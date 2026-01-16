@@ -29,6 +29,7 @@ Whisper backend settings (transcribe.whisper):
 
 Rev.ai backend settings (transcribe.revai):
 - model: Rev.ai transcriber ("fusion", "machine", "low_cost"). Default: "fusion"
+- Automatically loads recent entity names as custom vocabulary for improved recognition
 
 Platform optimizations (Whisper):
 - CUDA GPU: Uses float16 for GPU-optimized inference
@@ -82,6 +83,9 @@ DEFAULT_MIN_SPEECH_SECONDS = 1.0
 
 # Minimum segment duration for embedding (seconds)
 MIN_SEGMENT_DURATION = 0.3
+
+# Number of recent entity names to load for transcription context
+ENTITY_NAMES_LIMIT = 40
 
 # Module-level voice encoder cache
 _voice_encoder = None
@@ -373,6 +377,7 @@ def process_audio(
     reduction: AudioReduction | None = None,
     reduced_audio: np.ndarray | None = None,
     backend: str = DEFAULT_BACKEND,
+    entity_names: list[str] | None = None,
 ) -> None:
     """Process a raw audio file with pre-computed VAD.
 
@@ -391,6 +396,7 @@ def process_audio(
         reduction: Optional AudioReduction mapping for timestamp restoration
         reduced_audio: Optional reduced audio buffer (used if reduction provided)
         backend: STT backend name (default: "whisper")
+        entity_names: Optional list of entity names for STT and enrichment context
     """
     from faster_whisper.audio import decode_audio
 
@@ -489,7 +495,9 @@ def process_audio(
         if enrich_enabled:
             from observe.enrich import enrich_transcript
 
-            enrichment = enrich_transcript(processing_audio_path, segments)
+            enrichment = enrich_transcript(
+                processing_audio_path, segments, entity_names=entity_names
+            )
 
         # Generate embeddings before timestamp restoration
         # Use reduced audio buffer if available for consistent timestamps
@@ -648,6 +656,13 @@ def main():
     # CLI --backend flag overrides config, otherwise use config or default
     backend = args.backend or transcribe_config.get("backend", DEFAULT_BACKEND)
 
+    # Load entity names once for use by both STT backend and enrichment
+    from think.entities import load_recent_entity_names
+
+    entity_names = load_recent_entity_names(limit=ENTITY_NAMES_LIMIT)
+    if entity_names:
+        logging.info(f"Loaded {len(entity_names)} entities for transcription context")
+
     # Get backend-specific config from nested structure
     if backend == "whisper":
         whisper_config = transcribe_config.get("whisper", {})
@@ -671,6 +686,9 @@ def main():
         backend_config = {
             "model": model,
         }
+        # Pass entities to Rev.ai for custom vocabulary
+        if entity_names:
+            backend_config["entities"] = entity_names
     else:
         # Unknown backend - let get_backend() raise the error
         backend_config = {}
@@ -684,6 +702,7 @@ def main():
         reduction=reduction,
         reduced_audio=reduced_audio,
         backend=backend,
+        entity_names=entity_names,
     )
 
 

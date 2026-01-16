@@ -3,7 +3,7 @@
 
 """Enrich audio transcripts with contextual information using LLM analysis.
 
-Takes Whisper transcript segments paired with audio clips and extracts:
+Takes transcript segments paired with audio clips and extracts:
 - Per-segment corrected text (fixing transcription errors)
 - Per-segment audio descriptions (tone, delivery, vocalizations)
 - Overall topics discussed
@@ -25,25 +25,9 @@ from google.genai import types
 
 from muse.models import generate
 from observe.utils import SAMPLE_RATE
-from think.entities import load_recent_entity_names
 from think.utils import load_prompt
 
 logger = logging.getLogger(__name__)
-
-# Number of recent entity names to include in enrichment prompt
-ENTITY_NAMES_LIMIT = 40
-
-
-def _load_entity_names() -> str | None:
-    """Load recent entity names for enrichment prompt context.
-
-    Returns:
-        Comma-separated entity names string or None if no entities found
-    """
-    names = load_recent_entity_names(limit=ENTITY_NAMES_LIMIT)
-    if not names:
-        return None
-    return ", ".join(names)
 
 
 def _segment_to_flac_bytes(
@@ -75,6 +59,7 @@ def _segment_to_flac_bytes(
 def enrich_transcript(
     audio_path: Path,
     segments: list[dict],
+    entity_names: list[str] | None = None,
 ) -> dict | None:
     """Enrich transcript segments with audio context using LLM analysis.
 
@@ -84,6 +69,7 @@ def enrich_transcript(
     Args:
         audio_path: Path to audio file (FLAC)
         segments: List of segment dicts with 'id', 'start', 'end', 'text'
+        entity_names: Optional list of entity names for prompt context
 
     Returns:
         Dict with enrichment data or None on error:
@@ -101,14 +87,14 @@ def enrich_transcript(
         wav, sr = librosa.load(str(audio_path), sr=SAMPLE_RATE)
         logger.info(f"  Audio loaded in {time.perf_counter() - t0:.2f}s")
 
-        # Load entity names for context
-        entity_names = _load_entity_names()
+        # Format entity names for prompt context
+        entity_names_str = ", ".join(entity_names) if entity_names else None
 
         # Build interleaved content: numbered text label + audio clip for each segment
         prompt_content = load_prompt(
             "enrich",
             base_dir=Path(__file__).parent,
-            context={"entity_names": entity_names},
+            context={"entity_names": entity_names_str},
         )
         contents: list = [prompt_content.text]
 

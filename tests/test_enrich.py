@@ -66,10 +66,9 @@ class TestSegmentToFlacBytes:
 class TestEnrichTranscript:
     """Test the main enrichment function."""
 
-    @patch("observe.enrich._load_entity_names")
     @patch("observe.enrich.generate")
     @patch("observe.enrich.librosa.load")
-    def test_returns_enrichment_data(self, mock_load, mock_generate, mock_entities):
+    def test_returns_enrichment_data(self, mock_load, mock_generate):
         """Should return enrichment dict on success."""
         from observe.enrich import enrich_transcript
 
@@ -77,7 +76,6 @@ class TestEnrichTranscript:
         sample_rate = 16000
         wav = np.zeros(sample_rate, dtype=np.float32)
         mock_load.return_value = (wav, sample_rate)
-        mock_entities.return_value = "Alice, Bob"
 
         # Mock Gemini response with segments array
         mock_response = json.dumps(
@@ -109,16 +107,14 @@ class TestEnrichTranscript:
         assert result["topics"] == "testing, software"
         assert result["setting"] == "workplace"
 
-    @patch("observe.enrich._load_entity_names")
     @patch("observe.enrich.generate")
     @patch("observe.enrich.librosa.load")
-    def test_returns_none_on_api_error(self, mock_load, mock_generate, mock_entities):
+    def test_returns_none_on_api_error(self, mock_load, mock_generate):
         """Should return None if Gemini call fails."""
         from observe.enrich import enrich_transcript
 
         mock_load.return_value = (np.zeros(16000, dtype=np.float32), 16000)
         mock_generate.side_effect = Exception("API error")
-        mock_entities.return_value = None
 
         segments = [{"id": 1, "start": 0.0, "end": 2.0, "text": "Hello."}]
 
@@ -126,19 +122,15 @@ class TestEnrichTranscript:
 
         assert result is None
 
-    @patch("observe.enrich._load_entity_names")
     @patch("observe.enrich.generate")
     @patch("observe.enrich.librosa.load")
-    def test_returns_none_on_invalid_response(
-        self, mock_load, mock_generate, mock_entities
-    ):
+    def test_returns_none_on_invalid_response(self, mock_load, mock_generate):
         """Should return None if response missing required fields."""
         from observe.enrich import enrich_transcript
 
         mock_load.return_value = (np.zeros(16000, dtype=np.float32), 16000)
         # Missing 'segments' field
         mock_generate.return_value = json.dumps({"topics": "test"})
-        mock_entities.return_value = None
 
         segments = [{"id": 1, "start": 0.0, "end": 2.0, "text": "Hello."}]
 
@@ -154,17 +146,15 @@ class TestEnrichTranscript:
 
         assert result is None
 
-    @patch("observe.enrich._load_entity_names")
     @patch("observe.enrich.generate")
     @patch("observe.enrich.librosa.load")
-    def test_builds_interleaved_content(self, mock_load, mock_generate, mock_entities):
+    def test_builds_interleaved_content(self, mock_load, mock_generate):
         """Should send numbered text labels and audio clips interleaved."""
         from observe.enrich import enrich_transcript
 
         sample_rate = 16000
         wav = np.zeros(sample_rate * 10, dtype=np.float32)  # 10 seconds
         mock_load.return_value = (wav, sample_rate)
-        mock_entities.return_value = "Alice, Bob"
 
         mock_response = json.dumps(
             {
@@ -179,7 +169,10 @@ class TestEnrichTranscript:
             {"id": 1, "start": 0.0, "end": 2.0, "text": "Hello world."},
         ]
 
-        enrich_transcript(Path("/fake/audio.flac"), segments)
+        # Pass entity names explicitly (caller's responsibility now)
+        enrich_transcript(
+            Path("/fake/audio.flac"), segments, entity_names=["Alice", "Bob"]
+        )
 
         # Verify generate was called
         assert mock_generate.called

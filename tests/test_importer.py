@@ -252,9 +252,7 @@ def test_audio_transcribe_sanitizes_entities(tmp_path, monkeypatch):
         return {}
 
     monkeypatch.setattr(mod, "transcribe_file", fake_transcribe_file)
-    monkeypatch.setattr(
-        mod, "convert_revai_to_solstone", lambda _, per_speaker=False: []
-    )
+    monkeypatch.setattr(mod, "convert_to_segments", lambda _: [])
 
     mod.audio_transcribe(
         str(audio_file),
@@ -293,13 +291,14 @@ def test_audio_transcribe_includes_import_metadata(tmp_path, monkeypatch):
     monkeypatch.setattr(mod, "transcribe_file", lambda *_, **__: {"ok": True})
     monkeypatch.setattr(
         mod,
-        "convert_revai_to_solstone",
-        lambda _, per_speaker=False: [
+        "convert_to_segments",
+        lambda _: [
             {
+                "id": 1,
+                "start": 0.0,
+                "end": 1.5,
                 "text": "Test entry",
-                "start": "00:00:00",
                 "speaker": 1,
-                "source": "import",
             }
         ],
     )
