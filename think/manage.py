@@ -54,10 +54,15 @@ class ServiceManager:
         self.active_notifications = {}  # Maps service_name -> notification_id
         self.crash_history = {}  # Maps service_name -> [crash_timestamps]
 
-        # Observe status tracking
-        self.observe_status = {}  # Latest observe/status event fields
-        self.observe_last_ts = 0.0  # Timestamp when last status received
+        # Observe status tracking (merged from observer and sense events)
+        self.observe_status = {}  # Latest observe/status event fields (merged)
+        self.observe_last_ts = 0.0  # Timestamp when last observe/status event received
         self.recent_segments = []  # Last 3 completed segments (day, segment, duration)
+
+        # Mode hysteresis: don't show IDLE until 10s of continuous idle
+        self.displayed_mode = "idle"  # What we show in the UI
+        self.last_active_ts = 0.0  # When we last saw an active mode
+        self.MODE_IDLE_DELAY = 10  # Seconds before showing IDLE after going idle
 
     def count_recent_crashes(self, service: str, window_minutes: int = 5) -> int:
         """Count recent crashes for a service within the time window.
@@ -292,9 +297,20 @@ class ServiceManager:
 
         elif tract == "observe":
             if event == "status":
-                # Update observe status and heartbeat timestamp
-                self.observe_status = message
+                # Merge observe status (observer and sense emit different fields)
+                # Observer: mode, screencast, tmux, audio, activity
+                # Sense: describe, transcribe
+                for key, value in message.items():
+                    if key not in ("tract", "event", "ts"):
+                        self.observe_status[key] = value
                 self.observe_last_ts = time.time()
+
+                # Track mode hysteresis for stable display
+                mode = message.get("mode")
+                if mode and mode != "idle":
+                    # Active mode - update timestamp and display immediately
+                    self.last_active_ts = time.time()
+                    self.displayed_mode = mode
 
             elif event == "observed":
                 # Segment completed - track recent completions
@@ -452,9 +468,6 @@ class ServiceManager:
         Returns:
             List of output lines for the tasks table
         """
-        if not self.running_tasks:
-            return []
-
         t = self.term
         output = []
 
@@ -468,10 +481,7 @@ class ServiceManager:
             if task["pid"] not in service_pids
         ]
 
-        if not tasks_only:
-            return []
-
-        # Section header
+        # Section header (always shown)
         count = len(tasks_only)
         output.append("")
         output.append(t.bold + f"Running Tasks ({count})" + t.normal)
@@ -480,6 +490,10 @@ class ServiceManager:
         # Table header
         header = f"  {'Task':<15} {'PID':<8} {'Runtime':<12} {'MB':<8} {'%':<6} {'Last':<6} {'Log'}"
         output.append(t.bold + header + t.normal)
+
+        if not tasks_only:
+            output.append(t.dim + "  (none)" + t.normal)
+            return output
 
         # Task rows (sorted by start time, oldest first)
         tasks_sorted = sorted(tasks_only, key=lambda x: x["start_time"])
@@ -522,16 +536,17 @@ class ServiceManager:
         return output
 
     def format_queue_status(self, handler_dict: dict) -> str:
-        """Format processing queue status for a handler.
+        """Format processing queue status for a handler with fixed width.
 
         Args:
             handler_dict: Dict with optional 'running' and 'queued' keys
 
         Returns:
-            Formatted string like "▸1 +2" (1 running, 2 queued) or ""
+            Fixed-width (8 char) string like "▸1 +2   " or "─       " when empty
         """
+        width = 8  # Handles up to +999 queued items
         if not handler_dict:
-            return ""
+            return "─".ljust(width)
 
         parts = []
         if handler_dict.get("running"):
@@ -540,10 +555,34 @@ class ServiceManager:
         if queued:
             parts.append(f"+{len(queued)}")
 
-        return " ".join(parts)
+        result = " ".join(parts) if parts else "─"
+        return result.ljust(width)
+
+    def get_displayed_mode(self) -> str:
+        """Get the mode to display, with hysteresis to avoid IDLE flicker.
+
+        State updates happen in handle_event() when events arrive.
+        This method only reads state to determine what to display.
+
+        Returns:
+            Mode string: "screencast", "tmux", or "idle"
+        """
+        raw_mode = self.observe_status.get("mode", "idle")
+
+        # Active modes - return what handle_event() already set
+        if raw_mode in ("screencast", "tmux"):
+            return self.displayed_mode
+
+        # For idle: only show after MODE_IDLE_DELAY seconds of continuous idle
+        time_since_active = time.time() - self.last_active_ts
+        if time_since_active >= self.MODE_IDLE_DELAY:
+            return "idle"
+
+        # Still within grace period - show last active mode
+        return self.displayed_mode
 
     def render_observe_section(self) -> list[str]:
-        """Render the observe status section.
+        """Render the observe status section with stable layout.
 
         Returns:
             List of output lines for the observe section
@@ -551,55 +590,54 @@ class ServiceManager:
         t = self.term
         output = []
 
-        # Calculate heartbeat age and display string
+        # Health indicator (dot based on heartbeat freshness)
         if self.observe_last_ts > 0:
             age_seconds = int(time.time() - self.observe_last_ts)
-            age_str = f"{age_seconds}s ago"
             if age_seconds < 30:
-                heartbeat = t.green + age_str + t.normal
+                health_dot = t.green + "●" + t.normal
             elif age_seconds < 60:
-                heartbeat = t.yellow + age_str + t.normal
+                health_dot = t.yellow + "●" + t.normal
             else:
-                heartbeat = t.red + age_str + t.normal
+                health_dot = t.red + "●" + t.normal
         else:
-            age_str = "waiting..."
-            heartbeat = t.dim + age_str + t.normal
+            health_dot = t.dim + "○" + t.normal
 
-        # Header line with heartbeat indicator
-        padding = t.width - len("Observe") - len(age_str) - 2
+        # Section header with health dot
         output.append("")
         output.append("─" * min(80, t.width))
-        output.append(f"{t.bold}Observe{t.normal}{' ' * max(1, padding)}{heartbeat}")
-
-        # Build status line
-        status_parts = []
+        output.append(f"{t.bold}Observe{t.normal} {health_dot}")
 
         if not self.observe_status:
             # No status received yet
-            output.append(t.dim + "  (no status received)" + t.normal)
+            output.append(t.dim + "  (waiting for status)" + t.normal)
         else:
-            # Mode badge
-            mode = self.observe_status.get("mode", "unknown")
+            # Build fixed-width status line
+            status_parts = []
+
+            # Mode with hysteresis (avoids IDLE flicker)
+            mode = self.get_displayed_mode()
             if mode == "screencast":
-                badge = t.red + "[LIVE]" + t.normal
-                # Get elapsed time from screencast info
                 screencast = self.observe_status.get("screencast", {})
                 elapsed = screencast.get("window_elapsed_seconds", 0)
-                status_parts.append(f"{badge} screencast {self.format_uptime(elapsed)}")
+                mode_str = (
+                    t.red
+                    + "[LIVE]"
+                    + t.normal
+                    + f" screencast {self.format_uptime(elapsed)}"
+                )
             elif mode == "tmux":
-                badge = t.magenta + "[TMUX]" + t.normal
                 tmux = self.observe_status.get("tmux", {})
                 captures = tmux.get("captures", 0)
-                status_parts.append(f"{badge} {captures} captures")
+                mode_str = t.magenta + "[TMUX]" + t.normal + f" {captures} captures"
             else:
-                badge = t.dim + "[IDLE]" + t.normal
                 activity = self.observe_status.get("activity", {})
                 if activity.get("screen_locked"):
-                    status_parts.append(f"{badge} screen locked")
+                    mode_str = t.dim + "[IDLE] locked" + t.normal
                 else:
-                    status_parts.append(badge)
+                    mode_str = t.dim + "[IDLE]" + t.normal
+            status_parts.append(mode_str)
 
-            # Voice activity
+            # Voice activity (only show when there are hits)
             audio = self.observe_status.get("audio", {})
             hits = audio.get("threshold_hits", 0)
             if hits > 0:
@@ -609,17 +647,15 @@ class ServiceManager:
                 else:
                     status_parts.append(f"voice {hits}")
 
-            # Processing queues (from sense.py status)
+            # Processing queues (always shown with fixed width)
             describe = self.observe_status.get("describe", {})
             transcribe = self.observe_status.get("transcribe", {})
 
             describe_status = self.format_queue_status(describe)
             transcribe_status = self.format_queue_status(transcribe)
 
-            if describe_status:
-                status_parts.append(f"describe {describe_status}")
-            if transcribe_status:
-                status_parts.append(f"transcribe {transcribe_status}")
+            status_parts.append(f"describe {describe_status}")
+            status_parts.append(f"transcribe {transcribe_status}")
 
             # Join with separator
             output.append("  " + " │ ".join(status_parts))
@@ -699,7 +735,7 @@ class ServiceManager:
                 else:
                     output.append(line + log_color + log_display + t.normal)
         else:
-            output.append(t.dim + "  No services running" + t.normal)
+            output.append(t.dim + "  (waiting for services)" + t.normal)
 
         # Observe status section
         observe_output = self.render_observe_section()
