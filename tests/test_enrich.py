@@ -205,156 +205,135 @@ class TestEnrichTranscript:
         assert hasattr(contents[2], "inline_data") or hasattr(contents[2], "_pb")
 
 
-class TestTranscriberIntegration:
-    """Test enrichment integration with Transcriber."""
+class TestSegmentsToJsonl:
+    """Test JSONL output formatting with enrichment."""
 
     def test_segments_to_jsonl_without_enrichment(self):
         """_segments_to_jsonl should work without enrichment."""
         import datetime
 
-        from observe.transcribe import Transcriber
+        from observe.transcribe.main import _segments_to_jsonl
 
-        # Create a minimal mock transcriber
-        with patch.object(Transcriber, "__init__", lambda self: None):
-            t = Transcriber()
-            t.model_size = "medium.en"
-            t.device = "cpu"
-            t.compute_type = "int8"
+        segments = [{"id": 1, "start": 0.0, "end": 2.0, "text": "Hello."}]
+        base_dt = datetime.datetime(2026, 1, 10, 14, 30, 0)
+        model_info = {"model": "medium.en", "device": "cpu", "compute_type": "int8"}
 
-            segments = [{"id": 1, "start": 0.0, "end": 2.0, "text": "Hello."}]
-            base_dt = datetime.datetime(2026, 1, 10, 14, 30, 0)
+        lines = _segments_to_jsonl(segments, "audio.flac", base_dt, model_info)
 
-            lines = t._segments_to_jsonl(segments, "audio.flac", base_dt)
+        assert len(lines) == 2
+        metadata = json.loads(lines[0])
+        assert metadata["raw"] == "audio.flac"
+        assert "topics" not in metadata
+        assert "setting" not in metadata
 
-            assert len(lines) == 2
-            metadata = json.loads(lines[0])
-            assert metadata["raw"] == "audio.flac"
-            assert "topics" not in metadata
-            assert "setting" not in metadata
-
-            entry = json.loads(lines[1])
-            assert entry["start"] == "14:30:00"
-            assert entry["text"] == "Hello."
-            assert "description" not in entry
-            assert "corrected" not in entry
+        entry = json.loads(lines[1])
+        assert entry["start"] == "14:30:00"
+        assert entry["text"] == "Hello."
+        assert "description" not in entry
+        assert "corrected" not in entry
 
     def test_segments_to_jsonl_with_enrichment(self):
         """_segments_to_jsonl should include enrichment data."""
         import datetime
 
-        from observe.transcribe import Transcriber
+        from observe.transcribe.main import _segments_to_jsonl
 
-        with patch.object(Transcriber, "__init__", lambda self: None):
-            t = Transcriber()
-            t.model_size = "medium.en"
-            t.device = "cpu"
-            t.compute_type = "int8"
+        segments = [
+            {"id": 1, "start": 0.0, "end": 2.0, "text": "Hello."},
+            {"id": 2, "start": 5.0, "end": 7.0, "text": "World."},
+        ]
+        base_dt = datetime.datetime(2026, 1, 10, 14, 30, 0)
+        model_info = {"model": "medium.en", "device": "cpu", "compute_type": "int8"}
 
-            segments = [
-                {"id": 1, "start": 0.0, "end": 2.0, "text": "Hello."},
-                {"id": 2, "start": 5.0, "end": 7.0, "text": "World."},
-            ]
-            base_dt = datetime.datetime(2026, 1, 10, 14, 30, 0)
+        # Enrichment with segments array (corrected + description)
+        enrichment = {
+            "segments": [
+                {"corrected": "Hello!", "description": "friendly tone"},
+                {"corrected": "World.", "description": "excited"},
+            ],
+            "topics": "greetings, testing",
+            "setting": "personal",
+        }
 
-            # Enrichment with segments array (corrected + description)
-            enrichment = {
-                "segments": [
-                    {"corrected": "Hello!", "description": "friendly tone"},
-                    {"corrected": "World.", "description": "excited"},
-                ],
-                "topics": "greetings, testing",
-                "setting": "personal",
-            }
+        lines = _segments_to_jsonl(
+            segments, "audio.flac", base_dt, model_info, enrichment=enrichment
+        )
 
-            lines = t._segments_to_jsonl(
-                segments, "audio.flac", base_dt, enrichment=enrichment
-            )
+        assert len(lines) == 3
 
-            assert len(lines) == 3
+        # Check metadata has topics and setting
+        metadata = json.loads(lines[0])
+        assert metadata["topics"] == "greetings, testing"
+        assert metadata["setting"] == "personal"
 
-            # Check metadata has topics and setting
-            metadata = json.loads(lines[0])
-            assert metadata["topics"] == "greetings, testing"
-            assert metadata["setting"] == "personal"
+        # Check entries have corrected text and descriptions
+        entry1 = json.loads(lines[1])
+        assert entry1["description"] == "friendly tone"
+        assert entry1["corrected"] == "Hello!"  # Different from original
+        assert entry1["text"] == "Hello."  # Original preserved
 
-            # Check entries have corrected text and descriptions
-            entry1 = json.loads(lines[1])
-            assert entry1["description"] == "friendly tone"
-            assert entry1["corrected"] == "Hello!"  # Different from original
-            assert entry1["text"] == "Hello."  # Original preserved
-
-            entry2 = json.loads(lines[2])
-            assert entry2["description"] == "excited"
-            assert "corrected" not in entry2  # Same as original, not included
+        entry2 = json.loads(lines[2])
+        assert entry2["description"] == "excited"
+        assert "corrected" not in entry2  # Same as original, not included
 
     def test_segments_to_jsonl_corrected_same_as_original(self):
         """_segments_to_jsonl should not include corrected if same as original."""
         import datetime
 
-        from observe.transcribe import Transcriber
+        from observe.transcribe.main import _segments_to_jsonl
 
-        with patch.object(Transcriber, "__init__", lambda self: None):
-            t = Transcriber()
-            t.model_size = "medium.en"
-            t.device = "cpu"
-            t.compute_type = "int8"
+        segments = [{"id": 1, "start": 0.0, "end": 2.0, "text": "Hello."}]
+        base_dt = datetime.datetime(2026, 1, 10, 14, 30, 0)
+        model_info = {"model": "medium.en", "device": "cpu", "compute_type": "int8"}
 
-            segments = [{"id": 1, "start": 0.0, "end": 2.0, "text": "Hello."}]
-            base_dt = datetime.datetime(2026, 1, 10, 14, 30, 0)
+        # Corrected text same as original
+        enrichment = {
+            "segments": [{"corrected": "Hello.", "description": "calm"}],
+            "topics": "test",
+            "setting": "other",
+        }
 
-            # Corrected text same as original
-            enrichment = {
-                "segments": [{"corrected": "Hello.", "description": "calm"}],
-                "topics": "test",
-                "setting": "other",
-            }
+        lines = _segments_to_jsonl(
+            segments, "audio.flac", base_dt, model_info, enrichment=enrichment
+        )
 
-            lines = t._segments_to_jsonl(
-                segments, "audio.flac", base_dt, enrichment=enrichment
-            )
-
-            entry = json.loads(lines[1])
-            assert entry["text"] == "Hello."
-            assert "corrected" not in entry  # Not included since same as original
-            assert entry["description"] == "calm"
+        entry = json.loads(lines[1])
+        assert entry["text"] == "Hello."
+        assert "corrected" not in entry  # Not included since same as original
+        assert entry["description"] == "calm"
 
     def test_segments_to_jsonl_partial_enrichment(self):
         """_segments_to_jsonl should handle partial enrichment."""
         import datetime
 
-        from observe.transcribe import Transcriber
+        from observe.transcribe.main import _segments_to_jsonl
 
-        with patch.object(Transcriber, "__init__", lambda self: None):
-            t = Transcriber()
-            t.model_size = "medium.en"
-            t.device = "cpu"
-            t.compute_type = "int8"
+        segments = [
+            {"id": 1, "start": 0.0, "end": 2.0, "text": "Hello."},
+            {"id": 2, "start": 5.0, "end": 7.0, "text": "World."},
+        ]
+        base_dt = datetime.datetime(2026, 1, 10, 14, 30, 0)
+        model_info = {"model": "medium.en", "device": "cpu", "compute_type": "int8"}
 
-            segments = [
-                {"id": 1, "start": 0.0, "end": 2.0, "text": "Hello."},
-                {"id": 2, "start": 5.0, "end": 7.0, "text": "World."},
-            ]
-            base_dt = datetime.datetime(2026, 1, 10, 14, 30, 0)
+        # Enrichment only has one segment (fewer than input segments)
+        enrichment = {
+            "segments": [{"corrected": "Hello!", "description": "friendly tone"}],
+            "topics": "test",
+            "setting": "other",
+        }
 
-            # Enrichment only has one segment (fewer than input segments)
-            enrichment = {
-                "segments": [{"corrected": "Hello!", "description": "friendly tone"}],
-                "topics": "test",
-                "setting": "other",
-            }
+        lines = _segments_to_jsonl(
+            segments, "audio.flac", base_dt, model_info, enrichment=enrichment
+        )
 
-            lines = t._segments_to_jsonl(
-                segments, "audio.flac", base_dt, enrichment=enrichment
-            )
+        entry1 = json.loads(lines[1])
+        assert "description" in entry1
+        assert entry1["description"] == "friendly tone"
+        assert entry1["corrected"] == "Hello!"
 
-            entry1 = json.loads(lines[1])
-            assert "description" in entry1
-            assert entry1["description"] == "friendly tone"
-            assert entry1["corrected"] == "Hello!"
-
-            entry2 = json.loads(lines[2])
-            assert "description" not in entry2
-            assert "corrected" not in entry2
+        entry2 = json.loads(lines[2])
+        assert "description" not in entry2
+        assert "corrected" not in entry2
 
 
 class TestFormatAudioCorrectedText:

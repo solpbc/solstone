@@ -19,7 +19,7 @@ from observe.transcribe import (
     DEFAULT_MODEL,
     MIN_SEGMENT_DURATION,
     SENTENCE_ENDINGS,
-    _build_segment,
+    build_segment,
     resegment_by_sentences,
 )
 from observe.utils import prepare_audio_file
@@ -205,7 +205,7 @@ class TestBuildSegment:
             {"word": " world", "start": 0.6, "end": 1.0, "probability": 0.8},
         ]
 
-        seg = _build_segment(1, words)
+        seg = build_segment(1, words)
 
         assert seg["id"] == 1
         assert seg["start"] == 0.0
