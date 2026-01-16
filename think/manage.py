@@ -10,7 +10,7 @@ and provides keyboard controls for restarting services.
 import argparse
 import asyncio
 import logging
-import signal
+import time
 from datetime import datetime, timedelta
 
 import psutil
@@ -53,6 +53,11 @@ class ServiceManager:
         self.pending_notifications = []  # Queue for async notifications (dicts)
         self.active_notifications = {}  # Maps service_name -> notification_id
         self.crash_history = {}  # Maps service_name -> [crash_timestamps]
+
+        # Observe status tracking
+        self.observe_status = {}  # Latest observe/status event fields
+        self.observe_last_ts = 0.0  # Timestamp when last status received
+        self.recent_segments = []  # Last 3 completed segments (day, segment, duration)
 
     def count_recent_crashes(self, service: str, window_minutes: int = 5) -> int:
         """Count recent crashes for a service within the time window.
@@ -285,6 +290,22 @@ class ServiceManager:
                     if ref in self.last_log_lines:
                         del self.last_log_lines[ref]
 
+        elif tract == "observe":
+            if event == "status":
+                # Update observe status and heartbeat timestamp
+                self.observe_status = message
+                self.observe_last_ts = time.time()
+
+            elif event == "observed":
+                # Segment completed - track recent completions
+                day = message.get("day")
+                segment = message.get("segment")
+                duration = message.get("duration", 0)
+                if day and segment:
+                    self.recent_segments.insert(0, (day, segment, duration))
+                    # Keep only last 3
+                    self.recent_segments = self.recent_segments[:3]
+
     def format_uptime(self, seconds: int) -> str:
         """Format uptime in human-readable format.
 
@@ -411,7 +432,6 @@ class ServiceManager:
         for ref in refs_to_remove:
             task = self.running_tasks[ref]
             pid = task["pid"]
-            name = task["name"]
 
             # Clean up CPU tracking
             if pid in self.cpu_procs:
@@ -501,6 +521,120 @@ class ServiceManager:
 
         return output
 
+    def format_queue_status(self, handler_dict: dict) -> str:
+        """Format processing queue status for a handler.
+
+        Args:
+            handler_dict: Dict with optional 'running' and 'queued' keys
+
+        Returns:
+            Formatted string like "▸1 +2" (1 running, 2 queued) or ""
+        """
+        if not handler_dict:
+            return ""
+
+        parts = []
+        if handler_dict.get("running"):
+            parts.append("▸1")
+        queued = handler_dict.get("queued", [])
+        if queued:
+            parts.append(f"+{len(queued)}")
+
+        return " ".join(parts)
+
+    def render_observe_section(self) -> list[str]:
+        """Render the observe status section.
+
+        Returns:
+            List of output lines for the observe section
+        """
+        t = self.term
+        output = []
+
+        # Calculate heartbeat age and display string
+        if self.observe_last_ts > 0:
+            age_seconds = int(time.time() - self.observe_last_ts)
+            age_str = f"{age_seconds}s ago"
+            if age_seconds < 30:
+                heartbeat = t.green + age_str + t.normal
+            elif age_seconds < 60:
+                heartbeat = t.yellow + age_str + t.normal
+            else:
+                heartbeat = t.red + age_str + t.normal
+        else:
+            age_str = "waiting..."
+            heartbeat = t.dim + age_str + t.normal
+
+        # Header line with heartbeat indicator
+        padding = t.width - len("Observe") - len(age_str) - 2
+        output.append("")
+        output.append("─" * min(80, t.width))
+        output.append(f"{t.bold}Observe{t.normal}{' ' * max(1, padding)}{heartbeat}")
+
+        # Build status line
+        status_parts = []
+
+        if not self.observe_status:
+            # No status received yet
+            output.append(t.dim + "  (no status received)" + t.normal)
+        else:
+            # Mode badge
+            mode = self.observe_status.get("mode", "unknown")
+            if mode == "screencast":
+                badge = t.red + "[LIVE]" + t.normal
+                # Get elapsed time from screencast info
+                screencast = self.observe_status.get("screencast", {})
+                elapsed = screencast.get("window_elapsed_seconds", 0)
+                status_parts.append(f"{badge} screencast {self.format_uptime(elapsed)}")
+            elif mode == "tmux":
+                badge = t.magenta + "[TMUX]" + t.normal
+                tmux = self.observe_status.get("tmux", {})
+                captures = tmux.get("captures", 0)
+                status_parts.append(f"{badge} {captures} captures")
+            else:
+                badge = t.dim + "[IDLE]" + t.normal
+                activity = self.observe_status.get("activity", {})
+                if activity.get("screen_locked"):
+                    status_parts.append(f"{badge} screen locked")
+                else:
+                    status_parts.append(badge)
+
+            # Voice activity
+            audio = self.observe_status.get("audio", {})
+            hits = audio.get("threshold_hits", 0)
+            if hits > 0:
+                will_save = audio.get("will_save", False)
+                if will_save:
+                    status_parts.append(t.green + f"voice {hits}" + t.normal)
+                else:
+                    status_parts.append(f"voice {hits}")
+
+            # Processing queues (from sense.py status)
+            describe = self.observe_status.get("describe", {})
+            transcribe = self.observe_status.get("transcribe", {})
+
+            describe_status = self.format_queue_status(describe)
+            transcribe_status = self.format_queue_status(transcribe)
+
+            if describe_status:
+                status_parts.append(f"describe {describe_status}")
+            if transcribe_status:
+                status_parts.append(f"transcribe {transcribe_status}")
+
+            # Join with separator
+            output.append("  " + " │ ".join(status_parts))
+
+        # Recent segments
+        if self.recent_segments:
+            recent_strs = []
+            for _day, segment, duration in self.recent_segments:
+                # Just show segment key and duration in minutes
+                duration_min = max(1, duration // 60)
+                recent_strs.append(f"{segment} ({duration_min}m)")
+            output.append(t.dim + "  Recent: " + " ".join(recent_strs) + t.normal)
+
+        return output
+
     def render(self) -> str:
         """Render the entire UI.
 
@@ -566,6 +700,10 @@ class ServiceManager:
                     output.append(line + log_color + log_display + t.normal)
         else:
             output.append(t.dim + "  No services running" + t.normal)
+
+        # Observe status section
+        observe_output = self.render_observe_section()
+        output.extend(observe_output)
 
         output.append("")
 
