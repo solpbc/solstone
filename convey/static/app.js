@@ -201,7 +201,8 @@
   }
 
   // Handle facet selection
-  function selectFacet(facet) {
+  // fromPopState: true when called from browser back/forward navigation
+  function selectFacet(facet, fromPopState) {
     window.selectedFacet = facet;
     saveSelectedFacetToCookie(facet);
 
@@ -213,6 +214,11 @@
     }).catch(() => {}); // Ignore errors - cookie sync is fallback
 
     updateFacetSelection();
+
+    // Push to history for back button support (unless restoring from popstate)
+    if (!fromPopState) {
+      history.pushState({facet: facet}, '');
+    }
 
     // Dispatch custom event for apps to listen to facet changes
     const facetData = facet ? activeFacets.find(f => f.name === facet) : null;
@@ -771,6 +777,15 @@
         }
       });
     }
+
+    // Initialize history state for back button support
+    history.replaceState({facet: window.selectedFacet}, '');
+
+    // Listen for browser back/forward navigation
+    window.addEventListener('popstate', (e) => {
+      const facet = e.state?.facet !== undefined ? e.state.facet : null;
+      selectFacet(facet, true);  // true = from popstate, don't push new state
+    });
 
   }
 
