@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import re
 from collections import defaultdict
-from datetime import date
+from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -20,6 +20,9 @@ from think.entities import load_entities
 from think.facets import get_facet_news, get_facets
 from think.indexer.journal import get_events
 
+# Lookback window for recent entities (days)
+RECENT_ENTITIES_LOOKBACK = 1
+
 home_bp = Blueprint(
     "app:home",
     __name__,
@@ -27,10 +30,50 @@ home_bp = Blueprint(
 )
 
 
+def _get_recent_entities(day: str, facet_names: list[str]) -> dict[str, list[str]]:
+    """Load attached entities with last_seen within lookback window.
+
+    Args:
+        day: Reference day in YYYYMMDD format
+        facet_names: List of facet names to check
+
+    Returns:
+        Dict mapping facet name to list of entity names seen recently
+    """
+    # Calculate threshold date
+    try:
+        ref_date = datetime.strptime(day, "%Y%m%d")
+        threshold = (ref_date - timedelta(days=RECENT_ENTITIES_LOOKBACK)).strftime(
+            "%Y%m%d"
+        )
+    except ValueError:
+        return {}
+
+    recent: dict[str, list[str]] = {}
+
+    for facet_name in facet_names:
+        try:
+            # Load attached entities (no day param = attached, not detected)
+            entities = load_entities(facet_name)
+            # Filter by last_seen >= threshold
+            facet_recent = [
+                e.get("name", "")
+                for e in entities
+                if e.get("name") and e.get("last_seen", "") >= threshold
+            ]
+            if facet_recent:
+                recent[facet_name] = facet_recent[:10]  # Limit to 10
+        except Exception:
+            pass
+
+    return recent
+
+
 def _get_day_summary(day: str) -> dict[str, Any]:
     """Aggregate dashboard data for a day, organized by facet.
 
     Returns dict with facet-keyed data for todos, events, entities, and news.
+    Also includes facet_meta with title, color, emoji, and has_activity flag.
     """
     try:
         facet_map = get_facets()
@@ -43,6 +86,7 @@ def _get_day_summary(day: str) -> dict[str, Any]:
     result: dict[str, Any] = {
         "day": day,
         "facets": {},
+        "facet_meta": {},
         "totals": {
             "todos_pending": 0,
             "todos_completed": 0,
@@ -55,6 +99,7 @@ def _get_day_summary(day: str) -> dict[str, Any]:
     events_by_topic: dict[str, int] = defaultdict(int)
 
     for facet_name in facet_names:
+        facet_config = facet_map.get(facet_name, {})
         facet_data: dict[str, Any] = {
             "todos": [],
             "events_by_topic": {},
@@ -112,8 +157,30 @@ def _get_day_summary(day: str) -> dict[str, Any]:
 
         result["facets"][facet_name] = facet_data
 
+        # Determine if facet has any activity for this day
+        has_activity = bool(
+            facet_data["todos"]
+            or facet_data["events_by_topic"]
+            or facet_data["entities"]
+        )
+
+        # Add facet metadata
+        result["facet_meta"][facet_name] = {
+            "title": facet_config.get("title", facet_name.title()),
+            "color": facet_config.get("color", "#6b7280"),
+            "emoji": facet_config.get("emoji", "📁"),
+            "has_activity": has_activity,
+        }
+
     # Add aggregated events by topic to totals
     result["totals"]["events_by_topic"] = dict(events_by_topic)
+
+    # Load recent entities (attached entities with last_seen in lookback window)
+    recent_entities = _get_recent_entities(day, facet_names)
+    result["recent_entities"] = recent_entities
+    result["totals"]["recent_entities"] = sum(
+        len(names) for names in recent_entities.values()
+    )
 
     return result
 

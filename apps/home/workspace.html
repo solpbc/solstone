@@ -9,6 +9,15 @@
     <a href="/app/settings" class="empty-journal-btn">Go to Settings</a>
   </div>
 
+  <!-- All-facets view: summary cards for each active facet -->
+  <div class="home-all-facets" id="home-all-facets" style="display: none;">
+    <div class="home-facet-cards" id="home-facet-cards"></div>
+    <div class="home-no-activity" id="home-no-activity" style="display: none;">
+      <div class="no-activity-icon">📅</div>
+      <p>No activity recorded for this day</p>
+    </div>
+  </div>
+
   <div class="home-dashboard" id="home-dashboard" style="display: none;">
     <!-- Top row: Todos and Events -->
     <div class="home-grid">
@@ -29,7 +38,7 @@
 
     <!-- Entities row -->
     <div class="home-card" id="entities-card">
-      <h2 class="home-card-title">Detected Entities</h2>
+      <h2 class="home-card-title" id="entities-title">Detected Entities</h2>
       <div class="home-card-content" id="entities-content">
         <div class="home-empty">No entities detected</div>
       </div>
@@ -130,6 +139,75 @@
 .home-empty {
   color: #9ca3af;
   font-style: italic;
+}
+
+/* All-facets view styles */
+.home-all-facets {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.home-facet-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 1rem;
+}
+
+.home-facet-card {
+  background: white;
+  border-radius: 8px;
+  padding: 0.875rem 1rem;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+  cursor: pointer;
+  transition: transform 0.15s, box-shadow 0.15s;
+  border-left: var(--card-border-width, 3px) solid var(--card-color, #6b7280);
+}
+
+.home-facet-card:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 3px 8px rgba(0,0,0,0.1);
+}
+
+.home-facet-card-title {
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: #6b7280;
+  margin: 0 0 0.25rem 0;
+}
+
+.home-facet-card-stats {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.home-facet-card-stat {
+  font-size: 0.95rem;
+  color: #374151;
+}
+
+.home-facet-card-sep {
+  color: #d1d5db;
+  margin: 0 0.125rem;
+}
+
+.home-no-activity {
+  text-align: center;
+  padding: 3em;
+  color: #6b7280;
+}
+
+.home-no-activity .no-activity-icon {
+  font-size: 3em;
+  margin-bottom: 0.5em;
+  opacity: 0.5;
+}
+
+.home-no-activity p {
+  margin: 0;
+  font-size: 1.1rem;
 }
 
 /* Todo list styles - matches todos app */
@@ -274,6 +352,13 @@
   const currentDay = '{{ day }}';
   let summaryData = null;
 
+  // Check if viewing a recent day (today or yesterday) for recent entities fallback
+  function isRecentDay() {
+    const today = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+    const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10).replace(/-/g, '');
+    return currentDay === today || currentDay === yesterday;
+  }
+
   function renderTodos(data, facet) {
     const container = document.getElementById('todos-content');
     let todos = [];
@@ -353,8 +438,11 @@
 
   function renderEntities(data, facet) {
     const container = document.getElementById('entities-content');
+    const titleEl = document.getElementById('entities-title');
     let entities = [];
+    let showingRecent = false;
 
+    // Get detected entities for this day
     if (facet) {
       const facetData = data.facets[facet];
       entities = facetData ? facetData.entities : [];
@@ -372,8 +460,31 @@
       }
     }
 
+    // If no detected entities and viewing recent day, fall back to recent entities
+    if (entities.length === 0 && data.recent_entities && isRecentDay()) {
+      if (facet) {
+        entities = data.recent_entities[facet] || [];
+      } else {
+        // Aggregate recent entities across all facets, dedupe
+        const seen = new Set();
+        for (const facetName of Object.keys(data.recent_entities)) {
+          for (const e of data.recent_entities[facetName]) {
+            if (!seen.has(e)) {
+              seen.add(e);
+              entities.push(e);
+            }
+          }
+        }
+      }
+      showingRecent = entities.length > 0;
+    }
+
+    // Update title based on entity source
+    titleEl.textContent = showingRecent ? 'Recent Entities' : 'Detected Entities';
+
     if (entities.length === 0) {
-      container.innerHTML = '<div class="home-empty">No entities detected</div>';
+      const emptyMsg = isRecentDay() ? 'No recent entities' : 'No entities detected';
+      container.innerHTML = `<div class="home-empty">${emptyMsg}</div>`;
       return;
     }
 
@@ -419,11 +530,106 @@
     return div.innerHTML;
   }
 
-  function renderDashboard(data, facet) {
+  function renderAllFacetsView(data) {
+    const cardsContainer = document.getElementById('home-facet-cards');
+    const noActivityEl = document.getElementById('home-no-activity');
+
+    // Check if viewing recent day (for recent entities fallback)
+    const recentDay = isRecentDay();
+
+    // Get active facets with computed stats
+    const activeFacets = Object.entries(data.facet_meta || {})
+      .map(([name, meta]) => {
+        const facetData = data.facets[name] || {};
+        const todos = facetData.todos || [];
+        const pendingTodos = todos.filter(t => !t.completed).length;
+        const eventCount = Object.values(facetData.events_by_topic || {}).reduce((a, b) => a + b, 0);
+        // For recent days, use recent entities count if no detected entities
+        const detectedCount = (facetData.entities || []).length;
+        const recentCount = recentDay ? (data.recent_entities?.[name] || []).length : 0;
+        const entityCount = detectedCount > 0 ? detectedCount : recentCount;
+        const totalActivity = eventCount + pendingTodos + entityCount;
+        // Consider facet active if it has any activity (including recent entities)
+        const hasActivity = meta.has_activity || (recentDay && recentCount > 0);
+        return { name, ...meta, pendingTodos, eventCount, entityCount, totalActivity, hasActivity };
+      })
+      .filter(f => f.hasActivity)
+      // Sort by event count descending
+      .sort((a, b) => b.eventCount - a.eventCount);
+
+    if (activeFacets.length === 0) {
+      cardsContainer.innerHTML = '';
+      noActivityEl.style.display = 'block';
+      return;
+    }
+
+    noActivityEl.style.display = 'none';
+
+    // Find max activity for border scaling
+    const maxActivity = Math.max(...activeFacets.map(f => f.totalActivity), 1);
+
+    // Build cards HTML
+    const cardsHtml = activeFacets.map(facet => {
+      // Build compact stats (just numbers with labels, no icons)
+      const stats = [];
+      if (facet.eventCount > 0) {
+        stats.push(`<span class="home-facet-card-stat">${facet.eventCount} ${facet.eventCount === 1 ? 'event' : 'events'}</span>`);
+      }
+      if (facet.pendingTodos > 0) {
+        stats.push(`<span class="home-facet-card-stat">${facet.pendingTodos} ${facet.pendingTodos === 1 ? 'todo' : 'todos'}</span>`);
+      }
+      if (facet.entityCount > 0) {
+        stats.push(`<span class="home-facet-card-stat">${facet.entityCount} ${facet.entityCount === 1 ? 'entity' : 'entities'}</span>`);
+      }
+
+      // Scale border width based on activity (2px to 12px)
+      const borderWidth = 2 + Math.round((facet.totalActivity / maxActivity) * 10);
+
+      return `
+        <div class="home-facet-card" data-facet="${escapeHtml(facet.name)}" style="--card-color: ${facet.color}; --card-border-width: ${borderWidth}px">
+          <div class="home-facet-card-title">${escapeHtml(facet.title)}</div>
+          <div class="home-facet-card-stats">
+            ${stats.join('<span class="home-facet-card-sep">·</span>')}
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    cardsContainer.innerHTML = cardsHtml;
+
+    // Add click handlers for facet navigation
+    cardsContainer.querySelectorAll('.home-facet-card').forEach(card => {
+      card.addEventListener('click', () => {
+        const facetName = card.dataset.facet;
+        if (window.selectFacet) {
+          window.selectFacet(facetName);
+        }
+      });
+    });
+  }
+
+  function renderSingleFacetView(data, facet) {
     renderTodos(data, facet);
     renderEvents(data, facet);
     renderEntities(data, facet);
     renderNews(data, facet);
+  }
+
+  function renderDashboard(data, facet) {
+    const allFacetsView = document.getElementById('home-all-facets');
+    const singleFacetView = document.getElementById('home-dashboard');
+
+    if (facet === null) {
+      // All-facets mode: show summary cards
+      singleFacetView.style.display = 'none';
+      allFacetsView.style.display = 'flex';
+      renderAllFacetsView(data);
+    } else {
+      // Single-facet mode: show detailed view
+      allFacetsView.style.display = 'none';
+      singleFacetView.style.display = 'flex';
+      renderSingleFacetView(data, facet);
+    }
   }
 
   async function loadSummary() {
@@ -441,8 +647,7 @@
       summaryData = await response.json();
 
       document.getElementById('home-loading').style.display = 'none';
-      document.getElementById('home-dashboard').style.display = 'flex';
-
+      // renderDashboard handles showing the appropriate view (all-facets or single-facet)
       renderDashboard(summaryData, window.selectedFacet);
     } catch (error) {
       console.error('Failed to load home summary:', error);
