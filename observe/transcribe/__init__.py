@@ -10,6 +10,7 @@ This package provides a pluggable STT backend system with:
 
 Available backends:
 - whisper: Local faster-whisper (default, GPU/CPU)
+- revai: Rev.ai cloud API (speaker diarization)
 
 Backend Interface:
     Each backend module must export a transcribe() function:
@@ -28,6 +29,7 @@ Backend Interface:
         "end": float,           # seconds
         "text": str,            # transcribed text
         "words": list[dict] | None,  # word-level data if available
+        "speaker": int | None,  # speaker ID (revai only, 1-indexed)
     }
 
     Word format (when available):
@@ -54,6 +56,7 @@ if TYPE_CHECKING:
 
 BACKEND_REGISTRY: dict[str, str] = {
     "whisper": "observe.transcribe.whisper",
+    "revai": "observe.transcribe.revai",
 }
 
 

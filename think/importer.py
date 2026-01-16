@@ -17,7 +17,8 @@ from pathlib import Path
 
 from muse.models import generate
 from observe.hear import load_transcript
-from observe.revai import convert_revai_to_solstone, transcribe_file
+from observe.revai import convert_revai_to_solstone
+from observe.transcribe.revai import transcribe_file
 from think.callosum import CallosumConnection
 from think.detect_created import detect_created
 from think.detect_transcript import detect_transcript_json, detect_transcript_segment
@@ -405,18 +406,20 @@ def audio_transcribe(
         except Exception as e:
             logger.warning(f"Failed to load facet entities: {e}")
 
+    # Build Rev.ai config
+    revai_config: dict = {}
+    if entities:
+        revai_config["entities"] = entities
+
     # Transcribe using Rev AI
     try:
-        if entities:
-            revai_json = transcribe_file(media_path, entities=entities)
-        else:
-            revai_json = transcribe_file(media_path)
+        revai_json = transcribe_file(media_path, revai_config)
     except Exception as e:
         logger.error(f"Failed to transcribe audio: {e}")
         raise
 
-    # Convert to solstone format
-    solstone_transcript = convert_revai_to_solstone(revai_json)
+    # Convert to solstone format (per-speaker segmentation for imports)
+    solstone_transcript = convert_revai_to_solstone(revai_json, per_speaker=True)
 
     if not solstone_transcript:
         logger.warning("No transcript entries found")

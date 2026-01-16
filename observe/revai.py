@@ -2,19 +2,27 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 # Copyright (c) 2026 sol pbc
 
+"""Rev.ai transcription CLI and legacy conversion utilities.
+
+This module provides:
+- CLI for Rev.ai transcription and JSON conversion
+- Legacy convert_revai_to_solstone() for per-sentence segmentation
+- Backwards-compatible transcribe_file() wrapper
+
+For the STT backend interface, see observe.transcribe.revai.
+"""
+
 import argparse
 import json
 import logging
-import mimetypes
-import os
 import sys
-import time
 from pathlib import Path
 
-import requests
-from dotenv import load_dotenv
-
-API_BASE = "https://api.rev.ai/speechtotext/v1"
+# Import from the new backend module
+from observe.transcribe.revai import (
+    convert_to_segments,
+    transcribe_file,
+)
 
 
 def die(msg, code=1):
@@ -22,173 +30,51 @@ def die(msg, code=1):
     sys.exit(code)
 
 
-def submit_job(
-    token: str,
-    media_path: Path,
-    language: str,
-    model: str,
-    diarization_type: str,
-    forced_alignment: bool,
-    speakers_count: int | None,
-    speaker_channels_count: int | None,
-    remove_disfluencies: bool,
-    filter_profanity: bool,
-    skip_punctuation: bool,
-    entities: list[str] | None = None,
-):
-    url = f"{API_BASE}/jobs"
-    headers = {"Authorization": f"Bearer {token}"}
-
-    # multipart/form-data upload of local file (recommended for typical files)
-    files = {
-        "media": (
-            media_path.name,
-            open(media_path, "rb"),
-            mimetypes.guess_type(media_path.name)[0] or "application/octet-stream",
-        )
-    }
-
-    # JSON fields go in 'options' part for multipart
-    # See docs for fields: transcriber, language, skip_diarization, diarization_type, etc.
-    options = {
-        "transcriber": model,  # "fusion" for best ASR
-        "skip_diarization": False,  # we want diarization
-        "diarization_type": diarization_type,  # "premium" when available
-        "language": language,
-        "forced_alignment": forced_alignment,
-        "remove_disfluencies": remove_disfluencies,
-        "filter_profanity": filter_profanity,
-        "skip_punctuation": skip_punctuation,
-    }
-    if speakers_count is not None:
-        options["speakers_count"] = speakers_count
-    if speaker_channels_count is not None:
-        options["speaker_channels_count"] = speaker_channels_count
-    if entities:
-        options["custom_vocabularies"] = [{"phrases": entities}]
-        options["strict_custom_vocabulary"] = False
-
-    data = {"options": json.dumps(options)}
-
-    logging.info("Submitting job to Rev AI: %s", json.dumps(options))
-    resp = requests.post(url, headers=headers, files=files, data=data, timeout=60)
-    if resp.status_code >= 300:
-        die(f"Job submission failed ({resp.status_code}): {resp.text}")
-    return resp.json()["id"]
+def _format_timestamp(seconds: float | None) -> str:
+    """Format seconds as HH:MM:SS string."""
+    if seconds is None:
+        return "00:00:00"
+    total = int(seconds)
+    h = total // 3600
+    m = (total % 3600) // 60
+    s = total % 60
+    return f"{h:02d}:{m:02d}:{s:02d}"
 
 
-def get_job(token: str, job_id: str):
-    url = f"{API_BASE}/jobs/{job_id}"
-    headers = {"Authorization": f"Bearer {token}"}
-    resp = requests.get(url, headers=headers, timeout=30)
-    if resp.status_code >= 300:
-        die(f"Get job failed ({resp.status_code}): {resp.text}")
-    return resp.json()
-
-
-def get_transcript_json(token: str, job_id: str):
-    url = f"{API_BASE}/jobs/{job_id}/transcript"
-    headers = {
-        "Authorization": f"Bearer {token}",
-        "Accept": "application/vnd.rev.transcript.v1.0+json",
-    }
-    resp = requests.get(url, headers=headers, timeout=60)
-    if resp.status_code >= 300:
-        die(f"Get transcript failed ({resp.status_code}): {resp.text}")
-    return resp.json()
-
-
-def transcribe_file(media_path: Path, **kwargs) -> dict:
-    """Transcribe an audio/video file using Rev AI and return the transcript.
-
-    Args:
-        media_path: Path to audio/video file
-        **kwargs: Optional arguments for transcription:
-            - language (str): ISO code (default: "en")
-            - model (str): Rev transcriber (default: "fusion")
-            - diarization_type (str): Diarization type (default: "premium")
-            - forced_alignment (bool): Improve per-word timestamps (default: False)
-            - speakers_count (int): Hint total unique speakers
-            - speaker_channels_count (int): For multichannel files
-            - remove_disfluencies (bool): Remove ums/uhs (default: False)
-            - filter_profanity (bool): Replace profanities (default: False)
-            - skip_punctuation (bool): Disable punctuation (default: False)
-            - entities (list): Custom vocabulary terms to improve recognition
-            - poll_interval (float): Seconds between polls (default: 2.5)
-            - timeout (float): Overall timeout in seconds (default: 1800)
-
-    Returns:
-        Dict with Rev AI transcript structure
-    """
-    load_dotenv()
-    token = os.getenv("REVAI_ACCESS_TOKEN") or os.getenv("REV_ACCESS_TOKEN")
-    if not token:
-        raise ValueError("Missing REVAI_ACCESS_TOKEN in .env")
-
-    # Set defaults
-    language = kwargs.get("language", "en")
-    model = kwargs.get("model", "fusion")
-    diarization_type = kwargs.get("diarization_type", "premium")
-    forced_alignment = kwargs.get("forced_alignment", False)
-    speakers_count = kwargs.get("speakers_count", None)
-    speaker_channels_count = kwargs.get("speaker_channels_count", None)
-    remove_disfluencies = kwargs.get("remove_disfluencies", False)
-    filter_profanity = kwargs.get("filter_profanity", False)
-    skip_punctuation = kwargs.get("skip_punctuation", False)
-    entities = kwargs.get("entities", None)
-    poll_interval = kwargs.get("poll_interval", 2.5)
-    timeout = kwargs.get("timeout", 1800)
-
-    # Submit job
-    job_id = submit_job(
-        token=token,
-        media_path=media_path,
-        language=language,
-        model=model,
-        diarization_type=diarization_type,
-        forced_alignment=forced_alignment,
-        speakers_count=speakers_count,
-        speaker_channels_count=speaker_channels_count,
-        remove_disfluencies=remove_disfluencies,
-        filter_profanity=filter_profanity,
-        skip_punctuation=skip_punctuation,
-        entities=entities,
-    )
-    logging.info("Job submitted: %s", job_id)
-
-    # Poll for completion
-    start = time.time()
-    status = None
-    while True:
-        job = get_job(token, job_id)
-        new_status = job.get("status")
-        if new_status != status:
-            logging.info("Status: %s", new_status)
-            status = new_status
-
-        if new_status in ("transcribed", "completed"):
-            break
-        if new_status in ("failed", "error"):
-            raise RuntimeError(f"Job failed: {json.dumps(job, indent=2)}")
-
-        if time.time() - start > timeout:
-            raise TimeoutError("Timed out waiting for transcription")
-
-        time.sleep(poll_interval)
-
-    # Get and return transcript
-    return get_transcript_json(token, job_id)
-
-
-def convert_revai_to_solstone(revai_json: dict) -> list:
+def convert_revai_to_solstone(revai_json: dict, per_speaker: bool = False) -> list:
     """Convert Rev.ai transcript format to solstone transcript format.
 
     Args:
         revai_json: Dict with Rev.ai transcript structure (monologues with elements)
+        per_speaker: If True, output one entry per speaker turn (monologue).
+            If False (default), split into sentences within each speaker turn.
 
     Returns:
         List of transcript entries in solstone format
     """
+    if per_speaker:
+        # Use the new per-speaker conversion from backend
+        segments = convert_to_segments(revai_json)
+        result = []
+        for seg in segments:
+            entry = {
+                "start": _format_timestamp(seg["start"]),
+                "source": "import",
+                "speaker": seg["speaker"],
+                "text": seg["text"],
+            }
+
+            # Add description based on confidence
+            if seg.get("confidence") is not None:
+                if seg["confidence"] < 0.7:
+                    entry["description"] = "low confidence"
+                elif seg["confidence"] > 0.95:
+                    entry["description"] = "clear"
+
+            result.append(entry)
+        return result
+
+    # Legacy per-sentence segmentation
     result = []
 
     if "monologues" not in revai_json:
@@ -203,7 +89,7 @@ def convert_revai_to_solstone(revai_json: dict) -> list:
         start_ts = None
         confidences = []
 
-        for i, elem in enumerate(elements):
+        for elem in elements:
             if elem["type"] == "text":
                 # Track first timestamp
                 if start_ts is None and elem.get("ts") is not None:
@@ -222,19 +108,8 @@ def convert_revai_to_solstone(revai_json: dict) -> list:
 
                 # If sentence-ending punctuation, create entry
                 if elem["value"] in [".", "!", "?"] and current_text.strip():
-                    # Format timestamp as HH:MM:SS
-                    if start_ts is not None:
-                        start_seconds = int(start_ts)
-                        hours = start_seconds // 3600
-                        minutes = (start_seconds % 3600) // 60
-                        seconds = start_seconds % 60
-                        start_time = f"{hours:02d}:{minutes:02d}:{seconds:02d}"
-                    else:
-                        start_time = "00:00:00"
-
-                    # Create entry
                     entry = {
-                        "start": start_time,
+                        "start": _format_timestamp(start_ts),
                         "source": "import",
                         "speaker": speaker,
                         "text": current_text.strip(),
@@ -257,18 +132,9 @@ def convert_revai_to_solstone(revai_json: dict) -> list:
 
         # Handle any remaining text without sentence-ending punctuation
         if current_text.strip():
-            if start_ts is not None:
-                start_seconds = int(start_ts)
-                hours = start_seconds // 3600
-                minutes = (start_seconds % 3600) // 60
-                seconds = start_seconds % 60
-                start_time = f"{hours:02d}:{minutes:02d}:{seconds:02d}"
-            else:
-                start_time = "00:00:00"
-
             entry = {
-                "start": start_time,
-                "source": "mic",
+                "start": _format_timestamp(start_ts),
+                "source": "import",
                 "speaker": speaker,
                 "text": current_text.strip(),
             }
@@ -276,9 +142,9 @@ def convert_revai_to_solstone(revai_json: dict) -> list:
             if confidences:
                 avg_confidence = sum(confidences) / len(confidences)
                 if avg_confidence < 0.7:
-                    entry["description"] = "low confidence transcription"
+                    entry["description"] = "low confidence"
                 elif avg_confidence > 0.95:
-                    entry["description"] = "clear and confident speech"
+                    entry["description"] = "clear"
 
             result.append(entry)
 
@@ -287,7 +153,8 @@ def convert_revai_to_solstone(revai_json: dict) -> list:
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Rev AI transcription CLI (high-quality + diarization). If a .json file is provided, converts it to solstone format instead of transcribing."
+        description="Rev AI transcription CLI (high-quality + diarization). "
+        "If a .json file is provided, converts it to solstone format instead of transcribing."
     )
     parser.add_argument(
         "media", help="Path to audio/video file or Rev AI JSON file to convert"
@@ -356,6 +223,11 @@ def main():
         default=60 * 30,
         help="Overall timeout in seconds (default: 30m)",
     )
+    parser.add_argument(
+        "--per-speaker",
+        action="store_true",
+        help="Output one entry per speaker turn instead of per sentence (for JSON conversion)",
+    )
 
     args = parser.parse_args()
     logging.basicConfig(
@@ -381,7 +253,9 @@ def main():
             die(f"Invalid JSON file: {e}")
 
         # Convert to solstone format
-        solstone_transcript = convert_revai_to_solstone(revai_data)
+        solstone_transcript = convert_revai_to_solstone(
+            revai_data, per_speaker=args.per_speaker
+        )
 
         # Output the result
         if args.output:
@@ -396,49 +270,34 @@ def main():
 
         return
 
-    # Otherwise, do normal transcription
-    load_dotenv()
-    token = os.getenv("REVAI_ACCESS_TOKEN") or os.getenv("REV_ACCESS_TOKEN")
-    if not token:
-        die("Missing REVAI_ACCESS_TOKEN in .env")
+    # Otherwise, do normal transcription via the backend
+    # (backend handles load_dotenv internally)
 
-    job_id = submit_job(
-        token=token,
-        media_path=media_path,
-        language=args.language,
-        model=args.model,
-        diarization_type=args.diarization_type,
-        forced_alignment=args.forced_alignment,
-        speakers_count=args.speakers_count,
-        speaker_channels_count=args.speaker_channels_count,
-        remove_disfluencies=args.remove_disfluencies,
-        filter_profanity=args.filter_profanity,
-        skip_punctuation=args.skip_punctuation,
-        entities=args.entities,
-    )
-    logging.info("Job submitted: %s", job_id)
+    # Build config from CLI args
+    config = {
+        "language": args.language,
+        "model": args.model,
+        "diarization_type": args.diarization_type,
+        "forced_alignment": args.forced_alignment,
+        "remove_disfluencies": args.remove_disfluencies,
+        "filter_profanity": args.filter_profanity,
+        "skip_punctuation": args.skip_punctuation,
+        "poll_interval": args.poll_interval,
+        "timeout": args.timeout,
+    }
+    if args.speakers_count is not None:
+        config["speakers_count"] = args.speakers_count
+    if args.speaker_channels_count is not None:
+        config["speaker_channels_count"] = args.speaker_channels_count
+    if args.entities:
+        config["entities"] = args.entities
 
-    # Poll
-    start = time.time()
-    status = None
-    while True:
-        job = get_job(token, job_id)
-        new_status = job.get("status")
-        if new_status != status:
-            logging.info("Status: %s", new_status)
-            status = new_status
-
-        if new_status in ("transcribed", "completed"):
-            break
-        if new_status in ("failed", "error"):
-            die(f"Job failed: {json.dumps(job, indent=2)}")
-
-        if time.time() - start > args.timeout:
-            die("Timed out waiting for transcription")
-
-        time.sleep(args.poll_interval)
-
-    transcript = get_transcript_json(token, job_id)
+    try:
+        transcript = transcribe_file(media_path, config)
+    except ValueError as e:
+        die(str(e))
+    except (RuntimeError, TimeoutError) as e:
+        die(str(e))
 
     if args.output:
         out_path = Path(args.output).expanduser().resolve()

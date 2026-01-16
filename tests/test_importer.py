@@ -204,18 +204,19 @@ def test_importer_audio_transcribe(tmp_path, monkeypatch):
     assert f2.exists()
 
     # Check first chunk (0-5 minutes) - JSONL format
+    # With per_speaker=True, each monologue becomes one entry (not split by sentence)
     lines1 = f1.read_text().strip().split("\n")
     metadata1 = json.loads(lines1[0])
     entries1 = [json.loads(line) for line in lines1[1:]]
 
     assert metadata1["imported"]["id"] == "20240101_120000"
     assert metadata1["raw"] == "imported_audio.mp3"  # Local audio slice
-    assert len(entries1) == 2
-    assert entries1[0]["text"] == "Hello world."
+    assert len(entries1) == 1  # One monologue = one entry (per-speaker mode)
+    assert "Hello" in entries1[0]["text"]  # Full monologue text
+    assert "test" in entries1[0]["text"]  # Contains both sentences
     assert entries1[0]["speaker"] == 1  # Rev uses 0-based, we use 1-based
     assert entries1[0]["source"] == "import"
     assert entries1[0]["start"] == "12:00:00"  # Absolute timestamp
-    assert entries1[1]["text"] == "This is a test."
 
     # Check second chunk (5-10 minutes) - JSONL format
     lines2 = f2.read_text().strip().split("\n")
@@ -244,12 +245,16 @@ def test_audio_transcribe_sanitizes_entities(tmp_path, monkeypatch):
 
     captured: list[list[str]] = []
 
-    def fake_transcribe_file(media_path, entities=None):
-        captured.append(entities or [])
+    def fake_transcribe_file(media_path, config=None):
+        # Config is now a dict with entities key
+        config = config or {}
+        captured.append(config.get("entities", []))
         return {}
 
     monkeypatch.setattr(mod, "transcribe_file", fake_transcribe_file)
-    monkeypatch.setattr(mod, "convert_revai_to_solstone", lambda _: [])
+    monkeypatch.setattr(
+        mod, "convert_revai_to_solstone", lambda _, per_speaker=False: []
+    )
 
     mod.audio_transcribe(
         str(audio_file),
@@ -289,7 +294,7 @@ def test_audio_transcribe_includes_import_metadata(tmp_path, monkeypatch):
     monkeypatch.setattr(
         mod,
         "convert_revai_to_solstone",
-        lambda *_: [
+        lambda _, per_speaker=False: [
             {
                 "text": "Test entry",
                 "start": "00:00:00",

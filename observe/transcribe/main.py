@@ -43,6 +43,10 @@ from pathlib import Path
 
 import numpy as np
 
+from observe.transcribe import (
+    BACKEND_REGISTRY,
+    get_backend,
+)
 from observe.transcribe import transcribe as stt_transcribe
 from observe.transcribe.utils import is_apple_silicon
 from observe.transcribe.whisper import DEFAULT_COMPUTE, DEFAULT_DEVICE, DEFAULT_MODEL
@@ -68,6 +72,7 @@ __all__ = [
 ]
 
 # Default transcription settings
+DEFAULT_BACKEND = "whisper"
 DEFAULT_MIN_SPEECH_SECONDS = 1.0
 
 # Minimum segment duration for embedding (seconds)
@@ -362,6 +367,7 @@ def process_audio(
     redo: bool = False,
     reduction: AudioReduction | None = None,
     reduced_audio: np.ndarray | None = None,
+    backend: str = DEFAULT_BACKEND,
 ) -> None:
     """Process a raw audio file with pre-computed VAD.
 
@@ -379,6 +385,7 @@ def process_audio(
         redo: If True, skip "already processed" check
         reduction: Optional AudioReduction mapping for timestamp restoration
         reduced_audio: Optional reduced audio buffer (used if reduction provided)
+        backend: STT backend name (default: "whisper")
     """
     from faster_whisper.audio import decode_audio
 
@@ -421,12 +428,11 @@ def process_audio(
 
     try:
         # Dispatch to STT backend
-        segments = stt_transcribe("whisper", audio_buffer, SAMPLE_RATE, backend_config)
+        segments = stt_transcribe(backend, audio_buffer, SAMPLE_RATE, backend_config)
 
-        # Get model info for metadata
-        from observe.transcribe.whisper import get_model_info
-
-        model_info = get_model_info(backend_config)
+        # Get model info for metadata (dynamic import based on backend)
+        backend_module = get_backend(backend)
+        model_info = backend_module.get_model_info(backend_config)
 
         # Sanity check: if VAD detected speech but we got no segments, something is wrong
         if vad_result.has_speech and not segments:
@@ -563,6 +569,13 @@ def main():
         type=str,
         help=f"Whisper model to use (overrides config, default: {DEFAULT_MODEL})",
     )
+    parser.add_argument(
+        "--backend",
+        type=str,
+        choices=list(BACKEND_REGISTRY.keys()),
+        default=DEFAULT_BACKEND,
+        help=f"STT backend to use (default: {DEFAULT_BACKEND})",
+    )
     args = setup_cli(parser)
 
     audio_path = Path(args.audio_path)
@@ -651,6 +664,7 @@ def main():
         redo=args.redo,
         reduction=reduction,
         reduced_audio=reduced_audio,
+        backend=args.backend,
     )
 
 
