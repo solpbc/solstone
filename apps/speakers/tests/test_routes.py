@@ -55,11 +55,12 @@ def test_scan_segment_embeddings_empty(speakers_env):
 
 
 def test_scan_segment_embeddings_with_data(speakers_env):
-    """Test scanning when embeddings exist."""
+    """Test scanning when embeddings and speakers exist."""
     from apps.speakers.routes import _scan_segment_embeddings
 
     env = speakers_env()
     env.create_segment("20240101", "143022_300", ["mic_audio", "sys_audio"])
+    env.create_speakers_json("20240101", "143022_300", ["Alice", "Bob"])
 
     segments = _scan_segment_embeddings("20240101")
     assert len(segments) == 1
@@ -68,6 +69,8 @@ def test_scan_segment_embeddings_with_data(speakers_env):
     assert segments[0]["end"] == "14:35"
     assert segments[0]["duration"] == 300
     assert set(segments[0]["sources"]) == {"mic_audio", "sys_audio"}
+    assert segments[0]["speakers"] == ["Alice", "Bob"]
+    assert segments[0]["speaker_count"] == 2
 
 
 def test_scan_segment_embeddings_plain_audio(speakers_env):
@@ -76,6 +79,7 @@ def test_scan_segment_embeddings_plain_audio(speakers_env):
 
     env = speakers_env()
     env.create_segment("20240101", "143022_300", ["audio"])
+    env.create_speakers_json("20240101", "143022_300", ["Alice", "Bob"])
 
     segments = _scan_segment_embeddings("20240101")
     assert len(segments) == 1
@@ -216,9 +220,51 @@ def test_scan_entity_voiceprints(speakers_env):
     assert np.isclose(np.linalg.norm(avg_emb), 1.0)
 
 
-def test_save_voiceprint_to_entity(speakers_env):
-    """Test saving voiceprint to entity folder."""
-    from apps.speakers.routes import _save_voiceprint_to_entity
+def test_load_entity_voiceprints_file(speakers_env):
+    """Test loading voiceprints from consolidated file."""
+    from apps.speakers.routes import _load_entity_voiceprints_file
+
+    env = speakers_env()
+    env.create_entity(
+        "test",
+        "Bob Test",
+        voiceprints=[
+            ("20240101", "120000_300", "mic_audio", 1),
+            ("20240102", "130000_300", "audio", 2),
+        ],
+    )
+
+    result = _load_entity_voiceprints_file("test", "Bob Test")
+
+    assert result is not None
+    embeddings, metadata_list = result
+    assert embeddings.shape == (2, 256)
+    assert len(metadata_list) == 2
+    assert metadata_list[0]["day"] == "20240101"
+    assert metadata_list[1]["day"] == "20240102"
+    assert metadata_list[0]["source"] == "mic_audio"
+    assert metadata_list[1]["source"] == "audio"
+
+
+def test_load_entity_voiceprints_file_not_found(speakers_env):
+    """Test loading voiceprints for non-existent entity returns None."""
+    from apps.speakers.routes import _load_entity_voiceprints_file
+
+    env = speakers_env()
+
+    # Create facet but no entity
+    facet_dir = env.journal / "facets" / "test"
+    facet_dir.mkdir(parents=True)
+
+    result = _load_entity_voiceprints_file("test", "Nobody")
+    assert result is None
+
+
+def test_save_voiceprint(speakers_env):
+    """Test saving voiceprint to consolidated voiceprints.npz."""
+    import json
+
+    from apps.speakers.routes import _save_voiceprint
 
     env = speakers_env()
 
@@ -228,20 +274,65 @@ def test_save_voiceprint_to_entity(speakers_env):
 
     emb = np.array([1.0, 0.0, 0.0] + [0.0] * 253, dtype=np.float32)
 
-    path = _save_voiceprint_to_entity(
-        "test", "John Doe", "20240101", "143022_300", "mic_audio", emb, 5
+    path = _save_voiceprint(
+        "test", "John Doe", emb, "20240101", "143022_300", "mic_audio", 5
     )
 
     assert path.exists()
-    assert path.name == "20240101_143022_300_mic_audio_5.npz"
+    assert path.name == "voiceprints.npz"
     assert "john_doe" in str(path.parent)
 
     # Verify format content
     data = np.load(path)
     assert "embeddings" in data
-    assert "segment_ids" in data
+    assert "metadata" in data
     assert data["embeddings"].shape == (1, 256)
-    assert data["segment_ids"][0] == 5
+
+    # Verify metadata
+    metadata = json.loads(data["metadata"][0])
+    assert metadata["day"] == "20240101"
+    assert metadata["segment_key"] == "143022_300"
+    assert metadata["source"] == "mic_audio"
+    assert metadata["sentence_id"] == 5
+    assert "added_at" in metadata
+
+
+def test_save_voiceprint_appends(speakers_env):
+    """Test saving multiple voiceprints appends to existing file."""
+    import json
+
+    from apps.speakers.routes import _save_voiceprint
+
+    env = speakers_env()
+
+    # Create facet
+    facet_dir = env.journal / "facets" / "test"
+    facet_dir.mkdir(parents=True)
+
+    emb1 = np.array([1.0, 0.0, 0.0] + [0.0] * 253, dtype=np.float32)
+    emb2 = np.array([0.0, 1.0, 0.0] + [0.0] * 253, dtype=np.float32)
+
+    # Save first voiceprint
+    path = _save_voiceprint(
+        "test", "John Doe", emb1, "20240101", "143022_300", "mic_audio", 5
+    )
+
+    # Save second voiceprint
+    path2 = _save_voiceprint(
+        "test", "John Doe", emb2, "20240102", "150000_300", "audio", 3
+    )
+
+    assert path == path2  # Same file
+
+    # Verify both are in the file
+    data = np.load(path)
+    assert data["embeddings"].shape == (2, 256)
+    assert len(data["metadata"]) == 2
+
+    meta1 = json.loads(data["metadata"][0])
+    meta2 = json.loads(data["metadata"][1])
+    assert meta1["day"] == "20240101"
+    assert meta2["day"] == "20240102"
 
 
 def test_load_embeddings_file(speakers_env):
@@ -260,13 +351,113 @@ def test_load_embeddings_file(speakers_env):
     assert len(segment_ids) == 3
 
 
-def test_load_embeddings_file_not_found(speakers_env):
+def test_load_embeddings_file_not_found():
     """Test loading non-existent embeddings file returns None."""
     from pathlib import Path
 
     from apps.speakers.routes import _load_embeddings_file
 
-    env = speakers_env()
     result = _load_embeddings_file(Path("/nonexistent/file.npz"))
 
     assert result is None
+
+
+def test_load_segment_speakers(speakers_env):
+    """Test loading speakers from speakers.json."""
+    from apps.speakers.routes import _load_segment_speakers
+
+    env = speakers_env()
+    env.create_segment("20240101", "143022_300", ["mic_audio"])
+    env.create_speakers_json("20240101", "143022_300", ["Alice", "Bob", "Charlie"])
+
+    segment_dir = env.journal / "20240101" / "143022_300"
+    speakers = _load_segment_speakers(segment_dir)
+
+    assert speakers == ["Alice", "Bob", "Charlie"]
+
+
+def test_load_segment_speakers_not_found(speakers_env):
+    """Test loading speakers returns empty list when file missing."""
+    from apps.speakers.routes import _load_segment_speakers
+
+    env = speakers_env()
+    env.create_segment("20240101", "143022_300", ["mic_audio"])
+    # No speakers.json created
+
+    segment_dir = env.journal / "20240101" / "143022_300"
+    speakers = _load_segment_speakers(segment_dir)
+
+    assert speakers == []
+
+
+def test_load_segment_speakers_invalid_json(speakers_env):
+    """Test loading speakers returns empty list for invalid JSON."""
+    from apps.speakers.routes import _load_segment_speakers
+
+    env = speakers_env()
+    segment_dir = env.journal / "20240101" / "143022_300"
+    segment_dir.mkdir(parents=True)
+
+    # Write invalid JSON
+    speakers_path = segment_dir / "speakers.json"
+    speakers_path.write_text("not valid json")
+
+    speakers = _load_segment_speakers(segment_dir)
+    assert speakers == []
+
+
+def test_load_segment_speakers_not_list(speakers_env):
+    """Test loading speakers returns empty list when JSON is not a list."""
+    import json
+
+    from apps.speakers.routes import _load_segment_speakers
+
+    env = speakers_env()
+    segment_dir = env.journal / "20240101" / "143022_300"
+    segment_dir.mkdir(parents=True)
+
+    # Write object instead of list
+    speakers_path = segment_dir / "speakers.json"
+    speakers_path.write_text(json.dumps({"speaker": "Alice"}))
+
+    speakers = _load_segment_speakers(segment_dir)
+    assert speakers == []
+
+
+def test_scan_segment_embeddings_requires_speakers(speakers_env):
+    """Test that segments without speakers.json are filtered out."""
+    from apps.speakers.routes import _scan_segment_embeddings
+
+    env = speakers_env()
+    # Create segment with embeddings but NO speakers.json
+    env.create_segment("20240101", "143022_300", ["mic_audio"])
+
+    segments = _scan_segment_embeddings("20240101")
+    assert segments == []
+
+
+def test_scan_segment_embeddings_requires_two_speakers(speakers_env):
+    """Test that segments with <2 speakers are filtered out."""
+    from apps.speakers.routes import _scan_segment_embeddings
+
+    env = speakers_env()
+    env.create_segment("20240101", "143022_300", ["mic_audio"])
+    env.create_speakers_json("20240101", "143022_300", ["OnlyAlice"])  # Just 1 speaker
+
+    segments = _scan_segment_embeddings("20240101")
+    assert segments == []
+
+
+def test_scan_segment_embeddings_includes_speaker_data(speakers_env):
+    """Test that segments include speaker names and count."""
+    from apps.speakers.routes import _scan_segment_embeddings
+
+    env = speakers_env()
+    env.create_segment("20240101", "143022_300", ["mic_audio"])
+    env.create_speakers_json("20240101", "143022_300", ["Alice", "Bob"])
+
+    segments = _scan_segment_embeddings("20240101")
+
+    assert len(segments) == 1
+    assert segments[0]["speakers"] == ["Alice", "Bob"]
+    assert segments[0]["speaker_count"] == 2

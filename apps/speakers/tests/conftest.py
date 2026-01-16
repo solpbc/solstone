@@ -128,20 +128,51 @@ def speakers_env(tmp_path, monkeypatch):
             with open(entities_file, "a", encoding="utf-8") as f:
                 f.write(json.dumps(entity_data) + "\n")
 
-            # Create entity folder with voiceprints if specified
+            # Create entity folder with consolidated voiceprints.npz if specified
             if voiceprints:
                 entity_dir = facet_dir / "entities" / normalize_entity_name(name)
                 entity_dir.mkdir(parents=True, exist_ok=True)
 
+                all_embeddings = []
+                all_metadata = []
                 for day, segment_key, source, sentence_id in voiceprints:
                     emb = self.create_embedding()
-                    np.savez_compressed(
-                        entity_dir / f"{day}_{segment_key}_{source}_{sentence_id}.npz",
-                        embeddings=emb.reshape(1, -1),
-                        segment_ids=np.array([sentence_id], dtype=np.int32),
-                    )
+                    all_embeddings.append(emb)
+                    metadata = {
+                        "day": day,
+                        "segment_key": segment_key,
+                        "source": source,
+                        "sentence_id": sentence_id,
+                        "added_at": 1700000000000,
+                    }
+                    all_metadata.append(json.dumps(metadata))
+
+                np.savez_compressed(
+                    entity_dir / "voiceprints.npz",
+                    embeddings=np.array(all_embeddings, dtype=np.float32),
+                    metadata=np.array(all_metadata, dtype=str),
+                )
 
             return facet_dir
+
+        def create_speakers_json(
+            self, day: str, segment_key: str, speakers: list[str]
+        ) -> Path:
+            """Create a speakers.json file in a segment directory.
+
+            Args:
+                day: Day string (YYYYMMDD)
+                segment_key: Segment key (HHMMSS_LEN)
+                speakers: List of speaker names
+            """
+            segment_dir = self.journal / day / segment_key
+            segment_dir.mkdir(parents=True, exist_ok=True)
+
+            speakers_path = segment_dir / "speakers.json"
+            with open(speakers_path, "w", encoding="utf-8") as f:
+                json.dump(speakers, f)
+
+            return speakers_path
 
     def _create():
         return SpeakersEnv(tmp_path)
