@@ -12,9 +12,12 @@ from observe.utils import SAMPLE_RATE
 from observe.vad import (
     GAP_BUFFER,
     MIN_GAP_TO_REDUCE,
+    MIN_NONSPEECH_SEGMENT,
     AudioReduction,
     SpeechSegment,
     VadResult,
+    compute_nonspeech_rms,
+    get_nonspeech_segments,
     reduce_audio,
     restore_segment_timestamps,
     run_vad,
@@ -61,6 +64,209 @@ class TestVadResult:
         )
 
         assert result.speech_segments == []
+
+    def test_vad_result_rms_fields(self):
+        """VadResult should have RMS fields with defaults."""
+        result = VadResult(
+            duration=10.0,
+            speech_duration=5.0,
+            has_speech=True,
+        )
+
+        # Default values
+        assert result.nonspeech_rms is None
+        assert result.nonspeech_rms_seconds == 0.0
+
+    def test_vad_result_with_rms(self):
+        """VadResult should accept RMS values."""
+        result = VadResult(
+            duration=10.0,
+            speech_duration=5.0,
+            has_speech=True,
+            nonspeech_rms=0.015,
+            nonspeech_rms_seconds=3.5,
+        )
+
+        assert result.nonspeech_rms == 0.015
+        assert result.nonspeech_rms_seconds == 3.5
+
+    def test_is_noisy_above_threshold(self):
+        """is_noisy() should return True when RMS exceeds threshold."""
+        result = VadResult(
+            duration=10.0,
+            speech_duration=5.0,
+            has_speech=True,
+            nonspeech_rms=0.015,  # Above default 0.01 threshold
+        )
+
+        assert result.is_noisy() is True
+
+    def test_is_noisy_below_threshold(self):
+        """is_noisy() should return False when RMS is below threshold."""
+        result = VadResult(
+            duration=10.0,
+            speech_duration=5.0,
+            has_speech=True,
+            nonspeech_rms=0.005,  # Below default 0.01 threshold
+        )
+
+        assert result.is_noisy() is False
+
+    def test_is_noisy_none_rms(self):
+        """is_noisy() should return False when RMS is None."""
+        result = VadResult(
+            duration=10.0,
+            speech_duration=5.0,
+            has_speech=True,
+            nonspeech_rms=None,
+        )
+
+        assert result.is_noisy() is False
+
+    def test_is_noisy_custom_threshold(self):
+        """is_noisy() should respect custom threshold."""
+        result = VadResult(
+            duration=10.0,
+            speech_duration=5.0,
+            has_speech=True,
+            nonspeech_rms=0.015,
+        )
+
+        # With default threshold (0.01), should be noisy
+        assert result.is_noisy() is True
+
+        # With higher threshold (0.02), should not be noisy
+        assert result.is_noisy(threshold=0.02) is False
+
+
+class TestGetNonspeechSegments:
+    """Test get_nonspeech_segments function."""
+
+    def test_leading_silence(self):
+        """Should detect leading silence before first speech."""
+        speech_segments = [(2.0, 4.0)]
+        nonspeech = get_nonspeech_segments(speech_segments, 5.0)
+
+        assert (0.0, 2.0) in nonspeech
+
+    def test_trailing_silence(self):
+        """Should detect trailing silence after last speech."""
+        speech_segments = [(1.0, 3.0)]
+        nonspeech = get_nonspeech_segments(speech_segments, 5.0)
+
+        assert (3.0, 5.0) in nonspeech
+
+    def test_gap_between_segments(self):
+        """Should detect gaps between speech segments."""
+        speech_segments = [(1.0, 2.0), (4.0, 5.0)]
+        nonspeech = get_nonspeech_segments(speech_segments, 6.0)
+
+        assert (2.0, 4.0) in nonspeech
+
+    def test_all_regions(self):
+        """Should detect leading, middle, and trailing silence."""
+        speech_segments = [(1.0, 2.0), (4.0, 5.0)]
+        nonspeech = get_nonspeech_segments(speech_segments, 7.0)
+
+        assert nonspeech == [(0.0, 1.0), (2.0, 4.0), (5.0, 7.0)]
+
+    def test_no_speech_segments(self):
+        """Should return empty list when no speech segments."""
+        nonspeech = get_nonspeech_segments([], 5.0)
+
+        assert nonspeech == []
+
+    def test_speech_fills_entire_audio(self):
+        """Should return empty list when speech fills entire audio."""
+        speech_segments = [(0.0, 5.0)]
+        nonspeech = get_nonspeech_segments(speech_segments, 5.0)
+
+        assert nonspeech == []
+
+    def test_adjacent_segments(self):
+        """Should not create zero-length gaps between adjacent segments."""
+        speech_segments = [(1.0, 2.0), (2.0, 3.0)]
+        nonspeech = get_nonspeech_segments(speech_segments, 4.0)
+
+        # Should only have leading and trailing, no gap between adjacent segments
+        assert nonspeech == [(0.0, 1.0), (3.0, 4.0)]
+
+
+class TestComputeNonspeechRms:
+    """Test compute_nonspeech_rms function."""
+
+    def test_silent_audio_returns_zero_rms(self):
+        """Silent audio should have RMS near zero."""
+        audio = np.zeros(5 * SAMPLE_RATE, dtype=np.float32)
+        speech_segments = [(1.0, 2.0)]  # Speech in middle
+
+        rms, duration = compute_nonspeech_rms(audio, speech_segments, SAMPLE_RATE)
+
+        assert rms is not None
+        assert rms < 0.001  # Effectively zero
+
+    def test_noisy_audio_returns_high_rms(self):
+        """Noisy audio should have measurable RMS."""
+        # Create audio with noise (amplitude 0.1)
+        audio = np.random.uniform(-0.1, 0.1, 5 * SAMPLE_RATE).astype(np.float32)
+        # Put "speech" in middle (doesn't affect RMS calculation of non-speech)
+        speech_segments = [(2.0, 3.0)]
+
+        rms, duration = compute_nonspeech_rms(audio, speech_segments, SAMPLE_RATE)
+
+        assert rms is not None
+        assert rms > 0.01  # Noisy threshold
+
+    def test_returns_duration_used(self):
+        """Should return total duration of non-speech segments used."""
+        audio = np.zeros(10 * SAMPLE_RATE, dtype=np.float32)
+        # Speech from 2-4s and 6-8s, leaving gaps at 0-2, 4-6, 8-10
+        speech_segments = [(2.0, 4.0), (6.0, 8.0)]
+
+        rms, duration = compute_nonspeech_rms(audio, speech_segments, SAMPLE_RATE)
+
+        # All three gaps are >= 0.5s (MIN_NONSPEECH_SEGMENT)
+        # Total non-speech: 2 + 2 + 2 = 6 seconds
+        assert duration == 6.0
+
+    def test_filters_short_segments(self):
+        """Should filter out non-speech segments shorter than min_segment."""
+        audio = np.zeros(5 * SAMPLE_RATE, dtype=np.float32)
+        # Speech leaves only 0.3s gaps (below default 0.5s threshold)
+        speech_segments = [(0.3, 1.0), (1.3, 2.0), (2.3, 5.0)]
+
+        rms, duration = compute_nonspeech_rms(audio, speech_segments, SAMPLE_RATE)
+
+        # No qualifying segments
+        assert rms is None
+        assert duration == 0.0
+
+    def test_no_speech_segments_returns_none(self):
+        """Should return None when no speech segments (can't compute non-speech)."""
+        audio = np.zeros(5 * SAMPLE_RATE, dtype=np.float32)
+
+        rms, duration = compute_nonspeech_rms(audio, [], SAMPLE_RATE)
+
+        assert rms is None
+        assert duration == 0.0
+
+    def test_custom_min_segment(self):
+        """Should respect custom min_segment threshold."""
+        audio = np.zeros(5 * SAMPLE_RATE, dtype=np.float32)
+        # Speech from 1-2s, leaving 1s gap at start
+        speech_segments = [(1.0, 2.0)]
+
+        # With default 0.5s threshold, should include leading gap
+        rms, duration = compute_nonspeech_rms(
+            audio, speech_segments, SAMPLE_RATE, min_segment=0.5
+        )
+        assert duration == 4.0  # 1s leading + 3s trailing
+
+        # With 2.0s threshold, should only include trailing gap (3s)
+        rms, duration = compute_nonspeech_rms(
+            audio, speech_segments, SAMPLE_RATE, min_segment=2.0
+        )
+        assert duration == 3.0
 
 
 class TestRunVad:
@@ -154,6 +360,57 @@ class TestRunVad:
         mock_decode.assert_called_once_with(
             "/fake/audio.flac", sampling_rate=SAMPLE_RATE
         )
+
+    @patch("faster_whisper.vad.get_speech_timestamps")
+    @patch("faster_whisper.audio.decode_audio")
+    def test_returns_rms_for_silent_background(self, mock_decode, mock_get_timestamps):
+        """run_vad should return low RMS for silent non-speech regions."""
+        # Silent audio (zeros)
+        mock_decode.return_value = np.zeros(5 * SAMPLE_RATE, dtype=np.float32)
+        # Speech from 1-3s, leaving non-speech at 0-1s and 3-5s
+        mock_get_timestamps.return_value = [{"start": 16000, "end": 48000}]
+
+        result = run_vad(Path("/fake/audio.flac"), min_speech_seconds=1.0)
+
+        assert result.nonspeech_rms is not None
+        assert result.nonspeech_rms < 0.001  # Effectively zero
+        assert result.nonspeech_rms_seconds == 3.0  # 1s leading + 2s trailing
+
+    @patch("faster_whisper.vad.get_speech_timestamps")
+    @patch("faster_whisper.audio.decode_audio")
+    def test_returns_rms_for_noisy_background(self, mock_decode, mock_get_timestamps):
+        """run_vad should return measurable RMS for noisy non-speech regions."""
+        # Noisy audio
+        np.random.seed(42)
+        mock_decode.return_value = np.random.uniform(
+            -0.1, 0.1, 5 * SAMPLE_RATE
+        ).astype(np.float32)
+        # Speech from 1-3s
+        mock_get_timestamps.return_value = [{"start": 16000, "end": 48000}]
+
+        result = run_vad(Path("/fake/audio.flac"), min_speech_seconds=1.0)
+
+        assert result.nonspeech_rms is not None
+        assert result.nonspeech_rms > 0.01  # Noisy threshold
+        assert result.nonspeech_rms_seconds == 3.0
+
+    @patch("faster_whisper.vad.get_speech_timestamps")
+    @patch("faster_whisper.audio.decode_audio")
+    def test_returns_none_rms_when_no_qualifying_segments(
+        self, mock_decode, mock_get_timestamps
+    ):
+        """run_vad should return None RMS when no qualifying non-speech segments."""
+        mock_decode.return_value = np.zeros(2 * SAMPLE_RATE, dtype=np.float32)
+        # Speech fills most of audio, leaving only 0.2s gaps (below 0.5s threshold)
+        mock_get_timestamps.return_value = [
+            {"start": 3200, "end": 12800},  # 0.2s to 0.8s
+            {"start": 16000, "end": 28800},  # 1.0s to 1.8s
+        ]
+
+        result = run_vad(Path("/fake/audio.flac"), min_speech_seconds=0.5)
+
+        assert result.nonspeech_rms is None
+        assert result.nonspeech_rms_seconds == 0.0
 
 
 class TestSpeechSegment:

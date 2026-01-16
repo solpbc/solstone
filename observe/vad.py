@@ -7,6 +7,7 @@ Provides a standalone VAD stage that can be run before transcription to:
 - Filter out silent/low-speech audio files early (before loading heavy STT models)
 - Provide speech duration metrics for logging and events
 - Reduce audio by trimming long silence gaps (>2s trimmed to 2s with 1s buffers)
+- Compute RMS of non-speech regions for background noise detection
 
 Uses Silero VAD via faster-whisper's bundled implementation.
 
@@ -34,6 +35,83 @@ MIN_GAP_TO_REDUCE = 2.0
 
 # Buffer to keep on each side of trimmed gap (seconds)
 GAP_BUFFER = 1.0
+
+# Minimum non-speech segment duration for RMS calculation (seconds)
+MIN_NONSPEECH_SEGMENT = 0.5
+
+
+def get_nonspeech_segments(
+    speech_segments: list[tuple[float, float]], total_duration: float
+) -> list[tuple[float, float]]:
+    """Invert speech segments to get non-speech (silence/noise) gaps.
+
+    Args:
+        speech_segments: List of (start, end) tuples for speech
+        total_duration: Total audio duration in seconds
+
+    Returns:
+        List of (start, end) tuples for non-speech regions
+    """
+    nonspeech = []
+
+    # Leading silence (before first speech)
+    if speech_segments and speech_segments[0][0] > 0:
+        nonspeech.append((0.0, speech_segments[0][0]))
+
+    # Gaps between speech segments
+    for i in range(len(speech_segments) - 1):
+        gap_start = speech_segments[i][1]  # end of current
+        gap_end = speech_segments[i + 1][0]  # start of next
+        if gap_end > gap_start:
+            nonspeech.append((gap_start, gap_end))
+
+    # Trailing silence (after last speech)
+    if speech_segments and speech_segments[-1][1] < total_duration:
+        nonspeech.append((speech_segments[-1][1], total_duration))
+
+    return nonspeech
+
+
+def compute_nonspeech_rms(
+    audio: np.ndarray,
+    speech_segments: list[tuple[float, float]],
+    sample_rate: int,
+    min_segment: float = MIN_NONSPEECH_SEGMENT,
+) -> tuple[float | None, float]:
+    """Compute RMS level of non-speech regions.
+
+    Args:
+        audio: Audio samples as numpy array
+        speech_segments: List of (start, end) tuples for speech
+        sample_rate: Audio sample rate in Hz
+        min_segment: Minimum non-speech segment duration to include (seconds)
+
+    Returns:
+        Tuple of (rms_value, duration_used):
+        - rms_value: Mean RMS across qualifying non-speech segments, or None if none found
+        - duration_used: Total seconds of non-speech audio used for calculation
+    """
+    duration = len(audio) / sample_rate
+    nonspeech = get_nonspeech_segments(speech_segments, duration)
+
+    # Filter to segments >= min_segment seconds
+    long_segments = [(s, e) for s, e in nonspeech if e - s >= min_segment]
+
+    if not long_segments:
+        return None, 0.0
+
+    # Compute RMS for each segment
+    rms_values = []
+    total_duration = 0.0
+    for start, end in long_segments:
+        start_sample = int(start * sample_rate)
+        end_sample = int(end * sample_rate)
+        segment_audio = audio[start_sample:end_sample]
+        rms = np.sqrt(np.mean(segment_audio**2))
+        rms_values.append(rms)
+        total_duration += end - start
+
+    return float(np.mean(rms_values)), total_duration
 
 
 @dataclass
@@ -124,12 +202,27 @@ class VadResult:
         speech_duration: Duration of detected speech in seconds
         has_speech: Whether speech duration meets minimum threshold
         speech_segments: List of (start, end) tuples for each speech segment
+        nonspeech_rms: RMS level of non-speech regions (None if not computable)
+        nonspeech_rms_seconds: Duration of non-speech audio used for RMS calculation
     """
 
     duration: float
     speech_duration: float
     has_speech: bool
     speech_segments: list[tuple[float, float]] = field(default_factory=list)
+    nonspeech_rms: float | None = None
+    nonspeech_rms_seconds: float = 0.0
+
+    def is_noisy(self, threshold: float = 0.01) -> bool:
+        """Check if background noise level exceeds threshold.
+
+        Args:
+            threshold: RMS threshold for noisy background (default: 0.01)
+
+        Returns:
+            True if non-speech RMS exceeds threshold, False otherwise
+        """
+        return self.nonspeech_rms is not None and self.nonspeech_rms > threshold
 
 
 def run_vad(
@@ -140,14 +233,16 @@ def run_vad(
 
     Loads the audio and runs Silero VAD to identify speech segments.
     This can be used to filter silent files before loading heavier
-    transcription models.
+    transcription models. Also computes RMS of non-speech regions for
+    background noise detection.
 
     Args:
         audio_path: Path to audio file (any format supported by ffmpeg/PyAV)
         min_speech_seconds: Minimum speech duration to set has_speech=True
 
     Returns:
-        VadResult with duration info, has_speech flag, and speech segment boundaries
+        VadResult with duration info, has_speech flag, speech segment boundaries,
+        and non-speech RMS level for noise detection
     """
     from faster_whisper.audio import decode_audio
     from faster_whisper.vad import VadOptions, get_speech_timestamps
@@ -176,11 +271,17 @@ def run_vad(
 
     has_speech = speech_duration >= min_speech_seconds
 
+    # Compute RMS of non-speech regions (for noise detection)
+    nonspeech_rms, nonspeech_rms_seconds = compute_nonspeech_rms(
+        audio, speech_segments, SAMPLE_RATE
+    )
+
     vad_time = time.perf_counter() - t0
+    rms_str = f", rms={nonspeech_rms:.4f}" if nonspeech_rms is not None else ""
     logging.info(
         f"  VAD complete in {vad_time:.2f}s: "
         f"{duration:.1f}s total, {speech_duration:.1f}s speech, "
-        f"{len(speech_chunks)} chunks, has_speech={has_speech}"
+        f"{len(speech_chunks)} chunks, has_speech={has_speech}{rms_str}"
     )
 
     return VadResult(
@@ -188,6 +289,8 @@ def run_vad(
         speech_duration=speech_duration,
         has_speech=has_speech,
         speech_segments=speech_segments,
+        nonspeech_rms=nonspeech_rms,
+        nonspeech_rms_seconds=nonspeech_rms_seconds,
     )
 
 

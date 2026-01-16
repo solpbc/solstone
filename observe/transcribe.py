@@ -587,7 +587,14 @@ class Transcriber:
                 "input": str(rel_input),
                 "vad_duration": round(vad_result.duration, 1),
                 "vad_speech": round(vad_result.speech_duration, 1),
+                "noisy": vad_result.is_noisy(),
             }
+            # Add RMS values if available
+            if vad_result.nonspeech_rms is not None:
+                event["nonspeech_rms"] = round(vad_result.nonspeech_rms, 4)
+                event["nonspeech_rms_seconds"] = round(
+                    vad_result.nonspeech_rms_seconds, 1
+                )
             if day:
                 event["day"] = day
             if segment:
@@ -759,11 +766,17 @@ def main():
             rel_input = audio_path
 
         remote = os.getenv("REMOTE_NAME")
+
         event = {
             "input": str(rel_input),
             "vad_duration": round(vad_result.duration, 1),
             "vad_speech": round(vad_result.speech_duration, 1),
+            "noisy": vad_result.is_noisy(),
         }
+        # Add RMS values if available
+        if vad_result.nonspeech_rms is not None:
+            event["nonspeech_rms"] = round(vad_result.nonspeech_rms, 4)
+            event["nonspeech_rms_seconds"] = round(vad_result.nonspeech_rms_seconds, 1)
         if day:
             event["day"] = day
         if segment:
