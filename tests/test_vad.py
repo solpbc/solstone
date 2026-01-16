@@ -74,8 +74,8 @@ class TestVadResult:
         )
 
         # Default values
-        assert result.nonspeech_rms is None
-        assert result.nonspeech_rms_seconds == 0.0
+        assert result.noisy_rms is None
+        assert result.noisy_s == 0.0
 
     def test_vad_result_with_rms(self):
         """VadResult should accept RMS values."""
@@ -83,12 +83,12 @@ class TestVadResult:
             duration=10.0,
             speech_duration=5.0,
             has_speech=True,
-            nonspeech_rms=0.015,
-            nonspeech_rms_seconds=3.5,
+            noisy_rms=0.015,
+            noisy_s=3.5,
         )
 
-        assert result.nonspeech_rms == 0.015
-        assert result.nonspeech_rms_seconds == 3.5
+        assert result.noisy_rms == 0.015
+        assert result.noisy_s == 3.5
 
     def test_is_noisy_above_threshold(self):
         """is_noisy() should return True when RMS exceeds threshold."""
@@ -96,7 +96,7 @@ class TestVadResult:
             duration=10.0,
             speech_duration=5.0,
             has_speech=True,
-            nonspeech_rms=0.015,  # Above default 0.01 threshold
+            noisy_rms=0.015,  # Above default 0.01 threshold
         )
 
         assert result.is_noisy() is True
@@ -107,7 +107,7 @@ class TestVadResult:
             duration=10.0,
             speech_duration=5.0,
             has_speech=True,
-            nonspeech_rms=0.005,  # Below default 0.01 threshold
+            noisy_rms=0.005,  # Below default 0.01 threshold
         )
 
         assert result.is_noisy() is False
@@ -118,7 +118,7 @@ class TestVadResult:
             duration=10.0,
             speech_duration=5.0,
             has_speech=True,
-            nonspeech_rms=None,
+            noisy_rms=None,
         )
 
         assert result.is_noisy() is False
@@ -129,7 +129,7 @@ class TestVadResult:
             duration=10.0,
             speech_duration=5.0,
             has_speech=True,
-            nonspeech_rms=0.015,
+            noisy_rms=0.015,
         )
 
         # With default threshold (0.01), should be noisy
@@ -372,9 +372,9 @@ class TestRunVad:
 
         result = run_vad(Path("/fake/audio.flac"), min_speech_seconds=1.0)
 
-        assert result.nonspeech_rms is not None
-        assert result.nonspeech_rms < 0.001  # Effectively zero
-        assert result.nonspeech_rms_seconds == 3.0  # 1s leading + 2s trailing
+        assert result.noisy_rms is not None
+        assert result.noisy_rms < 0.001  # Effectively zero
+        assert result.noisy_s == 3.0  # 1s leading + 2s trailing
 
     @patch("faster_whisper.vad.get_speech_timestamps")
     @patch("faster_whisper.audio.decode_audio")
@@ -382,17 +382,17 @@ class TestRunVad:
         """run_vad should return measurable RMS for noisy non-speech regions."""
         # Noisy audio
         np.random.seed(42)
-        mock_decode.return_value = np.random.uniform(
-            -0.1, 0.1, 5 * SAMPLE_RATE
-        ).astype(np.float32)
+        mock_decode.return_value = np.random.uniform(-0.1, 0.1, 5 * SAMPLE_RATE).astype(
+            np.float32
+        )
         # Speech from 1-3s
         mock_get_timestamps.return_value = [{"start": 16000, "end": 48000}]
 
         result = run_vad(Path("/fake/audio.flac"), min_speech_seconds=1.0)
 
-        assert result.nonspeech_rms is not None
-        assert result.nonspeech_rms > 0.01  # Noisy threshold
-        assert result.nonspeech_rms_seconds == 3.0
+        assert result.noisy_rms is not None
+        assert result.noisy_rms > 0.01  # Noisy threshold
+        assert result.noisy_s == 3.0
 
     @patch("faster_whisper.vad.get_speech_timestamps")
     @patch("faster_whisper.audio.decode_audio")
@@ -409,8 +409,8 @@ class TestRunVad:
 
         result = run_vad(Path("/fake/audio.flac"), min_speech_seconds=0.5)
 
-        assert result.nonspeech_rms is None
-        assert result.nonspeech_rms_seconds == 0.0
+        assert result.noisy_rms is None
+        assert result.noisy_s == 0.0
 
 
 class TestSpeechSegment:

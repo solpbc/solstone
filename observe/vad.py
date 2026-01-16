@@ -202,16 +202,16 @@ class VadResult:
         speech_duration: Duration of detected speech in seconds
         has_speech: Whether speech duration meets minimum threshold
         speech_segments: List of (start, end) tuples for each speech segment
-        nonspeech_rms: RMS level of non-speech regions (None if not computable)
-        nonspeech_rms_seconds: Duration of non-speech audio used for RMS calculation
+        noisy_rms: RMS level of non-speech regions (None if not computable)
+        noisy_s: Duration of non-speech audio used for RMS calculation
     """
 
     duration: float
     speech_duration: float
     has_speech: bool
     speech_segments: list[tuple[float, float]] = field(default_factory=list)
-    nonspeech_rms: float | None = None
-    nonspeech_rms_seconds: float = 0.0
+    noisy_rms: float | None = None
+    noisy_s: float = 0.0
 
     def is_noisy(self, threshold: float = 0.01) -> bool:
         """Check if background noise level exceeds threshold.
@@ -222,7 +222,7 @@ class VadResult:
         Returns:
             True if non-speech RMS exceeds threshold, False otherwise
         """
-        return self.nonspeech_rms is not None and self.nonspeech_rms > threshold
+        return self.noisy_rms is not None and self.noisy_rms > threshold
 
 
 def run_vad(
@@ -272,12 +272,10 @@ def run_vad(
     has_speech = speech_duration >= min_speech_seconds
 
     # Compute RMS of non-speech regions (for noise detection)
-    nonspeech_rms, nonspeech_rms_seconds = compute_nonspeech_rms(
-        audio, speech_segments, SAMPLE_RATE
-    )
+    noisy_rms, noisy_s = compute_nonspeech_rms(audio, speech_segments, SAMPLE_RATE)
 
     vad_time = time.perf_counter() - t0
-    rms_str = f", rms={nonspeech_rms:.4f}" if nonspeech_rms is not None else ""
+    rms_str = f", rms={noisy_rms:.4f}" if noisy_rms is not None else ""
     logging.info(
         f"  VAD complete in {vad_time:.2f}s: "
         f"{duration:.1f}s total, {speech_duration:.1f}s speech, "
@@ -289,8 +287,8 @@ def run_vad(
         speech_duration=speech_duration,
         has_speech=has_speech,
         speech_segments=speech_segments,
-        nonspeech_rms=nonspeech_rms,
-        nonspeech_rms_seconds=nonspeech_rms_seconds,
+        noisy_rms=noisy_rms,
+        noisy_s=noisy_s,
     )
 
 

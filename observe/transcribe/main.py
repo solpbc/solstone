@@ -172,9 +172,9 @@ def _build_base_event(
     }
 
     # Add RMS values if available
-    if vad_result.nonspeech_rms is not None:
-        event["nonspeech_rms"] = round(vad_result.nonspeech_rms, 4)
-        event["nonspeech_rms_seconds"] = round(vad_result.nonspeech_rms_seconds, 1)
+    if vad_result.noisy_rms is not None:
+        event["noisy_rms"] = round(vad_result.noisy_rms, 4)
+        event["noisy_s"] = round(vad_result.noisy_s, 1)
 
     if day:
         event["day"] = day
@@ -271,6 +271,7 @@ def _segments_to_jsonl(
     source: str | None = None,
     remote: str | None = None,
     enrichment: dict | None = None,
+    vad_result: VadResult | None = None,
 ) -> list[str]:
     """Convert segments to JSONL lines.
 
@@ -283,6 +284,7 @@ def _segments_to_jsonl(
         remote: Optional remote name for metadata
         enrichment: Optional enrichment data with topics, setting, and
             per-segment corrected text and descriptions
+        vad_result: Optional VAD result for noise detection metadata
 
     Returns:
         List of JSON strings (metadata line first, then entries)
@@ -296,6 +298,13 @@ def _segments_to_jsonl(
     }
     if remote:
         metadata["remote"] = remote
+
+    # Add noise detection metadata if available
+    if vad_result:
+        metadata["noisy"] = vad_result.is_noisy()
+        if vad_result.noisy_rms is not None:
+            metadata["noisy_rms"] = round(vad_result.noisy_rms, 4)
+            metadata["noisy_s"] = round(vad_result.noisy_s, 1)
 
     # Add enrichment metadata if available
     if enrichment:
@@ -323,6 +332,10 @@ def _segments_to_jsonl(
         }
         if source:
             entry["source"] = source
+
+        # Pass through speaker ID if present (from diarized backends like Rev.ai)
+        if "speaker" in seg:
+            entry["speaker"] = seg["speaker"]
 
         # Add corrected text and description from enrichment by position
         if i < len(enriched_segments):
@@ -484,7 +497,14 @@ def process_audio(
         # Convert to JSONL format (now with original timestamps)
         raw_filename = f"{raw_path.stem}{raw_path.suffix}"
         jsonl_lines = _segments_to_jsonl(
-            segments, raw_filename, base_dt, model_info, source, remote, enrichment
+            segments,
+            raw_filename,
+            base_dt,
+            model_info,
+            source,
+            remote,
+            enrichment,
+            vad_result,
         )
 
         # Write JSONL
