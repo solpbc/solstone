@@ -54,6 +54,9 @@ DEFAULT_DIARIZATION = "premium"
 DEFAULT_POLL_INTERVAL = 2.5
 DEFAULT_TIMEOUT = 1800  # 30 minutes
 
+# Valid Rev.ai transcriber models
+VALID_MODELS = frozenset({"fusion", "machine", "low_cost", "human"})
+
 
 def _get_token() -> str:
     """Get Rev.ai API token from environment.
@@ -93,8 +96,13 @@ def submit_job(
     headers = {"Authorization": f"Bearer {token}"}
 
     # Build options from config
+    # Validate model - use default if not a valid Rev.ai model (e.g., whisper model passed)
+    model = config.get("model", DEFAULT_MODEL)
+    if model not in VALID_MODELS:
+        model = DEFAULT_MODEL
+
     options = {
-        "transcriber": config.get("model", DEFAULT_MODEL),
+        "transcriber": model,
         "skip_diarization": False,
         "diarization_type": config.get("diarization_type", DEFAULT_DIARIZATION),
         "language": config.get("language", DEFAULT_LANGUAGE),
@@ -373,8 +381,12 @@ def get_model_info(config: dict) -> dict:
     Returns:
         Dict with model info for JSONL metadata
     """
+    model = config.get("model", DEFAULT_MODEL)
+    if model not in VALID_MODELS:
+        model = DEFAULT_MODEL
+
     return {
-        "model": f"revai-{config.get('model', DEFAULT_MODEL)}",
+        "model": f"revai-{model}",
         "device": "cloud",
         "compute_type": "api",
         "diarization": config.get("diarization_type", DEFAULT_DIARIZATION),
