@@ -1,63 +1,36 @@
-# Meeting Speaker Detection
+# Speaker Name Extraction
 
 ## Objective
 
-Identify meetings and multi-person discussions in this segment and extract possible participant names.
+Identify meetings or multi-person discussions in this segment and extract the names of participants.
 
-## Input Types
+## Detection
 
-### With Screen Activity
+A meeting/discussion is detected when:
+- Screen shows a video conferencing app (Zoom, Meet, Teams, Webex) with participant panels
+- Audio shows multiple speakers with conversational turn-taking
+- Meeting-style patterns: greetings, agenda items, discussion, decisions
 
-A meeting is detected when screen activity shows a video conferencing application:
-- Zoom, Google Meet, Microsoft Teams, Webex, or similar
-- Participant panels or video tiles visible
-- Meeting controls or UI elements present
+## Name Sources
 
 Extract participant names from:
-1. **Visible participant list/panel** on screen
-2. **Names spoken in conversation** - direct address ("Thanks, Sarah"), mentions ("John was saying...")
-3. **Self-introductions** ("Hi, I'm Alex from...")
-
-### Audio Only
-
-When no screen activity is present, a meeting is detected when audio shows:
-- Multiple speakers with conversational turn-taking
-- Meeting-style patterns: agenda items, discussion, decisions, action items
-- Professional/work context evident from topics
-- Personal discussions amongst friends or family
-
-Extract names from:
-1. **Names spoken in conversation** - direct address and mentions
-2. **Self-introductions**
-3. **Any setting metadata** if available from transcription
-4. **Facet** if given, possible entities based on the given facet
-
-## Boundary Detection
-
-If the segment spans two distinct meetings with different participants (one ending, another starting):
-- Look for farewell patterns followed by new greetings
-- Different participant set appears
-- Significant topic shift with new introductions
-
-Report each meeting separately with its own time range and participants.
-
-## Output Format
-
-Structure your output as clean well formatted markdown with the following information included:
-
-- **Time**: HH:MM:SS - HH:MM:SS
-- **Platform**: Zoom / Meet / Teams / etc. (if visible, omit for audio-only)
-- **Participants**:
-  - Speaker Name
-  - Another Speaker Name
-
-Your result may have 0, 1, or 2 of the above sections. Our goal is to identify all the possible speakers based on the evidence.
+1. Visible participant list/panel on screen
+2. Names spoken in conversation - direct address ("Thanks, Sarah"), mentions ("John was saying...")
+3. Self-introductions ("Hi, I'm Alex from...")
 
 ## What to Ignore
 
 - Podcasts, videos, or streaming content being watched
 - Music or background audio
+- The journal owner's name (they are always present)
 
-## No Meeting Case
+## Output Format
 
-If no meeting is detected, output just "No meetings detected"
+Return a JSON array of speaker name strings. Include only names you can identify with reasonable confidence.
+
+Examples:
+- Meeting with identified speakers: `["Alice Chen", "Bob Smith", "Carol"]`
+- Meeting but no names identified: `[]`
+- No meeting detected: `[]`
+
+Return ONLY the JSON array, no other text or explanation.

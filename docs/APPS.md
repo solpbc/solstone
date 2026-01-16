@@ -269,9 +269,9 @@ Define custom insight prompts that integrate with solstone's insight generation 
 - Create `insights/` directory with `.txt` (prompt) + `.json` (metadata) file pairs
 - App insights are automatically discovered alongside system insights
 - Keys are namespaced as `{app}:{topic}` (e.g., `my_app:weekly_summary`)
-- Outputs go to `JOURNAL/YYYYMMDD/insights/_<app>_<topic>.md`
+- Outputs go to `JOURNAL/YYYYMMDD/insights/_<app>_<topic>.md` (or `.json` if `output: "json"`)
 
-**Metadata format:** Same schema as system insights in `think/insights/*.json` - includes `title`, `description`, `color`, `frequency`, and `occurrences` fields.
+**Metadata format:** Same schema as system insights in `think/insights/*.json` - includes `title`, `description`, `color`, `frequency`, `occurrences`, and `output` fields. Set `output: "json"` for structured JSON output instead of markdown.
 
 **App-data insights:** For insights from app-specific data (not transcripts), store in `JOURNAL/apps/{app}/insights/*.md` - these are automatically indexed.
 

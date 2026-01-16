@@ -106,42 +106,50 @@ def _insight_keys() -> list[str]:
 
 
 def _output_path(
-    day_dir: os.PathLike[str], key: str, segment: str | None = None
+    day_dir: os.PathLike[str],
+    key: str,
+    segment: str | None = None,
+    output_format: str | None = None,
 ) -> Path:
-    """Return markdown output path for insight ``key`` in ``day_dir``.
+    """Return output path for insight ``key`` in ``day_dir``.
 
     Args:
         day_dir: Day directory path (YYYYMMDD)
         key: Insight key (e.g., "activity" or "chat:sentiment")
         segment: Optional segment key (HHMMSS_LEN)
+        output_format: Output format from insight metadata ("json" or None for markdown)
 
     Returns:
-        Path to markdown file:
-        - Daily: YYYYMMDD/insights/{topic}.md (where topic = get_insight_topic(key))
-        - Segment: YYYYMMDD/{segment}/{topic}.md
+        Path to output file:
+        - Daily: YYYYMMDD/insights/{topic}.{ext}
+        - Segment: YYYYMMDD/{segment}/{topic}.{ext}
+        Where ext is "json" if output_format=="json", else "md"
     """
     day = Path(day_dir)
     topic = get_insight_topic(key)
+    ext = "json" if output_format == "json" else "md"
 
     if segment:
         # Segment insights go directly in segment directory
-        return day / segment / f"{topic}.md"
+        return day / segment / f"{topic}.{ext}"
     else:
         # Daily insights go in insights/ subdirectory
-        return day / "insights" / f"{topic}.md"
+        return day / "insights" / f"{topic}.{ext}"
 
 
 def scan_day(day: str) -> dict[str, list[str]]:
-    """Return lists of processed and pending insight markdown files."""
+    """Return lists of processed and pending insight output files."""
     day_dir = day_path(day)
+    all_insights = get_insights()
     processed: list[str] = []
     pending: list[str] = []
     for key in _insight_keys():
-        md_path = _output_path(day_dir, key)
-        if md_path.exists():
-            processed.append(os.path.join("insights", md_path.name))
+        output_format = all_insights.get(key, {}).get("output")
+        output_path = _output_path(day_dir, key, output_format=output_format)
+        if output_path.exists():
+            processed.append(os.path.join("insights", output_path.name))
         else:
-            pending.append(os.path.join("insights", md_path.name))
+            pending.append(os.path.join("insights", output_path.name))
     return {"processed": sorted(processed), "repairable": sorted(pending)}
 
 
@@ -189,15 +197,32 @@ def _get_or_create_cache(
     return cache.name
 
 
-def send_markdown(
-    markdown: str,
+def send_insight(
+    transcript: str,
     prompt: str,
     api_key: str,
     cache_display_name: str | None = None,
     insight_key: str | None = None,
+    json_output: bool = False,
 ) -> str:
+    """Send clustered transcript to LLM for insight generation.
+
+    Args:
+        transcript: Clustered transcript content (markdown format).
+        prompt: Insight prompt text.
+        api_key: Google API key for caching.
+        cache_display_name: Optional cache key for Google content caching.
+        insight_key: Insight identifier for token logging context.
+        json_output: If True, request JSON response format.
+
+    Returns:
+        Generated insight content (markdown or JSON string).
+    """
     # Build context for provider routing and token logging
-    context = f"insight.{insight_key}.markdown" if insight_key else "insight.unknown"
+    output_type = "json" if json_output else "markdown"
+    context = (
+        f"insight.{insight_key}.{output_type}" if insight_key else "insight.unknown"
+    )
 
     # Try to use cache if display name provided
     # Note: caching is Google-specific, so we check provider first
@@ -209,7 +234,7 @@ def send_markdown(
     cache_name = None
     if cache_display_name and provider == "google":
         client = genai.Client(api_key=api_key)
-        cache_name = _get_or_create_cache(client, model, cache_display_name, markdown)
+        cache_name = _get_or_create_cache(client, model, cache_display_name, transcript)
 
     if cache_name:
         # Cache hit: content already in cache, just send prompt.
@@ -223,16 +248,18 @@ def send_markdown(
             model=model,
             cached_content=cache_name,
             client=client,
+            json_output=json_output,
         )
     else:
         # No cache: use unified generate()
         return generate(
-            contents=[markdown, prompt],
+            contents=[transcript, prompt],
             context=context,
             temperature=0.3,
             max_output_tokens=8192 * 6,
             thinking_budget=8192 * 3,
             system_instruction=COMMON_SYSTEM_INSTRUCTION,
+            json_output=json_output,
         )
 
 
@@ -248,7 +275,7 @@ def _should_skip_extraction(result: str) -> bool:
     avoids unnecessary API calls and prevents hallucination from entity context.
 
     Args:
-        result: The markdown result from send_markdown().
+        result: The insight result from send_insight().
 
     Returns:
         True if extraction should be skipped, False otherwise.
@@ -375,6 +402,7 @@ def main() -> None:
     extra_occ = insight_meta.get("occurrences")
     skip_occ = extra_occ is False
     do_anticipations = insight_meta.get("anticipations") is True
+    output_format = insight_meta.get("output")  # "json" or None (markdown)
     success = False
 
     # Choose clustering function based on mode
@@ -418,7 +446,7 @@ def main() -> None:
 
         prompt = insight_prompt.text
 
-        # Resolve provider for display (routing happens inside send_markdown)
+        # Resolve provider for display (routing happens inside send_insight)
         from muse.models import resolve_provider
 
         _, model = resolve_provider(f"insight.{insight_key}")
@@ -433,36 +461,43 @@ def main() -> None:
             count_tokens(markdown, prompt, api_key, model)
             return
 
-        md_path = _output_path(day_dir, insight_key, segment=args.segment)
+        is_json_output = output_format == "json"
+        output_path = _output_path(
+            day_dir, insight_key, segment=args.segment, output_format=output_format
+        )
         # Use cache key scoped to day or segment
         if args.segment:
             cache_display_name = f"{day}_{args.segment}"
         else:
             cache_display_name = f"{day}"
 
-        # Check if markdown file already exists
-        md_exists = md_path.exists() and md_path.stat().st_size > 0
+        # Check if output file already exists
+        output_exists = output_path.exists() and output_path.stat().st_size > 0
 
-        if md_exists and not args.force:
-            print(f"Markdown file already exists: {md_path}. Loading existing content.")
-            with open(md_path, "r") as f:
+        if output_exists and not args.force:
+            print(
+                f"Output file already exists: {output_path}. Loading existing content."
+            )
+            with open(output_path, "r") as f:
                 result = f.read()
-        elif md_exists and args.force:
-            print("Markdown file exists but --force specified. Regenerating.")
-            result = send_markdown(
+        elif output_exists and args.force:
+            print("Output file exists but --force specified. Regenerating.")
+            result = send_insight(
                 markdown,
                 prompt,
                 api_key,
                 cache_display_name=cache_display_name,
                 insight_key=insight_key,
+                json_output=is_json_output,
             )
         else:
-            result = send_markdown(
+            result = send_insight(
                 markdown,
                 prompt,
                 api_key,
                 cache_display_name=cache_display_name,
                 insight_key=insight_key,
+                json_output=is_json_output,
             )
 
         # Check if we got a valid response
@@ -470,12 +505,17 @@ def main() -> None:
             print("Error: No text content in response")
             return
 
-        # Only write markdown if it was newly generated
-        if not md_exists or args.force:
-            os.makedirs(md_path.parent, exist_ok=True)
-            with open(md_path, "w") as f:
+        # Only write output if it was newly generated
+        if not output_exists or args.force:
+            os.makedirs(output_path.parent, exist_ok=True)
+            with open(output_path, "w") as f:
                 f.write(result)
-            print(f"Results saved to: {md_path}")
+            print(f"Results saved to: {output_path}")
+
+        # Skip extraction for JSON output (output IS the structured data)
+        if is_json_output:
+            success = True
+            return
 
         if skip_occ and not do_anticipations:
             print('"occurrences" set to false; skipping event extraction')
@@ -533,17 +573,18 @@ def main() -> None:
         insight_topic = get_insight_topic(insight_key)
 
         # Compute the relative source insight path
-        # md_path is absolute, day_dir is the YYYYMMDD directory path
-        # source_insight should be like "20240101/insights/meetings.md"
+        # output_path is absolute, day_dir is the YYYYMMDD directory path
+        # source_insight should be like "20240101/insights/meetings.md" or ".json"
         journal = get_journal()
+        ext = "json" if output_format == "json" else "md"
         try:
-            source_insight = os.path.relpath(str(md_path), journal)
+            source_insight = os.path.relpath(str(output_path), journal)
         except ValueError:
             # Fallback: construct from day and topic
             source_insight = os.path.join(
                 day,
                 "insights" if not args.segment else args.segment,
-                f"{insight_topic}.md",
+                f"{insight_topic}.{ext}",
             )
         written_paths = _write_events_jsonl(
             events=events,

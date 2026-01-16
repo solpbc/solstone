@@ -37,7 +37,7 @@ def test_ponder_main(tmp_path, monkeypatch):
 
     monkeypatch.setattr(
         mod,
-        "send_markdown",
+        "send_insight",
         lambda *a, **k: MOCK_RESULT,
     )
     captured = {}
@@ -89,7 +89,7 @@ def test_ponder_extra_instructions(tmp_path, monkeypatch):
 
     monkeypatch.setattr(
         mod,
-        "send_markdown",
+        "send_insight",
         lambda *a, **k: MOCK_RESULT,
     )
     captured = {}
@@ -133,7 +133,7 @@ def test_ponder_extra_instructions(tmp_path, monkeypatch):
 
 
 def test_ponder_skip_minimal_content(tmp_path, monkeypatch):
-    """Test that extraction is skipped when send_markdown returns minimal content."""
+    """Test that extraction is skipped when send_insight returns minimal content."""
     mod = importlib.import_module("think.insight")
     day_dir = copy_day(tmp_path)
     prompt = tmp_path / "prompt.txt"
@@ -142,7 +142,7 @@ def test_ponder_skip_minimal_content(tmp_path, monkeypatch):
     # Return minimal content that should trigger skip
     monkeypatch.setattr(
         mod,
-        "send_markdown",
+        "send_insight",
         lambda *a, **k: "No meetings detected",
     )
     called = {}
@@ -186,7 +186,7 @@ def test_ponder_skip_occurrences(tmp_path, monkeypatch):
     monkeypatch.setattr(mod, "get_insights", fake_get_insights)
     monkeypatch.setattr(
         mod,
-        "send_markdown",
+        "send_insight",
         lambda *a, **k: MOCK_RESULT,
     )
     called = {}
