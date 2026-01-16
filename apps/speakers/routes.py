@@ -69,9 +69,9 @@ def _time_to_seconds(t) -> int:
 
 
 def _load_embeddings_file(npz_path: Path) -> tuple[np.ndarray, np.ndarray] | None:
-    """Load embeddings and segment_ids from NPZ file.
+    """Load embeddings and statement_ids from NPZ file.
 
-    Returns tuple of (embeddings, segment_ids) or None if file is invalid.
+    Returns tuple of (embeddings, statement_ids) or None if file is invalid.
     """
     if not npz_path.exists():
         return None
@@ -79,12 +79,12 @@ def _load_embeddings_file(npz_path: Path) -> tuple[np.ndarray, np.ndarray] | Non
     try:
         data = np.load(npz_path)
         embeddings = data.get("embeddings")
-        segment_ids = data.get("segment_ids")
+        statement_ids = data.get("statement_ids")
 
-        if embeddings is None or segment_ids is None:
+        if embeddings is None or statement_ids is None:
             return None
 
-        return embeddings, segment_ids
+        return embeddings, statement_ids
     except Exception as e:
         logger.warning("Failed to load embeddings %s: %s", npz_path, e)
         return None
@@ -282,7 +282,7 @@ def _load_sentences(
     Returns:
         Tuple of (sentences, emb_data):
         - sentences: List of dicts with id, offset, text, has_embedding
-        - emb_data: Tuple of (embeddings, segment_ids) or None if no embeddings
+        - emb_data: Tuple of (embeddings, statement_ids) or None if no embeddings
     """
     segment_dir = day_path(day) / segment_key
 
@@ -327,8 +327,8 @@ def _load_sentences(
     emb_data = _load_embeddings_file(npz_path)
 
     if emb_data is not None:
-        embeddings, segment_ids = emb_data
-        emb_map = {int(sid): True for sid in segment_ids}
+        embeddings, statement_ids = emb_data
+        emb_map = {int(sid): True for sid in statement_ids}
 
         # Mark which sentences have embeddings
         for sentence in sentences:
@@ -348,10 +348,10 @@ def _get_sentence_embedding(
     if emb_data is None:
         return None
 
-    embeddings, segment_ids = emb_data
+    embeddings, statement_ids = emb_data
 
     # Find the embedding for this sentence
-    for i, sid in enumerate(segment_ids):
+    for i, sid in enumerate(statement_ids):
         if int(sid) == sentence_id:
             return _normalize_embedding(embeddings[i])
 
@@ -547,8 +547,8 @@ def api_sentences(day: str, segment_key: str, source: str) -> Any:
 
     # Compute best match for each sentence with embedding
     if emb_data is not None:
-        embeddings, segment_ids = emb_data
-        emb_map = {int(sid): emb for sid, emb in zip(segment_ids, embeddings)}
+        embeddings, statement_ids = emb_data
+        emb_map = {int(sid): emb for sid, emb in zip(statement_ids, embeddings)}
 
         for sentence in sentences:
             if sentence.get("has_embedding"):

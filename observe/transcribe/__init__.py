@@ -5,8 +5,12 @@
 
 This package provides a pluggable STT backend system with:
 - Backend registry for dispatch to different STT providers
-- Shared utilities for segment processing (resegmentation, building)
-- Normalized segment format for all backends
+- Shared utilities for statement building from word-level data
+- Normalized statement format for all backends
+
+Terminology:
+- "statement" = individual transcript entry (sentence or speaker turn)
+- "segment" = journal directory (HHMMSS_LEN/ time window) - NOT used here
 
 Available backends:
 - whisper: Local faster-whisper (default, GPU/CPU)
@@ -20,9 +24,9 @@ Backend Interface:
         sample_rate: int,       # typically 16000
         config: dict,           # backend-specific config
     ) -> list[dict]:
-        '''Return segments with word-level timestamps (if available).'''
+        '''Return statements with word-level timestamps (if available).'''
 
-    Segment format:
+    Statement format:
     {
         "id": int,              # sequential, starting from 1
         "start": float,         # seconds
@@ -94,7 +98,7 @@ def transcribe(
         config: Backend-specific configuration dict
 
     Returns:
-        List of segment dicts with id, start, end, text, and optionally words
+        List of statement dicts with id, start, end, text, and optionally words
     """
     backend_mod = get_backend(backend)
     return backend_mod.transcribe(audio, sample_rate, config)
@@ -106,15 +110,15 @@ def transcribe(
 
 from observe.transcribe.main import (
     DEFAULT_MIN_SPEECH_SECONDS,
-    MIN_SEGMENT_DURATION,
+    MIN_STATEMENT_DURATION,
     main,
     process_audio,
 )
 from observe.transcribe.utils import (
     SENTENCE_ENDINGS,
-    build_segment,
+    build_statement,
+    build_statements_from_acoustic,
     is_apple_silicon,
-    resegment_by_sentences,
 )
 from observe.transcribe.whisper import DEFAULT_COMPUTE, DEFAULT_DEVICE, DEFAULT_MODEL
 
@@ -126,8 +130,8 @@ __all__ = [
     # Utilities
     "SENTENCE_ENDINGS",
     "is_apple_silicon",
-    "build_segment",
-    "resegment_by_sentences",
+    "build_statement",
+    "build_statements_from_acoustic",
     # Main entry point
     "main",
     "process_audio",
@@ -136,5 +140,5 @@ __all__ = [
     "DEFAULT_DEVICE",
     "DEFAULT_COMPUTE",
     "DEFAULT_MIN_SPEECH_SECONDS",
-    "MIN_SEGMENT_DURATION",
+    "MIN_STATEMENT_DURATION",
 ]

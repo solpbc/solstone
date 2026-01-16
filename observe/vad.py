@@ -437,37 +437,37 @@ def reduce_audio(
     return reduced_audio, reduction
 
 
-def restore_segment_timestamps(
-    segments: list[dict],
+def restore_statement_timestamps(
+    statements: list[dict],
     reduction: AudioReduction,
 ) -> list[dict]:
-    """Restore original timestamps to segments transcribed from reduced audio.
+    """Restore original timestamps to statements transcribed from reduced audio.
 
     Args:
-        segments: List of segment dicts with 'start', 'end', and optionally 'words'
+        statements: List of statement dicts with 'start', 'end', and optionally 'words'
         reduction: AudioReduction mapping from reduce_audio()
 
     Returns:
-        New list of segments with timestamps restored to original audio time
+        New list of statements with timestamps restored to original audio time
     """
     restored = []
-    for seg in segments:
-        new_seg = seg.copy()
+    for stmt in statements:
+        new_stmt = stmt.copy()
 
-        # Restore segment-level timestamps
-        new_seg["start"] = reduction.restore_timestamp(seg["start"])
-        new_seg["end"] = reduction.restore_timestamp(seg["end"])
+        # Restore statement-level timestamps
+        new_stmt["start"] = reduction.restore_timestamp(stmt["start"])
+        new_stmt["end"] = reduction.restore_timestamp(stmt["end"])
 
         # Restore word-level timestamps if present
-        if "words" in seg and seg["words"]:
+        if "words" in stmt and stmt["words"]:
             new_words = []
-            for word in seg["words"]:
+            for word in stmt["words"]:
                 new_word = word.copy()
                 new_word["start"] = reduction.restore_timestamp(word["start"])
                 new_word["end"] = reduction.restore_timestamp(word["end"])
                 new_words.append(new_word)
-            new_seg["words"] = new_words
+            new_stmt["words"] = new_words
 
-        restored.append(new_seg)
+        restored.append(new_stmt)
 
     return restored

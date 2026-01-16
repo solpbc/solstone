@@ -86,9 +86,9 @@ def speakers_env(tmp_path, monkeypatch):
                 # Normalize each embedding
                 norms = np.linalg.norm(embeddings, axis=1, keepdims=True)
                 embeddings = embeddings / norms
-                segment_ids = np.arange(1, num_sentences + 1, dtype=np.int32)
+                statement_ids = np.arange(1, num_sentences + 1, dtype=np.int32)
                 np.savez_compressed(
-                    npz_path, embeddings=embeddings, segment_ids=segment_ids
+                    npz_path, embeddings=embeddings, statement_ids=statement_ids
                 )
 
                 # Create dummy audio file

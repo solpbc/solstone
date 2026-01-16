@@ -28,7 +28,7 @@ from pathlib import Path
 import numpy as np
 import soundfile as sf
 
-from observe.transcribe.utils import resegment_by_sentences
+from observe.transcribe.utils import build_statements_from_acoustic
 
 # Default configuration
 DEFAULT_MODEL = "medium.en"
@@ -144,8 +144,8 @@ def transcribe(
             - initial_prompt: Optional prompt for context
 
     Returns:
-        List of sentence-aligned segments with word-level data.
-        Each segment has: id, start, end, text, words
+        List of statements (sentence-aligned) with word-level data.
+        Each statement has: id, start, end, text, words
     """
     model = _get_model(config)
 
@@ -178,8 +178,8 @@ def transcribe(
         # Run transcription
         segments_gen, info = model.transcribe(str(temp_path), **transcribe_kwargs)
 
-        # Consume generator and build output
-        segment_list = []
+        # Consume generator and build acoustic segments
+        acoustic_segments = []
         for seg in segments_gen:
             words = []
             if seg.words:
@@ -193,7 +193,7 @@ def transcribe(
                         }
                     )
 
-            segment_list.append(
+            acoustic_segments.append(
                 {
                     "id": seg.id,
                     "start": seg.start,
@@ -205,25 +205,25 @@ def transcribe(
 
         transcribe_time = time.perf_counter() - t0
 
-        # Get duration from last segment or 0
-        duration = max((s["end"] for s in segment_list), default=0)
+        # Get duration from last acoustic segment or 0
+        duration = max((s["end"] for s in acoustic_segments), default=0)
 
         # Log transcription stats
         logging.info(
-            f"  Transcribed {len(segment_list)} segments, "
+            f"  Transcribed {len(acoustic_segments)} acoustic segments, "
             f"{duration:.1f}s speech in {transcribe_time:.2f}s "
             f"(RTF: {transcribe_time / max(duration, 0.1):.3f}x)"
         )
 
-        # Re-segment by sentence boundaries instead of acoustic pauses
-        whisper_segments = len(segment_list)
-        sentence_segments = resegment_by_sentences(segment_list)
+        # Build statements aligned to sentence boundaries
+        num_acoustic = len(acoustic_segments)
+        statements = build_statements_from_acoustic(acoustic_segments)
         logging.info(
-            f"  Re-segmented {whisper_segments} acoustic segments "
-            f"to {len(sentence_segments)} sentences"
+            f"  Built {len(statements)} statements from "
+            f"{num_acoustic} acoustic segments"
         )
 
-        return sentence_segments
+        return statements
 
     finally:
         # Clean up temp file

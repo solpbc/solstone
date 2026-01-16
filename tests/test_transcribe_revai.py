@@ -7,19 +7,19 @@ import json
 
 import pytest
 
-from observe.transcribe.revai import convert_to_segments
+from observe.transcribe.revai import convert_to_statements
 
 
-class TestConvertToSegments:
-    """Tests for convert_to_segments function."""
+class TestConvertToStatements:
+    """Tests for convert_to_statements function."""
 
     def test_empty_json(self):
         """Empty JSON returns empty list."""
-        assert convert_to_segments({}) == []
-        assert convert_to_segments({"monologues": []}) == []
+        assert convert_to_statements({}) == []
+        assert convert_to_statements({"monologues": []}) == []
 
     def test_single_speaker_monologue(self):
-        """Single speaker monologue produces one segment."""
+        """Single speaker monologue produces one statement."""
         revai_json = {
             "monologues": [
                 {
@@ -46,21 +46,21 @@ class TestConvertToSegments:
             ]
         }
 
-        segments = convert_to_segments(revai_json)
+        statements = convert_to_statements(revai_json)
 
-        assert len(segments) == 1
-        seg = segments[0]
-        assert seg["id"] == 1
-        assert seg["start"] == 1.0
-        assert seg["end"] == 2.0
-        assert seg["text"] == "Hello world."
-        assert seg["speaker"] == 1  # 0-indexed to 1-indexed
-        assert seg["confidence"] == pytest.approx(0.965, rel=0.01)
-        assert seg["words"] is not None
-        assert len(seg["words"]) == 2
+        assert len(statements) == 1
+        stmt = statements[0]
+        assert stmt["id"] == 1
+        assert stmt["start"] == 1.0
+        assert stmt["end"] == 2.0
+        assert stmt["text"] == "Hello world."
+        assert stmt["speaker"] == 1  # 0-indexed to 1-indexed
+        assert stmt["confidence"] == pytest.approx(0.965, rel=0.01)
+        assert stmt["words"] is not None
+        assert len(stmt["words"]) == 2
 
     def test_multiple_speakers(self):
-        """Multiple speakers produce separate segments with correct speaker IDs."""
+        """Multiple speakers produce separate statements with correct speaker IDs."""
         revai_json = {
             "monologues": [
                 {
@@ -105,18 +105,18 @@ class TestConvertToSegments:
             ]
         }
 
-        segments = convert_to_segments(revai_json)
+        statements = convert_to_statements(revai_json)
 
-        assert len(segments) == 3
-        assert segments[0]["speaker"] == 1
-        assert segments[0]["text"] == "Hi."
-        assert segments[1]["speaker"] == 2
-        assert segments[1]["text"] == "Hello."
-        assert segments[2]["speaker"] == 1
-        assert segments[2]["text"] == "Bye."
+        assert len(statements) == 3
+        assert statements[0]["speaker"] == 1
+        assert statements[0]["text"] == "Hi."
+        assert statements[1]["speaker"] == 2
+        assert statements[1]["text"] == "Hello."
+        assert statements[2]["speaker"] == 1
+        assert statements[2]["text"] == "Bye."
 
     def test_sequential_ids(self):
-        """Segment IDs are sequential starting from 1."""
+        """Statement IDs are sequential starting from 1."""
         revai_json = {
             "monologues": [
                 {
@@ -140,12 +140,12 @@ class TestConvertToSegments:
             ]
         }
 
-        segments = convert_to_segments(revai_json)
+        statements = convert_to_statements(revai_json)
 
-        assert [s["id"] for s in segments] == [1, 2, 3]
+        assert [s["id"] for s in statements] == [1, 2, 3]
 
     def test_word_data_preserved(self):
-        """Word-level data is preserved in segments."""
+        """Word-level data is preserved in statements."""
         revai_json = {
             "monologues": [
                 {
@@ -171,10 +171,10 @@ class TestConvertToSegments:
             ]
         }
 
-        segments = convert_to_segments(revai_json)
+        statements = convert_to_statements(revai_json)
 
-        assert len(segments) == 1
-        words = segments[0]["words"]
+        assert len(statements) == 1
+        words = statements[0]["words"]
         assert len(words) == 2
         assert words[0]["word"] == "Test"
         assert words[0]["start"] == 0.0
@@ -196,12 +196,12 @@ class TestConvertToSegments:
             ]
         }
 
-        segments = convert_to_segments(revai_json)
+        statements = convert_to_statements(revai_json)
 
-        assert len(segments) == 1
-        assert segments[0]["text"] == "No timestamps"
-        assert segments[0]["start"] == 0.0
-        assert segments[0]["end"] == 0.0
+        assert len(statements) == 1
+        assert statements[0]["text"] == "No timestamps"
+        assert statements[0]["start"] == 0.0
+        assert statements[0]["end"] == 0.0
 
     def test_empty_monologue_skipped(self):
         """Empty monologues are skipped."""
@@ -217,10 +217,10 @@ class TestConvertToSegments:
             ]
         }
 
-        segments = convert_to_segments(revai_json)
+        statements = convert_to_statements(revai_json)
 
-        assert len(segments) == 1
-        assert segments[0]["speaker"] == 2
+        assert len(statements) == 1
+        assert statements[0]["speaker"] == 2
 
     def test_whitespace_only_skipped(self):
         """Monologues with only whitespace are skipped."""
@@ -242,11 +242,11 @@ class TestConvertToSegments:
             ]
         }
 
-        segments = convert_to_segments(revai_json)
+        statements = convert_to_statements(revai_json)
 
         # Whitespace-only monologue strips to empty and is skipped
-        assert len(segments) == 1
-        assert segments[0]["text"] == "Real"
+        assert len(statements) == 1
+        assert statements[0]["text"] == "Real"
 
     def test_fixture_data(self):
         """Test with actual fixture data from fixtures/revai.json."""
@@ -259,19 +259,19 @@ class TestConvertToSegments:
         with open(fixture_path) as f:
             revai_json = json.load(f)
 
-        segments = convert_to_segments(revai_json)
+        statements = convert_to_statements(revai_json)
 
-        # Should have 2 monologues -> 2 segments
-        assert len(segments) == 2
+        # Should have 2 monologues -> 2 statements
+        assert len(statements) == 2
 
-        # First segment from speaker 0 (becomes 1)
-        assert segments[0]["speaker"] == 1
-        assert "Okay" in segments[0]["text"]
-        assert segments[0]["start"] == pytest.approx(0.395, rel=0.01)
+        # First statement from speaker 0 (becomes 1)
+        assert statements[0]["speaker"] == 1
+        assert "Okay" in statements[0]["text"]
+        assert statements[0]["start"] == pytest.approx(0.395, rel=0.01)
 
-        # Second segment from speaker 2 (becomes 3)
-        assert segments[1]["speaker"] == 3
-        assert "lunch" in segments[1]["text"]
+        # Second statement from speaker 2 (becomes 3)
+        assert statements[1]["speaker"] == 3
+        assert "lunch" in statements[1]["text"]
 
 
 class TestBackendRegistry:
@@ -289,7 +289,7 @@ class TestBackendRegistry:
 
         backend = get_backend("revai")
         assert hasattr(backend, "transcribe")
-        assert hasattr(backend, "convert_to_segments")
+        assert hasattr(backend, "convert_to_statements")
         assert hasattr(backend, "get_model_info")
 
 

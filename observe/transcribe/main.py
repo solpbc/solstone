@@ -13,7 +13,7 @@ Transcription pipeline:
 
 Output files:
 - <stem>.jsonl: Transcript with HH:MM:SS timestamps, topics, setting, descriptions
-- <stem>.npz: Sentence-level voice embeddings indexed by segment id
+- <stem>.npz: Sentence-level voice embeddings indexed by statement id
 
 Configuration (journal config transcribe section):
 - transcribe.backend: STT backend ("whisper", "revai"). Default: "whisper"
@@ -61,7 +61,7 @@ from observe.vad import (
     AudioReduction,
     VadResult,
     reduce_audio,
-    restore_segment_timestamps,
+    restore_statement_timestamps,
     run_vad,
 )
 from think.callosum import callosum_send
@@ -73,7 +73,7 @@ __all__ = [
     "DEFAULT_DEVICE",
     "DEFAULT_COMPUTE",
     "DEFAULT_MIN_SPEECH_SECONDS",
-    "MIN_SEGMENT_DURATION",
+    "MIN_STATEMENT_DURATION",
     "main",
 ]
 
@@ -81,8 +81,8 @@ __all__ = [
 DEFAULT_BACKEND = "whisper"
 DEFAULT_MIN_SPEECH_SECONDS = 1.0
 
-# Minimum segment duration for embedding (seconds)
-MIN_SEGMENT_DURATION = 0.3
+# Minimum statement duration for embedding (seconds)
+MIN_STATEMENT_DURATION = 0.3
 
 # Number of recent entity names to load for transcription context
 ENTITY_NAMES_LIMIT = 40
@@ -200,58 +200,58 @@ def _build_base_event(
     return event
 
 
-def _embed_segments(
+def _embed_statements(
     audio: np.ndarray,
-    segments: list[dict],
+    statements: list[dict],
     sample_rate: int,
     whisper_device: str = "cpu",
 ) -> dict[str, np.ndarray] | None:
-    """Generate voice embeddings for each sentence segment.
+    """Generate voice embeddings for each statement.
 
     Args:
         audio: Audio buffer (float32, mono)
-        segments: List of sentence segments
+        statements: List of statements
         sample_rate: Sample rate in Hz
         whisper_device: Device used by whisper (affects encoder device selection)
 
     Returns:
         Dict with embedding data or None on error:
         - embeddings: (N, 256) float32 array
-        - segment_ids: (N,) int32 array of segment IDs
+        - statement_ids: (N,) int32 array of statement IDs
     """
     try:
         voice_encoder = _get_voice_encoder(whisper_device)
 
-        # Filter segments by duration
-        valid_segments = [
-            s for s in segments if s["end"] - s["start"] >= MIN_SEGMENT_DURATION
+        # Filter statements by duration
+        valid_statements = [
+            s for s in statements if s["end"] - s["start"] >= MIN_STATEMENT_DURATION
         ]
 
-        if not valid_segments:
-            logging.info("No segments with sufficient duration for embedding")
+        if not valid_statements:
+            logging.info("No statements with sufficient duration for embedding")
             return None
 
-        logging.info(f"Embedding {len(valid_segments)} segments...")
+        logging.info(f"Embedding {len(valid_statements)} statements...")
         t0 = time.perf_counter()
 
         embeddings = []
-        segment_ids = []
+        statement_ids = []
         skipped = 0
 
-        for seg in valid_segments:
-            start_sample = int(seg["start"] * sample_rate)
-            end_sample = int(seg["end"] * sample_rate)
-            segment_audio = audio[start_sample:end_sample]
+        for stmt in valid_statements:
+            start_sample = int(stmt["start"] * sample_rate)
+            end_sample = int(stmt["end"] * sample_rate)
+            stmt_audio = audio[start_sample:end_sample]
 
             # Skip if too short after slicing
-            if len(segment_audio) < int(MIN_SEGMENT_DURATION * sample_rate):
+            if len(stmt_audio) < int(MIN_STATEMENT_DURATION * sample_rate):
                 skipped += 1
                 continue
 
             try:
-                emb = voice_encoder.embed_utterance(segment_audio)
+                emb = voice_encoder.embed_utterance(stmt_audio)
                 embeddings.append(emb)
-                segment_ids.append(seg["id"])
+                statement_ids.append(stmt["id"])
             except Exception:
                 skipped += 1
                 continue
@@ -263,13 +263,13 @@ def _embed_segments(
             return None
 
         logging.info(
-            f"  Embedded {len(embeddings)} segments "
+            f"  Embedded {len(embeddings)} statements "
             f"(skipped {skipped}) in {embed_time:.2f}s"
         )
 
         return {
             "embeddings": np.array(embeddings, dtype=np.float32),
-            "segment_ids": np.array(segment_ids, dtype=np.int32),
+            "statement_ids": np.array(statement_ids, dtype=np.int32),
         }
 
     except Exception as e:
@@ -277,8 +277,8 @@ def _embed_segments(
         return None
 
 
-def _segments_to_jsonl(
-    segments: list[dict],
+def _statements_to_jsonl(
+    statements: list[dict],
     raw_filename: str,
     base_datetime: datetime.datetime,
     model_info: dict,
@@ -287,17 +287,17 @@ def _segments_to_jsonl(
     enrichment: dict | None = None,
     vad_result: VadResult | None = None,
 ) -> list[str]:
-    """Convert segments to JSONL lines.
+    """Convert statements to JSONL lines.
 
     Args:
-        segments: List of sentence segments
+        statements: List of statements
         raw_filename: Original audio filename for metadata
         base_datetime: Base datetime for timestamp calculation
         model_info: Dict with model, device, compute_type from backend
         source: Optional source label (e.g., "mic", "sys")
         remote: Optional remote name for metadata
         enrichment: Optional enrichment data with topics, setting, and
-            per-segment corrected text and descriptions
+            per-statement corrected text and descriptions
         vad_result: Optional VAD result for noise detection metadata
 
     Returns:
@@ -329,35 +329,35 @@ def _segments_to_jsonl(
 
     lines = [json.dumps(metadata)]
 
-    # Get enriched segments list (positional matching)
-    enriched_segments = []
-    if enrichment and "segments" in enrichment:
-        enriched_segments = enrichment["segments"]
+    # Get enriched statements list (positional matching)
+    enriched_statements = []
+    if enrichment and "statements" in enrichment:
+        enriched_statements = enrichment["statements"]
 
     # Build entry lines
-    for i, seg in enumerate(segments):
+    for i, stmt in enumerate(statements):
         # Calculate absolute timestamp
-        seg_dt = base_datetime + datetime.timedelta(seconds=seg["start"])
-        timestamp_str = seg_dt.strftime("%H:%M:%S")
+        stmt_dt = base_datetime + datetime.timedelta(seconds=stmt["start"])
+        timestamp_str = stmt_dt.strftime("%H:%M:%S")
 
         entry = {
             "start": timestamp_str,
-            "text": seg["text"],
+            "text": stmt["text"],
         }
         if source:
             entry["source"] = source
 
         # Pass through speaker ID if present (from diarized backends like Rev.ai)
-        if "speaker" in seg:
-            entry["speaker"] = seg["speaker"]
+        if "speaker" in stmt:
+            entry["speaker"] = stmt["speaker"]
 
         # Add corrected text and description from enrichment by position
-        if i < len(enriched_segments):
-            enriched = enriched_segments[i]
+        if i < len(enriched_statements):
+            enriched = enriched_statements[i]
             if isinstance(enriched, dict):
                 # Add corrected text only if different from original
                 corrected = enriched.get("corrected", "")
-                if corrected and corrected != seg["text"]:
+                if corrected and corrected != stmt["text"]:
                     entry["corrected"] = corrected
                 # Add description
                 description = enriched.get("description", "")
@@ -389,7 +389,7 @@ def process_audio(
     - Event emission
 
     Args:
-        raw_path: Path to audio file in segment directory
+        raw_path: Path to audio file in journal segment directory (HHMMSS_LEN/)
         vad_result: Pre-computed VAD result from run_vad()
         backend_config: Configuration for STT backend
         redo: If True, skip "already processed" check
@@ -439,18 +439,18 @@ def process_audio(
 
     try:
         # Dispatch to STT backend
-        segments = stt_transcribe(backend, audio_buffer, SAMPLE_RATE, backend_config)
+        statements = stt_transcribe(backend, audio_buffer, SAMPLE_RATE, backend_config)
 
         # Get model info for metadata (dynamic import based on backend)
         backend_module = get_backend(backend)
         model_info = backend_module.get_model_info(backend_config)
 
-        # Sanity check: if VAD detected speech but we got no segments, something is wrong
-        if vad_result.has_speech and not segments:
+        # Sanity check: if VAD detected speech but we got no statements, something is wrong
+        if vad_result.has_speech and not statements:
             raise RuntimeError(
                 f"VAD detected {vad_result.speech_duration:.1f}s of speech "
                 f"(from {vad_result.duration:.1f}s total) but transcription produced "
-                f"0 segments. This indicates a transcription failure, not silence."
+                f"0 statements. This indicates a transcription failure, not silence."
             )
 
         # Load config for preserve_all setting
@@ -461,7 +461,7 @@ def process_audio(
         event = _build_base_event(raw_path, vad_result, segment, remote)
 
         # Handle no speech detected
-        if not segments:
+        if not statements:
             if preserve_all:
                 event["outcome"] = "preserved"
                 logging.info(
@@ -496,18 +496,18 @@ def process_audio(
             from observe.enrich import enrich_transcript
 
             enrichment = enrich_transcript(
-                processing_audio_path, segments, entity_names=entity_names
+                processing_audio_path, statements, entity_names=entity_names
             )
 
         # Generate embeddings before timestamp restoration
         # Use reduced audio buffer if available for consistent timestamps
-        embeddings_data = _embed_segments(
-            audio_buffer, segments, SAMPLE_RATE, model_info.get("device", "cpu")
+        embeddings_data = _embed_statements(
+            audio_buffer, statements, SAMPLE_RATE, model_info.get("device", "cpu")
         )
 
         # Restore original timestamps if audio was reduced
         if reduction:
-            segments = restore_segment_timestamps(segments, reduction)
+            statements = restore_statement_timestamps(statements, reduction)
             logging.info(
                 f"  Restored timestamps from reduced audio "
                 f"({reduction.reduced_duration:.1f}s -> {reduction.original_duration:.1f}s)"
@@ -515,8 +515,8 @@ def process_audio(
 
         # Convert to JSONL format (now with original timestamps)
         raw_filename = f"{raw_path.stem}{raw_path.suffix}"
-        jsonl_lines = _segments_to_jsonl(
-            segments,
+        jsonl_lines = _statements_to_jsonl(
+            statements,
             raw_filename,
             base_dt,
             model_info,
@@ -565,7 +565,7 @@ def main():
     parser.add_argument(
         "audio_path",
         type=str,
-        help="Path to audio file in segment directory (.flac or .m4a)",
+        help="Path to audio file in journal segment directory, e.g. HHMMSS_LEN/audio.flac",
     )
     parser.add_argument(
         "--redo",

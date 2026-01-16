@@ -3,9 +3,9 @@
 
 """Enrich audio transcripts with contextual information using LLM analysis.
 
-Takes transcript segments paired with audio clips and extracts:
-- Per-segment corrected text (fixing transcription errors)
-- Per-segment audio descriptions (tone, delivery, vocalizations)
+Takes transcript statements paired with audio clips and extracts:
+- Per-statement corrected text (fixing transcription errors)
+- Per-statement audio descriptions (tone, delivery, vocalizations)
 - Overall topics discussed
 - Setting classification (workplace, personal, etc.)
 """
@@ -30,10 +30,10 @@ from think.utils import load_prompt
 logger = logging.getLogger(__name__)
 
 
-def _segment_to_flac_bytes(
+def _statement_to_flac_bytes(
     wav: np.ndarray, start: float, end: float, sample_rate: int
 ) -> bytes:
-    """Extract a segment from audio and encode as FLAC bytes.
+    """Extract a statement's audio and encode as FLAC bytes.
 
     Args:
         wav: Audio waveform (mono, float32)
@@ -46,10 +46,10 @@ def _segment_to_flac_bytes(
     """
     start_sample = int(start * sample_rate)
     end_sample = int(end * sample_rate)
-    segment_audio = wav[start_sample:end_sample]
+    stmt_audio = wav[start_sample:end_sample]
 
     # Convert to int16 for FLAC encoding
-    audio_int16 = (np.clip(segment_audio, -1.0, 1.0) * 32767).astype(np.int16)
+    audio_int16 = (np.clip(stmt_audio, -1.0, 1.0) * 32767).astype(np.int16)
 
     buf = io.BytesIO()
     sf.write(buf, audio_int16, sample_rate, format="FLAC")
@@ -58,26 +58,26 @@ def _segment_to_flac_bytes(
 
 def enrich_transcript(
     audio_path: Path,
-    segments: list[dict],
+    statements: list[dict],
     entity_names: list[str] | None = None,
 ) -> dict | None:
-    """Enrich transcript segments with audio context using LLM analysis.
+    """Enrich transcript statements with audio context using LLM analysis.
 
-    Sends numbered segments with text and audio clips to extract corrected
-    text, per-segment descriptions, and overall topics/setting.
+    Sends numbered statements with text and audio clips to extract corrected
+    text, per-statement descriptions, and overall topics/setting.
 
     Args:
         audio_path: Path to audio file (FLAC)
-        segments: List of segment dicts with 'id', 'start', 'end', 'text'
+        statements: List of statement dicts with 'id', 'start', 'end', 'text'
         entity_names: Optional list of entity names for prompt context
 
     Returns:
         Dict with enrichment data or None on error:
-        - segments: List of dicts with 'corrected' and 'description' keys
+        - statements: List of dicts with 'corrected' and 'description' keys
         - topics: Comma-separated topic string
         - setting: Setting classification string
     """
-    if not segments:
+    if not statements:
         return None
 
     try:
@@ -90,7 +90,7 @@ def enrich_transcript(
         # Format entity names for prompt context
         entity_names_str = ", ".join(entity_names) if entity_names else None
 
-        # Build interleaved content: numbered text label + audio clip for each segment
+        # Build interleaved content: numbered text label + audio clip for each statement
         prompt_content = load_prompt(
             "enrich",
             base_dir=Path(__file__).parent,
@@ -98,19 +98,19 @@ def enrich_transcript(
         )
         contents: list = [prompt_content.text]
 
-        for i, seg in enumerate(segments, start=1):
+        for i, stmt in enumerate(statements, start=1):
             # Add numbered text label
-            text = seg.get("text", "")
-            contents.append(f"Segment {i}: {text}")
+            text = stmt.get("text", "")
+            contents.append(f"Statement {i}: {text}")
 
             # Add audio clip
-            audio_bytes = _segment_to_flac_bytes(wav, seg["start"], seg["end"], sr)
+            audio_bytes = _statement_to_flac_bytes(wav, stmt["start"], stmt["end"], sr)
             contents.append(
                 types.Part.from_bytes(data=audio_bytes, mime_type="audio/flac")
             )
 
         # Call LLM (tier defaults to LITE via CONTEXT_DEFAULTS)
-        logger.info(f"Enriching {len(segments)} segments...")
+        logger.info(f"Enriching {len(statements)} statements...")
         t0 = time.perf_counter()
 
         response_text = generate(
@@ -130,20 +130,20 @@ def enrich_transcript(
             logger.warning(f"Enrichment returned non-dict: {type(result)}")
             return None
 
-        if "segments" not in result or "topics" not in result:
+        if "statements" not in result or "topics" not in result:
             logger.warning(f"Enrichment missing required fields: {result.keys()}")
             return None
 
-        # Validate segments array
-        enriched_segments = result["segments"]
-        if not isinstance(enriched_segments, list):
-            logger.warning("Enrichment 'segments' is not a list")
+        # Validate statements array
+        enriched_statements = result["statements"]
+        if not isinstance(enriched_statements, list):
+            logger.warning("Enrichment 'statements' is not a list")
             return None
 
-        if len(enriched_segments) != len(segments):
+        if len(enriched_statements) != len(statements):
             logger.warning(
-                f"Enrichment returned {len(enriched_segments)} segments "
-                f"for {len(segments)} input segments"
+                f"Enrichment returned {len(enriched_statements)} statements "
+                f"for {len(statements)} input statements"
             )
             # Still usable - we'll align what we can
 

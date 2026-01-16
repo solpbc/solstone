@@ -17,21 +17,21 @@ from observe.transcribe import (
     DEFAULT_DEVICE,
     DEFAULT_MIN_SPEECH_SECONDS,
     DEFAULT_MODEL,
-    MIN_SEGMENT_DURATION,
+    MIN_STATEMENT_DURATION,
     SENTENCE_ENDINGS,
-    build_segment,
-    resegment_by_sentences,
+    build_statement,
+    build_statements_from_acoustic,
 )
 from observe.utils import prepare_audio_file
 
 
-class TestResegmentBySentences:
-    """Test sentence-based resegmentation of Whisper output."""
+class TestBuildStatementsFromAcoustic:
+    """Test building statements from acoustic segments."""
 
-    def test_merges_fragments_into_sentence(self):
-        """Multiple Whisper segments forming one sentence should merge."""
-        # Simulates Whisper splitting "I think I can do it." across 3 segments
-        segments = [
+    def test_merges_fragments_into_statement(self):
+        """Multiple acoustic segments forming one sentence should merge."""
+        # Simulates Whisper splitting "I think I can do it." across 3 acoustic segments
+        acoustic_segments = [
             {
                 "id": 1,
                 "start": 0.0,
@@ -64,19 +64,19 @@ class TestResegmentBySentences:
             },
         ]
 
-        result = resegment_by_sentences(segments)
+        result = build_statements_from_acoustic(acoustic_segments)
 
         assert len(result) == 1
-        seg = result[0]
-        assert seg["id"] == 1
-        assert seg["start"] == 0.0
-        assert seg["end"] == 4.0
-        assert seg["text"] == "I think I can do it."
-        assert len(seg["words"]) == 6
+        stmt = result[0]
+        assert stmt["id"] == 1
+        assert stmt["start"] == 0.0
+        assert stmt["end"] == 4.0
+        assert stmt["text"] == "I think I can do it."
+        assert len(stmt["words"]) == 6
 
     def test_splits_on_period(self):
-        """Segments should split on period."""
-        segments = [
+        """Statements should split on period."""
+        acoustic_segments = [
             {
                 "id": 1,
                 "start": 0.0,
@@ -89,15 +89,15 @@ class TestResegmentBySentences:
             },
         ]
 
-        result = resegment_by_sentences(segments)
+        result = build_statements_from_acoustic(acoustic_segments)
 
         assert len(result) == 2
         assert result[0]["text"] == "Hello."
         assert result[1]["text"] == "World."
 
     def test_splits_on_question_mark(self):
-        """Segments should split on question mark."""
-        segments = [
+        """Statements should split on question mark."""
+        acoustic_segments = [
             {
                 "id": 1,
                 "start": 0.0,
@@ -112,15 +112,15 @@ class TestResegmentBySentences:
             },
         ]
 
-        result = resegment_by_sentences(segments)
+        result = build_statements_from_acoustic(acoustic_segments)
 
         assert len(result) == 2
         assert result[0]["text"] == "How are you?"
         assert result[1]["text"] == "Good."
 
     def test_splits_on_exclamation(self):
-        """Segments should split on exclamation mark."""
-        segments = [
+        """Statements should split on exclamation mark."""
+        acoustic_segments = [
             {
                 "id": 1,
                 "start": 0.0,
@@ -133,7 +133,7 @@ class TestResegmentBySentences:
             },
         ]
 
-        result = resegment_by_sentences(segments)
+        result = build_statements_from_acoustic(acoustic_segments)
 
         assert len(result) == 2
         assert result[0]["text"] == "Wow!"
@@ -141,7 +141,7 @@ class TestResegmentBySentences:
 
     def test_handles_incomplete_final_sentence(self):
         """Final sentence without punctuation should still be captured."""
-        segments = [
+        acoustic_segments = [
             {
                 "id": 1,
                 "start": 0.0,
@@ -161,21 +161,21 @@ class TestResegmentBySentences:
             },
         ]
 
-        result = resegment_by_sentences(segments)
+        result = build_statements_from_acoustic(acoustic_segments)
 
         assert len(result) == 2
         assert result[0]["text"] == "First sentence."
         assert result[1]["text"] == "And then"
 
     def test_empty_segments_returns_unchanged(self):
-        """Empty segments should return unchanged."""
-        segments = []
-        result = resegment_by_sentences(segments)
-        assert result == segments
+        """Empty acoustic segments should return unchanged."""
+        acoustic_segments = []
+        result = build_statements_from_acoustic(acoustic_segments)
+        assert result == acoustic_segments
 
-    def test_segment_timestamps_from_words(self):
-        """Segment start/end should come from first/last word."""
-        segments = [
+    def test_statement_timestamps_from_words(self):
+        """Statement start/end should come from first/last word."""
+        acoustic_segments = [
             {
                 "id": 1,
                 "start": 0.0,
@@ -188,30 +188,30 @@ class TestResegmentBySentences:
             },
         ]
 
-        result = resegment_by_sentences(segments)
+        result = build_statements_from_acoustic(acoustic_segments)
 
-        seg = result[0]
-        assert seg["start"] == 2.5  # From first word
-        assert seg["end"] == 4.2  # From last word
+        stmt = result[0]
+        assert stmt["start"] == 2.5  # From first word
+        assert stmt["end"] == 4.2  # From last word
 
 
-class TestBuildSegment:
-    """Test segment building helper."""
+class TestBuildStatement:
+    """Test statement building helper."""
 
-    def test_builds_segment_from_words(self):
-        """Should build segment with correct fields."""
+    def test_builds_statement_from_words(self):
+        """Should build statement with correct fields."""
         words = [
             {"word": " Hello", "start": 0.0, "end": 0.5, "probability": 0.9},
             {"word": " world", "start": 0.6, "end": 1.0, "probability": 0.8},
         ]
 
-        seg = build_segment(1, words)
+        stmt = build_statement(1, words)
 
-        assert seg["id"] == 1
-        assert seg["start"] == 0.0
-        assert seg["end"] == 1.0
-        assert seg["text"] == "Hello world"
-        assert seg["words"] == words
+        assert stmt["id"] == 1
+        assert stmt["start"] == 0.0
+        assert stmt["end"] == 1.0
+        assert stmt["text"] == "Hello world"
+        assert stmt["words"] == words
 
 
 class TestConstants:
@@ -224,9 +224,9 @@ class TestConstants:
         assert "!" in SENTENCE_ENDINGS
         assert "," not in SENTENCE_ENDINGS
 
-    def test_min_segment_duration(self):
-        """MIN_SEGMENT_DURATION should be positive."""
-        assert MIN_SEGMENT_DURATION > 0
+    def test_min_statement_duration(self):
+        """MIN_STATEMENT_DURATION should be positive."""
+        assert MIN_STATEMENT_DURATION > 0
 
     def test_default_transcription_settings(self):
         """Default transcription settings should be valid."""
@@ -372,14 +372,14 @@ class TestEmbeddingsFormat:
 
     def test_embeddings_arrays_shape(self):
         """Embeddings should have correct array shapes."""
-        # Simulate 10 segments with 256-dim embeddings
+        # Simulate 10 statements with 256-dim embeddings
         embeddings = np.random.randn(10, 256).astype(np.float32)
-        segment_ids = np.array([1, 2, 3, 4, 5, 6, 7, 8, 9, 10], dtype=np.int32)
+        statement_ids = np.array([1, 2, 3, 4, 5, 6, 7, 8, 9, 10], dtype=np.int32)
 
         assert embeddings.shape == (10, 256)
-        assert segment_ids.shape == (10,)
+        assert statement_ids.shape == (10,)
         assert embeddings.dtype == np.float32
-        assert segment_ids.dtype == np.int32
+        assert statement_ids.dtype == np.int32
 
     def test_embeddings_npz_roundtrip(self):
         """Embeddings should survive save/load cycle."""
@@ -387,20 +387,20 @@ class TestEmbeddingsFormat:
             npz_path = Path(tmpdir) / "embeddings.npz"
 
             embeddings = np.random.randn(5, 256).astype(np.float32)
-            segment_ids = np.array([1, 2, 3, 4, 5], dtype=np.int32)
+            statement_ids = np.array([1, 2, 3, 4, 5], dtype=np.int32)
 
             np.savez_compressed(
-                npz_path, embeddings=embeddings, segment_ids=segment_ids
+                npz_path, embeddings=embeddings, statement_ids=statement_ids
             )
 
             loaded = np.load(npz_path)
             np.testing.assert_array_almost_equal(loaded["embeddings"], embeddings)
-            np.testing.assert_array_equal(loaded["segment_ids"], segment_ids)
+            np.testing.assert_array_equal(loaded["statement_ids"], statement_ids)
 
-    def test_segment_ids_are_unique(self):
-        """Segment IDs should be unique."""
-        segment_ids = np.array([1, 2, 3, 4, 5], dtype=np.int32)
-        assert len(segment_ids) == len(np.unique(segment_ids))
+    def test_statement_ids_are_unique(self):
+        """Statement IDs should be unique."""
+        statement_ids = np.array([1, 2, 3, 4, 5], dtype=np.int32)
+        assert len(statement_ids) == len(np.unique(statement_ids))
 
 
 class TestJSONLFormat:
@@ -423,7 +423,7 @@ class TestJSONLFormat:
 
     def test_metadata_includes_transcription_config(self):
         """Metadata should include model, device, and compute_type fields."""
-        # Example metadata as produced by _segments_to_jsonl()
+        # Example metadata as produced by _statements_to_jsonl()
         metadata = {
             "raw": "audio.flac",
             "model": "medium.en",

@@ -17,7 +17,7 @@ from pathlib import Path
 
 from muse.models import generate
 from observe.hear import load_transcript
-from observe.transcribe.revai import convert_to_segments, transcribe_file
+from observe.transcribe.revai import convert_to_statements, transcribe_file
 from think.callosum import CallosumConnection
 from think.detect_created import detect_created
 from think.detect_transcript import detect_transcript_json, detect_transcript_segment
@@ -417,21 +417,21 @@ def audio_transcribe(
         logger.error(f"Failed to transcribe audio: {e}")
         raise
 
-    # Convert to segments (per-speaker, with float timestamps)
-    segments = convert_to_segments(revai_json)
+    # Convert to statements (per-speaker, with float timestamps)
+    statements = convert_to_statements(revai_json)
 
-    if not segments:
+    if not statements:
         logger.warning("No transcript entries found")
         return created_files, revai_json
 
-    # Group segments into 5-minute chunks based on float start times
+    # Group statements into 5-minute chunks based on float start times
     chunks = []
     current_chunk = []
     chunk_start_time = None
 
-    for seg in segments:
+    for stmt in statements:
         # Use float seconds directly (no string parsing needed)
-        start_seconds = int(seg.get("start", 0.0))
+        start_seconds = int(stmt.get("start", 0.0))
 
         # Determine which 5-minute chunk this belongs to
         chunk_index = start_seconds // 300  # 300 seconds = 5 minutes
@@ -445,7 +445,7 @@ def audio_transcribe(
         elif chunk_start_time is None:
             chunk_start_time = chunk_index
 
-        current_chunk.append(seg)
+        current_chunk.append(stmt)
 
     # Don't forget the last chunk
     if current_chunk:
@@ -480,22 +480,22 @@ def audio_transcribe(
             logger.warning(f"Failed to slice audio segment: {e}")
             audio_filename = None
 
-        # Convert segments to entries with absolute timestamps
+        # Convert statements to entries with absolute timestamps
         absolute_entries = []
-        for seg in chunk_entries:
+        for stmt in chunk_entries:
             # Convert float seconds to absolute HH:MM:SS
-            relative_seconds = seg.get("start", 0.0)
+            relative_seconds = stmt.get("start", 0.0)
             absolute_dt = base_dt + timedelta(seconds=relative_seconds)
 
             entry = {
                 "start": absolute_dt.strftime("%H:%M:%S"),
                 "source": "import",
-                "speaker": seg.get("speaker", 1),
-                "text": seg.get("text", ""),
+                "speaker": stmt.get("speaker", 1),
+                "text": stmt.get("text", ""),
             }
 
             # Add description based on confidence
-            confidence = seg.get("confidence")
+            confidence = stmt.get("confidence")
             if confidence is not None:
                 if confidence < 0.7:
                     entry["description"] = "low confidence"

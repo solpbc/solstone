@@ -5,7 +5,11 @@
 
 This module provides common utilities used by multiple STT backends:
 - Platform detection (is_apple_silicon)
-- Segment building and re-segmentation by sentence boundaries
+- Statement building from word-level data
+
+Terminology:
+- "statement" = individual transcript entry (sentence or speaker turn)
+- "segment" = journal directory (HHMMSS_LEN/ time window) - NOT used here
 """
 
 from __future__ import annotations
@@ -21,21 +25,21 @@ def is_apple_silicon() -> bool:
     return platform.system() == "Darwin" and platform.machine() == "arm64"
 
 
-def build_segment(segment_id: int, words: list[dict]) -> dict:
-    """Build a segment dict from a list of words.
+def build_statement(statement_id: int, words: list[dict]) -> dict:
+    """Build a statement dict from a list of words.
 
     Args:
-        segment_id: Sequential segment ID
+        statement_id: Sequential statement ID
         words: List of word dicts with 'word', 'start', 'end', 'probability'
 
     Returns:
-        Segment dict with id, start, end, text, words
+        Statement dict with id, start, end, text, words
     """
     # Join words - Whisper includes leading spaces in word text
     text = "".join(w.get("word", "") for w in words).strip()
 
     return {
-        "id": segment_id,
+        "id": statement_id,
         "start": words[0]["start"],
         "end": words[-1]["end"],
         "text": text,
@@ -43,29 +47,30 @@ def build_segment(segment_id: int, words: list[dict]) -> dict:
     }
 
 
-def resegment_by_sentences(segments: list[dict]) -> list[dict]:
-    """Re-segment transcript by sentence boundaries instead of acoustic pauses.
+def build_statements_from_acoustic(acoustic_segments: list[dict]) -> list[dict]:
+    """Build statements from acoustic segments by aligning to sentence boundaries.
 
     Backends that return acoustic segments (VAD-driven) can use this to
     re-align to sentence boundaries (punctuation-driven). This function
-    flattens all words and re-segments based on sentence-ending punctuation.
+    flattens all words and builds statements based on sentence-ending punctuation.
 
     Args:
-        segments: List of segment dicts with 'words' containing word-level data
+        acoustic_segments: List of acoustic segment dicts with 'words' containing
+            word-level data
 
     Returns:
-        New list of segments aligned to sentence boundaries
+        List of statements aligned to sentence boundaries
     """
-    # Flatten all words from all segments
+    # Flatten all words from all acoustic segments
     all_words = []
-    for seg in segments:
+    for seg in acoustic_segments:
         all_words.extend(seg.get("words", []))
 
     if not all_words:
-        return segments
+        return acoustic_segments
 
-    # Build new segments based on sentence-ending punctuation
-    new_segments = []
+    # Build statements based on sentence-ending punctuation
+    statements = []
     current_words = []
 
     for word in all_words:
@@ -74,12 +79,12 @@ def resegment_by_sentences(segments: list[dict]) -> list[dict]:
         # Check if word ends with sentence-ending punctuation
         word_text = word.get("word", "").strip()
         if word_text and word_text[-1] in SENTENCE_ENDINGS:
-            # Complete this segment
-            new_segments.append(build_segment(len(new_segments) + 1, current_words))
+            # Complete this statement
+            statements.append(build_statement(len(statements) + 1, current_words))
             current_words = []
 
     # Handle any remaining words (incomplete final sentence)
     if current_words:
-        new_segments.append(build_segment(len(new_segments) + 1, current_words))
+        statements.append(build_statement(len(statements) + 1, current_words))
 
-    return new_segments
+    return statements

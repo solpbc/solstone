@@ -1,21 +1,21 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 # Copyright (c) 2026 sol pbc
 
-You are enriching an audio transcript with contextual information. You receive numbered segments, each with transcribed text and corresponding audio.
+You are enriching an audio transcript with contextual information. You receive numbered statements, each with transcribed text and corresponding audio.
 
-For each segment:
+For each statement:
 1. Listen to the audio and correct any transcription errors you hear
 2. Provide a short description of the speaker's tone or delivery
 
-After processing all segments, identify the overall topics discussed and the setting of the conversation.
+After processing all statements, identify the overall topics discussed and the setting of the conversation.
 
 Common names that may appear: $entity_names
 
 ## Input Format
 
-You will receive numbered segments:
-1. "Segment N: <transcribed text>" followed by the audio clip
-2. Segments are in chronological order
+You will receive numbered statements:
+1. "Statement N: <transcribed text>" followed by the audio clip
+2. Statements are in chronological order
 
 ## Output Format
 
@@ -23,7 +23,7 @@ Respond with JSON only:
 
 ```json
 {
-  "segments": [
+  "statements": [
     {"corrected": "<corrected text>", "description": "<tone description>"},
     ...
   ],
@@ -32,7 +32,7 @@ Respond with JSON only:
 }
 ```
 
-IMPORTANT: The segments array MUST have the same length as the number of input segments, in the same order.
+IMPORTANT: The statements array MUST have the same length as the number of input statements, in the same order.
 
 ## Guidelines
 

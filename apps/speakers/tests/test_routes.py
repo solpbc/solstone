@@ -102,9 +102,9 @@ def test_load_sentences(speakers_env):
     assert sentences[0]["has_embedding"] is True
 
     assert emb_data is not None
-    embeddings, segment_ids = emb_data
+    embeddings, statement_ids = emb_data
     assert embeddings.shape == (3, 256)
-    assert len(segment_ids) == 3
+    assert len(statement_ids) == 3
 
 
 def test_load_sentences_no_transcript(speakers_env):
@@ -346,9 +346,9 @@ def test_load_embeddings_file(speakers_env):
     result = _load_embeddings_file(npz_path)
 
     assert result is not None
-    embeddings, segment_ids = result
+    embeddings, statement_ids = result
     assert embeddings.shape == (3, 256)
-    assert len(segment_ids) == 3
+    assert len(statement_ids) == 3
 
 
 def test_load_embeddings_file_not_found():

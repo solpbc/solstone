@@ -19,7 +19,7 @@ from observe.vad import (
     compute_nonspeech_rms,
     get_nonspeech_segments,
     reduce_audio,
-    restore_segment_timestamps,
+    restore_statement_timestamps,
     run_vad,
 )
 
@@ -570,7 +570,7 @@ class TestAudioReduction:
 
 
 class TestRestoreSegmentTimestamps:
-    """Test restore_segment_timestamps function."""
+    """Test restore_statement_timestamps function."""
 
     def test_restores_segment_timestamps(self):
         """Should restore segment start and end timestamps."""
@@ -598,7 +598,7 @@ class TestRestoreSegmentTimestamps:
             reduced_duration=8.0,
         )
 
-        restored = restore_segment_timestamps(segments, reduction)
+        restored = restore_statement_timestamps(segments, reduction)
 
         assert restored[0]["start"] == 0.0
         assert restored[0]["end"] == 2.0
@@ -633,7 +633,7 @@ class TestRestoreSegmentTimestamps:
             reduced_duration=8.0,
         )
 
-        restored = restore_segment_timestamps(segments, reduction)
+        restored = restore_statement_timestamps(segments, reduction)
 
         assert restored[0]["start"] == 8.0
         assert restored[0]["end"] == 10.0
@@ -667,7 +667,7 @@ class TestRestoreSegmentTimestamps:
             reduced_duration=2.0,
         )
 
-        restored = restore_segment_timestamps(segments, reduction)
+        restored = restore_statement_timestamps(segments, reduction)
 
         assert restored[0]["text"] == "Hello"
         assert restored[0]["custom_field"] == "preserved"
@@ -688,7 +688,7 @@ class TestRestoreSegmentTimestamps:
             reduced_duration=5.0,
         )
 
-        restored = restore_segment_timestamps([], reduction)
+        restored = restore_statement_timestamps([], reduction)
         assert restored == []
 
     def test_handles_segments_without_words(self):
@@ -708,7 +708,7 @@ class TestRestoreSegmentTimestamps:
             reduced_duration=2.0,
         )
 
-        restored = restore_segment_timestamps(segments, reduction)
+        restored = restore_statement_timestamps(segments, reduction)
 
         assert restored[0]["start"] == 5.0
         assert restored[0]["end"] == 7.0

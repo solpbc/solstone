@@ -735,7 +735,7 @@ Example transcript file:
   - `facet` – facet name for entity extraction
   - `setting` – contextual setting description
 
-**Transcript segments (subsequent lines):**
+**Transcript statements (subsequent lines):**
 - `start` – timestamp in HH:MM:SS format (required)
 - `text` – transcribed text (required)
 - `source` – audio source: "mic" or "sys" (optional)

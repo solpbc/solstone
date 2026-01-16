@@ -8,7 +8,7 @@ a professional transcription API with high-quality speaker diarization.
 
 Unlike the local Whisper backend, Rev.ai:
 - Provides speaker diarization (identifies who said what)
-- Returns per-speaker segments (not per-sentence)
+- Returns per-speaker statements (not per-sentence)
 - Requires API credentials and network access
 - Processes asynchronously (submit job, poll, fetch)
 
@@ -233,22 +233,22 @@ def transcribe_file(media_path: Path, config: dict | None = None) -> dict:
     return get_transcript_json(token, job_id)
 
 
-def convert_to_segments(revai_json: dict) -> list[dict]:
-    """Convert Rev.ai transcript to standard segment format.
+def convert_to_statements(revai_json: dict) -> list[dict]:
+    """Convert Rev.ai transcript to standard statement format.
 
-    This produces per-speaker segments (one segment per monologue),
+    This produces per-speaker statements (one statement per monologue),
     preserving speaker attribution and word-level data.
 
     Args:
         revai_json: Raw Rev.ai transcript dict with monologues
 
     Returns:
-        List of segment dicts with id, start, end, text, speaker, words
+        List of statement dicts with id, start, end, text, speaker, words
     """
-    segments = []
+    statements = []
 
     if "monologues" not in revai_json:
-        return segments
+        return statements
 
     for monologue in revai_json["monologues"]:
         # Rev uses 0-based speakers, we use 1-based
@@ -296,9 +296,9 @@ def convert_to_segments(revai_json: dict) -> list[dict]:
         if not text:
             continue
 
-        # Build segment
-        segment = {
-            "id": len(segments) + 1,
+        # Build statement
+        statement = {
+            "id": len(statements) + 1,
             "start": start_ts if start_ts is not None else 0.0,
             "end": end_ts if end_ts is not None else 0.0,
             "text": text,
@@ -308,11 +308,11 @@ def convert_to_segments(revai_json: dict) -> list[dict]:
 
         # Add average confidence if available
         if confidences:
-            segment["confidence"] = sum(confidences) / len(confidences)
+            statement["confidence"] = sum(confidences) / len(confidences)
 
-        segments.append(segment)
+        statements.append(statement)
 
-    return segments
+    return statements
 
 
 def transcribe(
@@ -323,7 +323,7 @@ def transcribe(
     """Transcribe audio using Rev.ai API.
 
     This is the standard backend interface. It writes the audio to a temp file,
-    submits to Rev.ai, polls for completion, and returns normalized segments.
+    submits to Rev.ai, polls for completion, and returns normalized statements.
 
     Args:
         audio: Audio buffer (float32, mono)
@@ -331,7 +331,7 @@ def transcribe(
         config: Backend configuration dict
 
     Returns:
-        List of per-speaker segments with id, start, end, text, speaker, words
+        List of per-speaker statements with id, start, end, text, speaker, words
     """
     temp_path = None
     try:
@@ -350,12 +350,12 @@ def transcribe(
         # Get raw transcript
         revai_json = transcribe_file(temp_path, config)
 
-        # Convert to standard segment format
-        segments = convert_to_segments(revai_json)
+        # Convert to standard statement format
+        statements = convert_to_statements(revai_json)
 
-        logging.info("  Rev.ai returned %d speaker segments", len(segments))
+        logging.info("  Rev.ai returned %d speaker statements", len(statements))
 
-        return segments
+        return statements
 
     finally:
         # Clean up temp file
