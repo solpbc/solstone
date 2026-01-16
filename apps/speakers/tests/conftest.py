@@ -56,9 +56,20 @@ def speakers_env(tmp_path, monkeypatch):
                 jsonl_path = segment_dir / f"{source}.jsonl"
                 lines = [json.dumps({"raw": f"{source}.flac", "model": "medium.en"})]
 
+                # Parse segment_key to get base time (e.g., "143022_300" -> 14:30:22)
+                # This matches real transcriber output which uses absolute timestamps
+                time_part = segment_key.split("_")[0]
+                base_h = int(time_part[0:2])
+                base_m = int(time_part[2:4])
+                base_s = int(time_part[4:6])
+                base_seconds = base_h * 3600 + base_m * 60 + base_s
+
                 for i in range(num_sentences):
                     offset = i * 5  # 5 seconds per sentence
-                    h, m, s = 0, offset // 60, offset % 60
+                    abs_seconds = base_seconds + offset
+                    h = (abs_seconds // 3600) % 24
+                    m = (abs_seconds % 3600) // 60
+                    s = abs_seconds % 60
                     lines.append(
                         json.dumps(
                             {

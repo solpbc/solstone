@@ -70,6 +70,18 @@ def test_scan_segment_embeddings_with_data(speakers_env):
     assert set(segments[0]["sources"]) == {"mic_audio", "sys_audio"}
 
 
+def test_scan_segment_embeddings_plain_audio(speakers_env):
+    """Test scanning finds plain 'audio' source (not just *_audio pattern)."""
+    from apps.speakers.routes import _scan_segment_embeddings
+
+    env = speakers_env()
+    env.create_segment("20240101", "143022_300", ["audio"])
+
+    segments = _scan_segment_embeddings("20240101")
+    assert len(segments) == 1
+    assert segments[0]["sources"] == ["audio"]
+
+
 def test_load_sentences(speakers_env):
     """Test loading sentences with embeddings."""
     from apps.speakers.routes import _load_sentences

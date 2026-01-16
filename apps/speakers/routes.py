@@ -124,7 +124,10 @@ def _scan_segment_embeddings(day: str) -> list[dict]:
             continue
 
         # Filter to audio sources (exclude other npz files if any)
-        sources = [f.stem for f in npz_files if f.stem.endswith("_audio")]
+        # Accept both "<source>_audio" pattern and plain "audio"
+        sources = [
+            f.stem for f in npz_files if f.stem.endswith("_audio") or f.stem == "audio"
+        ]
         if not sources:
             continue
 
@@ -173,12 +176,20 @@ def _load_sentences(
     if not lines:
         return [], None
 
+    # Get segment start time to compute relative offsets
+    # JSONL contains absolute wall-clock times (e.g., "14:30:22")
+    # Audio files start at time 0, so we need relative offset
+    parsed = segment_parse(segment_key)
+    segment_start_seconds = _time_to_seconds(parsed[0]) if parsed[0] else 0
+
     # First line is metadata, skip it
     # Remaining lines are sentences indexed by line number (1-based segment ID)
     for i, line in enumerate(lines[1:], start=1):
         try:
             entry = json.loads(line)
-            offset = _parse_time_to_seconds(entry.get("start", "00:00:00"))
+            abs_seconds = _parse_time_to_seconds(entry.get("start", "00:00:00"))
+            # Convert absolute time to relative offset from segment start
+            offset = abs_seconds - segment_start_seconds
             sentences.append(
                 {
                     "id": i,
@@ -382,18 +393,18 @@ def api_sentences(day: str, segment_key: str, source: str) -> Any:
     if not validate_segment_key(segment_key):
         return error_response("Invalid segment key", 400)
 
-    # Get selected facet from cookie
+    # Get selected facet from cookie (optional - sentences work without it)
     selected_facet = request.cookies.get("selected_facet")
-    if not selected_facet:
-        return error_response("No facet selected", 400)
 
     # Load sentences and embeddings
     sentences, emb_data = _load_sentences(day, segment_key, source)
     if not sentences:
         return error_response("No transcript found", 404)
 
-    # Load known voiceprints for matching
-    known_voiceprints = _scan_entity_voiceprints(selected_facet)
+    # Load known voiceprints for matching (only if facet selected)
+    known_voiceprints = {}
+    if selected_facet:
+        known_voiceprints = _scan_entity_voiceprints(selected_facet)
 
     # Compute best match for each sentence with embedding
     if emb_data is not None:
@@ -413,12 +424,14 @@ def api_sentences(day: str, segment_key: str, source: str) -> Any:
     # Filter to only sentences with embeddings
     sentences = [s for s in sentences if s.get("has_embedding")]
 
-    # Load ALL entities in the facet for dropdown
-    try:
-        all_entities = load_entities(selected_facet)
-        all_entity_names = [e.get("name") for e in all_entities if e.get("name")]
-    except RuntimeError:
-        all_entity_names = []
+    # Load ALL entities in the facet for dropdown (only if facet selected)
+    all_entity_names = []
+    if selected_facet:
+        try:
+            all_entities = load_entities(selected_facet)
+            all_entity_names = [e.get("name") for e in all_entities if e.get("name")]
+        except RuntimeError:
+            pass
 
     # Get audio file URL
     segment_dir = day_path(day) / segment_key

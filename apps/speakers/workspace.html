@@ -176,6 +176,12 @@
   background: #fafafa;
 }
 
+.spk-sentence.spk-playing {
+  background: #eff6ff;
+  border-left: 3px solid #3b82f6;
+  margin-left: -3px;
+}
+
 .spk-sentence-time {
   font-family: monospace;
   font-size: 12px;
@@ -373,6 +379,8 @@
   let selectedSegment = null;
   let selectedSource = null;
   let audioPlayer = null;
+  let currentSentences = [];  // Sentence data with offsets for time tracking
+  let playingSentenceId = null;  // Currently playing/highlighted sentence
 
   // Load segments on page load
   loadSegments();
@@ -516,6 +524,10 @@
   function renderSentences(data) {
     const { sentences, all_entities, audio_file, facet, source } = data;
 
+    // Store sentences for time-based tracking
+    currentSentences = sentences;
+    playingSentenceId = null;
+
     // Update facet badge
     const badge = document.getElementById('spkFacetBadge');
     if (badge) badge.textContent = facet;
@@ -529,6 +541,7 @@
         </audio>
       `;
       audioPlayer = document.getElementById('spkAudio');
+      setupAudioListeners();
     } else {
       audioContainer.innerHTML = '<div class="spk-empty">No audio file available</div>';
       audioPlayer = null;
@@ -549,6 +562,81 @@
 
     // Setup event handlers
     setupSentenceHandlers(facet, source);
+  }
+
+  function setupAudioListeners() {
+    if (!audioPlayer) return;
+
+    audioPlayer.addEventListener('timeupdate', () => {
+      updateActiveSentence(audioPlayer.currentTime);
+    });
+
+    audioPlayer.addEventListener('play', () => {
+      // Update button to pause icon for currently playing sentence
+      if (playingSentenceId !== null) {
+        const btn = detailPanel.querySelector(`.spk-sentence[data-id="${playingSentenceId}"] .spk-play-btn`);
+        if (btn) btn.innerHTML = '&#9208;';  // Pause icon
+      }
+    });
+
+    audioPlayer.addEventListener('pause', () => {
+      // Update button back to play icon
+      if (playingSentenceId !== null) {
+        const btn = detailPanel.querySelector(`.spk-sentence[data-id="${playingSentenceId}"] .spk-play-btn`);
+        if (btn) btn.innerHTML = '&#9654;';  // Play icon
+      }
+    });
+
+    audioPlayer.addEventListener('ended', () => {
+      // Clear playing state
+      if (playingSentenceId !== null) {
+        const row = detailPanel.querySelector(`.spk-sentence[data-id="${playingSentenceId}"]`);
+        if (row) {
+          row.classList.remove('spk-playing');
+          row.querySelector('.spk-play-btn').innerHTML = '&#9654;';
+        }
+        playingSentenceId = null;
+      }
+    });
+  }
+
+  function updateActiveSentence(currentTime) {
+    // Find the sentence that contains the current playback time
+    let activeSentence = null;
+    for (let i = 0; i < currentSentences.length; i++) {
+      const s = currentSentences[i];
+      const nextOffset = currentSentences[i + 1]?.offset ?? Infinity;
+      if (currentTime >= s.offset && currentTime < nextOffset) {
+        activeSentence = s;
+        break;
+      }
+    }
+
+    const newId = activeSentence?.id ?? null;
+    if (newId === playingSentenceId) return;  // No change
+
+    // Remove highlight from previous sentence
+    if (playingSentenceId !== null) {
+      const prevRow = detailPanel.querySelector(`.spk-sentence[data-id="${playingSentenceId}"]`);
+      if (prevRow) {
+        prevRow.classList.remove('spk-playing');
+        prevRow.querySelector('.spk-play-btn').innerHTML = '&#9654;';
+      }
+    }
+
+    // Add highlight to new sentence
+    playingSentenceId = newId;
+    if (playingSentenceId !== null) {
+      const newRow = detailPanel.querySelector(`.spk-sentence[data-id="${playingSentenceId}"]`);
+      if (newRow) {
+        newRow.classList.add('spk-playing');
+        if (!audioPlayer.paused) {
+          newRow.querySelector('.spk-play-btn').innerHTML = '&#9208;';
+        }
+        // Scroll into view if needed
+        newRow.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }
+    }
   }
 
   function renderSentence(sentence, allEntities) {
@@ -601,14 +689,20 @@
   }
 
   function setupSentenceHandlers(facet, source) {
-    // Play button
+    // Play/Pause button
     detailPanel.querySelectorAll('.spk-play-btn').forEach(btn => {
       btn.addEventListener('click', () => {
         const row = btn.closest('.spk-sentence');
+        const sentenceId = parseInt(row.dataset.id);
         const offset = parseFloat(row.dataset.offset);
-        if (audioPlayer) {
-          // Offset is relative to segment start, not absolute
-          // The segment's base time is already accounted for in the audio file
+
+        if (!audioPlayer) return;
+
+        // If clicking the currently playing sentence, toggle play/pause
+        if (sentenceId === playingSentenceId && !audioPlayer.paused) {
+          audioPlayer.pause();
+        } else {
+          // Seek to this sentence and play
           audioPlayer.currentTime = offset;
           audioPlayer.play();
         }
