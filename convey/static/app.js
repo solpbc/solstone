@@ -783,9 +783,12 @@
     history.replaceState({facet: window.selectedFacet}, '');
 
     // Listen for browser back/forward navigation
+    // Only change facet if state explicitly contains facet property
+    // Hash-only navigation (state=null) should not affect facet selection
     window.addEventListener('popstate', (e) => {
-      const facet = e.state?.facet !== undefined ? e.state.facet : null;
-      selectFacet(facet, true);  // true = from popstate, don't push new state
+      if (e.state && 'facet' in e.state) {
+        selectFacet(e.state.facet, true);  // true = from popstate, don't push new state
+      }
     });
 
   }
