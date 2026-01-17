@@ -508,19 +508,23 @@ def api_segment_speakers(day: str, segment_key: str) -> Any:
     for speaker_name in speakers:
         entity = find_matching_attached_entity(speaker_name, attached_entities)
         if entity:
-            matched.append({
-                "detected_name": speaker_name,
-                "entity_name": entity.get("name"),
-                "entity_type": entity.get("type"),
-            })
+            matched.append(
+                {
+                    "detected_name": speaker_name,
+                    "entity_name": entity.get("name"),
+                    "entity_type": entity.get("type"),
+                }
+            )
         else:
             unmatched.append(speaker_name)
 
-    return jsonify({
-        "matched": matched,
-        "unmatched": unmatched,
-        "facet": selected_facet,
-    })
+    return jsonify(
+        {
+            "matched": matched,
+            "unmatched": unmatched,
+            "facet": selected_facet,
+        }
+    )
 
 
 @speakers_bp.route("/api/sentences/<day>/<segment_key>/<source>")
