@@ -423,7 +423,12 @@ def test_format_screen_handles_multiple_categories():
 
 
 def test_categories_includes_all_expected():
-    """Test that CATEGORIES includes all expected values."""
+    """Test that CATEGORIES includes all expected values.
+
+    Note: tmux is NOT a describe category - it has a formatter (tmux.py)
+    but no metadata (tmux.json) because tmux frames are generated directly
+    by the observer, not by the describe process.
+    """
     expected = [
         "terminal",
         "code",
@@ -434,11 +439,10 @@ def test_categories_includes_all_expected():
         "media",
         "gaming",
         "productivity",
-        "tmux",
     ]
     for cat in expected:
         assert cat in CATEGORIES, f"Expected category {cat} not found"
-    assert len(CATEGORIES) == 10
+    assert len(CATEGORIES) == 9
 
 
 def test_tmux_formatter_output():
