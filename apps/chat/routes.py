@@ -387,6 +387,36 @@ def mark_chat_read(chat_id: str) -> Any:
         return resp
 
 
+@chat_bp.route("/api/chat/<chat_id>", methods=["DELETE"])
+def delete_chat(chat_id: str) -> Any:
+    """Delete a chat by removing its metadata file.
+
+    Args:
+        chat_id: The chat ID
+
+    Returns:
+        Success status or error
+    """
+    try:
+        chats_dir = get_app_storage_path("chat", "chats", ensure_exists=False)
+        chat_file = chats_dir / f"{chat_id}.json"
+
+        if not chat_file.exists():
+            resp = jsonify({"error": f"Chat not found: {chat_id}"})
+            resp.status_code = 404
+            return resp
+
+        # Delete the chat metadata file
+        chat_file.unlink()
+
+        return jsonify({"success": True})
+
+    except Exception as e:
+        resp = jsonify({"error": str(e)})
+        resp.status_code = 500
+        return resp
+
+
 @chat_bp.route("/api/chat/<chat_id>/retry", methods=["POST"])
 def retry_chat(chat_id: str) -> Any:
     """Retry the last failed message in a chat.

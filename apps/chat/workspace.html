@@ -249,13 +249,6 @@
   min-height: 200px;
 }
 
-.recent-chats-panel h3 {
-  margin: 0 0 1em 0;
-  color: #666;
-  font-weight: normal;
-  font-size: 0.9em;
-}
-
 .recent-chats-list {
   display: flex;
   flex-direction: column;
@@ -306,23 +299,267 @@ a.recent-chat-item {
 
 /* Unread styling */
 .recent-chat-item.unread {
-  background: #e3f2fd;
-  border-left: 3px solid #2196f3;
-  font-weight: 600;
+  background: #bbdefb;
+  border-left: 3px solid #1976d2;
+  font-weight: 700;
 }
 
 .unread-indicator {
-  width: 8px;
-  height: 8px;
-  background: #2196f3;
+  width: 10px;
+  height: 10px;
+  background: #1976d2;
   border-radius: 50%;
   display: inline-block;
   margin-right: 8px;
+}
+
+/* Panel header with unread count */
+.recent-chats-header {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5em;
+  margin-bottom: 1em;
+}
+
+.recent-chats-header h3 {
+  margin: 0;
+  color: #666;
+  font-weight: normal;
+  font-size: 0.9em;
+}
+
+.unread-count-badge {
+  font-size: 0.75em;
+  color: #1976d2;
+  font-weight: 600;
+}
+
+/* See all link */
+.see-all-link {
+  margin-top: 1em;
+  font-size: 0.85em;
+  color: #666;
+  text-decoration: none;
+  transition: color 0.15s;
+}
+
+.see-all-link:hover {
+  color: var(--facet-color, #1976d2);
+  text-decoration: underline;
+}
+
+/* Back button */
+.back-button {
+  align-self: flex-start;
+  padding: 0.5em 0.75em;
+  margin-bottom: 0.5em;
+  background: transparent;
+  border: none;
+  color: #666;
+  font-size: 0.85em;
+  cursor: pointer;
+  transition: color 0.15s;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25em;
+}
+
+.back-button:hover {
+  color: var(--facet-color, #1976d2);
+}
+
+/* All chats view */
+.all-chats-panel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 1em 2em 2em;
+}
+
+.all-chats-header {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5em;
+  margin-bottom: 1em;
+  width: 100%;
+  max-width: 500px;
+}
+
+.all-chats-header h3 {
+  margin: 0;
+  color: #333;
+  font-weight: 600;
+  font-size: 1em;
+}
+
+.all-chats-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5em;
+  width: 100%;
+  max-width: 500px;
+}
+
+.load-more-container {
+  margin-top: 1em;
+  text-align: center;
+}
+
+.load-more-button {
+  padding: 0.75em 1.5em;
+  background: #f5f5f5;
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
+  color: #666;
+  font-size: 0.85em;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.load-more-button:hover {
+  background: #fff;
+  border-color: var(--facet-color, #1976d2);
+  color: var(--facet-color, #1976d2);
+}
+
+/* Delete button on chat items */
+.chat-item-actions {
+  position: absolute;
+  right: 0.5em;
+  top: 50%;
+  transform: translateY(-50%);
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.recent-chat-item {
+  position: relative;
+}
+
+.recent-chat-item:hover .chat-item-actions {
+  opacity: 1;
+}
+
+.delete-chat-btn {
+  background: transparent;
+  border: none;
+  padding: 0.25em 0.5em;
+  cursor: pointer;
+  font-size: 0.9em;
+  opacity: 0.5;
+  transition: opacity 0.15s;
+}
+
+.delete-chat-btn:hover {
+  opacity: 1;
+}
+
+/* Delete confirmation modal */
+.delete-modal {
+  display: none;
+  position: fixed;
+  z-index: 200;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.5);
+}
+
+.delete-modal.visible {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.delete-modal-content {
+  background: white;
+  padding: 24px;
+  border-radius: 12px;
+  width: 90%;
+  max-width: 400px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+}
+
+.delete-modal-content h3 {
+  margin: 0 0 16px 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: #333;
+}
+
+.delete-modal-content p {
+  margin: 0 0 8px 0;
+  color: #666;
+}
+
+.delete-modal-title {
+  font-weight: 600;
+  color: #333;
+  word-break: break-word;
+}
+
+.delete-modal-warning {
+  font-size: 0.85em;
+  color: #999;
+  margin-top: 12px;
+}
+
+.delete-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75em;
+  margin-top: 20px;
+}
+
+.delete-modal-cancel {
+  padding: 0.6em 1.2em;
+  background: #f5f5f5;
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
+  color: #666;
+  font-size: 0.9em;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.delete-modal-cancel:hover {
+  background: #eee;
+}
+
+.delete-modal-confirm {
+  padding: 0.6em 1.2em;
+  background: #ef5350;
+  border: none;
+  border-radius: 6px;
+  color: white;
+  font-size: 0.9em;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.delete-modal-confirm:hover {
+  background: #e53935;
 }
 </style>
 
 <div class="workspace-content">
   <div id="messages"></div>
+</div>
+
+<!-- Delete confirmation modal -->
+<div class="delete-modal" id="deleteModal">
+  <div class="delete-modal-content">
+    <h3>Delete Chat</h3>
+    <p>Are you sure you want to delete</p>
+    <p class="delete-modal-title" id="deleteModalTitle"></p>
+    <p class="delete-modal-warning">This cannot be undone.</p>
+    <div class="delete-modal-actions">
+      <button class="delete-modal-cancel" onclick="hideDeleteModal()">Cancel</button>
+      <button class="delete-modal-confirm" id="deleteModalConfirm">Delete</button>
+    </div>
+  </div>
 </div>
 
 <script src="{{ vendor_lib('marked') }}"></script>
@@ -363,10 +600,11 @@ function formatRelativeTime(ts) {
  * @param {Object} chat - Chat data with chat_id, title, ts, facet, unread
  * @param {Object} options - Display options
  * @param {boolean} options.showUnread - Show unread indicator if chat.unread
+ * @param {boolean} options.showDelete - Show delete button on hover
  * @returns {HTMLElement} The chat item anchor element
  */
 function buildChatItem(chat, options = {}) {
-  const { showUnread = false } = options;
+  const { showUnread = false, showDelete = false } = options;
   const facet = window.selectedFacet;
 
   const item = document.createElement('a');
@@ -413,36 +651,74 @@ function buildChatItem(chat, options = {}) {
   preview.textContent = chat.title || '(no title)';
   item.appendChild(preview);
 
+  // Delete button (optional)
+  if (showDelete) {
+    const actions = document.createElement('div');
+    actions.className = 'chat-item-actions';
+
+    const deleteBtn = document.createElement('button');
+    deleteBtn.className = 'delete-chat-btn';
+    deleteBtn.innerHTML = '🗑️';
+    deleteBtn.title = 'Delete chat';
+    deleteBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      showDeleteModal(chat);
+    });
+
+    actions.appendChild(deleteBtn);
+    item.appendChild(actions);
+  }
+
   return item;
 }
 
-// Filter chats by selected facet
+// Filter and sort chats by selected facet
 function getFilteredChats(facet) {
   let filtered = allChats;
   if (facet !== null) {
     filtered = allChats.filter(c => c.facet === facet);
   }
   // Sort: unread first, then by timestamp
-  return filtered
-    .sort((a, b) => {
-      if (a.unread !== b.unread) return a.unread ? -1 : 1;
-      return b.ts - a.ts;
-    })
-    .slice(0, 5);
+  return [...filtered].sort((a, b) => {
+    if (a.unread !== b.unread) return a.unread ? -1 : 1;
+    return b.ts - a.ts;
+  });
+}
+
+// Count unread chats in filtered list
+function countUnread(chats) {
+  return chats.filter(c => c.unread).length;
 }
 
 // Render recent chats panel
 function renderRecentChats() {
   const facet = window.selectedFacet;
-  const chats = getFilteredChats(facet);
+  const allFiltered = getFilteredChats(facet);
+  const chats = allFiltered.slice(0, 5);
+  const unreadCount = countUnread(allFiltered);
+  const totalCount = allFiltered.length;
 
   const panel = document.createElement('div');
   panel.className = 'recent-chats-panel';
   panel.id = 'recentChatsPanel';
 
+  // Header with unread count
+  const header = document.createElement('div');
+  header.className = 'recent-chats-header';
+
   const title = document.createElement('h3');
   title.textContent = 'Recent Chats';
-  panel.appendChild(title);
+  header.appendChild(title);
+
+  if (unreadCount > 0) {
+    const badge = document.createElement('span');
+    badge.className = 'unread-count-badge';
+    badge.textContent = `(${unreadCount} unread)`;
+    header.appendChild(badge);
+  }
+
+  panel.appendChild(header);
 
   if (chats.length === 0) {
     const empty = document.createElement('div');
@@ -454,20 +730,227 @@ function renderRecentChats() {
     list.className = 'recent-chats-list';
 
     for (const chat of chats) {
-      list.appendChild(buildChatItem(chat, { showUnread: true }));
+      list.appendChild(buildChatItem(chat, { showUnread: true, showDelete: true }));
     }
 
     panel.appendChild(list);
+
+    // "See all chats" link if there are more than 5
+    if (totalCount > 5) {
+      const seeAllLink = document.createElement('a');
+      seeAllLink.className = 'see-all-link';
+      seeAllLink.href = '#all';
+      seeAllLink.textContent = `See all chats (${totalCount}) →`;
+      panel.appendChild(seeAllLink);
+    }
   }
 
   return panel;
 }
 
-// Hide recent chats panel
-function hideRecentChats() {
-  const panel = document.getElementById('recentChatsPanel');
-  if (panel) panel.remove();
+// Pagination state for all-chats view
+let allChatsDisplayed = 0;
+const CHATS_PER_PAGE = 20;
+
+// Render all chats view with pagination
+function renderAllChatsView() {
+  const facet = window.selectedFacet;
+  const allFiltered = getFilteredChats(facet);
+  const unreadCount = countUnread(allFiltered);
+
+  // Reset pagination
+  allChatsDisplayed = Math.min(CHATS_PER_PAGE, allFiltered.length);
+
+  const panel = document.createElement('div');
+  panel.className = 'all-chats-panel';
+  panel.id = 'allChatsPanel';
+
+  // Header with unread count
+  const header = document.createElement('div');
+  header.className = 'all-chats-header';
+
+  const title = document.createElement('h3');
+  title.textContent = 'All Chats';
+  header.appendChild(title);
+
+  if (unreadCount > 0) {
+    const badge = document.createElement('span');
+    badge.className = 'unread-count-badge';
+    badge.textContent = `(${unreadCount} unread)`;
+    header.appendChild(badge);
+  }
+
+  panel.appendChild(header);
+
+  if (allFiltered.length === 0) {
+    const empty = document.createElement('div');
+    empty.className = 'recent-chats-empty';
+    empty.textContent = 'No chats';
+    panel.appendChild(empty);
+  } else {
+    const list = document.createElement('div');
+    list.className = 'all-chats-list';
+    list.id = 'allChatsList';
+
+    for (let i = 0; i < allChatsDisplayed; i++) {
+      list.appendChild(buildChatItem(allFiltered[i], { showUnread: true, showDelete: true }));
+    }
+
+    panel.appendChild(list);
+
+    // "Load more" button if there are more chats
+    if (allFiltered.length > allChatsDisplayed) {
+      const loadMoreContainer = document.createElement('div');
+      loadMoreContainer.className = 'load-more-container';
+      loadMoreContainer.id = 'loadMoreContainer';
+
+      const remaining = allFiltered.length - allChatsDisplayed;
+      const loadMoreBtn = document.createElement('button');
+      loadMoreBtn.className = 'load-more-button';
+      loadMoreBtn.textContent = `Load more (${remaining} remaining)`;
+      loadMoreBtn.addEventListener('click', () => loadMoreChats());
+
+      loadMoreContainer.appendChild(loadMoreBtn);
+      panel.appendChild(loadMoreContainer);
+    }
+  }
+
+  return panel;
 }
+
+// Load more chats in all-chats view
+function loadMoreChats() {
+  const facet = window.selectedFacet;
+  const allFiltered = getFilteredChats(facet);
+  const list = document.getElementById('allChatsList');
+  const loadMoreContainer = document.getElementById('loadMoreContainer');
+
+  if (!list) return;
+
+  const startIndex = allChatsDisplayed;
+  const endIndex = Math.min(startIndex + CHATS_PER_PAGE, allFiltered.length);
+
+  for (let i = startIndex; i < endIndex; i++) {
+    list.appendChild(buildChatItem(allFiltered[i], { showUnread: true, showDelete: true }));
+  }
+
+  allChatsDisplayed = endIndex;
+
+  // Update or remove load more button
+  if (loadMoreContainer) {
+    if (allChatsDisplayed >= allFiltered.length) {
+      loadMoreContainer.remove();
+    } else {
+      const remaining = allFiltered.length - allChatsDisplayed;
+      loadMoreContainer.querySelector('.load-more-button').textContent = `Load more (${remaining} remaining)`;
+    }
+  }
+}
+
+// Hide chat list panels (recent or all)
+function hideChatListPanels() {
+  const recentPanel = document.getElementById('recentChatsPanel');
+  if (recentPanel) recentPanel.remove();
+  const allPanel = document.getElementById('allChatsPanel');
+  if (allPanel) allPanel.remove();
+}
+
+// Delete modal state
+let chatToDelete = null;
+
+/**
+ * Show delete confirmation modal for a chat.
+ * @param {Object} chat - Chat object with chat_id and title
+ */
+function showDeleteModal(chat) {
+  chatToDelete = chat;
+  const modal = document.getElementById('deleteModal');
+  const titleEl = document.getElementById('deleteModalTitle');
+  const confirmBtn = document.getElementById('deleteModalConfirm');
+
+  titleEl.textContent = `"${chat.title || '(untitled)'}"?`;
+
+  // Set up confirm button click handler
+  confirmBtn.onclick = () => confirmDelete();
+
+  modal.classList.add('visible');
+}
+
+/**
+ * Hide delete confirmation modal.
+ */
+function hideDeleteModal() {
+  const modal = document.getElementById('deleteModal');
+  modal.classList.remove('visible');
+  chatToDelete = null;
+}
+
+/**
+ * Confirm and execute chat deletion.
+ */
+async function confirmDelete() {
+  if (!chatToDelete) return;
+
+  const chatId = chatToDelete.chat_id;
+
+  try {
+    const response = await fetch(`/app/chat/api/chat/${chatId}`, {
+      method: 'DELETE'
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      console.error('Failed to delete chat:', error);
+      return;
+    }
+
+    // Remove from local cache
+    const index = allChats.findIndex(c => c.chat_id === chatId);
+    if (index >= 0) {
+      allChats.splice(index, 1);
+    }
+
+    // Update background service if it exists
+    if (window.AppServices?.services?.chat) {
+      window.AppServices.services.chat.removeChat(chatId);
+    }
+
+    // If currently viewing the deleted chat, navigate away
+    if (currentChatId === chatId) {
+      navigateTo(null);
+    } else {
+      // Re-render current view
+      if (location.hash === '#all') {
+        showAllChatsView();
+      } else {
+        showRecentChatsView();
+      }
+    }
+
+  } catch (error) {
+    console.error('Failed to delete chat:', error);
+  } finally {
+    hideDeleteModal();
+  }
+}
+
+// Close modal when clicking outside
+document.addEventListener('click', (e) => {
+  const modal = document.getElementById('deleteModal');
+  if (e.target === modal) {
+    hideDeleteModal();
+  }
+});
+
+// Close modal with Escape key
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') {
+    const modal = document.getElementById('deleteModal');
+    if (modal?.classList.contains('visible')) {
+      hideDeleteModal();
+    }
+  }
+});
 
 // Fetch all chats from backend
 async function fetchRecentChats() {
@@ -496,8 +979,13 @@ window.addEventListener('facet.switch', (e) => {
     }
     // Otherwise stay on current chat
   } else {
-    // On recent view - re-render with new facet filter
-    showRecentChatsView();
+    // On list view - re-render with new facet filter
+    // Check which list view we're on by looking at the hash
+    if (location.hash === '#all') {
+      showAllChatsView();
+    } else {
+      showRecentChatsView();
+    }
   }
 });
 
@@ -646,18 +1134,23 @@ function initRouter() {
 
 /**
  * Parse hash and dispatch to appropriate view.
+ * Routes: '' or '#' -> recent, '#all' -> all chats, '#<id>' -> chat view
  */
 function handleRouteChange() {
   const hash = location.hash.slice(1);
-  const chatId = /^\d+$/.test(hash) ? hash : null;
 
-  if (chatId) {
-    // Avoid reloading same chat
-    if (currentChatId !== chatId) {
-      loadChat(chatId);
+  if (hash === 'all') {
+    // All chats view
+    if (currentChatId !== null || !document.getElementById('allChatsPanel')) {
+      showAllChatsView();
+    }
+  } else if (/^\d+$/.test(hash)) {
+    // Chat view
+    if (currentChatId !== hash) {
+      loadChat(hash);
     }
   } else {
-    // Recent chats view - show if not already on it or if first load
+    // Recent chats view (empty hash or unknown)
     if (currentChatId !== null || !document.getElementById('recentChatsPanel')) {
       showRecentChatsView();
     }
@@ -686,6 +1179,31 @@ function clearMessages() {
   Object.keys(toolPlacards).forEach(key => delete toolPlacards[key]);
   previousAgent = null;
   resetEventTracking();
+  hideBackButton();
+}
+
+/**
+ * Show back button for navigating out of chat view.
+ */
+function showBackButton() {
+  if (document.getElementById('backButton')) return;
+
+  const backBtn = document.createElement('a');
+  backBtn.id = 'backButton';
+  backBtn.className = 'back-button';
+  backBtn.href = '#';
+  backBtn.innerHTML = '← Chats';
+
+  // Insert at the beginning of messages div
+  messagesDiv.insertBefore(backBtn, messagesDiv.firstChild);
+}
+
+/**
+ * Hide back button.
+ */
+function hideBackButton() {
+  const backBtn = document.getElementById('backButton');
+  if (backBtn) backBtn.remove();
 }
 
 /**
@@ -708,6 +1226,7 @@ async function loadChat(chatId) {
 
   // Prepare UI - always clear and load full thread
   clearMessages();
+  showBackButton();
   showActivityIndicator();
 
   // Fetch full thread events from server
@@ -898,7 +1417,18 @@ function resetToListView() {
  */
 function showRecentChatsView() {
   resetToListView();
+  hideChatListPanels();
   const panel = renderRecentChats();
+  messagesDiv.appendChild(panel);
+}
+
+/**
+ * Show all chats view with proper state reset.
+ */
+function showAllChatsView() {
+  resetToListView();
+  hideChatListPanels();
+  const panel = renderAllChatsView();
   messagesDiv.appendChild(panel);
 }
 
@@ -1219,8 +1749,8 @@ function setupFormHandlers() {
     const text = input.value.trim();
     if (!text) return;
 
-    // Hide recent chats panel when sending a message
-    hideRecentChats();
+    // Hide chat list panels when sending a message
+    hideChatListPanels();
 
     input.value = '';
     input.disabled = true;

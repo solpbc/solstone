@@ -44,7 +44,7 @@ AppServices.register('chat', {
   },
 
   // Rebuild submenu from recentChats cache
-  // Shows fixed nav items at top, then top 5 recent chats
+  // Shows fixed nav items at top, then top 5 recent chats, then "All Chats" at bottom
   rebuildSubmenu() {
     const sorted = [...this.recentChats]
       .sort((a, b) => {
@@ -64,7 +64,9 @@ AppServices.register('chat', {
         badge: chat.unread ? '●' : null,
         order: i,
         facet: chat.facet
-      }))
+      })),
+      // All chats link at bottom (only if there are chats)
+      ...(this.recentChats.length > 0 ? [{ id: 'all', label: 'All Chats →', href: '/app/chat#all', order: 99 }] : [])
     ];
 
     AppServices.submenus.set('chat', items);
@@ -161,6 +163,22 @@ AppServices.register('chat', {
     }
   },
 
+  // Common helper to update badges and submenu after state changes
+  refreshBadgesAndSubmenu() {
+    // Update app badge
+    if (this.unreadCount > 0) {
+      AppServices.badges.app.set('chat', this.unreadCount);
+    } else {
+      AppServices.badges.app.clear('chat');
+    }
+
+    // Rebuild submenu
+    this.rebuildSubmenu();
+
+    // Update facet badges
+    this.updateFacetBadges();
+  },
+
   // Called from workspace when user views a chat
   markRead(chatId, facet) {
     // Update unread count
@@ -177,17 +195,30 @@ AppServices.register('chat', {
       chat.unread = false;
     }
 
-    // Update app badge
-    if (this.unreadCount > 0) {
-      AppServices.badges.app.set('chat', this.unreadCount);
-    } else {
-      AppServices.badges.app.clear('chat');
+    // Refresh badges and submenu
+    this.refreshBadgesAndSubmenu();
+  },
+
+  // Called from workspace when user deletes a chat
+  removeChat(chatId) {
+    // Find and remove chat from cache
+    const index = this.recentChats.findIndex(c => c.chat_id === chatId);
+    if (index >= 0) {
+      const chat = this.recentChats[index];
+
+      // Update counts if chat was unread
+      if (chat.unread) {
+        this.unreadCount = Math.max(0, this.unreadCount - 1);
+        if (chat.facet && this.facetCounts[chat.facet]) {
+          this.facetCounts[chat.facet] = Math.max(0, this.facetCounts[chat.facet] - 1);
+        }
+      }
+
+      // Remove from cache
+      this.recentChats.splice(index, 1);
     }
 
-    // Rebuild submenu (chat moves down, loses badge)
-    this.rebuildSubmenu();
-
-    // Update facet badges
-    this.updateFacetBadges();
+    // Refresh badges and submenu
+    this.refreshBadgesAndSubmenu();
   }
 });
