@@ -124,6 +124,11 @@ CONTEXT_DEFAULTS: Dict[str, Dict[str, Any]] = {
         "label": "Audio Enrichment",
         "group": "Observe",
     },
+    "observe.extract.selection": {
+        "tier": TIER_FLASH,
+        "label": "Frame Selection",
+        "group": "Observe",
+    },
     "observe.summarize": {
         "tier": TIER_FLASH,
         "label": "Summarization",

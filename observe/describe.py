@@ -547,9 +547,11 @@ class VideoProcessor:
             # Sort by frame_id for consistent ordering
             categorized_list.sort(key=lambda x: x["frame_id"])
 
-            # Run selection
+            # Run selection (pass CATEGORIES for AI-based selection)
             selected_ids = set(
-                select_frames_for_extraction(categorized_list, max_extractions)
+                select_frames_for_extraction(
+                    categorized_list, max_extractions, categories=CATEGORIES
+                )
             )
 
             logger.info(
