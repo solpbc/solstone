@@ -4,7 +4,7 @@ This directory contains category definitions for vision analysis of screencast f
 
 ## Adding a New Category
 
-Each category requires a `.json` file with metadata, and optionally a `.txt` prompt file for follow-up analysis.
+Each category requires a `.json` file with metadata, and optionally a `.txt` prompt file for extraction analysis.
 
 ### 1. `<category>.json` (required)
 
@@ -13,7 +13,6 @@ Defines the category and its behavior:
 ```json
 {
   "description": "One-line description for categorization prompt",
-  "followup": true,
   "output": "markdown"
 }
 ```
@@ -21,14 +20,13 @@ Defines the category and its behavior:
 | Field | Required | Default | Description |
 |-------|----------|---------|-------------|
 | `description` | Yes | - | Single-line description used in the categorization prompt |
-| `followup` | No | `false` | Whether to run follow-up analysis for this category |
-| `output` | No | `"markdown"` | Response format: `"json"` or `"markdown"` |
+| `output` | No | `"markdown"` | Response format for extraction: `"json"` or `"markdown"` |
 
 Model selection is handled via the providers configuration in `journal.json`. Each category uses the context pattern `observe.describe.<category>` for routing. See [JOURNAL.md](JOURNAL.md) for details on configuring providers per context.
 
-### 2. `<category>.txt` (required if `followup: true`)
+### 2. `<category>.txt` (optional, enables extraction)
 
-The vision prompt template sent to the model for detailed analysis. Should instruct the model to:
+Categories with a `.txt` file are "extractable" - they can receive detailed content extraction after initial categorization. The prompt template is sent to the model for analysis. Should instruct the model to:
 - Analyze the screenshot for this specific category
 - Return content in the format specified by `output` (markdown or JSON)
 
@@ -61,7 +59,8 @@ def format(content: Any, context: dict) -> str:
 ## How It Works
 
 1. `observe/describe.py` discovers all `.json` files and builds the categorization prompt dynamically
-2. Initial categorization identifies primary/secondary categories from the screenshot
-3. For categories with `followup: true`, a follow-up request extracts detailed content using the `.txt` prompt
-4. Results are stored in JSONL under the category name (e.g., `"meeting": {...}`)
-5. `observe/screen.py` formats JSONL to markdown, using custom formatters when available
+2. **Phase 1 (Categorization)**: All frames get initial category analysis (primary/secondary)
+3. **Phase 2 (Selection)**: AI or fallback logic selects which frames get detailed extraction (configurable via `describe.max_extractions`)
+4. **Phase 3 (Extraction)**: Selected frames with extractable categories (those with `.txt` prompts) get detailed content extraction
+5. Results are stored in JSONL with `enhanced: true/false` indicating extraction status
+6. `observe/screen.py` formats JSONL to markdown, using custom formatters when available

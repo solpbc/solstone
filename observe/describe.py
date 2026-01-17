@@ -441,7 +441,6 @@ class VideoProcessor:
                 )  # ArUco detection result (may be None)
                 req.request_type = RequestType.DESCRIBE
                 req.json_analysis = None  # Will store the JSON analysis result
-                req.category_results = {}  # Will store category-specific results
                 req.requests = []  # Track all requests for this frame
                 req.initial_image = (
                     frame_img  # Keep reference to close after completion
@@ -655,6 +654,7 @@ class VideoProcessor:
 
                     if i == 0:
                         extract_req = req
+                        extract_req.category_results = {}
                     else:
                         # Create new request for secondary extraction
                         extract_req = batch.create(
@@ -778,6 +778,15 @@ class VideoProcessor:
             # Always close output file
             if output_file:
                 output_file.close()
+
+            # Clean up any remaining frame images (in case of exception)
+            if "frame_images" in locals():
+                for img in frame_images.values():
+                    try:
+                        img.close()
+                    except Exception:
+                        pass
+                frame_images.clear()
 
         # Report any failures
         if failed_frames > 0:

@@ -110,7 +110,7 @@ def _fallback_select_frames(
     """Fallback frame selection when AI selection is unavailable.
 
     If total frames <= max_extractions: returns all frames.
-    Otherwise: returns first frame + random sample of (max_extractions - 1) others.
+    Otherwise: returns random sample of max_extractions frames.
 
     Parameters
     ----------
@@ -122,24 +122,17 @@ def _fallback_select_frames(
     Returns
     -------
     list[int]
-        Selected frame IDs, sorted in frame order.
+        Selected frame IDs.
     """
     if not categorized_frames:
         return []
 
     all_ids = [f["frame_id"] for f in categorized_frames]
 
-    # If within limit, return all
     if len(all_ids) <= max_extractions:
-        return sorted(all_ids)
+        return all_ids
 
-    # First frame + random selection from rest
-    first_id = all_ids[0]
-    rest = [fid for fid in all_ids if fid != first_id]
-    random.shuffle(rest)
-    selected = [first_id] + rest[: max_extractions - 1]
-
-    return sorted(selected)
+    return random.sample(all_ids, max_extractions)
 
 
 __all__ = [
