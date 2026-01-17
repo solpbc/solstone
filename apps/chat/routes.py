@@ -100,37 +100,26 @@ TITLE_SYSTEM_INSTRUCTION = (
 )
 
 
-def _get_provider_api_key(provider: str) -> str | None:
-    """Get the API key name for a provider and check if it's set.
+PROVIDER_API_KEYS = {
+    "openai": "OPENAI_API_KEY",
+    "anthropic": "ANTHROPIC_API_KEY",
+    "google": "GOOGLE_API_KEY",
+}
+
+
+def _check_provider_api_key(provider: str) -> str | None:
+    """Check if provider API key is set and return error message if not.
 
     Args:
         provider: The provider name (openai, anthropic, google)
 
     Returns:
-        The API key value if set, None otherwise
+        Error message if API key is not set, None if valid
     """
-    key_names = {
-        "openai": "OPENAI_API_KEY",
-        "anthropic": "ANTHROPIC_API_KEY",
-    }
-    key_name = key_names.get(provider, "GOOGLE_API_KEY")
-    return os.getenv(key_name)
-
-
-def _get_provider_key_name(provider: str) -> str:
-    """Get the environment variable name for a provider's API key.
-
-    Args:
-        provider: The provider name (openai, anthropic, google)
-
-    Returns:
-        The environment variable name
-    """
-    key_names = {
-        "openai": "OPENAI_API_KEY",
-        "anthropic": "ANTHROPIC_API_KEY",
-    }
-    return key_names.get(provider, "GOOGLE_API_KEY")
+    key_name = PROVIDER_API_KEYS.get(provider, "GOOGLE_API_KEY")
+    if not os.getenv(key_name):
+        return f"{key_name} not set"
+    return None
 
 
 def generate_chat_title(message: str) -> str:
@@ -177,9 +166,9 @@ def send_message() -> Any:
         except FileNotFoundError:
             pass  # Chat exists but agent file missing - treat as new
 
-    if not _get_provider_api_key(provider):
-        key_name = _get_provider_key_name(provider)
-        resp = jsonify({"error": f"{key_name} not set"})
+    api_key_error = _check_provider_api_key(provider)
+    if api_key_error:
+        resp = jsonify({"error": api_key_error})
         resp.status_code = 500
         return resp
 
@@ -473,9 +462,9 @@ def retry_chat(chat_id: str) -> Any:
         return resp
 
     # Validate API key
-    if not _get_provider_api_key(provider):
-        key_name = _get_provider_key_name(provider)
-        resp = jsonify({"error": f"{key_name} not set"})
+    api_key_error = _check_provider_api_key(provider)
+    if api_key_error:
+        resp = jsonify({"error": api_key_error})
         resp.status_code = 500
         return resp
 

@@ -216,8 +216,9 @@
     updateFacetSelection();
 
     // Push to history for back button support (unless restoring from popstate)
+    // Note: Explicitly pass location.href to preserve hash fragments
     if (!fromPopState) {
-      history.pushState({facet: facet}, '');
+      history.pushState({facet: facet}, '', location.href);
     }
 
     // Dispatch custom event for apps to listen to facet changes

@@ -358,6 +358,73 @@ function formatRelativeTime(ts) {
   return 'just now';
 }
 
+/**
+ * Build a chat list item element.
+ * @param {Object} chat - Chat data with chat_id, title, ts, facet, unread
+ * @param {Object} options - Display options
+ * @param {boolean} options.showUnread - Show unread indicator if chat.unread
+ * @param {boolean} options.showStar - Show star indicator in preview
+ * @returns {HTMLElement} The chat item anchor element
+ */
+function buildChatItem(chat, options = {}) {
+  const { showUnread = false, showStar = false } = options;
+  const facet = window.selectedFacet;
+
+  const item = document.createElement('a');
+  item.className = 'recent-chat-item';
+  item.href = `#${chat.chat_id}`;
+
+  // Unread indicator
+  if (showUnread && chat.unread) {
+    item.classList.add('unread');
+    const dot = document.createElement('span');
+    dot.className = 'unread-indicator';
+    item.appendChild(dot);
+  }
+
+  // Facet color indicator in all-facets mode
+  if (facet === null && chat.facet) {
+    const facetData = (window.facetsData || []).find(f => f.name === chat.facet);
+    if (facetData?.color) {
+      item.style.borderLeftColor = facetData.color;
+      item.style.borderLeftWidth = '3px';
+      item.style.borderLeftStyle = 'solid';
+    }
+  }
+
+  // Switch to chat's facet on click (hash change will load the chat)
+  if (chat.facet && chat.facet !== facet) {
+    item.dataset.facet = chat.facet;
+    item.addEventListener('click', () => {
+      if (window.selectFacet) {
+        window.selectFacet(chat.facet);
+      }
+    });
+  }
+
+  // Time
+  const time = document.createElement('div');
+  time.className = 'recent-chat-time';
+  time.textContent = formatRelativeTime(chat.ts);
+  item.appendChild(time);
+
+  // Preview with optional star
+  const preview = document.createElement('div');
+  preview.className = 'recent-chat-preview';
+  if (showStar) {
+    const star = document.createElement('span');
+    star.textContent = '★ ';
+    star.style.color = '#ffc107';
+    preview.appendChild(star);
+    preview.appendChild(document.createTextNode(chat.title || '(no title)'));
+  } else {
+    preview.textContent = chat.title || '(no title)';
+  }
+  item.appendChild(preview);
+
+  return item;
+}
+
 // Filter chats by selected facet
 function getFilteredChats(facet) {
   let filtered = allChats;
@@ -396,49 +463,7 @@ function renderRecentChats() {
     list.className = 'recent-chats-list';
 
     for (const chat of chats) {
-      const chatId = chat.chat_id;
-      const item = document.createElement('a');
-      item.className = 'recent-chat-item';
-      item.href = `#${chatId}`;
-
-      if (chat.unread) {
-        item.classList.add('unread');
-        const dot = document.createElement('span');
-        dot.className = 'unread-indicator';
-        item.appendChild(dot);
-      }
-
-      // In all-facets mode, show facet color indicator
-      if (facet === null && chat.facet) {
-        const facetData = (window.facetsData || []).find(f => f.name === chat.facet);
-        if (facetData?.color) {
-          item.style.borderLeftColor = facetData.color;
-          item.style.borderLeftWidth = '3px';
-          item.style.borderLeftStyle = 'solid';
-        }
-      }
-
-      // Switch to chat's facet on click (hash change will load the chat)
-      if (chat.facet && chat.facet !== window.selectedFacet) {
-        item.dataset.facet = chat.facet;
-        item.addEventListener('click', () => {
-          if (window.selectFacet) {
-            window.selectFacet(chat.facet);
-          }
-        });
-      }
-
-      const time = document.createElement('div');
-      time.className = 'recent-chat-time';
-      time.textContent = formatRelativeTime(chat.ts);
-      item.appendChild(time);
-
-      const preview = document.createElement('div');
-      preview.className = 'recent-chat-preview';
-      preview.textContent = chat.title || '(no title)';
-      item.appendChild(preview);
-
-      list.appendChild(item);
+      list.appendChild(buildChatItem(chat, { showUnread: true }));
     }
 
     panel.appendChild(list);
@@ -466,13 +491,21 @@ async function fetchRecentChats() {
   }
 }
 
-// Listen for facet changes - reset view to show recent chats for new facet
-window.addEventListener('facet.switch', () => {
-  if (location.hash) {
-    // Currently viewing a chat - navigate to recent view
-    navigateTo(null);
+// Listen for facet changes - handle view updates based on current state
+window.addEventListener('facet.switch', (e) => {
+  const newFacet = e.detail?.facet;
+
+  if (currentChatId) {
+    // Currently viewing a chat
+    // Stay on it if: switching to all-facets mode, OR chat belongs to new facet
+    const chatMatchesFacet = newFacet === null || currentChatFacet === newFacet;
+    if (!chatMatchesFacet) {
+      // Chat doesn't belong to new facet - navigate to recent view
+      navigateTo(null);
+    }
+    // Otherwise stay on current chat
   } else {
-    // Already on recent view - just re-render with new facet filter
+    // On recent view - re-render with new facet filter
     showRecentChatsView();
   }
 });
@@ -625,10 +658,10 @@ function enrichEvent(event) {
 
 // State management
 let currentChatId = null;   // The chat being viewed (stable across continuations)
+let currentChatFacet = null; // Facet of the current chat (for facet switch handling)
 let currentThread = [];     // Agent IDs in the current thread (for WebSocket filtering)
 let isComplete = false;
 let canContinue = false;    // Whether the chat can be continued (false if ended in error)
-let currentBookmarked = null;  // Bookmark timestamp or null
 
 // ═══════════════════════════════════════════════════════════════════════════
 // ROUTER - Hash-based SPA navigation
@@ -684,8 +717,6 @@ function navigateTo(chatId) {
 function updateStarButton(bookmarked) {
   const btn = document.getElementById('chatBookmarkToggle');
   if (!btn) return;
-
-  currentBookmarked = bookmarked;
 
   if (currentChatId) {
     btn.style.display = 'inline';
@@ -749,6 +780,7 @@ async function loadChat(chatId) {
     currentThread = data.thread || [chatId];
     isComplete = data.is_complete || false;
     canContinue = data.can_continue || false;
+    currentChatFacet = data.chat?.facet || null;
 
     // Update provider toggle to match last used provider in this chat
     if (data.last_provider) {
@@ -903,6 +935,7 @@ async function markChatRead(chatId) {
  */
 function resetToListView() {
   currentChatId = null;
+  currentChatFacet = null;
   currentThread = [];
   isComplete = false;
   canContinue = false;
@@ -970,49 +1003,8 @@ async function showSavedChatsView() {
     const list = document.createElement('div');
     list.className = 'recent-chats-list';
 
-    const facet = window.selectedFacet;
     for (const chat of bookmarks) {
-      const chatId = chat.chat_id;
-      const item = document.createElement('a');
-      item.className = 'recent-chat-item';
-      item.href = `#${chatId}`;
-
-      // Facet color indicator in all-facets mode
-      if (facet === null && chat.facet) {
-        const facetData = (window.facetsData || []).find(f => f.name === chat.facet);
-        if (facetData?.color) {
-          item.style.borderLeftColor = facetData.color;
-          item.style.borderLeftWidth = '3px';
-          item.style.borderLeftStyle = 'solid';
-        }
-      }
-
-      // Switch to chat's facet on click
-      if (chat.facet && chat.facet !== window.selectedFacet) {
-        item.dataset.facet = chat.facet;
-        item.addEventListener('click', () => {
-          if (window.selectFacet) {
-            window.selectFacet(chat.facet);
-          }
-        });
-      }
-
-      const time = document.createElement('div');
-      time.className = 'recent-chat-time';
-      time.textContent = formatRelativeTime(chat.ts);
-      item.appendChild(time);
-
-      const preview = document.createElement('div');
-      preview.className = 'recent-chat-preview';
-      // Show star indicator for bookmarked items
-      const star = document.createElement('span');
-      star.textContent = '★ ';
-      star.style.color = '#ffc107';
-      preview.appendChild(star);
-      preview.appendChild(document.createTextNode(chat.title || '(no title)'));
-      item.appendChild(preview);
-
-      list.appendChild(item);
+      list.appendChild(buildChatItem(chat, { showStar: true }));
     }
 
     panel.appendChild(list);
@@ -1306,26 +1298,14 @@ function reuseMessage(messageDiv) {
   const text = messageMarkdown.get(messageDiv);
   if(!text) return;
 
-  // Clear the current chat and reset to new chat state
-  messagesDiv.innerHTML='';
-  Object.keys(toolPlacards).forEach(key => delete toolPlacards[key]);
-  messagesDiv.appendChild(activityIndicator);
-  previousAgent = null;
-  currentChatId = null;
-  currentThread = [];
-  isComplete = false;
-  canContinue = false;
-  forceHideActivityIndicator();
-  resetEventTracking();
+  // Reset to list view state (clears messages, state, enables input)
+  resetToListView();
 
   // Clear URL hash to match state
   location.hash = '';
 
-  // Enable the form and pre-fill
+  // Pre-fill input with the message text
   if(input) {
-    input.disabled = false;
-    input.placeholder = 'Send a message...';
-    delete input.dataset.continueChat;
     input.value = text;
     input.focus();
 
@@ -1377,7 +1357,9 @@ function setupFormHandlers() {
         canContinue = false;
         showActivityIndicator();
       } else {
-        // New chat: navigate to it
+        // New chat: set expected facet before navigation to avoid race conditions
+        // (loadChat will confirm this from server, but this protects against facet.switch)
+        currentChatFacet = window.selectedFacet;
         navigateTo(d.chat_id);
       }
     } else {

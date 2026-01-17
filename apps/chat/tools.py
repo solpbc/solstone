@@ -4,7 +4,6 @@
 """MCP tools for the chat app."""
 
 import json
-import os
 from pathlib import Path
 from typing import Any
 
