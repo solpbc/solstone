@@ -416,6 +416,182 @@ def update_providers() -> Any:
         return jsonify({"error": str(e)}), 500
 
 
+# ---------------------------------------------------------------------------
+# Vision API
+# ---------------------------------------------------------------------------
+
+VALID_IMPORTANCE = {"high", "normal", "low", "ignore"}
+
+
+@settings_bp.route("/api/vision")
+def get_vision() -> Any:
+    """Return vision configuration with category defaults.
+
+    Returns:
+        - max_extractions: Current max extractions setting (default: 20)
+        - categories: Dict of category overrides from config
+        - category_defaults: Discovered categories with their defaults
+    """
+    try:
+        from observe.describe import CATEGORIES
+        from observe.extract import DEFAULT_MAX_EXTRACTIONS
+
+        config = get_journal_config()
+        describe_config = config.get("describe", {})
+
+        # Build category defaults from discovered categories
+        category_defaults = {}
+        for name, meta in CATEGORIES.items():
+            category_defaults[name] = {
+                "label": meta.get("label", name.replace("_", " ").title()),
+                "group": meta.get("group", "Screen Analysis"),
+                "extraction": meta.get("extraction", ""),
+            }
+
+        return jsonify(
+            {
+                "max_extractions": describe_config.get(
+                    "max_extractions", DEFAULT_MAX_EXTRACTIONS
+                ),
+                "categories": describe_config.get("categories", {}),
+                "category_defaults": category_defaults,
+            }
+        )
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@settings_bp.route("/api/vision", methods=["PUT"])
+def update_vision() -> Any:
+    """Update vision configuration.
+
+    Accepts JSON with optional keys:
+        - max_extractions: int (5-100) - Maximum frames to extract
+        - categories: {name: {importance?, extraction?} | null} - Category overrides
+
+    Setting a category to null removes its overrides.
+    """
+    try:
+        from observe.describe import CATEGORIES
+
+        request_data = request.get_json()
+        if not request_data:
+            return jsonify({"error": "No data provided"}), 400
+
+        config_dir = Path(state.journal_root) / "config"
+        config_dir.mkdir(parents=True, exist_ok=True)
+        config_path = config_dir / "journal.json"
+
+        # Load existing config
+        config = get_journal_config()
+        old_describe = copy.deepcopy(config.get("describe", {}))
+
+        # Ensure describe section exists
+        if "describe" not in config:
+            config["describe"] = {}
+
+        changed_fields = {}
+
+        # Handle max_extractions update
+        if "max_extractions" in request_data:
+            max_ext = request_data["max_extractions"]
+            if not isinstance(max_ext, int) or max_ext < 5 or max_ext > 100:
+                return (
+                    jsonify(
+                        {
+                            "error": "max_extractions must be an integer between 5 and 100"
+                        }
+                    ),
+                    400,
+                )
+            old_val = old_describe.get("max_extractions")
+            if old_val != max_ext:
+                changed_fields["max_extractions"] = {"old": old_val, "new": max_ext}
+            config["describe"]["max_extractions"] = max_ext
+
+        # Handle category overrides
+        if "categories" in request_data:
+            categories_data = request_data["categories"]
+            if "categories" not in config["describe"]:
+                config["describe"]["categories"] = {}
+
+            old_categories = old_describe.get("categories", {})
+
+            for name, cat_config in categories_data.items():
+                # Validate category exists
+                if name not in CATEGORIES:
+                    return (
+                        jsonify({"error": f"Unknown category: {name}"}),
+                        400,
+                    )
+
+                old_cat = old_categories.get(name)
+
+                # null means remove the override
+                if cat_config is None:
+                    if name in config["describe"]["categories"]:
+                        changed_fields[f"categories.{name}"] = {
+                            "old": old_cat,
+                            "new": None,
+                        }
+                        del config["describe"]["categories"][name]
+                    continue
+
+                # Validate importance if specified
+                if "importance" in cat_config:
+                    importance = cat_config["importance"]
+                    if importance not in VALID_IMPORTANCE:
+                        return (
+                            jsonify(
+                                {
+                                    "error": f"Invalid importance for {name}: {importance}. "
+                                    f"Must be one of: {', '.join(sorted(VALID_IMPORTANCE))}"
+                                }
+                            ),
+                            400,
+                        )
+
+                # Validate extraction if specified (must be string)
+                if "extraction" in cat_config:
+                    extraction = cat_config["extraction"]
+                    if not isinstance(extraction, str):
+                        return (
+                            jsonify(
+                                {"error": f"extraction for {name} must be a string"}
+                            ),
+                            400,
+                        )
+
+                # Only store if there's something to override
+                if cat_config:
+                    if old_cat != cat_config:
+                        changed_fields[f"categories.{name}"] = {
+                            "old": old_cat,
+                            "new": cat_config,
+                        }
+                    config["describe"]["categories"][name] = cat_config
+
+        # Write back to file
+        with open(config_path, "w", encoding="utf-8") as f:
+            json.dump(config, f, indent=2, ensure_ascii=False)
+            f.write("\n")
+
+        # Log if something changed
+        if changed_fields:
+            log_app_action(
+                app="settings",
+                facet=None,
+                action="vision_update",
+                params={"changed_fields": changed_fields},
+            )
+
+        # Return updated vision config
+        return get_vision()
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
 @settings_bp.route("/api/facet", methods=["POST"])
 def create_facet() -> Any:
     """Create a new facet.

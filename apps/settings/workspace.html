@@ -897,6 +897,7 @@ input:checked + .slider:before {
         <option value="providers">Providers</option>
         <option value="apikeys">API Keys</option>
         <option value="transcription">Transcription</option>
+        <option value="vision">Vision</option>
         <option value="security">Security</option>
       </optgroup>
       <optgroup label="Facet" id="navSelectFacetGroup" style="display:none">
@@ -914,6 +915,7 @@ input:checked + .slider:before {
       <button class="settings-nav-item" data-section="providers">Providers</button>
       <button class="settings-nav-item" data-section="apikeys">API Keys</button>
       <button class="settings-nav-item" data-section="transcription">Transcription</button>
+      <button class="settings-nav-item" data-section="vision">Vision</button>
       <button class="settings-nav-item" data-section="security">Security</button>
     </div>
     <div class="settings-nav-group" id="facetNavGroup" style="display:none">
@@ -1206,6 +1208,30 @@ input:checked + .slider:before {
           <label for="field-transcribe-preserve" class="toggle-label" style="cursor: pointer;">Preserve Silent Recordings</label>
         </div>
         <small>Keep audio files even when no speech is detected</small>
+      </div>
+    </section>
+
+    <!-- Vision Section -->
+    <section class="settings-section" id="section-vision">
+      <h2>Vision</h2>
+      <p class="settings-section-desc">Screen analysis settings for observe-describe.</p>
+
+      <div class="settings-field">
+        <label for="field-max-extractions">Max Extractions</label>
+        <input type="number" id="field-max-extractions" min="5" max="100" value="20" style="max-width: 100px;">
+        <small>Maximum frames to extract detailed content from per video (5-100)</small>
+      </div>
+
+      <!-- Categories -->
+      <div class="context-overrides expanded" id="visionCategories">
+        <div class="context-overrides-header" id="visionCategoriesHeader">
+          <span class="context-overrides-title">Categories</span>
+          <span class="context-overrides-toggle">&#9660;</span>
+        </div>
+        <div class="context-overrides-body" id="visionCategoriesBody">
+          <p style="color:#666;font-size:0.9em;margin:0 0 1em 0">Set importance and extraction rules for each screen category.</p>
+          <div id="visionCategoryGroups">Loading...</div>
+        </div>
       </div>
     </section>
 
@@ -2320,10 +2346,220 @@ document.getElementById('field-revai-model')?.addEventListener('change', async (
   }
 });
 
+// ========== VISION ==========
+let visionData = null;
+
+async function loadVision() {
+  try {
+    const response = await fetch('api/vision');
+    visionData = await response.json();
+    if (visionData.error) throw new Error(visionData.error);
+    populateVision(visionData);
+  } catch (err) {
+    console.error('Error loading vision:', err);
+    document.getElementById('visionCategoryGroups').textContent = 'Error loading categories';
+  }
+}
+
+function populateVision(data) {
+  // Set max extractions
+  document.getElementById('field-max-extractions').value = data.max_extractions;
+
+  // Render categories
+  renderVisionCategories(data);
+}
+
+function renderVisionCategories(data) {
+  const container = document.getElementById('visionCategoryGroups');
+  const defaults = data.category_defaults;
+  const overrides = data.categories || {};
+
+  // Group by group name
+  const groups = {};
+  for (const [name, cat] of Object.entries(defaults)) {
+    const group = cat.group;
+    if (!groups[group]) groups[group] = [];
+    groups[group].push({ name, ...cat });
+  }
+
+  // Render groups
+  let html = '';
+  for (const [groupName, items] of Object.entries(groups)) {
+    html += `<div class="context-group">`;
+    html += `<div class="context-group-label">${groupName}</div>`;
+
+    for (const item of items.sort((a, b) => a.label.localeCompare(b.label))) {
+      const override = overrides[item.name] || {};
+      const importance = override.importance || 'normal';
+      const extraction = override.extraction || '';
+      const defaultExtraction = item.extraction || '';
+
+      html += `<div class="vision-category-item" data-category="${item.name}" style="margin-bottom:1em;">`;
+      html += `<div class="context-item" style="margin-bottom:0.25em;">`;
+      html += `<span class="context-label">${item.label}</span>`;
+      html += `<div class="context-value">`;
+
+      // Importance select
+      html += `<select class="context-select vision-importance" data-category="${item.name}">`;
+      html += `<option value="high" ${importance === 'high' ? 'selected' : ''}>High</option>`;
+      html += `<option value="normal" ${importance === 'normal' ? 'selected' : ''}>Normal</option>`;
+      html += `<option value="low" ${importance === 'low' ? 'selected' : ''}>Low</option>`;
+      html += `<option value="ignore" ${importance === 'ignore' ? 'selected' : ''}>Ignore</option>`;
+      html += `</select>`;
+
+      // Action area
+      html += `<span class="context-action" data-category="${item.name}">`;
+      if (override.importance || override.extraction) {
+        html += `<button class="context-reset vision-reset" data-category="${item.name}" title="Reset to default">&times;</button>`;
+      }
+      html += `</span>`;
+
+      html += `</div></div>`;
+
+      // Extraction text (disabled when importance is ignore)
+      const isIgnored = importance === 'ignore';
+      html += `<div class="vision-extraction" data-category="${item.name}" style="padding-left:0.5em;">`;
+      html += `<input type="text" class="vision-extraction-input" data-category="${item.name}" `;
+      html += `value="${escapeAttr(extraction)}" placeholder="${escapeAttr(isIgnored ? 'Disabled for ignored categories' : (defaultExtraction || 'No extraction guidance'))}" `;
+      html += `style="width:100%;padding:0.4em 0.6em;font-size:0.85em;border:1px solid #ddd;border-radius:4px;${isIgnored ? 'opacity:0.5;' : ''}" `;
+      html += `${isIgnored ? 'disabled' : ''}>`;
+      html += `</div>`;
+
+      html += `</div>`;
+    }
+    html += `</div>`;
+  }
+
+  container.innerHTML = html;
+  setupVisionEventListeners();
+}
+
+function escapeAttr(str) {
+  return str.replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+function setupVisionEventListeners() {
+  // Importance changes
+  document.querySelectorAll('.vision-importance').forEach(select => {
+    select.addEventListener('change', () => {
+      const category = select.dataset.category;
+      const extractionInput = document.querySelector(`.vision-extraction-input[data-category="${category}"]`);
+      const isIgnored = select.value === 'ignore';
+
+      // Toggle extraction input disabled state
+      extractionInput.disabled = isIgnored;
+      extractionInput.style.opacity = isIgnored ? '0.5' : '1';
+      if (isIgnored) {
+        extractionInput.placeholder = 'Disabled for ignored categories';
+      } else {
+        // Restore default placeholder
+        const defaultExtraction = visionData?.category_defaults?.[category]?.extraction || '';
+        extractionInput.placeholder = defaultExtraction || 'No extraction guidance';
+      }
+
+      saveVisionCategory(category, select.value, extractionInput.value);
+    });
+  });
+
+  // Extraction input changes (debounced)
+  document.querySelectorAll('.vision-extraction-input').forEach(input => {
+    let timeout = null;
+    input.addEventListener('input', () => {
+      clearTimeout(timeout);
+      timeout = setTimeout(() => {
+        const category = input.dataset.category;
+        const importanceSelect = document.querySelector(`.vision-importance[data-category="${category}"]`);
+        saveVisionCategory(category, importanceSelect.value, input.value);
+      }, 500);
+    });
+  });
+
+  // Reset buttons
+  document.querySelectorAll('.vision-reset').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const category = btn.dataset.category;
+      saveVisionCategory(category, null, null, true);
+    });
+  });
+
+  // Max extractions change
+  document.getElementById('field-max-extractions').addEventListener('change', saveMaxExtractions);
+}
+
+async function saveVisionCategory(category, importance, extraction, remove = false) {
+  try {
+    const categories = {};
+    if (remove) {
+      categories[category] = null;
+    } else {
+      categories[category] = {};
+      if (importance && importance !== 'normal') {
+        categories[category].importance = importance;
+      }
+      if (extraction) {
+        categories[category].extraction = extraction;
+      }
+      // If both are default/empty, remove the override
+      if (!categories[category].importance && !categories[category].extraction) {
+        categories[category] = null;
+      }
+    }
+
+    const response = await fetch('api/vision', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ categories })
+    });
+
+    const result = await response.json();
+    if (result.error) throw new Error(result.error);
+
+    // Refresh to update reset buttons
+    visionData = result;
+    renderVisionCategories(result);
+  } catch (err) {
+    console.error('Error saving vision category:', err);
+    notifyError('Save Failed', err.message);
+  }
+}
+
+async function saveMaxExtractions() {
+  const input = document.getElementById('field-max-extractions');
+  const value = parseInt(input.value);
+
+  if (isNaN(value) || value < 5 || value > 100) {
+    input.value = visionData?.max_extractions || 20;
+    return;
+  }
+
+  try {
+    const response = await fetch('api/vision', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ max_extractions: value })
+    });
+
+    const result = await response.json();
+    if (result.error) throw new Error(result.error);
+
+    visionData = result;
+    showFieldStatus(input, 'saved');
+  } catch (err) {
+    console.error('Error saving max extractions:', err);
+    showFieldStatus(input, 'error', err.message);
+  }
+}
+
+// Toggle vision categories expansion
+document.getElementById('visionCategoriesHeader').addEventListener('click', () => {
+  document.getElementById('visionCategories').classList.toggle('expanded');
+});
+
 // ========== INIT ==========
 updateFacetNav();
 loadConfig();
 loadProviders();
+loadVision();
 setupAutoSave();
 
 // If facet is selected on load, load its config

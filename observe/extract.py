@@ -36,6 +36,9 @@ def select_frames_for_extraction(
     The first qualified frame is always included, even if it exceeds max_extractions
     by one. This ensures we always have context from the start of the recording.
 
+    Category importance settings from config (high/normal/low/ignore) are passed
+    as advisory hints to the AI selection process but are not enforced programmatically.
+
     Parameters
     ----------
     categorized_frames : list[dict]
@@ -58,11 +61,14 @@ def select_frames_for_extraction(
     if not categorized_frames:
         return []
 
+    # Load config overrides for AI hints (importance is advisory, not a filter)
+    config_overrides = _get_category_config()
+
     # Try AI selection if categories provided
     if categories is not None:
         try:
             selected = _ai_select_frames(
-                categorized_frames, max_extractions, categories
+                categorized_frames, max_extractions, categories, config_overrides
             )
         except Exception as e:
             logger.warning(f"AI frame selection failed, using fallback: {e}")
@@ -79,33 +85,94 @@ def select_frames_for_extraction(
     return sorted(selected)
 
 
-def _build_extraction_guidance(categories: dict[str, dict]) -> str:
-    """Build extraction guidance from category configs.
+def _get_category_config() -> dict[str, dict]:
+    """Load category overrides from journal config.
+
+    Returns
+    -------
+    dict[str, dict]
+        Category overrides with importance and extraction fields.
+    """
+    from think.utils import get_config
+
+    config = get_config()
+    return config.get("describe", {}).get("categories", {})
+
+
+def _build_extraction_guidance(
+    categories: dict[str, dict],
+    config_overrides: dict[str, dict] | None = None,
+) -> str:
+    """Build extraction guidance from category configs with config overrides.
+
+    Groups categories by importance level (high, normal, low, ignore).
+    Categories with 'ignore' importance only show the name, no extraction guidance.
 
     Parameters
     ----------
     categories : dict
         Category metadata dict mapping category name to config.
         Each config may have an 'extraction' field with guidance text.
+    config_overrides : dict, optional
+        User overrides from journal config. May contain 'extraction' and
+        'importance' per category.
 
     Returns
     -------
     str
-        Formatted extraction guidance for the prompt.
+        Formatted extraction guidance for the prompt, grouped by importance.
     """
-    lines = []
+    config_overrides = config_overrides or {}
+
+    # Group categories by importance
+    groups: dict[str, list[str]] = {"high": [], "normal": [], "low": [], "ignore": []}
+
     for name in sorted(categories.keys()):
         meta = categories[name]
-        extraction = meta.get("extraction")
-        if extraction:
-            lines.append(f"- {name}: {extraction}")
-    return "\n".join(lines) if lines else "No category-specific rules."
+        override = config_overrides.get(name, {})
+
+        # Get importance (default: normal)
+        importance = override.get("importance", "normal")
+
+        # Get extraction guidance (config override takes precedence)
+        extraction = override.get("extraction") or meta.get("extraction")
+
+        # For ignore, just list the category name
+        if importance == "ignore":
+            groups["ignore"].append(f"- {name}")
+        elif extraction:
+            groups[importance].append(f"- {name}: {extraction}")
+
+    # Check if all categories are normal (no grouping needed)
+    has_non_normal = groups["high"] or groups["low"] or groups["ignore"]
+
+    if not has_non_normal:
+        # Simple flat list when all normal
+        return "\n".join(groups["normal"]) if groups["normal"] else "No category-specific rules."
+
+    # Build grouped output
+    sections = []
+
+    if groups["high"]:
+        sections.append("**Prioritize:**\n" + "\n".join(groups["high"]))
+
+    if groups["normal"]:
+        sections.append("**Normal:**\n" + "\n".join(groups["normal"]))
+
+    if groups["low"]:
+        sections.append("**Low priority:**\n" + "\n".join(groups["low"]))
+
+    if groups["ignore"]:
+        sections.append("**Skip unless notable:**\n" + "\n".join(groups["ignore"]))
+
+    return "\n\n".join(sections) if sections else "No category-specific rules."
 
 
 def _ai_select_frames(
     categorized_frames: list[dict[str, Any]],
     max_extractions: int,
     categories: dict[str, dict],
+    config_overrides: dict[str, dict] | None = None,
 ) -> list[int]:
     """AI-based frame selection.
 
@@ -120,6 +187,8 @@ def _ai_select_frames(
         Maximum number of frames to select.
     categories : dict
         Category metadata dict for building extraction guidance.
+    config_overrides : dict, optional
+        User overrides from journal config for extraction/importance.
 
     Returns
     -------
@@ -134,8 +203,8 @@ def _ai_select_frames(
     from muse.models import generate
     from think.utils import load_prompt
 
-    # Build extraction guidance from category configs
-    extraction_guidance = _build_extraction_guidance(categories)
+    # Build extraction guidance with config overrides
+    extraction_guidance = _build_extraction_guidance(categories, config_overrides)
 
     # Load prompt with template substitution
     prompt_content = load_prompt(
