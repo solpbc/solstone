@@ -363,11 +363,10 @@ function formatRelativeTime(ts) {
  * @param {Object} chat - Chat data with chat_id, title, ts, facet, unread
  * @param {Object} options - Display options
  * @param {boolean} options.showUnread - Show unread indicator if chat.unread
- * @param {boolean} options.showStar - Show star indicator in preview
  * @returns {HTMLElement} The chat item anchor element
  */
 function buildChatItem(chat, options = {}) {
-  const { showUnread = false, showStar = false } = options;
+  const { showUnread = false } = options;
   const facet = window.selectedFacet;
 
   const item = document.createElement('a');
@@ -408,18 +407,10 @@ function buildChatItem(chat, options = {}) {
   time.textContent = formatRelativeTime(chat.ts);
   item.appendChild(time);
 
-  // Preview with optional star
+  // Preview
   const preview = document.createElement('div');
   preview.className = 'recent-chat-preview';
-  if (showStar) {
-    const star = document.createElement('span');
-    star.textContent = '★ ';
-    star.style.color = '#ffc107';
-    preview.appendChild(star);
-    preview.appendChild(document.createTextNode(chat.title || '(no title)'));
-  } else {
-    preview.textContent = chat.title || '(no title)';
-  }
+  preview.textContent = chat.title || '(no title)';
   item.appendChild(preview);
 
   return item;
@@ -565,29 +556,6 @@ function initAppBarControls() {
     providerToggle.textContent = providers[currentProvider].label;
   });
 
-  // Bookmark toggle
-  const bookmarkToggle = document.getElementById('chatBookmarkToggle');
-  if (bookmarkToggle) {
-    bookmarkToggle.addEventListener('click', async () => {
-      if (!currentChatId) return;
-
-      try {
-        const resp = await fetch(`/app/chat/api/chat/${currentChatId}/bookmark`, { method: 'POST' });
-        if (resp.ok) {
-          const data = await resp.json();
-          updateStarButton(data.bookmarked);
-          // Update allChats cache if present
-          const chat = allChats.find(c => c.chat_id === currentChatId);
-          if (chat) {
-            chat.bookmarked = data.bookmarked;
-          }
-        }
-      } catch (err) {
-        console.error('Failed to toggle bookmark:', err);
-      }
-    });
-  }
-
   setupFormHandlers();
   input.focus();
 }
@@ -681,23 +649,17 @@ function initRouter() {
  */
 function handleRouteChange() {
   const hash = location.hash.slice(1);
+  const chatId = /^\d+$/.test(hash) ? hash : null;
 
-  if (hash === 'saved') {
-    // Saved chats view
-    showSavedChatsView();
+  if (chatId) {
+    // Avoid reloading same chat
+    if (currentChatId !== chatId) {
+      loadChat(chatId);
+    }
   } else {
-    const chatId = /^\d+$/.test(hash) ? hash : null;
-
-    if (chatId) {
-      // Avoid reloading same chat
-      if (currentChatId !== chatId) {
-        loadChat(chatId);
-      }
-    } else {
-      // Recent chats view - show if not already on it or if first load
-      if (currentChatId !== null || !document.getElementById('recentChatsPanel')) {
-        showRecentChatsView();
-      }
+    // Recent chats view - show if not already on it or if first load
+    if (currentChatId !== null || !document.getElementById('recentChatsPanel')) {
+      showRecentChatsView();
     }
   }
 }
@@ -708,25 +670,6 @@ function handleRouteChange() {
  */
 function navigateTo(chatId) {
   location.hash = chatId || '';
-}
-
-/**
- * Update star button state based on bookmark status.
- * @param {number|null} bookmarked - Bookmark timestamp or null
- */
-function updateStarButton(bookmarked) {
-  const btn = document.getElementById('chatBookmarkToggle');
-  if (!btn) return;
-
-  if (currentChatId) {
-    btn.style.display = 'inline';
-    btn.textContent = bookmarked ? '★' : '☆';
-    btn.classList.toggle('bookmarked', !!bookmarked);
-    btn.classList.toggle('unbookmarked', !bookmarked);
-    btn.title = bookmarked ? 'Remove bookmark' : 'Bookmark this chat';
-  } else {
-    btn.style.display = 'none';
-  }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -786,9 +729,6 @@ async function loadChat(chatId) {
     if (data.last_provider) {
       setProvider(data.last_provider);
     }
-
-    // Update star button based on chat's bookmark status
-    updateStarButton(data.chat?.bookmarked || null);
 
     // Process and render all events from the thread
     for (const event of events) {
@@ -941,7 +881,6 @@ function resetToListView() {
   canContinue = false;
   clearMessages();
   hideRetryButton();
-  updateStarButton(null);
 
   if (input) {
     delete input.dataset.continueChat;
@@ -960,56 +899,6 @@ function resetToListView() {
 function showRecentChatsView() {
   resetToListView();
   const panel = renderRecentChats();
-  messagesDiv.appendChild(panel);
-}
-
-/**
- * Show saved/bookmarked chats view.
- */
-async function showSavedChatsView() {
-  resetToListView();
-
-  // Fetch bookmarks from API
-  let bookmarks = [];
-  try {
-    const facet = window.selectedFacet;
-    const url = facet !== null
-      ? `/app/chat/api/bookmarks?facet=${encodeURIComponent(facet)}`
-      : '/app/chat/api/bookmarks';
-    const response = await fetch(url);
-    if (response.ok) {
-      const data = await response.json();
-      bookmarks = data.bookmarks || [];
-    }
-  } catch (error) {
-    console.error('Failed to fetch bookmarks:', error);
-  }
-
-  // Render saved chats panel
-  const panel = document.createElement('div');
-  panel.className = 'recent-chats-panel';
-  panel.id = 'savedChatsPanel';
-
-  const title = document.createElement('h3');
-  title.textContent = 'Saved Chats';
-  panel.appendChild(title);
-
-  if (bookmarks.length === 0) {
-    const empty = document.createElement('div');
-    empty.className = 'recent-chats-empty';
-    empty.textContent = 'No saved chats';
-    panel.appendChild(empty);
-  } else {
-    const list = document.createElement('div');
-    list.className = 'recent-chats-list';
-
-    for (const chat of bookmarks) {
-      list.appendChild(buildChatItem(chat, { showStar: true }));
-    }
-
-    panel.appendChild(list);
-  }
-
   messagesDiv.appendChild(panel);
 }
 

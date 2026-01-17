@@ -55,8 +55,7 @@ AppServices.register('chat', {
 
     const items = [
       // Fixed navigation items
-      { id: 'new', label: 'New Chat', href: '/app/chat#', order: -2 },
-      { id: 'saved', label: 'Saved', href: '/app/chat#saved', order: -1, badge: '★' },
+      { id: 'new', label: 'New Chat', href: '/app/chat#', order: -1 },
       // Recent chats
       ...sorted.map((chat, i) => ({
         id: chat.chat_id,

@@ -52,33 +52,6 @@
   border-color: #10a37f;
 }
 
-/* Star button - entities app style */
-.chat-bookmark-toggle {
-  background: none;
-  border: none;
-  cursor: pointer;
-  font-size: 1.5em;
-  padding: 0;
-  line-height: 1;
-  transition: transform 0.2s;
-  margin-left: 0.75em;
-}
-
-.chat-bookmark-toggle:hover {
-  transform: scale(1.2);
-}
-
-.chat-bookmark-toggle.bookmarked {
-  color: #ffc107;
-}
-
-.chat-bookmark-toggle.unbookmarked {
-  color: #ccc;
-}
-
-.chat-bookmark-toggle.unbookmarked:hover {
-  color: #ffc107;
-}
 </style>
 
 <!-- Use display:contents to make form invisible to flexbox -->
@@ -87,7 +60,6 @@
   <button type="button" id="chatProviderToggle" class="chat-provider-toggle" data-provider="google" title="Click to change provider">
     Gemini
   </button>
-  <button type="button" id="chatBookmarkToggle" class="chat-bookmark-toggle unbookmarked" title="Bookmark this chat" style="display: none;">☆</button>
 </form>
 
 <script>
