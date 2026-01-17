@@ -1,5 +1,5 @@
 {
   "description": "Chat or email apps (Slack, Discord, Messages/iMessage, Gmail, etc.)",
-  "followup": true,
-  "output": "markdown"
+  "output": "markdown",
+  "extraction": "Extract 2-3 samples for long conversations, focus on topic shifts"
 }

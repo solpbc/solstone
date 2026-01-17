@@ -1,5 +1,5 @@
 {
   "description": "General web browsing, social feeds, shopping",
-  "followup": true,
-  "output": "markdown"
+  "output": "markdown",
+  "extraction": "Extract when page or site changes"
 }

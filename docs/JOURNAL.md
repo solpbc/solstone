@@ -215,6 +215,21 @@ Voice embeddings (resemblyzer) also auto-detect the best device: MPS on Apple Si
 
 CLI flags can override settings: `--backend` selects the backend, `--cpu` forces CPU mode with int8 (Whisper only), `--model MODEL` overrides the Whisper model.
 
+### Describe configuration
+
+The `describe` block configures screen analysis settings for `observe-describe`:
+
+```json
+{
+  "describe": {
+    "max_extractions": 20
+  }
+}
+```
+
+**Fields:**
+- `max_extractions` (integer) – Maximum number of frames to run detailed content extraction on per video. The first qualified frame is always extracted regardless of this limit. When more frames are eligible, selection uses AI-based prioritization (falling back to random selection). Default: `20`.
+
 ### Providers configuration
 
 The `providers` block enables fine-grained control over which LLM provider and model is used for different contexts. This supports a tier-based system where you can specify capability levels (pro/flash/lite) rather than specific model names.

@@ -8,8 +8,9 @@ Describe screencast videos by detecting significant frame changes.
 Processes per-monitor screencast files (.webm/.mp4/.mov), detects changes using
 RMS-based comparison, and sends frames for multi-stage LLM analysis:
 
-1. Initial categorization identifies primary/secondary app categories
-2. Follow-up analysis (text extraction or meeting analysis) based on category
+1. Phase 1: Categorization - All frames get initial category analysis
+2. Phase 2: Selection - AI/fallback selects which frames get detailed extraction
+3. Phase 3: Extraction - Selected frames get category-specific content extraction
 
 Uses Batch for async batch processing with provider routing via context.
 """
@@ -31,9 +32,10 @@ import av
 from PIL import Image, ImageChops, ImageStat
 
 from observe.aruco import detect_markers, mask_convey_region, polygon_area
+from observe.extract import DEFAULT_MAX_EXTRACTIONS, select_frames_for_extraction
 from observe.utils import get_segment_key
 from think.callosum import callosum_send
-from think.utils import get_journal, load_prompt, setup_cli
+from think.utils import get_config, get_journal, load_prompt, setup_cli
 
 logger = logging.getLogger(__name__)
 
@@ -51,18 +53,18 @@ def _discover_categories() -> dict[str, dict]:
 
     Each category has a .json metadata file with:
     - description (required): Single-line description for categorization prompt
-    - followup (optional, default: false): Whether to run follow-up analysis
-    - output (optional, default: "markdown"): Response format if followup=true
+    - output (optional, default: "markdown"): Response format for extraction
     - tier (optional, default: 2): Model tier for this category (1=pro, 2=flash, 3=lite)
     - label (optional): Human-readable name for settings UI
     - group (optional, default: "Screen Analysis"): Category for grouping in settings UI
 
-    If followup=true, a matching .txt file contains the follow-up prompt.
+    Categories with a matching .txt file get detailed extraction analysis.
+    The .txt file contains the extraction prompt template.
 
     Returns
     -------
     dict[str, dict]
-        Mapping of category name to metadata (including 'prompt' if followup=true)
+        Mapping of category name to metadata (including 'prompt' if extractable)
     """
     categories_dir = Path(__file__).parent / "categories"
     if not categories_dir.exists():
@@ -83,7 +85,6 @@ def _discover_categories() -> dict[str, dict]:
                 continue
 
             # Apply defaults for observation settings
-            metadata.setdefault("followup", False)
             metadata.setdefault("output", "markdown")
 
             # Apply defaults for tier routing
@@ -98,20 +99,14 @@ def _discover_categories() -> dict[str, dict]:
             # The model will be resolved at runtime via generate()
             metadata["context"] = f"observe.describe.{category}"
 
-            # Load prompt if followup is enabled
-            if metadata["followup"]:
-                txt_path = categories_dir / f"{category}.txt"
-                if not txt_path.exists():
-                    logger.warning(
-                        f"Category {category} has followup=true but no {category}.txt"
-                    )
-                    continue
+            # Load extraction prompt if available
+            txt_path = categories_dir / f"{category}.txt"
+            if txt_path.exists():
                 metadata["prompt"] = load_prompt(category, base_dir=categories_dir).text
 
             categories[category] = metadata
-            logger.debug(
-                f"Loaded category: {category} (followup={metadata['followup']})"
-            )
+            extractable = "prompt" in metadata
+            logger.debug(f"Loaded category: {category} (extractable={extractable})")
 
         except Exception as e:
             logger.warning(f"Failed to load category {category}: {e}")
@@ -330,7 +325,7 @@ class VideoProcessor:
 
     def _get_category_metadata(self, category: str) -> Optional[dict]:
         """
-        Get category metadata if follow-up is enabled.
+        Get category metadata if extraction prompt is available.
 
         Parameters
         ----------
@@ -340,10 +335,11 @@ class VideoProcessor:
         Returns
         -------
         Optional[dict]
-            Category metadata with 'prompt', 'output', 'model' keys, or None if no follow-up
+            Category metadata with 'prompt', 'output', 'context' keys,
+            or None if no extraction prompt available
         """
         cat_meta = CATEGORIES.get(category)
-        if cat_meta and cat_meta.get("followup"):
+        if cat_meta and cat_meta.get("prompt"):
             return cat_meta
         return None
 
@@ -366,6 +362,11 @@ class VideoProcessor:
         """
         Process video and write vision analysis results to file.
 
+        Three-phase pipeline:
+        1. Categorization: All frames get initial category analysis
+        2. Selection: Determine which frames get detailed extraction
+        3. Extraction: Selected frames get category-specific content extraction
+
         Parameters
         ----------
         max_concurrent : int
@@ -375,6 +376,12 @@ class VideoProcessor:
         """
         from muse.batch import Batch
         from muse.models import resolve_provider
+
+        # Load config for max_extractions
+        config = get_config()
+        max_extractions = config.get("describe", {}).get(
+            "max_extractions", DEFAULT_MAX_EXTRACTIONS
+        )
 
         # Use dynamically built categorization prompt
         system_instruction = CATEGORIZATION_PROMPT
@@ -388,261 +395,202 @@ class VideoProcessor:
         # Open output file if specified
         output_file = open(output_path, "w") if output_path else None
 
-        # Write metadata header to JSONL file with actual video filename
-        if output_file:
-            # Files are in segment directories, filename is simple (e.g., center_DP-3_screen.webm)
-            metadata = {"raw": self.video_path.name}
+        try:
+            # Write metadata header to JSONL file with actual video filename
+            if output_file:
+                # Files are in segment directories, filename is simple (e.g., center_DP-3_screen.webm)
+                metadata = {"raw": self.video_path.name}
 
-            # Add remote origin if set (from sense.py for remote observer uploads)
-            remote = os.getenv("REMOTE_NAME")
-            if remote:
-                metadata["remote"] = remote
+                # Add remote origin if set (from sense.py for remote observer uploads)
+                remote = os.getenv("REMOTE_NAME")
+                if remote:
+                    metadata["remote"] = remote
 
-            output_file.write(json.dumps(metadata) + "\n")
-            output_file.flush()
+                output_file.write(json.dumps(metadata) + "\n")
+                output_file.flush()
 
-        # Resolve model for frame description (tier comes from CONTEXT_DEFAULTS)
-        _, frame_model = resolve_provider("observe.describe.frame")
+            # Resolve model for frame description (tier comes from CONTEXT_DEFAULTS)
+            _, frame_model = resolve_provider("observe.describe.frame")
 
-        # Create vision requests for all qualified frames
-        for frame_data in qualified_frames:
-            # Load frame image from bytes - keep it open until request completes
-            frame_img = Image.open(io.BytesIO(frame_data["frame_bytes"]))
+            # Create vision requests for all qualified frames
+            for frame_data in qualified_frames:
+                # Load frame image from bytes - keep it open until request completes
+                frame_img = Image.open(io.BytesIO(frame_data["frame_bytes"]))
 
-            req = batch.create(
-                contents=self._user_contents(
-                    "Analyze this screenshot frame from a screencast recording.",
-                    frame_img,
-                ),
-                context="observe.describe.frame",
-                model=frame_model,
-                system_instruction=system_instruction,
-                json_output=True,
-                temperature=0.7,
-                max_output_tokens=1024,
-                thinking_budget=1024,
-            )
+                req = batch.create(
+                    contents=self._user_contents(
+                        "Analyze this screenshot frame from a screencast recording.",
+                        frame_img,
+                    ),
+                    context="observe.describe.frame",
+                    model=frame_model,
+                    system_instruction=system_instruction,
+                    json_output=True,
+                    temperature=0.7,
+                    max_output_tokens=1024,
+                    thinking_budget=1024,
+                )
 
-            # Attach metadata for tracking (store bytes, not PIL images)
-            req.frame_id = frame_data["frame_id"]
-            req.timestamp = frame_data["timestamp"]
-            req.retry_count = 0
-            req.frame_bytes = frame_data["frame_bytes"]  # Store bytes for reuse
-            req.aruco = frame_data.get("aruco")  # ArUco detection result (may be None)
-            req.request_type = RequestType.DESCRIBE
-            req.json_analysis = None  # Will store the JSON analysis result
-            req.category_results = {}  # Will store category-specific results
-            req.requests = []  # Track all requests for this frame
-            req.initial_image = frame_img  # Keep reference to close after completion
-            req.pending_follow_ups = 0  # Track how many follow-ups are pending
-            req.follow_up_category = None  # Category name for follow-up requests
+                # Attach metadata for tracking (store bytes, not PIL images)
+                req.frame_id = frame_data["frame_id"]
+                req.timestamp = frame_data["timestamp"]
+                req.retry_count = 0
+                req.frame_bytes = frame_data["frame_bytes"]  # Store bytes for reuse
+                req.aruco = frame_data.get(
+                    "aruco"
+                )  # ArUco detection result (may be None)
+                req.request_type = RequestType.DESCRIBE
+                req.json_analysis = None  # Will store the JSON analysis result
+                req.category_results = {}  # Will store category-specific results
+                req.requests = []  # Track all requests for this frame
+                req.initial_image = (
+                    frame_img  # Keep reference to close after completion
+                )
 
-            batch.add(req)
+                batch.add(req)
 
-        # Clear qualified_frames now that all requests are created
-        # Bytes are already referenced in request objects, so this allows them
-        # to be freed incrementally as requests complete rather than all at the end
-        self.qualified_frames.clear()
+            # Clear qualified_frames now that all requests are created
+            self.qualified_frames.clear()
 
-        # Track success/failure for all frames
-        total_frames = 0
-        failed_frames = 0
+            # =================================================================
+            # PHASE 1: Collect all categorization results
+            # =================================================================
+            categorized: dict = {}  # frame_id -> request
+            total_frames = 0
+            failed_frames = 0
 
-        # Track frames by frame_id for merging follow-up results
-        frame_results = {}  # frame_id -> result dict
-        frame_images = {}  # frame_id -> PIL Image (for follow-up cleanup)
-
-        # Stream results as they complete, with retry logic
-        async for req in batch.drain_batch():
-            # Only count initial DESCRIBE requests as frames (not follow-ups)
-            if req.request_type == RequestType.DESCRIBE:
+            async for req in batch.drain_batch():
                 total_frames += 1
 
-            # Check for errors
-            has_error = bool(req.error)
-            error_msg = req.error
+                # Check for errors
+                has_error = bool(req.error)
+                error_msg = req.error
 
-            # Handle based on request type
-            if not has_error:
-                if req.request_type == RequestType.DESCRIBE:
-                    # Parse JSON analysis
+                # Parse JSON analysis
+                if not has_error:
                     try:
                         analysis = json.loads(req.response)
-                        req.json_analysis = analysis  # Store for follow-up analysis
+                        req.json_analysis = analysis
                     except json.JSONDecodeError as e:
                         has_error = True
                         error_msg = f"Invalid JSON response: {e}"
-                elif req.request_type == RequestType.CATEGORY:
-                    # Handle category-specific follow-up result
-                    category = req.follow_up_category
-                    cat_meta = self._get_category_metadata(category)
-                    if cat_meta and cat_meta.get("output") == "json":
-                        try:
-                            result = json.loads(req.response)
-                            req.category_results[category] = result
-                        except json.JSONDecodeError as e:
-                            has_error = True
-                            error_msg = f"Invalid JSON response for {category}: {e}"
-                    else:
-                        # Markdown output - store as-is
-                        req.category_results[category] = req.response
 
-            # Retry logic (up to 5 attempts total, so 4 retries)
-            if has_error and req.retry_count < 4:
-                req.retry_count += 1
-                batch.add(req)
-                logger.info(
-                    f"Retrying frame {req.frame_id} (attempt {req.retry_count + 1}/5): {error_msg}"
-                )
-                continue  # Don't output, wait for retry result
+                # Retry logic (up to 5 attempts total, so 4 retries)
+                if has_error and req.retry_count < 4:
+                    req.retry_count += 1
+                    total_frames -= 1  # Don't count retries
+                    batch.add(req)
+                    logger.info(
+                        f"Retrying frame {req.frame_id} "
+                        f"(attempt {req.retry_count + 1}/5): {error_msg}"
+                    )
+                    continue
 
-            # Track failure after all retries exhausted (only for initial requests)
-            if has_error and req.request_type == RequestType.DESCRIBE:
-                failed_frames += 1
+                # Track failure after all retries exhausted
+                if has_error:
+                    failed_frames += 1
 
-            # Record this request's result (after retries are done)
-            request_record = {
-                "type": req.request_type.value,
-                "model": req.model_used,
-                "duration": req.duration,
-            }
-            if req.retry_count > 0:
-                request_record["retries"] = req.retry_count
-            if req.follow_up_category:
-                request_record["category"] = req.follow_up_category
+                # Record categorization request result
+                request_record = {
+                    "type": req.request_type.value,
+                    "model": req.model_used,
+                    "duration": req.duration,
+                }
+                if req.retry_count > 0:
+                    request_record["retries"] = req.retry_count
+                req.requests.append(request_record)
 
-            req.requests.append(request_record)
+                # Store error on request for later output
+                if has_error:
+                    req.error_msg = error_msg
 
-            # Check if we should trigger follow-up analysis
-            should_process_further = (
-                not has_error
-                and req.request_type == RequestType.DESCRIBE
-                and req.json_analysis
+                # Close initial image - no longer needed for categorization
+                if hasattr(req, "initial_image") and req.initial_image:
+                    req.initial_image.close()
+                    req.initial_image = None
+
+                # Store in categorized dict (keep frame_bytes for extraction)
+                categorized[req.frame_id] = req
+
+            logger.info(
+                f"Phase 1 complete: {len(categorized)} frames categorized "
+                f"({failed_frames} failed)"
             )
 
-            if should_process_further:
-                # Extract categories from analysis
-                primary = req.json_analysis.get("primary", "")
-                secondary = req.json_analysis.get("secondary", "none")
-                overlap = req.json_analysis.get("overlap", True)
-
-                # Determine which categories have follow-up enabled
-                primary_meta = self._get_category_metadata(primary)
-                secondary_meta = (
-                    self._get_category_metadata(secondary)
-                    if secondary != "none"
-                    else None
+            # Check if all frames failed
+            if total_frames > 0 and failed_frames == total_frames:
+                error_detail = (
+                    f"Error details in {output_path}"
+                    if output_path
+                    else "No output file"
+                )
+                logger.error(
+                    f"All {total_frames} frame(s) failed categorization. "
+                    f"Video left in place for retry. {error_detail}"
+                )
+                raise RuntimeError(
+                    f"All {total_frames} frame(s) failed vision analysis after retries"
                 )
 
-                # Build follow-up list: each category with followup=true gets analyzed
-                # Primary always triggers if followup is enabled
-                # Secondary triggers only if overlap=false
-                follow_ups = []
+            # =================================================================
+            # PHASE 2: Select frames for extraction
+            # =================================================================
+            # Build input for selection (only successfully categorized frames)
+            categorized_list = [
+                {
+                    "frame_id": req.frame_id,
+                    "timestamp": req.timestamp,
+                    "analysis": req.json_analysis,
+                }
+                for req in categorized.values()
+                if req.json_analysis is not None
+            ]
+            # Sort by frame_id for consistent ordering
+            categorized_list.sort(key=lambda x: x["frame_id"])
 
-                if primary_meta:
-                    follow_ups.append((primary, primary_meta))
+            # Run selection
+            selected_ids = set(
+                select_frames_for_extraction(categorized_list, max_extractions)
+            )
 
-                if not overlap and secondary_meta:
-                    follow_ups.append((secondary, secondary_meta))
+            logger.info(
+                f"Phase 2 complete: {len(selected_ids)} of {len(categorized_list)} "
+                f"frames selected for extraction (max: {max_extractions})"
+            )
 
-                # Create follow-up requests
-                if follow_ups:
-                    full_img = Image.open(io.BytesIO(req.frame_bytes))
-                    req.pending_follow_ups = len(follow_ups)
+            # =================================================================
+            # PHASE 3: Extract content from selected frames
+            # =================================================================
+            # Track frames with pending extractions for merging
+            frame_results: dict = {}  # frame_id -> result dict
+            frame_images: dict = {}  # frame_id -> PIL Image (for cleanup)
+            extraction_count = 0
 
-                    # Store image in frame_images for cleanup (single reference)
-                    frame_images[req.frame_id] = full_img
+            for frame_id, req in categorized.items():
+                has_error = hasattr(req, "error_msg")
+                error_msg = getattr(req, "error_msg", None)
 
-                    # Close initial image since DESCRIBE is complete
-                    if hasattr(req, "initial_image") and req.initial_image:
-                        req.initial_image.close()
-                        req.initial_image = None
+                # Build base result
+                result = {
+                    "frame_id": req.frame_id,
+                    "timestamp": req.timestamp,
+                    "requests": req.requests,
+                }
 
-                    for i, (category, cat_meta) in enumerate(follow_ups):
-                        if i == 0:
-                            follow_req = req
-                        else:
-                            # Placeholder - context/contents updated via batch.update()
-                            follow_req = batch.create(
-                                contents=[], context=cat_meta["context"]
-                            )
-                            follow_req.frame_id = req.frame_id
-                            follow_req.timestamp = req.timestamp
-                            follow_req.frame_bytes = req.frame_bytes
-                            follow_req.aruco = req.aruco
-                            follow_req.json_analysis = req.json_analysis
-                            follow_req.category_results = req.category_results
-                            follow_req.requests = req.requests
-                            follow_req.pending_follow_ups = req.pending_follow_ups
+                if req.aruco:
+                    result["aruco"] = req.aruco
 
-                        follow_req.follow_up_category = category
-                        follow_req.retry_count = 0
-                        follow_req.request_type = RequestType.CATEGORY
+                if has_error:
+                    result["error"] = error_msg
 
-                        # Determine output format from metadata
-                        is_json = cat_meta.get("output") == "json"
+                if req.json_analysis:
+                    result["analysis"] = req.json_analysis
 
-                        # Resolve model for this category context
-                        _, cat_model = resolve_provider(cat_meta["context"])
+                # Check if this frame is selected for extraction
+                if frame_id not in selected_ids or req.json_analysis is None:
+                    # Not selected or failed - output immediately with enhanced=false
+                    result["enhanced"] = False
 
-                        batch.update(
-                            follow_req,
-                            contents=self._user_contents(
-                                f"Analyze this {category} screenshot.",
-                                full_img,
-                                entities=True,
-                            ),
-                            model=cat_model,
-                            system_instruction=cat_meta["prompt"],
-                            json_output=is_json,
-                            max_output_tokens=10240 if is_json else 8192,
-                            thinking_budget=6144 if is_json else 4096,
-                            context=cat_meta["context"],
-                        )
-
-                    logger.info(
-                        f"Frame {req.frame_id}: {len(follow_ups)} follow-up(s) - "
-                        f"{', '.join(cat for cat, _ in follow_ups)}"
-                    )
-
-                    # Don't close full_img here - requests are async and need it open
-                    continue  # Don't output yet, wait for follow-ups
-
-            # Handle follow-up completion for parallel requests
-            if req.request_type == RequestType.CATEGORY:
-                # Store result in frame_results for merging
-                if req.frame_id not in frame_results:
-                    frame_results[req.frame_id] = {
-                        "frame_id": req.frame_id,
-                        "timestamp": req.timestamp,
-                        "requests": req.requests,
-                        "analysis": req.json_analysis,
-                        "pending": req.pending_follow_ups,
-                    }
-                    if req.aruco:
-                        frame_results[req.frame_id]["aruco"] = req.aruco
-                    if has_error:
-                        frame_results[req.frame_id]["error"] = error_msg
-
-                result = frame_results[req.frame_id]
-
-                # Merge this follow-up's category result into content dict
-                if "content" not in result:
-                    result["content"] = {}
-                for category, cat_result in req.category_results.items():
-                    result["content"][category] = cat_result
-
-                # Update requests list (avoid duplicates by using shared list)
-                result["requests"] = req.requests
-
-                # Decrement pending count
-                result["pending"] -= 1
-
-                # If all follow-ups complete, output the result
-                if result["pending"] <= 0:
-                    del result["pending"]  # Remove internal tracking field
-
-                    # Write to file and optionally to stdout
                     result_line = json.dumps(result)
                     if output_file:
                         output_file.write(result_line + "\n")
@@ -650,86 +598,192 @@ class VideoProcessor:
                     if logger.isEnabledFor(logging.DEBUG):
                         print(result_line, flush=True)
 
-                    # Clean up frame_results entry
-                    del frame_results[req.frame_id]
+                    # Release frame bytes
+                    req.frame_bytes = None
+                    req.json_analysis = None
+                    continue
 
-                    # Close follow-up image now that all requests are done
+                # Frame is selected - determine extractions based on overlap logic
+                primary = req.json_analysis.get("primary", "")
+                secondary = req.json_analysis.get("secondary", "none")
+                overlap = req.json_analysis.get("overlap", True)
+
+                extractions = []
+
+                # Check primary category
+                primary_meta = self._get_category_metadata(primary)
+                if primary_meta:
+                    extractions.append((primary, primary_meta))
+                else:
+                    logger.warning(
+                        f"Frame {frame_id}: category '{primary}' has no extraction prompt"
+                    )
+
+                # Check secondary category if no overlap
+                if not overlap and secondary != "none":
+                    secondary_meta = self._get_category_metadata(secondary)
+                    if secondary_meta:
+                        extractions.append((secondary, secondary_meta))
+
+                # If no extractions possible, output without enhancement
+                if not extractions:
+                    result["enhanced"] = False
+
+                    result_line = json.dumps(result)
+                    if output_file:
+                        output_file.write(result_line + "\n")
+                        output_file.flush()
+                    if logger.isEnabledFor(logging.DEBUG):
+                        print(result_line, flush=True)
+
+                    req.frame_bytes = None
+                    req.json_analysis = None
+                    continue
+
+                # Queue extraction request(s)
+                full_img = Image.open(io.BytesIO(req.frame_bytes))
+                frame_images[frame_id] = full_img
+
+                # Store result for merging when extractions complete
+                result["enhanced"] = True
+                result["pending"] = len(extractions)
+                result["content"] = {}
+                frame_results[frame_id] = result
+
+                for i, (category, cat_meta) in enumerate(extractions):
+                    extraction_count += 1
+
+                    if i == 0:
+                        extract_req = req
+                    else:
+                        # Create new request for secondary extraction
+                        extract_req = batch.create(
+                            contents=[], context=cat_meta["context"]
+                        )
+                        extract_req.frame_id = req.frame_id
+                        extract_req.timestamp = req.timestamp
+                        extract_req.aruco = req.aruco
+                        extract_req.json_analysis = req.json_analysis
+                        extract_req.category_results = {}
+                        extract_req.requests = result["requests"]  # Share list
+
+                    extract_req.extraction_category = category
+                    extract_req.retry_count = 0
+                    extract_req.request_type = RequestType.CATEGORY
+
+                    # Determine output format from metadata
+                    is_json = cat_meta.get("output") == "json"
+
+                    # Resolve model for this category context
+                    _, cat_model = resolve_provider(cat_meta["context"])
+
+                    batch.update(
+                        extract_req,
+                        contents=self._user_contents(
+                            f"Analyze this {category} screenshot.",
+                            full_img,
+                            entities=True,
+                        ),
+                        model=cat_model,
+                        system_instruction=cat_meta["prompt"],
+                        json_output=is_json,
+                        max_output_tokens=10240 if is_json else 8192,
+                        thinking_budget=6144 if is_json else 4096,
+                        context=cat_meta["context"],
+                    )
+
+                logger.info(
+                    f"Frame {frame_id}: {len(extractions)} extraction(s) - "
+                    f"{', '.join(cat for cat, _ in extractions)}"
+                )
+
+            logger.info(f"Phase 3: {extraction_count} extraction request(s) queued")
+
+            # Drain extraction results
+            async for req in batch.drain_batch():
+                has_error = bool(req.error)
+                error_msg = req.error
+
+                # Parse extraction result
+                if not has_error:
+                    category = req.extraction_category
+                    cat_meta = self._get_category_metadata(category)
+                    if cat_meta and cat_meta.get("output") == "json":
+                        try:
+                            result_data = json.loads(req.response)
+                            req.category_results[category] = result_data
+                        except json.JSONDecodeError as e:
+                            has_error = True
+                            error_msg = f"Invalid JSON response for {category}: {e}"
+                    else:
+                        # Markdown output - store as-is
+                        req.category_results[category] = req.response
+
+                # Retry logic
+                if has_error and req.retry_count < 4:
+                    req.retry_count += 1
+                    batch.add(req)
+                    logger.info(
+                        f"Retrying extraction {req.frame_id}/{req.extraction_category} "
+                        f"(attempt {req.retry_count + 1}/5): {error_msg}"
+                    )
+                    continue
+
+                # Record extraction request result
+                request_record = {
+                    "type": req.request_type.value,
+                    "model": req.model_used,
+                    "duration": req.duration,
+                    "category": req.extraction_category,
+                }
+                if req.retry_count > 0:
+                    request_record["retries"] = req.retry_count
+                req.requests.append(request_record)
+
+                # Get the frame result we're merging into
+                result = frame_results.get(req.frame_id)
+                if result is None:
+                    logger.error(f"Extraction result for unknown frame {req.frame_id}")
+                    continue
+
+                # Merge extraction result
+                if has_error:
+                    if "error" not in result:
+                        result["error"] = error_msg
+                else:
+                    for category, cat_result in req.category_results.items():
+                        result["content"][category] = cat_result
+
+                # Decrement pending count
+                result["pending"] -= 1
+
+                # If all extractions complete, output the result
+                if result["pending"] <= 0:
+                    del result["pending"]
+
+                    result_line = json.dumps(result)
+                    if output_file:
+                        output_file.write(result_line + "\n")
+                        output_file.flush()
+                    if logger.isEnabledFor(logging.DEBUG):
+                        print(result_line, flush=True)
+
+                    # Clean up
+                    del frame_results[req.frame_id]
                     if req.frame_id in frame_images:
                         frame_images[req.frame_id].close()
                         del frame_images[req.frame_id]
 
-                    # Aggressively clear heavy fields
-                    req.frame_bytes = None
-                    req.json_analysis = None
-                    req.category_results = None
-
-                continue
-
-            # Final output for frames with no follow-ups (DESCRIBE only)
-            result = {
-                "frame_id": req.frame_id,
-                "timestamp": req.timestamp,
-                "requests": req.requests,
-            }
-
-            # Add aruco detection result if present
-            if req.aruco:
-                result["aruco"] = req.aruco
-
-            # Add error at top level if any request failed
-            if has_error:
-                result["error"] = error_msg
-
-            # Add analysis if we have it
-            if req.json_analysis:
-                result["analysis"] = req.json_analysis
-
-            # Write to file and optionally to stdout
-            result_line = json.dumps(result)
+        finally:
+            # Always close output file
             if output_file:
-                output_file.write(result_line + "\n")
-                output_file.flush()
-            if logger.isEnabledFor(logging.DEBUG):
-                print(result_line, flush=True)
+                output_file.close()
 
-            # Close all PIL Images associated with this request
-            if hasattr(req, "initial_image") and req.initial_image:
-                req.initial_image.close()
-                req.initial_image = None
-
-            # Aggressively clear heavy fields now that request is finalized
-            req.frame_bytes = None
-            req.json_analysis = None
-            req.category_results = None
-
-        # Close output file
-        if output_file:
-            output_file.close()
-
-        # Check if all frames failed
-        all_failed = total_frames > 0 and failed_frames == total_frames
-
-        if all_failed:
-            # Leave video for retry (already in segment dir)
-            error_detail = (
-                f"Error details in {output_path}" if output_path else "No output file"
-            )
-            logger.error(
-                f"All {total_frames} frame(s) failed processing. "
-                f"Video left in place for retry. {error_detail}"
-            )
-            # Clear qualified_frames to free memory before raising
-            self.qualified_frames.clear()
-            raise RuntimeError(
-                f"All {total_frames} frame(s) failed vision analysis after retries"
-            )
-        elif failed_frames > 0:
+        # Report any failures
+        if failed_frames > 0:
             logger.warning(
-                f"{failed_frames}/{total_frames} frame(s) failed processing."
+                f"{failed_frames}/{total_frames} frame(s) failed categorization."
             )
-
-        # Clear qualified_frames to free memory
-        self.qualified_frames.clear()
 
 
 def output_qualified_frames(

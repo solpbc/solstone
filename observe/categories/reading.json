@@ -1,5 +1,5 @@
 {
   "description": "Documents, articles, PDFs, documentation",
-  "followup": true,
-  "output": "markdown"
+  "output": "markdown",
+  "extraction": "Extract when document or page changes"
 }

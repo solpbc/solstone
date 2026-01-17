@@ -1,5 +1,5 @@
 {
   "description": "Video calls/conferencing (Zoom, Meet, Teams, Webex, etc.)",
-  "followup": true,
-  "output": "json"
+  "output": "json",
+  "extraction": "Extract when screen share or slides change, not for participant video changes"
 }

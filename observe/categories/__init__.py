@@ -4,8 +4,8 @@
 """Category prompts and formatters for screen description.
 
 This package contains:
-- <category>.json: Metadata (description, followup, output)
-- <category>.txt: Vision prompt template (required if followup=true)
+- <category>.json: Metadata (description, output format, tier)
+- <category>.txt: Extraction prompt template (categories with this file are extractable)
 - <category>.py: Optional formatter for rich markdown output
 
 See README.md for adding new categories.

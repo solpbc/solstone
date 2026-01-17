@@ -25,10 +25,6 @@ def test_categories_have_required_fields():
         assert isinstance(metadata["description"], str)
         assert len(metadata["description"]) > 0
 
-        # Every category should have followup field (defaulted if not set)
-        assert "followup" in metadata, f"Category {category} missing 'followup'"
-        assert isinstance(metadata["followup"], bool)
-
         # Every category should have output field (defaulted if not set)
         assert "output" in metadata, f"Category {category} missing 'output'"
         assert metadata["output"] in ("json", "markdown")
@@ -38,17 +34,19 @@ def test_categories_have_required_fields():
         assert metadata["context"].startswith("observe.describe.")
 
 
-def test_followup_categories_have_prompts():
-    """Test that categories with followup=true have prompt loaded."""
+def test_extractable_categories_have_prompts():
+    """Test that extractable categories have valid prompts loaded."""
     CATEGORIES = describe_module.CATEGORIES
 
+    extractable_count = 0
     for category, metadata in CATEGORIES.items():
-        if metadata["followup"]:
-            assert (
-                "prompt" in metadata
-            ), f"Category {category} has followup=true but no prompt"
+        if "prompt" in metadata:
+            extractable_count += 1
             assert isinstance(metadata["prompt"], str)
-            assert len(metadata["prompt"]) > 0
+            assert len(metadata["prompt"]) > 0, f"Category {category} has empty prompt"
+
+    # Sanity check: we should have at least some extractable categories
+    assert extractable_count > 0, "No extractable categories found"
 
 
 def test_categorization_prompt_built():
