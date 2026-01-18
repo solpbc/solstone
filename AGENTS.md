@@ -25,7 +25,7 @@ Understanding these core concepts is essential for working with solstone:
 
 * **Entities**: Extracted information (people, projects, concepts) tracked over time across transcripts and interactions. Entities are associated with facets and enable semantic navigation.
 
-* **Agents**: AI processors with configurable personas that analyze content, extract insights, and respond to queries. See [docs/CORTEX.md](docs/CORTEX.md).
+* **Agents**: AI processors with configurable personas that analyze content, extract insights, and respond to queries. See [docs/MUSE.md](docs/MUSE.md) for the agent system and [docs/CORTEX.md](docs/CORTEX.md) for eventing.
 
 * **Callosum**: Message bus that enables asynchronous communication between components. See [docs/CALLOSUM.md](docs/CALLOSUM.md).
 
@@ -55,10 +55,11 @@ Each package has a README.md symlink pointing to its documentation in `docs/`.
 
 ### Package Organization
 
+* **Python**: Requires Python 3.10+
 * **Modules**: Each top-level folder is a Python package with `__init__.py` unless it is data-only (e.g., `fixtures/`)
 * **Imports**: Prefer absolute imports (e.g., `from think.utils import setup_cli`) whenever feasible
-* **Entry Points**: Defined in `pyproject.toml` under `[project.scripts]` - see this file for the full list of available commands
-* **Journal**: Data stored under `JOURNAL_PATH` environment variable location always loaded from .env
+* **Entry Points**: Commands are registered in `sol.py`'s `COMMANDS` dict (pyproject.toml just defines the `sol` entry point)
+* **Journal**: Data stored under `JOURNAL_PATH` (see Environment Management below)
 * **Calling**: When calling other modules as a separate process always use `sol <command>` and never call using `python -m ...` (e.g., use `sol indexer`, NOT `python -m think.indexer`)
 
 ---
@@ -75,8 +76,8 @@ Each package has a README.md symlink pointing to its documentation in `docs/`.
 
 **Component Communication**:
 * Callosum message bus enables async communication between services
-* Cortex orchestrates agent execution, managing requests and event distribution
-* Agents process via `sol agents` command with persona configurations
+* Cortex orchestrates AI agent execution via `sol cortex`, spawning agent subprocesses with persona configurations
+* See [docs/MUSE.md](docs/MUSE.md) for agent system details and [docs/CORTEX.md](docs/CORTEX.md) for the eventing protocol
 
 **Command Reference**:
 The unified CLI is `sol`. Run `sol` to see status and available commands. Use `sol <command>` for subcommands or `sol <module.path>` for direct module access.
@@ -142,33 +143,13 @@ Use `//` comments for JavaScript files.
 * **Fixtures**: Shared fixtures in `tests/conftest.py`
 
 ### Running Tests
-```bash
-# Unit tests (fast)
-make test                    # Quick run
-make test-verbose           # With coverage details
-make test-only TEST=path    # Specific test
 
-# Integration tests (require API keys)
-make test-integration
-make test-integration-only TEST=name
-
-# Coverage report
-make coverage               # Generates htmlcov/index.html
-
-# UI testing
-sol restart                   # Restart Convey service (after code changes)
-sol screenshot <route>        # Capture Convey view screenshot (use -h for options)
-```
-
-**Important:** Always run `sol restart` after editing anything in `convey/` or `apps/` to clear caches and reload code.
-
-### Development Workflow
-```bash
-make format      # Auto-format code
-make lint        # Check code quality
-make test        # Run unit tests
-make check-all   # Format, lint, and test (run before commit)
-```
+See **Quick Reference** below for all `make` commands. Key patterns:
+- `make test` for unit tests, `make test-integration` for integration tests
+- `make test-only TEST=path` to run specific tests
+- `make check-all` before committing (formats, lints, tests)
+- Always run `sol restart` after editing `convey/` or `apps/` to reload code
+- Use `sol screenshot <route>` to capture UI screenshots for visual testing
 
 ---
 
@@ -179,7 +160,6 @@ make check-all   # Format, lint, and test (run before commit)
   - **Shell/CLI**: Run `grep JOURNAL_PATH .env` to get the path, then use it directly
   - **Python**: Use `get_journal()` from `think.utils` - it handles `.env` loading and auto-creates a platform-specific default if unset
 * **API Keys**: Store in `.env` file, never commit to repository
-* **Entry Points**: Use `sol <command>` (e.g., `sol indexer`) NOT `python -m ...`
 
 ### Error Handling & Logging
 * Raise specific exceptions with clear messages
@@ -191,7 +171,7 @@ make check-all   # Format, lint, and test (run before commit)
 * Update README files for new functionality
 * Code comments explain "why" not "what"
 * Function signatures should include type hints; highlight gaps when touching older modules
-* **All docs in `docs/`**: JOURNAL.md, APPS.md, CORTEX.md, CALLOSUM.md, DOCTOR.md, etc.
+* **All docs in `docs/`**: Browse for JOURNAL.md, APPS.md, CORTEX.md, CALLOSUM.md, MUSE.md, and more
 * **App/UI work**: [docs/APPS.md](docs/APPS.md) is required reading before modifying `apps/`
 
 ---
@@ -241,14 +221,12 @@ make clean-install # Clean and reinstall
 ```
 
 ### File Locations
-* **Entry Points**: `pyproject.toml` `[project.scripts]`
+* **Entry Points**: `sol.py` `COMMANDS` dict
 * **Test Fixtures**: `fixtures/journal/` - complete mock journal
-* **Live Logs**: Active services have logs available at `$JOURNAL_PATH/health/<service>.log`
-* **Journal Data**: Path from `JOURNAL_PATH` env var (set in `.env`)
-* **Config**: `.env` file in project root
-* **Agent Personas**: `muse/agents/*.txt` and `*.json`
-* **Insight Templates**: `think/insights/*.txt` and `*.json`
-* **Scratch Space**: `scratch/` - git-ignored local workspace for temporary scripts, one-off migrations, debug logs, screenshots, etc.
+* **Live Logs**: `$JOURNAL_PATH/health/<service>.log`
+* **Agent Personas**: `muse/agents/*.txt` + `*.json` (apps can add their own, see [docs/APPS.md](docs/APPS.md))
+* **Insight Templates**: `think/insights/*.txt` + `*.json` (apps can add their own, see [docs/APPS.md](docs/APPS.md))
+* **Scratch Space**: `scratch/` - git-ignored local workspace
 
 ### Getting Help
 * Run `sol` for status and CLI command list
