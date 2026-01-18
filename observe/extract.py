@@ -148,7 +148,11 @@ def _build_extraction_guidance(
 
     if not has_non_normal:
         # Simple flat list when all normal
-        return "\n".join(groups["normal"]) if groups["normal"] else "No category-specific rules."
+        return (
+            "\n".join(groups["normal"])
+            if groups["normal"]
+            else "No category-specific rules."
+        )
 
     # Build grouped output
     sections = []

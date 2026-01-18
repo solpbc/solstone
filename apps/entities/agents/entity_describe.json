@@ -1,6 +1,6 @@
 {
-  "name": "Entity Description",
-  "description": "Research and create single-sentence descriptions for entities",
   "title": "Entity Description",
+  "description": "Research and generate single-sentence descriptions for attached entities",
+  "tools": "journal",
   "group": "Entities"
 }
