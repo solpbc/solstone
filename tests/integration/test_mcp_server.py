@@ -123,10 +123,10 @@ async def test_mcp_server_stdio_e2e(integration_journal_path):
         json.dumps({"text": "Integration test todo"}) + "\n", encoding="utf-8"
     )
 
-    # Configure server parameters - use muse-mcp-tools entry point
+    # Configure server parameters - use sol mcp entry point
     server_params = StdioServerParameters(
-        command="muse-mcp-tools",
-        args=["--transport", "stdio"],
+        command="sol",
+        args=["mcp", "--transport", "stdio"],
         env={**os.environ, "JOURNAL_PATH": str(integration_journal_path)},
     )
 
@@ -268,8 +268,8 @@ async def test_mcp_server_multiple_tool_calls(integration_journal_path):
     todos_dir.mkdir(exist_ok=True)
 
     server_params = StdioServerParameters(
-        command="muse-mcp-tools",
-        args=["--transport", "stdio"],
+        command="sol",
+        args=["mcp", "--transport", "stdio"],
         env={**os.environ, "JOURNAL_PATH": str(integration_journal_path)},
     )
 
@@ -340,8 +340,8 @@ async def test_mcp_get_resource_tool(integration_journal_path):
     )
 
     server_params = StdioServerParameters(
-        command="muse-mcp-tools",
-        args=["--transport", "stdio"],
+        command="sol",
+        args=["mcp", "--transport", "stdio"],
         env={**os.environ, "JOURNAL_PATH": str(integration_journal_path)},
     )
 

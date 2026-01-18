@@ -59,7 +59,7 @@ Each package has a README.md symlink pointing to its documentation in `docs/`.
 * **Imports**: Prefer absolute imports (e.g., `from think.utils import setup_cli`) whenever feasible
 * **Entry Points**: Defined in `pyproject.toml` under `[project.scripts]` - see this file for the full list of available commands
 * **Journal**: Data stored under `JOURNAL_PATH` environment variable location always loaded from .env
-* **Calling**: When calling other modules as a separate process always use their command name and never call using `python -m ...` (e.g., use `think-indexer`, NOT `python -m think.indexer`)
+* **Calling**: When calling other modules as a separate process always use `sol <command>` and never call using `python -m ...` (e.g., use `sol indexer`, NOT `python -m think.indexer`)
 
 ---
 
@@ -76,12 +76,10 @@ Each package has a README.md symlink pointing to its documentation in `docs/`.
 **Component Communication**:
 * Callosum message bus enables async communication between services
 * Cortex orchestrates agent execution, managing requests and event distribution
-* Agents process via `muse-agents` command with persona configurations
+* Agents process via `sol agents` command with persona configurations
 
 **Command Reference**:
 The unified CLI is `sol`. Run `sol` to see status and available commands. Use `sol <command>` for subcommands or `sol <module.path>` for direct module access.
-
-Individual entry points (`think-*`, `observe-*`, `muse-*`, `convey*`) are also available - see `pyproject.toml` `[project.scripts]`.
 
 ---
 
@@ -158,11 +156,11 @@ make test-integration-only TEST=name
 make coverage               # Generates htmlcov/index.html
 
 # UI testing
-convey-restart                # Restart Convey service (after code changes)
-convey-screenshot <route>     # Capture Convey view screenshot (use -h for options)
+sol restart                   # Restart Convey service (after code changes)
+sol screenshot <route>        # Capture Convey view screenshot (use -h for options)
 ```
 
-**Important:** Always run `convey-restart` after editing anything in `convey/` or `apps/` to clear caches and reload code.
+**Important:** Always run `sol restart` after editing anything in `convey/` or `apps/` to clear caches and reload code.
 
 ### Development Workflow
 ```bash
@@ -181,7 +179,7 @@ make check-all   # Format, lint, and test (run before commit)
   - **Shell/CLI**: Run `grep JOURNAL_PATH .env` to get the path, then use it directly
   - **Python**: Use `get_journal()` from `think.utils` - it handles `.env` loading and auto-creates a platform-specific default if unset
 * **API Keys**: Store in `.env` file, never commit to repository
-* **Entry Points**: Use command names (e.g., `think-indexer`) NOT `python -m ...`
+* **Entry Points**: Use `sol <command>` (e.g., `sol indexer`) NOT `python -m ...`
 
 ### Error Handling & Logging
 * Raise specific exceptions with clear messages
@@ -230,8 +228,8 @@ make lint          # Check code quality
 
 # Testing & Debugging
 make test-integration         # Run integration tests
-convey-restart                # Restart Convey service (after code changes)
-convey-screenshot <route>     # Capture Convey view screenshot (use -h for options)
+sol restart                   # Restart Convey service (after code changes)
+sol screenshot <route>        # Capture Convey view screenshot (use -h for options)
 make coverage                 # Generate coverage report
 
 # Before pushing

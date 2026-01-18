@@ -7,8 +7,8 @@ Provides export and import commands for creating and unpacking day archives
 containing fully-processed observation segments.
 
 Usage:
-    observe-transfer export --day YYYYMMDD [--output PATH]
-    observe-transfer import --archive PATH [--dry-run]
+    sol transfer export --day YYYYMMDD [--output PATH]
+    sol transfer import --archive PATH [--dry-run]
 """
 
 from __future__ import annotations
@@ -345,7 +345,7 @@ def import_archive(
     logger.info(f"Running indexer rescan for {day}...")
     try:
         subprocess.run(
-            ["think-indexer", "--rescan", "--day", day],
+            ["sol", "indexer", "--rescan", "--day", day],
             check=True,
             capture_output=True,
             text=True,
@@ -354,7 +354,7 @@ def import_archive(
     except subprocess.CalledProcessError as e:
         logger.warning(f"  Indexer rescan failed: {e.stderr}")
     except FileNotFoundError:
-        logger.warning("  think-indexer not found, skipping rescan")
+        logger.warning("  sol not found, skipping rescan")
 
     return {
         "status": "imported",

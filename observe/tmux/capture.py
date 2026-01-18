@@ -293,7 +293,7 @@ class TmuxCapture:
     ) -> dict:
         """Convert CaptureResult to JSON-serializable dict.
 
-        Output format matches screen.jsonl structure from observe-describe:
+        Output format matches screen.jsonl structure from sol describe:
         - frame_id: Capture sequence number
         - timestamp: Seconds since segment start
         - requests: Empty list (no AI processing)

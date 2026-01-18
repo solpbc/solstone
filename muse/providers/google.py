@@ -4,7 +4,7 @@
 
 """Gemini provider for agents and direct LLM generation.
 
-This module provides the Google Gemini provider for the ``muse-agents`` CLI
+This module provides the Google Gemini provider for the ``sol agents`` CLI
 and standardized generate/agenerate functions for direct LLM calls.
 """
 

@@ -53,7 +53,7 @@ def test_planner_main(tmp_path, monkeypatch, capsys):
     monkeypatch.setattr(mod, "generate_plan", lambda *a, **k: "ok")
     task = tmp_path / "t.txt"
     task.write_text("hi")
-    monkeypatch.setattr("sys.argv", ["think-planner", str(task)])
+    monkeypatch.setattr("sys.argv", ["sol planner", str(task)])
     mod.main()
     out = capsys.readouterr().out.strip()
     assert out == "ok"

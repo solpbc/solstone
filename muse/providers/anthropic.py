@@ -4,7 +4,7 @@
 
 """Anthropic Claude provider agent implementation.
 
-This module provides the Anthropic Claude provider for the ``muse-agents`` CLI.
+This module provides the Anthropic Claude provider for the ``sol agents`` CLI.
 """
 
 from __future__ import annotations

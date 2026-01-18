@@ -14,21 +14,21 @@ All dependencies are listed in `pyproject.toml`.
 
 The package exposes several commands:
 
-- `think-insight` builds a Markdown summary of a day's recordings using a Gemini prompt.
-- `think-cluster` groups audio and screen JSON files into report sections. Use `--start` and
+- `sol insight` builds a Markdown summary of a day's recordings using a Gemini prompt.
+- `sol cluster` groups audio and screen JSON files into report sections. Use `--start` and
   `--length` to limit the report to a specific time range.
-- `think-dream` runs the above tools for a single day.
-- `think-supervisor` monitors observation heartbeats. Use `--no-observers` to disable local capture (sense still runs for remote uploads and imports).
-- `muse-mcp-tools` starts an MCP server exposing search capabilities for both summary text and raw transcripts.
-- `muse-cortex` starts a WebSocket API server for managing AI agent instances.
+- `sol dream` runs the above tools for a single day.
+- `sol supervisor` monitors observation heartbeats. Use `--no-observers` to disable local capture (sense still runs for remote uploads and imports).
+- `sol mcp` starts an MCP server exposing search capabilities for both summary text and raw transcripts.
+- `sol cortex` starts a WebSocket API server for managing AI agent instances.
 
 ```bash
-think-insight YYYYMMDD [-f PROMPT] [-p] [-c] [--force] [-v]
-think-cluster YYYYMMDD [--start HHMMSS --length MINUTES]
-think-dream [--day YYYYMMDD] [--segment HHMMSS_LEN] [--force] [--skip-insights] [--skip-agents]
-think-supervisor [--no-observers]
-muse-mcp-tools [--transport http] [--port PORT] [--path PATH]
-muse-cortex [--host HOST] [--port PORT] [--path PATH]
+sol insight YYYYMMDD [-f PROMPT] [-p] [-c] [--force] [-v]
+sol cluster YYYYMMDD [--start HHMMSS --length MINUTES]
+sol dream [--day YYYYMMDD] [--segment HHMMSS_LEN] [--force] [--skip-insights] [--skip-agents]
+sol supervisor [--no-observers]
+sol mcp [--transport http] [--port PORT] [--path PATH]
+sol cortex [--host HOST] [--port PORT] [--path PATH]
 ```
 
 `-p` is a switch enabling the Gemini Pro model. Use `-c` to count tokens only,
@@ -42,12 +42,12 @@ is loaded automatically by most commands.
 
 The MCP HTTP server now runs inside Cortex itself. When Cortex starts it passes
 the URL directly to each agent request (`mcp_server_url`). Utilities that need
-tool metadata, such as `think-planner`, query the registered tools directly and
+tool metadata, such as `sol planner`, query the registered tools directly and
 no discovery files or environment variables are required.
 
 ## Automating daily processing
 
-The `think-dream` command can be triggered by a systemd timer. Below is a
+The `sol dream` command can be triggered by a systemd timer. Below is a
 minimal service and timer that process yesterday's folder every morning at
 06:00:
 
@@ -57,7 +57,7 @@ Description=Process solstone journal
 
 [Service]
 Type=oneshot
-ExecStart=/usr/local/bin/think-dream
+ExecStart=/usr/local/bin/sol dream
 
 [Install]
 WantedBy=multi-user.target
@@ -65,12 +65,12 @@ WantedBy=multi-user.target
 
 ```ini
 [Unit]
-Description=Run think-dream daily
+Description=Run sol dream daily
 
 [Timer]
 OnCalendar=*-*-* 06:00:00
 Persistent=true
-Unit=think-dream.service
+Unit=sol-dream.service
 
 [Install]
 WantedBy=timers.target
@@ -80,7 +80,7 @@ WantedBy=timers.target
 
 ### Cortex: Central Agent Manager
 
-The Cortex service (`muse-cortex`) is the central system for managing AI agent instances. It monitors the journal's `agents/` directory for new requests and manages agent execution. All agent spawning should go through Cortex for proper event tracking and management.
+The Cortex service (`sol cortex`) is the central system for managing AI agent instances. It monitors the journal's `agents/` directory for new requests and manages agent execution. All agent spawning should go through Cortex for proper event tracking and management.
 
 To spawn agents programmatically, use the cortex_client functions:
 
@@ -113,10 +113,10 @@ watcher.close()
 
 ### Direct CLI Usage (Testing Only)
 
-The `muse-agents` command is primarily used internally by Cortex. For testing purposes, it can be invoked directly:
+The `sol agents` command is primarily used internally by Cortex. For testing purposes, it can be invoked directly:
 
 ```bash
-muse-agents [TASK_FILE] [--provider PROVIDER] [--model MODEL] [--max-tokens N] [-o OUT_FILE]
+sol agents [TASK_FILE] [--provider PROVIDER] [--model MODEL] [--max-tokens N] [-o OUT_FILE]
 ```
 
 The provider can be ``openai`` (default), ``google`` or ``anthropic``. Set the corresponding API key environment variable (`OPENAI_API_KEY`,

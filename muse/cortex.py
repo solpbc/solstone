@@ -413,7 +413,7 @@ class CortexService:
             env["JOURNAL_PATH"] = str(self.journal_path)
 
             # Spawn the agent process
-            cmd = ["muse-agents"]
+            cmd = ["sol", "agents"]
             self.logger.info(f"Spawning agent {agent_id}: {cmd}")
             self.logger.debug(f"NDJSON input: {ndjson_input}")
 

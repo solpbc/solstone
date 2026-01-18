@@ -16,7 +16,7 @@ export JOURNAL_PATH=$(grep JOURNAL_PATH .env | cut -d= -f2)
 
 ```bash
 # Check if supervisor services are running
-pgrep -af "observer|observe-sense|think-supervisor"
+pgrep -af "sol:observer|sol:sense|sol:supervisor"
 
 # Check Callosum socket exists
 ls -la $JOURNAL_PATH/health/callosum.sock
@@ -35,15 +35,15 @@ ls $JOURNAL_PATH/$(date +%Y%m%d)/agents/*_active.jsonl 2>/dev/null
 
 ## Service Architecture
 
-The supervisor (`think-supervisor`) manages these services:
+The supervisor (`sol supervisor`) manages these services:
 
 | Service | Command | Purpose | Auto-restart |
 |---------|---------|---------|--------------|
 | Callosum | (in-process) | Message bus for inter-service events | No |
-| Observer | `observer` | Screen/audio capture (platform-detected) | Yes |
-| Sense | `observe-sense` | File detection, processing dispatch | Yes |
+| Observer | `sol observer` | Screen/audio capture (platform-detected) | Yes |
+| Sense | `sol sense` | File detection, processing dispatch | Yes |
 
-Cortex (agent execution) connects to Callosum but runs independently via `muse-cortex`.
+Cortex (agent execution) connects to Callosum but runs independently via `sol cortex`.
 
 See [CALLOSUM.md](CALLOSUM.md) for message protocol and [CORTEX.md](CORTEX.md) for agent system.
 
@@ -161,7 +161,7 @@ Causes: Backend timeout, tool hanging, network issues.
 ls -la $JOURNAL_PATH/health/callosum.sock
 
 # Check supervisor is running
-pgrep -af think-supervisor
+pgrep -af sol:supervisor
 ```
 
 Causes: Supervisor not started, socket path permissions.
@@ -170,7 +170,7 @@ Causes: Supervisor not started, socket path permissions.
 
 ```bash
 # Check sense log for queue status
-grep -i "queue" $JOURNAL_PATH/health/observe-sense.log | tail -10
+grep -i "queue" $JOURNAL_PATH/health/sense.log | tail -10
 ```
 
 Causes: Slow transcription, describe API rate limits.

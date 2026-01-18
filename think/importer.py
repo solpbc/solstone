@@ -758,7 +758,7 @@ def _print_facets_help(facets: dict, media_path: str, timestamp: str) -> None:
         print(f"  {name:<{max_name}}  {title}")
 
     print("\nAdd --facet <name>:")
-    print(f"  think-importer {media_path} --timestamp {timestamp} --facet <name>")
+    print(f"  sol import {media_path} --timestamp {timestamp} --facet <name>")
 
 
 def _print_setting_help(media_path: str, timestamp: str, facet: str) -> None:
@@ -767,7 +767,7 @@ def _print_setting_help(media_path: str, timestamp: str, facet: str) -> None:
     print("Examples: 'Team standup meeting', 'Jer lunch with Joe', 'Conference talk'")
     print("\nAdd --setting <description>:")
     print(
-        f"  think-importer {media_path} --timestamp {timestamp} "
+        f"  sol import {media_path} --timestamp {timestamp} "
         f'--facet {facet} --setting "description"'
     )
 
@@ -824,7 +824,7 @@ def main() -> None:
             display = _format_timestamp_display(detected_timestamp)
             print(f"Detected timestamp: {detected_timestamp} ({display})")
             print("\nRun:")
-            print(f"  think-importer {args.media} --timestamp {detected_timestamp}")
+            print(f"  sol import {args.media} --timestamp {detected_timestamp}")
             return
         else:
             raise SystemExit(
@@ -1021,7 +1021,7 @@ def main() -> None:
                 created_segments.append(seg)
 
         # Emit observe.observed events for each segment to trigger segment processing
-        # This allows segment insights (think-dream --segment) to run in parallel with summary
+        # This allows segment insights (sol dream --segment) to run in parallel with summary
         for seg in created_segments:
             _callosum.emit(
                 "observe",

@@ -559,22 +559,22 @@ def collect_status(procs: list[ManagedProcess]) -> dict:
 
 def start_observer() -> ManagedProcess:
     """Launch platform-detected observer with output logging."""
-    return _launch_process("observer", ["observer", "-v"], restart=True)
+    return _launch_process("observer", ["sol", "observer", "-v"], restart=True)
 
 
 def start_sense() -> ManagedProcess:
-    """Launch observe-sense with output logging."""
-    return _launch_process("sense", ["observe-sense", "-v"], restart=True)
+    """Launch sol sense with output logging."""
+    return _launch_process("sense", ["sol", "sense", "-v"], restart=True)
 
 
 def start_sync(remote_url: str) -> ManagedProcess:
-    """Launch observe-sync with output logging.
+    """Launch sol sync with output logging.
 
     Args:
         remote_url: Remote ingest URL for sync service
     """
     return _launch_process(
-        "sync", ["observe-sync", "-v", "--remote", remote_url], restart=True
+        "sync", ["sol", "sync", "-v", "--remote", remote_url], restart=True
     )
 
 
@@ -632,14 +632,14 @@ def stop_callosum_in_process() -> None:
 
 def start_cortex_server() -> ManagedProcess:
     """Launch the Cortex WebSocket API server."""
-    cmd = ["muse-cortex", "-v"]
+    cmd = ["sol", "cortex", "-v"]
     return _launch_process("cortex", cmd, restart=True)
 
 
 def start_convey_server(verbose: bool, debug: bool = False) -> ManagedProcess:
     """Launch the Convey web application with optional verbose and debug logging."""
 
-    cmd = ["convey"]
+    cmd = ["sol", "convey"]
     if debug:
         cmd.append("-d")
     elif verbose:
@@ -791,9 +791,9 @@ async def handle_health_checks(
 
 
 def _run_daily_processing(day: str) -> None:
-    """Run complete daily processing via think-dream.
+    """Run complete daily processing via sol dream.
 
-    think-dream now handles both insights and agent execution, so we just
+    dream now handles both insights and agent execution, so we just
     invoke it with --force and let it manage the full pipeline.
 
     Args:
@@ -803,7 +803,7 @@ def _run_daily_processing(day: str) -> None:
 
     logging.info(f"Starting daily processing for {day}...")
     success, exit_code = run_task(
-        ["think-dream", "-v", "--day", day, "--force"],
+        ["sol", "dream", "-v", "--day", day, "--force"],
         callosum=_supervisor_callosum,
     )
 
@@ -871,7 +871,7 @@ def handle_daily_tasks() -> None:
 def _handle_segment_observed(message: dict) -> None:
     """Handle segment completion events (from live observation or imports).
 
-    Spawns think-dream in segment mode, which handles both insights and
+    Spawns sol dream in segment mode, which handles both insights and
     segment agents.
     """
     if message.get("tract") != "observe" or message.get("event") != "observed":
@@ -896,12 +896,12 @@ def _handle_segment_observed(message: dict) -> None:
 
 
 def _run_segment_processing(day: str, segment: str) -> None:
-    """Run think-dream for a specific segment."""
+    """Run sol dream for a specific segment."""
     from think.runner import run_task
 
     logging.info(f"Starting segment processing: {day}/{segment}")
     success, exit_code = run_task(
-        ["think-dream", "-v", "--day", day, "--segment", segment],
+        ["sol", "dream", "-v", "--day", day, "--segment", segment],
         callosum=_supervisor_callosum,
     )
 

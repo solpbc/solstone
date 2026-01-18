@@ -90,10 +90,11 @@ def test_run_daily_processing_success(mock_callosum):
     assert _daily_state["dream_running"] is False
     assert _daily_state["dream_completed"] is True
 
-    # Verify think-dream was called with correct args
+    # Verify sol dream was called with correct args
     mock_run_task.assert_called_once()
     call_args = mock_run_task.call_args[0][0]
-    assert call_args[0] == "think-dream"
+    assert call_args[0] == "sol"
+    assert call_args[1] == "dream"
     assert "-v" in call_args
     assert "--day" in call_args
     assert "20250101" in call_args

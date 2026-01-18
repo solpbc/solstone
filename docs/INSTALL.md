@@ -144,7 +144,7 @@ REVAI_ACCESS_TOKEN=your-token-here
 The supervisor manages all background services (capture, processing):
 
 ```bash
-think-supervisor
+sol supervisor
 ```
 
 This starts:
@@ -157,7 +157,7 @@ This starts:
 In another terminal, check that services are running:
 
 ```bash
-pgrep -af "observer|observe-sense|think-supervisor"
+pgrep -af "sol:observer|sol:sense|sol:supervisor"
 ```
 
 You should see three processes.
@@ -210,7 +210,7 @@ Verify everything is working:
 
 ```bash
 # Check services are running
-pgrep -af "observer|observe-sense|think-supervisor"
+pgrep -af "sol:observer|sol:sense|sol:supervisor"
 
 # Check Callosum socket exists
 ls -la $JOURNAL_PATH/health/callosum.sock

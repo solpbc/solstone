@@ -217,13 +217,16 @@ class ManagedProcess:
 
             # With explicit correlation ID:
             managed = ManagedProcess.spawn(
-                ["think-indexer", "--rescan"],
+                ["sol", "indexer", "--rescan"],
                 ref="1730476800000",
             )
-            # Logs to: {JOURNAL}/{YYYYMMDD}/health/1730476800000_think-indexer.log
+            # Logs to: {JOURNAL}/{YYYYMMDD}/health/1730476800000_indexer.log
         """
-        # Derive name from command basename
-        name = Path(cmd[0]).name
+        # Derive name from command - use subcommand if invoked via sol
+        if cmd[0] == "sol" and len(cmd) > 1:
+            name = cmd[1]
+        else:
+            name = Path(cmd[0]).name
 
         # Generate correlation ID (use provided ref, else timestamp)
         ref = ref if ref else str(int(time.time() * 1000))
@@ -440,17 +443,17 @@ def run_task(
 
     Example:
         success, code = run_task(
-            ["think-insight", "20241101", "-f", "flow"],
+            ["sol", "insight", "20241101", "-f", "flow"],
             timeout=300,
         )
-        # Logs to: {JOURNAL}/{YYYYMMDD}/health/{ref}_think-insight.log
+        # Logs to: {JOURNAL}/{YYYYMMDD}/health/{ref}_insight.log
 
         # With explicit correlation ID:
         success, code = run_task(
-            ["think-indexer", "--rescan"],
+            ["sol", "indexer", "--rescan"],
             ref="1730476800000",
         )
-        # Logs to: {JOURNAL}/{YYYYMMDD}/health/1730476800000_think-indexer.log
+        # Logs to: {JOURNAL}/{YYYYMMDD}/health/1730476800000_indexer.log
     """
     managed = ManagedProcess.spawn(cmd, env=env, ref=ref, callosum=callosum)
     try:

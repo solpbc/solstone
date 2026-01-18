@@ -382,7 +382,7 @@ def import_start() -> Any:
     setting = metadata.get("setting")
 
     # Build command
-    cmd = ["think-importer", path, ts]
+    cmd = ["sol", "import", path, ts]
     if facet:
         cmd.extend(["--facet", facet])
     if setting:

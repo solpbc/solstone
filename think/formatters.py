@@ -412,7 +412,7 @@ def _format_chunk_summary(chunks: list[dict], raw_chunks: list[dict] | None) -> 
 
 
 def main() -> None:
-    """CLI entry point for think-formatter."""
+    """CLI entry point for sol formatter."""
     from think.utils import setup_cli
 
     parser = argparse.ArgumentParser(

@@ -6,9 +6,9 @@ AI agent system and MCP tooling for solstone.
 
 | Command | Purpose |
 |---------|---------|
-| `muse-cortex` | Agent orchestration service |
-| `muse-mcp-tools` | MCP tool server (runs inside Cortex) |
-| `muse-agents` | Direct agent invocation (testing only) |
+| `sol cortex` | Agent orchestration service |
+| `sol mcp` | MCP tool server (runs inside Cortex) |
+| `sol agents` | Direct agent invocation (testing only) |
 
 ## Architecture
 

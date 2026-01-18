@@ -21,6 +21,8 @@ import os
 import sys
 from typing import Any
 
+import setproctitle
+
 # =============================================================================
 # Command Registry
 # =============================================================================
@@ -276,6 +278,9 @@ def main() -> None:
     except ValueError as e:
         print(f"Error: {e}", file=sys.stderr)
         sys.exit(1)
+
+    # Set process title for ps/top visibility
+    setproctitle.setproctitle(f"sol:{cmd}")
 
     # Adjust sys.argv for the subcommand
     # Original: ["sol", "import", "--day", "20250101"]

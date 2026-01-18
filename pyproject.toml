@@ -51,6 +51,7 @@ dependencies = [
     "pyobjc-framework-Cocoa; sys_platform == 'darwin'",
     "pyobjc-framework-Quartz; sys_platform == 'darwin'",
     "desktop-notifier",
+    "setproctitle",
     "av",
 
     "sqlite-utils",
@@ -94,33 +95,6 @@ dependencies = [
 
 [project.scripts]
 sol = "sol:main"
-convey = "convey.cli:main"
-convey-restart = "convey.restart:main"
-convey-screenshot = "convey.screenshot:main"
-think-insight = "think.insight:main"
-think-cluster = "think.cluster:main"
-think-planner = "think.planner:main"
-think-journal-stats = "think.journal_stats:main"
-think-importer = "think.importer:main"
-think-dream = "think.dream:main"
-muse-mcp-tools = "muse.mcp:main"
-think-indexer = "think.indexer:main"
-muse-agents = "muse.agents:main"
-muse = "muse.cli:main"
-think-supervisor = "think.supervisor:main"
-think-detect-created = "think.detect_created:main"
-think-manage = "think.manage:main"
-muse-cortex = "muse.cortex:main"
-think-callosum = "think.callosum:main"
-observer = "observe.observer:main"
-observe-linux = "observe.linux.observer:main"
-observe-macos = "observe.macos.observer:main"
-observe-transcribe = "observe.transcribe:main"
-observe-describe = "observe.describe:main"
-observe-sense = "observe.sense:main"
-observe-sync = "observe.sync:main"
-observe-transfer = "observe.transfer:main"
-think-formatter = "think.formatters:main"
 
 [project.urls]
 Homepage = "https://github.com/solpbc/solstone"

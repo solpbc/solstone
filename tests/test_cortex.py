@@ -107,7 +107,7 @@ def test_spawn_agent(mock_timer, mock_thread, mock_popen, cortex_service, mock_j
     # Check subprocess was called
     mock_popen.assert_called_once()
     call_args = mock_popen.call_args
-    assert call_args[0][0] == ["muse-agents"]
+    assert call_args[0][0] == ["sol", "agents"]
     assert call_args[1]["stdin"] is not None
     assert call_args[1]["stdout"] is not None
     assert call_args[1]["stderr"] is not None

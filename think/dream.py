@@ -28,8 +28,9 @@ _callosum: CallosumConnection | None = None
 
 def run_command(cmd: list[str], day: str) -> bool:
     logging.info("==> %s", " ".join(cmd))
-    # Extract command name for logging (e.g., "think-insight" -> "insight")
-    cmd_name = cmd[0].replace("think-", "").replace("-", "_")
+    # Extract command name for logging (e.g., "sol insight" -> "insight")
+    cmd_name = cmd[1] if cmd[0] == "sol" else cmd[0]
+    cmd_name = cmd_name.replace("-", "_")
 
     # Use unified runner with automatic logging
     try:
@@ -70,7 +71,7 @@ def build_commands(
         logging.info("Running daily processing for %s", day)
         target_frequency = "daily"
         # Daily-only: repair routines
-        cmd = ["observe-sense", "--day", day]
+        cmd = ["sol", "sense", "--day", day]
         if verbose:
             cmd.append("-v")
         commands.append(cmd)
@@ -88,7 +89,7 @@ def build_commands(
         if insight_frequency != target_frequency:
             continue
 
-        cmd = ["think-insight", day, "-f", insight_data["path"]]
+        cmd = ["sol", "insight", day, "-f", insight_data["path"]]
         if segment:
             cmd.extend(["--segment", segment])
         if verbose:
@@ -98,14 +99,14 @@ def build_commands(
         commands.append(cmd)
 
     # Re-index (light mode: excludes historical days, mtime-cached)
-    indexer_cmd = ["think-indexer", "--rescan"]
+    indexer_cmd = ["sol", "indexer", "--rescan"]
     if verbose:
         indexer_cmd.append("--verbose")
     commands.append(indexer_cmd)
 
     # Daily-only: journal stats
     if not segment:
-        stats_cmd = ["think-journal-stats"]
+        stats_cmd = ["sol", "journal-stats"]
         if verbose:
             stats_cmd.append("--verbose")
         commands.append(stats_cmd)
@@ -472,7 +473,7 @@ def main() -> None:
                         duration_ms=int((time.time() - start_time) * 1000),
                     ),
                 )
-                day_log(day, f"think-dream insights failed {insight_fail_count}")
+                day_log(day, f"dream insights failed {insight_fail_count}")
                 sys.exit(1)
 
         # Phase 2: Agents
@@ -488,7 +489,7 @@ def main() -> None:
                 # Full rescan after agents
                 if agent_success > 0 or agent_fail_count > 0:
                     logging.info("Running full index rescan after agents...")
-                    run_command(["think-indexer", "--rescan-full"], day)
+                    run_command(["sol", "indexer", "--rescan-full"], day)
 
         # Emit completed event (all processing done)
         emit(
@@ -501,7 +502,7 @@ def main() -> None:
         )
 
         # Build log message
-        msg = "think-dream"
+        msg = "dream"
         if args.skip_insights:
             msg += " --skip-insights"
         if args.skip_agents:

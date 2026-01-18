@@ -6,23 +6,23 @@ Multimodal capture and AI-powered analysis of desktop activity.
 
 | Command | Purpose |
 |---------|---------|
-| `observer` | Screen and audio capture (auto-detects platform) |
-| `observe-linux` | Screen and audio capture on Linux (direct) |
-| `observe-macos` | Screen and audio capture on macOS (direct) |
-| `observe-transcribe` | Audio transcription with faster-whisper |
-| `observe-describe` | Visual analysis of screen recordings |
-| `observe-sense` | Unified observation coordination |
+| `sol observer` | Screen and audio capture (auto-detects platform) |
+| `sol observe-linux` | Screen and audio capture on Linux (direct) |
+| `sol observe-macos` | Screen and audio capture on macOS (direct) |
+| `sol transcribe` | Audio transcription with faster-whisper |
+| `sol describe` | Visual analysis of screen recordings |
+| `sol sense` | Unified observation coordination |
 
 ## Architecture
 
 ```
-observer (platform-detected capture)
+sol observer (platform-detected capture)
        ↓
    Raw media files (*.flac, *.webm, tmux_*.jsonl)
        ↓
-observe-sense (coordination)
-   ├── observe-transcribe → audio.jsonl
-   └── observe-describe → screen.jsonl
+sol sense (coordination)
+   ├── sol transcribe → audio.jsonl
+   └── sol describe → screen.jsonl
 ```
 
 ## Observer State Machine

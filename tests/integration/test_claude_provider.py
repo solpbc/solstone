@@ -125,7 +125,7 @@ def test_claude_provider_real_sdk():
     )
 
     result = subprocess.run(
-        ["muse-agents"],
+        ["sol", "agents"],
         env=env,
         input=ndjson_input,
         capture_output=True,
@@ -203,7 +203,7 @@ def test_claude_provider_with_tool_calls():
         )
 
         result = subprocess.run(
-            ["muse-agents", "-v"],
+            ["sol", "agents", "-v"],
             env=env,
             input=ndjson_input,
             capture_output=True,
@@ -254,7 +254,7 @@ def test_claude_provider_with_thinking():
     )
 
     result = subprocess.run(
-        ["muse-agents"],
+        ["sol", "agents"],
         env=env,
         input=ndjson_input,
         capture_output=True,

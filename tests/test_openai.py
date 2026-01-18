@@ -49,7 +49,7 @@ def test_openai_main(monkeypatch, tmp_path, capsys):
             "mcp_server_url": "http://localhost:5173/mcp",
         }
     )
-    asyncio.run(run_main(mod, ["muse-agents"], stdin_data=ndjson_input))
+    asyncio.run(run_main(mod, ["sol agents"], stdin_data=ndjson_input))
 
     out_lines = capsys.readouterr().out.strip().splitlines()
     events = [json.loads(line) for line in out_lines]
@@ -103,7 +103,7 @@ def test_openai_thinking_events(monkeypatch, tmp_path, capsys):
             "mcp_server_url": "http://localhost:5173/mcp",
         }
     )
-    asyncio.run(run_main(mod, ["muse-agents"], stdin_data=ndjson_input))
+    asyncio.run(run_main(mod, ["sol agents"], stdin_data=ndjson_input))
 
     out_lines = capsys.readouterr().out.strip().splitlines()
     events = [json.loads(line) for line in out_lines]
@@ -150,7 +150,7 @@ def test_openai_mcp_headers(monkeypatch, tmp_path):
             "mcp_server_url": "http://localhost:5173/mcp",
         }
     )
-    asyncio.run(run_main(mod, ["muse-agents"], stdin_data=ndjson_input))
+    asyncio.run(run_main(mod, ["sol agents"], stdin_data=ndjson_input))
 
     mcp_kwargs = last_kwargs.get("mcp_server")
     assert mcp_kwargs is not None
@@ -184,7 +184,7 @@ def test_openai_outfile(monkeypatch, tmp_path, capsys):
             "mcp_server_url": "http://localhost:5173/mcp",
         }
     )
-    asyncio.run(run_main(mod, ["muse-agents"], stdin_data=ndjson_input))
+    asyncio.run(run_main(mod, ["sol agents"], stdin_data=ndjson_input))
 
     # Output file functionality was removed in NDJSON-only mode
     # Check stdout instead
@@ -237,7 +237,7 @@ def test_openai_thinking_events_stdout(monkeypatch, tmp_path, capsys):
             "mcp_server_url": "http://localhost:5173/mcp",
         }
     )
-    asyncio.run(run_main(mod, ["muse-agents"], stdin_data=ndjson_input))
+    asyncio.run(run_main(mod, ["sol agents"], stdin_data=ndjson_input))
 
     out_lines = capsys.readouterr().out.strip().splitlines()
     events = [json.loads(line) for line in out_lines]
@@ -296,7 +296,7 @@ def test_openai_outfile_error(monkeypatch, tmp_path, capsys):
             "mcp_server_url": "http://localhost:5173/mcp",
         }
     )
-    asyncio.run(run_main(mod, ["muse-agents"], stdin_data=ndjson_input))
+    asyncio.run(run_main(mod, ["sol agents"], stdin_data=ndjson_input))
 
     # Output file functionality was removed in NDJSON-only mode
     # Check stdout instead
@@ -345,7 +345,7 @@ def test_openai_thinking_events_error(monkeypatch, tmp_path, capsys):
             "mcp_server_url": "http://localhost:5173/mcp",
         }
     )
-    asyncio.run(run_main(mod, ["muse-agents"], stdin_data=ndjson_input))
+    asyncio.run(run_main(mod, ["sol agents"], stdin_data=ndjson_input))
 
     out_lines = capsys.readouterr().out.strip().splitlines()
     events = [json.loads(line) for line in out_lines]
@@ -408,7 +408,7 @@ def test_openai_tool_call_events(monkeypatch, tmp_path, capsys):
             "mcp_server_url": "http://localhost:5173/mcp",
         }
     )
-    asyncio.run(run_main(mod, ["muse-agents"], stdin_data=ndjson_input))
+    asyncio.run(run_main(mod, ["sol agents"], stdin_data=ndjson_input))
 
     out_lines = capsys.readouterr().out.strip().splitlines()
     events = [json.loads(line) for line in out_lines]

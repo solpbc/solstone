@@ -355,7 +355,7 @@ class FileSensor:
                 self._spawn_handler(
                     handler_proc.file_path,
                     "transcribe",
-                    ["observe-transcribe", "{file}"],
+                    ["sol", "transcribe", "{file}"],
                     cpu_fallback=True,
                 )
                 return  # Skip normal cleanup, we're retrying
@@ -932,12 +932,12 @@ def main():
 
     # Register handlers - match by extension
     # Audio files in segment directories
-    sensor.register("*.flac", "transcribe", ["observe-transcribe", "{file}"])
-    sensor.register("*.m4a", "transcribe", ["observe-transcribe", "{file}"])
+    sensor.register("*.flac", "transcribe", ["sol", "transcribe", "{file}"])
+    sensor.register("*.m4a", "transcribe", ["sol", "transcribe", "{file}"])
 
     # Video files in segment directories
     for ext in VIDEO_EXTENSIONS:
-        sensor.register(f"*{ext}", "describe", ["observe-describe", "{file}"])
+        sensor.register(f"*{ext}", "describe", ["sol", "describe", "{file}"])
 
     if args.day:
         day_dir = day_path(args.day)

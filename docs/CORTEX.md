@@ -9,7 +9,7 @@ For details on the Callosum protocol and message format, see [CALLOSUM.md](CALLO
 ### Event Flow
 1. **Request Creation**: Client calls `cortex_request()` which broadcasts to Callosum (`tract="cortex"`, `event="request"`)
 2. **Request Reception**: Cortex receives message via Callosum callback and creates `<timestamp>_active.jsonl`
-3. **Agent Spawning**: Cortex spawns agent process via `muse-agents` with merged configuration
+3. **Agent Spawning**: Cortex spawns agent process via `sol agents` with merged configuration
 4. **Event Emission**: Agents write JSON events to stdout (captured by Cortex)
 5. **Event Distribution**: Cortex appends events to JSONL file AND broadcasts to Callosum
 6. **Agent Completion**: Cortex renames file to `<timestamp>.jsonl` when agent finishes
@@ -17,7 +17,7 @@ For details on the Callosum protocol and message format, see [CALLOSUM.md](CALLO
 ### Key Components
 - **Message Bus Integration**: Cortex connects to Callosum to receive requests and broadcast events
 - **Configuration Loading**: Cortex loads and merges persona configuration with request parameters
-- **Process Management**: Spawns agent subprocesses via the `muse-agents` command with merged configuration
+- **Process Management**: Spawns agent subprocesses via the `sol agents` command with merged configuration
 - **Event Capture**: Monitors agent stdout/stderr and appends to JSONL files
 - **Dual Event Distribution**: Events go to both persistent files and real-time message bus
 - **NDJSON Input Mode**: Agent processes accept newline-delimited JSON via stdin containing the full merged configuration
@@ -320,7 +320,7 @@ All providers:
 
 ## Scheduled Agents
 
-Agents with `"schedule": "daily"` run automatically via `think-dream` at midnight each day:
+Agents with `"schedule": "daily"` run automatically via `sol dream` at midnight each day:
 
 ### Execution Order
 Scheduled agents run in priority order (lower numbers first):
@@ -361,11 +361,11 @@ To force an agent to run for all facets regardless of activity, set `"always": t
 
 ## Process Management
 
-The `think-supervisor` command provides process management for the Cortex ecosystem:
+The `sol supervisor` command provides process management for the Cortex ecosystem:
 - Starts and monitors the Cortex file watcher service
 - Starts and monitors the MCP tools HTTP server
 - Handles process restarts on failure
 - Monitors system health indicators
-- Triggers `think-dream` at midnight for daily processing (insights + agents)
+- Triggers `sol dream` at midnight for daily processing (insights + agents)
 
 This is distinct from agent lifecycle management, which Cortex handles internally through file state transitions.

@@ -62,7 +62,7 @@ def test_ponder_main(tmp_path, monkeypatch):
     monkeypatch.setenv("GOOGLE_API_KEY", "x")
 
     monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
-    monkeypatch.setattr("sys.argv", ["think-insight", "20240101", "-f", str(prompt)])
+    monkeypatch.setattr("sys.argv", ["sol insight", "20240101", "-f", str(prompt)])
     mod.main()
 
     md = day_dir / "insights" / "prompt.md"
@@ -115,7 +115,7 @@ def test_ponder_extra_instructions(tmp_path, monkeypatch):
 
     monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
     monkeypatch.setattr(
-        "sys.argv", ["think-insight", "20240101", "-f", str(insight_file)]
+        "sys.argv", ["sol insight", "20240101", "-f", str(insight_file)]
     )
     mod.main()
 
@@ -155,7 +155,7 @@ def test_ponder_skip_minimal_content(tmp_path, monkeypatch):
     monkeypatch.setenv("GOOGLE_API_KEY", "x")
 
     monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
-    monkeypatch.setattr("sys.argv", ["think-insight", "20240101", "-f", str(prompt)])
+    monkeypatch.setattr("sys.argv", ["sol insight", "20240101", "-f", str(prompt)])
     mod.main()
 
     md = day_dir / "insights" / "prompt.md"
@@ -200,7 +200,7 @@ def test_ponder_skip_occurrences(tmp_path, monkeypatch):
 
     monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
     monkeypatch.setattr(
-        "sys.argv", ["think-insight", "20240101", "-f", str(insight_file)]
+        "sys.argv", ["sol insight", "20240101", "-f", str(insight_file)]
     )
     mod.main()
 

@@ -87,7 +87,7 @@ def test_importer_text(tmp_path, monkeypatch):
 
     monkeypatch.setattr(
         "sys.argv",
-        ["think-importer", str(txt), "--timestamp", "20240101_120000"],
+        ["sol import", str(txt), "--timestamp", "20240101_120000"],
     )
     mod.main()
 
@@ -185,7 +185,7 @@ def test_importer_audio_transcribe(tmp_path, monkeypatch):
             monkeypatch.setattr(
                 "sys.argv",
                 [
-                    "think-importer",
+                    "sol import",
                     str(audio_file),
                     "--timestamp",
                     "20240101_120000",

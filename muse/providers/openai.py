@@ -3,7 +3,7 @@
 # Copyright (c) 2026 sol pbc
 
 """
-OpenAI provider agent implementation for the solstone `muse-agents` CLI.
+OpenAI provider agent implementation for the solstone `sol agents` CLI.
 
 - Connects to a local MCP server over Streamable HTTP
 - Runs an agent with streaming to surface tool args/results and (when available) reasoning summaries

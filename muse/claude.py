@@ -5,7 +5,7 @@
 """Claude Code SDK backend agent implementation.
 
 This module exposes agent functionality for interacting with Claude Code
-via the SDK and is used by the ``muse-agents`` CLI.
+via the SDK and is used by the ``sol agents`` CLI.
 
 The Claude backend provides read-only access to the entire journal with
 diagnostic shell commands for system analysis and health checks.

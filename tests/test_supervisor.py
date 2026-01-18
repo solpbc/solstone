@@ -177,12 +177,12 @@ def test_start_observer_and_sense(tmp_path, mock_callosum, monkeypatch):
     # Test start_observer()
     observer_proc = mod.start_observer()
     assert observer_proc is not None
-    assert any(cmd == ["observer", "-v"] for cmd, _, _ in started)
+    assert any(cmd == ["sol", "observer", "-v"] for cmd, _, _ in started)
 
     # Test start_sense()
     sense_proc = mod.start_sense()
     assert sense_proc is not None
-    assert any(cmd == ["observe-sense", "-v"] for cmd, _, _ in started)
+    assert any(cmd == ["sol", "sense", "-v"] for cmd, _, _ in started)
 
     # Check that stdout and stderr capture pipes
     for cmd, stdout, stderr in started:
@@ -191,7 +191,7 @@ def test_start_observer_and_sense(tmp_path, mock_callosum, monkeypatch):
 
 
 def test_start_sync(tmp_path, mock_callosum, monkeypatch):
-    """Test that start_sync() launches observe-sync with remote URL."""
+    """Test that start_sync() launches sol sync with remote URL."""
     mod = importlib.import_module("think.supervisor")
 
     started = []
@@ -230,10 +230,10 @@ def test_start_sync(tmp_path, mock_callosum, monkeypatch):
     assert sync_proc is not None
 
     # Verify the command includes --remote with the URL
-    sync_cmds = [cmd for cmd, _, _ in started if "observe-sync" in cmd]
+    sync_cmds = [cmd for cmd, _, _ in started if "sync" in cmd]
     assert len(sync_cmds) == 1
     cmd = sync_cmds[0]
-    assert cmd == ["observe-sync", "-v", "--remote", remote_url]
+    assert cmd == ["sol", "sync", "-v", "--remote", remote_url]
 
 
 def test_parse_args_remote_flag():

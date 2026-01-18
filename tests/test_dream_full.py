@@ -31,12 +31,12 @@ def test_main_runs(tmp_path, monkeypatch):
     monkeypatch.setattr("think.utils.load_dotenv", lambda: True)
     monkeypatch.setattr(
         "sys.argv",
-        ["think-dream", "--day", "20240101", "--force", "--verbose", "--skip-agents"],
+        ["sol dream", "--day", "20240101", "--force", "--verbose", "--skip-agents"],
     )
     mod.main()
-    assert any(c[0] == "observe-sense" for c in called)
-    assert any(c[0] == "think-insight" for c in called)
+    assert any(c[0] == "sol" and c[1] == "sense" for c in called)
+    assert any(c[0] == "sol" and c[1] == "insight" for c in called)
     # Verify indexer is called with --rescan (light mode)
-    indexer_cmds = [c for c in called if c[0] == "think-indexer"]
+    indexer_cmds = [c for c in called if c[0] == "sol" and c[1] == "indexer"]
     assert len(indexer_cmds) == 1
     assert "--rescan" in indexer_cmds[0]

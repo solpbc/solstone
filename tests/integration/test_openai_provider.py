@@ -61,8 +61,8 @@ def test_openai_provider_basic():
         }
     )
 
-    # Run the muse-agents command
-    cmd = ["muse-agents"]
+    # Run the sol agents command
+    cmd = ["sol", "agents"]
     result = subprocess.run(
         cmd,
         env=env,
@@ -150,8 +150,8 @@ def test_openai_provider_with_reasoning():
         }
     )
 
-    # Run the muse-agents command
-    cmd = ["muse-agents"]
+    # Run the sol agents command
+    cmd = ["sol", "agents"]
     result = subprocess.run(
         cmd,
         env=env,
@@ -219,8 +219,8 @@ def test_openai_provider_with_extra_context():
         }
     )
 
-    # Run the muse-agents command
-    cmd = ["muse-agents"]
+    # Run the sol agents command
+    cmd = ["sol", "agents"]
     result = subprocess.run(
         cmd,
         env=env,

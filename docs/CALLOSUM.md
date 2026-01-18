@@ -105,7 +105,7 @@ Callosum is a JSON-per-line message bus for real-time event distribution across 
 **Correlation ID (`ref`):** Universal identifier for process instances, used across all tracts to correlate events. Auto-generated as epoch milliseconds if not provided by client.
 
 **Field Semantics:**
-- `service` - Human-readable name (e.g., "cortex", "think-importer")
+- `service` - Human-readable name (e.g., "cortex", "sol import")
 - `ref` - Unique instance ID (changes on each restart)
 - `pid` - Operating system process ID
 
