@@ -37,7 +37,7 @@ def entity_slug(name: str) -> str:
 
     The slug is used as:
     - The `id` field stored in entity records
-    - Folder names for entity enrichment data
+    - Folder names for entity memory storage
     - URL-safe programmatic references
 
     Uses python-slugify to convert names to lowercase with underscores.
@@ -75,8 +75,11 @@ def entity_slug(name: str) -> str:
     return slug
 
 
-def entity_folder_path(facet: str, name: str) -> Path:
-    """Return path to entity's enrichment folder.
+def entity_memory_path(facet: str, name: str) -> Path:
+    """Return path to entity's memory folder.
+
+    Entity memory folders store persistent data about attached entities:
+    observations (durable facts), voiceprints (voice recognition), etc.
 
     Args:
         facet: Facet name (e.g., "personal", "work")
@@ -95,8 +98,8 @@ def entity_folder_path(facet: str, name: str) -> Path:
     return Path(get_journal()) / "facets" / facet / "entities" / slug
 
 
-def ensure_entity_folder(facet: str, name: str) -> Path:
-    """Create entity enrichment folder if needed, return path.
+def ensure_entity_memory(facet: str, name: str) -> Path:
+    """Create entity memory folder if needed, return path.
 
     Args:
         facet: Facet name (e.g., "personal", "work")
@@ -108,13 +111,13 @@ def ensure_entity_folder(facet: str, name: str) -> Path:
     Raises:
         ValueError: If name slugifies to empty string
     """
-    folder = entity_folder_path(facet, name)
+    folder = entity_memory_path(facet, name)
     folder.mkdir(parents=True, exist_ok=True)
     return folder
 
 
-def rename_entity_folder(facet: str, old_name: str, new_name: str) -> bool:
-    """Rename entity enrichment folder if it exists.
+def rename_entity_memory(facet: str, old_name: str, new_name: str) -> bool:
+    """Rename entity memory folder if it exists.
 
     Called when an entity is renamed to keep folder in sync.
 
@@ -131,8 +134,8 @@ def rename_entity_folder(facet: str, old_name: str, new_name: str) -> bool:
         ValueError: If either name slugifies to empty string
         OSError: If rename fails (e.g., target exists)
     """
-    old_folder = entity_folder_path(facet, old_name)
-    new_folder = entity_folder_path(facet, new_name)
+    old_folder = entity_memory_path(facet, old_name)
+    new_folder = entity_memory_path(facet, new_name)
 
     # No rename needed if slugified names are the same
     if old_folder == new_folder:
@@ -1267,7 +1270,7 @@ class ObservationNumberError(Exception):
 def observations_file_path(facet: str, name: str) -> Path:
     """Return path to observations file for an entity.
 
-    Observations are stored in the entity's enrichment folder:
+    Observations are stored in the entity's memory folder:
     facets/{facet}/entities/{entity_slug}/observations.jsonl
 
     Args:
@@ -1280,7 +1283,7 @@ def observations_file_path(facet: str, name: str) -> Path:
     Raises:
         ValueError: If name slugifies to empty string
     """
-    folder = entity_folder_path(facet, name)
+    folder = entity_memory_path(facet, name)
     return folder / "observations.jsonl"
 
 
@@ -1331,7 +1334,7 @@ def save_observations(
     """
     path = observations_file_path(facet, name)
 
-    # Create parent directory (entity folder) if needed
+    # Create parent directory (entity memory folder) if needed
     path.parent.mkdir(parents=True, exist_ok=True)
 
     # Format observations as JSONL

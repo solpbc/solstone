@@ -128,7 +128,7 @@ def speakers_env(tmp_path, monkeypatch):
             with open(entities_file, "a", encoding="utf-8") as f:
                 f.write(json.dumps(entity_data) + "\n")
 
-            # Create entity folder with consolidated voiceprints.npz if specified
+            # Create entity memory folder with consolidated voiceprints.npz if specified
             if voiceprints:
                 entity_dir = facet_dir / "entities" / entity_slug(name)
                 entity_dir.mkdir(parents=True, exist_ok=True)

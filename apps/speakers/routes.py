@@ -29,8 +29,8 @@ from apps.utils import log_app_action
 from convey import state
 from convey.utils import DATE_RE, error_response, format_date, success_response
 from think.entities import (
-    ensure_entity_folder,
-    entity_folder_path,
+    ensure_entity_memory,
+    entity_memory_path,
     find_matching_attached_entity,
     load_entities,
     save_entities,
@@ -128,7 +128,7 @@ def _load_entity_voiceprints_file(
     - metadata_list: List of dicts parsed from JSON metadata strings
     """
     try:
-        folder = entity_folder_path(facet, entity_name)
+        folder = entity_memory_path(facet, entity_name)
     except (RuntimeError, ValueError):
         return None
 
@@ -165,7 +165,7 @@ def _save_voiceprint(
 
     Appends to existing file or creates new one.
     """
-    folder = ensure_entity_folder(facet, entity_name)
+    folder = ensure_entity_memory(facet, entity_name)
     npz_path = folder / "voiceprints.npz"
 
     # Build metadata for this voiceprint

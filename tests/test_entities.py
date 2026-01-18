@@ -10,9 +10,9 @@ import pytest
 from think.entities import (
     ObservationNumberError,
     add_observation,
-    ensure_entity_folder,
+    ensure_entity_memory,
     entity_file_path,
-    entity_folder_path,
+    entity_memory_path,
     entity_slug,
     find_matching_attached_entity,
     load_all_attached_entities,
@@ -22,7 +22,7 @@ from think.entities import (
     load_recent_entity_names,
     observations_file_path,
     parse_knowledge_graph_entities,
-    rename_entity_folder,
+    rename_entity_memory,
     save_entities,
     save_observations,
     touch_entities_from_activity,
@@ -895,7 +895,7 @@ def test_detached_flag_for_detected_entities_not_filtered(fixture_journal, tmp_p
     assert len(loaded_with_flag) == 1
 
 
-# Tests for entity folder utilities
+# Tests for entity memory utilities
 
 
 def test_entity_slug_basic():
@@ -943,56 +943,56 @@ def test_entity_slug_long():
     assert "_" in slug[-9:]  # Hash suffix pattern
 
 
-def test_entity_folder_path(fixture_journal, tmp_path):
-    """Test entity folder path generation."""
+def test_entity_memory_path(fixture_journal, tmp_path):
+    """Test entity memory path generation."""
     os.environ["JOURNAL_PATH"] = str(tmp_path)
 
-    path = entity_folder_path("personal", "Alice Johnson")
+    path = entity_memory_path("personal", "Alice Johnson")
     expected = tmp_path / "facets" / "personal" / "entities" / "alice_johnson"
     assert path == expected
 
 
-def test_entity_folder_path_empty_name(fixture_journal, tmp_path):
-    """Test entity folder path with empty name raises ValueError."""
+def test_entity_memory_path_empty_name(fixture_journal, tmp_path):
+    """Test entity memory path with empty name raises ValueError."""
     os.environ["JOURNAL_PATH"] = str(tmp_path)
 
     with pytest.raises(ValueError, match="slugifies to empty string"):
-        entity_folder_path("personal", "")
+        entity_memory_path("personal", "")
 
 
-def test_ensure_entity_folder(fixture_journal, tmp_path):
-    """Test entity folder creation."""
+def test_ensure_entity_memory(fixture_journal, tmp_path):
+    """Test entity memory folder creation."""
     os.environ["JOURNAL_PATH"] = str(tmp_path)
 
-    folder = ensure_entity_folder("personal", "Bob Smith")
+    folder = ensure_entity_memory("personal", "Bob Smith")
     assert folder.exists()
     assert folder.is_dir()
     assert folder == tmp_path / "facets" / "personal" / "entities" / "bob_smith"
 
 
-def test_ensure_entity_folder_idempotent(fixture_journal, tmp_path):
-    """Test that ensure_entity_folder is idempotent."""
+def test_ensure_entity_memory_idempotent(fixture_journal, tmp_path):
+    """Test that ensure_entity_memory is idempotent."""
     os.environ["JOURNAL_PATH"] = str(tmp_path)
 
-    folder1 = ensure_entity_folder("personal", "Charlie Brown")
-    folder2 = ensure_entity_folder("personal", "Charlie Brown")
+    folder1 = ensure_entity_memory("personal", "Charlie Brown")
+    folder2 = ensure_entity_memory("personal", "Charlie Brown")
     assert folder1 == folder2
     assert folder1.exists()
 
 
-def test_rename_entity_folder(fixture_journal, tmp_path):
-    """Test renaming entity folder."""
+def test_rename_entity_memory(fixture_journal, tmp_path):
+    """Test renaming entity memory folder."""
     os.environ["JOURNAL_PATH"] = str(tmp_path)
 
     # Create original folder
-    old_folder = ensure_entity_folder("work", "Alice Johnson")
+    old_folder = ensure_entity_memory("work", "Alice Johnson")
     assert old_folder.exists()
 
     # Create a file inside to verify contents are moved
     (old_folder / "notes.md").write_text("Test notes")
 
     # Rename
-    result = rename_entity_folder("work", "Alice Johnson", "Alice Smith")
+    result = rename_entity_memory("work", "Alice Johnson", "Alice Smith")
     assert result is True
 
     # Old folder should not exist
@@ -1004,37 +1004,37 @@ def test_rename_entity_folder(fixture_journal, tmp_path):
     assert (new_folder / "notes.md").read_text() == "Test notes"
 
 
-def test_rename_entity_folder_not_exists(fixture_journal, tmp_path):
+def test_rename_entity_memory_not_exists(fixture_journal, tmp_path):
     """Test renaming non-existent folder returns False."""
     os.environ["JOURNAL_PATH"] = str(tmp_path)
 
-    result = rename_entity_folder("work", "NonExistent", "NewName")
+    result = rename_entity_memory("work", "NonExistent", "NewName")
     assert result is False
 
 
-def test_rename_entity_folder_same_normalized(fixture_journal, tmp_path):
+def test_rename_entity_memory_same_normalized(fixture_journal, tmp_path):
     """Test renaming when normalized names are the same."""
     os.environ["JOURNAL_PATH"] = str(tmp_path)
 
     # Create folder
-    ensure_entity_folder("work", "Alice Johnson")
+    ensure_entity_memory("work", "Alice Johnson")
 
     # Rename with different casing (normalizes to same)
-    result = rename_entity_folder("work", "Alice Johnson", "alice johnson")
+    result = rename_entity_memory("work", "Alice Johnson", "alice johnson")
     assert result is False  # No rename needed
 
 
-def test_rename_entity_folder_target_exists(fixture_journal, tmp_path):
+def test_rename_entity_memory_target_exists(fixture_journal, tmp_path):
     """Test renaming when target folder already exists raises OSError."""
     os.environ["JOURNAL_PATH"] = str(tmp_path)
 
     # Create both folders
-    ensure_entity_folder("work", "Alice")
-    ensure_entity_folder("work", "Bob")
+    ensure_entity_memory("work", "Alice")
+    ensure_entity_memory("work", "Bob")
 
     # Try to rename Alice to Bob
     with pytest.raises(OSError, match="already exists"):
-        rename_entity_folder("work", "Alice", "Bob")
+        rename_entity_memory("work", "Alice", "Bob")
 
 
 # Tests for find_matching_attached_entity
@@ -1605,19 +1605,19 @@ def test_add_observation_empty_content(fixture_journal, tmp_path):
 
 
 def test_observations_with_entity_rename(fixture_journal, tmp_path):
-    """Test that observations are preserved when entity folder is renamed."""
+    """Test that observations are preserved when entity memory folder is renamed."""
     os.environ["JOURNAL_PATH"] = str(tmp_path)
 
-    # Create entity folder and add observations
-    ensure_entity_folder("work", "Alice Johnson")
+    # Create entity memory folder and add observations
+    ensure_entity_memory("work", "Alice Johnson")
     add_observation("work", "Alice Johnson", "Test observation", 1)
 
     # Verify observation exists
     observations = load_observations("work", "Alice Johnson")
     assert len(observations) == 1
 
-    # Rename entity folder
-    result = rename_entity_folder("work", "Alice Johnson", "Alice Smith")
+    # Rename entity memory folder
+    result = rename_entity_memory("work", "Alice Johnson", "Alice Smith")
     assert result is True
 
     # Old name should have no observations (folder moved)

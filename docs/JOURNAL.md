@@ -369,10 +369,10 @@ facets/{facet}/
   ├── entities.jsonl              # Attached entities (persistent)
   └── entities/
       ├── YYYYMMDD.jsonl          # Daily detected entities
-      └── {normalized_name}/      # Entity enrichment folder (optional)
+      └── {normalized_name}/      # Entity memory folder (optional)
 ```
 
-**Entity enrichment folders** store additional data for attached entities (avatars, notes, attachments). Folders are created on-demand when enrichment is added. The folder name is the entity name normalized to lowercase with underscores (e.g., "Alice Johnson" → `alice_johnson/`). Folders are renamed automatically when entities are renamed.
+**Entity memory folders** store persistent data the system "remembers" about attached entities—observations (durable facts), voiceprints (voice recognition), and profile images. Folders are created on-demand when memory is added. The folder name is the entity name normalized to lowercase with underscores (e.g., "Alice Johnson" → `alice_johnson/`). Folders are renamed automatically when entities are renamed.
 
 #### Attached Entities
 
