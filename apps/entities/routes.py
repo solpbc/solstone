@@ -18,10 +18,14 @@ logger = logging.getLogger(__name__)
 from apps.utils import log_app_action
 from convey import state
 from think.entities import (
+    entity_memory_path,
+    entity_slug,
     is_valid_entity_type,
     load_detected_entities_recent,
     load_entities,
+    load_observations,
     rename_entity_memory,
+    resolve_entity,
     save_entities,
 )
 
@@ -32,17 +36,57 @@ entities_bp = Blueprint(
 )
 
 
+def _get_entity_metadata(facet_name: str, entity_name: str) -> dict:
+    """Get observation count and voiceprint status for an entity.
+
+    Args:
+        facet_name: The facet name
+        entity_name: The entity name
+
+    Returns:
+        dict with observation_count and has_voiceprint keys
+    """
+    try:
+        folder = entity_memory_path(facet_name, entity_name)
+    except ValueError:
+        return {"observation_count": 0, "has_voiceprint": False}
+
+    # Count observations
+    obs_file = folder / "observations.jsonl"
+    obs_count = 0
+    if obs_file.exists():
+        try:
+            with open(obs_file, "r", encoding="utf-8") as f:
+                obs_count = sum(1 for line in f if line.strip())
+        except OSError:
+            pass  # File read error, default to 0
+
+    # Check for voiceprint
+    has_voiceprint = (folder / "voiceprints.npz").exists()
+
+    return {"observation_count": obs_count, "has_voiceprint": has_voiceprint}
+
+
 def get_facet_entities_data(facet_name: str) -> dict:
     """Get entity data for a facet: attached and detected entities.
 
     Returns:
         dict with keys:
             - attached: list of entity dicts with type, name, description,
-                        and optional attached_at, updated_at, last_seen timestamps
+                        attached_at, updated_at, last_seen timestamps,
+                        plus observation_count and has_voiceprint
             - detected: list of {"type": str, "name": str, "description": str, "count": int, "last_seen": str}
     """
     # Load attached entities (already returns list of dicts)
     attached = load_entities(facet_name)
+
+    # Enrich attached entities with metadata
+    for entity in attached:
+        name = entity.get("name", "")
+        if name:
+            metadata = _get_entity_metadata(facet_name, name)
+            entity["observation_count"] = metadata["observation_count"]
+            entity["has_voiceprint"] = metadata["has_voiceprint"]
 
     # Load detected entities directly from files (excludes attached names/akas)
     detected = load_detected_entities_recent(facet_name)
@@ -58,6 +102,49 @@ def get_entities(facet_name: str) -> Any:
         return jsonify(data)
     except Exception as e:
         return jsonify({"error": f"Failed to get entities: {str(e)}"}), 500
+
+
+@entities_bp.route("/api/<facet_name>/entity/<entity_id>")
+def get_entity(facet_name: str, entity_id: str) -> Any:
+    """Get a single entity with observations.
+
+    Accepts entity lookup by id (slug), name, or aka.
+    """
+    try:
+        # Try to resolve the entity_id to an actual entity
+        entity, candidates = resolve_entity(facet_name, entity_id)
+        if entity is None:
+            if candidates:
+                suggestions = [c.get("name", "") for c in candidates[:3]]
+                return (
+                    jsonify(
+                        {
+                            "error": f"Entity '{entity_id}' not found. Did you mean: {', '.join(suggestions)}?"
+                        }
+                    ),
+                    404,
+                )
+            return jsonify({"error": f"Entity '{entity_id}' not found"}), 404
+
+        entity_name = entity.get("name", "")
+        entity = entity.copy()
+
+        # Add metadata
+        metadata = _get_entity_metadata(facet_name, entity_name)
+        entity["observation_count"] = metadata["observation_count"]
+        entity["has_voiceprint"] = metadata["has_voiceprint"]
+
+        # Ensure id is set
+        if "id" not in entity:
+            entity["id"] = entity_slug(entity_name)
+
+        # Load observations
+        observations = load_observations(facet_name, entity_name)
+
+        return jsonify({"entity": entity, "observations": observations})
+
+    except Exception as e:
+        return jsonify({"error": f"Failed to get entity: {str(e)}"}), 500
 
 
 @entities_bp.route("/api/<facet_name>", methods=["POST"])

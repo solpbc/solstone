@@ -1,5 +1,364 @@
 <style>
-/* Entities container styling */
+/* Entity cards grid */
+.entity-cards-container {
+  background: white;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  padding: 1.5em;
+}
+
+.entity-type-group {
+  margin-bottom: 1.5em;
+}
+
+.entity-type-group:last-child {
+  margin-bottom: 0;
+}
+
+.entity-type-header {
+  font-size: 0.85em;
+  font-weight: 600;
+  color: #6c757d;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 0.75em;
+  padding-bottom: 0.5em;
+  border-bottom: 1px solid #e9ecef;
+}
+
+.entity-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 0.75em;
+}
+
+.entity-card {
+  background: #f8f9fa;
+  border: 1px solid #e9ecef;
+  border-radius: 8px;
+  padding: 0.75em 1em;
+  cursor: pointer;
+  transition: all 0.15s;
+  position: relative;
+}
+
+.entity-card:hover {
+  background: #fff;
+  border-color: #667eea;
+  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.15);
+}
+
+.entity-card-name {
+  font-weight: 500;
+  color: #212529;
+  margin-bottom: 0.25em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.entity-card-meta {
+  font-size: 0.8em;
+  color: #6c757d;
+  display: flex;
+  align-items: center;
+  gap: 0.5em;
+  flex-wrap: wrap;
+}
+
+.entity-card-meta .voiceprint-icon {
+  color: #667eea;
+}
+
+.entity-card-detach {
+  position: absolute;
+  top: 0.5em;
+  right: 0.5em;
+  opacity: 0;
+  cursor: pointer;
+  font-size: 0.9em;
+  transition: opacity 0.15s;
+  padding: 2px;
+}
+
+.entity-card:hover .entity-card-detach {
+  opacity: 0.5;
+}
+
+.entity-card-detach:hover {
+  opacity: 1 !important;
+}
+
+/* Pending card state */
+.entity-card-pending {
+  opacity: 0.5;
+  pointer-events: none;
+  cursor: not-allowed;
+}
+
+/* Entity detail view */
+.entity-detail-view {
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  overflow: hidden;
+}
+
+.entity-detail-header {
+  padding: 1.5em;
+  border-bottom: 1px solid #e9ecef;
+}
+
+.entity-detail-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5em;
+  color: #667eea;
+  text-decoration: none;
+  font-size: 0.9em;
+  margin-bottom: 1em;
+  cursor: pointer;
+}
+
+.entity-detail-back:hover {
+  text-decoration: underline;
+}
+
+.entity-detail-title {
+  display: flex;
+  align-items: center;
+  gap: 1em;
+  margin-bottom: 0.5em;
+}
+
+.entity-detail-name {
+  font-size: 1.5em;
+  font-weight: 600;
+  margin: 0;
+}
+
+.entity-detail-type {
+  background: #e9ecef;
+  color: #495057;
+  padding: 0.25em 0.75em;
+  border-radius: 20px;
+  font-size: 0.75em;
+  font-weight: 500;
+}
+
+.entity-detail-aka {
+  color: #6c757d;
+  font-size: 0.9em;
+}
+
+.entity-detail-indicators {
+  display: flex;
+  gap: 1em;
+  margin-top: 0.75em;
+  font-size: 0.85em;
+  color: #6c757d;
+}
+
+.entity-detail-section {
+  padding: 1.5em;
+  border-bottom: 1px solid #e9ecef;
+}
+
+.entity-detail-section:last-child {
+  border-bottom: none;
+}
+
+.entity-detail-section h4 {
+  margin: 0 0 1em 0;
+  font-size: 0.9em;
+  font-weight: 600;
+  color: #495057;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* Description section */
+.entity-desc-display {
+  color: #212529;
+  line-height: 1.5;
+}
+
+.entity-desc-display.empty {
+  color: #6c757d;
+  font-style: italic;
+}
+
+.entity-desc-edit-container {
+  display: flex;
+  gap: 0.5em;
+  align-items: flex-start;
+}
+
+.entity-desc-input {
+  flex: 1;
+  padding: 0.5em 0.75em;
+  border: 1px solid #ced4da;
+  border-radius: 6px;
+  font-size: inherit;
+  font-family: inherit;
+  resize: vertical;
+  min-height: 60px;
+}
+
+.entity-desc-input:focus {
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+/* Edit form */
+.entity-edit-form {
+  display: grid;
+  gap: 1em;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5em;
+}
+
+.form-group label {
+  font-weight: 500;
+  color: #495057;
+  font-size: 0.9em;
+}
+
+.form-group input,
+.form-group select {
+  padding: 0.5em 0.75em;
+  border: 1px solid #ced4da;
+  border-radius: 6px;
+  font-size: inherit;
+  font-family: inherit;
+}
+
+.form-group input:focus,
+.form-group select:focus {
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.form-group small {
+  color: #6c757d;
+  font-size: 0.85em;
+}
+
+.form-actions {
+  display: flex;
+  gap: 0.5em;
+  justify-content: flex-end;
+  padding-top: 0.5em;
+}
+
+/* Observations list */
+.observations-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75em;
+}
+
+.observation-item {
+  background: #f8f9fa;
+  border-radius: 6px;
+  padding: 0.75em 1em;
+}
+
+.observation-content {
+  color: #212529;
+  margin-bottom: 0.25em;
+}
+
+.observation-meta {
+  font-size: 0.8em;
+  color: #6c757d;
+}
+
+.observations-empty {
+  color: #6c757d;
+  font-style: italic;
+}
+
+/* Detach button in detail view */
+.entity-detach-section {
+  padding: 1.5em;
+  border-top: 1px solid #e9ecef;
+  background: #fafafa;
+}
+
+/* Buttons */
+.btn {
+  padding: 0.5em 1em;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.9em;
+  font-weight: 500;
+  transition: all 0.15s;
+}
+
+.btn-primary {
+  background: #667eea;
+  color: white;
+}
+
+.btn-primary:hover {
+  background: #5568d3;
+}
+
+.btn-primary:disabled {
+  background: #adb5bd;
+  cursor: not-allowed;
+}
+
+.btn-secondary {
+  background: #e9ecef;
+  color: #495057;
+}
+
+.btn-secondary:hover {
+  background: #dee2e6;
+}
+
+.btn-danger {
+  background: #dc3545;
+  color: white;
+}
+
+.btn-danger:hover {
+  background: #c82333;
+}
+
+.btn-sm {
+  padding: 0.35em 0.75em;
+  font-size: 0.85em;
+}
+
+.btn-icon {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0.25em;
+  font-size: 1.1em;
+  transition: transform 0.15s;
+}
+
+.btn-icon:hover {
+  transform: scale(1.15);
+}
+
+.btn-icon.generating {
+  animation: spin 1s linear infinite;
+}
+
+/* Detected entities table */
 .entities-container {
   background: white;
   border-radius: 12px;
@@ -29,28 +388,6 @@
   background: #f8f9fa;
 }
 
-/* Pending entity row (in-flight addition) */
-.entity-row-pending {
-  opacity: 0.5;
-  pointer-events: none;
-}
-
-.entity-row-pending .star-button {
-  cursor: not-allowed;
-}
-
-.entity-row-pending .entity-desc-text {
-  font-style: italic;
-}
-
-.entity-row-error {
-  background: #fff5f5;
-}
-
-.entity-row-error .entity-desc-text {
-  color: #dc3545;
-}
-
 .entity-type {
   width: 120px;
   font-weight: 500;
@@ -63,6 +400,7 @@
 
 .entity-desc {
   color: #6c757d;
+  position: relative;
 }
 
 .star-button {
@@ -74,42 +412,37 @@
   line-height: 1;
   transition: transform 0.2s;
   width: 40px;
+  color: #ccc;
 }
 
 .star-button:hover {
   transform: scale(1.2);
-}
-
-.star-button.starred {
   color: #ffc107;
 }
 
-/* Show trash icon on hover for starred (attached) entities */
-.star-button.starred .star-icon-hover {
-  display: none;
+.entity-delete-btn {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.2s;
+  font-size: 1em;
+  background: white;
+  padding: 2px 4px;
+  border-radius: 4px;
 }
 
-.star-button.starred:hover .star-icon-default {
-  display: none;
+tr:hover .entity-delete-btn {
+  opacity: 0.6;
 }
 
-.star-button.starred:hover .star-icon-hover {
-  display: inline;
-  font-size: 0.7em;
+.entity-delete-btn:hover {
+  opacity: 1 !important;
 }
 
-.star-button.starred:hover {
-  color: inherit;
-}
-
-.star-button.unstarred {
-  color: #ccc;
-}
-
-.star-button.unstarred:hover {
-  color: #ffc107;
-}
-
+/* Section headers */
 .entities-section {
   margin-bottom: 2em;
 }
@@ -131,92 +464,40 @@
   font-style: italic;
 }
 
-.btn {
-  padding: 8px 16px;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 14px;
-  font-weight: 500;
-  transition: all 0.2s;
+/* Loading and states */
+.no-facet-message {
+  text-align: center;
+  padding: 4em 2em;
+  color: #666;
 }
 
-.btn-primary {
-  background: #667eea;
-  color: white;
-}
-
-.btn-primary:hover {
-  background: #5568d3;
-}
-
-.btn-secondary {
-  background: #6c757d;
-  color: white;
-}
-
-.btn-secondary:hover {
-  background: #5a6268;
-}
-
-.btn-danger {
-  background: #dc3545;
-  color: white;
-}
-
-.btn-danger:hover {
-  background: #c82333;
-}
-
-/* Inline description editing */
-.entity-desc-text {
-  cursor: text;
-}
-
-.entity-desc-input {
-  flex: 1;
-  min-width: 0;
-  padding: 4px 8px;
-  border: 1px solid #667eea;
-  border-radius: 4px;
-  font-size: inherit;
-  font-family: inherit;
-  color: #111827;
-  outline: none;
-  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
-}
-
-.entity-desc-input:disabled {
-  background: #f8f9fa;
-  cursor: not-allowed;
-}
-
-.generate-inline-btn {
-  cursor: pointer;
-  margin-left: 8px;
-  font-size: 1.1em;
-  transition: transform 0.2s;
-}
-
-.generate-inline-btn:hover {
-  transform: scale(1.2);
-}
-
-.generate-inline-btn.generating {
-  animation: spin 1s linear infinite;
-}
-
-.no-entity-desc {
+.no-facet-message h2 {
   color: #999;
-  font-style: italic;
-  cursor: text;
+  margin-bottom: 0.5em;
 }
 
-.no-entity-desc:hover {
-  color: #667eea;
+.entities-loading {
+  text-align: center;
+  padding: 4em;
+  color: #666;
 }
 
-/* Modal styling (shared) */
+.spinner {
+  display: inline-block;
+  width: 40px;
+  height: 40px;
+  border: 4px solid #f0f0f0;
+  border-top-color: #667eea;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin: 0 auto 1em;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Modal styling */
 .modal {
   display: none;
   position: fixed;
@@ -246,7 +527,6 @@
   justify-content: space-between;
 }
 
-.modal-header h2,
 .modal-header h3 {
   margin: 0;
   font-size: 1.25em;
@@ -280,7 +560,6 @@
   color: #000;
 }
 
-/* Delete modal specific */
 .delete-warning {
   background: #fff3cd;
   border: 1px solid #ffc107;
@@ -309,101 +588,14 @@
   border-bottom: none;
 }
 
-.form-group {
-  margin-bottom: 1em;
-}
-
-.form-group label {
-  display: block;
-  margin-bottom: 0.5em;
-  font-weight: 500;
-  color: #495057;
-}
-
-.form-group input[type="text"] {
-  width: 100%;
-  padding: 10px;
-  border: 1px solid #ced4da;
-  border-radius: 6px;
-  font-size: 14px;
-  box-sizing: border-box;
-}
-
-.form-group small {
-  display: block;
-  margin-top: 0.25em;
-  color: #6c757d;
-  font-size: 0.875em;
-}
-
-#entityEditError {
-  padding: 12px;
-  margin: 0 1.5em;
+/* Error message */
+.error-message {
+  color: #dc3545;
   background: #f8d7da;
   border: 1px solid #f5c6cb;
   border-radius: 6px;
-  color: #721c24;
-  display: none;
-}
-
-/* Entity delete button - floats over description cell */
-.entity-desc {
-  position: relative;
-}
-
-.entity-delete-btn {
-  position: absolute;
-  right: 8px;
-  top: 50%;
-  transform: translateY(-50%);
-  cursor: pointer;
-  opacity: 0;
-  transition: opacity 0.2s;
-  font-size: 1em;
-  background: white;
-  padding: 2px 4px;
-  border-radius: 4px;
-}
-
-tr:hover .entity-delete-btn {
-  opacity: 0.6;
-}
-
-.entity-delete-btn:hover {
-  opacity: 1 !important;
-}
-
-/* No facet message */
-.no-facet-message {
-  text-align: center;
-  padding: 4em 2em;
-  color: #666;
-}
-
-.no-facet-message h2 {
-  color: #999;
-  margin-bottom: 0.5em;
-}
-
-.entities-loading {
-  text-align: center;
-  padding: 4em;
-  color: #666;
-}
-
-.spinner {
-  display: inline-block;
-  width: 40px;
-  height: 40px;
-  border: 4px solid #f0f0f0;
-  border-top-color: #667eea;
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
-  margin: 0 auto 1em;
-}
-
-@keyframes spin {
-  to { transform: rotate(360deg); }
+  padding: 0.75em 1em;
+  margin-bottom: 1em;
 }
 </style>
 
@@ -418,32 +610,19 @@ tr:hover .entity-delete-btn {
     <p>Choose a facet from the pills above to see its entities.</p>
   </div>
 
-  <div id="entities-content" style="display: none;">
-    <!-- Facet Entities Section -->
+  <!-- Main list view -->
+  <div id="entities-list-view" style="display: none;">
+    <!-- Facet Entities Section (Cards) -->
     <div class="entities-section">
-      <div class="entities-container" id="facet-entities-section">
-        <h3>
-          <span>Facet Entities</span>
-        </h3>
-        <table class="entities-table">
-          <thead>
-            <tr>
-              <th></th>
-              <th class="entity-type">Type</th>
-              <th class="entity-name">Name</th>
-              <th class="entity-desc">Description</th>
-            </tr>
-          </thead>
-          <tbody id="facet-entities-tbody">
-          </tbody>
-        </table>
+      <div class="entity-cards-container">
+        <div id="entity-cards-content"></div>
         <div id="no-facet-entities" class="no-entities" style="display: none;">
           No entities added to this facet yet. Star entities below to add them.
         </div>
       </div>
     </div>
 
-    <!-- Detected Entities Section -->
+    <!-- Detected Entities Section (Table) -->
     <div class="entities-section">
       <div class="entities-container">
         <h3 id="all-entities-title" style="display: flex; align-items: center; justify-content: space-between;">
@@ -472,8 +651,64 @@ tr:hover .entity-delete-btn {
       </div>
     </div>
   </div>
-</div>
 
+  <!-- Entity detail view -->
+  <div id="entity-detail-view" class="entity-detail-view" style="display: none;">
+    <div class="entity-detail-header">
+      <a class="entity-detail-back" onclick="navigateToList()">← Back to entities</a>
+      <div class="entity-detail-title">
+        <h2 class="entity-detail-name" id="detail-name"></h2>
+        <span class="entity-detail-type" id="detail-type"></span>
+      </div>
+      <div class="entity-detail-aka" id="detail-aka"></div>
+      <div class="entity-detail-indicators" id="detail-indicators"></div>
+    </div>
+
+    <div class="entity-detail-section">
+      <h4>Description</h4>
+      <div id="detail-description-container"></div>
+    </div>
+
+    <div class="entity-detail-section">
+      <h4>Edit Entity</h4>
+      <div id="detail-edit-error" class="error-message" style="display: none;"></div>
+      <form class="entity-edit-form" id="detail-edit-form">
+        <div class="form-group">
+          <label for="detail-edit-name">Name</label>
+          <input type="text" id="detail-edit-name" required>
+        </div>
+        <div class="form-group">
+          <label for="detail-edit-type">Type</label>
+          <select id="detail-edit-type">
+            <option value="Person">Person</option>
+            <option value="Organization">Organization</option>
+            <option value="Project">Project</option>
+            <option value="Tool">Tool</option>
+            <option value="Location">Location</option>
+            <option value="Event">Event</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="detail-edit-akas">Alternative Names (AKAs)</label>
+          <input type="text" id="detail-edit-akas" placeholder="alias1, alias2, alias3">
+          <small>Comma-separated list of alternative names for audio transcription</small>
+        </div>
+        <div class="form-actions">
+          <button type="submit" class="btn btn-primary" id="detail-save-btn">Save Changes</button>
+        </div>
+      </form>
+    </div>
+
+    <div class="entity-detail-section">
+      <h4>Observations</h4>
+      <div id="detail-observations"></div>
+    </div>
+
+    <div class="entity-detach-section">
+      <button class="btn btn-danger" id="detail-detach-btn">Remove from Facet</button>
+    </div>
+  </div>
+</div>
 
 <!-- Delete Entity Confirmation Modal -->
 <div id="deleteModal" class="modal">
@@ -499,40 +734,15 @@ tr:hover .entity-delete-btn {
   </div>
 </div>
 
-<!-- Entity Edit Modal -->
-<div id="entityEditModal" class="modal">
-  <div class="modal-content">
-    <div class="modal-header">
-      <h2>Edit Entity</h2>
-      <span class="close" onclick="closeEntityEditModal()">&times;</span>
-    </div>
-    <form id="entityEditForm">
-      <div id="entityEditError"></div>
-      <div class="modal-body">
-        <div class="form-group">
-          <label for="entityEditName">Name</label>
-          <input type="text" id="entityEditName" name="name" required>
-        </div>
-        <div class="form-group">
-          <label for="entityEditAkas">Alternative Names (AKAs)</label>
-          <input type="text" id="entityEditAkas" name="akas" placeholder="alias1, alias2, alias3">
-          <small>Comma-separated list of alternative names for audio transcription</small>
-        </div>
-      </div>
-      <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" onclick="closeEntityEditModal()">Cancel</button>
-        <button type="submit" class="btn btn-primary" id="entityEditSaveBtn">Save</button>
-      </div>
-    </form>
-  </div>
-</div>
-
 <script>
 let currentFacet = getSelectedFacet();
 let entitiesData = null;
-let currentEditEntity = null;
-const pendingEntities = new Map(); // agent_id → { name, row }
+let currentDetailEntity = null;
+const pendingEntities = new Map(); // agent_id → { name, element }
 const pendingAgentCallbacks = new Map(); // agent_id → callback function
+
+// Type display order
+const TYPE_ORDER = ['Person', 'Organization', 'Project', 'Tool', 'Location', 'Event'];
 
 // Get selected facet from cookie
 function getSelectedFacet() {
@@ -546,29 +756,381 @@ function getSelectedFacet() {
   return null;
 }
 
+// Format relative date (Today, Yesterday, Monday, Jan 15, Jan 15 '24)
+// Matches Python convey/utils.py format_date_short()
+function formatDateShort(dateStr) {
+  if (!dateStr) return null;
+
+  // Handle YYYYMMDD format
+  if (!/^\d{8}$/.test(dateStr)) {
+    return dateStr;
+  }
+
+  const year = parseInt(dateStr.slice(0, 4));
+  const month = parseInt(dateStr.slice(4, 6)) - 1;
+  const day = parseInt(dateStr.slice(6, 8));
+  const date = new Date(year, month, day);
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const dateNorm = new Date(date);
+  dateNorm.setHours(0, 0, 0, 0);
+
+  const diffDays = Math.round((dateNorm - today) / (1000 * 60 * 60 * 24));
+
+  if (diffDays === 0) return 'Today';
+  if (diffDays === -1) return 'Yesterday';
+  if (diffDays === 1) return 'Tomorrow';
+  if (diffDays >= -6 && diffDays < 0) {
+    return date.toLocaleDateString('en-US', { weekday: 'long' });
+  }
+
+  // Default short format
+  let short = date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+  // Add year suffix if >6 months ago AND different year
+  const monthsAgo = (today.getFullYear() - date.getFullYear()) * 12 + (today.getMonth() - date.getMonth());
+  if (monthsAgo > 6 && date.getFullYear() !== today.getFullYear()) {
+    short += " '" + String(date.getFullYear()).slice(-2);
+  }
+  return short;
+}
+
+// Format timestamp (epoch ms) to relative date
+function formatTimestamp(epochMs) {
+  if (!epochMs) return null;
+  const date = new Date(epochMs);
+  const dateStr = date.toISOString().slice(0, 10).replace(/-/g, '');
+  return formatDateShort(dateStr);
+}
+
+// Get display date for entity (last_seen → updated_at → attached_at)
+function getEntityDisplayDate(entity) {
+  if (entity.last_seen) {
+    return formatDateShort(entity.last_seen);
+  }
+  if (entity.updated_at) {
+    return formatTimestamp(entity.updated_at);
+  }
+  if (entity.attached_at) {
+    return formatTimestamp(entity.attached_at);
+  }
+  return null;
+}
+
 // Listen for facet changes
 window.addEventListener('facet.switch', (e) => {
   currentFacet = e.detail.facet;
-  entitiesData = null; // Reset data
+  entitiesData = null;
+  // Clear hash when switching facets
+  if (location.hash) {
+    history.pushState(null, '', location.pathname);
+  }
   loadEntities();
 });
 
-// Load entities on page load
+// Hash-based routing
+window.addEventListener('hashchange', handleHashChange);
+
+function handleHashChange() {
+  const hash = location.hash.slice(1);
+  if (hash) {
+    showDetailView(hash);
+  } else {
+    showListView();
+  }
+}
+
+function navigateToEntity(entityId) {
+  location.hash = entityId;
+}
+
+function navigateToList() {
+  history.pushState(null, '', location.pathname);
+  showListView();
+}
+
+function showListView() {
+  document.getElementById('entities-list-view').style.display = 'block';
+  document.getElementById('entity-detail-view').style.display = 'none';
+  currentDetailEntity = null;
+}
+
+function showDetailView(entityId) {
+  if (!currentFacet) return;
+
+  document.getElementById('entities-list-view').style.display = 'none';
+  document.getElementById('entity-detail-view').style.display = 'block';
+
+  // Show loading state
+  document.getElementById('detail-name').textContent = 'Loading...';
+  document.getElementById('detail-type').textContent = '';
+  document.getElementById('detail-aka').textContent = '';
+  document.getElementById('detail-indicators').innerHTML = '';
+  document.getElementById('detail-description-container').innerHTML = '<span class="entity-desc-display empty">Loading...</span>';
+  document.getElementById('detail-observations').innerHTML = '<span class="observations-empty">Loading...</span>';
+
+  // Fetch entity details
+  fetch(`api/${encodeURIComponent(currentFacet)}/entity/${encodeURIComponent(entityId)}`)
+    .then(response => response.json())
+    .then(data => {
+      if (data.error) {
+        throw new Error(data.error);
+      }
+      currentDetailEntity = data.entity;
+      renderDetailView(data.entity, data.observations);
+    })
+    .catch(error => {
+      console.error('Error loading entity:', error);
+      document.getElementById('detail-name').textContent = 'Error';
+      document.getElementById('detail-description-container').innerHTML =
+        `<div class="error-message">${escapeHtml(error.message)}</div>`;
+    });
+}
+
+function renderDetailView(entity, observations) {
+  // Header
+  document.getElementById('detail-name').textContent = entity.name;
+  document.getElementById('detail-type').textContent = entity.type;
+
+  // AKAs
+  const akaEl = document.getElementById('detail-aka');
+  if (entity.aka && entity.aka.length > 0) {
+    akaEl.textContent = `Also known as: ${entity.aka.join(', ')}`;
+  } else {
+    akaEl.textContent = '';
+  }
+
+  // Indicators (last seen, voiceprint)
+  const indicators = [];
+  const displayDate = getEntityDisplayDate(entity);
+  if (displayDate) {
+    indicators.push(`Last active: ${displayDate}`);
+  }
+  if (entity.has_voiceprint) {
+    indicators.push('🎤 Has voiceprint');
+  }
+  document.getElementById('detail-indicators').innerHTML = indicators.join(' · ');
+
+  // Description
+  renderDescriptionSection(entity);
+
+  // Edit form
+  document.getElementById('detail-edit-name').value = entity.name;
+  document.getElementById('detail-edit-type').value = entity.type;
+  document.getElementById('detail-edit-akas').value = (entity.aka || []).join(', ');
+  document.getElementById('detail-edit-error').style.display = 'none';
+
+  // Observations
+  const obsContainer = document.getElementById('detail-observations');
+  if (observations && observations.length > 0) {
+    obsContainer.innerHTML = '<div class="observations-list"></div>';
+    const list = obsContainer.querySelector('.observations-list');
+    observations.forEach(obs => {
+      const item = document.createElement('div');
+      item.className = 'observation-item';
+
+      const content = document.createElement('div');
+      content.className = 'observation-content';
+      content.textContent = obs.content;
+
+      const meta = document.createElement('div');
+      meta.className = 'observation-meta';
+      const metaParts = [];
+      if (obs.source_day) {
+        metaParts.push(formatDateShort(obs.source_day));
+      }
+      if (obs.observed_at) {
+        const date = new Date(obs.observed_at);
+        metaParts.push(date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }));
+      }
+      meta.textContent = metaParts.join(' · ');
+
+      item.appendChild(content);
+      item.appendChild(meta);
+      list.appendChild(item);
+    });
+  } else {
+    obsContainer.innerHTML = '<span class="observations-empty">No observations recorded yet.</span>';
+  }
+
+  // Detach button
+  document.getElementById('detail-detach-btn').onclick = () => detachFromDetailView(entity);
+}
+
+function renderDescriptionSection(entity) {
+  const container = document.getElementById('detail-description-container');
+  container.innerHTML = '';
+
+  const descSpan = document.createElement('span');
+  descSpan.className = entity.description ? 'entity-desc-display' : 'entity-desc-display empty';
+  descSpan.textContent = entity.description || 'No description. Click to add...';
+  descSpan.style.cursor = 'pointer';
+  descSpan.onclick = () => startDescriptionEdit(entity);
+
+  container.appendChild(descSpan);
+}
+
+function startDescriptionEdit(entity) {
+  const container = document.getElementById('detail-description-container');
+  container.innerHTML = '';
+
+  const editContainer = document.createElement('div');
+  editContainer.className = 'entity-desc-edit-container';
+
+  const textarea = document.createElement('textarea');
+  textarea.className = 'entity-desc-input';
+  textarea.value = entity.description || '';
+  textarea.placeholder = 'Enter description...';
+
+  const btnContainer = document.createElement('div');
+  btnContainer.style.display = 'flex';
+  btnContainer.style.flexDirection = 'column';
+  btnContainer.style.gap = '0.25em';
+
+  const generateBtn = document.createElement('button');
+  generateBtn.type = 'button';
+  generateBtn.className = 'btn-icon';
+  generateBtn.textContent = '✨';
+  generateBtn.title = 'Generate with AI';
+
+  const saveBtn = document.createElement('button');
+  saveBtn.type = 'button';
+  saveBtn.className = 'btn btn-primary btn-sm';
+  saveBtn.textContent = 'Save';
+
+  const cancelBtn = document.createElement('button');
+  cancelBtn.type = 'button';
+  cancelBtn.className = 'btn btn-secondary btn-sm';
+  cancelBtn.textContent = 'Cancel';
+
+  btnContainer.appendChild(generateBtn);
+  btnContainer.appendChild(saveBtn);
+  btnContainer.appendChild(cancelBtn);
+
+  editContainer.appendChild(textarea);
+  editContainer.appendChild(btnContainer);
+  container.appendChild(editContainer);
+
+  textarea.focus();
+
+  // Event handlers
+  saveBtn.onclick = () => saveDescription(entity, textarea.value.trim());
+  cancelBtn.onclick = () => renderDescriptionSection(entity);
+
+  textarea.onkeydown = (e) => {
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      renderDescriptionSection(entity);
+    }
+  };
+
+  generateBtn.onclick = () => {
+    textarea.disabled = true;
+    generateBtn.classList.add('generating');
+
+    fetch(`api/${encodeURIComponent(currentFacet)}/generate-description`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        type: entity.type,
+        name: entity.name,
+        current_description: textarea.value
+      })
+    })
+    .then(response => response.json())
+    .then(data => {
+      if (data.success && data.agent_id) {
+        listenForAgentCompletion(data.agent_id, (result) => {
+          if (result.success && result.response) {
+            saveDescription(entity, result.response);
+          } else {
+            textarea.disabled = false;
+            generateBtn.classList.remove('generating');
+          }
+        });
+      } else {
+        throw new Error(data.error || 'Failed to start generation');
+      }
+    })
+    .catch(error => {
+      console.error('Error generating description:', error);
+      textarea.disabled = false;
+      generateBtn.classList.remove('generating');
+    });
+  };
+}
+
+function saveDescription(entity, newDescription) {
+  fetch(`api/${encodeURIComponent(currentFacet)}/description`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      name: entity.name,
+      description: newDescription
+    })
+  })
+  .then(response => response.json())
+  .then(data => {
+    if (data.success) {
+      entity.description = newDescription;
+      currentDetailEntity.description = newDescription;
+      renderDescriptionSection(entity);
+    } else {
+      throw new Error(data.error || 'Failed to save');
+    }
+  })
+  .catch(error => {
+    console.error('Error saving description:', error);
+    alert('Error saving: ' + error.message);
+  });
+}
+
+function detachFromDetailView(entity) {
+  if (!confirm(`Remove "${entity.name}" from this facet?`)) return;
+
+  fetch(`api/${encodeURIComponent(currentFacet)}`, {
+    method: 'DELETE',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name: entity.name })
+  })
+  .then(response => response.json())
+  .then(data => {
+    if (data.success) {
+      // Go back to list and reload
+      navigateToList();
+      loadEntities();
+    } else {
+      throw new Error(data.error || 'Failed to remove');
+    }
+  })
+  .catch(error => {
+    console.error('Error removing entity:', error);
+    alert('Error: ' + error.message);
+  });
+}
+
+// Edit form submission
 document.addEventListener('DOMContentLoaded', function() {
   loadEntities();
+  setupCortexListener();
 
-  // Entity search functionality
+  // Handle initial hash
+  if (location.hash) {
+    // Delay to allow entities to load first
+    setTimeout(() => handleHashChange(), 100);
+  }
+
+  // Entity search
   const entitySearchInput = document.getElementById('entity-search');
   if (entitySearchInput) {
     entitySearchInput.addEventListener('input', function() {
-      const searchTerm = this.value.trim();
       if (entitiesData) {
-        renderEntities(searchTerm);
+        renderEntities(this.value.trim());
       }
     });
   }
 
-  // Entity assistant input Enter key (input is now in app bar)
+  // Entity assistant input (in app bar)
   const assistInput = document.getElementById('entity-assist-input');
   if (assistInput) {
     assistInput.addEventListener('keypress', function(e) {
@@ -579,99 +1141,395 @@ document.addEventListener('DOMContentLoaded', function() {
     });
   }
 
-  // Close modal when clicking outside
+  // Edit form submission
+  document.getElementById('detail-edit-form').addEventListener('submit', function(e) {
+    e.preventDefault();
+    saveEntityEdit();
+  });
+
+  // Modal close on outside click
   window.onclick = function(event) {
     const deleteModal = document.getElementById('deleteModal');
     if (event.target == deleteModal) {
       closeDeleteModal();
     }
-    const editModal = document.getElementById('entityEditModal');
-    if (event.target == editModal) {
-      closeEntityEditModal();
-    }
   };
-
-  // Entity edit form submit
-  const editForm = document.getElementById('entityEditForm');
-  if (editForm) {
-    editForm.addEventListener('submit', function(e) {
-      e.preventDefault();
-      saveEntityEdit();
-    });
-  }
-
-  // Set up shared cortex event listener for pending entities
-  setupCortexListener();
 });
 
 function loadEntities() {
-  // Show message if no facet selected
   if (!currentFacet) {
     document.getElementById('entities-loading').style.display = 'none';
     document.getElementById('no-facet-message').style.display = 'block';
-    document.getElementById('entities-content').style.display = 'none';
+    document.getElementById('entities-list-view').style.display = 'none';
+    document.getElementById('entity-detail-view').style.display = 'none';
     return;
   }
 
   document.getElementById('entities-loading').style.display = 'block';
   document.getElementById('no-facet-message').style.display = 'none';
-  document.getElementById('entities-content').style.display = 'none';
+  document.getElementById('entities-list-view').style.display = 'none';
+  document.getElementById('entity-detail-view').style.display = 'none';
 
   fetch(`api/${encodeURIComponent(currentFacet)}`)
-    .then(response => {
-      return response.json().then(data => ({ ok: response.ok, status: response.status, data }));
-    })
-    .then(({ ok, status, data }) => {
-      // Check if the API returned an error
-      if (!ok || data.error) {
-        const errorMsg = data.error || `Server error (${status})`;
-        document.getElementById('entities-loading').innerHTML =
-          `<div style="color: #c33; background: #fee; padding: 1em; border-radius: 6px; border: 1px solid #fcc;">
-            <strong>Error loading entities:</strong><br>${escapeHtml(errorMsg)}
-          </div>`;
-        return;
+    .then(response => response.json())
+    .then(data => {
+      if (data.error) {
+        throw new Error(data.error);
       }
 
-      // Normalize API data into unified format for simpler rendering
-      // - attached entities get starred=true, detected get starred=false
-      // - 'description' → 'desc' for consistency
-      const all_entities = [
-        ...(data.attached || []).map(e => ({
-          type: e.type,
-          name: e.name,
-          desc: e.description,
-          starred: true,
-          aka: e.aka || []
-        })),
-        ...(data.detected || []).map(e => ({
-          type: e.type,
-          name: e.name,
-          desc: e.description,
-          starred: false,
-          count: e.count,
-          last_seen: e.last_seen
-        }))
-      ];
+      entitiesData = {
+        attached: data.attached || [],
+        detected: data.detected || []
+      };
 
-      entitiesData = { all_entities };
-      renderEntities();
       document.getElementById('entities-loading').style.display = 'none';
-      document.getElementById('entities-content').style.display = 'block';
-      document.getElementById('no-facet-message').style.display = 'none';
+
+      // Check if we should show detail view
+      if (location.hash) {
+        handleHashChange();
+      } else {
+        showListView();
+      }
+
+      renderEntities();
     })
     .catch(error => {
       console.error('Error loading entities:', error);
       document.getElementById('entities-loading').innerHTML =
-        `<div style="color: #c33; background: #fee; padding: 1em; border-radius: 6px; border: 1px solid #fcc;">
-          <strong>Error loading entities:</strong><br>${escapeHtml(error.message || 'Network error')}
-        </div>`;
+        `<div class="error-message">${escapeHtml(error.message || 'Network error')}</div>`;
     });
 }
 
-// Set up shared cortex event listener for all agent operations
+function renderEntities(searchTerm = '') {
+  if (!entitiesData) return;
+
+  renderEntityCards();
+  renderDetectedTable(searchTerm);
+}
+
+function renderEntityCards() {
+  const container = document.getElementById('entity-cards-content');
+  const noEntities = document.getElementById('no-facet-entities');
+
+  // Preserve pending cards
+  const pendingCards = Array.from(container.querySelectorAll('.entity-card-pending'));
+
+  container.innerHTML = '';
+
+  // Re-insert pending cards at top
+  pendingCards.forEach(card => container.appendChild(card));
+
+  const attached = entitiesData.attached || [];
+
+  if (attached.length === 0 && pendingCards.length === 0) {
+    noEntities.style.display = 'block';
+    return;
+  }
+
+  noEntities.style.display = 'none';
+
+  // Group by type
+  const groups = {};
+  attached.forEach(entity => {
+    const type = entity.type || 'Other';
+    if (!groups[type]) groups[type] = [];
+    groups[type].push(entity);
+  });
+
+  // Render groups in order
+  const orderedTypes = [...TYPE_ORDER, ...Object.keys(groups).filter(t => !TYPE_ORDER.includes(t))];
+
+  orderedTypes.forEach(type => {
+    const entities = groups[type];
+    if (!entities || entities.length === 0) return;
+
+    const groupDiv = document.createElement('div');
+    groupDiv.className = 'entity-type-group';
+
+    const header = document.createElement('div');
+    header.className = 'entity-type-header';
+    header.textContent = pluralizeType(type);
+    groupDiv.appendChild(header);
+
+    const grid = document.createElement('div');
+    grid.className = 'entity-cards-grid';
+
+    entities.forEach(entity => {
+      const card = createEntityCard(entity);
+      grid.appendChild(card);
+    });
+
+    groupDiv.appendChild(grid);
+    container.appendChild(groupDiv);
+  });
+}
+
+function createEntityCard(entity) {
+  const card = document.createElement('div');
+  card.className = 'entity-card';
+  card.onclick = () => navigateToEntity(entity.id || slugify(entity.name));
+
+  // Name
+  const name = document.createElement('div');
+  name.className = 'entity-card-name';
+  name.textContent = entity.name;
+  card.appendChild(name);
+
+  // Meta line (last seen, obs count, voiceprint)
+  const meta = document.createElement('div');
+  meta.className = 'entity-card-meta';
+
+  const metaParts = [];
+
+  // Date (last_seen → updated_at → attached_at)
+  const displayDate = getEntityDisplayDate(entity);
+  if (displayDate) {
+    metaParts.push(displayDate);
+  }
+
+  // Observation count
+  if (entity.observation_count && entity.observation_count > 0) {
+    metaParts.push(`${entity.observation_count} obs`);
+  }
+
+  if (metaParts.length > 0) {
+    const textSpan = document.createElement('span');
+    textSpan.textContent = metaParts.join(' · ');
+    meta.appendChild(textSpan);
+  }
+
+  // Voiceprint icon
+  if (entity.has_voiceprint) {
+    const voiceIcon = document.createElement('span');
+    voiceIcon.className = 'voiceprint-icon';
+    voiceIcon.textContent = '🎤';
+    voiceIcon.title = 'Has voiceprint';
+    meta.appendChild(voiceIcon);
+  }
+
+  if (meta.childNodes.length > 0) {
+    card.appendChild(meta);
+  }
+
+  // Detach button (on hover)
+  const detachBtn = document.createElement('span');
+  detachBtn.className = 'entity-card-detach';
+  detachBtn.textContent = '🗑️';
+  detachBtn.title = 'Remove from facet';
+  detachBtn.onclick = (e) => {
+    e.stopPropagation();
+    detachEntity(entity, card);
+  };
+  card.appendChild(detachBtn);
+
+  return card;
+}
+
+function createPendingCard(name, agentId) {
+  const card = document.createElement('div');
+  card.className = 'entity-card entity-card-pending';
+  card.dataset.agentId = agentId;
+  card.title = 'Processing...';
+
+  const nameEl = document.createElement('div');
+  nameEl.className = 'entity-card-name';
+  nameEl.textContent = name;
+  card.appendChild(nameEl);
+
+  const meta = document.createElement('div');
+  meta.className = 'entity-card-meta';
+  meta.textContent = 'Adding...';
+  card.appendChild(meta);
+
+  return card;
+}
+
+function detachEntity(entity, cardElement) {
+  cardElement.style.opacity = '0.5';
+  cardElement.style.pointerEvents = 'none';
+
+  fetch(`api/${encodeURIComponent(currentFacet)}`, {
+    method: 'DELETE',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name: entity.name })
+  })
+  .then(response => response.json())
+  .then(data => {
+    if (data.success) {
+      // Remove from local data
+      entitiesData.attached = entitiesData.attached.filter(e => e.name !== entity.name);
+      renderEntityCards();
+    } else {
+      throw new Error(data.error || 'Failed to remove');
+    }
+  })
+  .catch(error => {
+    console.error('Error removing entity:', error);
+    cardElement.style.opacity = '1';
+    cardElement.style.pointerEvents = '';
+  });
+}
+
+function renderDetectedTable(searchTerm = '') {
+  const tbody = document.getElementById('all-entities-tbody');
+  tbody.innerHTML = '';
+
+  const detected = entitiesData.detected || [];
+  const attachedNames = new Set((entitiesData.attached || []).map(e => e.name));
+
+  // Filter out already attached and apply search
+  let filtered = detected.filter(e => !attachedNames.has(e.name));
+
+  if (searchTerm) {
+    const term = searchTerm.toLowerCase();
+    filtered = filtered.filter(e => e.name.toLowerCase().includes(term));
+  }
+
+  filtered.forEach(entity => {
+    const row = createDetectedRow(entity);
+    tbody.appendChild(row);
+  });
+}
+
+function createDetectedRow(entity) {
+  const row = document.createElement('tr');
+
+  // Star cell
+  const starCell = document.createElement('td');
+  const starBtn = document.createElement('button');
+  starBtn.className = 'star-button';
+  starBtn.textContent = '☆';
+  starBtn.title = 'Add to facet';
+  starBtn.onclick = () => attachDetectedEntity(entity, starBtn);
+  starCell.appendChild(starBtn);
+  row.appendChild(starCell);
+
+  // Type
+  const typeCell = document.createElement('td');
+  typeCell.className = 'entity-type';
+  typeCell.textContent = entity.type;
+  row.appendChild(typeCell);
+
+  // Name
+  const nameCell = document.createElement('td');
+  nameCell.className = 'entity-name';
+  nameCell.textContent = entity.name;
+
+  // Count badge
+  if (entity.count && entity.count > 1) {
+    const badge = document.createElement('span');
+    badge.style.cssText = 'margin-left: 8px; background: #e3f2fd; color: #1976d2; padding: 2px 8px; border-radius: 12px; font-size: 0.8em; font-weight: 500;';
+    badge.textContent = `${entity.count} detections`;
+    nameCell.appendChild(badge);
+  }
+  row.appendChild(nameCell);
+
+  // Description
+  const descCell = document.createElement('td');
+  descCell.className = 'entity-desc';
+  descCell.textContent = entity.description || '—';
+
+  // Delete button
+  const deleteBtn = document.createElement('span');
+  deleteBtn.className = 'entity-delete-btn';
+  deleteBtn.textContent = '🗑️';
+  deleteBtn.title = 'Delete detected entity';
+  deleteBtn.onclick = (e) => {
+    e.stopPropagation();
+    previewEntityDelete(entity.name);
+  };
+  descCell.appendChild(deleteBtn);
+  row.appendChild(descCell);
+
+  return row;
+}
+
+function attachDetectedEntity(entity, button) {
+  button.disabled = true;
+  button.style.opacity = '0.5';
+
+  fetch(`api/${encodeURIComponent(currentFacet)}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      type: entity.type,
+      name: entity.name,
+      description: entity.description || ''
+    })
+  })
+  .then(response => response.json())
+  .then(data => {
+    if (data.success) {
+      // Reload to get full entity data
+      loadEntities();
+    } else {
+      throw new Error(data.error || 'Failed to attach');
+    }
+  })
+  .catch(error => {
+    console.error('Error attaching entity:', error);
+    alert('Error: ' + error.message);
+    button.disabled = false;
+    button.style.opacity = '1';
+  });
+}
+
+// Entity assist (add with AI)
+function submitEntityAssist() {
+  const input = document.getElementById('entity-assist-input');
+  const name = input.value.trim();
+
+  if (!name || !currentFacet) return;
+
+  input.value = '';
+  input.focus();
+
+  // Create pending card
+  const tempId = `temp-${Date.now()}`;
+  const card = createPendingCard(name, tempId);
+
+  // Insert at beginning of first type group or create new one
+  const container = document.getElementById('entity-cards-content');
+  const noEntities = document.getElementById('no-facet-entities');
+  noEntities.style.display = 'none';
+
+  // Insert at start
+  if (container.firstChild) {
+    container.insertBefore(card, container.firstChild);
+  } else {
+    container.appendChild(card);
+  }
+
+  pendingEntities.set(tempId, { name, element: card });
+
+  fetch(`api/${encodeURIComponent(currentFacet)}/assist`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name })
+  })
+  .then(response => response.json())
+  .then(data => {
+    if (data.success && data.agent_id) {
+      const pending = pendingEntities.get(tempId);
+      if (pending) {
+        pendingEntities.delete(tempId);
+        pendingEntities.set(data.agent_id, pending);
+        pending.element.dataset.agentId = data.agent_id;
+      }
+    } else {
+      throw new Error(data.error || 'Failed to start assistant');
+    }
+  })
+  .catch(error => {
+    console.error('Error with entity assistant:', error);
+    failPendingEntity(tempId, error.message);
+  });
+}
+
+// Cortex event listener for agent operations
 function setupCortexListener() {
   if (!window.appEvents) {
-    console.warn('appEvents not available, pending entities will not update automatically');
+    console.warn('appEvents not available');
     return;
   }
 
@@ -679,7 +1537,7 @@ function setupCortexListener() {
     const agentId = msg.agent_id;
     if (!agentId) return;
 
-    // Handle pending entity additions
+    // Pending entity additions
     if (pendingEntities.has(agentId)) {
       if (msg.event === 'tool_end' && msg.tool === 'entity_attach') {
         const result = msg.result;
@@ -693,7 +1551,7 @@ function setupCortexListener() {
       }
     }
 
-    // Handle one-off agent callbacks (e.g., description generation)
+    // One-off callbacks (description generation)
     if (pendingAgentCallbacks.has(agentId)) {
       if (msg.event === 'finish') {
         const callback = pendingAgentCallbacks.get(agentId);
@@ -708,92 +1566,39 @@ function setupCortexListener() {
   });
 }
 
-// Create a pending entity row (placeholder while agent runs)
-function createPendingEntityRow(name, agentId) {
-  const row = document.createElement('tr');
-  row.className = 'entity-row-pending';
-  row.dataset.agentId = agentId;
-
-  // Star cell (disabled)
-  const starCell = document.createElement('td');
-  const starButton = document.createElement('button');
-  starButton.className = 'star-button starred';
-  starButton.innerHTML = '★';
-  starButton.disabled = true;
-  starCell.appendChild(starButton);
-
-  // Type cell (placeholder)
-  const typeCell = document.createElement('td');
-  typeCell.className = 'entity-type';
-  typeCell.textContent = '—';
-
-  // Name cell
-  const nameCell = document.createElement('td');
-  nameCell.className = 'entity-name';
-  nameCell.textContent = name;
-
-  // Description cell (loading state)
-  const descCell = document.createElement('td');
-  descCell.className = 'entity-desc';
-  const descSpan = document.createElement('span');
-  descSpan.className = 'entity-desc-text';
-  descSpan.textContent = 'Adding...';
-  descCell.appendChild(descSpan);
-
-  row.appendChild(starCell);
-  row.appendChild(typeCell);
-  row.appendChild(nameCell);
-  row.appendChild(descCell);
-
-  return row;
+function listenForAgentCompletion(agentId, callback) {
+  if (!window.appEvents) {
+    callback({ success: false, error: 'Events not available' });
+    return;
+  }
+  pendingAgentCallbacks.set(agentId, callback);
 }
 
-// Update pending entity row with real data from tool result
 function updatePendingEntity(agentId, entity) {
   const pending = pendingEntities.get(agentId);
   if (!pending) return;
 
-  const row = pending.row;
+  // Update display
+  const nameEl = pending.element.querySelector('.entity-card-name');
+  if (nameEl) nameEl.textContent = entity.name || pending.name;
 
-  // Update type
-  const typeCell = row.querySelector('.entity-type');
-  if (typeCell) typeCell.textContent = entity.type || '—';
-
-  // Update name (in case agent normalized it)
-  const nameCell = row.querySelector('.entity-name');
-  if (nameCell) nameCell.textContent = entity.name || pending.name;
-
-  // Update description
-  const descCell = row.querySelector('.entity-desc');
-  if (descCell) {
-    descCell.innerHTML = '';
-    const descSpan = document.createElement('span');
-    descSpan.className = 'entity-desc-text';
-    descSpan.textContent = entity.description || '—';
-    descCell.appendChild(descSpan);
-  }
-
-  // Store entity data for later
   pending.entity = entity;
 }
 
-// Complete pending entity - fetch entity data and make interactive
 function completePendingEntity(agentId, agentMessage) {
   const pending = pendingEntities.get(agentId);
   if (!pending) return;
 
-  // If we already have entity data from tool_end, use it
   if (pending.entity) {
     finalizePendingEntity(agentId, pending.entity);
     return;
   }
 
-  // No entity_attach was called - fetch from backend to check if it was added anyway
+  // Fetch to check if entity was added
   fetch(`api/${encodeURIComponent(currentFacet)}`)
     .then(response => response.json())
     .then(data => {
       if (data.attached) {
-        // Find entity by name (case-insensitive partial match)
         const entity = data.attached.find(e =>
           e.name.toLowerCase().includes(pending.name.toLowerCase()) ||
           pending.name.toLowerCase().includes(e.name.toLowerCase())
@@ -803,652 +1608,70 @@ function completePendingEntity(agentId, agentMessage) {
           return;
         }
       }
-      // Entity not found - agent finished without attaching, show agent's message
       failPendingEntity(agentId, agentMessage || 'Entity was not added');
     })
     .catch(error => {
-      console.error('Error fetching entity:', error);
-      failPendingEntity(agentId, agentMessage || 'Failed to verify entity');
+      failPendingEntity(agentId, agentMessage || 'Failed to verify');
     });
 }
 
-// Finalize a pending entity with actual data
 function finalizePendingEntity(agentId, entity) {
   const pending = pendingEntities.get(agentId);
   if (!pending) return;
 
-  const row = pending.row;
-
   // Add to local data
-  if (entitiesData && entitiesData.all_entities) {
-    // Check if already exists (avoid duplicates)
-    const exists = entitiesData.all_entities.some(e =>
-      e.type === entity.type && e.name === entity.name && e.starred
-    );
+  if (entitiesData && entitiesData.attached) {
+    const exists = entitiesData.attached.some(e => e.name === entity.name);
     if (!exists) {
-      entitiesData.all_entities.unshift({
-        type: entity.type,
-        name: entity.name,
-        desc: entity.description,
-        starred: true,
-        aka: entity.aka || []
-      });
+      entitiesData.attached.unshift(entity);
     }
   }
 
-  // Replace with proper interactive row
-  const newRow = createEntityRow({
-    type: entity.type,
-    name: entity.name,
-    desc: entity.description,
-    starred: true,
-    aka: entity.aka || []
-  }, true);
-  row.replaceWith(newRow);
-
+  // Remove pending card and re-render
+  pending.element.remove();
   pendingEntities.delete(agentId);
+  renderEntityCards();
 }
 
-// Handle failed entity addition
 function failPendingEntity(agentId, error) {
   const pending = pendingEntities.get(agentId);
   if (!pending) return;
 
-  const row = pending.row;
+  // Show error state briefly then remove
+  pending.element.classList.remove('entity-card-pending');
+  pending.element.style.background = '#fee';
+  pending.element.style.borderColor = '#fcc';
+  pending.element.title = `Error: ${error}`;
 
-  // Show error state (persists until page reload)
-  row.classList.remove('entity-row-pending');
-  row.classList.add('entity-row-error');
-
-  // Update description to show error
-  const descCell = row.querySelector('.entity-desc');
-  if (descCell) {
-    descCell.innerHTML = '';
-    const descSpan = document.createElement('span');
-    descSpan.className = 'entity-desc-text';
-    descSpan.textContent = `Error: ${error}`;
-    descCell.appendChild(descSpan);
+  const meta = pending.element.querySelector('.entity-card-meta');
+  if (meta) {
+    meta.textContent = `Error: ${error}`;
+    meta.style.color = '#c33';
   }
 
   pendingEntities.delete(agentId);
-}
 
-function renderEntities(searchTerm = '') {
-  if (!entitiesData) return;
-
-  const facetTbody = document.getElementById('facet-entities-tbody');
-  const allTbody = document.getElementById('all-entities-tbody');
-  const noFacetEntities = document.getElementById('no-facet-entities');
-
-  // Preserve pending entity rows before clearing
-  const pendingRows = Array.from(facetTbody.querySelectorAll('.entity-row-pending, .entity-row-error'));
-
-  // Clear existing content
-  facetTbody.innerHTML = '';
-  allTbody.innerHTML = '';
-
-  // Re-insert pending rows at the top
-  pendingRows.forEach(row => facetTbody.appendChild(row));
-
-  // Render facet entities
-  const starredEntities = entitiesData.all_entities.filter(e => e.starred);
-  const hasPendingOrStarred = pendingRows.length > 0 || starredEntities.length > 0;
-
-  if (!hasPendingOrStarred) {
-    noFacetEntities.style.display = 'block';
-    document.getElementById('facet-entities-section').querySelector('table').style.display = 'none';
-  } else {
-    noFacetEntities.style.display = 'none';
-    document.getElementById('facet-entities-section').querySelector('table').style.display = 'table';
-
-    starredEntities.forEach(entity => {
-      const row = createEntityRow(entity, true);
-      facetTbody.appendChild(row);
-    });
-  }
-
-  // Render non-starred entities only (filtering out facet entities)
-  const unstarredEntities = entitiesData.all_entities.filter(e => !e.starred);
-
-  // Get set of attached entity names for filtering
-  const attachedNames = new Set(starredEntities.map(e => e.name));
-
-  // Filter out detected entities that have exact name match with attached entities
-  const uniqueUnstarredEntities = unstarredEntities.filter(entity =>
-    !attachedNames.has(entity.name)
-  );
-
-  // Apply search filter if searchTerm is provided
-  const filteredEntities = searchTerm
-    ? uniqueUnstarredEntities.filter(entity =>
-        entity.name.toLowerCase().includes(searchTerm.toLowerCase())
-      )
-    : uniqueUnstarredEntities;
-
-  filteredEntities.forEach(entity => {
-    const row = createEntityRow(entity, false);
-    allTbody.appendChild(row);
-  });
-}
-
-function createEntityRow(entity, isFacetSection) {
-  const row = document.createElement('tr');
-
-  const starCell = document.createElement('td');
-  const starButton = document.createElement('button');
-  starButton.className = `star-button ${entity.starred ? 'starred' : 'unstarred'}`;
-  if (entity.starred) {
-    starButton.innerHTML = '<span class="star-icon-default">★</span><span class="star-icon-hover">🗑️</span>';
-    starButton.title = 'Remove from facet';
-    starButton.onclick = () => removeAttachedEntity(entity, row);
-  } else {
-    starButton.innerHTML = '☆';
-    starButton.title = 'Add to facet';
-    starButton.onclick = () => attachDetectedEntity(entity, starButton);
-  }
-  starCell.appendChild(starButton);
-
-  const typeCell = document.createElement('td');
-  typeCell.className = 'entity-type';
-  typeCell.textContent = entity.type;
-
-  const nameCell = document.createElement('td');
-  nameCell.className = 'entity-name';
-
-  // Create clickable name for attached entities
-  if (entity.starred) {
-    const nameLink = document.createElement('span');
-    nameLink.style.cssText = 'cursor: pointer; text-decoration: underline dotted;';
-    nameLink.textContent = entity.name;
-    nameLink.onclick = () => openEntityEditModal(entity.type, entity.name, entity.aka || []);
-    nameCell.appendChild(nameLink);
-
-    // Add AKAs if present
-    if (entity.aka && Array.isArray(entity.aka) && entity.aka.length > 0) {
-      const akaSpan = document.createElement('span');
-      akaSpan.style.cssText = 'margin-left: 4px; color: #666;';
-      akaSpan.textContent = ` (${entity.aka.join(', ')})`;
-      nameCell.appendChild(akaSpan);
+  // Remove after delay
+  setTimeout(() => {
+    pending.element.remove();
+    if (entitiesData.attached.length === 0 && pendingEntities.size === 0) {
+      document.getElementById('no-facet-entities').style.display = 'block';
     }
-  } else {
-    nameCell.textContent = entity.name;
-
-    // Add detection count badge for detected entities
-    if (entity.count && entity.count > 1) {
-      const badge = document.createElement('span');
-      badge.style.cssText = 'margin-left: 8px; background: #e3f2fd; color: #1976d2; padding: 2px 8px; border-radius: 12px; font-size: 0.8em; font-weight: 500;';
-      badge.textContent = `${entity.count} detections`;
-      nameCell.appendChild(badge);
-    }
-  }
-
-  const descCell = document.createElement('td');
-  descCell.className = 'entity-desc';
-  if (isFacetSection) {
-    // Attached entities: double-click to edit inline
-    const descSpan = document.createElement('span');
-    descSpan.className = entity.desc ? 'entity-desc-text' : 'no-entity-desc';
-    descSpan.textContent = entity.desc || 'Add description...';
-    descSpan.addEventListener('dblclick', () => startInlineDescriptionEdit(entity, descCell));
-    descCell.appendChild(descSpan);
-  } else {
-    // Detected entities: read-only
-    const descSpan = document.createElement('span');
-    descSpan.className = 'entity-desc-text';
-    if (entity.desc) {
-      descSpan.textContent = entity.desc;
-    } else {
-      descSpan.textContent = '—';
-      descSpan.style.cssText = 'color: #999; font-style: italic;';
-    }
-    descCell.appendChild(descSpan);
-  }
-
-  row.appendChild(starCell);
-  row.appendChild(typeCell);
-  row.appendChild(nameCell);
-  row.appendChild(descCell);
-
-  // Add delete button for detected entities (floats over description)
-  if (!isFacetSection) {
-    const deleteBtn = document.createElement('span');
-    deleteBtn.className = 'entity-delete-btn';
-    deleteBtn.innerHTML = '🗑️';
-    deleteBtn.title = 'Delete detected entity';
-    deleteBtn.onclick = (e) => {
-      e.stopPropagation();
-      previewEntityDelete(entity.name);
-    };
-    descCell.appendChild(deleteBtn);
-  }
-
-  return row;
+  }, 5000);
 }
 
-function removeAttachedEntity(entity, row) {
-  // Optimistic UI update - remove row immediately
-  row.style.opacity = '0.5';
-  row.style.pointerEvents = 'none';
-
-  fetch(`api/${encodeURIComponent(currentFacet)}`, {
-    method: 'DELETE',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      type: entity.type,
-      name: entity.name
-    })
-  })
-  .then(response => response.json())
-  .then(data => {
-    if (data.success) {
-      // Remove from local data
-      if (entitiesData && entitiesData.all_entities) {
-        entitiesData.all_entities = entitiesData.all_entities.filter(e =>
-          !(e.type === entity.type && e.name === entity.name && e.starred)
-        );
-      }
-      // Remove row
-      row.remove();
-    } else {
-      throw new Error(data.error || 'Failed to remove entity');
-    }
-  })
-  .catch(error => {
-    console.error('Error removing entity:', error);
-    // Restore row on error
-    row.style.opacity = '1';
-    row.style.pointerEvents = '';
-  });
-}
-
-function attachDetectedEntity(entity, starButton) {
-  // Disable button during request
-  starButton.disabled = true;
-  starButton.style.opacity = '0.5';
-
-  fetch(`api/${encodeURIComponent(currentFacet)}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      type: entity.type,
-      name: entity.name,
-      description: entity.desc || ''
-    })
-  })
-  .then(response => response.json())
-  .then(data => {
-    if (data.success) {
-      // Update entity state and re-render
-      entity.starred = true;
-      renderEntities(document.getElementById('entity-search').value.trim());
-    } else {
-      throw new Error(data.error || 'Failed to attach entity');
-    }
-  })
-  .catch(error => {
-    console.error('Error attaching entity:', error);
-    alert('Error: ' + error.message);
-    starButton.disabled = false;
-    starButton.style.opacity = '1';
-  });
-}
-
-function startInlineDescriptionEdit(entity, descCell) {
-  const originalDesc = entity.desc || '';
-
-  // Clear cell and create edit UI
-  descCell.innerHTML = '';
-
-  const input = document.createElement('input');
-  input.type = 'text';
-  input.className = 'entity-desc-input';
-  input.value = originalDesc;
-  input.placeholder = 'Enter description...';
-
-  const generateBtn = document.createElement('span');
-  generateBtn.className = 'generate-inline-btn';
-  generateBtn.textContent = '✨';
-  generateBtn.title = 'Generate description with AI';
-
-  descCell.appendChild(input);
-  descCell.appendChild(generateBtn);
-
-  input.focus();
-  input.select();
-
-  let isEditing = true;
-
-  // Save function
-  const save = (newDesc) => {
-    if (!isEditing) return;
-    isEditing = false;
-
-    const trimmedDesc = newDesc.trim();
-
-    // Update local data optimistically
-    entity.desc = trimmedDesc;
-
-    // Restore display mode
-    restoreDescDisplay();
-
-    // Save in background
-    fetch(`api/${encodeURIComponent(currentFacet)}/description`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        type: entity.type,
-        name: entity.name,
-        description: trimmedDesc
-      })
-    })
-    .then(response => response.json())
-    .then(data => {
-      if (!data.success) {
-        // Revert on failure
-        entity.desc = originalDesc;
-        restoreDescDisplay();
-        console.error('Failed to save description:', data.error);
-      }
-    })
-    .catch(error => {
-      // Revert on error
-      entity.desc = originalDesc;
-      restoreDescDisplay();
-      console.error('Error saving description:', error);
-    });
-  };
-
-  // Cancel function
-  const cancel = () => {
-    if (!isEditing) return;
-    isEditing = false;
-    restoreDescDisplay();
-  };
-
-  // Restore display mode
-  const restoreDescDisplay = () => {
-    descCell.innerHTML = '';
-    const descSpan = document.createElement('span');
-    descSpan.className = entity.desc ? 'entity-desc-text' : 'no-entity-desc';
-    descSpan.textContent = entity.desc || 'Add description...';
-    descSpan.addEventListener('dblclick', () => startInlineDescriptionEdit(entity, descCell));
-    descCell.appendChild(descSpan);
-  };
-
-  // Generate with AI
-  const generate = () => {
-    input.disabled = true;
-    generateBtn.classList.add('generating');
-
-    fetch(`api/${encodeURIComponent(currentFacet)}/generate-description`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        type: entity.type,
-        name: entity.name,
-        current_description: input.value
-      })
-    })
-    .then(response => response.json())
-    .then(data => {
-      if (data.success && data.agent_id) {
-        listenForAgentCompletion(data.agent_id, (result) => {
-          if (result.success && result.response) {
-            // Save the generated description and exit edit mode
-            save(result.response);
-          } else {
-            // Re-enable input on failure
-            input.disabled = false;
-            generateBtn.classList.remove('generating');
-          }
-        });
-      } else {
-        throw new Error(data.error || 'Failed to start generation');
-      }
-    })
-    .catch(error => {
-      console.error('Error generating description:', error);
-      input.disabled = false;
-      generateBtn.classList.remove('generating');
-    });
-  };
-
-  // Event handlers
-  input.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      save(input.value);
-    } else if (e.key === 'Escape') {
-      e.preventDefault();
-      cancel();
-    }
-  });
-
-  input.addEventListener('blur', (e) => {
-    // Don't cancel if clicking generate button
-    if (e.relatedTarget === generateBtn) return;
-    setTimeout(() => {
-      if (isEditing && !input.disabled) {
-        cancel();
-      }
-    }, 100);
-  });
-
-  generateBtn.addEventListener('click', (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (!input.disabled) {
-      generate();
-    }
-  });
-
-  // Make generate button focusable for blur handling
-  generateBtn.tabIndex = 0;
-}
-
-function listenForAgentCompletion(agentId, callback) {
-  if (!window.appEvents) {
-    callback({ success: false, error: 'Events not available' });
-    return;
-  }
-  // Register callback with shared listener
-  pendingAgentCallbacks.set(agentId, callback);
-}
-
-function submitEntityAssist() {
-  const input = document.getElementById('entity-assist-input');
-  const name = input.value.trim();
-
-  if (!name || !currentFacet) {
-    return;
-  }
-
-  // Clear input immediately for rapid add
-  input.value = '';
-  input.focus();
-
-  // Create placeholder row immediately
-  const tempId = `temp-${Date.now()}`;
-  const row = createPendingEntityRow(name, tempId);
-
-  // Insert at top of facet entities table
-  const facetTbody = document.getElementById('facet-entities-tbody');
-  const noFacetEntities = document.getElementById('no-facet-entities');
-
-  // Show table if it was hidden
-  if (noFacetEntities) noFacetEntities.style.display = 'none';
-  const facetTable = document.getElementById('facet-entities-section')?.querySelector('table');
-  if (facetTable) facetTable.style.display = 'table';
-
-  // Insert row at top
-  if (facetTbody.firstChild) {
-    facetTbody.insertBefore(row, facetTbody.firstChild);
-  } else {
-    facetTbody.appendChild(row);
-  }
-
-  // Track with temp ID initially
-  pendingEntities.set(tempId, { name, row });
-
-  // Spawn agent
-  fetch(`api/${encodeURIComponent(currentFacet)}/assist`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ name })
-  })
-  .then(response => response.json())
-  .then(data => {
-    if (data.success && data.agent_id) {
-      // Update tracking with real agent ID
-      const pending = pendingEntities.get(tempId);
-      if (pending) {
-        pendingEntities.delete(tempId);
-        pendingEntities.set(data.agent_id, pending);
-        pending.row.dataset.agentId = data.agent_id;
-      }
-    } else {
-      throw new Error(data.error || 'Failed to start assistant');
-    }
-  })
-  .catch(error => {
-    console.error('Error with entity assistant:', error);
-    // Show error on the pending row
-    failPendingEntity(tempId, error.message);
-  });
-}
-
-function previewEntityDelete(entityName) {
-  // First fetch preview to check how many days
-  fetch(`api/${encodeURIComponent(currentFacet)}/detected/preview?name=${encodeURIComponent(entityName)}`)
-    .then(response => response.json())
-    .then(data => {
-      if (data.success && data.days) {
-        // If only one detection, delete directly without confirmation
-        if (data.days.length === 1) {
-          removeEntityFromUI(entityName);
-          deleteEntity(entityName, true).catch(error => {
-            console.error('Error deleting entity:', error);
-            // Reload to restore state on error
-            loadEntities();
-          });
-          return;
-        }
-
-        // Multiple detections: show confirmation modal
-        const modal = document.getElementById('deleteModal');
-        const nameEl = document.getElementById('deleteEntityName');
-        const daysContainer = document.getElementById('deleteDaysContainer');
-        const deleteBtn = document.getElementById('confirmDeleteBtn');
-        const daysList = document.getElementById('deleteDaysList');
-        const daysCount = document.getElementById('deleteDaysCount');
-
-        nameEl.textContent = entityName;
-        daysCount.textContent = `${data.days.length} days`;
-
-        daysList.innerHTML = '';
-        data.days.forEach(item => {
-          const div = document.createElement('div');
-          div.className = 'delete-day-item';
-          div.innerHTML = `<strong>${item.day}</strong> - ${item.type}`;
-          daysList.appendChild(div);
-        });
-
-        daysContainer.style.display = 'block';
-        deleteBtn.disabled = false;
-        deleteBtn.dataset.entityName = entityName;
-        modal.style.display = 'block';
-      } else {
-        throw new Error(data.error || 'Failed to preview');
-      }
-    })
-    .catch(error => {
-      console.error('Error previewing delete:', error);
-      alert('Error: ' + error.message);
-    });
-}
-
-function closeDeleteModal() {
-  const modal = document.getElementById('deleteModal');
-  modal.style.display = 'none';
-}
-
-function deleteEntity(entityName, skipReload = false) {
-  return fetch(`api/${encodeURIComponent(currentFacet)}/detected`, {
-    method: 'DELETE',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ name: entityName })
-  })
-  .then(response => response.json())
-  .then(data => {
-    if (data.success) {
-      if (!skipReload) {
-        loadEntities();
-      }
-    } else {
-      throw new Error(data.error || 'Failed to delete entity');
-    }
-  });
-}
-
-function removeEntityFromUI(entityName) {
-  // Remove from local data
-  if (entitiesData && entitiesData.all_entities) {
-    entitiesData.all_entities = entitiesData.all_entities.filter(e =>
-      e.starred || e.name !== entityName
-    );
-  }
-  // Re-render without reload
-  renderEntities(document.getElementById('entity-search').value.trim());
-}
-
-function confirmEntityDelete() {
-  const deleteBtn = document.getElementById('confirmDeleteBtn');
-  const entityName = deleteBtn.dataset.entityName;
-
-  if (!entityName) return;
-
-  // Optimistic UI update
-  closeDeleteModal();
-  removeEntityFromUI(entityName);
-
-  deleteEntity(entityName, true).catch(error => {
-    console.error('Error deleting entity:', error);
-    // Reload to restore state on error
-    loadEntities();
-  });
-}
-
-function openEntityEditModal(entityType, entityName, entityAkas) {
-  currentEditEntity = { type: entityType, oldName: entityName };
-
-  const modal = document.getElementById('entityEditModal');
-  const nameInput = document.getElementById('entityEditName');
-  const akasInput = document.getElementById('entityEditAkas');
-  const errorDiv = document.getElementById('entityEditError');
-
-  nameInput.value = entityName;
-  akasInput.value = Array.isArray(entityAkas) ? entityAkas.join(', ') : '';
-  errorDiv.style.display = 'none';
-  errorDiv.textContent = '';
-
-  modal.style.display = 'block';
-}
-
-function closeEntityEditModal() {
-  const modal = document.getElementById('entityEditModal');
-  modal.style.display = 'none';
-  currentEditEntity = null;
-}
-
+// Edit entity from detail view
 function saveEntityEdit() {
-  if (!currentEditEntity) return;
+  if (!currentDetailEntity) return;
 
-  const nameInput = document.getElementById('entityEditName');
-  const akasInput = document.getElementById('entityEditAkas');
-  const saveBtn = document.getElementById('entityEditSaveBtn');
-  const errorDiv = document.getElementById('entityEditError');
+  const nameInput = document.getElementById('detail-edit-name');
+  const typeSelect = document.getElementById('detail-edit-type');
+  const akasInput = document.getElementById('detail-edit-akas');
+  const saveBtn = document.getElementById('detail-save-btn');
+  const errorDiv = document.getElementById('detail-edit-error');
 
   const newName = nameInput.value.trim();
+  const newType = typeSelect.value;
   const akaList = akasInput.value.trim();
 
   if (!newName) {
@@ -1465,20 +1688,35 @@ function saveEntityEdit() {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      type: currentEditEntity.type,
-      old_name: currentEditEntity.oldName,
+      old_name: currentDetailEntity.name,
       new_name: newName,
+      type: newType,
       aka_list: akaList
     })
   })
   .then(response => response.json())
   .then(data => {
     if (data.success) {
-      closeEntityEditModal();
-      // Reload entities to show updated name/akas
+      // Update current entity and re-render
+      currentDetailEntity.name = newName;
+      currentDetailEntity.type = newType;
+      currentDetailEntity.aka = akaList ? akaList.split(',').map(s => s.trim()).filter(s => s) : [];
+
+      document.getElementById('detail-name').textContent = newName;
+      document.getElementById('detail-type').textContent = newType;
+      document.getElementById('detail-aka').textContent =
+        currentDetailEntity.aka.length > 0 ? `Also known as: ${currentDetailEntity.aka.join(', ')}` : '';
+
+      // Update hash if name changed (id will change)
+      const newId = data.entity?.id || slugify(newName);
+      if (location.hash.slice(1) !== newId) {
+        history.replaceState(null, '', `#${newId}`);
+      }
+
+      // Reload entities to update cards
       loadEntities();
     } else {
-      throw new Error(data.error || 'Failed to update entity');
+      throw new Error(data.error || 'Failed to update');
     }
   })
   .catch(error => {
@@ -1488,8 +1726,96 @@ function saveEntityEdit() {
   })
   .finally(() => {
     saveBtn.disabled = false;
-    saveBtn.textContent = 'Save';
+    saveBtn.textContent = 'Save Changes';
   });
+}
+
+// Delete detected entity
+function previewEntityDelete(entityName) {
+  fetch(`api/${encodeURIComponent(currentFacet)}/detected/preview?name=${encodeURIComponent(entityName)}`)
+    .then(response => response.json())
+    .then(data => {
+      if (data.success && data.days) {
+        if (data.days.length === 1) {
+          // Single detection - delete directly
+          removeEntityFromUI(entityName);
+          deleteEntity(entityName, true);
+          return;
+        }
+
+        // Multiple - show modal
+        const modal = document.getElementById('deleteModal');
+        document.getElementById('deleteEntityName').textContent = entityName;
+        document.getElementById('deleteDaysCount').textContent = `${data.days.length} days`;
+
+        const daysList = document.getElementById('deleteDaysList');
+        daysList.innerHTML = '';
+        data.days.forEach(item => {
+          const div = document.createElement('div');
+          div.className = 'delete-day-item';
+          div.innerHTML = `<strong>${item.day}</strong> - ${item.type}`;
+          daysList.appendChild(div);
+        });
+
+        document.getElementById('deleteDaysContainer').style.display = 'block';
+        document.getElementById('confirmDeleteBtn').dataset.entityName = entityName;
+        modal.style.display = 'block';
+      }
+    })
+    .catch(error => {
+      console.error('Error previewing delete:', error);
+      alert('Error: ' + error.message);
+    });
+}
+
+function closeDeleteModal() {
+  document.getElementById('deleteModal').style.display = 'none';
+}
+
+function deleteEntity(entityName, skipReload = false) {
+  return fetch(`api/${encodeURIComponent(currentFacet)}/detected`, {
+    method: 'DELETE',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name: entityName })
+  })
+  .then(response => response.json())
+  .then(data => {
+    if (!data.success) throw new Error(data.error);
+    if (!skipReload) loadEntities();
+  });
+}
+
+function removeEntityFromUI(entityName) {
+  if (entitiesData && entitiesData.detected) {
+    entitiesData.detected = entitiesData.detected.filter(e => e.name !== entityName);
+  }
+  renderDetectedTable(document.getElementById('entity-search').value.trim());
+}
+
+function confirmEntityDelete() {
+  const entityName = document.getElementById('confirmDeleteBtn').dataset.entityName;
+  if (!entityName) return;
+
+  closeDeleteModal();
+  removeEntityFromUI(entityName);
+  deleteEntity(entityName, true).catch(error => {
+    console.error('Error deleting:', error);
+    loadEntities();
+  });
+}
+
+// Utility
+function pluralizeType(type) {
+  // Handle special cases
+  if (type === 'Person') return 'People';
+  // Default: add 's'
+  return type + 's';
+}
+
+function slugify(name) {
+  return name.toLowerCase()
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '');
 }
 
 function escapeHtml(text) {
