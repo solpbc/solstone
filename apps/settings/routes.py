@@ -639,9 +639,7 @@ def get_insights() -> Any:
                 "source": meta.get("source", "system"),
                 "frequency": meta.get("frequency", "daily"),
                 "disabled": bool(meta.get("disabled", False)),
-                "extract": (
-                    meta.get("extract", True) if has_extraction else None
-                ),
+                "extract": (meta.get("extract", True) if has_extraction else None),
                 "has_extraction": has_extraction,
             }
 
