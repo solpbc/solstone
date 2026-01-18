@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 # Copyright (c) 2026 sol pbc
 
-"""Interactive service manager for solstone supervisor.
+"""solstone activity manager - interactive TUI for service monitoring.
 
 Connects to the Callosum message bus to display real-time service status
 and provides keyboard controls for restarting services.
@@ -28,7 +28,7 @@ def _get_notifier() -> DesktopNotifier:
     """Get or create the global desktop notifier instance."""
     global _notifier
     if _notifier is None:
-        _notifier = DesktopNotifier(app_name="solstone Manager")
+        _notifier = DesktopNotifier(app_name="solstone activity manager")
     return _notifier
 
 
@@ -43,7 +43,10 @@ class ServiceManager:
         self.callosum = CallosumConnection()
         self.running = True
         self.term = Terminal()
-        self.status_message = ""
+        self.service_status = {}  # Maps service_name -> (status_type, timestamp)
+        self.STATUS_TIMEOUT = 5  # Seconds before auto-clearing service status
+        # Fixed column width for log truncation (icon + name + pid + time + mem + cpu + age + spacing)
+        self.LOG_FIXED_WIDTH = 63
         self.last_log_lines = (
             {}
         )  # Maps ref -> (timestamp, stream, line) for most recent log
@@ -84,6 +87,46 @@ class ServiceManager:
         self.crash_history[service] = recent
         return len(recent)
 
+    def set_service_status(self, service: str, status_type: str) -> None:
+        """Set per-service status with timestamp for auto-clear.
+
+        Args:
+            service: Service name
+            status_type: One of "requested", "restarting", "started", "stopped"
+        """
+        self.service_status[service] = (status_type, time.time())
+
+    def get_service_icon(self, service: str) -> tuple[str, str]:
+        """Get status icon and color for a service.
+
+        Args:
+            service: Service name
+
+        Returns:
+            Tuple of (icon, terminal_color_attr) where color_attr is
+            a blessed Terminal attribute name like "green" or "normal"
+        """
+        if service not in self.service_status:
+            return (" ", "normal")
+
+        status_type, timestamp = self.service_status[service]
+
+        # Check if status has expired
+        if time.time() - timestamp > self.STATUS_TIMEOUT:
+            return (" ", "normal")
+
+        # Return icon based on status type
+        if status_type == "requested":
+            return ("↻", "yellow")
+        elif status_type == "restarting":
+            return ("◐", "yellow")
+        elif status_type == "started":
+            return ("✓", "green")
+        elif status_type == "stopped":
+            return ("✗", "red")
+        else:
+            return (" ", "normal")
+
     async def clear_notification(self, service: str) -> None:
         """Clear active notification for a service.
 
@@ -119,7 +162,7 @@ class ServiceManager:
                 self.active_notifications.pop(service, None)
 
             notif_id = await notifier.send(
-                title="solstone Manager",
+                title="solstone activity manager",
                 message=message,
                 urgency=Urgency.Critical,
                 on_dismissed=on_dismissed,
@@ -174,11 +217,11 @@ class ServiceManager:
 
             elif event == "restarting":
                 service = message.get("service")
-                self.status_message = f"Restarting {service}..."
+                self.set_service_status(service, "restarting")
 
             elif event == "started":
                 service = message.get("service")
-                self.status_message = f"Started {service}"
+                self.set_service_status(service, "started")
 
                 # Clear any active crash notification (service restarted successfully)
                 if service in self.active_notifications:
@@ -194,7 +237,7 @@ class ServiceManager:
                 service = message.get("service")
                 exit_code = message.get("exit_code", "?")
                 ref = message.get("ref")
-                self.status_message = f"Stopped {service} (exit {exit_code})"
+                self.set_service_status(service, "stopped")
 
                 # Queue notification for non-zero exits
                 if exit_code != 0 and exit_code != "?":
@@ -419,6 +462,42 @@ class ServiceManager:
             return f"{self.cpu_cache[pid]:.0f}"
         return "-"
 
+    def get_log_display(self, ref: str) -> tuple[str, str, str]:
+        """Get formatted log line, color, and age for a ref.
+
+        Args:
+            ref: Process reference ID
+
+        Returns:
+            Tuple of (log_display, log_color, log_age) where:
+            - log_display: Truncated log line for available width
+            - log_color: Terminal color attribute for the log line
+            - log_age: Formatted age string like "0m", "5m", "2h"
+        """
+        if ref not in self.last_log_lines:
+            return ("", "", "")
+
+        t = self.term
+        timestamp, stream, log_line = self.last_log_lines[ref]
+        log_age = self.format_log_age(timestamp)
+
+        # Calculate available width for log text
+        available = max(0, t.width - self.LOG_FIXED_WIDTH)
+
+        if available <= 0:
+            return ("", "", log_age)
+
+        # Truncate log line if needed
+        if len(log_line) > available:
+            log_display = log_line[: available - 3] + "..."
+        else:
+            log_display = log_line
+
+        # Color code based on stream
+        log_color = t.red if stream == "stderr" else t.normal
+
+        return (log_display, log_color, log_age)
+
     def cleanup_dead_tasks(self) -> None:
         """Remove tasks whose PIDs are no longer valid.
 
@@ -481,18 +560,13 @@ class ServiceManager:
             if task["pid"] not in service_pids
         ]
 
-        # Section header (always shown)
-        count = len(tasks_only)
-        output.append("")
-        output.append(t.bold + f"Running Tasks ({count})" + t.normal)
-        output.append("─" * min(80, t.width))
-
-        # Table header
-        header = f"  {'Task':<15} {'PID':<8} {'Runtime':<12} {'MB':<8} {'%':<6} {'Last':<6} {'Log'}"
+        # Section separator and table header
+        output.append("─" * t.width)
+        header = f"  {'Task':<15} {'PID':<8} {'Runtime':<12} {'MB':>7}  {'%':>5} {'Last':>5} Log"
         output.append(t.bold + header + t.normal)
 
         if not tasks_only:
-            output.append(t.dim + "  (none)" + t.normal)
+            output.append(t.dim + "  -" + t.normal)
             return output
 
         # Task rows (sorted by start time, oldest first)
@@ -504,31 +578,7 @@ class ServiceManager:
             runtime = self.format_runtime(task["start_time"])
             memory = self.get_memory_mb(task["pid"])
             cpu = self.get_cpu_percent(task["pid"])
-
-            # Get log line for this task
-            log_display = ""
-            log_color = ""
-            log_age = ""
-            ref = task["ref"]
-            if ref in self.last_log_lines:
-                timestamp, stream, log_line = self.last_log_lines[ref]
-                log_age = self.format_log_age(timestamp)
-                # Calculate available width for log text
-                # Fixed: "  " (2) + name (15) + pid (8) + runtime (12) + memory (8) + cpu (6) + age (6) + spaces (6)
-                fixed_width = 63
-                available = max(0, t.width - fixed_width)
-
-                if available > 0:
-                    if len(log_line) > available:
-                        log_display = log_line[: available - 3] + "..."
-                    else:
-                        log_display = log_line
-
-                    # Color code based on stream
-                    if stream == "stderr":
-                        log_color = t.red
-                    else:
-                        log_color = t.normal
+            log_display, log_color, log_age = self.get_log_display(task["ref"])
 
             line = f"  {name:<15} {pid:<8} {runtime:<12} {memory:>7}  {cpu:>5} {log_age:>5} "
             output.append(line + log_color + log_display + t.normal)
@@ -603,9 +653,8 @@ class ServiceManager:
             health_dot = t.dim + "○" + t.normal
 
         # Section header with health dot
-        output.append("")
-        output.append("─" * min(80, t.width))
-        output.append(f"{t.bold}Observe{t.normal} {health_dot}")
+        output.append("─" * t.width)
+        output.append(f"  {t.bold}Observe{t.normal} {health_dot}")
 
         if not self.observe_status:
             # No status received yet
@@ -684,64 +733,43 @@ class ServiceManager:
         output.append(t.home + t.clear)
 
         # Title
-        title = "solstone Service Manager"
+        title = "solstone activity manager"
         output.append(t.bold + t.cyan + title.center(t.width) + t.normal)
         output.append("")
 
         # Table header
-        header = f"  {'Service':<15} {'PID':<8} {'Uptime':<12} {'MB':<8} {'%':<6} {'Last':<6} {'Log'}"
+        header = f"  {'Service':<15} {'PID':<8} {'Uptime':<12} {'MB':>7}  {'%':>5} {'Last':>5} Log"
         output.append(t.bold + header + t.normal)
-        output.append("─" * min(80, t.width))
+        output.append("─" * t.width)
 
         # Service rows
         if self.services:
             for i, svc in enumerate(self.services):
-                indicator = "→" if i == self.selected else " "
+                icon, icon_color = self.get_service_icon(svc["name"])
                 name = svc["name"][:14]
                 pid = str(svc["pid"])
                 uptime = self.format_uptime(svc["uptime_seconds"])
                 memory = self.get_memory_mb(svc["pid"])
                 cpu = self.get_cpu_percent(svc["pid"])
+                log_display, log_color, log_age = self.get_log_display(svc["ref"])
 
-                # Get log line for this service
-                log_display = ""
-                log_color = ""
-                log_age = ""
-                if svc["ref"] in self.last_log_lines:
-                    timestamp, stream, log_line = self.last_log_lines[svc["ref"]]
-                    log_age = self.format_log_age(timestamp)
-                    # Calculate available width: total - (fixed columns)
-                    # Fixed: "→ " (2) + name (15) + pid (8) + uptime (12) + memory (8) + cpu (6) + age (6) + spaces (6)
-                    fixed_width = 63
-                    available = max(0, t.width - fixed_width)
-
-                    # Truncate log line if needed
-                    if available > 0:
-                        if len(log_line) > available:
-                            log_display = log_line[: available - 3] + "..."
-                        else:
-                            log_display = log_line
-
-                        # Color code based on stream
-                        if stream == "stderr":
-                            log_color = t.red
-                        else:
-                            log_color = t.normal
-
-                line = f"{indicator} {name:<15} {pid:<8} {uptime:<12} {memory:>7}  {cpu:>5} {log_age:>5} "
+                line_content = f" {name:<15} {pid:<8} {uptime:<12} {memory:>7}  {cpu:>5} {log_age:>5} "
 
                 if i == self.selected:
-                    output.append(t.black_on_white(line + log_display))
+                    # Selected row: highlight entire row
+                    output.append(t.black_on_white(icon + line_content + log_display))
                 else:
-                    output.append(line + log_color + log_display + t.normal)
+                    # Non-selected: colored icon + normal content + log color
+                    icon_str = getattr(t, icon_color) + icon + t.normal
+                    output.append(
+                        icon_str + line_content + log_color + log_display + t.normal
+                    )
         else:
             output.append(t.dim + "  (waiting for services)" + t.normal)
 
         # Observe status section
         observe_output = self.render_observe_section()
         output.extend(observe_output)
-
-        output.append("")
 
         # Running tasks table (from logs tract)
         tasks_output = self.render_tasks_table()
@@ -764,14 +792,14 @@ class ServiceManager:
                 output.append(f"  ... and {len(self.tasks) - 3} more")
             output.append("")
 
-        # Status message
-        if self.status_message:
-            output.append(t.green + self.status_message + t.normal)
-            output.append("")
-
         # Help footer
-        output.append("─" * min(80, t.width))
-        output.append(t.dim + "↑/↓: Navigate  r: Restart  q/Ctrl-C: Quit" + t.normal)
+        output.append("─" * t.width)
+        if len(self.services) > 1:
+            output.append(t.dim + "↑/↓: Navigate  r: Restart  q: Quit" + t.normal)
+        elif len(self.services) == 1:
+            output.append(t.dim + "r: Restart  q: Quit" + t.normal)
+        else:
+            output.append(t.dim + "q: Quit" + t.normal)
 
         return "\n".join(output)
 
@@ -780,7 +808,7 @@ class ServiceManager:
         if 0 <= self.selected < len(self.services):
             svc = self.services[self.selected]
             self.callosum.emit("supervisor", "restart", service=svc["name"])
-            self.status_message = f"Restart requested for {svc['name']}"
+            self.set_service_status(svc["name"], "requested")
 
     async def run(self) -> None:
         """Main event loop for the TUI."""
@@ -800,13 +828,11 @@ class ServiceManager:
                 if key:
                     if key.name == "KEY_UP":
                         self.selected = max(0, self.selected - 1)
-                        self.status_message = ""
                     elif key.name == "KEY_DOWN":
                         self.selected = min(
                             len(self.services) - 1 if self.services else 0,
                             self.selected + 1,
                         )
-                        self.status_message = ""
                     elif key.lower() == "r":
                         self.send_restart()
                     elif key.lower() == "q" or key.code == 3:  # q or Ctrl-C
@@ -814,9 +840,9 @@ class ServiceManager:
                     elif key.code == 4:  # Ctrl-D
                         self.running = False
 
-                # Check for dead tasks every 5 seconds (50 iterations * 0.1s = 5s)
+                # Check for dead tasks roughly every 5 seconds (~17 iterations at ~0.3s each)
                 iteration += 1
-                if iteration % 50 == 0:
+                if iteration % 17 == 0:
                     self.cleanup_dead_tasks()
 
                 # Process pending notifications
@@ -848,9 +874,9 @@ class ServiceManager:
 
 
 def main() -> None:
-    """CLI entry point for service manager."""
+    """CLI entry point for solstone activity manager."""
     parser = argparse.ArgumentParser(
-        description="Interactive service manager for solstone supervisor"
+        description="solstone activity manager - real-time service monitoring"
     )
     setup_cli(parser)
 
