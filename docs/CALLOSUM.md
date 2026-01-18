@@ -21,7 +21,7 @@ Callosum is a JSON-per-line message bus for real-time event distribution across 
 **Required Fields:**
 - `tract` - Source subsystem identifier (string)
 - `event` - Event type within tract (string)
-- `ts` - Timestamp in milliseconds (auto-added if missing)
+- `ts` - Timestamp in milliseconds (auto-added by server if missing)
 
 **Behavior:**
 - All connections are bidirectional (can emit and receive)
@@ -32,7 +32,7 @@ Callosum is a JSON-per-line message bus for real-time event distribution across 
 
 ## Tract Registry
 
-> **Note:** This registry is kept intentionally high-level. For detailed event schemas, field specifications, and usage patterns, always refer to the source files listed for each tract.
+> **Note:** This registry is kept intentionally high-level. For detailed field schemas and current implementation, always refer to the source files listed - they are the authoritative reference.
 
 ### `cortex` - Agent execution events
 **Source:** `muse/cortex.py`
@@ -43,66 +43,58 @@ Callosum is a JSON-per-line message bus for real-time event distribution across 
 **Source:** `think/supervisor.py`
 **Events:** `started`, `stopped`, `restarting`, `status`
 **Listens for:** `request` (task spawn), `restart` (service restart)
-**Fields:** `ref`, `service`, `cmd`, `pid`, `exit_code`
+**Key fields:** `ref` (instance ID), `service` (name), `pid`, `exit_code`
 **Purpose:** Unified lifecycle events for all supervised processes (services and tasks)
 
 ### `logs` - Process output streaming
 **Source:** `think/runner.py`
 **Events:** `exec`, `line`, `exit`
-**Fields:** `ref`, `name`, `pid`, `cmd`, `stream`, `line`, `exit_code`, `duration_ms`, `log_path`
+**Key fields:** `ref` (correlates with supervisor), `name`, `stream` (stdout/stderr), `line`
 **Purpose:** Real-time stdout/stderr streaming and process exit events
 
-### `observe` - Multimodal capture processing events
-**Source:** `observe/observer.py` (delegates to `observe/linux/observer.py` or `observe/macos/observer.py`), `observe/sense.py`, `observe/describe.py`, `observe/transcribe.py`
-**Events:** `status`, `observing`, `detected`, `described`, `transcribed`, `observed`
-**Fields:**
-- `status`: Periodic state (every 5s while running)
-  - From `observer.py`: `screencast`, `audio`, `activity` - Live capture state (for UI/debugging)
-  - From `sense.py`: `describe`, `transcribe` - Processing pipeline state (with `running`/`queued` sub-fields)
-- `observing`: `day`, `segment`, `files` - Recording window boundary crossed with saved files
-  - Remote events include `remote` (remote name) from `apps/remote/routes.py`
-- `detected`: `day`, `segment`, `file`, `handler`, `ref`, `remote` - File detected and handler spawned
-- `described`/`transcribed`: `day`, `segment`, `input`, `output`, `duration_ms`, `remote` - Processing complete
-- `observed`: `day`, `segment`, `duration` - All files for segment fully processed
-  - Batch mode (--day) events include `batch=true` to indicate non-live origin
-  - Remote events include `remote` (remote name)
-- Observer events (`status`, `observing`) include `host` (hostname) and `platform` ("linux"/"darwin") for multi-host support
-**Purpose:** Track observation pipeline from live capture state through processing completion
-**Health Model:** Fail-fast - observers exit if capture process dies. Supervisor checks event freshness only.
-**Path Format:** Relative to `JOURNAL_PATH` (e.g., `20251102/163045_300_center_DP-3_screen.webm` for multi-monitor recordings)
-**Correlation:** `detected.ref` matches `logs.exec.ref` for the same handler process; `observed.segment` groups all files from same capture window
-**Event Log:** Any observe event with `day` + `segment` fields is logged to `<day>/<segment>/events.jsonl` by supervisor (if directory exists)
+### `observe` - Multimodal capture and processing
+**Sources:**
+- Capture: `observe/observer.py` → platform-specific (`observe/linux/observer.py`, `observe/macos/observer.py`)
+- Processing: `observe/sense.py`, `observe/describe.py`, `observe/transcribe/`
 
-### `importer` - Media import and transcription processing
+**Events:**
+| Event | Emitter | Purpose |
+|-------|---------|---------|
+| `status` | observer, sense | Periodic state (every 5s) - see `emit_status()` in each source |
+| `observing` | observer | Recording window boundary crossed, files saved |
+| `detected` | sense | File detected, handler spawned |
+| `described` | describe | Vision analysis complete |
+| `transcribed` | transcribe | Audio transcription complete (includes VAD metadata) |
+| `observed` | sense | All files for segment fully processed |
+
+**Common fields:** `day`, `segment`, `remote` (for remote uploads), `host`, `platform`
+**Correlation:** `detected.ref` matches `logs.exec.ref`; `segment` groups files from same capture window
+**Event Log:** Events with `day` + `segment` are logged to `<day>/<segment>/events.jsonl` by supervisor
+
+### `importer` - Media import processing
 **Source:** `think/importer.py`
 **Events:** `started`, `status`, `completed`, `error`
-**Fields:**
-- `started`: `import_id`, `input_file`, `file_type`, `day`, `facet`, `setting`, `options`, `stage`
-- `status`: `import_id`, `stage`, `elapsed_ms`, `stage_elapsed_ms` - Periodic progress (every 5s)
-- `completed`: `import_id`, `stage`, `duration_ms`, `total_files_created`, `output_files`, `metadata_file`, `stages_run`
-- `error`: `import_id`, `stage`, `error`, `duration_ms`, `partial_outputs`
+**Key fields:** `import_id` (correlates all events), `stage`, `segments` (created segment keys)
 **Stages:** `initialization`, `transcribing`, `segmenting`, `summarizing`
-**Purpose:** Track media file import and transcription progress from start to completion
-**Correlation:** `import_id` correlates all events for a single import operation
+**Purpose:** Track media file import from upload through transcription to segment creation
 
-### `dream` - Dream processing lifecycle
+### `dream` - Insight and agent processing
 **Source:** `think/dream.py`
 **Events:** `started`, `command`, `insights_completed`, `agents_started`, `group_started`, `group_completed`, `agents_completed`, `completed`
-**Fields:**
-- `mode` - Processing mode: "daily" or "segment"
-- `day` - Day being processed (YYYYMMDD)
-- `segment` - Segment key (only present when mode="segment")
-- `command`, `index`, `total` - Command execution details
-- `priority`, `count`, `completed`, `timed_out` - Agent group details
-- `success`, `failed`, `duration_ms` - Phase completion metrics
+**Key fields:** `mode` ("daily"/"segment"), `day`, `segment` (when mode="segment")
 **Purpose:** Track dream processing from insights through scheduled agents
-**Correlation:** `day` + `segment` (when present) correlates all events for a single processing run
+
+### `sync` - Remote segment synchronization
+**Source:** `observe/sync.py`
+**Events:** `status`
+**Key fields:** `queue_size`, `segment`, `state`, `host`, `platform`
+**Purpose:** Track remote sync service status for segment uploads to central server
 
 ---
 
 ## Key Concepts
 
-**Correlation ID (`ref`):** Universal identifier for process instances, used across all tracts to correlate events. Auto-generated as epoch milliseconds if not provided by client.
+**Correlation ID (`ref`):** Universal identifier for process instances, used across tracts to correlate events. Auto-generated as epoch milliseconds if not provided.
 
 **Field Semantics:**
 - `service` - Human-readable name (e.g., "cortex", "sol import")
@@ -113,11 +105,78 @@ Callosum is a JSON-per-line message bus for real-time event distribution across 
 
 ## Implementation
 
-**Client Library:** `think/callosum.py` `CallosumConnection` class
-**Server:** `think/callosum.py` `CallosumServer` class
+**Source:** `think/callosum.py`
 
-**Convey Integration:**
-- `convey.emit()` - Non-blocking event emission from route handlers (uses shared bridge connection)
-- `apps.events` - Server-side event handlers via `@on_event` decorator (dispatched in thread pool)
+### Client APIs
 
-See [APPS.md](APPS.md) for app event handler documentation and code for usage patterns.
+**`CallosumConnection`** - Long-lived bidirectional connection with background thread
+```python
+from think.callosum import CallosumConnection
+
+conn = CallosumConnection()
+conn.start(callback=handle_message)  # Start with optional message handler
+conn.emit("tract", "event", field1="value")  # Queue message for send
+conn.stop()  # Clean shutdown
+```
+
+**`callosum_send()`** - One-shot fire-and-forget for simple cases
+```python
+from think.callosum import callosum_send
+
+callosum_send("observe", "described", day="20251102", segment="143045_300")
+```
+
+**`CallosumServer`** - Broadcast server (run via `sol callosum` or supervisor)
+
+### Convey Integration
+
+- `convey.emit()` - Non-blocking emission from route handlers (uses shared bridge connection)
+- `apps.events` - Server-side event handlers via `@on_event` decorator
+
+See [APPS.md](APPS.md) for app event handler patterns.
+
+---
+
+## Common Patterns
+
+### Event-Driven Processing Chain
+
+The observe pipeline demonstrates event-driven handoffs:
+
+```
+observe.observing (files saved)
+    ↓ sense (listening via Callosum)
+observe.detected (handler spawned)
+    ↓ logs.exec (process started)
+observe.described / observe.transcribed (processing complete)
+    ↓ sense tracks completion
+observe.observed (segment fully processed)
+    ↓ supervisor triggers dream
+dream.insights_completed
+    ↓ apps/entities/events.py updates entity activity
+```
+
+See `think/supervisor.py:_handle_segment_observed()` for the observe→dream trigger.
+
+### Status Event Pattern
+
+Long-running services emit `status` events every 5 seconds for health monitoring:
+- Supervisor checks event freshness to detect stale processes
+- UI displays live state from status events
+- See status emission methods in observer, sense, cortex for examples
+
+### Request/Response via Callosum
+
+For async task dispatch, use supervisor's request handling:
+```python
+from convey import emit
+emit("supervisor", "request", ref=task_id, cmd=["sol", "import", path])
+```
+
+For agent requests, use the cortex client:
+```python
+from muse.cortex_client import cortex_request
+agent_id = cortex_request(prompt="...", persona="default")
+```
+
+See `muse/cortex_client.py` for the full API.
