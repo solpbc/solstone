@@ -1,63 +1,71 @@
+{# Agents day view - historical agent runs browser #}
+
 <style>
-.agents-content { padding: 0 1em; }
+/* ============================================================================
+   Layout & Navigation
+   ============================================================================ */
+.agents-content {
+  padding: 0 1em;
+}
 
-/* Tab Navigation */
-.tab-nav {
+.view-header {
   display: flex;
-  gap: 0.5rem;
-  margin-bottom: 2rem;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+  padding-bottom: 0.75rem;
   border-bottom: 2px solid #e0e0e0;
-  padding-bottom: 0;
 }
 
-.tab-button {
-  padding: 0.75rem 1.5rem;
+.back-btn {
   background: none;
-  border: none;
-  border-bottom: 3px solid transparent;
-  color: #666;
-  font-size: 1rem;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  padding: 0.5rem 0.75rem;
   cursor: pointer;
-  transition: all 0.2s ease;
-  margin-bottom: -2px;
+  font-size: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: #666;
+  transition: all 0.2s;
 }
 
-.tab-button:hover {
-  color: #007bff;
-  background: #f8f9ff;
+.back-btn:hover {
+  background: #f5f5f5;
+  border-color: #ccc;
+  color: #333;
 }
 
-.tab-button.active {
-  color: #007bff;
-  border-bottom-color: #007bff;
-  font-weight: 500;
+.view-title {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #333;
 }
 
-/* Tab Content */
-.tab-container {
-  min-height: 400px;
+/* ============================================================================
+   Agent Card Grid
+   ============================================================================ */
+.agent-section {
+  margin-bottom: 2rem;
 }
 
-.main-tab-content {
-  display: none;
-  animation: fadeIn 0.3s ease;
+.section-title {
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #666;
+  margin-bottom: 0.75rem;
+  padding-bottom: 0.25rem;
+  border-bottom: 1px solid #e0e0e0;
 }
 
-.main-tab-content.active {
-  display: block;
-}
-
-@keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
-
-/* Agent Cards */
 .agent-cards {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
   gap: 1rem;
-  margin-bottom: 2rem;
 }
 
 .agent-card {
@@ -67,3157 +75,796 @@
   padding: 1rem;
   cursor: pointer;
   transition: all 0.2s ease;
-  position: relative;
 }
 
 .agent-card:hover {
   border-color: #007bff;
-  box-shadow: 0 2px 8px rgba(0, 123, 255, 0.1);
+  box-shadow: 0 2px 8px rgba(0, 123, 255, 0.15);
 }
 
-/* Card Actions Container */
-.card-actions {
-  position: absolute;
-  top: 0.5rem;
-  right: 0.5rem;
+.agent-card-header {
   display: flex;
-  gap: 0.3rem;
-  opacity: 0;
-  transition: opacity 0.2s ease;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 0.5rem;
 }
 
-.agent-card:hover .card-actions {
-  opacity: 1;
+.agent-card-title {
+  font-weight: 600;
+  color: #333;
+  font-size: 1rem;
+  margin: 0;
 }
 
-.card-action-btn {
-  font-size: 1.2rem;
-  text-decoration: none;
-  background: white;
-  border: 1px solid #e0e0e0;
-  border-radius: 4px;
-  padding: 0.25rem 0.4rem;
-  cursor: pointer;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-  transition: all 0.2s ease;
+.agent-card-badges {
+  display: flex;
+  gap: 0.4rem;
+  flex-shrink: 0;
+}
+
+.badge {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  padding: 0.15rem 0.5rem;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 600;
 }
 
-.card-action-btn:hover {
-  transform: scale(1.1);
-  box-shadow: 0 2px 8px rgba(0,0,0,0.2);
-  border-color: #007bff;
+.badge-count {
+  background: #e3f2fd;
+  color: #1976d2;
+}
+
+.badge-failed {
+  background: #ffebee;
+  color: #c62828;
+}
+
+.agent-card-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-top: 0.5rem;
+}
+
+.facet-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  display: inline-block;
+  border: 1px solid rgba(0,0,0,0.1);
+}
+
+/* ============================================================================
+   Run List View
+   ============================================================================ */
+.run-list-header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1rem;
 }
 
 .preview-btn {
+  background: #f8f9fa;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  padding: 0.4rem 0.75rem;
+  cursor: pointer;
+  font-size: 0.85rem;
   color: #666;
+  transition: all 0.2s;
+  margin-left: auto;
 }
 
 .preview-btn:hover {
-  background: #f0f7ff;
+  background: #e9ecef;
+  border-color: #ccc;
 }
 
-.chat-btn {
-  color: #007bff;
+.runs-table {
+  width: 100%;
+  border-collapse: collapse;
 }
 
-.chat-btn:hover {
-  background: #f0f7ff;
+.runs-table th,
+.runs-table td {
+  padding: 0.75rem 0.5rem;
+  text-align: left;
+  border-bottom: 1px solid #e0e0e0;
 }
 
-.agent-card.selected {
-  border-color: #007bff;
-  background: #f8f9ff;
-  box-shadow: 0 0 0 1px #007bff;
-}
-
-.agent-card.disabled {
-  opacity: 0.6;
-  background: #f8f8f8;
-}
-
-.agent-card h3 {
-  margin: 0 0 0.5rem 0;
-  font-size: 1.1rem;
-  color: #333;
-}
-
-.agent-card p {
-  margin: 0;
+.runs-table th {
+  font-weight: 600;
   color: #666;
-  font-size: 0.9rem;
-  line-height: 1.4;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
 }
 
-/* Agent metadata badges */
-.agent-metadata {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.3rem;
-  margin-top: 0.5rem;
+.runs-table tr {
+  cursor: pointer;
+  transition: background 0.15s;
 }
 
-.metadata-badge {
+.runs-table tbody tr:hover {
+  background: #f8f9fa;
+}
+
+.runs-table tr.expanded {
+  background: #f0f7ff;
+}
+
+.runs-table tr.expanded:hover {
+  background: #e8f0fe;
+}
+
+.col-status { width: 50px; text-align: center; }
+.col-time { width: 100px; }
+.col-runtime { width: 80px; text-align: right; }
+.col-facet { width: 120px; }
+.col-prompt { }
+
+.status-icon {
+  font-size: 1.1rem;
+}
+
+.status-ok { color: #4caf50; }
+.status-failed { color: #f44336; }
+.status-running { color: #ff9800; }
+
+.facet-tag {
   display: inline-flex;
   align-items: center;
-  gap: 0.2rem;
+  gap: 0.3rem;
   padding: 0.2rem 0.5rem;
-  border-radius: 12px;
-  font-size: 0.75rem;
-  font-weight: 500;
-  background: #f0f0f0;
-  color: #555;
-}
-
-.metadata-badge.schedule {
-  background: #e3f2fd;
-  color: #1976d2;
-}
-
-.metadata-badge.priority {
-  background: #fff3e0;
-  color: #f57c00;
-}
-
-.metadata-badge.multi-facet {
-  background: #f3e5f5;
-  color: #7b1fa2;
-}
-
-.metadata-badge.tools {
-  background: #e8f5e9;
-  color: #388e3c;
-}
-
-.metadata-badge .badge-icon {
-  font-size: 0.9rem;
-}
-
-/* Create Agent Card */
-.create-agent-card {
-  background: #f8f9ff;
-  border: 2px dashed #007bff;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  min-height: 80px;
-}
-
-.create-agent-card:hover {
-  background: #e8ecff;
-  border-style: solid;
-}
-
-.create-agent-card h3 {
-  color: #007bff;
-  margin: 0;
-  font-size: 1.2rem;
-}
-
-/* Topic card with colored indicator */
-.topic-indicator {
-  display: inline-block;
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  margin-right: 0.5rem;
-  vertical-align: middle;
-}
-
-/* Input Form */
-.input-area {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-  margin-bottom: 2rem;
-}
-
-.input-area textarea {
-  width: 100%;
-  padding: 0.75rem;
-  border: 1px solid #ddd;
   border-radius: 4px;
-  font-family: inherit;
-  resize: vertical;
+  font-size: 0.85rem;
+  background: #f5f5f5;
 }
 
-.input-area button {
-  padding: 0.75rem 1.5rem;
-  background: #007bff;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 1.2rem;
-  align-self: flex-start;
-}
-
-.input-area button:disabled {
-  background: #ccc;
-  cursor: not-allowed;
-}
-
-.input-area button:hover:not(:disabled) {
-  background: #0056b3;
-}
-
-.input-area.busy {
-  position: relative;
-}
-
-.input-area.busy::after {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(255, 255, 255, 0.8);
-  cursor: wait;
-  z-index: 10;
-}
-
-.input-area.busy textarea,
-.input-area.busy button {
-  pointer-events: none;
-}
-
-.planning-status {
-  margin-top: 0.5rem;
-  padding: 0.5rem;
-  background: #e3f2fd;
-  border: 1px solid #90caf9;
-  border-radius: 4px;
-  font-size: 0.9rem;
-  display: none;
-}
-
-.planning-status.show {
-  display: block;
-}
-
-/* Session History Table */
-table {
-  border-collapse: collapse;
-  width: 100%;
-  margin-top: 2rem;
-  table-layout: fixed;
-}
-th, td {
-  padding: 4px 8px;
-  border-bottom: 1px solid #ddd;
-  white-space: nowrap;
-  text-align: left;
+.prompt-snippet {
+  max-width: 400px;
   overflow: hidden;
   text-overflow: ellipsis;
-}
-th {
-  font-weight: 600;
-  background-color: #f8f9fa;
-}
-/* Adjust column widths */
-td:nth-child(1), th:nth-child(1) { /* Status */
-  width: 40px;
-  text-align: center;
-}
-td:nth-child(2), th:nth-child(2) { /* Started */
-  width: 100px;
-}
-td:nth-child(3), th:nth-child(3) { /* Runtime */
-  width: 60px;
-  text-align: right;
-}
-td:nth-child(4), th:nth-child(4) { /* Model */
-  width: 120px;
-}
-td:nth-child(5), th:nth-child(5) { /* Agent */
-  width: 150px;
-}
-td:nth-child(6), th:nth-child(6) { /* Prompt */
-  width: auto;
-}
-td:nth-child(7), th:nth-child(7) { /* Actions (for historical table) */
-  width: 40px;
-}
-tr:hover {
-  background-color: #f8f9fa;
-}
-tr a {
-  color: #007bff;
-  text-decoration: none;
-}
-tr a:hover {
-  text-decoration: underline;
-}
-
-/* Status indicators */
-.status-badge {
-  display: inline-block;
-  font-size: 1.2rem;
-  line-height: 1;
-  cursor: help;
-}
-
-/* Section headers for agent log */
-.section-header {
-  margin: 2rem 0 1rem 0;
-  padding: 0.5rem 0;
-  border-bottom: 2px solid #007bff;
-  font-size: 1.1rem;
-  font-weight: 500;
-  color: #333;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.section-header .count {
-  font-size: 0.9rem;
-  font-weight: normal;
+  white-space: nowrap;
   color: #666;
-  background: #f8f9fa;
-  padding: 2px 8px;
-  border-radius: 12px;
-}
-
-.empty-state {
-  text-align: center;
-  padding: 2rem;
-  color: #666;
-  font-style: italic;
-}
-
-/* Pagination */
-.pagination {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  gap: 0.5rem;
-  margin-top: 1rem;
-  padding: 1rem;
-}
-
-.pagination button {
-  padding: 0.5rem 1rem;
-  border: 1px solid #ddd;
-  background: white;
-  cursor: pointer;
-  border-radius: 4px;
-  transition: all 0.2s ease;
-}
-
-.pagination button:hover:not(:disabled) {
-  background: #007bff;
-  color: white;
-  border-color: #007bff;
-}
-
-.pagination button:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.pagination .page-info {
-  margin: 0 1rem;
-  font-size: 0.9rem;
-  color: #666;
-}
-
-/* Modal Styling (reused from entities.html) */
-.modal {
-  display: none;
-  position: fixed;
-  z-index: 1000;
-  left: 0;
-  top: 0;
-  width: 100%;
-  height: 100%;
-  background-color: rgba(0,0,0,0.5);
-}
-
-.modal-content {
-  background-color: white;
-  margin: 5% auto;
-  border-radius: 8px;
-  width: 90%;
-  max-width: 800px;
-  max-height: 80vh;
-  position: relative;
-  box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-  overflow: hidden;
-}
-
-.close {
-  color: #aaa;
-  float: right;
-  font-size: 28px;
-  font-weight: bold;
-  cursor: pointer;
-  line-height: 1;
-  position: absolute;
-  top: 15px;
-  right: 20px;
-  background: white;
-  z-index: 3;
-}
-
-.close:hover {
-  color: #000;
-}
-
-.modal-header {
-  padding: 20px 40px 15px 20px;
-  border-bottom: 1px solid #e0e0e0;
-  background: white;
-  border-radius: 8px 8px 0 0;
-}
-
-.modal-header h3 {
-  margin: 0;
-  color: #333;
-}
-
-.modal-body {
-  max-height: calc(80vh - 80px);
-  overflow-y: auto;
-  padding: 20px;
-}
-
-.modal-body .markdown-content h1,
-.modal-body .markdown-content h2,
-.modal-body .markdown-content h3,
-.modal-body .markdown-content h4,
-.modal-body .markdown-content h5,
-.modal-body .markdown-content h6 {
-  margin-top: 1.5rem;
-  margin-bottom: 0.75rem;
-  color: #333;
-}
-
-.modal-body .markdown-content p {
-  margin-bottom: 1rem;
-  line-height: 1.6;
-}
-
-.modal-body .markdown-content ul,
-.modal-body .markdown-content ol {
-  margin-bottom: 1rem;
-  padding-left: 2rem;
-}
-
-.modal-body .markdown-content code {
-  background: #f8f9fa;
-  padding: 0.2rem 0.4rem;
-  border-radius: 3px;
-  font-family: 'Courier New', monospace;
-}
-
-.modal-body .markdown-content pre {
-  background: #f8f9fa;
-  padding: 1rem;
-  border-radius: 4px;
-  overflow-x: auto;
-  margin-bottom: 1rem;
-}
-
-/* Planning Modal Tabs */
-.modal-tabs {
-  display: flex;
-  border-bottom: 1px solid #e0e0e0;
-  margin: -20px -20px 20px -20px;
-  background: #f8f9fa;
-}
-
-.modal-tab {
-  padding: 12px 20px;
-  cursor: pointer;
-  border: none;
-  background: none;
-  font-size: 0.9rem;
-  color: #666;
-  transition: all 0.2s ease;
-  flex: 1;
-  text-align: center;
-}
-
-.modal-tab:hover {
-  background: #e9ecef;
-  color: #333;
-}
-
-.modal-tab.active {
-  color: #007bff;
-  background: white;
-  border-bottom: 2px solid #007bff;
-}
-
-.tab-content {
-  display: none;
-}
-
-.tab-content.active {
-  display: block;
-}
-
-.prompt-editor {
-  width: 100%;
-  min-height: 400px;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  padding: 1rem;
-  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
-  font-size: 0.9rem;
-  line-height: 1.4;
-  resize: vertical;
-}
-
-.config-section {
-  margin-bottom: 1.5rem;
-}
-
-.config-section label {
-  display: block;
-  margin-bottom: 0.5rem;
-  font-weight: 500;
-  color: #333;
-}
-
-.config-section select,
-.config-section input {
-  width: 100%;
-  padding: 0.5rem;
-  border: 1px solid #ddd;
-  border-radius: 4px;
   font-size: 0.9rem;
 }
 
-.start-agent-btn {
-  background: #28a745;
-  color: white;
-  border: none;
-  padding: 0.75rem 2rem;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 1rem;
-  margin-top: 1rem;
+/* ============================================================================
+   Run Detail (Expanded Row)
+   ============================================================================ */
+.run-detail-row td {
+  padding: 0;
+  background: #fafafa;
+  border-bottom: 2px solid #e0e0e0;
 }
 
-.start-agent-btn:hover {
-  background: #218838;
-}
-
-.start-agent-btn:disabled {
-  background: #6c757d;
-  cursor: not-allowed;
-}
-
-/* Item Modal Styles - 80% viewport */
-#itemModal .modal-content {
-  width: 80vw;
-  height: 80vh;
-  max-width: 1400px;
-  margin: 2.5% auto;
-  display: flex;
-  flex-direction: column;
-}
-
-#itemModal .modal-body {
-  flex: 1;
-  overflow-y: auto;
-  padding: 1.5rem;
-}
-
-/* Create Agent Modal Styles */
-#createPersonaModal .modal-content {
-  max-width: 700px;
-}
-
-#personaTitle {
-  width: 100%;
-  padding: 0.75rem;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  font-size: 1rem;
-  margin-bottom: 1rem;
-}
-
-/* Prompt content display box for create modals */
-.prompt-result-box {
-  background: #f8f9fa;
-  border: 1px solid #dee2e6;
-  border-radius: 4px;
-  padding: 1rem;
-  margin: 1rem 0;
-  max-height: 400px;
-  overflow-y: auto;
-  white-space: pre-wrap;
-  font-family: 'Monaco', 'Menlo', monospace;
-  font-size: 0.9rem;
-}
-
-.modal-actions {
-  display: flex;
-  gap: 1rem;
-  margin-top: 1rem;
-}
-
-.modal-actions button {
-  padding: 0.75rem 1.5rem;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 1rem;
-}
-
-.modal-actions button:first-child {
-  background: #28a745;
-  color: white;
-}
-
-.modal-actions button:first-child:hover {
-  background: #218838;
-}
-
-.modal-actions button:last-child {
-  background: #6c757d;
-  color: white;
-}
-
-.modal-actions button:last-child:hover {
-  background: #545b62;
-}
-
-/* Enhanced Agent Modal Styles */
-.modal-title-editable {
-  display: inline-block;
-  padding: 0.5rem;
-  border-radius: 4px;
-  cursor: pointer;
-  transition: background 0.2s;
-  font-size: 1.5rem;
-  font-weight: 600;
-  margin: 0;
-}
-
-.modal-title-editable:hover {
-  background: #f0f0f0;
-}
-
-.modal-title-input {
-  font-size: 1.5rem;
-  font-weight: 600;
-  padding: 0.5rem;
-  border: 2px solid #007bff;
-  border-radius: 4px;
-  width: 100%;
-  outline: none;
-}
-
-.metadata-section {
-  background: #f8f9fa;
-  border-radius: 8px;
-  padding: 1rem;
-  margin: 1rem 0;
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 1rem;
-}
-
-.metadata-item {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-}
-
-.metadata-item label {
-  font-size: 0.85rem;
-  color: #666;
-  font-weight: 500;
-}
-
-.metadata-item input,
-.metadata-item select {
-  padding: 0.5rem;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  background: white;
-  font-size: 0.95rem;
-}
-
-.metadata-item input[type="checkbox"] {
-  width: auto;
-  cursor: pointer;
-}
-
-.checkbox-wrapper {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.5rem;
-  background: white;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  cursor: pointer;
-}
-
-.checkbox-wrapper:hover {
-  background: #f0f0f0;
-}
-
-.prompt-section {
-  position: relative;
-  border: 1px solid #ddd;
-  border-radius: 8px;
-  overflow: hidden;
-  margin: 1rem 0;
-}
-
-.prompt-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 0.75rem 1rem;
-  background: #f8f9fa;
-  border-bottom: 1px solid #ddd;
-}
-
-.prompt-label {
-  font-weight: 500;
-  color: #333;
-}
-
-.prompt-actions {
-  display: flex;
-  gap: 0.5rem;
-}
-
-.prompt-actions button {
-  padding: 0.4rem 0.8rem;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 0.9rem;
-  transition: all 0.2s;
-}
-
-.edit-prompt-btn {
-  background: #007bff;
-  color: white;
-}
-
-.edit-prompt-btn:hover {
-  background: #0056b3;
-}
-
-.save-prompt-btn {
-  background: #28a745;
-  color: white;
-}
-
-.save-prompt-btn:hover {
-  background: #218838;
-}
-
-.cancel-prompt-btn {
-  background: #6c757d;
-  color: white;
-}
-
-.cancel-prompt-btn:hover {
-  background: #545b62;
-}
-
-/* Prompt section container in item modal */
-.prompt-content {
+.run-detail-content {
   padding: 1rem;
   max-height: 500px;
   overflow-y: auto;
-  background: white;
 }
 
-.prompt-display {
-  white-space: pre-wrap;
-  font-family: 'Monaco', 'Menlo', monospace;
+.run-detail-content .markdown {
   font-size: 0.9rem;
   line-height: 1.6;
-  color: #333;
 }
 
-.prompt-editor {
-  width: 100%;
-  min-height: 400px;
-  padding: 1rem;
-  border: none;
-  font-family: 'Monaco', 'Menlo', monospace;
-  font-size: 0.9rem;
-  line-height: 1.6;
-  resize: vertical;
-  outline: none;
-}
-
-.saving-indicator {
-  display: inline-block;
-  padding: 0.25rem 0.75rem;
-  background: #28a745;
-  color: white;
+.run-detail-content .markdown pre {
+  background: #f5f5f5;
+  padding: 0.75rem;
   border-radius: 4px;
-  font-size: 0.85rem;
-  animation: fadeInOut 2s;
-  position: absolute;
-  top: 0.75rem;
-  right: 1rem;
+  overflow-x: auto;
 }
 
-@keyframes fadeInOut {
-  0% { opacity: 0; }
-  20% { opacity: 1; }
-  80% { opacity: 1; }
-  100% { opacity: 0; }
-}
-
-/* Tools Tab Styles */
-.tools-container {
-  padding: 1rem 0;
-}
-
-.tools-header {
-  margin-bottom: 2rem;
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-}
-
-.tools-search {
-  width: 100%;
-  max-width: 400px;
-  padding: 0.75rem 1rem;
-  border: 1px solid #ddd;
-  border-radius: 8px;
-  font-size: 1rem;
-  transition: border-color 0.2s;
-}
-
-.tools-search:focus {
-  outline: none;
-  border-color: #007bff;
-  box-shadow: 0 0 0 2px rgba(0,123,255,0.1);
-}
-
-.pack-filters {
-  display: flex;
-  gap: 0.5rem;
-  flex-wrap: wrap;
-}
-
-.pack-filter-btn {
-  padding: 0.5rem 1rem;
-  background: #f8f9fa;
-  border: 1px solid #dee2e6;
-  border-radius: 20px;
-  cursor: pointer;
-  transition: all 0.2s;
-  font-size: 0.9rem;
-}
-
-.pack-filter-btn:hover {
-  background: #e9ecef;
-  border-color: #adb5bd;
-}
-
-.pack-filter-btn.active {
-  background: #007bff;
-  color: white;
-  border-color: #007bff;
-}
-
-.pack-filter-btn .count {
-  margin-left: 0.3rem;
-  font-size: 0.85rem;
-  opacity: 0.8;
-}
-
-.tools-grid {
-  display: grid;
-  gap: 1.5rem;
-  animation: fadeIn 0.3s ease;
-}
-
-.tool-card {
-  background: white;
-  border: 1px solid #e0e0e0;
-  border-radius: 12px;
-  padding: 1.5rem;
-  transition: all 0.2s ease;
-  position: relative;
-}
-
-.tool-card:hover {
-  border-color: #007bff;
-  box-shadow: 0 4px 12px rgba(0,123,255,0.1);
-  transform: translateY(-2px);
-}
-
-.tool-card.hidden {
-  display: none;
-}
-
-.tool-header {
-  display: flex;
-  align-items: start;
-  justify-content: space-between;
-  margin-bottom: 1rem;
-}
-
-.tool-name {
-  font-size: 1.2rem;
-  font-weight: 600;
-  color: #333;
-  margin: 0;
-}
-
-.tool-packs {
-  display: flex;
-  gap: 0.3rem;
-  flex-wrap: wrap;
-}
-
-.tool-pack-badge {
-  display: inline-block;
-  padding: 0.2rem 0.6rem;
-  background: #e3f2fd;
-  color: #1976d2;
-  border-radius: 12px;
-  font-size: 0.75rem;
-  font-weight: 500;
-}
-
-.tool-description {
-  color: #666;
-  line-height: 1.6;
-  margin-bottom: 1rem;
-}
-
-.tool-params {
-  border-top: 1px solid #e0e0e0;
-  padding-top: 1rem;
-  margin-top: auto;
-}
-
-.tool-params-title {
-  font-size: 0.9rem;
-  font-weight: 600;
-  color: #555;
-  margin-bottom: 0.5rem;
-}
-
-.param-list {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
-.param-item {
-  display: flex;
-  align-items: start;
-  gap: 0.5rem;
-  font-size: 0.9rem;
-}
-
-.param-name {
-  font-family: 'Monaco', 'Menlo', monospace;
-  background: #f8f9fa;
-  padding: 0.2rem 0.5rem;
-  border-radius: 4px;
-  color: #d63384;
-  white-space: nowrap;
-}
-
-.param-required {
-  color: #dc3545;
-  font-weight: 600;
-}
-
-.param-optional {
-  color: #6c757d;
-  font-style: italic;
-}
-
-.param-type {
-  color: #0969da;
-  font-family: 'Monaco', 'Menlo', monospace;
-  font-size: 0.85rem;
-}
-
-.param-description {
-  color: #666;
-  flex: 1;
-}
-
-.loading-spinner {
-  text-align: center;
-  padding: 3rem;
-  color: #666;
-  font-style: italic;
-}
-
-.tools-empty-state {
-  text-align: center;
-  padding: 3rem;
-  color: #666;
-}
-
-.tools-empty-state h3 {
-  color: #333;
-  margin-bottom: 0.5rem;
-}
-
-/* Collapsible parameters */
-.tool-params.collapsed .param-list {
-  display: none;
-}
-
-.tool-params-toggle {
-  cursor: pointer;
-  user-select: none;
-  display: flex;
-  align-items: center;
-  gap: 0.3rem;
-}
-
-.tool-params-toggle::before {
-  content: '▼';
-  font-size: 0.7rem;
-  transition: transform 0.2s;
-  display: inline-block;
-}
-
-.tool-params.collapsed .tool-params-toggle::before {
-  transform: rotate(-90deg);
-}
-
-/* Restart button styling */
-.restart-btn {
-  background: none;
-  border: none;
-  font-size: 1.2rem;
-  cursor: pointer;
-  padding: 4px 8px;
-  color: #007bff;
-  transition: all 0.2s ease;
-  line-height: 1;
-}
-
-.restart-btn:hover {
-  color: #0056b3;
-  transform: scale(1.2);
-  background: #f8f9ff;
-  border-radius: 4px;
-}
-
-.restart-btn:active {
-  transform: scale(1.0);
-}
-
-/* Preview Modal Specific Styles */
-.preview-modal-content {
-  max-width: 900px;
-  max-height: 90vh;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-}
-
-.preview-modal-content .modal-body {
-  overflow-y: auto;
-  flex: 1;
-}
-
-.preview-content {
-  background: #f8f9fa;
-  border: 1px solid #dee2e6;
-  border-radius: 4px;
-  padding: 1.5rem;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  font-size: 0.9rem;
-  line-height: 1.6;
-  max-height: 60vh;
-  overflow-y: auto;
-}
-
-.preview-content h2 {
-  margin-top: 1.5rem;
-  margin-bottom: 0.75rem;
-  color: #1a1a1a;
-  border-bottom: 2px solid #007bff;
-  padding-bottom: 0.25rem;
-}
-
-.preview-content h3 {
-  margin-top: 1.25rem;
-  margin-bottom: 0.5rem;
-  color: #333;
-}
-
-.preview-content code {
-  background: #e9ecef;
+.run-detail-content .markdown code {
+  background: #f0f0f0;
   padding: 0.1rem 0.3rem;
   border-radius: 3px;
   font-size: 0.85em;
 }
 
-.preview-content ul,
-.preview-content ol {
-  margin: 0.5rem 0;
-  padding-left: 1.5rem;
+.run-detail-content .markdown pre code {
+  background: none;
+  padding: 0;
 }
 
-.preview-content li {
-  margin: 0.25rem 0;
-}
-
-.example-invocation {
-  margin-top: 1.5rem;
-  padding: 1rem;
-  background: #fff3cd;
-  border: 1px solid #ffc107;
-  border-radius: 4px;
-}
-
-.example-invocation h4 {
-  margin: 0 0 0.5rem 0;
-  color: #856404;
-}
-
-.example-box {
-  background: white;
-  padding: 0.75rem;
-  border-radius: 3px;
-  font-family: monospace;
-  font-size: 0.85rem;
-  color: #333;
-  white-space: pre-wrap;
-  word-wrap: break-word;
-}
-
-.loading-spinner {
+.run-loading {
   text-align: center;
   padding: 2rem;
   color: #666;
 }
 
-.error-message {
-  background: #f8d7da;
-  color: #721c24;
-  padding: 1rem;
-  border: 1px solid #f5c6cb;
-  border-radius: 4px;
+/* ============================================================================
+   Preview Modal
+   ============================================================================ */
+.modal-backdrop {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0,0,0,0.5);
+  z-index: 1000;
 }
 
-/* Agent Run Modal - large modal for viewing execution transcripts */
-.agent-run-modal-content {
-  width: 85vw;
-  height: 85vh;
-  max-width: 1400px;
-  margin: 2.5% auto;
+.modal-backdrop.show {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.modal-content {
+  background: white;
+  border-radius: 8px;
+  width: 90%;
+  max-width: 800px;
+  max-height: 80vh;
   display: flex;
   flex-direction: column;
 }
 
-.agent-run-modal-content .modal-body {
-  flex: 1;
-  overflow-y: auto;
-  padding: 1.5rem;
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem;
+  border-bottom: 1px solid #e0e0e0;
 }
 
-.agent-run-content {
-  font-size: 0.95rem;
-  line-height: 1.6;
-}
-
-.agent-run-content h1 {
-  font-size: 1.5rem;
-  margin-bottom: 1rem;
-  color: #333;
-  border-bottom: 2px solid #007bff;
-  padding-bottom: 0.5rem;
-}
-
-.agent-run-content h2 {
-  font-size: 1.3rem;
-  margin-top: 1.5rem;
-  margin-bottom: 0.75rem;
-  color: #444;
-}
-
-.agent-run-content h3 {
+.modal-title {
+  margin: 0;
   font-size: 1.1rem;
-  margin-top: 1.25rem;
-  margin-bottom: 0.5rem;
-  color: #555;
+  font-weight: 600;
 }
 
-.agent-run-content blockquote {
-  margin: 1rem 0;
-  padding: 0.75rem 1rem;
-  background: #f8f9fa;
-  border-left: 4px solid #007bff;
-  color: #555;
+.modal-close {
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  cursor: pointer;
+  color: #666;
+  padding: 0;
+  line-height: 1;
 }
 
-.agent-run-content pre {
-  background: #f8f9fa;
+.modal-close:hover {
+  color: #333;
+}
+
+.modal-body {
+  padding: 1rem;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.modal-body pre {
+  background: #f5f5f5;
   padding: 1rem;
   border-radius: 4px;
   overflow-x: auto;
-  margin: 0.75rem 0;
+  white-space: pre-wrap;
+  word-wrap: break-word;
   font-size: 0.85rem;
+  line-height: 1.5;
+  margin: 0;
 }
 
-.agent-run-content code {
-  background: #f0f0f0;
-  padding: 0.2rem 0.4rem;
-  border-radius: 3px;
-  font-size: 0.9em;
-}
-
-.agent-run-content pre code {
-  background: none;
-  padding: 0;
-}
-
-.agent-run-content em {
+/* ============================================================================
+   Empty States
+   ============================================================================ */
+.empty-state {
+  text-align: center;
+  padding: 3rem 1rem;
   color: #666;
 }
 
-/* Clickable row for historical agents */
-tr.clickable-row {
-  cursor: pointer;
+.empty-state-icon {
+  font-size: 3rem;
+  margin-bottom: 1rem;
+  opacity: 0.5;
 }
 
-tr.clickable-row:hover {
-  background-color: #f0f7ff;
+.empty-state-text {
+  font-size: 1.1rem;
+  margin-bottom: 0.5rem;
+}
+
+.empty-state-hint {
+  font-size: 0.9rem;
+  color: #999;
+}
+
+/* ============================================================================
+   Loading
+   ============================================================================ */
+.loading {
+  text-align: center;
+  padding: 3rem;
+  color: #666;
+}
+
+.spinner {
+  display: inline-block;
+  width: 32px;
+  height: 32px;
+  border: 3px solid #e0e0e0;
+  border-top-color: #007bff;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: 1rem;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
 }
 </style>
 
 <div class="agents-content">
-
-  <!-- Tab Navigation -->
-  <div class="tab-nav">
-    <button class="tab-button active" onclick="switchMainTab('log')">Log</button>
-    <button class="tab-button" onclick="switchMainTab('agents')">Agents</button>
-    <button class="tab-button" onclick="switchMainTab('topics')">Topics</button>
-    <button class="tab-button" onclick="switchMainTab('tools')">Tools</button>
+  <!-- Loading state -->
+  <div id="loading-view" class="loading">
+    <div class="spinner"></div>
+    <div>Loading agents...</div>
   </div>
 
-  <!-- Tab Content -->
-  <div class="tab-container">
-
-    <!-- Log Tab -->
-    <div id="logTab" class="main-tab-content active">
-      <!-- Completed Agents Section -->
-      <div id="historicalAgentsSection">
-        <div class="section-header">
-          <span>Completed Runs</span>
-          <span class="count" id="historicalCount">0</span>
-        </div>
-        <table id="historicalAgentTable"></table>
-        <div id="historicalEmpty" class="empty-state" style="display: none;">
-          No completed agent runs found
-        </div>
-      </div>
-
-      <!-- Pagination -->
-      <div id="pagination" class="pagination" style="display: none;">
-        <button id="prevBtn" onclick="changePage(-1)">Previous</button>
-        <div class="page-info">
-          <span id="pageInfo">Page 1 of 1</span>
-        </div>
-        <button id="nextBtn" onclick="changePage(1)">Next</button>
-      </div>
-    </div>
-
-    <!-- Agents Tab -->
-    <div id="agentsTab" class="main-tab-content">
-      <div id="agentCards" class="agent-cards"></div>
-    </div>
-
-    <!-- Topics Tab -->
-    <div id="topicsTab" class="main-tab-content">
-      <div id="topicCards" class="agent-cards"></div>
-    </div>
-
-    <!-- Tools Tab -->
-    <div id="toolsTab" class="main-tab-content">
-      <div class="tools-container">
-        <!-- Tools Filter/Search -->
-        <div class="tools-header">
-          <input type="text" id="toolsSearch" placeholder="Search tools..." class="tools-search" />
-          <div class="pack-filters" id="packFilters"></div>
-        </div>
-
-        <!-- Tools Grid -->
-        <div id="toolsGrid" class="tools-grid">
-          <div class="loading-spinner">Loading tools...</div>
-        </div>
-      </div>
-    </div>
-
-  </div>
-</div>
-
-<!-- Create Agent Modal -->
-<div id="createPersonaModal" class="modal">
-  <div class="modal-content">
-    <span class="close" onclick="closeCreatePersonaModal()">&times;</span>
-    <h2>Create New Agent</h2>
-    <form id="createPersonaForm" class="input-area">
-      <input type="text" id="personaTitle" placeholder="Agent Title" required />
-      <textarea id="personaInput" rows="8" placeholder="Describe what this agent should accomplish..." required></textarea>
-      <div style="margin: 1rem 0; border-top: 1px solid #ddd; padding-top: 1rem;">
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
-          <div>
-            <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
-              <input type="checkbox" id="personaDailySchedule" style="width: auto;">
-              <span>Run daily (scheduled agent)</span>
-            </label>
-          </div>
-          <div>
-            <label style="display: block;">
-              Priority (0-99):
-              <input type="number" id="personaPriority" min="0" max="99" placeholder="Default: 50"
-                     style="width: 100px; margin-left: 0.5rem; padding: 0.25rem;">
-            </label>
-          </div>
-        </div>
-        <div>
-          <label style="display: block; margin-bottom: 0.5rem;">
-            Tool Packs:
-            <select id="personaToolPacks" multiple style="width: 100%; height: 80px; margin-top: 0.5rem;">
-              <option value="" selected>Default (All Tools)</option>
-              <option value="journal">Journal</option>
-              <option value="todo">Todo</option>
-              <option value="facets">Facets</option>
-            </select>
-          </label>
-          <small style="color: #666;">Hold Ctrl/Cmd to select multiple. Leave "Default" for all tools.</small>
-        </div>
-      </div>
-      <button type="submit" id="createPromptBtn">Create Prompt</button>
-    </form>
-
-    <!-- Planning Status -->
-    <div id="createPersonaPromptStatus" class="planning-status">
-      <div>Creating prompt...</div>
-    </div>
-
-    <!-- Removed Result Area - now auto-saves and opens edit modal -->
-  </div>
-</div>
-
-<!-- Create Topic Modal -->
-<div id="createTopicModal" class="modal">
-  <div class="modal-content">
-    <span class="close" onclick="closeCreateTopicModal()">&times;</span>
-    <h2>Create New Topic</h2>
-    <form id="createTopicForm" class="input-area">
-      <input type="text" id="topicTitle" placeholder="Topic Title" required />
-      <textarea id="topicInput" rows="8" placeholder="Describe what information this topic should extract..." required></textarea>
-      <button type="submit" id="createTopicBtn">Create Topic</button>
-    </form>
-
-    <!-- Result Area -->
-    <div id="topicResult" style="display: none;">
-      <h3>Topic Content</h3>
-      <div id="topicResultContent" class="prompt-result-box"></div>
-      <div class="modal-actions">
-        <button onclick="saveNewTopic()">Save Topic</button>
-        <button onclick="editTopicContent()">Edit Content</button>
-      </div>
+  <!-- Card Grid View -->
+  <div id="grid-view" style="display: none;">
+    <div id="agent-groups"></div>
+    <div id="empty-state" class="empty-state" style="display: none;">
+      <div class="empty-state-icon">🤖</div>
+      <div class="empty-state-text">No agent runs on this day</div>
+      <div class="empty-state-hint">Agent runs will appear here when they complete</div>
     </div>
   </div>
-</div>
 
-<!-- Enhanced Agent/Topic Modal -->
-<div id="itemModal" class="modal">
-  <div class="modal-content">
-    <span class="close" onclick="closeItemModal()">&times;</span>
-
-    <div class="modal-header">
-      <h3 id="modalTitle" class="modal-title-editable" ondblclick="startTitleEdit()" title="Double-click to edit"></h3>
-      <input id="modalTitleInput" class="modal-title-input" style="display: none;"
-             onblur="saveTitleEdit()" onkeydown="handleTitleKey(event)" />
+  <!-- Run List View -->
+  <div id="list-view" style="display: none;">
+    <div class="view-header">
+      <button class="back-btn" onclick="showGridView()">
+        <span>←</span> Back
+      </button>
+      <h2 class="view-title" id="list-view-title"></h2>
+      <button class="preview-btn" id="preview-btn" onclick="showPreview()">
+        View Prompt
+      </button>
     </div>
-
-    <div class="modal-body">
-      <!-- Metadata section for agents only -->
-      <div id="agentMetadata" class="metadata-section" style="display: none;">
-        <div class="metadata-item">
-          <label>Schedule</label>
-          <div class="checkbox-wrapper" onclick="toggleSchedule()">
-            <input type="checkbox" id="modalSchedule" onclick="event.stopPropagation()" onchange="saveMetadata()">
-            <span>Daily Execution</span>
-          </div>
-        </div>
-
-        <div class="metadata-item">
-          <label>Priority</label>
-          <input type="number" id="modalPriority" min="0" max="99" placeholder="50"
-                 onblur="saveMetadata()" onkeydown="if(event.key === 'Escape') this.blur();">
-        </div>
-
-        <div class="metadata-item">
-          <label>Multi-Facet</label>
-          <div class="checkbox-wrapper" onclick="toggleMultiFacet()">
-            <input type="checkbox" id="modalMultiFacet" onclick="event.stopPropagation()" onchange="saveMetadata()">
-            <span>Run per facet</span>
-          </div>
-        </div>
-
-        <div class="metadata-item">
-          <label>Tools</label>
-          <select id="modalTools" onchange="saveMetadata()">
-            <option value="">Default</option>
-            <option value="journal">Journal</option>
-            <option value="todo">Todo</option>
-            <option value="facets">Facets</option>
-            <option value="journal,todo">Journal + Todo</option>
-            <option value="journal,facets">Journal + Facets</option>
-            <option value="custom">Custom...</option>
-          </select>
-          <input type="text" id="modalToolsCustom" placeholder="e.g., tool1,tool2"
-                 style="display: none; margin-top: 0.5rem;"
-                 onblur="saveMetadata()" onkeydown="if(event.key === 'Escape') this.blur();">
-        </div>
-      </div>
-
-      <!-- Prompt/Content section -->
-      <div class="prompt-section">
-        <div class="prompt-header">
-          <span class="prompt-label" id="promptLabel">System Prompt</span>
-          <div class="prompt-actions">
-            <button id="editPromptBtn" class="edit-prompt-btn" onclick="startPromptEdit()">Edit</button>
-            <button id="savePromptBtn" class="save-prompt-btn" style="display: none;" onclick="savePromptEdit()">Save</button>
-            <button id="cancelPromptBtn" class="cancel-prompt-btn" style="display: none;" onclick="cancelPromptEdit()">Cancel</button>
-            <span id="savingIndicator" class="saving-indicator" style="display: none;">Saved!</span>
-          </div>
-        </div>
-        <div class="prompt-content">
-          <div id="promptDisplay" class="prompt-display"></div>
-          <textarea id="itemContentEditor" class="prompt-editor" style="display: none;"></textarea>
-        </div>
-      </div>
-
-      <!-- Topics metadata section -->
-      <div id="topicMetadata" class="metadata-section" style="display: none;">
-        <div class="metadata-item">
-          <label>Status</label>
-          <div class="checkbox-wrapper" onclick="toggleTopicEnabled()">
-            <input type="checkbox" id="modalTopicEnabled" onclick="event.stopPropagation()" onchange="saveTopicMetadata()">
-            <span>Enabled</span>
-          </div>
-        </div>
-        <div class="metadata-item">
-          <label>Color</label>
-          <input type="color" id="modalTopicColor" onchange="saveTopicMetadata()">
-        </div>
-      </div>
+    <div class="run-list-header">
+      <span id="list-view-count"></span>
     </div>
-  </div>
-</div>
-
-<!-- Planning Modal -->
-<div id="promptModal" class="modal">
-  <div class="modal-content">
-    <span class="close" onclick="closePromptModal()">&times;</span>
-    <div class="modal-header">
-      <h3>Agent Prompt</h3>
-    </div>
-    <div class="modal-body">
-      <!-- Tabs -->
-      <div class="modal-tabs">
-        <button class="modal-tab active" onclick="switchTab('prompt')">Edit Prompt</button>
-        <button class="modal-tab" onclick="switchTab('preview')">Preview</button>
-        <button class="modal-tab" onclick="switchTab('config')">Configuration</button>
-      </div>
-
-      <!-- Tab Content -->
-      <div id="promptTab" class="tab-content active">
-        <textarea id="promptEditor" class="prompt-editor" placeholder="Your execution prompt will appear here..."></textarea>
-      </div>
-
-      <div id="previewTab" class="tab-content">
-        <div id="promptPreview" class="markdown-content"></div>
-      </div>
-
-      <div id="configTab" class="tab-content">
-        <p style="font-size: 0.9rem; color: #666; margin-bottom: 1rem;">
-          <em>Note: Prompt generation uses Gemini. Configuration below applies to agent execution.</em>
-        </p>
-
-        <div class="config-section">
-          <label for="maxTokens">Max Tokens</label>
-          <input type="number" id="maxTokens" placeholder="0 for default" min="0">
-        </div>
-
-        <div class="config-section">
-          <label for="agentPersona">Agent</label>
-          <select id="agentPersona">
-            <option value="default">Default</option>
-          </select>
-        </div>
-
-        <button id="startAgentBtn" class="start-agent-btn" onclick="startAgent()">
-          🚀 Start Agent
-        </button>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- Agent Preview Modal -->
-<div id="agentPreviewModal" class="modal">
-  <div class="modal-content preview-modal-content">
-    <span class="close" onclick="closeAgentPreviewModal()">&times;</span>
-
-    <div class="modal-header">
-      <h3 id="previewModalTitle">Agent Prompt Preview</h3>
-    </div>
-
-    <div class="modal-body">
-      <div id="previewContent" class="markdown-content preview-content"></div>
-
-      <!-- Example invocation (for multi-facet agents) -->
-      <div id="exampleInvocation" class="example-invocation" style="display: none;">
-        <h4>Example Invocation</h4>
-        <div class="example-box"></div>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- Agent Run Modal - displays formatted agent execution transcript -->
-<div id="agentRunModal" class="modal">
-  <div class="modal-content agent-run-modal-content">
-    <span class="close" onclick="closeAgentRunModal()">&times;</span>
-
-    <div class="modal-header">
-      <h3 id="agentRunModalTitle">Agent Run</h3>
-    </div>
-
-    <div class="modal-body">
-      <div id="agentRunContent" class="markdown-content agent-run-content"></div>
-    </div>
+    <table class="runs-table">
+      <thead>
+        <tr>
+          <th class="col-status"></th>
+          <th class="col-time">Time</th>
+          <th class="col-runtime">Runtime</th>
+          <th class="col-facet">Facet</th>
+          <th class="col-prompt">Prompt</th>
+        </tr>
+      </thead>
+      <tbody id="runs-tbody"></tbody>
+    </table>
   </div>
 </div>
 
 <script src="{{ vendor_lib('marked') }}"></script>
+
+<!-- Preview Modal -->
+<div id="preview-modal" class="modal-backdrop">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h3 class="modal-title" id="preview-modal-title">Agent Prompt</h3>
+      <button class="modal-close" onclick="hidePreview()">&times;</button>
+    </div>
+    <div class="modal-body">
+      <pre id="preview-modal-content"></pre>
+    </div>
+  </div>
+</div>
+
 <script>
-let availableAgents = [];
-let availableTopics = [];
-let availableTools = [];
-let toolPacks = {};
-let currentEditingItem = null;
-let currentEditingType = null; // 'agent' or 'topic'
-let isEditMode = false;
-let activePackFilter = 'all';
-let originalPromptContent = ''; // Store original content for cancel
-let currentTopicContent = '';
-let currentTopicTitle = '';
+(function() {
+  // State
+  let currentDay = null;
+  let currentPersona = null;
+  let agentData = null;
+  let expandedRunId = null;
+  let runDetailCache = {};
 
-// Switch between main tabs
-function switchMainTab(tabName) {
-  // Update tab buttons
-  document.querySelectorAll('.tab-button').forEach(tab => {
-    tab.classList.remove('active');
-  });
-  event.target.classList.add('active');
-
-  // Update tab content
-  document.querySelectorAll('.main-tab-content').forEach(content => {
-    content.classList.remove('active');
-  });
-  document.getElementById(tabName + 'Tab').classList.add('active');
-
-  // Load data for the selected tab if needed
-  if (tabName === 'log') {
-    loadAgentSessions();
-  } else if (tabName === 'agents') {
-    if (!document.getElementById('agentCards').children.length) {
-      loadAvailableAgents();
-    }
-  } else if (tabName === 'topics') {
-    if (!document.getElementById('topicCards').children.length) {
-      loadAvailableTopics();
-    }
-  } else if (tabName === 'tools') {
-    if (availableTools.length === 0) {
-      loadAvailableTools();
-    }
-  }
-}
-
-// Load available agents and render cards
-function loadAvailableAgents() {
-  fetch('{{ url_for('app:agents.available_agents') }}')
-    .then(r => r.json())
-    .then(agents => {
-      availableAgents = agents;
-      renderAgentCards();
-    });
-}
-
-// Load available insights and render cards
-function loadAvailableTopics() {
-  fetch('{{ url_for('app:agents.available_insights') }}')
-    .then(r => r.json())
-    .then(topics => {
-      availableTopics = topics;
-      renderTopicCards();
-    });
-}
-
-// Generic function to render cards for both agents and topics
-function renderCards(items, containerId, itemType, createModalFunc) {
-  const container = document.getElementById(containerId);
-  container.innerHTML = '';
-
-  // Add Create card first
-  const createCard = document.createElement('div');
-  createCard.className = 'agent-card create-agent-card';
-  const itemLabel = itemType === 'agent' ? 'Agent' : 'Topic';
-  createCard.innerHTML = `
-    <h3>+ Create New ${itemLabel}</h3>
-  `;
-  createCard.addEventListener('click', createModalFunc);
-  container.appendChild(createCard);
-
-  // Add existing items
-  items.forEach(item => {
-    const card = document.createElement('div');
-    card.className = 'agent-card';
-
-    // Add disabled class for disabled topics
-    if (itemType === 'topic' && item.disabled) {
-      card.className += ' disabled';
-    }
-
-    card.dataset.itemId = item.id;
-    card.dataset.itemType = itemType;
-    card.title = item.description; // Set description as tooltip
-
-    // Add color border and hover effects for topics
-    if (itemType === 'topic' && item.color) {
-      card.style.borderLeftWidth = '4px';
-      card.style.borderLeftColor = item.color;
-
-      // Set hover color to match topic color
-      card.addEventListener('mouseenter', () => {
-        card.style.borderColor = item.color;
-        card.style.boxShadow = `0 2px 8px ${item.color}33`; // 33 = 20% opacity in hex
-      });
-
-      card.addEventListener('mouseleave', () => {
-        card.style.borderColor = '#e0e0e0';
-        card.style.borderLeftColor = item.color; // Keep left border colored
-        card.style.boxShadow = '';
-      });
-    }
-
-    // Create title with color indicator for topics
-    let titleHtml = item.title;
-    if (itemType === 'topic') {
-      if (item.color) {
-        titleHtml = `<span class="topic-indicator" style="background-color: ${item.color}"></span>${item.title}`;
-      }
-      if (item.disabled) {
-        titleHtml += ' <span style="color: #6c757d; font-size: 0.8em;">(disabled)</span>';
-      }
-    }
-
-    // Build metadata badges HTML
-    let metadataHtml = '';
-    if (itemType === 'agent') {
-      const badges = [];
-
-      // Schedule badge
-      if (item.schedule === 'daily') {
-        badges.push('<span class="metadata-badge schedule"><span class="badge-icon">📅</span>Daily</span>');
-      }
-
-      // Priority badge
-      if (item.priority !== undefined && item.priority !== null) {
-        badges.push(`<span class="metadata-badge priority"><span class="badge-icon">⚡</span>P${item.priority}</span>`);
-      }
-
-      // Multi-facet badge
-      if (item.multi_facet) {
-        badges.push('<span class="metadata-badge multi-facet"><span class="badge-icon">🌐</span>Multi-Facet</span>');
-      }
-
-      // Tools badge (simplified)
-      if (item.tools) {
-        const toolsList = item.tools.split(',').map(t => t.trim());
-        if (toolsList.length === 1) {
-          badges.push(`<span class="metadata-badge tools"><span class="badge-icon">🔧</span>${toolsList[0]}</span>`);
-        } else {
-          badges.push(`<span class="metadata-badge tools"><span class="badge-icon">🔧</span>${toolsList.length} packs</span>`);
-        }
-      }
-
-      if (badges.length > 0) {
-        metadataHtml = `<div class="agent-metadata">${badges.join('')}</div>`;
-      }
-    }
-
-    card.innerHTML = `
-      <h3>${titleHtml}</h3>
-      ${metadataHtml}
-    `;
-
-    // Create action icons for agents only
-    if (itemType === 'agent') {
-      const actionsContainer = document.createElement('div');
-      actionsContainer.className = 'card-actions';
-
-      // Preview icon
-      const previewBtn = document.createElement('button');
-      previewBtn.className = 'card-action-btn preview-btn';
-      previewBtn.innerHTML = '📄';
-      previewBtn.title = `Preview ${item.title} prompt`;
-      previewBtn.onclick = (e) => {
-        e.stopPropagation();
-        openAgentPreview(item.id);
-      };
-      actionsContainer.appendChild(previewBtn);
-
-      // Chat link
-      const chatLink = document.createElement('a');
-      chatLink.className = 'card-action-btn chat-btn';
-      chatLink.href = `/app/chat?persona=${item.id}`;
-      chatLink.innerHTML = '💬';
-      chatLink.title = `Chat with ${item.title}`;
-      chatLink.onclick = (e) => {
-        e.stopPropagation();
-      };
-      actionsContainer.appendChild(chatLink);
-
-      card.appendChild(actionsContainer);
-    }
-
-    card.addEventListener('click', (e) => {
-      viewItemDetails(item.id, itemType, e);
-    });
-
-    container.appendChild(card);
-  });
-}
-
-// Render agent selection cards
-function renderAgentCards() {
-  // Sort agents by priority (if scheduled) then by title
-  const sortedAgents = [...availableAgents].sort((a, b) => {
-    // Scheduled agents with priority come first
-    if (a.schedule === 'daily' && b.schedule === 'daily') {
-      // Both scheduled, sort by priority (lower number = higher priority)
-      const aPriority = a.priority ?? 50;
-      const bPriority = b.priority ?? 50;
-      if (aPriority !== bPriority) {
-        return aPriority - bPriority;
-      }
-    } else if (a.schedule === 'daily') {
-      return -1; // a comes first
-    } else if (b.schedule === 'daily') {
-      return 1; // b comes first
-    }
-    // Fall back to alphabetical by title
-    return a.title.localeCompare(b.title);
-  });
-
-  renderCards(sortedAgents, 'agentCards', 'agent', openCreatePersonaModal);
-}
-
-// Render topic selection cards
-function renderTopicCards() {
-  renderCards(availableTopics, 'topicCards', 'topic', openCreateTopicModal);
-}
-
-// View item details in modal (generic for both agents and topics)
-function viewItemDetails(itemId, itemType, event) {
-  event.stopPropagation();
-
-  const items = itemType === 'agent' ? availableAgents : availableTopics;
-  const item = items.find(i => i.id === itemId);
-  if (!item) return;
-
-  currentEditingItem = itemId;
-  currentEditingType = itemType;
-  originalPromptContent = ''; // Store original content for cancel
-
-  // Set title
-  const modalTitle = document.getElementById('modalTitle');
-  modalTitle.textContent = item.title;
-
-  // Show/hide metadata sections based on type
-  const agentMetadata = document.getElementById('agentMetadata');
-  const topicMetadata = document.getElementById('topicMetadata');
-  const promptLabel = document.getElementById('promptLabel');
-
-  if (itemType === 'agent') {
-    agentMetadata.style.display = 'grid';
-    topicMetadata.style.display = 'none';
-    promptLabel.textContent = 'System Prompt';
-  } else {
-    agentMetadata.style.display = 'none';
-    topicMetadata.style.display = 'grid';
-    promptLabel.textContent = 'Topic Content';
-    // Set topic metadata
-    document.getElementById('modalTopicEnabled').checked = !item.disabled;
-    document.getElementById('modalTopicColor').value = item.color || '#6c757d';
+  // Get current day from URL path
+  function getDayFromUrl() {
+    const path = window.location.pathname;
+    const match = path.match(/\/app\/agents\/(\d{8})$/);
+    return match ? match[1] : null;
   }
 
-  document.getElementById('promptDisplay').innerHTML = 'Loading...';
-  document.getElementById('itemModal').style.display = 'block';
-
-  // Determine the correct endpoint based on item type
-  const contentUrl = itemType === 'agent'
-    ? `{{ url_for('app:agents.agent_content', agent_id='') }}${itemId}`
-    : `{{ url_for('app:agents.insight_content', insight_id='') }}${itemId}`;
-
-  // Load agent's config if it's an agent
-  if (itemType === 'agent') {
-    // Set defaults first
-    document.getElementById('modalSchedule').checked = false;
-    document.getElementById('modalPriority').value = '';
-    document.getElementById('modalMultiFacet').checked = false;
-    document.getElementById('modalTools').value = '';
-    document.getElementById('modalToolsCustom').style.display = 'none';
-
-    // Load from item metadata (already fetched)
-    if (item.schedule === 'daily') {
-      document.getElementById('modalSchedule').checked = true;
-    }
-    if (item.priority !== undefined && item.priority !== null) {
-      document.getElementById('modalPriority').value = item.priority;
-    }
-    if (item.multi_facet) {
-      document.getElementById('modalMultiFacet').checked = true;
-    }
-    if (item.tools) {
-      const toolsSelect = document.getElementById('modalTools');
-      const toolsCustom = document.getElementById('modalToolsCustom');
-
-      // Check if tools match a predefined option
-      let matched = false;
-      for (let option of toolsSelect.options) {
-        if (option.value && option.value === item.tools) {
-          toolsSelect.value = item.tools;
-          matched = true;
-          break;
-        }
-      }
-
-      if (!matched && item.tools) {
-        // Custom tools
-        toolsSelect.value = 'custom';
-        toolsCustom.value = item.tools;
-        toolsCustom.style.display = 'block';
-      }
-    }
+  // Format timestamp to time string
+  function formatTime(ts) {
+    if (!ts) return '—';
+    const d = new Date(ts);
+    return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   }
-
-  // Load and render item content
-  fetch(contentUrl)
-    .then(r => r.json())
-    .then(data => {
-      if (data.error) {
-        document.getElementById('promptDisplay').innerHTML = `<p>Error: ${data.error}</p>`;
-        originalPromptContent = '';
-      } else {
-        // Store raw content for editing
-        const rawContent = data.content;
-        originalPromptContent = rawContent;
-        document.getElementById('itemContentEditor').value = rawContent;
-
-        // Display content
-        document.getElementById('promptDisplay').textContent = rawContent;
-      }
-    })
-    .catch(err => {
-      console.error('Failed to load content:', err);
-      document.getElementById('promptDisplay').innerHTML = `<p>Failed to load content</p>`;
-    });
-}
-
-// Title editing functions
-function startTitleEdit() {
-  const modalTitle = document.getElementById('modalTitle');
-  const modalTitleInput = document.getElementById('modalTitleInput');
-
-  modalTitleInput.value = modalTitle.textContent;
-  modalTitle.style.display = 'none';
-  modalTitleInput.style.display = 'block';
-  modalTitleInput.focus();
-  modalTitleInput.select();
-}
-
-function saveTitleEdit() {
-  const modalTitle = document.getElementById('modalTitle');
-  const modalTitleInput = document.getElementById('modalTitleInput');
-  const newTitle = modalTitleInput.value.trim();
-
-  if (newTitle && newTitle !== modalTitle.textContent) {
-    // Save the title change
-    saveMetadata({ title: newTitle });
-    modalTitle.textContent = newTitle;
-  }
-
-  modalTitle.style.display = 'block';
-  modalTitleInput.style.display = 'none';
-}
-
-function handleTitleKey(event) {
-  if (event.key === 'Enter') {
-    saveTitleEdit();
-  } else if (event.key === 'Escape') {
-    const modalTitle = document.getElementById('modalTitle');
-    const modalTitleInput = document.getElementById('modalTitleInput');
-    modalTitle.style.display = 'block';
-    modalTitleInput.style.display = 'none';
-  }
-}
-
-// Prompt editing functions
-function startPromptEdit() {
-  const promptDisplay = document.getElementById('promptDisplay');
-  const promptEditor = document.getElementById('itemContentEditor');
-  const editBtn = document.getElementById('editPromptBtn');
-  const saveBtn = document.getElementById('savePromptBtn');
-  const cancelBtn = document.getElementById('cancelPromptBtn');
-
-  promptDisplay.style.display = 'none';
-  promptEditor.style.display = 'block';
-  editBtn.style.display = 'none';
-  saveBtn.style.display = 'inline-block';
-  cancelBtn.style.display = 'inline-block';
-  promptEditor.focus();
-}
-
-function savePromptEdit() {
-  const promptDisplay = document.getElementById('promptDisplay');
-  const promptEditor = document.getElementById('itemContentEditor');
-  const newContent = promptEditor.value.trim();
-
-  if (!newContent) {
-    showError('Content cannot be empty');
-    return;
-  }
-
-  // Save the content
-  saveMetadata({ content: newContent });
-
-  promptDisplay.textContent = newContent;
-  originalPromptContent = newContent;
-
-  // Reset UI
-  promptDisplay.style.display = 'block';
-  promptEditor.style.display = 'none';
-  document.getElementById('editPromptBtn').style.display = 'inline-block';
-  document.getElementById('savePromptBtn').style.display = 'none';
-  document.getElementById('cancelPromptBtn').style.display = 'none';
-}
-
-function cancelPromptEdit() {
-  const promptDisplay = document.getElementById('promptDisplay');
-  const promptEditor = document.getElementById('itemContentEditor');
-
-  // Restore original content
-  promptEditor.value = originalPromptContent;
-
-  // Reset UI
-  promptDisplay.style.display = 'block';
-  promptEditor.style.display = 'none';
-  document.getElementById('editPromptBtn').style.display = 'inline-block';
-  document.getElementById('savePromptBtn').style.display = 'none';
-  document.getElementById('cancelPromptBtn').style.display = 'none';
-}
-
-// Metadata saving function
-async function saveMetadata(updates = {}) {
-  const requestBody = {};
-
-  if (currentEditingType === 'agent') {
-    // Gather all current metadata values
-    const currentTitle = document.getElementById('modalTitle').textContent;
-    const currentContent = document.getElementById('itemContentEditor').value.trim();
-
-    requestBody.title = updates.title || currentTitle;
-    requestBody.content = updates.content || currentContent;
-
-    // Schedule
-    const isScheduled = document.getElementById('modalSchedule').checked;
-    if (isScheduled) {
-      requestBody.schedule = 'daily';
-    }
-
-    // Priority
-    const priority = document.getElementById('modalPriority').value;
-    if (priority !== '') {
-      requestBody.priority = parseInt(priority);
-    }
-
-    // Multi-facet
-    const isMultiFacet = document.getElementById('modalMultiFacet').checked;
-    if (isMultiFacet) {
-      requestBody.multi_facet = true;
-    }
-
-    // Tools
-    const toolsSelect = document.getElementById('modalTools').value;
-    const toolsCustom = document.getElementById('modalToolsCustom').value.trim();
-
-    if (toolsSelect === 'custom' && toolsCustom) {
-      requestBody.tools = toolsCustom;
-    } else if (toolsSelect && toolsSelect !== '') {
-      requestBody.tools = toolsSelect;
-    }
-
-    const updateUrl = `{{ url_for('app:agents.update_agent', agent_id='') }}${currentEditingItem}`;
-
-    try {
-      const response = await fetch(updateUrl, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(requestBody)
-      });
-
-      const data = await response.json();
-
-      if (response.ok) {
-        // Show saving indicator
-        showSavingIndicator();
-        // Reload the list to reflect changes
-        loadAvailableAgents();
-      } else {
-        showError(data.error || 'Failed to save changes');
-      }
-    } catch (error) {
-      showError('Error saving changes: ' + error.message);
-    }
-  }
-}
-
-// Topic metadata saving
-async function saveTopicMetadata() {
-  const requestBody = {
-    title: document.getElementById('modalTitle').textContent,
-    content: document.getElementById('itemContentEditor').value.trim(),
-    disabled: !document.getElementById('modalTopicEnabled').checked,
-    color: document.getElementById('modalTopicColor').value
-  };
-
-  const updateUrl = `{{ url_for('app:agents.update_insight', insight_id='') }}${currentEditingItem}`;
-
-  try {
-    const response = await fetch(updateUrl, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(requestBody)
-    });
-
-    const data = await response.json();
-
-    if (response.ok) {
-      showSavingIndicator();
-      loadAvailableTopics();
-    } else {
-      showError(data.error || 'Failed to save changes');
-    }
-  } catch (error) {
-    showError('Error saving changes: ' + error.message);
-  }
-}
-
-// Helper functions
-function toggleSchedule() {
-  const checkbox = document.getElementById('modalSchedule');
-  checkbox.checked = !checkbox.checked;
-  saveMetadata();
-}
-
-function toggleMultiFacet() {
-  const checkbox = document.getElementById('modalMultiFacet');
-  checkbox.checked = !checkbox.checked;
-  saveMetadata();
-}
-
-function toggleTopicEnabled() {
-  const checkbox = document.getElementById('modalTopicEnabled');
-  checkbox.checked = !checkbox.checked;
-  saveTopicMetadata();
-}
-
-function showSavingIndicator() {
-  const indicator = document.getElementById('savingIndicator');
-  indicator.style.display = 'inline-block';
-  setTimeout(() => {
-    indicator.style.display = 'none';
-  }, 2000);
-}
-
-// Show prompt modal with prompt text
-function showPromptModal(promptText) {
-  const modal = document.getElementById('promptModal');
-  const editor = document.getElementById('promptEditor');
-
-  // Set the prompt in the editor
-  editor.value = promptText;
-
-  // Update preview
-  updatePromptPreview();
-
-  // Load available agents
-  loadPersonas();
-
-  // Show modal
-  modal.style.display = 'block';
-}
-
-// Close prompt modal
-function closePromptModal() {
-  document.getElementById('promptModal').style.display = 'none';
-}
-
-// Switch between tabs
-function switchTab(tabName) {
-  // Update tab buttons
-  document.querySelectorAll('.modal-tab').forEach(tab => {
-    tab.classList.remove('active');
-  });
-  event.target.classList.add('active');
-
-  // Update tab content
-  document.querySelectorAll('.tab-content').forEach(content => {
-    content.classList.remove('active');
-  });
-  document.getElementById(tabName + 'Tab').classList.add('active');
-
-  // Update preview if switching to preview tab
-  if (tabName === 'preview') {
-    updatePromptPreview();
-  }
-}
-
-// Update markdown preview
-function updatePromptPreview() {
-  const editor = document.getElementById('promptEditor');
-  const preview = document.getElementById('promptPreview');
-
-  if (editor.value.trim()) {
-    preview.innerHTML = marked.parse(editor.value);
-  } else {
-    preview.innerHTML = '<p><em>No prompt content to preview</em></p>';
-}
-}
-
-// Load available agents
-function loadPersonas() {
-  fetch('{{ url_for('app:agents.available_agents') }}')
-    .then(r => r.json())
-    .then(agents => {
-      const select = document.getElementById('agentPersona');
-      select.innerHTML = '<option value="default">Default</option>';
-
-      agents.forEach(agent => {
-        const option = document.createElement('option');
-        option.value = agent.id;
-        option.textContent = agent.title;
-        select.appendChild(option);
-      });
-    })
-    .catch(err => {
-      console.error('Failed to load agents:', err);
-    });
-}
-
-// Start agent with current prompt and config
-async function startAgent() {
-  const prompt = document.getElementById('promptEditor').value.trim();
-  if (!prompt) {
-    showError('Please provide a prompt before starting the agent.');
-    return;
-  }
-
-  const maxTokens = parseInt(document.getElementById('maxTokens').value) || 0;
-  const persona = document.getElementById('agentPersona').value;
-
-  // Build config object
-  const config = {};
-  if (maxTokens) config.max_tokens = maxTokens;
-
-  const startBtn = document.getElementById('startAgentBtn');
-  startBtn.disabled = true;
-  startBtn.textContent = '🚀 Starting...';
-
-  try {
-    const response = await fetch('{{ url_for('app:agents.start_agent') }}', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        prompt: prompt,
-        config: config,
-        persona: persona
-      })
-    });
-
-    const data = await response.json();
-
-    if (!response.ok) {
-      throw new Error(data.error || 'Failed to start agent');
-    }
-
-    // Success - close modal and reload agents
-    closePromptModal();
-    loadAgentSessions();
-
-  } catch (error) {
-    showError('Error starting agent: ' + error.message);
-  } finally {
-    startBtn.disabled = false;
-    startBtn.textContent = '🚀 Start Agent';
-  }
-}
-
-// Close item modal function
-function closeItemModal() {
-  // Cancel any ongoing prompt edits if elements exist
-  const promptDisplay = document.getElementById('promptDisplay');
-  const promptEditor = document.getElementById('itemContentEditor');
-
-  if (promptDisplay && promptEditor) {
-    // Reset prompt editor if it was being edited
-    if (promptEditor.style.display === 'block') {
-      promptEditor.value = originalPromptContent || '';
-      promptDisplay.style.display = 'block';
-      promptEditor.style.display = 'none';
-
-      const editBtn = document.getElementById('editPromptBtn');
-      const saveBtn = document.getElementById('savePromptBtn');
-      const cancelBtn = document.getElementById('cancelPromptBtn');
-
-      if (editBtn) editBtn.style.display = 'inline-block';
-      if (saveBtn) saveBtn.style.display = 'none';
-      if (cancelBtn) cancelBtn.style.display = 'none';
-    }
-  }
-
-  // Reset title if editing
-  const modalTitle = document.getElementById('modalTitle');
-  const modalTitleInput = document.getElementById('modalTitleInput');
-  if (modalTitle && modalTitleInput) {
-    modalTitle.style.display = 'block';
-    modalTitleInput.style.display = 'none';
-  }
-
-  document.getElementById('itemModal').style.display = 'none';
-}
-
-// Moved to bottom of script with createPersonaModal handling
-
-// Pagination state
-let currentPage = 0;
-let pageSize = 20;
-let totalAgents = 0;
-
-// Build table row for completed agent run
-function buildRow(a) {
-  const tr = document.createElement('tr');
-  const short = a.prompt.length > 80 ? a.prompt.slice(0, 80) + '…' : a.prompt;
-
-  // Status emoji
-  const statusEmojis = {
-    'completed': '✅',
-    'finished': '✅',
-    'error': '❌',
-    'interrupted': '⚠️',
-    'unknown': '❓'
-  };
-  const statusEmoji = statusEmojis[a.status] || statusEmojis['unknown'];
-  const statusBadge = `<span class="status-badge" title="${a.status || 'unknown'}">${statusEmoji}</span>`;
 
   // Format runtime
-  let runtimeDisplay = '';
-  if (a.runtime_seconds !== undefined && a.runtime_seconds !== null) {
-    const totalSeconds = Math.floor(a.runtime_seconds);
-    const minutes = Math.floor(totalSeconds / 60);
-    runtimeDisplay = totalSeconds > 59 ? `${minutes}m` : `${totalSeconds}s`;
+  function formatRuntime(seconds) {
+    if (seconds === null || seconds === undefined) return '—';
+    if (seconds < 60) return `${Math.round(seconds)}s`;
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.round(seconds % 60);
+    return `${mins}m ${secs}s`;
   }
 
-  tr.innerHTML = `
-    <td>${statusBadge}</td>
-    <td>${a.since}</td>
-    <td>${runtimeDisplay}</td>
-    <td>${a.model || ''}</td>
-    <td>${a.persona_title || a.persona}</td>
-    <td title="${a.prompt}">${short}</td>
-  `;
-
-  // Add facet color indicator when in all-facet mode
-  if (!window.selectedFacet && a.facet_color) {
-    tr.style.borderLeft = `4px solid ${a.facet_color}`;
+  // Truncate prompt for display
+  function truncatePrompt(prompt, maxLen = 80) {
+    if (!prompt) return '—';
+    const clean = prompt.replace(/\s+/g, ' ').trim();
+    if (clean.length <= maxLen) return clean;
+    return clean.substring(0, maxLen) + '...';
   }
 
-  // Add restart button cell
-  const restartCell = document.createElement('td');
-  restartCell.style.textAlign = 'center';
-  restartCell.style.padding = '0';
+  // Load agents for current day
+  async function loadAgents() {
+    currentDay = getDayFromUrl();
+    if (!currentDay) return;
 
-  const restartBtn = document.createElement('button');
-  restartBtn.className = 'restart-btn';
-  restartBtn.title = 'Restart this agent';
-  restartBtn.innerHTML = '&#x21bb;';
-  restartBtn.dataset.agentId = a.id;
-  restartBtn.dataset.prompt = a.prompt;
-  restartBtn.dataset.persona = a.persona;
-  restartBtn.dataset.facet = a.facet || '';
+    document.getElementById('loading-view').style.display = 'block';
+    document.getElementById('grid-view').style.display = 'none';
+    document.getElementById('list-view').style.display = 'none';
 
-  restartBtn.onclick = (e) => {
-    e.stopPropagation();
-    restartAgent(e.target);
-  };
-
-  restartCell.appendChild(restartBtn);
-  tr.appendChild(restartCell);
-
-  // Click row to open the run modal
-  tr.className = 'clickable-row';
-  tr.onclick = (e) => {
-    if (e.target.classList.contains('restart-btn')) return;
-    viewAgentRun(a.id);
-  };
-
-  return tr;
-}
-
-function loadAgentSessions(page = 0) {
-  const offset = page * pageSize;
-  let url = `{{ url_for('app:agents.agents_list') }}?limit=${pageSize}&offset=${offset}`;
-
-  // Add facet filter if a specific facet is selected
-  if (window.selectedFacet) {
-    url += `&facet=${encodeURIComponent(window.selectedFacet)}`;
+    try {
+      const response = await fetch(`api/agents/${currentDay}`);
+      agentData = await response.json();
+      renderGridView();
+    } catch (error) {
+      console.error('Error loading agents:', error);
+      document.getElementById('loading-view').innerHTML =
+        '<div class="empty-state"><div class="empty-state-text">Error loading agents</div></div>';
+    }
   }
 
-  fetch(url)
-    .then(r => {
-      if (!r.ok) {
-        throw new Error(`HTTP ${r.status}: ${r.statusText}`);
+  // Render the card grid view
+  function renderGridView() {
+    document.getElementById('loading-view').style.display = 'none';
+    document.getElementById('grid-view').style.display = 'block';
+    document.getElementById('list-view').style.display = 'none';
+
+    const container = document.getElementById('agent-groups');
+    container.innerHTML = '';
+
+    const { groups, total_runs } = agentData;
+    const hasAgents = groups.system.length > 0 || Object.keys(groups.apps).length > 0;
+
+    if (!hasAgents) {
+      document.getElementById('empty-state').style.display = 'block';
+      return;
+    }
+
+    document.getElementById('empty-state').style.display = 'none';
+
+    // Render system agents
+    if (groups.system.length > 0) {
+      container.appendChild(renderSection('System Agents', groups.system));
+    }
+
+    // Render app agent sections
+    const appNames = Object.keys(groups.apps).sort();
+    for (const appName of appNames) {
+      const title = appName.charAt(0).toUpperCase() + appName.slice(1);
+      container.appendChild(renderSection(title, groups.apps[appName]));
+    }
+  }
+
+  // Render a section with cards
+  function renderSection(title, agents) {
+    const section = document.createElement('div');
+    section.className = 'agent-section';
+
+    const titleEl = document.createElement('h3');
+    titleEl.className = 'section-title';
+    titleEl.textContent = title;
+    section.appendChild(titleEl);
+
+    const grid = document.createElement('div');
+    grid.className = 'agent-cards';
+
+    for (const agent of agents) {
+      grid.appendChild(renderCard(agent));
+    }
+
+    section.appendChild(grid);
+    return section;
+  }
+
+  // Render an agent card
+  function renderCard(agent) {
+    const card = document.createElement('div');
+    card.className = 'agent-card';
+    card.onclick = () => showRunList(agent.persona);
+
+    // Header with title and badges
+    const header = document.createElement('div');
+    header.className = 'agent-card-header';
+
+    const title = document.createElement('h4');
+    title.className = 'agent-card-title';
+    title.textContent = agent.title;
+    header.appendChild(title);
+
+    const badges = document.createElement('div');
+    badges.className = 'agent-card-badges';
+
+    // Run count badge
+    const countBadge = document.createElement('span');
+    countBadge.className = 'badge badge-count';
+    countBadge.textContent = agent.run_count;
+    badges.appendChild(countBadge);
+
+    // Failed count badge
+    if (agent.failed_count > 0) {
+      const failBadge = document.createElement('span');
+      failBadge.className = 'badge badge-failed';
+      failBadge.textContent = agent.failed_count + ' failed';
+      badges.appendChild(failBadge);
+    }
+
+    header.appendChild(badges);
+    card.appendChild(header);
+
+    // Facet color dots (for all-facet mode)
+    if (agent.facet_colors && Object.keys(agent.facet_colors).length > 0) {
+      const meta = document.createElement('div');
+      meta.className = 'agent-card-meta';
+
+      for (const [facetName, color] of Object.entries(agent.facet_colors)) {
+        const dot = document.createElement('span');
+        dot.className = 'facet-dot';
+        dot.style.backgroundColor = color || '#999';
+        dot.title = facetName;
+        meta.appendChild(dot);
       }
-      return r.json();
-    })
-    .then(data => {
-      if (data.error) {
-        throw new Error(data.error);
-      }
 
-      const agents = data.agents || [];
-      const pagination = data.pagination;
-      const historicalCount = data.historical_count || agents.length;
+      card.appendChild(meta);
+    }
 
-      // Update count
-      document.getElementById('historicalCount').textContent = historicalCount;
+    return card;
+  }
 
-      // Update agents table
-      const histTable = document.getElementById('historicalAgentTable');
-      const histEmpty = document.getElementById('historicalEmpty');
+  // Show run list for a specific agent
+  async function showRunList(persona) {
+    currentPersona = persona;
+    expandedRunId = null;
+    runDetailCache = {};
 
-      if (agents.length > 0) {
-        histTable.innerHTML = '<tr><th></th><th>Started</th><th>Runtime</th><th>Model</th><th>Agent</th><th>Prompt</th><th></th></tr>';
-        agents.forEach(a => histTable.appendChild(buildRow(a)));
-        histTable.style.display = 'table';
-        histEmpty.style.display = 'none';
+    document.getElementById('grid-view').style.display = 'none';
+    document.getElementById('list-view').style.display = 'block';
+
+    const tbody = document.getElementById('runs-tbody');
+    tbody.innerHTML = '<tr><td colspan="5" class="run-loading"><div class="spinner"></div></td></tr>';
+
+    try {
+      const response = await fetch(`api/agents/${currentDay}/${encodeURIComponent(persona)}`);
+      const data = await response.json();
+
+      document.getElementById('list-view-title').textContent = data.title;
+      document.getElementById('list-view-count').textContent =
+        `${data.run_count} run${data.run_count !== 1 ? 's' : ''}` +
+        (data.failed_count > 0 ? ` (${data.failed_count} failed)` : '');
+
+      renderRunList(data.runs);
+    } catch (error) {
+      console.error('Error loading runs:', error);
+      tbody.innerHTML = '<tr><td colspan="5" class="run-loading">Error loading runs</td></tr>';
+    }
+  }
+
+  // Render the run list table
+  function renderRunList(runs) {
+    const tbody = document.getElementById('runs-tbody');
+    tbody.innerHTML = '';
+
+    if (runs.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="5" class="run-loading">No runs found</td></tr>';
+      return;
+    }
+
+    for (const run of runs) {
+      // Main row
+      const row = document.createElement('tr');
+      row.dataset.runId = run.id;
+      row.onclick = () => toggleRunDetail(run.id);
+
+      // Status
+      const statusCell = document.createElement('td');
+      statusCell.className = 'col-status';
+      const statusIcon = document.createElement('span');
+      statusIcon.className = 'status-icon';
+      if (run.status === 'running') {
+        statusIcon.className += ' status-running';
+        statusIcon.textContent = '⏳';
+        statusIcon.title = 'Running';
+      } else if (run.failed) {
+        statusIcon.className += ' status-failed';
+        statusIcon.textContent = '✗';
+        statusIcon.title = 'Failed';
       } else {
-        histTable.style.display = 'none';
-        histEmpty.style.display = 'block';
+        statusIcon.className += ' status-ok';
+        statusIcon.textContent = '✓';
+        statusIcon.title = 'Completed';
       }
+      statusCell.appendChild(statusIcon);
+      row.appendChild(statusCell);
 
-      // Update pagination if available
-      if (pagination && pagination.total > pagination.limit) {
-        currentPage = Math.floor(pagination.offset / pagination.limit);
-        totalAgents = pagination.total;
-        updatePagination(pagination);
-      } else {
-        document.getElementById('pagination').style.display = 'none';
-      }
-    })
-    .catch(err => {
-      console.error('Failed to load agents:', err);
-      document.getElementById('historicalCount').textContent = '0';
-      document.getElementById('historicalAgentTable').style.display = 'none';
-      document.getElementById('historicalEmpty').style.display = 'block';
-      document.getElementById('pagination').style.display = 'none';
-    });
-}
+      // Time
+      const timeCell = document.createElement('td');
+      timeCell.className = 'col-time';
+      timeCell.textContent = formatTime(run.start);
+      row.appendChild(timeCell);
 
-function updatePagination(pagination) {
-  const paginationDiv = document.getElementById('pagination');
-  const prevBtn = document.getElementById('prevBtn');
-  const nextBtn = document.getElementById('nextBtn');
-  const pageInfo = document.getElementById('pageInfo');
+      // Runtime
+      const runtimeCell = document.createElement('td');
+      runtimeCell.className = 'col-runtime';
+      runtimeCell.textContent = formatRuntime(run.runtime_seconds);
+      row.appendChild(runtimeCell);
 
-  if (pagination.total > pagination.limit) {
-    paginationDiv.style.display = 'flex';
-
-    const currentPageNum = Math.floor(pagination.offset / pagination.limit) + 1;
-    const totalPages = Math.ceil(pagination.total / pagination.limit);
-
-    pageInfo.textContent = `Page ${currentPageNum} of ${totalPages} (${pagination.total} total)`;
-
-    prevBtn.disabled = pagination.offset === 0;
-    nextBtn.disabled = !pagination.has_more;
-  } else {
-    paginationDiv.style.display = 'none';
-  }
-}
-
-function changePage(delta) {
-  const newPage = currentPage + delta;
-  if (newPage >= 0) {
-    loadAgentSessions(newPage);
-  }
-}
-
-// Show error message
-function showError(message) {
-  alert(message); // Simple alert for now, can be improved with a toast notification
-}
-
-// Restart agent function
-async function restartAgent(buttonElement) {
-  // Get data from button's dataset
-  const agentId = buttonElement.dataset.agentId;
-  const prompt = buttonElement.dataset.prompt;
-  const persona = buttonElement.dataset.persona;
-  const facet = buttonElement.dataset.facet;
-
-  // Confirmation dialog
-  const confirmed = confirm(
-    `Are you sure you want to restart this agent?\n\n` +
-    `Prompt: ${prompt.substring(0, 100)}${prompt.length > 100 ? '...' : ''}\n` +
-    `Agent: ${persona}\n\n` +
-    `This will create a new agent run with the same configuration.`
-  );
-
-  if (!confirmed) {
-    return;
-  }
-
-  // Build config with original facet if it had one
-  const config = {};
-  if (facet) {
-    config.facet = facet;
-  }
-
-  try {
-    const response = await fetch('{{ url_for('app:agents.start_agent') }}', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        prompt: prompt,
-        persona: persona,
-        config: config
-      })
-    });
-
-    const data = await response.json();
-
-    if (!response.ok) {
-      throw new Error(data.error || 'Failed to restart agent');
-    }
-
-    // Success - reload the agents list to show the new agent
-    alert('Agent restarted successfully!');
-    loadAgentSessions(currentPage);
-
-  } catch (error) {
-    showError('Error restarting agent: ' + error.message);
-  }
-}
-
-// Create Agent Modal Functions
-function openCreatePersonaModal() {
-  const modal = document.getElementById('createPersonaModal');
-  modal.style.display = 'block';
-
-  // Reset form
-  document.getElementById('createPersonaForm').reset();
-  document.getElementById('createPersonaForm').style.display = 'block';
-  document.getElementById('createPersonaForm').classList.remove('busy');
-  document.getElementById('createPersonaPromptStatus').classList.remove('show');
-  document.getElementById('createPromptBtn').disabled = false;
-}
-
-function closeCreatePersonaModal() {
-  document.getElementById('createPersonaModal').style.display = 'none';
-}
-
-// Create Topic Modal Functions
-function openCreateTopicModal() {
-  const modal = document.getElementById('createTopicModal');
-  modal.style.display = 'block';
-
-  // Reset form
-  document.getElementById('createTopicForm').reset();
-  document.getElementById('topicResult').style.display = 'none';
-  document.getElementById('createTopicBtn').disabled = false;
-}
-
-function closeCreateTopicModal() {
-  document.getElementById('createTopicModal').style.display = 'none';
-}
-
-// Handle create agent form submission
-document.getElementById('createPersonaForm').addEventListener('submit', async (e) => {
-  e.preventDefault();
-
-  const title = document.getElementById('personaTitle').value.trim();
-  const input = document.getElementById('personaInput').value.trim();
-  const form = e.target;
-  const status = document.getElementById('createPersonaPromptStatus');
-  const createBtn = document.getElementById('createPromptBtn');
-
-  if (!title || !input) return;
-
-  // Show prompt generation status
-  form.classList.add('busy');
-  status.classList.add('show');
-  createBtn.disabled = true;
-
-  try {
-    const response = await fetch('{{ url_for('app:agents.create_plan') }}', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        request: input,
-        model: '' // Uses Gemini Pro by default
-      })
-    });
-
-    const data = await response.json();
-
-    if (!response.ok) {
-      throw new Error(data.error || 'Failed to create prompt');
-    }
-
-    const generatedPrompt = data.prompt || data.plan;
-    if (!generatedPrompt) {
-      throw new Error('No prompt returned by planner');
-    }
-
-    // Show the generated prompt
-    showPersonaPromptResult(generatedPrompt, title);
-
-  } catch (error) {
-    showError('Error creating prompt: ' + error.message);
-    createBtn.disabled = false;
-  } finally {
-    // Remove busy state
-    form.classList.remove('busy');
-    status.classList.remove('show');
-  }
-});
-
-async function showPersonaPromptResult(prompt, title) {
-  // Auto-save the agent immediately
-  const isDaily = document.getElementById('personaDailySchedule').checked;
-  const priority = document.getElementById('personaPriority').value;
-  const toolsSelect = document.getElementById('personaToolPacks');
-  const personaId = title.toLowerCase().replace(/[^a-z0-9]+/g, '_');
-
-  try {
-    // Create the agent
-    const requestBody = {
-      title: title,
-      content: prompt
-    };
-
-    // Add schedule if daily is checked
-    if (isDaily) {
-      requestBody.schedule = 'daily';
-    }
-
-    // Add priority if specified
-    if (priority !== '') {
-      requestBody.priority = parseInt(priority);
-    }
-
-    // Add tools if specific packs are selected
-    const selectedTools = [];
-    for (let option of toolsSelect.options) {
-      if (option.selected && option.value !== '') {
-        selectedTools.push(option.value);
-      }
-    }
-    if (selectedTools.length > 0) {
-      requestBody.tools = selectedTools.join(',');
-    }
-
-    const response = await fetch(`{{ url_for('app:agents.update_agent', agent_id='') }}${personaId}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(requestBody)
-    });
-
-    const data = await response.json();
-
-    if (response.ok) {
-      // Close create modal
-      closeCreatePersonaModal();
-
-      // Reload agents list
-      await loadAvailableAgents();
-
-      // Open the edit modal with the new agent
-      setTimeout(() => {
-        // Find the new agent in the list
-        const newAgent = availableAgents.find(a => a.id === personaId);
-        if (newAgent) {
-          viewItemDetails(personaId, 'agent', { stopPropagation: () => {} });
+      // Facet
+      const facetCell = document.createElement('td');
+      facetCell.className = 'col-facet';
+      if (run.facet) {
+        const tag = document.createElement('span');
+        tag.className = 'facet-tag';
+        if (run.facet_color) {
+          const dot = document.createElement('span');
+          dot.className = 'facet-dot';
+          dot.style.backgroundColor = run.facet_color;
+          tag.appendChild(dot);
         }
-      }, 100);
-    } else {
-      throw new Error(data.error || 'Failed to save agent');
-    }
-  } catch (error) {
-    showError('Error saving agent: ' + error.message);
-    // Re-enable the form
-    document.getElementById('createPersonaForm').classList.remove('busy');
-    document.getElementById('createPersonaPromptStatus').classList.remove('show');
-    document.getElementById('createPromptBtn').disabled = false;
-  }
-}
-
-// Handle create topic form submission
-document.getElementById('createTopicForm').addEventListener('submit', async (e) => {
-  e.preventDefault();
-
-  const title = document.getElementById('topicTitle').value.trim();
-  const input = document.getElementById('topicInput').value.trim();
-  const form = e.target;
-  const createBtn = document.getElementById('createTopicBtn');
-
-  if (!title || !input) return;
-
-  // Show the topic content area
-  showTopicResult(input, title);
-
-  // Hide form
-  form.style.display = 'none';
-});
-
-function showTopicResult(content, title) {
-  const resultDiv = document.getElementById('topicResult');
-  const resultContent = document.getElementById('topicResultContent');
-
-  // Store content and title for saving
-  currentTopicContent = content;
-  currentTopicTitle = title;
-
-  // Display the content
-  resultContent.textContent = content;
-  resultDiv.style.display = 'block';
-}
-
-function editTopicContent() {
-  const resultContent = document.getElementById('topicResultContent');
-
-  // Convert to editable textarea
-  const textarea = document.createElement('textarea');
-  textarea.value = resultContent.textContent;
-  textarea.style.width = '100%';
-  textarea.style.minHeight = '400px';
-  textarea.style.padding = '1rem';
-  textarea.style.fontFamily = 'Monaco, Menlo, monospace';
-  textarea.style.fontSize = '0.9rem';
-
-  resultContent.innerHTML = '';
-  resultContent.appendChild(textarea);
-
-  // Update the content when editing
-  textarea.addEventListener('input', () => {
-    currentTopicContent = textarea.value;
-  });
-}
-
-async function saveNewTopic() {
-  const title = currentTopicTitle;
-  const content = currentTopicContent;
-
-  if (!title || !content) {
-    showError('Missing title or content');
-    return;
-  }
-
-  // Generate a unique ID for the new topic
-  const topicId = title.toLowerCase().replace(/[^a-z0-9]+/g, '_');
-
-  try {
-    // Create or update the topic
-    const response = await fetch(`{{ url_for('app:agents.update_insight', insight_id='') }}${topicId}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        title: title,
-        content: content
-      })
-    });
-
-    const data = await response.json();
-
-    if (response.ok) {
-      alert('Topic saved successfully!');
-      closeCreateTopicModal();
-      // Reset form for next use
-      document.getElementById('createTopicForm').style.display = 'block';
-      document.getElementById('topicResult').style.display = 'none';
-      // Reload topics
-      loadAvailableTopics();
-    } else {
-      throw new Error(data.error || 'Failed to save topic');
-    }
-  } catch (error) {
-    showError('Error saving topic: ' + error.message);
-  }
-}
-
-// Update modal close handlers
-window.onclick = function(event) {
-  const itemModal = document.getElementById('itemModal');
-  const promptModal = document.getElementById('promptModal');
-  const createPersonaModal = document.getElementById('createPersonaModal');
-  const createTopicModal = document.getElementById('createTopicModal');
-
-  if (event.target == itemModal) {
-    closeItemModal();
-  }
-  if (event.target == promptModal) {
-    promptModal.style.display = 'none';
-  }
-  if (event.target == createPersonaModal) {
-    createPersonaModal.style.display = 'none';
-  }
-  if (event.target == createTopicModal) {
-    createTopicModal.style.display = 'none';
-  }
-};
-
-// Handle tools dropdown change for modal
-document.addEventListener('DOMContentLoaded', () => {
-  const toolsSelect = document.getElementById('modalTools');
-  if (toolsSelect) {
-    toolsSelect.addEventListener('change', () => {
-      const customInput = document.getElementById('modalToolsCustom');
-      if (toolsSelect.value === 'custom') {
-        customInput.style.display = 'block';
-        customInput.focus();
+        tag.appendChild(document.createTextNode(run.facet_title || run.facet));
+        facetCell.appendChild(tag);
       } else {
-        customInput.style.display = 'none';
+        facetCell.textContent = '—';
       }
-      // Auto-save when tools change
-      if (currentEditingType === 'agent') {
-        saveMetadata();
-      }
-    });
+      row.appendChild(facetCell);
+
+      // Prompt
+      const promptCell = document.createElement('td');
+      promptCell.className = 'col-prompt';
+      const promptSpan = document.createElement('span');
+      promptSpan.className = 'prompt-snippet';
+      promptSpan.textContent = truncatePrompt(run.prompt);
+      promptSpan.title = run.prompt;
+      promptCell.appendChild(promptSpan);
+      row.appendChild(promptCell);
+
+      tbody.appendChild(row);
+    }
   }
-});
 
-// Load available tools and render them
-function loadAvailableTools() {
-  fetch('{{ url_for('app:agents.available_tools') }}')
-    .then(r => r.json())
-    .then(data => {
-      if (data.error) {
-        document.getElementById('toolsGrid').innerHTML = `
-          <div class="tools-empty-state">
-            <h3>Error Loading Tools</h3>
-            <p>${data.error}</p>
-          </div>
-        `;
-        return;
-      }
+  // Toggle run detail expansion
+  async function toggleRunDetail(runId) {
+    const tbody = document.getElementById('runs-tbody');
+    const existingDetail = tbody.querySelector(`tr.run-detail-row[data-run-id="${runId}"]`);
+    const mainRow = tbody.querySelector(`tr[data-run-id="${runId}"]`);
 
-      availableTools = data.tools || [];
-      toolPacks = data.packs || {};
-      renderPackFilters();
-      renderToolsGrid();
-      setupToolsSearch();
-    })
-    .catch(err => {
-      console.error('Failed to load tools:', err);
-      document.getElementById('toolsGrid').innerHTML = `
-        <div class="tools-empty-state">
-          <h3>Failed to Load Tools</h3>
-          <p>Please ensure the MCP tools server is configured correctly.</p>
-        </div>
-      `;
-    });
-}
-
-// Render pack filter buttons
-function renderPackFilters() {
-  const container = document.getElementById('packFilters');
-  container.innerHTML = '';
-
-  // All tools button
-  const allBtn = document.createElement('button');
-  allBtn.className = 'pack-filter-btn active';
-  allBtn.innerHTML = `All<span class="count">${availableTools.length}</span>`;
-  allBtn.onclick = () => filterByPack('all');
-  container.appendChild(allBtn);
-
-  // Pack-specific buttons
-  Object.entries(toolPacks).forEach(([packName, packInfo]) => {
-    const btn = document.createElement('button');
-    btn.className = 'pack-filter-btn';
-    btn.innerHTML = `${packInfo.name}<span class="count">${packInfo.tools.length}</span>`;
-    btn.title = packInfo.description;
-    btn.onclick = () => filterByPack(packName);
-    container.appendChild(btn);
-  });
-
-  // Uncategorized button (tools not in any pack)
-  const uncategorized = availableTools.filter(t => t.packs.length === 0);
-  if (uncategorized.length > 0) {
-    const uncatBtn = document.createElement('button');
-    uncatBtn.className = 'pack-filter-btn';
-    uncatBtn.innerHTML = `Other<span class="count">${uncategorized.length}</span>`;
-    uncatBtn.onclick = () => filterByPack('uncategorized');
-    container.appendChild(uncatBtn);
-  }
-}
-
-// Filter tools by pack
-function filterByPack(pack) {
-  activePackFilter = pack;
-
-  // Update button states
-  document.querySelectorAll('.pack-filter-btn').forEach(btn => {
-    btn.classList.remove('active');
-  });
-  event.target.classList.add('active');
-
-  // Apply filter
-  applyToolsFilter();
-}
-
-// Apply search and pack filters
-function applyToolsFilter() {
-  const searchTerm = document.getElementById('toolsSearch').value.toLowerCase();
-  const cards = document.querySelectorAll('.tool-card');
-
-  cards.forEach(card => {
-    const toolName = card.dataset.toolName;
-    const tool = availableTools.find(t => t.name === toolName);
-    if (!tool) return;
-
-    // Check pack filter
-    let packMatch = true;
-    if (activePackFilter !== 'all') {
-      if (activePackFilter === 'uncategorized') {
-        packMatch = tool.packs.length === 0;
-      } else {
-        packMatch = tool.packs.includes(activePackFilter);
-      }
+    // Collapse if already expanded
+    if (existingDetail) {
+      existingDetail.remove();
+      mainRow.classList.remove('expanded');
+      expandedRunId = null;
+      return;
     }
 
-    // Check search filter
-    let searchMatch = true;
-    if (searchTerm) {
-      searchMatch = tool.name.toLowerCase().includes(searchTerm) ||
-                   (tool.description && tool.description.toLowerCase().includes(searchTerm));
-    }
+    // Collapse any other expanded row
+    const oldDetail = tbody.querySelector('tr.run-detail-row');
+    const oldMain = tbody.querySelector('tr.expanded');
+    if (oldDetail) oldDetail.remove();
+    if (oldMain) oldMain.classList.remove('expanded');
 
-    // Show/hide card
-    if (packMatch && searchMatch) {
-      card.classList.remove('hidden');
+    // Create detail row
+    expandedRunId = runId;
+    mainRow.classList.add('expanded');
+
+    const detailRow = document.createElement('tr');
+    detailRow.className = 'run-detail-row';
+    detailRow.dataset.runId = runId;
+
+    const detailCell = document.createElement('td');
+    detailCell.colSpan = 5;
+
+    const content = document.createElement('div');
+    content.className = 'run-detail-content';
+
+    // Check cache
+    if (runDetailCache[runId]) {
+      content.innerHTML = `<div class="markdown">${runDetailCache[runId]}</div>`;
     } else {
-      card.classList.add('hidden');
-    }
-  });
-}
+      content.innerHTML = '<div class="run-loading"><div class="spinner"></div><div>Loading...</div></div>';
 
-// Setup search functionality
-function setupToolsSearch() {
-  const searchInput = document.getElementById('toolsSearch');
-  searchInput.addEventListener('input', applyToolsFilter);
-}
+      // Fetch run detail
+      try {
+        const response = await fetch(`api/run/${runId}`);
+        const data = await response.json();
 
-// Render tools grid
-function renderToolsGrid() {
-  const container = document.getElementById('toolsGrid');
-  container.innerHTML = '';
-
-  if (availableTools.length === 0) {
-    container.innerHTML = `
-      <div class="tools-empty-state">
-        <h3>No Tools Available</h3>
-        <p>MCP tools will appear here once configured.</p>
-      </div>
-    `;
-    return;
-  }
-
-  availableTools.forEach(tool => {
-    const card = createToolCard(tool);
-    container.appendChild(card);
-  });
-}
-
-// Create a tool card element
-function createToolCard(tool) {
-  const card = document.createElement('div');
-  card.className = 'tool-card';
-  card.dataset.toolName = tool.name;
-
-  // Header with name and pack badges
-  const header = document.createElement('div');
-  header.className = 'tool-header';
-
-  const name = document.createElement('h3');
-  name.className = 'tool-name';
-  name.textContent = tool.name;
-  header.appendChild(name);
-
-  if (tool.packs && tool.packs.length > 0) {
-    const packs = document.createElement('div');
-    packs.className = 'tool-packs';
-    tool.packs.forEach(packName => {
-      const badge = document.createElement('span');
-      badge.className = 'tool-pack-badge';
-      badge.textContent = packName;
-      packs.appendChild(badge);
-    });
-    header.appendChild(packs);
-  }
-
-  card.appendChild(header);
-
-  // Description
-  const desc = document.createElement('div');
-  desc.className = 'tool-description';
-  desc.innerHTML = marked.parse(tool.description || 'No description available');
-  card.appendChild(desc);
-
-  // Parameters (if available)
-  if (tool.input_schema && tool.input_schema.properties) {
-    const params = createParametersSection(tool.input_schema);
-    if (params) {
-      card.appendChild(params);
-    }
-  }
-
-  return card;
-}
-
-// Create parameters section for a tool
-function createParametersSection(schema) {
-  const properties = schema.properties || {};
-  const required = schema.required || [];
-
-  if (Object.keys(properties).length === 0) {
-    return null;
-  }
-
-  const section = document.createElement('div');
-  section.className = 'tool-params';
-
-  const title = document.createElement('div');
-  title.className = 'tool-params-toggle tool-params-title';
-  title.textContent = `Parameters (${Object.keys(properties).length})`;
-  title.onclick = () => section.classList.toggle('collapsed');
-  section.appendChild(title);
-
-  const list = document.createElement('div');
-  list.className = 'param-list';
-
-  Object.entries(properties).forEach(([paramName, paramSchema]) => {
-    const item = document.createElement('div');
-    item.className = 'param-item';
-
-    const name = document.createElement('span');
-    name.className = 'param-name';
-    name.textContent = paramName;
-    item.appendChild(name);
-
-    // Required/optional indicator
-    const reqSpan = document.createElement('span');
-    if (required.includes(paramName)) {
-      reqSpan.className = 'param-required';
-      reqSpan.textContent = '*';
-    } else {
-      reqSpan.className = 'param-optional';
-      reqSpan.textContent = '(optional)';
-    }
-    item.appendChild(reqSpan);
-
-    // Type
-    if (paramSchema.type) {
-      const type = document.createElement('span');
-      type.className = 'param-type';
-      type.textContent = `[${paramSchema.type}]`;
-      item.appendChild(type);
-    }
-
-    // Description
-    if (paramSchema.description) {
-      const desc = document.createElement('span');
-      desc.className = 'param-description';
-      desc.textContent = paramSchema.description;
-      item.appendChild(desc);
-    }
-
-    list.appendChild(item);
-  });
-
-  section.appendChild(list);
-
-  // Start collapsed if more than 3 parameters
-  if (Object.keys(properties).length > 3) {
-    section.classList.add('collapsed');
-  }
-
-  return section;
-}
-
-// Agent Preview Modal Functions
-function openAgentPreview(personaId) {
-  const modal = document.getElementById('agentPreviewModal');
-  const titleEl = document.getElementById('previewModalTitle');
-
-  // Find agent
-  const agent = availableAgents.find(a => a.id === personaId);
-  if (!agent) return;
-
-  titleEl.textContent = `${agent.title} - Prompt Preview`;
-  modal.style.display = 'block';
-
-  // Show loading
-  document.getElementById('previewContent').innerHTML = '<div class="loading-spinner">Loading preview...</div>';
-
-  // Fetch preview
-  fetch(`/app/agents/api/preview/${personaId}`)
-    .then(r => r.json())
-    .then(data => {
-      if (data.error) {
-        throw new Error(data.error);
+        if (data.error) {
+          content.innerHTML = `<div class="run-loading">Error: ${data.error}</div>`;
+        } else {
+          // Convert markdown to HTML using marked library
+          const html = marked.parse(data.markdown || '', { breaks: true, gfm: true });
+          runDetailCache[runId] = html;
+          content.innerHTML = `<div class="markdown">${html}</div>`;
+        }
+      } catch (error) {
+        content.innerHTML = `<div class="run-loading">Error loading run details</div>`;
       }
+    }
 
-      // Render markdown
-      document.getElementById('previewContent').innerHTML = marked.parse(data.full_prompt);
+    detailCell.appendChild(content);
+    detailRow.appendChild(detailCell);
+    mainRow.after(detailRow);
+  }
 
-      // Show example invocation if multi-facet
-      const exampleDiv = document.getElementById('exampleInvocation');
-      if (data.multi_facet && data.example_invocation) {
-        exampleDiv.style.display = 'block';
-        exampleDiv.querySelector('.example-box').textContent = data.example_invocation;
+  // Show grid view
+  window.showGridView = function() {
+    currentPersona = null;
+    expandedRunId = null;
+    document.getElementById('grid-view').style.display = 'block';
+    document.getElementById('list-view').style.display = 'none';
+  };
+
+  // Show preview modal
+  window.showPreview = async function() {
+    if (!currentPersona) return;
+
+    const modal = document.getElementById('preview-modal');
+    const content = document.getElementById('preview-modal-content');
+    const title = document.getElementById('preview-modal-title');
+
+    content.textContent = 'Loading...';
+    modal.classList.add('show');
+
+    try {
+      const response = await fetch(`api/preview/${encodeURIComponent(currentPersona)}`);
+      const data = await response.json();
+
+      if (data.error) {
+        content.textContent = `Error: ${data.error}`;
       } else {
-        exampleDiv.style.display = 'none';
+        title.textContent = `${data.title} - Prompt`;
+        content.textContent = data.full_prompt;
       }
-    })
-    .catch(err => {
-      document.getElementById('previewContent').innerHTML =
-        `<div class="error-message">Error loading preview: ${err.message}</div>`;
-    });
-}
-
-function closeAgentPreviewModal() {
-  document.getElementById('agentPreviewModal').style.display = 'none';
-}
-
-// Agent Run Modal Functions - view completed agent execution transcripts
-function viewAgentRun(agentId) {
-  const modal = document.getElementById('agentRunModal');
-  const title = document.getElementById('agentRunModalTitle');
-  const content = document.getElementById('agentRunContent');
-
-  // Show modal with loading state
-  title.textContent = `Agent Run: ${agentId}`;
-  content.innerHTML = '<div class="loading-spinner">Loading agent transcript...</div>';
-  modal.style.display = 'block';
-
-  // Fetch formatted agent run
-  fetch(`/app/agents/api/run/${agentId}`)
-    .then(r => {
-      if (!r.ok) {
-        return r.json().then(data => {
-          throw new Error(data.error || `HTTP ${r.status}`);
-        });
-      }
-      return r.json();
-    })
-    .then(data => {
-      if (data.error && !data.markdown) {
-        content.innerHTML = `<div class="error-message">${data.error}</div>`;
-        return;
-      }
-
-      // Render markdown
-      const markdown = data.markdown || '';
-      content.innerHTML = marked.parse(markdown, {
-        breaks: true,
-        gfm: true
-      });
-
-      // Show warning if there were skipped entries
-      if (data.error) {
-        const warning = document.createElement('div');
-        warning.className = 'error-message';
-        warning.style.marginTop = '1rem';
-        warning.textContent = data.error;
-        content.appendChild(warning);
-      }
-    })
-    .catch(err => {
-      content.innerHTML = `<div class="error-message">Error loading agent run: ${err.message}</div>`;
-    });
-}
-
-function closeAgentRunModal() {
-  document.getElementById('agentRunModal').style.display = 'none';
-}
-
-// Close agent run modal on ESC key
-document.addEventListener('keydown', function(e) {
-  if (e.key === 'Escape') {
-    const runModal = document.getElementById('agentRunModal');
-    if (runModal && runModal.style.display === 'block') {
-      closeAgentRunModal();
+    } catch (error) {
+      content.textContent = 'Error loading prompt';
     }
-  }
-});
+  };
 
-// Close agent run modal when clicking outside
-document.getElementById('agentRunModal').addEventListener('click', function(e) {
-  if (e.target === this) {
-    closeAgentRunModal();
-  }
-});
+  // Hide preview modal
+  window.hidePreview = function() {
+    document.getElementById('preview-modal').classList.remove('show');
+  };
 
-// Reload agent sessions when facet selection changes
-document.addEventListener('facet.switch', function() {
-  // Reset to first page when switching facets
-  currentPage = 0;
-  loadAgentSessions(0);
-});
+  // Close modal on backdrop click
+  document.getElementById('preview-modal').addEventListener('click', function(e) {
+    if (e.target === this) {
+      hidePreview();
+    }
+  });
 
-// Initialize - Load completed runs on page load
-setTimeout(() => {
-  loadAgentSessions();
-}, 100);
+  // Close modal on Escape
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+      hidePreview();
+    }
+  });
+
+  // Listen for facet changes
+  window.addEventListener('facet.switch', () => {
+    loadAgents();
+  });
+
+  // Initial load
+  loadAgents();
+})();
 </script>
