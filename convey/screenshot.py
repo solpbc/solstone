@@ -47,6 +47,10 @@ def screenshot(
         script: Optional JavaScript to execute before taking screenshot
         facet: Optional facet to select (use "all" for all-facet mode)
     """
+    # Ensure route has leading slash
+    if not route.startswith("/"):
+        route = "/" + route
+
     url = f"http://{host}:{port}{route}"
 
     # Ensure output directory exists
