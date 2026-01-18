@@ -399,9 +399,24 @@ def main() -> None:
             f"Available: {', '.join(sorted(all_insights.keys()))}"
         )
 
-    extra_occ = insight_meta.get("occurrences")
-    skip_occ = extra_occ is False
-    do_anticipations = insight_meta.get("anticipations") is True
+    # Check if insight is disabled via journal config
+    if insight_meta.get("disabled"):
+        logging.info("Insight %s is disabled in journal config, skipping", insight_key)
+        day_log(args.day, f"insight {get_insight_topic(topic_arg)} skipped (disabled)")
+        return
+
+    # Check extract override from journal config
+    # When extract is False, disable both occurrences and anticipations
+    extract = insight_meta.get("extract")
+    if extract is False:
+        extra_occ = False
+        skip_occ = True
+        do_anticipations = False
+    else:
+        extra_occ = insight_meta.get("occurrences")
+        skip_occ = extra_occ is False
+        do_anticipations = insight_meta.get("anticipations") is True
+
     output_format = insight_meta.get("output")  # "json" or None (markdown)
     success = False
 

@@ -1024,6 +1024,188 @@ input:checked + .slider:before {
   cursor: not-allowed;
 }
 
+/* Insights section */
+.insights-group {
+  margin-bottom: 1.5em;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.insights-group-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75em 1em;
+  background: #f8f8f8;
+  cursor: pointer;
+  user-select: none;
+  border-bottom: 1px solid transparent;
+  transition: background 0.15s;
+}
+
+.insights-group-header:hover {
+  background: #f0f0f0;
+}
+
+.insights-group.expanded .insights-group-header {
+  border-bottom-color: #e0e0e0;
+}
+
+.insights-group-title {
+  font-weight: 600;
+  font-size: 0.95em;
+  color: #333;
+}
+
+.insights-group-count {
+  font-weight: normal;
+  color: #888;
+  font-size: 0.85em;
+  margin-left: 0.5em;
+}
+
+.insights-group-toggle {
+  font-size: 0.8em;
+  color: #666;
+  transition: transform 0.2s;
+}
+
+.insights-group.expanded .insights-group-toggle {
+  transform: rotate(180deg);
+}
+
+.insights-group-body {
+  display: none;
+  padding: 0.5em;
+}
+
+.insights-group.expanded .insights-group-body {
+  display: block;
+}
+
+.insight-source-group {
+  margin-bottom: 1em;
+}
+
+.insight-source-group:last-child {
+  margin-bottom: 0;
+}
+
+.insight-source-label {
+  font-size: 0.7em;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #888;
+  padding: 0.5em 0.5em 0.25em;
+}
+
+.insight-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75em;
+  padding: 0.6em 0.5em;
+  border-radius: 6px;
+  margin-bottom: 0.25em;
+  transition: background 0.15s;
+}
+
+.insight-row:hover {
+  background: #f5f5f5;
+}
+
+.insight-row.insight-disabled {
+  opacity: 0.6;
+}
+
+.insight-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.insight-title {
+  font-size: 0.9em;
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 0.15em;
+}
+
+.insight-desc {
+  font-size: 0.8em;
+  color: #666;
+  line-height: 1.3;
+}
+
+.insight-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.75em;
+  flex-shrink: 0;
+}
+
+.insight-toggle-group {
+  display: flex;
+  align-items: center;
+  gap: 0.4em;
+}
+
+.insight-toggle-label {
+  font-size: 0.75em;
+  color: #666;
+  white-space: nowrap;
+}
+
+.insight-toggle {
+  position: relative;
+  width: 36px;
+  height: 20px;
+}
+
+.insight-toggle input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.insight-toggle .slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #ccc;
+  transition: 0.2s;
+  border-radius: 20px;
+}
+
+.insight-toggle .slider:before {
+  position: absolute;
+  content: "";
+  height: 14px;
+  width: 14px;
+  left: 3px;
+  bottom: 3px;
+  background-color: white;
+  transition: 0.2s;
+  border-radius: 50%;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+}
+
+.insight-toggle input:checked + .slider {
+  background-color: #28a745;
+}
+
+.insight-toggle input:checked + .slider:before {
+  transform: translateX(16px);
+}
+
+.insight-toggle input:disabled + .slider {
+  opacity: 0.5;
+  cursor: default;
+}
+
 /* Responsive */
 @media (max-width: 768px) {
   .settings-wrap {
@@ -1055,6 +1237,7 @@ input:checked + .slider:before {
         <option value="apikeys">API Keys</option>
         <option value="transcription">Transcription</option>
         <option value="vision">Vision</option>
+        <option value="insights">Insights</option>
         <option value="security">Security</option>
       </optgroup>
       <optgroup label="Facet" id="navSelectFacetGroup" style="display:none">
@@ -1073,6 +1256,7 @@ input:checked + .slider:before {
       <button class="settings-nav-item" data-section="apikeys">API Keys</button>
       <button class="settings-nav-item" data-section="transcription">Transcription</button>
       <button class="settings-nav-item" data-section="vision">Vision</button>
+      <button class="settings-nav-item" data-section="insights">Insights</button>
       <button class="settings-nav-item" data-section="security">Security</button>
     </div>
     <div class="settings-nav-group" id="facetNavGroup" style="display:none">
@@ -1392,6 +1576,36 @@ input:checked + .slider:before {
       </div>
     </section>
 
+    <!-- Insights Section -->
+    <section class="settings-section" id="section-insights">
+      <h2>Insights</h2>
+      <p class="settings-section-desc">Configure which AI insights run and whether they extract events to your timeline.</p>
+
+      <!-- Segment Insights -->
+      <div class="insights-group expanded" id="segmentInsightsGroup">
+        <div class="insights-group-header" id="segmentInsightsHeader">
+          <span><span class="insights-group-title">Segment Insights</span><span class="insights-group-count" id="segmentInsightsCount"></span></span>
+          <span class="insights-group-toggle">&#9660;</span>
+        </div>
+        <div class="insights-group-body" id="segmentInsightsBody">
+          <p style="color:#666;font-size:0.85em;margin:0 0 0.75em 0">Run on each recording segment (5 minutes of audio/screen).</p>
+          <div id="segmentInsightsList">Loading...</div>
+        </div>
+      </div>
+
+      <!-- Daily Insights -->
+      <div class="insights-group expanded" id="dailyInsightsGroup">
+        <div class="insights-group-header" id="dailyInsightsHeader">
+          <span><span class="insights-group-title">Daily Insights</span><span class="insights-group-count" id="dailyInsightsCount"></span></span>
+          <span class="insights-group-toggle">&#9660;</span>
+        </div>
+        <div class="insights-group-body" id="dailyInsightsBody">
+          <p style="color:#666;font-size:0.85em;margin:0 0 0.75em 0">Run once per day, synthesizing all segments.</p>
+          <div id="dailyInsightsList">Loading...</div>
+        </div>
+      </div>
+    </section>
+
     <!-- Security Section -->
     <section class="settings-section" id="section-security">
       <h2>Security</h2>
@@ -1506,9 +1720,10 @@ let configData = null;
 let facetConfig = null;
 let saveTimeout = null;
 let logNextCursor = null;
+let insightsData = null;
 
 // ========== NAVIGATION ==========
-const VALID_SECTIONS = ['profile', 'providers', 'apikeys', 'transcription', 'vision', 'security', 'facet-appearance', 'facet-activity'];
+const VALID_SECTIONS = ['profile', 'providers', 'apikeys', 'transcription', 'vision', 'insights', 'security', 'facet-appearance', 'facet-activity'];
 
 function switchSection(sectionId, updateHash = true) {
   // Validate section exists
@@ -2828,12 +3043,180 @@ document.getElementById('visionCategoriesHeader').addEventListener('click', () =
   document.getElementById('visionCategories').classList.toggle('expanded');
 });
 
+// ========== INSIGHTS ==========
+
+async function loadInsights() {
+  try {
+    const response = await fetch('api/insights');
+    insightsData = await response.json();
+    if (insightsData.error) throw new Error(insightsData.error);
+    populateInsights(insightsData);
+  } catch (err) {
+    console.error('Error loading insights:', err);
+    document.getElementById('segmentInsightsList').textContent = 'Error loading insights';
+    document.getElementById('dailyInsightsList').textContent = 'Error loading insights';
+  }
+}
+
+function populateInsights(data) {
+  // Update counts
+  const segmentEnabled = data.segment.filter(i => !i.disabled).length;
+  const dailyEnabled = data.daily.filter(i => !i.disabled).length;
+  document.getElementById('segmentInsightsCount').textContent = `(${segmentEnabled}/${data.segment.length} enabled)`;
+  document.getElementById('dailyInsightsCount').textContent = `(${dailyEnabled}/${data.daily.length} enabled)`;
+
+  // Render lists
+  document.getElementById('segmentInsightsList').innerHTML = renderInsightsList(data.segment);
+  document.getElementById('dailyInsightsList').innerHTML = renderInsightsList(data.daily);
+
+  // Setup event listeners
+  setupInsightsEventListeners();
+}
+
+function renderInsightsList(insights) {
+  if (insights.length === 0) {
+    return '<div style="color:#999;font-style:italic;padding:0.5em;">No insights</div>';
+  }
+
+  // Group by source
+  const groups = {};
+  for (const insight of insights) {
+    const source = insight.source === 'system' ? 'System' : (insight.app || 'App');
+    if (!groups[source]) groups[source] = [];
+    groups[source].push(insight);
+  }
+
+  let html = '';
+  const sortedSources = Object.keys(groups).sort((a, b) => {
+    // System first, then alphabetically
+    if (a === 'System') return -1;
+    if (b === 'System') return 1;
+    return a.localeCompare(b);
+  });
+
+  for (const source of sortedSources) {
+    const sourceInsights = groups[source];
+    html += `<div class="insight-source-group">`;
+    if (sortedSources.length > 1 || source !== 'System') {
+      html += `<div class="insight-source-label">${source}</div>`;
+    }
+
+    for (const insight of sourceInsights) {
+      const isDisabled = insight.disabled;
+      const hasExtraction = insight.has_extraction;
+      const extractEnabled = insight.extract !== false;
+
+      html += `<div class="insight-row${isDisabled ? ' insight-disabled' : ''}" data-insight="${insight.key}">`;
+      html += `<div class="insight-info">`;
+      html += `<div class="insight-title">${escapeAttr(insight.title)}</div>`;
+      if (insight.description) {
+        html += `<div class="insight-desc">${escapeAttr(insight.description)}</div>`;
+      }
+      html += `</div>`;
+
+      html += `<div class="insight-controls">`;
+
+      // Extract toggle (only if insight supports extraction)
+      if (hasExtraction) {
+        html += `<div class="insight-toggle-group">`;
+        html += `<span class="insight-toggle-label">Extract</span>`;
+        html += `<label class="insight-toggle">`;
+        html += `<input type="checkbox" data-insight="${insight.key}" data-field="extract" ${extractEnabled ? 'checked' : ''} ${isDisabled ? 'disabled' : ''}>`;
+        html += `<span class="slider"></span>`;
+        html += `</label>`;
+        html += `</div>`;
+      }
+
+      // Enabled toggle
+      html += `<div class="insight-toggle-group">`;
+      html += `<span class="insight-toggle-label">Enabled</span>`;
+      html += `<label class="insight-toggle">`;
+      html += `<input type="checkbox" data-insight="${insight.key}" data-field="disabled" ${!isDisabled ? 'checked' : ''}>`;
+      html += `<span class="slider"></span>`;
+      html += `</label>`;
+      html += `</div>`;
+
+      html += `</div>`;
+      html += `</div>`;
+    }
+    html += `</div>`;
+  }
+
+  return html;
+}
+
+function setupInsightsEventListeners() {
+  // Handle toggle changes
+  document.querySelectorAll('.insight-row input[type="checkbox"]').forEach(input => {
+    input.addEventListener('change', async (e) => {
+      const insightKey = e.target.dataset.insight;
+      const field = e.target.dataset.field;
+      const row = e.target.closest('.insight-row');
+
+      if (field === 'disabled') {
+        // Enabled toggle: checked = enabled = disabled:false
+        const disabled = !e.target.checked;
+        await saveInsightSetting(insightKey, 'disabled', disabled);
+
+        // Update row styling and disable/enable other toggles
+        row.classList.toggle('insight-disabled', disabled);
+        const extractToggle = row.querySelector('input[data-field="extract"]');
+        if (extractToggle) {
+          extractToggle.disabled = disabled;
+        }
+      } else if (field === 'extract') {
+        await saveInsightSetting(insightKey, 'extract', e.target.checked);
+      }
+    });
+  });
+}
+
+async function saveInsightSetting(insightKey, field, value) {
+  try {
+    const payload = {
+      [insightKey]: { [field]: value }
+    };
+
+    const response = await fetch('api/insights', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+
+    const result = await response.json();
+    if (result.error) throw new Error(result.error);
+
+    // Update local state
+    insightsData = result;
+
+    // Update counts
+    const segmentEnabled = result.segment.filter(i => !i.disabled).length;
+    const dailyEnabled = result.daily.filter(i => !i.disabled).length;
+    document.getElementById('segmentInsightsCount').textContent = `(${segmentEnabled}/${result.segment.length} enabled)`;
+    document.getElementById('dailyInsightsCount').textContent = `(${dailyEnabled}/${result.daily.length} enabled)`;
+
+  } catch (err) {
+    console.error('Error saving insight setting:', err);
+    // Revert the toggle on error
+    loadInsights();
+  }
+}
+
+// Toggle insights groups expansion
+document.getElementById('segmentInsightsHeader').addEventListener('click', () => {
+  document.getElementById('segmentInsightsGroup').classList.toggle('expanded');
+});
+document.getElementById('dailyInsightsHeader').addEventListener('click', () => {
+  document.getElementById('dailyInsightsGroup').classList.toggle('expanded');
+});
+
 // ========== INIT ==========
 updateFacetNav();
 initFromHash();
 loadConfig();
 loadProviders();
 loadVision();
+loadInsights();
 setupAutoSave();
 
 // If facet is selected on load, load its config

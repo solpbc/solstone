@@ -611,8 +611,21 @@ def _load_insight_metadata(txt_path: Path) -> dict[str, object]:
     return info
 
 
+def get_insights_config() -> dict[str, dict[str, object]]:
+    """Return insight overrides from journal config.
+
+    Returns
+    -------
+    dict
+        Mapping of insight key to override settings (disabled, extract).
+        Empty dict if no overrides configured.
+    """
+    config = get_config()
+    return config.get("insights", {})
+
+
 def get_insights() -> dict[str, dict[str, object]]:
-    """Return available insights with metadata.
+    """Return available insights with metadata and config overrides.
 
     Scans both system insights (think/insights/) and app insights
     (apps/*/insights/). Each key is the insight name:
@@ -623,6 +636,10 @@ def get_insights() -> dict[str, dict[str, object]]:
     from the metadata JSON, the file ``mtime``, a ``source`` field
     ("system" or "app"), and any keys loaded from a matching ``.json``
     metadata file.
+
+    Journal config overrides (from config/journal.json "insights" section)
+    are merged in, allowing ``disabled`` and ``extract`` to be
+    overridden per insight.
     """
     insights: dict[str, dict[str, object]] = {}
 
@@ -651,6 +668,16 @@ def get_insights() -> dict[str, dict[str, object]]:
                 info["source"] = "app"
                 info["app"] = app_name
                 insights[key] = info
+
+    # Merge journal config overrides
+    overrides = get_insights_config()
+    for key, override in overrides.items():
+        if key in insights and isinstance(override, dict):
+            # Only merge known override fields
+            if "disabled" in override:
+                insights[key]["disabled"] = override["disabled"]
+            if "extract" in override:
+                insights[key]["extract"] = override["extract"]
 
     return insights
 

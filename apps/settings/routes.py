@@ -593,6 +593,191 @@ def update_vision() -> Any:
         return jsonify({"error": str(e)}), 500
 
 
+# ---------------------------------------------------------------------------
+# Insights API
+# ---------------------------------------------------------------------------
+
+
+@settings_bp.route("/api/insights")
+def get_insights() -> Any:
+    """Return insights grouped by schedule with config overrides.
+
+    Returns:
+        - segment: List of segment-level insights
+        - daily: List of daily insights
+
+    Each insight contains:
+        - key: Insight identifier
+        - title, description, color: Display metadata
+        - source: "system" or "app"
+        - app: App name (if source is "app")
+        - frequency: "segment" or "daily"
+        - disabled: Whether insight is disabled
+        - extract: Whether event extraction is enabled
+        - has_extraction: Whether insight supports event extraction
+    """
+    try:
+        from think.utils import get_insights as get_all_insights
+
+        all_insights = get_all_insights()
+
+        segment_insights = []
+        daily_insights = []
+
+        for key, meta in sorted(all_insights.items()):
+            # Determine if insight supports extraction
+            has_occ = meta.get("occurrences") not in (None, False)
+            has_antic = meta.get("anticipations") is True
+            has_extraction = has_occ or has_antic
+
+            # Build insight info
+            info = {
+                "key": key,
+                "title": meta.get("title", key.replace("_", " ").title()),
+                "description": meta.get("description", ""),
+                "color": meta.get("color", "#6c757d"),
+                "source": meta.get("source", "system"),
+                "frequency": meta.get("frequency", "daily"),
+                "disabled": bool(meta.get("disabled", False)),
+                "extract": (
+                    meta.get("extract", True) if has_extraction else None
+                ),
+                "has_extraction": has_extraction,
+            }
+
+            # Add app name if applicable
+            if meta.get("app"):
+                info["app"] = meta["app"]
+
+            # Group by frequency
+            if meta.get("frequency") == "segment":
+                segment_insights.append(info)
+            else:
+                daily_insights.append(info)
+
+        # Sort within each group: system first, then by key
+        def sort_key(x: dict) -> tuple:
+            return (0 if x["source"] == "system" else 1, x.get("app", ""), x["key"])
+
+        segment_insights.sort(key=sort_key)
+        daily_insights.sort(key=sort_key)
+
+        return jsonify({"segment": segment_insights, "daily": daily_insights})
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@settings_bp.route("/api/insights", methods=["PUT"])
+def update_insights() -> Any:
+    """Update insight configuration overrides.
+
+    Accepts JSON mapping insight keys to override settings:
+        {
+            "<insight_key>": {
+                "disabled": bool,      # Disable insight entirely
+                "extract": bool   # Disable event extraction
+            } | null                   # Remove overrides (reset to default)
+        }
+
+    Only boolean values are accepted for disabled and extract.
+    Setting an insight to null removes all overrides for that insight.
+    """
+    try:
+        from think.utils import get_insights as get_all_insights
+
+        request_data = request.get_json()
+        if not request_data:
+            return jsonify({"error": "No data provided"}), 400
+
+        if not isinstance(request_data, dict):
+            return jsonify({"error": "Request must be an object"}), 400
+
+        # Get valid insight keys
+        all_insights = get_all_insights()
+        valid_keys = set(all_insights.keys())
+
+        config_dir = Path(state.journal_root) / "config"
+        config_dir.mkdir(parents=True, exist_ok=True)
+        config_path = config_dir / "journal.json"
+
+        # Load existing config
+        config = get_journal_config()
+        old_insights = copy.deepcopy(config.get("insights", {}))
+
+        # Ensure insights section exists
+        if "insights" not in config:
+            config["insights"] = {}
+
+        changed_fields = {}
+
+        for key, override in request_data.items():
+            # Validate insight key exists
+            if key not in valid_keys:
+                return (
+                    jsonify({"error": f"Unknown insight: {key}"}),
+                    400,
+                )
+
+            # Handle null - remove overrides
+            if override is None:
+                if key in config["insights"]:
+                    changed_fields[key] = {"old": config["insights"][key], "new": None}
+                    del config["insights"][key]
+                continue
+
+            if not isinstance(override, dict):
+                return (
+                    jsonify({"error": f"Override for {key} must be an object or null"}),
+                    400,
+                )
+
+            # Validate and apply fields
+            old_override = old_insights.get(key, {})
+            new_override = config["insights"].get(key, {})
+
+            for field in ["disabled", "extract"]:
+                if field in override:
+                    value = override[field]
+                    if not isinstance(value, bool):
+                        return (
+                            jsonify({"error": f"{field} must be a boolean"}),
+                            400,
+                        )
+                    old_val = old_override.get(field)
+                    if old_val != value:
+                        if key not in changed_fields:
+                            changed_fields[key] = {}
+                        changed_fields[key][field] = {"old": old_val, "new": value}
+                    new_override[field] = value
+
+            if new_override:
+                config["insights"][key] = new_override
+
+        # Clean up empty insights section
+        if not config["insights"]:
+            del config["insights"]
+
+        # Write updated config
+        with open(config_path, "w", encoding="utf-8") as f:
+            json.dump(config, f, indent=2, ensure_ascii=False)
+            f.write("\n")
+
+        # Log changes if any
+        if changed_fields:
+            log_app_action(
+                app="settings",
+                facet=None,
+                action="insights_update",
+                params={"changed_fields": changed_fields},
+            )
+
+        return get_insights()
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
 @settings_bp.route("/api/facet", methods=["POST"])
 def create_facet() -> Any:
     """Create a new facet.
