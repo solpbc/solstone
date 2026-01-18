@@ -1174,11 +1174,8 @@ body.has-date-nav .workspace:has(.tr-wrap) {
     let start = Math.floor((minTime - BUFFER) / 60) * 60;
     let end = Math.ceil((maxTime + BUFFER) / 60) * 60;
 
-    // Enforce minimum span, centered on content
-    const span = end - start;
-    if (span < MIN_SPAN) {
-      const mid = (minTime + maxTime) / 2;
-      start = Math.floor((mid - MIN_SPAN / 2) / 60) * 60;
+    // Enforce minimum span - extend end if needed
+    if (end - start < MIN_SPAN) {
       end = start + MIN_SPAN;
     }
 
