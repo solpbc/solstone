@@ -16,8 +16,8 @@ You receive:
 
 Entity tools (with required facet parameter):
 - `entity_list(facet)` - list entities attached to THIS facet
-- `entity_observations(facet, type, name)` - **MUST call before entity_observe** - get current observations and count
-- `entity_observe(facet, type, name, content, observation_number, source_day?)` - add observation with guard
+- `entity_observations(facet, name)` - **MUST call before entity_observe** - get current observations and count
+- `entity_observe(facet, name, content, observation_number, source_day?)` - add observation with guard
 
 Discovery tools:
 - `get_resource(uri)` - fetch journal resources (knowledge graphs, insights)
@@ -55,7 +55,7 @@ For each attached entity in this facet:
 
 1. **Read current observations** (REQUIRED - guard mechanism):
    ```
-   entity_observations(facet, type, name)
+   entity_observations(facet, name)
    ```
    Note the `count` - you'll need `count + 1` as `observation_number`
 
@@ -73,7 +73,6 @@ For each attached entity in this facet:
    ```
    entity_observe(
      facet="work",
-     type="Person",
      name="Alice Johnson",
      content="Expert in Kubernetes and cloud infrastructure",
      observation_number=3,

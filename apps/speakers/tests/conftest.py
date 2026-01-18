@@ -11,7 +11,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from think.entities import normalize_entity_name
+from think.entities import entity_slug
 
 
 @pytest.fixture
@@ -130,7 +130,7 @@ def speakers_env(tmp_path, monkeypatch):
 
             # Create entity folder with consolidated voiceprints.npz if specified
             if voiceprints:
-                entity_dir = facet_dir / "entities" / normalize_entity_name(name)
+                entity_dir = facet_dir / "entities" / entity_slug(name)
                 entity_dir.mkdir(parents=True, exist_ok=True)
 
                 all_embeddings = []

@@ -13,13 +13,13 @@ from think.entities import (
     ensure_entity_folder,
     entity_file_path,
     entity_folder_path,
+    entity_slug,
     find_matching_attached_entity,
     load_all_attached_entities,
     load_detected_entities_recent,
     load_entities,
     load_observations,
     load_recent_entity_names,
-    normalize_entity_name,
     observations_file_path,
     parse_knowledge_graph_entities,
     rename_entity_folder,
@@ -898,49 +898,49 @@ def test_detached_flag_for_detected_entities_not_filtered(fixture_journal, tmp_p
 # Tests for entity folder utilities
 
 
-def test_normalize_entity_name_basic():
-    """Test basic name normalization."""
-    assert normalize_entity_name("Alice Johnson") == "alice_johnson"
-    assert normalize_entity_name("Acme Corp") == "acme_corp"
-    assert normalize_entity_name("PostgreSQL") == "postgresql"
+def test_entity_slug_basic():
+    """Test basic name slug generation."""
+    assert entity_slug("Alice Johnson") == "alice_johnson"
+    assert entity_slug("Acme Corp") == "acme_corp"
+    assert entity_slug("PostgreSQL") == "postgresql"
 
 
-def test_normalize_entity_name_special_chars():
-    """Test normalization of names with special characters."""
-    assert normalize_entity_name("O'Brien") == "o_brien"
-    assert normalize_entity_name("AT&T") == "at_t"
-    assert normalize_entity_name("C++") == "c"
+def test_entity_slug_special_chars():
+    """Test slug generation with special characters."""
+    assert entity_slug("O'Brien") == "o_brien"
+    assert entity_slug("AT&T") == "at_t"
+    assert entity_slug("C++") == "c"
 
 
-def test_normalize_entity_name_unicode():
-    """Test normalization of unicode names."""
-    assert normalize_entity_name("José García") == "jose_garcia"
-    assert normalize_entity_name("Müller") == "muller"
+def test_entity_slug_unicode():
+    """Test slug generation with unicode names."""
+    assert entity_slug("José García") == "jose_garcia"
+    assert entity_slug("Müller") == "muller"
     # Chinese characters are transliterated to pinyin by python-slugify
-    assert normalize_entity_name("北京") == "bei_jing"
+    assert entity_slug("北京") == "bei_jing"
 
 
-def test_normalize_entity_name_whitespace():
-    """Test normalization handles various whitespace."""
-    assert normalize_entity_name("  Spaced  Out  ") == "spaced_out"
-    assert normalize_entity_name("Tab\tSeparated") == "tab_separated"
-    assert normalize_entity_name("New\nLine") == "new_line"
+def test_entity_slug_whitespace():
+    """Test slug generation handles various whitespace."""
+    assert entity_slug("  Spaced  Out  ") == "spaced_out"
+    assert entity_slug("Tab\tSeparated") == "tab_separated"
+    assert entity_slug("New\nLine") == "new_line"
 
 
-def test_normalize_entity_name_empty():
-    """Test normalization of empty/blank names."""
-    assert normalize_entity_name("") == ""
-    assert normalize_entity_name("   ") == ""
-    assert normalize_entity_name(None) == ""  # type: ignore
+def test_entity_slug_empty():
+    """Test slug generation with empty/blank names."""
+    assert entity_slug("") == ""
+    assert entity_slug("   ") == ""
+    assert entity_slug(None) == ""  # type: ignore
 
 
-def test_normalize_entity_name_long():
-    """Test normalization of very long names."""
+def test_entity_slug_long():
+    """Test slug generation with very long names."""
     long_name = "A" * 300
-    normalized = normalize_entity_name(long_name)
+    slug = entity_slug(long_name)
     # Should be truncated with hash suffix
-    assert len(normalized) <= 200
-    assert "_" in normalized[-9:]  # Hash suffix pattern
+    assert len(slug) <= 200
+    assert "_" in slug[-9:]  # Hash suffix pattern
 
 
 def test_entity_folder_path(fixture_journal, tmp_path):
@@ -1180,7 +1180,7 @@ def test_touch_entity_updates_last_seen(fixture_journal, tmp_path):
 
     # Touch the entity
     result = touch_entity("test_facet", "Alice Johnson", "20250115")
-    assert result is True
+    assert result == "updated"
 
     # Verify last_seen was set
     loaded = load_entities("test_facet")
@@ -1207,7 +1207,7 @@ def test_touch_entity_updates_only_if_more_recent(fixture_journal, tmp_path):
 
     # Try to touch with older day
     result = touch_entity("test_facet", "Alice Johnson", "20250110")
-    assert result is True  # Entity found
+    assert result == "skipped"  # Entity found but not updated
 
     # Verify last_seen was NOT updated (still 20250115)
     loaded = load_entities("test_facet")
@@ -1216,7 +1216,7 @@ def test_touch_entity_updates_only_if_more_recent(fixture_journal, tmp_path):
 
     # Touch with newer day
     result = touch_entity("test_facet", "Alice Johnson", "20250120")
-    assert result is True
+    assert result == "updated"
 
     # Verify last_seen was updated
     loaded = load_entities("test_facet")
@@ -1238,7 +1238,7 @@ def test_touch_entity_not_found(fixture_journal, tmp_path):
 
     # Try to touch non-existent entity
     result = touch_entity("test_facet", "Charlie Brown", "20250115")
-    assert result is False
+    assert result == "not_found"
 
 
 def test_touch_entity_skips_detached(fixture_journal, tmp_path):
@@ -1260,7 +1260,7 @@ def test_touch_entity_skips_detached(fixture_journal, tmp_path):
 
     # Try to touch detached entity
     result = touch_entity("test_facet", "Alice Johnson", "20250115")
-    assert result is False
+    assert result == "not_found"
 
 
 # Tests for fuzzy exclusion in load_detected_entities_recent

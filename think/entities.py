@@ -75,10 +75,6 @@ def entity_slug(name: str) -> str:
     return slug
 
 
-# Backwards compatibility alias
-normalize_entity_name = entity_slug
-
-
 def entity_folder_path(facet: str, name: str) -> Path:
     """Return path to entity's enrichment folder.
 
@@ -837,7 +833,7 @@ def resolve_entity(
     return None, candidates
 
 
-def touch_entity(facet: str, name: str, day: str) -> bool:
+def touch_entity(facet: str, name: str, day: str) -> str:
     """Update last_seen timestamp on an attached entity.
 
     Sets the last_seen field to the provided day if the entity exists
@@ -849,11 +845,13 @@ def touch_entity(facet: str, name: str, day: str) -> bool:
         day: Day string in YYYYMMDD format
 
     Returns:
-        True if entity was found and updated, False otherwise
+        "updated" if entity was found and last_seen was updated,
+        "skipped" if entity was found but day is not more recent,
+        "not_found" if entity was not found
 
     Example:
         >>> touch_entity("work", "Alice Johnson", "20250115")
-        True
+        "updated"
     """
     # Load ALL attached entities including detached to avoid data loss on save
     entities = load_entities(facet, day=None, include_detached=True)
@@ -868,11 +866,11 @@ def touch_entity(facet: str, name: str, day: str) -> bool:
             if not current_last_seen or day > current_last_seen:
                 entity["last_seen"] = day
                 save_entities(facet, entities, day=None)
-                return True
+                return "updated"
             # Entity found but day is not more recent
-            return True
+            return "skipped"
 
-    return False
+    return "not_found"
 
 
 def parse_knowledge_graph_entities(day: str) -> list[str]:
@@ -984,18 +982,11 @@ def touch_entities_from_activity(
     skipped: list[str] = []
 
     for attached_name, update_day in needs_update.items():
-        if touch_entity(facet, attached_name, update_day):
-            # Check if it was actually updated or already current
-            # Re-load to check (touch_entity returns True if found)
-            entities = load_entities(facet, day=None, include_detached=False)
-            for e in entities:
-                if e.get("name") == attached_name:
-                    if e.get("last_seen") == update_day:
-                        updated.append(attached_name)
-                    else:
-                        skipped.append(attached_name)
-                    break
+        result = touch_entity(facet, attached_name, update_day)
+        if result == "updated":
+            updated.append(attached_name)
         else:
+            # "skipped" (already up-to-date) or "not_found"
             skipped.append(attached_name)
 
     return {"matched": matched, "updated": updated, "skipped": skipped}

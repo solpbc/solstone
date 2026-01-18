@@ -142,7 +142,7 @@ def entity_detect(
     Args:
         day: Day in YYYYMMDD format when entity was detected
         facet: Facet name (e.g., "personal", "work")
-        type: Entity type (Person, Company, Project, or Tool)
+        type: Entity type (e.g., Person, Organization, Project, Tool, Location, Event)
         name: Entity name (e.g., "John Smith", "Acme Corp")
         description: Day-specific description of the entity
 
@@ -221,7 +221,7 @@ def entity_attach(
 
     Args:
         facet: Facet name (e.g., "personal", "work")
-        type: Entity type (Person, Company, Project, or Tool)
+        type: Entity type (e.g., Person, Organization, Project, Tool, Location, Event)
         name: Entity name (e.g., "John Smith", "Acme Corp") - must be unique in facet
         description: Persistent description of the entity
 

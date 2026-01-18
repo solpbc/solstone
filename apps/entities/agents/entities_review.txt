@@ -16,7 +16,7 @@ Always operate on the MCP entity tools with the **required facet parameter**:
 - `entity_list(facet)` - list entities currently attached to THIS facet
 - `entity_list(facet, day)` - list entities detected for THIS facet on a specific day
 - `entity_attach(facet, type, name, description)` - promote entity to attached status FOR THIS FACET
-- `entity_add_aka(facet, type, name, aka)` - add an alias/abbreviation to an attached entity FOR THIS FACET
+- `entity_add_aka(facet, name, aka)` - add an alias/abbreviation to an attached entity FOR THIS FACET
 
 ## Review Process
 
@@ -132,9 +132,9 @@ After promotions, review detected entities for name variations and add them as s
 
 **Execution:**
 ```
-entity_add_aka(facet="work", type="Organization", name="Federal Aviation Administration", aka="FAA")
-entity_add_aka(facet="work", type="Tool", name="PostgreSQL", aka="Postgres")
-entity_add_aka(facet="work", type="Tool", name="PostgreSQL", aka="PG")
+entity_add_aka(facet="work", name="Federal Aviation Administration", aka="FAA")
+entity_add_aka(facet="work", name="PostgreSQL", aka="Postgres")
+entity_add_aka(facet="work", name="PostgreSQL", aka="PG")
 ```
 
 **When to add aliases:**
