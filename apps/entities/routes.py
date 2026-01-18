@@ -109,10 +109,13 @@ def get_entity(facet_name: str, entity_id: str) -> Any:
     """Get a single entity with observations.
 
     Accepts entity lookup by id (slug), name, or aka.
+    Includes detached entities so they can be viewed and re-attached.
     """
     try:
-        # Try to resolve the entity_id to an actual entity
-        entity, candidates = resolve_entity(facet_name, entity_id)
+        # Try to resolve the entity_id to an actual entity (include detached)
+        entity, candidates = resolve_entity(
+            facet_name, entity_id, include_detached=True
+        )
         if entity is None:
             if candidates:
                 suggestions = [c.get("name", "") for c in candidates[:3]]
@@ -235,7 +238,7 @@ def add_entity(facet_name: str) -> Any:
 
 
 @entities_bp.route("/api/<facet_name>", methods=["DELETE"])
-def remove_entity(facet_name: str) -> Any:
+def detach_entity(facet_name: str) -> Any:
     """Detach an entity from a facet (soft delete).
 
     Sets detached=True instead of removing the entity, preserving
@@ -287,7 +290,7 @@ def remove_entity(facet_name: str) -> Any:
         return jsonify({"success": True})
 
     except Exception as e:
-        return jsonify({"error": f"Failed to remove entity: {str(e)}"}), 500
+        return jsonify({"error": f"Failed to detach entity: {str(e)}"}), 500
 
 
 @entities_bp.route("/api/<facet_name>/update", methods=["PUT"])

@@ -71,25 +71,6 @@
   color: #667eea;
 }
 
-.entity-card-detach {
-  position: absolute;
-  top: 0.5em;
-  right: 0.5em;
-  opacity: 0;
-  cursor: pointer;
-  font-size: 0.9em;
-  transition: opacity 0.15s;
-  padding: 2px;
-}
-
-.entity-card:hover .entity-card-detach {
-  opacity: 0.5;
-}
-
-.entity-card-detach:hover {
-  opacity: 1 !important;
-}
-
 /* Pending card state */
 .entity-card-pending {
   opacity: 0.5;
@@ -145,6 +126,26 @@
   border-radius: 20px;
   font-size: 0.75em;
   font-weight: 500;
+}
+
+.entity-detail-detached-badge {
+  background: #ffc107;
+  color: #212529;
+  padding: 0.25em 0.75em;
+  border-radius: 20px;
+  font-size: 0.75em;
+  font-weight: 500;
+}
+
+/* Detached entity state - disable editing */
+.entity-detail-view.detached .entity-detail-section {
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+.entity-detail-view.detached .entity-detach-section {
+  opacity: 1;
+  pointer-events: auto;
 }
 
 .entity-detail-aka {
@@ -286,7 +287,7 @@
   font-style: italic;
 }
 
-/* Detach button in detail view */
+/* Detach/Re-attach section in detail view */
 .entity-detach-section {
   padding: 1.5em;
   border-top: 1px solid #e9ecef;
@@ -705,7 +706,7 @@ tr:hover .entity-delete-btn {
     </div>
 
     <div class="entity-detach-section">
-      <button class="btn btn-danger" id="detail-detach-btn">Remove from Facet</button>
+      <button class="btn" id="detail-detach-btn"></button>
     </div>
   </div>
 </div>
@@ -756,6 +757,14 @@ function getSelectedFacet() {
   return null;
 }
 
+// Parse YYYYMMDD string to Date object
+function parseYYYYMMDD(dateStr) {
+  const year = parseInt(dateStr.slice(0, 4));
+  const month = parseInt(dateStr.slice(4, 6)) - 1;
+  const day = parseInt(dateStr.slice(6, 8));
+  return new Date(year, month, day);
+}
+
 // Format relative date (Today, Yesterday, Monday, Jan 15, Jan 15 '24)
 // Matches Python convey/utils.py format_date_short()
 function formatDateShort(dateStr) {
@@ -766,10 +775,7 @@ function formatDateShort(dateStr) {
     return dateStr;
   }
 
-  const year = parseInt(dateStr.slice(0, 4));
-  const month = parseInt(dateStr.slice(4, 6)) - 1;
-  const day = parseInt(dateStr.slice(6, 8));
-  const date = new Date(year, month, day);
+  const date = parseYYYYMMDD(dateStr);
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -815,6 +821,20 @@ function getEntityDisplayDate(entity) {
     return formatTimestamp(entity.attached_at);
   }
   return null;
+}
+
+// Get sortable timestamp for entity (last_seen → updated_at → attached_at)
+function getEntitySortTimestamp(entity) {
+  if (entity.last_seen) {
+    return parseYYYYMMDD(entity.last_seen).getTime();
+  }
+  if (entity.updated_at) {
+    return entity.updated_at;
+  }
+  if (entity.attached_at) {
+    return entity.attached_at;
+  }
+  return 0;
 }
 
 // Listen for facet changes
@@ -888,9 +908,36 @@ function showDetailView(entityId) {
 }
 
 function renderDetailView(entity, observations) {
+  const isDetached = entity.detached === true;
+  const detailView = document.getElementById('entity-detail-view');
+
+  // Toggle detached class on container
+  if (isDetached) {
+    detailView.classList.add('detached');
+  } else {
+    detailView.classList.remove('detached');
+  }
+
   // Header
   document.getElementById('detail-name').textContent = entity.name;
-  document.getElementById('detail-type').textContent = entity.type;
+
+  // Type badge and detached badge
+  const typeEl = document.getElementById('detail-type');
+  typeEl.textContent = entity.type;
+
+  // Add or remove detached badge
+  let detachedBadge = document.getElementById('detail-detached-badge');
+  if (isDetached) {
+    if (!detachedBadge) {
+      detachedBadge = document.createElement('span');
+      detachedBadge.id = 'detail-detached-badge';
+      detachedBadge.className = 'entity-detail-detached-badge';
+      detachedBadge.textContent = 'Detached';
+      typeEl.parentNode.insertBefore(detachedBadge, typeEl.nextSibling);
+    }
+  } else if (detachedBadge) {
+    detachedBadge.remove();
+  }
 
   // AKAs
   const akaEl = document.getElementById('detail-aka');
@@ -953,8 +1000,17 @@ function renderDetailView(entity, observations) {
     obsContainer.innerHTML = '<span class="observations-empty">No observations recorded yet.</span>';
   }
 
-  // Detach button
-  document.getElementById('detail-detach-btn').onclick = () => detachFromDetailView(entity);
+  // Detach/Re-attach button
+  const detachBtn = document.getElementById('detail-detach-btn');
+  if (isDetached) {
+    detachBtn.textContent = 'Re-attach';
+    detachBtn.className = 'btn btn-primary';
+    detachBtn.onclick = () => reattachEntity(entity);
+  } else {
+    detachBtn.textContent = 'Detach';
+    detachBtn.className = 'btn btn-danger';
+    detachBtn.onclick = () => detachEntity(entity);
+  }
 }
 
 function renderDescriptionSection(entity) {
@@ -1085,9 +1141,7 @@ function saveDescription(entity, newDescription) {
   });
 }
 
-function detachFromDetailView(entity) {
-  if (!confirm(`Remove "${entity.name}" from this facet?`)) return;
-
+function detachEntity(entity) {
   fetch(`api/${encodeURIComponent(currentFacet)}`, {
     method: 'DELETE',
     headers: { 'Content-Type': 'application/json' },
@@ -1096,15 +1150,44 @@ function detachFromDetailView(entity) {
   .then(response => response.json())
   .then(data => {
     if (data.success) {
-      // Go back to list and reload
-      navigateToList();
-      loadEntities();
+      // Reload detail view to show detached state with observations
+      showDetailView(entity.id || slugify(entity.name));
+      loadEntities();  // Refresh list in background
     } else {
-      throw new Error(data.error || 'Failed to remove');
+      throw new Error(data.error || 'Failed to detach');
     }
   })
   .catch(error => {
-    console.error('Error removing entity:', error);
+    console.error('Error detaching entity:', error);
+    alert('Error: ' + error.message);
+  });
+}
+
+function reattachEntity(entity) {
+  fetch(`api/${encodeURIComponent(currentFacet)}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      type: entity.type,
+      name: entity.name,
+      description: entity.description || ''
+    })
+  })
+  .then(response => response.json())
+  .then(data => {
+    if (data.success) {
+      // Update local state and re-render detail view
+      delete entity.detached;
+      delete currentDetailEntity.detached;
+      // Reload to get fresh observations
+      showDetailView(entity.id || slugify(entity.name));
+      loadEntities();  // Refresh list in background
+    } else {
+      throw new Error(data.error || 'Failed to re-attach');
+    }
+  })
+  .catch(error => {
+    console.error('Error re-attaching entity:', error);
     alert('Error: ' + error.message);
   });
 }
@@ -1243,6 +1326,9 @@ function renderEntityCards() {
     const entities = groups[type];
     if (!entities || entities.length === 0) return;
 
+    // Sort by activity date (most recent first)
+    entities.sort((a, b) => getEntitySortTimestamp(b) - getEntitySortTimestamp(a));
+
     const groupDiv = document.createElement('div');
     groupDiv.className = 'entity-type-group';
 
@@ -1289,7 +1375,7 @@ function createEntityCard(entity) {
 
   // Observation count
   if (entity.observation_count && entity.observation_count > 0) {
-    metaParts.push(`${entity.observation_count} obs`);
+    metaParts.push(entity.observation_count);
   }
 
   if (metaParts.length > 0) {
@@ -1311,17 +1397,6 @@ function createEntityCard(entity) {
     card.appendChild(meta);
   }
 
-  // Detach button (on hover)
-  const detachBtn = document.createElement('span');
-  detachBtn.className = 'entity-card-detach';
-  detachBtn.textContent = '🗑️';
-  detachBtn.title = 'Remove from facet';
-  detachBtn.onclick = (e) => {
-    e.stopPropagation();
-    detachEntity(entity, card);
-  };
-  card.appendChild(detachBtn);
-
   return card;
 }
 
@@ -1342,32 +1417,6 @@ function createPendingCard(name, agentId) {
   card.appendChild(meta);
 
   return card;
-}
-
-function detachEntity(entity, cardElement) {
-  cardElement.style.opacity = '0.5';
-  cardElement.style.pointerEvents = 'none';
-
-  fetch(`api/${encodeURIComponent(currentFacet)}`, {
-    method: 'DELETE',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ name: entity.name })
-  })
-  .then(response => response.json())
-  .then(data => {
-    if (data.success) {
-      // Remove from local data
-      entitiesData.attached = entitiesData.attached.filter(e => e.name !== entity.name);
-      renderEntityCards();
-    } else {
-      throw new Error(data.error || 'Failed to remove');
-    }
-  })
-  .catch(error => {
-    console.error('Error removing entity:', error);
-    cardElement.style.opacity = '1';
-    cardElement.style.pointerEvents = '';
-  });
 }
 
 function renderDetectedTable(searchTerm = '') {

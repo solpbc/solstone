@@ -752,6 +752,7 @@ def resolve_entity(
     facet: str,
     query: str,
     fuzzy_threshold: int = 90,
+    include_detached: bool = False,
 ) -> tuple[dict[str, Any] | None, list[dict[str, Any]] | None]:
     """Resolve an entity query to a single attached entity.
 
@@ -770,6 +771,7 @@ def resolve_entity(
         facet: Facet name (e.g., "personal", "work")
         query: Name, id (slug), or aka to search for
         fuzzy_threshold: Minimum score (0-100) for fuzzy matching (default: 90)
+        include_detached: If True, also search detached entities (default: False)
 
     Returns:
         Tuple of (entity, candidates):
@@ -786,8 +788,8 @@ def resolve_entity(
     if not query or not query.strip():
         return None, []
 
-    # Load attached entities (excluding detached)
-    entities = load_entities(facet, day=None, include_detached=False)
+    # Load attached entities
+    entities = load_entities(facet, day=None, include_detached=include_detached)
     if not entities:
         return None, []
 
