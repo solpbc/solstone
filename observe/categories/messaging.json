@@ -1,5 +1,6 @@
 {
   "description": "Chat or email apps (Slack, Discord, Messages/iMessage, Gmail, etc.)",
   "output": "markdown",
-  "extraction": "Extract when conversation partner, channel, or messaging app changes"
+  "extraction": "Extract when conversation partner, channel, or messaging app changes",
+  "importance": "high"
 }

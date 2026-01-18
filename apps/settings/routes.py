@@ -446,6 +446,7 @@ def get_vision() -> Any:
                 "label": meta.get("label", name.replace("_", " ").title()),
                 "group": meta.get("group", "Screen Analysis"),
                 "extraction": meta.get("extraction", ""),
+                "importance": meta.get("importance", "normal"),
             }
 
         return jsonify(

@@ -106,7 +106,7 @@ CONTEXT_DEFAULTS: Dict[str, Dict[str, Any]] = {
     # Fallback for categories without explicit tier in their JSON
     "observe.describe.*": {
         "tier": TIER_FLASH,
-        "label": "Screen Transcription",
+        "label": "Screen Extraction",
         "group": "Observe",
     },
     "observe.detect.segment": {

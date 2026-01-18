@@ -823,6 +823,163 @@ input:checked + .slider:before {
   opacity: 0;
 }
 
+/* Vision extraction display (double-click to edit) */
+.vision-extraction-display {
+  display: block;
+  padding: 0.4em 0.6em;
+  font-size: 0.85em;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.15s;
+  line-height: 1.4;
+}
+
+.vision-extraction-display:hover {
+  background: #f5f5f5;
+  border-color: #ddd;
+}
+
+.vision-extraction-display.vision-extraction-default {
+  color: #666;
+  font-style: italic;
+}
+
+.vision-extraction-display.vision-extraction-empty {
+  color: #999;
+  font-style: italic;
+}
+
+.vision-extraction-display.vision-extraction-disabled {
+  color: #999;
+  font-style: italic;
+  opacity: 0.5;
+  cursor: default;
+}
+
+.vision-extraction-display.vision-extraction-disabled:hover {
+  background: transparent;
+  border-color: transparent;
+}
+
+.vision-extraction-input {
+  width: 100%;
+  padding: 0.4em 0.6em;
+  font-size: 0.85em;
+  border: 2px solid var(--facet-color, #667eea);
+  border-radius: 4px;
+  font-family: inherit;
+  line-height: 1.4;
+}
+
+/* Vision importance sections */
+.importance-section {
+  margin-bottom: 1em;
+  border-radius: 8px;
+  padding: 0.75em;
+  transition: background 0.2s;
+}
+
+.importance-section:last-child {
+  margin-bottom: 0;
+}
+
+.importance-section.importance-high {
+  background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%);
+  border: 1px solid #b1dfbb;
+}
+
+.importance-section.importance-normal {
+  background: linear-gradient(135deg, #d1ecf1 0%, #bee5eb 100%);
+  border: 1px solid #abdde5;
+}
+
+.importance-section.importance-low {
+  background: linear-gradient(135deg, #fff3cd 0%, #ffeeba 100%);
+  border: 1px solid #ffc107;
+}
+
+.importance-section.importance-ignore {
+  background: linear-gradient(135deg, #e2e3e5 0%, #d6d8db 100%);
+  border: 1px solid #c6c8ca;
+}
+
+.importance-section-header {
+  font-size: 0.8em;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 0.5em;
+  padding-left: 0.25em;
+  display: flex;
+  align-items: center;
+  gap: 0.5em;
+}
+
+.importance-high .importance-section-header { color: #155724; }
+.importance-normal .importance-section-header { color: #0c5460; }
+.importance-low .importance-section-header { color: #856404; }
+.importance-ignore .importance-section-header { color: #383d41; }
+
+.importance-section-empty {
+  font-size: 0.85em;
+  font-style: italic;
+  padding: 0.5em;
+  opacity: 0.6;
+}
+
+.vision-category-item {
+  background: rgba(255,255,255,0.7);
+  border-radius: 6px;
+  padding: 0.5em;
+  margin-bottom: 0.5em;
+  transition: transform 0.2s, opacity 0.2s, background 0.15s;
+}
+
+.vision-category-item:last-child {
+  margin-bottom: 0;
+}
+
+.vision-category-item:hover {
+  background: rgba(255,255,255,0.9);
+}
+
+.vision-category-item.moving {
+  opacity: 0.5;
+  transform: scale(0.98);
+}
+
+.vision-move-buttons {
+  display: flex;
+  gap: 0.25em;
+}
+
+.vision-move-btn {
+  background: rgba(255,255,255,0.8);
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  width: 1.5em;
+  height: 1.5em;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 0.85em;
+  color: #555;
+  transition: all 0.15s;
+}
+
+.vision-move-btn:hover:not(:disabled) {
+  background: white;
+  border-color: #999;
+  color: #333;
+}
+
+.vision-move-btn:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
 /* Setup section */
 .setup-section {
   padding: 1.5em;
@@ -1217,9 +1374,9 @@ input:checked + .slider:before {
       <p class="settings-section-desc">Screen analysis settings for observe-describe.</p>
 
       <div class="settings-field">
-        <label for="field-max-extractions">Max Extractions</label>
+        <label for="field-max-extractions">Max Extractions (of 300 possible frames)</label>
         <input type="number" id="field-max-extractions" min="5" max="100" value="20" style="max-width: 100px;">
-        <small>Maximum frames to extract detailed content from per video (5-100)</small>
+        <small>Maximum frames to extract detailed content from per 5 minute screen segment (big impact on token usage)</small>
       </div>
 
       <!-- Categories -->
@@ -1229,7 +1386,7 @@ input:checked + .slider:before {
           <span class="context-overrides-toggle">&#9660;</span>
         </div>
         <div class="context-overrides-body" id="visionCategoriesBody">
-          <p style="color:#666;font-size:0.9em;margin:0 0 1em 0">Set importance and extraction rules for each screen category.</p>
+          <p style="color:#666;font-size:0.9em;margin:0 0 1em 0">Set importance and extraction rules for each screen category. Double-click guidance text to edit.</p>
           <div id="visionCategoryGroups">Loading...</div>
         </div>
       </div>
@@ -1351,7 +1508,19 @@ let saveTimeout = null;
 let logNextCursor = null;
 
 // ========== NAVIGATION ==========
-function switchSection(sectionId) {
+const VALID_SECTIONS = ['profile', 'providers', 'apikeys', 'transcription', 'vision', 'security', 'facet-appearance', 'facet-activity'];
+
+function switchSection(sectionId, updateHash = true) {
+  // Validate section exists
+  if (!VALID_SECTIONS.includes(sectionId)) {
+    sectionId = 'profile';
+  }
+
+  // Facet sections require a selected facet
+  if (sectionId.startsWith('facet-') && !window.selectedFacet) {
+    sectionId = 'profile';
+  }
+
   // Update nav items
   document.querySelectorAll('.settings-nav-item').forEach(btn => {
     btn.classList.toggle('active', btn.dataset.section === sectionId);
@@ -1364,6 +1533,11 @@ function switchSection(sectionId) {
   document.querySelectorAll('.settings-section').forEach(section => {
     section.classList.toggle('active', section.id === 'section-' + sectionId);
   });
+
+  // Update URL hash
+  if (updateHash) {
+    history.replaceState(null, '', '#' + sectionId);
+  }
 
   // Load facet data if switching to facet section
   if (sectionId.startsWith('facet-') && window.selectedFacet) {
@@ -1384,6 +1558,21 @@ document.querySelectorAll('.settings-nav-item').forEach(btn => {
 // Mobile select change
 document.getElementById('navSelect').addEventListener('change', (e) => {
   switchSection(e.target.value);
+});
+
+// Hash-based navigation
+function initFromHash() {
+  const hash = window.location.hash.slice(1);
+  if (hash && VALID_SECTIONS.includes(hash)) {
+    switchSection(hash, false);
+  }
+}
+
+window.addEventListener('hashchange', () => {
+  const hash = window.location.hash.slice(1);
+  if (hash && VALID_SECTIONS.includes(hash)) {
+    switchSection(hash, false);
+  }
 });
 
 // Update facet nav visibility
@@ -2369,63 +2558,78 @@ function populateVision(data) {
   renderVisionCategories(data);
 }
 
+const IMPORTANCE_LEVELS = ['high', 'normal', 'low', 'ignore'];
+const IMPORTANCE_LABELS = { high: 'High Priority', normal: 'Normal', low: 'Low Priority', ignore: 'Ignored' };
+
 function renderVisionCategories(data) {
   const container = document.getElementById('visionCategoryGroups');
   const defaults = data.category_defaults;
   const overrides = data.categories || {};
 
-  // Group by group name
-  const groups = {};
+  // Group by effective importance level
+  const groups = { high: [], normal: [], low: [], ignore: [] };
   for (const [name, cat] of Object.entries(defaults)) {
-    const group = cat.group;
-    if (!groups[group]) groups[group] = [];
-    groups[group].push({ name, ...cat });
+    const override = overrides[name] || {};
+    const defaultImportance = cat.importance || 'normal';
+    const importance = override.importance || defaultImportance;
+    groups[importance].push({ name, ...cat, currentImportance: importance });
   }
 
-  // Render groups
+  // Render importance sections in order
   let html = '';
-  for (const [groupName, items] of Object.entries(groups)) {
-    html += `<div class="context-group">`;
-    html += `<div class="context-group-label">${groupName}</div>`;
+  for (const level of IMPORTANCE_LEVELS) {
+    const items = groups[level].sort((a, b) => a.label.localeCompare(b.label));
+    const isFirst = level === 'high';
+    const isLast = level === 'ignore';
 
-    for (const item of items.sort((a, b) => a.label.localeCompare(b.label))) {
-      const override = overrides[item.name] || {};
-      const importance = override.importance || 'normal';
-      const extraction = override.extraction || '';
-      const defaultExtraction = item.extraction || '';
+    html += `<div class="importance-section importance-${level}">`;
+    html += `<div class="importance-section-header">${IMPORTANCE_LABELS[level]}</div>`;
 
-      html += `<div class="vision-category-item" data-category="${item.name}" style="margin-bottom:1em;">`;
-      html += `<div class="context-item" style="margin-bottom:0.25em;">`;
-      html += `<span class="context-label">${item.label}</span>`;
-      html += `<div class="context-value">`;
+    if (items.length === 0) {
+      html += `<div class="importance-section-empty">No categories</div>`;
+    } else {
+      for (const item of items) {
+        const override = overrides[item.name] || {};
+        const extraction = override.extraction || '';
+        const defaultExtraction = item.extraction || '';
 
-      // Importance select
-      html += `<select class="context-select vision-importance" data-category="${item.name}">`;
-      html += `<option value="high" ${importance === 'high' ? 'selected' : ''}>High</option>`;
-      html += `<option value="normal" ${importance === 'normal' ? 'selected' : ''}>Normal</option>`;
-      html += `<option value="low" ${importance === 'low' ? 'selected' : ''}>Low</option>`;
-      html += `<option value="ignore" ${importance === 'ignore' ? 'selected' : ''}>Ignore</option>`;
-      html += `</select>`;
+        html += `<div class="vision-category-item" data-category="${item.name}" data-importance="${level}">`;
+        html += `<div class="context-item" style="margin-bottom:0.25em;">`;
+        html += `<span class="context-label">${item.label}</span>`;
+        html += `<div class="context-value">`;
 
-      // Action area
-      html += `<span class="context-action" data-category="${item.name}">`;
-      if (override.importance || override.extraction) {
-        html += `<button class="context-reset vision-reset" data-category="${item.name}" title="Reset to default">&times;</button>`;
+        // Move buttons
+        html += `<div class="vision-move-buttons">`;
+        html += `<button class="vision-move-btn vision-move-up" data-category="${item.name}" title="Move up" ${isFirst ? 'disabled' : ''}>↑</button>`;
+        html += `<button class="vision-move-btn vision-move-down" data-category="${item.name}" title="Move down" ${isLast ? 'disabled' : ''}>↓</button>`;
+        html += `</div>`;
+
+        // Reset button
+        html += `<span class="context-action" data-category="${item.name}">`;
+        if (override.importance || override.extraction) {
+          html += `<button class="context-reset vision-reset" data-category="${item.name}" title="Reset to default">&times;</button>`;
+        }
+        html += `</span>`;
+
+        html += `</div></div>`;
+
+        // Extraction text (double-click to edit, disabled when importance is ignore)
+        const isIgnored = level === 'ignore';
+        const effectiveExtraction = extraction || defaultExtraction;
+        const isOverride = !!extraction;
+        html += `<div class="vision-extraction" data-category="${item.name}" style="padding-left:0.5em;">`;
+        if (isIgnored) {
+          html += `<span class="vision-extraction-display vision-extraction-disabled">Disabled for ignored categories</span>`;
+        } else if (effectiveExtraction) {
+          html += `<span class="vision-extraction-display${isOverride ? '' : ' vision-extraction-default'}" data-category="${item.name}" data-default="${escapeAttr(defaultExtraction)}">${escapeAttr(effectiveExtraction)}</span>`;
+        } else {
+          html += `<span class="vision-extraction-display vision-extraction-empty" data-category="${item.name}" data-default="">No extraction guidance</span>`;
+        }
+        html += `<input type="text" class="vision-extraction-input" data-category="${item.name}" value="${escapeAttr(extraction)}" data-default="${escapeAttr(defaultExtraction)}" style="display:none;">`;
+        html += `</div>`;
+
+        html += `</div>`;
       }
-      html += `</span>`;
-
-      html += `</div></div>`;
-
-      // Extraction text (disabled when importance is ignore)
-      const isIgnored = importance === 'ignore';
-      html += `<div class="vision-extraction" data-category="${item.name}" style="padding-left:0.5em;">`;
-      html += `<input type="text" class="vision-extraction-input" data-category="${item.name}" `;
-      html += `value="${escapeAttr(extraction)}" placeholder="${escapeAttr(isIgnored ? 'Disabled for ignored categories' : (defaultExtraction || 'No extraction guidance'))}" `;
-      html += `style="width:100%;padding:0.4em 0.6em;font-size:0.85em;border:1px solid #ddd;border-radius:4px;${isIgnored ? 'opacity:0.5;' : ''}" `;
-      html += `${isIgnored ? 'disabled' : ''}>`;
-      html += `</div>`;
-
-      html += `</div>`;
     }
     html += `</div>`;
   }
@@ -2439,38 +2643,105 @@ function escapeAttr(str) {
 }
 
 function setupVisionEventListeners() {
-  // Importance changes
-  document.querySelectorAll('.vision-importance').forEach(select => {
-    select.addEventListener('change', () => {
-      const category = select.dataset.category;
-      const extractionInput = document.querySelector(`.vision-extraction-input[data-category="${category}"]`);
-      const isIgnored = select.value === 'ignore';
-
-      // Toggle extraction input disabled state
-      extractionInput.disabled = isIgnored;
-      extractionInput.style.opacity = isIgnored ? '0.5' : '1';
-      if (isIgnored) {
-        extractionInput.placeholder = 'Disabled for ignored categories';
-      } else {
-        // Restore default placeholder
-        const defaultExtraction = visionData?.category_defaults?.[category]?.extraction || '';
-        extractionInput.placeholder = defaultExtraction || 'No extraction guidance';
+  // Move up/down buttons
+  document.querySelectorAll('.vision-move-up').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const category = btn.dataset.category;
+      const item = btn.closest('.vision-category-item');
+      const currentLevel = item.dataset.importance;
+      const currentIndex = IMPORTANCE_LEVELS.indexOf(currentLevel);
+      if (currentIndex > 0) {
+        const newLevel = IMPORTANCE_LEVELS[currentIndex - 1];
+        item.classList.add('moving');
+        const extractionInput = document.querySelector(`.vision-extraction-input[data-category="${category}"]`);
+        saveVisionCategory(category, newLevel, extractionInput.value);
       }
-
-      saveVisionCategory(category, select.value, extractionInput.value);
     });
   });
 
-  // Extraction input changes (debounced)
+  document.querySelectorAll('.vision-move-down').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const category = btn.dataset.category;
+      const item = btn.closest('.vision-category-item');
+      const currentLevel = item.dataset.importance;
+      const currentIndex = IMPORTANCE_LEVELS.indexOf(currentLevel);
+      if (currentIndex < IMPORTANCE_LEVELS.length - 1) {
+        const newLevel = IMPORTANCE_LEVELS[currentIndex + 1];
+        item.classList.add('moving');
+        const extractionInput = document.querySelector(`.vision-extraction-input[data-category="${category}"]`);
+        saveVisionCategory(category, newLevel, extractionInput.value);
+      }
+    });
+  });
+
+  // Double-click to edit extraction guidance
+  document.querySelectorAll('.vision-extraction-display[data-category]').forEach(display => {
+    let tapTimeout = null;
+    display.addEventListener('click', () => {
+      if (!tapTimeout) {
+        tapTimeout = setTimeout(() => tapTimeout = null, 300);
+      } else {
+        clearTimeout(tapTimeout);
+        tapTimeout = null;
+        // Switch to edit mode
+        const category = display.dataset.category;
+        const input = document.querySelector(`.vision-extraction-input[data-category="${category}"]`);
+        const defaultVal = display.dataset.default || '';
+        // If showing default, populate input with it for easy editing
+        if (display.classList.contains('vision-extraction-default') || display.classList.contains('vision-extraction-empty')) {
+          input.value = defaultVal;
+        }
+        display.style.display = 'none';
+        input.style.display = 'block';
+        input.focus();
+        input.select();
+      }
+    });
+  });
+
+  // Blur to save and return to display mode
   document.querySelectorAll('.vision-extraction-input').forEach(input => {
-    let timeout = null;
-    input.addEventListener('input', () => {
-      clearTimeout(timeout);
-      timeout = setTimeout(() => {
+    input.addEventListener('blur', () => {
+      const category = input.dataset.category;
+      const display = document.querySelector(`.vision-extraction-display[data-category="${category}"]`);
+      const item = document.querySelector(`.vision-category-item[data-category="${category}"]`);
+      const currentLevel = item.dataset.importance;
+      const value = input.value.trim();
+      const defaultVal = input.dataset.default || '';
+
+      // Update display
+      if (value) {
+        display.textContent = value;
+        display.classList.remove('vision-extraction-default', 'vision-extraction-empty');
+      } else if (defaultVal) {
+        display.textContent = defaultVal;
+        display.classList.remove('vision-extraction-empty');
+        display.classList.add('vision-extraction-default');
+      } else {
+        display.textContent = 'No extraction guidance';
+        display.classList.remove('vision-extraction-default');
+        display.classList.add('vision-extraction-empty');
+      }
+
+      // Switch back to display mode
+      input.style.display = 'none';
+      display.style.display = 'block';
+
+      // Save
+      saveVisionCategory(category, currentLevel, value);
+    });
+
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        input.blur();
+      } else if (e.key === 'Escape') {
+        // Cancel edit - restore original value
         const category = input.dataset.category;
-        const importanceSelect = document.querySelector(`.vision-importance[data-category="${category}"]`);
-        saveVisionCategory(category, importanceSelect.value, input.value);
-      }, 500);
+        const override = visionData?.categories?.[category]?.extraction || '';
+        input.value = override;
+        input.blur();
+      }
     });
   });
 
@@ -2493,7 +2764,9 @@ async function saveVisionCategory(category, importance, extraction, remove = fal
       categories[category] = null;
     } else {
       categories[category] = {};
-      if (importance && importance !== 'normal') {
+      // Only save importance if it differs from category default
+      const defaultImportance = visionData?.category_defaults?.[category]?.importance || 'normal';
+      if (importance && importance !== defaultImportance) {
         categories[category].importance = importance;
       }
       if (extraction) {
@@ -2557,6 +2830,7 @@ document.getElementById('visionCategoriesHeader').addEventListener('click', () =
 
 // ========== INIT ==========
 updateFacetNav();
+initFromHash();
 loadConfig();
 loadProviders();
 loadVision();
