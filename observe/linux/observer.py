@@ -55,6 +55,7 @@ IDLE_THRESHOLD_MS = 5 * 60 * 1000  # 5 minutes
 RMS_THRESHOLD = 0.01
 MIN_HITS_FOR_SAVE = 3
 CHUNK_DURATION = 5  # seconds
+TMUX_ACTIVITY_THRESHOLD = 5  # seconds - fixed window for activity detection
 
 
 # Capture modes
@@ -97,6 +98,8 @@ class Observer:
         self.tmux_captures: list[dict] = []
         self.tmux_capture_id = 0
         self.tmux_sessions_seen: set[str] = set()
+        self.last_tmux_capture_time: float = 0  # For capture interval timing
+        self.in_tmux_segment: bool = False  # True while tmux segment is open
 
         # Activity status cache (updated each loop)
         self.cached_is_active = False
@@ -104,14 +107,15 @@ class Observer:
         self.cached_screen_locked = False
         self.cached_is_muted = False
         self.cached_power_save = False
-        self.cached_tmux_active = False
 
         # Mute state at segment start (determines save format)
         self.segment_is_muted = False
 
         # Tmux configuration (loaded from journal config)
         self.tmux_enabled = True
-        self.tmux_interval = CHUNK_DURATION
+        self.tmux_capture_interval = (
+            CHUNK_DURATION  # User-configurable capture frequency
+        )
 
     def _load_tmux_config(self):
         """Load tmux settings from journal config."""
@@ -121,12 +125,14 @@ class Observer:
             tmux_config = observe_config.get("tmux", {})
 
             self.tmux_enabled = tmux_config.get("enabled", True)
-            self.tmux_interval = tmux_config.get("interval", CHUNK_DURATION)
+            self.tmux_capture_interval = tmux_config.get(
+                "capture_interval", CHUNK_DURATION
+            )
 
             if not self.tmux_enabled:
                 logger.info("Tmux capture disabled in config")
-            elif self.tmux_interval != CHUNK_DURATION:
-                logger.info(f"Tmux capture interval: {self.tmux_interval}s")
+            elif self.tmux_capture_interval != CHUNK_DURATION:
+                logger.info(f"Tmux capture interval: {self.tmux_capture_interval}s")
         except Exception as e:
             logger.warning(f"Failed to load tmux config, using defaults: {e}")
 
@@ -191,11 +197,13 @@ class Observer:
         screen_active = not screen_idle
 
         # Check tmux activity (only if screen is idle and tmux is enabled)
+        # Uses fixed threshold for mode detection, not capture interval
         if screen_active or not self.tmux_enabled:
             tmux_active = False
         else:
-            tmux_active = self.tmux_capture.is_active(poll_interval=self.tmux_interval)
-        self.cached_tmux_active = tmux_active
+            tmux_active = self.tmux_capture.is_active(
+                poll_interval=TMUX_ACTIVITY_THRESHOLD
+            )
 
         # Determine mode with priority: screen > tmux > idle
         if screen_active:
@@ -320,8 +328,10 @@ class Observer:
         self.threshold_hits = 0
 
         # Handle tmux capture save (to draft dir)
+        # Save if we have captures, regardless of current mode (mode may have
+        # changed to IDLE within the segment without triggering a boundary)
         tmux_files: list[str] = []
-        if self.current_mode == MODE_TMUX and self.tmux_captures and self.draft_dir:
+        if self.tmux_captures and self.draft_dir:
             # write_captures_jsonl expects a Path and creates it if needed
             # Draft dir already exists
             tmux_files = write_captures_jsonl(self.tmux_captures, Path(self.draft_dir))
@@ -331,6 +341,8 @@ class Observer:
         self.tmux_capture_id = 0
         self.tmux_sessions_seen = set()
         self.tmux_capture.reset_hashes()
+        self.last_tmux_capture_time = 0  # Allow immediate capture in new segment
+        self.in_tmux_segment = new_mode == MODE_TMUX  # Track if new segment is tmux
 
         # Collect all files saved in this segment
         files = audio_files + screen_files + tmux_files
@@ -434,12 +446,26 @@ class Observer:
         return True
 
     def capture_tmux(self):
-        """Poll tmux and accumulate captures for this chunk."""
-        active_sessions = self.tmux_capture.get_active_sessions(self.tmux_interval)
+        """Poll tmux and accumulate captures based on capture interval.
+
+        Only captures if:
+        1. Enough time has passed since last capture (capture_interval)
+        2. There was activity since the last capture
+        """
+        now = time.time()
+        time_since_capture = now - self.last_tmux_capture_time
+
+        # Check if capture interval has elapsed
+        if time_since_capture < self.tmux_capture_interval:
+            return
+
+        # Get sessions with activity since last capture
+        active_sessions = self.tmux_capture.get_active_sessions(time_since_capture)
         if not active_sessions:
             return
 
-        ts = time.time()
+        # Update capture time before capturing
+        self.last_tmux_capture_time = now
 
         for session_info in active_sessions:
             session = session_info["session"]
@@ -450,7 +476,7 @@ class Observer:
                 continue
 
             self.tmux_capture_id += 1
-            relative_ts = ts - self.start_at
+            relative_ts = now - self.start_at
             capture_dict = self.tmux_capture.result_to_dict(
                 result, self.tmux_capture_id, relative_ts
             )
@@ -490,8 +516,8 @@ class Observer:
         else:
             screencast_info = {"recording": False}
 
-        # Calculate tmux info
-        if self.current_mode == MODE_TMUX:
+        # Calculate tmux info (show capturing=true while tmux segment is open)
+        if self.in_tmux_segment:
             tmux_info = {
                 "capturing": True,
                 "captures": len(self.tmux_captures),
@@ -514,14 +540,22 @@ class Observer:
             "screen_locked": self.cached_screen_locked,
             "sink_muted": self.cached_is_muted,
             "power_save": self.cached_power_save,
-            "tmux_active": self.cached_tmux_active,
         }
+
+        # Determine reported mode (segment type, not instantaneous state)
+        # Screencast takes priority, then tmux segment, then idle
+        if self.current_mode == MODE_SCREENCAST:
+            reported_mode = MODE_SCREENCAST
+        elif self.in_tmux_segment:
+            reported_mode = MODE_TMUX
+        else:
+            reported_mode = MODE_IDLE
 
         # Emit status
         self._callosum.emit(
             "observe",
             "status",
-            mode=self.current_mode,
+            mode=reported_mode,
             screencast=screencast_info,
             tmux=tmux_info,
             audio=audio_info,
@@ -538,6 +572,7 @@ class Observer:
         new_mode = await self.check_activity_status()
         self.segment_is_muted = self.cached_is_muted  # Sync initial mute state
         self.current_mode = new_mode
+        self.in_tmux_segment = new_mode == MODE_TMUX
 
         # Start initial capture based on mode (creates draft folder)
         if new_mode == MODE_SCREENCAST and not self.cached_screen_locked:
@@ -573,10 +608,16 @@ class Observer:
                 # Force recalculate mode without screencast
                 self.current_mode = MODE_IDLE
 
-            # Detect mode transition
-            mode_transition = new_mode != self.current_mode
-            if mode_transition:
+            # Detect mode change
+            mode_changed = new_mode != self.current_mode
+            if mode_changed:
                 logger.info(f"Mode changing: {self.current_mode} -> {new_mode}")
+
+            # Only trigger segment boundary on screencast transitions (not tmux<->idle)
+            # This allows tmux segments to run full 5min windows like screencast
+            screencast_transition = mode_changed and (
+                self.current_mode == MODE_SCREENCAST or new_mode == MODE_SCREENCAST
+            )
 
             # Detect mute state transition
             mute_transition = self.cached_is_muted != self.segment_is_muted
@@ -616,16 +657,22 @@ class Observer:
             now_mono = time.monotonic()
             elapsed = now_mono - self.start_at_mono
             is_boundary = (
-                (elapsed >= self.interval) or mode_transition or mute_transition
+                (elapsed >= self.interval) or screencast_transition or mute_transition
             )
 
             if is_boundary:
                 logger.info(
-                    f"Boundary: elapsed={elapsed:.1f}s mode_change={mode_transition} "
+                    f"Boundary: elapsed={elapsed:.1f}s screencast_change={screencast_transition} "
                     f"mute_change={mute_transition} "
                     f"hits={self.threshold_hits}/{MIN_HITS_FOR_SAVE}"
                 )
                 await self.handle_boundary(new_mode)
+            elif mode_changed:
+                # Update mode without boundary (tmux<->idle transitions)
+                self.current_mode = new_mode
+                # Mark tmux segment active when entering TMUX mode
+                if new_mode == MODE_TMUX:
+                    self.in_tmux_segment = True
 
             # Emit status event
             self.emit_status()
@@ -658,9 +705,11 @@ class Observer:
             if audio_files:
                 logger.info(f"Saved final audio: {len(audio_files)} file(s)")
 
-        # Save tmux captures if in tmux mode (to draft dir)
+        # Save tmux captures (to draft dir)
+        # Save if we have captures, regardless of current mode (mode may have
+        # changed to IDLE within the segment without triggering a boundary)
         tmux_files: list[str] = []
-        if self.current_mode == MODE_TMUX and self.tmux_captures and self.draft_dir:
+        if self.tmux_captures and self.draft_dir:
             tmux_files = write_captures_jsonl(self.tmux_captures, Path(self.draft_dir))
             if tmux_files:
                 logger.info(f"Saved final tmux captures: {len(tmux_files)} file(s)")

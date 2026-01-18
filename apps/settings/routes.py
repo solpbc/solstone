@@ -600,9 +600,9 @@ def update_vision() -> Any:
 # Default observe configuration - single source of truth for all defaults
 OBSERVE_TMUX_DEFAULTS = {
     "enabled": True,
-    "interval": 5,
-    "interval_min": 1,
-    "interval_max": 60,
+    "capture_interval": 5,
+    "capture_interval_min": 1,
+    "capture_interval_max": 60,
 }
 
 
@@ -613,7 +613,7 @@ def get_observe() -> Any:
     Returns:
         - tmux: Tmux capture settings
             - enabled: Whether tmux capture is enabled
-            - interval: Capture interval in seconds
+            - capture_interval: Seconds between terminal captures
         - defaults: Default values and validation bounds for UI
     """
     try:
@@ -625,8 +625,8 @@ def get_observe() -> Any:
         result = {
             "tmux": {
                 "enabled": tmux_config.get("enabled", OBSERVE_TMUX_DEFAULTS["enabled"]),
-                "interval": tmux_config.get(
-                    "interval", OBSERVE_TMUX_DEFAULTS["interval"]
+                "capture_interval": tmux_config.get(
+                    "capture_interval", OBSERVE_TMUX_DEFAULTS["capture_interval"]
                 ),
             },
             "defaults": {
@@ -645,9 +645,9 @@ def update_observe() -> Any:
     """Update observe configuration.
 
     Accepts JSON with optional keys:
-        - tmux: {enabled?: bool, interval?: int}
+        - tmux: {enabled?: bool, capture_interval?: int}
             - enabled: Whether tmux capture is enabled
-            - interval: Capture interval in seconds (1-60)
+            - capture_interval: Seconds between terminal captures (1-60)
     """
     try:
         request_data = request.get_json()
@@ -689,27 +689,29 @@ def update_observe() -> Any:
                     config["observe"]["tmux"]["enabled"] = enabled
                     changed_fields["tmux.enabled"] = enabled
 
-            # Validate and update interval
-            if "interval" in tmux_data:
-                interval = tmux_data["interval"]
-                min_val = defaults["interval_min"]
-                max_val = defaults["interval_max"]
+            # Validate and update capture_interval
+            if "capture_interval" in tmux_data:
+                capture_interval = tmux_data["capture_interval"]
+                min_val = defaults["capture_interval_min"]
+                max_val = defaults["capture_interval_max"]
                 if (
-                    not isinstance(interval, int)
-                    or interval < min_val
-                    or interval > max_val
+                    not isinstance(capture_interval, int)
+                    or capture_interval < min_val
+                    or capture_interval > max_val
                 ):
                     return (
                         jsonify(
                             {
-                                "error": f"tmux.interval must be an integer between {min_val} and {max_val}"
+                                "error": f"tmux.capture_interval must be an integer between {min_val} and {max_val}"
                             }
                         ),
                         400,
                     )
-                if interval != old_tmux.get("interval", defaults["interval"]):
-                    config["observe"]["tmux"]["interval"] = interval
-                    changed_fields["tmux.interval"] = interval
+                if capture_interval != old_tmux.get(
+                    "capture_interval", defaults["capture_interval"]
+                ):
+                    config["observe"]["tmux"]["capture_interval"] = capture_interval
+                    changed_fields["tmux.capture_interval"] = capture_interval
 
         # Save config if changed
         if changed_fields:

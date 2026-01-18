@@ -1573,10 +1573,10 @@ input:checked + .slider:before {
         </div>
       </div>
 
-      <div class="settings-field" id="tmuxIntervalField">
-        <label for="field-tmux-interval">Capture Interval (seconds)</label>
-        <input type="number" id="field-tmux-interval" style="max-width: 100px;">
-        <small id="tmuxIntervalHelp">How often to check for terminal activity</small>
+      <div class="settings-field" id="tmuxCaptureIntervalField">
+        <label for="field-tmux-capture-interval">Capture Interval (seconds)</label>
+        <input type="number" id="field-tmux-capture-interval" style="max-width: 100px;">
+        <small id="tmuxCaptureIntervalHelp">How often to capture terminal content</small>
       </div>
 
       <p style="color: #888; font-size: 0.85em; margin-top: 1.5em; padding: 0.75em; background: #f8f9fa; border-radius: 4px;">
@@ -2818,30 +2818,30 @@ async function loadObserve() {
 
 function populateObserve(data) {
   const tmux = data.tmux || {};
-  const defaults = data.defaults?.tmux || { enabled: true, interval: 5, interval_min: 1, interval_max: 60 };
+  const defaults = data.defaults?.tmux || { enabled: true, capture_interval: 5, capture_interval_min: 1, capture_interval_max: 60 };
 
   // Set current values
   document.getElementById('field-tmux-enabled').checked = tmux.enabled;
-  document.getElementById('field-tmux-interval').value = tmux.interval;
+  document.getElementById('field-tmux-capture-interval').value = tmux.capture_interval;
 
   // Configure input constraints from API defaults
-  const intervalInput = document.getElementById('field-tmux-interval');
-  intervalInput.min = defaults.interval_min;
-  intervalInput.max = defaults.interval_max;
+  const captureIntervalInput = document.getElementById('field-tmux-capture-interval');
+  captureIntervalInput.min = defaults.capture_interval_min;
+  captureIntervalInput.max = defaults.capture_interval_max;
 
   // Update helper text with default value
-  const helpText = document.getElementById('tmuxIntervalHelp');
+  const helpText = document.getElementById('tmuxCaptureIntervalHelp');
   if (helpText) {
-    helpText.textContent = `How often to check for terminal activity (default: ${defaults.interval}s)`;
+    helpText.textContent = `How often to capture terminal content (default: ${defaults.capture_interval}s)`;
   }
 
-  updateTmuxIntervalVisibility();
+  updateTmuxCaptureIntervalVisibility();
 }
 
-function updateTmuxIntervalVisibility() {
+function updateTmuxCaptureIntervalVisibility() {
   const enabled = document.getElementById('field-tmux-enabled').checked;
-  document.getElementById('tmuxIntervalField').style.opacity = enabled ? '1' : '0.5';
-  document.getElementById('field-tmux-interval').disabled = !enabled;
+  document.getElementById('tmuxCaptureIntervalField').style.opacity = enabled ? '1' : '0.5';
+  document.getElementById('field-tmux-capture-interval').disabled = !enabled;
 }
 
 async function saveObserveSetting(key, value) {
@@ -2867,25 +2867,25 @@ async function saveObserveSetting(key, value) {
 // Event listeners for observer settings
 document.getElementById('field-tmux-enabled').addEventListener('change', async function() {
   const enabled = this.checked;
-  updateTmuxIntervalVisibility();
+  updateTmuxCaptureIntervalVisibility();
 
   const success = await saveObserveSetting('enabled', enabled);
   showFieldStatus(this, success ? 'saved' : 'error', success ? 'Saved' : 'Error saving');
 });
 
-document.getElementById('field-tmux-interval').addEventListener('change', async function() {
-  const defaults = observeData?.defaults?.tmux || { interval: 5, interval_min: 1, interval_max: 60 };
-  let interval = parseInt(this.value, 10);
+document.getElementById('field-tmux-capture-interval').addEventListener('change', async function() {
+  const defaults = observeData?.defaults?.tmux || { capture_interval: 5, capture_interval_min: 1, capture_interval_max: 60 };
+  let captureInterval = parseInt(this.value, 10);
 
   // Clamp to valid range
-  if (isNaN(interval) || interval < defaults.interval_min) {
-    interval = defaults.interval;
-  } else if (interval > defaults.interval_max) {
-    interval = defaults.interval_max;
+  if (isNaN(captureInterval) || captureInterval < defaults.capture_interval_min) {
+    captureInterval = defaults.capture_interval;
+  } else if (captureInterval > defaults.capture_interval_max) {
+    captureInterval = defaults.capture_interval_max;
   }
-  this.value = interval;
+  this.value = captureInterval;
 
-  const success = await saveObserveSetting('interval', interval);
+  const success = await saveObserveSetting('capture_interval', captureInterval);
   showFieldStatus(this, success ? 'saved' : 'error', success ? 'Saved' : 'Error saving');
 });
 

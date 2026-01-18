@@ -46,7 +46,12 @@ The Linux observer operates in three modes based on activity:
 | TMUX | Screen idle but tmux has recent client activity | Terminal content + Audio |
 | IDLE | Both screen and tmux inactive | Audio only (if threshold met) |
 
-Mode transitions trigger segment boundaries (like mute transitions do).
+**Segment boundaries** are triggered by:
+- Transitions to/from SCREENCAST mode (user returns to or leaves desktop)
+- Mute state changes
+- 5-minute window elapsed
+
+TMUX ↔ IDLE transitions do **not** trigger boundaries, allowing tmux segments to run the full 5-minute window like screencast segments.
 
 ## Key Components
 
