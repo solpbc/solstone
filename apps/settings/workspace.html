@@ -1371,9 +1371,7 @@ input:checked + .slider:before {
         <div class="settings-field">
           <label for="field-provider">Default Provider</label>
           <select id="field-provider">
-            <option value="google">Google (Gemini)</option>
-            <option value="openai">OpenAI (GPT)</option>
-            <option value="anthropic">Anthropic (Claude)</option>
+            <!-- Populated dynamically from registry -->
           </select>
           <small></small>
         </div>
@@ -2432,8 +2430,20 @@ async function loadProviders() {
 }
 
 function populateProviders(data) {
+  // Populate provider dropdown from registry
+  const providerSelect = document.getElementById('field-provider');
+  providerSelect.innerHTML = '';
+  if (data.providers) {
+    for (const p of data.providers) {
+      const opt = document.createElement('option');
+      opt.value = p.name;
+      opt.textContent = p.label;
+      providerSelect.appendChild(opt);
+    }
+  }
+
   // Set default provider and tier
-  document.getElementById('field-provider').value = data.default.provider;
+  providerSelect.value = data.default.provider;
   document.getElementById('field-tier').value = data.default.tier;
 
   // Update API key warning
@@ -2466,6 +2476,7 @@ function renderContextGroups(data) {
   const contexts = data.context_defaults;
   const overrides = data.contexts || {};
   const defaultTier = data.default.tier;
+  const providers = data.providers || [];
 
   // Group by group name
   const groups = {};
@@ -2473,6 +2484,16 @@ function renderContextGroups(data) {
     const group = ctx.group;
     if (!groups[group]) groups[group] = [];
     groups[group].push({ pattern, ...ctx });
+  }
+
+  // Build provider options HTML
+  function buildProviderOptions(selectedProvider) {
+    let opts = '<option value="">Default</option>';
+    for (const p of providers) {
+      const sel = selectedProvider === p.name ? 'selected' : '';
+      opts += `<option value="${p.name}" ${sel}>${p.label}</option>`;
+    }
+    return opts;
   }
 
   // Render groups
@@ -2492,12 +2513,9 @@ function renderContextGroups(data) {
       html += `<span class="context-label">${item.label}</span>`;
       html += `<div class="context-value">`;
 
-      // Provider select
+      // Provider select - built dynamically from registry
       html += `<select class="context-select context-provider" data-pattern="${item.pattern}">`;
-      html += `<option value="">Default</option>`;
-      html += `<option value="google" ${override?.provider === 'google' ? 'selected' : ''}>Google</option>`;
-      html += `<option value="openai" ${override?.provider === 'openai' ? 'selected' : ''}>OpenAI</option>`;
-      html += `<option value="anthropic" ${override?.provider === 'anthropic' ? 'selected' : ''}>Anthropic</option>`;
+      html += buildProviderOptions(override?.provider);
       html += `</select>`;
 
       // Tier select - show built-in tier if it differs from default

@@ -193,15 +193,7 @@ def update_config() -> Any:
 # Providers API
 # ---------------------------------------------------------------------------
 
-VALID_PROVIDERS = {"google", "openai", "anthropic"}
 VALID_TIERS = {1, 2, 3}
-
-# Map env key names to provider names
-PROVIDER_API_KEYS = {
-    "google": "GOOGLE_API_KEY",
-    "openai": "OPENAI_API_KEY",
-    "anthropic": "ANTHROPIC_API_KEY",
-}
 
 
 @settings_bp.route("/api/providers")
@@ -209,6 +201,7 @@ def get_providers() -> Any:
     """Return providers configuration with context defaults and API key status.
 
     Returns:
+        - providers: List of available providers with labels
         - default: Current default provider and tier
         - contexts: Configured context overrides from journal.json
         - context_defaults: CONTEXT_DEFAULTS with labels/groups for UI
@@ -220,6 +213,7 @@ def get_providers() -> Any:
             DEFAULT_PROVIDER,
             DEFAULT_TIER,
         )
+        from muse.providers import get_provider_list
 
         config = get_journal_config()
         providers_config = config.get("providers", {})
@@ -241,14 +235,19 @@ def get_providers() -> Any:
                 "group": ctx_config["group"],
             }
 
+        # Get providers list from registry
+        providers_list = get_provider_list()
+
         # Check API key status for each provider using os.getenv()
         # This reflects the true runtime availability (shell env + .env + journal config)
         api_keys = {}
-        for provider, env_key in PROVIDER_API_KEYS.items():
-            api_keys[provider] = bool(os.getenv(env_key))
+        for p in providers_list:
+            env_key = p.get("env_key", "")
+            api_keys[p["name"]] = bool(os.getenv(env_key)) if env_key else False
 
         return jsonify(
             {
+                "providers": providers_list,
                 "default": {
                     "provider": default_provider,
                     "tier": default_tier,
@@ -274,6 +273,7 @@ def update_providers() -> Any:
     """
     try:
         from muse.models import CONTEXT_DEFAULTS
+        from muse.providers import PROVIDER_REGISTRY
 
         request_data = request.get_json()
         if not request_data:
@@ -304,12 +304,12 @@ def update_providers() -> Any:
             # Validate and update provider
             if "provider" in default_data:
                 provider = default_data["provider"]
-                if provider not in VALID_PROVIDERS:
+                if provider not in PROVIDER_REGISTRY:
                     return (
                         jsonify(
                             {
                                 "error": f"Invalid provider: {provider}. "
-                                f"Must be one of: {', '.join(sorted(VALID_PROVIDERS))}"
+                                f"Must be one of: {', '.join(sorted(PROVIDER_REGISTRY.keys()))}"
                             }
                         ),
                         400,
@@ -369,7 +369,7 @@ def update_providers() -> Any:
                 # Validate provider if specified
                 if "provider" in ctx_config:
                     provider = ctx_config["provider"]
-                    if provider not in VALID_PROVIDERS:
+                    if provider not in PROVIDER_REGISTRY:
                         return (
                             jsonify(
                                 {"error": f"Invalid provider for {pattern}: {provider}"}

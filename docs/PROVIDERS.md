@@ -49,7 +49,7 @@ def _get_client():
     return _client
 ```
 
-**Settings app integration:** Add new API keys to `apps/settings/routes.py` in the `PROVIDER_API_KEYS` dict and corresponding UI fields in `apps/settings/workspace.html` for user configuration.
+**Settings app integration:** Add your provider to `PROVIDER_METADATA` in `muse/providers/__init__.py` with `label` and `env_key` fields. The settings UI dynamically builds provider dropdowns from the registry. Add corresponding API key UI fields in `apps/settings/workspace.html` for user configuration.
 
 ## generate() / agenerate()
 
@@ -337,7 +337,7 @@ This allows reusing much of the OpenAI provider's patterns for request/response 
 7. Add routing case in `muse/agents.py` `main_async()` (around line 331)
 
 **Settings UI:**
-8. Add API key to `apps/settings/routes.py` `PROVIDER_API_KEYS` dict
+8. Add provider to `PROVIDER_METADATA` in `muse/providers/__init__.py` with `label` and `env_key`
 9. Add API key UI field in `apps/settings/workspace.html`
 
 **Testing:**

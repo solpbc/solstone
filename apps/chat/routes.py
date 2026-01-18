@@ -100,13 +100,6 @@ TITLE_SYSTEM_INSTRUCTION = (
 )
 
 
-PROVIDER_API_KEYS = {
-    "openai": "OPENAI_API_KEY",
-    "anthropic": "ANTHROPIC_API_KEY",
-    "google": "GOOGLE_API_KEY",
-}
-
-
 def _check_provider_api_key(provider: str) -> str | None:
     """Check if provider API key is set and return error message if not.
 
@@ -116,7 +109,9 @@ def _check_provider_api_key(provider: str) -> str | None:
     Returns:
         Error message if API key is not set, None if valid
     """
-    key_name = PROVIDER_API_KEYS.get(provider, "GOOGLE_API_KEY")
+    from muse.providers import PROVIDER_METADATA
+
+    key_name = PROVIDER_METADATA.get(provider, {}).get("env_key", "GOOGLE_API_KEY")
     if not os.getenv(key_name):
         return f"{key_name} not set"
     return None
