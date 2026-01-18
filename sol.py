@@ -81,8 +81,7 @@ COMMANDS: dict[str, str] = {
 # =============================================================================
 
 ALIASES: dict[str, tuple[str, list[str]]] = {
-    # Future aliases can be added here
-    # "reindex": ("think.indexer", ["--rescan"]),
+    "start": ("think.supervisor", []),
 }
 
 # Command groupings for help display
