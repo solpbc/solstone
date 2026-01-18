@@ -594,6 +594,143 @@ def update_vision() -> Any:
 
 
 # ---------------------------------------------------------------------------
+# Observe API
+# ---------------------------------------------------------------------------
+
+# Default observe configuration - single source of truth for all defaults
+OBSERVE_TMUX_DEFAULTS = {
+    "enabled": True,
+    "interval": 5,
+    "interval_min": 1,
+    "interval_max": 60,
+}
+
+
+@settings_bp.route("/api/observe")
+def get_observe() -> Any:
+    """Return observe configuration with defaults and validation bounds.
+
+    Returns:
+        - tmux: Tmux capture settings
+            - enabled: Whether tmux capture is enabled
+            - interval: Capture interval in seconds
+        - defaults: Default values and validation bounds for UI
+    """
+    try:
+        config = get_journal_config()
+        observe_config = config.get("observe", {})
+        tmux_config = observe_config.get("tmux", {})
+
+        # Build result with user config merged over defaults
+        result = {
+            "tmux": {
+                "enabled": tmux_config.get("enabled", OBSERVE_TMUX_DEFAULTS["enabled"]),
+                "interval": tmux_config.get(
+                    "interval", OBSERVE_TMUX_DEFAULTS["interval"]
+                ),
+            },
+            "defaults": {
+                "tmux": OBSERVE_TMUX_DEFAULTS,
+            },
+        }
+
+        return jsonify(result)
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@settings_bp.route("/api/observe", methods=["PUT"])
+def update_observe() -> Any:
+    """Update observe configuration.
+
+    Accepts JSON with optional keys:
+        - tmux: {enabled?: bool, interval?: int}
+            - enabled: Whether tmux capture is enabled
+            - interval: Capture interval in seconds (1-60)
+    """
+    try:
+        request_data = request.get_json()
+        if not request_data:
+            return jsonify({"error": "No data provided"}), 400
+
+        config_dir = Path(state.journal_root) / "config"
+        config_dir.mkdir(parents=True, exist_ok=True)
+        config_path = config_dir / "journal.json"
+
+        # Load existing config
+        config = get_journal_config()
+        old_observe = copy.deepcopy(config.get("observe", {}))
+
+        # Ensure observe section exists
+        if "observe" not in config:
+            config["observe"] = {}
+
+        changed_fields = {}
+
+        # Handle tmux settings
+        if "tmux" in request_data:
+            tmux_data = request_data["tmux"]
+            if not isinstance(tmux_data, dict):
+                return jsonify({"error": "tmux must be an object"}), 400
+
+            if "tmux" not in config["observe"]:
+                config["observe"]["tmux"] = {}
+
+            old_tmux = old_observe.get("tmux", {})
+            defaults = OBSERVE_TMUX_DEFAULTS
+
+            # Validate and update enabled
+            if "enabled" in tmux_data:
+                enabled = tmux_data["enabled"]
+                if not isinstance(enabled, bool):
+                    return jsonify({"error": "tmux.enabled must be a boolean"}), 400
+                if enabled != old_tmux.get("enabled", defaults["enabled"]):
+                    config["observe"]["tmux"]["enabled"] = enabled
+                    changed_fields["tmux.enabled"] = enabled
+
+            # Validate and update interval
+            if "interval" in tmux_data:
+                interval = tmux_data["interval"]
+                min_val = defaults["interval_min"]
+                max_val = defaults["interval_max"]
+                if (
+                    not isinstance(interval, int)
+                    or interval < min_val
+                    or interval > max_val
+                ):
+                    return (
+                        jsonify(
+                            {
+                                "error": f"tmux.interval must be an integer between {min_val} and {max_val}"
+                            }
+                        ),
+                        400,
+                    )
+                if interval != old_tmux.get("interval", defaults["interval"]):
+                    config["observe"]["tmux"]["interval"] = interval
+                    changed_fields["tmux.interval"] = interval
+
+        # Save config if changed
+        if changed_fields:
+            with open(config_path, "w", encoding="utf-8") as f:
+                json.dump(config, f, indent=2, ensure_ascii=False)
+                f.write("\n")
+
+            log_app_action(
+                app="settings",
+                facet=None,
+                action="observe_update",
+                params={"changed_fields": changed_fields},
+            )
+
+        return get_observe()
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+# ---------------------------------------------------------------------------
 # Insights API
 # ---------------------------------------------------------------------------
 

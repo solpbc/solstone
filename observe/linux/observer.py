@@ -42,7 +42,7 @@ from observe.linux.screencast import Screencaster, StreamInfo
 from observe.tmux.capture import TmuxCapture, write_captures_jsonl
 from observe.utils import create_draft_folder, get_timestamp_parts
 from think.callosum import CallosumConnection
-from think.utils import day_path, get_journal, setup_cli
+from think.utils import day_path, get_config, get_journal, setup_cli
 
 logger = logging.getLogger(__name__)
 
@@ -109,6 +109,27 @@ class Observer:
         # Mute state at segment start (determines save format)
         self.segment_is_muted = False
 
+        # Tmux configuration (loaded from journal config)
+        self.tmux_enabled = True
+        self.tmux_interval = CHUNK_DURATION
+
+    def _load_tmux_config(self):
+        """Load tmux settings from journal config."""
+        try:
+            config = get_config()
+            observe_config = config.get("observe", {})
+            tmux_config = observe_config.get("tmux", {})
+
+            self.tmux_enabled = tmux_config.get("enabled", True)
+            self.tmux_interval = tmux_config.get("interval", CHUNK_DURATION)
+
+            if not self.tmux_enabled:
+                logger.info("Tmux capture disabled in config")
+            elif self.tmux_interval != CHUNK_DURATION:
+                logger.info(f"Tmux capture interval: {self.tmux_interval}s")
+        except Exception as e:
+            logger.warning(f"Failed to load tmux config, using defaults: {e}")
+
     async def setup(self):
         """Initialize audio devices and DBus connection."""
         # Detect and start audio recorder
@@ -129,11 +150,15 @@ class Observer:
             return False
         logger.info("Screencast portal connected")
 
-        # Check tmux availability
-        if self.tmux_capture.is_available():
-            logger.info("Tmux available for fallback capture")
-        else:
-            logger.info("Tmux not available (will only use screencast)")
+        # Load tmux configuration from journal
+        self._load_tmux_config()
+
+        # Check tmux availability (only if enabled)
+        if self.tmux_enabled:
+            if self.tmux_capture.is_available():
+                logger.info("Tmux available for fallback capture")
+            else:
+                logger.info("Tmux not available (will only use screencast)")
 
         # Start Callosum connection for events
         self._callosum = CallosumConnection()
@@ -165,11 +190,11 @@ class Observer:
         screen_idle = (idle_time > IDLE_THRESHOLD_MS) or screen_locked or power_save
         screen_active = not screen_idle
 
-        # Check tmux activity (only if screen is idle)
-        if screen_active:
+        # Check tmux activity (only if screen is idle and tmux is enabled)
+        if screen_active or not self.tmux_enabled:
             tmux_active = False
         else:
-            tmux_active = self.tmux_capture.is_active(poll_interval=CHUNK_DURATION)
+            tmux_active = self.tmux_capture.is_active(poll_interval=self.tmux_interval)
         self.cached_tmux_active = tmux_active
 
         # Determine mode with priority: screen > tmux > idle
@@ -410,7 +435,7 @@ class Observer:
 
     def capture_tmux(self):
         """Poll tmux and accumulate captures for this chunk."""
-        active_sessions = self.tmux_capture.get_active_sessions(CHUNK_DURATION)
+        active_sessions = self.tmux_capture.get_active_sessions(self.tmux_interval)
         if not active_sessions:
             return
 

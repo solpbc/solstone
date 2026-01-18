@@ -1236,6 +1236,7 @@ input:checked + .slider:before {
         <option value="providers">Providers</option>
         <option value="apikeys">API Keys</option>
         <option value="transcription">Transcription</option>
+        <option value="observer">Observer</option>
         <option value="vision">Vision</option>
         <option value="insights">Insights</option>
         <option value="security">Security</option>
@@ -1255,6 +1256,7 @@ input:checked + .slider:before {
       <button class="settings-nav-item" data-section="providers">Providers</button>
       <button class="settings-nav-item" data-section="apikeys">API Keys</button>
       <button class="settings-nav-item" data-section="transcription">Transcription</button>
+      <button class="settings-nav-item" data-section="observer">Observer</button>
       <button class="settings-nav-item" data-section="vision">Vision</button>
       <button class="settings-nav-item" data-section="insights">Insights</button>
       <button class="settings-nav-item" data-section="security">Security</button>
@@ -1548,6 +1550,38 @@ input:checked + .slider:before {
         </div>
         <small>Keep audio files even when no speech is detected</small>
       </div>
+    </section>
+
+    <!-- Observer Section -->
+    <section class="settings-section" id="section-observer">
+      <h2>Observer</h2>
+      <p class="settings-section-desc">Configure capture behavior for the observer service.</p>
+
+      <h3 style="margin: 1.5em 0 0.75em 0; font-size: 1em; color: #374151;">Terminal Capture</h3>
+      <p style="color: #666; font-size: 0.9em; margin: 0 0 1em 0;">
+        When your screen is idle, the observer can capture terminal content from active tmux sessions.
+      </p>
+
+      <div class="settings-field">
+        <label>Enable Terminal Capture</label>
+        <div style="display: flex; align-items: center; gap: 1em;">
+          <label class="toggle-switch toggle-positive">
+            <input type="checkbox" id="field-tmux-enabled">
+            <span class="slider"></span>
+          </label>
+          <span style="color: #666; font-size: 0.9em;">Capture tmux sessions when screen is idle</span>
+        </div>
+      </div>
+
+      <div class="settings-field" id="tmuxIntervalField">
+        <label for="field-tmux-interval">Capture Interval (seconds)</label>
+        <input type="number" id="field-tmux-interval" style="max-width: 100px;">
+        <small id="tmuxIntervalHelp">How often to check for terminal activity</small>
+      </div>
+
+      <p style="color: #888; font-size: 0.85em; margin-top: 1.5em; padding: 0.75em; background: #f8f9fa; border-radius: 4px;">
+        Changes take effect on next observer restart.
+      </p>
     </section>
 
     <!-- Vision Section -->
@@ -2768,6 +2802,93 @@ document.getElementById('field-revai-model')?.addEventListener('change', async (
   }
 });
 
+// ========== OBSERVER ==========
+let observeData = null;
+
+async function loadObserve() {
+  try {
+    const response = await fetch('api/observe');
+    observeData = await response.json();
+    if (observeData.error) throw new Error(observeData.error);
+    populateObserve(observeData);
+  } catch (err) {
+    console.error('Error loading observe config:', err);
+  }
+}
+
+function populateObserve(data) {
+  const tmux = data.tmux || {};
+  const defaults = data.defaults?.tmux || { enabled: true, interval: 5, interval_min: 1, interval_max: 60 };
+
+  // Set current values
+  document.getElementById('field-tmux-enabled').checked = tmux.enabled;
+  document.getElementById('field-tmux-interval').value = tmux.interval;
+
+  // Configure input constraints from API defaults
+  const intervalInput = document.getElementById('field-tmux-interval');
+  intervalInput.min = defaults.interval_min;
+  intervalInput.max = defaults.interval_max;
+
+  // Update helper text with default value
+  const helpText = document.getElementById('tmuxIntervalHelp');
+  if (helpText) {
+    helpText.textContent = `How often to check for terminal activity (default: ${defaults.interval}s)`;
+  }
+
+  updateTmuxIntervalVisibility();
+}
+
+function updateTmuxIntervalVisibility() {
+  const enabled = document.getElementById('field-tmux-enabled').checked;
+  document.getElementById('tmuxIntervalField').style.opacity = enabled ? '1' : '0.5';
+  document.getElementById('field-tmux-interval').disabled = !enabled;
+}
+
+async function saveObserveSetting(key, value) {
+  const tmuxData = {};
+  tmuxData[key] = value;
+
+  try {
+    const response = await fetch('api/observe', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tmux: tmuxData })
+    });
+    const result = await response.json();
+    if (result.error) throw new Error(result.error);
+    observeData = result;
+    return true;
+  } catch (err) {
+    console.error('Error saving observe setting:', err);
+    return false;
+  }
+}
+
+// Event listeners for observer settings
+document.getElementById('field-tmux-enabled').addEventListener('change', async function() {
+  const enabled = this.checked;
+  updateTmuxIntervalVisibility();
+
+  const success = await saveObserveSetting('enabled', enabled);
+  showFieldStatus(this, success ? 'saved' : 'error', success ? 'Saved' : 'Error saving');
+});
+
+document.getElementById('field-tmux-interval').addEventListener('change', async function() {
+  const defaults = observeData?.defaults?.tmux || { interval: 5, interval_min: 1, interval_max: 60 };
+  let interval = parseInt(this.value, 10);
+
+  // Clamp to valid range
+  if (isNaN(interval) || interval < defaults.interval_min) {
+    interval = defaults.interval;
+  } else if (interval > defaults.interval_max) {
+    interval = defaults.interval_max;
+  }
+  this.value = interval;
+
+  const success = await saveObserveSetting('interval', interval);
+  showFieldStatus(this, success ? 'saved' : 'error', success ? 'Saved' : 'Error saving');
+});
+
 // ========== VISION ==========
 let visionData = null;
 
@@ -3233,6 +3354,7 @@ updateFacetNav();
 initFromHash();
 loadConfig();
 loadProviders();
+loadObserve();
 loadVision();
 loadInsights();
 setupAutoSave();
