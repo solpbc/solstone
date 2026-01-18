@@ -33,6 +33,7 @@ def screenshot(
     height: int = 900,
     script: str | None = None,
     facet: str | None = None,
+    delay: int = 0,
 ) -> None:
     """
     Capture screenshot of a Convey view.
@@ -46,6 +47,7 @@ def screenshot(
         height: Viewport height (default: 900)
         script: Optional JavaScript to execute before taking screenshot
         facet: Optional facet to select (use "all" for all-facet mode)
+        delay: Milliseconds to wait after page load before screenshot (default: 0)
     """
     # Ensure route has leading slash
     if not route.startswith("/"):
@@ -83,6 +85,10 @@ def screenshot(
 
         # Wait for page to be fully loaded
         page.wait_for_load_state("networkidle")
+
+        # Wait additional delay if specified (for JS to process hash, animations, etc.)
+        if delay > 0:
+            page.wait_for_timeout(delay)
 
         # Execute custom JavaScript if provided
         if script:
@@ -141,8 +147,18 @@ def main() -> None:
         "--facet",
         help=facet_help,
     )
+    parser.add_argument(
+        "--delay",
+        type=int,
+        default=None,
+        help="Delay in ms after page load (default: 500 if route has #fragment, else 0)",
+    )
 
     args = setup_cli(parser)
+
+    # Auto-set delay for fragment routes if not explicitly specified
+    if args.delay is None:
+        args.delay = 500 if "#" in args.route else 0
 
     # Validate facet if specified
     if args.facet:
@@ -156,6 +172,7 @@ def main() -> None:
         height=args.height,
         script=args.script,
         facet=args.facet,
+        delay=args.delay,
     )
 
 
