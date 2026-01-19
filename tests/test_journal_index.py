@@ -504,3 +504,133 @@ def test_bucket_day_counts():
         assert len(parts) == 2
         assert len(parts[0]) == 8
         assert len(parts[1]) == 8
+
+
+def test_light_scan_removes_deleted_facet_content(journal_fixture):
+    """Test that light scan detects and removes deleted facet files."""
+    from think.indexer.journal import scan_journal, search_journal
+
+    # Initial scan
+    scan_journal(str(journal_fixture), full=True)
+
+    # Verify event is indexed
+    total, _ = search_journal("Standup", topic="event")
+    assert total >= 1
+
+    # Delete the facet event file
+    events_file = journal_fixture / "facets" / "work" / "events" / "20240101.jsonl"
+    events_file.unlink()
+
+    # Light rescan should detect the deletion (facet content is in scope)
+    changed = scan_journal(str(journal_fixture), full=False)
+    assert changed is True
+
+    # Event should no longer be searchable
+    total, _ = search_journal("Standup", topic="event")
+    assert total == 0
+
+
+def test_light_scan_removes_deleted_today_segment(tmp_path):
+    """Test that light scan detects and removes deleted content from today."""
+    from datetime import datetime
+
+    from think.indexer.journal import scan_journal, search_journal
+
+    journal = tmp_path
+    os.environ["JOURNAL_PATH"] = str(journal)
+
+    # Create content for today (which is in light scan scope)
+    today = datetime.now().strftime("%Y%m%d")
+    day_dir = journal / today
+    day_dir.mkdir()
+    insights_dir = day_dir / "insights"
+    insights_dir.mkdir()
+    insight_file = insights_dir / "flow.md"
+    insight_file.write_text("# Today Flow\n\nWorked on unique_today_content.\n")
+
+    # Initial scan
+    scan_journal(str(journal), full=False)
+
+    # Verify content is indexed
+    total, _ = search_journal("unique_today_content")
+    assert total >= 1
+
+    # Delete the insight file
+    insight_file.unlink()
+
+    # Light rescan should detect the deletion
+    changed = scan_journal(str(journal), full=False)
+    assert changed is True
+
+    # Content should no longer be searchable
+    total, _ = search_journal("unique_today_content")
+    assert total == 0
+
+
+def test_light_scan_preserves_historical_content(tmp_path):
+    """Test that light scan does NOT remove historical day content from index."""
+    from think.indexer.journal import scan_journal, search_journal
+
+    journal = tmp_path
+    os.environ["JOURNAL_PATH"] = str(journal)
+
+    # Create historical day content
+    day_dir = journal / "20200101"
+    day_dir.mkdir()
+    insights_dir = day_dir / "insights"
+    insights_dir.mkdir()
+    insight_file = insights_dir / "flow.md"
+    insight_file.write_text("# Historical Flow\n\nWorked on historical_content.\n")
+
+    # Full scan to index historical content
+    scan_journal(str(journal), full=True)
+
+    # Verify content is indexed
+    total, _ = search_journal("historical_content")
+    assert total >= 1
+
+    # Delete the historical file
+    insight_file.unlink()
+
+    # Light rescan should NOT remove the historical content (out of scope)
+    changed = scan_journal(str(journal), full=False)
+    # No changes because the historical path is out of scope
+    assert changed is False
+
+    # Content should still be searchable (not removed)
+    total, _ = search_journal("historical_content")
+    assert total >= 1
+
+
+def test_full_scan_removes_historical_content(tmp_path):
+    """Test that full scan removes deleted historical day content."""
+    from think.indexer.journal import scan_journal, search_journal
+
+    journal = tmp_path
+    os.environ["JOURNAL_PATH"] = str(journal)
+
+    # Create historical day content
+    day_dir = journal / "20200101"
+    day_dir.mkdir()
+    insights_dir = day_dir / "insights"
+    insights_dir.mkdir()
+    insight_file = insights_dir / "flow.md"
+    insight_file.write_text("# Historical Flow\n\nWorked on historical_full_test.\n")
+
+    # Full scan to index historical content
+    scan_journal(str(journal), full=True)
+
+    # Verify content is indexed
+    total, _ = search_journal("historical_full_test")
+    assert total >= 1
+
+    # Delete the historical file
+    insight_file.unlink()
+
+    # Full rescan SHOULD remove the historical content
+    changed = scan_journal(str(journal), full=True)
+    assert changed is True
+
+    # Content should no longer be searchable
+    total, _ = search_journal("historical_full_test")
+    assert total == 0

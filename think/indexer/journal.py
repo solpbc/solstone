@@ -186,11 +186,6 @@ def scan_journal(journal: str, verbose: bool = False, full: bool = False) -> boo
             rel: path for rel, path in files.items() if not _is_historical_day(rel)
         }
 
-    if not files:
-        logger.info("No files to index")
-        conn.close()
-        return False
-
     logger.info("Scanning %s files...", len(files))
 
     # Get current file mtimes from database
@@ -227,14 +222,20 @@ def scan_journal(journal: str, verbose: bool = False, full: bool = False) -> boo
         # Update file mtime
         conn.execute("REPLACE INTO files(path, mtime) VALUES (?, ?)", (rel, mtime))
 
-    # Remove files that no longer exist (only in full mode to avoid
-    # deleting historical content that's outside light mode's scan scope)
+    # Remove files that no longer exist
+    # In full mode: remove all missing entries
+    # In light mode: only remove entries that would have been scanned (non-historical)
     removed: set[str] = set()
     if full:
         removed = set(db_mtimes) - set(files)
-        for rel in removed:
-            conn.execute("DELETE FROM chunks WHERE path=?", (rel,))
-            conn.execute("DELETE FROM files WHERE path=?", (rel,))
+    else:
+        # Filter db entries to those in light mode's scan scope, then find missing
+        in_scope_db = {rel for rel in db_mtimes if not _is_historical_day(rel)}
+        removed = in_scope_db - set(files)
+
+    for rel in removed:
+        conn.execute("DELETE FROM chunks WHERE path=?", (rel,))
+        conn.execute("DELETE FROM files WHERE path=?", (rel,))
 
     if to_index or removed:
         conn.commit()
