@@ -54,6 +54,7 @@ class ServiceManager:
         self.cpu_cache = {}  # Maps pid -> last cpu_percent value
         self.cpu_procs = {}  # Maps pid -> Process object for cpu tracking
         self.running_tasks = {}  # Maps ref -> task info from logs tract
+        self.command_queues = {}  # Maps command_name -> queued count from supervisor.queue
         self.event_queue: queue.Queue = queue.Queue()  # Callosum events for main loop
         self.active_notifications = {}  # Maps service_name -> notification_id
         self.crash_history = {}  # Maps service_name -> [crash_timestamps]
@@ -239,6 +240,16 @@ class ServiceManager:
 
                 # Reset crash history when service starts successfully
                 self.crash_history.pop(service, None)
+
+            elif event == "queue":
+                # Track per-command queue depths
+                command = message.get("command")
+                queued = message.get("queued", 0)
+                if command:
+                    if queued > 0:
+                        self.command_queues[command] = queued
+                    else:
+                        self.command_queues.pop(command, None)
 
             elif event == "stopped":
                 service = message.get("service")
@@ -569,7 +580,12 @@ class ServiceManager:
         tasks_sorted = sorted(tasks_only, key=lambda x: x["start_time"])
 
         for task in tasks_sorted:
-            name = task["name"][:14]
+            name = task["name"]
+            # Append queue count if this command has queued requests
+            queued = self.command_queues.get(name, 0)
+            if queued > 0:
+                name = f"{name} ({queued})"
+            name = name[:14]
             pid = str(task["pid"])
             runtime = self.format_runtime(task["start_time"])
             memory = self.get_memory_mb(task["pid"])
@@ -776,16 +792,6 @@ class ServiceManager:
             output.append(t.bold + t.red + "Crashed:" + t.normal)
             for c in self.crashed:
                 output.append(f"  {c['name']} (attempts: {c['restart_attempts']})")
-            output.append("")
-
-        # Running tasks (if any)
-        if self.tasks:
-            output.append(t.bold + "Running tasks:" + t.normal)
-            for task in self.tasks[:3]:  # Show max 3
-                duration = self.format_uptime(task["duration_seconds"])
-                output.append(f"  {task['name']} - {duration}")
-            if len(self.tasks) > 3:
-                output.append(f"  ... and {len(self.tasks) - 3} more")
             output.append("")
 
         # Help footer
