@@ -45,6 +45,7 @@ Callosum is a JSON-per-line message bus for real-time event distribution across 
 **Listens for:** `request` (task spawn), `restart` (service restart)
 **Key fields:** `ref` (instance ID), `service` (name), `pid`, `exit_code`
 **Purpose:** Unified lifecycle events for all supervised processes (services and tasks)
+**Task deduplication:** If a `request` arrives with a `ref` matching an already-running task, the request is silently skipped. Use a fixed `ref` (e.g., `"indexer-rescan"`) to serialize tasks that shouldn't run concurrently.
 
 ### `logs` - Process output streaming
 **Source:** `think/runner.py`
