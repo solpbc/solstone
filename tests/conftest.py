@@ -236,6 +236,8 @@ def reset_supervisor_state():
         mod._daily_state["dream_completed"] = False
         mod._daily_state["last_day"] = None
         mod._is_remote_mode = False
+        mod._task_state["running"] = {}
+        mod._task_state["queues"] = {}
     except ImportError:
         pass  # supervisor not loaded yet
     yield
@@ -247,6 +249,8 @@ def reset_supervisor_state():
         mod._daily_state["dream_completed"] = False
         mod._daily_state["last_day"] = None
         mod._is_remote_mode = False
+        mod._task_state["running"] = {}
+        mod._task_state["queues"] = {}
     except ImportError:
         pass
 

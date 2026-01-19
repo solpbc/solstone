@@ -380,11 +380,10 @@ def delete_segment(day: str, segment_key: str) -> Any:
         )
 
         # Trigger indexer rescan to remove deleted segment from search index
-        # Use fixed ref so supervisor serializes concurrent requests
+        # Supervisor queues by command name, serializing concurrent indexer requests
         emit(
             "supervisor",
             "request",
-            ref="indexer-rescan",
             cmd=["sol", "indexer", "--rescan-full"],
         )
 

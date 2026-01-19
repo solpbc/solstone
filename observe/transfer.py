@@ -24,6 +24,7 @@ import time
 from pathlib import Path
 from typing import Any
 
+from think.callosum import callosum_send
 from think.utils import get_journal, segment_key, setup_cli
 
 from .utils import compute_file_sha256, find_available_segment
@@ -341,20 +342,18 @@ def import_archive(
 
             imported.append(target_segment)
 
-    # Run indexer rescan for the day
-    logger.info(f"Running indexer rescan for {day}...")
-    try:
-        subprocess.run(
-            ["sol", "indexer", "--rescan", "--day", day],
-            check=True,
-            capture_output=True,
-            text=True,
-        )
-        logger.info("  Indexer rescan complete")
-    except subprocess.CalledProcessError as e:
-        logger.warning(f"  Indexer rescan failed: {e.stderr}")
-    except FileNotFoundError:
-        logger.warning("  sol not found, skipping rescan")
+    # Trigger indexer rescan via supervisor queue (fire-and-forget)
+    # Supervisor serializes indexer runs to prevent concurrent writes
+    logger.info(f"Requesting indexer rescan for {day}...")
+    sent = callosum_send(
+        "supervisor",
+        "request",
+        cmd=["sol", "indexer", "--rescan"],
+    )
+    if sent:
+        logger.info("  Indexer rescan queued")
+    else:
+        logger.warning("  Failed to queue indexer rescan (supervisor not running?)")
 
     return {
         "status": "imported",

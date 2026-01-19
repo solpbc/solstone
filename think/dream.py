@@ -48,6 +48,83 @@ def run_command(cmd: list[str], day: str) -> bool:
         return False
 
 
+def run_queued_command(cmd: list[str], day: str, timeout: int = 600) -> bool:
+    """Run a command through supervisor's task queue and wait for completion.
+
+    This ensures the command is serialized with other requests for the same
+    command type (e.g., multiple indexer requests are queued, not concurrent).
+
+    Args:
+        cmd: Command to run (e.g., ["sol", "indexer", "--rescan"])
+        day: Day for logging
+        timeout: Maximum wait time in seconds (default 600 = 10 minutes)
+
+    Returns:
+        True if command succeeded, False otherwise
+    """
+    import threading
+    import uuid
+
+    cmd_name = cmd[1] if cmd[0] == "sol" else cmd[0]
+    cmd_name_log = cmd_name.replace("-", "_")
+
+    # Generate unique ref to track this specific request
+    ref = f"dream-{uuid.uuid4().hex[:8]}"
+
+    logging.info("==> %s (queued, ref=%s)", " ".join(cmd), ref)
+
+    if not _callosum:
+        logging.error("Callosum not connected, cannot queue command")
+        day_log(day, f"{cmd_name_log} error no_callosum")
+        return False
+
+    # Track completion via supervisor.stopped event matching our ref
+    result = {"completed": False, "exit_code": None}
+    result_event = threading.Event()
+
+    def on_message(msg: dict) -> None:
+        if msg.get("tract") != "supervisor":
+            return
+        if msg.get("event") != "stopped":
+            return
+        # Match by ref to ensure we're waiting for OUR request, not another
+        if msg.get("ref") != ref:
+            return
+
+        result["completed"] = True
+        result["exit_code"] = msg.get("exit_code", -1)
+        result_event.set()
+
+    # Create a separate connection to listen for completion
+    # (can't reuse _callosum as it may be busy with other events)
+    listener = CallosumConnection()
+    listener.start(callback=on_message)
+
+    try:
+        # Emit request to supervisor with our ref for tracking
+        _callosum.emit("supervisor", "request", cmd=cmd, ref=ref)
+
+        # Wait for completion
+        if not result_event.wait(timeout=timeout):
+            logging.error(f"Timeout waiting for {cmd_name} to complete (ref={ref})")
+            day_log(day, f"{cmd_name_log} error timeout")
+            return False
+
+        if result["exit_code"] != 0:
+            logging.error(
+                "Command failed with exit code %s: %s",
+                result["exit_code"],
+                " ".join(cmd),
+            )
+            day_log(day, f"{cmd_name_log} error {result['exit_code']}")
+            return False
+
+        return True
+
+    finally:
+        listener.stop()
+
+
 def build_commands(
     day: str, force: bool, verbose: bool = False, segment: str | None = None
 ) -> list[list[str]]:
@@ -443,7 +520,14 @@ def main() -> None:
                     **event_fields(command=cmd[0], index=index, total=len(commands)),
                 )
 
-                if run_command(cmd, day):
+                # Route indexer commands through supervisor queue for serialization
+                is_indexer = cmd[0] == "sol" and len(cmd) > 1 and cmd[1] == "indexer"
+                if is_indexer:
+                    success = run_queued_command(cmd, day)
+                else:
+                    success = run_command(cmd, day)
+
+                if success:
                     success_count += 1
                 else:
                     insight_fail_count += 1
@@ -486,10 +570,10 @@ def main() -> None:
                 # Daily mode: priority groups with waiting
                 agent_success, agent_fail_count = run_daily_agents(day)
 
-                # Full rescan after agents
+                # Full rescan after agents (via supervisor queue for serialization)
                 if agent_success > 0 or agent_fail_count > 0:
                     logging.info("Running full index rescan after agents...")
-                    run_command(["sol", "indexer", "--rescan-full"], day)
+                    run_queued_command(["sol", "indexer", "--rescan-full"], day)
 
         # Emit completed event (all processing done)
         emit(

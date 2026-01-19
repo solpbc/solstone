@@ -41,11 +41,26 @@ Callosum is a JSON-per-line message bus for real-time event distribution across 
 
 ### `supervisor` - Process lifecycle management
 **Source:** `think/supervisor.py`
-**Events:** `started`, `stopped`, `restarting`, `status`
+**Events:** `started`, `stopped`, `restarting`, `status`, `queue`
 **Listens for:** `request` (task spawn), `restart` (service restart)
 **Key fields:** `ref` (instance ID), `service` (name), `pid`, `exit_code`
 **Purpose:** Unified lifecycle events for all supervised processes (services and tasks)
-**Task deduplication:** If a `request` arrives with a `ref` matching an already-running task, the request is silently skipped. Use a fixed `ref` (e.g., `"indexer-rescan"`) to serialize tasks that shouldn't run concurrently.
+
+**Per-command task queue:** Tasks are serialized by command name (e.g., "indexer"):
+- If no task with that command is running → run immediately
+- If command is already running → queue the request (FIFO)
+- Deduped by exact `cmd` match (same command+args won't queue twice)
+- When task completes → next queued request runs automatically
+
+**Ref tracking:** Callers can provide a `ref` field in requests to track completion:
+- If omitted, supervisor generates a timestamp-based ref
+- `stopped` events include the ref, allowing callers to match their request
+- When duplicate requests are deduped, their refs are coalesced - all refs receive `stopped` events when the single execution completes
+
+**Queue event:** Emitted when queue state changes:
+```json
+{"tract": "supervisor", "event": "queue", "command": "indexer", "running": "ref123", "queued": 2, "queue": [{"refs": ["ref456"], "cmd": ["sol", "indexer", "--rescan"]}]}
+```
 
 ### `logs` - Process output streaming
 **Source:** `think/runner.py`

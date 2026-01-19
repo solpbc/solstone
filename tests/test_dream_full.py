@@ -25,7 +25,12 @@ def test_main_runs(tmp_path, monkeypatch):
         called.append(cmd)
         return True  # Return success
 
+    def mock_run_queued_command(cmd, day, timeout=600):
+        called.append(cmd)
+        return True  # Return success
+
     monkeypatch.setattr(mod, "run_command", mock_run_command)
+    monkeypatch.setattr(mod, "run_queued_command", mock_run_queued_command)
     # Also mock run_daily_agents to avoid agent execution
     monkeypatch.setattr(mod, "run_daily_agents", lambda day: (0, 0))
     monkeypatch.setattr("think.utils.load_dotenv", lambda: True)
@@ -36,7 +41,7 @@ def test_main_runs(tmp_path, monkeypatch):
     mod.main()
     assert any(c[0] == "sol" and c[1] == "sense" for c in called)
     assert any(c[0] == "sol" and c[1] == "insight" for c in called)
-    # Verify indexer is called with --rescan (light mode)
+    # Verify indexer is called with --rescan (light mode) via queued command
     indexer_cmds = [c for c in called if c[0] == "sol" and c[1] == "indexer"]
     assert len(indexer_cmds) == 1
     assert "--rescan" in indexer_cmds[0]
