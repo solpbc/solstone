@@ -18,6 +18,7 @@ logger = logging.getLogger(__name__)
 from apps.utils import log_app_action
 from convey import state
 from think.entities import (
+    entity_last_active_ts,
     entity_memory_path,
     entity_slug,
     is_valid_entity_type,
@@ -87,6 +88,8 @@ def get_facet_entities_data(facet_name: str) -> dict:
             metadata = _get_entity_metadata(facet_name, name)
             entity["observation_count"] = metadata["observation_count"]
             entity["has_voiceprint"] = metadata["has_voiceprint"]
+        # Add computed activity timestamp for frontend sorting/display
+        entity["last_active_ts"] = entity_last_active_ts(entity)
 
     # Load detected entities directly from files (excludes attached names/akas)
     detected = load_detected_entities_recent(facet_name)
@@ -136,6 +139,8 @@ def get_entity(facet_name: str, entity_id: str) -> Any:
         metadata = _get_entity_metadata(facet_name, entity_name)
         entity["observation_count"] = metadata["observation_count"]
         entity["has_voiceprint"] = metadata["has_voiceprint"]
+        # Add computed activity timestamp for frontend display
+        entity["last_active_ts"] = entity_last_active_ts(entity)
 
         # Ensure id is set
         if "id" not in entity:
@@ -177,9 +182,10 @@ def add_entity(facet_name: str) -> Any:
         # Load ALL attached entities including detached ones
         entities = load_entities(facet_name, include_detached=True)
 
-        # Check for existing entity by name (active or detached)
+        # Check for existing entity by name (case-insensitive, active or detached)
+        name_lower = name.lower()
         for entity in entities:
-            if entity.get("name") == name:
+            if entity.get("name", "").lower() == name_lower:
                 if entity.get("detached"):
                     # Re-activate detached entity
                     entity.pop("detached", None)
@@ -339,11 +345,13 @@ def update_entity(facet_name: str) -> Any:
         old_type = target.get("type", "")
 
         # Check if new name conflicts with existing active entities (excluding current)
-        if new_name != old_name:
+        # Use case-insensitive comparison to match save_entities validation
+        if new_name.lower() != old_name.lower():
+            new_name_lower = new_name.lower()
             for i, entity in enumerate(entities):
                 if entity.get("detached"):
                     continue  # Skip detached entities in conflict check
-                if i != target_index and entity.get("name") == new_name:
+                if i != target_index and entity.get("name", "").lower() == new_name_lower:
                     return (
                         jsonify({"error": f"Entity '{new_name}' already exists"}),
                         409,

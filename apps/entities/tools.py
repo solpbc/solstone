@@ -168,9 +168,10 @@ def entity_detect(
         # Load existing entities for the day
         existing = load_entities(facet, day)
 
-        # Check for duplicate by name only (consistent with attached entity uniqueness)
+        # Check for duplicate by name (case-insensitive, consistent with save validation)
+        name_lower = name.lower()
         for entity in existing:
-            if entity.get("name") == name:
+            if entity.get("name", "").lower() == name_lower:
                 return {
                     "error": f"Entity '{name}' already detected for {day}",
                     "suggestion": "entity already exists in detected list for this day",
@@ -246,9 +247,10 @@ def entity_attach(
         # Load ALL attached entities including detached ones
         existing = load_entities(facet, day=None, include_detached=True)
 
-        # Check for existing entity by name (active or detached)
+        # Check for existing entity by name (case-insensitive, active or detached)
+        name_lower = name.lower()
         for entity in existing:
-            if entity.get("name") == name:
+            if entity.get("name", "").lower() == name_lower:
                 if entity.get("detached"):
                     # User intentionally removed this entity - don't re-attach
                     return {

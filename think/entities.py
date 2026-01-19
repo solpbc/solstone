@@ -17,6 +17,61 @@ from slugify import slugify
 
 from think.utils import get_journal
 
+# Default timestamp for entities without activity data (Jan 1 2026 00:00:00 local time)
+# Used as fallback in entity_last_active_ts() to ensure all entities have a sortable value
+DEFAULT_ACTIVITY_TS = 1735689600000
+
+
+def entity_last_active_ts(entity: dict[str, Any]) -> int:
+    """Get entity's last activity timestamp with fallback chain.
+
+    Returns a Unix timestamp (milliseconds) representing when the entity was
+    last active, using the following priority:
+    1. last_seen (YYYYMMDD string, converted to local midnight)
+    2. updated_at (Unix ms)
+    3. attached_at (Unix ms)
+    4. DEFAULT_ACTIVITY_TS (Jan 1 2026)
+
+    This ensures all entities have a sortable timestamp value.
+
+    Args:
+        entity: Entity dictionary with optional last_seen, updated_at, attached_at fields
+
+    Returns:
+        Unix timestamp in milliseconds
+
+    Examples:
+        >>> entity_last_active_ts({"last_seen": "20260115"})
+        1736899200000  # Jan 15 2026 local midnight
+        >>> entity_last_active_ts({"updated_at": 1700000000000})
+        1700000000000
+        >>> entity_last_active_ts({})
+        1735689600000  # DEFAULT_ACTIVITY_TS
+    """
+    from datetime import datetime
+
+    # Priority 1: last_seen (YYYYMMDD string)
+    last_seen = entity.get("last_seen")
+    if last_seen and isinstance(last_seen, str) and len(last_seen) == 8:
+        try:
+            dt = datetime.strptime(last_seen, "%Y%m%d")
+            return int(dt.timestamp() * 1000)
+        except ValueError:
+            pass  # Malformed, fall through
+
+    # Priority 2: updated_at
+    updated_at = entity.get("updated_at")
+    if updated_at and isinstance(updated_at, int) and updated_at > 0:
+        return updated_at
+
+    # Priority 3: attached_at
+    attached_at = entity.get("attached_at")
+    if attached_at and isinstance(attached_at, int) and attached_at > 0:
+        return attached_at
+
+    # Priority 4: Default
+    return DEFAULT_ACTIVITY_TS
+
 
 def is_valid_entity_type(etype: str) -> bool:
     """Validate entity type: alphanumeric and spaces only, at least 3 characters."""
@@ -240,6 +295,10 @@ def load_entities(
 ) -> list[dict[str, Any]]:
     """Load entities from facet entity file.
 
+    For attached entities (day=None), automatically deduplicates by name
+    (case-insensitive) to self-heal corrupted files. When duplicates exist,
+    keeps the most recently updated entity.
+
     Args:
         facet: Facet name
         day: Optional day in YYYYMMDD format for detected entities
@@ -254,12 +313,48 @@ def load_entities(
         >>> load_entities("personal")
         [{"type": "Person", "name": "John Smith", "description": "Friend from college"}]
     """
+    import logging
+
     path = entity_file_path(facet, day)
     entities = parse_entity_file(str(path))
 
-    # Filter out detached entities for attached entity files (day=None)
-    if day is None and not include_detached:
-        entities = [e for e in entities if not e.get("detached")]
+    # For attached entities, deduplicate by name (case-insensitive) to self-heal
+    if day is None:
+        seen: dict[str, dict[str, Any]] = {}
+        duplicates_found = []
+
+        for entity in entities:
+            name = entity.get("name", "")
+            name_lower = name.lower()
+
+            if name_lower in seen:
+                # Duplicate found - keep the one with most recent activity
+                existing = seen[name_lower]
+                existing_time = entity_last_active_ts(existing)
+                current_time = entity_last_active_ts(entity)
+
+                if current_time > existing_time:
+                    duplicates_found.append(existing.get("name", ""))
+                    seen[name_lower] = entity
+                else:
+                    duplicates_found.append(name)
+            else:
+                seen[name_lower] = entity
+
+        if duplicates_found:
+            logging.info(
+                f"Healed {len(duplicates_found)} duplicate entities in facet "
+                f"'{facet}': {duplicates_found}"
+            )
+
+        entities = list(seen.values())
+
+        # Filter out detached if not requested
+        if not include_detached:
+            entities = [e for e in entities if not e.get("detached")]
+    else:
+        # For detected entities (day files), no deduplication needed
+        pass
 
     return entities
 
@@ -452,9 +547,9 @@ def load_all_attached_entities(
 
     # Sort if requested
     if sort_by == "last_seen":
-        # Sort by last_seen descending; entities without it go to end
+        # Sort by activity timestamp descending (uses full fallback chain)
         all_entities.sort(
-            key=lambda e: e.get("last_seen", ""),
+            key=entity_last_active_ts,
             reverse=True,
         )
 
@@ -1185,8 +1280,8 @@ def format_entities(
         if is_detected:
             ts = detected_base_ts
         else:
-            # Attached: check updated_at -> attached_at -> file mtime
-            ts = entity.get("updated_at") or entity.get("attached_at") or file_mtime_ms
+            # Attached: use activity timestamp (full fallback chain)
+            ts = entity_last_active_ts(entity)
 
         # Build markdown for this entity
         lines = [
