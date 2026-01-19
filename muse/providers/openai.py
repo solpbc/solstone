@@ -445,6 +445,13 @@ async def run_agent(
             if not isinstance(final_text, str) or not final_text:
                 final_text = "".join(streamed_text)
 
+            # Check for tool-only completion (no text output)
+            tool_only = False
+            if not final_text:
+                final_text = "Done."
+                tool_only = True
+                LOG.info("Tool-only completion, using synthetic response")
+
             # Extract usage information from result
             usage = getattr(getattr(result, "context_wrapper", None), "usage", None)
             usage_dict = None
@@ -470,14 +477,15 @@ async def run_agent(
                     },
                 }
 
-            cb.emit(
-                {
-                    "event": "finish",
-                    "result": final_text,
-                    "usage": usage_dict,
-                    "ts": _now_ms(),
-                }
-            )
+            finish_event = {
+                "event": "finish",
+                "result": final_text,
+                "usage": usage_dict,
+                "ts": _now_ms(),
+            }
+            if tool_only:
+                finish_event["tool_only"] = True
+            cb.emit(finish_event)
             return final_text
 
     except Exception as exc:

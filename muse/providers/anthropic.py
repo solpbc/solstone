@@ -27,6 +27,8 @@ from ..agents import JSONEventCallback, ThinkingEvent
 # Default values are now handled internally
 _DEFAULT_MODEL = CLAUDE_SONNET_4
 
+logger = logging.getLogger(__name__)
+
 # Model prefixes that support extended thinking
 _THINKING_MODEL_PREFIXES = (
     "claude-opus-4",
@@ -41,7 +43,7 @@ def _supports_thinking(model: str) -> bool:
 
 
 _DEFAULT_MAX_TOKENS = 8096 * 2
-_MAX_TOOL_ITERATIONS = 25  # Maximum agentic loop iterations before forcing a response
+_MAX_TOOL_ITERATIONS = 25  # Safety limit for agentic loop iterations
 
 
 class ToolExecutor:
@@ -253,7 +255,7 @@ async def run_agent(
                 # Extract allowed tools from config
                 allowed_tools = config.get("tools", None)
                 if allowed_tools and isinstance(allowed_tools, list):
-                    logging.getLogger(__name__).info(
+                    logger.info(
                         f"Using tool filter with allowed tools: {allowed_tools}"
                     )
 
@@ -263,7 +265,7 @@ async def run_agent(
                     mcp, callback, agent_id=agent_id, persona=persona
                 )
 
-                for iteration in range(_MAX_TOOL_ITERATIONS):
+                for _ in range(_MAX_TOOL_ITERATIONS):
                     # Configure thinking for supported models
                     thinking_config = None
                     if _supports_thinking(model) and max_tokens >= 2048:
@@ -306,12 +308,23 @@ async def run_agent(
                     messages.append({"role": "assistant", "content": response.content})
 
                     if not tool_uses:
-                        callback.emit(
-                            {
-                                "event": "finish",
-                                "result": final_text,
-                            }
-                        )
+                        # Model is done - check for tool-only completion
+                        tool_only = False
+                        if not final_text:
+                            final_text = "Done."
+                            tool_only = True
+                            logger.info(
+                                "Tool-only completion, using synthetic response"
+                            )
+                        finish_event = {
+                            "event": "finish",
+                            "result": final_text,
+                            "usage": _extract_usage_dict(response),
+                            "ts": int(time.time() * 1000),
+                        }
+                        if tool_only:
+                            finish_event["tool_only"] = True
+                        callback.emit(finish_event)
                         return final_text
 
                     results = []
@@ -321,33 +334,19 @@ async def run_agent(
 
                     messages.append({"role": "user", "content": results})
                 else:
-                    # Hit iteration limit - request summary
-                    logging.getLogger(__name__).warning(
-                        f"Hit max iterations ({_MAX_TOOL_ITERATIONS}), requesting summary"
+                    # Hit iteration limit - treat as tool-only completion
+                    logger.warning(
+                        f"Hit max iterations ({_MAX_TOOL_ITERATIONS}), completing"
                     )
-                    messages.append(
-                        {
-                            "role": "user",
-                            "content": "Please provide a summary of what was accomplished.",
-                        }
-                    )
-                    response = await client.messages.create(
-                        model=model,
-                        max_tokens=max_tokens,
-                        system=system_instruction,
-                        messages=messages,
-                    )
-                    final_text = ""
-                    for block in response.content:
-                        if getattr(block, "type", None) == "text":
-                            final_text += block.text
                     callback.emit(
                         {
                             "event": "finish",
-                            "result": final_text,
+                            "result": "Done.",
+                            "tool_only": True,
+                            "ts": int(time.time() * 1000),
                         }
                     )
-                    return final_text
+                    return "Done."
         else:
             # No MCP tools - single response only
             # Configure thinking for supported models

@@ -28,7 +28,6 @@ from ..agents import JSONEventCallback, ThinkingEvent
 
 _DEFAULT_MAX_TOKENS = 8192
 _DEFAULT_MODEL = GEMINI_FLASH
-_MAX_TOOL_ITERATIONS = 25  # Maximum agentic loop iterations before forcing a response
 
 logger = logging.getLogger(__name__)
 
@@ -544,47 +543,9 @@ async def run_agent(
                     ),
                 )
 
-                # Agentic loop - continue until model produces text or hits iteration limit
-                current_message = prompt
-                for iteration in range(_MAX_TOOL_ITERATIONS):
-                    response = await chat.send_message(current_message, config=cfg)
-
-                    # Extract thinking from each iteration
-                    _emit_thinking_events(response, model, callback)
-
-                    # Check if we got a text response
-                    if response.text:
-                        break
-
-                    # No text - check if model wants more tool calls
-                    function_calls = getattr(response, "function_calls", None)
-                    if not function_calls:
-                        # No text and no function calls - unexpected state
-                        logger.warning(
-                            f"Iteration {iteration + 1}: No text and no function calls in response"
-                        )
-                        break
-
-                    # Model returned function calls - the SDK's automatic function calling
-                    # should have handled them, but if we're here with no text, we need
-                    # to prompt the model to continue. This can happen when the SDK's
-                    # AFC exits but the model's last turn was a tool call.
-                    logger.debug(
-                        f"Iteration {iteration + 1}: Got {len(function_calls)} function calls, continuing"
-                    )
-                    current_message = "Please continue with the task or provide a summary if complete."
-                else:
-                    # Hit iteration limit - ask model to summarize
-                    logger.warning(
-                        f"Hit max iterations ({_MAX_TOOL_ITERATIONS}), requesting summary"
-                    )
-                    response = await chat.send_message(
-                        "Please provide a summary of what was accomplished.",
-                        config=types.GenerateContentConfig(
-                            max_output_tokens=max_tokens
-                        ),
-                    )
-                    _emit_thinking_events(response, model, callback)
+                # Send the message - SDK handles automatic function calling
+                response = await chat.send_message(prompt, config=cfg)
+                _emit_thinking_events(response, model, callback)
         else:
             # No MCP tools - just basic config
             cfg = types.GenerateContentConfig(
@@ -599,22 +560,13 @@ async def run_agent(
             _emit_thinking_events(response, model, callback)
 
         text = response.text
+        tool_only = False
         if not text:
-            # Provide more context about why response might be empty
-            finish_reason = None
-            function_calls = getattr(response, "function_calls", None)
-            if hasattr(response, "candidates") and response.candidates:
-                candidate = response.candidates[0]
-                if hasattr(candidate, "finish_reason"):
-                    finish_reason = str(candidate.finish_reason)
-
-            detail_parts = []
-            if finish_reason:
-                detail_parts.append(f"finish_reason={finish_reason}")
-            if function_calls:
-                detail_parts.append(f"pending_function_calls={len(function_calls)}")
-            detail = f" ({', '.join(detail_parts)})" if detail_parts else ""
-            raise RuntimeError(f"Model returned empty response{detail}")
+            # No text response - this is normal for tool-only completions
+            # Use synthetic text to indicate completion
+            text = "Done."
+            tool_only = True
+            logger.info("Tool-only completion, using synthetic response")
 
         # Extract usage from response
         usage_dict = None
@@ -633,14 +585,15 @@ async def run_agent(
             if reasoning:
                 usage_dict["reasoning_tokens"] = reasoning
 
-        callback.emit(
-            {
-                "event": "finish",
-                "result": text,
-                "usage": usage_dict,
-                "ts": int(time.time() * 1000),
-            }
-        )
+        finish_event = {
+            "event": "finish",
+            "result": text,
+            "usage": usage_dict,
+            "ts": int(time.time() * 1000),
+        }
+        if tool_only:
+            finish_event["tool_only"] = True
+        callback.emit(finish_event)
         return text
     except google_errors.ServerError as exc:
         # Google API server error (5xx) - transient, may be retried
