@@ -75,7 +75,7 @@ def get_facet_entities_data(facet_name: str) -> dict:
         dict with keys:
             - attached: list of entity dicts with type, name, description,
                         attached_at, updated_at, last_seen timestamps,
-                        plus observation_count and has_voiceprint
+                        plus observation_count, has_voiceprint, and last_active_ts
             - detected: list of {"type": str, "name": str, "description": str, "count": int, "last_seen": str}
     """
     # Load attached entities (already returns list of dicts)

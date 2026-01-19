@@ -8,10 +8,12 @@ import os
 import pytest
 
 from think.entities import (
+    DEFAULT_ACTIVITY_TS,
     ObservationNumberError,
     add_observation,
     ensure_entity_memory,
     entity_file_path,
+    entity_last_active_ts,
     entity_memory_path,
     entity_slug,
     find_matching_attached_entity,
@@ -36,6 +38,98 @@ def fixture_journal():
     os.environ["JOURNAL_PATH"] = "fixtures/journal"
     yield
     # No cleanup needed - just testing reads
+
+
+# ============================================================================
+# entity_last_active_ts tests
+# ============================================================================
+
+
+def test_entity_last_active_ts_priority_last_seen():
+    """Test that last_seen takes priority over other timestamps."""
+    entity = {
+        "last_seen": "20260115",  # Jan 15, 2026
+        "updated_at": 1700000000000,  # Nov 2023
+        "attached_at": 1600000000000,  # Sep 2020
+    }
+    ts = entity_last_active_ts(entity)
+    # Should use last_seen, which is Jan 15 2026 local midnight
+    from datetime import datetime
+
+    expected = int(datetime(2026, 1, 15).timestamp() * 1000)
+    assert ts == expected
+
+
+def test_entity_last_active_ts_priority_updated_at():
+    """Test that updated_at is used when last_seen is missing."""
+    entity = {
+        "updated_at": 1700000000000,
+        "attached_at": 1600000000000,
+    }
+    ts = entity_last_active_ts(entity)
+    assert ts == 1700000000000
+
+
+def test_entity_last_active_ts_priority_attached_at():
+    """Test that attached_at is used when last_seen and updated_at are missing."""
+    entity = {
+        "attached_at": 1600000000000,
+    }
+    ts = entity_last_active_ts(entity)
+    assert ts == 1600000000000
+
+
+def test_entity_last_active_ts_default():
+    """Test that DEFAULT_ACTIVITY_TS is returned when no timestamps present."""
+    entity = {"name": "Test Entity"}
+    ts = entity_last_active_ts(entity)
+    assert ts == DEFAULT_ACTIVITY_TS
+
+
+def test_entity_last_active_ts_empty_entity():
+    """Test with completely empty entity."""
+    ts = entity_last_active_ts({})
+    assert ts == DEFAULT_ACTIVITY_TS
+
+
+def test_entity_last_active_ts_malformed_last_seen():
+    """Test that malformed last_seen falls through to next priority."""
+    entity = {
+        "last_seen": "invalid",
+        "updated_at": 1700000000000,
+    }
+    ts = entity_last_active_ts(entity)
+    assert ts == 1700000000000
+
+
+def test_entity_last_active_ts_short_last_seen():
+    """Test that short last_seen string falls through."""
+    entity = {
+        "last_seen": "2026",  # Too short
+        "updated_at": 1700000000000,
+    }
+    ts = entity_last_active_ts(entity)
+    assert ts == 1700000000000
+
+
+def test_entity_last_active_ts_zero_timestamps():
+    """Test that zero timestamps are treated as missing."""
+    entity = {
+        "updated_at": 0,
+        "attached_at": 0,
+    }
+    ts = entity_last_active_ts(entity)
+    assert ts == DEFAULT_ACTIVITY_TS
+
+
+def test_entity_last_active_ts_negative_timestamps():
+    """Test that negative timestamps are treated as missing."""
+    entity = {
+        "updated_at": -1,
+        "attached_at": 1600000000000,
+    }
+    ts = entity_last_active_ts(entity)
+    assert ts == 1600000000000
 
 
 def test_entity_file_path_attached(fixture_journal):

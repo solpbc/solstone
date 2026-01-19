@@ -17,9 +17,9 @@ from slugify import slugify
 
 from think.utils import get_journal
 
-# Default timestamp for entities without activity data (Jan 1 2026 00:00:00 local time)
+# Default timestamp for entities without activity data (Jan 1 2026 00:00:00 UTC)
 # Used as fallback in entity_last_active_ts() to ensure all entities have a sortable value
-DEFAULT_ACTIVITY_TS = 1735689600000
+DEFAULT_ACTIVITY_TS = 1767225600000
 
 
 def entity_last_active_ts(entity: dict[str, Any]) -> int:
@@ -41,12 +41,11 @@ def entity_last_active_ts(entity: dict[str, Any]) -> int:
         Unix timestamp in milliseconds
 
     Examples:
-        >>> entity_last_active_ts({"last_seen": "20260115"})
-        1736899200000  # Jan 15 2026 local midnight
+        >>> entity_last_active_ts({"last_seen": "20260115"})  # Jan 15 2026 local midnight
         >>> entity_last_active_ts({"updated_at": 1700000000000})
         1700000000000
         >>> entity_last_active_ts({})
-        1735689600000  # DEFAULT_ACTIVITY_TS
+        1767225600000  # DEFAULT_ACTIVITY_TS (Jan 1 2026 UTC)
     """
     from datetime import datetime
 

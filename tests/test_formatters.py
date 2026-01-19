@@ -892,6 +892,29 @@ class TestFormatEntities:
         # updated_at should take priority
         assert chunks[0]["timestamp"] == 1700000000000
 
+    def test_format_entities_timestamp_last_seen_priority(self):
+        """Test that last_seen takes priority over updated_at and attached_at."""
+        from datetime import datetime
+
+        from think.entities import format_entities
+
+        entries = [
+            {
+                "type": "Person",
+                "name": "Alice",
+                "description": "Friend",
+                "last_seen": "20260115",  # Jan 15 2026
+                "updated_at": 1700000000000,
+                "attached_at": 1600000000000,
+            }
+        ]
+
+        chunks, meta = format_entities(entries)
+
+        # last_seen should take priority (converted to local midnight ms)
+        expected = int(datetime(2026, 1, 15).timestamp() * 1000)
+        assert chunks[0]["timestamp"] == expected
+
     def test_format_entities_header_facet_from_path(self):
         """Test that facet name is extracted from file path."""
         from think.entities import format_entities
