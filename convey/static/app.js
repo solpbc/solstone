@@ -1377,23 +1377,6 @@ window.AppServices = {
   },
 
   /**
-   * Generate entity slug from name (matches Python entity_slug)
-   * Used for entity IDs, folder names, and URL-safe references
-   * @param {string} name - Entity name
-   * @returns {string} Slug identifier (e.g., "alice_johnson")
-   */
-  entitySlug(name) {
-    if (!name || !name.trim()) return '';
-    // Normalize unicode, lowercase, replace non-alphanumeric with underscore
-    return name
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')  // Remove diacritics
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '_')
-      .replace(/^_+|_+$/g, '');
-  },
-
-  /**
    * Submenu system for app quick-links
    * Allows apps to define contextual links that appear on hover over menu icons
    */

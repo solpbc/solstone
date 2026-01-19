@@ -1184,7 +1184,7 @@ function reattachEntity(entity) {
       delete entity.detached;
       delete currentDetailEntity.detached;
       // Reload to get fresh observations
-      showDetailView(entity.id || window.AppServices.entitySlug(entity.name));
+      showDetailView(entity.id);
       loadEntities();  // Refresh list in background
     } else {
       throw new Error(data.error || 'Failed to re-attach');
@@ -1357,7 +1357,7 @@ function renderEntityCards() {
 function createEntityCard(entity) {
   const card = document.createElement('div');
   card.className = 'entity-card';
-  card.onclick = () => navigateToEntity(entity.id || window.AppServices.entitySlug(entity.name));
+  card.onclick = () => navigateToEntity(entity.id);
 
   // Observation count badge (top-right corner)
   if (entity.observation_count && entity.observation_count > 0) {
@@ -1759,7 +1759,7 @@ function saveEntityEdit() {
         currentDetailEntity.aka.length > 0 ? `Also known as: ${currentDetailEntity.aka.join(', ')}` : '';
 
       // Update hash if name changed (id will change)
-      const newId = data.entity?.id || window.AppServices.entitySlug(newName);
+      const newId = data.entity.id;
       if (location.hash.slice(1) !== newId) {
         history.replaceState(null, '', `#${newId}`);
       }
