@@ -506,7 +506,7 @@ def main() -> None:
             )
 
             # Build command names list for logging
-            command_names = [cmd[0] for cmd in commands]
+            command_names = [cmd[1] for cmd in commands]
             logging.info(f"Running {len(commands)} insight commands: {command_names}")
 
             success_count = 0
@@ -517,7 +517,7 @@ def main() -> None:
                 # Emit command event
                 emit(
                     "command",
-                    **event_fields(command=cmd[0], index=index, total=len(commands)),
+                    **event_fields(command=cmd[1], index=index, total=len(commands)),
                 )
 
                 # Route indexer commands through supervisor queue for serialization

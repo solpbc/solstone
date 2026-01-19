@@ -318,7 +318,7 @@ class TaskQueue:
         for ref, managed in self._active.items():
             if managed.is_running():
                 duration = int(now - managed._start_time)
-                cmd_name = managed.cmd[0] if managed.cmd else "unknown"
+                cmd_name = TaskQueue.get_command_name(managed.cmd)
                 tasks.append(
                     {
                         "ref": ref,
