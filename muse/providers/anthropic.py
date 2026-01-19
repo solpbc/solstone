@@ -41,6 +41,7 @@ def _supports_thinking(model: str) -> bool:
 
 
 _DEFAULT_MAX_TOKENS = 8096 * 2
+_MAX_TOOL_ITERATIONS = 25  # Maximum agentic loop iterations before forcing a response
 
 
 class ToolExecutor:
@@ -262,7 +263,7 @@ async def run_agent(
                     mcp, callback, agent_id=agent_id, persona=persona
                 )
 
-                while True:
+                for iteration in range(_MAX_TOOL_ITERATIONS):
                     # Configure thinking for supported models
                     thinking_config = None
                     if _supports_thinking(model) and max_tokens >= 2048:
@@ -319,6 +320,34 @@ async def run_agent(
                         results.append(result)
 
                     messages.append({"role": "user", "content": results})
+                else:
+                    # Hit iteration limit - request summary
+                    logging.getLogger(__name__).warning(
+                        f"Hit max iterations ({_MAX_TOOL_ITERATIONS}), requesting summary"
+                    )
+                    messages.append(
+                        {
+                            "role": "user",
+                            "content": "Please provide a summary of what was accomplished.",
+                        }
+                    )
+                    response = await client.messages.create(
+                        model=model,
+                        max_tokens=max_tokens,
+                        system=system_instruction,
+                        messages=messages,
+                    )
+                    final_text = ""
+                    for block in response.content:
+                        if getattr(block, "type", None) == "text":
+                            final_text += block.text
+                    callback.emit(
+                        {
+                            "event": "finish",
+                            "result": final_text,
+                        }
+                    )
+                    return final_text
         else:
             # No MCP tools - single response only
             # Configure thinking for supported models

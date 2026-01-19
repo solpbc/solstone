@@ -73,7 +73,7 @@ def _bucket_day_counts(day_counts: dict[str, int]) -> dict[str, Any]:
 
 
 def search_journal(
-    query: str,
+    query: str = "",
     limit: int = 10,
     offset: int = 0,
     *,
@@ -92,6 +92,7 @@ def search_journal(
     Args:
         query: Search query. Words are AND'd by default; use OR to match any
             (e.g., "apple OR orange"), quotes for exact phrases, * for prefix match.
+            Empty string returns all content matching the filters.
         limit: Maximum number of results to return (default: 10)
         offset: Number of results to skip for pagination (default: 0)
         day: Filter by exact day in ``YYYYMMDD`` format (mutually exclusive with day_from/day_to)
@@ -115,6 +116,7 @@ def search_journal(
         - search_journal("project planning", facet="work")
         - search_journal("standup", topic="audio")
         - search_journal("weekly sync", day_from="20241201", day_to="20241207")
+        - search_journal(topic="audio", day="20240101")  # Browse all audio for a day
     """
     try:
         kwargs: dict[str, Any] = {}

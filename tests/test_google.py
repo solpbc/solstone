@@ -24,6 +24,21 @@ async def run_main(mod, argv, stdin_data=None):
 def _setup_genai_stub(monkeypatch):
     google_mod = types.ModuleType("google")
     genai_mod = types.ModuleType("google.genai")
+    errors_mod = types.ModuleType("google.genai.errors")
+
+    # Define stub error classes
+    class APIError(Exception):
+        pass
+
+    class ServerError(APIError):
+        pass
+
+    class ClientError(APIError):
+        pass
+
+    errors_mod.APIError = APIError
+    errors_mod.ServerError = ServerError
+    errors_mod.ClientError = ClientError
 
     class DummyChat:
         def __init__(self, model, history=None, config=None):
@@ -55,6 +70,7 @@ def _setup_genai_stub(monkeypatch):
             self.aio = SimpleNamespace(chats=DummyChats())
 
     genai_mod.Client = DummyClient
+    genai_mod.errors = errors_mod
     genai_mod.types = types.SimpleNamespace(
         GenerateContentConfig=lambda **k: SimpleNamespace(**k),
         ToolConfig=lambda **k: SimpleNamespace(**k),
@@ -66,6 +82,7 @@ def _setup_genai_stub(monkeypatch):
     google_mod.genai = genai_mod
     monkeypatch.setitem(sys.modules, "google", google_mod)
     monkeypatch.setitem(sys.modules, "google.genai", genai_mod)
+    monkeypatch.setitem(sys.modules, "google.genai.errors", errors_mod)
 
 
 def test_google_main(monkeypatch, tmp_path, capsys):
@@ -106,48 +123,7 @@ def test_google_main(monkeypatch, tmp_path, capsys):
     # So we don't check for journal files here
 
 
-def test_google_outfile(monkeypatch, tmp_path, capsys):
-    _setup_genai_stub(monkeypatch)
-    install_agents_stub()
-    sys.modules.pop("muse.providers.google", None)
-    importlib.reload(importlib.import_module("muse.providers.google"))
-    mod = importlib.reload(importlib.import_module("muse.agents"))
-
-    journal = tmp_path / "journal"
-    journal.mkdir()
-    # out_file = tmp_path / "out.txt"
-
-    monkeypatch.setenv("JOURNAL_PATH", str(journal))
-    monkeypatch.setenv("GOOGLE_API_KEY", "x")
-
-    ndjson_input = json.dumps(
-        {
-            "prompt": "hello",
-            "provider": "google",
-            "model": GEMINI_FLASH,
-            "disable_mcp": True,
-        }
-    )
-    asyncio.run(run_main(mod, ["sol agents"], stdin_data=ndjson_input))
-
-    # Output file functionality was removed in NDJSON-only mode
-    # Check stdout instead
-    out_lines = capsys.readouterr().out.strip().splitlines()
-    events = [json.loads(line) for line in out_lines]
-    assert events[0]["event"] == "start"
-    assert isinstance(events[0]["ts"], int)
-    assert events[0]["prompt"] == "hello"
-    assert events[0]["persona"] == "default"
-    assert events[0]["model"] == GEMINI_FLASH
-    assert events[-1]["event"] == "finish"
-    assert isinstance(events[-1]["ts"], int)
-    assert events[-1]["result"] == "ok"
-
-    # Journal logging is now handled by cortex, not by agents directly
-    # So we don't check for journal files here
-
-
-def test_google_outfile_error(monkeypatch, tmp_path, capsys):
+def test_google_mcp_error(monkeypatch, tmp_path, capsys):
     _setup_genai_stub(monkeypatch)
     install_agents_stub()
 
@@ -168,7 +144,6 @@ def test_google_outfile_error(monkeypatch, tmp_path, capsys):
 
     journal = tmp_path / "journal"
     journal.mkdir()
-    # out_file = tmp_path / "out.txt"
 
     monkeypatch.setenv("JOURNAL_PATH", str(journal))
     monkeypatch.setenv("GOOGLE_API_KEY", "x")
@@ -178,7 +153,7 @@ def test_google_outfile_error(monkeypatch, tmp_path, capsys):
             "prompt": "hello",
             "provider": "google",
             "model": GEMINI_FLASH,
-            "mcp_server_url": "http://localhost:5175/mcp",
+            "mcp_server_url": "http://localhost:6270/mcp",
         }
     )
     asyncio.run(run_main(mod, ["sol agents"], stdin_data=ndjson_input))
@@ -190,6 +165,3 @@ def test_google_outfile_error(monkeypatch, tmp_path, capsys):
     assert isinstance(events[-1]["ts"], int)
     assert events[-1]["error"] == "boom"
     assert "trace" in events[-1]
-
-    # Journal logging is now handled by cortex, not by agents directly
-    # So we don't check for journal files here

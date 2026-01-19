@@ -18,6 +18,7 @@ from typing import Any, Callable, Dict, List, Optional, Union
 
 from dotenv import load_dotenv
 from google import genai
+from google.genai import errors as google_errors
 from google.genai import types
 
 from muse.models import GEMINI_FLASH
@@ -27,6 +28,9 @@ from ..agents import JSONEventCallback, ThinkingEvent
 
 _DEFAULT_MAX_TOKENS = 8192
 _DEFAULT_MODEL = GEMINI_FLASH
+_MAX_TOOL_ITERATIONS = 25  # Maximum agentic loop iterations before forcing a response
+
+logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
@@ -312,6 +316,32 @@ async def agenerate(
 # ---------------------------------------------------------------------------
 
 
+def _emit_thinking_events(
+    response: Any, model: str, callback: JSONEventCallback
+) -> None:
+    """Extract and emit thinking events from a response."""
+    if hasattr(response, "candidates") and response.candidates:
+        for candidate in response.candidates:
+            if hasattr(candidate, "thought") and candidate.thought:
+                thinking_event: ThinkingEvent = {
+                    "event": "thinking",
+                    "ts": int(time.time() * 1000),
+                    "summary": candidate.thought,
+                    "model": model,
+                }
+                callback.emit(thinking_event)
+
+    # Also check for thinking at the response level
+    if hasattr(response, "thought") and response.thought:
+        thinking_event: ThinkingEvent = {
+            "event": "thinking",
+            "ts": int(time.time() * 1000),
+            "summary": response.thought,
+            "model": model,
+        }
+        callback.emit(thinking_event)
+
+
 class ToolLoggingHooks:
     """Wrap ``session.call_tool`` to emit events."""
 
@@ -492,76 +522,99 @@ async def run_agent(
                 # Extract allowed tools from config
                 allowed_tools = config.get("tools", None)
 
-                # For now, use the MCP session directly
-                # Tool filtering for Google requires more complex implementation
-                # that would need to intercept function calls and validate against allowed list
+                # Configure function calling mode based on tool filtering
                 if allowed_tools and isinstance(allowed_tools, list):
-                    logging.getLogger(__name__).info(
-                        f"Tool filtering requested for Google backend with tools: {allowed_tools}"
+                    logger.info(f"Filtering tools to: {allowed_tools}")
+                    function_calling_config = types.FunctionCallingConfig(
+                        mode="ANY",  # Restrict to only allowed functions
+                        allowed_function_names=allowed_tools,
                     )
-                    logging.getLogger(__name__).warning(
-                        "Tool filtering for Google backend is not yet fully implemented - using all available tools"
-                    )
+                else:
+                    function_calling_config = types.FunctionCallingConfig(mode="AUTO")
 
                 cfg = types.GenerateContentConfig(
                     max_output_tokens=max_tokens,
                     tools=[mcp.session],
                     tool_config=types.ToolConfig(
-                        function_calling_config=types.FunctionCallingConfig(mode="AUTO")
+                        function_calling_config=function_calling_config
                     ),
-                    thinking_config=(
-                        types.ThinkingConfig(
-                            include_thoughts=True,
-                            thinking_budget=-1,  # Enable dynamic thinking
-                        )
-                        if hasattr(types, "ThinkingConfig")
-                        else None
+                    thinking_config=types.ThinkingConfig(
+                        include_thoughts=True,
+                        thinking_budget=-1,  # Enable dynamic thinking
                     ),
                 )
 
-                response = await chat.send_message(prompt, config=cfg)
+                # Agentic loop - continue until model produces text or hits iteration limit
+                current_message = prompt
+                for iteration in range(_MAX_TOOL_ITERATIONS):
+                    response = await chat.send_message(current_message, config=cfg)
+
+                    # Extract thinking from each iteration
+                    _emit_thinking_events(response, model, callback)
+
+                    # Check if we got a text response
+                    if response.text:
+                        break
+
+                    # No text - check if model wants more tool calls
+                    function_calls = getattr(response, "function_calls", None)
+                    if not function_calls:
+                        # No text and no function calls - unexpected state
+                        logger.warning(
+                            f"Iteration {iteration + 1}: No text and no function calls in response"
+                        )
+                        break
+
+                    # Model returned function calls - the SDK's automatic function calling
+                    # should have handled them, but if we're here with no text, we need
+                    # to prompt the model to continue. This can happen when the SDK's
+                    # AFC exits but the model's last turn was a tool call.
+                    logger.debug(
+                        f"Iteration {iteration + 1}: Got {len(function_calls)} function calls, continuing"
+                    )
+                    current_message = "Please continue with the task or provide a summary if complete."
+                else:
+                    # Hit iteration limit - ask model to summarize
+                    logger.warning(
+                        f"Hit max iterations ({_MAX_TOOL_ITERATIONS}), requesting summary"
+                    )
+                    response = await chat.send_message(
+                        "Please provide a summary of what was accomplished.",
+                        config=types.GenerateContentConfig(
+                            max_output_tokens=max_tokens
+                        ),
+                    )
+                    _emit_thinking_events(response, model, callback)
         else:
             # No MCP tools - just basic config
             cfg = types.GenerateContentConfig(
                 max_output_tokens=max_tokens,
-                thinking_config=(
-                    types.ThinkingConfig(
-                        include_thoughts=True,
-                        thinking_budget=-1,  # Enable dynamic thinking
-                    )
-                    if hasattr(types, "ThinkingConfig")
-                    else None
+                thinking_config=types.ThinkingConfig(
+                    include_thoughts=True,
+                    thinking_budget=-1,  # Enable dynamic thinking
                 ),
             )
 
             response = await chat.send_message(prompt, config=cfg)
-
-        # Extract thinking content from response (works for both MCP and non-MCP cases)
-        if hasattr(response, "candidates") and response.candidates:
-            for candidate in response.candidates:
-                # Check for thinking content in candidate
-                if hasattr(candidate, "thought") and candidate.thought:
-                    thinking_event: ThinkingEvent = {
-                        "event": "thinking",
-                        "ts": int(time.time() * 1000),
-                        "summary": candidate.thought,
-                        "model": model,
-                    }
-                    callback.emit(thinking_event)
-
-        # Also check for thinking at the response level
-        if hasattr(response, "thought") and response.thought:
-            thinking_event: ThinkingEvent = {
-                "event": "thinking",
-                "ts": int(time.time() * 1000),
-                "summary": response.thought,
-                "model": model,
-            }
-            callback.emit(thinking_event)
+            _emit_thinking_events(response, model, callback)
 
         text = response.text
         if not text:
-            raise RuntimeError("Model returned empty response")
+            # Provide more context about why response might be empty
+            finish_reason = None
+            function_calls = getattr(response, "function_calls", None)
+            if hasattr(response, "candidates") and response.candidates:
+                candidate = response.candidates[0]
+                if hasattr(candidate, "finish_reason"):
+                    finish_reason = str(candidate.finish_reason)
+
+            detail_parts = []
+            if finish_reason:
+                detail_parts.append(f"finish_reason={finish_reason}")
+            if function_calls:
+                detail_parts.append(f"pending_function_calls={len(function_calls)}")
+            detail = f" ({', '.join(detail_parts)})" if detail_parts else ""
+            raise RuntimeError(f"Model returned empty response{detail}")
 
         # Extract usage from response
         usage_dict = None
@@ -589,6 +642,36 @@ async def run_agent(
             }
         )
         return text
+    except google_errors.ServerError as exc:
+        # Google API server error (5xx) - transient, may be retried
+        error_msg = f"Google API server error: {exc}"
+        logger.warning(error_msg)
+        callback.emit(
+            {
+                "event": "error",
+                "error": error_msg,
+                "error_type": "server_error",
+                "retryable": True,
+                "trace": traceback.format_exc(),
+            }
+        )
+        setattr(exc, "_evented", True)
+        raise RuntimeError(error_msg) from exc
+    except google_errors.ClientError as exc:
+        # Google API client error (4xx) - likely a config or request issue
+        error_msg = f"Google API client error: {exc}"
+        logger.error(error_msg)
+        callback.emit(
+            {
+                "event": "error",
+                "error": error_msg,
+                "error_type": "client_error",
+                "retryable": False,
+                "trace": traceback.format_exc(),
+            }
+        )
+        setattr(exc, "_evented", True)
+        raise RuntimeError(error_msg) from exc
     except Exception as exc:
         callback.emit(
             {
