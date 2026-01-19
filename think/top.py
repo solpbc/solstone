@@ -10,6 +10,7 @@ and provides keyboard controls for restarting services.
 import argparse
 import asyncio
 import logging
+import queue
 import time
 from datetime import datetime, timedelta
 
@@ -53,7 +54,7 @@ class ServiceManager:
         self.cpu_cache = {}  # Maps pid -> last cpu_percent value
         self.cpu_procs = {}  # Maps pid -> Process object for cpu tracking
         self.running_tasks = {}  # Maps ref -> task info from logs tract
-        self.pending_notifications = []  # Queue for async notifications (dicts)
+        self.event_queue: queue.Queue = queue.Queue()  # Callosum events for main loop
         self.active_notifications = {}  # Maps service_name -> notification_id
         self.crash_history = {}  # Maps service_name -> [crash_timestamps]
 
@@ -174,8 +175,19 @@ class ServiceManager:
         except Exception as exc:
             logging.error("Failed to send notification for %s: %s", service, exc)
 
-    def handle_event(self, message: dict) -> None:
-        """Process Callosum events.
+    def _queue_event(self, message: dict) -> None:
+        """Queue Callosum event for processing in main loop (thread-safe).
+
+        Called from Callosum's background thread. All state mutations happen
+        in _process_event which runs in the main async loop.
+
+        Args:
+            message: Callosum message dict with tract/event fields
+        """
+        self.event_queue.put_nowait(message)
+
+    async def _process_event(self, message: dict) -> None:
+        """Process a Callosum event (runs in main async loop).
 
         Args:
             message: Callosum message dict with tract/event fields
@@ -206,10 +218,8 @@ class ServiceManager:
                             )
                     except (psutil.NoSuchProcess, psutil.AccessDenied):
                         # Clean up dead processes
-                        if pid in self.cpu_procs:
-                            del self.cpu_procs[pid]
-                        if pid in self.cpu_cache:
-                            del self.cpu_cache[pid]
+                        self.cpu_procs.pop(pid, None)
+                        self.cpu_cache.pop(pid, None)
 
                 # Keep selection in bounds
                 if self.selected >= len(self.services):
@@ -225,13 +235,10 @@ class ServiceManager:
 
                 # Clear any active crash notification (service restarted successfully)
                 if service in self.active_notifications:
-                    self.pending_notifications.append(
-                        {"service": service, "message": None, "clear_only": True}
-                    )
+                    await self.clear_notification(service)
 
                 # Reset crash history when service starts successfully
-                if service in self.crash_history:
-                    del self.crash_history[service]
+                self.crash_history.pop(service, None)
 
             elif event == "stopped":
                 service = message.get("service")
@@ -239,7 +246,7 @@ class ServiceManager:
                 ref = message.get("ref")
                 self.set_service_status(service, "stopped")
 
-                # Queue notification for non-zero exits
+                # Send notification for non-zero exits
                 if exit_code != 0 and exit_code != "?":
                     # Track crash timestamp
                     if service not in self.crash_history:
@@ -265,10 +272,12 @@ class ServiceManager:
                     if log_line:
                         msg += f"\nLast log: {log_line}"
 
-                    # Queue notification dict with service info
-                    self.pending_notifications.append(
-                        {"service": service, "message": msg}
-                    )
+                    # Clear existing notification first (deduplication)
+                    if service in self.active_notifications:
+                        await self.clear_notification(service)
+
+                    # Send notification directly (we're in the async loop)
+                    await self.send_notification(service, msg)
 
         elif tract == "logs":
             if event == "exec":
@@ -324,19 +333,15 @@ class ServiceManager:
                 ref = message.get("ref")
                 if ref:
                     # Remove from running tasks
-                    if ref in self.running_tasks:
+                    task = self.running_tasks.pop(ref, None)
+                    if task:
                         # Clean up CPU tracking for this task's PID
-                        task = self.running_tasks[ref]
                         pid = task["pid"]
-                        if pid in self.cpu_procs:
-                            del self.cpu_procs[pid]
-                        if pid in self.cpu_cache:
-                            del self.cpu_cache[pid]
-                        del self.running_tasks[ref]
+                        self.cpu_procs.pop(pid, None)
+                        self.cpu_cache.pop(pid, None)
 
                     # Clean up log lines
-                    if ref in self.last_log_lines:
-                        del self.last_log_lines[ref]
+                    self.last_log_lines.pop(ref, None)
 
         elif tract == "observe":
             if event == "status":
@@ -525,21 +530,12 @@ class ServiceManager:
 
         # Clean up dead tasks
         for ref in refs_to_remove:
-            task = self.running_tasks[ref]
-            pid = task["pid"]
-
-            # Clean up CPU tracking
-            if pid in self.cpu_procs:
-                del self.cpu_procs[pid]
-            if pid in self.cpu_cache:
-                del self.cpu_cache[pid]
-
-            # Remove task
-            del self.running_tasks[ref]
-
-            # Clean up log lines
-            if ref in self.last_log_lines:
-                del self.last_log_lines[ref]
+            task = self.running_tasks.pop(ref, None)
+            if task:
+                pid = task["pid"]
+                self.cpu_procs.pop(pid, None)
+                self.cpu_cache.pop(pid, None)
+            self.last_log_lines.pop(ref, None)
 
     def render_tasks_table(self) -> list[str]:
         """Render the running tasks table.
@@ -611,7 +607,7 @@ class ServiceManager:
     def get_displayed_mode(self) -> str:
         """Get the mode to display, with hysteresis to avoid IDLE flicker.
 
-        State updates happen in handle_event() when events arrive.
+        State updates happen in _process_event() when events arrive.
         This method only reads state to determine what to display.
 
         Returns:
@@ -812,7 +808,7 @@ class ServiceManager:
 
     async def run(self) -> None:
         """Main event loop for the TUI."""
-        self.callosum.start(callback=self.handle_event)
+        self.callosum.start(callback=self._queue_event)
 
         # Track iteration count for periodic timeout checks
         iteration = 0
@@ -840,27 +836,19 @@ class ServiceManager:
                     elif key.code == 4:  # Ctrl-D
                         self.running = False
 
+                # Process queued Callosum events (thread-safe: queue filled by
+                # _queue_event in Callosum thread, drained here in main loop)
+                while True:
+                    try:
+                        msg = self.event_queue.get_nowait()
+                        await self._process_event(msg)
+                    except queue.Empty:
+                        break
+
                 # Check for dead tasks roughly every 5 seconds (~17 iterations at ~0.3s each)
                 iteration += 1
                 if iteration % 17 == 0:
                     self.cleanup_dead_tasks()
-
-                # Process pending notifications
-                while self.pending_notifications:
-                    notif = self.pending_notifications.pop(0)
-                    service = notif["service"]
-
-                    # Check if this is a clear-only request
-                    if notif.get("clear_only"):
-                        await self.clear_notification(service)
-                    else:
-                        # Clear any existing notification first (deduplication)
-                        if service in self.active_notifications:
-                            await self.clear_notification(service)
-
-                        # Send new notification
-                        message = notif["message"]
-                        await self.send_notification(service, message)
 
                 # Render on every iteration (includes callosum updates)
                 print(self.render(), flush=True)
