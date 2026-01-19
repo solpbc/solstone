@@ -329,9 +329,8 @@ def test_task_queue_same_command_queued(monkeypatch):
     """Test that same command is queued when already running."""
     mod = importlib.import_module("think.supervisor")
 
-    # Reset task state
-    mod._task_state["running"] = {}
-    mod._task_state["queues"] = {}
+    # Create fresh task queue (no callback to avoid callosum events)
+    mod._task_queue = mod.TaskQueue(on_queue_change=None)
 
     spawned = []
 
@@ -339,7 +338,6 @@ def test_task_queue_same_command_queued(monkeypatch):
         spawned.append(self._target.__name__)
 
     monkeypatch.setattr(mod.threading.Thread, "start", fake_thread_start)
-    monkeypatch.setattr(mod, "_supervisor_callosum", None)  # Disable queue events
 
     # First request - should run immediately
     msg1 = {
@@ -349,7 +347,7 @@ def test_task_queue_same_command_queued(monkeypatch):
     }
     mod._handle_task_request(msg1)
 
-    assert "indexer" in mod._task_state["running"]
+    assert "indexer" in mod._task_queue._running
     assert len(spawned) == 1
 
     # Second request (different args) - should be queued
@@ -361,24 +359,23 @@ def test_task_queue_same_command_queued(monkeypatch):
     mod._handle_task_request(msg2)
 
     assert len(spawned) == 1  # No new spawn
-    assert "indexer" in mod._task_state["queues"]
-    assert len(mod._task_state["queues"]["indexer"]) == 1
+    assert "indexer" in mod._task_queue._queues
+    assert len(mod._task_queue._queues["indexer"]) == 1
     # Queue entries are {refs, cmd} dicts (refs is a list for coalescing)
-    assert mod._task_state["queues"]["indexer"][0]["cmd"] == [
+    assert mod._task_queue._queues["indexer"][0]["cmd"] == [
         "sol",
         "indexer",
         "--rescan-full",
     ]
-    assert len(mod._task_state["queues"]["indexer"][0]["refs"]) == 1
+    assert len(mod._task_queue._queues["indexer"][0]["refs"]) == 1
 
 
 def test_task_queue_dedupe_exact_match(monkeypatch):
     """Test that exact same command is deduped in queue."""
     mod = importlib.import_module("think.supervisor")
 
-    # Reset task state
-    mod._task_state["running"] = {}
-    mod._task_state["queues"] = {}
+    # Create fresh task queue (no callback to avoid callosum events)
+    mod._task_queue = mod.TaskQueue(on_queue_change=None)
 
     spawned = []
 
@@ -386,7 +383,6 @@ def test_task_queue_dedupe_exact_match(monkeypatch):
         spawned.append(self._target.__name__)
 
     monkeypatch.setattr(mod.threading.Thread, "start", fake_thread_start)
-    monkeypatch.setattr(mod, "_supervisor_callosum", None)  # Disable queue events
 
     # First request - runs
     msg1 = {
@@ -404,7 +400,7 @@ def test_task_queue_dedupe_exact_match(monkeypatch):
     }
     mod._handle_task_request(msg2)
 
-    assert len(mod._task_state["queues"]["indexer"]) == 1
+    assert len(mod._task_queue._queues["indexer"]) == 1
 
     # Third request (same cmd again) - deduped, not added
     msg3 = {
@@ -414,16 +410,15 @@ def test_task_queue_dedupe_exact_match(monkeypatch):
     }
     mod._handle_task_request(msg3)
 
-    assert len(mod._task_state["queues"]["indexer"]) == 1  # Still just 1
+    assert len(mod._task_queue._queues["indexer"]) == 1  # Still just 1
 
 
 def test_task_queue_different_commands_independent(monkeypatch):
     """Test that different commands have independent queues."""
     mod = importlib.import_module("think.supervisor")
 
-    # Reset task state
-    mod._task_state["running"] = {}
-    mod._task_state["queues"] = {}
+    # Create fresh task queue (no callback to avoid callosum events)
+    mod._task_queue = mod.TaskQueue(on_queue_change=None)
 
     spawned = []
 
@@ -431,7 +426,6 @@ def test_task_queue_different_commands_independent(monkeypatch):
         spawned.append(self._target.__name__)
 
     monkeypatch.setattr(mod.threading.Thread, "start", fake_thread_start)
-    monkeypatch.setattr(mod, "_supervisor_callosum", None)
 
     # Indexer request - runs
     msg1 = {
@@ -450,17 +444,18 @@ def test_task_queue_different_commands_independent(monkeypatch):
     mod._handle_task_request(msg2)
 
     assert len(spawned) == 2  # Both spawned
-    assert "indexer" in mod._task_state["running"]
-    assert "insight" in mod._task_state["running"]
+    assert "indexer" in mod._task_queue._running
+    assert "insight" in mod._task_queue._running
 
 
 def test_process_queue_spawns_next(monkeypatch):
-    """Test that _process_queue spawns next queued task."""
+    """Test that _process_next spawns next queued task."""
     mod = importlib.import_module("think.supervisor")
 
-    # Set up state with queued task (queue entries are {refs, cmd} dicts)
-    mod._task_state["running"] = {"indexer": "ref123"}
-    mod._task_state["queues"] = {
+    # Create task queue with pre-set state
+    mod._task_queue = mod.TaskQueue(on_queue_change=None)
+    mod._task_queue._running = {"indexer": "ref123"}
+    mod._task_queue._queues = {
         "indexer": [
             {"refs": ["queued-ref"], "cmd": ["sol", "indexer", "--rescan-full"]}
         ]
@@ -469,13 +464,12 @@ def test_process_queue_spawns_next(monkeypatch):
     spawned = []
 
     def fake_thread_start(self):
-        spawned.append(self._args)  # Capture args (refs, cmd, cmd_name)
+        spawned.append(self._args)  # Capture args (refs, cmd, cmd_name, callosum)
 
     monkeypatch.setattr(mod.threading.Thread, "start", fake_thread_start)
-    monkeypatch.setattr(mod, "_supervisor_callosum", None)
 
     # Process queue
-    mod._process_queue("indexer")
+    mod._task_queue._process_next("indexer")
 
     # Should have spawned the queued task with its refs list
     assert len(spawned) == 1
@@ -484,16 +478,17 @@ def test_process_queue_spawns_next(monkeypatch):
     assert spawned[0][2] == "indexer"  # cmd_name
 
     # Queue should be empty now
-    assert mod._task_state["queues"]["indexer"] == []
+    assert mod._task_queue._queues["indexer"] == []
 
 
 def test_process_queue_clears_running_when_empty(monkeypatch):
-    """Test that _process_queue clears running state when queue is empty."""
+    """Test that _process_next clears running state when queue is empty."""
     mod = importlib.import_module("think.supervisor")
 
-    # Set up state with no queued tasks
-    mod._task_state["running"] = {"indexer": "ref123"}
-    mod._task_state["queues"] = {"indexer": []}
+    # Create task queue with pre-set state (no queued tasks)
+    mod._task_queue = mod.TaskQueue(on_queue_change=None)
+    mod._task_queue._running = {"indexer": "ref123"}
+    mod._task_queue._queues = {"indexer": []}
 
     spawned = []
 
@@ -501,33 +496,30 @@ def test_process_queue_clears_running_when_empty(monkeypatch):
         spawned.append(True)
 
     monkeypatch.setattr(mod.threading.Thread, "start", fake_thread_start)
-    monkeypatch.setattr(mod, "_supervisor_callosum", None)
 
     # Process queue
-    mod._process_queue("indexer")
+    mod._task_queue._process_next("indexer")
 
     # No spawn (queue was empty)
     assert len(spawned) == 0
 
     # Running state should be cleared
-    assert "indexer" not in mod._task_state["running"]
+    assert "indexer" not in mod._task_queue._running
 
 
 def test_task_request_uses_caller_provided_ref(monkeypatch):
     """Test that caller-provided ref is used and preserved through queue."""
     mod = importlib.import_module("think.supervisor")
 
-    # Reset task state
-    mod._task_state["running"] = {}
-    mod._task_state["queues"] = {}
+    # Create fresh task queue (no callback to avoid callosum events)
+    mod._task_queue = mod.TaskQueue(on_queue_change=None)
 
     spawned = []
 
     def fake_thread_start(self):
-        spawned.append(self._args)  # Capture args (refs, cmd, cmd_name)
+        spawned.append(self._args)  # Capture args (refs, cmd, cmd_name, callosum)
 
     monkeypatch.setattr(mod.threading.Thread, "start", fake_thread_start)
-    monkeypatch.setattr(mod, "_supervisor_callosum", None)
 
     # Request with caller-provided ref
     msg = {
@@ -539,7 +531,7 @@ def test_task_request_uses_caller_provided_ref(monkeypatch):
     mod._handle_task_request(msg)
 
     # Should use the provided ref
-    assert mod._task_state["running"]["indexer"] == "my-custom-ref-123"
+    assert mod._task_queue._running["indexer"] == "my-custom-ref-123"
     assert spawned[0][0] == ["my-custom-ref-123"]  # refs is a list
 
 
@@ -547,9 +539,8 @@ def test_task_queue_preserves_caller_ref(monkeypatch):
     """Test that queued requests preserve their caller-provided ref."""
     mod = importlib.import_module("think.supervisor")
 
-    # Reset task state
-    mod._task_state["running"] = {}
-    mod._task_state["queues"] = {}
+    # Create fresh task queue (no callback to avoid callosum events)
+    mod._task_queue = mod.TaskQueue(on_queue_change=None)
 
     spawned = []
 
@@ -557,7 +548,6 @@ def test_task_queue_preserves_caller_ref(monkeypatch):
         spawned.append(self._args)
 
     monkeypatch.setattr(mod.threading.Thread, "start", fake_thread_start)
-    monkeypatch.setattr(mod, "_supervisor_callosum", None)
 
     # First request runs immediately
     msg1 = {
@@ -578,9 +568,9 @@ def test_task_queue_preserves_caller_ref(monkeypatch):
     mod._handle_task_request(msg2)
 
     # Verify queued entry has the caller's ref in refs list
-    assert len(mod._task_state["queues"]["indexer"]) == 1
-    assert mod._task_state["queues"]["indexer"][0]["refs"] == ["second-ref"]
-    assert mod._task_state["queues"]["indexer"][0]["cmd"] == [
+    assert len(mod._task_queue._queues["indexer"]) == 1
+    assert mod._task_queue._queues["indexer"][0]["refs"] == ["second-ref"]
+    assert mod._task_queue._queues["indexer"][0]["cmd"] == [
         "sol",
         "indexer",
         "--rescan-full",
@@ -591,9 +581,8 @@ def test_task_queue_coalesces_refs_on_dedupe(monkeypatch):
     """Test that duplicate queued requests coalesce their refs."""
     mod = importlib.import_module("think.supervisor")
 
-    # Reset task state
-    mod._task_state["running"] = {}
-    mod._task_state["queues"] = {}
+    # Create fresh task queue (no callback to avoid callosum events)
+    mod._task_queue = mod.TaskQueue(on_queue_change=None)
 
     spawned = []
 
@@ -601,7 +590,6 @@ def test_task_queue_coalesces_refs_on_dedupe(monkeypatch):
         spawned.append(self._args)
 
     monkeypatch.setattr(mod.threading.Thread, "start", fake_thread_start)
-    monkeypatch.setattr(mod, "_supervisor_callosum", None)
 
     # First request runs immediately
     msg1 = {
@@ -631,9 +619,9 @@ def test_task_queue_coalesces_refs_on_dedupe(monkeypatch):
     mod._handle_task_request(msg3)
 
     # Should still be just one queue entry
-    assert len(mod._task_state["queues"]["indexer"]) == 1
+    assert len(mod._task_queue._queues["indexer"]) == 1
     # But it should have both refs
-    assert mod._task_state["queues"]["indexer"][0]["refs"] == [
+    assert mod._task_queue._queues["indexer"][0]["refs"] == [
         "second-ref",
         "third-ref",
     ]
@@ -643,9 +631,10 @@ def test_process_queue_spawns_with_multiple_refs(monkeypatch):
     """Test that dequeued task has all coalesced refs."""
     mod = importlib.import_module("think.supervisor")
 
-    # Set up state with queued task that has multiple refs (from coalescing)
-    mod._task_state["running"] = {"indexer": "running-ref"}
-    mod._task_state["queues"] = {
+    # Create task queue with pre-set state (queued task with multiple refs)
+    mod._task_queue = mod.TaskQueue(on_queue_change=None)
+    mod._task_queue._running = {"indexer": "running-ref"}
+    mod._task_queue._queues = {
         "indexer": [
             {
                 "refs": ["ref-A", "ref-B", "ref-C"],
@@ -660,10 +649,9 @@ def test_process_queue_spawns_with_multiple_refs(monkeypatch):
         spawned.append(self._args)
 
     monkeypatch.setattr(mod.threading.Thread, "start", fake_thread_start)
-    monkeypatch.setattr(mod, "_supervisor_callosum", None)
 
     # Process queue
-    mod._process_queue("indexer")
+    mod._task_queue._process_next("indexer")
 
     # Should spawn with all three refs
     assert len(spawned) == 1

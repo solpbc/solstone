@@ -73,17 +73,264 @@ class AlertManager:
         self._state = {k: v for k, v in self._state.items() if not predicate(k, v)}
 
 
-# State for task execution with per-command queueing
-# Tasks are serialized by command name - only one task per command runs at a time.
-# Additional requests for the same command are queued (deduped by exact cmd match).
-_task_state = {
-    "running": {},  # command_name -> ref of currently running task
-    "queues": {},  # command_name -> list of {refs: list[str], cmd: list[str]} dicts
-    "lock": threading.Lock(),  # Lock for thread-safe task state access
-}
+class TaskQueue:
+    """Manages on-demand task execution with per-command serialization.
 
-# Active task processes (ref -> ManagedProcess)
-_active_tasks: dict[str, RunnerManagedProcess] = {}
+    Tasks are serialized by command name - only one task per command runs at a time.
+    Additional requests for the same command are queued (deduped by exact cmd match).
+    Multiple callers requesting the same work have their refs coalesced so all get
+    notified when the task completes.
+
+    The lock only protects state mutations, never held during I/O operations.
+    """
+
+    def __init__(self, on_queue_change: callable = None):
+        """Initialize task queue.
+
+        Args:
+            on_queue_change: Optional callback(cmd_name, running_ref, queue_entries)
+                            called after queue state changes. Called outside lock.
+        """
+        self._running: dict[str, str] = {}  # command_name -> ref of running task
+        self._queues: dict[str, list] = {}  # command_name -> list of {refs, cmd} dicts
+        self._active: dict[str, RunnerManagedProcess] = {}  # ref -> process
+        self._lock = threading.Lock()
+        self._on_queue_change = on_queue_change
+
+    @staticmethod
+    def get_command_name(cmd: list[str]) -> str:
+        """Extract command name from cmd array for queue serialization.
+
+        For 'sol X' commands, returns X. Otherwise returns cmd[0] basename.
+        """
+        if cmd and cmd[0] == "sol" and len(cmd) > 1:
+            return cmd[1]
+        return Path(cmd[0]).name if cmd else "unknown"
+
+    def _notify_queue_change(self, cmd_name: str) -> None:
+        """Notify listener of queue state change (called outside lock)."""
+        if not self._on_queue_change:
+            return
+
+        with self._lock:
+            queue = list(self._queues.get(cmd_name, []))
+            running_ref = self._running.get(cmd_name)
+
+        self._on_queue_change(cmd_name, running_ref, queue)
+
+    def submit(
+        self, cmd: list[str], ref: str | None = None, callosum: CallosumConnection = None
+    ) -> str | None:
+        """Submit a task for execution.
+
+        If no task of this command type is running, starts immediately.
+        Otherwise queues (deduped by exact cmd match, refs coalesced).
+
+        Args:
+            cmd: Command to execute
+            ref: Optional caller-provided ref for tracking
+            callosum: CallosumConnection for event emission
+
+        Returns:
+            ref if task was started/queued, None if already tracked (no change)
+        """
+        ref = ref or str(int(time.time() * 1000))
+        cmd_name = self.get_command_name(cmd)
+
+        should_notify = False
+        should_start = False
+
+        with self._lock:
+            if cmd_name in self._running:
+                # Command already running - queue or coalesce
+                queue = self._queues.setdefault(cmd_name, [])
+                existing = next((q for q in queue if q["cmd"] == cmd), None)
+                if existing:
+                    if ref not in existing["refs"]:
+                        existing["refs"].append(ref)
+                        logging.info(
+                            f"Added ref {ref} to queued task {cmd_name} "
+                            f"(refs: {len(existing['refs'])})"
+                        )
+                        should_notify = True
+                    else:
+                        logging.debug(f"Ref already tracked for queued task: {ref}")
+                        return None
+                else:
+                    queue.append({"refs": [ref], "cmd": cmd})
+                    logging.info(
+                        f"Queued task {cmd_name}: {' '.join(cmd)} ref={ref} "
+                        f"(queue: {len(queue)})"
+                    )
+                    should_notify = True
+            else:
+                # Not running - mark as running and start
+                self._running[cmd_name] = ref
+                should_start = True
+
+        # Notify outside lock
+        if should_notify:
+            self._notify_queue_change(cmd_name)
+            return ref
+
+        # Start task outside lock
+        if should_start:
+            threading.Thread(
+                target=self._run_task,
+                args=([ref], cmd, cmd_name, callosum),
+                daemon=True,
+            ).start()
+            return ref
+
+        return None
+
+    def _run_task(
+        self,
+        refs: list[str],
+        cmd: list[str],
+        cmd_name: str,
+        parent_callosum: CallosumConnection = None,
+    ) -> None:
+        """Execute a task and handle completion.
+
+        Args:
+            refs: List of refs to notify on completion
+            cmd: Command to execute
+            cmd_name: Command name for queue management
+            parent_callosum: Optional parent callosum (not used, task creates own)
+        """
+        callosum = CallosumConnection()
+        managed = None
+        primary_ref = refs[0]
+        service = cmd_name
+
+        try:
+            callosum.start()
+            logging.info(f"Starting task {primary_ref}: {' '.join(cmd)}")
+
+            managed = RunnerManagedProcess.spawn(cmd, ref=primary_ref, callosum=callosum)
+            self._active[primary_ref] = managed
+
+            callosum.emit(
+                "supervisor", "started", service=service, pid=managed.pid, ref=primary_ref
+            )
+
+            exit_code = managed.wait()
+
+            for ref in refs:
+                callosum.emit(
+                    "supervisor",
+                    "stopped",
+                    service=service,
+                    pid=managed.pid,
+                    ref=ref,
+                    exit_code=exit_code,
+                )
+
+            if exit_code == 0:
+                logging.info(f"Task {primary_ref} finished successfully")
+            else:
+                logging.warning(f"Task {primary_ref} failed with exit code {exit_code}")
+
+        except Exception as e:
+            logging.exception(f"Task {primary_ref} encountered exception: {e}")
+            for ref in refs:
+                callosum.emit(
+                    "supervisor",
+                    "stopped",
+                    service=service,
+                    pid=managed.pid if managed else 0,
+                    ref=ref,
+                    exit_code=-1,
+                )
+        finally:
+            if managed:
+                managed.cleanup()
+            self._active.pop(primary_ref, None)
+            callosum.stop()
+            self._process_next(cmd_name)
+
+    def _process_next(self, cmd_name: str) -> None:
+        """Process next queued task after completion."""
+        next_cmd = None
+        refs = None
+
+        with self._lock:
+            queue = self._queues.get(cmd_name, [])
+            if queue:
+                entry = queue.pop(0)
+                refs = entry["refs"]
+                next_cmd = entry["cmd"]
+                self._running[cmd_name] = refs[0]
+                logging.info(
+                    f"Dequeued task {cmd_name}: {' '.join(next_cmd)} refs={refs} "
+                    f"(remaining: {len(queue)})"
+                )
+            else:
+                self._running.pop(cmd_name, None)
+
+        # Notify and spawn outside lock
+        self._notify_queue_change(cmd_name)
+        if next_cmd:
+            threading.Thread(
+                target=self._run_task,
+                args=(refs, next_cmd, cmd_name, None),
+                daemon=True,
+            ).start()
+
+    def cancel(self, ref: str) -> bool:
+        """Cancel a running task.
+
+        Returns:
+            True if task was found and terminated, False otherwise
+        """
+        if ref not in self._active:
+            logging.warning(f"Cannot cancel task {ref}: not found")
+            return False
+
+        managed = self._active[ref]
+        if not managed.is_running():
+            logging.debug(f"Task {ref} already finished")
+            return False
+
+        logging.info(f"Cancelling task {ref}...")
+        managed.terminate()
+        return True
+
+    def get_status(self, ref: str) -> dict:
+        """Get status of a task."""
+        if ref not in self._active:
+            return {"status": "not_found"}
+
+        managed = self._active[ref]
+        return {
+            "status": "running" if managed.is_running() else "finished",
+            "pid": managed.pid,
+            "returncode": managed.returncode,
+            "log_path": str(managed.log_writer.path),
+            "cmd": managed.cmd,
+        }
+
+    def collect_task_status(self) -> list[dict]:
+        """Collect status of all running tasks for supervisor status."""
+        now = time.time()
+        tasks = []
+        for ref, managed in self._active.items():
+            if managed.is_running():
+                duration = int(now - managed._start_time)
+                cmd_name = managed.cmd[0] if managed.cmd else "unknown"
+                tasks.append(
+                    {
+                        "ref": ref,
+                        "name": cmd_name,
+                        "duration_seconds": duration,
+                    }
+                )
+        return tasks
+
+
+# Global task queue instance (initialized in main())
+_task_queue: TaskQueue | None = None
 
 # Global supervisor callosum connection for event emissions
 _supervisor_callosum: CallosumConnection | None = None
@@ -311,19 +558,16 @@ def _get_command_name(cmd: list[str]) -> str:
 
     For 'sol X' commands, returns X. Otherwise returns cmd[0] basename.
     """
-    if cmd and cmd[0] == "sol" and len(cmd) > 1:
-        return cmd[1]
-    return Path(cmd[0]).name if cmd else "unknown"
+    return TaskQueue.get_command_name(cmd)
 
 
-def _emit_queue_event(cmd_name: str) -> None:
-    """Emit supervisor.queue event with current queue state for a command."""
+def _emit_queue_event(cmd_name: str, running_ref: str, queue: list) -> None:
+    """Emit supervisor.queue event with current queue state for a command.
+
+    This is the callback passed to TaskQueue for queue change notifications.
+    """
     if not _supervisor_callosum:
         return
-
-    with _task_state["lock"]:
-        queue = _task_state["queues"].get(cmd_name, [])
-        running_ref = _task_state["running"].get(cmd_name)
 
     _supervisor_callosum.emit(
         "supervisor",
@@ -336,179 +580,18 @@ def _emit_queue_event(cmd_name: str) -> None:
 
 
 def _handle_task_request(message: dict) -> None:
-    """Handle incoming task request from Callosum.
-
-    Tasks are serialized by command name - only one task per command runs at a time.
-    Additional requests are queued, deduped by exact cmd match.
-
-    Callers can provide a 'ref' field to track their specific request through
-    supervisor.stopped events. If not provided, a timestamp-based ref is generated.
-    """
-    # Filter for supervisor tract and request event
+    """Handle incoming task request from Callosum."""
     if message.get("tract") != "supervisor" or message.get("event") != "request":
         return
 
     cmd = message.get("cmd")
-
     if not cmd:
         logging.error(f"Invalid task request: missing cmd: {message}")
         return
 
-    # Use caller-provided ref or generate one
-    ref = message.get("ref") or str(int(time.time() * 1000))
-    cmd_name = _get_command_name(cmd)
-
-    with _task_state["lock"]:
-        # Check if this command is already running
-        if cmd_name in _task_state["running"]:
-            # Queue stores {refs, cmd} dicts - refs is a list for dedup coalescing
-            queue = _task_state["queues"].setdefault(cmd_name, [])
-            # Dedupe by exact cmd match
-            existing = next((q for q in queue if q["cmd"] == cmd), None)
-            if existing:
-                # Same cmd already queued - add this ref to be notified on completion
-                if ref not in existing["refs"]:
-                    existing["refs"].append(ref)
-                    logging.info(
-                        f"Added ref {ref} to queued task {cmd_name} (refs: {len(existing['refs'])})"
-                    )
-                else:
-                    logging.debug(f"Ref already tracked for queued task: {ref}")
-                    return  # Don't emit event if nothing changed
-            else:
-                # New cmd variant - add to queue
-                queue.append({"refs": [ref], "cmd": cmd})
-                logging.info(
-                    f"Queued task {cmd_name}: {' '.join(cmd)} ref={ref} (queue: {len(queue)})"
-                )
-
-            # Emit queue event (outside lock would be better but simpler here)
-            _emit_queue_event(cmd_name)
-            return
-
-        # Not running - mark as running and start
-        _task_state["running"][cmd_name] = ref
-
-    # Spawn task in background thread (wrap ref in list for consistency)
-    threading.Thread(
-        target=_run_task,
-        args=([ref], cmd, cmd_name),
-        daemon=True,
-    ).start()
-
-
-def _run_task(refs: list[str], cmd: list[str], cmd_name: str) -> None:
-    """Execute a task and broadcast events to Callosum.
-
-    After completion, checks queue for pending tasks of same command and spawns next.
-    Emits stopped events for ALL refs (supports multiple callers waiting on same work).
-
-    Args:
-        refs: List of refs to notify on completion (first is primary)
-        cmd: Command to execute
-        cmd_name: Command name for queue management
-    """
-    callosum = CallosumConnection()
-    managed = None
-
-    # Use first ref as primary for logging and tracking
-    primary_ref = refs[0]
-
-    # Service name for events (use cmd_name which is already extracted)
-    service = cmd_name
-
-    try:
-        # Start Callosum connection (auto-connects in background)
-        callosum.start()
-
-        logging.info(f"Starting task {primary_ref}: {' '.join(cmd)}")
-
-        # Spawn process and track it (share callosum for logs events)
-        managed = RunnerManagedProcess.spawn(cmd, ref=primary_ref, callosum=callosum)
-        _active_tasks[primary_ref] = managed
-
-        # Emit started event (runner already emits logs/exec, this is supervisor-level)
-        callosum.emit(
-            "supervisor", "started", service=service, pid=managed.pid, ref=primary_ref
-        )
-
-        # Wait for completion (blocks)
-        exit_code = managed.wait()
-
-        # Emit stopped event for ALL refs (notify all waiting callers)
-        for ref in refs:
-            callosum.emit(
-                "supervisor",
-                "stopped",
-                service=service,
-                pid=managed.pid,
-                ref=ref,
-                exit_code=exit_code,
-            )
-
-        if exit_code == 0:
-            logging.info(f"Task {primary_ref} finished successfully")
-        else:
-            logging.warning(f"Task {primary_ref} failed with exit code {exit_code}")
-
-    except Exception as e:
-        logging.exception(f"Task {primary_ref} encountered exception: {e}")
-        # Still emit stopped events with error code for all refs
-        for ref in refs:
-            callosum.emit(
-                "supervisor",
-                "stopped",
-                service=service,
-                pid=managed.pid if managed else 0,
-                ref=ref,
-                exit_code=-1,
-            )
-    finally:
-        # Cleanup managed process
-        if managed:
-            managed.cleanup()
-        _active_tasks.pop(primary_ref, None)
-
-        callosum.stop()
-
-        # Check for queued tasks and spawn next
-        _process_queue(cmd_name)
-
-
-def _process_queue(cmd_name: str) -> None:
-    """Process the queue for a command after task completion.
-
-    Pops next queued task (if any) and spawns it, or clears running state.
-    """
-    with _task_state["lock"]:
-        queue = _task_state["queues"].get(cmd_name, [])
-
-        if queue:
-            # Pop next task from queue (queue entries are {refs, cmd} dicts)
-            entry = queue.pop(0)
-            refs = entry["refs"]
-            next_cmd = entry["cmd"]
-            # Use first ref as primary for running state tracking
-            _task_state["running"][cmd_name] = refs[0]
-            logging.info(
-                f"Dequeued task {cmd_name}: {' '.join(next_cmd)} refs={refs} (remaining: {len(queue)})"
-            )
-        else:
-            # No more queued tasks - clear running state
-            _task_state["running"].pop(cmd_name, None)
-            next_cmd = None
-            refs = None
-
-    # Emit queue event (state changed)
-    _emit_queue_event(cmd_name)
-
-    # Spawn next task outside lock
-    if next_cmd:
-        threading.Thread(
-            target=_run_task,
-            args=(refs, next_cmd, cmd_name),
-            daemon=True,
-        ).start()
+    ref = message.get("ref")
+    if _task_queue:
+        _task_queue.submit(cmd, ref)
 
 
 def _handle_supervisor_request(message: dict) -> None:
@@ -565,18 +648,9 @@ def cancel_task(ref: str) -> bool:
     Returns:
         True if task was found and terminated, False otherwise
     """
-    if ref not in _active_tasks:
-        logging.warning(f"Cannot cancel task {ref}: not found")
-        return False
-
-    managed = _active_tasks[ref]
-    if not managed.is_running():
-        logging.debug(f"Task {ref} already finished")
-        return False
-
-    logging.info(f"Cancelling task {ref}...")
-    managed.terminate()
-    return True
+    if _task_queue:
+        return _task_queue.cancel(ref)
+    return False
 
 
 def get_task_status(ref: str) -> dict:
@@ -588,17 +662,9 @@ def get_task_status(ref: str) -> dict:
     Returns:
         Dict with status info, or {"status": "not_found"} if task doesn't exist
     """
-    if ref not in _active_tasks:
-        return {"status": "not_found"}
-
-    managed = _active_tasks[ref]
-    return {
-        "status": "running" if managed.is_running() else "finished",
-        "pid": managed.pid,
-        "returncode": managed.returncode,
-        "log_path": str(managed.log_writer.path),
-        "cmd": managed.cmd,
-    }
+    if _task_queue:
+        return _task_queue.get_status(ref)
+    return {"status": "not_found"}
 
 
 def collect_status(procs: list[ManagedProcess]) -> dict:
@@ -634,19 +700,7 @@ def collect_status(procs: list[ManagedProcess]) -> dict:
             )
 
     # Running tasks
-    tasks = []
-    for ref, managed in _active_tasks.items():
-        if managed.is_running():
-            duration = int(now - managed._start_time)
-            # Extract command name (first element of cmd)
-            cmd_name = managed.cmd[0] if managed.cmd else "unknown"
-            tasks.append(
-                {
-                    "ref": ref,
-                    "name": cmd_name,
-                    "duration_seconds": duration,
-                }
-            )
+    tasks = _task_queue.collect_task_status() if _task_queue else []
 
     # Stale heartbeats
     stale = check_health()
@@ -1216,6 +1270,7 @@ def main() -> None:
     logging.info("Supervisor starting...")
 
     global _managed_procs, _supervisor_callosum, _observer_enabled, _is_remote_mode
+    global _task_queue
     procs: list[ManagedProcess] = []
 
     # Remote mode: run sync instead of local sense/observer
@@ -1237,6 +1292,9 @@ def main() -> None:
         logging.info("Supervisor connected to Callosum")
     except Exception as e:
         logging.warning(f"Failed to start Callosum connection: {e}")
+
+    # Initialize task queue with callosum event callback
+    _task_queue = TaskQueue(on_queue_change=_emit_queue_event)
 
     # Now start other services (their startup events will be captured)
     if _is_remote_mode:
