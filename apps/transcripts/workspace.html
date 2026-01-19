@@ -213,6 +213,38 @@ body.has-date-nav .workspace:has(.tr-wrap) {
   font-size: 14px;
 }
 
+/* Delete button */
+.tr-delete-btn {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  background: #fff;
+  color: #9ca3af;
+  cursor: pointer;
+  transition: all 0.15s;
+  margin-left: 8px;
+}
+
+.tr-delete-btn:hover {
+  background: #fef2f2;
+  border-color: #fecaca;
+  color: #ef4444;
+}
+
+.tr-delete-btn.visible {
+  display: flex;
+}
+
+.tr-delete-btn svg {
+  width: 16px;
+  height: 16px;
+}
+
 .tr-panel {
   flex: 1;
   border: 1px solid #e5e7eb;
@@ -768,6 +800,12 @@ body.has-date-nav .workspace:has(.tr-wrap) {
             <input type="checkbox" id="trScreenCheck" checked>
             <span>Screen</span>
           </label>
+          <button type="button" id="trDeleteBtn" class="tr-delete-btn" title="Delete segment">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="3 6 5 6 21 6"></polyline>
+              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+            </svg>
+          </button>
         </div>
       </div>
       <div class="tr-panel" id="trPanel"></div>
@@ -812,6 +850,7 @@ body.has-date-nav .workspace:has(.tr-wrap) {
   const panel = document.getElementById('trPanel');
   const audioCheck = document.getElementById('trAudioCheck');
   const screenCheck = document.getElementById('trScreenCheck');
+  const deleteBtn = document.getElementById('trDeleteBtn');
 
   // State
   let height = timeline.clientHeight;
@@ -1333,6 +1372,9 @@ body.has-date-nav .workspace:has(.tr-wrap) {
 
     // Update range text
     rangeText.textContent = `${seg.start} - ${seg.end}`;
+
+    // Show delete button when segment is selected
+    deleteBtn.classList.add('visible');
 
     // Load transcript content
     loadSegmentContent(seg);
@@ -2042,6 +2084,92 @@ body.has-date-nav .workspace:has(.tr-wrap) {
         currentVideoFiles = segmentData.video_files || {};
       }
       renderSegmentTimeline(segmentData, audioCheck.checked, screenCheck.checked);
+    }
+  });
+
+  // Clear selection and reset UI state
+  function clearSegmentSelection() {
+    selectedSegment = null;
+    segmentData = null;
+    currentVideoFiles = {};
+    frameCapture.clear();
+    allScreenFrames = [];
+    currentFrameIndex = -1;
+    groupEntriesByIdx.clear();
+
+    // Stop and clear audio player reference
+    if (segmentAudioEl) {
+      segmentAudioEl.pause();
+      segmentAudioEl = null;
+    }
+
+    // Hide delete button
+    deleteBtn.classList.remove('visible');
+
+    // Clear URL hash
+    history.replaceState(null, '', window.location.pathname);
+
+    // Reset UI
+    rangeText.textContent = 'Select a segment to view';
+    panel.innerHTML = '';
+
+    // Clear active state in zoom view
+    zoomSegments.querySelectorAll('.tr-zoom-pill').forEach(pill => {
+      pill.classList.remove('tr-active');
+    });
+  }
+
+  // Delete segment handler
+  deleteBtn.addEventListener('click', async () => {
+    if (!selectedSegment) return;
+
+    const seg = selectedSegment;
+    const confirmMsg = `Delete segment ${seg.start} - ${seg.end}?\n\n` +
+      `This will permanently remove all audio, screen recordings, and transcripts for this segment.\n\n` +
+      `This cannot be undone.`;
+
+    if (!confirm(confirmMsg)) return;
+
+    try {
+      const response = await fetch(`/app/transcripts/api/segment/${day}/${seg.key}`, {
+        method: 'DELETE'
+      });
+
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data.error || 'Failed to delete segment');
+      }
+
+      // Remove segment from local state
+      allSegments = allSegments.filter(s => s.key !== seg.key);
+
+      // Clear selection and UI
+      clearSegmentSelection();
+
+      // Re-render zoom timeline
+      buildZoomSegments();
+
+      // Refresh range indicators on left timeline
+      fetch(`/app/transcripts/api/ranges/${day}`)
+        .then(r => r.ok ? r.json() : Promise.reject('Failed to fetch ranges'))
+        .then(data => {
+          // Clear and rebuild segment indicators
+          segmentsLane.innerHTML = '';
+          (data.audio || []).forEach(rg => {
+            const [s, e] = rg.map(parseTime);
+            addSegmentIndicator('audio', s, e, 0);
+          });
+          (data.screen || []).forEach(rg => {
+            const [s, e] = rg.map(parseTime);
+            addSegmentIndicator('screen', s, e, 1);
+          });
+        })
+        .catch(() => {
+          // Range indicators may be stale, but segment is deleted
+        });
+
+    } catch (err) {
+      alert(`Error: ${err.message}`);
     }
   });
 

@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import os
 import re
+import shutil
 from datetime import date
 from glob import glob
 from typing import Any
@@ -20,8 +21,9 @@ from flask import (
     url_for,
 )
 
-from convey import state
-from convey.utils import DATE_RE, format_date
+from apps.utils import log_app_action
+from convey import emit, state
+from convey.utils import DATE_RE, error_response, format_date, success_response
 from observe.hear import format_audio
 from observe.screen import format_screen
 from observe.utils import AUDIO_EXTENSIONS, VIDEO_EXTENSIONS
@@ -331,3 +333,62 @@ def segment_content(day: str, segment_key: str) -> Any:
             "segment_key": segment_key,
         }
     )
+
+
+@transcripts_bp.route("/api/segment/<day>/<segment_key>", methods=["DELETE"])
+def delete_segment(day: str, segment_key: str) -> Any:
+    """Delete a segment directory and all its contents.
+
+    This permanently removes all audio files, screen recordings, transcripts,
+    and insights for the specified segment. This action cannot be undone.
+
+    Args:
+        day: Day in YYYYMMDD format
+        segment_key: Segment directory name (HHMMSS_LEN format)
+
+    Returns:
+        JSON success response or error response
+    """
+    if not re.fullmatch(DATE_RE.pattern, day):
+        return error_response("Invalid day format", 400)
+
+    if not validate_segment_key(segment_key):
+        return error_response("Invalid segment key format", 400)
+
+    day_dir = str(day_path(day))
+    segment_dir = os.path.join(day_dir, segment_key)
+
+    # Verify segment exists
+    if not os.path.isdir(segment_dir):
+        return error_response("Segment not found", 404)
+
+    # Security check: ensure segment_dir is within day_dir
+    if not os.path.commonpath([segment_dir, day_dir]) == day_dir:
+        return error_response("Invalid segment path", 403)
+
+    try:
+        # Remove the entire segment directory
+        shutil.rmtree(segment_dir)
+
+        # Log the deletion for audit trail
+        log_app_action(
+            app="transcripts",
+            facet=None,  # Transcripts are not facet-scoped
+            action="segment_delete",
+            params={"day": day, "segment_key": segment_key},
+            day=day,
+        )
+
+        # Trigger indexer rescan to remove deleted segment from search index
+        # Use fixed ref so supervisor serializes concurrent requests
+        emit(
+            "supervisor",
+            "request",
+            ref="indexer-rescan",
+            cmd=["sol", "indexer", "--rescan-full"],
+        )
+
+        return success_response({"deleted": segment_key})
+
+    except OSError as e:
+        return error_response(f"Failed to delete segment: {e}", 500)
