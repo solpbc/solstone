@@ -1190,6 +1190,17 @@ body.has-date-nav .workspace:has(.tr-wrap) {
     return hh * 60 + mm;
   }
 
+  // Format cost in cents with exact USD in title
+  // Returns {text: "3c", title: "$0.0312"} or {text: "", title: ""} if null/zero
+  function formatCost(costUSD) {
+    if (costUSD === null || costUSD === undefined) {
+      return { text: '', title: '' };
+    }
+    const cents = Math.round(costUSD * 100);
+    const exactUSD = '$' + costUSD.toFixed(4);
+    return { text: cents + 'c', title: exactUSD };
+  }
+
   function computeTimelineBounds(ranges) {
     // Compute dynamic timeline bounds from content ranges
     // Returns {start, end} in minutes, snapped to hours
@@ -1406,6 +1417,12 @@ body.has-date-nav .workspace:has(.tr-wrap) {
         }
         segmentData = data;
         currentVideoFiles = showScreen ? (data.video_files || {}) : {};
+
+        // Update range text with cost
+        const costInfo = formatCost(data.cost);
+        if (costInfo.text) {
+          rangeText.innerHTML = `${seg.start} - ${seg.end} · <span title="${costInfo.title}">${costInfo.text}</span>`;
+        }
 
         // Skip keyframe prefetching when screen is disabled
         if (!showScreen) {

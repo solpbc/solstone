@@ -24,6 +24,7 @@ from flask import (
 from apps.utils import log_app_action
 from convey import emit, state
 from convey.utils import DATE_RE, error_response, format_date, success_response
+from muse.models import get_usage_cost
 from observe.hear import format_audio
 from observe.screen import format_screen
 from observe.utils import AUDIO_EXTENSIONS, VIDEO_EXTENSIONS
@@ -180,6 +181,7 @@ def segment_content(day: str, segment_key: str) -> Any:
         - audio_file: URL to segment audio file (if exists)
         - video_files: dict mapping jsonl filename to video URL for client-side decoding
         - segment_key: segment directory name
+        - cost: processing cost in USD (float, 0.0 if no data)
     """
     if not re.fullmatch(DATE_RE.pattern, day):
         return "", 404
@@ -325,12 +327,16 @@ def segment_content(day: str, segment_key: str) -> Any:
     # Sort all chunks by timestamp
     chunks.sort(key=lambda c: c["timestamp"])
 
+    # Get cost data for this segment
+    cost_data = get_usage_cost(day, segment=segment_key)
+
     return jsonify(
         {
             "chunks": chunks,
             "audio_file": audio_file_url,
             "video_files": video_files,
             "segment_key": segment_key,
+            "cost": cost_data["cost"],
         }
     )
 
