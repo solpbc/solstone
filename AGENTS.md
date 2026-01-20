@@ -180,7 +180,7 @@ See **Quick Reference** below for all `make` commands. Key patterns:
 
 * **Minimize Dependencies**: Use standard library when possible
 * **All Dependencies**: Add to `dependencies` in `pyproject.toml`
-* **Installation**: `make install` or `pip install -e .` (includes everything)
+* **Installation**: `make install` (creates isolated `.venv/` and symlinks `sol` to `~/.local/bin`)
 
 ---
 

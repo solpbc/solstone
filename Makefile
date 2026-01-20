@@ -1,44 +1,84 @@
 # solstone Makefile
 # Python-based AI-driven desktop journaling toolkit
 
-.PHONY: install test test-apps test-app lint format check clean all update-prices
+.PHONY: install uninstall test test-apps test-app lint format check clean all update-prices
 
 # Default target - install package in editable mode
 all: install
 
+# Virtual environment directory
+VENV := .venv
+VENV_BIN := $(VENV)/bin
+PYTHON := $(VENV_BIN)/python
+PIP := $(VENV_BIN)/pip
+
+# User bin directory for symlink (standard location, usually already in PATH)
+USER_BIN := $(HOME)/.local/bin
+
+# Create virtual environment
+$(VENV)/pyvenv.cfg:
+	@echo "Creating virtual environment in $(VENV)..."
+	python3 -m venv $(VENV)
+
 # Marker file to track installation
-.installed: pyproject.toml
-	@echo "Installing package in editable mode..."
-	pip install -e .
+.installed: pyproject.toml $(VENV)/pyvenv.cfg
+	@echo "Installing package in isolated virtual environment..."
+	$(PIP) install --upgrade pip
+	@# Python 3.14+ needs onnxruntime from nightly (not yet on PyPI)
+	@PY_MINOR=$$($(PYTHON) -c "import sys; print(sys.version_info.minor)"); \
+	if [ "$$PY_MINOR" -ge 14 ]; then \
+		echo "Python 3.14+ detected - installing onnxruntime from nightly feed..."; \
+		$(PIP) install --pre --no-deps --index-url https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/ORT-Nightly/pypi/simple/ onnxruntime; \
+	fi
+	$(PIP) install -e .
 	@echo "Updating genai-prices to latest (for current model pricing)..."
-	pip install --upgrade genai-prices
+	$(PIP) install --upgrade genai-prices
+	@mkdir -p $(USER_BIN)
+	@ln -sf $(CURDIR)/$(VENV_BIN)/sol $(USER_BIN)/sol
+	@echo ""
+	@echo "Done! 'sol' command installed to $(USER_BIN)/sol"
+	@if ! echo "$$PATH" | grep -q "$(USER_BIN)"; then \
+		echo ""; \
+		echo "NOTE: $(USER_BIN) is not in your PATH."; \
+		echo "Add this to your shell profile (~/.bashrc, ~/.zshrc, etc.):"; \
+		echo "  export PATH=\"\$$HOME/.local/bin:\$$PATH\""; \
+		echo ""; \
+		echo "Or run sol directly: $(CURDIR)/$(VENV_BIN)/sol"; \
+	fi
 	@touch .installed
 
-# Install package in editable mode
+# Install package in editable mode with isolated venv
 install: .installed
 
 # Test environment - use fixtures journal for all tests
 TEST_ENV = JOURNAL_PATH=fixtures/journal
 
+# Venv tool shortcuts
+PYTEST := $(VENV_BIN)/pytest
+BLACK := $(VENV_BIN)/black
+ISORT := $(VENV_BIN)/isort
+FLAKE8 := $(VENV_BIN)/flake8
+MYPY := $(VENV_BIN)/mypy
+
 # Run core tests (excluding integration and app tests)
 test: .installed
 	@echo "Running core tests..."
-	$(TEST_ENV) pytest tests/ -q --cov=. --ignore=tests/integration
+	$(TEST_ENV) $(PYTEST) tests/ -q --cov=. --ignore=tests/integration
 
 # Run core tests with verbose output
 test-verbose: .installed
 	@echo "Running core tests with verbose output..."
-	$(TEST_ENV) pytest tests/ -v --cov=. --cov-report=term-missing --ignore=tests/integration
+	$(TEST_ENV) $(PYTEST) tests/ -v --cov=. --cov-report=term-missing --ignore=tests/integration
 
 # Run app tests
 test-apps: .installed
 	@echo "Running app tests..."
-	$(TEST_ENV) pytest apps/ -q
+	$(TEST_ENV) $(PYTEST) apps/ -q
 
 # Run app tests with verbose output
 test-apps-verbose: .installed
 	@echo "Running app tests with verbose output..."
-	$(TEST_ENV) pytest apps/ -v
+	$(TEST_ENV) $(PYTEST) apps/ -v
 
 # Run specific app tests
 test-app: .installed
@@ -47,7 +87,7 @@ test-app: .installed
 		echo "Example: make test-app APP=todos"; \
 		exit 1; \
 	fi
-	$(TEST_ENV) pytest apps/$(APP)/tests/ -v
+	$(TEST_ENV) $(PYTEST) apps/$(APP)/tests/ -v
 
 # Run specific test file or pattern
 test-only: .installed
@@ -57,17 +97,17 @@ test-only: .installed
 		echo "Example: make test-only TEST=\"-k test_function_name\""; \
 		exit 1; \
 	fi
-	$(TEST_ENV) pytest $(TEST)
+	$(TEST_ENV) $(PYTEST) $(TEST)
 
 # Run integration tests
 test-integration: .installed
 	@echo "Running integration tests..."
-	$(TEST_ENV) pytest tests/integration/ -v --tb=short
+	$(TEST_ENV) $(PYTEST) tests/integration/ -v --tb=short
 
 # Run integration tests with coverage
 test-integration-cov: .installed
 	@echo "Running integration tests with coverage..."
-	$(TEST_ENV) pytest tests/integration/ -v --cov=. --cov-report=term-missing
+	$(TEST_ENV) $(PYTEST) tests/integration/ -v --cov=. --cov-report=term-missing
 
 # Run specific integration test
 test-integration-only: .installed
@@ -76,50 +116,50 @@ test-integration-only: .installed
 		echo "Example: make test-integration-only TEST=test_api.py"; \
 		exit 1; \
 	fi
-	$(TEST_ENV) pytest tests/integration/$(TEST)
+	$(TEST_ENV) $(PYTEST) tests/integration/$(TEST)
 
 # Run all tests (core + apps + integration)
 test-all: .installed
 	@echo "Running all tests (core + apps + integration)..."
-	$(TEST_ENV) pytest tests/ -v --cov=. && $(TEST_ENV) pytest apps/ -v --cov=. --cov-append
+	$(TEST_ENV) $(PYTEST) tests/ -v --cov=. && $(TEST_ENV) $(PYTEST) apps/ -v --cov=. --cov-append
 
 # Auto-format code
 format: .installed
 	@echo "Formatting code with black and isort..."
-	black .
-	isort .
+	$(BLACK) .
+	$(ISORT) .
 
 # Run all linting and formatting checks
 lint: .installed
 	@echo "Running linting checks..."
 	@echo "=== Running black (check mode) ==="
-	black --check . || true
+	$(BLACK) --check . || true
 	@echo ""
 	@echo "=== Running isort (check mode) ==="
-	isort --check-only . || true
+	$(ISORT) --check-only . || true
 	@echo ""
 	@echo "=== Running flake8 ==="
-	flake8 . || true
+	$(FLAKE8) . || true
 	@echo ""
 	@echo "=== Running mypy ==="
-	mypy . || true
+	$(MYPY) . || true
 
 # Run only flake8 linting
 lint-flake8: .installed
-	flake8 .
+	$(FLAKE8) .
 
 # Run only black formatting check
 lint-black: .installed
-	black --check .
+	$(BLACK) --check .
 
 # Run only isort import check
 lint-isort: .installed
-	isort --check-only .
+	$(ISORT) --check-only .
 
 # Run type checking with mypy
 check: .installed
 	@echo "Running type checking with mypy..."
-	mypy .
+	$(MYPY) .
 
 # Clean build artifacts and cache files
 clean:
@@ -132,8 +172,17 @@ clean:
 	find . -type f -name ".DS_Store" -delete
 	rm -f .installed
 
+# Uninstall - remove venv and sol symlink
+uninstall: clean
+	@echo "Removing virtual environment..."
+	rm -rf $(VENV)
+	@if [ -L $(USER_BIN)/sol ]; then \
+		echo "Removing sol symlink from $(USER_BIN)..."; \
+		rm -f $(USER_BIN)/sol; \
+	fi
+
 # Clean everything and reinstall
-clean-install: clean install
+clean-install: uninstall install
 
 # Run continuous integration checks (what CI would run)
 ci: lint test
@@ -144,41 +193,41 @@ check-all: format lint test
 	@echo "All checks completed!"
 
 # Watch for changes and run tests (requires pytest-watch)
-watch:
-	@command -v ptw >/dev/null 2>&1 || { echo "Installing pytest-watch..."; pip install pytest-watch; }
-	ptw -- -q
+watch: .installed
+	@$(PIP) show pytest-watch >/dev/null 2>&1 || { echo "Installing pytest-watch..."; $(PIP) install pytest-watch; }
+	$(VENV_BIN)/ptw -- -q
 
 # Generate coverage report (core + apps, excluding core integration tests)
 coverage: .installed
-	$(TEST_ENV) pytest tests/ --cov=. --cov-report=html --cov-report=term --ignore=tests/integration
-	$(TEST_ENV) pytest apps/ --cov=. --cov-report=html --cov-report=term --cov-append
+	$(TEST_ENV) $(PYTEST) tests/ --cov=. --cov-report=html --cov-report=term --ignore=tests/integration
+	$(TEST_ENV) $(PYTEST) apps/ --cov=. --cov-report=html --cov-report=term --cov-append
 	@echo "Coverage report generated in htmlcov/index.html"
 
 # Update dependencies to latest versions
-update-deps:
+update-deps: .installed
 	@echo "Updating dependencies to latest versions..."
-	pip install --upgrade pip setuptools wheel
-	pip install --upgrade -e .
+	$(PIP) install --upgrade pip setuptools wheel
+	$(PIP) install --upgrade -e .
 
 # Update genai-prices to get latest model pricing data
 # Run this when adding new models or if pricing tests fail
-update-prices:
+update-prices: .installed
 	@echo "Updating genai-prices to latest version..."
-	pip install --upgrade genai-prices
+	$(PIP) install --upgrade genai-prices
 	@echo "Done. Re-run tests to verify model pricing support."
 
 # Show installed package versions
-versions:
+versions: .installed
 	@echo "=== Python version ==="
-	python --version
+	$(PYTHON) --version
 	@echo ""
 	@echo "=== Key package versions ==="
-	@pip list | grep -E "^(pytest|black|flake8|mypy|isort|Flask|numpy|Pillow|openai|anthropic|google-genai)" || true
+	@$(PIP) list | grep -E "^(pytest|black|flake8|mypy|isort|Flask|numpy|Pillow|openai|anthropic|google-genai)" || true
 
 # Install pre-commit hooks (if using pre-commit)
-pre-commit:
-	@command -v pre-commit >/dev/null 2>&1 || { echo "Installing pre-commit..."; pip install pre-commit; }
-	pre-commit install
+pre-commit: .installed
+	@$(PIP) show pre-commit >/dev/null 2>&1 || { echo "Installing pre-commit..."; $(PIP) install pre-commit; }
+	$(VENV_BIN)/pre-commit install
 	@echo "Pre-commit hooks installed!"
 
 # Quick check before committing

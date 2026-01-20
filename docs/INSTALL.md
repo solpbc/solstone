@@ -51,7 +51,15 @@ sudo make install
 ```bash
 git clone https://github.com/solpbc/solstone.git
 cd solstone
-pip install -e .
+make install
+```
+
+This creates an isolated virtual environment in `.venv/` and symlinks the `sol` command to `~/.local/bin/sol`. Your system Python remains untouched.
+
+To uninstall:
+
+```bash
+make uninstall
 ```
 
 2. Copy the environment template:
