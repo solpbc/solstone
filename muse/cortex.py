@@ -942,7 +942,7 @@ def format_agent(
 
         if event_type == "thinking":
             thinking_count += 1
-            content = entry.get("content", "")
+            content = entry.get("summary", "")
             if content:
                 lines = [
                     f"### {ts_to_time(ts)} - Thinking\n",

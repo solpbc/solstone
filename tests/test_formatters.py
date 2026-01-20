@@ -519,7 +519,7 @@ class TestFormatAgent:
             {"event": "start", "ts": 1700000000000, "agent_id": "test"},
             {
                 "event": "thinking",
-                "content": "I should analyze this...",
+                "summary": "I should analyze this...",
                 "ts": 1700000000100,
             },
             {"event": "finish", "result": "Done", "ts": 1700000000200},

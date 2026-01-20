@@ -17,7 +17,13 @@ import traceback
 from typing import Any, Callable, Dict, Optional
 
 from anthropic import AsyncAnthropic
-from anthropic.types import MessageParam, ToolParam, ToolUseBlock
+from anthropic.types import (
+    MessageParam,
+    RedactedThinkingBlock,
+    ThinkingBlock,
+    ToolParam,
+    ToolUseBlock,
+)
 
 from muse.models import CLAUDE_SONNET_4
 from think.utils import create_mcp_client
@@ -29,20 +35,56 @@ _DEFAULT_MODEL = CLAUDE_SONNET_4
 
 logger = logging.getLogger(__name__)
 
-# Model prefixes that support extended thinking
-_THINKING_MODEL_PREFIXES = (
-    "claude-opus-4",
-    "claude-sonnet-4",
-    "claude-sonnet-3-7",
-)
-
-
-def _supports_thinking(model: str) -> bool:
-    """Check if a model supports extended thinking."""
-    return any(model.startswith(prefix) for prefix in _THINKING_MODEL_PREFIXES)
-
-
 _DEFAULT_MAX_TOKENS = 8096 * 2
+_MIN_THINKING_BUDGET = 1024  # Anthropic minimum
+_DEFAULT_THINKING_BUDGET = 10000
+
+
+def _compute_thinking_params(max_tokens: int) -> tuple[int, int]:
+    """Compute thinking budget and adjusted max_tokens.
+
+    Returns (thinking_budget, adjusted_max_tokens) ensuring:
+    - thinking_budget >= _MIN_THINKING_BUDGET
+    - thinking_budget < adjusted_max_tokens
+    """
+    # Budget is the lesser of default or what fits in max_tokens
+    thinking_budget = min(_DEFAULT_THINKING_BUDGET, max(max_tokens - 1000, 0))
+
+    # Ensure minimum thinking budget
+    if thinking_budget < _MIN_THINKING_BUDGET:
+        thinking_budget = _MIN_THINKING_BUDGET
+        # Increase max_tokens to accommodate thinking + output
+        max_tokens = max(max_tokens, thinking_budget + 1000)
+
+    return thinking_budget, max_tokens
+
+
+def _emit_thinking_event(
+    block: ThinkingBlock | RedactedThinkingBlock,
+    model: str,
+    callback: JSONEventCallback,
+) -> None:
+    """Emit a thinking event for a ThinkingBlock or RedactedThinkingBlock."""
+    if isinstance(block, ThinkingBlock):
+        thinking_event: ThinkingEvent = {
+            "event": "thinking",
+            "ts": int(time.time() * 1000),
+            "summary": block.thinking,
+            "model": model,
+            "signature": block.signature,
+        }
+        callback.emit(thinking_event)
+    elif isinstance(block, RedactedThinkingBlock):
+        redacted_event: ThinkingEvent = {
+            "event": "thinking",
+            "ts": int(time.time() * 1000),
+            "summary": "[redacted]",
+            "model": model,
+            "redacted_data": block.data,
+        }
+        callback.emit(redacted_event)
+
+
 _MAX_TOOL_ITERATIONS = 25  # Safety limit for agentic loop iterations
 
 
@@ -265,26 +307,24 @@ async def run_agent(
                     mcp, callback, agent_id=agent_id, persona=persona
                 )
 
-                for _ in range(_MAX_TOOL_ITERATIONS):
-                    # Configure thinking for supported models
-                    thinking_config = None
-                    if _supports_thinking(model) and max_tokens >= 2048:
-                        thinking_config = {
-                            "type": "enabled",
-                            "budget_tokens": min(10000, max_tokens - 1000),
-                        }
+                thinking_budget, effective_max_tokens = _compute_thinking_params(
+                    max_tokens
+                )
 
-                    # Only include tools parameter if we have tools
+                for _ in range(_MAX_TOOL_ITERATIONS):
+                    # Build request params - thinking always enabled
                     create_params = {
                         "model": model,
-                        "max_tokens": max_tokens,
+                        "max_tokens": effective_max_tokens,
                         "system": system_instruction,
                         "messages": messages,
+                        "thinking": {
+                            "type": "enabled",
+                            "budget_tokens": thinking_budget,
+                        },
                     }
                     if tools:
                         create_params["tools"] = tools
-                    if thinking_config is not None:
-                        create_params["thinking"] = thinking_config
 
                     response = await client.messages.create(**create_params)
 
@@ -295,15 +335,8 @@ async def run_agent(
                             final_text += block.text
                         elif getattr(block, "type", None) == "tool_use":
                             tool_uses.append(block)
-                        elif getattr(block, "type", None) == "thinking":
-                            # Emit thinking event with the reasoning content
-                            thinking_event: ThinkingEvent = {
-                                "event": "thinking",
-                                "ts": int(time.time() * 1000),
-                                "summary": block.thinking,
-                                "model": model,
-                            }
-                            callback.emit(thinking_event)
+                        elif isinstance(block, (ThinkingBlock, RedactedThinkingBlock)):
+                            _emit_thinking_event(block, model, callback)
 
                     messages.append({"role": "assistant", "content": response.content})
 
@@ -349,23 +382,17 @@ async def run_agent(
                     return "Done."
         else:
             # No MCP tools - single response only
-            # Configure thinking for supported models
-            thinking_config = None
-            if _supports_thinking(model) and max_tokens >= 2048:
-                thinking_config = {
-                    "type": "enabled",
-                    "budget_tokens": min(10000, max_tokens - 1000),
-                }
-
-            # Create params without tools parameter when MCP is disabled
+            thinking_budget, effective_max_tokens = _compute_thinking_params(max_tokens)
             create_params = {
                 "model": model,
-                "max_tokens": max_tokens,
+                "max_tokens": effective_max_tokens,
                 "system": system_instruction,
                 "messages": messages,
+                "thinking": {
+                    "type": "enabled",
+                    "budget_tokens": thinking_budget,
+                },
             }
-            if thinking_config is not None:
-                create_params["thinking"] = thinking_config
 
             response = await client.messages.create(**create_params)
 
@@ -373,15 +400,8 @@ async def run_agent(
             for block in response.content:
                 if getattr(block, "type", None) == "text":
                     final_text += block.text
-                elif getattr(block, "type", None) == "thinking":
-                    # Emit thinking event with the reasoning content
-                    thinking_event: ThinkingEvent = {
-                        "event": "thinking",
-                        "ts": int(time.time() * 1000),
-                        "summary": block.thinking,
-                        "model": model,
-                    }
-                    callback.emit(thinking_event)
+                elif isinstance(block, (ThinkingBlock, RedactedThinkingBlock)):
+                    _emit_thinking_event(block, model, callback)
 
             callback.emit(
                 {

@@ -184,7 +184,13 @@ def test_anthropic_provider_with_thinking():
 
     # Check for thinking events (if the model supports it)
     thinking_events = [e for e in events if e.get("event") == "thinking"]
-    # May or may not have thinking events depending on the model
+    # If thinking events are present, verify they have the expected fields
+    for te in thinking_events:
+        assert "summary" in te, "Thinking event should have summary"
+        assert "ts" in te, "Thinking event should have timestamp"
+        # Signature should be present for normal thinking (not redacted)
+        if te.get("summary") != "[redacted]":
+            assert "signature" in te, "Thinking event should have signature"
 
     # Verify the answer is correct
     finish_event = events[-1]

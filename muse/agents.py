@@ -14,6 +14,8 @@ import traceback
 from pathlib import Path
 from typing import Any, Callable, Literal, Optional, TypedDict, Union
 
+from typing_extensions import Required
+
 from think.utils import setup_cli
 
 LOG = logging.getLogger("muse.agents")
@@ -83,13 +85,21 @@ class AgentUpdatedEvent(TypedDict):
     agent: str
 
 
-class ThinkingEvent(TypedDict):
-    """Event emitted when thinking/reasoning summaries are available."""
+class ThinkingEvent(TypedDict, total=False):
+    """Event emitted when thinking/reasoning summaries are available.
 
-    event: Literal["thinking"]
-    ts: int
-    summary: str
+    For Anthropic models, may include a signature for verification when
+    passing thinking blocks back during tool use continuations.
+    For redacted thinking, summary will contain "[redacted]" and
+    redacted_data will contain the encrypted content.
+    """
+
+    event: Required[Literal["thinking"]]
+    ts: Required[int]
+    summary: Required[str]
     model: Optional[str]
+    signature: Optional[str]  # Anthropic thinking block signature
+    redacted_data: Optional[str]  # Encrypted data for redacted thinking
 
 
 Event = Union[

@@ -27,13 +27,44 @@ class DummyMessages:
         return SimpleNamespace(content=[SimpleNamespace(type="text", text="ok")])
 
 
+class MockThinkingBlock:
+    """Mock ThinkingBlock that passes isinstance checks."""
+
+    type = "thinking"
+
+    def __init__(self, thinking: str, signature: str = "mock-signature"):
+        self.thinking = thinking
+        self.signature = signature
+
+
+class MockRedactedThinkingBlock:
+    """Mock RedactedThinkingBlock that passes isinstance checks."""
+
+    type = "redacted_thinking"
+
+    def __init__(self, data: str):
+        self.data = data
+
+
 class DummyMessagesWithThinking:
     async def create(self, **kwargs):
         DummyMessagesWithThinking.kwargs = kwargs
         # Return response with both thinking and text content
         return SimpleNamespace(
             content=[
-                SimpleNamespace(type="thinking", thinking="I'm thinking about this..."),
+                MockThinkingBlock("I'm thinking about this...", "test-signature-123"),
+                SimpleNamespace(type="text", text="ok"),
+            ]
+        )
+
+
+class DummyMessagesWithRedactedThinking:
+    async def create(self, **kwargs):
+        DummyMessagesWithRedactedThinking.kwargs = kwargs
+        # Return response with redacted thinking
+        return SimpleNamespace(
+            content=[
+                MockRedactedThinkingBlock("encrypted-data-xyz"),
                 SimpleNamespace(type="text", text="ok"),
             ]
         )
@@ -45,14 +76,18 @@ class DummyMessagesError:
         raise Exception("boo")
 
 
-def _setup_anthropic_stub(monkeypatch, error=False, with_thinking=False):
+def _setup_anthropic_stub(
+    monkeypatch, error=False, with_thinking=False, with_redacted_thinking=False
+):
     # Create mock Anthropic client
     anthropic_stub = types.ModuleType("anthropic")
     anthropic_types_stub = types.ModuleType("anthropic.types")
 
     class DummyClient:
         def __init__(self, **kwargs):
-            if with_thinking:
+            if with_redacted_thinking:
+                self.messages = DummyMessagesWithRedactedThinking()
+            elif with_thinking:
                 self.messages = DummyMessagesWithThinking()
             elif error:
                 self.messages = DummyMessagesError()
@@ -66,6 +101,9 @@ def _setup_anthropic_stub(monkeypatch, error=False, with_thinking=False):
     anthropic_types_stub.MessageParam = dict
     anthropic_types_stub.ToolParam = dict
     anthropic_types_stub.ToolUseBlock = SimpleNamespace
+    # Use our mock classes for isinstance checks
+    anthropic_types_stub.ThinkingBlock = MockThinkingBlock
+    anthropic_types_stub.RedactedThinkingBlock = MockRedactedThinkingBlock
 
     # Add types as a submodule
     anthropic_stub.types = anthropic_types_stub
@@ -203,11 +241,6 @@ def test_claude_outfile(monkeypatch, tmp_path, capsys):
 
 def test_claude_thinking_events(monkeypatch, tmp_path, capsys):
     """Test that thinking events are properly emitted for Claude models."""
-
-    class DummyClientWithThinking:
-        def __init__(self, **kwargs):
-            self.messages = DummyMessagesWithThinking()
-
     # Setup anthropic stub with thinking
     _setup_anthropic_stub(monkeypatch, with_thinking=True)
     _setup_fastmcp_stub(monkeypatch)
@@ -241,11 +274,55 @@ def test_claude_thinking_events(monkeypatch, tmp_path, capsys):
     thinking_events = [e for e in events if e.get("event") == "thinking"]
     assert len(thinking_events) == 1
     assert "I'm thinking about this..." in thinking_events[0]["summary"]
+    # Verify signature is captured
+    assert thinking_events[0].get("signature") == "test-signature-123"
 
     # Check that regular events are still present
     assert events[0]["event"] == "start"
     assert events[-1]["event"] == "finish"
     assert events[-1]["result"] == "ok"
+
+
+def test_claude_redacted_thinking_events(monkeypatch, tmp_path, capsys):
+    """Test that redacted thinking events are properly handled."""
+    _setup_anthropic_stub(monkeypatch, with_redacted_thinking=True)
+    _setup_fastmcp_stub(monkeypatch)
+    install_agents_stub()
+    sys.modules.pop("muse.providers.anthropic", None)
+    importlib.reload(importlib.import_module("muse.providers.anthropic"))
+    mod = importlib.reload(importlib.import_module("muse.agents"))
+
+    journal = tmp_path / "journal"
+    journal.mkdir()
+    agents_dir = journal / "agents"
+    agents_dir.mkdir()
+
+    monkeypatch.setenv("JOURNAL_PATH", str(journal))
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "x")
+
+    ndjson_input = json.dumps(
+        {
+            "prompt": "hello",
+            "provider": "anthropic",
+            "model": CLAUDE_SONNET_4,
+            "mcp_server_url": "http://localhost:5173/mcp",
+        }
+    )
+    asyncio.run(run_main(mod, ["sol agents"], stdin_data=ndjson_input))
+
+    out_lines = capsys.readouterr().out.strip().splitlines()
+    events = [json.loads(line) for line in out_lines]
+
+    # Check for redacted thinking event
+    thinking_events = [e for e in events if e.get("event") == "thinking"]
+    assert len(thinking_events) == 1
+    assert thinking_events[0]["summary"] == "[redacted]"
+    # Verify redacted_data is captured
+    assert thinking_events[0].get("redacted_data") == "encrypted-data-xyz"
+
+    # Check that regular events are still present
+    assert events[0]["event"] == "start"
+    assert events[-1]["event"] == "finish"
 
 
 def test_claude_outfile_error(monkeypatch, tmp_path, capsys):
