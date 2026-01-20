@@ -865,10 +865,19 @@ def format_agent(
     Returns:
         Tuple of (chunks, meta) where:
             - chunks: List of {"timestamp": int, "markdown": str} dicts
-            - meta: Dict with optional "header" and "error" keys
+            - meta: Dict with keys:
+                - header: str (markdown header)
+                - error: str (optional, if entries were skipped)
+                - thinking_count: int (number of thinking events)
+                - tool_count: int (number of tool calls)
+                - model: str | None (model used)
+                - usage: dict | None (token usage from finish event)
+                - cost: float | None (calculated cost in USD)
     """
     from datetime import datetime
     from typing import Any
+
+    from muse.models import calc_token_cost
 
     _ = context  # Reserved for future context support
     meta: dict[str, Any] = {}
@@ -882,6 +891,12 @@ def format_agent(
     request_event: dict | None = None
     start_event: dict | None = None
     agent_id: str | None = None
+
+    # Track counts and cost data during iteration
+    thinking_count = 0
+    tool_count = 0
+    model: str | None = None
+    usage: dict | None = None
 
     def ts_to_time(ts: int) -> str:
         """Convert millisecond timestamp to HH:MM:SS."""
@@ -909,6 +924,7 @@ def format_agent(
 
         if event_type == "start":
             start_event = entry
+            model = entry.get("model")
             if not agent_id:
                 agent_id = entry.get("agent_id") or str(ts)
             continue
@@ -925,6 +941,7 @@ def format_agent(
             continue
 
         if event_type == "thinking":
+            thinking_count += 1
             content = entry.get("content", "")
             if content:
                 lines = [
@@ -944,6 +961,7 @@ def format_agent(
             continue
 
         if event_type == "tool_start":
+            tool_count += 1
             call_id = entry.get("call_id")
             if call_id:
                 pending_tools[call_id] = entry
@@ -1063,6 +1081,7 @@ def format_agent(
             continue
 
         if event_type == "finish":
+            usage = entry.get("usage")
             result = entry.get("result", "")
             lines = [
                 f"### {ts_to_time(ts)} - Result\n",
@@ -1162,6 +1181,23 @@ def format_agent(
     # Report skipped entries
     if skipped_count > 0:
         meta["error"] = f"Skipped {skipped_count} entries missing 'event' field"
+
+    # Include counts and cost data for API consumers
+    meta["thinking_count"] = thinking_count
+    meta["tool_count"] = tool_count
+    meta["model"] = model
+    meta["usage"] = usage
+
+    # Calculate cost if we have model and usage
+    cost = None
+    if model and usage:
+        try:
+            cost_data = calc_token_cost({"model": model, "usage": usage})
+            if cost_data:
+                cost = cost_data["total_cost"]
+        except Exception:
+            pass
+    meta["cost"] = cost
 
     # Indexer metadata - agents aren't indexed but include for consistency
     meta["indexer"] = {"topic": "agent"}

@@ -122,19 +122,25 @@
   color: #c62828;
 }
 
-.agent-card-meta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.4rem;
-  margin-top: 0.5rem;
-}
-
 .agent-card-activity {
   display: flex;
+  justify-content: space-between;
+  align-items: center;
   gap: 0.75rem;
   margin-top: 0.5rem;
   font-size: 0.8rem;
   color: #666;
+}
+
+.activity-counts {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.facet-dots {
+  display: flex;
+  gap: 0.4rem;
+  flex-shrink: 0;
 }
 
 .activity-item {
@@ -662,18 +668,24 @@
     header.appendChild(badges);
     card.appendChild(header);
 
-    // Activity counts (thinking, tools, cost) - hide individual items if zero
+    // Activity row: counts on left, facet dots on right (in all-facet mode)
     const hasActivity = agent.thinking_count > 0 || agent.tool_count > 0 || agent.total_cost > 0;
-    if (hasActivity) {
+    const hasFacetDots = agent.facet_colors && Object.keys(agent.facet_colors).length > 0;
+
+    if (hasActivity || hasFacetDots) {
       const activity = document.createElement('div');
       activity.className = 'agent-card-activity';
+
+      // Activity counts container (left side)
+      const counts = document.createElement('div');
+      counts.className = 'activity-counts';
 
       if (agent.thinking_count > 0) {
         const thinking = document.createElement('span');
         thinking.className = 'activity-item';
         thinking.innerHTML = `💭 ${agent.thinking_count}`;
         thinking.title = `${agent.thinking_count} thinking events`;
-        activity.appendChild(thinking);
+        counts.appendChild(thinking);
       }
 
       if (agent.tool_count > 0) {
@@ -681,7 +693,7 @@
         tools.className = 'activity-item';
         tools.innerHTML = `🔧 ${agent.tool_count}`;
         tools.title = `${agent.tool_count} tool calls`;
-        activity.appendChild(tools);
+        counts.appendChild(tools);
       }
 
       if (agent.total_cost > 0) {
@@ -690,26 +702,28 @@
         cost.className = 'activity-item';
         cost.innerHTML = `💰 ${costInfo.text}`;
         cost.title = costInfo.title;
-        activity.appendChild(cost);
+        counts.appendChild(cost);
+      }
+
+      activity.appendChild(counts);
+
+      // Facet dots (right side, all-facet mode only)
+      if (hasFacetDots) {
+        const dots = document.createElement('div');
+        dots.className = 'facet-dots';
+
+        for (const [facetName, color] of Object.entries(agent.facet_colors)) {
+          const dot = document.createElement('span');
+          dot.className = 'facet-dot';
+          dot.style.backgroundColor = color || '#999';
+          dot.title = facetName;
+          dots.appendChild(dot);
+        }
+
+        activity.appendChild(dots);
       }
 
       card.appendChild(activity);
-    }
-
-    // Facet color dots (for all-facet mode)
-    if (agent.facet_colors && Object.keys(agent.facet_colors).length > 0) {
-      const meta = document.createElement('div');
-      meta.className = 'agent-card-meta';
-
-      for (const [facetName, color] of Object.entries(agent.facet_colors)) {
-        const dot = document.createElement('span');
-        dot.className = 'facet-dot';
-        dot.style.backgroundColor = color || '#999';
-        dot.title = facetName;
-        meta.appendChild(dot);
-      }
-
-      card.appendChild(meta);
     }
 
     return card;

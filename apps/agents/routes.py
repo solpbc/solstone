@@ -45,6 +45,71 @@ def _agent_id_to_day(agent_id: str) -> str:
         return ""
 
 
+def _parse_agent_events(lines: list[str]) -> dict[str, Any]:
+    """Parse agent event lines and extract counts and cost data.
+
+    Shared helper for both _parse_agent_file() and format_agent().
+
+    Args:
+        lines: List of JSONL lines (excluding the request event)
+
+    Returns:
+        Dict with: thinking_count, tool_count, model, usage, finish_ts
+    """
+    result = {
+        "thinking_count": 0,
+        "tool_count": 0,
+        "model": None,
+        "usage": None,
+        "finish_ts": None,
+    }
+
+    for line in lines:
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            event = json.loads(line)
+            event_type = event.get("event")
+            if event_type == "thinking":
+                result["thinking_count"] += 1
+            elif event_type == "tool_start":
+                result["tool_count"] += 1
+            elif event_type == "start":
+                result["model"] = event.get("model")
+            elif event_type == "finish":
+                result["finish_ts"] = event.get("ts", 0)
+                result["usage"] = event.get("usage")
+        except json.JSONDecodeError:
+            continue
+
+    return result
+
+
+def _calc_agent_cost(model: str | None, usage: dict | None) -> float | None:
+    """Calculate cost from model and usage data.
+
+    Args:
+        model: Model name string
+        usage: Token usage dict
+
+    Returns:
+        Total cost in USD, or None if calculation fails
+    """
+    if not model or not usage:
+        return None
+
+    try:
+        from muse.models import calc_token_cost
+
+        cost_data = calc_token_cost({"model": model, "usage": usage})
+        if cost_data:
+            return cost_data["total_cost"]
+    except Exception:
+        pass
+    return None
+
+
 def _parse_agent_file(agent_file: Path) -> dict[str, Any] | None:
     """Parse agent JSONL file and extract metadata.
 
@@ -73,6 +138,9 @@ def _parse_agent_file(agent_file: Path) -> dict[str, Any] | None:
         is_active = "_active.jsonl" in agent_file.name
         agent_id = agent_file.stem.replace("_active", "")
 
+        # Parse events using shared helper
+        event_data = _parse_agent_events(lines[1:])
+
         agent_info = {
             "id": agent_id,
             "persona": request_event.get("persona", "default"),
@@ -82,33 +150,10 @@ def _parse_agent_file(agent_file: Path) -> dict[str, Any] | None:
             "facet": request_event.get("facet"),
             "failed": False,
             "runtime_seconds": None,
-            "thinking_count": 0,
-            "tool_count": 0,
+            "thinking_count": event_data["thinking_count"],
+            "tool_count": event_data["tool_count"],
             "cost": None,
         }
-
-        # Count events and extract data for cost calculation in single pass
-        finish_ts = None
-        model = None
-        usage = None
-        for line in lines[1:]:
-            line = line.strip()
-            if not line:
-                continue
-            try:
-                event = json.loads(line)
-                event_type = event.get("event")
-                if event_type == "thinking":
-                    agent_info["thinking_count"] += 1
-                elif event_type == "tool_start":
-                    agent_info["tool_count"] += 1
-                elif event_type == "start":
-                    model = event.get("model")
-                elif event_type == "finish":
-                    finish_ts = event.get("ts", 0)
-                    usage = event.get("usage")
-            except json.JSONDecodeError:
-                continue
 
         # For completed agents, determine end state and calculate cost
         if not is_active:
@@ -116,21 +161,15 @@ def _parse_agent_file(agent_file: Path) -> dict[str, Any] | None:
             agent_info["failed"] = end_state in ("error", "unknown")
 
             # Calculate runtime from finish timestamp
-            if finish_ts and agent_info["start"]:
+            if event_data["finish_ts"] and agent_info["start"]:
                 agent_info["runtime_seconds"] = (
-                    finish_ts - agent_info["start"]
+                    event_data["finish_ts"] - agent_info["start"]
                 ) / 1000.0
 
-            # Calculate cost if we have model and usage
-            if model and usage:
-                try:
-                    from muse.models import calc_token_cost
-
-                    cost_data = calc_token_cost({"model": model, "usage": usage})
-                    if cost_data:
-                        agent_info["cost"] = cost_data["total_cost"]
-                except Exception:
-                    pass  # Cost calculation failed, leave as None
+            # Calculate cost using shared helper
+            agent_info["cost"] = _calc_agent_cost(
+                event_data["model"], event_data["usage"]
+            )
 
         return agent_info
     except (json.JSONDecodeError, IOError):
@@ -398,42 +437,6 @@ def api_agent_run(agent_id: str) -> Any:
     try:
         chunks, meta = format_file(agent_file)
 
-        # Count events and extract cost data from the file
-        thinking_count = 0
-        tool_count = 0
-        model = None
-        usage = None
-        with open(agent_file, "r") as f:
-            for line in f:
-                line = line.strip()
-                if not line:
-                    continue
-                try:
-                    event = json.loads(line)
-                    event_type = event.get("event")
-                    if event_type == "thinking":
-                        thinking_count += 1
-                    elif event_type == "tool_start":
-                        tool_count += 1
-                    elif event_type == "start":
-                        model = event.get("model")
-                    elif event_type == "finish":
-                        usage = event.get("usage")
-                except json.JSONDecodeError:
-                    continue
-
-        # Calculate cost if we have model and usage
-        cost = None
-        if model and usage:
-            try:
-                from muse.models import calc_token_cost
-
-                cost_data = calc_token_cost({"model": model, "usage": usage})
-                if cost_data:
-                    cost = cost_data["total_cost"]
-            except Exception:
-                pass
-
         # Build full markdown: header + all chunks
         parts = []
         header = meta.get("header", "")
@@ -445,13 +448,14 @@ def api_agent_run(agent_id: str) -> Any:
 
         markdown = "\n".join(parts)
 
+        # Use counts and cost from meta (populated by format_agent)
         return jsonify(
             {
                 "header": header,
                 "markdown": markdown,
-                "thinking_count": thinking_count,
-                "tool_count": tool_count,
-                "cost": cost,
+                "thinking_count": meta.get("thinking_count", 0),
+                "tool_count": meta.get("tool_count", 0),
+                "cost": meta.get("cost"),
                 "error": meta.get("error"),
             }
         )
