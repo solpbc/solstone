@@ -48,63 +48,91 @@ def _agent_id_to_day(agent_id: str) -> str:
 def _parse_agent_file(agent_file: Path) -> dict[str, Any] | None:
     """Parse agent JSONL file and extract metadata.
 
-    Returns dict with: id, persona, start, status, prompt, facet, failed, runtime_seconds
+    Returns dict with: id, persona, start, status, prompt, facet, failed,
+    runtime_seconds, thinking_count, tool_count, cost.
     Returns None if file cannot be parsed.
     """
     from muse.cortex_client import get_agent_end_state
 
     try:
         with open(agent_file, "r") as f:
-            first_line = f.readline().strip()
-            if not first_line:
-                return None
+            lines = f.readlines()
 
-            request_event = json.loads(first_line)
-            if request_event.get("event") != "request":
-                return None
+        if not lines:
+            return None
 
-            # Extract agent ID from filename
-            is_active = "_active.jsonl" in agent_file.name
-            agent_id = agent_file.stem.replace("_active", "")
+        first_line = lines[0].strip()
+        if not first_line:
+            return None
 
-            agent_info = {
-                "id": agent_id,
-                "persona": request_event.get("persona", "default"),
-                "start": request_event.get("ts", 0),
-                "status": "running" if is_active else "completed",
-                "prompt": request_event.get("prompt", ""),
-                "facet": request_event.get("facet"),
-                "failed": False,
-                "runtime_seconds": None,
-            }
+        request_event = json.loads(first_line)
+        if request_event.get("event") != "request":
+            return None
 
-            # For completed agents, determine end state using cortex_client
-            if not is_active:
-                end_state = get_agent_end_state(agent_id)
-                agent_info["failed"] = end_state in ("error", "unknown")
+        # Extract agent ID from filename
+        is_active = "_active.jsonl" in agent_file.name
+        agent_id = agent_file.stem.replace("_active", "")
 
-                # Calculate runtime from finish event timestamp
-                if end_state == "finish" and agent_info["start"]:
-                    # Read last few lines to find finish event for runtime
-                    f.seek(0)
-                    lines = f.readlines()
-                    for line in reversed(lines[-5:]):
-                        line = line.strip()
-                        if not line:
-                            continue
-                        try:
-                            event = json.loads(line)
-                            if event.get("event") == "finish":
-                                end_ts = event.get("ts", 0)
-                                if end_ts:
-                                    agent_info["runtime_seconds"] = (
-                                        end_ts - agent_info["start"]
-                                    ) / 1000.0
-                                break
-                        except json.JSONDecodeError:
-                            continue
+        agent_info = {
+            "id": agent_id,
+            "persona": request_event.get("persona", "default"),
+            "start": request_event.get("ts", 0),
+            "status": "running" if is_active else "completed",
+            "prompt": request_event.get("prompt", ""),
+            "facet": request_event.get("facet"),
+            "failed": False,
+            "runtime_seconds": None,
+            "thinking_count": 0,
+            "tool_count": 0,
+            "cost": None,
+        }
 
-            return agent_info
+        # Count events and extract data for cost calculation in single pass
+        finish_ts = None
+        model = None
+        usage = None
+        for line in lines[1:]:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                event = json.loads(line)
+                event_type = event.get("event")
+                if event_type == "thinking":
+                    agent_info["thinking_count"] += 1
+                elif event_type == "tool_start":
+                    agent_info["tool_count"] += 1
+                elif event_type == "start":
+                    model = event.get("model")
+                elif event_type == "finish":
+                    finish_ts = event.get("ts", 0)
+                    usage = event.get("usage")
+            except json.JSONDecodeError:
+                continue
+
+        # For completed agents, determine end state and calculate cost
+        if not is_active:
+            end_state = get_agent_end_state(agent_id)
+            agent_info["failed"] = end_state in ("error", "unknown")
+
+            # Calculate runtime from finish timestamp
+            if finish_ts and agent_info["start"]:
+                agent_info["runtime_seconds"] = (
+                    finish_ts - agent_info["start"]
+                ) / 1000.0
+
+            # Calculate cost if we have model and usage
+            if model and usage:
+                try:
+                    from muse.models import calc_token_cost
+
+                    cost_data = calc_token_cost({"model": model, "usage": usage})
+                    if cost_data:
+                        agent_info["cost"] = cost_data["total_cost"]
+                except Exception:
+                    pass  # Cost calculation failed, leave as None
+
+        return agent_info
     except (json.JSONDecodeError, IOError):
         return None
 
@@ -161,6 +189,9 @@ def _group_agents_by_persona(
         - app: App name (for app agents)
         - run_count: Total runs
         - failed_count: Failed runs
+        - thinking_count: Total thinking events across all runs
+        - tool_count: Total tool calls across all runs
+        - total_cost: Total cost in USD across all runs
         - facets: Set of facets with runs (for color hints)
     """
     groups: dict[str, dict[str, Any]] = {}
@@ -176,12 +207,19 @@ def _group_agents_by_persona(
                 "app": meta.get("app"),
                 "run_count": 0,
                 "failed_count": 0,
+                "thinking_count": 0,
+                "tool_count": 0,
+                "total_cost": 0.0,
                 "facets": set(),
             }
 
         groups[persona]["run_count"] += 1
         if agent.get("failed"):
             groups[persona]["failed_count"] += 1
+        groups[persona]["thinking_count"] += agent.get("thinking_count", 0)
+        groups[persona]["tool_count"] += agent.get("tool_count", 0)
+        if agent.get("cost") is not None:
+            groups[persona]["total_cost"] += agent["cost"]
         if agent.get("facet"):
             groups[persona]["facets"].add(agent["facet"])
 
@@ -342,6 +380,9 @@ def api_agent_run(agent_id: str) -> Any:
         {
             "header": str,
             "markdown": str,
+            "thinking_count": int,
+            "tool_count": int,
+            "cost": float | None,
             "error": str | None
         }
     """
@@ -356,6 +397,42 @@ def api_agent_run(agent_id: str) -> Any:
 
     try:
         chunks, meta = format_file(agent_file)
+
+        # Count events and extract cost data from the file
+        thinking_count = 0
+        tool_count = 0
+        model = None
+        usage = None
+        with open(agent_file, "r") as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    event = json.loads(line)
+                    event_type = event.get("event")
+                    if event_type == "thinking":
+                        thinking_count += 1
+                    elif event_type == "tool_start":
+                        tool_count += 1
+                    elif event_type == "start":
+                        model = event.get("model")
+                    elif event_type == "finish":
+                        usage = event.get("usage")
+                except json.JSONDecodeError:
+                    continue
+
+        # Calculate cost if we have model and usage
+        cost = None
+        if model and usage:
+            try:
+                from muse.models import calc_token_cost
+
+                cost_data = calc_token_cost({"model": model, "usage": usage})
+                if cost_data:
+                    cost = cost_data["total_cost"]
+            except Exception:
+                pass
 
         # Build full markdown: header + all chunks
         parts = []
@@ -372,6 +449,9 @@ def api_agent_run(agent_id: str) -> Any:
             {
                 "header": header,
                 "markdown": markdown,
+                "thinking_count": thinking_count,
+                "tool_count": tool_count,
+                "cost": cost,
                 "error": meta.get("error"),
             }
         )

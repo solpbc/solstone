@@ -112,9 +112,9 @@
   font-weight: 600;
 }
 
-.badge-count {
-  background: #e3f2fd;
-  color: #1976d2;
+.badge-success {
+  background: #e8f5e9;
+  color: #2e7d32;
 }
 
 .badge-failed {
@@ -127,6 +127,20 @@
   flex-wrap: wrap;
   gap: 0.4rem;
   margin-top: 0.5rem;
+}
+
+.agent-card-activity {
+  display: flex;
+  gap: 0.75rem;
+  margin-top: 0.5rem;
+  font-size: 0.8rem;
+  color: #666;
+}
+
+.activity-item {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
 }
 
 .facet-dot {
@@ -204,6 +218,7 @@
 .col-status { width: 50px; text-align: center; }
 .col-time { width: 100px; }
 .col-runtime { width: 80px; text-align: right; }
+.col-activity { width: 50px; text-align: center; }
 .col-facet { width: 120px; }
 .col-prompt { }
 
@@ -247,6 +262,22 @@
   padding: 1rem;
   max-height: 500px;
   overflow-y: auto;
+}
+
+.run-detail-header {
+  display: flex;
+  gap: 1.5rem;
+  margin-bottom: 1rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid #e0e0e0;
+  font-size: 0.9rem;
+  color: #666;
+}
+
+.run-detail-header .detail-stat {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
 }
 
 .run-detail-content .markdown {
@@ -442,6 +473,9 @@
           <th class="col-status"></th>
           <th class="col-time">Time</th>
           <th class="col-runtime">Runtime</th>
+          <th class="col-activity" title="Thinking events">💭</th>
+          <th class="col-activity" title="Tool calls">🔧</th>
+          <th class="col-activity" title="Cost">💰</th>
           <th class="col-facet">Facet</th>
           <th class="col-prompt">Prompt</th>
         </tr>
@@ -504,6 +538,17 @@
     const clean = prompt.replace(/\s+/g, ' ').trim();
     if (clean.length <= maxLen) return clean;
     return clean.substring(0, maxLen) + '...';
+  }
+
+  // Format cost in cents with exact USD in title
+  // Returns {text: "3c", title: "$0.0312"} or {text: "—", title: ""} if null
+  function formatCost(costUSD) {
+    if (costUSD === null || costUSD === undefined) {
+      return { text: '—', title: '' };
+    }
+    const cents = Math.round(costUSD * 100);
+    const exactUSD = '$' + costUSD.toFixed(4);
+    return { text: cents + 'c', title: exactUSD };
   }
 
   // Load agents for current day
@@ -597,22 +642,59 @@
     const badges = document.createElement('div');
     badges.className = 'agent-card-badges';
 
-    // Run count badge
-    const countBadge = document.createElement('span');
-    countBadge.className = 'badge badge-count';
-    countBadge.textContent = agent.run_count;
-    badges.appendChild(countBadge);
+    // Success count badge (green)
+    const successCount = agent.run_count - agent.failed_count;
+    if (successCount > 0) {
+      const successBadge = document.createElement('span');
+      successBadge.className = 'badge badge-success';
+      successBadge.textContent = successCount;
+      badges.appendChild(successBadge);
+    }
 
-    // Failed count badge
+    // Failed count badge (red)
     if (agent.failed_count > 0) {
       const failBadge = document.createElement('span');
       failBadge.className = 'badge badge-failed';
-      failBadge.textContent = agent.failed_count + ' failed';
+      failBadge.textContent = agent.failed_count;
       badges.appendChild(failBadge);
     }
 
     header.appendChild(badges);
     card.appendChild(header);
+
+    // Activity counts (thinking, tools, cost) - hide individual items if zero
+    const hasActivity = agent.thinking_count > 0 || agent.tool_count > 0 || agent.total_cost > 0;
+    if (hasActivity) {
+      const activity = document.createElement('div');
+      activity.className = 'agent-card-activity';
+
+      if (agent.thinking_count > 0) {
+        const thinking = document.createElement('span');
+        thinking.className = 'activity-item';
+        thinking.innerHTML = `💭 ${agent.thinking_count}`;
+        thinking.title = `${agent.thinking_count} thinking events`;
+        activity.appendChild(thinking);
+      }
+
+      if (agent.tool_count > 0) {
+        const tools = document.createElement('span');
+        tools.className = 'activity-item';
+        tools.innerHTML = `🔧 ${agent.tool_count}`;
+        tools.title = `${agent.tool_count} tool calls`;
+        activity.appendChild(tools);
+      }
+
+      if (agent.total_cost > 0) {
+        const costInfo = formatCost(agent.total_cost);
+        const cost = document.createElement('span');
+        cost.className = 'activity-item';
+        cost.innerHTML = `💰 ${costInfo.text}`;
+        cost.title = costInfo.title;
+        activity.appendChild(cost);
+      }
+
+      card.appendChild(activity);
+    }
 
     // Facet color dots (for all-facet mode)
     if (agent.facet_colors && Object.keys(agent.facet_colors).length > 0) {
@@ -643,7 +725,7 @@
     document.getElementById('list-view').style.display = 'block';
 
     const tbody = document.getElementById('runs-tbody');
-    tbody.innerHTML = '<tr><td colspan="5" class="run-loading"><div class="spinner"></div></td></tr>';
+    tbody.innerHTML = '<tr><td colspan="8" class="run-loading"><div class="spinner"></div></td></tr>';
 
     try {
       const response = await fetch(`api/agents/${currentDay}/${encodeURIComponent(persona)}`);
@@ -657,7 +739,7 @@
       renderRunList(data.runs);
     } catch (error) {
       console.error('Error loading runs:', error);
-      tbody.innerHTML = '<tr><td colspan="5" class="run-loading">Error loading runs</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="8" class="run-loading">Error loading runs</td></tr>';
     }
   }
 
@@ -667,7 +749,7 @@
     tbody.innerHTML = '';
 
     if (runs.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="5" class="run-loading">No runs found</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="8" class="run-loading">No runs found</td></tr>';
       return;
     }
 
@@ -709,6 +791,26 @@
       runtimeCell.className = 'col-runtime';
       runtimeCell.textContent = formatRuntime(run.runtime_seconds);
       row.appendChild(runtimeCell);
+
+      // Thinking count
+      const thinkingCell = document.createElement('td');
+      thinkingCell.className = 'col-activity';
+      thinkingCell.textContent = run.thinking_count || 0;
+      row.appendChild(thinkingCell);
+
+      // Tool count
+      const toolCell = document.createElement('td');
+      toolCell.className = 'col-activity';
+      toolCell.textContent = run.tool_count || 0;
+      row.appendChild(toolCell);
+
+      // Cost
+      const costCell = document.createElement('td');
+      costCell.className = 'col-activity';
+      const costInfo = formatCost(run.cost);
+      costCell.textContent = costInfo.text;
+      if (costInfo.title) costCell.title = costInfo.title;
+      row.appendChild(costCell);
 
       // Facet
       const facetCell = document.createElement('td');
@@ -772,14 +874,15 @@
     detailRow.dataset.runId = runId;
 
     const detailCell = document.createElement('td');
-    detailCell.colSpan = 5;
+    detailCell.colSpan = 8;
 
     const content = document.createElement('div');
     content.className = 'run-detail-content';
 
-    // Check cache
+    // Check cache - cache stores {html, thinking_count, tool_count, cost}
     if (runDetailCache[runId]) {
-      content.innerHTML = `<div class="markdown">${runDetailCache[runId]}</div>`;
+      const cached = runDetailCache[runId];
+      content.innerHTML = buildDetailContent(cached.html, cached.thinking_count, cached.tool_count, cached.cost);
     } else {
       content.innerHTML = '<div class="run-loading"><div class="spinner"></div><div>Loading...</div></div>';
 
@@ -793,8 +896,13 @@
         } else {
           // Convert markdown to HTML using marked library
           const html = marked.parse(data.markdown || '', { breaks: true, gfm: true });
-          runDetailCache[runId] = html;
-          content.innerHTML = `<div class="markdown">${html}</div>`;
+          runDetailCache[runId] = {
+            html: html,
+            thinking_count: data.thinking_count || 0,
+            tool_count: data.tool_count || 0,
+            cost: data.cost
+          };
+          content.innerHTML = buildDetailContent(html, data.thinking_count || 0, data.tool_count || 0, data.cost);
         }
       } catch (error) {
         content.innerHTML = `<div class="run-loading">Error loading run details</div>`;
@@ -804,6 +912,28 @@
     detailCell.appendChild(content);
     detailRow.appendChild(detailCell);
     mainRow.after(detailRow);
+  }
+
+  // Build detail content with header and markdown
+  function buildDetailContent(html, thinkingCount, toolCount, cost) {
+    const headerParts = [];
+    if (thinkingCount > 0) {
+      headerParts.push(`<span class="detail-stat">💭 ${thinkingCount} Thinking</span>`);
+    }
+    if (toolCount > 0) {
+      headerParts.push(`<span class="detail-stat">🔧 ${toolCount} Tool calls</span>`);
+    }
+    if (cost !== null && cost !== undefined) {
+      const costInfo = formatCost(cost);
+      headerParts.push(`<span class="detail-stat" title="${costInfo.title}">💰 ${costInfo.text} Cost</span>`);
+    }
+
+    let headerHtml = '';
+    if (headerParts.length > 0) {
+      headerHtml = `<div class="run-detail-header">${headerParts.join('')}</div>`;
+    }
+
+    return `${headerHtml}<div class="markdown">${html}</div>`;
   }
 
   // Show grid view
