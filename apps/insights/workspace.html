@@ -58,7 +58,7 @@
        href="#{{ file.topic }}"
        data-target="{{ file.topic }}"
        data-color="{{ file.color }}"
-       title="{{ file.label }}">{{ file.label }}</a>
+       title="{{ file.label }}{% if file.cost %} - ${{ '%.4f'|format(file.cost) }}{% endif %}">{{ file.label }}</a>
     {% endfor %}
   </div>
 

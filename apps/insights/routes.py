@@ -13,8 +13,8 @@ from typing import Any
 import markdown
 from flask import Blueprint, jsonify, redirect, render_template, url_for
 
-from convey import state
 from convey.utils import DATE_RE, format_date
+from muse.models import get_usage_cost
 from think.utils import day_dirs, day_path, get_insight_topic, get_insights
 
 insights_bp = Blueprint(
@@ -83,6 +83,11 @@ def insights_day(day: str) -> str:
             info = topic_map[base]
             key = info["key"]
             meta = info["meta"]
+
+            # Get generation cost for this insight
+            cost_data = get_usage_cost(day, context=f"insight.{key}")
+            cost = cost_data["cost"] if cost_data["cost"] > 0 else None
+
             files.append(
                 {
                     "label": _format_label(key),
@@ -91,6 +96,7 @@ def insights_day(day: str) -> str:
                     "key": key,
                     "source": meta.get("source", "system"),
                     "color": meta.get("color", "#6c757d"),
+                    "cost": cost,
                 }
             )
 
