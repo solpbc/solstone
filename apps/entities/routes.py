@@ -351,7 +351,10 @@ def update_entity(facet_name: str) -> Any:
             for i, entity in enumerate(entities):
                 if entity.get("detached"):
                     continue  # Skip detached entities in conflict check
-                if i != target_index and entity.get("name", "").lower() == new_name_lower:
+                if (
+                    i != target_index
+                    and entity.get("name", "").lower() == new_name_lower
+                ):
                     return (
                         jsonify({"error": f"Entity '{new_name}' already exists"}),
                         409,

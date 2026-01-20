@@ -119,7 +119,10 @@ class TaskQueue:
         self._on_queue_change(cmd_name, running_ref, queue)
 
     def submit(
-        self, cmd: list[str], ref: str | None = None, callosum: CallosumConnection = None
+        self,
+        cmd: list[str],
+        ref: str | None = None,
+        callosum: CallosumConnection = None,
     ) -> str | None:
         """Submit a task for execution.
 
@@ -208,11 +211,17 @@ class TaskQueue:
             callosum.start()
             logging.info(f"Starting task {primary_ref}: {' '.join(cmd)}")
 
-            managed = RunnerManagedProcess.spawn(cmd, ref=primary_ref, callosum=callosum)
+            managed = RunnerManagedProcess.spawn(
+                cmd, ref=primary_ref, callosum=callosum
+            )
             self._active[primary_ref] = managed
 
             callosum.emit(
-                "supervisor", "started", service=service, pid=managed.pid, ref=primary_ref
+                "supervisor",
+                "started",
+                service=service,
+                pid=managed.pid,
+                ref=primary_ref,
             )
 
             exit_code = managed.wait()

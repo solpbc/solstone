@@ -54,7 +54,9 @@ class ServiceManager:
         self.cpu_cache = {}  # Maps pid -> last cpu_percent value
         self.cpu_procs = {}  # Maps pid -> Process object for cpu tracking
         self.running_tasks = {}  # Maps ref -> task info from logs tract
-        self.command_queues = {}  # Maps command_name -> queued count from supervisor.queue
+        self.command_queues = (
+            {}
+        )  # Maps command_name -> queued count from supervisor.queue
         self.event_queue: queue.Queue = queue.Queue()  # Callosum events for main loop
         self.active_notifications = {}  # Maps service_name -> notification_id
         self.crash_history = {}  # Maps service_name -> [crash_timestamps]
