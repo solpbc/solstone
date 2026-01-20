@@ -1,7 +1,7 @@
 # solstone Makefile
 # Python-based AI-driven desktop journaling toolkit
 
-.PHONY: install test test-apps test-app lint format check clean all
+.PHONY: install test test-apps test-app lint format check clean all update-prices
 
 # Default target - install package in editable mode
 all: install
@@ -159,6 +159,13 @@ update-deps:
 	@echo "Updating dependencies to latest versions..."
 	pip install --upgrade pip setuptools wheel
 	pip install --upgrade -e .
+
+# Update genai-prices to get latest model pricing data
+# Run this when adding new models or if pricing tests fail
+update-prices:
+	@echo "Updating genai-prices to latest version..."
+	pip install --upgrade genai-prices
+	@echo "Done. Re-run tests to verify model pricing support."
 
 # Show installed package versions
 versions:

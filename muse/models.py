@@ -22,6 +22,14 @@ TIER_LITE = 3
 
 # ---------------------------------------------------------------------------
 # Model constants
+#
+# IMPORTANT: When updating these models, verify pricing support:
+#   1. Run: make test-only TEST=tests/test_models.py::test_all_default_models_have_pricing
+#   2. If test fails, update genai-prices: make update-prices
+#   3. If still failing, the model may be too new for genai-prices
+#
+# The genai-prices library provides token cost data. New models may not have
+# pricing immediately after release. See: https://pypi.org/project/genai-prices/
 # ---------------------------------------------------------------------------
 
 GEMINI_PRO = "gemini-3-pro-preview"

@@ -441,3 +441,62 @@ def test_context_registry_is_cached():
 
     # Should return the same object (cached)
     assert registry1 is registry2
+
+
+# ---------------------------------------------------------------------------
+# Model pricing support tests
+# ---------------------------------------------------------------------------
+
+
+def test_all_default_models_have_pricing():
+    """Verify all models in PROVIDER_DEFAULTS have genai-prices support.
+
+    This test ensures that when default models are updated, we catch any
+    missing pricing data early. If this test fails:
+
+    1. Run: make update-prices
+    2. Re-run this test
+    3. If still failing, the model may be too new for genai-prices
+
+    See muse/models.py model constants section for more details.
+    """
+    # Collect all unique models from PROVIDER_DEFAULTS
+    all_models = set()
+    for provider_models in PROVIDER_DEFAULTS.values():
+        all_models.update(provider_models.values())
+
+    # Also include the named constants directly (in case they differ)
+    all_models.update(
+        [
+            GEMINI_PRO,
+            GEMINI_FLASH,
+            GEMINI_LITE,
+            GPT_5,
+            GPT_5_MINI,
+            GPT_5_NANO,
+            CLAUDE_OPUS_4,
+            CLAUDE_SONNET_4,
+            CLAUDE_HAIKU_4,
+        ]
+    )
+
+    missing_pricing = []
+    for model in sorted(all_models):
+        token_data = {
+            "model": model,
+            "usage": {
+                "input_tokens": 1000,
+                "output_tokens": 100,
+                "total_tokens": 1100,
+            },
+        }
+        result = calc_token_cost(token_data)
+        if result is None:
+            missing_pricing.append(model)
+
+    if missing_pricing:
+        pytest.fail(
+            f"Models missing genai-prices support: {missing_pricing}\n"
+            "Run 'make update-prices' and re-test. "
+            "If still failing, model may be too new for genai-prices."
+        )
