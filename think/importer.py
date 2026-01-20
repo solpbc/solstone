@@ -637,6 +637,7 @@ def create_transcript_summary(
             context="observe.summarize",
             temperature=0.3,
             max_output_tokens=8192 * 4,
+            thinking_budget=8192 * 2,
             system_instruction=importer_prompt,
         )
 

@@ -97,10 +97,11 @@ def _build_generate_config(
     if json_output:
         config_args["response_mime_type"] = "application/json"
 
-    # Always enable thinking - use provided budget or automatic (-1)
-    config_args["thinking_config"] = types.ThinkingConfig(
-        thinking_budget=thinking_budget if thinking_budget else -1
-    )
+    # Only enable thinking if explicitly requested with a positive budget
+    if thinking_budget and thinking_budget > 0:
+        config_args["thinking_config"] = types.ThinkingConfig(
+            thinking_budget=thinking_budget
+        )
 
     if cached_content:
         config_args["cached_content"] = cached_content
