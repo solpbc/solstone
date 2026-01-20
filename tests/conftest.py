@@ -319,3 +319,100 @@ def mock_callosum(monkeypatch):
     monkeypatch.setattr("think.runner.CallosumConnection", MockCallosumConnection)
     monkeypatch.setattr("think.callosum.CallosumConnection", MockCallosumConnection)
     monkeypatch.setattr("think.supervisor.CallosumConnection", MockCallosumConnection)
+
+
+def setup_google_genai_stub(monkeypatch, *, with_thinking=False):
+    """Set up a complete Google GenAI stub for testing.
+
+    Args:
+        monkeypatch: pytest monkeypatch fixture
+        with_thinking: If True, mock responses include thinking parts
+
+    Returns:
+        The DummyChat class for inspection if needed
+    """
+    from types import SimpleNamespace
+
+    google_mod = types.ModuleType("google")
+    genai_mod = types.ModuleType("google.genai")
+    errors_mod = types.ModuleType("google.genai.errors")
+
+    # Error classes matching actual SDK structure
+    class APIError(Exception):
+        pass
+
+    class ServerError(APIError):
+        pass
+
+    class ClientError(APIError):
+        pass
+
+    errors_mod.APIError = APIError
+    errors_mod.ServerError = ServerError
+    errors_mod.ClientError = ClientError
+
+    class DummyChat:
+        """Mock chat that optionally returns thinking parts."""
+
+        kwargs = None  # Class var to capture last call for inspection
+
+        def __init__(self, model, history=None, config=None):
+            self.model = model
+            self.history = list(history or [])
+            self.config = config
+
+        def get_history(self):
+            return list(self.history)
+
+        def record_history(self, content):
+            self.history.append(content)
+
+        async def send_message(self, message, config=None):
+            DummyChat.kwargs = {
+                "message": message,
+                "config": config,
+                "model": self.model,
+            }
+            if with_thinking:
+                # Response with thinking parts matching actual SDK structure
+                thinking_part = SimpleNamespace(
+                    thought=True,
+                    text="I need to analyze this step by step.",
+                )
+                answer_part = SimpleNamespace(
+                    thought=False,
+                    text="ok",
+                )
+                candidate = SimpleNamespace(
+                    content=SimpleNamespace(parts=[thinking_part, answer_part]),
+                )
+                return SimpleNamespace(text="ok", candidates=[candidate])
+            else:
+                # Simple response without thinking
+                return SimpleNamespace(text="ok")
+
+    class DummyChats:
+        def create(self, *, model, config=None, history=None):
+            return DummyChat(model, history=history, config=config)
+
+    class DummyClient:
+        def __init__(self, *a, **k):
+            self.chats = DummyChats()
+            self.aio = SimpleNamespace(chats=DummyChats())
+
+    genai_mod.Client = DummyClient
+    genai_mod.errors = errors_mod
+    genai_mod.types = SimpleNamespace(
+        GenerateContentConfig=lambda **k: SimpleNamespace(**k),
+        ToolConfig=lambda **k: SimpleNamespace(**k),
+        FunctionCallingConfig=lambda **k: SimpleNamespace(**k),
+        ThinkingConfig=lambda **k: SimpleNamespace(**k),
+        Content=lambda **k: SimpleNamespace(**k),
+        Part=lambda **k: SimpleNamespace(**k),
+    )
+    google_mod.genai = genai_mod
+    monkeypatch.setitem(sys.modules, "google", google_mod)
+    monkeypatch.setitem(sys.modules, "google.genai", genai_mod)
+    monkeypatch.setitem(sys.modules, "google.genai.errors", errors_mod)
+
+    return DummyChat

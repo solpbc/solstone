@@ -5,11 +5,10 @@ import asyncio
 import importlib
 import json
 import sys
-import types
-from types import SimpleNamespace
 
 from muse.models import GEMINI_FLASH
 from tests.agents_stub import install_agents_stub
+from tests.conftest import setup_google_genai_stub
 
 
 async def run_main(mod, argv, stdin_data=None):
@@ -21,56 +20,8 @@ async def run_main(mod, argv, stdin_data=None):
     await mod.main_async()
 
 
-def _setup_genai_stub(monkeypatch):
-    google_mod = types.ModuleType("google")
-    genai_mod = types.ModuleType("google.genai")
-
-    class ThinkingChat:
-        def __init__(self, model, history=None, config=None):
-            self.model = model
-            self.history = list(history or [])
-            self.config = config
-
-        def get_history(self):
-            return list(self.history)
-
-        def record_history(self, content):
-            self.history.append(content)
-
-        async def send_message(self, message, config=None):
-            # Create mock response with thinking content at candidate level
-            candidate = SimpleNamespace(
-                thought="I need to analyze this step by step.",
-                content=SimpleNamespace(parts=[]),
-            )
-            response = SimpleNamespace(text="ok", candidates=[candidate])
-            return response
-
-    class DummyChats:
-        def create(self, *, model, config=None, history=None):
-            return ThinkingChat(model, history=history, config=config)
-
-    class DummyClient:
-        def __init__(self, *a, **k):
-            self.chats = DummyChats()
-            self.aio = SimpleNamespace(chats=DummyChats())
-
-    genai_mod.Client = DummyClient
-    genai_mod.types = types.SimpleNamespace(
-        GenerateContentConfig=lambda **k: SimpleNamespace(**k),
-        ToolConfig=lambda **k: SimpleNamespace(**k),
-        FunctionCallingConfig=lambda **k: SimpleNamespace(**k),
-        ThinkingConfig=lambda **k: SimpleNamespace(**k),
-        Content=lambda **k: SimpleNamespace(**k),
-        Part=lambda **k: SimpleNamespace(**k),
-    )
-    google_mod.genai = genai_mod
-    monkeypatch.setitem(sys.modules, "google", google_mod)
-    monkeypatch.setitem(sys.modules, "google.genai", genai_mod)
-
-
 def test_google_thinking_events(monkeypatch, tmp_path, capsys):
-    _setup_genai_stub(monkeypatch)
+    setup_google_genai_stub(monkeypatch, with_thinking=True)
     install_agents_stub()
 
     sys.modules.pop("muse.providers.google", None)

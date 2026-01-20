@@ -97,10 +97,10 @@ def _build_generate_config(
     if json_output:
         config_args["response_mime_type"] = "application/json"
 
-    if thinking_budget:
-        config_args["thinking_config"] = types.ThinkingConfig(
-            thinking_budget=thinking_budget
-        )
+    # Always enable thinking - use provided budget or automatic (-1)
+    config_args["thinking_config"] = types.ThinkingConfig(
+        thinking_budget=thinking_budget if thinking_budget else -1
+    )
 
     if cached_content:
         config_args["cached_content"] = cached_content
@@ -113,52 +113,25 @@ def _build_generate_config(
     return types.GenerateContentConfig(**config_args)
 
 
-def _validate_response(
-    response: Any, max_output_tokens: int, thinking_budget: Optional[int] = None
-) -> str:
-    """Validate response and extract text."""
-    if response is None or response.text is None:
-        # Try to extract text from candidates if available
-        if response and hasattr(response, "candidates") and response.candidates:
-            candidate = response.candidates[0]
+def _validate_response(response: Any) -> str:
+    """Validate response and extract text.
 
-            # Check for finish reason to understand why we got no text
-            if hasattr(candidate, "finish_reason"):
-                finish_reason = str(candidate.finish_reason)
-                if "MAX_TOKENS" in finish_reason:
-                    total_tokens = max_output_tokens + (thinking_budget or 0)
-                    raise ValueError(
-                        f"Model hit token limit ({total_tokens} total = {max_output_tokens} output + "
-                        f"{thinking_budget or 0} thinking) before producing output. "
-                        f"Try increasing max_output_tokens or reducing thinking_budget."
-                    )
-                elif "SAFETY" in finish_reason:
-                    raise ValueError(
-                        f"Response blocked by safety filters: {finish_reason}"
-                    )
-                elif "STOP" not in finish_reason:
-                    raise ValueError(f"Response failed with reason: {finish_reason}")
+    Returns response.text if available, or "Done." for empty responses
+    (e.g., tool-only completions). Raises on actual errors.
+    """
+    if response is None:
+        raise ValueError("No response from model")
 
-            # Try to extract text from parts if available
-            if (
-                hasattr(candidate, "content")
-                and hasattr(candidate.content, "parts")
-                and candidate.content.parts
-            ):
-                for part in candidate.content.parts:
-                    if hasattr(part, "text") and part.text:
-                        return part.text
+    # Check for error conditions in candidates
+    if hasattr(response, "candidates") and response.candidates:
+        candidate = response.candidates[0]
+        if hasattr(candidate, "finish_reason"):
+            finish_reason = str(candidate.finish_reason)
+            if "SAFETY" in finish_reason:
+                raise ValueError(f"Response blocked by safety filters: {finish_reason}")
 
-        # If we still don't have text, raise an error with details
-        error_msg = "No text in response"
-        if response:
-            if hasattr(response, "candidates") and not response.candidates:
-                error_msg = "No candidates in response"
-            elif hasattr(response, "prompt_feedback"):
-                error_msg = f"Response issue: {response.prompt_feedback}"
-        raise ValueError(error_msg)
-
-    return response.text
+    # Return text or "Done." for empty responses (matches run_agent behavior)
+    return response.text or "Done."
 
 
 # ---------------------------------------------------------------------------
@@ -233,7 +206,7 @@ def generate(
         config=config,
     )
 
-    text = _validate_response(response, max_output_tokens, thinking_budget)
+    text = _validate_response(response)
     log_token_usage(model=model, usage=response, context=context)
     return text
 
@@ -305,7 +278,7 @@ async def agenerate(
         config=config,
     )
 
-    text = _validate_response(response, max_output_tokens, thinking_budget)
+    text = _validate_response(response)
     log_token_usage(model=model, usage=response, context=context)
     return text
 
@@ -318,27 +291,30 @@ async def agenerate(
 def _emit_thinking_events(
     response: Any, model: str, callback: JSONEventCallback
 ) -> None:
-    """Extract and emit thinking events from a response."""
-    if hasattr(response, "candidates") and response.candidates:
-        for candidate in response.candidates:
-            if hasattr(candidate, "thought") and candidate.thought:
+    """Extract and emit thinking events from a response.
+
+    In the Google GenAI SDK, thinking content appears in response.candidates[].content.parts[]
+    where each Part has a `thought` boolean indicating if it's thinking content, and the
+    actual thinking text is in `part.text`.
+    """
+    if not hasattr(response, "candidates") or not response.candidates:
+        return
+
+    for candidate in response.candidates:
+        if not candidate.content or not candidate.content.parts:
+            continue
+
+        for part in candidate.content.parts:
+            # part.thought is a boolean indicating this is thinking content
+            # part.text contains the actual thinking summary
+            if getattr(part, "thought", False) and getattr(part, "text", None):
                 thinking_event: ThinkingEvent = {
                     "event": "thinking",
                     "ts": int(time.time() * 1000),
-                    "summary": candidate.thought,
+                    "summary": part.text,
                     "model": model,
                 }
                 callback.emit(thinking_event)
-
-    # Also check for thinking at the response level
-    if hasattr(response, "thought") and response.thought:
-        thinking_event: ThinkingEvent = {
-            "event": "thinking",
-            "ts": int(time.time() * 1000),
-            "summary": response.thought,
-            "model": model,
-        }
-        callback.emit(thinking_event)
 
 
 class ToolLoggingHooks:
