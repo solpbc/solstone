@@ -5,7 +5,6 @@
 
 from __future__ import annotations
 
-import json
 from collections import defaultdict
 from datetime import date
 from pathlib import Path
@@ -15,18 +14,13 @@ from flask import Blueprint, jsonify, render_template, request
 
 from convey import state
 from convey.utils import DATE_RE
-from muse.models import calc_token_cost, get_model_provider
+from muse.models import calc_token_cost, get_model_provider, iter_token_log
 
 tokens_bp = Blueprint(
     "app:tokens",
     __name__,
     url_prefix="/app/tokens",
 )
-
-
-def _get_token_log_path(day: str) -> Path:
-    """Get path to token log file for given day."""
-    return Path(state.journal_root) / "tokens" / f"{day}.jsonl"
 
 
 def _parse_context_prefix(context: str) -> str:
@@ -42,24 +36,6 @@ def _aggregate_token_data(day: str) -> Dict[str, Any]:
 
     Returns dict with daily summary and breakdowns by provider, model, token type, context, and segment.
     """
-    log_path = _get_token_log_path(day)
-
-    if not log_path.exists():
-        return {
-            "day": day,
-            "total": {
-                "requests": 0,
-                "tokens": 0,
-                "cost": 0.0,
-                "segment_avg_cost": 0.0,
-            },
-            "by_provider": [],
-            "by_model": [],
-            "by_token_type": {},
-            "by_context": [],
-            "by_segment": [],
-        }
-
     # Accumulators
     by_provider: Dict[str, Dict[str, Any]] = defaultdict(
         lambda: {
@@ -115,96 +91,81 @@ def _aggregate_token_data(day: str) -> Dict[str, Any]:
     total_tokens = 0
     total_cost = 0.0
 
-    # Read and process log file
-    with open(log_path, "r") as f:
-        for line in f:
-            line = line.strip()
-            if not line:
-                continue
+    for entry in iter_token_log(day):
+        # Extract fields
+        model = entry.get("model", "unknown")
+        usage = entry.get("usage", {})
+        context = entry.get("context", "unknown")
 
-            try:
-                entry = json.loads(line)
-            except json.JSONDecodeError:
-                continue
+        # Get token counts (handle both missing keys and explicit None values)
+        input_tokens = usage.get("input_tokens", 0) or 0
+        output_tokens = usage.get("output_tokens", 0) or 0
+        cached_tokens = usage.get("cached_tokens", 0) or 0
+        reasoning_tokens = usage.get("reasoning_tokens", 0) or 0
+        total_entry_tokens = usage.get("total_tokens", 0) or 0
 
-            # Workaround: Old logs have "unknown" instead of "gpt-5"
-            if entry.get("model") == "unknown":
-                entry["model"] = "gpt-5"
+        # Calculate cost
+        cost_data = calc_token_cost(entry)
+        if cost_data:
+            entry_cost = cost_data["total_cost"]
+            entry_input_cost = cost_data["input_cost"]
+            entry_output_cost = cost_data["output_cost"]
+        else:
+            entry_cost = 0.0
+            entry_input_cost = 0.0
+            entry_output_cost = 0.0
 
-            # Extract fields
-            model = entry.get("model", "unknown")
-            usage = entry.get("usage", {})
-            context = entry.get("context", "unknown")
+        # Get provider
+        provider = get_model_provider(model)
+        if provider == "unknown":
+            continue  # Skip unknown providers
 
-            # Get token counts (handle both missing keys and explicit None values)
-            input_tokens = usage.get("input_tokens", 0) or 0
-            output_tokens = usage.get("output_tokens", 0) or 0
-            cached_tokens = usage.get("cached_tokens", 0) or 0
-            reasoning_tokens = usage.get("reasoning_tokens", 0) or 0
-            total_entry_tokens = usage.get("total_tokens", 0) or 0
+        # Update totals
+        total_requests += 1
+        total_tokens += total_entry_tokens
+        total_cost += entry_cost
 
-            # Calculate cost
-            cost_data = calc_token_cost(entry)
-            if cost_data:
-                entry_cost = cost_data["total_cost"]
-                entry_input_cost = cost_data["input_cost"]
-                entry_output_cost = cost_data["output_cost"]
-            else:
-                entry_cost = 0.0
-                entry_input_cost = 0.0
-                entry_output_cost = 0.0
+        # Update provider breakdown
+        by_provider[provider]["requests"] += 1
+        by_provider[provider]["tokens"] += total_entry_tokens
+        by_provider[provider]["input_tokens"] += input_tokens
+        by_provider[provider]["output_tokens"] += output_tokens
+        by_provider[provider]["cached_tokens"] += cached_tokens
+        by_provider[provider]["reasoning_tokens"] += reasoning_tokens
+        by_provider[provider]["cost"] += entry_cost
+        by_provider[provider]["input_cost"] += entry_input_cost
+        by_provider[provider]["output_cost"] += entry_output_cost
+        by_provider[provider]["models"].add(model)
 
-            # Get provider
-            provider = get_model_provider(model)
-            if provider == "unknown":
-                continue  # Skip unknown providers
+        # Update model breakdown
+        by_model[model]["requests"] += 1
+        by_model[model]["tokens"] += total_entry_tokens
+        by_model[model]["cost"] += entry_cost
+        by_model[model]["provider"] = provider
 
-            # Update totals
-            total_requests += 1
-            total_tokens += total_entry_tokens
-            total_cost += entry_cost
+        # Update context breakdown
+        context_prefix = _parse_context_prefix(context)
+        by_context[context_prefix]["requests"] += 1
+        by_context[context_prefix]["tokens"] += total_entry_tokens
+        by_context[context_prefix]["cost"] += entry_cost
+        by_context[context_prefix]["models"].add(model)
 
-            # Update provider breakdown
-            by_provider[provider]["requests"] += 1
-            by_provider[provider]["tokens"] += total_entry_tokens
-            by_provider[provider]["input_tokens"] += input_tokens
-            by_provider[provider]["output_tokens"] += output_tokens
-            by_provider[provider]["cached_tokens"] += cached_tokens
-            by_provider[provider]["reasoning_tokens"] += reasoning_tokens
-            by_provider[provider]["cost"] += entry_cost
-            by_provider[provider]["input_cost"] += entry_input_cost
-            by_provider[provider]["output_cost"] += entry_output_cost
-            by_provider[provider]["models"].add(model)
+        # Update segment breakdown
+        segment = entry.get("segment") or "[unattributed]"
+        by_segment[segment]["requests"] += 1
+        by_segment[segment]["tokens"] += total_entry_tokens
+        by_segment[segment]["cost"] += entry_cost
+        by_segment[segment]["models"].add(model)
 
-            # Update model breakdown
-            by_model[model]["requests"] += 1
-            by_model[model]["tokens"] += total_entry_tokens
-            by_model[model]["cost"] += entry_cost
-            by_model[model]["provider"] = provider
-
-            # Update context breakdown
-            context_prefix = _parse_context_prefix(context)
-            by_context[context_prefix]["requests"] += 1
-            by_context[context_prefix]["tokens"] += total_entry_tokens
-            by_context[context_prefix]["cost"] += entry_cost
-            by_context[context_prefix]["models"].add(model)
-
-            # Update segment breakdown
-            segment = entry.get("segment") or "[unattributed]"
-            by_segment[segment]["requests"] += 1
-            by_segment[segment]["tokens"] += total_entry_tokens
-            by_segment[segment]["cost"] += entry_cost
-            by_segment[segment]["models"].add(model)
-
-            # Update token type breakdown
-            token_types["input"]["tokens"] += input_tokens
-            token_types["input"]["cost"] += entry_input_cost
-            # Output tokens include reasoning (they're billed together)
-            token_types["output"]["tokens"] += output_tokens + reasoning_tokens
-            token_types["output"]["cost"] += entry_output_cost
-            token_types["cached"]["tokens"] += cached_tokens
-            # Track reasoning separately for display annotation
-            token_types["reasoning"]["tokens"] += reasoning_tokens
+        # Update token type breakdown
+        token_types["input"]["tokens"] += input_tokens
+        token_types["input"]["cost"] += entry_input_cost
+        # Output tokens include reasoning (they're billed together)
+        token_types["output"]["tokens"] += output_tokens + reasoning_tokens
+        token_types["output"]["cost"] += entry_output_cost
+        token_types["cached"]["tokens"] += cached_tokens
+        # Track reasoning separately for display annotation
+        token_types["reasoning"]["tokens"] += reasoning_tokens
 
     # Convert to lists and sort
     provider_list = [

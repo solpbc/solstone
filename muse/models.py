@@ -782,6 +782,99 @@ def calc_token_cost(token_data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         return None
 
 
+def iter_token_log(day: str) -> Any:
+    """Iterate over token log entries for a given day.
+
+    Yields parsed JSON entries from the token log file, skipping empty lines
+    and invalid JSON. This is a shared utility for code that processes token logs.
+
+    Parameters
+    ----------
+    day : str
+        Day in YYYYMMDD format.
+
+    Yields
+    ------
+    dict
+        Parsed token log entry with fields: timestamp, model, context, usage,
+        and optionally segment.
+    """
+    journal = get_journal()
+    log_path = Path(journal) / "tokens" / f"{day}.jsonl"
+
+    if not log_path.exists():
+        return
+
+    with open(log_path, "r") as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                yield json.loads(line)
+            except json.JSONDecodeError:
+                continue
+
+
+def get_usage_cost(
+    day: str,
+    segment: Optional[str] = None,
+    context: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Get aggregated token usage and cost for a day, optionally filtered.
+
+    This is a shared utility for apps that want to display cost information
+    for segments, agent runs, or other contexts.
+
+    Parameters
+    ----------
+    day : str
+        Day in YYYYMMDD format.
+    segment : str, optional
+        Filter to entries with this exact segment key.
+    context : str, optional
+        Filter to entries where context starts with this prefix.
+        For example, "agent.system" matches "agent.system.default".
+
+    Returns
+    -------
+    dict
+        Aggregated usage data:
+        {
+            "requests": int,
+            "tokens": int,
+            "cost": float,  # USD
+        }
+        Returns zeros if no matching entries or day file doesn't exist.
+    """
+    result = {"requests": 0, "tokens": 0, "cost": 0.0}
+
+    for entry in iter_token_log(day):
+        # Apply filters
+        if segment is not None and entry.get("segment") != segment:
+            continue
+        if context is not None:
+            entry_context = entry.get("context", "")
+            if not entry_context.startswith(context):
+                continue
+
+        # Skip unknown providers (can't calculate cost)
+        model = entry.get("model", "unknown")
+        if get_model_provider(model) == "unknown":
+            continue
+
+        # Accumulate
+        usage = entry.get("usage", {})
+        result["requests"] += 1
+        result["tokens"] += usage.get("total_tokens", 0) or 0
+
+        cost_data = calc_token_cost(entry)
+        if cost_data:
+            result["cost"] += cost_data["total_cost"]
+
+    return result
+
+
 # ---------------------------------------------------------------------------
 # Unified generate/agenerate with provider routing
 # ---------------------------------------------------------------------------
@@ -952,5 +1045,7 @@ __all__ = [
     # Utilities
     "log_token_usage",
     "calc_token_cost",
+    "get_usage_cost",
+    "iter_token_log",
     "get_model_provider",
 ]

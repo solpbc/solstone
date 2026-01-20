@@ -24,6 +24,7 @@ from muse.models import (
     TIER_PRO,
     calc_token_cost,
     get_context_registry,
+    get_usage_cost,
     resolve_provider,
 )
 
@@ -500,3 +501,55 @@ def test_all_default_models_have_pricing():
             "Run 'make update-prices' and re-test. "
             "If still failing, model may be too new for genai-prices."
         )
+
+
+# ---------------------------------------------------------------------------
+# get_usage_cost tests
+# ---------------------------------------------------------------------------
+
+
+def test_get_usage_cost_nonexistent_day(use_fixtures_journal):
+    """Test that nonexistent day returns zeros."""
+    result = get_usage_cost("19000101")
+    assert result == {"requests": 0, "tokens": 0, "cost": 0.0}
+
+
+def test_get_usage_cost_day_total(use_fixtures_journal):
+    """Test aggregating all entries for a day."""
+    # 20250823 has test entries with gemini models
+    result = get_usage_cost("20250823")
+    assert result["requests"] > 0
+    assert isinstance(result["tokens"], int)
+    assert isinstance(result["cost"], float)
+
+
+def test_get_usage_cost_context_filter(use_fixtures_journal):
+    """Test filtering by context prefix."""
+    # Filter to test contexts
+    result = get_usage_cost("20250823", context="tests.test_gemini")
+    assert result["requests"] > 0
+
+    # Filter to non-matching context should return zeros
+    result_empty = get_usage_cost("20250823", context="nonexistent.context")
+    assert result_empty["requests"] == 0
+
+
+def test_get_usage_cost_segment_filter(use_fixtures_journal):
+    """Test filtering by segment key."""
+    # Fixture data doesn't have segment keys, so this should return zeros
+    result = get_usage_cost("20250823", segment="143022_300")
+    assert result["requests"] == 0
+    assert result["tokens"] == 0
+    assert result["cost"] == 0.0
+
+
+def test_get_usage_cost_combined_filters(use_fixtures_journal):
+    """Test combined segment and context filters."""
+    # With both filters, entries must match both
+    result = get_usage_cost(
+        "20250823",
+        segment="nonexistent",
+        context="tests.test_gemini",
+    )
+    # Segment doesn't exist, so no matches
+    assert result["requests"] == 0
