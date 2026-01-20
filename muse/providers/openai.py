@@ -39,7 +39,7 @@ try:
     from agents.mcp.server import ToolFilterStatic
 except ImportError:
     ToolFilterStatic = None  # type: ignore
-from agents.model_settings import ModelSettings
+from agents.model_settings import ModelSettings, Reasoning
 from agents.run import RunConfig
 
 # Optional: used only for raw text deltas if available
@@ -88,6 +88,9 @@ _DEFAULT_MAX_TOKENS = 16384
 _DEFAULT_MAX_TURNS = 64
 
 LOG = logging.getLogger("muse.providers.openai")
+
+# Default reasoning config for all GPT-5 models
+_DEFAULT_REASONING = Reasoning(effort="medium", summary="detailed")
 
 
 def _now_ms() -> int:
@@ -160,6 +163,28 @@ def _extract_tool_args(raw_call: Any) -> Any:
     return None
 
 
+def _extract_text_parts(raw: Any, attr: str) -> Optional[str]:
+    """Extract text from a list of text parts on a raw item attribute.
+
+    Args:
+        raw: Raw item object
+        attr: Attribute name to extract (e.g., "summary", "content")
+
+    Returns:
+        Joined text or None if not found/empty
+    """
+    if not hasattr(raw, attr):
+        return None
+    parts = getattr(raw, attr)
+    if not parts:
+        return None
+    try:
+        texts = [getattr(p, "text", "") for p in parts if getattr(p, "text", None)]
+        return "".join(texts) if texts else None
+    except Exception:
+        return None
+
+
 async def run_agent(
     config: Dict[str, Any],
     on_event: Optional[Callable[[dict], None]] = None,
@@ -204,11 +229,10 @@ async def run_agent(
         }
     )
 
-    # Model settings: keep to widely-supported fields
+    # Model settings: always enable reasoning with detailed summaries
     model_settings = ModelSettings(
         max_tokens=max_tokens,
-        # If you later want to add temperature/top_p etc., do it here.
-        # Avoid unsupported reasoning params to prevent 400s.
+        reasoning=_DEFAULT_REASONING,
     )
 
     # Initialize MCP server only if not disabled
@@ -386,44 +410,15 @@ async def run_agent(
                             }
                         )
 
-                    # Reasoning / "thinking" item created — no special params required
+                    # Reasoning / "thinking" item created
                     elif name == "reasoning_item_created" and isinstance(
                         item, ReasoningItem
                     ):
-                        summary_text: Optional[str] = None
                         raw = item.raw_item
-
-                        # Try raw.summary (list of text parts)
-                        if hasattr(raw, "summary") and getattr(raw, "summary"):
-                            try:
-                                parts = getattr(raw, "summary")
-                                texts = [
-                                    getattr(p, "text", "")
-                                    for p in parts
-                                    if getattr(p, "text", None)
-                                ]
-                                if texts:
-                                    summary_text = "".join(texts)
-                            except Exception:
-                                pass
-
-                        # Fallback: raw.content (list of text parts)
-                        if (
-                            not summary_text
-                            and hasattr(raw, "content")
-                            and getattr(raw, "content")
-                        ):
-                            try:
-                                parts = getattr(raw, "content")
-                                texts = [
-                                    getattr(p, "text", "")
-                                    for p in parts
-                                    if getattr(p, "text", None)
-                                ]
-                                if texts:
-                                    summary_text = "".join(texts)
-                            except Exception:
-                                pass
+                        # Try summary first, then fall back to content
+                        summary_text = _extract_text_parts(
+                            raw, "summary"
+                        ) or _extract_text_parts(raw, "content")
 
                         if summary_text:
                             thinking_event: ThinkingEvent = {
@@ -596,7 +591,7 @@ def generate(
     json_output : bool
         Whether to request JSON response format.
     thinking_budget : int, optional
-        Ignored - OpenAI doesn't support thinking budget.
+        Ignored for OpenAI (reasoning is always enabled with medium effort).
     timeout_s : float, optional
         Request timeout in seconds.
     context : str, optional
@@ -614,12 +609,13 @@ def generate(
     client = _get_openai_client()
     messages = _convert_contents_to_messages(contents, system_instruction)
 
-    # Build request kwargs
+    # Build request kwargs with reasoning enabled
     request_kwargs: Dict[str, Any] = {
         "model": model,
         "messages": messages,
         "temperature": temperature,
         "max_tokens": max_output_tokens,
+        "reasoning_effort": "medium",
     }
 
     if json_output:
@@ -674,7 +670,7 @@ async def agenerate(
     json_output : bool
         Whether to request JSON response format.
     thinking_budget : int, optional
-        Ignored - OpenAI doesn't support thinking budget.
+        Ignored for OpenAI (reasoning is always enabled with medium effort).
     timeout_s : float, optional
         Request timeout in seconds.
     context : str, optional
@@ -692,12 +688,13 @@ async def agenerate(
     client = _get_async_openai_client()
     messages = _convert_contents_to_messages(contents, system_instruction)
 
-    # Build request kwargs
+    # Build request kwargs with reasoning enabled
     request_kwargs: Dict[str, Any] = {
         "model": model,
         "messages": messages,
         "temperature": temperature,
         "max_tokens": max_output_tokens,
+        "reasoning_effort": "medium",
     }
 
     if json_output:

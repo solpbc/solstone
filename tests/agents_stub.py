@@ -80,8 +80,10 @@ def install_agents_stub():
     agents_model_settings_stub.ModelSettings = lambda **kwargs: SimpleNamespace(
         **kwargs
     )
+    agents_model_settings_stub.Reasoning = lambda **kwargs: SimpleNamespace(**kwargs)
     agents_stub.RunConfig = agents_run_stub.RunConfig
     agents_stub.ModelSettings = agents_model_settings_stub.ModelSettings
+    agents_stub.Reasoning = agents_model_settings_stub.Reasoning
 
     class DummyMCPServer:
         def __init__(self, *_, **kwargs):

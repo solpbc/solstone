@@ -121,7 +121,14 @@ def test_openai_provider_basic():
 @pytest.mark.integration
 @pytest.mark.requires_api
 def test_openai_provider_with_reasoning():
-    """Test OpenAI provider with reasoning model (o1-mini if available)."""
+    """Test OpenAI provider with reasoning model to verify thinking summaries.
+
+    Uses GPT-5-mini which supports reasoning with summary="detailed" config.
+    The key test is that:
+    1. The request succeeds (reasoning config is valid)
+    2. We may receive thinking events with summaries (model-dependent)
+    3. If thinking events are present, they have the expected structure
+    """
     fixtures_env, api_key, journal_path = get_fixtures_env()
 
     if not fixtures_env:
@@ -138,14 +145,15 @@ def test_openai_provider_with_reasoning():
     env["JOURNAL_PATH"] = journal_path
     env["OPENAI_API_KEY"] = api_key
 
-    # Use standard model since o1 models are not supported with Responses API
+    # Use GPT-5-mini which supports reasoning summaries
+    # Use a prompt that encourages step-by-step reasoning
     ndjson_input = json.dumps(
         {
-            "prompt": "What is the square root of 16? Just the number please.",
+            "prompt": "If I have 3 apples and buy 5 more, then give away 2, how many do I have? Think through this step by step.",
             "provider": "openai",
             "persona": "default",
             "model": GPT_5_MINI,
-            "max_tokens": 200,
+            "max_tokens": 500,
             "disable_mcp": True,
         }
     )
@@ -158,7 +166,7 @@ def test_openai_provider_with_reasoning():
         input=ndjson_input,
         capture_output=True,
         text=True,
-        timeout=10,
+        timeout=30,  # Increased for reasoning
     )
 
     assert result.returncode == 0, f"Command failed with stderr: {result.stderr}"
@@ -167,17 +175,35 @@ def test_openai_provider_with_reasoning():
     stdout_lines = result.stdout.strip().split("\n")
     events = [json.loads(line) for line in stdout_lines if line]
 
-    # Check for thinking events (may be present with o1 models)
-    thinking_events = [e for e in events if e.get("event") == "thinking"]
-    # May or may not have thinking events depending on the model
+    # Verify no errors
+    error_events = [e for e in events if e.get("event") == "error"]
+    assert len(error_events) == 0, f"Found error events: {error_events}"
 
-    # Verify the answer is correct
+    # Check for thinking events - GPT-5 series should produce these
+    # when reasoning config is properly set
+    thinking_events = [e for e in events if e.get("event") == "thinking"]
+
+    # If we have thinking events, verify their structure
+    for thinking in thinking_events:
+        assert "summary" in thinking, f"Thinking event missing 'summary': {thinking}"
+        assert isinstance(
+            thinking["summary"], str
+        ), f"Thinking summary should be string: {thinking}"
+        assert len(thinking["summary"]) > 0, "Thinking summary should not be empty"
+        assert "model" in thinking, f"Thinking event missing 'model': {thinking}"
+        assert "ts" in thinking, f"Thinking event missing 'ts': {thinking}"
+        assert isinstance(thinking["ts"], int), "Timestamp should be int"
+
+    # Verify the answer is correct (6 apples: 3 + 5 - 2 = 6)
     finish_event = events[-1]
     assert finish_event["event"] == "finish"
     result_text = finish_event["result"].lower()
     assert (
-        "4" in result_text or "four" in result_text
-    ), f"Expected '4' in response, got: {finish_event['result']}"
+        "6" in result_text or "six" in result_text
+    ), f"Expected '6' in response, got: {finish_event['result']}"
+
+    # Log whether we got thinking events for debugging
+    print(f"Received {len(thinking_events)} thinking events")
 
 
 @pytest.mark.integration
