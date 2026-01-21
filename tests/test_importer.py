@@ -6,7 +6,7 @@ import importlib
 import json
 import subprocess
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import patch, MagicMock
 
 from think.utils import day_path
 
@@ -59,6 +59,7 @@ def test_slice_audio_segment_fallback(tmp_path):
 
 
 def test_importer_text(tmp_path, monkeypatch):
+    """Test importing a text transcript file."""
     mod = importlib.import_module("think.importer")
 
     transcript = "hello\nworld"
@@ -67,7 +68,7 @@ def test_importer_text(tmp_path, monkeypatch):
 
     monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
     monkeypatch.setattr(
-        mod, "detect_created", lambda p: {"day": "20240101", "time": "120000"}
+        mod, "detect_created", lambda p, **kw: {"day": "20240101", "time": "120000"}
     )
 
     # Mock segment detection: returns (start_at, text) tuples with absolute times
@@ -81,9 +82,6 @@ def test_importer_text(tmp_path, monkeypatch):
         return [{"start": segment_start, "speaker": "Unknown", "text": text}]
 
     monkeypatch.setattr(mod, "detect_transcript_json", mock_detect_json)
-
-    # Mock generate to prevent real API calls during summarization
-    monkeypatch.setattr(mod, "generate", lambda **kwargs: "Mocked summary")
 
     monkeypatch.setattr(
         "sys.argv",
@@ -120,215 +118,172 @@ def test_importer_text(tmp_path, monkeypatch):
     assert "facet" not in metadata2["imported"]
 
 
-def test_importer_audio_transcribe(tmp_path, monkeypatch):
-    """Test the new audio_transcribe functionality with Rev AI."""
+def test_get_audio_duration(tmp_path):
+    """Test _get_audio_duration calls ffprobe correctly."""
     mod = importlib.import_module("think.importer")
 
-    # Create a test audio file
-    audio_file = tmp_path / "test_audio.mp3"
-    audio_file.write_bytes(b"fake audio content")
+    audio_file = tmp_path / "test.mp3"
+    audio_file.write_bytes(b"fake audio")
 
-    # Mock Rev AI response
-    mock_revai_response = {
-        "monologues": [
-            {
-                "speaker": 0,
-                "elements": [
-                    {"type": "text", "value": "Hello", "ts": 0.0, "confidence": 0.95},
-                    {"type": "text", "value": " ", "ts": 0.5},
-                    {"type": "text", "value": "world", "ts": 0.6, "confidence": 0.98},
-                    {"type": "punct", "value": "."},
-                    {"type": "text", "value": " ", "ts": 1.0},
-                    {"type": "text", "value": "This", "ts": 1.1, "confidence": 0.9},
-                    {"type": "text", "value": " ", "ts": 1.5},
-                    {"type": "text", "value": "is", "ts": 1.6, "confidence": 0.92},
-                    {"type": "text", "value": " ", "ts": 1.8},
-                    {"type": "text", "value": "a", "ts": 1.9, "confidence": 0.93},
-                    {"type": "text", "value": " ", "ts": 2.0},
-                    {"type": "text", "value": "test", "ts": 2.1, "confidence": 0.91},
-                    {"type": "punct", "value": "."},
-                ],
-            },
-            {
-                "speaker": 1,
-                "elements": [
-                    {
-                        "type": "text",
-                        "value": "Second",
-                        "ts": 310.0,
-                        "confidence": 0.88,
-                    },  # After 5 minutes
-                    {"type": "text", "value": " ", "ts": 310.5},
-                    {"type": "text", "value": "chunk", "ts": 310.6, "confidence": 0.89},
-                    {"type": "punct", "value": "."},
-                ],
-            },
-        ]
-    }
+    # Mock ffprobe returning duration
+    mock_result = MagicMock()
+    mock_result.stdout = "123.456\n"
+
+    with patch("subprocess.run", return_value=mock_result) as mock_run:
+        duration = mod._get_audio_duration(str(audio_file))
+
+        assert duration == 123.456
+        # Verify ffprobe was called with correct args
+        call_args = mock_run.call_args[0][0]
+        assert "ffprobe" in call_args
+        assert str(audio_file) in call_args
+
+
+def test_get_audio_duration_failure(tmp_path):
+    """Test _get_audio_duration returns None on error."""
+    mod = importlib.import_module("think.importer")
+
+    audio_file = tmp_path / "test.mp3"
+    audio_file.write_bytes(b"fake audio")
+
+    with patch("subprocess.run", side_effect=subprocess.CalledProcessError(1, "ffprobe")):
+        duration = mod._get_audio_duration(str(audio_file))
+        assert duration is None
+
+
+def test_prepare_audio_segments(tmp_path, monkeypatch):
+    """Test prepare_audio_segments creates segment directories with audio slices."""
+    mod = importlib.import_module("think.importer")
 
     monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
 
-    # Mock generate to prevent real API calls during summarization
-    monkeypatch.setattr(mod, "generate", lambda **kwargs: "Mocked summary")
-
-    # Mock the transcribe_file function
-    with patch("think.importer.transcribe_file") as mock_transcribe:
-        mock_transcribe.return_value = mock_revai_response
-
-        # Mock slice_audio_segment to avoid needing real ffmpeg
-        with patch("think.importer.slice_audio_segment") as mock_slice:
-            mock_slice.return_value = str(
-                tmp_path / "120000_300" / "imported_audio.mp3"
-            )
-
-            # Run with --hear option
-            monkeypatch.setattr(
-                "sys.argv",
-                [
-                    "sol import",
-                    str(audio_file),
-                    "--timestamp",
-                    "20240101_120000",
-                    "--hear",
-                    "true",
-                ],
-            )
-            mod.main()
-
-    # Check that the files were created correctly
-    day_dir = day_path("20240101")
-    f1 = day_dir / "120000_300" / "imported_audio.jsonl"
-    f2 = day_dir / "120500_300" / "imported_audio.jsonl"
-
-    assert f1.exists()
-    assert f2.exists()
-
-    # Check first chunk (0-5 minutes) - JSONL format
-    # With per_speaker=True, each monologue becomes one entry (not split by sentence)
-    lines1 = f1.read_text().strip().split("\n")
-    metadata1 = json.loads(lines1[0])
-    entries1 = [json.loads(line) for line in lines1[1:]]
-
-    assert metadata1["imported"]["id"] == "20240101_120000"
-    assert metadata1["raw"] == "imported_audio.mp3"  # Local audio slice
-    assert len(entries1) == 1  # One monologue = one entry (per-speaker mode)
-    assert "Hello" in entries1[0]["text"]  # Full monologue text
-    assert "test" in entries1[0]["text"]  # Contains both sentences
-    assert entries1[0]["speaker"] == 1  # Rev uses 0-based, we use 1-based
-    assert entries1[0]["source"] == "import"
-    assert entries1[0]["start"] == "12:00:00"  # Absolute timestamp
-
-    # Check second chunk (5-10 minutes) - JSONL format
-    lines2 = f2.read_text().strip().split("\n")
-    metadata2 = json.loads(lines2[0])
-    entries2 = [json.loads(line) for line in lines2[1:]]
-
-    assert metadata2["imported"]["id"] == "20240101_120000"
-    assert metadata2["raw"] == "imported_audio.mp3"  # Local audio slice
-    assert len(entries2) == 1
-    assert entries2[0]["text"] == "Second chunk."
-    assert entries2[0]["speaker"] == 2
-    assert entries2[0]["start"] == "12:05:10"  # Absolute timestamp (5:10 after base)
-
-
-def test_audio_transcribe_sanitizes_entities(tmp_path, monkeypatch):
-    mod = importlib.import_module("think.importer")
-
-    audio_file = tmp_path / "test_audio.mp3"
+    audio_file = tmp_path / "test.mp3"
     audio_file.write_bytes(b"fake audio content")
 
-    # Use fixtures journal for facet entities lookup
-    from pathlib import Path
+    day_dir = tmp_path / "20240101"
+    day_dir.mkdir()
 
-    fixtures_journal = Path(__file__).parent.parent / "fixtures" / "journal"
-    monkeypatch.setenv("JOURNAL_PATH", str(fixtures_journal))
+    base_dt = dt.datetime(2024, 1, 1, 12, 0, 0)
 
-    captured: list[list[str]] = []
+    # Mock _get_audio_duration to return 7 minutes (2.33 segments)
+    monkeypatch.setattr(mod, "_get_audio_duration", lambda p: 420.0)
 
-    def fake_transcribe_file(media_path, config=None):
-        # Config is now a dict with entities key
-        config = config or {}
-        captured.append(config.get("entities", []))
-        return {}
+    # Mock slice_audio_segment to create the file
+    def mock_slice(src, dst, start, duration):
+        Path(dst).parent.mkdir(parents=True, exist_ok=True)
+        Path(dst).write_bytes(b"sliced audio")
+        return dst
 
-    monkeypatch.setattr(mod, "transcribe_file", fake_transcribe_file)
-    monkeypatch.setattr(mod, "convert_to_statements", lambda _: [])
+    monkeypatch.setattr(mod, "slice_audio_segment", mock_slice)
 
-    mod.audio_transcribe(
+    # Mock find_available_segment to return segment as-is (no collision)
+    monkeypatch.setattr(mod, "find_available_segment", lambda day, seg: seg)
+
+    segments = mod.prepare_audio_segments(
         str(audio_file),
-        str(tmp_path),
-        dt.datetime(2024, 1, 1, 12, 0, 0),
-        import_id="20240101_120000",
-        facet="acme",
+        str(day_dir),
+        base_dt,
+        "20240101_120000",
     )
 
-    assert captured
-    # Entities are sorted by type then name, so Organization comes before Person
-    assert captured[0] == [
-        "Test",  # First name from "Test Initiative (TI)" (Organization comes first)
-        "TI",  # Nickname from "Test Initiative (TI)"
-        "TP",  # Nickname from "Test Person (TP)"
-    ]
+    # Should create 2 segments (0-5 min, 5-7 min)
+    assert len(segments) == 2
+
+    seg1_key, seg1_dir, seg1_files = segments[0]
+    assert seg1_key == "120000_300"
+    assert seg1_files == ["imported_audio.mp3"]
+    assert (seg1_dir / "imported_audio.mp3").exists()
+
+    seg2_key, seg2_dir, seg2_files = segments[1]
+    assert seg2_key == "120500_300"
+    assert seg2_files == ["imported_audio.mp3"]
+    assert (seg2_dir / "imported_audio.mp3").exists()
 
 
-def test_audio_transcribe_includes_import_metadata(tmp_path, monkeypatch):
+def test_prepare_audio_segments_with_collision(tmp_path, monkeypatch):
+    """Test prepare_audio_segments handles segment key collisions."""
     mod = importlib.import_module("think.importer")
-
-    audio_file = tmp_path / "test_audio.mp3"
-    audio_file.write_bytes(b"fake audio content")
 
     monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
 
-    monkeypatch.setattr(
-        "think.facets.get_facets",
-        lambda: {
-            "uavionix": {
-                "entities": {"Person": ["Ryan Reed (R2)"]},
-            }
-        },
-    )
+    audio_file = tmp_path / "test.mp3"
+    audio_file.write_bytes(b"fake audio content")
 
-    monkeypatch.setattr(mod, "transcribe_file", lambda *_, **__: {"ok": True})
-    monkeypatch.setattr(
-        mod,
-        "convert_to_statements",
-        lambda _: [
-            {
-                "id": 1,
-                "start": 0.0,
-                "end": 1.5,
-                "text": "Test entry",
-                "speaker": 1,
-            }
-        ],
-    )
-    # Mock slice_audio_segment to avoid needing real ffmpeg
-    monkeypatch.setattr(
-        mod,
-        "slice_audio_segment",
-        lambda *_: str(tmp_path / "120000_300" / "imported_audio.mp3"),
-    )
+    day_dir = tmp_path / "20240101"
+    day_dir.mkdir()
 
-    created_files, _ = mod.audio_transcribe(
+    base_dt = dt.datetime(2024, 1, 1, 12, 0, 0)
+
+    monkeypatch.setattr(mod, "_get_audio_duration", lambda p: 300.0)
+
+    def mock_slice(src, dst, start, duration):
+        Path(dst).parent.mkdir(parents=True, exist_ok=True)
+        Path(dst).write_bytes(b"sliced audio")
+        return dst
+
+    monkeypatch.setattr(mod, "slice_audio_segment", mock_slice)
+
+    # Simulate collision - return modified segment key
+    def mock_find_available(day, seg):
+        if seg == "120000_300":
+            return "120001_300"  # Deconflicted
+        return seg
+
+    monkeypatch.setattr(mod, "find_available_segment", mock_find_available)
+
+    segments = mod.prepare_audio_segments(
         str(audio_file),
-        str(tmp_path),
-        dt.datetime(2024, 1, 1, 12, 0, 0),
-        import_id="20240101_120000",
-        facet="uavionix",
+        str(day_dir),
+        base_dt,
+        "20240101_120000",
     )
 
-    assert created_files
+    assert len(segments) == 1
+    seg_key, seg_dir, seg_files = segments[0]
+    assert seg_key == "120001_300"  # Deconflicted key
 
-    # Find the JSONL file (filter out audio files)
-    jsonl_files = [f for f in created_files if f.endswith(".jsonl")]
-    assert jsonl_files
 
-    # Read JSONL format: first line is metadata, subsequent lines are entries
-    lines = Path(jsonl_files[0]).read_text().strip().split("\n")
-    metadata = json.loads(lines[0])
-    entries = [json.loads(line) for line in lines[1:]]
+def test_run_import_summary(tmp_path, monkeypatch):
+    """Test _run_import_summary calls sol insight correctly."""
+    mod = importlib.import_module("think.importer")
 
-    assert entries[0]["text"] == "Test entry"
-    assert metadata["imported"]["id"] == "20240101_120000"
-    assert metadata["imported"]["facet"] == "uavionix"
-    assert metadata["raw"] == "imported_audio.mp3"  # Local audio slice
+    import_dir = tmp_path / "imports" / "20240101_120000"
+    import_dir.mkdir(parents=True)
+
+    # Mock subprocess.run to simulate successful sol insight
+    def mock_run(cmd, *args, **kwargs):
+        # Create the summary file like sol insight would
+        summary_path = import_dir / "summary.md"
+        summary_path.write_text("# Test Summary\n\nContent here.")
+        mock_result = MagicMock()
+        mock_result.returncode = 0
+        return mock_result
+
+    with patch("subprocess.run", side_effect=mock_run) as mock_subprocess:
+        result = mod._run_import_summary(
+            import_dir,
+            "20240101",
+            ["120000_300", "120500_300"],
+        )
+
+        assert result is True
+        assert (import_dir / "summary.md").exists()
+
+        # Verify correct command was called
+        call_args = mock_subprocess.call_args[0][0]
+        assert "sol" in call_args
+        assert "insight" in call_args
+        assert "importer" in call_args
+        assert "--segments" in call_args
+        assert "120000_300,120500_300" in call_args
+
+
+def test_run_import_summary_no_segments(tmp_path):
+    """Test _run_import_summary returns False with no segments."""
+    mod = importlib.import_module("think.importer")
+
+    import_dir = tmp_path / "imports" / "20240101_120000"
+    import_dir.mkdir(parents=True)
+
+    result = mod._run_import_summary(import_dir, "20240101", [])
+    assert result is False
