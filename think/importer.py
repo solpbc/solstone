@@ -7,27 +7,24 @@ import json
 import logging
 import os
 import re
-import string
 import subprocess
 import threading
 import time
-import unicodedata
 from datetime import timedelta
 from pathlib import Path
 
-from muse.models import generate
-from observe.hear import load_transcript
-from observe.transcribe.revai import convert_to_statements, transcribe_file
+from observe.utils import find_available_segment
 from think.callosum import CallosumConnection
 from think.detect_created import detect_created
 from think.detect_transcript import detect_transcript_json, detect_transcript_segment
-from think.facets import get_facets
-from think.importer_utils import save_import_file, write_import_metadata
+from think.importer_utils import (
+    save_import_file,
+    save_import_segments,
+    write_import_metadata,
+)
 from think.utils import (
-    PromptNotFoundError,
     day_path,
     get_journal,
-    load_prompt,
     segment_key,
     setup_cli,
 )
@@ -40,7 +37,6 @@ except Exception:  # pragma: no cover - optional dependency
 logger = logging.getLogger(__name__)
 
 TIME_RE = re.compile(r"\d{8}_\d{6}")
-_ALLOWED_ASCII = set(string.ascii_letters + string.punctuation + " ")
 
 # Importer tract state
 _callosum: CallosumConnection | None = None
@@ -95,7 +91,6 @@ def _write_import_jsonl(
     *,
     import_id: str,
     raw_filename: str | None = None,
-    raw_is_local: bool = False,
     facet: str | None = None,
     setting: str | None = None,
 ) -> None:
@@ -108,8 +103,7 @@ def _write_import_jsonl(
         file_path: Path to write JSONL file
         entries: List of transcript entries
         import_id: Import identifier
-        raw_filename: Audio file name (local filename or imports/ relative path)
-        raw_is_local: If True, raw_filename is in the segment dir (no imports/ prefix)
+        raw_filename: Source file name (relative path from segment to imports/)
         facet: Optional facet name
         setting: Optional setting description
     """
@@ -122,14 +116,9 @@ def _write_import_jsonl(
     # Build top-level metadata with imported info
     metadata: dict[str, object] = {"imported": imported_meta}
 
-    # Add raw audio file reference if provided
+    # Add raw file reference (path relative from segment to imports directory)
     if raw_filename:
-        if raw_is_local:
-            # Local file in segment directory
-            metadata["raw"] = raw_filename
-        else:
-            # Path is relative from segment directory to imports directory
-            metadata["raw"] = f"../../imports/{import_id}/{raw_filename}"
+        metadata["raw"] = f"../../imports/{import_id}/{raw_filename}"
 
     # Write JSONL: metadata first, then entries with source field
     jsonl_lines = [json.dumps(metadata)]
@@ -213,35 +202,120 @@ def slice_audio_segment(
     return output_path
 
 
-def _sanitize_entities(entities: list[str]) -> list[str]:
-    """Return Rev AI safe custom vocabulary phrases."""
+def _get_audio_duration(audio_path: str) -> float | None:
+    """Get audio duration in seconds using ffprobe.
 
-    sanitized: list[str] = []
-    seen: set[str] = set()
+    Args:
+        audio_path: Path to audio file
 
-    for original in entities:
-        normalized = unicodedata.normalize("NFKD", original)
-        ascii_only = normalized.encode("ascii", "ignore").decode("ascii")
-        filtered = "".join(ch for ch in ascii_only if ch in _ALLOWED_ASCII)
-        filtered = re.sub(r"\s+", " ", filtered).strip()
+    Returns:
+        Duration in seconds, or None if unable to determine
+    """
+    try:
+        cmd = [
+            "ffprobe",
+            "-v", "error",
+            "-show_entries", "format=duration",
+            "-of", "default=noprint_wrappers=1:nokey=1",
+            audio_path,
+        ]
+        result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+        return float(result.stdout.strip())
+    except (subprocess.CalledProcessError, ValueError) as e:
+        logger.warning(f"Could not determine audio duration: {e}")
+        return None
 
-        if not filtered or not any(ch.isalpha() for ch in filtered):
-            logger.debug(
-                "Dropping entity without alpha characters after sanitizing: %s",
-                original,
+
+def prepare_audio_segments(
+    media_path: str,
+    day_dir: str,
+    base_dt: dt.datetime,
+    import_id: str,
+) -> list[tuple[str, Path, list[str]]]:
+    """Slice audio into 5-minute segments for observe pipeline.
+
+    Creates segment directories with audio slices, ready for transcription
+    via observe.observing events.
+
+    Args:
+        media_path: Path to source audio file
+        day_dir: Day directory path (YYYYMMDD)
+        base_dt: Base datetime for timestamp calculation
+        import_id: Import identifier
+
+    Returns:
+        List of (segment_key, segment_dir, files_list) tuples
+        where files_list contains the audio filename(s) created
+    """
+    media = Path(media_path)
+    source_ext = media.suffix.lower()
+    day_path_obj = Path(day_dir)
+
+    # Get audio duration to calculate number of segments
+    duration = _get_audio_duration(media_path)
+    if duration is None:
+        raise RuntimeError(f"Could not determine duration of {media_path}")
+
+    # Calculate number of 5-minute segments (ceiling division)
+    segment_duration = 300  # 5 minutes
+    num_segments = int((duration + segment_duration - 1) // segment_duration)
+    if num_segments == 0:
+        num_segments = 1  # At least one segment for very short audio
+
+    segments: list[tuple[str, Path, list[str]]] = []
+
+    for chunk_index in range(num_segments):
+        # Calculate timestamp for this segment
+        ts = base_dt + timedelta(minutes=chunk_index * 5)
+        time_part = ts.strftime("%H%M%S")
+
+        # Create segment key with 5-minute duration
+        segment_key_candidate = f"{time_part}_{segment_duration}"
+
+        # Check for collision and deconflict if needed
+        available_key = find_available_segment(day_path_obj, segment_key_candidate)
+        if available_key is None:
+            logger.warning(
+                f"Could not find available segment key near {segment_key_candidate}"
             )
             continue
 
-        if filtered != original:
-            logger.debug("Sanitized entity '%s' -> '%s'", original, filtered)
+        if available_key != segment_key_candidate:
+            logger.info(
+                f"Segment collision: {segment_key_candidate} -> {available_key}"
+            )
 
-        if filtered in seen:
-            continue
+        # Create segment directory
+        segment_dir = day_path_obj / available_key
+        segment_dir.mkdir(parents=True, exist_ok=True)
 
-        seen.add(filtered)
-        sanitized.append(filtered)
+        # Slice audio for this segment
+        audio_filename = f"imported_audio{source_ext}"
+        audio_path = segment_dir / audio_filename
+        start_seconds = chunk_index * segment_duration
 
-    return sanitized
+        # For the last segment, use remaining duration
+        if chunk_index == num_segments - 1:
+            chunk_duration = duration - start_seconds
+        else:
+            chunk_duration = segment_duration
+
+        try:
+            slice_audio_segment(
+                media_path,
+                str(audio_path),
+                start_seconds,
+                chunk_duration,
+            )
+            segments.append((available_key, segment_dir, [audio_filename]))
+            logger.info(f"Created segment: {available_key} with {audio_filename}")
+        except subprocess.CalledProcessError as e:
+            logger.warning(f"Failed to slice segment {available_key}: {e}")
+            # Clean up empty directory
+            if segment_dir.exists() and not any(segment_dir.iterdir()):
+                segment_dir.rmdir()
+
+    return segments
 
 
 def _read_transcript(path: str) -> str:
@@ -356,311 +430,55 @@ def process_transcript(
     return created_files
 
 
-def audio_transcribe(
-    path: str,
-    day_dir: str,
-    base_dt: dt.datetime,
-    *,
-    import_id: str,
-    facet: str | None = None,
-    setting: str | None = None,
-) -> tuple[list[str], dict]:
-    """Transcribe audio using Rev AI and save 5-minute chunks as imported JSONL.
-
-    Args:
-        path: Path to audio file
-        day_dir: Directory to save chunks to
-        base_dt: Base datetime for timestamps
-        facet: Optional facet name to extract entities from
-        setting: Optional description of the setting to store with metadata
-
-    Returns:
-        Tuple of (list of created file paths, raw RevAI JSON result)
-    """
-    logger.info(f"Transcribing audio file: {path}")
-    media_path = Path(path)
-    created_files = []
-
-    # Get facet entities if facet is specified
-    entities = None
-    if facet:
-        try:
-            from think.entities import load_entity_names
-
-            # Load entity names from facet-specific entities.jsonl (spoken mode for short forms)
-            entity_names = load_entity_names(facet=facet, spoken=True)
-            if entity_names:
-                # entity_names is already a list in spoken mode
-                entities = _sanitize_entities(entity_names)
-                if entities:
-                    logger.info(
-                        f"Using {len(entities)} entities from facet '{facet}' for transcription"
-                    )
-                else:
-                    logger.info(f"Facet '{facet}' entities removed after sanitization")
-            else:
-                logger.info(f"No entities found for facet '{facet}'")
-        except FileNotFoundError:
-            logger.info(f"Facet '{facet}' has no entities.jsonl file")
-        except Exception as e:
-            logger.warning(f"Failed to load facet entities: {e}")
-
-    # Build Rev.ai config
-    revai_config: dict = {}
-    if entities:
-        revai_config["entities"] = entities
-
-    # Transcribe using Rev AI
-    try:
-        revai_json = transcribe_file(media_path, revai_config)
-    except Exception as e:
-        logger.error(f"Failed to transcribe audio: {e}")
-        raise
-
-    # Convert to statements (per-speaker, with float timestamps)
-    statements = convert_to_statements(revai_json)
-
-    if not statements:
-        logger.warning("No transcript entries found")
-        return created_files, revai_json
-
-    # Group statements into 5-minute chunks based on float start times
-    chunks = []
-    current_chunk = []
-    chunk_start_time = None
-
-    for stmt in statements:
-        # Use float seconds directly (no string parsing needed)
-        start_seconds = int(stmt.get("start", 0.0))
-
-        # Determine which 5-minute chunk this belongs to
-        chunk_index = start_seconds // 300  # 300 seconds = 5 minutes
-
-        # If this is a new chunk, save the previous one
-        if chunk_start_time is not None and chunk_index != chunk_start_time:
-            if current_chunk:
-                chunks.append((chunk_start_time, current_chunk))
-            current_chunk = []
-            chunk_start_time = chunk_index
-        elif chunk_start_time is None:
-            chunk_start_time = chunk_index
-
-        current_chunk.append(stmt)
-
-    # Don't forget the last chunk
-    if current_chunk:
-        chunks.append((chunk_start_time, current_chunk))
-
-    # Get source file extension for audio slices
-    source_ext = media_path.suffix.lower()
-
-    # Save each chunk as a separate JSONL file with audio slice
-    for chunk_index, chunk_entries in chunks:
-        # Calculate timestamp for this chunk
-        ts = base_dt + timedelta(minutes=chunk_index * 5)
-        time_part = ts.strftime("%H%M%S")
-
-        # Create segment directory with 5-minute (300 second) duration suffix
-        segment_name = f"{time_part}_300"
-        ts_dir = os.path.join(day_dir, segment_name)
-        os.makedirs(ts_dir, exist_ok=True)
-        json_path = os.path.join(ts_dir, "imported_audio.jsonl")
-
-        # Extract audio slice for this segment
-        audio_filename = f"imported_audio{source_ext}"
-        audio_path = os.path.join(ts_dir, audio_filename)
-        start_seconds = chunk_index * 300
-        # Use 300s duration - ffmpeg handles EOF gracefully for last chunk
-        duration = 300
-
-        try:
-            slice_audio_segment(path, audio_path, start_seconds, duration)
-            created_files.append(audio_path)
-        except subprocess.CalledProcessError as e:
-            logger.warning(f"Failed to slice audio segment: {e}")
-            audio_filename = None
-
-        # Convert statements to entries with absolute timestamps
-        absolute_entries = []
-        for stmt in chunk_entries:
-            # Convert float seconds to absolute HH:MM:SS
-            relative_seconds = stmt.get("start", 0.0)
-            absolute_dt = base_dt + timedelta(seconds=relative_seconds)
-
-            entry = {
-                "start": absolute_dt.strftime("%H:%M:%S"),
-                "source": "import",
-                "speaker": stmt.get("speaker", 1),
-                "text": stmt.get("text", ""),
-            }
-
-            # Add description based on confidence
-            confidence = stmt.get("confidence")
-            if confidence is not None:
-                if confidence < 0.7:
-                    entry["description"] = "low confidence"
-                elif confidence > 0.95:
-                    entry["description"] = "clear"
-
-            absolute_entries.append(entry)
-
-        # Save the chunk with absolute timestamps
-        # raw points to local audio slice (or None if slicing failed)
-        _write_import_jsonl(
-            json_path,
-            absolute_entries,
-            import_id=import_id,
-            raw_filename=audio_filename,
-            raw_is_local=True,
-            facet=facet,
-            setting=setting,
-        )
-        logger.info(f"Added transcript chunk to journal: {json_path}")
-        created_files.append(json_path)
-
-    return created_files, revai_json
-
-
-def create_transcript_summary(
+def _run_import_summary(
     import_dir: Path,
-    audio_json_files: list[str],
-    input_filename: str,
-    timestamp: str,
-    setting: str | None = None,
-    facet: str | None = None,
-) -> None:
-    """Create a summary of all imported audio transcript files using LLM analysis.
+    day: str,
+    segments: list[str],
+) -> bool:
+    """Create a summary for imported segments using sol insight.
 
     Args:
         import_dir: Directory where the summary will be saved
-        audio_json_files: List of paths to imported_audio.jsonl files
-        input_filename: Original media filename for context
-        timestamp: Processing timestamp for context
-        setting: Optional description of the setting to include in metadata
-        facet: Optional facet name to include context about entities and description
+        day: Day string (YYYYMMDD format)
+        segments: List of segment keys to summarize
+
+    Returns:
+        True if summary was created successfully, False otherwise
     """
-    if not audio_json_files:
-        logger.info("No audio transcript files to summarize")
-        return
+    if not segments:
+        logger.info("No segments to summarize")
+        return False
 
-    # Check for API key
-    api_key = os.getenv("GOOGLE_API_KEY")
-    if not api_key:
-        logger.warning("GOOGLE_API_KEY not set, skipping summarization")
-        return
+    summary_path = import_dir / "summary.md"
+    segments_arg = ",".join(segments)
 
-    # Read all transcript chunks
-    all_transcripts = []
-    for json_path in audio_json_files:
-        try:
-            # Load transcript with formatted text
-            metadata, entries, formatted_text = load_transcript(json_path)
-            if entries is None:
-                error_msg = metadata.get("error", "Unknown error")
-                logger.warning(f"Failed to read {json_path}: {error_msg}")
-                continue
-
-            all_transcripts.append(
-                {
-                    "file": os.path.basename(json_path),
-                    "text": formatted_text,
-                    "entry_count": len(entries),
-                }
-            )
-        except Exception as e:
-            logger.warning(f"Failed to read {json_path}: {e}")
-
-    if not all_transcripts:
-        logger.warning("No transcripts could be read for summarization")
-        return
-
-    # Load the prompt from importer.txt (with journal preamble for identity context)
-    try:
-        importer_prompt = load_prompt(
-            "importer", base_dir=Path(__file__).parent, include_journal=True
-        )
-    except PromptNotFoundError as exc:
-        logger.error(f"Failed to load importer prompt: {exc}")
-        return
-    importer_prompt_template = importer_prompt.text
-
-    # Add facet context if a facet is specified
-    facet_context = ""
-    if facet:
-        try:
-            from think.facets import facet_summary
-
-            facet_context = facet_summary(facet)
-            logger.info(f"Including facet context for '{facet}'")
-        except FileNotFoundError:
-            logger.warning(f"Facet '{facet}' not found, skipping facet context")
-        except Exception as e:
-            logger.warning(f"Failed to load facet context: {e}")
-
-    # Add the context metadata to the prompt
-    metadata_lines = [
-        "\n\n## Metadata for this summary:",
-        f"- Original file: {input_filename}",
-        f"- Recording timestamp: {timestamp}",
-        f"- Number of transcript segments: {len(all_transcripts)}",
-        f"- Total transcript entries: {sum(t['entry_count'] for t in all_transcripts)}",
+    cmd = [
+        "sol",
+        "insight",
+        "importer",
+        "--day",
+        day,
+        "--segments",
+        segments_arg,
+        "-o",
+        str(summary_path),
     ]
-    if setting:
-        metadata_lines.append(f"- Setting: {setting}")
-    if facet:
-        metadata_lines.append(f"- Facet: {facet}")
-
-    # Combine: template + facet context + metadata
-    prompt_parts = [importer_prompt_template]
-    if facet_context:
-        prompt_parts.append(f"\n\n## Facet Context\n{facet_context}")
-    prompt_parts.append("\n".join(metadata_lines))
-    importer_prompt = "".join(prompt_parts)
-
-    # Format the transcript content for the user message
-    user_message_parts = []
-
-    for transcript_info in all_transcripts:
-        user_message_parts.append(
-            f"\n## Transcript Segment: {transcript_info['file']}\n"
-        )
-        user_message_parts.append(transcript_info["text"])
-
-    user_message = "\n".join(user_message_parts)
 
     try:
-        logger.info(f"Creating summary for {len(all_transcripts)} transcript segments")
-
-        # Generate summary using configured provider
-        response_text = generate(
-            contents=user_message,
-            context="observe.summarize",
-            temperature=0.3,
-            max_output_tokens=8192 * 4,
-            thinking_budget=8192 * 2,
-            system_instruction=importer_prompt,
-        )
-
-        # Save the summary
-        summary_path = import_dir / "summary.md"
-        total_entries = sum(t["entry_count"] for t in all_transcripts)
-        with open(summary_path, "w", encoding="utf-8") as f:
-            f.write("# Audio Transcript Summary\n\n")
-            f.write(f"**Source File:** {input_filename}\n")
-            f.write(f"**Import Timestamp:** {timestamp}\n")
-            f.write(f"**Segments Processed:** {len(all_transcripts)}\n")
-            f.write(f"**Total Entries:** {total_entries}\n\n")
-            if setting:
-                f.write(f"**Setting:** {setting}\n\n")
-            f.write("---\n\n")
-            f.write(response_text)
-
-        logger.info(f"Created transcript summary: {summary_path}")
-
+        logger.info(f"Creating summary for {len(segments)} segments via sol insight")
+        subprocess.run(cmd, capture_output=True, text=True, check=True)
+        if summary_path.exists():
+            logger.info(f"Created import summary: {summary_path}")
+            return True
+        else:
+            logger.warning("sol insight completed but summary file not created")
+            return False
+    except subprocess.CalledProcessError as e:
+        logger.error(f"Failed to create summary: {e.stderr}")
+        return False
     except Exception as e:
         logger.error(f"Failed to create summary: {e}")
-        # Don't fail the entire import process if summarization fails
-        pass
+        return False
 
 
 # MIME type mapping for import metadata
@@ -750,29 +568,6 @@ def _format_timestamp_display(timestamp: str) -> str:
         return timestamp
 
 
-def _print_facets_help(facets: dict, media_path: str, timestamp: str) -> None:
-    """Print available facets and suggested command."""
-    print("\nAvailable facets:")
-    max_name = max(len(name) for name in facets.keys())
-    for name, info in sorted(facets.items()):
-        title = info.get("title", name)
-        print(f"  {name:<{max_name}}  {title}")
-
-    print("\nAdd --facet <name>:")
-    print(f"  sol import {media_path} --timestamp {timestamp} --facet <name>")
-
-
-def _print_setting_help(media_path: str, timestamp: str, facet: str) -> None:
-    """Print setting requirement and suggested command."""
-    print("\nSetting is required (describes the context of this recording).")
-    print("Examples: 'Team standup meeting', 'Jer lunch with Joe', 'Conference talk'")
-    print("\nAdd --setting <description>:")
-    print(
-        f"  sol import {media_path} --timestamp {timestamp} "
-        f'--facet {facet} --setting "description"'
-    )
-
-
 def main() -> None:
     global _callosum, _import_id, _current_stage, _start_time, _stage_start_time
     global _stages_run, _status_thread, _status_running
@@ -783,25 +578,27 @@ def main() -> None:
         "--timestamp", help="Timestamp YYYYMMDD_HHMMSS for journal entry"
     )
     parser.add_argument(
-        "--hear", type=str2bool, default=True, help="Transcribe audio using Rev AI"
-    )
-    parser.add_argument(
         "--summarize",
         type=str2bool,
         default=True,
-        help="Create summary.md for audio transcripts",
+        help="Create summary.md after transcription completes",
     )
     parser.add_argument(
         "--facet",
         type=str,
         default=None,
-        help="Facet name to use for entity extraction",
+        help="Facet name for this import",
     )
     parser.add_argument(
         "--setting",
         type=str,
         default=None,
         help="Contextual setting description to store with import metadata",
+    )
+    parser.add_argument(
+        "--skip-summary",
+        action="store_true",
+        help="Skip waiting for transcription and summary generation",
     )
     args, extra = setup_cli(parser, parse_known=True)
     if extra and not args.timestamp:
@@ -837,19 +634,6 @@ def main() -> None:
 
     # Check if file needs setup (not already in imports/)
     needs_setup = not _is_in_imports(args.media)
-
-    # Check facet requirement (only for files not already in imports/)
-    if needs_setup and not args.facet:
-        facets = get_facets()
-        if facets:
-            _print_facets_help(facets, args.media, args.timestamp)
-            return
-        # No facets configured - proceed without
-
-    # Check setting requirement (only for files not already in imports/)
-    if needs_setup and not args.setting and args.facet:
-        _print_setting_help(args.media, args.timestamp, args.facet)
-        return
 
     # Copy to imports/ if file is not already there
     if needs_setup:
@@ -892,16 +676,16 @@ def main() -> None:
         facet=args.facet,
         setting=args.setting,
         options={
-            "hear": args.hear,
             "summarize": args.summarize,
+            "skip_summary": args.skip_summary,
         },
         stage=_current_stage,
     )
 
     # Track all created files and processing metadata
-    all_created_files = []
-    audio_transcript_files = []  # Track audio transcript files for summarization
-    revai_json_data = None
+    all_created_files: list[str] = []
+    created_segments: list[str] = []
+    journal_root = Path(get_journal())
     processing_results = {
         "processed_timestamp": args.timestamp,
         "target_day": base_dt.strftime("%Y%m%d"),
@@ -913,9 +697,13 @@ def main() -> None:
         "outputs": [],
     }
 
+    # Get parent directory for saving metadata
+    media_path = Path(args.media)
+    import_dir = media_path.parent
+
     try:
         if ext in {".txt", ".md", ".pdf"}:
-            # Set stage for transcript segmentation
+            # Text transcript processing (unchanged - no observe pipeline)
             _set_stage("segmenting")
 
             created_files = process_transcript(
@@ -927,7 +715,6 @@ def main() -> None:
                 setting=args.setting,
             )
             all_created_files.extend(created_files)
-            audio_transcript_files.extend(created_files)  # Track for summarization
             processing_results["outputs"].append(
                 {
                     "type": "transcript",
@@ -937,51 +724,100 @@ def main() -> None:
                     "count": len(created_files),
                 }
             )
-        else:
-            if args.hear:
-                # Set stage for audio transcription
-                _set_stage("transcribing")
 
-                created_files, revai_json_data = audio_transcribe(
-                    args.media,
-                    day_dir,
-                    base_dt,
-                    import_id=args.timestamp,
-                    facet=args.facet,
-                    setting=args.setting,
+            # Extract segment keys for text imports
+            for file_path in created_files:
+                seg = segment_key(file_path)
+                if seg and seg not in created_segments:
+                    created_segments.append(seg)
+
+            # Emit observe.observed for text imports (already processed)
+            for seg in created_segments:
+                _callosum.emit("observe", "observed", segment=seg, day=day)
+                logger.info(f"Emitted observe.observed for segment: {day}/{seg}")
+
+        else:
+            # Audio processing via observe pipeline
+            _set_stage("segmenting")
+
+            # Prepare audio segments (slice into 5-minute chunks)
+            segments = prepare_audio_segments(
+                args.media,
+                day_dir,
+                base_dt,
+                args.timestamp,
+            )
+
+            if not segments:
+                raise RuntimeError("No segments created from audio file")
+
+            # Track created files and segment keys
+            for seg_key, seg_dir, files in segments:
+                created_segments.append(seg_key)
+                for f in files:
+                    all_created_files.append(str(seg_dir / f))
+
+            # Save segment list for tracking
+            save_import_segments(journal_root, args.timestamp, created_segments, day)
+
+            processing_results["outputs"].append(
+                {
+                    "type": "audio_segments",
+                    "description": "Audio segments queued for transcription",
+                    "segments": created_segments,
+                    "count": len(created_segments),
+                }
+            )
+
+            # Build meta dict for observe.observing events
+            meta: dict[str, str] = {"import_id": args.timestamp}
+            if args.facet:
+                meta["facet"] = args.facet
+            if args.setting:
+                meta["setting"] = args.setting
+
+            # Emit observe.observing per segment to trigger sense.py transcription
+            for seg_key, seg_dir, files in segments:
+                _callosum.emit(
+                    "observe",
+                    "observing",
+                    segment=seg_key,
+                    day=day,
+                    files=files,
+                    meta=meta,
                 )
-                all_created_files.extend(created_files)
-                audio_transcript_files.extend(created_files)  # Track for summarization
-                processing_results["outputs"].append(
-                    {
-                        "type": "audio_transcript",
-                        "format": "imported_audio.jsonl",
-                        "description": "Rev AI transcription chunks",
-                        "files": created_files,
-                        "count": len(created_files),
-                        "transcription_service": "RevAI",
-                    }
-                )
+                logger.info(f"Emitted observe.observing for segment: {day}/{seg_key}")
+
+            # Wait for transcription to complete (unless --no-wait)
+            if not args.skip_summary:
+                _set_stage("transcribing")
+                pending = set(created_segments)
+
+                logger.info(f"Waiting for {len(pending)} segments to complete")
+
+                while pending:
+                    # Poll for observe.observed events
+                    msg = _callosum.receive(timeout=5.0)
+                    if msg is None:
+                        continue
+
+                    tract = msg.get("tract")
+                    event = msg.get("event")
+                    seg = msg.get("segment")
+
+                    if tract == "observe" and event == "observed" and seg in pending:
+                        pending.remove(seg)
+                        logger.info(
+                            f"Segment {seg} transcribed ({len(pending)} remaining)"
+                        )
+
+                logger.info("All segments transcribed successfully")
 
         # Complete processing metadata
         processing_results["processing_completed"] = dt.datetime.now().isoformat()
         processing_results["total_files_created"] = len(all_created_files)
         processing_results["all_created_files"] = all_created_files
-
-        # Get parent directory for saving metadata
-        media_path = Path(args.media)
-        import_dir = media_path.parent
-
-        # Save RevAI JSON if we have it
-        if revai_json_data:
-            revai_path = import_dir / "revai.json"
-            try:
-                with open(revai_path, "w", encoding="utf-8") as f:
-                    json.dump(revai_json_data, f, indent=2)
-                logger.info(f"Saved raw RevAI transcription: {revai_path}")
-                processing_results["revai_json_path"] = str(revai_path)
-            except Exception as e:
-                logger.warning(f"Failed to save RevAI JSON: {e}")
+        processing_results["segments"] = created_segments
 
         # Write imported.json with all processing metadata
         imported_path = import_dir / "imported.json"
@@ -997,56 +833,25 @@ def main() -> None:
         if import_metadata_path.exists():
             try:
                 with open(import_metadata_path, "r", encoding="utf-8") as f:
-                    metadata = json.load(f)
-                metadata["processing_completed"] = processing_results[
+                    import_meta = json.load(f)
+                import_meta["processing_completed"] = processing_results[
                     "processing_completed"
                 ]
-                metadata["total_files_created"] = processing_results[
+                import_meta["total_files_created"] = processing_results[
                     "total_files_created"
                 ]
-                metadata["imported_json_path"] = str(imported_path)
-                if revai_json_data:
-                    metadata["revai_json_path"] = str(revai_path)
+                import_meta["imported_json_path"] = str(imported_path)
+                import_meta["segments"] = created_segments
                 with open(import_metadata_path, "w", encoding="utf-8") as f:
-                    json.dump(metadata, f, indent=2)
+                    json.dump(import_meta, f, indent=2)
                 logger.info(f"Updated import metadata: {import_metadata_path}")
             except Exception as e:
                 logger.warning(f"Failed to update import metadata: {e}")
 
-        # Extract segment names from created transcript files for event emission
-        # Path format: YYYYMMDD/HHMMSS_300/imported_audio.jsonl
-        created_segments = []
-        for file_path in audio_transcript_files:
-            seg = segment_key(file_path)
-            if seg and seg not in created_segments:
-                created_segments.append(seg)
-
-        # Emit observe.observed events for each segment to trigger segment processing
-        # This allows segment insights (sol dream --segment) to run in parallel with summary
-        for seg in created_segments:
-            _callosum.emit(
-                "observe",
-                "observed",
-                segment=seg,
-                day=day,
-            )
-            logger.info(f"Emitted observe.observed for segment: {day}/{seg}")
-
-        # Create summary if requested and audio transcripts were created
-        if args.summarize and audio_transcript_files:
-            # Set stage for summarization
+        # Create summary if requested and we have segments
+        if args.summarize and created_segments and not args.skip_summary:
             _set_stage("summarizing")
-
-            # Filter to only JSONL files (exclude audio slices)
-            jsonl_files = [f for f in audio_transcript_files if f.endswith(".jsonl")]
-            create_transcript_summary(
-                import_dir=import_dir,
-                audio_json_files=jsonl_files,
-                input_filename=os.path.basename(args.media),
-                timestamp=args.timestamp,
-                setting=args.setting,
-                facet=args.facet,
-            )
+            _run_import_summary(import_dir, day, created_segments)
 
         # Emit completed event
         duration_ms = int((time.monotonic() - _start_time) * 1000)
@@ -1070,9 +875,6 @@ def main() -> None:
         # Write error state to imported.json for persistent failure tracking
         duration_ms = int((time.monotonic() - _start_time) * 1000)
         partial_outputs = [_get_relative_path(f) for f in all_created_files]
-
-        media_path = Path(args.media)
-        import_dir = media_path.parent
         imported_path = import_dir / "imported.json"
 
         error_results = {

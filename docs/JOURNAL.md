@@ -734,7 +734,7 @@ imports/
       ├── import.json            # Import metadata and processing status
       ├── {original_filename}    # Original uploaded audio file
       ├── imported.json          # Processed transcript in standard format
-      ├── revai.json             # Raw transcription service response (if applicable)
+      ├── segments.json          # List of segment keys created for this import
       └── summary.md             # AI-generated summary of the audio content
 ```
 

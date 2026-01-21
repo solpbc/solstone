@@ -15,10 +15,11 @@ from think.importer_utils import (
     get_import_details,
     has_summary,
     list_import_timestamps,
+    load_import_segments,
     read_import_metadata,
     read_imported_results,
-    read_revai_json,
     save_import_file,
+    save_import_segments,
     save_import_text,
     update_import_metadata_fields,
     write_import_metadata,
@@ -157,25 +158,6 @@ def test_read_imported_results(temp_journal):
     assert read_results_none is None
 
 
-def test_read_revai_json(temp_journal):
-    """Test reading revai.json."""
-    timestamp = "20250101_170000"
-    import_dir = temp_journal / "imports" / timestamp
-    import_dir.mkdir(parents=True)
-
-    # Create revai.json
-    revai_data = {"monologues": [], "job_id": "test123"}
-    (import_dir / "revai.json").write_text(json.dumps(revai_data), encoding="utf-8")
-
-    # Read it
-    read_data = read_revai_json(temp_journal, timestamp)
-    assert read_data == revai_data
-
-    # Test when it doesn't exist
-    read_data_none = read_revai_json(temp_journal, "20250101_999999")
-    assert read_data_none is None
-
-
 def test_has_summary(temp_journal):
     """Test checking for summary.md existence."""
     timestamp = "20250101_180000"
@@ -306,7 +288,6 @@ def test_get_import_details(temp_journal):
     (import_dir / "imported.json").write_text(
         '{"total_files_created": 2}', encoding="utf-8"
     )
-    (import_dir / "revai.json").write_text('{"job_id": "abc"}', encoding="utf-8")
     (import_dir / "summary.md").write_text("# Summary", encoding="utf-8")
 
     details = get_import_details(temp_journal, timestamp)
@@ -314,7 +295,6 @@ def test_get_import_details(temp_journal):
     assert details["timestamp"] == timestamp
     assert details["import_json"]["file"] == "test.m4a"
     assert details["imported_json"]["total_files_created"] == 2
-    assert details["revai_json"]["job_id"] == "abc"
     assert details["has_summary"] is True
 
 
@@ -322,3 +302,45 @@ def test_get_import_details_not_found(temp_journal):
     """Test getting details for non-existent import."""
     with pytest.raises(FileNotFoundError):
         get_import_details(temp_journal, "20250101_999999")
+
+
+def test_save_and_load_import_segments(temp_journal):
+    """Test saving and loading segment list for an import."""
+    timestamp = "20250101_210000"
+    segments = ["120000_300", "120500_300", "121000_300"]
+    day = "20250101"
+
+    # Save segments
+    save_import_segments(temp_journal, timestamp, segments, day)
+
+    # Load them back
+    result = load_import_segments(temp_journal, timestamp)
+    assert result is not None
+    loaded_segments, loaded_day = result
+    assert loaded_segments == segments
+    assert loaded_day == day
+
+
+def test_load_import_segments_not_found(temp_journal):
+    """Test loading segments when file doesn't exist."""
+    result = load_import_segments(temp_journal, "20250101_999999")
+    assert result is None
+
+
+def test_get_import_details_includes_segments(temp_journal):
+    """Test that get_import_details includes segments.json."""
+    timestamp = "20250101_220000"
+    import_dir = temp_journal / "imports" / timestamp
+    import_dir.mkdir(parents=True)
+
+    # Create segments.json
+    segments_data = {
+        "segments": ["120000_300", "120500_300"],
+        "day": "20250101",
+    }
+    (import_dir / "segments.json").write_text(
+        json.dumps(segments_data), encoding="utf-8"
+    )
+
+    details = get_import_details(temp_journal, timestamp)
+    assert details["segments_json"] == segments_data

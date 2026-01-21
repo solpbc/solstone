@@ -201,32 +201,6 @@ def read_imported_results(
         return None
 
 
-def read_revai_json(
-    journal_root: Path,
-    timestamp: str,
-) -> dict | None:
-    """Read revai.json if exists, else None.
-
-    Args:
-        journal_root: Root journal directory
-        timestamp: Import timestamp
-
-    Returns:
-        RevAI JSON dict or None if not found
-    """
-    import_dir = journal_root / "imports" / timestamp
-    revai_json_path = import_dir / "revai.json"
-
-    if not revai_json_path.exists():
-        return None
-
-    try:
-        with open(revai_json_path, "r", encoding="utf-8") as f:
-            return json.load(f)
-    except Exception:
-        return None
-
-
 def has_summary(
     journal_root: Path,
     timestamp: str,
@@ -430,7 +404,6 @@ def get_import_details(
         "timestamp": timestamp,
         "import_json": None,
         "imported_json": None,
-        "revai_json": None,
         "has_summary": False,
     }
 
@@ -452,18 +425,74 @@ def get_import_details(
         except Exception:
             pass
 
-    # Read revai.json
-    revai_json_path = import_dir / "revai.json"
-    if revai_json_path.exists():
-        try:
-            with open(revai_json_path, "r", encoding="utf-8") as f:
-                result["revai_json"] = json.load(f)
-        except Exception:
-            pass
-
     # Check if summary.md exists
     summary_path = import_dir / "summary.md"
     if summary_path.exists():
         result["has_summary"] = True
 
+    # Read segments.json
+    segments_json_path = import_dir / "segments.json"
+    if segments_json_path.exists():
+        try:
+            with open(segments_json_path, "r", encoding="utf-8") as f:
+                result["segments_json"] = json.load(f)
+        except Exception:
+            pass
+
     return result
+
+
+# ============================================================================
+# Segment Tracking
+# ============================================================================
+
+
+def save_import_segments(
+    journal_root: Path,
+    timestamp: str,
+    segments: list[str],
+    day: str,
+) -> None:
+    """Save segment list for an import.
+
+    Args:
+        journal_root: Root journal directory
+        timestamp: Import timestamp (YYYYMMDD_HHMMSS format)
+        segments: List of segment keys (HHMMSS_LEN format)
+        day: Day string (YYYYMMDD format)
+    """
+    import_dir = journal_root / "imports" / timestamp
+    import_dir.mkdir(parents=True, exist_ok=True)
+
+    segments_path = import_dir / "segments.json"
+    data = {
+        "segments": segments,
+        "day": day,
+    }
+    segments_path.write_text(json.dumps(data, indent=2), encoding="utf-8")
+
+
+def load_import_segments(
+    journal_root: Path,
+    timestamp: str,
+) -> tuple[list[str], str] | None:
+    """Load segment list for an import.
+
+    Args:
+        journal_root: Root journal directory
+        timestamp: Import timestamp
+
+    Returns:
+        Tuple of (segments_list, day) or None if not found
+    """
+    import_dir = journal_root / "imports" / timestamp
+    segments_path = import_dir / "segments.json"
+
+    if not segments_path.exists():
+        return None
+
+    try:
+        data = json.loads(segments_path.read_text(encoding="utf-8"))
+        return data.get("segments", []), data.get("day", "")
+    except Exception:
+        return None

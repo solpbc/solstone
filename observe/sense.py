@@ -498,7 +498,12 @@ class FileSensor:
         if handler_info:
             handler_name, command = handler_info
             self._spawn_handler(
-                file_path, handler_name, command, segment=segment, remote=remote, meta=meta
+                file_path,
+                handler_name,
+                command,
+                segment=segment,
+                remote=remote,
+                meta=meta,
             )
 
     def _handle_callosum_message(self, message: Dict[str, Any]):
@@ -958,6 +963,7 @@ def main():
     # Audio files in segment directories
     sensor.register("*.flac", "transcribe", ["sol", "transcribe", "{file}"])
     sensor.register("*.m4a", "transcribe", ["sol", "transcribe", "{file}"])
+    sensor.register("*.opus", "transcribe", ["sol", "transcribe", "{file}"])
 
     # Video files in segment directories
     for ext in VIDEO_EXTENSIONS:
