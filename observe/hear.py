@@ -453,8 +453,10 @@ def format_audio(
         # Text - prefer corrected text if available
         text = entry.get("corrected") or entry.get("text", "")
 
-        # Audio description (tone, delivery cues)
-        description = entry.get("description", "")
+        # Emotion (tone, delivery) - skip if "neutral"
+        emotion = entry.get("emotion", "")
+        if emotion and emotion.lower() == "neutral":
+            emotion = ""
 
         # Combine into markdown
         prefix = " ".join(entry_parts).strip()
@@ -465,9 +467,9 @@ def format_audio(
         else:
             continue  # Skip empty entries
 
-        # Append description in italics if present
-        if description:
-            markdown = f"{markdown} *({description})*"
+        # Append emotion in italics if present and not neutral
+        if emotion:
+            markdown = f"{markdown} *({emotion})*"
 
         chunks.append(
             {

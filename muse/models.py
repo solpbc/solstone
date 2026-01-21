@@ -132,6 +132,11 @@ CONTEXT_DEFAULTS: Dict[str, Dict[str, Any]] = {
         "label": "Audio Enrichment",
         "group": "Observe",
     },
+    "observe.transcribe.gemini": {
+        "tier": TIER_FLASH,
+        "label": "Audio Transcription (Gemini)",
+        "group": "Observe",
+    },
     "observe.extract.selection": {
         "tier": TIER_FLASH,
         "label": "Frame Selection",

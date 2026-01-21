@@ -7,16 +7,16 @@ Transcription pipeline:
 1. VAD stage: Run Silero VAD to detect speech and filter silent files early
 2. Audio reduction: Trim long silence gaps for faster processing
 3. Transcription: Dispatch to STT backend (default: whisper)
-4. Enrichment: Extract topics, setting, and audio descriptions via LLM (optional)
+4. Enrichment: Extract topics, setting, emotions, and warnings via LLM (optional)
 5. Embeddings: Generate voice embeddings for each sentence using resemblyzer
 6. Output: JSONL format compatible with format_audio() in observe/hear.py
 
 Output files:
-- <stem>.jsonl: Transcript with HH:MM:SS timestamps, topics, setting, descriptions
+- <stem>.jsonl: Transcript with HH:MM:SS timestamps, topics, setting, emotions
 - <stem>.npz: Sentence-level voice embeddings indexed by statement id
 
 Configuration (journal config transcribe section):
-- transcribe.backend: STT backend ("whisper", "revai"). Default: "whisper"
+- transcribe.backend: STT backend ("whisper", "revai", "gemini"). Default: "whisper"
 - transcribe.enrich: Enable/disable LLM enrichment (default: true)
 - transcribe.preserve_all: Keep audio files even when no speech detected (default: false)
 - transcribe.min_speech_seconds: Minimum speech duration to proceed. Default: 1.0
@@ -31,6 +31,11 @@ Whisper backend settings (transcribe.whisper):
 Rev.ai backend settings (transcribe.revai):
 - model: Rev.ai transcriber ("fusion", "machine", "low_cost"). Default: "fusion"
 - Automatically loads recent entity names as custom vocabulary for improved recognition
+
+Gemini backend settings (transcribe.gemini):
+- No configuration needed (model resolved by muse.models context system)
+- Automatically loads recent entity names for improved recognition
+- Includes integrated enrichment (skips separate enrich step)
 
 Platform optimizations (Whisper):
 - CUDA GPU: Uses float16 for GPU-optimized inference
@@ -223,10 +228,30 @@ def _embed_statements(
     try:
         voice_encoder = _get_voice_encoder(whisper_device)
 
-        # Filter statements by duration
-        valid_statements = [
-            s for s in statements if s["end"] - s["start"] >= MIN_STATEMENT_DURATION
-        ]
+        audio_duration = len(audio) / sample_rate
+
+        # Filter statements with valid timestamps and sufficient duration
+        # Defensive: handle None timestamps, clamp to audio bounds
+        valid_statements = []
+        for s in statements:
+            start = s.get("start")
+            end = s.get("end")
+
+            # Skip if timestamps are None or invalid
+            if start is None or end is None:
+                continue
+            if not isinstance(start, (int, float)) or not isinstance(end, (int, float)):
+                continue
+
+            # Clamp to audio bounds
+            start = max(0.0, min(start, audio_duration))
+            end = max(0.0, min(end, audio_duration))
+
+            # Check duration after clamping
+            if end - start >= MIN_STATEMENT_DURATION:
+                valid_statements.append(
+                    {"id": s["id"], "start": start, "end": end}
+                )
 
         if not valid_statements:
             logging.info("No statements with sufficient duration for embedding")
@@ -299,8 +324,8 @@ def _statements_to_jsonl(
         model_info: Dict with model, device, compute_type from backend
         source: Optional source label (e.g., "mic", "sys")
         remote: Optional remote name for metadata
-        enrichment: Optional enrichment data with topics, setting, and
-            per-statement corrected text and descriptions
+        enrichment: Optional enrichment data with topics, setting, warning, and
+            per-statement corrected text and emotions
         vad_result: Optional VAD result for noise detection metadata
         segment_meta: Optional metadata dict from SEGMENT_META env var
             (facet, setting, host, platform, etc.). Setting overrides enrichment.
@@ -333,6 +358,8 @@ def _statements_to_jsonl(
             metadata["topics"] = enrichment["topics"]
         if "setting" in enrichment:
             metadata["setting"] = enrichment["setting"]
+        if "warning" in enrichment and enrichment["warning"]:
+            metadata["warning"] = enrichment["warning"]
 
     # Add segment metadata (from SEGMENT_META env var)
     # These fields override any enrichment values (e.g., setting)
@@ -349,8 +376,9 @@ def _statements_to_jsonl(
 
     # Build entry lines
     for i, stmt in enumerate(statements):
-        # Calculate absolute timestamp
-        stmt_dt = base_datetime + datetime.timedelta(seconds=stmt["start"])
+        # Calculate absolute timestamp (handle None for invalid timestamps)
+        start_seconds = stmt["start"] if stmt["start"] is not None else 0.0
+        stmt_dt = base_datetime + datetime.timedelta(seconds=start_seconds)
         timestamp_str = stmt_dt.strftime("%H:%M:%S")
 
         entry = {
@@ -360,11 +388,16 @@ def _statements_to_jsonl(
         if source:
             entry["source"] = source
 
-        # Pass through speaker ID if present (from diarized backends like Rev.ai)
+        # Pass through speaker ID if present (from diarized backends like Rev.ai, Gemini)
         if "speaker" in stmt:
             entry["speaker"] = stmt["speaker"]
 
-        # Add corrected text and description from enrichment by position
+        # Pass through emotion (from Gemini backend)
+        if "emotion" in stmt and stmt["emotion"]:
+            entry["emotion"] = stmt["emotion"]
+
+        # Add corrected text and emotion from enrichment by position
+        # (enrichment overrides statement emotion if both present)
         if i < len(enriched_statements):
             enriched = enriched_statements[i]
             if isinstance(enriched, dict):
@@ -372,10 +405,10 @@ def _statements_to_jsonl(
                 corrected = enriched.get("corrected", "")
                 if corrected and corrected != stmt["text"]:
                     entry["corrected"] = corrected
-                # Add description
-                description = enriched.get("description", "")
-                if description:
-                    entry["description"] = description
+                # Add emotion (overrides emotion from statement)
+                emotion = enriched.get("emotion", "")
+                if emotion:
+                    entry["emotion"] = emotion
 
         lines.append(json.dumps(entry))
 
@@ -511,15 +544,19 @@ def process_audio(
         if suffix.endswith("_audio") and suffix != "audio":
             source = suffix[:-6]  # Remove "_audio" suffix
 
-        # Run enrichment if enabled in config
-        enrichment = None
-        enrich_enabled = config.get("transcribe", {}).get("enrich", True)
-        if enrich_enabled:
-            from observe.enrich import enrich_transcript
+        # Check for backend-provided enrichment (e.g., Gemini includes it)
+        # This is attached to backend_config by the backend's transcribe() function
+        enrichment = backend_config.pop("_enrichment", None)
 
-            enrichment = enrich_transcript(
-                processing_audio_path, statements, entity_names=entity_names
-            )
+        # Run separate enrichment if enabled and not already provided by backend
+        if enrichment is None:
+            enrich_enabled = config.get("transcribe", {}).get("enrich", True)
+            if enrich_enabled:
+                from observe.enrich import enrich_transcript
+
+                enrichment = enrich_transcript(
+                    processing_audio_path, statements, entity_names=entity_names
+                )
 
         # Generate embeddings before timestamp restoration
         # Use reduced audio buffer if available for consistent timestamps
@@ -736,6 +773,12 @@ def main():
         # Pass entities to Rev.ai for custom vocabulary
         if entity_names:
             backend_config["entities"] = entity_names
+    elif backend == "gemini":
+        # Gemini backend - model resolved by muse.models based on context
+        # Pass entity names for prompt context
+        backend_config = {}
+        if entity_names:
+            backend_config["entity_names"] = entity_names
     else:
         # Unknown backend - let get_backend() raise the error
         backend_config = {}

@@ -1,0 +1,43 @@
+You are accurately transcribing audio. Return a JSON object with speech segments and metadata.
+
+Common names that may appear: $entity_names
+
+## Output Format
+
+Return JSON only:
+
+```json
+{
+  "segments": [
+    {"start": "M:SS", "end": "M:SS", "speaker": "Speaker 1", "text": "<text>", "emotion": "<tone>"},
+    ...
+  ],
+  "topics": "<topic1>, <topic2>, ...",
+  "setting": "<single word>",
+  "warning": "<issues or empty string>"
+}
+```
+
+## Guidelines
+
+### Segments
+- Create new segment when speaker changes or there's a natural pause
+- Timestamps as M:SS or MM:SS (e.g., "01:23", "00:05")
+- Label speakers consistently: "Speaker 1", "Speaker 2", etc.
+
+### Emotion
+- Brief tone description for accessibility
+- Focus on speaker's delivery, not what the words mean but how they said them, ignore background sounds
+- Use "neutral" when tone is unremarkable
+
+### Topics
+- Extract 2-5 main topics as comma-separated string
+- Use concise noun phrases: "project deadline, API design, weekend plans"
+- Order by prominence
+
+### Setting
+- Best guess as to the setting in which the audio was gathered.
+
+### Warning
+- Note audio issues such as background noise, music, audio issues, etc.
+- Empty string if audio quality is good

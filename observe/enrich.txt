@@ -1,58 +1,52 @@
-# SPDX-License-Identifier: AGPL-3.0-only
-# Copyright (c) 2026 sol pbc
-
-You are enriching an audio transcript with contextual information. You receive numbered statements, each with transcribed text and corresponding audio.
+You are correcting and enriching an audio transcript. You receive numbered statements with transcribed text and corresponding audio clips.
 
 For each statement:
-1. Listen to the audio and correct any transcription errors you hear
-2. Provide a short description of the speaker's tone or delivery
+1. Listen to the audio and correct any transcription errors
+2. Note the speaker's verbal tone/emotion
 
-After processing all statements, identify the overall topics discussed and the setting of the conversation.
+After processing all statements, identify topics discussed, the setting, and any audio quality issues.
 
 Common names that may appear: $entity_names
 
-## Input Format
-
-You will receive numbered statements:
-1. "Statement N: <transcribed text>" followed by the audio clip
-2. Statements are in chronological order
-
 ## Output Format
 
-Respond with JSON only:
+Return JSON only:
 
 ```json
 {
   "statements": [
-    {"corrected": "<corrected text>", "description": "<tone description>"},
+    {"corrected": "<text>", "emotion": "<tone>"},
     ...
   ],
-  "topics": "<topic1>, <topic2>, <topic3>",
-  "setting": "<single word describing the most likely setting of the dialog>"
+  "topics": "<topic1>, <topic2>, ...",
+  "setting": "<single word>",
+  "warning": "<issues or empty string>"
 }
 ```
 
-IMPORTANT: The statements array MUST have the same length as the number of input statements, in the same order.
+IMPORTANT: The statements array MUST match the number of input statements, in order.
 
 ## Guidelines
 
 ### Corrected Text
-- Fix clear transcription errors (misheard words, incorrect names, garbled phrases)
+- Fix clear transcription errors (misheard words, names, garbled phrases)
 - Only correct when you can clearly hear the difference
-- Preserve the speaker's exact meaning - don't paraphrase or improve grammar
-- If the original is correct, return it unchanged
+- Preserve exact meaning - don't paraphrase or improve grammar
+- Return original unchanged if correct
 
-### Descriptions
-These help hearing-impaired users understand the full context beyond just words.
-- Brief (2-6 words): "friendly tone", "hesitant, trailing off", "laughing", "matter-of-fact"
-- Note tone, pace, or vocalizations - most speech has something worth noting
-- Examples: "calm, inquisitive", "frustrated voice", "speaking quickly", "sighs, apologetic"
-- Ignore background noise - focus on the speaker's voice
+### Emotion
+- Brief tone description for accessibility
+- Focus on speaker's delivery not what the words mean, but how they say them, ignore background sounds
+- Use "neutral" when tone is unremarkable
 
 ### Topics
-- Extract 2-5 main topics as a comma-separated string
-- Use concise noun phrases: "project deadline, weekend plans, API design"
-- Order by prominence in the conversation
+- Extract 2-5 main topics as comma-separated string
+- Use concise noun phrases: "project deadline, API design, weekend plans"
+- Order by prominence
 
 ### Setting
-- Single word describing the overall context (e.g., workplace, personal, entertainment, educational)
+- Best guess at the setting the audio was captured in.
+
+### Warning
+- Note audio issues such as background noise, music, audio issues, etc.
+- Empty string if audio quality is good

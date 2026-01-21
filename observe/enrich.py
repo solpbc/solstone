@@ -5,14 +5,14 @@
 
 Takes transcript statements paired with audio clips and extracts:
 - Per-statement corrected text (fixing transcription errors)
-- Per-statement audio descriptions (tone, delivery, vocalizations)
+- Per-statement emotion (tone, delivery)
 - Overall topics discussed
 - Setting classification (workplace, personal, etc.)
+- Audio quality warnings
 """
 
 from __future__ import annotations
 
-import io
 import json
 import logging
 import time
@@ -20,11 +20,10 @@ from pathlib import Path
 
 import librosa
 import numpy as np
-import soundfile as sf
 from google.genai import types
 
 from muse.models import generate
-from observe.utils import SAMPLE_RATE
+from observe.utils import SAMPLE_RATE, audio_to_flac_bytes
 from think.utils import load_prompt
 
 logger = logging.getLogger(__name__)
@@ -48,12 +47,7 @@ def _statement_to_flac_bytes(
     end_sample = int(end * sample_rate)
     stmt_audio = wav[start_sample:end_sample]
 
-    # Convert to int16 for FLAC encoding
-    audio_int16 = (np.clip(stmt_audio, -1.0, 1.0) * 32767).astype(np.int16)
-
-    buf = io.BytesIO()
-    sf.write(buf, audio_int16, sample_rate, format="FLAC")
-    return buf.getvalue()
+    return audio_to_flac_bytes(stmt_audio, sample_rate)
 
 
 def enrich_transcript(
@@ -64,7 +58,7 @@ def enrich_transcript(
     """Enrich transcript statements with audio context using LLM analysis.
 
     Sends numbered statements with text and audio clips to extract corrected
-    text, per-statement descriptions, and overall topics/setting.
+    text, per-statement emotion, and overall topics/setting/warnings.
 
     Args:
         audio_path: Path to audio file (FLAC)
@@ -73,9 +67,10 @@ def enrich_transcript(
 
     Returns:
         Dict with enrichment data or None on error:
-        - statements: List of dicts with 'corrected' and 'description' keys
+        - statements: List of dicts with 'corrected' and 'emotion' keys
         - topics: Comma-separated topic string
         - setting: Setting classification string
+        - warning: Audio quality issues (may be empty string)
     """
     if not statements:
         return None

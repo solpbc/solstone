@@ -27,6 +27,26 @@ VIDEO_EXTENSIONS = (".webm", ".mp4", ".mov")
 AUDIO_EXTENSIONS = (".flac", ".ogg", ".m4a")
 
 
+def audio_to_flac_bytes(audio: np.ndarray, sample_rate: int) -> bytes:
+    """Convert audio buffer to FLAC bytes.
+
+    Args:
+        audio: Audio waveform (mono, float32)
+        sample_rate: Sample rate in Hz
+
+    Returns:
+        FLAC-encoded audio bytes
+    """
+    import io
+
+    # Convert to int16 for FLAC encoding
+    audio_int16 = (np.clip(audio, -1.0, 1.0) * 32767).astype(np.int16)
+
+    buf = io.BytesIO()
+    sf.write(buf, audio_int16, sample_rate, format="FLAC")
+    return buf.getvalue()
+
+
 def prepare_audio_file(raw_path: Path, sample_rate: int = SAMPLE_RATE) -> Path:
     """Prepare audio file for processing, converting M4A if needed.
 
