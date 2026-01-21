@@ -11,7 +11,7 @@ from google import genai
 from google.genai import types
 
 from muse.models import generate
-from think.cluster import cluster, cluster_period
+from think.cluster import cluster, cluster_period, cluster_segments_multi
 from think.utils import (
     PromptNotFoundError,
     day_log,
@@ -368,11 +368,32 @@ def main() -> None:
         "--segment",
         help="Segment key in HHMMSS_LEN format (processes only this segment within the day)",
     )
+    parser.add_argument(
+        "--segments",
+        help="Comma-separated segment keys (e.g., '090000_300,100000_600'). Requires -o.",
+    )
+    parser.add_argument(
+        "-o",
+        "--output",
+        help="Output file path (overrides default; required with --segments)",
+    )
     args = setup_cli(parser)
+
+    # Validate mutual exclusivity of --segment and --segments
+    if args.segment and args.segments:
+        parser.error("--segment and --segments are mutually exclusive")
+
+    # Validate -o is required with --segments
+    if args.segments and not args.output:
+        parser.error("--segments requires -o/--output to specify output file path")
 
     # Set segment key for token usage logging
     if args.segment:
         os.environ["SEGMENT_KEY"] = args.segment
+    elif args.segments:
+        # Use first segment for logging context
+        first_segment = args.segments.split(",")[0].strip()
+        os.environ["SEGMENT_KEY"] = first_segment
 
     # Resolve insight key or path to metadata
     all_insights = get_insights()
@@ -420,8 +441,20 @@ def main() -> None:
     output_format = insight_meta.get("output")  # "json" or None (markdown)
     success = False
 
+    # Multi-segment mode: skip extraction entirely
+    multi_segment_mode = bool(args.segments)
+    if multi_segment_mode:
+        skip_occ = True
+        do_anticipations = False
+
     # Choose clustering function based on mode
-    if args.segment:
+    if args.segments:
+        segment_list = [s.strip() for s in args.segments.split(",")]
+        try:
+            markdown, file_count = cluster_segments_multi(args.day, segment_list)
+        except ValueError as e:
+            parser.error(str(e))
+    elif args.segment:
         markdown, file_count = cluster_period(args.day, args.segment)
     else:
         markdown, file_count = cluster(args.day)
@@ -477,11 +510,19 @@ def main() -> None:
             return
 
         is_json_output = output_format == "json"
-        output_path = _output_path(
-            day_dir, insight_key, segment=args.segment, output_format=output_format
-        )
-        # Use cache key scoped to day or segment
-        if args.segment:
+
+        # Determine output path: -o overrides default for any mode
+        if args.output:
+            output_path = Path(args.output)
+        else:
+            output_path = _output_path(
+                day_dir, insight_key, segment=args.segment, output_format=output_format
+            )
+
+        # Determine cache settings: skip for multi-segment, otherwise scope to day/segment
+        if multi_segment_mode:
+            cache_display_name = None
+        elif args.segment:
             cache_display_name = f"{day}_{args.segment}"
         else:
             cache_display_name = f"{day}"

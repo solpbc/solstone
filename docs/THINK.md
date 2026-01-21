@@ -23,7 +23,7 @@ The package exposes several commands:
 - `sol cortex` starts a WebSocket API server for managing AI agent instances.
 
 ```bash
-sol insight YYYYMMDD [-f PROMPT] [-p] [-c] [--force] [-v]
+sol insight YYYYMMDD -f PROMPT [--segment HHMMSS_LEN] [--segments SEG1,SEG2 -o OUT] [--force] [-v]
 sol cluster YYYYMMDD [--start HHMMSS --length MINUTES]
 sol dream [--day YYYYMMDD] [--segment HHMMSS_LEN] [--force] [--skip-insights] [--skip-agents]
 sol supervisor [--no-observers]
@@ -31,8 +31,12 @@ sol mcp [--transport http] [--port PORT] [--path PATH]
 sol cortex [--host HOST] [--port PORT] [--path PATH]
 ```
 
-`-p` is a switch enabling the Gemini Pro model. Use `-c` to count tokens only,
-`--force` to overwrite existing files and `-v` for verbose logs.
+Use `--segment` to process a single segment, or `--segments` with `-o` to process
+multiple specific segments (comma-separated). Use `-o` to override the output path
+for any mode.
+
+Use `-c` to count tokens only, `--force` to overwrite existing files, and `-v` for
+verbose logs.
 
 Set `GOOGLE_API_KEY` before running any command that contacts Gemini.
 `JOURNAL_PATH` and `GOOGLE_API_KEY` can also be provided in a `.env` file which

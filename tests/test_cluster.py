@@ -3,6 +3,8 @@
 
 import importlib
 
+import pytest
+
 from think.utils import day_path
 
 
@@ -285,3 +287,61 @@ def test_cluster_segments_with_split_screen(tmp_path, monkeypatch):
     assert len(segments) == 1
     assert segments[0]["key"] == "100000_300"
     assert "screen" in segments[0]["types"]
+
+
+def test_cluster_segments_multi(tmp_path, monkeypatch):
+    """Test cluster_segments_multi processes multiple segments."""
+    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+    day_dir = day_path("20240101")
+
+    mod = importlib.import_module("think.cluster")
+
+    # Create three segments with different content
+    (day_dir / "090000_300").mkdir()
+    (day_dir / "090000_300" / "audio.jsonl").write_text(
+        '{"raw": "audio.flac"}\n{"start": "00:00:01", "text": "morning segment"}\n'
+    )
+
+    (day_dir / "100000_300").mkdir()
+    (day_dir / "100000_300" / "audio.jsonl").write_text(
+        '{"raw": "audio.flac"}\n{"start": "00:00:01", "text": "mid-morning segment"}\n'
+    )
+    (day_dir / "100000_300" / "screen.jsonl").write_text(
+        '{"raw": "screen.webm"}\n'
+        '{"timestamp": 10, "analysis": {"primary": "code_editor"}}\n'
+    )
+
+    (day_dir / "110000_300").mkdir()
+    (day_dir / "110000_300" / "audio.jsonl").write_text(
+        '{"raw": "audio.flac"}\n{"start": "00:00:01", "text": "late morning segment"}\n'
+    )
+
+    # Process only first and third segments
+    result, count = mod.cluster_segments_multi("20240101", ["090000_300", "110000_300"])
+
+    # Should have 2 entries (one per segment with audio)
+    assert count == 2
+    assert "morning segment" in result
+    assert "late morning segment" in result
+    # Should NOT include the skipped segment
+    assert "mid-morning segment" not in result
+    assert "code_editor" not in result
+
+
+def test_cluster_segments_multi_missing_segment(tmp_path, monkeypatch):
+    """Test cluster_segments_multi fails fast when segment is missing."""
+    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+    day_dir = day_path("20240101")
+
+    mod = importlib.import_module("think.cluster")
+
+    # Create only one segment
+    (day_dir / "090000_300").mkdir()
+    (day_dir / "090000_300" / "audio.jsonl").write_text('{"raw": "audio.flac"}\n')
+
+    # Try to process existing and non-existing segments
+    with pytest.raises(ValueError) as exc_info:
+        mod.cluster_segments_multi("20240101", ["090000_300", "100000_300"])
+
+    assert "100000_300" in str(exc_info.value)
+    assert "not found" in str(exc_info.value)

@@ -417,6 +417,53 @@ def _load_entries_from_segment(
     return entries
 
 
+def cluster_segments_multi(day: str, segments: List[str]) -> Tuple[str, int]:
+    """Return Markdown summary for multiple segments and the number of entries processed.
+
+    Uses raw screen data for segment insights (more granular than summaries).
+    Validates all segments exist before processing; raises ValueError if any are missing.
+
+    Args:
+        day: Day in YYYYMMDD format
+        segments: List of segment keys in HHMMSS_LEN format (e.g., ["163045_300", "170000_600"])
+
+    Returns:
+        (markdown, file_count) tuple
+
+    Raises:
+        ValueError: If any segment directories are missing
+    """
+    day_dir = str(day_path(day))
+
+    # Validate all segments exist upfront (fail fast)
+    missing = []
+    for segment in segments:
+        segment_dir = Path(day_dir) / segment
+        if not segment_dir.is_dir():
+            missing.append(segment)
+
+    if missing:
+        raise ValueError(f"Segment directories not found: {', '.join(missing)}")
+
+    # Load entries from all segments
+    entries: List[Dict[str, Any]] = []
+    for segment in segments:
+        segment_dir = Path(day_dir) / segment
+        segment_entries = _load_entries_from_segment(
+            str(segment_dir), audio=True, screen=True, insights=False
+        )
+        entries.extend(segment_entries)
+
+    if not entries:
+        return f"No audio or screen files found in segments: {', '.join(segments)}", 0
+
+    # Sort all entries by timestamp, group, and render
+    entries.sort(key=lambda e: e["timestamp"])
+    groups = _group_entries(entries)
+    markdown = _groups_to_markdown(groups)
+    return markdown, len(entries)
+
+
 def _segments_overlap(
     seg_start: datetime, seg_end: datetime, range_start: datetime, range_end: datetime
 ) -> bool:
