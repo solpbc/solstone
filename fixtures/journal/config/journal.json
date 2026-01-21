@@ -18,6 +18,7 @@
   "transcribe": {
     "backend": "whisper",
     "enrich": true,
+    "noise_upgrade": true,
     "whisper": {
       "device": "auto",
       "model": "medium.en",

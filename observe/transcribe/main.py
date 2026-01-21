@@ -20,6 +20,7 @@ Configuration (journal config transcribe section):
 - transcribe.enrich: Enable/disable LLM enrichment (default: true)
 - transcribe.preserve_all: Keep audio files even when no speech detected (default: false)
 - transcribe.min_speech_seconds: Minimum speech duration to proceed. Default: 1.0
+- transcribe.noise_upgrade: Auto-switch to Rev.ai for noisy recordings (default: true)
 
 Whisper backend settings (transcribe.whisper):
 - device: Device for inference ("auto", "cpu", "cuda"). Default: "auto"
@@ -287,6 +288,7 @@ def _statements_to_jsonl(
     enrichment: dict | None = None,
     vad_result: VadResult | None = None,
     segment_meta: dict | None = None,
+    backend: str | None = None,
 ) -> list[str]:
     """Convert statements to JSONL lines.
 
@@ -302,6 +304,7 @@ def _statements_to_jsonl(
         vad_result: Optional VAD result for noise detection metadata
         segment_meta: Optional metadata dict from SEGMENT_META env var
             (facet, setting, host, platform, etc.). Setting overrides enrichment.
+        backend: Optional STT backend name (e.g., "whisper", "revai")
 
     Returns:
         List of JSON strings (metadata line first, then entries)
@@ -309,6 +312,7 @@ def _statements_to_jsonl(
     # Build metadata line with transcription config
     metadata = {
         "raw": raw_filename,
+        "backend": backend or "unknown",
         "model": model_info.get("model", "unknown"),
         "device": model_info.get("device", "unknown"),
         "compute_type": model_info.get("compute_type", "unknown"),
@@ -543,6 +547,7 @@ def process_audio(
             enrichment,
             vad_result,
             segment_meta,
+            backend,
         )
 
         # Write JSONL
@@ -674,6 +679,29 @@ def main():
     # Stage 3: Determine backend and build backend config
     # CLI --backend flag overrides config, otherwise use config or default
     backend = args.backend or transcribe_config.get("backend", DEFAULT_BACKEND)
+
+    # Check for noise upgrade: auto-switch to Rev.ai for noisy recordings
+    # Only applies when:
+    # - No explicit CLI --backend flag (respect user's explicit choice)
+    # - Not already using Rev.ai
+    # - noise_upgrade is enabled (default: true)
+    # - Audio is noisy
+    # - Rev.ai token is available
+    noise_upgrade = transcribe_config.get("noise_upgrade", True)
+    if (
+        not args.backend
+        and noise_upgrade
+        and backend != "revai"
+        and vad_result.is_noisy()
+    ):
+        from observe.transcribe.revai import has_token
+
+        if has_token():
+            logging.info(
+                f"Noisy audio detected (RMS={vad_result.noisy_rms:.4f}), "
+                f"upgrading to Rev.ai backend"
+            )
+            backend = "revai"
 
     # Load entity names once for use by both STT backend and enrichment
     from think.entities import load_recent_entity_names

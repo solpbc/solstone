@@ -99,7 +99,7 @@ def update_config() -> Any:
                 "email_addresses",
                 "timezone",
             ],
-            "transcribe": ["backend", "enrich", "preserve_all"],
+            "transcribe": ["backend", "enrich", "preserve_all", "noise_upgrade"],
             "convey": ["password"],
             "env": API_KEY_ENV_VARS,
         }

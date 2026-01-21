@@ -1550,6 +1550,17 @@ input:checked + .slider:before {
         </div>
         <small>Keep audio files even when no speech is detected</small>
       </div>
+
+      <div class="settings-field">
+        <div class="toggle-container" style="justify-content: flex-start; gap: 1em;">
+          <label class="toggle-switch toggle-positive">
+            <input type="checkbox" id="field-transcribe-noise-upgrade" data-section="transcribe" data-key="noise_upgrade">
+            <span class="slider"></span>
+          </label>
+          <label for="field-transcribe-noise-upgrade" class="toggle-label" style="cursor: pointer;">Noise Upgrade</label>
+        </div>
+        <small>Automatically use Rev.ai for noisy recordings (requires Rev.ai token)</small>
+      </div>
     </section>
 
     <!-- Observer Section -->
@@ -1916,9 +1927,10 @@ function populateFields(config) {
   const revai = transcribe.revai || {};
   setValue('field-revai-model', revai.model || 'fusion');
 
-  // Shared settings - enrich defaults to true when not set
+  // Shared settings - enrich and noise_upgrade default to true when not set
   document.getElementById('field-transcribe-enrich').checked = transcribe.enrich !== false;
   document.getElementById('field-transcribe-preserve').checked = transcribe.preserve_all || false;
+  document.getElementById('field-transcribe-noise-upgrade').checked = transcribe.noise_upgrade !== false;
 
   // Convey (password)
   const convey = config.convey || {};

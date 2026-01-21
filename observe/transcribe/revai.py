@@ -64,6 +64,19 @@ def _get_token() -> str:
     return token
 
 
+def has_token() -> bool:
+    """Check if Rev.ai API token is available.
+
+    Returns:
+        True if token is configured, False otherwise
+    """
+    try:
+        _get_token()
+        return True
+    except ValueError:
+        return False
+
+
 def submit_job(
     token: str,
     media_path: Path,

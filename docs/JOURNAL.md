@@ -820,9 +820,10 @@ Example transcript file:
 
 **Metadata line (first line):**
 - `raw` – path to processed audio file (required)
-- `model` – Whisper model used for transcription (e.g., "medium.en", "large-v3-turbo")
-- `device` – device used for inference (e.g., "cuda", "cpu")
-- `compute_type` – compute precision used (e.g., "float16", "int8", "float32")
+- `backend` – STT backend used (e.g., "whisper", "revai")
+- `model` – model used for transcription (e.g., "medium.en", "revai-fusion")
+- `device` – device used for inference (e.g., "cuda", "cpu", "cloud")
+- `compute_type` – compute precision used (e.g., "float16", "int8", "api")
 - `remote` – remote name if transcribed from a remote source (optional)
 - `imported` – object with import metadata for external files (optional):
   - `id` – unique import identifier
