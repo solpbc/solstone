@@ -33,6 +33,8 @@ $(VENV)/pyvenv.cfg:
 	$(PIP) install -e .
 	@echo "Updating genai-prices to latest (for current model pricing)..."
 	$(PIP) install --upgrade genai-prices
+	@echo "Installing Playwright browser for sol screenshot..."
+	$(VENV_BIN)/playwright install chromium
 	@mkdir -p $(USER_BIN)
 	@ln -sf $(CURDIR)/$(VENV_BIN)/sol $(USER_BIN)/sol
 	@echo ""
