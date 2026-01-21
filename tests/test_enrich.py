@@ -81,8 +81,8 @@ class TestEnrichTranscript:
         mock_response = json.dumps(
             {
                 "statements": [
-                    {"corrected": "Hello world.", "description": "calm tone"},
-                    {"corrected": "This is a test.", "description": "excited voice"},
+                    {"corrected": "Hello world.", "emotion": "calm tone"},
+                    {"corrected": "This is a test.", "emotion": "excited voice"},
                 ],
                 "topics": "testing, software",
                 "setting": "workplace",
@@ -103,7 +103,7 @@ class TestEnrichTranscript:
         assert "setting" in result
         assert len(result["statements"]) == 2
         assert result["statements"][0]["corrected"] == "Hello world."
-        assert result["statements"][0]["description"] == "calm tone"
+        assert result["statements"][0]["emotion"] == "calm tone"
         assert result["topics"] == "testing, software"
         assert result["setting"] == "workplace"
 
@@ -158,7 +158,7 @@ class TestEnrichTranscript:
 
         mock_response = json.dumps(
             {
-                "statements": [{"corrected": "Hello world.", "description": "neutral"}],
+                "statements": [{"corrected": "Hello world.", "emotion": "neutral"}],
                 "topics": "test",
                 "setting": "other",
             }
@@ -222,7 +222,7 @@ class TestStatementsToJsonl:
         entry = json.loads(lines[1])
         assert entry["start"] == "14:30:00"
         assert entry["text"] == "Hello."
-        assert "description" not in entry
+        assert "emotion" not in entry
         assert "corrected" not in entry
 
     def test_statements_to_jsonl_with_enrichment(self):
@@ -238,11 +238,11 @@ class TestStatementsToJsonl:
         base_dt = datetime.datetime(2026, 1, 10, 14, 30, 0)
         model_info = {"model": "medium.en", "device": "cpu", "compute_type": "int8"}
 
-        # Enrichment with statements array (corrected + description)
+        # Enrichment with statements array (corrected + emotion)
         enrichment = {
             "statements": [
-                {"corrected": "Hello!", "description": "friendly tone"},
-                {"corrected": "World.", "description": "excited"},
+                {"corrected": "Hello!", "emotion": "friendly tone"},
+                {"corrected": "World.", "emotion": "excited"},
             ],
             "topics": "greetings, testing",
             "setting": "personal",
@@ -259,14 +259,14 @@ class TestStatementsToJsonl:
         assert metadata["topics"] == "greetings, testing"
         assert metadata["setting"] == "personal"
 
-        # Check entries have corrected text and descriptions
+        # Check entries have corrected text and emotions
         entry1 = json.loads(lines[1])
-        assert entry1["description"] == "friendly tone"
+        assert entry1["emotion"] == "friendly tone"
         assert entry1["corrected"] == "Hello!"  # Different from original
         assert entry1["text"] == "Hello."  # Original preserved
 
         entry2 = json.loads(lines[2])
-        assert entry2["description"] == "excited"
+        assert entry2["emotion"] == "excited"
         assert "corrected" not in entry2  # Same as original, not included
 
     def test_statements_to_jsonl_corrected_same_as_original(self):
@@ -281,7 +281,7 @@ class TestStatementsToJsonl:
 
         # Corrected text same as original
         enrichment = {
-            "statements": [{"corrected": "Hello.", "description": "calm"}],
+            "statements": [{"corrected": "Hello.", "emotion": "calm"}],
             "topics": "test",
             "setting": "other",
         }
@@ -293,7 +293,7 @@ class TestStatementsToJsonl:
         entry = json.loads(lines[1])
         assert entry["text"] == "Hello."
         assert "corrected" not in entry  # Not included since same as original
-        assert entry["description"] == "calm"
+        assert entry["emotion"] == "calm"
 
     def test_statements_to_jsonl_partial_enrichment(self):
         """_statements_to_jsonl should handle partial enrichment."""
@@ -310,7 +310,7 @@ class TestStatementsToJsonl:
 
         # Enrichment only has one statement (fewer than input statements)
         enrichment = {
-            "statements": [{"corrected": "Hello!", "description": "friendly tone"}],
+            "statements": [{"corrected": "Hello!", "emotion": "friendly tone"}],
             "topics": "test",
             "setting": "other",
         }
@@ -320,12 +320,12 @@ class TestStatementsToJsonl:
         )
 
         entry1 = json.loads(lines[1])
-        assert "description" in entry1
-        assert entry1["description"] == "friendly tone"
+        assert "emotion" in entry1
+        assert entry1["emotion"] == "friendly tone"
         assert entry1["corrected"] == "Hello!"
 
         entry2 = json.loads(lines[2])
-        assert "description" not in entry2
+        assert "emotion" not in entry2
         assert "corrected" not in entry2
 
 
@@ -342,7 +342,7 @@ class TestFormatAudioCorrectedText:
                 "start": "10:00:00",
                 "text": "Hello wrold.",
                 "corrected": "Hello world.",
-                "description": "calm",
+                "emotion": "calm",
             },
         ]
 
@@ -361,7 +361,7 @@ class TestFormatAudioCorrectedText:
 
         entries = [
             {"raw": "audio.flac"},
-            {"start": "10:00:00", "text": "Hello world.", "description": "calm"},
+            {"start": "10:00:00", "text": "Hello world.", "emotion": "calm"},
         ]
 
         chunks, meta = format_audio(entries)

@@ -104,10 +104,13 @@ def update_config() -> Any:
             "env": API_KEY_ENV_VARS,
         }
 
-        # Nested config schemas for transcribe backends
+        # Nested config schemas for transcribe backends - built from BACKEND_METADATA
+        from observe.transcribe import BACKEND_METADATA
+
         transcribe_nested = {
-            "whisper": ["device", "model", "compute_type"],
-            "revai": ["model"],
+            name: meta.get("settings", [])
+            for name, meta in BACKEND_METADATA.items()
+            if meta.get("settings")
         }
 
         if section not in allowed_sections:
@@ -185,6 +188,49 @@ def update_config() -> Any:
             config["env"] = {k: bool(v) for k, v in config["env"].items()}
 
         return jsonify({"success": True, "config": config})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+# ---------------------------------------------------------------------------
+# Transcribe API
+# ---------------------------------------------------------------------------
+
+
+@settings_bp.route("/api/transcribe")
+def get_transcribe() -> Any:
+    """Return transcribe backend configuration.
+
+    Returns:
+        - backends: List of available backends with metadata
+        - api_keys: Boolean status for each backend's API key
+        - config: Current transcribe config from journal
+    """
+    try:
+        from observe.transcribe import BACKEND_METADATA, get_backend_list
+
+        config = get_journal_config()
+        transcribe_config = config.get("transcribe", {})
+
+        # Get backends list from registry
+        backends = get_backend_list()
+
+        # Check API key status for each backend
+        api_keys = {}
+        for backend in backends:
+            env_key = backend.get("env_key")
+            if env_key:
+                api_keys[backend["name"]] = bool(os.getenv(env_key))
+            else:
+                api_keys[backend["name"]] = True  # Local backends always available
+
+        return jsonify(
+            {
+                "backends": backends,
+                "api_keys": api_keys,
+                "config": transcribe_config,
+            }
+        )
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 

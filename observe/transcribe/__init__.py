@@ -65,6 +65,34 @@ BACKEND_REGISTRY: dict[str, str] = {
     "gemini": "observe.transcribe.gemini",
 }
 
+# ---------------------------------------------------------------------------
+# Backend Metadata
+# ---------------------------------------------------------------------------
+# Display labels, descriptions, and settings schemas for each backend.
+# Used by settings UI to dynamically build backend dropdowns and forms.
+# ---------------------------------------------------------------------------
+
+BACKEND_METADATA: dict[str, dict] = {
+    "whisper": {
+        "label": "Whisper - Local processing",
+        "description": "Local speech recognition using faster-whisper",
+        "env_key": None,
+        "settings": ["device", "model", "compute_type"],
+    },
+    "revai": {
+        "label": "Rev.ai - Cloud with speaker diarization",
+        "description": "Cloud-based transcription with speaker identification",
+        "env_key": "REVAI_ACCESS_TOKEN",
+        "settings": ["model"],
+    },
+    "gemini": {
+        "label": "Gemini - Cloud with integrated enrichment",
+        "description": "Combines transcription and enrichment in one call",
+        "env_key": "GOOGLE_API_KEY",
+        "settings": [],
+    },
+}
+
 
 def get_backend(name: str) -> ModuleType:
     """Get STT backend module by name.
@@ -83,6 +111,23 @@ def get_backend(name: str) -> ModuleType:
         raise ValueError(f"Unknown STT backend: {name!r}. Valid backends: {valid}")
 
     return import_module(BACKEND_REGISTRY[name])
+
+
+def get_backend_list() -> list[dict]:
+    """Get list of backends with metadata for UI display.
+
+    Returns:
+        List of backend info dicts, each containing:
+        - name: Backend identifier (e.g., "whisper")
+        - label: Display label
+        - description: Short description
+        - env_key: Environment variable for API key (None for local backends)
+        - settings: List of configurable field names
+    """
+    return [
+        {"name": name, **BACKEND_METADATA.get(name, {"label": name})}
+        for name in BACKEND_REGISTRY
+    ]
 
 
 def transcribe(
@@ -127,7 +172,9 @@ from observe.transcribe.whisper import DEFAULT_COMPUTE, DEFAULT_DEVICE, DEFAULT_
 __all__ = [
     # Registry
     "BACKEND_REGISTRY",
+    "BACKEND_METADATA",
     "get_backend",
+    "get_backend_list",
     "transcribe",
     # Utilities
     "SENTENCE_ENDINGS",

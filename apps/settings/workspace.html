@@ -1465,17 +1465,16 @@ input:checked + .slider:before {
       <div class="settings-field">
         <label for="field-transcribe-backend">Backend</label>
         <select id="field-transcribe-backend">
-          <option value="whisper">Whisper - Local processing</option>
-          <option value="revai">Rev.ai - Cloud with speaker diarization</option>
+          <!-- Options populated dynamically from /api/transcribe -->
         </select>
         <small>Speech-to-text engine to use for transcription</small>
       </div>
 
-      <!-- Rev.ai API key warning -->
-      <div id="revaiKeyWarning" class="provider-key-warning" style="display:none">
+      <!-- Backend API key warning (shown when selected backend needs API key) -->
+      <div id="backendKeyWarning" class="provider-key-warning" style="display:none">
         <span>&#9888;</span>
-        <span>Rev.ai API key not configured.</span>
-        <a href="#" id="revaiKeyLink">Configure in API Keys</a>
+        <span id="backendKeyWarningText">API key not configured.</span>
+        <a href="#" id="backendKeyLink">Configure in API Keys</a>
       </div>
 
       <!-- Whisper-specific settings -->
@@ -1526,6 +1525,15 @@ input:checked + .slider:before {
           </select>
           <small>Rev.ai transcription model</small>
         </div>
+      </fieldset>
+
+      <!-- Gemini-specific settings (informational only) -->
+      <fieldset id="gemini-settings" class="backend-settings" style="display:none">
+        <p class="settings-field-note">
+          Gemini combines transcription and enrichment in a single API call, providing
+          speaker diarization, emotion detection, and topic extraction automatically.
+          Model selection is handled by the provider settings.
+        </p>
       </fieldset>
 
       <!-- Shared settings -->
@@ -1875,6 +1883,9 @@ window.addEventListener('facet.switch', (e) => {
 // ========== CONFIG LOADING ==========
 async function loadConfig() {
   try {
+    // Load transcribe backends first (populates select options)
+    await loadTranscribeBackends();
+
     const response = await fetch('api/config');
     configData = await response.json();
     populateFields(configData);
@@ -2719,18 +2730,68 @@ document.getElementById('contextOverridesHeader').addEventListener('click', () =
 });
 
 // ========== TRANSCRIPTION ==========
+// Backend metadata loaded from API
+let transcribeBackends = [];
+let transcribeApiKeys = {};
+
+async function loadTranscribeBackends() {
+  try {
+    const response = await fetch('api/transcribe');
+    const data = await response.json();
+    transcribeBackends = data.backends || [];
+    transcribeApiKeys = data.api_keys || {};
+
+    // Populate the backend select
+    const select = document.getElementById('field-transcribe-backend');
+    if (select) {
+      select.innerHTML = '';
+      for (const backend of transcribeBackends) {
+        const option = document.createElement('option');
+        option.value = backend.name;
+        option.textContent = backend.label;
+        select.appendChild(option);
+      }
+    }
+
+    return data;
+  } catch (err) {
+    console.error('Error loading transcribe backends:', err);
+    return null;
+  }
+}
+
 function switchTranscribeBackend(backend, config) {
   // Show/hide backend-specific fieldsets
   document.getElementById('whisper-settings').style.display = backend === 'whisper' ? 'block' : 'none';
   document.getElementById('revai-settings').style.display = backend === 'revai' ? 'block' : 'none';
+  document.getElementById('gemini-settings').style.display = backend === 'gemini' ? 'block' : 'none';
 
-  // Show Rev.ai API key warning if needed
-  const sysEnv = config?.system_env || {};
-  const env = config?.env || {};
-  const hasRevaiKey = sysEnv.REVAI_ACCESS_TOKEN || env.REVAI_ACCESS_TOKEN;
-  const warning = document.getElementById('revaiKeyWarning');
-  if (warning) {
-    warning.style.display = (backend === 'revai' && !hasRevaiKey) ? 'flex' : 'none';
+  // Find the backend metadata
+  const backendInfo = transcribeBackends.find(b => b.name === backend);
+  const warning = document.getElementById('backendKeyWarning');
+  const warningText = document.getElementById('backendKeyWarningText');
+
+  if (warning && backendInfo) {
+    const envKey = backendInfo.env_key;
+    // Show warning if backend requires API key and it's not configured
+    if (envKey && !transcribeApiKeys[backend]) {
+      warningText.textContent = `${envKey} not configured.`;
+      warning.style.display = 'flex';
+    } else {
+      warning.style.display = 'none';
+    }
+  } else if (warning) {
+    warning.style.display = 'none';
+  }
+
+  // Disable enrich toggle for gemini (it has integrated enrichment)
+  const enrichCheckbox = document.getElementById('field-transcribe-enrich');
+  const enrichField = enrichCheckbox?.closest('.settings-field');
+  if (enrichCheckbox && enrichField) {
+    const isGemini = backend === 'gemini';
+    enrichCheckbox.disabled = isGemini;
+    enrichField.style.opacity = isGemini ? '0.5' : '1';
+    enrichField.title = isGemini ? 'Gemini includes integrated enrichment' : '';
   }
 }
 
@@ -2758,8 +2819,8 @@ document.getElementById('field-transcribe-backend').addEventListener('change', a
   }
 });
 
-// Rev.ai key warning link
-document.getElementById('revaiKeyLink')?.addEventListener('click', (e) => {
+// Backend key warning link
+document.getElementById('backendKeyLink')?.addEventListener('click', (e) => {
   e.preventDefault();
   switchSection('apikeys');
 });
