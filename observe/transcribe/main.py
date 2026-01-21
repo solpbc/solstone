@@ -286,6 +286,7 @@ def _statements_to_jsonl(
     remote: str | None = None,
     enrichment: dict | None = None,
     vad_result: VadResult | None = None,
+    segment_meta: dict | None = None,
 ) -> list[str]:
     """Convert statements to JSONL lines.
 
@@ -299,6 +300,8 @@ def _statements_to_jsonl(
         enrichment: Optional enrichment data with topics, setting, and
             per-statement corrected text and descriptions
         vad_result: Optional VAD result for noise detection metadata
+        segment_meta: Optional metadata dict from SEGMENT_META env var
+            (facet, setting, host, platform, etc.). Setting overrides enrichment.
 
     Returns:
         List of JSON strings (metadata line first, then entries)
@@ -326,6 +329,12 @@ def _statements_to_jsonl(
             metadata["topics"] = enrichment["topics"]
         if "setting" in enrichment:
             metadata["setting"] = enrichment["setting"]
+
+    # Add segment metadata (from SEGMENT_META env var)
+    # These fields override any enrichment values (e.g., setting)
+    if segment_meta:
+        for key, value in segment_meta.items():
+            metadata[key] = value
 
     lines = [json.dumps(metadata)]
 
@@ -413,6 +422,15 @@ def process_audio(
 
     # Get remote name once for use in metadata and events
     remote = os.getenv("REMOTE_NAME")
+
+    # Get segment metadata (from sense.py via SEGMENT_META env var)
+    segment_meta = None
+    segment_meta_str = os.getenv("SEGMENT_META")
+    if segment_meta_str:
+        try:
+            segment_meta = json.loads(segment_meta_str)
+        except json.JSONDecodeError:
+            logging.warning(f"Invalid SEGMENT_META JSON: {segment_meta_str[:100]}")
 
     # Prepare audio buffer for processing
     if reduced_audio is not None:
@@ -524,6 +542,7 @@ def process_audio(
             remote,
             enrichment,
             vad_result,
+            segment_meta,
         )
 
         # Write JSONL

@@ -12,6 +12,7 @@ for runners. Batch mode (--day) uses file-based scanning for historical days.
 from __future__ import annotations
 
 import argparse
+import json
 import logging
 import os
 import subprocess
@@ -31,12 +32,18 @@ logger = logging.getLogger(__name__)
 class QueuedItem:
     """Item in a handler queue with context for deferred processing."""
 
-    __slots__ = ("file_path", "queued_at", "remote")
+    __slots__ = ("file_path", "queued_at", "remote", "meta")
 
-    def __init__(self, file_path: Path, remote: Optional[str] = None):
+    def __init__(
+        self,
+        file_path: Path,
+        remote: Optional[str] = None,
+        meta: Optional[Dict[str, Any]] = None,
+    ):
         self.file_path = file_path
         self.queued_at = time.time()
         self.remote = remote
+        self.meta = meta
 
 
 class HandlerQueue:
@@ -55,11 +62,16 @@ class HandlerQueue:
         """Returns True if no handler is currently running."""
         return self.current_process is None
 
-    def enqueue(self, file_path: Path, remote: Optional[str] = None) -> bool:
+    def enqueue(
+        self,
+        file_path: Path,
+        remote: Optional[str] = None,
+        meta: Optional[Dict[str, Any]] = None,
+    ) -> bool:
         """Add file to queue if not already present. Returns True if queued."""
         queued_paths = [item.file_path for item in self.queue]
         if file_path not in queued_paths:
-            self.queue.append(QueuedItem(file_path, remote))
+            self.queue.append(QueuedItem(file_path, remote, meta))
             return True
         return False
 
@@ -186,6 +198,7 @@ class FileSensor:
         batch: bool = False,
         segment: Optional[str] = None,
         remote: Optional[str] = None,
+        meta: Optional[Dict[str, Any]] = None,
         cpu_fallback: bool = False,
     ):
         """Spawn a handler process for the file.
@@ -200,6 +213,8 @@ class FileSensor:
             batch: Whether this is from batch processing mode
             segment: Segment key, extracted from path if not provided
             remote: Remote name for REMOTE_NAME env var
+            meta: Optional metadata dict (facet, setting, host, platform, etc.)
+                  to pass to handlers via SEGMENT_META env var
             cpu_fallback: If True, this is a retry after GPU failure (adds --cpu,
                           skips tracking/events since already done on first attempt)
         """
@@ -237,7 +252,7 @@ class FileSensor:
                 # Check if this handler uses serialized execution
                 handler_queue = self.handler_queues.get(handler_name)
                 if handler_queue and not handler_queue.can_start():
-                    if handler_queue.enqueue(file_path, remote=remote):
+                    if handler_queue.enqueue(file_path, remote=remote, meta=meta):
                         logger.info(
                             f"Queueing {file_path.name} for {handler_name} "
                             f"(queue size: {handler_queue.queue_size()})"
@@ -292,6 +307,8 @@ class FileSensor:
             env["SEGMENT_KEY"] = segment
         if remote:
             env["REMOTE_NAME"] = remote
+        if meta:
+            env["SEGMENT_META"] = json.dumps(meta)
 
         try:
             managed = RunnerManagedProcess.spawn(
@@ -396,7 +413,11 @@ class FileSensor:
                 if handler_info:
                     handler_name, command = handler_info
                     self._spawn_handler(
-                        item.file_path, handler_name, command, remote=item.remote
+                        item.file_path,
+                        handler_name,
+                        command,
+                        remote=item.remote,
+                        meta=item.meta,
                     )
 
     def _emit_segment_observed(self, segment: str, note: str = ""):
@@ -459,6 +480,7 @@ class FileSensor:
         file_path: Path,
         segment: Optional[str] = None,
         remote: Optional[str] = None,
+        meta: Optional[Dict[str, Any]] = None,
     ):
         """Route file to appropriate handler.
 
@@ -466,6 +488,7 @@ class FileSensor:
             file_path: Path to the file to process
             segment: Optional segment key for tracking
             remote: Optional remote name for REMOTE_NAME env var
+            meta: Optional metadata dict for SEGMENT_META env var
         """
         if not file_path.exists():
             logger.warning(f"File not found, skipping: {file_path}")
@@ -475,7 +498,7 @@ class FileSensor:
         if handler_info:
             handler_name, command = handler_info
             self._spawn_handler(
-                file_path, handler_name, command, segment=segment, remote=remote
+                file_path, handler_name, command, segment=segment, remote=remote, meta=meta
             )
 
     def _handle_callosum_message(self, message: Dict[str, Any]):
@@ -491,6 +514,7 @@ class FileSensor:
         segment = message.get("segment")
         files = message.get("files", [])
         remote = message.get("remote")  # Optional: set for remote observer uploads
+        meta = message.get("meta")  # Optional: metadata dict (facet, setting, etc.)
 
         if not day or not segment or not files:
             logger.warning(
@@ -522,7 +546,7 @@ class FileSensor:
 
         # Process each file (pass segment context for env vars)
         for file_path in file_paths:
-            self._handle_file(file_path, segment=segment, remote=remote)
+            self._handle_file(file_path, segment=segment, remote=remote, meta=meta)
 
         # If no files matched any handler patterns, emit observed immediately
         # (e.g., tmux-only segments with just .jsonl files)

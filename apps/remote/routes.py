@@ -289,8 +289,12 @@ def ingest_upload(key: str) -> Any:
     - segment: Segment key (HHMMSS_LEN)
     - day: Day string (YYYYMMDD)
     - files: One or more media files
+    - host: (optional) Hostname of remote observer
+    - platform: (optional) Platform of remote observer
+    - meta: (optional) JSON-encoded metadata dict (facet, setting, etc.)
 
     Writes files to journal and emits observe.observing event.
+    Host/platform are merged into meta (meta values take precedence).
 
     Returns status:
     - "ok": New segment accepted
@@ -313,6 +317,19 @@ def ingest_upload(key: str) -> Any:
     day = request.form.get("day", "").strip()
     host = request.form.get("host", "").strip()
     platform = request.form.get("platform", "").strip()
+    meta_str = request.form.get("meta", "").strip()
+
+    # Parse meta JSON and merge host/platform (meta values take precedence)
+    meta: dict = {}
+    if meta_str:
+        try:
+            meta = json.loads(meta_str)
+        except json.JSONDecodeError:
+            logger.warning(f"Invalid meta JSON from remote: {meta_str[:100]}")
+    if host and "host" not in meta:
+        meta["host"] = host
+    if platform and "platform" not in meta:
+        meta["platform"] = platform
 
     if not segment:
         return jsonify({"error": "Missing segment"}), 400
@@ -485,17 +502,15 @@ def ingest_upload(key: str) -> Any:
     save_remote(remote)
 
     # Emit observe.observing event to local Callosum
-    # Include host/platform from remote observer if provided
+    # Include meta dict with host/platform and any client-provided metadata
     event_fields = {
         "segment": segment,
         "day": day,
         "files": saved_files,
         "remote": remote.get("name", "unknown"),
     }
-    if host:
-        event_fields["host"] = host
-    if platform:
-        event_fields["platform"] = platform
+    if meta:
+        event_fields["meta"] = meta
     emit("observe", "observing", **event_fields)
 
     logger.info(

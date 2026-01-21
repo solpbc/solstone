@@ -83,7 +83,10 @@ Callosum is a JSON-per-line message bus for real-time event distribution across 
 | `transcribed` | transcribe | Audio transcription complete (includes VAD metadata) |
 | `observed` | sense | All files for segment fully processed |
 
-**Common fields:** `day`, `segment`, `remote` (for remote uploads), `host`, `platform`
+**Common fields:** `day`, `segment`, `remote` (for remote uploads)
+**`observing` event fields:**
+- `meta` (dict, optional): Metadata dict from remote observer. Contains `host`, `platform`, and any client-provided fields (e.g., `facet`, `setting`). Passed to handlers via `SEGMENT_META` env var and unrolled into JSONL metadata headers.
+
 **Correlation:** `detected.ref` matches `logs.exec.ref`; `segment` groups files from same capture window
 **Event Log:** Events with `day` + `segment` are logged to `<day>/<segment>/events.jsonl` by supervisor
 

@@ -406,6 +406,16 @@ class VideoProcessor:
                 if remote:
                     metadata["remote"] = remote
 
+                # Add segment metadata (from sense.py via SEGMENT_META env var)
+                segment_meta_str = os.getenv("SEGMENT_META")
+                if segment_meta_str:
+                    try:
+                        segment_meta = json.loads(segment_meta_str)
+                        for key, value in segment_meta.items():
+                            metadata[key] = value
+                    except json.JSONDecodeError:
+                        logger.warning(f"Invalid SEGMENT_META JSON: {segment_meta_str[:100]}")
+
                 output_file.write(json.dumps(metadata) + "\n")
                 output_file.flush()
 

@@ -128,6 +128,7 @@ class RemoteClient:
         day: str,
         segment: str,
         files: list[Path],
+        meta: dict | None = None,
     ) -> bool:
         """Upload segment files to remote server.
 
@@ -135,6 +136,9 @@ class RemoteClient:
             day: Day string (YYYYMMDD)
             segment: Segment key (HHMMSS_LEN)
             files: List of file paths to upload
+            meta: Optional metadata dict (facet, setting, etc.) to include
+                  in the segment. Will be JSON-encoded and merged with
+                  host/platform on the server side.
 
         Returns:
             True if upload succeeded, False otherwise
@@ -164,14 +168,18 @@ class RemoteClient:
                     return False
 
                 # Send request with host/platform for event emission
+                data = {
+                    "day": day,
+                    "segment": segment,
+                    "host": HOST,
+                    "platform": PLATFORM,
+                }
+                if meta:
+                    data["meta"] = json.dumps(meta)
+
                 response = self.session.post(
                     self.remote_url,
-                    data={
-                        "day": day,
-                        "segment": segment,
-                        "host": HOST,
-                        "platform": PLATFORM,
-                    },
+                    data=data,
                     files=files_data,
                     timeout=UPLOAD_TIMEOUT,
                 )
