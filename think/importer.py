@@ -6,6 +6,7 @@ import datetime as dt
 import json
 import logging
 import os
+import queue
 import re
 import subprocess
 import threading
@@ -40,6 +41,7 @@ TIME_RE = re.compile(r"\d{8}_\d{6}")
 
 # Importer tract state
 _callosum: CallosumConnection | None = None
+_message_queue: queue.Queue | None = None
 _import_id: str | None = None
 _current_stage: str = "initialization"
 _start_time: float = 0.0
@@ -569,8 +571,8 @@ def _format_timestamp_display(timestamp: str) -> str:
 
 
 def main() -> None:
-    global _callosum, _import_id, _current_stage, _start_time, _stage_start_time
-    global _stages_run, _status_thread, _status_running
+    global _callosum, _message_queue, _import_id, _current_stage, _start_time
+    global _stage_start_time, _stages_run, _status_thread, _status_running
 
     parser = argparse.ArgumentParser(description="Chunk a media file into the journal")
     parser.add_argument("media", help="Path to video or audio file")
@@ -655,9 +657,10 @@ def main() -> None:
     _current_stage = "initialization"
     _stages_run = ["initialization"]
 
-    # Start Callosum connection
+    # Start Callosum connection with message queue for receiving events
+    _message_queue = queue.Queue()
     _callosum = CallosumConnection()
-    _callosum.start()
+    _callosum.start(callback=lambda msg: _message_queue.put(msg))
 
     # Start status emitter thread
     _status_running = True
@@ -796,9 +799,10 @@ def main() -> None:
                 logger.info(f"Waiting for {len(pending)} segments to complete")
 
                 while pending:
-                    # Poll for observe.observed events
-                    msg = _callosum.receive(timeout=5.0)
-                    if msg is None:
+                    # Poll for observe.observed events from message queue
+                    try:
+                        msg = _message_queue.get(timeout=5.0)
+                    except queue.Empty:
                         continue
 
                     tract = msg.get("tract")
