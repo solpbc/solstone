@@ -162,6 +162,42 @@ def load_prompt(
     return PromptContent(text=text, path=prompt_path)
 
 
+def get_journal_info() -> tuple[str, str]:
+    """Return the journal path and its source.
+
+    Determines where JOURNAL_PATH came from:
+    - "shell": Set in shell environment before process started
+    - "dotenv": Loaded from .env file
+    - "default": Platform-specific default
+
+    This function does NOT auto-create directories or modify the environment.
+    Use get_journal() for normal operations that need the path created.
+
+    Returns
+    -------
+    tuple[str, str]
+        (path, source) where path is the journal directory and source is
+        one of "shell", "dotenv", or "default".
+    """
+    # Check if already set in shell environment (before loading .env)
+    shell_value = os.environ.get("JOURNAL_PATH")
+
+    if shell_value:
+        return shell_value, "shell"
+
+    # Load .env and check if it provides JOURNAL_PATH
+    load_dotenv()
+    dotenv_value = os.environ.get("JOURNAL_PATH")
+
+    if dotenv_value:
+        return dotenv_value, "dotenv"
+
+    # Fall back to platform default
+    data_dir = platformdirs.user_data_dir("solstone")
+    default_journal = os.path.join(data_dir, "journal")
+    return default_journal, "default"
+
+
 def get_journal() -> str:
     """Return the journal path, auto-creating it if it doesn't exist.
 

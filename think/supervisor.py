@@ -20,7 +20,7 @@ from desktop_notifier import DesktopNotifier, Urgency
 from observe.sync import check_remote_health
 from think.callosum import CallosumConnection, CallosumServer
 from think.runner import ManagedProcess as RunnerManagedProcess
-from think.utils import get_journal, setup_cli
+from think.utils import get_journal, get_journal_info, setup_cli
 
 DEFAULT_THRESHOLD = 60
 CHECK_INTERVAL = 30
@@ -1237,6 +1237,11 @@ def parse_args() -> argparse.ArgumentParser:
         type=str,
         help="Remote mode: sync to server URL instead of local processing",
     )
+    parser.add_argument(
+        "--env",
+        action="store_true",
+        help="Show journal path and source, then exit",
+    )
     return parser
 
 
@@ -1251,7 +1256,18 @@ def handle_shutdown(signum, frame):
 
 def main() -> None:
     parser = parse_args()
+
+    # Capture journal info BEFORE setup_cli() loads .env and pollutes os.environ
+    journal_info = get_journal_info()
+
     args = setup_cli(parser)
+
+    # Handle --env: print journal info and exit
+    if args.env:
+        path, source = journal_info
+        print(f"JOURNAL_PATH={path} (from {source})")
+        return
+
     journal_path = _get_journal_path()
 
     log_level = logging.DEBUG if args.debug else logging.INFO
@@ -1276,6 +1292,9 @@ def main() -> None:
     signal.signal(signal.SIGINT, handle_shutdown)
     signal.signal(signal.SIGTERM, handle_shutdown)
 
+    # Show journal path and source on startup
+    path, source = journal_info
+    print(f"Journal: {path} (from {source})")
     logging.info("Supervisor starting...")
 
     global _managed_procs, _supervisor_callosum, _observer_enabled, _is_remote_mode

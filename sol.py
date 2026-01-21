@@ -82,6 +82,7 @@ COMMANDS: dict[str, str] = {
 
 ALIASES: dict[str, tuple[str, list[str]]] = {
     "start": ("think.supervisor", []),
+    "env": ("think.supervisor", ["--env"]),
 }
 
 # Command groupings for help display
