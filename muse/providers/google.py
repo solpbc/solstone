@@ -6,6 +6,29 @@
 
 This module provides the Google Gemini provider for the ``sol agents`` CLI
 and standardized generate/agenerate functions for direct LLM calls.
+
+Common Parameters
+-----------------
+contents : str or list
+    The content to send to the model.
+model : str
+    Model name to use.
+temperature : float
+    Temperature for generation (default: 0.3).
+max_output_tokens : int
+    Maximum tokens for the model's response output.
+system_instruction : str, optional
+    System instruction for the model.
+json_output : bool
+    Whether to request JSON response format.
+thinking_budget : int, optional
+    Token budget for model thinking.
+timeout_s : float, optional
+    Request timeout in seconds.
+context : str, optional
+    Context string for token usage logging.
+**kwargs
+    Provider-specific options (cached_content, client).
 """
 
 from __future__ import annotations
@@ -14,9 +37,8 @@ import logging
 import os
 import time
 import traceback
-from typing import Any, Callable, Dict, List, Optional, Union
+from typing import Any, Callable
 
-from dotenv import load_dotenv
 from google import genai
 from google.genai import errors as google_errors
 from google.genai import types
@@ -37,7 +59,7 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 
 
-def get_or_create_client(client: Optional[genai.Client] = None) -> genai.Client:
+def get_or_create_client(client: genai.Client | None = None) -> genai.Client:
     """Get existing client or create new one.
 
     Parameters
@@ -52,7 +74,6 @@ def get_or_create_client(client: Optional[genai.Client] = None) -> genai.Client:
         The provided client or a newly created one.
     """
     if client is None:
-        load_dotenv()
         api_key = os.getenv("GOOGLE_API_KEY")
         if not api_key:
             raise ValueError("GOOGLE_API_KEY not found in environment")
@@ -60,23 +81,14 @@ def get_or_create_client(client: Optional[genai.Client] = None) -> genai.Client:
     return client
 
 
-def _normalize_contents(
-    contents: Union[str, List[Any], List[types.Content]],
-) -> List[Any]:
-    """Normalize contents to list format."""
-    if isinstance(contents, str):
-        return [contents]
-    return contents
-
-
 def _build_generate_config(
     temperature: float,
     max_output_tokens: int,
-    system_instruction: Optional[str],
+    system_instruction: str | None,
     json_output: bool,
-    thinking_budget: Optional[int],
-    cached_content: Optional[str],
-    timeout_s: Optional[float] = None,
+    thinking_budget: int | None,
+    cached_content: str | None,
+    timeout_s: float | None = None,
 ) -> types.GenerateContentConfig:
     """Build the GenerateContentConfig.
 
@@ -86,7 +98,7 @@ def _build_generate_config(
     # Compute total tokens: output + thinking budget
     total_tokens = max_output_tokens + (thinking_budget or 0)
 
-    config_args: Dict[str, Any] = {
+    config_args: dict[str, Any] = {
         "temperature": temperature,
         "max_output_tokens": total_tokens,
     }
@@ -244,48 +256,20 @@ def _log_empty_response_diagnostics(
 
 
 def generate(
-    contents: Union[str, List[Any]],
+    contents: str | list[Any],
     model: str = _DEFAULT_MODEL,
     temperature: float = 0.3,
     max_output_tokens: int = 8192 * 2,
-    system_instruction: Optional[str] = None,
+    system_instruction: str | None = None,
     json_output: bool = False,
-    thinking_budget: Optional[int] = None,
-    timeout_s: Optional[float] = None,
-    context: Optional[str] = None,
+    thinking_budget: int | None = None,
+    timeout_s: float | None = None,
+    context: str | None = None,
     **kwargs: Any,
 ) -> str:
-    """Generate text using Google Gemini.
+    """Generate text synchronously.
 
-    Parameters
-    ----------
-    contents : str or List
-        The content to send to the model.
-    model : str
-        Model name to use.
-    temperature : float
-        Temperature for generation.
-    max_output_tokens : int
-        Maximum tokens for the model's response output.
-    system_instruction : str, optional
-        System instruction for the model.
-    json_output : bool
-        Whether to request JSON response format.
-    thinking_budget : int, optional
-        Token budget for model thinking.
-    timeout_s : float, optional
-        Request timeout in seconds.
-    context : str, optional
-        Context string for token usage logging.
-    **kwargs
-        Additional Google-specific options:
-        - cached_content: Name of cached content to use
-        - client: Existing genai.Client to reuse
-
-    Returns
-    -------
-    str
-        Response text from the model.
+    See module docstring for parameter details.
     """
     from muse.models import log_token_usage
 
@@ -293,7 +277,8 @@ def generate(
     client = kwargs.get("client")
 
     client = get_or_create_client(client)
-    contents = _normalize_contents(contents)
+    if isinstance(contents, str):
+        contents = [contents]
     config = _build_generate_config(
         temperature=temperature,
         max_output_tokens=max_output_tokens,
@@ -316,48 +301,20 @@ def generate(
 
 
 async def agenerate(
-    contents: Union[str, List[Any]],
+    contents: str | list[Any],
     model: str = _DEFAULT_MODEL,
     temperature: float = 0.3,
     max_output_tokens: int = 8192 * 2,
-    system_instruction: Optional[str] = None,
+    system_instruction: str | None = None,
     json_output: bool = False,
-    thinking_budget: Optional[int] = None,
-    timeout_s: Optional[float] = None,
-    context: Optional[str] = None,
+    thinking_budget: int | None = None,
+    timeout_s: float | None = None,
+    context: str | None = None,
     **kwargs: Any,
 ) -> str:
-    """Async generate text using Google Gemini.
+    """Generate text asynchronously.
 
-    Parameters
-    ----------
-    contents : str or List
-        The content to send to the model.
-    model : str
-        Model name to use.
-    temperature : float
-        Temperature for generation.
-    max_output_tokens : int
-        Maximum tokens for the model's response output.
-    system_instruction : str, optional
-        System instruction for the model.
-    json_output : bool
-        Whether to request JSON response format.
-    thinking_budget : int, optional
-        Token budget for model thinking.
-    timeout_s : float, optional
-        Request timeout in seconds.
-    context : str, optional
-        Context string for token usage logging.
-    **kwargs
-        Additional Google-specific options:
-        - cached_content: Name of cached content to use
-        - client: Existing genai.Client to reuse
-
-    Returns
-    -------
-    str
-        Response text from the model.
+    See module docstring for parameter details.
     """
     from muse.models import log_token_usage
 
@@ -365,7 +322,8 @@ async def agenerate(
     client = kwargs.get("client")
 
     client = get_or_create_client(client)
-    contents = _normalize_contents(contents)
+    if isinstance(contents, str):
+        contents = [contents]
     config = _build_generate_config(
         temperature=temperature,
         max_output_tokens=max_output_tokens,
@@ -506,8 +464,8 @@ class ToolLoggingHooks:
 
 
 async def run_agent(
-    config: Dict[str, Any],
-    on_event: Optional[Callable[[dict], None]] = None,
+    config: dict[str, Any],
+    on_event: Callable[[dict], None] | None = None,
 ) -> str:
     """Run a single prompt through the Google Gemini agent and return the response.
 

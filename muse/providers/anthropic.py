@@ -2,9 +2,31 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 # Copyright (c) 2026 sol pbc
 
-"""Anthropic Claude provider agent implementation.
+"""Anthropic Claude provider for agents and direct LLM generation.
 
-This module provides the Anthropic Claude provider for the ``sol agents`` CLI.
+This module provides the Anthropic Claude provider for the ``sol agents`` CLI
+and standardized generate/agenerate functions for direct LLM calls.
+
+Common Parameters
+-----------------
+contents : str or list
+    The content to send to the model.
+model : str
+    Model name to use.
+temperature : float
+    Temperature for generation (default: 0.3).
+max_output_tokens : int
+    Maximum tokens for the model's response output.
+system_instruction : str, optional
+    System instruction for the model.
+json_output : bool
+    Whether to request JSON response format.
+thinking_budget : int, optional
+    Token budget for model thinking.
+timeout_s : float, optional
+    Request timeout in seconds.
+context : str, optional
+    Context string for token usage logging.
 """
 
 from __future__ import annotations
@@ -14,7 +36,7 @@ import logging
 import os
 import time
 import traceback
-from typing import Any, Callable, Dict, Optional
+from typing import Any, Callable
 
 from anthropic import AsyncAnthropic
 from anthropic.types import (
@@ -192,7 +214,7 @@ class ToolExecutor:
 
 
 async def _get_mcp_tools(
-    mcp: Any, allowed_tools: Optional[list[str]] = None
+    mcp: Any, allowed_tools: list[str] | None = None
 ) -> list[ToolParam]:
     """Return a list of MCP tools formatted for Claude using ``mcp``.
 
@@ -225,8 +247,8 @@ async def _get_mcp_tools(
 
 
 async def run_agent(
-    config: Dict[str, Any],
-    on_event: Optional[Callable[[dict], None]] = None,
+    config: dict[str, Any],
+    on_event: Callable[[dict], None] | None = None,
 ) -> str:
     """Run a single prompt through the Anthropic Claude agent and return the response.
 
@@ -429,7 +451,7 @@ async def run_agent(
 # ---------------------------------------------------------------------------
 
 
-def _extract_usage_dict(response: Any) -> Optional[Dict[str, Any]]:
+def _extract_usage_dict(response: Any) -> dict[str, Any] | None:
     """Extract usage dict from Anthropic response.
 
     Returns normalized usage dict or None if usage unavailable.
@@ -440,7 +462,7 @@ def _extract_usage_dict(response: Any) -> Optional[Dict[str, Any]]:
     usage = response.usage
     input_tokens = getattr(usage, "input_tokens", 0)
     output_tokens = getattr(usage, "output_tokens", 0)
-    usage_dict: Dict[str, Any] = {
+    usage_dict: dict[str, Any] = {
         "input_tokens": input_tokens,
         "output_tokens": output_tokens,
         "total_tokens": input_tokens + output_tokens,
@@ -465,9 +487,7 @@ def _get_anthropic_client():
     global _anthropic_client
     if _anthropic_client is None:
         from anthropic import Anthropic
-        from dotenv import load_dotenv
 
-        load_dotenv()
         api_key = os.getenv("ANTHROPIC_API_KEY")
         if not api_key:
             raise ValueError("ANTHROPIC_API_KEY not found in environment")
@@ -479,9 +499,6 @@ def _get_async_anthropic_client():
     """Get or create async Anthropic client."""
     global _async_anthropic_client
     if _async_anthropic_client is None:
-        from dotenv import load_dotenv
-
-        load_dotenv()
         api_key = os.getenv("ANTHROPIC_API_KEY")
         if not api_key:
             raise ValueError("ANTHROPIC_API_KEY not found in environment")
@@ -511,42 +528,16 @@ def generate(
     model: str = _DEFAULT_MODEL,
     temperature: float = 0.3,
     max_output_tokens: int = 8192 * 2,
-    system_instruction: Optional[str] = None,
+    system_instruction: str | None = None,
     json_output: bool = False,
-    thinking_budget: Optional[int] = None,
-    timeout_s: Optional[float] = None,
-    context: Optional[str] = None,
+    thinking_budget: int | None = None,
+    timeout_s: float | None = None,
+    context: str | None = None,
     **kwargs: Any,
 ) -> str:
-    """Generate text using Anthropic Claude.
+    """Generate text synchronously.
 
-    Parameters
-    ----------
-    contents : str or List
-        The content to send to the model.
-    model : str
-        Model name to use.
-    temperature : float
-        Temperature for generation.
-    max_output_tokens : int
-        Maximum tokens for the model's response output.
-    system_instruction : str, optional
-        System instruction for the model.
-    json_output : bool
-        Whether to request JSON response format (via system instruction).
-    thinking_budget : int, optional
-        Token budget for thinking (supported on some models).
-    timeout_s : float, optional
-        Request timeout in seconds.
-    context : str, optional
-        Context string for token usage logging.
-    **kwargs
-        Additional Anthropic-specific options (ignored).
-
-    Returns
-    -------
-    str
-        Response text from the model.
+    See module docstring for parameter details.
     """
     from muse.models import log_token_usage
 
@@ -560,7 +551,7 @@ def generate(
         system = f"{system}\n\n{json_instruction}" if system else json_instruction
 
     # Build request kwargs
-    request_kwargs: Dict[str, Any] = {
+    request_kwargs: dict[str, Any] = {
         "model": model,
         "max_tokens": max_output_tokens,
         "messages": messages,
@@ -603,42 +594,16 @@ async def agenerate(
     model: str = _DEFAULT_MODEL,
     temperature: float = 0.3,
     max_output_tokens: int = 8192 * 2,
-    system_instruction: Optional[str] = None,
+    system_instruction: str | None = None,
     json_output: bool = False,
-    thinking_budget: Optional[int] = None,
-    timeout_s: Optional[float] = None,
-    context: Optional[str] = None,
+    thinking_budget: int | None = None,
+    timeout_s: float | None = None,
+    context: str | None = None,
     **kwargs: Any,
 ) -> str:
-    """Async generate text using Anthropic Claude.
+    """Generate text asynchronously.
 
-    Parameters
-    ----------
-    contents : str or List
-        The content to send to the model.
-    model : str
-        Model name to use.
-    temperature : float
-        Temperature for generation.
-    max_output_tokens : int
-        Maximum tokens for the model's response output.
-    system_instruction : str, optional
-        System instruction for the model.
-    json_output : bool
-        Whether to request JSON response format (via system instruction).
-    thinking_budget : int, optional
-        Token budget for thinking (supported on some models).
-    timeout_s : float, optional
-        Request timeout in seconds.
-    context : str, optional
-        Context string for token usage logging.
-    **kwargs
-        Additional Anthropic-specific options (ignored).
-
-    Returns
-    -------
-    str
-        Response text from the model.
+    See module docstring for parameter details.
     """
     from muse.models import log_token_usage
 
@@ -652,7 +617,7 @@ async def agenerate(
         system = f"{system}\n\n{json_instruction}" if system else json_instruction
 
     # Build request kwargs
-    request_kwargs: Dict[str, Any] = {
+    request_kwargs: dict[str, Any] = {
         "model": model,
         "max_tokens": max_output_tokens,
         "messages": messages,

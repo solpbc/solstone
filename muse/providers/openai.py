@@ -2,13 +2,31 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 # Copyright (c) 2026 sol pbc
 
-"""
-OpenAI provider agent implementation for the solstone `sol agents` CLI.
+"""OpenAI provider for agents and direct LLM generation.
 
-- Connects to a local MCP server over Streamable HTTP
-- Runs an agent with streaming to surface tool args/results and (when available) reasoning summaries
-- Emits JSON events compatible with the CLI (`start`, `tool_start`, `tool_end`, `thinking`, `finish`, `error`)
-- Raises max_turns (configurable via env)
+This module provides the OpenAI provider for the ``sol agents`` CLI
+and standardized generate/agenerate functions for direct LLM calls.
+
+Common Parameters
+-----------------
+contents : str or list
+    The content to send to the model.
+model : str
+    Model name to use.
+temperature : float
+    Temperature for generation (default: 0.3).
+max_output_tokens : int
+    Maximum tokens for the model's response output.
+system_instruction : str, optional
+    System instruction for the model.
+json_output : bool
+    Whether to request JSON response format.
+thinking_budget : int, optional
+    Ignored for OpenAI (reasoning is always enabled with medium effort).
+timeout_s : float, optional
+    Request timeout in seconds.
+context : str, optional
+    Context string for token usage logging.
 """
 
 from __future__ import annotations
@@ -18,7 +36,7 @@ import logging
 import os
 import time
 import traceback
-from typing import Any, Callable, Dict, Optional
+from typing import Any, Callable
 from urllib.parse import urlparse, urlunparse
 
 from agents import (
@@ -136,7 +154,7 @@ def _extract_tool_name(raw_call: Any) -> str:
     return type(raw_call).__name__
 
 
-def _extract_tool_call_id(raw_call: Any) -> Optional[str]:
+def _extract_tool_call_id(raw_call: Any) -> str | None:
     for attr in ("id", "call_id", "tool_call_id"):
         if hasattr(raw_call, attr):
             val = getattr(raw_call, attr)
@@ -163,7 +181,7 @@ def _extract_tool_args(raw_call: Any) -> Any:
     return None
 
 
-def _extract_text_parts(raw: Any, attr: str) -> Optional[str]:
+def _extract_text_parts(raw: Any, attr: str) -> str | None:
     """Extract text from a list of text parts on a raw item attribute.
 
     Args:
@@ -186,8 +204,8 @@ def _extract_text_parts(raw: Any, attr: str) -> Optional[str]:
 
 
 async def run_agent(
-    config: Dict[str, Any],
-    on_event: Optional[Callable[[dict], None]] = None,
+    config: dict[str, Any],
+    on_event: Callable[[dict], None] | None = None,
 ) -> str:
     """
     Run a single prompt through the OpenAI Agents SDK using streaming.
@@ -279,7 +297,7 @@ async def run_agent(
     extra_context = config.get("extra_context", "")
 
     # Keep a map of in-flight tools so we can pair outputs with args
-    pending_tools: Dict[str, Dict[str, Any]] = {}
+    pending_tools: dict[str, dict[str, Any]] = {}
 
     # Accumulate streamed text chunks as a fallback (if final_output missing)
     streamed_text: list[str] = []
@@ -508,9 +526,7 @@ def _get_openai_client():
     global _openai_client
     if _openai_client is None:
         import openai
-        from dotenv import load_dotenv
 
-        load_dotenv()
         api_key = os.getenv("OPENAI_API_KEY")
         if not api_key:
             raise ValueError("OPENAI_API_KEY not found in environment")
@@ -523,9 +539,7 @@ def _get_async_openai_client():
     global _async_openai_client
     if _async_openai_client is None:
         import openai
-        from dotenv import load_dotenv
 
-        load_dotenv()
         api_key = os.getenv("OPENAI_API_KEY")
         if not api_key:
             raise ValueError("OPENAI_API_KEY not found in environment")
@@ -535,7 +549,7 @@ def _get_async_openai_client():
 
 def _convert_contents_to_messages(
     contents: Any,
-    system_instruction: Optional[str] = None,
+    system_instruction: str | None = None,
 ) -> list[dict]:
     """Convert contents to OpenAI messages format."""
     messages = []
@@ -567,42 +581,16 @@ def generate(
     model: str = GPT_5,
     temperature: float = 0.3,
     max_output_tokens: int = 8192 * 2,
-    system_instruction: Optional[str] = None,
+    system_instruction: str | None = None,
     json_output: bool = False,
-    thinking_budget: Optional[int] = None,
-    timeout_s: Optional[float] = None,
-    context: Optional[str] = None,
+    thinking_budget: int | None = None,
+    timeout_s: float | None = None,
+    context: str | None = None,
     **kwargs: Any,
 ) -> str:
-    """Generate text using OpenAI.
+    """Generate text synchronously.
 
-    Parameters
-    ----------
-    contents : str or List
-        The content to send to the model.
-    model : str
-        Model name to use.
-    temperature : float
-        Temperature for generation.
-    max_output_tokens : int
-        Maximum tokens for the model's response output.
-    system_instruction : str, optional
-        System instruction for the model.
-    json_output : bool
-        Whether to request JSON response format.
-    thinking_budget : int, optional
-        Ignored for OpenAI (reasoning is always enabled with medium effort).
-    timeout_s : float, optional
-        Request timeout in seconds.
-    context : str, optional
-        Context string for token usage logging.
-    **kwargs
-        Additional OpenAI-specific options (ignored).
-
-    Returns
-    -------
-    str
-        Response text from the model.
+    See module docstring for parameter details.
     """
     from muse.models import log_token_usage
 
@@ -610,7 +598,7 @@ def generate(
     messages = _convert_contents_to_messages(contents, system_instruction)
 
     # Build request kwargs with reasoning enabled
-    request_kwargs: Dict[str, Any] = {
+    request_kwargs: dict[str, Any] = {
         "model": model,
         "messages": messages,
         "temperature": temperature,
@@ -646,42 +634,16 @@ async def agenerate(
     model: str = GPT_5,
     temperature: float = 0.3,
     max_output_tokens: int = 8192 * 2,
-    system_instruction: Optional[str] = None,
+    system_instruction: str | None = None,
     json_output: bool = False,
-    thinking_budget: Optional[int] = None,
-    timeout_s: Optional[float] = None,
-    context: Optional[str] = None,
+    thinking_budget: int | None = None,
+    timeout_s: float | None = None,
+    context: str | None = None,
     **kwargs: Any,
 ) -> str:
-    """Async generate text using OpenAI.
+    """Generate text asynchronously.
 
-    Parameters
-    ----------
-    contents : str or List
-        The content to send to the model.
-    model : str
-        Model name to use.
-    temperature : float
-        Temperature for generation.
-    max_output_tokens : int
-        Maximum tokens for the model's response output.
-    system_instruction : str, optional
-        System instruction for the model.
-    json_output : bool
-        Whether to request JSON response format.
-    thinking_budget : int, optional
-        Ignored for OpenAI (reasoning is always enabled with medium effort).
-    timeout_s : float, optional
-        Request timeout in seconds.
-    context : str, optional
-        Context string for token usage logging.
-    **kwargs
-        Additional OpenAI-specific options (ignored).
-
-    Returns
-    -------
-    str
-        Response text from the model.
+    See module docstring for parameter details.
     """
     from muse.models import log_token_usage
 
@@ -689,7 +651,7 @@ async def agenerate(
     messages = _convert_contents_to_messages(contents, system_instruction)
 
     # Build request kwargs with reasoning enabled
-    request_kwargs: Dict[str, Any] = {
+    request_kwargs: dict[str, Any] = {
         "model": model,
         "messages": messages,
         "temperature": temperature,
