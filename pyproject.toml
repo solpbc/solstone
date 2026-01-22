@@ -121,6 +121,7 @@ target-version = ['py39']
 
 [tool.isort]
 profile = "black"
+extend_skip = ["journal"]
 
 [tool.flake8]
 # No line length restrictions
