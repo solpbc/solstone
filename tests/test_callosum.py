@@ -6,11 +6,9 @@
 These tests use mocks to test logic in isolation without real I/O.
 """
 
-import json
 import os
-import socket
 from pathlib import Path
-from unittest.mock import MagicMock, Mock, patch
+from unittest.mock import Mock, patch
 
 import pytest
 
@@ -32,81 +30,78 @@ def journal_path(tmp_path):
 def test_server_broadcast_validates_tract_field():
     """Test that messages without tract field are rejected."""
     server = CallosumServer()
-    server.clients = [Mock()]
 
-    # Message without tract should be rejected
+    # Message without tract should be rejected and return False
     invalid_msg = {"event": "test"}
-    server.broadcast(invalid_msg)
+    result = server.broadcast(invalid_msg)
 
-    # Client should not receive anything
-    server.clients[0].sendall.assert_not_called()
+    assert result is False
+    # Should not be queued
+    assert server.broadcast_queue.qsize() == 0
 
 
 def test_server_broadcast_validates_event_field():
     """Test that messages without event field are rejected."""
     server = CallosumServer()
-    server.clients = [Mock()]
 
-    # Message without event should be rejected
+    # Message without event should be rejected and return False
     invalid_msg = {"tract": "test"}
-    server.broadcast(invalid_msg)
+    result = server.broadcast(invalid_msg)
 
-    # Client should not receive anything
-    server.clients[0].sendall.assert_not_called()
+    assert result is False
+    # Should not be queued
+    assert server.broadcast_queue.qsize() == 0
 
 
 def test_server_broadcast_adds_timestamp():
     """Test that server adds timestamp if not present."""
     server = CallosumServer()
-    mock_client = Mock()
-    server.clients = [mock_client]
 
     # Valid message without timestamp
     msg = {"tract": "test", "event": "hello"}
 
-    with patch("time.time", return_value=1234567.890):
-        server.broadcast(msg)
+    with patch("think.callosum.time.time", return_value=1234567.890):
+        result = server.broadcast(msg)
 
-    # Should have called sendall with message including timestamp
-    mock_client.sendall.assert_called_once()
-    sent_data = mock_client.sendall.call_args[0][0]
-    sent_msg = json.loads(sent_data.decode("utf-8"))
-
-    assert sent_msg["tract"] == "test"
-    assert sent_msg["event"] == "hello"
-    assert sent_msg["ts"] == 1234567890  # milliseconds
+    assert result is True
+    # Message should be queued with timestamp added
+    queued_msg = server.broadcast_queue.get_nowait()
+    assert queued_msg["tract"] == "test"
+    assert queued_msg["event"] == "hello"
+    assert queued_msg["ts"] == 1234567890  # milliseconds
 
 
 def test_server_broadcast_preserves_custom_timestamp():
     """Test that custom timestamp in message is preserved."""
     server = CallosumServer()
-    mock_client = Mock()
-    server.clients = [mock_client]
 
     custom_ts = 9999999999
     msg = {"tract": "test", "event": "hello", "ts": custom_ts}
 
-    server.broadcast(msg)
+    result = server.broadcast(msg)
 
+    assert result is True
     # Should preserve custom timestamp
-    sent_data = mock_client.sendall.call_args[0][0]
-    sent_msg = json.loads(sent_data.decode("utf-8"))
-    assert sent_msg["ts"] == custom_ts
+    queued_msg = server.broadcast_queue.get_nowait()
+    assert queued_msg["ts"] == custom_ts
 
 
 def test_server_broadcast_removes_dead_clients():
-    """Test that broadcast removes clients that fail to receive."""
+    """Test that _send_to_clients removes clients that fail to receive."""
     server = CallosumServer()
 
     # Create mock clients - one working, one dead
     working_client = Mock()
     dead_client = Mock()
     dead_client.sendall.side_effect = Exception("Connection broken")
+    dead_client.settimeout = Mock()
+    working_client.settimeout = Mock()
 
     server.clients = [working_client, dead_client]
 
-    msg = {"tract": "test", "event": "hello"}
-    server.broadcast(msg)
+    # Call _send_to_clients directly (the method used by _writer_loop)
+    msg = {"tract": "test", "event": "hello", "ts": 12345}
+    server._send_to_clients(msg)
 
     # Dead client should be removed
     assert working_client in server.clients

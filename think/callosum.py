@@ -9,7 +9,6 @@ broadcast protocol. All messages require 'tract' and 'event' fields.
 
 import json
 import logging
-import os
 import queue
 import socket
 import threading
@@ -23,7 +22,12 @@ logger = logging.getLogger(__name__)
 
 
 class CallosumServer:
-    """Broadcast message bus over Unix domain socket."""
+    """Broadcast message bus over Unix domain socket.
+
+    Uses a single writer thread to serialize all broadcasts, preventing
+    race conditions when multiple client handler threads call broadcast()
+    concurrently.
+    """
 
     def __init__(self, socket_path: Optional[Path] = None):
         if socket_path is None:
@@ -34,6 +38,10 @@ class CallosumServer:
         self.lock = threading.RLock()
         self.stop_event = threading.Event()
         self.server_socket: Optional[socket.socket] = None
+
+        # Broadcast queue and writer thread for serialized sends
+        self.broadcast_queue: queue.Queue = queue.Queue(maxsize=10000)
+        self.writer_thread: Optional[threading.Thread] = None
 
     def start(self) -> None:
         """Start the broadcast server."""
@@ -49,6 +57,12 @@ class CallosumServer:
         self.server_socket.bind(str(self.socket_path))
         self.server_socket.listen(5)
         self.server_socket.settimeout(1.0)  # Allow periodic checks for stop_event
+
+        # Start writer thread before accepting connections
+        self.writer_thread = threading.Thread(
+            target=self._writer_loop, name="callosum-writer", daemon=True
+        )
+        self.writer_thread.start()
 
         logger.info(f"Callosum listening on {self.socket_path}")
 
@@ -79,7 +93,8 @@ class CallosumServer:
 
         try:
             # Read from client (they might send messages or just listen)
-            conn.settimeout(60.0)
+            # Short timeout allows periodic stop_event checks; also used by _writer_loop for sends
+            conn.settimeout(2.0)
             buffer = ""
             while not self.stop_event.is_set():
                 try:
@@ -110,29 +125,43 @@ class CallosumServer:
                 pass
             logger.debug(f"Client disconnected ({len(self.clients)} remaining)")
 
-    def broadcast(self, message: Dict[str, Any]) -> None:
-        """Broadcast message to all connected clients."""
-        # Validate required fields
-        if "tract" not in message or "event" not in message:
-            logger.warning("Skipping message without tract/event fields")
-            return
+    def _writer_loop(self) -> None:
+        """Dedicated writer thread that serializes all broadcasts.
 
-        # Add timestamp if not present
-        if "ts" not in message:
-            message["ts"] = int(time.time() * 1000)
+        Drains the broadcast queue and sends each message to all clients.
+        This ensures no interleaving of messages when multiple client
+        handler threads call broadcast() concurrently.
+        """
+        while not self.stop_event.is_set():
+            try:
+                message = self.broadcast_queue.get(timeout=0.1)
+            except queue.Empty:
+                continue
 
-        # Serialize to JSON line
-        line = json.dumps(message) + "\n"
-        data = line.encode("utf-8")
+            self._send_to_clients(message)
 
-        # Snapshot the client list under lock
+    def _send_to_clients(self, message: Dict[str, Any]) -> None:
+        """Send a message to all connected clients, removing dead ones.
+
+        This method handles the actual socket I/O and dead client cleanup.
+        Called by _writer_loop for each queued message.
+
+        Args:
+            message: The message dict to send (will be JSON serialized)
+        """
+        # Serialize once for all clients
+        data = (json.dumps(message) + "\n").encode("utf-8")
+
+        # Snapshot client list under lock
         with self.lock:
             clients_to_send = list(self.clients)
 
-        # Broadcast to all clients (I/O outside the lock)
+        # Send to all clients, tracking failures
         dead_clients = []
         for client in clients_to_send:
             try:
+                # Set per-send timeout to prevent blocking on slow clients
+                client.settimeout(2.0)
                 client.sendall(data)
             except Exception as e:
                 logger.debug(f"Failed to send to client: {e}")
@@ -149,9 +178,46 @@ class CallosumServer:
                     except Exception:
                         pass
 
+    def broadcast(self, message: Dict[str, Any]) -> bool:
+        """Queue message for broadcast to all connected clients.
+
+        Returns immediately after queueing. The writer thread handles
+        actual transmission to ensure serialized, non-interleaved sends.
+
+        Args:
+            message: Dict with required 'tract' and 'event' fields
+
+        Returns:
+            True if queued successfully, False if validation failed or queue full
+        """
+        # Validate required fields
+        if "tract" not in message or "event" not in message:
+            logger.warning("Skipping message without tract/event fields")
+            return False
+
+        # Add timestamp if not present
+        if "ts" not in message:
+            message["ts"] = int(time.time() * 1000)
+
+        # Queue for writer thread
+        try:
+            self.broadcast_queue.put_nowait(message)
+            return True
+        except queue.Full:
+            logger.warning(
+                f"Broadcast queue full, dropping: {message.get('tract')}/{message.get('event')}"
+            )
+            return False
+
     def stop(self) -> None:
-        """Stop the server."""
+        """Stop the server and writer thread."""
         self.stop_event.set()
+
+        # Wait for writer thread to finish
+        if self.writer_thread and self.writer_thread.is_alive():
+            self.writer_thread.join(timeout=1.0)
+            if self.writer_thread.is_alive():
+                logger.warning("Writer thread did not stop cleanly")
 
 
 class CallosumConnection:
