@@ -625,3 +625,37 @@ def test_monitor_stdout_with_save_and_day(cortex_service, mock_journal):
     save_path = mock_journal / specified_day / "report.md"
     assert save_path.exists()
     assert save_path.read_text() == "Daily report content"
+
+
+def test_recover_orphaned_agents(cortex_service, mock_journal):
+    """Test recovery of orphaned active agent files."""
+    # Create orphaned active files
+    agents_dir = mock_journal / "agents"
+    agent1_active = agents_dir / "111_active.jsonl"
+    agent2_active = agents_dir / "222_active.jsonl"
+
+    agent1_active.write_text('{"event": "start", "ts": 1000}\n')
+    agent2_active.write_text('{"event": "start", "ts": 2000}\n')
+
+    active_files = [agent1_active, agent2_active]
+    cortex_service._recover_orphaned_agents(active_files)
+
+    # Check active files were renamed to completed
+    assert not agent1_active.exists()
+    assert not agent2_active.exists()
+    assert (agents_dir / "111.jsonl").exists()
+    assert (agents_dir / "222.jsonl").exists()
+
+    # Check error events were appended
+    content1 = (agents_dir / "111.jsonl").read_text()
+    lines1 = content1.strip().split("\n")
+    assert len(lines1) == 2
+    error_event = json.loads(lines1[1])
+    assert error_event["event"] == "error"
+    assert "Recovered" in error_event["error"]
+    assert error_event["agent_id"] == "111"
+
+    content2 = (agents_dir / "222.jsonl").read_text()
+    lines2 = content2.strip().split("\n")
+    assert len(lines2) == 2
+    assert json.loads(lines2[1])["event"] == "error"

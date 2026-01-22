@@ -169,19 +169,35 @@ class CortexService:
             event["exit_code"] = exit_code
         return event
 
+    def _recover_orphaned_agents(self, active_files: list) -> None:
+        """Recover orphaned active agent files from a previous crash.
+
+        Appends an error event to each file and renames to completed.
+        """
+        for file_path in active_files:
+            agent_id = file_path.stem.replace("_active", "")
+            try:
+                error_event = self._create_error_event(
+                    agent_id, "Recovered: Cortex restarted while agent was running"
+                )
+                with open(file_path, "a") as f:
+                    f.write(json.dumps(error_event) + "\n")
+
+                completed_path = file_path.parent / f"{agent_id}.jsonl"
+                file_path.rename(completed_path)
+                self.logger.warning(f"Recovered orphaned agent: {agent_id}")
+            except Exception as e:
+                self.logger.error(f"Failed to recover agent {agent_id}: {e}")
+
     def start(self) -> None:
         """Start listening for agent requests via Callosum."""
-        # Check for existing active files - another instance may be running
+        # Recover any orphaned active files from previous crash
         active_files = list(self.agents_dir.glob("*_active.jsonl"))
         if active_files:
-            self.logger.error(
-                f"Found {len(active_files)} active agent(s) - another Cortex instance may be running!"
+            self.logger.warning(
+                f"Found {len(active_files)} orphaned agent(s), recovering..."
             )
-            self.logger.error(f"Active files: {[f.name for f in active_files]}")
-            self.logger.error(
-                "Please ensure only one Cortex service is running at a time."
-            )
-            sys.exit(1)
+            self._recover_orphaned_agents(active_files)
 
         # Connect to Callosum to receive requests
         try:
