@@ -148,7 +148,7 @@ def test_google_provider_with_thinking():
             "provider": "google",
             "persona": "default",
             "model": GEMINI_PRO,  # Pro model for thinking
-            "max_tokens": 200,
+            "max_tokens": 2000,
             "disable_mcp": True,
         }
     )
