@@ -18,12 +18,11 @@ import logging
 import time
 from pathlib import Path
 
-import librosa
 import numpy as np
 from google.genai import types
 
 from muse.models import generate
-from observe.utils import SAMPLE_RATE, audio_to_flac_bytes
+from observe.utils import audio_to_flac_bytes
 from think.utils import load_prompt
 
 logger = logging.getLogger(__name__)
@@ -51,7 +50,8 @@ def _statement_to_flac_bytes(
 
 
 def enrich_transcript(
-    audio_path: Path,
+    audio: np.ndarray,
+    sample_rate: int,
     statements: list[dict],
     entity_names: list[str] | None = None,
 ) -> dict | None:
@@ -61,7 +61,8 @@ def enrich_transcript(
     text, per-statement emotion, and overall topics/setting/warnings.
 
     Args:
-        audio_path: Path to audio file (FLAC)
+        audio: Audio waveform (mono, float32)
+        sample_rate: Sample rate in Hz
         statements: List of statement dicts with 'id', 'start', 'end', 'text'
         entity_names: Optional list of entity names for prompt context
 
@@ -76,12 +77,6 @@ def enrich_transcript(
         return None
 
     try:
-        # Load audio
-        logger.info("Loading audio for enrichment...")
-        t0 = time.perf_counter()
-        wav, sr = librosa.load(str(audio_path), sr=SAMPLE_RATE)
-        logger.info(f"  Audio loaded in {time.perf_counter() - t0:.2f}s")
-
         # Format entity names for prompt context
         entity_names_str = ", ".join(entity_names) if entity_names else None
 
@@ -99,7 +94,9 @@ def enrich_transcript(
             contents.append(f"Statement {i}: {text}")
 
             # Add audio clip
-            audio_bytes = _statement_to_flac_bytes(wav, stmt["start"], stmt["end"], sr)
+            audio_bytes = _statement_to_flac_bytes(
+                audio, stmt["start"], stmt["end"], sample_rate
+            )
             contents.append(
                 types.Part.from_bytes(data=audio_bytes, mime_type="audio/flac")
             )
@@ -145,5 +142,5 @@ def enrich_transcript(
         return result
 
     except Exception as e:
-        logger.warning(f"Enrichment failed for {audio_path}: {e}")
+        logger.warning(f"Enrichment failed: {e}")
         return None

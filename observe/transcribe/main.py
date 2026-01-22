@@ -62,7 +62,7 @@ from observe.transcribe import (
 from observe.transcribe import transcribe as stt_transcribe
 from observe.transcribe.utils import is_apple_silicon
 from observe.transcribe.whisper import DEFAULT_COMPUTE, DEFAULT_DEVICE, DEFAULT_MODEL
-from observe.utils import SAMPLE_RATE, get_segment_key, prepare_audio_file
+from observe.utils import SAMPLE_RATE, get_segment_key
 from observe.vad import (
     AudioReduction,
     VadResult,
@@ -475,23 +475,6 @@ def process_audio(
     else:
         audio_buffer = decode_audio(str(raw_path), sampling_rate=SAMPLE_RATE)
 
-    # For enrichment, we need a file path - use temp if we have reduced audio
-    import soundfile as sf
-
-    processing_audio_path: Path | None = None
-    is_temp_audio = False
-
-    if reduced_audio is not None:
-        # Write reduced buffer to temp file for enrichment
-        processing_audio_path = raw_path.with_suffix(".reduced.flac")
-        audio_int16 = (np.clip(reduced_audio, -1.0, 1.0) * 32767).astype(np.int16)
-        sf.write(processing_audio_path, audio_int16, SAMPLE_RATE, format="FLAC")
-        is_temp_audio = True
-    else:
-        # Use original file (convert M4A if needed)
-        processing_audio_path = prepare_audio_file(raw_path, SAMPLE_RATE)
-        is_temp_audio = processing_audio_path != raw_path
-
     try:
         # Dispatch to STT backend
         statements = stt_transcribe(backend, audio_buffer, SAMPLE_RATE, backend_config)
@@ -555,7 +538,7 @@ def process_audio(
                 from observe.enrich import enrich_transcript
 
                 enrichment = enrich_transcript(
-                    processing_audio_path, statements, entity_names=entity_names
+                    audio_buffer, SAMPLE_RATE, statements, entity_names=entity_names
                 )
 
         # Generate embeddings before timestamp restoration
@@ -613,10 +596,6 @@ def process_audio(
     except Exception as e:
         logging.error(f"Failed to transcribe {raw_path}: {e}", exc_info=True)
         raise SystemExit(1) from e
-    finally:
-        # Clean up temp files
-        if is_temp_audio and processing_audio_path and processing_audio_path.exists():
-            processing_audio_path.unlink()
 
 
 def main():

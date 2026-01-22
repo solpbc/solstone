@@ -54,13 +54,11 @@ dependencies = [
     "setproctitle",
     "av",
 
-    "sqlite-utils",
     "openai>=1.2.0",
     "openai-agents>=0.1.0",
     "anthropic",
     "genai-prices",
     "pypdf",
-    "watchfiles",
     "blessed>=1.20.0",
     "psutil",
     "tzlocal",
@@ -73,7 +71,6 @@ dependencies = [
     "soundfile",
     "faster-whisper>=1.0.0",
     "resemblyzer>=0.1.0",
-    "librosa>=0.10.0",
 
     # Media processing
     "opencv-python",

@@ -5,7 +5,6 @@
 
 import io
 import json
-from pathlib import Path
 from unittest.mock import patch
 
 import numpy as np
@@ -67,15 +66,13 @@ class TestEnrichTranscript:
     """Test the main enrichment function."""
 
     @patch("observe.enrich.generate")
-    @patch("observe.enrich.librosa.load")
-    def test_returns_enrichment_data(self, mock_load, mock_generate):
+    def test_returns_enrichment_data(self, mock_generate):
         """Should return enrichment dict on success."""
         from observe.enrich import enrich_transcript
 
-        # Mock audio loading
+        # Create audio buffer directly
         sample_rate = 16000
-        wav = np.zeros(sample_rate, dtype=np.float32)
-        mock_load.return_value = (wav, sample_rate)
+        wav = np.zeros(sample_rate * 10, dtype=np.float32)  # 10 seconds
 
         # Mock Gemini response with statements array
         mock_response = json.dumps(
@@ -95,7 +92,7 @@ class TestEnrichTranscript:
             {"id": 2, "start": 5.0, "end": 7.0, "text": "This is a test."},
         ]
 
-        result = enrich_transcript(Path("/fake/audio.flac"), statements)
+        result = enrich_transcript(wav, sample_rate, statements)
 
         assert result is not None
         assert "statements" in result
@@ -108,33 +105,31 @@ class TestEnrichTranscript:
         assert result["setting"] == "workplace"
 
     @patch("observe.enrich.generate")
-    @patch("observe.enrich.librosa.load")
-    def test_returns_none_on_api_error(self, mock_load, mock_generate):
+    def test_returns_none_on_api_error(self, mock_generate):
         """Should return None if Gemini call fails."""
         from observe.enrich import enrich_transcript
 
-        mock_load.return_value = (np.zeros(16000, dtype=np.float32), 16000)
+        wav = np.zeros(16000 * 10, dtype=np.float32)
         mock_generate.side_effect = Exception("API error")
 
         statements = [{"id": 1, "start": 0.0, "end": 2.0, "text": "Hello."}]
 
-        result = enrich_transcript(Path("/fake/audio.flac"), statements)
+        result = enrich_transcript(wav, 16000, statements)
 
         assert result is None
 
     @patch("observe.enrich.generate")
-    @patch("observe.enrich.librosa.load")
-    def test_returns_none_on_invalid_response(self, mock_load, mock_generate):
+    def test_returns_none_on_invalid_response(self, mock_generate):
         """Should return None if response missing required fields."""
         from observe.enrich import enrich_transcript
 
-        mock_load.return_value = (np.zeros(16000, dtype=np.float32), 16000)
+        wav = np.zeros(16000 * 10, dtype=np.float32)
         # Missing 'statements' field
         mock_generate.return_value = json.dumps({"topics": "test"})
 
         statements = [{"id": 1, "start": 0.0, "end": 2.0, "text": "Hello."}]
 
-        result = enrich_transcript(Path("/fake/audio.flac"), statements)
+        result = enrich_transcript(wav, 16000, statements)
 
         assert result is None
 
@@ -142,19 +137,18 @@ class TestEnrichTranscript:
         """Should return None for empty statement list."""
         from observe.enrich import enrich_transcript
 
-        result = enrich_transcript(Path("/fake/audio.flac"), [])
+        wav = np.zeros(16000, dtype=np.float32)
+        result = enrich_transcript(wav, 16000, [])
 
         assert result is None
 
     @patch("observe.enrich.generate")
-    @patch("observe.enrich.librosa.load")
-    def test_builds_interleaved_content(self, mock_load, mock_generate):
+    def test_builds_interleaved_content(self, mock_generate):
         """Should send numbered text labels and audio clips interleaved."""
         from observe.enrich import enrich_transcript
 
         sample_rate = 16000
         wav = np.zeros(sample_rate * 10, dtype=np.float32)  # 10 seconds
-        mock_load.return_value = (wav, sample_rate)
 
         mock_response = json.dumps(
             {
@@ -169,10 +163,8 @@ class TestEnrichTranscript:
             {"id": 1, "start": 0.0, "end": 2.0, "text": "Hello world."},
         ]
 
-        # Pass entity names explicitly (caller's responsibility now)
-        enrich_transcript(
-            Path("/fake/audio.flac"), statements, entity_names=["Alice", "Bob"]
-        )
+        # Pass entity names explicitly
+        enrich_transcript(wav, sample_rate, statements, entity_names=["Alice", "Bob"])
 
         # Verify generate was called
         assert mock_generate.called
