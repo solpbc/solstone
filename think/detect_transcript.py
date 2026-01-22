@@ -126,7 +126,8 @@ def detect_transcript_segment(text: str, start_time: str) -> List[tuple[str, str
         start_time: Absolute start time in HH:MM:SS format
 
     Returns:
-        List of (start_at, text) tuples where start_at is absolute HH:MM:SS
+        List of (start_at, text) tuples where start_at is absolute HH:MM:SS.
+        Returns empty list on LLM or parsing failure.
     """
     numbered, lines = number_lines(text)
     # Prepend START_TIME for the prompt
@@ -135,21 +136,25 @@ def detect_transcript_segment(text: str, start_time: str) -> List[tuple[str, str
 
     from muse.models import generate
 
-    response_text = generate(
-        contents=contents,
-        context="observe.detect.segment",
-        temperature=0.3,
-        max_output_tokens=4096,
-        thinking_budget=8192,
-        system_instruction=_load_segment_prompt(),
-        json_output=True,
-    )
+    try:
+        response_text = generate(
+            contents=contents,
+            context="observe.detect.segment",
+            temperature=0.3,
+            max_output_tokens=4096,
+            thinking_budget=8192,
+            system_instruction=_load_segment_prompt(),
+            json_output=True,
+        )
 
-    logging.info(f"Received segmentation response: {response_text}")
-    boundaries = parse_segment_boundaries(response_text, len(lines))
-    segments = segments_from_boundaries(lines, boundaries)
+        logging.info(f"Received segmentation response: {response_text}")
+        boundaries = parse_segment_boundaries(response_text, len(lines))
+        segments = segments_from_boundaries(lines, boundaries)
 
-    return segments
+        return segments
+    except (ValueError, json.JSONDecodeError) as e:
+        logging.error(f"Transcript segmentation failed: {e}")
+        return []
 
 
 def detect_transcript_json(text: str, segment_start: str) -> Optional[list]:

@@ -13,20 +13,19 @@ contents : str or list
     The content to send to the model.
 model : str
     Model name to use.
-temperature : float
-    Temperature for generation (default: 0.3).
 max_output_tokens : int
     Maximum tokens for the model's response output.
 system_instruction : str, optional
     System instruction for the model.
 json_output : bool
     Whether to request JSON response format.
-thinking_budget : int, optional
-    Ignored for OpenAI (reasoning is always enabled with medium effort).
 timeout_s : float, optional
     Request timeout in seconds.
 context : str, optional
     Context string for token usage logging.
+
+Note: GPT-5+ reasoning models don't support custom temperature (fixed at 1.0)
+and reasoning is always enabled with medium effort.
 """
 
 from __future__ import annotations
@@ -579,11 +578,9 @@ def _convert_contents_to_messages(
 def generate(
     contents: Any,
     model: str = GPT_5,
-    temperature: float = 0.3,
     max_output_tokens: int = 8192 * 2,
     system_instruction: str | None = None,
     json_output: bool = False,
-    thinking_budget: int | None = None,
     timeout_s: float | None = None,
     context: str | None = None,
     **kwargs: Any,
@@ -598,11 +595,12 @@ def generate(
     messages = _convert_contents_to_messages(contents, system_instruction)
 
     # Build request kwargs with reasoning enabled
+    # Note: GPT-5+ models require max_completion_tokens instead of max_tokens
+    # Note: Reasoning models don't support custom temperature (only 1.0)
     request_kwargs: dict[str, Any] = {
         "model": model,
         "messages": messages,
-        "temperature": temperature,
-        "max_tokens": max_output_tokens,
+        "max_completion_tokens": max_output_tokens,
         "reasoning_effort": "medium",
     }
 
@@ -612,10 +610,17 @@ def generate(
     if timeout_s:
         request_kwargs["timeout"] = timeout_s
 
+    from muse.models import IncompleteJSONError
+
     response = client.chat.completions.create(**request_kwargs)
 
-    # Extract text
-    text = response.choices[0].message.content or ""
+    # Extract text first (may be partial if truncated)
+    choice = response.choices[0]
+    text = choice.message.content or ""
+
+    # Validate finish reason for JSON output
+    if json_output and choice.finish_reason != "stop":
+        raise IncompleteJSONError(reason=choice.finish_reason or "unknown", partial_text=text)
 
     # Log token usage
     if response.usage:
@@ -632,11 +637,9 @@ def generate(
 async def agenerate(
     contents: Any,
     model: str = GPT_5,
-    temperature: float = 0.3,
     max_output_tokens: int = 8192 * 2,
     system_instruction: str | None = None,
     json_output: bool = False,
-    thinking_budget: int | None = None,
     timeout_s: float | None = None,
     context: str | None = None,
     **kwargs: Any,
@@ -651,11 +654,12 @@ async def agenerate(
     messages = _convert_contents_to_messages(contents, system_instruction)
 
     # Build request kwargs with reasoning enabled
+    # Note: GPT-5+ models require max_completion_tokens instead of max_tokens
+    # Note: Reasoning models don't support custom temperature (only 1.0)
     request_kwargs: dict[str, Any] = {
         "model": model,
         "messages": messages,
-        "temperature": temperature,
-        "max_tokens": max_output_tokens,
+        "max_completion_tokens": max_output_tokens,
         "reasoning_effort": "medium",
     }
 
@@ -665,10 +669,17 @@ async def agenerate(
     if timeout_s:
         request_kwargs["timeout"] = timeout_s
 
+    from muse.models import IncompleteJSONError
+
     response = await client.chat.completions.create(**request_kwargs)
 
-    # Extract text
-    text = response.choices[0].message.content or ""
+    # Extract text first (may be partial if truncated)
+    choice = response.choices[0]
+    text = choice.message.content or ""
+
+    # Validate finish reason for JSON output
+    if json_output and choice.finish_reason != "stop":
+        raise IncompleteJSONError(reason=choice.finish_reason or "unknown", partial_text=text)
 
     # Log token usage
     if response.usage:

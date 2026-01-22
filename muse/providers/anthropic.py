@@ -573,13 +573,19 @@ def generate(
     if timeout_s:
         request_kwargs["timeout"] = timeout_s
 
+    from muse.models import IncompleteJSONError
+
     response = client.messages.create(**request_kwargs)
 
-    # Extract text from response
+    # Extract text first (may be partial if truncated)
     text = ""
     for block in response.content:
         if getattr(block, "type", None) == "text":
             text += block.text
+
+    # Validate stop reason for JSON output
+    if json_output and response.stop_reason != "end_turn":
+        raise IncompleteJSONError(reason=response.stop_reason or "unknown", partial_text=text)
 
     # Log token usage
     usage_dict = _extract_usage_dict(response)
@@ -639,13 +645,19 @@ async def agenerate(
     if timeout_s:
         request_kwargs["timeout"] = timeout_s
 
+    from muse.models import IncompleteJSONError
+
     response = await client.messages.create(**request_kwargs)
 
-    # Extract text from response
+    # Extract text first (may be partial if truncated)
     text = ""
     for block in response.content:
         if getattr(block, "type", None) == "text":
             text += block.text
+
+    # Validate stop reason for JSON output
+    if json_output and response.stop_reason != "end_turn":
+        raise IncompleteJSONError(reason=response.stop_reason or "unknown", partial_text=text)
 
     # Log token usage
     usage_dict = _extract_usage_dict(response)

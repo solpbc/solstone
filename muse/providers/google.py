@@ -126,23 +126,41 @@ def _build_generate_config(
     return types.GenerateContentConfig(**config_args)
 
 
-def _validate_response(response: Any) -> str:
+def _validate_response(response: Any, json_output: bool = False) -> str:
     """Validate response and extract text.
 
     Returns response.text if available, or a user-friendly message for empty
     responses (e.g., tool-only completions). Raises on actual errors.
+
+    Parameters
+    ----------
+    response
+        The response from the model.
+    json_output
+        If True, validates that finish_reason is STOP to ensure complete JSON.
     """
     if response is None:
         raise ValueError("No response from model")
+
+    from muse.models import IncompleteJSONError
 
     # Check for error conditions in candidates
     finish_reason = _extract_finish_reason(response)
     if finish_reason and "SAFETY" in finish_reason.upper():
         raise ValueError(f"Response blocked by safety filters: {finish_reason}")
 
+    # Extract text (may be partial if truncated)
+    text = response.text if response.text else ""
+
+    # For JSON output, require STOP to ensure complete response
+    if json_output:
+        normalized = (finish_reason or "").upper().replace("FINISHREASON.", "")
+        if normalized != "STOP":
+            raise IncompleteJSONError(reason=finish_reason or "unknown", partial_text=text)
+
     # Return text or user-friendly completion message
-    if response.text:
-        return response.text
+    if text:
+        return text
 
     # Empty text - generate appropriate message (no tools in generate/agenerate)
     return _format_completion_message(finish_reason, had_tool_calls=False)
@@ -295,7 +313,7 @@ def generate(
         config=config,
     )
 
-    text = _validate_response(response)
+    text = _validate_response(response, json_output=json_output)
     log_token_usage(model=model, usage=response, context=context)
     return text
 
@@ -340,7 +358,7 @@ async def agenerate(
         config=config,
     )
 
-    text = _validate_response(response)
+    text = _validate_response(response, json_output=json_output)
     log_token_usage(model=model, usage=response, context=context)
     return text
 

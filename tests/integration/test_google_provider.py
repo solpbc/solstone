@@ -206,3 +206,39 @@ def test_google_provider_with_thinking():
         assert (
             "4" in result_text or "four" in result_text
         ), f"Expected '4' in response, got: {finish_event['result']}"
+
+
+@pytest.mark.integration
+@pytest.mark.requires_api
+def test_google_json_truncation_error():
+    """Test that Google provider raises IncompleteJSONError when JSON response is truncated.
+
+    Uses a very small max_output_tokens to force truncation, verifying that
+    the provider correctly detects non-STOP finish reasons and raises an error
+    with the partial text available for debugging.
+    """
+    fixtures_env, api_key, _ = get_fixtures_env()
+
+    if not fixtures_env:
+        pytest.skip("fixtures/.env not found")
+
+    if not api_key:
+        pytest.skip("GOOGLE_API_KEY not found in fixtures/.env file")
+
+    # Import provider directly for this test
+    from muse.models import IncompleteJSONError
+    from muse.providers import google as google_provider
+
+    # Request JSON output with very small token limit to force truncation
+    with pytest.raises(IncompleteJSONError) as exc_info:
+        google_provider.generate(
+            contents="Return a JSON array of the first 50 prime numbers.",
+            model=GEMINI_FLASH,
+            json_output=True,
+            max_output_tokens=10,  # Too small to complete the response
+        )
+
+    # Verify error message and partial_text attribute
+    assert "JSON response incomplete" in str(exc_info.value)
+    assert exc_info.value.reason is not None
+    assert isinstance(exc_info.value.partial_text, str)

@@ -283,3 +283,39 @@ def test_openai_provider_with_extra_context():
         assert (
             "moonshot" in result_text
         ), f"Expected 'moonshot' in response, got: {finish_events[0].get('result')}"
+
+
+@pytest.mark.integration
+@pytest.mark.requires_api
+def test_openai_json_truncation_error():
+    """Test that OpenAI provider raises IncompleteJSONError when JSON response is truncated.
+
+    Uses a small max_output_tokens to force truncation, verifying that
+    the provider correctly detects non-stop finish reasons and raises an error
+    with the partial text available for debugging.
+    """
+    fixtures_env, api_key, _ = get_fixtures_env()
+
+    if not fixtures_env:
+        pytest.skip("fixtures/.env not found")
+
+    if not api_key:
+        pytest.skip("OPENAI_API_KEY not found in fixtures/.env file")
+
+    # Import provider directly for this test
+    from muse.models import IncompleteJSONError
+    from muse.providers import openai as openai_provider
+
+    # Request JSON output with small token limit to force truncation
+    with pytest.raises(IncompleteJSONError) as exc_info:
+        openai_provider.generate(
+            contents="Return a JSON array of the first 50 prime numbers.",
+            model=GPT_5_MINI,
+            json_output=True,
+            max_output_tokens=50,  # Too small to complete the response
+        )
+
+    # Verify error message and partial_text attribute
+    assert "JSON response incomplete" in str(exc_info.value)
+    assert exc_info.value.reason is not None
+    assert isinstance(exc_info.value.partial_text, str)

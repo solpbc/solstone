@@ -69,6 +69,26 @@ PROVIDER_DEFAULTS: Dict[str, Dict[int, str]] = {
 DEFAULT_PROVIDER = "google"
 DEFAULT_TIER = TIER_FLASH
 
+
+# ---------------------------------------------------------------------------
+# Exceptions
+# ---------------------------------------------------------------------------
+
+
+class IncompleteJSONError(ValueError):
+    """Raised when JSON response is truncated due to token limits or other reasons.
+
+    Attributes:
+        reason: The finish/stop reason from the API (e.g., "MAX_TOKENS", "length").
+        partial_text: The truncated response text, useful for debugging.
+    """
+
+    def __init__(self, reason: str, partial_text: str):
+        self.reason = reason
+        self.partial_text = partial_text
+        super().__init__(f"JSON response incomplete (reason: {reason})")
+
+
 # ---------------------------------------------------------------------------
 # Context defaults: context pattern -> {tier, label, group}
 #
