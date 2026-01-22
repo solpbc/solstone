@@ -93,13 +93,11 @@ def test_load_entity_names_no_valid_entries(monkeypatch):
         entities_path = Path(tmpdir) / "facets" / "test" / "entities.jsonl"
         entities_path.parent.mkdir(parents=True, exist_ok=True)
         # Write malformed JSON
-        entities_path.write_text(
-            """
+        entities_path.write_text("""
 # Header comment
 Some random text
 Not valid JSON
-"""
-        )
+""")
 
         monkeypatch.setenv("JOURNAL_PATH", tmpdir)
         result = load_entity_names()

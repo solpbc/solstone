@@ -17,3 +17,4 @@ fixtures/journal/tokens/*.json
 config*.py
 .installed
 .full-installed
+journal

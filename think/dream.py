@@ -227,38 +227,56 @@ def check_callosum_available() -> bool:
 
 
 def wait_for_agents(
-    agent_ids: list[str], timeout: int = 600
+    agent_ids: list[str], timeout: int = 600, startup_grace: int = 15
 ) -> tuple[list[str], list[str]]:
     """Poll until all agents complete or timeout.
 
-    Polls get_agent_status() every 1 second.
+    Polls get_agent_status() every 1 second. Agents are spawned asynchronously
+    via Callosum, so there's a brief window where the agent file doesn't exist
+    yet. We use a startup grace period to tolerate "not_found" status initially.
 
     Args:
         agent_ids: List of agent IDs to wait for
         timeout: Maximum wait time in seconds (default 600 = 10 minutes)
+        startup_grace: Seconds to wait for agent files to appear (default 15)
 
     Returns:
         Tuple of (completed_ids, timed_out_ids)
     """
     start = time.time()
-    pending = set(agent_ids)
+    pending_startup = set(agent_ids)  # Agents we haven't seen a file for yet
+    pending_running = set()  # Agents we've seen start (file exists)
     completed = []
 
-    while pending and (time.time() - start) < timeout:
-        for agent_id in list(pending):
+    while (pending_startup or pending_running) and (time.time() - start) < timeout:
+        elapsed = time.time() - start
+
+        # Check agents still in startup phase
+        for agent_id in list(pending_startup):
             status = get_agent_status(agent_id)
             if status == "completed":
                 completed.append(agent_id)
-                pending.discard(agent_id)
-            elif status == "not_found":
-                # Agent never started - consider failed
+                pending_startup.discard(agent_id)
+            elif status == "running":
+                # File appeared - move to running set
+                pending_startup.discard(agent_id)
+                pending_running.add(agent_id)
+            elif status == "not_found" and elapsed >= startup_grace:
+                # Grace period expired - agent never started
                 logging.warning(f"Agent {agent_id} not found (never started)")
-                pending.discard(agent_id)
+                pending_startup.discard(agent_id)
 
-        if pending:
+        # Check agents that are running
+        for agent_id in list(pending_running):
+            status = get_agent_status(agent_id)
+            if status == "completed":
+                completed.append(agent_id)
+                pending_running.discard(agent_id)
+
+        if pending_startup or pending_running:
             time.sleep(1)
 
-    timed_out = list(pending)
+    timed_out = list(pending_startup | pending_running)
     return completed, timed_out
 
 

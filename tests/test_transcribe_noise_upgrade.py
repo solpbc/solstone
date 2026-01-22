@@ -98,6 +98,7 @@ class TestBackendMetadata:
         """_statements_to_jsonl includes backend field in metadata."""
         import datetime
         import json
+
         from observe.transcribe.main import _statements_to_jsonl
 
         statements = [{"id": 1, "start": 0.0, "end": 1.0, "text": "Hello"}]
@@ -122,6 +123,7 @@ class TestBackendMetadata:
         """backend field defaults to 'unknown' when not provided."""
         import datetime
         import json
+
         from observe.transcribe.main import _statements_to_jsonl
 
         statements = [{"id": 1, "start": 0.0, "end": 1.0, "text": "Hello"}]

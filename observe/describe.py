@@ -414,7 +414,9 @@ class VideoProcessor:
                         for key, value in segment_meta.items():
                             metadata[key] = value
                     except json.JSONDecodeError:
-                        logger.warning(f"Invalid SEGMENT_META JSON: {segment_meta_str[:100]}")
+                        logger.warning(
+                            f"Invalid SEGMENT_META JSON: {segment_meta_str[:100]}"
+                        )
 
                 output_file.write(json.dumps(metadata) + "\n")
                 output_file.flush()
