@@ -25,7 +25,7 @@ solstone transforms raw recordings into actionable understanding through a three
 ┌─────────────────────────────────────┐
 │  LAYER 1: CAPTURES                  │  Raw recordings
 │  (Binary media files)               │  "What was recorded"
-│  - *.flac (audio)                   │
+│  - *.flac, *.ogg, *.opus (audio)    │
 │  - *.webm (video)                   │
 └─────────────────────────────────────┘
 ```
@@ -36,7 +36,7 @@ solstone transforms raw recordings into actionable understanding through a three
 
 | Term | Definition | Examples |
 |------|------------|----------|
-| **Capture** | Raw audio/video recording | `*.flac`, `*.webm` |
+| **Capture** | Raw audio/video recording | `*.flac`, `*.ogg`, `*.opus`, `*.webm` |
 | **Extract** | Structured data from captures | `*.jsonl` |
 | **Insight** | AI-generated narrative summary | `insights/*.md`, `HHMMSS_LEN/*.md` |
 
@@ -785,7 +785,7 @@ Audio files are initially written to the day root with the segment key prefix (L
 
 After transcription, audio files are moved into their segment folder:
 
-- `HHMMSS_LEN/*.flac` or `*.m4a` – audio files moved here after processing, preserving descriptive suffix (e.g., `audio.flac`, `audio.m4a`, `mic.flac`)
+- `HHMMSS_LEN/*.flac`, `*.m4a`, `*.ogg`, or `*.opus` – audio files moved here after processing, preserving descriptive suffix (e.g., `audio.flac`, `audio.m4a`, `imported_audio.opus`)
 
 Note: The descriptive portion after the segment key (e.g., `_audio`, `_recording`) is preserved when files are moved into segment directories. Processing tools match files by extension only, ignoring the descriptive suffix.
 

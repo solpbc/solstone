@@ -18,7 +18,7 @@ Multimodal capture and AI-powered analysis of desktop activity.
 ```
 sol observer (platform-detected capture)
        ↓
-   Raw media files (*.flac, *.webm, tmux_*.jsonl)
+   Raw media files (*.flac, *.ogg, *.opus, *.webm, tmux_*.jsonl)
        ↓
 sol sense (coordination)
    ├── sol transcribe → audio.jsonl

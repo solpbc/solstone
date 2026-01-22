@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 SAMPLE_RATE = 16000
 
 VIDEO_EXTENSIONS = (".webm", ".mp4", ".mov")
-AUDIO_EXTENSIONS = (".flac", ".ogg", ".m4a")
+AUDIO_EXTENSIONS = (".flac", ".ogg", ".m4a", ".opus")
 
 
 def audio_to_flac_bytes(audio: np.ndarray, sample_rate: int) -> bytes:
@@ -52,6 +52,8 @@ def prepare_audio_file(raw_path: Path, sample_rate: int = SAMPLE_RATE) -> Path:
 
     Returns path to a file suitable for transcription/embedding (mono FLAC).
     For M4A files, converts to temporary FLAC, mixing all audio streams.
+    Other formats (.flac, .ogg, .opus) are returned as-is since faster-whisper
+    can decode them directly via ffmpeg.
 
     M4A files from sck-cli contain two mono streams: track 0 = system audio,
     track 1 = microphone. Both are decoded and mixed together.
@@ -59,14 +61,14 @@ def prepare_audio_file(raw_path: Path, sample_rate: int = SAMPLE_RATE) -> Path:
     Parameters
     ----------
     raw_path : Path
-        Path to audio file (.flac or .m4a)
+        Path to audio file (.flac, .ogg, .opus, or .m4a)
     sample_rate : int
         Target sample rate (default: 16000)
 
     Returns
     -------
     Path
-        Path to audio file ready for processing. For .flac files, returns
+        Path to audio file ready for processing. For most formats, returns
         the original path. For .m4a files, returns path to temporary .flac
         file that caller should delete after use.
 

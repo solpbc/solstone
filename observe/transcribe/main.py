@@ -656,7 +656,7 @@ def main():
         parser.error(f"Audio file not found: {audio_path}")
 
     # Validate supported formats
-    supported_formats = {".flac", ".m4a"}
+    supported_formats = {".flac", ".m4a", ".ogg", ".opus"}
     if audio_path.suffix.lower() not in supported_formats:
         parser.error(
             f"Unsupported audio format: {audio_path.suffix}. "

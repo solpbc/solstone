@@ -377,9 +377,16 @@ class FileSensor:
                 )
                 return  # Skip normal cleanup, we're retrying
             else:
+                # Show journal-relative log path for easier debugging
+                try:
+                    log_rel = handler_proc.managed.log_writer.path.relative_to(
+                        self.journal_dir
+                    )
+                except ValueError:
+                    log_rel = handler_proc.managed.log_writer.path
                 logger.error(
                     f"{handler_proc.handler_name} failed for {handler_proc.file_path.name} "
-                    f"with exit code {exit_code} - see log {handler_proc.managed.ref}.log"
+                    f"with exit code {exit_code} - see log {log_rel}"
                 )
 
             handler_proc.cleanup()
@@ -961,9 +968,8 @@ def main():
 
     # Register handlers - match by extension
     # Audio files in segment directories
-    sensor.register("*.flac", "transcribe", ["sol", "transcribe", "{file}"])
-    sensor.register("*.m4a", "transcribe", ["sol", "transcribe", "{file}"])
-    sensor.register("*.opus", "transcribe", ["sol", "transcribe", "{file}"])
+    for ext in AUDIO_EXTENSIONS:
+        sensor.register(f"*{ext}", "transcribe", ["sol", "transcribe", "{file}"])
 
     # Video files in segment directories
     for ext in VIDEO_EXTENSIONS:
