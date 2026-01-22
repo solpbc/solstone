@@ -117,22 +117,125 @@ def _build_generate_config(
 def _validate_response(response: Any) -> str:
     """Validate response and extract text.
 
-    Returns response.text if available, or "Done." for empty responses
-    (e.g., tool-only completions). Raises on actual errors.
+    Returns response.text if available, or a user-friendly message for empty
+    responses (e.g., tool-only completions). Raises on actual errors.
     """
     if response is None:
         raise ValueError("No response from model")
 
     # Check for error conditions in candidates
+    finish_reason = _extract_finish_reason(response)
+    if finish_reason and "SAFETY" in finish_reason.upper():
+        raise ValueError(f"Response blocked by safety filters: {finish_reason}")
+
+    # Return text or user-friendly completion message
+    if response.text:
+        return response.text
+
+    # Empty text - generate appropriate message (no tools in generate/agenerate)
+    return _format_completion_message(finish_reason, had_tool_calls=False)
+
+
+def _extract_finish_reason(response: Any) -> str | None:
+    """Extract finish_reason from response candidates.
+
+    Returns the finish_reason string (e.g., "STOP", "MAX_TOKENS") or None
+    if not available.
+    """
+    if not hasattr(response, "candidates") or not response.candidates:
+        return None
+
+    candidate = response.candidates[0]
+    if hasattr(candidate, "finish_reason") and candidate.finish_reason:
+        # Convert enum to string if needed
+        reason = candidate.finish_reason
+        if hasattr(reason, "name"):
+            return reason.name
+        return str(reason)
+    return None
+
+
+def _format_completion_message(finish_reason: str | None, had_tool_calls: bool) -> str:
+    """Create a user-friendly completion message based on finish reason.
+
+    Parameters
+    ----------
+    finish_reason
+        The finish_reason from the response (e.g., "STOP", "MAX_TOKENS").
+    had_tool_calls
+        Whether tool calls were executed during this run.
+
+    Returns
+    -------
+    str
+        A concise, user-friendly completion message.
+    """
+    if not finish_reason:
+        finish_reason = "UNKNOWN"
+
+    # Normalize finish reason (handle both enum names and string values)
+    reason = finish_reason.upper().replace("FINISHREASON.", "")
+
+    if reason == "STOP":
+        if had_tool_calls:
+            return "Completed via tools."
+        return "Completed."
+    elif reason == "MAX_TOKENS":
+        return "Reached token limit."
+    elif "SAFETY" in reason:
+        return "Blocked by safety filters."
+    elif reason == "RECITATION":
+        return "Stopped due to recitation."
+    elif "TOOL" in reason or "FUNCTION" in reason:
+        # UNEXPECTED_TOOL_CALL, MALFORMED_FUNCTION_CALL, etc.
+        return "Tool execution incomplete."
+    else:
+        # Unknown reason - include it for debugging
+        return f"Completed ({reason.lower()})."
+
+
+def _log_empty_response_diagnostics(
+    response: Any, finish_reason: str | None, had_tool_calls: bool
+) -> None:
+    """Log diagnostic information when response.text is empty.
+
+    Helps debug intermittent empty response issues with Gemini models.
+    """
+    # Build diagnostic info
+    diag = {
+        "finish_reason": finish_reason,
+        "had_tool_calls": had_tool_calls,
+        "has_candidates": hasattr(response, "candidates") and bool(response.candidates),
+    }
+
     if hasattr(response, "candidates") and response.candidates:
         candidate = response.candidates[0]
-        if hasattr(candidate, "finish_reason"):
-            finish_reason = str(candidate.finish_reason)
-            if "SAFETY" in finish_reason:
-                raise ValueError(f"Response blocked by safety filters: {finish_reason}")
+        diag["has_content"] = candidate.content is not None
+        if candidate.content:
+            diag["has_parts"] = bool(getattr(candidate.content, "parts", None))
+            if hasattr(candidate.content, "parts") and candidate.content.parts:
+                diag["num_parts"] = len(candidate.content.parts)
+                # Check what types of parts we have
+                part_types = []
+                for part in candidate.content.parts:
+                    if getattr(part, "thought", False):
+                        part_types.append("thinking")
+                    elif getattr(part, "text", None):
+                        part_types.append("text")
+                    elif hasattr(part, "function_call"):
+                        part_types.append("function_call")
+                    elif hasattr(part, "function_response"):
+                        part_types.append("function_response")
+                    else:
+                        part_types.append("other")
+                diag["part_types"] = part_types
 
-    # Return text or "Done." for empty responses (matches run_agent behavior)
-    return response.text or "Done."
+    # Check for AFC history (indicates tools were auto-called)
+    if hasattr(response, "automatic_function_calling_history"):
+        afc_history = response.automatic_function_calling_history
+        diag["afc_history_length"] = len(afc_history) if afc_history else 0
+
+    logger.info(f"Empty response.text diagnostics: {diag}")
 
 
 # ---------------------------------------------------------------------------
@@ -480,6 +583,9 @@ async def run_agent(
             history=history,
         )
 
+        # Track tool usage for diagnostics
+        tool_call_count = 0
+
         # Configure tools based on disable_mcp flag
         if not disable_mcp:
             mcp_url = config.get("mcp_server_url")
@@ -523,6 +629,9 @@ async def run_agent(
                 # Send the message - SDK handles automatic function calling
                 response = await chat.send_message(prompt, config=cfg)
                 _emit_thinking_events(response, model, callback)
+
+                # Capture tool call count from hooks
+                tool_call_count = tool_hooks._counter
         else:
             # No MCP tools - just basic config
             cfg = types.GenerateContentConfig(
@@ -536,14 +645,23 @@ async def run_agent(
             response = await chat.send_message(prompt, config=cfg)
             _emit_thinking_events(response, model, callback)
 
+        # Extract finish reason for diagnostics and user-friendly messages
+        finish_reason = _extract_finish_reason(response)
+        had_tool_calls = tool_call_count > 0
+
         text = response.text
         tool_only = False
         if not text:
-            # No text response - this is normal for tool-only completions
-            # Use synthetic text to indicate completion
-            text = "Done."
+            # Log diagnostics for empty response debugging
+            _log_empty_response_diagnostics(response, finish_reason, had_tool_calls)
+
+            # Generate user-friendly completion message
+            text = _format_completion_message(finish_reason, had_tool_calls)
             tool_only = True
-            logger.info("Tool-only completion, using synthetic response")
+            logger.info(
+                f"Empty response.text: finish_reason={finish_reason}, "
+                f"tool_calls={tool_call_count}, message={text!r}"
+            )
 
         # Extract usage from response
         usage_dict = None
@@ -570,6 +688,8 @@ async def run_agent(
         }
         if tool_only:
             finish_event["tool_only"] = True
+        if finish_reason:
+            finish_event["finish_reason"] = finish_reason
         callback.emit(finish_event)
         return text
     except google_errors.ServerError as exc:

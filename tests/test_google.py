@@ -5,8 +5,13 @@ import asyncio
 import importlib
 import json
 import sys
+from types import SimpleNamespace
 
 from muse.models import GEMINI_FLASH
+from muse.providers.google import (
+    _extract_finish_reason,
+    _format_completion_message,
+)
 from tests.agents_stub import install_agents_stub
 from tests.conftest import setup_google_genai_stub
 
@@ -100,3 +105,83 @@ def test_google_mcp_error(monkeypatch, tmp_path, capsys):
     assert isinstance(events[-1]["ts"], int)
     assert events[-1]["error"] == "boom"
     assert "trace" in events[-1]
+
+
+# ---------------------------------------------------------------------------
+# Tests for finish reason extraction and formatting
+# ---------------------------------------------------------------------------
+
+
+def test_extract_finish_reason_with_enum():
+    """Test extracting finish_reason from enum-style response."""
+
+    class MockEnum:
+        name = "STOP"
+
+    candidate = SimpleNamespace(finish_reason=MockEnum())
+    response = SimpleNamespace(candidates=[candidate])
+    assert _extract_finish_reason(response) == "STOP"
+
+
+def test_extract_finish_reason_with_string():
+    """Test extracting finish_reason when it's already a string."""
+    candidate = SimpleNamespace(finish_reason="MAX_TOKENS")
+    response = SimpleNamespace(candidates=[candidate])
+    assert _extract_finish_reason(response) == "MAX_TOKENS"
+
+
+def test_extract_finish_reason_no_candidates():
+    """Test extracting finish_reason when no candidates exist."""
+    response = SimpleNamespace(candidates=[])
+    assert _extract_finish_reason(response) is None
+
+    response = SimpleNamespace()
+    assert _extract_finish_reason(response) is None
+
+
+def test_format_completion_message_stop_with_tools():
+    """Test message for STOP with tool calls."""
+    msg = _format_completion_message("STOP", had_tool_calls=True)
+    assert msg == "Completed via tools."
+
+
+def test_format_completion_message_stop_no_tools():
+    """Test message for STOP without tool calls."""
+    msg = _format_completion_message("STOP", had_tool_calls=False)
+    assert msg == "Completed."
+
+
+def test_format_completion_message_max_tokens():
+    """Test message for MAX_TOKENS finish reason."""
+    msg = _format_completion_message("MAX_TOKENS", had_tool_calls=False)
+    assert msg == "Reached token limit."
+
+
+def test_format_completion_message_safety():
+    """Test message for safety-related finish reasons."""
+    msg = _format_completion_message("SAFETY", had_tool_calls=False)
+    assert msg == "Blocked by safety filters."
+
+    msg = _format_completion_message("PROHIBITED_SAFETY", had_tool_calls=False)
+    assert msg == "Blocked by safety filters."
+
+
+def test_format_completion_message_tool_errors():
+    """Test message for tool-related error finish reasons."""
+    msg = _format_completion_message("UNEXPECTED_TOOL_CALL", had_tool_calls=True)
+    assert msg == "Tool execution incomplete."
+
+    msg = _format_completion_message("MALFORMED_FUNCTION_CALL", had_tool_calls=False)
+    assert msg == "Tool execution incomplete."
+
+
+def test_format_completion_message_unknown():
+    """Test message for unknown finish reasons."""
+    msg = _format_completion_message("SOME_NEW_REASON", had_tool_calls=False)
+    assert msg == "Completed (some_new_reason)."
+
+
+def test_format_completion_message_none():
+    """Test message when finish_reason is None."""
+    msg = _format_completion_message(None, had_tool_calls=False)
+    assert msg == "Completed (unknown)."
