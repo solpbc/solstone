@@ -68,6 +68,7 @@ COMMANDS: dict[str, str] = {
     "convey": "convey.cli",
     "restart": "convey.restart",
     "screenshot": "convey.screenshot",
+    "maint": "convey.maint_cli",
 }
 
 # =============================================================================
@@ -116,6 +117,7 @@ GROUPS: dict[str, list[str]] = {
         "convey",
         "restart",
         "screenshot",
+        "maint",
     ],
     "Specialized tools": [
         "journal-stats",

@@ -44,6 +44,7 @@ apps/my_app/
 ├── background.html    # Optional: Background JavaScript service
 ├── insights/          # Optional: Custom insight prompts (auto-discovered)
 ├── agents/            # Optional: Custom agent personas (auto-discovered)
+├── maint/             # Optional: One-time maintenance tasks (auto-discovered)
 └── tests/             # Optional: App-specific tests (run via make test-apps)
 ```
 
@@ -60,6 +61,7 @@ apps/my_app/
 | `background.html` | No | Background service (WebSocket listeners) |
 | `insights/` | No | Custom insight prompts with `.txt` + `.json` pairs |
 | `agents/` | No | Custom agent personas with `.txt` + `.json` pairs |
+| `maint/` | No | One-time maintenance tasks (run on Convey startup) |
 | `tests/` | No | App-specific tests with self-contained fixtures |
 
 ---
@@ -299,7 +301,26 @@ Define custom agent personas that integrate with solstone's Cortex agent system.
 
 ---
 
-### 9. `tests/` - App Tests
+### 9. `maint/` - Maintenance Tasks
+
+Define one-time maintenance scripts that run automatically on Convey startup.
+
+**Key Points:**
+- Create `maint/` directory with standalone Python scripts (each with a `main()` function)
+- Scripts are discovered and run in sorted order by filename (use `000_`, `001_` prefixes for ordering)
+- Completed tasks tracked in `<journal>/maint/{app}/{task}.jsonl` - runs once per journal
+- Exit code 0 = success, non-zero = failure (failed tasks can be re-run with `--force`)
+- Use `setup_cli()` for consistent argument parsing and logging
+
+**CLI:** `sol maint` (run pending), `sol maint --list` (show status), `sol maint --force` (re-run all)
+
+**Reference implementations:**
+- Example task: `apps/dev/maint/000_example.py` - recommended patterns
+- Discovery logic: `convey/maint.py` - `discover_tasks()`, `run_task()`
+
+---
+
+### 10. `tests/` - App Tests
 
 Apps can include their own tests that are discovered and run separately from core tests.
 
@@ -323,7 +344,7 @@ apps/my_app/tests/
 
 ---
 
-### 10. `events.py` - Server-Side Event Handlers
+### 11. `events.py` - Server-Side Event Handlers
 
 Define server-side handlers that react to Callosum events. Handlers run in Convey's thread pool, enabling reactive backend logic without creating new services.
 
