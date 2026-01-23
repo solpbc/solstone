@@ -23,6 +23,7 @@ from think.entities import (
     resolve_entity,
     save_entities,
     update_entity_description,
+    validate_aka_uniqueness,
 )
 from think.facets import log_tool_action
 
@@ -465,8 +466,16 @@ def entity_add_aka(
                 "entity": entity,
             }
 
-        # Add the new aka - need to load all entities to save
+        # Load all entities for validation and saving
         entities = load_entities(facet, day=None, include_detached=True)
+
+        # Check if aka conflicts with another entity's name or aka
+        conflict = validate_aka_uniqueness(aka, entities, exclude_entity_name=resolved_name)
+        if conflict:
+            return {
+                "error": f"Alias '{aka}' conflicts with existing entity '{conflict}'",
+                "suggestion": "choose a different alias or merge the entities",
+            }
         updated_entity = None
         for e in entities:
             if e.get("name") == resolved_name:

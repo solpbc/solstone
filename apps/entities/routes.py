@@ -26,8 +26,8 @@ from think.entities import (
     load_entities,
     load_observations,
     rename_entity_memory,
-    resolve_entity,
     save_entities,
+    validate_aka_uniqueness,
 )
 
 entities_bp = Blueprint(
@@ -109,27 +109,18 @@ def get_entities(facet_name: str) -> Any:
 
 @entities_bp.route("/api/<facet_name>/entity/<entity_id>")
 def get_entity(facet_name: str, entity_id: str) -> Any:
-    """Get a single entity with observations.
+    """Get a single entity by id.
 
-    Accepts entity lookup by id (slug), name, or aka.
+    Uses exact id matching only. URL fragments always contain the entity id,
+    so fuzzy matching is not needed here (it's used by MCP tools instead).
     Includes detached entities so they can be viewed and re-attached.
     """
     try:
-        # Try to resolve the entity_id to an actual entity (include detached)
-        entity, candidates = resolve_entity(
-            facet_name, entity_id, include_detached=True
-        )
+        # Load all entities including detached, find by exact id match
+        entities = load_entities(facet_name, include_detached=True)
+        entity = next((e for e in entities if e.get("id") == entity_id), None)
+
         if entity is None:
-            if candidates:
-                suggestions = [c.get("name", "") for c in candidates[:3]]
-                return (
-                    jsonify(
-                        {
-                            "error": f"Entity '{entity_id}' not found. Did you mean: {', '.join(suggestions)}?"
-                        }
-                    ),
-                    404,
-                )
             return jsonify({"error": f"Entity '{entity_id}' not found"}), 404
 
         entity_name = entity.get("name", "")
@@ -359,6 +350,15 @@ def update_entity(facet_name: str) -> Any:
                         jsonify({"error": f"Entity '{new_name}' already exists"}),
                         409,
                     )
+
+        # Validate akas don't conflict with other entities
+        for aka in aka_list:
+            conflict = validate_aka_uniqueness(aka, entities, exclude_entity_name=old_name)
+            if conflict:
+                return (
+                    jsonify({"error": f"Alias '{aka}' conflicts with entity '{conflict}'"}),
+                    409,
+                )
 
         # Update entity
         target["name"] = new_name

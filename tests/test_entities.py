@@ -30,6 +30,7 @@ from think.entities import (
     save_observations,
     touch_entities_from_activity,
     touch_entity,
+    validate_aka_uniqueness,
 )
 
 
@@ -1256,6 +1257,75 @@ def test_find_matching_attached_entity_empty_inputs():
     assert find_matching_attached_entity("", []) is None
     assert find_matching_attached_entity("Alice", []) is None
     assert find_matching_attached_entity("", [{"name": "Alice"}]) is None
+
+
+# Tests for validate_aka_uniqueness
+
+
+def test_validate_aka_uniqueness_conflicts_with_name():
+    """Test aka that matches another entity's name is rejected."""
+    entities = [
+        {"name": "CTT", "type": "Project"},
+        {"name": "Other Project", "type": "Project"},
+    ]
+    # Adding "CTT" as aka to "Other Project" should conflict
+    result = validate_aka_uniqueness("CTT", entities, exclude_entity_name="Other Project")
+    assert result == "CTT"
+
+
+def test_validate_aka_uniqueness_conflicts_with_name_case_insensitive():
+    """Test aka collision is case-insensitive."""
+    entities = [
+        {"name": "CTT", "type": "Project"},
+        {"name": "Other Project", "type": "Project"},
+    ]
+    # "ctt" should also conflict with "CTT"
+    result = validate_aka_uniqueness("ctt", entities, exclude_entity_name="Other Project")
+    assert result == "CTT"
+
+
+def test_validate_aka_uniqueness_conflicts_with_aka():
+    """Test aka that matches another entity's aka is rejected."""
+    entities = [
+        {"name": "Robert Johnson", "type": "Person", "aka": ["Bob", "Bobby"]},
+        {"name": "Other Person", "type": "Person"},
+    ]
+    # Adding "Bob" as aka to "Other Person" should conflict
+    result = validate_aka_uniqueness("Bob", entities, exclude_entity_name="Other Person")
+    assert result == "Robert Johnson"
+
+
+def test_validate_aka_uniqueness_own_name_ok():
+    """Test adding aka that matches own name is allowed (edge case)."""
+    entities = [
+        {"name": "CTT", "type": "Project"},
+        {"name": "Other Project", "type": "Project"},
+    ]
+    # Adding "CTT" as aka to "CTT" itself is ok (exclude_entity_name filters it)
+    result = validate_aka_uniqueness("CTT", entities, exclude_entity_name="CTT")
+    assert result is None
+
+
+def test_validate_aka_uniqueness_no_conflict():
+    """Test unique aka passes validation."""
+    entities = [
+        {"name": "CTT", "type": "Project"},
+        {"name": "Other Project", "type": "Project"},
+    ]
+    # Adding "Foo" as aka should be fine
+    result = validate_aka_uniqueness("Foo", entities, exclude_entity_name="Other Project")
+    assert result is None
+
+
+def test_validate_aka_uniqueness_skips_detached():
+    """Test detached entities are not considered for conflicts."""
+    entities = [
+        {"name": "CTT", "type": "Project", "detached": True},
+        {"name": "Other Project", "type": "Project"},
+    ]
+    # "CTT" is detached, so adding it as aka should be ok
+    result = validate_aka_uniqueness("CTT", entities, exclude_entity_name="Other Project")
+    assert result is None
 
 
 # Tests for touch_entity

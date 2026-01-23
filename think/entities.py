@@ -811,6 +811,51 @@ def load_recent_entity_names(*, limit: int = 20) -> list[str] | None:
     return spoken_names
 
 
+def validate_aka_uniqueness(
+    aka: str,
+    entities: list[dict[str, Any]],
+    exclude_entity_name: str | None = None,
+    fuzzy_threshold: int = 90,
+) -> str | None:
+    """Check if an aka collides with another entity's name or aka.
+
+    Uses the same fuzzy matching logic as find_matching_attached_entity to
+    catch collisions that would cause ambiguous lookups.
+
+    Args:
+        aka: The alias to validate
+        entities: List of entity dicts to check against
+        exclude_entity_name: Entity name to exclude from checks (the entity
+                            being updated). Case-sensitive exact match.
+        fuzzy_threshold: Minimum score for fuzzy matching (default: 90)
+
+    Returns:
+        Name of conflicting entity if collision found, None if ok
+
+    Example:
+        >>> entities = [{"name": "CTT", ...}, {"name": "Other", ...}]
+        >>> validate_aka_uniqueness("CTT", entities, exclude_entity_name="Other")
+        "CTT"  # Conflicts with entity named "CTT"
+        >>> validate_aka_uniqueness("ctt", entities, exclude_entity_name="CTT")
+        None  # Ok, adding to CTT's own akas
+    """
+    # Filter out the entity being updated
+    check_entities = [
+        e for e in entities
+        if e.get("name") != exclude_entity_name and not e.get("detached")
+    ]
+
+    if not check_entities:
+        return None
+
+    # Use the existing matching function to detect collisions
+    match = find_matching_attached_entity(aka, check_entities, fuzzy_threshold)
+    if match:
+        return match.get("name")
+
+    return None
+
+
 def find_matching_attached_entity(
     detected_name: str,
     attached_entities: list[dict[str, Any]],
