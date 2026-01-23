@@ -250,14 +250,14 @@ def get_providers() -> Any:
         - providers: List of available providers with labels
         - default: Current default provider and tier
         - contexts: Configured context overrides from journal.json
-        - context_defaults: CONTEXT_DEFAULTS with labels/groups for UI
+        - context_defaults: Context registry with labels/groups for UI
         - api_keys: Boolean status for each provider's API key
     """
     try:
         from muse.models import (
-            CONTEXT_DEFAULTS,
             DEFAULT_PROVIDER,
             DEFAULT_TIER,
+            get_context_registry,
         )
         from muse.providers import get_provider_list
 
@@ -272,9 +272,9 @@ def get_providers() -> Any:
         # Get context overrides from config
         contexts = providers_config.get("contexts", {})
 
-        # Build context defaults with metadata for UI
+        # Build context defaults with metadata for UI (uses dynamic registry)
         context_defaults = {}
-        for pattern, ctx_config in CONTEXT_DEFAULTS.items():
+        for pattern, ctx_config in get_context_registry().items():
             context_defaults[pattern] = {
                 "tier": ctx_config["tier"],
                 "label": ctx_config["label"],
@@ -318,7 +318,7 @@ def update_providers() -> Any:
     Setting a context to null removes the override.
     """
     try:
-        from muse.models import CONTEXT_DEFAULTS
+        from muse.models import get_context_registry
         from muse.providers import PROVIDER_REGISTRY
 
         request_data = request.get_json()
@@ -391,10 +391,11 @@ def update_providers() -> Any:
                 config["providers"]["contexts"] = {}
 
             old_contexts = old_providers.get("contexts", {})
+            context_registry = get_context_registry()
 
             for pattern, ctx_config in contexts_data.items():
-                # Validate pattern exists in CONTEXT_DEFAULTS
-                if pattern not in CONTEXT_DEFAULTS:
+                # Validate pattern exists in context registry
+                if pattern not in context_registry:
                     return (
                         jsonify({"error": f"Unknown context pattern: {pattern}"}),
                         400,

@@ -696,18 +696,7 @@ input:checked + .slider:before {
   justify-content: space-between;
   padding: 0.75em 1em;
   background: #f8f8f8;
-  cursor: pointer;
-  user-select: none;
-  border-bottom: 1px solid transparent;
-  transition: background 0.15s;
-}
-
-.context-overrides-header:hover {
-  background: #f0f0f0;
-}
-
-.context-overrides.expanded .context-overrides-header {
-  border-bottom-color: #e0e0e0;
+  border-bottom: 1px solid #e0e0e0;
 }
 
 .context-overrides-title {
@@ -1395,10 +1384,9 @@ input:checked + .slider:before {
       <small id="providerStatus">Loading...</small>
 
       <!-- Detailed Tasks -->
-      <div class="context-overrides" id="contextOverrides">
-        <div class="context-overrides-header" id="contextOverridesHeader">
+      <div class="context-overrides expanded" id="contextOverrides">
+        <div class="context-overrides-header">
           <span class="context-overrides-title">Detailed Tasks</span>
-          <span class="context-overrides-toggle">&#9660;</span>
         </div>
         <div class="context-overrides-body" id="contextOverridesBody">
           <p style="color:#666;font-size:0.9em;margin:0 0 1em 0">Override provider or tier for specific tasks. Unset values use defaults.</p>
@@ -2722,11 +2710,6 @@ document.getElementById('field-tier').addEventListener('change', async () => {
     console.error('Error saving tier:', err);
     showFieldStatus(document.getElementById('field-tier'), 'error', err.message);
   }
-});
-
-// Context overrides collapsible toggle
-document.getElementById('contextOverridesHeader').addEventListener('click', () => {
-  document.getElementById('contextOverrides').classList.toggle('expanded');
 });
 
 // ========== TRANSCRIPTION ==========

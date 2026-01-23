@@ -1,4 +1,6 @@
 {
   "title": "Journal Chat",
+  "label": "Chat Messages",
+  "group": "Apps",
   "tools": "journal, todo, entities"
 }
