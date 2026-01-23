@@ -247,14 +247,12 @@ def test_save_and_load_entities(fixture_journal, tmp_path):
 
 
 def test_save_entities_sorting(fixture_journal, tmp_path):
-    """Test that saved entities are sorted by type then name."""
+    """Test that entities can be saved and loaded back correctly."""
     facet_path = tmp_path / "facets" / "test_facet"
     facet_path.mkdir(parents=True)
     os.environ["JOURNAL_PATH"] = str(tmp_path)
 
     # Save unsorted entities
-    import json
-
     unsorted = [
         {
             "type": "Project",
@@ -267,15 +265,27 @@ def test_save_entities_sorting(fixture_journal, tmp_path):
     ]
     save_entities("test_facet", unsorted)
 
-    # Verify sorting in file (JSONL format)
-    entity_file = facet_path / "entities.jsonl"
-    lines = entity_file.read_text().strip().split("\n")
-    entities = [json.loads(line) for line in lines if line]
+    # Verify entities are saved to new structure and can be loaded
+    loaded = load_entities("test_facet")
 
-    assert entities[0]["type"] == "Company" and entities[0]["name"] == "Acme"
-    assert entities[1]["type"] == "Company" and entities[1]["name"] == "Beta Corp"
-    assert entities[2]["type"] == "Person" and entities[2]["name"] == "Alice"
-    assert entities[3]["type"] == "Project" and entities[3]["name"] == "Zebra Project"
+    # All entities should be present
+    assert len(loaded) == 4
+
+    # Find each entity by name
+    names = {e["name"] for e in loaded}
+    assert "Zebra Project" in names
+    assert "Acme" in names
+    assert "Alice" in names
+    assert "Beta Corp" in names
+
+    # Verify journal-level entities were created
+    from think.entities import scan_journal_entities
+
+    journal_ids = scan_journal_entities()
+    assert "zebra_project" in journal_ids
+    assert "acme" in journal_ids
+    assert "alice" in journal_ids
+    assert "beta_corp" in journal_ids
 
 
 def test_load_all_attached_entities(fixture_journal):
@@ -1269,7 +1279,9 @@ def test_validate_aka_uniqueness_conflicts_with_name():
         {"name": "Other Project", "type": "Project"},
     ]
     # Adding "CTT" as aka to "Other Project" should conflict
-    result = validate_aka_uniqueness("CTT", entities, exclude_entity_name="Other Project")
+    result = validate_aka_uniqueness(
+        "CTT", entities, exclude_entity_name="Other Project"
+    )
     assert result == "CTT"
 
 
@@ -1280,7 +1292,9 @@ def test_validate_aka_uniqueness_conflicts_with_name_case_insensitive():
         {"name": "Other Project", "type": "Project"},
     ]
     # "ctt" should also conflict with "CTT"
-    result = validate_aka_uniqueness("ctt", entities, exclude_entity_name="Other Project")
+    result = validate_aka_uniqueness(
+        "ctt", entities, exclude_entity_name="Other Project"
+    )
     assert result == "CTT"
 
 
@@ -1291,7 +1305,9 @@ def test_validate_aka_uniqueness_conflicts_with_aka():
         {"name": "Other Person", "type": "Person"},
     ]
     # Adding "Bob" as aka to "Other Person" should conflict
-    result = validate_aka_uniqueness("Bob", entities, exclude_entity_name="Other Person")
+    result = validate_aka_uniqueness(
+        "Bob", entities, exclude_entity_name="Other Person"
+    )
     assert result == "Robert Johnson"
 
 
@@ -1313,7 +1329,9 @@ def test_validate_aka_uniqueness_no_conflict():
         {"name": "Other Project", "type": "Project"},
     ]
     # Adding "Foo" as aka should be fine
-    result = validate_aka_uniqueness("Foo", entities, exclude_entity_name="Other Project")
+    result = validate_aka_uniqueness(
+        "Foo", entities, exclude_entity_name="Other Project"
+    )
     assert result is None
 
 
@@ -1324,7 +1342,9 @@ def test_validate_aka_uniqueness_skips_detached():
         {"name": "Other Project", "type": "Project"},
     ]
     # "CTT" is detached, so adding it as aka should be ok
-    result = validate_aka_uniqueness("CTT", entities, exclude_entity_name="Other Project")
+    result = validate_aka_uniqueness(
+        "CTT", entities, exclude_entity_name="Other Project"
+    )
     assert result is None
 
 

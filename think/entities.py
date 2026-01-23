@@ -1,7 +1,17 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 # Copyright (c) 2026 sol pbc
 
-"""Facet-scoped entity utilities for detected and attached entities."""
+"""Entity management with journal-wide identity and facet-scoped relationships.
+
+Entity System Architecture:
+- Journal-level entities: entities/<id>/entity.json - canonical identity (name, type, aka)
+- Facet relationships: facets/<facet>/entities/<id>/entity.json - per-facet data
+- Detected entities: facets/<facet>/entities/<day>.jsonl - ephemeral daily discoveries
+- Entity memory: facets/<facet>/entities/<id>/ - voiceprints, observations (per-facet)
+
+The system supports both the new structure and legacy entities.jsonl files for
+backwards compatibility during migration.
+"""
 
 import hashlib
 import json
@@ -243,6 +253,347 @@ def rename_entity_memory(facet: str, old_name: str, new_name: str) -> bool:
     return True
 
 
+# -----------------------------------------------------------------------------
+# Journal-Level Entity Functions
+# -----------------------------------------------------------------------------
+
+
+def journal_entity_path(entity_id: str) -> Path:
+    """Return path to journal-level entity file.
+
+    Args:
+        entity_id: Entity ID (slug)
+
+    Returns:
+        Path to entities/<id>/entity.json
+    """
+    return Path(get_journal()) / "entities" / entity_id / "entity.json"
+
+
+def load_journal_entity(entity_id: str) -> dict[str, Any] | None:
+    """Load a journal-level entity by ID.
+
+    Args:
+        entity_id: Entity ID (slug)
+
+    Returns:
+        Entity dict with id, name, type, aka, is_principal, created_at fields,
+        or None if not found.
+    """
+    path = journal_entity_path(entity_id)
+    if not path.exists():
+        return None
+
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        # Ensure id is present
+        data["id"] = entity_id
+        return data
+    except (json.JSONDecodeError, OSError):
+        return None
+
+
+def save_journal_entity(entity: dict[str, Any]) -> None:
+    """Save a journal-level entity using atomic write.
+
+    The entity must have an 'id' field. Creates the directory if needed.
+
+    Args:
+        entity: Entity dict with id, name, type, aka (optional), is_principal (optional),
+                created_at fields.
+
+    Raises:
+        ValueError: If entity has no id field
+    """
+    entity_id = entity.get("id")
+    if not entity_id:
+        raise ValueError("Entity must have an 'id' field")
+
+    path = journal_entity_path(entity_id)
+    path.parent.mkdir(parents=True, exist_ok=True)
+
+    # Atomic write
+    fd, temp_path = tempfile.mkstemp(dir=path.parent, prefix=".entity_", suffix=".tmp")
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            json.dump(entity, f, ensure_ascii=False, indent=2)
+            f.write("\n")
+        os.replace(temp_path, path)
+    except Exception:
+        try:
+            os.unlink(temp_path)
+        except Exception:
+            pass
+        raise
+
+
+def scan_journal_entities() -> list[str]:
+    """List all entity IDs from journal-level entities.
+
+    Scans entities/ directory for subdirectories containing entity.json.
+
+    Returns:
+        List of entity IDs (directory names)
+    """
+    entities_dir = Path(get_journal()) / "entities"
+    if not entities_dir.exists():
+        return []
+
+    entity_ids = []
+    for entry in entities_dir.iterdir():
+        if entry.is_dir() and (entry / "entity.json").exists():
+            entity_ids.append(entry.name)
+
+    return sorted(entity_ids)
+
+
+def load_all_journal_entities() -> dict[str, dict[str, Any]]:
+    """Load all journal-level entities.
+
+    Returns:
+        Dict mapping entity_id to entity dict
+    """
+    entity_ids = scan_journal_entities()
+    entities = {}
+    for entity_id in entity_ids:
+        entity = load_journal_entity(entity_id)
+        if entity:
+            entities[entity_id] = entity
+    return entities
+
+
+def has_journal_principal() -> bool:
+    """Check if any journal entity is already flagged as principal.
+
+    Returns:
+        True if a principal entity exists, False otherwise
+    """
+    for entity_id in scan_journal_entities():
+        entity = load_journal_entity(entity_id)
+        if entity and entity.get("is_principal"):
+            return True
+    return False
+
+
+def _should_be_principal(name: str, aka: list[str] | None) -> bool:
+    """Check if an entity should be flagged as principal based on identity config.
+
+    Args:
+        name: Entity name
+        aka: Optional list of aliases
+
+    Returns:
+        True if the entity matches identity config, False otherwise
+    """
+    identity_names = get_identity_names()
+    if not identity_names:
+        return False
+
+    # Check if name or any aka matches identity
+    names_to_check = [name.lower()]
+    if aka:
+        names_to_check.extend(a.lower() for a in aka)
+
+    for identity_name in identity_names:
+        if identity_name.lower() in names_to_check:
+            return True
+
+    return False
+
+
+def get_or_create_journal_entity(
+    entity_id: str,
+    name: str,
+    entity_type: str,
+    aka: list[str] | None = None,
+    *,
+    skip_principal: bool = False,
+) -> dict[str, Any]:
+    """Get existing journal entity or create new one.
+
+    If entity exists, returns it unchanged (does not update fields).
+    If entity doesn't exist, creates it with provided values.
+
+    Args:
+        entity_id: Entity ID (slug)
+        name: Entity name
+        entity_type: Entity type (e.g., "Person", "Company")
+        aka: Optional list of aliases
+        skip_principal: If True, don't flag as principal even if matches identity
+
+    Returns:
+        The existing or newly created entity dict
+    """
+    existing = load_journal_entity(entity_id)
+    if existing:
+        return existing
+
+    # Create new entity
+    entity = {
+        "id": entity_id,
+        "name": name,
+        "type": entity_type,
+        "created_at": int(time.time() * 1000),
+    }
+    if aka:
+        entity["aka"] = aka
+
+    # Check if this should be the principal
+    # Only flag if: matches identity, no existing principal, and not skipped
+    if (
+        not skip_principal
+        and _should_be_principal(name, aka)
+        and not has_journal_principal()
+    ):
+        entity["is_principal"] = True
+
+    save_journal_entity(entity)
+    return entity
+
+
+# -----------------------------------------------------------------------------
+# Facet Relationship Functions
+# -----------------------------------------------------------------------------
+
+
+def facet_relationship_path(facet: str, entity_id: str) -> Path:
+    """Return path to facet relationship file.
+
+    Args:
+        facet: Facet name
+        entity_id: Entity ID (slug)
+
+    Returns:
+        Path to facets/<facet>/entities/<id>/entity.json
+    """
+    return (
+        Path(get_journal()) / "facets" / facet / "entities" / entity_id / "entity.json"
+    )
+
+
+def load_facet_relationship(facet: str, entity_id: str) -> dict[str, Any] | None:
+    """Load a facet relationship for an entity.
+
+    Args:
+        facet: Facet name
+        entity_id: Entity ID (slug)
+
+    Returns:
+        Relationship dict with entity_id, description, timestamps, etc.,
+        or None if not found.
+    """
+    path = facet_relationship_path(facet, entity_id)
+    if not path.exists():
+        return None
+
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        # Ensure entity_id is present
+        data["entity_id"] = entity_id
+        return data
+    except (json.JSONDecodeError, OSError):
+        return None
+
+
+def save_facet_relationship(
+    facet: str, entity_id: str, relationship: dict[str, Any]
+) -> None:
+    """Save a facet relationship using atomic write.
+
+    Creates the directory if needed.
+
+    Args:
+        facet: Facet name
+        entity_id: Entity ID (slug)
+        relationship: Relationship dict with description, timestamps, etc.
+    """
+    path = facet_relationship_path(facet, entity_id)
+    path.parent.mkdir(parents=True, exist_ok=True)
+
+    # Ensure entity_id is in the relationship
+    relationship["entity_id"] = entity_id
+
+    # Atomic write
+    fd, temp_path = tempfile.mkstemp(
+        dir=path.parent, prefix=".relationship_", suffix=".tmp"
+    )
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            json.dump(relationship, f, ensure_ascii=False, indent=2)
+            f.write("\n")
+        os.replace(temp_path, path)
+    except Exception:
+        try:
+            os.unlink(temp_path)
+        except Exception:
+            pass
+        raise
+
+
+def scan_facet_relationships(facet: str) -> list[str]:
+    """List all entity IDs with relationships in a facet.
+
+    Scans facets/<facet>/entities/ for subdirectories containing entity.json.
+
+    Args:
+        facet: Facet name
+
+    Returns:
+        List of entity IDs (directory names)
+    """
+    entities_dir = Path(get_journal()) / "facets" / facet / "entities"
+    if not entities_dir.exists():
+        return []
+
+    entity_ids = []
+    for entry in entities_dir.iterdir():
+        if entry.is_dir() and (entry / "entity.json").exists():
+            entity_ids.append(entry.name)
+
+    return sorted(entity_ids)
+
+
+def _enrich_relationship_with_journal(
+    relationship: dict[str, Any],
+    journal_entity: dict[str, Any] | None,
+) -> dict[str, Any]:
+    """Merge journal entity fields into relationship for unified view.
+
+    Creates a combined entity dict that looks like the legacy format,
+    with identity fields (name, type, aka, is_principal) from journal
+    and relationship fields (description, timestamps, etc.) from facet.
+
+    Args:
+        relationship: Facet relationship dict
+        journal_entity: Journal-level entity dict (or None)
+
+    Returns:
+        Merged entity dict with all fields
+    """
+    # Start with relationship data
+    result = dict(relationship)
+
+    # Add identity fields from journal entity
+    if journal_entity:
+        result["id"] = journal_entity.get("id", relationship.get("entity_id", ""))
+        result["name"] = journal_entity.get("name", "")
+        result["type"] = journal_entity.get("type", "")
+        if journal_entity.get("aka"):
+            result["aka"] = journal_entity["aka"]
+        if journal_entity.get("is_principal"):
+            result["is_principal"] = True
+    else:
+        # No journal entity - use entity_id as id
+        result["id"] = relationship.get("entity_id", "")
+
+    # Remove entity_id from result (use id instead)
+    result.pop("entity_id", None)
+
+    return result
+
+
 def parse_entity_file(
     file_path: str, *, validate_types: bool = True
 ) -> list[dict[str, Any]]:
@@ -327,14 +678,97 @@ def entity_file_path(facet: str, day: Optional[str] = None) -> Path:
         return facet_path / "entities" / f"{day}.jsonl"
 
 
+def _load_entities_new_structure(
+    facet: str, *, include_detached: bool = False
+) -> list[dict[str, Any]] | None:
+    """Load attached entities from new structure (facet relationships + journal entities).
+
+    Returns None if no new-structure entities exist (fall back to legacy).
+    Returns list of enriched entities if any new-structure relationships found.
+    """
+    entity_ids = scan_facet_relationships(facet)
+    if not entity_ids:
+        return None  # No new structure, fall back to legacy
+
+    # Load all journal entities for enrichment
+    journal_entities = load_all_journal_entities()
+
+    entities = []
+    for entity_id in entity_ids:
+        relationship = load_facet_relationship(facet, entity_id)
+        if relationship is None:
+            continue
+
+        # Skip detached if not requested
+        if not include_detached and relationship.get("detached"):
+            continue
+
+        # Enrich with journal entity data
+        journal_entity = journal_entities.get(entity_id)
+        enriched = _enrich_relationship_with_journal(relationship, journal_entity)
+        entities.append(enriched)
+
+    return entities
+
+
+def _load_entities_legacy(
+    facet: str, *, include_detached: bool = False
+) -> list[dict[str, Any]]:
+    """Load attached entities from legacy entities.jsonl file.
+
+    Includes deduplication logic for self-healing corrupted files.
+    """
+    import logging
+
+    path = entity_file_path(facet, day=None)
+    entities = parse_entity_file(str(path))
+
+    # Deduplicate by name (case-insensitive) to self-heal
+    seen: dict[str, dict[str, Any]] = {}
+    duplicates_found = []
+
+    for entity in entities:
+        name = entity.get("name", "")
+        name_lower = name.lower()
+
+        if name_lower in seen:
+            # Duplicate found - keep the one with most recent activity
+            existing = seen[name_lower]
+            existing_time = entity_last_active_ts(existing)
+            current_time = entity_last_active_ts(entity)
+
+            if current_time > existing_time:
+                duplicates_found.append(existing.get("name", ""))
+                seen[name_lower] = entity
+            else:
+                duplicates_found.append(name)
+        else:
+            seen[name_lower] = entity
+
+    if duplicates_found:
+        logging.info(
+            f"Healed {len(duplicates_found)} duplicate entities in facet "
+            f"'{facet}': {duplicates_found}"
+        )
+
+    entities = list(seen.values())
+
+    # Filter out detached if not requested
+    if not include_detached:
+        entities = [e for e in entities if not e.get("detached")]
+
+    return entities
+
+
 def load_entities(
     facet: str, day: Optional[str] = None, *, include_detached: bool = False
 ) -> list[dict[str, Any]]:
-    """Load entities from facet entity file.
+    """Load entities from facet.
 
-    For attached entities (day=None), automatically deduplicates by name
-    (case-insensitive) to self-heal corrupted files. When duplicates exist,
-    keeps the most recently updated entity.
+    For attached entities (day=None), tries new structure first (facet relationships
+    enriched with journal entities), then falls back to legacy entities.jsonl.
+
+    For detected entities (day provided), loads from day-specific JSONL files.
 
     Args:
         facet: Facet name
@@ -344,56 +778,24 @@ def load_entities(
                          Only applies to attached entities (day=None).
 
     Returns:
-        List of entity dictionaries with type, name, and description keys
+        List of entity dictionaries with id, type, name, description, and other fields.
 
     Example:
         >>> load_entities("personal")
-        [{"type": "Person", "name": "John Smith", "description": "Friend from college"}]
+        [{"id": "john_smith", "type": "Person", "name": "John Smith", "description": "Friend"}]
     """
-    import logging
+    # For detected entities, use day-specific files (unchanged)
+    if day is not None:
+        path = entity_file_path(facet, day)
+        return parse_entity_file(str(path))
 
-    path = entity_file_path(facet, day)
-    entities = parse_entity_file(str(path))
+    # For attached entities, try new structure first
+    entities = _load_entities_new_structure(facet, include_detached=include_detached)
+    if entities is not None:
+        return entities
 
-    # For attached entities, deduplicate by name (case-insensitive) to self-heal
-    if day is None:
-        seen: dict[str, dict[str, Any]] = {}
-        duplicates_found = []
-
-        for entity in entities:
-            name = entity.get("name", "")
-            name_lower = name.lower()
-
-            if name_lower in seen:
-                # Duplicate found - keep the one with most recent activity
-                existing = seen[name_lower]
-                existing_time = entity_last_active_ts(existing)
-                current_time = entity_last_active_ts(entity)
-
-                if current_time > existing_time:
-                    duplicates_found.append(existing.get("name", ""))
-                    seen[name_lower] = entity
-                else:
-                    duplicates_found.append(name)
-            else:
-                seen[name_lower] = entity
-
-        if duplicates_found:
-            logging.info(
-                f"Healed {len(duplicates_found)} duplicate entities in facet "
-                f"'{facet}': {duplicates_found}"
-            )
-
-        entities = list(seen.values())
-
-        # Filter out detached if not requested
-        if not include_detached:
-            entities = [e for e in entities if not e.get("detached")]
-    else:
-        # For detected entities (day files), no deduplication needed
-        pass
-
-    return entities
+    # Fall back to legacy structure
+    return _load_entities_legacy(facet, include_detached=include_detached)
 
 
 def _ensure_principal_flag(entities: list[dict[str, Any]]) -> None:
@@ -446,18 +848,142 @@ def _ensure_principal_flag(entities: list[dict[str, Any]]) -> None:
             return
 
 
+def _save_entities_detected(
+    facet: str, entities: list[dict[str, Any]], day: str
+) -> None:
+    """Save detected entities to day-specific JSONL file."""
+    path = entity_file_path(facet, day)
+    path.parent.mkdir(parents=True, exist_ok=True)
+
+    # Ensure id field is present
+    for entity in entities:
+        name = entity.get("name", "")
+        expected_id = entity_slug(name)
+        if entity.get("id") != expected_id:
+            entity["id"] = expected_id
+
+    # Sort by type, then name for consistency
+    sorted_entities = sorted(
+        entities, key=lambda e: (e.get("type", ""), e.get("name", ""))
+    )
+
+    # Format as JSONL and write atomically
+    lines = [json.dumps(e, ensure_ascii=False) + "\n" for e in sorted_entities]
+
+    fd, temp_path = tempfile.mkstemp(
+        dir=path.parent, prefix=".entities_", suffix=".tmp"
+    )
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            f.writelines(lines)
+        os.replace(temp_path, path)
+    except Exception:
+        try:
+            os.unlink(temp_path)
+        except Exception:
+            pass
+        raise
+
+
+def _save_entities_attached(facet: str, entities: list[dict[str, Any]]) -> None:
+    """Save attached entities to new structure (journal entities + facet relationships)."""
+    # Validate uniqueness
+    seen_names: set[str] = set()
+    seen_ids: set[str] = set()
+
+    for entity in entities:
+        name = entity.get("name", "")
+        expected_id = entity_slug(name)
+
+        # Set or update id
+        if entity.get("id") != expected_id:
+            entity["id"] = expected_id
+
+        name_lower = name.lower()
+        if name_lower in seen_names:
+            raise ValueError(f"Duplicate entity name '{name}' in facet '{facet}'")
+        seen_names.add(name_lower)
+
+        if expected_id in seen_ids:
+            raise ValueError(
+                f"Duplicate entity id '{expected_id}' in facet '{facet}' "
+                f"(names may slugify to same value)"
+            )
+        seen_ids.add(expected_id)
+
+    # Fields that belong to journal entity (identity)
+    journal_fields = {"id", "name", "type", "aka", "is_principal", "created_at"}
+
+    # Process each entity
+    for entity in entities:
+        entity_id = entity["id"]
+        name = entity.get("name", "")
+        entity_type = entity.get("type", "")
+        aka = entity.get("aka")
+        is_detached = entity.get("detached", False)
+
+        # Ensure journal entity exists (creates if needed, preserves if exists)
+        # Skip principal flagging for detached entities
+        journal_entity = get_or_create_journal_entity(
+            entity_id=entity_id,
+            name=name,
+            entity_type=entity_type,
+            aka=aka if isinstance(aka, list) else None,
+            skip_principal=is_detached,
+        )
+
+        # Update journal entity if name/type/aka changed
+        journal_updated = False
+        if journal_entity.get("name") != name:
+            journal_entity["name"] = name
+            journal_updated = True
+        if journal_entity.get("type") != entity_type:
+            journal_entity["type"] = entity_type
+            journal_updated = True
+        if aka and isinstance(aka, list):
+            # Merge aka lists (union)
+            existing_aka = set(journal_entity.get("aka", []))
+            new_aka = existing_aka | set(aka)
+            if new_aka != existing_aka:
+                journal_entity["aka"] = sorted(new_aka)
+                journal_updated = True
+        # Only propagate is_principal if explicitly set and entity not detached
+        if (
+            entity.get("is_principal")
+            and not is_detached
+            and not journal_entity.get("is_principal")
+        ):
+            journal_entity["is_principal"] = True
+            journal_updated = True
+
+        if journal_updated:
+            save_journal_entity(journal_entity)
+
+        # Build relationship record (all non-identity fields)
+        relationship = {
+            "entity_id": entity_id,
+        }
+        for key, value in entity.items():
+            if key not in journal_fields:
+                relationship[key] = value
+
+        # Save facet relationship
+        save_facet_relationship(facet, entity_id, relationship)
+
+
 def save_entities(
     facet: str, entities: list[dict[str, Any]], day: Optional[str] = None
 ) -> None:
-    """Save entities to facet entity file using atomic write.
+    """Save entities to new structure.
+
+    For detected entities (day provided), writes to day-specific JSONL files.
+    For attached entities (day=None), writes to:
+    - Journal-level entity files: entities/<id>/entity.json (identity)
+    - Facet relationship files: facets/<facet>/entities/<id>/entity.json
 
     Ensures all entities have an `id` field (generates from name if missing).
-    For attached entities (day=None), validates name uniqueness within the facet
-    and ensures the principal entity is flagged if one matches identity config.
-
-    The principal is the journal owner - identified by matching entity names
-    against identity.name, identity.preferred, or identity.aliases from the
-    journal config. Only one entity per facet can be the principal.
+    For attached entities, validates name uniqueness within the facet and
+    ensures the principal entity is flagged at the journal level.
 
     Args:
         facet: Facet name
@@ -468,68 +994,10 @@ def save_entities(
     Raises:
         ValueError: If duplicate names found in attached entities (day=None)
     """
-    path = entity_file_path(facet, day)
-
-    # Create parent directory if needed
-    path.parent.mkdir(parents=True, exist_ok=True)
-
-    # Ensure id field is present and validate uniqueness for attached entities
-    seen_names: set[str] = set()
-    seen_ids: set[str] = set()
-
-    for entity in entities:
-        name = entity.get("name", "")
-
-        # Always compute expected id from name (id should match name slug)
-        expected_id = entity_slug(name)
-
-        # Set or update id to match expected
-        if entity.get("id") != expected_id:
-            entity["id"] = expected_id
-
-        # Validate uniqueness for attached entities only
-        if day is None:
-            name_lower = name.lower()
-            if name_lower in seen_names:
-                raise ValueError(f"Duplicate entity name '{name}' in facet '{facet}'")
-            seen_names.add(name_lower)
-
-            if expected_id in seen_ids:
-                raise ValueError(
-                    f"Duplicate entity id '{expected_id}' in facet '{facet}' "
-                    f"(names may slugify to same value)"
-                )
-            seen_ids.add(expected_id)
-
-    # For attached entities, ensure principal is flagged if one matches identity
-    if day is None:
-        _ensure_principal_flag(entities)
-
-    # Sort entities by type, then name for consistency
-    sorted_entities = sorted(
-        entities, key=lambda e: (e.get("type", ""), e.get("name", ""))
-    )
-
-    # Format entities as JSONL
-    lines = []
-    for entity in sorted_entities:
-        lines.append(json.dumps(entity, ensure_ascii=False) + "\n")
-
-    # Atomic write using temp file + rename
-    fd, temp_path = tempfile.mkstemp(
-        dir=path.parent, prefix=".entities_", suffix=".tmp"
-    )
-    try:
-        with os.fdopen(fd, "w", encoding="utf-8") as f:
-            f.writelines(lines)
-        os.replace(temp_path, path)
-    except Exception:
-        # Clean up temp file on error
-        try:
-            os.unlink(temp_path)
-        except Exception:
-            pass
-        raise
+    if day is not None:
+        _save_entities_detected(facet, entities, day)
+    else:
+        _save_entities_attached(facet, entities)
 
 
 def update_entity_description(
@@ -591,7 +1059,10 @@ def load_all_attached_entities(
     """Load all attached entities from all facets with deduplication.
 
     Iterates facets in sorted (alphabetical) order. When the same entity
-    name appears in multiple facets, keeps the first occurrence.
+    ID appears in multiple facets, keeps the first occurrence.
+
+    Uses load_entities() for each facet, which handles both new structure
+    (journal entities + facet relationships) and legacy entities.jsonl.
 
     Args:
         sort_by: Optional field to sort by. Currently supports "last_seen"
@@ -600,11 +1071,11 @@ def load_all_attached_entities(
                deduplication and sorting).
 
     Returns:
-        List of entity dictionaries, deduplicated by name
+        List of entity dictionaries, deduplicated by id
 
     Example:
         >>> load_all_attached_entities()
-        [{"type": "Person", "name": "John Smith", "description": "Friend from college"}, ...]
+        [{"id": "john_smith", "type": "Person", "name": "John Smith", ...}, ...]
 
         >>> load_all_attached_entities(sort_by="last_seen", limit=20)
         # Returns 20 most recently seen entities
@@ -617,8 +1088,8 @@ def load_all_attached_entities(
     if not facets_dir.exists():
         return []
 
-    # Track seen names for deduplication
-    seen_names: set[str] = set()
+    # Track seen IDs for deduplication (use ID instead of name for uniqueness)
+    seen_ids: set[str] = set()
     all_entities: list[dict[str, Any]] = []
 
     # Process facets in sorted order for deterministic results
@@ -626,19 +1097,14 @@ def load_all_attached_entities(
         if not facet_path.is_dir():
             continue
 
-        entities_file = facet_path / "entities.jsonl"
-        if not entities_file.exists():
-            continue
+        facet_name = facet_path.name
 
-        # Use parse_entity_file for consistency
-        for entity in parse_entity_file(str(entities_file)):
-            # Skip detached entities
-            if entity.get("detached"):
-                continue
-            name = entity.get("name", "")
-            # Keep first occurrence only
-            if name and name not in seen_names:
-                seen_names.add(name)
+        # Use load_entities which handles both new and legacy structures
+        for entity in load_entities(facet_name, include_detached=False):
+            entity_id = entity.get("id", "")
+            # Keep first occurrence only (deduplicate by ID)
+            if entity_id and entity_id not in seen_ids:
+                seen_ids.add(entity_id)
                 all_entities.append(entity)
 
     # Sort if requested
@@ -841,7 +1307,8 @@ def validate_aka_uniqueness(
     """
     # Filter out the entity being updated
     check_entities = [
-        e for e in entities
+        e
+        for e in entities
         if e.get("name") != exclude_entity_name and not e.get("detached")
     ]
 
