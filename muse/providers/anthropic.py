@@ -585,7 +585,9 @@ def generate(
 
     # Validate stop reason for JSON output
     if json_output and response.stop_reason != "end_turn":
-        raise IncompleteJSONError(reason=response.stop_reason or "unknown", partial_text=text)
+        raise IncompleteJSONError(
+            reason=response.stop_reason or "unknown", partial_text=text
+        )
 
     # Log token usage
     usage_dict = _extract_usage_dict(response)
@@ -657,7 +659,9 @@ async def agenerate(
 
     # Validate stop reason for JSON output
     if json_output and response.stop_reason != "end_turn":
-        raise IncompleteJSONError(reason=response.stop_reason or "unknown", partial_text=text)
+        raise IncompleteJSONError(
+            reason=response.stop_reason or "unknown", partial_text=text
+        )
 
     # Log token usage
     usage_dict = _extract_usage_dict(response)

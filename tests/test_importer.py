@@ -6,7 +6,7 @@ import importlib
 import json
 import subprocess
 from pathlib import Path
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 from think.utils import day_path
 
@@ -146,7 +146,9 @@ def test_get_audio_duration_failure(tmp_path):
     audio_file = tmp_path / "test.mp3"
     audio_file.write_bytes(b"fake audio")
 
-    with patch("subprocess.run", side_effect=subprocess.CalledProcessError(1, "ffprobe")):
+    with patch(
+        "subprocess.run", side_effect=subprocess.CalledProcessError(1, "ffprobe")
+    ):
         duration = mod._get_audio_duration(str(audio_file))
         assert duration is None
 

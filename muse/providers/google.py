@@ -156,7 +156,9 @@ def _validate_response(response: Any, json_output: bool = False) -> str:
     if json_output:
         normalized = (finish_reason or "").upper().replace("FINISHREASON.", "")
         if normalized != "STOP":
-            raise IncompleteJSONError(reason=finish_reason or "unknown", partial_text=text)
+            raise IncompleteJSONError(
+                reason=finish_reason or "unknown", partial_text=text
+            )
 
     # Return text or user-friendly completion message
     if text:

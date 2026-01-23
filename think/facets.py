@@ -627,7 +627,9 @@ def facet_summaries(*, detailed_entities: bool = False) -> str:
 
                     if display_entities:
                         # Build semicolon-separated names list
-                        entity_names = "; ".join(e.get("name", "") for e in display_entities)
+                        entity_names = "; ".join(
+                            e.get("name", "") for e in display_entities
+                        )
                         lines.append(f"  - **{title} Entities**: {entity_names}")
         except Exception:
             # No entities file or error loading - that's fine, skip it

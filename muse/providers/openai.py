@@ -620,7 +620,9 @@ def generate(
 
     # Validate finish reason for JSON output
     if json_output and choice.finish_reason != "stop":
-        raise IncompleteJSONError(reason=choice.finish_reason or "unknown", partial_text=text)
+        raise IncompleteJSONError(
+            reason=choice.finish_reason or "unknown", partial_text=text
+        )
 
     # Log token usage
     if response.usage:
@@ -679,7 +681,9 @@ async def agenerate(
 
     # Validate finish reason for JSON output
     if json_output and choice.finish_reason != "stop":
-        raise IncompleteJSONError(reason=choice.finish_reason or "unknown", partial_text=text)
+        raise IncompleteJSONError(
+            reason=choice.finish_reason or "unknown", partial_text=text
+        )
 
     # Log token usage
     if response.usage:
