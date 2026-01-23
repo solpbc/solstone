@@ -7,7 +7,14 @@ from pathlib import Path
 
 import pytest
 
-from think.facets import facet_summaries, facet_summary, get_active_facets, get_facets
+from think.facets import (
+    _format_principal_role,
+    _get_principal_display_name,
+    facet_summaries,
+    facet_summary,
+    get_active_facets,
+    get_facets,
+)
 
 # Use the permanent fixtures in fixtures/journal/facets/
 FIXTURES_PATH = Path(__file__).parent.parent / "fixtures" / "journal"
@@ -318,3 +325,251 @@ def test_get_active_facets_default_occurred(monkeypatch, tmp_path):
     active = get_active_facets("20240115")
 
     assert active == {"legacy"}
+
+
+# ============================================================================
+# Principal role in facet summaries tests
+# ============================================================================
+
+
+def test_get_principal_display_name_preferred(tmp_path, monkeypatch):
+    """Test _get_principal_display_name returns preferred name."""
+    import json
+
+    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+
+    config_dir = tmp_path / "config"
+    config_dir.mkdir()
+    config = {"identity": {"name": "Jeremy Miller", "preferred": "Jer"}}
+    (config_dir / "journal.json").write_text(json.dumps(config))
+
+    assert _get_principal_display_name() == "Jer"
+
+
+def test_get_principal_display_name_fallback_to_name(tmp_path, monkeypatch):
+    """Test _get_principal_display_name falls back to name when no preferred."""
+    import json
+
+    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+
+    config_dir = tmp_path / "config"
+    config_dir.mkdir()
+    config = {"identity": {"name": "Jeremy Miller", "preferred": ""}}
+    (config_dir / "journal.json").write_text(json.dumps(config))
+
+    assert _get_principal_display_name() == "Jeremy Miller"
+
+
+def test_get_principal_display_name_none_when_empty(tmp_path, monkeypatch):
+    """Test _get_principal_display_name returns None when identity empty."""
+    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+    # No config file
+
+    assert _get_principal_display_name() is None
+
+
+def test_format_principal_role_with_principal(tmp_path, monkeypatch):
+    """Test _format_principal_role extracts and formats principal."""
+    import json
+
+    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+
+    config_dir = tmp_path / "config"
+    config_dir.mkdir()
+    config = {"identity": {"name": "Jeremy", "preferred": "Jer"}}
+    (config_dir / "journal.json").write_text(json.dumps(config))
+
+    entities = [
+        {"name": "Jeremy", "description": "Software engineer", "is_principal": True},
+        {"name": "Bob", "description": "Friend"},
+    ]
+
+    role_line, filtered = _format_principal_role(entities)
+
+    assert role_line == "**Jer's Role**: Software engineer"
+    assert len(filtered) == 1
+    assert filtered[0]["name"] == "Bob"
+
+
+def test_format_principal_role_no_principal(tmp_path, monkeypatch):
+    """Test _format_principal_role returns None when no principal."""
+    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+
+    entities = [
+        {"name": "Alice", "description": "Friend"},
+        {"name": "Bob", "description": "Colleague"},
+    ]
+
+    role_line, filtered = _format_principal_role(entities)
+
+    assert role_line is None
+    assert filtered == entities
+
+
+def test_format_principal_role_no_description(tmp_path, monkeypatch):
+    """Test _format_principal_role returns None when principal has no description."""
+    import json
+
+    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+
+    config_dir = tmp_path / "config"
+    config_dir.mkdir()
+    config = {"identity": {"name": "Jeremy", "preferred": "Jer"}}
+    (config_dir / "journal.json").write_text(json.dumps(config))
+
+    entities = [
+        {"name": "Jeremy", "description": "", "is_principal": True},
+        {"name": "Bob", "description": "Friend"},
+    ]
+
+    role_line, filtered = _format_principal_role(entities)
+
+    # No role line because description is empty
+    assert role_line is None
+    # But principal is still filtered out
+    assert filtered == entities
+
+
+def test_format_principal_role_no_identity(tmp_path, monkeypatch):
+    """Test _format_principal_role returns None when no identity configured."""
+    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+    # No config file
+
+    entities = [
+        {"name": "Jeremy", "description": "Engineer", "is_principal": True},
+        {"name": "Bob", "description": "Friend"},
+    ]
+
+    role_line, filtered = _format_principal_role(entities)
+
+    # No role line because no identity config
+    assert role_line is None
+    # Entities unchanged
+    assert filtered == entities
+
+
+def test_facet_summary_with_principal(tmp_path, monkeypatch):
+    """Test facet_summary shows principal role and excludes from entities list."""
+    import json
+
+    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+
+    # Create identity config
+    config_dir = tmp_path / "config"
+    config_dir.mkdir()
+    config = {"identity": {"name": "Test User", "preferred": "Tester"}}
+    (config_dir / "journal.json").write_text(json.dumps(config))
+
+    # Create facet with principal entity
+    facet_dir = tmp_path / "facets" / "work"
+    facet_dir.mkdir(parents=True)
+    (facet_dir / "facet.json").write_text(
+        json.dumps({"title": "Work", "description": "Work stuff"})
+    )
+    (facet_dir / "entities.jsonl").write_text(
+        '{"type": "Person", "name": "Test User", "description": "Lead developer", "is_principal": true}\n'
+        '{"type": "Person", "name": "Alice", "description": "Colleague"}\n'
+    )
+
+    summary = facet_summary("work")
+
+    # Should have principal role line
+    assert "**Tester's Role**: Lead developer" in summary
+    # Should have entities section with Alice but not Test User
+    assert "## Entities" in summary
+    assert "Alice" in summary
+    assert "Colleague" in summary
+    # Principal should not appear in entities list
+    assert "- **Person**: Test User" not in summary
+
+
+def test_facet_summary_principal_only_entity(tmp_path, monkeypatch):
+    """Test facet_summary when principal is the only entity."""
+    import json
+
+    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+
+    # Create identity config
+    config_dir = tmp_path / "config"
+    config_dir.mkdir()
+    config = {"identity": {"name": "Test User", "preferred": "Tester"}}
+    (config_dir / "journal.json").write_text(json.dumps(config))
+
+    # Create facet with only principal entity
+    facet_dir = tmp_path / "facets" / "solo"
+    facet_dir.mkdir(parents=True)
+    (facet_dir / "facet.json").write_text(json.dumps({"title": "Solo"}))
+    (facet_dir / "entities.jsonl").write_text(
+        '{"type": "Person", "name": "Test User", "description": "Just me", "is_principal": true}\n'
+    )
+
+    summary = facet_summary("solo")
+
+    # Should have principal role line
+    assert "**Tester's Role**: Just me" in summary
+    # Should NOT have entities section (no other entities)
+    assert "## Entities" not in summary
+
+
+def test_facet_summaries_detailed_with_principal(tmp_path, monkeypatch):
+    """Test facet_summaries detailed mode shows principal role."""
+    import json
+
+    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+
+    # Create identity config
+    config_dir = tmp_path / "config"
+    config_dir.mkdir()
+    config = {"identity": {"name": "Test User", "preferred": "Tester"}}
+    (config_dir / "journal.json").write_text(json.dumps(config))
+
+    # Create facet with principal
+    facet_dir = tmp_path / "facets" / "project"
+    facet_dir.mkdir(parents=True)
+    (facet_dir / "facet.json").write_text(
+        json.dumps({"title": "Project X", "description": "Secret project"})
+    )
+    (facet_dir / "entities.jsonl").write_text(
+        '{"type": "Person", "name": "Test User", "description": "Project lead", "is_principal": true}\n'
+        '{"type": "Person", "name": "Bob", "description": "Team member"}\n'
+    )
+
+    summary = facet_summaries(detailed_entities=True)
+
+    # Should have principal role
+    assert "**Tester's Role**: Project lead" in summary
+    # Should have Bob in entities
+    assert "Bob: Team member" in summary
+    # Principal should not be in entities list
+    assert "Test User: Project lead" not in summary
+
+
+def test_facet_summaries_simple_mode_with_principal(tmp_path, monkeypatch):
+    """Test facet_summaries simple mode also filters principal consistently."""
+    import json
+
+    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+
+    # Create identity config
+    config_dir = tmp_path / "config"
+    config_dir.mkdir()
+    config = {"identity": {"name": "Test User", "preferred": "Tester"}}
+    (config_dir / "journal.json").write_text(json.dumps(config))
+
+    # Create facet with principal
+    facet_dir = tmp_path / "facets" / "simple"
+    facet_dir.mkdir(parents=True)
+    (facet_dir / "facet.json").write_text(json.dumps({"title": "Simple"}))
+    (facet_dir / "entities.jsonl").write_text(
+        '{"type": "Person", "name": "Test User", "description": "Me", "is_principal": true}\n'
+        '{"type": "Person", "name": "Bob", "description": "Friend"}\n'
+    )
+
+    summary = facet_summaries(detailed_entities=False)
+
+    # Simple mode now shows principal role (consistent with detailed mode)
+    assert "**Tester's Role**: Me" in summary
+    # Principal should not appear in entity names
+    assert "Test User" not in summary
+    # Other entities should appear
+    assert "Bob" in summary

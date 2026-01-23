@@ -15,11 +15,49 @@ from typing import Any, Optional
 
 from slugify import slugify
 
-from think.utils import get_journal
+from think.utils import get_config, get_journal
 
 # Default timestamp for entities without activity data (Jan 1 2026 00:00:00 UTC)
 # Used as fallback in entity_last_active_ts() to ensure all entities have a sortable value
 DEFAULT_ACTIVITY_TS = 1767225600000
+
+
+def get_identity_names() -> list[str]:
+    """Get all names/aliases for the journal principal from identity config.
+
+    Returns a list of names to match against entities, in display priority order:
+    1. identity.preferred (nickname/preferred name) - best for display
+    2. identity.name (full name)
+    3. identity.aliases (list of alternative names)
+
+    The first element (if any) is the best name for display purposes.
+    Returns empty list if identity is not configured.
+    """
+    config = get_config()
+    identity = config.get("identity", {})
+
+    names: list[str] = []
+
+    # Preferred name first (best for display)
+    preferred = identity.get("preferred", "").strip()
+    if preferred:
+        names.append(preferred)
+
+    # Full name
+    name = identity.get("name", "").strip()
+    if name and name not in names:
+        names.append(name)
+
+    # Aliases
+    aliases = identity.get("aliases", [])
+    if isinstance(aliases, list):
+        for alias in aliases:
+            if isinstance(alias, str):
+                alias = alias.strip()
+                if alias and alias not in names:
+                    names.append(alias)
+
+    return names
 
 
 def entity_last_active_ts(entity: dict[str, Any]) -> int:
@@ -358,13 +396,68 @@ def load_entities(
     return entities
 
 
+def _ensure_principal_flag(entities: list[dict[str, Any]]) -> None:
+    """Ensure exactly one entity is flagged as principal if one matches identity.
+
+    Checks if any entity already has is_principal=True. If not, attempts to
+    find an entity matching the journal identity config (name, preferred, aliases)
+    and flags it as principal.
+
+    This is called during save_entities() for attached entities only.
+    Modifies entities in place.
+
+    Args:
+        entities: List of attached entity dicts (modified in place)
+    """
+    # Check if any entity already has is_principal flag
+    for entity in entities:
+        if entity.get("is_principal"):
+            return  # Already have a principal, nothing to do
+
+    # No principal flagged - try to find one matching identity
+    identity_names = get_identity_names()
+    if not identity_names:
+        return  # No identity configured
+
+    # Build lookup for case-insensitive matching
+    # Maps lowercase name/aka -> entity
+    name_map: dict[str, dict[str, Any]] = {}
+    for entity in entities:
+        if entity.get("detached"):
+            continue  # Skip detached entities
+
+        name = entity.get("name", "")
+        if name:
+            name_map[name.lower()] = entity
+
+        # Also check akas
+        aka_list = entity.get("aka", [])
+        if isinstance(aka_list, list):
+            for aka in aka_list:
+                if aka:
+                    name_map[aka.lower()] = entity
+
+    # Try to match identity names against entities
+    for identity_name in identity_names:
+        identity_lower = identity_name.lower()
+        if identity_lower in name_map:
+            # Found a match - flag as principal
+            name_map[identity_lower]["is_principal"] = True
+            return
+
+
 def save_entities(
     facet: str, entities: list[dict[str, Any]], day: Optional[str] = None
 ) -> None:
     """Save entities to facet entity file using atomic write.
 
     Ensures all entities have an `id` field (generates from name if missing).
-    For attached entities (day=None), validates name uniqueness within the facet.
+    For attached entities (day=None), validates name uniqueness within the facet
+    and ensures the principal entity is flagged if one matches identity config.
+
+    The principal is the journal owner - identified by matching entity names
+    against identity.name, identity.preferred, or identity.aliases from the
+    journal config. Only one entity per facet can be the principal.
 
     Args:
         facet: Facet name
@@ -407,6 +500,10 @@ def save_entities(
                     f"(names may slugify to same value)"
                 )
             seen_ids.add(expected_id)
+
+    # For attached entities, ensure principal is flagged if one matches identity
+    if day is None:
+        _ensure_principal_flag(entities)
 
     # Sort entities by type, then name for consistency
     sorted_entities = sorted(

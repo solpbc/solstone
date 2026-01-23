@@ -94,6 +94,29 @@
   cursor: not-allowed;
 }
 
+/* Principal card state - the journal owner */
+.entity-card-principal {
+  background: linear-gradient(135deg, #fff9e6 0%, #fff4d6 100%);
+  border-color: #f0c040;
+}
+
+.entity-card-principal:hover {
+  border-color: #d4a012;
+  box-shadow: 0 2px 8px rgba(212, 160, 18, 0.25);
+}
+
+.entity-card-principal-badge {
+  position: absolute;
+  top: 0;
+  left: 0;
+  background: linear-gradient(135deg, #f0c040 0%, #d4a012 100%);
+  color: white;
+  font-size: 0.65em;
+  font-weight: 600;
+  padding: 0.15em 0.5em;
+  border-radius: 7px 0 6px 0;
+}
+
 /* Entity detail view */
 .entity-detail-view {
   background: white;
@@ -147,6 +170,15 @@
 .entity-detail-detached-badge {
   background: #ffc107;
   color: #212529;
+  padding: 0.25em 0.75em;
+  border-radius: 20px;
+  font-size: 0.75em;
+  font-weight: 500;
+}
+
+.entity-detail-principal-badge {
+  background: linear-gradient(135deg, #fff9e6 0%, #f0c040 100%);
+  color: #8b6914;
   padding: 0.25em 0.75em;
   border-radius: 20px;
   font-size: 0.75em;
@@ -943,6 +975,22 @@ function renderDetailView(entity, observations) {
     detachedBadge.remove();
   }
 
+  // Add or remove principal badge
+  const isPrincipal = entity.is_principal === true;
+  let principalBadge = document.getElementById('detail-principal-badge');
+  if (isPrincipal) {
+    if (!principalBadge) {
+      principalBadge = document.createElement('span');
+      principalBadge.id = 'detail-principal-badge';
+      principalBadge.className = 'entity-detail-principal-badge';
+      principalBadge.textContent = 'You';
+      principalBadge.title = 'This is your entity in this facet';
+      typeEl.parentNode.insertBefore(principalBadge, typeEl.nextSibling);
+    }
+  } else if (principalBadge) {
+    principalBadge.remove();
+  }
+
   // AKAs
   const akaEl = document.getElementById('detail-aka');
   if (entity.aka && entity.aka.length > 0) {
@@ -1357,6 +1405,18 @@ function renderEntityCards() {
 function createEntityCard(entity) {
   const card = document.createElement('div');
   card.className = 'entity-card';
+
+  // Principal styling for the journal owner
+  if (entity.is_principal) {
+    card.classList.add('entity-card-principal');
+
+    // "You" badge (top-left corner)
+    const principalBadge = document.createElement('div');
+    principalBadge.className = 'entity-card-principal-badge';
+    principalBadge.textContent = 'You';
+    card.appendChild(principalBadge);
+  }
+
   card.onclick = () => navigateToEntity(entity.id);
 
   // Observation count badge (top-right corner)

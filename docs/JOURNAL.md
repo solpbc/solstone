@@ -401,6 +401,7 @@ Each entity is a JSON object with required fields (`id`, `type`, `name`, `descri
 - `id` (string) – Stable slug identifier derived from name via `entity_slug()` in `think/entities.py` (lowercase, spaces replaced with underscores, e.g., "Alice Johnson" → "alice_johnson"). Used for folder paths, URLs, and MCP tool references. Automatically regenerated when name changes.
 - `aka` (array of strings) – Alternative names, nicknames, or acronyms for the entity. Used in audio transcription to improve entity recognition.
 - `detached` (boolean) – When `true`, marks the entity as soft-deleted. Detached entities remain in the file but are hidden from UI and excluded from agent context. This preserves entity history and allows re-attachment without data loss.
+- `is_principal` (boolean) – When `true`, identifies this entity as the journal owner. Auto-flagged when name/aka matches identity config.
 - `attached_at` (integer) – Unix timestamp in milliseconds when entity was first attached.
 - `updated_at` (integer) – Unix timestamp in milliseconds of last modification.
 - `last_seen` (string) – Day in YYYYMMDD format when entity was last mentioned in journal content. Automatically updated after daily processing by parsing the knowledge graph and matching entity names via fuzzy matching.

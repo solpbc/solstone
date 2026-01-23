@@ -17,6 +17,7 @@ from think.entities import (
     entity_memory_path,
     entity_slug,
     find_matching_attached_entity,
+    get_identity_names,
     load_all_attached_entities,
     load_detected_entities_recent,
     load_entities,
@@ -1746,3 +1747,320 @@ def test_observations_atomic_write(fixture_journal, tmp_path):
     assert len(lines) == 2
     for line in lines:
         assert json.loads(line)  # Should not raise
+
+
+# ============================================================================
+# Principal entity tests
+# ============================================================================
+
+
+def test_get_identity_names_from_config(tmp_path):
+    """Test extracting identity names from journal config."""
+    import json
+
+    os.environ["JOURNAL_PATH"] = str(tmp_path)
+
+    # Create config with identity
+    config_dir = tmp_path / "config"
+    config_dir.mkdir()
+    config = {
+        "identity": {
+            "name": "Jeremy Miller",
+            "preferred": "Jer",
+            "aliases": ["JM", "Jeremy"],
+        }
+    }
+    (config_dir / "journal.json").write_text(json.dumps(config))
+
+    names = get_identity_names()
+    # Preferred comes first (best for display), then full name, then aliases
+    assert names == ["Jer", "Jeremy Miller", "JM", "Jeremy"]
+
+
+def test_get_identity_names_no_config(tmp_path):
+    """Test that missing config returns empty list."""
+    os.environ["JOURNAL_PATH"] = str(tmp_path)
+    # No config file
+
+    names = get_identity_names()
+    assert names == []
+
+
+def test_get_identity_names_empty_identity(tmp_path):
+    """Test that empty identity config returns empty list."""
+    import json
+
+    os.environ["JOURNAL_PATH"] = str(tmp_path)
+
+    config_dir = tmp_path / "config"
+    config_dir.mkdir()
+    config = {"identity": {"name": "", "preferred": "", "aliases": []}}
+    (config_dir / "journal.json").write_text(json.dumps(config))
+
+    names = get_identity_names()
+    assert names == []
+
+
+def test_save_entities_flags_principal_on_name_match(tmp_path):
+    """Test that save_entities flags an entity as principal when it matches identity name."""
+    import json
+
+    os.environ["JOURNAL_PATH"] = str(tmp_path)
+
+    # Create config with identity
+    config_dir = tmp_path / "config"
+    config_dir.mkdir()
+    config = {
+        "identity": {"name": "Alice Johnson", "preferred": "Alice", "aliases": []}
+    }
+    (config_dir / "journal.json").write_text(json.dumps(config))
+
+    # Create facet directory
+    facet_path = tmp_path / "facets" / "personal"
+    facet_path.mkdir(parents=True)
+
+    # Save entities including one matching identity
+    entities = [
+        {"type": "Person", "name": "Alice Johnson", "description": "Me"},
+        {"type": "Person", "name": "Bob Smith", "description": "Friend"},
+    ]
+    save_entities("personal", entities)
+
+    # Load and verify principal flag
+    loaded = load_entities("personal")
+    alice = next(e for e in loaded if e.get("name") == "Alice Johnson")
+    bob = next(e for e in loaded if e.get("name") == "Bob Smith")
+
+    assert alice.get("is_principal") is True
+    assert bob.get("is_principal") is None
+
+
+def test_save_entities_flags_principal_on_preferred_match(tmp_path):
+    """Test that save_entities flags principal when matching preferred name."""
+    import json
+
+    os.environ["JOURNAL_PATH"] = str(tmp_path)
+
+    # Create config with identity - preferred name differs from entity name
+    config_dir = tmp_path / "config"
+    config_dir.mkdir()
+    config = {"identity": {"name": "Jeremy Miller", "preferred": "Jer", "aliases": []}}
+    (config_dir / "journal.json").write_text(json.dumps(config))
+
+    # Create facet directory
+    facet_path = tmp_path / "facets" / "work"
+    facet_path.mkdir(parents=True)
+
+    # Save entity matching preferred name
+    entities = [
+        {"type": "Person", "name": "Jer", "description": "Me at work"},
+    ]
+    save_entities("work", entities)
+
+    loaded = load_entities("work")
+    jer = loaded[0]
+    assert jer.get("is_principal") is True
+
+
+def test_save_entities_flags_principal_on_alias_match(tmp_path):
+    """Test that save_entities flags principal when matching an alias."""
+    import json
+
+    os.environ["JOURNAL_PATH"] = str(tmp_path)
+
+    # Create config with alias
+    config_dir = tmp_path / "config"
+    config_dir.mkdir()
+    config = {"identity": {"name": "Jeremy Miller", "preferred": "", "aliases": ["JM"]}}
+    (config_dir / "journal.json").write_text(json.dumps(config))
+
+    # Create facet directory
+    facet_path = tmp_path / "facets" / "test"
+    facet_path.mkdir(parents=True)
+
+    # Save entity matching alias
+    entities = [
+        {"type": "Person", "name": "JM", "description": "Initials"},
+    ]
+    save_entities("test", entities)
+
+    loaded = load_entities("test")
+    assert loaded[0].get("is_principal") is True
+
+
+def test_save_entities_flags_principal_via_entity_aka(tmp_path):
+    """Test that save_entities flags principal when entity aka matches identity."""
+    import json
+
+    os.environ["JOURNAL_PATH"] = str(tmp_path)
+
+    # Create config
+    config_dir = tmp_path / "config"
+    config_dir.mkdir()
+    config = {"identity": {"name": "Jeremy Miller", "preferred": "Jer", "aliases": []}}
+    (config_dir / "journal.json").write_text(json.dumps(config))
+
+    # Create facet directory
+    facet_path = tmp_path / "facets" / "test"
+    facet_path.mkdir(parents=True)
+
+    # Save entity where aka matches identity name
+    entities = [
+        {
+            "type": "Person",
+            "name": "J. Miller",
+            "description": "Me",
+            "aka": ["Jeremy Miller", "JM"],
+        },
+    ]
+    save_entities("test", entities)
+
+    loaded = load_entities("test")
+    assert loaded[0].get("is_principal") is True
+
+
+def test_save_entities_preserves_existing_principal(tmp_path):
+    """Test that save_entities doesn't change principal if one already exists."""
+    import json
+
+    os.environ["JOURNAL_PATH"] = str(tmp_path)
+
+    # Create config
+    config_dir = tmp_path / "config"
+    config_dir.mkdir()
+    config = {"identity": {"name": "Alice", "preferred": "", "aliases": []}}
+    (config_dir / "journal.json").write_text(json.dumps(config))
+
+    # Create facet directory
+    facet_path = tmp_path / "facets" / "test"
+    facet_path.mkdir(parents=True)
+
+    # Save entities with an existing principal that doesn't match identity
+    entities = [
+        {
+            "type": "Person",
+            "name": "Bob",
+            "description": "Already principal",
+            "is_principal": True,
+        },
+        {"type": "Person", "name": "Alice", "description": "Matches identity"},
+    ]
+    save_entities("test", entities)
+
+    loaded = load_entities("test")
+    bob = next(e for e in loaded if e.get("name") == "Bob")
+    alice = next(e for e in loaded if e.get("name") == "Alice")
+
+    # Bob should still be principal (was already set)
+    assert bob.get("is_principal") is True
+    # Alice should not be flagged (principal already exists)
+    assert alice.get("is_principal") is None
+
+
+def test_save_entities_no_principal_without_identity(tmp_path):
+    """Test that save_entities doesn't flag principal when no identity configured."""
+    os.environ["JOURNAL_PATH"] = str(tmp_path)
+    # No config file
+
+    # Create facet directory
+    facet_path = tmp_path / "facets" / "test"
+    facet_path.mkdir(parents=True)
+
+    entities = [
+        {"type": "Person", "name": "Alice", "description": "Someone"},
+    ]
+    save_entities("test", entities)
+
+    loaded = load_entities("test")
+    assert loaded[0].get("is_principal") is None
+
+
+def test_save_entities_skips_detached_for_principal(tmp_path):
+    """Test that detached entities are not flagged as principal."""
+    import json
+
+    os.environ["JOURNAL_PATH"] = str(tmp_path)
+
+    # Create config
+    config_dir = tmp_path / "config"
+    config_dir.mkdir()
+    config = {"identity": {"name": "Alice", "preferred": "", "aliases": []}}
+    (config_dir / "journal.json").write_text(json.dumps(config))
+
+    # Create facet directory
+    facet_path = tmp_path / "facets" / "test"
+    facet_path.mkdir(parents=True)
+
+    # Save entities with matching name but detached
+    entities = [
+        {
+            "type": "Person",
+            "name": "Alice",
+            "description": "Detached",
+            "detached": True,
+        },
+        {"type": "Person", "name": "Bob", "description": "Active"},
+    ]
+    save_entities("test", entities)
+
+    loaded = load_entities("test", include_detached=True)
+    alice = next(e for e in loaded if e.get("name") == "Alice")
+    bob = next(e for e in loaded if e.get("name") == "Bob")
+
+    # Alice is detached, should not be principal
+    assert alice.get("is_principal") is None
+    # Bob doesn't match identity, should not be principal
+    assert bob.get("is_principal") is None
+
+
+def test_save_entities_case_insensitive_principal_match(tmp_path):
+    """Test that principal matching is case-insensitive."""
+    import json
+
+    os.environ["JOURNAL_PATH"] = str(tmp_path)
+
+    # Create config with lowercase name
+    config_dir = tmp_path / "config"
+    config_dir.mkdir()
+    config = {"identity": {"name": "alice johnson", "preferred": "", "aliases": []}}
+    (config_dir / "journal.json").write_text(json.dumps(config))
+
+    # Create facet directory
+    facet_path = tmp_path / "facets" / "test"
+    facet_path.mkdir(parents=True)
+
+    # Save entity with different case
+    entities = [
+        {"type": "Person", "name": "Alice Johnson", "description": "Me"},
+    ]
+    save_entities("test", entities)
+
+    loaded = load_entities("test")
+    assert loaded[0].get("is_principal") is True
+
+
+def test_save_entities_detected_no_principal_flag(tmp_path):
+    """Test that save_entities with day (detected) doesn't flag principal."""
+    import json
+
+    os.environ["JOURNAL_PATH"] = str(tmp_path)
+
+    # Create config
+    config_dir = tmp_path / "config"
+    config_dir.mkdir()
+    config = {"identity": {"name": "Alice", "preferred": "", "aliases": []}}
+    (config_dir / "journal.json").write_text(json.dumps(config))
+
+    # Create facet entities directory
+    entities_dir = tmp_path / "facets" / "test" / "entities"
+    entities_dir.mkdir(parents=True)
+
+    # Save detected entities (with day parameter)
+    entities = [
+        {"type": "Person", "name": "Alice", "description": "Detected"},
+    ]
+    save_entities("test", entities, day="20250101")
+
+    loaded = load_entities("test", day="20250101")
+    # Detected entities should not get is_principal flag
+    assert loaded[0].get("is_principal") is None

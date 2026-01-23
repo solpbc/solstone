@@ -14,7 +14,55 @@ from typing import Any, Optional
 from fastmcp import Context
 from fastmcp.server.dependencies import get_http_headers
 
+from think.entities import get_identity_names
 from think.utils import get_journal
+
+
+def _get_principal_display_name() -> str | None:
+    """Get the display name for the principal from identity config.
+
+    Returns the first identity name (preferred if set, else full name).
+    Returns None if identity is not configured.
+    """
+    names = get_identity_names()
+    return names[0] if names else None
+
+
+def _format_principal_role(
+    entities: list[dict[str, Any]],
+) -> tuple[str | None, list[dict[str, Any]]]:
+    """Extract principal entity and format role line if all info available.
+
+    Args:
+        entities: List of entity dicts from load_entities()
+
+    Returns:
+        Tuple of (role_line, filtered_entities) where:
+        - role_line is markdown like "**Jer's Role**: Description" or None if incomplete
+        - filtered_entities excludes the principal entity
+    """
+    # Find principal entity
+    principal = None
+    other_entities = []
+    for entity in entities:
+        if entity.get("is_principal"):
+            principal = entity
+        else:
+            other_entities.append(entity)
+
+    if not principal:
+        return None, entities
+
+    # Get display name and description
+    display_name = _get_principal_display_name()
+    description = principal.get("description", "").strip()
+
+    # Only format if we have both name and description
+    if not display_name or not description:
+        return None, entities
+
+    role_line = f"**{display_name}'s Role**: {description}"
+    return role_line, other_entities
 
 
 def _get_actor_info(context: Context | None = None) -> tuple[str, str | None]:
@@ -253,25 +301,33 @@ def facet_summary(facet: str) -> str:
 
     entities = load_entities(facet)
     if entities:
-        lines.append("## Entities")
-        lines.append("")
-        for entity in entities:
-            entity_type = entity.get("type", "")
-            name = entity.get("name", "")
-            desc = entity.get("description", "")
-            # Include aka values in parentheses after name
-            aka_list = entity.get("aka", [])
-            if isinstance(aka_list, list) and aka_list:
-                aka_str = ", ".join(aka_list)
-                formatted_name = f"{name} ({aka_str})"
-            else:
-                formatted_name = name
+        # Extract principal role line and filter principal from list
+        role_line, display_entities = _format_principal_role(entities)
 
-            if desc:
-                lines.append(f"- **{entity_type}**: {formatted_name} - {desc}")
-            else:
-                lines.append(f"- **{entity_type}**: {formatted_name}")
-        lines.append("")
+        if role_line:
+            lines.append(role_line)
+            lines.append("")
+
+        if display_entities:
+            lines.append("## Entities")
+            lines.append("")
+            for entity in display_entities:
+                entity_type = entity.get("type", "")
+                name = entity.get("name", "")
+                desc = entity.get("description", "")
+                # Include aka values in parentheses after name
+                aka_list = entity.get("aka", [])
+                if isinstance(aka_list, list) and aka_list:
+                    aka_str = ", ".join(aka_list)
+                    formatted_name = f"{name} ({aka_str})"
+                else:
+                    formatted_name = name
+
+                if desc:
+                    lines.append(f"- **{entity_type}**: {formatted_name} - {desc}")
+                else:
+                    lines.append(f"- **{entity_type}**: {formatted_name}")
+            lines.append("")
 
     return "\n".join(lines)
 
@@ -512,7 +568,7 @@ def facet_summaries(*, detailed_entities: bool = False) -> str:
     str
         Formatted markdown string with all facets and their entities
     """
-    from think.entities import load_entities, load_entity_names
+    from think.entities import load_entities
 
     facets = get_facets()
     if not facets:
@@ -537,26 +593,42 @@ def facet_summaries(*, detailed_entities: bool = False) -> str:
             if detailed_entities:
                 entities = load_entities(facet_name)
                 if entities:
-                    lines.append(f"  - **{title} Entities**:")
-                    for entity in entities:
-                        name = entity.get("name", "")
-                        desc = entity.get("description", "")
-                        # Include aka values in parentheses after name
-                        aka_list = entity.get("aka", [])
-                        if isinstance(aka_list, list) and aka_list:
-                            aka_str = ", ".join(aka_list)
-                            formatted_name = f"{name} ({aka_str})"
-                        else:
-                            formatted_name = name
+                    # Extract principal role and filter from list
+                    role_line, display_entities = _format_principal_role(entities)
 
-                        if desc:
-                            lines.append(f"    - {formatted_name}: {desc}")
-                        else:
-                            lines.append(f"    - {formatted_name}")
+                    if role_line:
+                        lines.append(f"  - {role_line}")
+
+                    if display_entities:
+                        lines.append(f"  - **{title} Entities**:")
+                        for entity in display_entities:
+                            name = entity.get("name", "")
+                            desc = entity.get("description", "")
+                            # Include aka values in parentheses after name
+                            aka_list = entity.get("aka", [])
+                            if isinstance(aka_list, list) and aka_list:
+                                aka_str = ", ".join(aka_list)
+                                formatted_name = f"{name} ({aka_str})"
+                            else:
+                                formatted_name = name
+
+                            if desc:
+                                lines.append(f"    - {formatted_name}: {desc}")
+                            else:
+                                lines.append(f"    - {formatted_name}")
             else:
-                entity_names = load_entity_names(facet=facet_name)
-                if entity_names:
-                    lines.append(f"  - **{title} Entities**: {entity_names}")
+                # Simple mode: load entities, filter principal, show names only
+                entities = load_entities(facet_name)
+                if entities:
+                    role_line, display_entities = _format_principal_role(entities)
+
+                    if role_line:
+                        lines.append(f"  - {role_line}")
+
+                    if display_entities:
+                        # Build semicolon-separated names list
+                        entity_names = "; ".join(e.get("name", "") for e in display_entities)
+                        lines.append(f"  - **{title} Entities**: {entity_names}")
         except Exception:
             # No entities file or error loading - that's fine, skip it
             pass
