@@ -1,20 +1,14 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 # Copyright (c) 2026 sol pbc
 
-"""Gemini STT backend with integrated enrichment.
+"""Gemini STT backend for speech-to-text transcription.
 
 This module provides cloud-based speech-to-text transcription using Google's
-Gemini API. Unlike dedicated ASR backends, Gemini provides:
-- Speaker diarization (identifies who said what)
-- Emotion/tone detection per segment
-- Topic and setting extraction (integrated enrichment)
-- Custom vocabulary via entity names in prompt
+Gemini API with speaker diarization (identifies who said what).
 
-This is a combined STT + enrich flow - when using this backend, the separate
-enrich step should be skipped.
-
-Configuration keys (passed in config dict):
-- entity_names: List of names for improved recognition (optional)
+Enrichment (topics, setting, emotion, corrections) is handled separately by
+the enrich step, same as other backends. This keeps the transcription focused
+and avoids hallucinations from entity name hints in the prompt.
 
 Environment:
 - GOOGLE_API_KEY: API key (required)
@@ -33,7 +27,6 @@ from google.genai import types
 
 from muse.models import generate
 from observe.utils import audio_to_flac_bytes
-from think.utils import load_prompt
 
 logger = logging.getLogger(__name__)
 
@@ -183,11 +176,6 @@ def _normalize_segments(
         if speaker is not None:
             statement["speaker"] = speaker
 
-        # Pass through emotion as-is
-        emotion = seg.get("emotion", "")
-        if emotion:
-            statement["emotion"] = emotion
-
         statements.append(statement)
 
     return statements, invalid_count
@@ -198,22 +186,19 @@ def transcribe(
     sample_rate: int,
     config: dict,
 ) -> list[dict]:
-    """Transcribe audio using Gemini API with integrated enrichment.
+    """Transcribe audio using Gemini API.
 
     This is the standard backend interface. It converts audio to FLAC,
     sends to Gemini with a transcription prompt, and returns normalized
-    statements with enrichment data.
+    statements with speaker diarization.
 
     Args:
         audio: Audio buffer (float32, mono)
         sample_rate: Sample rate in Hz (typically 16000)
-        config: Backend configuration dict with optional:
-            - entity_names: List of names for context
+        config: Backend configuration dict (currently unused)
 
     Returns:
-        List of statements with id, start, end, text, speaker, emotion.
-        Enrichment metadata (topics, setting, warning) is attached to
-        config["_enrichment"] for retrieval by the caller.
+        List of statements with id, start, end, text, speaker.
     """
     audio_duration = len(audio) / sample_rate
 
@@ -223,20 +208,13 @@ def transcribe(
     # Convert audio to FLAC bytes
     audio_bytes = audio_to_flac_bytes(audio, sample_rate)
 
-    # Format entity names for prompt
-    entity_names = config.get("entity_names") or config.get("entities")
-    entity_names_str = ", ".join(entity_names) if entity_names else "none provided"
-
-    # Load and populate prompt
-    prompt_content = load_prompt(
-        "gemini",
-        base_dir=Path(__file__).parent,
-        context={"entity_names": entity_names_str},
-    )
+    # Load prompt from gemini.txt
+    prompt_path = Path(__file__).parent / "gemini.txt"
+    prompt_text = prompt_path.read_text()
 
     # Build contents: prompt text + audio
     contents: list = [
-        prompt_content.text,
+        prompt_text,
         types.Part.from_bytes(data=audio_bytes, mime_type="audio/flac"),
     ]
 
@@ -277,21 +255,6 @@ def transcribe(
     logger.info(
         f"  Gemini returned {len(statements)} segments in {transcribe_time:.2f}s"
     )
-
-    # Extract enrichment data and attach to response
-    # We use a special _enrichment key that process_audio() will extract
-    enrichment = {}
-    if "topics" in result:
-        enrichment["topics"] = result["topics"]
-    if "setting" in result:
-        enrichment["setting"] = result["setting"]
-    if "warning" in result and result["warning"]:
-        enrichment["warning"] = result["warning"]
-        logger.info(f"  Gemini warning: {result['warning']}")
-
-    # Attach enrichment to config for retrieval by caller
-    # This is a bit of a hack but avoids changing the backend interface
-    config["_enrichment"] = enrichment
 
     return statements
 

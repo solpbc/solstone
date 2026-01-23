@@ -34,8 +34,7 @@ Rev.ai backend settings (transcribe.revai):
 
 Gemini backend settings (transcribe.gemini):
 - No configuration needed (model resolved by muse.models context system)
-- Automatically loads recent entity names for improved recognition
-- Includes integrated enrichment (skips separate enrich step)
+- Includes speaker diarization
 
 Platform optimizations (Whisper):
 - CUDA GPU: Uses float16 for GPU-optimized inference
@@ -249,9 +248,7 @@ def _embed_statements(
 
             # Check duration after clamping
             if end - start >= MIN_STATEMENT_DURATION:
-                valid_statements.append(
-                    {"id": s["id"], "start": start, "end": end}
-                )
+                valid_statements.append({"id": s["id"], "start": start, "end": end})
 
         if not valid_statements:
             logging.info("No statements with sufficient duration for embedding")
@@ -392,12 +389,7 @@ def _statements_to_jsonl(
         if "speaker" in stmt:
             entry["speaker"] = stmt["speaker"]
 
-        # Pass through emotion (from Gemini backend)
-        if "emotion" in stmt and stmt["emotion"]:
-            entry["emotion"] = stmt["emotion"]
-
         # Add corrected text and emotion from enrichment by position
-        # (enrichment overrides statement emotion if both present)
         if i < len(enriched_statements):
             enriched = enriched_statements[i]
             if isinstance(enriched, dict):
@@ -527,19 +519,15 @@ def process_audio(
         if suffix.endswith("_audio") and suffix != "audio":
             source = suffix[:-6]  # Remove "_audio" suffix
 
-        # Check for backend-provided enrichment (e.g., Gemini includes it)
-        # This is attached to backend_config by the backend's transcribe() function
-        enrichment = backend_config.pop("_enrichment", None)
+        # Run enrichment if enabled (extracts topics, setting, emotions, corrections)
+        enrichment = None
+        enrich_enabled = config.get("transcribe", {}).get("enrich", True)
+        if enrich_enabled:
+            from observe.enrich import enrich_transcript
 
-        # Run separate enrichment if enabled and not already provided by backend
-        if enrichment is None:
-            enrich_enabled = config.get("transcribe", {}).get("enrich", True)
-            if enrich_enabled:
-                from observe.enrich import enrich_transcript
-
-                enrichment = enrich_transcript(
-                    audio_buffer, SAMPLE_RATE, statements, entity_names=entity_names
-                )
+            enrichment = enrich_transcript(
+                audio_buffer, SAMPLE_RATE, statements, entity_names=entity_names
+            )
 
         # Generate embeddings before timestamp restoration
         # Use reduced audio buffer if available for consistent timestamps
@@ -754,10 +742,8 @@ def main():
             backend_config["entities"] = entity_names
     elif backend == "gemini":
         # Gemini backend - model resolved by muse.models based on context
-        # Pass entity names for prompt context
+        # Entity names handled by enrich step, not passed to transcription
         backend_config = {}
-        if entity_names:
-            backend_config["entity_names"] = entity_names
     else:
         # Unknown backend - let get_backend() raise the error
         backend_config = {}

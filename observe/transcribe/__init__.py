@@ -15,7 +15,7 @@ Terminology:
 Available backends:
 - whisper: Local faster-whisper (default, GPU/CPU)
 - revai: Rev.ai cloud API (speaker diarization)
-- gemini: Google Gemini API (integrated STT + enrichment)
+- gemini: Google Gemini API (speaker diarization)
 
 Backend Interface:
     Each backend module must export a transcribe() function:
@@ -86,8 +86,8 @@ BACKEND_METADATA: dict[str, dict] = {
         "settings": ["model"],
     },
     "gemini": {
-        "label": "Gemini - Cloud with integrated enrichment",
-        "description": "Combines transcription and enrichment in one call",
+        "label": "Gemini - Cloud with speaker diarization",
+        "description": "Cloud-based transcription with speaker identification",
         "env_key": "GOOGLE_API_KEY",
         "settings": [],
     },

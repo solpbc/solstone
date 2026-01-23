@@ -110,7 +110,6 @@ class TestNormalizeSegments:
                 "end": "0:12",
                 "speaker": "Speaker 1",
                 "text": "Hello there",
-                "emotion": "friendly",
             }
         ]
 
@@ -124,7 +123,6 @@ class TestNormalizeSegments:
         assert stmt["end"] == 12.0
         assert stmt["text"] == "Hello there"
         assert stmt["speaker"] == 1
-        assert stmt["emotion"] == "friendly"
         assert stmt["words"] is None
 
     def test_multiple_segments(self):
@@ -178,7 +176,6 @@ class TestNormalizeSegments:
 
         assert len(statements) == 1
         assert "speaker" not in statements[0]
-        assert "emotion" not in statements[0]
 
     def test_empty_segments(self):
         """Empty segments list."""
@@ -211,14 +208,6 @@ class TestNormalizeSegments:
         assert statements[0]["id"] == 1
         assert statements[1]["text"] == "Last"
         assert statements[1]["id"] == 2
-
-    def test_empty_emotion_not_included(self):
-        """Empty emotion is not included in statement."""
-        segments = [{"start": "0:00", "end": "0:10", "text": "Test", "emotion": ""}]
-
-        statements, invalid_count = _normalize_segments(segments, 60.0)
-
-        assert "emotion" not in statements[0]
 
 
 class TestGetModelInfo:
