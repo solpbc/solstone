@@ -4,9 +4,10 @@
 """Category prompts and formatters for screen description.
 
 This package contains:
-- <category>.json: Metadata (description, output format, tier)
-- <category>.txt: Extraction prompt template (categories with this file are extractable)
+- <category>.md: Prompt template with JSON frontmatter (metadata: description, output format, tier)
 - <category>.py: Optional formatter for rich markdown output
+
+Categories with extraction prompts in their .md files are extractable.
 
 See README.md for adding new categories.
 """

@@ -227,7 +227,7 @@ def send_insight(
         insight_key: Insight identifier for token logging context.
         json_output: If True, request JSON response format.
         system_instruction: System instruction text. If None, loads default
-            from journal.txt via compose_instructions().
+            from journal.md via compose_instructions().
 
     Returns:
         Generated insight content (markdown or JSON string).
@@ -372,7 +372,7 @@ def main() -> None:
         "--prompt",
         dest="topic",
         required=True,
-        help="Insight key (e.g., 'activity', 'chat:sentiment') or path to .txt file",
+        help="Insight key (e.g., 'activity', 'chat:sentiment') or path to .md file",
     )
     parser.add_argument(
         "-c",

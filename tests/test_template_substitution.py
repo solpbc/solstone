@@ -68,11 +68,11 @@ Bio: $bio
 
 Timezone: $timezone
 """
-    (prompts_dir / "test_template.txt").write_text(template_prompt)
+    (prompts_dir / "test_template.md").write_text(template_prompt)
 
     # Create a prompt without template variables
     plain_prompt = "This is a plain prompt without any variables."
-    (prompts_dir / "plain.txt").write_text(plain_prompt)
+    (prompts_dir / "plain.md").write_text(plain_prompt)
 
     return prompts_dir
 
@@ -163,11 +163,11 @@ def test_load_prompt_missing_config_graceful(tmp_path, mock_prompt_dir):
 
 
 def test_load_prompt_include_journal(mock_journal_with_config, mock_prompt_dir):
-    """Test that include_journal prepends journal.txt content from think directory."""
+    """Test that include_journal prepends journal.md content from think directory."""
     result = load_prompt("plain", base_dir=mock_prompt_dir, include_journal=True)
 
-    # Journal content from think/journal.txt should be prepended
-    # The actual journal.txt contains the system journal prompt
+    # Journal content from think/journal.md should be prepended
+    # The actual journal.md contains the system journal prompt
     assert "Journal Guardian" in result.text or "Your Role" in result.text
     # Original prompt content should follow
     assert "This is a plain prompt without any variables." in result.text
@@ -179,7 +179,7 @@ def test_load_prompt_with_custom_context(mock_journal_with_config, mock_prompt_d
     context_prompt = """Day: $day
 Segment: $segment
 Custom value: $custom_value"""
-    (mock_prompt_dir / "context_test.txt").write_text(context_prompt)
+    (mock_prompt_dir / "context_test.md").write_text(context_prompt)
 
     result = load_prompt(
         "context_test",
@@ -198,7 +198,7 @@ def test_load_prompt_context_uppercase_versions(
     """Test that uppercase-first versions are created for context variables."""
     context_prompt = """lowercase: $topic
 Uppercase: $Topic"""
-    (mock_prompt_dir / "uppercase_test.txt").write_text(context_prompt)
+    (mock_prompt_dir / "uppercase_test.md").write_text(context_prompt)
 
     result = load_prompt(
         "uppercase_test",
@@ -215,7 +215,7 @@ def test_load_prompt_context_overrides_identity(
 ):
     """Test that context variables override identity variables."""
     override_prompt = "Name: $name"
-    (mock_prompt_dir / "override_test.txt").write_text(override_prompt)
+    (mock_prompt_dir / "override_test.md").write_text(override_prompt)
 
     # Without context, should use identity name
     result_default = load_prompt("override_test", base_dir=mock_prompt_dir)
@@ -233,8 +233,8 @@ def test_load_prompt_context_overrides_identity(
 def test_load_prompt_context_with_include_journal(
     mock_journal_with_config, mock_prompt_dir
 ):
-    """Test that context variables flow through to journal.txt."""
-    # The journal.txt uses $name which should come from identity,
+    """Test that context variables flow through to journal.md."""
+    # The journal.md uses $name which should come from identity,
     # but if we pass a context with $name it should override
     result = load_prompt(
         "plain",
@@ -252,7 +252,7 @@ def test_load_prompt_context_stringifies_values(
 ):
     """Test that non-string context values are converted to strings."""
     stringify_prompt = "Number: $count, Bool: $flag"
-    (mock_prompt_dir / "stringify_test.txt").write_text(stringify_prompt)
+    (mock_prompt_dir / "stringify_test.md").write_text(stringify_prompt)
 
     result = load_prompt(
         "stringify_test",

@@ -16,25 +16,24 @@ from typing import Any, Callable, NamedTuple, Optional
 
 import platformdirs
 from dotenv import load_dotenv
+import frontmatter
 from timefhuman import timefhuman
 
 DATE_RE = re.compile(r"\d{8}")
 _journal_path_cache: str | None = None
 
-# Insight colors are now stored in each insight's JSON metadata file
-
 AGENT_DIR = Path(__file__).parent.parent / "muse" / "agents"
 TEMPLATES_DIR = Path(__file__).parent / "templates"
 
-# Cached raw template content loaded from think/templates/*.txt
+# Cached raw template content loaded from think/templates/*.md
 _templates_cache: dict[str, str] | None = None
 
 
 def _load_raw_templates() -> dict[str, str]:
     """Load raw template files from think/templates/ directory.
 
-    Templates are cached on first load. Each .txt file becomes a template
-    variable named after its stem (e.g., daily_insight.txt -> $daily_insight).
+    Templates are cached on first load. Each .md file becomes a template
+    variable named after its stem (e.g., daily_insight.md -> $daily_insight).
 
     Returns
     -------
@@ -47,13 +46,13 @@ def _load_raw_templates() -> dict[str, str]:
 
     _templates_cache = {}
     if TEMPLATES_DIR.is_dir():
-        for txt_path in TEMPLATES_DIR.glob("*.txt"):
-            var_name = txt_path.stem
+        for md_path in TEMPLATES_DIR.glob("*.md"):
+            var_name = md_path.stem
             try:
-                content = txt_path.read_text(encoding="utf-8").strip()
-                _templates_cache[var_name] = content
+                post = frontmatter.load(md_path, )
+                _templates_cache[var_name] = post.content.strip()
             except Exception as exc:
-                logging.debug("Failed to load template %s: %s", txt_path, exc)
+                logging.debug("Failed to load template %s: %s", md_path, exc)
 
     return _templates_cache
 
@@ -95,10 +94,11 @@ def _load_templates(template_vars: dict[str, str] | None = None) -> dict[str, st
 
 
 class PromptContent(NamedTuple):
-    """Container for prompt text and its resolved path."""
+    """Container for prompt text, metadata, and its resolved path."""
 
     text: str
     path: Path
+    metadata: dict[str, Any] = {}
 
 
 class PromptNotFoundError(FileNotFoundError):
@@ -154,16 +154,17 @@ def load_prompt(
     include_journal: bool = False,
     context: dict[str, Any] | None = None,
 ) -> PromptContent:
-    """Return the text contents and path for a ``.txt`` prompt file.
+    """Return the text contents, metadata, and path for a ``.md`` prompt file.
 
-    Supports Python string.Template variable substitution using:
+    Prompt files use JSON frontmatter for metadata. Supports Python
+    string.Template variable substitution using:
     - Identity config from get_config()['identity']:
       - Top-level fields: $name, $preferred, $bio, $timezone
       - Nested fields with underscores: $pronouns_possessive, $pronouns_subject
       - Uppercase-first versions: $Pronouns_possessive, $Name, $Bio
-    - Templates from think/templates/*.txt:
+    - Templates from think/templates/*.md:
       - Each file becomes a variable named after its stem
-      - Example: daily_insight.txt -> $daily_insight
+      - Example: daily_insight.md -> $daily_insight
       - Templates are pre-processed with identity and context vars, so templates
         can use $date, $preferred, etc. before being substituted into prompts
 
@@ -174,13 +175,13 @@ def load_prompt(
     Parameters
     ----------
     name:
-        Base filename of the prompt without the ``.txt`` suffix. If the suffix is
+        Base filename of the prompt without the ``.md`` suffix. If the suffix is
         included, it will not be duplicated.
     base_dir:
         Optional directory containing the prompt file. Defaults to the directory
         of this module when not provided.
     include_journal:
-        If True, prepends the content of ``think/journal.txt`` to the requested
+        If True, prepends the content of ``think/journal.md`` to the requested
         prompt. Defaults to False. Context variables are passed through to the
         journal template as well.
     context:
@@ -192,17 +193,24 @@ def load_prompt(
     -------
     PromptContent
         The prompt text (with surrounding whitespace removed and template variables
-        substituted) and the resolved path to the ``.txt`` file.
+        substituted), the resolved path to the ``.md`` file, and metadata from
+        the JSON frontmatter.
     """
 
     if not name:
         raise ValueError("Prompt name must be provided")
 
-    filename = name if name.endswith(".txt") else f"{name}.txt"
+    if name.endswith(".md"):
+        filename = name
+    else:
+        filename = f"{name}.md"
+
     prompt_dir = Path(base_dir) if base_dir is not None else Path(__file__).parent
     prompt_path = prompt_dir / filename
     try:
-        text = prompt_path.read_text(encoding="utf-8").strip()
+        post = frontmatter.load(prompt_path, )
+        text = post.content.strip()
+        metadata = dict(post.metadata)
     except FileNotFoundError as exc:  # pragma: no cover - caller handles missing prompt
         raise PromptNotFoundError(prompt_path) from exc
 
@@ -236,7 +244,7 @@ def load_prompt(
         journal_content = load_prompt("journal", context=context)
         text = f"{journal_content.text}\n\n{text}"
 
-    return PromptContent(text=text, path=prompt_path)
+    return PromptContent(text=text, path=prompt_path, metadata=metadata)
 
 
 def get_journal_info() -> tuple[str, str]:
@@ -751,41 +759,38 @@ def get_insight_topic(key: str) -> str:
     return key
 
 
-def _load_insight_metadata(txt_path: Path) -> dict[str, object]:
-    """Load insight metadata from .txt and optional .json file.
+def _load_insight_metadata(md_path: Path) -> dict[str, object]:
+    """Load insight metadata from .md file with JSON frontmatter.
 
     Parameters
     ----------
-    txt_path:
-        Path to the .txt prompt file.
+    md_path:
+        Path to the .md prompt file with JSON frontmatter.
 
     Returns
     -------
     dict
-        Metadata dict with path, mtime, color, hook_path (if exists), and any JSON fields.
+        Metadata dict with path, mtime, color, hook_path (if exists), and frontmatter fields.
     """
-    mtime = int(txt_path.stat().st_mtime)
+    mtime = int(md_path.stat().st_mtime)
     info: dict[str, object] = {
-        "path": str(txt_path),
+        "path": str(md_path),
         "mtime": mtime,
     }
-    json_path = txt_path.with_suffix(".json")
-    if json_path.exists():
-        try:
-            with open(json_path, "r", encoding="utf-8") as f:
-                data = json.load(f)
-            if isinstance(data, dict):
-                info.update(data)
-                if "color" not in info:
-                    info["color"] = "#6c757d"
-        except Exception as exc:  # pragma: no cover - metadata optional
-            logging.debug("Error reading %s: %s", json_path, exc)
-            info["color"] = "#6c757d"
-    else:
+
+    try:
+        post = frontmatter.load(md_path, )
+        if post.metadata:
+            info.update(post.metadata)
+    except Exception as exc:  # pragma: no cover - metadata optional
+        logging.debug("Error reading frontmatter from %s: %s", md_path, exc)
+
+    # Apply default color if not specified
+    if "color" not in info:
         info["color"] = "#6c757d"
 
     # Check for optional post-processing hook
-    hook_path = txt_path.with_suffix(".py")
+    hook_path = md_path.with_suffix(".py")
     if hook_path.exists():
         info["hook_path"] = str(hook_path)
 
@@ -859,10 +864,9 @@ def get_insights() -> dict[str, dict[str, object]]:
     - System: "activity", "meetings"
     - App: "app:topic" (e.g., "chat:sentiment")
 
-    The value contains the ``path`` to the ``.txt`` file, the ``color``
-    from the metadata JSON, the file ``mtime``, a ``source`` field
-    ("system" or "app"), and any keys loaded from a matching ``.json``
-    metadata file.
+    The value contains the ``path`` to the ``.md`` file, the ``color``
+    from the frontmatter, the file ``mtime``, a ``source`` field
+    ("system" or "app"), and any keys loaded from the JSON frontmatter.
 
     Journal config overrides (from config/journal.json "insights" section)
     are merged in, allowing ``disabled`` and ``extract`` to be
@@ -872,9 +876,9 @@ def get_insights() -> dict[str, dict[str, object]]:
 
     # System insights from think/insights/
     system_dir = Path(__file__).parent / "insights"
-    for txt_path in sorted(system_dir.glob("*.txt")):
-        name = txt_path.stem
-        info = _load_insight_metadata(txt_path)
+    for md_path in sorted(system_dir.glob("*.md")):
+        name = md_path.stem
+        info = _load_insight_metadata(md_path)
         info["source"] = "system"
         insights[name] = info
 
@@ -888,10 +892,10 @@ def get_insights() -> dict[str, dict[str, object]]:
             if not app_insights_dir.is_dir():
                 continue
             app_name = app_path.name
-            for txt_path in sorted(app_insights_dir.glob("*.txt")):
-                topic = txt_path.stem
+            for md_path in sorted(app_insights_dir.glob("*.md")):
+                topic = md_path.stem
                 key = f"{app_name}:{topic}"
-                info = _load_insight_metadata(txt_path)
+                info = _load_insight_metadata(md_path)
                 info["source"] = "app"
                 info["app"] = app_name
                 insights[key] = info
@@ -1091,7 +1095,8 @@ def compose_instructions(
 def get_agent(persona: str = "default", facet: str | None = None) -> dict:
     """Return complete agent configuration for a persona.
 
-    Loads JSON configuration and instruction text, merges with runtime context.
+    Loads configuration from .md file with JSON frontmatter and instruction text,
+    merges with runtime context.
 
     Parameters
     ----------
@@ -1109,21 +1114,17 @@ def get_agent(persona: str = "default", facet: str | None = None) -> dict:
         Complete agent configuration including system_instruction, user_instruction,
         extra_context, model, backend, etc.
     """
-    config = {}
-
     # Resolve agent path based on namespace
     agent_dir, agent_name = _resolve_agent_path(persona)
 
-    # Load JSON config if exists
-    json_path = agent_dir / f"{agent_name}.json"
-    if json_path.exists():
-        with open(json_path, "r", encoding="utf-8") as f:
-            config = json.load(f)
-
     # Verify agent prompt file exists
-    txt_path = agent_dir / f"{agent_name}.txt"
-    if not txt_path.exists():
+    md_path = agent_dir / f"{agent_name}.md"
+    if not md_path.exists():
         raise FileNotFoundError(f"Agent persona not found: {persona}")
+
+    # Load config from frontmatter
+    post = frontmatter.load(md_path, )
+    config = dict(post.metadata) if post.metadata else {}
 
     # Extract instructions config if present
     instructions_config = config.pop("instructions", None)
@@ -1292,8 +1293,8 @@ def get_agents() -> dict[str, dict[str, Any]]:
 
     # System agents from muse/agents/
     if AGENT_DIR.exists():
-        for txt_path in sorted(AGENT_DIR.glob("*.txt")):
-            agent_id = txt_path.stem
+        for md_path in sorted(AGENT_DIR.glob("*.md")):
+            agent_id = md_path.stem
             try:
                 config = get_agent(agent_id)
                 config["title"] = config.get("title", agent_id)
@@ -1312,8 +1313,8 @@ def get_agents() -> dict[str, dict[str, Any]]:
             if not agents_dir.is_dir():
                 continue
             app_name = app_path.name
-            for txt_path in sorted(agents_dir.glob("*.txt")):
-                agent_name = txt_path.stem
+            for md_path in sorted(agents_dir.glob("*.md")):
+                agent_name = md_path.stem
                 key = f"{app_name}:{agent_name}"
                 try:
                     config = get_agent(key)

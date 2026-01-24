@@ -110,7 +110,7 @@ async def run_agent(
 - `prompt`: User's input (required)
 - `model`: Model identifier
 - `max_tokens`: Output token limit
-- `system_instruction`: System instruction (journal.txt for agents)
+- `system_instruction`: System instruction (journal.md for agents)
 - `extra_context`: Runtime context (facets, insights list, datetime) as first user message
 - `user_instruction`: Agent-specific prompt as second user message
 - `mcp_server_url`: URL for MCP tool server

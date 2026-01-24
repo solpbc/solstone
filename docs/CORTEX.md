@@ -37,7 +37,7 @@ Requests are created via `cortex_request()` from `muse.cortex_client`, which bro
   "event": "request",
   "ts": 1234567890123,              // Required: millisecond timestamp (must match filename)
   "prompt": "Analyze this code for security issues",  // Required: the task or question
-  "persona": "default",              // Optional: agent persona from muse/agents/*.txt
+  "persona": "default",              // Optional: agent persona from muse/agents/*.md
   "provider": "openai",              // Optional: override provider (openai, google, anthropic)
   "max_tokens": 8192,               // Optional: token limit (if supported)
   "disable_mcp": false,             // Optional: disable MCP tools for this request
@@ -225,16 +225,16 @@ Agents can transfer control to other agents for specialized tasks. When an agent
 
 ## Agent Personas
 
-Agents use persona configurations stored in the `muse/agents/` directory. Each persona consists of:
-- A `.txt` file containing the agent-specific prompt and instructions
-- An optional `.json` file with metadata and configuration
+Agents use persona configurations stored in the `muse/agents/` directory. Each persona is a `.md` file containing:
+- JSON frontmatter with metadata and configuration
+- The agent-specific prompt and instructions in the content
 
 When spawning an agent:
 1. Cortex loads the persona configuration using `get_agent()` from `think/utils.py`
 2. The configuration is built with three instruction components:
-   - `system_instruction`: `journal.txt` (shared base prompt, cacheable)
+   - `system_instruction`: `journal.md` (shared base prompt, cacheable)
    - `extra_context`: Runtime context (facets, insights list, datetime)
-   - `user_instruction`: The agent's `.txt` file content
+   - `user_instruction`: The agent's `.md` file content
 3. Request parameters override persona defaults in the merged configuration
 4. The full configuration is passed to the agent process
 
@@ -242,7 +242,7 @@ Personas define specialized behaviors, tool usage patterns, and facet expertise.
 
 ### Persona Configuration Options
 
-The `.json` file for a persona can include:
+The JSON frontmatter for a persona can include:
 - `claude`: Boolean flag to use Claude Code SDK instead of API providers
   - When true, uses filesystem tools instead of MCP; requires `facet` in request
   - This flag is NOT inherited by handoff agents

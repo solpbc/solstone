@@ -909,8 +909,8 @@ Example frame record:
 
 The vision analysis uses multi-stage conditional processing:
 1. Initial categorization determines content type (e.g., `code`, `meeting`, `browsing`, `reading`). See `observe/categories/` for the full list of categories.
-2. Category-specific follow-up prompts are discovered from `observe/categories/*.txt` files
-3. Follow-ups are triggered for categories that have a `.txt` template (currently: messaging, browsing, reading, productivity output markdown; meeting outputs JSON)
+2. Category-specific follow-up prompts are discovered from `observe/categories/*.md` files
+3. Follow-ups are triggered for categories that have extraction content in their `.md` file (currently: messaging, browsing, reading, productivity output markdown; meeting outputs JSON)
 
 #### Event extracts
 
@@ -953,14 +953,14 @@ After captures are processed, segment-level insights are generated within each s
 Post-processing generates day-level insights in the `insights/` directory that synthesize all segments.
 
 **Insight discovery:** Available insight types are discovered at runtime from:
-- `think/insights/*.txt` – system insight templates
-- `apps/{app}/insights/*.txt` – app-specific insight templates
+- `think/insights/*.md` – system insight templates
+- `apps/{app}/insights/*.md` – app-specific insight templates
 
-Each template has a companion `.json` file with metadata (title, description, frequency, output format). Use `get_insights()` from `think/utils.py` to retrieve all available insights programmatically.
+Each template is a `.md` file with JSON frontmatter containing metadata (title, description, frequency, output format). Use `get_insights()` from `think/utils.py` to retrieve all available insights programmatically.
 
 **Output naming:**
 - System insights: `insights/{topic}.md` (e.g., `insights/flow.md`, `insights/meetings.md`)
 - App insights: `insights/_{app}_{topic}.md` (e.g., `insights/_chat_sentiment.md`)
 - JSON output: `insights/{topic}.json` when metadata specifies `"output": "json"`
 
-Each insight type has a corresponding template file (`{name}.txt`) that defines how the AI synthesizes extracts into narrative form.
+Each insight type has a corresponding template file (`{name}.md`) that defines how the AI synthesizes extracts into narrative form.

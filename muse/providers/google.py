@@ -527,7 +527,7 @@ async def run_agent(
         )
 
         # Extract instruction components from config
-        # Structure: system=journal.txt, user1=extra_context, user2=user_instruction, user3=prompt
+        # Structure: system=journal.md, user1=extra_context, user2=user_instruction, user3=prompt
         system_instruction = config.get("system_instruction", "")
         extra_context = config.get("extra_context", "")
         user_instruction = config.get("user_instruction", "")

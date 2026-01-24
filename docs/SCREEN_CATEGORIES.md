@@ -4,17 +4,19 @@ This directory contains category definitions for vision analysis of screencast f
 
 ## Adding a New Category
 
-Each category requires a `.json` file with metadata, and optionally a `.txt` prompt file for extraction analysis.
+Each category requires a `.md` file with metadata in JSON frontmatter. The file can optionally include extraction prompt content.
 
-### 1. `<category>.json` (required)
+### 1. `<category>.md` (required)
 
-Defines the category and its behavior:
+Defines the category with JSON frontmatter and optional extraction prompt:
 
-```json
+```markdown
 {
   "description": "One-line description for categorization prompt",
   "output": "markdown"
 }
+
+Optional extraction prompt content goes here...
 ```
 
 | Field | Required | Default | Description |
@@ -24,13 +26,11 @@ Defines the category and its behavior:
 
 Model selection is handled via the providers configuration in `journal.json`. Each category uses the context pattern `observe.describe.<category>` for routing. See [JOURNAL.md](JOURNAL.md) for details on configuring providers per context.
 
-### 2. `<category>.txt` (optional, enables extraction)
-
-Categories with a `.txt` file are "extractable" - they can receive detailed content extraction after initial categorization. The prompt template is sent to the model for analysis. Should instruct the model to:
+Categories with prompt content after the frontmatter are "extractable" - they can receive detailed content extraction after initial categorization. The prompt is sent to the model for analysis and should instruct the model to:
 - Analyze the screenshot for this specific category
 - Return content in the format specified by `output` (markdown or JSON)
 
-### 3. `<category>.py` (optional)
+### 2. `<category>.py` (optional)
 
 Custom formatter for rich markdown output. If not provided, default formatting applies:
 - Markdown content: displayed with category header
@@ -58,9 +58,9 @@ def format(content: Any, context: dict) -> str:
 
 ## How It Works
 
-1. `observe/describe.py` discovers all `.json` files and builds the categorization prompt dynamically
+1. `observe/describe.py` discovers all `.md` files and builds the categorization prompt dynamically
 2. **Phase 1 (Categorization)**: All frames get initial category analysis (primary/secondary)
 3. **Phase 2 (Selection)**: AI or fallback logic selects which frames get detailed extraction (configurable via `describe.max_extractions`)
-4. **Phase 3 (Extraction)**: Selected frames with extractable categories (those with `.txt` prompts) get detailed content extraction
+4. **Phase 3 (Extraction)**: Selected frames with extractable categories (those with extraction prompts in their `.md` files) get detailed content extraction
 5. Results are stored in JSONL with `enhanced: true/false` indicating extraction status
 6. `observe/screen.py` formats JSONL to markdown, using custom formatters when available
