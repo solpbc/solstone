@@ -13,10 +13,12 @@ You receive:
 ## Tooling
 
 Always operate on the MCP entity tools with the **required facet parameter**:
-- `entity_list(facet)` - list entities currently attached to THIS facet
+- `entity_list(facet)` - list entities currently attached to THIS facet (returns entities with entity_id)
 - `entity_list(facet, day)` - list entities detected for THIS facet on a specific day
-- `entity_attach(facet, type, name, description)` - promote entity to attached status FOR THIS FACET
-- `entity_add_aka(facet, name, aka)` - add an alias/abbreviation to an attached entity FOR THIS FACET
+- `entity_attach(facet, type, entity, description)` - promote entity to attached status FOR THIS FACET
+  - The `entity` parameter becomes the entity name if creating new; if it matches an existing attached entity, returns that instead
+- `entity_add_aka(facet, entity, aka)` - add an alias/abbreviation to an attached entity FOR THIS FACET
+  - The `entity` parameter can be entity_id, full name, or existing alias
 
 ## Review Process
 
@@ -115,7 +117,7 @@ For each entity meeting promotion criteria:
 entity_attach(
   facet="work",
   type="Person",
-  name="Sarah Chen",
+  entity="Sarah Chen",
   description="senior backend engineer, leads database and API work"
 )
 ```
@@ -130,11 +132,11 @@ After promotions, review detected entities for name variations and add them as s
 - Abbreviations: "PostgreSQL" detected as "Postgres" or "PG" → add aka: "Postgres", "PG"
 - Short forms: "Anthropic PBC" detected as "Anthropic" → add aka: "Anthropic"
 
-**Execution:**
+**Execution (use entity_id or name for the entity parameter):**
 ```
-entity_add_aka(facet="work", name="Federal Aviation Administration", aka="FAA")
-entity_add_aka(facet="work", name="PostgreSQL", aka="Postgres")
-entity_add_aka(facet="work", name="PostgreSQL", aka="PG")
+entity_add_aka(facet="work", entity="federal_aviation_administration", aka="FAA")
+entity_add_aka(facet="work", entity="PostgreSQL", aka="Postgres")
+entity_add_aka(facet="work", entity="postgresql", aka="PG")
 ```
 
 **When to add aliases:**

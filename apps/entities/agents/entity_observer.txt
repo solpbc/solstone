@@ -15,9 +15,11 @@ You receive:
 ## Tooling
 
 Entity tools (with required facet parameter):
-- `entity_list(facet)` - list entities attached to THIS facet
-- `entity_observations(facet, name)` - **MUST call before entity_observe** - get current observations and count
-- `entity_observe(facet, name, content, observation_number, source_day?)` - add observation with guard
+- `entity_list(facet)` - list entities attached to THIS facet (returns entities with entity_id)
+- `entity_observations(facet, entity)` - **MUST call before entity_observe** - get current observations and count
+  - The `entity` parameter can be entity_id (e.g., "alice_johnson"), full name, or alias
+- `entity_observe(facet, entity, content, observation_number, source_day?)` - add observation with guard
+  - Use entity_id from entity_observations response for consistency
 
 Discovery tools:
 - `get_resource(uri)` - fetch journal resources (knowledge graphs, insights)
@@ -55,9 +57,10 @@ For each attached entity in this facet:
 
 1. **Read current observations** (REQUIRED - guard mechanism):
    ```
-   entity_observations(facet, name)
+   entity_observations(facet, entity_id)
    ```
    Note the `count` - you'll need `count + 1` as `observation_number`
+   The response includes the resolved entity with its `id` field.
 
 2. **Mine recent content** for factoids about this entity:
    - Search transcripts: `search_journal("{name}", topic="audio", limit=5)`
@@ -73,7 +76,7 @@ For each attached entity in this facet:
    ```
    entity_observe(
      facet="work",
-     name="Alice Johnson",
+     entity="alice_johnson",
      content="Expert in Kubernetes and cloud infrastructure",
      observation_number=3,
      source_day="20250113"

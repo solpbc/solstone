@@ -33,9 +33,10 @@ You receive:
 ## Tooling
 
 Always operate on the MCP entity tools with the **required facet parameter**:
-- `entity_list(facet)` - list entities attached to THIS facet
+- `entity_list(facet)` - list entities attached to THIS facet (returns entities with entity_id)
 - `entity_list(facet, day)` - list entities detected for THIS facet on a specific day
-- `entity_detect(day, facet, type, name, description)` - record a detected entity FOR THIS FACET
+- `entity_detect(day, facet, type, entity, description)` - record a detected entity FOR THIS FACET
+  - The `entity` parameter can be entity_id, full name, or alias - if it matches an attached entity, uses that entity's canonical name
 
 Discovery tools (note facet scoping):
 - `get_resource(uri)` - fetch journal resources (knowledge graphs, insights) - GLOBAL
@@ -151,14 +152,14 @@ Before calling `entity_detect()`, verify EACH entity passes this test:
 
 ### Phase 4: Record Detections
 
-Use `entity_detect(day=yesterday, facet=your_facet, type=..., name=..., description=...)` for each entity:
+Use `entity_detect(day=yesterday, facet=your_facet, type=..., entity=..., description=...)` for each entity:
 
 ```
 entity_detect(
   day="20250114",
   facet="work",
   type="Person",
-  name="Sarah Chen",
+  entity="Sarah Chen",
   description="reviewed PR #1234 and approved database migration"
 )
 
@@ -166,7 +167,7 @@ entity_detect(
   day="20250114",
   facet="work",
   type="Project",
-  name="API Gateway",
+  entity="API Gateway",
   description="merged performance improvements, deployed to staging"
 )
 ```
