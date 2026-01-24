@@ -24,11 +24,17 @@ from think.entities import (
     is_valid_entity_type,
     load_detected_entities_recent,
     load_entities,
+    load_facet_relationship,
+    load_journal_entity,
     load_observations,
     rename_entity_memory,
     save_entities,
+    save_journal_entity,
+    scan_facet_relationships,
+    scan_journal_entities,
     validate_aka_uniqueness,
 )
+from think.facets import get_facets
 
 entities_bp = Blueprint(
     "app:entities",
@@ -353,10 +359,14 @@ def update_entity(facet_name: str) -> Any:
 
         # Validate akas don't conflict with other entities
         for aka in aka_list:
-            conflict = validate_aka_uniqueness(aka, entities, exclude_entity_name=old_name)
+            conflict = validate_aka_uniqueness(
+                aka, entities, exclude_entity_name=old_name
+            )
             if conflict:
                 return (
-                    jsonify({"error": f"Alias '{aka}' conflicts with entity '{conflict}'"}),
+                    jsonify(
+                        {"error": f"Alias '{aka}' conflicts with entity '{conflict}'"}
+                    ),
                     409,
                 )
 
@@ -627,3 +637,226 @@ def delete_detected(facet_name: str) -> Any:
 
     except Exception as e:
         return jsonify({"error": f"Failed to delete entity: {str(e)}"}), 500
+
+
+# =============================================================================
+# Journal-wide entity endpoints (all-facet mode)
+# =============================================================================
+
+
+def _build_facet_relationships(
+    entity_id: str, entity_name: str, facets_config: dict
+) -> tuple[list, int, int]:
+    """Build facet relationships list for a journal entity.
+
+    Args:
+        entity_id: The entity id
+        entity_name: The entity name
+        facets_config: Dict of facet configs from get_facets()
+
+    Returns:
+        Tuple of (facet_relationships list, total_observation_count, latest_active_ts)
+    """
+    facet_relationships = []
+    total_observation_count = 0
+    latest_active_ts = 0
+
+    for facet_name in facets_config:
+        relationship = load_facet_relationship(facet_name, entity_id)
+        if not relationship:
+            continue
+        # Skip detached relationships
+        if relationship.get("detached"):
+            continue
+
+        facet_config = facets_config.get(facet_name, {})
+        metadata = _get_entity_metadata(facet_name, entity_name)
+
+        facet_rel = {
+            "name": facet_name,
+            "title": facet_config.get("title", facet_name),
+            "color": facet_config.get("color", "#888"),
+            "emoji": facet_config.get("emoji", ""),
+            "description": relationship.get("description", ""),
+            "last_seen": relationship.get("last_seen"),
+            "attached_at": relationship.get("attached_at"),
+            "updated_at": relationship.get("updated_at"),
+            "observation_count": metadata["observation_count"],
+            "has_voiceprint": metadata["has_voiceprint"],
+        }
+
+        # Compute last_active_ts for this relationship
+        rel_active_ts = entity_last_active_ts(relationship)
+        facet_rel["last_active_ts"] = rel_active_ts
+
+        total_observation_count += metadata["observation_count"]
+        if rel_active_ts > latest_active_ts:
+            latest_active_ts = rel_active_ts
+
+        facet_relationships.append(facet_rel)
+
+    # Sort facet relationships by last_active_ts (most recent first)
+    facet_relationships.sort(key=lambda r: r.get("last_active_ts", 0), reverse=True)
+
+    return facet_relationships, total_observation_count, latest_active_ts
+
+
+def get_journal_entities_data() -> dict:
+    """Get all journal entities with facet relationship data.
+
+    Returns:
+        dict with:
+            - entities: list of journal entities enriched with facet info
+    """
+    facets_config = get_facets()
+    entity_ids = scan_journal_entities()
+
+    entities = []
+    for entity_id in entity_ids:
+        journal_entity = load_journal_entity(entity_id)
+        if not journal_entity:
+            continue
+
+        entity_name = journal_entity.get("name", "")
+
+        # Build facet relationships
+        facet_relationships, total_observation_count, latest_active_ts = (
+            _build_facet_relationships(entity_id, entity_name, facets_config)
+        )
+
+        # Build enriched entity
+        enriched = {
+            "id": entity_id,
+            "name": entity_name,
+            "type": journal_entity.get("type", ""),
+            "aka": journal_entity.get("aka", []),
+            "is_principal": journal_entity.get("is_principal", False),
+            "facets": facet_relationships,
+            "total_observation_count": total_observation_count,
+            "last_active_ts": latest_active_ts,
+        }
+
+        entities.append(enriched)
+
+    # Sort by last_active_ts (most recent first)
+    entities.sort(key=lambda e: e.get("last_active_ts", 0), reverse=True)
+
+    return {"entities": entities}
+
+
+@entities_bp.route("/api/journal")
+def get_journal_entities() -> Any:
+    """Get all journal entities with facet relationship summaries."""
+    try:
+        data = get_journal_entities_data()
+        return jsonify(data)
+    except Exception as e:
+        logger.exception("Failed to get journal entities")
+        return jsonify({"error": f"Failed to get journal entities: {str(e)}"}), 500
+
+
+@entities_bp.route("/api/journal/entity/<entity_id>")
+def get_journal_entity(entity_id: str) -> Any:
+    """Get a single journal entity by id with full facet relationship details."""
+    try:
+        journal_entity = load_journal_entity(entity_id)
+        if not journal_entity:
+            return jsonify({"error": f"Entity '{entity_id}' not found"}), 404
+
+        entity_name = journal_entity.get("name", "")
+        facets_config = get_facets()
+
+        # Build facet relationships
+        facet_relationships, total_observation_count, latest_active_ts = (
+            _build_facet_relationships(entity_id, entity_name, facets_config)
+        )
+
+        # Build enriched entity
+        enriched = {
+            "id": entity_id,
+            "name": entity_name,
+            "type": journal_entity.get("type", ""),
+            "aka": journal_entity.get("aka", []),
+            "is_principal": journal_entity.get("is_principal", False),
+            "facets": facet_relationships,
+            "total_observation_count": total_observation_count,
+            "last_active_ts": latest_active_ts,
+        }
+
+        return jsonify({"entity": enriched})
+
+    except Exception as e:
+        logger.exception("Failed to get journal entity")
+        return jsonify({"error": f"Failed to get journal entity: {str(e)}"}), 500
+
+
+@entities_bp.route("/api/journal/entity/<entity_id>", methods=["PUT"])
+def update_journal_entity(entity_id: str) -> Any:
+    """Update a journal entity's name, type, and/or akas."""
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({"error": "No data provided"}), 400
+
+        # Load existing entity
+        journal_entity = load_journal_entity(entity_id)
+        if not journal_entity:
+            return jsonify({"error": f"Entity '{entity_id}' not found"}), 404
+
+        # Track what changed for logging
+        changes = {}
+
+        # Update name if provided
+        new_name = data.get("name", "").strip()
+        if new_name and new_name != journal_entity.get("name", ""):
+            changes["name"] = {"old": journal_entity.get("name"), "new": new_name}
+            journal_entity["name"] = new_name
+
+        # Update type if provided
+        new_type = data.get("type", "").strip()
+        if new_type:
+            if not is_valid_entity_type(new_type):
+                return jsonify({"error": f"Invalid entity type: {new_type}"}), 400
+            if new_type != journal_entity.get("type", ""):
+                changes["type"] = {"old": journal_entity.get("type"), "new": new_type}
+                journal_entity["type"] = new_type
+
+        # Update akas if provided
+        if "aka" in data:
+            new_akas = data["aka"]
+            if isinstance(new_akas, str):
+                # Parse comma-separated string
+                new_akas = [a.strip() for a in new_akas.split(",") if a.strip()]
+            elif not isinstance(new_akas, list):
+                new_akas = []
+
+            old_akas = journal_entity.get("aka", [])
+            if set(new_akas) != set(old_akas):
+                changes["aka"] = {"old": old_akas, "new": new_akas}
+                journal_entity["aka"] = new_akas
+
+        if not changes:
+            return jsonify({"success": True, "message": "No changes made"})
+
+        # Update timestamp
+        journal_entity["updated_at"] = int(time.time() * 1000)
+
+        # Save the updated entity
+        save_journal_entity(journal_entity)
+
+        # Log the action
+        log_app_action(
+            app="entities",
+            facet=None,  # Journal-level action
+            action="journal_entity_update",
+            params={
+                "entity_id": entity_id,
+                "changes": changes,
+            },
+        )
+
+        return jsonify({"success": True, "entity": journal_entity})
+
+    except Exception as e:
+        logger.exception("Failed to update journal entity")
+        return jsonify({"error": f"Failed to update journal entity: {str(e)}"}), 500

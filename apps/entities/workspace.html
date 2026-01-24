@@ -70,7 +70,8 @@
   color: var(--facet-color, #667eea);
 }
 
-.entity-card-obs-badge {
+.entity-card-obs-badge,
+.entity-card-badge {
   position: absolute;
   top: 0;
   right: 0;
@@ -85,6 +86,11 @@
   display: flex;
   align-items: center;
   justify-content: center;
+}
+
+.entity-card-date {
+  font-size: 0.8em;
+  color: #6c757d;
 }
 
 /* Pending card state */
@@ -673,6 +679,115 @@ tr:hover .entity-delete-btn {
   padding: 0.75em 1em;
   margin-bottom: 1em;
 }
+
+/* =============================================================================
+   Journal-wide view (all-facet mode)
+   ============================================================================= */
+
+/* Facet dots on entity cards */
+.entity-card-facet-dots {
+  display: flex;
+  gap: 3px;
+  margin-top: 4px;
+}
+
+.entity-facet-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+/* Journal entity detail view - facet relationships */
+.facet-relationships-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75em;
+}
+
+.facet-relationship-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 1em;
+  padding: 0.75em 1em;
+  background: #f8f9fa;
+  border-radius: 8px;
+  border-left: 4px solid #888;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.facet-relationship-row:hover {
+  background: #fff;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.facet-rel-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.facet-rel-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5em;
+  margin-bottom: 0.25em;
+}
+
+.facet-rel-emoji {
+  font-size: 1.1em;
+}
+
+.facet-rel-title {
+  font-weight: 500;
+  color: #212529;
+}
+
+.facet-rel-description {
+  font-size: 0.9em;
+  color: #6c757d;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.facet-rel-meta {
+  display: flex;
+  align-items: center;
+  gap: 1em;
+  font-size: 0.85em;
+  color: #6c757d;
+  flex-shrink: 0;
+}
+
+.facet-rel-obs {
+  display: flex;
+  align-items: center;
+  gap: 0.25em;
+}
+
+.facet-rel-voiceprint {
+  color: #667eea;
+}
+
+.no-facet-relationships {
+  color: #6c757d;
+  font-style: italic;
+  padding: 1em;
+  text-align: center;
+}
+
+/* Empty journal state */
+.no-journal-entities {
+  text-align: center;
+  padding: 4em 2em;
+  color: #666;
+}
+
+.no-journal-entities h2 {
+  color: #999;
+  margin-bottom: 0.5em;
+}
 </style>
 
 <div class="workspace-content">
@@ -681,12 +796,66 @@ tr:hover .entity-delete-btn {
     <p>Loading entities...</p>
   </div>
 
-  <div id="no-facet-message" class="no-facet-message" style="display: none;">
-    <h2>Select a facet to view entities</h2>
-    <p>Choose a facet from the pills above to see its entities.</p>
+  <!-- Journal-wide entities view (all-facet mode) -->
+  <div id="journal-entities-view" style="display: none;">
+    <div class="entities-section">
+      <div class="entity-cards-container">
+        <div id="journal-entity-cards-content"></div>
+        <div id="no-journal-entities" class="no-journal-entities" style="display: none;">
+          <h2>No entities yet</h2>
+          <p>Select a facet to add entities to your journal.</p>
+        </div>
+      </div>
+    </div>
   </div>
 
-  <!-- Main list view -->
+  <!-- Journal entity detail view (all-facet mode) -->
+  <div id="journal-entity-detail-view" class="entity-detail-view" style="display: none;">
+    <div class="entity-detail-header">
+      <a class="entity-detail-back" onclick="navigateToList()">← Back to entities</a>
+      <div class="entity-detail-title">
+        <h2 class="entity-detail-name" id="journal-detail-name"></h2>
+        <span class="entity-detail-type" id="journal-detail-type"></span>
+      </div>
+      <div class="entity-detail-aka" id="journal-detail-aka"></div>
+      <div class="entity-detail-indicators" id="journal-detail-indicators"></div>
+    </div>
+
+    <div class="entity-detail-section">
+      <h4>Facets</h4>
+      <div id="journal-detail-facets"></div>
+    </div>
+
+    <div class="entity-detail-section">
+      <h4>Edit Entity</h4>
+      <div id="journal-detail-edit-error" class="error-message" style="display: none;"></div>
+      <form class="entity-edit-form" id="journal-detail-edit-form">
+        <div class="form-group">
+          <label for="journal-detail-edit-name">Name</label>
+          <input type="text" id="journal-detail-edit-name" required>
+        </div>
+        <div class="form-group">
+          <label for="journal-detail-edit-type">Type</label>
+          <select id="journal-detail-edit-type">
+            <option value="Person">Person</option>
+            <option value="Company">Company</option>
+            <option value="Project">Project</option>
+            <option value="Tool">Tool</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="journal-detail-edit-akas">Alternative Names (AKAs)</label>
+          <input type="text" id="journal-detail-edit-akas" placeholder="alias1, alias2, alias3">
+          <small>Comma-separated list of alternative names for audio transcription</small>
+        </div>
+        <div class="form-actions">
+          <button type="submit" class="btn btn-primary" id="journal-detail-save-btn">Save Changes</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Main list view (facet-specific mode) -->
   <div id="entities-list-view" style="display: none;">
     <!-- Facet Entities Section (Cards) -->
     <div class="entities-section">
@@ -739,36 +908,6 @@ tr:hover .entity-delete-btn {
     </div>
 
     <div class="entity-detail-section">
-      <h4>Edit Entity</h4>
-      <div id="detail-edit-error" class="error-message" style="display: none;"></div>
-      <form class="entity-edit-form" id="detail-edit-form">
-        <div class="form-group">
-          <label for="detail-edit-name">Name</label>
-          <input type="text" id="detail-edit-name" required>
-        </div>
-        <div class="form-group">
-          <label for="detail-edit-type">Type</label>
-          <select id="detail-edit-type">
-            <option value="Person">Person</option>
-            <option value="Organization">Organization</option>
-            <option value="Project">Project</option>
-            <option value="Tool">Tool</option>
-            <option value="Location">Location</option>
-            <option value="Event">Event</option>
-          </select>
-        </div>
-        <div class="form-group">
-          <label for="detail-edit-akas">Alternative Names (AKAs)</label>
-          <input type="text" id="detail-edit-akas" placeholder="alias1, alias2, alias3">
-          <small>Comma-separated list of alternative names for audio transcription</small>
-        </div>
-        <div class="form-actions">
-          <button type="submit" class="btn btn-primary" id="detail-save-btn">Save Changes</button>
-        </div>
-      </form>
-    </div>
-
-    <div class="entity-detail-section">
       <h4>Observations</h4>
       <div id="detail-observations"></div>
     </div>
@@ -806,12 +945,13 @@ tr:hover .entity-delete-btn {
 <script>
 let currentFacet = window.selectedFacet;
 let entitiesData = null;
+let journalEntitiesData = null;  // For all-facet mode
 let currentDetailEntity = null;
 const pendingEntities = new Map(); // agent_id → { name, element }
 const pendingAgentCallbacks = new Map(); // agent_id → callback function
 
 // Type display order for grouping entity cards
-const TYPE_ORDER = ['Person', 'Organization', 'Project', 'Tool', 'Location', 'Event'];
+const TYPE_ORDER = ['Person', 'Company', 'Project', 'Tool'];
 
 // Parse YYYYMMDD string to Date object
 function parseYYYYMMDD(dateStr) {
@@ -877,10 +1017,8 @@ function getEntityDisplayDate(entity) {
 window.addEventListener('facet.switch', (e) => {
   currentFacet = e.detail.facet;
   entitiesData = null;
-  // Clear hash when switching facets
-  if (location.hash) {
-    history.pushState(null, '', location.pathname);
-  }
+  journalEntitiesData = null;
+  // Don't clear hash when switching facets - allows viewing same entity in different contexts
   loadEntities();
 });
 
@@ -905,18 +1043,41 @@ function navigateToList() {
   showListView();
 }
 
-function showListView() {
-  document.getElementById('entities-list-view').style.display = 'block';
+// Hide all views
+function hideAllViews() {
+  document.getElementById('journal-entities-view').style.display = 'none';
+  document.getElementById('journal-entity-detail-view').style.display = 'none';
+  document.getElementById('entities-list-view').style.display = 'none';
   document.getElementById('entity-detail-view').style.display = 'none';
+}
+
+function showListView() {
+  hideAllViews();
+  if (currentFacet) {
+    // Facet-specific mode
+    document.getElementById('entities-list-view').style.display = 'block';
+  } else {
+    // Journal-wide mode (all-facet)
+    document.getElementById('journal-entities-view').style.display = 'block';
+  }
   currentDetailEntity = null;
 }
 
 function showDetailView(entityId) {
-  if (!currentFacet) return;
+  hideAllViews();
 
-  document.getElementById('entities-list-view').style.display = 'none';
-  document.getElementById('entity-detail-view').style.display = 'block';
+  if (currentFacet) {
+    // Facet-specific detail view
+    document.getElementById('entity-detail-view').style.display = 'block';
+    showFacetDetailView(entityId);
+  } else {
+    // Journal-wide detail view
+    document.getElementById('journal-entity-detail-view').style.display = 'block';
+    showJournalDetailView(entityId);
+  }
+}
 
+function showFacetDetailView(entityId) {
   // Show loading state
   document.getElementById('detail-name').textContent = 'Loading...';
   document.getElementById('detail-type').textContent = '';
@@ -942,6 +1103,233 @@ function showDetailView(entityId) {
         `<div class="error-message">${window.AppServices._escapeHtml(error.message)}</div>`;
     });
 }
+
+function showJournalDetailView(entityId) {
+  // Show loading state
+  document.getElementById('journal-detail-name').textContent = 'Loading...';
+  document.getElementById('journal-detail-type').textContent = '';
+  document.getElementById('journal-detail-aka').textContent = '';
+  document.getElementById('journal-detail-indicators').innerHTML = '';
+  document.getElementById('journal-detail-facets').innerHTML = '<span class="observations-empty">Loading...</span>';
+
+  // Fetch journal entity details
+  fetch(`api/journal/entity/${encodeURIComponent(entityId)}`)
+    .then(response => response.json())
+    .then(data => {
+      if (data.error) {
+        throw new Error(data.error);
+      }
+      currentDetailEntity = data.entity;
+      renderJournalDetailView(data.entity);
+    })
+    .catch(error => {
+      console.error('Error loading journal entity:', error);
+      document.getElementById('journal-detail-name').textContent = 'Error';
+      document.getElementById('journal-detail-facets').innerHTML =
+        `<div class="error-message">${window.AppServices._escapeHtml(error.message)}</div>`;
+    });
+}
+
+function renderJournalDetailView(entity) {
+  // Header
+  document.getElementById('journal-detail-name').textContent = entity.name;
+  document.getElementById('journal-detail-type').textContent = entity.type;
+
+  // Add or remove principal badge
+  const isPrincipal = entity.is_principal === true;
+  const typeEl = document.getElementById('journal-detail-type');
+  let principalBadge = document.getElementById('journal-detail-principal-badge');
+  if (isPrincipal) {
+    if (!principalBadge) {
+      principalBadge = document.createElement('span');
+      principalBadge.id = 'journal-detail-principal-badge';
+      principalBadge.className = 'entity-detail-principal-badge';
+      principalBadge.textContent = 'You';
+      principalBadge.title = 'This is you';
+      typeEl.parentNode.insertBefore(principalBadge, typeEl.nextSibling);
+    }
+  } else if (principalBadge) {
+    principalBadge.remove();
+  }
+
+  // AKAs
+  const akaEl = document.getElementById('journal-detail-aka');
+  if (entity.aka && entity.aka.length > 0) {
+    akaEl.textContent = `Also known as: ${entity.aka.join(', ')}`;
+  } else {
+    akaEl.textContent = '';
+  }
+
+  // Indicators (total observations, facet count)
+  const indicators = [];
+  const displayDate = getEntityDisplayDate(entity);
+  if (displayDate) {
+    indicators.push(`Last active: ${displayDate}`);
+  }
+  if (entity.total_observation_count > 0) {
+    indicators.push(`${entity.total_observation_count} observation${entity.total_observation_count !== 1 ? 's' : ''}`);
+  }
+  if (entity.facets && entity.facets.length > 0) {
+    indicators.push(`${entity.facets.length} facet${entity.facets.length !== 1 ? 's' : ''}`);
+  }
+  document.getElementById('journal-detail-indicators').innerHTML = indicators.join(' · ');
+
+  // Facet relationships
+  const facetsContainer = document.getElementById('journal-detail-facets');
+  const facets = entity.facets || [];
+
+  if (facets.length === 0) {
+    facetsContainer.innerHTML = '<div class="no-facet-relationships">Not attached to any facets yet.</div>';
+  } else {
+    facetsContainer.innerHTML = '<div class="facet-relationships-list"></div>';
+    const list = facetsContainer.querySelector('.facet-relationships-list');
+
+    facets.forEach(facet => {
+      const row = document.createElement('div');
+      row.className = 'facet-relationship-row';
+      row.style.borderLeftColor = facet.color || '#888';
+      row.title = `Click to view in ${facet.title}`;
+      row.onclick = () => {
+        // Select the facet, which will reload entities and show this entity in facet context
+        window.selectFacet(facet.name);
+      };
+
+      const info = document.createElement('div');
+      info.className = 'facet-rel-info';
+
+      const header = document.createElement('div');
+      header.className = 'facet-rel-header';
+
+      if (facet.emoji) {
+        const emoji = document.createElement('span');
+        emoji.className = 'facet-rel-emoji';
+        emoji.textContent = facet.emoji;
+        header.appendChild(emoji);
+      }
+
+      const title = document.createElement('span');
+      title.className = 'facet-rel-title';
+      title.textContent = facet.title;
+      header.appendChild(title);
+
+      info.appendChild(header);
+
+      if (facet.description) {
+        const desc = document.createElement('div');
+        desc.className = 'facet-rel-description';
+        desc.textContent = facet.description;
+        info.appendChild(desc);
+      }
+
+      row.appendChild(info);
+
+      // Meta info (observations, voiceprint, date)
+      const meta = document.createElement('div');
+      meta.className = 'facet-rel-meta';
+
+      if (facet.observation_count > 0) {
+        const obs = document.createElement('span');
+        obs.className = 'facet-rel-obs';
+        obs.textContent = `${facet.observation_count} obs`;
+        meta.appendChild(obs);
+      }
+
+      if (facet.has_voiceprint) {
+        const voiceprint = document.createElement('span');
+        voiceprint.className = 'facet-rel-voiceprint';
+        voiceprint.textContent = '🎤';
+        voiceprint.title = 'Has voiceprint';
+        meta.appendChild(voiceprint);
+      }
+
+      if (facet.last_active_ts) {
+        const date = document.createElement('span');
+        date.textContent = formatTimestamp(facet.last_active_ts);
+        meta.appendChild(date);
+      }
+
+      if (meta.childNodes.length > 0) {
+        row.appendChild(meta);
+      }
+
+      list.appendChild(row);
+    });
+  }
+
+  // Edit form
+  document.getElementById('journal-detail-edit-name').value = entity.name || '';
+  document.getElementById('journal-detail-edit-type').value = entity.type || 'Person';
+  document.getElementById('journal-detail-edit-akas').value = (entity.aka || []).join(', ');
+  document.getElementById('journal-detail-edit-error').style.display = 'none';
+}
+
+// Handle journal entity edit form submission
+document.getElementById('journal-detail-edit-form').addEventListener('submit', function(e) {
+  e.preventDefault();
+
+  const entityId = currentDetailEntity?.id;
+  if (!entityId) return;
+
+  const name = document.getElementById('journal-detail-edit-name').value.trim();
+  const type = document.getElementById('journal-detail-edit-type').value;
+  const akasStr = document.getElementById('journal-detail-edit-akas').value;
+  const aka = akasStr ? akasStr.split(',').map(a => a.trim()).filter(a => a) : [];
+
+  const errorEl = document.getElementById('journal-detail-edit-error');
+  const saveBtn = document.getElementById('journal-detail-save-btn');
+
+  if (!name) {
+    errorEl.textContent = 'Name is required';
+    errorEl.style.display = 'block';
+    return;
+  }
+
+  saveBtn.disabled = true;
+  saveBtn.textContent = 'Saving...';
+
+  fetch(`api/journal/entity/${encodeURIComponent(entityId)}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name, type, aka })
+  })
+  .then(response => response.json())
+  .then(data => {
+    if (data.error) {
+      throw new Error(data.error);
+    }
+
+    // Update local state
+    if (data.entity) {
+      currentDetailEntity.name = data.entity.name;
+      currentDetailEntity.type = data.entity.type;
+      currentDetailEntity.aka = data.entity.aka;
+    }
+
+    // Update header display
+    document.getElementById('journal-detail-name').textContent = name;
+    document.getElementById('journal-detail-type').textContent = type;
+    const akaEl = document.getElementById('journal-detail-aka');
+    if (aka.length > 0) {
+      akaEl.textContent = `Also known as: ${aka.join(', ')}`;
+    } else {
+      akaEl.textContent = '';
+    }
+
+    errorEl.style.display = 'none';
+    saveBtn.textContent = 'Saved!';
+    setTimeout(() => {
+      saveBtn.textContent = 'Save Changes';
+      saveBtn.disabled = false;
+    }, 1500);
+  })
+  .catch(error => {
+    console.error('Error updating journal entity:', error);
+    errorEl.textContent = error.message || 'Failed to save changes';
+    errorEl.style.display = 'block';
+    saveBtn.textContent = 'Save Changes';
+    saveBtn.disabled = false;
+  });
+});
 
 function renderDetailView(entity, observations) {
   const isDetached = entity.detached === true;
@@ -1012,12 +1400,6 @@ function renderDetailView(entity, observations) {
 
   // Description
   renderDescriptionSection(entity);
-
-  // Edit form
-  document.getElementById('detail-edit-name').value = entity.name;
-  document.getElementById('detail-edit-type').value = entity.type;
-  document.getElementById('detail-edit-akas').value = (entity.aka || []).join(', ');
-  document.getElementById('detail-edit-error').style.display = 'none';
 
   // Observations
   const obsContainer = document.getElementById('detail-observations');
@@ -1276,12 +1658,6 @@ document.addEventListener('DOMContentLoaded', function() {
     });
   }
 
-  // Edit form submission
-  document.getElementById('detail-edit-form').addEventListener('submit', function(e) {
-    e.preventDefault();
-    saveEntityEdit();
-  });
-
   // Modal close on outside click
   window.onclick = function(event) {
     const deleteModal = document.getElementById('deleteModal');
@@ -1292,19 +1668,17 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 function loadEntities() {
+  // Hide all views and show loading
+  hideAllViews();
+  document.getElementById('entities-loading').style.display = 'block';
+
   if (!currentFacet) {
-    document.getElementById('entities-loading').style.display = 'none';
-    document.getElementById('no-facet-message').style.display = 'block';
-    document.getElementById('entities-list-view').style.display = 'none';
-    document.getElementById('entity-detail-view').style.display = 'none';
+    // All-facet mode: load journal entities
+    loadJournalEntities();
     return;
   }
 
-  document.getElementById('entities-loading').style.display = 'block';
-  document.getElementById('no-facet-message').style.display = 'none';
-  document.getElementById('entities-list-view').style.display = 'none';
-  document.getElementById('entity-detail-view').style.display = 'none';
-
+  // Facet-specific mode
   fetch(`api/${encodeURIComponent(currentFacet)}`)
     .then(response => response.json())
     .then(data => {
@@ -1335,11 +1709,153 @@ function loadEntities() {
     });
 }
 
+function loadJournalEntities() {
+  fetch('api/journal')
+    .then(response => response.json())
+    .then(data => {
+      if (data.error) {
+        throw new Error(data.error);
+      }
+
+      journalEntitiesData = data.entities || [];
+
+      document.getElementById('entities-loading').style.display = 'none';
+
+      // Check if we should show detail view
+      if (location.hash) {
+        handleHashChange();
+      } else {
+        showListView();
+      }
+
+      renderJournalEntities();
+    })
+    .catch(error => {
+      console.error('Error loading journal entities:', error);
+      document.getElementById('entities-loading').innerHTML =
+        `<div class="error-message">${window.AppServices._escapeHtml(error.message || 'Network error')}</div>`;
+    });
+}
+
 function renderEntities(searchTerm = '') {
   if (!entitiesData) return;
 
   renderEntityCards();
   renderDetectedTable(searchTerm);
+}
+
+function renderJournalEntities() {
+  const container = document.getElementById('journal-entity-cards-content');
+  const noEntities = document.getElementById('no-journal-entities');
+
+  container.innerHTML = '';
+
+  const entities = journalEntitiesData || [];
+
+  if (entities.length === 0) {
+    noEntities.style.display = 'block';
+    return;
+  }
+
+  noEntities.style.display = 'none';
+
+  // Group by type
+  const groups = {};
+  entities.forEach(entity => {
+    const type = entity.type || 'Other';
+    if (!groups[type]) groups[type] = [];
+    groups[type].push(entity);
+  });
+
+  // Render groups in order
+  const orderedTypes = [...TYPE_ORDER, ...Object.keys(groups).filter(t => !TYPE_ORDER.includes(t))];
+
+  orderedTypes.forEach(type => {
+    const typeEntities = groups[type];
+    if (!typeEntities || typeEntities.length === 0) return;
+
+    // Sort by activity date (most recent first)
+    typeEntities.sort((a, b) => (b.last_active_ts || 0) - (a.last_active_ts || 0));
+
+    const groupDiv = document.createElement('div');
+    groupDiv.className = 'entity-type-group';
+
+    const header = document.createElement('div');
+    header.className = 'entity-type-header';
+    header.textContent = pluralizeType(type);
+    groupDiv.appendChild(header);
+
+    const grid = document.createElement('div');
+    grid.className = 'entity-cards-grid';
+
+    typeEntities.forEach(entity => {
+      const card = createJournalEntityCard(entity);
+      grid.appendChild(card);
+    });
+
+    groupDiv.appendChild(grid);
+    container.appendChild(groupDiv);
+  });
+}
+
+function createJournalEntityCard(entity) {
+  const card = document.createElement('div');
+  card.className = 'entity-card';
+
+  // Principal styling for the journal owner
+  if (entity.is_principal) {
+    card.classList.add('entity-card-principal');
+
+    const principalBadge = document.createElement('div');
+    principalBadge.className = 'entity-card-principal-badge';
+    principalBadge.textContent = 'You';
+    card.appendChild(principalBadge);
+  }
+
+  card.onclick = () => navigateToEntity(entity.id);
+
+  // Observation count badge (top-right corner)
+  if (entity.total_observation_count > 0) {
+    const badge = document.createElement('div');
+    badge.className = 'entity-card-badge';
+    badge.textContent = entity.total_observation_count;
+    badge.title = `${entity.total_observation_count} observation${entity.total_observation_count !== 1 ? 's' : ''}`;
+    card.appendChild(badge);
+  }
+
+  // Entity name
+  const nameEl = document.createElement('div');
+  nameEl.className = 'entity-card-name';
+  nameEl.textContent = entity.name;
+  card.appendChild(nameEl);
+
+  // Last active date
+  const displayDate = getEntityDisplayDate(entity);
+  if (displayDate) {
+    const dateEl = document.createElement('div');
+    dateEl.className = 'entity-card-date';
+    dateEl.textContent = displayDate;
+    card.appendChild(dateEl);
+  }
+
+  // Facet dots
+  const facets = entity.facets || [];
+  if (facets.length > 0) {
+    const dotsContainer = document.createElement('div');
+    dotsContainer.className = 'entity-card-facet-dots';
+
+    facets.forEach(facet => {
+      const dot = document.createElement('span');
+      dot.className = 'entity-facet-dot';
+      dot.style.backgroundColor = facet.color || '#888';
+      dot.title = facet.title;
+      dotsContainer.appendChild(dot);
+    });
+
+    card.appendChild(dotsContainer);
+  }
+
+  return card;
 }
 
 function renderEntityCards() {
@@ -1771,76 +2287,6 @@ function failPendingEntity(agentId, error) {
   }, 5000);
 }
 
-// Edit entity from detail view
-function saveEntityEdit() {
-  if (!currentDetailEntity) return;
-
-  const nameInput = document.getElementById('detail-edit-name');
-  const typeSelect = document.getElementById('detail-edit-type');
-  const akasInput = document.getElementById('detail-edit-akas');
-  const saveBtn = document.getElementById('detail-save-btn');
-  const errorDiv = document.getElementById('detail-edit-error');
-
-  const newName = nameInput.value.trim();
-  const newType = typeSelect.value;
-  const akaList = akasInput.value.trim();
-
-  if (!newName) {
-    errorDiv.textContent = 'Name is required';
-    errorDiv.style.display = 'block';
-    return;
-  }
-
-  saveBtn.disabled = true;
-  saveBtn.textContent = 'Saving...';
-  errorDiv.style.display = 'none';
-
-  fetch(`api/${encodeURIComponent(currentFacet)}/update`, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      old_name: currentDetailEntity.name,
-      new_name: newName,
-      type: newType,
-      aka_list: akaList
-    })
-  })
-  .then(response => response.json())
-  .then(data => {
-    if (data.success) {
-      // Update current entity and re-render
-      currentDetailEntity.name = newName;
-      currentDetailEntity.type = newType;
-      currentDetailEntity.aka = akaList ? akaList.split(',').map(s => s.trim()).filter(s => s) : [];
-
-      document.getElementById('detail-name').textContent = newName;
-      document.getElementById('detail-type').textContent = newType;
-      document.getElementById('detail-aka').textContent =
-        currentDetailEntity.aka.length > 0 ? `Also known as: ${currentDetailEntity.aka.join(', ')}` : '';
-
-      // Update hash if name changed (id will change)
-      const newId = data.entity.id;
-      if (location.hash.slice(1) !== newId) {
-        history.replaceState(null, '', `#${newId}`);
-      }
-
-      // Reload entities to update cards
-      loadEntities();
-    } else {
-      throw new Error(data.error || 'Failed to update');
-    }
-  })
-  .catch(error => {
-    console.error('Error updating entity:', error);
-    errorDiv.textContent = error.message;
-    errorDiv.style.display = 'block';
-  })
-  .finally(() => {
-    saveBtn.disabled = false;
-    saveBtn.textContent = 'Save Changes';
-  });
-}
-
 // Delete detected entity
 function previewEntityDelete(entityName) {
   fetch(`api/${encodeURIComponent(currentFacet)}/detected/preview?name=${encodeURIComponent(entityName)}`)
@@ -1918,6 +2364,7 @@ function confirmEntityDelete() {
 // Utility
 function pluralizeType(type) {
   if (type === 'Person') return 'People';
+  if (type === 'Company') return 'Companies';
   return type + 's';
 }
 </script>
