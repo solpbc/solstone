@@ -715,14 +715,6 @@ class TestFormatAgent:
 class TestFormatEntities:
     """Tests for the entities formatter."""
 
-    def test_get_formatter_attached_entities(self):
-        """Test pattern matching for attached entities."""
-        from think.formatters import get_formatter
-
-        formatter = get_formatter("facets/personal/entities.jsonl")
-        assert formatter is not None
-        assert formatter.__name__ == "format_entities"
-
     def test_get_formatter_detected_entities(self):
         """Test pattern matching for detected entities."""
         from think.formatters import get_formatter
@@ -730,18 +722,6 @@ class TestFormatEntities:
         formatter = get_formatter("facets/personal/entities/20250101.jsonl")
         assert formatter is not None
         assert formatter.__name__ == "format_entities"
-
-    def test_format_entities_attached_basic(self):
-        """Test basic attached entities formatting with fixture file."""
-        from think.formatters import format_file
-
-        path = Path(os.environ["JOURNAL_PATH"]) / "facets/personal/entities.jsonl"
-        chunks, meta = format_file(path)
-
-        assert len(chunks) == 3  # 3 entities in fixture
-        assert "header" in meta
-        assert "Attached Entities: personal" in meta["header"]
-        assert "3 entities" in meta["header"]
 
     def test_format_entities_detected_basic(self):
         """Test basic detected entities formatting with fixture file."""

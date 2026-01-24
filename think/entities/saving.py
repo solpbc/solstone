@@ -1,0 +1,205 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# Copyright (c) 2026 sol pbc
+
+"""Entity saving functions.
+
+This module handles saving entities to storage:
+- save_entities: Save attached or detected entities for a facet
+- update_entity_description: Update a single entity's description with guard
+"""
+
+import json
+import time
+
+from think.entities.core import EntityDict, atomic_write, entity_slug
+from think.entities.journal import get_or_create_journal_entity, save_journal_entity
+from think.entities.loading import detected_entities_path, load_entities
+from think.entities.relationships import save_facet_relationship
+
+
+def _save_entities_detected(
+    facet: str, entities: list[EntityDict], day: str
+) -> None:
+    """Save detected entities to day-specific JSONL file."""
+    path = detected_entities_path(facet, day)
+
+    # Ensure id field is present
+    for entity in entities:
+        name = entity.get("name", "")
+        expected_id = entity_slug(name)
+        if entity.get("id") != expected_id:
+            entity["id"] = expected_id
+
+    # Sort by type, then name for consistency
+    sorted_entities = sorted(
+        entities, key=lambda e: (e.get("type", ""), e.get("name", ""))
+    )
+
+    # Format as JSONL and write atomically
+    content = "".join(json.dumps(e, ensure_ascii=False) + "\n" for e in sorted_entities)
+    atomic_write(path, content, prefix=".entities_")
+
+
+def _save_entities_attached(facet: str, entities: list[EntityDict]) -> None:
+    """Save attached entities to new structure (journal entities + facet relationships)."""
+    # Validate uniqueness
+    seen_names: set[str] = set()
+    seen_ids: set[str] = set()
+
+    for entity in entities:
+        name = entity.get("name", "")
+        expected_id = entity_slug(name)
+
+        # Set or update id
+        if entity.get("id") != expected_id:
+            entity["id"] = expected_id
+
+        name_lower = name.lower()
+        if name_lower in seen_names:
+            raise ValueError(f"Duplicate entity name '{name}' in facet '{facet}'")
+        seen_names.add(name_lower)
+
+        if expected_id in seen_ids:
+            raise ValueError(
+                f"Duplicate entity id '{expected_id}' in facet '{facet}' "
+                f"(names may slugify to same value)"
+            )
+        seen_ids.add(expected_id)
+
+    # Fields that belong to journal entity (identity)
+    journal_fields = {"id", "name", "type", "aka", "is_principal", "created_at"}
+
+    # Process each entity
+    for entity in entities:
+        entity_id = entity["id"]
+        name = entity.get("name", "")
+        entity_type = entity.get("type", "")
+        aka = entity.get("aka")
+        is_detached = entity.get("detached", False)
+
+        # Ensure journal entity exists (creates if needed, preserves if exists)
+        # Skip principal flagging for detached entities
+        journal_entity = get_or_create_journal_entity(
+            entity_id=entity_id,
+            name=name,
+            entity_type=entity_type,
+            aka=aka if isinstance(aka, list) else None,
+            skip_principal=is_detached,
+        )
+
+        # Update journal entity if name/type/aka changed
+        journal_updated = False
+        if journal_entity.get("name") != name:
+            journal_entity["name"] = name
+            journal_updated = True
+        if journal_entity.get("type") != entity_type:
+            journal_entity["type"] = entity_type
+            journal_updated = True
+        if aka and isinstance(aka, list):
+            # Merge aka lists (union)
+            existing_aka = set(journal_entity.get("aka", []))
+            new_aka = existing_aka | set(aka)
+            if new_aka != existing_aka:
+                journal_entity["aka"] = sorted(new_aka)
+                journal_updated = True
+        # Only propagate is_principal if explicitly set and entity not detached
+        if (
+            entity.get("is_principal")
+            and not is_detached
+            and not journal_entity.get("is_principal")
+        ):
+            journal_entity["is_principal"] = True
+            journal_updated = True
+
+        if journal_updated:
+            save_journal_entity(journal_entity)
+
+        # Build relationship record (all non-identity fields)
+        relationship: EntityDict = {
+            "entity_id": entity_id,
+        }
+        for key, value in entity.items():
+            if key not in journal_fields:
+                relationship[key] = value
+
+        # Save facet relationship
+        save_facet_relationship(facet, entity_id, relationship)
+
+
+def save_entities(
+    facet: str, entities: list[EntityDict], day: str | None = None
+) -> None:
+    """Save entities to storage.
+
+    For detected entities (day provided), writes to day-specific JSONL files.
+    For attached entities (day=None), writes to:
+    - Journal-level entity files: entities/<id>/entity.json (identity)
+    - Facet relationship files: facets/<facet>/entities/<id>/entity.json
+
+    Ensures all entities have an `id` field (generates from name if missing).
+    For attached entities, validates name uniqueness within the facet.
+
+    Args:
+        facet: Facet name
+        entities: List of entity dictionaries (must have type, name, description keys;
+                  attached entities may also have id, attached_at, updated_at timestamps)
+        day: Optional day in YYYYMMDD format for detected entities
+
+    Raises:
+        ValueError: If duplicate names found in attached entities (day=None)
+    """
+    if day is not None:
+        _save_entities_detected(facet, entities, day)
+    else:
+        _save_entities_attached(facet, entities)
+
+
+def update_entity_description(
+    facet: str,
+    name: str,
+    old_description: str,
+    new_description: str,
+    day: str | None = None,
+) -> EntityDict:
+    """Update an entity's description after validating current state.
+
+    Sets updated_at timestamp to current time on successful update.
+
+    Args:
+        facet: Facet name
+        name: Entity name to match (unique within facet)
+        old_description: Current description (guard - must match)
+        new_description: New description to set
+        day: Optional day for detected entities
+
+    Returns:
+        The updated entity dict
+
+    Raises:
+        ValueError: If entity not found or guard mismatch
+    """
+    # Load ALL entities including detached to avoid data loss on save
+    # For attached entities (day=None), we need include_detached=True
+    entities = (
+        load_entities(facet, day, include_detached=True)
+        if day is None
+        else load_entities(facet, day)
+    )
+
+    for entity in entities:
+        # Skip detached entities when searching
+        if entity.get("detached"):
+            continue
+        if entity.get("name") == name:
+            current_desc = entity.get("description", "")
+            if current_desc != old_description:
+                raise ValueError(
+                    f"Description mismatch for '{name}': expected '{old_description}', "
+                    f"found '{current_desc}'"
+                )
+            entity["description"] = new_description
+            entity["updated_at"] = int(time.time() * 1000)
+            save_entities(facet, entities, day)
+            return entity
+
+    raise ValueError(f"Entity '{name}' not found in facet '{facet}'")

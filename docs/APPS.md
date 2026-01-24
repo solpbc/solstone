@@ -444,7 +444,7 @@ Available functions from the `think` module:
 - `TodoChecklist` class - Load and manipulate todo markdown files
 
 ### Entities
-`think/entities.py`: `get_entities(facet)` - Get entities for facet
+`think/entities/`: `load_entities(facet)` - Load entities for a facet
 
 See [JOURNAL.md](JOURNAL.md), [CORTEX.md](CORTEX.md), [CALLOSUM.md](CALLOSUM.md) for subsystem details.
 

@@ -3,9 +3,11 @@
 
 """Tests for think.facets module."""
 
+import json
 from pathlib import Path
 
 import pytest
+from slugify import slugify
 
 from think.facets import (
     _format_principal_role,
@@ -18,6 +20,47 @@ from think.facets import (
 
 # Use the permanent fixtures in fixtures/journal/facets/
 FIXTURES_PATH = Path(__file__).parent.parent / "fixtures" / "journal"
+
+
+def setup_entities_new_structure(
+    journal_path: Path,
+    facet: str,
+    entities: list[dict],
+):
+    """Helper to set up entities using the new structure for tests.
+
+    Creates both journal-level entity files and facet relationship files.
+
+    Args:
+        journal_path: Path to journal root
+        facet: Facet name (e.g., "work")
+        entities: List of entity dicts with type, name, description, etc.
+    """
+    for entity in entities:
+        etype = entity.get("type", "")
+        name = entity.get("name", "")
+        desc = entity.get("description", "")
+        is_principal = entity.get("is_principal", False)
+
+        entity_id = slugify(name, separator="_")
+        if not entity_id:
+            continue
+
+        # Create journal-level entity
+        journal_entity_dir = journal_path / "entities" / entity_id
+        journal_entity_dir.mkdir(parents=True, exist_ok=True)
+        journal_entity = {"id": entity_id, "name": name, "type": etype}
+        if is_principal:
+            journal_entity["is_principal"] = True
+        with open(journal_entity_dir / "entity.json", "w", encoding="utf-8") as f:
+            json.dump(journal_entity, f)
+
+        # Create facet relationship
+        facet_entity_dir = journal_path / "facets" / facet / "entities" / entity_id
+        facet_entity_dir.mkdir(parents=True, exist_ok=True)
+        relationship = {"entity_id": entity_id, "description": desc}
+        with open(facet_entity_dir / "entity.json", "w", encoding="utf-8") as f:
+            json.dump(relationship, f)
 
 
 def test_facet_summary_full(monkeypatch):
@@ -157,7 +200,7 @@ def test_get_facets_empty_entities(monkeypatch):
         # Entities are no longer included in get_facets()
         assert "entities" not in minimal_facet
 
-        # Verify load_entity_names returns None for facets without entities.jsonl
+        # Verify load_entity_names returns None for facets without entities
         from think.entities import load_entity_names
 
         entity_names = load_entity_names(facet="minimal-facet")
@@ -450,8 +493,6 @@ def test_format_principal_role_no_identity(tmp_path, monkeypatch):
 
 def test_facet_summary_with_principal(tmp_path, monkeypatch):
     """Test facet_summary shows principal role and excludes from entities list."""
-    import json
-
     monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
 
     # Create identity config
@@ -460,15 +501,24 @@ def test_facet_summary_with_principal(tmp_path, monkeypatch):
     config = {"identity": {"name": "Test User", "preferred": "Tester"}}
     (config_dir / "journal.json").write_text(json.dumps(config))
 
-    # Create facet with principal entity
+    # Create facet with principal entity using new structure
     facet_dir = tmp_path / "facets" / "work"
     facet_dir.mkdir(parents=True)
     (facet_dir / "facet.json").write_text(
         json.dumps({"title": "Work", "description": "Work stuff"})
     )
-    (facet_dir / "entities.jsonl").write_text(
-        '{"type": "Person", "name": "Test User", "description": "Lead developer", "is_principal": true}\n'
-        '{"type": "Person", "name": "Alice", "description": "Colleague"}\n'
+    setup_entities_new_structure(
+        tmp_path,
+        "work",
+        [
+            {
+                "type": "Person",
+                "name": "Test User",
+                "description": "Lead developer",
+                "is_principal": True,
+            },
+            {"type": "Person", "name": "Alice", "description": "Colleague"},
+        ],
     )
 
     summary = facet_summary("work")
@@ -485,8 +535,6 @@ def test_facet_summary_with_principal(tmp_path, monkeypatch):
 
 def test_facet_summary_principal_only_entity(tmp_path, monkeypatch):
     """Test facet_summary when principal is the only entity."""
-    import json
-
     monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
 
     # Create identity config
@@ -495,12 +543,21 @@ def test_facet_summary_principal_only_entity(tmp_path, monkeypatch):
     config = {"identity": {"name": "Test User", "preferred": "Tester"}}
     (config_dir / "journal.json").write_text(json.dumps(config))
 
-    # Create facet with only principal entity
+    # Create facet with only principal entity using new structure
     facet_dir = tmp_path / "facets" / "solo"
     facet_dir.mkdir(parents=True)
     (facet_dir / "facet.json").write_text(json.dumps({"title": "Solo"}))
-    (facet_dir / "entities.jsonl").write_text(
-        '{"type": "Person", "name": "Test User", "description": "Just me", "is_principal": true}\n'
+    setup_entities_new_structure(
+        tmp_path,
+        "solo",
+        [
+            {
+                "type": "Person",
+                "name": "Test User",
+                "description": "Just me",
+                "is_principal": True,
+            },
+        ],
     )
 
     summary = facet_summary("solo")
@@ -513,8 +570,6 @@ def test_facet_summary_principal_only_entity(tmp_path, monkeypatch):
 
 def test_facet_summaries_detailed_with_principal(tmp_path, monkeypatch):
     """Test facet_summaries detailed mode shows principal role."""
-    import json
-
     monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
 
     # Create identity config
@@ -523,15 +578,24 @@ def test_facet_summaries_detailed_with_principal(tmp_path, monkeypatch):
     config = {"identity": {"name": "Test User", "preferred": "Tester"}}
     (config_dir / "journal.json").write_text(json.dumps(config))
 
-    # Create facet with principal
+    # Create facet with principal using new structure
     facet_dir = tmp_path / "facets" / "project"
     facet_dir.mkdir(parents=True)
     (facet_dir / "facet.json").write_text(
         json.dumps({"title": "Project X", "description": "Secret project"})
     )
-    (facet_dir / "entities.jsonl").write_text(
-        '{"type": "Person", "name": "Test User", "description": "Project lead", "is_principal": true}\n'
-        '{"type": "Person", "name": "Bob", "description": "Team member"}\n'
+    setup_entities_new_structure(
+        tmp_path,
+        "project",
+        [
+            {
+                "type": "Person",
+                "name": "Test User",
+                "description": "Project lead",
+                "is_principal": True,
+            },
+            {"type": "Person", "name": "Bob", "description": "Team member"},
+        ],
     )
 
     summary = facet_summaries(detailed_entities=True)
@@ -546,8 +610,6 @@ def test_facet_summaries_detailed_with_principal(tmp_path, monkeypatch):
 
 def test_facet_summaries_simple_mode_with_principal(tmp_path, monkeypatch):
     """Test facet_summaries simple mode also filters principal consistently."""
-    import json
-
     monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
 
     # Create identity config
@@ -556,13 +618,22 @@ def test_facet_summaries_simple_mode_with_principal(tmp_path, monkeypatch):
     config = {"identity": {"name": "Test User", "preferred": "Tester"}}
     (config_dir / "journal.json").write_text(json.dumps(config))
 
-    # Create facet with principal
+    # Create facet with principal using new structure
     facet_dir = tmp_path / "facets" / "simple"
     facet_dir.mkdir(parents=True)
     (facet_dir / "facet.json").write_text(json.dumps({"title": "Simple"}))
-    (facet_dir / "entities.jsonl").write_text(
-        '{"type": "Person", "name": "Test User", "description": "Me", "is_principal": true}\n'
-        '{"type": "Person", "name": "Bob", "description": "Friend"}\n'
+    setup_entities_new_structure(
+        tmp_path,
+        "simple",
+        [
+            {
+                "type": "Person",
+                "name": "Test User",
+                "description": "Me",
+                "is_principal": True,
+            },
+            {"type": "Person", "name": "Bob", "description": "Friend"},
+        ],
     )
 
     summary = facet_summaries(detailed_entities=False)

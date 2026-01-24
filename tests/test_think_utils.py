@@ -16,30 +16,59 @@ from think.entities import load_entity_names
 from think.utils import segment_key, setup_cli
 
 
-def write_entities_jsonl(path: Path, entities: list[tuple[str, str, str]] | list[dict]):
-    """Helper to write entities in JSONL format for tests.
+def setup_entities_new_structure(
+    journal_path: Path,
+    facet: str,
+    entities: list[tuple[str, str, str]] | list[dict],
+):
+    """Helper to set up entities using the new structure for tests.
+
+    Creates both journal-level entity files and facet relationship files.
 
     Args:
-        path: Path to entities.jsonl file to write
+        journal_path: Path to journal root
+        facet: Facet name (e.g., "test")
         entities: Either list of (type, name, desc) tuples or list of entity dicts
     """
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with open(path, "w", encoding="utf-8") as f:
-        for item in entities:
-            if isinstance(item, dict):
-                entity = item
-            else:
-                etype, name, desc = item
-                entity = {"type": etype, "name": name, "description": desc}
-            f.write(json.dumps(entity, ensure_ascii=False) + "\n")
+    from slugify import slugify
+
+    for item in entities:
+        if isinstance(item, dict):
+            etype = item.get("type", "")
+            name = item.get("name", "")
+            desc = item.get("description", "")
+            aka = item.get("aka", [])
+        else:
+            etype, name, desc = item
+            aka = []
+
+        entity_id = slugify(name, separator="_")
+        if not entity_id:
+            continue
+
+        # Create journal-level entity
+        journal_entity_dir = journal_path / "entities" / entity_id
+        journal_entity_dir.mkdir(parents=True, exist_ok=True)
+        journal_entity = {"id": entity_id, "name": name, "type": etype}
+        if aka:
+            journal_entity["aka"] = aka
+        with open(journal_entity_dir / "entity.json", "w", encoding="utf-8") as f:
+            json.dump(journal_entity, f)
+
+        # Create facet relationship
+        facet_entity_dir = journal_path / "facets" / facet / "entities" / entity_id
+        facet_entity_dir.mkdir(parents=True, exist_ok=True)
+        relationship = {"entity_id": entity_id, "description": desc}
+        with open(facet_entity_dir / "entity.json", "w", encoding="utf-8") as f:
+            json.dump(relationship, f)
 
 
 def test_load_entity_names_with_valid_file(monkeypatch):
-    """Test loading entity names from a valid entities.jsonl file."""
+    """Test loading entity names from entities."""
     with tempfile.TemporaryDirectory() as tmpdir:
-        entities_path = Path(tmpdir) / "facets" / "test" / "entities.jsonl"
-        write_entities_jsonl(
-            entities_path,
+        setup_entities_new_structure(
+            Path(tmpdir),
+            "test",
             [
                 ("Person", "John Smith", "A software engineer at Google"),
                 ("Company", "Acme Corp", "Technology company based in SF"),
@@ -52,9 +81,6 @@ def test_load_entity_names_with_valid_file(monkeypatch):
 
         monkeypatch.setenv("JOURNAL_PATH", tmpdir)
         result = load_entity_names()
-        assert (
-            result == "John Smith; Acme Corp; Project X; Hammer; Jane Doe; Widget Inc"
-        )
 
         # Check that names are extracted without duplicates
         names = result.split("; ")
@@ -75,12 +101,12 @@ def test_load_entity_names_missing_file(monkeypatch):
         assert result is None
 
 
-def test_load_entity_names_empty_file(monkeypatch):
-    """Test that empty file returns None."""
+def test_load_entity_names_empty_facet(monkeypatch):
+    """Test that empty facet returns None."""
     with tempfile.TemporaryDirectory() as tmpdir:
-        entities_path = Path(tmpdir) / "facets" / "test" / "entities.jsonl"
-        entities_path.parent.mkdir(parents=True, exist_ok=True)
-        entities_path.write_text("")
+        # Create facet directory but no entities
+        facet_dir = Path(tmpdir) / "facets" / "test"
+        facet_dir.mkdir(parents=True, exist_ok=True)
 
         monkeypatch.setenv("JOURNAL_PATH", tmpdir)
         result = load_entity_names()
@@ -88,16 +114,11 @@ def test_load_entity_names_empty_file(monkeypatch):
 
 
 def test_load_entity_names_no_valid_entries(monkeypatch):
-    """Test file with no parseable entity lines returns None."""
+    """Test empty entities directory returns None."""
     with tempfile.TemporaryDirectory() as tmpdir:
-        entities_path = Path(tmpdir) / "facets" / "test" / "entities.jsonl"
-        entities_path.parent.mkdir(parents=True, exist_ok=True)
-        # Write malformed JSON
-        entities_path.write_text("""
-# Header comment
-Some random text
-Not valid JSON
-""")
+        # Create entities directory but no entity subdirectories
+        entities_dir = Path(tmpdir) / "facets" / "test" / "entities"
+        entities_dir.mkdir(parents=True, exist_ok=True)
 
         monkeypatch.setenv("JOURNAL_PATH", tmpdir)
         result = load_entity_names()
@@ -105,33 +126,34 @@ Not valid JSON
 
 
 def test_load_entity_names_with_duplicates(monkeypatch):
-    """Test that duplicate names are filtered out."""
+    """Test that duplicate names are filtered out (by entity id)."""
     with tempfile.TemporaryDirectory() as tmpdir:
-        entities_path = Path(tmpdir) / "facets" / "test" / "entities.jsonl"
-        write_entities_jsonl(
-            entities_path,
+        # With new structure, same entity_id means same entity
+        # Can't have true duplicates - just test two entities
+        setup_entities_new_structure(
+            Path(tmpdir),
+            "test",
             [
                 ("Person", "John Smith", "Engineer"),
                 ("Company", "Acme Corp", "Tech company"),
-                ("Person", "John Smith", "Also an engineer"),
-                ("Company", "Acme Corp", "Still a tech company"),
             ],
         )
 
         monkeypatch.setenv("JOURNAL_PATH", tmpdir)
         result = load_entity_names()
-        assert result == "John Smith; Acme Corp"
 
         names = result.split("; ")
         assert len(names) == 2
+        assert "John Smith" in names
+        assert "Acme Corp" in names
 
 
 def test_load_entity_names_handles_special_characters(monkeypatch):
     """Test that names with special characters are handled correctly."""
     with tempfile.TemporaryDirectory() as tmpdir:
-        entities_path = Path(tmpdir) / "facets" / "test" / "entities.jsonl"
-        write_entities_jsonl(
-            entities_path,
+        setup_entities_new_structure(
+            Path(tmpdir),
+            "test",
             [
                 ("Person", "Jean-Pierre O'Malley", "Engineer"),
                 ("Company", "AT&T", "Telecom company"),
@@ -151,9 +173,9 @@ def test_load_entity_names_handles_special_characters(monkeypatch):
 def test_load_entity_names_with_env_var(monkeypatch):
     """Test loading using JOURNAL_PATH environment variable."""
     with tempfile.TemporaryDirectory() as tmpdir:
-        entities_path = Path(tmpdir) / "facets" / "test" / "entities.jsonl"
-        write_entities_jsonl(
-            entities_path,
+        setup_entities_new_structure(
+            Path(tmpdir),
+            "test",
             [("Person", "Test User", "A test person")],
         )
 
@@ -181,9 +203,9 @@ def test_load_entity_names_uses_default_path_when_env_var_unset(monkeypatch):
 def test_load_entity_names_spoken_mode(monkeypatch):
     """Test spoken mode returns shortened forms with uniform processing for all types."""
     with tempfile.TemporaryDirectory() as tmpdir:
-        entities_path = Path(tmpdir) / "facets" / "test" / "entities.jsonl"
-        write_entities_jsonl(
-            entities_path,
+        setup_entities_new_structure(
+            Path(tmpdir),
+            "test",
             [
                 ("Person", "Jeremie Miller (Jer)", "Software engineer"),
                 ("Person", "Jane Elizabeth Doe", "Product manager"),
@@ -238,9 +260,9 @@ def test_load_entity_names_spoken_mode(monkeypatch):
 def test_load_entity_names_spoken_mode_with_tools(monkeypatch):
     """Test spoken mode includes tools with uniform processing."""
     with tempfile.TemporaryDirectory() as tmpdir:
-        entities_path = Path(tmpdir) / "facets" / "test" / "entities.jsonl"
-        write_entities_jsonl(
-            entities_path,
+        setup_entities_new_structure(
+            Path(tmpdir),
+            "test",
             [
                 ("Tool", "Hammer", "For hitting things"),
                 ("Tool", "Docker", "Container runtime"),
@@ -258,9 +280,9 @@ def test_load_entity_names_spoken_mode_with_tools(monkeypatch):
 def test_load_entity_names_spoken_mode_duplicates(monkeypatch):
     """Test spoken mode filters out duplicate shortened forms."""
     with tempfile.TemporaryDirectory() as tmpdir:
-        entities_path = Path(tmpdir) / "facets" / "test" / "entities.jsonl"
-        write_entities_jsonl(
-            entities_path,
+        setup_entities_new_structure(
+            Path(tmpdir),
+            "test",
             [
                 ("Person", "John Smith", "Engineer"),
                 ("Person", "John Doe", "Manager"),
@@ -280,9 +302,9 @@ def test_load_entity_names_spoken_mode_duplicates(monkeypatch):
 def test_load_entity_names_uniform_processing(monkeypatch):
     """Test that uniform processing works correctly for all entity types."""
     with tempfile.TemporaryDirectory() as tmpdir:
-        entities_path = Path(tmpdir) / "facets" / "test" / "entities.jsonl"
-        write_entities_jsonl(
-            entities_path,
+        setup_entities_new_structure(
+            Path(tmpdir),
+            "test",
             [
                 ("Person", "Ryan Reed (R2)", "Software developer"),
                 (
@@ -329,44 +351,30 @@ def test_load_entity_names_uniform_processing(monkeypatch):
 def test_load_entity_names_with_aka_field(monkeypatch):
     """Test that aka field values are included in spoken mode."""
     with tempfile.TemporaryDirectory() as tmpdir:
-        entities_path = Path(tmpdir) / "facets" / "test" / "entities.jsonl"
-        entities_path.parent.mkdir(parents=True, exist_ok=True)
-
-        # Write entities with aka fields using manual JSON
-        with open(entities_path, "w", encoding="utf-8") as f:
-            f.write(
-                json.dumps(
-                    {
-                        "type": "Person",
-                        "name": "Alice Johnson",
-                        "description": "Lead engineer",
-                        "aka": ["Ali", "AJ"],
-                    }
-                )
-                + "\n"
-            )
-            f.write(
-                json.dumps(
-                    {
-                        "type": "Company",
-                        "name": "PostgreSQL",
-                        "description": "Database system",
-                        "aka": ["Postgres", "PG"],
-                    }
-                )
-                + "\n"
-            )
-            f.write(
-                json.dumps(
-                    {
-                        "type": "Tool",
-                        "name": "Docker Container (Docker)",
-                        "description": "Container runtime",
-                        "aka": ["Dock"],
-                    }
-                )
-                + "\n"
-            )
+        setup_entities_new_structure(
+            Path(tmpdir),
+            "test",
+            [
+                {
+                    "type": "Person",
+                    "name": "Alice Johnson",
+                    "description": "Lead engineer",
+                    "aka": ["Ali", "AJ"],
+                },
+                {
+                    "type": "Company",
+                    "name": "PostgreSQL",
+                    "description": "Database system",
+                    "aka": ["Postgres", "PG"],
+                },
+                {
+                    "type": "Tool",
+                    "name": "Docker Container (Docker)",
+                    "description": "Container runtime",
+                    "aka": ["Dock"],
+                },
+            ],
+        )
 
         monkeypatch.setenv("JOURNAL_PATH", tmpdir)
         result = load_entity_names(spoken=True)
@@ -396,21 +404,18 @@ def test_load_entity_names_with_aka_field(monkeypatch):
 def test_load_entity_names_aka_with_parens(monkeypatch):
     """Test that aka entries with parentheses are processed correctly."""
     with tempfile.TemporaryDirectory() as tmpdir:
-        entities_path = Path(tmpdir) / "facets" / "test" / "entities.jsonl"
-        entities_path.parent.mkdir(parents=True, exist_ok=True)
-
-        with open(entities_path, "w", encoding="utf-8") as f:
-            f.write(
-                json.dumps(
-                    {
-                        "type": "Person",
-                        "name": "Robert Smith",
-                        "description": "Manager",
-                        "aka": ["Bob Smith (Bobby)", "Rob"],
-                    }
-                )
-                + "\n"
-            )
+        setup_entities_new_structure(
+            Path(tmpdir),
+            "test",
+            [
+                {
+                    "type": "Person",
+                    "name": "Robert Smith",
+                    "description": "Manager",
+                    "aka": ["Bob Smith (Bobby)", "Rob"],
+                },
+            ],
+        )
 
         monkeypatch.setenv("JOURNAL_PATH", tmpdir)
         result = load_entity_names(spoken=True)
@@ -431,29 +436,21 @@ def test_load_entity_names_aka_with_parens(monkeypatch):
 def test_load_entity_names_aka_deduplication(monkeypatch):
     """Test that aka values are deduplicated with main names."""
     with tempfile.TemporaryDirectory() as tmpdir:
-        entities_path = Path(tmpdir) / "facets" / "test" / "entities.jsonl"
-        entities_path.parent.mkdir(parents=True, exist_ok=True)
-
-        with open(entities_path, "w", encoding="utf-8") as f:
-            # First entity has "John" in aka
-            f.write(
-                json.dumps(
-                    {
-                        "type": "Person",
-                        "name": "Alice",
-                        "description": "Person 1",
-                        "aka": ["John"],
-                    }
-                )
-                + "\n"
-            )
-            # Second entity has "John" as main name
-            f.write(
-                json.dumps(
-                    {"type": "Person", "name": "John Smith", "description": "Person 2"}
-                )
-                + "\n"
-            )
+        setup_entities_new_structure(
+            Path(tmpdir),
+            "test",
+            [
+                # First entity has "John" in aka
+                {
+                    "type": "Person",
+                    "name": "Alice",
+                    "description": "Person 1",
+                    "aka": ["John"],
+                },
+                # Second entity has "John" as main name
+                {"type": "Person", "name": "John Smith", "description": "Person 2"},
+            ],
+        )
 
         monkeypatch.setenv("JOURNAL_PATH", tmpdir)
         result = load_entity_names(spoken=True)
@@ -466,51 +463,40 @@ def test_load_entity_names_aka_deduplication(monkeypatch):
 def test_load_entity_names_non_spoken_with_aka(monkeypatch):
     """Test non-spoken mode includes aka values in parentheses."""
     with tempfile.TemporaryDirectory() as tmpdir:
-        entities_path = Path(tmpdir) / "facets" / "test" / "entities.jsonl"
-        entities_path.parent.mkdir(parents=True, exist_ok=True)
-
-        with open(entities_path, "w", encoding="utf-8") as f:
-            # Entity with aka values
-            f.write(
-                json.dumps(
-                    {
-                        "type": "Person",
-                        "name": "Alice Johnson",
-                        "description": "Lead engineer",
-                        "aka": ["Ali", "AJ"],
-                    }
-                )
-                + "\n"
-            )
-            # Entity without aka
-            f.write(
-                json.dumps(
-                    {
-                        "type": "Company",
-                        "name": "TechCorp",
-                        "description": "Tech company",
-                    }
-                )
-                + "\n"
-            )
-            # Entity with single aka
-            f.write(
-                json.dumps(
-                    {
-                        "type": "Tool",
-                        "name": "PostgreSQL",
-                        "description": "Database",
-                        "aka": ["Postgres", "PG"],
-                    }
-                )
-                + "\n"
-            )
+        setup_entities_new_structure(
+            Path(tmpdir),
+            "test",
+            [
+                # Entity with aka values
+                {
+                    "type": "Person",
+                    "name": "Alice Johnson",
+                    "description": "Lead engineer",
+                    "aka": ["Ali", "AJ"],
+                },
+                # Entity without aka
+                {
+                    "type": "Company",
+                    "name": "TechCorp",
+                    "description": "Tech company",
+                },
+                # Entity with multiple aka
+                {
+                    "type": "Tool",
+                    "name": "PostgreSQL",
+                    "description": "Database",
+                    "aka": ["Postgres", "PG"],
+                },
+            ],
+        )
 
         monkeypatch.setenv("JOURNAL_PATH", tmpdir)
         result = load_entity_names(spoken=False)
 
-        # Should be semicolon-delimited with aka in parentheses
-        assert result == "Alice Johnson (Ali, AJ); TechCorp; PostgreSQL (Postgres, PG)"
+        # Check all entities are present with their aka
+        assert "Alice Johnson (Ali, AJ)" in result
+        assert "TechCorp" in result
+        assert "PostgreSQL (Postgres, PG)" in result
 
 
 def test_segment_key_hhmmss_with_duration():

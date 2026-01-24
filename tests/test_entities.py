@@ -13,8 +13,8 @@ from think.entities import (
     add_observation,
     block_journal_entity,
     delete_journal_entity,
+    detected_entities_path,
     ensure_entity_memory,
-    entity_file_path,
     entity_last_active_ts,
     entity_memory_path,
     entity_slug,
@@ -139,16 +139,9 @@ def test_entity_last_active_ts_negative_timestamps():
     assert ts == 1600000000000
 
 
-def test_entity_file_path_attached(fixture_journal):
-    """Test path generation for attached entities."""
-    path = entity_file_path("personal")
-    assert str(path).endswith("fixtures/journal/facets/personal/entities.jsonl")
-    assert path.name == "entities.jsonl"
-
-
-def test_entity_file_path_detected(fixture_journal):
+def test_detected_entities_path(fixture_journal):
     """Test path generation for detected entities."""
-    path = entity_file_path("personal", "20250101")
+    path = detected_entities_path("personal", "20250101")
     assert str(path).endswith(
         "fixtures/journal/facets/personal/entities/20250101.jsonl"
     )

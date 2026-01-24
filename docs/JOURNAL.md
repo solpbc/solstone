@@ -338,8 +338,7 @@ The `facets/` directory provides a way to organize journal content by scope or f
 Each facet is organized as `facets/<facet>/` where `<facet>` is a descriptive short unique name. When referencing facets in the system, use hashtags (e.g., `#personal` for the "Personal Life" facet, `#ml_research` for "Machine Learning Research"). Each facet folder contains:
 
 - `facet.json` – metadata file with facet title and description.
-- `entities.jsonl` – entities specific to this facet in JSONL format.
-- `entities/` – daily detected entities (see [Facet Entities](#facet-entities)).
+- `entities/` – entity relationships and detected entities (see [Facet Entities](#facet-entities)).
 - `todos/` – daily todo lists (see [Facet-Scoped Todos](#facet-scoped-todos)).
 - `events/` – extracted events per day (see [Event extracts](#event-extracts)).
 - `news/` – daily news and updates relevant to the facet (optional).
@@ -365,57 +364,81 @@ Optional fields:
 
 ### Facet Entities
 
-Entities in solstone use a two-state system: **detected** (daily discoveries) and **attached** (promoted/persistent). This agent-driven architecture automatically identifies entities from journal content while allowing manual curation.
+Entities in solstone use a two-tier architecture with **journal-level entities** (canonical identity) and **facet relationships** (per-facet context). There are also **detected entities** (daily discoveries) that can be promoted to attached status.
 
 #### Entity Storage Structure
 
 ```
+entities/
+  └── {entity_id}/
+      └── entity.json              # Journal-level entity (canonical identity)
+
 facets/{facet}/
-  ├── entities.jsonl              # Attached entities (persistent)
   └── entities/
-      ├── YYYYMMDD.jsonl          # Daily detected entities
-      └── {normalized_name}/      # Entity memory folder (optional)
+      ├── YYYYMMDD.jsonl           # Daily detected entities
+      └── {entity_id}/
+          ├── entity.json          # Facet relationship
+          ├── observations.jsonl   # Durable facts (optional)
+          └── voiceprints.npz      # Voice recognition data (optional)
 ```
 
-**Entity memory folders** store persistent data the system "remembers" about attached entities—observations (durable facts), voiceprints (voice recognition), and profile images. Folders are created on-demand when memory is added. The folder name is the entity name normalized to lowercase with underscores (e.g., "Alice Johnson" → `alice_johnson/`). Folders are renamed automatically when entities are renamed.
+**Journal-level entities** (`entities/<id>/entity.json`) store the canonical identity: name, type, aliases (aka), and principal flag. These are shared across all facets.
 
-#### Attached Entities
+**Facet relationships** (`facets/<facet>/entities/<id>/entity.json`) store per-facet context: description, timestamps, and custom fields specific to that facet.
 
-The `entities.jsonl` file contains manually promoted entities that are persistently associated with the facet. These entities are loaded into agent context and appear in the facet UI as starred items.
+**Entity memory** (observations, voiceprints) is stored alongside facet relationships.
 
-**Entity names must be unique within a facet** (regardless of type). The `id` field provides a stable slug identifier for programmatic references.
+#### Journal-Level Entities
 
-Format example (JSONL - one JSON object per line):
-```jsonl
-{"id": "alice_johnson", "type": "Person", "name": "Alice Johnson", "description": "Lead engineer on the API project", "aka": ["Ali", "AJ"]}
-{"id": "techcorp", "type": "Company", "name": "TechCorp", "description": "Primary client for consulting work", "tier": "enterprise", "aka": ["TC", "TechCo"]}
-{"id": "api_optimization", "type": "Project", "name": "API Optimization", "description": "Performance improvement initiative", "status": "active", "priority": "high"}
-{"id": "postgresql", "type": "Tool", "name": "PostgreSQL", "description": "Database system used in production", "version": "16.0", "aka": ["Postgres", "PG"]}
+Journal entities represent the canonical identity record:
+
+```json
+{
+  "id": "alice_johnson",
+  "name": "Alice Johnson",
+  "type": "Person",
+  "aka": ["Ali", "AJ"],
+  "is_principal": false,
+  "created_at": 1704067200000
+}
 ```
-
-Entity types are flexible and user-defined. Common examples: `Person`, `Company`, `Project`, `Tool`, `Location`, `Event`. Type names must be alphanumeric with spaces, minimum 3 characters.
-
-Each entity is a JSON object with required fields (`id`, `type`, `name`, `description`) and optional custom fields for extensibility (e.g., `status`, `priority`, `tags`, `contact`, etc.). Custom fields are preserved throughout the system.
 
 **Standard fields:**
-- `id` (string) – Stable slug identifier derived from name via `entity_slug()` in `think/entities.py` (lowercase, spaces replaced with underscores, e.g., "Alice Johnson" → "alice_johnson"). Used for folder paths, URLs, and MCP tool references. Automatically regenerated when name changes.
-- `aka` (array of strings) – Alternative names, nicknames, or acronyms for the entity. Used in audio transcription to improve entity recognition.
-- `detached` (boolean) – When `true`, marks the entity as soft-deleted. Detached entities remain in the file but are hidden from UI and excluded from agent context. This preserves entity history and allows re-attachment without data loss.
+- `id` (string) – Stable slug identifier derived from name via `entity_slug()` in `think/entities/` (lowercase, underscores, e.g., "Alice Johnson" → "alice_johnson"). Used for folder paths, URLs, and MCP tool references.
+- `name` (string) – Display name for the entity.
+- `type` (string) – Entity type (e.g., "Person", "Company", "Project", "Tool"). Types are flexible and user-defined; must be alphanumeric with spaces, minimum 3 characters.
+- `aka` (array of strings) – Alternative names, nicknames, or acronyms. Used in audio transcription and fuzzy matching.
 - `is_principal` (boolean) – When `true`, identifies this entity as the journal owner. Auto-flagged when name/aka matches identity config.
-- `attached_at` (integer) – Unix timestamp in milliseconds when entity was first attached.
-- `updated_at` (integer) – Unix timestamp in milliseconds of last modification.
-- `last_seen` (string) – Day in YYYYMMDD format when entity was last mentioned in journal content. Automatically updated after daily processing by parsing the knowledge graph and matching entity names via fuzzy matching.
+- `blocked` (boolean) – When `true`, entity is hidden from all facets and excluded from agent context.
+- `created_at` (integer) – Unix timestamp in milliseconds when entity was created.
+
+#### Facet Relationships
+
+Facet relationships link journal entities to specific facets with context:
+
+```json
+{
+  "entity_id": "alice_johnson",
+  "description": "Lead engineer on the API project",
+  "attached_at": 1704067200000,
+  "updated_at": 1704153600000,
+  "last_seen": "20260115"
+}
+```
+
+**Relationship fields:**
+- `entity_id` (string) – Links to the journal entity.
+- `description` (string) – Facet-specific description.
+- `attached_at` (integer) – Unix timestamp when attached to this facet.
+- `updated_at` (integer) – Unix timestamp of last modification.
+- `last_seen` (string) – Day (YYYYMMDD) when last mentioned in journal content.
+- `detached` (boolean) – When `true`, soft-deleted from this facet but data preserved.
+- Custom fields (any) – Additional facet-specific metadata (e.g., `tier`, `status`, `priority`).
 
 #### Detected Entities
 
-Daily entity detection files (`entities/YYYYMMDD.jsonl`) contain entities automatically discovered by agents from:
-- Journal transcripts and screen captures
-- Knowledge graphs and insights
-- News feeds and external content
+Daily detection files (`facets/<facet>/entities/YYYYMMDD.jsonl`) contain entities automatically discovered by agents from journal content:
 
-Detected entities accumulate historical context over time. Entities appearing in multiple daily detections can be promoted to attached status through the web UI or MCP tools.
-
-Format matches attached entities (JSONL):
 ```jsonl
 {"type": "Person", "name": "Charlie Brown", "description": "Mentioned in standup meeting"}
 {"type": "Tool", "name": "React", "description": "Used in UI development work"}
@@ -426,13 +449,14 @@ Format matches attached entities (JSONL):
 1. **Detection**: Daily agents scan journal content and record entities in `entities/YYYYMMDD.jsonl`
 2. **Aggregation**: Review agent tracks detection frequency across recent days
 3. **Promotion**: Entities with 3+ detections are auto-promoted to attached, or users manually promote via UI
-4. **Persistence**: Attached entities in `entities.jsonl` remain active until detached
-5. **Detachment**: When removed via UI, entities are soft-deleted (`detached: true`) preserving all metadata
-6. **Re-attachment**: Detached entities can be re-activated, restoring them with preserved history (original `attached_at`, updated `updated_at`)
+4. **Persistence**: Creates journal entity + facet relationship; remains active until detached
+5. **Detachment**: Sets `detached: true` on facet relationship, preserving all data
+6. **Re-attachment**: Clears detached flag, restoring the entity with preserved history
+7. **Blocking**: Sets `blocked: true` on journal entity and detaches from all facets
 
 #### Cross-Facet Behavior
 
-The same entity name can exist in multiple facets with independent descriptions. Agents receive entity context from all facets, with alphabetically-first facet winning for name conflicts during aggregation.
+The same entity can be attached to multiple facets with independent descriptions and timestamps. When loading entities across all facets, the alphabetically-first facet wins for duplicates during aggregation.
 
 ### Facet News
 

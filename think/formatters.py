@@ -118,8 +118,7 @@ FORMATTERS: dict[str, tuple[str, str]] = {
     # JSONL formatters
     "agents/*.jsonl": ("muse.cortex", "format_agent"),
     "config/actions/*.jsonl": ("think.facets", "format_logs"),
-    "facets/*/entities/*.jsonl": ("think.entities", "format_entities"),
-    "facets/*/entities.jsonl": ("think.entities", "format_entities"),
+    "facets/*/entities/*.jsonl": ("think.entities.formatting", "format_entities"),
     "facets/*/events/*.jsonl": ("think.events", "format_events"),
     "facets/*/todos/*.jsonl": ("apps.todos.todo", "format_todos"),
     "facets/*/logs/*.jsonl": ("think.facets", "format_logs"),
@@ -271,12 +270,6 @@ def find_formattable_files(journal: str) -> dict[str, str]:
                 for jsonl_file in events_dir.glob("*.jsonl"):
                     rel = f"facets/{facet_name}/events/{jsonl_file.name}"
                     files[rel] = str(jsonl_file)
-
-            # Entities attached: facets/*/entities.jsonl
-            entities_file = facet_dir / "entities.jsonl"
-            if entities_file.is_file():
-                rel = f"facets/{facet_name}/entities.jsonl"
-                files[rel] = str(entities_file)
 
             # Entities detected: facets/*/entities/*.jsonl
             entities_dir = facet_dir / "entities"

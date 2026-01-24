@@ -122,16 +122,31 @@ def speakers_env(tmp_path, monkeypatch):
             facet_dir = self.journal / "facets" / facet
             facet_dir.mkdir(parents=True, exist_ok=True)
 
-            # Create entities.jsonl
-            entities_file = facet_dir / "entities.jsonl"
-            entity_data = {"type": "Person", "name": name, "description": "Test entity"}
-            with open(entities_file, "a", encoding="utf-8") as f:
-                f.write(json.dumps(entity_data) + "\n")
+            # Create journal-level entity
+            entity_id = entity_slug(name)
+            journal_entity_dir = self.journal / "entities" / entity_id
+            journal_entity_dir.mkdir(parents=True, exist_ok=True)
+            journal_entity = {
+                "id": entity_id,
+                "name": name,
+                "type": "Person",
+                "created_at": 1700000000000,
+            }
+            with open(journal_entity_dir / "entity.json", "w", encoding="utf-8") as f:
+                json.dump(journal_entity, f)
 
-            # Create entity memory folder with consolidated voiceprints.npz if specified
+            # Create facet relationship
+            entity_dir = facet_dir / "entities" / entity_id
+            entity_dir.mkdir(parents=True, exist_ok=True)
+            relationship = {
+                "entity_id": entity_id,
+                "description": "Test entity",
+            }
+            with open(entity_dir / "entity.json", "w", encoding="utf-8") as f:
+                json.dump(relationship, f)
+
+            # Create voiceprints.npz if specified
             if voiceprints:
-                entity_dir = facet_dir / "entities" / entity_slug(name)
-                entity_dir.mkdir(parents=True, exist_ok=True)
 
                 all_embeddings = []
                 all_metadata = []
