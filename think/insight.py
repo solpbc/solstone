@@ -23,15 +23,15 @@ from think.utils import (
     setup_cli,
 )
 
-# Cached system instruction loaded from insights.txt
+# Cached system instruction loaded from journal.txt
 _system_instruction_cache: str | None = None
 
 
 def _get_system_instruction() -> str:
-    """Load system instruction from insights.txt (cached)."""
+    """Load system instruction from journal.txt (cached)."""
     global _system_instruction_cache
     if _system_instruction_cache is None:
-        _system_instruction_cache = load_prompt("insights").text
+        _system_instruction_cache = load_prompt("journal").text
     return _system_instruction_cache
 
 
@@ -177,7 +177,7 @@ def _get_or_create_cache(
 ) -> str | None:
     """Return cache name for ``display_name`` or None if content too small.
 
-    Creates cache with ``transcript`` and system instruction from insights.txt if needed.
+    Creates cache with ``transcript`` and system instruction from journal.txt if needed.
     Returns None if content is below estimated 2048 token minimum (~10k chars).
 
     The cache contains the system instruction + transcript which are identical
@@ -496,7 +496,7 @@ def main() -> None:
 
         try:
             insight_prompt = load_prompt(
-                insight_path.stem, base_dir=insight_path.parent, include_journal=True
+                insight_path.stem, base_dir=insight_path.parent
             )
         except PromptNotFoundError:
             parser.error(f"Insight file not found: {insight_path}")
@@ -603,7 +603,7 @@ def main() -> None:
         # Load the appropriate extraction prompt
         try:
             extraction_prompt_content = load_prompt(
-                prompt_name, base_dir=Path(__file__).parent, include_journal=True
+                prompt_name, base_dir=Path(__file__).parent
             )
         except PromptNotFoundError as exc:
             print(exc)

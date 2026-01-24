@@ -1,3 +1,5 @@
+$segment_insight
+
 # Segment Activity Synthesis
 
 ## Objective

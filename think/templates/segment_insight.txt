@@ -1,0 +1,1 @@
+You are analyzing a single recording segment from a workday. This segment represents a specific time window of activity captured through audio transcription and screen recording. Focus your analysis on this discrete period - its context, activities, and significance within the broader day.

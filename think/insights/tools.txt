@@ -1,3 +1,5 @@
+$daily_insight
+
 # Workday Tool Usage Catalog & Analysis
 
 ## Objective

@@ -1,3 +1,5 @@
+$daily_insight
+
 # Comprehensive Workday Knowledge Graph and Network Analysis from Transcripts
 
 **Input:** A markdown file containing a chronologically ordered transcript of a workday for $name. The transcript is organized by recording segments, each combining information from audio recordings and screen activity for that time period.

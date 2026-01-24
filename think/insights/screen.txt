@@ -1,3 +1,5 @@
+$segment_insight
+
 # Segment Screen Record
 
 ## Objective

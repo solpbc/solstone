@@ -1,3 +1,5 @@
+$daily_insight
+
 # Future Schedule Extraction
 
 **Input:** A markdown file containing chronologically ordered transcripts of a workday. The transcript combines audio recordings and screen activity organized by recording segments.

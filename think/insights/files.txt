@@ -1,3 +1,5 @@
+$daily_insight
+
 # Workday File Activity Extraction
 
 ## Objective

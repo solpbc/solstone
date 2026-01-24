@@ -1,3 +1,5 @@
+$daily_insight
+
 # Comprehensive Workday Timeline Documentation
 
 ## Objective

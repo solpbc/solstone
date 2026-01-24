@@ -1,3 +1,5 @@
+$daily_insight
+
 # Workday Messaging and Email Analysis
 
 **Input:** A markdown file containing a chronologically ordered transcript of a workday for $name. The transcript is organized by recording segments, each combining audio and screen activity for that time period.

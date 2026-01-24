@@ -24,6 +24,38 @@ _journal_path_cache: str | None = None
 # Insight colors are now stored in each insight's JSON metadata file
 
 AGENT_DIR = Path(__file__).parent.parent / "muse" / "agents"
+TEMPLATES_DIR = Path(__file__).parent / "templates"
+
+# Cached template variables loaded from think/templates/*.txt
+_templates_cache: dict[str, str] | None = None
+
+
+def _load_templates() -> dict[str, str]:
+    """Load all template files from think/templates/ directory.
+
+    Templates are cached on first load. Each .txt file becomes a template
+    variable named after its stem (e.g., daily_insight.txt -> $daily_insight).
+
+    Returns
+    -------
+    dict[str, str]
+        Mapping of template variable names to their content.
+    """
+    global _templates_cache
+    if _templates_cache is not None:
+        return _templates_cache
+
+    _templates_cache = {}
+    if TEMPLATES_DIR.is_dir():
+        for txt_path in TEMPLATES_DIR.glob("*.txt"):
+            var_name = txt_path.stem
+            try:
+                content = txt_path.read_text(encoding="utf-8").strip()
+                _templates_cache[var_name] = content
+            except Exception as exc:
+                logging.debug("Failed to load template %s: %s", txt_path, exc)
+
+    return _templates_cache
 
 
 class PromptContent(NamedTuple):
@@ -88,14 +120,17 @@ def load_prompt(
 ) -> PromptContent:
     """Return the text contents and path for a ``.txt`` prompt file.
 
-    Supports Python string.Template variable substitution using identity config
-    from get_config()['identity']. Template variables include:
-    - Top-level fields: $name, $preferred, $bio, $timezone
-    - Nested fields with underscores: $pronouns_possessive, $pronouns_subject
-    - Uppercase-first versions: $Pronouns_possessive, $Name, $Bio
+    Supports Python string.Template variable substitution using:
+    - Identity config from get_config()['identity']:
+      - Top-level fields: $name, $preferred, $bio, $timezone
+      - Nested fields with underscores: $pronouns_possessive, $pronouns_subject
+      - Uppercase-first versions: $Pronouns_possessive, $Name, $Bio
+    - Templates from think/templates/*.txt:
+      - Each file becomes a variable named after its stem
+      - Example: daily_insight.txt -> $daily_insight
 
     Callers can provide additional context variables via the ``context`` parameter.
-    Context variables override identity variables if there's a name collision.
+    Context variables override identity and template variables if there's a collision.
     Uppercase-first versions are automatically created for context variables.
 
     Parameters
@@ -138,6 +173,10 @@ def load_prompt(
         config = get_config()
         identity = config.get("identity", {})
         template_vars = _flatten_identity_to_template_vars(identity)
+
+        # Load templates from think/templates/ directory
+        templates = _load_templates()
+        template_vars.update(templates)
 
         # Merge caller-provided context (overrides identity vars if collision)
         if context:
@@ -784,8 +823,8 @@ def get_agent(persona: str = "default", facet: str | None = None) -> dict:
     journal_prompt = load_prompt("journal")
     config["system_instruction"] = journal_prompt.text
 
-    # User instruction: the agent-specific prompt (without journal prepended)
-    agent_prompt = load_prompt(agent_name, base_dir=agent_dir, include_journal=False)
+    # User instruction: the agent-specific prompt
+    agent_prompt = load_prompt(agent_name, base_dir=agent_dir)
     config["user_instruction"] = agent_prompt.text
 
     # Add runtime context (facets with entities)
