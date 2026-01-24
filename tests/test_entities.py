@@ -11,6 +11,8 @@ from think.entities import (
     DEFAULT_ACTIVITY_TS,
     ObservationNumberError,
     add_observation,
+    block_journal_entity,
+    delete_journal_entity,
     ensure_entity_memory,
     entity_file_path,
     entity_last_active_ts,
@@ -21,15 +23,18 @@ from think.entities import (
     load_all_attached_entities,
     load_detected_entities_recent,
     load_entities,
+    load_journal_entity,
     load_observations,
     load_recent_entity_names,
     observations_file_path,
     parse_knowledge_graph_entities,
     rename_entity_memory,
     save_entities,
+    save_journal_entity,
     save_observations,
     touch_entities_from_activity,
     touch_entity,
+    unblock_journal_entity,
     validate_aka_uniqueness,
 )
 
@@ -2154,3 +2159,160 @@ def test_save_entities_detected_no_principal_flag(tmp_path):
     loaded = load_entities("test", day="20250101")
     # Detected entities should not get is_principal flag
     assert loaded[0].get("is_principal") is None
+
+
+# ============================================================================
+# block_journal_entity tests
+# ============================================================================
+
+
+def test_block_journal_entity_success(tmp_path):
+    """Test blocking a journal entity sets blocked flag and detaches facets."""
+    import json
+
+    os.environ["JOURNAL_PATH"] = str(tmp_path)
+
+    # Create journal entity
+    entity_dir = tmp_path / "entities" / "alice"
+    entity_dir.mkdir(parents=True)
+    entity = {"id": "alice", "name": "Alice", "type": "Person"}
+    (entity_dir / "entity.json").write_text(json.dumps(entity))
+
+    # Create facet relationship
+    facet_dir = tmp_path / "facets" / "work" / "entities" / "alice"
+    facet_dir.mkdir(parents=True)
+    relationship = {"entity_id": "alice", "description": "Coworker"}
+    (facet_dir / "entity.json").write_text(json.dumps(relationship))
+
+    # Block the entity
+    result = block_journal_entity("alice")
+
+    assert result["success"] is True
+    assert "work" in result["facets_detached"]
+
+    # Verify journal entity is blocked
+    loaded = load_journal_entity("alice")
+    assert loaded["blocked"] is True
+
+    # Verify facet relationship is detached
+    from think.entities import load_facet_relationship
+
+    rel = load_facet_relationship("work", "alice")
+    assert rel["detached"] is True
+
+
+def test_block_journal_entity_not_found(tmp_path):
+    """Test blocking non-existent entity raises error."""
+    os.environ["JOURNAL_PATH"] = str(tmp_path)
+
+    with pytest.raises(ValueError, match="not found"):
+        block_journal_entity("nonexistent")
+
+
+def test_block_journal_entity_principal_protected(tmp_path):
+    """Test blocking principal entity is rejected."""
+    import json
+
+    os.environ["JOURNAL_PATH"] = str(tmp_path)
+
+    # Create principal entity
+    entity_dir = tmp_path / "entities" / "myself"
+    entity_dir.mkdir(parents=True)
+    entity = {"id": "myself", "name": "Me", "type": "Person", "is_principal": True}
+    (entity_dir / "entity.json").write_text(json.dumps(entity))
+
+    with pytest.raises(ValueError, match="principal"):
+        block_journal_entity("myself")
+
+
+# ============================================================================
+# unblock_journal_entity tests
+# ============================================================================
+
+
+def test_unblock_journal_entity_success(tmp_path):
+    """Test unblocking a blocked journal entity."""
+    import json
+
+    os.environ["JOURNAL_PATH"] = str(tmp_path)
+
+    # Create blocked entity
+    entity_dir = tmp_path / "entities" / "alice"
+    entity_dir.mkdir(parents=True)
+    entity = {"id": "alice", "name": "Alice", "type": "Person", "blocked": True}
+    (entity_dir / "entity.json").write_text(json.dumps(entity))
+
+    # Unblock
+    result = unblock_journal_entity("alice")
+
+    assert result["success"] is True
+
+    # Verify blocked flag is removed
+    loaded = load_journal_entity("alice")
+    assert "blocked" not in loaded
+
+
+def test_unblock_journal_entity_not_blocked(tmp_path):
+    """Test unblocking an entity that isn't blocked raises error."""
+    import json
+
+    os.environ["JOURNAL_PATH"] = str(tmp_path)
+
+    entity_dir = tmp_path / "entities" / "alice"
+    entity_dir.mkdir(parents=True)
+    entity = {"id": "alice", "name": "Alice", "type": "Person"}
+    (entity_dir / "entity.json").write_text(json.dumps(entity))
+
+    with pytest.raises(ValueError, match="not blocked"):
+        unblock_journal_entity("alice")
+
+
+# ============================================================================
+# delete_journal_entity tests
+# ============================================================================
+
+
+def test_delete_journal_entity_success(tmp_path):
+    """Test deleting a journal entity removes all data."""
+    import json
+
+    os.environ["JOURNAL_PATH"] = str(tmp_path)
+
+    # Create journal entity with observations
+    entity_dir = tmp_path / "entities" / "alice"
+    entity_dir.mkdir(parents=True)
+    entity = {"id": "alice", "name": "Alice", "type": "Person"}
+    (entity_dir / "entity.json").write_text(json.dumps(entity))
+
+    # Create facet relationship with memory
+    facet_dir = tmp_path / "facets" / "work" / "entities" / "alice"
+    facet_dir.mkdir(parents=True)
+    relationship = {"entity_id": "alice", "description": "Coworker"}
+    (facet_dir / "entity.json").write_text(json.dumps(relationship))
+    (facet_dir / "observations.jsonl").write_text('{"content": "Test"}\n')
+
+    # Delete
+    result = delete_journal_entity("alice")
+
+    assert result["success"] is True
+    assert "work" in result["facets_deleted"]
+
+    # Verify everything is gone
+    assert not entity_dir.exists()
+    assert not facet_dir.exists()
+
+
+def test_delete_journal_entity_principal_protected(tmp_path):
+    """Test deleting principal entity is rejected."""
+    import json
+
+    os.environ["JOURNAL_PATH"] = str(tmp_path)
+
+    # Create principal entity
+    entity_dir = tmp_path / "entities" / "myself"
+    entity_dir.mkdir(parents=True)
+    entity = {"id": "myself", "name": "Me", "type": "Person", "is_principal": True}
+    (entity_dir / "entity.json").write_text(json.dumps(entity))
+
+    with pytest.raises(ValueError, match="principal"):
+        delete_journal_entity("myself")

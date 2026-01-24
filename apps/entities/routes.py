@@ -18,6 +18,8 @@ logger = logging.getLogger(__name__)
 from apps.utils import log_app_action
 from convey import state
 from think.entities import (
+    block_journal_entity,
+    delete_journal_entity,
     entity_last_active_ts,
     entity_memory_path,
     entity_slug,
@@ -32,6 +34,7 @@ from think.entities import (
     save_journal_entity,
     scan_facet_relationships,
     scan_journal_entities,
+    unblock_journal_entity,
     validate_aka_uniqueness,
 )
 from think.facets import get_facets
@@ -731,6 +734,7 @@ def get_journal_entities_data() -> dict:
             "type": journal_entity.get("type", ""),
             "aka": journal_entity.get("aka", []),
             "is_principal": journal_entity.get("is_principal", False),
+            "blocked": journal_entity.get("blocked", False),
             "facets": facet_relationships,
             "total_observation_count": total_observation_count,
             "last_active_ts": latest_active_ts,
@@ -786,6 +790,7 @@ def get_journal_entity(entity_id: str) -> Any:
             "type": journal_entity.get("type", ""),
             "aka": journal_entity.get("aka", []),
             "is_principal": journal_entity.get("is_principal", False),
+            "blocked": journal_entity.get("blocked", False),
             "facets": facet_relationships,
             "total_observation_count": total_observation_count,
             "last_active_ts": latest_active_ts,
@@ -868,3 +873,77 @@ def update_journal_entity(entity_id: str) -> Any:
     except Exception as e:
         logger.exception("Failed to update journal entity")
         return jsonify({"error": f"Failed to update journal entity: {str(e)}"}), 500
+
+
+@entities_bp.route("/api/journal/entity/<entity_id>", methods=["DELETE"])
+def delete_journal_entity_route(entity_id: str) -> Any:
+    """Permanently delete a journal entity and all facet relationships."""
+    try:
+        result = delete_journal_entity(entity_id)
+
+        log_app_action(
+            app="entities",
+            facet=None,  # Journal-level action
+            action="journal_entity_delete",
+            params={
+                "entity_id": entity_id,
+                "facets_deleted": result.get("facets_deleted", []),
+            },
+        )
+
+        return jsonify(result)
+
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+    except Exception as e:
+        logger.exception("Failed to delete journal entity")
+        return jsonify({"error": f"Failed to delete journal entity: {str(e)}"}), 500
+
+
+@entities_bp.route("/api/journal/entity/<entity_id>/block", methods=["POST"])
+def block_journal_entity_route(entity_id: str) -> Any:
+    """Block a journal entity and detach all facet relationships."""
+    try:
+        result = block_journal_entity(entity_id)
+
+        log_app_action(
+            app="entities",
+            facet=None,  # Journal-level action
+            action="journal_entity_block",
+            params={
+                "entity_id": entity_id,
+                "facets_detached": result.get("facets_detached", []),
+            },
+        )
+
+        return jsonify(result)
+
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+    except Exception as e:
+        logger.exception("Failed to block journal entity")
+        return jsonify({"error": f"Failed to block journal entity: {str(e)}"}), 500
+
+
+@entities_bp.route("/api/journal/entity/<entity_id>/unblock", methods=["POST"])
+def unblock_journal_entity_route(entity_id: str) -> Any:
+    """Unblock a journal entity."""
+    try:
+        result = unblock_journal_entity(entity_id)
+
+        log_app_action(
+            app="entities",
+            facet=None,  # Journal-level action
+            action="journal_entity_unblock",
+            params={
+                "entity_id": entity_id,
+            },
+        )
+
+        return jsonify(result)
+
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+    except Exception as e:
+        logger.exception("Failed to unblock journal entity")
+        return jsonify({"error": f"Failed to unblock journal entity: {str(e)}"}), 500

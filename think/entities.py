@@ -2125,3 +2125,138 @@ def add_observation(
     save_observations(facet, name, observations)
 
     return {"observations": observations, "count": len(observations)}
+
+
+# -----------------------------------------------------------------------------
+# Journal Entity Management (Block/Delete)
+# -----------------------------------------------------------------------------
+
+
+def block_journal_entity(entity_id: str) -> dict[str, Any]:
+    """Block a journal entity and detach all facet relationships.
+
+    Sets `blocked: true` on the journal entity and `detached: true` on all
+    facet relationships. This is a soft disable that hides the entity from
+    active use while preserving all data.
+
+    Args:
+        entity_id: Entity ID (slug)
+
+    Returns:
+        Dict with:
+            - success: True if blocked
+            - facets_detached: List of facet names where relationships were detached
+
+    Raises:
+        ValueError: If entity not found or is the principal entity
+    """
+    journal_entity = load_journal_entity(entity_id)
+    if not journal_entity:
+        raise ValueError(f"Entity '{entity_id}' not found")
+
+    if journal_entity.get("is_principal"):
+        raise ValueError("Cannot block the principal (self) entity")
+
+    # Set blocked flag on journal entity
+    journal_entity["blocked"] = True
+    journal_entity["updated_at"] = int(time.time() * 1000)
+    save_journal_entity(journal_entity)
+
+    # Detach all facet relationships
+    facets_detached = []
+    facets_dir = Path(get_journal()) / "facets"
+    if facets_dir.exists():
+        for facet_path in facets_dir.iterdir():
+            if not facet_path.is_dir():
+                continue
+            facet_name = facet_path.name
+
+            relationship = load_facet_relationship(facet_name, entity_id)
+            if relationship and not relationship.get("detached"):
+                relationship["detached"] = True
+                relationship["updated_at"] = int(time.time() * 1000)
+                save_facet_relationship(facet_name, entity_id, relationship)
+                facets_detached.append(facet_name)
+
+    return {"success": True, "facets_detached": facets_detached}
+
+
+def unblock_journal_entity(entity_id: str) -> dict[str, Any]:
+    """Unblock a journal entity.
+
+    Clears the `blocked` flag on the journal entity. Does NOT automatically
+    reattach facet relationships - the user must do that manually per-facet.
+
+    Args:
+        entity_id: Entity ID (slug)
+
+    Returns:
+        Dict with:
+            - success: True if unblocked
+
+    Raises:
+        ValueError: If entity not found or not blocked
+    """
+    journal_entity = load_journal_entity(entity_id)
+    if not journal_entity:
+        raise ValueError(f"Entity '{entity_id}' not found")
+
+    if not journal_entity.get("blocked"):
+        raise ValueError(f"Entity '{entity_id}' is not blocked")
+
+    # Clear blocked flag
+    journal_entity.pop("blocked", None)
+    journal_entity["updated_at"] = int(time.time() * 1000)
+    save_journal_entity(journal_entity)
+
+    return {"success": True}
+
+
+def delete_journal_entity(entity_id: str) -> dict[str, Any]:
+    """Permanently delete a journal entity and all facet relationships.
+
+    This is a destructive operation that removes:
+    - The journal entity directory (entities/<id>/)
+    - All facet relationship directories (facets/*/entities/<id>/)
+    - All entity memory (voiceprints, observations) in those directories
+
+    Args:
+        entity_id: Entity ID (slug)
+
+    Returns:
+        Dict with:
+            - success: True if deleted
+            - facets_deleted: List of facet names where relationships were deleted
+
+    Raises:
+        ValueError: If entity not found or is the principal entity
+    """
+    journal_entity = load_journal_entity(entity_id)
+    if not journal_entity:
+        raise ValueError(f"Entity '{entity_id}' not found")
+
+    if journal_entity.get("is_principal"):
+        raise ValueError("Cannot delete the principal (self) entity")
+
+    facets_deleted = []
+
+    # Delete all facet relationship directories
+    facets_dir = Path(get_journal()) / "facets"
+    if facets_dir.exists():
+        for facet_path in facets_dir.iterdir():
+            if not facet_path.is_dir():
+                continue
+            facet_name = facet_path.name
+
+            # Check for relationship directory (contains entity.json and memory)
+            rel_dir = facet_path / "entities" / entity_id
+            if rel_dir.exists() and rel_dir.is_dir():
+                shutil.rmtree(rel_dir)
+                facets_deleted.append(facet_name)
+
+    # Delete journal entity directory
+    journal_dir = Path(get_journal()) / "entities" / entity_id
+    if journal_dir.exists() and journal_dir.is_dir():
+        shutil.rmtree(journal_dir)
+
+    return {"success": True, "facets_deleted": facets_deleted}

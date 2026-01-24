@@ -123,6 +123,31 @@
   border-radius: 7px 0 6px 0;
 }
 
+/* Blocked card state */
+.entity-card-blocked {
+  opacity: 0.5;
+  background: #f3f4f6;
+  border-color: #d1d5db;
+}
+
+.entity-card-blocked:hover {
+  opacity: 0.7;
+  border-color: #9ca3af;
+  box-shadow: none;
+}
+
+.entity-card-blocked-badge {
+  position: absolute;
+  top: 0;
+  left: 0;
+  background: #6b7280;
+  color: white;
+  font-size: 0.65em;
+  font-weight: 600;
+  padding: 0.15em 0.5em;
+  border-radius: 7px 0 6px 0;
+}
+
 /* Entity detail view */
 .entity-detail-view {
   background: white;
@@ -189,6 +214,26 @@
   border-radius: 20px;
   font-size: 0.75em;
   font-weight: 500;
+}
+
+.entity-detail-blocked-badge {
+  background: #6b7280;
+  color: white;
+  padding: 0.25em 0.75em;
+  border-radius: 20px;
+  font-size: 0.75em;
+  font-weight: 500;
+}
+
+/* Blocked entity state - disable editing */
+.entity-detail-view.blocked .entity-detail-section {
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+.entity-detail-view.blocked .entity-action-section {
+  opacity: 1;
+  pointer-events: auto;
 }
 
 /* Detached entity state - disable editing */
@@ -850,6 +895,17 @@ tr:hover .entity-delete-btn {
         </div>
       </form>
     </div>
+
+    <div class="entity-action-section entity-detach-section">
+      <div style="display: flex; gap: 0.5em; flex-wrap: wrap;">
+        <button class="btn btn-secondary" id="journal-detail-block-btn">Block</button>
+        <button class="btn btn-danger" id="journal-detail-delete-btn">Delete</button>
+      </div>
+      <p style="margin-top: 0.75em; font-size: 0.85em; color: #6c757d;">
+        <strong>Block</strong> hides the entity from all views but preserves data.
+        <strong>Delete</strong> permanently removes the entity and all associated data.
+      </p>
+    </div>
   </div>
 
   <!-- Main list view (facet-specific mode) -->
@@ -935,6 +991,34 @@ tr:hover .entity-delete-btn {
     <div class="modal-footer">
       <button class="btn btn-secondary" onclick="closeDeleteModal()">Cancel</button>
       <button id="confirmDeleteBtn" class="btn btn-danger" onclick="confirmEntityDelete()">Delete</button>
+    </div>
+  </div>
+</div>
+
+<!-- Delete Journal Entity Confirmation Modal -->
+<div id="deleteJournalEntityModal" class="modal">
+  <div class="modal-content">
+    <div class="modal-header danger">
+      <h3>Delete Entity Permanently</h3>
+      <span class="close" onclick="closeDeleteJournalEntityModal()">&times;</span>
+    </div>
+    <div class="modal-body">
+      <div class="delete-warning">
+        ⚠️ This will permanently delete this entity and all associated data. This action cannot be undone.
+      </div>
+      <p>Entity: <strong id="deleteJournalEntityName"></strong></p>
+      <div id="deleteJournalEntityInfo">
+        <p>This will remove:</p>
+        <ul style="margin: 0.5em 0; padding-left: 1.5em; color: #495057;">
+          <li>The entity record</li>
+          <li id="deleteJournalEntityFacets"></li>
+          <li id="deleteJournalEntityObs"></li>
+        </ul>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeDeleteJournalEntityModal()">Cancel</button>
+      <button id="confirmDeleteJournalEntityBtn" class="btn btn-danger" onclick="confirmDeleteJournalEntity()">Delete Permanently</button>
     </div>
   </div>
 </div>
@@ -1171,12 +1255,22 @@ function showJournalDetailView(entityId) {
 }
 
 function renderJournalDetailView(entity) {
+  const isBlocked = entity.blocked === true;
+  const isPrincipal = entity.is_principal === true;
+  const detailView = document.getElementById('journal-entity-detail-view');
+
+  // Toggle blocked class on container
+  if (isBlocked) {
+    detailView.classList.add('blocked');
+  } else {
+    detailView.classList.remove('blocked');
+  }
+
   // Header
   document.getElementById('journal-detail-name').textContent = entity.name;
   document.getElementById('journal-detail-type').textContent = entity.type;
 
   // Add or remove principal badge
-  const isPrincipal = entity.is_principal === true;
   const typeEl = document.getElementById('journal-detail-type');
   let principalBadge = document.getElementById('journal-detail-principal-badge');
   if (isPrincipal) {
@@ -1190,6 +1284,54 @@ function renderJournalDetailView(entity) {
     }
   } else if (principalBadge) {
     principalBadge.remove();
+  }
+
+  // Add or remove blocked badge
+  let blockedBadge = document.getElementById('journal-detail-blocked-badge');
+  if (isBlocked) {
+    if (!blockedBadge) {
+      blockedBadge = document.createElement('span');
+      blockedBadge.id = 'journal-detail-blocked-badge';
+      blockedBadge.className = 'entity-detail-blocked-badge';
+      blockedBadge.textContent = 'Blocked';
+      blockedBadge.title = 'This entity is blocked';
+      typeEl.parentNode.insertBefore(blockedBadge, typeEl.nextSibling);
+    }
+  } else if (blockedBadge) {
+    blockedBadge.remove();
+  }
+
+  // Update action buttons based on state
+  const blockBtn = document.getElementById('journal-detail-block-btn');
+  const deleteBtn = document.getElementById('journal-detail-delete-btn');
+
+  if (isPrincipal) {
+    // Principal cannot be blocked or deleted
+    blockBtn.disabled = true;
+    blockBtn.textContent = 'Block';
+    blockBtn.title = 'Cannot block yourself';
+    blockBtn.onclick = null;
+    deleteBtn.disabled = true;
+    deleteBtn.title = 'Cannot delete yourself';
+    deleteBtn.onclick = null;
+  } else if (isBlocked) {
+    // Show unblock option
+    blockBtn.disabled = false;
+    blockBtn.textContent = 'Unblock';
+    blockBtn.title = 'Unblock this entity';
+    blockBtn.onclick = unblockJournalEntity;
+    deleteBtn.disabled = false;
+    deleteBtn.title = '';
+    deleteBtn.onclick = showDeleteJournalEntityModal;
+  } else {
+    // Normal state
+    blockBtn.disabled = false;
+    blockBtn.textContent = 'Block';
+    blockBtn.title = '';
+    blockBtn.onclick = blockJournalEntity;
+    deleteBtn.disabled = false;
+    deleteBtn.title = '';
+    deleteBtn.onclick = showDeleteJournalEntityModal;
   }
 
   // AKAs
@@ -1228,11 +1370,19 @@ function renderJournalDetailView(entity) {
       const row = document.createElement('div');
       row.className = 'facet-relationship-row';
       row.style.borderLeftColor = facet.color || '#888';
-      row.title = `Click to view in ${facet.title}`;
-      row.onclick = () => {
-        // Select the facet, which will reload entities and show this entity in facet context
-        window.selectFacet(facet.name);
-      };
+
+      if (isBlocked) {
+        // Blocked entities are detached from facets - don't navigate
+        row.style.opacity = '0.6';
+        row.style.cursor = 'default';
+        row.title = 'Entity is blocked and detached from this facet';
+      } else {
+        row.title = `Click to view in ${facet.title}`;
+        row.onclick = () => {
+          // Select the facet, which will reload entities and show this entity in facet context
+          window.selectFacet(facet.name);
+        };
+      }
 
       const info = document.createElement('div');
       info.className = 'facet-rel-info';
@@ -1370,6 +1520,113 @@ document.getElementById('journal-detail-edit-form').addEventListener('submit', f
     saveBtn.disabled = false;
   });
 });
+
+// Block/Unblock/Delete handlers for journal entities
+function blockJournalEntity() {
+  const entityId = currentDetailEntity?.id;
+  if (!entityId) return;
+
+  const btn = document.getElementById('journal-detail-block-btn');
+  btn.disabled = true;
+  btn.textContent = 'Blocking...';
+
+  fetch(`api/journal/entity/${encodeURIComponent(entityId)}/block`, {
+    method: 'POST'
+  })
+  .then(response => response.json())
+  .then(data => {
+    if (data.error) {
+      throw new Error(data.error);
+    }
+    // Navigate back to list and reload
+    navigateToList();
+    loadEntities();
+  })
+  .catch(error => {
+    console.error('Error blocking entity:', error);
+    alert('Error: ' + error.message);
+    btn.disabled = false;
+    btn.textContent = 'Block';
+  });
+}
+
+function unblockJournalEntity() {
+  const entityId = currentDetailEntity?.id;
+  if (!entityId) return;
+
+  const btn = document.getElementById('journal-detail-block-btn');
+  btn.disabled = true;
+  btn.textContent = 'Unblocking...';
+
+  fetch(`api/journal/entity/${encodeURIComponent(entityId)}/unblock`, {
+    method: 'POST'
+  })
+  .then(response => response.json())
+  .then(data => {
+    if (data.error) {
+      throw new Error(data.error);
+    }
+    // Refresh the detail view
+    showJournalDetailView(entityId);
+    loadEntities();  // Refresh list in background
+  })
+  .catch(error => {
+    console.error('Error unblocking entity:', error);
+    alert('Error: ' + error.message);
+    btn.disabled = false;
+    btn.textContent = 'Unblock';
+  });
+}
+
+function showDeleteJournalEntityModal() {
+  const entity = currentDetailEntity;
+  if (!entity) return;
+
+  document.getElementById('deleteJournalEntityName').textContent = entity.name;
+
+  // Show facet and observation counts
+  const facetCount = entity.facets?.length || 0;
+  const obsCount = entity.total_observation_count || 0;
+
+  document.getElementById('deleteJournalEntityFacets').textContent =
+    `${facetCount} facet relationship${facetCount !== 1 ? 's' : ''}`;
+  document.getElementById('deleteJournalEntityObs').textContent =
+    `${obsCount} observation${obsCount !== 1 ? 's' : ''} and any voiceprints`;
+
+  document.getElementById('deleteJournalEntityModal').style.display = 'flex';
+}
+
+function closeDeleteJournalEntityModal() {
+  document.getElementById('deleteJournalEntityModal').style.display = 'none';
+}
+
+function confirmDeleteJournalEntity() {
+  const entityId = currentDetailEntity?.id;
+  if (!entityId) return;
+
+  const btn = document.getElementById('confirmDeleteJournalEntityBtn');
+  btn.disabled = true;
+  btn.textContent = 'Deleting...';
+
+  fetch(`api/journal/entity/${encodeURIComponent(entityId)}`, {
+    method: 'DELETE'
+  })
+  .then(response => response.json())
+  .then(data => {
+    if (data.error) {
+      throw new Error(data.error);
+    }
+    closeDeleteJournalEntityModal();
+    navigateToList();
+    loadEntities();
+  })
+  .catch(error => {
+    console.error('Error deleting entity:', error);
+    alert('Error: ' + error.message);
+    btn.disabled = false;
+    btn.textContent = 'Delete Permanently';
+  });
+}
 
 function renderDetailView(entity, observations) {
   const isDetached = entity.detached === true;
@@ -1852,6 +2109,16 @@ function createJournalEntityCard(entity) {
     principalBadge.className = 'entity-card-principal-badge';
     principalBadge.textContent = 'You';
     card.appendChild(principalBadge);
+  }
+
+  // Blocked styling
+  if (entity.blocked) {
+    card.classList.add('entity-card-blocked');
+
+    const blockedBadge = document.createElement('div');
+    blockedBadge.className = 'entity-card-blocked-badge';
+    blockedBadge.textContent = 'Blocked';
+    card.appendChild(blockedBadge);
   }
 
   card.onclick = () => navigateToEntity(entity.id);
