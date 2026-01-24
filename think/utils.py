@@ -761,7 +761,8 @@ def get_agent(persona: str = "default", facet: str | None = None) -> dict:
     Returns
     -------
     dict
-        Complete agent configuration including instruction, model, backend, etc.
+        Complete agent configuration including system_instruction, user_instruction,
+        extra_context, model, backend, etc.
     """
     config = {}
 
@@ -774,12 +775,18 @@ def get_agent(persona: str = "default", facet: str | None = None) -> dict:
         with open(json_path, "r", encoding="utf-8") as f:
             config = json.load(f)
 
-    # Load instruction text
+    # Load instruction text - journal.txt as system instruction, persona as user instruction
     txt_path = agent_dir / f"{agent_name}.txt"
     if not txt_path.exists():
         raise FileNotFoundError(f"Agent persona not found: {persona}")
-    prompt_data = load_prompt(agent_name, base_dir=agent_dir, include_journal=True)
-    config["instruction"] = prompt_data.text
+
+    # System instruction: journal.txt only (cacheable)
+    journal_prompt = load_prompt("journal")
+    config["system_instruction"] = journal_prompt.text
+
+    # User instruction: the agent-specific prompt (without journal prepended)
+    agent_prompt = load_prompt(agent_name, base_dir=agent_dir, include_journal=False)
+    config["user_instruction"] = agent_prompt.text
 
     # Add runtime context (facets with entities)
     extra_parts = []

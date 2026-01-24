@@ -253,7 +253,8 @@ async def run_agent(
     """Run a single prompt through the Anthropic Claude agent and return the response.
 
     Args:
-        config: Complete configuration dictionary including prompt, instruction, model, etc.
+        config: Complete configuration dictionary including prompt, system_instruction,
+            user_instruction, extra_context, model, etc.
         on_event: Optional event callback
     """
     # Extract values from unified config
@@ -289,9 +290,11 @@ async def run_agent(
             }
         )
 
-        # Extract instruction and extra_context from config
-        system_instruction = config.get("instruction", "")
-        first_user = config.get("extra_context", "")
+        # Extract instruction components from config
+        # Structure: system=journal.txt, user1=extra_context, user2=user_instruction, user3=prompt
+        system_instruction = config.get("system_instruction", "")
+        extra_context = config.get("extra_context", "")
+        user_instruction = config.get("user_instruction", "")
 
         # Build initial messages - check for continuation first
         continue_from = config.get("continue_from")
@@ -305,8 +308,10 @@ async def run_agent(
         else:
             # Fresh conversation
             messages: list[MessageParam] = []
-            if first_user:
-                messages.append({"role": "user", "content": first_user})
+            if extra_context:
+                messages.append({"role": "user", "content": extra_context})
+            if user_instruction:
+                messages.append({"role": "user", "content": user_instruction})
             messages.append({"role": "user", "content": prompt})
 
         # Initialize tools and executor based on disable_mcp flag

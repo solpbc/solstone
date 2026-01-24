@@ -23,7 +23,16 @@ from think.utils import (
     setup_cli,
 )
 
-COMMON_SYSTEM_INSTRUCTION = "You are an expert productivity analyst tasked with analyzing a full workday transcript containing both audio conversations and screen activity data, organized into recording segments. You will be given the transcripts and then following that you will have a detailed user request for how to process them.  Please follow those instructions carefully. Take time to consider all of the nuance of the interactions from the day, deeply think through how best to prioritize the most important aspects and understandings, formulate the best approach for each step of the analysis."
+# Cached system instruction loaded from insights.txt
+_system_instruction_cache: str | None = None
+
+
+def _get_system_instruction() -> str:
+    """Load system instruction from insights.txt (cached)."""
+    global _system_instruction_cache
+    if _system_instruction_cache is None:
+        _system_instruction_cache = load_prompt("insights").text
+    return _system_instruction_cache
 
 
 def _write_events_jsonl(
@@ -168,7 +177,7 @@ def _get_or_create_cache(
 ) -> str | None:
     """Return cache name for ``display_name`` or None if content too small.
 
-    Creates cache with ``transcript`` and :data:`COMMON_SYSTEM_INSTRUCTION` if needed.
+    Creates cache with ``transcript`` and system instruction from insights.txt if needed.
     Returns None if content is below estimated 2048 token minimum (~10k chars).
 
     The cache contains the system instruction + transcript which are identical
@@ -189,7 +198,7 @@ def _get_or_create_cache(
         model=model,
         config=types.CreateCachedContentConfig(
             display_name=display_name,
-            system_instruction=COMMON_SYSTEM_INSTRUCTION,
+            system_instruction=_get_system_instruction(),
             contents=[transcript],
             ttl="1800s",  # 30 minutes to accommodate multiple topic analyses
         ),
@@ -258,7 +267,7 @@ def send_insight(
             temperature=0.3,
             max_output_tokens=8192 * 6,
             thinking_budget=8192 * 3,
-            system_instruction=COMMON_SYSTEM_INSTRUCTION,
+            system_instruction=_get_system_instruction(),
             json_output=json_output,
         )
 

@@ -480,9 +480,12 @@ def api_preview_prompt(persona: str) -> Any:
 
         config = get_agent(persona)
 
-        instruction = config.get("instruction", "")
+        system_instruction = config.get("system_instruction", "")
         extra_context = config.get("extra_context", "")
-        full_prompt = f"{instruction}\n\n---\n\n{extra_context}".strip()
+        user_instruction = config.get("user_instruction", "")
+        # Compose full prompt showing all parts
+        parts = [p for p in [system_instruction, extra_context, user_instruction] if p]
+        full_prompt = "\n\n---\n\n".join(parts)
 
         return jsonify(
             {

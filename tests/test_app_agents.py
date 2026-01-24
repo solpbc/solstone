@@ -102,8 +102,10 @@ def test_get_agent_system_agent(fixture_journal):
     config = get_agent("default")
 
     assert config["persona"] == "default"
-    assert "instruction" in config
-    assert len(config["instruction"]) > 0
+    assert "system_instruction" in config
+    assert "user_instruction" in config
+    assert len(config["system_instruction"]) > 0
+    assert len(config["user_instruction"]) > 0
 
 
 def test_get_agent_nonexistent_raises():
@@ -129,7 +131,8 @@ def test_get_agents_includes_system_agents(fixture_journal):
     # Should include known system agents
     assert "default" in agents
     assert agents["default"]["source"] == "system"
-    assert "instruction" in agents["default"]
+    assert "system_instruction" in agents["default"]
+    assert "user_instruction" in agents["default"]
 
 
 def test_get_agents_system_agents_have_metadata(fixture_journal):

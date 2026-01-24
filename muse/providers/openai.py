@@ -211,7 +211,8 @@ async def run_agent(
     Emits JSON events and returns the final text output.
 
     Args:
-        config: Complete configuration dictionary including prompt, instruction, model, etc.
+        config: Complete configuration dictionary including prompt, system_instruction,
+            user_instruction, extra_context, model, etc.
         on_event: Optional event callback
     """
     # Extract values from unified config
@@ -291,9 +292,11 @@ async def run_agent(
             client_session_timeout_seconds=15.0,
         )
 
-    # Extract instruction and extra_context from config
-    system_instruction = config.get("instruction", "")
+    # Extract instruction components from config
+    # Structure: system=journal.txt, user1=extra_context, user2=user_instruction, user3=prompt
+    system_instruction = config.get("system_instruction", "")
     extra_context = config.get("extra_context", "")
+    user_instruction = config.get("user_instruction", "")
 
     # Keep a map of in-flight tools so we can pair outputs with args
     pending_tools: dict[str, dict[str, Any]] = {}
@@ -314,11 +317,14 @@ async def run_agent(
             items = _convert_turns_to_items(turns)
             await session.add_items(items)
     else:
-        # Fresh conversation - add extra_context as first user message if provided
+        # Fresh conversation - add context and user instruction as initial messages
+        initial_turns = []
         if extra_context:
-            initial_items = _convert_turns_to_items(
-                [{"role": "user", "content": extra_context}]
-            )
+            initial_turns.append({"role": "user", "content": extra_context})
+        if user_instruction:
+            initial_turns.append({"role": "user", "content": user_instruction})
+        if initial_turns:
+            initial_items = _convert_turns_to_items(initial_turns)
             await session.add_items(initial_items)
 
     try:

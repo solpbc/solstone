@@ -226,14 +226,17 @@ Agents can transfer control to other agents for specialized tasks. When an agent
 ## Agent Personas
 
 Agents use persona configurations stored in the `muse/agents/` directory. Each persona consists of:
-- A `.txt` file containing system instructions and prompts
+- A `.txt` file containing the agent-specific prompt and instructions
 - An optional `.json` file with metadata and configuration
 
 When spawning an agent:
 1. Cortex loads the persona configuration using `get_agent()` from `think/utils.py`
-2. The persona's instruction text and JSON metadata are merged into a complete configuration
+2. The configuration is built with three instruction components:
+   - `system_instruction`: `journal.txt` (shared base prompt, cacheable)
+   - `extra_context`: Runtime context (facets, insights list, datetime)
+   - `user_instruction`: The agent's `.txt` file content
 3. Request parameters override persona defaults in the merged configuration
-4. The full configuration (including instruction text) is passed to the agent process
+4. The full configuration is passed to the agent process
 
 Personas define specialized behaviors, tool usage patterns, and facet expertise. Available personas can be discovered using the `get_agents()` function or by listing files in the `muse/agents/` directory.
 

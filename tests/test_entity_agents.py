@@ -25,8 +25,10 @@ def test_entities_agent_config(fixture_journal):
 
     # Verify required fields
     assert config["persona"] == "entities:entities"
-    assert "instruction" in config
-    assert len(config["instruction"]) > 0
+    assert "system_instruction" in config
+    assert "user_instruction" in config
+    assert len(config["system_instruction"]) > 0
+    assert len(config["user_instruction"]) > 0
 
     # Verify JSON metadata fields from entities.json
     assert config.get("title") == "Entity Detector"
@@ -43,8 +45,10 @@ def test_entities_review_agent_config(fixture_journal):
 
     # Verify required fields
     assert config["persona"] == "entities:entities_review"
-    assert "instruction" in config
-    assert len(config["instruction"]) > 0
+    assert "system_instruction" in config
+    assert "user_instruction" in config
+    assert len(config["system_instruction"]) > 0
+    assert len(config["user_instruction"]) > 0
 
     # Verify JSON metadata fields from entities_review.json
     assert config.get("title") == "Entity Reviewer"
@@ -57,27 +61,27 @@ def test_entities_review_agent_config(fixture_journal):
 def test_entities_agent_instruction_content(fixture_journal):
     """Test detection agent instruction contains expected sections."""
     config = get_agent("entities:entities")
-    instruction = config["instruction"]
+    persona = config["user_instruction"]
 
-    # Check for key sections in the prompt
-    assert "Core Mission" in instruction
-    assert "entity_detect" in instruction
-    assert "entity_list" in instruction
-    assert "Knowledge Graphs" in instruction or "knowledge_graph" in instruction
-    assert "day-specific context" in instruction.lower()
+    # Check for key sections in the persona prompt
+    assert "Core Mission" in persona
+    assert "entity_detect" in persona
+    assert "entity_list" in persona
+    assert "Knowledge Graphs" in persona or "knowledge_graph" in persona
+    assert "day-specific context" in persona.lower()
 
 
 def test_entities_review_agent_instruction_content(fixture_journal):
     """Test review agent instruction contains expected sections."""
     config = get_agent("entities:entities_review")
-    instruction = config["instruction"]
+    persona = config["user_instruction"]
 
-    # Check for key sections in the prompt
-    assert "Core Mission" in instruction
-    assert "entity_attach" in instruction
-    assert "entity_list" in instruction
-    assert "3+" in instruction or "promotion" in instruction.lower()
-    assert "description" in instruction.lower()
+    # Check for key sections in the persona prompt
+    assert "Core Mission" in persona
+    assert "entity_attach" in persona
+    assert "entity_list" in persona
+    assert "3+" in persona or "promotion" in persona.lower()
+    assert "description" in persona.lower()
 
 
 def test_agent_context_includes_entities_by_facet(fixture_journal):

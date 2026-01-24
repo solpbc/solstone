@@ -83,7 +83,8 @@ async def run_agent(
     with diagnostic shell commands for system analysis.
 
     Args:
-        config: Complete configuration dictionary including prompt, instruction, model, etc.
+        config: Complete configuration dictionary including prompt, system_instruction,
+            user_instruction, extra_context, model, etc.
         on_event: Optional event callback
     """
     # Extract values from unified config
@@ -103,8 +104,20 @@ async def run_agent(
         # Get journal path for file permissions
         journal_path = get_journal()
 
-        # Extract instruction from config
-        system_instruction = config.get("instruction", "")
+        # Extract instruction components from config
+        # Structure: system=journal.txt, context+user_instruction prepended to prompt
+        system_instruction = config.get("system_instruction", "")
+        extra_context = config.get("extra_context", "")
+        user_instruction = config.get("user_instruction", "")
+
+        # Claude Code SDK only takes prompt, so prepend context and user instruction
+        prompt_parts = []
+        if extra_context:
+            prompt_parts.append(extra_context)
+        if user_instruction:
+            prompt_parts.append(user_instruction)
+        prompt_parts.append(prompt)
+        prompt = "\n\n".join(prompt_parts)
 
         callback.emit(
             {
