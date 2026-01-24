@@ -41,11 +41,13 @@ def validate_aka_uniqueness(
         >>> validate_aka_uniqueness("ctt", entities, exclude_entity_name="CTT")
         None  # Ok, adding to CTT's own akas
     """
-    # Filter out the entity being updated
+    # Filter out the entity being updated, detached entities, and blocked entities
     check_entities = [
         e
         for e in entities
-        if e.get("name") != exclude_entity_name and not e.get("detached")
+        if e.get("name") != exclude_entity_name
+        and not e.get("detached")
+        and not e.get("blocked")
     ]
 
     if not check_entities:
@@ -192,6 +194,7 @@ def resolve_entity(
     query: str,
     fuzzy_threshold: int = 90,
     include_detached: bool = False,
+    include_blocked: bool = False,
 ) -> tuple[EntityDict | None, list[EntityDict] | None]:
     """Resolve an entity query to a single attached entity.
 
@@ -211,6 +214,7 @@ def resolve_entity(
         query: Name, id (slug), or aka to search for
         fuzzy_threshold: Minimum score (0-100) for fuzzy matching (default: 90)
         include_detached: If True, also search detached entities (default: False)
+        include_blocked: If True, also search blocked entities (default: False)
 
     Returns:
         Tuple of (entity, candidates):
@@ -228,7 +232,12 @@ def resolve_entity(
         return None, []
 
     # Load attached entities
-    entities = load_entities(facet, day=None, include_detached=include_detached)
+    entities = load_entities(
+        facet,
+        day=None,
+        include_detached=include_detached,
+        include_blocked=include_blocked,
+    )
     if not entities:
         return None, []
 

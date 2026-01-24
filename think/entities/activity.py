@@ -41,8 +41,10 @@ def touch_entity(facet: str, name: str, day: str) -> str:
         >>> touch_entity("work", "Alice Johnson", "20250115")
         "updated"
     """
-    # Load ALL attached entities including detached to avoid data loss on save
-    entities = load_entities(facet, day=None, include_detached=True)
+    # Load ALL attached entities including detached/blocked to avoid data loss on save
+    entities = load_entities(
+        facet, day=None, include_detached=True, include_blocked=True
+    )
 
     for entity in entities:
         # Skip detached entities

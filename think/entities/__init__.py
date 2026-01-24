@@ -21,6 +21,14 @@ This package is organized into focused modules:
 - formatting: Indexer formatting
 """
 
+# Activity tracking
+from think.entities.activity import (
+    load_detected_entities_recent,
+    parse_knowledge_graph_entities,
+    touch_entities_from_activity,
+    touch_entity,
+)
+
 # Core types and utilities
 from think.entities.core import (
     DEFAULT_ACTIVITY_TS,
@@ -33,6 +41,9 @@ from think.entities.core import (
     get_identity_names,
     is_valid_entity_type,
 )
+
+# Formatting (for indexer)
+from think.entities.formatting import format_entities
 
 # Journal-level entity management
 from think.entities.journal import (
@@ -48,17 +59,6 @@ from think.entities.journal import (
     unblock_journal_entity,
 )
 
-# Facet relationships and memory
-from think.entities.relationships import (
-    ensure_entity_memory,
-    entity_memory_path,
-    facet_relationship_path,
-    load_facet_relationship,
-    rename_entity_memory,
-    save_facet_relationship,
-    scan_facet_relationships,
-)
-
 # Entity loading
 from think.entities.loading import (
     detected_entities_path,
@@ -69,25 +69,11 @@ from think.entities.loading import (
     parse_entity_file,
 )
 
-# Entity saving
-from think.entities.saving import (
-    save_entities,
-    update_entity_description,
-)
-
 # Entity matching and resolution
 from think.entities.matching import (
     find_matching_attached_entity,
     resolve_entity,
     validate_aka_uniqueness,
-)
-
-# Activity tracking
-from think.entities.activity import (
-    load_detected_entities_recent,
-    parse_knowledge_graph_entities,
-    touch_entities_from_activity,
-    touch_entity,
 )
 
 # Observations
@@ -99,8 +85,22 @@ from think.entities.observations import (
     save_observations,
 )
 
-# Formatting (for indexer)
-from think.entities.formatting import format_entities
+# Facet relationships and memory
+from think.entities.relationships import (
+    ensure_entity_memory,
+    entity_memory_path,
+    facet_relationship_path,
+    load_facet_relationship,
+    rename_entity_memory,
+    save_facet_relationship,
+    scan_facet_relationships,
+)
+
+# Entity saving
+from think.entities.saving import (
+    save_entities,
+    update_entity_description,
+)
 
 __all__ = [
     # Core

@@ -106,13 +106,14 @@ def parse_entity_file(
 
 
 def _load_entities_from_relationships(
-    facet: str, *, include_detached: bool = False
+    facet: str, *, include_detached: bool = False, include_blocked: bool = False
 ) -> list[EntityDict]:
     """Load attached entities from facet relationships + journal entities.
 
     Args:
         facet: Facet name
         include_detached: If True, includes detached entities
+        include_blocked: If True, includes blocked entities (journal-level block)
 
     Returns:
         List of enriched entity dicts
@@ -137,13 +138,22 @@ def _load_entities_from_relationships(
         # Enrich with journal entity data
         journal_entity = journal_entities.get(entity_id)
         enriched = enrich_relationship_with_journal(relationship, journal_entity)
+
+        # Skip blocked if not requested (blocked is set from journal entity)
+        if not include_blocked and enriched.get("blocked"):
+            continue
+
         entities.append(enriched)
 
     return entities
 
 
 def load_entities(
-    facet: str, day: str | None = None, *, include_detached: bool = False
+    facet: str,
+    day: str | None = None,
+    *,
+    include_detached: bool = False,
+    include_blocked: bool = False,
 ) -> list[EntityDict]:
     """Load entities from facet.
 
@@ -158,6 +168,9 @@ def load_entities(
         include_detached: If True, includes entities with detached=True.
                          Default False excludes detached entities.
                          Only applies to attached entities (day=None).
+        include_blocked: If True, includes entities with blocked=True (journal-level).
+                        Default False excludes blocked entities.
+                        Only applies to attached entities (day=None).
 
     Returns:
         List of entity dictionaries with id, type, name, description, and other fields.
@@ -172,7 +185,9 @@ def load_entities(
         return parse_entity_file(str(path))
 
     # For attached entities, load from relationships
-    return _load_entities_from_relationships(facet, include_detached=include_detached)
+    return _load_entities_from_relationships(
+        facet, include_detached=include_detached, include_blocked=include_blocked
+    )
 
 
 def load_all_attached_entities(

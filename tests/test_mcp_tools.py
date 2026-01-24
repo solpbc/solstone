@@ -30,7 +30,9 @@ def test_entity_add_aka_success():
         result = entity_tools.entity_add_aka("work", "PostgreSQL", "PG")
 
     mock_resolve.assert_called_with("work", "PostgreSQL")
-    mock_load.assert_called_with("work", day=None, include_detached=True)
+    mock_load.assert_called_with(
+        "work", day=None, include_detached=True, include_blocked=True
+    )
     mock_save.assert_called_once()
 
     # Verify the entity was updated

@@ -17,9 +17,7 @@ from think.entities.loading import detected_entities_path, load_entities
 from think.entities.relationships import save_facet_relationship
 
 
-def _save_entities_detected(
-    facet: str, entities: list[EntityDict], day: str
-) -> None:
+def _save_entities_detected(facet: str, entities: list[EntityDict], day: str) -> None:
     """Save detected entities to day-specific JSONL file."""
     path = detected_entities_path(facet, day)
 
@@ -178,10 +176,10 @@ def update_entity_description(
     Raises:
         ValueError: If entity not found or guard mismatch
     """
-    # Load ALL entities including detached to avoid data loss on save
-    # For attached entities (day=None), we need include_detached=True
+    # Load ALL entities including detached/blocked to avoid data loss on save
+    # For attached entities (day=None), we need include_detached=True and include_blocked=True
     entities = (
-        load_entities(facet, day, include_detached=True)
+        load_entities(facet, day, include_detached=True, include_blocked=True)
         if day is None
         else load_entities(facet, day)
     )

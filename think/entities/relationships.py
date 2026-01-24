@@ -110,8 +110,8 @@ def enrich_relationship_with_journal(
     """Merge journal entity fields into relationship for unified view.
 
     Creates a combined entity dict that has identity fields (name, type, aka,
-    is_principal) from journal and relationship fields (description, timestamps,
-    etc.) from facet.
+    is_principal, blocked) from journal and relationship fields (description,
+    timestamps, etc.) from facet.
 
     Args:
         relationship: Facet relationship dict
@@ -132,6 +132,8 @@ def enrich_relationship_with_journal(
             result["aka"] = journal_entity["aka"]
         if journal_entity.get("is_principal"):
             result["is_principal"] = True
+        if journal_entity.get("blocked"):
+            result["blocked"] = True
     else:
         # No journal entity - use entity_id as id
         result["id"] = relationship.get("entity_id", "")

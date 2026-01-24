@@ -29,6 +29,7 @@ from think.entities import (
     observations_file_path,
     parse_knowledge_graph_entities,
     rename_entity_memory,
+    resolve_entity,
     save_entities,
     save_journal_entity,
     save_observations,
@@ -2309,3 +2310,183 @@ def test_delete_journal_entity_principal_protected(tmp_path):
 
     with pytest.raises(ValueError, match="principal"):
         delete_journal_entity("myself")
+
+
+# ============================================================================
+# Blocked entity filtering tests
+# ============================================================================
+
+
+def test_load_entities_excludes_blocked_by_default(tmp_path):
+    """Test that load_entities excludes blocked entities by default."""
+    import json
+
+    os.environ["JOURNAL_PATH"] = str(tmp_path)
+
+    # Create journal entities - one normal, one blocked
+    normal_dir = tmp_path / "entities" / "alice"
+    normal_dir.mkdir(parents=True)
+    (normal_dir / "entity.json").write_text(
+        json.dumps({"id": "alice", "name": "Alice", "type": "Person"})
+    )
+
+    blocked_dir = tmp_path / "entities" / "bob"
+    blocked_dir.mkdir(parents=True)
+    (blocked_dir / "entity.json").write_text(
+        json.dumps({"id": "bob", "name": "Bob", "type": "Person", "blocked": True})
+    )
+
+    # Create facet relationships for both
+    facet_dir = tmp_path / "facets" / "work"
+    (facet_dir / "facet.json").parent.mkdir(parents=True, exist_ok=True)
+    (facet_dir / "facet.json").write_text(json.dumps({"title": "Work"}))
+
+    alice_rel = facet_dir / "entities" / "alice"
+    alice_rel.mkdir(parents=True)
+    (alice_rel / "entity.json").write_text(
+        json.dumps({"entity_id": "alice", "description": "Colleague"})
+    )
+
+    bob_rel = facet_dir / "entities" / "bob"
+    bob_rel.mkdir(parents=True)
+    (bob_rel / "entity.json").write_text(
+        json.dumps({"entity_id": "bob", "description": "Former colleague"})
+    )
+
+    # Load entities - should only get Alice
+    entities = load_entities("work")
+    assert len(entities) == 1
+    assert entities[0]["name"] == "Alice"
+
+
+def test_load_entities_includes_blocked_when_requested(tmp_path):
+    """Test that load_entities includes blocked entities when include_blocked=True."""
+    import json
+
+    os.environ["JOURNAL_PATH"] = str(tmp_path)
+
+    # Create blocked journal entity
+    blocked_dir = tmp_path / "entities" / "bob"
+    blocked_dir.mkdir(parents=True)
+    (blocked_dir / "entity.json").write_text(
+        json.dumps({"id": "bob", "name": "Bob", "type": "Person", "blocked": True})
+    )
+
+    # Create facet and relationship
+    facet_dir = tmp_path / "facets" / "work"
+    (facet_dir / "facet.json").parent.mkdir(parents=True, exist_ok=True)
+    (facet_dir / "facet.json").write_text(json.dumps({"title": "Work"}))
+
+    bob_rel = facet_dir / "entities" / "bob"
+    bob_rel.mkdir(parents=True)
+    (bob_rel / "entity.json").write_text(
+        json.dumps({"entity_id": "bob", "description": "Former colleague"})
+    )
+
+    # Load with include_blocked=True
+    entities = load_entities("work", include_blocked=True)
+    assert len(entities) == 1
+    assert entities[0]["name"] == "Bob"
+    assert entities[0].get("blocked") is True
+
+
+def test_resolve_entity_excludes_blocked_by_default(tmp_path):
+    """Test that resolve_entity doesn't find blocked entities by default."""
+    import json
+
+    os.environ["JOURNAL_PATH"] = str(tmp_path)
+
+    # Create blocked journal entity
+    blocked_dir = tmp_path / "entities" / "bob"
+    blocked_dir.mkdir(parents=True)
+    (blocked_dir / "entity.json").write_text(
+        json.dumps({"id": "bob", "name": "Bob", "type": "Person", "blocked": True})
+    )
+
+    # Create facet and relationship
+    facet_dir = tmp_path / "facets" / "work"
+    (facet_dir / "facet.json").parent.mkdir(parents=True, exist_ok=True)
+    (facet_dir / "facet.json").write_text(json.dumps({"title": "Work"}))
+
+    bob_rel = facet_dir / "entities" / "bob"
+    bob_rel.mkdir(parents=True)
+    (bob_rel / "entity.json").write_text(
+        json.dumps({"entity_id": "bob", "description": "Former colleague"})
+    )
+
+    # Try to resolve - should not find Bob
+    entity, candidates = resolve_entity("work", "Bob")
+    assert entity is None
+
+
+def test_resolve_entity_finds_blocked_when_requested(tmp_path):
+    """Test that resolve_entity finds blocked entities when include_blocked=True."""
+    import json
+
+    os.environ["JOURNAL_PATH"] = str(tmp_path)
+
+    # Create blocked journal entity
+    blocked_dir = tmp_path / "entities" / "bob"
+    blocked_dir.mkdir(parents=True)
+    (blocked_dir / "entity.json").write_text(
+        json.dumps({"id": "bob", "name": "Bob", "type": "Person", "blocked": True})
+    )
+
+    # Create facet and relationship
+    facet_dir = tmp_path / "facets" / "work"
+    (facet_dir / "facet.json").parent.mkdir(parents=True, exist_ok=True)
+    (facet_dir / "facet.json").write_text(json.dumps({"title": "Work"}))
+
+    bob_rel = facet_dir / "entities" / "bob"
+    bob_rel.mkdir(parents=True)
+    (bob_rel / "entity.json").write_text(
+        json.dumps({"entity_id": "bob", "description": "Former colleague"})
+    )
+
+    # Resolve with include_blocked=True
+    entity, candidates = resolve_entity("work", "Bob", include_blocked=True)
+    assert entity is not None
+    assert entity["name"] == "Bob"
+    assert entity.get("blocked") is True
+
+
+def test_load_all_attached_entities_excludes_blocked(tmp_path):
+    """Test that load_all_attached_entities excludes blocked entities."""
+    import json
+
+    os.environ["JOURNAL_PATH"] = str(tmp_path)
+
+    # Create journal entities - one normal, one blocked
+    normal_dir = tmp_path / "entities" / "alice"
+    normal_dir.mkdir(parents=True)
+    (normal_dir / "entity.json").write_text(
+        json.dumps({"id": "alice", "name": "Alice", "type": "Person"})
+    )
+
+    blocked_dir = tmp_path / "entities" / "bob"
+    blocked_dir.mkdir(parents=True)
+    (blocked_dir / "entity.json").write_text(
+        json.dumps({"id": "bob", "name": "Bob", "type": "Person", "blocked": True})
+    )
+
+    # Create facet and relationships
+    facet_dir = tmp_path / "facets" / "work"
+    (facet_dir / "facet.json").parent.mkdir(parents=True, exist_ok=True)
+    (facet_dir / "facet.json").write_text(json.dumps({"title": "Work"}))
+
+    alice_rel = facet_dir / "entities" / "alice"
+    alice_rel.mkdir(parents=True)
+    (alice_rel / "entity.json").write_text(
+        json.dumps({"entity_id": "alice", "description": "Colleague"})
+    )
+
+    bob_rel = facet_dir / "entities" / "bob"
+    bob_rel.mkdir(parents=True)
+    (bob_rel / "entity.json").write_text(
+        json.dumps({"entity_id": "bob", "description": "Former colleague"})
+    )
+
+    # Load all attached entities - should only get Alice
+    entities = load_all_attached_entities()
+    assert len(entities) == 1
+    assert entities[0]["name"] == "Alice"
