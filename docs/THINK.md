@@ -146,7 +146,10 @@ returns a dictionary keyed by insight name. Each entry contains:
 - `color` – UI color hex string
 - `mtime` – modification time of the `.txt` file
 - Any additional keys from the matching `<insight>.json` metadata file such as
-  `title`, `description` or `occurrences`
+  `title`, `description`, `occurrences`, or `instructions`
+
+The `instructions` key allows customizing system prompts and source filtering.
+See [APPS.md](APPS.md#instructions-configuration) for the full schema.
 
 ## Cortex API
 

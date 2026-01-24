@@ -347,18 +347,35 @@ def cluster_segments(day: str) -> List[Dict[str, any]]:
     return segments
 
 
-def cluster(day: str) -> Tuple[str, int]:
+def cluster(
+    day: str,
+    sources: Dict[str, bool] | None = None,
+) -> Tuple[str, int]:
     """Return Markdown summary for one day's JSON files and the number processed.
 
-    Uses insight summaries (*.md files) rather than raw screen data for daily view.
+    By default uses insight summaries (*.md files) rather than raw screen data
+    for daily view. Override with sources parameter.
+
+    Args:
+        day: Day in YYYYMMDD format
+        sources: Optional dict with keys "audio", "screen", "insights" (bools).
+            Defaults to {"audio": True, "screen": False, "insights": True}.
     """
+    # Default sources for daily insights: audio + insight summaries, no raw screen
+    if sources is None:
+        sources = {"audio": True, "screen": False, "insights": True}
 
     day_dir = str(day_path(day))
     # day_path now ensures dir exists, but check anyway for safety
     if not os.path.isdir(day_dir):
         return f"Day folder not found: {day_dir}", 0
 
-    entries = _load_entries(day_dir, audio=True, screen=False, insights=True)
+    entries = _load_entries(
+        day_dir,
+        audio=sources.get("audio", True),
+        screen=sources.get("screen", False),
+        insights=sources.get("insights", True),
+    )
     if not entries:
         return f"No audio or screen files found for date {day} in {day_dir}.", 0
 
@@ -367,18 +384,29 @@ def cluster(day: str) -> Tuple[str, int]:
     return markdown, len(entries)
 
 
-def cluster_period(day: str, segment: str) -> Tuple[str, int]:
+def cluster_period(
+    day: str,
+    segment: str,
+    sources: Dict[str, bool] | None = None,
+) -> Tuple[str, int]:
     """Return Markdown summary for one segment's JSON files and the number processed.
 
-    Uses raw screen data for segment insights (more granular than summaries).
+    By default uses raw screen data for segment insights (more granular than summaries).
+    Override with sources parameter.
 
     Args:
         day: Day in YYYYMMDD format
         segment: Segment key in HHMMSS_LEN format (e.g., "163045_300")
+        sources: Optional dict with keys "audio", "screen", "insights" (bools).
+            Defaults to {"audio": True, "screen": True, "insights": False}.
 
     Returns:
         (markdown, file_count) tuple
     """
+    # Default sources for segment insights: audio + raw screen, no insight summaries
+    if sources is None:
+        sources = {"audio": True, "screen": True, "insights": False}
+
     day_dir = str(day_path(day))
     segment_dir = Path(day_dir) / segment
 
@@ -386,7 +414,10 @@ def cluster_period(day: str, segment: str) -> Tuple[str, int]:
         return f"Segment folder not found: {segment_dir}", 0
 
     entries = _load_entries_from_segment(
-        str(segment_dir), audio=True, screen=True, insights=False
+        str(segment_dir),
+        audio=sources.get("audio", True),
+        screen=sources.get("screen", True),
+        insights=sources.get("insights", False),
     )
     if not entries:
         return f"No audio or screen files found for segment {segment}", 0
@@ -417,15 +448,21 @@ def _load_entries_from_segment(
     return entries
 
 
-def cluster_segments_multi(day: str, segments: List[str]) -> Tuple[str, int]:
+def cluster_segments_multi(
+    day: str,
+    segments: List[str],
+    sources: Dict[str, bool] | None = None,
+) -> Tuple[str, int]:
     """Return Markdown summary for multiple segments and the number of entries processed.
 
-    Uses raw screen data for segment insights (more granular than summaries).
+    By default uses raw screen data for segment insights (more granular than summaries).
     Validates all segments exist before processing; raises ValueError if any are missing.
 
     Args:
         day: Day in YYYYMMDD format
         segments: List of segment keys in HHMMSS_LEN format (e.g., ["163045_300", "170000_600"])
+        sources: Optional dict with keys "audio", "screen", "insights" (bools).
+            Defaults to {"audio": True, "screen": True, "insights": False}.
 
     Returns:
         (markdown, file_count) tuple
@@ -433,6 +470,10 @@ def cluster_segments_multi(day: str, segments: List[str]) -> Tuple[str, int]:
     Raises:
         ValueError: If any segment directories are missing
     """
+    # Default sources for segment insights: audio + raw screen, no insight summaries
+    if sources is None:
+        sources = {"audio": True, "screen": True, "insights": False}
+
     day_dir = str(day_path(day))
 
     # Validate all segments exist upfront (fail fast)
@@ -450,7 +491,10 @@ def cluster_segments_multi(day: str, segments: List[str]) -> Tuple[str, int]:
     for segment in segments:
         segment_dir = Path(day_dir) / segment
         segment_entries = _load_entries_from_segment(
-            str(segment_dir), audio=True, screen=True, insights=False
+            str(segment_dir),
+            audio=sources.get("audio", True),
+            screen=sources.get("screen", True),
+            insights=sources.get("insights", False),
         )
         entries.extend(segment_entries)
 

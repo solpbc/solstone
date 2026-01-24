@@ -303,6 +303,26 @@ Define custom agent personas that integrate with solstone's Cortex agent system.
 - System agent examples: `muse/agents/*.txt` and `*.json`
 - Discovery logic: `think/utils.py` - `get_agents()`, `get_agent()`
 
+#### Instructions Configuration
+
+Both insights and agents support an optional `instructions` key for customizing prompt composition:
+
+```json
+{
+  "instructions": {
+    "system": "journal",
+    "facets": "short",
+    "sources": {"audio": true, "screen": true, "insights": false}
+  }
+}
+```
+
+- `system` - System prompt file name (loads from `think/{name}.txt`)
+- `facets` - `"none"` | `"short"` | `"detailed"` for unfocused facet summaries
+- `sources` - Insights only: which content types to cluster
+
+**Authoritative source:** `think/utils.py` - `compose_instructions()`, `_DEFAULT_INSTRUCTIONS`
+
 ---
 
 ### 9. `maint/` - Maintenance Tasks

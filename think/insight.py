@@ -15,6 +15,8 @@ from muse.models import generate
 from think.cluster import cluster, cluster_period, cluster_segments_multi
 from think.utils import (
     PromptNotFoundError,
+    _load_insight_metadata,
+    compose_instructions,
     day_log,
     day_path,
     format_day,
@@ -22,21 +24,11 @@ from think.utils import (
     get_insight_topic,
     get_insights,
     get_journal,
+    load_insight_hook,
     load_prompt,
     segment_parse,
     setup_cli,
 )
-
-# Cached system instruction loaded from journal.txt
-_system_instruction_cache: str | None = None
-
-
-def _get_system_instruction() -> str:
-    """Load system instruction from journal.txt (cached)."""
-    global _system_instruction_cache
-    if _system_instruction_cache is None:
-        _system_instruction_cache = load_prompt("journal").text
-    return _system_instruction_cache
 
 
 def _write_events_jsonl(
@@ -177,15 +169,20 @@ def count_tokens(markdown: str, prompt: str, api_key: str, model: str) -> None:
 
 
 def _get_or_create_cache(
-    client: genai.Client, model: str, display_name: str, transcript: str
+    client: genai.Client,
+    model: str,
+    display_name: str,
+    transcript: str,
+    system_instruction: str,
 ) -> str | None:
     """Return cache name for ``display_name`` or None if content too small.
 
-    Creates cache with ``transcript`` and system instruction from journal.txt if needed.
+    Creates cache with ``transcript`` and provided system instruction if needed.
     Returns None if content is below estimated 2048 token minimum (~10k chars).
 
     The cache contains the system instruction + transcript which are identical
-    for all topics on the same day, so display_name should be day-based only."""
+    for all topics on the same day with the same system prompt, so display_name
+    should include both day and system prompt name."""
 
     MIN_CACHE_CHARS = 10000  # Heuristic: ~4 chars/token → 2048 tokens ≈ 8k-10k chars
 
@@ -202,7 +199,7 @@ def _get_or_create_cache(
         model=model,
         config=types.CreateCachedContentConfig(
             display_name=display_name,
-            system_instruction=_get_system_instruction(),
+            system_instruction=system_instruction,
             contents=[transcript],
             ttl="1800s",  # 30 minutes to accommodate multiple topic analyses
         ),
@@ -217,6 +214,7 @@ def send_insight(
     cache_display_name: str | None = None,
     insight_key: str | None = None,
     json_output: bool = False,
+    system_instruction: str | None = None,
 ) -> str:
     """Send clustered transcript to LLM for insight generation.
 
@@ -225,12 +223,20 @@ def send_insight(
         prompt: Insight prompt text.
         api_key: Google API key for caching.
         cache_display_name: Optional cache key for Google content caching.
+            Should include system prompt name for proper cache isolation.
         insight_key: Insight identifier for token logging context.
         json_output: If True, request JSON response format.
+        system_instruction: System instruction text. If None, loads default
+            from journal.txt via compose_instructions().
 
     Returns:
         Generated insight content (markdown or JSON string).
     """
+    # Use provided system_instruction or fall back to default
+    if system_instruction is None:
+        instructions = compose_instructions(include_datetime=False)
+        system_instruction = instructions["system_instruction"]
+
     # Build context for provider routing and token logging
     output_type = "json" if json_output else "markdown"
     context = (
@@ -247,7 +253,9 @@ def send_insight(
     cache_name = None
     if cache_display_name and provider == "google":
         client = genai.Client(api_key=api_key)
-        cache_name = _get_or_create_cache(client, model, cache_display_name, transcript)
+        cache_name = _get_or_create_cache(
+            client, model, cache_display_name, transcript, system_instruction
+        )
 
     if cache_name:
         # Cache hit: content already in cache, just send prompt.
@@ -271,7 +279,7 @@ def send_insight(
             temperature=0.3,
             max_output_tokens=8192 * 6,
             thinking_budget=8192 * 3,
-            system_instruction=_get_system_instruction(),
+            system_instruction=system_instruction,
             json_output=json_output,
         )
 
@@ -422,11 +430,17 @@ def main() -> None:
         insight_path = Path(topic_arg)
         # Try to find matching key by path
         insight_key = insight_path.stem
+        found_in_registry = False
         for key, meta in all_insights.items():
             if meta.get("path") == str(insight_path):
                 insight_key = key
+                found_in_registry = True
                 break
-        insight_meta = all_insights.get(insight_key, {})
+        if found_in_registry:
+            insight_meta = all_insights[insight_key]
+        else:
+            # Load metadata directly from file for ad-hoc insights
+            insight_meta = _load_insight_metadata(insight_path)
     else:
         parser.error(
             f"Insight not found: {topic_arg}. "
@@ -454,23 +468,37 @@ def main() -> None:
     output_format = insight_meta.get("output")  # "json" or None (markdown)
     success = False
 
+    # Extract instructions config for source filtering and system prompt
+    instructions_config = insight_meta.get("instructions")
+
+    # Use compose_instructions to get sources config and system instruction
+    instructions = compose_instructions(
+        include_datetime=False,
+        config_overrides=instructions_config,
+    )
+    sources = instructions.get("sources")
+    system_prompt_name = instructions.get("system_prompt_name", "journal")
+    system_instruction = instructions["system_instruction"]
+
     # Multi-segment mode: skip extraction entirely
     multi_segment_mode = bool(args.segments)
     if multi_segment_mode:
         skip_occ = True
         do_anticipations = False
 
-    # Choose clustering function based on mode
+    # Choose clustering function based on mode, passing sources config
     if args.segments:
         segment_list = [s.strip() for s in args.segments.split(",")]
         try:
-            markdown, file_count = cluster_segments_multi(args.day, segment_list)
+            markdown, file_count = cluster_segments_multi(
+                args.day, segment_list, sources=sources
+            )
         except ValueError as e:
             parser.error(str(e))
     elif args.segment:
-        markdown, file_count = cluster_period(args.day, args.segment)
+        markdown, file_count = cluster_period(args.day, args.segment, sources=sources)
     else:
-        markdown, file_count = cluster(args.day)
+        markdown, file_count = cluster(args.day, sources=sources)
     day_dir = str(day_path(args.day))
 
     # Skip insight generation when there's nothing to analyze
@@ -573,12 +601,13 @@ def main() -> None:
             )
 
         # Determine cache settings: skip for multi-segment, otherwise scope to day/segment
+        # Include system prompt name in cache key for proper isolation
         if multi_segment_mode:
             cache_display_name = None
         elif args.segment:
-            cache_display_name = f"{day}_{args.segment}"
+            cache_display_name = f"{system_prompt_name}_{day}_{args.segment}"
         else:
-            cache_display_name = f"{day}"
+            cache_display_name = f"{system_prompt_name}_{day}"
 
         # Check if output file already exists
         output_exists = output_path.exists() and output_path.stat().st_size > 0
@@ -598,6 +627,7 @@ def main() -> None:
                 cache_display_name=cache_display_name,
                 insight_key=insight_key,
                 json_output=is_json_output,
+                system_instruction=system_instruction,
             )
         else:
             result = send_insight(
@@ -607,12 +637,38 @@ def main() -> None:
                 cache_display_name=cache_display_name,
                 insight_key=insight_key,
                 json_output=is_json_output,
+                system_instruction=system_instruction,
             )
 
         # Check if we got a valid response
         if result is None:
             print("Error: No text content in response")
             return
+
+        # Run post-processing hook if present (only for newly generated results)
+        if (not output_exists or args.force) and insight_meta.get("hook_path"):
+            hook_path = insight_meta["hook_path"]
+            try:
+                hook_process = load_insight_hook(hook_path)
+                hook_context = {
+                    "day": args.day,
+                    "segment": args.segment,
+                    "insight_key": insight_key,
+                    "output_path": str(output_path),
+                    "insight_meta": dict(insight_meta),
+                    "transcript": markdown,
+                }
+                hook_result = hook_process(result, hook_context)
+                if hook_result is not None:
+                    result = hook_result
+                    logging.info("Hook %s transformed result", hook_path)
+                else:
+                    logging.info(
+                        "Hook %s returned None, using original result", hook_path
+                    )
+            except Exception as exc:
+                logging.error("Hook %s failed: %s", hook_path, exc)
+                # Continue with original result on hook failure
 
         # Only write output if it was newly generated
         if not output_exists or args.force:

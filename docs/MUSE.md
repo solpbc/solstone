@@ -45,6 +45,8 @@ Providers implement `generate()`, `agenerate()`, and `run_agent()` functions. Se
 
 System prompts in `muse/agents/*.txt` with metadata in matching `.json` files. Apps can add custom agents in `apps/{app}/agents/`.
 
+JSON metadata supports `title`, `provider`, `model`, `tools`, `schedule`, `priority`, `multi_facet`, and `instructions` keys. See [APPS.md](APPS.md#instructions-configuration) for the `instructions` schema that controls system prompts, facet context, and source filtering.
+
 ## Documentation
 
 - [PROVIDERS.md](PROVIDERS.md) - Provider implementation guide

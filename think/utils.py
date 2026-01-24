@@ -762,7 +762,7 @@ def _load_insight_metadata(txt_path: Path) -> dict[str, object]:
     Returns
     -------
     dict
-        Metadata dict with path, mtime, color, and any JSON fields.
+        Metadata dict with path, mtime, color, hook_path (if exists), and any JSON fields.
     """
     mtime = int(txt_path.stat().st_mtime)
     info: dict[str, object] = {
@@ -783,7 +783,59 @@ def _load_insight_metadata(txt_path: Path) -> dict[str, object]:
             info["color"] = "#6c757d"
     else:
         info["color"] = "#6c757d"
+
+    # Check for optional post-processing hook
+    hook_path = txt_path.with_suffix(".py")
+    if hook_path.exists():
+        info["hook_path"] = str(hook_path)
+
     return info
+
+
+def load_insight_hook(hook_path: str | Path) -> Any:
+    """Load an insight post-processing hook from a Python file.
+
+    Hooks are Python modules with a ``process(result, context)`` function that
+    transforms insight output. The hook is loaded in isolation without polluting
+    sys.modules.
+
+    Parameters
+    ----------
+    hook_path:
+        Path to the .py hook file.
+
+    Returns
+    -------
+    Callable
+        The ``process`` function from the hook module.
+
+    Raises
+    ------
+    ValueError
+        If the hook file doesn't define a ``process`` function.
+    ImportError
+        If the hook file cannot be loaded.
+    """
+    import importlib.util
+
+    hook_path = Path(hook_path)
+    spec = importlib.util.spec_from_file_location(
+        f"insight_hook_{hook_path.stem}", hook_path
+    )
+    if spec is None or spec.loader is None:
+        raise ImportError(f"Cannot load hook from {hook_path}")
+
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+
+    if not hasattr(module, "process"):
+        raise ValueError(f"Hook {hook_path} must define a 'process' function")
+
+    process_func = getattr(module, "process")
+    if not callable(process_func):
+        raise ValueError(f"Hook {hook_path} 'process' must be callable")
+
+    return process_func
 
 
 def get_insights_config() -> dict[str, dict[str, object]]:
@@ -882,6 +934,160 @@ def _resolve_agent_path(persona: str) -> tuple[Path, str]:
     return agent_dir, agent_name
 
 
+# Default instruction configuration
+_DEFAULT_INSTRUCTIONS = {
+    "system": "journal",
+    "facets": "short",
+    "sources": {
+        "audio": True,
+        "screen": True,
+        "insights": False,
+    },
+}
+
+
+def _merge_instructions_config(defaults: dict, overrides: dict | None) -> dict:
+    """Merge instruction config overrides into defaults.
+
+    Handles nested "sources" dict specially.
+
+    Parameters
+    ----------
+    defaults:
+        Default instruction configuration.
+    overrides:
+        Optional overrides from .json "instructions" key.
+
+    Returns
+    -------
+    dict
+        Merged configuration.
+    """
+    if not overrides:
+        return defaults.copy()
+
+    result = defaults.copy()
+
+    # Merge top-level keys
+    for key in ("system", "facets"):
+        if key in overrides:
+            result[key] = overrides[key]
+
+    # Merge sources dict if present
+    if "sources" in overrides and isinstance(overrides["sources"], dict):
+        result["sources"] = {**defaults.get("sources", {}), **overrides["sources"]}
+
+    return result
+
+
+def compose_instructions(
+    *,
+    user_prompt: str | None = None,
+    user_prompt_dir: Path | None = None,
+    facet: str | None = None,
+    include_datetime: bool = True,
+    config_overrides: dict | None = None,
+) -> dict:
+    """Compose instruction components for agents or insights.
+
+    This is the shared function for building system_instruction, user_instruction,
+    extra_context, and sources configuration. Both agents and insights use this
+    to ensure consistent prompt composition.
+
+    Parameters
+    ----------
+    user_prompt:
+        Name of the user instruction prompt to load (e.g., "default" for agents).
+        If None, no user_instruction is included (typical for insights).
+    user_prompt_dir:
+        Directory to load user_prompt from. If None, uses think/ directory.
+    facet:
+        Optional facet name to focus on. When provided, extra_context includes
+        detailed information for just this facet instead of all facets.
+    include_datetime:
+        Whether to include current date/time in extra_context. Default True
+        for agents (real-time chat), typically False for insights (past analysis).
+    config_overrides:
+        Optional dict from .json "instructions" key. Supported keys:
+        - "system": prompt name for system instruction (default: "journal")
+        - "facets": "none" | "short" | "detailed" (default: "short")
+        - "sources": {"audio": bool, "screen": bool, "insights": bool}
+
+    Returns
+    -------
+    dict
+        Composed instruction configuration:
+        - system_instruction: str - loaded from "system" prompt
+        - system_prompt_name: str - name of system prompt (for cache keys)
+        - user_instruction: str | None - loaded from user_prompt if provided
+        - extra_context: str | None - facets + datetime
+        - sources: dict - {"audio": bool, "screen": bool, "insights": bool}
+    """
+    # Merge defaults with overrides
+    cfg = _merge_instructions_config(_DEFAULT_INSTRUCTIONS, config_overrides)
+
+    result: dict = {}
+
+    # Load system instruction
+    system_name = cfg.get("system", "journal")
+    system_prompt = load_prompt(system_name)
+    result["system_instruction"] = system_prompt.text
+    result["system_prompt_name"] = system_name
+
+    # Load user instruction if specified
+    if user_prompt:
+        base_dir = user_prompt_dir if user_prompt_dir else Path(__file__).parent
+        user_prompt_obj = load_prompt(user_prompt, base_dir=base_dir)
+        result["user_instruction"] = user_prompt_obj.text
+    else:
+        result["user_instruction"] = None
+
+    # Build extra_context based on facets setting
+    extra_parts = []
+    facets_mode = cfg.get("facets", "short")
+
+    # Focused facet always gets context (facets setting only affects plural)
+    if facet:
+        try:
+            from think.facets import facet_summary
+
+            detailed = facet_summary(facet)
+            extra_parts.append(f"## Facet Focus\n{detailed}")
+        except Exception:
+            pass  # Ignore if facet can't be loaded
+    elif facets_mode != "none":
+        # General mode: all facets (controlled by facets setting)
+        try:
+            from think.facets import facet_summaries
+
+            detailed_entities = facets_mode == "detailed"
+            facets_summary = facet_summaries(detailed_entities=detailed_entities)
+            if facets_summary and facets_summary != "No facets found.":
+                extra_parts.append(facets_summary)
+        except Exception:
+            pass  # Ignore if facets can't be loaded
+
+    # Add current date/time if requested
+    if include_datetime:
+        now = datetime.now()
+        try:
+            import tzlocal
+
+            local_tz = tzlocal.get_localzone()
+            now_local = now.astimezone(local_tz)
+            time_str = now_local.strftime("%A, %B %d, %Y at %I:%M %p %Z")
+        except Exception:
+            time_str = now.strftime("%A, %B %d, %Y at %I:%M %p")
+        extra_parts.append(f"## Current Date and Time\nToday is {time_str}")
+
+    result["extra_context"] = "\n\n".join(extra_parts).strip() if extra_parts else None
+
+    # Include sources config
+    result["sources"] = cfg.get("sources", _DEFAULT_INSTRUCTIONS["sources"])
+
+    return result
+
+
 def get_agent(persona: str = "default", facet: str | None = None) -> dict:
     """Return complete agent configuration for a persona.
 
@@ -914,54 +1120,28 @@ def get_agent(persona: str = "default", facet: str | None = None) -> dict:
         with open(json_path, "r", encoding="utf-8") as f:
             config = json.load(f)
 
-    # Load instruction text - journal.txt as system instruction, persona as user instruction
+    # Verify agent prompt file exists
     txt_path = agent_dir / f"{agent_name}.txt"
     if not txt_path.exists():
         raise FileNotFoundError(f"Agent persona not found: {persona}")
 
-    # System instruction: journal.txt only (cacheable)
-    journal_prompt = load_prompt("journal")
-    config["system_instruction"] = journal_prompt.text
+    # Extract instructions config if present
+    instructions_config = config.pop("instructions", None)
 
-    # User instruction: the agent-specific prompt
-    agent_prompt = load_prompt(agent_name, base_dir=agent_dir)
-    config["user_instruction"] = agent_prompt.text
+    # Use compose_instructions for consistent prompt composition
+    instructions = compose_instructions(
+        user_prompt=agent_name,
+        user_prompt_dir=agent_dir,
+        facet=facet,
+        include_datetime=True,
+        config_overrides=instructions_config,
+    )
 
-    # Add runtime context (facets with entities)
-    extra_parts = []
-
-    # Add facet context - either focused single facet or all facets summary
-    try:
-        if facet:
-            # Focused mode: detailed view of single facet with full entities
-            from think.facets import facet_summary
-
-            detailed = facet_summary(facet)
-            extra_parts.append(f"## Facet Focus\n{detailed}")
-        else:
-            # General mode: summary of all facets
-            from think.facets import facet_summaries
-
-            facets_summary = facet_summaries()
-            if facets_summary and facets_summary != "No facets found.":
-                extra_parts.append(facets_summary)
-    except Exception:
-        pass  # Ignore if facets can't be loaded
-
-    # Add current date/time
-    now = datetime.now()
-    try:
-        import tzlocal
-
-        local_tz = tzlocal.get_localzone()
-        now_local = now.astimezone(local_tz)
-        time_str = now_local.strftime("%A, %B %d, %Y at %I:%M %p %Z")
-    except Exception:
-        time_str = now.strftime("%A, %B %d, %Y at %I:%M %p")
-    extra_parts.append(f"## Current Date and Time\nToday is {time_str}")
-
-    if extra_parts:
-        config["extra_context"] = "\n\n".join(extra_parts).strip()
+    # Merge instruction results into config
+    config["system_instruction"] = instructions["system_instruction"]
+    config["user_instruction"] = instructions["user_instruction"]
+    if instructions["extra_context"]:
+        config["extra_context"] = instructions["extra_context"]
 
     # Set persona name
     config["persona"] = persona

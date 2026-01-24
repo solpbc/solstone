@@ -13,7 +13,12 @@ from pathlib import Path
 import pytest
 
 from think.entities import load_entity_names
-from think.utils import segment_key, setup_cli
+from think.utils import (
+    _merge_instructions_config,
+    compose_instructions,
+    segment_key,
+    setup_cli,
+)
 
 
 def setup_entities_new_structure(
@@ -651,3 +656,237 @@ class TestSetupCliConfigEnv:
 
         assert os.environ.get("INT_VAR") == "42"
         assert os.environ.get("BOOL_VAR") == "True"
+
+
+class TestMergeInstructionsConfig:
+    """Tests for _merge_instructions_config helper."""
+
+    def test_returns_defaults_when_no_overrides(self):
+        """Test that defaults are returned when overrides is None."""
+        defaults = {"system": "journal", "facets": "short"}
+        result = _merge_instructions_config(defaults, None)
+        assert result == defaults
+        # Should be a copy, not the same object
+        assert result is not defaults
+
+    def test_returns_defaults_when_empty_overrides(self):
+        """Test that defaults are returned when overrides is empty dict."""
+        defaults = {"system": "journal", "facets": "short"}
+        result = _merge_instructions_config(defaults, {})
+        assert result == defaults
+
+    def test_overrides_system_key(self):
+        """Test that system key can be overridden."""
+        defaults = {"system": "journal", "facets": "short"}
+        overrides = {"system": "custom_prompt"}
+        result = _merge_instructions_config(defaults, overrides)
+        assert result["system"] == "custom_prompt"
+        assert result["facets"] == "short"
+
+    def test_overrides_facets_key(self):
+        """Test that facets key can be overridden."""
+        defaults = {"system": "journal", "facets": "short"}
+        overrides = {"facets": "detailed"}
+        result = _merge_instructions_config(defaults, overrides)
+        assert result["system"] == "journal"
+        assert result["facets"] == "detailed"
+
+    def test_merges_sources_dict(self):
+        """Test that sources dict is merged, not replaced."""
+        defaults = {
+            "system": "journal",
+            "sources": {"audio": True, "screen": True, "insights": False},
+        }
+        overrides = {"sources": {"screen": False}}
+        result = _merge_instructions_config(defaults, overrides)
+        assert result["sources"]["audio"] is True  # Preserved from defaults
+        assert result["sources"]["screen"] is False  # Overridden
+        assert result["sources"]["insights"] is False  # Preserved from defaults
+
+    def test_ignores_unknown_keys(self):
+        """Test that unknown keys in overrides are ignored."""
+        defaults = {"system": "journal", "facets": "short"}
+        overrides = {"unknown_key": "value", "another": 123}
+        result = _merge_instructions_config(defaults, overrides)
+        assert "unknown_key" not in result
+        assert "another" not in result
+
+
+class TestComposeInstructions:
+    """Tests for compose_instructions function."""
+
+    def test_default_system_instruction_is_journal(self, monkeypatch, tmp_path):
+        """Test that default system instruction loads from journal.txt."""
+        # Create journal.txt in think/ directory
+        think_dir = tmp_path / "think"
+        think_dir.mkdir()
+        journal_txt = think_dir / "journal.txt"
+        journal_txt.write_text("Test system instruction content")
+
+        # Mock the think module's parent to use our temp dir
+        import think.utils
+
+        original_file = think.utils.__file__
+        monkeypatch.setattr(think.utils, "__file__", str(think_dir / "utils.py"))
+        monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+
+        result = compose_instructions()
+
+        # Restore
+        monkeypatch.setattr(think.utils, "__file__", original_file)
+
+        assert "system_instruction" in result
+        assert result["system_prompt_name"] == "journal"
+
+    def test_custom_system_instruction(self, monkeypatch, tmp_path):
+        """Test that custom system prompt can be loaded."""
+        think_dir = tmp_path / "think"
+        think_dir.mkdir()
+        custom_txt = think_dir / "custom.txt"
+        custom_txt.write_text("Custom system instruction")
+
+        import think.utils
+
+        monkeypatch.setattr(think.utils, "__file__", str(think_dir / "utils.py"))
+        monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+
+        result = compose_instructions(
+            config_overrides={"system": "custom"},
+        )
+
+        assert result["system_prompt_name"] == "custom"
+        assert "Custom system instruction" in result["system_instruction"]
+
+    def test_user_instruction_loaded_when_provided(self, monkeypatch, tmp_path):
+        """Test that user instruction is loaded when user_prompt is provided."""
+        think_dir = tmp_path / "think"
+        think_dir.mkdir()
+        journal_txt = think_dir / "journal.txt"
+        journal_txt.write_text("System instruction")
+        user_txt = think_dir / "default.txt"
+        user_txt.write_text("User instruction content")
+
+        import think.utils
+
+        monkeypatch.setattr(think.utils, "__file__", str(think_dir / "utils.py"))
+        monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+
+        result = compose_instructions(user_prompt="default")
+
+        assert result["user_instruction"] == "User instruction content"
+
+    def test_user_instruction_none_when_not_provided(self, monkeypatch, tmp_path):
+        """Test that user instruction is None when user_prompt is not provided."""
+        think_dir = tmp_path / "think"
+        think_dir.mkdir()
+        journal_txt = think_dir / "journal.txt"
+        journal_txt.write_text("System instruction")
+
+        import think.utils
+
+        monkeypatch.setattr(think.utils, "__file__", str(think_dir / "utils.py"))
+        monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+
+        result = compose_instructions()
+
+        assert result["user_instruction"] is None
+
+    def test_facets_none_excludes_facets_from_context(self, monkeypatch, tmp_path):
+        """Test that facets='none' excludes facet info from extra_context."""
+        think_dir = tmp_path / "think"
+        think_dir.mkdir()
+        journal_txt = think_dir / "journal.txt"
+        journal_txt.write_text("System instruction")
+
+        import think.utils
+
+        monkeypatch.setattr(think.utils, "__file__", str(think_dir / "utils.py"))
+        monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+
+        result = compose_instructions(
+            include_datetime=False,
+            config_overrides={"facets": "none"},
+        )
+
+        # With no datetime and no facets, extra_context should be empty/None
+        assert result["extra_context"] is None or result["extra_context"] == ""
+
+    def test_include_datetime_false_excludes_time(self, monkeypatch, tmp_path):
+        """Test that include_datetime=False excludes time from context."""
+        think_dir = tmp_path / "think"
+        think_dir.mkdir()
+        journal_txt = think_dir / "journal.txt"
+        journal_txt.write_text("System instruction")
+
+        import think.utils
+
+        monkeypatch.setattr(think.utils, "__file__", str(think_dir / "utils.py"))
+        monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+
+        result = compose_instructions(
+            include_datetime=False,
+            config_overrides={"facets": "none"},
+        )
+
+        extra = result.get("extra_context") or ""
+        assert "Current Date and Time" not in extra
+
+    def test_include_datetime_true_includes_time(self, monkeypatch, tmp_path):
+        """Test that include_datetime=True includes time in context."""
+        think_dir = tmp_path / "think"
+        think_dir.mkdir()
+        journal_txt = think_dir / "journal.txt"
+        journal_txt.write_text("System instruction")
+
+        import think.utils
+
+        monkeypatch.setattr(think.utils, "__file__", str(think_dir / "utils.py"))
+        monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+
+        result = compose_instructions(
+            include_datetime=True,
+            config_overrides={"facets": "none"},
+        )
+
+        assert "Current Date and Time" in result["extra_context"]
+
+    def test_sources_returned_from_defaults(self, monkeypatch, tmp_path):
+        """Test that sources config is returned with defaults."""
+        think_dir = tmp_path / "think"
+        think_dir.mkdir()
+        journal_txt = think_dir / "journal.txt"
+        journal_txt.write_text("System instruction")
+
+        import think.utils
+
+        monkeypatch.setattr(think.utils, "__file__", str(think_dir / "utils.py"))
+        monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+
+        result = compose_instructions()
+
+        assert "sources" in result
+        assert result["sources"]["audio"] is True
+        assert result["sources"]["screen"] is True
+        assert result["sources"]["insights"] is False
+
+    def test_sources_can_be_overridden(self, monkeypatch, tmp_path):
+        """Test that sources config can be overridden."""
+        think_dir = tmp_path / "think"
+        think_dir.mkdir()
+        journal_txt = think_dir / "journal.txt"
+        journal_txt.write_text("System instruction")
+
+        import think.utils
+
+        monkeypatch.setattr(think.utils, "__file__", str(think_dir / "utils.py"))
+        monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+
+        result = compose_instructions(
+            config_overrides={
+                "sources": {"audio": False, "insights": True},
+            },
+        )
+
+        assert result["sources"]["audio"] is False
+        assert result["sources"]["screen"] is True  # Default preserved
+        assert result["sources"]["insights"] is True  # Overridden
