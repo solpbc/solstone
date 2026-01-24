@@ -181,6 +181,8 @@ f"That is {identity.pronouns.possessive} desk"     # "That is his desk"
 f"{identity.pronouns.subject} did it {identity.pronouns.reflexive}"  # "he did it himself"
 ```
 
+For complete documentation of the prompt template system including all variable categories, composition patterns, and how to add new variables, see [PROMPT_TEMPLATES.md](PROMPT_TEMPLATES.md).
+
 ### Transcribe configuration
 
 The `transcribe` block configures audio transcription settings for `sol transcribe`:

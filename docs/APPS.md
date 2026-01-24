@@ -277,6 +277,8 @@ Define custom insight prompts that integrate with solstone's insight generation 
 
 **App-data insights:** For insights from app-specific data (not transcripts), store in `JOURNAL/apps/{app}/insights/*.md` - these are automatically indexed.
 
+**Template variables:** Insight prompts can use template variables like `$name`, `$preferred`, `$daily_insight`, and context variables like `$day` and `$date`. See [PROMPT_TEMPLATES.md](PROMPT_TEMPLATES.md) for the complete template system documentation.
+
 **Reference implementations:**
 - System insight templates: `think/insights/*.txt` and `*.json`
 - Discovery logic: `think/utils.py` - `get_insights()`, `get_insight_topic()`
@@ -294,6 +296,8 @@ Define custom agent personas that integrate with solstone's Cortex agent system.
 - Agents inherit all system agent capabilities (tools, scheduling, handoffs, multi-facet)
 
 **Metadata format:** Same schema as system agents in `muse/agents/*.json` - includes `title`, `provider`, `model`, `tools`, `schedule`, `priority`, and `multi_facet` fields. See [CORTEX.md](CORTEX.md) for agent configuration details.
+
+**Template variables:** Agent prompts can use template variables like `$name`, `$preferred`, and pronoun variables. See [PROMPT_TEMPLATES.md](PROMPT_TEMPLATES.md) for the complete template system documentation.
 
 **Reference implementations:**
 - System agent examples: `muse/agents/*.txt` and `*.json`

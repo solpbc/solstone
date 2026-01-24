@@ -1,0 +1,151 @@
+# Prompt Template System
+
+This document describes solstone's template variable system for personalizing prompts used in insights and agents. Templates enable dynamic substitution of user identity, contextual information, and reusable prompt fragments.
+
+## Overview
+
+Prompts are loaded via `load_prompt()` from `think/utils.py`, which uses Python's `string.Template` with `safe_substitute`. This means:
+
+- Variables use `$name` or `${name}` syntax
+- Undefined variables are left as-is (no errors)
+- Use `$$` to escape a literal dollar sign
+
+The system supports three categories of variables with the following precedence (highest to lowest):
+
+1. **Context variables** - Passed by callers at runtime
+2. **Identity variables** - From journal configuration
+3. **Template variables** - From reusable template files
+
+## Variable Categories
+
+### Identity Variables
+
+Identity variables come from the `identity` block in `config/journal.json`. These are available in all prompts automatically.
+
+**Common variables:**
+- `$name` - Full name
+- `$preferred` - Preferred name or nickname
+- `$bio` - Self-description
+- `$timezone` - IANA timezone identifier
+
+**Pronoun variables** (flattened from nested structure):
+- `$pronouns_subject` - e.g., "he", "she", "they"
+- `$pronouns_object` - e.g., "him", "her", "them"
+- `$pronouns_possessive` - e.g., "his", "her", "their"
+- `$pronouns_reflexive` - e.g., "himself", "herself", "themselves"
+
+**Uppercase-first versions** are automatically generated for all identity variables:
+- `$Name`, `$Preferred`, `$Bio`
+- `$Pronouns_subject`, `$Pronouns_possessive`, etc.
+
+The flattening logic converts nested objects using underscore separators. For example, `identity.pronouns.subject` becomes `$pronouns_subject`.
+
+**References:**
+- Identity configuration: [JOURNAL.md](JOURNAL.md) (identity section)
+- Flattening implementation: `think/utils.py` → `_flatten_identity_to_template_vars()`
+
+### Template Variables
+
+Template variables come from `.txt` files in the `think/templates/` directory. Each file's stem becomes a variable name containing its contents.
+
+**Current templates:**
+- `$daily_insight` - Preamble for full-day insight analysis
+- `$segment_insight` - Preamble for single-segment analysis
+
+Templates can themselves use identity and context variables, enabling composable prompt construction. For example, `daily_insight.txt` uses `$preferred` and `$date`.
+
+**Pattern:** To add a new template variable, create `think/templates/mytemplate.txt` and it becomes available as `$mytemplate` in all prompts.
+
+**Reference:** `think/templates/` directory
+
+### Context Variables
+
+Context variables are passed at runtime by the code calling `load_prompt()`. These are use-case specific and not globally available.
+
+**Common insight context:**
+- `$day` - Day in YYYYMMDD format
+- `$date` - Human-readable date (e.g., "Friday, January 24, 2026")
+- `$segment` - Segment key (e.g., "143022_300")
+- `$segment_start` - Formatted start time (e.g., "2:30 PM")
+- `$segment_end` - Formatted end time (e.g., "2:35 PM")
+
+Context variables also get automatic uppercase-first versions (`$Day`, `$Date`, etc.).
+
+**References:**
+- Insight context building: `think/insight.py` (search for `prompt_context`)
+- Other callers: `observe/extract.py`, `observe/enrich.py`
+
+## Usage Patterns
+
+### For Insights
+
+Insight prompts typically compose a shared preamble with topic-specific instructions:
+
+```
+$segment_insight
+
+# Segment Activity Synthesis
+
+Your specific instructions here...
+```
+
+The `$segment_insight` or `$daily_insight` template provides standardized context about what's being analyzed, while the rest of the prompt defines the specific analysis task.
+
+**Reference:** `think/insights/*.txt` for examples
+
+### For Agents
+
+Agent prompts are split into two parts:
+
+1. **System instruction** - `think/journal.txt` (shared across all agents, cacheable)
+2. **User instruction** - Agent-specific `.txt` file (e.g., `muse/agents/default.txt`)
+
+The system instruction establishes the journal partnership context. The user instruction defines the agent's specific role and capabilities.
+
+**Reference:** `think/utils.py` → `get_agent()` for agent configuration loading
+
+### The load_prompt() Function
+
+```python
+load_prompt(
+    name: str,                      # Prompt filename (without .txt)
+    base_dir: Path | None = None,   # Directory containing prompt
+    include_journal: bool = False,  # Prepend journal.txt content
+    context: dict | None = None,    # Runtime context variables
+) -> PromptContent
+```
+
+Returns a `PromptContent` named tuple with `text` (substituted content) and `path` (source file).
+
+**Reference:** `think/utils.py` → `load_prompt()`
+
+## Adding New Variables
+
+### Identity Variables
+
+Edit `config/journal.json` to add or modify identity fields. Nested objects are automatically flattened with underscore separators.
+
+### Template Variables
+
+Create a new `.txt` file in `think/templates/`. The filename stem becomes the variable name.
+
+### Context Variables
+
+Pass via the `context` parameter when calling `load_prompt()`:
+
+```python
+load_prompt("myprompt", context={"custom_var": "value"})
+```
+
+## Reference Index
+
+| Category | Authoritative Source |
+|----------|---------------------|
+| Identity config schema | [JOURNAL.md](JOURNAL.md) (identity section) |
+| Identity flattening | `think/utils.py` (`_flatten_identity_to_template_vars`) |
+| Template loading | `think/utils.py` (`_load_templates`) |
+| Core load function | `think/utils.py` (`load_prompt`) |
+| Template files | `think/templates/*.txt` |
+| Test coverage | `tests/test_template_substitution.py` |
+| Insight prompts | `think/insights/*.txt` |
+| Agent prompts | `muse/agents/*.txt` |
