@@ -2,7 +2,6 @@
     "title": "File Interactions",
     "description": "Reviews the day's transcript to capture each significant file or attachment that was opened, saved or shared. Generates a Markdown timeline with context about how the file was used.",
     "occurrences": "Create an occurrence for every notable file referenced, including the path when known and the related project. Ignore terminal output and focus on visible file explorers or sharing actions.",
-    "contains": "A chronological timeline of significant files that were viewed, created, modified, or shared during the workday with their associated projects and context.",
     "color": "#28a745",
     "disabled": true
 }

@@ -2,6 +2,5 @@
     "title": "Decision Actions",
     "description": "Tracks consequential decision-actions that change state, plans, resources, responsibilities, or timing in ways that affect other people.",
     "occurrences": "Create an occurrence for every decision-action observed. Include the time span, decision type, actors involved, entities affected, and impact assessment. Each occurrence should capture both the intent and enactment of the decision.",
-    "contains": "A ranked list of the most consequential decision-actions from the day, with time spans, decision types, actors, affected entities, impact assessments, evidence quotes, and confidence levels.",
     "color": "#dc3545"
 }

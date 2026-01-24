@@ -26,12 +26,12 @@ _journal_path_cache: str | None = None
 AGENT_DIR = Path(__file__).parent.parent / "muse" / "agents"
 TEMPLATES_DIR = Path(__file__).parent / "templates"
 
-# Cached template variables loaded from think/templates/*.txt
+# Cached raw template content loaded from think/templates/*.txt
 _templates_cache: dict[str, str] | None = None
 
 
-def _load_templates() -> dict[str, str]:
-    """Load all template files from think/templates/ directory.
+def _load_raw_templates() -> dict[str, str]:
+    """Load raw template files from think/templates/ directory.
 
     Templates are cached on first load. Each .txt file becomes a template
     variable named after its stem (e.g., daily_insight.txt -> $daily_insight).
@@ -39,7 +39,7 @@ def _load_templates() -> dict[str, str]:
     Returns
     -------
     dict[str, str]
-        Mapping of template variable names to their content.
+        Mapping of template variable names to their raw content (no substitution).
     """
     global _templates_cache
     if _templates_cache is not None:
@@ -56,6 +56,42 @@ def _load_templates() -> dict[str, str]:
                 logging.debug("Failed to load template %s: %s", txt_path, exc)
 
     return _templates_cache
+
+
+def _load_templates(template_vars: dict[str, str] | None = None) -> dict[str, str]:
+    """Load and substitute template files from think/templates/ directory.
+
+    Raw templates are cached, but substitution is performed on each call
+    to support context-dependent variables like $date and $segment_start.
+
+    Parameters
+    ----------
+    template_vars:
+        Optional variables to substitute into templates. Templates can use
+        identity vars ($name, $preferred), context vars ($day, $date,
+        $segment_start, $segment_end), and other template vars.
+
+    Returns
+    -------
+    dict[str, str]
+        Mapping of template variable names to their substituted content.
+    """
+    raw_templates = _load_raw_templates()
+
+    if not template_vars:
+        return dict(raw_templates)
+
+    # Substitute variables into each template
+    substituted = {}
+    for var_name, content in raw_templates.items():
+        try:
+            template = Template(content)
+            substituted[var_name] = template.safe_substitute(template_vars)
+        except Exception as exc:
+            logging.debug("Template substitution failed for %s: %s", var_name, exc)
+            substituted[var_name] = content
+
+    return substituted
 
 
 class PromptContent(NamedTuple):
@@ -174,10 +210,6 @@ def load_prompt(
         identity = config.get("identity", {})
         template_vars = _flatten_identity_to_template_vars(identity)
 
-        # Load templates from think/templates/ directory
-        templates = _load_templates()
-        template_vars.update(templates)
-
         # Merge caller-provided context (overrides identity vars if collision)
         if context:
             for key, value in context.items():
@@ -185,6 +217,10 @@ def load_prompt(
                 template_vars[key] = str_value
                 # Add uppercase-first version
                 template_vars[key.capitalize()] = str_value.capitalize()
+
+        # Load templates with identity and context vars so templates can use them
+        templates = _load_templates(template_vars)
+        template_vars.update(templates)
 
         # Use safe_substitute to avoid errors for undefined variables
         template = Template(text)
@@ -451,6 +487,63 @@ def segment_parse(
         return (start_time, end_time)
     except ValueError:
         return (None, None)
+
+
+def format_day(day: str) -> str:
+    """Format a day string (YYYYMMDD) as a human-readable date.
+
+    Parameters
+    ----------
+    day:
+        Day in YYYYMMDD format.
+
+    Returns
+    -------
+    str
+        Formatted date like "Friday, January 24, 2026".
+        Returns the original string if parsing fails.
+
+    Examples
+    --------
+    >>> format_day("20260124")
+    "Friday, January 24, 2026"
+    """
+    try:
+        dt = datetime.strptime(day, "%Y%m%d")
+        return dt.strftime("%A, %B %d, %Y")
+    except ValueError:
+        return day
+
+
+def format_segment_times(segment: str) -> tuple[str, str] | tuple[None, None]:
+    """Format segment start and end times as human-readable strings.
+
+    Parameters
+    ----------
+    segment:
+        Segment key in HHMMSS_LEN format (e.g., "143022_300").
+
+    Returns
+    -------
+    tuple[str, str] | tuple[None, None]
+        Tuple of (start_time, end_time) as formatted strings like "2:30 PM".
+        Returns (None, None) if segment format is invalid.
+
+    Examples
+    --------
+    >>> format_segment_times("143022_300")
+    ("2:30 PM", "2:35 PM")
+    >>> format_segment_times("090000_3600")
+    ("9:00 AM", "10:00 AM")
+    """
+    start_time, end_time = segment_parse(segment)
+    if start_time is None or end_time is None:
+        return (None, None)
+
+    # Format as 12-hour time with AM/PM
+    start_str = datetime.combine(datetime.today(), start_time).strftime("%-I:%M %p")
+    end_str = datetime.combine(datetime.today(), end_time).strftime("%-I:%M %p")
+    return (start_str, end_str)
 
 
 def get_config() -> dict[str, Any]:
@@ -847,18 +940,6 @@ def get_agent(persona: str = "default", facet: str | None = None) -> dict:
                 extra_parts.append(facets_summary)
     except Exception:
         pass  # Ignore if facets can't be loaded
-
-    # Add insights to agent instructions
-    insights = get_insights()
-    if insights:
-        insights_list = []
-        for insight_name, info in sorted(insights.items()):
-            desc = str(info.get("contains", "")).replace("\n", " ").strip()
-            if desc:
-                insights_list.append(f"- `{insight_name}`: {desc}")
-            else:
-                insights_list.append(f"- `{insight_name}`")
-        extra_parts.append("## Available Insights\n" + "\n".join(insights_list))
 
     # Add current date/time
     now = datetime.now()
