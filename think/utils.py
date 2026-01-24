@@ -164,6 +164,8 @@ def load_prompt(
     - Templates from think/templates/*.txt:
       - Each file becomes a variable named after its stem
       - Example: daily_insight.txt -> $daily_insight
+      - Templates are pre-processed with identity and context vars, so templates
+        can use $date, $preferred, etc. before being substituted into prompts
 
     Callers can provide additional context variables via the ``context`` parameter.
     Context variables override identity and template variables if there's a collision.
@@ -540,10 +542,15 @@ def format_segment_times(segment: str) -> tuple[str, str] | tuple[None, None]:
     if start_time is None or end_time is None:
         return (None, None)
 
-    # Format as 12-hour time with AM/PM
-    start_str = datetime.combine(datetime.today(), start_time).strftime("%-I:%M %p")
-    end_str = datetime.combine(datetime.today(), end_time).strftime("%-I:%M %p")
-    return (start_str, end_str)
+    return (_format_time(start_time), _format_time(end_time))
+
+
+def _format_time(t: datetime.time) -> str:
+    """Format a time as 12-hour with AM/PM, no leading zero on hour.
+
+    Uses lstrip('0') for cross-platform compatibility (%-I is Unix-only).
+    """
+    return datetime.combine(datetime.today(), t).strftime("%I:%M %p").lstrip("0")
 
 
 def get_config() -> dict[str, Any]:

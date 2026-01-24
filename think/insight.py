@@ -5,6 +5,7 @@ import argparse
 import json
 import logging
 import os
+from datetime import datetime
 from pathlib import Path
 
 from google import genai
@@ -16,10 +17,13 @@ from think.utils import (
     PromptNotFoundError,
     day_log,
     day_path,
+    format_day,
+    format_segment_times,
     get_insight_topic,
     get_insights,
     get_journal,
     load_prompt,
+    segment_parse,
     setup_cli,
 )
 
@@ -494,9 +498,49 @@ def main() -> None:
         if not api_key:
             parser.error("GOOGLE_API_KEY not found in environment")
 
+        # Build context for template substitution
+        prompt_context: dict[str, str] = {
+            "day": args.day,
+            "date": format_day(args.day),
+        }
+
+        # Add segment context
+        if args.segment:
+            # Single segment mode
+            start_str, end_str = format_segment_times(args.segment)
+            if start_str and end_str:
+                prompt_context["segment"] = args.segment
+                prompt_context["segment_start"] = start_str
+                prompt_context["segment_end"] = end_str
+        elif args.segments:
+            # Multi-segment mode: compute earliest start and latest end
+            segment_list = [s.strip() for s in args.segments.split(",")]
+            all_times = []
+            for seg in segment_list:
+                start_time, end_time = segment_parse(seg)
+                if start_time and end_time:
+                    all_times.append((start_time, end_time))
+
+            if all_times:
+                earliest_start = min(t[0] for t in all_times)
+                latest_end = max(t[1] for t in all_times)
+                # Use lstrip('0') for cross-platform compatibility (%-I is Unix-only)
+                start_str = (
+                    datetime.combine(datetime.today(), earliest_start)
+                    .strftime("%I:%M %p")
+                    .lstrip("0")
+                )
+                end_str = (
+                    datetime.combine(datetime.today(), latest_end)
+                    .strftime("%I:%M %p")
+                    .lstrip("0")
+                )
+                prompt_context["segment_start"] = start_str
+                prompt_context["segment_end"] = end_str
+
         try:
             insight_prompt = load_prompt(
-                insight_path.stem, base_dir=insight_path.parent
+                insight_path.stem, base_dir=insight_path.parent, context=prompt_context
             )
         except PromptNotFoundError:
             parser.error(f"Insight file not found: {insight_path}")
