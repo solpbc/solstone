@@ -32,7 +32,6 @@ from think.entities import (
     rename_entity_memory,
     save_entities,
     save_journal_entity,
-    scan_facet_relationships,
     scan_journal_entities,
     unblock_journal_entity,
     validate_aka_uniqueness,
@@ -123,6 +122,9 @@ def get_entity(facet_name: str, entity_id: str) -> Any:
     Uses exact id matching only. URL fragments always contain the entity id,
     so fuzzy matching is not needed here (it's used by MCP tools instead).
     Includes detached entities so they can be viewed and re-attached.
+
+    If entity is not found in facet but exists in journal, returns journal
+    entity with needs_attachment=True to allow attaching to this facet.
     """
     try:
         # Load all entities including detached, find by exact id match
@@ -130,7 +132,23 @@ def get_entity(facet_name: str, entity_id: str) -> Any:
         entity = next((e for e in entities if e.get("id") == entity_id), None)
 
         if entity is None:
-            return jsonify({"error": f"Entity '{entity_id}' not found"}), 404
+            # Fall back to journal entity - allows viewing/attaching to new facet
+            journal_entity = load_journal_entity(entity_id)
+            if journal_entity is None:
+                return jsonify({"error": f"Entity '{entity_id}' not found"}), 404
+
+            # Return journal entity data with flag indicating it needs attachment
+            entity = {
+                "id": entity_id,
+                "name": journal_entity.get("name", ""),
+                "type": journal_entity.get("type", ""),
+                "aka": journal_entity.get("aka", []),
+                "is_principal": journal_entity.get("is_principal", False),
+                "needs_attachment": True,
+                "observation_count": 0,
+                "has_voiceprint": False,
+            }
+            return jsonify({"entity": entity, "observations": []})
 
         entity_name = entity.get("name", "")
         entity = entity.copy()
@@ -668,10 +686,8 @@ def _build_facet_relationships(
         relationship = load_facet_relationship(facet_name, entity_id)
         if not relationship:
             continue
-        # Skip detached relationships
-        if relationship.get("detached"):
-            continue
 
+        is_detached = relationship.get("detached", False)
         facet_config = facets_config.get(facet_name, {})
         metadata = _get_entity_metadata(facet_name, entity_name)
 
@@ -688,13 +704,19 @@ def _build_facet_relationships(
             "has_voiceprint": metadata["has_voiceprint"],
         }
 
+        # Include detached flag if true
+        if is_detached:
+            facet_rel["detached"] = True
+
         # Compute last_active_ts for this relationship
         rel_active_ts = entity_last_active_ts(relationship)
         facet_rel["last_active_ts"] = rel_active_ts
 
-        total_observation_count += metadata["observation_count"]
-        if rel_active_ts > latest_active_ts:
-            latest_active_ts = rel_active_ts
+        # Only count observations and activity from non-detached relationships
+        if not is_detached:
+            total_observation_count += metadata["observation_count"]
+            if rel_active_ts > latest_active_ts:
+                latest_active_ts = rel_active_ts
 
         facet_relationships.append(facet_rel)
 

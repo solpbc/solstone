@@ -236,13 +236,15 @@
   pointer-events: auto;
 }
 
-/* Detached entity state - disable editing */
-.entity-detail-view.detached .entity-detail-section {
+/* Detached/needs-attachment entity state - disable editing */
+.entity-detail-view.detached .entity-detail-section,
+.entity-detail-view.needs-attachment .entity-detail-section {
   opacity: 0.6;
   pointer-events: none;
 }
 
-.entity-detail-view.detached .entity-detach-section {
+.entity-detail-view.detached .entity-detach-section,
+.entity-detail-view.needs-attachment .entity-attach-section {
   opacity: 1;
   pointer-events: auto;
 }
@@ -822,6 +824,89 @@ tr:hover .entity-delete-btn {
   text-align: center;
 }
 
+/* Detached facet relationship row */
+.facet-relationship-row.detached {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.facet-relationship-row.detached:hover {
+  background: #f8f9fa;
+  box-shadow: none;
+}
+
+.facet-rel-detached-badge {
+  display: inline-block;
+  font-size: 0.7em;
+  padding: 0.15em 0.5em;
+  background: #ffc107;
+  color: #212529;
+  border-radius: 4px;
+  margin-left: 0.5em;
+  font-weight: 500;
+  vertical-align: middle;
+}
+
+.entity-attach-section {
+  padding: 1em;
+  background: #e7f5ff;
+  border-radius: 8px;
+  margin-top: 1em;
+}
+
+.entity-attach-section h4 {
+  margin-bottom: 0.75em;
+  color: #1971c2;
+}
+
+.entity-attach-section .attach-description-label {
+  display: block;
+  margin-bottom: 0.5em;
+  font-weight: 500;
+  color: #495057;
+}
+
+.entity-attach-section .attach-description-label .required {
+  color: #dc3545;
+}
+
+.entity-attach-section textarea {
+  width: 100%;
+  min-height: 80px;
+  padding: 0.5em;
+  border: 1px solid #ced4da;
+  border-radius: 4px;
+  font-family: inherit;
+  font-size: 0.95em;
+  resize: vertical;
+  margin-bottom: 0.75em;
+}
+
+.entity-attach-section textarea:focus {
+  outline: none;
+  border-color: #1971c2;
+  box-shadow: 0 0 0 2px rgba(25, 113, 194, 0.2);
+}
+
+.entity-attach-section .btn-attach {
+  background: #1971c2;
+  color: #fff;
+  border: none;
+  padding: 0.5em 1.5em;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 500;
+}
+
+.entity-attach-section .btn-attach:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.entity-attach-section .btn-attach:not(:disabled):hover {
+  background: #1864ab;
+}
+
 /* Empty journal state */
 .no-journal-entities {
   text-align: center;
@@ -967,6 +1052,17 @@ tr:hover .entity-delete-btn {
 
     <div class="entity-detach-section">
       <button class="btn" id="detail-detach-btn"></button>
+    </div>
+
+    <div class="entity-attach-section" id="detail-attach-section" style="display: none;">
+      <h4>Attach to <span id="attach-facet-name"></span></h4>
+      <label class="attach-description-label">
+        Description <span class="required">*</span>
+        <small style="font-weight: normal; color: #6c757d;">(How does this entity relate to this facet?)</small>
+      </label>
+      <textarea id="attach-description" placeholder="e.g., Lead engineer on the project, Primary contact for sales..."></textarea>
+      <button class="btn-attach" id="attach-entity-btn" disabled>Attach to Facet</button>
+      <div id="attach-error" style="color: #dc3545; margin-top: 0.5em; display: none;"></div>
     </div>
   </div>
 </div>
@@ -1367,15 +1463,19 @@ function renderJournalDetailView(entity) {
     const list = facetsContainer.querySelector('.facet-relationships-list');
 
     facets.forEach(facet => {
+      const isDetachedFacet = facet.detached === true;
       const row = document.createElement('div');
       row.className = 'facet-relationship-row';
+      if (isDetachedFacet) {
+        row.classList.add('detached');
+      }
       row.style.borderLeftColor = facet.color || '#888';
 
-      if (isBlocked) {
-        // Blocked entities are detached from facets - don't navigate
-        row.style.opacity = '0.6';
-        row.style.cursor = 'default';
-        row.title = 'Entity is blocked and detached from this facet';
+      if (isBlocked || isDetachedFacet) {
+        // Blocked or detached - don't navigate
+        row.title = isBlocked
+          ? 'Entity is blocked and detached from this facet'
+          : 'Entity is detached from this facet';
       } else {
         row.title = `Click to view in ${facet.title}`;
         row.onclick = () => {
@@ -1401,6 +1501,14 @@ function renderJournalDetailView(entity) {
       title.className = 'facet-rel-title';
       title.textContent = facet.title;
       header.appendChild(title);
+
+      // Add detached badge if applicable
+      if (isDetachedFacet) {
+        const detachedBadge = document.createElement('span');
+        detachedBadge.className = 'facet-rel-detached-badge';
+        detachedBadge.textContent = 'Detached';
+        header.appendChild(detachedBadge);
+      }
 
       info.appendChild(header);
 
@@ -1630,13 +1738,15 @@ function confirmDeleteJournalEntity() {
 
 function renderDetailView(entity, observations) {
   const isDetached = entity.detached === true;
+  const needsAttachment = entity.needs_attachment === true;
   const detailView = document.getElementById('entity-detail-view');
 
-  // Toggle detached class on container
+  // Toggle state classes on container
+  detailView.classList.remove('detached', 'needs-attachment');
   if (isDetached) {
     detailView.classList.add('detached');
-  } else {
-    detailView.classList.remove('detached');
+  } else if (needsAttachment) {
+    detailView.classList.add('needs-attachment');
   }
 
   // Header
@@ -1646,16 +1756,16 @@ function renderDetailView(entity, observations) {
   const typeEl = document.getElementById('detail-type');
   typeEl.textContent = entity.type;
 
-  // Add or remove detached badge
+  // Add or remove detached / not-attached badge
   let detachedBadge = document.getElementById('detail-detached-badge');
-  if (isDetached) {
+  if (isDetached || needsAttachment) {
     if (!detachedBadge) {
       detachedBadge = document.createElement('span');
       detachedBadge.id = 'detail-detached-badge';
       detachedBadge.className = 'entity-detail-detached-badge';
-      detachedBadge.textContent = 'Detached';
       typeEl.parentNode.insertBefore(detachedBadge, typeEl.nextSibling);
     }
+    detachedBadge.textContent = needsAttachment ? 'Not Attached' : 'Detached';
   } else if (detachedBadge) {
     detachedBadge.remove();
   }
@@ -1731,16 +1841,48 @@ function renderDetailView(entity, observations) {
     obsContainer.innerHTML = '<span class="observations-empty">No observations recorded yet.</span>';
   }
 
-  // Detach/Re-attach button
+  // Detach/Re-attach button or Attach section
+  const detachSection = document.querySelector('.entity-detach-section');
+  const attachSection = document.getElementById('detail-attach-section');
   const detachBtn = document.getElementById('detail-detach-btn');
-  if (isDetached) {
-    detachBtn.textContent = 'Re-attach';
-    detachBtn.className = 'btn btn-primary';
-    detachBtn.onclick = () => reattachEntity(entity);
+
+  if (needsAttachment) {
+    // Hide detach section, show attach section
+    detachSection.style.display = 'none';
+    attachSection.style.display = 'block';
+
+    // Setup attach section
+    document.getElementById('attach-facet-name').textContent = currentFacet;
+    const attachDescInput = document.getElementById('attach-description');
+    const attachBtn = document.getElementById('attach-entity-btn');
+    const attachError = document.getElementById('attach-error');
+
+    // Reset state
+    attachDescInput.value = '';
+    attachBtn.disabled = true;
+    attachError.style.display = 'none';
+
+    // Enable button when description is entered
+    attachDescInput.oninput = () => {
+      attachBtn.disabled = !attachDescInput.value.trim();
+    };
+
+    // Handle attach
+    attachBtn.onclick = () => attachEntityToFacet(entity, attachDescInput.value.trim());
   } else {
-    detachBtn.textContent = 'Detach';
-    detachBtn.className = 'btn btn-danger';
-    detachBtn.onclick = () => detachEntity(entity);
+    // Show detach section, hide attach section
+    detachSection.style.display = 'block';
+    attachSection.style.display = 'none';
+
+    if (isDetached) {
+      detachBtn.textContent = 'Re-attach';
+      detachBtn.className = 'btn btn-primary';
+      detachBtn.onclick = () => reattachEntity(entity);
+    } else {
+      detachBtn.textContent = 'Detach';
+      detachBtn.className = 'btn btn-danger';
+      detachBtn.onclick = () => detachEntity(entity);
+    }
   }
 }
 
@@ -1920,6 +2062,42 @@ function reattachEntity(entity) {
   .catch(error => {
     console.error('Error re-attaching entity:', error);
     alert('Error: ' + error.message);
+  });
+}
+
+function attachEntityToFacet(entity, description) {
+  const attachBtn = document.getElementById('attach-entity-btn');
+  const attachError = document.getElementById('attach-error');
+
+  attachBtn.disabled = true;
+  attachBtn.textContent = 'Attaching...';
+  attachError.style.display = 'none';
+
+  fetch(`api/${encodeURIComponent(currentFacet)}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      type: entity.type,
+      name: entity.name,
+      description: description
+    })
+  })
+  .then(response => response.json())
+  .then(data => {
+    if (data.success) {
+      // Reload detail view - entity is now attached
+      showDetailView(entity.id);
+      loadEntities();  // Refresh list in background
+    } else {
+      throw new Error(data.error || 'Failed to attach');
+    }
+  })
+  .catch(error => {
+    console.error('Error attaching entity:', error);
+    attachError.textContent = error.message;
+    attachError.style.display = 'block';
+    attachBtn.disabled = false;
+    attachBtn.textContent = 'Attach to Facet';
   });
 }
 
