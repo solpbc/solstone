@@ -12,7 +12,7 @@ import time
 from datetime import datetime
 from pathlib import Path
 from string import Template
-from typing import Any, NamedTuple, Optional
+from typing import Any, Callable, NamedTuple, Optional
 
 import platformdirs
 from dotenv import load_dotenv
@@ -792,7 +792,7 @@ def _load_insight_metadata(txt_path: Path) -> dict[str, object]:
     return info
 
 
-def load_insight_hook(hook_path: str | Path) -> Any:
+def load_insight_hook(hook_path: str | Path) -> Callable[[str, dict], str | None]:
     """Load an insight post-processing hook from a Python file.
 
     Hooks are Python modules with a ``process(result, context)`` function that

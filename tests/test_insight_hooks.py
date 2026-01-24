@@ -1,0 +1,284 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# Copyright (c) 2026 sol pbc
+
+import importlib
+import json
+import os
+import shutil
+from pathlib import Path
+
+from think.utils import day_path
+
+FIXTURES = Path("fixtures")
+
+
+def copy_day(tmp_path: Path) -> Path:
+    os.environ["JOURNAL_PATH"] = str(tmp_path)
+    dest = day_path("20240101")
+    src = FIXTURES / "journal" / "20240101"
+    for item in src.iterdir():
+        if item.is_dir():
+            shutil.copytree(item, dest / item.name, dirs_exist_ok=True)
+        else:
+            shutil.copy2(item, dest / item.name)
+    return dest
+
+
+MOCK_RESULT = "## Original Result\n\nThis is the original insight content."
+
+
+def test_load_insight_hook_success(tmp_path):
+    """Test loading a valid hook with process function."""
+    utils = importlib.import_module("think.utils")
+
+    hook_file = tmp_path / "test_hook.py"
+    hook_file.write_text("""
+def process(result, context):
+    return result + "\\n\\n## Added by hook"
+""")
+
+    process_func = utils.load_insight_hook(hook_file)
+    assert callable(process_func)
+
+    # Test the hook transforms content
+    output = process_func("Original", {"day": "20240101"})
+    assert output == "Original\n\n## Added by hook"
+
+
+def test_load_insight_hook_missing_process(tmp_path):
+    """Test that hook without process function raises ValueError."""
+    utils = importlib.import_module("think.utils")
+
+    hook_file = tmp_path / "bad_hook.py"
+    hook_file.write_text("""
+def other_function():
+    pass
+""")
+
+    try:
+        utils.load_insight_hook(hook_file)
+        assert False, "Should have raised ValueError"
+    except ValueError as e:
+        assert "must define a 'process' function" in str(e)
+
+
+def test_load_insight_hook_process_not_callable(tmp_path):
+    """Test that hook with non-callable process raises ValueError."""
+    utils = importlib.import_module("think.utils")
+
+    hook_file = tmp_path / "bad_hook.py"
+    hook_file.write_text("""
+process = "not a function"
+""")
+
+    try:
+        utils.load_insight_hook(hook_file)
+        assert False, "Should have raised ValueError"
+    except ValueError as e:
+        assert "'process' must be callable" in str(e)
+
+
+def test_insight_metadata_includes_hook_path(tmp_path):
+    """Test that _load_insight_metadata detects .py hook file."""
+    utils = importlib.import_module("think.utils")
+
+    # Create insight files
+    txt_file = tmp_path / "test_insight.txt"
+    txt_file.write_text("Test prompt")
+
+    json_file = tmp_path / "test_insight.json"
+    json_file.write_text('{"title": "Test", "color": "#ff0000"}')
+
+    hook_file = tmp_path / "test_insight.py"
+    hook_file.write_text("def process(r, c): return r")
+
+    meta = utils._load_insight_metadata(txt_file)
+
+    assert meta["path"] == str(txt_file)
+    assert meta["hook_path"] == str(hook_file)
+    assert meta["title"] == "Test"
+
+
+def test_insight_metadata_no_hook(tmp_path):
+    """Test that _load_insight_metadata works without hook file."""
+    utils = importlib.import_module("think.utils")
+
+    txt_file = tmp_path / "test_insight.txt"
+    txt_file.write_text("Test prompt")
+
+    meta = utils._load_insight_metadata(txt_file)
+
+    assert meta["path"] == str(txt_file)
+    assert "hook_path" not in meta
+
+
+def test_insight_hook_invocation(tmp_path, monkeypatch):
+    """Test that insight.py invokes hook and uses transformed result."""
+    mod = importlib.import_module("think.insight")
+    day_dir = copy_day(tmp_path)
+
+    # Create insight with hook
+    insights_dir = tmp_path / "insights"
+    insights_dir.mkdir()
+
+    prompt_file = insights_dir / "hooked.txt"
+    prompt_file.write_text("Test prompt")
+
+    json_file = insights_dir / "hooked.json"
+    json_file.write_text('{"title": "Hooked", "occurrences": false}')
+
+    hook_file = insights_dir / "hooked.py"
+    hook_file.write_text("""
+def process(result, context):
+    # Verify context has expected fields
+    assert "day" in context
+    assert "transcript" in context
+    assert "insight_key" in context
+    return result + "\\n\\n## Hook was here"
+""")
+
+    monkeypatch.setattr(
+        mod,
+        "send_insight",
+        lambda *a, **k: MOCK_RESULT,
+    )
+    monkeypatch.setenv("GOOGLE_API_KEY", "x")
+    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+    monkeypatch.setattr("sys.argv", ["sol insight", "20240101", "-f", str(prompt_file)])
+
+    mod.main()
+
+    md = day_dir / "insights" / "hooked.md"
+    content = md.read_text()
+    assert "## Original Result" in content
+    assert "## Hook was here" in content
+
+
+def test_insight_hook_returns_none(tmp_path, monkeypatch):
+    """Test that hook returning None uses original result."""
+    mod = importlib.import_module("think.insight")
+    day_dir = copy_day(tmp_path)
+
+    insights_dir = tmp_path / "insights"
+    insights_dir.mkdir()
+
+    prompt_file = insights_dir / "noop.txt"
+    prompt_file.write_text("Test prompt")
+
+    json_file = insights_dir / "noop.json"
+    json_file.write_text('{"title": "Noop", "occurrences": false}')
+
+    hook_file = insights_dir / "noop.py"
+    hook_file.write_text("""
+def process(result, context):
+    return None  # Signal to use original
+""")
+
+    monkeypatch.setattr(
+        mod,
+        "send_insight",
+        lambda *a, **k: MOCK_RESULT,
+    )
+    monkeypatch.setenv("GOOGLE_API_KEY", "x")
+    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+    monkeypatch.setattr("sys.argv", ["sol insight", "20240101", "-f", str(prompt_file)])
+
+    mod.main()
+
+    md = day_dir / "insights" / "noop.md"
+    content = md.read_text()
+    assert content == MOCK_RESULT  # Original, not modified
+
+
+def test_insight_hook_error_fallback(tmp_path, monkeypatch):
+    """Test that hook errors fall back to original result."""
+    mod = importlib.import_module("think.insight")
+    day_dir = copy_day(tmp_path)
+
+    insights_dir = tmp_path / "insights"
+    insights_dir.mkdir()
+
+    prompt_file = insights_dir / "broken.txt"
+    prompt_file.write_text("Test prompt")
+
+    json_file = insights_dir / "broken.json"
+    json_file.write_text('{"title": "Broken", "occurrences": false}')
+
+    hook_file = insights_dir / "broken.py"
+    hook_file.write_text("""
+def process(result, context):
+    raise RuntimeError("Hook exploded!")
+""")
+
+    monkeypatch.setattr(
+        mod,
+        "send_insight",
+        lambda *a, **k: MOCK_RESULT,
+    )
+    monkeypatch.setenv("GOOGLE_API_KEY", "x")
+    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+    monkeypatch.setattr("sys.argv", ["sol insight", "20240101", "-f", str(prompt_file)])
+
+    # Should not raise, should fall back gracefully
+    mod.main()
+
+    md = day_dir / "insights" / "broken.md"
+    content = md.read_text()
+    assert content == MOCK_RESULT  # Original result preserved
+
+
+def test_insight_hook_context_fields(tmp_path, monkeypatch):
+    """Test that hook receives complete context dict."""
+    mod = importlib.import_module("think.insight")
+    copy_day(tmp_path)
+
+    insights_dir = tmp_path / "insights"
+    insights_dir.mkdir()
+
+    prompt_file = insights_dir / "context_check.txt"
+    prompt_file.write_text("Test prompt")
+
+    json_file = insights_dir / "context_check.json"
+    json_file.write_text('{"title": "Context Check", "occurrences": false}')
+
+    # Write captured context to a file for verification
+    hook_file = insights_dir / "context_check.py"
+    hook_file.write_text("""
+import json
+from pathlib import Path
+
+def process(result, context):
+    # Write context to file for test verification
+    out_path = Path(context["output_path"]).parent / "context_captured.json"
+    with open(out_path, "w") as f:
+        # Remove transcript for brevity, just check it exists
+        ctx_copy = dict(context)
+        ctx_copy["has_transcript"] = bool(ctx_copy.get("transcript"))
+        ctx_copy["has_insight_meta"] = bool(ctx_copy.get("insight_meta"))
+        del ctx_copy["transcript"]
+        del ctx_copy["insight_meta"]
+        json.dump(ctx_copy, f)
+    return result
+""")
+
+    monkeypatch.setattr(
+        mod,
+        "send_insight",
+        lambda *a, **k: MOCK_RESULT,
+    )
+    monkeypatch.setenv("GOOGLE_API_KEY", "x")
+    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+    monkeypatch.setattr("sys.argv", ["sol insight", "20240101", "-f", str(prompt_file)])
+
+    mod.main()
+
+    # Read captured context
+    captured_path = tmp_path / "20240101" / "insights" / "context_captured.json"
+    captured = json.loads(captured_path.read_text())
+
+    assert captured["day"] == "20240101"
+    assert captured["segment"] is None
+    assert captured["insight_key"] == "context_check"  # stem of the prompt file
+    assert captured["has_transcript"] is True
+    assert captured["has_insight_meta"] is True
+    assert "output_path" in captured
