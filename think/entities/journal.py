@@ -220,7 +220,10 @@ def block_journal_entity(entity_id: str) -> dict[str, Any]:
         ValueError: If entity not found or is the principal entity
     """
     # Import here to avoid circular dependency
-    from think.entities.relationships import load_facet_relationship, save_facet_relationship
+    from think.entities.relationships import (
+        load_facet_relationship,
+        save_facet_relationship,
+    )
 
     journal_entity = load_journal_entity(entity_id)
     if not journal_entity:

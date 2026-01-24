@@ -98,7 +98,9 @@ def save_observations(
     path = observations_file_path(facet, name)
 
     # Format observations as JSONL
-    content = "".join(json.dumps(obs, ensure_ascii=False) + "\n" for obs in observations)
+    content = "".join(
+        json.dumps(obs, ensure_ascii=False) + "\n" for obs in observations
+    )
     atomic_write(path, content, prefix=".observations_")
 
 
