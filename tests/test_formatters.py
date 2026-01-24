@@ -896,15 +896,17 @@ class TestFormatEntities:
         assert chunks[0]["timestamp"] == expected
 
     def test_format_entities_header_facet_from_path(self):
-        """Test that facet name is extracted from file path."""
+        """Test that facet name is extracted from file path for detected entities."""
         from think.entities import format_entities
 
         entries = [{"type": "Person", "name": "Test", "description": ""}]
-        context = {"file_path": "/journal/facets/work/entities.jsonl"}
+        # Use detected entities path pattern (facets/*/entities/YYYYMMDD.jsonl)
+        context = {"file_path": "/journal/facets/work/entities/20260115.jsonl"}
 
         chunks, meta = format_entities(entries, context)
 
-        assert "Attached Entities: work" in meta["header"]
+        assert "Detected Entities: work" in meta["header"]
+        assert "2026-01-15" in meta["header"]
 
     def test_format_entities_detected_header_from_path(self):
         """Test that detected entities include day in header."""
@@ -1437,12 +1439,12 @@ class TestExtractPathMetadata:
         assert meta["facet"] == "work"
         assert meta["topic"] == ""  # Formatter provides topic
 
-    def test_facet_entities_attached(self):
-        """Test facet extraction from attached entities path."""
+    def test_facet_entities_detected_personal(self):
+        """Test facet and day extraction from detected entities path."""
         from think.formatters import extract_path_metadata
 
-        meta = extract_path_metadata("facets/personal/entities.jsonl")
-        assert meta["day"] == ""
+        meta = extract_path_metadata("facets/personal/entities/20260115.jsonl")
+        assert meta["day"] == "20260115"
         assert meta["facet"] == "personal"
         assert meta["topic"] == ""  # Formatter provides topic
 

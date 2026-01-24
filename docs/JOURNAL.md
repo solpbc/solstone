@@ -60,7 +60,8 @@ solstone transforms raw recordings into actionable understanding through a three
 | Directory/File | Purpose |
 |----------------|---------|
 | `YYYYMMDD/` | Daily capture folders containing segments, extracts, and insights |
-| `facets/` | Facet-specific data: entities, todos, events, news, action logs |
+| `entities/` | Journal-level entity identity records (`<id>/entity.json`) |
+| `facets/` | Facet-specific data: entity relationships, todos, events, news, action logs |
 | `agents/` | Agent event logs (`<id>.jsonl`, `<id>_active.jsonl` for running agents) |
 | `apps/` | App-specific storage (distinct from codebase `apps/`) |
 | `imports/` | Imported audio files and processing artifacts |
@@ -446,7 +447,7 @@ Daily detection files (`facets/<facet>/entities/YYYYMMDD.jsonl`) contain entitie
 
 #### Entity Lifecycle
 
-1. **Detection**: Daily agents scan journal content and record entities in `entities/YYYYMMDD.jsonl`
+1. **Detection**: Daily agents scan journal content and record entities in `facets/<facet>/entities/YYYYMMDD.jsonl`
 2. **Aggregation**: Review agent tracks detection frequency across recent days
 3. **Promotion**: Entities with 3+ detections are auto-promoted to attached, or users manually promote via UI
 4. **Persistence**: Creates journal entity + facet relationship; remains active until detached
