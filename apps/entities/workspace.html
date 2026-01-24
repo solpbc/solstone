@@ -837,10 +837,7 @@ tr:hover .entity-delete-btn {
         <div class="form-group">
           <label for="journal-detail-edit-type">Type</label>
           <select id="journal-detail-edit-type">
-            <option value="Person">Person</option>
-            <option value="Company">Company</option>
-            <option value="Project">Project</option>
-            <option value="Tool">Tool</option>
+            <!-- Populated by loadEntityTypes() -->
           </select>
         </div>
         <div class="form-group">
@@ -950,8 +947,51 @@ let currentDetailEntity = null;
 const pendingEntities = new Map(); // agent_id → { name, element }
 const pendingAgentCallbacks = new Map(); // agent_id → callback function
 
-// Type display order for grouping entity cards
-const TYPE_ORDER = ['Person', 'Company', 'Project', 'Tool'];
+// Standard entity types - fetched from server
+let ENTITY_TYPES = [];
+
+// Load entity types from server and populate UI elements
+async function loadEntityTypes() {
+  try {
+    const resp = await fetch('/app/entities/api/types');
+    const data = await resp.json();
+    ENTITY_TYPES = data.types || [];
+
+    // Populate edit dropdown
+    const select = document.getElementById('journal-detail-edit-type');
+    if (select) {
+      select.innerHTML = '';
+      ENTITY_TYPES.forEach(t => {
+        const opt = document.createElement('option');
+        opt.value = t.name;
+        opt.textContent = t.name;
+        select.appendChild(opt);
+      });
+    }
+  } catch (e) {
+    console.error('Failed to load entity types:', e);
+    // Fallback to defaults if fetch fails
+    ENTITY_TYPES = [
+      {name: 'Person'}, {name: 'Company'}, {name: 'Project'}, {name: 'Tool'}
+    ];
+    // Populate dropdown with fallback types
+    const select = document.getElementById('journal-detail-edit-type');
+    if (select) {
+      select.innerHTML = '';
+      ENTITY_TYPES.forEach(t => {
+        const opt = document.createElement('option');
+        opt.value = t.name;
+        opt.textContent = t.name;
+        select.appendChild(opt);
+      });
+    }
+  }
+}
+
+// Get type ordering for display (standard types first, then custom)
+function getTypeOrder() {
+  return ENTITY_TYPES.map(t => t.name);
+}
 
 // Parse YYYYMMDD string to Date object
 function parseYYYYMMDD(dateStr) {
@@ -1628,6 +1668,7 @@ function reattachEntity(entity) {
 
 // Edit form submission
 document.addEventListener('DOMContentLoaded', function() {
+  loadEntityTypes();  // Load entity types first for UI elements
   loadEntities();
   setupCortexListener();
 
@@ -1767,8 +1808,9 @@ function renderJournalEntities() {
     groups[type].push(entity);
   });
 
-  // Render groups in order
-  const orderedTypes = [...TYPE_ORDER, ...Object.keys(groups).filter(t => !TYPE_ORDER.includes(t))];
+  // Render groups in order (standard types first, then custom)
+  const typeOrder = getTypeOrder();
+  const orderedTypes = [...typeOrder, ...Object.keys(groups).filter(t => !typeOrder.includes(t))];
 
   orderedTypes.forEach(type => {
     const typeEntities = groups[type];
@@ -1782,7 +1824,7 @@ function renderJournalEntities() {
 
     const header = document.createElement('div');
     header.className = 'entity-type-header';
-    header.textContent = pluralizeType(type);
+    header.textContent = type;
     groupDiv.appendChild(header);
 
     const grid = document.createElement('div');
@@ -1887,8 +1929,9 @@ function renderEntityCards() {
     groups[type].push(entity);
   });
 
-  // Render groups in order
-  const orderedTypes = [...TYPE_ORDER, ...Object.keys(groups).filter(t => !TYPE_ORDER.includes(t))];
+  // Render groups in order (standard types first, then custom)
+  const typeOrder = getTypeOrder();
+  const orderedTypes = [...typeOrder, ...Object.keys(groups).filter(t => !typeOrder.includes(t))];
 
   orderedTypes.forEach(type => {
     const entities = groups[type];
@@ -1902,7 +1945,7 @@ function renderEntityCards() {
 
     const header = document.createElement('div');
     header.className = 'entity-type-header';
-    header.textContent = pluralizeType(type);
+    header.textContent = type;
     groupDiv.appendChild(header);
 
     const grid = document.createElement('div');
@@ -2359,12 +2402,5 @@ function confirmEntityDelete() {
     console.error('Error deleting:', error);
     loadEntities();
   });
-}
-
-// Utility
-function pluralizeType(type) {
-  if (type === 'Person') return 'People';
-  if (type === 'Company') return 'Companies';
-  return type + 's';
 }
 </script>

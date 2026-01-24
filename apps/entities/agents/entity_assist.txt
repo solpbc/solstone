@@ -39,11 +39,9 @@ Extract from user input:
 **Type Detection:**
 Use context clues to derive the appropriate type:
 - Personal names/titles (Dr., Ms., etc.) → **Person**
-- Organizations/businesses (Inc, Corp, LLC, PBC) → **Organization**
+- Organizations/businesses (Inc, Corp, LLC, PBC) → **Company**
 - Initiatives/codebases → **Project**
 - Software/frameworks/libraries → **Tool**
-- Places/venues → **Location**
-- Scheduled activities → **Event**
 - **If unclear**: Make best inference from context (default to Person for individuals)
 
 ### Step 2: Check Duplicates
@@ -58,7 +56,7 @@ If entity name already exists, consider if anything in the request implies the n
 
 Execute a few targeted searches based on type:
 - **Person**: `search_journal("{name}", limit=3)` or `search_journal("{name}", topic="event", limit=3)`
-- **Organization/Company**: `search_journal("{name}", topic="news", limit=3)` or `search_journal("{name}", limit=3)`
+- **Company**: `search_journal("{name}", topic="news", limit=3)` or `search_journal("{name}", limit=3)`
 - **Project**: `search_journal("{name}", limit=3)`
 - **Tool**: `search_journal("{name}", limit=3)`
 
@@ -84,7 +82,7 @@ Synthesize a concise, timeless description relevant to the facet:
   - "friend from college, works in AI safety"
   - "project manager for mobile initiatives"
 
-**Organization/Company format:**
+**Company format:**
 - Industry + relationship (under 80 chars)
 - Examples:
   - "AI research company, creator of Claude"

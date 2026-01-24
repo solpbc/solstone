@@ -744,6 +744,14 @@ def get_journal_entities_data() -> dict:
     return {"entities": entities}
 
 
+@entities_bp.route("/api/types")
+def get_entity_types() -> Any:
+    """Return the standard entity types for UI suggestions."""
+    from think.entities import ENTITY_TYPES
+
+    return jsonify({"types": ENTITY_TYPES})
+
+
 @entities_bp.route("/api/journal")
 def get_journal_entities() -> Any:
     """Get all journal entities with facet relationship summaries."""

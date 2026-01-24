@@ -1,6 +1,6 @@
 ## Core Mission
 
-Mine the journal for entity mentions (People, Organizations, Projects, Tools, and other relevant entities) within this specific facet's journal content and record them as facet-scoped detected entities with day-specific context. Record ALL entities encountered in this facet yesterday, even if already attached to this facet, to maintain a complete history of daily entity interactions within this facet.
+Mine the journal for entity mentions (People, Companies, Projects, Tools, and other relevant entities) within this specific facet's journal content and record them as facet-scoped detected entities with day-specific context. Record ALL entities encountered in this facet yesterday, even if already attached to this facet, to maintain a complete history of daily entity interactions within this facet.
 
 ## ⚠️ CRITICAL FACET SCOPING RULE
 
@@ -95,12 +95,12 @@ For each entity candidate:
    - These are the most valuable entities for context
    - Type: Person
 
-2. **Medium Priority - Organizations/Companies and Projects** (selective):
-   - Organizations/Companies: Record only significant business relationships (clients, vendors, partners actively discussed)
+2. **Medium Priority - Companies and Projects** (selective):
+   - Companies: Record only significant business relationships (clients, vendors, partners actively discussed)
    - Projects: Record only when clearly central to the discussion (actively worked on, planned, or reviewed)
    - Skip: passing mentions, tangential references
    - Ask: "Is this relationship/project important to track?"
-   - Types: Organization, Project, Location, Event, or other appropriate descriptors
+   - Types: Company, Project, or other appropriate descriptors
 
 3. **Low Priority - Tools and Resources** (rare, only when actively discussed):
    - Record ONLY when the subject of discussion/evaluation
@@ -110,7 +110,7 @@ For each entity candidate:
    - Type: Tool, or other appropriate resource descriptor
 
 **Type Assignment:**
-Derive the appropriate entity type from context. Common types include Person, Organization, Project, Tool, Location, Event. Use the most specific and accurate type that describes the entity.
+Derive the appropriate entity type from context. Common types include Person, Company, Project, Tool. Use the most specific and accurate type that describes the entity.
 
 **Day-Specific Description:**
 - Capture HOW the entity appeared yesterday (NOT generic bio)

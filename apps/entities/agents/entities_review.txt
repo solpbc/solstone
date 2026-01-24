@@ -55,11 +55,11 @@ Auto-promote entities based on **type-specific thresholds**:
    - Even 2 appearances indicates ongoing relevance
    - Type: Person
 
-2. **Medium Priority - Organizations and Projects** (selective):
-   - Organizations: Require 3+ detections in last 7 days
+2. **Medium Priority - Companies and Projects** (selective):
+   - Companies: Require 3+ detections in last 7 days
    - Projects: Require 3-4+ detections in last 7 days
    - Rationale: Only important business relationships and central projects warrant promotion
-   - Types: Organization, Project, Location, Event, or other appropriate descriptors
+   - Types: Company, Project, or other appropriate descriptors
 
 3. **Low Priority - Tools and Resources** (very rare):
    - Require: 5+ detections in last 7 days
@@ -70,8 +70,8 @@ Auto-promote entities based on **type-specific thresholds**:
 **Universal Requirements (all types):**
 
 **Type Consistency**: Same entity type across all detections
-- All detections agree on the entity type (e.g., Person, Organization, Project, Tool)
-- No ambiguity (e.g., "Apple" as both Organization and Project)
+- All detections agree on the entity type (e.g., Person, Company, Project, Tool)
+- No ambiguity (e.g., "Apple" as both Company and Project)
 
 **Not Already Attached to THIS Facet**: Entity name not in `entity_list(facet)` results
 - Avoid duplicates within this facet
@@ -161,7 +161,7 @@ If multiple variations of same person detected:
 - Promote with full name, count all variations toward threshold
 - Add nickname in Phase 5 using entity_add_aka
 
-**Organization Abbreviations:**
+**Company Abbreviations:**
 If both full name and abbreviation detected:
 - "Federal Aviation Administration" (2x) and "FAA" (4x) both detected (6 total)
 - Promote with full name, count all variations toward threshold
@@ -171,9 +171,9 @@ If both full name and abbreviation detected:
 
 ### DO:
 - Review full 7-day window systematically
-- Apply priority-based thresholds (People: 2+, Organizations/Projects: 3-4+, Tools: 5+)
+- Apply priority-based thresholds (People: 2+, Companies/Projects: 3-4+, Tools: 5+)
 - Prioritize person promotions (lowest threshold)
-- Be selective with organizations and conservative with projects
+- Be selective with companies and conservative with projects
 - Be very strict with tool/resource promotions
 - Synthesize descriptions from multiple contexts
 - Remove day-specific temporal references
@@ -196,7 +196,7 @@ When invoked:
 3. Load detected entities for THIS facet from last 7 days
 4. Aggregate by entity name (within this facet), count occurrences
 5. Filter by priority-based promotion criteria:
-   - People: 2+, Organizations/Projects: 3-4+, Tools: 5+
+   - People: 2+, Companies/Projects: 3-4+, Tools: 5+
    - Type consistent, not already attached to THIS facet
 6. Synthesize timeless descriptions for qualifying entities
 7. Execute `entity_attach()` for each promotion to THIS facet
@@ -209,9 +209,9 @@ When invoked:
 
 **All Already Attached**: If all qualifying entities are already attached to THIS facet, report "All recurring entities already attached to [facet]"
 
-**Type Conflicts**: If entity name appears with different types within THIS facet's detections (e.g., "Mercury" as Organization and Project), skip and report the ambiguity for manual review
+**Type Conflicts**: If entity name appears with different types within THIS facet's detections (e.g., "Mercury" as Company and Project), skip and report the ambiguity for manual review
 
 **Below Threshold**: Report entities close to promotion separately:
-- "3 entities near promotion for [facet]: Alice (Person, 1 detection - needs 1 more), Acme Corp (Organization, 2 detections - needs 1 more)"
+- "3 entities near promotion for [facet]: Alice (Person, 1 detection - needs 1 more), Acme Corp (Company, 2 detections - needs 1 more)"
 
 Remember: Promotion is a facet-specific one-way operation. Only promote entities with clear evidence of consistent relevance to THIS facet and unambiguous identity. Apply strict priority-based thresholds to maintain quality within this facet.

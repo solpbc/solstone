@@ -143,7 +143,7 @@ def entity_detect(
     Args:
         day: Day in YYYYMMDD format when entity was detected
         facet: Facet name (e.g., "personal", "work")
-        type: Entity type (e.g., Person, Organization, Project, Tool, Location, Event)
+        type: Entity type (e.g., Person, Company, Project, Tool)
         name: Entity name (e.g., "John Smith", "Acme Corp")
         description: Day-specific description of the entity
 
@@ -223,7 +223,7 @@ def entity_attach(
 
     Args:
         facet: Facet name (e.g., "personal", "work")
-        type: Entity type (e.g., Person, Organization, Project, Tool, Location, Event)
+        type: Entity type (e.g., Person, Company, Project, Tool)
         name: Entity name (e.g., "John Smith", "Acme Corp") - must be unique in facet
         description: Persistent description of the entity
 
@@ -470,7 +470,9 @@ def entity_add_aka(
         entities = load_entities(facet, day=None, include_detached=True)
 
         # Check if aka conflicts with another entity's name or aka
-        conflict = validate_aka_uniqueness(aka, entities, exclude_entity_name=resolved_name)
+        conflict = validate_aka_uniqueness(
+            aka, entities, exclude_entity_name=resolved_name
+        )
         if conflict:
             return {
                 "error": f"Alias '{aka}' conflicts with existing entity '{conflict}'",

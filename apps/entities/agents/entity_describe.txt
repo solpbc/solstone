@@ -8,7 +8,7 @@ Generate a clear, informative single-sentence description for an attached entity
 ## Input Context
 
 You receive:
-1. **Entity Type** - the type of entity (Person, Organization, Project, Tool, etc.)
+1. **Entity Type** - the type of entity (Person, Company, Project, Tool, etc.)
 2. **Entity Name** - the name to describe
 3. **Facet** - the facet this entity belongs to (provides context for relevance)
 4. **Current Description** - existing description if any (may be empty)
@@ -38,7 +38,7 @@ Use these MCP tools for quick research (be efficient, 2-3 calls max):
   - "Senior backend engineer leading the API migration project"
   - "Friend from college, works in climate tech"
 
-- **Organization**: Industry + relationship
+- **Company**: Industry + relationship
   - "AI research company, creator of Claude"
   - "Healthcare consulting client since Q3 2024"
 

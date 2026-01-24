@@ -3,13 +3,20 @@
 
 """Tests for entity type validation."""
 
-import pytest
-
-from think.entities import is_valid_entity_type
+from think.entities import ENTITY_TYPES, is_valid_entity_type
 
 
-def test_valid_original_types():
-    """Test that original 4 entity types are still valid."""
+def test_entity_types_constant():
+    """Test that ENTITY_TYPES constant has expected structure."""
+    assert len(ENTITY_TYPES) == 4
+    assert all("name" in t for t in ENTITY_TYPES)
+    # Verify standard types in expected order
+    names = [t["name"] for t in ENTITY_TYPES]
+    assert names == ["Person", "Company", "Project", "Tool"]
+
+
+def test_valid_standard_types():
+    """Test that standard 4 entity types are valid."""
     assert is_valid_entity_type("Person") is True
     assert is_valid_entity_type("Company") is True
     assert is_valid_entity_type("Project") is True

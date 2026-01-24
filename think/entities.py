@@ -31,6 +31,15 @@ from think.utils import get_config, get_journal
 # Used as fallback in entity_last_active_ts() to ensure all entities have a sortable value
 DEFAULT_ACTIVITY_TS = 1767225600000
 
+# Standard entity types - used for UI suggestions and documentation.
+# Custom types are still allowed (validated by is_valid_entity_type regex).
+ENTITY_TYPES = [
+    {"name": "Person"},
+    {"name": "Company"},
+    {"name": "Project"},
+    {"name": "Tool"},
+]
+
 
 def get_identity_names() -> list[str]:
     """Get all names/aliases for the journal principal from identity config.
