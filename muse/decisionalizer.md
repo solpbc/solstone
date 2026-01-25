@@ -3,7 +3,7 @@
   "title": "Decision Dossier Generator",
   "description": "Analyzes yesterday's top decision-actions to create detailed dossiers identifying gaps and stakeholder impacts",
   "schedule": "daily",
-  "save": "decision_dossiers.md",
+  "output": "md",
   "tools": "default"
 
 }

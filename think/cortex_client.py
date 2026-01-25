@@ -25,7 +25,6 @@ def cortex_request(
     provider: Optional[str] = None,
     handoff_from: Optional[str] = None,
     config: Optional[Dict[str, Any]] = None,
-    save: Optional[str] = None,
 ) -> str:
     """Create a Cortex agent request via Callosum broadcast.
 
@@ -35,7 +34,6 @@ def cortex_request(
         provider: AI provider - openai, google, or anthropic
         handoff_from: Previous agent ID if this is a handoff request
         config: Provider-specific configuration (model, max_tokens, etc.)
-        save: Optional filename to save result to in current day directory
 
     Returns:
         Agent ID (timestamp-based string)
@@ -77,9 +75,6 @@ def cortex_request(
 
     if handoff_from:
         request["handoff_from"] = handoff_from
-
-    if save:
-        request["save"] = save
 
     # Broadcast request to Callosum
     # Note: callosum_send() signature is send(tract, event, **fields)

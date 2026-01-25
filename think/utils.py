@@ -763,6 +763,49 @@ def get_insight_topic(key: str) -> str:
     return key
 
 
+def get_output_path(
+    day_dir: os.PathLike[str],
+    key: str,
+    segment: str | None = None,
+    output_format: str | None = None,
+) -> Path:
+    """Return output path for insight or agent output.
+
+    Shared utility for determining where to write insight/agent results.
+    Used by both think/insight.py and think/cortex.py.
+
+    Parameters
+    ----------
+    day_dir:
+        Day directory path (YYYYMMDD).
+    key:
+        Insight key or agent persona (e.g., "activity", "chat:sentiment",
+        "decisionalizer", "entities:observer").
+    segment:
+        Optional segment key (HHMMSS_LEN) for segment-level output.
+    output_format:
+        Output format - "json" for JSON, anything else for markdown.
+
+    Returns
+    -------
+    Path
+        Output file path:
+        - With segment: YYYYMMDD/{segment}/{topic}.{ext}
+        - Without segment: YYYYMMDD/insights/{topic}.{ext}
+        Where topic is derived from key and ext is "json" or "md".
+    """
+    day = Path(day_dir)
+    topic = get_insight_topic(key)
+    ext = "json" if output_format == "json" else "md"
+
+    if segment:
+        # Segment output goes directly in segment directory
+        return day / segment / f"{topic}.{ext}"
+    else:
+        # Daily output goes in insights/ subdirectory
+        return day / "insights" / f"{topic}.{ext}"
+
+
 def _load_insight_metadata(md_path: Path) -> dict[str, object]:
     """Load insight metadata from .md file with JSON frontmatter.
 

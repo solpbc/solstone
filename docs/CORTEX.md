@@ -43,7 +43,7 @@ Requests are created via `cortex_request()` from `think.cortex_client`, which br
   "disable_mcp": false,             // Optional: disable MCP tools for this request
   "continue_from": "1234567890122",  // Optional: continue from previous agent
   "facet": "my-project",          // Optional: project context
-  "save": "analysis.md",             // Optional: save result to file in day directory
+  "output": "md",                     // Optional: output format ("md" or "json"), writes to insights/
   "day": "20250109",                  // Optional: YYYYMMDD format, defaults to current day
   "env": {                           // Optional: environment variables for subprocess
     "API_KEY": "secret",
@@ -85,7 +85,7 @@ The initial spawn request (first line of file, written by client).
   "prompt": "User's task or question",
   "provider": "openai",
   "persona": "default",
-  "save": "output.md",
+  "output": "md",
   "day": "20250109",
   "handoff": {},
   "handoff_from": "1234567890122"
@@ -203,15 +203,16 @@ Tool events use `call_id` to pair `tool_start` and `tool_end` events. This allow
 
 The frontend uses this to show real-time status updates as tools execute, changing from "running..." to "✓" when complete.
 
-## Agent Result Saving
+## Agent Output
 
-When an agent completes successfully, its result can be automatically saved to a file in the journal's day directory.
+When an agent completes successfully, its result can be automatically written to a file. This uses the same output path logic as insights.
 
-- Include a `save` field in the request with the desired filename
-- Optional `day` field specifies the target day in YYYYMMDD format (defaults to current day)
-- The result from the `finish` event is written to `<journal>/<day>/<filename>`
-- Saving occurs before any handoff processing
-- Save failures are logged but don't interrupt the agent flow
+- Include an `output` field in the agent's frontmatter with the format ("md" or "json")
+- Output path is derived from persona name + format + schedule:
+  - Daily agents: `YYYYMMDD/insights/{persona}.{ext}`
+  - Segment agents: `YYYYMMDD/{segment}/{persona}.{ext}`
+- Writing occurs before any handoff processing
+- Write failures are logged but don't interrupt the agent flow
 - Commonly used for scheduled agents that generate daily reports
 
 ## Agent Handoff

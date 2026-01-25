@@ -20,45 +20,13 @@ from think.utils import (
     day_path,
     format_day,
     format_segment_times,
-    get_insight_topic,
     get_insights,
+    get_output_path,
     load_insight_hook,
     load_prompt,
     segment_parse,
     setup_cli,
 )
-
-
-def _output_path(
-    day_dir: os.PathLike[str],
-    key: str,
-    segment: str | None = None,
-    output_format: str | None = None,
-) -> Path:
-    """Return output path for insight ``key`` in ``day_dir``.
-
-    Args:
-        day_dir: Day directory path (YYYYMMDD)
-        key: Insight key (e.g., "activity" or "chat:sentiment")
-        segment: Optional segment key (HHMMSS_LEN)
-        output_format: Output format from insight metadata ("json" or None for markdown)
-
-    Returns:
-        Path to output file:
-        - Daily: YYYYMMDD/insights/{topic}.{ext}
-        - Segment: YYYYMMDD/{segment}/{topic}.{ext}
-        Where ext is "json" if output_format=="json", else "md"
-    """
-    day = Path(day_dir)
-    topic = get_insight_topic(key)
-    ext = "json" if output_format == "json" else "md"
-
-    if segment:
-        # Segment insights go directly in segment directory
-        return day / segment / f"{topic}.{ext}"
-    else:
-        # Daily insights go in insights/ subdirectory
-        return day / "insights" / f"{topic}.{ext}"
 
 
 def scan_day(day: str) -> dict[str, list[str]]:
@@ -75,7 +43,7 @@ def scan_day(day: str) -> dict[str, list[str]]:
     pending: list[str] = []
     for key, meta in sorted(daily_insights.items()):
         output_format = meta.get("output")
-        output_path = _output_path(day_dir, key, output_format=output_format)
+        output_path = get_output_path(day_dir, key, output_format=output_format)
         if output_path.exists():
             processed.append(os.path.join("insights", output_path.name))
         else:
@@ -447,7 +415,7 @@ def main() -> None:
         if args.output:
             output_path = Path(args.output)
         else:
-            output_path = _output_path(
+            output_path = get_output_path(
                 day_dir, insight_key, segment=args.segment, output_format=output_format
             )
 

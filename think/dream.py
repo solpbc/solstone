@@ -454,7 +454,7 @@ def run_segment_agents(day: str, segment: str) -> int:
                 cortex_request(
                     prompt=f"Processing segment {segment} from {day}. Use available tools to analyze this specific recording window.",
                     persona=persona_id,
-                    config={"env": {"SEGMENT_KEY": segment}},
+                    config={"segment": segment, "env": {"SEGMENT_KEY": segment}},
                 )
                 spawned += 1
                 logging.info(f"Spawned segment agent: {persona_id}")

@@ -463,8 +463,8 @@ def test_get_status(cortex_service):
     assert set(status["agent_ids"]) == {"111", "222"}
 
 
-def test_save_agent_result(cortex_service, mock_journal):
-    """Test saving agent result to file in day directory."""
+def test_write_output(cortex_service, mock_journal):
+    """Test writing agent output to insights directory."""
     # Mock datetime to return a specific date
     test_date = "20240115"
     from datetime import datetime as dt
@@ -473,89 +473,114 @@ def test_save_agent_result(cortex_service, mock_journal):
     with patch("think.utils.datetime") as mock_datetime:
         mock_datetime.now.return_value = mock_dt
 
-        # Test saving result
+        # Test writing output
         agent_id = "test_agent"
         result = "This is the agent result content"
-        save_filename = "test_output.md"
+        config = {"output": "md", "persona": "my_agent"}
 
-        cortex_service._save_agent_result(agent_id, result, save_filename)
+        cortex_service._write_output(agent_id, result, config)
 
-        # Check file was created in correct location
-        expected_path = mock_journal / test_date / save_filename
+        # Check file was created in insights/ with persona-derived filename
+        expected_path = mock_journal / test_date / "insights" / "my_agent.md"
         assert expected_path.exists()
         assert expected_path.read_text() == result
 
-        # Check directory was created
-        assert (mock_journal / test_date).is_dir()
+        # Check directories were created
+        assert (mock_journal / test_date / "insights").is_dir()
 
 
-def test_save_agent_result_with_error(cortex_service, mock_journal, caplog):
-    """Test save agent result handles errors gracefully."""
+def test_write_output_with_error(cortex_service, mock_journal, caplog):
+    """Test write output handles errors gracefully."""
     import logging
 
     # Make journal read-only to cause error
     with patch("builtins.open", side_effect=PermissionError("Cannot write")):
         with caplog.at_level(logging.ERROR):
-            cortex_service._save_agent_result("agent_id", "result", "output.md")
+            config = {"output": "md", "persona": "test"}
+            cortex_service._write_output("agent_id", "result", config)
 
     # Check error was logged but didn't raise
-    assert "Failed to save agent agent_id result" in caplog.text
+    assert "Failed to write agent agent_id output" in caplog.text
 
 
-def test_save_agent_result_with_day_parameter(cortex_service, mock_journal):
-    """Test saving agent result to a specific day directory."""
-    # Test saving result with explicit day parameter
+def test_write_output_with_day_parameter(cortex_service, mock_journal):
+    """Test writing agent output to a specific day directory."""
+    # Test writing output with explicit day parameter
     agent_id = "test_agent"
     result = "This is the agent result content"
-    save_filename = "test_output.md"
     specified_day = "20240201"
+    config = {"output": "md", "persona": "reporter", "day": specified_day}
 
-    cortex_service._save_agent_result(
-        agent_id, result, save_filename, day=specified_day
-    )
+    cortex_service._write_output(agent_id, result, config)
 
-    # Check file was created in specified day directory
-    expected_path = mock_journal / specified_day / save_filename
+    # Check file was created in specified day's insights directory
+    expected_path = mock_journal / specified_day / "insights" / "reporter.md"
     assert expected_path.exists()
     assert expected_path.read_text() == result
 
-    # Check directory was created
-    assert (mock_journal / specified_day).is_dir()
+    # Check directories were created
+    assert (mock_journal / specified_day / "insights").is_dir()
 
 
-def test_save_agent_result_with_invalid_day(cortex_service, mock_journal, caplog):
-    """Test save agent result with invalid day format."""
-    import logging
+def test_write_output_with_segment(cortex_service, mock_journal):
+    """Test writing segment agent output to segment directory."""
+    # Mock datetime to return a specific date
+    test_date = "20240115"
+    from datetime import datetime as dt
 
-    # Test with invalid day format
-    agent_id = "test_agent"
-    result = "Test content"
-    save_filename = "output.md"
-    invalid_day = "2024-02-01"  # Wrong format
+    mock_dt = dt(2024, 1, 15, 12, 0, 0)
+    with patch("think.utils.datetime") as mock_datetime:
+        mock_datetime.now.return_value = mock_dt
 
-    with caplog.at_level(logging.ERROR):
-        cortex_service._save_agent_result(
-            agent_id, result, save_filename, day=invalid_day
-        )
+        agent_id = "segment_agent"
+        result = "Segment analysis content"
+        config = {"output": "md", "persona": "analyzer", "segment": "143000_600"}
 
-    # Check error was logged
-    assert "Failed to save agent test_agent result" in caplog.text
+        cortex_service._write_output(agent_id, result, config)
 
-    # File should not exist in invalid path
-    assert not (mock_journal / invalid_day / save_filename).exists()
+        # Check file was created in segment directory (not insights/)
+        expected_path = mock_journal / test_date / "143000_600" / "analyzer.md"
+        assert expected_path.exists()
+        assert expected_path.read_text() == result
 
 
-def test_monitor_stdout_with_save(cortex_service, mock_journal):
-    """Test monitor_stdout saves result when save field is present."""
+def test_write_output_json_format(cortex_service, mock_journal):
+    """Test writing agent output in JSON format."""
+    test_date = "20240115"
+    from datetime import datetime as dt
+
+    mock_dt = dt(2024, 1, 15, 12, 0, 0)
+    with patch("think.utils.datetime") as mock_datetime:
+        mock_datetime.now.return_value = mock_dt
+
+        agent_id = "json_agent"
+        result = '{"key": "value"}'
+        config = {"output": "json", "persona": "data_agent"}
+
+        cortex_service._write_output(agent_id, result, config)
+
+        # Check file was created with .json extension
+        expected_path = mock_journal / test_date / "insights" / "data_agent.json"
+        assert expected_path.exists()
+        assert expected_path.read_text() == result
+
+
+def test_monitor_stdout_with_output(cortex_service, mock_journal):
+    """Test monitor_stdout writes output when output field is present."""
     from think.cortex import AgentProcess
 
-    # Create agent with save in request
-    agent_id = "save_test"
+    # Create agent with output in request
+    agent_id = "output_test"
     active_path = mock_journal / "agents" / f"{agent_id}_active.jsonl"
 
-    # Store request with save field
+    # Store request with output field (format only, path derived from persona)
     cortex_service.agent_requests = {
-        agent_id: {"event": "request", "prompt": "test", "save": "output.md"}
+        agent_id: {
+            "event": "request",
+            "prompt": "test",
+            "output": "md",
+            "persona": "test_agent",
+        }
     }
 
     # Create mock process with stdout
@@ -581,27 +606,28 @@ def test_monitor_stdout_with_save(cortex_service, mock_journal):
             with patch.object(cortex_service, "_has_finish_event", return_value=True):
                 cortex_service._monitor_stdout(agent)
 
-    # Check result was saved
-    save_path = mock_journal / test_date / "output.md"
-    assert save_path.exists()
-    assert save_path.read_text() == "Test result"
+    # Check result was written to insights/ with persona-derived filename
+    output_path = mock_journal / test_date / "insights" / "test_agent.md"
+    assert output_path.exists()
+    assert output_path.read_text() == "Test result"
 
 
-def test_monitor_stdout_with_save_and_day(cortex_service, mock_journal):
-    """Test monitor_stdout saves result to specific day when day field is present."""
+def test_monitor_stdout_with_output_and_day(cortex_service, mock_journal):
+    """Test monitor_stdout writes output to specific day when day field is present."""
     from think.cortex import AgentProcess
 
-    # Create agent with save and day in request
-    agent_id = "save_day_test"
+    # Create agent with output and day in request
+    agent_id = "output_day_test"
     active_path = mock_journal / "agents" / f"{agent_id}_active.jsonl"
     specified_day = "20240220"
 
-    # Store request with save and day fields
+    # Store request with output and day fields
     cortex_service.agent_requests = {
         agent_id: {
             "event": "request",
             "prompt": "test",
-            "save": "report.md",
+            "output": "md",
+            "persona": "daily_reporter",
             "day": specified_day,
         }
     }
@@ -621,10 +647,10 @@ def test_monitor_stdout_with_save_and_day(cortex_service, mock_journal):
         with patch.object(cortex_service, "_has_finish_event", return_value=True):
             cortex_service._monitor_stdout(agent)
 
-    # Check result was saved to specified day
-    save_path = mock_journal / specified_day / "report.md"
-    assert save_path.exists()
-    assert save_path.read_text() == "Daily report content"
+    # Check result was written to specified day's insights directory
+    output_path = mock_journal / specified_day / "insights" / "daily_reporter.md"
+    assert output_path.exists()
+    assert output_path.read_text() == "Daily report content"
 
 
 def test_recover_orphaned_agents(cortex_service, mock_journal):

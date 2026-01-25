@@ -406,7 +406,7 @@ class CortexService:
             if self.mcp_server_url and not config.get("disable_mcp", False):
                 config.setdefault("mcp_server_url", self.mcp_server_url)
 
-            # Store the config for later use (e.g., for save field) - thread safe
+            # Store the config for later use (e.g., for output field) - thread safe
             with self.lock:
                 self.agent_requests[agent_id] = config
 
@@ -535,7 +535,7 @@ class CortexService:
 
                     # Handle finish or error event
                     if event.get("event") in ["finish", "error"]:
-                        # Check for save and handoff (only on finish)
+                        # Check for output and handoff (only on finish)
                         if event.get("event") == "finish":
                             result = event.get("result", "")
 
@@ -578,15 +578,12 @@ class CortexService:
                                         f"Failed to log token usage for agent {agent.agent_id}: {e}"
                                     )
 
-                            # Save result if requested
-                            if original_request and original_request.get("save"):
-                                self._save_agent_result(
+                            # Write output if requested
+                            if original_request and original_request.get("output"):
+                                self._write_output(
                                     agent.agent_id,
                                     result,
-                                    original_request["save"],
-                                    original_request.get(
-                                        "day"
-                                    ),  # Pass optional day parameter
+                                    original_request,
                                 )
 
                             # Handle handoff (prefer stored config captured at startup)
@@ -728,26 +725,40 @@ class CortexService:
         except Exception as e:
             self.logger.error(f"Failed to write error and complete: {e}")
 
-    def _save_agent_result(
-        self, agent_id: str, result: str, save_filename: str, day: Optional[str] = None
-    ) -> None:
-        """Save agent result to a file in the specified or current day directory."""
-        try:
-            from think.utils import day_path
+    def _write_output(self, agent_id: str, result: str, config: Dict[str, Any]) -> None:
+        """Write agent output to the appropriate location.
 
-            # day_path now handles None for today, creates dir, and returns Path
+        Output path is derived from persona + output format + schedule:
+        - Daily agents: YYYYMMDD/insights/{persona}.{ext}
+        - Segment agents: YYYYMMDD/{segment}/{persona}.{ext}
+        """
+        try:
+            from think.utils import day_path, get_output_path
+
+            output_format = config.get("output", "md")
+            persona = config.get("persona", "default")
+            segment = config.get("segment")  # Set by dream.py for segment agents
+            day = config.get("day")
+
+            # Get day directory
             day_dir = day_path(day)
 
-            # Write result to save file
-            save_path = day_dir / save_filename
-            with open(save_path, "w", encoding="utf-8") as f:
+            # Derive output path using shared utility
+            output_path = get_output_path(
+                day_dir, persona, segment=segment, output_format=output_format
+            )
+
+            # Ensure parent directory exists
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+
+            with open(output_path, "w", encoding="utf-8") as f:
                 f.write(result)
 
-            self.logger.info(f"Saved agent {agent_id} result to {save_path}")
+            self.logger.info(f"Wrote agent {agent_id} output to {output_path}")
 
         except Exception as e:
-            self.logger.error(f"Failed to save agent {agent_id} result: {e}")
-            # Don't raise - continue with normal flow even if save fails
+            self.logger.error(f"Failed to write agent {agent_id} output: {e}")
+            # Don't raise - continue with normal flow even if write fails
 
     def _spawn_handoff(
         self, parent_id: str, result: str, handoff: Dict[str, Any]
