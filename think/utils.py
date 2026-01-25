@@ -14,9 +14,9 @@ from pathlib import Path
 from string import Template
 from typing import Any, Callable, NamedTuple, Optional
 
+import frontmatter
 import platformdirs
 from dotenv import load_dotenv
-import frontmatter
 from timefhuman import timefhuman
 
 DATE_RE = re.compile(r"\d{8}")
@@ -49,7 +49,9 @@ def _load_raw_templates() -> dict[str, str]:
         for md_path in TEMPLATES_DIR.glob("*.md"):
             var_name = md_path.stem
             try:
-                post = frontmatter.load(md_path, )
+                post = frontmatter.load(
+                    md_path,
+                )
                 _templates_cache[var_name] = post.content.strip()
             except Exception as exc:
                 logging.debug("Failed to load template %s: %s", md_path, exc)
@@ -208,7 +210,9 @@ def load_prompt(
     prompt_dir = Path(base_dir) if base_dir is not None else Path(__file__).parent
     prompt_path = prompt_dir / filename
     try:
-        post = frontmatter.load(prompt_path, )
+        post = frontmatter.load(
+            prompt_path,
+        )
         text = post.content.strip()
         metadata = dict(post.metadata)
     except FileNotFoundError as exc:  # pragma: no cover - caller handles missing prompt
@@ -779,7 +783,9 @@ def _load_insight_metadata(md_path: Path) -> dict[str, object]:
     }
 
     try:
-        post = frontmatter.load(md_path, )
+        post = frontmatter.load(
+            md_path,
+        )
         if post.metadata:
             info.update(post.metadata)
     except Exception as exc:  # pragma: no cover - metadata optional
@@ -789,10 +795,18 @@ def _load_insight_metadata(md_path: Path) -> dict[str, object]:
     if "color" not in info:
         info["color"] = "#6c757d"
 
-    # Check for optional post-processing hook
-    hook_path = md_path.with_suffix(".py")
-    if hook_path.exists():
-        info["hook_path"] = str(hook_path)
+    # Resolve hook path - named hook takes precedence over co-located .py
+    hook_name = info.get("hook")
+    if hook_name and isinstance(hook_name, str):
+        # Named hook: look in think/insights/{hook}.py
+        named_hook_path = Path(__file__).parent / "insights" / f"{hook_name}.py"
+        if named_hook_path.exists():
+            info["hook_path"] = str(named_hook_path)
+    else:
+        # Co-located hook: check for .py file next to the .md file
+        hook_path = md_path.with_suffix(".py")
+        if hook_path.exists():
+            info["hook_path"] = str(hook_path)
 
     return info
 
@@ -1150,7 +1164,9 @@ def get_agent(persona: str = "default", facet: str | None = None) -> dict:
         raise FileNotFoundError(f"Agent persona not found: {persona}")
 
     # Load config from frontmatter
-    post = frontmatter.load(md_path, )
+    post = frontmatter.load(
+        md_path,
+    )
     config = dict(post.metadata) if post.metadata else {}
 
     # Extract instructions config if present

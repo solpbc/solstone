@@ -1,3 +1,10 @@
+{
+
+  "title": "Anticipation Extraction",
+  "description": "Extracts structured anticipation events (future scheduled items) from insight summaries."
+
+}
+
 # Anticipation JSON Conversion
 
 ## Objective

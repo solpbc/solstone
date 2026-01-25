@@ -3,6 +3,7 @@
   "title": "Knowledge Graph",
   "description": "Extracts people, projects, tools and other entities from the transcript and maps how they relate. Produces a Markdown report plus narrative describing network hubs and bridges discovered during the day.",
   "occurrences": "For each entity interaction or relationship mentioned, create an occurrence describing the connection. Include start and end times when the relationship is visible, and capture the type of link such as works-on or discusses-with.",
+  "hook": "occurrence",
   "color": "#6f42c1",
   "frequency": "daily"
 

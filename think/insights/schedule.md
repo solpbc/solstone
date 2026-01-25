@@ -2,8 +2,7 @@
 
   "title": "Upcoming Schedule",
   "description": "Identifies all future calendar events and scheduled activities noted in transcripts. Extracts dates, times, participants, and event details for anything scheduled beyond today.",
-  "occurrences": false,
-  "anticipations": true,
+  "hook": "anticipation",
   "color": "#6f42c1",
   "frequency": "daily"
 

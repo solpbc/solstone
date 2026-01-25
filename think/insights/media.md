@@ -3,6 +3,7 @@
   "title": "Media Consumption",
   "description": "Identifies when videos, articles, music or social content are consumed. Classifies each instance as work or personal and reports the source in chronological sections.",
   "occurrences": "Create an occurrence whenever media consumption is noted, noting the application or site and whether it was for work or leisure. Include a short summary of the topic if visible.",
+  "hook": "occurrence",
   "color": "#fd7e14",
   "frequency": "daily",
   "disabled": true

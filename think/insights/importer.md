@@ -3,8 +3,6 @@
   "color": "blue",
   "output": null,
   "extract": false,
-  "occurrences": false,
-  "anticipations": false,
   "frequency": "daily"
 
 }

@@ -3,6 +3,7 @@
   "title": "Research Needs",
   "description": "Highlights moments where additional information would help progress work. Produces a list of targeted research tasks with time ranges and context.",
   "occurrences": "Log an occurrence each time a knowledge gap or open question appears. Mention the problem area and any suggested resources to investigate so the task can be assigned.",
+  "hook": "occurrence",
   "color": "#ff5722",
   "frequency": "daily"
 

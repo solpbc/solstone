@@ -273,18 +273,35 @@ Define custom insight prompts that integrate with solstone's insight generation 
 - Keys are namespaced as `{app}:{topic}` (e.g., `my_app:weekly_summary`)
 - Outputs go to `JOURNAL/YYYYMMDD/insights/_<app>_<topic>.md` (or `.json` if `output: "json"`)
 
-**Metadata format:** Same schema as system insights in `think/insights/*.md` - JSON frontmatter includes `title`, `description`, `color`, `frequency` (required), `occurrences`, and `output` fields. The `frequency` field must be `"segment"` or `"daily"` - insights with missing or invalid frequency are skipped with a warning. Set `output: "json"` for structured JSON output instead of markdown.
+**Metadata format:** Same schema as system insights in `think/insights/*.md` - JSON frontmatter includes `title`, `description`, `color`, `frequency` (required), `hook`, and `output` fields. The `frequency` field must be `"segment"` or `"daily"` - insights with missing or invalid frequency are skipped with a warning. Set `output: "json"` for structured JSON output instead of markdown.
+
+**Event extraction via hooks:** To extract structured events from insight output, use the `hook` field:
+
+- `"hook": "occurrence"` - Extracts past events to `facets/{facet}/events/{day}.jsonl`
+- `"hook": "anticipation"` - Extracts future scheduled events
+
+The `occurrences` field (optional string) provides topic-specific extraction guidance when using the occurrence hook. Example:
+
+```json
+{
+  "title": "Meeting Summary",
+  "frequency": "daily",
+  "hook": "occurrence",
+  "occurrences": "Each meeting should generate an occurrence with start and end times, participants, and summary."
+}
+```
 
 **App-data insights:** For insights from app-specific data (not transcripts), store in `JOURNAL/apps/{app}/insights/*.md` - these are automatically indexed.
 
 **Template variables:** Insight prompts can use template variables like `$name`, `$preferred`, `$daily_insight`, and context variables like `$day` and `$date`. See [PROMPT_TEMPLATES.md](PROMPT_TEMPLATES.md) for the complete template system documentation.
 
-**Post-processing hooks:** Insights support optional `.py` hooks for transforming output programmatically:
+**Custom hooks:** Insights also support custom `.py` hooks for transforming output programmatically:
 
-- Create `{topic}.py` alongside `{topic}.md`
+- Create `{topic}.py` alongside `{topic}.md` for co-located hooks
+- Or use `"hook": "my_hook"` to reference `think/insights/my_hook.py`
 - Hook must define a `process(result, context)` function
 - `result` is the LLM output (markdown or JSON string)
-- `context` dict contains: `day`, `segment`, `insight_key`, `output_path`, `insight_meta`, `transcript`
+- `context` dict contains: `day`, `segment`, `multi_segment`, `insight_key`, `output_path`, `insight_meta`, `transcript`
 - Return modified string, or `None` to use original result
 - Hook errors are logged but don't crash the pipeline (falls back to original)
 
@@ -297,6 +314,7 @@ def process(result: str, context: dict) -> str | None:
 
 **Reference implementations:**
 - System insight templates: `think/insights/*.md`
+- Extraction hooks: `think/insights/occurrence.py`, `think/insights/anticipation.py`
 - Discovery logic: `think/utils.py` - `get_insights()`, `get_insights_by_frequency()`, `get_insight_topic()`
 - Hook loading: `think/utils.py` - `load_insight_hook()`
 

@@ -84,10 +84,14 @@ def test_get_insights_by_frequency():
     segment = utils.get_insights_by_frequency("segment")
     assert len(segment) > 0
     for key, meta in segment.items():
-        assert meta.get("frequency") == "segment", f"{key} should have frequency=segment"
+        assert (
+            meta.get("frequency") == "segment"
+        ), f"{key} should have frequency=segment"
 
     # Verify no overlap
-    assert not set(daily.keys()) & set(segment.keys()), "daily and segment should not overlap"
+    assert not set(daily.keys()) & set(
+        segment.keys()
+    ), "daily and segment should not overlap"
 
     # Unknown frequency returns empty dict
     assert utils.get_insights_by_frequency("hourly") == {}
@@ -110,16 +114,24 @@ def test_get_insights_by_frequency_include_disabled(monkeypatch):
 
 
 def test_all_system_insights_have_frequency():
-    """Test that all system insights have valid frequency field."""
+    """Test that all runnable system insights have valid frequency field.
+
+    Hook-only insights (occurrence, anticipation) are allowed to omit frequency
+    since they're invoked via the 'hook' field, not scheduled directly.
+    """
     utils = importlib.import_module("think.utils")
 
     insights = utils.get_insights()
     valid_frequencies = ("segment", "daily")
+    # Hook-only insights that don't need frequency
+    hook_only_insights = {"occurrence", "anticipation"}
 
     for key, meta in insights.items():
-        if meta.get("source") == "system":
+        if meta.get("source") == "system" and key not in hook_only_insights:
             freq = meta.get("frequency")
-            assert freq is not None, f"System insight '{key}' missing required 'frequency' field"
-            assert freq in valid_frequencies, (
-                f"System insight '{key}' has invalid frequency '{freq}'"
-            )
+            assert (
+                freq is not None
+            ), f"System insight '{key}' missing required 'frequency' field"
+            assert (
+                freq in valid_frequencies
+            ), f"System insight '{key}' has invalid frequency '{freq}'"

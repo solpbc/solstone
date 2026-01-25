@@ -786,10 +786,9 @@ def update_observe() -> Any:
 
 def _build_insight_info(key: str, meta: dict) -> dict:
     """Build insight info dict for API response."""
-    # Determine if insight supports extraction
-    has_occ = meta.get("occurrences") not in (None, False)
-    has_antic = meta.get("anticipations") is True
-    has_extraction = has_occ or has_antic
+    # Determine if insight supports extraction via named hook
+    hook = meta.get("hook")
+    has_extraction = hook in ("occurrence", "anticipation")
 
     info = {
         "key": key,

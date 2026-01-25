@@ -2,7 +2,6 @@
 
   "title": "Activity Synthesis",
   "description": "Interprets each segment to extract meaning, intent, and searchability. Focuses on the 'why' behind actions - tasks, progress states, facets, and keywords for discovery.",
-  "occurrences": false,
   "color": "#00bcd4",
   "frequency": "segment"
 

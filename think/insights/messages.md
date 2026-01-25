@@ -3,6 +3,7 @@
   "title": "Messaging Activity",
   "description": "Tracks use of email and chat applications across the day. Each interaction is summarized with participants, app used and visible message content.",
   "occurrences": "Create an occurrence for every message read or sent. Include the time block, app name, contacts involved and whether Jeremie was reading or replying. Summaries should capture any visible text.",
+  "hook": "occurrence",
   "color": "#6c757d",
   "frequency": "daily"
 

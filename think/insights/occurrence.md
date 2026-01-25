@@ -1,3 +1,10 @@
+{
+
+  "title": "Occurrence Extraction",
+  "description": "Extracts structured occurrence events from insight summaries."
+
+}
+
 # Occurrence JSON Conversion
 
 ## Objective

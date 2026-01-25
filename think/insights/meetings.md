@@ -3,6 +3,7 @@
   "title": "Meeting Summary",
   "description": "Detects all meetings throughout the day by analyzing audio and screen cues. For each meeting it notes time range, participants, topics discussed and whether slides were shown.",
   "occurrences": "Each meeting should generate an occurrence with start and end times, list of participants and a concise summary. If slides are present, mention them in the details field.",
+  "hook": "occurrence",
   "color": "#e83e8c",
   "frequency": "daily"
 

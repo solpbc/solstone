@@ -139,15 +139,15 @@ which automatically routes to the configured provider based on context.
 
 ## Insight map keys
 
-`think.utils.get_insights()` reads the prompt files under `think/insights` and
+`think.utils.get_insights()` reads the `.md` prompt files under `think/insights` and
 returns a dictionary keyed by insight name. Each entry contains:
 
-- `path` – the prompt text file path
+- `path` – the prompt file path
 - `color` – UI color hex string
-- `mtime` – modification time of the `.txt` file
-- Any additional keys from the matching `<insight>.json` metadata file such as
-  `title`, `description`, `occurrences`, or `instructions`
+- `mtime` – modification time of the `.md` file
+- Additional keys from JSON frontmatter such as `title`, `description`, `hook`, or `instructions`
 
+The `hook` field enables event extraction by invoking named hooks like `"occurrence"` or `"anticipation"`.
 The `instructions` key allows customizing system prompts and source filtering.
 See [APPS.md](APPS.md#instructions-configuration) for the full schema.
 

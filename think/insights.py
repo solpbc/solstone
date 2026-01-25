@@ -354,3 +354,152 @@ def format_insight(
     raw_chunks = chunk_markdown(text)
     chunks = [{"markdown": render_chunk(c)} for c in raw_chunks]
     return chunks, {}
+
+
+# ---------------------------------------------------------------------------
+# Extraction Hook Utilities
+# ---------------------------------------------------------------------------
+# Shared utilities for insight extraction hooks (occurrence.py, anticipation.py)
+
+import json
+import logging
+import os
+from pathlib import Path
+
+# Minimum content length for meaningful event extraction
+MIN_EXTRACTION_CHARS = 50
+
+
+def should_skip_extraction(result: str, context: dict) -> str | None:
+    """Check if extraction should be skipped and return reason, or None to proceed.
+
+    Args:
+        result: The generated insight markdown content.
+        context: Hook context dict with insight_meta and multi_segment.
+
+    Returns:
+        Skip reason string if extraction should be skipped, None otherwise.
+    """
+    insight_meta = context.get("insight_meta", {})
+
+    # Skip if extraction disabled via journal config
+    if insight_meta.get("extract") is False:
+        return "extraction disabled via journal config"
+
+    # Skip for JSON output (output IS the structured data)
+    if insight_meta.get("output") == "json":
+        return "JSON output (already structured)"
+
+    # Skip in multi-segment mode
+    if context.get("multi_segment"):
+        return "multi-segment mode"
+
+    # Skip for minimal content
+    if len(result.strip()) < MIN_EXTRACTION_CHARS:
+        return f"minimal content ({len(result.strip())} chars < {MIN_EXTRACTION_CHARS})"
+
+    return None
+
+
+def write_events_jsonl(
+    events: list[dict],
+    topic: str,
+    occurred: bool,
+    source_insight: str,
+    capture_day: str,
+) -> list[Path]:
+    """Write events to facet-based JSONL files.
+
+    Groups events by facet and writes each to the appropriate file:
+    facets/{facet}/events/{event_day}.jsonl
+
+    Args:
+        events: List of event dictionaries from extraction.
+        topic: Source insight topic (e.g., "meetings", "schedule").
+        occurred: True for occurrences, False for anticipations.
+        source_insight: Relative path to source insight file.
+        capture_day: Day the insight was captured (YYYYMMDD).
+
+    Returns:
+        List of paths to written JSONL files.
+    """
+    from think.utils import get_journal
+
+    journal = get_journal()
+
+    # Group events by (facet, event_day)
+    grouped: dict[tuple[str, str], list[dict]] = {}
+
+    for event in events:
+        facet = event.get("facet", "")
+        if not facet:
+            continue  # Skip events without facet
+
+        # Determine the event day
+        if occurred:
+            # Occurrences use capture day
+            event_day = capture_day
+        else:
+            # Anticipations use their scheduled date
+            event_date = event.get("date", "")
+            # Convert YYYY-MM-DD to YYYYMMDD
+            event_day = event_date.replace("-", "") if event_date else capture_day
+
+        if not event_day:
+            continue
+
+        key = (facet, event_day)
+        if key not in grouped:
+            grouped[key] = []
+
+        # Enrich event with metadata
+        enriched = dict(event)
+        enriched["topic"] = topic
+        enriched["occurred"] = occurred
+        enriched["source"] = source_insight
+
+        grouped[key].append(enriched)
+
+    # Write each group to its JSONL file
+    written_paths: list[Path] = []
+
+    for (facet, event_day), facet_events in grouped.items():
+        events_dir = Path(journal) / "facets" / facet / "events"
+        events_dir.mkdir(parents=True, exist_ok=True)
+
+        jsonl_path = events_dir / f"{event_day}.jsonl"
+        with open(jsonl_path, "a", encoding="utf-8") as f:
+            for event in facet_events:
+                f.write(json.dumps(event, ensure_ascii=False) + "\n")
+
+        written_paths.append(jsonl_path)
+
+    return written_paths
+
+
+def compute_source_insight(context: dict) -> str:
+    """Compute relative source insight path from hook context.
+
+    Args:
+        context: Hook context dict with day, segment, insight_key, output_path.
+
+    Returns:
+        Relative path like "20240101/insights/meetings.md".
+    """
+    from think.utils import get_insight_topic, get_journal
+
+    day = context.get("day", "")
+    output_path = context.get("output_path", "")
+    insight_key = context.get("insight_key", "unknown")
+    journal = get_journal()
+
+    try:
+        return os.path.relpath(output_path, journal)
+    except ValueError:
+        segment = context.get("segment")
+        topic = get_insight_topic(insight_key)
+        return os.path.join(
+            day,
+            "insights" if not segment else segment,
+            f"{topic}.md",
+        )

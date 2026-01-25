@@ -3,6 +3,7 @@
   "title": "Day Overview",
   "description": "Summarizes the overall flow of the workday. Looks for patterns in focus, energy, context switching and highlights productivity insights in a Markdown report.",
   "occurrences": "Create an occurrence for noteworthy shifts in work rhythms or focus. Include timestamps when deep work starts or ends, or when energy levels noticeably change. Classify each as work or personal based on the surrounding context.",
+  "hook": "occurrence",
   "color": "#17a2b8",
   "frequency": "daily"
 
