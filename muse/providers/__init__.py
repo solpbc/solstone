@@ -28,10 +28,6 @@ from typing import Any, Dict, List
 #   - generate(contents, model, ...) -> str
 #   - agenerate(contents, model, ...) -> str
 #   - run_agent(config, on_event) -> str
-#
-# The "claude" provider (Claude Code SDK) is intentionally excluded from this
-# registry as it uses a fundamentally different execution model (local CLI)
-# and is handled as a special case in muse/agents.py.
 # ---------------------------------------------------------------------------
 
 PROVIDER_REGISTRY: Dict[str, str] = {

@@ -6,8 +6,8 @@
 
 Usage:
     muse "prompt"                       # Run through Cortex (default)
-    muse -p doctor "prompt"             # Use specific persona
-    muse --direct -p doctor "prompt"    # Run directly, bypass Cortex
+    muse -p default "prompt"            # Use specific persona
+    muse --direct -p default "prompt"   # Run directly, bypass Cortex
     echo "prompt" | muse                # Read prompt from stdin
 """
 
@@ -127,23 +127,18 @@ def build_agent_config(
         app, name = "system", persona
     agent_context = f"agent.{app}.{name}"
 
-    # Check for claude: true flag (special case for Claude Code SDK)
-    if config.get("claude"):
-        config["provider"] = "claude"
-        # Claude SDK doesn't need model - it uses its own
-    else:
-        # Resolve default provider and model from context
-        default_provider, model = resolve_provider(agent_context)
+    # Resolve default provider and model from context
+    default_provider, model = resolve_provider(agent_context)
 
-        # Provider can be overridden by parameter or persona config
-        final_provider = provider or config.get("provider") or default_provider
+    # Provider can be overridden by parameter or persona config
+    final_provider = provider or config.get("provider") or default_provider
 
-        # If provider was overridden, re-resolve model for that provider
-        if final_provider != default_provider:
-            model = resolve_model_for_provider(agent_context, final_provider)
+    # If provider was overridden, re-resolve model for that provider
+    if final_provider != default_provider:
+        model = resolve_model_for_provider(agent_context, final_provider)
 
-        config["provider"] = final_provider
-        config["model"] = model
+    config["provider"] = final_provider
+    config["model"] = model
 
     # Expand tools if it's a string (tool pack name)
     tools_config = config.get("tools")
@@ -267,12 +262,10 @@ def run_direct(
     # Route to appropriate provider using registry
     from muse.providers import PROVIDER_REGISTRY, get_provider_module
 
-    if provider_name == "claude":
-        from muse import claude as provider_mod
-    elif provider_name in PROVIDER_REGISTRY:
+    if provider_name in PROVIDER_REGISTRY:
         provider_mod = get_provider_module(provider_name)
     else:
-        valid = ", ".join(sorted(PROVIDER_REGISTRY.keys()) + ["claude"])
+        valid = ", ".join(sorted(PROVIDER_REGISTRY.keys()))
         raise ValueError(
             f"Unknown provider: {provider_name!r}. Valid providers: {valid}"
         )
@@ -297,8 +290,8 @@ def main() -> None:
         epilog="""
 Examples:
   muse "What time is it?"              Run with default persona through Cortex
-  muse -p doctor "check health"        Run doctor persona
-  muse --direct -p doctor "check"      Run directly, bypass Cortex
+  muse -p joke_bot "tell me a joke"    Run with specific persona
+  muse --direct "prompt"               Run directly, bypass Cortex
   echo "prompt" | muse                 Read prompt from stdin
   muse --json "prompt" | jq .event     JSON output for scripting
 """,
@@ -309,7 +302,7 @@ Examples:
         "-p", "--persona", default="default", help="Agent persona (default: default)"
     )
     parser.add_argument(
-        "-b", "--provider", help="Override provider (openai, anthropic, google, claude)"
+        "-b", "--provider", help="Override provider (openai, anthropic, google)"
     )
     parser.add_argument(
         "--direct", action="store_true", help="Run directly, bypass Cortex"

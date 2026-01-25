@@ -397,7 +397,7 @@ def test_spawn_handoff(cortex_service, mock_journal):
     result = "Create a new matter for AI research"
     handoff = {
         "persona": "matter_editor",
-        "provider": "claude",
+        "provider": "anthropic",
         "facet": "test",
         "max_turns": 5,
     }
@@ -412,7 +412,7 @@ def test_spawn_handoff(cortex_service, mock_journal):
         mock_request.assert_called_once_with(
             prompt=result,
             persona="matter_editor",
-            provider="claude",
+            provider="anthropic",
             handoff_from=parent_id,
             config={"facet": "test", "max_turns": 5},
         )

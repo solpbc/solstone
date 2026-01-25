@@ -16,25 +16,6 @@ def pytest_configure(config):
     config.addinivalue_line(
         "markers", "requires_api: mark test as requiring external API access"
     )
-    config.addinivalue_line(
-        "markers", "requires_claude_sdk: mark test as requiring Claude Agent SDK"
-    )
-
-
-def pytest_collection_modifyitems(config, items):
-    """Skip tests that require claude_agent_sdk if it's not installed."""
-    try:
-        import claude_agent_sdk  # noqa: F401
-
-        sdk_available = True
-    except ImportError:
-        sdk_available = False
-
-    if not sdk_available:
-        skip_claude = pytest.mark.skip(reason="claude_agent_sdk not installed")
-        for item in items:
-            if "requires_claude_sdk" in item.keywords:
-                item.add_marker(skip_claude)
 
 
 @pytest.fixture(scope="session")

@@ -339,24 +339,19 @@ class CortexService:
                 app, name = "system", persona
             agent_context = f"agent.{app}.{name}"
 
-            # Check for claude: true flag (special case for Claude Code SDK)
-            if config.get("claude"):
-                config["provider"] = "claude"
-                # Claude SDK doesn't need model - it uses its own
-            else:
-                # Resolve default provider and model from context
-                default_provider, model = resolve_provider(agent_context)
+            # Resolve default provider and model from context
+            default_provider, model = resolve_provider(agent_context)
 
-                # Provider can be overridden by request or persona config
-                # Model is always resolved from context tier + final provider
-                provider = config.get("provider") or default_provider
+            # Provider can be overridden by request or persona config
+            # Model is always resolved from context tier + final provider
+            provider = config.get("provider") or default_provider
 
-                # If provider was overridden, re-resolve model for that provider
-                if provider != default_provider:
-                    model = resolve_model_for_provider(agent_context, provider)
+            # If provider was overridden, re-resolve model for that provider
+            if provider != default_provider:
+                model = resolve_model_for_provider(agent_context, provider)
 
-                config["provider"] = provider
-                config["model"] = model
+            config["provider"] = provider
+            config["model"] = model
 
             # Capture handoff configuration for post-run processing while
             # leaving it in the merged config for logging transparency.
@@ -778,11 +773,9 @@ class CortexService:
             # the handoff persona resolve its own provider from context
             provider = handoff_config.pop("provider", None)
 
-            # Ensure we do not propagate parent handoff metadata or claude flag.
-            # Each persona must declare claude: true in its own config.
+            # Ensure we do not propagate parent handoff metadata.
             handoff_config.pop("handoff", None)
             handoff_config.pop("handoff_from", None)
-            handoff_config.pop("claude", None)
             handoff_config.pop("model", None)
 
             # Inherit env from parent if not explicitly set in handoff config

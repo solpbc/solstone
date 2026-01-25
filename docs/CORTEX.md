@@ -243,9 +243,6 @@ Personas define specialized behaviors, tool usage patterns, and facet expertise.
 ### Persona Configuration Options
 
 The JSON frontmatter for a persona can include:
-- `claude`: Boolean flag to use Claude Code SDK instead of API providers
-  - When true, uses filesystem tools instead of MCP; requires `facet` in request
-  - This flag is NOT inherited by handoff agents
 - `max_tokens`: Maximum response token limit
 - `tools`: MCP tools configuration (string or array)
   - String: Comma-separated pack names (e.g., `"journal"`, `"journal, todo"`) - expanded via `get_tools()`
@@ -281,7 +278,7 @@ This allows controlling model selection via tier configuration rather than hardc
 {
   "providers": {
     "contexts": {
-      "agent.system.doctor": {"tier": 1},
+      "agent.system.default": {"tier": 1},
       "agent.*": {"tier": 2}
     }
   }
@@ -294,7 +291,6 @@ The Model Context Protocol (MCP) provides tools for agent-journal interaction:
 
 ### Backend Support
 - **OpenAI, Anthropic, Google**: Full MCP tool support via HTTP transport
-- **Claude**: Uses filesystem tools instead; requires `facet` configuration in spawn request
 
 ### Tool Discovery
 MCP tools are provided by the `muse.mcp_tools` FastMCP server, which:
@@ -310,10 +306,6 @@ The system supports multiple AI providers, each implementing the same event inte
 - **OpenAI** (`muse/providers/openai.py`): GPT models with OpenAI Agents SDK
 - **Google** (`muse/providers/google.py`): Gemini models with Google AI SDK
 - **Anthropic** (`muse/providers/anthropic.py`): Claude models with Anthropic SDK
-- **Claude** (`muse/claude.py`): Claude models via Claude Code SDK
-  - Uses filesystem tools (Read, Write, Edit, etc.) instead of MCP
-  - Requires `facet` configuration specifying journal facet directory
-  - Operates within facet-scoped file permissions
 
 All providers:
 - Emit JSON events to stdout (one per line)

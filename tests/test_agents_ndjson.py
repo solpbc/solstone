@@ -65,11 +65,6 @@ def mock_all_providers(monkeypatch):
         mock_module.run_agent = mock_run_agent
         monkeypatch.setitem(sys.modules, f"muse.providers.{provider_name}", mock_module)
 
-    # Mock claude which is still in muse/ (not a full provider)
-    mock_module = MagicMock()
-    mock_module.run_agent = mock_run_agent
-    monkeypatch.setitem(sys.modules, "muse.claude", mock_module)
-
     monkeypatch.setitem(sys.modules, "agents", MagicMock())
 
 

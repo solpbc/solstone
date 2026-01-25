@@ -18,7 +18,7 @@ Cortex (orchestrator)
    ├── MCP HTTP server (tools)
    └── Agent subprocess management
           ↓
-   Providers (openai, google, anthropic, claude)
+   Providers (openai, google, anthropic)
 ```
 
 ## Providers
@@ -28,7 +28,6 @@ Cortex (orchestrator)
 | OpenAI | `muse/providers/openai.py` | GPT models via Agents SDK |
 | Google | `muse/providers/google.py` | Gemini models |
 | Anthropic | `muse/providers/anthropic.py` | Claude via Anthropic SDK |
-| Claude | `muse/claude.py` | Claude Code SDK with filesystem tools |
 
 Providers implement `generate()`, `agenerate()`, and `run_agent()` functions. See [PROVIDERS.md](PROVIDERS.md) for implementation details.
 

@@ -328,14 +328,11 @@ async def main_async() -> None:
                 app_logger.debug(f"Processing request: provider={provider}")
 
                 # Route to appropriate provider module
-                # "claude" is a special case (Claude Code SDK) handled separately
-                if provider == "claude":
-                    from . import claude as provider_mod
-                elif provider in PROVIDER_REGISTRY:
+                if provider in PROVIDER_REGISTRY:
                     provider_mod = get_provider_module(provider)
                 else:
                     # Explicit error for unknown providers
-                    valid = ", ".join(sorted(PROVIDER_REGISTRY.keys()) + ["claude"])
+                    valid = ", ".join(sorted(PROVIDER_REGISTRY.keys()))
                     raise ValueError(
                         f"Unknown provider: {provider!r}. Valid providers: {valid}"
                     )
