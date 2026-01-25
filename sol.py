@@ -60,7 +60,6 @@ COMMANDS: dict[str, str] = {
     "observe-linux": "observe.linux.observer",
     "observe-macos": "observe.macos.observer",
     # muse package - AI agents and MCP
-    "muse": "muse.cli",
     "agents": "muse.agents",
     "cortex": "muse.cortex",
     "mcp": "muse.mcp",
@@ -108,7 +107,6 @@ GROUPS: dict[str, list[str]] = {
         "observer",
     ],
     "Muse (AI agents)": [
-        "muse",
         "agents",
         "cortex",
         "mcp",
