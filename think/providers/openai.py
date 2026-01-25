@@ -225,7 +225,7 @@ async def run_agent(
     if not model:
         raise ValueError("Missing 'model' in config - should be set by Cortex")
 
-    max_tokens = config.get("max_tokens", _DEFAULT_MAX_TOKENS)
+    max_output_tokens = config.get("max_output_tokens", _DEFAULT_MAX_TOKENS)
     max_turns = config.get("max_turns", _DEFAULT_MAX_TURNS)
     disable_mcp = config.get("disable_mcp", False)
     continue_from = config.get("continue_from")
@@ -249,7 +249,7 @@ async def run_agent(
 
     # Model settings: always enable reasoning with detailed summaries
     model_settings = ModelSettings(
-        max_tokens=max_tokens,
+        max_tokens=max_output_tokens,
         reasoning=_DEFAULT_REASONING,
     )
 

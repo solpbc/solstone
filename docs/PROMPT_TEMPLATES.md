@@ -117,6 +117,8 @@ Your specific instructions here...
 
 The `$segment_insight` or `$daily_insight` template provides standardized context about what's being analyzed, while the rest of the prompt defines the specific analysis task.
 
+**Optional model configuration:** Add `max_output_tokens` (response length limit) and `thinking_budget` (model thinking token budget) to override provider defaults.
+
 **Reference:** `muse/*.md` for examples (files with `schedule` field but no `tools` field)
 
 ### For Agents
@@ -139,6 +141,8 @@ Agent prompts are split into two parts:
 2. **User instruction** - Agent-specific `.md` file (e.g., `muse/default.md`)
 
 The system instruction establishes the journal partnership context. The user instruction defines the agent's specific role and capabilities.
+
+**Optional model configuration:** Add `max_output_tokens` (response length limit) and `thinking_budget` (model thinking token budget) to override provider defaults. Note: OpenAI uses fixed reasoning and ignores `thinking_budget`.
 
 **Reference:** `think/utils.py` → `get_agent()` for agent configuration loading
 

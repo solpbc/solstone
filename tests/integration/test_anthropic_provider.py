@@ -56,7 +56,7 @@ def test_anthropic_provider_basic():
             "provider": "anthropic",
             "model": CLAUDE_SONNET_4,
             "persona": "default",
-            "max_tokens": 100,
+            "max_output_tokens": 100,
             "disable_mcp": True,
         }
     )
@@ -160,7 +160,7 @@ def test_anthropic_provider_with_thinking():
             "provider": "anthropic",
             "persona": "default",
             "model": CLAUDE_SONNET_4,
-            "max_tokens": 2048,
+            "max_output_tokens": 2048,
             "disable_mcp": True,
         }
     )

@@ -81,6 +81,25 @@ def get_or_create_client(client: genai.Client | None = None) -> genai.Client:
     return client
 
 
+def _compute_agent_thinking_params(
+    max_output_tokens: int, thinking_budget: int | None
+) -> tuple[int, int]:
+    """Compute total tokens and effective thinking budget for agent run.
+
+    Args:
+        max_output_tokens: Maximum output tokens from config.
+        thinking_budget: Thinking budget from config, or None for dynamic.
+
+    Returns:
+        Tuple of (total_tokens, effective_thinking_budget).
+        total_tokens = max_output_tokens + (thinking_budget or 0)
+        effective_thinking_budget = thinking_budget if provided, else -1 (dynamic)
+    """
+    total_tokens = max_output_tokens + (thinking_budget or 0)
+    effective_thinking_budget = thinking_budget if thinking_budget is not None else -1
+    return total_tokens, effective_thinking_budget
+
+
 def _build_generate_config(
     temperature: float,
     max_output_tokens: int,
@@ -504,7 +523,8 @@ async def run_agent(
     if not model:
         raise ValueError("Missing 'model' in config - should be set by Cortex")
 
-    max_tokens = config.get("max_tokens", _DEFAULT_MAX_TOKENS)
+    max_output_tokens = config.get("max_output_tokens", _DEFAULT_MAX_TOKENS)
+    thinking_budget = config.get("thinking_budget")  # None = dynamic (-1)
     disable_mcp = config.get("disable_mcp", False)
     persona = config.get("persona", "default")
 
@@ -601,15 +621,19 @@ async def run_agent(
                 else:
                     function_calling_config = types.FunctionCallingConfig(mode="AUTO")
 
+                total_tokens, effective_thinking_budget = (
+                    _compute_agent_thinking_params(max_output_tokens, thinking_budget)
+                )
+
                 cfg = types.GenerateContentConfig(
-                    max_output_tokens=max_tokens,
+                    max_output_tokens=total_tokens,
                     tools=[mcp.session],
                     tool_config=types.ToolConfig(
                         function_calling_config=function_calling_config
                     ),
                     thinking_config=types.ThinkingConfig(
                         include_thoughts=True,
-                        thinking_budget=-1,  # Enable dynamic thinking
+                        thinking_budget=effective_thinking_budget,
                     ),
                 )
 
@@ -621,11 +645,15 @@ async def run_agent(
                 tool_call_count = tool_hooks._counter
         else:
             # No MCP tools - just basic config
+            total_tokens, effective_thinking_budget = _compute_agent_thinking_params(
+                max_output_tokens, thinking_budget
+            )
+
             cfg = types.GenerateContentConfig(
-                max_output_tokens=max_tokens,
+                max_output_tokens=total_tokens,
                 thinking_config=types.ThinkingConfig(
                     include_thoughts=True,
-                    thinking_budget=-1,  # Enable dynamic thinking
+                    thinking_budget=effective_thinking_budget,
                 ),
             )
 

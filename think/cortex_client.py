@@ -33,7 +33,7 @@ def cortex_request(
         persona: Agent persona - system (e.g., "default") or app-qualified (e.g., "entities:entity_assist")
         provider: AI provider - openai, google, or anthropic
         handoff_from: Previous agent ID if this is a handoff request
-        config: Provider-specific configuration (model, max_tokens, etc.)
+        config: Provider-specific configuration (model, max_output_tokens, thinking_budget, etc.)
 
     Returns:
         Agent ID (timestamp-based string)

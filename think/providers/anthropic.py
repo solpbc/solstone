@@ -81,6 +81,25 @@ def _compute_thinking_params(max_tokens: int) -> tuple[int, int]:
     return thinking_budget, max_tokens
 
 
+def _resolve_agent_thinking_params(
+    max_output_tokens: int, thinking_budget_config: int | None
+) -> tuple[int, int]:
+    """Resolve thinking budget and max tokens for agent run.
+
+    Args:
+        max_output_tokens: Maximum output tokens from config.
+        thinking_budget_config: Explicit thinking budget from config, or None.
+
+    Returns:
+        Tuple of (thinking_budget, effective_max_tokens).
+        If thinking_budget_config is provided and > 0, uses it directly.
+        Otherwise computes defaults via _compute_thinking_params.
+    """
+    if thinking_budget_config is not None and thinking_budget_config > 0:
+        return thinking_budget_config, max_output_tokens
+    return _compute_thinking_params(max_output_tokens)
+
+
 def _emit_thinking_event(
     block: ThinkingBlock | RedactedThinkingBlock,
     model: str,
@@ -267,7 +286,10 @@ async def run_agent(
     if not model:
         raise ValueError("Missing 'model' in config - should be set by Cortex")
 
-    max_tokens = config.get("max_tokens", _DEFAULT_MAX_TOKENS)
+    max_output_tokens = config.get("max_output_tokens", _DEFAULT_MAX_TOKENS)
+    thinking_budget_config = config.get(
+        "thinking_budget"
+    )  # None = use computed default
     disable_mcp = config.get("disable_mcp", False)
     persona = config.get("persona", "default")
 
@@ -334,8 +356,8 @@ async def run_agent(
                     mcp, callback, agent_id=agent_id, persona=persona
                 )
 
-                thinking_budget, effective_max_tokens = _compute_thinking_params(
-                    max_tokens
+                thinking_budget, effective_max_tokens = _resolve_agent_thinking_params(
+                    max_output_tokens, thinking_budget_config
                 )
 
                 for _ in range(_MAX_TOOL_ITERATIONS):
@@ -409,7 +431,9 @@ async def run_agent(
                     return "Done."
         else:
             # No MCP tools - single response only
-            thinking_budget, effective_max_tokens = _compute_thinking_params(max_tokens)
+            thinking_budget, effective_max_tokens = _resolve_agent_thinking_params(
+                max_output_tokens, thinking_budget_config
+            )
             create_params = {
                 "model": model,
                 "max_tokens": effective_max_tokens,

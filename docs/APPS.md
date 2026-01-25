@@ -273,7 +273,7 @@ Define custom insight prompts that integrate with solstone's insight generation 
 - Keys are namespaced as `{app}:{topic}` (e.g., `my_app:weekly_summary`)
 - Outputs go to `JOURNAL/YYYYMMDD/insights/_<app>_<topic>.md` (or `.json` if `output: "json"`)
 
-**Metadata format:** Same schema as system insights in `muse/*.md` - JSON frontmatter includes `title`, `description`, `color`, `schedule` (required), `hook`, and `output` fields. The `schedule` field must be `"segment"` or `"daily"` - insights with missing or invalid schedule are skipped with a warning. Set `output: "json"` for structured JSON output instead of markdown.
+**Metadata format:** Same schema as system insights in `muse/*.md` - JSON frontmatter includes `title`, `description`, `color`, `schedule` (required), `hook`, `output`, `max_output_tokens`, and `thinking_budget` fields. The `schedule` field must be `"segment"` or `"daily"` - insights with missing or invalid schedule are skipped with a warning. Set `output: "json"` for structured JSON output instead of markdown. Optional `max_output_tokens` sets the maximum response length; `thinking_budget` sets the model's thinking token budget (provider-specific defaults apply if omitted).
 
 **Event extraction via hooks:** To extract structured events from insight output, use the `hook` field:
 
@@ -332,7 +332,7 @@ Define custom agent personas and insight templates that integrate with solstone'
 - Keys are namespaced as `{app}:{name}` (e.g., `my_app:helper`)
 - Agents inherit all system agent capabilities (tools, scheduling, handoffs, multi-facet)
 
-**Metadata format:** Same schema as system agents in `muse/*.md` - JSON frontmatter includes `title`, `provider`, `model`, `tools`, `schedule`, `priority`, and `multi_facet` fields. See [CORTEX.md](CORTEX.md) for agent configuration details.
+**Metadata format:** Same schema as system agents in `muse/*.md` - JSON frontmatter includes `title`, `provider`, `model`, `tools`, `schedule`, `priority`, `multi_facet`, `max_output_tokens`, and `thinking_budget` fields. Optional `max_output_tokens` sets the maximum response length; `thinking_budget` sets the model's thinking token budget (provider-specific defaults apply if omitted; OpenAI uses fixed reasoning and ignores this field). See [CORTEX.md](CORTEX.md) for agent configuration details.
 
 **Template variables:** Agent prompts can use template variables like `$name`, `$preferred`, and pronoun variables. See [PROMPT_TEMPLATES.md](PROMPT_TEMPLATES.md) for the complete template system documentation.
 

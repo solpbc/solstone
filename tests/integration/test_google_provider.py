@@ -56,7 +56,7 @@ def test_google_provider_basic():
             "provider": "google",
             "persona": "default",
             "model": GEMINI_FLASH,
-            "max_tokens": 100,
+            "max_output_tokens": 100,
             "disable_mcp": True,
         }
     )
@@ -148,7 +148,7 @@ def test_google_provider_with_thinking():
             "provider": "google",
             "persona": "default",
             "model": GEMINI_PRO,  # Pro model for thinking
-            "max_tokens": 2000,
+            "max_output_tokens": 2000,
             "disable_mcp": True,
         }
     )

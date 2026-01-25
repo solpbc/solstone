@@ -78,7 +78,7 @@ def test_ndjson_single_request(mock_journal, monkeypatch, capsys):
             "provider": "openai",
             "persona": "default",
             "model": GPT_5,
-            "max_tokens": 100,
+            "max_output_tokens": 100,
             "mcp_server_url": "http://localhost:5175/mcp",
         }
     )

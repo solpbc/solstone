@@ -39,7 +39,8 @@ Requests are created via `cortex_request()` from `think.cortex_client`, which br
   "prompt": "Analyze this code for security issues",  // Required: the task or question
   "persona": "default",              // Optional: agent persona from muse/*.md
   "provider": "openai",              // Optional: override provider (openai, google, anthropic)
-  "max_tokens": 8192,               // Optional: token limit (if supported)
+  "max_output_tokens": 8192,        // Optional: maximum response tokens
+  "thinking_budget": 10000,         // Optional: thinking token budget (ignored by OpenAI)
   "disable_mcp": false,             // Optional: disable MCP tools for this request
   "continue_from": "1234567890122",  // Optional: continue from previous agent
   "facet": "my-project",          // Optional: project context
