@@ -113,6 +113,22 @@ Event = Union[
 ]
 
 
+class GenerateResult(TypedDict, total=False):
+    """Result from provider run_generate/run_agenerate functions.
+
+    Structured result that allows the wrapper to handle cross-cutting concerns
+    like token logging and JSON validation centrally.
+
+    The thinking field contains dicts with: summary (str), signature (optional str),
+    redacted_data (optional str for Anthropic redacted thinking).
+    """
+
+    text: Required[str]  # Response text
+    usage: Optional[dict]  # Normalized usage dict (input_tokens, output_tokens, etc.)
+    finish_reason: Optional[str]  # Normalized: "stop", "max_tokens", "safety", etc.
+    thinking: Optional[list]  # List of thinking block dicts
+
+
 class JSONEventWriter:
     """Write JSONL events to stdout and optionally to a file."""
 
@@ -261,6 +277,7 @@ __all__ = [
     "ErrorEvent",
     "AgentUpdatedEvent",
     "ThinkingEvent",
+    "GenerateResult",
     "Event",
     "JSONEventWriter",
     "JSONEventCallback",

@@ -5,7 +5,7 @@
 """Anthropic Claude provider for agents and direct LLM generation.
 
 This module provides the Anthropic Claude provider for the ``sol agents`` CLI
-and standardized generate/agenerate functions for direct LLM calls.
+and run_generate/run_agenerate functions returning GenerateResult.
 
 Common Parameters
 -----------------
@@ -25,8 +25,8 @@ thinking_budget : int, optional
     Token budget for model thinking.
 timeout_s : float, optional
     Request timeout in seconds.
-context : str, optional
-    Context string for token usage logging.
+**kwargs
+    Additional provider-specific options.
 """
 
 from __future__ import annotations
@@ -50,7 +50,7 @@ from anthropic.types import (
 from think.models import CLAUDE_SONNET_4
 from think.utils import create_mcp_client
 
-from ..agents import JSONEventCallback, ThinkingEvent
+from ..agents import GenerateResult, JSONEventCallback, ThinkingEvent
 
 # Default values are now handled internally
 _DEFAULT_MODEL = CLAUDE_SONNET_4
@@ -476,7 +476,7 @@ async def run_agent(
 
 
 # ---------------------------------------------------------------------------
-# Standardized generate/agenerate functions
+# run_generate / run_agenerate functions
 # ---------------------------------------------------------------------------
 
 
@@ -504,6 +504,54 @@ def _extract_usage_dict(response: Any) -> dict[str, Any] | None:
     if cache_read:
         usage_dict["cached_tokens"] = cache_read
     return usage_dict
+
+
+def _normalize_finish_reason(stop_reason: str | None) -> str | None:
+    """Normalize Anthropic stop_reason to standard values.
+
+    Returns normalized string: "stop", "max_tokens", or None.
+    """
+    if not stop_reason:
+        return None
+
+    reason = stop_reason.lower()
+    if reason == "end_turn":
+        return "stop"
+    elif reason == "max_tokens":
+        return "max_tokens"
+    elif reason == "stop_sequence":
+        return "stop"
+    else:
+        return reason
+
+
+def _extract_text_and_thinking(response: Any) -> tuple[str, list | None]:
+    """Extract text and thinking blocks from Anthropic response.
+
+    Returns tuple of (text, thinking_blocks).
+    """
+    text = ""
+    thinking_blocks = []
+
+    for block in response.content:
+        if getattr(block, "type", None) == "text":
+            text += block.text
+        elif isinstance(block, ThinkingBlock):
+            thinking_blocks.append(
+                {
+                    "summary": block.thinking,
+                    "signature": block.signature,
+                }
+            )
+        elif isinstance(block, RedactedThinkingBlock):
+            thinking_blocks.append(
+                {
+                    "summary": "[redacted]",
+                    "redacted_data": block.data,
+                }
+            )
+
+    return text, thinking_blocks if thinking_blocks else None
 
 
 # Cache for Anthropic clients
@@ -552,7 +600,7 @@ def _convert_contents_to_messages(contents: Any) -> list[MessageParam]:
         return [{"role": "user", "content": str(contents)}]
 
 
-def generate(
+def run_generate(
     contents: Any,
     model: str = _DEFAULT_MODEL,
     temperature: float = 0.3,
@@ -561,15 +609,13 @@ def generate(
     json_output: bool = False,
     thinking_budget: int | None = None,
     timeout_s: float | None = None,
-    context: str | None = None,
     **kwargs: Any,
-) -> str:
+) -> GenerateResult:
     """Generate text synchronously.
 
+    Returns GenerateResult with text, usage, finish_reason, and thinking.
     See module docstring for parameter details.
     """
-    from think.models import log_token_usage
-
     client = _get_anthropic_client()
     messages = _convert_contents_to_messages(contents)
 
@@ -602,31 +648,18 @@ def generate(
     if timeout_s:
         request_kwargs["timeout"] = timeout_s
 
-    from think.models import IncompleteJSONError
-
     response = client.messages.create(**request_kwargs)
 
-    # Extract text first (may be partial if truncated)
-    text = ""
-    for block in response.content:
-        if getattr(block, "type", None) == "text":
-            text += block.text
-
-    # Validate stop reason for JSON output
-    if json_output and response.stop_reason != "end_turn":
-        raise IncompleteJSONError(
-            reason=response.stop_reason or "unknown", partial_text=text
-        )
-
-    # Log token usage
-    usage_dict = _extract_usage_dict(response)
-    if usage_dict:
-        log_token_usage(model=model, usage=usage_dict, context=context)
-
-    return text
+    text, thinking = _extract_text_and_thinking(response)
+    return GenerateResult(
+        text=text,
+        usage=_extract_usage_dict(response),
+        finish_reason=_normalize_finish_reason(response.stop_reason),
+        thinking=thinking,
+    )
 
 
-async def agenerate(
+async def run_agenerate(
     contents: Any,
     model: str = _DEFAULT_MODEL,
     temperature: float = 0.3,
@@ -635,15 +668,13 @@ async def agenerate(
     json_output: bool = False,
     thinking_budget: int | None = None,
     timeout_s: float | None = None,
-    context: str | None = None,
     **kwargs: Any,
-) -> str:
+) -> GenerateResult:
     """Generate text asynchronously.
 
+    Returns GenerateResult with text, usage, finish_reason, and thinking.
     See module docstring for parameter details.
     """
-    from think.models import log_token_usage
-
     client = _get_async_anthropic_client()
     messages = _convert_contents_to_messages(contents)
 
@@ -676,32 +707,19 @@ async def agenerate(
     if timeout_s:
         request_kwargs["timeout"] = timeout_s
 
-    from think.models import IncompleteJSONError
-
     response = await client.messages.create(**request_kwargs)
 
-    # Extract text first (may be partial if truncated)
-    text = ""
-    for block in response.content:
-        if getattr(block, "type", None) == "text":
-            text += block.text
-
-    # Validate stop reason for JSON output
-    if json_output and response.stop_reason != "end_turn":
-        raise IncompleteJSONError(
-            reason=response.stop_reason or "unknown", partial_text=text
-        )
-
-    # Log token usage
-    usage_dict = _extract_usage_dict(response)
-    if usage_dict:
-        log_token_usage(model=model, usage=usage_dict, context=context)
-
-    return text
+    text, thinking = _extract_text_and_thinking(response)
+    return GenerateResult(
+        text=text,
+        usage=_extract_usage_dict(response),
+        finish_reason=_normalize_finish_reason(response.stop_reason),
+        thinking=thinking,
+    )
 
 
 __all__ = [
     "run_agent",
-    "generate",
-    "agenerate",
+    "run_generate",
+    "run_agenerate",
 ]

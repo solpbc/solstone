@@ -10,8 +10,8 @@ Each provider module in `think/providers/` must export three functions:
 
 | Function | Purpose |
 |----------|---------|
-| `generate()` | Synchronous text generation |
-| `agenerate()` | Asynchronous text generation |
+| `run_generate()` | Synchronous text generation, returns `GenerateResult` |
+| `run_agenerate()` | Asynchronous text generation, returns `GenerateResult` |
 | `run_agent()` | Agentic execution with MCP tool support |
 
 See `think/providers/__init__.py` for the canonical export list and `think/providers/google.py` as a reference implementation.
@@ -51,13 +51,15 @@ def _get_client():
 
 **Settings app integration:** Add your provider to `PROVIDER_METADATA` in `think/providers/__init__.py` with `label` and `env_key` fields. The settings UI dynamically builds provider dropdowns from the registry. Add corresponding API key UI fields in `apps/settings/workspace.html` for user configuration.
 
-## generate() / agenerate()
+## run_generate() / run_agenerate()
 
-These functions handle direct LLM text generation. The unified API in `think/models.py` routes requests to provider-specific implementations.
+These functions handle direct LLM text generation. The unified API in `think/models.py` routes requests to provider-specific implementations and handles token logging and JSON validation centrally.
 
 **Function signature:**
 ```python
-def generate(
+from think.agents import GenerateResult
+
+def run_generate(
     contents: Union[str, List[Any]],
     model: str,
     temperature: float = 0.3,
@@ -66,12 +68,20 @@ def generate(
     json_output: bool = False,
     thinking_budget: Optional[int] = None,
     timeout_s: Optional[float] = None,
-    context: Optional[str] = None,
     **kwargs: Any,
-) -> str:
+) -> GenerateResult:
 ```
 
-The `agenerate()` function has the same signature but is `async`.
+The `run_agenerate()` function has the same signature but is `async`.
+
+**Return type - GenerateResult:**
+```python
+class GenerateResult(TypedDict, total=False):
+    text: Required[str]           # Response text
+    usage: Optional[dict]         # Normalized usage dict
+    finish_reason: Optional[str]  # Normalized: "stop", "max_tokens", etc.
+    thinking: Optional[list]      # List of thinking block dicts
+```
 
 **Parameter details:**
 
@@ -84,14 +94,15 @@ The `agenerate()` function has the same signature but is `async`.
 | `json_output` | Request JSON response. Google uses `response_mime_type`, Anthropic/OpenAI use response format or system instruction. |
 | `thinking_budget` | Token budget for reasoning/thinking. Must be `> 0` to enable; `None` or `0` means no thinking. Only Google and Anthropic support this - OpenAI ignores it (uses fixed "medium" reasoning effort). Note: `run_agent()` always enables thinking regardless of this parameter. |
 | `timeout_s` | Request timeout in seconds. Convert to provider's expected format (e.g., Google uses milliseconds internally). |
-| `context` | For token logging attribution only - not used in generation. |
 | `**kwargs` | Absorb unknown kwargs for forward compatibility. Provider-specific options (e.g., `cached_content` for Google) pass through here. |
 
 **Key responsibilities:**
 - Accept the common parameter set shown above
-- Return the response text as a string
-- Call `log_token_usage()` after successful generation
-- Handle provider-specific response parsing and validation
+- Return `GenerateResult` with text, usage, finish_reason, and thinking
+- Normalize `finish_reason` to standard values: `"stop"`, `"max_tokens"`, `"safety"`, etc.
+- Handle provider-specific response parsing
+
+**Note:** Token logging and JSON validation are handled by the wrapper in `think/models.py`, not by providers.
 
 **Important:** Providers should gracefully ignore unsupported parameters rather than raising errors.
 
@@ -184,17 +195,11 @@ turns = parse_agent_events_to_turns(config["continue_from"])
 
 ## Token Logging
 
-All generation calls must log token usage for cost tracking.
-
-```python
-from think.models import log_token_usage
-
-log_token_usage(model=model, usage=usage_dict, context=context)
-```
+Token logging is handled centrally by the wrapper in `think/models.py`. Providers return usage data in their `GenerateResult`, and the wrapper calls `log_token_usage()`.
 
 **Usage dict format:**
 
-Providers should build a usage dict from their response. The normalized format is:
+Providers should build a normalized usage dict from their response:
 ```python
 usage_dict = {
     "input_tokens": 1500,      # Required
@@ -221,14 +226,17 @@ usage_dict = {
     "total_tokens": response.usage.input_tokens + response.usage.output_tokens,
 }
 
-# Google (can pass response object directly)
-log_token_usage(model=model, usage=response, context=context)
+# Google
+usage_dict = {
+    "input_tokens": response.usage_metadata.prompt_token_count,
+    "output_tokens": response.usage_metadata.candidates_token_count,
+    "total_tokens": response.usage_metadata.total_token_count,
+}
 ```
 
 **Key points:**
-- Call after successful generation
-- `log_token_usage()` normalizes various formats automatically
-- `context` enables attribution to specific features/operations
+- Return usage in `GenerateResult["usage"]` - wrapper handles logging
+- For `run_agent()`, include usage in the `finish` event
 
 ## Context & Routing
 
@@ -302,7 +310,7 @@ Run integration tests with: `make test-integration`
 
 ## Batch Processing
 
-The `Batch` class in `think/batch.py` automatically works with all providers via the unified `agenerate()` API. No provider-specific batch implementation is needed - just ensure your `agenerate()` works correctly.
+The `Batch` class in `think/batch.py` automatically works with all providers via the unified `agenerate()` API in `think/models.py`. No provider-specific batch implementation is needed - just ensure your `run_agenerate()` works correctly.
 
 ## OpenAI-Compatible Providers
 
@@ -322,31 +330,30 @@ This allows reusing much of the OpenAI provider's patterns for request/response 
 ## Checklist for New Providers
 
 **Core implementation:**
-1. Create `think/providers/<name>.py` with `__all__ = ["generate", "agenerate", "run_agent"]`
-2. Implement `generate()`, `agenerate()`, `run_agent()` following signatures above
+1. Create `think/providers/<name>.py` with `__all__ = ["run_generate", "run_agenerate", "run_agent"]`
+2. Implement `run_generate()`, `run_agenerate()`, `run_agent()` following signatures above
+3. Import `GenerateResult` from `think.agents` and return it from generate functions
 
 **Model constants** in `think/models.py`:
-3. Add model constants using the pattern `{PROVIDER}_{TIER}` (e.g., `DO_LLAMA_70B`, `DO_MISTRAL_NEMO`)
+4. Add model constants using the pattern `{PROVIDER}_{TIER}` (e.g., `DO_LLAMA_70B`, `DO_MISTRAL_NEMO`)
    - Existing examples: `GEMINI_FLASH`, `GPT_5`, `CLAUDE_SONNET_4`
-4. Add provider tier mappings to `PROVIDER_DEFAULTS` dict
-5. Update `get_model_provider()` to detect your models by prefix (critical for cost tracking)
+5. Add provider tier mappings to `PROVIDER_DEFAULTS` dict
+6. Update `get_model_provider()` to detect your models by prefix (critical for cost tracking)
 
-**Routing:**
-6. Add `elif provider == "<name>"` cases in `think/models.py`:
-   - `generate()` function (around line 622)
-   - `agenerate()` function (around line 700)
-7. Add routing case in `think/agents.py` `main_async()` (around line 331)
+**Registry:**
+7. Add provider to `PROVIDER_REGISTRY` in `think/providers/__init__.py`
+8. Add routing case in `think/agents.py` `main_async()` (around line 331)
 
 **Settings UI:**
-8. Add provider to `PROVIDER_METADATA` in `think/providers/__init__.py` with `label` and `env_key`
-9. Add API key UI field in `apps/settings/workspace.html`
+9. Add provider to `PROVIDER_METADATA` in `think/providers/__init__.py` with `label` and `env_key`
+10. Add API key UI field in `apps/settings/workspace.html`
 
 **Testing:**
-10. Create unit tests in `tests/test_<name>.py`
-11. Create integration tests in `tests/integration/test_<name>_backend.py`
-12. Add test contexts to `fixtures/journal/config/journal.json`
+11. Create unit tests in `tests/test_<name>.py`
+12. Create integration tests in `tests/integration/test_<name>_backend.py`
+13. Add test contexts to `fixtures/journal/config/journal.json`
 
 **Documentation:**
-13. Update `think/providers/__init__.py` docstring
-14. Update `docs/THINK.md` providers table
-15. Update `docs/CORTEX.md` valid provider values
+14. Update `think/providers/__init__.py` docstring
+15. Update `docs/THINK.md` providers table
+16. Update `docs/CORTEX.md` valid provider values

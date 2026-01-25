@@ -130,8 +130,8 @@ The provider can be ``openai`` (default), ``google`` or ``anthropic``. Set the c
 
 Each provider lives in `think/providers/` and exposes a common interface:
 
-- `generate()` - Sync text generation
-- `agenerate()` - Async text generation
+- `run_generate()` - Sync text generation, returns `GenerateResult`
+- `run_agenerate()` - Async text generation, returns `GenerateResult`
 - `run_agent()` - Agent execution with MCP tools and event streaming
 
 For direct LLM calls, use `think.models.generate()` or `think.models.agenerate()`
@@ -204,7 +204,7 @@ Cortex (orchestrator)
 | Google | `think/providers/google.py` | Gemini models |
 | Anthropic | `think/providers/anthropic.py` | Claude via Anthropic SDK |
 
-Providers implement `generate()`, `agenerate()`, and `run_agent()` functions. See [PROVIDERS.md](PROVIDERS.md) for implementation details.
+Providers implement `run_generate()`, `run_agenerate()`, and `run_agent()` functions. See [PROVIDERS.md](PROVIDERS.md) for implementation details.
 
 ## Key Components
 

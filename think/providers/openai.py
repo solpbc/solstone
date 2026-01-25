@@ -5,7 +5,7 @@
 """OpenAI provider for agents and direct LLM generation.
 
 This module provides the OpenAI provider for the ``sol agents`` CLI
-and standardized generate/agenerate functions for direct LLM calls.
+and run_generate/run_agenerate functions returning GenerateResult.
 
 Common Parameters
 -----------------
@@ -21,8 +21,8 @@ json_output : bool
     Whether to request JSON response format.
 timeout_s : float, optional
     Request timeout in seconds.
-context : str, optional
-    Context string for token usage logging.
+**kwargs
+    Additional provider-specific options.
 
 Note: GPT-5+ reasoning models don't support custom temperature (fixed at 1.0)
 and reasoning is always enabled with medium effort.
@@ -69,7 +69,7 @@ except Exception:  # pragma: no cover
 
 from think.models import GPT_5
 
-from ..agents import JSONEventCallback, ThinkingEvent
+from ..agents import GenerateResult, JSONEventCallback, ThinkingEvent
 
 
 def _convert_turns_to_items(turns: list[dict]) -> list[dict]:
@@ -518,7 +518,7 @@ async def run_agent(
 
 
 # ---------------------------------------------------------------------------
-# Standardized generate/agenerate functions
+# run_generate / run_agenerate functions
 # ---------------------------------------------------------------------------
 
 # Cache for OpenAI clients
@@ -581,22 +581,51 @@ def _convert_contents_to_messages(
     return messages
 
 
-def generate(
+def _normalize_finish_reason(finish_reason: str | None) -> str | None:
+    """Normalize OpenAI finish_reason to standard values.
+
+    Returns normalized string: "stop", "max_tokens", "content_filter", or None.
+    """
+    if not finish_reason:
+        return None
+
+    reason = finish_reason.lower()
+    if reason == "stop":
+        return "stop"
+    elif reason == "length":
+        return "max_tokens"
+    elif reason == "content_filter":
+        return "content_filter"
+    else:
+        return reason
+
+
+def _extract_usage(response: Any) -> dict | None:
+    """Extract normalized usage dict from OpenAI response."""
+    if not response.usage:
+        return None
+
+    return {
+        "input_tokens": response.usage.prompt_tokens,
+        "output_tokens": response.usage.completion_tokens,
+        "total_tokens": response.usage.total_tokens,
+    }
+
+
+def run_generate(
     contents: Any,
     model: str = GPT_5,
     max_output_tokens: int = 8192 * 2,
     system_instruction: str | None = None,
     json_output: bool = False,
     timeout_s: float | None = None,
-    context: str | None = None,
     **kwargs: Any,
-) -> str:
+) -> GenerateResult:
     """Generate text synchronously.
 
+    Returns GenerateResult with text, usage, finish_reason, and thinking.
     See module docstring for parameter details.
     """
-    from think.models import log_token_usage
-
     client = _get_openai_client()
     messages = _convert_contents_to_messages(contents, system_instruction)
 
@@ -616,48 +645,31 @@ def generate(
     if timeout_s:
         request_kwargs["timeout"] = timeout_s
 
-    from think.models import IncompleteJSONError
-
     response = client.chat.completions.create(**request_kwargs)
 
-    # Extract text first (may be partial if truncated)
     choice = response.choices[0]
-    text = choice.message.content or ""
-
-    # Validate finish reason for JSON output
-    if json_output and choice.finish_reason != "stop":
-        raise IncompleteJSONError(
-            reason=choice.finish_reason or "unknown", partial_text=text
-        )
-
-    # Log token usage
-    if response.usage:
-        usage_dict = {
-            "input_tokens": response.usage.prompt_tokens,
-            "output_tokens": response.usage.completion_tokens,
-            "total_tokens": response.usage.total_tokens,
-        }
-        log_token_usage(model=model, usage=usage_dict, context=context)
-
-    return text
+    return GenerateResult(
+        text=choice.message.content or "",
+        usage=_extract_usage(response),
+        finish_reason=_normalize_finish_reason(choice.finish_reason),
+        thinking=None,  # OpenAI reasoning not exposed in generate response
+    )
 
 
-async def agenerate(
+async def run_agenerate(
     contents: Any,
     model: str = GPT_5,
     max_output_tokens: int = 8192 * 2,
     system_instruction: str | None = None,
     json_output: bool = False,
     timeout_s: float | None = None,
-    context: str | None = None,
     **kwargs: Any,
-) -> str:
+) -> GenerateResult:
     """Generate text asynchronously.
 
+    Returns GenerateResult with text, usage, finish_reason, and thinking.
     See module docstring for parameter details.
     """
-    from think.models import log_token_usage
-
     client = _get_async_openai_client()
     messages = _convert_contents_to_messages(contents, system_instruction)
 
@@ -677,34 +689,19 @@ async def agenerate(
     if timeout_s:
         request_kwargs["timeout"] = timeout_s
 
-    from think.models import IncompleteJSONError
-
     response = await client.chat.completions.create(**request_kwargs)
 
-    # Extract text first (may be partial if truncated)
     choice = response.choices[0]
-    text = choice.message.content or ""
-
-    # Validate finish reason for JSON output
-    if json_output and choice.finish_reason != "stop":
-        raise IncompleteJSONError(
-            reason=choice.finish_reason or "unknown", partial_text=text
-        )
-
-    # Log token usage
-    if response.usage:
-        usage_dict = {
-            "input_tokens": response.usage.prompt_tokens,
-            "output_tokens": response.usage.completion_tokens,
-            "total_tokens": response.usage.total_tokens,
-        }
-        log_token_usage(model=model, usage=usage_dict, context=context)
-
-    return text
+    return GenerateResult(
+        text=choice.message.content or "",
+        usage=_extract_usage(response),
+        finish_reason=_normalize_finish_reason(choice.finish_reason),
+        thinking=None,  # OpenAI reasoning not exposed in generate response
+    )
 
 
 __all__ = [
     "run_agent",
-    "generate",
-    "agenerate",
+    "run_generate",
+    "run_agenerate",
 ]

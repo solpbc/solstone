@@ -924,6 +924,22 @@ def get_usage_cost(
 # ---------------------------------------------------------------------------
 
 
+def _validate_json_response(result: Dict[str, Any], json_output: bool) -> None:
+    """Validate response for JSON output mode.
+
+    Raises IncompleteJSONError if finish_reason indicates truncation.
+    """
+    if not json_output:
+        return
+
+    finish_reason = result.get("finish_reason")
+    if finish_reason and finish_reason != "stop":
+        raise IncompleteJSONError(
+            reason=finish_reason,
+            partial_text=result.get("text", ""),
+        )
+
+
 def generate(
     contents: Union[str, List[Any]],
     context: str,
@@ -971,6 +987,8 @@ def generate(
     ------
     ValueError
         If the resolved provider is not supported.
+    IncompleteJSONError
+        If json_output=True and response was truncated.
     """
     from think.providers import get_provider_module
 
@@ -984,7 +1002,8 @@ def generate(
     # Get provider module via registry (raises ValueError for unknown providers)
     provider_mod = get_provider_module(provider)
 
-    return provider_mod.generate(
+    # Call provider's run_generate (returns GenerateResult)
+    result = provider_mod.run_generate(
         contents=contents,
         model=model,
         temperature=temperature,
@@ -993,9 +1012,17 @@ def generate(
         json_output=json_output,
         thinking_budget=thinking_budget,
         timeout_s=timeout_s,
-        context=context,
         **kwargs,
     )
+
+    # Validate JSON output if requested
+    _validate_json_response(result, json_output)
+
+    # Log token usage centrally
+    if result.get("usage"):
+        log_token_usage(model=model, usage=result["usage"], context=context)
+
+    return result["text"]
 
 
 async def agenerate(
@@ -1045,6 +1072,8 @@ async def agenerate(
     ------
     ValueError
         If the resolved provider is not supported.
+    IncompleteJSONError
+        If json_output=True and response was truncated.
     """
     from think.providers import get_provider_module
 
@@ -1058,7 +1087,8 @@ async def agenerate(
     # Get provider module via registry (raises ValueError for unknown providers)
     provider_mod = get_provider_module(provider)
 
-    return await provider_mod.agenerate(
+    # Call provider's run_agenerate (returns GenerateResult)
+    result = await provider_mod.run_agenerate(
         contents=contents,
         model=model,
         temperature=temperature,
@@ -1067,9 +1097,17 @@ async def agenerate(
         json_output=json_output,
         thinking_budget=thinking_budget,
         timeout_s=timeout_s,
-        context=context,
         **kwargs,
     )
+
+    # Validate JSON output if requested
+    _validate_json_response(result, json_output)
+
+    # Log token usage centrally
+    if result.get("usage"):
+        log_token_usage(model=model, usage=result["usage"], context=context)
+
+    return result["text"]
 
 
 __all__ = [

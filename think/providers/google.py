@@ -5,7 +5,7 @@
 """Gemini provider for agents and direct LLM generation.
 
 This module provides the Google Gemini provider for the ``sol agents`` CLI
-and standardized generate/agenerate functions for direct LLM calls.
+and run_generate/run_agenerate functions returning GenerateResult.
 
 Common Parameters
 -----------------
@@ -25,8 +25,6 @@ thinking_budget : int, optional
     Token budget for model thinking.
 timeout_s : float, optional
     Request timeout in seconds.
-context : str, optional
-    Context string for token usage logging.
 **kwargs
     Provider-specific options (cached_content, client).
 """
@@ -46,7 +44,7 @@ from google.genai import types
 from think.models import GEMINI_FLASH
 from think.utils import create_mcp_client
 
-from ..agents import JSONEventCallback, ThinkingEvent
+from ..agents import GenerateResult, JSONEventCallback, ThinkingEvent
 
 _DEFAULT_MAX_TOKENS = 8192
 _DEFAULT_MODEL = GEMINI_FLASH
@@ -145,46 +143,96 @@ def _build_generate_config(
     return types.GenerateContentConfig(**config_args)
 
 
-def _validate_response(response: Any, json_output: bool = False) -> str:
-    """Validate response and extract text.
+def _extract_response_text(response: Any) -> str:
+    """Extract text from response.
 
-    Returns response.text if available, or a user-friendly message for empty
-    responses (e.g., tool-only completions). Raises on actual errors.
+    Returns response.text if available, or a friendly completion message
+    if the response is empty. Raises on safety filter blocks.
 
     Parameters
     ----------
     response
         The response from the model.
-    json_output
-        If True, validates that finish_reason is STOP to ensure complete JSON.
     """
     if response is None:
         raise ValueError("No response from model")
-
-    from think.models import IncompleteJSONError
 
     # Check for error conditions in candidates
     finish_reason = _extract_finish_reason(response)
     if finish_reason and "SAFETY" in finish_reason.upper():
         raise ValueError(f"Response blocked by safety filters: {finish_reason}")
 
-    # Extract text (may be partial if truncated)
+    # Extract text, or generate friendly message if empty
     text = response.text if response.text else ""
-
-    # For JSON output, require STOP to ensure complete response
-    if json_output:
-        normalized = (finish_reason or "").upper().replace("FINISHREASON.", "")
-        if normalized != "STOP":
-            raise IncompleteJSONError(
-                reason=finish_reason or "unknown", partial_text=text
-            )
-
-    # Return text or user-friendly completion message
     if text:
         return text
 
-    # Empty text - generate appropriate message (no tools in generate/agenerate)
+    # Empty text - generate user-friendly completion message
     return _format_completion_message(finish_reason, had_tool_calls=False)
+
+
+def _normalize_finish_reason(response: Any) -> str | None:
+    """Normalize finish_reason to standard values.
+
+    Returns normalized string: "stop", "max_tokens", "safety", or None.
+    """
+    raw = _extract_finish_reason(response)
+    if not raw:
+        return None
+
+    # Normalize (handle both enum names and string values)
+    reason = raw.upper().replace("FINISHREASON.", "")
+
+    if reason == "STOP":
+        return "stop"
+    elif reason == "MAX_TOKENS":
+        return "max_tokens"
+    elif "SAFETY" in reason:
+        return "safety"
+    elif reason == "RECITATION":
+        return "recitation"
+    else:
+        return reason.lower()
+
+
+def _extract_usage(response: Any) -> dict | None:
+    """Extract normalized usage dict from response."""
+    if not hasattr(response, "usage_metadata") or not response.usage_metadata:
+        return None
+
+    metadata = response.usage_metadata
+    usage: dict[str, int] = {
+        "input_tokens": getattr(metadata, "prompt_token_count", 0),
+        "output_tokens": getattr(metadata, "candidates_token_count", 0),
+        "total_tokens": getattr(metadata, "total_token_count", 0),
+    }
+    # Only include optional fields if non-zero
+    cached = getattr(metadata, "cached_content_token_count", 0)
+    if cached:
+        usage["cached_tokens"] = cached
+    reasoning = getattr(metadata, "thoughts_token_count", 0)
+    if reasoning:
+        usage["reasoning_tokens"] = reasoning
+    return usage
+
+
+def _extract_thinking(response: Any) -> list | None:
+    """Extract thinking blocks from response.
+
+    Returns list of ThinkingBlock dicts or None if no thinking.
+    """
+    if not hasattr(response, "candidates") or not response.candidates:
+        return None
+
+    thinking_blocks = []
+    for candidate in response.candidates:
+        if not candidate.content or not candidate.content.parts:
+            continue
+        for part in candidate.content.parts:
+            if getattr(part, "thought", False) and getattr(part, "text", None):
+                thinking_blocks.append({"summary": part.text})
+
+    return thinking_blocks if thinking_blocks else None
 
 
 def _extract_finish_reason(response: Any) -> str | None:
@@ -290,11 +338,11 @@ def _log_empty_response_diagnostics(
 
 
 # ---------------------------------------------------------------------------
-# Standardized generate/agenerate functions
+# run_generate / run_agenerate functions
 # ---------------------------------------------------------------------------
 
 
-def generate(
+def run_generate(
     contents: str | list[Any],
     model: str = _DEFAULT_MODEL,
     temperature: float = 0.3,
@@ -303,15 +351,13 @@ def generate(
     json_output: bool = False,
     thinking_budget: int | None = None,
     timeout_s: float | None = None,
-    context: str | None = None,
     **kwargs: Any,
-) -> str:
+) -> GenerateResult:
     """Generate text synchronously.
 
+    Returns GenerateResult with text, usage, finish_reason, and thinking.
     See module docstring for parameter details.
     """
-    from think.models import log_token_usage
-
     cached_content = kwargs.get("cached_content")
     client = kwargs.get("client")
 
@@ -334,12 +380,15 @@ def generate(
         config=config,
     )
 
-    text = _validate_response(response, json_output=json_output)
-    log_token_usage(model=model, usage=response, context=context)
-    return text
+    return GenerateResult(
+        text=_extract_response_text(response),
+        usage=_extract_usage(response),
+        finish_reason=_normalize_finish_reason(response),
+        thinking=_extract_thinking(response),
+    )
 
 
-async def agenerate(
+async def run_agenerate(
     contents: str | list[Any],
     model: str = _DEFAULT_MODEL,
     temperature: float = 0.3,
@@ -348,15 +397,13 @@ async def agenerate(
     json_output: bool = False,
     thinking_budget: int | None = None,
     timeout_s: float | None = None,
-    context: str | None = None,
     **kwargs: Any,
-) -> str:
+) -> GenerateResult:
     """Generate text asynchronously.
 
+    Returns GenerateResult with text, usage, finish_reason, and thinking.
     See module docstring for parameter details.
     """
-    from think.models import log_token_usage
-
     cached_content = kwargs.get("cached_content")
     client = kwargs.get("client")
 
@@ -379,9 +426,12 @@ async def agenerate(
         config=config,
     )
 
-    text = _validate_response(response, json_output=json_output)
-    log_token_usage(model=model, usage=response, context=context)
-    return text
+    return GenerateResult(
+        text=_extract_response_text(response),
+        usage=_extract_usage(response),
+        finish_reason=_normalize_finish_reason(response),
+        thinking=_extract_thinking(response),
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -751,7 +801,7 @@ async def run_agent(
 
 __all__ = [
     "run_agent",
-    "generate",
-    "agenerate",
+    "run_generate",
+    "run_agenerate",
     "get_or_create_client",
 ]

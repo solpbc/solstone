@@ -6,9 +6,12 @@
 This package contains provider-specific implementations for LLM generation
 and agent execution. Each provider module exposes:
 
-- generate(): Sync text generation
-- agenerate(): Async text generation
+- run_generate(): Sync text generation, returns GenerateResult
+- run_agenerate(): Async text generation, returns GenerateResult
 - run_agent(): Agent execution with MCP tools
+
+GenerateResult is a TypedDict with: text, usage, finish_reason, thinking.
+The wrapper functions in think.models handle token logging and JSON validation.
 
 Available providers:
 - google: Google Gemini models
@@ -25,8 +28,8 @@ from typing import Any, Dict, List
 # ---------------------------------------------------------------------------
 # Central registry of supported providers and their module paths.
 # All registered providers must implement:
-#   - generate(contents, model, ...) -> str
-#   - agenerate(contents, model, ...) -> str
+#   - run_generate(contents, model, ...) -> GenerateResult
+#   - run_agenerate(contents, model, ...) -> GenerateResult
 #   - run_agent(config, on_event) -> str
 # ---------------------------------------------------------------------------
 
@@ -61,7 +64,7 @@ def get_provider_module(provider: str) -> ModuleType:
     Returns
     -------
     ModuleType
-        The provider module with generate, agenerate, and run_agent functions.
+        The provider module with run_generate, run_agenerate, and run_agent functions.
 
     Raises
     ------
