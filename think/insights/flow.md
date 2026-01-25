@@ -5,7 +5,8 @@
   "occurrences": "Create an occurrence for noteworthy shifts in work rhythms or focus. Include timestamps when deep work starts or ends, or when energy levels noticeably change. Classify each as work or personal based on the surrounding context.",
   "hook": "occurrence",
   "color": "#17a2b8",
-  "frequency": "daily"
+  "frequency": "daily",
+  "output": "md"
 
 }
 

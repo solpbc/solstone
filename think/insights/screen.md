@@ -3,7 +3,8 @@
   "title": "Screen Record",
   "description": "Creates a detailed documentary record of screen activity. Focuses on the 'what' - chronological account with preserved details, excerpts, and entities.",
   "color": "#9c27b0",
-  "frequency": "segment"
+  "frequency": "segment",
+  "output": "md"
 
 }
 

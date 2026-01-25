@@ -5,7 +5,8 @@
   "occurrences": "Whenever a future task or commitment is mentioned, create an occurrence with the expected action and deadline if known. Note who requested it and whether it is work or personal.",
   "hook": "occurrence",
   "color": "#ffc107",
-  "frequency": "daily"
+  "frequency": "daily",
+  "output": "md"
 
 }
 

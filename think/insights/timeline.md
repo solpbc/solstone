@@ -5,7 +5,8 @@
   "occurrences": "Create an occurrence for each hour segment, don't break down hours into any smaller segments the goal for timeline occurrences is for them to capture whatever happened within each hour of the day where there was activity.",
   "hook": "occurrence",
   "color": "#9c27b0",
-  "frequency": "daily"
+  "frequency": "daily",
+  "output": "md"
 
 }
 

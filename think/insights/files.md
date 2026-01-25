@@ -6,7 +6,8 @@
   "hook": "occurrence",
   "color": "#28a745",
   "frequency": "daily",
-  "disabled": true
+  "disabled": true,
+  "output": "md"
 
 }
 

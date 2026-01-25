@@ -6,6 +6,7 @@
   "hook": "entities",
   "thinking_budget": 4096,
   "max_output_tokens": 1024,
+  "output": "md",
   "instructions": {
     "system": "journal",
     "facets": "none",

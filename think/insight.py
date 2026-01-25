@@ -312,16 +312,6 @@ def main() -> None:
             f"Available: {', '.join(sorted(all_insights.keys()))}"
         )
 
-    # Check for frequency/mode mismatch
-    is_segment_mode = bool(args.segment or args.segments)
-    expected_freq = "segment" if is_segment_mode else "daily"
-    insight_freq = insight_meta.get("frequency")
-    if insight_freq != expected_freq:
-        parser.error(
-            f"Insight '{insight_key}' has frequency '{insight_freq}' "
-            f"but was invoked in {expected_freq} mode."
-        )
-
     # Check if insight is disabled via journal config
     if insight_meta.get("disabled"):
         logging.info("Insight %s is disabled in journal config, skipping", insight_key)

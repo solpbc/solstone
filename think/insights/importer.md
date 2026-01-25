@@ -1,9 +1,8 @@
 {
 
   "color": "blue",
-  "output": null,
   "extract": false,
-  "frequency": "daily"
+  "output": "md"
 
 }
 
