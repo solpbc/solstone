@@ -1,9 +1,0 @@
-{
-  "title": "TODO Generator",
-  "description": "Maintains the daily todos checklist by mining the journal, prioritising tasks, and applying updates via the todo_* tools.",
-  "schedule": "daily",
-  "priority": 20,
-  "tools": "journal, todo",
-  "multi_facet": true,
-  "group": "Todos"
-}

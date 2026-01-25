@@ -38,6 +38,7 @@ dependencies = [
     "flask-sock",
     "Markdown",
     "mistune",
+    "python-frontmatter",
 
     # Natural language time parsing
     "timefhuman",
@@ -106,10 +107,10 @@ include = ["apps*", "think*", "convey*", "observe*", "muse*"]
 py-modules = ["sol"]
 
 [tool.setuptools.package-data]
-apps = ["*/templates/*.html"]
-think = ["*.txt", "insights/*.txt"]
-muse = ["agents/*.txt", "agents/*.json"]
-observe = ["*.txt", "*.json"]
+apps = ["*/templates/*.html", "*/agents/*.md", "*/insights/*.md"]
+think = ["*.md", "insights/*.md", "templates/*.md"]
+muse = ["agents/*.md"]
+observe = ["*.md", "categories/*.md", "transcribe/*.md"]
 convey = [
     "templates/*.html",
     "static/*",

@@ -51,15 +51,15 @@ def _discover_categories() -> dict[str, dict]:
     """
     Discover all categories from categories/ directory.
 
-    Each category has a .json metadata file with:
+    Each category is a .md file with JSON frontmatter containing:
     - description (required): Single-line description for categorization prompt
     - output (optional, default: "markdown"): Response format for extraction
     - tier (optional, default: 2): Model tier for this category (1=pro, 2=flash, 3=lite)
     - label (optional): Human-readable name for settings UI
     - group (optional, default: "Screen Analysis"): Category for grouping in settings UI
 
-    Categories with a matching .txt file get detailed extraction analysis.
-    The .txt file contains the extraction prompt template.
+    Categories with content in the .md file (after frontmatter) get detailed
+    extraction analysis using that content as the extraction prompt template.
 
     Returns
     -------
@@ -72,12 +72,12 @@ def _discover_categories() -> dict[str, dict]:
         return {}
 
     categories = {}
-    for json_path in categories_dir.glob("*.json"):
-        category = json_path.stem
+    for md_path in categories_dir.glob("*.md"):
+        category = md_path.stem
 
         try:
-            with open(json_path) as f:
-                metadata = json.load(f)
+            prompt_content = load_prompt(category, base_dir=categories_dir)
+            metadata = dict(prompt_content.metadata)
 
             # Validate required field
             if "description" not in metadata:
@@ -99,10 +99,9 @@ def _discover_categories() -> dict[str, dict]:
             # The model will be resolved at runtime via generate()
             metadata["context"] = f"observe.describe.{category}"
 
-            # Load extraction prompt if available
-            txt_path = categories_dir / f"{category}.txt"
-            if txt_path.exists():
-                metadata["prompt"] = load_prompt(category, base_dir=categories_dir).text
+            # Use content as extraction prompt if non-empty
+            if prompt_content.text.strip():
+                metadata["prompt"] = prompt_content.text
 
             categories[category] = metadata
             extractable = "prompt" in metadata

@@ -1,6 +1,0 @@
-{
-  "description": "Spreadsheets, slides, document editors, calendars, task and issue tracking tools, other workplace desktop or web apps and professional tools",
-  "output": "markdown",
-  "extraction": "Extract when different application or service is shown (e.g. ChatGPT vs Calendar vs Docs)",
-  "importance": "high"
-}

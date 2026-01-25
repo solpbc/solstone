@@ -1,0 +1,7 @@
+{
+
+  "description": "Code editors and IDEs",
+  "extraction": "Extract when viewing different repositories, files, or switching between editor and browser",
+  "importance": "low"
+
+}

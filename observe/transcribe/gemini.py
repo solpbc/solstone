@@ -27,6 +27,7 @@ from google.genai import types
 
 from muse.models import generate
 from observe.utils import audio_to_flac_bytes
+from think.utils import load_prompt
 
 logger = logging.getLogger(__name__)
 
@@ -208,9 +209,8 @@ def transcribe(
     # Convert audio to FLAC bytes
     audio_bytes = audio_to_flac_bytes(audio, sample_rate)
 
-    # Load prompt from gemini.txt
-    prompt_path = Path(__file__).parent / "gemini.txt"
-    prompt_text = prompt_path.read_text()
+    # Load prompt from gemini.md
+    prompt_text = load_prompt("gemini", base_dir=Path(__file__).parent).text
 
     # Build contents: prompt text + audio
     contents: list = [

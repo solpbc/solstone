@@ -4,7 +4,7 @@ This document describes solstone's template variable system for personalizing pr
 
 ## Overview
 
-Prompts are loaded via `load_prompt()` from `think/utils.py`, which uses Python's `string.Template` with `safe_substitute`. This means:
+Prompts are stored as `.md` files with optional JSON frontmatter for metadata. The prompt content is loaded via `load_prompt()` from `think/utils.py`, which uses Python's `string.Template` with `safe_substitute`. This means:
 
 - Variables use `$name` or `${name}` syntax
 - Undefined variables are left as-is (no errors)
@@ -15,6 +15,26 @@ The system supports three categories of variables with the following precedence 
 1. **Context variables** - Passed by callers at runtime
 2. **Identity variables** - From journal configuration
 3. **Template variables** - From reusable template files
+
+## File Format
+
+Prompt files use JSON frontmatter with `{` and `}` as delimiters (braces on their own lines):
+
+```markdown
+{
+  "title": "Activity Synthesis",
+  "color": "#00bcd4",
+  "frequency": "segment"
+}
+
+$segment_insight
+
+# Segment Activity Synthesis
+
+Your prompt content here...
+```
+
+Files without metadata can omit the frontmatter entirely - just write the prompt content directly.
 
 ## Variable Categories
 
@@ -46,15 +66,15 @@ The flattening logic converts nested objects using underscore separators. For ex
 
 ### Template Variables
 
-Template variables come from `.txt` files in the `think/templates/` directory. Each file's stem becomes a variable name containing its contents.
+Template variables come from `.md` files in the `think/templates/` directory. Each file's stem becomes a variable name containing its contents.
 
 **Current templates:**
 - `$daily_insight` - Preamble for full-day insight analysis
 - `$segment_insight` - Preamble for single-segment analysis
 
-Templates can themselves use identity and context variables, enabling composable prompt construction. For example, `daily_insight.txt` uses `$preferred` and `$date`.
+Templates can themselves use identity and context variables, enabling composable prompt construction. For example, `daily_insight.md` uses `$preferred` and `$date`.
 
-**Pattern:** To add a new template variable, create `think/templates/mytemplate.txt` and it becomes available as `$mytemplate` in all prompts.
+**Pattern:** To add a new template variable, create `think/templates/mytemplate.md` and it becomes available as `$mytemplate` in all prompts.
 
 **Reference:** `think/templates/` directory
 
@@ -81,7 +101,13 @@ Context variables also get automatic uppercase-first versions (`$Day`, `$Date`, 
 
 Insight prompts typically compose a shared preamble with topic-specific instructions:
 
-```
+```markdown
+{
+  "title": "My Insight",
+  "color": "#4caf50",
+  "frequency": "segment"
+}
+
 $segment_insight
 
 # Segment Activity Synthesis
@@ -91,14 +117,26 @@ Your specific instructions here...
 
 The `$segment_insight` or `$daily_insight` template provides standardized context about what's being analyzed, while the rest of the prompt defines the specific analysis task.
 
-**Reference:** `think/insights/*.txt` for examples
+**Reference:** `think/insights/*.md` for examples
 
 ### For Agents
 
+Agent prompts are `.md` files with configuration in frontmatter:
+
+```markdown
+{
+  "title": "My Agent",
+  "tier": 2,
+  "tools": "journal"
+}
+
+You are a helpful assistant...
+```
+
 Agent prompts are split into two parts:
 
-1. **System instruction** - `think/journal.txt` (shared across all agents, cacheable)
-2. **User instruction** - Agent-specific `.txt` file (e.g., `muse/agents/default.txt`)
+1. **System instruction** - `think/journal.md` (shared across all agents, cacheable)
+2. **User instruction** - Agent-specific `.md` file (e.g., `muse/agents/default.md`)
 
 The system instruction establishes the journal partnership context. The user instruction defines the agent's specific role and capabilities.
 
@@ -108,14 +146,14 @@ The system instruction establishes the journal partnership context. The user ins
 
 ```python
 load_prompt(
-    name: str,                      # Prompt filename (without .txt)
+    name: str,                      # Prompt filename (without .md)
     base_dir: Path | None = None,   # Directory containing prompt
-    include_journal: bool = False,  # Prepend journal.txt content
+    include_journal: bool = False,  # Prepend journal.md content
     context: dict | None = None,    # Runtime context variables
 ) -> PromptContent
 ```
 
-Returns a `PromptContent` named tuple with `text` (substituted content) and `path` (source file).
+Returns a `PromptContent` named tuple with `text` (substituted content), `path` (source file), and `metadata` (frontmatter dict).
 
 **Reference:** `think/utils.py` → `load_prompt()`
 
@@ -127,7 +165,7 @@ Edit `config/journal.json` to add or modify identity fields. Nested objects are 
 
 ### Template Variables
 
-Create a new `.txt` file in `think/templates/`. The filename stem becomes the variable name.
+Create a new `.md` file in `think/templates/`. The filename stem becomes the variable name.
 
 ### Context Variables
 
@@ -145,7 +183,7 @@ load_prompt("myprompt", context={"custom_var": "value"})
 | Identity flattening | `think/utils.py` (`_flatten_identity_to_template_vars`) |
 | Template loading | `think/utils.py` (`_load_templates`) |
 | Core load function | `think/utils.py` (`load_prompt`) |
-| Template files | `think/templates/*.txt` |
+| Template files | `think/templates/*.md` |
 | Test coverage | `tests/test_template_substitution.py` |
-| Insight prompts | `think/insights/*.txt` |
-| Agent prompts | `muse/agents/*.txt` |
+| Insight prompts | `think/insights/*.md` |
+| Agent prompts | `muse/agents/*.md` |

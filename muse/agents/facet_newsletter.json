@@ -1,8 +1,0 @@
-{
-  "title": "Facet Newsletter Generator",
-  "description": "Creates comprehensive daily newsletters for each facet, capturing activities, progress, and insights",
-  "schedule": "daily",
-  "priority": 10,
-  "multi_facet": true,
-  "tools": "journal,facets"
-}

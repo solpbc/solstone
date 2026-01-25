@@ -1,0 +1,38 @@
+{
+
+  "description": "Chat or email apps (Slack, Discord, Messages/iMessage, Gmail, etc.)",
+  "output": "markdown",
+  "extraction": "Extract when conversation partner, channel, or messaging app changes",
+  "importance": "high"
+
+}
+
+# Messaging App Text Extraction
+
+Extract text from this messaging or email screenshot (Slack, Discord, Messages, Gmail, Teams, etc.).
+
+## Header
+
+`# [App Name - Channel/Conversation]`
+
+## Conversation Format
+
+Extract messages with sender attribution:
+
+```markdown
+**Alice**: Hey, how's it going?
+**Bob**: Pretty good, working on the new feature
+```
+
+Include timestamps if visible: `**Alice** (2:34 PM): message`
+
+Use `>` blockquotes for quoted/forwarded messages. Use code fences for code snippets.
+
+## Quality
+
+- Focus on message content, skip UI chrome
+- Preserve conversation order and flow
+- Mark unclear text with `[unclear]`
+- Mark cut-off text with `...`
+
+Return ONLY the formatted markdown.

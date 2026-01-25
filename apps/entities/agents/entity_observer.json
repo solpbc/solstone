@@ -1,8 +1,0 @@
-{
-  "title": "Entity Observer",
-  "description": "Extracts durable factoids about attached entities from journal content",
-  "schedule": "daily",
-  "priority": 27,
-  "tools": "journal, entities",
-  "multi_facet": true
-}

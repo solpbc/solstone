@@ -716,11 +716,11 @@ class TestComposeInstructions:
     """Tests for compose_instructions function."""
 
     def test_default_system_instruction_is_journal(self, monkeypatch, tmp_path):
-        """Test that default system instruction loads from journal.txt."""
-        # Create journal.txt in think/ directory
+        """Test that default system instruction loads from journal.md."""
+        # Create journal.md in think/ directory
         think_dir = tmp_path / "think"
         think_dir.mkdir()
-        journal_txt = think_dir / "journal.txt"
+        journal_txt = think_dir / "journal.md"
         journal_txt.write_text("Test system instruction content")
 
         # Mock the think module's parent to use our temp dir
@@ -742,7 +742,7 @@ class TestComposeInstructions:
         """Test that custom system prompt can be loaded."""
         think_dir = tmp_path / "think"
         think_dir.mkdir()
-        custom_txt = think_dir / "custom.txt"
+        custom_txt = think_dir / "custom.md"
         custom_txt.write_text("Custom system instruction")
 
         import think.utils
@@ -761,9 +761,9 @@ class TestComposeInstructions:
         """Test that user instruction is loaded when user_prompt is provided."""
         think_dir = tmp_path / "think"
         think_dir.mkdir()
-        journal_txt = think_dir / "journal.txt"
+        journal_txt = think_dir / "journal.md"
         journal_txt.write_text("System instruction")
-        user_txt = think_dir / "default.txt"
+        user_txt = think_dir / "default.md"
         user_txt.write_text("User instruction content")
 
         import think.utils
@@ -779,7 +779,7 @@ class TestComposeInstructions:
         """Test that user instruction is None when user_prompt is not provided."""
         think_dir = tmp_path / "think"
         think_dir.mkdir()
-        journal_txt = think_dir / "journal.txt"
+        journal_txt = think_dir / "journal.md"
         journal_txt.write_text("System instruction")
 
         import think.utils
@@ -795,7 +795,7 @@ class TestComposeInstructions:
         """Test that facets='none' excludes facet info from extra_context."""
         think_dir = tmp_path / "think"
         think_dir.mkdir()
-        journal_txt = think_dir / "journal.txt"
+        journal_txt = think_dir / "journal.md"
         journal_txt.write_text("System instruction")
 
         import think.utils
@@ -815,7 +815,7 @@ class TestComposeInstructions:
         """Test that include_datetime=False excludes time from context."""
         think_dir = tmp_path / "think"
         think_dir.mkdir()
-        journal_txt = think_dir / "journal.txt"
+        journal_txt = think_dir / "journal.md"
         journal_txt.write_text("System instruction")
 
         import think.utils
@@ -835,7 +835,7 @@ class TestComposeInstructions:
         """Test that include_datetime=True includes time in context."""
         think_dir = tmp_path / "think"
         think_dir.mkdir()
-        journal_txt = think_dir / "journal.txt"
+        journal_txt = think_dir / "journal.md"
         journal_txt.write_text("System instruction")
 
         import think.utils
@@ -854,7 +854,7 @@ class TestComposeInstructions:
         """Test that sources config is returned with defaults."""
         think_dir = tmp_path / "think"
         think_dir.mkdir()
-        journal_txt = think_dir / "journal.txt"
+        journal_txt = think_dir / "journal.md"
         journal_txt.write_text("System instruction")
 
         import think.utils
@@ -873,7 +873,7 @@ class TestComposeInstructions:
         """Test that sources config can be overridden."""
         think_dir = tmp_path / "think"
         think_dir.mkdir()
-        journal_txt = think_dir / "journal.txt"
+        journal_txt = think_dir / "journal.md"
         journal_txt.write_text("System instruction")
 
         import think.utils

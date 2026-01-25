@@ -23,7 +23,7 @@ def fixture_journal():
 def app_with_agent(tmp_path, monkeypatch):
     """Create a temporary app with an agent for testing.
 
-    Creates apps/testapp/agents/myhelper.txt and .json in a temp directory,
+    Creates apps/testapp/agents/myhelper.md with frontmatter in a temp directory,
     then monkeypatches the apps directory path.
     """
     # Create app structure
@@ -34,24 +34,21 @@ def app_with_agent(tmp_path, monkeypatch):
     # Create workspace.html (required for app discovery, though not used here)
     (app_dir / "workspace.html").write_text("<h1>Test App</h1>")
 
-    # Create agent files
-    (agents_dir / "myhelper.txt").write_text(
-        "You are a test helper agent.\n\n## Purpose\nHelp with testing."
-    )
-    (agents_dir / "myhelper.json").write_text(
-        json.dumps(
-            {
-                "title": "My Test Helper",
-                "provider": "openai",
-                "tools": "journal",
-                "schedule": "daily",
-                "priority": 42,
-            }
-        )
+    # Create agent file with frontmatter
+    metadata = {
+        "title": "My Test Helper",
+        "provider": "openai",
+        "tools": "journal",
+        "schedule": "daily",
+        "priority": 42,
+    }
+    json_str = json.dumps(metadata, indent=2)
+    (agents_dir / "myhelper.md").write_text(
+        f"{{\n{json_str[1:-1]}\n}}\n\nYou are a test helper agent.\n\n## Purpose\nHelp with testing."
     )
 
-    # Create another agent without JSON (defaults only)
-    (agents_dir / "simple.txt").write_text("A simple test agent with no JSON config.")
+    # Create another agent without metadata (defaults only)
+    (agents_dir / "simple.md").write_text("A simple test agent with no metadata.")
 
     # Monkeypatch the parent directory so apps discovery finds our temp apps
     original_file = Path(__file__).parent.parent / "think" / "utils.py"
@@ -152,7 +149,7 @@ def test_get_agents_excludes_private_apps(fixture_journal, tmp_path, monkeypatch
     # Create a private app with an agent
     private_app = tmp_path / "_private_app" / "agents"
     private_app.mkdir(parents=True)
-    (private_app / "secret.txt").write_text("Secret agent")
+    (private_app / "secret.md").write_text("Secret agent")
 
     # This is tricky to test without modifying the actual apps directory
     # The current implementation filters by app_path.name.startswith("_")

@@ -10,6 +10,8 @@ import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
+import frontmatter
+
 from think.utils import get_config, get_journal
 
 # ---------------------------------------------------------------------------
@@ -225,11 +227,11 @@ def _discover_agent_contexts() -> Dict[str, Dict[str, Any]]:
     # System agents from muse/agents/
     agents_dir = Path(__file__).parent / "agents"
     if agents_dir.exists():
-        for json_path in agents_dir.glob("*.json"):
-            agent_name = json_path.stem
+        for md_path in agents_dir.glob("*.md"):
+            agent_name = md_path.stem
             try:
-                with open(json_path, "r", encoding="utf-8") as f:
-                    config = json.load(f)
+                post = frontmatter.load(md_path, )
+                config = post.metadata if post.metadata else {}
 
                 context = f"agent.system.{agent_name}"
                 contexts[context] = {
@@ -250,11 +252,11 @@ def _discover_agent_contexts() -> Dict[str, Dict[str, Any]]:
             if not agents_subdir.is_dir():
                 continue
             app_name = app_path.name
-            for json_path in agents_subdir.glob("*.json"):
-                agent_name = json_path.stem
+            for md_path in agents_subdir.glob("*.md"):
+                agent_name = md_path.stem
                 try:
-                    with open(json_path, "r", encoding="utf-8") as f:
-                        config = json.load(f)
+                    post = frontmatter.load(md_path, )
+                    config = post.metadata if post.metadata else {}
 
                     context = f"agent.{app_name}.{agent_name}"
                     contexts[context] = {
