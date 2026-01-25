@@ -117,7 +117,7 @@ Your specific instructions here...
 
 The `$segment_insight` or `$daily_insight` template provides standardized context about what's being analyzed, while the rest of the prompt defines the specific analysis task.
 
-**Reference:** `think/insights/*.md` for examples
+**Reference:** `muse/*.md` for examples (files with `frequency` field)
 
 ### For Agents
 
@@ -136,7 +136,7 @@ You are a helpful assistant...
 Agent prompts are split into two parts:
 
 1. **System instruction** - `think/journal.md` (shared across all agents, cacheable)
-2. **User instruction** - Agent-specific `.md` file (e.g., `think/agents/default.md`)
+2. **User instruction** - Agent-specific `.md` file (e.g., `muse/default.md`)
 
 The system instruction establishes the journal partnership context. The user instruction defines the agent's specific role and capabilities.
 
@@ -185,5 +185,5 @@ load_prompt("myprompt", context={"custom_var": "value"})
 | Core load function | `think/utils.py` (`load_prompt`) |
 | Template files | `think/templates/*.md` |
 | Test coverage | `tests/test_template_substitution.py` |
-| Insight prompts | `think/insights/*.md` |
-| Agent prompts | `think/agents/*.md` |
+| Insight prompts | `muse/*.md` (files with `frequency` field) |
+| Agent prompts | `muse/*.md` (files without `frequency` field) |

@@ -236,10 +236,10 @@ Context strings determine provider and model selection. Providers receive alread
 
 **Context naming convention:** `{module}.{feature}[.{operation}]`
 
-**Dynamic discovery:** Categories and agents can express their own tier/label/group in their JSON configs:
+**Dynamic discovery:** Categories and agents can express their own tier/label/group in their configs:
 - Categories: `observe/categories/*.json` - add `tier`, `label`, `group` fields
-- System agents: `think/agents/*.json` - add `tier`, `label`, `group` fields
-- App agents: `apps/*/agents/*.json` - add `tier`, `label`, `group` fields
+- System agents: `muse/*.md` - add `tier`, `label`, `group` fields in frontmatter
+- App agents: `apps/*/muse/*.md` - add `tier`, `label`, `group` fields in frontmatter
 
 These are discovered at runtime and merged with static defaults. Use `get_context_registry()` to get the complete context map including discovered entries.
 

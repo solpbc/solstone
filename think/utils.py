@@ -22,7 +22,7 @@ from timefhuman import timefhuman
 DATE_RE = re.compile(r"\d{8}")
 _journal_path_cache: str | None = None
 
-AGENT_DIR = Path(__file__).parent / "agents"
+MUSE_DIR = Path(__file__).parent.parent / "muse"
 TEMPLATES_DIR = Path(__file__).parent / "templates"
 
 # Cached raw template content loaded from think/templates/*.md
@@ -798,8 +798,8 @@ def _load_insight_metadata(md_path: Path) -> dict[str, object]:
     # Resolve hook path - named hook takes precedence over co-located .py
     hook_name = info.get("hook")
     if hook_name and isinstance(hook_name, str):
-        # Named hook: look in think/insights/{hook}.py
-        named_hook_path = Path(__file__).parent / "insights" / f"{hook_name}.py"
+        # Named hook: look in muse/{hook}.py
+        named_hook_path = MUSE_DIR / f"{hook_name}.py"
         if named_hook_path.exists():
             info["hook_path"] = str(named_hook_path)
     else:
@@ -873,8 +873,10 @@ def get_insights_config() -> dict[str, dict[str, object]]:
 def get_insights() -> dict[str, dict[str, object]]:
     """Return available insights with metadata and config overrides.
 
-    Scans both system insights (think/insights/) and app insights
-    (apps/*/insights/). Each key is the insight name:
+    Scans both system insights (muse/) and app insights (apps/*/muse/).
+    Insights are identified by having a "frequency" field in frontmatter.
+
+    Each key is the insight name:
     - System: "activity", "meetings"
     - App: "app:topic" (e.g., "chat:sentiment")
 
@@ -888,28 +890,34 @@ def get_insights() -> dict[str, dict[str, object]]:
     """
     insights: dict[str, dict[str, object]] = {}
 
-    # System insights from think/insights/
-    system_dir = Path(__file__).parent / "insights"
-    for md_path in sorted(system_dir.glob("*.md")):
-        name = md_path.stem
-        info = _load_insight_metadata(md_path)
-        info["source"] = "system"
-        insights[name] = info
+    # System insights from muse/ (identified by having "frequency" field)
+    if MUSE_DIR.is_dir():
+        for md_path in sorted(MUSE_DIR.glob("*.md")):
+            name = md_path.stem
+            info = _load_insight_metadata(md_path)
+            # Only include files with frequency field (insights, not agents)
+            if "frequency" not in info:
+                continue
+            info["source"] = "system"
+            insights[name] = info
 
-    # App insights from apps/*/insights/
+    # App insights from apps/*/muse/
     apps_dir = Path(__file__).parent.parent / "apps"
     if apps_dir.is_dir():
         for app_path in sorted(apps_dir.iterdir()):
             if not app_path.is_dir() or app_path.name.startswith("_"):
                 continue
-            app_insights_dir = app_path / "insights"
-            if not app_insights_dir.is_dir():
+            app_muse_dir = app_path / "muse"
+            if not app_muse_dir.is_dir():
                 continue
             app_name = app_path.name
-            for md_path in sorted(app_insights_dir.glob("*.md")):
+            for md_path in sorted(app_muse_dir.glob("*.md")):
+                info = _load_insight_metadata(md_path)
+                # Only include files with frequency field (insights, not agents)
+                if "frequency" not in info:
+                    continue
                 topic = md_path.stem
                 key = f"{app_name}:{topic}"
-                info = _load_insight_metadata(md_path)
                 info["source"] = "app"
                 info["app"] = app_name
                 insights[key] = info
@@ -969,12 +977,12 @@ def _resolve_agent_path(persona: str) -> tuple[Path, str]:
         (agent_directory, agent_name) tuple.
     """
     if ":" in persona:
-        # App agent: "chat:helper" -> apps/chat/agents/helper
+        # App agent: "chat:helper" -> apps/chat/muse/helper
         app, agent_name = persona.split(":", 1)
-        agent_dir = Path(__file__).parent.parent / "apps" / app / "agents"
+        agent_dir = Path(__file__).parent.parent / "apps" / app / "muse"
     else:
-        # System agent: "default" -> think/agents/default
-        agent_dir = AGENT_DIR
+        # System agent: "default" -> muse/default
+        agent_dir = MUSE_DIR
         agent_name = persona
     return agent_dir, agent_name
 
@@ -1143,7 +1151,7 @@ def get_agent(persona: str = "default", facet: str | None = None) -> dict:
     ----------
     persona:
         Name of the persona to load. Can be a system agent name (e.g., "default")
-        or an app-namespaced agent (e.g., "chat:helper" for apps/chat/agents/helper).
+        or an app-namespaced agent (e.g., "chat:helper" for apps/chat/muse/helper).
     facet:
         Optional facet name to focus on. When provided, includes detailed
         information for just this facet (with full entity details) instead
@@ -1321,7 +1329,8 @@ def get_raw_file(day: str, name: str) -> tuple[str, str, Any]:
 def get_agents() -> dict[str, dict[str, Any]]:
     """Load agent metadata from system and app directories.
 
-    Scans both system agents (think/agents/) and app agents (apps/*/agents/).
+    Scans both system agents (muse/) and app agents (apps/*/muse/).
+    Agents are identified by NOT having a "frequency" field (insights have it).
     System agents use simple keys like "default", while app agents are
     namespaced as "app:agent" (e.g., "chat:helper").
 
@@ -1334,11 +1343,15 @@ def get_agents() -> dict[str, dict[str, Any]]:
     """
     agents = {}
 
-    # System agents from think/agents/
-    if AGENT_DIR.exists():
-        for md_path in sorted(AGENT_DIR.glob("*.md")):
+    # System agents from muse/ (identified by NOT having "frequency" field)
+    if MUSE_DIR.exists():
+        for md_path in sorted(MUSE_DIR.glob("*.md")):
             agent_id = md_path.stem
             try:
+                # Quick check: load frontmatter to filter out insights
+                post = frontmatter.load(md_path)
+                if post.metadata and "frequency" in post.metadata:
+                    continue  # This is an insight, not an agent
                 config = get_agent(agent_id)
                 config["title"] = config.get("title", agent_id)
                 config["source"] = "system"
@@ -1346,20 +1359,24 @@ def get_agents() -> dict[str, dict[str, Any]]:
             except Exception:
                 pass  # Skip agents that can't be loaded
 
-    # App agents from apps/*/agents/
+    # App agents from apps/*/muse/
     apps_dir = Path(__file__).parent.parent / "apps"
     if apps_dir.is_dir():
         for app_path in sorted(apps_dir.iterdir()):
             if not app_path.is_dir() or app_path.name.startswith("_"):
                 continue
-            agents_dir = app_path / "agents"
-            if not agents_dir.is_dir():
+            muse_dir = app_path / "muse"
+            if not muse_dir.is_dir():
                 continue
             app_name = app_path.name
-            for md_path in sorted(agents_dir.glob("*.md")):
+            for md_path in sorted(muse_dir.glob("*.md")):
                 agent_name = md_path.stem
-                key = f"{app_name}:{agent_name}"
                 try:
+                    # Quick check: load frontmatter to filter out insights
+                    post = frontmatter.load(md_path)
+                    if post.metadata and "frequency" in post.metadata:
+                        continue  # This is an insight, not an agent
+                    key = f"{app_name}:{agent_name}"
                     config = get_agent(key)
                     config["title"] = config.get("title", agent_name)
                     config["source"] = "app"

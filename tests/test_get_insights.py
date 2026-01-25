@@ -36,11 +36,11 @@ def test_get_insight_topic():
 
 
 def test_get_insights_app_discovery(tmp_path, monkeypatch):
-    """Test that app insights are discovered from apps/*/insights/."""
+    """Test that app insights are discovered from apps/*/muse/."""
     utils = importlib.import_module("think.utils")
 
     # Create a fake app with an insight
-    app_dir = tmp_path / "apps" / "test_app" / "insights"
+    app_dir = tmp_path / "apps" / "test_app" / "muse"
     app_dir.mkdir(parents=True)
 
     # Create insight files with frontmatter

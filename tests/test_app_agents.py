@@ -23,13 +23,13 @@ def fixture_journal():
 def app_with_agent(tmp_path, monkeypatch):
     """Create a temporary app with an agent for testing.
 
-    Creates apps/testapp/agents/myhelper.md with frontmatter in a temp directory,
+    Creates apps/testapp/muse/myhelper.md with frontmatter in a temp directory,
     then monkeypatches the apps directory path.
     """
     # Create app structure
     app_dir = tmp_path / "apps" / "testapp"
-    agents_dir = app_dir / "agents"
-    agents_dir.mkdir(parents=True)
+    muse_dir = app_dir / "muse"
+    muse_dir.mkdir(parents=True)
 
     # Create workspace.html (required for app discovery, though not used here)
     (app_dir / "workspace.html").write_text("<h1>Test App</h1>")
@@ -72,8 +72,7 @@ def test_resolve_agent_path_system_agent():
     agent_dir, agent_name = _resolve_agent_path("default")
 
     assert agent_name == "default"
-    assert agent_dir.name == "agents"
-    assert agent_dir.parent.name == "think"
+    assert agent_dir.name == "muse"
 
 
 def test_resolve_agent_path_app_agent():
@@ -81,7 +80,7 @@ def test_resolve_agent_path_app_agent():
     agent_dir, agent_name = _resolve_agent_path("chat:helper")
 
     assert agent_name == "helper"
-    assert agent_dir.name == "agents"
+    assert agent_dir.name == "muse"
     assert agent_dir.parent.name == "chat"
     assert "apps" in str(agent_dir)
 

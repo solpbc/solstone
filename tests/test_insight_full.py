@@ -72,8 +72,8 @@ def test_insight_hook_invoked_with_context(tmp_path, monkeypatch):
         '{\n  "title": "Hooked",\n  "frequency": "daily",\n  "hook": "test_hook"\n}\n\nTest prompt'
     )
 
-    # Create the hook file
-    hooks_dir = Path(mod.__file__).resolve().parent / "insights"
+    # Create the hook file in muse/ directory
+    hooks_dir = Path(mod.__file__).resolve().parent.parent / "muse"
     hook_file = hooks_dir / "test_hook.py"
     hook_file.write_text("""
 def process(result, context):
@@ -148,7 +148,7 @@ def test_insight_without_hook_succeeds(tmp_path, monkeypatch):
 
 
 def test_named_hook_resolution(tmp_path, monkeypatch):
-    """Test that named hooks are resolved from think/insights/{hook}.py."""
+    """Test that named hooks are resolved from muse/{hook}.py."""
     utils = importlib.import_module("think.utils")
 
     # Create insight with named hook
@@ -159,7 +159,7 @@ def test_named_hook_resolution(tmp_path, monkeypatch):
 
     meta = utils._load_insight_metadata(insight_file)
 
-    # Should resolve to think/insights/occurrence.py
+    # Should resolve to muse/occurrence.py
     assert "hook_path" in meta
     assert meta["hook_path"].endswith("occurrence.py")
-    assert "think/insights/occurrence.py" in meta["hook_path"].replace("\\", "/")
+    assert "muse/occurrence.py" in meta["hook_path"].replace("\\", "/")

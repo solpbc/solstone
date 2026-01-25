@@ -397,7 +397,7 @@ def test_context_registry_includes_agents():
     """Test that registry includes discovered agent contexts."""
     registry = get_context_registry()
 
-    # Should have agent entries (from think/agents/*.md and apps/*/agents/*.md)
+    # Should have agent entries (from muse/*.md and apps/*/muse/*.md)
     agent_contexts = [k for k in registry if k.startswith("agent.")]
 
     # Should have more than just the fallback pattern

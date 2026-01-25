@@ -268,12 +268,12 @@ from think.mcp import register_tool, HINTS
 Define custom insight prompts that integrate with solstone's insight generation system.
 
 **Key Points:**
-- Create `insights/` directory with `.md` files containing JSON frontmatter
+- Create `muse/` directory with `.md` files containing JSON frontmatter
 - App insights are automatically discovered alongside system insights
 - Keys are namespaced as `{app}:{topic}` (e.g., `my_app:weekly_summary`)
 - Outputs go to `JOURNAL/YYYYMMDD/insights/_<app>_<topic>.md` (or `.json` if `output: "json"`)
 
-**Metadata format:** Same schema as system insights in `think/insights/*.md` - JSON frontmatter includes `title`, `description`, `color`, `frequency` (required), `hook`, and `output` fields. The `frequency` field must be `"segment"` or `"daily"` - insights with missing or invalid frequency are skipped with a warning. Set `output: "json"` for structured JSON output instead of markdown.
+**Metadata format:** Same schema as system insights in `muse/*.md` - JSON frontmatter includes `title`, `description`, `color`, `frequency` (required), `hook`, and `output` fields. The `frequency` field must be `"segment"` or `"daily"` - insights with missing or invalid frequency are skipped with a warning. Set `output: "json"` for structured JSON output instead of markdown.
 
 **Event extraction via hooks:** To extract structured events from insight output, use the `hook` field:
 
@@ -298,7 +298,7 @@ The `occurrences` field (optional string) provides topic-specific extraction gui
 **Custom hooks:** Insights also support custom `.py` hooks for transforming output programmatically:
 
 - Create `{topic}.py` alongside `{topic}.md` for co-located hooks
-- Or use `"hook": "my_hook"` to reference `think/insights/my_hook.py`
+- Or use `"hook": "my_hook"` to reference `muse/my_hook.py`
 - Hook must define a `process(result, context)` function
 - `result` is the LLM output (markdown or JSON string)
 - `context` dict contains: `day`, `segment`, `multi_segment`, `insight_key`, `output_path`, `insight_meta`, `transcript`
@@ -313,29 +313,31 @@ def process(result: str, context: dict) -> str | None:
 ```
 
 **Reference implementations:**
-- System insight templates: `think/insights/*.md`
-- Extraction hooks: `think/insights/occurrence.py`, `think/insights/anticipation.py`
+- System insight templates: `muse/*.md` (files with `frequency` field)
+- Extraction hooks: `muse/occurrence.py`, `muse/anticipation.py`
 - Discovery logic: `think/utils.py` - `get_insights()`, `get_insights_by_frequency()`, `get_insight_topic()`
 - Hook loading: `think/utils.py` - `load_insight_hook()`
 
 ---
 
-### 8. `agents/` - App Agents
+### 8. `muse/` - App Agents and Insights
 
-Define custom agent personas that integrate with solstone's Cortex agent system.
+Define custom agent personas and insight templates that integrate with solstone's Cortex agent system.
 
 **Key Points:**
-- Create `agents/` directory with `.md` files containing JSON frontmatter
-- App agents are automatically discovered alongside system agents
-- Keys are namespaced as `{app}:{agent}` (e.g., `my_app:helper`)
+- Create `muse/` directory with `.md` files containing JSON frontmatter
+- Both agents and insights live in the same directory - distinguished by frontmatter fields
+- Insights have `frequency` field ("segment" or "daily"), agents do not
+- App agents/insights are automatically discovered alongside system ones
+- Keys are namespaced as `{app}:{name}` (e.g., `my_app:helper`)
 - Agents inherit all system agent capabilities (tools, scheduling, handoffs, multi-facet)
 
-**Metadata format:** Same schema as system agents in `think/agents/*.md` - JSON frontmatter includes `title`, `provider`, `model`, `tools`, `schedule`, `priority`, and `multi_facet` fields. See [CORTEX.md](CORTEX.md) for agent configuration details.
+**Metadata format:** Same schema as system agents in `muse/*.md` - JSON frontmatter includes `title`, `provider`, `model`, `tools`, `schedule`, `priority`, and `multi_facet` fields. See [CORTEX.md](CORTEX.md) for agent configuration details.
 
 **Template variables:** Agent prompts can use template variables like `$name`, `$preferred`, and pronoun variables. See [PROMPT_TEMPLATES.md](PROMPT_TEMPLATES.md) for the complete template system documentation.
 
 **Reference implementations:**
-- System agent examples: `think/agents/*.md`
+- System agent examples: `muse/*.md` (files without `frequency` field)
 - Discovery logic: `think/utils.py` - `get_agents()`, `get_agent()`
 
 #### Instructions Configuration

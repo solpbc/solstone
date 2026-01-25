@@ -20,7 +20,7 @@ def fixture_journal():
 
 def test_entities_agent_config(fixture_journal):
     """Test detection agent configuration loads correctly."""
-    # Entity agents are now in apps/entities/agents/ so use app-qualified name
+    # Entity agents are in apps/entities/muse/ so use app-qualified name
     config = get_agent("entities:entities")
 
     # Verify required fields
@@ -40,7 +40,7 @@ def test_entities_agent_config(fixture_journal):
 
 def test_entities_review_agent_config(fixture_journal):
     """Test review agent configuration loads correctly."""
-    # Entity agents are now in apps/entities/agents/ so use app-qualified name
+    # Entity agents are in apps/entities/muse/ so use app-qualified name
     config = get_agent("entities:entities_review")
 
     # Verify required fields

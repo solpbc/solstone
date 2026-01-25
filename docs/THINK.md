@@ -139,7 +139,7 @@ which automatically routes to the configured provider based on context.
 
 ## Insight map keys
 
-`think.utils.get_insights()` reads the `.md` prompt files under `think/insights` and
+`think.utils.get_insights()` reads the `.md` prompt files under `muse/` and
 returns a dictionary keyed by insight name. Each entry contains:
 
 - `path` – the prompt file path
@@ -217,7 +217,7 @@ Providers implement `generate()`, `agenerate()`, and `run_agent()` functions. Se
 
 ## Agent Personas
 
-System prompts in `think/agents/*.md` (markdown with JSON frontmatter). Apps can add custom agents in `apps/{app}/agents/`.
+System prompts in `muse/*.md` (markdown with JSON frontmatter). Apps can add custom agents in `apps/{app}/muse/`.
 
 JSON metadata supports `title`, `provider`, `model`, `tools`, `schedule`, `priority`, `multi_facet`, and `instructions` keys. See [APPS.md](APPS.md#instructions-configuration) for the `instructions` schema that controls system prompts, facet context, and source filtering.
 

@@ -37,7 +37,7 @@ Requests are created via `cortex_request()` from `think.cortex_client`, which br
   "event": "request",
   "ts": 1234567890123,              // Required: millisecond timestamp (must match filename)
   "prompt": "Analyze this code for security issues",  // Required: the task or question
-  "persona": "default",              // Optional: agent persona from think/agents/*.md
+  "persona": "default",              // Optional: agent persona from muse/*.md
   "provider": "openai",              // Optional: override provider (openai, google, anthropic)
   "max_tokens": 8192,               // Optional: token limit (if supported)
   "disable_mcp": false,             // Optional: disable MCP tools for this request
@@ -225,7 +225,7 @@ Agents can transfer control to other agents for specialized tasks. When an agent
 
 ## Agent Personas
 
-Agents use persona configurations stored in the `think/agents/` directory. Each persona is a `.md` file containing:
+Agents use persona configurations stored in the `muse/` directory. Each persona is a `.md` file containing:
 - JSON frontmatter with metadata and configuration
 - The agent-specific prompt and instructions in the content
 
@@ -238,7 +238,7 @@ When spawning an agent:
 3. Request parameters override persona defaults in the merged configuration
 4. The full configuration is passed to the agent process
 
-Personas define specialized behaviors, tool usage patterns, and facet expertise. Available personas can be discovered using the `get_agents()` function or by listing files in the `think/agents/` directory.
+Personas define specialized behaviors, tool usage patterns, and facet expertise. Available personas can be discovered using the `get_agents()` function or by listing files in the `muse/` directory (agents are `.md` files without a `frequency` field).
 
 ### Persona Configuration Options
 

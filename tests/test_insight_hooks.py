@@ -296,7 +296,7 @@ def test_named_hook_resolution_takes_precedence(tmp_path):
     # Should resolve to named hook, not co-located
     assert "hook_path" in meta
     assert meta["hook_path"].endswith("occurrence.py")
-    assert "think/insights/occurrence.py" in meta["hook_path"].replace("\\", "/")
+    assert "muse/occurrence.py" in meta["hook_path"].replace("\\", "/")
 
 
 def test_named_hook_nonexistent_falls_through(tmp_path):

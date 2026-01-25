@@ -222,8 +222,8 @@ make clean-install # Clean and reinstall
 * **Entry Points**: `sol.py` `COMMANDS` dict
 * **Test Fixtures**: `fixtures/journal/` - complete mock journal
 * **Live Logs**: `$JOURNAL_PATH/health/<service>.log`
-* **Agent Personas**: `think/agents/*.md` (apps can add their own, see [docs/APPS.md](docs/APPS.md))
-* **Insight Templates**: `think/insights/*.md` (apps can add their own, see [docs/APPS.md](docs/APPS.md))
+* **Agent Personas**: `muse/*.md` (apps can add their own in `muse/`, see [docs/APPS.md](docs/APPS.md))
+* **Insight Templates**: `muse/*.md` (apps can add their own in `muse/`, see [docs/APPS.md](docs/APPS.md))
 * **Scratch Space**: `scratch/` - git-ignored local workspace
 
 ### Getting Help

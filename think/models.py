@@ -112,8 +112,8 @@ class IncompleteJSONError(ValueError):
 #   - app.chat.title            -> apps module, chat app, title operation
 #
 # DYNAMIC DISCOVERY:
-#   Categories (observe/categories/*.json) and agents (think/agents/*.json,
-#   apps/*/agents/*.json) can express tier/label/group in their JSON configs.
+#   Categories (observe/categories/*.json) and agents (muse/*.md,
+#   apps/*/muse/*.md) can express tier/label/group in their frontmatter.
 #   These are discovered at runtime and merged with the static defaults below.
 #
 # When adding new contexts:
@@ -217,7 +217,7 @@ _context_registry: Optional[Dict[str, Dict[str, Any]]] = None
 def _discover_agent_contexts() -> Dict[str, Dict[str, Any]]:
     """Discover agent context defaults from JSON config files.
 
-    Scans system agents (think/agents/*.md) and app agents (apps/*/agents/*.md)
+    Scans system agents (muse/*.md) and app agents (apps/*/muse/*.md)
     for tier/label/group metadata. This is a lightweight scan that only reads
     the JSON metadata, not the full agent configuration.
 
@@ -229,16 +229,20 @@ def _discover_agent_contexts() -> Dict[str, Dict[str, Any]]:
     """
     contexts = {}
 
-    # System agents from think/agents/
-    agents_dir = Path(__file__).parent / "agents"
-    if agents_dir.exists():
-        for md_path in agents_dir.glob("*.md"):
+    # System agents from muse/ (filter out insights by checking for "frequency")
+    muse_dir = Path(__file__).parent.parent / "muse"
+    if muse_dir.exists():
+        for md_path in muse_dir.glob("*.md"):
             agent_name = md_path.stem
             try:
                 post = frontmatter.load(
                     md_path,
                 )
                 config = post.metadata if post.metadata else {}
+
+                # Skip insights (they have "frequency" field)
+                if "frequency" in config:
+                    continue
 
                 context = f"agent.system.{agent_name}"
                 contexts[context] = {
@@ -249,23 +253,27 @@ def _discover_agent_contexts() -> Dict[str, Dict[str, Any]]:
             except Exception:
                 pass  # Skip agents that can't be loaded
 
-    # App agents from apps/*/agents/
+    # App agents from apps/*/muse/
     apps_dir = Path(__file__).parent.parent / "apps"
     if apps_dir.is_dir():
         for app_path in apps_dir.iterdir():
             if not app_path.is_dir() or app_path.name.startswith("_"):
                 continue
-            agents_subdir = app_path / "agents"
-            if not agents_subdir.is_dir():
+            muse_subdir = app_path / "muse"
+            if not muse_subdir.is_dir():
                 continue
             app_name = app_path.name
-            for md_path in agents_subdir.glob("*.md"):
+            for md_path in muse_subdir.glob("*.md"):
                 agent_name = md_path.stem
                 try:
                     post = frontmatter.load(
                         md_path,
                     )
                     config = post.metadata if post.metadata else {}
+
+                    # Skip insights (they have "frequency" field)
+                    if "frequency" in config:
+                        continue
 
                     context = f"agent.{app_name}.{agent_name}"
                     contexts[context] = {
