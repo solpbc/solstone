@@ -435,10 +435,11 @@ def main() -> None:
 
         prompt = insight_prompt.text
 
-        # Resolve provider for display (routing happens inside send_insight)
+        # Resolve provider for display (must match context used in send_insight)
         from muse.models import resolve_provider
 
-        _, model = resolve_provider(f"insight.{insight_key}")
+        display_output_type = "json" if output_format == "json" else "markdown"
+        _, model = resolve_provider(f"insight.{insight_key}.{display_output_type}")
         day = args.day
         size_kb = len(markdown.encode("utf-8")) / 1024
 
