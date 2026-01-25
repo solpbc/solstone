@@ -144,3 +144,9 @@ python_functions = ["test_*"]
 markers = [
     "integration: marks tests as integration tests (deselect with '-m \"not integration\"')",
 ]
+filterwarnings = [
+    # Third-party deprecation warnings (Python 3.14+)
+    "ignore:codecs.open.* is deprecated:DeprecationWarning",
+    "ignore:.*_UnionGenericAlias.* is deprecated:DeprecationWarning",
+    "ignore:.*DefaultEventLoopPolicy.* is deprecated:DeprecationWarning",
+]
