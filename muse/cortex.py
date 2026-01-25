@@ -389,9 +389,6 @@ class CortexService:
                                 expanded.append(tool)
 
                 config["tools"] = expanded
-            elif tools_config is None:
-                # If no tools specified, use default pack
-                config["tools"] = get_tools("default")
 
             # Spawn the agent process with the merged config
             self._spawn_agent(agent_id, file_path, config)

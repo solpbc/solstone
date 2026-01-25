@@ -165,8 +165,6 @@ def build_agent_config(
                         expanded.append(tool)
 
         config["tools"] = expanded
-    elif tools_config is None:
-        config["tools"] = get_tools("default")
 
     return config
 

@@ -1,7 +1,8 @@
 {
 
   "title": "System Diagnostics",
-  "claude": true
+  "claude": true,
+  "tools": "default"
 
 }
 

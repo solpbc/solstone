@@ -2,7 +2,8 @@
 
   "title": "Joke Bot",
   "schedule": "daily",
-  "priority": 99
+  "priority": 99,
+  "tools": "default"
 
 }
 
