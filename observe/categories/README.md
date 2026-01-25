@@ -1,1 +1,0 @@
-../../docs/SCREEN_CATEGORIES.md
