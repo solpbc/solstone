@@ -170,6 +170,11 @@ CONTEXT_DEFAULTS: Dict[str, Dict[str, Any]] = {
         "group": "Import",
     },
     # Insight pipeline - daily analysis and summaries
+    "insight.entities.*": {
+        "tier": TIER_LITE,
+        "label": "Entity Extraction",
+        "group": "Think",
+    },
     "insight.*": {
         "tier": TIER_FLASH,
         "label": "Daily Insights",
@@ -230,7 +235,9 @@ def _discover_agent_contexts() -> Dict[str, Dict[str, Any]]:
         for md_path in agents_dir.glob("*.md"):
             agent_name = md_path.stem
             try:
-                post = frontmatter.load(md_path, )
+                post = frontmatter.load(
+                    md_path,
+                )
                 config = post.metadata if post.metadata else {}
 
                 context = f"agent.system.{agent_name}"
@@ -255,7 +262,9 @@ def _discover_agent_contexts() -> Dict[str, Dict[str, Any]]:
             for md_path in agents_subdir.glob("*.md"):
                 agent_name = md_path.stem
                 try:
-                    post = frontmatter.load(md_path, )
+                    post = frontmatter.load(
+                        md_path,
+                    )
                     config = post.metadata if post.metadata else {}
 
                     context = f"agent.{app_name}.{agent_name}"

@@ -140,6 +140,8 @@ def send_insight(
     insight_key: str | None = None,
     json_output: bool = False,
     system_instruction: str | None = None,
+    thinking_budget: int | None = None,
+    max_output_tokens: int | None = None,
 ) -> str:
     """Send clustered transcript to LLM for insight generation.
 
@@ -153,6 +155,8 @@ def send_insight(
         json_output: If True, request JSON response format.
         system_instruction: System instruction text. If None, loads default
             from journal.md via compose_instructions().
+        thinking_budget: Token budget for model thinking. If None, uses default.
+        max_output_tokens: Maximum output tokens. If None, uses default.
 
     Returns:
         Generated insight content (markdown or JSON string).
@@ -161,6 +165,12 @@ def send_insight(
     if system_instruction is None:
         instructions = compose_instructions(include_datetime=False)
         system_instruction = instructions["system_instruction"]
+
+    # Use defaults if not specified
+    if thinking_budget is None:
+        thinking_budget = 8192 * 3
+    if max_output_tokens is None:
+        max_output_tokens = 8192 * 6
 
     # Build context for provider routing and token logging
     output_type = "json" if json_output else "markdown"
@@ -189,8 +199,8 @@ def send_insight(
             contents=[prompt],
             context=context,
             temperature=0.3,
-            max_output_tokens=8192 * 6,
-            thinking_budget=8192 * 3,
+            max_output_tokens=max_output_tokens,
+            thinking_budget=thinking_budget,
             model=model,
             cached_content=cache_name,
             client=client,
@@ -202,8 +212,8 @@ def send_insight(
             contents=[transcript, prompt],
             context=context,
             temperature=0.3,
-            max_output_tokens=8192 * 6,
-            thinking_budget=8192 * 3,
+            max_output_tokens=max_output_tokens,
+            thinking_budget=thinking_budget,
             system_instruction=system_instruction,
             json_output=json_output,
         )
@@ -462,6 +472,10 @@ def main() -> None:
         # Check if output file already exists
         output_exists = output_path.exists() and output_path.stat().st_size > 0
 
+        # Extract optional generation parameters from insight metadata
+        meta_thinking_budget = insight_meta.get("thinking_budget")
+        meta_max_output_tokens = insight_meta.get("max_output_tokens")
+
         if output_exists and not args.force:
             print(
                 f"Output file already exists: {output_path}. Loading existing content."
@@ -478,6 +492,8 @@ def main() -> None:
                 insight_key=insight_key,
                 json_output=is_json_output,
                 system_instruction=system_instruction,
+                thinking_budget=meta_thinking_budget,
+                max_output_tokens=meta_max_output_tokens,
             )
         else:
             result = send_insight(
@@ -488,6 +504,8 @@ def main() -> None:
                 insight_key=insight_key,
                 json_output=is_json_output,
                 system_instruction=system_instruction,
+                thinking_budget=meta_thinking_budget,
+                max_output_tokens=meta_max_output_tokens,
             )
 
         # Check if we got a valid response
