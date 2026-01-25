@@ -27,5 +27,9 @@ Focus on only these four types of entities:
 Skip entities that don't fit one of these four types.
 Skip any url, domain, filename, or path.
 
-Output as a simple markdown list of detected entities with all three elements: the chosen type, the detected entity name, and the description of how the entity occurred in the document:
-* type: name - description of how they appear across the segment (transcript or screen? which app? what do we learn about them?)
+Output as a markdown list. Each line has three parts separated by colon and dash:
+* Type: Entity Name - Description
+
+Example:
+* Person: Alice Smith - Mentioned in Slack discussing the project timeline
+* Tool: Grafana - Visible on screen showing metrics dashboards
