@@ -99,9 +99,9 @@ def process(result: str, context: dict) -> str | None:
             unparsed.append(line)
 
     if unparsed:
-        logging.warning("entities hook: %d unparsed lines", len(unparsed))
-        for line in unparsed[:5]:  # Log first 5
-            logging.debug("  unparsed: %s", line)
+        print(f"Warning: {len(unparsed)} unparsed entity lines:")
+        for line in unparsed:
+            print(f"  {line}")
 
     if not entities:
         logging.info("entities hook: no entities extracted")
