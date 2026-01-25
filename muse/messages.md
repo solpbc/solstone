@@ -5,7 +5,7 @@
   "occurrences": "Create an occurrence for every message read or sent. Include the time block, app name, contacts involved and whether Jeremie was reading or replying. Summaries should capture any visible text.",
   "hook": "occurrence",
   "color": "#6c757d",
-  "frequency": "daily",
+  "schedule": "daily",
   "output": "md"
 
 }

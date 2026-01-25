@@ -64,13 +64,13 @@ def _output_path(
 def scan_day(day: str) -> dict[str, list[str]]:
     """Return lists of processed and pending daily insight output files.
 
-    Only scans daily insights (frequency='daily'). Segment insights are
+    Only scans daily insights (schedule='daily'). Segment insights are
     stored within segment directories and are not included here.
     """
-    from think.utils import get_insights_by_frequency
+    from think.utils import get_insights_by_schedule
 
     day_dir = day_path(day)
-    daily_insights = get_insights_by_frequency("daily", include_disabled=True)
+    daily_insights = get_insights_by_schedule("daily", include_disabled=True)
     processed: list[str] = []
     pending: list[str] = []
     for key, meta in sorted(daily_insights.items()):

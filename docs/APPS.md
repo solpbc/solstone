@@ -273,7 +273,7 @@ Define custom insight prompts that integrate with solstone's insight generation 
 - Keys are namespaced as `{app}:{topic}` (e.g., `my_app:weekly_summary`)
 - Outputs go to `JOURNAL/YYYYMMDD/insights/_<app>_<topic>.md` (or `.json` if `output: "json"`)
 
-**Metadata format:** Same schema as system insights in `muse/*.md` - JSON frontmatter includes `title`, `description`, `color`, `frequency` (required), `hook`, and `output` fields. The `frequency` field must be `"segment"` or `"daily"` - insights with missing or invalid frequency are skipped with a warning. Set `output: "json"` for structured JSON output instead of markdown.
+**Metadata format:** Same schema as system insights in `muse/*.md` - JSON frontmatter includes `title`, `description`, `color`, `schedule` (required), `hook`, and `output` fields. The `schedule` field must be `"segment"` or `"daily"` - insights with missing or invalid schedule are skipped with a warning. Set `output: "json"` for structured JSON output instead of markdown.
 
 **Event extraction via hooks:** To extract structured events from insight output, use the `hook` field:
 
@@ -285,7 +285,7 @@ The `occurrences` field (optional string) provides topic-specific extraction gui
 ```json
 {
   "title": "Meeting Summary",
-  "frequency": "daily",
+  "schedule": "daily",
   "hook": "occurrence",
   "occurrences": "Each meeting should generate an occurrence with start and end times, participants, and summary."
 }
@@ -313,9 +313,9 @@ def process(result: str, context: dict) -> str | None:
 ```
 
 **Reference implementations:**
-- System insight templates: `muse/*.md` (files with `frequency` field)
+- System insight templates: `muse/*.md` (files with `schedule` field but no `tools` field)
 - Extraction hooks: `muse/occurrence.py`, `muse/anticipation.py`
-- Discovery logic: `think/utils.py` - `get_insights()`, `get_insights_by_frequency()`, `get_insight_topic()`
+- Discovery logic: `think/utils.py` - `get_insights()`, `get_insights_by_schedule()`, `get_insight_topic()`
 - Hook loading: `think/utils.py` - `load_insight_hook()`
 
 ---
@@ -327,7 +327,7 @@ Define custom agent personas and insight templates that integrate with solstone'
 **Key Points:**
 - Create `muse/` directory with `.md` files containing JSON frontmatter
 - Both agents and insights live in the same directory - distinguished by frontmatter fields
-- Insights have `frequency` field ("segment" or "daily"), agents do not
+- Agents have a `tools` field, insights have `schedule` but no `tools`
 - App agents/insights are automatically discovered alongside system ones
 - Keys are namespaced as `{app}:{name}` (e.g., `my_app:helper`)
 - Agents inherit all system agent capabilities (tools, scheduling, handoffs, multi-facet)
@@ -337,7 +337,7 @@ Define custom agent personas and insight templates that integrate with solstone'
 **Template variables:** Agent prompts can use template variables like `$name`, `$preferred`, and pronoun variables. See [PROMPT_TEMPLATES.md](PROMPT_TEMPLATES.md) for the complete template system documentation.
 
 **Reference implementations:**
-- System agent examples: `muse/*.md` (files without `frequency` field)
+- System agent examples: `muse/*.md` (files with `tools` field)
 - Discovery logic: `think/utils.py` - `get_agents()`, `get_agent()`
 
 #### Instructions Configuration

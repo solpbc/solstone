@@ -70,68 +70,67 @@ def test_get_insights_app_discovery(tmp_path, monkeypatch):
             assert info.get("source") == "system", f"{key} should have source=system"
 
 
-def test_get_insights_by_frequency():
-    """Test filtering insights by frequency."""
+def test_get_insights_by_schedule():
+    """Test filtering insights by schedule."""
     utils = importlib.import_module("think.utils")
 
     # Get daily insights
-    daily = utils.get_insights_by_frequency("daily")
+    daily = utils.get_insights_by_schedule("daily")
     assert len(daily) > 0
     for key, meta in daily.items():
-        assert meta.get("frequency") == "daily", f"{key} should have frequency=daily"
+        assert meta.get("schedule") == "daily", f"{key} should have schedule=daily"
 
     # Get segment insights
-    segment = utils.get_insights_by_frequency("segment")
+    segment = utils.get_insights_by_schedule("segment")
     assert len(segment) > 0
     for key, meta in segment.items():
         assert (
-            meta.get("frequency") == "segment"
-        ), f"{key} should have frequency=segment"
+            meta.get("schedule") == "segment"
+        ), f"{key} should have schedule=segment"
 
     # Verify no overlap
     assert not set(daily.keys()) & set(
         segment.keys()
     ), "daily and segment should not overlap"
 
-    # Unknown frequency returns empty dict
-    assert utils.get_insights_by_frequency("hourly") == {}
-    assert utils.get_insights_by_frequency("") == {}
+    # Unknown schedule returns empty dict
+    assert utils.get_insights_by_schedule("hourly") == {}
+    assert utils.get_insights_by_schedule("") == {}
 
 
-def test_get_insights_by_frequency_include_disabled(monkeypatch):
+def test_get_insights_by_schedule_include_disabled(monkeypatch):
     """Test include_disabled parameter."""
     utils = importlib.import_module("think.utils")
 
     # Get insights without disabled (default)
-    without_disabled = utils.get_insights_by_frequency("daily")
+    without_disabled = utils.get_insights_by_schedule("daily")
 
     # Get insights with disabled included
-    with_disabled = utils.get_insights_by_frequency("daily", include_disabled=True)
+    with_disabled = utils.get_insights_by_schedule("daily", include_disabled=True)
 
     # Should have at least as many with disabled included
     # (files.md, media.md, tools.md are disabled by default)
     assert len(with_disabled) >= len(without_disabled)
 
 
-def test_all_system_insights_have_frequency():
-    """Test that all runnable system insights have valid frequency field.
+def test_all_system_insights_have_schedule():
+    """Test that all system insights have valid schedule field.
 
-    Hook-only insights (occurrence, anticipation) are allowed to omit frequency
-    since they're invoked via the 'hook' field, not scheduled directly.
+    Insights are identified by having a schedule field but no tools field.
+    Hook-only files (occurrence, anticipation) have neither, so they're
+    excluded from get_insights() automatically.
     """
     utils = importlib.import_module("think.utils")
 
     insights = utils.get_insights()
-    valid_frequencies = ("segment", "daily")
-    # Hook-only insights that don't need frequency
-    hook_only_insights = {"occurrence", "anticipation"}
+    valid_schedules = ("segment", "daily")
 
     for key, meta in insights.items():
-        if meta.get("source") == "system" and key not in hook_only_insights:
-            freq = meta.get("frequency")
+        if meta.get("source") == "system":
+            sched = meta.get("schedule")
             assert (
-                freq is not None
-            ), f"System insight '{key}' missing required 'frequency' field"
+                sched is not None
+            ), f"System insight '{key}' missing required 'schedule' field"
             assert (
-                freq in valid_frequencies
-            ), f"System insight '{key}' has invalid frequency '{freq}'"
+                sched in valid_schedules
+            ), f"System insight '{key}' has invalid schedule '{sched}'"

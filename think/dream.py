@@ -17,7 +17,7 @@ from think.utils import (
     day_log,
     day_path,
     get_agents,
-    get_insights_by_frequency,
+    get_insights_by_schedule,
     get_journal,
     setup_cli,
 )
@@ -138,23 +138,23 @@ def build_commands(
     """
     commands: list[list[str]] = []
 
-    # Determine target frequency and what to run
+    # Determine target schedule and what to run
     if segment:
         logging.info("Running segment processing for %s/%s", day, segment)
-        target_frequency = "segment"
+        target_schedule = "segment"
         # No sense repair for segments (already processed during observation)
 
     else:
         logging.info("Running daily processing for %s", day)
-        target_frequency = "daily"
+        target_schedule = "daily"
         # Daily-only: repair routines
         cmd = ["sol", "sense", "--day", day]
         if verbose:
             cmd.append("-v")
         commands.append(cmd)
 
-    # Run insights filtered by frequency (skips disabled and invalid)
-    insights = get_insights_by_frequency(target_frequency)
+    # Run insights filtered by schedule (skips disabled and invalid)
+    insights = get_insights_by_schedule(target_schedule)
     for insight_name, insight_data in insights.items():
         cmd = ["sol", "insight", day, "-f", insight_data["path"]]
         if segment:

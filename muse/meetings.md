@@ -5,7 +5,7 @@
   "occurrences": "Each meeting should generate an occurrence with start and end times, list of participants and a concise summary. If slides are present, mention them in the details field.",
   "hook": "occurrence",
   "color": "#e83e8c",
-  "frequency": "daily",
+  "schedule": "daily",
   "output": "md"
 
 }

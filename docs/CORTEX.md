@@ -238,7 +238,7 @@ When spawning an agent:
 3. Request parameters override persona defaults in the merged configuration
 4. The full configuration is passed to the agent process
 
-Personas define specialized behaviors, tool usage patterns, and facet expertise. Available personas can be discovered using the `get_agents()` function or by listing files in the `muse/` directory (agents are `.md` files without a `frequency` field).
+Personas define specialized behaviors, tool usage patterns, and facet expertise. Available personas can be discovered using the `get_agents()` function or by listing files in the `muse/` directory (agents are `.md` files with a `tools` field).
 
 ### Persona Configuration Options
 

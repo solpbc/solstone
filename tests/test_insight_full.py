@@ -42,7 +42,7 @@ def test_insight_generates_output(tmp_path, monkeypatch):
     mod = importlib.import_module("think.insight")
     day_dir = copy_day(tmp_path)
     prompt = tmp_path / "prompt.md"
-    prompt.write_text('{\n  "frequency": "daily"\n}\n\nprompt')
+    prompt.write_text('{\n  "schedule": "daily"\n}\n\nprompt')
 
     monkeypatch.setattr(
         mod,
@@ -69,7 +69,7 @@ def test_insight_hook_invoked_with_context(tmp_path, monkeypatch):
 
     prompt_file = insights_dir / "hooked.md"
     prompt_file.write_text(
-        '{\n  "title": "Hooked",\n  "frequency": "daily",\n  "hook": "test_hook"\n}\n\nTest prompt'
+        '{\n  "title": "Hooked",\n  "schedule": "daily",\n  "hook": "test_hook"\n}\n\nTest prompt'
     )
 
     # Create the hook file in muse/ directory
@@ -131,7 +131,7 @@ def test_insight_without_hook_succeeds(tmp_path, monkeypatch):
 
     # Create insight without hook
     prompt = tmp_path / "nohook.md"
-    prompt.write_text('{\n  "frequency": "daily"\n}\n\nNo hook prompt')
+    prompt.write_text('{\n  "schedule": "daily"\n}\n\nNo hook prompt')
 
     monkeypatch.setattr(
         mod,

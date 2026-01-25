@@ -2,7 +2,7 @@
 
   "title": "Meeting Speakers",
   "description": "Detects meetings in the segment and extracts participant names from screen and conversation.",
-  "frequency": "segment",
+  "schedule": "segment",
   "output": "json",
   "color": "#ff5722"
 

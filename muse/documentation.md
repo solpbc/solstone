@@ -5,7 +5,7 @@
   "occurrences": "Record an occurrence whenever a new procedure, decision or troubleshooting step is described. Capture the related file or tool and where the documentation should live such as wiki or README.",
   "hook": "occurrence",
   "color": "#007bff",
-  "frequency": "daily",
+  "schedule": "daily",
   "output": "md"
 
 }

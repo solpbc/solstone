@@ -5,7 +5,7 @@
   "occurrences": "Whenever a tool is launched or actively used, create an occurrence noting the time span, purpose and intensity of use. Distinguish between core work tools and occasional utilities.",
   "hook": "occurrence",
   "color": "#795548",
-  "frequency": "daily",
+  "schedule": "daily",
   "disabled": true,
   "output": "md"
 

@@ -5,7 +5,7 @@
   "occurrences": "Create an occurrence whenever media consumption is noted, noting the application or site and whether it was for work or leisure. Include a short summary of the topic if visible.",
   "hook": "occurrence",
   "color": "#fd7e14",
-  "frequency": "daily",
+  "schedule": "daily",
   "disabled": true,
   "output": "md"
 

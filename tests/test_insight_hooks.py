@@ -120,7 +120,7 @@ def test_insight_hook_invocation(tmp_path, monkeypatch):
 
     prompt_file = insights_dir / "hooked.md"
     prompt_file.write_text(
-        '{\n  "title": "Hooked",\n  "occurrences": false,\n  "frequency": "daily"\n}\n\nTest prompt'
+        '{\n  "title": "Hooked",\n  "occurrences": false,\n  "schedule": "daily"\n}\n\nTest prompt'
     )
 
     hook_file = insights_dir / "hooked.py"
@@ -160,7 +160,7 @@ def test_insight_hook_returns_none(tmp_path, monkeypatch):
 
     prompt_file = insights_dir / "noop.md"
     prompt_file.write_text(
-        '{\n  "title": "Noop",\n  "occurrences": false,\n  "frequency": "daily"\n}\n\nTest prompt'
+        '{\n  "title": "Noop",\n  "occurrences": false,\n  "schedule": "daily"\n}\n\nTest prompt'
     )
 
     hook_file = insights_dir / "noop.py"
@@ -195,7 +195,7 @@ def test_insight_hook_error_fallback(tmp_path, monkeypatch):
 
     prompt_file = insights_dir / "broken.md"
     prompt_file.write_text(
-        '{\n  "title": "Broken",\n  "occurrences": false,\n  "frequency": "daily"\n}\n\nTest prompt'
+        '{\n  "title": "Broken",\n  "occurrences": false,\n  "schedule": "daily"\n}\n\nTest prompt'
     )
 
     hook_file = insights_dir / "broken.py"
@@ -231,7 +231,7 @@ def test_insight_hook_context_fields(tmp_path, monkeypatch):
 
     prompt_file = insights_dir / "context_check.md"
     prompt_file.write_text(
-        '{\n  "title": "Context Check",\n  "occurrences": false,\n  "frequency": "daily"\n}\n\nTest prompt'
+        '{\n  "title": "Context Check",\n  "occurrences": false,\n  "schedule": "daily"\n}\n\nTest prompt'
     )
 
     # Write captured context to a file for verification

@@ -2,7 +2,7 @@
 
   "title": "Entity Extraction",
   "description": "Extracts people, companies, projects, and tools from segment content",
-  "frequency": "segment",
+  "schedule": "segment",
   "hook": "entities",
   "thinking_budget": 4096,
   "max_output_tokens": 1024,

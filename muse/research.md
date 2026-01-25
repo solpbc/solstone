@@ -5,7 +5,7 @@
   "occurrences": "Log an occurrence each time a knowledge gap or open question appears. Mention the problem area and any suggested resources to investigate so the task can be assigned.",
   "hook": "occurrence",
   "color": "#ff5722",
-  "frequency": "daily",
+  "schedule": "daily",
   "output": "md"
 
 }

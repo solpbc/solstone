@@ -5,7 +5,7 @@
   "occurrences": "Create an occurrence for every notable file referenced, including the path when known and the related project. Ignore terminal output and focus on visible file explorers or sharing actions.",
   "hook": "occurrence",
   "color": "#28a745",
-  "frequency": "daily",
+  "schedule": "daily",
   "disabled": true,
   "output": "md"
 

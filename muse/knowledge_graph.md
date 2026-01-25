@@ -5,7 +5,7 @@
   "occurrences": "For each entity interaction or relationship mentioned, create an occurrence describing the connection. Include start and end times when the relationship is visible, and capture the type of link such as works-on or discusses-with.",
   "hook": "occurrence",
   "color": "#6f42c1",
-  "frequency": "daily",
+  "schedule": "daily",
   "output": "md"
 
 }

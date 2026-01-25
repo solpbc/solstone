@@ -796,7 +796,7 @@ def _build_insight_info(key: str, meta: dict) -> dict:
         "description": meta.get("description", ""),
         "color": meta.get("color", "#6c757d"),
         "source": meta.get("source", "system"),
-        "frequency": meta.get("frequency"),
+        "schedule": meta.get("schedule"),
         "disabled": bool(meta.get("disabled", False)),
         "extract": (meta.get("extract", True) if has_extraction else None),
         "has_extraction": has_extraction,
@@ -822,27 +822,27 @@ def get_insights() -> Any:
         - title, description, color: Display metadata
         - source: "system" or "app"
         - app: App name (if source is "app")
-        - frequency: "segment" or "daily"
+        - schedule: "segment" or "daily"
         - disabled: Whether insight is disabled
         - extract: Whether event extraction is enabled
         - has_extraction: Whether insight supports event extraction
 
-    Insights with missing or invalid frequency are excluded.
+    Insights with missing or invalid schedule are excluded.
     """
     try:
-        from think.utils import get_insights_by_frequency
+        from think.utils import get_insights_by_schedule
 
-        # Get insights by frequency (include disabled for settings toggle UI)
+        # Get insights by schedule (include disabled for settings toggle UI)
         segment_insights = [
             _build_insight_info(key, meta)
             for key, meta in sorted(
-                get_insights_by_frequency("segment", include_disabled=True).items()
+                get_insights_by_schedule("segment", include_disabled=True).items()
             )
         ]
         daily_insights = [
             _build_insight_info(key, meta)
             for key, meta in sorted(
-                get_insights_by_frequency("daily", include_disabled=True).items()
+                get_insights_by_schedule("daily", include_disabled=True).items()
             )
         ]
 

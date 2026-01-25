@@ -229,7 +229,7 @@ def _discover_agent_contexts() -> Dict[str, Dict[str, Any]]:
     """
     contexts = {}
 
-    # System agents from muse/ (filter out insights by checking for "frequency")
+    # System agents from muse/ (agents have "tools" field, insights don't)
     muse_dir = Path(__file__).parent.parent / "muse"
     if muse_dir.exists():
         for md_path in muse_dir.glob("*.md"):
@@ -240,8 +240,8 @@ def _discover_agent_contexts() -> Dict[str, Dict[str, Any]]:
                 )
                 config = post.metadata if post.metadata else {}
 
-                # Skip insights (they have "frequency" field)
-                if "frequency" in config:
+                # Only include agents (they have "tools" field)
+                if "tools" not in config:
                     continue
 
                 context = f"agent.system.{agent_name}"
@@ -271,8 +271,8 @@ def _discover_agent_contexts() -> Dict[str, Dict[str, Any]]:
                     )
                     config = post.metadata if post.metadata else {}
 
-                    # Skip insights (they have "frequency" field)
-                    if "frequency" in config:
+                    # Only include agents (they have "tools" field)
+                    if "tools" not in config:
                         continue
 
                     context = f"agent.{app_name}.{agent_name}"

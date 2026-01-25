@@ -874,7 +874,8 @@ def get_insights() -> dict[str, dict[str, object]]:
     """Return available insights with metadata and config overrides.
 
     Scans both system insights (muse/) and app insights (apps/*/muse/).
-    Insights are identified by having a "frequency" field in frontmatter.
+    Insights are identified by having a "schedule" field but no "tools" field
+    in frontmatter (agents have tools, insights don't).
 
     Each key is the insight name:
     - System: "activity", "meetings"
@@ -890,13 +891,13 @@ def get_insights() -> dict[str, dict[str, object]]:
     """
     insights: dict[str, dict[str, object]] = {}
 
-    # System insights from muse/ (identified by having "frequency" field)
+    # System insights from muse/ (have "schedule" but no "tools")
     if MUSE_DIR.is_dir():
         for md_path in sorted(MUSE_DIR.glob("*.md")):
             name = md_path.stem
             info = _load_insight_metadata(md_path)
-            # Only include files with frequency field (insights, not agents)
-            if "frequency" not in info:
+            # Insights have schedule but no tools (agents have tools)
+            if "tools" in info or "schedule" not in info:
                 continue
             info["source"] = "system"
             insights[name] = info
@@ -913,8 +914,8 @@ def get_insights() -> dict[str, dict[str, object]]:
             app_name = app_path.name
             for md_path in sorted(app_muse_dir.glob("*.md")):
                 info = _load_insight_metadata(md_path)
-                # Only include files with frequency field (insights, not agents)
-                if "frequency" not in info:
+                # Insights have schedule but no tools (agents have tools)
+                if "tools" in info or "schedule" not in info:
                     continue
                 topic = md_path.stem
                 key = f"{app_name}:{topic}"
@@ -935,20 +936,20 @@ def get_insights() -> dict[str, dict[str, object]]:
     return insights
 
 
-def get_insights_by_frequency(
-    frequency: str,
+def get_insights_by_schedule(
+    schedule: str,
     *,
     include_disabled: bool = False,
 ) -> dict[str, dict[str, object]]:
-    """Return insights matching the given frequency.
+    """Return insights matching the given schedule.
 
     Args:
-        frequency: Target frequency (e.g., "segment" or "daily").
+        schedule: Target schedule (e.g., "segment" or "daily").
         include_disabled: If True, include disabled insights (for settings UI).
             Default False (for processing pipelines).
 
     Returns:
-        Dict of insight_key -> metadata for insights where frequency matches.
+        Dict of insight_key -> metadata for insights where schedule matches.
     """
     all_insights = get_insights()
     result: dict[str, dict[str, object]] = {}
@@ -956,7 +957,7 @@ def get_insights_by_frequency(
     for key, meta in all_insights.items():
         if not include_disabled and meta.get("disabled", False):
             continue
-        if meta.get("frequency") == frequency:
+        if meta.get("schedule") == schedule:
             result[key] = meta
 
     return result
@@ -1330,7 +1331,8 @@ def get_agents() -> dict[str, dict[str, Any]]:
     """Load agent metadata from system and app directories.
 
     Scans both system agents (muse/) and app agents (apps/*/muse/).
-    Agents are identified by NOT having a "frequency" field (insights have it).
+    Agents are identified by having a "tools" field in frontmatter
+    (insights have schedule but no tools).
     System agents use simple keys like "default", while app agents are
     namespaced as "app:agent" (e.g., "chat:helper").
 
@@ -1343,15 +1345,15 @@ def get_agents() -> dict[str, dict[str, Any]]:
     """
     agents = {}
 
-    # System agents from muse/ (identified by NOT having "frequency" field)
+    # System agents from muse/ (identified by having "tools" field)
     if MUSE_DIR.exists():
         for md_path in sorted(MUSE_DIR.glob("*.md")):
             agent_id = md_path.stem
             try:
                 # Quick check: load frontmatter to filter out insights
                 post = frontmatter.load(md_path)
-                if post.metadata and "frequency" in post.metadata:
-                    continue  # This is an insight, not an agent
+                if not post.metadata or "tools" not in post.metadata:
+                    continue  # This is an insight or hook, not an agent
                 config = get_agent(agent_id)
                 config["title"] = config.get("title", agent_id)
                 config["source"] = "system"
@@ -1374,8 +1376,8 @@ def get_agents() -> dict[str, dict[str, Any]]:
                 try:
                     # Quick check: load frontmatter to filter out insights
                     post = frontmatter.load(md_path)
-                    if post.metadata and "frequency" in post.metadata:
-                        continue  # This is an insight, not an agent
+                    if not post.metadata or "tools" not in post.metadata:
+                        continue  # This is an insight or hook, not an agent
                     key = f"{app_name}:{agent_name}"
                     config = get_agent(key)
                     config["title"] = config.get("title", agent_name)

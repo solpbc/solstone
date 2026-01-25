@@ -946,17 +946,17 @@ Insights are AI-generated markdown files that provide human-readable narratives 
 
 #### Segment insights
 
-After captures are processed, segment-level insights are generated within each segment folder as `HHMMSS_LEN/*.md` files. Available segment insight types are defined by templates in `muse/` with `"frequency": "segment"` in their metadata JSON.
+After captures are processed, segment-level insights are generated within each segment folder as `HHMMSS_LEN/*.md` files. Available segment insight types are defined by templates in `muse/` with `"schedule": "segment"` in their metadata JSON.
 
 #### Daily insights
 
 Post-processing generates day-level insights in the `insights/` directory that synthesize all segments.
 
 **Insight discovery:** Available insight types are discovered at runtime from:
-- `muse/*.md` – system insight templates (files with `frequency` field)
+- `muse/*.md` – system insight templates (files with `schedule` field but no `tools` field)
 - `apps/{app}/muse/*.md` – app-specific insight templates
 
-Each template is a `.md` file with JSON frontmatter containing metadata (title, description, frequency, output format). The `frequency` field is required and must be `"segment"` or `"daily"` - insights with missing or invalid frequency are skipped. Use `get_insights()` from `think/utils.py` to retrieve all available insights, or `get_insights_by_frequency()` to get insights filtered by schedule.
+Each template is a `.md` file with JSON frontmatter containing metadata (title, description, schedule, output format). The `schedule` field is required and must be `"segment"` or `"daily"` - insights with missing or invalid schedule are skipped. Use `get_insights()` from `think/utils.py` to retrieve all available insights, or `get_insights_by_schedule()` to get insights filtered by schedule.
 
 **Output naming:**
 - System insights: `insights/{topic}.md` (e.g., `insights/flow.md`, `insights/meetings.md`)

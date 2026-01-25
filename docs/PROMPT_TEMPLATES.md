@@ -24,7 +24,7 @@ Prompt files use JSON frontmatter with `{` and `}` as delimiters (braces on thei
 {
   "title": "Activity Synthesis",
   "color": "#00bcd4",
-  "frequency": "segment"
+  "schedule": "segment"
 }
 
 $segment_insight
@@ -105,7 +105,7 @@ Insight prompts typically compose a shared preamble with topic-specific instruct
 {
   "title": "My Insight",
   "color": "#4caf50",
-  "frequency": "segment"
+  "schedule": "segment"
 }
 
 $segment_insight
@@ -117,7 +117,7 @@ Your specific instructions here...
 
 The `$segment_insight` or `$daily_insight` template provides standardized context about what's being analyzed, while the rest of the prompt defines the specific analysis task.
 
-**Reference:** `muse/*.md` for examples (files with `frequency` field)
+**Reference:** `muse/*.md` for examples (files with `schedule` field but no `tools` field)
 
 ### For Agents
 
@@ -185,5 +185,5 @@ load_prompt("myprompt", context={"custom_var": "value"})
 | Core load function | `think/utils.py` (`load_prompt`) |
 | Template files | `think/templates/*.md` |
 | Test coverage | `tests/test_template_substitution.py` |
-| Insight prompts | `muse/*.md` (files with `frequency` field) |
-| Agent prompts | `muse/*.md` (files without `frequency` field) |
+| Insight prompts | `muse/*.md` (files with `schedule` field but no `tools`) |
+| Agent prompts | `muse/*.md` (files with `tools` field) |

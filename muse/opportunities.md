@@ -5,7 +5,7 @@
   "occurrences": "Whenever a novel idea or pain point is raised, record an occurrence describing the opportunity and any proposed solution. Include who mentioned it and classify the potential impact.",
   "hook": "occurrence",
   "color": "#20c997",
-  "frequency": "daily",
+  "schedule": "daily",
   "output": "md"
 
 }
