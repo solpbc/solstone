@@ -73,7 +73,7 @@ def test_resolve_agent_path_system_agent():
 
     assert agent_name == "default"
     assert agent_dir.name == "agents"
-    assert agent_dir.parent.name == "muse"
+    assert agent_dir.parent.name == "think"
 
 
 def test_resolve_agent_path_app_agent():

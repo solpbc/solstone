@@ -3,7 +3,7 @@
 
 """Tests for agents conversation history functions."""
 
-from muse.agents import format_tool_summary, parse_agent_events_to_turns
+from think.agents import format_tool_summary, parse_agent_events_to_turns
 
 
 def test_format_tool_summary():
@@ -45,7 +45,7 @@ def test_parse_agent_events_to_turns_basic(monkeypatch):
             {"event": "finish", "result": "I'm doing well, thank you!"},
         ]
 
-    monkeypatch.setattr("muse.cortex_client.read_agent_events", mock_read_events)
+    monkeypatch.setattr("think.cortex_client.read_agent_events", mock_read_events)
 
     turns = parse_agent_events_to_turns("test-conversation")
 
@@ -65,7 +65,7 @@ def test_parse_agent_events_to_turns_with_tools(monkeypatch):
             {"event": "finish", "result": "It's sunny in NYC."},
         ]
 
-    monkeypatch.setattr("muse.cortex_client.read_agent_events", mock_read_events)
+    monkeypatch.setattr("think.cortex_client.read_agent_events", mock_read_events)
 
     turns = parse_agent_events_to_turns("test-conversation")
 
@@ -89,7 +89,7 @@ def test_parse_agent_events_to_turns_incomplete(monkeypatch):
             # No finish event for second turn - assistant response is incomplete
         ]
 
-    monkeypatch.setattr("muse.cortex_client.read_agent_events", mock_read_events)
+    monkeypatch.setattr("think.cortex_client.read_agent_events", mock_read_events)
 
     turns = parse_agent_events_to_turns("test-conversation")
 
@@ -110,7 +110,7 @@ def test_parse_agent_events_to_turns_not_found(monkeypatch, caplog):
     def mock_read_events(conversation_id):
         raise FileNotFoundError("Log not found")
 
-    monkeypatch.setattr("muse.cortex_client.read_agent_events", mock_read_events)
+    monkeypatch.setattr("think.cortex_client.read_agent_events", mock_read_events)
 
     turns = parse_agent_events_to_turns("missing-conversation")
 
@@ -137,7 +137,7 @@ def test_parse_agent_events_to_turns_multi_turn(monkeypatch):
             {"event": "finish", "result": "Final answer"},
         ]
 
-    monkeypatch.setattr("muse.cortex_client.read_agent_events", mock_read_events)
+    monkeypatch.setattr("think.cortex_client.read_agent_events", mock_read_events)
 
     turns = parse_agent_events_to_turns("test-conversation")
 

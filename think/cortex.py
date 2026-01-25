@@ -98,7 +98,7 @@ class CortexService:
         if self.mcp_thread and self.mcp_thread.is_alive():
             return
 
-        from muse.mcp import mcp
+        from think.mcp import mcp
 
         host = os.getenv("SOLSTONE_MCP_HOST", "127.0.0.1")
         port = int(os.getenv("SOLSTONE_MCP_PORT", "6270"))
@@ -291,7 +291,7 @@ class CortexService:
             # Validate and link continue_from if specified
             continue_from = request.get("continue_from")
             if continue_from:
-                from muse.cortex_client import get_agent_status
+                from think.cortex_client import get_agent_status
 
                 status = get_agent_status(continue_from)
                 if status != "completed":
@@ -317,7 +317,7 @@ class CortexService:
                 self.logger.info(f"Linked continuation: {continue_from} -> {agent_id}")
 
             # Load persona and merge with request
-            from muse.mcp import get_tools
+            from think.mcp import get_tools
             from think.utils import get_agent
 
             persona = request.get("persona", "default")
@@ -331,7 +331,7 @@ class CortexService:
 
             # Resolve provider and model from context
             # Context format: agent.{app}.{name} where app="system" for system agents
-            from muse.models import resolve_model_for_provider, resolve_provider
+            from think.models import resolve_model_for_provider, resolve_provider
 
             if ":" in persona:
                 app, name = persona.split(":", 1)
@@ -549,7 +549,7 @@ class CortexService:
                             usage_data = event.get("usage")
                             if usage_data and original_request:
                                 try:
-                                    from muse.models import log_token_usage
+                                    from think.models import log_token_usage
 
                                     model = original_request.get("model", "unknown")
                                     persona = original_request.get("persona", "unknown")
@@ -754,7 +754,7 @@ class CortexService:
     ) -> None:
         """Spawn a handoff agent from a completed agent's result."""
         try:
-            from muse.cortex_client import cortex_request
+            from think.cortex_client import cortex_request
 
             if not handoff:
                 self.logger.debug(
@@ -883,7 +883,7 @@ def format_agent(
     from datetime import datetime
     from typing import Any
 
-    from muse.models import calc_token_cost
+    from think.models import calc_token_cost
 
     _ = context  # Reserved for future context support
     meta: dict[str, Any] = {}

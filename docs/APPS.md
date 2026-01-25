@@ -241,14 +241,14 @@ Define custom MCP tools for your app that are automatically discovered and regis
 
 **Key Points:**
 - Only create `tools.py` if your app needs custom AI agent tools
-- Tools use the `@register_tool` decorator from `muse.mcp`
+- Tools use the `@register_tool` decorator from `think.mcp`
 - Automatically discovered and loaded at server startup
 - Errors in one app's tools don't prevent other apps from loading
 - Tools become available to all AI agents via the MCP protocol
 
 **Required imports:**
 ```python
-from muse.mcp import register_tool, HINTS
+from think.mcp import register_tool, HINTS
 ```
 
 **Decorator usage:** Apply `@register_tool(annotations=HINTS)` to plain functions that return dict responses. Functions should include type hints and docstrings for AI agent context.
@@ -256,10 +256,10 @@ from muse.mcp import register_tool, HINTS
 **Discovery behavior:** The MCP server scans `apps/*/tools.py` at startup, imports modules, and registers decorated functions. Private apps (directories starting with `_`) are skipped.
 
 **Reference implementations:**
-- Discovery logic: `muse/mcp.py` - `_discover_app_tools()` function
+- Discovery logic: `think/mcp.py` - `_discover_app_tools()` function
 - Testing: `tests/integration/test_app_tool_discovery.py` - Error handling and edge cases
 - App tool examples: `apps/todos/tools.py`, `apps/entities/tools.py` - Tool implementation patterns
-- Core tool example: `muse/tools/search.py` - Search tool implementation
+- Core tool example: `think/tools/search.py` - Search tool implementation
 
 ---
 
@@ -330,12 +330,12 @@ Define custom agent personas that integrate with solstone's Cortex agent system.
 - Keys are namespaced as `{app}:{agent}` (e.g., `my_app:helper`)
 - Agents inherit all system agent capabilities (tools, scheduling, handoffs, multi-facet)
 
-**Metadata format:** Same schema as system agents in `muse/agents/*.md` - JSON frontmatter includes `title`, `provider`, `model`, `tools`, `schedule`, `priority`, and `multi_facet` fields. See [CORTEX.md](CORTEX.md) for agent configuration details.
+**Metadata format:** Same schema as system agents in `think/agents/*.md` - JSON frontmatter includes `title`, `provider`, `model`, `tools`, `schedule`, `priority`, and `multi_facet` fields. See [CORTEX.md](CORTEX.md) for agent configuration details.
 
 **Template variables:** Agent prompts can use template variables like `$name`, `$preferred`, and pronoun variables. See [PROMPT_TEMPLATES.md](PROMPT_TEMPLATES.md) for the complete template system documentation.
 
 **Reference implementations:**
-- System agent examples: `muse/agents/*.md`
+- System agent examples: `think/agents/*.md`
 - Discovery logic: `think/utils.py` - `get_agents()`, `get_agent()`
 
 #### Instructions Configuration

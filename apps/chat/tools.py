@@ -9,8 +9,8 @@ from typing import Any
 
 from fastmcp import Context
 
-from muse.mcp import HINTS, register_tool
 from think.facets import _get_actor_info
+from think.mcp import HINTS, register_tool
 from think.utils import get_journal
 
 # Declare pack membership - add send_message to journal pack
@@ -55,7 +55,7 @@ def send_message(
         journal_path = get_journal()
 
         # Create a synthetic agent (just the agent JSONL file)
-        from muse.cortex_client import create_synthetic_agent
+        from think.cortex_client import create_synthetic_agent
 
         agent_id = create_synthetic_agent(result=body)
 

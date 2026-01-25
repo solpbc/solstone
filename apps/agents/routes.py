@@ -100,7 +100,7 @@ def _calc_agent_cost(model: str | None, usage: dict | None) -> float | None:
         return None
 
     try:
-        from muse.models import calc_token_cost
+        from think.models import calc_token_cost
 
         cost_data = calc_token_cost({"model": model, "usage": usage})
         if cost_data:
@@ -117,7 +117,7 @@ def _parse_agent_file(agent_file: Path) -> dict[str, Any] | None:
     runtime_seconds, thinking_count, tool_count, cost.
     Returns None if file cannot be parsed.
     """
-    from muse.cortex_client import get_agent_end_state
+    from think.cortex_client import get_agent_end_state
 
     try:
         with open(agent_file, "r") as f:

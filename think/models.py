@@ -112,12 +112,12 @@ class IncompleteJSONError(ValueError):
 #   - app.chat.title            -> apps module, chat app, title operation
 #
 # DYNAMIC DISCOVERY:
-#   Categories (observe/categories/*.json) and agents (muse/agents/*.json,
+#   Categories (observe/categories/*.json) and agents (think/agents/*.json,
 #   apps/*/agents/*.json) can express tier/label/group in their JSON configs.
 #   These are discovered at runtime and merged with the static defaults below.
 #
 # When adding new contexts:
-#   1. Use module prefix matching the package (observe, think, app, muse)
+#   1. Use module prefix matching the package (observe, think, app)
 #   2. Add specific operations as suffixes when granular control is needed
 #   3. Use wildcards sparingly - prefer explicit entries for clarity
 #   4. If not listed here, context falls back to DEFAULT_TIER (FLASH)
@@ -217,7 +217,7 @@ _context_registry: Optional[Dict[str, Dict[str, Any]]] = None
 def _discover_agent_contexts() -> Dict[str, Dict[str, Any]]:
     """Discover agent context defaults from JSON config files.
 
-    Scans system agents (muse/agents/*.json) and app agents (apps/*/agents/*.json)
+    Scans system agents (think/agents/*.md) and app agents (apps/*/agents/*.md)
     for tier/label/group metadata. This is a lightweight scan that only reads
     the JSON metadata, not the full agent configuration.
 
@@ -229,7 +229,7 @@ def _discover_agent_contexts() -> Dict[str, Dict[str, Any]]:
     """
     contexts = {}
 
-    # System agents from muse/agents/
+    # System agents from think/agents/
     agents_dir = Path(__file__).parent / "agents"
     if agents_dir.exists():
         for md_path in agents_dir.glob("*.md"):
@@ -625,7 +625,7 @@ def log_token_usage(
                 line_num = caller_frame.f_lineno
 
                 # Clean up module name
-                for prefix in ["think.", "observe.", "convey.", "muse."]:
+                for prefix in ["think.", "observe.", "convey."]:
                     if module_name.startswith(prefix):
                         module_name = module_name[len(prefix) :]
                         break
@@ -964,7 +964,7 @@ def generate(
     ValueError
         If the resolved provider is not supported.
     """
-    from muse.providers import get_provider_module
+    from think.providers import get_provider_module
 
     # Allow model override via kwargs (used by callers with explicit model selection)
     model_override = kwargs.pop("model", None)
@@ -1038,7 +1038,7 @@ async def agenerate(
     ValueError
         If the resolved provider is not supported.
     """
-    from muse.providers import get_provider_module
+    from think.providers import get_provider_module
 
     # Allow model override via kwargs (used by Batch for explicit model selection)
     model_override = kwargs.pop("model", None)
@@ -1070,7 +1070,7 @@ __all__ = [
     "DEFAULT_PROVIDER",
     "CONTEXT_DEFAULTS",
     "get_context_registry",
-    # Model constants (used by muse backends for defaults)
+    # Model constants (used by provider backends for defaults)
     "GEMINI_FLASH",
     "GPT_5",
     "CLAUDE_SONNET_4",

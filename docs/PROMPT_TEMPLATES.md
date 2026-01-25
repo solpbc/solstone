@@ -136,7 +136,7 @@ You are a helpful assistant...
 Agent prompts are split into two parts:
 
 1. **System instruction** - `think/journal.md` (shared across all agents, cacheable)
-2. **User instruction** - Agent-specific `.md` file (e.g., `muse/agents/default.md`)
+2. **User instruction** - Agent-specific `.md` file (e.g., `think/agents/default.md`)
 
 The system instruction establishes the journal partnership context. The user instruction defines the agent's specific role and capabilities.
 
@@ -186,4 +186,4 @@ load_prompt("myprompt", context={"custom_var": "value"})
 | Template files | `think/templates/*.md` |
 | Test coverage | `tests/test_template_substitution.py` |
 | Insight prompts | `think/insights/*.md` |
-| Agent prompts | `muse/agents/*.md` |
+| Agent prompts | `think/agents/*.md` |

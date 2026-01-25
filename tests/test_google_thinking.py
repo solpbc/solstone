@@ -6,9 +6,9 @@ import importlib
 import json
 import sys
 
-from muse.models import GEMINI_FLASH
 from tests.agents_stub import install_agents_stub
 from tests.conftest import setup_google_genai_stub
+from think.models import GEMINI_FLASH
 
 
 async def run_main(mod, argv, stdin_data=None):
@@ -24,9 +24,9 @@ def test_google_thinking_events(monkeypatch, tmp_path, capsys):
     setup_google_genai_stub(monkeypatch, with_thinking=True)
     install_agents_stub()
 
-    sys.modules.pop("muse.providers.google", None)
-    importlib.reload(importlib.import_module("muse.providers.google"))
-    mod = importlib.reload(importlib.import_module("muse.agents"))
+    sys.modules.pop("think.providers.google", None)
+    importlib.reload(importlib.import_module("think.providers.google"))
+    mod = importlib.reload(importlib.import_module("think.agents"))
 
     journal = tmp_path / "journal"
     journal.mkdir()

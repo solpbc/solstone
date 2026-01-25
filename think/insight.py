@@ -10,8 +10,8 @@ from pathlib import Path
 from google import genai
 from google.genai import types
 
-from muse.models import generate
 from think.cluster import cluster, cluster_period, cluster_segments_multi
+from think.models import generate
 from think.utils import (
     PromptNotFoundError,
     _load_insight_metadata,
@@ -180,7 +180,7 @@ def send_insight(
 
     # Try to use cache if display name provided
     # Note: caching is Google-specific, so we check provider first
-    from muse.models import resolve_provider
+    from think.models import resolve_provider
 
     provider, model = resolve_provider(context)
 
@@ -426,7 +426,7 @@ def main() -> None:
         prompt = insight_prompt.text
 
         # Resolve provider for display (must match context used in send_insight)
-        from muse.models import resolve_provider
+        from think.models import resolve_provider
 
         display_output_type = "json" if output_format == "json" else "markdown"
         _, model = resolve_provider(f"insight.{insight_key}.{display_output_type}")

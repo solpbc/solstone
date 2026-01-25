@@ -25,8 +25,8 @@ from pathlib import Path
 import numpy as np
 from google.genai import types
 
-from muse.models import generate
 from observe.utils import audio_to_flac_bytes
+from think.models import generate
 from think.utils import load_prompt
 
 logger = logging.getLogger(__name__)
@@ -218,7 +218,7 @@ def transcribe(
         types.Part.from_bytes(data=audio_bytes, mime_type="audio/flac"),
     ]
 
-    # Call Gemini via muse.models.generate()
+    # Call Gemini via think.models.generate()
     response_text = generate(
         contents=contents,
         context="observe.transcribe.gemini",
@@ -268,7 +268,7 @@ def get_model_info(config: dict) -> dict:
     Returns:
         Dict with model info for JSONL metadata
     """
-    # Model is resolved by muse.models based on context
+    # Model is resolved by think.models based on context
     # We report "gemini" as the model family
     return {
         "model": "gemini",

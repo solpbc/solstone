@@ -254,12 +254,12 @@ def get_providers() -> Any:
         - api_keys: Boolean status for each provider's API key
     """
     try:
-        from muse.models import (
+        from think.models import (
             DEFAULT_PROVIDER,
             DEFAULT_TIER,
             get_context_registry,
         )
-        from muse.providers import get_provider_list
+        from think.providers import get_provider_list
 
         config = get_journal_config()
         providers_config = config.get("providers", {})
@@ -318,8 +318,8 @@ def update_providers() -> Any:
     Setting a context to null removes the override.
     """
     try:
-        from muse.models import get_context_registry
-        from muse.providers import PROVIDER_REGISTRY
+        from think.models import get_context_registry
+        from think.providers import PROVIDER_REGISTRY
 
         request_data = request.get_json()
         if not request_data:

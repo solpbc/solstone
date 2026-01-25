@@ -89,7 +89,7 @@ The Cortex service (`sol cortex`) is the central system for managing AI agent in
 To spawn agents programmatically, use the cortex_client functions:
 
 ```python
-from muse.cortex_client import cortex_request
+from think.cortex_client import cortex_request
 from think.callosum import CallosumConnection
 
 # Create a request
@@ -128,13 +128,13 @@ The provider can be ``openai`` (default), ``google`` or ``anthropic``. Set the c
 
 ### Provider modules
 
-Each provider lives in `muse/providers/` and exposes a common interface:
+Each provider lives in `think/providers/` and exposes a common interface:
 
 - `generate()` - Sync text generation
 - `agenerate()` - Async text generation
 - `run_agent()` - Agent execution with MCP tools and event streaming
 
-For direct LLM calls, use `muse.models.generate()` or `muse.models.agenerate()`
+For direct LLM calls, use `think.models.generate()` or `think.models.agenerate()`
 which automatically routes to the configured provider based on context.
 
 ## Insight map keys
@@ -157,10 +157,10 @@ Cortex is the central agent management system that all agent spawning should go 
 
 ### Using cortex_client
 
-The `muse.cortex_client` module provides functions for interacting with Cortex:
+The `think.cortex_client` module provides functions for interacting with Cortex:
 
 ```python
-from muse.cortex_client import cortex_request, cortex_agents
+from think.cortex_client import cortex_request, cortex_agents
 
 # Create an agent request
 request_file = cortex_request(
@@ -173,3 +173,58 @@ request_file = cortex_request(
 agents_info = cortex_agents(limit=10, agent_type="live")
 print(f"Found {agents_info['live_count']} running agents")
 ```
+# Muse Module
+
+AI agent system and MCP tooling for solstone.
+
+## Commands
+
+| Command | Purpose |
+|---------|---------|
+| `sol cortex` | Agent orchestration service |
+| `sol mcp` | MCP tool server (runs inside Cortex) |
+| `sol agents` | Direct agent invocation (testing only) |
+
+## Architecture
+
+```
+Cortex (orchestrator)
+   ├── Callosum connection (events)
+   ├── MCP HTTP server (tools)
+   └── Agent subprocess management
+          ↓
+   Providers (openai, google, anthropic)
+```
+
+## Providers
+
+| Provider | Module | Features |
+|----------|--------|----------|
+| OpenAI | `think/providers/openai.py` | GPT models via Agents SDK |
+| Google | `think/providers/google.py` | Gemini models |
+| Anthropic | `think/providers/anthropic.py` | Claude via Anthropic SDK |
+
+Providers implement `generate()`, `agenerate()`, and `run_agent()` functions. See [PROVIDERS.md](PROVIDERS.md) for implementation details.
+
+## Key Components
+
+- **cortex.py** - Central agent manager, file watcher, event distribution
+- **cortex_client.py** - Client functions: `cortex_request()`, `cortex_agents()`
+- **mcp.py** - FastMCP server with journal search tools
+- **agents.py** - CLI entry point and shared event types
+- **models.py** - Unified `generate()`/`agenerate()` API, provider routing, token logging
+- **batch.py** - `Batch` class for concurrent LLM requests with dynamic queuing
+
+## Agent Personas
+
+System prompts in `think/agents/*.md` (markdown with JSON frontmatter). Apps can add custom agents in `apps/{app}/agents/`.
+
+JSON metadata supports `title`, `provider`, `model`, `tools`, `schedule`, `priority`, `multi_facet`, and `instructions` keys. See [APPS.md](APPS.md#instructions-configuration) for the `instructions` schema that controls system prompts, facet context, and source filtering.
+
+## Documentation
+
+- [PROVIDERS.md](PROVIDERS.md) - Provider implementation guide
+- [CORTEX.md](CORTEX.md) - Full API, event schemas, request format
+- [CALLOSUM.md](CALLOSUM.md) - Message bus protocol
+- [THINK.md](THINK.md) - Cortex usage examples
+

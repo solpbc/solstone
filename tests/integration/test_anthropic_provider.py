@@ -11,7 +11,7 @@ from pathlib import Path
 import pytest
 from dotenv import load_dotenv
 
-from muse.models import CLAUDE_SONNET_4
+from think.models import CLAUDE_SONNET_4
 
 
 def get_fixtures_env():
@@ -234,8 +234,8 @@ def test_anthropic_json_truncation_error():
         pytest.skip("ANTHROPIC_API_KEY not found in fixtures/.env file")
 
     # Import provider directly for this test
-    from muse.models import IncompleteJSONError
-    from muse.providers import anthropic as anthropic_provider
+    from think.models import IncompleteJSONError
+    from think.providers import anthropic as anthropic_provider
 
     # Request JSON output with very small token limit to force truncation
     with pytest.raises(IncompleteJSONError) as exc_info:

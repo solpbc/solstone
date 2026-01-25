@@ -417,7 +417,7 @@ def test_search_counts_date_range(journal_fixture):
 
 def test_mcp_search_journal_returns_counts():
     """Test MCP wrapper returns counts aggregation."""
-    from muse.tools.search import search_journal
+    from think.tools.search import search_journal
 
     # Use fixtures journal
     os.environ["JOURNAL_PATH"] = "fixtures/journal"
@@ -439,7 +439,7 @@ def test_mcp_search_journal_returns_counts():
 
 def test_mcp_search_journal_returns_query_echo():
     """Test MCP wrapper returns query echo."""
-    from muse.tools.search import search_journal
+    from think.tools.search import search_journal
 
     os.environ["JOURNAL_PATH"] = "fixtures/journal"
 
@@ -453,7 +453,7 @@ def test_mcp_search_journal_returns_query_echo():
 
 def test_mcp_search_journal_results_include_path():
     """Test MCP wrapper results include path and idx."""
-    from muse.tools.search import search_journal
+    from think.tools.search import search_journal
 
     os.environ["JOURNAL_PATH"] = "fixtures/journal"
 
@@ -469,7 +469,7 @@ def test_bucket_day_counts():
     """Test day bucketing logic."""
     from datetime import datetime, timedelta
 
-    from muse.tools.search import _bucket_day_counts
+    from think.tools.search import _bucket_day_counts
 
     today = datetime.now()
 

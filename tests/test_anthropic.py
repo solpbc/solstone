@@ -8,8 +8,8 @@ import sys
 import types
 from types import SimpleNamespace
 
-from muse.models import CLAUDE_SONNET_4
 from tests.agents_stub import install_agents_stub
+from think.models import CLAUDE_SONNET_4
 
 
 async def run_main(mod, argv, stdin_data=None):
@@ -159,9 +159,9 @@ def test_claude_main(monkeypatch, tmp_path, capsys):
     _setup_anthropic_stub(monkeypatch)
     _setup_fastmcp_stub(monkeypatch)
     install_agents_stub()
-    sys.modules.pop("muse.providers.anthropic", None)
-    importlib.reload(importlib.import_module("muse.providers.anthropic"))
-    mod = importlib.reload(importlib.import_module("muse.agents"))
+    sys.modules.pop("think.providers.anthropic", None)
+    importlib.reload(importlib.import_module("think.providers.anthropic"))
+    mod = importlib.reload(importlib.import_module("think.agents"))
 
     journal = tmp_path / "journal"
     journal.mkdir()
@@ -200,9 +200,9 @@ def test_claude_outfile(monkeypatch, tmp_path, capsys):
     _setup_anthropic_stub(monkeypatch)
     _setup_fastmcp_stub(monkeypatch)
     install_agents_stub()
-    sys.modules.pop("muse.providers.anthropic", None)
-    importlib.reload(importlib.import_module("muse.providers.anthropic"))
-    mod = importlib.reload(importlib.import_module("muse.agents"))
+    sys.modules.pop("think.providers.anthropic", None)
+    importlib.reload(importlib.import_module("think.providers.anthropic"))
+    mod = importlib.reload(importlib.import_module("think.agents"))
 
     journal = tmp_path / "journal"
     journal.mkdir()
@@ -245,9 +245,9 @@ def test_claude_thinking_events(monkeypatch, tmp_path, capsys):
     _setup_anthropic_stub(monkeypatch, with_thinking=True)
     _setup_fastmcp_stub(monkeypatch)
     install_agents_stub()
-    sys.modules.pop("muse.providers.anthropic", None)
-    importlib.reload(importlib.import_module("muse.providers.anthropic"))
-    mod = importlib.reload(importlib.import_module("muse.agents"))
+    sys.modules.pop("think.providers.anthropic", None)
+    importlib.reload(importlib.import_module("think.providers.anthropic"))
+    mod = importlib.reload(importlib.import_module("think.agents"))
 
     journal = tmp_path / "journal"
     journal.mkdir()
@@ -288,9 +288,9 @@ def test_claude_redacted_thinking_events(monkeypatch, tmp_path, capsys):
     _setup_anthropic_stub(monkeypatch, with_redacted_thinking=True)
     _setup_fastmcp_stub(monkeypatch)
     install_agents_stub()
-    sys.modules.pop("muse.providers.anthropic", None)
-    importlib.reload(importlib.import_module("muse.providers.anthropic"))
-    mod = importlib.reload(importlib.import_module("muse.agents"))
+    sys.modules.pop("think.providers.anthropic", None)
+    importlib.reload(importlib.import_module("think.providers.anthropic"))
+    mod = importlib.reload(importlib.import_module("think.agents"))
 
     journal = tmp_path / "journal"
     journal.mkdir()
@@ -329,9 +329,9 @@ def test_claude_outfile_error(monkeypatch, tmp_path, capsys):
     _setup_anthropic_stub(monkeypatch, error=True)
     _setup_fastmcp_stub(monkeypatch)
     install_agents_stub()
-    sys.modules.pop("muse.providers.anthropic", None)
-    importlib.reload(importlib.import_module("muse.providers.anthropic"))
-    mod = importlib.reload(importlib.import_module("muse.agents"))
+    sys.modules.pop("think.providers.anthropic", None)
+    importlib.reload(importlib.import_module("think.providers.anthropic"))
+    mod = importlib.reload(importlib.import_module("think.agents"))
 
     journal = tmp_path / "journal"
     journal.mkdir()

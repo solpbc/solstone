@@ -14,7 +14,7 @@ from flask import Blueprint, jsonify, render_template, request
 
 from convey import state
 from convey.utils import DATE_RE
-from muse.models import calc_token_cost, get_model_provider, iter_token_log
+from think.models import calc_token_cost, get_model_provider, iter_token_log
 
 tokens_bp = Blueprint(
     "app:tokens",

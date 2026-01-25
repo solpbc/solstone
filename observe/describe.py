@@ -373,8 +373,8 @@ class VideoProcessor:
         output_path : Optional[Path]
             Path to write JSONL output (when None, no output file is written)
         """
-        from muse.batch import Batch
-        from muse.models import resolve_provider
+        from think.batch import Batch
+        from think.models import resolve_provider
 
         # Load config for max_extractions
         config = get_config()

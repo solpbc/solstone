@@ -7,7 +7,7 @@ from pathlib import Path
 
 from fastmcp.resources import FileResource
 
-from muse.mcp import mcp
+from think.mcp import mcp
 from think.utils import get_journal, get_raw_file
 
 

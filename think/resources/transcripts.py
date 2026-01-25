@@ -7,8 +7,8 @@ from datetime import datetime, timedelta
 
 from fastmcp.resources import TextResource
 
-from muse.mcp import mcp
 from think.cluster import cluster_range
+from think.mcp import mcp
 
 
 def _get_transcript_resource(

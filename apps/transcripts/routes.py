@@ -24,11 +24,11 @@ from flask import (
 from apps.utils import log_app_action
 from convey import emit, state
 from convey.utils import DATE_RE, error_response, format_date, success_response
-from muse.models import get_usage_cost
 from observe.hear import format_audio
 from observe.screen import format_screen
 from observe.utils import AUDIO_EXTENSIONS, VIDEO_EXTENSIONS
 from think.cluster import cluster_scan, cluster_segments
+from think.models import get_usage_cost
 from think.utils import day_dirs, day_path
 from think.utils import segment_key as validate_segment_key
 

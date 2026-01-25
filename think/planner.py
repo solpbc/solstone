@@ -7,9 +7,6 @@ import logging
 import os
 import sys
 from pathlib import Path
-from typing import Optional
-
-from dotenv import load_dotenv
 
 from .utils import load_prompt, setup_cli
 
@@ -18,7 +15,7 @@ async def _get_mcp_tools() -> str:
     """Return formatted MCP tools information for the prompt."""
 
     try:
-        from muse.mcp import mcp
+        from think.mcp import mcp
 
         tools = await mcp.get_tools()
         if not tools:
@@ -61,7 +58,7 @@ def _load_prompt() -> str:
 
 def generate_plan(request: str) -> str:
     """Return a detailed agent plan for ``request`` using configured provider."""
-    from muse.models import generate
+    from think.models import generate
 
     return generate(
         contents=request,

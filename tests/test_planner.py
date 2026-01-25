@@ -41,7 +41,7 @@ def test_generate_plan(monkeypatch):
     def mock_generate(**kwargs):
         return "plan"
 
-    monkeypatch.setattr("muse.models.generate", mock_generate)
+    monkeypatch.setattr("think.models.generate", mock_generate)
     result = mod.generate_plan("do something")
     assert result == "plan"
 

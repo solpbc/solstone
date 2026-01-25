@@ -11,9 +11,9 @@ from pathlib import Path
 
 import pytest
 
-from muse.cortex import CortexService
-from muse.cortex_client import cortex_agents, cortex_request
 from think.callosum import CallosumServer
+from think.cortex import CortexService
+from think.cortex_client import cortex_agents, cortex_request
 
 
 @pytest.fixture

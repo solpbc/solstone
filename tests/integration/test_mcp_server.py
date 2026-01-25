@@ -25,7 +25,7 @@ async def test_mcp_server_tool_registration(integration_journal_path):
     os.environ["JOURNAL_PATH"] = str(integration_journal_path)
 
     # Import after setting JOURNAL_PATH
-    from muse.mcp import TOOL_PACKS, mcp
+    from think.mcp import TOOL_PACKS, mcp
 
     # Get all registered tools
     tools = await mcp.get_tools()
@@ -223,13 +223,13 @@ async def test_mcp_server_stdio_e2e(integration_journal_path):
 async def test_mcp_tool_packs_coverage(integration_journal_path):
     """Verify all tool packs have their tools registered.
 
-    This test ensures that the TOOL_PACKS dictionary in muse/mcp.py
+    This test ensures that the TOOL_PACKS dictionary in think/mcp.py
     accurately reflects what's actually registered, which is important
     for agents that use tool packs.
     """
     os.environ["JOURNAL_PATH"] = str(integration_journal_path)
 
-    from muse.mcp import TOOL_PACKS, mcp
+    from think.mcp import TOOL_PACKS, mcp
 
     tools = await mcp.get_tools()
     registered_tool_names = set(tools.keys())

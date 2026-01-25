@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 # Copyright (c) 2026 sol pbc
 
-"""AI provider backends for muse.
+"""AI provider backends for think.
 
 This package contains provider-specific implementations for LLM generation
 and agent execution. Each provider module exposes:
@@ -31,9 +31,9 @@ from typing import Any, Dict, List
 # ---------------------------------------------------------------------------
 
 PROVIDER_REGISTRY: Dict[str, str] = {
-    "google": "muse.providers.google",
-    "openai": "muse.providers.openai",
-    "anthropic": "muse.providers.anthropic",
+    "google": "think.providers.google",
+    "openai": "think.providers.openai",
+    "anthropic": "think.providers.anthropic",
 }
 
 # ---------------------------------------------------------------------------

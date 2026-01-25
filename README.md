@@ -31,7 +31,7 @@ observe (capture) --> think (analyze) --> convey (view)
   raw media           JSON extracts        Flask web UI
   (flac, webm)         (jsonl)
                            |
-                       muse (AI agents)
+                       think (AI agents)
 ```
 
 ## Getting Started

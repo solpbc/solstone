@@ -7,13 +7,13 @@ import json
 import sys
 from types import SimpleNamespace
 
-from muse.models import GEMINI_FLASH
-from muse.providers.google import (
+from tests.agents_stub import install_agents_stub
+from tests.conftest import setup_google_genai_stub
+from think.models import GEMINI_FLASH
+from think.providers.google import (
     _extract_finish_reason,
     _format_completion_message,
 )
-from tests.agents_stub import install_agents_stub
-from tests.conftest import setup_google_genai_stub
 
 
 async def run_main(mod, argv, stdin_data=None):
@@ -28,9 +28,9 @@ async def run_main(mod, argv, stdin_data=None):
 def test_google_main(monkeypatch, tmp_path, capsys):
     setup_google_genai_stub(monkeypatch, with_thinking=False)
     install_agents_stub()
-    sys.modules.pop("muse.providers.google", None)
-    importlib.reload(importlib.import_module("muse.providers.google"))
-    mod = importlib.reload(importlib.import_module("muse.agents"))
+    sys.modules.pop("think.providers.google", None)
+    importlib.reload(importlib.import_module("think.providers.google"))
+    mod = importlib.reload(importlib.import_module("think.agents"))
 
     journal = tmp_path / "journal"
     journal.mkdir()
@@ -78,9 +78,9 @@ def test_google_mcp_error(monkeypatch, tmp_path, capsys):
         "think.utils.create_mcp_client", lambda _url=None: ErrorClient()
     )
 
-    sys.modules.pop("muse.providers.google", None)
-    importlib.reload(importlib.import_module("muse.providers.google"))
-    mod = importlib.reload(importlib.import_module("muse.agents"))
+    sys.modules.pop("think.providers.google", None)
+    importlib.reload(importlib.import_module("think.providers.google"))
+    mod = importlib.reload(importlib.import_module("think.agents"))
 
     journal = tmp_path / "journal"
     journal.mkdir()

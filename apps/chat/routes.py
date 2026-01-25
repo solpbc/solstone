@@ -13,7 +13,7 @@ from flask import Blueprint, jsonify, render_template, request
 from apps.utils import get_app_storage_path
 from convey.config import get_selected_facet
 from convey.utils import load_json, save_json
-from muse.models import generate
+from think.models import generate
 
 logger = logging.getLogger(__name__)
 
@@ -109,7 +109,7 @@ def _check_provider_api_key(provider: str) -> str | None:
     Returns:
         Error message if API key is not set, None if valid
     """
-    from muse.providers import PROVIDER_METADATA
+    from think.providers import PROVIDER_METADATA
 
     key_name = PROVIDER_METADATA.get(provider, {}).get("env_key", "GOOGLE_API_KEY")
     if not os.getenv(key_name):
@@ -151,7 +151,7 @@ def send_message() -> Any:
     is_continuation = False
 
     if continue_chat and (chats_dir / f"{continue_chat}.json").exists():
-        from muse.cortex_client import get_agent_thread
+        from think.cortex_client import get_agent_thread
 
         # Derive thread from chat_id (which equals first agent_id)
         try:
@@ -238,7 +238,7 @@ def chat_events(chat_id: str) -> Any:
     Derives thread from agent files, then hydrates events from all agents.
     For active chats, client should subscribe to WebSocket for real-time updates.
     """
-    from muse.cortex_client import (
+    from think.cortex_client import (
         get_agent_end_state,
         get_agent_status,
         get_agent_thread,
@@ -329,7 +329,7 @@ def find_chat_by_agent(agent_id: str) -> Any:
     Returns:
         Chat metadata JSON or 404 if not found
     """
-    from muse.cortex_client import get_agent_thread
+    from think.cortex_client import get_agent_thread
 
     try:
         # Derive thread from agent - first element is the root/chat_id
@@ -425,7 +425,7 @@ def retry_chat(chat_id: str) -> Any:
     Returns:
         JSON with agent_id of the new retry attempt
     """
-    from muse.cortex_client import (
+    from think.cortex_client import (
         get_agent_end_state,
         get_agent_thread,
         read_agent_events,

@@ -33,7 +33,7 @@ Rev.ai backend settings (transcribe.revai):
 - Automatically loads recent entity names as custom vocabulary for improved recognition
 
 Gemini backend settings (transcribe.gemini):
-- No configuration needed (model resolved by muse.models context system)
+- No configuration needed (model resolved by think.models context system)
 - Includes speaker diarization
 
 Platform optimizations (Whisper):
@@ -741,7 +741,7 @@ def main():
         if entity_names:
             backend_config["entities"] = entity_names
     elif backend == "gemini":
-        # Gemini backend - model resolved by muse.models based on context
+        # Gemini backend - model resolved by think.models based on context
         # Entity names handled by enrich step, not passed to transcription
         backend_config = {}
     else:

@@ -59,10 +59,10 @@ COMMANDS: dict[str, str] = {
     "observer": "observe.observer",
     "observe-linux": "observe.linux.observer",
     "observe-macos": "observe.macos.observer",
-    # muse package - AI agents and MCP
-    "agents": "muse.agents",
-    "cortex": "muse.cortex",
-    "mcp": "muse.mcp",
+    # AI agents and MCP (formerly muse package)
+    "agents": "think.agents",
+    "cortex": "think.cortex",
+    "mcp": "think.mcp",
     # convey package - web UI
     "convey": "convey.cli",
     "restart": "convey.restart",

@@ -47,7 +47,7 @@ from anthropic.types import (
     ToolUseBlock,
 )
 
-from muse.models import CLAUDE_SONNET_4
+from think.models import CLAUDE_SONNET_4
 from think.utils import create_mcp_client
 
 from ..agents import JSONEventCallback, ThinkingEvent
@@ -544,7 +544,7 @@ def generate(
 
     See module docstring for parameter details.
     """
-    from muse.models import log_token_usage
+    from think.models import log_token_usage
 
     client = _get_anthropic_client()
     messages = _convert_contents_to_messages(contents)
@@ -578,7 +578,7 @@ def generate(
     if timeout_s:
         request_kwargs["timeout"] = timeout_s
 
-    from muse.models import IncompleteJSONError
+    from think.models import IncompleteJSONError
 
     response = client.messages.create(**request_kwargs)
 
@@ -618,7 +618,7 @@ async def agenerate(
 
     See module docstring for parameter details.
     """
-    from muse.models import log_token_usage
+    from think.models import log_token_usage
 
     client = _get_async_anthropic_client()
     messages = _convert_contents_to_messages(contents)
@@ -652,7 +652,7 @@ async def agenerate(
     if timeout_s:
         request_kwargs["timeout"] = timeout_s
 
-    from muse.models import IncompleteJSONError
+    from think.models import IncompleteJSONError
 
     response = await client.messages.create(**request_kwargs)
 

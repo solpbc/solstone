@@ -13,7 +13,6 @@ from typing import Any
 
 from fastmcp import Context
 
-from muse.mcp import HINTS, register_tool
 from think.entities import (
     ObservationNumberError,
     add_observation,
@@ -26,6 +25,7 @@ from think.entities import (
     validate_aka_uniqueness,
 )
 from think.facets import log_tool_action
+from think.mcp import HINTS, register_tool
 
 # Declare tool pack - creates the "entities" pack with all entity tools
 TOOL_PACKS = {

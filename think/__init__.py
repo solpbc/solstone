@@ -1,6 +1,8 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 # Copyright (c) 2026 sol pbc
 
+"""Think - Data processing, AI agent orchestration, and analysis for solstone."""
+
 from .detect_created import detect_created
 from .detect_transcript import detect_transcript_json, detect_transcript_segment
 from .planner import generate_plan

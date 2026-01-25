@@ -21,8 +21,8 @@ from pathlib import Path
 import numpy as np
 from google.genai import types
 
-from muse.models import generate
 from observe.utils import audio_to_flac_bytes
+from think.models import generate
 from think.utils import load_prompt
 
 logger = logging.getLogger(__name__)

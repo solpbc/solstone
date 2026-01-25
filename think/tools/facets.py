@@ -3,7 +3,7 @@
 
 """MCP tools for facet management.
 
-Note: These functions are registered as MCP tools by muse/mcp.py
+Note: These functions are registered as MCP tools by think/mcp.py
 They can also be imported and called directly for testing or internal use.
 """
 

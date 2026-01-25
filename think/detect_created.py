@@ -85,7 +85,7 @@ def detect_created(
     # Debug: write content to temp file
     _debug_write_content(markdown, path)
 
-    from muse.models import generate
+    from think.models import generate
 
     response_text = generate(
         contents=markdown,

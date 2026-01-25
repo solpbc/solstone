@@ -116,7 +116,7 @@ def extract_path_metadata(rel_path: str) -> dict[str, str]:
 # Note: agents/*_active.jsonl is excluded - only completed agents are formatted
 FORMATTERS: dict[str, tuple[str, str]] = {
     # JSONL formatters
-    "agents/*.jsonl": ("muse.cortex", "format_agent"),
+    "agents/*.jsonl": ("think.cortex", "format_agent"),
     "config/actions/*.jsonl": ("think.facets", "format_logs"),
     "facets/*/entities/*.jsonl": ("think.entities.formatting", "format_entities"),
     "facets/*/events/*.jsonl": ("think.events", "format_events"),

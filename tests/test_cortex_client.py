@@ -13,15 +13,15 @@ from pathlib import Path
 
 import pytest
 
-from muse.cortex_client import (
+from think.callosum import CallosumConnection, CallosumServer
+from think.cortex_client import (
     cortex_agents,
     cortex_request,
     get_agent_end_state,
     get_agent_status,
     get_agent_thread,
 )
-from muse.models import GPT_5
-from think.callosum import CallosumConnection, CallosumServer
+from think.models import GPT_5
 
 
 @pytest.fixture

@@ -43,7 +43,7 @@ from google import genai
 from google.genai import errors as google_errors
 from google.genai import types
 
-from muse.models import GEMINI_FLASH
+from think.models import GEMINI_FLASH
 from think.utils import create_mcp_client
 
 from ..agents import JSONEventCallback, ThinkingEvent
@@ -142,7 +142,7 @@ def _validate_response(response: Any, json_output: bool = False) -> str:
     if response is None:
         raise ValueError("No response from model")
 
-    from muse.models import IncompleteJSONError
+    from think.models import IncompleteJSONError
 
     # Check for error conditions in candidates
     finish_reason = _extract_finish_reason(response)
@@ -291,7 +291,7 @@ def generate(
 
     See module docstring for parameter details.
     """
-    from muse.models import log_token_usage
+    from think.models import log_token_usage
 
     cached_content = kwargs.get("cached_content")
     client = kwargs.get("client")
@@ -336,7 +336,7 @@ async def agenerate(
 
     See module docstring for parameter details.
     """
-    from muse.models import log_token_usage
+    from think.models import log_token_usage
 
     cached_content = kwargs.get("cached_content")
     client = kwargs.get("client")

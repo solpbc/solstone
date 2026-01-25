@@ -5,10 +5,10 @@
 """MCP server for solstone journal assistant.
 
 This module creates the FastMCP server instance and registers all tools and resources
-from the muse/tools/ and muse/resources/ directories.
+from the think/tools/ and think/resources/ directories.
 
-Tool modules are located in muse/tools/ and contain plain functions.
-Resource handlers are located in muse/resources/ and use @mcp.resource decorators.
+Tool modules are located in think/tools/ and contain plain functions.
+Resource handlers are located in think/resources/ and use @mcp.resource decorators.
 """
 
 from typing import Any, Callable, TypeVar
@@ -55,7 +55,7 @@ TOOL_PACKS: dict[str, list[str]] = {
 
 # Import and register tool modules
 # These imports trigger the registration of tools via the @register_tool decorator
-from muse.tools import facets, search
+from think.tools import facets, search
 
 # Register search tools
 search_journal = register_tool(annotations=HINTS)(search.search_journal)
@@ -66,12 +66,12 @@ get_facet = register_tool(annotations=HINTS)(facets.get_facet)
 facet_news = register_tool(annotations=HINTS)(facets.facet_news)
 
 # Register resource tool (get_resource moved from messaging)
-from muse.tools.messaging import get_resource as get_resource_impl
+from think.tools.messaging import get_resource as get_resource_impl
 
 get_resource = register_tool(annotations=HINTS)(get_resource_impl)
 
 # Import resource modules - these self-register via @mcp.resource decorators
-from muse.resources import insights, media, transcripts  # noqa: F401
+from think.resources import insights, media, transcripts  # noqa: F401
 
 
 # Phase 2: App-level tool discovery
@@ -85,7 +85,7 @@ def _discover_app_tools():
     Apps can define tools using the @register_tool decorator:
 
         # apps/myapp/tools.py
-        from muse.mcp import register_tool, HINTS
+        from think.mcp import register_tool, HINTS
 
         @register_tool(annotations=HINTS)
         def my_tool(arg: str) -> dict:

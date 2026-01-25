@@ -46,10 +46,10 @@ def disable_cortex_mcp_server(monkeypatch):
         return None
 
     monkeypatch.setattr(
-        "muse.cortex.CortexService._start_mcp_server",
+        "think.cortex.CortexService._start_mcp_server",
         _noop_start,
     )
     monkeypatch.setattr(
-        "muse.cortex.CortexService._wait_for_mcp_server",
+        "think.cortex.CortexService._wait_for_mcp_server",
         lambda *args, **kwargs: None,
     )

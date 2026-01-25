@@ -18,7 +18,7 @@ from typing_extensions import Required
 
 from think.utils import setup_cli
 
-LOG = logging.getLogger("muse.agents")
+LOG = logging.getLogger("think.agents")
 
 
 def setup_logging(verbose: bool = False) -> logging.Logger:
@@ -203,7 +203,7 @@ def parse_agent_events_to_turns(conversation_id: str) -> list:
     """
     import logging
 
-    from muse.cortex_client import read_agent_events
+    from think.cortex_client import read_agent_events
 
     logger = logging.getLogger(__name__)
 

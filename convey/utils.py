@@ -106,7 +106,7 @@ def spawn_agent(
         ValueError: If config is invalid
         Exception: On agent spawn failure
     """
-    from muse.cortex_client import cortex_request
+    from think.cortex_client import cortex_request
 
     return cortex_request(
         prompt=prompt,

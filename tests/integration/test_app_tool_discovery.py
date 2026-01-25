@@ -21,7 +21,7 @@ async def test_app_tools_discovery_mechanism(integration_journal_path):
     """
     os.environ["JOURNAL_PATH"] = str(integration_journal_path)
 
-    from muse.mcp import _discover_app_tools, mcp
+    from think.mcp import _discover_app_tools, mcp
 
     # Call discovery - should not raise exceptions
     _discover_app_tools()
@@ -59,7 +59,7 @@ async def test_app_tools_discovery_graceful_failure(
     import importlib
     import logging
 
-    logger = logging.getLogger("muse.mcp")
+    logger = logging.getLogger("think.mcp")
 
     # Clear any existing handlers and set up fresh logging
     logger.handlers.clear()
@@ -73,7 +73,7 @@ async def test_app_tools_discovery_graceful_failure(
     # Test that attempting to import a non-existent module is handled gracefully
     try:
         caplog.clear()
-        with caplog.at_level(logging.ERROR, logger="muse.mcp"):
+        with caplog.at_level(logging.ERROR, logger="think.mcp"):
             # Simulate what _discover_app_tools does with a broken import
             try:
                 importlib.import_module("apps.nonexistent_broken_app.tools")
@@ -110,7 +110,7 @@ async def test_app_tools_no_apps_directory(integration_journal_path, tmp_path, c
 
         logging.basicConfig(level=logging.DEBUG)
 
-        from muse.mcp import _discover_app_tools
+        from think.mcp import _discover_app_tools
 
         with caplog.at_level(logging.DEBUG):
             # Should not raise an exception
@@ -145,7 +145,7 @@ async def test_app_tools_skip_private_directories(
     tools_py.write_text(
         '''"""Private app tools."""
 from typing import Any
-from muse.mcp import register_tool, HINTS
+from think.mcp import register_tool, HINTS
 
 @register_tool(annotations=HINTS)
 def private_tool() -> dict[str, Any]:
@@ -161,7 +161,7 @@ def private_tool() -> dict[str, Any]:
     sys.path.insert(0, str(tmp_path))
 
     try:
-        from muse.mcp import _discover_app_tools, mcp
+        from think.mcp import _discover_app_tools, mcp
 
         _discover_app_tools()
 

@@ -8,8 +8,8 @@ import time
 from datetime import datetime, timedelta
 from pathlib import Path
 
-from muse.cortex_client import cortex_request, get_agent_status
 from think.callosum import CallosumConnection
+from think.cortex_client import cortex_request, get_agent_status
 from think.facets import get_active_facets, get_facets
 from think.runner import run_task
 from think.utils import (

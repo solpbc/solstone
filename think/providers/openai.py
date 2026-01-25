@@ -67,7 +67,7 @@ except Exception:  # pragma: no cover
 
 # Agent configuration is now loaded via get_agent() in cortex.py
 
-from muse.models import GPT_5
+from think.models import GPT_5
 
 from ..agents import JSONEventCallback, ThinkingEvent
 
@@ -104,7 +104,7 @@ def _convert_turns_to_items(turns: list[dict]) -> list[dict]:
 _DEFAULT_MAX_TOKENS = 16384
 _DEFAULT_MAX_TURNS = 64
 
-LOG = logging.getLogger("muse.providers.openai")
+LOG = logging.getLogger("think.providers.openai")
 
 # Default reasoning config for all GPT-5 models
 _DEFAULT_REASONING = Reasoning(effort="medium", summary="detailed")
@@ -595,7 +595,7 @@ def generate(
 
     See module docstring for parameter details.
     """
-    from muse.models import log_token_usage
+    from think.models import log_token_usage
 
     client = _get_openai_client()
     messages = _convert_contents_to_messages(contents, system_instruction)
@@ -616,7 +616,7 @@ def generate(
     if timeout_s:
         request_kwargs["timeout"] = timeout_s
 
-    from muse.models import IncompleteJSONError
+    from think.models import IncompleteJSONError
 
     response = client.chat.completions.create(**request_kwargs)
 
@@ -656,7 +656,7 @@ async def agenerate(
 
     See module docstring for parameter details.
     """
-    from muse.models import log_token_usage
+    from think.models import log_token_usage
 
     client = _get_async_openai_client()
     messages = _convert_contents_to_messages(contents, system_instruction)
@@ -677,7 +677,7 @@ async def agenerate(
     if timeout_s:
         request_kwargs["timeout"] = timeout_s
 
-    from muse.models import IncompleteJSONError
+    from think.models import IncompleteJSONError
 
     response = await client.chat.completions.create(**request_kwargs)
 

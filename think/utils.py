@@ -22,7 +22,7 @@ from timefhuman import timefhuman
 DATE_RE = re.compile(r"\d{8}")
 _journal_path_cache: str | None = None
 
-AGENT_DIR = Path(__file__).parent.parent / "muse" / "agents"
+AGENT_DIR = Path(__file__).parent / "agents"
 TEMPLATES_DIR = Path(__file__).parent / "templates"
 
 # Cached raw template content loaded from think/templates/*.md
@@ -973,7 +973,7 @@ def _resolve_agent_path(persona: str) -> tuple[Path, str]:
         app, agent_name = persona.split(":", 1)
         agent_dir = Path(__file__).parent.parent / "apps" / app / "agents"
     else:
-        # System agent: "default" -> muse/agents/default
+        # System agent: "default" -> think/agents/default
         agent_dir = AGENT_DIR
         agent_name = persona
     return agent_dir, agent_name
@@ -1321,7 +1321,7 @@ def get_raw_file(day: str, name: str) -> tuple[str, str, Any]:
 def get_agents() -> dict[str, dict[str, Any]]:
     """Load agent metadata from system and app directories.
 
-    Scans both system agents (muse/agents/) and app agents (apps/*/agents/).
+    Scans both system agents (think/agents/) and app agents (apps/*/agents/).
     System agents use simple keys like "default", while app agents are
     namespaced as "app:agent" (e.g., "chat:helper").
 
@@ -1334,7 +1334,7 @@ def get_agents() -> dict[str, dict[str, Any]]:
     """
     agents = {}
 
-    # System agents from muse/agents/
+    # System agents from think/agents/
     if AGENT_DIR.exists():
         for md_path in sorted(AGENT_DIR.glob("*.md")):
             agent_id = md_path.stem

@@ -98,15 +98,14 @@ Documentation = "https://github.com/solpbc/solstone/blob/main/README.md"
 "Bug Tracker" = "https://github.com/solpbc/solstone/issues"
 
 [tool.setuptools.packages.find]
-include = ["apps*", "think*", "convey*", "observe*", "muse*"]
+include = ["apps*", "think*", "convey*", "observe*"]
 
 [tool.setuptools]
 py-modules = ["sol"]
 
 [tool.setuptools.package-data]
 apps = ["*/templates/*.html", "*/agents/*.md", "*/insights/*.md"]
-think = ["*.md", "insights/*.md", "templates/*.md"]
-muse = ["agents/*.md"]
+think = ["*.md", "insights/*.md", "templates/*.md", "agents/*.md"]
 observe = ["*.md", "categories/*.md", "transcribe/*.md"]
 convey = [
     "templates/*.html",

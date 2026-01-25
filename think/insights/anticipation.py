@@ -12,13 +12,13 @@ import json
 import logging
 from pathlib import Path
 
-from muse.models import generate
 from think.facets import facet_summaries
 from think.insights import (
     compute_source_insight,
     should_skip_extraction,
     write_events_jsonl,
 )
+from think.models import generate
 from think.utils import get_insight_topic, load_prompt
 
 

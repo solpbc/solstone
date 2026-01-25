@@ -1,12 +1,12 @@
 # Provider Implementation Guide
 
-Guide for implementing new AI providers in the muse module.
+Guide for implementing new AI providers in the think module.
 
-For a high-level overview of the muse module, see [MUSE.md](MUSE.md).
+For a high-level overview of the think module, see [THINK.md](THINK.md).
 
 ## Required Exports
 
-Each provider module in `muse/providers/` must export three functions:
+Each provider module in `think/providers/` must export three functions:
 
 | Function | Purpose |
 |----------|---------|
@@ -14,7 +14,7 @@ Each provider module in `muse/providers/` must export three functions:
 | `agenerate()` | Asynchronous text generation |
 | `run_agent()` | Agentic execution with MCP tool support |
 
-See `muse/providers/__init__.py` for the canonical export list and `muse/providers/google.py` as a reference implementation.
+See `think/providers/__init__.py` for the canonical export list and `think/providers/google.py` as a reference implementation.
 
 Each provider module must also define `__all__` exporting these three functions.
 
@@ -49,11 +49,11 @@ def _get_client():
     return _client
 ```
 
-**Settings app integration:** Add your provider to `PROVIDER_METADATA` in `muse/providers/__init__.py` with `label` and `env_key` fields. The settings UI dynamically builds provider dropdowns from the registry. Add corresponding API key UI fields in `apps/settings/workspace.html` for user configuration.
+**Settings app integration:** Add your provider to `PROVIDER_METADATA` in `think/providers/__init__.py` with `label` and `env_key` fields. The settings UI dynamically builds provider dropdowns from the registry. Add corresponding API key UI fields in `apps/settings/workspace.html` for user configuration.
 
 ## generate() / agenerate()
 
-These functions handle direct LLM text generation. The unified API in `muse/models.py` routes requests to provider-specific implementations.
+These functions handle direct LLM text generation. The unified API in `think/models.py` routes requests to provider-specific implementations.
 
 **Function signature:**
 ```python
@@ -106,7 +106,7 @@ async def run_agent(
 ) -> str:
 ```
 
-**Config dict fields** (see `muse/agents.py` `main_async()` for routing logic):
+**Config dict fields** (see `think/agents.py` `main_async()` for routing logic):
 - `prompt`: User's input (required)
 - `model`: Model identifier
 - `max_tokens`: Output token limit
@@ -121,7 +121,7 @@ async def run_agent(
 
 **Event emission:**
 
-Providers must emit events via the `on_event` callback. See `muse/agents.py` for TypedDict definitions:
+Providers must emit events via the `on_event` callback. See `think/agents.py` for TypedDict definitions:
 
 | Event | When |
 |-------|------|
@@ -132,7 +132,7 @@ Providers must emit events via the `on_event` callback. See `muse/agents.py` for
 | `FinishEvent` | Agent run completes successfully |
 | `ErrorEvent` | Error occurs |
 
-Use `JSONEventCallback` from `muse/agents.py` to wrap the callback and auto-add timestamps.
+Use `JSONEventCallback` from `think/agents.py` to wrap the callback and auto-add timestamps.
 
 **Finish event format:**
 
@@ -176,7 +176,7 @@ async with create_mcp_client(config["mcp_server_url"]) as mcp:
 
 When `continue_from` is provided, load conversation history using:
 ```python
-from muse.agents import parse_agent_events_to_turns
+from think.agents import parse_agent_events_to_turns
 
 turns = parse_agent_events_to_turns(config["continue_from"])
 # Returns [{"role": "user", "content": "..."}, {"role": "assistant", "content": "..."}, ...]
@@ -187,7 +187,7 @@ turns = parse_agent_events_to_turns(config["continue_from"])
 All generation calls must log token usage for cost tracking.
 
 ```python
-from muse.models import log_token_usage
+from think.models import log_token_usage
 
 log_token_usage(model=model, usage=usage_dict, context=context)
 ```
@@ -238,14 +238,14 @@ Context strings determine provider and model selection. Providers receive alread
 
 **Dynamic discovery:** Categories and agents can express their own tier/label/group in their JSON configs:
 - Categories: `observe/categories/*.json` - add `tier`, `label`, `group` fields
-- System agents: `muse/agents/*.json` - add `tier`, `label`, `group` fields
+- System agents: `think/agents/*.json` - add `tier`, `label`, `group` fields
 - App agents: `apps/*/agents/*.json` - add `tier`, `label`, `group` fields
 
 These are discovered at runtime and merged with static defaults. Use `get_context_registry()` to get the complete context map including discovered entries.
 
-See `CONTEXT_DEFAULTS` in `muse/models.py` for static context patterns (non-discoverable contexts like `observe.detect.*`, `insight.*`).
+See `CONTEXT_DEFAULTS` in `think/models.py` for static context patterns (non-discoverable contexts like `observe.detect.*`, `insight.*`).
 
-**Resolution** (handled by `muse/models.py` `resolve_provider()`):
+**Resolution** (handled by `think/models.py` `resolve_provider()`):
 1. Exact match in journal.json `providers.contexts`
 2. Glob pattern match (fnmatch) with specificity ranking
 3. Dynamic context registry (static defaults + discovered categories/agents)
@@ -278,7 +278,7 @@ providers:
 - 2 = FLASH (balanced)
 - 3 = LITE (fast/cheap)
 
-See `fixtures/journal/config/journal.json` for a complete example and `muse/models.py` `PROVIDER_DEFAULTS` for tier-to-model mappings.
+See `fixtures/journal/config/journal.json` for a complete example and `think/models.py` `PROVIDER_DEFAULTS` for tier-to-model mappings.
 
 ## Testing
 
@@ -302,7 +302,7 @@ Run integration tests with: `make test-integration`
 
 ## Batch Processing
 
-The `Batch` class in `muse/batch.py` automatically works with all providers via the unified `agenerate()` API. No provider-specific batch implementation is needed - just ensure your `agenerate()` works correctly.
+The `Batch` class in `think/batch.py` automatically works with all providers via the unified `agenerate()` API. No provider-specific batch implementation is needed - just ensure your `agenerate()` works correctly.
 
 ## OpenAI-Compatible Providers
 
@@ -322,23 +322,23 @@ This allows reusing much of the OpenAI provider's patterns for request/response 
 ## Checklist for New Providers
 
 **Core implementation:**
-1. Create `muse/providers/<name>.py` with `__all__ = ["generate", "agenerate", "run_agent"]`
+1. Create `think/providers/<name>.py` with `__all__ = ["generate", "agenerate", "run_agent"]`
 2. Implement `generate()`, `agenerate()`, `run_agent()` following signatures above
 
-**Model constants** in `muse/models.py`:
+**Model constants** in `think/models.py`:
 3. Add model constants using the pattern `{PROVIDER}_{TIER}` (e.g., `DO_LLAMA_70B`, `DO_MISTRAL_NEMO`)
    - Existing examples: `GEMINI_FLASH`, `GPT_5`, `CLAUDE_SONNET_4`
 4. Add provider tier mappings to `PROVIDER_DEFAULTS` dict
 5. Update `get_model_provider()` to detect your models by prefix (critical for cost tracking)
 
 **Routing:**
-6. Add `elif provider == "<name>"` cases in `muse/models.py`:
+6. Add `elif provider == "<name>"` cases in `think/models.py`:
    - `generate()` function (around line 622)
    - `agenerate()` function (around line 700)
-7. Add routing case in `muse/agents.py` `main_async()` (around line 331)
+7. Add routing case in `think/agents.py` `main_async()` (around line 331)
 
 **Settings UI:**
-8. Add provider to `PROVIDER_METADATA` in `muse/providers/__init__.py` with `label` and `env_key`
+8. Add provider to `PROVIDER_METADATA` in `think/providers/__init__.py` with `label` and `env_key`
 9. Add API key UI field in `apps/settings/workspace.html`
 
 **Testing:**
@@ -347,6 +347,6 @@ This allows reusing much of the OpenAI provider's patterns for request/response 
 12. Add test contexts to `fixtures/journal/config/journal.json`
 
 **Documentation:**
-13. Update `muse/providers/__init__.py` docstring
-14. Update `docs/MUSE.md` providers table
+13. Update `think/providers/__init__.py` docstring
+14. Update `docs/THINK.md` providers table
 15. Update `docs/CORTEX.md` valid provider values

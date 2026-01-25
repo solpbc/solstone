@@ -166,7 +166,7 @@ def test_ai_selection_with_categories():
     categories = {"code": {"description": "Code editors"}}
 
     # Mock generate to return specific frame IDs
-    with patch("muse.models.generate") as mock_generate:
+    with patch("think.models.generate") as mock_generate:
         mock_generate.return_value = "[1, 3, 5, 7]"
         result = select_frames_for_extraction(
             frames, max_extractions=5, categories=categories
@@ -182,7 +182,7 @@ def test_ai_selection_filters_invalid_ids():
     categories = {"code": {"description": "Code editors"}}
 
     # Mock generate to return some invalid IDs
-    with patch("muse.models.generate") as mock_generate:
+    with patch("think.models.generate") as mock_generate:
         mock_generate.return_value = "[1, 3, 99, 100, 5]"  # 99, 100 are invalid
         result = select_frames_for_extraction(
             frames, max_extractions=10, categories=categories
@@ -200,7 +200,7 @@ def test_ai_selection_hard_cap():
 
     # Mock generate to return way too many IDs
     many_ids = list(range(1, 51))  # 50 IDs
-    with patch("muse.models.generate") as mock_generate:
+    with patch("think.models.generate") as mock_generate:
         mock_generate.return_value = str(many_ids)
         result = select_frames_for_extraction(
             frames, max_extractions=5, categories=categories
@@ -216,7 +216,7 @@ def test_ai_selection_fallback_on_error():
     categories = {"code": {"description": "Code editors"}}
 
     # Mock generate to raise an exception
-    with patch("muse.models.generate") as mock_generate:
+    with patch("think.models.generate") as mock_generate:
         mock_generate.side_effect = Exception("API error")
         result = select_frames_for_extraction(
             frames, max_extractions=5, categories=categories
@@ -232,7 +232,7 @@ def test_ai_selection_fallback_on_invalid_json():
     frames = _make_frames(10)
     categories = {"code": {"description": "Code editors"}}
 
-    with patch("muse.models.generate") as mock_generate:
+    with patch("think.models.generate") as mock_generate:
         mock_generate.return_value = "not valid json"
         result = select_frames_for_extraction(
             frames, max_extractions=5, categories=categories
@@ -247,7 +247,7 @@ def test_no_ai_selection_without_categories():
     """Test that AI selection is skipped when categories is None."""
     frames = _make_frames(10)
 
-    with patch("muse.models.generate") as mock_generate:
+    with patch("think.models.generate") as mock_generate:
         result = select_frames_for_extraction(
             frames, max_extractions=5, categories=None
         )

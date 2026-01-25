@@ -481,7 +481,7 @@ class TestFormatAgent:
 
     def test_format_agent_direct(self):
         """Test format_agent function directly."""
-        from muse.cortex import format_agent
+        from think.cortex import format_agent
 
         entries = [
             {
@@ -513,7 +513,7 @@ class TestFormatAgent:
 
     def test_format_agent_with_thinking(self):
         """Test agent formatting with thinking event."""
-        from muse.cortex import format_agent
+        from think.cortex import format_agent
 
         entries = [
             {"event": "start", "ts": 1700000000000, "agent_id": "test"},
@@ -535,7 +535,7 @@ class TestFormatAgent:
 
     def test_format_agent_tool_pairing(self):
         """Test that tool_start/tool_end are paired by call_id."""
-        from muse.cortex import format_agent
+        from think.cortex import format_agent
 
         entries = [
             {"event": "start", "ts": 1700000000000, "agent_id": "test"},
@@ -566,7 +566,7 @@ class TestFormatAgent:
 
     def test_format_agent_truncates_long_results(self):
         """Test that tool results are truncated at 500 chars."""
-        from muse.cortex import format_agent
+        from think.cortex import format_agent
 
         long_result = "x" * 1000  # 1000 chars
 
@@ -598,7 +598,7 @@ class TestFormatAgent:
 
     def test_format_agent_unpaired_tool_start(self):
         """Test that unpaired tool_start shows 'did not complete'."""
-        from muse.cortex import format_agent
+        from think.cortex import format_agent
 
         entries = [
             {"event": "start", "ts": 1700000000000, "agent_id": "test"},
@@ -624,7 +624,7 @@ class TestFormatAgent:
 
     def test_format_agent_error_event(self):
         """Test formatting of error events."""
-        from muse.cortex import format_agent
+        from think.cortex import format_agent
 
         entries = [
             {"event": "start", "ts": 1700000000000, "agent_id": "test"},
@@ -646,7 +646,7 @@ class TestFormatAgent:
 
     def test_format_agent_skipped_entries(self):
         """Test that entries without 'event' field are skipped and reported."""
-        from muse.cortex import format_agent
+        from think.cortex import format_agent
 
         entries = [
             {"event": "start", "ts": 1700000000000, "agent_id": "test"},
@@ -662,7 +662,7 @@ class TestFormatAgent:
 
     def test_format_agent_agent_updated(self):
         """Test formatting of agent_updated events."""
-        from muse.cortex import format_agent
+        from think.cortex import format_agent
 
         entries = [
             {"event": "start", "ts": 1700000000000, "agent_id": "test"},
@@ -677,7 +677,7 @@ class TestFormatAgent:
 
     def test_format_agent_continue_event(self):
         """Test formatting of continue events."""
-        from muse.cortex import format_agent
+        from think.cortex import format_agent
 
         entries = [
             {"event": "start", "ts": 1700000000000, "agent_id": "test"},
@@ -692,7 +692,7 @@ class TestFormatAgent:
 
     def test_format_agent_handoff_from_header(self):
         """Test that handoff_from appears in header."""
-        from muse.cortex import format_agent
+        from think.cortex import format_agent
 
         entries = [
             {

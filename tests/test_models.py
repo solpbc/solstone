@@ -5,7 +5,7 @@
 
 import pytest
 
-from muse.models import (
+from think.models import (
     CLAUDE_HAIKU_4,
     CLAUDE_OPUS_4,
     CLAUDE_SONNET_4,
@@ -397,7 +397,7 @@ def test_context_registry_includes_agents():
     """Test that registry includes discovered agent contexts."""
     registry = get_context_registry()
 
-    # Should have agent entries (from muse/agents/*.json and apps/*/agents/*.json)
+    # Should have agent entries (from think/agents/*.md and apps/*/agents/*.md)
     agent_contexts = [k for k in registry if k.startswith("agent.")]
 
     # Should have more than just the fallback pattern
@@ -459,7 +459,7 @@ def test_all_default_models_have_pricing():
     2. Re-run this test
     3. If still failing, the model may be too new for genai-prices
 
-    See muse/models.py model constants section for more details.
+    See think/models.py model constants section for more details.
     """
     # Collect all unique models from PROVIDER_DEFAULTS
     all_models = set()

@@ -35,7 +35,7 @@ Callosum is a JSON-per-line message bus for real-time event distribution across 
 > **Note:** This registry is kept intentionally high-level. For detailed field schemas and current implementation, always refer to the source files listed - they are the authoritative reference.
 
 ### `cortex` - Agent execution events
-**Source:** `muse/cortex.py`
+**Source:** `think/cortex.py`
 **Events:** `request`, `start`, `thinking`, `tool_start`, `tool_end`, `finish`, `error`, `agent_updated`, `info`, `status`
 **Details:** See [CORTEX.md](CORTEX.md) for agent lifecycle, personas, and event schemas
 
@@ -194,8 +194,8 @@ emit("supervisor", "request", ref=task_id, cmd=["sol", "import", path])
 
 For agent requests, use the cortex client:
 ```python
-from muse.cortex_client import cortex_request
+from think.cortex_client import cortex_request
 agent_id = cortex_request(prompt="...", persona="default")
 ```
 
-See `muse/cortex_client.py` for the full API.
+See `think/cortex_client.py` for the full API.

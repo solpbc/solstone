@@ -204,7 +204,7 @@ def _ai_select_frames(
     Exception
         If AI selection fails (will trigger fallback in caller).
     """
-    from muse.models import generate
+    from think.models import generate
     from think.utils import load_prompt
 
     # Build extraction guidance with config overrides

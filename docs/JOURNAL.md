@@ -299,7 +299,7 @@ Tiers provide a provider-agnostic way to specify model capability levels:
 | 2    | flash | Balanced performance and cost (default) |
 | 3    | lite  | Fastest and cheapest, for simple tasks |
 
-System defaults map tiers to models for each provider. See `muse/models.py` for current tier-to-model mappings (`PROVIDER_DEFAULTS` constant).
+System defaults map tiers to models for each provider. See `think/models.py` for current tier-to-model mappings (`PROVIDER_DEFAULTS` constant).
 
 If a requested tier is unavailable for a provider, the system falls back to more capable tiers (e.g., tier 3 → tier 2 → tier 1).
 
@@ -724,7 +724,7 @@ Optional fields:
 - `unread` – Boolean flag for unread status (used for badge counts)
 - `archived` – Boolean flag for archived status
 
-**Synthetic agents** are created by background processes using `muse.cortex_client.create_synthetic_agent()`. These appear as completed agents in the chat interface but only contain a single `finish` event:
+**Synthetic agents** are created by background processes using `think.cortex_client.create_synthetic_agent()`. These appear as completed agents in the chat interface but only contain a single `finish` event:
 
 ```jsonl
 {"event": "finish", "result": "Message content in markdown format", "ts": 1755450767962}

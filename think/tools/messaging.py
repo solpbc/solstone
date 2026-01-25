@@ -3,7 +3,7 @@
 
 """MCP tools for resource operations.
 
-Note: These functions are registered as MCP tools by muse/mcp.py
+Note: These functions are registered as MCP tools by think/mcp.py
 They can also be imported and called directly for testing or internal use.
 """
 
@@ -34,7 +34,7 @@ async def get_resource(uri: str) -> object:
         text resources.
     """
     # Import here to avoid circular import at module load time
-    from muse.mcp import mcp
+    from think.mcp import mcp
 
     try:
         # Use the resource manager directly - bypasses Context initialization issues

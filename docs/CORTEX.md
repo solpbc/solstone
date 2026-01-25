@@ -30,14 +30,14 @@ For details on the Callosum protocol and message format, see [CALLOSUM.md](CALLO
 
 ## Request Format
 
-Requests are created via `cortex_request()` from `muse.cortex_client`, which broadcasts to Callosum. The request message follows this format:
+Requests are created via `cortex_request()` from `think.cortex_client`, which broadcasts to Callosum. The request message follows this format:
 
 ```json
 {
   "event": "request",
   "ts": 1234567890123,              // Required: millisecond timestamp (must match filename)
   "prompt": "Analyze this code for security issues",  // Required: the task or question
-  "persona": "default",              // Optional: agent persona from muse/agents/*.md
+  "persona": "default",              // Optional: agent persona from think/agents/*.md
   "provider": "openai",              // Optional: override provider (openai, google, anthropic)
   "max_tokens": 8192,               // Optional: token limit (if supported)
   "disable_mcp": false,             // Optional: disable MCP tools for this request
@@ -225,7 +225,7 @@ Agents can transfer control to other agents for specialized tasks. When an agent
 
 ## Agent Personas
 
-Agents use persona configurations stored in the `muse/agents/` directory. Each persona is a `.md` file containing:
+Agents use persona configurations stored in the `think/agents/` directory. Each persona is a `.md` file containing:
 - JSON frontmatter with metadata and configuration
 - The agent-specific prompt and instructions in the content
 
@@ -238,7 +238,7 @@ When spawning an agent:
 3. Request parameters override persona defaults in the merged configuration
 4. The full configuration is passed to the agent process
 
-Personas define specialized behaviors, tool usage patterns, and facet expertise. Available personas can be discovered using the `get_agents()` function or by listing files in the `muse/agents/` directory.
+Personas define specialized behaviors, tool usage patterns, and facet expertise. Available personas can be discovered using the `get_agents()` function or by listing files in the `think/agents/` directory.
 
 ### Persona Configuration Options
 
@@ -293,7 +293,7 @@ The Model Context Protocol (MCP) provides tools for agent-journal interaction:
 - **OpenAI, Anthropic, Google**: Full MCP tool support via HTTP transport
 
 ### Tool Discovery
-MCP tools are provided by the `muse.mcp_tools` FastMCP server, which:
+MCP tools are provided by the `think.mcp_tools` FastMCP server, which:
 - Runs inside Cortex as a background HTTP service
 - Shares its URL directly with agent runs (`mcp_server_url`) so no discovery file is needed
 - Exposes journal search and retrieval capabilities
@@ -303,9 +303,9 @@ MCP tools are provided by the `muse.mcp_tools` FastMCP server, which:
 
 The system supports multiple AI providers, each implementing the same event interface:
 
-- **OpenAI** (`muse/providers/openai.py`): GPT models with OpenAI Agents SDK
-- **Google** (`muse/providers/google.py`): Gemini models with Google AI SDK
-- **Anthropic** (`muse/providers/anthropic.py`): Claude models with Anthropic SDK
+- **OpenAI** (`think/providers/openai.py`): GPT models with OpenAI Agents SDK
+- **Google** (`think/providers/google.py`): Gemini models with Google AI SDK
+- **Anthropic** (`think/providers/anthropic.py`): Claude models with Anthropic SDK
 
 All providers:
 - Emit JSON events to stdout (one per line)

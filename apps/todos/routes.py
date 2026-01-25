@@ -610,7 +610,7 @@ def todo_generation_status(day: str):  # type: ignore[override]
     if not agent_id:
         return jsonify({"status": "none", "agent_id": None})
 
-    from muse.cortex_client import cortex_agents
+    from think.cortex_client import cortex_agents
 
     todo_path = _todo_path(day, facet)
 

@@ -14,7 +14,7 @@ import markdown
 from flask import Blueprint, jsonify, redirect, render_template, url_for
 
 from convey.utils import DATE_RE, format_date
-from muse.models import get_usage_cost
+from think.models import get_usage_cost
 from think.utils import day_dirs, day_path, get_insight_topic, get_insights
 
 insights_bp = Blueprint(

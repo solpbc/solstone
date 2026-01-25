@@ -7,9 +7,8 @@ This document provides comprehensive guidelines for contributing to solstone, wh
 **solstone** is a Python-based AI-driven desktop journaling toolkit that provides:
 
 * **observe/** - Multimodal capture (audio + visual) and AI-powered analysis
-* **think/** - Data post-processing, summarization, and intelligent insights
+* **think/** - Data post-processing, AI agent orchestration, and intelligent insights
 * **convey/** - Web application for navigating and interacting with captured content (extensible via apps/)
-* **muse/** - AI agent system and MCP tooling
 
 The project uses a modular architecture where each package can operate independently while sharing common utilities and data formats through the journal system.
 
@@ -25,7 +24,7 @@ Understanding these core concepts is essential for working with solstone:
 
 * **Entities**: Extracted information (people, projects, concepts) tracked over time across transcripts and interactions. Entities are associated with facets and enable semantic navigation.
 
-* **Agents**: AI processors with configurable personas that analyze content, extract insights, and respond to queries. See [docs/MUSE.md](docs/MUSE.md) for the agent system and [docs/CORTEX.md](docs/CORTEX.md) for eventing.
+* **Agents**: AI processors with configurable personas that analyze content, extract insights, and respond to queries. See [docs/THINK.md](docs/THINK.md) for the agent system and [docs/CORTEX.md](docs/CORTEX.md) for eventing.
 
 * **Callosum**: Message bus that enables asynchronous communication between components. See [docs/CALLOSUM.md](docs/CALLOSUM.md).
 
@@ -39,10 +38,9 @@ Understanding these core concepts is essential for working with solstone:
 solstone/
 ├── sol.py          # Unified CLI entry point (run: sol <command>)
 ├── observe/        # Multimodal capture & AI analysis
-├── think/          # Data post-processing & AI analysis
+├── think/          # Data post-processing, AI agents & MCP tooling
 ├── convey/         # Web app frontend & backend
 ├── apps/           # Convey app extensions (see docs/APPS.md)
-├── muse/           # AI agent system and MCP tooling
 ├── tests/          # Pytest test suites
 ├── fixtures/       # Test data (mock journal)
 ├── docs/           # All documentation (*.md files)
@@ -77,7 +75,7 @@ Each package has a README.md symlink pointing to its documentation in `docs/`.
 **Component Communication**:
 * Callosum message bus enables async communication between services
 * Cortex orchestrates AI agent execution via `sol cortex`, spawning agent subprocesses with persona configurations
-* See [docs/MUSE.md](docs/MUSE.md) for agent system details and [docs/CORTEX.md](docs/CORTEX.md) for the eventing protocol
+* See [docs/THINK.md](docs/THINK.md) for agent system details and [docs/CORTEX.md](docs/CORTEX.md) for the eventing protocol
 
 **Command Reference**:
 The unified CLI is `sol`. Run `sol` to see status and available commands. Use `sol <command>` for subcommands or `sol <module.path>` for direct module access.
@@ -171,7 +169,7 @@ See **Quick Reference** below for all `make` commands. Key patterns:
 * Update README files for new functionality
 * Code comments explain "why" not "what"
 * Function signatures should include type hints; highlight gaps when touching older modules
-* **All docs in `docs/`**: Browse for JOURNAL.md, APPS.md, CORTEX.md, CALLOSUM.md, MUSE.md, and more
+* **All docs in `docs/`**: Browse for JOURNAL.md, APPS.md, CORTEX.md, CALLOSUM.md, THINK.md, and more
 * **App/UI work**: [docs/APPS.md](docs/APPS.md) is required reading before modifying `apps/`
 
 ---
@@ -224,8 +222,8 @@ make clean-install # Clean and reinstall
 * **Entry Points**: `sol.py` `COMMANDS` dict
 * **Test Fixtures**: `fixtures/journal/` - complete mock journal
 * **Live Logs**: `$JOURNAL_PATH/health/<service>.log`
-* **Agent Personas**: `muse/agents/*.txt` + `*.json` (apps can add their own, see [docs/APPS.md](docs/APPS.md))
-* **Insight Templates**: `think/insights/*.txt` + `*.json` (apps can add their own, see [docs/APPS.md](docs/APPS.md))
+* **Agent Personas**: `think/agents/*.md` (apps can add their own, see [docs/APPS.md](docs/APPS.md))
+* **Insight Templates**: `think/insights/*.md` (apps can add their own, see [docs/APPS.md](docs/APPS.md))
 * **Scratch Space**: `scratch/` - git-ignored local workspace
 
 ### Getting Help

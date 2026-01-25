@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 # Copyright (c) 2026 sol pbc
 
-"""Tests for NDJSON-only input in muse.agents."""
+"""Tests for NDJSON-only input in think.agents."""
 
 import asyncio
 import json
@@ -11,7 +11,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from muse.models import GPT_5
+from think.models import GPT_5
 
 
 @pytest.fixture
@@ -59,11 +59,13 @@ def mock_all_providers(monkeypatch):
 
     This ensures tests are not fragile to changes in default provider.
     """
-    # Mock providers in muse.providers (google, openai, anthropic)
+    # Mock providers in think.providers (google, openai, anthropic)
     for provider_name in ("openai", "anthropic", "google"):
         mock_module = MagicMock()
         mock_module.run_agent = mock_run_agent
-        monkeypatch.setitem(sys.modules, f"muse.providers.{provider_name}", mock_module)
+        monkeypatch.setitem(
+            sys.modules, f"think.providers.{provider_name}", mock_module
+        )
 
     monkeypatch.setitem(sys.modules, "agents", MagicMock())
 
@@ -88,9 +90,9 @@ def test_ndjson_single_request(mock_journal, monkeypatch, capsys):
 
     mock_all_providers(monkeypatch)
 
-    from muse.agents import main_async
+    from think.agents import main_async
 
-    with patch("muse.agents.setup_cli", return_value=mock_args):
+    with patch("think.agents.setup_cli", return_value=mock_args):
         with patch("agents.set_default_openai_key"):
             asyncio.run(main_async())
 
@@ -142,9 +144,9 @@ def test_ndjson_multiple_requests(mock_journal, monkeypatch, capsys):
 
     mock_all_providers(monkeypatch)
 
-    from muse.agents import main_async
+    from think.agents import main_async
 
-    with patch("muse.agents.setup_cli", return_value=mock_args):
+    with patch("think.agents.setup_cli", return_value=mock_args):
         with patch("agents.set_default_openai_key"):
             asyncio.run(main_async())
 
@@ -177,9 +179,9 @@ not valid json
 
     mock_all_providers(monkeypatch)
 
-    from muse.agents import main_async
+    from think.agents import main_async
 
-    with patch("muse.agents.setup_cli", return_value=mock_args):
+    with patch("think.agents.setup_cli", return_value=mock_args):
         with patch("agents.set_default_openai_key"):
             asyncio.run(main_async())
 
@@ -212,9 +214,9 @@ def test_ndjson_missing_prompt(mock_journal, monkeypatch, capsys):
 
     mock_all_providers(monkeypatch)
 
-    from muse.agents import main_async
+    from think.agents import main_async
 
-    with patch("muse.agents.setup_cli", return_value=mock_args):
+    with patch("think.agents.setup_cli", return_value=mock_args):
         with patch("agents.set_default_openai_key"):
             asyncio.run(main_async())
 
@@ -242,9 +244,9 @@ def test_ndjson_empty_lines(mock_journal, monkeypatch, capsys):
 
     mock_all_providers(monkeypatch)
 
-    from muse.agents import main_async
+    from think.agents import main_async
 
-    with patch("muse.agents.setup_cli", return_value=mock_args):
+    with patch("think.agents.setup_cli", return_value=mock_args):
         with patch("agents.set_default_openai_key"):
             asyncio.run(main_async())
 
