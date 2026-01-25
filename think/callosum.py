@@ -14,7 +14,7 @@ import socket
 import threading
 import time
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable
 
 from think.utils import get_journal
 
@@ -29,19 +29,19 @@ class CallosumServer:
     concurrently.
     """
 
-    def __init__(self, socket_path: Optional[Path] = None):
+    def __init__(self, socket_path: Path | None = None):
         if socket_path is None:
             socket_path = Path(get_journal()) / "health" / "callosum.sock"
 
         self.socket_path = Path(socket_path)
-        self.clients: List[socket.socket] = []
+        self.clients: list[socket.socket] = []
         self.lock = threading.RLock()
         self.stop_event = threading.Event()
-        self.server_socket: Optional[socket.socket] = None
+        self.server_socket: socket.socket | None = None
 
         # Broadcast queue and writer thread for serialized sends
         self.broadcast_queue: queue.Queue = queue.Queue(maxsize=10000)
-        self.writer_thread: Optional[threading.Thread] = None
+        self.writer_thread: threading.Thread | None = None
 
     def start(self) -> None:
         """Start the broadcast server."""
@@ -110,7 +110,7 @@ class CallosumServer:
                                 message = json.loads(line)
                                 self.broadcast(message)
                             except json.JSONDecodeError:
-                                logger.warning(f"Invalid JSON: {line}")
+                                pass  # Silent failure - avoid feedback loops
                 except socket.timeout:
                     continue
         except Exception as e:
@@ -140,7 +140,7 @@ class CallosumServer:
 
             self._send_to_clients(message)
 
-    def _send_to_clients(self, message: Dict[str, Any]) -> None:
+    def _send_to_clients(self, message: dict[str, Any]) -> None:
         """Send a message to all connected clients, removing dead ones.
 
         This method handles the actual socket I/O and dead client cleanup.
@@ -178,14 +178,14 @@ class CallosumServer:
                     except Exception:
                         pass
 
-    def broadcast(self, message: Dict[str, Any]) -> bool:
+    def broadcast(self, message: dict[str, Any]) -> bool:
         """Queue message for broadcast to all connected clients.
 
         Returns immediately after queueing. The writer thread handles
         actual transmission to ensure serialized, non-interleaved sends.
 
         Args:
-            message: Dict with required 'tract' and 'event' fields
+            message: dict with required 'tract' and 'event' fields
 
         Returns:
             True if queued successfully, False if validation failed or queue full
@@ -228,7 +228,7 @@ class CallosumConnection:
     dropped (with debug logging) when disconnected.
     """
 
-    def __init__(self, socket_path: Optional[Path] = None):
+    def __init__(self, socket_path: Path | None = None):
         """Initialize connection (does not connect immediately).
 
         Args:
@@ -239,11 +239,11 @@ class CallosumConnection:
 
         self.socket_path = Path(socket_path)
         self.send_queue: queue.Queue = queue.Queue(maxsize=1000)
-        self.callback: Optional[Callable[[Dict[str, Any]], Any]] = None
-        self.thread: Optional[threading.Thread] = None
+        self.callback: Callable[[dict[str, Any]], Any] | None = None
+        self.thread: threading.Thread | None = None
         self.stop_event = threading.Event()
 
-    def start(self, callback: Optional[Callable[[Dict[str, Any]], Any]] = None) -> None:
+    def start(self, callback: Callable[[dict[str, Any]], Any] | None = None) -> None:
         """Start background thread for sending and receiving.
 
         Thread will auto-connect with retry and drain the send queue even when
@@ -262,7 +262,7 @@ class CallosumConnection:
 
     def _run_loop(self) -> None:
         """Main loop: drain queue, connect/reconnect, receive when connected."""
-        sock: Optional[socket.socket] = None
+        sock: socket.socket | None = None
         buffer = ""
         last_connect_attempt = 0.0
 
@@ -326,21 +326,20 @@ class CallosumConnection:
                         except Exception:
                             pass
                         sock = None
+                        buffer = ""  # Clear partial data from old connection
                         continue
 
                     buffer += data.decode("utf-8")
                     while "\n" in buffer:
                         line, buffer = buffer.split("\n", 1)
-                        if line.strip():
+                        if line.strip() and self.callback:
                             try:
                                 message = json.loads(line)
-                                if self.callback:
-                                    try:
-                                        self.callback(message)
-                                    except Exception as e:
-                                        logger.error(f"Callback error: {e}")
+                                self.callback(message)
                             except json.JSONDecodeError:
-                                logger.warning(f"Invalid JSON: {line}")
+                                pass  # Silent failure - avoid feedback loops
+                            except Exception as e:
+                                logger.error(f"Callback error: {e}")
                 except socket.timeout:
                     continue  # Normal, just loop back to drain queue
                 except Exception as e:
@@ -350,6 +349,7 @@ class CallosumConnection:
                     except Exception:
                         pass
                     sock = None
+                    buffer = ""  # Clear partial data from old connection
 
         # Cleanup on stop
         if sock:
@@ -398,7 +398,7 @@ class CallosumConnection:
 def callosum_send(
     tract: str,
     event: str,
-    socket_path: Optional[Path] = None,
+    socket_path: Path | None = None,
     timeout: float = 2.0,
     **fields,
 ) -> bool:
@@ -442,13 +442,7 @@ def main() -> None:
     from think.utils import setup_cli
 
     parser = argparse.ArgumentParser(description="Callosum message bus")
-    args = setup_cli(parser)
-
-    # Set up logging
-    logging.basicConfig(
-        level=logging.INFO if not args.verbose else logging.DEBUG,
-        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    )
+    setup_cli(parser)  # Handles logging setup based on -v/-d flags
 
     server = CallosumServer()
 
