@@ -913,6 +913,33 @@ def get_insights() -> dict[str, dict[str, object]]:
     return insights
 
 
+def get_insights_by_frequency(
+    frequency: str,
+    *,
+    include_disabled: bool = False,
+) -> dict[str, dict[str, object]]:
+    """Return insights matching the given frequency.
+
+    Args:
+        frequency: Target frequency (e.g., "segment" or "daily").
+        include_disabled: If True, include disabled insights (for settings UI).
+            Default False (for processing pipelines).
+
+    Returns:
+        Dict of insight_key -> metadata for insights where frequency matches.
+    """
+    all_insights = get_insights()
+    result: dict[str, dict[str, object]] = {}
+
+    for key, meta in all_insights.items():
+        if not include_disabled and meta.get("disabled", False):
+            continue
+        if meta.get("frequency") == frequency:
+            result[key] = meta
+
+    return result
+
+
 def _resolve_agent_path(persona: str) -> tuple[Path, str]:
     """Resolve agent persona to directory path and agent name.
 

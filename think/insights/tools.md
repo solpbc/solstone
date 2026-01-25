@@ -1,0 +1,77 @@
+{
+
+  "title": "Tool Usage",
+  "description": "Catalogues every application or service used throughout the day and how long it was active. The report details which tools are critical, supporting or distracting.",
+  "occurrences": "Whenever a tool is launched or actively used, create an occurrence noting the time span, purpose and intensity of use. Distinguish between core work tools and occasional utilities.",
+  "color": "#795548",
+  "frequency": "daily",
+  "disabled": true
+
+}
+
+$daily_insight
+
+# Workday Tool Usage Catalog & Analysis
+
+## Objective
+
+Create a comprehensive catalog of technology and tool usage from $pronouns_possessive workday transcript, documenting WHEN, HOW, and WHY each tool was used throughout the day. The transcript combines audio conversations and screen activity organized by recording segments.
+
+## Analysis Framework
+
+### 1. Chronological Tool Usage Catalog
+- **Timeline Mapping**: Document tool usage by recording segments
+- **Usage Duration**: Exact time spent in each application per session
+- **Usage Context**: What task or activity prompted each tool launch
+- **Usage Intensity**: Active use vs. passive background presence
+
+### 2. Tool Importance Classification
+- **Critical Tools**: Applications essential for completing core work tasks
+- **Supporting Tools**: Applications that facilitate or enhance primary workflows
+- **Occasional Tools**: Applications used sporadically for specific needs
+- **Background Tools**: Applications running but minimally interacted with
+- **Distraction Tools**: Applications that interrupt or derail focus
+
+### 3. Usage Pattern Analysis
+- **Peak Usage Windows**: When each tool is most heavily utilized
+- **Tool Combinations**: What applications are commonly used together
+- **Session Patterns**: How long typical tool sessions last
+- **Return Frequency**: How often returning to the same tool throughout the day
+
+### 4. Interaction Depth Analysis
+- **Surface Interactions**: Quick checks, notifications, brief visits
+- **Deep Work Sessions**: Extended focused usage segments
+- **Feature Utilization**: Which specific features/functions are actually used
+- **Keyboard vs. Mouse**: Interaction patterns that indicate proficiency
+
+### 5. Tool Switching Behavior
+- **Trigger Events**: What causes switches between tools (notifications, task completion, interruptions)
+- **Switch Patterns**: Common sequences of tool transitions
+
+### 6. Workflow-Tool Mapping
+- **Task-Tool Relationships**: Which tools are used for specific types of work
+- **Parallel Tool Usage**: Applications used simultaneously for single tasks
+- **Tool Handoffs**: How work moves from one application to another
+
+## Output Format
+
+Create a detailed markdown document with these sections:
+
+### Daily Tool Usage Chronicle
+- **Hour-by-Hour Breakdown**: What tools dominated each hour of the day
+- **Tool Session Log**: Start/stop times for major tool usage segments
+- **Context Annotations**: Brief note on why each tool was used when it was used
+
+### Tool Catalog & Classification
+- **Complete Tool Inventory**: Every application/service touched during the day
+- **Usage Statistics**: Estimated time spent in each tool
+- **Importance Ranking**: Tools ranked by criticality to actual work completion
+
+### Critical Usage Findings
+- **Essential Tool Dependencies**: Tools that block work when unavailable
+- **High-Frequency Micro-Usage**: Tools used in very short but frequent bursts
+- **Deep Work Enablers**: Tools that correlate with extended focus segments
+- **Productivity Multipliers**: Tools that demonstrably accelerate task completion
+- **Time Sinks**: Tools that consume disproportionate time relative to output
+
+Remember: The primary goal is creating an accurate catalog of what tools were actually used, when they were used, and how they contributed to (or detracted from) productive work throughout the day.

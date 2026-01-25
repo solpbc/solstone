@@ -13,7 +13,7 @@ def test_get_insights():
     insights = utils.get_insights()
     assert "flow" in insights
     info = insights["flow"]
-    assert os.path.basename(info["path"]) == "flow.txt"
+    assert os.path.basename(info["path"]) == "flow.md"
     assert isinstance(info["color"], str)
     assert isinstance(info["mtime"], int)
     assert "title" in info
@@ -43,10 +43,9 @@ def test_get_insights_app_discovery(tmp_path, monkeypatch):
     app_dir = tmp_path / "apps" / "test_app" / "insights"
     app_dir.mkdir(parents=True)
 
-    # Create insight files
-    (app_dir / "custom_insight.txt").write_text("Test prompt")
-    (app_dir / "custom_insight.json").write_text(
-        '{"title": "Custom Insight", "color": "#ff0000"}'
+    # Create insight files with frontmatter
+    (app_dir / "custom_insight.md").write_text(
+        '{\n  "title": "Custom Insight",\n  "color": "#ff0000"\n}\n\nTest prompt'
     )
 
     # Also create workspace.html to make it a valid app (not strictly required for insights)
@@ -69,3 +68,58 @@ def test_get_insights_app_discovery(tmp_path, monkeypatch):
     for key, info in insights.items():
         if ":" not in key:
             assert info.get("source") == "system", f"{key} should have source=system"
+
+
+def test_get_insights_by_frequency():
+    """Test filtering insights by frequency."""
+    utils = importlib.import_module("think.utils")
+
+    # Get daily insights
+    daily = utils.get_insights_by_frequency("daily")
+    assert len(daily) > 0
+    for key, meta in daily.items():
+        assert meta.get("frequency") == "daily", f"{key} should have frequency=daily"
+
+    # Get segment insights
+    segment = utils.get_insights_by_frequency("segment")
+    assert len(segment) > 0
+    for key, meta in segment.items():
+        assert meta.get("frequency") == "segment", f"{key} should have frequency=segment"
+
+    # Verify no overlap
+    assert not set(daily.keys()) & set(segment.keys()), "daily and segment should not overlap"
+
+    # Unknown frequency returns empty dict
+    assert utils.get_insights_by_frequency("hourly") == {}
+    assert utils.get_insights_by_frequency("") == {}
+
+
+def test_get_insights_by_frequency_include_disabled(monkeypatch):
+    """Test include_disabled parameter."""
+    utils = importlib.import_module("think.utils")
+
+    # Get insights without disabled (default)
+    without_disabled = utils.get_insights_by_frequency("daily")
+
+    # Get insights with disabled included
+    with_disabled = utils.get_insights_by_frequency("daily", include_disabled=True)
+
+    # Should have at least as many with disabled included
+    # (files.md, media.md, tools.md are disabled by default)
+    assert len(with_disabled) >= len(without_disabled)
+
+
+def test_all_system_insights_have_frequency():
+    """Test that all system insights have valid frequency field."""
+    utils = importlib.import_module("think.utils")
+
+    insights = utils.get_insights()
+    valid_frequencies = ("segment", "daily")
+
+    for key, meta in insights.items():
+        if meta.get("source") == "system":
+            freq = meta.get("frequency")
+            assert freq is not None, f"System insight '{key}' missing required 'frequency' field"
+            assert freq in valid_frequencies, (
+                f"System insight '{key}' has invalid frequency '{freq}'"
+            )

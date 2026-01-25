@@ -1,0 +1,52 @@
+{
+
+  "title": "Media Consumption",
+  "description": "Identifies when videos, articles, music or social content are consumed. Classifies each instance as work or personal and reports the source in chronological sections.",
+  "occurrences": "Create an occurrence whenever media consumption is noted, noting the application or site and whether it was for work or leisure. Include a short summary of the topic if visible.",
+  "color": "#fd7e14",
+  "frequency": "daily",
+  "disabled": true
+
+}
+
+$daily_insight
+
+# Workday Media Consumption Analysis
+
+## Objective
+
+Analyze a single day's transcripts to identify instances of media consumption. The transcripts combine audio and screen summaries in chronological 5‑minute chunks.
+
+## Analysis Tasks
+
+1. **Detect Media Moments**
+   * Review the entire day's transcripts looking for clear signs of media consumption. This includes:
+     - Videos or streaming content
+     - News articles or blog posts
+     - Music or podcasts
+     - Social media browsing
+     - Viewing photos or image galleries
+     - Any other recreational, professional growth, or informational content
+   * Flag both audio mentions and screen evidence (e.g. a YouTube tab, news site, music player, photo viewer, etc.).
+
+2. **Classify Work vs. Personal**
+   * For each media instance, determine whether it appears to be work‑related or personal.
+   * Consider the surrounding context, titles, or content. For example, a technical artical related to a work project is "work," while entertainment videos or casual news are "personal." If uncertain, make your best guess.
+
+3. **Record Topics and Sources**
+   * Capture the main topic or subject matter of the media (technology news, project documentation, politics, entertainment, etc.).
+   * Note the websites or applications involved (e.g. YouTube, Twitter, New York Times, Spotify). Include URLs if visible in the transcript.
+
+## Output Format
+
+Produce a friendly markdown document with chronological individual sections with a short title and each containing these items:
+
+  - Time Segment(s)
+  - Media Type (video, article, music, etc.)
+  - Work or Personal
+  - Topic/Description
+  - Source or Site
+
+At the end add a Summary Insights section with bullet points highlighting overall trends, how much time was spent consuming media, and whether it leaned more toward work or personal purposes.
+
+Be thoughtful, the goal is to surface where time was spent on external content and its relative importance to work and personal life. There should be no more than a few dozen notable items every day.

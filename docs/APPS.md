@@ -273,7 +273,7 @@ Define custom insight prompts that integrate with solstone's insight generation 
 - Keys are namespaced as `{app}:{topic}` (e.g., `my_app:weekly_summary`)
 - Outputs go to `JOURNAL/YYYYMMDD/insights/_<app>_<topic>.md` (or `.json` if `output: "json"`)
 
-**Metadata format:** Same schema as system insights in `think/insights/*.md` - JSON frontmatter includes `title`, `description`, `color`, `frequency`, `occurrences`, and `output` fields. Set `output: "json"` for structured JSON output instead of markdown.
+**Metadata format:** Same schema as system insights in `think/insights/*.md` - JSON frontmatter includes `title`, `description`, `color`, `frequency` (required), `occurrences`, and `output` fields. The `frequency` field must be `"segment"` or `"daily"` - insights with missing or invalid frequency are skipped with a warning. Set `output: "json"` for structured JSON output instead of markdown.
 
 **App-data insights:** For insights from app-specific data (not transcripts), store in `JOURNAL/apps/{app}/insights/*.md` - these are automatically indexed.
 
@@ -297,7 +297,7 @@ def process(result: str, context: dict) -> str | None:
 
 **Reference implementations:**
 - System insight templates: `think/insights/*.md`
-- Discovery logic: `think/utils.py` - `get_insights()`, `get_insight_topic()`
+- Discovery logic: `think/utils.py` - `get_insights()`, `get_insights_by_frequency()`, `get_insight_topic()`
 - Hook loading: `think/utils.py` - `load_insight_hook()`
 
 ---

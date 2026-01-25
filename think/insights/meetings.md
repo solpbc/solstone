@@ -1,0 +1,66 @@
+{
+
+  "title": "Meeting Summary",
+  "description": "Detects all meetings throughout the day by analyzing audio and screen cues. For each meeting it notes time range, participants, topics discussed and whether slides were shown.",
+  "occurrences": "Each meeting should generate an occurrence with start and end times, list of participants and a concise summary. If slides are present, mention them in the details field.",
+  "color": "#e83e8c",
+  "frequency": "daily"
+
+}
+
+$daily_insight
+
+# Workday Meeting Extraction and Analysis
+
+**Input:** A markdown file containing a chronologically ordered transcript of a workday for $name. The transcript is organized by recording segments, each combining information from audio recordings and screen activity for that time period.
+
+**Objective:** Identify and summarize all of the meetings that $name participated in based on the provided workday transcripts, generate a nicely formatted Markdown document with the details for each.
+
+**Instructions:**
+
+1.  **Parse the Input:** Read the entire markdown file, paying close attention to the chronological timestamps.
+
+2.  **Identify Meetings:** Iterate through the recording segments to identify the start and end of meetings.
+    * **Meeting Start Cues:** A meeting may be starting if the audio transcript includes:
+        * Greetings and introductory phrases (e.g., "Hi everyone," "Let's get started," "Thanks for joining," "How are you?").
+        * The names of other individuals joining the conversation.
+        * The distinct sound of a video conferencing notification.
+        * A noticable change in topic from previous transcripts.
+        * The timestamps, since meetings often begin at the top of the hour or half-past.
+    * **Meeting End Cues:** A meeting may be ending if the audio transcript includes:
+        * Closing remarks (e.g., "Great, thanks everyone," "Let's wrap up," "Talk to you all later").
+        * A clear shift to a prolonged segment of silence or non-conversational audio (e.g., only keyboard sounds).
+    * **Use Screen Activity for Confirmation:** While screen activity can be distracting due to multitasking, it can be a helpful secondary indicator. Look for the launch or presence of meeting software (e.g., Google Meet, Zoom, Microsoft Teams) to help confirm the start of a meeting. There may be meetings in the audio transcript only with no clues on the screen.
+    * **Audio Required:** Meetings must have an audio component, if only visual/screen references exist without the audio transcript than it probably wasn't a meeting.
+
+3.  **Extract Key Meeting Details:** For each identified meeting, extract the following information, prioritizing the audio transcript as the primary source of truth:
+
+    * **Meeting Time Range:**
+        * `startTime`: The timestamp when the meeting is first identified as having started.
+        * `endTime`: The timestamp when the meeting is identified as having concluded.
+
+    * **Participants:**
+        * Carefully analyze the audio transcript for the names of individuals who are speaking or who are referred to by name.
+        * The screen may occasionally show a list of participants in the meeting software; use this to supplement the names gathered from the audio. List "$name" as a default participant for all identified meetings.
+        * See if the names overlap allowing for transcription errors, try to consolidate them when possible.
+
+    * **Topics Discussed:**
+        * Synthesize the conversation from the audio transcript to create a concise summary of the key subjects and topics being discussed, any entities being named, technologies being used, companies, organizations, etc.
+
+    * **Meeting Brief:**
+        * Create a short one-liner brief or title describing the meeting that can be shown for helpful context in a list of meetings.
+
+    * **Slides Presented:**
+        * `slidesPresented`: Boolean indicating whether presentation slides were clearly visible on screen during any part of the meeting.
+        * `slidesDescription`: If slides were presented, provide a short summary of the slide content, topics covered, or presentation themes visible on screen. Omit if no slides were presented.
+        * Look for screen activity showing presentation software (PowerPoint, Google Slides, Keynote, etc.), slide transitions, or structured presentation content being displayed within the meeting window, etc.
+
+4.  **Format the Output:** Produce a friendly Markdown document listing each meeting in chronological order. For every meeting create a short titled section containing:
+    * **Start Time** – when the meeting began.
+    * **End Time** – when the meeting concluded.
+    * **Participants** – list of names involved.
+    * **Topics Discussed** – concise summary of key subjects and entities mentioned.
+    * **Slides Presented** – yes/no indicator.
+    * **Slides Description** – short description if slides were shown.
+
+   Conclude with a brief bullet list summarizing the overall meeting activity for the day.

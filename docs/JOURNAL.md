@@ -956,7 +956,7 @@ Post-processing generates day-level insights in the `insights/` directory that s
 - `think/insights/*.md` – system insight templates
 - `apps/{app}/insights/*.md` – app-specific insight templates
 
-Each template is a `.md` file with JSON frontmatter containing metadata (title, description, frequency, output format). Use `get_insights()` from `think/utils.py` to retrieve all available insights programmatically.
+Each template is a `.md` file with JSON frontmatter containing metadata (title, description, frequency, output format). The `frequency` field is required and must be `"segment"` or `"daily"` - insights with missing or invalid frequency are skipped. Use `get_insights()` from `think/utils.py` to retrieve all available insights, or `get_insights_by_frequency()` to get insights filtered by schedule.
 
 **Output naming:**
 - System insights: `insights/{topic}.md` (e.g., `insights/flow.md`, `insights/meetings.md`)

@@ -1,0 +1,54 @@
+{
+
+  "title": "Research Needs",
+  "description": "Highlights moments where additional information would help progress work. Produces a list of targeted research tasks with time ranges and context.",
+  "occurrences": "Log an occurrence each time a knowledge gap or open question appears. Mention the problem area and any suggested resources to investigate so the task can be assigned.",
+  "color": "#ff5722",
+  "frequency": "daily"
+
+}
+
+$daily_insight
+
+# Workday Research Opportunity Analysis
+
+## Objective
+
+Identify knowledge gaps and compile targeted research tasks by analyzing the day's transcript and screen summaries to spot when additional information would accelerate ongoing projects.
+
+## Evaluation Goals
+
+1. **Assess Deep Work**
+   - Recognize segments of intense focus on a single problem or project.
+   - Note the specific tools, code files, documents or websites visible during these segments.
+   - Example: A 30‑minute block editing `models.py` with no meeting audio indicates deep coding work.
+
+2. **Detect Knowledge Gaps**
+   - Listen for statements such as "I'm not sure," "need to look up," or "I wonder how" in the audio, and no resolution was reached at a later point.
+   - Notice when unfamiliar libraries, APIs, or concepts appear on screen searches or documentation pages.
+   - Example: Searching for "OAuth2 device flow" after a conversation about authentication suggests a research need.
+
+3. **Opportunities for Additional Resources**
+   - Identify when progress stalls, unresolved issues, or tasks are deferred due to missing information.
+   - Notice when there's something that could make a difference and positively impact the workflow but no solution was sought.
+   - Perhaps colleagues can be heard or seen also struggling with an issue, these can be great opportunities to come back and contribute.
+
+## Summarizing Research Topics
+
+Output a friendly markdown document and for each gap or opportunity you find, create a new section with a short title and containing these elements:
+
+- **Time Range**: When the question or issue arose.
+- **Context**: Briefly describe what was being worked on and why the information is needed.
+- **Suggested Research**: A specific topic or set of resources that could be gathered overnight.
+
+## Overnight Research Focus
+
+Prioritize tasks that would provide high value by the start of the next day:
+
+- Documentation reviews or API comparisons.
+- Summaries of best practices related to the current project stack.
+- Example implementations or open‑source references.
+- Any background reading that unblocks upcoming work.
+- Additional things that may help a colleague make progress.
+
+Be concise yet thorough—capture the most important potential items for hitting the ground running tomorrow.

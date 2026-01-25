@@ -82,19 +82,16 @@ def test_insight_metadata_includes_hook_path(tmp_path):
     """Test that _load_insight_metadata detects .py hook file."""
     utils = importlib.import_module("think.utils")
 
-    # Create insight files
-    txt_file = tmp_path / "test_insight.txt"
-    txt_file.write_text("Test prompt")
-
-    json_file = tmp_path / "test_insight.json"
-    json_file.write_text('{"title": "Test", "color": "#ff0000"}')
+    # Create insight file with frontmatter
+    md_file = tmp_path / "test_insight.md"
+    md_file.write_text('{\n  "title": "Test",\n  "color": "#ff0000"\n}\n\nTest prompt')
 
     hook_file = tmp_path / "test_insight.py"
     hook_file.write_text("def process(r, c): return r")
 
-    meta = utils._load_insight_metadata(txt_file)
+    meta = utils._load_insight_metadata(md_file)
 
-    assert meta["path"] == str(txt_file)
+    assert meta["path"] == str(md_file)
     assert meta["hook_path"] == str(hook_file)
     assert meta["title"] == "Test"
 
@@ -103,12 +100,12 @@ def test_insight_metadata_no_hook(tmp_path):
     """Test that _load_insight_metadata works without hook file."""
     utils = importlib.import_module("think.utils")
 
-    txt_file = tmp_path / "test_insight.txt"
-    txt_file.write_text("Test prompt")
+    md_file = tmp_path / "test_insight.md"
+    md_file.write_text("Test prompt")
 
-    meta = utils._load_insight_metadata(txt_file)
+    meta = utils._load_insight_metadata(md_file)
 
-    assert meta["path"] == str(txt_file)
+    assert meta["path"] == str(md_file)
     assert "hook_path" not in meta
 
 
@@ -121,11 +118,8 @@ def test_insight_hook_invocation(tmp_path, monkeypatch):
     insights_dir = tmp_path / "insights"
     insights_dir.mkdir()
 
-    prompt_file = insights_dir / "hooked.txt"
-    prompt_file.write_text("Test prompt")
-
-    json_file = insights_dir / "hooked.json"
-    json_file.write_text('{"title": "Hooked", "occurrences": false}')
+    prompt_file = insights_dir / "hooked.md"
+    prompt_file.write_text('{\n  "title": "Hooked",\n  "occurrences": false,\n  "frequency": "daily"\n}\n\nTest prompt')
 
     hook_file = insights_dir / "hooked.py"
     hook_file.write_text("""
@@ -162,11 +156,8 @@ def test_insight_hook_returns_none(tmp_path, monkeypatch):
     insights_dir = tmp_path / "insights"
     insights_dir.mkdir()
 
-    prompt_file = insights_dir / "noop.txt"
-    prompt_file.write_text("Test prompt")
-
-    json_file = insights_dir / "noop.json"
-    json_file.write_text('{"title": "Noop", "occurrences": false}')
+    prompt_file = insights_dir / "noop.md"
+    prompt_file.write_text('{\n  "title": "Noop",\n  "occurrences": false,\n  "frequency": "daily"\n}\n\nTest prompt')
 
     hook_file = insights_dir / "noop.py"
     hook_file.write_text("""
@@ -198,11 +189,8 @@ def test_insight_hook_error_fallback(tmp_path, monkeypatch):
     insights_dir = tmp_path / "insights"
     insights_dir.mkdir()
 
-    prompt_file = insights_dir / "broken.txt"
-    prompt_file.write_text("Test prompt")
-
-    json_file = insights_dir / "broken.json"
-    json_file.write_text('{"title": "Broken", "occurrences": false}')
+    prompt_file = insights_dir / "broken.md"
+    prompt_file.write_text('{\n  "title": "Broken",\n  "occurrences": false,\n  "frequency": "daily"\n}\n\nTest prompt')
 
     hook_file = insights_dir / "broken.py"
     hook_file.write_text("""
@@ -235,11 +223,8 @@ def test_insight_hook_context_fields(tmp_path, monkeypatch):
     insights_dir = tmp_path / "insights"
     insights_dir.mkdir()
 
-    prompt_file = insights_dir / "context_check.txt"
-    prompt_file.write_text("Test prompt")
-
-    json_file = insights_dir / "context_check.json"
-    json_file.write_text('{"title": "Context Check", "occurrences": false}')
+    prompt_file = insights_dir / "context_check.md"
+    prompt_file.write_text('{\n  "title": "Context Check",\n  "occurrences": false,\n  "frequency": "daily"\n}\n\nTest prompt')
 
     # Write captured context to a file for verification
     hook_file = insights_dir / "context_check.py"

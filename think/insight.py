@@ -105,11 +105,6 @@ def _write_events_jsonl(
     return written_paths
 
 
-def _insight_keys() -> list[str]:
-    """Return available insight keys."""
-    return sorted(get_insights().keys())
-
-
 def _output_path(
     day_dir: os.PathLike[str],
     key: str,
@@ -143,13 +138,19 @@ def _output_path(
 
 
 def scan_day(day: str) -> dict[str, list[str]]:
-    """Return lists of processed and pending insight output files."""
+    """Return lists of processed and pending daily insight output files.
+
+    Only scans daily insights (frequency='daily'). Segment insights are
+    stored within segment directories and are not included here.
+    """
+    from think.utils import get_insights_by_frequency
+
     day_dir = day_path(day)
-    all_insights = get_insights()
+    daily_insights = get_insights_by_frequency("daily", include_disabled=True)
     processed: list[str] = []
     pending: list[str] = []
-    for key in _insight_keys():
-        output_format = all_insights.get(key, {}).get("output")
+    for key, meta in sorted(daily_insights.items()):
+        output_format = meta.get("output")
         output_path = _output_path(day_dir, key, output_format=output_format)
         if output_path.exists():
             processed.append(os.path.join("insights", output_path.name))
@@ -445,6 +446,16 @@ def main() -> None:
         parser.error(
             f"Insight not found: {topic_arg}. "
             f"Available: {', '.join(sorted(all_insights.keys()))}"
+        )
+
+    # Check for frequency/mode mismatch
+    is_segment_mode = bool(args.segment or args.segments)
+    expected_freq = "segment" if is_segment_mode else "daily"
+    insight_freq = insight_meta.get("frequency")
+    if insight_freq != expected_freq:
+        parser.error(
+            f"Insight '{insight_key}' has frequency '{insight_freq}' "
+            f"but was invoked in {expected_freq} mode."
         )
 
     # Check if insight is disabled via journal config

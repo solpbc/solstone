@@ -1,0 +1,48 @@
+{
+
+  "title": "File Interactions",
+  "description": "Reviews the day's transcript to capture each significant file or attachment that was opened, saved or shared. Generates a Markdown timeline with context about how the file was used.",
+  "occurrences": "Create an occurrence for every notable file referenced, including the path when known and the related project. Ignore terminal output and focus on visible file explorers or sharing actions.",
+  "color": "#28a745",
+  "frequency": "daily",
+  "disabled": true
+
+}
+
+$daily_insight
+
+# Workday File Activity Extraction
+
+## Objective
+
+Analyze a single day's transcript for $name to find every significant specifically named file that was viewed, created, modified, exchanged, or otherwise interacted with during the day. The transcript combines audio conversations and screen summaries in 5‑minute blocks.
+
+## Objectives
+
+1. **Recognize File Interactions**
+   - Detect filenames, directory paths, or file types mentioned aloud or shown on screen.
+   - Include attachments received or sent via email or chat, downloaded items, cloud storage files, and any filesystem locations with visibly selected files.
+   - Note actions such as opening, editing, saving, moving, uploading, or referencing a file.
+
+2. **Capture Context and Location**
+   - Record the surrounding project or task to which the file relates.
+   - Identify where the item resides: local computer, shared drive, Dropbox, Google Drive, email attachment, chat message, downloads folder, etc.
+   - Determine if the usage appears work related or personal.
+
+3. **Ignore Terminal/Console and IDE**
+   - All terminal, console, and IDE output is too noisy
+   - Focus only on workplace tools, file browsing tools, cloud storage, etc.
+   - Most important are files that have been shared or downloaded and opened/viewed.
+
+## Output Format
+
+Produce a friendly markdown document with chronological individual sections with a short title and each containing these items:
+
+- Time Block(s) – starting timestamp of the 5‑minute segment(s).
+- File – name or brief description.
+- Actions – opened, edited, sent, received, downloaded, etc.
+- Location – filesystem path or service (Dropbox, email, chat, etc.).
+- Context – associated project or task.
+- Work/Personal – classify the nature of the content.
+
+Focus on the top few dozen most notable files total. Conclude with a short bullet list summarizing the most important files that shaped the day's work.

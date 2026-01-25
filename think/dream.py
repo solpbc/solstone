@@ -17,7 +17,7 @@ from think.utils import (
     day_log,
     day_path,
     get_agents,
-    get_insights,
+    get_insights_by_frequency,
     get_journal,
     setup_cli,
 )
@@ -153,19 +153,9 @@ def build_commands(
             cmd.append("-v")
         commands.append(cmd)
 
-    # Run insights filtered by frequency
-    insights = get_insights()
+    # Run insights filtered by frequency (skips disabled and invalid)
+    insights = get_insights_by_frequency(target_frequency)
     for insight_name, insight_data in insights.items():
-        # Skip disabled insights
-        if insight_data.get("disabled", False):
-            logging.info("Skipping disabled insight: %s", insight_name)
-            continue
-
-        # Filter by frequency (defaults to "daily" if not specified)
-        insight_frequency = insight_data.get("frequency", "daily")
-        if insight_frequency != target_frequency:
-            continue
-
         cmd = ["sol", "insight", day, "-f", insight_data["path"]]
         if segment:
             cmd.extend(["--segment", segment])

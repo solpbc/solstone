@@ -784,6 +784,32 @@ def update_observe() -> Any:
 # ---------------------------------------------------------------------------
 
 
+def _build_insight_info(key: str, meta: dict) -> dict:
+    """Build insight info dict for API response."""
+    # Determine if insight supports extraction
+    has_occ = meta.get("occurrences") not in (None, False)
+    has_antic = meta.get("anticipations") is True
+    has_extraction = has_occ or has_antic
+
+    info = {
+        "key": key,
+        "title": meta.get("title", key.replace("_", " ").title()),
+        "description": meta.get("description", ""),
+        "color": meta.get("color", "#6c757d"),
+        "source": meta.get("source", "system"),
+        "frequency": meta.get("frequency"),
+        "disabled": bool(meta.get("disabled", False)),
+        "extract": (meta.get("extract", True) if has_extraction else None),
+        "has_extraction": has_extraction,
+    }
+
+    # Add app name if applicable
+    if meta.get("app"):
+        info["app"] = meta["app"]
+
+    return info
+
+
 @settings_bp.route("/api/insights")
 def get_insights() -> Any:
     """Return insights grouped by schedule with config overrides.
@@ -801,43 +827,25 @@ def get_insights() -> Any:
         - disabled: Whether insight is disabled
         - extract: Whether event extraction is enabled
         - has_extraction: Whether insight supports event extraction
+
+    Insights with missing or invalid frequency are excluded.
     """
     try:
-        from think.utils import get_insights as get_all_insights
+        from think.utils import get_insights_by_frequency
 
-        all_insights = get_all_insights()
-
-        segment_insights = []
-        daily_insights = []
-
-        for key, meta in sorted(all_insights.items()):
-            # Determine if insight supports extraction
-            has_occ = meta.get("occurrences") not in (None, False)
-            has_antic = meta.get("anticipations") is True
-            has_extraction = has_occ or has_antic
-
-            # Build insight info
-            info = {
-                "key": key,
-                "title": meta.get("title", key.replace("_", " ").title()),
-                "description": meta.get("description", ""),
-                "color": meta.get("color", "#6c757d"),
-                "source": meta.get("source", "system"),
-                "frequency": meta.get("frequency", "daily"),
-                "disabled": bool(meta.get("disabled", False)),
-                "extract": (meta.get("extract", True) if has_extraction else None),
-                "has_extraction": has_extraction,
-            }
-
-            # Add app name if applicable
-            if meta.get("app"):
-                info["app"] = meta["app"]
-
-            # Group by frequency
-            if meta.get("frequency") == "segment":
-                segment_insights.append(info)
-            else:
-                daily_insights.append(info)
+        # Get insights by frequency (include disabled for settings toggle UI)
+        segment_insights = [
+            _build_insight_info(key, meta)
+            for key, meta in sorted(
+                get_insights_by_frequency("segment", include_disabled=True).items()
+            )
+        ]
+        daily_insights = [
+            _build_insight_info(key, meta)
+            for key, meta in sorted(
+                get_insights_by_frequency("daily", include_disabled=True).items()
+            )
+        ]
 
         # Sort within each group: system first, then by key
         def sort_key(x: dict) -> tuple:

@@ -1,0 +1,45 @@
+{
+
+  "title": "Follow-Up Items",
+  "description": "Scans the day chronologically to capture promised tasks or reminders for future action. The prompt outputs a concise Markdown list of the most important follow-ups.",
+  "occurrences": "Whenever a future task or commitment is mentioned, create an occurrence with the expected action and deadline if known. Note who requested it and whether it is work or personal.",
+  "color": "#ffc107",
+  "frequency": "daily"
+
+}
+
+$daily_insight
+
+# Workday Follow-up Identification
+
+## Objective
+
+Review the full day's transcript to find instances where an important future action is implied, requested, or promised, covering both professional and personal contexts. The transcript merges audio conversations and screen activity summaries organized by recording segments.
+
+## Approach
+
+1. **Sequential Review**
+   - Read the transcript chronologically, one block at a time.
+   - Look for statements or screen cues indicating outstanding tasks, open questions, or commitments to reconnect later.
+
+2. **Recognize Follow-up Triggers**
+   - Phrases such as "I'll do that tomorrow," "Let's talk later," or "Need to check".
+   - References to documents, links, or resources to revisit.
+   - Unresolved issues or decisions deferred to a future date.
+   - Personal reminders like errands, appointments, or messages to send.
+
+3. **Assess Importance**
+   - Note who initiated the follow-up and any deadlines or urgency mentioned.
+   - Determine if the context is work-related or personal.
+   - Prioritize items that appear critical for ongoing projects or relationships.
+
+## Output Format
+
+Produce a concise Markdown list capturing each follow-up with the following fields in individual blocks with a short title:
+
+- **Time Block** – starting timestamp of the recording segment.
+- **Context** – short description of the discussion or screen activity.
+- **Action Needed** – what follow-up is expected.
+- **Work/Personal** – classify the nature of the task.
+
+Only identify up to the top 20 or so most important or notable follow-ups in the given day. Conclude with a brief summary highlighting the most significant follow-ups to address soonest.

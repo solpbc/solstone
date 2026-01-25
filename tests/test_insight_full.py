@@ -32,8 +32,8 @@ MOCK_RESULT = "## Meeting Summary\n\nTeam standup at 9am with Alice and Bob disc
 def test_ponder_main(tmp_path, monkeypatch):
     mod = importlib.import_module("think.insight")
     day_dir = copy_day(tmp_path)
-    prompt = tmp_path / "prompt.txt"
-    prompt.write_text("prompt")
+    prompt = tmp_path / "prompt.md"
+    prompt.write_text('{\n  "frequency": "daily"\n}\n\nprompt')
 
     monkeypatch.setattr(
         mod,
@@ -80,7 +80,7 @@ def test_ponder_main(tmp_path, monkeypatch):
 def test_ponder_extra_instructions(tmp_path, monkeypatch):
     mod = importlib.import_module("think.insight")
     day_dir = copy_day(tmp_path)
-    insight_file = Path(mod.__file__).resolve().parent / "insights" / "flow.txt"
+    insight_file = Path(mod.__file__).resolve().parent / "insights" / "flow.md"
 
     # Remove existing flow.md to ensure mock content is used
     flow_md = day_dir / "insights" / "flow.md"
@@ -136,8 +136,8 @@ def test_ponder_skip_minimal_content(tmp_path, monkeypatch):
     """Test that extraction is skipped when send_insight returns minimal content."""
     mod = importlib.import_module("think.insight")
     day_dir = copy_day(tmp_path)
-    prompt = tmp_path / "prompt.txt"
-    prompt.write_text("prompt")
+    prompt = tmp_path / "prompt.md"
+    prompt.write_text('{\n  "frequency": "daily"\n}\n\nprompt')
 
     # Return minimal content that should trigger skip
     monkeypatch.setattr(
@@ -170,7 +170,7 @@ def test_ponder_skip_minimal_content(tmp_path, monkeypatch):
 def test_ponder_skip_occurrences(tmp_path, monkeypatch):
     mod = importlib.import_module("think.insight")
     day_dir = copy_day(tmp_path)
-    insight_file = Path(mod.__file__).resolve().parent / "insights" / "flow.txt"
+    insight_file = Path(mod.__file__).resolve().parent / "insights" / "flow.md"
 
     # Remove existing flow.md to ensure mock content is used
     flow_md = day_dir / "insights" / "flow.md"
