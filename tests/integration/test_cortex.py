@@ -75,9 +75,7 @@ def test_cortex_request_creation(integration_journal_path, callosum_server):
     time.sleep(0.1)
 
     # Create a request
-    agent_id = cortex_request(
-        prompt="Test prompt", name="default", provider="openai"
-    )
+    agent_id = cortex_request(prompt="Test prompt", name="default", provider="openai")
 
     time.sleep(0.2)
 

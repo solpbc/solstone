@@ -84,9 +84,7 @@ def test_get_insights_by_schedule():
     segment = utils.get_insights_by_schedule("segment")
     assert len(segment) > 0
     for key, meta in segment.items():
-        assert (
-            meta.get("schedule") == "segment"
-        ), f"{key} should have schedule=segment"
+        assert meta.get("schedule") == "segment", f"{key} should have schedule=segment"
 
     # Verify no overlap
     assert not set(daily.keys()) & set(

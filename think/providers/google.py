@@ -653,9 +653,7 @@ async def run_agent(
             async with create_mcp_client(str(mcp_url)) as mcp:
                 # Attach tool logging hooks to the MCP session
                 agent_id = config.get("agent_id")
-                tool_hooks = ToolLoggingHooks(
-                    callback, agent_id=agent_id, name=name
-                )
+                tool_hooks = ToolLoggingHooks(callback, agent_id=agent_id, name=name)
                 tool_hooks.attach(mcp.session)
 
                 # Extract allowed tools from config
