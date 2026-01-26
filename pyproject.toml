@@ -116,10 +116,19 @@ convey = [
 # Development tools configuration
 [tool.black]
 target-version = ['py39']
+extend-exclude = '''
+(
+  \.venv
+  | scratch
+  | logs
+  | build
+  | dist
+)
+'''
 
 [tool.isort]
 profile = "black"
-extend_skip = ["journal"]
+extend_skip = ["journal", ".venv", "scratch", "logs", "build", "dist"]
 
 [tool.flake8]
 # No line length restrictions
@@ -129,7 +138,7 @@ extend-ignore = ["W503", "W504"]
 python_version = "3.12"
 warn_return_any = true
 warn_unused_configs = true
-exclude = ["tests"]
+exclude = ["tests", ".venv", "scratch", "logs", "build", "dist"]
 ignore_missing_imports = true
 ignore_errors = true
 

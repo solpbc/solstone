@@ -1,2 +1,3 @@
 [flake8]
 extend-ignore = W503,W504,E501,E203
+exclude = .venv,scratch,logs,build,dist,*.egg-info,.mypy_cache,.pytest_cache,__pycache__

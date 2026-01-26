@@ -1,7 +1,7 @@
 # solstone Makefile
 # Python-based AI-driven desktop journaling toolkit
 
-.PHONY: install uninstall test test-apps test-app lint format check clean all update-prices
+.PHONY: install uninstall test test-apps test-app test-only test-integration test-integration-only test-all format ci clean clean-install coverage watch versions update-deps update-prices pre-commit all
 
 # Default target - install package in editable mode
 all: install
@@ -67,20 +67,10 @@ test: .installed
 	@echo "Running core tests..."
 	$(TEST_ENV) $(PYTEST) tests/ -q --cov=. --ignore=tests/integration
 
-# Run core tests with verbose output
-test-verbose: .installed
-	@echo "Running core tests with verbose output..."
-	$(TEST_ENV) $(PYTEST) tests/ -v --cov=. --cov-report=term-missing --ignore=tests/integration
-
 # Run app tests
 test-apps: .installed
 	@echo "Running app tests..."
 	$(TEST_ENV) $(PYTEST) apps/ -q
-
-# Run app tests with verbose output
-test-apps-verbose: .installed
-	@echo "Running app tests with verbose output..."
-	$(TEST_ENV) $(PYTEST) apps/ -v
 
 # Run specific app tests
 test-app: .installed
@@ -106,11 +96,6 @@ test-integration: .installed
 	@echo "Running integration tests..."
 	$(TEST_ENV) $(PYTEST) tests/integration/ -v --tb=short
 
-# Run integration tests with coverage
-test-integration-cov: .installed
-	@echo "Running integration tests with coverage..."
-	$(TEST_ENV) $(PYTEST) tests/integration/ -v --cov=. --cov-report=term-missing
-
 # Run specific integration test
 test-integration-only: .installed
 	@if [ -z "$(TEST)" ]; then \
@@ -125,43 +110,23 @@ test-all: .installed
 	@echo "Running all tests (core + apps + integration)..."
 	$(TEST_ENV) $(PYTEST) tests/ -v --cov=. && $(TEST_ENV) $(PYTEST) apps/ -v --cov=. --cov-append
 
-# Auto-format code
+# Auto-format code, then report any remaining issues
 format: .installed
 	@echo "Formatting code with black and isort..."
-	$(BLACK) .
-	$(ISORT) .
-
-# Run all linting and formatting checks
-lint: .installed
-	@echo "Running linting checks..."
-	@echo "=== Running black (check mode) ==="
-	$(BLACK) --check . || true
+	@$(BLACK) .
+	@$(ISORT) .
 	@echo ""
-	@echo "=== Running isort (check mode) ==="
-	$(ISORT) --check-only . || true
-	@echo ""
-	@echo "=== Running flake8 ==="
-	$(FLAKE8) . || true
-	@echo ""
-	@echo "=== Running mypy ==="
-	$(MYPY) . || true
-
-# Run only flake8 linting
-lint-flake8: .installed
-	$(FLAKE8) .
-
-# Run only black formatting check
-lint-black: .installed
-	$(BLACK) --check .
-
-# Run only isort import check
-lint-isort: .installed
-	$(ISORT) --check-only .
-
-# Run type checking with mypy
-check: .installed
-	@echo "Running type checking with mypy..."
-	$(MYPY) .
+	@echo "Checking for remaining issues..."
+	@FLAKE8_OK=true; MYPY_OK=true; \
+	$(FLAKE8) . || FLAKE8_OK=false; \
+	$(MYPY) . || MYPY_OK=false; \
+	if $$FLAKE8_OK && $$MYPY_OK; then \
+		echo ""; \
+		echo "All clean!"; \
+	else \
+		echo ""; \
+		echo "Issues above need manual fixes."; \
+	fi
 
 # Clean build artifacts and cache files
 clean:
@@ -187,12 +152,22 @@ uninstall: clean
 clean-install: uninstall install
 
 # Run continuous integration checks (what CI would run)
-ci: lint test
+ci: .installed
+	@echo "Running CI checks..."
+	@echo "=== Checking formatting ==="
+	@$(BLACK) --check . || { echo "Run 'make format' to fix formatting"; exit 1; }
+	@$(ISORT) --check-only . || { echo "Run 'make format' to fix imports"; exit 1; }
+	@echo ""
+	@echo "=== Running flake8 ==="
+	@$(FLAKE8) . || exit 1
+	@echo ""
+	@echo "=== Running mypy ==="
+	@$(MYPY) . || true
+	@echo ""
+	@echo "=== Running tests ==="
+	@$(MAKE) test
+	@echo ""
 	@echo "All CI checks passed!"
-
-# Development workflow - format, lint, and test
-check-all: format lint test
-	@echo "All checks completed!"
 
 # Watch for changes and run tests (requires pytest-watch)
 watch: .installed
@@ -231,7 +206,3 @@ pre-commit: .installed
 	@$(PIP) show pre-commit >/dev/null 2>&1 || { echo "Installing pre-commit..."; $(PIP) install pre-commit; }
 	$(VENV_BIN)/pre-commit install
 	@echo "Pre-commit hooks installed!"
-
-# Quick check before committing
-pre-push: format lint-flake8 test
-	@echo "Ready to push!"

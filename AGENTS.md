@@ -200,18 +200,21 @@ See **Quick Reference** below for all `make` commands. Key patterns:
 ```bash
 # Development setup
 make install       # Install package (includes all deps)
+make format        # Auto-fix formatting, then report remaining issues
 make test          # Run unit tests
-make format        # Format code
-make lint          # Check code quality
 
-# Testing & Debugging
-make test-integration         # Run integration tests
-sol restart                   # Restart Convey service (after code changes)
-sol screenshot <route>        # Capture Convey view screenshot (use -h for options)
-make coverage                 # Generate coverage report
+# Testing
+make test-apps              # Run app tests
+make test-integration       # Run integration tests
+make test-all               # Run all tests (core + apps + integration)
+make coverage               # Generate coverage report
 
 # Before pushing
-make check-all     # Format, lint, and test
+make ci            # Full CI check (format check + lint + test)
+
+# Debugging
+sol restart                   # Restart Convey service (after code changes)
+sol screenshot <route>        # Capture Convey view screenshot (use -h for options)
 
 # Cleanup
 make clean         # Remove artifacts
