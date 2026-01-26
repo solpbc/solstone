@@ -251,7 +251,7 @@ Context strings determine provider and model selection. Providers receive alread
 
 These are discovered at runtime and merged with static defaults. Use `get_context_registry()` to get the complete context map including discovered entries.
 
-See `CONTEXT_DEFAULTS` in `think/models.py` for static context patterns (non-discoverable contexts like `observe.detect.*`, `insight.*`).
+See `CONTEXT_DEFAULTS` in `think/models.py` for static context patterns (non-discoverable contexts like `observe.detect.*`, `agent.*`).
 
 **Resolution** (handled by `think/models.py` `resolve_provider()`):
 1. Exact match in journal.json `providers.contexts`

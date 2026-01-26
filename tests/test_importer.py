@@ -246,15 +246,15 @@ def test_prepare_audio_segments_with_collision(tmp_path, monkeypatch):
 
 
 def test_run_import_summary(tmp_path, monkeypatch):
-    """Test _run_import_summary calls sol insight correctly."""
+    """Test _run_import_summary calls sol generate correctly."""
     mod = importlib.import_module("think.importer")
 
     import_dir = tmp_path / "imports" / "20240101_120000"
     import_dir.mkdir(parents=True)
 
-    # Mock subprocess.run to simulate successful sol insight
+    # Mock subprocess.run to simulate successful sol generate
     def mock_run(cmd, *args, **kwargs):
-        # Create the summary file like sol insight would
+        # Create the summary file like sol generate would
         summary_path = import_dir / "summary.md"
         summary_path.write_text("# Test Summary\n\nContent here.")
         mock_result = MagicMock()

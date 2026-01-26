@@ -81,11 +81,9 @@ def journal_fixture(tmp_path):
     # Create daily insight
     day = journal / "20240101"
     day.mkdir()
-    insights_dir = day / "insights"
-    insights_dir.mkdir()
-    (insights_dir / "flow.md").write_text(
-        "# Flow Summary\n\nWorked on project alpha.\n"
-    )
+    agents_dir = day / "agents"
+    agents_dir.mkdir()
+    (agents_dir / "flow.md").write_text("# Flow Summary\n\nWorked on project alpha.\n")
 
     # Create segment with audio transcript
     segment = day / "100000_300"
@@ -149,15 +147,15 @@ def test_scan_journal(journal_fixture):
     assert index_path.exists()
 
 
-def test_search_journal_insights(journal_fixture):
-    """Test searching returns insight chunks."""
+def test_search_journal_outputs(journal_fixture):
+    """Test searching returns agent output chunks."""
     from think.indexer.journal import scan_journal, search_journal
 
     scan_journal(str(journal_fixture))
 
     total, results = search_journal("project alpha")
     assert total >= 1
-    # Should find the flow insight mentioning "project alpha"
+    # Should find the flow output mentioning "project alpha"
     found = any("alpha" in r["text"].lower() for r in results)
     assert found
 
@@ -304,17 +302,17 @@ def test_is_historical_day():
     # Non-day paths are never historical
     assert _is_historical_day("facets/work/events/20240101.jsonl") is False
     assert _is_historical_day("imports/123/summary.md") is False
-    assert _is_historical_day("apps/home/insights/foo.md") is False
+    assert _is_historical_day("apps/home/agents/foo.md") is False
 
     # Future dates are not historical
-    assert _is_historical_day("29991231/insights/flow.md") is False
+    assert _is_historical_day("29991231/agents/flow.md") is False
 
     # Path without slash is not historical
     assert _is_historical_day("20240101") is False
     assert _is_historical_day("") is False
 
     # Day paths before today are historical (tested with a very old date)
-    assert _is_historical_day("20000101/insights/flow.md") is True
+    assert _is_historical_day("20000101/agents/flow.md") is True
 
 
 def test_scan_journal_full_mode(journal_fixture):
@@ -339,8 +337,8 @@ def test_find_formattable_files(journal_fixture):
     # Should find various file types
     paths = set(files.keys())
 
-    # Daily insights
-    assert "20240101/insights/flow.md" in paths
+    # Daily agent outputs
+    assert "20240101/agents/flow.md" in paths
 
     # Segment content
     assert "20240101/100000_300/screen.md" in paths
@@ -543,10 +541,10 @@ def test_light_scan_removes_deleted_today_segment(tmp_path):
     today = datetime.now().strftime("%Y%m%d")
     day_dir = journal / today
     day_dir.mkdir()
-    insights_dir = day_dir / "insights"
-    insights_dir.mkdir()
-    insight_file = insights_dir / "flow.md"
-    insight_file.write_text("# Today Flow\n\nWorked on unique_today_content.\n")
+    agents_dir = day_dir / "agents"
+    agents_dir.mkdir()
+    output_file = agents_dir / "flow.md"
+    output_file.write_text("# Today Flow\n\nWorked on unique_today_content.\n")
 
     # Initial scan
     scan_journal(str(journal), full=False)
@@ -555,8 +553,8 @@ def test_light_scan_removes_deleted_today_segment(tmp_path):
     total, _ = search_journal("unique_today_content")
     assert total >= 1
 
-    # Delete the insight file
-    insight_file.unlink()
+    # Delete the output file
+    output_file.unlink()
 
     # Light rescan should detect the deletion
     changed = scan_journal(str(journal), full=False)
@@ -577,10 +575,10 @@ def test_light_scan_preserves_historical_content(tmp_path):
     # Create historical day content
     day_dir = journal / "20200101"
     day_dir.mkdir()
-    insights_dir = day_dir / "insights"
-    insights_dir.mkdir()
-    insight_file = insights_dir / "flow.md"
-    insight_file.write_text("# Historical Flow\n\nWorked on historical_content.\n")
+    agents_dir = day_dir / "agents"
+    agents_dir.mkdir()
+    output_file = agents_dir / "flow.md"
+    output_file.write_text("# Historical Flow\n\nWorked on historical_content.\n")
 
     # Full scan to index historical content
     scan_journal(str(journal), full=True)
@@ -590,7 +588,7 @@ def test_light_scan_preserves_historical_content(tmp_path):
     assert total >= 1
 
     # Delete the historical file
-    insight_file.unlink()
+    output_file.unlink()
 
     # Light rescan should NOT remove the historical content (out of scope)
     changed = scan_journal(str(journal), full=False)
@@ -612,10 +610,10 @@ def test_full_scan_removes_historical_content(tmp_path):
     # Create historical day content
     day_dir = journal / "20200101"
     day_dir.mkdir()
-    insights_dir = day_dir / "insights"
-    insights_dir.mkdir()
-    insight_file = insights_dir / "flow.md"
-    insight_file.write_text("# Historical Flow\n\nWorked on historical_full_test.\n")
+    agents_dir = day_dir / "agents"
+    agents_dir.mkdir()
+    output_file = agents_dir / "flow.md"
+    output_file.write_text("# Historical Flow\n\nWorked on historical_full_test.\n")
 
     # Full scan to index historical content
     scan_journal(str(journal), full=True)
@@ -625,7 +623,7 @@ def test_full_scan_removes_historical_content(tmp_path):
     assert total >= 1
 
     # Delete the historical file
-    insight_file.unlink()
+    output_file.unlink()
 
     # Full rescan SHOULD remove the historical content
     changed = scan_journal(str(journal), full=True)

@@ -55,7 +55,7 @@ def test_get_usage_cost_imported():
     assert callable(routes.get_usage_cost)
 
     # Verify it returns expected structure for non-existent day
-    result = routes.get_usage_cost("19000101", context="insight.test")
+    result = routes.get_usage_cost("19000101", context="agent.test")
     assert "cost" in result
     assert "requests" in result
     assert "tokens" in result

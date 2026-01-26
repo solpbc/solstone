@@ -57,7 +57,7 @@ def extract_path_metadata(rel_path: str) -> dict[str, str]:
     by the formatter via meta["indexer"]["topic"].
 
     Args:
-        rel_path: Journal-relative path (e.g., "20240101/insights/flow.md")
+        rel_path: Journal-relative path (e.g., "20240101/agents/flow.md")
 
     Returns:
         Dict with keys: day, facet, topic
@@ -104,7 +104,7 @@ def extract_path_metadata(rel_path: str) -> dict[str, str]:
         elif parts[0] == "apps" and len(parts) >= 4:
             topic = f"{parts[1]}:{basename}"
         else:
-            # Daily insights, segment markdown: use basename
+            # Daily agent outputs, segment markdown: use basename
             topic = basename
 
     return {"day": day, "facet": facet, "topic": topic}
@@ -127,7 +127,7 @@ FORMATTERS: dict[str, tuple[str, str]] = {
     "*/*_audio.jsonl": ("observe.hear", "format_audio"),
     "*/audio.jsonl": ("observe.hear", "format_audio"),
     # Markdown formatter (semantic chunking)
-    "**/*.md": ("think.insights", "format_insight"),
+    "**/*.md": ("think.outputs", "format_markdown"),
 }
 
 
@@ -205,11 +205,11 @@ def find_formattable_files(journal: str) -> dict[str, str]:
     be included in the journal index. Excludes agents/*.jsonl.
 
     Locations scanned:
-    - Daily insights: YYYYMMDD/insights/*.md
+    - Daily agent outputs: YYYYMMDD/agents/*.md
     - Segment content: YYYYMMDD/HHMMSS*/*.md, *.jsonl
     - Facet content: facets/*/events/*.jsonl, entities/, todos/, news/, logs/
     - Import summaries: imports/*/summary.md
-    - App insights: apps/*/insights/*.md
+    - App agent outputs: apps/*/agents/*.md
 
     Args:
         journal: Path to journal root directory
@@ -224,11 +224,11 @@ def find_formattable_files(journal: str) -> dict[str, str]:
     for day, day_abs in day_dirs().items():
         day_path = Path(day_abs)
 
-        # Daily insights: YYYYMMDD/insights/*.md
-        insights_dir = day_path / "insights"
-        if insights_dir.is_dir():
-            for md_file in insights_dir.glob("*.md"):
-                rel = f"{day}/insights/{md_file.name}"
+        # Daily agent outputs: YYYYMMDD/agents/*.md
+        agents_dir = day_path / "agents"
+        if agents_dir.is_dir():
+            for md_file in agents_dir.glob("*.md"):
+                rel = f"{day}/agents/{md_file.name}"
                 files[rel] = str(md_file)
 
         # Segment content: YYYYMMDD/HHMMSS_LEN/*
@@ -310,16 +310,16 @@ def find_formattable_files(journal: str) -> dict[str, str]:
                 rel = f"imports/{import_dir.name}/summary.md"
                 files[rel] = str(summary_file)
 
-    # App insights: apps/*/insights/*.md
+    # App agent outputs: apps/*/agents/*.md
     apps_dir = journal_path / "apps"
     if apps_dir.is_dir():
         for app_dir in apps_dir.iterdir():
             if not app_dir.is_dir():
                 continue
-            app_insights_dir = app_dir / "insights"
-            if app_insights_dir.is_dir():
-                for md_file in app_insights_dir.glob("*.md"):
-                    rel = f"apps/{app_dir.name}/insights/{md_file.name}"
+            app_agents_dir = app_dir / "agents"
+            if app_agents_dir.is_dir():
+                for md_file in app_agents_dir.glob("*.md"):
+                    rel = f"apps/{app_dir.name}/agents/{md_file.name}"
                     files[rel] = str(md_file)
 
     return files
@@ -456,7 +456,7 @@ def main() -> None:
     # For summary format on markdown files, get raw chunks with metadata
     raw_chunks = None
     if args.format == "summary" and args.file.endswith(".md"):
-        from think.insights import chunk_markdown
+        from think.outputs import chunk_markdown
 
         text = load_markdown(args.file)
         raw_chunks = chunk_markdown(text)

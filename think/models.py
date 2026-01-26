@@ -108,7 +108,7 @@ class IncompleteJSONError(ValueError):
 # Examples:
 #   - observe.describe.frame    -> observe module, describe feature, frame operation
 #   - observe.enrich            -> observe module, enrich feature (no sub-operation)
-#   - insight.*                 -> insight module, all features (wildcard)
+#   - agent.*                   -> agent module, all features (wildcard)
 #   - app.chat.title            -> apps module, chat app, title operation
 #
 # DYNAMIC DISCOVERY:
@@ -169,15 +169,15 @@ CONTEXT_DEFAULTS: Dict[str, Dict[str, Any]] = {
         "label": "Summarization",
         "group": "Import",
     },
-    # Insight pipeline - daily analysis and summaries
-    "insight.entities.*": {
+    # Generator pipeline - daily analysis and summaries
+    "agent.entities.*": {
         "tier": TIER_LITE,
         "label": "Entity Extraction",
         "group": "Think",
     },
-    "insight.*": {
+    "agent.*": {
         "tier": TIER_FLASH,
-        "label": "Daily Insights",
+        "label": "Agent Outputs",
         "group": "Think",
     },
     # Utilities - miscellaneous processing tasks
@@ -196,12 +196,6 @@ CONTEXT_DEFAULTS: Dict[str, Dict[str, Any]] = {
         "tier": TIER_LITE,
         "label": "Chat Title Generation",
         "group": "Apps",
-    },
-    # Fallback for agents without explicit tier in their JSON
-    "agent.*": {
-        "tier": TIER_FLASH,
-        "label": "Other Agents",
-        "group": "Agents",
     },
 }
 
@@ -346,7 +340,7 @@ def _resolve_tier(context: str) -> int:
     Parameters
     ----------
     context
-        Context string (e.g., "agent.system.default", "insight.meetings").
+        Context string (e.g., "agent.system.default", "agent.meetings").
 
     Returns
     -------
@@ -473,7 +467,7 @@ def resolve_provider(context: str) -> tuple[str, str]:
     Parameters
     ----------
     context
-        Context string (e.g., "observe.describe.frame", "insight.meetings").
+        Context string (e.g., "observe.describe.frame", "agent.meetings").
 
     Returns
     -------
@@ -961,7 +955,7 @@ def generate(
     contents : str or List
         The content to send to the model.
     context : str
-        Context string for routing and token logging (e.g., "insight.meetings").
+        Context string for routing and token logging (e.g., "agent.meetings").
         This is required and determines which provider/model to use.
     temperature : float
         Temperature for generation (default: 0.3).
@@ -1046,7 +1040,7 @@ async def agenerate(
     contents : str or List
         The content to send to the model.
     context : str
-        Context string for routing and token logging (e.g., "insight.meetings").
+        Context string for routing and token logging (e.g., "agent.meetings").
         This is required and determines which provider/model to use.
     temperature : float
         Temperature for generation (default: 0.3).

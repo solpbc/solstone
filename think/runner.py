@@ -443,10 +443,10 @@ def run_task(
 
     Example:
         success, code = run_task(
-            ["sol", "insight", "20241101", "-f", "flow"],
+            ["sol", "generate", "20241101", "-f", "flow"],
             timeout=300,
         )
-        # Logs to: {JOURNAL}/{YYYYMMDD}/health/{ref}_insight.log
+        # Logs to: {JOURNAL}/{YYYYMMDD}/health/{ref}_generate.log
 
         # With explicit correlation ID:
         success, code = run_task(

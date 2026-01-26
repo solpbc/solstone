@@ -66,7 +66,7 @@ def touch_entity(facet: str, name: str, day: str) -> str:
 def parse_knowledge_graph_entities(day: str) -> list[str]:
     """Parse entity names from a day's knowledge graph.
 
-    Extracts entity names from markdown tables in the knowledge graph insight.
+    Extracts entity names from markdown tables in the knowledge graph output.
     Entity names appear in bold (**Name**) in the first column of tables.
 
     Args:
@@ -81,7 +81,7 @@ def parse_knowledge_graph_entities(day: str) -> list[str]:
         ["Jeremie Miller (Jer)", "Neal Satterfield", "Flightline", ...]
     """
     journal = get_journal()
-    kg_path = Path(journal) / day / "insights" / "knowledge_graph.md"
+    kg_path = Path(journal) / day / "agents" / "knowledge_graph.md"
 
     if not kg_path.exists():
         return []

@@ -440,7 +440,7 @@ def _run_import_summary(
     day: str,
     segments: list[str],
 ) -> bool:
-    """Create a summary for imported segments using sol insight.
+    """Create a summary for imported segments using sol generate.
 
     Args:
         import_dir: Directory where the summary will be saved
@@ -470,13 +470,13 @@ def _run_import_summary(
     ]
 
     try:
-        logger.info(f"Creating summary for {len(segments)} segments via sol insight")
+        logger.info(f"Creating summary for {len(segments)} segments via sol generate")
         subprocess.run(cmd, capture_output=True, text=True, check=True)
         if summary_path.exists():
             logger.info(f"Created import summary: {summary_path}")
             return True
         else:
-            logger.warning("sol insight completed but summary file not created")
+            logger.warning("sol generate completed but summary file not created")
             return False
     except subprocess.CalledProcessError as e:
         logger.error(f"Failed to create summary: {e.stderr}")
