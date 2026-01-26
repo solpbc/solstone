@@ -186,7 +186,7 @@ def test_claude_main(monkeypatch, tmp_path, capsys):
     assert events[0]["event"] == "start"
     assert isinstance(events[0]["ts"], int)
     assert events[0]["prompt"] == "hello"
-    assert events[0]["persona"] == "default"
+    assert events[0]["name"] == "default"
     assert events[0]["model"] == CLAUDE_SONNET_4
     assert events[-1]["event"] == "finish"
     assert isinstance(events[-1]["ts"], int)
@@ -229,7 +229,7 @@ def test_claude_outfile(monkeypatch, tmp_path, capsys):
     assert events[0]["event"] == "start"
     assert isinstance(events[0]["ts"], int)
     assert events[0]["prompt"] == "hello"
-    assert events[0]["persona"] == "default"
+    assert events[0]["name"] == "default"
     assert events[0]["model"] == CLAUDE_SONNET_4
     assert events[-1]["event"] == "finish"
     assert isinstance(events[-1]["ts"], int)

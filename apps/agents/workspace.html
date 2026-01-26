@@ -510,7 +510,7 @@
 (function() {
   // State
   let currentDay = null;
-  let currentPersona = null;
+  let currentName = null;
   let agentData = null;
   let expandedRunId = null;
   let runDetailCache = {};
@@ -634,7 +634,7 @@
   function renderCard(agent) {
     const card = document.createElement('div');
     card.className = 'agent-card';
-    card.onclick = () => showRunList(agent.persona);
+    card.onclick = () => showRunList(agent.name);
 
     // Header with title and badges
     const header = document.createElement('div');
@@ -730,8 +730,8 @@
   }
 
   // Show run list for a specific agent
-  async function showRunList(persona) {
-    currentPersona = persona;
+  async function showRunList(name) {
+    currentName = name;
     expandedRunId = null;
     runDetailCache = {};
 
@@ -742,7 +742,7 @@
     tbody.innerHTML = '<tr><td colspan="8" class="run-loading"><div class="spinner"></div></td></tr>';
 
     try {
-      const response = await fetch(`api/agents/${currentDay}/${encodeURIComponent(persona)}`);
+      const response = await fetch(`api/agents/${currentDay}/${encodeURIComponent(name)}`);
       const data = await response.json();
 
       document.getElementById('list-view-title').textContent = data.title;
@@ -952,7 +952,7 @@
 
   // Show grid view
   window.showGridView = function() {
-    currentPersona = null;
+    currentName = null;
     expandedRunId = null;
     document.getElementById('grid-view').style.display = 'block';
     document.getElementById('list-view').style.display = 'none';
@@ -960,7 +960,7 @@
 
   // Show preview modal
   window.showPreview = async function() {
-    if (!currentPersona) return;
+    if (!currentName) return;
 
     const modal = document.getElementById('preview-modal');
     const content = document.getElementById('preview-modal-content');
@@ -970,7 +970,7 @@
     modal.classList.add('show');
 
     try {
-      const response = await fetch(`api/preview/${encodeURIComponent(currentPersona)}`);
+      const response = await fetch(`api/preview/${encodeURIComponent(currentName)}`);
       const data = await response.json();
 
       if (data.error) {

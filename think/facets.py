@@ -66,7 +66,7 @@ def _format_principal_role(
 
 
 def _get_actor_info(context: Context | None = None) -> tuple[str, str | None]:
-    """Extract actor (persona) and agent_id from meta or HTTP headers.
+    """Extract actor (name) and agent_id from meta or HTTP headers.
 
     Priority: meta (stdio/anthropic/google) > HTTP headers (openai)
 
@@ -86,10 +86,10 @@ def _get_actor_info(context: Context | None = None) -> tuple[str, str | None]:
                 meta_dict = {
                     k: v for k, v in meta.model_dump().items() if v is not None
                 }
-                persona = meta_dict.get("persona")
+                name = meta_dict.get("name")
                 agent_id = meta_dict.get("agent_id")
-                if persona or agent_id:
-                    actor = persona if persona else "mcp"
+                if name or agent_id:
+                    actor = name if name else "mcp"
                     return actor, agent_id
         except Exception:
             pass
@@ -100,10 +100,10 @@ def _get_actor_info(context: Context | None = None) -> tuple[str, str | None]:
         # Normalize headers to lowercase for case-insensitive lookup
         headers_lower = {k.lower(): v for k, v in headers.items()}
 
-        persona = headers_lower.get("x-agent-persona")
+        name = headers_lower.get("x-agent-name")
         agent_id = headers_lower.get("x-agent-id")
 
-        actor = persona if persona else "mcp"
+        actor = name if name else "mcp"
         return actor, agent_id
     except Exception:
         # Not in HTTP context (stdio, tests)
@@ -132,7 +132,7 @@ def _write_action_log(
         action: Action type (e.g., "todo_add", "entity_attach")
         params: Dictionary of action-specific parameters
         source: Origin type - "tool" for MCP agents, "app" for web UI
-        actor: For tools: persona name. For apps: app name
+        actor: For tools: agent name. For apps: app name
         day: Day in YYYYMMDD format (defaults to today)
         agent_id: Optional agent ID (only for tool actions)
     """
@@ -182,7 +182,7 @@ def log_tool_action(
     """Log an agent-initiated action from an MCP tool.
 
     Creates a JSONL log entry for tracking successful modifications made via
-    MCP tools. Automatically extracts actor identity (persona) from FastMCP
+    MCP tools. Automatically extracts actor identity (agent name) from FastMCP
     context.
 
     When facet is provided, writes to facets/{facet}/logs/{day}.jsonl.
@@ -193,7 +193,7 @@ def log_tool_action(
         facet: Facet name where the action occurred, or None for journal-level
         action: Action type (e.g., "todo_add", "entity_attach")
         params: Dictionary of action-specific parameters
-        context: Optional FastMCP context for extracting persona/agent_id
+        context: Optional FastMCP context for extracting agent name/agent_id
         day: Day in YYYYMMDD format (defaults to today)
     """
     actor, agent_id = _get_actor_info(context)

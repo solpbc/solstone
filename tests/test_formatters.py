@@ -489,7 +489,7 @@ class TestFormatAgent:
                 "ts": 1700000000000,
                 "agent_id": "test123",
                 "prompt": "Hello world",
-                "persona": "default",
+                "name": "default",
                 "provider": "openai",
             },
             {
@@ -497,7 +497,7 @@ class TestFormatAgent:
                 "ts": 1700000000100,
                 "agent_id": "test123",
                 "model": "gpt-4",
-                "persona": "default",
+                "name": "default",
             },
             {"event": "finish", "result": "Hello!", "ts": 1700000000200},
         ]

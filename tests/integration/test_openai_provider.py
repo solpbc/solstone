@@ -54,7 +54,7 @@ def test_openai_provider_basic():
         {
             "prompt": "what is 1+1? Just give me the number.",
             "provider": "openai",
-            "persona": "default",
+            "name": "default",
             "model": GPT_5_MINI,  # Use cheap model for testing
             "max_output_tokens": 100,
             "disable_mcp": True,
@@ -95,7 +95,7 @@ def test_openai_provider_basic():
     assert start_event["event"] == "start"
     assert start_event["prompt"] == "what is 1+1? Just give me the number."
     assert start_event["model"] == GPT_5_MINI
-    assert start_event["persona"] == "default"
+    assert start_event["name"] == "default"
     assert isinstance(start_event["ts"], int)
 
     # Check finish event
@@ -151,7 +151,7 @@ def test_openai_provider_with_reasoning():
         {
             "prompt": "If I have 3 apples and buy 5 more, then give away 2, how many do I have? Think through this step by step.",
             "provider": "openai",
-            "persona": "default",
+            "name": "default",
             "model": GPT_5_MINI,
             "max_output_tokens": 500,
             "disable_mcp": True,
@@ -237,7 +237,7 @@ def test_openai_provider_with_extra_context():
         {
             "prompt": "What project was mentioned in the context above? Just the name.",
             "provider": "openai",
-            "persona": "default",
+            "name": "default",
             "model": GPT_5_MINI,
             "max_output_tokens": 50,
             "disable_mcp": True,

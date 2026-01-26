@@ -475,13 +475,13 @@ class ToolLoggingHooks:
         self,
         writer: JSONEventCallback,
         agent_id: str | None = None,
-        persona: str | None = None,
+        name: str | None = None,
     ) -> None:
         self.writer = writer
         self._counter = 0
         self.session = None
         self.agent_id = agent_id
-        self.persona = persona
+        self.name = name
 
     def attach(self, session: Any) -> None:
         self.session = session
@@ -503,8 +503,8 @@ class ToolLoggingHooks:
             meta = {}
             if self.agent_id:
                 meta["agent_id"] = self.agent_id
-            if self.persona:
-                meta["persona"] = self.persona
+            if self.name:
+                meta["name"] = self.name
 
             result = await original(
                 name=name,
@@ -576,7 +576,7 @@ async def run_agent(
     max_output_tokens = config.get("max_output_tokens", _DEFAULT_MAX_TOKENS)
     thinking_budget = config.get("thinking_budget")  # None = dynamic (-1)
     disable_mcp = config.get("disable_mcp", False)
-    persona = config.get("persona", "default")
+    name = config.get("name", "default")
 
     callback = JSONEventCallback(on_event)
 
@@ -590,7 +590,7 @@ async def run_agent(
             {
                 "event": "start",
                 "prompt": prompt,
-                "persona": persona,
+                "name": name,
                 "model": model,
                 "provider": "google",
             }
@@ -654,7 +654,7 @@ async def run_agent(
                 # Attach tool logging hooks to the MCP session
                 agent_id = config.get("agent_id")
                 tool_hooks = ToolLoggingHooks(
-                    callback, agent_id=agent_id, persona=persona
+                    callback, agent_id=agent_id, name=name
                 )
                 tool_hooks.attach(mcp.session)
 

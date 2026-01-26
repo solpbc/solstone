@@ -54,7 +54,7 @@ def test_google_provider_basic():
         {
             "prompt": "what is 1+1? Just give me the number.",
             "provider": "google",
-            "persona": "default",
+            "name": "default",
             "model": GEMINI_FLASH,
             "max_output_tokens": 100,
             "disable_mcp": True,
@@ -95,7 +95,7 @@ def test_google_provider_basic():
     assert start_event["event"] == "start"
     assert start_event["prompt"] == "what is 1+1? Just give me the number."
     assert start_event["model"] == GEMINI_FLASH
-    assert start_event["persona"] == "default"
+    assert start_event["name"] == "default"
     assert isinstance(start_event["ts"], int)
 
     # Check finish event
@@ -146,7 +146,7 @@ def test_google_provider_with_thinking():
         {
             "prompt": "What is the square root of 16? Just the number please.",
             "provider": "google",
-            "persona": "default",
+            "name": "default",
             "model": GEMINI_PRO,  # Pro model for thinking
             "max_output_tokens": 2000,
             "disable_mcp": True,

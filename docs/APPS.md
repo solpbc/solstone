@@ -43,7 +43,7 @@ apps/my_app/
 ├── app_bar.html       # Optional: Bottom bar controls (forms, buttons)
 ├── background.html    # Optional: Background JavaScript service
 ├── insights/          # Optional: Custom insight prompts (auto-discovered)
-├── agents/            # Optional: Custom agent personas (auto-discovered)
+├── agents/            # Optional: Custom agents (auto-discovered)
 ├── maint/             # Optional: One-time maintenance tasks (auto-discovered)
 └── tests/             # Optional: App-specific tests (run via make test-apps)
 ```
@@ -60,7 +60,7 @@ apps/my_app/
 | `app_bar.html` | No | Bottom fixed bar for app controls |
 | `background.html` | No | Background service (WebSocket listeners) |
 | `insights/` | No | Custom insight prompts as `.md` files with JSON frontmatter |
-| `agents/` | No | Custom agent personas as `.md` files with JSON frontmatter |
+| `agents/` | No | Custom agents as `.md` files with JSON frontmatter |
 | `maint/` | No | One-time maintenance tasks (run on Convey startup) |
 | `tests/` | No | App-specific tests with self-contained fixtures |
 
@@ -322,7 +322,7 @@ def process(result: str, context: dict) -> str | None:
 
 ### 8. `muse/` - App Agents and Insights
 
-Define custom agent personas and insight templates that integrate with solstone's Cortex agent system.
+Define custom agents and insight templates that integrate with solstone's Cortex agent system.
 
 **Key Points:**
 - Create `muse/` directory with `.md` files containing JSON frontmatter
@@ -445,7 +445,7 @@ Available in `convey/utils.py`:
 - `format_date(date_str)` - Format YYYYMMDD as "Wednesday January 14th"
 
 ### Agent Spawning
-- `spawn_agent(prompt, persona, provider, config)` - Spawn Cortex agent, returns agent_id
+- `spawn_agent(prompt, name, provider, config)` - Spawn Cortex agent, returns agent_id
 
 ### JSON Utilities
 - `load_json(path)` - Load JSON file with error handling (returns None on error)

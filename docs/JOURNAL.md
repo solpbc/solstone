@@ -649,7 +649,7 @@ Each line in a token log file is a JSON object with the following structure:
 Required fields:
 - `timestamp` – Unix timestamp in milliseconds (13 digits)
 - `model` – Model identifier (e.g., "gemini-2.5-flash", "gpt-5", "claude-sonnet-4-5")
-- `context` – Calling context (e.g., "agent.persona.agent_id" or "module.function:line")
+- `context` – Calling context (e.g., "agent.name.agent_id" or "module.function:line")
 - `usage` – Token counts dictionary with normalized field names
 
 Optional fields:
@@ -680,7 +680,7 @@ The `agent_id` is a Unix timestamp in milliseconds that uniquely identifies the 
 Each line is a JSON object with an `event` field indicating the event type:
 
 ```jsonl
-{"event": "start", "ts": 1755450767962, "persona": "helper", "prompt": "Help me with...", "facet": "work"}
+{"event": "start", "ts": 1755450767962, "name": "helper", "prompt": "Help me with...", "facet": "work"}
 {"event": "text", "ts": 1755450768000, "content": "I'll help you with that."}
 {"event": "tool_call", "ts": 1755450769000, "tool": "search", "params": {"query": "example"}}
 {"event": "tool_result", "ts": 1755450770000, "tool": "search", "result": "..."}
@@ -688,7 +688,7 @@ Each line is a JSON object with an `event` field indicating the event type:
 ```
 
 **Common event types:**
-- `start` – agent session started, includes persona, prompt, and facet
+- `start` – agent session started, includes name, prompt, and facet
 - `text` – streaming text output from the agent
 - `tool_call` – agent invoked an MCP tool
 - `tool_result` – result returned from tool execution

@@ -583,7 +583,7 @@ Write the generated checklist to facets/{facet}/todos/{day}.jsonl"""
 
         agent_id = spawn_agent(
             prompt=prompt,
-            persona="todos:todo",
+            name="todos:todo",
             provider="openai",
             config={},
         )
@@ -667,7 +667,7 @@ Focus on surfacing the most important unfinished work from the past 7 days."""
 
         agent_id = spawn_agent(
             prompt=prompt,
-            persona="todos:weekly",
+            name="todos:weekly",
             provider="openai",
             config={},
         )

@@ -55,7 +55,7 @@ def test_anthropic_provider_basic():
             "prompt": "what is 1+1? Just give me the number.",
             "provider": "anthropic",
             "model": CLAUDE_SONNET_4,
-            "persona": "default",
+            "name": "default",
             "max_output_tokens": 100,
             "disable_mcp": True,
         }
@@ -95,7 +95,7 @@ def test_anthropic_provider_basic():
     assert start_event["event"] == "start"
     assert start_event["prompt"] == "what is 1+1? Just give me the number."
     assert start_event["model"] == CLAUDE_SONNET_4
-    assert start_event["persona"] == "default"
+    assert start_event["name"] == "default"
     assert isinstance(start_event["ts"], int)
 
     # Check finish event
@@ -158,7 +158,7 @@ def test_anthropic_provider_with_thinking():
         {
             "prompt": "What is the square root of 16? Just the number please.",
             "provider": "anthropic",
-            "persona": "default",
+            "name": "default",
             "model": CLAUDE_SONNET_4,
             "max_output_tokens": 2048,
             "disable_mcp": True,

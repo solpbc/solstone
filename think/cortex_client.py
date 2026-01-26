@@ -21,7 +21,7 @@ _last_ts = 0
 
 def cortex_request(
     prompt: str,
-    persona: str,
+    name: str,
     provider: Optional[str] = None,
     handoff_from: Optional[str] = None,
     config: Optional[Dict[str, Any]] = None,
@@ -30,7 +30,7 @@ def cortex_request(
 
     Args:
         prompt: The task or question for the agent
-        persona: Agent persona - system (e.g., "default") or app-qualified (e.g., "entities:entity_assist")
+        name: Agent name - system (e.g., "default") or app-qualified (e.g., "entities:entity_assist")
         provider: AI provider - openai, google, or anthropic
         handoff_from: Previous agent ID if this is a handoff request
         config: Provider-specific configuration (model, max_output_tokens, thinking_budget, etc.)
@@ -63,7 +63,7 @@ def cortex_request(
         "agent_id": agent_id,
         "prompt": prompt,
         "provider": provider,
-        "persona": persona,
+        "name": name,
     }
 
     # Add optional fields
@@ -379,7 +379,7 @@ def cortex_agents(
                 # Extract basic info
                 agent_info = {
                     "id": agent_id,
-                    "persona": request.get("persona", "default"),
+                    "name": request.get("name", "default"),
                     "start": request.get("ts", 0),
                     "status": status,
                     "prompt": request.get("prompt", ""),

@@ -113,7 +113,7 @@ def _calc_agent_cost(model: str | None, usage: dict | None) -> float | None:
 def _parse_agent_file(agent_file: Path) -> dict[str, Any] | None:
     """Parse agent JSONL file and extract metadata.
 
-    Returns dict with: id, persona, start, status, prompt, facet, failed,
+    Returns dict with: id, name, start, status, prompt, facet, failed,
     runtime_seconds, thinking_count, tool_count, cost.
     Returns None if file cannot be parsed.
     """
@@ -143,7 +143,7 @@ def _parse_agent_file(agent_file: Path) -> dict[str, Any] | None:
 
         agent_info = {
             "id": agent_id,
-            "persona": request_event.get("persona", "default"),
+            "name": request_event.get("name", "default"),
             "start": request_event.get("ts", 0),
             "status": "running" if is_active else "completed",
             "prompt": request_event.get("prompt", ""),
@@ -217,12 +217,12 @@ def _get_agents_for_day(day: str, facet_filter: str | None = None) -> list[dict]
     return agents
 
 
-def _group_agents_by_persona(
+def _group_agents_by_name(
     agents: list[dict], agents_meta: dict
 ) -> dict[str, dict[str, Any]]:
-    """Group agents by persona and add metadata.
+    """Group agents by name and add metadata.
 
-    Returns dict mapping persona to:
+    Returns dict mapping name to:
         - title: Display title
         - source: "system" or "app"
         - app: App name (for app agents)
@@ -236,12 +236,12 @@ def _group_agents_by_persona(
     groups: dict[str, dict[str, Any]] = {}
 
     for agent in agents:
-        persona = agent["persona"]
-        if persona not in groups:
-            meta = agents_meta.get(persona, {})
-            groups[persona] = {
-                "persona": persona,
-                "title": meta.get("title", persona),
+        name = agent["name"]
+        if name not in groups:
+            meta = agents_meta.get(name, {})
+            groups[name] = {
+                "name": name,
+                "title": meta.get("title", name),
                 "source": meta.get("source", "system"),
                 "app": meta.get("app"),
                 "run_count": 0,
@@ -252,15 +252,15 @@ def _group_agents_by_persona(
                 "facets": set(),
             }
 
-        groups[persona]["run_count"] += 1
+        groups[name]["run_count"] += 1
         if agent.get("failed"):
-            groups[persona]["failed_count"] += 1
-        groups[persona]["thinking_count"] += agent.get("thinking_count", 0)
-        groups[persona]["tool_count"] += agent.get("tool_count", 0)
+            groups[name]["failed_count"] += 1
+        groups[name]["thinking_count"] += agent.get("thinking_count", 0)
+        groups[name]["tool_count"] += agent.get("tool_count", 0)
         if agent.get("cost") is not None:
-            groups[persona]["total_cost"] += agent["cost"]
+            groups[name]["total_cost"] += agent["cost"]
         if agent.get("facet"):
-            groups[persona]["facets"].add(agent["facet"])
+            groups[name]["facets"].add(agent["facet"])
 
     # Convert facet sets to lists for JSON serialization
     for group in groups.values():
@@ -299,7 +299,7 @@ def agents_day(day: str) -> str:
 
 @agents_bp.route("/api/agents/<day>")
 def api_agents_day(day: str) -> Any:
-    """Get agents that ran on a specific day, grouped by persona.
+    """Get agents that ran on a specific day, grouped by name.
 
     Query params:
         facet: Optional facet filter (from cookie if not specified)
@@ -326,14 +326,14 @@ def api_agents_day(day: str) -> Any:
     # Get agents for this day
     agents = _get_agents_for_day(day, facet_filter)
 
-    # Group by persona
-    persona_groups = _group_agents_by_persona(agents, agents_meta)
+    # Group by name
+    name_groups = _group_agents_by_name(agents, agents_meta)
 
     # Organize into system vs app groups
     system_groups = []
     app_groups: dict[str, list] = {}
 
-    for persona, group in persona_groups.items():
+    for name, group in name_groups.items():
         # Add facet colors for display
         group["facet_colors"] = {}
         for facet_name in group["facets"]:
@@ -354,8 +354,8 @@ def api_agents_day(day: str) -> Any:
         app_groups[app_name].sort(key=lambda x: x["title"].lower())
 
     # Calculate totals
-    total_runs = sum(g["run_count"] for g in persona_groups.values())
-    failed_runs = sum(g["failed_count"] for g in persona_groups.values())
+    total_runs = sum(g["run_count"] for g in name_groups.values())
+    failed_runs = sum(g["failed_count"] for g in name_groups.values())
 
     return jsonify(
         {
@@ -369,8 +369,8 @@ def api_agents_day(day: str) -> Any:
     )
 
 
-@agents_bp.route("/api/agents/<day>/<path:persona>")
-def api_agent_runs(day: str, persona: str) -> Any:
+@agents_bp.route("/api/agents/<day>/<path:name>")
+def api_agent_runs(day: str, name: str) -> Any:
     """Get runs for a specific agent on a specific day.
 
     Returns list of runs with full details for display.
@@ -384,9 +384,9 @@ def api_agent_runs(day: str, persona: str) -> Any:
     agents_meta = get_agents()
     facets = get_facets()
 
-    # Get all agents for day and filter to this persona
+    # Get all agents for day and filter to this name
     all_agents = _get_agents_for_day(day, facet_filter)
-    runs = [a for a in all_agents if a["persona"] == persona]
+    runs = [a for a in all_agents if a["name"] == name]
 
     # Add facet color to each run
     for run in runs:
@@ -396,12 +396,12 @@ def api_agent_runs(day: str, persona: str) -> Any:
             run["facet_title"] = facets[run_facet].get("title", run_facet)
 
     # Get agent metadata
-    meta = agents_meta.get(persona, {})
+    meta = agents_meta.get(name, {})
 
     return jsonify(
         {
-            "persona": persona,
-            "title": meta.get("title", persona),
+            "name": name,
+            "title": meta.get("title", name),
             "source": meta.get("source", "system"),
             "app": meta.get("app"),
             "runs": runs,
@@ -463,13 +463,13 @@ def api_agent_run(agent_id: str) -> Any:
         return jsonify({"error": str(e)}), 500
 
 
-@agents_bp.route("/api/preview/<path:persona>")
-def api_preview_prompt(persona: str) -> Any:
+@agents_bp.route("/api/preview/<path:name>")
+def api_preview_prompt(name: str) -> Any:
     """Return the complete rendered prompt for an agent.
 
     Returns:
         {
-            "persona": str,
+            "name": str,
             "title": str,
             "full_prompt": str,
             "multi_facet": bool
@@ -478,7 +478,7 @@ def api_preview_prompt(persona: str) -> Any:
     try:
         from think.utils import get_agent
 
-        config = get_agent(persona)
+        config = get_agent(name)
 
         system_instruction = config.get("system_instruction", "")
         extra_context = config.get("extra_context", "")
@@ -489,14 +489,14 @@ def api_preview_prompt(persona: str) -> Any:
 
         return jsonify(
             {
-                "persona": persona,
-                "title": config.get("title", persona),
+                "name": name,
+                "title": config.get("title", name),
                 "full_prompt": full_prompt,
                 "multi_facet": config.get("multi_facet", False),
             }
         )
     except FileNotFoundError:
-        return jsonify({"error": f"Agent '{persona}' not found"}), 404
+        return jsonify({"error": f"Agent '{name}' not found"}), 404
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 

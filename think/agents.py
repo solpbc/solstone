@@ -55,7 +55,7 @@ class StartEvent(TypedDict):
     event: Literal["start"]
     ts: int
     prompt: str
-    persona: str
+    name: str
     model: str
     provider: str
 

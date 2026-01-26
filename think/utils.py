@@ -779,7 +779,7 @@ def get_output_path(
     day_dir:
         Day directory path (YYYYMMDD).
     key:
-        Insight key or agent persona (e.g., "activity", "chat:sentiment",
+        Insight key or agent name (e.g., "activity", "chat:sentiment",
         "decisionalizer", "entities:observer").
     segment:
         Optional segment key (HHMMSS_LEN) for segment-level output.
@@ -1006,13 +1006,13 @@ def get_insights_by_schedule(
     return result
 
 
-def _resolve_agent_path(persona: str) -> tuple[Path, str]:
-    """Resolve agent persona to directory path and agent name.
+def _resolve_agent_path(name: str) -> tuple[Path, str]:
+    """Resolve agent name to directory path and agent filename.
 
     Parameters
     ----------
-    persona:
-        Agent key - either system agent name (e.g., "default") or
+    name:
+        Agent name - either system agent (e.g., "default") or
         app-namespaced agent (e.g., "chat:helper").
 
     Returns
@@ -1020,14 +1020,14 @@ def _resolve_agent_path(persona: str) -> tuple[Path, str]:
     tuple[Path, str]
         (agent_directory, agent_name) tuple.
     """
-    if ":" in persona:
+    if ":" in name:
         # App agent: "chat:helper" -> apps/chat/muse/helper
-        app, agent_name = persona.split(":", 1)
+        app, agent_name = name.split(":", 1)
         agent_dir = Path(__file__).parent.parent / "apps" / app / "muse"
     else:
         # System agent: "default" -> muse/default
         agent_dir = MUSE_DIR
-        agent_name = persona
+        agent_name = name
     return agent_dir, agent_name
 
 
@@ -1185,16 +1185,16 @@ def compose_instructions(
     return result
 
 
-def get_agent(persona: str = "default", facet: str | None = None) -> dict:
-    """Return complete agent configuration for a persona.
+def get_agent(name: str = "default", facet: str | None = None) -> dict:
+    """Return complete agent configuration by name.
 
     Loads configuration from .md file with JSON frontmatter and instruction text,
     merges with runtime context.
 
     Parameters
     ----------
-    persona:
-        Name of the persona to load. Can be a system agent name (e.g., "default")
+    name:
+        Agent name to load. Can be a system agent (e.g., "default")
         or an app-namespaced agent (e.g., "chat:helper" for apps/chat/muse/helper).
     facet:
         Optional facet name to focus on. When provided, includes detailed
@@ -1208,12 +1208,12 @@ def get_agent(persona: str = "default", facet: str | None = None) -> dict:
         extra_context, model, backend, etc.
     """
     # Resolve agent path based on namespace
-    agent_dir, agent_name = _resolve_agent_path(persona)
+    agent_dir, agent_name = _resolve_agent_path(name)
 
     # Verify agent prompt file exists
     md_path = agent_dir / f"{agent_name}.md"
     if not md_path.exists():
-        raise FileNotFoundError(f"Agent persona not found: {persona}")
+        raise FileNotFoundError(f"Agent not found: {name}")
 
     # Load config from frontmatter
     post = frontmatter.load(
@@ -1239,8 +1239,8 @@ def get_agent(persona: str = "default", facet: str | None = None) -> dict:
     if instructions["extra_context"]:
         config["extra_context"] = instructions["extra_context"]
 
-    # Set persona name
-    config["persona"] = persona
+    # Set agent name
+    config["name"] = name
 
     return config
 

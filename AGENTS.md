@@ -24,7 +24,7 @@ Understanding these core concepts is essential for working with solstone:
 
 * **Entities**: Extracted information (people, projects, concepts) tracked over time across transcripts and interactions. Entities are associated with facets and enable semantic navigation.
 
-* **Agents**: AI processors with configurable personas that analyze content, extract insights, and respond to queries. See [docs/THINK.md](docs/THINK.md) for the agent system and [docs/CORTEX.md](docs/CORTEX.md) for eventing.
+* **Agents**: AI processors with configurable prompts that analyze content, extract insights, and respond to queries. See [docs/THINK.md](docs/THINK.md) for the agent system and [docs/CORTEX.md](docs/CORTEX.md) for eventing.
 
 * **Callosum**: Message bus that enables asynchronous communication between components. See [docs/CALLOSUM.md](docs/CALLOSUM.md).
 
@@ -74,7 +74,7 @@ Each package has a README.md symlink pointing to its documentation in `docs/`.
 
 **Component Communication**:
 * Callosum message bus enables async communication between services
-* Cortex orchestrates AI agent execution via `sol cortex`, spawning agent subprocesses with persona configurations
+* Cortex orchestrates AI agent execution via `sol cortex`, spawning agent subprocesses with agent configurations
 * See [docs/THINK.md](docs/THINK.md) for agent system details and [docs/CORTEX.md](docs/CORTEX.md) for the eventing protocol
 
 **Command Reference**:

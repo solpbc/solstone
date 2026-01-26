@@ -94,7 +94,7 @@ def test_spawn_agent(mock_timer, mock_thread, mock_popen, cortex_service, mock_j
         "ts": 123456789,
         "prompt": "Test prompt",
         "provider": "openai",
-        "persona": "default",
+        "name": "default",
         "model": GPT_5,
     }
 
@@ -119,7 +119,7 @@ def test_spawn_agent(mock_timer, mock_thread, mock_popen, cortex_service, mock_j
     assert ndjson["event"] == "request"
     assert ndjson["prompt"] == "Test prompt"
     assert ndjson["provider"] == "openai"
-    assert ndjson["persona"] == "default"
+    assert ndjson["name"] == "default"
     assert ndjson["model"] == GPT_5
 
     # Check stdin was closed
@@ -157,7 +157,7 @@ def test_spawn_agent_with_handoff_from(mock_popen, cortex_service, mock_journal)
         "ts": 123456789,
         "prompt": "Test",
         "provider": "openai",
-        "persona": "default",
+        "name": "default",
         "handoff_from": "parent123",
     }
 
@@ -255,7 +255,7 @@ def test_monitor_stdout_with_handoff(cortex_service, mock_journal):
     agent = AgentProcess(agent_id, mock_process, log_path)
     cortex_service.running_agents[agent_id] = agent
     cortex_service.agent_handoffs[agent_id] = {
-        "persona": "matter_editor",
+        "name": "matter_editor",
         "facet": "test",
     }
 
@@ -266,7 +266,7 @@ def test_monitor_stdout_with_handoff(cortex_service, mock_journal):
             mock_handoff.assert_called_once_with(
                 agent_id,
                 "Create matter",
-                {"persona": "matter_editor", "facet": "test"},
+                {"name": "matter_editor", "facet": "test"},
             )
 
     assert agent_id not in cortex_service.agent_handoffs
@@ -396,7 +396,7 @@ def test_spawn_handoff(cortex_service, mock_journal):
     parent_id = "parent123"
     result = "Create a new matter for AI research"
     handoff = {
-        "persona": "matter_editor",
+        "name": "matter_editor",
         "provider": "anthropic",
         "facet": "test",
         "max_turns": 5,
@@ -411,7 +411,7 @@ def test_spawn_handoff(cortex_service, mock_journal):
         # Check cortex_request was called with correct parameters
         mock_request.assert_called_once_with(
             prompt=result,
-            persona="matter_editor",
+            name="matter_editor",
             provider="anthropic",
             handoff_from=parent_id,
             config={"facet": "test", "max_turns": 5},
@@ -423,7 +423,7 @@ def test_spawn_handoff_with_explicit_prompt(cortex_service, mock_journal):
     parent_id = "parent123"
     result = "Parent result"
     handoff = {
-        "persona": "reviewer",
+        "name": "reviewer",
         "prompt": "Review this analysis",  # Explicit prompt
     }
 
@@ -431,10 +431,10 @@ def test_spawn_handoff_with_explicit_prompt(cortex_service, mock_journal):
         cortex_service._spawn_handoff(parent_id, result, handoff)
 
         # Check cortex_request was called with explicit prompt
-        # Provider is None when not explicitly set - let the persona resolve its own
+        # Provider is None when not explicitly set - let the agent resolve its own
         mock_request.assert_called_once_with(
             prompt="Review this analysis",  # Uses explicit prompt
-            persona="reviewer",
+            name="reviewer",
             provider=None,
             handoff_from=parent_id,
             config=None,
@@ -476,11 +476,11 @@ def test_write_output(cortex_service, mock_journal):
         # Test writing output
         agent_id = "test_agent"
         result = "This is the agent result content"
-        config = {"output": "md", "persona": "my_agent"}
+        config = {"output": "md", "name": "my_agent"}
 
         cortex_service._write_output(agent_id, result, config)
 
-        # Check file was created in insights/ with persona-derived filename
+        # Check file was created in insights/ with name-derived filename
         expected_path = mock_journal / test_date / "insights" / "my_agent.md"
         assert expected_path.exists()
         assert expected_path.read_text() == result
@@ -496,7 +496,7 @@ def test_write_output_with_error(cortex_service, mock_journal, caplog):
     # Make journal read-only to cause error
     with patch("builtins.open", side_effect=PermissionError("Cannot write")):
         with caplog.at_level(logging.ERROR):
-            config = {"output": "md", "persona": "test"}
+            config = {"output": "md", "name": "test"}
             cortex_service._write_output("agent_id", "result", config)
 
     # Check error was logged but didn't raise
@@ -509,7 +509,7 @@ def test_write_output_with_day_parameter(cortex_service, mock_journal):
     agent_id = "test_agent"
     result = "This is the agent result content"
     specified_day = "20240201"
-    config = {"output": "md", "persona": "reporter", "day": specified_day}
+    config = {"output": "md", "name": "reporter", "day": specified_day}
 
     cortex_service._write_output(agent_id, result, config)
 
@@ -534,7 +534,7 @@ def test_write_output_with_segment(cortex_service, mock_journal):
 
         agent_id = "segment_agent"
         result = "Segment analysis content"
-        config = {"output": "md", "persona": "analyzer", "segment": "143000_600"}
+        config = {"output": "md", "name": "analyzer", "segment": "143000_600"}
 
         cortex_service._write_output(agent_id, result, config)
 
@@ -555,7 +555,7 @@ def test_write_output_json_format(cortex_service, mock_journal):
 
         agent_id = "json_agent"
         result = '{"key": "value"}'
-        config = {"output": "json", "persona": "data_agent"}
+        config = {"output": "json", "name": "data_agent"}
 
         cortex_service._write_output(agent_id, result, config)
 
@@ -573,13 +573,13 @@ def test_monitor_stdout_with_output(cortex_service, mock_journal):
     agent_id = "output_test"
     active_path = mock_journal / "agents" / f"{agent_id}_active.jsonl"
 
-    # Store request with output field (format only, path derived from persona)
+    # Store request with output field (format only, path derived from name)
     cortex_service.agent_requests = {
         agent_id: {
             "event": "request",
             "prompt": "test",
             "output": "md",
-            "persona": "test_agent",
+            "name": "test_agent",
         }
     }
 
@@ -606,7 +606,7 @@ def test_monitor_stdout_with_output(cortex_service, mock_journal):
             with patch.object(cortex_service, "_has_finish_event", return_value=True):
                 cortex_service._monitor_stdout(agent)
 
-    # Check result was written to insights/ with persona-derived filename
+    # Check result was written to insights/ with name-derived filename
     output_path = mock_journal / test_date / "insights" / "test_agent.md"
     assert output_path.exists()
     assert output_path.read_text() == "Test result"
@@ -627,7 +627,7 @@ def test_monitor_stdout_with_output_and_day(cortex_service, mock_journal):
             "event": "request",
             "prompt": "test",
             "output": "md",
-            "persona": "daily_reporter",
+            "name": "daily_reporter",
             "day": specified_day,
         }
     }

@@ -24,7 +24,7 @@ def test_entities_agent_config(fixture_journal):
     config = get_agent("entities:entities")
 
     # Verify required fields
-    assert config["persona"] == "entities:entities"
+    assert config["name"] == "entities:entities"
     assert "system_instruction" in config
     assert "user_instruction" in config
     assert len(config["system_instruction"]) > 0
@@ -44,7 +44,7 @@ def test_entities_review_agent_config(fixture_journal):
     config = get_agent("entities:entities_review")
 
     # Verify required fields
-    assert config["persona"] == "entities:entities_review"
+    assert config["name"] == "entities:entities_review"
     assert "system_instruction" in config
     assert "user_instruction" in config
     assert len(config["system_instruction"]) > 0
@@ -61,27 +61,27 @@ def test_entities_review_agent_config(fixture_journal):
 def test_entities_agent_instruction_content(fixture_journal):
     """Test detection agent instruction contains expected sections."""
     config = get_agent("entities:entities")
-    persona = config["user_instruction"]
+    prompt = config["user_instruction"]
 
-    # Check for key sections in the persona prompt
-    assert "Core Mission" in persona
-    assert "entity_detect" in persona
-    assert "entity_list" in persona
-    assert "Knowledge Graphs" in persona or "knowledge_graph" in persona
-    assert "day-specific context" in persona.lower()
+    # Check for key sections in the agent prompt
+    assert "Core Mission" in prompt
+    assert "entity_detect" in prompt
+    assert "entity_list" in prompt
+    assert "Knowledge Graphs" in prompt or "knowledge_graph" in prompt
+    assert "day-specific context" in prompt.lower()
 
 
 def test_entities_review_agent_instruction_content(fixture_journal):
     """Test review agent instruction contains expected sections."""
     config = get_agent("entities:entities_review")
-    persona = config["user_instruction"]
+    prompt = config["user_instruction"]
 
-    # Check for key sections in the persona prompt
-    assert "Core Mission" in persona
-    assert "entity_attach" in persona
-    assert "entity_list" in persona
-    assert "3+" in persona or "promotion" in persona.lower()
-    assert "description" in persona.lower()
+    # Check for key sections in the agent prompt
+    assert "Core Mission" in prompt
+    assert "entity_attach" in prompt
+    assert "entity_list" in prompt
+    assert "3+" in prompt or "promotion" in prompt.lower()
+    assert "description" in prompt.lower()
 
 
 def test_agent_context_includes_entities_by_facet(fixture_journal):

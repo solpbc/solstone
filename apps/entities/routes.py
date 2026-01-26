@@ -523,7 +523,7 @@ def generate_description(facet_name: str) -> Any:
 
         agent_id = spawn_agent(
             prompt=prompt,
-            persona="entities:entity_describe",
+            name="entities:entity_describe",
             provider="google",
         )
 
@@ -553,10 +553,10 @@ def assist_add(facet_name: str) -> Any:
         # Format prompt as specified by entity_assist agent
         prompt = f"For the '{facet_name}' facet, this is the user's request to attach a new entity: {name}"
 
-        # Create agent request - entity_assist persona already has provider configured
+        # Create agent request - entity_assist agent already has provider configured
         agent_id = spawn_agent(
             prompt=prompt,
-            persona="entities:entity_assist",
+            name="entities:entity_assist",
         )
 
         return jsonify({"success": True, "agent_id": agent_id})

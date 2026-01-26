@@ -76,7 +76,7 @@ def test_cortex_request_creation(integration_journal_path, callosum_server):
 
     # Create a request
     agent_id = cortex_request(
-        prompt="Test prompt", persona="default", provider="openai"
+        prompt="Test prompt", name="default", provider="openai"
     )
 
     time.sleep(0.2)
@@ -85,7 +85,7 @@ def test_cortex_request_creation(integration_journal_path, callosum_server):
     assert len(received_messages) >= 1
     request = [m for m in received_messages if m.get("event") == "request"][0]
     assert request["prompt"] == "Test prompt"
-    assert request["persona"] == "default"
+    assert request["name"] == "default"
     assert request["provider"] == "openai"
     assert request["agent_id"] == agent_id
 
@@ -127,7 +127,7 @@ def test_cortex_end_to_end_with_echo_agent(integration_journal_path, callosum_se
 
     # Make a request (this will fail because no real agent, but we can verify the flow)
     agent_id = cortex_request(
-        prompt="Test end-to-end", persona="default", provider="openai"
+        prompt="Test end-to-end", name="default", provider="openai"
     )
 
     # Wait for at least request event
@@ -165,7 +165,7 @@ def test_cortex_agents_listing(integration_journal_path):
                 "event": "request",
                 "ts": ts,
                 "prompt": "Test",
-                "persona": "default",
+                "name": "default",
                 "provider": "openai",
             },
             f,
@@ -206,7 +206,7 @@ def test_cortex_error_handling(integration_journal_path, callosum_server):
     # Make a request
     agent_id = cortex_request(
         prompt="Test error handling",
-        persona="nonexistent_persona",  # This may cause issues
+        name="nonexistent_agent",  # This may cause issues
         provider="openai",
     )
 

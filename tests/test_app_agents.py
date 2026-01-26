@@ -97,7 +97,7 @@ def test_get_agent_system_agent(fixture_journal):
     """Test get_agent loads system agents correctly."""
     config = get_agent("default")
 
-    assert config["persona"] == "default"
+    assert config["name"] == "default"
     assert "system_instruction" in config
     assert "user_instruction" in config
     assert len(config["system_instruction"]) > 0
@@ -140,7 +140,7 @@ def test_get_agents_system_agents_have_metadata(fixture_journal):
     assert default is not None
     assert default["source"] == "system"
     assert "title" in default
-    assert "persona" in default
+    assert "name" in default
 
 
 def test_get_agents_excludes_private_apps(fixture_journal, tmp_path, monkeypatch):

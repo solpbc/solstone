@@ -95,7 +95,7 @@ from think.callosum import CallosumConnection
 # Create a request
 agent_id = cortex_request(
     prompt="Your task here",
-    persona="default",
+    name="default",
     provider="openai"  # or "google", "anthropic", "claude"
 )
 
@@ -165,7 +165,7 @@ from think.cortex_client import cortex_request, cortex_agents
 # Create an agent request
 request_file = cortex_request(
     prompt="Your prompt",
-    persona="default",
+    name="default",
     provider="openai"
 )
 

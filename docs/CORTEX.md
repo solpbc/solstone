@@ -16,7 +16,7 @@ For details on the Callosum protocol and message format, see [CALLOSUM.md](CALLO
 
 ### Key Components
 - **Message Bus Integration**: Cortex connects to Callosum to receive requests and broadcast events
-- **Configuration Loading**: Cortex loads and merges persona configuration with request parameters
+- **Configuration Loading**: Cortex loads and merges agent configuration with request parameters
 - **Process Management**: Spawns agent subprocesses via the `sol agents` command with merged configuration
 - **Event Capture**: Monitors agent stdout/stderr and appends to JSONL files
 - **Dual Event Distribution**: Events go to both persistent files and real-time message bus
@@ -37,7 +37,7 @@ Requests are created via `cortex_request()` from `think.cortex_client`, which br
   "event": "request",
   "ts": 1234567890123,              // Required: millisecond timestamp (must match filename)
   "prompt": "Analyze this code for security issues",  // Required: the task or question
-  "persona": "default",              // Optional: agent persona from muse/*.md
+  "name": "default",              // Optional: agent name from muse/*.md
   "provider": "openai",              // Optional: override provider (openai, google, anthropic)
   "max_output_tokens": 8192,        // Optional: maximum response tokens
   "thinking_budget": 10000,         // Optional: thinking token budget (ignored by OpenAI)
@@ -51,7 +51,7 @@ Requests are created via `cortex_request()` from `think.cortex_client`, which br
     "DEBUG": "true"
   },
   "handoff": {                       // Optional: chain to another agent on completion
-    "persona": "reviewer",
+    "name": "reviewer",
     "prompt": "Review the analysis",
     "provider": "openai"
   },
@@ -59,7 +59,7 @@ Requests are created via `cortex_request()` from `think.cortex_client`, which br
 }
 ```
 
-The model is automatically resolved based on the agent context (`agent.{app}.{persona}`)
+The model is automatically resolved based on the agent context (`agent.{app}.{name}`)
 and the configured tier in `journal.json`. Provider can optionally be overridden at
 request time, which will resolve the appropriate model for that provider at the same tier.
 
@@ -85,7 +85,7 @@ The initial spawn request (first line of file, written by client).
   "agent_id": "1234567890123",
   "prompt": "User's task or question",
   "provider": "openai",
-  "persona": "default",
+  "name": "default",
   "output": "md",
   "day": "20250109",
   "handoff": {},
@@ -100,7 +100,7 @@ Emitted when an agent run begins.
   "event": "start",
   "ts": 1234567890123,
   "agent_id": "1234567890123",
-  "persona": "default",
+  "name": "default",
   "model": "gpt-4o"
 }
 ```
@@ -165,7 +165,7 @@ Emitted when the agent run completes successfully.
   "result": "Final response text to the user",
   "handoff": {                     // Optional: triggers next agent
     "prompt": "Continue with next task",
-    "persona": "specialist",
+    "name": "specialist",
     "provider": "openai"
   }
 }
@@ -209,9 +209,9 @@ The frontend uses this to show real-time status updates as tools execute, changi
 When an agent completes successfully, its result can be automatically written to a file. This uses the same output path logic as insights.
 
 - Include an `output` field in the agent's frontmatter with the format ("md" or "json")
-- Output path is derived from persona name + format + schedule:
-  - Daily agents: `YYYYMMDD/insights/{persona}.{ext}`
-  - Segment agents: `YYYYMMDD/{segment}/{persona}.{ext}`
+- Output path is derived from agent name + format + schedule:
+  - Daily agents: `YYYYMMDD/insights/{name}.{ext}`
+  - Segment agents: `YYYYMMDD/{segment}/{name}.{ext}`
 - Writing occurs before any handoff processing
 - Write failures are logged but don't interrupt the agent flow
 - Commonly used for scheduled agents that generate daily reports
@@ -225,26 +225,26 @@ Agents can transfer control to other agents for specialized tasks. When an agent
 - Handoff agents automatically inherit the parent agent's configuration (provider, model, etc.) unless explicitly overridden
 - This enables multi-step workflows and agent specialization with consistent configuration
 
-## Agent Personas
+## Agent Configuration
 
-Agents use persona configurations stored in the `muse/` directory. Each persona is a `.md` file containing:
+Agents use configurations stored in the `muse/` directory. Each agent is a `.md` file containing:
 - JSON frontmatter with metadata and configuration
 - The agent-specific prompt and instructions in the content
 
 When spawning an agent:
-1. Cortex loads the persona configuration using `get_agent()` from `think/utils.py`
+1. Cortex loads the agent configuration using `get_agent()` from `think/utils.py`
 2. The configuration is built with three instruction components:
    - `system_instruction`: `journal.md` (shared base prompt, cacheable)
    - `extra_context`: Runtime context (facets, insights list, datetime)
    - `user_instruction`: The agent's `.md` file content
-3. Request parameters override persona defaults in the merged configuration
+3. Request parameters override agent defaults in the merged configuration
 4. The full configuration is passed to the agent process
 
-Personas define specialized behaviors, tool usage patterns, and facet expertise. Available personas can be discovered using the `get_agents()` function or by listing files in the `muse/` directory (agents are `.md` files with a `tools` field).
+Agents define specialized behaviors, tool usage patterns, and facet expertise. Available agents can be discovered using the `get_agents()` function or by listing files in the `muse/` directory (agents are `.md` files with a `tools` field).
 
-### Persona Configuration Options
+### Agent Configuration Options
 
-The JSON frontmatter for a persona can include:
+The JSON frontmatter for an agent can include:
 - `max_tokens`: Maximum response token limit
 - `tools`: MCP tools configuration (string or array)
   - String: Comma-separated pack names (e.g., `"journal"`, `"journal, todo"`) - expanded via `get_tools()`
@@ -264,14 +264,14 @@ The JSON frontmatter for a persona can include:
   - When true, agent runs for all non-muted facets regardless of activity
 - `env`: Environment variables to set for the agent subprocess (object)
   - Keys are variable names, values are coerced to strings
-  - Request-level `env` overrides persona defaults
+  - Request-level `env` overrides agent defaults
   - Inherited by handoff agents unless explicitly overridden
   - Note: `JOURNAL_PATH` cannot be overridden (always set by Cortex)
 
 ### Model Resolution
 
 Models are resolved automatically based on context and tier:
-1. Each agent has a context pattern: `agent.{app}.{persona}` (e.g., `agent.system.default`)
+1. Each agent has a context pattern: `agent.{app}.{name}` (e.g., `agent.system.default`)
 2. The context determines the tier (pro/flash/lite) from `journal.json` or system defaults
 3. The tier + provider determines the actual model to use
 

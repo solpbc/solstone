@@ -127,7 +127,7 @@ async def run_agent(
 - `mcp_server_url`: URL for MCP tool server
 - `disable_mcp`: Skip MCP tool integration
 - `tools`: Optional list of allowed tool names
-- `agent_id`, `persona`: Identity for logging and tool calls
+- `agent_id`, `name`: Identity for logging and tool calls
 - `continue_from`: Agent ID for conversation continuation
 
 **Event emission:**

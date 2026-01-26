@@ -291,10 +291,10 @@ def run_daily_agents(day: str) -> tuple[int, int]:
 
     # Group agents by priority
     priority_groups: dict[int, list[tuple[str, dict]]] = {}
-    for persona_id, config in agents.items():
+    for agent_name, config in agents.items():
         if config.get("schedule") == "daily":
             priority = config.get("priority", 50)
-            priority_groups.setdefault(priority, []).append((persona_id, config))
+            priority_groups.setdefault(priority, []).append((agent_name, config))
 
     if not priority_groups:
         logging.info("No scheduled daily agents found")
@@ -350,7 +350,7 @@ def run_daily_agents(day: str) -> tuple[int, int]:
 
         spawned_ids = []
 
-        for persona_id, config in agents_list:
+        for agent_name, config in agents_list:
             try:
                 # Check if this is a multi-facet agent
                 if config.get("multi_facet"):
@@ -360,31 +360,31 @@ def run_daily_agents(day: str) -> tuple[int, int]:
                         # Skip inactive facets unless agent has always=true
                         if not always_run and facet_name not in active_facets:
                             logging.info(
-                                f"Skipping {persona_id} for {facet_name}: "
+                                f"Skipping {agent_name} for {facet_name}: "
                                 f"no activity on {day_formatted}"
                             )
                             continue
 
-                        logging.info(f"Spawning {persona_id} for facet: {facet_name}")
+                        logging.info(f"Spawning {agent_name} for facet: {facet_name}")
                         agent_id = cortex_request(
                             prompt=f"Processing facet '{facet_name}' for {day_formatted}: {input_summary}. Use get_facet('{facet_name}') to load context.",
-                            persona=persona_id,
+                            name=agent_name,
                             config={"facet": facet_name},
                         )
                         spawned_ids.append(agent_id)
                         logging.info(
-                            f"Started {persona_id} for {facet_name} (ID: {agent_id})"
+                            f"Started {agent_name} for {facet_name} (ID: {agent_id})"
                         )
                 else:
                     # Regular single-instance agent
                     agent_id = cortex_request(
                         prompt=f"Running daily scheduled task for {day_formatted}: {input_summary}.",
-                        persona=persona_id,
+                        name=agent_name,
                     )
                     spawned_ids.append(agent_id)
-                    logging.info(f"Started {persona_id} agent (ID: {agent_id})")
+                    logging.info(f"Started {agent_name} agent (ID: {agent_id})")
             except Exception as e:
-                logging.error(f"Failed to spawn {persona_id}: {e}")
+                logging.error(f"Failed to spawn {agent_name}: {e}")
                 total_failed += 1
 
         # Wait for this priority group to complete
@@ -448,18 +448,18 @@ def run_segment_agents(day: str, segment: str) -> int:
     agents = get_agents()
     spawned = 0
 
-    for persona_id, config in agents.items():
+    for agent_name, config in agents.items():
         if config.get("schedule") == "segment":
             try:
                 cortex_request(
                     prompt=f"Processing segment {segment} from {day}. Use available tools to analyze this specific recording window.",
-                    persona=persona_id,
+                    name=agent_name,
                     config={"segment": segment, "env": {"SEGMENT_KEY": segment}},
                 )
                 spawned += 1
-                logging.info(f"Spawned segment agent: {persona_id}")
+                logging.info(f"Spawned segment agent: {agent_name}")
             except Exception as e:
-                logging.error(f"Failed to spawn {persona_id}: {e}")
+                logging.error(f"Failed to spawn {agent_name}: {e}")
 
     return spawned
 

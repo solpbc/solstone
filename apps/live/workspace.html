@@ -950,7 +950,7 @@
       return `
         <div class="activity-card agent-active" data-agent-id="${agent.agent_id}">
           <div class="activity-card-id">...${getAgentId(agent.agent_id)}</div>
-          <div class="activity-card-name">${agent.persona || 'default'}</div>
+          <div class="activity-card-name">${agent.name || 'default'}</div>
           <div class="activity-card-state">${stateIcon} ${agent.event || 'unknown'}</div>
           <div class="activity-card-elapsed">${elapsed}</div>
           <div class="activity-card-provider">${agent.provider || 'unknown'}</div>
@@ -1108,7 +1108,7 @@
           state.agents.set(agent.agent_id, {
             ...existing,
             agent_id: agent.agent_id,
-            persona: agent.persona,
+            name: agent.name,
             provider: agent.provider,
             elapsed_seconds: agent.elapsed_seconds,
             event: existing.event || 'thinking'
@@ -1132,7 +1132,7 @@
     state.agents.set(agentId, {
       ...existing,
       agent_id: agentId,
-      persona: msg.persona || existing.persona,
+      name: msg.name || existing.name,
       provider: msg.provider || existing.provider,
       event: msg.event,
       ts: msg.ts,

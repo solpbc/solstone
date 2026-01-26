@@ -316,16 +316,16 @@ class CortexService:
                     f.write(json.dumps(continue_event) + "\n")
                 self.logger.info(f"Linked continuation: {continue_from} -> {agent_id}")
 
-            # Load persona and merge with request
+            # Load agent config and merge with request
             from think.mcp import get_tools
             from think.utils import get_agent
 
-            persona = request.get("persona", "default")
+            name = request.get("name", "default")
             facet = request.get("facet")
-            config = get_agent(persona, facet=facet)
+            config = get_agent(name, facet=facet)
 
-            # Merge request into config (request values override persona defaults)
-            # Only override with non-None values from request to preserve persona defaults
+            # Merge request into config (request values override agent defaults)
+            # Only override with non-None values from request to preserve agent defaults
             config.update({k: v for k, v in request.items() if v is not None})
             config["agent_id"] = agent_id
 
@@ -333,16 +333,16 @@ class CortexService:
             # Context format: agent.{app}.{name} where app="system" for system agents
             from think.models import resolve_model_for_provider, resolve_provider
 
-            if ":" in persona:
-                app, name = persona.split(":", 1)
+            if ":" in name:
+                app, name = name.split(":", 1)
             else:
-                app, name = "system", persona
+                app, name = "system", name
             agent_context = f"agent.{app}.{name}"
 
             # Resolve default provider and model from context
             default_provider, model = resolve_provider(agent_context)
 
-            # Provider can be overridden by request or persona config
+            # Provider can be overridden by request or agent config
             # Model is always resolved from context tier + final provider
             provider = config.get("provider") or default_provider
 
@@ -552,14 +552,14 @@ class CortexService:
                                     from think.models import log_token_usage
 
                                     model = original_request.get("model", "unknown")
-                                    persona = original_request.get("persona", "unknown")
+                                    name = original_request.get("name", "unknown")
 
                                     # Build context in same format as model resolution:
                                     # agent.{app}.{name} where app="system" for system agents
-                                    if ":" in persona:
-                                        app, name = persona.split(":", 1)
+                                    if ":" in name:
+                                        app, name = name.split(":", 1)
                                     else:
-                                        app, name = "system", persona
+                                        app, name = "system", name
                                     context = f"agent.{app}.{name}"
 
                                     # Extract segment from config env if set
@@ -728,15 +728,15 @@ class CortexService:
     def _write_output(self, agent_id: str, result: str, config: Dict[str, Any]) -> None:
         """Write agent output to the appropriate location.
 
-        Output path is derived from persona + output format + schedule:
-        - Daily agents: YYYYMMDD/insights/{persona}.{ext}
-        - Segment agents: YYYYMMDD/{segment}/{persona}.{ext}
+        Output path is derived from name + output format + schedule:
+        - Daily agents: YYYYMMDD/insights/{name}.{ext}
+        - Segment agents: YYYYMMDD/{segment}/{name}.{ext}
         """
         try:
             from think.utils import day_path, get_output_path
 
             output_format = config.get("output", "md")
-            persona = config.get("persona", "default")
+            name = config.get("name", "default")
             segment = config.get("segment")  # Set by dream.py for segment agents
             day = config.get("day")
 
@@ -745,7 +745,7 @@ class CortexService:
 
             # Derive output path using shared utility
             output_path = get_output_path(
-                day_dir, persona, segment=segment, output_format=output_format
+                day_dir, name, segment=segment, output_format=output_format
             )
 
             # Ensure parent directory exists
@@ -776,12 +776,12 @@ class CortexService:
             # Operate on a copy so callers keep their original config untouched.
             handoff_config = copy.deepcopy(handoff)
 
-            # Determine prompt/provider/persona before pruning extra keys.
+            # Determine prompt/provider/name before pruning extra keys.
             prompt = handoff_config.pop("prompt", None) or result
-            persona = handoff_config.pop("persona", None) or "default"
+            name = handoff_config.pop("name", None) or "default"
 
             # Provider can be explicitly set in handoff config, otherwise let
-            # the handoff persona resolve its own provider from context
+            # the handoff agent resolve its own provider from context
             provider = handoff_config.pop("provider", None)
 
             # Ensure we do not propagate parent handoff metadata.
@@ -802,7 +802,7 @@ class CortexService:
             # Use cortex_request to create the handoff agent
             agent_id = cortex_request(
                 prompt=prompt,
-                persona=persona,
+                name=name,
                 provider=provider,
                 handoff_from=parent_id,
                 config=extra_config,
@@ -837,7 +837,7 @@ class CortexService:
                         agents.append(
                             {
                                 "agent_id": agent_id,
-                                "persona": config.get("persona", "unknown"),
+                                "name": config.get("name", "unknown"),
                                 "provider": config.get("provider", "unknown"),
                                 "elapsed_seconds": int(
                                     time.time() - agent_proc.start_time
@@ -1169,11 +1169,11 @@ def format_agent(
                 prompt = prompt[:200] + "..."
             header_lines.append(f"**Prompt:** {prompt}\n")
 
-        persona = request_event.get("persona", "default")
+        name = request_event.get("name", "default")
         provider = request_event.get("provider", "")
         model = start_event.get("model", "") if start_event else ""
 
-        meta_parts = [f"**Persona:** {persona}"]
+        meta_parts = [f"**Persona:** {name}"]
         if provider:
             meta_parts.append(f"**Provider:** {provider}")
         if model:

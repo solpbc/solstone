@@ -56,7 +56,7 @@ def test_openai_main(monkeypatch, tmp_path, capsys):
     assert events[0]["event"] == "start"
     assert isinstance(events[0]["ts"], int)
     assert events[0]["prompt"] == "hello"
-    assert events[0]["persona"] == "default"
+    assert events[0]["name"] == "default"
     assert events[0]["model"] == GPT_5
     assert events[-1]["event"] == "finish"
     assert isinstance(events[-1]["ts"], int)
@@ -145,7 +145,7 @@ def test_openai_mcp_headers(monkeypatch, tmp_path):
             "prompt": "audit headers",
             "provider": "openai",
             "model": GPT_5,
-            "persona": "investigator",
+            "name": "investigator",
             "agent_id": "999",
             "mcp_server_url": "http://localhost:5173/mcp",
         }
@@ -156,7 +156,7 @@ def test_openai_mcp_headers(monkeypatch, tmp_path):
     assert mcp_kwargs is not None
     headers = mcp_kwargs["params"].get("headers", {})
     assert headers["X-Agent-Id"] == "999"
-    assert headers["X-Agent-Persona"] == "investigator"
+    assert headers["X-Agent-Name"] == "investigator"
 
 
 def test_openai_outfile(monkeypatch, tmp_path, capsys):
@@ -193,7 +193,7 @@ def test_openai_outfile(monkeypatch, tmp_path, capsys):
     assert events[0]["event"] == "start"
     assert isinstance(events[0]["ts"], int)
     assert events[0]["prompt"] == "hello"
-    assert events[0]["persona"] == "default"
+    assert events[0]["name"] == "default"
     assert events[0]["model"] == GPT_5
     assert events[-1]["event"] == "finish"
     assert isinstance(events[-1]["ts"], int)

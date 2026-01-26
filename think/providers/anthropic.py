@@ -137,12 +137,12 @@ class ToolExecutor:
         mcp_client: Any,
         callback: JSONEventCallback,
         agent_id: str | None = None,
-        persona: str | None = None,
+        name: str | None = None,
     ) -> None:
         self.mcp = mcp_client
         self.callback = callback
         self.agent_id = agent_id
-        self.persona = persona
+        self.name = name
 
     async def execute_tool(self, tool_use: ToolUseBlock) -> dict:
         """Execute ``tool_use`` and return a Claude ``tool_result`` block."""
@@ -160,8 +160,8 @@ class ToolExecutor:
         meta = {}
         if self.agent_id:
             meta["agent_id"] = self.agent_id
-        if self.persona:
-            meta["persona"] = self.persona
+        if self.name:
+            meta["name"] = self.name
 
         try:
             try:
@@ -291,7 +291,7 @@ async def run_agent(
         "thinking_budget"
     )  # None = use computed default
     disable_mcp = config.get("disable_mcp", False)
-    persona = config.get("persona", "default")
+    name = config.get("name", "default")
 
     callback = JSONEventCallback(on_event)
 
@@ -306,7 +306,7 @@ async def run_agent(
             {
                 "event": "start",
                 "prompt": prompt,
-                "persona": persona,
+                "name": name,
                 "model": model,
                 "provider": "anthropic",
             }
@@ -353,7 +353,7 @@ async def run_agent(
                 tools = await _get_mcp_tools(mcp, allowed_tools)
                 agent_id = config.get("agent_id")
                 tool_executor = ToolExecutor(
-                    mcp, callback, agent_id=agent_id, persona=persona
+                    mcp, callback, agent_id=agent_id, name=name
                 )
 
                 thinking_budget, effective_max_tokens = _resolve_agent_thinking_params(

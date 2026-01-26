@@ -240,7 +240,7 @@ async def run_agent(
         {
             "event": "start",
             "prompt": prompt,
-            "persona": config.get("persona", "default"),
+            "name": config.get("name", "default"),
             "model": model,
             "provider": "openai",
             "ts": _now_ms(),
@@ -274,13 +274,13 @@ async def run_agent(
             )
 
         agent_id = str(config.get("agent_id", "")).strip()
-        persona = str(config.get("persona", "")).strip()
+        name = str(config.get("name", "")).strip()
         mcp_params = {"url": http_uri}
         headers: dict[str, str] = {}
         if agent_id:
             headers["X-Agent-Id"] = agent_id
-        if persona:
-            headers["X-Agent-Persona"] = persona
+        if name:
+            headers["X-Agent-Name"] = name
         if headers:
             mcp_params["headers"] = headers
 

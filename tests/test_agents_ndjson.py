@@ -31,7 +31,7 @@ async def mock_run_agent(config, on_event=None):
     prompt = config.get("prompt", "")
     provider = config.get("provider", "")
     model = config.get("model", "")
-    persona = config.get("persona", "default")
+    name = config.get("name", "default")
 
     if on_event:
         on_event(
@@ -40,7 +40,7 @@ async def mock_run_agent(config, on_event=None):
                 "prompt": prompt,
                 "provider": provider,
                 "model": model,
-                "persona": persona,
+                "name": name,
                 "ts": 1234567890,
             }
         )
@@ -76,7 +76,7 @@ def test_ndjson_single_request(mock_journal, monkeypatch, capsys):
         {
             "prompt": "What is 2+2?",
             "provider": "openai",
-            "persona": "default",
+            "name": "default",
             "model": GPT_5,
             "max_output_tokens": 100,
             "mcp_server_url": "http://localhost:5175/mcp",
@@ -130,7 +130,7 @@ def test_ndjson_multiple_requests(mock_journal, monkeypatch, capsys):
         {
             "prompt": "Third question",
             "provider": "google",
-            "persona": "technical",
+            "name": "technical",
             "mcp_server_url": "http://localhost:5175/mcp",
         },
     ]
@@ -163,7 +163,7 @@ def test_ndjson_multiple_requests(mock_journal, monkeypatch, capsys):
     assert start_events[1]["prompt"] == "Second question"
     assert start_events[1]["provider"] == "anthropic"
     assert start_events[2]["prompt"] == "Third question"
-    assert start_events[2]["persona"] == "technical"
+    assert start_events[2]["name"] == "technical"
 
 
 def test_ndjson_invalid_json(mock_journal, monkeypatch, capsys):

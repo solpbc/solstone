@@ -589,7 +589,7 @@ def log_token_usage(
                           cached_tokens, reasoning_tokens, requests}
         Response objects: Gemini GenerateContentResponse with usage_metadata attribute
     context : str, optional
-        Context string (e.g., "module.function:123" or "agent.persona.id").
+        Context string (e.g., "module.function:123" or "agent.name.id").
         If None, auto-detects from call stack.
     segment : str, optional
         Segment key (e.g., "143022_300") for attribution.

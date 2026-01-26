@@ -14,7 +14,7 @@ Directory Structure:
       app.json             # Optional: Metadata overrides
       tools.py             # Optional: MCP tool extensions
       insights/            # Optional: Custom insight prompts
-      agents/              # Optional: Custom agent personas
+      agents/              # Optional: Custom agents
       tests/               # Optional: App-specific tests
 
 Naming Rules:

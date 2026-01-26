@@ -153,7 +153,7 @@ def test_multiple_clients_broadcast(callosum_server):
     # Wait for client to connect
     time.sleep(0.2)
 
-    client.emit("cortex", "agent_start", agent_id="123", persona="analyst")
+    client.emit("cortex", "agent_start", agent_id="123", name="analyst")
 
     # Wait for broadcast
     time.sleep(0.2)
@@ -173,7 +173,7 @@ def test_multiple_clients_broadcast(callosum_server):
         assert msg["tract"] == "cortex"
         assert msg["event"] == "agent_start"
         assert msg["agent_id"] == "123"
-        assert msg["persona"] == "analyst"
+        assert msg["name"] == "analyst"
 
     # Cleanup
     client.stop()

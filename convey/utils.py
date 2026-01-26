@@ -84,7 +84,7 @@ def time_since(epoch: int) -> str:
 
 def spawn_agent(
     prompt: str,
-    persona: str,
+    name: str,
     provider: Optional[str] = None,
     config: Optional[dict[str, Any]] = None,
 ) -> str:
@@ -95,7 +95,7 @@ def spawn_agent(
 
     Args:
         prompt: The task or question for the agent
-        persona: Agent persona - system (e.g., "default") or app-qualified (e.g., "entities:entity_assist")
+        name: Agent name - system (e.g., "default") or app-qualified (e.g., "entities:entity_assist")
         provider: Optional provider override (openai, google, anthropic)
         config: Additional configuration (max_tokens, facet, continue_from, etc.)
 
@@ -110,7 +110,7 @@ def spawn_agent(
 
     return cortex_request(
         prompt=prompt,
-        persona=persona,
+        name=name,
         provider=provider,
         config=config,
     )

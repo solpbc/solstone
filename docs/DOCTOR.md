@@ -107,7 +107,7 @@ See [CALLOSUM.md](CALLOSUM.md) Tract Registry for event schemas.
 
 **Event sequence** (JSONL, one event per line):
 
-1. `request` - Initial spawn request (prompt, provider, persona)
+1. `request` - Initial spawn request (prompt, provider, name)
 2. `start` - Agent began execution (model info)
 3. `tool_start`/`tool_end` - Tool calls (paired by `call_id`)
 4. `thinking` - Model reasoning (if supported)
@@ -205,5 +205,5 @@ socat - UNIX-CONNECT:$JOURNAL_PATH/health/callosum.sock
 ## See Also
 
 - [JOURNAL.md](JOURNAL.md) - Directory structure and file formats
-- [CORTEX.md](CORTEX.md) - Agent system, events, personas
+- [CORTEX.md](CORTEX.md) - Agent system, events, configuration
 - [CALLOSUM.md](CALLOSUM.md) - Message bus protocol

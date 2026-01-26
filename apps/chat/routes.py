@@ -186,7 +186,7 @@ def send_message() -> Any:
         # Create agent request - events will be broadcast by shared watcher
         agent_id = spawn_agent(
             prompt=full_prompt,
-            persona="default",
+            name="default",
             provider=provider,
             config=config,
         )
@@ -507,7 +507,7 @@ def retry_chat(chat_id: str) -> Any:
         # Spawn retry agent
         agent_id = spawn_agent(
             prompt=prompt,
-            persona="default",
+            name="default",
             provider=provider,
             config=config,
         )
