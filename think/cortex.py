@@ -729,7 +729,7 @@ class CortexService:
         """Write agent output to the appropriate location.
 
         Output path is derived from name + output format + schedule:
-        - Daily agents: YYYYMMDD/insights/{name}.{ext}
+        - Daily agents: YYYYMMDD/agents/{name}.{ext}
         - Segment agents: YYYYMMDD/{segment}/{name}.{ext}
         """
         try:

@@ -1118,7 +1118,7 @@ class TestFormatEvents:
                 "title": "Project kickoff",
                 "start": "14:00:00",
                 "occurred": False,
-                "source": "20240101/insights/schedule.md",
+                "source": "20240101/agents/schedule.md",
                 "participants": ["Alice", "Bob"],
             }
         ]
@@ -1141,7 +1141,7 @@ class TestFormatEvents:
                 "title": "Team standup",
                 "start": "09:00:00",
                 "occurred": True,
-                "source": "20240101/insights/meetings.md",
+                "source": "20240101/agents/meetings.md",
                 "participants": ["Alice"],
             }
         ]
@@ -1263,16 +1263,16 @@ class TestFormatEvents:
         assert "Discussed Q1 roadmap" in chunks[0]["markdown"]
 
 
-class TestFormatInsight:
-    """Tests for the markdown insight formatter."""
+class TestFormatMarkdown:
+    """Tests for the markdown output formatter."""
 
     def test_get_formatter_markdown(self):
         """Test pattern matching for .md files."""
         from think.formatters import get_formatter
 
-        formatter = get_formatter("20240101/insights/flow.md")
+        formatter = get_formatter("20240101/agents/flow.md")
         assert formatter is not None
-        assert formatter.__name__ == "format_insight"
+        assert formatter.__name__ == "format_markdown"
 
     def test_get_formatter_segment_screen_md(self):
         """Test pattern matching for segment screen.md files."""
@@ -1280,7 +1280,7 @@ class TestFormatInsight:
 
         formatter = get_formatter("20240101/123456_300/screen.md")
         assert formatter is not None
-        assert formatter.__name__ == "format_insight"
+        assert formatter.__name__ == "format_markdown"
 
     def test_get_formatter_nested_md(self):
         """Test pattern matching for deeply nested .md files."""
@@ -1288,69 +1288,69 @@ class TestFormatInsight:
 
         formatter = get_formatter("facets/work/news/20240101.md")
         assert formatter is not None
-        assert formatter.__name__ == "format_insight"
+        assert formatter.__name__ == "format_markdown"
 
-    def test_format_insight_basic(self):
+    def test_format_markdown_basic(self):
         """Test basic markdown formatting."""
-        from think.insights import format_insight
+        from think.outputs import format_markdown
 
         text = "# Hello\n\nThis is a paragraph.\n"
-        chunks, meta = format_insight(text)
+        chunks, meta = format_markdown(text)
 
         assert len(chunks) == 1
         assert "# Hello" in chunks[0]["markdown"]
         assert "This is a paragraph" in chunks[0]["markdown"]
         assert meta == {}
 
-    def test_format_insight_multiple_chunks(self):
+    def test_format_markdown_multiple_chunks(self):
         """Test that lists are split into multiple chunks."""
-        from think.insights import format_insight
+        from think.outputs import format_markdown
 
         text = "# List\n\n- Item one\n- Item two\n- Item three\n"
-        chunks, meta = format_insight(text)
+        chunks, meta = format_markdown(text)
 
         assert len(chunks) == 3
         for chunk in chunks:
             assert "# List" in chunk["markdown"]
 
-    def test_format_insight_no_timestamp(self):
+    def test_format_markdown_no_timestamp(self):
         """Test that markdown chunks don't have timestamp key."""
-        from think.insights import format_insight
+        from think.outputs import format_markdown
 
         text = "# Test\n\nSome content.\n"
-        chunks, meta = format_insight(text)
+        chunks, meta = format_markdown(text)
 
         assert len(chunks) == 1
         assert "markdown" in chunks[0]
         assert "timestamp" not in chunks[0]
 
-    def test_format_insight_preserves_headers(self):
+    def test_format_markdown_preserves_headers(self):
         """Test that each chunk includes its header context."""
-        from think.insights import format_insight
+        from think.outputs import format_markdown
 
         text = "# Top\n\n## Section\n\nParagraph content.\n"
-        chunks, meta = format_insight(text)
+        chunks, meta = format_markdown(text)
 
         assert len(chunks) == 1
         assert "# Top" in chunks[0]["markdown"]
         assert "## Section" in chunks[0]["markdown"]
         assert "Paragraph content" in chunks[0]["markdown"]
 
-    def test_format_insight_definition_list(self):
+    def test_format_markdown_definition_list(self):
         """Test that definition lists stay as single chunk."""
-        from think.insights import format_insight
+        from think.outputs import format_markdown
 
         text = "# Info\n\n- **Name:** Alice\n- **Role:** Engineer\n"
-        chunks, meta = format_insight(text)
+        chunks, meta = format_markdown(text)
 
         # Definition list stays together
         assert len(chunks) == 1
         assert "**Name:** Alice" in chunks[0]["markdown"]
         assert "**Role:** Engineer" in chunks[0]["markdown"]
 
-    def test_format_insight_table_rows(self):
+    def test_format_markdown_table_rows(self):
         """Test that table rows become separate chunks."""
-        from think.insights import format_insight
+        from think.outputs import format_markdown
 
         text = """# Data
 
@@ -1359,7 +1359,7 @@ class TestFormatInsight:
 | A    | 1     |
 | B    | 2     |
 """
-        chunks, meta = format_insight(text)
+        chunks, meta = format_markdown(text)
 
         assert len(chunks) == 2
         # Each chunk should have the header
@@ -1367,12 +1367,12 @@ class TestFormatInsight:
             assert "# Data" in chunk["markdown"]
             assert "| Name | Value |" in chunk["markdown"]
 
-    def test_format_insight_code_block(self):
+    def test_format_markdown_code_block(self):
         """Test that code blocks become chunks."""
-        from think.insights import format_insight
+        from think.outputs import format_markdown
 
         text = "# Code\n\n```python\nprint('hello')\n```\n"
-        chunks, meta = format_insight(text)
+        chunks, meta = format_markdown(text)
 
         assert len(chunks) == 1
         assert "```python" in chunks[0]["markdown"]
@@ -1382,7 +1382,7 @@ class TestFormatInsight:
         """Test format_file with a markdown file."""
         from think.formatters import format_file
 
-        path = Path(os.environ["JOURNAL_PATH"]) / "20240101/insights/flow.md"
+        path = Path(os.environ["JOURNAL_PATH"]) / "20240101/agents/flow.md"
         chunks, meta = format_file(path)
 
         assert len(chunks) > 0
@@ -1393,7 +1393,7 @@ class TestFormatInsight:
         """Test load_markdown utility."""
         from think.formatters import load_markdown
 
-        path = Path(os.environ["JOURNAL_PATH"]) / "20240101/insights/flow.md"
+        path = Path(os.environ["JOURNAL_PATH"]) / "20240101/agents/flow.md"
         text = load_markdown(path)
 
         assert isinstance(text, str)
@@ -1403,11 +1403,11 @@ class TestFormatInsight:
 class TestExtractPathMetadata:
     """Tests for extract_path_metadata helper."""
 
-    def test_daily_insight(self):
-        """Test day extraction from daily insight path."""
+    def test_daily_output(self):
+        """Test day extraction from daily agent output path."""
         from think.formatters import extract_path_metadata
 
-        meta = extract_path_metadata("20240101/insights/flow.md")
+        meta = extract_path_metadata("20240101/agents/flow.md")
         assert meta["day"] == "20240101"
         assert meta["facet"] == ""
         assert meta["topic"] == "flow"
@@ -1475,11 +1475,11 @@ class TestExtractPathMetadata:
         assert meta["facet"] == ""
         assert meta["topic"] == "import"
 
-    def test_app_insight(self):
-        """Test app insight path extraction."""
+    def test_app_output(self):
+        """Test app output path extraction."""
         from think.formatters import extract_path_metadata
 
-        meta = extract_path_metadata("apps/myapp/insights/custom.md")
+        meta = extract_path_metadata("apps/myapp/agents/custom.md")
         assert meta["day"] == ""
         assert meta["facet"] == ""
         assert meta["topic"] == "myapp:custom"

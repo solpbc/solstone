@@ -464,7 +464,7 @@ def test_get_status(cortex_service):
 
 
 def test_write_output(cortex_service, mock_journal):
-    """Test writing agent output to insights directory."""
+    """Test writing agent output to agents directory."""
     # Mock datetime to return a specific date
     test_date = "20240115"
     from datetime import datetime as dt
@@ -480,13 +480,13 @@ def test_write_output(cortex_service, mock_journal):
 
         cortex_service._write_output(agent_id, result, config)
 
-        # Check file was created in insights/ with name-derived filename
-        expected_path = mock_journal / test_date / "insights" / "my_agent.md"
+        # Check file was created in agents/ with name-derived filename
+        expected_path = mock_journal / test_date / "agents" / "my_agent.md"
         assert expected_path.exists()
         assert expected_path.read_text() == result
 
         # Check directories were created
-        assert (mock_journal / test_date / "insights").is_dir()
+        assert (mock_journal / test_date / "agents").is_dir()
 
 
 def test_write_output_with_error(cortex_service, mock_journal, caplog):
@@ -513,13 +513,13 @@ def test_write_output_with_day_parameter(cortex_service, mock_journal):
 
     cortex_service._write_output(agent_id, result, config)
 
-    # Check file was created in specified day's insights directory
-    expected_path = mock_journal / specified_day / "insights" / "reporter.md"
+    # Check file was created in specified day's agents directory
+    expected_path = mock_journal / specified_day / "agents" / "reporter.md"
     assert expected_path.exists()
     assert expected_path.read_text() == result
 
     # Check directories were created
-    assert (mock_journal / specified_day / "insights").is_dir()
+    assert (mock_journal / specified_day / "agents").is_dir()
 
 
 def test_write_output_with_segment(cortex_service, mock_journal):
@@ -538,7 +538,7 @@ def test_write_output_with_segment(cortex_service, mock_journal):
 
         cortex_service._write_output(agent_id, result, config)
 
-        # Check file was created in segment directory (not insights/)
+        # Check file was created in segment directory (not agents/)
         expected_path = mock_journal / test_date / "143000_600" / "analyzer.md"
         assert expected_path.exists()
         assert expected_path.read_text() == result
@@ -560,7 +560,7 @@ def test_write_output_json_format(cortex_service, mock_journal):
         cortex_service._write_output(agent_id, result, config)
 
         # Check file was created with .json extension
-        expected_path = mock_journal / test_date / "insights" / "data_agent.json"
+        expected_path = mock_journal / test_date / "agents" / "data_agent.json"
         assert expected_path.exists()
         assert expected_path.read_text() == result
 
@@ -606,8 +606,8 @@ def test_monitor_stdout_with_output(cortex_service, mock_journal):
             with patch.object(cortex_service, "_has_finish_event", return_value=True):
                 cortex_service._monitor_stdout(agent)
 
-    # Check result was written to insights/ with name-derived filename
-    output_path = mock_journal / test_date / "insights" / "test_agent.md"
+    # Check result was written to agents/ with name-derived filename
+    output_path = mock_journal / test_date / "agents" / "test_agent.md"
     assert output_path.exists()
     assert output_path.read_text() == "Test result"
 
@@ -647,8 +647,8 @@ def test_monitor_stdout_with_output_and_day(cortex_service, mock_journal):
         with patch.object(cortex_service, "_has_finish_event", return_value=True):
             cortex_service._monitor_stdout(agent)
 
-    # Check result was written to specified day's insights directory
-    output_path = mock_journal / specified_day / "insights" / "daily_reporter.md"
+    # Check result was written to specified day's agents directory
+    output_path = mock_journal / specified_day / "agents" / "daily_reporter.md"
     assert output_path.exists()
     assert output_path.read_text() == "Daily report content"
 

@@ -247,10 +247,10 @@ def api_stats(month: str):
         # Count if day directory exists (has journal data)
         day_dir = journal_root / day_name
         if day_dir.is_dir():
-            # Check for insights
-            insights_dir = day_dir / "insights"
-            if insights_dir.is_dir():
-                count += len(list(insights_dir.glob("*.md")))
+            # Check for agent outputs
+            agents_dir = day_dir / "agents"
+            if agents_dir.is_dir():
+                count += len(list(agents_dir.glob("*.md")))
 
         if count > 0:
             stats[day_name] = count

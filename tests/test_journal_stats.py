@@ -27,8 +27,8 @@ def test_scan_day(tmp_path, monkeypatch):
     (ts_dir2 / "center_DP-1_screen.webm").write_bytes(b"WEBM")
 
     (day / "entities.md").write_text("")
-    (day / "insights").mkdir()
-    (day / "insights" / "flow.md").write_text("")
+    (day / "agents").mkdir()
+    (day / "agents" / "flow.md").write_text("")
 
     # Create event in new JSONL format: facets/{facet}/events/YYYYMMDD.jsonl
     events_dir = journal / "facets" / "work" / "events"
@@ -45,7 +45,7 @@ def test_scan_day(tmp_path, monkeypatch):
         "facet": "work",
         "topic": "meetings",
         "occurred": True,
-        "source": "20240101/insights/meetings.md",
+        "source": "20240101/agents/meetings.md",
     }
     (events_dir / "20240101.jsonl").write_text(json.dumps(event))
 

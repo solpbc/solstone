@@ -8,10 +8,10 @@ solstone transforms raw recordings into actionable understanding through a three
 
 ```
 ┌─────────────────────────────────────┐
-│  LAYER 3: INSIGHTS                  │  Narrative summaries
+│  LAYER 3: AGENT OUTPUTS             │  Narrative summaries
 │  (Markdown files)                   │  "What it means"
-│  - insights/*.md (daily insights)   │
-│  - *.md (segment insights)          │
+│  - agents/*.md (daily outputs)      │
+│  - *.md (segment outputs)           │
 └─────────────────────────────────────┘
          ↑ synthesized from
 ┌─────────────────────────────────────┐
@@ -38,7 +38,7 @@ solstone transforms raw recordings into actionable understanding through a three
 |------|------------|----------|
 | **Capture** | Raw audio/video recording | `*.flac`, `*.ogg`, `*.opus`, `*.webm` |
 | **Extract** | Structured data from captures | `*.jsonl` |
-| **Insight** | AI-generated narrative summary | `insights/*.md`, `HHMMSS_LEN/*.md` |
+| **Agent Output** | AI-generated narrative summary | `agents/*.md`, `HHMMSS_LEN/*.md` |
 
 **Organization**
 
@@ -59,7 +59,7 @@ solstone transforms raw recordings into actionable understanding through a three
 
 | Directory/File | Purpose |
 |----------------|---------|
-| `YYYYMMDD/` | Daily capture folders containing segments, extracts, and insights |
+| `YYYYMMDD/` | Daily capture folders containing segments, extracts, and agent outputs |
 | `entities/` | Journal-level entity identity records (`<id>/entity.json`) |
 | `facets/` | Facet-specific data: entity relationships, todos, events, news, action logs |
 | `agents/` | Agent event logs (`<id>.jsonl`, `<id>_active.jsonl` for running agents) |
@@ -275,7 +275,7 @@ The `providers` block enables fine-grained control over which LLM provider and m
     },
     "contexts": {
       "observe.*": {"provider": "google", "tier": 3},
-      "insight.*": {"tier": 1},
+      "agent.*": {"tier": 1},
       "agent.helper": {"provider": "openai", "model": "gpt-5-mini"}
     },
     "models": {
@@ -306,7 +306,7 @@ If a requested tier is unavailable for a provider, the system falls back to more
 #### Context matching
 
 Contexts are matched in order of specificity:
-1. **Exact match** – `"insight.meetings"` matches only that exact context
+1. **Exact match** – `"agent.meetings"` matches only that exact context
 2. **Glob pattern** – `"observe.*"` matches any context starting with `observe.`
 3. **Default** – Falls back to the `default` configuration
 
@@ -737,7 +737,7 @@ This unified approach allows users to reply to any message via the chat continue
 The `indexer/` directory contains the full-text search index built from journal content.
 
 **Files:**
-- `indexer/journal.sqlite` – FTS5 SQLite database containing indexed chunks from all formattable content (insights, transcripts, events, entities, todos)
+- `indexer/journal.sqlite` – FTS5 SQLite database containing indexed chunks from all formattable content (agent outputs, transcripts, events, entities, todos)
 
 The indexer converts all content to markdown chunks via the formatters framework, then indexes with metadata fields (day, facet, topic) for filtering. Use `get_journal_index()` from `think/indexer/journal.py` to access the database programmatically.
 
@@ -798,7 +798,7 @@ Within each day, captured content is organized into **segments** (timestamped du
 
 - `HHMMSS_LEN/` – Start time and duration in seconds (e.g., `143022_300/` for a 5-minute segment starting at 14:30:22)
 
-Each segment progresses through the three-layer pipeline: captures are recorded, extracts are generated, and insights are synthesized.
+Each segment progresses through the three-layer pipeline: captures are recorded, extracts are generated, and agent outputs are synthesized.
 
 ### Layer 1: Captures
 
@@ -914,15 +914,15 @@ The vision analysis uses multi-stage conditional processing:
 
 #### Event extracts
 
-Insight generation extracts time-based events from the day's transcripts—meetings, messages, follow-ups, file activity and more. Events are stored per-facet in JSONL files at `facets/{facet}/events/{day}.jsonl`.
+Generator output processing extracts time-based events from the day's transcripts—meetings, messages, follow-ups, file activity and more. Events are stored per-facet in JSONL files at `facets/{facet}/events/{day}.jsonl`.
 
 There are two types of events:
 - **Occurrences** – events that happened on the capture day (`occurred: true`)
 - **Anticipations** – future scheduled events extracted from calendar views (`occurred: false`)
 
 ```jsonl
-{"type": "meeting", "start": "09:00:00", "end": "09:30:00", "title": "Team stand-up", "summary": "Status update with the engineering team", "work": true, "participants": ["Jeremie Miller", "Alice", "Bob"], "facet": "work", "topic": "meetings", "occurred": true, "source": "20250101/insights/meetings.md", "details": "Sprint planning discussion"}
-{"type": "deadline", "date": "2025-01-15", "start": null, "end": null, "title": "Project milestone", "summary": "Q1 deliverable due", "work": true, "participants": [], "facet": "work", "topic": "schedule", "occurred": false, "source": "20250101/insights/schedule.md", "details": "Final review before release"}
+{"type": "meeting", "start": "09:00:00", "end": "09:30:00", "title": "Team stand-up", "summary": "Status update with the engineering team", "work": true, "participants": ["Jeremie Miller", "Alice", "Bob"], "facet": "work", "topic": "meetings", "occurred": true, "source": "20250101/agents/meetings.md", "details": "Sprint planning discussion"}
+{"type": "deadline", "date": "2025-01-15", "start": null, "end": null, "title": "Project milestone", "summary": "Q1 deliverable due", "work": true, "participants": [], "facet": "work", "topic": "schedule", "occurred": false, "source": "20250101/agents/schedule.md", "details": "Final review before release"}
 ```
 
 **Common fields:**
@@ -931,36 +931,36 @@ There are two types of events:
 - **date** – ISO date YYYY-MM-DD (anticipations only, indicates scheduled date)
 - **title** and **summary** – short text for display and search
 - **facet** – facet name the event belongs to (required)
-- **topic** – source insight type (e.g., "meetings", "schedule", "flow")
+- **topic** – source generator type (e.g., "meetings", "schedule", "flow")
 - **occurred** – `true` for occurrences, `false` for anticipations
-- **source** – path to the insight file that generated this event
+- **source** – path to the output file that generated this event
 - **work** – boolean, work vs. personal classification
 - **participants** – optional list of people or entities involved
 - **details** – free-form string with additional context
 
 This structure allows the indexer to collect and search events across all facets and days.
 
-### Layer 3: Insights
+### Layer 3: Agent Outputs
 
-Insights are AI-generated markdown files that provide human-readable narratives synthesized from captures and extracts.
+Agent outputs are AI-generated markdown files that provide human-readable narratives synthesized from captures and extracts.
 
-#### Segment insights
+#### Segment outputs
 
-After captures are processed, segment-level insights are generated within each segment folder as `HHMMSS_LEN/*.md` files. Available segment insight types are defined by templates in `muse/` with `"schedule": "segment"` in their metadata JSON.
+After captures are processed, segment-level outputs are generated within each segment folder as `HHMMSS_LEN/*.md` files. Available segment output types are defined by templates in `muse/` with `"schedule": "segment"` in their metadata JSON.
 
-#### Daily insights
+#### Daily outputs
 
-Post-processing generates day-level insights in the `insights/` directory that synthesize all segments.
+Post-processing generates day-level outputs in the `agents/` directory that synthesize all segments.
 
-**Insight discovery:** Available insight types are discovered at runtime from:
-- `muse/*.md` – system insight templates (files with `schedule` field but no `tools` field)
-- `apps/{app}/muse/*.md` – app-specific insight templates
+**Generator discovery:** Available generator types are discovered at runtime from:
+- `muse/*.md` – system generator templates (files with `schedule` field but no `tools` field)
+- `apps/{app}/muse/*.md` – app-specific generator templates
 
-Each template is a `.md` file with JSON frontmatter containing metadata (title, description, schedule, output format). The `schedule` field is required and must be `"segment"` or `"daily"` - insights with missing or invalid schedule are skipped. Use `get_insights()` from `think/utils.py` to retrieve all available insights, or `get_insights_by_schedule()` to get insights filtered by schedule.
+Each template is a `.md` file with JSON frontmatter containing metadata (title, description, schedule, output format). The `schedule` field is required and must be `"segment"` or `"daily"` - generators with missing or invalid schedule are skipped. Use `get_generator_agents()` from `think/utils.py` to retrieve all available generators, or `get_generator_agents_by_schedule()` to get generators filtered by schedule.
 
 **Output naming:**
-- System insights: `insights/{topic}.md` (e.g., `insights/flow.md`, `insights/meetings.md`)
-- App insights: `insights/_{app}_{topic}.md` (e.g., `insights/_chat_sentiment.md`)
-- JSON output: `insights/{topic}.json` when metadata specifies `"output": "json"`
+- System outputs: `agents/{topic}.md` (e.g., `agents/flow.md`, `agents/meetings.md`)
+- App outputs: `agents/_{app}_{topic}.md` (e.g., `agents/_chat_sentiment.md`)
+- JSON output: `agents/{topic}.json` when metadata specifies `"output": "json"`
 
-Each insight type has a corresponding template file (`{name}.md`) that defines how the AI synthesizes extracts into narrative form.
+Each generator type has a corresponding template file (`{name}.md`) that defines how the AI synthesizes extracts into narrative form.

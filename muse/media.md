@@ -11,7 +11,7 @@
 
 }
 
-$daily_insight
+$daily_preamble
 
 # Workday Media Consumption Analysis
 

@@ -71,7 +71,7 @@ from think.tools.messaging import get_resource as get_resource_impl
 get_resource = register_tool(annotations=HINTS)(get_resource_impl)
 
 # Import resource modules - these self-register via @mcp.resource decorators
-from think.resources import insights, media, transcripts  # noqa: F401
+from think.resources import media, outputs, transcripts  # noqa: F401
 
 
 # Phase 2: App-level tool discovery

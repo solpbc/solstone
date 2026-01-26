@@ -3,7 +3,7 @@
 
 """Entity activity tracking via Callosum event handlers.
 
-Updates last_seen on attached entities when they appear in daily insights.
+Updates last_seen on attached entities when they appear in daily outputs.
 Triggered after dream processing completes for each day.
 """
 
@@ -16,11 +16,11 @@ from think.facets import get_facets
 logger = logging.getLogger(__name__)
 
 
-@on_event("dream", "insights_completed")
+@on_event("dream", "generators_completed")
 def update_entity_activity(ctx: EventContext) -> None:
     """Update last_seen for entities mentioned in today's knowledge graph.
 
-    Triggered after insight processing completes. Parses the knowledge graph
+    Triggered after generator processing completes. Parses the knowledge graph
     for entity names and updates last_seen on matching attached entities
     across all facets.
     """
@@ -30,7 +30,7 @@ def update_entity_activity(ctx: EventContext) -> None:
 
     day = ctx.msg.get("day")
     if not day:
-        logger.warning("insights_completed event missing day field")
+        logger.warning("generators_completed event missing day field")
         return
 
     # Parse entity names from knowledge graph

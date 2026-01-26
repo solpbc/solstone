@@ -492,7 +492,7 @@ const Dashboard = (function() {
       progressCard('Audio Processing', totals.audio_sessions || 0, totals.pending_segments || 0)
     );
     progressSection.appendChild(
-      progressCard('Insight Summaries', totals.insights_processed || 0, totals.insights_pending || 0)
+      progressCard('Agent Outputs', totals.outputs_processed || 0, totals.outputs_pending || 0)
     );
     
     // Token usage setup
@@ -565,7 +565,7 @@ const Dashboard = (function() {
     );
     
     // Render repairs if needed
-    const repairs = ['pending_segments', 'insights_pending'];
+    const repairs = ['pending_segments', 'outputs_pending'];
     const hasRepairs = repairs.some(key => (totals[key] || 0) > 0);
 
     if (hasRepairs) {
@@ -578,7 +578,7 @@ const Dashboard = (function() {
       const repairGrid = alert.querySelector('#repairGrid');
       const repairLabels = {
         pending_segments: 'Pending Segments',
-        insights_pending: 'Insight Summaries'
+        outputs_pending: 'Agent Outputs'
       };
 
       repairs.forEach(key => {

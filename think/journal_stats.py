@@ -12,7 +12,7 @@ from typing import Dict
 
 from observe.sense import scan_day as sense_scan_day
 from observe.utils import VIDEO_EXTENSIONS, load_analysis_frames
-from think.insight import scan_day as insight_scan_day
+from think.generate import scan_day as generate_scan_day
 from think.utils import day_dirs, get_journal, setup_cli
 
 logger = logging.getLogger(__name__)
@@ -50,10 +50,10 @@ class JournalStats:
         for ext in VIDEO_EXTENSIONS:
             files.extend(day_dir.glob(f"*{ext}"))
 
-        insights = day_dir / "insights"
-        if insights.is_dir():
-            files.extend(insights.glob("*.json"))
-            files.extend(insights.glob("*.md"))
+        agents_dir = day_dir / "agents"
+        if agents_dir.is_dir():
+            files.extend(agents_dir.glob("*.json"))
+            files.extend(agents_dir.glob("*.md"))
 
         if not files:
             return 0.0
@@ -247,9 +247,9 @@ class JournalStats:
         stats["pending_segments"] = sense_info["pending_segments"]
 
         # --- Insight summaries ---
-        insight_info = insight_scan_day(day)
-        stats["insights_processed"] = len(insight_info["processed"])
-        stats["insights_pending"] = len(insight_info["repairable"])
+        output_info = generate_scan_day(day)
+        stats["outputs_processed"] = len(output_info["processed"])
+        stats["outputs_pending"] = len(output_info["repairable"])
 
         # --- Events and heatmap from facets/*/events/YYYYMMDD.jsonl ---
         weekday = datetime.strptime(day, "%Y%m%d").weekday()

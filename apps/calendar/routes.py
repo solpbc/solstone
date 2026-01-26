@@ -57,9 +57,9 @@ def calendar_day_events(day: str) -> Any:
         return "", 404
 
     from think.indexer.journal import get_events
-    from think.utils import get_insights
+    from think.utils import get_generator_agents
 
-    insights = get_insights()
+    generators = get_generator_agents()
 
     # Get full event objects from source files
     raw_events = get_events(day)
@@ -68,7 +68,7 @@ def calendar_day_events(day: str) -> Any:
     result = []
     for event in raw_events:
         topic = event.get("topic", "other")
-        topic_color = insights.get(topic, {}).get("color", "#6c757d")
+        topic_color = generators.get(topic, {}).get("color", "#6c757d")
 
         formatted = {
             "title": event.get("title", ""),

@@ -24,10 +24,10 @@ def copy_day(tmp_path: Path) -> Path:
     return dest
 
 
-MOCK_RESULT = "## Original Result\n\nThis is the original insight content."
+MOCK_RESULT = "## Original Result\n\nThis is the original output content."
 
 
-def test_load_insight_hook_success(tmp_path):
+def test_load_output_hook_success(tmp_path):
     """Test loading a valid hook with process function."""
     utils = importlib.import_module("think.utils")
 
@@ -37,7 +37,7 @@ def process(result, context):
     return result + "\\n\\n## Added by hook"
 """)
 
-    process_func = utils.load_insight_hook(hook_file)
+    process_func = utils.load_output_hook(hook_file)
     assert callable(process_func)
 
     # Test the hook transforms content
@@ -45,7 +45,7 @@ def process(result, context):
     assert output == "Original\n\n## Added by hook"
 
 
-def test_load_insight_hook_missing_process(tmp_path):
+def test_load_output_hook_missing_process(tmp_path):
     """Test that hook without process function raises ValueError."""
     utils = importlib.import_module("think.utils")
 
@@ -56,13 +56,13 @@ def other_function():
 """)
 
     try:
-        utils.load_insight_hook(hook_file)
+        utils.load_output_hook(hook_file)
         assert False, "Should have raised ValueError"
     except ValueError as e:
         assert "must define a 'process' function" in str(e)
 
 
-def test_load_insight_hook_process_not_callable(tmp_path):
+def test_load_output_hook_process_not_callable(tmp_path):
     """Test that hook with non-callable process raises ValueError."""
     utils = importlib.import_module("think.utils")
 
@@ -72,98 +72,100 @@ process = "not a function"
 """)
 
     try:
-        utils.load_insight_hook(hook_file)
+        utils.load_output_hook(hook_file)
         assert False, "Should have raised ValueError"
     except ValueError as e:
         assert "'process' must be callable" in str(e)
 
 
-def test_insight_metadata_includes_hook_path(tmp_path):
-    """Test that _load_insight_metadata detects .py hook file."""
+def test_prompt_metadata_includes_hook_path(tmp_path):
+    """Test that _load_prompt_metadata detects .py hook file."""
     utils = importlib.import_module("think.utils")
 
-    # Create insight file with frontmatter
-    md_file = tmp_path / "test_insight.md"
+    # Create prompt file with frontmatter
+    md_file = tmp_path / "test_generator.md"
     md_file.write_text('{\n  "title": "Test",\n  "color": "#ff0000"\n}\n\nTest prompt')
 
-    hook_file = tmp_path / "test_insight.py"
+    hook_file = tmp_path / "test_generator.py"
     hook_file.write_text("def process(r, c): return r")
 
-    meta = utils._load_insight_metadata(md_file)
+    meta = utils._load_prompt_metadata(md_file)
 
     assert meta["path"] == str(md_file)
     assert meta["hook_path"] == str(hook_file)
     assert meta["title"] == "Test"
 
 
-def test_insight_metadata_no_hook(tmp_path):
-    """Test that _load_insight_metadata works without hook file."""
+def test_prompt_metadata_no_hook(tmp_path):
+    """Test that _load_prompt_metadata works without hook file."""
     utils = importlib.import_module("think.utils")
 
-    md_file = tmp_path / "test_insight.md"
+    md_file = tmp_path / "test_generator.md"
     md_file.write_text("Test prompt")
 
-    meta = utils._load_insight_metadata(md_file)
+    meta = utils._load_prompt_metadata(md_file)
 
     assert meta["path"] == str(md_file)
     assert "hook_path" not in meta
 
 
-def test_insight_hook_invocation(tmp_path, monkeypatch):
-    """Test that insight.py invokes hook and uses transformed result."""
-    mod = importlib.import_module("think.insight")
+def test_output_hook_invocation(tmp_path, monkeypatch):
+    """Test that generate.py invokes hook and uses transformed result."""
+    mod = importlib.import_module("think.generate")
     day_dir = copy_day(tmp_path)
 
-    # Create insight with hook
-    insights_dir = tmp_path / "insights"
-    insights_dir.mkdir()
+    # Create generator with hook
+    generators_dir = tmp_path / "generators"
+    generators_dir.mkdir()
 
-    prompt_file = insights_dir / "hooked.md"
+    prompt_file = generators_dir / "hooked.md"
     prompt_file.write_text(
         '{\n  "title": "Hooked",\n  "occurrences": false,\n  "schedule": "daily"\n}\n\nTest prompt'
     )
 
-    hook_file = insights_dir / "hooked.py"
+    hook_file = generators_dir / "hooked.py"
     hook_file.write_text("""
 def process(result, context):
     # Verify context has expected fields
     assert "day" in context
     assert "transcript" in context
-    assert "insight_key" in context
+    assert "name" in context
     return result + "\\n\\n## Hook was here"
 """)
 
     monkeypatch.setattr(
         mod,
-        "send_insight",
+        "generate_agent_output",
         lambda *a, **k: MOCK_RESULT,
     )
     monkeypatch.setenv("GOOGLE_API_KEY", "x")
     monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
-    monkeypatch.setattr("sys.argv", ["sol insight", "20240101", "-f", str(prompt_file)])
+    monkeypatch.setattr(
+        "sys.argv", ["sol generate", "20240101", "-f", str(prompt_file)]
+    )
 
     mod.main()
 
-    md = day_dir / "insights" / "hooked.md"
+    md = day_dir / "agents" / "hooked.md"
     content = md.read_text()
     assert "## Original Result" in content
     assert "## Hook was here" in content
 
 
-def test_insight_hook_returns_none(tmp_path, monkeypatch):
+def test_output_hook_returns_none(tmp_path, monkeypatch):
     """Test that hook returning None uses original result."""
-    mod = importlib.import_module("think.insight")
+    mod = importlib.import_module("think.generate")
     day_dir = copy_day(tmp_path)
 
-    insights_dir = tmp_path / "insights"
-    insights_dir.mkdir()
+    generators_dir = tmp_path / "generators"
+    generators_dir.mkdir()
 
-    prompt_file = insights_dir / "noop.md"
+    prompt_file = generators_dir / "noop.md"
     prompt_file.write_text(
         '{\n  "title": "Noop",\n  "occurrences": false,\n  "schedule": "daily"\n}\n\nTest prompt'
     )
 
-    hook_file = insights_dir / "noop.py"
+    hook_file = generators_dir / "noop.py"
     hook_file.write_text("""
 def process(result, context):
     return None  # Signal to use original
@@ -171,34 +173,36 @@ def process(result, context):
 
     monkeypatch.setattr(
         mod,
-        "send_insight",
+        "generate_agent_output",
         lambda *a, **k: MOCK_RESULT,
     )
     monkeypatch.setenv("GOOGLE_API_KEY", "x")
     monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
-    monkeypatch.setattr("sys.argv", ["sol insight", "20240101", "-f", str(prompt_file)])
+    monkeypatch.setattr(
+        "sys.argv", ["sol generate", "20240101", "-f", str(prompt_file)]
+    )
 
     mod.main()
 
-    md = day_dir / "insights" / "noop.md"
+    md = day_dir / "agents" / "noop.md"
     content = md.read_text()
     assert content == MOCK_RESULT  # Original, not modified
 
 
-def test_insight_hook_error_fallback(tmp_path, monkeypatch):
+def test_output_hook_error_fallback(tmp_path, monkeypatch):
     """Test that hook errors fall back to original result."""
-    mod = importlib.import_module("think.insight")
+    mod = importlib.import_module("think.generate")
     day_dir = copy_day(tmp_path)
 
-    insights_dir = tmp_path / "insights"
-    insights_dir.mkdir()
+    generators_dir = tmp_path / "generators"
+    generators_dir.mkdir()
 
-    prompt_file = insights_dir / "broken.md"
+    prompt_file = generators_dir / "broken.md"
     prompt_file.write_text(
         '{\n  "title": "Broken",\n  "occurrences": false,\n  "schedule": "daily"\n}\n\nTest prompt'
     )
 
-    hook_file = insights_dir / "broken.py"
+    hook_file = generators_dir / "broken.py"
     hook_file.write_text("""
 def process(result, context):
     raise RuntimeError("Hook exploded!")
@@ -206,36 +210,38 @@ def process(result, context):
 
     monkeypatch.setattr(
         mod,
-        "send_insight",
+        "generate_agent_output",
         lambda *a, **k: MOCK_RESULT,
     )
     monkeypatch.setenv("GOOGLE_API_KEY", "x")
     monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
-    monkeypatch.setattr("sys.argv", ["sol insight", "20240101", "-f", str(prompt_file)])
+    monkeypatch.setattr(
+        "sys.argv", ["sol generate", "20240101", "-f", str(prompt_file)]
+    )
 
     # Should not raise, should fall back gracefully
     mod.main()
 
-    md = day_dir / "insights" / "broken.md"
+    md = day_dir / "agents" / "broken.md"
     content = md.read_text()
     assert content == MOCK_RESULT  # Original result preserved
 
 
-def test_insight_hook_context_fields(tmp_path, monkeypatch):
+def test_output_hook_context_fields(tmp_path, monkeypatch):
     """Test that hook receives complete context dict."""
-    mod = importlib.import_module("think.insight")
+    mod = importlib.import_module("think.generate")
     copy_day(tmp_path)
 
-    insights_dir = tmp_path / "insights"
-    insights_dir.mkdir()
+    generators_dir = tmp_path / "generators"
+    generators_dir.mkdir()
 
-    prompt_file = insights_dir / "context_check.md"
+    prompt_file = generators_dir / "context_check.md"
     prompt_file.write_text(
         '{\n  "title": "Context Check",\n  "occurrences": false,\n  "schedule": "daily"\n}\n\nTest prompt'
     )
 
     # Write captured context to a file for verification
-    hook_file = insights_dir / "context_check.py"
+    hook_file = generators_dir / "context_check.py"
     hook_file.write_text("""
 import json
 from pathlib import Path
@@ -247,33 +253,35 @@ def process(result, context):
         # Remove transcript for brevity, just check it exists
         ctx_copy = dict(context)
         ctx_copy["has_transcript"] = bool(ctx_copy.get("transcript"))
-        ctx_copy["has_insight_meta"] = bool(ctx_copy.get("insight_meta"))
+        ctx_copy["has_meta"] = bool(ctx_copy.get("meta"))
         del ctx_copy["transcript"]
-        del ctx_copy["insight_meta"]
+        del ctx_copy["meta"]
         json.dump(ctx_copy, f)
     return result
 """)
 
     monkeypatch.setattr(
         mod,
-        "send_insight",
+        "generate_agent_output",
         lambda *a, **k: MOCK_RESULT,
     )
     monkeypatch.setenv("GOOGLE_API_KEY", "x")
     monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
-    monkeypatch.setattr("sys.argv", ["sol insight", "20240101", "-f", str(prompt_file)])
+    monkeypatch.setattr(
+        "sys.argv", ["sol generate", "20240101", "-f", str(prompt_file)]
+    )
 
     mod.main()
 
     # Read captured context
-    captured_path = tmp_path / "20240101" / "insights" / "context_captured.json"
+    captured_path = tmp_path / "20240101" / "agents" / "context_captured.json"
     captured = json.loads(captured_path.read_text())
 
     assert captured["day"] == "20240101"
     assert captured["segment"] is None
-    assert captured["insight_key"] == "context_check"  # stem of the prompt file
+    assert captured["name"] == "context_check"  # stem of the prompt file
     assert captured["has_transcript"] is True
-    assert captured["has_insight_meta"] is True
+    assert captured["has_meta"] is True
     assert "output_path" in captured
 
 
@@ -281,17 +289,17 @@ def test_named_hook_resolution_takes_precedence(tmp_path):
     """Test that named hooks via 'hook' field take precedence over co-located .py files."""
     utils = importlib.import_module("think.utils")
 
-    # Create insight file with named hook
-    md_file = tmp_path / "test_insight.md"
+    # Create prompt file with named hook
+    md_file = tmp_path / "test_generator.md"
     md_file.write_text(
         '{\n  "title": "Test",\n  "hook": "occurrence"\n}\n\nTest prompt'
     )
 
     # Also create a co-located .py file that would normally be picked up
-    colocated_hook = tmp_path / "test_insight.py"
+    colocated_hook = tmp_path / "test_generator.py"
     colocated_hook.write_text("def process(r, c): return 'colocated'")
 
-    meta = utils._load_insight_metadata(md_file)
+    meta = utils._load_prompt_metadata(md_file)
 
     # Should resolve to named hook, not co-located
     assert "hook_path" in meta
@@ -303,17 +311,17 @@ def test_named_hook_nonexistent_falls_through(tmp_path):
     """Test that nonexistent named hooks fall back to co-located .py files."""
     utils = importlib.import_module("think.utils")
 
-    # Create insight file with nonexistent named hook
-    md_file = tmp_path / "test_insight.md"
+    # Create prompt file with nonexistent named hook
+    md_file = tmp_path / "test_generator.md"
     md_file.write_text(
         '{\n  "title": "Test",\n  "hook": "nonexistent_hook_xyz"\n}\n\nTest prompt'
     )
 
     # Create a co-located .py file
-    colocated_hook = tmp_path / "test_insight.py"
+    colocated_hook = tmp_path / "test_generator.py"
     colocated_hook.write_text("def process(r, c): return 'colocated'")
 
-    meta = utils._load_insight_metadata(md_file)
+    meta = utils._load_prompt_metadata(md_file)
 
     # Named hook doesn't exist, so no hook_path should be set (co-located not checked when named specified)
     # Actually the current implementation checks co-located only if hook field is not set

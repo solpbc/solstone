@@ -130,7 +130,7 @@ def format_events(
         # For anticipations, show when it was created (from source path)
         if not occurred:
             source = event.get("source", "")
-            # Extract YYYYMMDD from source path like "20240101/insights/schedule.md"
+            # Extract YYYYMMDD from source path like "20240101/agents/schedule.md"
             source_match = re.match(r"(\d{8})/", source)
             if source_match:
                 created_day = source_match.group(1)

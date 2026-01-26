@@ -10,7 +10,7 @@
 
 }
 
-$daily_insight
+$daily_preamble
 
 ## Goal
 

@@ -1531,7 +1531,7 @@ def test_parse_knowledge_graph_entities(tmp_path):
     os.environ["JOURNAL_PATH"] = str(tmp_path)
 
     # Create a knowledge graph file
-    day_dir = tmp_path / "20260108" / "insights"
+    day_dir = tmp_path / "20260108" / "agents"
     day_dir.mkdir(parents=True)
 
     kg_content = """# Knowledge Graph Report
@@ -1579,7 +1579,7 @@ def test_parse_knowledge_graph_entities_empty_file(tmp_path):
     """Test parsing returns empty list for empty KG."""
     os.environ["JOURNAL_PATH"] = str(tmp_path)
 
-    day_dir = tmp_path / "20260108" / "insights"
+    day_dir = tmp_path / "20260108" / "agents"
     day_dir.mkdir(parents=True)
     (day_dir / "knowledge_graph.md").write_text("")
 

@@ -42,8 +42,7 @@ apps/my_app/
 ├── app.json           # Optional: Metadata (icon, label, facet support)
 ├── app_bar.html       # Optional: Bottom bar controls (forms, buttons)
 ├── background.html    # Optional: Background JavaScript service
-├── insights/          # Optional: Custom insight prompts (auto-discovered)
-├── agents/            # Optional: Custom agents (auto-discovered)
+├── muse/              # Optional: Custom agents and generators (auto-discovered)
 ├── maint/             # Optional: One-time maintenance tasks (auto-discovered)
 └── tests/             # Optional: App-specific tests (run via make test-apps)
 ```
@@ -59,8 +58,7 @@ apps/my_app/
 | `app.json` | No | Icon, label, facet support overrides |
 | `app_bar.html` | No | Bottom fixed bar for app controls |
 | `background.html` | No | Background service (WebSocket listeners) |
-| `insights/` | No | Custom insight prompts as `.md` files with JSON frontmatter |
-| `agents/` | No | Custom agents as `.md` files with JSON frontmatter |
+| `muse/` | No | Custom agents and generators as `.md` files with JSON frontmatter |
 | `maint/` | No | One-time maintenance tasks (run on Convey startup) |
 | `tests/` | No | App-specific tests with self-contained fixtures |
 
@@ -263,19 +261,19 @@ from think.mcp import register_tool, HINTS
 
 ---
 
-### 7. `insights/` - App Insights
+### 7. `muse/` - App Generators
 
-Define custom insight prompts that integrate with solstone's insight generation system.
+Define custom generator prompts that integrate with solstone's output generation system.
 
 **Key Points:**
 - Create `muse/` directory with `.md` files containing JSON frontmatter
-- App insights are automatically discovered alongside system insights
+- App generators are automatically discovered alongside system generators
 - Keys are namespaced as `{app}:{topic}` (e.g., `my_app:weekly_summary`)
-- Outputs go to `JOURNAL/YYYYMMDD/insights/_<app>_<topic>.md` (or `.json` if `output: "json"`)
+- Outputs go to `JOURNAL/YYYYMMDD/agents/_<app>_<topic>.md` (or `.json` if `output: "json"`)
 
-**Metadata format:** Same schema as system insights in `muse/*.md` - JSON frontmatter includes `title`, `description`, `color`, `schedule` (required), `hook`, `output`, `max_output_tokens`, and `thinking_budget` fields. The `schedule` field must be `"segment"` or `"daily"` - insights with missing or invalid schedule are skipped with a warning. Set `output: "json"` for structured JSON output instead of markdown. Optional `max_output_tokens` sets the maximum response length; `thinking_budget` sets the model's thinking token budget (provider-specific defaults apply if omitted).
+**Metadata format:** Same schema as system generators in `muse/*.md` - JSON frontmatter includes `title`, `description`, `color`, `schedule` (required), `hook`, `output`, `max_output_tokens`, and `thinking_budget` fields. The `schedule` field must be `"segment"` or `"daily"` - generators with missing or invalid schedule are skipped with a warning. Set `output: "json"` for structured JSON output instead of markdown. Optional `max_output_tokens` sets the maximum response length; `thinking_budget` sets the model's thinking token budget (provider-specific defaults apply if omitted).
 
-**Event extraction via hooks:** To extract structured events from insight output, use the `hook` field:
+**Event extraction via hooks:** To extract structured events from generator output, use the `hook` field:
 
 - `"hook": "occurrence"` - Extracts past events to `facets/{facet}/events/{day}.jsonl`
 - `"hook": "anticipation"` - Extracts future scheduled events
@@ -291,44 +289,44 @@ The `occurrences` field (optional string) provides topic-specific extraction gui
 }
 ```
 
-**App-data insights:** For insights from app-specific data (not transcripts), store in `JOURNAL/apps/{app}/insights/*.md` - these are automatically indexed.
+**App-data outputs:** For outputs from app-specific data (not transcripts), store in `JOURNAL/apps/{app}/agents/*.md` - these are automatically indexed.
 
-**Template variables:** Insight prompts can use template variables like `$name`, `$preferred`, `$daily_insight`, and context variables like `$day` and `$date`. See [PROMPT_TEMPLATES.md](PROMPT_TEMPLATES.md) for the complete template system documentation.
+**Template variables:** Generator prompts can use template variables like `$name`, `$preferred`, `$daily_preamble`, and context variables like `$day` and `$date`. See [PROMPT_TEMPLATES.md](PROMPT_TEMPLATES.md) for the complete template system documentation.
 
-**Custom hooks:** Insights also support custom `.py` hooks for transforming output programmatically:
+**Custom hooks:** Generators also support custom `.py` hooks for transforming output programmatically:
 
 - Create `{topic}.py` alongside `{topic}.md` for co-located hooks
 - Or use `"hook": "my_hook"` to reference `muse/my_hook.py`
 - Hook must define a `process(result, context)` function
 - `result` is the LLM output (markdown or JSON string)
-- `context` dict contains: `day`, `segment`, `multi_segment`, `insight_key`, `output_path`, `insight_meta`, `transcript`
+- `context` dict contains: `day`, `segment`, `multi_segment`, `name`, `output_path`, `meta`, `transcript`
 - Return modified string, or `None` to use original result
 - Hook errors are logged but don't crash the pipeline (falls back to original)
 
 ```python
-# insights/my_insight.py
+# muse/my_generator.py
 def process(result: str, context: dict) -> str | None:
     # Transform, validate, or emit side effects
     return result + "\n\n## Generated by hook"
 ```
 
 **Reference implementations:**
-- System insight templates: `muse/*.md` (files with `schedule` field but no `tools` field)
+- System generator templates: `muse/*.md` (files with `schedule` field but no `tools` field)
 - Extraction hooks: `muse/occurrence.py`, `muse/anticipation.py`
-- Discovery logic: `think/utils.py` - `get_insights()`, `get_insights_by_schedule()`, `get_insight_topic()`
-- Hook loading: `think/utils.py` - `load_insight_hook()`
+- Discovery logic: `think/utils.py` - `get_generator_agents()`, `get_generator_agents_by_schedule()`, `get_output_topic()`
+- Hook loading: `think/utils.py` - `load_output_hook()`
 
 ---
 
-### 8. `muse/` - App Agents and Insights
+### 8. `muse/` - App Agents and Generators
 
-Define custom agents and insight templates that integrate with solstone's Cortex agent system.
+Define custom agents and generator templates that integrate with solstone's Cortex agent system.
 
 **Key Points:**
 - Create `muse/` directory with `.md` files containing JSON frontmatter
-- Both agents and insights live in the same directory - distinguished by frontmatter fields
-- Agents have a `tools` field, insights have `schedule` but no `tools`
-- App agents/insights are automatically discovered alongside system ones
+- Both agents and generators live in the same directory - distinguished by frontmatter fields
+- Agents have a `tools` field, generators have `schedule` but no `tools`
+- App agents/generators are automatically discovered alongside system ones
 - Keys are namespaced as `{app}:{name}` (e.g., `my_app:helper`)
 - Agents inherit all system agent capabilities (tools, scheduling, handoffs, multi-facet)
 
@@ -349,7 +347,7 @@ Both insights and agents support an optional `instructions` key for customizing 
   "instructions": {
     "system": "journal",
     "facets": "short",
-    "sources": {"audio": true, "screen": true, "insights": false}
+    "sources": {"audio": true, "screen": true, "agents": false}
   }
 }
 ```

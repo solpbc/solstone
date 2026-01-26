@@ -226,7 +226,7 @@ make clean-install # Clean and reinstall
 * **Test Fixtures**: `fixtures/journal/` - complete mock journal
 * **Live Logs**: `$JOURNAL_PATH/health/<service>.log`
 * **Agent Personas**: `muse/*.md` (apps can add their own in `muse/`, see [docs/APPS.md](docs/APPS.md))
-* **Insight Templates**: `muse/*.md` (apps can add their own in `muse/`, see [docs/APPS.md](docs/APPS.md))
+* **Generator Templates**: `muse/*.md` (apps can add their own in `muse/`, see [docs/APPS.md](docs/APPS.md))
 * **Scratch Space**: `scratch/` - git-ignored local workspace
 
 ### Getting Help

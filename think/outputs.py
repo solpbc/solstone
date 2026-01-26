@@ -329,7 +329,7 @@ def chunk_markdown(text: str) -> list[dict]:
     return chunk_ast(ast)
 
 
-def format_insight(
+def format_markdown(
     text: str,
     context: dict[str, Any] | None = None,
 ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
@@ -359,7 +359,7 @@ def format_insight(
 # ---------------------------------------------------------------------------
 # Extraction Hook Utilities
 # ---------------------------------------------------------------------------
-# Shared utilities for insight extraction hooks (occurrence.py, anticipation.py)
+# Shared utilities for output extraction hooks (occurrence.py, anticipation.py)
 
 import json
 import logging
@@ -374,20 +374,20 @@ def should_skip_extraction(result: str, context: dict) -> str | None:
     """Check if extraction should be skipped and return reason, or None to proceed.
 
     Args:
-        result: The generated insight markdown content.
-        context: Hook context dict with insight_meta and multi_segment.
+        result: The generated output markdown content.
+        context: Hook context dict with meta and multi_segment.
 
     Returns:
         Skip reason string if extraction should be skipped, None otherwise.
     """
-    insight_meta = context.get("insight_meta", {})
+    meta = context.get("meta", {})
 
     # Skip if extraction disabled via journal config
-    if insight_meta.get("extract") is False:
+    if meta.get("extract") is False:
         return "extraction disabled via journal config"
 
     # Skip for JSON output (output IS the structured data)
-    if insight_meta.get("output") == "json":
+    if meta.get("output") == "json":
         return "JSON output (already structured)"
 
     # Skip in multi-segment mode
@@ -405,7 +405,7 @@ def write_events_jsonl(
     events: list[dict],
     topic: str,
     occurred: bool,
-    source_insight: str,
+    source_output: str,
     capture_day: str,
 ) -> list[Path]:
     """Write events to facet-based JSONL files.
@@ -415,10 +415,10 @@ def write_events_jsonl(
 
     Args:
         events: List of event dictionaries from extraction.
-        topic: Source insight topic (e.g., "meetings", "schedule").
+        topic: Source generator topic (e.g., "meetings", "schedule").
         occurred: True for occurrences, False for anticipations.
-        source_insight: Relative path to source insight file.
-        capture_day: Day the insight was captured (YYYYMMDD).
+        source_output: Relative path to source output file.
+        capture_day: Day the output was captured (YYYYMMDD).
 
     Returns:
         List of paths to written JSONL files.
@@ -456,7 +456,7 @@ def write_events_jsonl(
         enriched = dict(event)
         enriched["topic"] = topic
         enriched["occurred"] = occurred
-        enriched["source"] = source_insight
+        enriched["source"] = source_output
 
         grouped[key].append(enriched)
 
@@ -477,29 +477,29 @@ def write_events_jsonl(
     return written_paths
 
 
-def compute_source_insight(context: dict) -> str:
-    """Compute relative source insight path from hook context.
+def compute_output_source(context: dict) -> str:
+    """Compute relative source output path from hook context.
 
     Args:
-        context: Hook context dict with day, segment, insight_key, output_path.
+        context: Hook context dict with day, segment, name, output_path.
 
     Returns:
-        Relative path like "20240101/insights/meetings.md".
+        Relative path like "20240101/agents/meetings.md".
     """
-    from think.utils import get_insight_topic, get_journal
+    from think.utils import get_journal, get_output_topic
 
     day = context.get("day", "")
     output_path = context.get("output_path", "")
-    insight_key = context.get("insight_key", "unknown")
+    name = context.get("name", "unknown")
     journal = get_journal()
 
     try:
         return os.path.relpath(output_path, journal)
     except ValueError:
         segment = context.get("segment")
-        topic = get_insight_topic(insight_key)
+        topic = get_output_topic(name)
         return os.path.join(
             day,
-            "insights" if not segment else segment,
+            "agents" if not segment else segment,
             f"{topic}.md",
         )

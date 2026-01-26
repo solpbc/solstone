@@ -17,7 +17,7 @@ from think.utils import (
     day_log,
     day_path,
     get_agents,
-    get_insights_by_schedule,
+    get_generator_agents_by_schedule,
     get_journal,
     setup_cli,
 )
@@ -28,7 +28,7 @@ _callosum: CallosumConnection | None = None
 
 def run_command(cmd: list[str], day: str) -> bool:
     logging.info("==> %s", " ".join(cmd))
-    # Extract command name for logging (e.g., "sol insight" -> "insight")
+    # Extract command name for logging (e.g., "sol generate" -> "generate")
     cmd_name = cmd[1] if cmd[0] == "sol" else cmd[0]
     cmd_name = cmd_name.replace("-", "_")
 
@@ -153,10 +153,10 @@ def build_commands(
             cmd.append("-v")
         commands.append(cmd)
 
-    # Run insights filtered by schedule (skips disabled and invalid)
-    insights = get_insights_by_schedule(target_schedule)
-    for insight_name, insight_data in insights.items():
-        cmd = ["sol", "insight", day, "-f", insight_data["path"]]
+    # Run generators filtered by schedule (skips disabled and invalid)
+    generators = get_generator_agents_by_schedule(target_schedule)
+    for generator_name, generator_data in generators.items():
+        cmd = ["sol", "generate", day, "-f", generator_data["path"]]
         if segment:
             cmd.extend(["--segment", segment])
         if verbose:
@@ -195,14 +195,14 @@ def parse_args() -> argparse.ArgumentParser:
     )
     parser.add_argument("--force", action="store_true", help="Overwrite existing files")
     parser.add_argument(
-        "--skip-insights",
+        "--skip-generators",
         action="store_true",
-        help="Skip insight processing, run agents only",
+        help="Skip generator processing, run agents only",
     )
     parser.add_argument(
         "--skip-agents",
         action="store_true",
-        help="Skip agent processing, run insights only",
+        help="Skip agent processing, run generators only",
     )
     return parser
 
@@ -436,7 +436,7 @@ def main() -> None:
 
     try:
         start_time = time.time()
-        insight_fail_count = 0
+        generator_fail_count = 0
         agent_fail_count = 0
 
         # Determine mode based on segment presence
@@ -453,15 +453,15 @@ def main() -> None:
         # Emit started event
         emit("started", **event_fields())
 
-        # Phase 1: Insights
-        if not args.skip_insights:
+        # Phase 1: Generators
+        if not args.skip_generators:
             commands = build_commands(
                 day, args.force, verbose=args.verbose, segment=args.segment
             )
 
             # Build command names list for logging
             command_names = [cmd[1] for cmd in commands]
-            logging.info(f"Running {len(commands)} insight commands: {command_names}")
+            logging.info(f"Running {len(commands)} generator commands: {command_names}")
 
             success_count = 0
             for index, cmd in enumerate(commands):
@@ -484,34 +484,34 @@ def main() -> None:
                 if success:
                     success_count += 1
                 else:
-                    insight_fail_count += 1
+                    generator_fail_count += 1
 
-            # Emit insights_completed event
+            # Emit generators_completed event
             emit(
-                "insights_completed",
+                "generators_completed",
                 **event_fields(
                     success=success_count,
-                    failed=insight_fail_count,
+                    failed=generator_fail_count,
                     duration_ms=int((time.time() - start_time) * 1000),
                 ),
             )
 
             logging.info(
-                f"Insights completed: {success_count} succeeded, {insight_fail_count} failed"
+                f"Generators completed: {success_count} succeeded, {generator_fail_count} failed"
             )
 
-            # Exit early if insights failed and agents are requested
-            if insight_fail_count > 0 and not args.skip_agents:
-                logging.error("Insights failed, skipping agents")
+            # Exit early if generators failed and agents are requested
+            if generator_fail_count > 0 and not args.skip_agents:
+                logging.error("Generators failed, skipping agents")
                 emit(
                     "completed",
                     **event_fields(
-                        insight_failed=insight_fail_count,
+                        generator_failed=generator_fail_count,
                         agent_failed=0,
                         duration_ms=int((time.time() - start_time) * 1000),
                     ),
                 )
-                day_log(day, f"dream insights failed {insight_fail_count}")
+                day_log(day, f"dream generators failed {generator_fail_count}")
                 sys.exit(1)
 
         # Phase 2: Agents
@@ -533,7 +533,7 @@ def main() -> None:
         emit(
             "completed",
             **event_fields(
-                insight_failed=insight_fail_count,
+                generator_failed=generator_fail_count,
                 agent_failed=agent_fail_count,
                 duration_ms=int((time.time() - start_time) * 1000),
             ),
@@ -541,21 +541,21 @@ def main() -> None:
 
         # Build log message
         msg = "dream"
-        if args.skip_insights:
-            msg += " --skip-insights"
+        if args.skip_generators:
+            msg += " --skip-generators"
         if args.skip_agents:
             msg += " --skip-agents"
         if args.force:
             msg += " --force"
-        if insight_fail_count:
-            msg += f" insights_failed={insight_fail_count}"
+        if generator_fail_count:
+            msg += f" generators_failed={generator_fail_count}"
         if agent_fail_count:
             msg += f" agents_failed={agent_fail_count}"
         day_log(day, msg)
 
         # Exit with error if any failures
-        if insight_fail_count > 0 or agent_fail_count > 0:
-            total_failures = insight_fail_count + agent_fail_count
+        if generator_fail_count > 0 or agent_fail_count > 0:
+            total_failures = generator_fail_count + agent_fail_count
             logging.error(f"{total_failures} task(s) failed, exiting with error")
             sys.exit(1)
     finally:

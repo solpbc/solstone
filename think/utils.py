@@ -33,7 +33,7 @@ def _load_raw_templates() -> dict[str, str]:
     """Load raw template files from think/templates/ directory.
 
     Templates are cached on first load. Each .md file becomes a template
-    variable named after its stem (e.g., daily_insight.md -> $daily_insight).
+    variable named after its stem (e.g., daily_preamble.md -> $daily_preamble).
 
     Returns
     -------
@@ -166,7 +166,7 @@ def load_prompt(
       - Uppercase-first versions: $Pronouns_possessive, $Name, $Bio
     - Templates from think/templates/*.md:
       - Each file becomes a variable named after its stem
-      - Example: daily_insight.md -> $daily_insight
+      - Example: daily_preamble.md -> $daily_preamble
       - Templates are pre-processed with identity and context vars, so templates
         can use $date, $preferred, etc. before being substituted into prompts
 
@@ -737,13 +737,13 @@ def setup_cli(parser: argparse.ArgumentParser, *, parse_known: bool = False):
     return (args, extra) if parse_known else args
 
 
-def get_insight_topic(key: str) -> str:
-    """Convert insight key to filesystem-safe basename (no extension).
+def get_output_topic(key: str) -> str:
+    """Convert agent/generator key to filesystem-safe basename (no extension).
 
     Parameters
     ----------
     key:
-        Insight key in format "topic" (system) or "app:topic" (app).
+        Generator key in format "topic" (system) or "app:topic" (app).
 
     Returns
     -------
@@ -752,9 +752,9 @@ def get_insight_topic(key: str) -> str:
 
     Examples
     --------
-    >>> get_insight_topic("activity")
+    >>> get_output_topic("activity")
     'activity'
-    >>> get_insight_topic("chat:sentiment")
+    >>> get_output_topic("chat:sentiment")
     '_chat_sentiment'
     """
     if ":" in key:
@@ -769,17 +769,17 @@ def get_output_path(
     segment: str | None = None,
     output_format: str | None = None,
 ) -> Path:
-    """Return output path for insight or agent output.
+    """Return output path for generator agent output.
 
-    Shared utility for determining where to write insight/agent results.
-    Used by both think/insight.py and think/cortex.py.
+    Shared utility for determining where to write generator results.
+    Used by both think/generate.py and think/cortex.py.
 
     Parameters
     ----------
     day_dir:
         Day directory path (YYYYMMDD).
     key:
-        Insight key or agent name (e.g., "activity", "chat:sentiment",
+        Generator key or agent name (e.g., "activity", "chat:sentiment",
         "decisionalizer", "entities:observer").
     segment:
         Optional segment key (HHMMSS_LEN) for segment-level output.
@@ -791,23 +791,23 @@ def get_output_path(
     Path
         Output file path:
         - With segment: YYYYMMDD/{segment}/{topic}.{ext}
-        - Without segment: YYYYMMDD/insights/{topic}.{ext}
+        - Without segment: YYYYMMDD/agents/{topic}.{ext}
         Where topic is derived from key and ext is "json" or "md".
     """
     day = Path(day_dir)
-    topic = get_insight_topic(key)
+    topic = get_output_topic(key)
     ext = "json" if output_format == "json" else "md"
 
     if segment:
         # Segment output goes directly in segment directory
         return day / segment / f"{topic}.{ext}"
     else:
-        # Daily output goes in insights/ subdirectory
-        return day / "insights" / f"{topic}.{ext}"
+        # Daily output goes in agents/ subdirectory
+        return day / "agents" / f"{topic}.{ext}"
 
 
-def _load_insight_metadata(md_path: Path) -> dict[str, object]:
-    """Load insight metadata from .md file with JSON frontmatter.
+def _load_prompt_metadata(md_path: Path) -> dict[str, object]:
+    """Load prompt metadata from .md file with JSON frontmatter.
 
     Parameters
     ----------
@@ -854,11 +854,11 @@ def _load_insight_metadata(md_path: Path) -> dict[str, object]:
     return info
 
 
-def load_insight_hook(hook_path: str | Path) -> Callable[[str, dict], str | None]:
-    """Load an insight post-processing hook from a Python file.
+def load_output_hook(hook_path: str | Path) -> Callable[[str, dict], str | None]:
+    """Load an output post-processing hook from a Python file.
 
     Hooks are Python modules with a ``process(result, context)`` function that
-    transforms insight output. The hook is loaded in isolation without polluting
+    transforms generator output. The hook is loaded in isolation without polluting
     sys.modules.
 
     Parameters
@@ -882,7 +882,7 @@ def load_insight_hook(hook_path: str | Path) -> Callable[[str, dict], str | None
 
     hook_path = Path(hook_path)
     spec = importlib.util.spec_from_file_location(
-        f"insight_hook_{hook_path.stem}", hook_path
+        f"output_hook_{hook_path.stem}", hook_path
     )
     if spec is None or spec.loader is None:
         raise ImportError(f"Cannot load hook from {hook_path}")
@@ -900,27 +900,14 @@ def load_insight_hook(hook_path: str | Path) -> Callable[[str, dict], str | None
     return process_func
 
 
-def get_insights_config() -> dict[str, dict[str, object]]:
-    """Return insight overrides from journal config.
+def get_generator_agents() -> dict[str, dict[str, object]]:
+    """Return available generator agents with metadata and config overrides.
 
-    Returns
-    -------
-    dict
-        Mapping of insight key to override settings (disabled, extract).
-        Empty dict if no overrides configured.
-    """
-    config = get_config()
-    return config.get("insights", {})
+    Scans both system generators (muse/) and app generators (apps/*/muse/).
+    Generators are identified by having a "schedule" field but no "tools" field
+    in frontmatter (tool agents have tools, generators don't).
 
-
-def get_insights() -> dict[str, dict[str, object]]:
-    """Return available insights with metadata and config overrides.
-
-    Scans both system insights (muse/) and app insights (apps/*/muse/).
-    Insights are identified by having a "schedule" field but no "tools" field
-    in frontmatter (agents have tools, insights don't).
-
-    Each key is the insight name:
+    Each key is the generator name:
     - System: "activity", "meetings"
     - App: "app:topic" (e.g., "chat:sentiment")
 
@@ -928,24 +915,24 @@ def get_insights() -> dict[str, dict[str, object]]:
     from the frontmatter, the file ``mtime``, a ``source`` field
     ("system" or "app"), and any keys loaded from the JSON frontmatter.
 
-    Journal config overrides (from config/journal.json "insights" section)
+    Journal config overrides (from config/journal.json "agents" section)
     are merged in, allowing ``disabled`` and ``extract`` to be
-    overridden per insight.
+    overridden per generator.
     """
-    insights: dict[str, dict[str, object]] = {}
+    generators: dict[str, dict[str, object]] = {}
 
-    # System insights from muse/ (have "schedule" but no "tools")
+    # System generators from muse/ (have "schedule" but no "tools")
     if MUSE_DIR.is_dir():
         for md_path in sorted(MUSE_DIR.glob("*.md")):
             name = md_path.stem
-            info = _load_insight_metadata(md_path)
-            # Insights have schedule but no tools (agents have tools)
+            info = _load_prompt_metadata(md_path)
+            # Generators have schedule but no tools (tool agents have tools)
             if "tools" in info or "schedule" not in info:
                 continue
             info["source"] = "system"
-            insights[name] = info
+            generators[name] = info
 
-    # App insights from apps/*/muse/
+    # App generators from apps/*/muse/
     apps_dir = Path(__file__).parent.parent / "apps"
     if apps_dir.is_dir():
         for app_path in sorted(apps_dir.iterdir()):
@@ -956,48 +943,48 @@ def get_insights() -> dict[str, dict[str, object]]:
                 continue
             app_name = app_path.name
             for md_path in sorted(app_muse_dir.glob("*.md")):
-                info = _load_insight_metadata(md_path)
-                # Insights have schedule but no tools (agents have tools)
+                info = _load_prompt_metadata(md_path)
+                # Generators have schedule but no tools (tool agents have tools)
                 if "tools" in info or "schedule" not in info:
                     continue
                 topic = md_path.stem
                 key = f"{app_name}:{topic}"
                 info["source"] = "app"
                 info["app"] = app_name
-                insights[key] = info
+                generators[key] = info
 
     # Merge journal config overrides
-    overrides = get_insights_config()
+    overrides = get_config().get("agents", {})
     for key, override in overrides.items():
-        if key in insights and isinstance(override, dict):
+        if key in generators and isinstance(override, dict):
             # Only merge known override fields
             if "disabled" in override:
-                insights[key]["disabled"] = override["disabled"]
+                generators[key]["disabled"] = override["disabled"]
             if "extract" in override:
-                insights[key]["extract"] = override["extract"]
+                generators[key]["extract"] = override["extract"]
 
-    return insights
+    return generators
 
 
-def get_insights_by_schedule(
+def get_generator_agents_by_schedule(
     schedule: str,
     *,
     include_disabled: bool = False,
 ) -> dict[str, dict[str, object]]:
-    """Return insights matching the given schedule.
+    """Return generator agents matching the given schedule.
 
     Args:
         schedule: Target schedule (e.g., "segment" or "daily").
-        include_disabled: If True, include disabled insights (for settings UI).
+        include_disabled: If True, include disabled generators (for settings UI).
             Default False (for processing pipelines).
 
     Returns:
-        Dict of insight_key -> metadata for insights where schedule matches.
+        Dict of generator_key -> metadata for generators where schedule matches.
     """
-    all_insights = get_insights()
+    all_generators = get_generator_agents()
     result: dict[str, dict[str, object]] = {}
 
-    for key, meta in all_insights.items():
+    for key, meta in all_generators.items():
         if not include_disabled and meta.get("disabled", False):
             continue
         if meta.get("schedule") == schedule:
@@ -1038,7 +1025,7 @@ _DEFAULT_INSTRUCTIONS = {
     "sources": {
         "audio": True,
         "screen": True,
-        "insights": False,
+        "agents": False,
     },
 }
 
@@ -1108,7 +1095,7 @@ def compose_instructions(
         Optional dict from .json "instructions" key. Supported keys:
         - "system": prompt name for system instruction (default: "journal")
         - "facets": "none" | "short" | "detailed" (default: "short")
-        - "sources": {"audio": bool, "screen": bool, "insights": bool}
+        - "sources": {"audio": bool, "screen": bool, "agents": bool}
 
     Returns
     -------
@@ -1118,7 +1105,7 @@ def compose_instructions(
         - system_prompt_name: str - name of system prompt (for cache keys)
         - user_instruction: str | None - loaded from user_prompt if provided
         - extra_context: str | None - facets + datetime
-        - sources: dict - {"audio": bool, "screen": bool, "insights": bool}
+        - sources: dict - {"audio": bool, "screen": bool, "agents": bool}
     """
     # Merge defaults with overrides
     cfg = _merge_instructions_config(_DEFAULT_INSTRUCTIONS, config_overrides)

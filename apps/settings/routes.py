@@ -780,12 +780,12 @@ def update_observe() -> Any:
 
 
 # ---------------------------------------------------------------------------
-# Insights API
+# Generators API
 # ---------------------------------------------------------------------------
 
 
-def _build_insight_info(key: str, meta: dict) -> dict:
-    """Build insight info dict for API response."""
+def _build_generator_info(key: str, meta: dict) -> dict:
+    """Build generator info dict for API response."""
     # Determine if insight supports extraction via named hook
     hook = meta.get("hook")
     has_extraction = hook in ("occurrence", "anticipation")
@@ -809,40 +809,42 @@ def _build_insight_info(key: str, meta: dict) -> dict:
     return info
 
 
-@settings_bp.route("/api/insights")
-def get_insights() -> Any:
-    """Return insights grouped by schedule with config overrides.
+@settings_bp.route("/api/generators")
+def get_generators() -> Any:
+    """Return generators grouped by schedule with config overrides.
 
     Returns:
-        - segment: List of segment-level insights
-        - daily: List of daily insights
+        - segment: List of segment-level generators
+        - daily: List of daily generators
 
-    Each insight contains:
-        - key: Insight identifier
+    Each generator contains:
+        - key: Generator identifier
         - title, description, color: Display metadata
         - source: "system" or "app"
         - app: App name (if source is "app")
         - schedule: "segment" or "daily"
-        - disabled: Whether insight is disabled
+        - disabled: Whether generator is disabled
         - extract: Whether event extraction is enabled
-        - has_extraction: Whether insight supports event extraction
+        - has_extraction: Whether generator supports event extraction
 
-    Insights with missing or invalid schedule are excluded.
+    Generators with missing or invalid schedule are excluded.
     """
     try:
-        from think.utils import get_insights_by_schedule
+        from think.utils import get_generator_agents_by_schedule
 
-        # Get insights by schedule (include disabled for settings toggle UI)
-        segment_insights = [
-            _build_insight_info(key, meta)
+        # Get generators by schedule (include disabled for settings toggle UI)
+        segment_generators = [
+            _build_generator_info(key, meta)
             for key, meta in sorted(
-                get_insights_by_schedule("segment", include_disabled=True).items()
+                get_generator_agents_by_schedule(
+                    "segment", include_disabled=True
+                ).items()
             )
         ]
-        daily_insights = [
-            _build_insight_info(key, meta)
+        daily_generators = [
+            _build_generator_info(key, meta)
             for key, meta in sorted(
-                get_insights_by_schedule("daily", include_disabled=True).items()
+                get_generator_agents_by_schedule("daily", include_disabled=True).items()
             )
         ]
 
@@ -850,32 +852,32 @@ def get_insights() -> Any:
         def sort_key(x: dict) -> tuple:
             return (0 if x["source"] == "system" else 1, x.get("app", ""), x["key"])
 
-        segment_insights.sort(key=sort_key)
-        daily_insights.sort(key=sort_key)
+        segment_generators.sort(key=sort_key)
+        daily_generators.sort(key=sort_key)
 
-        return jsonify({"segment": segment_insights, "daily": daily_insights})
+        return jsonify({"segment": segment_generators, "daily": daily_generators})
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
 
-@settings_bp.route("/api/insights", methods=["PUT"])
-def update_insights() -> Any:
-    """Update insight configuration overrides.
+@settings_bp.route("/api/generators", methods=["PUT"])
+def update_generators() -> Any:
+    """Update generator configuration overrides.
 
-    Accepts JSON mapping insight keys to override settings:
+    Accepts JSON mapping generator keys to override settings:
         {
-            "<insight_key>": {
-                "disabled": bool,      # Disable insight entirely
+            "<generator_key>": {
+                "disabled": bool,      # Disable generator entirely
                 "extract": bool   # Disable event extraction
             } | null                   # Remove overrides (reset to default)
         }
 
     Only boolean values are accepted for disabled and extract.
-    Setting an insight to null removes all overrides for that insight.
+    Setting a generator to null removes all overrides for that generator.
     """
     try:
-        from think.utils import get_insights as get_all_insights
+        from think.utils import get_generator_agents
 
         request_data = request.get_json()
         if not request_data:
@@ -884,9 +886,9 @@ def update_insights() -> Any:
         if not isinstance(request_data, dict):
             return jsonify({"error": "Request must be an object"}), 400
 
-        # Get valid insight keys
-        all_insights = get_all_insights()
-        valid_keys = set(all_insights.keys())
+        # Get valid generator keys
+        all_generators = get_generator_agents()
+        valid_keys = set(all_generators.keys())
 
         config_dir = Path(state.journal_root) / "config"
         config_dir.mkdir(parents=True, exist_ok=True)
@@ -894,27 +896,27 @@ def update_insights() -> Any:
 
         # Load existing config
         config = get_journal_config()
-        old_insights = copy.deepcopy(config.get("insights", {}))
+        old_config = copy.deepcopy(config.get("agents", {}))
 
-        # Ensure insights section exists
-        if "insights" not in config:
-            config["insights"] = {}
+        # Ensure agents section exists
+        if "agents" not in config:
+            config["agents"] = {}
 
         changed_fields = {}
 
         for key, override in request_data.items():
-            # Validate insight key exists
+            # Validate generator key exists
             if key not in valid_keys:
                 return (
-                    jsonify({"error": f"Unknown insight: {key}"}),
+                    jsonify({"error": f"Unknown generator: {key}"}),
                     400,
                 )
 
             # Handle null - remove overrides
             if override is None:
-                if key in config["insights"]:
-                    changed_fields[key] = {"old": config["insights"][key], "new": None}
-                    del config["insights"][key]
+                if key in config["agents"]:
+                    changed_fields[key] = {"old": config["agents"][key], "new": None}
+                    del config["agents"][key]
                 continue
 
             if not isinstance(override, dict):
@@ -924,8 +926,8 @@ def update_insights() -> Any:
                 )
 
             # Validate and apply fields
-            old_override = old_insights.get(key, {})
-            new_override = config["insights"].get(key, {})
+            old_override = old_config.get(key, {})
+            new_override = config["agents"].get(key, {})
 
             for field in ["disabled", "extract"]:
                 if field in override:
@@ -943,11 +945,11 @@ def update_insights() -> Any:
                     new_override[field] = value
 
             if new_override:
-                config["insights"][key] = new_override
+                config["agents"][key] = new_override
 
-        # Clean up empty insights section
-        if not config["insights"]:
-            del config["insights"]
+        # Clean up empty agents section
+        if not config["agents"]:
+            del config["agents"]
 
         # Write updated config
         with open(config_path, "w", encoding="utf-8") as f:
@@ -959,11 +961,11 @@ def update_insights() -> Any:
             log_app_action(
                 app="settings",
                 facet=None,
-                action="insights_update",
+                action="generators_update",
                 params={"changed_fields": changed_fields},
             )
 
-        return get_insights()
+        return get_generators()
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500

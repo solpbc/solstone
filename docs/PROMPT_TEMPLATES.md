@@ -1,6 +1,6 @@
 # Prompt Template System
 
-This document describes solstone's template variable system for personalizing prompts used in insights and agents. Templates enable dynamic substitution of user identity, contextual information, and reusable prompt fragments.
+This document describes solstone's template variable system for personalizing prompts used in generators and agents. Templates enable dynamic substitution of user identity, contextual information, and reusable prompt fragments.
 
 ## Overview
 
@@ -27,7 +27,7 @@ Prompt files use JSON frontmatter with `{` and `}` as delimiters (braces on thei
   "schedule": "segment"
 }
 
-$segment_insight
+$segment_preamble
 
 # Segment Activity Synthesis
 
@@ -69,10 +69,10 @@ The flattening logic converts nested objects using underscore separators. For ex
 Template variables come from `.md` files in the `think/templates/` directory. Each file's stem becomes a variable name containing its contents.
 
 **Current templates:**
-- `$daily_insight` - Preamble for full-day insight analysis
-- `$segment_insight` - Preamble for single-segment analysis
+- `$daily_preamble` - Preamble for full-day output analysis
+- `$segment_preamble` - Preamble for single-segment analysis
 
-Templates can themselves use identity and context variables, enabling composable prompt construction. For example, `daily_insight.md` uses `$preferred` and `$date`.
+Templates can themselves use identity and context variables, enabling composable prompt construction. For example, `daily_preamble.md` uses `$preferred` and `$date`.
 
 **Pattern:** To add a new template variable, create `think/templates/mytemplate.md` and it becomes available as `$mytemplate` in all prompts.
 
@@ -82,7 +82,7 @@ Templates can themselves use identity and context variables, enabling composable
 
 Context variables are passed at runtime by the code calling `load_prompt()`. These are use-case specific and not globally available.
 
-**Common insight context:**
+**Common generator context:**
 - `$day` - Day in YYYYMMDD format
 - `$date` - Human-readable date (e.g., "Friday, January 24, 2026")
 - `$segment` - Segment key (e.g., "143022_300")
@@ -92,30 +92,30 @@ Context variables are passed at runtime by the code calling `load_prompt()`. The
 Context variables also get automatic uppercase-first versions (`$Day`, `$Date`, etc.).
 
 **References:**
-- Insight context building: `think/insight.py` (search for `prompt_context`)
+- Generator context building: `think/generate.py` (search for `prompt_context`)
 - Other callers: `observe/extract.py`, `observe/enrich.py`
 
 ## Usage Patterns
 
-### For Insights
+### For Generators
 
-Insight prompts typically compose a shared preamble with topic-specific instructions:
+Generator prompts typically compose a shared preamble with topic-specific instructions:
 
 ```markdown
 {
-  "title": "My Insight",
+  "title": "My Generator",
   "color": "#4caf50",
   "schedule": "segment"
 }
 
-$segment_insight
+$segment_preamble
 
 # Segment Activity Synthesis
 
 Your specific instructions here...
 ```
 
-The `$segment_insight` or `$daily_insight` template provides standardized context about what's being analyzed, while the rest of the prompt defines the specific analysis task.
+The `$segment_preamble` or `$daily_preamble` template provides standardized context about what's being analyzed, while the rest of the prompt defines the specific analysis task.
 
 **Optional model configuration:** Add `max_output_tokens` (response length limit) and `thinking_budget` (model thinking token budget) to override provider defaults.
 
@@ -189,5 +189,5 @@ load_prompt("myprompt", context={"custom_var": "value"})
 | Core load function | `think/utils.py` (`load_prompt`) |
 | Template files | `think/templates/*.md` |
 | Test coverage | `tests/test_template_substitution.py` |
-| Insight prompts | `muse/*.md` (files with `schedule` field but no `tools`) |
+| Generator prompts | `muse/*.md` (files with `schedule` field but no `tools`) |
 | Agent prompts | `muse/*.md` (files with `tools` field) |

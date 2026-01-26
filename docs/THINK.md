@@ -14,7 +14,7 @@ All dependencies are listed in `pyproject.toml`.
 
 The package exposes several commands:
 
-- `sol insight` builds a Markdown summary of a day's recordings using a Gemini prompt.
+- `sol generate` builds a Markdown summary of a day's recordings using a Gemini prompt.
 - `sol cluster` groups audio and screen JSON files into report sections. Use `--start` and
   `--length` to limit the report to a specific time range.
 - `sol dream` runs the above tools for a single day.
@@ -23,9 +23,9 @@ The package exposes several commands:
 - `sol cortex` starts a WebSocket API server for managing AI agent instances.
 
 ```bash
-sol insight YYYYMMDD -f PROMPT [--segment HHMMSS_LEN] [--segments SEG1,SEG2 -o OUT] [--force] [-v]
+sol generate YYYYMMDD -f PROMPT [--segment HHMMSS_LEN] [--segments SEG1,SEG2 -o OUT] [--force] [-v]
 sol cluster YYYYMMDD [--start HHMMSS --length MINUTES]
-sol dream [--day YYYYMMDD] [--segment HHMMSS_LEN] [--force] [--skip-insights] [--skip-agents]
+sol dream [--day YYYYMMDD] [--segment HHMMSS_LEN] [--force] [--skip-generators] [--skip-agents]
 sol supervisor [--no-observers]
 sol mcp [--transport http] [--port PORT] [--path PATH]
 sol cortex [--host HOST] [--port PORT] [--path PATH]
@@ -137,10 +137,10 @@ Each provider lives in `think/providers/` and exposes a common interface:
 For direct LLM calls, use `think.models.generate()` or `think.models.agenerate()`
 which automatically routes to the configured provider based on context.
 
-## Insight map keys
+## Generator map keys
 
-`think.utils.get_insights()` reads the `.md` prompt files under `muse/` and
-returns a dictionary keyed by insight name. Each entry contains:
+`think.utils.get_generator_agents()` reads the `.md` prompt files under `muse/` and
+returns a dictionary keyed by generator name. Each entry contains:
 
 - `path` – the prompt file path
 - `color` – UI color hex string

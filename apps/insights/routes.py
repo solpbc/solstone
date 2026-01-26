@@ -15,7 +15,7 @@ from flask import Blueprint, jsonify, redirect, render_template, url_for
 
 from convey.utils import DATE_RE, format_date
 from think.models import get_usage_cost
-from think.utils import day_dirs, day_path, get_insight_topic, get_insights
+from think.utils import day_dirs, day_path, get_generator_agents, get_output_topic
 
 insights_bp = Blueprint(
     "app:insights",
@@ -25,15 +25,15 @@ insights_bp = Blueprint(
 
 
 def _build_topic_map() -> dict[str, dict]:
-    """Build a mapping from filesystem topic name to insight key and metadata.
+    """Build a mapping from filesystem topic name to generator key and metadata.
 
     Returns dict mapping topic filename (e.g., "activity", "_chat_sentiment")
-    to {"key": insight_key, "meta": insight_metadata}.
+    to {"key": generator_key, "meta": generator_metadata}.
     """
-    insights = get_insights()
+    generators = get_generator_agents()
     topic_map = {}
-    for key, meta in insights.items():
-        topic = get_insight_topic(key)
+    for key, meta in generators.items():
+        topic = get_output_topic(key)
         topic_map[topic] = {"key": key, "meta": meta}
     return topic_map
 
@@ -65,14 +65,14 @@ def insights_day(day: str) -> str:
 
     topic_map = _build_topic_map()
     files = []
-    insights_dir = os.path.join(str(day_path(day)), "insights")
+    agents_dir = os.path.join(str(day_path(day)), "agents")
 
-    if os.path.isdir(insights_dir):
-        for name in sorted(os.listdir(insights_dir)):
+    if os.path.isdir(agents_dir):
+        for name in sorted(os.listdir(agents_dir)):
             base, ext = os.path.splitext(name)
             if ext != ".md" or base not in topic_map:
                 continue
-            path = os.path.join(insights_dir, name)
+            path = os.path.join(agents_dir, name)
             try:
                 with open(path, "r", encoding="utf-8") as f:
                     text = f.read()
@@ -84,8 +84,8 @@ def insights_day(day: str) -> str:
             key = info["key"]
             meta = info["meta"]
 
-            # Get generation cost for this insight
-            cost_data = get_usage_cost(day, context=f"insight.{key}")
+            # Get generation cost for this generator
+            cost_data = get_usage_cost(day, context=f"agent.{key}")
             cost = cost_data["cost"] if cost_data["cost"] > 0 else None
 
             files.append(
@@ -130,10 +130,10 @@ def api_stats(month: str):
         if not day_name.startswith(month):
             continue
 
-        insights_dir = os.path.join(day_dir, "insights")
-        if os.path.isdir(insights_dir):
+        agents_dir = os.path.join(day_dir, "agents")
+        if os.path.isdir(agents_dir):
             # Count .md files
-            md_files = [f for f in os.listdir(insights_dir) if f.endswith(".md")]
+            md_files = [f for f in os.listdir(agents_dir) if f.endswith(".md")]
             if md_files:
                 stats[day_name] = len(md_files)
 

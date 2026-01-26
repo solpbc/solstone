@@ -9,7 +9,7 @@ from think.utils import day_path
 
 
 def test_cluster(tmp_path, monkeypatch):
-    """Test cluster() uses audio and insight summaries (*.md files)."""
+    """Test cluster() uses audio and agent output summaries (*.md files)."""
     monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
     day_dir = day_path("20240101")
 
@@ -27,7 +27,7 @@ def test_cluster(tmp_path, monkeypatch):
 
 
 def test_cluster_range(tmp_path, monkeypatch):
-    """Test cluster_range with audio and insights parameters."""
+    """Test cluster_range with audio and agents parameters."""
     monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
     day_dir = day_path("20240101")
 
@@ -39,8 +39,8 @@ def test_cluster_range(tmp_path, monkeypatch):
         '{"start": "00:00:01", "source": "mic", "text": "hi from audio"}\n'
     )
     (day_dir / "120000_300" / "screen.md").write_text("screen summary content")
-    # Test with insights=True to include *.md files
-    md = mod.cluster_range("20240101", "120000", "120100", audio=True, insights=True)
+    # Test with agents=True to include *.md files
+    md = mod.cluster_range("20240101", "120000", "120100", audio=True, agents=True)
     # Check that the function works and includes expected sections
     assert "Audio Transcript" in md
     # Now uses insight rendering: "### {stem} summary"
@@ -153,12 +153,12 @@ def test_cluster_period_uses_raw_screen(tmp_path, monkeypatch):
     assert "Screen Activity" in result
     # Raw screen content should be present
     assert "VS Code with Python file" in result
-    # Insight content should NOT be present (insights=False for cluster_period)
+    # Insight content should NOT be present (agents=False for cluster_period)
     assert "This insight should NOT appear" not in result
 
 
-def test_cluster_range_with_insights(tmp_path, monkeypatch):
-    """Test cluster_range with insights=True loads all *.md files."""
+def test_cluster_range_with_agents(tmp_path, monkeypatch):
+    """Test cluster_range with agents=True loads all *.md files."""
     monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
     day_dir = day_path("20240101")
 
@@ -172,19 +172,19 @@ def test_cluster_range_with_insights(tmp_path, monkeypatch):
     )
     (segment / "screen.md").write_text("Screen activity summary")
     (segment / "activity.md").write_text("Activity insight content")
-    # Also create screen.jsonl to verify it's NOT used when insights=True, screen=False
+    # Also create screen.jsonl to verify it's NOT used when agents=True, screen=False
     (segment / "screen.jsonl").write_text(
         '{"raw": "screen.webm"}\n'
         '{"timestamp": 10, "analysis": {"primary": "code_editor"}}\n'
     )
 
-    # Test insights=True returns *.md summaries, not raw screen data
+    # Test agents=True returns *.md summaries, not raw screen data
     result = mod.cluster_range(
-        "20240101", "100000", "100500", audio=True, screen=False, insights=True
+        "20240101", "100000", "100500", audio=True, screen=False, agents=True
     )
 
     assert "Audio Transcript" in result
-    # Should include both .md files as insights
+    # Should include both .md files as agent outputs
     assert "### screen summary" in result
     assert "Screen activity summary" in result
     assert "### activity summary" in result
@@ -209,9 +209,9 @@ def test_cluster_range_with_screen(tmp_path, monkeypatch):
     )
     (segment / "screen.md").write_text("Screen summary insight")
 
-    # Test screen=True returns raw screen data, not insights
+    # Test screen=True returns raw screen data, not agent outputs
     result = mod.cluster_range(
-        "20240101", "100000", "100500", audio=False, screen=True, insights=False
+        "20240101", "100000", "100500", audio=False, screen=True, agents=False
     )
 
     assert "Screen Activity" in result
@@ -244,7 +244,7 @@ def test_cluster_range_with_multiple_screen_files(tmp_path, monkeypatch):
 
     # Test screen=True returns data from both screen files
     result = mod.cluster_range(
-        "20240101", "100000", "100500", audio=False, screen=True, insights=False
+        "20240101", "100000", "100500", audio=False, screen=True, agents=False
     )
 
     # Should include content from both screen files

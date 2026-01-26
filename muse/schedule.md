@@ -9,7 +9,7 @@
 
 }
 
-$daily_insight
+$daily_preamble
 
 # Future Schedule Extraction
 

@@ -68,17 +68,17 @@ def process(result: str, context: dict) -> str | None:
     """Parse entity list and write to segment JSONL file.
 
     Args:
-        result: The generated insight content (markdown entity list).
+        result: The generated output content (markdown entity list).
         context: Hook context with keys:
             - day: YYYYMMDD string
             - segment: segment key (HHMMSS_LEN)
-            - insight_key: e.g., "entities"
+            - name: e.g., "entities"
             - output_path: absolute path to output file
-            - insight_meta: dict with frontmatter
+            - meta: dict with frontmatter
             - transcript: the clustered transcript markdown
 
     Returns:
-        None - this hook does not modify the insight result.
+        None - this hook does not modify the output result.
     """
     segment = context.get("segment")
     if not segment:

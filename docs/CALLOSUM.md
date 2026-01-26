@@ -97,11 +97,11 @@ Callosum is a JSON-per-line message bus for real-time event distribution across 
 **Stages:** `initialization`, `segmenting`, `transcribing`, `summarizing`
 **Purpose:** Track media file import from upload through transcription to segment creation
 
-### `dream` - Insight and agent processing
+### `dream` - Generator and agent processing
 **Source:** `think/dream.py`
-**Events:** `started`, `command`, `insights_completed`, `agents_started`, `group_started`, `group_completed`, `agents_completed`, `completed`
+**Events:** `started`, `command`, `generators_completed`, `agents_started`, `group_started`, `group_completed`, `agents_completed`, `completed`
 **Key fields:** `mode` ("daily"/"segment"), `day`, `segment` (when mode="segment")
-**Purpose:** Track dream processing from insights through scheduled agents
+**Purpose:** Track dream processing from generators through scheduled agents
 
 ### `sync` - Remote segment synchronization
 **Source:** `observe/sync.py`
@@ -171,7 +171,7 @@ observe.described / observe.transcribed (processing complete)
     ↓ sense tracks completion
 observe.observed (segment fully processed)
     ↓ supervisor triggers dream
-dream.insights_completed
+dream.generators_completed
     ↓ apps/entities/events.py updates entity activity
 ```
 

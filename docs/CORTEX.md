@@ -210,7 +210,7 @@ When an agent completes successfully, its result can be automatically written to
 
 - Include an `output` field in the agent's frontmatter with the format ("md" or "json")
 - Output path is derived from agent name + format + schedule:
-  - Daily agents: `YYYYMMDD/insights/{name}.{ext}`
+  - Daily agents: `YYYYMMDD/agents/{name}.{ext}`
   - Segment agents: `YYYYMMDD/{segment}/{name}.{ext}`
 - Writing occurs before any handoff processing
 - Write failures are logged but don't interrupt the agent flow

@@ -10,12 +10,12 @@
   "instructions": {
     "system": "journal",
     "facets": "none",
-    "sources": {"audio": true, "screen": true, "insights": false}
+    "sources": {"audio": true, "screen": true, "agents": false}
   }
 
 }
 
-$segment_insight
+$segment_preamble
 
 Extract named entities and descriptions from the given segment transcription document.
 

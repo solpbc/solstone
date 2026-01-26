@@ -225,9 +225,9 @@ def test_context_defaults_known_entries():
     assert CONTEXT_DEFAULTS["observe.describe.frame"]["tier"] == TIER_LITE
     assert CONTEXT_DEFAULTS["observe.describe.frame"]["group"] == "Observe"
 
-    assert "insight.*" in CONTEXT_DEFAULTS
-    assert CONTEXT_DEFAULTS["insight.*"]["tier"] == TIER_FLASH
-    assert CONTEXT_DEFAULTS["insight.*"]["group"] == "Think"
+    assert "agent.*" in CONTEXT_DEFAULTS
+    assert CONTEXT_DEFAULTS["agent.*"]["tier"] == TIER_FLASH
+    assert CONTEXT_DEFAULTS["agent.*"]["group"] == "Think"
 
     assert "app.chat.title" in CONTEXT_DEFAULTS
     assert CONTEXT_DEFAULTS["app.chat.title"]["tier"] == TIER_LITE

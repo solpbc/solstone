@@ -14,15 +14,16 @@ from think.cluster import cluster, cluster_period, cluster_segments_multi
 from think.models import generate
 from think.utils import (
     PromptNotFoundError,
-    _load_insight_metadata,
+    _load_prompt_metadata,
     compose_instructions,
     day_log,
     day_path,
     format_day,
     format_segment_times,
-    get_insights,
+    get_generator_agents,
     get_output_path,
-    load_insight_hook,
+    get_output_topic,
+    load_output_hook,
     load_prompt,
     segment_parse,
     setup_cli,
@@ -30,24 +31,24 @@ from think.utils import (
 
 
 def scan_day(day: str) -> dict[str, list[str]]:
-    """Return lists of processed and pending daily insight output files.
+    """Return lists of processed and pending daily generator output files.
 
-    Only scans daily insights (schedule='daily'). Segment insights are
+    Only scans daily generators (schedule='daily'). Segment generators are
     stored within segment directories and are not included here.
     """
-    from think.utils import get_insights_by_schedule
+    from think.utils import get_generator_agents_by_schedule
 
     day_dir = day_path(day)
-    daily_insights = get_insights_by_schedule("daily", include_disabled=True)
+    daily_generators = get_generator_agents_by_schedule("daily", include_disabled=True)
     processed: list[str] = []
     pending: list[str] = []
-    for key, meta in sorted(daily_insights.items()):
+    for key, meta in sorted(daily_generators.items()):
         output_format = meta.get("output")
         output_path = get_output_path(day_dir, key, output_format=output_format)
         if output_path.exists():
-            processed.append(os.path.join("insights", output_path.name))
+            processed.append(os.path.join("agents", output_path.name))
         else:
-            pending.append(os.path.join("insights", output_path.name))
+            pending.append(os.path.join("agents", output_path.name))
     return {"processed": sorted(processed), "repairable": sorted(pending)}
 
 
@@ -100,26 +101,26 @@ def _get_or_create_cache(
     return cache.name
 
 
-def send_insight(
+def generate_agent_output(
     transcript: str,
     prompt: str,
     api_key: str,
     cache_display_name: str | None = None,
-    insight_key: str | None = None,
+    name: str | None = None,
     json_output: bool = False,
     system_instruction: str | None = None,
     thinking_budget: int | None = None,
     max_output_tokens: int | None = None,
 ) -> str:
-    """Send clustered transcript to LLM for insight generation.
+    """Send clustered transcript to LLM for agent output generation.
 
     Args:
         transcript: Clustered transcript content (markdown format).
-        prompt: Insight prompt text.
+        prompt: Agent prompt text.
         api_key: Google API key for caching.
         cache_display_name: Optional cache key for Google content caching.
             Should include system prompt name for proper cache isolation.
-        insight_key: Insight identifier for token logging context.
+        name: Agent name for token logging context.
         json_output: If True, request JSON response format.
         system_instruction: System instruction text. If None, loads default
             from journal.md via compose_instructions().
@@ -127,7 +128,7 @@ def send_insight(
         max_output_tokens: Maximum output tokens. If None, uses default.
 
     Returns:
-        Generated insight content (markdown or JSON string).
+        Generated agent output content (markdown or JSON string).
     """
     # Use provided system_instruction or fall back to default
     if system_instruction is None:
@@ -142,9 +143,7 @@ def send_insight(
 
     # Build context for provider routing and token logging
     output_type = "json" if json_output else "markdown"
-    context = (
-        f"insight.{insight_key}.{output_type}" if insight_key else "insight.unknown"
-    )
+    context = f"agent.{name}.{output_type}" if name else "agent.unknown"
 
     # Try to use cache if display name provided
     # Note: caching is Google-specific, so we check provider first
@@ -205,7 +204,7 @@ def main() -> None:
         "--prompt",
         dest="topic",
         required=True,
-        help="Insight key (e.g., 'activity', 'chat:sentiment') or path to .md file",
+        help="Generator key (e.g., 'activity', 'chat:sentiment') or path to .md file",
     )
     parser.add_argument(
         "-c",
@@ -249,48 +248,48 @@ def main() -> None:
         first_segment = args.segments.split(",")[0].strip()
         os.environ["SEGMENT_KEY"] = first_segment
 
-    # Resolve insight key or path to metadata
-    all_insights = get_insights()
+    # Resolve generator key or path to metadata
+    all_generators = get_generator_agents()
     topic_arg = args.topic
 
-    # Check if it's a known insight key first
-    if topic_arg in all_insights:
-        insight_key = topic_arg
-        insight_meta = all_insights[insight_key]
-        insight_path = Path(insight_meta["path"])
+    # Check if it's a known generator key first
+    if topic_arg in all_generators:
+        name = topic_arg
+        meta = all_generators[name]
+        agent_path = Path(meta["path"])
     elif Path(topic_arg).exists():
         # Fall back to treating it as a file path (backwards compat)
-        insight_path = Path(topic_arg)
+        agent_path = Path(topic_arg)
         # Try to find matching key by path
-        insight_key = insight_path.stem
+        name = agent_path.stem
         found_in_registry = False
-        for key, meta in all_insights.items():
-            if meta.get("path") == str(insight_path):
-                insight_key = key
+        for key, m in all_generators.items():
+            if m.get("path") == str(agent_path):
+                name = key
                 found_in_registry = True
                 break
         if found_in_registry:
-            insight_meta = all_insights[insight_key]
+            meta = all_generators[name]
         else:
-            # Load metadata directly from file for ad-hoc insights
-            insight_meta = _load_insight_metadata(insight_path)
+            # Load metadata directly from file for ad-hoc generators
+            meta = _load_prompt_metadata(agent_path)
     else:
         parser.error(
-            f"Insight not found: {topic_arg}. "
-            f"Available: {', '.join(sorted(all_insights.keys()))}"
+            f"Generator not found: {topic_arg}. "
+            f"Available: {', '.join(sorted(all_generators.keys()))}"
         )
 
-    # Check if insight is disabled via journal config
-    if insight_meta.get("disabled"):
-        logging.info("Insight %s is disabled in journal config, skipping", insight_key)
-        day_log(args.day, f"insight {get_insight_topic(topic_arg)} skipped (disabled)")
+    # Check if generator is disabled via journal config
+    if meta.get("disabled"):
+        logging.info("Generator %s is disabled in journal config, skipping", name)
+        day_log(args.day, f"generate {get_output_topic(topic_arg)} skipped (disabled)")
         return
 
-    output_format = insight_meta.get("output")  # "json" or None (markdown)
+    output_format = meta.get("output")  # "json" or None (markdown)
     success = False
 
     # Extract instructions config for source filtering and system prompt
-    instructions_config = insight_meta.get("instructions")
+    instructions_config = meta.get("instructions")
 
     # Use compose_instructions to get sources config and system instruction
     instructions = compose_instructions(
@@ -319,14 +318,14 @@ def main() -> None:
         markdown, file_count = cluster(args.day, sources=sources)
     day_dir = str(day_path(args.day))
 
-    # Skip insight generation when there's nothing to analyze
+    # Skip generation when there's nothing to analyze
     if file_count == 0 or len(markdown.strip()) < MIN_INPUT_CHARS:
         logging.info(
-            "Insufficient input (files=%d, chars=%d), skipping insight generation",
+            "Insufficient input (files=%d, chars=%d), skipping generation",
             file_count,
             len(markdown.strip()),
         )
-        day_log(args.day, f"insight {get_insight_topic(topic_arg)} skipped (no input)")
+        day_log(args.day, f"generate {get_output_topic(topic_arg)} skipped (no input)")
         return
 
     # Prepend input context note for limited recordings
@@ -385,24 +384,24 @@ def main() -> None:
                 prompt_context["segment_end"] = end_str
 
         try:
-            insight_prompt = load_prompt(
-                insight_path.stem, base_dir=insight_path.parent, context=prompt_context
+            agent_prompt = load_prompt(
+                agent_path.stem, base_dir=agent_path.parent, context=prompt_context
             )
         except PromptNotFoundError:
-            parser.error(f"Insight file not found: {insight_path}")
+            parser.error(f"Agent file not found: {agent_path}")
 
-        prompt = insight_prompt.text
+        prompt = agent_prompt.text
 
-        # Resolve provider for display (must match context used in send_insight)
+        # Resolve provider for display (must match context used in generate_agent_output)
         from think.models import resolve_provider
 
         display_output_type = "json" if output_format == "json" else "markdown"
-        _, model = resolve_provider(f"insight.{insight_key}.{display_output_type}")
+        _, model = resolve_provider(f"agent.{name}.{display_output_type}")
         day = args.day
         size_kb = len(markdown.encode("utf-8")) / 1024
 
         print(
-            f"Topic: {insight_key} | Model: {model} | Day: {day} | Files: {file_count} | Size: {size_kb:.1f}KB"
+            f"Topic: {name} | Model: {model} | Day: {day} | Files: {file_count} | Size: {size_kb:.1f}KB"
         )
 
         if args.count:
@@ -416,7 +415,7 @@ def main() -> None:
             output_path = Path(args.output)
         else:
             output_path = get_output_path(
-                day_dir, insight_key, segment=args.segment, output_format=output_format
+                day_dir, name, segment=args.segment, output_format=output_format
             )
 
         # Determine cache settings: skip for multi-segment, otherwise scope to day/segment
@@ -431,9 +430,9 @@ def main() -> None:
         # Check if output file already exists
         output_exists = output_path.exists() and output_path.stat().st_size > 0
 
-        # Extract optional generation parameters from insight metadata
-        meta_thinking_budget = insight_meta.get("thinking_budget")
-        meta_max_output_tokens = insight_meta.get("max_output_tokens")
+        # Extract optional generation parameters from metadata
+        meta_thinking_budget = meta.get("thinking_budget")
+        meta_max_output_tokens = meta.get("max_output_tokens")
 
         if output_exists and not args.force:
             print(
@@ -443,24 +442,24 @@ def main() -> None:
                 result = f.read()
         elif output_exists and args.force:
             print("Output file exists but --force specified. Regenerating.")
-            result = send_insight(
+            result = generate_agent_output(
                 markdown,
                 prompt,
                 api_key,
                 cache_display_name=cache_display_name,
-                insight_key=insight_key,
+                name=name,
                 json_output=is_json_output,
                 system_instruction=system_instruction,
                 thinking_budget=meta_thinking_budget,
                 max_output_tokens=meta_max_output_tokens,
             )
         else:
-            result = send_insight(
+            result = generate_agent_output(
                 markdown,
                 prompt,
                 api_key,
                 cache_display_name=cache_display_name,
-                insight_key=insight_key,
+                name=name,
                 json_output=is_json_output,
                 system_instruction=system_instruction,
                 thinking_budget=meta_thinking_budget,
@@ -473,17 +472,17 @@ def main() -> None:
             return
 
         # Run post-processing hook if present (only for newly generated results)
-        if (not output_exists or args.force) and insight_meta.get("hook_path"):
-            hook_path = insight_meta["hook_path"]
+        if (not output_exists or args.force) and meta.get("hook_path"):
+            hook_path = meta["hook_path"]
             try:
-                hook_process = load_insight_hook(hook_path)
+                hook_process = load_output_hook(hook_path)
                 hook_context = {
                     "day": args.day,
                     "segment": args.segment,
                     "multi_segment": multi_segment_mode,
-                    "insight_key": insight_key,
+                    "name": name,
                     "output_path": str(output_path),
-                    "insight_meta": dict(insight_meta),
+                    "meta": dict(meta),
                     "transcript": markdown,
                 }
                 hook_result = hook_process(result, hook_context)
@@ -508,7 +507,7 @@ def main() -> None:
         success = True
 
     finally:
-        msg = f"insight {insight_key} {'ok' if success else 'failed'}"
+        msg = f"generate {name} {'ok' if success else 'failed'}"
         if args.force:
             msg += " --force"
         day_log(args.day, msg)

@@ -10,7 +10,7 @@
 
 }
 
-$daily_insight
+$daily_preamble
 
 # Comprehensive Workday Knowledge Graph and Network Analysis from Transcripts
 

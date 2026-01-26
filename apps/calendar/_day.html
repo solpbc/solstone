@@ -333,7 +333,7 @@
   }
 
   function parseCreatedDate(source) {
-    // Extract YYYYMMDD from source path like "20240101/insights/schedule.md"
+    // Extract YYYYMMDD from source path like "20240101/agents/schedule.md"
     const match = source && source.match(/^(\d{8})\//);
     if (match) {
       const d = match[1];

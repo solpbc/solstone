@@ -3242,7 +3242,7 @@ document.getElementById('visionCategoriesHeader').addEventListener('click', () =
 
 async function loadInsights() {
   try {
-    const response = await fetch('api/insights');
+    const response = await fetch('api/generators');
     insightsData = await response.json();
     if (insightsData.error) throw new Error(insightsData.error);
     populateInsights(insightsData);
@@ -3372,7 +3372,7 @@ async function saveInsightSetting(insightKey, field, value) {
       [insightKey]: { [field]: value }
     };
 
-    const response = await fetch('api/insights', {
+    const response = await fetch('api/generators', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)

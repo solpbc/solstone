@@ -40,7 +40,7 @@ def test_main_runs(tmp_path, monkeypatch):
     )
     mod.main()
     assert any(c[0] == "sol" and c[1] == "sense" for c in called)
-    assert any(c[0] == "sol" and c[1] == "insight" for c in called)
+    assert any(c[0] == "sol" and c[1] == "generate" for c in called)
     # Verify indexer is called with --rescan (light mode) via queued command
     indexer_cmds = [c for c in called if c[0] == "sol" and c[1] == "indexer"]
     assert len(indexer_cmds) == 1
