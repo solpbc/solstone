@@ -127,7 +127,7 @@ FORMATTERS: dict[str, tuple[str, str]] = {
     "*/*_audio.jsonl": ("observe.hear", "format_audio"),
     "*/audio.jsonl": ("observe.hear", "format_audio"),
     # Markdown formatter (semantic chunking)
-    "**/*.md": ("think.outputs", "format_markdown"),
+    "**/*.md": ("think.markdown", "format_markdown"),
 }
 
 
@@ -456,7 +456,7 @@ def main() -> None:
     # For summary format on markdown files, get raw chunks with metadata
     raw_chunks = None
     if args.format == "summary" and args.file.endswith(".md"):
-        from think.outputs import chunk_markdown
+        from think.markdown import chunk_markdown
 
         text = load_markdown(args.file)
         raw_chunks = chunk_markdown(text)

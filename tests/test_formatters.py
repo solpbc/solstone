@@ -1292,7 +1292,7 @@ class TestFormatMarkdown:
 
     def test_format_markdown_basic(self):
         """Test basic markdown formatting."""
-        from think.outputs import format_markdown
+        from think.markdown import format_markdown
 
         text = "# Hello\n\nThis is a paragraph.\n"
         chunks, meta = format_markdown(text)
@@ -1304,7 +1304,7 @@ class TestFormatMarkdown:
 
     def test_format_markdown_multiple_chunks(self):
         """Test that lists are split into multiple chunks."""
-        from think.outputs import format_markdown
+        from think.markdown import format_markdown
 
         text = "# List\n\n- Item one\n- Item two\n- Item three\n"
         chunks, meta = format_markdown(text)
@@ -1315,7 +1315,7 @@ class TestFormatMarkdown:
 
     def test_format_markdown_no_timestamp(self):
         """Test that markdown chunks don't have timestamp key."""
-        from think.outputs import format_markdown
+        from think.markdown import format_markdown
 
         text = "# Test\n\nSome content.\n"
         chunks, meta = format_markdown(text)
@@ -1326,7 +1326,7 @@ class TestFormatMarkdown:
 
     def test_format_markdown_preserves_headers(self):
         """Test that each chunk includes its header context."""
-        from think.outputs import format_markdown
+        from think.markdown import format_markdown
 
         text = "# Top\n\n## Section\n\nParagraph content.\n"
         chunks, meta = format_markdown(text)
@@ -1338,7 +1338,7 @@ class TestFormatMarkdown:
 
     def test_format_markdown_definition_list(self):
         """Test that definition lists stay as single chunk."""
-        from think.outputs import format_markdown
+        from think.markdown import format_markdown
 
         text = "# Info\n\n- **Name:** Alice\n- **Role:** Engineer\n"
         chunks, meta = format_markdown(text)
@@ -1350,7 +1350,7 @@ class TestFormatMarkdown:
 
     def test_format_markdown_table_rows(self):
         """Test that table rows become separate chunks."""
-        from think.outputs import format_markdown
+        from think.markdown import format_markdown
 
         text = """# Data
 
@@ -1369,7 +1369,7 @@ class TestFormatMarkdown:
 
     def test_format_markdown_code_block(self):
         """Test that code blocks become chunks."""
-        from think.outputs import format_markdown
+        from think.markdown import format_markdown
 
         text = "# Code\n\n```python\nprint('hello')\n```\n"
         chunks, meta = format_markdown(text)

@@ -13,12 +13,12 @@ import logging
 from pathlib import Path
 
 from think.facets import facet_summaries
-from think.models import generate
-from think.outputs import (
+from think.hooks import (
     compute_output_source,
     should_skip_extraction,
     write_events_jsonl,
 )
+from think.models import generate
 from think.utils import get_output_topic, load_prompt
 
 
