@@ -291,9 +291,9 @@ class CortexService:
             # Validate and link continue_from if specified
             continue_from = request.get("continue_from")
             if continue_from:
-                from think.cortex_client import get_agent_status
+                from think.cortex_client import get_agent_log_status
 
-                status = get_agent_status(continue_from)
+                status = get_agent_log_status(continue_from)
                 if status != "completed":
                     error_msg = f"Cannot continue from agent {continue_from}: " + (
                         "agent is still running"

@@ -240,7 +240,7 @@ def chat_events(chat_id: str) -> Any:
     """
     from think.cortex_client import (
         get_agent_end_state,
-        get_agent_status,
+        get_agent_log_status,
         get_agent_thread,
         read_agent_events,
     )
@@ -272,7 +272,7 @@ def chat_events(chat_id: str) -> Any:
     end_state = None
     can_continue = False
     if thread:
-        is_complete = get_agent_status(thread[-1]) == "completed"
+        is_complete = get_agent_log_status(thread[-1]) == "completed"
         if is_complete:
             end_state = get_agent_end_state(thread[-1])
             can_continue = end_state == "finish"

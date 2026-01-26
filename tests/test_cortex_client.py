@@ -18,8 +18,9 @@ from think.cortex_client import (
     cortex_agents,
     cortex_request,
     get_agent_end_state,
-    get_agent_status,
+    get_agent_log_status,
     get_agent_thread,
+    wait_for_agents,
 )
 from think.models import GPT_5
 
@@ -142,9 +143,7 @@ def test_cortex_request_unique_agent_ids(callosum_server):
 
     agent_ids = []
     for i in range(3):
-        agent_id = cortex_request(
-            prompt=f"Test {i}", name="default", provider="openai"
-        )
+        agent_id = cortex_request(prompt=f"Test {i}", name="default", provider="openai")
         agent_ids.append(agent_id)
         time.sleep(0.002)
 
@@ -307,8 +306,8 @@ def test_cortex_agents_uses_default_path_when_journal_path_unset():
             os.environ["JOURNAL_PATH"] = old_path
 
 
-def test_get_agent_status_completed(tmp_path, monkeypatch):
-    """Test get_agent_status returns 'completed' for finished agents."""
+def test_get_agent_log_status_completed(tmp_path, monkeypatch):
+    """Test get_agent_log_status returns 'completed' for finished agents."""
     monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
     agents_dir = tmp_path / "agents"
     agents_dir.mkdir()
@@ -316,11 +315,11 @@ def test_get_agent_status_completed(tmp_path, monkeypatch):
     agent_id = "1234567890123"
     (agents_dir / f"{agent_id}.jsonl").write_text('{"event": "finish"}\n')
 
-    assert get_agent_status(agent_id) == "completed"
+    assert get_agent_log_status(agent_id) == "completed"
 
 
-def test_get_agent_status_running(tmp_path, monkeypatch):
-    """Test get_agent_status returns 'running' for active agents."""
+def test_get_agent_log_status_running(tmp_path, monkeypatch):
+    """Test get_agent_log_status returns 'running' for active agents."""
     monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
     agents_dir = tmp_path / "agents"
     agents_dir.mkdir()
@@ -328,19 +327,19 @@ def test_get_agent_status_running(tmp_path, monkeypatch):
     agent_id = "1234567890123"
     (agents_dir / f"{agent_id}_active.jsonl").write_text('{"event": "start"}\n')
 
-    assert get_agent_status(agent_id) == "running"
+    assert get_agent_log_status(agent_id) == "running"
 
 
-def test_get_agent_status_not_found(tmp_path, monkeypatch):
-    """Test get_agent_status returns 'not_found' for missing agents."""
+def test_get_agent_log_status_not_found(tmp_path, monkeypatch):
+    """Test get_agent_log_status returns 'not_found' for missing agents."""
     monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
     (tmp_path / "agents").mkdir()
 
-    assert get_agent_status("nonexistent") == "not_found"
+    assert get_agent_log_status("nonexistent") == "not_found"
 
 
-def test_get_agent_status_prefers_completed(tmp_path, monkeypatch):
-    """Test get_agent_status returns 'completed' when both files exist."""
+def test_get_agent_log_status_prefers_completed(tmp_path, monkeypatch):
+    """Test get_agent_log_status returns 'completed' when both files exist."""
     monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
     agents_dir = tmp_path / "agents"
     agents_dir.mkdir()
@@ -350,7 +349,7 @@ def test_get_agent_status_prefers_completed(tmp_path, monkeypatch):
     (agents_dir / f"{agent_id}.jsonl").write_text('{"event": "finish"}\n')
     (agents_dir / f"{agent_id}_active.jsonl").write_text('{"event": "start"}\n')
 
-    assert get_agent_status(agent_id) == "completed"
+    assert get_agent_log_status(agent_id) == "completed"
 
 
 def test_get_agent_end_state_finish(tmp_path, monkeypatch):
@@ -502,3 +501,213 @@ def test_get_agent_thread_not_found(tmp_path, monkeypatch):
 
     with pytest.raises(FileNotFoundError):
         get_agent_thread("nonexistent")
+
+
+# Tests for wait_for_agents
+
+
+def test_wait_for_agents_already_complete(tmp_path, monkeypatch):
+    """Test wait_for_agents returns immediately if agents already completed."""
+    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+    agents_dir = tmp_path / "agents"
+    agents_dir.mkdir()
+    (tmp_path / "health").mkdir()
+
+    # Create completed agents
+    agent_ids = ["1000", "2000"]
+    for agent_id in agent_ids:
+        (agents_dir / f"{agent_id}.jsonl").write_text('{"event": "finish"}\n')
+
+    completed, timed_out = wait_for_agents(agent_ids, timeout=1)
+
+    assert set(completed) == set(agent_ids)
+    assert timed_out == []
+
+
+def test_wait_for_agents_event_completion(callosum_server):
+    """Test wait_for_agents completes when finish event is received."""
+    tmp_path = callosum_server
+    agents_dir = tmp_path / "agents"
+
+    agent_id = "1234567890123"
+
+    # Start wait in background thread
+    result = {"completed": None, "timed_out": None}
+
+    def wait_thread():
+        result["completed"], result["timed_out"] = wait_for_agents(
+            [agent_id], timeout=5
+        )
+
+    waiter = threading.Thread(target=wait_thread)
+    waiter.start()
+
+    # Give the waiter time to set up listener
+    time.sleep(0.2)
+
+    # Create the completed file and emit finish event
+    (agents_dir / f"{agent_id}.jsonl").write_text('{"event": "finish"}\n')
+
+    # Emit finish event via Callosum
+    client = CallosumConnection()
+    client.start()
+    time.sleep(0.1)
+    client.emit("cortex", "finish", agent_id=agent_id, result="done")
+    time.sleep(0.2)
+    client.stop()
+
+    waiter.join(timeout=3)
+
+    assert result["completed"] == [agent_id]
+    assert result["timed_out"] == []
+
+
+def test_wait_for_agents_error_event(callosum_server):
+    """Test wait_for_agents completes on error event too."""
+    tmp_path = callosum_server
+    agents_dir = tmp_path / "agents"
+
+    agent_id = "1234567890124"
+
+    result = {"completed": None, "timed_out": None}
+
+    def wait_thread():
+        result["completed"], result["timed_out"] = wait_for_agents(
+            [agent_id], timeout=5
+        )
+
+    waiter = threading.Thread(target=wait_thread)
+    waiter.start()
+    time.sleep(0.2)
+
+    # Create completed file and emit error event
+    (agents_dir / f"{agent_id}.jsonl").write_text('{"event": "error"}\n')
+
+    client = CallosumConnection()
+    client.start()
+    time.sleep(0.1)
+    client.emit("cortex", "error", agent_id=agent_id, error="something failed")
+    time.sleep(0.2)
+    client.stop()
+
+    waiter.join(timeout=3)
+
+    assert result["completed"] == [agent_id]
+    assert result["timed_out"] == []
+
+
+def test_wait_for_agents_initial_file_check(tmp_path, monkeypatch):
+    """Test wait_for_agents finds already-completed agents via initial file check."""
+    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+    agents_dir = tmp_path / "agents"
+    agents_dir.mkdir()
+    (tmp_path / "health").mkdir()
+
+    agent_id = "1234567890125"
+
+    # Agent already completed before we start waiting
+    (agents_dir / f"{agent_id}.jsonl").write_text('{"event": "finish"}\n')
+
+    completed, timed_out = wait_for_agents([agent_id], timeout=1)
+
+    # Should find via initial file check
+    assert completed == [agent_id]
+    assert timed_out == []
+
+
+def test_wait_for_agents_timeout_actual(tmp_path, monkeypatch):
+    """Test wait_for_agents times out for agents that never complete."""
+    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+    agents_dir = tmp_path / "agents"
+    agents_dir.mkdir()
+    (tmp_path / "health").mkdir()
+
+    agent_id = "1234567890126"
+    # Create active file (not completed)
+    (agents_dir / f"{agent_id}_active.jsonl").write_text('{"event": "start"}\n')
+
+    completed, timed_out = wait_for_agents([agent_id], timeout=1)
+
+    assert completed == []
+    assert timed_out == [agent_id]
+
+
+def test_wait_for_agents_partial(callosum_server):
+    """Test wait_for_agents with some completing and some timing out."""
+    tmp_path = callosum_server
+    agents_dir = tmp_path / "agents"
+
+    completing_agent = "1111"
+    timeout_agent = "2222"
+
+    # Create active file for timeout agent
+    (agents_dir / f"{timeout_agent}_active.jsonl").write_text('{"event": "start"}\n')
+
+    result = {"completed": None, "timed_out": None}
+
+    def wait_thread():
+        result["completed"], result["timed_out"] = wait_for_agents(
+            [completing_agent, timeout_agent], timeout=2
+        )
+
+    waiter = threading.Thread(target=wait_thread)
+    waiter.start()
+    time.sleep(0.2)
+
+    # Complete one agent
+    (agents_dir / f"{completing_agent}.jsonl").write_text('{"event": "finish"}\n')
+
+    client = CallosumConnection()
+    client.start()
+    time.sleep(0.1)
+    client.emit("cortex", "finish", agent_id=completing_agent, result="done")
+    time.sleep(0.1)
+    client.stop()
+
+    waiter.join(timeout=5)
+
+    assert result["completed"] == [completing_agent]
+    assert result["timed_out"] == [timeout_agent]
+
+
+def test_wait_for_agents_missed_event_recovery(tmp_path, monkeypatch, caplog):
+    """Test that missed events are recovered via final file check with INFO log."""
+    import logging
+
+    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+    agents_dir = tmp_path / "agents"
+    agents_dir.mkdir()
+    (tmp_path / "health").mkdir()
+
+    agent_id = "1234567890127"
+
+    # Start with active file
+    (agents_dir / f"{agent_id}_active.jsonl").write_text('{"event": "start"}\n')
+
+    result = {"completed": None, "timed_out": None}
+
+    def wait_and_complete():
+        # Wait a bit then "complete" the agent by renaming file
+        time.sleep(0.3)
+        (agents_dir / f"{agent_id}_active.jsonl").unlink()
+        (agents_dir / f"{agent_id}.jsonl").write_text('{"event": "finish"}\n')
+
+    completer = threading.Thread(target=wait_and_complete)
+    completer.start()
+
+    with caplog.at_level(logging.INFO):
+        result["completed"], result["timed_out"] = wait_for_agents(
+            [agent_id], timeout=1
+        )
+
+    completer.join()
+
+    # Should recover via final file check
+    assert result["completed"] == [agent_id]
+    assert result["timed_out"] == []
+
+    # Should log about missed event
+    assert any(
+        "completion event not received but agent completed" in record.message
+        for record in caplog.records
+    )

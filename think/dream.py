@@ -9,7 +9,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 
 from think.callosum import CallosumConnection
-from think.cortex_client import cortex_request, get_agent_status
+from think.cortex_client import cortex_request, wait_for_agents
 from think.facets import get_active_facets, get_facets
 from think.runner import run_task
 from think.utils import (
@@ -214,60 +214,6 @@ def check_callosum_available() -> bool:
     """
     socket_path = Path(get_journal()) / "health" / "callosum.sock"
     return socket_path.exists()
-
-
-def wait_for_agents(
-    agent_ids: list[str], timeout: int = 600, startup_grace: int = 15
-) -> tuple[list[str], list[str]]:
-    """Poll until all agents complete or timeout.
-
-    Polls get_agent_status() every 1 second. Agents are spawned asynchronously
-    via Callosum, so there's a brief window where the agent file doesn't exist
-    yet. We use a startup grace period to tolerate "not_found" status initially.
-
-    Args:
-        agent_ids: List of agent IDs to wait for
-        timeout: Maximum wait time in seconds (default 600 = 10 minutes)
-        startup_grace: Seconds to wait for agent files to appear (default 15)
-
-    Returns:
-        Tuple of (completed_ids, timed_out_ids)
-    """
-    start = time.time()
-    pending_startup = set(agent_ids)  # Agents we haven't seen a file for yet
-    pending_running = set()  # Agents we've seen start (file exists)
-    completed = []
-
-    while (pending_startup or pending_running) and (time.time() - start) < timeout:
-        elapsed = time.time() - start
-
-        # Check agents still in startup phase
-        for agent_id in list(pending_startup):
-            status = get_agent_status(agent_id)
-            if status == "completed":
-                completed.append(agent_id)
-                pending_startup.discard(agent_id)
-            elif status == "running":
-                # File appeared - move to running set
-                pending_startup.discard(agent_id)
-                pending_running.add(agent_id)
-            elif status == "not_found" and elapsed >= startup_grace:
-                # Grace period expired - agent never started
-                logging.warning(f"Agent {agent_id} not found (never started)")
-                pending_startup.discard(agent_id)
-
-        # Check agents that are running
-        for agent_id in list(pending_running):
-            status = get_agent_status(agent_id)
-            if status == "completed":
-                completed.append(agent_id)
-                pending_running.discard(agent_id)
-
-        if pending_startup or pending_running:
-            time.sleep(1)
-
-    timed_out = list(pending_startup | pending_running)
-    return completed, timed_out
 
 
 def run_daily_agents(day: str) -> tuple[int, int]:

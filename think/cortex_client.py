@@ -5,12 +5,12 @@
 
 import json
 import logging
-import os
+import threading
 import time
 from pathlib import Path
 from typing import Any, Dict, Optional
 
-from think.callosum import callosum_send
+from think.callosum import CallosumConnection, callosum_send
 from think.utils import get_journal
 
 logger = logging.getLogger(__name__)
@@ -128,8 +128,8 @@ def create_synthetic_agent(result: str) -> str:
     return agent_id
 
 
-def get_agent_status(agent_id: str) -> str:
-    """Get the status of a specific agent.
+def get_agent_log_status(agent_id: str) -> str:
+    """Get the status of a specific agent from its log file.
 
     Args:
         agent_id: The agent ID (timestamp)
@@ -148,6 +148,79 @@ def get_agent_status(agent_id: str) -> str:
     return "not_found"
 
 
+def wait_for_agents(
+    agent_ids: list[str],
+    timeout: int = 600,
+) -> tuple[list[str], list[str]]:
+    """Wait for agents to complete via Callosum events.
+
+    Listens for cortex.finish and cortex.error events. Sets up the event
+    listener first, then does an initial file check for agents that may have
+    already completed, and a final file check at timeout as a backstop for
+    any missed events.
+
+    Args:
+        agent_ids: List of agent IDs to wait for
+        timeout: Maximum wait time in seconds (default 600 = 10 minutes)
+
+    Returns:
+        Tuple of (completed_ids, timed_out_ids)
+    """
+    pending = set(agent_ids)
+    completed: list[str] = []
+    lock = threading.Lock()
+    all_done = threading.Event()
+
+    def on_message(msg: dict) -> None:
+        if msg.get("tract") != "cortex":
+            return
+        agent_id = msg.get("agent_id")
+        if not agent_id:
+            return
+
+        event_type = msg.get("event")
+        if event_type in ("finish", "error"):
+            with lock:
+                if agent_id in pending:
+                    completed.append(agent_id)
+                    pending.discard(agent_id)
+                    if not pending:
+                        all_done.set()
+
+    # Start listener BEFORE initial check to avoid race condition
+    listener = CallosumConnection()
+    listener.start(callback=on_message)
+
+    try:
+        # Initial file check (with lock since callback may be running)
+        with lock:
+            for agent_id in list(pending):
+                if get_agent_log_status(agent_id) == "completed":
+                    completed.append(agent_id)
+                    pending.discard(agent_id)
+
+            if not pending:
+                return completed, []
+
+        # Wait for all completions or timeout
+        all_done.wait(timeout=timeout)
+
+    finally:
+        listener.stop()
+
+    # Final file check for any remaining (backstop for missed events)
+    # Listener is stopped, so no lock needed
+    for agent_id in list(pending):
+        if get_agent_log_status(agent_id) == "completed":
+            logger.info(
+                f"Agent {agent_id} completion event not received but agent completed"
+            )
+            completed.append(agent_id)
+            pending.discard(agent_id)
+
+    return completed, list(pending)
+
+
 def get_agent_end_state(agent_id: str) -> str:
     """Get how a completed agent ended (finish or error).
 
@@ -160,7 +233,7 @@ def get_agent_end_state(agent_id: str) -> str:
         "running" - Agent is still active
         "unknown" - Agent file exists but no terminal event found
     """
-    status = get_agent_status(agent_id)
+    status = get_agent_log_status(agent_id)
     if status == "running":
         return "running"
     if status == "not_found":
