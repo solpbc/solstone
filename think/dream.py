@@ -613,7 +613,10 @@ def main() -> None:
                 # Full rescan after agents (via supervisor queue for serialization)
                 if agent_success > 0 or agent_fail_count > 0:
                     logging.info("Running full index rescan after agents...")
-                    run_queued_command(["sol", "indexer", "--rescan-full"], day)
+                    full_rescan_cmd = ["sol", "indexer", "--rescan-full"]
+                    if args.verbose:
+                        full_rescan_cmd.append("--verbose")
+                    run_queued_command(full_rescan_cmd, day, timeout=3600)
 
         # Emit completed event (all processing done)
         emit(
