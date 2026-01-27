@@ -28,7 +28,7 @@ def copy_day(tmp_path: Path) -> Path:
 
 
 def test_scan_day(tmp_path, monkeypatch):
-    mod = importlib.import_module("think.generate")
+    mod = importlib.import_module("think.agents")
     day_dir = copy_day(tmp_path)
     monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
 

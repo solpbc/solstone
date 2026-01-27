@@ -41,6 +41,9 @@ MOCK_RESULT = {
 
 def run_generator_with_config(mod, config: dict, monkeypatch) -> list[dict]:
     """Run generator with NDJSON config and capture output events."""
+    # Mock argv to prevent argparse from seeing pytest args
+    monkeypatch.setattr("sys.argv", ["sol"])
+
     stdin_data = json.dumps(config) + "\n"
     monkeypatch.setattr("sys.stdin", io.StringIO(stdin_data))
 
@@ -142,8 +145,8 @@ def test_prompt_metadata_no_hook(tmp_path):
 
 
 def test_output_hook_invocation(tmp_path, monkeypatch):
-    """Test that generate.py invokes hook and uses transformed result."""
-    mod = importlib.import_module("think.generate")
+    """Test that agents.py invokes hook and uses transformed result."""
+    mod = importlib.import_module("think.agents")
     copy_day(tmp_path)
 
     # Create generator with hook in muse directory
@@ -202,7 +205,7 @@ def process(result, context):
 
 def test_output_hook_returns_none(tmp_path, monkeypatch):
     """Test that hook returning None uses original result."""
-    mod = importlib.import_module("think.generate")
+    mod = importlib.import_module("think.agents")
     copy_day(tmp_path)
 
     muse_dir = Path(mod.__file__).resolve().parent.parent / "muse"
@@ -252,7 +255,7 @@ def process(result, context):
 
 def test_output_hook_error_fallback(tmp_path, monkeypatch):
     """Test that hook errors fall back to original result."""
-    mod = importlib.import_module("think.generate")
+    mod = importlib.import_module("think.agents")
     copy_day(tmp_path)
 
     muse_dir = Path(mod.__file__).resolve().parent.parent / "muse"

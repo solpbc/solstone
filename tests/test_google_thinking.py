@@ -40,6 +40,7 @@ def test_google_thinking_events(monkeypatch, tmp_path, capsys):
             "provider": "google",
             "model": GEMINI_FLASH,
             "disable_mcp": True,
+            "tools": ["search_insights"],
         }
     )
     asyncio.run(run_main(mod, ["sol agents"], stdin_data=ndjson_input))

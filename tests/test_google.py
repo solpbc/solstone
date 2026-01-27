@@ -44,6 +44,7 @@ def test_google_main(monkeypatch, tmp_path, capsys):
             "provider": "google",
             "model": GEMINI_FLASH,
             "disable_mcp": True,
+            "tools": ["search_insights"],
         }
     )
     asyncio.run(run_main(mod, ["sol agents"], stdin_data=ndjson_input))
@@ -94,6 +95,7 @@ def test_google_mcp_error(monkeypatch, tmp_path, capsys):
             "provider": "google",
             "model": GEMINI_FLASH,
             "mcp_server_url": "http://localhost:6270/mcp",
+            "tools": ["search_insights"],
         }
     )
     asyncio.run(run_main(mod, ["sol agents"], stdin_data=ndjson_input))

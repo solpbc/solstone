@@ -355,15 +355,23 @@ class CortexService:
                 else:
                     self.agent_handoffs.pop(agent_id, None)
 
-            # Route based on config type:
-            # - tools present -> agent (sol agents)
-            # - output present (no tools) -> generator (sol generate)
-            # - neither -> error
+            # Validate config has either tools or output
             has_tools = bool(config.get("tools"))
             has_output = bool(config.get("output"))
 
+            if not has_tools and not has_output:
+                self.logger.error(
+                    f"Invalid agent config for {agent_id}: "
+                    "must have 'tools' or 'output' field"
+                )
+                self._write_error_and_complete(
+                    file_path,
+                    "Invalid agent config: must have 'tools' or 'output' field",
+                )
+                return
+
+            # For tool agents: validate prompt and expand tool packs
             if has_tools:
-                # Agents require a prompt (generators don't - they use transcripts)
                 prompt = config.get("prompt")
                 if not prompt:
                     self.logger.error(f"Empty prompt in agent request {agent_id}")
@@ -397,23 +405,8 @@ class CortexService:
 
                     config["tools"] = expanded
 
-                # Spawn the agent process with the merged config
-                self._spawn_agent(agent_id, file_path, config)
-
-            elif has_output:
-                # Generator: has output format but no tools
-                self._spawn_generator(agent_id, file_path, config)
-
-            else:
-                # Neither tools nor output - invalid config
-                self.logger.error(
-                    f"Invalid agent config for {agent_id}: "
-                    "must have 'tools' or 'output' field"
-                )
-                self._write_error_and_complete(
-                    file_path,
-                    "Invalid agent config: must have 'tools' or 'output' field",
-                )
+            # Spawn agent process (handles both tool agents and generators)
+            self._spawn_agent(agent_id, file_path, config)
 
         except json.JSONDecodeError as e:
             self.logger.error(f"Invalid JSON in request file {file_path}: {e}")
@@ -428,25 +421,17 @@ class CortexService:
         file_path: Path,
         config: Dict[str, Any],
     ) -> None:
-        """Spawn an agent subprocess and monitor its output using the merged config."""
-        if self.mcp_server_url and not config.get("disable_mcp", False):
-            config.setdefault("mcp_server_url", self.mcp_server_url)
-        self._spawn_subprocess(agent_id, file_path, config, ["sol", "agents"], "agent")
+        """Spawn an agent subprocess and monitor its output.
 
-    def _spawn_generator(
-        self,
-        agent_id: str,
-        file_path: Path,
-        config: Dict[str, Any],
-    ) -> None:
-        """Spawn a generator subprocess and monitor its output.
-
-        Generators are like agents but process transcripts instead of using tools.
-        They have 'output' field (format) but no 'tools' field.
+        Handles both tool-using agents and generators - routing is done by
+        the agents CLI based on config (tools vs output field).
         """
-        self._spawn_subprocess(
-            agent_id, file_path, config, ["sol", "generate"], "generator"
-        )
+        # Only inject MCP server URL for tool agents (not generators)
+        has_tools = bool(config.get("tools"))
+        if has_tools and self.mcp_server_url and not config.get("disable_mcp", False):
+            config.setdefault("mcp_server_url", self.mcp_server_url)
+
+        self._spawn_subprocess(agent_id, file_path, config, ["sol", "agents"], "agent")
 
     def _spawn_subprocess(
         self,
@@ -456,14 +441,14 @@ class CortexService:
         cmd: list[str],
         process_type: str,
     ) -> None:
-        """Spawn a subprocess (agent or generator) and monitor its output.
+        """Spawn a subprocess and monitor its output.
 
         Args:
             agent_id: Unique identifier for this process
             file_path: Path to the JSONL log file
             config: Configuration dict to pass via NDJSON stdin
-            cmd: Command to run (e.g., ["sol", "agents"] or ["sol", "generate"])
-            process_type: Label for logging ("agent" or "generator")
+            cmd: Command to run (e.g., ["sol", "agents"])
+            process_type: Label for logging ("agent")
         """
         try:
             # Store the config for later use - thread safe

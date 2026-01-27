@@ -43,6 +43,9 @@ MOCK_RESULT = {
 
 def run_generator_with_config(mod, config: dict, monkeypatch) -> list[dict]:
     """Run generator with NDJSON config and capture output events."""
+    # Mock argv to prevent argparse from seeing pytest args
+    monkeypatch.setattr("sys.argv", ["sol"])
+
     # Mock stdin with config
     stdin_data = json.dumps(config) + "\n"
     monkeypatch.setattr("sys.stdin", io.StringIO(stdin_data))
@@ -67,7 +70,7 @@ def run_generator_with_config(mod, config: dict, monkeypatch) -> list[dict]:
 
 def test_generate_output_ndjson(tmp_path, monkeypatch):
     """Test basic output generation via NDJSON protocol."""
-    mod = importlib.import_module("think.generate")
+    mod = importlib.import_module("think.agents")
     copy_day(tmp_path)
 
     # Create a test generator in muse directory
@@ -115,7 +118,7 @@ def test_generate_output_ndjson(tmp_path, monkeypatch):
 
 def test_generate_hook_invoked_with_context(tmp_path, monkeypatch):
     """Test that hooks receive correct context including multi_segment flag."""
-    mod = importlib.import_module("think.generate")
+    mod = importlib.import_module("think.agents")
     copy_day(tmp_path)
 
     # Create the hook file in muse/ directory
@@ -193,7 +196,7 @@ def process(result, context):
 
 def test_generate_without_hook_succeeds(tmp_path, monkeypatch):
     """Test that generators without hooks still work correctly."""
-    mod = importlib.import_module("think.generate")
+    mod = importlib.import_module("think.agents")
     copy_day(tmp_path)
 
     # Create generator without hook
@@ -237,7 +240,7 @@ def test_generate_without_hook_succeeds(tmp_path, monkeypatch):
 
 def test_generate_error_event_on_missing_generator(tmp_path, monkeypatch):
     """Test that missing generator name emits error event."""
-    mod = importlib.import_module("think.generate")
+    mod = importlib.import_module("think.agents")
     copy_day(tmp_path)
 
     monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
@@ -258,7 +261,7 @@ def test_generate_error_event_on_missing_generator(tmp_path, monkeypatch):
 
 def test_generate_skipped_on_no_input(tmp_path, monkeypatch):
     """Test that generator emits skipped finish when no input."""
-    mod = importlib.import_module("think.generate")
+    mod = importlib.import_module("think.agents")
 
     # Create empty day directory (no transcripts)
     os.environ["JOURNAL_PATH"] = str(tmp_path)

@@ -15,7 +15,7 @@ from flask import Blueprint, jsonify, redirect, render_template, url_for
 
 from convey.utils import DATE_RE, format_date
 from think.models import get_usage_cost
-from think.utils import day_dirs, day_path, get_generator_agents, get_output_topic
+from think.utils import day_dirs, day_path, get_muse_configs, get_output_topic
 
 insights_bp = Blueprint(
     "app:insights",
@@ -30,7 +30,7 @@ def _build_topic_map() -> dict[str, dict]:
     Returns dict mapping topic filename (e.g., "activity", "_chat_sentiment")
     to {"key": generator_key, "meta": generator_metadata}.
     """
-    generators = get_generator_agents()
+    generators = get_muse_configs(has_tools=False, has_output=True)
     topic_map = {}
     for key, meta in generators.items():
         topic = get_output_topic(key)

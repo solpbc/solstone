@@ -830,21 +830,23 @@ def get_generators() -> Any:
     Generators with missing or invalid schedule are excluded.
     """
     try:
-        from think.utils import get_generator_agents_by_schedule
+        from think.utils import get_muse_configs
 
         # Get generators by schedule (include disabled for settings toggle UI)
         segment_generators = [
             _build_generator_info(key, meta)
             for key, meta in sorted(
-                get_generator_agents_by_schedule(
-                    "segment", include_disabled=True
+                get_muse_configs(
+                    has_tools=False, has_output=True, schedule="segment", include_disabled=True
                 ).items()
             )
         ]
         daily_generators = [
             _build_generator_info(key, meta)
             for key, meta in sorted(
-                get_generator_agents_by_schedule("daily", include_disabled=True).items()
+                get_muse_configs(
+                    has_tools=False, has_output=True, schedule="daily", include_disabled=True
+                ).items()
             )
         ]
 
@@ -877,7 +879,7 @@ def update_generators() -> Any:
     Setting a generator to null removes all overrides for that generator.
     """
     try:
-        from think.utils import get_generator_agents
+        from think.utils import get_muse_configs
 
         request_data = request.get_json()
         if not request_data:
@@ -887,7 +889,7 @@ def update_generators() -> Any:
             return jsonify({"error": "Request must be an object"}), 400
 
         # Get valid generator keys
-        all_generators = get_generator_agents()
+        all_generators = get_muse_configs(has_tools=False, has_output=True)
         valid_keys = set(all_generators.keys())
 
         config_dir = Path(state.journal_root) / "config"

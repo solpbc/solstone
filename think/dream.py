@@ -16,9 +16,8 @@ from think.utils import (
     day_input_summary,
     day_log,
     day_path,
-    get_agents,
-    get_generator_agents_by_schedule,
     get_journal,
+    get_muse_configs,
     setup_cli,
 )
 
@@ -190,7 +189,7 @@ def run_generators_via_cortex(
     from think.cortex_client import get_agent_end_state
 
     target_schedule = "segment" if segment else "daily"
-    generators = get_generator_agents_by_schedule(target_schedule)
+    generators = get_muse_configs(has_tools=False, has_output=True, schedule=target_schedule)
 
     if not generators:
         logging.info("No generators found for schedule: %s", target_schedule)
@@ -311,7 +310,7 @@ def run_daily_agents(day: str) -> tuple[int, int]:
     if not check_callosum_available():
         logging.warning("Callosum socket not found - agents may fail to spawn")
 
-    agents = get_agents()
+    agents = get_muse_configs(has_tools=True)
 
     # Group agents by priority
     priority_groups: dict[int, list[tuple[str, dict]]] = {}
@@ -469,7 +468,7 @@ def run_segment_agents(day: str, segment: str) -> int:
     Returns:
         Number of agents spawned
     """
-    agents = get_agents()
+    agents = get_muse_configs(has_tools=True)
     spawned = 0
 
     for agent_name, config in agents.items():

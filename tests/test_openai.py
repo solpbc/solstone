@@ -47,6 +47,7 @@ def test_openai_main(monkeypatch, tmp_path, capsys):
             "provider": "openai",
             "model": GPT_5,
             "mcp_server_url": "http://localhost:5173/mcp",
+            "tools": ["search_insights"],
         }
     )
     asyncio.run(run_main(mod, ["sol agents"], stdin_data=ndjson_input))
@@ -101,6 +102,7 @@ def test_openai_thinking_events(monkeypatch, tmp_path, capsys):
             "provider": "openai",
             "model": GPT_5,
             "mcp_server_url": "http://localhost:5173/mcp",
+            "tools": ["search_insights"],
         }
     )
     asyncio.run(run_main(mod, ["sol agents"], stdin_data=ndjson_input))
@@ -148,6 +150,7 @@ def test_openai_mcp_headers(monkeypatch, tmp_path):
             "name": "investigator",
             "agent_id": "999",
             "mcp_server_url": "http://localhost:5173/mcp",
+            "tools": ["search_insights"],
         }
     )
     asyncio.run(run_main(mod, ["sol agents"], stdin_data=ndjson_input))
@@ -182,6 +185,7 @@ def test_openai_outfile(monkeypatch, tmp_path, capsys):
             "provider": "openai",
             "model": GPT_5,
             "mcp_server_url": "http://localhost:5173/mcp",
+            "tools": ["search_insights"],
         }
     )
     asyncio.run(run_main(mod, ["sol agents"], stdin_data=ndjson_input))
@@ -235,6 +239,7 @@ def test_openai_thinking_events_stdout(monkeypatch, tmp_path, capsys):
             "provider": "openai",
             "model": GPT_5,
             "mcp_server_url": "http://localhost:5173/mcp",
+            "tools": ["search_insights"],
         }
     )
     asyncio.run(run_main(mod, ["sol agents"], stdin_data=ndjson_input))
@@ -294,6 +299,7 @@ def test_openai_outfile_error(monkeypatch, tmp_path, capsys):
             "provider": "openai",
             "model": GPT_5,
             "mcp_server_url": "http://localhost:5173/mcp",
+            "tools": ["search_insights"],
         }
     )
     asyncio.run(run_main(mod, ["sol agents"], stdin_data=ndjson_input))
@@ -343,6 +349,7 @@ def test_openai_thinking_events_error(monkeypatch, tmp_path, capsys):
             "provider": "openai",
             "model": GPT_5,
             "mcp_server_url": "http://localhost:5173/mcp",
+            "tools": ["search_insights"],
         }
     )
     asyncio.run(run_main(mod, ["sol agents"], stdin_data=ndjson_input))
@@ -406,6 +413,7 @@ def test_openai_tool_call_events(monkeypatch, tmp_path, capsys):
             "provider": "openai",
             "model": GPT_5,
             "mcp_server_url": "http://localhost:5173/mcp",
+            "tools": ["search_insights"],
         }
     )
     asyncio.run(run_main(mod, ["sol agents"], stdin_data=ndjson_input))

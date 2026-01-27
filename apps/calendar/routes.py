@@ -57,9 +57,9 @@ def calendar_day_events(day: str) -> Any:
         return "", 404
 
     from think.indexer.journal import get_events
-    from think.utils import get_generator_agents
+    from think.utils import get_muse_configs
 
-    generators = get_generator_agents()
+    generators = get_muse_configs(has_tools=False, has_output=True)
 
     # Get full event objects from source files
     raw_events = get_events(day)

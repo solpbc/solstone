@@ -313,7 +313,7 @@ def process(result: str, context: dict) -> str | None:
 **Reference implementations:**
 - System generator templates: `muse/*.md` (files with `schedule` field but no `tools` field)
 - Extraction hooks: `muse/occurrence.py`, `muse/anticipation.py`
-- Discovery logic: `think/utils.py` - `get_generator_agents()`, `get_generator_agents_by_schedule()`, `get_output_topic()`
+- Discovery logic: `think/utils.py` - `get_muse_configs(has_tools=False)`, `get_output_topic()`
 - Hook loading: `think/utils.py` - `load_output_hook()`
 
 ---
@@ -336,7 +336,7 @@ Define custom agents and generator templates that integrate with solstone's Cort
 
 **Reference implementations:**
 - System agent examples: `muse/*.md` (files with `tools` field)
-- Discovery logic: `think/utils.py` - `get_agents()`, `get_agent()`
+- Discovery logic: `think/utils.py` - `get_muse_configs(has_tools=True)`, `get_agent()`
 
 #### Instructions Configuration
 

@@ -7,10 +7,10 @@ import tempfile
 from pathlib import Path
 
 
-def test_get_generator_agents():
+def test_get_muse_configs_generators():
     """Test that system generators are discovered with source field."""
     utils = importlib.import_module("think.utils")
-    generators = utils.get_generator_agents()
+    generators = utils.get_muse_configs(has_tools=False, has_output=True)
     assert "flow" in generators
     info = generators["flow"]
     assert os.path.basename(info["path"]) == "flow.md"
@@ -35,7 +35,7 @@ def test_get_output_topic():
     assert utils.get_output_topic("my_app:weekly_summary") == "_my_app_weekly_summary"
 
 
-def test_get_generator_agents_app_discovery(tmp_path, monkeypatch):
+def test_get_muse_configs_app_discovery(tmp_path, monkeypatch):
     """Test that app generators are discovered from apps/*/muse/."""
     utils = importlib.import_module("think.utils")
 
@@ -51,37 +51,25 @@ def test_get_generator_agents_app_discovery(tmp_path, monkeypatch):
     # Also create workspace.html to make it a valid app (not strictly required for generators)
     (tmp_path / "apps" / "test_app" / "workspace.html").write_text("<h1>Test</h1>")
 
-    # Monkeypatch the apps_dir path
-    original_get_generator_agents = utils.get_generator_agents
-
-    def patched_get_generator_agents():
-        # Temporarily modify the path
-        import think.utils as tu
-
-        original_parent = Path(tu.__file__).parent.parent
-        # We need to actually patch how the function resolves apps_dir
-        # Let's just test the existing system generators have source
-        return original_get_generator_agents()
-
     # For now, just verify system generators have correct source
-    generators = utils.get_generator_agents()
+    generators = utils.get_muse_configs(has_tools=False, has_output=True)
     for key, info in generators.items():
         if ":" not in key:
             assert info.get("source") == "system", f"{key} should have source=system"
 
 
-def test_get_generator_agents_by_schedule():
+def test_get_muse_configs_by_schedule():
     """Test filtering generators by schedule."""
     utils = importlib.import_module("think.utils")
 
     # Get daily generators
-    daily = utils.get_generator_agents_by_schedule("daily")
+    daily = utils.get_muse_configs(has_tools=False, has_output=True, schedule="daily")
     assert len(daily) > 0
     for key, meta in daily.items():
         assert meta.get("schedule") == "daily", f"{key} should have schedule=daily"
 
     # Get segment generators
-    segment = utils.get_generator_agents_by_schedule("segment")
+    segment = utils.get_muse_configs(has_tools=False, has_output=True, schedule="segment")
     assert len(segment) > 0
     for key, meta in segment.items():
         assert meta.get("schedule") == "segment", f"{key} should have schedule=segment"
@@ -92,20 +80,20 @@ def test_get_generator_agents_by_schedule():
     ), "daily and segment should not overlap"
 
     # Unknown schedule returns empty dict
-    assert utils.get_generator_agents_by_schedule("hourly") == {}
-    assert utils.get_generator_agents_by_schedule("") == {}
+    assert utils.get_muse_configs(has_tools=False, has_output=True, schedule="hourly") == {}
+    assert utils.get_muse_configs(has_tools=False, has_output=True, schedule="") == {}
 
 
-def test_get_generator_agents_by_schedule_include_disabled(monkeypatch):
+def test_get_muse_configs_include_disabled(monkeypatch):
     """Test include_disabled parameter."""
     utils = importlib.import_module("think.utils")
 
     # Get generators without disabled (default)
-    without_disabled = utils.get_generator_agents_by_schedule("daily")
+    without_disabled = utils.get_muse_configs(has_tools=False, has_output=True, schedule="daily")
 
     # Get generators with disabled included
-    with_disabled = utils.get_generator_agents_by_schedule(
-        "daily", include_disabled=True
+    with_disabled = utils.get_muse_configs(
+        has_tools=False, has_output=True, schedule="daily", include_disabled=True
     )
 
     # Should have at least as many with disabled included
@@ -113,24 +101,21 @@ def test_get_generator_agents_by_schedule_include_disabled(monkeypatch):
     assert len(with_disabled) >= len(without_disabled)
 
 
-def test_all_system_generators_have_schedule():
-    """Test that all system generators have valid schedule field.
+def test_scheduled_generators_have_valid_schedule():
+    """Test that scheduled generators have valid schedule field.
 
-    Generators are identified by having a schedule field but no tools field.
-    Hook-only files (occurrence, anticipation) have neither, so they're
-    excluded from get_generator_agents() automatically.
+    Generators with a schedule field must have valid values ('segment' or 'daily').
+    Some generators (like importer) have output but no schedule - they're used
+    for ad-hoc processing, not scheduled runs.
     """
     utils = importlib.import_module("think.utils")
 
-    generators = utils.get_generator_agents()
+    generators = utils.get_muse_configs(has_tools=False, has_output=True)
     valid_schedules = ("segment", "daily")
 
     for key, meta in generators.items():
-        if meta.get("source") == "system":
-            sched = meta.get("schedule")
-            assert (
-                sched is not None
-            ), f"System generator '{key}' missing required 'schedule' field"
+        sched = meta.get("schedule")
+        if sched is not None:
             assert (
                 sched in valid_schedules
-            ), f"System generator '{key}' has invalid schedule '{sched}'"
+            ), f"Generator '{key}' has invalid schedule '{sched}'"

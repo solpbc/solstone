@@ -12,7 +12,7 @@ from typing import Dict
 
 from observe.sense import scan_day as sense_scan_day
 from observe.utils import VIDEO_EXTENSIONS, load_analysis_frames
-from think.generate import scan_day as generate_scan_day
+from think.agents import scan_day as generate_scan_day
 from think.utils import day_dirs, get_journal, setup_cli
 
 logger = logging.getLogger(__name__)

@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pytest
 
-from think.utils import _resolve_agent_path, get_agent, get_agents
+from think.utils import _resolve_agent_path, get_agent, get_muse_configs
 
 
 @pytest.fixture
@@ -120,9 +120,9 @@ def test_get_agent_nonexistent_app_agent_raises():
     assert "fakeapp:fakeagent" in str(exc_info.value)
 
 
-def test_get_agents_includes_system_agents(fixture_journal):
-    """Test get_agents returns system agents."""
-    agents = get_agents()
+def test_get_muse_configs_includes_system_agents(fixture_journal):
+    """Test get_muse_configs returns system agents."""
+    agents = get_muse_configs(has_tools=True)
 
     # Should include known system agents
     assert "default" in agents
@@ -131,9 +131,9 @@ def test_get_agents_includes_system_agents(fixture_journal):
     assert "user_instruction" in agents["default"]
 
 
-def test_get_agents_system_agents_have_metadata(fixture_journal):
+def test_get_muse_configs_system_agents_have_metadata(fixture_journal):
     """Test system agents have proper metadata fields."""
-    agents = get_agents()
+    agents = get_muse_configs(has_tools=True)
 
     # Check a known system agent
     default = agents.get("default")
@@ -143,8 +143,8 @@ def test_get_agents_system_agents_have_metadata(fixture_journal):
     assert "name" in default
 
 
-def test_get_agents_excludes_private_apps(fixture_journal, tmp_path, monkeypatch):
-    """Test get_agents skips apps starting with underscore."""
+def test_get_muse_configs_excludes_private_apps(fixture_journal, tmp_path, monkeypatch):
+    """Test get_muse_configs skips apps starting with underscore."""
     # Create a private app with an agent
     private_app = tmp_path / "_private_app" / "agents"
     private_app.mkdir(parents=True)
@@ -152,9 +152,9 @@ def test_get_agents_excludes_private_apps(fixture_journal, tmp_path, monkeypatch
 
     # This is tricky to test without modifying the actual apps directory
     # The current implementation filters by app_path.name.startswith("_")
-    # We verify this by checking the code behavior with get_agents()
+    # We verify this by checking the code behavior with get_muse_configs()
 
-    agents = get_agents()
+    agents = get_muse_configs(has_tools=True)
 
     # No agents should have keys starting with "_"
     for key in agents:
@@ -163,7 +163,7 @@ def test_get_agents_excludes_private_apps(fixture_journal, tmp_path, monkeypatch
 
 def test_app_agent_namespace_format(fixture_journal):
     """Test app agent keys follow {app}:{agent} format."""
-    agents = get_agents()
+    agents = get_muse_configs(has_tools=True)
 
     for key, config in agents.items():
         if config.get("source") == "app":

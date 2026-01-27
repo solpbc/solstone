@@ -142,8 +142,8 @@ def test_spawn_agent(mock_timer, mock_thread, mock_popen, cortex_service, mock_j
 @patch("think.cortex.subprocess.Popen")
 @patch("think.cortex.threading.Thread")
 @patch("think.cortex.threading.Timer")
-def test_spawn_generator(mock_timer, mock_thread, mock_popen, cortex_service, mock_journal):
-    """Test spawning a generator subprocess."""
+def test_spawn_generator_via_agent(mock_timer, mock_thread, mock_popen, cortex_service, mock_journal):
+    """Test spawning a generator subprocess via _spawn_agent."""
     mock_process = MagicMock()
     mock_process.pid = 54321
     mock_process.poll.return_value = None
@@ -168,16 +168,17 @@ def test_spawn_generator(mock_timer, mock_thread, mock_popen, cortex_service, mo
         "output": "md",
     }
 
-    cortex_service._spawn_generator(
+    # Generators now route through _spawn_agent
+    cortex_service._spawn_agent(
         agent_id,
         file_path,
         config,
     )
 
-    # Check subprocess was called with generate command
+    # Check subprocess was called with agents command (generators route through agents)
     mock_popen.assert_called_once()
     call_args = mock_popen.call_args
-    assert call_args[0][0] == ["sol", "generate"]
+    assert call_args[0][0] == ["sol", "agents"]
     assert call_args[1]["stdin"] is not None
     assert call_args[1]["stdout"] is not None
     assert call_args[1]["stderr"] is not None

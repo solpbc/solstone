@@ -900,39 +900,87 @@ def load_output_hook(hook_path: str | Path) -> Callable[[str, dict], str | None]
     return process_func
 
 
-def get_generator_agents() -> dict[str, dict[str, object]]:
-    """Return available generator agents with metadata and config overrides.
+def get_muse_configs(
+    *,
+    has_tools: bool | None = None,
+    has_output: bool | None = None,
+    schedule: str | None = None,
+    include_disabled: bool = False,
+) -> dict[str, dict[str, Any]]:
+    """Load muse configs from system and app directories.
 
-    Scans both system generators (muse/) and app generators (apps/*/muse/).
-    Generators are identified by having a "schedule" field but no "tools" field
-    in frontmatter (tool agents have tools, generators don't).
+    Unified function for loading both tool-using agents and generators from
+    muse/*.md files. Filters based on presence of tools/output fields.
 
-    Each key is the generator name:
-    - System: "activity", "meetings"
-    - App: "app:topic" (e.g., "chat:sentiment")
+    Args:
+        has_tools: If True, only configs with "tools" field (agents).
+            If False, only configs without "tools" field.
+            If None, no filtering on tools presence.
+        has_output: If True, only configs with "output" field (generators).
+            If False, only configs without "output" field.
+            If None, no filtering on output presence.
+        schedule: If provided, only configs where schedule matches this value
+            (e.g., "segment", "daily").
+        include_disabled: If True, include configs with disabled=True.
+            Default False (for processing pipelines).
 
-    The value contains the ``path`` to the ``.md`` file, the ``color``
-    from the frontmatter, the file ``mtime``, a ``source`` field
-    ("system" or "app"), and any keys loaded from the JSON frontmatter.
-
-    Journal config overrides (from config/journal.json "agents" section)
-    are merged in, allowing ``disabled`` and ``extract`` to be
-    overridden per generator.
+    Returns:
+        Dictionary mapping config keys to their metadata including:
+        - path: Path to the .md file
+        - source: "system" or "app"
+        - app: App name (only for app configs)
+        - All fields from frontmatter
     """
-    generators: dict[str, dict[str, object]] = {}
+    configs: dict[str, dict[str, Any]] = {}
 
-    # System generators from muse/ (have "schedule" but no "tools")
+    def matches_filter(info: dict) -> bool:
+        """Check if config matches the filter criteria."""
+        # Check has_tools filter
+        if has_tools is True and "tools" not in info:
+            return False
+        if has_tools is False and "tools" in info:
+            return False
+
+        # Check has_output filter
+        if has_output is True and "output" not in info:
+            return False
+        if has_output is False and "output" in info:
+            return False
+
+        # Check specific schedule value
+        if schedule is not None and info.get("schedule") != schedule:
+            return False
+
+        # Check disabled status
+        if not include_disabled and info.get("disabled", False):
+            return False
+
+        return True
+
+    # System configs from muse/
     if MUSE_DIR.is_dir():
         for md_path in sorted(MUSE_DIR.glob("*.md")):
             name = md_path.stem
             info = _load_prompt_metadata(md_path)
-            # Generators have schedule but no tools (tool agents have tools)
-            if "tools" in info or "schedule" not in info:
-                continue
-            info["source"] = "system"
-            generators[name] = info
 
-    # App generators from apps/*/muse/
+            if not matches_filter(info):
+                continue
+
+            info["source"] = "system"
+
+            # For tool agents, load full config via get_agent()
+            if "tools" in info:
+                try:
+                    config = get_agent(name)
+                    config["title"] = config.get("title", name)
+                    config["source"] = "system"
+                    configs[name] = config
+                except Exception:
+                    pass  # Skip configs that can't be loaded
+            else:
+                configs[name] = info
+
+    # App configs from apps/*/muse/
     apps_dir = Path(__file__).parent.parent / "apps"
     if apps_dir.is_dir():
         for app_path in sorted(apps_dir.iterdir()):
@@ -943,54 +991,39 @@ def get_generator_agents() -> dict[str, dict[str, object]]:
                 continue
             app_name = app_path.name
             for md_path in sorted(app_muse_dir.glob("*.md")):
+                item_name = md_path.stem
                 info = _load_prompt_metadata(md_path)
-                # Generators have schedule but no tools (tool agents have tools)
-                if "tools" in info or "schedule" not in info:
+
+                if not matches_filter(info):
                     continue
-                topic = md_path.stem
-                key = f"{app_name}:{topic}"
+
+                key = f"{app_name}:{item_name}"
                 info["source"] = "app"
                 info["app"] = app_name
-                generators[key] = info
 
-    # Merge journal config overrides
+                # For tool agents, load full config via get_agent()
+                if "tools" in info:
+                    try:
+                        config = get_agent(key)
+                        config["title"] = config.get("title", item_name)
+                        config["source"] = "app"
+                        config["app"] = app_name
+                        configs[key] = config
+                    except Exception:
+                        pass  # Skip configs that can't be loaded
+                else:
+                    configs[key] = info
+
+    # Merge journal config overrides (applies to generators)
     overrides = get_config().get("agents", {})
     for key, override in overrides.items():
-        if key in generators and isinstance(override, dict):
-            # Only merge known override fields
+        if key in configs and isinstance(override, dict):
             if "disabled" in override:
-                generators[key]["disabled"] = override["disabled"]
+                configs[key]["disabled"] = override["disabled"]
             if "extract" in override:
-                generators[key]["extract"] = override["extract"]
+                configs[key]["extract"] = override["extract"]
 
-    return generators
-
-
-def get_generator_agents_by_schedule(
-    schedule: str,
-    *,
-    include_disabled: bool = False,
-) -> dict[str, dict[str, object]]:
-    """Return generator agents matching the given schedule.
-
-    Args:
-        schedule: Target schedule (e.g., "segment" or "daily").
-        include_disabled: If True, include disabled generators (for settings UI).
-            Default False (for processing pipelines).
-
-    Returns:
-        Dict of generator_key -> metadata for generators where schedule matches.
-    """
-    all_generators = get_generator_agents()
-    result: dict[str, dict[str, object]] = {}
-
-    for key, meta in all_generators.items():
-        if not include_disabled and meta.get("disabled", False):
-            continue
-        if meta.get("schedule") == schedule:
-            result[key] = meta
-
-    return result
+    return configs
 
 
 def _resolve_agent_path(name: str) -> tuple[Path, str]:
@@ -1355,66 +1388,3 @@ def get_raw_file(day: str, name: str) -> tuple[str, str, Any]:
         mime = "application/octet-stream"
 
     return rel, mime, meta
-
-
-def get_agents() -> dict[str, dict[str, Any]]:
-    """Load agent metadata from system and app directories.
-
-    Scans both system agents (muse/) and app agents (apps/*/muse/).
-    Agents are identified by having a "tools" field in frontmatter
-    (generators have schedule but no tools).
-    System agents use simple keys like "default", while app agents are
-    namespaced as "app:agent" (e.g., "chat:helper").
-
-    Returns:
-        Dictionary mapping agent keys to their metadata including:
-        - title: Display title for the agent
-        - source: "system" or "app"
-        - app: App name (only for app agents)
-        - All configuration fields from get_agent()
-    """
-    agents = {}
-
-    # System agents from muse/ (identified by having "tools" field)
-    if MUSE_DIR.exists():
-        for md_path in sorted(MUSE_DIR.glob("*.md")):
-            agent_id = md_path.stem
-            try:
-                # Quick check: load frontmatter to filter out generators
-                post = frontmatter.load(md_path)
-                if not post.metadata or "tools" not in post.metadata:
-                    continue  # This is an insight or hook, not an agent
-                config = get_agent(agent_id)
-                config["title"] = config.get("title", agent_id)
-                config["source"] = "system"
-                agents[agent_id] = config
-            except Exception:
-                pass  # Skip agents that can't be loaded
-
-    # App agents from apps/*/muse/
-    apps_dir = Path(__file__).parent.parent / "apps"
-    if apps_dir.is_dir():
-        for app_path in sorted(apps_dir.iterdir()):
-            if not app_path.is_dir() or app_path.name.startswith("_"):
-                continue
-            muse_dir = app_path / "muse"
-            if not muse_dir.is_dir():
-                continue
-            app_name = app_path.name
-            for md_path in sorted(muse_dir.glob("*.md")):
-                agent_name = md_path.stem
-                try:
-                    # Quick check: load frontmatter to filter out generators
-                    post = frontmatter.load(md_path)
-                    if not post.metadata or "tools" not in post.metadata:
-                        continue  # This is an insight or hook, not an agent
-                    key = f"{app_name}:{agent_name}"
-                    config = get_agent(key)
-                    config["title"] = config.get("title", agent_name)
-                    config["source"] = "app"
-                    config["app"] = app_name
-                    agents[key] = config
-                except Exception:
-                    pass  # Skip agents that can't be loaded
-
-    return agents

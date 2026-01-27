@@ -14,10 +14,10 @@ All dependencies are listed in `pyproject.toml`.
 
 The package exposes several commands:
 
-- `sol generate` runs generator pipelines spawned by Cortex (NDJSON protocol, not for direct CLI use).
 - `sol cluster` groups audio and screen JSON files into report sections. Use `--start` and
   `--length` to limit the report to a specific time range.
 - `sol dream` runs generators and agents for a single day via Cortex.
+- `sol agents` is the unified CLI for tool agents and generators (spawned by Cortex, NDJSON protocol).
 - `sol supervisor` monitors observation heartbeats. Use `--no-observers` to disable local capture (sense still runs for remote uploads and imports).
 - `sol mcp` starts an MCP server exposing search capabilities for both summary text and raw transcripts.
 - `sol cortex` starts a Callosum-based service for managing AI agent instances and generators.
@@ -82,7 +82,9 @@ The Cortex service (`sol cortex`) is the central system for managing AI agent in
 
 Cortex routes requests based on configuration:
 - Requests with `tools` field → tool-using agents (`sol agents`)
-- Requests with `output` field (no `tools`) → generators (`sol generate`)
+- Requests with `output` field (no `tools`) → generators (`sol agents`)
+
+Both types are handled by the unified `sol agents` CLI which routes internally.
 
 To spawn agents programmatically, use the cortex_client functions:
 
@@ -159,7 +161,7 @@ which automatically routes to the configured provider based on context.
 
 ## Generator map keys
 
-`think.utils.get_generator_agents()` reads the `.md` prompt files under `muse/` and
+`think.utils.get_muse_configs(has_tools=False)` reads the `.md` prompt files under `muse/` and
 returns a dictionary keyed by generator name. Each entry contains:
 
 - `path` – the prompt file path

@@ -16,7 +16,7 @@ from flask import Blueprint, jsonify, redirect, render_template, request, url_fo
 from convey import state
 from convey.utils import DATE_RE, format_date
 from think.facets import get_facets
-from think.utils import get_agents
+from think.utils import get_muse_configs
 
 agents_bp = Blueprint(
     "app:agents",
@@ -320,7 +320,7 @@ def api_agents_day(day: str) -> Any:
     facet_filter = _get_facet_filter()
 
     # Load agent metadata for titles and grouping
-    agents_meta = get_agents()
+    agents_meta = get_muse_configs(has_tools=True)
     facets = get_facets()
 
     # Get agents for this day
@@ -381,7 +381,7 @@ def api_agent_runs(day: str, name: str) -> Any:
     facet_filter = _get_facet_filter()
 
     # Load metadata
-    agents_meta = get_agents()
+    agents_meta = get_muse_configs(has_tools=True)
     facets = get_facets()
 
     # Get all agents for day and filter to this name

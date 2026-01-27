@@ -17,14 +17,11 @@ For details on the Callosum protocol and message format, see [CALLOSUM.md](CALLO
 ### Key Components
 - **Message Bus Integration**: Cortex connects to Callosum to receive requests and broadcast events
 - **Configuration Loading**: Cortex loads and merges agent configuration with request parameters
-- **Request Routing**: Routes requests based on config fields:
-  - `tools` field present → spawns `sol agents` (tool-using agent)
-  - `output` field present (no `tools`) → spawns `sol generate` (generator)
-  - Neither field → returns error
-- **Process Management**: Spawns agent/generator subprocesses with merged configuration
+- **Request Routing**: Validates config has either `tools` or `output` field, then spawns `sol agents`
+- **Process Management**: Spawns agent subprocesses with merged configuration (both tool agents and generators)
 - **Event Capture**: Monitors agent stdout/stderr and appends to JSONL files
 - **Dual Event Distribution**: Events go to both persistent files and real-time message bus
-- **NDJSON Input Mode**: Both agent and generator processes accept newline-delimited JSON via stdin containing the full merged configuration
+- **NDJSON Input Mode**: Agent processes accept newline-delimited JSON via stdin containing the full merged configuration
 
 ### File States
 - `<timestamp>_active.jsonl`: Agent currently executing (Cortex is appending events)
@@ -275,7 +272,7 @@ When spawning an agent:
 3. Request parameters override agent defaults in the merged configuration
 4. The full configuration is passed to the agent process
 
-Agents define specialized behaviors, tool usage patterns, and facet expertise. Available agents can be discovered using the `get_agents()` function or by listing files in the `muse/` directory (agents are `.md` files with a `tools` field).
+Agents define specialized behaviors, tool usage patterns, and facet expertise. Available agents can be discovered using `get_muse_configs(has_tools=True)` or by listing files in the `muse/` directory (agents are `.md` files with a `tools` field).
 
 ### Agent Configuration Options
 
