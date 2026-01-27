@@ -967,18 +967,7 @@ def get_muse_configs(
                 continue
 
             info["source"] = "system"
-
-            # For tool agents, load full config via get_agent()
-            if "tools" in info:
-                try:
-                    config = get_agent(name)
-                    config["title"] = config.get("title", name)
-                    config["source"] = "system"
-                    configs[name] = config
-                except Exception:
-                    pass  # Skip configs that can't be loaded
-            else:
-                configs[name] = info
+            configs[name] = info
 
     # App configs from apps/*/muse/
     apps_dir = Path(__file__).parent.parent / "apps"
@@ -1000,19 +989,7 @@ def get_muse_configs(
                 key = f"{app_name}:{item_name}"
                 info["source"] = "app"
                 info["app"] = app_name
-
-                # For tool agents, load full config via get_agent()
-                if "tools" in info:
-                    try:
-                        config = get_agent(key)
-                        config["title"] = config.get("title", item_name)
-                        config["source"] = "app"
-                        config["app"] = app_name
-                        configs[key] = config
-                    except Exception:
-                        pass  # Skip configs that can't be loaded
-                else:
-                    configs[key] = info
+                configs[key] = info
 
     # Merge journal config overrides (applies to generators)
     overrides = get_config().get("agents", {})

@@ -28,26 +28,15 @@ import frontmatter
 from think.utils import (
     MUSE_DIR,
     _load_prompt_metadata,
-    get_config,
+    get_muse_configs,
     setup_cli,
 )
 
 # Project root for computing relative paths
 _PROJECT_ROOT = Path(__file__).parent.parent
 
-# Keys injected by get_agent() or internal bookkeeping — not frontmatter
-_SKIP_KEYS = frozenset(
-    {
-        "path",
-        "mtime",
-        "hook_path",
-        "system_instruction",
-        "user_instruction",
-        "extra_context",
-        "system_prompt_name",
-        "sources",
-    }
-)
+# Internal bookkeeping keys to exclude from JSONL output
+_INTERNAL_KEYS = frozenset({"path", "mtime", "hook_path"})
 
 
 def _relative_path(abs_path: str) -> str:
@@ -64,14 +53,6 @@ def _resolve_md_path(name: str) -> Path:
         app, agent_name = name.split(":", 1)
         return _PROJECT_ROOT / "apps" / app / "muse" / f"{agent_name}.md"
     return MUSE_DIR / f"{name}.md"
-
-
-def _resolve_file_path(key: str, info: dict[str, Any]) -> str:
-    """Resolve the relative file path for a config entry."""
-    if info.get("path"):
-        return _relative_path(str(info["path"]))
-    # Configs loaded via get_agent() lose their path — reconstruct from key
-    return _relative_path(str(_resolve_md_path(key)))
 
 
 def _scan_variables(body: str) -> list[str]:
@@ -116,50 +97,12 @@ def _collect_configs(
     source: str | None = None,
     include_disabled: bool = False,
 ) -> dict[str, dict[str, Any]]:
-    """Collect muse configs using metadata-only loading (no instruction composition).
+    """Collect all muse configs with optional filters applied."""
+    configs = get_muse_configs(schedule=schedule, include_disabled=True)
 
-    This avoids the expensive get_agent() path that compose_instructions() uses,
-    which loads facet summaries and entity data from the journal.
-    """
-    configs: dict[str, dict[str, Any]] = {}
-
-    # System configs from muse/
-    if MUSE_DIR.is_dir():
-        for md_path in sorted(MUSE_DIR.glob("*.md")):
-            info = _load_prompt_metadata(md_path)
-            info["source"] = "system"
-            configs[md_path.stem] = info
-
-    # App configs from apps/*/muse/
-    apps_dir = _PROJECT_ROOT / "apps"
-    if apps_dir.is_dir():
-        for app_path in sorted(apps_dir.iterdir()):
-            if not app_path.is_dir() or app_path.name.startswith("_"):
-                continue
-            app_muse_dir = app_path / "muse"
-            if not app_muse_dir.is_dir():
-                continue
-            for md_path in sorted(app_muse_dir.glob("*.md")):
-                info = _load_prompt_metadata(md_path)
-                info["source"] = "app"
-                info["app"] = app_path.name
-                configs[f"{app_path.name}:{md_path.stem}"] = info
-
-    # Merge journal config overrides (disabled/extract)
-    overrides = get_config().get("agents", {})
-    for key, override in overrides.items():
-        if key in configs and isinstance(override, dict):
-            if "disabled" in override:
-                configs[key]["disabled"] = override["disabled"]
-            if "extract" in override:
-                configs[key]["extract"] = override["extract"]
-
-    # Apply filters
     filtered: dict[str, dict[str, Any]] = {}
     for key, info in configs.items():
         if not include_disabled and info.get("disabled", False):
-            continue
-        if schedule and info.get("schedule") != schedule:
             continue
         if source and info.get("source") != source:
             continue
@@ -170,9 +113,9 @@ def _collect_configs(
 
 def _to_jsonl_record(key: str, info: dict[str, Any]) -> dict[str, Any]:
     """Build a clean JSONL record from a config entry."""
-    record: dict[str, Any] = {"file": _resolve_file_path(key, info)}
+    record: dict[str, Any] = {"file": _relative_path(str(info["path"]))}
     for k, v in info.items():
-        if k not in _SKIP_KEYS:
+        if k not in _INTERNAL_KEYS:
             record[k] = v
     return record
 

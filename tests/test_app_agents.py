@@ -121,14 +121,15 @@ def test_get_agent_nonexistent_app_agent_raises():
 
 
 def test_get_muse_configs_includes_system_agents(fixture_journal):
-    """Test get_muse_configs returns system agents."""
+    """Test get_muse_configs returns system agents with metadata."""
     agents = get_muse_configs(has_tools=True)
 
-    # Should include known system agents
+    # Should include known system agents with frontmatter metadata
     assert "default" in agents
     assert agents["default"]["source"] == "system"
-    assert "system_instruction" in agents["default"]
-    assert "user_instruction" in agents["default"]
+    assert "title" in agents["default"]
+    assert "tools" in agents["default"]
+    assert "path" in agents["default"]
 
 
 def test_get_muse_configs_system_agents_have_metadata(fixture_journal):
@@ -140,7 +141,7 @@ def test_get_muse_configs_system_agents_have_metadata(fixture_journal):
     assert default is not None
     assert default["source"] == "system"
     assert "title" in default
-    assert "name" in default
+    assert "color" in default
 
 
 def test_get_muse_configs_excludes_private_apps(fixture_journal, tmp_path, monkeypatch):
