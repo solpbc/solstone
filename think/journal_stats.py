@@ -316,6 +316,11 @@ class JournalStats:
                 except (OSError, IOError) as e:
                     logger.warning(f"Error reading {events_file}: {e}")
 
+        # --- Disk usage ---
+        stats["day_bytes"] = sum(
+            f.stat().st_size for f in day_dir.rglob("*") if f.is_file()
+        )
+
         # --- Build return dict ---
         stats["audio_duration"] = audio_duration
         stats["screen_duration"] = screen_duration

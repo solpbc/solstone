@@ -22,6 +22,16 @@ const Dashboard = (function() {
     return elem;
   }
 
+  // Format byte counts with GB/MB/KB suffixes
+  function fmtBytes(num) {
+    const value = Number(num);
+    if (value >= 1e12) return (value / 1e12).toFixed(1) + ' TB';
+    if (value >= 1e9) return (value / 1e9).toFixed(1) + ' GB';
+    if (value >= 1e6) return (value / 1e6).toFixed(1) + ' MB';
+    if (value >= 1e3) return (value / 1e3).toFixed(1) + ' KB';
+    return String(Math.round(value)) + ' B';
+  }
+
   // Format token counts with Bil/Mil suffixes
   function fmtTokens(num) {
     const value = Number(num);
@@ -254,7 +264,9 @@ const Dashboard = (function() {
       if (total > 0) {
         const formatted = total > 10 ? Math.round(total) : total.toFixed(1);
         bar.appendChild(el('div', {className: 'bar-value'}, [`${formatted}h`]));
-        bar.setAttribute('title', `${d.day} - Audio: ${d.audio.toFixed(1)}h, Screen: ${d.screen.toFixed(1)}h`);
+        const titleParts = [`${d.day} - Audio: ${d.audio.toFixed(1)}h, Screen: ${d.screen.toFixed(1)}h`];
+        if (d.bytes) titleParts.push(`Disk: ${fmtBytes(d.bytes)}`);
+        bar.setAttribute('title', titleParts.join(', '));
       }
 
       chart.appendChild(bar);
@@ -484,6 +496,7 @@ const Dashboard = (function() {
     statsGrid.appendChild(statCard('Audio Hours', totalAudioHours, 'hours'));
     statsGrid.appendChild(statCard('Screen Hours', totalScreenHours, 'hours'));
     statsGrid.appendChild(statCard('Total Tokens', fmtTokens(totalTokens), 'tokens'));
+    statsGrid.appendChild(statCard('Disk Usage', fmtBytes(totals.day_bytes || 0), 'journal days'));
     
     // Render progress cards
     const progressSection = document.getElementById('progressSection');
@@ -538,7 +551,8 @@ const Dashboard = (function() {
       return {
         day: day.slice(4, 6) + '/' + day.slice(6, 8),
         audio: audioHours,
-        screen: screenHours
+        screen: screenHours,
+        bytes: dayData.day_bytes || 0
       };
     });
 
