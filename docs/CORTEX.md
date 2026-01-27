@@ -40,7 +40,7 @@ Requests are created via `cortex_request()` from `think.cortex_client`, which br
 {
   "event": "request",
   "ts": 1234567890123,              // Required: millisecond timestamp (must match filename)
-  "prompt": "Analyze this code for security issues",  // Required: the task or question
+  "prompt": "Analyze this code for security issues",  // Required for agents (not generators)
   "name": "default",              // Optional: agent name from muse/*.md
   "provider": "openai",              // Optional: override provider (openai, google, anthropic)
   "max_output_tokens": 8192,        // Optional: maximum response tokens
@@ -48,7 +48,7 @@ Requests are created via `cortex_request()` from `think.cortex_client`, which br
   "disable_mcp": false,             // Optional: disable MCP tools for this request
   "continue_from": "1234567890122",  // Optional: continue from previous agent
   "facet": "my-project",          // Optional: project context
-  "output": "md",                     // Optional: output format ("md" or "json"), writes to insights/
+  "output": "md",                     // Optional: output format ("md" or "json"), writes to agents/
   "day": "20250109",                  // Optional: YYYYMMDD format, defaults to current day
   "env": {                           // Optional: environment variables for subprocess
     "API_KEY": "secret",
@@ -241,7 +241,7 @@ The frontend uses this to show real-time status updates as tools execute, changi
 
 ## Agent Output
 
-When an agent completes successfully, its result can be automatically written to a file. This uses the same output path logic as insights.
+When an agent completes successfully, its result can be automatically written to a file. This uses the same output path logic as generators.
 
 - Include an `output` field in the agent's frontmatter with the format ("md" or "json")
 - Output path is derived from agent name + format + schedule:
@@ -270,7 +270,7 @@ When spawning an agent:
 1. Cortex loads the agent configuration using `get_agent()` from `think/utils.py`
 2. The configuration is built with three instruction components:
    - `system_instruction`: `journal.md` (shared base prompt, cacheable)
-   - `extra_context`: Runtime context (facets, insights list, datetime)
+   - `extra_context`: Runtime context (facets, generators list, datetime)
    - `user_instruction`: The agent's `.md` file content
 3. Request parameters override agent defaults in the merged configuration
 4. The full configuration is passed to the agent process
@@ -330,7 +330,7 @@ The Model Context Protocol (MCP) provides tools for agent-journal interaction:
 - **OpenAI, Anthropic, Google**: Full MCP tool support via HTTP transport
 
 ### Tool Discovery
-MCP tools are provided by the `think.mcp_tools` FastMCP server, which:
+MCP tools are provided by the `think.mcp` FastMCP server, which:
 - Runs inside Cortex as a background HTTP service
 - Shares its URL directly with agent runs (`mcp_server_url`) so no discovery file is needed
 - Exposes journal search and retrieval capabilities
@@ -398,6 +398,6 @@ The `sol supervisor` command provides process management for the Cortex ecosyste
 - Starts and monitors the MCP tools HTTP server
 - Handles process restarts on failure
 - Monitors system health indicators
-- Triggers `sol dream` at midnight for daily processing (insights + agents)
+- Triggers `sol dream` at midnight for daily processing (generators + agents)
 
 This is distinct from agent lifecycle management, which Cortex handles internally through file state transitions.

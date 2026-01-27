@@ -220,7 +220,7 @@ def find_formattable_files(journal: str) -> dict[str, str]:
     files: dict[str, str] = {}
     journal_path = Path(journal)
 
-    # Scan day directories for insights and segment content
+    # Scan day directories for agent outputs and segment content
     for day, day_abs in day_dirs().items():
         day_path = Path(day_abs)
 

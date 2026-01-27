@@ -281,13 +281,6 @@ class CortexService:
                 self.logger.error("Invalid request format: missing 'request' event")
                 return
 
-            # Validate prompt early
-            prompt = request.get("prompt")
-            if not prompt:
-                self.logger.error(f"Empty prompt in request {agent_id}")
-                self._write_error_and_complete(file_path, "Empty prompt in request")
-                return
-
             # Validate and link continue_from if specified
             continue_from = request.get("continue_from")
             if continue_from:
@@ -370,6 +363,15 @@ class CortexService:
             has_output = bool(config.get("output"))
 
             if has_tools:
+                # Agents require a prompt (generators don't - they use transcripts)
+                prompt = config.get("prompt")
+                if not prompt:
+                    self.logger.error(f"Empty prompt in agent request {agent_id}")
+                    self._write_error_and_complete(
+                        file_path, "Empty prompt in agent request"
+                    )
+                    return
+
                 # Expand tools if it's a string (tool pack name)
                 tools_config = config.get("tools")
                 if isinstance(tools_config, str):
@@ -620,10 +622,9 @@ class CortexService:
                                         app, name = "system", name
                                     context = f"agent.{app}.{name}"
 
-                                    # Extract segment from config env if set
-                                    config = original_request.get("config", {})
-                                    env_config = config.get("env", {})
-                                    segment = env_config.get("SEGMENT_KEY")
+                                    # Extract segment from env if set (flat merge puts env at top level)
+                                    env_config = original_request.get("env", {})
+                                    segment = env_config.get("SEGMENT_KEY") if env_config else None
 
                                     log_token_usage(
                                         model=model,
@@ -956,7 +957,6 @@ def format_agent(
                 - cost: float | None (calculated cost in USD)
     """
     from datetime import datetime
-    from typing import Any
 
     from think.models import calc_token_cost
 

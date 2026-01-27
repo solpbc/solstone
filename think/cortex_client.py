@@ -224,22 +224,24 @@ def wait_for_agents(
 def get_agent_end_state(agent_id: str) -> str:
     """Get how a completed agent ended (finish or error).
 
+    Checks file contents for terminal events even if file is still _active.jsonl,
+    since Callosum broadcasts happen before file rename.
+
     Args:
         agent_id: The agent ID (timestamp)
 
     Returns:
         "finish" - Agent completed successfully
         "error" - Agent ended with an error
-        "running" - Agent is still active
-        "unknown" - Agent file exists but no terminal event found
+        "running" - Agent is still active (no terminal event in file)
+        "unknown" - Agent file not found
     """
     status = get_agent_log_status(agent_id)
-    if status == "running":
-        return "running"
     if status == "not_found":
         return "unknown"
 
-    # Read events to find terminal state
+    # Read events to find terminal state (even for "running" files that may
+    # have finish event - Callosum broadcast happens before file rename)
     try:
         events = read_agent_events(agent_id)
         # Find last finish or error event
@@ -249,7 +251,8 @@ def get_agent_end_state(agent_id: str) -> str:
                 return "finish"
             if event_type == "error":
                 return "error"
-        return "unknown"
+        # No terminal event found - still running
+        return "running"
     except FileNotFoundError:
         return "unknown"
 

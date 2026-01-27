@@ -1072,17 +1072,17 @@ def compose_instructions(
     include_datetime: bool = True,
     config_overrides: dict | None = None,
 ) -> dict:
-    """Compose instruction components for agents or insights.
+    """Compose instruction components for agents or generators.
 
     This is the shared function for building system_instruction, user_instruction,
-    extra_context, and sources configuration. Both agents and insights use this
+    extra_context, and sources configuration. Both agents and generators use this
     to ensure consistent prompt composition.
 
     Parameters
     ----------
     user_prompt:
         Name of the user instruction prompt to load (e.g., "default" for agents).
-        If None, no user_instruction is included (typical for insights).
+        If None, no user_instruction is included (typical for generators).
     user_prompt_dir:
         Directory to load user_prompt from. If None, uses think/ directory.
     facet:
@@ -1090,7 +1090,7 @@ def compose_instructions(
         detailed information for just this facet instead of all facets.
     include_datetime:
         Whether to include current date/time in extra_context. Default True
-        for agents (real-time chat), typically False for insights (past analysis).
+        for agents (real-time chat), typically False for generators (past analysis).
     config_overrides:
         Optional dict from .json "instructions" key. Supported keys:
         - "system": prompt name for system instruction (default: "journal")
@@ -1362,7 +1362,7 @@ def get_agents() -> dict[str, dict[str, Any]]:
 
     Scans both system agents (muse/) and app agents (apps/*/muse/).
     Agents are identified by having a "tools" field in frontmatter
-    (insights have schedule but no tools).
+    (generators have schedule but no tools).
     System agents use simple keys like "default", while app agents are
     namespaced as "app:agent" (e.g., "chat:helper").
 
@@ -1380,7 +1380,7 @@ def get_agents() -> dict[str, dict[str, Any]]:
         for md_path in sorted(MUSE_DIR.glob("*.md")):
             agent_id = md_path.stem
             try:
-                # Quick check: load frontmatter to filter out insights
+                # Quick check: load frontmatter to filter out generators
                 post = frontmatter.load(md_path)
                 if not post.metadata or "tools" not in post.metadata:
                     continue  # This is an insight or hook, not an agent
@@ -1404,7 +1404,7 @@ def get_agents() -> dict[str, dict[str, Any]]:
             for md_path in sorted(muse_dir.glob("*.md")):
                 agent_name = md_path.stem
                 try:
-                    # Quick check: load frontmatter to filter out insights
+                    # Quick check: load frontmatter to filter out generators
                     post = frontmatter.load(md_path)
                     if not post.metadata or "tools" not in post.metadata:
                         continue  # This is an insight or hook, not an agent

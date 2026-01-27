@@ -361,7 +361,7 @@ def cluster(
         sources: Optional dict with keys "audio", "screen", "agents" (bools).
             Defaults to {"audio": True, "screen": False, "agents": True}.
     """
-    # Default sources for daily insights: audio + insight summaries, no raw screen
+    # Default sources for daily generators: audio + agent summaries, no raw screen
     if sources is None:
         sources = {"audio": True, "screen": False, "agents": True}
 
@@ -391,7 +391,7 @@ def cluster_period(
 ) -> Tuple[str, int]:
     """Return Markdown summary for one segment's JSON files and the number processed.
 
-    By default uses raw screen data for segment insights (more granular than summaries).
+    By default uses raw screen data for segment generators (more granular than summaries).
     Override with sources parameter.
 
     Args:
@@ -403,7 +403,7 @@ def cluster_period(
     Returns:
         (markdown, file_count) tuple
     """
-    # Default sources for segment insights: audio + raw screen, no insight summaries
+    # Default sources for segment generators: audio + raw screen, no agent summaries
     if sources is None:
         sources = {"audio": True, "screen": True, "agents": False}
 
@@ -455,7 +455,7 @@ def cluster_segments_multi(
 ) -> Tuple[str, int]:
     """Return Markdown summary for multiple segments and the number of entries processed.
 
-    By default uses raw screen data for segment insights (more granular than summaries).
+    By default uses raw screen data for segment generators (more granular than summaries).
     Validates all segments exist before processing; raises ValueError if any are missing.
 
     Args:
@@ -470,7 +470,7 @@ def cluster_segments_multi(
     Raises:
         ValueError: If any segment directories are missing
     """
-    # Default sources for segment insights: audio + raw screen, no insight summaries
+    # Default sources for segment generators: audio + raw screen, no agent summaries
     if sources is None:
         sources = {"audio": True, "screen": True, "agents": False}
 

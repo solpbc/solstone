@@ -20,7 +20,7 @@ The package exposes several commands:
 - `sol dream` runs generators and agents for a single day via Cortex.
 - `sol supervisor` monitors observation heartbeats. Use `--no-observers` to disable local capture (sense still runs for remote uploads and imports).
 - `sol mcp` starts an MCP server exposing search capabilities for both summary text and raw transcripts.
-- `sol cortex` starts a WebSocket API server for managing AI agent instances and generators.
+- `sol cortex` starts a Callosum-based service for managing AI agent instances and generators.
 
 ```bash
 sol cluster YYYYMMDD [--start HHMMSS --length MINUTES]
@@ -173,7 +173,7 @@ See [APPS.md](APPS.md#instructions-configuration) for the full schema.
 
 ## Cortex API
 
-Cortex is the central agent management system that all agent spawning should go through. See [CORTEX.md](CORTEX.md) for complete documentation of the Cortex WebSocket API and agent event structures.
+Cortex is the central agent management system that all agent spawning should go through. See [CORTEX.md](CORTEX.md) for complete documentation of the Cortex API and agent event structures.
 
 ### Using cortex_client
 

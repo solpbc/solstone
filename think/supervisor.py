@@ -958,7 +958,7 @@ async def handle_health_checks(
 def _run_daily_processing(day: str) -> None:
     """Run complete daily processing via sol dream.
 
-    dream now handles both insights and agent execution, so we just
+    dream now handles both generators and agent execution, so we just
     invoke it with --force and let it manage the full pipeline.
 
     Args:
@@ -1036,7 +1036,7 @@ def handle_daily_tasks() -> None:
 def _handle_segment_observed(message: dict) -> None:
     """Handle segment completion events (from live observation or imports).
 
-    Spawns sol dream in segment mode, which handles both insights and
+    Spawns sol dream in segment mode, which handles both generators and
     segment agents.
     """
     if message.get("tract") != "observe" or message.get("event") != "observed":
@@ -1052,7 +1052,7 @@ def _handle_segment_observed(message: dict) -> None:
 
     logging.info(f"Segment observed: {day}/{segment}, spawning processing...")
 
-    # Run dream in segment mode (handles both insights and agents)
+    # Run dream in segment mode (handles both generators and agents)
     threading.Thread(
         target=_run_segment_processing,
         args=(day, segment),

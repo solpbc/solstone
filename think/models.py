@@ -223,7 +223,7 @@ def _discover_agent_contexts() -> Dict[str, Dict[str, Any]]:
     """
     contexts = {}
 
-    # System agents from muse/ (agents have "tools" field, insights don't)
+    # System agents from muse/ (agents have "tools" field, generators don't)
     muse_dir = Path(__file__).parent.parent / "muse"
     if muse_dir.exists():
         for md_path in muse_dir.glob("*.md"):
