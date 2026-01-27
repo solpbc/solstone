@@ -432,7 +432,7 @@ def index() -> Any:
 @speakers_bp.route("/<day>")
 def speakers_day(day: str) -> str:
     """Render speaker management view for a specific day."""
-    if not re.fullmatch(DATE_RE.pattern, day):
+    if not DATE_RE.fullmatch(day):
         return "", 404
 
     title = format_date(day)
@@ -464,7 +464,7 @@ def api_stats(month: str) -> Any:
 @speakers_bp.route("/api/segments/<day>")
 def api_segments(day: str) -> Any:
     """Return segments with embeddings and 2+ speakers for a day."""
-    if not re.fullmatch(DATE_RE.pattern, day):
+    if not DATE_RE.fullmatch(day):
         return error_response("Invalid day format", 400)
 
     segments = _scan_segment_embeddings(day)
@@ -478,14 +478,14 @@ def api_segment_speakers(day: str, segment_key: str) -> Any:
     Requires a facet (via query param or cookie) for entity matching.
     Returns matched and unmatched speakers.
     """
-    if not re.fullmatch(DATE_RE.pattern, day):
+    if not DATE_RE.fullmatch(day):
         return error_response("Invalid day format", 400)
 
     if not validate_segment_key(segment_key):
         return error_response("Invalid segment key", 400)
 
     # Require facet for entity matching (query param takes precedence over cookie)
-    selected_facet = request.args.get("facet") or request.cookies.get("selected_facet")
+    selected_facet = request.args.get("facet") or request.cookies.get("selectedFacet")
     if not selected_facet:
         return error_response("Select a facet to view speaker details", 400)
 
@@ -530,14 +530,14 @@ def api_segment_speakers(day: str, segment_key: str) -> Any:
 @speakers_bp.route("/api/sentences/<day>/<segment_key>/<source>")
 def api_sentences(day: str, segment_key: str, source: str) -> Any:
     """Return sentences with embeddings and matches for an audio source."""
-    if not re.fullmatch(DATE_RE.pattern, day):
+    if not DATE_RE.fullmatch(day):
         return error_response("Invalid day format", 400)
 
     if not validate_segment_key(segment_key):
         return error_response("Invalid segment key", 400)
 
     # Get selected facet from cookie (optional - sentences work without it)
-    selected_facet = request.cookies.get("selected_facet")
+    selected_facet = request.cookies.get("selectedFacet")
 
     # Load sentences and embeddings
     sentences, emb_data = _load_sentences(day, segment_key, source)
@@ -615,7 +615,7 @@ def api_sentences(day: str, segment_key: str, source: str) -> Any:
 @speakers_bp.route("/api/serve_audio/<day>/<path:encoded_path>")
 def serve_audio(day: str, encoded_path: str) -> Any:
     """Serve audio files for playback."""
-    if not re.fullmatch(DATE_RE.pattern, day):
+    if not DATE_RE.fullmatch(day):
         return "", 404
 
     try:
@@ -654,7 +654,7 @@ def api_save_voiceprint() -> Any:
         return error_response("Missing required fields", 400)
 
     # Validate formats
-    if not re.fullmatch(DATE_RE.pattern, day):
+    if not DATE_RE.fullmatch(day):
         return error_response("Invalid day format", 400)
     if not validate_segment_key(segment_key):
         return error_response("Invalid segment key", 400)
@@ -717,7 +717,7 @@ def api_create_entity_voiceprint() -> Any:
         return error_response("Missing required fields", 400)
 
     # Validate formats
-    if not re.fullmatch(DATE_RE.pattern, day):
+    if not DATE_RE.fullmatch(day):
         return error_response("Invalid day format", 400)
     if not validate_segment_key(segment_key):
         return error_response("Invalid segment key", 400)

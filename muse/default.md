@@ -1,6 +1,8 @@
 {
 
   "title": "Journal Chat",
+  "description": "Interactive assistant for searching, exploring, and understanding journal entries across all facets",
+  "color": "#455a64",
   "label": "Chat Messages",
   "group": "Apps",
   "tools": "journal, todo, entities"

@@ -2,6 +2,7 @@
 
   "title": "Entity Extraction",
   "description": "Extracts people, companies, projects, and tools from segment content",
+  "color": "#2e7d32",
   "schedule": "segment",
   "hook": "entities",
   "thinking_budget": 4096,

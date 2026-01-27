@@ -2,6 +2,7 @@
 
   "title": "Entity Assistant",
   "description": "Quick entity addition with intelligent type detection and automatic description generation",
+  "color": "#00695c",
   "tools": "journal, entities",
   "group": "Entities"
 

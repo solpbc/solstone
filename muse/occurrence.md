@@ -1,7 +1,8 @@
 {
 
   "title": "Occurrence Extraction",
-  "description": "Extracts structured occurrence events from insight summaries."
+  "description": "Extracts structured occurrence events from insight summaries.",
+  "color": "#37474f"
 
 }
 

@@ -1,6 +1,8 @@
 {
 
-  "color": "blue",
+  "title": "Audio Importer",
+  "description": "Analyzes imported audio transcripts to extract knowledge, entities, and action items into a comprehensive summary",
+  "color": "#1976d2",
   "extract": false,
   "output": "md"
 

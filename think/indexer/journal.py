@@ -28,16 +28,13 @@ from think.formatters import (
     format_file,
     load_jsonl,
 )
-from think.utils import get_journal
+from think.utils import DATE_RE, get_journal
 
 logger = logging.getLogger(__name__)
 
 # Database constants
 INDEX_DIR = "indexer"
 DB_NAME = "journal.sqlite"
-
-# Date pattern for historical day check
-DATE_RE = re.compile(r"^\d{8}$")
 
 # Schema for the unified journal index
 SCHEMA = [
@@ -158,7 +155,7 @@ def _is_historical_day(rel_path: str) -> bool:
         return False
 
     first_part = rel_path.split("/")[0]
-    if not DATE_RE.match(first_part):
+    if not DATE_RE.fullmatch(first_part):
         return False  # Not a day directory
 
     today = datetime.now().strftime("%Y%m%d")

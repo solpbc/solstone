@@ -4,7 +4,7 @@
   "description": "Detects meetings in the segment and extracts participant names from screen and conversation.",
   "schedule": "segment",
   "output": "json",
-  "color": "#ff5722"
+  "color": "#e64a19"
 
 }
 

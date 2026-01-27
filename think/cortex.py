@@ -609,7 +609,11 @@ class CortexService:
 
                                     # Extract segment from env if set (flat merge puts env at top level)
                                     env_config = original_request.get("env", {})
-                                    segment = env_config.get("SEGMENT_KEY") if env_config else None
+                                    segment = (
+                                        env_config.get("SEGMENT_KEY")
+                                        if env_config
+                                        else None
+                                    )
 
                                     log_token_usage(
                                         model=model,
@@ -943,7 +947,7 @@ def format_agent(
     """
     from datetime import datetime
 
-    from think.models import calc_token_cost
+    from think.models import calc_agent_cost
 
     _ = context  # Reserved for future context support
     meta: dict[str, Any] = {}
@@ -1254,16 +1258,7 @@ def format_agent(
     meta["model"] = model
     meta["usage"] = usage
 
-    # Calculate cost if we have model and usage
-    cost = None
-    if model and usage:
-        try:
-            cost_data = calc_token_cost({"model": model, "usage": usage})
-            if cost_data:
-                cost = cost_data["total_cost"]
-        except Exception:
-            pass
-    meta["cost"] = cost
+    meta["cost"] = calc_agent_cost(model, usage)
 
     # Indexer metadata - agents aren't indexed but include for consistency
     meta["indexer"] = {"topic": "agent"}

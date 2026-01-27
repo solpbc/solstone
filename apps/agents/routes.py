@@ -8,6 +8,7 @@ from __future__ import annotations
 import json
 import re
 from datetime import date, datetime
+from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
@@ -16,6 +17,7 @@ from flask import Blueprint, jsonify, redirect, render_template, request, url_fo
 from convey import state
 from convey.utils import DATE_RE, format_date
 from think.facets import get_facets
+from think.models import calc_agent_cost
 from think.utils import get_muse_configs
 
 agents_bp = Blueprint(
@@ -92,30 +94,6 @@ def _parse_agent_events(lines: list[str]) -> dict[str, Any]:
     return result
 
 
-def _calc_agent_cost(model: str | None, usage: dict | None) -> float | None:
-    """Calculate cost from model and usage data.
-
-    Args:
-        model: Model name string
-        usage: Token usage dict
-
-    Returns:
-        Total cost in USD, or None if calculation fails
-    """
-    if not model or not usage:
-        return None
-
-    try:
-        from think.models import calc_token_cost
-
-        cost_data = calc_token_cost({"model": model, "usage": usage})
-        if cost_data:
-            return cost_data["total_cost"]
-    except Exception:
-        pass
-    return None
-
-
 def _parse_agent_file(agent_file: Path) -> dict[str, Any] | None:
     """Parse agent JSONL file and extract metadata.
 
@@ -174,8 +152,8 @@ def _parse_agent_file(agent_file: Path) -> dict[str, Any] | None:
                     event_data["finish_ts"] - agent_info["start"]
                 ) / 1000.0
 
-            # Calculate cost using shared helper
-            agent_info["cost"] = _calc_agent_cost(
+            # Calculate cost
+            agent_info["cost"] = calc_agent_cost(
                 event_data["model"], event_data["usage"]
             )
 
@@ -225,11 +203,13 @@ def _get_agents_for_day(day: str, facet_filter: str | None = None) -> list[dict]
     return agents
 
 
+@lru_cache(maxsize=1)
 def _build_agents_meta() -> dict[str, dict[str, Any]]:
     """Build agent metadata dict from all muse configs.
 
     Returns dict mapping agent name to metadata with capability fields
-    for frontend display.
+    for frontend display. Cached for process lifetime since muse configs
+    are static.
     """
     configs = get_muse_configs(include_disabled=True)
     agents: dict[str, dict[str, Any]] = {}
@@ -265,7 +245,7 @@ def index() -> Any:
 @agents_bp.route("/<day>")
 def agents_day(day: str) -> str:
     """Render agent history viewer for a specific day."""
-    if not re.fullmatch(DATE_RE.pattern, day):
+    if not DATE_RE.fullmatch(day):
         return "", 404
 
     title = format_date(day)
@@ -294,7 +274,7 @@ def api_agents_day(day: str) -> Any:
             "facets": {name: {title, color}...}
         }
     """
-    if not re.fullmatch(DATE_RE.pattern, day):
+    if not DATE_RE.fullmatch(day):
         return jsonify({"error": "Invalid day format"}), 400
 
     facet_filter = _get_facet_filter()
@@ -336,6 +316,10 @@ def api_agent_run(agent_id: str) -> Any:
     agent_file = journal_path / "agents" / f"{agent_id}.jsonl"
 
     if not agent_file.exists():
+        # Check if the agent is still running
+        active_file = journal_path / "agents" / f"{agent_id}_active.jsonl"
+        if active_file.exists():
+            return jsonify({"error": "Agent run is still in progress"}), 202
         return jsonify({"error": f"Agent run {agent_id} not found"}), 404
 
     try:

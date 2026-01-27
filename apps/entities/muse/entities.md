@@ -2,6 +2,7 @@
 
   "title": "Entity Detector",
   "description": "Mines journal for entity mentions and records facet-scoped detections with day-specific context",
+  "color": "#00897b",
   "schedule": "daily",
   "priority": 25,
   "tools": "journal, entities",

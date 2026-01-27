@@ -52,7 +52,7 @@ def index() -> Any:
 @transcripts_bp.route("/<day>")
 def transcripts_day(day: str) -> str:
     """Render transcript viewer for a specific day."""
-    if not re.fullmatch(DATE_RE.pattern, day):
+    if not DATE_RE.fullmatch(day):
         return "", 404
 
     title = format_date(day)
@@ -63,7 +63,7 @@ def transcripts_day(day: str) -> str:
 @transcripts_bp.route("/api/ranges/<day>")
 def transcript_ranges(day: str) -> Any:
     """Return available transcript ranges for a day."""
-    if not re.fullmatch(DATE_RE.pattern, day):
+    if not DATE_RE.fullmatch(day):
         return "", 404
 
     audio_ranges, screen_ranges = cluster_scan(day)
@@ -76,7 +76,7 @@ def transcript_segments(day: str) -> Any:
 
     Returns list of segments with their content types for the segment selector UI.
     """
-    if not re.fullmatch(DATE_RE.pattern, day):
+    if not DATE_RE.fullmatch(day):
         return "", 404
 
     segments = cluster_segments(day)
@@ -86,7 +86,7 @@ def transcript_segments(day: str) -> Any:
 @transcripts_bp.route("/api/serve_file/<day>/<path:encoded_path>")
 def serve_file(day: str, encoded_path: str) -> Any:
     """Serve actual media files for embedding."""
-    if not re.fullmatch(DATE_RE.pattern, day):
+    if not DATE_RE.fullmatch(day):
         return "", 404
 
     try:
@@ -183,7 +183,7 @@ def segment_content(day: str, segment_key: str) -> Any:
         - segment_key: segment directory name
         - cost: processing cost in USD (float, 0.0 if no data)
     """
-    if not re.fullmatch(DATE_RE.pattern, day):
+    if not DATE_RE.fullmatch(day):
         return "", 404
 
     if not validate_segment_key(segment_key):
@@ -355,7 +355,7 @@ def delete_segment(day: str, segment_key: str) -> Any:
     Returns:
         JSON success response or error response
     """
-    if not re.fullmatch(DATE_RE.pattern, day):
+    if not DATE_RE.fullmatch(day):
         return error_response("Invalid day format", 400)
 
     if not validate_segment_key(segment_key):

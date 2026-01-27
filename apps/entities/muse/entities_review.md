@@ -2,6 +2,7 @@
 
   "title": "Entity Reviewer",
   "description": "Reviews detected entities and promotes recurring ones to attached status",
+  "color": "#00796b",
   "schedule": "daily",
   "priority": 26,
   "tools": "journal, entities",

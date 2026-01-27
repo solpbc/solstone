@@ -2,13 +2,11 @@
 
   "title": "Entity Description",
   "description": "Research and generate single-sentence descriptions for attached entities",
+  "color": "#26a69a",
   "tools": "journal",
   "group": "Entities"
 
 }
-
-# SPDX-License-Identifier: AGPL-3.0-only
-# Copyright (c) 2026 sol pbc
 
 ## Core Mission
 

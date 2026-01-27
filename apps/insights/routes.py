@@ -60,7 +60,7 @@ def index() -> Any:
 @insights_bp.route("/<day>")
 def insights_day(day: str) -> str:
     """Render insights viewer for a specific day."""
-    if not re.fullmatch(DATE_RE.pattern, day):
+    if not DATE_RE.fullmatch(day):
         return "", 404
 
     topic_map = _build_topic_map()

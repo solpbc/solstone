@@ -2,15 +2,14 @@
 
   "title": "Entity Observer",
   "description": "Extracts durable factoids about attached entities from journal content",
+  "color": "#004d40",
   "schedule": "daily",
   "priority": 27,
   "tools": "journal, entities",
-  "multi_facet": true
+  "multi_facet": true,
+  "group": "Entities"
 
 }
-
-# SPDX-License-Identifier: AGPL-3.0-only
-# Copyright (c) 2026 sol pbc
 
 ## Core Mission
 

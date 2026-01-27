@@ -43,10 +43,7 @@ from importlib import import_module
 from pathlib import Path
 from typing import Any, Callable
 
-from think.utils import day_dirs, get_journal, segment_key
-
-# Date pattern for path parsing
-_DATE_RE = re.compile(r"^\d{8}$")
+from think.utils import DATE_RE, day_dirs, get_journal, segment_key
 
 
 def extract_path_metadata(rel_path: str) -> dict[str, str]:
@@ -75,14 +72,14 @@ def extract_path_metadata(rel_path: str) -> dict[str, str]:
     topic = ""
 
     # Extract day from YYYYMMDD directory prefix
-    if parts[0] and _DATE_RE.match(parts[0]):
+    if parts[0] and DATE_RE.fullmatch(parts[0]):
         day = parts[0]
 
     # Extract facet from facets/{facet}/... paths
     if parts[0] == "facets" and len(parts) >= 3:
         facet = parts[1]
         # Day from YYYYMMDD filename (events/entities/todos/news)
-        if len(parts) >= 4 and _DATE_RE.match(basename):
+        if len(parts) >= 4 and DATE_RE.fullmatch(basename):
             day = basename
 
     # Extract day from imports/YYYYMMDD_HHMMSS/...
@@ -92,7 +89,7 @@ def extract_path_metadata(rel_path: str) -> dict[str, str]:
 
     # Extract day from config/actions/YYYYMMDD.jsonl (journal-level logs)
     if parts[0] == "config" and len(parts) >= 3 and parts[1] == "actions":
-        if _DATE_RE.match(basename):
+        if DATE_RE.fullmatch(basename):
             day = basename
 
     # Derive topic for markdown files only

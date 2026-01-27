@@ -1,6 +1,8 @@
 {
 
   "title": "Joke Bot",
+  "description": "Mines yesterday's journal for poignant moments and crafts a personalized joke delivered via message",
+  "color": "#f9a825",
   "schedule": "daily",
   "priority": 99,
   "tools": "default"

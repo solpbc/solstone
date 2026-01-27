@@ -820,6 +820,26 @@ def calc_token_cost(token_data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         return None
 
 
+def calc_agent_cost(
+    model: Optional[str], usage: Optional[Dict[str, Any]]
+) -> Optional[float]:
+    """Calculate total cost for an agent run from model and usage data.
+
+    Convenience wrapper around calc_token_cost for agent cost lookups.
+
+    Returns total cost in USD, or None if data is missing or pricing unavailable.
+    """
+    if not model or not usage:
+        return None
+    try:
+        cost_data = calc_token_cost({"model": model, "usage": usage})
+        if cost_data:
+            return cost_data["total_cost"]
+    except Exception:
+        return None
+    return None
+
+
 def iter_token_log(day: str) -> Any:
     """Iterate over token log entries for a given day.
 
@@ -1174,6 +1194,7 @@ __all__ = [
     # Utilities
     "log_token_usage",
     "calc_token_cost",
+    "calc_agent_cost",
     "get_usage_cost",
     "iter_token_log",
     "get_model_provider",

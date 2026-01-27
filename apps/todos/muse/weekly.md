@@ -2,6 +2,7 @@
 
   "title": "TODO Weekly Scout",
   "description": "Audits the past week's journal follow-ups to confirm completions and surface the next five high-impact todos for today.",
+  "color": "#f4511e",
   "tools": "journal, todo",
   "group": "Todos"
 

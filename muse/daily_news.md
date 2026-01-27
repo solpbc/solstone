@@ -2,9 +2,10 @@
 
   "title": "Daily News Briefing",
   "description": "Creates a crisp TL;DR briefing highlighting yesterday's top activities across all facets, delivered to inbox",
+  "color": "#1565c0",
   "schedule": "daily",
   "priority": 15,
-  "tools": "journal,facets"
+  "tools": "journal, facets"
 
 }
 

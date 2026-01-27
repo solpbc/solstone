@@ -35,7 +35,7 @@ def index():
 @calendar_bp.route("/<day>")
 def calendar_day(day: str) -> str:
     """Render events timeline for a specific day."""
-    if not re.fullmatch(DATE_RE.pattern, day):
+    if not DATE_RE.fullmatch(day):
         return "", 404
     day_dir = str(day_path(day))
     if not os.path.isdir(day_dir):
@@ -53,7 +53,7 @@ def calendar_day(day: str) -> str:
 @calendar_bp.route("/api/day/<day>/events")
 def calendar_day_events(day: str) -> Any:
     """Return events for a specific day from facet event logs."""
-    if not re.fullmatch(DATE_RE.pattern, day):
+    if not DATE_RE.fullmatch(day):
         return "", 404
 
     from think.indexer.journal import get_events
@@ -131,7 +131,7 @@ _frame_cache: dict = {}
 @calendar_bp.route("/<day>/screens")
 def _dev_calendar_screens_list(day: str) -> str:
     """Render list of screen.jsonl files for a specific day."""
-    if not re.fullmatch(DATE_RE.pattern, day):
+    if not DATE_RE.fullmatch(day):
         return "", 404
 
     day_dir = str(day_path(day))
@@ -153,7 +153,7 @@ def _dev_calendar_screens_detail(
     day: str, timestamp: str, filename: str = "screen.jsonl"
 ) -> str:
     """Render detail view for a specific screen.jsonl file."""
-    if not re.fullmatch(DATE_RE.pattern, day):
+    if not DATE_RE.fullmatch(day):
         return "", 404
     from think.utils import segment_key
 
@@ -188,7 +188,7 @@ def _dev_calendar_screens_detail(
 @calendar_bp.route("/api/screen_files/<day>")
 def _dev_screen_files(day: str) -> Any:
     """Return list of *screen.jsonl files for a day."""
-    if not re.fullmatch(DATE_RE.pattern, day):
+    if not DATE_RE.fullmatch(day):
         return "", 404
 
     day_dir = str(day_path(day))
@@ -248,7 +248,7 @@ def _dev_screen_files(day: str) -> Any:
 @calendar_bp.route("/api/screen_frames/<day>/<timestamp>/<filename>")
 def _dev_screen_frames(day: str, timestamp: str, filename: str = "screen.jsonl") -> Any:
     """Return all frame records and pre-cache decoded frames from video."""
-    if not re.fullmatch(DATE_RE.pattern, day):
+    if not DATE_RE.fullmatch(day):
         return "", 404
     from think.utils import segment_key
 
@@ -350,7 +350,7 @@ def _dev_screen_frames(day: str, timestamp: str, filename: str = "screen.jsonl")
 @calendar_bp.route("/api/screen_frame_image/<day>/<timestamp>/<int:frame_id>")
 def _dev_screen_frame_image(day: str, timestamp: str, frame_id: int) -> Any:
     """Serve a cached frame image as JPEG."""
-    if not re.fullmatch(DATE_RE.pattern, day):
+    if not DATE_RE.fullmatch(day):
         return "", 404
     from think.utils import segment_key
 

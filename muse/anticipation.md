@@ -1,7 +1,8 @@
 {
 
   "title": "Anticipation Extraction",
-  "description": "Extracts structured anticipation events (future scheduled items) from insight summaries."
+  "description": "Extracts structured anticipation events (future scheduled items) from insight summaries.",
+  "color": "#4527a0"
 
 }
 
