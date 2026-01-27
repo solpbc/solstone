@@ -62,6 +62,7 @@ COMMANDS: dict[str, str] = {
     "agents": "think.agents",
     "cortex": "think.cortex",
     "mcp": "think.mcp",
+    "muse": "think.muse_cli",
     # convey package - web UI
     "convey": "convey.cli",
     "restart": "convey.restart",
@@ -108,6 +109,7 @@ GROUPS: dict[str, list[str]] = {
         "agents",
         "cortex",
         "mcp",
+        "muse",
     ],
     "Convey (web UI)": [
         "convey",
