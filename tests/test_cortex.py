@@ -140,6 +140,75 @@ def test_spawn_agent(mock_timer, mock_thread, mock_popen, cortex_service, mock_j
 
 
 @patch("think.cortex.subprocess.Popen")
+@patch("think.cortex.threading.Thread")
+@patch("think.cortex.threading.Timer")
+def test_spawn_generator(mock_timer, mock_thread, mock_popen, cortex_service, mock_journal):
+    """Test spawning a generator subprocess."""
+    mock_process = MagicMock()
+    mock_process.pid = 54321
+    mock_process.poll.return_value = None
+    mock_process.stdin = MagicMock()
+    mock_process.stdout = MagicMock()
+    mock_process.stderr = MagicMock()
+    mock_popen.return_value = mock_process
+
+    # Setup mock timer
+    mock_timer_instance = MagicMock()
+    mock_timer.return_value = mock_timer_instance
+
+    agent_id = "987654321"
+    file_path = mock_journal / "agents" / f"{agent_id}_active.jsonl"
+
+    # Generator config has "output" instead of "tools"
+    config = {
+        "event": "request",
+        "ts": 987654321,
+        "name": "activity",
+        "day": "20240101",
+        "output": "md",
+    }
+
+    cortex_service._spawn_generator(
+        agent_id,
+        file_path,
+        config,
+    )
+
+    # Check subprocess was called with generate command
+    mock_popen.assert_called_once()
+    call_args = mock_popen.call_args
+    assert call_args[0][0] == ["sol", "generate"]
+    assert call_args[1]["stdin"] is not None
+    assert call_args[1]["stdout"] is not None
+    assert call_args[1]["stderr"] is not None
+
+    # Check NDJSON was written to stdin
+    mock_process.stdin.write.assert_called_once()
+    written_data = mock_process.stdin.write.call_args[0][0]
+    ndjson = json.loads(written_data.strip())
+    assert ndjson["event"] == "request"
+    assert ndjson["name"] == "activity"
+    assert ndjson["day"] == "20240101"
+    assert ndjson["output"] == "md"
+
+    # Check stdin was closed
+    mock_process.stdin.close.assert_called_once()
+
+    # Check generator was tracked
+    assert agent_id in cortex_service.running_agents
+    agent = cortex_service.running_agents[agent_id]
+    assert agent.agent_id == agent_id
+    assert agent.log_path == file_path
+
+    # Check monitoring threads were started
+    assert mock_thread.call_count == 2  # stdout and stderr
+
+    # Check timer was created and started
+    mock_timer.assert_called_once()
+    mock_timer_instance.start.assert_called_once()
+
+
+@patch("think.cortex.subprocess.Popen")
 def test_spawn_agent_with_handoff_from(mock_popen, cortex_service, mock_journal):
     """Test spawning an agent with handoff_from parameter."""
     mock_process = MagicMock()

@@ -1019,6 +1019,58 @@ def generate(
     return result["text"]
 
 
+def generate_with_result(
+    contents: Union[str, List[Any]],
+    context: str,
+    temperature: float = 0.3,
+    max_output_tokens: int = 8192 * 2,
+    system_instruction: Optional[str] = None,
+    json_output: bool = False,
+    thinking_budget: Optional[int] = None,
+    timeout_s: Optional[float] = None,
+    **kwargs: Any,
+) -> dict:
+    """Generate text and return full result with usage data.
+
+    Same as generate() but returns the full GenerateResult dict instead of
+    just the text. Used by cortex-managed generators that need usage data
+    for event emission.
+
+    Returns
+    -------
+    dict
+        GenerateResult with: text, usage, finish_reason, thinking.
+    """
+    from think.providers import get_provider_module
+
+    model_override = kwargs.pop("model", None)
+
+    provider, model = resolve_provider(context)
+    if model_override:
+        model = model_override
+
+    provider_mod = get_provider_module(provider)
+
+    result = provider_mod.run_generate(
+        contents=contents,
+        model=model,
+        temperature=temperature,
+        max_output_tokens=max_output_tokens,
+        system_instruction=system_instruction,
+        json_output=json_output,
+        thinking_budget=thinking_budget,
+        timeout_s=timeout_s,
+        **kwargs,
+    )
+
+    _validate_json_response(result, json_output)
+
+    if result.get("usage"):
+        log_token_usage(model=model, usage=result["usage"], context=context)
+
+    return result
+
+
 async def agenerate(
     contents: Union[str, List[Any]],
     context: str,
@@ -1116,6 +1168,7 @@ __all__ = [
     "CLAUDE_SONNET_4",
     # Unified API
     "generate",
+    "generate_with_result",
     "agenerate",
     "resolve_provider",
     # Utilities

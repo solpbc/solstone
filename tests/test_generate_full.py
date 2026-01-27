@@ -4,12 +4,13 @@
 """Tests for the generator output pipeline.
 
 Tests cover:
-- Basic output generation and saving
+- Basic output generation via NDJSON protocol
 - Hook invocation with correct context
-- Named hook resolution
+- Generators without hooks
 """
 
 import importlib
+import io
 import json
 import os
 import shutil
@@ -34,28 +35,82 @@ def copy_day(tmp_path: Path) -> Path:
 
 
 # Mock result must be >= MIN_INPUT_CHARS (50) to generate output
-MOCK_RESULT = "## Meeting Summary\n\nTeam standup at 9am with Alice and Bob discussing project status."
+MOCK_RESULT = {
+    "text": "## Meeting Summary\n\nTeam standup at 9am with Alice and Bob discussing project status.",
+    "usage": {"input_tokens": 100, "output_tokens": 50},
+}
 
 
-def test_generate_output(tmp_path, monkeypatch):
-    """Test basic output generation saves markdown output."""
-    mod = importlib.import_module("think.generate")
-    day_dir = copy_day(tmp_path)
-    prompt = tmp_path / "prompt.md"
-    prompt.write_text('{\n  "schedule": "daily"\n}\n\nprompt')
+def run_generator_with_config(mod, config: dict, monkeypatch) -> list[dict]:
+    """Run generator with NDJSON config and capture output events."""
+    # Mock stdin with config
+    stdin_data = json.dumps(config) + "\n"
+    monkeypatch.setattr("sys.stdin", io.StringIO(stdin_data))
 
-    monkeypatch.setattr(
-        mod,
-        "generate_agent_output",
-        lambda *a, **k: MOCK_RESULT,
-    )
-    monkeypatch.setenv("GOOGLE_API_KEY", "x")
-    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
-    monkeypatch.setattr("sys.argv", ["sol generate", "20240101", "-f", str(prompt)])
+    # Capture stdout
+    captured_output = io.StringIO()
+    monkeypatch.setattr("sys.stdout", captured_output)
+
+    # Run main
     mod.main()
 
-    md = day_dir / "agents" / "prompt.md"
-    assert md.read_text() == MOCK_RESULT
+    # Parse output events
+    events = []
+    captured_output.seek(0)
+    for line in captured_output:
+        line = line.strip()
+        if line:
+            events.append(json.loads(line))
+
+    return events
+
+
+def test_generate_output_ndjson(tmp_path, monkeypatch):
+    """Test basic output generation via NDJSON protocol."""
+    mod = importlib.import_module("think.generate")
+    copy_day(tmp_path)
+
+    # Create a test generator in muse directory
+    muse_dir = Path(mod.__file__).resolve().parent.parent / "muse"
+    test_generator = muse_dir / "test_gen.md"
+    test_generator.write_text(
+        '{\n  "schedule": "daily",\n  "output": "md"\n}\n\nTest prompt'
+    )
+
+    try:
+        monkeypatch.setattr(
+            mod,
+            "generate_agent_output",
+            lambda *a, **k: (
+                MOCK_RESULT if k.get("return_result") else MOCK_RESULT["text"]
+            ),
+        )
+        monkeypatch.setenv("GOOGLE_API_KEY", "x")
+        monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+
+        config = {
+            "name": "test_gen",
+            "day": "20240101",
+            "output": "md",
+            "provider": "google",
+            "model": "gemini-2.0-flash",
+        }
+
+        events = run_generator_with_config(mod, config, monkeypatch)
+
+        # Should have start and finish events
+        assert len(events) >= 2
+        assert events[0]["event"] == "start"
+        assert events[0]["name"] == "test_gen"
+
+        # Find finish event
+        finish_events = [e for e in events if e["event"] == "finish"]
+        assert len(finish_events) == 1
+        assert finish_events[0]["result"] == MOCK_RESULT["text"]
+
+    finally:
+        if test_generator.exists():
+            test_generator.unlink()
 
 
 def test_generate_hook_invoked_with_context(tmp_path, monkeypatch):
@@ -63,24 +118,16 @@ def test_generate_hook_invoked_with_context(tmp_path, monkeypatch):
     mod = importlib.import_module("think.generate")
     copy_day(tmp_path)
 
-    # Create generator with hook
-    generators_dir = tmp_path / "generators"
-    generators_dir.mkdir()
-
-    prompt_file = generators_dir / "hooked.md"
-    prompt_file.write_text(
-        '{\n  "title": "Hooked",\n  "schedule": "daily",\n  "hook": "test_hook"\n}\n\nTest prompt'
-    )
-
     # Create the hook file in muse/ directory
-    hooks_dir = Path(mod.__file__).resolve().parent.parent / "muse"
-    hook_file = hooks_dir / "test_hook.py"
+    muse_dir = Path(mod.__file__).resolve().parent.parent / "muse"
+    hook_file = muse_dir / "test_hook.py"
     hook_file.write_text("""
 def process(result, context):
     import json
     from pathlib import Path
     # Write context to file for test verification
     out_path = Path(context["output_path"]).parent / "context_captured.json"
+    out_path.parent.mkdir(parents=True, exist_ok=True)
     ctx_copy = {
         "day": context.get("day"),
         "segment": context.get("segment"),
@@ -94,18 +141,36 @@ def process(result, context):
     return None
 """)
 
+    # Create generator with hook
+    test_generator = muse_dir / "hooked_gen.md"
+    test_generator.write_text(
+        '{\n  "title": "Hooked",\n  "schedule": "daily",\n  "output": "md",\n  "hook": "test_hook"\n}\n\nTest prompt'
+    )
+
     try:
         monkeypatch.setattr(
             mod,
             "generate_agent_output",
-            lambda *a, **k: MOCK_RESULT,
+            lambda *a, **k: (
+                MOCK_RESULT if k.get("return_result") else MOCK_RESULT["text"]
+            ),
         )
         monkeypatch.setenv("GOOGLE_API_KEY", "x")
         monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
-        monkeypatch.setattr(
-            "sys.argv", ["sol generate", "20240101", "-f", str(prompt_file)]
-        )
-        mod.main()
+
+        config = {
+            "name": "hooked_gen",
+            "day": "20240101",
+            "output": "md",
+            "provider": "google",
+            "model": "gemini-2.0-flash",
+        }
+
+        events = run_generator_with_config(mod, config, monkeypatch)
+
+        # Should have start and finish events
+        finish_events = [e for e in events if e["event"] == "finish"]
+        assert len(finish_events) == 1
 
         # Read captured context
         captured_path = tmp_path / "20240101" / "agents" / "context_captured.json"
@@ -114,37 +179,121 @@ def process(result, context):
         assert captured["day"] == "20240101"
         assert captured["segment"] is None
         assert captured["multi_segment"] is False
-        assert captured["name"] == "hooked"
+        assert captured["name"] == "hooked_gen"
         assert captured["has_transcript"] is True
         assert captured["has_meta"] is True
 
     finally:
-        # Clean up test hook
+        # Clean up test files
         if hook_file.exists():
             hook_file.unlink()
+        if test_generator.exists():
+            test_generator.unlink()
 
 
 def test_generate_without_hook_succeeds(tmp_path, monkeypatch):
     """Test that generators without hooks still work correctly."""
     mod = importlib.import_module("think.generate")
-    day_dir = copy_day(tmp_path)
+    copy_day(tmp_path)
 
     # Create generator without hook
-    prompt = tmp_path / "nohook.md"
-    prompt.write_text('{\n  "schedule": "daily"\n}\n\nNo hook prompt')
-
-    monkeypatch.setattr(
-        mod,
-        "generate_agent_output",
-        lambda *a, **k: MOCK_RESULT,
+    muse_dir = Path(mod.__file__).resolve().parent.parent / "muse"
+    test_generator = muse_dir / "nohook_gen.md"
+    test_generator.write_text(
+        '{\n  "schedule": "daily",\n  "output": "md"\n}\n\nNo hook prompt'
     )
-    monkeypatch.setenv("GOOGLE_API_KEY", "x")
-    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
-    monkeypatch.setattr("sys.argv", ["sol generate", "20240101", "-f", str(prompt)])
-    mod.main()
 
-    md = day_dir / "agents" / "nohook.md"
-    assert md.read_text() == MOCK_RESULT
+    try:
+        monkeypatch.setattr(
+            mod,
+            "generate_agent_output",
+            lambda *a, **k: (
+                MOCK_RESULT if k.get("return_result") else MOCK_RESULT["text"]
+            ),
+        )
+        monkeypatch.setenv("GOOGLE_API_KEY", "x")
+        monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+
+        config = {
+            "name": "nohook_gen",
+            "day": "20240101",
+            "output": "md",
+            "provider": "google",
+            "model": "gemini-2.0-flash",
+        }
+
+        events = run_generator_with_config(mod, config, monkeypatch)
+
+        # Should have start and finish events
+        assert len(events) >= 2
+        finish_events = [e for e in events if e["event"] == "finish"]
+        assert len(finish_events) == 1
+        assert finish_events[0]["result"] == MOCK_RESULT["text"]
+
+    finally:
+        if test_generator.exists():
+            test_generator.unlink()
+
+
+def test_generate_error_event_on_missing_generator(tmp_path, monkeypatch):
+    """Test that missing generator name emits error event."""
+    mod = importlib.import_module("think.generate")
+    copy_day(tmp_path)
+
+    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+
+    config = {
+        "name": "nonexistent_generator",
+        "day": "20240101",
+        "output": "md",
+    }
+
+    events = run_generator_with_config(mod, config, monkeypatch)
+
+    # Should have an error event
+    error_events = [e for e in events if e["event"] == "error"]
+    assert len(error_events) == 1
+    assert "not found" in error_events[0]["error"].lower()
+
+
+def test_generate_skipped_on_no_input(tmp_path, monkeypatch):
+    """Test that generator emits skipped finish when no input."""
+    mod = importlib.import_module("think.generate")
+
+    # Create empty day directory (no transcripts)
+    os.environ["JOURNAL_PATH"] = str(tmp_path)
+    day_dir = day_path("20240101")
+    day_dir.mkdir(parents=True, exist_ok=True)
+
+    # Create a test generator
+    muse_dir = Path(mod.__file__).resolve().parent.parent / "muse"
+    test_generator = muse_dir / "empty_gen.md"
+    test_generator.write_text(
+        '{\n  "schedule": "daily",\n  "output": "md"\n}\n\nTest prompt'
+    )
+
+    try:
+        monkeypatch.setenv("GOOGLE_API_KEY", "x")
+        monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+
+        config = {
+            "name": "empty_gen",
+            "day": "20240101",
+            "output": "md",
+            "provider": "google",
+            "model": "gemini-2.0-flash",
+        }
+
+        events = run_generator_with_config(mod, config, monkeypatch)
+
+        # Should have start and finish with skipped
+        finish_events = [e for e in events if e["event"] == "finish"]
+        assert len(finish_events) == 1
+        assert finish_events[0].get("skipped") == "no_input"
+
+    finally:
+        if test_generator.exists():
+            test_generator.unlink()
 
 
 def test_named_hook_resolution(tmp_path, monkeypatch):

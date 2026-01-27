@@ -14,16 +14,15 @@ All dependencies are listed in `pyproject.toml`.
 
 The package exposes several commands:
 
-- `sol generate` builds a Markdown summary of a day's recordings using a Gemini prompt.
+- `sol generate` runs generator pipelines spawned by Cortex (NDJSON protocol, not for direct CLI use).
 - `sol cluster` groups audio and screen JSON files into report sections. Use `--start` and
   `--length` to limit the report to a specific time range.
-- `sol dream` runs the above tools for a single day.
+- `sol dream` runs generators and agents for a single day via Cortex.
 - `sol supervisor` monitors observation heartbeats. Use `--no-observers` to disable local capture (sense still runs for remote uploads and imports).
 - `sol mcp` starts an MCP server exposing search capabilities for both summary text and raw transcripts.
-- `sol cortex` starts a WebSocket API server for managing AI agent instances.
+- `sol cortex` starts a WebSocket API server for managing AI agent instances and generators.
 
 ```bash
-sol generate YYYYMMDD -f PROMPT [--segment HHMMSS_LEN] [--segments SEG1,SEG2 -o OUT] [--force] [-v]
 sol cluster YYYYMMDD [--start HHMMSS --length MINUTES]
 sol dream [--day YYYYMMDD] [--segment HHMMSS_LEN] [--force] [--skip-generators] [--skip-agents]
 sol supervisor [--no-observers]
@@ -31,12 +30,7 @@ sol mcp [--transport http] [--port PORT] [--path PATH]
 sol cortex [--host HOST] [--port PORT] [--path PATH]
 ```
 
-Use `--segment` to process a single segment, or `--segments` with `-o` to process
-multiple specific segments (comma-separated). Use `-o` to override the output path
-for any mode.
-
-Use `-c` to count tokens only, `--force` to overwrite existing files, and `-v` for
-verbose logs.
+Use `--force` to overwrite existing files, and `-v` for verbose logs.
 
 Set `GOOGLE_API_KEY` before running any command that contacts Gemini.
 `JOURNAL_PATH` and `GOOGLE_API_KEY` can also be provided in a `.env` file which
@@ -84,7 +78,11 @@ WantedBy=timers.target
 
 ### Cortex: Central Agent Manager
 
-The Cortex service (`sol cortex`) is the central system for managing AI agent instances. It monitors the journal's `agents/` directory for new requests and manages agent execution. All agent spawning should go through Cortex for proper event tracking and management.
+The Cortex service (`sol cortex`) is the central system for managing AI agent instances and generators. It monitors the journal's `agents/` directory for new requests and manages execution. All agent spawning should go through Cortex for proper event tracking and management.
+
+Cortex routes requests based on configuration:
+- Requests with `tools` field → tool-using agents (`sol agents`)
+- Requests with `output` field (no `tools`) → generators (`sol generate`)
 
 To spawn agents programmatically, use the cortex_client functions:
 
@@ -109,10 +107,32 @@ def on_event(message):
     if message.get('event') == 'finish':
         print(f"Result: {message.get('result')}")
 
-watcher = CallosumConnection(callback=on_event)
-watcher.connect()
+watcher = CallosumConnection()
+watcher.start(callback=on_event)
 # ... later, when done:
-watcher.close()
+watcher.stop()
+```
+
+### Spawning Generators via Cortex
+
+Generators can also be spawned via `cortex_request` by including an `output` field:
+
+```python
+from think.cortex_client import cortex_request, wait_for_agents
+
+# Spawn a generator
+agent_id = cortex_request(
+    prompt="",  # Generators don't use prompts
+    name="activity",
+    config={
+        "day": "20250109",
+        "output": "md",
+        "force": True,  # Regenerate even if output exists
+    }
+)
+
+# Wait for completion
+completed, timed_out = wait_for_agents([agent_id], timeout=300)
 ```
 
 ### Direct CLI Usage (Testing Only)
@@ -208,10 +228,11 @@ Providers implement `run_generate()`, `run_agenerate()`, and `run_agent()` funct
 
 ## Key Components
 
-- **cortex.py** - Central agent manager, file watcher, event distribution
-- **cortex_client.py** - Client functions: `cortex_request()`, `cortex_agents()`
+- **cortex.py** - Central agent manager, file watcher, event distribution, routes to agents.py or generate.py
+- **cortex_client.py** - Client functions: `cortex_request()`, `cortex_agents()`, `wait_for_agents()`
 - **mcp.py** - FastMCP server with journal search tools
-- **agents.py** - CLI entry point and shared event types
+- **agents.py** - CLI entry point for tool-using agents (NDJSON protocol)
+- **generate.py** - CLI entry point for generators (NDJSON protocol), spawned by Cortex
 - **models.py** - Unified `generate()`/`agenerate()` API, provider routing, token logging
 - **batch.py** - `Batch` class for concurrent LLM requests with dynamic queuing
 

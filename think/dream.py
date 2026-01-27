@@ -125,45 +125,39 @@ def run_queued_command(cmd: list[str], day: str, timeout: int = 600) -> bool:
         listener.stop()
 
 
-def build_commands(
-    day: str, force: bool, verbose: bool = False, segment: str | None = None
+def build_pre_generator_commands(
+    day: str, verbose: bool = False, segment: str | None = None
 ) -> list[list[str]]:
-    """Build processing commands for a day or specific segment.
+    """Build pre-generator commands (sense repair for daily mode).
 
     Args:
         day: YYYYMMDD format
-        segment: Optional HHMMSS_LEN format (e.g., "163045_300")
-        force: Overwrite existing files
+        segment: Optional HHMMSS_LEN format (if set, skip sense)
         verbose: Verbose logging
     """
     commands: list[list[str]] = []
 
-    # Determine target schedule and what to run
-    if segment:
-        logging.info("Running segment processing for %s/%s", day, segment)
-        target_schedule = "segment"
-        # No sense repair for segments (already processed during observation)
-
-    else:
-        logging.info("Running daily processing for %s", day)
-        target_schedule = "daily"
-        # Daily-only: repair routines
+    if not segment:
+        # Daily-only: repair routines run before generators
         cmd = ["sol", "sense", "--day", day]
         if verbose:
             cmd.append("-v")
         commands.append(cmd)
 
-    # Run generators filtered by schedule (skips disabled and invalid)
-    generators = get_generator_agents_by_schedule(target_schedule)
-    for generator_name, generator_data in generators.items():
-        cmd = ["sol", "generate", day, "-f", generator_data["path"]]
-        if segment:
-            cmd.extend(["--segment", segment])
-        if verbose:
-            cmd.append("--verbose")
-        if force:
-            cmd.append("--force")
-        commands.append(cmd)
+    return commands
+
+
+def build_post_generator_commands(
+    day: str, verbose: bool = False, segment: str | None = None
+) -> list[list[str]]:
+    """Build post-generator commands (indexer, journal-stats).
+
+    Args:
+        day: YYYYMMDD format
+        segment: Optional HHMMSS_LEN format
+        verbose: Verbose logging
+    """
+    commands: list[list[str]] = []
 
     # Re-index (light mode: excludes historical days, mtime-cached)
     indexer_cmd = ["sol", "indexer", "--rescan"]
@@ -179,6 +173,90 @@ def build_commands(
         commands.append(stats_cmd)
 
     return commands
+
+
+def run_generators_via_cortex(
+    day: str, force: bool, segment: str | None = None
+) -> tuple[int, int]:
+    """Run generators via cortex requests sequentially.
+
+    Args:
+        day: YYYYMMDD format
+        segment: Optional HHMMSS_LEN format
+
+    Returns:
+        Tuple of (success_count, fail_count)
+    """
+    from think.cortex_client import get_agent_end_state
+
+    target_schedule = "segment" if segment else "daily"
+    generators = get_generator_agents_by_schedule(target_schedule)
+
+    if not generators:
+        logging.info("No generators found for schedule: %s", target_schedule)
+        return (0, 0)
+
+    logging.info(
+        "Running %d generators for %s via cortex: %s",
+        len(generators),
+        day,
+        list(generators.keys()),
+    )
+
+    success_count = 0
+    fail_count = 0
+
+    # Run generators sequentially
+    for generator_name, generator_data in generators.items():
+        logging.info("Starting generator: %s", generator_name)
+
+        # Build config for cortex request
+        config = {
+            "day": day,
+            "output": generator_data.get("output", "md"),
+        }
+        if segment:
+            config["segment"] = segment
+        if force:
+            config["force"] = True
+
+        try:
+            # Spawn via cortex
+            agent_id = cortex_request(
+                prompt="",  # Generators don't use prompt
+                name=generator_name,
+                config=config,
+            )
+            logging.info("Spawned generator %s (ID: %s)", generator_name, agent_id)
+
+            # Wait for completion
+            completed, timed_out = wait_for_agents([agent_id], timeout=600)
+
+            if timed_out:
+                logging.error(
+                    "Generator %s timed out (ID: %s)", generator_name, agent_id
+                )
+                fail_count += 1
+            elif completed:
+                # Check if it finished successfully or with error
+                end_state = get_agent_end_state(agent_id)
+                if end_state == "finish":
+                    logging.info("Generator %s completed successfully", generator_name)
+                    success_count += 1
+                else:
+                    logging.error(
+                        "Generator %s ended with state: %s", generator_name, end_state
+                    )
+                    fail_count += 1
+            else:
+                logging.error("Generator %s did not complete", generator_name)
+                fail_count += 1
+
+        except Exception as e:
+            logging.error("Failed to run generator %s: %s", generator_name, e)
+            fail_count += 1
+
+    return (success_count, fail_count)
 
 
 def parse_args() -> argparse.ArgumentParser:
@@ -453,25 +531,36 @@ def main() -> None:
         # Emit started event
         emit("started", **event_fields())
 
-        # Phase 1: Generators
+        # Phase 1: Generators (pre-commands, generators via cortex, post-commands)
         if not args.skip_generators:
-            commands = build_commands(
-                day, args.force, verbose=args.verbose, segment=args.segment
+            # Run pre-generator commands (e.g., sense repair)
+            pre_commands = build_pre_generator_commands(
+                day, verbose=args.verbose, segment=args.segment
             )
+            for cmd in pre_commands:
+                day_log(day, f"starting: {' '.join(cmd)}")
+                if not run_command(cmd, day):
+                    generator_fail_count += 1
 
-            # Build command names list for logging
-            command_names = [cmd[1] for cmd in commands]
-            logging.info(f"Running {len(commands)} generator commands: {command_names}")
+            # Run generators via cortex
+            gen_success, gen_fail = run_generators_via_cortex(
+                day, args.force, segment=args.segment
+            )
+            generator_fail_count += gen_fail
 
-            success_count = 0
-            for index, cmd in enumerate(commands):
-                # Log every command attempt
+            # Run post-generator commands (indexer, journal-stats)
+            post_commands = build_post_generator_commands(
+                day, verbose=args.verbose, segment=args.segment
+            )
+            for index, cmd in enumerate(post_commands):
                 day_log(day, f"starting: {' '.join(cmd)}")
 
                 # Emit command event
                 emit(
                     "command",
-                    **event_fields(command=cmd[1], index=index, total=len(commands)),
+                    **event_fields(
+                        command=cmd[1], index=index, total=len(post_commands)
+                    ),
                 )
 
                 # Route indexer commands through supervisor queue for serialization
@@ -481,23 +570,21 @@ def main() -> None:
                 else:
                     success = run_command(cmd, day)
 
-                if success:
-                    success_count += 1
-                else:
+                if not success:
                     generator_fail_count += 1
 
             # Emit generators_completed event
             emit(
                 "generators_completed",
                 **event_fields(
-                    success=success_count,
+                    success=gen_success,
                     failed=generator_fail_count,
                     duration_ms=int((time.time() - start_time) * 1000),
                 ),
             )
 
             logging.info(
-                f"Generators completed: {success_count} succeeded, {generator_fail_count} failed"
+                f"Generators completed: {gen_success} succeeded, {generator_fail_count} failed"
             )
 
             # Exit early if generators failed and agents are requested

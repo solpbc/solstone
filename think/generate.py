@@ -1,20 +1,27 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 # Copyright (c) 2026 sol pbc
 
-import argparse
+"""Generator pipeline for transcript analysis.
+
+Spawned by cortex when a request has 'output' field (no 'tools').
+Reads NDJSON config from stdin, emits JSONL events to stdout.
+"""
+
+import json
 import logging
 import os
+import sys
+import time
+from collections.abc import Callable
 from datetime import datetime
 from pathlib import Path
 
 from google import genai
 from google.genai import types
 
+from think.agents import GenerateResult, JSONEventWriter
 from think.cluster import cluster, cluster_period, cluster_segments_multi
-from think.models import generate
 from think.utils import (
-    PromptNotFoundError,
-    _load_prompt_metadata,
     compose_instructions,
     day_log,
     day_path,
@@ -22,11 +29,9 @@ from think.utils import (
     format_segment_times,
     get_generator_agents,
     get_output_path,
-    get_output_topic,
     load_output_hook,
     load_prompt,
     segment_parse,
-    setup_cli,
 )
 
 
@@ -50,16 +55,6 @@ def scan_day(day: str) -> dict[str, list[str]]:
         else:
             pending.append(os.path.join("agents", output_path.name))
     return {"processed": sorted(processed), "repairable": sorted(pending)}
-
-
-def count_tokens(markdown: str, prompt: str, api_key: str, model: str) -> None:
-    client = genai.Client(api_key=api_key)
-
-    total_tokens = client.models.count_tokens(
-        model=model,
-        contents=[markdown],
-    )
-    print(f"Token count: {total_tokens}")
 
 
 def _get_or_create_cache(
@@ -111,7 +106,8 @@ def generate_agent_output(
     system_instruction: str | None = None,
     thinking_budget: int | None = None,
     max_output_tokens: int | None = None,
-) -> str:
+    return_result: bool = False,
+) -> str | GenerateResult:
     """Send clustered transcript to LLM for agent output generation.
 
     Args:
@@ -126,10 +122,14 @@ def generate_agent_output(
             from journal.md via compose_instructions().
         thinking_budget: Token budget for model thinking. If None, uses default.
         max_output_tokens: Maximum output tokens. If None, uses default.
+        return_result: If True, return full GenerateResult with usage data.
 
     Returns:
-        Generated agent output content (markdown or JSON string).
+        Generated agent output content (markdown or JSON string), or
+        GenerateResult dict if return_result=True.
     """
+    from think.models import generate_with_result, resolve_provider
+
     # Use provided system_instruction or fall back to default
     if system_instruction is None:
         instructions = compose_instructions(include_datetime=False)
@@ -147,8 +147,6 @@ def generate_agent_output(
 
     # Try to use cache if display name provided
     # Note: caching is Google-specific, so we check provider first
-    from think.models import resolve_provider
-
     provider, model = resolve_provider(context)
 
     client = None
@@ -162,7 +160,7 @@ def generate_agent_output(
     if cache_name:
         # Cache hit: content already in cache, just send prompt.
         # Google-specific params (cached_content, client) are passed via kwargs.
-        return generate(
+        result = generate_with_result(
             contents=[prompt],
             context=context,
             temperature=0.3,
@@ -175,7 +173,7 @@ def generate_agent_output(
         )
     else:
         # No cache: use unified generate()
-        return generate(
+        result = generate_with_result(
             contents=[transcript, prompt],
             context=context,
             temperature=0.3,
@@ -185,113 +183,85 @@ def generate_agent_output(
             json_output=json_output,
         )
 
+    if return_result:
+        return result
+    return result["text"]
+
 
 # Minimum content length for insight generation
 MIN_INPUT_CHARS = 50
 
 
-def main() -> None:
-    parser = argparse.ArgumentParser(
-        description="Send a day's clustered Markdown to Gemini for analysis."
-    )
-    parser.add_argument(
-        "day",
-        help="Day in YYYYMMDD format",
-    )
-    parser.add_argument(
-        "-f",
-        "--topic",
-        "--prompt",
-        dest="topic",
-        required=True,
-        help="Generator key (e.g., 'activity', 'chat:sentiment') or path to .md file",
-    )
-    parser.add_argument(
-        "-c",
-        "--count",
-        action="store_true",
-        help="Count tokens only and exit",
-    )
-    parser.add_argument(
-        "--force",
-        action="store_true",
-        help="Overwrite output file if it already exists",
-    )
-    parser.add_argument(
-        "--segment",
-        help="Segment key in HHMMSS_LEN format (processes only this segment within the day)",
-    )
-    parser.add_argument(
-        "--segments",
-        help="Comma-separated segment keys (e.g., '090000_300,100000_600'). Requires -o.",
-    )
-    parser.add_argument(
-        "-o",
-        "--output",
-        help="Output file path (overrides default; required with --segments)",
-    )
-    args = setup_cli(parser)
+def _run_generator(config: dict, emit_event: Callable[[dict], None]) -> None:
+    """Execute generator pipeline with config from cortex.
 
-    # Validate mutual exclusivity of --segment and --segments
-    if args.segment and args.segments:
-        parser.error("--segment and --segments are mutually exclusive")
+    Args:
+        config: Merged config from cortex containing:
+            - name: Generator key (e.g., 'activity', 'chat:sentiment')
+            - day: Day in YYYYMMDD format
+            - segment: Optional single segment key
+            - segments: Optional list of segment keys
+            - output: Output format ('md' or 'json')
+            - output_path: Optional custom output path
+            - force: Whether to regenerate existing output
+            - provider: AI provider
+            - model: Model name
+        emit_event: Callback to emit JSONL events
+    """
+    name = config.get("name", "default")
+    day = config.get("day")
+    segment = config.get("segment")
+    segments = config.get("segments")  # List of segment keys
+    output_format = config.get("output", "md")
+    output_path_override = config.get("output_path")
+    force = config.get("force", False)
+    provider = config.get("provider", "google")
+    model = config.get("model")
 
-    # Validate -o is required with --segments
-    if args.segments and not args.output:
-        parser.error("--segments requires -o/--output to specify output file path")
+    if not day:
+        raise ValueError("Missing 'day' field in generator config")
+
+    # Emit start event
+    emit_event(
+        {
+            "event": "start",
+            "ts": int(time.time() * 1000),
+            "prompt": "",  # Generators don't have user prompts
+            "name": name,
+            "model": model or "unknown",
+            "provider": provider,
+        }
+    )
 
     # Set segment key for token usage logging
-    if args.segment:
-        os.environ["SEGMENT_KEY"] = args.segment
-    elif args.segments:
-        # Use first segment for logging context
-        first_segment = args.segments.split(",")[0].strip()
-        os.environ["SEGMENT_KEY"] = first_segment
+    if segment:
+        os.environ["SEGMENT_KEY"] = segment
+    elif segments:
+        os.environ["SEGMENT_KEY"] = segments[0]
 
-    # Resolve generator key or path to metadata
+    # Load generator metadata
     all_generators = get_generator_agents()
-    topic_arg = args.topic
-
-    # Check if it's a known generator key first
-    if topic_arg in all_generators:
-        name = topic_arg
+    if name in all_generators:
         meta = all_generators[name]
         agent_path = Path(meta["path"])
-    elif Path(topic_arg).exists():
-        # Fall back to treating it as a file path (backwards compat)
-        agent_path = Path(topic_arg)
-        # Try to find matching key by path
-        name = agent_path.stem
-        found_in_registry = False
-        for key, m in all_generators.items():
-            if m.get("path") == str(agent_path):
-                name = key
-                found_in_registry = True
-                break
-        if found_in_registry:
-            meta = all_generators[name]
-        else:
-            # Load metadata directly from file for ad-hoc generators
-            meta = _load_prompt_metadata(agent_path)
     else:
-        parser.error(
-            f"Generator not found: {topic_arg}. "
-            f"Available: {', '.join(sorted(all_generators.keys()))}"
-        )
+        raise ValueError(f"Generator not found: {name}")
 
-    # Check if generator is disabled via journal config
+    # Check if generator is disabled
     if meta.get("disabled"):
-        logging.info("Generator %s is disabled in journal config, skipping", name)
-        day_log(args.day, f"generate {get_output_topic(topic_arg)} skipped (disabled)")
+        logging.info("Generator %s is disabled, skipping", name)
+        emit_event(
+            {
+                "event": "finish",
+                "ts": int(time.time() * 1000),
+                "result": "",
+                "skipped": "disabled",
+            }
+        )
         return
-
-    output_format = meta.get("output")  # "json" or None (markdown)
-    success = False
 
     # Extract instructions config for source filtering and system prompt
     instructions_config = meta.get("instructions")
-
-    # Use compose_instructions to get sources config and system instruction
     instructions = compose_instructions(
         include_datetime=False,
         config_overrides=instructions_config,
@@ -300,32 +270,35 @@ def main() -> None:
     system_prompt_name = instructions.get("system_prompt_name", "journal")
     system_instruction = instructions["system_instruction"]
 
-    # Track multi-segment mode for hook context
-    multi_segment_mode = bool(args.segments)
+    # Track multi-segment mode
+    multi_segment_mode = bool(segments)
 
-    # Choose clustering function based on mode, passing sources config
-    if args.segments:
-        segment_list = [s.strip() for s in args.segments.split(",")]
-        try:
-            markdown, file_count = cluster_segments_multi(
-                args.day, segment_list, sources=sources
-            )
-        except ValueError as e:
-            parser.error(str(e))
-    elif args.segment:
-        markdown, file_count = cluster_period(args.day, args.segment, sources=sources)
+    # Build transcript via clustering
+    if segments:
+        markdown, file_count = cluster_segments_multi(day, segments, sources=sources)
+    elif segment:
+        markdown, file_count = cluster_period(day, segment, sources=sources)
     else:
-        markdown, file_count = cluster(args.day, sources=sources)
-    day_dir = str(day_path(args.day))
+        markdown, file_count = cluster(day, sources=sources)
+
+    day_dir = str(day_path(day))
 
     # Skip generation when there's nothing to analyze
     if file_count == 0 or len(markdown.strip()) < MIN_INPUT_CHARS:
         logging.info(
-            "Insufficient input (files=%d, chars=%d), skipping generation",
+            "Insufficient input (files=%d, chars=%d), skipping",
             file_count,
             len(markdown.strip()),
         )
-        day_log(args.day, f"generate {get_output_topic(topic_arg)} skipped (no input)")
+        emit_event(
+            {
+                "event": "finish",
+                "ts": int(time.time() * 1000),
+                "result": "",
+                "skipped": "no_input",
+            }
+        )
+        day_log(day, f"generate {name} skipped (no input)")
         return
 
     # Prepend input context note for limited recordings
@@ -336,149 +309,110 @@ def main() -> None:
         )
         markdown = input_note + markdown
 
-    try:
-        if args.verbose:
-            print("Verbose mode enabled")
-        api_key = os.getenv("GOOGLE_API_KEY")
-        if not api_key:
-            parser.error("GOOGLE_API_KEY not found in environment")
+    # Build context for template substitution
+    prompt_context: dict[str, str] = {
+        "day": day,
+        "date": format_day(day),
+    }
 
-        # Build context for template substitution
-        prompt_context: dict[str, str] = {
-            "day": args.day,
-            "date": format_day(args.day),
-        }
+    # Add segment context
+    if segment:
+        start_str, end_str = format_segment_times(segment)
+        if start_str and end_str:
+            prompt_context["segment"] = segment
+            prompt_context["segment_start"] = start_str
+            prompt_context["segment_end"] = end_str
+    elif segments:
+        all_times = []
+        for seg in segments:
+            start_time, end_time = segment_parse(seg)
+            if start_time and end_time:
+                all_times.append((start_time, end_time))
 
-        # Add segment context
-        if args.segment:
-            # Single segment mode
-            start_str, end_str = format_segment_times(args.segment)
-            if start_str and end_str:
-                prompt_context["segment"] = args.segment
-                prompt_context["segment_start"] = start_str
-                prompt_context["segment_end"] = end_str
-        elif args.segments:
-            # Multi-segment mode: compute earliest start and latest end
-            segment_list = [s.strip() for s in args.segments.split(",")]
-            all_times = []
-            for seg in segment_list:
-                start_time, end_time = segment_parse(seg)
-                if start_time and end_time:
-                    all_times.append((start_time, end_time))
-
-            if all_times:
-                earliest_start = min(t[0] for t in all_times)
-                latest_end = max(t[1] for t in all_times)
-                # Use lstrip('0') for cross-platform compatibility (%-I is Unix-only)
-                start_str = (
-                    datetime.combine(datetime.today(), earliest_start)
-                    .strftime("%I:%M %p")
-                    .lstrip("0")
-                )
-                end_str = (
-                    datetime.combine(datetime.today(), latest_end)
-                    .strftime("%I:%M %p")
-                    .lstrip("0")
-                )
-                prompt_context["segment_start"] = start_str
-                prompt_context["segment_end"] = end_str
-
-        try:
-            agent_prompt = load_prompt(
-                agent_path.stem, base_dir=agent_path.parent, context=prompt_context
+        if all_times:
+            earliest_start = min(t[0] for t in all_times)
+            latest_end = max(t[1] for t in all_times)
+            start_str = (
+                datetime.combine(datetime.today(), earliest_start)
+                .strftime("%I:%M %p")
+                .lstrip("0")
             )
-        except PromptNotFoundError:
-            parser.error(f"Agent file not found: {agent_path}")
+            end_str = (
+                datetime.combine(datetime.today(), latest_end)
+                .strftime("%I:%M %p")
+                .lstrip("0")
+            )
+            prompt_context["segment_start"] = start_str
+            prompt_context["segment_end"] = end_str
 
-        prompt = agent_prompt.text
+    # Load prompt
+    agent_prompt = load_prompt(
+        agent_path.stem, base_dir=agent_path.parent, context=prompt_context
+    )
+    prompt = agent_prompt.text
 
-        # Resolve provider for display (must match context used in generate_agent_output)
-        from think.models import resolve_provider
-
-        display_output_type = "json" if output_format == "json" else "markdown"
-        _, model = resolve_provider(f"agent.{name}.{display_output_type}")
-        day = args.day
-        size_kb = len(markdown.encode("utf-8")) / 1024
-
-        print(
-            f"Topic: {name} | Model: {model} | Day: {day} | Files: {file_count} | Size: {size_kb:.1f}KB"
+    # Determine output path
+    is_json_output = output_format == "json"
+    if output_path_override:
+        output_path = Path(output_path_override)
+    else:
+        output_path = get_output_path(
+            day_dir, name, segment=segment, output_format=output_format
         )
 
-        if args.count:
-            count_tokens(markdown, prompt, api_key, model)
-            return
+    # Check if output exists (force check happens in cortex, but we handle it here too)
+    output_exists = output_path.exists() and output_path.stat().st_size > 0
 
-        is_json_output = output_format == "json"
+    # Determine cache settings
+    if multi_segment_mode:
+        cache_display_name = None
+    elif segment:
+        cache_display_name = f"{system_prompt_name}_{day}_{segment}"
+    else:
+        cache_display_name = f"{system_prompt_name}_{day}"
 
-        # Determine output path: -o overrides default for any mode
-        if args.output:
-            output_path = Path(args.output)
-        else:
-            output_path = get_output_path(
-                day_dir, name, segment=args.segment, output_format=output_format
-            )
+    # Extract generation parameters from metadata
+    meta_thinking_budget = meta.get("thinking_budget")
+    meta_max_output_tokens = meta.get("max_output_tokens")
 
-        # Determine cache settings: skip for multi-segment, otherwise scope to day/segment
-        # Include system prompt name in cache key for proper isolation
-        if multi_segment_mode:
-            cache_display_name = None
-        elif args.segment:
-            cache_display_name = f"{system_prompt_name}_{day}_{args.segment}"
-        else:
-            cache_display_name = f"{system_prompt_name}_{day}"
+    # Get API key
+    api_key = os.getenv("GOOGLE_API_KEY", "")
 
-        # Check if output file already exists
-        output_exists = output_path.exists() and output_path.stat().st_size > 0
+    usage_data = None
 
-        # Extract optional generation parameters from metadata
-        meta_thinking_budget = meta.get("thinking_budget")
-        meta_max_output_tokens = meta.get("max_output_tokens")
+    if output_exists and not force:
+        # Load existing content (no LLM call)
+        logging.info("Output exists, loading: %s", output_path)
+        with open(output_path, "r") as f:
+            result = f.read()
+    else:
+        # Generate new content
+        if output_exists and force:
+            logging.info("Force regenerating: %s", output_path)
 
-        if output_exists and not args.force:
-            print(
-                f"Output file already exists: {output_path}. Loading existing content."
-            )
-            with open(output_path, "r") as f:
-                result = f.read()
-        elif output_exists and args.force:
-            print("Output file exists but --force specified. Regenerating.")
-            result = generate_agent_output(
-                markdown,
-                prompt,
-                api_key,
-                cache_display_name=cache_display_name,
-                name=name,
-                json_output=is_json_output,
-                system_instruction=system_instruction,
-                thinking_budget=meta_thinking_budget,
-                max_output_tokens=meta_max_output_tokens,
-            )
-        else:
-            result = generate_agent_output(
-                markdown,
-                prompt,
-                api_key,
-                cache_display_name=cache_display_name,
-                name=name,
-                json_output=is_json_output,
-                system_instruction=system_instruction,
-                thinking_budget=meta_thinking_budget,
-                max_output_tokens=meta_max_output_tokens,
-            )
+        gen_result = generate_agent_output(
+            markdown,
+            prompt,
+            api_key,
+            cache_display_name=cache_display_name,
+            name=name,
+            json_output=is_json_output,
+            system_instruction=system_instruction,
+            thinking_budget=meta_thinking_budget,
+            max_output_tokens=meta_max_output_tokens,
+            return_result=True,
+        )
+        result = gen_result["text"]
+        usage_data = gen_result.get("usage")
 
-        # Check if we got a valid response
-        if result is None:
-            print("Error: No text content in response")
-            return
-
-        # Run post-processing hook if present (only for newly generated results)
-        if (not output_exists or args.force) and meta.get("hook_path"):
+        # Run post-processing hook if present
+        if meta.get("hook_path"):
             hook_path = meta["hook_path"]
             try:
                 hook_process = load_output_hook(hook_path)
                 hook_context = {
-                    "day": args.day,
-                    "segment": args.segment,
+                    "day": day,
+                    "segment": segment,
                     "multi_segment": multi_segment_mode,
                     "name": name,
                     "output_path": str(output_path),
@@ -489,28 +423,87 @@ def main() -> None:
                 if hook_result is not None:
                     result = hook_result
                     logging.info("Hook %s transformed result", hook_path)
-                else:
-                    logging.info(
-                        "Hook %s returned None, using original result", hook_path
-                    )
             except Exception as exc:
                 logging.error("Hook %s failed: %s", hook_path, exc)
-                # Continue with original result on hook failure
 
-        # Only write output if it was newly generated
-        if not output_exists or args.force:
-            os.makedirs(output_path.parent, exist_ok=True)
-            with open(output_path, "w") as f:
-                f.write(result)
-            print(f"Results saved to: {output_path}")
+    # Emit finish event with result (cortex handles file writing)
+    finish_event = {
+        "event": "finish",
+        "ts": int(time.time() * 1000),
+        "result": result,
+    }
+    if usage_data:
+        finish_event["usage"] = usage_data
 
-        success = True
+    emit_event(finish_event)
 
+    # Log completion
+    msg = f"generate {name} ok"
+    if force:
+        msg += " --force"
+    day_log(day, msg)
+
+
+def main() -> None:
+    """NDJSON-based CLI for generator pipeline.
+
+    Reads config from stdin, emits JSONL events to stdout.
+    Spawned by cortex when request has 'output' field (no 'tools').
+    """
+    import traceback
+
+    # Configure basic logging (no argparse needed for NDJSON mode)
+    logging.basicConfig(level=logging.INFO)
+
+    # Always write to stdout only
+    event_writer = JSONEventWriter(None)
+
+    def emit_event(data: dict) -> None:
+        if "ts" not in data:
+            data["ts"] = int(time.time() * 1000)
+        event_writer.emit(data)
+
+    try:
+        # NDJSON input mode from stdin
+        for line in sys.stdin:
+            line = line.strip()
+            if not line:
+                continue
+
+            try:
+                config = json.loads(line)
+
+                _run_generator(config, emit_event)
+
+            except json.JSONDecodeError as e:
+                emit_event(
+                    {
+                        "event": "error",
+                        "error": f"Invalid JSON: {str(e)}",
+                        "ts": int(time.time() * 1000),
+                    }
+                )
+            except Exception as e:
+                emit_event(
+                    {
+                        "event": "error",
+                        "error": str(e),
+                        "trace": traceback.format_exc(),
+                        "ts": int(time.time() * 1000),
+                    }
+                )
+
+    except Exception as exc:
+        emit_event(
+            {
+                "event": "error",
+                "error": str(exc),
+                "trace": traceback.format_exc(),
+            }
+        )
+        raise
     finally:
-        msg = f"generate {name} {'ok' if success else 'failed'}"
-        if args.force:
-            msg += " --force"
-        day_log(args.day, msg)
+        event_writer.close()
 
 
 if __name__ == "__main__":

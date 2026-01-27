@@ -362,31 +362,56 @@ class CortexService:
                 else:
                     self.agent_handoffs.pop(agent_id, None)
 
-            # Expand tools if it's a string (tool pack name)
-            tools_config = config.get("tools")
-            if isinstance(tools_config, str):
-                pack_names = [p.strip() for p in tools_config.split(",") if p.strip()]
-                if not pack_names:
-                    pack_names = ["default"]
+            # Route based on config type:
+            # - tools present -> agent (sol agents)
+            # - output present (no tools) -> generator (sol generate)
+            # - neither -> error
+            has_tools = bool(config.get("tools"))
+            has_output = bool(config.get("output"))
 
-                expanded: list[str] = []
-                for pack in pack_names:
-                    try:
-                        for tool in get_tools(pack):
-                            if tool not in expanded:
-                                expanded.append(tool)
-                    except KeyError as e:
-                        self.logger.warning(
-                            f"Invalid tool pack '{pack}': {e}, using default"
-                        )
-                        for tool in get_tools("default"):
-                            if tool not in expanded:
-                                expanded.append(tool)
+            if has_tools:
+                # Expand tools if it's a string (tool pack name)
+                tools_config = config.get("tools")
+                if isinstance(tools_config, str):
+                    pack_names = [
+                        p.strip() for p in tools_config.split(",") if p.strip()
+                    ]
+                    if not pack_names:
+                        pack_names = ["default"]
 
-                config["tools"] = expanded
+                    expanded: list[str] = []
+                    for pack in pack_names:
+                        try:
+                            for tool in get_tools(pack):
+                                if tool not in expanded:
+                                    expanded.append(tool)
+                        except KeyError as e:
+                            self.logger.warning(
+                                f"Invalid tool pack '{pack}': {e}, using default"
+                            )
+                            for tool in get_tools("default"):
+                                if tool not in expanded:
+                                    expanded.append(tool)
 
-            # Spawn the agent process with the merged config
-            self._spawn_agent(agent_id, file_path, config)
+                    config["tools"] = expanded
+
+                # Spawn the agent process with the merged config
+                self._spawn_agent(agent_id, file_path, config)
+
+            elif has_output:
+                # Generator: has output format but no tools
+                self._spawn_generator(agent_id, file_path, config)
+
+            else:
+                # Neither tools nor output - invalid config
+                self.logger.error(
+                    f"Invalid agent config for {agent_id}: "
+                    "must have 'tools' or 'output' field"
+                )
+                self._write_error_and_complete(
+                    file_path,
+                    "Invalid agent config: must have 'tools' or 'output' field",
+                )
 
         except json.JSONDecodeError as e:
             self.logger.error(f"Invalid JSON in request file {file_path}: {e}")
@@ -402,15 +427,48 @@ class CortexService:
         config: Dict[str, Any],
     ) -> None:
         """Spawn an agent subprocess and monitor its output using the merged config."""
-        try:
-            if self.mcp_server_url and not config.get("disable_mcp", False):
-                config.setdefault("mcp_server_url", self.mcp_server_url)
+        if self.mcp_server_url and not config.get("disable_mcp", False):
+            config.setdefault("mcp_server_url", self.mcp_server_url)
+        self._spawn_subprocess(agent_id, file_path, config, ["sol", "agents"], "agent")
 
-            # Store the config for later use (e.g., for output field) - thread safe
+    def _spawn_generator(
+        self,
+        agent_id: str,
+        file_path: Path,
+        config: Dict[str, Any],
+    ) -> None:
+        """Spawn a generator subprocess and monitor its output.
+
+        Generators are like agents but process transcripts instead of using tools.
+        They have 'output' field (format) but no 'tools' field.
+        """
+        self._spawn_subprocess(
+            agent_id, file_path, config, ["sol", "generate"], "generator"
+        )
+
+    def _spawn_subprocess(
+        self,
+        agent_id: str,
+        file_path: Path,
+        config: Dict[str, Any],
+        cmd: list[str],
+        process_type: str,
+    ) -> None:
+        """Spawn a subprocess (agent or generator) and monitor its output.
+
+        Args:
+            agent_id: Unique identifier for this process
+            file_path: Path to the JSONL log file
+            config: Configuration dict to pass via NDJSON stdin
+            cmd: Command to run (e.g., ["sol", "agents"] or ["sol", "generate"])
+            process_type: Label for logging ("agent" or "generator")
+        """
+        try:
+            # Store the config for later use - thread safe
             with self.lock:
                 self.agent_requests[agent_id] = config
 
-            # Pass the full config through to the agent as NDJSON
+            # Pass the full config through as NDJSON
             ndjson_input = json.dumps(config)
 
             # Prepare environment - apply config overrides first, then force JOURNAL_PATH
@@ -420,9 +478,8 @@ class CortexService:
                 env.update({k: str(v) for k, v in env_overrides.items()})
             env["JOURNAL_PATH"] = str(self.journal_path)
 
-            # Spawn the agent process
-            cmd = ["sol", "agents"]
-            self.logger.info(f"Spawning agent {agent_id}: {cmd}")
+            # Spawn the subprocess
+            self.logger.info(f"Spawning {process_type} {agent_id}: {cmd}")
             self.logger.debug(f"NDJSON input: {ndjson_input}")
 
             process = subprocess.Popen(
@@ -439,15 +496,13 @@ class CortexService:
             process.stdin.write(ndjson_input + "\n")
             process.stdin.close()
 
-            # Track the running agent
+            # Track the running process
             agent = AgentProcess(agent_id, process, file_path)
             with self.lock:
                 self.running_agents[agent_id] = agent
 
             # Set up timeout (default to 10 minutes if not specified)
-            timeout_seconds = config.get(
-                "timeout_seconds", 600
-            )  # 600 seconds = 10 minutes
+            timeout_seconds = config.get("timeout_seconds", 600)
             agent.timeout_timer = threading.Timer(
                 timeout_seconds,
                 lambda: self._timeout_agent(agent_id, agent, timeout_seconds),
@@ -464,12 +519,15 @@ class CortexService:
             ).start()
 
             self.logger.info(
-                f"Agent {agent_id} spawned successfully (PID: {process.pid})"
+                f"{process_type.capitalize()} {agent_id} spawned successfully "
+                f"(PID: {process.pid})"
             )
 
         except Exception as e:
-            self.logger.exception(f"Failed to spawn agent {agent_id}: {e}")
-            self._write_error_and_complete(file_path, f"Failed to spawn agent: {e}")
+            self.logger.exception(f"Failed to spawn {process_type} {agent_id}: {e}")
+            self._write_error_and_complete(
+                file_path, f"Failed to spawn {process_type}: {e}"
+            )
 
     def _timeout_agent(
         self, agent_id: str, agent: AgentProcess, timeout_seconds: int
@@ -728,25 +786,31 @@ class CortexService:
     def _write_output(self, agent_id: str, result: str, config: Dict[str, Any]) -> None:
         """Write agent output to the appropriate location.
 
-        Output path is derived from name + output format + schedule:
-        - Daily agents: YYYYMMDD/agents/{name}.{ext}
-        - Segment agents: YYYYMMDD/{segment}/{name}.{ext}
+        Output path is either:
+        - Explicit: config["output_path"] (for multi-segment and custom paths)
+        - Derived: from name + output format + schedule:
+          - Daily agents: YYYYMMDD/agents/{name}.{ext}
+          - Segment agents: YYYYMMDD/{segment}/{name}.{ext}
         """
         try:
             from think.utils import day_path, get_output_path
 
-            output_format = config.get("output", "md")
-            name = config.get("name", "default")
-            segment = config.get("segment")  # Set by dream.py for segment agents
-            day = config.get("day")
+            # Check for explicit output_path override first
+            if config.get("output_path"):
+                output_path = Path(config["output_path"])
+            else:
+                output_format = config.get("output", "md")
+                name = config.get("name", "default")
+                segment = config.get("segment")  # Set for segment agents
+                day = config.get("day")
 
-            # Get day directory
-            day_dir = day_path(day)
+                # Get day directory
+                day_dir = day_path(day)
 
-            # Derive output path using shared utility
-            output_path = get_output_path(
-                day_dir, name, segment=segment, output_format=output_format
-            )
+                # Derive output path using shared utility
+                output_path = get_output_path(
+                    day_dir, name, segment=segment, output_format=output_format
+                )
 
             # Ensure parent directory exists
             output_path.parent.mkdir(parents=True, exist_ok=True)

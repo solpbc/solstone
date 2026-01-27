@@ -17,10 +17,14 @@ For details on the Callosum protocol and message format, see [CALLOSUM.md](CALLO
 ### Key Components
 - **Message Bus Integration**: Cortex connects to Callosum to receive requests and broadcast events
 - **Configuration Loading**: Cortex loads and merges agent configuration with request parameters
-- **Process Management**: Spawns agent subprocesses via the `sol agents` command with merged configuration
+- **Request Routing**: Routes requests based on config fields:
+  - `tools` field present → spawns `sol agents` (tool-using agent)
+  - `output` field present (no `tools`) → spawns `sol generate` (generator)
+  - Neither field → returns error
+- **Process Management**: Spawns agent/generator subprocesses with merged configuration
 - **Event Capture**: Monitors agent stdout/stderr and appends to JSONL files
 - **Dual Event Distribution**: Events go to both persistent files and real-time message bus
-- **NDJSON Input Mode**: Agent processes accept newline-delimited JSON via stdin containing the full merged configuration
+- **NDJSON Input Mode**: Both agent and generator processes accept newline-delimited JSON via stdin containing the full merged configuration
 
 ### File States
 - `<timestamp>_active.jsonl`: Agent currently executing (Cortex is appending events)
@@ -62,6 +66,37 @@ Requests are created via `cortex_request()` from `think.cortex_client`, which br
 The model is automatically resolved based on the agent context (`agent.{app}.{name}`)
 and the configured tier in `journal.json`. Provider can optionally be overridden at
 request time, which will resolve the appropriate model for that provider at the same tier.
+
+## Generator Request Format
+
+Generators are spawned via Cortex when a request has an `output` field but no `tools` field. They produce analysis output (markdown or JSON) from clustered transcripts.
+
+```json
+{
+  "event": "request",
+  "ts": 1234567890123,              // Required: millisecond timestamp
+  "name": "activity",               // Required: generator name from muse/*.md
+  "day": "20250109",                // Required: day in YYYYMMDD format
+  "output": "md",                   // Required: output format ("md" or "json")
+  "segment": "120000_300",          // Optional: single segment key (HHMMSS_duration)
+  "segments": ["120000_300", "120500_300"],  // Optional: multiple segment keys
+  "output_path": "/path/to/file.md", // Optional: override output location
+  "force": false,                   // Optional: regenerate even if output exists
+  "provider": "google",             // Optional: AI provider override
+  "model": "gemini-2.0-flash"       // Optional: model override
+}
+```
+
+### Generator Events
+
+Generators emit the same event types as agents:
+- `start` - When generation begins
+- `finish` - On completion, with `result` containing generated content
+- `error` - On failure
+
+The `finish` event may include a `skipped` field when generation is skipped:
+- `"no_input"` - Insufficient transcript content to analyze
+- `"disabled"` - Generator is marked as disabled in frontmatter
 
 ### Conversation Continuations
 

@@ -440,7 +440,7 @@ def _run_import_summary(
     day: str,
     segments: list[str],
 ) -> bool:
-    """Create a summary for imported segments using sol generate.
+    """Create a summary for imported segments using cortex generator.
 
     Args:
         import_dir: Directory where the summary will be saved
@@ -450,37 +450,51 @@ def _run_import_summary(
     Returns:
         True if summary was created successfully, False otherwise
     """
+    from think.cortex_client import cortex_request, get_agent_end_state, wait_for_agents
+
     if not segments:
         logger.info("No segments to summarize")
         return False
 
     summary_path = import_dir / "summary.md"
-    segments_arg = ",".join(segments)
-
-    cmd = [
-        "sol",
-        "insight",
-        "importer",
-        "--day",
-        day,
-        "--segments",
-        segments_arg,
-        "-o",
-        str(summary_path),
-    ]
 
     try:
-        logger.info(f"Creating summary for {len(segments)} segments via sol generate")
-        subprocess.run(cmd, capture_output=True, text=True, check=True)
-        if summary_path.exists():
-            logger.info(f"Created import summary: {summary_path}")
-            return True
-        else:
-            logger.warning("sol generate completed but summary file not created")
+        logger.info(f"Creating summary for {len(segments)} segments via cortex")
+
+        # Spawn generator via cortex
+        agent_id = cortex_request(
+            prompt="",  # Generators don't use prompt
+            name="importer",
+            config={
+                "day": day,
+                "segments": segments,
+                "output": "md",
+                "output_path": str(summary_path),
+            },
+        )
+
+        # Wait for completion
+        completed, timed_out = wait_for_agents([agent_id], timeout=300)
+
+        if timed_out:
+            logger.error(f"Import summary timed out (ID: {agent_id})")
             return False
-    except subprocess.CalledProcessError as e:
-        logger.error(f"Failed to create summary: {e.stderr}")
+
+        if completed:
+            end_state = get_agent_end_state(agent_id)
+            if end_state == "finish" and summary_path.exists():
+                logger.info(f"Created import summary: {summary_path}")
+                return True
+            else:
+                logger.warning(
+                    f"Generator ended with state {end_state}, "
+                    f"summary exists: {summary_path.exists()}"
+                )
+                return False
+
+        logger.error("Generator did not complete")
         return False
+
     except Exception as e:
         logger.error(f"Failed to create summary: {e}")
         return False

@@ -1,7 +1,16 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 # Copyright (c) 2026 sol pbc
 
+"""Tests for the generator output hooks system.
+
+Tests cover:
+- Hook loading and validation
+- Hook invocation via NDJSON protocol
+- Hook error handling
+"""
+
 import importlib
+import io
 import json
 import os
 import shutil
@@ -24,7 +33,30 @@ def copy_day(tmp_path: Path) -> Path:
     return dest
 
 
-MOCK_RESULT = "## Original Result\n\nThis is the original output content."
+MOCK_RESULT = {
+    "text": "## Original Result\n\nThis is the original output content.",
+    "usage": {"input_tokens": 100, "output_tokens": 50},
+}
+
+
+def run_generator_with_config(mod, config: dict, monkeypatch) -> list[dict]:
+    """Run generator with NDJSON config and capture output events."""
+    stdin_data = json.dumps(config) + "\n"
+    monkeypatch.setattr("sys.stdin", io.StringIO(stdin_data))
+
+    captured_output = io.StringIO()
+    monkeypatch.setattr("sys.stdout", captured_output)
+
+    mod.main()
+
+    events = []
+    captured_output.seek(0)
+    for line in captured_output:
+        line = line.strip()
+        if line:
+            events.append(json.loads(line))
+
+    return events
 
 
 def test_load_output_hook_success(tmp_path):
@@ -112,18 +144,17 @@ def test_prompt_metadata_no_hook(tmp_path):
 def test_output_hook_invocation(tmp_path, monkeypatch):
     """Test that generate.py invokes hook and uses transformed result."""
     mod = importlib.import_module("think.generate")
-    day_dir = copy_day(tmp_path)
+    copy_day(tmp_path)
 
-    # Create generator with hook
-    generators_dir = tmp_path / "generators"
-    generators_dir.mkdir()
+    # Create generator with hook in muse directory
+    muse_dir = Path(mod.__file__).resolve().parent.parent / "muse"
 
-    prompt_file = generators_dir / "hooked.md"
+    prompt_file = muse_dir / "hooked_test.md"
     prompt_file.write_text(
-        '{\n  "title": "Hooked",\n  "occurrences": false,\n  "schedule": "daily"\n}\n\nTest prompt'
+        '{\n  "title": "Hooked",\n  "schedule": "daily",\n  "output": "md"\n}\n\nTest prompt'
     )
 
-    hook_file = generators_dir / "hooked.py"
+    hook_file = muse_dir / "hooked_test.py"
     hook_file.write_text("""
 def process(result, context):
     # Verify context has expected fields
@@ -133,156 +164,141 @@ def process(result, context):
     return result + "\\n\\n## Hook was here"
 """)
 
-    monkeypatch.setattr(
-        mod,
-        "generate_agent_output",
-        lambda *a, **k: MOCK_RESULT,
-    )
-    monkeypatch.setenv("GOOGLE_API_KEY", "x")
-    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
-    monkeypatch.setattr(
-        "sys.argv", ["sol generate", "20240101", "-f", str(prompt_file)]
-    )
+    try:
+        monkeypatch.setattr(
+            mod,
+            "generate_agent_output",
+            lambda *a, **k: (
+                MOCK_RESULT if k.get("return_result") else MOCK_RESULT["text"]
+            ),
+        )
+        monkeypatch.setenv("GOOGLE_API_KEY", "x")
+        monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
 
-    mod.main()
+        config = {
+            "name": "hooked_test",
+            "day": "20240101",
+            "output": "md",
+            "provider": "google",
+            "model": "gemini-2.0-flash",
+        }
 
-    md = day_dir / "agents" / "hooked.md"
-    content = md.read_text()
-    assert "## Original Result" in content
-    assert "## Hook was here" in content
+        events = run_generator_with_config(mod, config, monkeypatch)
+
+        # Find finish event
+        finish_events = [e for e in events if e["event"] == "finish"]
+        assert len(finish_events) == 1
+
+        content = finish_events[0]["result"]
+        assert "## Original Result" in content
+        assert "## Hook was here" in content
+
+    finally:
+        if hook_file.exists():
+            hook_file.unlink()
+        if prompt_file.exists():
+            prompt_file.unlink()
 
 
 def test_output_hook_returns_none(tmp_path, monkeypatch):
     """Test that hook returning None uses original result."""
     mod = importlib.import_module("think.generate")
-    day_dir = copy_day(tmp_path)
+    copy_day(tmp_path)
 
-    generators_dir = tmp_path / "generators"
-    generators_dir.mkdir()
+    muse_dir = Path(mod.__file__).resolve().parent.parent / "muse"
 
-    prompt_file = generators_dir / "noop.md"
+    prompt_file = muse_dir / "noop_test.md"
     prompt_file.write_text(
-        '{\n  "title": "Noop",\n  "occurrences": false,\n  "schedule": "daily"\n}\n\nTest prompt'
+        '{\n  "title": "Noop",\n  "schedule": "daily",\n  "output": "md"\n}\n\nTest prompt'
     )
 
-    hook_file = generators_dir / "noop.py"
+    hook_file = muse_dir / "noop_test.py"
     hook_file.write_text("""
 def process(result, context):
     return None  # Signal to use original
 """)
 
-    monkeypatch.setattr(
-        mod,
-        "generate_agent_output",
-        lambda *a, **k: MOCK_RESULT,
-    )
-    monkeypatch.setenv("GOOGLE_API_KEY", "x")
-    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
-    monkeypatch.setattr(
-        "sys.argv", ["sol generate", "20240101", "-f", str(prompt_file)]
-    )
+    try:
+        monkeypatch.setattr(
+            mod,
+            "generate_agent_output",
+            lambda *a, **k: (
+                MOCK_RESULT if k.get("return_result") else MOCK_RESULT["text"]
+            ),
+        )
+        monkeypatch.setenv("GOOGLE_API_KEY", "x")
+        monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
 
-    mod.main()
+        config = {
+            "name": "noop_test",
+            "day": "20240101",
+            "output": "md",
+            "provider": "google",
+            "model": "gemini-2.0-flash",
+        }
 
-    md = day_dir / "agents" / "noop.md"
-    content = md.read_text()
-    assert content == MOCK_RESULT  # Original, not modified
+        events = run_generator_with_config(mod, config, monkeypatch)
+
+        finish_events = [e for e in events if e["event"] == "finish"]
+        assert len(finish_events) == 1
+        assert finish_events[0]["result"] == MOCK_RESULT["text"]
+
+    finally:
+        if hook_file.exists():
+            hook_file.unlink()
+        if prompt_file.exists():
+            prompt_file.unlink()
 
 
 def test_output_hook_error_fallback(tmp_path, monkeypatch):
     """Test that hook errors fall back to original result."""
     mod = importlib.import_module("think.generate")
-    day_dir = copy_day(tmp_path)
+    copy_day(tmp_path)
 
-    generators_dir = tmp_path / "generators"
-    generators_dir.mkdir()
+    muse_dir = Path(mod.__file__).resolve().parent.parent / "muse"
 
-    prompt_file = generators_dir / "broken.md"
+    prompt_file = muse_dir / "broken_test.md"
     prompt_file.write_text(
-        '{\n  "title": "Broken",\n  "occurrences": false,\n  "schedule": "daily"\n}\n\nTest prompt'
+        '{\n  "title": "Broken",\n  "schedule": "daily",\n  "output": "md"\n}\n\nTest prompt'
     )
 
-    hook_file = generators_dir / "broken.py"
+    hook_file = muse_dir / "broken_test.py"
     hook_file.write_text("""
 def process(result, context):
     raise RuntimeError("Hook exploded!")
 """)
 
-    monkeypatch.setattr(
-        mod,
-        "generate_agent_output",
-        lambda *a, **k: MOCK_RESULT,
-    )
-    monkeypatch.setenv("GOOGLE_API_KEY", "x")
-    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
-    monkeypatch.setattr(
-        "sys.argv", ["sol generate", "20240101", "-f", str(prompt_file)]
-    )
+    try:
+        monkeypatch.setattr(
+            mod,
+            "generate_agent_output",
+            lambda *a, **k: (
+                MOCK_RESULT if k.get("return_result") else MOCK_RESULT["text"]
+            ),
+        )
+        monkeypatch.setenv("GOOGLE_API_KEY", "x")
+        monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
 
-    # Should not raise, should fall back gracefully
-    mod.main()
+        config = {
+            "name": "broken_test",
+            "day": "20240101",
+            "output": "md",
+            "provider": "google",
+            "model": "gemini-2.0-flash",
+        }
 
-    md = day_dir / "agents" / "broken.md"
-    content = md.read_text()
-    assert content == MOCK_RESULT  # Original result preserved
+        # Should not raise, should fall back gracefully
+        events = run_generator_with_config(mod, config, monkeypatch)
 
+        finish_events = [e for e in events if e["event"] == "finish"]
+        assert len(finish_events) == 1
+        assert finish_events[0]["result"] == MOCK_RESULT["text"]
 
-def test_output_hook_context_fields(tmp_path, monkeypatch):
-    """Test that hook receives complete context dict."""
-    mod = importlib.import_module("think.generate")
-    copy_day(tmp_path)
-
-    generators_dir = tmp_path / "generators"
-    generators_dir.mkdir()
-
-    prompt_file = generators_dir / "context_check.md"
-    prompt_file.write_text(
-        '{\n  "title": "Context Check",\n  "occurrences": false,\n  "schedule": "daily"\n}\n\nTest prompt'
-    )
-
-    # Write captured context to a file for verification
-    hook_file = generators_dir / "context_check.py"
-    hook_file.write_text("""
-import json
-from pathlib import Path
-
-def process(result, context):
-    # Write context to file for test verification
-    out_path = Path(context["output_path"]).parent / "context_captured.json"
-    with open(out_path, "w") as f:
-        # Remove transcript for brevity, just check it exists
-        ctx_copy = dict(context)
-        ctx_copy["has_transcript"] = bool(ctx_copy.get("transcript"))
-        ctx_copy["has_meta"] = bool(ctx_copy.get("meta"))
-        del ctx_copy["transcript"]
-        del ctx_copy["meta"]
-        json.dump(ctx_copy, f)
-    return result
-""")
-
-    monkeypatch.setattr(
-        mod,
-        "generate_agent_output",
-        lambda *a, **k: MOCK_RESULT,
-    )
-    monkeypatch.setenv("GOOGLE_API_KEY", "x")
-    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
-    monkeypatch.setattr(
-        "sys.argv", ["sol generate", "20240101", "-f", str(prompt_file)]
-    )
-
-    mod.main()
-
-    # Read captured context
-    captured_path = tmp_path / "20240101" / "agents" / "context_captured.json"
-    captured = json.loads(captured_path.read_text())
-
-    assert captured["day"] == "20240101"
-    assert captured["segment"] is None
-    assert captured["name"] == "context_check"  # stem of the prompt file
-    assert captured["has_transcript"] is True
-    assert captured["has_meta"] is True
-    assert "output_path" in captured
+    finally:
+        if hook_file.exists():
+            hook_file.unlink()
+        if prompt_file.exists():
+            prompt_file.unlink()
 
 
 def test_named_hook_resolution_takes_precedence(tmp_path):
@@ -323,7 +339,5 @@ def test_named_hook_nonexistent_falls_through(tmp_path):
 
     meta = utils._load_prompt_metadata(md_file)
 
-    # Named hook doesn't exist, so no hook_path should be set (co-located not checked when named specified)
-    # Actually the current implementation checks co-located only if hook field is not set
-    # So with a nonexistent named hook, no hook_path should be set
+    # Named hook doesn't exist, so no hook_path should be set
     assert "hook_path" not in meta

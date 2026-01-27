@@ -246,22 +246,39 @@ def test_prepare_audio_segments_with_collision(tmp_path, monkeypatch):
 
 
 def test_run_import_summary(tmp_path, monkeypatch):
-    """Test _run_import_summary calls sol generate correctly."""
+    """Test _run_import_summary calls cortex_request correctly."""
     mod = importlib.import_module("think.importer")
 
     import_dir = tmp_path / "imports" / "20240101_120000"
     import_dir.mkdir(parents=True)
 
-    # Mock subprocess.run to simulate successful sol generate
-    def mock_run(cmd, *args, **kwargs):
-        # Create the summary file like sol generate would
+    captured_request = {}
+
+    def mock_cortex_request(prompt, name, config):
+        captured_request.update({"prompt": prompt, "name": name, "config": config})
+        # Create the summary file like the generator would
         summary_path = import_dir / "summary.md"
         summary_path.write_text("# Test Summary\n\nContent here.")
-        mock_result = MagicMock()
-        mock_result.returncode = 0
-        return mock_result
+        return "mock_agent_id"
 
-    with patch("subprocess.run", side_effect=mock_run) as mock_subprocess:
+    def mock_wait_for_agents(agent_ids, timeout):
+        return (agent_ids, [])  # All completed, none timed out
+
+    def mock_get_agent_end_state(agent_id):
+        return "finish"
+
+    with (
+        patch(
+            "think.cortex_client.cortex_request", side_effect=mock_cortex_request
+        ),
+        patch(
+            "think.cortex_client.wait_for_agents", side_effect=mock_wait_for_agents
+        ),
+        patch(
+            "think.cortex_client.get_agent_end_state",
+            side_effect=mock_get_agent_end_state,
+        ),
+    ):
         result = mod._run_import_summary(
             import_dir,
             "20240101",
@@ -271,13 +288,14 @@ def test_run_import_summary(tmp_path, monkeypatch):
         assert result is True
         assert (import_dir / "summary.md").exists()
 
-        # Verify correct command was called
-        call_args = mock_subprocess.call_args[0][0]
-        assert "sol" in call_args
-        assert "insight" in call_args
-        assert "importer" in call_args
-        assert "--segments" in call_args
-        assert "120000_300,120500_300" in call_args
+        # Verify cortex_request was called with correct config
+        assert captured_request["name"] == "importer"
+        assert captured_request["config"]["day"] == "20240101"
+        assert captured_request["config"]["segments"] == ["120000_300", "120500_300"]
+        assert captured_request["config"]["output"] == "md"
+        assert (
+            str(import_dir / "summary.md") in captured_request["config"]["output_path"]
+        )
 
 
 def test_run_import_summary_no_segments(tmp_path):
