@@ -28,7 +28,7 @@ import frontmatter
 from think.utils import (
     MUSE_DIR,
     _load_prompt_metadata,
-    get_muse_configs,
+    get_config,
     setup_cli,
 )
 
@@ -116,12 +116,50 @@ def _collect_configs(
     source: str | None = None,
     include_disabled: bool = False,
 ) -> dict[str, dict[str, Any]]:
-    """Collect all muse configs with optional filters applied."""
-    configs = get_muse_configs(schedule=schedule, include_disabled=True)
+    """Collect muse configs using metadata-only loading (no instruction composition).
 
+    This avoids the expensive get_agent() path that compose_instructions() uses,
+    which loads facet summaries and entity data from the journal.
+    """
+    configs: dict[str, dict[str, Any]] = {}
+
+    # System configs from muse/
+    if MUSE_DIR.is_dir():
+        for md_path in sorted(MUSE_DIR.glob("*.md")):
+            info = _load_prompt_metadata(md_path)
+            info["source"] = "system"
+            configs[md_path.stem] = info
+
+    # App configs from apps/*/muse/
+    apps_dir = _PROJECT_ROOT / "apps"
+    if apps_dir.is_dir():
+        for app_path in sorted(apps_dir.iterdir()):
+            if not app_path.is_dir() or app_path.name.startswith("_"):
+                continue
+            app_muse_dir = app_path / "muse"
+            if not app_muse_dir.is_dir():
+                continue
+            for md_path in sorted(app_muse_dir.glob("*.md")):
+                info = _load_prompt_metadata(md_path)
+                info["source"] = "app"
+                info["app"] = app_path.name
+                configs[f"{app_path.name}:{md_path.stem}"] = info
+
+    # Merge journal config overrides (disabled/extract)
+    overrides = get_config().get("agents", {})
+    for key, override in overrides.items():
+        if key in configs and isinstance(override, dict):
+            if "disabled" in override:
+                configs[key]["disabled"] = override["disabled"]
+            if "extract" in override:
+                configs[key]["extract"] = override["extract"]
+
+    # Apply filters
     filtered: dict[str, dict[str, Any]] = {}
     for key, info in configs.items():
         if not include_disabled and info.get("disabled", False):
+            continue
+        if schedule and info.get("schedule") != schedule:
             continue
         if source and info.get("source") != source:
             continue
@@ -146,7 +184,6 @@ def list_prompts(
     include_disabled: bool = False,
 ) -> None:
     """Print prompts grouped by schedule."""
-    all_configs = get_muse_configs(include_disabled=True)
     configs = _collect_configs(
         schedule=schedule, source=source, include_disabled=include_disabled
     )
@@ -199,12 +236,12 @@ def list_prompts(
 
     # Show disabled count hint
     if not include_disabled:
-        disabled_count = sum(
-            1 for info in all_configs.values() if info.get("disabled", False)
+        all_configs = _collect_configs(
+            schedule=schedule, source=source, include_disabled=True
         )
+        disabled_count = len(all_configs) - len(configs)
         if disabled_count:
-            total = len(configs)
-            print(f"{total} prompts ({disabled_count} disabled hidden, use --disabled)")
+            print(f"{len(configs)} prompts ({disabled_count} disabled hidden, use --disabled)")
 
 
 def show_prompt(name: str, *, as_json: bool = False) -> None:
