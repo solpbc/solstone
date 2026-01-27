@@ -45,6 +45,27 @@
 }
 
 /* ============================================================================
+   Day Summary Bar
+   ============================================================================ */
+.day-summary {
+  display: flex;
+  gap: 1.5rem;
+  padding: 0.5rem 0 1rem;
+  font-size: 0.85rem;
+  color: #666;
+}
+
+.day-summary .summary-item {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.day-summary .summary-failed {
+  color: #c62828;
+}
+
+/* ============================================================================
    Agent Card Grid
    ============================================================================ */
 .agent-section {
@@ -71,6 +92,7 @@
 .agent-card {
   background: white;
   border: 2px solid #e0e0e0;
+  border-left: 4px solid #6c757d;
   border-radius: 8px;
   padding: 1rem;
   cursor: pointer;
@@ -86,7 +108,7 @@
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  margin-bottom: 0.5rem;
+  margin-bottom: 0.25rem;
 }
 
 .agent-card-title {
@@ -122,12 +144,39 @@
   color: #c62828;
 }
 
+.agent-card-description {
+  font-size: 0.8rem;
+  color: #888;
+  margin: 0 0 0.5rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.agent-card-caps {
+  display: flex;
+  gap: 0.4rem;
+  margin-bottom: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.cap-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.1rem 0.4rem;
+  border-radius: 3px;
+  font-size: 0.7rem;
+  font-weight: 500;
+  background: #f0f0f0;
+  color: #777;
+  letter-spacing: 0.02em;
+}
+
 .agent-card-activity {
   display: flex;
   justify-content: space-between;
   align-items: center;
   gap: 0.75rem;
-  margin-top: 0.5rem;
   font-size: 0.8rem;
   color: #666;
 }
@@ -223,6 +272,7 @@
 
 .col-status { width: 50px; text-align: center; }
 .col-time { width: 100px; }
+.col-model { width: 140px; }
 .col-runtime { width: 80px; text-align: right; }
 .col-activity { width: 50px; text-align: center; }
 .col-facet { width: 120px; }
@@ -253,6 +303,21 @@
   white-space: nowrap;
   color: #666;
   font-size: 0.9rem;
+}
+
+.model-name {
+  font-size: 0.8rem;
+  color: #888;
+}
+
+.error-preview {
+  font-size: 0.75rem;
+  color: #c62828;
+  margin-top: 0.2rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 400px;
 }
 
 /* ============================================================================
@@ -451,6 +516,7 @@
 
   <!-- Card Grid View -->
   <div id="grid-view" style="display: none;">
+    <div id="day-summary" class="day-summary" style="display: none;"></div>
     <div id="agent-groups"></div>
     <div id="empty-state" class="empty-state" style="display: none;">
       <div class="empty-state-icon">🤖</div>
@@ -478,6 +544,7 @@
         <tr>
           <th class="col-status"></th>
           <th class="col-time">Time</th>
+          <th class="col-model">Model</th>
           <th class="col-runtime">Runtime</th>
           <th class="col-activity" title="Thinking events">💭</th>
           <th class="col-activity" title="Tool calls">🔧</th>
@@ -511,7 +578,9 @@
   // State
   let currentDay = null;
   let currentName = null;
-  let agentData = null;
+  let allRuns = [];
+  let agentsMeta = {};
+  let facetsMeta = {};
   let expandedRunId = null;
   let runDetailCache = {};
 
@@ -524,40 +593,118 @@
 
   // Format timestamp to time string
   function formatTime(ts) {
-    if (!ts) return '—';
+    if (!ts) return '\u2014';
     const d = new Date(ts);
     return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   }
 
   // Format runtime
   function formatRuntime(seconds) {
-    if (seconds === null || seconds === undefined) return '—';
+    if (seconds === null || seconds === undefined) return '\u2014';
     if (seconds < 60) return `${Math.round(seconds)}s`;
     const mins = Math.floor(seconds / 60);
     const secs = Math.round(seconds % 60);
     return `${mins}m ${secs}s`;
   }
 
-  // Truncate prompt for display
-  function truncatePrompt(prompt, maxLen = 80) {
-    if (!prompt) return '—';
-    const clean = prompt.replace(/\s+/g, ' ').trim();
+  // Truncate text for display
+  function truncate(text, maxLen = 80) {
+    if (!text) return '\u2014';
+    const clean = text.replace(/\s+/g, ' ').trim();
     if (clean.length <= maxLen) return clean;
     return clean.substring(0, maxLen) + '...';
   }
 
   // Format cost in cents with exact USD in title
-  // Returns {text: "3c", title: "$0.0312"} or {text: "—", title: ""} if null
   function formatCost(costUSD) {
     if (costUSD === null || costUSD === undefined) {
-      return { text: '—', title: '' };
+      return { text: '\u2014', title: '' };
     }
     const cents = Math.round(costUSD * 100);
     const exactUSD = '$' + costUSD.toFixed(4);
     return { text: cents + 'c', title: exactUSD };
   }
 
-  // Load agents for current day
+  // Shorten model name for display
+  function formatModel(model) {
+    if (!model) return '\u2014';
+    // Strip common provider prefixes and date suffixes
+    return model
+      .replace(/^(models\/|accounts\/[^/]+\/models\/)/, '')
+      .replace(/-\d{8}$/, '');
+  }
+
+  // =========================================================================
+  // Grouping & Aggregation (moved from server)
+  // =========================================================================
+
+  function groupRunsByAgent(runs) {
+    const groups = {};
+
+    for (const run of runs) {
+      const name = run.name;
+      if (!groups[name]) {
+        const meta = agentsMeta[name] || {};
+        groups[name] = {
+          name: name,
+          title: meta.title || name,
+          description: meta.description || null,
+          color: meta.color || '#6c757d',
+          source: meta.source || 'system',
+          app: meta.app || null,
+          schedule: meta.schedule || null,
+          has_tools: meta.has_tools || false,
+          has_output: meta.has_output || false,
+          multi_facet: meta.multi_facet || false,
+          run_count: 0,
+          failed_count: 0,
+          thinking_count: 0,
+          tool_count: 0,
+          total_cost: 0.0,
+          facets: new Set(),
+        };
+      }
+
+      const g = groups[name];
+      g.run_count++;
+      if (run.failed) g.failed_count++;
+      g.thinking_count += (run.thinking_count || 0);
+      g.tool_count += (run.tool_count || 0);
+      if (run.cost != null) g.total_cost += run.cost;
+      if (run.facet) g.facets.add(run.facet);
+    }
+
+    return groups;
+  }
+
+  function organizeGroups(groups) {
+    const systemGroups = [];
+    const appGroups = {};
+
+    for (const group of Object.values(groups)) {
+      if (group.source === 'system') {
+        systemGroups.push(group);
+      } else {
+        const appName = group.app || 'unknown';
+        if (!appGroups[appName]) appGroups[appName] = [];
+        appGroups[appName].push(group);
+      }
+    }
+
+    // Sort alphabetically by title
+    const sortByTitle = (a, b) => a.title.toLowerCase().localeCompare(b.title.toLowerCase());
+    systemGroups.sort(sortByTitle);
+    for (const appName of Object.keys(appGroups)) {
+      appGroups[appName].sort(sortByTitle);
+    }
+
+    return { system: systemGroups, apps: appGroups };
+  }
+
+  // =========================================================================
+  // Data Loading
+  // =========================================================================
+
   async function loadAgents() {
     currentDay = getDayFromUrl();
     if (!currentDay) return;
@@ -568,7 +715,12 @@
 
     try {
       const response = await fetch(`api/agents/${currentDay}`);
-      agentData = await response.json();
+      const data = await response.json();
+
+      allRuns = data.runs || [];
+      agentsMeta = data.agents || {};
+      facetsMeta = data.facets || {};
+
       renderGridView();
     } catch (error) {
       console.error('Error loading agents:', error);
@@ -577,7 +729,10 @@
     }
   }
 
-  // Render the card grid view
+  // =========================================================================
+  // Grid View
+  // =========================================================================
+
   function renderGridView() {
     document.getElementById('loading-view').style.display = 'none';
     document.getElementById('grid-view').style.display = 'block';
@@ -586,27 +741,55 @@
     const container = document.getElementById('agent-groups');
     container.innerHTML = '';
 
-    const { groups, total_runs } = agentData;
-    const hasAgents = groups.system.length > 0 || Object.keys(groups.apps).length > 0;
-
-    if (!hasAgents) {
+    if (allRuns.length === 0) {
+      document.getElementById('day-summary').style.display = 'none';
       document.getElementById('empty-state').style.display = 'block';
       return;
     }
 
     document.getElementById('empty-state').style.display = 'none';
 
+    // Group and organize
+    const groups = groupRunsByAgent(allRuns);
+    const organized = organizeGroups(groups);
+
+    // Render summary bar
+    renderDaySummary(allRuns);
+
     // Render system agents
-    if (groups.system.length > 0) {
-      container.appendChild(renderSection('System Agents', groups.system));
+    if (organized.system.length > 0) {
+      container.appendChild(renderSection('System Agents', organized.system));
     }
 
     // Render app agent sections
-    const appNames = Object.keys(groups.apps).sort();
+    const appNames = Object.keys(organized.apps).sort();
     for (const appName of appNames) {
       const title = appName.charAt(0).toUpperCase() + appName.slice(1);
-      container.appendChild(renderSection(title, groups.apps[appName]));
+      container.appendChild(renderSection(title, organized.apps[appName]));
     }
+  }
+
+  function renderDaySummary(runs) {
+    const summary = document.getElementById('day-summary');
+    const totalRuns = runs.length;
+    const failedRuns = runs.filter(r => r.failed).length;
+    let totalCost = 0;
+    for (const r of runs) {
+      if (r.cost != null) totalCost += r.cost;
+    }
+
+    const parts = [];
+    parts.push(`<span class="summary-item">${totalRuns} run${totalRuns !== 1 ? 's' : ''}</span>`);
+    if (failedRuns > 0) {
+      parts.push(`<span class="summary-item summary-failed">${failedRuns} failed</span>`);
+    }
+    if (totalCost > 0) {
+      const costInfo = formatCost(totalCost);
+      parts.push(`<span class="summary-item" title="${costInfo.title}">💰 ${costInfo.text}</span>`);
+    }
+
+    summary.innerHTML = parts.join('');
+    summary.style.display = totalRuns > 0 ? 'flex' : 'none';
   }
 
   // Render a section with cards
@@ -634,6 +817,7 @@
   function renderCard(agent) {
     const card = document.createElement('div');
     card.className = 'agent-card';
+    card.style.borderLeftColor = agent.color;
     card.onclick = () => showRunList(agent.name);
 
     // Header with title and badges
@@ -648,7 +832,6 @@
     const badges = document.createElement('div');
     badges.className = 'agent-card-badges';
 
-    // Success count badge (green)
     const successCount = agent.run_count - agent.failed_count;
     if (successCount > 0) {
       const successBadge = document.createElement('span');
@@ -657,7 +840,6 @@
       badges.appendChild(successBadge);
     }
 
-    // Failed count badge (red)
     if (agent.failed_count > 0) {
       const failBadge = document.createElement('span');
       failBadge.className = 'badge badge-failed';
@@ -668,15 +850,43 @@
     header.appendChild(badges);
     card.appendChild(header);
 
-    // Activity row: counts on left, facet dots on right (in all-facet mode)
+    // Description
+    if (agent.description) {
+      const desc = document.createElement('p');
+      desc.className = 'agent-card-description';
+      desc.textContent = agent.description;
+      desc.title = agent.description;
+      card.appendChild(desc);
+    }
+
+    // Capability badges
+    const caps = [];
+    if (agent.schedule) caps.push(agent.schedule);
+    if (agent.has_tools) caps.push('tools');
+    if (agent.has_output && !agent.has_tools) caps.push('output');
+    if (agent.multi_facet) caps.push('per-facet');
+
+    if (caps.length > 0) {
+      const capsRow = document.createElement('div');
+      capsRow.className = 'agent-card-caps';
+      for (const cap of caps) {
+        const pill = document.createElement('span');
+        pill.className = 'cap-badge';
+        pill.textContent = cap;
+        capsRow.appendChild(pill);
+      }
+      card.appendChild(capsRow);
+    }
+
+    // Activity row: counts on left, facet dots on right
     const hasActivity = agent.thinking_count > 0 || agent.tool_count > 0 || agent.total_cost > 0;
-    const hasFacetDots = agent.facet_colors && Object.keys(agent.facet_colors).length > 0;
+    const facetNames = Array.from(agent.facets);
+    const hasFacetDots = facetNames.length > 0;
 
     if (hasActivity || hasFacetDots) {
       const activity = document.createElement('div');
       activity.className = 'agent-card-activity';
 
-      // Activity counts container (left side)
       const counts = document.createElement('div');
       counts.className = 'activity-counts';
 
@@ -707,16 +917,16 @@
 
       activity.appendChild(counts);
 
-      // Facet dots (right side, all-facet mode only)
       if (hasFacetDots) {
         const dots = document.createElement('div');
         dots.className = 'facet-dots';
 
-        for (const [facetName, color] of Object.entries(agent.facet_colors)) {
+        for (const facetName of facetNames) {
+          const facet = facetsMeta[facetName];
           const dot = document.createElement('span');
           dot.className = 'facet-dot';
-          dot.style.backgroundColor = color || '#999';
-          dot.title = facetName;
+          dot.style.backgroundColor = (facet && facet.color) || '#999';
+          dot.title = (facet && facet.title) || facetName;
           dots.appendChild(dot);
         }
 
@@ -729,8 +939,11 @@
     return card;
   }
 
-  // Show run list for a specific agent
-  async function showRunList(name) {
+  // =========================================================================
+  // Run List View
+  // =========================================================================
+
+  function showRunList(name) {
     currentName = name;
     expandedRunId = null;
     runDetailCache = {};
@@ -738,23 +951,18 @@
     document.getElementById('grid-view').style.display = 'none';
     document.getElementById('list-view').style.display = 'block';
 
-    const tbody = document.getElementById('runs-tbody');
-    tbody.innerHTML = '<tr><td colspan="8" class="run-loading"><div class="spinner"></div></td></tr>';
+    // Filter runs client-side
+    const runs = allRuns.filter(r => r.name === name);
+    const meta = agentsMeta[name] || {};
+    const title = meta.title || name;
+    const failedCount = runs.filter(r => r.failed).length;
 
-    try {
-      const response = await fetch(`api/agents/${currentDay}/${encodeURIComponent(name)}`);
-      const data = await response.json();
+    document.getElementById('list-view-title').textContent = title;
+    document.getElementById('list-view-count').textContent =
+      `${runs.length} run${runs.length !== 1 ? 's' : ''}` +
+      (failedCount > 0 ? ` (${failedCount} failed)` : '');
 
-      document.getElementById('list-view-title').textContent = data.title;
-      document.getElementById('list-view-count').textContent =
-        `${data.run_count} run${data.run_count !== 1 ? 's' : ''}` +
-        (data.failed_count > 0 ? ` (${data.failed_count} failed)` : '');
-
-      renderRunList(data.runs);
-    } catch (error) {
-      console.error('Error loading runs:', error);
-      tbody.innerHTML = '<tr><td colspan="8" class="run-loading">Error loading runs</td></tr>';
-    }
+    renderRunList(runs);
   }
 
   // Render the run list table
@@ -763,12 +971,11 @@
     tbody.innerHTML = '';
 
     if (runs.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="8" class="run-loading">No runs found</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="9" class="run-loading">No runs found</td></tr>';
       return;
     }
 
     for (const run of runs) {
-      // Main row
       const row = document.createElement('tr');
       row.dataset.runId = run.id;
       row.onclick = () => toggleRunDetail(run.id);
@@ -780,15 +987,15 @@
       statusIcon.className = 'status-icon';
       if (run.status === 'running') {
         statusIcon.className += ' status-running';
-        statusIcon.textContent = '⏳';
+        statusIcon.textContent = '\u23f3';
         statusIcon.title = 'Running';
       } else if (run.failed) {
         statusIcon.className += ' status-failed';
-        statusIcon.textContent = '✗';
+        statusIcon.textContent = '\u2717';
         statusIcon.title = 'Failed';
       } else {
         statusIcon.className += ' status-ok';
-        statusIcon.textContent = '✓';
+        statusIcon.textContent = '\u2713';
         statusIcon.title = 'Completed';
       }
       statusCell.appendChild(statusIcon);
@@ -799,6 +1006,16 @@
       timeCell.className = 'col-time';
       timeCell.textContent = formatTime(run.start);
       row.appendChild(timeCell);
+
+      // Model
+      const modelCell = document.createElement('td');
+      modelCell.className = 'col-model';
+      const modelSpan = document.createElement('span');
+      modelSpan.className = 'model-name';
+      modelSpan.textContent = formatModel(run.model);
+      modelSpan.title = run.model || '';
+      modelCell.appendChild(modelSpan);
+      row.appendChild(modelCell);
 
       // Runtime
       const runtimeCell = document.createElement('td');
@@ -830,29 +1047,39 @@
       const facetCell = document.createElement('td');
       facetCell.className = 'col-facet';
       if (run.facet) {
+        const facet = facetsMeta[run.facet];
         const tag = document.createElement('span');
         tag.className = 'facet-tag';
-        if (run.facet_color) {
+        if (facet && facet.color) {
           const dot = document.createElement('span');
           dot.className = 'facet-dot';
-          dot.style.backgroundColor = run.facet_color;
+          dot.style.backgroundColor = facet.color;
           tag.appendChild(dot);
         }
-        tag.appendChild(document.createTextNode(run.facet_title || run.facet));
+        tag.appendChild(document.createTextNode((facet && facet.title) || run.facet));
         facetCell.appendChild(tag);
       } else {
-        facetCell.textContent = '—';
+        facetCell.textContent = '\u2014';
       }
       row.appendChild(facetCell);
 
-      // Prompt
+      // Prompt + error preview
       const promptCell = document.createElement('td');
       promptCell.className = 'col-prompt';
       const promptSpan = document.createElement('span');
       promptSpan.className = 'prompt-snippet';
-      promptSpan.textContent = truncatePrompt(run.prompt);
-      promptSpan.title = run.prompt;
+      promptSpan.textContent = truncate(run.prompt);
+      promptSpan.title = run.prompt || '';
       promptCell.appendChild(promptSpan);
+
+      if (run.failed && run.error_message) {
+        const errorDiv = document.createElement('div');
+        errorDiv.className = 'error-preview';
+        errorDiv.textContent = run.error_message;
+        errorDiv.title = run.error_message;
+        promptCell.appendChild(errorDiv);
+      }
+
       row.appendChild(promptCell);
 
       tbody.appendChild(row);
@@ -888,19 +1115,17 @@
     detailRow.dataset.runId = runId;
 
     const detailCell = document.createElement('td');
-    detailCell.colSpan = 8;
+    detailCell.colSpan = 9;
 
     const content = document.createElement('div');
     content.className = 'run-detail-content';
 
-    // Check cache - cache stores {html, thinking_count, tool_count, cost}
     if (runDetailCache[runId]) {
       const cached = runDetailCache[runId];
       content.innerHTML = buildDetailContent(cached.html, cached.thinking_count, cached.tool_count, cached.cost);
     } else {
       content.innerHTML = '<div class="run-loading"><div class="spinner"></div><div>Loading...</div></div>';
 
-      // Fetch run detail
       try {
         const response = await fetch(`api/run/${runId}`);
         const data = await response.json();
@@ -908,7 +1133,6 @@
         if (data.error) {
           content.innerHTML = `<div class="run-loading">Error: ${data.error}</div>`;
         } else {
-          // Convert markdown to HTML using marked library
           const html = marked.parse(data.markdown || '', { breaks: true, gfm: true });
           runDetailCache[runId] = {
             html: html,
@@ -950,7 +1174,10 @@
     return `${headerHtml}<div class="markdown">${html}</div>`;
   }
 
-  // Show grid view
+  // =========================================================================
+  // Navigation & Modals
+  // =========================================================================
+
   window.showGridView = function() {
     currentName = null;
     expandedRunId = null;
@@ -958,7 +1185,6 @@
     document.getElementById('list-view').style.display = 'none';
   };
 
-  // Show preview modal
   window.showPreview = async function() {
     if (!currentName) return;
 
@@ -984,7 +1210,6 @@
     }
   };
 
-  // Hide preview modal
   window.hidePreview = function() {
     document.getElementById('preview-modal').classList.remove('show');
   };

@@ -54,14 +54,16 @@ def _parse_agent_events(lines: list[str]) -> dict[str, Any]:
         lines: List of JSONL lines (excluding the request event)
 
     Returns:
-        Dict with: thinking_count, tool_count, model, usage, finish_ts
+        Dict with: thinking_count, tool_count, model, usage, finish_ts,
+        error_message
     """
-    result = {
+    result: dict[str, Any] = {
         "thinking_count": 0,
         "tool_count": 0,
         "model": None,
         "usage": None,
         "finish_ts": None,
+        "error_message": None,
     }
 
     for line in lines:
@@ -80,6 +82,10 @@ def _parse_agent_events(lines: list[str]) -> dict[str, Any]:
             elif event_type == "finish":
                 result["finish_ts"] = event.get("ts", 0)
                 result["usage"] = event.get("usage")
+            elif event_type == "error":
+                msg = event.get("error", "")
+                if msg:
+                    result["error_message"] = msg[:200]
         except json.JSONDecodeError:
             continue
 
@@ -114,7 +120,7 @@ def _parse_agent_file(agent_file: Path) -> dict[str, Any] | None:
     """Parse agent JSONL file and extract metadata.
 
     Returns dict with: id, name, start, status, prompt, facet, failed,
-    runtime_seconds, thinking_count, tool_count, cost.
+    runtime_seconds, thinking_count, tool_count, cost, model, error_message.
     Returns None if file cannot be parsed.
     """
     from think.cortex_client import get_agent_end_state
@@ -141,7 +147,7 @@ def _parse_agent_file(agent_file: Path) -> dict[str, Any] | None:
         # Parse events using shared helper
         event_data = _parse_agent_events(lines[1:])
 
-        agent_info = {
+        agent_info: dict[str, Any] = {
             "id": agent_id,
             "name": request_event.get("name", "default"),
             "start": request_event.get("ts", 0),
@@ -153,6 +159,8 @@ def _parse_agent_file(agent_file: Path) -> dict[str, Any] | None:
             "thinking_count": event_data["thinking_count"],
             "tool_count": event_data["tool_count"],
             "cost": None,
+            "model": event_data["model"],
+            "error_message": event_data["error_message"],
         }
 
         # For completed agents, determine end state and calculate cost
@@ -217,56 +225,29 @@ def _get_agents_for_day(day: str, facet_filter: str | None = None) -> list[dict]
     return agents
 
 
-def _group_agents_by_name(
-    agents: list[dict], agents_meta: dict
-) -> dict[str, dict[str, Any]]:
-    """Group agents by name and add metadata.
+def _build_agents_meta() -> dict[str, dict[str, Any]]:
+    """Build agent metadata dict from all muse configs.
 
-    Returns dict mapping name to:
-        - title: Display title
-        - source: "system" or "app"
-        - app: App name (for app agents)
-        - run_count: Total runs
-        - failed_count: Failed runs
-        - thinking_count: Total thinking events across all runs
-        - tool_count: Total tool calls across all runs
-        - total_cost: Total cost in USD across all runs
-        - facets: Set of facets with runs (for color hints)
+    Returns dict mapping agent name to metadata with capability fields
+    for frontend display.
     """
-    groups: dict[str, dict[str, Any]] = {}
+    configs = get_muse_configs(include_disabled=True)
+    agents: dict[str, dict[str, Any]] = {}
 
-    for agent in agents:
-        name = agent["name"]
-        if name not in groups:
-            meta = agents_meta.get(name, {})
-            groups[name] = {
-                "name": name,
-                "title": meta.get("title", name),
-                "source": meta.get("source", "system"),
-                "app": meta.get("app"),
-                "run_count": 0,
-                "failed_count": 0,
-                "thinking_count": 0,
-                "tool_count": 0,
-                "total_cost": 0.0,
-                "facets": set(),
-            }
+    for name, config in configs.items():
+        agents[name] = {
+            "title": config.get("title", name),
+            "description": config.get("description"),
+            "color": config.get("color", "#6c757d"),
+            "source": config.get("source", "system"),
+            "app": config.get("app"),
+            "schedule": config.get("schedule"),
+            "has_tools": "tools" in config,
+            "has_output": "output" in config,
+            "multi_facet": bool(config.get("multi_facet")),
+        }
 
-        groups[name]["run_count"] += 1
-        if agent.get("failed"):
-            groups[name]["failed_count"] += 1
-        groups[name]["thinking_count"] += agent.get("thinking_count", 0)
-        groups[name]["tool_count"] += agent.get("tool_count", 0)
-        if agent.get("cost") is not None:
-            groups[name]["total_cost"] += agent["cost"]
-        if agent.get("facet"):
-            groups[name]["facets"].add(agent["facet"])
-
-    # Convert facet sets to lists for JSON serialization
-    for group in groups.values():
-        group["facets"] = list(group["facets"])
-
-    return groups
+    return agents
 
 
 # =============================================================================
@@ -299,19 +280,18 @@ def agents_day(day: str) -> str:
 
 @agents_bp.route("/api/agents/<day>")
 def api_agents_day(day: str) -> Any:
-    """Get agents that ran on a specific day, grouped by name.
+    """Get agent runs and metadata for a specific day.
+
+    Returns flat data for frontend grouping/rendering.
 
     Query params:
         facet: Optional facet filter (from cookie if not specified)
 
     Returns:
         {
-            "groups": {
-                "system": [agent group objects...],
-                "apps": {"app_name": [agent group objects...], ...}
-            },
-            "total_runs": int,
-            "failed_runs": int
+            "runs": [run objects...],
+            "agents": {name: metadata...},
+            "facets": {name: {title, color}...}
         }
     """
     if not re.fullmatch(DATE_RE.pattern, day):
@@ -319,94 +299,18 @@ def api_agents_day(day: str) -> Any:
 
     facet_filter = _get_facet_filter()
 
-    # Load agent metadata for titles and grouping
-    agents_meta = get_muse_configs(has_tools=True)
-    facets = get_facets()
-
-    # Get agents for this day
-    agents = _get_agents_for_day(day, facet_filter)
-
-    # Group by name
-    name_groups = _group_agents_by_name(agents, agents_meta)
-
-    # Organize into system vs app groups
-    system_groups = []
-    app_groups: dict[str, list] = {}
-
-    for name, group in name_groups.items():
-        # Add facet colors for display
-        group["facet_colors"] = {}
-        for facet_name in group["facets"]:
-            if facet_name in facets:
-                group["facet_colors"][facet_name] = facets[facet_name].get("color")
-
-        if group["source"] == "system":
-            system_groups.append(group)
-        else:
-            app_name = group["app"] or "unknown"
-            if app_name not in app_groups:
-                app_groups[app_name] = []
-            app_groups[app_name].append(group)
-
-    # Sort groups by title
-    system_groups.sort(key=lambda x: x["title"].lower())
-    for app_name in app_groups:
-        app_groups[app_name].sort(key=lambda x: x["title"].lower())
-
-    # Calculate totals
-    total_runs = sum(g["run_count"] for g in name_groups.values())
-    failed_runs = sum(g["failed_count"] for g in name_groups.values())
+    runs = _get_agents_for_day(day, facet_filter)
+    agents = _build_agents_meta()
+    facets = {
+        name: {"title": f.get("title", name), "color": f.get("color")}
+        for name, f in get_facets().items()
+    }
 
     return jsonify(
         {
-            "groups": {
-                "system": system_groups,
-                "apps": app_groups,
-            },
-            "total_runs": total_runs,
-            "failed_runs": failed_runs,
-        }
-    )
-
-
-@agents_bp.route("/api/agents/<day>/<path:name>")
-def api_agent_runs(day: str, name: str) -> Any:
-    """Get runs for a specific agent on a specific day.
-
-    Returns list of runs with full details for display.
-    """
-    if not re.fullmatch(DATE_RE.pattern, day):
-        return jsonify({"error": "Invalid day format"}), 400
-
-    facet_filter = _get_facet_filter()
-
-    # Load metadata
-    agents_meta = get_muse_configs(has_tools=True)
-    facets = get_facets()
-
-    # Get all agents for day and filter to this name
-    all_agents = _get_agents_for_day(day, facet_filter)
-    runs = [a for a in all_agents if a["name"] == name]
-
-    # Add facet color to each run
-    for run in runs:
-        run_facet = run.get("facet")
-        if run_facet and run_facet in facets:
-            run["facet_color"] = facets[run_facet].get("color")
-            run["facet_title"] = facets[run_facet].get("title", run_facet)
-
-    # Get agent metadata
-    meta = agents_meta.get(name, {})
-
-    return jsonify(
-        {
-            "name": name,
-            "title": meta.get("title", name),
-            "source": meta.get("source", "system"),
-            "app": meta.get("app"),
             "runs": runs,
-            "run_count": len(runs),
-            "failed_count": sum(1 for r in runs if r.get("failed")),
+            "agents": agents,
+            "facets": facets,
         }
     )
 
