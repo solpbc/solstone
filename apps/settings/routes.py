@@ -207,7 +207,7 @@ def get_transcribe() -> Any:
         - config: Current transcribe config from journal
     """
     try:
-        from observe.transcribe import BACKEND_METADATA, get_backend_list
+        from observe.transcribe import get_backend_list
 
         config = get_journal_config()
         transcribe_config = config.get("transcribe", {})
@@ -837,7 +837,10 @@ def get_generators() -> Any:
             _build_generator_info(key, meta)
             for key, meta in sorted(
                 get_muse_configs(
-                    has_tools=False, has_output=True, schedule="segment", include_disabled=True
+                    has_tools=False,
+                    has_output=True,
+                    schedule="segment",
+                    include_disabled=True,
                 ).items()
             )
         ]
@@ -845,7 +848,10 @@ def get_generators() -> Any:
             _build_generator_info(key, meta)
             for key, meta in sorted(
                 get_muse_configs(
-                    has_tools=False, has_output=True, schedule="daily", include_disabled=True
+                    has_tools=False,
+                    has_output=True,
+                    schedule="daily",
+                    include_disabled=True,
                 ).items()
             )
         ]

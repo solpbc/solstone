@@ -3,7 +3,6 @@
 
 from __future__ import annotations
 
-import json
 import os
 import re
 from datetime import datetime
@@ -11,7 +10,6 @@ from typing import Any
 
 from flask import Blueprint, jsonify, redirect, render_template, url_for
 
-from convey import state
 from convey.utils import DATE_RE, format_date
 from observe.utils import VIDEO_EXTENSIONS
 from think.utils import day_path
@@ -223,8 +221,6 @@ def _dev_screen_files(day: str) -> Any:
                     continue
 
                 # Format timestamp as human-readable time
-                from datetime import datetime
-
                 try:
                     time_obj = datetime.strptime(timestamp[:6], "%H%M%S")
                     human_time = time_obj.strftime("%I:%M:%S %p").lstrip("0")

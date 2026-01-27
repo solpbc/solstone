@@ -319,7 +319,7 @@ class TestTransferImport:
         think.utils._journal_path_cache = None
 
         # Mock subprocess to avoid running real indexer
-        with patch("subprocess.run") as mock_run:
+        with patch("subprocess.run"):
             result = import_archive(archive_path)
 
         assert result["status"] == "imported"

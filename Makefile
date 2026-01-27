@@ -111,6 +111,7 @@ test-all: .installed
 	$(TEST_ENV) $(PYTEST) tests/ -v --cov=. && $(TEST_ENV) $(PYTEST) apps/ -v --cov=. --cov-append
 
 # Auto-format code, then report any remaining issues
+# Linting config: .flake8  |  Formatting config: pyproject.toml [tool.black] / [tool.isort]
 format: .installed
 	@echo "Formatting code with black and isort..."
 	@$(BLACK) .

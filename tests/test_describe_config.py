@@ -71,10 +71,10 @@ def test_categorization_prompt_alphabetical():
 
     # Extract category lines from prompt
     lines = prompt.split("\n")
-    category_lines = [l for l in lines if l.startswith("- ") and ":" in l]
+    category_lines = [line for line in lines if line.startswith("- ") and ":" in line]
 
     # Extract category names
-    categories = [l.split(":")[0].replace("- ", "") for l in category_lines]
+    categories = [line.split(":")[0].replace("- ", "") for line in category_lines]
 
     # Should be sorted
     assert categories == sorted(categories)

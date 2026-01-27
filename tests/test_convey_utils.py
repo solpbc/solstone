@@ -1,9 +1,6 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 # Copyright (c) 2026 sol pbc
 
-import json
-import os
-
 from convey.utils import format_date, format_date_short, time_since
 from think.utils import day_path
 

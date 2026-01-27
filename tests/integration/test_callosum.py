@@ -9,7 +9,6 @@ These tests use real servers, sockets, and I/O to validate core flows.
 import os
 import threading
 import time
-from pathlib import Path
 
 import pytest
 

@@ -7,7 +7,6 @@ import json
 import os
 import threading
 import time
-from pathlib import Path
 
 import pytest
 
@@ -202,7 +201,7 @@ def test_cortex_error_handling(integration_journal_path, callosum_server):
     time.sleep(0.1)
 
     # Make a request
-    agent_id = cortex_request(
+    cortex_request(
         prompt="Test error handling",
         name="nonexistent_agent",  # This may cause issues
         provider="openai",

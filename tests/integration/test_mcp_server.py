@@ -3,10 +3,8 @@
 
 """Integration tests for MCP server with full protocol testing."""
 
-import asyncio
 import json
 import os
-from pathlib import Path
 
 import pytest
 from mcp import ClientSession, StdioServerParameters
@@ -177,7 +175,7 @@ async def test_mcp_server_stdio_e2e(integration_journal_path):
             assert "1:" in result_data["markdown"], "Expected numbered output"
 
             # Test 3: List resources (may be empty if using templates)
-            resources_result = await session.list_resources()
+            await session.list_resources()
             # Resources might be empty - the server uses resource templates
             # which are dynamically resolved. This is expected behavior.
 

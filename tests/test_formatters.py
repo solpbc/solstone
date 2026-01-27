@@ -3,7 +3,6 @@
 
 """Tests for the formatters framework."""
 
-import json
 import os
 import tempfile
 from pathlib import Path

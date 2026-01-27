@@ -3,14 +3,11 @@
 
 """Tests for observe.sense module."""
 
-import subprocess
 import tempfile
 import threading
 import time
 from pathlib import Path
 from unittest.mock import MagicMock, patch
-
-import pytest
 
 from observe.sense import FileSensor, HandlerProcess, HandlerQueue, QueuedItem
 from think.runner import DailyLogWriter as ProcessLogWriter

@@ -32,7 +32,7 @@ def _get_transcript_resource(
             return TextResource(
                 uri=f"journal://transcripts/{mode}/{day}/{time}/{length}",
                 name=f"Transcripts Error ({mode}): {day} {time} ({length}min)",
-                description=f"Error: Requested length exceeds maximum",
+                description="Error: Requested length exceeds maximum",
                 mime_type="text/markdown",
                 text=error_content,
             )

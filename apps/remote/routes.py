@@ -24,7 +24,7 @@ from typing import Any
 from flask import Blueprint, jsonify, request
 from werkzeug.utils import secure_filename
 
-from apps.utils import get_app_storage_path, log_app_action
+from apps.utils import log_app_action
 from convey import emit
 from observe.utils import (
     MAX_SEGMENT_ATTEMPTS,

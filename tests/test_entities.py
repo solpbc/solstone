@@ -31,7 +31,6 @@ from think.entities import (
     rename_entity_memory,
     resolve_entity,
     save_entities,
-    save_journal_entity,
     save_observations,
     touch_entities_from_activity,
     touch_entity,

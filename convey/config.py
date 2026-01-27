@@ -9,7 +9,7 @@ import logging
 from pathlib import Path
 from typing import Any
 
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, request
 
 from . import state
 from .utils import error_response, load_json, save_json, success_response

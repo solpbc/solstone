@@ -130,9 +130,7 @@ extend-exclude = '''
 profile = "black"
 extend_skip = ["journal", ".venv", "scratch", "logs", "build", "dist"]
 
-[tool.flake8]
-# No line length restrictions
-extend-ignore = ["W503", "W504"]
+# NOTE: flake8 config lives in .flake8 (flake8 does not read pyproject.toml)
 
 [tool.mypy]
 python_version = "3.12"

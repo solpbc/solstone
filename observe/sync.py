@@ -85,7 +85,7 @@ def check_remote_health(
         if response.status_code == 200:
             return (True, f"Connected to {host} (key: {key_prefix})")
         elif response.status_code == 401:
-            return (False, f"Invalid key (401) - check remote URL")
+            return (False, "Invalid key (401) - check remote URL")
         elif response.status_code == 403:
             try:
                 error = response.json().get("error", "forbidden")

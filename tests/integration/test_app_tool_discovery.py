@@ -5,7 +5,6 @@
 
 import os
 import sys
-from pathlib import Path
 
 import pytest
 
@@ -117,9 +116,7 @@ async def test_app_tools_no_apps_directory(integration_journal_path, tmp_path, c
             _discover_app_tools()
 
         # Should log debug message about missing directory
-        debug_logs = [
-            record.message for record in caplog.records if record.levelname == "DEBUG"
-        ]
+        # debug_logs available in caplog.records if needed
         # This will use the real apps dir, so no debug message expected
         # The test mainly verifies no crash occurs
 

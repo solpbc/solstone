@@ -18,7 +18,6 @@ import json
 import logging
 import os
 import platform
-import subprocess
 import tarfile
 import time
 from pathlib import Path
@@ -427,7 +426,7 @@ def main() -> None:
                 print("Nothing to import - all segments already synced")
             elif result["status"] == "dry_run":
                 v = result["validation"]
-                print(f"Dry run validation:")
+                print("Dry run validation:")
                 print(f"  Would skip: {len(v['skip'])} segments")
                 print(f"  Would import: {len(v['import_as'])} segments")
                 if v["deconflicted"]:

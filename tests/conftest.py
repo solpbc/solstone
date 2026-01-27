@@ -2,7 +2,6 @@
 # Copyright (c) 2026 sol pbc
 
 import importlib
-import os
 import sys
 import time
 import types

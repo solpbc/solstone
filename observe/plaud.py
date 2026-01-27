@@ -22,7 +22,6 @@ import pathlib
 import re
 import sys
 import tempfile
-from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 import requests
@@ -264,17 +263,17 @@ def sync_files(
         # Get temp URL
         temp_url = get_temp_url(session, token, file_id)
         if not temp_url:
-            print(f"  ✗ Failed to get download URL", file=sys.stderr)
+            print("  ✗ Failed to get download URL", file=sys.stderr)
             failed += 1
             continue
 
         # Download file
         if download_to_file(session, temp_url, local_path):
             downloaded += 1
-            print(f"  ✓ Downloaded")
+            print("  ✓ Downloaded")
         else:
             failed += 1
-            print(f"  ✗ Download failed", file=sys.stderr)
+            print("  ✗ Download failed", file=sys.stderr)
 
     print(f"\n{'SUMMARY':-^70}")
     print(f"✓ Downloaded: {downloaded}")

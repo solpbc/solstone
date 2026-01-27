@@ -5,7 +5,6 @@
 
 import json
 import os
-from pathlib import Path
 
 import pytest
 
@@ -43,15 +42,14 @@ def app_with_agent(tmp_path, monkeypatch):
         "priority": 42,
     }
     json_str = json.dumps(metadata, indent=2)
-    (agents_dir / "myhelper.md").write_text(
+    (muse_dir / "myhelper.md").write_text(
         f"{{\n{json_str[1:-1]}\n}}\n\nYou are a test helper agent.\n\n## Purpose\nHelp with testing."
     )
 
     # Create another agent without metadata (defaults only)
-    (agents_dir / "simple.md").write_text("A simple test agent with no metadata.")
+    (muse_dir / "simple.md").write_text("A simple test agent with no metadata.")
 
     # Monkeypatch the parent directory so apps discovery finds our temp apps
-    original_file = Path(__file__).parent.parent / "think" / "utils.py"
     monkeypatch.setattr(
         "think.utils.Path.__file__",
         str(tmp_path / "think" / "utils.py"),
@@ -63,7 +61,7 @@ def app_with_agent(tmp_path, monkeypatch):
     yield {
         "tmp_path": tmp_path,
         "app_dir": app_dir,
-        "agents_dir": agents_dir,
+        "muse_dir": muse_dir,
     }
 
 

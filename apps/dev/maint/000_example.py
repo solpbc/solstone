@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
-    args = setup_cli(parser)
+    setup_cli(parser)
 
     logger.info("Example maintenance task starting")
     print("This is an example maintenance task.")

@@ -11,8 +11,6 @@ import numpy as np
 from observe.utils import SAMPLE_RATE
 from observe.vad import (
     GAP_BUFFER,
-    MIN_GAP_TO_REDUCE,
-    MIN_NONSPEECH_SEGMENT,
     AudioReduction,
     SpeechSegment,
     VadResult,

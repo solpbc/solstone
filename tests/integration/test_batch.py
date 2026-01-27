@@ -3,7 +3,6 @@
 
 """Integration tests for Batch with real LLM APIs."""
 
-import asyncio
 import os
 import tempfile
 import time

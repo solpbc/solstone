@@ -4,7 +4,6 @@
 """Tests for the file-based Cortex agent manager."""
 
 import json
-import sys
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -142,7 +141,9 @@ def test_spawn_agent(mock_timer, mock_thread, mock_popen, cortex_service, mock_j
 @patch("think.cortex.subprocess.Popen")
 @patch("think.cortex.threading.Thread")
 @patch("think.cortex.threading.Timer")
-def test_spawn_generator_via_agent(mock_timer, mock_thread, mock_popen, cortex_service, mock_journal):
+def test_spawn_generator_via_agent(
+    mock_timer, mock_thread, mock_popen, cortex_service, mock_journal
+):
     """Test spawning a generator subprocess via _spawn_agent."""
     mock_process = MagicMock()
     mock_process.pid = 54321

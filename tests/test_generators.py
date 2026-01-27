@@ -3,8 +3,6 @@
 
 import importlib
 import os
-import tempfile
-from pathlib import Path
 
 
 def test_get_muse_configs_generators():
@@ -69,7 +67,9 @@ def test_get_muse_configs_by_schedule():
         assert meta.get("schedule") == "daily", f"{key} should have schedule=daily"
 
     # Get segment generators
-    segment = utils.get_muse_configs(has_tools=False, has_output=True, schedule="segment")
+    segment = utils.get_muse_configs(
+        has_tools=False, has_output=True, schedule="segment"
+    )
     assert len(segment) > 0
     for key, meta in segment.items():
         assert meta.get("schedule") == "segment", f"{key} should have schedule=segment"
@@ -80,7 +80,10 @@ def test_get_muse_configs_by_schedule():
     ), "daily and segment should not overlap"
 
     # Unknown schedule returns empty dict
-    assert utils.get_muse_configs(has_tools=False, has_output=True, schedule="hourly") == {}
+    assert (
+        utils.get_muse_configs(has_tools=False, has_output=True, schedule="hourly")
+        == {}
+    )
     assert utils.get_muse_configs(has_tools=False, has_output=True, schedule="") == {}
 
 
@@ -89,7 +92,9 @@ def test_get_muse_configs_include_disabled(monkeypatch):
     utils = importlib.import_module("think.utils")
 
     # Get generators without disabled (default)
-    without_disabled = utils.get_muse_configs(has_tools=False, has_output=True, schedule="daily")
+    without_disabled = utils.get_muse_configs(
+        has_tools=False, has_output=True, schedule="daily"
+    )
 
     # Get generators with disabled included
     with_disabled = utils.get_muse_configs(

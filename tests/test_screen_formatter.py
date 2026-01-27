@@ -9,7 +9,6 @@ from observe.screen import (
     CATEGORIES,
     _load_category_formatter,
     format_screen,
-    format_screen_text,
 )
 
 

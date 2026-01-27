@@ -5,7 +5,6 @@
 
 from __future__ import annotations
 
-from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -67,7 +66,7 @@ def test_upload_segment_success(mock_session, tmp_path):
 
 def test_upload_segment_retry_on_failure(mock_session, tmp_path):
     """Test that upload retries on failure."""
-    from observe.sync import RETRY_BACKOFF, RemoteClient
+    from observe.sync import RemoteClient
 
     # Create test file
     file1 = tmp_path / "audio.flac"

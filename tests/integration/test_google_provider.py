@@ -178,7 +178,7 @@ def test_google_provider_with_thinking():
     events = [json.loads(line) for line in stdout_lines if line]
 
     # Check for thinking events (may be present with thinking models)
-    thinking_events = [e for e in events if e.get("event") == "thinking"]
+    # thinking_events may be present with thinking models (not asserted)
     # With thinking models, we might get thinking events
 
     # Verify the answer is correct

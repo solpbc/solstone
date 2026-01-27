@@ -102,11 +102,11 @@ def migrate_config(journal: Path, dry_run: bool) -> bool:
         return False
 
     if dry_run:
-        print(f"  [DRY-RUN] Would update config: 'insights' -> 'agents'")
+        print("  [DRY-RUN] Would update config: 'insights' -> 'agents'")
     else:
         config["agents"] = config.pop("insights")
         config_file.write_text(json.dumps(config, indent=2) + "\n")
-        print(f"  Updated config: 'insights' -> 'agents'")
+        print("  Updated config: 'insights' -> 'agents'")
 
     return True
 

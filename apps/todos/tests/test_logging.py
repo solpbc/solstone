@@ -7,8 +7,6 @@ import json
 from datetime import datetime
 from pathlib import Path
 
-import pytest
-
 from apps.todos.tools import todo_add, todo_cancel, todo_done
 
 
