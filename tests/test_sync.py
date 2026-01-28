@@ -391,9 +391,7 @@ def test_sync_service_startup_with_pending(sync_journal, monkeypatch):
         },
     )
 
-    with patch("observe.sync.RemoteClient"), patch(
-        "observe.sync.CallosumConnection"
-    ):
+    with patch("observe.sync.RemoteClient"), patch("observe.sync.CallosumConnection"):
         service = SyncService("https://server/ingest/key")
         # Replace worker with no-op so thread exits immediately
         service._sync_worker = lambda: None

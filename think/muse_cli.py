@@ -184,7 +184,9 @@ def list_prompts(
         )
         disabled_count = len(all_configs) - len(configs)
         if disabled_count:
-            print(f"{len(configs)} prompts ({disabled_count} disabled hidden, use --disabled)")
+            print(
+                f"{len(configs)} prompts ({disabled_count} disabled hidden, use --disabled)"
+            )
 
 
 def show_prompt(name: str, *, as_json: bool = False) -> None:

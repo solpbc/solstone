@@ -37,7 +37,9 @@ def test_main_runs(tmp_path, monkeypatch):
 
     monkeypatch.setattr(mod, "run_command", mock_run_command)
     monkeypatch.setattr(mod, "run_queued_command", mock_run_queued_command)
-    monkeypatch.setattr(mod, "run_generators_via_cortex", mock_run_generators_via_cortex)
+    monkeypatch.setattr(
+        mod, "run_generators_via_cortex", mock_run_generators_via_cortex
+    )
     # Also mock run_daily_agents to avoid agent execution
     monkeypatch.setattr(mod, "run_daily_agents", lambda day: (0, 0))
     monkeypatch.setattr("think.utils.load_dotenv", lambda: True)

@@ -24,6 +24,7 @@ from __future__ import annotations
 import logging
 import time
 from dataclasses import dataclass, field
+
 import numpy as np
 
 from observe.utils import SAMPLE_RATE

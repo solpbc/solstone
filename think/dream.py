@@ -189,7 +189,9 @@ def run_generators_via_cortex(
     from think.cortex_client import get_agent_end_state
 
     target_schedule = "segment" if segment else "daily"
-    generators = get_muse_configs(has_tools=False, has_output=True, schedule=target_schedule)
+    generators = get_muse_configs(
+        has_tools=False, has_output=True, schedule=target_schedule
+    )
 
     if not generators:
         logging.info("No generators found for schedule: %s", target_schedule)
