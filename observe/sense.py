@@ -111,6 +111,7 @@ class HandlerProcess:
         self.cpu_fallback = (
             cpu_fallback  # True if this is a CPU retry after GPU failure
         )
+        self.started_at = time.time()
 
     def cleanup(self):
         self.managed.cleanup()
@@ -345,10 +346,12 @@ class FileSensor:
         """Monitor handler process and cleanup when done."""
         try:
             exit_code = handler_proc.process.wait()
+            elapsed = time.time() - handler_proc.started_at
 
             if exit_code == 0:
                 logger.info(
-                    f"Handler completed successfully for {handler_proc.file_path.name}"
+                    f"Handler completed successfully for {handler_proc.file_path.name} "
+                    f"({elapsed:.1f}s)"
                 )
 
                 # Check if segment is fully observed
@@ -386,7 +389,7 @@ class FileSensor:
                     log_rel = handler_proc.managed.log_writer.path
                 logger.error(
                     f"{handler_proc.handler_name} failed for {handler_proc.file_path.name} "
-                    f"with exit code {exit_code} - see log {log_rel}"
+                    f"with exit code {exit_code} ({elapsed:.1f}s) - see log {log_rel}"
                 )
 
             handler_proc.cleanup()
