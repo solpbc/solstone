@@ -109,10 +109,8 @@ def extract_path_metadata(rel_path: str) -> dict[str, str]:
 # Registry mapping glob patterns to (module_path, function_name)
 # Patterns are matched against journal-relative paths
 # Order matters: first match wins, so place specific patterns before general ones
-# Note: agents/*_active.jsonl is excluded - only completed agents are formatted
 FORMATTERS: dict[str, tuple[str, str]] = {
     # JSONL formatters
-    "agents/*.jsonl": ("think.cortex", "format_agent"),
     "config/actions/*.jsonl": ("think.facets", "format_logs"),
     "facets/*/entities/*.jsonl": ("think.entities.formatting", "format_entities"),
     "facets/*/events/*.jsonl": ("think.events", "format_events"),
@@ -198,7 +196,7 @@ def find_formattable_files(journal: str) -> dict[str, str]:
     """Find all indexable files in the journal.
 
     Scans the journal directory for files that have formatters and should
-    be included in the journal index. Excludes agents/*.jsonl.
+    be included in the journal index.
 
     Locations scanned:
     - Daily agent outputs: YYYYMMDD/agents/*.md

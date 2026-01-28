@@ -351,34 +351,208 @@
   gap: 0.4rem;
 }
 
-.run-detail-content .markdown {
-  font-size: 0.9rem;
+.run-loading {
+  text-align: center;
+  padding: 2rem;
+  color: #666;
+}
+
+/* Event timeline */
+.event-timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.event-block {
+  border-left: 3px solid #e0e0e0;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.87rem;
+  line-height: 1.5;
+}
+
+.event-block .event-time {
+  font-size: 0.75rem;
+  color: #999;
+  margin-right: 0.5rem;
+  font-family: monospace;
+}
+
+/* Thinking events */
+.event-thinking {
+  border-left-color: #7c4dff;
+  background: #f5f0ff;
+}
+
+.event-thinking .event-label {
+  font-weight: 600;
+  color: #7c4dff;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.event-thinking .thinking-text {
+  margin-top: 0.3rem;
+  color: #555;
+  white-space: pre-wrap;
+}
+
+/* Tool events */
+.event-tool {
+  border-left-color: #0288d1;
+  background: #f0f7ff;
+}
+
+.event-tool .event-label {
+  font-weight: 600;
+  color: #0288d1;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.event-tool .tool-name {
+  font-weight: 600;
+  color: #01579b;
+}
+
+.event-tool .tool-toggle {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 0.78rem;
+  color: #0288d1;
+  padding: 0.1rem 0.3rem;
+  border-radius: 3px;
+  margin-left: 0.5rem;
+}
+
+.event-tool .tool-toggle:hover {
+  background: #e1f0ff;
+}
+
+.event-tool .tool-details {
+  margin-top: 0.4rem;
+}
+
+.event-tool .tool-details pre {
+  background: #e8f0f8;
+  padding: 0.5rem;
+  border-radius: 4px;
+  overflow-x: auto;
+  font-size: 0.8rem;
+  margin: 0.3rem 0;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.event-tool .tool-section-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #666;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  margin-top: 0.4rem;
+}
+
+.event-tool .tool-incomplete {
+  font-style: italic;
+  color: #999;
+  font-size: 0.82rem;
+}
+
+/* Error events */
+.event-error {
+  border-left-color: #d32f2f;
+  background: #fff5f5;
+}
+
+.event-error .event-label {
+  font-weight: 600;
+  color: #d32f2f;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.event-error .error-message {
+  font-weight: 500;
+  color: #c62828;
+}
+
+.event-error .error-trace {
+  margin-top: 0.3rem;
+}
+
+.event-error .error-trace pre {
+  background: #fee;
+  padding: 0.5rem;
+  border-radius: 4px;
+  overflow-x: auto;
+  font-size: 0.8rem;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+/* Info events */
+.event-info {
+  border-left-color: #bbb;
+  color: #888;
+  font-size: 0.82rem;
+  font-style: italic;
+}
+
+/* Finish event */
+.event-finish {
+  border-left-color: #388e3c;
+  background: #f0faf0;
+}
+
+.event-finish .event-label {
+  font-weight: 600;
+  color: #388e3c;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.event-finish .finish-result {
+  margin-top: 0.3rem;
   line-height: 1.6;
 }
 
-.run-detail-content .markdown pre {
-  background: #f5f5f5;
-  padding: 0.75rem;
+.event-finish .finish-result pre {
+  background: #e8f5e9;
+  padding: 0.5rem;
   border-radius: 4px;
   overflow-x: auto;
+  font-size: 0.8rem;
 }
 
-.run-detail-content .markdown code {
-  background: #f0f0f0;
+.event-finish .finish-result code {
+  background: #e0f0e0;
   padding: 0.1rem 0.3rem;
   border-radius: 3px;
   font-size: 0.85em;
 }
 
-.run-detail-content .markdown pre code {
+.event-finish .finish-result pre code {
   background: none;
   padding: 0;
 }
 
-.run-loading {
-  text-align: center;
-  padding: 2rem;
+/* Flow events (agent_updated, continue) */
+.event-flow {
+  border-left-color: #f9a825;
+  background: #fffde7;
+  font-size: 0.82rem;
   color: #666;
+}
+
+.event-flow .flow-label {
+  font-weight: 500;
+  color: #f57f17;
 }
 
 /* ============================================================================
@@ -582,7 +756,6 @@
   let agentsMeta = {};
   let facetsMeta = {};
   let expandedRunId = null;
-  let runDetailCache = {};
 
   // Get current day from URL path
   function getDayFromUrl() {
@@ -946,7 +1119,6 @@
   function showRunList(name) {
     currentName = name;
     expandedRunId = null;
-    runDetailCache = {};
 
     document.getElementById('grid-view').style.display = 'none';
     document.getElementById('list-view').style.display = 'block';
@@ -1119,59 +1291,269 @@
 
     const content = document.createElement('div');
     content.className = 'run-detail-content';
-
-    if (runDetailCache[runId]) {
-      const cached = runDetailCache[runId];
-      content.innerHTML = buildDetailContent(cached.html, cached.thinking_count, cached.tool_count, cached.cost);
-    } else {
-      content.innerHTML = '<div class="run-loading"><div class="spinner"></div><div>Loading...</div></div>';
-
-      try {
-        const response = await fetch(`api/run/${runId}`);
-        const data = await response.json();
-
-        if (data.error) {
-          content.innerHTML = `<div class="run-loading">Error: ${data.error}</div>`;
-        } else {
-          const html = marked.parse(data.markdown || '', { breaks: true, gfm: true });
-          runDetailCache[runId] = {
-            html: html,
-            thinking_count: data.thinking_count || 0,
-            tool_count: data.tool_count || 0,
-            cost: data.cost
-          };
-          content.innerHTML = buildDetailContent(html, data.thinking_count || 0, data.tool_count || 0, data.cost);
-        }
-      } catch (error) {
-        content.innerHTML = `<div class="run-loading">Error loading run details</div>`;
-      }
-    }
+    content.innerHTML = '<div class="run-loading"><div class="spinner"></div><div>Loading...</div></div>';
 
     detailCell.appendChild(content);
     detailRow.appendChild(detailCell);
     mainRow.after(detailRow);
+
+    try {
+      const response = await fetch(`api/run/${runId}`);
+      const data = await response.json();
+
+      if (data.error) {
+        content.innerHTML = `<div class="run-loading">Error: ${data.error}</div>`;
+      } else {
+        content.innerHTML = '';
+        content.appendChild(buildDetailHeader(data));
+        content.appendChild(renderEventTimeline(data.events || []));
+      }
+    } catch (error) {
+      content.innerHTML = `<div class="run-loading">Error loading run details</div>`;
+    }
   }
 
-  // Build detail content with header and markdown
-  function buildDetailContent(html, thinkingCount, toolCount, cost) {
-    const headerParts = [];
-    if (thinkingCount > 0) {
-      headerParts.push(`<span class="detail-stat">💭 ${thinkingCount} Thinking</span>`);
+  // Build the stats header bar
+  function buildDetailHeader(data) {
+    const header = document.createElement('div');
+    header.className = 'run-detail-header';
+
+    if (data.thinking_count > 0) {
+      const stat = document.createElement('span');
+      stat.className = 'detail-stat';
+      stat.textContent = '\uD83D\uDCAD ' + data.thinking_count + ' Thinking';
+      header.appendChild(stat);
     }
-    if (toolCount > 0) {
-      headerParts.push(`<span class="detail-stat">🔧 ${toolCount} Tool calls</span>`);
+    if (data.tool_count > 0) {
+      const stat = document.createElement('span');
+      stat.className = 'detail-stat';
+      stat.textContent = '\uD83D\uDD27 ' + data.tool_count + ' Tool calls';
+      header.appendChild(stat);
     }
-    if (cost !== null && cost !== undefined) {
-      const costInfo = formatCost(cost);
-      headerParts.push(`<span class="detail-stat" title="${costInfo.title}">💰 ${costInfo.text} Cost</span>`);
+    if (data.cost != null) {
+      const costInfo = formatCost(data.cost);
+      const stat = document.createElement('span');
+      stat.className = 'detail-stat';
+      stat.title = costInfo.title;
+      stat.textContent = '\uD83D\uDCB0 ' + costInfo.text + ' Cost';
+      header.appendChild(stat);
     }
 
-    let headerHtml = '';
-    if (headerParts.length > 0) {
-      headerHtml = `<div class="run-detail-header">${headerParts.join('')}</div>`;
+    if (header.children.length === 0) {
+      header.style.display = 'none';
+    }
+    return header;
+  }
+
+  // Format a millisecond timestamp to HH:MM:SS
+  function formatTimestamp(ts) {
+    if (!ts) return '';
+    const d = new Date(ts);
+    return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  }
+
+  // Escape HTML to prevent XSS
+  function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+  }
+
+  // Render agent events as a rich interactive timeline
+  function renderEventTimeline(events) {
+    const timeline = document.createElement('div');
+    timeline.className = 'event-timeline';
+
+    // First pass: index tool_end events by call_id for pairing
+    const toolEnds = {};
+    for (const event of events) {
+      if (event.event === 'tool_end' && event.call_id) {
+        toolEnds[event.call_id] = event;
+      }
     }
 
-    return `${headerHtml}<div class="markdown">${html}</div>`;
+    // Second pass: render in chronological order
+    for (const event of events) {
+      const type = event.event;
+      if (!type) continue;
+
+      // Skip request/start events (metadata, shown in header already)
+      if (type === 'request' || type === 'start') continue;
+
+      // Skip tool_end with call_id (rendered with its tool_start)
+      if (type === 'tool_end' && event.call_id && toolEnds[event.call_id]) continue;
+
+      if (type === 'thinking') {
+        timeline.appendChild(renderThinkingEvent(event));
+      } else if (type === 'tool_start') {
+        const endEvent = event.call_id ? toolEnds[event.call_id] : null;
+        timeline.appendChild(renderToolEvent(event, endEvent || null));
+      } else if (type === 'tool_end') {
+        // Orphaned tool_end (no call_id or unmatched)
+        timeline.appendChild(renderToolEvent(null, event));
+      } else if (type === 'error') {
+        timeline.appendChild(renderErrorEvent(event));
+      } else if (type === 'info') {
+        timeline.appendChild(renderInfoEvent(event));
+      } else if (type === 'finish') {
+        timeline.appendChild(renderFinishEvent(event));
+      } else if (type === 'agent_updated') {
+        timeline.appendChild(renderFlowEvent('Switched to agent: ' + (event.agent || 'unknown'), event.ts));
+      } else if (type === 'continue') {
+        timeline.appendChild(renderFlowEvent('Continued in agent: ' + (event.to || 'unknown'), event.ts));
+      }
+    }
+
+    return timeline;
+  }
+
+  function renderThinkingEvent(event) {
+    const block = document.createElement('div');
+    block.className = 'event-block event-thinking';
+
+    const text = event.summary || event.content || '';
+    block.innerHTML =
+      '<span class="event-time">' + escapeHtml(formatTimestamp(event.ts)) + '</span>' +
+      '<span class="event-label">Thinking</span>' +
+      (text ? '<div class="thinking-text">' + escapeHtml(text) + '</div>' : '');
+
+    return block;
+  }
+
+  function renderToolEvent(startEvent, endEvent) {
+    const block = document.createElement('div');
+    block.className = 'event-block event-tool';
+
+    const toolName = (startEvent && startEvent.tool) || (endEvent && endEvent.tool) || 'unknown';
+    const ts = (startEvent && startEvent.ts) || (endEvent && endEvent.ts) || 0;
+    const args = (startEvent && startEvent.args) || (endEvent && endEvent.args) || null;
+    const result = endEvent && endEvent.result;
+    const hasDetails = args || result;
+    const incomplete = startEvent && !endEvent;
+
+    // Header line with tool name and toggle
+    const headerLine = document.createElement('div');
+    headerLine.innerHTML =
+      '<span class="event-time">' + escapeHtml(formatTimestamp(ts)) + '</span>' +
+      '<span class="event-label">Tool</span> ' +
+      '<span class="tool-name">' + escapeHtml(toolName) + '</span>';
+
+    if (hasDetails) {
+      const toggle = document.createElement('button');
+      toggle.className = 'tool-toggle';
+      toggle.textContent = 'show';
+      toggle.onclick = function(e) {
+        e.stopPropagation();
+        const details = block.querySelector('.tool-details');
+        if (details.style.display === 'none') {
+          details.style.display = 'block';
+          toggle.textContent = 'hide';
+        } else {
+          details.style.display = 'none';
+          toggle.textContent = 'show';
+        }
+      };
+      headerLine.appendChild(toggle);
+    }
+
+    block.appendChild(headerLine);
+
+    // Collapsible details section
+    if (hasDetails || incomplete) {
+      const details = document.createElement('div');
+      details.className = 'tool-details';
+      details.style.display = 'none';
+
+      if (args && Object.keys(args).length > 0) {
+        const argsLabel = document.createElement('div');
+        argsLabel.className = 'tool-section-label';
+        argsLabel.textContent = 'Args';
+        details.appendChild(argsLabel);
+        const argsPre = document.createElement('pre');
+        argsPre.textContent = JSON.stringify(args, null, 2);
+        details.appendChild(argsPre);
+      }
+
+      if (result) {
+        const resultLabel = document.createElement('div');
+        resultLabel.className = 'tool-section-label';
+        resultLabel.textContent = 'Result';
+        details.appendChild(resultLabel);
+        const resultPre = document.createElement('pre');
+        resultPre.textContent = result;
+        details.appendChild(resultPre);
+      }
+
+      if (incomplete) {
+        const note = document.createElement('div');
+        note.className = 'tool-incomplete';
+        note.textContent = 'Tool call did not complete';
+        details.appendChild(note);
+      }
+
+      block.appendChild(details);
+    }
+
+    return block;
+  }
+
+  function renderErrorEvent(event) {
+    const block = document.createElement('div');
+    block.className = 'event-block event-error';
+
+    let html =
+      '<span class="event-time">' + escapeHtml(formatTimestamp(event.ts)) + '</span>' +
+      '<span class="event-label">Error</span> ' +
+      '<span class="error-message">' + escapeHtml(event.error || 'Unknown error') + '</span>';
+
+    if (event.trace) {
+      html += '<div class="error-trace"><pre>' + escapeHtml(event.trace) + '</pre></div>';
+    }
+
+    block.innerHTML = html;
+    return block;
+  }
+
+  function renderInfoEvent(event) {
+    const block = document.createElement('div');
+    block.className = 'event-block event-info';
+    block.innerHTML =
+      '<span class="event-time">' + escapeHtml(formatTimestamp(event.ts)) + '</span>' +
+      escapeHtml(event.message || '');
+    return block;
+  }
+
+  function renderFinishEvent(event) {
+    const block = document.createElement('div');
+    block.className = 'event-block event-finish';
+
+    const timeSpan = document.createElement('span');
+    timeSpan.className = 'event-time';
+    timeSpan.textContent = formatTimestamp(event.ts);
+    block.appendChild(timeSpan);
+
+    const label = document.createElement('span');
+    label.className = 'event-label';
+    label.textContent = 'Result';
+    block.appendChild(label);
+
+    if (event.result) {
+      const resultDiv = document.createElement('div');
+      resultDiv.className = 'finish-result';
+      resultDiv.innerHTML = marked.parse(event.result, { breaks: true, gfm: true });
+      block.appendChild(resultDiv);
+    }
+
+    return block;
+  }
+
+  function renderFlowEvent(text, ts) {
+    const block = document.createElement('div');
+    block.className = 'event-block event-flow';
+    block.innerHTML =
+      '<span class="event-time">' + escapeHtml(formatTimestamp(ts)) + '</span>' +
+      '<span class="flow-label">' + escapeHtml(text) + '</span>';
+    return block;
   }
 
   // =========================================================================

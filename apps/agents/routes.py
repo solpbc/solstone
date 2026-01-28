@@ -47,17 +47,18 @@ def _agent_id_to_day(agent_id: str) -> str:
         return ""
 
 
-def _parse_agent_events(lines: list[str]) -> dict[str, Any]:
+def _parse_agent_events(
+    lines: list[str], *, collect_events: bool = False
+) -> dict[str, Any]:
     """Parse agent event lines and extract counts and cost data.
 
-    Shared helper for both _parse_agent_file() and format_agent().
-
     Args:
-        lines: List of JSONL lines (excluding the request event)
+        lines: List of JSONL lines
+        collect_events: If True, include parsed event dicts as "events" key
 
     Returns:
         Dict with: thinking_count, tool_count, model, usage, finish_ts,
-        error_message
+        error_message, and optionally events
     """
     result: dict[str, Any] = {
         "thinking_count": 0,
@@ -67,6 +68,7 @@ def _parse_agent_events(lines: list[str]) -> dict[str, Any]:
         "finish_ts": None,
         "error_message": None,
     }
+    events: list[dict] = [] if collect_events else None
 
     for line in lines:
         line = line.strip()
@@ -74,6 +76,8 @@ def _parse_agent_events(lines: list[str]) -> dict[str, Any]:
             continue
         try:
             event = json.loads(line)
+            if events is not None:
+                events.append(event)
             event_type = event.get("event")
             if event_type == "thinking":
                 result["thinking_count"] += 1
@@ -90,6 +94,9 @@ def _parse_agent_events(lines: list[str]) -> dict[str, Any]:
                     result["error_message"] = msg[:200]
         except json.JSONDecodeError:
             continue
+
+    if events is not None:
+        result["events"] = events
 
     return result
 
@@ -297,20 +304,16 @@ def api_agents_day(day: str) -> Any:
 
 @agents_bp.route("/api/run/<agent_id>")
 def api_agent_run(agent_id: str) -> Any:
-    """Return formatted markdown for a completed agent run.
+    """Return raw agent events for client-side rendering.
 
     Returns:
         {
-            "header": str,
-            "markdown": str,
+            "events": list[dict],
             "thinking_count": int,
             "tool_count": int,
-            "cost": float | None,
-            "error": str | None
+            "cost": float | None
         }
     """
-    from think.formatters import format_file
-
     # Locate the agent JSONL file
     journal_path = Path(state.journal_root)
     agent_file = journal_path / "agents" / f"{agent_id}.jsonl"
@@ -323,28 +326,18 @@ def api_agent_run(agent_id: str) -> Any:
         return jsonify({"error": f"Agent run {agent_id} not found"}), 404
 
     try:
-        chunks, meta = format_file(agent_file)
+        with open(agent_file, "r") as f:
+            lines = f.readlines()
 
-        # Build full markdown: header + all chunks
-        parts = []
-        header = meta.get("header", "")
-        if header:
-            parts.append(header)
+        data = _parse_agent_events(lines, collect_events=True)
+        cost = calc_agent_cost(data["model"], data["usage"])
 
-        for chunk in chunks:
-            parts.append(chunk.get("markdown", ""))
-
-        markdown = "\n".join(parts)
-
-        # Use counts and cost from meta (populated by format_agent)
         return jsonify(
             {
-                "header": header,
-                "markdown": markdown,
-                "thinking_count": meta.get("thinking_count", 0),
-                "tool_count": meta.get("tool_count", 0),
-                "cost": meta.get("cost"),
-                "error": meta.get("error"),
+                "events": data["events"],
+                "thinking_count": data["thinking_count"],
+                "tool_count": data["tool_count"],
+                "cost": cost,
             }
         )
     except Exception as e:
