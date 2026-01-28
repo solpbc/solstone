@@ -3,7 +3,6 @@
 
 """Tests for observe.vad module."""
 
-from pathlib import Path
 from unittest.mock import patch
 
 import numpy as np
@@ -271,27 +270,25 @@ class TestRunVad:
     """Test run_vad function."""
 
     @patch("faster_whisper.vad.get_speech_timestamps")
-    @patch("faster_whisper.audio.decode_audio")
-    def test_silent_audio_returns_no_speech(self, mock_decode, mock_get_timestamps):
+    def test_silent_audio_returns_no_speech(self, mock_get_timestamps):
         """Silent audio should return has_speech=False."""
-        mock_decode.return_value = np.zeros(5 * SAMPLE_RATE, dtype=np.float32)
+        audio = np.zeros(5 * SAMPLE_RATE, dtype=np.float32)
         mock_get_timestamps.return_value = []
 
-        result = run_vad(Path("/fake/audio.flac"), min_speech_seconds=1.0)
+        result = run_vad(audio, min_speech_seconds=1.0)
 
         assert result.duration == 5.0
         assert result.speech_duration == 0.0
         assert result.has_speech is False
 
     @patch("faster_whisper.vad.get_speech_timestamps")
-    @patch("faster_whisper.audio.decode_audio")
-    def test_speech_audio_returns_has_speech(self, mock_decode, mock_get_timestamps):
+    def test_speech_audio_returns_has_speech(self, mock_get_timestamps):
         """Audio with speech should return has_speech=True."""
-        mock_decode.return_value = np.zeros(5 * SAMPLE_RATE, dtype=np.float32)
+        audio = np.zeros(5 * SAMPLE_RATE, dtype=np.float32)
         # Mock: 2 seconds of speech (samples 16000-48000)
         mock_get_timestamps.return_value = [{"start": 16000, "end": 48000}]
 
-        result = run_vad(Path("/fake/audio.flac"), min_speech_seconds=1.0)
+        result = run_vad(audio, min_speech_seconds=1.0)
 
         assert result.duration == 5.0
         assert result.speech_duration == 2.0
@@ -300,112 +297,89 @@ class TestRunVad:
         assert result.speech_segments == [(1.0, 3.0)]
 
     @patch("faster_whisper.vad.get_speech_timestamps")
-    @patch("faster_whisper.audio.decode_audio")
-    def test_speech_below_threshold(self, mock_decode, mock_get_timestamps):
+    def test_speech_below_threshold(self, mock_get_timestamps):
         """Speech below threshold should return has_speech=False."""
-        mock_decode.return_value = np.zeros(5 * SAMPLE_RATE, dtype=np.float32)
+        audio = np.zeros(5 * SAMPLE_RATE, dtype=np.float32)
         # Mock: 0.5 seconds of speech (below 1.0s threshold)
         mock_get_timestamps.return_value = [{"start": 0, "end": 8000}]
 
-        result = run_vad(Path("/fake/audio.flac"), min_speech_seconds=1.0)
+        result = run_vad(audio, min_speech_seconds=1.0)
 
         assert result.duration == 5.0
         assert result.speech_duration == 0.5
         assert result.has_speech is False
 
     @patch("faster_whisper.vad.get_speech_timestamps")
-    @patch("faster_whisper.audio.decode_audio")
-    def test_custom_min_speech_threshold(self, mock_decode, mock_get_timestamps):
+    def test_custom_min_speech_threshold(self, mock_get_timestamps):
         """Custom min_speech_seconds threshold should be respected."""
-        mock_decode.return_value = np.zeros(5 * SAMPLE_RATE, dtype=np.float32)
+        audio = np.zeros(5 * SAMPLE_RATE, dtype=np.float32)
         # Mock: 0.5 seconds of speech
         mock_get_timestamps.return_value = [{"start": 0, "end": 8000}]
 
         # With 0.3s threshold, should have speech
-        result = run_vad(Path("/fake/audio.flac"), min_speech_seconds=0.3)
+        result = run_vad(audio, min_speech_seconds=0.3)
         assert result.has_speech is True
 
         # With 1.0s threshold, should not have speech
-        result = run_vad(Path("/fake/audio.flac"), min_speech_seconds=1.0)
+        result = run_vad(audio, min_speech_seconds=1.0)
         assert result.has_speech is False
 
     @patch("faster_whisper.vad.get_speech_timestamps")
-    @patch("faster_whisper.audio.decode_audio")
-    def test_multiple_speech_chunks(self, mock_decode, mock_get_timestamps):
+    def test_multiple_speech_chunks(self, mock_get_timestamps):
         """Multiple speech chunks should be summed correctly."""
-        mock_decode.return_value = np.zeros(5 * SAMPLE_RATE, dtype=np.float32)
+        audio = np.zeros(5 * SAMPLE_RATE, dtype=np.float32)
         # Mock: Two 1-second speech segments
         mock_get_timestamps.return_value = [
             {"start": 16000, "end": 32000},  # 1 second
             {"start": 48000, "end": 64000},  # 1 second
         ]
 
-        result = run_vad(Path("/fake/audio.flac"), min_speech_seconds=1.0)
+        result = run_vad(audio, min_speech_seconds=1.0)
 
         assert result.duration == 5.0
         assert result.speech_duration == 2.0
         assert result.has_speech is True
 
     @patch("faster_whisper.vad.get_speech_timestamps")
-    @patch("faster_whisper.audio.decode_audio")
-    def test_calls_decode_audio_correctly(self, mock_decode, mock_get_timestamps):
-        """run_vad should call decode_audio with correct parameters."""
-        mock_decode.return_value = np.zeros(3 * SAMPLE_RATE, dtype=np.float32)
-        mock_get_timestamps.return_value = [{"start": 0, "end": 32000}]
-
-        run_vad(Path("/fake/audio.flac"), min_speech_seconds=1.0)
-
-        mock_decode.assert_called_once_with(
-            "/fake/audio.flac", sampling_rate=SAMPLE_RATE
-        )
-
-    @patch("faster_whisper.vad.get_speech_timestamps")
-    @patch("faster_whisper.audio.decode_audio")
-    def test_returns_rms_for_silent_background(self, mock_decode, mock_get_timestamps):
+    def test_returns_rms_for_silent_background(self, mock_get_timestamps):
         """run_vad should return low RMS for silent non-speech regions."""
         # Silent audio (zeros)
-        mock_decode.return_value = np.zeros(5 * SAMPLE_RATE, dtype=np.float32)
+        audio = np.zeros(5 * SAMPLE_RATE, dtype=np.float32)
         # Speech from 1-3s, leaving non-speech at 0-1s and 3-5s
         mock_get_timestamps.return_value = [{"start": 16000, "end": 48000}]
 
-        result = run_vad(Path("/fake/audio.flac"), min_speech_seconds=1.0)
+        result = run_vad(audio, min_speech_seconds=1.0)
 
         assert result.noisy_rms is not None
         assert result.noisy_rms < 0.001  # Effectively zero
         assert result.noisy_s == 3.0  # 1s leading + 2s trailing
 
     @patch("faster_whisper.vad.get_speech_timestamps")
-    @patch("faster_whisper.audio.decode_audio")
-    def test_returns_rms_for_noisy_background(self, mock_decode, mock_get_timestamps):
+    def test_returns_rms_for_noisy_background(self, mock_get_timestamps):
         """run_vad should return measurable RMS for noisy non-speech regions."""
         # Noisy audio
         np.random.seed(42)
-        mock_decode.return_value = np.random.uniform(-0.1, 0.1, 5 * SAMPLE_RATE).astype(
-            np.float32
-        )
+        audio = np.random.uniform(-0.1, 0.1, 5 * SAMPLE_RATE).astype(np.float32)
         # Speech from 1-3s
         mock_get_timestamps.return_value = [{"start": 16000, "end": 48000}]
 
-        result = run_vad(Path("/fake/audio.flac"), min_speech_seconds=1.0)
+        result = run_vad(audio, min_speech_seconds=1.0)
 
         assert result.noisy_rms is not None
         assert result.noisy_rms > 0.01  # Noisy threshold
         assert result.noisy_s == 3.0
 
     @patch("faster_whisper.vad.get_speech_timestamps")
-    @patch("faster_whisper.audio.decode_audio")
-    def test_returns_none_rms_when_no_qualifying_segments(
-        self, mock_decode, mock_get_timestamps
-    ):
+    def test_returns_none_rms_when_no_qualifying_segments(self, mock_get_timestamps):
         """run_vad should return None RMS when no qualifying non-speech segments."""
-        mock_decode.return_value = np.zeros(2 * SAMPLE_RATE, dtype=np.float32)
+        audio = np.zeros(2 * SAMPLE_RATE, dtype=np.float32)
         # Speech fills most of audio, leaving only 0.2s gaps (below 0.5s threshold)
         mock_get_timestamps.return_value = [
             {"start": 3200, "end": 12800},  # 0.2s to 0.8s
             {"start": 16000, "end": 28800},  # 1.0s to 1.8s
         ]
 
-        result = run_vad(Path("/fake/audio.flac"), min_speech_seconds=0.5)
+        result = run_vad(audio, min_speech_seconds=0.5)
 
         assert result.noisy_rms is None
         assert result.noisy_s == 0.0
@@ -716,11 +690,10 @@ class TestRestoreSegmentTimestamps:
 class TestReduceAudio:
     """Test reduce_audio function."""
 
-    @patch("faster_whisper.audio.decode_audio")
-    def test_no_gaps_to_reduce(self, mock_decode):
+    def test_no_gaps_to_reduce(self):
         """Should return None when no gaps > 2s exist."""
         # 5s audio with speech from 0.5-1.5s and 2.0-3.0s (gap = 0.5s < 2s)
-        mock_decode.return_value = np.zeros(5 * SAMPLE_RATE, dtype=np.float32)
+        audio = np.zeros(5 * SAMPLE_RATE, dtype=np.float32)
 
         vad_result = VadResult(
             duration=5.0,
@@ -729,14 +702,15 @@ class TestReduceAudio:
             speech_segments=[(0.5, 1.5), (2.0, 3.0)],
         )
 
-        reduced_audio, reduction = reduce_audio(Path("/fake/audio.flac"), vad_result)
+        reduced_audio, reduction = reduce_audio(audio, vad_result)
 
         assert reduced_audio is None
         assert reduction is None
 
-    @patch("faster_whisper.audio.decode_audio")
-    def test_no_speech_segments(self, mock_decode):
+    def test_no_speech_segments(self):
         """Should return None when no speech segments."""
+        audio = np.zeros(5 * SAMPLE_RATE, dtype=np.float32)
+
         vad_result = VadResult(
             duration=5.0,
             speech_duration=0.0,
@@ -744,16 +718,15 @@ class TestReduceAudio:
             speech_segments=[],
         )
 
-        reduced_audio, reduction = reduce_audio(Path("/fake/audio.flac"), vad_result)
+        reduced_audio, reduction = reduce_audio(audio, vad_result)
 
         assert reduced_audio is None
         assert reduction is None
 
-    @patch("faster_whisper.audio.decode_audio")
-    def test_leading_gap_reduction(self, mock_decode):
+    def test_leading_gap_reduction(self):
         """Should trim leading gap > 2s to GAP_BUFFER."""
         # 10s audio with speech starting at 5s (leading gap = 5s > 2s)
-        mock_decode.return_value = np.zeros(10 * SAMPLE_RATE, dtype=np.float32)
+        audio = np.zeros(10 * SAMPLE_RATE, dtype=np.float32)
 
         vad_result = VadResult(
             duration=10.0,
@@ -762,7 +735,7 @@ class TestReduceAudio:
             speech_segments=[(5.0, 8.0)],  # Speech from 5-8s
         )
 
-        reduced_audio, reduction = reduce_audio(Path("/fake/audio.flac"), vad_result)
+        reduced_audio, reduction = reduce_audio(audio, vad_result)
 
         assert reduced_audio is not None
         assert reduction is not None
@@ -778,11 +751,10 @@ class TestReduceAudio:
         assert reduction.segments[0].original_start == 5.0
         assert reduction.segments[0].reduced_start == GAP_BUFFER
 
-    @patch("faster_whisper.audio.decode_audio")
-    def test_trailing_gap_reduction(self, mock_decode):
+    def test_trailing_gap_reduction(self):
         """Should trim trailing gap > 2s to GAP_BUFFER."""
         # 10s audio with speech from 1-3s (trailing gap = 7s > 2s)
-        mock_decode.return_value = np.zeros(10 * SAMPLE_RATE, dtype=np.float32)
+        audio = np.zeros(10 * SAMPLE_RATE, dtype=np.float32)
 
         vad_result = VadResult(
             duration=10.0,
@@ -791,7 +763,7 @@ class TestReduceAudio:
             speech_segments=[(1.0, 3.0)],  # Speech from 1-3s
         )
 
-        reduced_audio, reduction = reduce_audio(Path("/fake/audio.flac"), vad_result)
+        reduced_audio, reduction = reduce_audio(audio, vad_result)
 
         assert reduced_audio is not None
         assert reduction is not None
@@ -801,11 +773,10 @@ class TestReduceAudio:
         actual_duration = len(reduced_audio) / SAMPLE_RATE
         assert abs(actual_duration - expected_duration) < 0.1
 
-    @patch("faster_whisper.audio.decode_audio")
-    def test_middle_gap_reduction(self, mock_decode):
+    def test_middle_gap_reduction(self):
         """Should trim middle gap > 2s to 2*GAP_BUFFER."""
         # 10s audio with speech at 0-2s and 7-9s (gap = 5s > 2s)
-        mock_decode.return_value = np.zeros(10 * SAMPLE_RATE, dtype=np.float32)
+        audio = np.zeros(10 * SAMPLE_RATE, dtype=np.float32)
 
         vad_result = VadResult(
             duration=10.0,
@@ -814,7 +785,7 @@ class TestReduceAudio:
             speech_segments=[(0.0, 2.0), (7.0, 9.0)],
         )
 
-        reduced_audio, reduction = reduce_audio(Path("/fake/audio.flac"), vad_result)
+        reduced_audio, reduction = reduce_audio(audio, vad_result)
 
         assert reduced_audio is not None
         assert reduction is not None
@@ -832,11 +803,10 @@ class TestReduceAudio:
         # Second segment should start at: speech1_end + trimmed_gap = 2.0 + 2.0 = 4.0
         assert abs(reduction.segments[1].reduced_start - 4.0) < 0.1
 
-    @patch("faster_whisper.audio.decode_audio")
-    def test_multiple_gaps_reduction(self, mock_decode):
+    def test_multiple_gaps_reduction(self):
         """Should trim multiple gaps > 2s."""
         # 20s audio with speech at 5-7, 12-14, and 19-20 (two big gaps)
-        mock_decode.return_value = np.zeros(20 * SAMPLE_RATE, dtype=np.float32)
+        audio = np.zeros(20 * SAMPLE_RATE, dtype=np.float32)
 
         vad_result = VadResult(
             duration=20.0,
@@ -845,7 +815,7 @@ class TestReduceAudio:
             speech_segments=[(5.0, 7.0), (12.0, 14.0), (19.0, 20.0)],
         )
 
-        reduced_audio, reduction = reduce_audio(Path("/fake/audio.flac"), vad_result)
+        reduced_audio, reduction = reduce_audio(audio, vad_result)
 
         assert reduced_audio is not None
         assert reduction is not None
@@ -867,10 +837,9 @@ class TestReduceAudio:
         # Check we have 3 speech segments in mapping
         assert len(reduction.segments) == 3
 
-    @patch("faster_whisper.audio.decode_audio")
-    def test_returns_numpy_array(self, mock_decode):
-        """Should return numpy array, not file path."""
-        mock_decode.return_value = np.zeros(10 * SAMPLE_RATE, dtype=np.float32)
+    def test_returns_numpy_array(self):
+        """Should return numpy array."""
+        audio = np.zeros(10 * SAMPLE_RATE, dtype=np.float32)
 
         vad_result = VadResult(
             duration=10.0,
@@ -879,7 +848,7 @@ class TestReduceAudio:
             speech_segments=[(5.0, 7.0)],  # Leading gap > 2s
         )
 
-        reduced_audio, reduction = reduce_audio(Path("/fake/audio.flac"), vad_result)
+        reduced_audio, reduction = reduce_audio(audio, vad_result)
 
         assert isinstance(reduced_audio, np.ndarray)
         assert reduced_audio.dtype == np.float32

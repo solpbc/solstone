@@ -14,7 +14,7 @@ Uses Silero VAD via faster-whisper's bundled implementation.
 Audio Reduction:
 When there are long gaps (>2s) between speech segments, the audio can be
 "reduced" by trimming those gaps to a maximum of 2s (1s buffer on each side).
-This creates a shorter audio file that any STT backend can process more
+This creates a shorter audio buffer that any STT backend can process more
 efficiently. A mapping is preserved to restore original timestamps after
 transcription.
 """
@@ -24,8 +24,6 @@ from __future__ import annotations
 import logging
 import time
 from dataclasses import dataclass, field
-from pathlib import Path
-
 import numpy as np
 
 from observe.utils import SAMPLE_RATE
@@ -226,32 +224,28 @@ class VadResult:
 
 
 def run_vad(
-    audio_path: Path,
+    audio: np.ndarray,
     min_speech_seconds: float,
 ) -> VadResult:
-    """Run Voice Activity Detection on an audio file.
+    """Run Voice Activity Detection on an audio buffer.
 
-    Loads the audio and runs Silero VAD to identify speech segments.
-    This can be used to filter silent files before loading heavier
-    transcription models. Also computes RMS of non-speech regions for
-    background noise detection.
+    Runs Silero VAD to identify speech segments. This can be used to
+    filter silent files before loading heavier transcription models.
+    Also computes RMS of non-speech regions for background noise detection.
 
     Args:
-        audio_path: Path to audio file (any format supported by ffmpeg/PyAV)
+        audio: Audio waveform (float32 mono at SAMPLE_RATE)
         min_speech_seconds: Minimum speech duration to set has_speech=True
 
     Returns:
         VadResult with duration info, has_speech flag, speech segment boundaries,
         and non-speech RMS level for noise detection
     """
-    from faster_whisper.audio import decode_audio
     from faster_whisper.vad import VadOptions, get_speech_timestamps
 
-    logging.info(f"Running VAD on {audio_path.name}...")
+    logging.info("Running VAD...")
     t0 = time.perf_counter()
 
-    # Load audio at 16kHz mono (Silero VAD requirement)
-    audio = decode_audio(str(audio_path), sampling_rate=SAMPLE_RATE)
     duration = len(audio) / SAMPLE_RATE
 
     # Run Silero VAD with default options
@@ -293,7 +287,7 @@ def run_vad(
 
 
 def reduce_audio(
-    audio_path: Path,
+    audio: np.ndarray,
     vad_result: VadResult,
 ) -> tuple[np.ndarray | None, AudioReduction | None]:
     """Reduce audio by trimming long silence gaps.
@@ -303,7 +297,7 @@ def reduce_audio(
     that any STT backend can process more efficiently.
 
     Args:
-        audio_path: Path to original audio file
+        audio: Audio waveform (float32 mono at SAMPLE_RATE)
         vad_result: VAD result with speech segment boundaries
 
     Returns:
@@ -311,8 +305,6 @@ def reduce_audio(
         - If no reduction needed (no gaps > 2s), returns (None, None)
         - Otherwise returns the reduced audio numpy array and the mapping
     """
-    from faster_whisper.audio import decode_audio
-
     if not vad_result.speech_segments:
         return None, None
 
@@ -346,9 +338,6 @@ def reduce_audio(
     if not gaps_to_reduce:
         logging.info("  No gaps > 2s to reduce")
         return None, None
-
-    # Load audio for reduction
-    audio = decode_audio(str(audio_path), sampling_rate=SAMPLE_RATE)
 
     # Build reduced audio by copying segments and trimmed gaps
     reduced_chunks = []

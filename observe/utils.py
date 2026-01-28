@@ -47,16 +47,12 @@ def audio_to_flac_bytes(audio: np.ndarray, sample_rate: int) -> bytes:
     return buf.getvalue()
 
 
-def prepare_audio_file(raw_path: Path, sample_rate: int = SAMPLE_RATE) -> Path:
-    """Prepare audio file for processing, converting M4A if needed.
+def load_audio(raw_path: Path, sample_rate: int = SAMPLE_RATE) -> np.ndarray:
+    """Load audio file into a numpy buffer, mixing M4A streams if needed.
 
-    Returns path to a file suitable for transcription/embedding (mono FLAC).
-    For M4A files, converts to temporary FLAC, mixing all audio streams.
-    Other formats (.flac, .ogg, .opus) are returned as-is since faster-whisper
-    can decode them directly via ffmpeg.
-
-    M4A files from sck-cli contain two mono streams: track 0 = system audio,
-    track 1 = microphone. Both are decoded and mixed together.
+    For M4A files from sck-cli (which contain two mono streams: track 0 =
+    system audio, track 1 = microphone), all streams are decoded and mixed
+    together. Other formats (.flac, .ogg, .opus) are decoded via ffmpeg.
 
     Parameters
     ----------
@@ -67,22 +63,22 @@ def prepare_audio_file(raw_path: Path, sample_rate: int = SAMPLE_RATE) -> Path:
 
     Returns
     -------
-    Path
-        Path to audio file ready for processing. For most formats, returns
-        the original path. For .m4a files, returns path to temporary .flac
-        file that caller should delete after use.
+    np.ndarray
+        Audio waveform as float32 mono at the target sample rate
 
     Raises
     ------
     ValueError
         If no audio streams found in M4A file
     """
+    if raw_path.suffix.lower() != ".m4a":
+        from faster_whisper.audio import decode_audio
+
+        return decode_audio(str(raw_path), sampling_rate=sample_rate)
+
     import av
 
-    if raw_path.suffix.lower() != ".m4a":
-        return raw_path
-
-    logger.info(f"Converting m4a to FLAC: {raw_path}")
+    logger.info(f"Loading m4a with stream mixing: {raw_path}")
 
     # First pass: count streams
     container = av.open(str(raw_path))
@@ -136,12 +132,7 @@ def prepare_audio_file(raw_path: Path, sample_rate: int = SAMPLE_RATE) -> Path:
         mixed = np.mean(padded, axis=0)
         logger.info(f"  Mixed {len(stream_data)} streams -> {len(mixed)} samples")
 
-    # Write to temporary FLAC in same directory
-    temp_path = raw_path.with_suffix(".tmp.flac")
-    audio_int16 = (np.clip(mixed, -1.0, 1.0) * 32767).astype(np.int16)
-    sf.write(temp_path, audio_int16, sample_rate, format="FLAC")
-
-    return temp_path
+    return mixed.astype(np.float32)
 
 
 def get_segment_key(media_path: Path) -> str | None:

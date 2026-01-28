@@ -61,7 +61,7 @@ from observe.transcribe import (
 from observe.transcribe import transcribe as stt_transcribe
 from observe.transcribe.utils import is_apple_silicon
 from observe.transcribe.whisper import DEFAULT_COMPUTE, DEFAULT_DEVICE, DEFAULT_MODEL
-from observe.utils import SAMPLE_RATE, get_segment_key
+from observe.utils import SAMPLE_RATE, get_segment_key, load_audio
 from observe.vad import (
     AudioReduction,
     VadResult,
@@ -409,6 +409,7 @@ def _statements_to_jsonl(
 
 def process_audio(
     raw_path: Path,
+    audio_buffer: np.ndarray,
     vad_result: VadResult,
     backend_config: dict,
     redo: bool = False,
@@ -428,6 +429,7 @@ def process_audio(
 
     Args:
         raw_path: Path to audio file in journal segment directory (HHMMSS_LEN/)
+        audio_buffer: Full audio waveform (float32 mono at SAMPLE_RATE)
         vad_result: Pre-computed VAD result from run_vad()
         backend_config: Configuration for STT backend
         redo: If True, skip "already processed" check
@@ -436,8 +438,6 @@ def process_audio(
         backend: STT backend name (default: "whisper")
         entity_names: Optional list of entity names for STT and enrichment context
     """
-    from faster_whisper.audio import decode_audio
-
     start_time = time.time()
 
     # Derive segment from path
@@ -461,15 +461,15 @@ def process_audio(
         except json.JSONDecodeError:
             logging.warning(f"Invalid SEGMENT_META JSON: {segment_meta_str[:100]}")
 
-    # Prepare audio buffer for processing
+    # Use reduced audio for STT if available, otherwise full buffer
     if reduced_audio is not None:
-        audio_buffer = reduced_audio
+        stt_buffer = reduced_audio
     else:
-        audio_buffer = decode_audio(str(raw_path), sampling_rate=SAMPLE_RATE)
+        stt_buffer = audio_buffer
 
     try:
         # Dispatch to STT backend
-        statements = stt_transcribe(backend, audio_buffer, SAMPLE_RATE, backend_config)
+        statements = stt_transcribe(backend, stt_buffer, SAMPLE_RATE, backend_config)
 
         # Get model info for metadata (dynamic import based on backend)
         backend_module = get_backend(backend)
@@ -526,13 +526,13 @@ def process_audio(
             from observe.enrich import enrich_transcript
 
             enrichment = enrich_transcript(
-                audio_buffer, SAMPLE_RATE, statements, entity_names=entity_names
+                stt_buffer, SAMPLE_RATE, statements, entity_names=entity_names
             )
 
         # Generate embeddings before timestamp restoration
         # Use reduced audio buffer if available for consistent timestamps
         embeddings_data = _embed_statements(
-            audio_buffer, statements, SAMPLE_RATE, model_info.get("device", "cpu")
+            stt_buffer, statements, SAMPLE_RATE, model_info.get("device", "cpu")
         )
 
         # Restore original timestamps if audio was reduced
@@ -650,8 +650,11 @@ def main():
 
     logging.info(f"Processing audio: {audio_path}")
 
+    # Load audio once - handles M4A multi-stream mixing
+    audio_buffer = load_audio(audio_path)
+
     # Stage 1: Run VAD to detect speech (lightweight, before loading STT model)
-    vad_result = run_vad(audio_path, min_speech_seconds=min_speech_seconds)
+    vad_result = run_vad(audio_buffer, min_speech_seconds=min_speech_seconds)
 
     # Early exit if no speech detected (skip loading heavy STT model)
     if not vad_result.has_speech:
@@ -678,7 +681,7 @@ def main():
         return
 
     # Stage 2: Reduce audio by trimming long silence gaps (>2s)
-    reduced_audio, reduction = reduce_audio(audio_path, vad_result)
+    reduced_audio, reduction = reduce_audio(audio_buffer, vad_result)
 
     # Stage 3: Determine backend and build backend config
     # CLI --backend flag overrides config, otherwise use config or default
@@ -751,6 +754,7 @@ def main():
     # Stage 4: Process audio with STT backend
     process_audio(
         audio_path,
+        audio_buffer,
         vad_result,
         backend_config,
         redo=args.redo,

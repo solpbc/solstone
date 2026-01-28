@@ -22,7 +22,7 @@ from observe.transcribe import (
     build_statement,
     build_statements_from_acoustic,
 )
-from observe.utils import prepare_audio_file
+from observe.utils import load_audio
 
 
 class TestBuildStatementsFromAcoustic:
@@ -236,11 +236,11 @@ class TestConstants:
         assert DEFAULT_MIN_SPEECH_SECONDS == 1.0
 
 
-class TestPrepareAudioFile:
-    """Test the shared prepare_audio_file utility."""
+class TestLoadAudio:
+    """Test the shared load_audio utility."""
 
-    def test_flac_passthrough(self):
-        """FLAC files should be returned unchanged."""
+    def test_flac_returns_numpy_array(self):
+        """FLAC files should return a numpy array."""
         with tempfile.TemporaryDirectory() as tmpdir:
             flac_path = Path(tmpdir) / "test.flac"
 
@@ -249,12 +249,14 @@ class TestPrepareAudioFile:
             data = np.zeros(sample_rate, dtype=np.float32)
             sf.write(flac_path, data, sample_rate, format="FLAC")
 
-            result = prepare_audio_file(flac_path)
-            assert result == flac_path
+            result = load_audio(flac_path)
+            assert isinstance(result, np.ndarray)
+            assert result.dtype == np.float32
+            assert len(result) == sample_rate
 
     @pytest.mark.skipif(not shutil.which("ffmpeg"), reason="ffmpeg not installed")
-    def test_m4a_conversion(self):
-        """M4A files should be converted to temp FLAC."""
+    def test_m4a_returns_numpy_array(self):
+        """M4A files should return a numpy array with audio content."""
         import subprocess
 
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -284,24 +286,15 @@ class TestPrepareAudioFile:
             )
             assert result.returncode == 0
 
-            # Test conversion
-            temp_flac = prepare_audio_file(m4a_path)
-            try:
-                assert temp_flac.exists()
-                assert temp_flac.suffix == ".flac"
-                assert temp_flac != m4a_path
-
-                # Verify audio was extracted
-                mixed_data, sr = sf.read(temp_flac, dtype="float32")
-                assert sr == 16000
-                assert len(mixed_data) > 0
-            finally:
-                if temp_flac.exists():
-                    temp_flac.unlink()
+            # Test loading returns numpy array
+            audio = load_audio(m4a_path)
+            assert isinstance(audio, np.ndarray)
+            assert audio.dtype == np.float32
+            assert len(audio) > 0
 
     @pytest.mark.skipif(not shutil.which("ffmpeg"), reason="ffmpeg not installed")
-    def test_multi_track_m4a(self):
-        """Test that prepare_audio_file mixes multiple M4A audio streams together."""
+    def test_multi_track_m4a_mixes_streams(self):
+        """load_audio should mix multiple M4A audio streams together."""
         import subprocess
 
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -346,25 +339,15 @@ class TestPrepareAudioFile:
             )
             assert result.returncode == 0, f"ffmpeg failed: {result.stderr}"
 
-            temp_flac = prepare_audio_file(m4a_path)
+            audio = load_audio(m4a_path)
 
-            try:
-                assert temp_flac.exists()
-                assert temp_flac.suffix == ".flac"
+            assert isinstance(audio, np.ndarray)
+            assert audio.dtype == np.float32
 
-                # Read the output and verify both streams were mixed
-                mixed_data, sr = sf.read(temp_flac, dtype="float32")
-
-                # The mixed audio should have content from track 1 (the sine wave)
-                # AAC compression affects amplitude, so use loose threshold
-                rms = np.sqrt(np.mean(mixed_data**2))
-                assert rms > 0.1, f"Mixed audio should contain signal, got RMS={rms}"
-
-                # Verify sample rate matches expected
-                assert sr == 16000
-            finally:
-                if temp_flac.exists():
-                    temp_flac.unlink()
+            # The mixed audio should have content from track 1 (the sine wave)
+            # AAC compression affects amplitude, so use loose threshold
+            rms = np.sqrt(np.mean(audio**2))
+            assert rms > 0.1, f"Mixed audio should contain signal, got RMS={rms}"
 
 
 class TestEmbeddingsFormat:
