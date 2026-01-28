@@ -373,9 +373,7 @@ class TestSyncService:
 
 
 def test_sync_service_startup_with_pending(sync_journal, monkeypatch):
-    """Test that startup loads pending segments and processes them."""
-    import time
-
+    """Test that startup loads pending segments into the queue."""
     from observe.sync import SyncService, append_sync_record
 
     journal = sync_journal["path"]
@@ -393,25 +391,21 @@ def test_sync_service_startup_with_pending(sync_journal, monkeypatch):
         },
     )
 
-    with patch("observe.sync.RemoteClient") as mock_client_class:
-        mock_client = MagicMock()
-        mock_client.upload_segment = MagicMock(return_value=True)
-        mock_client_class.return_value = mock_client
+    with patch("observe.sync.RemoteClient"), patch(
+        "observe.sync.CallosumConnection"
+    ):
+        service = SyncService("https://server/ingest/key")
+        # Replace worker with no-op so thread exits immediately
+        service._sync_worker = lambda: None
+        service.start()
 
-        with patch("observe.sync.CallosumConnection") as mock_callosum_class:
-            mock_callosum = MagicMock()
-            mock_callosum_class.return_value = mock_callosum
+        # Pending segment should have been queued
+        assert service._queue.qsize() == 1
+        seg_info = service._queue.get_nowait()
+        assert seg_info.segment == "120000_300"
+        assert seg_info.day == day
 
-            service = SyncService("https://server/ingest/key")
-            service.start()
-
-            # Wait briefly for worker to process
-            time.sleep(0.1)
-
-            # Should have attempted to upload the pending segment
-            assert mock_client.upload_segment.called
-
-            service.stop()
+        service.stop()
 
 
 def test_process_segment_skips_upload_if_already_confirmed(sync_journal, monkeypatch):

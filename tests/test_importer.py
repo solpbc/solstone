@@ -83,9 +83,13 @@ def test_importer_text(tmp_path, monkeypatch):
 
     monkeypatch.setattr(mod, "detect_transcript_json", mock_detect_json)
 
+    # Mock CallosumConnection and status emitter to avoid real sockets/threads
+    monkeypatch.setattr(mod, "CallosumConnection", lambda: MagicMock())
+    monkeypatch.setattr(mod, "_status_emitter", lambda: None)
+
     monkeypatch.setattr(
         "sys.argv",
-        ["sol import", str(txt), "--timestamp", "20240101_120000"],
+        ["sol import", str(txt), "--timestamp", "20240101_120000", "--skip-summary"],
     )
     mod.main()
 
@@ -268,12 +272,8 @@ def test_run_import_summary(tmp_path, monkeypatch):
         return "finish"
 
     with (
-        patch(
-            "think.cortex_client.cortex_request", side_effect=mock_cortex_request
-        ),
-        patch(
-            "think.cortex_client.wait_for_agents", side_effect=mock_wait_for_agents
-        ),
+        patch("think.cortex_client.cortex_request", side_effect=mock_cortex_request),
+        patch("think.cortex_client.wait_for_agents", side_effect=mock_wait_for_agents),
         patch(
             "think.cortex_client.get_agent_end_state",
             side_effect=mock_get_agent_end_state,
