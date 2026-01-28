@@ -328,7 +328,7 @@ def test_load_entity_names_uniform_processing(monkeypatch):
 
         assert isinstance(result, list)
 
-        # "Ryan Reed (R2)" -> ["Ryan", "R2"]
+        # "Ryan Reed (R2)" -> ["Ryan", "R2"] (digits allowed if has letter)
         assert "Ryan" in result
         assert "R2" in result
         assert "Reed" not in result

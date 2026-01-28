@@ -257,17 +257,39 @@ def load_all_attached_entities(
     return all_entities
 
 
+def _is_speakable(name: str) -> bool:
+    """Check if a name is suitable for speech recognition vocabularies.
+
+    Allows letters, digits, spaces, periods, hyphens, and apostrophes.
+    Must contain at least one letter (Rev.ai requirement).
+    Rejects underscores and other programming symbols.
+
+    Args:
+        name: The name to check
+
+    Returns:
+        True if the name is speakable (has a letter, no underscores/symbols)
+    """
+    # Must have at least one letter, only allowed chars, no underscores
+    return bool(re.fullmatch(r"[a-zA-Z0-9\s.\-']+", name)) and any(
+        c.isalpha() for c in name
+    )
+
+
 def _extract_spoken_names(entities: list[EntityDict]) -> list[str]:
     """Extract spoken-form names from entity list.
 
     Extracts shortened forms optimized for audio transcription:
     - First word from base name (without parentheses)
     - All items from within parentheses (comma-separated)
+    - Filters out names with underscores or no letters (not speakable)
 
     Examples:
         - "Ryan Reed (R2)" → ["Ryan", "R2"]
         - "Federal Aviation Administration (FAA)" → ["Federal", "FAA"]
         - "Acme Corp" → ["Acme"]
+        - "send2trash" → ["send2trash"] (allowed: has letters)
+        - "entity_registry" → [] (filtered: contains underscore)
 
     Args:
         entities: List of entity dictionaries with "name" and optional "aka" fields
@@ -276,6 +298,11 @@ def _extract_spoken_names(entities: list[EntityDict]) -> list[str]:
         List of unique spoken names, preserving insertion order
     """
     spoken_names: list[str] = []
+
+    def add_if_speakable(name: str) -> None:
+        """Add name to spoken_names if it's speakable and not already present."""
+        if name and name not in spoken_names and _is_speakable(name):
+            spoken_names.append(name)
 
     def add_name_variants(name: str) -> None:
         """Extract and add first word + parenthetical items from a name."""
@@ -286,17 +313,15 @@ def _extract_spoken_names(entities: list[EntityDict]) -> list[str]:
         base_name = re.sub(r"\s*\([^)]+\)", "", name).strip()
         first_word = base_name.split()[0] if base_name else None
 
-        # Add first word
-        if first_word and first_word not in spoken_names:
-            spoken_names.append(first_word)
+        # Add first word if speakable
+        add_if_speakable(first_word)
 
         # Extract and add all items from parens (comma-separated)
         paren_match = re.search(r"\(([^)]+)\)", name)
         if paren_match:
             paren_items = [item.strip() for item in paren_match.group(1).split(",")]
             for item in paren_items:
-                if item and item not in spoken_names:
-                    spoken_names.append(item)
+                add_if_speakable(item)
 
     for entity in entities:
         name = entity.get("name", "")

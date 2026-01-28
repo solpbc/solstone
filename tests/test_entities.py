@@ -443,10 +443,22 @@ def test_load_recent_entity_names_returns_list(fixture_journal, tmp_path):
     facet_path.mkdir(parents=True)
     os.environ["JOURNAL_PATH"] = str(tmp_path)
 
-    # Create 10 entities
+    # Create 10 entities with speakable names (no digits)
+    names = [
+        "Alice",
+        "Bob",
+        "Carol",
+        "Dan",
+        "Eve",
+        "Frank",
+        "Grace",
+        "Hank",
+        "Ivy",
+        "Jack",
+    ]
     entities = [
-        {"type": "Person", "name": f"Name{i}", "last_seen": f"202601{i:02d}"}
-        for i in range(10, 0, -1)  # Descending so we get predictable order
+        {"type": "Person", "name": name, "last_seen": f"202601{i:02d}"}
+        for i, name in enumerate(names, start=1)
     ]
     save_entities("test_facet", entities)
 
@@ -498,10 +510,43 @@ def test_load_recent_entity_names_respects_limit(fixture_journal, tmp_path):
     facet_path.mkdir(parents=True)
     os.environ["JOURNAL_PATH"] = str(tmp_path)
 
-    # Create 30 entities
+    # Create 30 entities with speakable names (no digits)
+    # Use unique first names that won't collide
+    names = [
+        "Alice",
+        "Bob",
+        "Carol",
+        "Dan",
+        "Eve",
+        "Frank",
+        "Grace",
+        "Hank",
+        "Ivy",
+        "Jack",
+        "Kate",
+        "Leo",
+        "Mia",
+        "Nick",
+        "Olive",
+        "Paul",
+        "Quinn",
+        "Rose",
+        "Sam",
+        "Tina",
+        "Uma",
+        "Vic",
+        "Wendy",
+        "Xander",
+        "Yara",
+        "Zane",
+        "Abel",
+        "Beth",
+        "Cody",
+        "Dawn",
+    ]
     entities = [
-        {"type": "Person", "name": f"Person{i}", "last_seen": f"202601{i:02d}"}
-        for i in range(1, 31)
+        {"type": "Person", "name": name, "last_seen": f"202601{i:02d}"}
+        for i, name in enumerate(names, start=1)
     ]
     save_entities("test_facet", entities)
 
@@ -510,11 +555,65 @@ def test_load_recent_entity_names_respects_limit(fixture_journal, tmp_path):
 
     assert result is not None
     assert isinstance(result, list)
-    # Most recent 5 should be included (Person30, Person29, Person28, Person27, Person26)
-    assert "Person30" in result
-    assert "Person26" in result
+    # Most recent 5 should be included (Dawn, Cody, Beth, Abel, Zane - last_seen 30, 29, 28, 27, 26)
+    assert "Dawn" in result
+    assert "Zane" in result
     # Earlier ones should not be included
-    assert "Person1" not in result
+    assert "Alice" not in result
+
+
+def test_load_recent_entity_names_filters_unspeakable(fixture_journal, tmp_path):
+    """Test that names with underscores or no letters are filtered out."""
+    facet_path = tmp_path / "facets" / "test_facet"
+    facet_path.mkdir(parents=True)
+    os.environ["JOURNAL_PATH"] = str(tmp_path)
+
+    entities = [
+        # Speakable - should be included (letters required, digits OK)
+        {"type": "Person", "name": "Alice", "last_seen": "20260110"},
+        {"type": "Company", "name": "Acme Corp", "last_seen": "20260109"},
+        {"type": "Person", "name": "Bob O'Brien", "last_seen": "20260108"},
+        {"type": "Project", "name": "Project-X", "last_seen": "20260107"},
+        {"type": "Tool", "name": "send2trash", "last_seen": "20260106"},  # has letters
+        {
+            "type": "Person",
+            "name": "Ryan (R2)",
+            "last_seen": "20260105",
+        },  # R2 has letter
+        # Unspeakable - should be filtered (underscores or no letters)
+        {
+            "type": "Tool",
+            "name": "entity_registry",
+            "last_seen": "20260104",
+        },  # underscore
+        {
+            "type": "Tool",
+            "name": "whisper_ctranslate2",
+            "last_seen": "20260103",
+        },  # underscore
+        {
+            "type": "Code",
+            "name": "12345",
+            "last_seen": "20260102",
+        },  # no letters
+    ]
+    save_entities("test_facet", entities)
+
+    result = load_recent_entity_names()
+
+    assert result is not None
+    # Speakable names included (digits OK if has letters)
+    assert "Alice" in result
+    assert "Acme" in result
+    assert "Bob" in result
+    assert "Project-X" in result
+    assert "send2trash" in result  # has letters, digits OK
+    assert "Ryan" in result
+    assert "R2" in result  # has letter, digit OK
+    # Unspeakable names filtered out
+    assert "entity_registry" not in result  # underscore
+    assert "whisper_ctranslate2" not in result  # underscore
+    assert "12345" not in result  # no letters
 
 
 def test_aka_field_preservation(fixture_journal, tmp_path):
