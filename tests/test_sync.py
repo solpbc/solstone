@@ -350,37 +350,47 @@ class TestSyncService:
         service = SyncService("https://server/ingest/key")
         service._callosum = mock_callosum
 
-        # Simulate observing message
+        # Simulate observing message with metadata
         message = {
             "tract": "observe",
             "event": "observing",
             "day": day,
             "segment": "120000_300",
             "files": ["audio.flac", "screen.webm"],
+            "host": "testhost",
+            "platform": "linux",
+            "meta": {"facet": "work"},
         }
 
         service._handle_message(message)
 
-        # Check pending record was written
+        # Check pending record was written with metadata
         records = load_sync_state(day)
         assert len(records) == 1
         assert records[0]["status"] == "pending"
         assert records[0]["segment"] == "120000_300"
         assert len(records[0]["files"]) == 2
+        # Verify metadata was extracted and merged
+        assert records[0]["meta"]["host"] == "testhost"
+        assert records[0]["meta"]["platform"] == "linux"
+        assert records[0]["meta"]["facet"] == "work"
 
-        # Check segment was queued
+        # Check segment was queued with metadata
         assert service._queue.qsize() == 1
+        seg_info = service._queue.get_nowait()
+        assert seg_info.meta["host"] == "testhost"
+        assert seg_info.meta["facet"] == "work"
 
 
 def test_sync_service_startup_with_pending(sync_journal, monkeypatch):
-    """Test that startup loads pending segments into the queue."""
+    """Test that startup loads pending segments into the queue with metadata."""
     from observe.sync import SyncService, append_sync_record
 
     journal = sync_journal["path"]
     day = sync_journal["day"]
     monkeypatch.setenv("JOURNAL_PATH", str(journal))
 
-    # Add pending segment
+    # Add pending segment with metadata
     append_sync_record(
         day,
         {
@@ -388,6 +398,7 @@ def test_sync_service_startup_with_pending(sync_journal, monkeypatch):
             "segment": "120000_300",
             "status": "pending",
             "files": [{"name": "audio.flac", "sha256": "abc123"}],
+            "meta": {"host": "remote-host", "platform": "darwin"},
         },
     )
 
@@ -397,11 +408,13 @@ def test_sync_service_startup_with_pending(sync_journal, monkeypatch):
         service._sync_worker = lambda: None
         service.start()
 
-        # Pending segment should have been queued
+        # Pending segment should have been queued with metadata
         assert service._queue.qsize() == 1
         seg_info = service._queue.get_nowait()
         assert seg_info.segment == "120000_300"
         assert seg_info.day == day
+        assert seg_info.meta["host"] == "remote-host"
+        assert seg_info.meta["platform"] == "darwin"
 
         service.stop()
 
@@ -508,6 +521,66 @@ def test_process_segment_uploads_if_not_on_server(sync_journal, monkeypatch):
 
             # Upload SHOULD have been called
             mock_client.upload_segment.assert_called_once()
+
+
+def test_process_segment_passes_metadata_to_upload(sync_journal, monkeypatch):
+    """Test that metadata is passed through to upload_segment call."""
+    from observe.sync import SegmentInfo, SyncService
+
+    journal = sync_journal["path"]
+    day = sync_journal["day"]
+    monkeypatch.setenv("JOURNAL_PATH", str(journal))
+
+    # Create SegmentInfo with metadata
+    seg_info = SegmentInfo(
+        day=day,
+        segment="120000_300",
+        files=[
+            {"name": "audio.flac", "sha256": "abc123"},
+        ],
+        meta={"host": "laptop", "platform": "linux", "facet": "meetings"},
+    )
+
+    with patch("observe.sync.CallosumConnection") as mock_callosum_class:
+        mock_callosum = MagicMock()
+        mock_callosum_class.return_value = mock_callosum
+
+        with patch("observe.sync.RemoteClient") as mock_client_class:
+            mock_client = MagicMock()
+            mock_session = MagicMock()
+
+            # First call: server doesn't have segment (pre-check)
+            # Second call: server has segment (post-upload confirm)
+            responses = [
+                MagicMock(status_code=200, json=MagicMock(return_value=[])),
+                MagicMock(
+                    status_code=200,
+                    json=MagicMock(
+                        return_value=[
+                            {
+                                "key": "120000_300",
+                                "files": [{"name": "audio.flac", "sha256": "abc123"}],
+                            }
+                        ]
+                    ),
+                ),
+            ]
+            mock_session.get.side_effect = responses
+            mock_client.session = mock_session
+            mock_client.upload_segment = MagicMock(return_value=True)
+            mock_client_class.return_value = mock_client
+
+            service = SyncService("https://server/ingest/key")
+            service._process_segment(seg_info)
+
+            # Verify upload was called with metadata
+            mock_client.upload_segment.assert_called_once()
+            call_kwargs = mock_client.upload_segment.call_args.kwargs
+            assert call_kwargs["meta"] == {
+                "host": "laptop",
+                "platform": "linux",
+                "facet": "meetings",
+            }
 
 
 class TestCheckRemoteHealth:

@@ -136,9 +136,10 @@ class RemoteClient:
             day: Day string (YYYYMMDD)
             segment: Segment key (HHMMSS_LEN)
             files: List of file paths to upload
-            meta: Optional metadata dict (facet, setting, etc.) to include
-                  in the segment. Will be JSON-encoded and merged with
-                  host/platform on the server side.
+            meta: Optional metadata dict (host, platform, facet, setting, etc.)
+                  to include in the segment. Will be JSON-encoded. If meta
+                  doesn't contain host/platform, they're sent as top-level
+                  fields and the server merges them into meta.
 
         Returns:
             True if upload succeeded, False otherwise
@@ -167,13 +168,17 @@ class RemoteClient:
                     logger.error("No valid files to upload")
                     return False
 
-                # Send request with host/platform for event emission
-                data = {
+                # Build request data
+                data: dict[str, Any] = {
                     "day": day,
                     "segment": segment,
-                    "host": HOST,
-                    "platform": PLATFORM,
                 }
+                # Only send top-level host/platform if not already in meta
+                # (avoids redundant data; server merges them into meta if missing)
+                if not meta or "host" not in meta:
+                    data["host"] = HOST
+                if not meta or "platform" not in meta:
+                    data["platform"] = PLATFORM
                 if meta:
                     data["meta"] = json.dumps(meta)
 
@@ -225,6 +230,7 @@ class SegmentInfo:
     day: str
     segment: str
     files: list[dict]  # [{name, sha256}, ...]
+    meta: dict | None = None  # Optional metadata (host, platform, facet, etc.)
 
 
 def get_sync_state_path(day: str) -> Path:
@@ -310,6 +316,7 @@ def get_pending_segments(days_back: int = 7) -> list[SegmentInfo]:
                         day=day,
                         segment=seg,
                         files=pending_record.get("files", []),
+                        meta=pending_record.get("meta"),
                     )
                 )
 
@@ -398,6 +405,17 @@ class SyncService:
 
         logger.info(f"Received observing event: {day}/{segment} ({len(files)} files)")
 
+        # Build metadata dict from message fields
+        # Observers emit host/platform as top-level fields, and may include a meta dict
+        meta: dict[str, Any] = {}
+        if message.get("host"):
+            meta["host"] = message["host"]
+        if message.get("platform"):
+            meta["platform"] = message["platform"]
+        # Merge any explicit meta dict (its values take precedence)
+        if message.get("meta"):
+            meta.update(message["meta"])
+
         # Compute sha256 for all files
         segment_dir = day_path(day) / segment
         file_info = []
@@ -413,17 +431,21 @@ class SyncService:
             logger.error(f"No valid files for segment {day}/{segment}")
             return
 
-        # Write pending record
-        record = {
+        # Write pending record (include meta for crash recovery)
+        record: dict[str, Any] = {
             "ts": int(time.time() * 1000),
             "segment": segment,
             "status": "pending",
             "files": file_info,
         }
+        if meta:
+            record["meta"] = meta
         append_sync_record(day, record)
 
         # Add to queue
-        seg_info = SegmentInfo(day=day, segment=segment, files=file_info)
+        seg_info = SegmentInfo(
+            day=day, segment=segment, files=file_info, meta=meta or None
+        )
         self._queue.put(seg_info)
 
     def _sync_worker(self) -> None:
@@ -498,7 +520,9 @@ class SyncService:
                 logger.warning(f"No files found for segment {day}/{segment}, skipping")
                 break
 
-            success = self._client.upload_segment(day, segment, existing_files)
+            success = self._client.upload_segment(
+                day, segment, existing_files, meta=seg_info.meta
+            )
             if not success:
                 logger.error(f"Upload failed for {day}/{segment}, will retry")
                 time.sleep(CONFIRM_POLL_INTERVAL)
