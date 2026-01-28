@@ -5,7 +5,8 @@
 
 This module manages the sck-cli subprocess lifecycle for video and audio capture
 on macOS using ScreenCaptureKit. sck-cli captures all displays simultaneously
-and outputs JSONL metadata to stdout with display geometry information.
+and outputs JSONL metadata to stdout with display geometry, audio device info,
+and stop events (reason for capture ending).
 """
 
 import json
@@ -45,7 +46,9 @@ class AudioInfo:
     """Information about the audio recording."""
 
     file_path: str  # Path where sck-cli writes the file
-    tracks: list[str]
+    sample_rate: int
+    channels: int
+    tracks: list[dict]  # Full track dicts from sck-cli (name, deviceName, etc.)
 
 
 class ScreenCaptureKitManager:
@@ -69,6 +72,8 @@ class ScreenCaptureKitManager:
         self.audio: Optional[AudioInfo] = None
         self._output_threads: list[threading.Thread] = []
         self._exit_logged: bool = False
+        self._stop_event: Optional[dict] = None
+        self._stop_received = threading.Event()
 
     def start(
         self,
@@ -112,6 +117,8 @@ class ScreenCaptureKitManager:
 
         logger.info(f"Starting sck-cli: {' '.join(cmd)}")
         self._exit_logged = False
+        self._stop_event = None
+        self._stop_received.clear()
 
         try:
             self.process = subprocess.Popen(
@@ -215,10 +222,11 @@ class ScreenCaptureKitManager:
 
         # Build AudioInfo if present
         if audio_info:
-            tracks = [t["name"] for t in audio_info.get("tracks", [])]
             self.audio = AudioInfo(
                 file_path=audio_info["filename"],
-                tracks=tracks,
+                sample_rate=audio_info.get("sampleRate", 48000),
+                channels=audio_info.get("channels", 1),
+                tracks=audio_info.get("tracks", []),
             )
         else:
             self.audio = None
@@ -230,7 +238,8 @@ class ScreenCaptureKitManager:
                 f"({display.width}x{display.height}) -> {display.file_path}"
             )
         if self.audio:
-            logger.info(f"  Audio: {self.audio.file_path} ({self.audio.tracks})")
+            track_names = [t.get("name", "unknown") for t in self.audio.tracks]
+            logger.info(f"  Audio: {self.audio.file_path} ({track_names})")
 
         # Start background threads to log remaining stdout/stderr in real-time
         self._output_threads = [
@@ -283,15 +292,28 @@ class ScreenCaptureKitManager:
         self.process = None
 
     def _stream_stdout(self) -> None:
-        """Background thread: stream remaining stdout lines to logger."""
+        """Background thread: stream remaining stdout lines and capture stop events."""
         if self.process is None or self.process.stdout is None:
             return
 
         try:
             for line in self.process.stdout:
                 line = line.strip()
-                if line:
-                    logger.info(f"sck-cli: {line}")
+                if not line:
+                    continue
+
+                # Try to parse as JSON to capture stop events
+                try:
+                    data = json.loads(line)
+                    if data.get("type") == "stop":
+                        self._stop_event = data
+                        self._stop_received.set()
+                        logger.info(f"sck-cli stop: {data.get('reason', 'unknown')}")
+                        continue
+                except json.JSONDecodeError:
+                    pass
+
+                logger.info(f"sck-cli: {line}")
         except Exception as e:
             logger.debug(f"Error reading sck-cli stdout: {e}")
 
@@ -324,3 +346,22 @@ class ScreenCaptureKitManager:
                 self._exit_logged = True
             return False
         return True
+
+    def get_stop_event(self, timeout: float = 1.0) -> Optional[dict]:
+        """
+        Get the stop event from sck-cli, waiting briefly if needed.
+
+        Call this after stop() to retrieve the reason the capture ended.
+        The stop event contains fields like:
+        - reason: "completed", "device-change", "error", "signal"
+        - errorCode, errorDomain: present if reason is "error"
+        - inputDeviceChanged, outputDeviceChanged: present if reason is "device-change"
+
+        Args:
+            timeout: Maximum seconds to wait for stop event (default: 1.0)
+
+        Returns:
+            Stop event dict or None if not received
+        """
+        self._stop_received.wait(timeout=timeout)
+        return self._stop_event

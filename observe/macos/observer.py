@@ -218,7 +218,54 @@ class MacOSObserver:
             if container is not None:
                 container.close()
 
-    def _finalize_segment(self) -> tuple[str, str, list[str]]:
+    def _build_segment_meta(self, audio_saved: bool) -> dict:
+        """
+        Build metadata dict for the current segment.
+
+        Collects information from displays, audio, and stop event to create
+        a meta dict that flows through the observe.observing event.
+
+        Args:
+            audio_saved: Whether the audio file passed threshold and was saved
+
+        Returns:
+            Dict with segment metadata (audio_devices, stop_reason, etc.)
+        """
+        meta: dict = {
+            "display_count": len(self.current_displays),
+            "muted": self.segment_is_muted,
+        }
+
+        # Audio device info
+        if self.current_audio:
+            meta["audio_sample_rate"] = self.current_audio.sample_rate
+            meta["audio_channels"] = self.current_audio.channels
+            meta["audio_saved"] = audio_saved
+            # Extract device names from tracks
+            devices = [
+                t.get("deviceName", "unknown") for t in self.current_audio.tracks
+            ]
+            if devices:
+                meta["audio_devices"] = devices
+
+        # Stop event info
+        stop_event = self.screencapture.get_stop_event(timeout=0.5)
+        if stop_event:
+            meta["stop_reason"] = stop_event.get("reason")
+            # Include error details if present
+            if stop_event.get("errorCode"):
+                meta["stop_error_code"] = stop_event["errorCode"]
+            if stop_event.get("errorDomain"):
+                meta["stop_error_domain"] = stop_event["errorDomain"]
+            # Include device change flags if present
+            if stop_event.get("inputDeviceChanged"):
+                meta["input_device_changed"] = True
+            if stop_event.get("outputDeviceChanged"):
+                meta["output_device_changed"] = True
+
+        return meta
+
+    def _finalize_segment(self) -> tuple[str, str, list[str], dict]:
         """
         Finalize current segment by renaming files and folder.
 
@@ -226,7 +273,7 @@ class MacOSObserver:
         renames/deletes accordingly, then renames draft folder to final name.
 
         Returns:
-            Tuple of (date_part, segment_key, saved_files)
+            Tuple of (date_part, segment_key, saved_files, meta)
         """
         # Get timestamp parts for this window and calculate duration
         date_part, time_part = get_timestamp_parts(self.start_at)
@@ -249,6 +296,7 @@ class MacOSObserver:
                     logger.error(f"Failed to rename {display.file_path}: {e}")
 
         # Check audio threshold and rename if passing
+        audio_saved = False
         if self.current_audio and os.path.exists(self.current_audio.file_path):
             if self._check_audio_threshold(self.current_audio.file_path):
                 simple_name = "audio.m4a"
@@ -256,6 +304,7 @@ class MacOSObserver:
                 try:
                     os.rename(self.current_audio.file_path, simple_path)
                     saved_files.append(simple_name)
+                    audio_saved = True
                     logger.info(f"Audio passed threshold check, saving: {simple_name}")
                 except OSError as e:
                     logger.error(f"Failed to rename audio: {e}")
@@ -266,6 +315,9 @@ class MacOSObserver:
                     logger.info("Audio below threshold, discarded")
                 except OSError as e:
                     logger.warning(f"Failed to remove audio file: {e}")
+
+        # Build metadata before clearing state
+        meta = self._build_segment_meta(audio_saved)
 
         # Clear capture state
         self.current_displays = []
@@ -290,7 +342,7 @@ class MacOSObserver:
 
         self.draft_dir = None
 
-        return date_part, segment_key, saved_files
+        return date_part, segment_key, saved_files, meta
 
     def handle_boundary(self, is_active: bool):
         """
@@ -302,17 +354,29 @@ class MacOSObserver:
         Args:
             is_active: Whether system is currently active
         """
-        date_part = ""
-        segment_key = ""
-        saved_files: list[str] = []
-
         if self.capture_running:
             logger.info("Stopping previous capture")
             self.screencapture.stop()
             self.capture_running = False
 
-            # Finalize segment (rename files and folder)
-            date_part, segment_key, saved_files = self._finalize_segment()
+            # Finalize segment (rename files, folder, and build metadata)
+            date_part, segment_key, saved_files, meta = self._finalize_segment()
+
+            # Emit observing event with saved files and metadata
+            if saved_files and self._callosum:
+                self._callosum.emit(
+                    "observe",
+                    "observing",
+                    day=date_part,
+                    segment=segment_key,
+                    files=saved_files,
+                    host=HOST,
+                    platform=PLATFORM,
+                    meta=meta,
+                )
+                logger.info(
+                    f"Segment observing: {segment_key} ({len(saved_files)} files)"
+                )
 
         # Reset timing for new window
         self.start_at = time.time()
@@ -324,19 +388,6 @@ class MacOSObserver:
         # Start new capture if active and screen not locked (creates new draft folder)
         if is_active and not self.cached_screen_locked:
             self.initialize_capture()
-
-        # Emit observing event with saved files
-        if saved_files and self._callosum:
-            self._callosum.emit(
-                "observe",
-                "observing",
-                day=date_part,
-                segment=segment_key,
-                files=saved_files,
-                host=HOST,
-                platform=PLATFORM,
-            )
-            logger.info(f"Segment observing: {segment_key} ({len(saved_files)} files)")
 
     def _create_draft_folder(self) -> str:
         """Create a draft folder for the current segment."""
@@ -531,7 +582,7 @@ class MacOSObserver:
             await asyncio.sleep(0.5)
 
             # Finalize segment (rename files and folder)
-            date_part, segment_key, saved_files = self._finalize_segment()
+            date_part, segment_key, saved_files, meta = self._finalize_segment()
 
             # Emit observing event for final segment
             if saved_files and self._callosum:
@@ -543,6 +594,7 @@ class MacOSObserver:
                     files=saved_files,
                     host=HOST,
                     platform=PLATFORM,
+                    meta=meta,
                 )
                 logger.info(
                     f"Segment observing: {segment_key} ({len(saved_files)} files)"
