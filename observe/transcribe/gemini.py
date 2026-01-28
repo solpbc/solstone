@@ -223,7 +223,7 @@ def transcribe(
         contents=contents,
         context="observe.transcribe.gemini",
         temperature=0.3,
-        max_output_tokens=8192,
+        max_output_tokens=16384,
         json_output=True,
     )
 
