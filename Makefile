@@ -94,7 +94,7 @@ test-only: .installed
 # Run integration tests
 test-integration: .installed
 	@echo "Running integration tests..."
-	$(TEST_ENV) $(PYTEST) tests/integration/ -v --tb=short
+	$(TEST_ENV) $(PYTEST) tests/integration/ -v --tb=short --timeout=20
 
 # Run specific integration test
 test-integration-only: .installed
@@ -103,7 +103,7 @@ test-integration-only: .installed
 		echo "Example: make test-integration-only TEST=test_api.py"; \
 		exit 1; \
 	fi
-	$(TEST_ENV) $(PYTEST) tests/integration/$(TEST)
+	$(TEST_ENV) $(PYTEST) tests/integration/$(TEST) --timeout=20
 
 # Run all tests (core + apps + integration)
 test-all: .installed
