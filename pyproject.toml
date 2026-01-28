@@ -141,6 +141,7 @@ ignore_missing_imports = true
 ignore_errors = true
 
 [tool.pytest.ini_options]
+addopts = "--import-mode=importlib"
 testpaths = ["tests", "apps"]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
