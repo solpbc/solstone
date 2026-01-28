@@ -1201,6 +1201,47 @@ body.has-date-nav .workspace:has(.tr-wrap) {
     return { text: cents + 'c', title: exactUSD };
   }
 
+  // Format bytes as human-readable size (KB, MB, GB)
+  function formatSize(bytes) {
+    if (!bytes) return '';
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(0) + ' KB';
+    if (bytes < 1024 * 1024 * 1024) return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+    return (bytes / (1024 * 1024 * 1024)).toFixed(2) + ' GB';
+  }
+
+  // Build range text with cost and media size, reactive to audio/screen toggles
+  function updateRangeText() {
+    if (!selectedSegment || !segmentData) return;
+    const seg = selectedSegment;
+    let parts = [`${seg.start} - ${seg.end}`];
+
+    const costInfo = formatCost(segmentData.cost);
+    if (costInfo.text) {
+      parts.push(`<span title="${costInfo.title}">${costInfo.text}</span>`);
+    }
+
+    const sizes = segmentData.media_sizes;
+    if (sizes) {
+      let total = 0;
+      const breakdown = [];
+      if (audioCheck.checked && sizes.audio) {
+        total += sizes.audio;
+        breakdown.push('audio ' + formatSize(sizes.audio));
+      }
+      if (screenCheck.checked && sizes.screen) {
+        total += sizes.screen;
+        breakdown.push('screen ' + formatSize(sizes.screen));
+      }
+      if (total) {
+        const title = breakdown.join(', ');
+        parts.push(`<span title="${title}">${formatSize(total)}</span>`);
+      }
+    }
+
+    rangeText.innerHTML = parts.join(' · ');
+  }
+
   function computeTimelineBounds(ranges) {
     // Compute dynamic timeline bounds from content ranges
     // Returns {start, end} in minutes, snapped to hours
@@ -1418,11 +1459,8 @@ body.has-date-nav .workspace:has(.tr-wrap) {
         segmentData = data;
         currentVideoFiles = showScreen ? (data.video_files || {}) : {};
 
-        // Update range text with cost
-        const costInfo = formatCost(data.cost);
-        if (costInfo.text) {
-          rangeText.innerHTML = `${seg.start} - ${seg.end} · <span title="${costInfo.title}">${costInfo.text}</span>`;
-        }
+        // Update range text with cost and media sizes
+        updateRangeText();
 
         // Skip keyframe prefetching when screen is disabled
         if (!showScreen) {
@@ -2090,6 +2128,7 @@ body.has-date-nav .workspace:has(.tr-wrap) {
   // Re-render when checkboxes change (use cached data)
   audioCheck.addEventListener('change', () => {
     if (selectedSegment && segmentData) {
+      updateRangeText();
       renderSegmentTimeline(segmentData, audioCheck.checked, screenCheck.checked);
     }
   });
@@ -2100,6 +2139,7 @@ body.has-date-nav .workspace:has(.tr-wrap) {
       if (screenCheck.checked && Object.keys(currentVideoFiles).length === 0) {
         currentVideoFiles = segmentData.video_files || {};
       }
+      updateRangeText();
       renderSegmentTimeline(segmentData, audioCheck.checked, screenCheck.checked);
     }
   });

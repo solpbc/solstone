@@ -182,6 +182,7 @@ def segment_content(day: str, segment_key: str) -> Any:
         - video_files: dict mapping jsonl filename to video URL for client-side decoding
         - segment_key: segment directory name
         - cost: processing cost in USD (float, 0.0 if no data)
+        - media_sizes: dict with audio/screen byte counts for raw media files
     """
     if not DATE_RE.fullmatch(day):
         return "", 404
@@ -197,6 +198,7 @@ def segment_content(day: str, segment_key: str) -> Any:
     chunks: list[dict] = []
     audio_file_url = None
     video_files: dict[str, str] = {}  # jsonl filename -> video URL
+    media_sizes: dict[str, int] = {"audio": 0, "screen": 0}
 
     # Process audio files
     audio_files = glob(os.path.join(segment_dir, "*audio.jsonl"))
@@ -216,6 +218,9 @@ def segment_content(day: str, segment_key: str) -> Any:
             if raw_audio and raw_audio.endswith(AUDIO_EXTENSIONS):
                 rel_path = f"{segment_key}/{raw_audio}"
                 audio_file_url = f"/app/transcripts/api/serve_file/{day}/{rel_path.replace('/', '__')}"
+                audio_full = os.path.join(segment_dir, raw_audio)
+                if os.path.isfile(audio_full):
+                    media_sizes["audio"] += os.path.getsize(audio_full)
 
             for chunk in formatted_chunks:
                 source = chunk.get("source", {})
@@ -260,12 +265,13 @@ def segment_content(day: str, segment_key: str) -> Any:
 
             # Validate raw points to a video file (skip if not, e.g. tmux)
             if raw_video and raw_video.endswith(VIDEO_EXTENSIONS):
-                video_path = os.path.join(segment_dir, raw_video)
-                if os.path.isfile(video_path):
+                video_full = os.path.join(segment_dir, raw_video)
+                if os.path.isfile(video_full):
                     rel_path = f"{segment_key}/{raw_video}"
                     video_files[filename] = (
                         f"/app/transcripts/api/serve_file/{day}/{rel_path.replace('/', '__')}"
                     )
+                    media_sizes["screen"] += os.path.getsize(video_full)
 
             for chunk in formatted_chunks:
                 source = chunk.get("source", {})
@@ -337,6 +343,7 @@ def segment_content(day: str, segment_key: str) -> Any:
             "video_files": video_files,
             "segment_key": segment_key,
             "cost": cost_data["cost"],
+            "media_sizes": media_sizes,
         }
     )
 
