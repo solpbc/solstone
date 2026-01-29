@@ -272,9 +272,7 @@ def test_save_voiceprint(speakers_env):
 
     emb = np.array([1.0, 0.0, 0.0] + [0.0] * 253, dtype=np.float32)
 
-    path = _save_voiceprint(
-        "john_doe", emb, "20240101", "143022_300", "mic_audio", 5
-    )
+    path = _save_voiceprint("john_doe", emb, "20240101", "143022_300", "mic_audio", 5)
 
     assert path.exists()
     assert path.name == "voiceprints.npz"
@@ -311,14 +309,10 @@ def test_save_voiceprint_appends(speakers_env):
     emb2 = np.array([0.0, 1.0, 0.0] + [0.0] * 253, dtype=np.float32)
 
     # Save first voiceprint
-    path = _save_voiceprint(
-        "john_doe", emb1, "20240101", "143022_300", "mic_audio", 5
-    )
+    path = _save_voiceprint("john_doe", emb1, "20240101", "143022_300", "mic_audio", 5)
 
     # Save second voiceprint
-    path2 = _save_voiceprint(
-        "john_doe", emb2, "20240102", "150000_300", "audio", 3
-    )
+    path2 = _save_voiceprint("john_doe", emb2, "20240102", "150000_300", "audio", 3)
 
     assert path == path2  # Same file
 

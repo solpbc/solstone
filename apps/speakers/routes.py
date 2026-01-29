@@ -518,9 +518,7 @@ def api_segment_speakers(day: str, segment_key: str) -> Any:
 
     # Load all journal entities for matching
     journal_entities = load_all_journal_entities()
-    entities_list = [
-        e for e in journal_entities.values() if not e.get("blocked")
-    ]
+    entities_list = [e for e in journal_entities.values() if not e.get("blocked")]
 
     # Match each speaker name to an entity
     matched = []
