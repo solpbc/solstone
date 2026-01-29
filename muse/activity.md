@@ -1,7 +1,7 @@
 {
 
   "title": "Activity Synthesis",
-  "description": "Interprets each segment to extract meaning, intent, and searchability. Focuses on the 'why' behind actions - tasks, progress states, facets, and keywords for discovery.",
+  "description": "Synthesizes segment activity from screenshots and audio, focusing on observable changes and searchability.",
   "color": "#00bcd4",
   "schedule": "segment",
   "output": "md"
@@ -12,47 +12,54 @@ $segment_preamble
 
 # Segment Activity Synthesis
 
-## Objective
+## Core Rule
 
-Interpret this segment to extract **meaning and searchability**. Your job is NOT to describe what happened (that's captured elsewhere) but to synthesize the underlying intent, progress, and context that makes this segment findable and understandable later.
+ONLY report what CHANGED between screenshots or was SPOKEN in audio.
+If content looks the same across frames, skip it entirely.
 
-## Core Focus
+## Your Inputs
 
-### Tasks & Intent
-What is the person really trying to accomplish? Look beyond literal actions to understand the underlying goals. Name the tasks concretely (e.g., "debugging the OAuth refresh flow" not "working on code").
+- **Screenshots**: Sampled across this segment. Compare frames - what's different?
+- **Audio**: Transcript of speech. What was said?
 
-### Progress States
-Characterize each task's working state:
-- **Making headway**: Clear progress, solutions emerging
-- **Blocked**: Stuck on errors, waiting, can't proceed
-- **Exploring**: Investigating options, researching
-- **Deciding**: Weighing alternatives, making choices
+## Banned Language
 
-### Facet Associations
-**Required**: Identify which facet(s) this segment relates to. Every segment belongs to at least one facet. If work spans multiple facets, list all.
+Never use these words - they describe presence, not action:
+- reviewing, monitoring, tracking, checking, observing, maintaining, managing
 
-### Searchable Keywords
-What terms would someone use to find this segment later? Include:
-- Project/feature names
-- Problem descriptions ("authentication bug", "memory leak")
-- Key decisions made
-- People involved and their roles
-- Tools or technologies central to the work
+Use action verbs instead: wrote, sent, received, created, deleted, switched to, typed, said, discussed, decided
+
+## What to Report
+
+For each item, identify the CHANGE:
+- "Typed message to X about Y" (text appeared)
+- "Switched from Gmail to Terminal" (window focus changed)
+- "Received reply from X" (new message appeared)
+- "Said X about Y in meeting" (audio evidence)
+
+If you cannot name the specific change, do not include it.
+
+### Facets
+Which project/context? Every segment has at least one.
+
+### Keywords
+Project names, people, problems, decisions, tools.
+
+## Before Writing
+
+For each item, ask:
+- Can I point to a SPECIFIC CHANGE between screenshots?
+- Or SPECIFIC WORDS spoken in audio?
+
+If neither, omit it.
+
+## SKIP Entirely
+
+- Windows that look identical in first and last frame
+- Apps open but showing same content throughout
+- Background windows never brought to focus
+- Anything you'd describe as "had open" or "was visible"
 
 ## Output Format
 
-Write **concise, scannable markdown**. Aim for brevity - a few paragraphs or bullet points, not a detailed narrative. Structure flexibly based on content:
-
-- Group by facet when multiple are present
-- Note context switches and why they occurred
-- Highlight blockers or breakthroughs
-- Include emotional/energy state if notable (frustrated, energized, scattered)
-
-## What NOT to Include
-
-- Detailed chronological account of screen activity
-- Exact commands, code excerpts, file contents
-- Entity lists
-- Time-by-time breakdown
-
-Remember: This synthesis should make the segment **discoverable through search** and **quickly understandable** without reading the full transcript.
+Concise markdown. Bullets preferred. Group by facet if multiple.
