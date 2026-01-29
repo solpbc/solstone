@@ -175,6 +175,11 @@ CONTEXT_DEFAULTS: Dict[str, Dict[str, Any]] = {
         "label": "Entity Extraction",
         "group": "Think",
     },
+    "agent.daily_schedule.*": {
+        "tier": TIER_LITE,
+        "label": "Maintenance Window",
+        "group": "Think",
+    },
     "agent.*": {
         "tier": TIER_FLASH,
         "label": "Agent Outputs",
