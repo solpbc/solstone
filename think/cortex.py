@@ -540,125 +540,130 @@ class CortexService:
             return
 
         try:
-            for line in agent.process.stdout:
-                if not line:
-                    continue
+            with agent.process.stdout:
+                for line in agent.process.stdout:
+                    if not line:
+                        continue
 
-                line = line.strip()
-                if not line:
-                    continue
+                    line = line.strip()
+                    if not line:
+                        continue
 
-                try:
-                    # Parse JSON event
-                    event = json.loads(line)
-
-                    # Ensure event has timestamp and agent_id
-                    if "ts" not in event:
-                        event["ts"] = int(time.time() * 1000)
-                    if "agent_id" not in event:
-                        event["agent_id"] = agent.agent_id
-
-                    # Append to JSONL file
-                    with open(agent.log_path, "a") as f:
-                        f.write(json.dumps(event) + "\n")
-
-                    # Broadcast event to Callosum
                     try:
-                        event_copy = event.copy()
-                        event_type = event_copy.pop("event", "unknown")
-                        self.callosum.emit("cortex", event_type, **event_copy)
-                    except Exception as e:
-                        self.logger.info(f"Failed to broadcast event to Callosum: {e}")
+                        # Parse JSON event
+                        event = json.loads(line)
 
-                    # Capture model from start event (needed for token usage logging)
-                    if event.get("event") == "start":
-                        model = event.get("model")
-                        if model:
-                            with self.lock:
-                                if agent.agent_id in self.agent_requests:
-                                    self.agent_requests[agent.agent_id]["model"] = model
+                        # Ensure event has timestamp and agent_id
+                        if "ts" not in event:
+                            event["ts"] = int(time.time() * 1000)
+                        if "agent_id" not in event:
+                            event["agent_id"] = agent.agent_id
 
-                    # Handle finish or error event
-                    if event.get("event") in ["finish", "error"]:
-                        # Check for output and handoff (only on finish)
-                        if event.get("event") == "finish":
-                            result = event.get("result", "")
+                        # Append to JSONL file
+                        with open(agent.log_path, "a") as f:
+                            f.write(json.dumps(event) + "\n")
 
-                            # Get original request (thread-safe access)
-                            with self.lock:
-                                original_request = self.agent_requests.get(
-                                    agent.agent_id
-                                )
+                        # Broadcast event to Callosum
+                        try:
+                            event_copy = event.copy()
+                            event_type = event_copy.pop("event", "unknown")
+                            self.callosum.emit("cortex", event_type, **event_copy)
+                        except Exception as e:
+                            self.logger.info(
+                                f"Failed to broadcast event to Callosum: {e}"
+                            )
 
-                            # Log token usage if available
-                            usage_data = event.get("usage")
-                            if usage_data and original_request:
-                                try:
-                                    from think.models import log_token_usage
+                        # Capture model from start event (needed for token usage logging)
+                        if event.get("event") == "start":
+                            model = event.get("model")
+                            if model:
+                                with self.lock:
+                                    if agent.agent_id in self.agent_requests:
+                                        self.agent_requests[agent.agent_id][
+                                            "model"
+                                        ] = model
 
-                                    model = original_request.get("model", "unknown")
-                                    name = original_request.get("name", "unknown")
+                        # Handle finish or error event
+                        if event.get("event") in ["finish", "error"]:
+                            # Check for output and handoff (only on finish)
+                            if event.get("event") == "finish":
+                                result = event.get("result", "")
 
-                                    # Build context in same format as model resolution:
-                                    # agent.{app}.{name} where app="system" for system agents
-                                    if ":" in name:
-                                        app, name = name.split(":", 1)
-                                    else:
-                                        app, name = "system", name
-                                    context = f"agent.{app}.{name}"
-
-                                    # Extract segment from env if set (flat merge puts env at top level)
-                                    env_config = original_request.get("env", {})
-                                    segment = (
-                                        env_config.get("SEGMENT_KEY")
-                                        if env_config
-                                        else None
+                                # Get original request (thread-safe access)
+                                with self.lock:
+                                    original_request = self.agent_requests.get(
+                                        agent.agent_id
                                     )
 
-                                    log_token_usage(
-                                        model=model,
-                                        usage=usage_data,
-                                        context=context,
-                                        segment=segment,
+                                # Log token usage if available
+                                usage_data = event.get("usage")
+                                if usage_data and original_request:
+                                    try:
+                                        from think.models import log_token_usage
+
+                                        model = original_request.get("model", "unknown")
+                                        name = original_request.get("name", "unknown")
+
+                                        # Build context in same format as model resolution:
+                                        # agent.{app}.{name} where app="system" for system agents
+                                        if ":" in name:
+                                            app, name = name.split(":", 1)
+                                        else:
+                                            app, name = "system", name
+                                        context = f"agent.{app}.{name}"
+
+                                        # Extract segment from env if set (flat merge puts env at top level)
+                                        env_config = original_request.get("env", {})
+                                        segment = (
+                                            env_config.get("SEGMENT_KEY")
+                                            if env_config
+                                            else None
+                                        )
+
+                                        log_token_usage(
+                                            model=model,
+                                            usage=usage_data,
+                                            context=context,
+                                            segment=segment,
+                                        )
+                                    except Exception as e:
+                                        self.logger.warning(
+                                            f"Failed to log token usage for agent {agent.agent_id}: {e}"
+                                        )
+
+                                # Write output if requested
+                                if original_request and original_request.get("output"):
+                                    self._write_output(
+                                        agent.agent_id,
+                                        result,
+                                        original_request,
                                     )
-                                except Exception as e:
-                                    self.logger.warning(
-                                        f"Failed to log token usage for agent {agent.agent_id}: {e}"
+
+                                # Handle handoff (prefer stored config captured at startup)
+                                handoff_config = None
+                                with self.lock:
+                                    if agent.agent_id in self.agent_handoffs:
+                                        handoff_config = copy.deepcopy(
+                                            self.agent_handoffs.pop(agent.agent_id)
+                                        )
+
+                                if handoff_config:
+                                    self._spawn_handoff(
+                                        agent.agent_id, result, handoff_config
                                     )
+                            # Break to trigger cleanup
+                            break
 
-                            # Write output if requested
-                            if original_request and original_request.get("output"):
-                                self._write_output(
-                                    agent.agent_id,
-                                    result,
-                                    original_request,
-                                )
-
-                            # Handle handoff (prefer stored config captured at startup)
-                            handoff_config = None
-                            with self.lock:
-                                if agent.agent_id in self.agent_handoffs:
-                                    handoff_config = copy.deepcopy(
-                                        self.agent_handoffs.pop(agent.agent_id)
-                                    )
-
-                            if handoff_config:
-                                self._spawn_handoff(
-                                    agent.agent_id, result, handoff_config
-                                )
-                        # Break to trigger cleanup
-                        break
-
-                except json.JSONDecodeError:
-                    # Non-JSON output becomes info event
-                    info_event = {
-                        "event": "info",
-                        "ts": int(time.time() * 1000),
-                        "message": line,
-                        "agent_id": agent.agent_id,
-                    }
-                    with open(agent.log_path, "a") as f:
-                        f.write(json.dumps(info_event) + "\n")
+                    except json.JSONDecodeError:
+                        # Non-JSON output becomes info event
+                        info_event = {
+                            "event": "info",
+                            "ts": int(time.time() * 1000),
+                            "message": line,
+                            "agent_id": agent.agent_id,
+                        }
+                        with open(agent.log_path, "a") as f:
+                            f.write(json.dumps(info_event) + "\n")
 
         except Exception as e:
             self.logger.error(
@@ -702,18 +707,19 @@ class CortexService:
 
         stderr_lines = []
         try:
-            for line in agent.process.stderr:
-                if not line:
-                    continue
-                stripped = line.strip()
-                if stripped:
-                    stderr_lines.append(stripped)
-                    # Pass through to cortex stderr with agent prefix for traceability
-                    print(
-                        f"[agent:{agent.agent_id}:stderr] {stripped}",
-                        file=sys.stderr,
-                        flush=True,
-                    )
+            with agent.process.stderr:
+                for line in agent.process.stderr:
+                    if not line:
+                        continue
+                    stripped = line.strip()
+                    if stripped:
+                        stderr_lines.append(stripped)
+                        # Pass through to cortex stderr with agent prefix for traceability
+                        print(
+                            f"[agent:{agent.agent_id}:stderr] {stripped}",
+                            file=sys.stderr,
+                            flush=True,
+                        )
 
         except Exception as e:
             self.logger.error(

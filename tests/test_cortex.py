@@ -12,6 +12,29 @@ import pytest
 from think.models import GPT_5
 
 
+class MockPipe:
+    """Mock for subprocess stdout/stderr that supports context manager protocol."""
+
+    def __init__(self, lines: list[str]):
+        self._lines = lines
+        self._iter = None
+
+    def __enter__(self):
+        self._iter = iter(self._lines)
+        return self
+
+    def __exit__(self, *args):
+        pass
+
+    def __iter__(self):
+        return self._iter or iter(self._lines)
+
+    def __next__(self):
+        if self._iter is None:
+            self._iter = iter(self._lines)
+        return next(self._iter)
+
+
 @pytest.fixture
 def mock_journal(tmp_path, monkeypatch):
     """Set up a temporary journal directory."""
@@ -654,13 +677,13 @@ def test_monitor_stdout_with_output(cortex_service, mock_journal):
         }
     }
 
-    # Create mock process with stdout
+    # Create mock process with stdout (MockPipe supports context manager protocol)
     mock_process = MagicMock()
     mock_stdout = [
         '{"event": "start", "ts": 1000}\n',
         '{"event": "finish", "ts": 2000, "result": "Test result"}\n',
     ]
-    mock_process.stdout = iter(mock_stdout)
+    mock_process.stdout = MockPipe(mock_stdout)
     mock_process.wait.return_value = 0
 
     agent = AgentProcess(agent_id, mock_process, active_path)
@@ -703,13 +726,13 @@ def test_monitor_stdout_with_output_and_day(cortex_service, mock_journal):
         }
     }
 
-    # Create mock process with stdout
+    # Create mock process with stdout (MockPipe supports context manager protocol)
     mock_process = MagicMock()
     mock_stdout = [
         '{"event": "start", "ts": 1000}\n',
         '{"event": "finish", "ts": 2000, "result": "Daily report content"}\n',
     ]
-    mock_process.stdout = iter(mock_stdout)
+    mock_process.stdout = MockPipe(mock_stdout)
     mock_process.wait.return_value = 0
 
     agent = AgentProcess(agent_id, mock_process, active_path)
