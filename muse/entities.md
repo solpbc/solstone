@@ -4,7 +4,7 @@
   "description": "Extracts people, companies, projects, and tools from segment content",
   "color": "#2e7d32",
   "schedule": "segment",
-  "hook": "entities",
+  "hook": {"post": "entities"},
   "thinking_budget": 4096,
   "max_output_tokens": 1024,
   "output": "md",

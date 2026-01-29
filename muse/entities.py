@@ -3,7 +3,7 @@
 
 """Hook for extracting entities from insight results and writing to JSONL.
 
-This hook is invoked via "hook": "entities" in insight frontmatter.
+This hook is invoked via "hook": {"post": "entities"} in generator frontmatter.
 It parses the markdown entity list and writes deduplicated entities
 to a JSONL file in the segment directory.
 """
@@ -64,18 +64,13 @@ def _parse_entity_line(line: str) -> dict | None:
     return None
 
 
-def process(result: str, context: dict) -> str | None:
+def post_process(result: str, context: dict) -> str | None:
     """Parse entity list and write to segment JSONL file.
 
     Args:
         result: The generated output content (markdown entity list).
-        context: Hook context with keys:
-            - day: YYYYMMDD string
-            - segment: segment key (HHMMSS_LEN)
-            - name: e.g., "entities"
-            - output_path: absolute path to output file
-            - meta: dict with frontmatter
-            - transcript: the clustered transcript markdown
+        context: HookContext with keys including day, segment, name,
+            output_path, meta, transcript.
 
     Returns:
         None - this hook does not modify the output result.

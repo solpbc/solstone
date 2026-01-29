@@ -3,7 +3,7 @@
 
 """Hook for extracting anticipation events from generator output results.
 
-This hook is invoked via "hook": "anticipation" in generator frontmatter.
+This hook is invoked via "hook": {"post": "anticipation"} in generator frontmatter.
 It extracts structured JSON events for future scheduled items and writes
 them to facet-based JSONL files.
 """
@@ -22,7 +22,7 @@ from think.models import generate
 from think.utils import get_output_topic, load_prompt
 
 
-def process(result: str, context: dict) -> str | None:
+def post_process(result: str, context: dict) -> str | None:
     """Extract anticipation events from generator output result.
 
     This hook extracts structured JSON events for future scheduled items
@@ -30,14 +30,8 @@ def process(result: str, context: dict) -> str | None:
 
     Args:
         result: The generated output markdown content.
-        context: Hook context with keys:
-            - day: YYYYMMDD string
-            - segment: segment key or None
-            - name: generator name, e.g., "schedule"
-            - output_path: absolute path to output file
-            - meta: dict with frontmatter
-            - transcript: the clustered transcript markdown
-            - span: True if processing a span of segments
+        context: HookContext with keys including day, segment, name,
+            output_path, meta, transcript, span.
 
     Returns:
         None - this hook does not modify the output result.

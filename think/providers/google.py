@@ -77,9 +77,7 @@ def get_or_create_client(client: genai.Client | None = None) -> genai.Client:
             raise ValueError("GOOGLE_API_KEY not found in environment")
         client = genai.Client(
             api_key=api_key,
-            http_options=types.HttpOptions(
-                retry_options=types.HttpRetryOptions()
-            ),
+            http_options=types.HttpOptions(retry_options=types.HttpRetryOptions()),
         )
     return client
 
@@ -638,9 +636,7 @@ async def run_agent(
         # Create client with retry enabled
         client = genai.Client(
             api_key=api_key,
-            http_options=types.HttpOptions(
-                retry_options=types.HttpRetryOptions()
-            ),
+            http_options=types.HttpOptions(retry_options=types.HttpRetryOptions()),
         )
 
         # Create fresh chat session

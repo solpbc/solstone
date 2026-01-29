@@ -3,7 +3,7 @@
   "title": "Innovation Opportunities",
   "description": "Scans conversations and tasks for sparks of new ideas, problem statements and potential ventures. Outputs a list of the most promising opportunities with context and suggested next steps.",
   "occurrences": "Whenever a novel idea or pain point is raised, record an occurrence describing the opportunity and any proposed solution. Include who mentioned it and classify the potential impact.",
-  "hook": "occurrence",
+  "hook": {"post": "occurrence"},
   "color": "#20c997",
   "schedule": "daily",
   "output": "md"

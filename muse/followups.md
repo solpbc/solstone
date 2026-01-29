@@ -3,7 +3,7 @@
   "title": "Follow-Up Items",
   "description": "Scans the day chronologically to capture promised tasks or reminders for future action. The prompt outputs a concise Markdown list of the most important follow-ups.",
   "occurrences": "Whenever a future task or commitment is mentioned, create an occurrence with the expected action and deadline if known. Note who requested it and whether it is work or personal.",
-  "hook": "occurrence",
+  "hook": {"post": "occurrence"},
   "color": "#ffc107",
   "schedule": "daily",
   "output": "md"

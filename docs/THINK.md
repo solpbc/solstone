@@ -230,11 +230,10 @@ Providers implement `run_generate()`, `run_agenerate()`, and `run_agent()` funct
 
 ## Key Components
 
-- **cortex.py** - Central agent manager, file watcher, event distribution, routes to agents.py or generate.py
+- **cortex.py** - Central agent manager, file watcher, event distribution, spawns agents.py
 - **cortex_client.py** - Client functions: `cortex_request()`, `cortex_agents()`, `wait_for_agents()`
 - **mcp.py** - FastMCP server with journal search tools
-- **agents.py** - CLI entry point for tool-using agents (NDJSON protocol)
-- **generate.py** - CLI entry point for generators (NDJSON protocol), spawned by Cortex
+- **agents.py** - Unified CLI entry point for both tool-using agents and generators (NDJSON protocol)
 - **models.py** - Unified `generate()`/`agenerate()` API, provider routing, token logging
 - **batch.py** - `Batch` class for concurrent LLM requests with dynamic queuing
 

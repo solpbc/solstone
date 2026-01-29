@@ -511,8 +511,6 @@ def cluster_span(
     return markdown, len(entries)
 
 
-
-
 def _segments_overlap(
     seg_start: datetime, seg_end: datetime, range_start: datetime, range_end: datetime
 ) -> bool:

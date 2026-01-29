@@ -3,7 +3,7 @@
   "title": "Day Timeline",
   "description": "Constructs a detailed chronological timeline documenting every activity, task shift, and event throughout the workday. Creates a comprehensive historical record with rich descriptions of what happened when.",
   "occurrences": "Create an occurrence for each hour segment, don't break down hours into any smaller segments the goal for timeline occurrences is for them to capture whatever happened within each hour of the day where there was activity.",
-  "hook": "occurrence",
+  "hook": {"post": "occurrence"},
   "color": "#7b1fa2",
   "schedule": "daily",
   "output": "md"
