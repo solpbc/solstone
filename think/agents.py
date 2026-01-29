@@ -328,27 +328,73 @@ class HookContext(TypedDict, total=False):
     meta: dict  # Full frontmatter/config
 
 
+class PreHookContext(TypedDict, total=False):
+    """Context passed to pre-processing hook functions.
+
+    Pre-hooks receive all inputs before the LLM call and can modify them.
+    Returns a dict of modified fields to merge back.
+    """
+
+    # Identity
+    name: str  # Agent/generator name
+    agent_id: str  # Unique agent ID
+    provider: str  # google/anthropic/openai
+    model: str  # Model used
+
+    # Temporal (generators)
+    day: str  # YYYYMMDD
+    segment: str  # Segment key
+    span: bool  # True if span mode
+
+    # Modifiable inputs
+    prompt: str  # User prompt (can modify)
+    system_instruction: str  # System prompt (can modify)
+    user_instruction: str  # User instruction (agents, can modify)
+    extra_context: str  # Extra context (agents, can modify)
+    transcript: str  # Clustered transcript (generators, can modify)
+
+    # Output settings
+    output_path: str  # Where result will be written
+    output_format: str  # 'md' or 'json'
+
+    # Full config (read-only reference)
+    meta: dict  # Full frontmatter/config
+
+
 # MUSE_DIR for hook resolution
 _MUSE_DIR = Path(__file__).parent.parent / "muse"
 
 
-def load_post_hook(config: dict) -> Callable[[str, HookContext], str | None] | None:
-    """Load post-processing hook from config if defined.
+def _resolve_hook_path(hook_name: str) -> Path:
+    """Resolve hook name to file path.
 
-    Hook config format: {"hook": {"post": "name"}}
     Resolution:
     - Named: "name" -> muse/{name}.py
     - App-qualified: "app:name" -> apps/{app}/muse/{name}.py
     - Explicit path: "path/to/hook.py" -> direct path
+    """
+    if "/" in hook_name or hook_name.endswith(".py"):
+        return Path(hook_name)
+    elif ":" in hook_name:
+        app, name = hook_name.split(":", 1)
+        return Path(__file__).parent.parent / "apps" / app / "muse" / f"{name}.py"
+    else:
+        return _MUSE_DIR / f"{hook_name}.py"
+
+
+def _load_hook_function(config: dict, key: str, func_name: str) -> Callable | None:
+    """Load a hook function from config.
 
     Args:
         config: Agent/generator config dict
+        key: Hook key in config ("pre" or "post")
+        func_name: Function name to load ("pre_process" or "post_process")
 
     Returns:
-        The post_process function from the hook module, or None if no hook.
+        The hook function, or None if no hook configured.
 
     Raises:
-        ValueError: If hook file doesn't define post_process function.
+        ValueError: If hook file doesn't define the required function.
         ImportError: If hook file cannot be loaded.
     """
     import importlib.util
@@ -357,27 +403,17 @@ def load_post_hook(config: dict) -> Callable[[str, HookContext], str | None] | N
     if not hook_config or not isinstance(hook_config, dict):
         return None
 
-    post_hook_name = hook_config.get("post")
-    if not post_hook_name:
+    hook_name = hook_config.get(key)
+    if not hook_name:
         return None
 
-    # Resolve hook path
-    if "/" in post_hook_name or post_hook_name.endswith(".py"):
-        # Explicit path
-        hook_path = Path(post_hook_name)
-    elif ":" in post_hook_name:
-        # App-qualified: "app:name" -> apps/{app}/muse/{name}.py
-        app, name = post_hook_name.split(":", 1)
-        hook_path = Path(__file__).parent.parent / "apps" / app / "muse" / f"{name}.py"
-    else:
-        # Named hook: muse/{name}.py
-        hook_path = _MUSE_DIR / f"{post_hook_name}.py"
+    hook_path = _resolve_hook_path(hook_name)
 
     if not hook_path.exists():
         raise ImportError(f"Hook file not found: {hook_path}")
 
     spec = importlib.util.spec_from_file_location(
-        f"post_hook_{hook_path.stem}", hook_path
+        f"{key}_hook_{hook_path.stem}", hook_path
     )
     if spec is None or spec.loader is None:
         raise ImportError(f"Cannot load hook from {hook_path}")
@@ -385,27 +421,35 @@ def load_post_hook(config: dict) -> Callable[[str, HookContext], str | None] | N
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
 
-    if not hasattr(module, "post_process"):
-        raise ValueError(f"Hook {hook_path} must define a 'post_process' function")
+    if not hasattr(module, func_name):
+        raise ValueError(f"Hook {hook_path} must define a '{func_name}' function")
 
-    process_func = getattr(module, "post_process")
+    process_func = getattr(module, func_name)
     if not callable(process_func):
-        raise ValueError(f"Hook {hook_path} 'post_process' must be callable")
+        raise ValueError(f"Hook {hook_path} '{func_name}' must be callable")
 
     return process_func
 
 
-def build_hook_context(config: dict, **extras: Any) -> HookContext:
-    """Build unified HookContext from config and extra values.
+def load_post_hook(config: dict) -> Callable[[str, HookContext], str | None] | None:
+    """Load post-processing hook from config if defined.
 
-    Args:
-        config: Agent/generator config dict
-        **extras: Additional context values (transcript, output_path, etc.)
-
-    Returns:
-        HookContext with all available fields populated.
+    Hook config format: {"hook": {"post": "name"}}
     """
-    context: HookContext = {
+    return _load_hook_function(config, "post", "post_process")
+
+
+def load_pre_hook(config: dict) -> Callable[[PreHookContext], dict | None] | None:
+    """Load pre-processing hook from config if defined.
+
+    Hook config format: {"hook": {"pre": "name"}}
+    """
+    return _load_hook_function(config, "pre", "pre_process")
+
+
+def _build_base_context(config: dict) -> dict:
+    """Build common context fields shared by pre and post hooks."""
+    context = {
         "name": config.get("name", ""),
         "agent_id": config.get("agent_id", ""),
         "provider": config.get("provider", ""),
@@ -421,10 +465,53 @@ def build_hook_context(config: dict, **extras: Any) -> HookContext:
     if "segment" in config:
         context["segment"] = config["segment"]
 
+    return context
+
+
+def build_pre_hook_context(config: dict, **extras: Any) -> PreHookContext:
+    """Build PreHookContext from config and extra values."""
+    context: PreHookContext = _build_base_context(config)
+
+    # Add pre-hook specific fields
+    context["system_instruction"] = config.get("system_instruction", "")
+    context["user_instruction"] = config.get("user_instruction", "")
+    context["extra_context"] = config.get("extra_context", "")
+
     # Merge extras (transcript, output_path, span, etc.)
     context.update(extras)
 
     return context
+
+
+def build_hook_context(config: dict, **extras: Any) -> HookContext:
+    """Build HookContext from config and extra values."""
+    context: HookContext = _build_base_context(config)
+
+    # Merge extras (transcript, output_path, span, etc.)
+    context.update(extras)
+
+    return context
+
+
+def run_pre_hook(
+    context: PreHookContext,
+    hook_fn: Callable[[PreHookContext], dict | None],
+) -> dict | None:
+    """Execute pre-processing hook and return modifications dict.
+
+    Hook errors are logged and return None (graceful degradation).
+    """
+    try:
+        modifications = hook_fn(context)
+        if modifications is not None:
+            logging.info(
+                "Pre-hook returned modifications: %s", list(modifications.keys())
+            )
+            return modifications
+    except Exception as exc:
+        logging.error("Pre-hook failed: %s", exc)
+
+    return None
 
 
 def run_post_hook(
@@ -464,13 +551,17 @@ __all__ = [
     "GenerateResult",
     "Event",
     "HookContext",
+    "PreHookContext",
     "JSONEventWriter",
     "JSONEventCallback",
     "format_tool_summary",
     "parse_agent_events_to_turns",
     "load_post_hook",
+    "load_pre_hook",
     "build_hook_context",
+    "build_pre_hook_context",
     "run_post_hook",
+    "run_pre_hook",
     "scan_day",
     "generate_agent_output",
 ]
@@ -603,9 +694,7 @@ def generate_agent_output(
     if cache_display_name and provider == "google":
         client = genai.Client(
             api_key=api_key,
-            http_options=types.HttpOptions(
-                retry_options=types.HttpRetryOptions()
-            ),
+            http_options=types.HttpOptions(retry_options=types.HttpRetryOptions()),
         )
         cache_name = _get_or_create_cache(
             client, model, cache_display_name, transcript, system_instruction
@@ -840,6 +929,29 @@ def _run_generator(config: dict, emit_event: Callable[[dict], None]) -> None:
         if output_exists and force:
             logging.info("Force regenerating: %s", output_path)
 
+        # Run pre-processing hook if present (before LLM call)
+        pre_hook = load_pre_hook(meta)
+        if pre_hook:
+            pre_context = build_pre_hook_context(
+                meta,
+                name=name,
+                day=day,
+                segment=segment,
+                span=span_mode,
+                output_path=str(output_path),
+                transcript=markdown,
+                prompt=prompt,
+                system_instruction=system_instruction,
+            )
+            modifications = run_pre_hook(pre_context, pre_hook)
+            if modifications:
+                # Apply modifications to inputs
+                markdown = modifications.get("transcript", markdown)
+                prompt = modifications.get("prompt", prompt)
+                system_instruction = modifications.get(
+                    "system_instruction", system_instruction
+                )
+
         gen_result = generate_agent_output(
             markdown,
             prompt,
@@ -860,6 +972,7 @@ def _run_generator(config: dict, emit_event: Callable[[dict], None]) -> None:
         if post_hook:
             hook_context = build_hook_context(
                 meta,
+                name=name,
                 day=day,
                 segment=segment,
                 span=span_mode,
@@ -972,6 +1085,22 @@ async def main_async() -> None:
                         raise ValueError(
                             f"Unknown provider: {provider!r}. Valid providers: {valid}"
                         )
+
+                    # Load pre hook if configured (before LLM call)
+                    pre_hook = load_pre_hook(config)
+                    if pre_hook:
+                        pre_context = build_pre_hook_context(config)
+                        modifications = run_pre_hook(pre_context, pre_hook)
+                        if modifications:
+                            # Apply modifications to config
+                            for key in (
+                                "prompt",
+                                "system_instruction",
+                                "user_instruction",
+                                "extra_context",
+                            ):
+                                if key in modifications:
+                                    config[key] = modifications[key]
 
                     # Load post hook if configured
                     post_hook = load_post_hook(config)

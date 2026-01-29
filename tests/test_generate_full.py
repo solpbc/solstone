@@ -125,7 +125,7 @@ def test_generate_hook_invoked_with_context(tmp_path, monkeypatch):
     muse_dir = Path(mod.__file__).resolve().parent.parent / "muse"
     hook_file = muse_dir / "test_hook.py"
     hook_file.write_text("""
-def process(result, context):
+def post_process(result, context):
     import json
     from pathlib import Path
     # Write context to file for test verification
@@ -144,10 +144,10 @@ def process(result, context):
     return None
 """)
 
-    # Create generator with hook
+    # Create generator with hook (new format)
     test_generator = muse_dir / "hooked_gen.md"
     test_generator.write_text(
-        '{\n  "title": "Hooked",\n  "schedule": "daily",\n  "output": "md",\n  "hook": "test_hook"\n}\n\nTest prompt'
+        '{\n  "title": "Hooked",\n  "schedule": "daily",\n  "output": "md",\n  "hook": {"post": "test_hook"}\n}\n\nTest prompt'
     )
 
     try:
@@ -300,18 +300,12 @@ def test_generate_skipped_on_no_input(tmp_path, monkeypatch):
 
 
 def test_named_hook_resolution(tmp_path, monkeypatch):
-    """Test that named hooks are resolved from muse/{hook}.py."""
-    utils = importlib.import_module("think.utils")
+    """Test that named hooks are resolved via load_post_hook."""
+    agents = importlib.import_module("think.agents")
 
-    # Create generator with named hook
-    generator_file = tmp_path / "test_generator.md"
-    generator_file.write_text(
-        '{\n  "title": "Test",\n  "hook": "occurrence"\n}\n\nTest prompt'
-    )
+    # Config with named hook (new format)
+    config = {"hook": {"post": "occurrence"}}
+    hook_fn = agents.load_post_hook(config)
 
-    meta = utils._load_prompt_metadata(generator_file)
-
-    # Should resolve to muse/occurrence.py
-    assert "hook_path" in meta
-    assert meta["hook_path"].endswith("occurrence.py")
-    assert "muse/occurrence.py" in meta["hook_path"].replace("\\", "/")
+    # Should resolve to muse/occurrence.py and be callable
+    assert callable(hook_fn)

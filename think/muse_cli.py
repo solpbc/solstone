@@ -36,7 +36,7 @@ from think.utils import (
 _PROJECT_ROOT = Path(__file__).parent.parent
 
 # Internal bookkeeping keys to exclude from JSONL output
-_INTERNAL_KEYS = frozenset({"path", "mtime", "hook_path"})
+_INTERNAL_KEYS = frozenset({"path", "mtime"})
 
 
 def _relative_path(abs_path: str) -> str:
@@ -83,7 +83,17 @@ def _property_tags(info: dict[str, Any]) -> str:
         tags.append(f"tools:{tools}")
 
     if info.get("hook"):
-        tags.append(f"hook:{info['hook']}")
+        hook = info["hook"]
+        if isinstance(hook, dict):
+            # Format as "hook:pre=name,post=name"
+            parts = []
+            if hook.get("pre"):
+                parts.append(f"pre={hook['pre']}")
+            if hook.get("post"):
+                parts.append(f"post={hook['post']}")
+            tags.append(f"hook:{','.join(parts)}")
+        else:
+            tags.append(f"hook:{hook}")
 
     if info.get("disabled"):
         tags.append("disabled")
@@ -226,7 +236,7 @@ def show_prompt(name: str, *, as_json: bool = False) -> None:
         "hook",
         "color",
     ]
-    skip_keys = {"path", "mtime", "hook_path"}
+    skip_keys = {"path", "mtime"}
 
     label_width = 14
 
@@ -237,9 +247,11 @@ def show_prompt(name: str, *, as_json: bool = False) -> None:
         # Truncate long descriptions for readability
         if key == "description" and len(val_str) > 72:
             val_str = val_str[:72] + "..."
-        # Show hook path inline
-        if key == "hook" and info.get("hook_path"):
-            val_str += f" \u2192 {_relative_path(str(info['hook_path']))}"
+        # Format hook config nicely
+        if key == "hook" and isinstance(value, dict):
+            post_hook = value.get("post", "")
+            if post_hook:
+                val_str = f"post: {post_hook}"
         print(f"  {key + ':':<{label_width}} {val_str}")
 
     printed: set[str] = set()

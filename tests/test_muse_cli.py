@@ -65,11 +65,18 @@ def test_property_tags_output():
     """Property tags show output, tools, hook."""
     assert _property_tags({"output": "md"}) == "output:md"
     assert _property_tags({"tools": "journal, todo"}) == "tools:journal, todo"
-    assert _property_tags({"hook": "occurrence"}) == "hook:occurrence"
 
-    tags = _property_tags({"output": "md", "hook": "occurrence"})
+    # New dict-based hook format
+    assert _property_tags({"hook": {"post": "occurrence"}}) == "hook:post=occurrence"
+    assert _property_tags({"hook": {"pre": "prep"}}) == "hook:pre=prep"
+    assert (
+        _property_tags({"hook": {"pre": "prep", "post": "process"}})
+        == "hook:pre=prep,post=process"
+    )
+
+    tags = _property_tags({"output": "md", "hook": {"post": "occurrence"}})
     assert "output:md" in tags
-    assert "hook:occurrence" in tags
+    assert "hook:post=occurrence" in tags
 
     assert _property_tags({}) == ""
     assert "disabled" in _property_tags({"disabled": True})
