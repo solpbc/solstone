@@ -37,7 +37,6 @@ from think.utils import (
     format_segment_times,
     get_muse_configs,
     get_output_path,
-    load_output_hook,
     load_prompt,
     segment_parse,
     setup_cli,
@@ -294,6 +293,166 @@ def parse_agent_events_to_turns(conversation_id: str) -> list:
     return turns
 
 
+# =============================================================================
+# Hook Framework (unified for agents and generators)
+# =============================================================================
+
+
+class HookContext(TypedDict, total=False):
+    """Context passed to hook functions.
+
+    Provides unified context for both tool-using agents and generators.
+    Not all fields are present for all modalities.
+    """
+
+    # Identity
+    name: str  # Agent/generator name
+    agent_id: str  # Unique agent ID
+    provider: str  # google/anthropic/openai
+    model: str  # Model used
+
+    # Temporal (generators)
+    day: str  # YYYYMMDD
+    segment: str  # Segment key
+    span: bool  # True if span mode
+
+    # Content
+    prompt: str  # Original prompt (agents) or empty (generators)
+    transcript: str  # Clustered transcript (generators only)
+
+    # Output
+    output_path: str  # Where result will be written
+    output_format: str  # 'md' or 'json'
+
+    # Full config
+    meta: dict  # Full frontmatter/config
+
+
+# MUSE_DIR for hook resolution
+_MUSE_DIR = Path(__file__).parent.parent / "muse"
+
+
+def load_post_hook(config: dict) -> Callable[[str, HookContext], str | None] | None:
+    """Load post-processing hook from config if defined.
+
+    Hook config format: {"hook": {"post": "name"}}
+    Resolution:
+    - Named: "name" -> muse/{name}.py
+    - App-qualified: "app:name" -> apps/{app}/muse/{name}.py
+    - Explicit path: "path/to/hook.py" -> direct path
+
+    Args:
+        config: Agent/generator config dict
+
+    Returns:
+        The post_process function from the hook module, or None if no hook.
+
+    Raises:
+        ValueError: If hook file doesn't define post_process function.
+        ImportError: If hook file cannot be loaded.
+    """
+    import importlib.util
+
+    hook_config = config.get("hook")
+    if not hook_config or not isinstance(hook_config, dict):
+        return None
+
+    post_hook_name = hook_config.get("post")
+    if not post_hook_name:
+        return None
+
+    # Resolve hook path
+    if "/" in post_hook_name or post_hook_name.endswith(".py"):
+        # Explicit path
+        hook_path = Path(post_hook_name)
+    elif ":" in post_hook_name:
+        # App-qualified: "app:name" -> apps/{app}/muse/{name}.py
+        app, name = post_hook_name.split(":", 1)
+        hook_path = Path(__file__).parent.parent / "apps" / app / "muse" / f"{name}.py"
+    else:
+        # Named hook: muse/{name}.py
+        hook_path = _MUSE_DIR / f"{post_hook_name}.py"
+
+    if not hook_path.exists():
+        raise ImportError(f"Hook file not found: {hook_path}")
+
+    spec = importlib.util.spec_from_file_location(
+        f"post_hook_{hook_path.stem}", hook_path
+    )
+    if spec is None or spec.loader is None:
+        raise ImportError(f"Cannot load hook from {hook_path}")
+
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+
+    if not hasattr(module, "post_process"):
+        raise ValueError(f"Hook {hook_path} must define a 'post_process' function")
+
+    process_func = getattr(module, "post_process")
+    if not callable(process_func):
+        raise ValueError(f"Hook {hook_path} 'post_process' must be callable")
+
+    return process_func
+
+
+def build_hook_context(config: dict, **extras: Any) -> HookContext:
+    """Build unified HookContext from config and extra values.
+
+    Args:
+        config: Agent/generator config dict
+        **extras: Additional context values (transcript, output_path, etc.)
+
+    Returns:
+        HookContext with all available fields populated.
+    """
+    context: HookContext = {
+        "name": config.get("name", ""),
+        "agent_id": config.get("agent_id", ""),
+        "provider": config.get("provider", ""),
+        "model": config.get("model", ""),
+        "prompt": config.get("prompt", ""),
+        "output_format": config.get("output", "md"),
+        "meta": config,
+    }
+
+    # Add generator-specific fields if present
+    if "day" in config:
+        context["day"] = config["day"]
+    if "segment" in config:
+        context["segment"] = config["segment"]
+
+    # Merge extras (transcript, output_path, span, etc.)
+    context.update(extras)
+
+    return context
+
+
+def run_post_hook(
+    result: str,
+    context: HookContext,
+    hook_fn: Callable[[str, HookContext], str | None],
+) -> str:
+    """Execute post-processing hook and return (potentially transformed) result.
+
+    Args:
+        result: The LLM-generated output text
+        context: Hook context with metadata
+        hook_fn: The post_process function to call
+
+    Returns:
+        Transformed result if hook returns string, original result otherwise.
+    """
+    try:
+        hook_result = hook_fn(result, context)
+        if hook_result is not None:
+            logging.info("Hook transformed result")
+            return hook_result
+    except Exception as exc:
+        logging.error("Hook failed: %s", exc)
+
+    return result
+
+
 __all__ = [
     "ToolStartEvent",
     "ToolEndEvent",
@@ -304,10 +463,14 @@ __all__ = [
     "ThinkingEvent",
     "GenerateResult",
     "Event",
+    "HookContext",
     "JSONEventWriter",
     "JSONEventCallback",
     "format_tool_summary",
     "parse_agent_events_to_turns",
+    "load_post_hook",
+    "build_hook_context",
+    "run_post_hook",
     "scan_day",
     "generate_agent_output",
 ]
@@ -438,7 +601,12 @@ def generate_agent_output(
     client = None
     cache_name = None
     if cache_display_name and provider == "google":
-        client = genai.Client(api_key=api_key)
+        client = genai.Client(
+            api_key=api_key,
+            http_options=types.HttpOptions(
+                retry_options=types.HttpRetryOptions()
+            ),
+        )
         cache_name = _get_or_create_cache(
             client, model, cache_display_name, transcript, system_instruction
         )
@@ -688,25 +856,17 @@ def _run_generator(config: dict, emit_event: Callable[[dict], None]) -> None:
         usage_data = gen_result.get("usage")
 
         # Run post-processing hook if present
-        if meta.get("hook_path"):
-            hook_path = meta["hook_path"]
-            try:
-                hook_process = load_output_hook(hook_path)
-                hook_context = {
-                    "day": day,
-                    "segment": segment,
-                    "span": span_mode,
-                    "name": name,
-                    "output_path": str(output_path),
-                    "meta": dict(meta),
-                    "transcript": markdown,
-                }
-                hook_result = hook_process(result, hook_context)
-                if hook_result is not None:
-                    result = hook_result
-                    logging.info("Hook %s transformed result", hook_path)
-            except Exception as exc:
-                logging.error("Hook %s failed: %s", hook_path, exc)
+        post_hook = load_post_hook(meta)
+        if post_hook:
+            hook_context = build_hook_context(
+                meta,
+                day=day,
+                segment=segment,
+                span=span_mode,
+                output_path=str(output_path),
+                transcript=markdown,
+            )
+            result = run_post_hook(result, hook_context, post_hook)
 
     # Emit finish event with result (cortex handles file writing)
     finish_event = {
@@ -813,10 +973,23 @@ async def main_async() -> None:
                             f"Unknown provider: {provider!r}. Valid providers: {valid}"
                         )
 
+                    # Load post hook if configured
+                    post_hook = load_post_hook(config)
+
+                    # Create event handler that intercepts finish for hooks
+                    def agent_emit_event(data: Event) -> None:
+                        if post_hook and data.get("event") == "finish":
+                            result = data.get("result", "")
+                            hook_context = build_hook_context(config)
+                            transformed = run_post_hook(result, hook_context, post_hook)
+                            if transformed != result:
+                                data = {**data, "result": transformed}
+                        emit_event(data)
+
                     # Pass complete config to provider
                     await provider_mod.run_agent(
                         config=config,
-                        on_event=emit_event,
+                        on_event=agent_emit_event,
                     )
 
                 else:

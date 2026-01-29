@@ -185,10 +185,15 @@ def add_module_stubs(request, monkeypatch):
             for key, value in k.items():
                 setattr(self, key, value)
 
+    class MockHttpRetryOptions:
+        def __init__(self, **k):
+            pass
+
     genai_mod.types = types.SimpleNamespace(
         GenerateContentConfig=MockGenerateContentConfig,
         Content=MockContent,
         HttpOptions=MockHttpOptions,
+        HttpRetryOptions=MockHttpRetryOptions,
         ThinkingConfig=MockThinkingConfig,
     )
     google_mod.genai = genai_mod
@@ -408,6 +413,8 @@ def setup_google_genai_stub(monkeypatch, *, with_thinking=False):
         ThinkingConfig=lambda **k: SimpleNamespace(**k),
         Content=lambda **k: SimpleNamespace(**k),
         Part=lambda **k: SimpleNamespace(**k),
+        HttpOptions=lambda **k: SimpleNamespace(**k),
+        HttpRetryOptions=lambda **k: SimpleNamespace(**k),
     )
     google_mod.genai = genai_mod
     monkeypatch.setitem(sys.modules, "google", google_mod)
